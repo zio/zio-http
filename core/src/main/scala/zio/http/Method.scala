@@ -16,12 +16,19 @@
 
 package zio.http
 
-sealed trait Method
-case object GET extends Method
-case object HEAD extends Method
-case object POST extends Method
-case object PUT extends Method
-case object DELETE extends Method
-case object CONNECT extends Method
-case object OPTIONS extends Method
-case object TRACE extends Method
+case class Method(name: String) extends AnyVal {
+  def toString: String = name
+}
+
+// https://tools.ietf.org/html/rfc7231#section-4
+object Method {
+  val GET = Method("GET")
+  val HEAD = Method("HEAD")
+  val POST = Method("POST")
+  val PUT = Method("PUT")
+  val DELETE = Method("DELETE")
+  val CONNECT = Method("CONNECT")
+  val OPTIONS = Method("OPTIONS")
+  val TRACE = Method("TRACE")
+  val PATCH = Method("PATCH") // https://tools.ietf.org/html/rfc5789
+}
