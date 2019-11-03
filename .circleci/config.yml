@@ -1,8 +1,5 @@
 version: 2.1
 
-scala_211: &scala_211
-  SCALA_VERSION: 2.11.12
-
 scala_212: &scala_212
   SCALA_VERSION: 2.12.8
 
@@ -87,13 +84,6 @@ jobs:
       - <<: *scala_212
       - <<: *jdk_8
 
-  test_211_jdk8:
-    <<: *test
-    <<: *machine_ubuntu
-    environment:
-      - <<: *scala_211
-      - <<: *jdk_8
-
   test_212_jdk8:
     <<: *test
     <<: *machine_ubuntu
@@ -107,13 +97,6 @@ jobs:
     environment:
       - <<: *scala_213
       - <<: *jdk_8
-
-  test_211_jdk11:
-    <<: *test
-    <<: *machine_ubuntu
-    environment:
-      - <<: *scala_211
-      - <<: *jdk_11
 
   test_212_jdk11:
     <<: *test
@@ -144,12 +127,6 @@ workflows:
           filters:
             tags:
               only: /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/
-      - test_211_jdk8:
-          requires:
-            - lint
-          filters:
-            tags:
-              only: /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/
       - test_212_jdk8:
           requires:
             - lint
@@ -157,12 +134,6 @@ workflows:
             tags:
               only: /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/
       - test_213_jdk8:
-          requires:
-            - lint
-          filters:
-            tags:
-              only: /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/
-      - test_211_jdk11:
           requires:
             - lint
           filters:
@@ -184,8 +155,6 @@ workflows:
       - release:
           context: Sonatype
           requires:
-            - test_211_jdk8
-            - test_211_jdk11
             - test_212_jdk8
             - test_212_jdk11
             - test_213_jdk8

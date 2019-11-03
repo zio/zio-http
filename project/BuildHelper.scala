@@ -76,17 +76,6 @@ object BuildHelper {
           "-Ywarn-nullary-override",
           "-Ywarn-nullary-unit"
         ) ++ optimizerOptions
-      case Some((2, 11)) =>
-        Seq(
-          "-Ypartial-unification",
-          "-Yno-adapted-args",
-          "-Ywarn-inaccessible",
-          "-Ywarn-infer-any",
-          "-Ywarn-nullary-override",
-          "-Ywarn-nullary-unit",
-          "-Xexperimental",
-          "-Ywarn-unused-import"
-        )
       case _ => Seq.empty
     }
 
