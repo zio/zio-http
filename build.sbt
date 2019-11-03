@@ -49,7 +49,9 @@ lazy val root = project
 lazy val core = project
   .in(file("core"))
   .settings(stdSettings("zio-http-core"))
-  .settings(libraryDependencies ++= Seq(
-    "dev.zio" %% "zio"     % zioVersion,
-    "dev.zio" %% "zio-nio" % zioNioVersion
-  ))
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio"     % zioVersion,
+      "dev.zio" %% "zio-nio" % zioNioVersion
+    )
+  )
