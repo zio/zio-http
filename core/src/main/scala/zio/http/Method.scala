@@ -16,19 +16,18 @@
 
 package zio.http
 
-case class Method(name: String) extends AnyVal {
-  def toString: String = name
+sealed abstract class Method(val name: String) {
+  override def toString: String = name
 }
 
-// https://tools.ietf.org/html/rfc7231#section-4
 object Method {
-  val GET = Method("GET")
-  val HEAD = Method("HEAD")
-  val POST = Method("POST")
-  val PUT = Method("PUT")
-  val DELETE = Method("DELETE")
-  val CONNECT = Method("CONNECT")
-  val OPTIONS = Method("OPTIONS")
-  val TRACE = Method("TRACE")
-  val PATCH = Method("PATCH") // https://tools.ietf.org/html/rfc5789
+  final case object GET  extends Method("GET")
+  final case object HEAD extends Method("HEAD")
+  final case object POST extends Method("POST")
+  final case object PUT extends Method("PUT")
+  final case object DELETE extends Method("DELETE")
+  final case object CONNECT extends Method("CONNECT")
+  final case object OPTIONS extends Method("OPTIONS")
+  final case object TRACE extends Method("TRACE")
+  final case object PATCH extends Method("PATCH")
 }
