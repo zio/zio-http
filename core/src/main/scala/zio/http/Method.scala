@@ -17,7 +17,7 @@
 package zio.http
 
 sealed abstract class Method(val name: String) {
-  def toString: String = name
+  override def toString: String = name
 }
 
 object Method {
