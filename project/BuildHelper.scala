@@ -9,7 +9,7 @@ import BuildInfoKeys._
 object BuildHelper {
 
   val zioVersion    = "1.0.0-RC16"
-  val zioNioVersion = "0.2.1+15-865f594e" // TODO: use 0.3.0 once it reaches maven central
+  val zioNioVersion = "0.3.0"
 
   private val testDeps = Seq(
     "dev.zio" %% "zio-test"     % zioVersion % "test",

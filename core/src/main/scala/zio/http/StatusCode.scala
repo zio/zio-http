@@ -16,46 +16,54 @@
 
 package zio.http
 
-trait StatusCode {
-  val Continue = 100
-  val SwitchingProtocols = 101
-  val OK = 200
-  val Created = 201
-  val Accepted = 202
-  val NonAuthoritativeInformation = 203
-  val NoContent = 204
-  val ResetContent = 205
-  val PartialContent = 206
-  val MultipleChoices = 300
-  val MovedPermanently = 301
-  val Found = 302
-  val SeeOther = 303
-  val NotModified = 304
-  val UseProxy = 305
-  val TemporaryRedirect = 307
-  val BadRequest = 400
-  val Unauthorized = 401
-  val PaymentRequired = 402
-  val Forbidden = 403
-  val NotFound = 404
-  val MethodNotAllowed = 405
-  val NotAcceptable = 406
-  val ProxyAuthenticationRequired = 407
-  val RequestTimeout = 408
-  val Conflict = 409
-  val Gone = 410
-  val LengthRequired = 411
-  val PreconditionFailed = 412
-  val PayloadTooLarge = 413
-  val URITooLong = 414
-  val UnsupportedMediaType = 415
-  val RangeNotSatisfiable = 416
-  val ExpectationFailed = 417
-  val UpgradeRequired = 426
-  val InternalServerError = 500
-  val NotImplemented = 501
-  val BadGateway = 502
-  val ServiceUnavailable = 503
-  val GatewayTimeout = 504
-  val HTTPVersionNotSupported = 505
+case class StatusCode(value: Int) extends AnyVal {
+  def isInformation: Boolean = value / 100 == 1
+  def isSuccess: Boolean = value / 100 == 2
+  def isRedirect: Boolean = value / 100 == 3
+  def isClientError: Boolean = value / 100 == 4
+  def isServerError: Boolean = value / 100 == 5
+}
+
+object StatusCode {
+  val Continue = StatusCode(100)
+  val SwitchingProtocols = StatusCode(101)
+  val OK = StatusCode(200)
+  val Created = StatusCode(201)
+  val Accepted = StatusCode(202)
+  val NonAuthoritativeInformation = StatusCode(203)
+  val NoContent = StatusCode(204)
+  val ResetContent = StatusCode(205)
+  val PartialContent = StatusCode(206)
+  val MultipleChoices = StatusCode(300)
+  val MovedPermanently = StatusCode(301)
+  val Found = StatusCode(302)
+  val SeeOther = StatusCode(303)
+  val NotModified = StatusCode(304)
+  val UseProxy = StatusCode(305)
+  val TemporaryRedirect = StatusCode(307)
+  val BadRequest = StatusCode(400)
+  val Unauthorized = StatusCode(401)
+  val PaymentRequired = StatusCode(402)
+  val Forbidden = StatusCode(403)
+  val NotFound = StatusCode(404)
+  val MethodNotAllowed = StatusCode(405)
+  val NotAcceptable = StatusCode(406)
+  val ProxyAuthenticationRequired = StatusCode(407)
+  val RequestTimeout = StatusCode(408)
+  val Conflict = StatusCode(409)
+  val Gone = StatusCode(410)
+  val LengthRequired = StatusCode(411)
+  val PreconditionFailed = StatusCode(412)
+  val PayloadTooLarge = StatusCode(413)
+  val URITooLong = StatusCode(414)
+  val UnsupportedMediaType = StatusCode(415)
+  val RangeNotSatisfiable = StatusCode(416)
+  val ExpectationFailed = StatusCode(417)
+  val UpgradeRequired = StatusCode(426)
+  val InternalServerError = StatusCode(500)
+  val NotImplemented = StatusCode(501)
+  val BadGateway = StatusCode(502)
+  val ServiceUnavailable = StatusCode(503)
+  val GatewayTimeout = StatusCode(504)
+  val HTTPVersionNotSupported = StatusCode(505)
 }
