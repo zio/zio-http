@@ -1,6 +1,5 @@
 package zio.http.authentication
 
-import zio.http.authentication.{ AuthenticationScheme, Realm }
 import zio.http.Charset
 
 final case class WwwAuthenticate(
