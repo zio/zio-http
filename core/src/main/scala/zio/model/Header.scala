@@ -13,6 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package zio.http.model
+package zio.model
 
 case class Header(name: String, value: String)
