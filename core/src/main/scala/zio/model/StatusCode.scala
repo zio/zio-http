@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.http
+package zio.model
 
 case class StatusCode(value: Int) extends AnyVal {
   def isInformation: Boolean = value / 100 == 1

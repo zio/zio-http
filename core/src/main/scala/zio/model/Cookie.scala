@@ -1,4 +1,4 @@
-package zio.http
+package zio.model
 
 import java.time.LocalDateTime
 

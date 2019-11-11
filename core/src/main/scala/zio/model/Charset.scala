@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-package zio.http
+package zio.model
 
-import java.nio.charset.{ StandardCharsets, Charset => JCharset }
+import java.nio.charset.{StandardCharsets, Charset => JCharset}
+
 import scala.util.Try
 
 final case class Charset private (value: String) extends AnyVal {
