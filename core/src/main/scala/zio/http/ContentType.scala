@@ -16,8 +16,8 @@
 
 package zio.http
 
-case class ContentType(`type`: String) extends AnyVal {
-  override def toString: String = `type`
+final case class ContentType(value: String) extends AnyVal {
+  override def toString: String = value
 }
 
 object ContentType {
