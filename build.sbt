@@ -56,4 +56,3 @@ lazy val core = project
       "dev.zio" %% "zio-nio" % zioNioVersion
     )
   )
-
