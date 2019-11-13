@@ -1,5 +1,3 @@
-import java.time.LocalDate
-
 import BuildHelper._
 
 inThisBuild(
