@@ -18,4 +18,10 @@
 
 package zio.http.model
 
-case class Header(name: String, value: String)
+final case class Response[T](
+  headers: List[Header],
+  status: StatusCode,
+  cookies: List[Cookie],
+  contentType: ContentType,
+  body: T
+)

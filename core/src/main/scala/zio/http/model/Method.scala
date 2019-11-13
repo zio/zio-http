@@ -18,4 +18,18 @@
 
 package zio.http.model
 
-case class Header(name: String, value: String)
+sealed abstract class Method(val name: String) {
+  override def toString: String = name
+}
+
+object Method {
+  final case object GET     extends Method("GET")
+  final case object HEAD    extends Method("HEAD")
+  final case object POST    extends Method("POST")
+  final case object PUT     extends Method("PUT")
+  final case object DELETE  extends Method("DELETE")
+  final case object CONNECT extends Method("CONNECT")
+  final case object OPTIONS extends Method("OPTIONS")
+  final case object TRACE   extends Method("TRACE")
+  final case object PATCH   extends Method("PATCH")
+}
