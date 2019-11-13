@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.model
+package zio.http.model
 
 import java.nio.charset.{ StandardCharsets, Charset => JCharset }
 

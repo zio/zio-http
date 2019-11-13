@@ -1,6 +1,6 @@
 package zio.http
 
-import zio.model.{ ContentType, Cookie, Header, StatusCode }
+import zio.http.model.{ ContentType, Cookie, StatusCode }
 
 final case class Response[T](
   headers: List[Header],

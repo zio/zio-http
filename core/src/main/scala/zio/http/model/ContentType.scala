@@ -1,4 +1,4 @@
-package zio.model
+package zio.http.model
 
 case class ContentType(`type`: String) extends AnyVal {
   override def toString: String = `type`

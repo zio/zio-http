@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.model
+package zio.http.model
 
 sealed abstract class Method(val name: String) {
   override def toString: String = name
