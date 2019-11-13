@@ -18,18 +18,8 @@
 
 package zio.http.model
 
-import Charset._
-
-final case class Charset(value: CharsetType, param: Map[String, String] = Map.empty)
-
-object Charset {
-
-  sealed trait CharsetType
-  case object ISO_8859_1 extends CharsetType
-  case object UTF_8      extends CharsetType
-  case object UTF_16     extends CharsetType
-  case object UTF_16BE   extends CharsetType
-  case object UTF_16LE   extends CharsetType
-  case object US_ASCII   extends CharsetType
-
-}
+final case class MediaRange(
+  mediaType: MediaType,
+  params: Map[String, String] = Map.empty,
+  extensions: List[String] = List.empty
+)
