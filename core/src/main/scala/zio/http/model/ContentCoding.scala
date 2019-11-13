@@ -11,25 +11,22 @@
  *  Unless required by applicable law or agreed to in writing, software
  *  distributed under the License is distributed on an "AS IS" BASIS,
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
+ *  See the License for the specific Language governing permissions and
  *  limitations under the License.
  *
  */
 
 package zio.http.model
 
-import Charset._
+import ContentCoding._
 
-final case class Charset(value: CharsetType, param: Map[String, String] = Map.empty)
+final case class ContentCoding(value: ContentCodingType, param: Map[String, String] = Map.empty)
 
-object Charset {
+object ContentCoding {
 
-  sealed trait CharsetType
-  case object ISO_8859_1 extends CharsetType
-  case object UTF_8      extends CharsetType
-  case object UTF_16     extends CharsetType
-  case object UTF_16BE   extends CharsetType
-  case object UTF_16LE   extends CharsetType
-  case object US_ASCII   extends CharsetType
+  sealed trait ContentCodingType
+  case object COMPRESS extends ContentCodingType
+  case object DEFLATE  extends ContentCodingType
+  case object GZIP     extends ContentCodingType
 
 }

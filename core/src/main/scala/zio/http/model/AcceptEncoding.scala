@@ -18,18 +18,11 @@
 
 package zio.http.model
 
-import Charset._
+/*
+    Accept-Encoding header field to indicate what response
+    content-codings are acceptable in the response
 
-final case class Charset(value: CharsetType, param: Map[String, String] = Map.empty)
+    E.g. Accept-Encoding: gzip;q=1.0, identity; q=0.5, *;q=0
+ */
 
-object Charset {
-
-  sealed trait CharsetType
-  case object ISO_8859_1 extends CharsetType
-  case object UTF_8      extends CharsetType
-  case object UTF_16     extends CharsetType
-  case object UTF_16BE   extends CharsetType
-  case object UTF_16LE   extends CharsetType
-  case object US_ASCII   extends CharsetType
-
-}
+final case class AcceptEncoding(codings: List[ContentCoding])
