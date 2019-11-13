@@ -18,18 +18,13 @@
 
 package zio.http.model
 
-import Charset._
+/*
 
-final case class Charset(value: CharsetType, param: Map[String, String] = Map.empty)
+    Accept-Language header field to indicate the set of natural
+    languages that are preferred in the response.
 
-object Charset {
+    E.g. Accept-Language: da, en-gb;q=0.8, en;q=0.7
 
-  sealed trait CharsetType
-  case object ISO_8859_1 extends CharsetType
-  case object UTF_8      extends CharsetType
-  case object UTF_16     extends CharsetType
-  case object UTF_16BE   extends CharsetType
-  case object UTF_16LE   extends CharsetType
-  case object US_ASCII   extends CharsetType
+ */
 
-}
+final case class AcceptLanguage(languages: List[Language])

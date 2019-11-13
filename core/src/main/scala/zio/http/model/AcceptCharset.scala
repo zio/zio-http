@@ -18,18 +18,11 @@
 
 package zio.http.model
 
-import Charset._
+/*
+    Accept-Charset header field used to indicate what charsets are
+    acceptable in textual response content.
 
-final case class Charset(value: CharsetType, param: Map[String, String] = Map.empty)
+    E.g. Accept-Charset: iso-8859-5, unicode-1-1;q=0.8
+ */
 
-object Charset {
-
-  sealed trait CharsetType
-  case object ISO_8859_1 extends CharsetType
-  case object UTF_8      extends CharsetType
-  case object UTF_16     extends CharsetType
-  case object UTF_16BE   extends CharsetType
-  case object UTF_16LE   extends CharsetType
-  case object US_ASCII   extends CharsetType
-
-}
+final case class AcceptCharset(charsets: List[Charset])

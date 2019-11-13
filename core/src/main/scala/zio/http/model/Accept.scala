@@ -18,18 +18,10 @@
 
 package zio.http.model
 
-import Charset._
+/*
+    Accept header field used to specify which response media types are acceptable
 
-final case class Charset(value: CharsetType, param: Map[String, String] = Map.empty)
+    E.g. Accept: audio/\*; q=0.2, audio/basic
+ */
 
-object Charset {
-
-  sealed trait CharsetType
-  case object ISO_8859_1 extends CharsetType
-  case object UTF_8      extends CharsetType
-  case object UTF_16     extends CharsetType
-  case object UTF_16BE   extends CharsetType
-  case object UTF_16LE   extends CharsetType
-  case object US_ASCII   extends CharsetType
-
-}
+final case class Accept(mediaRange: List[MediaRange])
