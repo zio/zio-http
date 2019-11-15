@@ -18,10 +18,13 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+/*
+
+    Accept-Language header field to indicate the set of natural
+    languages that are preferred in the response.
+
+    E.g. Accept-Language: da, en-gb;q=0.8, en;q=0.7
+
+ */
+
+final case class AcceptLanguage(languages: List[Language])

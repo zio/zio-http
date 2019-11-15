@@ -18,10 +18,8 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
+final case class MediaRange(
+  mediaType: MediaType,
+  params: Map[String, String] = Map.empty,
+  extensions: List[String] = List.empty
 )

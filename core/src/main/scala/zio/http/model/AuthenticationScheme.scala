@@ -1,4 +1,4 @@
-package zio.http.authentication
+package zio.http.model
 
 sealed trait AuthenticationScheme
 case object Basic       extends AuthenticationScheme

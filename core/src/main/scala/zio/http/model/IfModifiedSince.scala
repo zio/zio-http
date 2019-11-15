@@ -18,10 +18,12 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+import java.time.LocalDateTime
+
+/*
+    If-Modified-Since request-header field is used to determine if the requested
+    variant has not been modified since the time specified in this field. An entity
+    will not be eturned from the server; instead, a 304 (not modified) response will
+    be returned without any message-body.
+ */
+final case class IfModifiedSince(value: LocalDateTime)

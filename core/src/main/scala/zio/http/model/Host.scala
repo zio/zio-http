@@ -18,10 +18,12 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+import java.net.URL
+
+/*
+
+    The Host request-header field specifies the Internet host and port
+    number of the resource being requested.
+
+ */
+final case class Host(host: URL, port: Int)

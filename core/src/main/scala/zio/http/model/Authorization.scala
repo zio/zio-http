@@ -1,4 +1,4 @@
-package zio.http.authentication
+package zio.http.model
 
 final case class Authorization(
   scheme: AuthenticationScheme,

@@ -18,10 +18,4 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+final case class UserAgent(product: String, productVersion: Option[String] = None, comment: Option[String] = None)

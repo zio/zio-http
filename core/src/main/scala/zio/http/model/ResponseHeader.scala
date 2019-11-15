@@ -18,10 +18,5 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+// TBD
+final case class ResponseHeader(key: String, value: String)

@@ -18,10 +18,13 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+import zio.http.model.Charset
+
+final case class WwwAuthenticate(
+  scheme: AuthenticationScheme,
+  realm: Realm,
+  parameters: Map[String, String],
+  charset: Charset
+) {
+  override def toString = s"WWW-Authenticate: $scheme $realm, charset=${charset.value}"
+}

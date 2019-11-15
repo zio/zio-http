@@ -17,11 +17,12 @@
  */
 
 package zio.http.model
+import java.net.URI
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
+final case class Request[T](
+  header: RequestHeader,
+  httpVersion: HttpVersion,
+  method: Method,
+  uri: URI,
+  body: Option[T]
 )

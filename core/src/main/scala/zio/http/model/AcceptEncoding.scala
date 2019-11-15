@@ -18,10 +18,11 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+/*
+    Accept-Encoding header field to indicate what response
+    content-codings are acceptable in the response
+
+    E.g. Accept-Encoding: gzip;q=1.0, identity; q=0.5, *;q=0
+ */
+
+final case class AcceptEncoding(contentCodings: List[ContentCoding])

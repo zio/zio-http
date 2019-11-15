@@ -18,10 +18,6 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+final case class Realm(key: String, value: String) {
+  override def toString = s"$key=$value"
+}

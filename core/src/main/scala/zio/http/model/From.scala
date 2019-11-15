@@ -18,10 +18,11 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+/*
+    The From request-header field, if given, SHOULD contain an Internet
+    e-mail address for the human user who controls the requesting user
+    agent.
+ */
+final case class From(value: Email)
+
+final case class Email(address: String) extends AnyVal

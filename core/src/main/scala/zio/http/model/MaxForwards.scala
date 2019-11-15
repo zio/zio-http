@@ -18,10 +18,9 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+/*
+    Max-Forwards request-header field provides a mechanism to limit the
+    number of proxies or gateways that can forward the request to the
+    next inbound server.
+ */
+final case class MaxForwards(value: Int)

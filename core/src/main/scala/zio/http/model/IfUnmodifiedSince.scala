@@ -17,11 +17,12 @@
  */
 
 package zio.http.model
+import java.time.LocalDateTime
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+/*
+   If-Unmodified-Since request-header field used to indicate the
+   requested resource has not been modified since the time specified
+   in this field, the server SHOULD perform the requested operation
+   as if the If-Unmodified-Since header were not present.
+ */
+final case class IfUnmodifiedSince(value: LocalDateTime)

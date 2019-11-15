@@ -18,10 +18,9 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+/*
+    ETag or Entity tags is used for comparing two or more entities from the same
+    requested resource. Used by If-Match, If-None-Match, and If-Range header fields.
+ */
+
+final case class ETag(value: String) extends AnyVal

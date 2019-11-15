@@ -18,10 +18,6 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+final case class ProxyAuthenticate(scheme: AuthenticationScheme, realm: Realm) {
+  override def toString = s"ProxyAuthenticate: $scheme $realm"
+}

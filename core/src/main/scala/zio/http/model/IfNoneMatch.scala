@@ -15,13 +15,17 @@
  *  limitations under the License.
  *
  */
-
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+/*
+    If-None-Match request-header field is used with a method to make
+    it conditional. A client that has one or more entities previously
+    obtained from the resource can verify that none of those entities is
+    current by including a list of their associated entity tags in the
+    If-None-Match header field. The purpose of this feature is to allow
+    efficient updates of cached information with a minimum amount of
+    transaction overhead. It is also used to prevent a method (e.g. PUT)
+    from inadvertently modifying an existing resource when the client
+    believes that the resource does not exist.
+ */
+final case class IfNoneMatch(etags: List[ETag])

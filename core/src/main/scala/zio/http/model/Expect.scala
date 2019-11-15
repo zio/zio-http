@@ -18,10 +18,9 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+/*
+    Expect header field indicates the required server behaviour
+    by the client.
+    E.g 100-continue
+ */
+final case class Expect(value: String) extends AnyVal

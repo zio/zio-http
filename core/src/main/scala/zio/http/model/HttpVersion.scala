@@ -18,10 +18,14 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+sealed abstract class HttpVersion(major: Int, minor: Int) {
+  override def toString: String = s"HTTP / $major.$minor"
+}
+
+object HttpVersion {
+  final case object HTTP_0_9 extends HttpVersion(0, 9)
+  final case object HTTP_1_0 extends HttpVersion(1, 0)
+  final case object HTTP_1_1 extends HttpVersion(1, 1)
+  final case object HTTP_2_0 extends HttpVersion(2, 0)
+  final case object HTTP_3_0 extends HttpVersion(3, 0)
+}

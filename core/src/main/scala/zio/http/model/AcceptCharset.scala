@@ -18,10 +18,11 @@
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+/*
+    Accept-Charset header field used to indicate what charsets are
+    acceptable in textual response content.
+
+    E.g. Accept-Charset: iso-8859-5, unicode-1-1;q=0.8
+ */
+
+final case class AcceptCharset(charsets: List[Charset])

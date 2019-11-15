@@ -18,25 +18,18 @@
 
 package zio.http.model
 
-import java.nio.charset.{ StandardCharsets, Charset => JCharset }
+import Charset._
 
-import scala.util.Try
-
-final case class Charset private (value: String) extends AnyVal {
-  override def toString: String = value
-}
+final case class Charset(value: CharsetType, param: Map[String, String] = Map.empty)
 
 object Charset {
 
-  def fromCharset(charSet: JCharset): Charset = Charset(charSet.name)
+  sealed trait CharsetType
+  case object ISO_8859_1 extends CharsetType
+  case object UTF_8      extends CharsetType
+  case object UTF_16     extends CharsetType
+  case object UTF_16BE   extends CharsetType
+  case object UTF_16LE   extends CharsetType
+  case object US_ASCII   extends CharsetType
 
-  def fromString(str: String): Option[Charset] =
-    Try(JCharset.forName(str)).map(nioCharset => Charset(nioCharset.name)).toOption
-
-  val ISO_8859_1 = Charset(StandardCharsets.ISO_8859_1.name)
-  val UTF_8      = Charset(StandardCharsets.UTF_8.name)
-  val UTF_16     = Charset(StandardCharsets.UTF_16.name)
-  val UTF_16BE   = Charset(StandardCharsets.UTF_16BE.name)
-  val UTF_16LE   = Charset(StandardCharsets.UTF_16LE.name)
-  val US_ASCII   = Charset(StandardCharsets.US_ASCII.name)
 }

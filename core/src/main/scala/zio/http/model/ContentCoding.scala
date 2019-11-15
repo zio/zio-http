@@ -11,17 +11,22 @@
  *  Unless required by applicable law or agreed to in writing, software
  *  distributed under the License is distributed on an "AS IS" BASIS,
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
+ *  See the License for the specific Language governing permissions and
  *  limitations under the License.
  *
  */
 
 package zio.http.model
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+import ContentCoding._
+
+final case class ContentCoding(value: ContentCodingType, param: Map[String, String] = Map.empty)
+
+object ContentCoding {
+
+  sealed trait ContentCodingType
+  case object COMPRESS extends ContentCodingType
+  case object DEFLATE  extends ContentCodingType
+  case object GZIP     extends ContentCodingType
+
+}

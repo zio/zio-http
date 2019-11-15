@@ -17,11 +17,6 @@
  */
 
 package zio.http.model
+import java.time.LocalDateTime
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+final case class IfRange(value: Either[ETag, LocalDateTime])

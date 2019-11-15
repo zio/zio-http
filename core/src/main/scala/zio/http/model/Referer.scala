@@ -17,11 +17,10 @@
  */
 
 package zio.http.model
+import java.net.URI
 
-final case class Response[T](
-  headers: ResponseHeader,
-  status: StatusCode,
-  cookies: List[Cookie],
-  contentType: ContentType,
-  body: T
-)
+/*
+    Referer[sic] request-header field allows the client to specify, for the server's benefit,
+    the address (URI) of the resource from which the Request-URI was obtained
+ */
+final case class Referer(value: URI)

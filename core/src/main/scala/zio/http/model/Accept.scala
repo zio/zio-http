@@ -18,4 +18,10 @@
 
 package zio.http.model
 
-case class Header(name: String, value: String)
+/*
+    Accept header field used to specify which response media types are acceptable
+
+    E.g. Accept: audio/\*; q=0.2, audio/basic
+ */
+
+final case class Accept(mediaRange: List[MediaRange])
