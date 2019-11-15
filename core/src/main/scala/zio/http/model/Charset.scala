@@ -22,13 +22,8 @@ import java.nio.charset.{ StandardCharsets, Charset => JCharset }
 
 import scala.util.Try
 
-final case class Charset private (value: String, q: Option[QValue] = None) {
-  override def toString: String =
-    q match {
-      case Some(qualityValue) => s"value;q=$qualityValue"
-      case None               => value
-    }
-
+final case class Charset private (value: String) {
+  override def toString: String = value
 }
 
 object Charset {
@@ -38,7 +33,7 @@ object Charset {
   def fromString(str: String): Option[Charset] =
     Try(JCharset.forName(str)).map(nioCharset => Charset(nioCharset.name)).toOption
 
-  val ISO_8859_1 = Charset(StandardCharsets.ISO_8859_1.name, None)
+  val ISO_8859_1 = Charset(StandardCharsets.ISO_8859_1.name)
   val UTF_8      = Charset(StandardCharsets.UTF_8.name)
   val UTF_16     = Charset(StandardCharsets.UTF_16.name)
   val UTF_16BE   = Charset(StandardCharsets.UTF_16BE.name)
