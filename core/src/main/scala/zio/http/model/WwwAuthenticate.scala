@@ -18,8 +18,6 @@
 
 package zio.http.model
 
-import zio.http.model.Charset
-
 final case class WwwAuthenticate(
   scheme: AuthenticationScheme,
   realm: Realm,
