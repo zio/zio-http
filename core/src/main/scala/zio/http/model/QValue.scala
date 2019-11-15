@@ -11,22 +11,13 @@
  *  Unless required by applicable law or agreed to in writing, software
  *  distributed under the License is distributed on an "AS IS" BASIS,
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific Language governing permissions and
+ *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
  */
 
 package zio.http.model
 
-import ContentCoding._
+final case class QValue(value : Double)
 
-final case class ContentCoding(value: ContentCodingType, q : Option[QValue] = None)
 
-object ContentCoding {
-
-  sealed trait ContentCodingType
-  case object COMPRESS extends ContentCodingType
-  case object DEFLATE  extends ContentCodingType
-  case object GZIP     extends ContentCodingType
-
-}
