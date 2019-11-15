@@ -20,7 +20,7 @@ package zio.http.model
 
 import ContentCoding._
 
-final case class ContentCoding(value: ContentCodingType, q : Option[QValue] = None)
+final case class ContentCoding(value: ContentCodingType, q: Option[QValue] = None)
 
 object ContentCoding {
 

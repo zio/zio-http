@@ -18,6 +18,4 @@
 
 package zio.http.model
 
-final case class QValue(value : Double)
-
-
+final case class QValue(value: Double)

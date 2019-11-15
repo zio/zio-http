@@ -21,7 +21,7 @@ package zio.http.model
 /*
   Language tags used by Content-Language and Accept-Language header fields.
  */
-final case class Language(value: String, q : Option[QValue] = None)
+final case class Language(value: String, q: Option[QValue] = None)
 
 object Language {
 
