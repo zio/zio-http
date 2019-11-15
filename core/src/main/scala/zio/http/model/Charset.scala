@@ -22,7 +22,7 @@ import java.nio.charset.{ StandardCharsets, Charset => JCharset }
 
 import scala.util.Try
 
-final case class Charset private (value: String) {
+final case class Charset private (value: String) extends AnyVal {
   override def toString: String = value
 }
 
