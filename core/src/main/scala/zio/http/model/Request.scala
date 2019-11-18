@@ -20,7 +20,7 @@ package zio.http.model
 import java.net.URI
 
 final case class Request[T](
-  header: List[RequestHeader],
+  headers: List[RequestHeader],
   httpVersion: HttpVersion,
   method: Method,
   uri: URI,
