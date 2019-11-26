@@ -1,4 +1,3 @@
-import sbtcrossproject.CrossPlugin.autoImport.crossProject
 import BuildHelper._
 
 inThisBuild(
@@ -43,7 +42,17 @@ lazy val root = project
   .in(file("."))
   .settings(skip in publish := true)
   .aggregate(
+    doc,
     core
+  )
+
+lazy val doc = project
+  .in(file("doc"))
+  .settings(stdSettings("zio-http-doc"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio" % zioVersion
+    )
   )
 
 lazy val core = project
