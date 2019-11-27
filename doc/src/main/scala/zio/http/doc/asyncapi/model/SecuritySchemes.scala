@@ -1,4 +1,4 @@
-package zio.http.asyncapi.model
+package zio.http.doc.asyncapi.model
 
 sealed abstract class SecuritySchemes(value: String) {
   override def toString = value

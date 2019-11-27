@@ -1,4 +1,4 @@
-package zio.http.asyncapi.model
+package zio.http.doc.asyncapi.model
 
 sealed abstract class Protocol(val name: String) {
   override def toString: String = name

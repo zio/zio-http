@@ -1,4 +1,4 @@
-package zio.http.asyncapi.model
+package zio.http.doc.asyncapi.model
 
 final case class Info(
   title: String,

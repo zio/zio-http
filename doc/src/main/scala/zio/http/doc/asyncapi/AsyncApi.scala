@@ -16,20 +16,21 @@
  *
  */
 
-package zio.http.asyncapi
+package zio.http.doc.asyncapi
 
 import java.net.URI
-import java.nio.channels.Channels
 
-import zio.http.asyncapi.model._
+import zio.http.doc.asyncapi.model._
 
-final case class AsyncApi(
+case class Channels()
+
+sealed case class AsyncApi(
   asyncapi: AsyncVersion,
   id: Option[URI],
   info: Info,
-  servers: List[Server],
+  servers: Option[List[Server]],
   channels: Channels,
-  components: List[Component],
-  tags: List[Tag],
-  externalDocs: ExternalDocumentation
+  components: Option[List[Component]],
+  tags: Option[List[Tag]],
+  externalDocs: Option[ExternalDocumentation]
 )

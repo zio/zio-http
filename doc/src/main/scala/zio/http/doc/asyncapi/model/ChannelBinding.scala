@@ -1,4 +1,4 @@
-package zio.http.asyncapi.model
+package zio.http.doc.asyncapi.model
 
 trait HTTPBinding
 trait WebSocketBinding

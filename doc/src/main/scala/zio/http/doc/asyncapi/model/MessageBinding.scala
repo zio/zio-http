@@ -1,7 +1,8 @@
-package zio.http.asyncapi.model
+package zio.http.doc.asyncapi.model
 
 import zio.http.asyncapi.model.A.SchemaObject
 import zio.http.doc.asyncapi.A.SchemaObject
+import zio.http.doc.asyncapi.model.A.SchemaObject
 
 case class HTTPBinding(headers: SchemaObject, bindingVersion: String)
 trait WebSocketBinding
