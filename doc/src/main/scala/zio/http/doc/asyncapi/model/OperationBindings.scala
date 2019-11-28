@@ -1,45 +1,33 @@
 package zio.http.doc.asyncapi.model
 
-import A.SchemaObject
+sealed trait OperationBinding
 
-case class HTTPBinding(`type`: String, method: String, query: SchemaObject, bindingVersion: String)
-trait WebSocketBinding
-case class KafkaBinding(groupId: String, clientId: String, bindingVersion: String)
-case class AmqpBinding(
-  expiration: Int,
-  userId: String,
-  cc: List[String],
-  priority: Int,
-  deliveryMode: Int,
-  mandatory: Boolean,
-  bcc: List[String],
-  replyTo: String,
-  timestamp: Boolean,
-  ack: Boolean,
-  bindingVersion: String
-)
-trait Amqp1Binding
-case class MqttBinding(qos: Int, retain: Boolean, bindingVersion: String)
-trait Mqtt5
-trait Nats
-trait Jms
-trait Sns
-trait Sqs
-trait Stomp
-trait Redis
+object OperationBinding {
+  final case class HTTP(`type`: String, method: String, query: Map[SchemaProperty, String], bindingVersion: String)
+      extends OperationBinding
+  final case class KAFKA(groupId: String, clientId: String, bindingVersion: String) extends OperationBinding
+  final case class MQTT(qos: Int, retain: Boolean, bindingVersion: String)          extends OperationBinding
+  final case class AMQP(
+    expiration: Int,
+    userId: String,
+    cc: List[String],
+    priority: Int,
+    deliveryMode: Int,
+    mandatory: Boolean,
+    bcc: List[String],
+    replyTo: String,
+    timestamp: Boolean,
+    ack: Boolean,
+    bindingVersion: Version
+  )
+  final case object WEBSOCKET extends OperationBinding
+  final case object AMQP1     extends OperationBinding
+  final case object MQTT5     extends OperationBinding
+  final case object NATS      extends OperationBinding
+  final case object JMS       extends OperationBinding
+  final case object SNS       extends OperationBinding
+  final case object SQS       extends OperationBinding
+  final case object STOMP     extends OperationBinding
+  final case object REDIS     extends OperationBinding
 
-case class OperationBinding(
-  http: HTTPBinding,
-  ws: WebSocketBinding,
-  kafka: KafkaBinding,
-  amqp: AmqpBinding,
-  amqp1: Amqp1Binding,
-  mqtt: MqttBinding,
-  mqtt5: Mqtt5,
-  nats: Nats,
-  jms: Jms,
-  sns: Sns,
-  sqs: Sqs,
-  stomp: Stomp,
-  redis: Redis
-)
+}

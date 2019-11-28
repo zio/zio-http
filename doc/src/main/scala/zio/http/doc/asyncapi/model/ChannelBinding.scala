@@ -1,45 +1,39 @@
 package zio.http.doc.asyncapi.model
 
-trait HTTPBinding
-trait WebSocketBinding
-trait KafkaBinding
-case class AmqpBinding(
-  is: String,
-  exchange: Map[String, Any],
-  exchangeName: String,
-  exchangeType: String,
-  exchangeDurable: String,
-  exchangeAutoDelete: String,
-  exchangeVHost: String,
-  queue: Map[String, Any],
-  queueName: String,
-  queueType: String,
-  queueDurable: String,
-  queueAutoDelete: String,
-  queueVHost: String,
-  bindingVersion: String
-)
-trait MqttBinding
-trait Mqtt5
-trait Nats
-trait Jms
-trait Sns
-trait Sqs
-trait Stomp
-trait Redis
+sealed trait ChannelBinding
 
-case class ChannelBinding(
-  http: HTTPBinding,
-  ws: WebSocketBinding,
-  kafka: KafkaBinding,
-  amqp: AmqpBinding,
-  amqp1: Amqp1Binding,
-  mqtt: MqttBinding,
-  mqtt5: Mqtt5,
-  nats: Nats,
-  jms: Jms,
-  sns: Sns,
-  sqs: Sqs,
-  stomp: Stomp,
-  redis: Redis
-)
+object ChannelBinding {
+  final case class Queue(
+    queueName: String,
+    queueType: String,
+    queueDurable: String,
+    queueAutoDelete: String,
+    queueVHost: String
+  )
+  final case class Exchange(
+    exchangeName: String,
+    exchangeType: String,
+    exchangeDurable: String,
+    exchangeAutoDelete: String,
+    exchangeVHost: String
+  )
+  final case class AMQP(
+    is: String,
+    exchange: Map[String, Exchange],
+    queue: Map[String, Queue],
+    bindingVersion: String
+  )
+  final case object HTTP      extends ChannelBinding
+  final case object WEBSOCKET extends ChannelBinding
+  final case object KAFKA     extends ChannelBinding
+  final case object AMQP      extends ChannelBinding
+  final case object AMQP1     extends ChannelBinding
+  final case object MQTT5     extends ChannelBinding
+  final case object NATS      extends ChannelBinding
+  final case object JMS       extends ChannelBinding
+  final case object SNS       extends ChannelBinding
+  final case object SQS       extends ChannelBinding
+  final case object STOMP     extends ChannelBinding
+  final case object REDIS     extends ChannelBinding
+  final case object MQTT      extends ChannelBinding
+}

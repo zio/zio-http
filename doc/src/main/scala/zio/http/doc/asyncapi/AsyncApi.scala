@@ -22,15 +22,25 @@ import java.net.URI
 
 import zio.http.doc.asyncapi.model._
 
-case class Channels()
-
-sealed case class AsyncApi(
-  asyncapi: AsyncVersion,
+/**
+ * Root document object for the API specification
+ *
+ * @param asyncapi Async API Specification version
+ * @param id  Identifier for application
+ * @param info API metadata
+ * @param servers Server connection details
+ * @param channels Available channels and messages for API
+ * @param components Various schemas for the spec
+ * @param tags Additonal metadata
+ * @param externalDocs External documentation
+ */
+final case class AsyncApi[T](
+  asyncapi: Version,
   id: Option[URI],
   info: Info,
-  servers: Option[List[Server]],
-  channels: Channels,
-  components: Option[List[Component]],
+  servers: Option[Map[String, Server]],
+  channels: Map[String, Channel[T]],
+  components: Option[List[Component[T]]],
   tags: Option[List[Tag]],
   externalDocs: Option[ExternalDocumentation]
 )

@@ -1,35 +1,23 @@
 package zio.http.doc.asyncapi.model
 
-import zio.http.asyncapi.model.A.SchemaObject
-import zio.http.doc.asyncapi.A.SchemaObject
-import zio.http.doc.asyncapi.model.A.SchemaObject
+sealed trait MessageBinding
 
-case class HTTPBinding(headers: SchemaObject, bindingVersion: String)
-trait WebSocketBinding
-case class KafkaBinding(key: String, bindingVersion: String)
-case class AmqpBinding(contentEncoding: String, messageType: String, bindingVersion: String)
-trait Amqp1Binding
-case class MqttBinding(bindingVersion: String)
-trait Mqtt5
-trait Nats
-trait Jms
-trait Sns
-trait Sqs
-trait Stomp
-trait Redis
+object MessageBinding {
 
-case class MessageBinding(
-  http: HTTPBinding,
-  ws: WebSocketBinding,
-  kafka: KafkaBinding,
-  amqp: AmqpBinding,
-  amqp1: Amqp1Binding,
-  mqtt: MqttBinding,
-  mqtt5: Mqtt5,
-  nats: Nats,
-  jms: Jms,
-  sns: Sns,
-  sqs: Sqs,
-  stomp: Stomp,
-  redis: Redis
-)
+  final case class HTTP(headers: Map[SchemaProperty, String], bindingVersion: String)         extends MessageBinding
+  final case class MQTT(bindingVersion: Version)                                              extends MessageBinding
+  final case class KAFKA(key: String, bindingVersion: String)                                 extends MessageBinding
+  final case class AMQP(contentEncoding: String, messageType: String, bindingVersion: String) extends MessageBinding
+
+  final case object WEBSOCKET extends MessageBinding
+  final case object KAFKA     extends MessageBinding
+  final case object AMQP1     extends MessageBinding
+  final case object MQTT5     extends MessageBinding
+  final case object NATS      extends MessageBinding
+  final case object JMS       extends MessageBinding
+  final case object SNS       extends MessageBinding
+  final case object SQS       extends MessageBinding
+  final case object STOMP     extends MessageBinding
+  final case object REDIS     extends MessageBinding
+  final case object MQTT      extends MessageBinding
+}

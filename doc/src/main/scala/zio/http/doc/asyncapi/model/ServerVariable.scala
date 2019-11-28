@@ -1,8 +1,16 @@
 package zio.http.doc.asyncapi.model
 
-case class ServerVariable(
+/**
+ *  An object representing a Server Variable for server URL template substitution
+ *
+ * @param enum  An enumeration of string values to be used if the substitution options are from a limited set
+ * @param default The default value to use for substitution, and to send, if an alternate value is not supplied.
+ * @param description An optional description for the server variable. CommonMark syntax MAY be used for rich text representation.
+ * @param examples An array of examples of the server variable.
+ */
+final case class ServerVariable(
   enum: Option[List[String]],
   default: Option[String],
   description: Option[String],
-  examples: Option[String]
+  examples: Option[List[String]]
 )

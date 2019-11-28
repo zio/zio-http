@@ -1,40 +1,29 @@
 package zio.http.doc.asyncapi.model
 
-trait HTTPBinding
-trait WebSocketBinding
-trait KafkaBinding
-trait AmqpBinding
-trait Amqp1Binding
-case class MqttBinding(
-  clientId: String,
-  cleanSession: Boolean,
-  lastWill: Any,
-  topic: String,
-  qos: Int,
-  retain: Boolean,
-  keepAlive: Int,
-  bindingVersion: String
-)
-trait Mqtt5
-trait Nats
-trait Jms
-trait Sns
-trait Sqs
-trait Stomp
-trait Redis
+/**
+ * Protocol-specific definitions for a server.
+ */
+sealed trait ServerBinding
 
-case class ServerBinding(
-  http: HTTPBinding,
-  ws: WebSocketBinding,
-  kafka: KafkaBinding,
-  amqp: AmqpBinding,
-  amqp1: Amqp1Binding,
-  mqtt: MqttBinding,
-  mqtt5: Mqtt5,
-  nats: Nats,
-  jms: Jms,
-  sns: Sns,
-  sqs: Sqs,
-  stomp: Stomp,
-  redis: Redis
-)
+object ServerBinding {
+  final case object HTTP      extends ServerBinding
+  final case object WEBSOCKET extends ServerBinding
+  final case object KAFKA     extends ServerBinding
+  final case object AMQP      extends ServerBinding
+  final case object AMQP1     extends ServerBinding
+  final case object MQTT5     extends ServerBinding
+  final case object NATS      extends ServerBinding
+  final case object JMS       extends ServerBinding
+  final case object SNS       extends ServerBinding
+  final case object SQS       extends ServerBinding
+  final case object STOMP     extends ServerBinding
+  final case object REDIS     extends ServerBinding
+  final case class MQTT(
+    clientId: String,
+    cleanSession: Boolean,
+    lastWill: LastWill,
+    keepAlive: Int,
+    bindingVersion: String
+  )
+  final case class LastWill(topic: String, qos: Int, retain: Boolean)
+}
