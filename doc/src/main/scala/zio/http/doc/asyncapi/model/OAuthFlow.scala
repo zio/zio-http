@@ -1,6 +1,9 @@
 package zio.http.doc.asyncapi.model
 
-case class OAuthFlow(
+/*
+  Configuration details of supported OAuth flows
+ */
+final case class OAuthFlow(
   authorizationUrl: String,
   tokenUrl: String,
   refreshUrl: Option[String],

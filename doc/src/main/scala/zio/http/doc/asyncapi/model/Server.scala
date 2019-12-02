@@ -21,5 +21,5 @@ final case class Server(
   description: Option[String],
   variables: Map[String, ServerVariable],
   security: SecurityRequirement,
-  bindings: Option[Map[SecurityScheme, ServerBinding]]
+  bindings: Map[SecurityScheme, ServerBinding]
 )

@@ -1,6 +1,9 @@
 package zio.http.doc.asyncapi.model
 
-case class Tag(
+/*
+  Metadata used for API documentation control
+ */
+final case class Tag(
   name: String,
   description: Option[String],
   externalDocs: ExternalDocumentation

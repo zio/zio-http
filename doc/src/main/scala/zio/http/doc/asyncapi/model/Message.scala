@@ -12,7 +12,7 @@ final case class Message[T](
   description: String,
   tags: List[Tag],
   externalDocs: ExternalDocumentation,
-  bindings: Option[Map[String, MessageBinding]],
-  examples: Option[List[Map[String, Any]]],
-  traits: Option[List[Trait]]
+  bindings: Map[String, MessageBinding],
+  examples: List[Map[String, Any]],
+  traits: List[Trait]
 )

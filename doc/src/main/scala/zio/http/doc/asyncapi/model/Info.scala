@@ -1,5 +1,8 @@
 package zio.http.doc.asyncapi.model
 
+/*
+  API metadata
+ */
 final case class Info(
   title: String,
   version: String,

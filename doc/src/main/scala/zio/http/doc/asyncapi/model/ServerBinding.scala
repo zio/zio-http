@@ -6,19 +6,19 @@ package zio.http.doc.asyncapi.model
 sealed trait ServerBinding
 
 object ServerBinding {
-  final case object HTTP      extends ServerBinding
-  final case object WEBSOCKET extends ServerBinding
-  final case object KAFKA     extends ServerBinding
-  final case object AMQP      extends ServerBinding
-  final case object AMQP1     extends ServerBinding
-  final case object MQTT5     extends ServerBinding
-  final case object NATS      extends ServerBinding
-  final case object JMS       extends ServerBinding
-  final case object SNS       extends ServerBinding
-  final case object SQS       extends ServerBinding
-  final case object STOMP     extends ServerBinding
-  final case object REDIS     extends ServerBinding
-  final case class MQTT(
+  final case object Http      extends ServerBinding
+  final case object WebSocket extends ServerBinding
+  final case object Kafka     extends ServerBinding
+  final case object Amqp      extends ServerBinding
+  final case object Amqp1     extends ServerBinding
+  final case object Mqtt5     extends ServerBinding
+  final case object Nats      extends ServerBinding
+  final case object Jms       extends ServerBinding
+  final case object Sns       extends ServerBinding
+  final case object Sqs       extends ServerBinding
+  final case object Stomp     extends ServerBinding
+  final case object Redis     extends ServerBinding
+  final case class Mqtt(
     clientId: String,
     cleanSession: Boolean,
     lastWill: LastWill,

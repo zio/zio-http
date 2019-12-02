@@ -9,8 +9,8 @@ package zio.http.doc.asyncapi.model
  * @param examples An array of examples of the server variable.
  */
 final case class ServerVariable(
-  enum: Option[List[String]],
-  default: Option[String],
-  description: Option[String],
-  examples: Option[List[String]]
+  enum: List[String],
+  default: String,
+  description: String,
+  examples: List[String]
 )

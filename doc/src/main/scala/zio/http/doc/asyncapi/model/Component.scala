@@ -1,20 +1,23 @@
 package zio.http.doc.asyncapi.model
 
-case class Component[T](
-  schemas: Option[Map[String, SchemaProperty]],
-  messages: Option[Map[String, Message[T]]],
-  securitySchemes: Option[Map[String, Security]],
-  parameters: Option[Map[String, Parameter]],
-  correlationIds: Option[Map[String, CorrelationId]],
-  operationTraits: Option[Map[String, OperationTraitObject]],
-  messageTraits: Option[Map[String, MessageTrait]],
-  serverBindings: Option[Map[String, Map[String, ServerBinding]]],
-  channelBindings: Option[Map[String, Map[String, ChannelBinding]]],
-  operationBindings: Option[Map[String, Map[String, OperationBinding]]],
-  messageBindings: Option[Map[String, Map[String, MessageBinding]]]
+/*
+  Objects representing different aspects of the API
+ */
+final case class Component[T](
+  schemas: Map[String, SchemaProperty],
+  messages: Map[String, Message[T]],
+  securitySchemes: Map[String, Security],
+  parameters: Map[String, Parameter],
+  correlationIds: Map[String, CorrelationId],
+  operationTraits: Map[String, OperationTraitObject],
+  messageTraits: Map[String, MessageTrait],
+  serverBindings: Map[String, Map[String, ServerBinding]],
+  channelBindings: Map[String, Map[String, ChannelBinding]],
+  operationBindings: Map[String, Map[String, OperationBinding]],
+  messageBindings: Map[String, Map[String, MessageBinding]]
 )
 
-case class MessageTrait(
+final case class MessageTrait(
   headers: Map[SchemaProperty, String],
   correlationId: CorrelationId,
   schemaFormat: String,

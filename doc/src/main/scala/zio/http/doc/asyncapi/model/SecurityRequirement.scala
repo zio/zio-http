@@ -5,7 +5,7 @@ package zio.http.doc.asyncapi.model
  * @param name Security scheme
  * @param values List of values specific to the security scheme
  */
-case class SecurityRequirement(
+final case class SecurityRequirement(
   name: SecurityScheme,
   values: List[String]
 )
