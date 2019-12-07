@@ -36,11 +36,11 @@ import zio.http.doc.asyncapi.model._
  */
 final case class AsyncApi[T](
   asyncapi: Version,
-  id: Option[URI],
+  id: URI,
   info: Info,
-  servers: Option[Map[String, Server]],
+  servers: Map[String, Server],
   channels: Map[String, Channel[T]],
-  components: Option[List[Component[T]]],
-  tags: Option[List[Tag]],
-  externalDocs: Option[ExternalDocumentation]
+  components: List[Component[T]],
+  tags: List[Tag],
+  externalDocs: ExternalDocumentation
 )
