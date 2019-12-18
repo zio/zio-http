@@ -22,7 +22,7 @@ sealed abstract class HttpVersion(major: Int, minor: Int) {
   override def toString: String = s"HTTP / $major.$minor"
 }
 
-object HttpVersion {
+final object HttpVersion {
   final case object HTTP_0_9 extends HttpVersion(0, 9)
   final case object HTTP_1_0 extends HttpVersion(1, 0)
   final case object HTTP_1_1 extends HttpVersion(1, 1)

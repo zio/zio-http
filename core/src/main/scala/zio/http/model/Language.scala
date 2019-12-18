@@ -23,7 +23,7 @@ package zio.http.model
  */
 final case class Language(value: String, q: Option[QValue] = None)
 
-object Language {
+final object Language {
 
   val ab = Language("Abkhazian")
   val aa = Language("Afar")

@@ -18,15 +18,18 @@
 
 package zio.http.model
 
-import ContentCoding._
+import zio.http.model.ContentCoding._
 
 final case class ContentCoding(value: ContentCodingType, q: Option[QValue] = None)
 
 object ContentCoding {
 
   sealed trait ContentCodingType
-  case object COMPRESS extends ContentCodingType
-  case object DEFLATE  extends ContentCodingType
-  case object GZIP     extends ContentCodingType
+
+  object ContentCodingType {
+    final case object COMPRESS extends ContentCodingType
+    final case object DEFLATE  extends ContentCodingType
+    final case object GZIP     extends ContentCodingType
+  }
 
 }

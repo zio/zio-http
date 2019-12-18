@@ -18,5 +18,4 @@
 
 package zio.http.model
 
-//TODO: how to apply encoding
 final case class Credentials(value: String) extends AnyVal

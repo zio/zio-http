@@ -22,7 +22,7 @@ sealed abstract class Method(val name: String) {
   override def toString: String = name
 }
 
-object Method {
+final object Method {
   final case object GET     extends Method("GET")
   final case object HEAD    extends Method("HEAD")
   final case object POST    extends Method("POST")

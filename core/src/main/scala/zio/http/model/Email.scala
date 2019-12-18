@@ -1,5 +1,3 @@
-package zio.http.model
-
 /*
  *
  *  Copyright 2017-2019 John A. De Goes and the ZIO Contributors
@@ -18,4 +16,6 @@ package zio.http.model
  *
  */
 
-final case class Email(address: String)
+package zio.http.model
+
+final case class Email(address: String) extends AnyVal

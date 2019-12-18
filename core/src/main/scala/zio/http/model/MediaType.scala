@@ -18,18 +18,11 @@
 
 package zio.http.model
 
-/*
-    Internet protocol media types.
-
-    https://www.iana.org/assignments/media-types/media-types.xhtml
-
- */
-
 final case class MediaType private (value: String) extends AnyVal {
   override def toString: String = value
 }
 
-object MediaType {
+final object MediaType {
 
   val EDIX12               = MediaType("application/EDI-X12")
   val EDIFACT              = MediaType("application/EDIFACT")
