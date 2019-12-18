@@ -33,10 +33,10 @@ object Charset {
   def fromString(str: String): Option[Charset] =
     Try(JCharset.forName(str)).map(nioCharset => Charset(nioCharset.name)).toOption
 
-  val ISO_8859_1 = Charset(StandardCharsets.ISO_8859_1.name)
-  val UTF_8      = Charset(StandardCharsets.UTF_8.name)
-  val UTF_16     = Charset(StandardCharsets.UTF_16.name)
-  val UTF_16BE   = Charset(StandardCharsets.UTF_16BE.name)
-  val UTF_16LE   = Charset(StandardCharsets.UTF_16LE.name)
-  val US_ASCII   = Charset(StandardCharsets.US_ASCII.name)
+  final val ISO_8859_1 = Charset(StandardCharsets.ISO_8859_1.name)
+  final val UTF_8      = Charset(StandardCharsets.UTF_8.name)
+  final val UTF_16     = Charset(StandardCharsets.UTF_16.name)
+  final val UTF_16BE   = Charset(StandardCharsets.UTF_16BE.name)
+  final val UTF_16LE   = Charset(StandardCharsets.UTF_16LE.name)
+  final val US_ASCII   = Charset(StandardCharsets.US_ASCII.name)
 }

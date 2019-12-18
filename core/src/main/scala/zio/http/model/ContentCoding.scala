@@ -26,7 +26,7 @@ object ContentCoding {
 
   sealed trait ContentCodingType
 
-  object ContentCodingType {
+  final object ContentCodingType {
     final case object COMPRESS extends ContentCodingType
     final case object DEFLATE  extends ContentCodingType
     final case object GZIP     extends ContentCodingType
