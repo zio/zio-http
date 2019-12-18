@@ -26,7 +26,7 @@ import zio.http.model.ResponseHeader.ETag
 
 sealed trait RequestHeader
 
-object RequestHeader {
+final object RequestHeader {
 
   final case class Accept(mediaRange: List[MediaRange])                extends RequestHeader
   final case class AcceptCharset(charsets: List[CharsetRange])         extends RequestHeader
@@ -56,7 +56,7 @@ object RequestHeader {
     override def toString(): String = s"Transfer-Encoding: ${transferEncodings.mkString(",")}"
   }
 
-  object TransferEncoding {
+  final object TransferEncoding {
     sealed trait TransferEncodingType
     final case object CHUNKED  extends TransferEncodingType
     final case object IDENTITY extends TransferEncodingType
@@ -82,7 +82,7 @@ object RequestHeader {
 
 sealed trait ResponseHeader
 
-object ResponseHeader {
+final object ResponseHeader {
 
   import AcceptRanges._
   final case class AcceptRanges(value: AcceptRangesType) extends ResponseHeader
