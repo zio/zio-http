@@ -67,17 +67,6 @@ final object RequestHeader {
 
   final case class UserAgent(product: String, productVersion: Option[String] = None, comment: Option[String] = None)
       extends RequestHeader
-
-  final case class SetCookie(
-    value: String,
-    domain: Option[String],
-    path: Option[String],
-    expires: Option[Instant],
-    maxAge: Option[Long],
-    secure: Boolean,
-    httpOnly: Boolean
-  ) extends RequestHeader
-
 }
 
 sealed trait ResponseHeader
