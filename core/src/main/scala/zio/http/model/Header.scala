@@ -19,7 +19,7 @@
 package zio.http.model
 
 import java.net.{ URI, URL }
-import java.time.{ Instant, LocalDateTime }
+import java.time.Instant
 
 import zio.duration.Duration
 import zio.http.model.ResponseHeader.ETag
@@ -35,15 +35,15 @@ final object RequestHeader {
   final case class Authorization(scheme: AuthenticationScheme, credentials: Credentials) extends RequestHeader {
     override def toString = s"Authorization: $scheme $credentials"
   }
-  final case class Expect(value: String)                       extends RequestHeader
-  final case class From(value: Email)                          extends RequestHeader
-  final case class Host(host: URL, port: Int)                  extends RequestHeader
-  final case class IfMatch(etags: List[ETag])                  extends RequestHeader
-  final case class IfModifiedSince(value: LocalDateTime)       extends RequestHeader
-  final case class IfNoneMatch(etags: List[ETag])              extends RequestHeader
-  final case class IfRange(value: Either[ETag, LocalDateTime]) extends RequestHeader
-  final case class IfUnmodifiedSince(value: LocalDateTime)     extends RequestHeader
-  final case class MaxForwards(value: Int)                     extends RequestHeader
+  final case class Expect(value: String)                 extends RequestHeader
+  final case class From(value: Email)                    extends RequestHeader
+  final case class Host(host: URL, port: Int)            extends RequestHeader
+  final case class IfMatch(etags: List[ETag])            extends RequestHeader
+  final case class IfModifiedSince(value: Instant)       extends RequestHeader
+  final case class IfNoneMatch(etags: List[ETag])        extends RequestHeader
+  final case class IfRange(value: Either[ETag, Instant]) extends RequestHeader
+  final case class IfUnmodifiedSince(value: Instant)     extends RequestHeader
+  final case class MaxForwards(value: Int)               extends RequestHeader
   final case class ProxyAuthorization(scheme: AuthenticationScheme, credentials: Credentials) extends RequestHeader {
     override def toString = s"ProxyAuthorization: $scheme $credentials"
   }
@@ -87,9 +87,9 @@ final object ResponseHeader {
     override def toString = s"ProxyAuthenticate: $scheme $realm"
   }
 
-  final case class RetryAfter(duration: Either[LocalDateTime, Duration]) extends ResponseHeader
-  final case class Server(value: String)                                 extends ResponseHeader
-  final case class Vary(value: String)                                   extends ResponseHeader
+  final case class RetryAfter(duration: Either[Instant, Duration]) extends ResponseHeader
+  final case class Server(value: String)                           extends ResponseHeader
+  final case class Vary(value: String)                             extends ResponseHeader
 
   final case class WwwAuthenticate(
     scheme: AuthenticationScheme,
