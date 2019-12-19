@@ -18,7 +18,9 @@
 
 package zio.http.model
 
-sealed trait AuthenticationScheme
+import java.io.Serializable
+
+sealed trait AuthenticationScheme extends Product with Serializable
 final object AuthenticationScheme {
   final case object Basic       extends AuthenticationScheme
   final case object Bearer      extends AuthenticationScheme

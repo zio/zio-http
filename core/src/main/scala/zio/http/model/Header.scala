@@ -18,13 +18,14 @@
 
 package zio.http.model
 
+import java.io.Serializable
 import java.net.{ URI, URL }
 import java.time.Instant
 
 import zio.duration.Duration
 import zio.http.model.ResponseHeader.ETag
 
-sealed trait RequestHeader
+sealed trait RequestHeader extends Product with Serializable
 
 final object RequestHeader {
 
@@ -57,28 +58,28 @@ final object RequestHeader {
   }
 
   final object TransferEncoding {
-    sealed trait TransferEncodingType
-    final case object CHUNKED  extends TransferEncodingType
-    final case object IDENTITY extends TransferEncodingType
-    final case object GZIP     extends TransferEncodingType
-    final case object COMPRESS extends TransferEncodingType
-    final case object DEFLATE  extends TransferEncodingType
+    sealed trait TransferEncodingType extends Product with Serializable
+    final case object CHUNKED         extends TransferEncodingType
+    final case object IDENTITY        extends TransferEncodingType
+    final case object GZIP            extends TransferEncodingType
+    final case object COMPRESS        extends TransferEncodingType
+    final case object DEFLATE         extends TransferEncodingType
   }
 
   final case class UserAgent(product: String, productVersion: Option[String] = None, comment: Option[String] = None)
       extends RequestHeader
 }
 
-sealed trait ResponseHeader
+sealed trait ResponseHeader extends Product with Serializable
 
 final object ResponseHeader {
 
   import AcceptRanges._
   final case class AcceptRanges(value: AcceptRangesType) extends ResponseHeader
   final object AcceptRanges {
-    sealed trait AcceptRangesType
-    final case object NONE  extends AcceptRangesType
-    final case object BYTES extends AcceptRangesType
+    sealed trait AcceptRangesType extends Product with Serializable
+    final case object NONE        extends AcceptRangesType
+    final case object BYTES       extends AcceptRangesType
   }
   final case class Age(value: Duration) extends ResponseHeader
   final case class ETag(value: String)  extends ResponseHeader

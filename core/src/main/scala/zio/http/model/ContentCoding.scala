@@ -18,13 +18,15 @@
 
 package zio.http.model
 
+import java.io.Serializable
+
 import zio.http.model.ContentCoding._
 
 final case class ContentCoding(value: ContentCodingType, q: Option[QValue] = None)
 
 object ContentCoding {
 
-  sealed trait ContentCodingType
+  sealed trait ContentCodingType extends Product with Serializable
 
   final object ContentCodingType {
     final case object COMPRESS extends ContentCodingType
