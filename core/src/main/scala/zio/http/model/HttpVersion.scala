@@ -23,9 +23,9 @@ sealed abstract class HttpVersion(major: Int, minor: Int) {
 }
 
 final object HttpVersion {
-  final case object HTTP_0_9 extends HttpVersion(0, 9)
-  final case object HTTP_1_0 extends HttpVersion(1, 0)
-  final case object HTTP_1_1 extends HttpVersion(1, 1)
-  final case object HTTP_2_0 extends HttpVersion(2, 0)
-  final case object HTTP_3_0 extends HttpVersion(3, 0)
+  case object HTTP_0_9 extends HttpVersion(0, 9)
+  case object HTTP_1_0 extends HttpVersion(1, 0)
+  case object HTTP_1_1 extends HttpVersion(1, 1)
+  case object HTTP_2_0 extends HttpVersion(2, 0)
+  case object HTTP_3_0 extends HttpVersion(3, 0)
 }

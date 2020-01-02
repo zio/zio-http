@@ -18,9 +18,7 @@
 
 package zio.http.model
 
-final case class ContentType(value: String) extends AnyVal {
-  override def toString: String = value
-}
+final case class ContentType(value: String) extends AnyVal
 
 object ContentType {
   val Plain       = ContentType("text/plain")

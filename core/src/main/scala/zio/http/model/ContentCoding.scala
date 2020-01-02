@@ -27,11 +27,8 @@ final case class ContentCoding(value: ContentCodingType, q: Option[QValue] = Non
 object ContentCoding {
 
   sealed trait ContentCodingType extends Product with Serializable
-
-  final object ContentCodingType {
-    final case object COMPRESS extends ContentCodingType
-    final case object DEFLATE  extends ContentCodingType
-    final case object GZIP     extends ContentCodingType
-  }
+  case object COMPRESS           extends ContentCodingType
+  case object DEFLATE            extends ContentCodingType
+  case object GZIP               extends ContentCodingType
 
 }

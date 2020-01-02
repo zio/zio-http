@@ -27,44 +27,50 @@ import zio.http.model.ResponseHeader.ETag
 
 sealed trait RequestHeader extends Product with Serializable
 
-final object RequestHeader {
+object RequestHeader {
 
-  final case class Accept(mediaRange: List[MediaRange])                extends RequestHeader
-  final case class AcceptCharset(charsets: List[CharsetRange])         extends RequestHeader
+  final case class Accept(mediaRange: List[MediaRange]) extends RequestHeader
+
+  final case class AcceptCharset(charsets: List[CharsetRange]) extends RequestHeader
+
   final case class AcceptEncoding(contentCodings: List[ContentCoding]) extends RequestHeader
-  final case class AcceptLanguage(languages: List[Language])           extends RequestHeader
-  final case class Authorization(scheme: AuthenticationScheme, credentials: Credentials) extends RequestHeader {
-    override def toString = s"Authorization: $scheme $credentials"
-  }
-  final case class Expect(value: String)                 extends RequestHeader
-  final case class From(value: Email)                    extends RequestHeader
-  final case class Host(host: URL, port: Int)            extends RequestHeader
-  final case class IfMatch(etags: List[ETag])            extends RequestHeader
-  final case class IfModifiedSince(value: Instant)       extends RequestHeader
-  final case class IfNoneMatch(etags: List[ETag])        extends RequestHeader
+
+  final case class AcceptLanguage(languages: List[Language]) extends RequestHeader
+
+  final case class Authorization(scheme: AuthenticationScheme, credentials: Credentials) extends RequestHeader
+
+  final case class Expect(value: String) extends RequestHeader
+
+  final case class From(value: Email) extends RequestHeader
+
+  final case class Host(host: URL, port: Int) extends RequestHeader
+
+  final case class IfMatch(etags: List[ETag]) extends RequestHeader
+
+  final case class IfModifiedSince(value: Instant) extends RequestHeader
+
+  final case class IfNoneMatch(etags: List[ETag]) extends RequestHeader
+
   final case class IfRange(value: Either[ETag, Instant]) extends RequestHeader
-  final case class IfUnmodifiedSince(value: Instant)     extends RequestHeader
-  final case class MaxForwards(value: Int)               extends RequestHeader
-  final case class ProxyAuthorization(scheme: AuthenticationScheme, credentials: Credentials) extends RequestHeader {
-    override def toString = s"ProxyAuthorization: $scheme $credentials"
-  }
+
+  final case class IfUnmodifiedSince(value: Instant) extends RequestHeader
+
+  final case class MaxForwards(value: Int) extends RequestHeader
+
+  final case class ProxyAuthorization(scheme: AuthenticationScheme, credentials: Credentials) extends RequestHeader
+
   final case class Range(value: String) extends RequestHeader
-  final case class Referer(value: URI)  extends RequestHeader
 
-  import TransferEncoding._
+  final case class Referer(value: URI) extends RequestHeader
 
-  sealed abstract class TransferEncoding(transferEncodings: List[TransferEncodingType]) extends RequestHeader {
-    override def toString(): String = s"Transfer-Encoding: ${transferEncodings.mkString(",")}"
-  }
+  final case class TransferEncoding(transferEncodings: List[TransferEncodingType]) extends RequestHeader
 
-  final object TransferEncoding {
-    sealed trait TransferEncodingType extends Product with Serializable
-    final case object CHUNKED         extends TransferEncodingType
-    final case object IDENTITY        extends TransferEncodingType
-    final case object GZIP            extends TransferEncodingType
-    final case object COMPRESS        extends TransferEncodingType
-    final case object DEFLATE         extends TransferEncodingType
-  }
+  sealed trait TransferEncodingType extends Product with Serializable
+  case object CHUNKED               extends TransferEncodingType
+  case object IDENTITY              extends TransferEncodingType
+  case object GZIP                  extends TransferEncodingType
+  case object COMPRESS              extends TransferEncodingType
+  case object DEFLATE               extends TransferEncodingType
 
   final case class UserAgent(product: String, productVersion: Option[String] = None, comment: Option[String] = None)
       extends RequestHeader
@@ -72,34 +78,33 @@ final object RequestHeader {
 
 sealed trait ResponseHeader extends Product with Serializable
 
-final object ResponseHeader {
+object ResponseHeader {
 
-  import AcceptRanges._
   final case class AcceptRanges(value: AcceptRangesType) extends ResponseHeader
-  final object AcceptRanges {
-    sealed trait AcceptRangesType extends Product with Serializable
-    final case object NONE        extends AcceptRangesType
-    final case object BYTES       extends AcceptRangesType
-  }
+  sealed trait AcceptRangesType                          extends Product with Serializable
+  final case object NONE                                 extends AcceptRangesType
+  final case object BYTES                                extends AcceptRangesType
+
   final case class Age(value: Duration) extends ResponseHeader
-  final case class ETag(value: String)  extends ResponseHeader
+
+  final case class ETag(value: String) extends ResponseHeader
+
   final case class Location(value: URL) extends ResponseHeader
-  final case class ProxyAuthenticate(scheme: AuthenticationScheme, realm: Realm) extends ResponseHeader {
-    override def toString = s"ProxyAuthenticate: $scheme $realm"
-  }
+
+  final case class ProxyAuthenticate(scheme: AuthenticationScheme, realm: Realm) extends ResponseHeader
 
   final case class RetryAfter(duration: Either[Instant, Duration]) extends ResponseHeader
-  final case class Server(value: String)                           extends ResponseHeader
-  final case class Vary(value: String)                             extends ResponseHeader
+
+  final case class Server(value: String) extends ResponseHeader
+
+  final case class Vary(value: String) extends ResponseHeader
 
   final case class WwwAuthenticate(
     scheme: AuthenticationScheme,
     realm: Realm,
     parameters: Map[String, String],
     charset: Charset
-  ) extends ResponseHeader {
-    override def toString = s"WWW-Authenticate: $scheme $realm, charset=${charset.value}"
-  }
+  ) extends ResponseHeader
 
   final case class SetCookie(
     value: String,
