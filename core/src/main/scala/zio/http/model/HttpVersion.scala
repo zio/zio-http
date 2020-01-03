@@ -18,9 +18,7 @@
 
 package zio.http.model
 
-sealed abstract class HttpVersion(major: Int, minor: Int) {
-  override def toString: String = s"HTTP / $major.$minor"
-}
+sealed abstract class HttpVersion(val major: Int, val minor: Int)
 
 final object HttpVersion {
   case object HTTP_0_9 extends HttpVersion(0, 9)
