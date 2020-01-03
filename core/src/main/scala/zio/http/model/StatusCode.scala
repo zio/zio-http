@@ -18,15 +18,28 @@
 
 package zio.http.model
 
-final case class StatusCode(value: Int) extends AnyVal {
-  def isInformation: Boolean = value / 100 == 1
-  def isSuccess: Boolean     = value / 100 == 2
-  def isRedirect: Boolean    = value / 100 == 3
-  def isClientError: Boolean = value / 100 == 4
-  def isServerError: Boolean = value / 100 == 5
+trait StatusCode {
+
+  def isInformation: Boolean
+  def isSuccess: Boolean
+  def isRedirect: Boolean
+  def isClientError: Boolean
+  def isServerError: Boolean
+
 }
 
 object StatusCode {
+
+  private def apply(value: Int): StatusCode = new StatusCodeImpl(value)
+
+  private case class StatusCodeImpl(private val value: Int) extends StatusCode {
+    def isInformation: Boolean = value / 100 == 1
+    def isSuccess: Boolean     = value / 100 == 2
+    def isRedirect: Boolean    = value / 100 == 3
+    def isClientError: Boolean = value / 100 == 4
+    def isServerError: Boolean = value / 100 == 5
+  }
+
   val Continue                    = StatusCode(100)
   val SwitchingProtocols          = StatusCode(101)
   val OK                          = StatusCode(200)
