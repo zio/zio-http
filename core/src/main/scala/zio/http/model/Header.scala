@@ -66,11 +66,14 @@ object RequestHeader {
   final case class TransferEncoding(transferEncodings: List[TransferEncodingType]) extends RequestHeader
 
   sealed trait TransferEncodingType extends Product with Serializable
-  case object CHUNKED               extends TransferEncodingType
-  case object IDENTITY              extends TransferEncodingType
-  case object GZIP                  extends TransferEncodingType
-  case object COMPRESS              extends TransferEncodingType
-  case object DEFLATE               extends TransferEncodingType
+
+  object TransferEncodingType {
+    case object CHUNKED  extends TransferEncodingType
+    case object IDENTITY extends TransferEncodingType
+    case object GZIP     extends TransferEncodingType
+    case object COMPRESS extends TransferEncodingType
+    case object DEFLATE  extends TransferEncodingType
+  }
 
   final case class UserAgent(product: String, productVersion: Option[String] = None, comment: Option[String] = None)
       extends RequestHeader
@@ -81,9 +84,13 @@ sealed trait ResponseHeader extends Product with Serializable
 object ResponseHeader {
 
   final case class AcceptRanges(value: AcceptRangesType) extends ResponseHeader
-  sealed trait AcceptRangesType                          extends Product with Serializable
-  final case object NONE                                 extends AcceptRangesType
-  final case object BYTES                                extends AcceptRangesType
+
+  sealed trait AcceptRangesType extends Product with Serializable
+
+  object AcceptRangesType {
+    case object NONE  extends AcceptRangesType
+    case object BYTES extends AcceptRangesType
+  }
 
   final case class Age(value: Duration) extends ResponseHeader
 
