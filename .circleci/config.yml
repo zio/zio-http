@@ -1,10 +1,10 @@
 version: 2.1
 
 scala_212: &scala_212
-  SCALA_VERSION: 2.12.8
+  SCALA_VERSION: 2.12.12
 
 scala_213: &scala_213
-  SCALA_VERSION: 2.13.0
+  SCALA_VERSION: 2.13.3
 
 jdk_8: &jdk_8
   JDK_VERSION: 8
@@ -46,6 +46,14 @@ load_cache: &load_cache
   - restore_cache:
       key: sbt-http-cache
 
+clean_cache: &clean_cache
+  - run:
+      name: Clean unwanted files from cache
+      command: |
+        rm -fv $HOME/.ivy2/.sbt.ivy.lock
+        find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
+        find $HOME/.sbt        -name "*.lock"               -print -delete
+
 save_cache: &save_cache
   - save_cache:
       key: sbt-http-cache
@@ -53,6 +61,7 @@ save_cache: &save_cache
           - "~/.ivy2/cache"
           - "~/.sbt"
           - "~/.m2"
+          - "~/.cache"
 
 lint: &lint
   steps:
@@ -61,6 +70,7 @@ lint: &lint
     - run:
         name: Lint code
         command: ./sbt ++${SCALA_VERSION}! check
+    - <<: *clean_cache
     - <<: *save_cache
 
 test: &test
@@ -71,6 +81,7 @@ test: &test
     - run:
         name: Run tests
         command: ./sbt ++${SCALA_VERSION}! test
+    - <<: *clean_cache
     - <<: *save_cache
 
 release: &release
