@@ -127,7 +127,7 @@ trait EndpointModule extends codec.CodecModule { endpointModule =>
      */
     def invoke[M, Request, Response](endpoint: Endpoint2[M, Request, Response])(request: Request)(
       implicit ev: A <:< Endpoint2[M, Request, Response],
-      tagA: zio.Tagged[A]
+      tagA: zio.Tag[A]
     ): ZIO[Has[ClientService[A]], Throwable, Response] = {
       val _ = tagA
       ZIO.accessM[Has[ClientService[A]]](_.get[ClientService[A]].invoke(endpoint, request))

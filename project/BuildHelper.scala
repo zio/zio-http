@@ -8,8 +8,9 @@ import BuildInfoKeys._
 
 object BuildHelper {
 
-  val zioVersion    = "1.0.0-RC18-2"
-  val zioNioVersion = "1.0.0-RC6"
+  val zioVersion      = "1.0.1"
+  val zioNioVersion   = "1.0.0-RC9"
+  val silencerVersion = "1.7.1"
 
   private val testDeps = Seq(
     "dev.zio" %% "zio-test"     % zioVersion % "test",
@@ -18,9 +19,9 @@ object BuildHelper {
 
   private def compileOnlyDeps(scalaVersion: String) = {
     val stdCompileOnlyDeps = Seq(
-      "com.github.ghik" %% "silencer-lib" % "1.4.2" % "provided",
-      compilerPlugin("org.typelevel"   %% "kind-projector"  % "0.10.3"),
-      compilerPlugin("com.github.ghik" %% "silencer-plugin" % "1.4.2")
+      ("com.github.ghik" % "silencer-lib" % silencerVersion % Provided).cross(CrossVersion.full),
+      compilerPlugin(("com.github.ghik" % "silencer-plugin" % silencerVersion).cross(CrossVersion.full)),
+      compilerPlugin(("org.typelevel"   %% "kind-projector" % "0.11.0").cross(CrossVersion.full))
     )
     CrossVersion.partialVersion(scalaVersion) match {
       case Some((2, x)) if x <= 12 =>
@@ -91,7 +92,7 @@ object BuildHelper {
   def stdSettings(prjName: String) =
     Seq(
       name := s"$prjName",
-      crossScalaVersions := Seq("2.13.0", "2.12.8", "2.11.12"),
+      crossScalaVersions := Seq("2.13.3", "2.12.12", "2.11.12"),
       scalaVersion in ThisBuild := crossScalaVersions.value.head,
       scalacOptions := compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,

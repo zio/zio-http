@@ -10,9 +10,13 @@ trait ProtoCodecModule extends ScalaCodecModule { m =>
   sealed trait Codec[A] { self =>
     final def <*>[B](that: Codec[B]): Codec[(A, B)] = self.zip(that)
 
-    final def *>[B](a0: A, that: Codec[B]): Codec[B] = self.zip(that).transform(_._2, b => (a0, b))
+    final def *>[B](a0: A): Codec[B] => Codec[B] = { that: Codec[B] =>
+      self.zip(that).transform(_._2, b => (a0, b))
+    }
 
-    final def <*[B](b0: B, that: Codec[B]): Codec[A] = self.zip(that).transform(_._1, a => (a, b0))
+    final def <*[B](b0: B): Codec[B] => Codec[A] = { that: Codec[B] =>
+      self.zip(that).transform(_._1, a => (a, b0))
+    }
 
     def ascribe[B](semantic: Semantic[A, B]): Codec[B] = Codec.Ascribe(self, semantic)
 
