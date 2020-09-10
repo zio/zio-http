@@ -70,3 +70,4 @@ libraryDependencies += "dev.zio" %% "zio-http-core" % "<version>"
 [link-sonatype]: https://oss.sonatype.org/content/repositories/releases/dev/zio/zio-http-core_2.12/
 [link-iim]: https://isitmaintained.com/project/zio/zio-http
 [link-discord]: https://discord.gg/2ccFBr4 "Discord"
+ 
