@@ -41,7 +41,10 @@ addCommandAlias("testRelease", ";set every isSnapshot := false;+clean;+compile")
 
 lazy val root = project
   .in(file("."))
-  .settings(skip in publish := true)
+  .settings(
+    name := "zio-web",
+    skip in publish := true
+  )
   .aggregate(
     core
   )
