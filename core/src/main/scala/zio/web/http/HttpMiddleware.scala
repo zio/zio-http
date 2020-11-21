@@ -1,7 +1,9 @@
 package zio.web.http
 
 import zio._
-import java.nio.charset.StandardCharsets
+import zio.web.http.auth.BasicAuth
+import zio.web.http.auth.BasicAuth.AuthResult.{ Denied, Granted }
+import zio.web.http.auth.BasicAuth.{ AuthParams, AuthResult }
 
 /**
  * An `HttpMiddleware[R, E]` value defines HTTP middleware that requires an
@@ -50,28 +52,28 @@ object HttpMiddleware {
       }
   }
 
-  def basicAuth[R, E](authenticate: Option[(String, String)] => ZIO[R, E, Unit]): HttpMiddleware[R, E] =
+  def basicAuth2[R, E](realm: String, authenticate: AuthParams => ZIO[R, E, AuthResult]): HttpMiddleware[R, E] =
     HttpMiddleware(
       ZIO.succeed(
         Middleware(
-          request(HttpRequest.Header("Authorization")).stateless { header =>
-            if (header.startsWith("Basic")) {
-              val data = header.drop("Basic ".length).trim
-
-              // TODO: base64 decode data
-              val decoded = new String(java.util.Base64.getDecoder().decode(data), StandardCharsets.UTF_8)
-
-              val split = decoded.split(":")
-
-              if (split.length == 2) {
-                val username = split(0)
-                val password = split(1)
-
-                authenticate(Some(username -> password))
-              } else authenticate(None)
-            } else authenticate(None)
+          request(HttpRequest.Header("Authorization")) { header =>
+            AuthParams.create(realm, header) match {
+              case Some(params) =>
+                authenticate(params).bimap(e => (Option(Denied), e), g => Option(g))
+              case None =>
+                ZIO.succeed(None)
+            }
           },
-          Response.none
+          Response(
+            HttpResponse.StatusCode,
+            (authResult: Option[AuthResult], _: Int) =>
+              ZIO.succeed(
+                authResult.fold(BasicAuth.unauthorized(realm)) {
+                  case Granted => Patch.empty
+                  case Denied  => BasicAuth.forbidden
+                }
+              )
+          )
         )
       )
     )
@@ -103,7 +105,7 @@ object HttpMiddleware {
                 ),
                 Response(
                   HttpResponse.Succeed,
-                  (flag: Boolean, _: Unit) => (if (flag) ref.update(_ - 1) else ZIO.unit).as(HttpHeaders.empty)
+                  (flag: Boolean, _: Unit) => (if (flag) ref.update(_ - 1) else ZIO.unit).as(Patch.empty)
                 )
               )
             }
@@ -169,7 +171,7 @@ object HttpMiddleware {
 
     val pattern: HttpResponse[Metadata]
 
-    val processor: (S, Metadata) => ZIO[R, E, HttpHeaders]
+    val processor: (S, Metadata) => ZIO[R, E, Patch]
 
     def <>[R1 <: R, E1 >: E, S2](that: Response[R1, E1, S2]): Response[R1, E1, (S, S2)] =
       new Response[R1, E1, (S, S2)] {
@@ -178,7 +180,7 @@ object HttpMiddleware {
         val pattern = self.pattern.zip(that.pattern)
 
         val processor = (state: (S, S2), metadata: Metadata) =>
-          self.processor(state._1, metadata._1).zipWith(that.processor(state._2, metadata._2))(_ ++ _)
+          self.processor(state._1, metadata._1).zipWith(that.processor(state._2, metadata._2))(_ + _)
       }
 
     def mapError[E2](f: E => E2): Response[R, E2, S] =
@@ -187,7 +189,7 @@ object HttpMiddleware {
 
   object Response {
 
-    def apply[R, E, S, M](p: HttpResponse[M], f: (S, M) => ZIO[R, E, HttpHeaders]): Response[R, E, S] =
+    def apply[R, E, S, M](p: HttpResponse[M], f: (S, M) => ZIO[R, E, Patch]): Response[R, E, S] =
       new Response[R, E, S] {
         type Metadata = M
         val pattern   = p
@@ -195,6 +197,6 @@ object HttpMiddleware {
       }
 
     val none: Response[Any, Nothing, Any] =
-      apply[Any, Nothing, Any, Unit](HttpResponse.Succeed, (_, _) => ZIO.succeed(HttpHeaders.empty))
+      apply[Any, Nothing, Any, Unit](HttpResponse.Succeed, (_, _) => ZIO.succeed(Patch.empty))
   }
 }
