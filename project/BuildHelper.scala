@@ -11,6 +11,7 @@ object BuildHelper {
   val zioVersion      = "1.0.3"
   val zioNioVersion   = "1.0.0-RC9"
   val silencerVersion = "1.7.1"
+  val zioZmxVersion   = "0.0.4"
 
   private val testDeps = Seq(
     "dev.zio" %% "zio-test"     % zioVersion % "test",

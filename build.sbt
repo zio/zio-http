@@ -56,6 +56,7 @@ lazy val core = project
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio"         % zioVersion,
       "dev.zio" %% "zio-streams" % zioVersion,
-      "dev.zio" %% "zio-nio"     % zioNioVersion
+      "dev.zio" %% "zio-nio"     % zioNioVersion,
+      "dev.zio" %% "zio-zmx"     % zioZmxVersion
     )
   )

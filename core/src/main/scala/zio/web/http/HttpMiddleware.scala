@@ -2,6 +2,8 @@ package zio.web.http
 
 import zio._
 import java.nio.charset.StandardCharsets
+import zio.zmx.Metrics
+import zio.zmx._
 
 /**
  * An `HttpMiddleware[R, E]` value defines HTTP middleware that requires an
@@ -108,6 +110,22 @@ object HttpMiddleware {
               )
             }
         )
+    )
+
+  def metrics: HttpMiddleware[Metrics, Nothing] =
+    HttpMiddleware(
+      ZIO.succeed(
+        Middleware(
+          Request.none,
+          Response(
+            HttpResponse.StatusCode,
+            (_: Unit, statusCode: Int) =>
+              (zio.zmx.Metrics
+                .increment("zio-web-requests", 1.0, Label("httpStatusCode", statusCode.toString)))
+                .as(HttpHeaders.empty)
+          )
+        )
+      )
     )
 
   /**
