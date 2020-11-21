@@ -54,8 +54,11 @@ lazy val core = project
   .settings(stdSettings("zio-http-core"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio"         % zioVersion,
-      "dev.zio" %% "zio-streams" % zioVersion,
-      "dev.zio" %% "zio-nio"     % zioNioVersion
+      "dev.zio" %% "zio"          % zioVersion,
+      "dev.zio" %% "zio-streams"  % zioVersion,
+      "dev.zio" %% "zio-nio"      % zioNioVersion,
+      "dev.zio" %% "zio-test"     % zioVersion % "test",
+      "dev.zio" %% "zio-test-sbt" % zioVersion % "test"
     )
   )
+  .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
