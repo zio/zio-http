@@ -5,8 +5,8 @@ target
 test-output/
 .sbtopts
 project/.sbt
-test-output/
 .bloop
+.bsp
 .metals
 .idea
 metals.sbt
@@ -17,3 +17,5 @@ website/node_modules
 website/build
 website/i18n/en.json
 null
+/.bsp/
+/.vscode/

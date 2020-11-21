@@ -1,14 +1,19 @@
 package zio.web
 
-package zio.web
-
-import _root_.zio.web.schema._
+import zio.schema._
 
 trait Example extends http.HttpProtocolModule {
   import http.HttpMiddleware
 
   sealed case class UserId(id: String)
   sealed case class UserProfile(age: Int, fullName: String, address: String)
+
+  sealed trait Status
+  case class Ok(code: Int)                                               extends Status
+  case class Failed(code: Int, reason: String, field3: Int, field4: Int) extends Status
+  case object Pending                                                    extends Status
+
+  implicit val statusSchema: Schema[Status] = DeriveSchema.gen
 
   val userJoe: UserId = UserId("123123")
 

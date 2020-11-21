@@ -1,6 +1,6 @@
 package zio.web.codec
 
-import zio.web.schema._
+import zio.schema._
 import zio.stream.ZTransducer
 
 object JsonCodec extends Codec {

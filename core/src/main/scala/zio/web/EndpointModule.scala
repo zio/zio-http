@@ -1,6 +1,6 @@
 package zio.web
 
-import _root_.zio.web.schema.Schema
+import zio.schema.Schema
 import _root_.zio.web.docs._
 import _root_.zio.{ Has, RIO, Tag, Task, ZIO }
 
