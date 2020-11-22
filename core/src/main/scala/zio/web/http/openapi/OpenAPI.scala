@@ -16,21 +16,21 @@ object OpenAPI {
    *
    * @param openapi This string MUST be the semantic version number of the OpenAPI Specification version that the OpenAPI document uses. The openapi field SHOULD be used by tooling specifications and clients to interpret the OpenAPI document. This is not related to the API info.version string.
    * @param info Provides metadata about the API. The metadata MAY be used by tooling as required.
-   * @param servers A Seq of Server Objects, which provide connectivity information to a target server. If the servers property is empty, the default value would be a Server Object with a url value of /.
+   * @param servers A List of Server Objects, which provide connectivity information to a target server. If the servers property is empty, the default value would be a Server Object with a url value of /.
    * @param paths The available paths and operations for the API.
    * @param components An element to hold various schemas for the specification.
-   * @param security A declaration of which security mechanisms can be used across the API. The list of values includes alternative security requirement objects that can be used. Only one of the security requirement objects need to be satisfied to authorize a request. Individual operations can override this definition. To make security optional, an empty security requirement ({}) can be included in the Seq.
+   * @param security A declaration of which security mechanisms can be used across the API. The list of values includes alternative security requirement objects that can be used. Only one of the security requirement objects need to be satisfied to authorize a request. Individual operations can override this definition. To make security optional, an empty security requirement ({}) can be included in the List.
    * @param tags A list of tags used by the specification with additional metadata. The order of the tags can be used to reflect on their order by the parsing tools. Not all tags that are used by the Operation Object must be declared. The tags that are not declared MAY be organized randomly or based on the tools’ logic. Each tag name in the list MUST be unique.
    * @param externalDocs Additional external documentation.
    */
   final case class OpenAPI(
     openapi: String,
     info: Info,
-    servers: Seq[Server],
+    servers: List[Server],
     paths: Paths,
     components: Option[Components],
-    security: Seq[SecurityRequirement],
-    tags: Seq[Tag],
+    security: List[SecurityRequirement],
+    tags: List[Tag],
     externalDocs: Doc
   )
 
@@ -149,7 +149,7 @@ object OpenAPI {
    * @param head A definition of a HEAD operation on this path.
    * @param patch A definition of a PATCH operation on this path.
    * @param trace A definition of a TRACE operation on this path.
-   * @param servers An alternative server Seq to service all operations in this path.
+   * @param servers An alternative server List to service all operations in this path.
    * @param parameters A Set of parameters that are applicable for all the operations described under this path. These parameters can be overridden at the operation level, but cannot be removed there. The Set can use the Reference Object to link to parameters that are defined at the OpenAPI Object’s components/parameters.
    */
   final case class PathItem(
@@ -164,7 +164,7 @@ object OpenAPI {
     head: Option[Operation],
     patch: Option[Operation],
     trace: Option[Operation],
-    servers: Seq[Server],
+    servers: List[Server],
     parameters: Set[Parameter]
   )
 
@@ -176,16 +176,16 @@ object OpenAPI {
    * @param description A verbose explanation of the operation behavior.
    * @param externalDocs Additional external documentation for this operation.
    * @param operationId Unique string used to identify the operation. The id MUST be unique among all operations described in the API. The operationId value is case-sensitive. Tools and libraries MAY use the operationId to uniquely identify an operation, therefore, it is RECOMMENDED to follow common programming naming conventions.
-   * @param parameters A Seq of parameters that are applicable for this operation. If a parameter is already defined at the Path Item, the new definition will override it but can never remove it. The list MUST NOT include duplicated parameters. A unique parameter is defined by a combination of a name and location. The list can use the Reference Object to link to parameters that are defined at the OpenAPI Object’s components/parameters.
+   * @param parameters A List of parameters that are applicable for this operation. If a parameter is already defined at the Path Item, the new definition will override it but can never remove it. The list MUST NOT include duplicated parameters. A unique parameter is defined by a combination of a name and location. The list can use the Reference Object to link to parameters that are defined at the OpenAPI Object’s components/parameters.
    * @param requestBody The request body applicable for this operation. The requestBody is only supported in HTTP methods where the HTTP 1.1 specification [RFC7231] has explicitly defined semantics for request bodies. In other cases where the HTTP spec is vague, requestBody SHALL be ignored by consumers.
-   * @param responses The Seq of possible responses as they are returned from executing this operation.
+   * @param responses The List of possible responses as they are returned from executing this operation.
    * @param callbacks A map of possible out-of band callbacks related to the parent operation. The key is a unique identifier for the Callback Object. Each value in the map is a Callback Object that describes a request that may be initiated by the API provider and the expected responses.
    * @param deprecated Declares this operation to be deprecated. Consumers SHOULD refrain from usage of the declared operation.
-   * @param security A declaration of which security mechanisms can be used for this operation. The Seq of values includes alternative security requirement objects that can be used. Only one of the security requirement objects need to be satisfied to authorize a request. To make security optional, an empty security requirement ({}) can be included in the array. This definition overrides any declared top-level security. To remove a top-level security declaration, an empty Seq can be used.
-   * @param servers An alternative server Seq to service this operation. If an alternative server object is specified at the Path Item Object or Root level, it will be overridden by this value.
+   * @param security A declaration of which security mechanisms can be used for this operation. The List of values includes alternative security requirement objects that can be used. Only one of the security requirement objects need to be satisfied to authorize a request. To make security optional, an empty security requirement ({}) can be included in the array. This definition overrides any declared top-level security. To remove a top-level security declaration, an empty List can be used.
+   * @param servers An alternative server List to service this operation. If an alternative server object is specified at the Path Item Object or Root level, it will be overridden by this value.
    */
   final case class Operation(
-    tags: Seq[String],
+    tags: List[String],
     summary: String = "",
     description: Doc,
     externalDocs: Option[URI],
@@ -195,8 +195,8 @@ object OpenAPI {
     responses: Responses,
     callbacks: Map[String, Callback],
     deprecated: Boolean = false,
-    security: Seq[SecurityRequirement],
-    servers: Seq[Server]
+    security: List[SecurityRequirement],
+    servers: List[Server]
   )
 
   /**
@@ -639,7 +639,7 @@ object OpenAPI {
    *
    * When a list of Security Requirement Objects is defined on the OpenAPI Object or Operation Object, only one of the Security Requirement Objects in the list needs to be satisfied to authorize the request.
    *
-   * @param securitySchemes If the security scheme is of type "oauth2" or "openIdConnect", then the value is a list of scope names required for the execution, and the list MAY be empty if authorization does not require a specified scope. For other security scheme types, the Seq MUST be empty.
+   * @param securitySchemes If the security scheme is of type "oauth2" or "openIdConnect", then the value is a list of scope names required for the execution, and the list MAY be empty if authorization does not require a specified scope. For other security scheme types, the List MUST be empty.
    */
-  final case class SecurityRequirement(securitySchemes: Map[String, Seq[String]])
+  final case class SecurityRequirement(securitySchemes: Map[String, List[String]])
 }
