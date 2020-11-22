@@ -52,7 +52,7 @@ object HttpMiddleware {
       }
   }
 
-  def basicAuth2[R, E](realm: String, authenticate: AuthParams => ZIO[R, E, AuthResult]): HttpMiddleware[R, E] =
+  def basicAuth[R, E](realm: String, authenticate: AuthParams => ZIO[R, E, AuthResult]): HttpMiddleware[R, E] =
     HttpMiddleware(
       ZIO.succeed(
         Middleware(
