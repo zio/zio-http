@@ -1,6 +1,6 @@
 package zio.web
 
-import _root_.zio.web.schema._
+import zio.schema._
 
 trait Example extends http.HttpProtocolModule {
   import http.HttpMiddleware

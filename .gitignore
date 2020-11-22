@@ -6,6 +6,7 @@ test-output/
 .sbtopts
 project/.sbt
 .bloop
+.bsp
 .metals
 .idea
 metals.sbt
