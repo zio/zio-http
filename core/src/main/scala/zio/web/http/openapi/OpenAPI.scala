@@ -102,7 +102,7 @@ object OpenAPI {
    * @param callbacks An object to hold reusable Callback Objects.
    */
   final case class Components(
-    schemas: Map[Key, Parameter.Definition.Schema],
+    schemas: Map[Key, Schema],
     responses: Map[Key, Response],
     parameters: Map[Key, Parameter],
     examples: Map[Key, Example],
@@ -234,38 +234,7 @@ object OpenAPI {
     sealed trait Definition
 
     object Definition {
-
-      /**
-       * The Schema Object allows the definition of input and output data types.
-       *
-       * @param nullable A true value adds "null" to the allowed type specified by the type keyword, only if type is explicitly defined within the same Schema Object. Other Schema Object constraints retain their defined behavior, and therefore may disallow the use of null as a value. A false value leaves the specified or default type unmodified.
-       * @param discriminator Adds support for polymorphism. The discriminator is an object name that is used to differentiate between other schemas which may satisfy the payload description.
-       * @param readOnly Relevant only for Schema "properties" definitions. Declares the property as “read only”. This means that it MAY be sent as part of a response but SHOULD NOT be sent as part of the request. If the property is marked as readOnly being true and is in the required list, the required will take effect on the response only.
-       * @param writeOnly Relevant only for Schema "properties" definitions. Declares the property as “write only”. Therefore, it MAY be sent as part of a request but SHOULD NOT be sent as part of the response. If the property is marked as writeOnly being true and is in the required list, the required will take effect on the request only.
-       * @param xml This MAY be used only on properties schemas. It has no effect on root schemas. Adds additional metadata to describe the XML representation of this property.
-       * @param externalDocs Additional external documentation for this schema.
-       * @param example A free-form property to include an example of an instance for this schema.
-       * @param deprecated Specifies that a schema is deprecated and SHOULD be transitioned out of usage.
-       */
-      final case class Schema(
-        nullable: Boolean = false,
-        discriminator: Option[Discriminator],
-        readOnly: Boolean = false,
-        writeOnly: Boolean = false,
-        xml: Option[XML],
-        externalDocs: URI,
-        example: String,
-        deprecated: Boolean = false
-      ) extends Definition {
-
-        /**
-         * A property MUST NOT be marked as both readOnly and writeOnly being true.
-         */
-        require((readOnly && !writeOnly) || (!readOnly && writeOnly) || (!readOnly && !writeOnly))
-      }
       final case class Content(key: String, mediaType: String) extends Definition
-      final case class SchemaReference(ref: String)            extends Definition
-
     }
 
     /**
@@ -386,7 +355,7 @@ object OpenAPI {
    * @param encoding A map between a property name and its encoding information. The key, being the property name, MUST exist in the schema as a property. The encoding object SHALL only apply to requestBody objects when the media type is multipart or application/x-www-form-urlencoded.
    */
   final case class MediaType(
-    schema: Parameter.Definition.Schema,
+    schema: Schema,
     examples: Map[String, Example],
     encoding: Map[String, Encoding]
   )
@@ -482,7 +451,71 @@ object OpenAPI {
    *
    * @param $ref The reference string.
    */
-  final case class Reference($ref: String)
+  final case class Reference($ref: String) extends Parameter.Definition
+
+  sealed trait Schema extends Parameter.Definition {
+    def nullable: Boolean
+    def discriminator: Option[Discriminator]
+    def readOnly: Boolean
+    def writeOnly: Boolean
+    def xml: Option[XML]
+    def externalDocs: URI
+    def example: String
+    def deprecated: Boolean
+  }
+
+  object Schema {
+
+    /**
+     * The Schema Object allows the definition of input and output data types.
+     *
+     * Marked as readOnly. This means that it MAY be sent as part of a response but SHOULD NOT be sent as part of the request. If the property is in the required list, the required will take effect on the response only.
+     *
+     * @param nullable      A true value adds "null" to the allowed type specified by the type keyword, only if type is explicitly defined within the same Schema Object. Other Schema Object constraints retain their defined behavior, and therefore may disallow the use of null as a value. A false value leaves the specified or default type unmodified.
+     * @param discriminator Adds support for polymorphism. The discriminator is an object name that is used to differentiate between other schemas which may satisfy the payload description.
+     * @param xml           This MAY be used only on properties schemas. It has no effect on root schemas. Adds additional metadata to describe the XML representation of this property.
+     * @param externalDocs  Additional external documentation for this schema.
+     * @param example       A free-form property to include an example of an instance for this schema.
+     * @param deprecated    Specifies that a schema is deprecated and SHOULD be transitioned out of usage.
+     */
+    final case class ResponseSchema(
+      nullable: Boolean = false,
+      discriminator: Option[Discriminator],
+      xml: Option[XML],
+      externalDocs: URI,
+      example: String,
+      deprecated: Boolean = false
+    ) extends Schema
+        with Parameter.Definition {
+      def readOnly: Boolean  = true
+      def writeOnly: Boolean = false
+    }
+
+    /**
+     * The Schema Object allows the definition of input and output data types.
+     *
+     * Marked as writeOnly. This means that it MAY be sent as part of a request but SHOULD NOT be sent as part of the response. If the property is in the required list, the required will take effect on the request only.
+     *
+     * @param nullable      A true value adds "null" to the allowed type specified by the type keyword, only if type is explicitly defined within the same Schema Object. Other Schema Object constraints retain their defined behavior, and therefore may disallow the use of null as a value. A false value leaves the specified or default type unmodified.
+     * @param discriminator Adds support for polymorphism. The discriminator is an object name that is used to differentiate between other schemas which may satisfy the payload description.
+     * @param xml           This MAY be used only on properties schemas. It has no effect on root schemas. Adds additional metadata to describe the XML representation of this property.
+     * @param externalDocs  Additional external documentation for this schema.
+     * @param example       A free-form property to include an example of an instance for this schema.
+     * @param deprecated    Specifies that a schema is deprecated and SHOULD be transitioned out of usage.
+     */
+    final case class RequestSchema(
+      nullable: Boolean = false,
+      discriminator: Option[Discriminator],
+      xml: Option[XML],
+      externalDocs: URI,
+      example: String,
+      deprecated: Boolean = false
+    ) extends Schema
+        with Parameter.Definition {
+      def readOnly: Boolean  = false
+      def writeOnly: Boolean = true
+    }
+  }
 
   /**
    * When request bodies or response payloads may be one of a number of different schemas, a discriminator object can be used to aid in serialization, deserialization, and validation. The discriminator is a specific object in a schema which is used to inform the consumer of the specification of an alternative schema based on the value associated with it.
