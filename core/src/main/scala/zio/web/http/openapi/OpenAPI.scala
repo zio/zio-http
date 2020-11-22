@@ -8,7 +8,8 @@ import zio.web.http.model.StatusCode
 
 object OpenAPI {
 
-  // TODO: SpecificationExtensions (https://spec.openapis.org/oas/v3.0.3#specificationExtensions) that start with x-
+  // TODO: SpecificationExtensions (https://spec.openapis.org/oas/v3.0.3#specificationExtensions) that start with x- as Map[String, Any]
+  // TODO: something like Either[Reference, A] for when a Reference is allowed
 
   /**
    * This is the root document object of the OpenAPI document.
@@ -101,7 +102,7 @@ object OpenAPI {
    * @param callbacks An object to hold reusable Callback Objects.
    */
   final case class Components(
-    schemas: Map[Key, Schema],
+    schemas: Map[Key, Parameter.Definition.Schema],
     responses: Map[Key, Response],
     parameters: Map[Key, Parameter],
     examples: Map[Key, Example],
@@ -164,7 +165,7 @@ object OpenAPI {
     patch: Option[Operation],
     trace: Option[Operation],
     servers: Seq[Server],
-    parameters: Set[Parameter] // TODO: what about Reference Type?
+    parameters: Set[Parameter]
   )
 
   /**
@@ -175,7 +176,7 @@ object OpenAPI {
    * @param description A verbose explanation of the operation behavior.
    * @param externalDocs Additional external documentation for this operation.
    * @param operationId Unique string used to identify the operation. The id MUST be unique among all operations described in the API. The operationId value is case-sensitive. Tools and libraries MAY use the operationId to uniquely identify an operation, therefore, it is RECOMMENDED to follow common programming naming conventions.
-   * @param parameters A Seq of parameters that are applicable for this operation. If a parameter is already defined at the Path Item, the new definition will override it but can never remove it. The list MUST NOT include duplicated parameters. A unique parameter is defined by a combination of a name and location. The list can use the Reference Object to link to parameters that are defined at the OpenAPI Object’s components/parameters. // TODO: reference type
+   * @param parameters A Seq of parameters that are applicable for this operation. If a parameter is already defined at the Path Item, the new definition will override it but can never remove it. The list MUST NOT include duplicated parameters. A unique parameter is defined by a combination of a name and location. The list can use the Reference Object to link to parameters that are defined at the OpenAPI Object’s components/parameters.
    * @param requestBody The request body applicable for this operation. The requestBody is only supported in HTTP methods where the HTTP 1.1 specification [RFC7231] has explicitly defined semantics for request bodies. In other cases where the HTTP spec is vague, requestBody SHALL be ignored by consumers.
    * @param responses The Seq of possible responses as they are returned from executing this operation.
    * @param callbacks A map of possible out-of band callbacks related to the parent operation. The key is a unique identifier for the Callback Object. Each value in the map is a Callback Object that describes a request that may be initiated by the API provider and the expected responses.
@@ -203,13 +204,15 @@ object OpenAPI {
    */
   sealed trait Parameter {
     def name: String
-    def in: Parameter.In
+    def in: String
     def description: Doc
     def required: Boolean
     def deprecated: Boolean
     def allowEmptyValue: Boolean
-    def content: (String, MediaType)
-    // TODO: Is it content or style or just content or schema?
+    def definition: Parameter.Definition
+    def style: String
+    def explode: Boolean
+    def examples: Map[String, Example]
 
     /**
      * A unique parameter is defined by a combination of a name and location.
@@ -221,32 +224,74 @@ object OpenAPI {
   }
 
   object Parameter {
+    sealed trait Definition
+
+    object Definition {
+
+      /**
+       * The Schema Object allows the definition of input and output data types.
+       *
+       * @param nullable A true value adds "null" to the allowed type specified by the type keyword, only if type is explicitly defined within the same Schema Object. Other Schema Object constraints retain their defined behavior, and therefore may disallow the use of null as a value. A false value leaves the specified or default type unmodified.
+       * @param discriminator Adds support for polymorphism. The discriminator is an object name that is used to differentiate between other schemas which may satisfy the payload description.
+       * @param readOnly Relevant only for Schema "properties" definitions. Declares the property as “read only”. This means that it MAY be sent as part of a response but SHOULD NOT be sent as part of the request. If the property is marked as readOnly being true and is in the required list, the required will take effect on the response only.
+       * @param writeOnly Relevant only for Schema "properties" definitions. Declares the property as “write only”. Therefore, it MAY be sent as part of a request but SHOULD NOT be sent as part of the response. If the property is marked as writeOnly being true and is in the required list, the required will take effect on the request only.
+       * @param xml This MAY be used only on properties schemas. It has no effect on root schemas. Adds additional metadata to describe the XML representation of this property.
+       * @param externalDocs Additional external documentation for this schema.
+       * @param example A free-form property to include an example of an instance for this schema.
+       * @param deprecated Specifies that a schema is deprecated and SHOULD be transitioned out of usage.
+       */
+      final case class Schema(
+        nullable: Boolean = false,
+        discriminator: Option[Discriminator],
+        readOnly: Boolean = false,
+        writeOnly: Boolean = false,
+        xml: Option[XML],
+        externalDocs: URI,
+        example: String,
+        deprecated: Boolean = false
+      ) extends Definition {
+
+        /**
+         * A property MUST NOT be marked as both readOnly and writeOnly being true.
+         */
+        require((readOnly && !writeOnly) || (!readOnly && writeOnly) || (!readOnly && !writeOnly))
+      }
+      final case class Content(key: String, mediaType: String) extends Definition
+      final case class SchemaReference(ref: String)            extends Definition
+
+    }
 
     /**
+     * Parameters that are appended to the URL. For example, in /items?id=###, the query parameter is id.
+     *
      * @param name The name of the parameter. Parameter names are case sensitive.
      * @param description A brief description of the parameter.
      * @param deprecated Specifies that a parameter is deprecated and SHOULD be transitioned out of usage.
      * @param allowEmptyValue Sets the ability to pass empty-valued parameters. This is valid only for query parameters and allows sending a parameter with an empty value. If style is used, and if behavior is n/a (cannot be serialized), the value of allowEmptyValue SHALL be ignored. Use of this property is NOT RECOMMENDED, as it is likely to be removed in a later revision.
-     * @param content A map containing the representations for the parameter. The key is the media type and the value describes it.
      */
     final case class QueryParameter(
       name: String,
       description: Doc,
       deprecated: Boolean = false,
       allowEmptyValue: Boolean = false,
-      content: (String, MediaType)
+      definition: Definition,
+      allowReserved: Boolean = false,
+      style: String = "form",
+      explode: Boolean = true,
+      examples: Map[String, Example]
     ) extends Parameter {
-      def in: Parameter.In  = Parameter.In.Query
+      def in: String        = "query"
       def required: Boolean = true
     }
 
     /**
+     * Custom headers that are expected as part of the request. Note that [RFC7230] states header names are case insensitive.
+     *
      * @param name The name of the parameter. Parameter names are case sensitive.
      * @param description A brief description of the parameter.
      * @param required Determines whether this parameter is mandatory.
      * @param deprecated Specifies that a parameter is deprecated and SHOULD be transitioned out of usage.
      * @param allowEmptyValue Sets the ability to pass empty-valued parameters. This is valid only for query parameters and allows sending a parameter with an empty value. If style is used, and if behavior is n/a (cannot be serialized), the value of allowEmptyValue SHALL be ignored. Use of this property is NOT RECOMMENDED, as it is likely to be removed in a later revision.
-     * @param content A map containing the representations for the parameter. The key is the media type and the value describes it.
      */
     final case class HeaderParameter(
       name: String,
@@ -254,18 +299,22 @@ object OpenAPI {
       required: Boolean,
       deprecated: Boolean = false,
       allowEmptyValue: Boolean = false,
-      content: (String, MediaType)
+      definition: Definition,
+      style: String = "simple",
+      explode: Boolean = false,
+      examples: Map[String, Example]
     ) extends Parameter {
-      def in: Parameter.In = Parameter.In.Header
+      def in: String = "header"
     }
 
     /**
+     * Used together with Path Templating, where the parameter value is actually part of the operation’s URL. This does not include the host or base path of the API. For example, in /items/{itemId}, the path parameter is itemId.
+     *
      * @param name The name of the parameter. Parameter names are case sensitive.
      * @param description A brief description of the parameter.
      * @param required Determines whether this parameter is mandatory.
      * @param deprecated Specifies that a parameter is deprecated and SHOULD be transitioned out of usage.
      * @param allowEmptyValue Sets the ability to pass empty-valued parameters. This is valid only for query parameters and allows sending a parameter with an empty value. If style is used, and if behavior is n/a (cannot be serialized), the value of allowEmptyValue SHALL be ignored. Use of this property is NOT RECOMMENDED, as it is likely to be removed in a later revision.
-     * @param content A map containing the representations for the parameter. The key is the media type and the value describes it.
      */
     final case class PathParameter(
       name: String,
@@ -273,18 +322,22 @@ object OpenAPI {
       required: Boolean,
       deprecated: Boolean = false,
       allowEmptyValue: Boolean = false,
-      content: (String, MediaType)
+      definition: Definition,
+      style: String = "simple",
+      explode: Boolean = false,
+      examples: Map[String, Example]
     ) extends Parameter {
-      def in: Parameter.In = Parameter.In.Path
+      def in: String = "path"
     }
 
     /**
+     * Used to pass a specific cookie value to the API.
+     *
      * @param name The name of the parameter. Parameter names are case sensitive.
      * @param description A brief description of the parameter.
      * @param required Determines whether this parameter is mandatory.
      * @param deprecated Specifies that a parameter is deprecated and SHOULD be transitioned out of usage.
      * @param allowEmptyValue Sets the ability to pass empty-valued parameters. This is valid only for query parameters and allows sending a parameter with an empty value. If style is used, and if behavior is n/a (cannot be serialized), the value of allowEmptyValue SHALL be ignored. Use of this property is NOT RECOMMENDED, as it is likely to be removed in a later revision.
-     * @param content A map containing the representations for the parameter. The key is the media type and the value describes it.
      */
     final case class CookieParameter(
       name: String,
@@ -292,26 +345,12 @@ object OpenAPI {
       required: Boolean,
       deprecated: Boolean = false,
       allowEmptyValue: Boolean = false,
-      content: (String, MediaType)
+      definition: Definition,
+      style: String = "form",
+      explode: Boolean = false,
+      examples: Map[String, Example]
     ) extends Parameter {
-      def in: Parameter.In = Parameter.In.Cookie
-    }
-
-    sealed trait In
-
-    object In {
-
-      /** Parameters that are appended to the URL. For example, in /items?id=###, the query parameter is id. */
-      case object Query extends In
-
-      /** Custom headers that are expected as part of the request. Note that [RFC7230] states header names are case insensitive. */
-      case object Header extends In
-
-      /** Used together with Path Templating, where the parameter value is actually part of the operation’s URL. This does not include the host or base path of the API. For example, in /items/{itemId}, the path parameter is itemId. */
-      case object Path extends In
-
-      /** Used to pass a specific cookie value to the API. */
-      case object Cookie extends In
+      def in: String = "cookie"
     }
   }
 
@@ -339,21 +378,27 @@ object OpenAPI {
    * @param examples Examples of the media type. Each example object SHOULD match the media type and specified schema if present. If referencing a schema which contains an example, the examples value SHALL override the example provided by the schema.
    * @param encoding A map between a property name and its encoding information. The key, being the property name, MUST exist in the schema as a property. The encoding object SHALL only apply to requestBody objects when the media type is multipart or application/x-www-form-urlencoded.
    */
-  final case class MediaType(schema: Schema, examples: Map[String, Example], encoding: Map[String, Encoding])
+  final case class MediaType(
+    schema: Parameter.Definition.Schema,
+    examples: Map[String, Example],
+    encoding: Map[String, Encoding]
+  )
 
   /**
    * A single encoding definition applied to a single schema property.
    *
-   * @param contentType The Content-Type for encoding a specific property. // TODO: default value (https://spec.openapis.org/oas/v3.0.3#encoding-object)
+   * TODO: default values (https://spec.openapis.org/oas/v3.0.3#encoding-object)
+   *
+   * @param contentType The Content-Type for encoding a specific property.
    * @param headers A map allowing additional information to be provided as headers, for example Content-Disposition. Content-Type is described separately and SHALL be ignored in this section. This property SHALL be ignored if the request body media type is not a multipart.
-   * @param style Describes how a specific property value will be serialized depending on its type. This property SHALL be ignored if the request body media type is not application/x-www-form-urlencoded. // TODO: values
-   * @param explode When this is true, property values of type array or object generate separate parameters for each value of the array, or key-value-pair of the map. // TODO: default values
+   * @param style Describes how a specific property value will be serialized depending on its type. This property SHALL be ignored if the request body media type is not application/x-www-form-urlencoded.
+   * @param explode When this is true, property values of type array or object generate separate parameters for each value of the array, or key-value-pair of the map.
    * @param allowReserved Determines whether the parameter value SHOULD allow reserved characters, as defined by [RFC3986] to be included without percent-encoding. This property SHALL be ignored if the request body media type is not application/x-www-form-urlencoded.
    */
   final case class Encoding(
     contentType: String,
     headers: Map[String, Header],
-    style: String,
+    style: String = "form",
     explode: Boolean,
     allowReserved: Boolean = false
   )
@@ -382,7 +427,7 @@ object OpenAPI {
   /**
    * A map of possible out-of band callbacks related to the parent operation. Each value in the map is a Path Item Object that describes a set of requests that may be initiated by the API provider and the expected responses. The key value used to identify the path item object is an expression, evaluated at runtime, that identifies a URL to use for the callback operation.
    *
-   * @param expressions A Path Item Object used to define a callback request and expected responses. // TODO: maybe not String?
+   * @param expressions A Path Item Object used to define a callback request and expected responses.
    */
   final case class Callback(expressions: Map[String, PathItem])
 
@@ -439,35 +484,6 @@ object OpenAPI {
    * @param $ref The reference string.
    */
   final case class Reference($ref: String)
-
-  /**
-   * The Schema Object allows the definition of input and output data types.
-   *
-   * @param nullable A true value adds "null" to the allowed type specified by the type keyword, only if type is explicitly defined within the same Schema Object. Other Schema Object constraints retain their defined behavior, and therefore may disallow the use of null as a value. A false value leaves the specified or default type unmodified.
-   * @param discriminator Adds support for polymorphism. The discriminator is an object name that is used to differentiate between other schemas which may satisfy the payload description.
-   * @param readOnly Relevant only for Schema "properties" definitions. Declares the property as “read only”. This means that it MAY be sent as part of a response but SHOULD NOT be sent as part of the request. If the property is marked as readOnly being true and is in the required list, the required will take effect on the response only.
-   * @param writeOnly Relevant only for Schema "properties" definitions. Declares the property as “write only”. Therefore, it MAY be sent as part of a request but SHOULD NOT be sent as part of the response. If the property is marked as writeOnly being true and is in the required list, the required will take effect on the request only.
-   * @param xml This MAY be used only on properties schemas. It has no effect on root schemas. Adds additional metadata to describe the XML representation of this property.
-   * @param externalDocs Additional external documentation for this schema.
-   * @param example A free-form property to include an example of an instance for this schema.
-   * @param deprecated Specifies that a schema is deprecated and SHOULD be transitioned out of usage.
-   */
-  final case class Schema(
-    nullable: Boolean = false,
-    discriminator: Option[Discriminator],
-    readOnly: Boolean = false,
-    writeOnly: Boolean = false,
-    xml: Option[XML],
-    externalDocs: URI,
-    example: String,
-    deprecated: Boolean = false
-  ) {
-
-    /**
-     * A property MUST NOT be marked as both readOnly and writeOnly being true.
-     */
-    require((readOnly && !writeOnly) || (!readOnly && writeOnly) || (!readOnly && !writeOnly))
-  }
 
   /**
    * When request bodies or response payloads may be one of a number of different schemas, a discriminator object can be used to aid in serialization, deserialization, and validation. The discriminator is a specific object in a schema which is used to inform the consumer of the specification of an alternative schema based on the value associated with it.
