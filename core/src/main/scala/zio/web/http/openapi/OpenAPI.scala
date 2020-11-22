@@ -218,7 +218,6 @@ object OpenAPI {
     def deprecated: Boolean
     def allowEmptyValue: Boolean
     def definition: Parameter.Definition
-    def style: String
     def explode: Boolean
     def examples: Map[String, ExampleOrReference]
 
@@ -238,6 +237,18 @@ object OpenAPI {
       final case class Content(key: String, mediaType: String) extends Definition
     }
 
+    sealed trait PathStyle
+
+    sealed trait QueryStyle
+
+    case object Matrix         extends PathStyle
+    case object Label          extends PathStyle
+    case object Simple         extends PathStyle
+    case object Form           extends QueryStyle
+    case object SpaceDelimited extends QueryStyle
+    case object PipeDelimited  extends QueryStyle
+    case object DeepObject     extends QueryStyle
+
     /**
      * Parameters that are appended to the URL. For example, in /items?id=###, the query parameter is id.
      *
@@ -253,7 +264,7 @@ object OpenAPI {
       allowEmptyValue: Boolean = false,
       definition: Definition,
       allowReserved: Boolean = false,
-      style: String = "form",
+      style: QueryStyle = Form,
       explode: Boolean = true,
       examples: Map[String, ExampleOrReference]
     ) extends Parameter {
@@ -277,11 +288,11 @@ object OpenAPI {
       deprecated: Boolean = false,
       allowEmptyValue: Boolean = false,
       definition: Definition,
-      style: String = "simple",
       explode: Boolean = false,
       examples: Map[String, ExampleOrReference]
     ) extends Parameter {
-      def in: String = "header"
+      def in: String    = "header"
+      def style: String = "simple"
     }
 
     /**
@@ -300,7 +311,7 @@ object OpenAPI {
       deprecated: Boolean = false,
       allowEmptyValue: Boolean = false,
       definition: Definition,
-      style: String = "simple",
+      style: PathStyle = Simple,
       explode: Boolean = false,
       examples: Map[String, ExampleOrReference]
     ) extends Parameter {
@@ -323,11 +334,11 @@ object OpenAPI {
       deprecated: Boolean = false,
       allowEmptyValue: Boolean = false,
       definition: Definition,
-      style: String = "form",
       explode: Boolean = false,
       examples: Map[String, ExampleOrReference]
     ) extends Parameter {
-      def in: String = "cookie"
+      def in: String    = "cookie"
+      def style: String = "form"
     }
   }
 
