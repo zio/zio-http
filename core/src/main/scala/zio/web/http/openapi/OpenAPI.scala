@@ -8,8 +8,6 @@ import zio.web.http.model.StatusCode
 
 object OpenAPI {
 
-  // TODO: SpecificationExtensions (https://spec.openapis.org/oas/v3.0.3#specificationExtensions) that start with x- as Map[String, Any]
-
   /**
    * This is the root document object of the OpenAPI document.
    *
