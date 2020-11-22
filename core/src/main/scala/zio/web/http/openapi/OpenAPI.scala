@@ -113,12 +113,15 @@ object OpenAPI {
     callbacks: Map[Key, Callback]
   )
 
-  final case class Key(name: String) {
+  sealed abstract case class Key private (name: String)
+
+  object Key {
 
     /**
-     * All the fixed fields declared above are objects that MUST use keys that match the regular expression.
+     * All Components objects MUST use Keys that match the regular expression.
      */
-    require("^[a-zA-Z0-9.\\-_]+$.".r.matches(name))
+    def fromString(name: String): Option[Key] =
+      if ("^[a-zA-Z0-9.\\-_]+$.".r.matches(name)) Some(new Key(name) {}) else None
   }
 
   /**
@@ -131,8 +134,12 @@ object OpenAPI {
    *
    * @param name The field name of the relative path MUST begin with a forward slash (/).
    */
-  final case class Path(name: String) {
-    require("^/[a-zA-Z0-9.\\-_]+$.".r.matches(name))
+  sealed abstract case class Path private (name: String)
+
+  object Path {
+
+    def fromString(name: String): Option[Path] =
+      if ("^/[a-zA-Z0-9.\\-_]+$.".r.matches(name)) Some(new Path(name) {}) else None
   }
 
   /**
