@@ -4,8 +4,11 @@ import java.net.URI
 
 import zio.NonEmptyChunk
 import zio.web.docs.Doc
+import zio.web.http.model.StatusCode
 
 object OpenAPI {
+
+  // TODO: SpecificationExtensions (https://spec.openapis.org/oas/v3.0.3#specificationExtensions) that start with x-
 
   /**
    * This is the root document object of the OpenAPI document.
@@ -54,7 +57,7 @@ object OpenAPI {
    *
    * @param name The identifying name of the contact person/organization.
    * @param url The URL pointing to the contact information.
-   * @param email The email address of the contact person/organization. MUST be in the format of an email address. // TODO
+   * @param email The email address of the contact person/organization. MUST be in the format of an email address. // TODO: is there an email type?
    */
   final case class Contact(name: Option[String], url: Option[URI], email: String)
 
@@ -87,15 +90,15 @@ object OpenAPI {
   /**
    * Holds a set of reusable objects for different aspects of the OAS. All objects defined within the components object will have no effect on the API unless they are explicitly referenced from properties outside the components object.
    *
-   * @param schemas
-   * @param responses
-   * @param parameters
-   * @param examples
-   * @param requestBodies
-   * @param headers
-   * @param securitySchemes
-   * @param links
-   * @param callbacks
+   * @param schemas An object to hold reusable Schema Objects.
+   * @param responses An object to hold reusable Response Objects.
+   * @param parameters An object to hold reusable Parameter Objects.
+   * @param examples An object to hold reusable Example Objects.
+   * @param requestBodies An object to hold reusable Request Body Objects.
+   * @param headers An object to hold reusable Header Objects.
+   * @param securitySchemes An object to hold reusable Security Scheme Objects.
+   * @param links An object to hold reusable Link Objects.
+   * @param callbacks An object to hold reusable Callback Objects.
    */
   final case class Components(
     schemas: Map[Key, Schema],
@@ -110,7 +113,11 @@ object OpenAPI {
   )
 
   final case class Key(name: String) {
-    require("^[a-zA-Z0-9\\.\\-_]+$.".r.matches(name)) // TODO
+
+    /**
+     * All the fixed fields declared above are objects that MUST use keys that match the regular expression.
+     */
+    require("^[a-zA-Z0-9.\\-_]+$.".r.matches(name))
   }
 
   /**
@@ -119,12 +126,12 @@ object OpenAPI {
   type Paths = Map[Path, PathItem]
 
   /**
-   * The field name of the relative path MUST begin with a forward slash (/). The path is appended (no relative URL resolution) to the expanded URL from the Server Object's url field in order to construct the full URL. Path templating is allowed. When matching URLs, concrete (non-templated) paths would be matched before their templated counterparts. Templated paths with the same hierarchy but different templated names MUST NOT exist as they are identical. In case of ambiguous matching, it’s up to the tooling to decide which one to use.
+   * The path is appended (no relative URL resolution) to the expanded URL from the Server Object's url field in order to construct the full URL. Path templating is allowed. When matching URLs, concrete (non-templated) paths would be matched before their templated counterparts. Templated paths with the same hierarchy but different templated names MUST NOT exist as they are identical. In case of ambiguous matching, it’s up to the tooling to decide which one to use.
    *
-   * @param name
+   * @param name The field name of the relative path MUST begin with a forward slash (/).
    */
   final case class Path(name: String) {
-    require("^/[a-zA-Z0-9\\.\\-_]+$.".r.matches(name)) // TODO
+    require("^/[a-zA-Z0-9.\\-_]+$.".r.matches(name))
   }
 
   /**
@@ -142,7 +149,7 @@ object OpenAPI {
    * @param patch A definition of a PATCH operation on this path.
    * @param trace A definition of a TRACE operation on this path.
    * @param servers An alternative server Seq to service all operations in this path.
-   * @param parameters A list of parameters that are applicable for all the operations described under this path. These parameters can be overridden at the operation level, but cannot be removed there. The list MUST NOT include duplicated parameters. A unique parameter is defined by a combination of a name and location. The list can use the Reference Object to link to parameters that are defined at the OpenAPI Object’s components/parameters. // TODO
+   * @param parameters A Set of parameters that are applicable for all the operations described under this path. These parameters can be overridden at the operation level, but cannot be removed there. The Set can use the Reference Object to link to parameters that are defined at the OpenAPI Object’s components/parameters.
    */
   final case class PathItem(
     $ref: String,
@@ -157,7 +164,7 @@ object OpenAPI {
     patch: Option[Operation],
     trace: Option[Operation],
     servers: Seq[Server],
-    parameters: Set[Parameter]
+    parameters: Set[Parameter] // TODO: what about Reference Type?
   )
 
   /**
@@ -168,17 +175,17 @@ object OpenAPI {
    * @param description A verbose explanation of the operation behavior.
    * @param externalDocs Additional external documentation for this operation.
    * @param operationId Unique string used to identify the operation. The id MUST be unique among all operations described in the API. The operationId value is case-sensitive. Tools and libraries MAY use the operationId to uniquely identify an operation, therefore, it is RECOMMENDED to follow common programming naming conventions.
-   * @param parameters A Seq of parameters that are applicable for this operation. If a parameter is already defined at the Path Item, the new definition will override it but can never remove it. The list MUST NOT include duplicated parameters. A unique parameter is defined by a combination of a name and location. The list can use the Reference Object to link to parameters that are defined at the OpenAPI Object’s components/parameters. // TODO
+   * @param parameters A Seq of parameters that are applicable for this operation. If a parameter is already defined at the Path Item, the new definition will override it but can never remove it. The list MUST NOT include duplicated parameters. A unique parameter is defined by a combination of a name and location. The list can use the Reference Object to link to parameters that are defined at the OpenAPI Object’s components/parameters. // TODO: reference type
    * @param requestBody The request body applicable for this operation. The requestBody is only supported in HTTP methods where the HTTP 1.1 specification [RFC7231] has explicitly defined semantics for request bodies. In other cases where the HTTP spec is vague, requestBody SHALL be ignored by consumers.
    * @param responses The Seq of possible responses as they are returned from executing this operation.
    * @param callbacks A map of possible out-of band callbacks related to the parent operation. The key is a unique identifier for the Callback Object. Each value in the map is a Callback Object that describes a request that may be initiated by the API provider and the expected responses.
    * @param deprecated Declares this operation to be deprecated. Consumers SHOULD refrain from usage of the declared operation.
-   * @param security A declaration of which security mechanisms can be used for this operation. The list of values includes alternative security requirement objects that can be used. Only one of the security requirement objects need to be satisfied to authorize a request. To make security optional, an empty security requirement ({}) can be included in the array. This definition overrides any declared top-level security. To remove a top-level security declaration, an empty array can be used. // TODO
+   * @param security A declaration of which security mechanisms can be used for this operation. The Seq of values includes alternative security requirement objects that can be used. Only one of the security requirement objects need to be satisfied to authorize a request. To make security optional, an empty security requirement ({}) can be included in the array. This definition overrides any declared top-level security. To remove a top-level security declaration, an empty Seq can be used.
    * @param servers An alternative server Seq to service this operation. If an alternative server object is specified at the Path Item Object or Root level, it will be overridden by this value.
    */
   final case class Operation(
     tags: Seq[String],
-    summary: Option[String],
+    summary: String = "",
     description: Doc,
     externalDocs: Option[URI],
     operationId: Option[String],
@@ -193,47 +200,109 @@ object OpenAPI {
 
   /**
    * Describes a single operation parameter.
-   *
-   * @param name The name of the parameter. Parameter names are case sensitive.
-   * @param in The location of the parameter.
-   * @param description A brief description of the parameter.
-   * @param required Determines whether this parameter is mandatory. If the parameter location is "path", this property MUST be true. Otherwise, the property MAY be false. // TODO
-   * @param deprecated Specifies that a parameter is deprecated and SHOULD be transitioned out of usage.
-   * @param allowEmptyValue Sets the ability to pass empty-valued parameters. This is valid only for query parameters and allows sending a parameter with an empty value. If style is used, and if behavior is n/a (cannot be serialized), the value of allowEmptyValue SHALL be ignored. Use of this property is NOT RECOMMENDED, as it is likely to be removed in a later revision.
    */
-  // TODO: Parameter for each in
-  final case class Parameter(
-    name: String,
-    in: Parameter.In,
-    description: Doc,
-    required: Boolean,
-    deprecated: Boolean = false,
-    allowEmptyValue: Boolean = false,
-    // TODO: add to ScalaDoc
-    style: Option[String] = None,          // TODO: default values based on in
-    explode: Option[Boolean] = None,       // TODO: default value
-    allowReserved: Option[Boolean] = None, // TODO: only with in==query with default false
-    schema: Option[Schema] = None,
-    examples: Map[String, Example] = Map.empty
-  ) {
-    // TODO: maybe add content field (https://spec.openapis.org/oas/v3.0.3#parameter-object)
+  sealed trait Parameter {
+    def name: String
+    def in: Parameter.In
+    def description: Doc
+    def required: Boolean
+    def deprecated: Boolean
+    def allowEmptyValue: Boolean
+    def content: (String, MediaType)
+    // TODO: Is it content or style or just content or schema?
 
     /**
      * A unique parameter is defined by a combination of a name and location.
      */
     override def equals(obj: Any): Boolean = obj match {
-      case p: Parameter if name == p.name && in == p.in => true
-      case _                                            => false
+      case p: Parameter.QueryParameter if name == p.name && in == p.in => true
+      case _                                                           => false
     }
   }
 
   object Parameter {
+
+    /**
+     * @param name The name of the parameter. Parameter names are case sensitive.
+     * @param description A brief description of the parameter.
+     * @param deprecated Specifies that a parameter is deprecated and SHOULD be transitioned out of usage.
+     * @param allowEmptyValue Sets the ability to pass empty-valued parameters. This is valid only for query parameters and allows sending a parameter with an empty value. If style is used, and if behavior is n/a (cannot be serialized), the value of allowEmptyValue SHALL be ignored. Use of this property is NOT RECOMMENDED, as it is likely to be removed in a later revision.
+     * @param content A map containing the representations for the parameter. The key is the media type and the value describes it.
+     */
+    final case class QueryParameter(
+      name: String,
+      description: Doc,
+      deprecated: Boolean = false,
+      allowEmptyValue: Boolean = false,
+      content: (String, MediaType)
+    ) extends Parameter {
+      def in: Parameter.In  = Parameter.In.Query
+      def required: Boolean = true
+    }
+
+    /**
+     * @param name The name of the parameter. Parameter names are case sensitive.
+     * @param description A brief description of the parameter.
+     * @param required Determines whether this parameter is mandatory.
+     * @param deprecated Specifies that a parameter is deprecated and SHOULD be transitioned out of usage.
+     * @param allowEmptyValue Sets the ability to pass empty-valued parameters. This is valid only for query parameters and allows sending a parameter with an empty value. If style is used, and if behavior is n/a (cannot be serialized), the value of allowEmptyValue SHALL be ignored. Use of this property is NOT RECOMMENDED, as it is likely to be removed in a later revision.
+     * @param content A map containing the representations for the parameter. The key is the media type and the value describes it.
+     */
+    final case class HeaderParameter(
+      name: String,
+      description: Doc,
+      required: Boolean,
+      deprecated: Boolean = false,
+      allowEmptyValue: Boolean = false,
+      content: (String, MediaType)
+    ) extends Parameter {
+      def in: Parameter.In = Parameter.In.Header
+    }
+
+    /**
+     * @param name The name of the parameter. Parameter names are case sensitive.
+     * @param description A brief description of the parameter.
+     * @param required Determines whether this parameter is mandatory.
+     * @param deprecated Specifies that a parameter is deprecated and SHOULD be transitioned out of usage.
+     * @param allowEmptyValue Sets the ability to pass empty-valued parameters. This is valid only for query parameters and allows sending a parameter with an empty value. If style is used, and if behavior is n/a (cannot be serialized), the value of allowEmptyValue SHALL be ignored. Use of this property is NOT RECOMMENDED, as it is likely to be removed in a later revision.
+     * @param content A map containing the representations for the parameter. The key is the media type and the value describes it.
+     */
+    final case class PathParameter(
+      name: String,
+      description: Doc,
+      required: Boolean,
+      deprecated: Boolean = false,
+      allowEmptyValue: Boolean = false,
+      content: (String, MediaType)
+    ) extends Parameter {
+      def in: Parameter.In = Parameter.In.Path
+    }
+
+    /**
+     * @param name The name of the parameter. Parameter names are case sensitive.
+     * @param description A brief description of the parameter.
+     * @param required Determines whether this parameter is mandatory.
+     * @param deprecated Specifies that a parameter is deprecated and SHOULD be transitioned out of usage.
+     * @param allowEmptyValue Sets the ability to pass empty-valued parameters. This is valid only for query parameters and allows sending a parameter with an empty value. If style is used, and if behavior is n/a (cannot be serialized), the value of allowEmptyValue SHALL be ignored. Use of this property is NOT RECOMMENDED, as it is likely to be removed in a later revision.
+     * @param content A map containing the representations for the parameter. The key is the media type and the value describes it.
+     */
+    final case class CookieParameter(
+      name: String,
+      description: Doc,
+      required: Boolean,
+      deprecated: Boolean = false,
+      allowEmptyValue: Boolean = false,
+      content: (String, MediaType)
+    ) extends Parameter {
+      def in: Parameter.In = Parameter.In.Cookie
+    }
+
     sealed trait In
 
     object In {
 
       /** Parameters that are appended to the URL. For example, in /items?id=###, the query parameter is id. */
-      case object Query extends  In
+      case object Query extends In
 
       /** Custom headers that are expected as part of the request. Note that [RFC7230] states header names are case insensitive. */
       case object Header extends In
@@ -246,6 +315,14 @@ object OpenAPI {
     }
   }
 
+  final case class Header(
+    description: Doc,
+    required: Boolean,
+    deprecate: Boolean = false,
+    allowEmptyValue: Boolean = false,
+    content: (String, MediaType)
+  )
+
   /**
    * Describes a single request body.
    *
@@ -253,7 +330,6 @@ object OpenAPI {
    * @param content The content of the request body. The key is a media type or [media type range]appendix-D) and the value describes it. For requests that match multiple keys, only the most specific key is applicable.
    * @param required Determines if the request body is required in the request.
    */
-  // TODO: SpecificationExtensions (https://spec.openapis.org/oas/v3.0.3#specificationExtensions)
   final case class RequestBody(description: Doc, content: Map[String, MediaType], required: Boolean = false)
 
   /**
@@ -284,9 +360,9 @@ object OpenAPI {
 
   /**
    * A container for the expected responses of an operation. The container maps a HTTP response code to the expected response.
-   * The Responses Object MUST contain at least one response code, and it SHOULD be the response for a successful operation call. // TODO
+   * The Responses Object MUST contain at least one response code, and it SHOULD be the response for a successful operation call. // TODO: NonEmptyMap
    */
-  type Responses = Map[Int, Response] // TODO: must include default // TODO: use HttpStatusCode instead of Int
+  type Responses = Map[StatusCode, Response]
 
   /**
    * Describes a single response from an API Operation, including design-time, static links to operations based on the response.
@@ -309,7 +385,6 @@ object OpenAPI {
    * @param expressions A Path Item Object used to define a callback request and expected responses. // TODO: maybe not String?
    */
   final case class Callback(expressions: Map[String, PathItem])
-  // TODO: specification extensions
 
   /**
    * In all cases, the example value is expected to be compatible with the type schema of its associated value. Tooling implementations MAY choose to validate compatibility automatically, and reject the example value(s) if incompatible.
@@ -318,8 +393,7 @@ object OpenAPI {
    * @param description Long description for the example.
    * @param externalValue A URL that points to the literal example. This provides the capability to reference examples that cannot easily be included in JSON or YAML documents.
    */
-  final case class Example(summary: String, description: Doc, externalValue: URI)
-  // TODO: specification extensions
+  final case class Example(summary: String = "", description: Doc, externalValue: URI)
 
   /**
    * The Link object represents a possible design-time link for a response. The presence of a link does not guarantee the caller’s ability to successfully invoke it, rather it provides a known relationship and traversal mechanism between responses and other operations.
@@ -349,9 +423,6 @@ object OpenAPI {
      */
     require((operationRef.isDefined && operationId.isEmpty) || (operationRef.isEmpty && operationRef.isDefined))
   }
-  // TODO: specification extensions
-
-  final case class Header() // TODO: special kind of Parameter (https://spec.openapis.org/oas/v3.0.3#header-object)
 
   /**
    * Adds metadata to a single tag that is used by the Operation Object. It is not mandatory to have a Tag Object per tag defined in the Operation Object instances.
@@ -368,7 +439,6 @@ object OpenAPI {
    * @param $ref The reference string.
    */
   final case class Reference($ref: String)
-  // TODO: extend others with this
 
   /**
    * The Schema Object allows the definition of input and output data types.
@@ -398,7 +468,6 @@ object OpenAPI {
      */
     require((readOnly && !writeOnly) || (!readOnly && writeOnly) || (!readOnly && !writeOnly))
   }
-  // TODO: specification extensions
 
   /**
    * When request bodies or response payloads may be one of a number of different schemas, a discriminator object can be used to aid in serialization, deserialization, and validation. The discriminator is a specific object in a schema which is used to inform the consumer of the specification of an alternative schema based on the value associated with it.
@@ -423,19 +492,128 @@ object OpenAPI {
    */
   final case class XML(name: String, namespace: URI, prefix: String, attribute: Boolean = false, wrapped: Boolean)
 
-  // TODO: versions per applies to (https://spec.openapis.org/oas/v3.0.3#security-scheme-object)
-  final case class SecurityScheme(`type`: SecurityScheme.Type, description: Doc)
-  // TODO: specification extensions
+  sealed trait SecurityScheme {
+    def `type`: String
+    def description: Doc
+  }
 
   object SecurityScheme {
-    sealed trait Type
 
-    object Type {
-      case object ApiKey extends Type
-      case object Http extends Type
-      case object OAuth2 extends Type
-      case object OpenIdConnect extends Type
+    /**
+     * Defines an HTTP security scheme that can be used by the operations.
+     *
+     * @param description A short description for security scheme.
+     * @param name The name of the header, query or cookie parameter to be used.
+     * @param in The location of the API key.
+     */
+    final case class ApiKey(description: Doc, name: String, in: ApiKey.In) extends SecurityScheme {
+      override def `type`: String = "apiKey"
     }
+
+    object ApiKey {
+      sealed trait In
+
+      object In {
+        case object Query  extends In
+        case object Header extends In
+        case object Cookie extends In
+      }
+    }
+
+    /**
+     *
+     * @param description A short description for security scheme.
+     * @param scheme The name of the HTTP Authorization scheme to be used in the Authorization header as defined in [RFC7235]. The values used SHOULD be registered in the IANA Authentication Scheme registry.
+     * @param bearerFormat A hint to the client to identify how the bearer token is formatted. Bearer tokens are usually generated by an authorization server, so this information is primarily for documentation purposes.
+     */
+    final case class Http(description: Doc, scheme: String, bearerFormat: Option[String]) extends SecurityScheme {
+      override def `type`: String = "http"
+    }
+
+    /**
+     *
+     * @param description A short description for security scheme.
+     * @param flows An object containing configuration information for the flow types supported.
+     */
+    final case class OAuth2(description: Doc, flows: OAuthFlows) extends SecurityScheme {
+      override def `type`: String = "oauth2"
+    }
+
+    /**
+     *
+     * @param description A short description for security scheme.
+     * @param openIdConnectUrl OpenId Connect URL to discover OAuth2 configuration values.
+     */
+    final case class OpenIdConnect(description: Doc, openIdConnectUrl: URI) extends SecurityScheme {
+      override def `type`: String = "openIdConnect"
+    }
+  }
+
+  /**
+   * Allows configuration of the supported OAuth Flows.
+   *
+   * @param `implicit` Configuration for the OAuth Implicit flow.
+   * @param password Configuration for the OAuth Resource Owner Password flow
+   * @param clientCredentials Configuration for the OAuth Client Credentials flow. Previously called application in OpenAPI 2.0.
+   * @param authorizationCode Configuration for the OAuth Authorization Code flow. Previously called accessCode in OpenAPI 2.0.
+   */
+  final case class OAuthFlows(
+    `implicit`: Option[OAuthFlow.Implicit],
+    password: Option[OAuthFlow.Password],
+    clientCredentials: Option[OAuthFlow.ClientCredentials],
+    authorizationCode: Option[OAuthFlow.AuthorizationCode]
+  )
+
+  sealed trait OAuthFlow {
+    def refreshUrl: Option[URI]
+    def scopes: Map[String, String]
+  }
+
+  object OAuthFlow {
+
+    /**
+     * Configuration for the OAuth Implicit flow.
+     *
+     * @param authorizationUrl The authorization URL to be used for this flow.
+     * @param refreshUrl The URL to be used for obtaining refresh tokens.
+     * @param scopes The available scopes for the OAuth2 security scheme. A map between the scope name and a short description for it. The map MAY be empty.
+     */
+    final case class Implicit(authorizationUrl: URI, refreshUrl: Option[URI], scopes: Map[String, String])
+        extends OAuthFlow
+
+    /**
+     * Configuration for the OAuth Authorization Code flow. Previously called accessCode in OpenAPI 2.0.
+     *
+     * @param authorizationUrl The authorization URL to be used for this flow.
+     * @param refreshUrl The URL to be used for obtaining refresh tokens.
+     * @param scopes The available scopes for the OAuth2 security scheme. A map between the scope name and a short description for it. The map MAY be empty.
+     * @param tokenUrl The token URL to be used for this flow.
+     */
+    final case class AuthorizationCode(
+      authorizationUrl: URI,
+      refreshUrl: Option[URI],
+      scopes: Map[String, String],
+      tokenUrl: URI
+    ) extends OAuthFlow
+
+    /**
+     * Configuration for the OAuth Resource Owner Password flow.
+     *
+     * @param refreshUrl The URL to be used for obtaining refresh tokens.
+     * @param scopes The available scopes for the OAuth2 security scheme. A map between the scope name and a short description for it. The map MAY be empty.
+     * @param tokenUrl The token URL to be used for this flow.
+     */
+    final case class Password(refreshUrl: Option[URI], scopes: Map[String, String], tokenUrl: URI) extends OAuthFlow
+
+    /**
+     * Configuration for the OAuth Client Credentials flow. Previously called application in OpenAPI 2.0.
+     *
+     * @param refreshUrl The URL to be used for obtaining refresh tokens.
+     * @param scopes The available scopes for the OAuth2 security scheme. A map between the scope name and a short description for it. The map MAY be empty.
+     * @param tokenUrl The token URL to be used for this flow.
+     */
+    final case class ClientCredentials(refreshUrl: Option[URI], scopes: Map[String, String], tokenUrl: URI)
+        extends OAuthFlow
   }
 
   /**
@@ -445,7 +623,7 @@ object OpenAPI {
    *
    * When a list of Security Requirement Objects is defined on the OpenAPI Object or Operation Object, only one of the Security Requirement Objects in the list needs to be satisfied to authorize the request.
    *
-   * @param securitySchemes If the security scheme is of type "oauth2" or "openIdConnect", then the value is a list of scope names required for the execution, and the list MAY be empty if authorization does not require a specified scope. For other security scheme types, the array MUST be empty. // TODO
+   * @param securitySchemes If the security scheme is of type "oauth2" or "openIdConnect", then the value is a list of scope names required for the execution, and the list MAY be empty if authorization does not require a specified scope. For other security scheme types, the Seq MUST be empty.
    */
-  final case class SecurityRequirement(securitySchemes: Map[SecurityScheme.Type, Seq[String]])
+  final case class SecurityRequirement(securitySchemes: Map[String, Seq[String]])
 }
