@@ -9,7 +9,6 @@ import zio.web.http.model.StatusCode
 object OpenAPI {
 
   // TODO: SpecificationExtensions (https://spec.openapis.org/oas/v3.0.3#specificationExtensions) that start with x- as Map[String, Any]
-  // TODO: something like Either[Reference, A] for when a Reference is allowed
 
   /**
    * This is the root document object of the OpenAPI document.
@@ -102,15 +101,15 @@ object OpenAPI {
    * @param callbacks An object to hold reusable Callback Objects.
    */
   final case class Components(
-    schemas: Map[Key, Schema],
-    responses: Map[Key, Response],
-    parameters: Map[Key, Parameter],
-    examples: Map[Key, Example],
-    requestBodies: Map[Key, RequestBody],
-    headers: Map[Key, Header],
-    securitySchemes: Map[Key, SecurityScheme],
-    links: Map[Key, Link],
-    callbacks: Map[Key, Callback]
+    schemas: Map[Key, SchemaOrReference],
+    responses: Map[Key, ResponseOrReference],
+    parameters: Map[Key, ParameterOrReference],
+    examples: Map[Key, ExampleOrReference],
+    requestBodies: Map[Key, RequestBodyOrReference],
+    headers: Map[Key, HeaderOrReference],
+    securitySchemes: Map[Key, SecuritySchemeOrReference],
+    links: Map[Key, LinkOrReference],
+    callbacks: Map[Key, CallbackOrReference]
   )
 
   sealed abstract case class Key private (name: String)
@@ -172,7 +171,7 @@ object OpenAPI {
     patch: Option[Operation],
     trace: Option[Operation],
     servers: List[Server],
-    parameters: Set[Parameter]
+    parameters: Set[ParameterOrReference]
   )
 
   /**
@@ -197,19 +196,21 @@ object OpenAPI {
     description: Doc,
     externalDocs: Option[URI],
     operationId: Option[String],
-    parameters: Set[Parameter],
-    requestBody: Option[RequestBody],
+    parameters: Set[ParameterOrReference],
+    requestBody: Option[RequestBodyOrReference],
     responses: Responses,
-    callbacks: Map[String, Callback],
+    callbacks: Map[String, CallbackOrReference],
     deprecated: Boolean = false,
     security: List[SecurityRequirement],
     servers: List[Server]
   )
 
+  sealed trait ParameterOrReference
+
   /**
    * Describes a single operation parameter.
    */
-  sealed trait Parameter {
+  sealed trait Parameter extends ParameterOrReference {
     def name: String
     def in: String
     def description: Doc
@@ -219,7 +220,7 @@ object OpenAPI {
     def definition: Parameter.Definition
     def style: String
     def explode: Boolean
-    def examples: Map[String, Example]
+    def examples: Map[String, ExampleOrReference]
 
     /**
      * A unique parameter is defined by a combination of a name and location.
@@ -231,7 +232,7 @@ object OpenAPI {
   }
 
   object Parameter {
-    sealed trait Definition
+    sealed trait Definition extends SchemaOrReference
 
     object Definition {
       final case class Content(key: String, mediaType: String) extends Definition
@@ -254,7 +255,7 @@ object OpenAPI {
       allowReserved: Boolean = false,
       style: String = "form",
       explode: Boolean = true,
-      examples: Map[String, Example]
+      examples: Map[String, ExampleOrReference]
     ) extends Parameter {
       def in: String        = "query"
       def required: Boolean = true
@@ -278,7 +279,7 @@ object OpenAPI {
       definition: Definition,
       style: String = "simple",
       explode: Boolean = false,
-      examples: Map[String, Example]
+      examples: Map[String, ExampleOrReference]
     ) extends Parameter {
       def in: String = "header"
     }
@@ -301,7 +302,7 @@ object OpenAPI {
       definition: Definition,
       style: String = "simple",
       explode: Boolean = false,
-      examples: Map[String, Example]
+      examples: Map[String, ExampleOrReference]
     ) extends Parameter {
       def in: String = "path"
     }
@@ -324,11 +325,13 @@ object OpenAPI {
       definition: Definition,
       style: String = "form",
       explode: Boolean = false,
-      examples: Map[String, Example]
+      examples: Map[String, ExampleOrReference]
     ) extends Parameter {
       def in: String = "cookie"
     }
   }
+
+  sealed trait HeaderOrReference
 
   final case class Header(
     description: Doc,
@@ -336,7 +339,9 @@ object OpenAPI {
     deprecate: Boolean = false,
     allowEmptyValue: Boolean = false,
     content: (String, MediaType)
-  )
+  ) extends HeaderOrReference
+
+  sealed trait RequestBodyOrReference
 
   /**
    * Describes a single request body.
@@ -346,6 +351,7 @@ object OpenAPI {
    * @param required Determines if the request body is required in the request.
    */
   final case class RequestBody(description: Doc, content: Map[String, MediaType], required: Boolean = false)
+      extends ResponseOrReference
 
   /**
    * Each Media Type Object provides schema and examples for the media type identified by its key.
@@ -355,8 +361,8 @@ object OpenAPI {
    * @param encoding A map between a property name and its encoding information. The key, being the property name, MUST exist in the schema as a property. The encoding object SHALL only apply to requestBody objects when the media type is multipart or application/x-www-form-urlencoded.
    */
   final case class MediaType(
-    schema: Schema,
-    examples: Map[String, Example],
+    schema: SchemaOrReference,
+    examples: Map[String, ExampleOrReference],
     encoding: Map[String, Encoding]
   )
 
@@ -373,7 +379,7 @@ object OpenAPI {
    */
   final case class Encoding(
     contentType: String,
-    headers: Map[String, Header],
+    headers: Map[String, HeaderOrReference],
     style: String = "form",
     explode: Boolean,
     allowReserved: Boolean = false
@@ -383,7 +389,9 @@ object OpenAPI {
    * A container for the expected responses of an operation. The container maps a HTTP response code to the expected response.
    * The Responses Object MUST contain at least one response code, and it SHOULD be the response for a successful operation call. // TODO: NonEmptyMap
    */
-  type Responses = Map[StatusCode, Response]
+  type Responses = Map[StatusCode, ResponseOrReference]
+
+  sealed trait ResponseOrReference
 
   /**
    * Describes a single response from an API Operation, including design-time, static links to operations based on the response.
@@ -395,17 +403,21 @@ object OpenAPI {
    */
   final case class Response(
     description: Doc,
-    headers: Map[String, Header],
+    headers: Map[String, HeaderOrReference],
     content: Map[String, MediaType],
-    links: Map[String, Link]
-  )
+    links: Map[String, LinkOrReference]
+  ) extends ResponseOrReference
+
+  sealed trait CallbackOrReference
 
   /**
    * A map of possible out-of band callbacks related to the parent operation. Each value in the map is a Path Item Object that describes a set of requests that may be initiated by the API provider and the expected responses. The key value used to identify the path item object is an expression, evaluated at runtime, that identifies a URL to use for the callback operation.
    *
    * @param expressions A Path Item Object used to define a callback request and expected responses.
    */
-  final case class Callback(expressions: Map[String, PathItem])
+  final case class Callback(expressions: Map[String, PathItem]) extends CallbackOrReference
+
+  sealed trait ExampleOrReference
 
   /**
    * In all cases, the example value is expected to be compatible with the type schema of its associated value. Tooling implementations MAY choose to validate compatibility automatically, and reject the example value(s) if incompatible.
@@ -414,7 +426,9 @@ object OpenAPI {
    * @param description Long description for the example.
    * @param externalValue A URL that points to the literal example. This provides the capability to reference examples that cannot easily be included in JSON or YAML documents.
    */
-  final case class Example(summary: String = "", description: Doc, externalValue: URI)
+  final case class Example(summary: String = "", description: Doc, externalValue: URI) extends ExampleOrReference
+
+  sealed trait LinkOrReference
 
   /**
    * The Link object represents a possible design-time link for a response. The presence of a link does not guarantee the caller’s ability to successfully invoke it, rather it provides a known relationship and traversal mechanism between responses and other operations.
@@ -435,7 +449,7 @@ object OpenAPI {
     requestBody: Any,
     description: Doc,
     server: Option[Server]
-  )
+  ) extends LinkOrReference
 
   /**
    * Adds metadata to a single tag that is used by the Operation Object. It is not mandatory to have a Tag Object per tag defined in the Operation Object instances.
@@ -451,9 +465,20 @@ object OpenAPI {
    *
    * @param $ref The reference string.
    */
-  final case class Reference($ref: String) extends Parameter.Definition
+  final case class Reference($ref: String)
+      extends SchemaOrReference
+      with ResponseOrReference
+      with ParameterOrReference
+      with ExampleOrReference
+      with RequestBodyOrReference
+      with HeaderOrReference
+      with SecuritySchemeOrReference
+      with LinkOrReference
+      with CallbackOrReference
 
-  sealed trait Schema extends Parameter.Definition {
+  sealed trait SchemaOrReference
+
+  sealed trait Schema extends SchemaOrReference {
     def nullable: Boolean
     def discriminator: Option[Discriminator]
     def readOnly: Boolean
@@ -540,7 +565,9 @@ object OpenAPI {
    */
   final case class XML(name: String, namespace: URI, prefix: String, attribute: Boolean = false, wrapped: Boolean)
 
-  sealed trait SecurityScheme {
+  sealed trait SecuritySchemeOrReference
+
+  sealed trait SecurityScheme extends SecuritySchemeOrReference {
     def `type`: String
     def description: Doc
   }
