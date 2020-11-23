@@ -6,6 +6,8 @@ import zio.NonEmptyChunk
 import zio.web.docs.Doc
 import zio.web.http.model.StatusCode
 
+import scala.util.matching.Regex
+
 object OpenAPI {
 
   /**
@@ -55,7 +57,7 @@ object OpenAPI {
    *
    * @param name The identifying name of the contact person/organization.
    * @param url The URL pointing to the contact information.
-   * @param email The email address of the contact person/organization. MUST be in the format of an email address. // TODO: is there an email type?
+   * @param email The email address of the contact person/organization. MUST be in the format of an email address.
    */
   final case class Contact(name: Option[String], url: Option[URI], email: String)
 
@@ -117,8 +119,12 @@ object OpenAPI {
     /**
      * All Components objects MUST use Keys that match the regular expression.
      */
-    def fromString(name: String): Option[Key] =
-      if ("^[a-zA-Z0-9.\\-_]+$.".r.matches(name)) Some(new Key(name) {}) else None
+    val validName: Regex = "^[a-zA-Z0-9.\\-_]+$.".r
+
+    def fromString(name: String): Option[Key] = name match {
+      case validName() => Some(new Key(name) {})
+      case _           => None
+    }
   }
 
   /**
@@ -134,9 +140,12 @@ object OpenAPI {
   sealed abstract case class Path private (name: String)
 
   object Path {
+    val validPath: Regex = "^/[a-zA-Z0-9.\\-_]+$.".r
 
-    def fromString(name: String): Option[Path] =
-      if ("^/[a-zA-Z0-9.\\-_]+$.".r.matches(name)) Some(new Path(name) {}) else None
+    def fromString(name: String): Option[Path] = name match {
+      case validPath() => Some(new Path(name) {})
+      case _           => None
+    }
   }
 
   /**
@@ -396,7 +405,7 @@ object OpenAPI {
 
   /**
    * A container for the expected responses of an operation. The container maps a HTTP response code to the expected response.
-   * The Responses Object MUST contain at least one response code, and it SHOULD be the response for a successful operation call. // TODO: NonEmptyMap
+   * The Responses Object MUST contain at least one response code, and it SHOULD be the response for a successful operation call.
    */
   type Responses = Map[StatusCode, ResponseOrReference]
 
