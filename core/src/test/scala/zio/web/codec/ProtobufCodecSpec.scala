@@ -6,6 +6,7 @@ import zio.test.Assertion._
 import zio.test._
 import zio.web.schema.Schema
 
+import scala.collection.SortedMap
 import scala.util.Try
 
 object ProtobufCodecSpec extends DefaultRunnableSpec {
@@ -52,6 +53,11 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           equalTo("0A03466F6F107B")
         )
       },
+      testM("Should correctly encode enumerations") {
+        assertM(encode(schemaEnumeration, Enumeration(IntValue(482))).map(toHex))(
+          equalTo("10E203")
+        )
+      },
       testM("Should fill non-complete messages with default values") {
         assertM(decode(schemaRecord, "107B"))(
           equalTo(Chunk(Record("", 123)))
@@ -70,6 +76,11 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       testM("Should encode and decode successfully NON-PACKED") {
         assertM(encodeAndDecode(schemaUnpackedList, UnpackedList(List("foo", "bar", "baz"))))(
           equalTo(Chunk(UnpackedList(List("foo", "bar", "baz"))))
+        )
+      },
+      testM("Should encode and decode successfully ENUMERATION") {
+        assertM(encodeAndDecode(schemaEnumeration, Enumeration(BooleanValue(true))))(
+          equalTo(Chunk(Enumeration(BooleanValue(true))))
         )
       }
     )
@@ -125,6 +136,38 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
     "name"  -> Schema[String],
     "value" -> Schema[Int]
   )(Record, Record.unapply)
+
+  sealed trait OneOf
+  case class StringValue(value: String)   extends OneOf
+  case class IntValue(value: Int)         extends OneOf
+  case class BooleanValue(value: Boolean) extends OneOf
+
+  val schemaOneOf: Schema[OneOf] = Schema.Transform(
+    Schema.enumeration(
+      SortedMap(
+        "string"  -> Schema[String],
+        "int"     -> Schema[Int],
+        "boolean" -> Schema[Boolean]
+      )
+    ),
+    (value: SortedMap[String, _]) => {
+      value
+        .get("string")
+        .map(v => Right(StringValue(v.asInstanceOf[String])))
+        .orElse(value.get("int").map(v => Right(IntValue(v.asInstanceOf[Int]))))
+        .orElse(value.get("boolean").map(v => Right(BooleanValue(v.asInstanceOf[Boolean]))))
+        .getOrElse(Left("No value found"))
+    }, {
+      case StringValue(v)  => Right(SortedMap("string"  -> v))
+      case IntValue(v)     => Right(SortedMap("int"     -> v))
+      case BooleanValue(v) => Right(SortedMap("boolean" -> v))
+    }
+  )
+
+  case class Enumeration(oneOf: OneOf)
+
+  val schemaEnumeration: Schema[Enumeration] =
+    Schema.caseClassN("value" -> schemaOneOf)(Enumeration, Enumeration.unapply)
 
   // TODO: Generators instead of SearchRequest
   case class SearchRequest(query: String, pageNumber: Int, resultPerPage: Int)
