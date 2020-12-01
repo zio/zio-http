@@ -36,6 +36,12 @@ object HttpMiddleware {
 
     def mapError[E2](f: E => E2): Middleware.Aux[R, E2, State] =
       Middleware(request.mapError(f), response.mapError(f))
+
+    def runRequest(method: String, uri: java.net.URI, headers: HttpHeaders): ZIO[R, Option[(State, E)], State] =
+      request.run(method, uri, headers)
+
+    def runResponse[S2 <: State](s: S2, statusCode: Int, headers: HttpHeaders): ZIO[R, Option[E], Patch] =
+      response.run(s, statusCode, headers)
   }
 
   object Middleware {
@@ -103,7 +109,7 @@ object HttpMiddleware {
                 ),
                 Response(
                   HttpResponse.Succeed,
-                  (flag: Boolean, _: Unit) => (if (flag) ref.update(_ - 1) else ZIO.unit).as(HttpHeaders.empty)
+                  (flag: Boolean, _: Unit) => (if (flag) ref.update(_ - 1) else ZIO.unit).as(Patch.empty)
                 )
               )
             }
@@ -139,6 +145,12 @@ object HttpMiddleware {
 
     def mapError[E2](f: E => E2): Request[R, E2, S] =
       Request(pattern, (m: Metadata) => self.processor(m).mapError { case (s, e) => (s, f(e)) })
+
+    def run(method: String, uri: java.net.URI, headers: HttpHeaders): ZIO[R, Option[(S, E)], S] =
+      pattern.run(method, uri, headers) match {
+        case Some(metadata) => processor(metadata).mapError(Some(_))
+        case None           => ZIO.fail(None)
+      }
   }
 
   object Request {
@@ -169,7 +181,7 @@ object HttpMiddleware {
 
     val pattern: HttpResponse[Metadata]
 
-    val processor: (S, Metadata) => ZIO[R, E, HttpHeaders]
+    val processor: (S, Metadata) => ZIO[R, E, Patch]
 
     def <>[R1 <: R, E1 >: E, S2](that: Response[R1, E1, S2]): Response[R1, E1, (S, S2)] =
       new Response[R1, E1, (S, S2)] {
@@ -178,16 +190,22 @@ object HttpMiddleware {
         val pattern = self.pattern.zip(that.pattern)
 
         val processor = (state: (S, S2), metadata: Metadata) =>
-          self.processor(state._1, metadata._1).zipWith(that.processor(state._2, metadata._2))(_ ++ _)
+          self.processor(state._1, metadata._1).zipWith(that.processor(state._2, metadata._2))(_ + _)
       }
 
     def mapError[E2](f: E => E2): Response[R, E2, S] =
       Response(pattern, (s: S, m: Metadata) => processor(s, m).mapError(f))
+
+    def run(s: S, statusCode: Int, headers: HttpHeaders): ZIO[R, Option[E], Patch] =
+      pattern.run(statusCode, headers) match {
+        case Some(metadata) => processor(s, metadata).mapError(Some(_))
+        case None           => ZIO.fail(None)
+      }
   }
 
   object Response {
 
-    def apply[R, E, S, M](p: HttpResponse[M], f: (S, M) => ZIO[R, E, HttpHeaders]): Response[R, E, S] =
+    def apply[R, E, S, M](p: HttpResponse[M], f: (S, M) => ZIO[R, E, Patch]): Response[R, E, S] =
       new Response[R, E, S] {
         type Metadata = M
         val pattern   = p
@@ -195,6 +213,6 @@ object HttpMiddleware {
       }
 
     val none: Response[Any, Nothing, Any] =
-      apply[Any, Nothing, Any, Unit](HttpResponse.Succeed, (_, _) => ZIO.succeed(HttpHeaders.empty))
+      apply[Any, Nothing, Any, Unit](HttpResponse.Succeed, (_, _) => ZIO.succeed(Patch.empty))
   }
 }
