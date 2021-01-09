@@ -4,30 +4,9 @@ import scala.util.control.NoStackTrace
 
 object UnexpectedError extends Exception with NoStackTrace
 
-final private[websockets] case class MessageFrame private (frameType: FrameType, data: Array[Byte], last: Boolean) {
-  self =>
+final case class MessageFrame private (frameType: FrameType, data: Array[Byte], last: Boolean)
 
-  /**
-   * Mask a payload
-   * @param maskKey a 32-bit value chosen at random
-   * @return the {{MessageFrame}} whose data is masked
-   */
-  def maskData(maskKey: String): MessageFrame =
-    if (maskKey.length() == 4) {
-      val currArray = new Array[Byte](data.length)
-      var i         = 0
-
-      while (i < currArray.length) {
-        currArray.update(i, (self.data(i) ^ maskKey(i % 4)).toByte)
-        i += 1
-      }
-
-      self.copy(data = currArray)
-    } else throw UnexpectedError
-
-}
-
-private[websockets] object MessageFrame {
+object MessageFrame {
 
   def ping(data: Array[Byte] = Array.empty): MessageFrame =
     if (data.length <= 125) new MessageFrame(FrameType.Ping, data, true)
