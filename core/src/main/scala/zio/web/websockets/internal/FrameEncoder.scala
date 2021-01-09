@@ -35,7 +35,7 @@ object FrameEncoder {
                 buf :+ (0x7F + mask).toByte
                 buf :+ (len >> 56).toByte
                 buf :+ ((len >> 48) & 0xFF).toByte
-                buf :+ ((len >> 4) & 0xFF).toByte
+                buf :+ ((len >> 40) & 0xFF).toByte
                 buf :+ ((len >> 32) & 0xFF).toByte
                 buf :+ ((len >> 24) & 0xFF).toByte
                 buf :+ ((len >> 16) & 0xFF).toByte
