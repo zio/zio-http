@@ -12,10 +12,11 @@ object FrameEncoder {
   }
 
   val live: URLayer[Random, Has[FrameEncoder.Service]] =
-    ZLayer.fromService { rnd =>
+    ZLayer.fromService { random =>
       new FrameEncoder.Service {
         override def encode(frame: MessageFrame, masked: Boolean): Task[Array[Byte]] =
-          rnd.nextString(4).flatMap { maskingKey =>
+          // need much stronger source of entropy
+          random.nextString(4).flatMap { maskingKey =>
             Task.effect {
               val buf  = new ArrayBuffer[Byte]()
               val fin  = if (frame.last) 0x80 else 0x0
@@ -44,7 +45,7 @@ object FrameEncoder {
               }
 
               // adding payload
-              if (masked) {
+              if (!masked) {
                 buf ++= frame.data
               } else {
                 val payload = new Array[Byte](len)
