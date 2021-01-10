@@ -1,5 +1,7 @@
 package zio.web.websockets.internal
 
+import java.nio.ByteBuffer
+
 import scala.collection.mutable.ArrayBuffer
 
 import zio.{ Has, Task, URLayer, ZIO, ZLayer }
@@ -8,16 +10,18 @@ import zio.random.Random
 object FrameEncoder {
 
   trait Service {
-    def encode(frame: MessageFrame, masked: Boolean): Task[Array[Byte]]
+    def encode(frame: MessageFrame, masked: Boolean): Task[ByteBuffer]
   }
 
   val live: URLayer[Random, Has[FrameEncoder.Service]] =
     ZLayer.fromService { random =>
       new FrameEncoder.Service {
-        override def encode(frame: MessageFrame, masked: Boolean): Task[Array[Byte]] =
+        override def encode(frame: MessageFrame, masked: Boolean): Task[ByteBuffer] =
           // need much stronger source of entropy
           random.nextString(4).flatMap { maskingKey =>
             Task.effect {
+              // it's possible to figure out the length of the whole frame.
+              // this way we could write directly to the byte buffer...
               val buf  = new ArrayBuffer[Byte]()
               val fin  = if (frame.last) 0x80 else 0x0
               val mask = if (masked) 0x80 else 0x0
@@ -60,12 +64,12 @@ object FrameEncoder {
                 buf ++= payload
               }
 
-              buf.toArray
+              ByteBuffer.wrap(buf.toArray)
             }
           }
       }
     }
 
-  def encode(frame: MessageFrame, masked: Boolean): ZIO[Has[FrameEncoder.Service], Throwable, Array[Byte]] =
+  def encode(frame: MessageFrame, masked: Boolean): ZIO[Has[FrameEncoder.Service], Throwable, ByteBuffer] =
     ZIO.accessM(_.get[FrameEncoder.Service].encode(frame, masked))
 }
