@@ -23,11 +23,11 @@ object FrameEncoder {
               // it's possible to figure out the length of the whole frame.
               // this way we could write directly to the byte buffer...
               val buf  = new ArrayBuffer[Byte]()
-              val fin  = if (frame.last) 0x80 else 0x0
-              val mask = if (masked) 0x80 else 0x0
+              val fin  = if (frame.last) 0x80 else 0x00
+              val mask = if (masked) 0x80 else 0x00
               val len  = frame.data.length
 
-              buf :+ (fin + frame.frameType.opcode).toByte
+              buf :+ (fin + frame.opcode).toByte
 
               // converting payload's length and adding it into the buffer
               if (len < 126) {
