@@ -122,6 +122,9 @@ object HttpLexer {
 
     private def msg(char: Int, in: String) = s"Invalid character in $in: 0x${char.toHexString}"
 
+    // TODO: Ensure that this translates to an HTTP 431 "Request Header Fields Too Large" response
+    case object HeaderTooLarge extends HeaderParseError("Request header fields too large")
+
     final case class InvalidCharacterInName(char: Int) extends HeaderParseError(msg(char, "header"))
 
     final case class InvalidCharacterInValue(char: Int) extends HeaderParseError(msg(char, "value"))
@@ -147,7 +150,11 @@ object HttpLexer {
    * for the headers with those names. Returns null strings if it couldn't find the headers before
    * the end of the headers.
    */
-  def parseHeaders(headers: Array[String], reader: Reader): Array[Chunk[String]] = {
+  def parseHeaders(
+    headers: Array[String],
+    reader: Reader,
+    headerSizeLimit: Int = 8192
+  ): Array[Chunk[String]] = {
     // TODO:
     //  * Async???
     //  * Support for HTTP/2, HTTP/3
@@ -160,12 +167,16 @@ object HttpLexer {
     val matrix                       = new CaseInsensitiveStringMatrix(headers)
     var replay                       = false
     var c: Int                       = -1
+    var size                         = 0
 
     def read(): Unit =
       if (replay)
         replay = false
-      else
+      else {
         c = reader.read
+        size += 1
+        if (headerSizeLimit < size) throw HeaderTooLarge
+      }
 
     def readLF(): Unit = {
       c = reader.read()
@@ -187,13 +198,14 @@ object HttpLexer {
     def parseHeaderName(): Int = {
       var i: Int       = 0
       var bitset: Long = matrix.initial
-      while ({ read(); c != ':' }) if (c == -1)
-        throw UnexpectedEnd
-      else if (isTokenChar(c)) {
-        bitset = matrix.update(bitset, i, c)
-        i += 1
-      } else
-        throw InvalidCharacterInName(c)
+      while ({ read(); c != ':' }) {
+        if (c == -1) throw UnexpectedEnd
+        else if (isTokenChar(c)) {
+          bitset = matrix.update(bitset, i, c)
+          i += 1
+        } else
+          throw InvalidCharacterInName(c)
+      }
       bitset = matrix.exact(bitset, i)
       matrix.first(bitset)
     }

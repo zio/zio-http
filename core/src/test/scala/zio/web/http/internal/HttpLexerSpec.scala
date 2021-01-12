@@ -118,6 +118,8 @@ object HttpLexerSpec extends DefaultRunnableSpec {
     def toStringWithCRLF: String = s.stripMargin.replaceAll("\n", "\r\n") + "\r\n\r\n"
   }
 
+  private val TestHeaderSizeLimit = 50
+
   private lazy val failureScenarios =
     Gen.fromIterable(
       Seq(
@@ -131,6 +133,8 @@ object HttpLexerSpec extends DefaultRunnableSpec {
         "a: b\r\n"                      -> UnexpectedEnd,
         "a: b\r\na"                     -> UnexpectedEnd,
         "space-after-header-name : ..." -> InvalidCharacterInName(' '),
+        "X-EnormousHeader: " +
+          "x" * TestHeaderSizeLimit -> HeaderTooLarge,
         // TODO: handling of this case could be improved, as the spec allows for
         //       multiline headers, even though that construct is deprecated
         // "A server that receives an obs-fold in a request message that is not
@@ -257,7 +261,11 @@ object HttpLexerSpec extends DefaultRunnableSpec {
           case (request, expectedError) =>
             assertM(
               Task(
-                parseHeaders(Array("some-header"), new StringReader(request))
+                parseHeaders(
+                  Array("some-header"),
+                  new StringReader(request),
+                  TestHeaderSizeLimit
+                )
               ).run
             )(fails(equalTo(expectedError)))
         }
