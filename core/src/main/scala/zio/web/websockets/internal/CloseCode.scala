@@ -1,5 +1,7 @@
 package zio.web.websockets.internal
 
+import scala.annotation.switch
+
 sealed abstract class CloseCode(code: Int) {
 
   def toBinary: Array[Byte] = {
@@ -23,4 +25,21 @@ object CloseCode {
   case object MandatoryExtension  extends CloseCode(1010)
   case object InternalServerError extends CloseCode(1011)
   case object TLSHandshake        extends CloseCode(1015)
+
+  def fromInt(code: Int): Option[CloseCode] =
+    (code: @switch) match {
+      case 1000 => Some(NormalClosure)
+      case 1001 => Some(GoingAway)
+      case 1002 => Some(ProtocolError)
+      case 1003 => Some(UnsupportedData)
+      case 1005 => Some(NoStatusReceived)
+      case 1006 => Some(AbnormalClosure)
+      case 1007 => Some(InvalidFrame)
+      case 1008 => Some(PolicyViolation)
+      case 1009 => Some(MessageTooBig)
+      case 1010 => Some(MandatoryExtension)
+      case 1011 => Some(InternalServerError)
+      case 1015 => Some(TLSHandshake)
+      case _    => None
+    }
 }
