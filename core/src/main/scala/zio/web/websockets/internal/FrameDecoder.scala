@@ -27,14 +27,14 @@ object FrameDecoder {
             for {
               len                     <- getLength(chunk, masked)
               (headerLen, payloadLen) = len
-              payload                 <- getPayload(headerLen, payloadLen, chunk, masked)
+              data                 <- readData(headerLen, payloadLen, chunk, masked)
             } yield (opcode: @switch) match {
-              case CONTINUATION => MessageFrame.continuation(payload, fin)
-              case TEXT         => MessageFrame.string(new String(payload.toArray, "UTF-8"), fin)
-              case BINARY       => MessageFrame.binary(payload, fin)
-              case CLOSE        => getCloseFrame(payload)
-              case PING         => MessageFrame.ping(payload)
-              case PONG         => MessageFrame.pong(payload)
+              case CONTINUATION => MessageFrame.continuation(data, fin)
+              case TEXT         => MessageFrame.string(new String(data.toArray, "UTF-8"), fin)
+              case BINARY       => MessageFrame.binary(data, fin)
+              case CLOSE        => getCloseFrame(data)
+              case PING         => MessageFrame.ping(data)
+              case PONG         => MessageFrame.pong(data)
             }
           }
         }
@@ -71,15 +71,15 @@ object FrameDecoder {
           }
         }
 
-        private def getPayload(headerLength: Int, payloadLength: Int, data: Chunk[Byte], masked: Boolean) =
+        private def readData(fromIdx: Int, toIdx: Int, data: Chunk[Byte], masked: Boolean) =
           Task.effect {
-            val payload = ChunkBuilder.make[Byte](payloadLength)
+            val payload = ChunkBuilder.make[Byte](toIdx)
 
-            var i = headerLength
+            var i = fromIdx
 
-            while (i < payloadLength) {
+            while (i < toIdx) {
               if (masked)
-                payload.addOne((data(i) ^ data(headerLength - 4 + (i % 4))).toByte)
+                payload.addOne((data(i) ^ data(fromIdx - 4 + (i % 4))).toByte)
               else
                 payload.addOne(data(i))
 
