@@ -21,7 +21,7 @@ object MessageFrame {
   def binary(data: Chunk[Byte], last: Boolean): MessageFrame =
     new MessageFrame(BINARY, data, last)
 
-  def string(data: String, last: Boolean = true): MessageFrame =
+  def text(data: String, last: Boolean): MessageFrame =
     new MessageFrame(TEXT, Chunk.fromArray(data.getBytes("UTF-8")), last)
 
   def close(code: CloseCode, description: String): MessageFrame = {

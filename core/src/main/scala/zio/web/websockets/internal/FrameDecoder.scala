@@ -22,15 +22,16 @@ object FrameDecoder {
           if (chunk.length < 2) Task.fail(new Exception("Malformed frame found"))
           else {
             val fin    = (chunk(0) >> 7) == 0x0
+            val mask   = if (masked) 0x80 else 0x00
             val opcode = chunk(0) & 0x0F
 
             for {
-              len                     <- getLength(chunk, masked)
+              len                     <- getLength(chunk, mask)
               (headerLen, payloadLen) = len
-              data                 <- readData(headerLen, payloadLen, chunk, masked)
+              data                    <- readData(headerLen, payloadLen, chunk, masked)
             } yield (opcode: @switch) match {
               case CONTINUATION => MessageFrame.continuation(data, fin)
-              case TEXT         => MessageFrame.string(new String(data.toArray, "UTF-8"), fin)
+              case TEXT         => MessageFrame.text(new String(data.toArray, "UTF-8"), fin)
               case BINARY       => MessageFrame.binary(data, fin)
               case CLOSE        => getCloseFrame(data)
               case PING         => MessageFrame.ping(data)
@@ -39,9 +40,9 @@ object FrameDecoder {
           }
         }
 
-        private def getLength(chunk: Chunk[Byte], masked: Boolean) = {
+        private def getLength(chunk: Chunk[Byte], mask: Int) = {
           val lengths = UIO.succeed {
-            val octetLen = chunk(1) & MASK
+            val octetLen = chunk(1) & mask
 
             if (octetLen == 0x7E) {
               (4, (chunk(2) << 8) + chunk(3))
@@ -66,7 +67,7 @@ object FrameDecoder {
             case (headerLen, payloadLen) =>
               //TODO: come up with sensible errors
               if ((headerLen + payloadLen) != chunk.length) Task.fail(new Exception(""))
-              else if (masked) Task.succeed((headerLen + 4, payloadLen))
+              else if (mask == 0x80) Task.succeed((headerLen + 4, payloadLen))
               else Task.succeed((headerLen, payloadLen))
           }
         }
