@@ -1,10 +1,13 @@
 package zio.web.websockets
 
 package object internal {
-  final private[internal] val CONTINUATION = 0x00
-  final private[internal] val TEXT         = 0x01
-  final private[internal] val BINARY       = 0x02
-  final private[internal] val CLOSE        = 0x08
-  final private[internal] val PING         = 0x09
-  final private[internal] val PONG         = 0x0A
+
+  private[internal] object OpCode {
+    final val Continuation = 0x00
+    final val Text         = 0x01
+    final val Binary       = 0x02
+    final val Close        = 0x08
+    final val Ping         = 0x09
+    final val Pong         = 0x0A
+  }
 }

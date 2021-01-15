@@ -30,12 +30,12 @@ object FrameDecoder {
               (headerLen, payloadLen) = len
               data                    <- readData(headerLen, payloadLen, chunk, masked)
             } yield (opcode: @switch) match {
-              case CONTINUATION => MessageFrame.continuation(data, fin)
-              case TEXT         => MessageFrame.text(new String(data.toArray, "UTF-8"), fin)
-              case BINARY       => MessageFrame.binary(data, fin)
-              case CLOSE        => getCloseFrame(data)
-              case PING         => MessageFrame.ping(data)
-              case PONG         => MessageFrame.pong(data)
+              case OpCode.Continuation => MessageFrame.continuation(data, fin)
+              case OpCode.Text         => MessageFrame.text(new String(data.toArray, "UTF-8"), fin)
+              case OpCode.Binary       => MessageFrame.binary(data, fin)
+              case OpCode.Close        => getCloseFrame(data)
+              case OpCode.Ping         => MessageFrame.ping(data)
+              case OpCode.Pong         => MessageFrame.pong(data)
             }
           }
         }

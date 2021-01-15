@@ -11,28 +11,28 @@ final case class MessageFrame private (opcode: Int, data: Chunk[Byte], last: Boo
 object MessageFrame {
 
   def ping(data: Chunk[Byte] = Chunk.empty): MessageFrame =
-    if (data.length <= 125) new MessageFrame(PING, data, true)
+    if (data.length <= 125) new MessageFrame(OpCode.Ping, data, true)
     else throw UnexpectedError
 
   def pong(data: Chunk[Byte] = Chunk.empty): MessageFrame =
-    if (data.length <= 125) new MessageFrame(PONG, data, true)
+    if (data.length <= 125) new MessageFrame(OpCode.Pong, data, true)
     else throw UnexpectedError
 
   def binary(data: Chunk[Byte], last: Boolean): MessageFrame =
-    new MessageFrame(BINARY, data, last)
+    new MessageFrame(OpCode.Binary, data, last)
 
   def text(data: String, last: Boolean): MessageFrame =
-    new MessageFrame(TEXT, Chunk.fromArray(data.getBytes("UTF-8")), last)
+    new MessageFrame(OpCode.Text, Chunk.fromArray(data.getBytes("UTF-8")), last)
 
   def close(code: CloseCode, description: String): MessageFrame = {
     val desc = description.getBytes("UTF-8")
 
     if (desc.length < 123)
-      new MessageFrame(CLOSE, Chunk.fromArray(code.toBinary ++ desc), true)
+      new MessageFrame(OpCode.Close, Chunk.fromArray(code.toBinary ++ desc), true)
     else
       throw UnexpectedError
   }
 
   def continuation(data: Chunk[Byte], last: Boolean): MessageFrame =
-    new MessageFrame(CONTINUATION, data, last)
+    new MessageFrame(OpCode.Continuation, data, last)
 }

@@ -14,10 +14,10 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
         testM("encode ping frame") {
           val payload = setPayload("ping")
 
-          testFrame(PING, payload) {
+          testFrame(OpCode.Ping, payload) {
             case (fin, mask, encoded) =>
               assert(encoded.length)(equalTo(6)) &&
-                assert(encoded(0) & 0xFF)(equalTo(fin + PING)) &&
+                assert(encoded(0) & 0xFF)(equalTo(fin + OpCode.Ping)) &&
                 assert(encoded(1) & 0xFF)(equalTo(mask + 4)) &&
                 assert(encoded.slice(2, encoded.length))(equalTo(payload))
           }
@@ -25,10 +25,10 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
         testM("encode pong frame") {
           val payload = setPayload("pong")
 
-          testFrame(PONG, payload) {
+          testFrame(OpCode.Pong, payload) {
             case (fin, mask, encoded) =>
               assert(encoded.length)(equalTo(6)) &&
-                assert(encoded(0) & 0xFF)(equalTo(fin + PONG)) &&
+                assert(encoded(0) & 0xFF)(equalTo(fin + OpCode.Pong)) &&
                 assert(encoded(1) & 0xFF)(equalTo(mask + 4)) &&
                 assert(encoded.slice(2, encoded.length))(equalTo(payload))
           }
@@ -36,10 +36,10 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
         testM("encode text frame") {
           val payload = setPayload("0123456789")
 
-          testFrame(TEXT, payload) {
+          testFrame(OpCode.Text, payload) {
             case (fin, mask, encoded) =>
               assert(encoded.length)(equalTo(12)) &&
-                assert(encoded(0) & 0xFF)(equalTo(fin + TEXT)) &&
+                assert(encoded(0) & 0xFF)(equalTo(fin + OpCode.Text)) &&
                 assert(encoded(1) & 0xFF)(equalTo(mask + 0x0A)) &&
                 assert(encoded.slice(2, encoded.length))(equalTo(payload))
           }
@@ -47,10 +47,10 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
         testM("encode binary frame") {
           nextBytes(125).flatMap(
             payload =>
-              testFrame(BINARY, payload) {
+              testFrame(OpCode.Binary, payload) {
                 case (fin, mask, encoded) =>
                   assert(encoded.length)(equalTo(127)) &&
-                    assert(encoded(0) & 0xFF)(equalTo(fin + BINARY)) &&
+                    assert(encoded(0) & 0xFF)(equalTo(fin + OpCode.Binary)) &&
                     assert(encoded(1) & 0xFF)(equalTo(mask + 0x7D)) &&
                     assert(encoded.slice(2, encoded.length))(equalTo(payload))
               }
@@ -59,10 +59,10 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
         testM("encode continuation frame") {
           nextBytes(124).flatMap(
             payload =>
-              testFrame(CONTINUATION, payload) {
+              testFrame(OpCode.Continuation, payload) {
                 case (fin, mask, encoded) =>
                   assert(encoded.length)(equalTo(126)) &&
-                    assert(encoded(0) & 0xFF)(equalTo(fin + CONTINUATION)) &&
+                    assert(encoded(0) & 0xFF)(equalTo(fin + OpCode.Continuation)) &&
                     assert(encoded(1) & 0xFF)(equalTo(mask + 0x7C)) &&
                     assert(encoded.slice(2, encoded.length))(equalTo(payload))
               }
@@ -73,16 +73,16 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
         testM("a frame with the length greater than 125 and less than 65536 in bytes") {
           nextBytes(128).flatMap(
             payload =>
-              testFrame(CONTINUATION, payload) {
+              testFrame(OpCode.Continuation, payload) {
                 case (_, _, encoded) =>
-                    assert((encoded(2) << 8) + (encoded(3) & 0xFF))(equalTo(0x80))
+                  assert((encoded(2) << 8) + (encoded(3) & 0xFF))(equalTo(0x80))
               }
           )
         },
         testM("a frame with the length greater than 65536 in bytes") {
           nextBytes(66666).flatMap(
             payload =>
-              testFrame(CONTINUATION, payload) {
+              testFrame(OpCode.Continuation, payload) {
                 case (_, _, encoded) =>
                   assert(encoded.length)(equalTo(66676)) &&
                     assert(
@@ -103,7 +103,7 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
         testM("a frame with masked payload") {
           val payload = setPayload("hello websockets")
 
-          testFrame(CONTINUATION, payload, masked = true) {
+          testFrame(OpCode.Continuation, payload, masked = true) {
             case (_, mask, encoded) =>
               assert(encoded.length)(equalTo(22)) &&
                 assert(encoded(1) & 0xFF)(equalTo(mask + 0x10)) &&
@@ -112,11 +112,12 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
           }
         },
         testM("a frame that is not the last one") {
-          nextBytes(34).flatMap(payload =>
-            testFrame(CONTINUATION, payload, last = false) {
-              case (_, _, encoded) =>
-                assert(encoded(0) & 0xFF)(equalTo(0x00 + CONTINUATION))
-            }
+          nextBytes(34).flatMap(
+            payload =>
+              testFrame(OpCode.Continuation, payload, last = false) {
+                case (_, _, encoded) =>
+                  assert(encoded(0) & 0xFF)(equalTo(0x00 + OpCode.Continuation))
+              }
           )
         }
       )
@@ -133,12 +134,12 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
     for {
       _ <- TestRandom.feedBytes(maskingKey).when(masked)
       frame = opcode match {
-        case CONTINUATION => MessageFrame.continuation(payload, last)
-        case TEXT         => MessageFrame.text(new String(payload.toArray, "UTF-8"), last)
-        case BINARY       => MessageFrame.binary(payload, last)
-        case CLOSE        => MessageFrame.close(CloseCode.NormalClosure, new String(payload.toArray, "UTF-8"))
-        case PING         => MessageFrame.ping(payload)
-        case PONG         => MessageFrame.pong(payload)
+        case OpCode.Continuation => MessageFrame.continuation(payload, last)
+        case OpCode.Text         => MessageFrame.text(new String(payload.toArray, "UTF-8"), last)
+        case OpCode.Binary       => MessageFrame.binary(payload, last)
+        case OpCode.Close        => MessageFrame.close(CloseCode.NormalClosure, new String(payload.toArray, "UTF-8"))
+        case OpCode.Ping         => MessageFrame.ping(payload)
+        case OpCode.Pong         => MessageFrame.pong(payload)
       }
       encoded <- FrameEncoder.encode(frame, masked).map(Chunk.fromByteBuffer)
     } yield assert(fin, mask, encoded)
