@@ -15,40 +15,40 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
           val payload = setPayload("ping")
 
           testFrame(OpCode.Ping, payload) { frame =>
-              assert(frame.length)(equalTo(6)) &&
-                assert(frame(0) & 0xFF)(equalTo(0x80 + OpCode.Ping)) &&
-                assert(frame(1) & 0xFF)(equalTo(0x00 + 0x04)) &&
-                assert(frame.slice(2, frame.length))(equalTo(payload))
+            assert(frame.length)(equalTo(6)) &&
+            assert(frame(0) & 0xFF)(equalTo(0x80 + OpCode.Ping)) &&
+            assert(frame(1) & 0xFF)(equalTo(0x00 + 0x04)) &&
+            assert(frame.slice(2, frame.length))(equalTo(payload))
           }
         },
         testM("encode pong frame") {
           val payload = setPayload("pong")
 
           testFrame(OpCode.Pong, payload) { frame =>
-              assert(frame.length)(equalTo(6)) &&
-                assert(frame(0) & 0xFF)(equalTo(0x80 + OpCode.Pong)) &&
-                assert(frame(1) & 0xFF)(equalTo(0x00 + 0x04)) &&
-                assert(frame.slice(2, frame.length))(equalTo(payload))
+            assert(frame.length)(equalTo(6)) &&
+            assert(frame(0) & 0xFF)(equalTo(0x80 + OpCode.Pong)) &&
+            assert(frame(1) & 0xFF)(equalTo(0x00 + 0x04)) &&
+            assert(frame.slice(2, frame.length))(equalTo(payload))
           }
         },
         testM("encode text frame") {
           val payload = setPayload("0123456789")
 
           testFrame(OpCode.Text, payload) { frame =>
-              assert(frame.length)(equalTo(12)) &&
-                assert(frame(0) & 0xFF)(equalTo(0x80 + OpCode.Text)) &&
-                assert(frame(1) & 0xFF)(equalTo(0x00 + 0x0A)) &&
-                assert(frame.slice(2, frame.length))(equalTo(payload))
+            assert(frame.length)(equalTo(12)) &&
+            assert(frame(0) & 0xFF)(equalTo(0x80 + OpCode.Text)) &&
+            assert(frame(1) & 0xFF)(equalTo(0x00 + 0x0A)) &&
+            assert(frame.slice(2, frame.length))(equalTo(payload))
           }
         },
         testM("encode binary frame") {
           nextBytes(125).flatMap(
             payload =>
               testFrame(OpCode.Binary, payload) { frame =>
-                  assert(frame.length)(equalTo(127)) &&
-                    assert(frame(0) & 0xFF)(equalTo(0x80 + OpCode.Binary)) &&
-                    assert(frame(1) & 0xFF)(equalTo(0x00 + 0x7D)) &&
-                    assert(frame.slice(2, frame.length))(equalTo(payload))
+                assert(frame.length)(equalTo(127)) &&
+                assert(frame(0) & 0xFF)(equalTo(0x80 + OpCode.Binary)) &&
+                assert(frame(1) & 0xFF)(equalTo(0x00 + 0x7D)) &&
+                assert(frame.slice(2, frame.length))(equalTo(payload))
               }
           )
         },
@@ -56,12 +56,23 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
           nextBytes(124).flatMap(
             payload =>
               testFrame(OpCode.Continuation, payload) { frame =>
-                  assert(frame.length)(equalTo(126)) &&
-                    assert(frame(0) & 0xFF)(equalTo(0x80 + OpCode.Continuation)) &&
-                    assert(frame(1) & 0xFF)(equalTo(0x00 + 0x7C)) &&
-                    assert(frame.slice(2, frame.length))(equalTo(payload))
+                assert(frame.length)(equalTo(126)) &&
+                assert(frame(0) & 0xFF)(equalTo(0x80 + OpCode.Continuation)) &&
+                assert(frame(1) & 0xFF)(equalTo(0x00 + 0x7C)) &&
+                assert(frame.slice(2, frame.length))(equalTo(payload))
               }
           )
+        },
+        testM("encode close frame") {
+          val payload = setPayload("the last frame of a message")
+
+          testFrame(OpCode.Close, payload) { frame =>
+            assert(frame.length)(equalTo(31)) &&
+            assert(CloseCode.fromInt(frame(2) << 8 & 0xFF00 | frame(3) & 0xFF))(
+              isSome(equalTo(CloseCode.NormalClosure))
+            ) &&
+            assert(frame.slice(4, frame.length))(equalTo(payload))
+          }
         }
       ),
       suite("frame lengths")(
@@ -69,7 +80,7 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
           nextBytes(128).flatMap(
             payload =>
               testFrame(OpCode.Continuation, payload) { frame =>
-                  assert((frame(2) << 8) + (frame(3) & 0xFF))(equalTo(0x80))
+                assert((frame(2) << 8) + (frame(3) & 0xFF))(equalTo(0x80))
               }
           )
         },
@@ -77,17 +88,17 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
           nextBytes(66666).flatMap(
             payload =>
               testFrame(OpCode.Continuation, payload) { frame =>
-                  assert(frame.length)(equalTo(66676)) &&
-                    assert(
-                      (frame(2) << 56) +
-                        (frame(3) << 48) +
-                        (frame(4) << 40) +
-                        (frame(5) << 32) +
-                        (frame(6) << 24) +
-                        (frame(7) << 16) +
-                        (frame(8) << 8) +
-                        (frame(9) & 0xFF)
-                    )(equalTo(0x1046A))
+                assert(frame.length)(equalTo(66676)) &&
+                assert(
+                  (frame(2) << 56) +
+                    (frame(3) << 48) +
+                    (frame(4) << 40) +
+                    (frame(5) << 32) +
+                    (frame(6) << 24) +
+                    (frame(7) << 16) +
+                    (frame(8) << 8) +
+                    (frame(9) & 0xFF)
+                )(equalTo(0x1046A))
               }
           )
         }
@@ -97,17 +108,17 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
           val payload = setPayload("hello websockets")
 
           testFrame(OpCode.Continuation, payload, masked = true) { frame =>
-              assert(frame.length)(equalTo(22)) &&
-                assert(frame(1) & 0xFF)(equalTo(0x80 + 0x10)) &&
-                assert(frame.slice(2, 6))(equalTo(maskingKey)) &&
-                assert(unmaskData(frame.slice(6, frame.length)))(equalTo(payload))
+            assert(frame.length)(equalTo(22)) &&
+            assert(frame(1) & 0xFF)(equalTo(0x80 + 0x10)) &&
+            assert(frame.slice(2, 6))(equalTo(maskingKey)) &&
+            assert(unmaskData(frame.slice(6, frame.length)))(equalTo(payload))
           }
         },
         testM("a frame that is not the last one") {
           nextBytes(34).flatMap(
             payload =>
               testFrame(OpCode.Continuation, payload, last = false) { frame =>
-                  assert(frame(0) & 0xFF)(equalTo(0x00 + OpCode.Continuation))
+                assert(frame(0) & 0xFF)(equalTo(0x00 + OpCode.Continuation))
               }
           )
         }
@@ -118,7 +129,7 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
 
   def testFrame(opcode: Int, payload: Chunk[Byte], last: Boolean = true, masked: Boolean = false)(
     assert: Chunk[Byte] => TestResult
-  ) = {
+  ) =
     for {
       _ <- TestRandom.feedBytes(maskingKey).when(masked)
       frame = opcode match {
@@ -131,7 +142,6 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
       }
       encoded <- FrameEncoder.encode(frame, masked).map(Chunk.fromByteBuffer)
     } yield assert(encoded)
-  }
 
   private def unmaskData(data: Chunk[Byte]) =
     data

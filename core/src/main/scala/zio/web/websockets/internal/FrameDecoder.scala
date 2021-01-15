@@ -91,7 +91,7 @@ object FrameDecoder {
           }
 
         private def getCloseFrame(payload: Chunk[Byte]) = {
-          val code   = (payload(0) << 8) + (payload(1) & 0xFF)
+          val code   = (payload(2) << 8 & 0xFF00 | payload(3) & 0xFF)
           val reason = new String(payload.drop(2).toArray, "UTF-8")
 
           //TODO: Fail if code is out of close code's range
