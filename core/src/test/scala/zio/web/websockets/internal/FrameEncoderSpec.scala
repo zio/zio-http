@@ -64,7 +64,7 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
           )
         },
         testM("encode close frame") {
-          val payload = setPayload("the last frame of a message")
+          val payload = setPayload("closing connection normally")
 
           testFrame(OpCode.Close, payload) { frame =>
             assert(frame.length)(equalTo(31)) &&
