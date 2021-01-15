@@ -69,28 +69,22 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
           )
         }
       ),
-      suite("frame sizes")(
-        testM("a frame with the size greater than 125 and less than 65536 bytes") {
+      suite("frame lengths")(
+        testM("a frame with the length greater than 125 and less than 65536 in bytes") {
           nextBytes(128).flatMap(
             payload =>
               testFrame(CONTINUATION, payload) {
-                case (fin, mask, encoded) =>
-                  assert(encoded.length)(equalTo(132)) &&
-                    assert(encoded(0) & 0xFF)(equalTo(fin + CONTINUATION)) &&
-                    assert(encoded(1) & 0xFF)(equalTo(mask + 0x7E)) &&
-                    assert((encoded(2) << 8) + (encoded(3) & 0xFF))(equalTo(0x80)) &&
-                    assert(encoded.slice(4, encoded.length))(equalTo(payload))
+                case (_, _, encoded) =>
+                    assert((encoded(2) << 8) + (encoded(3) & 0xFF))(equalTo(0x80))
               }
           )
         },
-        testM("a frame with the size greater than 65536 bytes") {
+        testM("a frame with the length greater than 65536 in bytes") {
           nextBytes(66666).flatMap(
             payload =>
               testFrame(CONTINUATION, payload) {
-                case (fin, mask, encoded) =>
+                case (_, _, encoded) =>
                   assert(encoded.length)(equalTo(66676)) &&
-                    assert(encoded(0) & 0xFF)(equalTo(fin + CONTINUATION)) &&
-                    assert(encoded(1) & 0xFF)(equalTo(mask + 0x7F)) &&
                     assert(
                       (encoded(2) << 56) +
                         (encoded(3) << 48) +
@@ -100,8 +94,7 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
                         (encoded(7) << 16) +
                         (encoded(8) << 8) +
                         (encoded(9) & 0xFF)
-                    )(equalTo(0x1046A)) &&
-                    assert(encoded.slice(10, encoded.length))(equalTo(payload))
+                    )(equalTo(0x1046A))
               }
           )
         }
@@ -111,13 +104,20 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
           val payload = setPayload("hello websockets")
 
           testFrame(CONTINUATION, payload, masked = true) {
-            case (fin, mask, encoded) =>
+            case (_, mask, encoded) =>
               assert(encoded.length)(equalTo(22)) &&
-                assert(encoded(0) & 0xFF)(equalTo(fin + CONTINUATION)) &&
                 assert(encoded(1) & 0xFF)(equalTo(mask + 0x10)) &&
                 assert(encoded.slice(2, 6))(equalTo(maskingKey)) &&
                 assert(unmaskData(encoded.slice(6, encoded.length)))(equalTo(payload))
           }
+        },
+        testM("a frame that is not the last one") {
+          nextBytes(34).flatMap(payload =>
+            testFrame(CONTINUATION, payload, last = false) {
+              case (_, _, encoded) =>
+                assert(encoded(0) & 0xFF)(equalTo(0x00 + CONTINUATION))
+            }
+          )
         }
       )
     ).provideCustomLayer(FrameEncoder.live)
