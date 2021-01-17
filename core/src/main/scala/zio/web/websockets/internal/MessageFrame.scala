@@ -1,6 +1,6 @@
 package zio.web.websockets.internal
 
-import scala.util.control.NoStackTrace
+import java.nio.charset.StandardCharsets
 
 import zio.Chunk
 
@@ -51,24 +51,22 @@ object MessageFrame {
     new MessageFrame(last, data, FrameType.Binary)
 
   def text(data: String, last: Boolean): MessageFrame =
-    new MessageFrame(last, Chunk.fromArray(data.getBytes("UTF-8")), FrameType.Text)
+    new MessageFrame(last, Chunk.fromArray(data.getBytes(StandardCharsets.UTF_8)), FrameType.Text)
 
   def continuation(data: Chunk[Byte], last: Boolean): MessageFrame =
     new MessageFrame(last, data, FrameType.Continuation)
 
   def ping(data: Chunk[Byte] = Chunk.empty): MessageFrame =
     if (data.length <= 125) new MessageFrame(true, data, FrameType.Ping)
-    else throw UnexpectedError
+    else throw FrameError.TooBigData("PING frame length must be less that 126 bytes")
 
   def pong(data: Chunk[Byte] = Chunk.empty): MessageFrame =
     if (data.length <= 125) new MessageFrame(true, data, FrameType.Pong)
-    else throw UnexpectedError
+    else throw FrameError.TooBigData("PONG frame length must be less that 126 bytes")
 
   def close(code: CloseCode, description: String): MessageFrame =
     if (description.length < 123) {
       val reason = Chunk.fromArray(description.getBytes("UTF-8"))
       new MessageFrame(true, code.toBinary ++ reason, FrameType.Close(code, description))
-    } else throw UnexpectedError
+    } else throw FrameError.TooBigData("CLOSE frame's reason must be less than 123 bytes")
 }
-
-object UnexpectedError extends Exception with NoStackTrace
