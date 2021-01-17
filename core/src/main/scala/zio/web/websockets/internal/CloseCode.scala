@@ -1,14 +1,16 @@
 package zio.web.websockets.internal
 
+import zio.{ Chunk, ChunkBuilder }
+
 import scala.annotation.switch
 
 sealed abstract class CloseCode(code: Int) {
 
-  def toBinary: Array[Byte] = {
-    val arr = new Array[Byte](2)
-    arr.update(0, ((code >> 8) & 0xFF).toByte)
-    arr.update(1, (code & 0xFF).toByte)
-    arr
+  def toBinary: Chunk[Byte] = {
+    val bytes = ChunkBuilder.make[Byte](2)
+    bytes.addOne(((code >> 8) & 0xFF).toByte)
+    bytes.addOne((code & 0xFF).toByte)
+    bytes.result()
   }
 }
 
