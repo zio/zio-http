@@ -4,7 +4,6 @@ import zio.Chunk
 import zio.random._
 import zio.test._
 import zio.test.Assertion._
-import zio.test.environment.TestRandom
 
 object FrameEncoderSpec extends DefaultRunnableSpec {
 
@@ -106,20 +105,16 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
         }
       ),
       suite("misc")(
-/*
         testM("a frame with masked payload") {
           val payload = setPayload("hello websockets")
 
-          maskingKey.flatMap { key =>
-            testFrame(OpCode.Continuation, payload, masked = true) { frame =>
-              assert(frame.length)(equalTo(22)) &&
-              assert(frame(1) & 0xFF)(equalTo(0x80 + 0x10)) &&
-              assert(frame.slice(2, 6))(equalTo(key)) &&
-              assert(unmaskData(frame.slice(6, frame.length), key))(equalTo(payload))
-            }
+          testFrame(OpCode.Continuation, payload, masked = true) { frame =>
+            assert(frame.length)(equalTo(22)) &&
+            assert(frame(1) & 0xFF)(equalTo(0x80 + 0x10)) &&
+            assert(frame.slice(2, 6))(equalTo(maskingKey)) &&
+            assert(unmaskData(frame.slice(6, frame.length)))(equalTo(payload))
           }
         },
-*/
         testM("a frame that is not the last one") {
           nextBytes(34).flatMap(
             payload =>
@@ -129,15 +124,15 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
           )
         }
       )
-    ).provideCustomLayer(FrameEncoder.default ++ MaskingKey.live)
+    ).provideCustomLayer((TestMaskingKey.live >>> FrameEncoder.live) ++ TestMaskingKey.live)
 
-  val maskingKey = MaskingKey.get
+  val maskingKey = Chunk(0xDE, 0xAD, 0xBE, 0xEF).map(_.toByte)
 
   def testFrame(opcode: Int, payload: Chunk[Byte], last: Boolean = true, masked: Boolean = false)(
     assert: Chunk[Byte] => TestResult
   ) =
     for {
-      _ <- maskingKey.flatMap(TestRandom.feedBytes(_).when(masked))
+      _ <- TestMaskingKey.feed(maskingKey).when(masked)
       frame = opcode match {
         case OpCode.Continuation => MessageFrame.continuation(payload, last)
         case OpCode.Text         => MessageFrame.text(new String(payload.toArray, "UTF-8"), last)
@@ -149,13 +144,13 @@ object FrameEncoderSpec extends DefaultRunnableSpec {
       encoded <- FrameEncoder.encode(frame, masked)
     } yield assert(encoded)
 
-//  private def unmaskData(data: Chunk[Byte], maskingKey: Chunk[Byte]) =
-//    data
-//      .mapAccum(0) {
-//        case (idx, byte) =>
-//          (idx + 1, (byte ^ maskingKey(idx & 0x3)).toByte)
-//      }
-//      ._2
+  private def unmaskData(data: Chunk[Byte]) =
+    data
+      .mapAccum(0) {
+        case (idx, byte) =>
+          (idx + 1, (byte ^ maskingKey(idx & 0x3)).toByte)
+      }
+      ._2
 
   private def setPayload(str: String) =
     Chunk.fromArray(str.getBytes("UTF-8"))
