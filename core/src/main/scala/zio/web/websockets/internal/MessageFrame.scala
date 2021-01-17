@@ -64,14 +64,11 @@ object MessageFrame {
     if (data.length <= 125) new MessageFrame(true, data, FrameType.Pong)
     else throw UnexpectedError
 
-  def close(code: CloseCode, description: String): MessageFrame = {
-    val reason = Chunk.fromArray(description.getBytes("UTF-8"))
-
-    if (reason.length < 123)
+  def close(code: CloseCode, description: String): MessageFrame =
+    if (description.length < 123) {
+      val reason = Chunk.fromArray(description.getBytes("UTF-8"))
       new MessageFrame(true, code.toBinary ++ reason, FrameType.Close(code, description))
-    else
-      throw UnexpectedError
-  }
+    } else throw UnexpectedError
 }
 
 object UnexpectedError extends Exception with NoStackTrace
