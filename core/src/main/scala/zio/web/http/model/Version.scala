@@ -1,10 +1,12 @@
 package zio.web.http.model
 
-sealed trait Version
+sealed abstract class Version(name: String) {
+  override def toString(): String = s"Version.$name"
+}
 
 object Version {
-  object V1_1 extends Version
-  object V2   extends Version
+  object V1_1 extends Version("HTTP/1.1")
+  object V2   extends Version("HTTP/2.0")
 
   def fromString(version: String): Version =
     version match {

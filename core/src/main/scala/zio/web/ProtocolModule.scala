@@ -2,9 +2,11 @@ package zio.web
 
 import java.io.IOException
 
-import _root_.zio.{ Has, ZLayer }
+import zio.{ Has, /*Task,*/ ZLayer }
+import zio.blocking.Blocking
+import zio.logging.Logging
 
-trait ProtocolModule extends EndpointModule {
+trait ProtocolModule {
   type ServerConfig
   type ClientConfig
   type ServerService
@@ -13,14 +15,21 @@ trait ProtocolModule extends EndpointModule {
   type MinMetadata
   type MaxMetadata
 
-  def makeServer[M >: MaxMetadata <: MinMetadata, R <: Has[ServerConfig], E, A](
+  // TODO: require implicit evidence that all Endpoints have handlers 
+  def makeServer[M >: MaxMetadata <: MinMetadata, R <: Has[ServerConfig], E](
     middleware: Middleware[R, E],
-    endpoints: Endpoints[M, A]
-  ): ZLayer[R, IOException, Has[ServerService]]
+    endpoints: Endpoints
+  ): ZLayer[R with Blocking with Logging, IOException, ServerService]
 
-  def makeDocs[M >: MaxMetadata <: MinMetadata](endpoints: Endpoints[M, _]): ProtocolDocs
+  def makeDocs[R, M >: MaxMetadata <: MinMetadata](endpoints: Endpoints): ProtocolDocs
 
-  def makeClient[M >: MaxMetadata <: MinMetadata, A](
-    endpoints: Endpoints[M, A]
-  ): ZLayer[Has[ClientConfig], IOException, Has[ClientService[A]]]
+  // def makeClient[R, M >: MaxMetadata <: MinMetadata](
+  //   endpoints: Endpoints[R, M, A]
+  // ): ZLayer[Has[ClientConfig], IOException, Has[ClientService[A]]]
+
+  // trait ClientService[A] {
+  //   def invoke[M, I, O, R, H](endpoint: Endpoint[M, I, O, R, H], request: I)(
+  //     implicit ev: A <:< Endpoint[M, I, O, R, H]
+  //   ): Task[O]
+  // }
 }

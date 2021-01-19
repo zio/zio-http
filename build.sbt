@@ -4,9 +4,9 @@ import sbtbuildinfo.BuildInfoKeys.{ buildInfoKeys, buildInfoPackage }
 
 inThisBuild(
   List(
-    name := "zio-http",
+    name := "zio-web",
     organization := "dev.zio",
-    homepage := Some(url("https://github.com/zio/zio-http")),
+    homepage := Some(url("https://github.com/zio/zio-web")),
     developers := List(
       Developer(
         "ioleo",
@@ -24,7 +24,7 @@ inThisBuild(
     scmInfo := Some(
       ScmInfo(
         homepage.value.get,
-        "scm:git:git@github.com:zio/zio-http.git"
+        "scm:git:git@github.com:zio/zio-web.git"
       )
     ),
     licenses := Seq("Apache-2.0" -> url(s"${scmInfo.value.map(_.browseUrl).get}/blob/v${version.value}/LICENSE")),
@@ -51,22 +51,24 @@ lazy val root = project
 lazy val core = project
   .in(file("core"))
   .enablePlugins(BuildInfoPlugin)
-  .settings(stdSettings("zio-http-core"))
+  .settings(stdSettings("zio-web-core"))
   .settings(
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
     buildInfoPackage := "zio.web",
     libraryDependencies ++= Seq(
-      "dev.zio"        %% "zio"          % zioVersion,
-      "dev.zio"        %% "zio-streams"  % zioVersion,
-      "dev.zio"        %% "zio-nio"      % zioNioVersion,
-      "dev.zio"        %% "zio-test"     % zioVersion % Test,
-      "dev.zio"        %% "zio-test-sbt" % zioVersion % Test,
-      "com.propensive" %% "magnolia"     % magnoliaVersion,
-      "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+      "dev.zio"        %% "zio"             % zioVersion,
+      "dev.zio"        %% "zio-logging"     % zioLoggingVersion,
+      "dev.zio"        %% "zio-streams"     % zioVersion,
+      "dev.zio"        %% "zio-schema-core" % zioSchemaVersion,
+      "dev.zio"        %% "zio-nio"         % zioNioVersion,
+      "dev.zio"        %% "zio-json"        % zioJsonVersion,
+      "dev.zio"        %% "zio-test"        % zioVersion % Test,
+      "dev.zio"        %% "zio-test-sbt"    % zioVersion % Test,
+      "com.propensive" %% "magnolia"        % magnoliaVersion,
+      "org.scala-lang" % "scala-reflect"    % scalaVersion.value % Provided
     ),
     testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
   )
-  .dependsOn(schema)
 
 lazy val docs = project
   .in(file("zio-web-docs"))
@@ -75,6 +77,3 @@ lazy val docs = project
   .settings(
     moduleName := "zio-web-docs"
   )
-
-lazy val schema =
-  ProjectRef(uri("git://github.com/zio/zio-schema.git#main"), "core")

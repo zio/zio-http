@@ -8,10 +8,13 @@ import BuildInfoKeys._
 
 object BuildHelper {
 
-  val zioVersion      = "1.0.3"
-  val zioNioVersion   = "1.0.0-RC9"
-  val silencerVersion = "1.7.1"
-  val magnoliaVersion = "0.16.0"
+  val zioVersion        = "1.0.4-2"
+  val zioLoggingVersion = "0.5.4"
+  val zioSchemaVersion  = "0.0.0+18-42b56d6b"
+  val zioJsonVersion    = "0.1+12-a390d502-SNAPSHOT"
+  val zioNioVersion     = "1.0.0-RC10"
+  val silencerVersion   = "1.7.1"
+  val magnoliaVersion   = "0.16.0"
 
   private val testDeps = Seq(
     "dev.zio" %% "zio-test"     % zioVersion % "test",
