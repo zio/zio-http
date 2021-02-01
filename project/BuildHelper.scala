@@ -8,7 +8,7 @@ import BuildInfoKeys._
 
 object BuildHelper {
 
-  val zioVersion      = "1.0.3"
+  val zioVersion      = "1.0.4-1"
   val zioNioVersion   = "1.0.0-RC9"
   val silencerVersion = "1.7.1"
   val magnoliaVersion = "0.16.0"
