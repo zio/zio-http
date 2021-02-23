@@ -6,6 +6,9 @@ import zio._
 import zio.logging.{log, Logging}
 import zio.nio.core.channels.{Selector, SelectionKey, SocketChannel}
 import zio.nio.core.channels.SelectionKey.Operation
+import zio.stream.ZStream
+import zio.web.Endpoint
+import zio.web.codec.JsonCodec
 import zio.web.http.internal.{HttpLexer, HttpRouter}
 
 private[http] class HttpConnection(channel: SocketChannel, closed: Promise[Throwable, Unit]) { self =>
@@ -21,6 +24,7 @@ private[http] class HttpConnection(channel: SocketChannel, closed: Promise[Throw
   val awaitShutdown: IO[Throwable, Unit] = closed.await
 
   private def readLine(size: Int, prepend: Chunk[Byte] = Chunk.empty): IO[IOException, Data] = {
+    // TODO: refactor using transducers
     // partitions the chunk into left (before seperator), middle (seperator) and right (after seperator)
     def partition(chunk: Chunk[Byte], acc: Chunk[Byte], buffer: Chunk[Byte])
       : (Chunk[Byte], Chunk[Byte], Chunk[Byte])
@@ -66,17 +70,27 @@ private[http] class HttpConnection(channel: SocketChannel, closed: Promise[Throw
     for {
       _         <- awaitOpen
       startLine <- readLine(32)
-      headers   <- readHeaders(32, startLine.tail)
       _         <- log.info(s"Read start-line:\n${new String(startLine.value.toArray)}")
-      _         <- log.info(s"Read headers:\n${new String(headers.value.toArray)}")
       (method, uri, version) = HttpLexer.parseStartLine(new StringReader(new String(startLine.value.toArray)))
       _         <- log.info(s"Parsed $method :: $uri :: $version")
       _ <- HttpRouter.route(method, uri, version).flatMap {
         case Some(endpoint) => 
           for {
-            _    <- log.info(s"Request matched to [${endpoint.endpointName}].")
-            body <- channel.readChunk(1024).map { headers.tail ++ _ }
-            _    <- log.info(s"Read body:\n${new String(body.toArray)}")
+            _       <- log.info(s"Request matched to [${endpoint.endpointName}].")
+            headers <- readHeaders(32, startLine.tail)
+            _       <- log.info(s"Read headers:\n${new String(headers.value.toArray)}")
+            body    <- channel.readChunk(1024).map { headers.tail ++ _ }
+            _       <- log.info(s"Read body:\n${new String(body.toArray)}")
+            _      <- ZStream.fromChunk(body).transduce(JsonCodec.decoder(endpoint.request)).runHead.catchAll(_ => ZIO.none).flatMap {
+              case Some(parsed) => 
+                for {
+                  _   <- log.info(s"Parsed body:\n${parsed}")
+                  out <- endpoint.asInstanceOf[Endpoint.Api[ZEnv, Any, Any, Any]].handler(parsed).provideLayer(ZEnv.live)
+                  _   <- log.info(s"Handler returned $out")
+                } yield ()
+              case None         => log.info(s"Parsing body failed")
+            }
+            
             // parse body if it's a POST request and pass it to the handler
             //response <- endpoint.handler(???)
           } yield ()

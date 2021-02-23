@@ -84,11 +84,14 @@ trait Example extends http.HttpProtocolModule {
 
   // -- BASIC HTTP SERVER
   // say hello example
-  sealed case class HelloRequest(name: String)
+  sealed case class HelloRequest(name: String, message: String)
   sealed case class TextPlainResponse(content: String)
 
   lazy val helloSchema: Schema[HelloRequest] =
-    Schema.caseClassN("name" -> Schema[String])(HelloRequest(_), HelloRequest.unapply(_))
+    Schema.caseClassN(
+      "name"    -> Schema[String],
+      "message" -> Schema[String]
+    )(HelloRequest(_, _), HelloRequest.unapply(_))
 
   lazy val sayHello =
     endpoint("sayHello")
