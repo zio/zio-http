@@ -1,13 +1,13 @@
 # ZIO-HTTP
-##Environment
+## Environment
 **We have used 2 machines**
 1. EC2(C5.4xLarge) 16 vCPUs 32 GB RAM as server
 2. EC2(C5.4xLarge) 16 vCPUs 32 GB RAM as client with wrk setup
 
-##Benchmarks
+## Benchmarks
 
 ### ZIO-HTTP
-####Plain Text
+#### Plain Text
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.105.8:8090
 Running 10s test @ http://10.10.105.8:8090
@@ -24,7 +24,7 @@ Running 10s test @ http://10.10.105.8:8090
 Requests/sec: 719576.04
 Transfer/sec:     34.31MB
 ```
-####JSON
+#### JSON
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.105.8:8090/json
 Running 10s test @ http://10.10.105.8:8090/json
