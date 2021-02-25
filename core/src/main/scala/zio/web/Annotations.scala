@@ -1,6 +1,6 @@
 package zio.web
 
-sealed trait Annotations[A] { self =>
+sealed trait Annotations[+A] { self =>
   def +[M](that: M): Annotations[M with A] = Annotations.Cons[M, A](that, self)
 
   def add[M](that: M): Annotations[M with A] = Annotations.Cons[M, A](that, self)

@@ -22,13 +22,7 @@ trait ProtocolModule {
 
   def makeDocs[R, M <: MinMetadata](endpoints: Endpoints[M, _]): ProtocolDocs
 
-  // def makeClient[R, M >: MaxMetadata <: MinMetadata](
-  //   endpoints: Endpoints[R, M, A]
-  // ): ZLayer[Has[ClientConfig], IOException, Has[ClientService[A]]]
-
-  // trait ClientService[A] {
-  //   def invoke[M, I, O, R, H](endpoint: Endpoint[M, I, O, R, H], request: I)(
-  //     implicit ev: A <:< Endpoint[M, I, O, R, H]
-  //   ): Task[O]
-  // }
+  def makeClient[M <: MinMetadata, Identities](
+    endpoints: Endpoints[M, Identities]
+  ): ZLayer[Has[ClientConfig], IOException, Has[ClientService[Identities]]] = ???
 }

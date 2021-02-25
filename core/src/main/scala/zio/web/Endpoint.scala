@@ -10,21 +10,17 @@ trait AnyEndpoint {
   type Identity
 }
 
-final case class Endpoint[M, I, O](
+final case class Endpoint[+M, I, O](
   endpointName: String,
   doc: Doc,
   request: Schema[I],
   response: Schema[O],
   annotations: Annotations[M]
 ) extends AnyEndpoint { self =>
-  type Metadata = M
-  type Request  = I
-  type Response = O
-
   type Identity
 
-  def +[M2](that: Endpoint[M2, _, _]): Endpoints[M with M2, Identity with that.Identity] =
-    Endpoints[M, M2](self, that)
+  def +[M1 >: M](that: Endpoint[M1, _, _]): Endpoints[M1, Identity with that.Identity] =
+    Endpoints(self, that)
 
   /**
    * Adds an annotation to the endpoint.

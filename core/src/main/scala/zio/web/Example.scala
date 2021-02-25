@@ -52,19 +52,24 @@ trait Example extends http.HttpProtocolModule {
 
   lazy val userService = getUserProfile + setUserProfile
 
-  lazy val getUserProfileHandler: UserId => URIO[Console, Option[UserProfile]] = (id: UserId) =>
-    for {
-      _       <- console.putStrLn(s"Handling getUserProfile request for $id")
-      profile = inMemoryDb.get(id)
-    } yield profile
-
-  lazy val setUserProfileHandler: ((UserId, UserProfile)) => URIO[Console, Unit] = {
-    case (id: UserId, profile: UserProfile) =>
+  lazy val getUserProfileHandler =
+    Handler.make(getUserProfile) { id =>
       for {
-        _ <- console.putStrLn(s"Handling setUserProfile request for $id and $profile")
-        _ = inMemoryDb.update(id, profile)
-      } yield ()
-  }
+        _       <- console.putStrLn(s"Handling getUserProfile request for $id")
+        profile = inMemoryDb.get(id)
+      } yield profile
+    }
+
+  lazy val setUserProfileHandler =
+    Handler.make(setUserProfile) {
+      case (id, profile) =>
+        for {
+          _ <- console.putStrLn(s"Handling setUserProfile request for $id and $profile")
+          _ = inMemoryDb.update(id, profile)
+        } yield ()
+    }
+
+  val allHandlers = getUserProfileHandler + setUserProfileHandler
 
   // lazy val serverUserService = userService
   //   .attach(getUserProfileHandler)
@@ -72,7 +77,7 @@ trait Example extends http.HttpProtocolModule {
   //   .attach(setUserProfileHandler)
 
   // client example
-  //lazy val userProfile = userService.invoke(getUserProfile)(userJoe).provideLayer(makeClient(userService))
+  lazy val userProfile = userService.invoke(getUserProfile)(userJoe).provideLayer(makeClient(userService))
 
   // server example
   lazy val userServerLayer = makeServer(HttpMiddleware.none, userService)

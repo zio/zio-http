@@ -23,8 +23,6 @@ import zio.web.docs._
  */
 package object web {
 
-  type Handler[-R, -A, +B] = A => RIO[R, B]
-
   /**
    * Constructs a new endpoint with the specified name.
    */
