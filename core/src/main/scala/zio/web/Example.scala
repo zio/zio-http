@@ -1,7 +1,6 @@
 package zio.web
 
 import zio._
-import zio.console.Console
 import zio.duration._
 import zio.logging.{ LogFormat, LogLevel, Logging, log }
 import zio.schema._
@@ -40,19 +39,19 @@ trait Example extends http.HttpProtocolModule {
     UserId("22")     -> UserProfile(18, "Mary Sue", "5 The Elms, Swampland")
   )
 
-  lazy val getUserProfile =
+  val getUserProfile =
     endpoint("getUserProfile")
       .withRequest(userIdSchema)
       .withResponse(userProfileSchema.?) @@ Route("/users/") @@ Method.GET
 
-  lazy val setUserProfile =
+  val setUserProfile =
     endpoint("setUserProfile")
       .withRequest(Schema.zipN(userIdSchema, userProfileSchema))
       .withResponse(Schema[Unit]) @@ Route("/users/{id}") @@ Method.POST
 
-  lazy val userService = getUserProfile + setUserProfile
+  val userService = getUserProfile + setUserProfile
 
-  lazy val getUserProfileHandler =
+  val getUserProfileHandler =
     Handler.make(getUserProfile) { id =>
       for {
         _       <- console.putStrLn(s"Handling getUserProfile request for $id")
@@ -60,7 +59,7 @@ trait Example extends http.HttpProtocolModule {
       } yield profile
     }
 
-  lazy val setUserProfileHandler =
+  val setUserProfileHandler =
     Handler.make(setUserProfile) {
       case (id, profile) =>
         for {
@@ -69,7 +68,7 @@ trait Example extends http.HttpProtocolModule {
         } yield ()
     }
 
-  val allHandlers = getUserProfileHandler + setUserProfileHandler
+  val userServiceHandlers = getUserProfileHandler + setUserProfileHandler
 
   // lazy val serverUserService = userService
   //   .attach(getUserProfileHandler)
@@ -80,7 +79,7 @@ trait Example extends http.HttpProtocolModule {
   lazy val userProfile = userService.invoke(getUserProfile)(userJoe).provideLayer(makeClient(userService))
 
   // server example
-  lazy val userServerLayer = makeServer(HttpMiddleware.none, userService)
+  lazy val userServerLayer = makeServer(HttpMiddleware.none, userService, userServiceHandlers)
 
   // docs example
   lazy val docs = makeDocs(userService)
@@ -101,21 +100,17 @@ trait Example extends http.HttpProtocolModule {
       .withRequest(helloSchema)
       .withResponse(textPlainSchema) @@ Route("/{name}") @@ Method.GET
 
-  lazy val helloService = Endpoints(sayHello)
+  lazy val sayHelloService = Endpoints(sayHello)
 
-  lazy val sayHelloHandler: HelloRequest => URIO[Console, TextPlainResponse] = (req: HelloRequest) =>
-    for {
-      _ <- console.putStrLn(s"Handling sayHello request for ${req.name}")
-    } yield TextPlainResponse(s"Hello ${req.name}!")
+  lazy val sayHelloHandlers =
+    Handlers(Handler.make(sayHello) { (req: HelloRequest) =>
+      for {
+        _ <- console.putStrLn(s"Handling sayHello request for ${req.name}")
+      } yield TextPlainResponse(s"Hello ${req.name}!")
+    })
 
-  lazy val sayHelloHandlerAny: HelloRequest => URIO[Any, TextPlainResponse] = (req: HelloRequest) =>
-    (for {
-      _ <- console.putStrLn(s"Handling sayHello request for ${req.name}")
-    } yield TextPlainResponse(s"Hello ${req.name}!")).provideLayer(Console.live)
-
-  lazy val serverHelloService = ???
-
-  lazy val helloServerLayer = makeServer(HttpMiddleware.none, serverHelloService)
+  lazy val helloServerLayer =
+    makeServer(HttpMiddleware.none, sayHelloService, sayHelloHandlers)
 }
 
 object ExampleApp extends zio.App with Example {
