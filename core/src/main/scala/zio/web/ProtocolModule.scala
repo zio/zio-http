@@ -13,15 +13,14 @@ trait ProtocolModule {
   type ProtocolDocs
   type Middleware[-R, +E]
   type MinMetadata
-  type MaxMetadata
 
   // TODO: require implicit evidence that all Endpoints have handlers 
-  def makeServer[M >: MaxMetadata <: MinMetadata, R <: Has[ServerConfig], E](
+  def makeServer[M <: MinMetadata, R <: Has[ServerConfig], E](
     middleware: Middleware[R, E],
-    endpoints: Endpoints
+    endpoints: Endpoints[M, _]
   ): ZLayer[R with Blocking with Logging, IOException, ServerService]
 
-  def makeDocs[R, M >: MaxMetadata <: MinMetadata](endpoints: Endpoints): ProtocolDocs
+  def makeDocs[R, M <: MinMetadata](endpoints: Endpoints[M, _]): ProtocolDocs
 
   // def makeClient[R, M >: MaxMetadata <: MinMetadata](
   //   endpoints: Endpoints[R, M, A]

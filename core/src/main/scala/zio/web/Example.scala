@@ -68,10 +68,10 @@ trait Example extends http.HttpProtocolModule {
       } yield ()
     }
 
-  lazy val serverUserService = userService
-    // .attach(getUserProfileHandler)
-    // .next
-    // .attach(setUserProfileHandler)
+  // lazy val serverUserService = userService
+  //   .attach(getUserProfileHandler)
+  //   .next
+  //   .attach(setUserProfileHandler)
 
   // client example
   //lazy val userProfile = userService.invoke(getUserProfile)(userJoe).provideLayer(makeClient(userService))
@@ -93,12 +93,15 @@ trait Example extends http.HttpProtocolModule {
       "message" -> Schema[String]
     )(HelloRequest(_, _), HelloRequest.unapply(_))
 
-  lazy val sayHello =
+  val sayHello =
     endpoint("sayHello")
       .withRequest(helloSchema)
       .withResponse(textPlainSchema) @@ Route("/{name}") @@ Method.GET
 
-  lazy val helloService = sayHello :: Endpoints.empty
+  lazy val helloService /* : Endpoints[Route with Method, sayHello.Identity]*/ = 
+    sayHello :: Endpoints.empty
+
+  lazy val helloService2 = sayHello :: Endpoints.empty
 
   lazy val sayHelloHandler
     : HelloRequest => URIO[Console, TextPlainResponse]
@@ -114,7 +117,7 @@ trait Example extends http.HttpProtocolModule {
         _ <- console.putStrLn(s"Handling sayHello request for ${req.name}")
       } yield TextPlainResponse(s"Hello ${req.name}!")).provideLayer(Console.live)
 
-  lazy val serverHelloService = helloService//.attach(sayHelloHandlerAny)
+  lazy val serverHelloService = ???
   
   lazy val helloServerLayer = makeServer(HttpMiddleware.none, serverHelloService)
 }

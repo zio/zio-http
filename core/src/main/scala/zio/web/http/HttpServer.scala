@@ -103,7 +103,7 @@ object HttpServer {
   val live: ZIO[Has[HttpServer] with Logging with Blocking with Clock with HttpRouter, IOException, HttpServer] =
     ZIO.service[HttpServer].tap(_.startup.orDie)
 
-  def build(config: HttpServerConfig, endpoints: Endpoints): ZManaged[Blocking with Logging with HttpRouter, IOException, HttpServer] =
+  def build(config: HttpServerConfig, endpoints: Endpoints[_, _]): ZManaged[Blocking with Logging with HttpRouter, IOException, HttpServer] =
     for {
       closed   <- Promise.make[Throwable, Unit].toManaged_
       _ = endpoints

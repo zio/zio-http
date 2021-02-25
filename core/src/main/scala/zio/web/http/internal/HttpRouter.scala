@@ -11,18 +11,18 @@ object HttpRouter {
     def route(method: Method, uri: Uri, version: Version): UIO[Option[Endpoint[_, _, _]]]
   }
 
-  def basic(endpoints: Endpoints): ULayer[HttpRouter] =
+  def basic(endpoints: Endpoints[_, _]): ULayer[HttpRouter] =
     ZLayer.succeed(new Service {
 
       def route(method: Method, uri: Uri, version: Version): UIO[Option[Endpoint[_, _, _]]] = ZIO.effectTotal {
-        import Endpoints.{::, Empty}
+        import Endpoints.{Cons, Empty}
         val _ = (method, version)
         val calledEndpoint = uri.toString.stripPrefix("/")
 
-        def loop(search: Endpoints): Option[Endpoint[_, _, _]] = search match {
+        def loop(search: Endpoints[_, _]): Option[Endpoint[_, _, _]] = search match {
           case Empty => None
-          case (endpoint: Endpoint[_, _, _]) :: _ if endpoint.endpointName == calledEndpoint => Some(endpoint)
-          case _ :: tail => loop(tail)
+          case Cons(endpoint, _) if endpoint.endpointName == calledEndpoint => Some(endpoint)
+          case Cons(_, tail) => loop(tail)
         }
 
         loop(endpoints)

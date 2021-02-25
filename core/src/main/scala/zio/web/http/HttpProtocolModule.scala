@@ -23,7 +23,7 @@ trait HttpProtocolModule extends ProtocolModule {
 
   override def makeServer[M >: MaxMetadata <: MinMetadata, R <: Has[ServerConfig], E](
     middleware: Middleware[R, E],
-    endpoints: Endpoints
+    endpoints: Endpoints[M, _]
   ): ZLayer[R with Blocking with Logging, IOException, HttpRouter with ServerService] =
     ZLayer.requires[R with Blocking with Logging] >+> 
     HttpRouter.basic(endpoints) >+> 
@@ -33,10 +33,10 @@ trait HttpProtocolModule extends ProtocolModule {
 
   def makeServerOps[M >: MaxMetadata <: MinMetadata, R <: Has[ServerConfig], E](
     middleware: Middleware[R, E],
-    endpoints: Endpoints
+    endpoints: Endpoints[M, _]
   ): ZLayer[R with Blocking with Logging, IOException, ServerService] = ???
 
-  override def makeDocs[R, M >: MaxMetadata <: MinMetadata](endpoints: Endpoints): ProtocolDocs =
+  override def makeDocs[R, M >: MaxMetadata <: MinMetadata](endpoints: Endpoints[M, _]): ProtocolDocs =
     ???
 
   // override def makeClient[R, M >: MaxMetadata <: MinMetadata](
