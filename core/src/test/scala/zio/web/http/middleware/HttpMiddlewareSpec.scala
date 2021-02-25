@@ -5,7 +5,7 @@ import zio.blocking.Blocking
 import zio.duration._
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
-import zio.test.{assert, testM, suite, DefaultRunnableSpec}
+import zio.test.{assert, DefaultRunnableSpec}
 import zio.test.environment.TestClock
 import zio.web.http.auth.BasicAuth.AuthResult.{ Denied, Granted }
 import zio.web.http.auth.BasicAuth.{ AuthParams, AuthResult }

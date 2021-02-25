@@ -2,7 +2,7 @@ package zio.web.http
 
 import zio.test._
 import zio.test.Assertion.equalTo
-import zio.test.{ DefaultRunnableSpec, ZSpec, suite, test }
+import zio.test.{ DefaultRunnableSpec, ZSpec }
 
 object HttpRequestTest extends DefaultRunnableSpec {
 

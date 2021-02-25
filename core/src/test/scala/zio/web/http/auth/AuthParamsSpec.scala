@@ -1,6 +1,6 @@
 package zio.web.http.auth
 
-import zio.test.{ DefaultRunnableSpec, Gen, assert, check, suite, testM }
+import zio.test.{ DefaultRunnableSpec, Gen, assert, check }
 import zio.test.Assertion.{ equalTo, isNone, isSome }
 import zio.web.http.auth.BasicAuth.AuthParams
 
