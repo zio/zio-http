@@ -11,7 +11,7 @@ sealed trait Handler[+M[+_], P, -R, I, O] { self =>
     Handlers(self, that)
 
   def endpoint: Endpoint[M, P, I, O]
-  def handler: I => URIO[R, O]
+  def handler: (I, P) => URIO[R, O]
 }
 
 object Handler {
@@ -23,17 +23,26 @@ object Handler {
 
   def apply[M[+_], P, R, I, O](
     endpoint0: Endpoint[M, P, I, O],
-    handler0: I => URIO[R, O]
+    handler0: (I, P) => URIO[R, O]
   ): Handler.Aux[M, P, R, I, O, endpoint0.Identity] =
     new Handler[M, P, R, I, O] {
       type Identity = endpoint0.Identity
 
       def endpoint: Endpoint[M, P, I, O] = endpoint0
-      def handler: I => URIO[R, O]       = handler0
+      def handler: (I, P) => URIO[R, O]  = handler0
     }
 
   def make[M[+_], P, R, I, O](
     endpoint: Endpoint[M, P, I, O]
-  )(handler: I => URIO[R, O]): Handler.Aux[M, P, R, I, O, endpoint.Identity] =
-    apply(endpoint, handler)
+  ): HandlerMaker[M, P, R, I, O] =
+    new HandlerMaker[M, P, R, I, O](endpoint)
+
+  class HandlerMaker[M[+_], P, R, I, O](val endpoint: Endpoint[M, P, I, O]) {
+
+    def apply(handler: (I, P) => URIO[R, O]): Handler.Aux[M, P, R, I, O, endpoint.Identity] =
+      Handler.apply(endpoint, handler)
+
+    def apply(handler: I => URIO[R, O]): Handler.Aux[M, P, R, I, O, endpoint.Identity] =
+      Handler.apply(endpoint, (i, _) => handler(i))
+  }
 }

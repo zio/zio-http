@@ -3,7 +3,8 @@ package zio.web
 import zio.Task
 
 trait ClientService[Identities] {
-  type AnyF[A] = Any
 
-  def invoke[I, O](endpoint: Endpoint[AnyF, _, I, O])(input: I)(implicit ev: Identities <:< endpoint.Identity): Task[O]
+  def invoke[M[+_], P, I, O](endpoint: Endpoint[M, P, I, O])(input: I, params: P)(
+    implicit ev: Identities <:< endpoint.Identity
+  ): Task[O]
 }
