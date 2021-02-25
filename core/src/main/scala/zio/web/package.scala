@@ -22,16 +22,17 @@ import zio.web.docs._
  *    string helloWorld(string input)
  */
 package object web {
+  type Unannotated[+A] = Nothing
 
   /**
    * Constructs a new endpoint with the specified name.
    */
-  final def endpoint(name: String): Endpoint[Any, Unit, Unit] =
+  final def endpoint(name: String): Endpoint[Unannotated, Unit, Unit, Unit] =
     Endpoint(name, Doc.Empty, Schema[Unit], Schema[Unit], Annotations.none)
 
   /**
    * Constructs a new endpoint with the specified name and text documentation.
    */
-  final def endpoint(name: String, text: String): Endpoint[Any, Unit, Unit] =
+  final def endpoint(name: String, text: String): Endpoint[Unannotated, Unit, Unit, Unit] =
     endpoint(name) ?? text
 }

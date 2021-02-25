@@ -14,32 +14,22 @@ trait HttpProtocolModule extends ProtocolModule {
   type ClientConfig       = HttpClientConfig
   type ServerService      = Has[HttpServer]
   type Middleware[-R, +E] = HttpMiddleware[R, E]
-  type MinMetadata        = Route with Method
-  type MaxMetadata        = Nothing
+  type MinMetadata[+A]    = HttpAnn[A]
 
   val defaultProtocol: codec.Codec
 
   val allProtocols: Map[String, codec.Codec]
 
-  override def makeServer[M >: MaxMetadata <: MinMetadata, R <: Has[ServerConfig], E](
+  def makeServer[M[+_] <: MinMetadata[_], R <: Has[ServerConfig], E](
     middleware: Middleware[R, E],
     endpoints: Endpoints[M, _]
   ): ZLayer[R with Blocking with Logging, IOException, HttpRouter with ServerService] =
     ZLayer.requires[R with Blocking with Logging] >+>
       HttpRouter.basic(endpoints) >+>
       ZLayer.fromServiceManaged { config: ServerConfig =>
-        HttpServer.build(config, endpoints)
+        HttpServer.build(config, endpoints.asInstanceOf)
       }
 
-  def makeServerOps[M >: MaxMetadata <: MinMetadata, R <: Has[ServerConfig], E](
-    middleware: Middleware[R, E],
-    endpoints: Endpoints[M, _]
-  ): ZLayer[R with Blocking with Logging, IOException, ServerService] = ???
-
-  override def makeDocs[R, M >: MaxMetadata <: MinMetadata](endpoints: Endpoints[M, _]): ProtocolDocs =
+  override def makeDocs[R, M[+_] <: MinMetadata[_]](endpoints: Endpoints[M, _]): ProtocolDocs =
     ???
-
-  // override def makeClient[R, M >: MaxMetadata <: MinMetadata](
-  //   endpoints: Endpoints[R, M]
-  // ): ZLayer[Has[ClientConfig], IOException, Has[ClientService[A]]] = ???
 }

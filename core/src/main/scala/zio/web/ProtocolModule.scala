@@ -12,17 +12,17 @@ trait ProtocolModule {
   type ServerService
   type ProtocolDocs
   type Middleware[-R, +E]
-  type MinMetadata
+  type MinMetadata[+_]
 
   // TODO: require implicit evidence that all Endpoints have handlers
-  def makeServer[M <: MinMetadata, R <: Has[ServerConfig], E](
+  def makeServer[M[+_] <: MinMetadata[_], R <: Has[ServerConfig], E](
     middleware: Middleware[R, E],
     endpoints: Endpoints[M, _]
   ): ZLayer[R with Blocking with Logging, IOException, ServerService]
 
-  def makeDocs[R, M <: MinMetadata](endpoints: Endpoints[M, _]): ProtocolDocs
+  def makeDocs[R, M[+_] <: MinMetadata[_]](endpoints: Endpoints[M, _]): ProtocolDocs
 
-  def makeClient[M <: MinMetadata, Identities](
+  def makeClient[M[+_] <: MinMetadata[_], Identities](
     endpoints: Endpoints[M, Identities]
   ): ZLayer[Has[ClientConfig], IOException, Has[ClientService[Identities]]] = ???
 }

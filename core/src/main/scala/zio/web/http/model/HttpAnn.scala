@@ -1,6 +1,7 @@
 package zio.web.http.model
 
-sealed abstract class Method(name: String) {
+sealed trait HttpAnn[+A]
+sealed abstract class Method(name: String) extends HttpAnn[Unit] {
   override def toString(): String = s"Method.$name"
 }
 
@@ -42,4 +43,12 @@ object Method {
       case "CONNECT" => Method.CONNECT
       case _         => throw new IllegalArgumentException(s"Unable to handle method: $method")
     }
+}
+
+sealed trait Route[+A] extends HttpAnn[A]
+
+object Route {
+  def apply(v: String): Route[Unit] = Path(v)
+
+  final case class Path(path: String) extends Route[Unit]
 }
