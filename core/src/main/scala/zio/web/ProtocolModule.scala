@@ -14,7 +14,7 @@ trait ProtocolModule {
   type Middleware[-R, +E]
   type MinMetadata
 
-  // TODO: require implicit evidence that all Endpoints have handlers 
+  // TODO: require implicit evidence that all Endpoints have handlers
   def makeServer[M <: MinMetadata, R <: Has[ServerConfig], E](
     middleware: Middleware[R, E],
     endpoints: Endpoints[M, _]

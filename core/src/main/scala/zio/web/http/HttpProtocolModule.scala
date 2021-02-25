@@ -25,11 +25,11 @@ trait HttpProtocolModule extends ProtocolModule {
     middleware: Middleware[R, E],
     endpoints: Endpoints[M, _]
   ): ZLayer[R with Blocking with Logging, IOException, HttpRouter with ServerService] =
-    ZLayer.requires[R with Blocking with Logging] >+> 
-    HttpRouter.basic(endpoints) >+> 
-    ZLayer.fromServiceManaged { config: ServerConfig =>
-      HttpServer.build(config, endpoints)
-    }
+    ZLayer.requires[R with Blocking with Logging] >+>
+      HttpRouter.basic(endpoints) >+>
+      ZLayer.fromServiceManaged { config: ServerConfig =>
+        HttpServer.build(config, endpoints)
+      }
 
   def makeServerOps[M >: MaxMetadata <: MinMetadata, R <: Has[ServerConfig], E](
     middleware: Middleware[R, E],

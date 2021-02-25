@@ -1,17 +1,17 @@
 package zio.web.codec
 
 import com.github.ghik.silencer.silent
-import zio.{Chunk, ZIO}
+import zio.{ Chunk, ZIO }
 import zio.schema._
-import zio.stream.{ZStream, ZTransducer}
+import zio.stream.{ ZStream, ZTransducer }
 
 @silent("never used")
 object JsonCodec extends Codec {
 
   override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] = Encoder(schema).mapChunks(_.flatten)
 
-  override def decoder[A](schema: Schema[A]): ZTransducer[Any, String, Byte, A]  = ZTransducer.fromPush {
-    case Some(values: Chunk[Byte]) => 
+  override def decoder[A](schema: Schema[A]): ZTransducer[Any, String, Byte, A] = ZTransducer.fromPush {
+    case Some(values: Chunk[Byte]) =>
       ZStream
         .fromChunk(Chunk.single(values))
         .transduce(Decoder(schema))
@@ -33,39 +33,39 @@ object JsonCodec extends Codec {
       }
 
     private def record[A](structure: Map[String, Schema[_]]): ZTransducer[Any, Nothing, A, Chunk[Byte]] =
-      ZTransducer
-        .fromFunctionM { value: Map[String, _] =>
-          ZStream
-            .fromChunk(Chunk.fromIterable(value.toSeq))
-            .transduce(recordField(structure))
-            .intersperse(OBJ_OPEN, OBJ_SEP, OBJ_CLOSE)
-            .runCollect
-        }
-        .mapChunks(_.flatten)
+      ZTransducer.fromFunctionM { value: Map[String, _] =>
+        ZStream
+          .fromChunk(Chunk.fromIterable(value.toSeq))
+          .transduce(recordField(structure))
+          .intersperse(OBJ_OPEN, OBJ_SEP, OBJ_CLOSE)
+          .runCollect
+      }.mapChunks(_.flatten)
         .asInstanceOf[ZTransducer[Any, Nothing, A, Chunk[Byte]]]
 
     private def recordField[A](structure: Map[String, Schema[_]]): ZTransducer[Any, Nothing, (String, A), Chunk[Byte]] =
       ZTransducer
-        .fromFunctionM[Any, Nothing, (String, A), Chunk[Byte]] { case (field, a) =>
-          val schema = structure(field).asInstanceOf[Schema[A]]
-          val key    = ZStream.fromChunk(QUOTE ++ charSequenceToByteChunk(field) ++ QUOTE ++ OBJ_ASS)
-          val value  = ZStream.fromChunk(Chunk.single(a)).transduce(Encoder(schema).mapChunks(_.flatten))
+        .fromFunctionM[Any, Nothing, (String, A), Chunk[Byte]] {
+          case (field, a) =>
+            val schema = structure(field).asInstanceOf[Schema[A]]
+            val key    = ZStream.fromChunk(QUOTE ++ charSequenceToByteChunk(field) ++ QUOTE ++ OBJ_ASS)
+            val value  = ZStream.fromChunk(Chunk.single(a)).transduce(Encoder(schema).mapChunks(_.flatten))
 
-          (key ++ value).runCollect
+            (key ++ value).runCollect
         }
 
     private def sequence[A](schema: Schema[A]): ZTransducer[Any, Nothing, Chunk[A], Chunk[Byte]] =
-      ZTransducer
-        .fromFunctionM { values: Chunk[A] =>
-          ZStream
-            .fromChunk(values)
-            .transduce(Encoder(schema))
-            .intersperse(SEQ_OPEN, SEQ_SEP, SEQ_CLOSE)
-            .runCollect
-        }
-        .mapChunks(_.flatten)
+      ZTransducer.fromFunctionM { values: Chunk[A] =>
+        ZStream
+          .fromChunk(values)
+          .transduce(Encoder(schema))
+          .intersperse(SEQ_OPEN, SEQ_SEP, SEQ_CLOSE)
+          .runCollect
+      }.mapChunks(_.flatten)
 
-    private def transform[A, B](schema: Schema[A], g: B => Either[String, A]): ZTransducer[Any, Nothing, A, Chunk[Byte]] =
+    private def transform[A, B](
+      schema: Schema[A],
+      g: B => Either[String, A]
+    ): ZTransducer[Any, Nothing, A, Chunk[Byte]] =
       ZTransducer
         .fromFunction[B, A](value => g(value).toOption.get)
         .mapChunksM { value =>
@@ -78,13 +78,14 @@ object JsonCodec extends Codec {
 
     private def primitive[A](standardType: StandardType[A]): ZTransducer[Any, Nothing, A, Chunk[Byte]] =
       standardType match {
-        case StandardType.StringType => ZTransducer.fromFunction[String, Chunk[Byte]](QUOTE ++ charSequenceToByteChunk(_) ++ QUOTE)
+        case StandardType.StringType =>
+          ZTransducer.fromFunction[String, Chunk[Byte]](QUOTE ++ charSequenceToByteChunk(_) ++ QUOTE)
         case StandardType.ShortType  => standard[Short](_.toString)
         case StandardType.IntType    => standard[Int](_.toString)
         case StandardType.LongType   => standard[Long](_.toString)
         case StandardType.DoubleType => standard[Double](_.toString)
         case StandardType.FloatType  => standard[Float](_.toString)
-        case _ => ???
+        case _                       => ???
       }
 
     private lazy val nothing: ZTransducer[Any, Nothing, Any, Nothing] =
@@ -110,7 +111,7 @@ object JsonCodec extends Codec {
 
   object Decoder {
 
-    def apply[A](schema: Schema[A]): ZTransducer[Any, String, Chunk[Byte], A] = 
+    def apply[A](schema: Schema[A]): ZTransducer[Any, String, Chunk[Byte], A] =
       trimWhitespace >>> (schema match {
         case Schema.Record(structure)            => record(structure)
         case Schema.Sequence(underlaying)        => sequence(underlaying)
@@ -121,9 +122,9 @@ object JsonCodec extends Codec {
         case Schema.Optional(underlaying)        => ZTransducer.fromEffect(ZIO.fail("optional"))
       }).asInstanceOf[ZTransducer[Any, String, Chunk[Byte], A]]
 
-    private def record[A](structure: Map[String, Schema[_]]): ZTransducer[Any, String, Chunk[Byte], Map[String, _]] = 
+    private def record[A](structure: Map[String, Schema[_]]): ZTransducer[Any, String, Chunk[Byte], Map[String, _]] =
       peelCurlyBraces >>> trimWhitespace >>> ZTransducer.fromFunctionM[Any, String, Chunk[Byte], Map[String, _]] {
-        case values => 
+        case values =>
           ZStream
             .fromChunk(values)
             .transduce(ZTransducer.splitOnChunk(Chunk.single(OBJ_SEP)) >>> trimWhitespace)
@@ -133,7 +134,7 @@ object JsonCodec extends Codec {
               val key   = ZStream(left).transduce(trimWhitespace >>> trimQuotes).map(v => new String(v.toArray))
               val value = ZStream(right.drop(1)).transduce(trimWhitespace)
 
-              (key zip value).flatMap {
+              key.zip(value).flatMap {
                 case (field, chunk) =>
                   structure.get(field) match {
                     case Some(schema) =>
@@ -151,23 +152,23 @@ object JsonCodec extends Codec {
             }
       }
 
-
     private def primitive[A](standardType: StandardType[A]): ZTransducer[Any, String, Chunk[Byte], A] =
       standardType match {
-        case StandardType.StringType => matchBytes {
-          case QUOTE +: value :+ QUOTE => Right(new String(value.toArray))
-          case _                       => Left("Could not decode string")
-        }
+        case StandardType.StringType =>
+          matchBytes {
+            case QUOTE +: value :+ QUOTE => Right(new String(value.toArray))
+            case _                       => Left("Could not decode string")
+          }
         case StandardType.IntType    => matchString(_.toIntOption, "int")
         case StandardType.ShortType  => matchString(_.toShortOption, "short")
         case StandardType.LongType   => matchString(_.toLongOption, "long")
         case StandardType.DoubleType => matchString(_.toDoubleOption, "double")
         case StandardType.FloatType  => matchString(_.toFloatOption, "float")
-        case _ => ???
+        case _                       => ???
       }
 
     private def matchBytes[A](f: Chunk[Byte] => Either[String, A]): ZTransducer[Any, String, Chunk[Byte], A] =
-      ZTransducer.fromFunctionM[Any, String, Chunk[Byte], A] { v => 
+      ZTransducer.fromFunctionM[Any, String, Chunk[Byte], A] { v =>
         ZIO.fromEither(f(v))
       }
 
@@ -176,7 +177,7 @@ object JsonCodec extends Codec {
 
     private def sequence[A](schema: Schema[A]): ZTransducer[Any, String, Chunk[Byte], Chunk[A]] =
       peelSquareBraces >>> ZTransducer.fromFunctionM[Any, String, Chunk[Byte], Chunk[A]] {
-        case values => 
+        case values =>
           ZStream
             .fromChunk(values)
             .transduce(ZTransducer.splitOnChunk(Chunk.single(SEQ_SEP)))
@@ -186,7 +187,10 @@ object JsonCodec extends Codec {
             .runCollect
       }
 
-    private def transform[A, B](schema: Schema[A], f: A => Either[String, B]): ZTransducer[Any, String, Chunk[Byte], B] =
+    private def transform[A, B](
+      schema: Schema[A],
+      f: A => Either[String, B]
+    ): ZTransducer[Any, String, Chunk[Byte], B] =
       ZTransducer.fromFunctionM[Any, String, Chunk[Byte], B] { value =>
         ZStream
           .apply(value)
@@ -206,8 +210,8 @@ object JsonCodec extends Codec {
 
     private lazy val trimRight: ZTransducer[Any, Nothing, Chunk[Byte], Chunk[Byte]] =
       ZTransducer.fromFunction[Chunk[Byte], Chunk[Byte]](_.foldRight[Chunk[Byte]](Chunk.empty) {
-        case (byte, acc) => 
-          if (acc.isEmpty && (WHITESPACE contains byte)) Chunk.empty 
+        case (byte, acc) =>
+          if (acc.isEmpty && (WHITESPACE contains byte)) Chunk.empty
           else byte +: acc
       })
 

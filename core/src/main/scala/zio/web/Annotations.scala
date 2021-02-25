@@ -7,7 +7,7 @@ sealed trait Annotations[A] { self =>
 }
 
 object Annotations {
-  case object None                                                   extends Annotations[Any]
+  case object None                                                  extends Annotations[Any]
   sealed case class Cons[M, Tail](head: M, tail: Annotations[Tail]) extends Annotations[M with Tail]
 
   val none: Annotations[Any] = None

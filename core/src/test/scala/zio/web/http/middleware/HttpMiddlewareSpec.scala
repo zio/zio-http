@@ -1,11 +1,11 @@
 package zio.web.http.middleware
 
-import zio.{Chunk, UIO, ZManaged, ZIO}
+import zio.{ Chunk, UIO, ZIO, ZManaged }
 import zio.blocking.Blocking
 import zio.duration._
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
-import zio.test.{assert, DefaultRunnableSpec}
+import zio.test.{ DefaultRunnableSpec, assert }
 import zio.test.environment.TestClock
 import zio.web.http.auth.BasicAuth.AuthResult.{ Denied, Granted }
 import zio.web.http.auth.BasicAuth.{ AuthParams, AuthResult }

@@ -3,18 +3,28 @@ package zio.web
 import zio.schema.Schema
 import zio.web.docs._
 
-final case class Endpoint[M, I, O] (
+trait AnyEndpoint {
+  type Metadata
+  type Request
+  type Response
+  type Identity
+}
+
+final case class Endpoint[M, I, O](
   endpointName: String,
   doc: Doc,
   request: Schema[I],
   response: Schema[O],
   annotations: Annotations[M]
-) { self =>
-  type Metadata = M 
-  type Request  = I 
-  type Response = O 
+) extends AnyEndpoint { self =>
+  type Metadata = M
+  type Request  = I
+  type Response = O
 
   type Identity
+
+  def +[M2](that: Endpoint[M2, _, _]): Endpoints[M with M2, Identity with that.Identity] =
+    Endpoints[M, M2](self, that)
 
   /**
    * Adds an annotation to the endpoint.
@@ -66,8 +76,10 @@ final case class Endpoint[M, I, O] (
   // def handler[R](handler: I => URIO[R, O]): Api[R, M, I, O] =
   //   Api(endpointName, doc, request, response, annotations, handler)
 }
+
 object Endpoint {
-  type Aux[M, I, O, Identity0] = 
+
+  type Aux[M, I, O, Identity0] =
     Endpoint[M, I, O] {
       type Identity = Identity0
     }

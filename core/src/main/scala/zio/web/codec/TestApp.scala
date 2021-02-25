@@ -12,7 +12,7 @@ trait TestData {
 
   val personSchema: Schema[Person] = Schema.caseClassN(
     "name" -> Schema[String],
-    "age" -> Schema[Int]
+    "age"  -> Schema[Int]
   )(Person.apply(_, _), Person.unapply)
 
   def encode[A](input: A, schema: Schema[A]) =
@@ -42,7 +42,7 @@ trait TestData {
 
 object TestApp extends App with TestData {
 
-  def run(args: List[String]): URIO[ZEnv,ExitCode] = 
+  def run(args: List[String]): URIO[ZEnv, ExitCode] =
     program.exitCode
 
   lazy val program = decodePerson
@@ -50,6 +50,6 @@ object TestApp extends App with TestData {
   lazy val encodeList   = encode(List("foo", "bar", "baz"), Schema.list[String])
   lazy val encodePerson = encode(Person("John", 47), personSchema)
 
-  lazy val decodeList = decode("""    ["foo","bar","baz"]     """, Schema.list[String])
-  lazy val decodePerson = decode("""{"name"   : "John"   ,   "age":47}""", personSchema)    
+  lazy val decodeList   = decode("""    ["foo","bar","baz"]     """, Schema.list[String])
+  lazy val decodePerson = decode("""{"name"   : "John"   ,   "age":47}""", personSchema)
 }
