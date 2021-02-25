@@ -7,7 +7,7 @@ import zio.logging.{log, Logging}
 import zio.nio.core.channels.{Selector, SelectionKey, SocketChannel}
 import zio.nio.core.channels.SelectionKey.Operation
 import zio.stream.ZStream
-import zio.web.Endpoint
+// import zio.web.Endpoint
 import zio.web.codec.JsonCodec
 import zio.web.http.internal.{HttpLexer, HttpRouter}
 
@@ -85,8 +85,8 @@ private[http] class HttpConnection(channel: SocketChannel, closed: Promise[Throw
               case Some(parsed) => 
                 for {
                   _   <- log.info(s"Parsed body:\n${parsed}")
-                  out <- endpoint.asInstanceOf[Endpoint.Api[ZEnv, Any, Any, Any]].handler(parsed).provideLayer(ZEnv.live)
-                  _   <- log.info(s"Handler returned $out")
+                  // out <- endpoint.asInstanceOf[Endpoint[ZEnv, Any, Any]].handler(parsed).provideLayer(ZEnv.live)
+                  // _   <- log.info(s"Handler returned $out")
                 } yield ()
               case None         => log.info(s"Parsing body failed")
             }

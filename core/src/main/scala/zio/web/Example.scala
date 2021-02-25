@@ -69,9 +69,9 @@ trait Example extends http.HttpProtocolModule {
     }
 
   lazy val serverUserService = userService
-    .attach(getUserProfileHandler)
-    .next
-    .attach(setUserProfileHandler)
+    // .attach(getUserProfileHandler)
+    // .next
+    // .attach(setUserProfileHandler)
 
   // client example
   //lazy val userProfile = userService.invoke(getUserProfile)(userJoe).provideLayer(makeClient(userService))
@@ -114,7 +114,7 @@ trait Example extends http.HttpProtocolModule {
         _ <- console.putStrLn(s"Handling sayHello request for ${req.name}")
       } yield TextPlainResponse(s"Hello ${req.name}!")).provideLayer(Console.live)
 
-  lazy val serverHelloService = helloService.attach(sayHelloHandlerAny)
+  lazy val serverHelloService = helloService//.attach(sayHelloHandlerAny)
   
   lazy val helloServerLayer = makeServer(HttpMiddleware.none, serverHelloService)
 }

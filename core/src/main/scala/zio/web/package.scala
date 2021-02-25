@@ -28,12 +28,12 @@ package object web {
   /**
    * Constructs a new endpoint with the specified name.
    */
-  final def endpoint(name: String): Endpoint.Def[Any, Unit, Unit] =
-    Endpoint.Def(name, Doc.Empty, Schema[Unit], Schema[Unit], Annotations.none)
+  final def endpoint(name: String): Endpoint[Any, Unit, Unit] =
+    Endpoint(name, Doc.Empty, Schema[Unit], Schema[Unit], Annotations.none)
 
   /**
    * Constructs a new endpoint with the specified name and text documentation.
    */
-  final def endpoint(name: String, text: String): Endpoint.Def[Any, Unit, Unit] =
+  final def endpoint(name: String, text: String): Endpoint[Any, Unit, Unit] =
     endpoint(name) ?? text
 }
