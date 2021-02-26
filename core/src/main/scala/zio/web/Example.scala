@@ -1,18 +1,46 @@
 package zio.web
 
 import zio._
-import zio.duration._
 import zio.logging.{ LogFormat, LogLevel, Logging, log }
 import zio.schema._
 import zio.web.codec.JsonCodec
-import zio.web.http.{ HttpServer, HttpServerConfig }
+import zio.web.http.{ HttpMiddleware, HttpProtocolModule, HttpServer, HttpServerConfig }
 import zio.web.http.model.{ Method, Route }
+
+/**
+ * Example server. Go to `/restclient` for test requests.
+ */
+object ExampleApp extends App with Example {
+
+  // TODO: not used yet, here just to satisfy the compiler
+  val allProtocols    = Map.empty
+  val defaultProtocol = JsonCodec
+
+  def run(args: List[String]): URIO[ZEnv, ExitCode] =
+    program.provideSomeLayer[ZEnv](loggingLayer).exitCode
+
+  lazy val program =
+    for {
+      _      <- log.info("App started")
+      config = HttpServerConfig("localhost", 8080)
+      server <- HttpServer.run.provideLayer(httpLayer(config))
+      _      <- log.info("Halting until interrupted")
+      _      <- server.awaitShutdown.orDie
+      _      <- log.info("App stopped")
+    } yield ()
+
+  lazy val loggingLayer =
+    Logging.console(LogLevel.Debug, LogFormat.ColoredLogFormat()) >>>
+      Logging.withRootLoggerName("example-http-server")
+
+  def httpLayer(config: HttpServerConfig) =
+    (ZLayer.requires[ZEnv with Logging] ++ ZLayer.succeed(config)) >+> helloServerLayer
+}
 
 /**
  * Usage examples.
  */
-trait Example extends http.HttpProtocolModule {
-  import http.HttpMiddleware
+trait Example extends HttpProtocolModule {
 
   sealed case class UserId(id: String)
   sealed case class UserProfile(age: Int, fullName: String, address: String)
@@ -73,11 +101,6 @@ trait Example extends http.HttpProtocolModule {
 
   val userServiceHandlers = getUserProfileHandler + setUserProfileHandler
 
-  // lazy val serverUserService = userService
-  //   .attach(getUserProfileHandler)
-  //   .next
-  //   .attach(setUserProfileHandler)
-
   // client example
   lazy val userProfile = userService.invoke(getUserProfile)(userJoe).provideLayer(makeClient(userService))
 
@@ -114,34 +137,4 @@ trait Example extends http.HttpProtocolModule {
 
   lazy val helloServerLayer =
     makeServer(HttpMiddleware.none, sayHelloService, sayHelloHandlers)
-}
-
-object ExampleApp extends zio.App with Example {
-
-  // TODO: not used yet, here just to satisfy the compiler
-  val allProtocols    = Map.empty
-  val defaultProtocol = JsonCodec
-
-  def run(args: List[String]): URIO[ZEnv, ExitCode] =
-    program.provideSomeLayer[ZEnv](loggingLayer).exitCode
-
-  lazy val program =
-    for {
-      _      <- log.info("App started")
-      config = HttpServerConfig("localhost", 8080)
-      server <- HttpServer.live.provideLayer(httpLayer(config))
-      _      <- (countDown("shutdown", 5) *> server.shutdown).fork
-      _      <- server.awaitShutdown.orDie
-      _      <- log.info("App stopped")
-    } yield ()
-
-  lazy val loggingLayer =
-    Logging.console(LogLevel.Debug, LogFormat.ColoredLogFormat()) >>>
-      Logging.withRootLoggerName("example-http-server")
-
-  def httpLayer(config: HttpServerConfig) =
-    (ZLayer.requires[ZEnv with Logging] ++ ZLayer.succeed(config)) >+> helloServerLayer
-
-  private def countDown(event: String, n: Int) =
-    ZIO.foreach((n to 1 by -1).toList)(i => log.info(s"Scheduled $event in $i") *> clock.sleep(1.second))
 }

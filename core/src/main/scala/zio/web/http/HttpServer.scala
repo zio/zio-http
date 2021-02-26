@@ -11,10 +11,12 @@ import zio.logging.{ Logging, log }
 import zio.nio.core.{ InetSocketAddress, SocketAddress }
 import zio.nio.core.channels.{ SelectionKey, Selector, ServerSocketChannel }
 import zio.nio.core.channels.SelectionKey.Operation
-import zio.web.{AnyF, Endpoints}
-import zio.web.http.internal.{ HttpConnection, HttpRouter }
+import zio.web.{ Endpoints, Handlers }
+import zio.web.http.internal.{ HttpConnection, HttpController, HttpRouter }
 
 final class HttpServer private (
+  router: HttpRouter,
+  controller: HttpController[Any],
   selector: Selector,
   serverChannel: ServerSocketChannel,
   socketAddress: InetSocketAddress,
@@ -31,7 +33,7 @@ final class HttpServer private (
       _ <- log.info("Server stopped")
     } yield ()
 
-  private val startup: ZIO[Blocking with Clock with Logging with HttpRouter, IOException, Unit] =
+  private val startup: ZIO[Blocking with Clock with Logging, IOException, Unit] =
     for {
       _       <- log.info("Starting server...")
       _       <- awaitOpen
@@ -51,7 +53,7 @@ final class HttpServer private (
       host <- inet.hostName
     } yield new URI("http", null, host, inet.port, "/", null, null)
 
-  private val select: ZIO[Logging with HttpRouter, IOException, Unit] =
+  private val select: ZIO[Logging, IOException, Unit] =
     selector.select(500.millis).onInterrupt(selector.wakeup).flatMap {
       case 0 => ZIO.unit
       case _ =>
@@ -73,12 +75,13 @@ final class HttpServer private (
     for {
       _ <- log.debug("Accepting connection...")
       _ <- serverChannel.accept.flatMap {
-            case Some(channel) => log.debug("Accepted connection") *> HttpConnection.spawnDaemon(channel, selector)
-            case None          => log.debug("No connection is currently available to be accepted")
+            case Some(channel) =>
+              log.debug("Accepted connection") *> HttpConnection.spawnDaemon(router, controller, channel, selector)
+            case None => log.debug("No connection is currently available to be accepted")
           }
     } yield ()
 
-  private def read(key: SelectionKey): ZIO[Logging with HttpRouter, IOException, Unit] =
+  private def read(key: SelectionKey): ZIO[Logging, IOException, Unit] =
     for {
       _ <- log.debug("Reading connection...")
       _ <- key.attachment.flatMap {
@@ -93,27 +96,37 @@ final class HttpServer private (
       _ = key
     } yield ()
 
-  private val run: ZIO[Blocking with Clock with Logging with HttpRouter, IOException, Nothing] =
+  private val run: ZIO[Blocking with Clock with Logging, IOException, Nothing] =
     (select *> ZIO.yieldNow).forever
       .onInterrupt(log.debug("Selector loop interrupted"))
 }
 
 object HttpServer {
 
-  val live: ZIO[Has[HttpServer] with Logging with Blocking with Clock with HttpRouter, IOException, HttpServer] =
+  val run: ZIO[Has[HttpServer] with Blocking with Clock with Logging, IOException, HttpServer] =
     ZIO.service[HttpServer].tap(_.startup.orDie)
 
-  def build(
+  def build[M[+_], R, Ids](
     config: HttpServerConfig,
-    endpoints: Endpoints[AnyF, _]
-  ): ZManaged[Blocking with Logging with HttpRouter, IOException, HttpServer] =
+    endpoints: Endpoints[M, Ids],
+    handlers: Handlers[M, R, Ids],
+    env: R
+  ): ZManaged[Blocking with Logging, IOException, HttpServer] =
     for {
-      closed   <- Promise.make[Throwable, Unit].toManaged_
-      _        = endpoints
-      address  <- SocketAddress.inetSocketAddress(config.host, config.port).toManaged_
-      channel  <- openChannel(address, 0)
-      selector <- Selector.make.toManaged(_.close.tapCause(cause => log.error("Closing selector failed", cause)).orDie)
-    } yield new HttpServer(selector, channel, address, closed)
+      closed     <- Promise.make[Throwable, Unit].toManaged_
+      address    <- SocketAddress.inetSocketAddress(config.host, config.port).toManaged_
+      channel    <- openChannel(address, 0)
+      selector   <- Selector.make.toManaged(_.close.tapCause(cause => log.error("Closing selector failed", cause)).orDie)
+      router     <- HttpRouter.make(endpoints)
+      controller <- HttpController.make(handlers, env)
+    } yield new HttpServer(
+      router,
+      controller.asInstanceOf[HttpController[Any]],
+      selector,
+      channel,
+      address,
+      closed
+    )
 
   private def openChannel(
     address: InetSocketAddress,

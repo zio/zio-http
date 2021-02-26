@@ -42,8 +42,6 @@ object Annotations {
       }
   }
 
-  type NothingF[+A] = Nothing
-
   case object None extends Annotations[NothingF, Unit]
   final case class Cons[M[+_], A, B, X](head: M[A], tail: Annotations[M, B], combine: (A, B) => X)
       extends Annotations[M, X]

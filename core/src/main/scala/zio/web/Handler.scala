@@ -3,11 +3,10 @@ package zio.web
 import zio.URIO
 
 /**
+ * A `Handler[M, P, R, I, O]` represents a handler for `Endpoint[M, P, I, O]`  that requires environment `R`.
  */
 sealed trait Handler[+M[+_], P, -R, I, O] { self =>
   type Id
-  type Input  = I
-  type Output = O
 
   final def +[M1[+_] >: M[_], R1 <: R](that: Handler[M1, _, R1, _, _]): Handlers[M1, R1, Id with that.Id] =
     Handlers(self, that)

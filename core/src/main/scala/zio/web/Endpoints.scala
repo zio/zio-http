@@ -2,6 +2,9 @@ package zio.web
 
 import zio.{ Has, Tag, ZIO }
 
+/**
+ * An `Endpoints[M, Ids]` represents an ordered collection of endpoints with identifiers `Ids` and minimum metadata `M`.
+ */
 sealed trait Endpoints[-M[+_], Ids0] { self =>
   type Ids = Ids0
 
@@ -25,10 +28,7 @@ sealed trait Endpoints[-M[+_], Ids0] { self =>
 }
 
 object Endpoints {
-  final case class Cons[M1[+_], Id, Ids, E <: Endpoint.Aux[M1, _, _, _, Id], T <: Endpoints[
-    M1,
-    Ids
-  ]] private[web] (
+  final case class Cons[M1[+_], Id, Ids, E <: Endpoint.Aux[M1, _, _, _, Id], T <: Endpoints[M1, Ids]] private[web] (
     endpoint: E,
     tail: T
   ) extends Endpoints[M1, Ids with Id]

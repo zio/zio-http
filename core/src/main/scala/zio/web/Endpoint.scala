@@ -3,13 +3,20 @@ package zio.web
 import zio.schema.Schema
 import zio.web.docs._
 
-final case class Endpoint[+M[+_], +P, I, O](
+/**
+ * A `Endpoint[M, P, I, O]` represents an endpoint that requires parameters `P` produced by metadata `M`
+ * with input `I` and returns output `O`.
+ */
+final case class Endpoint[+M[+_], P, I, O](
   endpointName: String,
   doc: Doc,
   request: Schema[I],
   response: Schema[O],
   annotations: Annotations[M, P]
 ) { self =>
+  type Params = P
+  type Input  = I
+  type Output = O
   type Id
 
   def +[M1[+_] >: M[_]](that: Endpoint[M1, _, _, _]): Endpoints[M1, Id with that.Id] =
@@ -62,7 +69,7 @@ final case class Endpoint[+M[+_], +P, I, O](
 
 object Endpoint {
 
-  type Aux[+M[+_], +P, I, O, Id0] =
+  type Aux[+M[+_], P, I, O, Id0] =
     Endpoint[M, P, I, O] {
       type Id = Id0
     }

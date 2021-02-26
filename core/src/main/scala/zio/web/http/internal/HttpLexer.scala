@@ -1,6 +1,6 @@
 package zio.web.http.internal
 
-import zio.web.http.model.{ Method, Uri, Version }
+import zio.web.http.model.{ Method, StartLine, Uri, Version }
 
 import scala.collection.mutable.Queue
 
@@ -69,7 +69,7 @@ object HttpLexer {
     methodLimit: Int = 7,
     uriLimit: Int = 2048,
     versionLimit: Int = 8
-  ): (Method, Uri, Version) = {
+  ): StartLine = {
     //TODO: not sure that it actually supports HTTP 2, I just started digging into HTTP 2 and it looks like a different story
     // it uses something called frames and has a different layout
     //TODO: https://undertow.io/blog/2015/04/27/An-in-depth-overview-of-HTTP2.html
@@ -112,7 +112,11 @@ object HttpLexer {
     def checkCurrentElementSize(elementSize: Int, limit: Int): Unit =
       if (elementSize > limit) throw new IllegalStateException("Malformed HTTP start-line")
 
-    (Method.fromString(elements.dequeue()), Uri.fromString(elements.dequeue()), Version.fromString(elements.dequeue()))
+    StartLine(
+      Method.fromString(elements.dequeue()),
+      Uri.fromString(elements.dequeue()),
+      Version.fromString(elements.dequeue())
+    )
   }
 
   sealed abstract class HeaderParseError(message: String) extends Exception(message) with NoStackTrace

@@ -2,7 +2,7 @@ package zio.web
 
 import java.io.IOException
 
-import zio.{ Has, /*Task,*/ ZLayer }
+import zio.{ Has, Tag, ZLayer }
 import zio.blocking.Blocking
 import zio.logging.Logging
 
@@ -14,16 +14,15 @@ trait ProtocolModule {
   type Middleware[-R, +E]
   type MinMetadata[+_]
 
-  // TODO: require implicit evidence that all Endpoints have handlers
-  def makeServer[M[+_] <: MinMetadata[_], R <: Has[ServerConfig], E, Identities](
+  def makeServer[M[+_] <: MinMetadata[_], R <: Has[ServerConfig]: Tag, E, Ids: Tag](
     middleware: Middleware[R, E],
-    endpoints: Endpoints[M, Identities],
-    handlers: Handlers[M, R, Identities]
-  ): ZLayer[R with Blocking with Logging, IOException, ServerService]
+    endpoints: Endpoints[M, Ids],
+    handlers: Handlers[M, R, Ids]
+  ): ZLayer[R with Blocking with Logging, IOException, Has[ServerService]]
 
   def makeDocs[R, M[+_] <: MinMetadata[_]](endpoints: Endpoints[M, _]): ProtocolDocs
 
-  def makeClient[M[+_] <: MinMetadata[_], Identities](
-    endpoints: Endpoints[M, Identities]
-  ): ZLayer[Has[ClientConfig], IOException, Has[ClientService[Identities]]] = ???
+  def makeClient[M[+_] <: MinMetadata[_], Ids](
+    endpoints: Endpoints[M, Ids]
+  ): ZLayer[Has[ClientConfig], IOException, Has[ClientService[Ids]]] = ???
 }

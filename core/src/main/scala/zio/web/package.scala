@@ -22,7 +22,8 @@ import zio.web.docs._
  *    string helloWorld(string input)
  */
 package object web {
-  type AnyF[+A] = Any
+  type AnyF[+A]        = Any
+  type NothingF[+A]    = Nothing
   type Unannotated[+A] = Nothing
 
   /**
