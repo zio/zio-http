@@ -8,6 +8,9 @@ import zio.web.codec.JsonCodec
 import zio.web.http.{ HttpServer, HttpServerConfig }
 import zio.web.http.model.{ Method, Route }
 
+/**
+ * Usage examples.
+ */
 trait Example extends http.HttpProtocolModule {
   import http.HttpMiddleware
 

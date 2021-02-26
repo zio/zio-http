@@ -11,7 +11,7 @@ import zio.logging.{ Logging, log }
 import zio.nio.core.{ InetSocketAddress, SocketAddress }
 import zio.nio.core.channels.{ SelectionKey, Selector, ServerSocketChannel }
 import zio.nio.core.channels.SelectionKey.Operation
-import zio.web.Endpoints
+import zio.web.{AnyF, Endpoints}
 import zio.web.http.internal.{ HttpConnection, HttpRouter }
 
 final class HttpServer private (
@@ -99,7 +99,6 @@ final class HttpServer private (
 }
 
 object HttpServer {
-  type AnyF[+A] = Any
 
   val live: ZIO[Has[HttpServer] with Logging with Blocking with Clock with HttpRouter, IOException, HttpServer] =
     ZIO.service[HttpServer].tap(_.startup.orDie)

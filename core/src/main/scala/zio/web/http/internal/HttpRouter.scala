@@ -1,13 +1,11 @@
 package zio.web.http.internal
 
 import zio.{ UIO, ULayer, ZIO }
-import zio.web.{ Endpoint, Endpoints }
+import zio.web.{ AnyF, Endpoint, Endpoints }
 import zio.web.http.model.{ Method, Uri, Version }
 import zio.ZLayer
 
 object HttpRouter {
-
-  type AnyF[+_] = Any
 
   trait Service {
     def route[M[_]](method: Method, uri: Uri, version: Version): UIO[Option[Endpoint[AnyF, _, _, _]]]

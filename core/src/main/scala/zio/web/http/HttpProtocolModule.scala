@@ -28,7 +28,7 @@ trait HttpProtocolModule extends ProtocolModule {
     ZLayer.requires[R with Blocking with Logging] >+>
       HttpRouter.basic(endpoints) >+>
       ZLayer.fromServiceManaged { config: ServerConfig =>
-        HttpServer.build(config, endpoints.asInstanceOf)
+        HttpServer.build(config, endpoints.asInstanceOf[Endpoints[AnyF, _]])
       }
 
   override def makeDocs[R, M[+_] <: MinMetadata[_]](endpoints: Endpoints[M, _]): ProtocolDocs =

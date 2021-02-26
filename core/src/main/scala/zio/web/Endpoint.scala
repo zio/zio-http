@@ -10,9 +10,9 @@ final case class Endpoint[+M[+_], +P, I, O](
   response: Schema[O],
   annotations: Annotations[M, P]
 ) { self =>
-  type Identity
+  type Id
 
-  def +[M1[+_] >: M[_]](that: Endpoint[M1, _, _, _]): Endpoints[M1, Identity with that.Identity] =
+  def +[M1[+_] >: M[_]](that: Endpoint[M1, _, _, _]): Endpoints[M1, Id with that.Id] =
     Endpoints(self, that)
 
   /**
@@ -62,8 +62,8 @@ final case class Endpoint[+M[+_], +P, I, O](
 
 object Endpoint {
 
-  type Aux[+M[+_], +P, I, O, Identity0] =
+  type Aux[+M[+_], +P, I, O, Id0] =
     Endpoint[M, P, I, O] {
-      type Identity = Identity0
+      type Id = Id0
     }
 }
