@@ -72,13 +72,6 @@ load_cache: &load_cache
   - restore_cache:
       key: sbt-http-cache-v2
 
-# TODO remove this after the build is fixed
-fix_cache: &fix_cache
-  - run:
-      name: Clean unwanted but previously already cached files (TODO remove this after the build is fixed)
-      command: |
-        find $HOME/.sbt/1.0/staging -maxdepth 2 -mindepth 2 -name zio-schema -type d -print -exec rm -rf {} +
-
 clean_cache: &clean_cache
   - run:
       name: Clean unwanted files from cache (TODO remove the zio-schema related line, if it is not a source dependency any more)
@@ -102,8 +95,6 @@ lint: &lint
   steps:
     - checkout
     - <<: *load_cache
-    # TODO remove this after the build is fixed
-    - <<: *fix_cache
     - run:
         name: Lint code
         command: ./sbt ++${SCALA_VERSION}! check
@@ -114,8 +105,6 @@ mdoc: &mdoc
   steps:
     - checkout
     - <<: *load_cache
-    # TODO remove this after the build is fixed
-    - <<: *fix_cache
     - run:
         name: Generate documentation
         command: |
@@ -128,8 +117,6 @@ test: &test
   steps:
     - checkout
     - <<: *load_cache
-    # TODO remove this after the build is fixed
-    - <<: *fix_cache
     - <<: *install_jdk
     - run:
         name: Run tests
@@ -144,8 +131,6 @@ release: &release
           name: Fetch git tags
           command: git fetch --tags
       - <<: *load_cache
-      # TODO remove this after the build is fixed
-      - <<: *fix_cache
       - run:
           name: Write PGP public key
           command: echo -n "${PGP_PUBLIC}" | base64 -d > /tmp/public.asc
