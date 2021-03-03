@@ -14,7 +14,9 @@ import zio.web.http.internal.{ HttpController, HttpLexer, HttpRouter }
 final private[http] class HttpConnection(
   router: HttpRouter,
   controller: HttpController[Any],
+  selector: Selector,
   channel: SocketChannel,
+  response: Ref[Chunk[Byte]],
   closed: Promise[Throwable, Unit]
 ) { self =>
 
@@ -39,11 +41,17 @@ final private[http] class HttpConnection(
       _         <- log.info(s"Parsed body:\n${input}")
       output    <- controller.handle(endpoint)(input, ())
       _         <- log.info(s"Handler returned $output")
-      response  = HttpConnection.sucessResponse(output)
-      _         <- channel.writeChunk(response)
-      _         <- log.info(s"Sent response data")
-      _         <- channel.close
+      _         <- response.set(HttpConnection.sucessResponse(output))
+      _         <- channel.register(selector, Operation.Write, Some(self))
     } yield ()).tapError(e => log.error(s"Failed due to ${e.getMessage}"))
+
+  val write: ZIO[Logging, IOException, Unit] =
+    for {
+      bytes <- response.get
+      _     <- channel.writeChunk(bytes)
+      _     <- log.info(s"Sent response data")
+      _     <- shutdown
+    } yield ()
 
   val shutdown: URIO[Logging, Unit] =
     for {
@@ -68,11 +76,13 @@ private[http] object HttpConnection {
   private def apply(
     router: HttpRouter,
     controller: HttpController[Any],
+    selector: Selector,
     channel: SocketChannel
   ): ZManaged[Logging, IOException, HttpConnection] =
     (for {
-      closed <- Promise.make[Throwable, Unit]
-    } yield new HttpConnection(router, controller, channel, closed)).toManaged(_.shutdown)
+      response <- Ref.make[Chunk[Byte]](Chunk.empty)
+      closed   <- Promise.make[Throwable, Unit]
+    } yield new HttpConnection(router, controller, selector, channel, response, closed)).toManaged(_.shutdown)
 
   private def register(channel: SocketChannel, selector: Selector)(
     connection: HttpConnection
@@ -88,7 +98,7 @@ private[http] object HttpConnection {
     channel: SocketChannel,
     selector: Selector
   ): URIO[Logging, Unit] =
-    HttpConnection(router, controller, channel)
+    HttpConnection(router, controller, selector, channel)
       .tap(register(channel, selector))
       .use(_.awaitShutdown)
       .forkDaemon

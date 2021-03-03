@@ -93,7 +93,10 @@ final class HttpServer private (
   private def write(key: SelectionKey): ZIO[Logging, IOException, Unit] =
     for {
       _ <- log.debug("Writing connection")
-      _ = key
+      _ <- key.attachment.flatMap {
+            case Some(attached) => attached.asInstanceOf[HttpConnection].write
+            case None           => log.error("Connection is not ready to be written")
+          }
     } yield ()
 
   private val run: ZIO[Blocking with Clock with Logging, IOException, Nothing] =
