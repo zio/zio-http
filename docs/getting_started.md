@@ -24,6 +24,7 @@ Let's create a simple endpoint which will receive a `name` and respond with a gr
 
 ```scala mdoc
 import zio.ZIO
+import zio.web.{endpoint, Endpoints, Handler, Handlers}
 import zio.web.codec.Codec
 import zio.web.http.HttpProtocolModule
 import zio.web.http.model.{ Method, Route }
@@ -38,11 +39,16 @@ object GreetingModule extends HttpProtocolModule {
   val greetingEndpoint =
     endpoint("greet")
       .withRequest(Schema[String])
-      .withResponse(Schema[String])
-      .handler(greeting => ZIO.succeed(s"Hi $greeting!")) @@ Route("/greet/") @@ Method.GET
+      .withResponse(Schema[String]) @@ Route("/greet/") @@ Method.GET
 
-  val endpoints = greetingEndpoint :: Endpoints.empty
+  val endpoints = Endpoints(greetingEndpoint)
 
+  val greetingHandler =
+    Handler.make(greetingEndpoint) { greeting =>
+      ZIO.succeed(s"Hi $greeting!")
+    }
+
+  val handlers = Handlers(greetingHandler)
 }
 ```
 
@@ -64,6 +70,7 @@ Once you have created your module you can use the convenience methods to create 
 
 ```scala mdoc
 import zio.console._
+import zio.logging.{ LogFormat, LogLevel, Logging, log }
 import zio.web.HttpClientConfig
 import zio.web.http.{ HttpMiddleware, HttpServerConfig }
 import zio.{ ExitCode, URIO, ZLayer }
@@ -72,12 +79,12 @@ object Demo extends zio.App {
 
   private val program =
     GreetingModule
-      .makeServer(HttpMiddleware.none, GreetingModule.endpoints)
+      .makeServer(HttpMiddleware.none, GreetingModule.endpoints, GreetingModule.handlers)
       .build
       .use { _ =>
         for {
           client   <- GreetingModule.makeClient(GreetingModule.endpoints).build.useNow
-          greeting <- client.get.invoke(GreetingModule.greetingEndpoint, "Jason")
+          greeting <- client.get.invoke(GreetingModule.greetingEndpoint)("Jason")
           _        <- putStrLn(greeting)
         } yield ExitCode.success
       }
@@ -89,8 +96,13 @@ object Demo extends zio.App {
   private val port = 8080
 
   private val requirements =
-    ZLayer.succeed(HttpServerConfig(host, port)) ++
+    loggingLayer ++
+      ZLayer.succeed(HttpServerConfig(host, port)) ++
       ZLayer.succeed(HttpClientConfig(host, port))
+
+  lazy val loggingLayer =
+    Logging.console(LogLevel.Debug, LogFormat.ColoredLogFormat()) >>>
+      Logging.withRootLoggerName("example-http-server")
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     program.provideCustomLayer(requirements)
