@@ -44,7 +44,7 @@ object GreetingModule extends HttpProtocolModule {
   val endpoints = Endpoints(greetingEndpoint)
 
   val greetingHandler =
-    Handler.make(greetingEndpoint) { greeting =>
+    Handler.make(greetingEndpoint) { greeting: String =>
       ZIO.succeed(s"Hi $greeting!")
     }
 
