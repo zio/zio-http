@@ -4,16 +4,20 @@ package zio.web
  * An `Handlers[M, R, Ids]` represents an unordered collection of handlers for endpoints with identifiers `Ids`
  * and minimum metadata `M` that collectively require an environment `R`.
  */
-sealed trait Handlers[-M[_], -R, Ids] { self =>
+sealed trait Handlers[-M[_], -R, Ids0] { self =>
+
+  type Ids = Ids0
+
   final def +[M1[_] <: M[_], R1 <: R, Id](
     that: Handler[M1, _, R1, _, _]
   ): Handlers[M1, R1, Ids with that.Id] = {
-    type Actual   = Handlers[M, R, Ids]
-    type Expected = Handlers[M1, R1, Ids]
+    type Head = Handler.Aux[M1, _, R1, _, _, that.Id]
+    type Tail = Handlers[M1, R1, self.Ids]
 
-    def cast(actual: Actual): Expected = actual.asInstanceOf[Expected]
-
-    Handlers.Cons[M1, R1, that.Id, Ids, that.type, Handlers[M1, R1, Ids]](that, cast(self))
+    Handlers.Cons[M1, R1, that.Id, self.Ids, Head, Tail](
+      that.asInstanceOf[Head],
+      self.asInstanceOf[Tail]
+    )
   }
 }
 

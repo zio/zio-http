@@ -1,6 +1,7 @@
 package zio.web
 
-import zio.URIO
+import com.github.ghik.silencer.silent
+import zio.{ =!=, URIO }
 
 /**
  * A `Handler[M, P, R, I, O]` represents a handler for `Endpoint[M, P, I, O]`  that requires environment `R`.
@@ -38,12 +39,14 @@ object Handler {
   ): HandlerMaker[M, P, R, I, O, endpoint.Id] =
     new HandlerMaker[M, P, R, I, O, endpoint.Id](endpoint)
 
-  class HandlerMaker[M[+_], P, R, I, O, Id](val endpoint: Endpoint.Aux[M, P, I, O, Id]) {
+  final class HandlerMaker[M[+_], P, R, I, O, Id](val endpoint: Endpoint.Aux[M, P, I, O, Id]) {
 
-    def apply(handler: (I, P) => URIO[R, O]): Handler.Aux[M, P, R, I, O, Id] =
+    @silent("never used")
+    def apply(handler: (I, P) => URIO[R, O])(implicit ev: P =!= Unit): Handler.Aux[M, P, R, I, O, Id] =
       Handler.apply(endpoint, handler)
 
-    def apply(handler: I => URIO[R, O]): Handler.Aux[M, P, R, I, O, Id] =
+    @silent("never used")
+    def apply(handler: I => URIO[R, O])(implicit ev: P =:= Unit): Handler.Aux[M, P, R, I, O, Id] =
       Handler.apply(endpoint, (i, _) => handler(i))
   }
 }

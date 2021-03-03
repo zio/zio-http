@@ -9,7 +9,6 @@ import zio.nio.core.channels.SelectionKey.Operation
 import zio.stream.ZStream
 import zio.web.{ AnyF, Endpoint }
 import zio.web.codec.JsonCodec
-import zio.web.http.internal.{ HttpController, HttpLexer, HttpRouter }
 
 final private[http] class HttpConnection(
   router: HttpRouter,

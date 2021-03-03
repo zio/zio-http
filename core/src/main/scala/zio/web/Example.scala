@@ -92,7 +92,10 @@ trait Example extends HttpProtocolModule {
 
   val setUserProfileHandler =
     Handler.make(setUserProfile) {
-      case (id, profile) =>
+      // for Scala 2.12 we need to hint the compiler about the types
+      // for 2.13 and above the compiler is able to infer this information
+      input: (UserId, UserProfile) =>
+        val (id, profile) = input
         for {
           _ <- console.putStrLn(s"Handling setUserProfile request for $id and $profile")
           _ = inMemoryDb.update(id, profile)

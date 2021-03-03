@@ -120,8 +120,8 @@ object HttpServer {
       address    <- SocketAddress.inetSocketAddress(config.host, config.port).toManaged_
       channel    <- openChannel(address, 0)
       selector   <- Selector.make.toManaged(_.close.tapCause(cause => log.error("Closing selector failed", cause)).orDie)
-      router     <- HttpRouter.make(endpoints)
-      controller <- HttpController.make(handlers, env)
+      router     <- HttpRouter.make[M](endpoints)
+      controller <- HttpController.make[M, R, Ids](handlers, env)
     } yield new HttpServer(
       router,
       controller.asInstanceOf[HttpController[Any]],

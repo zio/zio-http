@@ -4,6 +4,7 @@ import com.github.ghik.silencer.silent
 import zio.{ Chunk, ZIO }
 import zio.schema._
 import zio.stream.{ ZStream, ZTransducer }
+import scala.util.Try
 
 @silent("never used")
 object JsonCodec extends Codec {
@@ -159,11 +160,11 @@ object JsonCodec extends Codec {
             case QUOTE +: value :+ QUOTE => Right(new String(value.toArray))
             case _                       => Left("Could not decode string")
           }
-        case StandardType.IntType    => matchString(_.toIntOption, "int")
-        case StandardType.ShortType  => matchString(_.toShortOption, "short")
-        case StandardType.LongType   => matchString(_.toLongOption, "long")
-        case StandardType.DoubleType => matchString(_.toDoubleOption, "double")
-        case StandardType.FloatType  => matchString(_.toFloatOption, "float")
+        case StandardType.IntType    => matchString(_.toInt, "int")
+        case StandardType.ShortType  => matchString(_.toShort, "short")
+        case StandardType.LongType   => matchString(_.toLong, "long")
+        case StandardType.DoubleType => matchString(_.toDouble, "double")
+        case StandardType.FloatType  => matchString(_.toFloat, "float")
         case _                       => ???
       }
 
@@ -172,8 +173,8 @@ object JsonCodec extends Codec {
         ZIO.fromEither(f(v))
       }
 
-    private def matchString[A](f: String => Option[A], typeName: String): ZTransducer[Any, String, Chunk[Byte], A] =
-      matchBytes(v => f(new String(v.toArray)).toRight(s"Could not decode $typeName"))
+    private def matchString[A](f: String => A, typeName: String): ZTransducer[Any, String, Chunk[Byte], A] =
+      matchBytes(v => Try(f(new String(v.toArray))).toOption.toRight(s"Could not decode $typeName"))
 
     private def sequence[A](schema: Schema[A]): ZTransducer[Any, String, Chunk[Byte], Chunk[A]] =
       peelSquareBraces >>> ZTransducer.fromFunctionM[Any, String, Chunk[Byte], Chunk[A]] {
