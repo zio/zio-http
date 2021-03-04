@@ -15,7 +15,7 @@ lazy val root = (project in file("."))
   .settings(
     name := "root",
   )
-  .aggregate(zhttp, zhttpBenchmarks)
+  .aggregate(examples, zhttp, zhttpBenchmarks)
 
 // Test Configuration
 ThisBuild / libraryDependencies ++=
@@ -40,6 +40,20 @@ lazy val zhttp = (project in file("./zio-http"))
         "io.netty" % "netty-all"   % "4.1.59.Final",
       ),
   )
+
+lazy val examples = (project in file("./examples"))
+  .settings(
+    libraryDependencies ++=
+      Seq(
+        "dev.zio"  %% "zio"           % zioVersion,
+        "dev.zio"  %% "zio-streams"   % zioVersion,
+        "dev.zio"  %% "zio-logging"   % "0.5.7",
+        "io.circe" %% "circe-core"    % circeVersion,
+        "io.circe" %% "circe-generic" % circeVersion,
+        "io.circe" %% "circe-parser"  % circeVersion,
+      ),
+  )
+  .dependsOn(zhttp)
 
 // Project Benchmarks
 lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
