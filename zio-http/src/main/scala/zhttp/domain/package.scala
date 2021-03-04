@@ -1,5 +1,3 @@
 package zhttp
 
-package object domain {
-
-}
+package object domain {}

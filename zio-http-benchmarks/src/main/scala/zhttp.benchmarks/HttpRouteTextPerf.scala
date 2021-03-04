@@ -1,10 +1,11 @@
 package zhttp.benchmarks
 
-import java.util.concurrent.TimeUnit
+import org.openjdk.jmh.annotations._
 import zhttp.domain.http._
 import zhttp.domain.http.model._
-import org.openjdk.jmh.annotations._
 import zio._
+
+import java.util.concurrent.TimeUnit
 
 @State(Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))

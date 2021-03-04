@@ -1,7 +1,7 @@
 package zhttp.domain.http.model
 
-import zhttp.core.netty.{JDefaultHttpHeaders, JHttpHeaders}
 import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpHeaderValues => JHttpHeaderValues}
+import zhttp.core.netty.{JDefaultHttpHeaders, JHttpHeaders}
 
 import scala.jdk.CollectionConverters._
 

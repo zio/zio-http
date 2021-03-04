@@ -1,7 +1,7 @@
 package zhttp.service.netty
 
-import zhttp.core.netty.JChannelHandlerContext
 import io.netty.util.concurrent.{Future, GenericFutureListener}
+import zhttp.core.netty.JChannelHandlerContext
 import zio.{Exit, Fiber, URIO, ZIO}
 
 /**

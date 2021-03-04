@@ -1,7 +1,7 @@
 package zhttp.service.netty.client
 
-import zhttp.core.netty.{JChannel, JChannelHandler, JChannelInitializer, JHttpObjectAggregator}
 import io.netty.handler.codec.http.{HttpClientCodec => JHttpClientCodec}
+import zhttp.core.netty.{JChannel, JChannelHandler, JChannelInitializer, JHttpObjectAggregator}
 
 final case class ClientChannelInitializer[R](channelHandler: JChannelHandler) extends JChannelInitializer[JChannel]() {
   override def initChannel(ch: JChannel): Unit = {

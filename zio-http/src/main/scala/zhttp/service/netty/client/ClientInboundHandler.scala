@@ -1,8 +1,8 @@
 package zhttp.service.netty.client
 
+import io.netty.channel.ChannelHandlerContext
 import zhttp.core.netty.{JFullHttpResponse, JSimpleChannelInboundHandler}
 import zhttp.service.netty.UnsafeChannelExecutor
-import io.netty.channel.ChannelHandlerContext
 
 /**
  * Handles HTTP response
