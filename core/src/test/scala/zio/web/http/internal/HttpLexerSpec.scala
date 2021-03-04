@@ -212,14 +212,14 @@ object HttpLexerSpec extends DefaultRunnableSpec {
       headersToExtract <- selectSome1(distinctHeaderNames ++ absentHeaderNames)
                            .map(headerNames => headerNames.map(_.toLowerCase).distinct)
     } yield {
-      val pairedOwss = owss.grouped(2).map(_.toSeq).toSeq
+      val pairedOwss = owss.grouped(2).map(list => list.head -> list.tail.head).toSeq
 
       val headerLines =
         headerNames
           .zip(headerValues)
           .zip(pairedOwss)
           .map {
-            case ((name, value), Seq(leftOws, rightOws)) =>
+            case ((name, value), (leftOws, rightOws)) =>
               s"$name:$leftOws$value$rightOws\r\n"
           }
 

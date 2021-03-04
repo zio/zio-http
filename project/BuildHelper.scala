@@ -8,13 +8,18 @@ import BuildInfoKeys._
 
 object BuildHelper {
 
+  // Keep this consistent with the version in .circleci/config.yml
+  val Scala211 = "2.11.12"
+  val Scala212 = "2.12.13"
+  val Scala213 = "2.13.4"
+
   val zioVersion        = "1.0.4-2"
-  val zioLoggingVersion = "0.5.4"
+  val zioLoggingVersion = "0.5.7"
   val zioSchemaVersion  = "0.0.1"
   val zioJsonVersion    = "0.1"
   val zioNioVersion     = "1.0.0-RC10"
-  val silencerVersion   = "1.7.1"
-  val magnoliaVersion   = "0.16.0"
+  val silencerVersion   = "1.7.3"
+  val magnoliaVersion   = "0.17.0"
 
   private val testDeps = Seq(
     "dev.zio" %% "zio-test"     % zioVersion % "test",
@@ -25,7 +30,7 @@ object BuildHelper {
     val stdCompileOnlyDeps = Seq(
       ("com.github.ghik" % "silencer-lib" % silencerVersion % Provided).cross(CrossVersion.full),
       compilerPlugin(("com.github.ghik" % "silencer-plugin" % silencerVersion).cross(CrossVersion.full)),
-      compilerPlugin(("org.typelevel"   %% "kind-projector" % "0.11.2").cross(CrossVersion.full))
+      compilerPlugin(("org.typelevel"   %% "kind-projector" % "0.11.3").cross(CrossVersion.full))
     )
     CrossVersion.partialVersion(scalaVersion) match {
       case Some((2, x)) if x <= 12 =>
@@ -96,7 +101,7 @@ object BuildHelper {
   def stdSettings(prjName: String) =
     Seq(
       name := s"$prjName",
-      crossScalaVersions := Seq("2.13.3", "2.12.12", "2.11.12"),
+      crossScalaVersions := Seq(Scala213, Scala212, Scala211),
       scalaVersion in ThisBuild := crossScalaVersions.value.head,
       scalacOptions := compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,
