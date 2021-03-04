@@ -1,7 +1,7 @@
 package zhttp.benchmarks
 
-import zhttp.domain.http._
 import org.openjdk.jmh.annotations._
+import zhttp.domain.http._
 
 import java.util.concurrent.TimeUnit
 

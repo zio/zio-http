@@ -1,11 +1,11 @@
 package zhttp.domain.http.model
 
+import io.netty.buffer.{Unpooled => JUnpooled}
+import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpVersion => JHttpVersion}
 import zhttp.core.extras._
 import zhttp.core.netty.{JDefaultFullHttpResponse, JDefaultHttpHeaders, JFullHttpResponse, JHttpHeaders}
 import zhttp.domain.http.HTTP_CHARSET
 import zhttp.domain.socket.WebSocketFrame
-import io.netty.buffer.{Unpooled => JUnpooled}
-import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpVersion => JHttpVersion}
 import zio.Task
 import zio.stream.ZStream
 

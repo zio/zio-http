@@ -1,10 +1,10 @@
 package zhttp.service.netty.server
 
+import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
 import zhttp.core.netty._
 import zhttp.domain.http._
 import zhttp.domain.http.model.Response
 import zhttp.service.netty._
-import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
 import zio.Exit
 
 /**
@@ -13,7 +13,7 @@ import zio.Exit
 @JSharable
 final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
-  app: HttpApp[R, Nothing]  
+  app: HttpApp[R, Nothing],
 ) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
     with ServerJHttpRequestDecoder
     with ServerHttpExceptionHandler {

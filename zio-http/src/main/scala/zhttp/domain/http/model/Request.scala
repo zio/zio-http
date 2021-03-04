@@ -1,9 +1,9 @@
 package zhttp.domain.http.model
 
-import zhttp.core.netty.{JDefaultFullHttpRequest, JFullHttpRequest}
-import zhttp.domain.http._
 import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.handler.codec.http.HttpVersion
+import zhttp.core.netty.{JDefaultFullHttpRequest, JFullHttpRequest}
+import zhttp.domain.http._
 import zio.Task
 
 // REQUEST

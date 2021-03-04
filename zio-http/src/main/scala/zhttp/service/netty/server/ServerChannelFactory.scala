@@ -1,8 +1,8 @@
 package zhttp.service.netty.server
 
+import io.netty.channel.epoll.{Epoll => JEpoll}
 import zhttp.core.netty.{JChannelFactory, JEpollServerSocketChannel, JNioServerSocketChannel, JServerChannel}
 import zhttp.service.netty.ServerChannelFactory
-import io.netty.channel.epoll.{Epoll => JEpoll}
 import zio.{UIO, ZLayer}
 
 object ServerChannelFactory {

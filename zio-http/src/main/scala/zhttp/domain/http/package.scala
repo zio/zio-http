@@ -1,7 +1,7 @@
 package zhttp.domain
 
-import zhttp.domain.http.model.{Method, Path, Request, Response, URL}
 import io.netty.util.CharsetUtil
+import zhttp.domain.http.model.{Method, Path, Request, Response, URL}
 
 import java.nio.charset.Charset
 
