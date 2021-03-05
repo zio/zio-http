@@ -18,7 +18,7 @@ object Main extends App {
   private def server = for {
     s <- Server.make(httpApp)
     _ <- s.start(PORT)
-    _ <- Logging.info(s"Server started on $PORT")
+    _ <- console.putStrLn(s"Server started on $PORT")
   } yield ()
 
   private val env = ServerChannelFactory.Live.auto.toManaged_.toLayer ++ EventLoopGroup.Live.auto(0).toLayer ++
