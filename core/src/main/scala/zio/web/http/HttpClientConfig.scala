@@ -1,3 +1,3 @@
-package zio.web
+package zio.web.http
 
 final case class HttpClientConfig(host: String, port: Int)

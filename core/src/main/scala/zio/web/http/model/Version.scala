@@ -1,6 +1,6 @@
 package zio.web.http.model
 
-sealed abstract class Version(name: String) {
+sealed abstract class Version(val name: String) {
   override def toString(): String = s"Version.$name"
 }
 

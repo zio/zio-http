@@ -1,18 +1,20 @@
 package zio.web.http
 
-import java.io.IOException
+import java.io.{ IOException, StringReader }
 import java.net.URI
 
-import zio._
+import zio.{ Chunk, Has, IO, Promise, UIO, URIO, ZIO, ZManaged }
 import zio.blocking.{ Blocking, blocking }
 import zio.clock.Clock
 import zio.duration._
 import zio.logging.{ Logging, log }
 import zio.nio.core.{ InetSocketAddress, SocketAddress }
-import zio.nio.core.channels.{ SelectionKey, Selector, ServerSocketChannel }
+import zio.nio.core.channels.{ SelectionKey, Selector, ServerSocketChannel, SocketChannel }
 import zio.nio.core.channels.SelectionKey.Operation
-import zio.web.{ Endpoints, Handlers }
-import zio.web.http.internal.{ HttpConnection, HttpController, HttpRouter }
+import zio.stream.ZStream
+import zio.web.{ AnyF, Endpoint, Endpoints, Handlers }
+import zio.web.codec.JsonCodec
+import zio.web.http.internal.{ ChannelReader, HttpController, HttpLexer, HttpRouter }
 
 final class HttpServer private (
   router: HttpRouter,
@@ -54,7 +56,7 @@ final class HttpServer private (
     } yield new URI("http", null, host, inet.port, "/", null, null)
 
   private val select: ZIO[Logging, IOException, Unit] =
-    selector.select(500.millis).onInterrupt(selector.wakeup).flatMap {
+    selector.select(10.millis).onInterrupt(selector.wakeup).flatMap {
       case 0 => ZIO.unit
       case _ =>
         selector.selectedKeys.flatMap { keys =>
@@ -76,7 +78,7 @@ final class HttpServer private (
       _ <- log.debug("Accepting connection...")
       _ <- serverChannel.accept.flatMap {
             case Some(channel) =>
-              log.debug("Accepted connection") *> HttpConnection.spawnDaemon(router, controller, channel, selector)
+              log.debug("Accepted connection") *> HttpServer.Connection(router, controller, channel, selector)
             case None => log.debug("No connection is currently available to be accepted")
           }
     } yield ()
@@ -85,7 +87,7 @@ final class HttpServer private (
     for {
       _ <- log.debug("Reading connection...")
       _ <- key.attachment.flatMap {
-            case Some(attached) => attached.asInstanceOf[HttpConnection].read
+            case Some(attached) => attached.asInstanceOf[HttpServer.Connection].read
             case None           => log.error("Connection is not ready to be read")
           }
     } yield ()
@@ -94,7 +96,7 @@ final class HttpServer private (
     for {
       _ <- log.debug("Writing connection")
       _ <- key.attachment.flatMap {
-            case Some(attached) => attached.asInstanceOf[HttpConnection].write
+            case Some(attached) => attached.asInstanceOf[HttpServer.Connection].write
             case None           => log.error("Connection is not ready to be written")
           }
     } yield ()
@@ -139,4 +141,125 @@ object HttpServer {
       .tap(_.configureBlocking(false))
       .toManaged(_.close.orDie)
       .tapM(channel => blocking { channel.bind(address, maxPending) })
+
+  private[HttpServer] class Connection private (
+    router: HttpRouter,
+    controller: HttpController[Any],
+    selector: Selector,
+    channel: SocketChannel,
+    response: Promise[IOException, Chunk[Byte]],
+    closed: Promise[Throwable, Unit]
+  ) { self =>
+
+    val awaitOpen: UIO[Unit] = channel.isOpen.repeatUntil(identity).unit
+
+    val awaitShutdown: IO[Throwable, Unit] = closed.await
+
+    val read: URIO[Logging, Unit] =
+      (for {
+        _           <- awaitOpen
+        reader      = ChannelReader(channel, 32)
+        data        <- reader.readUntilNewLine()
+        firstLine   = new String(data.value.toArray)
+        _           <- log.info(s"Read start line:\n$firstLine")
+        startLine   = HttpLexer.parseStartLine(new StringReader(firstLine))
+        _           <- log.info(s"Parsed ${startLine}")
+        endpoint    <- router.route(startLine)
+        _           <- log.info(s"Request matched to [${endpoint.endpointName}].")
+        data        <- reader.readUntilEmptyLine(data.tail)
+        headerLines = new String(data.value.toArray)
+        _           <- log.info(s"Read headers:\n$headerLines")
+        // TODO: extract headers parsing and wrap them in HttpHeaders to tidy up a little here
+        headerNames  = Array("Content-Length") // TODO: handle when not given then do not read the content
+        headerValues = HttpLexer.parseHeaders(headerNames, new StringReader(headerLines))
+        headers = headerNames
+          .zip(headerValues.map(_.headOption))
+          .collect { case (key, Some(value)) => key -> value }
+          .toMap
+        _          <- log.info(s"Parsed headers:\n$headers")
+        bodyLength = headers("Content-Length").toInt
+        data       <- reader.read(bodyLength, data.tail)
+        bodyLines  = new String(data.toArray)
+        _          <- log.info(s"Read body:\n$bodyLines")
+        input      <- Connection.decodeInput(data, endpoint)
+        _          <- log.info(s"Parsed body:\n$input")
+        output     <- controller.handle(endpoint)(input, ())
+        _          <- log.info(s"Handler returned $output")
+        success    <- Connection.sucessResponse(output, endpoint)
+        _          <- channel.register(selector, Operation.Write, Some(self))
+      } yield success).to(response).unit
+
+    val write: ZIO[Logging, IOException, Unit] =
+      for {
+        bytes <- response.await
+        _     <- channel.writeChunk(bytes)
+        _     <- log.info(s"Sent response data")
+        _     <- shutdown
+      } yield ()
+
+    val shutdown: URIO[Logging, Unit] =
+      for {
+        _ <- log.debug("Stopping connection...")
+        _ <- ZIO.whenM(channel.isOpen)(channel.close).unit.to(closed)
+        _ <- log.debug("Connection stopped")
+      } yield ()
+  }
+
+  private[HttpServer] object Connection {
+
+    def apply[R](
+      router: HttpRouter,
+      controller: HttpController[Any],
+      channel: SocketChannel,
+      selector: Selector
+    ): URIO[Logging, Unit] =
+      (for {
+        response <- Promise.make[IOException, Chunk[Byte]]
+        closed   <- Promise.make[Throwable, Unit]
+      } yield new Connection(router, controller, selector, channel, response, closed))
+        .toManaged(_.shutdown)
+        .tap(register(channel, selector))
+        .use(_.awaitShutdown)
+        .forkDaemon
+        .unit
+
+    def register(channel: SocketChannel, selector: Selector)(
+      connection: Connection
+    ): ZManaged[Logging, IOException, SelectionKey] =
+      (for {
+        _   <- channel.configureBlocking(false)
+        key <- channel.register(selector, Operation.Read, Some(connection))
+      } yield key).toManaged(_.cancel)
+
+    def sucessResponse[O](output: O, endpoint: Endpoint[AnyF, _, _, _]): UIO[Chunk[Byte]] =
+      for {
+        body <- encodeOutput(output, endpoint.asInstanceOf[Endpoint[AnyF, _, _, O]])
+        headers = httpHeaders(
+          "HTTP/1.0 200 OK",
+          "Content-Type: text/plain",
+          s"Content-Length: ${body.size}"
+        )
+      } yield headers ++ body
+
+    // TODO: make codec configurable
+    def decodeInput[I](bytes: Chunk[Byte], endpoint: Endpoint[AnyF, _, I, _]): IO[IOException, I] =
+      ZStream
+        .fromChunk(bytes)
+        .transduce(JsonCodec.decoder(endpoint.request))
+        .runHead
+        .catchAll(_ => ZIO.none)
+        .someOrElseM(ZIO.fail(new IOException("Could not decode input")))
+
+    def encodeOutput[O](output: O, endpoint: Endpoint[AnyF, _, _, O]): UIO[Chunk[Byte]] =
+      ZStream(output)
+        .transduce(JsonCodec.encoder(endpoint.response))
+        .runCollect
+
+    def httpHeaders(headers: String*): Chunk[Byte] =
+      Chunk.fromArray(
+        headers
+          .mkString("", "\r\n", "\r\n\r\n")
+          .getBytes
+      )
+  }
 }

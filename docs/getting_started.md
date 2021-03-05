@@ -71,20 +71,21 @@ Once you have created your module you can use the convenience methods to create 
 ```scala mdoc
 import zio.console._
 import zio.logging.{ LogFormat, LogLevel, Logging, log }
-import zio.web.HttpClientConfig
-import zio.web.http.{ HttpMiddleware, HttpServerConfig }
+import zio.web.http.{ HttpClientConfig, HttpMiddleware, HttpServerConfig }
 import zio.{ ExitCode, URIO, ZLayer }
 
 object Demo extends zio.App {
 
+  import GreetingModule.{endpoints, handlers, greetingEndpoint}
+
   private val program =
     GreetingModule
-      .makeServer(HttpMiddleware.none, GreetingModule.endpoints, GreetingModule.handlers)
+      .makeServer(HttpMiddleware.none, endpoints, handlers)
       .build
       .use { _ =>
         for {
-          client   <- GreetingModule.makeClient(GreetingModule.endpoints).build.useNow
-          greeting <- client.get.invoke(GreetingModule.greetingEndpoint)("Jason")
+          client   <- GreetingModule.makeClient(endpoints).build.useNow
+          greeting <- endpoints.invoke(greetingEndpoint)("Jason").provide(client)
           _        <- putStrLn(greeting)
         } yield ExitCode.success
       }
@@ -102,7 +103,7 @@ object Demo extends zio.App {
 
   lazy val loggingLayer =
     Logging.console(LogLevel.Debug, LogFormat.ColoredLogFormat()) >>>
-      Logging.withRootLoggerName("example-http-server")
+      Logging.withRootLoggerName("example")
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     program.provideCustomLayer(requirements)

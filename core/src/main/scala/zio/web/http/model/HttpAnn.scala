@@ -1,7 +1,7 @@
 package zio.web.http.model
 
 sealed trait HttpAnn[+A]
-sealed abstract class Method(name: String) extends HttpAnn[Unit] {
+sealed abstract class Method(val name: String) extends HttpAnn[Unit] {
   override def toString(): String = s"Method.$name"
 }
 

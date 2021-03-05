@@ -1,46 +1,16 @@
-package zio.web
+package zio.web.example
 
 import zio._
-import zio.logging.{ LogFormat, LogLevel, Logging, log }
 import zio.schema._
+import zio.web.{ Handler, endpoint }
 import zio.web.codec.JsonCodec
-import zio.web.http.{ HttpMiddleware, HttpProtocolModule, HttpServer, HttpServerConfig }
+import zio.web.http.{ HttpMiddleware, HttpProtocolModule }
 import zio.web.http.model.{ Method, Route }
 
-/**
- * Example server. Go to `/restclient` for test requests.
- */
-object ExampleApp extends App with Example {
+object UsersExample extends HttpProtocolModule {
 
-  // TODO: not used yet, here just to satisfy the compiler
   val allProtocols    = Map.empty
   val defaultProtocol = JsonCodec
-
-  def run(args: List[String]): URIO[ZEnv, ExitCode] =
-    program.provideSomeLayer[ZEnv](loggingLayer).exitCode
-
-  lazy val program =
-    for {
-      _      <- log.info("App started")
-      config = HttpServerConfig("localhost", 8080)
-      server <- HttpServer.run.provideLayer(httpLayer(config))
-      _      <- log.info("Halting until interrupted")
-      _      <- server.awaitShutdown.orDie
-      _      <- log.info("App stopped")
-    } yield ()
-
-  lazy val loggingLayer =
-    Logging.console(LogLevel.Debug, LogFormat.ColoredLogFormat()) >>>
-      Logging.withRootLoggerName("example-http-server")
-
-  def httpLayer(config: HttpServerConfig) =
-    (ZLayer.requires[ZEnv with Logging] ++ ZLayer.succeed(config)) >+> helloServerLayer
-}
-
-/**
- * Usage examples.
- */
-trait Example extends HttpProtocolModule {
 
   sealed case class UserId(id: String)
   sealed case class UserProfile(age: Int, fullName: String, address: String)
@@ -55,9 +25,6 @@ trait Example extends HttpProtocolModule {
   val userJoe: UserId = UserId("123123")
 
   val userIdSchema: Schema[UserId] = Schema.caseClassN("id" -> Schema[String])(UserId(_), UserId.unapply(_))
-
-  val textPlainSchema: Schema[TextPlainResponse] =
-    Schema.caseClassN("content" -> Schema[String])(TextPlainResponse(_), TextPlainResponse.unapply(_))
 
   val userProfileSchema: Schema[UserProfile] = Schema.caseClassN(
     "age"      -> Schema[Int],
@@ -112,32 +79,4 @@ trait Example extends HttpProtocolModule {
 
   // docs example
   lazy val docs = makeDocs(userService)
-
-  // -- BASIC HTTP SERVER
-  // say hello example
-  sealed case class HelloRequest(name: String, message: String)
-  sealed case class TextPlainResponse(content: String)
-
-  lazy val helloSchema: Schema[HelloRequest] =
-    Schema.caseClassN(
-      "name"    -> Schema[String],
-      "message" -> Schema[String]
-    )(HelloRequest(_, _), HelloRequest.unapply(_))
-
-  val sayHello =
-    endpoint("sayHello")
-      .withRequest(helloSchema)
-      .withResponse(textPlainSchema) @@ Route("/{name}") @@ Method.GET
-
-  lazy val sayHelloService = Endpoints(sayHello)
-
-  lazy val sayHelloHandlers =
-    Handlers(Handler.make(sayHello) { (req: HelloRequest) =>
-      for {
-        _ <- console.putStrLn(s"Handling sayHello request for ${req.name}")
-      } yield TextPlainResponse(s"Hello ${req.name}!")
-    })
-
-  lazy val helloServerLayer =
-    makeServer(HttpMiddleware.none, sayHelloService, sayHelloHandlers)
 }

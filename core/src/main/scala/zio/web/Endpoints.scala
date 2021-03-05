@@ -1,7 +1,5 @@
 package zio.web
 
-import zio.{ Has, Tag, ZIO }
-
 /**
  * An `Endpoints[M, Ids]` represents an ordered collection of endpoints with identifiers `Ids` and minimum metadata `M`.
  */
@@ -17,18 +15,6 @@ sealed trait Endpoints[-M[+_], Ids0] { self =>
       self.asInstanceOf[Tail]
     )
   }
-
-  def invoke[I, O](endpoint: Endpoint[M, Unit, I, O])(input: I)(
-    implicit ev: Ids <:< endpoint.Id,
-    tt: Tag[ClientService[Ids]]
-  ): ZIO[Has[ClientService[Ids]], Throwable, O] =
-    ZIO.accessM[Has[ClientService[Ids]]](_.get.invoke(endpoint)(input))
-
-  def invoke[P, I, O](endpoint: Endpoint[M, P, I, O])(input: I, params: P)(
-    implicit ev: Ids <:< endpoint.Id,
-    tt: Tag[ClientService[Ids]]
-  ): ZIO[Has[ClientService[Ids]], Throwable, O] =
-    ZIO.accessM[Has[ClientService[Ids]]](_.get.invoke(endpoint)(input, params))
 }
 
 object Endpoints {
