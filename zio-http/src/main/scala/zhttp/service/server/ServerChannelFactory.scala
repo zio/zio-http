@@ -10,6 +10,8 @@ object ServerChannelFactory {
 
   def epoll: ZLayer[Any, Nothing, ServerChannelFactory] = Live.epoll.toLayer
 
+  def auto: ZLayer[Any, Nothing, ServerChannelFactory] = Live.auto.toLayer
+
   object Live {
     def nio: UIO[JChannelFactory[JServerChannel]] =
       UIO(() => new JNioServerSocketChannel())
