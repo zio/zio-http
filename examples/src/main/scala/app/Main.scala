@@ -2,14 +2,8 @@ package app
 
 import io.circe.generic.auto._
 import io.circe.syntax._
-import zhttp.domain.http.HttpApp
-import zhttp.domain.http.model.Method.GET
-import zhttp.domain.http.model.Path.{/, Root}
-import zhttp.domain.http.model.Response
-import zhttp.service.netty.EventLoopGroup
-import zhttp.service.netty.server.{Server, ServerChannelFactory}
+import zhttp._, domain.http._, model._, Method._, Path._, service.netty._, server._
 import zio._
-import zio.logging.Logging
 
 object Main extends App {
   private val PORT = 3001
