@@ -6,6 +6,8 @@ import zhttp.service.netty.ServerChannelFactory
 import zio.{UIO, ZLayer}
 
 object ServerChannelFactory {
+  def live: ZLayer[Any, Nothing, ServerChannelFactory] = Live.auto.toLayer
+
   def nio: ZLayer[Any, Nothing, ServerChannelFactory] = Live.nio.toLayer
 
   def epoll: ZLayer[Any, Nothing, ServerChannelFactory] = Live.epoll.toLayer
