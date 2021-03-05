@@ -9,7 +9,6 @@ import zhttp.domain.http.model.Response
 import zhttp.service.netty.EventLoopGroup
 import zhttp.service.netty.server.{Server, ServerChannelFactory}
 import zio._
-import zio.logging.Logging
 
 object Main extends App {
   private val PORT = 3001
