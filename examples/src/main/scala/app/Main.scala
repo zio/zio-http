@@ -21,9 +21,8 @@ object Main extends App {
     _ <- console.putStrLn(s"Server started on $PORT")
   } yield ()
 
-  private val env = ServerChannelFactory.Live.auto.toManaged_.toLayer ++ EventLoopGroup.Live.auto(0).toLayer ++
-    Logging.console()
+  private val env = ServerChannelFactory.live ++ EventLoopGroup.live(0)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    (server.toManaged_).useForever.provideCustomLayer(env).exitCode
+    server.toManaged_.useForever.provideCustomLayer(env).exitCode
 }
