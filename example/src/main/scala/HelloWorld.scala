@@ -1,6 +1,6 @@
-import zio._
 import zhttp.http._
 import zhttp.service.server.Server
+import zio._
 
 object HelloWorld extends App {
   val app = Http.route {

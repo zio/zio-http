@@ -1,6 +1,5 @@
 package zhttp.http
 
-import zhttp.http.Path.{/, Root}
 import zio.test.Assertion.equalTo
 import zio.test._
 
