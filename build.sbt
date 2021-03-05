@@ -15,7 +15,7 @@ lazy val root = (project in file("."))
   .settings(
     name := "root",
   )
-  .aggregate(zhttp, zhttpBenchmarks)
+  .aggregate(zhttp, zhttpBenchmarks, example)
 
 // Test Configuration
 ThisBuild / libraryDependencies ++=
@@ -51,6 +51,9 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
         "dev.zio" %% "zio" % zioVersion,
       ),
   )
+
+lazy val example = (project in file("./example"))
+  .dependsOn(zhttp)
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
