@@ -1,19 +1,18 @@
 # ZIO Http
 
-ZIO Http is a library for building high performance http apps using [ZIO].
+ZIO Http is a library for building http apps. It is powered by [ZIO] and [netty] and aims at being the defacto solution for writing, highly scalable and performant web applications using idiomatic scala.
 
 [![Build Status](https://travis-ci.com/dream11/zio-http.svg?branch=master)](https://travis-ci.com/dream11/zio-http)
 
 [zio]: https://zio.dev
 [netty]: http://netty.io
 
-# Table of Content
+# Table of Contents
 
 - [ZIO Http](#zio-http)
-- [Table of Content](#table-of-content)
+- [Table of Contents](#table-of-contents)
 - [Getting Started](#getting-started)
 - [Installation](#installation)
-- [Features](#features)
 - [Usage](#usage)
   - [Advanced Usage](#advanced-usage)
   - [Performance Tuning](#performance-tuning)
@@ -49,11 +48,6 @@ lazy val zhttp = ProjectRef(uri(s"git://github.com/dream11/zio-http.git"), "zhtt
 
 lazy val root = (project in file(".")).dependsOn(zhttp)
 ```
-
-# Features
-
-- **Socket Support:** ???
-- **Middleware:** ???
 
 # Usage
 

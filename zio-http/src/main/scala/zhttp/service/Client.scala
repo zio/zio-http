@@ -2,8 +2,8 @@ package zhttp.service
 
 import zhttp.core._
 import zhttp.http.{Request, Response}
-import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
 import zhttp.service
+import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
 import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
