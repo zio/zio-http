@@ -1,4 +1,10 @@
 # ZIO-HTTP
+## How to start ZIO-Http server
+1. Clone the repository
+   `git clone https://github.com/dream11/zio-http.git`
+2. Start the server `sbt run example/run`
+3. Server starts `http://127.0.0.1:8090/text` 
+
 ## Environment
 **We have used 2 machines**
 1. EC2(C5.4xLarge) 16 vCPUs 32 GB RAM as server
@@ -9,7 +15,7 @@
 ### ZIO-HTTP
 #### Plain Text
 ```dtd
-./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.105.8:8090
+./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.105.8:8090/text
 Running 10s test @ http://10.10.109.3:8090
   12 threads and 1000 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
