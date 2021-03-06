@@ -1,8 +1,8 @@
 package zhttp.service
 
+import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
 import zhttp.core._
 import zhttp.http._
-import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
 import zhttp.service.server.{ServerChannelFactory, ServerChannelInitializer, ServerRequestHandler}
 import zio._
 
