@@ -1,6 +1,9 @@
 package zhttp.service
 
 import io.netty.channel.epoll.{Epoll => JEpoll}
+import io.netty.incubator.channel.uring.{IOUring => JIOUring}
+
+import io.netty.incubator.channel.uring.{IOUringEventLoopGroup => JIOUringEventLoopGroup};
 import io.netty.{channel => jChannel}
 import zio._
 
@@ -34,8 +37,14 @@ object EventLoopGroup {
     def epoll(nThreads: Int, executor: Executor): ZManaged[Any, Nothing, jChannel.EventLoopGroup] =
       make(UIO(new jChannel.epoll.EpollEventLoopGroup(nThreads, executor)))
 
+    def ioUring(nThreads: Int): ZManaged[Any, Nothing, jChannel.EventLoopGroup] =
+      make(UIO(new JIOUringEventLoopGroup(nThreads)))
+
+    def ioUring(nThreads: Int, executor: Executor): ZManaged[Any, Nothing, jChannel.EventLoopGroup] =
+      make(UIO(new JIOUringEventLoopGroup(nThreads, executor)))
+
     def auto(nThreads: Int): ZManaged[Any, Nothing, jChannel.EventLoopGroup] =
-      if (JEpoll.isAvailable) epoll(nThreads) else nio(nThreads)
+      if (JIOUring.isAvailable) ioUring(nThreads) else if (JEpoll.isAvailable) epoll(nThreads) else nio(nThreads)
 
     def default: ZManaged[Any, Nothing, jChannel.EventLoopGroup] = make(UIO(new jChannel.DefaultEventLoopGroup()))
   }

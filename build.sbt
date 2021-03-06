@@ -35,9 +35,10 @@ lazy val zhttp = (project in file("./zio-http"))
   .settings(
     libraryDependencies ++=
       Seq(
-        "dev.zio" %% "zio"         % zioVersion,
-        "dev.zio" %% "zio-streams" % zioVersion,
-        "io.netty" % "netty-all"   % "4.1.59.Final",
+        "dev.zio"           %% "zio"                                       % zioVersion,
+        "dev.zio"           %% "zio-streams"                               % zioVersion,
+        "io.netty"           % "netty-all"                                 % "4.1.59.Final",
+        "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % "0.0.3.Final",
       ),
   )
 
