@@ -21,25 +21,25 @@ object HttpSpec extends DefaultRunnableSpec {
         assert(actual)(equalTo(HttpResult.success(i)))
       },
     ),
-    suite("concat")(
+    suite("orElse")(
       test("should succeed") {
         val a1     = Http.succeed(1)
         val a2     = Http.succeed(2)
-        val a      = a1 ++ a2
+        val a      = a1 <> a2
         val actual = a.eval(())
         assert(actual)(equalTo(HttpResult.success(1)))
       },
       test("should fail with first") {
         val a1     = Http.fail("A")
         val a2     = Http.succeed("B")
-        val a      = a1 ++ a2
+        val a      = a1 <> a2
         val actual = a.eval(())
         assert(actual)(equalTo(HttpResult.failure("A")))
       },
       test("should succeed with second") {
         val a1     = Http.fail("NOT_FOUND")
         val a2     = Http.succeed("B")
-        val a      = a1 ++ a2
+        val a      = a1 <> a2
         val actual = a.eval(())
         assert(actual)(equalTo(HttpResult.success("B")))
       },

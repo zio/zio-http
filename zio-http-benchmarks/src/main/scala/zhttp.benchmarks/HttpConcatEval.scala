@@ -15,7 +15,7 @@ class HttpConcatEval {
   private val MAX = 1_000
 
   val app: Http[Any, String, Int, String] = Http.collect[Int]({ case 0 => "A" })
-  val spec                                = (0 to MAX).foldLeft(app)((a, _) => a ++ app)
+  val spec                                = (0 to MAX).foldLeft(app)((a, _) => a <> app)
 
   @Benchmark
   def benchmarkHttpFlatMap(): Unit = {

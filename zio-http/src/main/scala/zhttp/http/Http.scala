@@ -12,7 +12,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Combines two HTTP apps.
    */
-  def ++[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1])(implicit
+  def <>[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1])(implicit
     ev: CanConcatenate[E1],
   ): Http[R1, E1, A1, B1] = self.foldM(e => if (ev.is(e)) other else Http.fail(e), a => Http.succeed(a))
 
