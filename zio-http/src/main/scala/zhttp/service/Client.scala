@@ -1,8 +1,9 @@
-package zhttp.service.client
+package zhttp.service
 
 import zhttp.core._
 import zhttp.http.{Request, Response}
-import zhttp.service._
+import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
+import zhttp.service
 import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
@@ -40,7 +41,7 @@ object Client {
     cf <- ZIO.access[ChannelFactory](_.get)
     el <- ZIO.access[EventLoopGroup](_.get)
     zx <- UnsafeChannelExecutor.make[Any]
-  } yield client.Client(zx, cf, el)
+  } yield service.Client(zx, cf, el)
 
   def request(req: Request): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
     make.flatMap(_.request(req))

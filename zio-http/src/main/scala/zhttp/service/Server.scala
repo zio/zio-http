@@ -1,8 +1,9 @@
-package zhttp.service.server
+package zhttp.service
 
 import zhttp.core._
 import zhttp.http._
-import zhttp.service.{ChannelFuture, EventLoopGroup, UnsafeChannelExecutor}
+import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
+import zhttp.service.server.{ServerChannelFactory, ServerChannelInitializer, ServerRequestHandler}
 import zio._
 
 final class Server[R](serverBootstrap: JServerBootstrap, init: JChannelInitializer[JChannel]) { self =>
@@ -15,8 +16,6 @@ final class Server[R](serverBootstrap: JServerBootstrap, init: JChannelInitializ
 }
 
 object Server {
-  type SilentResponse[E] = CanBeSilenced[E, Response]
-
   def make[R, E: SilentResponse](http: HttpApp[R, E]): ZIO[R with EventLoopGroup, Throwable, Server[R]] =
     for {
       zExec          <- UnsafeChannelExecutor.make[R]
@@ -26,11 +25,21 @@ object Server {
       val httpH           = ServerRequestHandler(zExec, http.silent)
       val init            = ServerChannelInitializer(httpH)
       val serverBootstrap = new JServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
+
+      // Disabling default leak detection
+      resetLeakDetection()
       new Server(serverBootstrap, init)
     }
 
+  private def resetLeakDetection(): Unit = {
+    if (
+      System.getProperty("io.netty.leakDetection.level") == null &&
+      System.getProperty("io.netty.leakDetectionLevel") == null
+    ) JResourceLeakDetector.setLevel(JResourceLeakDetector.Level.DISABLED)
+  }
+
   /**
-   * Makes a new Server and starts it immediately using the default EventLoopGroup.
+   * Launches the app on the provided port.
    */
   def start[R <: Has[_], E: SilentResponse](port: Int, http: HttpApp[R, E]): ZIO[R, Throwable, Nothing] =
     make(http).flatMap(_.start(port) *> ZIO.never).provideSomeLayer[R](EventLoopGroup.auto())
