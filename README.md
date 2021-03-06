@@ -1,25 +1,22 @@
-# ZIO Http [![Build Status](https://travis-ci.com/dream11/zio-http.svg?branch=master)](https://travis-ci.com/dream11/zio-http)
+# ZIO Http
 
-ZIO Http is a library for building high performance Http apps using [ZIO].
+ZIO Http is a library for building high performance http apps using [ZIO].
+
+[![Build Status](https://travis-ci.com/dream11/zio-http.svg?branch=master)](https://travis-ci.com/dream11/zio-http)
 
 [zio]: https://zio.dev
-
-# Key Features
-
-- **ZIO Powered Frontend:** ???
-- **Netty Backend:** ???
-- **Socket Support:** ???
-- **Middleware:** ???
+[netty]: http://netty.io
 
 # Table of Content
 
-- [ZIO Http ![Build Status](https://travis-ci.com/dream11/zio-http)](#zio-http-)
+- [ZIO Http](#zio-http)
+- [Table of Content](#table-of-content)
 - [Getting Started](#getting-started)
 - [Installation](#installation)
 - [Features](#features)
 - [Usage](#usage)
   - [Advanced Usage](#advanced-usage)
-  - [Server Tuning](#server-tuning)
+  - [Performance Tuning](#performance-tuning)
 - [Benchmarks](#benchmarks)
 
 # Getting Started
@@ -41,7 +38,6 @@ object HelloWorld extends App {
     Server.start(8090, app).exitCode
 
 }
-
 ```
 
 # Installation
@@ -56,7 +52,8 @@ lazy val root = (project in file(".")).dependsOn(zhttp)
 
 # Features
 
-???
+- **Socket Support:** ???
+- **Middleware:** ???
 
 # Usage
 
