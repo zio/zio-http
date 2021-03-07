@@ -1,7 +1,8 @@
 package zhttp.service.server
 
 import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
-import zhttp.core._
+import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames}
+import zhttp.core.{JHttpObjectAggregator, _}
 import zhttp.http.{Response, _}
 import zhttp.service._
 import zio.Exit
@@ -13,11 +14,23 @@ import zio.Exit
 final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
   app: HttpApp[R, Nothing],
-) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
+) extends JSimpleChannelInboundHandler[JHttpRequest](AUTO_RELEASE_REQUEST)
     with ServerJHttpRequestDecoder
-    with ServerHttpExceptionHandler {
+    with ServerHttpExceptionHandler { self =>
 
-  self =>
+  /**
+   * Executes the current app asynchronously
+   */
+  private def execute(ctx: JChannelHandlerContext, req: => Request)(success: Response => Unit): Unit =
+    app.eval(req) match {
+      case HttpResult.Success(a)    => success(a)
+      case HttpResult.Continue(zio) =>
+        zExec.unsafeExecute(ctx, zio) {
+          case Exit.Success(res) => success(res)
+          case _                 => ()
+        }
+      case _                        => ()
+    }
 
   /**
    * Tries to release the request byte buffer, ignores if it can not.
@@ -26,7 +39,7 @@ final case class ServerRequestHandler[R](
 
   private def webSocketUpgrade(
     ctx: JChannelHandlerContext,
-    jReq: JFullHttpRequest,
+    jReq: JHttpRequest,
     res: Response.SocketResponse,
   ): Unit = {
     val hh = new JWebSocketServerHandshakerFactory(jReq.uri(), res.subProtocol.orNull, false).newHandshaker(jReq)
@@ -54,15 +67,13 @@ final case class ServerRequestHandler[R](
     ()
   }
 
-  def writeAndFlush(ctx: JChannelHandlerContext, jReq: JFullHttpRequest, res: Response): Unit = {
+  def writeAndFlush(ctx: JChannelHandlerContext, jReq: JHttpRequest, res: Response): Unit = {
     res match {
       case res @ Response.HttpResponse(_, _, _) =>
         ctx.writeAndFlush(res.asInstanceOf[Response.HttpResponse].toJFullHttpResponse, ctx.channel().voidPromise())
-        releaseOrIgnore(jReq)
         ()
       case res @ Response.SocketResponse(_, _)  =>
         self.webSocketUpgrade(ctx, jReq, res)
-        releaseOrIgnore(jReq)
         ()
     }
   }
@@ -70,20 +81,34 @@ final case class ServerRequestHandler[R](
   /**
    * Unsafe channel reader for HttpRequest
    */
-  override def channelRead0(ctx: JChannelHandlerContext, jReq: JFullHttpRequest /* jReq.refCount = 1 */ ): Unit = {
-    app.eval(unsafelyDecodeJFullHttpRequest(jReq)) match {
-      case HttpResult.Success(a)    =>
-        self.writeAndFlush(ctx, jReq, a)
-        ()
-      case HttpResult.Continue(zio) =>
-        zExec.unsafeExecute(ctx, zio) {
-          case Exit.Success(res) =>
-            writeAndFlush(ctx, jReq, res)
-            ()
-          case _                 => ()
+  override def channelRead0(ctx: JChannelHandlerContext, jHttpRequest: JHttpRequest): Unit = {
+    jHttpRequest match {
+      case jFullHttpRequest: JFullHttpRequest =>
+        execute(ctx, unsafelyDecodeJFullHttpRequest(jFullHttpRequest)) { res =>
+          writeAndFlush(ctx, jFullHttpRequest, res)
+          releaseOrIgnore(jFullHttpRequest)
+          ()
         }
-      case _                        => ()
+
+      case _ =>
+        if (jHttpRequest.headers().contains(JHttpHeaderNames.CONTENT_LENGTH)) addAggregator(ctx, jHttpRequest)
+        else
+          execute(ctx, unsafelyDecodeJHttpRequest(jHttpRequest)) { res =>
+            writeAndFlush(ctx, jHttpRequest, res)
+          }
     }
+  }
+
+  /**
+   * Adds object aggregator and resets the current channel handler
+   */
+  private def addAggregator(ctx: JChannelHandlerContext, jHttpRequest: JHttpRequest): Unit = {
+    val aggregator = new JHttpObjectAggregator(Int.MaxValue)
+    val pipeline   = ctx.channel().pipeline
+    pipeline.remove(HTTP_REQUEST_HANDLER)
+    pipeline.addLast(OBJECT_AGGREGATOR, aggregator)
+    pipeline.addLast(HTTP_REQUEST_HANDLER, this)
+    aggregator.channelRead(ctx, jHttpRequest)
   }
 
   /**
