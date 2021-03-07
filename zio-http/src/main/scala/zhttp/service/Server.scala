@@ -22,8 +22,7 @@ object Server {
       channelFactory <- ServerChannelFactory.Live.auto
       eventLoopGroup <- ZIO.access[EventLoopGroup](_.get)
     } yield {
-      val httpH           = ServerRequestHandler(zExec, http)
-      val init            = ServerChannelInitializer(httpH)
+      val init            = ServerChannelInitializer(() => ServerRequestHandler(zExec, http))
       val serverBootstrap = new JServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
 
       // Disabling default leak detection
