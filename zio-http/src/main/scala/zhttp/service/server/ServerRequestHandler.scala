@@ -90,25 +90,19 @@ final case class ServerRequestHandler[R](
           ()
         }
 
-      case _ =>
-        if (jHttpRequest.headers().contains(JHttpHeaderNames.CONTENT_LENGTH)) addAggregator(ctx, jHttpRequest)
-        else
-          execute(ctx, unsafelyDecodeJHttpRequest(jHttpRequest)) { res =>
-            writeAndFlush(ctx, jHttpRequest, res)
-          }
+      case _ if jHttpRequest.headers().contains(JHttpHeaderNames.CONTENT_LENGTH) =>
+        addAggregator(ctx)
+
+      case _ => execute(ctx, unsafelyDecodeJHttpRequest(jHttpRequest))(writeAndFlush(ctx, jHttpRequest, _))
     }
   }
 
   /**
    * Adds object aggregator and resets the current channel handler
    */
-  private def addAggregator(ctx: JChannelHandlerContext, jHttpRequest: JHttpRequest): Unit = {
-    val aggregator = new JHttpObjectAggregator(Int.MaxValue)
-    val pipeline   = ctx.channel().pipeline
-    pipeline.remove(HTTP_REQUEST_HANDLER)
-    pipeline.addLast(OBJECT_AGGREGATOR, aggregator)
-    pipeline.addLast(HTTP_REQUEST_HANDLER, this)
-    aggregator.channelRead(ctx, jHttpRequest)
+  private def addAggregator(ctx: JChannelHandlerContext): Unit = {
+    ctx.channel().pipeline.addBefore(HTTP_REQUEST_HANDLER, OBJECT_AGGREGATOR, new JHttpObjectAggregator(Int.MaxValue))
+    ()
   }
 
   /**
