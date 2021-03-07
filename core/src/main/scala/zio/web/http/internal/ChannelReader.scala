@@ -52,30 +52,12 @@ abstract private[http] class ChannelReader[Error] {
 
 private[http] object ChannelReader {
 
-  import zio.console.{ Console, putStrLn }
-
   def apply(channel: SocketChannel, chunkSize: Int): ChannelReader[IOException] = new ChannelReader[IOException] {
-
-    protected var readNumber: Int = 0
-
-    protected val incrementAndPrint: zio.UIO[Unit] =
-      for {
-        prev <- ZIO.effectTotal(readNumber)
-        curr = prev + 1
-        _    <- ZIO.effectTotal { readNumber = curr }
-        _    <- putStrLn(s"Channel read chunk #$curr").provideLayer(Console.live)
-      } yield ()
-
-    protected def printChunk(chunk: Chunk[Byte]): zio.UIO[Unit] =
-      for {
-        msg <- ZIO.effectTotal(new String(chunk.toArray))
-        _   <- putStrLn(s"Channel read chunk: $msg").provideLayer(Console.live)
-      } yield ()
 
     protected val CHUNK_SIZE: Int = chunkSize
 
     protected def readChunk(size: Int): IO[IOException, Chunk[Byte]] =
-      incrementAndPrint *> channel.readChunk(size).tap(printChunk)
+      channel.readChunk(size)
   }
 
   def apply(channel: AsynchronousSocketChannel, chunkSize: Int, timeout: Duration): ChannelReader[Exception] =
@@ -83,24 +65,8 @@ private[http] object ChannelReader {
 
       protected val CHUNK_SIZE: Int = chunkSize
 
-      protected var readNumber: Int = 0
-
-      protected val incrementAndPrint: zio.UIO[Unit] =
-        for {
-          prev <- ZIO.effectTotal(readNumber)
-          curr = prev + 1
-          _    <- ZIO.effectTotal { readNumber = curr }
-          _    <- putStrLn(s"Channel read chunk #$curr").provideLayer(Console.live)
-        } yield ()
-
-      protected def printChunk(chunk: Chunk[Byte]): zio.UIO[Unit] =
-        for {
-          msg <- ZIO.effectTotal(new String(chunk.toArray))
-          _   <- putStrLn(s"Channel read chunk: $msg").provideLayer(Console.live)
-        } yield ()
-
       protected def readChunk(size: Int): IO[Exception, Chunk[Byte]] =
-        incrementAndPrint *> channel.readChunk(size, timeout).tap(printChunk)
+        channel.readChunk(size, timeout)
     }
 
   final case class Data(value: Chunk[Byte], tail: Chunk[Byte])
