@@ -13,6 +13,10 @@ object HelloWorldAdvanced extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     val nThreads: Int = args.headOption.flatMap(i => Try(i.toInt).toOption).getOrElse(0)
 
-    Server.make(app).flatMap(_.start(8090) *> ZIO.never).exitCode.provideCustomLayer(EventLoopGroup.auto(nThreads))
+    Server
+      .make(Http.text("Hello World!"))
+      .flatMap(_.start(8090) *> ZIO.never)
+      .exitCode
+      .provideCustomLayer(EventLoopGroup.auto(nThreads))
   }
 }

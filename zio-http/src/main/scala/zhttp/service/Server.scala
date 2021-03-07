@@ -16,13 +16,13 @@ final class Server[R](serverBootstrap: JServerBootstrap, init: JChannelInitializ
 }
 
 object Server {
-  def make[R, E: SilentResponse](http: HttpApp[R, E]): ZIO[R with EventLoopGroup, Throwable, Server[R]] =
+  def make[R](http: HttpApp[R, Nothing]): ZIO[R with EventLoopGroup, Throwable, Server[R]] =
     for {
       zExec          <- UnsafeChannelExecutor.make[R]
       channelFactory <- ServerChannelFactory.Live.auto
       eventLoopGroup <- ZIO.access[EventLoopGroup](_.get)
     } yield {
-      val httpH           = ServerRequestHandler(zExec, http.silent)
+      val httpH           = ServerRequestHandler(zExec, http)
       val init            = ServerChannelInitializer(httpH)
       val serverBootstrap = new JServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
 
@@ -41,6 +41,6 @@ object Server {
   /**
    * Launches the app on the provided port.
    */
-  def start[R <: Has[_], E: SilentResponse](port: Int, http: HttpApp[R, E]): ZIO[R, Throwable, Nothing] =
+  def start[R <: Has[_]](port: Int, http: HttpApp[R, Nothing]): ZIO[R, Throwable, Nothing] =
     make(http).flatMap(_.start(port) *> ZIO.never).provideSomeLayer[R](EventLoopGroup.auto())
 }
