@@ -10,7 +10,6 @@ import zio.Exit
 /**
  * Helper class with channel methods
  */
-@JSharable
 final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
   app: HttpApp[R, Nothing],
