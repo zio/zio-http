@@ -11,7 +11,6 @@ import zio.logging.{ Logging, log }
 import zio.stream.ZStream
 import zio.web.{ AnyF, Endpoint, Endpoints, ProtocolModule }
 import zio.web.codec.JsonCodec
-import zio.web.http.HttpClientConfig
 import zio.web.http.model.{ Method, Version }
 import zio.web.http.internal.{ ChannelReader, HttpLexer }
 
