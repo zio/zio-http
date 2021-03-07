@@ -1,7 +1,7 @@
 package zhttp.service.server
 
 import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
-import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames}
+import io.netty.handler.codec.http.{DefaultHttpRequest, HttpHeaderNames => JHttpHeaderNames}
 import zhttp.core.{JHttpObjectAggregator, _}
 import zhttp.http.{Response, _}
 import zhttp.service._
@@ -14,7 +14,7 @@ import zio.Exit
 final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
   app: HttpApp[R, Nothing],
-) extends JSimpleChannelInboundHandler[JHttpRequest](AUTO_RELEASE_REQUEST)
+) extends JChannelInboundHandlerAdapter
     with ServerJHttpRequestDecoder
     with ServerHttpExceptionHandler { self =>
 
@@ -23,7 +23,8 @@ final case class ServerRequestHandler[R](
    */
   private def execute(ctx: JChannelHandlerContext, req: => Request)(success: Response => Unit): Unit =
     app.eval(req) match {
-      case HttpResult.Success(a)    => success(a)
+      case HttpResult.Success(a)    =>
+        success(a)
       case HttpResult.Continue(zio) =>
         zExec.unsafeExecute(ctx, zio) {
           case Exit.Success(res) => success(res)
@@ -81,8 +82,12 @@ final case class ServerRequestHandler[R](
   /**
    * Unsafe channel reader for HttpRequest
    */
-  override def channelRead0(ctx: JChannelHandlerContext, jHttpRequest: JHttpRequest): Unit = {
-    jHttpRequest match {
+  override def channelRead(ctx: JChannelHandlerContext, msg: Any): Unit = {
+    msg match {
+      case jHttpRequest: DefaultHttpRequest =>
+        if (jHttpRequest.headers().contains(JHttpHeaderNames.CONTENT_LENGTH)) addAggregator(ctx)
+        else execute(ctx, unsafelyDecodeJHttpRequest(jHttpRequest))(writeAndFlush(ctx, jHttpRequest, _))
+
       case jFullHttpRequest: JFullHttpRequest =>
         execute(ctx, unsafelyDecodeJFullHttpRequest(jFullHttpRequest)) { res =>
           writeAndFlush(ctx, jFullHttpRequest, res)
@@ -90,10 +95,7 @@ final case class ServerRequestHandler[R](
           ()
         }
 
-      case _ if jHttpRequest.headers().contains(JHttpHeaderNames.CONTENT_LENGTH) =>
-        addAggregator(ctx)
-
-      case _ => execute(ctx, unsafelyDecodeJHttpRequest(jHttpRequest))(writeAndFlush(ctx, jHttpRequest, _))
+      case _ => ()
     }
   }
 
