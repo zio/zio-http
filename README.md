@@ -134,7 +134,7 @@ val socket = Socket.forall(_ => ZStream.repeat(WebSocketFrame.text("Hello!")).ta
 
 val app = Http.collect[Request] {
   case Method.GET -> Root / "health"       => Response.ok
-  case _          -> Root / "subscription" => socket.asResponse()
+  case _          -> Root / "subscription" => socket.asResponse
 }
 
 ```
