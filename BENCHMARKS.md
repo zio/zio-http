@@ -145,3 +145,38 @@ Running 10s test @ http://10.10.109.3:9000/json
 Requests/sec: 261223.68
 Transfer/sec:     33.63MB
 ```
+### Finagle
+#### Plain Text
+```dtd
+./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.110.217:8080/plaintext
+Running 10s test @ http://10.10.110.217:8080/plaintext
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     1.74ms  712.71us  22.53ms   83.65%
+    Req/Sec    48.17k     2.11k   69.16k    90.63%
+  Latency Distribution
+     50%    1.54ms
+     75%    1.96ms
+     90%    2.65ms
+     99%    4.22ms
+  5779092 requests in 10.10s, 721.99MB read
+Requests/sec: 572231.69
+Transfer/sec:     71.49MB
+```
+#### JSON
+```dtd
+./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.110.217:8080/json
+Running 10s test @ http://10.10.110.217:8080/json
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     1.77ms  811.08us  32.39ms   88.24%
+    Req/Sec    47.65k     2.36k   59.13k    86.19%
+  Latency Distribution
+     50%    1.54ms
+     75%    2.03ms
+     90%    2.57ms
+     99%    4.39ms
+  5731384 requests in 10.10s, 825.35MB read
+Requests/sec: 567496.97
+Transfer/sec:     81.72MB
+```
