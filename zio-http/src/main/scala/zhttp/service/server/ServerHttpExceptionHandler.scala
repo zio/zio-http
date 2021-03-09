@@ -10,8 +10,8 @@ trait ServerHttpExceptionHandler {
     cause match {
       case m: IOException =>
         m.getMessage match {
-          case "Connection reset by peer" => false
-          case _                          => true
+          case null => true
+          case msg  => !msg.toLowerCase.matches(".*connection reset by peer.*")
         }
       case _              => true
     }
