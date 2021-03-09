@@ -1,6 +1,7 @@
 package zhttp.service
 
 import io.netty.channel.epoll.{Epoll => JEpoll}
+import io.netty.channel.kqueue.{KQueue => JKQueue}
 import io.netty.{channel => jChannel}
 import zio._
 
@@ -31,11 +32,18 @@ object EventLoopGroup {
     def epoll(nThreads: Int): ZManaged[Any, Nothing, jChannel.EventLoopGroup] =
       make(UIO(new jChannel.epoll.EpollEventLoopGroup(nThreads)))
 
+    def kQueue(nThreads: Int): ZManaged[Any, Nothing, jChannel.EventLoopGroup] =
+      make(UIO(new jChannel.kqueue.KQueueEventLoopGroup(nThreads)))
+
     def epoll(nThreads: Int, executor: Executor): ZManaged[Any, Nothing, jChannel.EventLoopGroup] =
       make(UIO(new jChannel.epoll.EpollEventLoopGroup(nThreads, executor)))
 
     def auto(nThreads: Int): ZManaged[Any, Nothing, jChannel.EventLoopGroup] =
-      if (JEpoll.isAvailable) epoll(nThreads) else nio(nThreads)
+      if (JEpoll.isAvailable)
+        epoll(nThreads)
+      else if (JKQueue.isAvailable)
+        kQueue(nThreads)
+      else nio(nThreads)
 
     def default: ZManaged[Any, Nothing, jChannel.EventLoopGroup] = make(UIO(new jChannel.DefaultEventLoopGroup()))
   }

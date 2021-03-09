@@ -1,7 +1,8 @@
 package zhttp.service.server
 
 import io.netty.channel.epoll.{Epoll => JEpoll}
-import zhttp.core.{JChannelFactory, JEpollServerSocketChannel, JNioServerSocketChannel, JServerChannel}
+import io.netty.channel.kqueue.{KQueue => JKQueue}
+import zhttp.core._
 import zhttp.service.ServerChannelFactory
 import zio.{UIO, ZLayer}
 
@@ -19,7 +20,12 @@ object ServerChannelFactory {
     def epoll: UIO[JChannelFactory[JServerChannel]] =
       UIO(() => new JEpollServerSocketChannel())
 
+    def kQueue: UIO[JChannelFactory[JServerChannel]] =
+      UIO(() => new JKQueueServerSocketChannel())
+
     def auto: UIO[JChannelFactory[JServerChannel]] =
-      if (JEpoll.isAvailable) epoll else nio
+      if (JEpoll.isAvailable) epoll
+      else if (JKQueue.isAvailable) kQueue
+      else nio
   }
 }
