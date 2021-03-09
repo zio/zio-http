@@ -27,7 +27,6 @@ object Request {
     val empty: Data = Data(Nil, HttpContent.Empty)
   }
 
-
   def asJFullHttpRequest(req: Request): Task[JFullHttpRequest] = Task {
     val method  = req.method.asJHttpMethod
     val uri     = req.url.asString
