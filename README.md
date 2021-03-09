@@ -19,6 +19,7 @@ ZIO Http is a scala library for building http apps. It is powered by [ZIO] and [
   - [Starting an Http App](#starting-an-http-app)
   - [Route Matching](#route-matching)
   - [Composition](#composition)
+  - [WebSocket Support](#websocket-support)
 
 # Getting Started
 
@@ -69,7 +70,7 @@ type Http[R, E, A, B]
 ## Creating a "_Hello World_" app
 
 ```scala
-import zhttp._
+import zhttp.http._
 
 val app = Http.text("Hello World!")
 ```
@@ -97,7 +98,7 @@ A simple Http app that responds with empty content and a `200` status code is de
 ## Route Matching
 
 ```scala
-import zhttp._
+import zhttp.http._
 
 val app = Http.collect[Request] {
   case Method.GET -> Root / "fruits" / "a"  => Response.text("Apple")
@@ -110,7 +111,7 @@ Pattern matching on route is supported by the framework
 ## Composition
 
 ```scala
-import zhttp._
+import zhttp.http._
 
 val a = Http.collect[Request] { case Method.GET -> Root / "a"  => Response.ok }
 val b = Http.collect[Request] { case Method.GET -> Root / "b"  => Response.ok }
@@ -119,6 +120,24 @@ val app = a <> b
 ```
 
 Apps can be composed using the `<>` operator. The way it works is, if none of the routes match in `a` , or a `NotFound` error is thrown from `a`, and then the control is passed on to the `b` app.
+
+## WebSocket Support
+
+ZIO Http comes with first-class support for web sockets.
+
+```scala
+import zhttp.socket._
+import zhttp.http._
+import zio.stream._
+
+val socket = Socket.forall(_ => ZStream.repeat(WebSocketFrame.text("Hello!")).take(10))
+
+val app = Http.collect[Request] {
+  case Method.GET -> Root / "health"       => Response.ok
+  case _          -> Root / "subscription" => socket.asResponse()
+}
+
+```
 
 <!-- ## Advanced Usage
 
