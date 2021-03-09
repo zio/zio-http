@@ -14,6 +14,9 @@ trait HttpConstructors {
 
   def collect[A]: Http.MakeCollect[A] = Http.MakeCollect(())
 
+  /**
+   * Creates an HTTP app which accepts a requests and produces another Http app as response.
+   */
   def collectM[A]: Http.MakeCollectM[A] = Http.MakeCollectM(())
 
   def succeedM[R, E, B](zio: ZIO[R, E, B]): Http[R, E, Any, B] = Http.fromEffectFunction(_ => zio)
@@ -39,7 +42,7 @@ trait HttpConstructors {
   def error(error: HttpError): HttpApp[Any, HttpError] = Http.fail(error)
 
   /**
-   * Creates an HTTP app that fails with a [[NotFound]] exception.
+   * Creates an HTTP app that fails with a NotFound exception.
    */
   def notFound: HttpApp[Any, HttpError] = Http.fromEffectFunction(req => ZIO.fail(HttpError.NotFound(req.url.path)))
 
@@ -54,49 +57,28 @@ trait HttpConstructors {
   def forsome[R, E >: HttpError](pf: PartialFunction[Request, ZIO[R, E, Response]]): HttpApp[R, E] =
     Http.identity[Request].collectM(pf)
 
-  private val getRoute: Http[Any, Nothing, Request, (Method, Path)] = Http.identity[Request].map(_.route)
-
-  /**
-   * Creates an HTTP app which accepts a route and produces a response effectfully.
-   */
-  def routeM[R, E >: HttpError](pf: PartialFunction[Route, ZIO[R, E, Response]]): HttpApp[R, E] = {
-    getRoute.collectM(pf)
-  }
-
-  /**
-   * Creates an HTTP app which accepts a requests and produces a response.
-   */
-  def route[R, E >: HttpError](pf: PartialFunction[Route, Response]): HttpApp[R, E] = {
-    getRoute.collect(pf)
-  }
-
-  /**
-   * Creates an HTTP app which accepts a requests and produces another Http app as response.
-   */
-  def collectM[R, E >: HttpError](pf: PartialFunction[Route, HttpApp[R, E]]): HttpApp[R, E] =
-    getRoute.collect(pf).flatten
-
   /**
    * Creates an HTTP app which accepts a requests and produces a websocket response.
    */
-  def socket[R](pf: PartialFunction[Route, Socket[R, Nothing, WebSocketFrame, WebSocketFrame]]): HttpApp[R, HttpError] =
-    getRoute.collect(pf).mapM(_.asResponse(None))
+  def socket[R](
+    pf: PartialFunction[Request, Socket[R, Nothing, WebSocketFrame, WebSocketFrame]],
+  ): HttpApp[R, HttpError] = Http.collect(pf).mapM(_.asResponse(None))
 
   /**
    * Creates an HTTP app which accepts a requests and produces a websocket response for the provided sub-protocol,
    * effectfully.
    */
   def socketM[R, E >: HttpError](subProtocol: Option[String])(
-    pf: PartialFunction[Route, ZIO[R, E, Socket[R, Nothing, WebSocketFrame, WebSocketFrame]]],
+    pf: PartialFunction[Request, ZIO[R, E, Socket[R, Nothing, WebSocketFrame, WebSocketFrame]]],
   ): HttpApp[R, E] =
-    getRoute.collect(pf).mapM(_.flatMap(_.asResponse(subProtocol)))
+    Http.collect(pf).mapM(_.flatMap(_.asResponse(subProtocol)))
 
   /**
    * Creates an HTTP app which accepts a requests and produces a websocket response for the provided sub-protocol,
    * effectfully.
    */
   def socketM[R, E >: HttpError](subProtocol: String)(
-    pf: PartialFunction[Route, ZIO[R, E, Socket[R, Nothing, WebSocketFrame, WebSocketFrame]]],
+    pf: PartialFunction[Request, ZIO[R, E, Socket[R, Nothing, WebSocketFrame, WebSocketFrame]]],
   ): HttpApp[R, E] =
     socketM[R, E](Option(subProtocol))(pf)
 
@@ -104,7 +86,7 @@ trait HttpConstructors {
    * Creates an HTTP app which accepts a requests and produces a websocket response effectfully.
    */
   def socketM[R, E >: HttpError](
-    pf: PartialFunction[Route, ZIO[R, E, Socket[R, Nothing, WebSocketFrame, WebSocketFrame]]],
+    pf: PartialFunction[Request, ZIO[R, E, Socket[R, Nothing, WebSocketFrame, WebSocketFrame]]],
   ): HttpApp[R, E] =
     socketM[R, E](Option.empty)(pf)
 }
