@@ -25,6 +25,7 @@ trait AliasModule {
   type JSimpleChannelInboundHandler[A]    = jChannel.SimpleChannelInboundHandler[A]
   type JSharable                          = jChannel.ChannelHandler.Sharable
   type JEpollServerSocketChannel          = jChannel.epoll.EpollServerSocketChannel
+  type JKQueueServerSocketChannel         = jChannel.kqueue.KQueueServerSocketChannel
   type JNioServerSocketChannel            = jChannel.socket.nio.NioServerSocketChannel
   type JChannelConfig                     = jChannel.ChannelConfig
   type JChannelOption[A]                  = jChannel.ChannelOption[A]
