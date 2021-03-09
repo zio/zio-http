@@ -27,8 +27,6 @@ object Request {
     val empty: Data = Data(Nil, HttpContent.Empty)
   }
 
-  def unapply(request: Request): Option[(Method, Path)]        =
-    Option(request.endpoint._1 -> request.endpoint._2.path)
 
   def asJFullHttpRequest(req: Request): Task[JFullHttpRequest] = Task {
     val method  = req.method.asJHttpMethod
