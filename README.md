@@ -31,7 +31,7 @@ import zio._
 
 object HelloWorld extends App {
 
-  val app = Http.route {
+  val app = Http.collect[Request] {
     case Method.GET -> Root / "text" => Response.text("Hello World!")
   }
 
@@ -99,7 +99,7 @@ A simple Http app that responds with empty content and a `200` status code is de
 ```scala
 import zhttp._
 
-val app = Http.route {
+val app = Http.collect[Request] {
   case Method.GET -> Root / "fruits" / "a"  => Response.text("Apple")
   case Method.GET -> Root / "fruits" / "b"  => Response.text("Banana")
 }
@@ -112,8 +112,8 @@ Pattern matching on route is supported by the framework
 ```scala
 import zhttp._
 
-val a = Http.route { case Method.GET -> Root / "a"  => Response.ok }
-val b = Http.route { case Method.GET -> Root / "b"  => Response.ok }
+val a = Http.collect[Request] { case Method.GET -> Root / "a"  => Response.ok }
+val b = Http.collect[Request] { case Method.GET -> Root / "b"  => Response.ok }
 
 val app = a <> b
 ```
