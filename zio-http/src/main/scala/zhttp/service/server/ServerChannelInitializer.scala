@@ -12,7 +12,6 @@ final case class ServerChannelInitializer(httpH: JChannelHandler) extends JChann
     channel
       .pipeline()
       .addLast(SERVER_CODEC_HANDLER, new JHttpServerCodec)
-      .addLast(OBJECT_AGGREGATOR, new JHttpObjectAggregator(Int.MaxValue))
       .addLast(HTTP_REQUEST_HANDLER, httpH)
     ()
   }
