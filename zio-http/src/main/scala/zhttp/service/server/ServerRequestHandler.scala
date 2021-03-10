@@ -1,7 +1,9 @@
 package zhttp.service.server
 
+import io.netty.buffer.Unpooled
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponseStatus, HttpVersion}
 import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
-import zhttp.core._
+import zhttp.core.{JFullHttpRequest, _}
 import zhttp.http.{Response, _}
 import zhttp.service._
 import zio.Exit
@@ -22,9 +24,9 @@ final case class ServerRequestHandler[R](
   /**
    * Tries to release the request byte buffer, ignores if it can not.
    */
-  private def releaseOrIgnore(jReq: JFullHttpRequest): Boolean = jReq.release(jReq.content().refCnt())
+  def releaseOrIgnore(jReq: JFullHttpRequest): Boolean = jReq.release(jReq.content().refCnt())
 
-  private def webSocketUpgrade(
+  def webSocketUpgrade(
     ctx: JChannelHandlerContext,
     jReq: JFullHttpRequest,
     res: Response.SocketResponse,
@@ -54,17 +56,20 @@ final case class ServerRequestHandler[R](
     ()
   }
 
-  def writeAndFlush(ctx: JChannelHandlerContext, jReq: JFullHttpRequest, res: Response): Unit = {
-    res match {
-      case res @ Response.HttpResponse(_, _, _) =>
-        ctx.writeAndFlush(res.asInstanceOf[Response.HttpResponse].toJFullHttpResponse, ctx.channel().voidPromise())
-        releaseOrIgnore(jReq)
-        ()
-      case res @ Response.SocketResponse(_, _)  =>
-        self.webSocketUpgrade(ctx, jReq, res)
-        releaseOrIgnore(jReq)
-        ()
-    }
+  def writeAndFlush(ctx: JChannelHandlerContext): Unit = {
+    val headers = new JDefaultHttpHeaders()
+    headers.set(HttpHeaderNames.CONTENT_LENGTH, "Hello world".length())
+    ctx.writeAndFlush(
+      new JDefaultFullHttpResponse(
+        HttpVersion.HTTP_1_1,
+        HttpResponseStatus.OK,
+        Unpooled.copiedBuffer("Hello world", HTTP_CHARSET),
+        headers,
+        new JDefaultHttpHeaders(false),
+      ),
+      ctx.channel().voidPromise(),
+    )
+    ()
   }
 
   /**
@@ -72,15 +77,15 @@ final case class ServerRequestHandler[R](
    */
   override def channelRead0(ctx: JChannelHandlerContext, jReq: JFullHttpRequest /* jReq.refCount = 1 */ ): Unit = {
     app.eval(unsafelyDecodeJFullHttpRequest(jReq)) match {
-      case HttpResult.Success(a)    =>
-        self.writeAndFlush(ctx, jReq, a)
+      case HttpResult.Success(_)    =>
+        self.writeAndFlush(ctx)
         ()
       case HttpResult.Continue(zio) =>
         zExec.unsafeExecute(ctx, zio) {
-          case Exit.Success(res) =>
-            writeAndFlush(ctx, jReq, res)
+          case Exit.Success(_) =>
+            writeAndFlush(ctx)
             ()
-          case _                 => ()
+          case _               => ()
         }
       case _                        => ()
     }
