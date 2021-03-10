@@ -4,7 +4,6 @@ import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
 import io.netty.handler.codec.http.{
   DefaultHttpRequest,
-  HttpHeaderNames,
   HttpResponseStatus,
   HttpVersion,
   HttpHeaderNames => JHttpHeaderNames,
@@ -107,7 +106,7 @@ final case class ServerRequestHandler[R](
       }
     } else {
       val headers = new JDefaultHttpHeaders()
-      headers.set(HttpHeaderNames.CONTENT_LENGTH, "Hello world".length())
+      headers.set(JHttpHeaderNames.CONTENT_LENGTH, "Hello world".length())
       ctx.writeAndFlush(
         new JDefaultFullHttpResponse(
           HttpVersion.HTTP_1_1,
