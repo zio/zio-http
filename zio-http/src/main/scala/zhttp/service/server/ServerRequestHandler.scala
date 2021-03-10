@@ -14,7 +14,7 @@ import zhttp.service._
 final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
   app: HttpApp[R, Nothing],
-) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
+) extends JChannelInboundHandlerAdapter
     with ServerJHttpRequestDecoder
     with ServerHttpExceptionHandler {
 
@@ -74,7 +74,7 @@ final case class ServerRequestHandler[R](
   /**
    * Unsafe channel reader for HttpRequest
    */
-  override def channelRead0(ctx: JChannelHandlerContext, jReq: JFullHttpRequest /* jReq.refCount = 1 */ ): Unit = {
+  override def channelRead(ctx: JChannelHandlerContext, msg: Any): Unit = {
     val headers = new JDefaultHttpHeaders()
     headers.set(HttpHeaderNames.CONTENT_LENGTH, "Hello world".length())
     ctx.writeAndFlush(
