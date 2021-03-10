@@ -1,7 +1,7 @@
 package zhttp.service.server
 
 import zhttp.core._
-import zhttp.service.{HTTP_REQUEST_HANDLER, OBJECT_AGGREGATOR, SERVER_CODEC_HANDLER}
+import zhttp.service.{HTTP_REQUEST_HANDLER, SERVER_CODEC_HANDLER}
 
 /**
  * Initializes the netty channel with default handlers
