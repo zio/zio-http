@@ -4,6 +4,7 @@ import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
 import io.netty.handler.codec.http.{
   DefaultHttpRequest,
+  LastHttpContent,
   HttpHeaderNames => JHttpHeaderNames,
   HttpResponseStatus => JHttpResponseStatus,
   HttpVersion => JHttpVersion,
@@ -120,8 +121,10 @@ final case class ServerRequestHandler[R](
         case _ => ()
       }
     } else {
-      if (msg.isInstanceOf[DefaultHttpRequest])
-        writeAndFlush(ctx, null, Response.text("Hello Slow"))
+      if (msg != LastHttpContent.EMPTY_LAST_CONTENT) {
+        val jRequest = msg.asInstanceOf[DefaultHttpRequest]
+        execute(ctx, unsafelyDecodeJHttpRequest(jRequest))(writeAndFlush(ctx, jRequest, _))
+      }
     }
 
   }
