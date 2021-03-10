@@ -88,7 +88,7 @@ final case class ServerRequestHandler[R](
 
     res match {
       case Response.HttpResponse(_, _, _)      =>
-        ctx.writeAndFlush(jRes, ctx.channel().voidPromise())
+        ctx.writeAndFlush(jRes)
         ()
       case res @ Response.SocketResponse(_, _) =>
         self.webSocketUpgrade(ctx, jReq, res)
