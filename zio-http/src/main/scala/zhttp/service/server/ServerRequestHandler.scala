@@ -1,12 +1,11 @@
 package zhttp.service.server
 
 import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponseStatus, HttpVersion}
 import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponseStatus, HttpVersion}
 import zhttp.core.{JFullHttpRequest, _}
 import zhttp.http.{Response, _}
 import zhttp.service._
-import zio.Exit
 
 /**
  * Helper class with channel methods
@@ -76,19 +75,19 @@ final case class ServerRequestHandler[R](
    * Unsafe channel reader for HttpRequest
    */
   override def channelRead0(ctx: JChannelHandlerContext, jReq: JFullHttpRequest /* jReq.refCount = 1 */ ): Unit = {
-    app.eval(unsafelyDecodeJFullHttpRequest(jReq)) match {
-      case HttpResult.Success(_)    =>
-        self.writeAndFlush(ctx)
-        ()
-      case HttpResult.Continue(zio) =>
-        zExec.unsafeExecute(ctx, zio) {
-          case Exit.Success(_) =>
-            writeAndFlush(ctx)
-            ()
-          case _               => ()
-        }
-      case _                        => ()
-    }
+    val headers = new JDefaultHttpHeaders()
+    headers.set(HttpHeaderNames.CONTENT_LENGTH, "Hello world".length())
+    ctx.writeAndFlush(
+      new JDefaultFullHttpResponse(
+        HttpVersion.HTTP_1_1,
+        HttpResponseStatus.OK,
+        Unpooled.copiedBuffer("Hello world", HTTP_CHARSET),
+        headers,
+        new JDefaultHttpHeaders(false),
+      ),
+      ctx.channel().voidPromise(),
+    )
+    ()
   }
 
   /**
