@@ -1,14 +1,7 @@
 package zhttp.service.server
 
-import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
-import io.netty.handler.codec.http.{
-  DefaultHttpRequest,
-  HttpHeaderNames => JHttpHeaderNames,
-  HttpResponseStatus => JHttpResponseStatus,
-  HttpVersion => JHttpVersion,
-}
-import io.netty.util.CharsetUtil
+import io.netty.handler.codec.http.{DefaultHttpRequest, HttpHeaderNames => JHttpHeaderNames}
 import zhttp.core.{JHttpObjectAggregator, _}
 import zhttp.http.{Response, _}
 import zhttp.service._
@@ -76,7 +69,7 @@ final case class ServerRequestHandler[R](
   }
 
   def writeAndFlush(ctx: JChannelHandlerContext, jReq: JHttpRequest, res: Response): Unit = {
-    val buf = Unpooled.copiedBuffer("Hello Response", CharsetUtil.UTF_8)
+    /* val buf = Unpooled.copiedBuffer("Hello Response", CharsetUtil.UTF_8)
 
     val jRes = new JDefaultFullHttpResponse(
       JHttpVersion.HTTP_1_1,
@@ -84,11 +77,11 @@ final case class ServerRequestHandler[R](
       buf,
     )
 
-    jRes.headers.set(JHttpHeaderNames.CONTENT_LENGTH, buf.readableBytes)
+    jRes.headers.set(JHttpHeaderNames.CONTENT_LENGTH, buf.readableBytes)*/
 
     res match {
       case Response.HttpResponse(_, _, _)      =>
-        ctx.writeAndFlush(jRes)
+        ctx.writeAndFlush(res.asInstanceOf[Response.HttpResponse].toJFullHttpResponse, ctx.voidPromise())
         ()
       case res @ Response.SocketResponse(_, _) =>
         self.webSocketUpgrade(ctx, jReq, res)
@@ -119,8 +112,7 @@ final case class ServerRequestHandler[R](
     } else {
       msg match {
         case jHttpRequest: DefaultHttpRequest =>
-          if (jHttpRequest.headers().contains(JHttpHeaderNames.CONTENT_LENGTH)) addAggregator(ctx)
-          else writeAndFlush(ctx, jHttpRequest, Response.text("Hello Slow"))
+          writeAndFlush(ctx, jHttpRequest, Response.text("Hello Slow"))
 
         case jFullHttpRequest: JFullHttpRequest =>
           execute(ctx, unsafelyDecodeJFullHttpRequest(jFullHttpRequest)) { res =>
