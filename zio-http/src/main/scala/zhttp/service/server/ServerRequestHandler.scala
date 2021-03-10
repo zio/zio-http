@@ -21,20 +21,15 @@ final case class ServerRequestHandler[R](
    * Executes the current app asynchronously
    */
   private def execute(ctx: JChannelHandlerContext, req: => Request)(success: Response => Unit): Unit = {
-    val flag = System.getenv("HARDCODE")
-    if (flag == null)
-      app.eval(req) match {
-        case HttpResult.Success(a)    =>
-          success(a)
-        case HttpResult.Continue(zio) =>
-          zExec.unsafeExecute(ctx, zio) {
-            case Exit.Success(res) => success(res)
-            case _                 => ()
-          }
-        case _                        => ()
-      }
-    else {
-      success(Response.text("Hello World"))
+    app.eval(req) match {
+      case HttpResult.Success(a)    =>
+        success(a)
+      case HttpResult.Continue(zio) =>
+        zExec.unsafeExecute(ctx, zio) {
+          case Exit.Success(res) => success(res)
+          case _                 => ()
+        }
+      case _                        => ()
     }
   }
 
@@ -88,20 +83,39 @@ final case class ServerRequestHandler[R](
    * Unsafe channel reader for HttpRequest
    */
   override def channelRead(ctx: JChannelHandlerContext, msg: Any): Unit = {
-    msg match {
-      case jHttpRequest: DefaultHttpRequest =>
-        if (jHttpRequest.headers().contains(JHttpHeaderNames.CONTENT_LENGTH)) addAggregator(ctx)
-        else execute(ctx, unsafelyDecodeJHttpRequest(jHttpRequest))(writeAndFlush(ctx, jHttpRequest, _))
+    val flag = System.getenv("HARDCODE")
+    if (flag == null) {
+      msg match {
+        case jHttpRequest: DefaultHttpRequest =>
+          if (jHttpRequest.headers().contains(JHttpHeaderNames.CONTENT_LENGTH)) addAggregator(ctx)
+          else execute(ctx, unsafelyDecodeJHttpRequest(jHttpRequest))(writeAndFlush(ctx, jHttpRequest, _))
 
-      case jFullHttpRequest: JFullHttpRequest =>
-        execute(ctx, unsafelyDecodeJFullHttpRequest(jFullHttpRequest)) { res =>
-          writeAndFlush(ctx, jFullHttpRequest, res)
-          releaseOrIgnore(jFullHttpRequest)
-          ()
-        }
+        case jFullHttpRequest: JFullHttpRequest =>
+          execute(ctx, unsafelyDecodeJFullHttpRequest(jFullHttpRequest)) { res =>
+            writeAndFlush(ctx, jFullHttpRequest, res)
+            releaseOrIgnore(jFullHttpRequest)
+            ()
+          }
 
-      case _ => ()
+        case _ => ()
+      }
+    } else {
+      msg match {
+        case jHttpRequest: DefaultHttpRequest =>
+          if (jHttpRequest.headers().contains(JHttpHeaderNames.CONTENT_LENGTH)) addAggregator(ctx)
+          else writeAndFlush(ctx, jHttpRequest, Response.text("Hello Slow"))
+
+        case jFullHttpRequest: JFullHttpRequest =>
+          execute(ctx, unsafelyDecodeJFullHttpRequest(jFullHttpRequest)) { res =>
+            writeAndFlush(ctx, jFullHttpRequest, res)
+            releaseOrIgnore(jFullHttpRequest)
+            ()
+          }
+
+        case _ => ()
+      }
     }
+
   }
 
   /**
