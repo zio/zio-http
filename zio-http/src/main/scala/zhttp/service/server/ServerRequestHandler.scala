@@ -1,11 +1,20 @@
 package zhttp.service.server
 
+import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
-import io.netty.handler.codec.http.{DefaultHttpRequest, HttpHeaderNames => JHttpHeaderNames}
+import io.netty.handler.codec.http.{
+  DefaultHttpRequest,
+  HttpHeaderNames => JHttpHeaderNames,
+  HttpResponseStatus => JHttpResponseStatus,
+  HttpVersion => JHttpVersion,
+}
+import io.netty.util.CharsetUtil
 import zhttp.core.{JHttpObjectAggregator, _}
 import zhttp.http.{Response, _}
 import zhttp.service._
 import zio.Exit
+
+import scala.annotation.unused
 
 /**
  * Helper class with channel methods
@@ -36,9 +45,9 @@ final case class ServerRequestHandler[R](
   /**
    * Tries to release the request byte buffer, ignores if it can not.
    */
-  private def releaseOrIgnore(jReq: JFullHttpRequest): Boolean = jReq.release(jReq.content().refCnt())
+  def releaseOrIgnore(jReq: JFullHttpRequest): Boolean = jReq.release(jReq.content().refCnt())
 
-  private def webSocketUpgrade(
+  def webSocketUpgrade(
     ctx: JChannelHandlerContext,
     jReq: JHttpRequest,
     res: Response.SocketResponse,
@@ -68,8 +77,8 @@ final case class ServerRequestHandler[R](
     ()
   }
 
-  def writeAndFlush(ctx: JChannelHandlerContext, jReq: JHttpRequest, res: Response): Unit = {
-    /* val buf = Unpooled.copiedBuffer("Hello Response", CharsetUtil.UTF_8)
+  def writeAndFlush(ctx: JChannelHandlerContext, @unused jReq: JHttpRequest, @unused res: Response): Unit = {
+    val buf = Unpooled.copiedBuffer("Hello Response", CharsetUtil.UTF_8)
 
     val jRes = new JDefaultFullHttpResponse(
       JHttpVersion.HTTP_1_1,
@@ -77,16 +86,17 @@ final case class ServerRequestHandler[R](
       buf,
     )
 
-    jRes.headers.set(JHttpHeaderNames.CONTENT_LENGTH, buf.readableBytes)*/
-
-    res match {
+    jRes.headers.set(JHttpHeaderNames.CONTENT_LENGTH, buf.readableBytes)
+    ctx.writeAndFlush(jRes)
+    ()
+    /*res match {
       case Response.HttpResponse(_, _, _)      =>
-        ctx.writeAndFlush(res.asInstanceOf[Response.HttpResponse].toJFullHttpResponse, ctx.voidPromise())
+        ctx.writeAndFlush(jRes, ctx.voidPromise())
         ()
       case res @ Response.SocketResponse(_, _) =>
         self.webSocketUpgrade(ctx, jReq, res)
         ()
-    }
+    }*/
   }
 
   /**
