@@ -1,7 +1,14 @@
 package zhttp.service.server
 
+import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
-import io.netty.handler.codec.http.{DefaultHttpRequest, HttpHeaderNames => JHttpHeaderNames}
+import io.netty.handler.codec.http.{
+  DefaultHttpRequest,
+  HttpHeaderNames,
+  HttpResponseStatus,
+  HttpVersion,
+  HttpHeaderNames => JHttpHeaderNames,
+}
 import zhttp.core.{JHttpObjectAggregator, _}
 import zhttp.http.{Response, _}
 import zhttp.service._
@@ -82,20 +89,39 @@ final case class ServerRequestHandler[R](
    * Unsafe channel reader for HttpRequest
    */
   override def channelRead(ctx: JChannelHandlerContext, msg: Any): Unit = {
-    msg match {
-      case jHttpRequest: DefaultHttpRequest =>
-        if (jHttpRequest.headers().contains(JHttpHeaderNames.CONTENT_LENGTH)) addAggregator(ctx)
-        else execute(ctx, unsafelyDecodeJHttpRequest(jHttpRequest))(writeAndFlush(ctx, jHttpRequest, _))
+    val flag = System.getenv("HARDCODE")
+    if (flag == null) {
+      msg match {
+        case jHttpRequest: DefaultHttpRequest =>
+          if (jHttpRequest.headers().contains(JHttpHeaderNames.CONTENT_LENGTH)) addAggregator(ctx)
+          else execute(ctx, unsafelyDecodeJHttpRequest(jHttpRequest))(writeAndFlush(ctx, jHttpRequest, _))
 
-      case jFullHttpRequest: JFullHttpRequest =>
-        execute(ctx, unsafelyDecodeJFullHttpRequest(jFullHttpRequest)) { res =>
-          writeAndFlush(ctx, jFullHttpRequest, res)
-          releaseOrIgnore(jFullHttpRequest)
-          ()
-        }
+        case jFullHttpRequest: JFullHttpRequest =>
+          execute(ctx, unsafelyDecodeJFullHttpRequest(jFullHttpRequest)) { res =>
+            writeAndFlush(ctx, jFullHttpRequest, res)
+            releaseOrIgnore(jFullHttpRequest)
+            ()
+          }
 
-      case _ => ()
+        case _ => ()
+      }
+    } else {
+      val headers = new JDefaultHttpHeaders()
+      headers.set(HttpHeaderNames.CONTENT_LENGTH, "Hello world".length())
+      ctx.writeAndFlush(
+        new JDefaultFullHttpResponse(
+          HttpVersion.HTTP_1_1,
+          HttpResponseStatus.OK,
+          Unpooled.copiedBuffer("Hello world", HTTP_CHARSET),
+          headers,
+          new JDefaultHttpHeaders(false),
+        ),
+        ctx.channel().voidPromise(),
+      )
+      ()
+
     }
+
   }
 
   /**
