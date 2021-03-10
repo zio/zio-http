@@ -1,13 +1,7 @@
 package zhttp.service.server
 
-import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
-import io.netty.handler.codec.http.{
-  DefaultHttpRequest,
-  HttpResponseStatus,
-  HttpVersion,
-  HttpHeaderNames => JHttpHeaderNames,
-}
+import io.netty.handler.codec.http.{DefaultHttpRequest, HttpHeaderNames => JHttpHeaderNames}
 import zhttp.core.{JHttpObjectAggregator, _}
 import zhttp.http.{Response, _}
 import zhttp.service._
@@ -26,17 +20,23 @@ final case class ServerRequestHandler[R](
   /**
    * Executes the current app asynchronously
    */
-  private def execute(ctx: JChannelHandlerContext, req: => Request)(success: Response => Unit): Unit =
-    app.eval(req) match {
-      case HttpResult.Success(a)    =>
-        success(a)
-      case HttpResult.Continue(zio) =>
-        zExec.unsafeExecute(ctx, zio) {
-          case Exit.Success(res) => success(res)
-          case _                 => ()
-        }
-      case _                        => ()
+  private def execute(ctx: JChannelHandlerContext, req: => Request)(success: Response => Unit): Unit = {
+    val flag = System.getenv("HARDCODE")
+    if (flag == null)
+      app.eval(req) match {
+        case HttpResult.Success(a)    =>
+          success(a)
+        case HttpResult.Continue(zio) =>
+          zExec.unsafeExecute(ctx, zio) {
+            case Exit.Success(res) => success(res)
+            case _                 => ()
+          }
+        case _                        => ()
+      }
+    else {
+      success(Response.text("Hello World"))
     }
+  }
 
   /**
    * Tries to release the request byte buffer, ignores if it can not.
@@ -88,39 +88,20 @@ final case class ServerRequestHandler[R](
    * Unsafe channel reader for HttpRequest
    */
   override def channelRead(ctx: JChannelHandlerContext, msg: Any): Unit = {
-    val flag = System.getenv("HARDCODE")
-    if (flag == null) {
-      msg match {
-        case jHttpRequest: DefaultHttpRequest =>
-          if (jHttpRequest.headers().contains(JHttpHeaderNames.CONTENT_LENGTH)) addAggregator(ctx)
-          else execute(ctx, unsafelyDecodeJHttpRequest(jHttpRequest))(writeAndFlush(ctx, jHttpRequest, _))
+    msg match {
+      case jHttpRequest: DefaultHttpRequest =>
+        if (jHttpRequest.headers().contains(JHttpHeaderNames.CONTENT_LENGTH)) addAggregator(ctx)
+        else execute(ctx, unsafelyDecodeJHttpRequest(jHttpRequest))(writeAndFlush(ctx, jHttpRequest, _))
 
-        case jFullHttpRequest: JFullHttpRequest =>
-          execute(ctx, unsafelyDecodeJFullHttpRequest(jFullHttpRequest)) { res =>
-            writeAndFlush(ctx, jFullHttpRequest, res)
-            releaseOrIgnore(jFullHttpRequest)
-            ()
-          }
+      case jFullHttpRequest: JFullHttpRequest =>
+        execute(ctx, unsafelyDecodeJFullHttpRequest(jFullHttpRequest)) { res =>
+          writeAndFlush(ctx, jFullHttpRequest, res)
+          releaseOrIgnore(jFullHttpRequest)
+          ()
+        }
 
-        case _ => ()
-      }
-    } else {
-      val headers = new JDefaultHttpHeaders()
-      headers.set(JHttpHeaderNames.CONTENT_LENGTH, "Hello world".length())
-      ctx.writeAndFlush(
-        new JDefaultFullHttpResponse(
-          HttpVersion.HTTP_1_1,
-          HttpResponseStatus.OK,
-          Unpooled.copiedBuffer("Hello world", HTTP_CHARSET),
-          headers,
-          new JDefaultHttpHeaders(false),
-        ),
-        ctx.channel().voidPromise(),
-      )
-      ()
-
+      case _ => ()
     }
-
   }
 
   /**
