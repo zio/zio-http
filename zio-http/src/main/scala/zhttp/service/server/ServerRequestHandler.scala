@@ -120,7 +120,7 @@ final case class ServerRequestHandler[R](
         case _ => ()
       }
     } else {
-      writeAndFlush(ctx, msg.asInstanceOf[JHttpRequest], Response.text("Hello Slow"))
+      writeAndFlush(ctx, msg.asInstanceOf[DefaultHttpRequest], Response.text("Hello Slow"))
     }
 
   }
