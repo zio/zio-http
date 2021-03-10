@@ -120,19 +120,7 @@ final case class ServerRequestHandler[R](
         case _ => ()
       }
     } else {
-      msg match {
-        case jHttpRequest: DefaultHttpRequest =>
-          writeAndFlush(ctx, jHttpRequest, Response.text("Hello Slow"))
-
-        case jFullHttpRequest: JFullHttpRequest =>
-          execute(ctx, unsafelyDecodeJFullHttpRequest(jFullHttpRequest)) { res =>
-            writeAndFlush(ctx, jFullHttpRequest, res)
-            releaseOrIgnore(jFullHttpRequest)
-            ()
-          }
-
-        case _ => ()
-      }
+      writeAndFlush(ctx, msg.asInstanceOf[JHttpRequest], Response.text("Hello Slow"))
     }
 
   }
