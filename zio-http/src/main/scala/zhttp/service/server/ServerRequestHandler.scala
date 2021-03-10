@@ -1,7 +1,14 @@
 package zhttp.service.server
 
+import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
-import io.netty.handler.codec.http.{DefaultHttpRequest, HttpHeaderNames => JHttpHeaderNames}
+import io.netty.handler.codec.http.{
+  DefaultHttpRequest,
+  HttpHeaderNames => JHttpHeaderNames,
+  HttpResponseStatus => JHttpResponseStatus,
+  HttpVersion => JHttpVersion,
+}
+import io.netty.util.CharsetUtil
 import zhttp.core.{JHttpObjectAggregator, _}
 import zhttp.http.{Response, _}
 import zhttp.service._
@@ -69,11 +76,21 @@ final case class ServerRequestHandler[R](
   }
 
   def writeAndFlush(ctx: JChannelHandlerContext, jReq: JHttpRequest, res: Response): Unit = {
+    val buf = Unpooled.copiedBuffer("Hello Response", CharsetUtil.UTF_8)
+
+    val jRes = new JDefaultFullHttpResponse(
+      JHttpVersion.HTTP_1_1,
+      JHttpResponseStatus.OK,
+      buf,
+    )
+
+    jRes.headers.set(JHttpHeaderNames.CONTENT_LENGTH, buf.readableBytes)
+
     res match {
-      case res @ Response.HttpResponse(_, _, _) =>
-        ctx.writeAndFlush(res.asInstanceOf[Response.HttpResponse].toJFullHttpResponse, ctx.channel().voidPromise())
+      case Response.HttpResponse(_, _, _)      =>
+        ctx.writeAndFlush(jRes, ctx.channel().voidPromise())
         ()
-      case res @ Response.SocketResponse(_, _)  =>
+      case res @ Response.SocketResponse(_, _) =>
         self.webSocketUpgrade(ctx, jReq, res)
         ()
     }
