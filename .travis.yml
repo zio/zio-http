@@ -2,7 +2,9 @@ matrix:
   include:
     # SCALA
     - language: scala
-      jdk: openjdk11
+      jdk:
+        - openjdk8
+        - openjdk11
       before_cache:
         - rm -fv $HOME/.ivy2/.sbt.ivy.lock
         - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
