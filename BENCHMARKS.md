@@ -12,7 +12,7 @@
 
 ## Benchmarks
 
-### ZIO-HTTP
+### [ZIO-HTTP](https://github.com/dream11/zio-http/tree/master/example/src/main/scala)
 #### Plain Text
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.105.8:8090/text
@@ -46,7 +46,7 @@ Running 10s test @ http://10.10.109.3:8090/json
   7070158 requests in 10.10s, 660.78MB read
 Requests/sec: 700073.31
 ```
-### Vertx
+### [Vertx](https://github.com/TechEmpower/FrameworkBenchmarks/tree/master/frameworks/Scala/vertx-web-scala)
 #### Plain Text
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.109.3:8080/plaintext
@@ -81,7 +81,7 @@ Running 10s test @ http://10.10.109.3:8080/json
 Requests/sec: 644854.27
 Transfer/sec:     92.86MB
 ```
-### Http4s
+### [Http4s](https://github.com/TechEmpower/FrameworkBenchmarks/tree/master/frameworks/Scala/http4s)
 #### Plain Text
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.109.3:8080/plaintext
@@ -116,7 +116,7 @@ Running 10s test @ http://10.10.109.3:8080/json
 Requests/sec: 135565.22
 Transfer/sec:     20.17MB
 ```
-### Play2
+### [Play2](https://github.com/TechEmpower/FrameworkBenchmarks/tree/master/frameworks/Scala/play2-scala)
 #### Plain text
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.109.3:9000/plaintext
@@ -151,7 +151,7 @@ Running 10s test @ http://10.10.109.3:9000/json
 Requests/sec: 261223.68
 Transfer/sec:     33.63MB
 ```
-### Finagle
+### [Finagle](https://github.com/TechEmpower/FrameworkBenchmarks/tree/master/frameworks/Scala/finagle)
 #### Plain Text
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.110.217:8080/plaintext
@@ -186,3 +186,5 @@ Running 10s test @ http://10.10.110.217:8080/json
 Requests/sec: 567496.97
 Transfer/sec:     81.72MB
 ```
+
+**_NOTE:_** Source code used for above benchmarks can be found on the attached hyperlinks. 
