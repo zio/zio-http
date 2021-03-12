@@ -8,7 +8,9 @@
 ## Environment
 **We have used 2 machines**
 1. EC2(C5.4xLarge) 16 vCPUs 32 GB RAM as server
-2. EC2(C5.4xLarge) 16 vCPUs 32 GB RAM as client with wrk setup
+2. EC2(C5.4xLarge) 16 vCPUs 32 GB RAM as client with [wrk] setup
+
+[wrk]: https://github.com/wg/wrk
 
 ## Benchmarks
 
