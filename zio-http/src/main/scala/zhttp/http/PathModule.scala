@@ -16,7 +16,7 @@ trait PathModule { module =>
 
   object Path {
     def apply(): Path                               = Root
-    def apply(string: String): Path                 = if (string.isBlank) Root else Path(string.split("/").toList)
+    def apply(string: String): Path                 = if (string.trim.isEmpty) Root else Path(string.split("/").toList)
     def apply(seqString: String*): Path             = Path(seqString.toList)
     def apply(list: List[String]): Path             = list.foldLeft[Path](Root)((a, s) => a.append(s))
     def unapplySeq(arg: Path): Option[List[String]] = Option(arg.toList)
