@@ -6,7 +6,7 @@
   - [ZIO Http](#zio-http)
   - [Vert.x](#vertx)
   - [Http4s](#http4s)
-  - [Play2](#play2)
+  - [Play](#play)
   - [Finagle](#finagle)
 
 # Methodology
@@ -147,7 +147,7 @@ Requests/sec: 135565.22
 Transfer/sec:     20.17MB
 ```
 
-## [Play2](https://www.playframework.com/documentation/2.8.x/ScalaHome)
+## [Play](https://www.playframework.com/documentation/2.8.x/ScalaHome)
 
 [source code](https://github.com/TechEmpower/FrameworkBenchmarks/tree/master/frameworks/Scala/play2-scala)
 
