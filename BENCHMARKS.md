@@ -24,7 +24,7 @@
 
 ## [ZIO Http](https://github.com/dream11/zio-http)
 
-[source code](https://github.com/dream11/zio-http/tree/master/example/src/main/scala/HelloWorldAdvanced.Scala)
+[source code](https://github.com/dream11/zio-http/tree/master/example/src/main/scala/HelloWorldAdvanced.scala)
 
 **Plain Text**
 
