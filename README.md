@@ -152,10 +152,12 @@ val app = Http.collect[Request] {
 # Benchmarks
 
 ## Benchmark Results
-
-| **Benchmark (req/sec)** | **ZIO-Http** | **Http4s** | **Play** | **Vert.x** |
-| :---         |     :---:      |          ---: |          ---: |          ---: |
-| `json` | 700073.31 | 135565.22 | 261223.68 | 644854.27 |
-| `plain-text` |719576.04 | 139573.98 | 263819.25 | 707991.69 |
+| **Benchmark (req/sec)** | `json` | `plain-text`
+| :---         |     :---:      |          ---: |
+|**ZIO-Http** |700073.31|719576.04|
+|**Http4s** |135565.22|139573.98|
+|**Play**|261223.68|263819.25|
+|**Finagle**|567496.97|572231.69|
+|**Vert.x**|644854.27|707991.69|
 
 ### [Benchmark Details](https://github.com/dream11/zio-http/blob/master/BENCHMARKS.md)
