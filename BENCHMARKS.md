@@ -1,26 +1,33 @@
-# ZIO-HTTP
-## How to start ZIO-Http server
-1. Clone the repository
-   `git clone https://github.com/dream11/zio-http.git`
-2. Start the server `sbt run example/reStart 16`
-3. Server starts `http://127.0.0.1:8090/text` 
+# Table of Contents
 
-**Note: Number after `example/reStart` represents the number of netty threads. ZIO-Http performs best when netty Threads are set equal to number of vCPUs on the Machine**
+- [Table of Contents](#table-of-contents)
+- [Methodology](#methodology)
+- [Benchmarks](#benchmarks)
+  - [ZIO Http](#zio-http)
+  - [Vert.x](#vertx)
+  - [Http4s](#http4s)
+  - [Play2](#play2)
+  - [Finagle](#finagle)
 
-## Environment
-**We have used 2 machines**
-1. EC2(C5.4xLarge) 16 vCPUs 32 GB RAM as server
-2. EC2(C5.4xLarge) 16 vCPUs 32 GB RAM as client with [wrk] setup
+# Methodology
 
-**Note: It's important to use separate machines for [wrk] client and for Server** 
+For more realistic benchmarks the client and the server were deployed on different machines, with the following configuration —
+
+1.  EC2(C5.4xLarge) 16 vCPUs 32 GB RAM as **server**.
+2.  EC2(C5.4xLarge) 16 vCPUs 32 GB RAM as **client** with [wrk] setup.
 
 [wrk]: https://github.com/wg/wrk
 
-## Benchmarks
-### These results are taken after server warmup.
-### [ZIO-HTTP](https://github.com/dream11/zio-http)
-##### [Benchmark Source code](https://github.com/dream11/zio-http/tree/master/example/src/main/scala/HelloWorldAdvanced.Scala)
-#### Plain Text
+# Benchmarks
+
+These results are taken after server warmup.
+
+## [ZIO Http](https://github.com/dream11/zio-http)
+
+[source code](https://github.com/dream11/zio-http/tree/master/example/src/main/scala/HelloWorldAdvanced.Scala)
+
+**Plain Text**
+
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.105.8:8090/text
 Running 10s test @ http://10.10.109.3:8090
@@ -37,7 +44,9 @@ Running 10s test @ http://10.10.109.3:8090
 Requests/sec: 719576.04
 Transfer/sec:     34.31MB
 ```
-#### JSON
+
+**JSON**
+
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.105.8:8090/json
 Running 10s test @ http://10.10.109.3:8090/json
@@ -53,9 +62,13 @@ Running 10s test @ http://10.10.109.3:8090/json
   7070158 requests in 10.10s, 660.78MB read
 Requests/sec: 700073.31
 ```
-### [Vertx](https://vertx.io/)
-#### [Benchmark Source code](https://github.com/TechEmpower/FrameworkBenchmarks/tree/master/frameworks/Scala/vertx-web-scala)
-#### Plain Text
+
+## [Vert.x](https://vertx.io/)
+
+[source code](https://github.com/TechEmpower/FrameworkBenchmarks/tree/master/frameworks/Scala/vertx-web-scala)
+
+**Plain Text**
+
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.109.3:8080/plaintext
 Running 10s test @ http://10.10.109.3:8080/plaintext
@@ -72,7 +85,9 @@ Running 10s test @ http://10.10.109.3:8080/plaintext
 Requests/sec: 707991.69
 Transfer/sec:     87.78MB
 ```
-#### JSON
+
+**JSON**
+
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.109.3:8080/json
 Running 10s test @ http://10.10.109.3:8080/json
@@ -89,9 +104,13 @@ Running 10s test @ http://10.10.109.3:8080/json
 Requests/sec: 644854.27
 Transfer/sec:     92.86MB
 ```
-### [Http4s](https://github.com/http4s/http4s)
-#### [Benchmark Source code](https://github.com/TechEmpower/FrameworkBenchmarks/tree/master/frameworks/Scala/http4s)
-#### Plain Text
+
+## [Http4s](https://github.com/http4s/http4s)
+
+[source code](https://github.com/TechEmpower/FrameworkBenchmarks/tree/master/frameworks/Scala/http4s)
+
+**Plain Text**
+
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.109.3:8080/plaintext
 Running 10s test @ http://10.10.109.3:8080/plaintext
@@ -108,7 +127,9 @@ Running 10s test @ http://10.10.109.3:8080/plaintext
 Requests/sec: 139573.98
 Transfer/sec:     20.10MB
 ```
-#### JSON
+
+**JSON**
+
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.109.3:8080/json
 Running 10s test @ http://10.10.109.3:8080/json
@@ -125,9 +146,13 @@ Running 10s test @ http://10.10.109.3:8080/json
 Requests/sec: 135565.22
 Transfer/sec:     20.17MB
 ```
-### [Play2](https://www.playframework.com/documentation/2.8.x/ScalaHome)
-#### [Benchmark source code](https://github.com/TechEmpower/FrameworkBenchmarks/tree/master/frameworks/Scala/play2-scala)
-#### Plain text
+
+## [Play2](https://www.playframework.com/documentation/2.8.x/ScalaHome)
+
+[source code](https://github.com/TechEmpower/FrameworkBenchmarks/tree/master/frameworks/Scala/play2-scala)
+
+**Plain text**
+
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.109.3:9000/plaintext
 Running 10s test @ http://10.10.109.3:9000/plaintext
@@ -144,7 +169,9 @@ Running 10s test @ http://10.10.109.3:9000/plaintext
 Requests/sec: 263819.25
 Transfer/sec:     28.93MB
 ```
-#### JSON
+
+**JSON**
+
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.109.3:9000/json
 Running 10s test @ http://10.10.109.3:9000/json
@@ -161,9 +188,13 @@ Running 10s test @ http://10.10.109.3:9000/json
 Requests/sec: 261223.68
 Transfer/sec:     33.63MB
 ```
-### [Finagle](https://twitter.github.io/finagle/)
-#### [Benchmark source code](https://github.com/TechEmpower/FrameworkBenchmarks/tree/master/frameworks/Scala/finagle)
-#### Plain Text
+
+## [Finagle](https://twitter.github.io/finagle/)
+
+[source code](https://github.com/TechEmpower/FrameworkBenchmarks/tree/master/frameworks/Scala/finagle)
+
+**Plain Text**
+
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.110.217:8080/plaintext
 Running 10s test @ http://10.10.110.217:8080/plaintext
@@ -180,7 +211,9 @@ Running 10s test @ http://10.10.110.217:8080/plaintext
 Requests/sec: 572231.69
 Transfer/sec:     71.49MB
 ```
-#### JSON
+
+**JSON**
+
 ```dtd
 ./wrk -t12 -c1000 --latency --timeout=10s --duration=10s http://10.10.110.217:8080/json
 Running 10s test @ http://10.10.110.217:8080/json
@@ -197,5 +230,3 @@ Running 10s test @ http://10.10.110.217:8080/json
 Requests/sec: 567496.97
 Transfer/sec:     81.72MB
 ```
-
-**_NOTE:_** Benchmark Source code for all frameworks are taken from [TechEmpower](https://github.com/TechEmpower/FrameworkBenchmarks). 

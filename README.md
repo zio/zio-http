@@ -1,10 +1,9 @@
 # ZIO Http
 
-ZIO Http is a scala library for building http apps. It is powered by [ZIO] and [netty] and aims at being the defacto solution for writing, highly scalable and performant web applications using idiomatic scala.
-
+ZIO Http is a scala library for building http apps. It is powered by [ZIO] and [netty] and aims at being the defacto solution for writing, highly scalable and [performant](#benchmarks) web applications using idiomatic scala.
 
 [![Build Status](https://travis-ci.com/dream11/zio-http.svg?branch=master)](https://travis-ci.com/dream11/zio-http)
-[![Discord Chat](https://img.shields.io/discord/629491597070827530.svg?logo=discord)](https://discord.gg/)  
+[![Discord Chat](https://img.shields.io/discord/629491597070827530.svg?logo=discord)](https://discord.gg/)
 
 [zio]: https://zio.dev
 [netty]: http://netty.io
@@ -22,6 +21,7 @@ ZIO Http is a scala library for building http apps. It is powered by [ZIO] and [
   - [Route Matching](#route-matching)
   - [Composition](#composition)
   - [WebSocket Support](#websocket-support)
+- [Benchmarks](#benchmarks)
 
 # Getting Started
 
@@ -151,13 +151,12 @@ val app = Http.collect[Request] {
 
 # Benchmarks
 
-## Benchmark Results
-| **Benchmark (req/sec)** | `json` | `plain-text`
-| :---         |     :---:      |          ---: |
-|**ZIO-Http** |700073.31|719576.04|
-|**Http4s** |135565.22|139573.98|
-|**Play**|261223.68|263819.25|
-|**Finagle**|567496.97|572231.69|
-|**Vert.x**|644854.27|707991.69|
+| **Benchmark (req/sec)** |  `json`   | `plain-text` |
+| :---------------------- | :-------: | -----------: |
+| **ZIO-Http**            | 700073.31 |    719576.04 |
+| **Vert.x**              | 644854.27 |    707991.69 |
+| **Finagle**             | 567496.97 |    572231.69 |
+| **Play**                | 261223.68 |    263819.25 |
+| **Http4s**              | 135565.22 |    139573.98 |
 
-### [Benchmark Details](https://github.com/dream11/zio-http/blob/master/BENCHMARKS.md)
+More details are available [here](https://github.com/dream11/zio-http/blob/master/BENCHMARKS.md).
