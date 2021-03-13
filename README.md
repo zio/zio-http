@@ -147,6 +147,15 @@ val app = Http.collect[Request] {
 
 ## Performance Tuning
 
-???
+??? -->
 
-# Benchmarks -->
+# Benchmarks
+
+## Benchmark Results
+
+| **Benchmark (req/sec)** | **ZIO-Http** | **Http4s** | **Play** | **Vert.x** |
+| :---         |     :---:      |          ---: |          ---: |          ---: |
+| `json` | 700073.31 | 135565.22 | 261223.68 | 644854.27 |
+| `plain-text` |719576.04 | 139573.98 | 263819.25 | 707991.69 |
+
+### [Benchmark Details](https://github.com/dream11/zio-http/blob/master/BENCHMARKS.md)
