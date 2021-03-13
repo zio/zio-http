@@ -11,16 +11,16 @@
 
 # Methodology
 
-For more realistic benchmarks the client and the server were deployed on different machines, with the following configuration —
+1. For more realistic benchmarks the client and the server were deployed on different machines, with the following configuration —
 
-1.  EC2(C5.4xLarge) 16 vCPUs 32 GB RAM as **server**.
-2.  EC2(C5.4xLarge) 16 vCPUs 32 GB RAM as **client** with [wrk] setup.
+   1. EC2(C5.4xLarge) 16 vCPUs 32 GB RAM as **server**.
+   1. EC2(C5.4xLarge) 16 vCPUs 32 GB RAM as **client** with [wrk] setup.
+
+1. After the servers were started they were warmed up using wrk until the results start stabilizing.
 
 [wrk]: https://github.com/wg/wrk
 
 # Benchmarks
-
-These results are taken after server warmup.
 
 ## [ZIO Http](https://github.com/dream11/zio-http)
 
