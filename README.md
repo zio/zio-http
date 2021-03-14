@@ -32,7 +32,6 @@ object HelloWorld extends App {
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     Server.start(8090, app).exitCode
-
 }
 ```
 
