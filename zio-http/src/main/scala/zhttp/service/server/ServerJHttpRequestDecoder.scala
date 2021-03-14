@@ -6,7 +6,7 @@ import zhttp.http._
 trait ServerJHttpRequestDecoder {
 
   /**
-   * Tries to decode the [[io.netty.handler.codec.http.FullHttpRequest]] to [[Request]].
+   * Tries to decode the [io.netty.handler.codec.http.FullHttpRequest] to [Request].
    */
   def unsafelyDecodeJFullHttpRequest(jReq: JFullHttpRequest): Request = {
     val url      = URL(Path(jReq.uri()))

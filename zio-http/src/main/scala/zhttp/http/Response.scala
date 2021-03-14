@@ -23,7 +23,7 @@ object Response {
       extends Response { res =>
 
     /**
-     * Encode the [[Response]] to [[io.netty.handler.codec.http.FullHttpResponse]]
+     * Encode the [[Response]] to [io.netty.handler.codec.http.FullHttpResponse]
      */
     def toJFullHttpResponse: JFullHttpResponse = {
       val jHttpHeaders   =
