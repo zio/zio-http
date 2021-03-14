@@ -10,7 +10,7 @@ final case class Header private[Header] (name: CharSequence, value: AnyRef)
 object Header {
 
   /**
-   * Converts a List[Header] to [[io.netty.handler.codec.http.HttpHeaders]]
+   * Converts a List[Header] to [io.netty.handler.codec.http.HttpHeaders]
    */
   def disassemble(headers: List[Header]): JHttpHeaders =
     headers.foldLeft[JHttpHeaders](new JDefaultHttpHeaders()) { case (headers, entry) =>
