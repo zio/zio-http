@@ -34,9 +34,10 @@ ThisBuild / scalafixDependencies += "com.github.liancheng" %% "organize-imports"
 // Project zio-http
 lazy val zhttp = (project in file("./zio-http"))
   .settings(
-    version := "1.0.0-SNAPSHOT",
+    version := "1.0.0-RC2-SNAPSHOT",
     organization := "io.d11",
     organizationName := "d11",
+    licenses += ("MIT License", new URL("https://github.com/dream11/zio-http/blob/master/LICENSE")),
     homepage in ThisBuild := Some(url("https://github.com/dream11/zio-http")),
     scmInfo in ThisBuild :=
       Some(
