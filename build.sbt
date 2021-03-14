@@ -61,7 +61,7 @@ lazy val zhttp = (project in file("./zio-http"))
     crossPaths in ThisBuild := false,
     publishTo := {
       val nexus = "https://s01.oss.sonatype.org/"
-      if ((ThisBuild / isSnapshot).value) Some("snapshots" at nexus + "content/repositories/snapshots")
+      if (isSnapshot.value) Some("snapshots" at nexus + "content/repositories/snapshots")
       else Some("releases" at nexus + "service/local/staging/deploy/maven2")
     },
     libraryDependencies ++=
