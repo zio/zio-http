@@ -14,9 +14,4 @@ package object http extends PathModule with RequestSyntax {
    * Default HTTP Charset
    */
   val HTTP_CHARSET: Charset = CharsetUtil.UTF_8
-
-  /**
-   * Server Name
-   */
-  val SERVER_NAME: String = "ZIO-Http"
 }

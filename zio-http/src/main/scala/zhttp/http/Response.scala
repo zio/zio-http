@@ -15,10 +15,11 @@ import java.time.format.DateTimeFormatter
 sealed trait Response extends Product with Serializable { self => }
 
 object Response {
-  private val defaultStatus    = Status.OK
-  private val defaultHeaders   = Nil
-  private val defaultContent   = HttpContent.Empty
-  private val jTrailingHeaders = new JDefaultHttpHeaders(false)
+  private val defaultStatus       = Status.OK
+  private val defaultHeaders      = Nil
+  private val defaultContent      = HttpContent.Empty
+  private val jTrailingHeaders    = new JDefaultHttpHeaders(false)
+  private val SERVER_NAME: String = "ZIO-Http"
 
   // Constructors
   final case class HttpResponse(status: Status, headers: List[Header], content: HttpContent[Any, String])
