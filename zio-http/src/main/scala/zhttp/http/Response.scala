@@ -8,13 +8,15 @@ import zio.Task
 import zio.stream.ZStream
 
 import java.io.{PrintWriter, StringWriter}
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 // RESPONSE
 sealed trait Response extends Product with Serializable { self => }
 
 object Response {
   private val defaultStatus    = Status.OK
-  private val defaultHeaders   = Nil
+  private val defaultHeaders   = List(Header(JHttpHeaderNames.SERVER, "zio-http"))
   private val defaultContent   = HttpContent.Empty
   private val jTrailingHeaders = new JDefaultHttpHeaders(false)
 
@@ -59,8 +61,10 @@ object Response {
     status: Status = defaultStatus,
     headers: List[Header] = defaultHeaders,
     content: HttpContent[Any, String] = defaultContent,
-  ): Response =
-    HttpResponse(status, headers, content)
+  ): Response = {
+    val createDate: String = DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)
+    HttpResponse(status, headers concat List(Header(JHttpHeaderNames.DATE, s"$createDate")), content)
+  }
 
   /**
    * Creates a new WebSocket Response
@@ -92,12 +96,13 @@ object Response {
   def text(text: String): Response =
     http(
       content = HttpContent.Complete(text),
+      headers = defaultHeaders concat List(Header.contentTypeTextPlain),
     )
 
   def jsonString(data: String): Response =
     http(
       content = HttpContent.Complete(data),
-      headers = List(Header.contentTypeJson),
+      headers = defaultHeaders concat List(Header.contentTypeJson),
     )
 
   def status(status: Status): Response = http(status)
