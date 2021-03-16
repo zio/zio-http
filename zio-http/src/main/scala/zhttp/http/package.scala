@@ -18,5 +18,5 @@ package object http extends PathModule with RequestSyntax {
   /**
    * Server Name
    */
-  val Server_NAME: String = "ZIO-Http"
+  val SERVER_NAME: String = "ZIO-Http"
 }

@@ -36,7 +36,7 @@ object Response {
       val jContentBytBuf = res.content match {
         case HttpContent.Complete(data) =>
           jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, data.length())
-          jHttpHeaders.set(JHttpHeaderNames.SERVER, Server_NAME)
+          jHttpHeaders.set(JHttpHeaderNames.SERVER, SERVER_NAME)
           jHttpHeaders.set(JHttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
           JUnpooled.copiedBuffer(data, HTTP_CHARSET)
 
