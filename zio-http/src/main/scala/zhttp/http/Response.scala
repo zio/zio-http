@@ -8,15 +8,18 @@ import zio.Task
 import zio.stream.ZStream
 
 import java.io.{PrintWriter, StringWriter}
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 // RESPONSE
 sealed trait Response extends Product with Serializable { self => }
 
 object Response {
-  private val defaultStatus    = Status.OK
-  private val defaultHeaders   = Nil
-  private val defaultContent   = HttpContent.Empty
-  private val jTrailingHeaders = new JDefaultHttpHeaders(false)
+  private val defaultStatus       = Status.OK
+  private val defaultHeaders      = Nil
+  private val defaultContent      = HttpContent.Empty
+  private val jTrailingHeaders    = new JDefaultHttpHeaders(false)
+  private val SERVER_NAME: String = "ZIO-Http"
 
   // Constructors
   final case class HttpResponse(status: Status, headers: List[Header], content: HttpContent[Any, String])
@@ -34,6 +37,8 @@ object Response {
       val jContentBytBuf = res.content match {
         case HttpContent.Complete(data) =>
           jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, data.length())
+          jHttpHeaders.set(JHttpHeaderNames.SERVER, SERVER_NAME)
+          jHttpHeaders.set(JHttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
           JUnpooled.copiedBuffer(data, HTTP_CHARSET)
 
         case _ =>
