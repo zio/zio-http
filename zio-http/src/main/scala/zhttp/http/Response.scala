@@ -102,6 +102,7 @@ object Response {
   def jsonString(data: String): Response =
     http(
       content = HttpContent.Complete(data),
+      headers = List(Header.contentTypeJson),
     )
 
   def status(status: Status): Response = http(status)
