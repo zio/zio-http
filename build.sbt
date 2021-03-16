@@ -4,12 +4,15 @@ import scala.concurrent.duration.FiniteDuration
 
 import sbt.enablePlugins
 
-Global / scalaVersion := "2.13.3"
-
 // ZIO Version
 val zioVersion       = "1.0.4-2"
 val zioConfigVersion = "1.0.0"
 val circeVersion     = "0.13.0"
+val scala_2_13       = "2.13.3"
+
+lazy val supportedScalaVersions = List(scala_2_13)
+
+Global / scalaVersion := scala_2_13
 
 lazy val root = (project in file("."))
   .settings(
@@ -37,6 +40,7 @@ lazy val zhttp = (project in file("./zio-http"))
     version := "1.0.0-RC1",
     organization := "io.d11",
     organizationName := "d11",
+    crossScalaVersions := supportedScalaVersions,
     licenses += ("MIT License", new URL("https://github.com/dream11/zio-http/blob/master/LICENSE")),
     homepage in ThisBuild := Some(url("https://github.com/dream11/zio-http")),
     scmInfo in ThisBuild :=
