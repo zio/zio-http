@@ -8,11 +8,11 @@ import sbt.enablePlugins
 val zioVersion       = "1.0.4-2"
 val zioConfigVersion = "1.0.0"
 val circeVersion     = "0.13.0"
-val scalaVer1        = "2.13.3"
+val scala_2_13       = "2.13.3"
 
-lazy val supportedScalaVersions = List(scalaVer1)
+lazy val supportedScalaVersions = List(scala_2_13)
 
-ThisBuild / scalaVersion := scalaVer1
+Global / scalaVersion := scala_2_13
 
 lazy val root = (project in file("."))
   .settings(
