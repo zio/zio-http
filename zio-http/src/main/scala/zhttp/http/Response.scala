@@ -16,7 +16,7 @@ sealed trait Response extends Product with Serializable { self => }
 
 object Response {
   private val defaultStatus    = Status.OK
-  private val defaultHeaders   = List(Header(JHttpHeaderNames.SERVER, "zio-http"))
+  private val defaultHeaders   = Nil
   private val defaultContent   = HttpContent.Empty
   private val jTrailingHeaders = new JDefaultHttpHeaders(false)
 
@@ -36,6 +36,8 @@ object Response {
       val jContentBytBuf = res.content match {
         case HttpContent.Complete(data) =>
           jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, data.length())
+          jHttpHeaders.set(JHttpHeaderNames.SERVER, "zio-http")
+          jHttpHeaders.set(JHttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
           JUnpooled.copiedBuffer(data, HTTP_CHARSET)
 
         case _ =>
@@ -61,10 +63,8 @@ object Response {
     status: Status = defaultStatus,
     headers: List[Header] = defaultHeaders,
     content: HttpContent[Any, String] = defaultContent,
-  ): Response = {
-    val createDate: String = DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)
-    HttpResponse(status, headers concat List(Header(JHttpHeaderNames.DATE, s"$createDate")), content)
-  }
+  ): Response =
+    HttpResponse(status, headers, content)
 
   /**
    * Creates a new WebSocket Response
@@ -96,13 +96,11 @@ object Response {
   def text(text: String): Response =
     http(
       content = HttpContent.Complete(text),
-      headers = defaultHeaders concat List(Header.contentTypeTextPlain),
     )
 
   def jsonString(data: String): Response =
     http(
       content = HttpContent.Complete(data),
-      headers = defaultHeaders concat List(Header.contentTypeJson),
     )
 
   def status(status: Status): Response = http(status)
