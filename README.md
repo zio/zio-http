@@ -40,7 +40,7 @@ object HelloWorld extends App {
 Setup via `build.sbt`
 
 ```scala
-libraryDependencies += "io.d11" %% "zhttp" % "1.0.0-RC1"
+libraryDependencies += "io.d11" %% "zhttp" % "1.0.0-RC2"
 ```
 
 # Benchmarks
