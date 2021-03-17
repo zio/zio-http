@@ -51,6 +51,16 @@ val app = a <> b
 
 Apps can be composed using the `<>` operator. The way it works is, if none of the routes match in `a` , or a `NotFound` error is thrown from `a`, and then the control is passed on to the `b` app.
 
+# ZIO Integration
+
+```scala
+val app: Http[Any, HttpError, Request, Response] = Http.collectM[Request] {
+  case Method.GET -> Root / "hello" => ZIO.succeed(Response.text("Hello World"))
+}
+```
+
+`Http.collectM` allow routes to return a ZIO effect value.
+
 # Socket
 
 ## Creating a socket app
