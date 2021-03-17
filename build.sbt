@@ -21,6 +21,12 @@ lazy val root = (project in file("."))
   )
   .aggregate(zhttp, zhttpBenchmarks, example)
 
+// CI Configuration
+ThisBuild / githubWorkflowPublishTargetBranches := List()
+ThisBuild / githubWorkflowBuildPreamble += WorkflowStep.Sbt(
+  List("fmtCheck"),
+  name = Some("Check formatting"))
+
 // Test Configuration
 ThisBuild / libraryDependencies ++=
   Seq(
