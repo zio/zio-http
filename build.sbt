@@ -7,7 +7,6 @@ import sbt.enablePlugins
 // ZIO Version
 val zioVersion       = "1.0.4-2"
 val zioConfigVersion = "1.0.0"
-val circeVersion     = "0.13.0"
 val scala_2_13       = "2.13.3"
 
 lazy val supportedScalaVersions = List(scala_2_13)
