@@ -4,6 +4,7 @@
   - [Creating a "_Hello World_" app](#creating-a-hello-world-app)
   - [Routing](#routing)
   - [Composition](#composition)
+  - [ZIO Integration](#zio-integration)
 - [Socket](#socket)
   - [Creating a socket app](#creating-a-socket-app)
   - [WebSocket Support](#websocket-support)
@@ -51,10 +52,10 @@ val app = a <> b
 
 Apps can be composed using the `<>` operator. The way it works is, if none of the routes match in `a` , or a `NotFound` error is thrown from `a`, and then the control is passed on to the `b` app.
 
-# ZIO Integration
+## ZIO Integration
 
 ```scala
-val app: Http[Any, HttpError, Request, Response] = Http.collectM[Request] {
+val app = Http.collectM[Request] {
   case Method.GET -> Root / "hello" => ZIO.succeed(Response.text("Hello World"))
 }
 ```
