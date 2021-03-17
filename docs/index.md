@@ -53,7 +53,7 @@ Apps can be composed using the `<>` operator. The way it works is, if none of th
 
 # ZIO integration
 
-```
+```scala
 val app: Http[Any, HttpError, Request, Response] = Http.collectM[Request] {
   case Method.GET -> Root / "hello" => ZIO.succeed(Response.text("Hello World"))
 }
