@@ -55,7 +55,7 @@ Apps can be composed using the `<>` operator. The way it works is, if none of th
 
 ```
 val app: Http[Any, HttpError, Request, Response] = Http.collectM[Request] {
-  case Method.GET -> Root / "hello" => ZIO.succeed("Hello World").map(msg => Response.text(msg))
+  case Method.GET -> Root / "hello" => ZIO.succeed(Response.text("Hello World"))
 }
 ```
 
