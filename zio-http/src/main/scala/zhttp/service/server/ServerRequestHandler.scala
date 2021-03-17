@@ -35,13 +35,15 @@ final case class ServerRequestHandler[R](
     } else {
       val pl = ctx.channel().pipeline()
       pl.addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket))
-
       try {
         // handshake can throw
         hh.handshake(ctx.channel(), jReq).addListener { (future: JChannelFuture) =>
           if (!future.isSuccess) {
             pl.remove(WEB_SOCKET_HANDLER)
             ctx.fireExceptionCaught(future.cause)
+            ()
+          } else {
+            pl.remove(HTTP_REQUEST_HANDLER)
             ()
           }
         }
