@@ -3,8 +3,8 @@
 ZIO Http is a scala library for building http apps. It is powered by [ZIO] and [netty] and aims at being the defacto solution for writing, highly scalable and [performant](#benchmarks) web applications using idiomatic scala.
 
 [![Build Status](https://travis-ci.com/dream11/zio-http.svg?branch=master)](https://travis-ci.com/dream11/zio-http)
-[![Discord Chat](https://img.shields.io/discord/629491597070827530.svg?logo=discord)](https://discord.gg/)
-[![Generic badge](https://img.shields.io/badge/Nexus-v1.0.0_RC1-blue.svg)](https://s01.oss.sonatype.org/content/repositories/releases/io/d11/zhttp/1.0.0-RC1/)
+[![Discord Chat](https://img.shields.io/discord/629491597070827530.svg?logo=discord)](https://discord.com/channels/629491597070827530/819703129267372113)
+![Sonatype Nexus (Releases)](https://img.shields.io/nexus/r/io.d11/zhttp?nexusVersion=2&server=https%3A%2F%2Fs01.oss.sonatype.org)
 
 [zio]: https://zio.dev
 [netty]: http://netty.io
@@ -40,7 +40,7 @@ object HelloWorld extends App {
 Setup via `build.sbt`
 
 ```scala
-libraryDependencies += "io.d11" %% "zhttp" % "1.0.0-RC3"
+libraryDependencies += "io.d11" %% "zhttp" % "[version]"
 ```
 
 # Benchmarks
