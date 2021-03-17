@@ -33,15 +33,16 @@ final case class ServerRequestHandler[R](
     if (hh == null) {
       JWebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel, ctx.channel().voidPromise())
     } else {
+      val pl = ctx.channel().pipeline()
+      pl.addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket))
       try {
         // handshake can throw
         hh.handshake(ctx.channel(), jReq).addListener { (future: JChannelFuture) =>
           if (!future.isSuccess) {
+            pl.remove(WEB_SOCKET_HANDLER)
             ctx.fireExceptionCaught(future.cause)
             ()
           } else {
-            val pl = ctx.channel().pipeline()
-            pl.addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket))
             pl.remove(HTTP_REQUEST_HANDLER)
             ()
           }
