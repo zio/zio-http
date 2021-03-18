@@ -4,11 +4,13 @@ import zhttp.core._
 import zhttp.http.{Request, Response}
 import zhttp.service
 import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
+import io.netty.handler.codec.http.{HttpVersion => JHttpVersion}
 import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
 
-final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JChannel], el: JEventLoopGroup) {
+final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JChannel], el: JEventLoopGroup)
+    extends HttpMessageCodec {
   private def asyncRequest(
     req: Request,
     jReq: JFullHttpRequest,
@@ -29,10 +31,10 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
 
   def request(request: Request): Task[Response] = for {
     promise <- Promise.make[Throwable, JFullHttpResponse]
-    jReq    <- request.asJFullHttpRequest
-    _       <- asyncRequest(request, jReq, promise).catchAll(cause => promise.fail(cause)).fork
-    jRes    <- promise.await
-    res     <- Response.fromJFullHttpResponse(jRes)
+    jReq = encodeRequest(JHttpVersion.HTTP_1_1, request)
+    _    <- asyncRequest(request, jReq, promise).catchAll(cause => promise.fail(cause)).fork
+    jRes <- promise.await
+    res  <- Response.fromJFullHttpResponse(jRes)
   } yield res
 }
 

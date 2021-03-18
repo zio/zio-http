@@ -14,7 +14,7 @@ final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
   app: HttpApp[R, Nothing],
 ) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
-    with ServerJHttpRequestDecoder
+    with HttpMessageCodec
     with ServerHttpExceptionHandler {
 
   self =>
@@ -58,7 +58,7 @@ final case class ServerRequestHandler[R](
   def writeAndFlush(ctx: JChannelHandlerContext, jReq: JFullHttpRequest, res: Response): Unit = {
     res match {
       case res @ Response.HttpResponse(_, _, _) =>
-        ctx.writeAndFlush(res.asInstanceOf[Response.HttpResponse].toJFullHttpResponse, ctx.channel().voidPromise())
+        ctx.writeAndFlush(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
         releaseOrIgnore(jReq)
         ()
       case res @ Response.SocketResponse(_, _)  =>
@@ -72,7 +72,7 @@ final case class ServerRequestHandler[R](
    * Unsafe channel reader for HttpRequest
    */
   override def channelRead0(ctx: JChannelHandlerContext, jReq: JFullHttpRequest /* jReq.refCount = 1 */ ): Unit = {
-    app.eval(unsafelyDecodeJFullHttpRequest(jReq)) match {
+    app.eval(decodeJRequest(jReq)) match {
       case HttpResult.Success(a)    =>
         self.writeAndFlush(ctx, jReq, a)
         ()
