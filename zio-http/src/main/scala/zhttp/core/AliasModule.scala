@@ -52,6 +52,7 @@ trait AliasModule {
   type JHttpMethod              = jHttp.HttpMethod
   type JHttpScheme              = jHttp.HttpScheme
   type JHttpHeaders             = jHttp.HttpHeaders
+  type JHttpVersion             = jHttp.HttpVersion
   type JHttpRequest             = jHttp.HttpRequest
   type JDefaultHttpHeaders      = jHttp.DefaultHttpHeaders
   type JFullHttpRequest         = jHttp.FullHttpRequest
