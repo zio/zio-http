@@ -42,7 +42,7 @@ ThisBuild / scalafixDependencies += "com.github.liancheng" %% "organize-imports"
 // Project zio-http
 lazy val zhttp = (project in file("./zio-http"))
   .settings(
-    version := "1.0.0.0-RC12",
+    version := "1.0.0.0-RC13",
     organization := "io.d11",
     organizationName := "d11",
     crossScalaVersions := supportedScalaVersions,
