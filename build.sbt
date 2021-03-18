@@ -1,5 +1,5 @@
 import java.util.concurrent.TimeUnit
-
+import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 import scala.concurrent.duration.FiniteDuration
 
 import sbt.enablePlugins
@@ -12,6 +12,29 @@ val scala_2_13       = "2.13.3"
 lazy val supportedScalaVersions = List(scala_2_13)
 
 Global / scalaVersion := scala_2_13
+
+lazy val releaseSettings = Seq(
+  releaseUseGlobalVersion := false,
+  releaseVersionFile := file("./version.sbt"),
+  releaseTagName := s"${name.value}-v${version.value}",
+  releaseTagComment := s"Releasing ${name.value}-${version.value}",
+  releaseCommitMessage := s"Setting version to ${name.value}-${version.value}",
+  releasePublishArtifactsAction := PgpKeys.publishSigned.value,
+  releaseProcess :=
+    Seq[ReleaseStep](
+      checkSnapshotDependencies,
+      inquireVersions,
+      runClean,
+      setReleaseVersion,
+      commitReleaseVersion,
+      tagRelease,
+      //releaseStepCommandAndRemaining("+publishSigned"),
+      setNextVersion,
+      commitNextVersion,
+      //releaseStepCommand("sonatypeReleaseAll"),
+      // pushChanges,
+    ),
+)
 
 lazy val root = (project in file("."))
   .settings(
@@ -35,8 +58,8 @@ ThisBuild / scalafixDependencies += "com.github.liancheng" %% "organize-imports"
 
 // Project zio-http
 lazy val zhttp = (project in file("./zio-http"))
+  .settings(releaseSettings)
   .settings(
-    version := "1.0.0-RC3.1",
     organization := "io.d11",
     organizationName := "d11",
     crossScalaVersions := supportedScalaVersions,
