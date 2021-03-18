@@ -1,13 +1,12 @@
 package zhttp.service
 
-import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpVersion => JHttpVersion}
 import io.netty.buffer.{Unpooled => JUnpooled}
-
-import java.time.format.DateTimeFormatter
-import zhttp.http._
+import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpVersion => JHttpVersion}
 import zhttp.core._
+import zhttp.http._
 
 import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 trait HttpMessageCodec {
   private val jTrailingHeaders    = new JDefaultHttpHeaders(false)

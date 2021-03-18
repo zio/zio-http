@@ -1,10 +1,10 @@
 package zhttp.service
 
+import io.netty.handler.codec.http.{HttpVersion => JHttpVersion}
 import zhttp.core._
 import zhttp.http.{Request, Response}
 import zhttp.service
 import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
-import io.netty.handler.codec.http.{HttpVersion => JHttpVersion}
 import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress

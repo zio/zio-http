@@ -55,8 +55,25 @@ final case class ServerRequestHandler[R](
     ()
   }
 
-  def writeAndFlush(ctx: JChannelHandlerContext, jReq: JFullHttpRequest, res: Response): Unit = {
-    res match {
+  /**
+   * Asynchronously executes the Http app and passes the response to the callback.
+   */
+  private def executeAsync(ctx: JChannelHandlerContext, jReq: JFullHttpRequest)(cb: Response => Unit): Unit =
+    app.eval(decodeJRequest(jReq)) match {
+      case HttpResult.Success(a)  => cb(a)
+      case HttpResult.Failure(_)  => ()
+      case HttpResult.Continue(z) =>
+        zExec.unsafeExecute(ctx, z) {
+          case Exit.Success(res) => cb(res)
+          case Exit.Failure(_)   => ()
+        }
+    }
+
+  /**
+   * Unsafe channel reader for HttpRequest
+   */
+  override def channelRead0(ctx: JChannelHandlerContext, jReq: JFullHttpRequest): Unit = {
+    executeAsync(ctx, jReq) {
       case res @ Response.HttpResponse(_, _, _) =>
         ctx.writeAndFlush(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
         releaseOrIgnore(jReq)
@@ -65,25 +82,6 @@ final case class ServerRequestHandler[R](
         self.webSocketUpgrade(ctx, jReq, res)
         releaseOrIgnore(jReq)
         ()
-    }
-  }
-
-  /**
-   * Unsafe channel reader for HttpRequest
-   */
-  override def channelRead0(ctx: JChannelHandlerContext, jReq: JFullHttpRequest /* jReq.refCount = 1 */ ): Unit = {
-    app.eval(decodeJRequest(jReq)) match {
-      case HttpResult.Success(a)    =>
-        self.writeAndFlush(ctx, jReq, a)
-        ()
-      case HttpResult.Continue(zio) =>
-        zExec.unsafeExecute(ctx, zio) {
-          case Exit.Success(res) =>
-            writeAndFlush(ctx, jReq, res)
-            ()
-          case _                 => ()
-        }
-      case _                        => ()
     }
   }
 
