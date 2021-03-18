@@ -6,7 +6,15 @@ import zio.ZIO
 trait HttpConstructors {
   def succeed[B](b: B): Http[Any, Nothing, Any, B] = Http.Succeed(b)
 
+  /**
+   * Creates an Http app from a function that returns a ZIO
+   */
   def fromEffectFunction[A]: Http.MakeFromEffectFunction[A] = Http.MakeFromEffectFunction(())
+
+  /**
+   * Converts a ZIO to an Http type
+   */
+  def fromEffect[R, E, B](effect: ZIO[R, E, B]): Http[R, E, Any, B] = Http.fromEffectFunction(_ => effect)
 
   def fail[E](e: E): Http[Any, E, Any, Nothing] = Http.Fail(e)
 
@@ -89,4 +97,10 @@ trait HttpConstructors {
     pf: PartialFunction[Request, ZIO[R, E, Socket[R, Nothing, WebSocketFrame, WebSocketFrame]]],
   ): HttpApp[R, E] =
     socketM[R, E](Option.empty)(pf)
+
+  /**
+   * Flattens an Http app of an Http app
+   */
+  def flatten[R, E, A, B](http: Http[R, E, A, Http[R, E, A, B]]): Http[R, E, A, B] =
+    http.flatten
 }
