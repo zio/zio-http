@@ -29,7 +29,7 @@ final case class Socket[-R, +E, -A, +B](asStream: A => ZStream[R, E, B]) { self 
   def decodeM[A0]: Socket.MakeDecodeM[R, E, A0, A, B] =
     new Socket.MakeDecodeM[R, E, A0, A, B](self)
 
-  def asResponse(subProtocol: Option[String])(implicit ev: IsResponse[R, E, A, B]): ZIO[R, Nothing, Response] = {
+  def asResponse(subProtocol: Option[String] = None)(implicit ev: IsResponse[R, E, A, B]): ZIO[R, Nothing, Response] = {
     Socket.asResponse(subProtocol)(ev(self))
   }
 
