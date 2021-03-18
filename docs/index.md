@@ -69,7 +69,7 @@ val app = Http.collectM[Request] {
 ```scala
 import zhttp.socket._
 
-val socket = Socket.forall(_ => ZStream.repeat(WebSocketFrame.text("Hello!")).take(10))
+val socket = Socket.forall[WebSocketFrame](_ => ZStream.repeat(WebSocketFrame.text("Hello!")).take(10))
 ```
 
 ## WebSocket Support
@@ -80,12 +80,13 @@ ZIO Http comes with first-class support for web sockets.
 import zhttp.socket._
 import zhttp.http._
 import zio.stream._
+import zio._
 
-val socket = Socket.forall(_ => ZStream.repeat(WebSocketFrame.text("Hello!")).take(10))
+val socket = Socket.forall[WebSocketFrame](_ => ZStream.repeat(WebSocketFrame.text("Hello!")).take(10))
 
-val app = Http.collect[Request] {
-  case Method.GET -> Root / "health"       => Response.ok
-  case _          -> Root / "subscription" => socket.asResponse
+val app = Http.collectM[Request] {
+  case Method.GET -> Root / "health" => UIO(Response.ok)
+  case _ -> Root / "subscription"    => socket.asResponse()
 }
 
 ```
