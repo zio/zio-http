@@ -6,7 +6,7 @@ import zhttp.http._
 import zhttp.service.server.{ServerChannelFactory, ServerChannelInitializer, ServerRequestHandler}
 import zio._
 
-final class Server[R](serverBootstrap: JServerBootstrap, init: JChannelInitializer[JChannel]) { self =>
+final class Server(serverBootstrap: JServerBootstrap, init: JChannelInitializer[JChannel]) { self =>
 
   /**
    * Starts the server on the provided port
@@ -16,7 +16,7 @@ final class Server[R](serverBootstrap: JServerBootstrap, init: JChannelInitializ
 }
 
 object Server {
-  def make[R, E: SilentResponse](http: HttpApp[R, E]): ZIO[R with EventLoopGroup, Throwable, Server[R]] =
+  def make[R, E: SilentResponse](http: HttpApp[R, E]): ZIO[R with EventLoopGroup, Throwable, Server] =
     for {
       zExec          <- UnsafeChannelExecutor.make[R]
       channelFactory <- ServerChannelFactory.Live.auto
