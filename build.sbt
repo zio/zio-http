@@ -15,7 +15,7 @@ Global / scalaVersion := scala_2_13
 
 lazy val root = (project in file("."))
   .settings(
-    skip in publish := true,
+    publish / skip := true,
     name := "root",
   )
   .aggregate(zhttp, zhttpBenchmarks, example)
@@ -47,12 +47,12 @@ lazy val zhttp = (project in file("./zio-http"))
     organizationName := "d11",
     crossScalaVersions := supportedScalaVersions,
     licenses += ("MIT License", new URL("https://github.com/dream11/zio-http/blob/master/LICENSE")),
-    homepage in ThisBuild := Some(url("https://github.com/dream11/zio-http")),
-    scmInfo in ThisBuild :=
+    ThisBuild / homepage := Some(url("https://github.com/dream11/zio-http")),
+    ThisBuild / scmInfo :=
       Some(
         ScmInfo(url("https://github.com/dream11/zio-http"), "scm:git@github.com:dream11/zio-http.git"),
       ),
-    developers in ThisBuild :=
+    ThisBuild / developers :=
       List(
         Developer(
           "tusharmath",
@@ -67,7 +67,7 @@ lazy val zhttp = (project in file("./zio-http"))
           new URL("https://github.com/amitksingh1490"),
         ),
       ),
-    publishMavenStyle in ThisBuild := true,
+    ThisBuild / publishMavenStyle := true,
     publishTo := {
       val nexus = "https://s01.oss.sonatype.org/"
       if (isSnapshot.value) Some("snapshots" at nexus + "content/repositories/snapshots")
@@ -86,7 +86,7 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
   .enablePlugins(JmhPlugin)
   .dependsOn(zhttp)
   .settings(
-    skip in publish := true,
+    publish / skip := true,
     libraryDependencies ++=
       Seq(
         "dev.zio" %% "zio" % zioVersion,
@@ -96,8 +96,8 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
 lazy val example = (project in file("./example"))
   .settings(
     fork := true,
-    skip in publish := true,
-    mainClass in (Compile, run) := Option("HelloWorldAdvanced"),
+    publish / skip := true,
+    Compile / run / mainClass := Option("HelloWorldAdvanced"),
   )
   .dependsOn(zhttp)
 
