@@ -24,7 +24,7 @@ object HelloWorldAdvanced extends App {
     // Create a new server
     server.make
       .use(_ =>
-        // Prints after the server has started
+        // Waiting for the server to start
         console.putStrLn(s"Server started on port ${PORT}")
 
         // Ensures the server doesn't die after printing
