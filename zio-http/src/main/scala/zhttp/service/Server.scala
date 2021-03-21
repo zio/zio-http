@@ -10,13 +10,10 @@ sealed trait Server[-R, +E] { self =>
 
   import Server._
 
-  def and[R1 <: R, E1 >: E](other: Server[R1, E1]): Server[R1, E1] =
-    self ++ other
-
   def ++[R1 <: R, E1 >: E](other: Server[R1, E1]): Server[R1, E1] =
     Server.Concat(self, other)
 
-  def settings[R1 <: R, E1 >: E](s: Settings[R1, E1] = Settings()): Server.Settings[R1, E1] = self match {
+  private def settings[R1 <: R, E1 >: E](s: Settings[R1, E1] = Settings()): Server.Settings[R1, E1] = self match {
     case Server.Concat(self, other)  => other.settings(self.settings(s))
     case Server.Port(port)           => s.copy(port = port)
     case Server.LeakDetection(level) => s.copy(leakDetectionLevel = level)
@@ -27,7 +24,7 @@ sealed trait Server[-R, +E] { self =>
 }
 
 object Server {
-  case class Settings[-R, +E](
+  private case class Settings[-R, +E](
     http: Http[R, E, Request, Response] = Http.empty(Status.NOT_FOUND),
     port: Int = 8080,
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,

@@ -9,7 +9,7 @@ object HelloWorldAdvanced extends App {
   // Create an Http app
   private val app = Http.collectM[Request] {
     case Method.GET -> Root / "text"   => UIO(Response.text("Hello World!"))
-    case Method.GET -> Root / "random" => random.nextInt.map(i => Response.text(i.toString))
+    case Method.GET -> Root / "random" => random.nextString(10).map(Response.text)
   }
 
   private val server =
