@@ -11,13 +11,14 @@ sealed trait Server[-R, +E] { self =>
   import Server._
 
   def ++[R1 <: R, E1 >: E](other: Server[R1, E1]): Server[R1, E1] =
-    Server.Concat(self, other)
+    Concat(self, other)
 
-  private def settings[R1 <: R, E1 >: E](s: Settings[R1, E1] = Settings()): Server.Settings[R1, E1] = self match {
-    case Server.Concat(self, other)  => other.settings(self.settings(s))
-    case Server.Port(port)           => s.copy(port = port)
-    case Server.LeakDetection(level) => s.copy(leakDetectionLevel = level)
-    case Server.App(http)            => s.copy(http = http)
+  private def settings[R1 <: R, E1 >: E](s: Settings[R1, E1] = Settings()): Settings[R1, E1] = self match {
+    case Concat(self, other)  => other.settings(self.settings(s))
+    case Port(port)           => s.copy(port = port)
+    case LeakDetection(level) => s.copy(leakDetectionLevel = level)
+    case App(http)            => s.copy(http = http)
+    case MaxRequestSize(size) => s.copy(maxRequestSize = size)
   }
 
   def make[E1 >: E: SilentResponse]: ZManaged[R with EventLoopGroup, Throwable, Unit] = Server.make(self)
@@ -28,20 +29,22 @@ object Server {
     http: Http[R, E, Request, Response] = Http.empty(Status.NOT_FOUND),
     port: Int = 8080,
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
+    maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
   )
 
   private case class Concat[R, E](self: Server[R, E], other: Server[R, E]) extends Server[R, E]
   private case class Port(port: Int)                                       extends UServerConfiguration
   private case class LeakDetection(level: LeakDetectionLevel)              extends UServerConfiguration
+  private case class MaxRequestSize(size: Int)                             extends UServerConfiguration
   private case class App[R, E](http: Http[R, E, Request, Response])        extends Server[R, E]
 
   def app[R, E](http: Http[R, E, Request, Response]): Server[R, E] = Server.App(http)
-
-  def port(int: Int): UServerConfiguration        = Server.Port(int)
-  val disableLeakDetection: UServerConfiguration  = LeakDetection(LeakDetectionLevel.DISABLED)
-  val simpleLeakDetection: UServerConfiguration   = LeakDetection(LeakDetectionLevel.SIMPLE)
-  val advancedLeakDetection: UServerConfiguration = LeakDetection(LeakDetectionLevel.ADVANCED)
-  val paranoidLeakDetection: UServerConfiguration = LeakDetection(LeakDetectionLevel.PARANOID)
+  def maxRequestSize(size: Int): UServerConfiguration              = Server.MaxRequestSize(size)
+  def port(int: Int): UServerConfiguration                         = Server.Port(int)
+  val disableLeakDetection: UServerConfiguration                   = LeakDetection(LeakDetectionLevel.DISABLED)
+  val simpleLeakDetection: UServerConfiguration                    = LeakDetection(LeakDetectionLevel.SIMPLE)
+  val advancedLeakDetection: UServerConfiguration                  = LeakDetection(LeakDetectionLevel.ADVANCED)
+  val paranoidLeakDetection: UServerConfiguration                  = LeakDetection(LeakDetectionLevel.PARANOID)
 
   /**
    * Launches the app on the provided port.
@@ -57,7 +60,7 @@ object Server {
       eventLoopGroup <- ZIO.access[EventLoopGroup](_.get).toManaged_
       settings        = server.settings()
       httpH           = ServerRequestHandler(zExec, settings.http.silent)
-      init            = ServerChannelInitializer(httpH)
+      init            = ServerChannelInitializer(httpH, settings.maxRequestSize)
       serverBootstrap = new JServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.port))
     } yield {
