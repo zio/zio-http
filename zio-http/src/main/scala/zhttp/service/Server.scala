@@ -22,6 +22,8 @@ sealed trait Server[-R, +E] { self =>
   }
 
   def make[E1 >: E: SilentResponse]: ZManaged[R with EventLoopGroup, Throwable, Unit] = Server.make(self)
+
+  def start[E1 >: E: SilentResponse]: ZIO[R with EventLoopGroup, Throwable, Nothing] = make.useForever
 }
 
 object Server {
