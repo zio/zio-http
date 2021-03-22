@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zhttp.socket.{Socket, WebSocketFrame}
+import zhttp.socket.{IsResponse, Socket, WebSocketFrame}
 import zio.ZIO
 
 trait HttpConstructors {
@@ -62,22 +62,31 @@ trait HttpConstructors {
   /**
    * Creates an HTTP app which accepts a requests and produces a response effectfully.
    */
-  def forsome[R, E >: HttpError](pf: PartialFunction[Request, ZIO[R, E, Response]]): HttpApp[R, E] =
+  def forsome[R, E](pf: PartialFunction[Request, ZIO[R, E, Response]])(implicit
+    ev: CanSupportPartial[Request, E],
+  ): HttpApp[R, E] =
     Http.identity[Request].collectM(pf)
 
   /**
    * Creates an HTTP app which accepts a requests and produces a websocket response.
    */
-  def socket[R](
-    pf: PartialFunction[Request, Socket[R, Nothing, WebSocketFrame, WebSocketFrame]],
-  ): HttpApp[R, HttpError] = Http.collect(pf).mapM(_.asResponse(None))
+  def socket[R, E](
+    pf: PartialFunction[Request, Socket[R, E, WebSocketFrame, WebSocketFrame]],
+  )(implicit
+    ev: IsResponse[R, E, WebSocketFrame, WebSocketFrame],
+    error: CanSupportPartial[Request, E],
+  ): HttpApp[R, E] =
+    Http.collect(pf).mapM(_.asResponse(None))
 
   /**
    * Creates an HTTP app which accepts a requests and produces a websocket response for the provided sub-protocol,
    * effectfully.
    */
-  def socketM[R, E >: HttpError](subProtocol: Option[String])(
-    pf: PartialFunction[Request, ZIO[R, E, Socket[R, Nothing, WebSocketFrame, WebSocketFrame]]],
+  def socketM[R, E](subProtocol: Option[String])(
+    pf: PartialFunction[Request, ZIO[R, E, Socket[R, E, WebSocketFrame, WebSocketFrame]]],
+  )(implicit
+    ev: IsResponse[R, E, WebSocketFrame, WebSocketFrame],
+    error: CanSupportPartial[Request, E],
   ): HttpApp[R, E] =
     Http.collect(pf).mapM(_.flatMap(_.asResponse(subProtocol)))
 
@@ -86,7 +95,10 @@ trait HttpConstructors {
    * effectfully.
    */
   def socketM[R, E >: HttpError](subProtocol: String)(
-    pf: PartialFunction[Request, ZIO[R, E, Socket[R, Nothing, WebSocketFrame, WebSocketFrame]]],
+    pf: PartialFunction[Request, ZIO[R, E, Socket[R, E, WebSocketFrame, WebSocketFrame]]],
+  )(implicit
+    ev: IsResponse[R, E, WebSocketFrame, WebSocketFrame],
+    error: CanSupportPartial[Request, E],
   ): HttpApp[R, E] =
     socketM[R, E](Option(subProtocol))(pf)
 
@@ -94,7 +106,10 @@ trait HttpConstructors {
    * Creates an HTTP app which accepts a requests and produces a websocket response effectfully.
    */
   def socketM[R, E >: HttpError](
-    pf: PartialFunction[Request, ZIO[R, E, Socket[R, Nothing, WebSocketFrame, WebSocketFrame]]],
+    pf: PartialFunction[Request, ZIO[R, E, Socket[R, E, WebSocketFrame, WebSocketFrame]]],
+  )(implicit
+    ev: IsResponse[R, E, WebSocketFrame, WebSocketFrame],
+    error: CanSupportPartial[Request, E],
   ): HttpApp[R, E] =
     socketM[R, E](Option.empty)(pf)
 
@@ -103,4 +118,7 @@ trait HttpConstructors {
    */
   def flatten[R, E, A, B](http: Http[R, E, A, Http[R, E, A, B]]): Http[R, E, A, B] =
     http.flatten
+
+  def flattenM[R, E, A, B](http: Http[R, E, A, ZIO[R, E, B]]): Http[R, E, A, B] =
+    http.flatMap(Http.fromEffect)
 }
