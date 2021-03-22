@@ -6,16 +6,21 @@ object HelloWorldAdvanced extends App {
   // Set a port
   private val PORT = 8090
 
-  // Create an Http app
-  private val app = Http.collectM[Request] {
-    case Method.GET -> Root / "text"   => UIO(Response.text("Hello World!"))
-    case Method.GET -> Root / "random" => random.nextString(10).map(Response.text)
+  private val fooBar = Http.collect[Request] {
+    case Method.GET -> Root / "foo" => Response.text("bar")
+    case Method.GET -> Root / "bar" => Response.text("foo")
   }
+
+  private val app =
+    Http.collectM[Request] {
+      case Method.GET -> Root / "random" => random.nextString(10).map(Response.text)
+      case Method.GET -> Root / "utc"    => clock.currentDateTime.map(s => Response.text(s.toString)).unrefineTo[Throwable]
+    }
 
   private val server =
     Server.port(PORT) ++             // Setup port
       Server.disableLeakDetection ++ // Disable leak detection for better performance
-      Server.app(app)                // Setup the Http app
+      Server.app(fooBar <> app)      // Setup the Http app
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     // Configure thread count using CLI
@@ -25,7 +30,7 @@ object HelloWorldAdvanced extends App {
     server.make
       .use(_ =>
         // Waiting for the server to start
-        console.putStrLn(s"Server started on port ${PORT}")
+        console.putStrLn(s"Server started on port $PORT")
 
         // Ensures the server doesn't die after printing
         *> ZIO.never,
