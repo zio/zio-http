@@ -11,11 +11,14 @@ object HelloWorldAdvanced extends App {
     case Method.GET -> Root / "bar" => Response.text("foo")
   }
 
-  private val app =
-    Http.collectM[Request] {
-      case Method.GET -> Root / "random" => random.nextString(10).map(Response.text)
-      case Method.GET -> Root / "utc"    => clock.currentDateTime.map(s => Response.text(s.toString)).unrefineTo[Throwable]
+  private val app = {
+    Http.flattenM {
+      Http.collect[Request] {
+        case Method.GET -> Root / "random" => random.nextString(10).map(Response.text)
+        case Method.GET -> Root / "utc"    => clock.currentDateTime.map(s => Response.text(s.toString))
+      }
     }
+  }
 
   private val server =
     Server.port(PORT) ++             // Setup port
