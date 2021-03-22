@@ -6,11 +6,7 @@ trait CanSupportPartial[-A, +E] {
 }
 
 object CanSupportPartial {
-  implicit object HttpPartial extends CanSupportPartial[Request, HttpError] {
-    override def get(a: Request): HttpError = HttpError.NotFound(a.url.path)
-  }
-
-  implicit object RoutePartial extends CanSupportPartial[Route, HttpError] {
-    override def get(a: Route): HttpError = HttpError.NotFound(a._2)
+  implicit object HttpPartial extends CanSupportPartial[Request, Throwable] {
+    override def get(a: Request): Throwable = HttpError.NotFound(a.url.path)
   }
 }
