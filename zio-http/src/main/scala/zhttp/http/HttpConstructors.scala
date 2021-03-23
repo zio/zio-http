@@ -60,14 +60,6 @@ trait HttpConstructors {
   def ok: HttpApp[Any, Nothing] = Http.empty(Status.OK)
 
   /**
-   * Creates an HTTP app which accepts a requests and produces a response effectfully.
-   */
-  def forsome[R, E](pf: PartialFunction[Request, ZIO[R, E, Response]])(implicit
-    ev: CanSupportPartial[Request, E],
-  ): HttpApp[R, E] =
-    Http.identity[Request].collectM(pf)
-
-  /**
    * Creates an HTTP app which accepts a requests and produces a websocket response.
    */
   def socket[R, E](
