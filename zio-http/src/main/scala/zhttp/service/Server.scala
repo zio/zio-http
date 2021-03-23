@@ -35,18 +35,18 @@ object Server {
   )
 
   private case class Concat[R, E](self: Server[R, E], other: Server[R, E]) extends Server[R, E]
-  private case class Port(port: Int)                                       extends UServerConfiguration
-  private case class LeakDetection(level: LeakDetectionLevel)              extends UServerConfiguration
-  private case class MaxRequestSize(size: Int)                             extends UServerConfiguration
+  private case class Port(port: Int)                                       extends UServer
+  private case class LeakDetection(level: LeakDetectionLevel)              extends UServer
+  private case class MaxRequestSize(size: Int)                             extends UServer
   private case class App[R, E](http: Http[R, E, Request, Response])        extends Server[R, E]
 
   def app[R, E](http: Http[R, E, Request, Response]): Server[R, E] = Server.App(http)
-  def maxRequestSize(size: Int): UServerConfiguration              = Server.MaxRequestSize(size)
-  def port(int: Int): UServerConfiguration                         = Server.Port(int)
-  val disableLeakDetection: UServerConfiguration                   = LeakDetection(LeakDetectionLevel.DISABLED)
-  val simpleLeakDetection: UServerConfiguration                    = LeakDetection(LeakDetectionLevel.SIMPLE)
-  val advancedLeakDetection: UServerConfiguration                  = LeakDetection(LeakDetectionLevel.ADVANCED)
-  val paranoidLeakDetection: UServerConfiguration                  = LeakDetection(LeakDetectionLevel.PARANOID)
+  def maxRequestSize(size: Int): UServer                           = Server.MaxRequestSize(size)
+  def port(int: Int): UServer                                      = Server.Port(int)
+  val disableLeakDetection: UServer                                = LeakDetection(LeakDetectionLevel.DISABLED)
+  val simpleLeakDetection: UServer                                 = LeakDetection(LeakDetectionLevel.SIMPLE)
+  val advancedLeakDetection: UServer                               = LeakDetection(LeakDetectionLevel.ADVANCED)
+  val paranoidLeakDetection: UServer                               = LeakDetection(LeakDetectionLevel.PARANOID)
 
   /**
    * Launches the app on the provided port.
