@@ -30,7 +30,7 @@ sealed trait Server[-R, +E] { self =>
 
 object Server {
   private case class Settings[-R, +E](
-    http: HttpApp[R, E] = HttpApp.empty(Status.NOT_FOUND),
+    http: HttpApp[R, E] = Http.empty(Status.NOT_FOUND),
     port: Int = 8080,
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes

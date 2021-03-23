@@ -3,7 +3,7 @@ package zhttp.http
 import zhttp.socket.{IsResponse, Socket, WebSocketFrame}
 import zio.ZIO
 
-object HttpApp {
+object Http {
 
   /**
    * Creates an Http app from a function that returns a ZIO
@@ -57,7 +57,7 @@ object HttpApp {
   /**
    * Creates an HTTP app which always responds with a 200 status code.
    */
-  def ok: HttpApp[Any, Nothing] = HttpApp.empty(Status.OK)
+  def ok: HttpApp[Any, Nothing] = Http.empty(Status.OK)
 
   /**
    * Creates an HTTP app which accepts a requests and produces a websocket response.

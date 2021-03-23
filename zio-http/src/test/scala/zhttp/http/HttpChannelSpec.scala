@@ -1,7 +1,7 @@
 package zhttp.http
 
 import zio.test.Assertion.equalTo
-import zio.test.{assert, DefaultRunnableSpec}
+import zio.test.{DefaultRunnableSpec, assert}
 
 object HttpChannelSpec extends DefaultRunnableSpec {
   implicit val canSupportPartial: CanSupportPartial[Any, String] = _ => "NOT_FOUND"
