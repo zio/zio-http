@@ -5,8 +5,8 @@ trait CanConcatenate[-E] {
 }
 
 object CanConcatenate {
-  implicit object ChainableHttpError extends CanConcatenate[HttpError] {
-    override def is(e: HttpError): Boolean = e match {
+  implicit object ChainableHttpError extends CanConcatenate[Throwable] {
+    override def is(e: Throwable): Boolean = e match {
       case HttpError.NotFound(_) => true
       case _                     => false
     }

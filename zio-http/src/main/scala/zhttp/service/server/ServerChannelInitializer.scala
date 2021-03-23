@@ -8,13 +8,13 @@ import zhttp.service.{HTTP_KEEPALIVE_HANDLER, HTTP_REQUEST_HANDLER, OBJECT_AGGRE
  * Initializes the netty channel with default handlers
  */
 @JSharable
-final case class ServerChannelInitializer(httpH: JChannelHandler) extends JChannelInitializer[JChannel] {
+final case class ServerChannelInitializer(httpH: JChannelHandler, maxSize: Int) extends JChannelInitializer[JChannel] {
   override def initChannel(channel: JChannel): Unit = {
     channel
       .pipeline()
       .addLast(SERVER_CODEC_HANDLER, new JHttpServerCodec)
       .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
-      .addLast(OBJECT_AGGREGATOR, new JHttpObjectAggregator(Int.MaxValue))
+      .addLast(OBJECT_AGGREGATOR, new JHttpObjectAggregator(maxSize))
       .addLast(HTTP_REQUEST_HANDLER, httpH)
     ()
   }

@@ -14,5 +14,5 @@ package object service {
   type ChannelFactory       = Has[jChannel.ChannelFactory[jChannel.Channel]]
   type EventLoopGroup       = Has[jChannel.EventLoopGroup]
   type ServerChannelFactory = Has[jChannel.ChannelFactory[jChannel.ServerChannel]]
-
+  type UServer              = Server[Any, Nothing]
 }
