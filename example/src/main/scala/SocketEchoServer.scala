@@ -12,7 +12,7 @@ object SocketEchoServer extends App {
   implicit val httpNothingPartial: CanSupportPartial[Request, Nothing] = (_: Request) => Nil.head
 
   private val app =
-    Http.collectM[Request] {
+    HttpChannel.collectM[Request] {
       case Method.GET -> Root / "greet" / name  => UIO(Response.text(s"Greetings {$name}!"))
       case Method.GET -> Root / "subscriptions" => socket.asResponse(None)
     }

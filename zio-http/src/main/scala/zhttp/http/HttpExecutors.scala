@@ -1,9 +1,9 @@
 package zhttp.http
 
 trait HttpExecutors {
-  import Http._
+  import HttpChannel._
 
-  def evalSuspended[R, E, A, B](http: Http[R, E, A, B], a: => A): HttpResult[R, E, B] =
+  def evalSuspended[R, E, A, B](http: HttpChannel[R, E, A, B], a: => A): HttpResult[R, E, B] =
     http match {
       case Identity              => HttpResult.success(a.asInstanceOf[B])
       case Succeed(b)            => HttpResult.success(b)
