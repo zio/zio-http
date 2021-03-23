@@ -7,18 +7,15 @@ object HelloWorldAdvanced extends App {
   // Set a port
   private val PORT = 8090
 
-  private val fooBar = Http.collect[Request] {
+  private val fooBar = HttpApp.collect {
     case Method.GET -> Root / "foo" => Response.text("bar")
     case Method.GET -> Root / "bar" => Response.text("foo")
   }
 
-  private val app = {
-    Http.flattenM {
-      Http.collect[Request] {
-        case Method.GET -> Root / "random" => random.nextString(10).map(Response.text)
-        case Method.GET -> Root / "utc"    => clock.currentDateTime.map(s => Response.text(s.toString))
-      }
-    }
+  private val app = HttpApp.collectM {
+    case Method.GET -> Root / "random" => random.nextString(10).map(Response.text)
+    case Method.GET -> Root / "utc"    =>
+      clock.currentDateTime.map(s => Response.text(s.toString))
   }
 
   private val server =

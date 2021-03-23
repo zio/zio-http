@@ -2,7 +2,7 @@ package zhttp.service.server
 
 import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
 import zhttp.core._
-import zhttp.http.{Response, _}
+import zhttp.http._
 import zhttp.service._
 import zio.Exit
 
@@ -10,9 +10,9 @@ import zio.Exit
  * Helper class with channel methods
  */
 @JSharable
-final case class ServerRequestHandler[R](
+final case class ServerRequestHandler[R, E](
   zExec: UnsafeChannelExecutor[R],
-  app: HttpApp[R, Nothing],
+  app: HttpApp[R, E],
 ) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
     with HttpMessageCodec
     with ServerHttpExceptionHandler {
@@ -27,7 +27,7 @@ final case class ServerRequestHandler[R](
   private def webSocketUpgrade(
     ctx: JChannelHandlerContext,
     jReq: JFullHttpRequest,
-    res: Response.SocketResponse,
+    res: Response.SocketResponse[R, E],
   ): Unit = {
     val hh = new JWebSocketServerHandshakerFactory(jReq.uri(), res.subProtocol.orNull, false).newHandshaker(jReq)
     if (hh == null) {
@@ -58,7 +58,7 @@ final case class ServerRequestHandler[R](
   /**
    * Asynchronously executes the Http app and passes the response to the callback.
    */
-  private def executeAsync(ctx: JChannelHandlerContext, jReq: JFullHttpRequest)(cb: Response => Unit): Unit =
+  private def executeAsync(ctx: JChannelHandlerContext, jReq: JFullHttpRequest)(cb: Response[R, E] => Unit): Unit =
     decodeJRequest(jReq) match {
       case Left(err)  => cb(HttpError.InternalServerError("Request decoding failure", Option(err)).toResponse)
       case Right(req) =>

@@ -2,7 +2,7 @@ package zhttp.service
 
 import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
 import zhttp.core._
-import zhttp.http.{Http, Request, Response, Status, _}
+import zhttp.http.{Status, _}
 import zhttp.service.server.{LeakDetectionLevel, ServerChannelFactory, ServerChannelInitializer, ServerRequestHandler}
 import zio.{ZManaged, _}
 
@@ -21,16 +21,16 @@ sealed trait Server[-R, +E] { self =>
     case MaxRequestSize(size) => s.copy(maxRequestSize = size)
   }
 
-  def make[E1 >: E: SilentResponse]: ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
+  def make: ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
     Server.make(self)
 
-  def start[E1 >: E: SilentResponse]: ZIO[R with EventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
+  def start: ZIO[R with EventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
     make.useForever
 }
 
 object Server {
   private case class Settings[-R, +E](
-    http: Http[R, E, Request, Response] = Http.empty(Status.NOT_FOUND),
+    http: HttpApp[R, E] = HttpApp.empty(Status.NOT_FOUND),
     port: Int = 8080,
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
@@ -40,24 +40,24 @@ object Server {
   private case class Port(port: Int)                                       extends UServer
   private case class LeakDetection(level: LeakDetectionLevel)              extends UServer
   private case class MaxRequestSize(size: Int)                             extends UServer
-  private case class App[R, E](http: Http[R, E, Request, Response])        extends Server[R, E]
+  private case class App[R, E](http: HttpApp[R, E])                        extends Server[R, E]
 
-  def app[R, E](http: Http[R, E, Request, Response]): Server[R, E] = Server.App(http)
-  def maxRequestSize(size: Int): UServer                           = Server.MaxRequestSize(size)
-  def port(int: Int): UServer                                      = Server.Port(int)
-  val disableLeakDetection: UServer                                = LeakDetection(LeakDetectionLevel.DISABLED)
-  val simpleLeakDetection: UServer                                 = LeakDetection(LeakDetectionLevel.SIMPLE)
-  val advancedLeakDetection: UServer                               = LeakDetection(LeakDetectionLevel.ADVANCED)
-  val paranoidLeakDetection: UServer                               = LeakDetection(LeakDetectionLevel.PARANOID)
+  def app[R, E](http: HttpApp[R, E]): Server[R, E] = Server.App(http)
+  def maxRequestSize(size: Int): UServer           = Server.MaxRequestSize(size)
+  def port(int: Int): UServer                      = Server.Port(int)
+  val disableLeakDetection: UServer                = LeakDetection(LeakDetectionLevel.DISABLED)
+  val simpleLeakDetection: UServer                 = LeakDetection(LeakDetectionLevel.SIMPLE)
+  val advancedLeakDetection: UServer               = LeakDetection(LeakDetectionLevel.ADVANCED)
+  val paranoidLeakDetection: UServer               = LeakDetection(LeakDetectionLevel.PARANOID)
 
   /**
    * Launches the app on the provided port.
    */
-  def start[R <: Has[_], E: SilentResponse](port: Int, http: HttpApp[R, E]): ZIO[R, Throwable, Nothing] =
+  def start[R <: Has[_], E](port: Int, http: HttpApp[R, E]): ZIO[R, Throwable, Nothing] =
     (Server.port(port) ++ Server.app(http)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
-  def make[R, E: SilentResponse](
+  def make[R, E](
     server: Server[R, E],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] = {
     val settings = server.settings()
@@ -65,7 +65,7 @@ object Server {
       zExec          <- UnsafeChannelExecutor.make[R].toManaged_
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
-      httpH           = ServerRequestHandler(zExec, settings.http.silent)
+      httpH           = ServerRequestHandler(zExec, settings.http)
       init            = ServerChannelInitializer(httpH, settings.maxRequestSize)
       serverBootstrap = new JServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.port))

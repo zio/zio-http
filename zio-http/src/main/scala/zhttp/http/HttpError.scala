@@ -1,7 +1,7 @@
 package zhttp.http
 
 sealed abstract class HttpError(val status: Status, val message: String) extends Throwable(message) { self =>
-  def toResponse: Response = Response.fromHttpError(self)
+  def toResponse: UResponse = Response.fromHttpError(self)
 }
 
 abstract class HTTPErrorWithCause(status: Status, msg: String) extends HttpError(status, msg) {

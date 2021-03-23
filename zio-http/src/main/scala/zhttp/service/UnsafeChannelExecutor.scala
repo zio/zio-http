@@ -9,7 +9,7 @@ import zio.{Exit, Fiber, URIO, ZIO}
  * cancel the execution when the channel closes.
  */
 final class UnsafeChannelExecutor[R](runtime: zio.Runtime[R]) {
-  def unsafeExecute_(ctx: JChannelHandlerContext)(program: ZIO[R, Throwable, Unit]): Unit = {
+  def unsafeExecute_[E](ctx: JChannelHandlerContext)(program: ZIO[R, E, Unit]): Unit = {
     unsafeExecute(ctx, program)(_ => ())
   }
 
