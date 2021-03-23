@@ -29,6 +29,12 @@ object Http {
     HttpChannel.collectM[Request](pf)
 
   /**
+   * Creates an HTTP app which accepts a requests and produces another Http app as response.
+   */
+  def collectM[R](pf: PartialFunction[Request, ResponseM[R, Nothing]]): HttpApp[R, HttpError] =
+    HttpChannel.collectM[Request](pf)
+
+  /**
    * Creates an HTTP app which always responds with the same plain text.
    */
   def text(str: String): HttpApp[Any, Nothing] = HttpChannel.succeed(Response.text(str))

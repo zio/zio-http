@@ -178,5 +178,4 @@ object HttpChannel extends HttpConstructors with HttpExecutors {
   final case class MakeFromEffectFunction[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](f: A => ZIO[R, E, B]): HttpChannel[R, E, A, B] = HttpChannel.FromEffectFunction(f)
   }
-
 }
