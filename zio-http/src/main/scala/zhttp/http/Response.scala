@@ -1,7 +1,6 @@
 package zhttp.http
 
-import zhttp.socket.WebSocketFrame
-import zio.stream.ZStream
+import zhttp.socket.{Socket, WebSocketFrame}
 
 import java.io.{PrintWriter, StringWriter}
 
@@ -18,7 +17,7 @@ object Response {
       extends Response[R, Nothing]
 
   final case class SocketResponse[R, E](
-    socket: WebSocketFrame => ZStream[R, E, WebSocketFrame],
+    socket: Socket[R, E, WebSocketFrame, WebSocketFrame],
     subProtocol: Option[String],
   ) extends Response[R, E]
 
@@ -35,10 +34,16 @@ object Response {
     HttpResponse(status, headers, content)
 
   /**
+   * Creates a new WebSocket Response with a sub-protocol
+   */
+  def socket[R, E](subProtocol: String)(socket: Socket[R, E, WebSocketFrame, WebSocketFrame]): Response[R, E] =
+    SocketResponse(socket, Option(subProtocol))
+
+  /**
    * Creates a new WebSocket Response
    */
-  def socket(subProtocol: Option[String])(socket: WebSocketFrame => ZStream[Any, Nothing, WebSocketFrame]): UResponse =
-    SocketResponse(socket, subProtocol)
+  def socket[R, E](socket: Socket[R, E, WebSocketFrame, WebSocketFrame]): Response[R, E] =
+    SocketResponse(socket, None)
 
   def fromHttpError(error: HttpError): UResponse = {
     error match {

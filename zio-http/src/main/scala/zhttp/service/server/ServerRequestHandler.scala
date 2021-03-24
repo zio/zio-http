@@ -10,7 +10,7 @@ import zio.Exit
  * Helper class with channel methods
  */
 @JSharable
-final case class ServerRequestHandler[R, E](
+final case class ServerRequestHandler[R, E: SilentResponse](
   zExec: UnsafeChannelExecutor[R],
   app: HttpApp[R, E],
 ) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
@@ -64,11 +64,16 @@ final case class ServerRequestHandler[R, E](
       case Right(req) =>
         app.eval(req) match {
           case HttpResult.Success(a)  => cb(a)
-          case HttpResult.Failure(_)  => ()
+          case HttpResult.Failure(e)  => cb(implicitly[SilentResponse[E]].silent(e))
           case HttpResult.Continue(z) =>
             zExec.unsafeExecute(ctx, z) {
-              case Exit.Success(res) => cb(res)
-              case Exit.Failure(_)   => ()
+              case Exit.Success(res)   => cb(res)
+              case Exit.Failure(cause) =>
+                cause.failureOption match {
+                  case Some(e) => cb(implicitly[SilentResponse[E]].silent(e))
+                  case None    => ()
+                }
+              case _                   => ()
             }
         }
     }

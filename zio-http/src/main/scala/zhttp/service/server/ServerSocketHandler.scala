@@ -2,15 +2,14 @@ package zhttp.service.server
 
 import zhttp.core.{JChannelHandlerContext, JSimpleChannelInboundHandler, JWebSocketFrame}
 import zhttp.service.{ChannelFuture, UnsafeChannelExecutor}
-import zhttp.socket.WebSocketFrame
-import zio.stream.ZStream
+import zhttp.socket.{Socket, WebSocketFrame}
 
 /**
  * Creates a new websocket handler
  */
 final case class ServerSocketHandler[R, E](
   zExec: UnsafeChannelExecutor[R],
-  socket: WebSocketFrame => ZStream[R, E, WebSocketFrame],
+  socket: Socket[R, E, WebSocketFrame, WebSocketFrame],
 ) extends JSimpleChannelInboundHandler[JWebSocketFrame] {
 
   /**

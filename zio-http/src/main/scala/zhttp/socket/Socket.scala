@@ -1,6 +1,5 @@
 package zhttp.socket
 
-import zhttp.http.{Response, UResponse}
 import zio.ZIO
 import zio.stream.ZStream
 
@@ -29,12 +28,6 @@ final case class Socket[-R, +E, -A, +B](asStream: A => ZStream[R, E, B]) { self 
   def decodeM[A0]: Socket.MakeDecodeM[R, E, A0, A, B] =
     new Socket.MakeDecodeM[R, E, A0, A, B](self)
 
-  def asResponse(
-    subProtocol: Option[String] = None,
-  )(implicit ev: IsResponse[R, E, A, B]): ZIO[R, Nothing, UResponse] = {
-    Socket.asResponse(subProtocol)(ev(self))
-  }
-
   def apply(A: A): ZStream[R, E, B] = asStream(A)
 
   def provide[R1 <: R](r: R1): Socket[Any, E, A, B] = Socket(a => self(a).provide(r))
@@ -58,7 +51,7 @@ object Socket {
   def fromEffect[R, E, A, B](zio: ZIO[R, E, Socket[R, E, A, B]]): Socket[R, E, A, B] =
     Socket(a => ZStream.unwrap(zio.map(s => s(a))))
 
-  def forsome[A] = new MakeForsomeSocket[A](())
+  def collect[A] = new MakeForsomeSocket[A](())
 
   def forall[A] = new MakeForallSocket[A](())
 
@@ -76,12 +69,4 @@ object Socket {
       Socket(ws => ZStream.fromEffect(f(ws)) >>= self.asStream)
   }
 
-  def asResponse[R, E](
-    subProtocol: Option[String],
-  )(socket: Socket[R, E, WebSocketFrame, WebSocketFrame]): ZIO[R, Nothing, UResponse] =
-    ZIO.environment[R] map { env =>
-      Response.socket(subProtocol) { ws =>
-        socket(ws).provide(env).catchAll(_ => ZStream.empty)
-      }
-    }
 }

@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zhttp.socket.{IsResponse, Socket, WebSocketFrame}
+import zhttp.socket.{Socket, WebSocketFrame}
 import zio.ZIO
 
 object Http {
@@ -70,21 +70,7 @@ object Http {
    */
   def socket[R, E >: Throwable: PartialRequest](
     pf: PartialFunction[Request, Socket[R, E, WebSocketFrame, WebSocketFrame]],
-  )(implicit
-    ev: IsResponse[R, E, WebSocketFrame, WebSocketFrame],
-  ): HttpApp[R, E] =
-    HttpChannel.collect(pf).mapM(_.asResponse(None))
-
-  /**
-   * Creates an HTTP app which accepts a requests and produces a websocket response for the provided sub-protocol,
-   * effectfully.
-   */
-  def socketM[R, E >: Throwable: PartialRequest](subProtocol: Option[String])(
-    pf: PartialFunction[Request, ZIO[R, E, Socket[R, E, WebSocketFrame, WebSocketFrame]]],
-  )(implicit
-    ev: IsResponse[R, E, WebSocketFrame, WebSocketFrame],
-  ): HttpApp[R, E] =
-    HttpChannel.collect(pf).mapM(_.flatMap(_.asResponse(subProtocol)))
+  ): HttpApp[R, E] = HttpChannel.collect(pf).map(Response.socket(_))
 
   /**
    * Creates an HTTP app which accepts a requests and produces a websocket response for the provided sub-protocol,
@@ -92,18 +78,12 @@ object Http {
    */
   def socketM[R, E >: Throwable: PartialRequest](subProtocol: String)(
     pf: PartialFunction[Request, ZIO[R, E, Socket[R, E, WebSocketFrame, WebSocketFrame]]],
-  )(implicit
-    ev: IsResponse[R, E, WebSocketFrame, WebSocketFrame],
-  ): HttpApp[R, E] =
-    socketM[R, E](Option(subProtocol))(pf)
+  ): HttpApp[R, E] = HttpChannel.collectM(pf).map(Response.socket(subProtocol))
 
   /**
    * Creates an HTTP app which accepts a requests and produces a websocket response effectfully.
    */
   def socketM[R, E >: Throwable: PartialRequest](
     pf: PartialFunction[Request, ZIO[R, E, Socket[R, E, WebSocketFrame, WebSocketFrame]]],
-  )(implicit
-    ev: IsResponse[R, E, WebSocketFrame, WebSocketFrame],
-  ): HttpApp[R, E] =
-    socketM[R, E](Option.empty)(pf)
+  ): HttpApp[R, E] = HttpChannel.collectM(pf).map(Response.socket(_))
 }

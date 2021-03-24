@@ -21,10 +21,10 @@ sealed trait Server[-R, +E] { self =>
     case MaxRequestSize(size) => s.copy(maxRequestSize = size)
   }
 
-  def make: ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
+  def make[E1 >: E: SilentResponse]: ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
     Server.make(self)
 
-  def start: ZIO[R with EventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
+  def start[E1 >: E: SilentResponse]: ZIO[R with EventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
     make.useForever
 }
 
@@ -53,11 +53,11 @@ object Server {
   /**
    * Launches the app on the provided port.
    */
-  def start[R <: Has[_], E](port: Int, http: HttpApp[R, E]): ZIO[R, Throwable, Nothing] =
+  def start[R <: Has[_], E: SilentResponse](port: Int, http: HttpApp[R, E]): ZIO[R, Throwable, Nothing] =
     (Server.port(port) ++ Server.app(http)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
-  def make[R, E](
+  def make[R, E: SilentResponse](
     server: Server[R, E],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] = {
     val settings = server.settings()

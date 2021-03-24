@@ -6,8 +6,8 @@ import zio.test.DefaultRunnableSpec
 import zio.{Has, ZIO, ZManaged}
 
 trait HttpRunnableSpec extends DefaultRunnableSpec {
-  def serve[R <: Has[_], E](
-    app: Http[R, E, Request, Response[R, E]],
+  def serve[R <: Has[_], E: SilentResponse](
+    app: HttpApp[R, E],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
     Server.make(Server.app(app) ++ Server.port(8081)).orDie
 
