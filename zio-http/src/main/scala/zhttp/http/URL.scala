@@ -1,6 +1,6 @@
 package zhttp.http
 
-import java.net.URI
+import java.net.{URI, URISyntaxException}
 import scala.util.Try
 
 case class URL(path: Path, kind: URL.Location = URL.Location.Relative) { self =>
@@ -24,20 +24,25 @@ object URL                                                             {
   }
 
   private def fromAbsoluteURI(uri: URI): Option[URL] = for {
-    scheme <- Scheme.fromString(uri.getScheme())
-    host   <- Option(uri.getHost())
-    port   <- Option(uri.getPort())
-    path       = Path(uri.getPath())
+    scheme <- Scheme.fromString(uri.getScheme)
+    host   <- Option(uri.getHost)
+    port   <- Option(uri.getPort)
+    path   <- Option(uri.getPath)
     connection = URL.Location.Absolute(scheme, host, port)
-  } yield URL(path, connection)
+  } yield URL(Path(path), connection)
 
-  private def fromRelativeURI(uri: URI): Option[URL] =
-    Option(URL(Path(uri.getPath()), Location.Relative))
+  private def fromRelativeURI(uri: URI): Option[URL] = for {
+    path <- Option(uri.getPath)
+  } yield URL(Path(path), Location.Relative)
 
-  def fromString(string: String): Option[URL] =
+  def fromString(string: String): Either[Throwable, URL] =
     for {
-      uri <- Try(new URI(string)).toOption
-      url <- if (uri.isAbsolute()) fromAbsoluteURI(uri) else fromRelativeURI(uri)
+      uri <- Try(new URI(string)).toEither
+      url <- (if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)) match {
+        case Some(value) => Right(value)
+        case None        => Left(new URISyntaxException(string, "Invalid URL"))
+      }
+
     } yield url
 
   def asString(url: URL): String = url.kind match {

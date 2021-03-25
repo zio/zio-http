@@ -21,9 +21,11 @@ sealed trait Server[-R, +E] { self =>
     case MaxRequestSize(size) => s.copy(maxRequestSize = size)
   }
 
-  def make[E1 >: E: SilentResponse]: ZManaged[R with EventLoopGroup, Throwable, Unit] = Server.make(self)
+  def make[E1 >: E: SilentResponse]: ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
+    Server.make(self)
 
-  def start[E1 >: E: SilentResponse]: ZIO[R with EventLoopGroup, Throwable, Nothing] = make.useForever
+  def start[E1 >: E: SilentResponse]: ZIO[R with EventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
+    make.useForever
 }
 
 object Server {
@@ -53,14 +55,16 @@ object Server {
    */
   def start[R <: Has[_], E: SilentResponse](port: Int, http: HttpApp[R, E]): ZIO[R, Throwable, Nothing] =
     (Server.port(port) ++ Server.app(http)).make.useForever
-      .provideSomeLayer[R](EventLoopGroup.auto())
+      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
-  def make[R, E: SilentResponse](server: Server[R, E]): ZManaged[R with EventLoopGroup, Throwable, Unit] = {
+  def make[R, E: SilentResponse](
+    server: Server[R, E],
+  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] = {
+    val settings = server.settings()
     for {
       zExec          <- UnsafeChannelExecutor.make[R].toManaged_
-      channelFactory <- ServerChannelFactory.Live.auto.toManaged_
-      eventLoopGroup <- ZIO.access[EventLoopGroup](_.get).toManaged_
-      settings        = server.settings()
+      channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
+      eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
       httpH           = ServerRequestHandler(zExec, settings.http.silent)
       init            = ServerChannelInitializer(httpH, settings.maxRequestSize)
       serverBootstrap = new JServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)

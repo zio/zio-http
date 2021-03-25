@@ -2,7 +2,7 @@ package zhttp.service
 
 import io.netty.handler.codec.http.{HttpVersion => JHttpVersion}
 import zhttp.core._
-import zhttp.http.{Request, Response}
+import zhttp.http._
 import zhttp.service
 import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
 import zio.{Promise, Task, ZIO}
@@ -21,20 +21,23 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
       val hand = ClientInboundHandler(zx, read)
       val init = ClientChannelInitializer(hand)
       val host = req.url.host
-      val port = req.url.port
+      val port = req.url.port.getOrElse(80) match {
+        case -1   => 80
+        case port => port
+      }
 
       val jboo = new JBootstrap().channelFactory(cf).group(el).handler(init)
-      if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port.getOrElse(80)))
+      if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
 
       jboo.connect()
     }
 
-  def request(request: Request): Task[Response] = for {
+  def request(request: Request): Task[Response.HttpResponse] = for {
     promise <- Promise.make[Throwable, JFullHttpResponse]
     jReq = encodeRequest(JHttpVersion.HTTP_1_1, request)
     _    <- asyncRequest(request, jReq, promise).catchAll(cause => promise.fail(cause)).fork
     jRes <- promise.await
-    res  <- Response.fromJFullHttpResponse(jRes)
+    res  <- ZIO.fromEither(decodeJResponse(jRes))
   } yield res
 }
 
@@ -45,6 +48,14 @@ object Client {
     zx <- UnsafeChannelExecutor.make[Any]
   } yield service.Client(zx, cf, el)
 
-  def request(req: Request): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
+  def request(url: String): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response.HttpResponse] = for {
+    url <- ZIO.fromEither(URL.fromString(url))
+    res <- request(Method.GET -> url)
+  } yield res
+
+  def request(endpoint: Endpoint): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response.HttpResponse] =
+    request(Request(endpoint))
+
+  def request(req: Request): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response.HttpResponse] =
     make.flatMap(_.request(req))
 }

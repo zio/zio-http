@@ -13,6 +13,8 @@ object ChannelFactory {
 
   def embedded: ZLayer[Any, Nothing, ChannelFactory] = Live.embedded.toLayer
 
+  def auto: ZLayer[Any, Nothing, ChannelFactory] = Live.auto.toLayer
+
   object Live {
     def nio: UIO[jChannel.ChannelFactory[jChannel.Channel]] =
       UIO(() => new jSocket.nio.NioSocketChannel())
