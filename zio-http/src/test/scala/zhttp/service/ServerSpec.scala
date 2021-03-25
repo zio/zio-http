@@ -16,7 +16,7 @@ object ServerSpec extends HttpRunnableSpec {
     }
   }
 
-  def spec = suiteM("Server")(
+  override def spec = suiteM("Server")(
     app
       .as(
         List(
