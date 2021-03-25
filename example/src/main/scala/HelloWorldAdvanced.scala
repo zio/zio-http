@@ -1,5 +1,6 @@
 import zhttp.http._
 import zhttp.service._
+import zhttp.service.server.ServerChannelFactory
 import zio._
 
 object HelloWorldAdvanced extends App {
@@ -38,7 +39,7 @@ object HelloWorldAdvanced extends App {
         // Ensures the server doesn't die after printing
         *> ZIO.never,
       )
+      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
       .exitCode
-      .provideCustomLayer(EventLoopGroup.auto(nThreads))
   }
 }
