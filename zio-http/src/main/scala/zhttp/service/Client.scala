@@ -21,10 +21,13 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
       val hand = ClientInboundHandler(zx, read)
       val init = ClientChannelInitializer(hand)
       val host = req.url.host
-      val port = req.url.port
+      val port = req.url.port.getOrElse(80) match {
+        case -1   => 80
+        case port => port
+      }
 
       val jboo = new JBootstrap().channelFactory(cf).group(el).handler(init)
-      if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port.getOrElse(80)))
+      if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
 
       jboo.connect()
     }
