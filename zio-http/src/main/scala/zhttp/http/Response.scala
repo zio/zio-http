@@ -13,7 +13,7 @@ sealed trait Response extends Product with Serializable { self => }
 object Response {
   private val defaultStatus  = Status.OK
   private val defaultHeaders = Nil
-  private val defaultContent = HttpContent.Empty
+  private val emptyContent   = HttpContent.Complete("")
 
   // Constructors
   final case class HttpResponse(status: Status, headers: List[Header], content: HttpContent[Any, String])
@@ -32,8 +32,8 @@ object Response {
   def http(
     status: Status = defaultStatus,
     headers: List[Header] = defaultHeaders,
-    content: HttpContent[Any, String] = defaultContent,
-  ): Response =
+    content: HttpContent[Any, String] = emptyContent,
+  ): Response.HttpResponse =
     HttpResponse(status, headers, content)
 
   /**
