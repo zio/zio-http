@@ -59,13 +59,17 @@ final case class ServerRequestHandler[R](
    * Asynchronously executes the Http app and passes the response to the callback.
    */
   private def executeAsync(ctx: JChannelHandlerContext, jReq: JFullHttpRequest)(cb: Response => Unit): Unit =
-    app.eval(decodeJRequest(jReq)) match {
-      case HttpResult.Success(a)  => cb(a)
-      case HttpResult.Failure(_)  => ()
-      case HttpResult.Continue(z) =>
-        zExec.unsafeExecute(ctx, z) {
-          case Exit.Success(res) => cb(res)
-          case Exit.Failure(_)   => ()
+    decodeJRequest(jReq) match {
+      case Left(err)  => cb(HttpError.InternalServerError("Request decoding failure", Option(err)).toResponse)
+      case Right(req) =>
+        app.eval(req) match {
+          case HttpResult.Success(a)  => cb(a)
+          case HttpResult.Failure(_)  => ()
+          case HttpResult.Continue(z) =>
+            zExec.unsafeExecute(ctx, z) {
+              case Exit.Success(res) => cb(res)
+              case Exit.Failure(_)   => ()
+            }
         }
     }
 

@@ -16,19 +16,18 @@ trait HttpMessageCodec {
   /**
    * Tries to decode the [io.netty.handler.codec.http.FullHttpRequest] to [Request].
    */
-  def decodeJRequest(jReq: JFullHttpRequest): Request = {
-    val method   = Method.fromJHttpMethod(jReq.method())
-    val url      = URL(Path(jReq.uri()))
-    val headers  = Header.make(jReq.headers())
-    val endpoint = method -> url
-    val data     = Request.Data(headers, HttpContent.Complete(jReq.content().toString(HTTP_CHARSET)))
-    Request(endpoint, data)
-  }
+  def decodeJRequest(jReq: JFullHttpRequest): Either[Throwable, Request] = for {
+    url <- URL.fromString(jReq.uri())
+    method   = Method.fromJHttpMethod(jReq.method())
+    headers  = Header.make(jReq.headers())
+    endpoint = method -> url
+    data     = Request.Data(headers, HttpContent.Complete(jReq.content().toString(HTTP_CHARSET)))
+  } yield Request(endpoint, data)
 
   /**
    * Tries to decode netty request into ZIO Http Request
    */
-  def decodeJResponse(jRes: JFullHttpResponse): Either[Throwable, Response] = Try {
+  def decodeJResponse(jRes: JFullHttpResponse): Either[Throwable, Response.HttpResponse] = Try {
     val status  = Status.fromJHttpResponseStatus(jRes.status())
     val headers = Header.parse(jRes.headers())
     val content = HttpContent.Complete(jRes.content().toString(HTTP_CHARSET))
