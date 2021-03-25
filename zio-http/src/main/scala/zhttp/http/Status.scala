@@ -37,7 +37,7 @@ object Status {
   case object UPGRADE_REQUIRED           extends Status
   case object MOVED_PERMANENTLY          extends Status
 
-  def fromJHttpResponseStatus(jStatus: JHttpResponseStatus): Status = jStatus match {
+  def fromJHttpResponseStatus(jStatus: JHttpResponseStatus): Status = (jStatus: @unchecked) match {
     case JHttpResponseStatus.OK                         => Status.OK
     case JHttpResponseStatus.BAD_REQUEST                => Status.BAD_REQUEST
     case JHttpResponseStatus.UNAUTHORIZED               => Status.UNAUTHORIZED

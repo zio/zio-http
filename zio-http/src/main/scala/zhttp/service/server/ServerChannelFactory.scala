@@ -14,14 +14,20 @@ object ServerChannelFactory {
   def auto: ZLayer[Any, Nothing, ServerChannelFactory] = Live.auto.toLayer
 
   object Live {
-    def nio: UIO[JChannelFactory[JServerChannel]] =
-      UIO(() => new JNioServerSocketChannel())
+    def nio: UIO[JChannelFactory[JServerChannel]] = {
+      val sam: JChannelFactory[JServerChannel] = () => new JNioServerSocketChannel()
+      UIO(sam)
+    }
 
-    def epoll: UIO[JChannelFactory[JServerChannel]] =
-      UIO(() => new JEpollServerSocketChannel())
+    def epoll: UIO[JChannelFactory[JServerChannel]] = {
+      val sam: JChannelFactory[JServerChannel] = () => new JEpollServerSocketChannel()
+      UIO(sam)
+    }
 
-    def kQueue: UIO[JChannelFactory[JServerChannel]] =
-      UIO(() => new JKQueueServerSocketChannel())
+    def kQueue: UIO[JChannelFactory[JServerChannel]] = {
+      val sam: JChannelFactory[JServerChannel] = () => new JKQueueServerSocketChannel()
+      UIO(sam)
+    }
 
     def auto: UIO[JChannelFactory[JServerChannel]] =
       if (JEpoll.isAvailable) epoll

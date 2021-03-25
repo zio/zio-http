@@ -145,7 +145,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
 }
 
 object Http extends HttpConstructors with HttpExecutors {
-  final case object Identity                                                             extends Http[Any, Nothing, Any, Nothing]
+  case object Identity                                                                   extends Http[Any, Nothing, Any, Nothing]
   final case class Succeed[B](b: B)                                                      extends Http[Any, Nothing, Any, B]
   final case class Fail[E](e: E)                                                         extends Http[Any, E, Any, Nothing]
   final case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B])                  extends Http[R, E, A, B]

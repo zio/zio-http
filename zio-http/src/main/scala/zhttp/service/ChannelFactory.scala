@@ -2,8 +2,7 @@ package zhttp.service
 
 import io.netty.channel.epoll.{Epoll => JEpoll}
 import io.netty.channel.kqueue.{KQueue => JKQueue}
-import io.netty.channel.{embedded => jEmbedded, socket => jSocket}
-import io.netty.{channel => jChannel}
+import zhttp.core._
 import zio.{UIO, ZLayer}
 
 object ChannelFactory {
@@ -16,19 +15,27 @@ object ChannelFactory {
   def auto: ZLayer[Any, Nothing, ChannelFactory] = Live.auto.toLayer
 
   object Live {
-    def nio: UIO[jChannel.ChannelFactory[jChannel.Channel]] =
-      UIO(() => new jSocket.nio.NioSocketChannel())
+    def nio: UIO[JChannelFactory[JChannel]] = {
+      val sam: JChannelFactory[JChannel] = () => new JNioSocketChannel()
+      UIO(sam)
+    }
 
-    def epoll: UIO[jChannel.ChannelFactory[jChannel.Channel]] =
-      UIO(() => new jChannel.epoll.EpollSocketChannel())
+    def epoll: UIO[JChannelFactory[JChannel]] = {
+      val sam: JChannelFactory[JChannel] = () => new JEpollSocketChannel()
+      UIO(sam)
+    }
 
-    def kQueue: UIO[jChannel.ChannelFactory[jChannel.Channel]] =
-      UIO(() => new jChannel.kqueue.KQueueSocketChannel())
+    def kQueue: UIO[JChannelFactory[JChannel]] = {
+      val sam: JChannelFactory[JChannel] = () => new JKQueueSocketChannel()
+      UIO(sam)
+    }
 
-    def embedded: UIO[jChannel.ChannelFactory[jChannel.Channel]] =
-      UIO(() => new jEmbedded.EmbeddedChannel(false, false))
+    def embedded: UIO[JChannelFactory[JChannel]] = {
+      val sam: JChannelFactory[JChannel] = () => new JEmbeddedChannel(false, false)
+      UIO(sam)
+    }
 
-    def auto: UIO[jChannel.ChannelFactory[jChannel.Channel]] =
+    def auto: UIO[JChannelFactory[JChannel]] =
       if (JEpoll.isAvailable) epoll
       else if (JKQueue.isAvailable) kQueue
       else nio
