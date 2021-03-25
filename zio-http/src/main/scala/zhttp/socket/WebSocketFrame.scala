@@ -10,8 +10,8 @@ object WebSocketFrame {
   final case class Binary(buffer: ByteBuf)                    extends WebSocketFrame
   final case class Text(text: String)                         extends WebSocketFrame
   final case class Close(status: Int, reason: Option[String]) extends WebSocketFrame
-  final case object Ping                                      extends WebSocketFrame
-  final case object Pong                                      extends WebSocketFrame
+  case object Ping                                            extends WebSocketFrame
+  case object Pong                                            extends WebSocketFrame
   final case class Continuation(buffer: ByteBuf)              extends WebSocketFrame
 
   def text(string: String): WebSocketFrame =

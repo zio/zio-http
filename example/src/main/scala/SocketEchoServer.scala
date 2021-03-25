@@ -9,6 +9,8 @@ object SocketEchoServer extends App {
   private val socket =
     Socket.forall[WebSocketFrame](msg => ZStream.repeat(msg).schedule(Schedule.spaced(1 second)).take(10))
 
+  implicit val httpNothingPartial: CanSupportPartial[Request, Nothing] = (_: Request) => Nil.head
+
   private val app =
     Http.collectM[Request] {
       case Method.GET -> Root / "greet" / name  => UIO(Response.text(s"Greetings {$name}!"))
