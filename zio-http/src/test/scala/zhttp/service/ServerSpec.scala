@@ -2,9 +2,9 @@ package zhttp.service
 
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
-import zio.test.assertM
-import zio.test.Assertion.equalTo
 import zio.ZIO
+import zio.test.Assertion.equalTo
+import zio.test.assertM
 
 object ServerSpec extends HttpRunnableSpec {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto

@@ -1,9 +1,9 @@
 package zhttp.service
 
 import zhttp.http.URL.Location
-import zio.{Has, ZIO, ZManaged}
 import zhttp.http._
 import zio.test.DefaultRunnableSpec
+import zio.{Has, ZIO, ZManaged}
 
 trait HttpRunnableSpec extends DefaultRunnableSpec {
   def serve[R <: Has[_], E: SilentResponse](
