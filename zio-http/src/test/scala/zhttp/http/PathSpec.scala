@@ -21,7 +21,7 @@ object PathSpec extends DefaultRunnableSpec {
         test("/")((Path(""): @unchecked) match { case Root => assertCompletes }),
         test("/A/B")((Path("A", "B"): @unchecked) match { case Root / x / y => assert((x, y))(equalTo(("A", "B"))) }),
         test("/A/B/C") {
-          Path("A", "B", "C") match { case Path(x, y, z) => assert((x, y, z))(equalTo(("A", "B", "C"))) }
+          (Path("A", "B", "C"): @unchecked) match { case Path(x, y, z) => assert((x, y, z))(equalTo(("A", "B", "C"))) }
         },
       ),
     )
