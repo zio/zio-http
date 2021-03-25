@@ -1,7 +1,7 @@
 package zhttp.service
 
-import zio.test.assertM
 import zio.test.Assertion.anything
+import zio.test.assertM
 
 object ClientSpec extends HttpRunnableSpec {
   val env           = ChannelFactory.auto ++ EventLoopGroup.auto()
