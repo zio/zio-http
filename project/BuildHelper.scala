@@ -33,7 +33,7 @@ object BuildHelper {
   )
 
   //RECOMMENDED SETTINGS: https://tpolecat.github.io/2017/04/25/scalac-flags.html
-  private val tpoleCatSettings      = Seq(
+  private val tpoleCatSettings = Seq(
     "-language:postfixOps",                      // Added by @tusharmath
     "-deprecation",                              // Emit warning and location for usages of deprecated APIs.
     "-encoding",
@@ -107,7 +107,8 @@ object BuildHelper {
           "-Xignore-scala2-macros",
           "-noindent",
         )
-      case Some((2, 13)) => Seq("-Ywarn-unused:params,-implicits") ++ std2xOptions ++ tpoleCatSettings ++ optimizerOptions(optimize)
+      case Some((2, 13)) =>
+        Seq("-Ywarn-unused:params,-implicits") ++ std2xOptions ++ tpoleCatSettings ++ optimizerOptions(optimize)
       case _             => Seq.empty
     }
 
