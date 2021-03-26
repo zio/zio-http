@@ -73,7 +73,6 @@ final case class ServerRequestHandler[R, E: SilentResponse](
                   case Some(e) => cb(implicitly[SilentResponse[E]].silent(e))
                   case None    => ()
                 }
-              case _                   => ()
             }
         }
     }

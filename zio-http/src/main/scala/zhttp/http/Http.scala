@@ -19,7 +19,7 @@ object Http {
   /**
    * Creates an HTTP app which accepts a request and produces response.
    */
-  def collect[R, E: PartialRequest](pf: PartialFunction[Request, Response[R, E]]): Http[R, E] =
+  def collect[R, E >: Throwable: PartialRequest](pf: PartialFunction[Request, Response[R, E]]): Http[R, E] =
     HttpChannel.collect[Request](pf)
 
   /**

@@ -16,7 +16,7 @@ object Response {
   final case class HttpResponse[R](status: Status, headers: List[Header], content: HttpContent[R, String])
       extends Response[R, Nothing]
 
-  final case class SocketResponse[R, E](
+  final case class SocketResponse[-R, +E](
     socket: Socket[R, E, WebSocketFrame, WebSocketFrame],
     subProtocol: Option[String],
   ) extends Response[R, E]
