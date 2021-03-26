@@ -9,12 +9,11 @@ import zio.test.assertM
 object ServerSpec extends HttpRunnableSpec {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
-  val value = Http.collectM[Request] {
-    case Method.GET -> Root / "success" => ZIO.succeed(Response.ok)
-    case Method.GET -> Root / "failure" => ZIO.fail(new RuntimeException("FAILURE"))
-  }
-  val app   = serve {
-    value
+  val app = serve {
+    Http.collectM {
+      case Method.GET -> Root / "success" => ZIO.succeed(Response.ok)
+      case Method.GET -> Root / "failure" => ZIO.fail(new RuntimeException("FAILURE"))
+    }
   }
 
   override def spec = suiteM("Server")(

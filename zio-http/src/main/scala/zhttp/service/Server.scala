@@ -30,7 +30,7 @@ sealed trait Server[-R, +E] { self =>
 
 object Server {
   private case class Settings[-R, +E](
-    http: HttpApp[R, E] = Http.empty(Status.NOT_FOUND),
+    http: Http[R, E] = Http.empty(Status.NOT_FOUND),
     port: Int = 8080,
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
@@ -40,20 +40,20 @@ object Server {
   private case class Port(port: Int)                                       extends UServer
   private case class LeakDetection(level: LeakDetectionLevel)              extends UServer
   private case class MaxRequestSize(size: Int)                             extends UServer
-  private case class App[R, E](http: HttpApp[R, E])                        extends Server[R, E]
+  private case class App[R, E](http: Http[R, E])                           extends Server[R, E]
 
-  def app[R, E](http: HttpApp[R, E]): Server[R, E] = Server.App(http)
-  def maxRequestSize(size: Int): UServer           = Server.MaxRequestSize(size)
-  def port(int: Int): UServer                      = Server.Port(int)
-  val disableLeakDetection: UServer                = LeakDetection(LeakDetectionLevel.DISABLED)
-  val simpleLeakDetection: UServer                 = LeakDetection(LeakDetectionLevel.SIMPLE)
-  val advancedLeakDetection: UServer               = LeakDetection(LeakDetectionLevel.ADVANCED)
-  val paranoidLeakDetection: UServer               = LeakDetection(LeakDetectionLevel.PARANOID)
+  def app[R, E](http: Http[R, E]): Server[R, E] = Server.App(http)
+  def maxRequestSize(size: Int): UServer        = Server.MaxRequestSize(size)
+  def port(int: Int): UServer                   = Server.Port(int)
+  val disableLeakDetection: UServer             = LeakDetection(LeakDetectionLevel.DISABLED)
+  val simpleLeakDetection: UServer              = LeakDetection(LeakDetectionLevel.SIMPLE)
+  val advancedLeakDetection: UServer            = LeakDetection(LeakDetectionLevel.ADVANCED)
+  val paranoidLeakDetection: UServer            = LeakDetection(LeakDetectionLevel.PARANOID)
 
   /**
    * Launches the app on the provided port.
    */
-  def start[R <: Has[_], E: SilentResponse](port: Int, http: HttpApp[R, E]): ZIO[R, Throwable, Nothing] =
+  def start[R <: Has[_], E: SilentResponse](port: Int, http: Http[R, E]): ZIO[R, Throwable, Nothing] =
     (Server.port(port) ++ Server.app(http)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
