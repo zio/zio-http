@@ -32,7 +32,7 @@ trait HttpMessageCodec {
     val headers = Header.parse(jRes.headers())
     val content = HttpContent.Complete(jRes.content().toString(HTTP_CHARSET))
 
-    Response.http[Any](status, headers, content)
+    Response.http(status, headers, content): UHttpResponse
   }.toEither
 
   /**
