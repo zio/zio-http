@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 class HttpNestedFlatMapEval {
   implicit val canSupportPartial: CanSupportPartial[Int, String] = _ => "NOT_FOUND"
 
-  private val MAX = 10_000
+  private val MAX = 10000
 
   val programFlatMap: HttpChannel[Any, Nothing, Int, Int] = (0 to MAX).foldLeft(HttpChannel.identity[Int])((a, _) =>
     a.flatMap(i => HttpChannel.succeed(i + 1)),

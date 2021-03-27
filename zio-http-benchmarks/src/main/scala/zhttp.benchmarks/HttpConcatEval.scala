@@ -12,7 +12,7 @@ class HttpConcatEval {
   implicit val canSupportPartial: CanSupportPartial[Int, String] = _ => ""
   implicit val canConcatenate: CanConcatenate[Any]               = _ => true
 
-  private val MAX = 1_000
+  private val MAX = 1000
 
   val app: HttpChannel[Any, String, Int, String] = HttpChannel.collect[Int]({ case 0 => "A" })
   val spec                                       = (0 to MAX).foldLeft(app)((a, _) => a <> app)

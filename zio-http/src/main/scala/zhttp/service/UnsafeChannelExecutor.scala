@@ -18,7 +18,7 @@ final class UnsafeChannelExecutor[R](runtime: zio.Runtime[R]) {
   ): Unit = {
     val close = ctx.channel().closeFuture()
 
-    var listener: GenericFutureListener[Future[Any]] = _ => ()
+    var listener: GenericFutureListener[Future[Any]] = { _ => () }
 
     val cancel = runtime.unsafeRunAsyncCancelable(program) { exit =>
       cb(exit)

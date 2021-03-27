@@ -5,6 +5,7 @@ import scalafix.sbt.ScalafixPlugin.autoImport._
 import xerial.sbt.Sonatype.autoImport._
 
 object BuildHelper extends ScalaSettings {
+  val Scala212   = "2.12.13"
   val Scala213   = "2.13.5"
   val ScalaDotty = "3.0.0-RC1"
 
@@ -31,6 +32,7 @@ object BuildHelper extends ScalaSettings {
     "-Xlint:_,-missing-interpolator,-type-parameter-shadow",
     "-Ywarn-numeric-widen",
     "-Ywarn-value-discard",
+    "-Ywarn-macros:after",
   )
 
   private def optimizerOptions(optimize: Boolean) =
@@ -48,8 +50,11 @@ object BuildHelper extends ScalaSettings {
           "-Xignore-scala2-macros",
           "-noindent",
         )
+      case Some((2, 12)) =>
+        Seq("-Ywarn-unused:params,-implicits") ++ std2xOptions ++ optimizerOptions(optimize)
       case Some((2, 13)) =>
-        Seq("-Ywarn-unused:params,-implicits") ++ std2xOptions ++ tpoleCatSettings ++ optimizerOptions(optimize)
+        Seq("-Ywarn-unused:params,-implicits", "-Ywarn-macros:after") ++ std2xOptions ++ tpoleCatSettings ++
+          optimizerOptions(optimize)
       case _             => Seq.empty
     }
 
@@ -67,7 +72,7 @@ object BuildHelper extends ScalaSettings {
   }
   def stdSettings(prjName: String) = Seq(
     name := s"$prjName",
-    ThisBuild / crossScalaVersions := Seq(Scala213, ScalaDotty),
+    ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, ScalaDotty),
     ThisBuild / scalaVersion := Scala213,
     useScala3doc := true,
     scalacOptions := stdOptions ++ extraOptions(scalaVersion.value, isDotty.value, optimize = !isSnapshot.value),

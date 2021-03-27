@@ -2,7 +2,7 @@ package zhttp.http
 
 import zio.{CanFail, ZIO}
 
-import scala.annotation.{tailrec, unused}
+import scala.annotation.tailrec
 
 sealed trait HttpResult[-R, +E, +A] { self =>
   def map[B](ab: A => B): HttpResult[R, E, B] = self.flatMap(a => HttpResult.success(ab(a)))
@@ -16,9 +16,7 @@ sealed trait HttpResult[-R, +E, +A] { self =>
   def flatMap[R1 <: R, E1 >: E, B](ab: A => HttpResult[R1, E1, B]): HttpResult[R1, E1, B] =
     HttpResult.flatMap(self, ab)
 
-  def catchAll[R1 <: R, E1, A1 >: A](h: E => HttpResult[R1, E1, A1])(implicit
-    @unused ev: CanFail[E],
-  ): HttpResult[R1, E1, A1] =
+  def catchAll[R1 <: R, E1, A1 >: A](h: E => HttpResult[R1, E1, A1])(implicit ev: CanFail[E]): HttpResult[R1, E1, A1] =
     self.foldM(h, HttpResult.success)
 
   def foldM[R1 <: R, E1, B1](h: E => HttpResult[R1, E1, B1], ab: A => HttpResult[R1, E1, B1]): HttpResult[R1, E1, B1] =
