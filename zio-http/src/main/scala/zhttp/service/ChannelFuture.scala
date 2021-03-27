@@ -13,7 +13,7 @@ final class ChannelFuture[A] private (jFuture: JFuture[A]) {
    * fails with any other Exception
    */
   def execute: Task[Option[A]] = {
-    var handler: GenericFutureListener[JFuture[A]] = _ => {}
+    var handler: GenericFutureListener[JFuture[A]] = { _ => {} }
     ZIO
       .effectAsync[Any, Throwable, Option[A]](cb => {
         handler = _ => {

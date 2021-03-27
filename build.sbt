@@ -91,9 +91,10 @@ lazy val zhttp = (project in file("./zio-http"))
       ),
     libraryDependencies ++=
       Seq(
-        "dev.zio" %% "zio"         % zioVersion,
-        "dev.zio" %% "zio-streams" % zioVersion,
-        "io.netty" % "netty-all"   % "4.1.63.Final",
+        "dev.zio"                %% "zio"                     % zioVersion,
+        "dev.zio"                %% "zio-streams"             % zioVersion,
+        "io.netty"                % "netty-all"               % "4.1.63.Final",
+        "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2",
       ),
   )
 
