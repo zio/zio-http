@@ -21,7 +21,7 @@ final case class ServerSocketHandler[R, E](
       case Some(frame) =>
         zExec.unsafeExecute_(ctx) {
           socket(frame)
-            .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toJWebSocketFrame)))
+            .mapM[Any, Throwable, Unit](frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toJWebSocketFrame)))
             .runDrain
         }
 
