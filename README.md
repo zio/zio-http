@@ -62,4 +62,4 @@ These are some basic benchmarks of how ZIO Http performs wrt other main-stream l
 | **Play**                | 261223.68 |    263819.25 |
 | **Http4s**              | 135565.22 |    139573.98 |
 
-More details are available [here](https://github.com/dream11/zio-http/blob/master/BENCHMARKS.md).
+More details are available [here](https://github.com/dream11/zio-http/blob/main/BENCHMARKS.md).
