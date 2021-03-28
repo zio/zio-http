@@ -16,7 +16,7 @@ case class URL(path: Path, kind: URL.Location = URL.Location.Relative, query: St
 
   def asString: String = URL.asString(self)
 }
-object URL                                                             {
+object URL                                                                                 {
   sealed trait Location
   object Location {
     case object Relative                                         extends Location
@@ -28,7 +28,7 @@ object URL                                                             {
     host   <- Option(uri.getHost)
     port   <- Option(uri.getPort)
     path   <- Option(uri.getPath)
-    query   = Option(uri.getRawQuery).getOrElse("")
+    query      = Option(uri.getRawQuery).getOrElse("")
     connection = URL.Location.Absolute(scheme, host, port)
   } yield URL(Path(path), connection, query)
 
@@ -59,7 +59,7 @@ object URL                                                             {
       case Location.Relative                     => withQuery(url.path.asString)
       case Location.Absolute(scheme, host, port) =>
         (scheme, port) match {
-          case (Scheme.HTTP,   80) => withQuery(s"${scheme.asString}://${host}${url.path.asString}")
+          case (Scheme.HTTP, 80)   => withQuery(s"${scheme.asString}://${host}${url.path.asString}")
           case (Scheme.HTTPS, 443) => withQuery(s"${scheme.asString}://${host}${url.path.asString}")
           case (_, port)           => withQuery(s"${scheme.asString}://${host}:${port}${url.path.asString}")
         }
