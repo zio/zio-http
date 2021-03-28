@@ -5,7 +5,7 @@ import zhttp.core.{JDefaultHttpHeaders, JHttpHeaders}
 
 import scala.jdk.CollectionConverters._
 
-final case class Header private[Header] (name: CharSequence, value: AnyRef)
+final case class Header private[Header] (name: CharSequence, value: CharSequence)
 
 object Header {
 
@@ -31,7 +31,7 @@ object Header {
   /**
    * Use built-in header methods for better performance.
    */
-  def custom(name: String, value: AnyRef): Header = Header(name, value)
+  def custom(name: String, value: CharSequence): Header = Header(name, value)
 
   def parse(headers: JHttpHeaders): List[Header] =
     headers.entries().asScala.toList.map(entry => Header(entry.getKey, entry.getValue))
