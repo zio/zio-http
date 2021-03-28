@@ -36,7 +36,7 @@ trait HttpMessageCodec {
   }.toEither
 
   /**
-   * Encode the [[Response]] to [io.netty.handler.codec.http.FullHttpResponse]
+   * Encode the [[zhttp.http.Response]] to [io.netty.handler.codec.http.FullHttpResponse]
    */
   def encodeResponse(jVersion: JHttpVersion, res: Response.HttpResponse): JFullHttpResponse = {
     val jHttpHeaders   =
