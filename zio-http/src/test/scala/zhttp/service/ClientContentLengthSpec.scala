@@ -1,11 +1,12 @@
 package zhttp.service
 
-import zhttp.http.{Http, Response, _}
+import zhttp.http.{Http, Response}
 import zhttp.service.server.ServerChannelFactory
+import zio.{Ref, UIO, ZIO, ZRef}
+import zhttp.http._
 import zio.test.Assertion.{isNone, isPositive, isSome}
 import zio.test.TestAspect.ignore
 import zio.test.assertM
-import zio.{Ref, UIO, ZIO, ZRef}
 
 import scala.util.Try
 
