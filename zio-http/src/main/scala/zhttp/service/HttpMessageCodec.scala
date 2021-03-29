@@ -10,7 +10,7 @@ import java.time.format.DateTimeFormatter
 import scala.util.Try
 
 trait HttpMessageCodec {
-  private val jTrailingHeaders = new JDefaultHttpHeaders(false)
+  private val jTrailingHeaders    = new JDefaultHttpHeaders(false)
   private val SERVER_NAME: String = "ZIO-Http"
 
   /**
@@ -18,17 +18,17 @@ trait HttpMessageCodec {
    */
   def decodeJRequest(jReq: JFullHttpRequest): Either[Throwable, Request] = for {
     url <- URL.fromString(jReq.uri())
-    method = Method.fromJHttpMethod(jReq.method())
-    headers = Header.make(jReq.headers())
+    method   = Method.fromJHttpMethod(jReq.method())
+    headers  = Header.make(jReq.headers())
     endpoint = method -> url
-    data = Request.Data(headers, HttpContent.Complete(jReq.content().toString(HTTP_CHARSET)))
+    data     = Request.Data(headers, HttpContent.Complete(jReq.content().toString(HTTP_CHARSET)))
   } yield Request(endpoint, data)
 
   /**
    * Tries to decode netty request into ZIO Http Request
    */
   def decodeJResponse(jRes: JFullHttpResponse): Either[Throwable, UHttpResponse] = Try {
-    val status = Status.fromJHttpResponseStatus(jRes.status())
+    val status  = Status.fromJHttpResponseStatus(jRes.status())
     val headers = Header.parse(jRes.headers())
     val content = HttpContent.Complete(jRes.content().toString(HTTP_CHARSET))
 
@@ -39,11 +39,11 @@ trait HttpMessageCodec {
    * Encode the [[zhttp.http.UHttpResponse]] to [io.netty.handler.codec.http.FullHttpResponse]
    */
   def encodeResponse[R](jVersion: JHttpVersion, res: Response.HttpResponse[R]): JFullHttpResponse = {
-    val jHttpHeaders =
+    val jHttpHeaders   =
       res.headers.foldLeft[JHttpHeaders](new JDefaultHttpHeaders()) { (jh, hh) =>
         jh.set(hh.name, hh.value)
       }
-    val jStatus = res.status.toJHttpStatus
+    val jStatus        = res.status.toJHttpStatus
     val jContentBytBuf = res.content match {
       case HttpContent.Complete(data) =>
         jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, data.length())
@@ -63,18 +63,18 @@ trait HttpMessageCodec {
    * Converts Request to JFullHttpRequest
    */
   def encodeRequest(jVersion: JHttpVersion, req: Request): JFullHttpRequest = {
-    val method = req.method.asJHttpMethod
-    val uri = req.url.asString
-    val content = req.getBodyAsString match {
+    val method      = req.method.asJHttpMethod
+    val uri         = req.url.asString
+    val content     = req.getBodyAsString match {
       case Some(text) => JUnpooled.copiedBuffer(text, HTTP_CHARSET)
-      case None => JUnpooled.EMPTY_BUFFER
+      case None       => JUnpooled.EMPTY_BUFFER
     }
-    val headers = Header.disassemble(req.headers)
+    val headers     = Header.disassemble(req.headers)
     val writerIndex = content.writerIndex()
     if (writerIndex != 0) {
       headers.set(JHttpHeaderNames.CONTENT_LENGTH, writerIndex.toString())
     }
-    val jReq = new JDefaultFullHttpRequest(jVersion, method, uri, content)
+    val jReq        = new JDefaultFullHttpRequest(jVersion, method, uri, content)
     jReq.headers().set(headers)
 
     jReq
