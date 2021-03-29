@@ -69,6 +69,12 @@ trait HttpMessageCodec {
       case Some(text) => JUnpooled.copiedBuffer(text, HTTP_CHARSET)
       case None       => JUnpooled.EMPTY_BUFFER
     }
+    val writerIndex = content.writerIndex()
+    val headers =
+      if (writerIndex == 0)
+        Header.disassemble(req.headers)
+      else
+        Header.disassemble(Header(JHttpHeaderNames.CONTENT_LENGTH, writerIndex.toString()) :: req.headers)
     val headers = Header.disassemble(req.headers)
     val jReq    = new JDefaultFullHttpRequest(jVersion, method, uri, content)
     jReq.headers().set(headers)
