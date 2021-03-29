@@ -1,5 +1,6 @@
 package zhttp.service
 
+import io.netty.handler.ssl.{SslContext => JSslContext}
 import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
 import zhttp.core._
 import zhttp.http.{Status, _}
@@ -19,6 +20,7 @@ sealed trait Server[-R, +E] { self =>
     case LeakDetection(level) => s.copy(leakDetectionLevel = level)
     case App(http)            => s.copy(http = http)
     case MaxRequestSize(size) => s.copy(maxRequestSize = size)
+    case SslContext(context)  => s.copy(maybeSslContext = Some(context))
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
@@ -34,21 +36,25 @@ object Server {
     port: Int = 8080,
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
+    maybeSslContext: Option[JSslContext] = None,
   )
 
   private case class Concat[R, E](self: Server[R, E], other: Server[R, E]) extends Server[R, E]
   private case class Port(port: Int)                                       extends UServer
   private case class LeakDetection(level: LeakDetectionLevel)              extends UServer
   private case class MaxRequestSize(size: Int)                             extends UServer
+  private case class SslContext(context: JSslContext)                      extends UServer
   private case class App[R, E](http: Http[R, E])                           extends Server[R, E]
 
   def app[R, E](http: Http[R, E]): Server[R, E] = Server.App(http)
   def maxRequestSize(size: Int): UServer        = Server.MaxRequestSize(size)
   def port(int: Int): UServer                   = Server.Port(int)
-  val disableLeakDetection: UServer             = LeakDetection(LeakDetectionLevel.DISABLED)
-  val simpleLeakDetection: UServer              = LeakDetection(LeakDetectionLevel.SIMPLE)
-  val advancedLeakDetection: UServer            = LeakDetection(LeakDetectionLevel.ADVANCED)
-  val paranoidLeakDetection: UServer            = LeakDetection(LeakDetectionLevel.PARANOID)
+  def ssl(context: JSslContext): UServer        = Server.SslContext(context)
+
+  val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
+  val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
+  val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
+  val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
 
   /**
    * Launches the app on the provided port.
@@ -66,7 +72,7 @@ object Server {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
       httpH           = ServerRequestHandler(zExec, settings.http)
-      init            = ServerChannelInitializer(httpH, settings.maxRequestSize)
+      init            = ServerChannelInitializer(httpH, settings.maxRequestSize, settings.maybeSslContext)
       serverBootstrap = new JServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.port))
     } yield {
