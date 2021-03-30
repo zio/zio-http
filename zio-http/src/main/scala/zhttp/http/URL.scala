@@ -35,20 +35,20 @@ object URL                                                             {
     path <- Option(uri.getPath)
   } yield URL(Path(path), Location.Relative)
 
-  private def invalidURL(url: String): HttpError = HttpError.BadRequest(s"Invalid URL: $url")
-
-  def fromString(string: String): Either[HttpError, URL] =
+  def fromString(string: String): Either[HttpError, URL] = {
+    val invalidURL = Left(HttpError.BadRequest(s"Invalid URL: $string"))
     for {
-      uri <- Try(new URI(string)).toEither match {
-        case Left(_)      => Left(invalidURL(string))
+      url <- Try(new URI(string)).toEither match {
+        case Left(_)      => invalidURL
         case Right(value) => Right(value)
       }
-      url <- (if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)) match {
+      url <- (if (url.isAbsolute) fromAbsoluteURI(url) else fromRelativeURI(url)) match {
+        case None        => invalidURL
         case Some(value) => Right(value)
-        case None        => Left(invalidURL(string))
       }
 
     } yield url
+  }
 
   def asString(url: URL): String = url.kind match {
     case Location.Relative                     => url.path.asString
