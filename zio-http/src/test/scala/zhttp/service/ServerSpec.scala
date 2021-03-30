@@ -1,7 +1,7 @@
 package zhttp.service
 
 import zhttp.http._
-import zhttp.service.server.ServerChannelFactory
+import zhttp.service.server._
 import zio.ZIO
 import zio.test.Assertion.equalTo
 import zio.test.assertM
