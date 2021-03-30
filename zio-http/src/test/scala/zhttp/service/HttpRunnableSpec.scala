@@ -6,9 +6,7 @@ import zhttp.http._
 import zio.test.DefaultRunnableSpec
 import zio.{Has, ZIO, ZManaged}
 
-trait HttpRunnableSpec extends DefaultRunnableSpec {
-
-  val port = 8081
+abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
 
   def serve[R <: Has[_], E: SilentResponse](
     app: Http[R, E],

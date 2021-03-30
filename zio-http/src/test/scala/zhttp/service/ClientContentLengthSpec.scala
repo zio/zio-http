@@ -9,7 +9,7 @@ import zio.{Ref, UIO, ZIO, ZRef}
 
 import scala.util.Try
 
-object ClientContentLengthSpec extends HttpRunnableSpec {
+object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
 
   type ServerState = Map[String, Int]
 
