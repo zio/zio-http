@@ -16,7 +16,7 @@ trait HttpMessageCodec {
   /**
    * Tries to decode the [io.netty.handler.codec.http.FullHttpRequest] to [Request].
    */
-  def decodeJRequest(jReq: JFullHttpRequest): Either[Throwable, Request] = for {
+  def decodeJRequest(jReq: JFullHttpRequest): Either[HttpError, Request] = for {
     url <- URL.fromString(jReq.uri())
     method   = Method.fromJHttpMethod(jReq.method())
     headers  = Header.make(jReq.headers())

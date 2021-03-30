@@ -60,7 +60,7 @@ final case class ServerRequestHandler[R, E: SilentResponse](
    */
   private def executeAsync(ctx: JChannelHandlerContext, jReq: JFullHttpRequest)(cb: Response[R, E] => Unit): Unit =
     decodeJRequest(jReq) match {
-      case Left(err)  => cb(HttpError.InternalServerError("Request decoding failure", Option(err)).toResponse)
+      case Left(err)  => cb(err.toResponse)
       case Right(req) =>
         app.eval(req) match {
           case HttpResult.Success(a)  => cb(a)

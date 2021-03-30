@@ -1,6 +1,6 @@
 package zhttp.http
 
-import java.net.{URI, URISyntaxException}
+import java.net.URI
 import scala.util.Try
 
 case class URL(path: Path, kind: URL.Location = URL.Location.Relative, query: String = "") { self =>
@@ -37,15 +37,20 @@ object URL                                                                      
     query = Option(uri.getRawQuery).getOrElse("")
   } yield URL(Path(path), Location.Relative, query)
 
-  def fromString(string: String): Either[Throwable, URL] =
+  def fromString(string: String): Either[HttpError, URL] = {
+    val invalidURL = Left(HttpError.BadRequest(s"Invalid URL: $string"))
     for {
-      uri <- Try(new URI(string)).toEither
-      url <- (if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)) match {
+      url <- Try(new URI(string)).toEither match {
+        case Left(_)      => invalidURL
+        case Right(value) => Right(value)
+      }
+      url <- (if (url.isAbsolute) fromAbsoluteURI(url) else fromRelativeURI(url)) match {
+        case None        => invalidURL
         case Some(value) => Right(value)
-        case None        => Left(new URISyntaxException(string, "Invalid URL"))
       }
 
     } yield url
+  }
 
   def asString(url: URL): String = {
     def withQuery(u: String): String =
