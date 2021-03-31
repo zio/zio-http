@@ -73,6 +73,7 @@ lazy val zhttp = (project in file("./zio-http"))
     ThisBuild / githubWorkflowPublish := Seq(
       WorkflowStep.Sbt(
         List("ci-release"),
+        name = Some("Publish JARs"),
         env = Map(
           "PGP_PASSPHRASE" -> "${{ secrets.PGP_PASSPHRASE }}",
           "PGP_SECRET" -> "${{ secrets.PGP_SECRET }}",
