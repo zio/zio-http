@@ -1,7 +1,8 @@
 import java.util.concurrent.TimeUnit
 import BuildHelper.{Scala213, stdSettings}
+
 import scala.concurrent.duration.FiniteDuration
-import sbt.enablePlugins
+import sbt.{ThisBuild, enablePlugins}
 
 // ZIO Version
 val zioVersion       = "1.0.5"
@@ -15,21 +16,7 @@ lazy val root = (project in file("."))
   .aggregate(zhttp, zhttpBenchmarks, example)
 
 // CI Configuration
-ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
-ThisBuild / githubWorkflowPublishTargetBranches +=
-  RefPredicate.StartsWith(Ref.Tag("v"))
 
-ThisBuild / githubWorkflowPublish := Seq(
-  WorkflowStep.Sbt(
-    List("ci-release"),
-    env = Map(
-      "PGP_PASSPHRASE" -> "${{ secrets.PGP_PASSPHRASE }}",
-      "PGP_SECRET" -> "${{ secrets.PGP_SECRET }}",
-      "SONATYPE_PASSWORD" -> "${{ secrets.SONATYPE_PASSWORD }}",
-      "SONATYPE_USERNAME" -> "${{ secrets.SONATYPE_USERNAME }}"
-    )
-  )
-)
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
 ThisBuild / githubWorkflowBuildPreamble :=
@@ -79,6 +66,21 @@ lazy val zhttp = (project in file("./zio-http"))
           new URL("https://github.com/amitksingh1490"),
         ),
       ),
+    ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org",
+    ThisBuild / githubWorkflowPublishTargetBranches :=
+      Seq(RefPredicate.StartsWith(Ref.Tag("v")), RefPredicate.Equals(Ref.Branch("fix/release-automation"))),
+
+    ThisBuild / githubWorkflowPublish := Seq(
+      WorkflowStep.Sbt(
+        List("ci-release"),
+        env = Map(
+          "PGP_PASSPHRASE" -> "${{ secrets.PGP_PASSPHRASE }}",
+          "PGP_SECRET" -> "${{ secrets.PGP_SECRET }}",
+          "SONATYPE_PASSWORD" -> "${{ secrets.SONATYPE_PASSWORD }}",
+          "SONATYPE_USERNAME" -> "${{ secrets.SONATYPE_USERNAME }}"
+        )
+      )
+    ),
     libraryDependencies ++=
       Seq(
         "dev.zio" %% "zio"         % zioVersion,
