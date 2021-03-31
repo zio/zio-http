@@ -2,6 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import zio.Chunk
+import zio.blocking.Blocking
 import zio.stream.ZStream
 
 /**
@@ -13,6 +14,21 @@ object HttpData {
   case object Empty                                            extends HttpData[Any, Nothing]
   final case class CompleteData(data: Chunk[Byte])             extends HttpData[Any, Nothing]
   final case class StreamData[R, E](data: ZStream[R, E, Byte]) extends HttpData[R, E]
+
+  sealed trait FormDataContent extends Product with Serializable
+
+  final case class FileData(name: String, contentType: String, content: ZStream[Blocking, Throwable, Byte])
+      extends FormDataContent
+  final case class AttributeData(name: String, content: ZStream[Blocking, Throwable, Byte]) extends FormDataContent
+
+  object MultipartFormData {
+    def empty: MultipartFormData = MultipartFormData(Map.empty, Map.empty)
+  }
+
+  final case class MultipartFormData(
+    attributes: Map[String, AttributeData],
+    files: Map[String, FileData],
+  ) extends HttpData[Any, Nothing]
 
   /**
    * Helper to create CompleteData from ByteBuf

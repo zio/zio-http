@@ -33,6 +33,10 @@ trait EncodeResponse {
 
       case HttpData.Empty =>
         jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, 0)
+
+      case HttpData.MultipartFormData(_, _) =>
+        // We don't support sending a Multipart/Formdata response
+        ()
     }
     new JDefaultHttpResponse(jVersion, jStatus, jHttpHeaders)
   }

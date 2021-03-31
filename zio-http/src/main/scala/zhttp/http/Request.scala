@@ -15,7 +15,6 @@ final case class Request(
     case HttpData.CompleteData(data) => Option(data.map(_.toChar).mkString)
     case _                           => Option.empty
   }
-
 }
 
 object Request {}

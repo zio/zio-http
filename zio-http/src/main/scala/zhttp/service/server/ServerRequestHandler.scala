@@ -64,17 +64,18 @@ final case class ServerRequestHandler[R](
         ctx.write(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
         releaseOrIgnore(jReq)
         content match {
-          case HttpData.StreamData(data)   =>
+          case HttpData.StreamData(data)        =>
             zExec.unsafeExecute_(ctx) {
               for {
                 _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(JUnpooled.copiedBuffer(c.toArray))))
                 _ <- ChannelFuture.unit(ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT))
               } yield ()
             }
-          case HttpData.CompleteData(data) =>
+          case HttpData.CompleteData(data)      =>
             ctx.write(JUnpooled.copiedBuffer(data.toArray), ctx.channel().voidPromise())
             ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
-          case HttpData.Empty              => ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
+          case HttpData.MultipartFormData(_, _) => ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
+          case HttpData.Empty                   => ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
         }
         ()
 
