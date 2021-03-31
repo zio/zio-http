@@ -1,4 +1,4 @@
-# ZIO Http
+# ZIO Http test
 
 ZIO Http is a scala library for building http apps. It is powered by [ZIO] and [netty] and aims at being the defacto solution for writing, highly scalable and [performant](#benchmarks) web applications using idiomatic scala.
 
