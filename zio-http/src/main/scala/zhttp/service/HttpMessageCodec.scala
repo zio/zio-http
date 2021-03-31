@@ -63,14 +63,18 @@ trait HttpMessageCodec {
    * Converts Request to JFullHttpRequest
    */
   def encodeRequest(jVersion: JHttpVersion, req: Request): JFullHttpRequest = {
-    val method  = req.method.asJHttpMethod
-    val uri     = req.url.asString
-    val content = req.getBodyAsString match {
+    val method      = req.method.asJHttpMethod
+    val uri         = req.url.asString
+    val content     = req.getBodyAsString match {
       case Some(text) => JUnpooled.copiedBuffer(text, HTTP_CHARSET)
       case None       => JUnpooled.EMPTY_BUFFER
     }
-    val headers = Header.disassemble(req.headers)
-    val jReq    = new JDefaultFullHttpRequest(jVersion, method, uri, content)
+    val headers     = Header.disassemble(req.headers)
+    val writerIndex = content.writerIndex()
+    if (writerIndex != 0) {
+      headers.set(JHttpHeaderNames.CONTENT_LENGTH, writerIndex.toString())
+    }
+    val jReq        = new JDefaultFullHttpRequest(jVersion, method, uri, content)
     jReq.headers().set(headers)
 
     jReq
