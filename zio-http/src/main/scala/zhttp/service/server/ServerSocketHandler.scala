@@ -10,12 +10,12 @@ import zhttp.socket.{Socket, WebSocketFrame}
 final case class ServerSocketHandler[R, E](
   zExec: UnsafeChannelExecutor[R],
   socket: Socket[R, E, WebSocketFrame, WebSocketFrame],
-) extends JSimpleChannelInboundHandler[JWebSocketFrame] {
+) extends JSimpleChannelInboundHandler[JWebSocketFrame]
+    with ServerHttpExceptionHandler { self =>
 
   /**
    * Unsafe channel reader for WSFrame
    */
-
   override def channelRead0(ctx: JChannelHandlerContext, msg: JWebSocketFrame): Unit = {
     WebSocketFrame.fromJFrame(msg) match {
       case Some(frame) =>
@@ -26,6 +26,15 @@ final case class ServerSocketHandler[R, E](
         }
 
       case _ => ()
+    }
+  }
+
+  /**
+   * Handles exceptions that throws
+   */
+  override def exceptionCaught(ctx: JChannelHandlerContext, cause: Throwable): Unit = {
+    if (self.canThrowException(cause)) {
+      super.exceptionCaught(ctx, cause)
     }
   }
 }
