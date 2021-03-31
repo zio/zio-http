@@ -15,6 +15,7 @@ lazy val root = (project in file("."))
   .aggregate(zhttp, zhttpBenchmarks, example)
 
 // CI Configuration
+ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 ThisBuild / githubWorkflowPublishTargetBranches +=
   RefPredicate.StartsWith(Ref.Tag("v"))
 
