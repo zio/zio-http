@@ -30,6 +30,8 @@ categories:
       - 'chores'
       - 'ci'
 change-template: '- [ ] #$NUMBER $TITLE - @$AUTHOR $DESC '
+exclude-labels:
+  - 'skip-changelog'
 template: |
   ## Changes
 
