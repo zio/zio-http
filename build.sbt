@@ -15,17 +15,31 @@ lazy val root = (project in file("."))
   .aggregate(zhttp, zhttpBenchmarks, example)
 
 // CI Configuration
-ThisBuild / githubWorkflowPublishTargetBranches := List()
+ThisBuild / githubWorkflowPublishTargetBranches +=
+  RefPredicate.StartsWith(Ref.Tag("v"))
+
+ThisBuild / githubWorkflowPublish := Seq(
+  WorkflowStep.Sbt(
+    List("ci-release"),
+    env = Map(
+      "PGP_PASSPHRASE" -> "${{ secrets.PGP_PASSPHRASE }}",
+      "PGP_SECRET" -> "${{ secrets.PGP_SECRET }}",
+      "SONATYPE_PASSWORD" -> "${{ secrets.SONATYPE_PASSWORD }}",
+      "SONATYPE_USERNAME" -> "${{ secrets.SONATYPE_USERNAME }}"
+    )
+  )
+)
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
-ThisBuild / githubWorkflowBuildPreamble := WorkflowJob(
-  "fmtCheck",
-  "Format",
-  List(
-    WorkflowStep.Run(List(s"sbt ++${Scala213} fmtCheck"), name = Some("Check formatting"))
-  ),
-  scalas = List(Scala213)
-).steps
+ThisBuild / githubWorkflowBuildPreamble :=
+  WorkflowJob(
+    "fmtCheck",
+    "Format",
+    List(
+      WorkflowStep.Run(List(s"sbt ++${Scala213} fmtCheck"), name = Some("Check formatting")),
+    ),
+    scalas = List(Scala213),
+  ).steps
 
 // Test Configuration
 ThisBuild / libraryDependencies ++=
@@ -41,7 +55,6 @@ ThisBuild / testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 lazy val zhttp = (project in file("./zio-http"))
   .settings(stdSettings("zhttp"))
   .settings(
-    version := "1.0.0.0-RC13",
     organization := "io.d11",
     organizationName := "d11",
     licenses += ("MIT License", new URL("https://github.com/dream11/zio-http/blob/master/LICENSE")),
@@ -65,12 +78,6 @@ lazy val zhttp = (project in file("./zio-http"))
           new URL("https://github.com/amitksingh1490"),
         ),
       ),
-    publishMavenStyle in ThisBuild := true,
-    publishTo := {
-      val nexus = "https://s01.oss.sonatype.org/"
-      if (isSnapshot.value) Some("snapshots" at nexus + "content/repositories/snapshots")
-      else Some("releases" at nexus + "service/local/staging/deploy/maven2")
-    },
     libraryDependencies ++=
       Seq(
         "dev.zio" %% "zio"         % zioVersion,
