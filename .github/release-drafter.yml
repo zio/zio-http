@@ -29,7 +29,19 @@ categories:
       - 'build'
       - 'chores'
       - 'ci'
-change-template: '- [ ] #$NUMBER $TITLE - @$AUTHOR $DESC '
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
+version-resolver:
+  major:
+    labels:
+      - 'major'
+  minor:
+    labels:
+      - 'minor'
+  patch:
+    labels:
+      - 'patch'
+  default: patch
 exclude-labels:
   - 'skip-changelog'
 template: |
@@ -37,7 +49,7 @@ template: |
 
   $CHANGES
 branches:
-  - main
+  - chore/release-drafter-integration
 autolabeler:
   - label: 'chore'
     files:
