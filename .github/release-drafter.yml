@@ -48,8 +48,6 @@ template: |
   ## Changes
 
   $CHANGES
-branches:
-  - chore/release-drafter-integration
 autolabeler:
   - label: 'chore'
     files:
