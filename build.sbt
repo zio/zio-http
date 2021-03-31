@@ -68,7 +68,7 @@ lazy val zhttp = (project in file("./zio-http"))
       ),
     ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org",
     ThisBuild / githubWorkflowPublishTargetBranches :=
-      Seq(RefPredicate.StartsWith(Ref.Tag("v")), RefPredicate.Equals(Ref.Branch("fix/release-automation"))),
+      Seq(RefPredicate.StartsWith(Ref.Tag("v")), RefPredicate.Equals(Ref.Branch("main"))),
 
     ThisBuild / githubWorkflowPublish := Seq(
       WorkflowStep.Sbt(
