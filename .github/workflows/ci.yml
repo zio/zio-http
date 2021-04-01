@@ -12,6 +12,7 @@ on:
     branches: ['*']
   push:
     branches: ['*']
+    tags: [v*]
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
