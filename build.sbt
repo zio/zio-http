@@ -85,7 +85,7 @@ lazy val zhttp = (project in file("./zio-http"))
       Seq(
         "dev.zio" %% "zio"         % zioVersion,
         "dev.zio" %% "zio-streams" % zioVersion,
-        "io.netty" % "netty-all"   % "4.1.62.Final",
+        "io.netty" % "netty-all"   % "4.1.63.Final",
       ),
   )
 
