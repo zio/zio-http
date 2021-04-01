@@ -15,7 +15,6 @@ lazy val root = (project in file("."))
   .aggregate(zhttp, zhttpBenchmarks, example)
 
 // CI Configuration
-Global / sonatypeCredentialHost := "s01.oss.sonatype.org"
 ThisBuild / githubWorkflowPublishTargetBranches :=
   Seq(RefPredicate.StartsWith(Ref.Tag("v")), RefPredicate.Equals(Ref.Branch("release-ci-experiments")))
 
@@ -57,6 +56,7 @@ ThisBuild / testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 lazy val zhttp = (project in file("./zio-http"))
   .settings(stdSettings("zhttp"))
   .settings(
+    sonatypeCredentialHost := "s01.oss.sonatype.org",
     organization := "io.d11",
     organizationName := "d11",
     licenses += ("MIT License", new URL("https://github.com/dream11/zio-http/blob/master/LICENSE")),
