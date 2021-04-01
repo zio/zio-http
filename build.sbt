@@ -15,7 +15,7 @@ lazy val root = (project in file("."))
   .aggregate(zhttp, zhttpBenchmarks, example)
 
 // CI Configuration
-
+ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
 
 ThisBuild / githubWorkflowPublish :=
