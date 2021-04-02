@@ -126,3 +126,15 @@ jobs:
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
         run: sbt ++${{ matrix.scala }} ci-release
+
+  update_release_draft:
+    name: Release Drafter
+    if: ${{ github.base_ref == 'main' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.4]
+        java: [adopt@1.8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: release-drafter/release-drafter@v5
