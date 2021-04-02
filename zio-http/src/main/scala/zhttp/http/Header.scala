@@ -27,7 +27,7 @@ object Header {
   // Helper utils to create Header instances
   val contentTypeJson: Header      = Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.APPLICATION_JSON)
   val contentTypeTextPlain: Header = Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.TEXT_PLAIN)
-  val contentTypeFormUrl: Header   =
+  val contentTypeFormUrlEncoded: Header   =
     Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED)
 
   /**
