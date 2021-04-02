@@ -62,13 +62,13 @@ lazy val zhttp = (project in file("./zio-http"))
     sonatypeSnapshotResolver := {
       MavenRepository(
         "sonatype-snapshots",
-        s"https://${sonatypeCredentialHost.value}/content/repositories/snapshots",
+        s"https://s01.oss.sonatype.org/content/repositories/snapshots",
       )
     },
     sonatypeStagingResolver := {
       MavenRepository(
         "sonatype-staging",
-        s"https://${sonatypeCredentialHost.value}/service/local/staging/deploy/maven2",
+        s"https://s01.oss.sonatype.org/service/local/staging/deploy/maven2",
       )
     },
     organization := "io.d11",
