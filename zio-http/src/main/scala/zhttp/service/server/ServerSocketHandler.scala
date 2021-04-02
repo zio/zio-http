@@ -11,7 +11,7 @@ final case class ServerSocketHandler[R, E](
   zExec: UnsafeChannelExecutor[R],
   socket: Socket[R, E, WebSocketFrame, WebSocketFrame],
 ) extends JSimpleChannelInboundHandler[JWebSocketFrame]
-    with ServerHttpExceptionHandler { self =>
+    with ServerExceptionHandler { self =>
 
   /**
    * Unsafe channel reader for WSFrame

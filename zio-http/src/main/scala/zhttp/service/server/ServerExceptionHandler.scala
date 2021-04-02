@@ -5,7 +5,7 @@ import java.io.IOException
 /**
  * Default Http exception handler that return a boolean
  */
-trait ServerHttpExceptionHandler {
+trait ServerExceptionHandler {
   def canThrowException(cause: Throwable): Boolean = {
     cause match {
       case m: IOException =>

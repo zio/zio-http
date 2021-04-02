@@ -15,7 +15,7 @@ final case class ServerRequestHandler[R, E: SilentResponse](
   app: Http[R, E],
 ) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
     with HttpMessageCodec
-    with ServerHttpExceptionHandler {
+    with ServerExceptionHandler {
 
   self =>
 
