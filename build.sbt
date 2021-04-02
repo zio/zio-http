@@ -59,17 +59,10 @@ lazy val zhttp = (project in file("./zio-http"))
   .settings(
     sonatypeCredentialHost := "s01.oss.sonatype.org",
     sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
-    sonatypeSnapshotResolver := {
-      MavenRepository(
-        "sonatype-snapshots",
-        s"https://s01.oss.sonatype.org/content/repositories/snapshots",
-      )
-    },
-    sonatypeStagingResolver := {
-      MavenRepository(
-        "sonatype-staging",
-        s"https://s01.oss.sonatype.org/service/local/staging/deploy/maven2",
-      )
+    publishTo := {
+      val nexus = "https://s01.oss.sonatype.org/"
+      if (isSnapshot.value) Some("snapshots" at nexus + "content/repositories/snapshots")
+      else Some("releases" at nexus + "service/local/staging/deploy/maven2")
     },
     organization := "io.d11",
     organizationName := "d11",
