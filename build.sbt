@@ -16,7 +16,8 @@ lazy val root = (project in file("."))
 
 // CI Configuration
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
-ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
+ThisBuild / githubWorkflowPublishTargetBranches :=
+  Seq(RefPredicate.StartsWith(Ref.Tag("v")), RefPredicate.Equals(Ref.Branch("experiment-release")))
 
 ThisBuild / githubWorkflowPublish :=
   Seq(
@@ -58,6 +59,18 @@ lazy val zhttp = (project in file("./zio-http"))
   .settings(
     sonatypeCredentialHost := "s01.oss.sonatype.org",
     sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
+    sonatypeSnapshotResolver := {
+      MavenRepository(
+        "sonatype-snapshots",
+        s"https://${sonatypeCredentialHost.value}/content/repositories/snapshots",
+      )
+    },
+    sonatypeStagingResolver := {
+      MavenRepository(
+        "sonatype-staging",
+        s"https://${sonatypeCredentialHost.value}/service/local/staging/deploy/maven2",
+      )
+    },
     organization := "io.d11",
     organizationName := "d11",
     licenses += ("MIT License", new URL("https://github.com/dream11/zio-http/blob/master/LICENSE")),
