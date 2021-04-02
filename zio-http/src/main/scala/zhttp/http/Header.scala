@@ -25,9 +25,16 @@ object Header {
       .toList
 
   // Helper utils to create Header instances
-  val contentTypeJson: Header      = Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.APPLICATION_JSON)
-  val contentTypeTextPlain: Header = Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.TEXT_PLAIN)
-  val contentTypeFormUrlEncoded: Header   =
+  val acceptJson: Header     = Header(JHttpHeaderNames.ACCEPT, JHttpHeaderValues.APPLICATION_JSON)
+  val acceptXhtmlXml: Header = Header(JHttpHeaderNames.ACCEPT, JHttpHeaderValues.APPLICATION_XHTML)
+  val acceptXml: Header      = Header(JHttpHeaderNames.ACCEPT, JHttpHeaderValues.APPLICATION_XML)
+  val acceptAll: Header      = Header(JHttpHeaderNames.ACCEPT, "*/*")
+
+  val contentTypeJson: Header           = Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.APPLICATION_JSON)
+  val contentTypeXml: Header            = Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.APPLICATION_XML)
+  val contentTypeXhtmlXml: Header       = Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.APPLICATION_XHTML)
+  val contentTypeTextPlain: Header      = Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.TEXT_PLAIN)
+  val contentTypeFormUrlEncoded: Header =
     Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED)
 
   /**
