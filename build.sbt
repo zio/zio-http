@@ -4,20 +4,27 @@ import scala.concurrent.duration.FiniteDuration
 import sbt.enablePlugins
 
 // ZIO Version
-val zioVersion       = "1.0.5"
-val zioConfigVersion = "1.0.2"
+val zioVersion            = "1.0.5"
+val zioConfigVersion      = "1.0.2"
+val releaseDrafterVersion = "5"
 
 lazy val root = (project in file("."))
   .settings(stdSettings("root"))
-  .settings(
-    skip in publish := true,
-  )
+  .settings(skip in publish := true)
   .aggregate(zhttp, zhttpBenchmarks, example)
 
 // CI Configuration
+ThisBuild / githubWorkflowAddedJobs :=
+  Seq(
+    WorkflowJob(
+      id = "update_release_draft",
+      name = "Release Drafter",
+      steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
+      cond = Option("${{ github.base_ref == 'main' }}"),
+    ),
+  )
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
-
 ThisBuild / githubWorkflowPublish :=
   Seq(
     WorkflowStep.Sbt(
