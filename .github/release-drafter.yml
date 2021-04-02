@@ -51,9 +51,11 @@ template: |
 autolabeler:
   - label: 'chore'
     files:
-      - '*.md'
+      - '*.yml'
+      - '*.conf'
+      - '*.sbt'
     branch:
-      - '/docs{0,1}\/.+/'
+      - '/chore\/.+/'    
   - label: 'bug'
     branch:
       - '/fix\/.+/'
@@ -63,3 +65,10 @@ autolabeler:
     branch:
       - '/feat\/.+/'
       - '/refactor\/.+/'
+  - label: 'docs'
+      files:
+        - '*.md'
+        - '*.txt'
+      branch:
+        - '/doc\/.+/'    
+        - '/docs\/.+/'    
