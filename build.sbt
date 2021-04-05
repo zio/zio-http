@@ -69,12 +69,12 @@ lazy val zhttp = (project in file("./zio-http"))
     organization := "io.d11",
     organizationName := "d11",
     licenses += ("MIT License", new URL("https://github.com/dream11/zio-http/blob/master/LICENSE")),
-    homepage in ThisBuild := Some(url("https://github.com/dream11/zio-http")),
-    scmInfo in ThisBuild :=
+    ThisBuild / homepage := Some(url("https://github.com/dream11/zio-http")),
+    ThisBuild / scmInfo :=
       Some(
         ScmInfo(url("https://github.com/dream11/zio-http"), "scm:git@github.com:dream11/zio-http.git"),
       ),
-    developers in ThisBuild :=
+    ThisBuild / developers :=
       List(
         Developer(
           "tusharmath",
@@ -115,7 +115,7 @@ lazy val example = (project in file("./example"))
   .settings(publishSetting(false))
   .settings(
     fork := true,
-    mainClass in (Compile, run) := Option("HelloWorldAdvanced"),
+    Compile / run / mainClass := Option("HelloWorldAdvanced"),
   )
   .dependsOn(zhttp)
 

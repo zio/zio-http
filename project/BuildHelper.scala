@@ -60,15 +60,15 @@ object BuildHelper extends ScalaSettings {
       sonatypeProfileName := "io.d11"
     )
     val skipSettings = Seq(
-      skip in publish := true,
+      publish / skip := true,
       publishArtifact := false
     )
     if (publishArtifacts) publishSettings else publishSettings ++ skipSettings
   }
   def stdSettings(prjName: String) = Seq(
     name := s"$prjName",
-    crossScalaVersions in ThisBuild := Seq(Scala213, ScalaDotty),
-    scalaVersion in ThisBuild := Scala213,
+    ThisBuild / crossScalaVersions := Seq(Scala213, ScalaDotty),
+    ThisBuild / scalaVersion := Scala213,
     useScala3doc := true,
     scalacOptions := stdOptions ++ extraOptions(scalaVersion.value, isDotty.value, optimize = !isSnapshot.value),
     scalacOptions --= {
@@ -85,7 +85,7 @@ object BuildHelper extends ScalaSettings {
         "com.github.liancheng" %% "organize-imports" % "0.5.0",
         "com.github.vovapolu"  %% "scaluzzi"         % "0.1.16",
       ),
-    parallelExecution in Test := true,
+    Test / parallelExecution := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
     autoAPIMappings := true,
   )
