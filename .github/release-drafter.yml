@@ -66,9 +66,9 @@ autolabeler:
       - '/feat\/.+/'
       - '/refactor\/.+/'
   - label: 'docs'
-      files:
-        - '*.md'
-        - '*.txt'
-      branch:
-        - '/doc\/.+/'    
-        - '/docs\/.+/'    
+    files:
+      - '*.md'
+      - '*.txt'
+    branch:
+      - '/doc\/.+/'    
+      - '/docs\/.+/'    
