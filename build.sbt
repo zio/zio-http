@@ -14,6 +14,7 @@ lazy val root = (project in file("."))
     publishArtifact := false,
     sonatypeCredentialHost := "s01.oss.sonatype.org",
     sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
+    sonatypeProfileName := "io.d11",
   )
   .aggregate(zhttp, zhttpBenchmarks, example)
 
@@ -102,6 +103,7 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
   .settings(
     skip in publish := true,
     publishArtifact := false,
+    sonatypeProfileName := "io.d11",
     sonatypeCredentialHost := "s01.oss.sonatype.org",
     sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     libraryDependencies ++=
@@ -116,6 +118,7 @@ lazy val example = (project in file("./example"))
     fork := true,
     skip in publish := true,
     publishArtifact := false,
+    sonatypeProfileName := "io.d11",
     sonatypeCredentialHost := "s01.oss.sonatype.org",
     sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     mainClass in (Compile, run) := Option("HelloWorldAdvanced"),
