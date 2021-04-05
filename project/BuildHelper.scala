@@ -53,7 +53,7 @@ object BuildHelper extends ScalaSettings {
       case _             => Seq.empty
     }
 
-  def publishSetting(skipPublish: Boolean) = {
+  def publishSetting(publishArtifacts: Boolean) = {
     val publishSettings = Seq(
       sonatypeCredentialHost := "s01.oss.sonatype.org",
       sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
@@ -63,7 +63,7 @@ object BuildHelper extends ScalaSettings {
       skip in publish := true,
       publishArtifact := false
     )
-    if (!skipPublish) publishSettings else publishSettings ++ skipSettings
+    if (publishArtifacts) publishSettings else publishSettings ++ skipSettings
   }
   def stdSettings(prjName: String) = Seq(
     name := s"$prjName",

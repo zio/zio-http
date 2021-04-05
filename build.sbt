@@ -11,7 +11,7 @@ val releaseDrafterVersion = "5"
 
 lazy val root = (project in file("."))
   .settings(stdSettings("root"))
-  .settings(publishSetting(true))
+  .settings(publishSetting(false))
   .aggregate(zhttp, zhttpBenchmarks, example)
 
 // CI Configuration
@@ -64,7 +64,7 @@ ThisBuild / testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 // Project zio-http
 lazy val zhttp = (project in file("./zio-http"))
   .settings(stdSettings("zhttp"))
-  .settings(publishSetting(false))
+  .settings(publishSetting(true))
   .settings(
     organization := "io.d11",
     organizationName := "d11",
@@ -102,7 +102,7 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
   .enablePlugins(JmhPlugin)
   .dependsOn(zhttp)
   .settings(stdSettings("zhttpBenchmarks"))
-  .settings(publishSetting(true))
+  .settings(publishSetting(false))
   .settings(
     libraryDependencies ++=
       Seq(
@@ -112,7 +112,7 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
 
 lazy val example = (project in file("./example"))
   .settings(stdSettings("example"))
-  .settings(publishSetting(true))
+  .settings(publishSetting(false))
   .settings(
     fork := true,
     mainClass in (Compile, run) := Option("HelloWorldAdvanced"),
