@@ -11,12 +11,13 @@ lazy val root = (project in file("."))
   .settings(stdSettings("root"))
   .settings(
     skip in publish := true,
+    publishArtifact := false,
+    sonatypeCredentialHost := "s01.oss.sonatype.org",
+    sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
   )
   .aggregate(zhttp, zhttpBenchmarks, example)
 
 // CI Configuration
-Global / sonatypeCredentialHost := "s01.oss.sonatype.org"
-Global / sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches :=
   Seq(RefPredicate.StartsWith(Ref.Tag("v")), RefPredicate.Equals(Ref.Branch("experiment-release")))
@@ -100,6 +101,9 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
   .settings(stdSettings("zhttpBenchmarks"))
   .settings(
     skip in publish := true,
+    publishArtifact := false,
+    sonatypeCredentialHost := "s01.oss.sonatype.org",
+    sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     libraryDependencies ++=
       Seq(
         "dev.zio" %% "zio" % zioVersion,
@@ -111,6 +115,9 @@ lazy val example = (project in file("./example"))
   .settings(
     fork := true,
     skip in publish := true,
+    publishArtifact := false,
+    sonatypeCredentialHost := "s01.oss.sonatype.org",
+    sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
     mainClass in (Compile, run) := Option("HelloWorldAdvanced"),
   )
   .dependsOn(zhttp)
