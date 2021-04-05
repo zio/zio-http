@@ -1,5 +1,6 @@
 import java.util.concurrent.TimeUnit
-import BuildHelper.{Scala213, stdSettings}
+import BuildHelper.{Scala213, publishSetting, stdSettings}
+
 import scala.concurrent.duration.FiniteDuration
 import sbt.enablePlugins
 
@@ -10,13 +11,7 @@ val releaseDrafterVersion = "5"
 
 lazy val root = (project in file("."))
   .settings(stdSettings("root"))
-  .settings(
-    skip in publish := true,
-    publishArtifact := false,
-    sonatypeCredentialHost := "s01.oss.sonatype.org",
-    sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
-    sonatypeProfileName := "io.d11",
-  )
+  .settings(publishSetting(true))
   .aggregate(zhttp, zhttpBenchmarks, example)
 
 // CI Configuration
@@ -40,6 +35,7 @@ ThisBuild / githubWorkflowPublish :=
         "PGP_SECRET"        -> "${{ secrets.PGP_SECRET }}",
         "SONATYPE_PASSWORD" -> "${{ secrets.SONATYPE_PASSWORD }}",
         "SONATYPE_USERNAME" -> "${{ secrets.SONATYPE_USERNAME }}",
+        "CI_SONATYPE_RELEASE" -> "${{ secrets.CI_SONATYPE_RELEASE }}",
       ),
     ),
   )
@@ -68,10 +64,8 @@ ThisBuild / testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 // Project zio-http
 lazy val zhttp = (project in file("./zio-http"))
   .settings(stdSettings("zhttp"))
+  .settings(publishSetting(false))
   .settings(
-    sonatypeCredentialHost := "s01.oss.sonatype.org",
-    sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
-    sonatypeProfileName := "io.d11",
     organization := "io.d11",
     organizationName := "d11",
     licenses += ("MIT License", new URL("https://github.com/dream11/zio-http/blob/master/LICENSE")),
@@ -108,12 +102,8 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
   .enablePlugins(JmhPlugin)
   .dependsOn(zhttp)
   .settings(stdSettings("zhttpBenchmarks"))
+  .settings(publishSetting(true))
   .settings(
-    skip in publish := true,
-    publishArtifact := false,
-    sonatypeCredentialHost := "s01.oss.sonatype.org",
-    sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
-    sonatypeProfileName := "io.d11",
     libraryDependencies ++=
       Seq(
         "dev.zio" %% "zio" % zioVersion,
@@ -122,13 +112,9 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
 
 lazy val example = (project in file("./example"))
   .settings(stdSettings("example"))
+  .settings(publishSetting(true))
   .settings(
     fork := true,
-    skip in publish := true,
-    publishArtifact := false,
-    sonatypeCredentialHost := "s01.oss.sonatype.org",
-    sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
-    sonatypeProfileName := "io.d11",
     mainClass in (Compile, run) := Option("HelloWorldAdvanced"),
   )
   .dependsOn(zhttp)

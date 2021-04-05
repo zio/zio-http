@@ -2,6 +2,7 @@ import sbt._
 import Keys._
 import dotty.tools.sbtplugin.DottyPlugin.autoImport._
 import scalafix.sbt.ScalafixPlugin.autoImport._
+import xerial.sbt.Sonatype.autoImport._
 
 object BuildHelper extends ScalaSettings {
   val Scala213   = "2.13.5"
@@ -52,6 +53,18 @@ object BuildHelper extends ScalaSettings {
       case _             => Seq.empty
     }
 
+  def publishSetting(skipPublish: Boolean) = {
+    val publishSettings = Seq(
+      sonatypeCredentialHost := "s01.oss.sonatype.org",
+      sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
+      sonatypeProfileName := "io.d11"
+    )
+    val skipSettings = Seq(
+      skip in publish := true,
+      publishArtifact := false
+    )
+    if (!skipPublish) publishSettings else publishSettings ++ skipSettings
+  }
   def stdSettings(prjName: String) = Seq(
     name := s"$prjName",
     crossScalaVersions in ThisBuild := Seq(Scala213, ScalaDotty),
