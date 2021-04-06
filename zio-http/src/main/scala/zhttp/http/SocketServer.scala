@@ -18,14 +18,14 @@ object SocketServer {
     subProtocol: Option[String] = None,
     // Triggered when the socket is upgraded
     // there is a failure, ctx.close() is called
-    onOpen: Connection => ZIO[R, E, Unit] = (_: Connection) => ZIO.succeed(()),
+    onOpen: Connection => ZIO[R, E, Unit] = (_: Connection) => ZIO.unit,
     // There is a failure, ctx.close() is called.
     onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame] = (_: WebSocketFrame) => ZStream.empty,
     // No error channel because there is nothing left to handle it.
     // Channel should get closed after execution.
-    onError: Throwable => ZIO[R, Nothing, Unit] = (_: Throwable) => ZIO.succeed(()),
+    onError: Throwable => ZIO[R, Nothing, Unit] = (_: Throwable) => ZIO.unit,
     // Last thing in the pipeline, so it can't fail.
-    onClose: (Connection, Cause) => ZIO[R, Nothing, Unit] = (_: Connection, _: Cause) => ZIO.succeed(()),
+    onClose: (Connection, Cause) => ZIO[R, Nothing, Unit] = (_: Connection, _: Cause) => ZIO.unit,
   )
 
   private case class SubProtocol(name: String)                                         extends SocketServer[Any, Nothing]
