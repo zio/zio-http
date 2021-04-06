@@ -30,8 +30,8 @@ final case class ServerSocketHandler[R, E](
   }
 
   override def exceptionCaught(ctx: JChannelHandlerContext, x: Throwable): Unit =
-    zExec.unsafeExecute_(ctx)(ss.onError(x))
+    zExec.unsafeExecute_(ctx)(ss.onError(x).uninterruptible)
 
   override def channelUnregistered(ctx: JChannelHandlerContext): Unit =
-    zExec.unsafeExecute_(ctx)(ss.onClose(ctx.channel().remoteAddress(), None))
+    zExec.unsafeExecute_(ctx)(ss.onClose(ctx.channel().remoteAddress(), None).uninterruptible)
 }
