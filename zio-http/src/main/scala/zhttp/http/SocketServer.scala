@@ -1,10 +1,8 @@
 package zhttp.http
 
-import zio._
 import zhttp.socket.WebSocketFrame
+import zio._
 import zio.stream.ZStream
-
-import scala.annotation.tailrec
 
 sealed trait SocketServer[-R, +E] { self =>
   def ++[R1 <: R, E1 >: E](other: SocketServer[R1, E1]): SocketServer[R1, E1] = SocketServer.Concat(self, other)
@@ -46,13 +44,14 @@ object SocketServer {
   def error[R](onError: Throwable => ZIO[R, Nothing, Unit]): SocketServer[R, Nothing]               = OnError(onError)
   def close[R](onClose: (Connection, Cause) => ZIO[R, Nothing, Unit]): SocketServer[R, Nothing]     = OnClose(onClose)
 
-  @tailrec
-  def settings[R, E](ss: SocketServer[R, E]): Settings[R, E] = ss match {
-    case SubProtocol(name)    => settings(subProtocol(name))
-    case OnOpen(onOpen)       => settings(open(onOpen))
-    case OnMessage(onMessage) => settings(message(onMessage))
-    case OnError(onError)     => settings(error(onError))
-    case OnClose(onClose)     => settings(close(onClose))
-    case Concat(a, b)         => settings(Concat(a, b))
+  def settings[R, E](ss: SocketServer[R, E])(
+    s: Settings[R, E] = Settings(None, _ => UIO(()), _ => ZStream.empty, _ => UIO(()), (_, _) => UIO(())),
+  ): Settings[R, E] = ss match {
+    case SubProtocol(name)    => s.copy(Option(name))
+    case OnOpen(onOpen)       => s.copy(onOpen = onOpen)
+    case OnMessage(onMessage) => s.copy(onMessage = onMessage)
+    case OnError(onError)     => s.copy(onError = onError)
+    case OnClose(onClose)     => s.copy(onClose = onClose)
+    case Concat(a, b)         => settings(b)(settings(a)(s))
   }
 }
