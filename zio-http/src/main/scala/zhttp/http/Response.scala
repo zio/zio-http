@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zhttp.socket.{Socket, WebSocketFrame}
+import zhttp.socket.WebSocket
 
 import java.io.{PrintWriter, StringWriter}
 
@@ -16,10 +16,7 @@ object Response {
   final case class HttpResponse[R](status: Status, headers: List[Header], content: HttpContent[R, String])
       extends Response[R, Nothing]
 
-  final case class SocketResponse[-R, +E](
-    socket: Socket[R, E, WebSocketFrame, WebSocketFrame],
-    subProtocol: Option[String],
-  ) extends Response[R, E]
+  final case class SocketResponse[R, E](ss: SocketServer[R, E]) extends Response[R, E]
 
   // Helpers
 
@@ -36,14 +33,12 @@ object Response {
   /**
    * Creates a new WebSocket Response with a sub-protocol
    */
-  def socket[R, E](subProtocol: String)(socket: Socket[R, E, WebSocketFrame, WebSocketFrame]): Response[R, E] =
-    SocketResponse(socket, Option(subProtocol))
+  def socket[R, E](ss: SocketServer[R, E]): Response[R, E] = SocketResponse(ss)
 
   /**
    * Creates a new WebSocket Response
    */
-  def socket[R, E](socket: Socket[R, E, WebSocketFrame, WebSocketFrame]): Response[R, E] =
-    SocketResponse(socket, None)
+  def socket[R, E](s: WebSocket[R, E]): Response[R, E] = socket(SocketServer.message(s.asStream(_)))
 
   def fromHttpError(error: HttpError): UResponse = {
     error match {

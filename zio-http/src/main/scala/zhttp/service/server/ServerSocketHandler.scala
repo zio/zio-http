@@ -2,14 +2,15 @@ package zhttp.service.server
 
 import zhttp.core.{JChannelHandlerContext, JSimpleChannelInboundHandler, JWebSocketFrame}
 import zhttp.service.{ChannelFuture, UnsafeChannelExecutor}
-import zhttp.socket.{Socket, WebSocketFrame}
+import zhttp.socket.WebSocketFrame
+import zhttp.http.SocketServer
 
 /**
  * Creates a new websocket handler
  */
 final case class ServerSocketHandler[R, E](
   zExec: UnsafeChannelExecutor[R],
-  socket: Socket[R, E, WebSocketFrame, WebSocketFrame],
+  ss: SocketServer.Settings[R, E],
 ) extends JSimpleChannelInboundHandler[JWebSocketFrame] {
 
   /**
@@ -20,7 +21,7 @@ final case class ServerSocketHandler[R, E](
     WebSocketFrame.fromJFrame(msg) match {
       case Some(frame) =>
         zExec.unsafeExecute_(ctx) {
-          socket(frame)
+          ss.onMessage(frame)
             .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toJWebSocketFrame)))
             .runDrain
         }
@@ -28,4 +29,10 @@ final case class ServerSocketHandler[R, E](
       case _ => ()
     }
   }
+
+  override def exceptionCaught(ctx: JChannelHandlerContext, x: Throwable): Unit =
+    zExec.unsafeExecute_(ctx)(ss.onError(x))
+
+  override def channelUnregistered(ctx: JChannelHandlerContext): Unit =
+    zExec.unsafeExecute_(ctx)(ss.onClose(ctx.channel().remoteAddress(), None))
 }
