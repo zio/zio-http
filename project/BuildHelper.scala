@@ -1,6 +1,5 @@
 import sbt._
 import Keys._
-import dotty.tools.sbtplugin.DottyPlugin.autoImport._
 import scalafix.sbt.ScalafixPlugin.autoImport._
 import xerial.sbt.Sonatype.autoImport._
 
