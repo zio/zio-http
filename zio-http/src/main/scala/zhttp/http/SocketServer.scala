@@ -3,14 +3,16 @@ package zhttp.http
 import zhttp.socket.WebSocketFrame
 import zio._
 import zio.stream.ZStream
+import java.net.{SocketAddress => JSocketAddress}
 
 sealed trait SocketServer[-R, +E] { self =>
   def ++[R1 <: R, E1 >: E](other: SocketServer[R1, E1]): SocketServer[R1, E1] = SocketServer.Concat(self, other)
+  def settings: SocketServer.Settings[R, E]                                   = SocketServer.settings(self)
 }
 
 object SocketServer {
-  type Connection
-  type Cause = Option[Throwable]
+  type Connection = JSocketAddress
+  type Cause      = Option[Throwable]
 
   // [R, Nothing, Boolean]
   // Boolean, [R, E, Unit]
@@ -25,6 +27,7 @@ object SocketServer {
     // Channel should get closed after execution.
     onError: Throwable => ZIO[R, Nothing, Unit] = (_: Throwable) => ZIO.unit,
     // Last thing in the pipeline, so it can't fail.
+    // TODO: Http Context may be required in certain cases
     onClose: (Connection, Cause) => ZIO[R, Nothing, Unit] = (_: Connection, _: Cause) => ZIO.unit,
   )
 

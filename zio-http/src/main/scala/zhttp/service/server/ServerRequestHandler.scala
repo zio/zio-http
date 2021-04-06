@@ -29,27 +29,34 @@ final case class ServerRequestHandler[R, E: SilentResponse](
     jReq: JFullHttpRequest,
     res: Response.SocketResponse[R, E],
   ): Unit = {
-    val hh = new JWebSocketServerHandshakerFactory(jReq.uri(), res.subProtocol.orNull, false).newHandshaker(jReq)
+    val settings = res.ss.settings
+    val hh       = new JWebSocketServerHandshakerFactory(jReq.uri(), settings.subProtocol.orNull, false).newHandshaker(jReq)
     if (hh == null) {
       JWebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel, ctx.channel().voidPromise())
     } else {
       val pl = ctx.channel().pipeline()
-      pl.addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket))
+      pl.addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, settings))
       try {
         // handshake can throw
         hh.handshake(ctx.channel(), jReq).addListener { (future: JChannelFuture) =>
+          // FAILURE CONDITION
           if (!future.isSuccess) {
             pl.remove(WEB_SOCKET_HANDLER)
             ctx.fireExceptionCaught(future.cause)
+            zExec.unsafeExecute_(ctx)(settings.onError(future.cause()))
             ()
           } else {
+            // SUCCESS
             pl.remove(HTTP_REQUEST_HANDLER)
+            // TODO: handle channel closure on failure
+            zExec.unsafeExecute_(ctx)(settings.onOpen(ctx.channel().remoteAddress()))
             ()
           }
         }
       } catch {
-        case _: JWebSocketHandshakeException =>
+        case cause: JWebSocketHandshakeException =>
           JWebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel, ctx.channel().voidPromise())
+          zExec.unsafeExecute_(ctx)(settings.onError(cause))
       }
     }
     ()
@@ -86,7 +93,7 @@ final case class ServerRequestHandler[R, E: SilentResponse](
         ctx.writeAndFlush(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
         releaseOrIgnore(jReq)
         ()
-      case res @ Response.SocketResponse(_, _)  =>
+      case res @ Response.SocketResponse(_) =>
         self.webSocketUpgrade(ctx, jReq, res)
         releaseOrIgnore(jReq)
         ()

@@ -22,6 +22,10 @@ final class UnsafeChannelExecutor[R](runtime: zio.Runtime[R]) {
 
     val cancel = runtime.unsafeRunAsyncCancelable(program) { exit =>
       cb(exit)
+
+      /// TODO: in case of failure close the channel
+      // ctx.exceptionCaught() or something else to propagate the error
+
       close.removeListener(listener)
     }
 
