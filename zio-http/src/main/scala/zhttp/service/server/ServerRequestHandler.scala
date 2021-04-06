@@ -93,7 +93,7 @@ final case class ServerRequestHandler[R, E: SilentResponse](
         ctx.writeAndFlush(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
         releaseOrIgnore(jReq)
         ()
-      case res @ Response.SocketResponse(_) =>
+      case res @ Response.SocketResponse(_)     =>
         self.webSocketUpgrade(ctx, jReq, res)
         releaseOrIgnore(jReq)
         ()
