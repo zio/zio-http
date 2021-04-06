@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zhttp.socket.{Socket, WebSocketFrame}
+import zhttp.socket.{Socket, SocketBuilder, WebSocketFrame}
 import zio.ZIO
 
 object Http {
@@ -74,7 +74,7 @@ object Http {
     pf: PartialFunction[Request, ZIO[R, E, Socket[R, E, WebSocketFrame, WebSocketFrame]]],
   ): Http[R, E] = HttpChannel
     .collectM(pf)
-    .map(socket => Response.socket(SocketServer.message(socket.asStream) ++ SocketServer.subProtocol(subProtocol)))
+    .map(socket => Response.socket(SocketBuilder.message(socket.asStream) ++ SocketBuilder.subProtocol(subProtocol)))
 
   /**
    * Creates an HTTP app which accepts a requests and produces a websocket response effectfully.
