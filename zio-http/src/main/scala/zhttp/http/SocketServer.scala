@@ -4,6 +4,8 @@ import zio._
 import zhttp.socket.WebSocketFrame
 import zio.stream.ZStream
 
+import scala.annotation.tailrec
+
 sealed trait SocketServer[-R, +E] { self =>
   def ++[R1 <: R, E1 >: E](other: SocketServer[R1, E1]): SocketServer[R1, E1] = SocketServer.Concat(self, other)
 }
@@ -36,12 +38,21 @@ object SocketServer {
   private case class OnClose[R](onClose: (Connection, Cause) => ZIO[R, Nothing, Unit]) extends SocketServer[R, Nothing]
   private case class Concat[R, E](a: SocketServer[R, E], b: SocketServer[R, E])        extends SocketServer[R, E]
 
-  def close: SocketServer[Any, Nothing]                                                             = ???
-  def subProtocol(name: String): SocketServer[Any, Nothing]                                         = ???
-  def open[R, E](onOpen: Connection => ZIO[R, E, Unit]): SocketServer[R, E]                         = ???
-  def message[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame]): SocketServer[R, E] = ???
-  def error[R](onError: Throwable => ZIO[R, Nothing, Unit]): SocketServer[R, Nothing]               = ???
-  def close[R](onClose: (Connection, Cause) => ZIO[R, Nothing, Unit]): SocketServer[R, Nothing]     = ???
+  def subProtocol(name: String): SocketServer[Any, Nothing]                                         = SubProtocol(name)
+  def open[R, E](onOpen: Connection => ZIO[R, E, Unit]): SocketServer[R, E]                         = OnOpen(onOpen)
+  def message[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame]): SocketServer[R, E] = OnMessage(
+    onMessage,
+  )
+  def error[R](onError: Throwable => ZIO[R, Nothing, Unit]): SocketServer[R, Nothing]               = OnError(onError)
+  def close[R](onClose: (Connection, Cause) => ZIO[R, Nothing, Unit]): SocketServer[R, Nothing]     = OnClose(onClose)
 
-  def settings[R, E](ss: SocketServer[R, E]): Settings[R, E] = ???
+  @tailrec
+  def settings[R, E](ss: SocketServer[R, E]): Settings[R, E] = ss match {
+    case SubProtocol(name)    => settings(subProtocol(name))
+    case OnOpen(onOpen)       => settings(open(onOpen))
+    case OnMessage(onMessage) => settings(message(onMessage))
+    case OnError(onError)     => settings(error(onError))
+    case OnClose(onClose)     => settings(close(onClose))
+    case Concat(a, b)         => settings(Concat(a, b))
+  }
 }
