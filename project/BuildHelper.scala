@@ -41,13 +41,14 @@ object BuildHelper extends ScalaSettings {
       )
     else Nil
 
-  def extraOptions(scalaVersion: String, isDotty: Boolean, optimize: Boolean) =
+  def extraOptions(scalaVersion: String, optimize: Boolean) =
     CrossVersion.partialVersion(scalaVersion) match {
-      case _ if isDotty  =>
+      case Some((3, 0))  =>
         Seq(
           "-language:implicitConversions",
           "-Xignore-scala2-macros",
           "-noindent",
+          "-Xfatal-warnings"
         )
       case Some((2, 12)) =>
         Seq("-Ywarn-unused:params,-implicits") ++ std2xOptions ++ optimizerOptions(optimize)
@@ -73,15 +74,7 @@ object BuildHelper extends ScalaSettings {
     name := s"$prjName",
     ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, ScalaDotty),
     ThisBuild / scalaVersion := Scala213,
-    useScala3doc := true,
-    scalacOptions := stdOptions ++ extraOptions(scalaVersion.value, isDotty.value, optimize = !isSnapshot.value),
-    scalacOptions --= {
-      if (isDotty.value)
-        Seq("-Xfatal-warnings")
-      else
-        Seq()
-    },
-    semanticdbEnabled := !isDotty.value,              // enable SemanticDB
+    scalacOptions := stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
     semanticdbVersion := scalafixSemanticdb.revision, // use Scalafix compatible version
     ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
     ThisBuild / scalafixDependencies ++=
