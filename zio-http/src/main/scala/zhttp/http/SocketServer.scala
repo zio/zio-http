@@ -18,14 +18,14 @@ object SocketServer {
     subProtocol: Option[String] = None,
     // Triggered when the socket is upgraded
     // there is a failure, ctx.close() is called
-    onOpen: Connection => ZIO[R, E, Unit],
+    onOpen: Connection => ZIO[R, E, Unit] = (_: Connection) => ZIO.succeed(()),
     // There is a failure, ctx.close() is called.
-    onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame],
+    onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame] = (_: WebSocketFrame) => ZStream.empty,
     // No error channel because there is nothing left to handle it.
     // Channel should get closed after execution.
-    onError: Throwable => ZIO[R, Nothing, Unit],
+    onError: Throwable => ZIO[R, Nothing, Unit] = (_: Throwable) => ZIO.succeed(()),
     // Last thing in the pipeline, so it can't fail.
-    onClose: (Connection, Cause) => ZIO[R, Nothing, Unit],
+    onClose: (Connection, Cause) => ZIO[R, Nothing, Unit] = (_: Connection, _: Cause) => ZIO.succeed(()),
   )
 
   private case class SubProtocol(name: String)                                         extends SocketServer[Any, Nothing]
@@ -44,14 +44,12 @@ object SocketServer {
   def error[R](onError: Throwable => ZIO[R, Nothing, Unit]): SocketServer[R, Nothing]               = OnError(onError)
   def close[R](onClose: (Connection, Cause) => ZIO[R, Nothing, Unit]): SocketServer[R, Nothing]     = OnClose(onClose)
 
-  def settings[R, E](ss: SocketServer[R, E])(
-    s: Settings[R, E] = Settings(None, _ => UIO(()), _ => ZStream.empty, _ => UIO(()), (_, _) => UIO(())),
-  ): Settings[R, E] = ss match {
+  def settings[R, E](ss: SocketServer[R, E], s: Settings[R, E] = Settings()): Settings[R, E] = ss match {
     case SubProtocol(name)    => s.copy(Option(name))
     case OnOpen(onOpen)       => s.copy(onOpen = onOpen)
     case OnMessage(onMessage) => s.copy(onMessage = onMessage)
     case OnError(onError)     => s.copy(onError = onError)
     case OnClose(onClose)     => s.copy(onClose = onClose)
-    case Concat(a, b)         => settings(b)(settings(a)(s))
+    case Concat(a, b)         => settings(b, settings(a, s))
   }
 }
