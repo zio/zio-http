@@ -39,13 +39,14 @@ object SocketBuilder {
   private case class OnClose[R](onClose: (Connection, Cause) => ZIO[R, Nothing, Unit]) extends SocketBuilder[R, Nothing]
   private case class Concat[R, E](a: SocketBuilder[R, E], b: SocketBuilder[R, E])      extends SocketBuilder[R, E]
 
-  def subProtocol(name: String): SocketBuilder[Any, Nothing]                                         = SubProtocol(name)
-  def open[R, E](onOpen: Connection => ZIO[R, E, Unit]): SocketBuilder[R, E]                         = OnOpen(onOpen)
-  def message[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame]): SocketBuilder[R, E] = OnMessage(
-    onMessage,
-  )
-  def error[R](onError: Throwable => ZIO[R, Nothing, Unit]): SocketBuilder[R, Nothing]               = OnError(onError)
-  def close[R](onClose: (Connection, Cause) => ZIO[R, Nothing, Unit]): SocketBuilder[R, Nothing]     = OnClose(onClose)
+  def subProtocol(name: String): SocketBuilder[Any, Nothing]                                                        = SubProtocol(name)
+  def open[R, E](onOpen: Connection => ZIO[R, E, Unit]): SocketBuilder[R, E]                                        = OnOpen(onOpen)
+  def message[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame]): SocketBuilder[R, E]                =
+    OnMessage(onMessage)
+  def collect[R, E](onMessage: PartialFunction[WebSocketFrame, ZStream[R, E, WebSocketFrame]]): SocketBuilder[R, E] =
+    message(ws => if (onMessage.isDefinedAt(ws)) onMessage(ws) else ZStream.empty)
+  def error[R](onError: Throwable => ZIO[R, Nothing, Unit]): SocketBuilder[R, Nothing]                              = OnError(onError)
+  def close[R](onClose: (Connection, Cause) => ZIO[R, Nothing, Unit]): SocketBuilder[R, Nothing]                    = OnClose(onClose)
 
   def settings[R, E](ss: SocketBuilder[R, E], s: Settings[R, E] = Settings()): Settings[R, E] = ss match {
     case SubProtocol(name)    => s.copy(Option(name))

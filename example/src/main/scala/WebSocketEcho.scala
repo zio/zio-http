@@ -5,7 +5,7 @@ import zio._
 import zio.duration._
 import zio.stream.ZStream
 
-object SocketEchoServer extends App {
+object WebSocketEcho extends App {
   private val socket =
     Socket.collect[WebSocketFrame] {
       case WebSocketFrame.Text("FOO")  => ZStream.succeed(WebSocketFrame.text("BAR"))
