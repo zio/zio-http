@@ -12,7 +12,7 @@ import zio.Exit
 @JSharable
 final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
-  app: Http[R, Throwable],
+  app: RHttp[R],
 ) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
     with HttpMessageCodec
     with ServerHttpExceptionHandler {

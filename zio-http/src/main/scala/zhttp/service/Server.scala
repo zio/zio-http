@@ -53,7 +53,7 @@ object Server {
   /**
    * Launches the app on the provided port.
    */
-  def start[R <: Has[_]](port: Int, http: Http[R, Throwable]): ZIO[R, Throwable, Nothing] =
+  def start[R <: Has[_]](port: Int, http: RHttp[R]): ZIO[R, Throwable, Nothing] =
     (Server.port(port) ++ Server.app(http)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
