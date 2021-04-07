@@ -34,7 +34,7 @@ object HelloWorldAdvanced extends App {
         console.putStrLn(s"Server started on port $PORT")
 
         // Ensures the server doesn't die after printing
-        *> ZIO.never,
+          *> ZIO.never,
       )
       .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
       .exitCode
