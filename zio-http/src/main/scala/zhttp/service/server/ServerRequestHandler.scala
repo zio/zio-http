@@ -10,9 +10,9 @@ import zio.Exit
  * Helper class with channel methods
  */
 @JSharable
-final case class ServerRequestHandler[R, E: SilentResponse](
+final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
-  app: Http[R, E],
+  app: Http[R, Throwable],
 ) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
     with HttpMessageCodec
     with ServerHttpExceptionHandler {
@@ -27,7 +27,7 @@ final case class ServerRequestHandler[R, E: SilentResponse](
   private def webSocketUpgrade(
     ctx: JChannelHandlerContext,
     jReq: JFullHttpRequest,
-    res: Response.SocketResponse[R, E],
+    res: Response.SocketResponse[R, Throwable],
   ): Unit = {
     val settings = res.ss.settings
     val hh       = new JWebSocketServerHandshakerFactory(jReq.uri(), settings.subProtocol.orNull, false).newHandshaker(jReq)
@@ -65,19 +65,21 @@ final case class ServerRequestHandler[R, E: SilentResponse](
   /**
    * Asynchronously executes the Http app and passes the response to the callback.
    */
-  private def executeAsync(ctx: JChannelHandlerContext, jReq: JFullHttpRequest)(cb: Response[R, E] => Unit): Unit =
+  private def executeAsync(ctx: JChannelHandlerContext, jReq: JFullHttpRequest)(
+    cb: Response[R, Throwable] => Unit,
+  ): Unit =
     decodeJRequest(jReq) match {
       case Left(err)  => cb(err.toResponse)
       case Right(req) =>
         app.eval(req) match {
           case HttpResult.Success(a)  => cb(a)
-          case HttpResult.Failure(e)  => cb(implicitly[SilentResponse[E]].silent(e))
+          case HttpResult.Failure(e)  => cb(implicitly[SilentResponse[Throwable]].silent(e))
           case HttpResult.Continue(z) =>
             zExec.unsafeExecute(ctx, z) {
               case Exit.Success(res)   => cb(res)
               case Exit.Failure(cause) =>
                 cause.failureOption match {
-                  case Some(e) => cb(implicitly[SilentResponse[E]].silent(e))
+                  case Some(e) => cb(implicitly[SilentResponse[Throwable]].silent(e))
                   case None    => ()
                 }
             }
