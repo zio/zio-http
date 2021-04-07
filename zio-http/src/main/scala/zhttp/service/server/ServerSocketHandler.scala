@@ -2,7 +2,7 @@ package zhttp.service.server
 
 import zhttp.core.{JChannelHandlerContext, JSimpleChannelInboundHandler, JWebSocketFrame}
 import zhttp.service.{ChannelFuture, UnsafeChannelExecutor}
-import zhttp.socket.{SocketBuilder, WebSocketFrame}
+import zhttp.socket.{Socket, WebSocketFrame}
 import zio.{Exit, ZIO}
 
 /**
@@ -10,7 +10,7 @@ import zio.{Exit, ZIO}
  */
 final case class ServerSocketHandler[R](
   zExec: UnsafeChannelExecutor[R],
-  ss: SocketBuilder.Settings[R, Throwable],
+  ss: Socket.Settings[R, Throwable],
 ) extends JSimpleChannelInboundHandler[JWebSocketFrame] {
 
   /**
