@@ -73,13 +73,13 @@ final case class ServerRequestHandler[R](
       case Right(req) =>
         app.eval(req) match {
           case HttpResult.Success(a)  => cb(a)
-          case HttpResult.Failure(e)  => cb(implicitly[SilentResponse[Throwable]].silent(e))
+          case HttpResult.Failure(e)  => cb(SilentResponse[Throwable].silent(e))
           case HttpResult.Continue(z) =>
             zExec.unsafeExecute(ctx, z) {
               case Exit.Success(res)   => cb(res)
               case Exit.Failure(cause) =>
                 cause.failureOption match {
-                  case Some(e) => cb(implicitly[SilentResponse[Throwable]].silent(e))
+                  case Some(e) => cb(SilentResponse[Throwable].silent(e))
                   case None    => ()
                 }
             }

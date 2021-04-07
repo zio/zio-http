@@ -16,6 +16,10 @@ package object http extends PathModule with RequestSyntax {
   type ResponseM[-R, +E]  = ZIO[R, E, Response[R, E]]
   type PartialRequest[+E] = CanSupportPartial[Request, E]
 
+  object SilentResponse {
+    def apply[E: SilentResponse]: SilentResponse[E] = implicitly[SilentResponse[E]]
+  }
+
   /**
    * Default HTTP Charset
    */
