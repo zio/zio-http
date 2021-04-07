@@ -9,12 +9,12 @@ import zio.{Exit, Fiber, URIO, ZIO}
  * cancel the execution when the channel closes.
  */
 final class UnsafeChannelExecutor[R](runtime: zio.Runtime[R]) {
-  def unsafeExecute_[E](ctx: JChannelHandlerContext)(program: ZIO[R, E, Unit]): Unit = {
+  def unsafeExecute_(ctx: JChannelHandlerContext)(program: ZIO[R, Throwable, Unit]): Unit = {
     unsafeExecute(ctx, program)(_ => ())
   }
 
-  def unsafeExecute[E, A](ctx: JChannelHandlerContext, program: ZIO[R, E, A])(
-    cb: Exit[E, A] => Unit,
+  def unsafeExecute[A](ctx: JChannelHandlerContext, program: ZIO[R, Throwable, A])(
+    cb: Exit[Throwable, A] => Unit,
   ): Unit = {
     val close = ctx.channel().closeFuture()
 
@@ -22,10 +22,6 @@ final class UnsafeChannelExecutor[R](runtime: zio.Runtime[R]) {
 
     val cancel = runtime.unsafeRunAsyncCancelable(program) { exit =>
       cb(exit)
-
-      /// TODO: in case of failure close the channel
-      // ctx.exceptionCaught() or something else to propagate the error
-
       close.removeListener(listener)
     }
 
