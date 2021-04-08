@@ -1,5 +1,6 @@
 package zhttp.service.server
 
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.HandshakeComplete
 import zhttp.core.{JChannelHandlerContext, JSimpleChannelInboundHandler, JWebSocketFrame}
 import zhttp.service.{ChannelFuture, UnsafeChannelExecutor}
 import zhttp.socket.{Socket, WebSocketFrame}
@@ -49,4 +50,9 @@ final case class ServerSocketHandler[R](
 
   override def channelUnregistered(ctx: JChannelHandlerContext): Unit =
     executeAsync(ctx, ss.onClose(ctx.channel().remoteAddress(), None).uninterruptible)
+
+  override def userEventTriggered(ctx: JChannelHandlerContext, event: AnyRef): Unit = event match {
+    case HandshakeComplete => executeAsync(ctx, ss.onOpen(ctx.channel().remoteAddress()).uninterruptible)
+    case event             => ctx.fireUserEventTriggered(event)
+  }
 }
