@@ -46,7 +46,6 @@ object BuildHelper extends ScalaSettings {
           "-language:implicitConversions",
           "-Xignore-scala2-macros",
           "-noindent",
-          "-Xfatal-warnings",
         )
       case Some((2, 13)) =>
         Seq("-Ywarn-unused:params,-implicits") ++ std2xOptions ++ tpoleCatSettings ++ optimizerOptions(optimize)
