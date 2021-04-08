@@ -13,9 +13,8 @@ class HttpNestedFlatMapEval {
 
   private val MAX = 10_000
 
-  val programFlatMap: HttpChannel[Any, Nothing, Int, Int] = (0 to MAX).foldLeft(HttpChannel.identity[Int])((a, _) =>
-    a.flatMap(i => HttpChannel.succeed(i + 1)),
-  )
+  val programFlatMap: HttpChannel[Any, Nothing, Int, Int] =
+    (0 to MAX).foldLeft(HttpChannel.identity[Int])((a, _) => a.flatMap(i => HttpChannel.succeed(i + 1)))
 
   @Benchmark
   def benchmarkHttpFlatMap(): Unit = {
