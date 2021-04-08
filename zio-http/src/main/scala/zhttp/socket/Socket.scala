@@ -4,7 +4,7 @@ import zio._
 import zio.stream.ZStream
 
 import java.net.{SocketAddress => JSocketAddress}
-
+// Todo add unit tests
 sealed trait Socket[-R, +E] { self =>
   def <+>[R1 <: R, E1 >: E](other: Socket[R1, E1]): Socket[R1, E1] = Socket.Concat(self, other)
   def settings: Socket.Settings[R, E]                              = Socket.settings(self)
