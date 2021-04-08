@@ -54,7 +54,7 @@ final case class ServerSocketHandler[R](
   override def userEventTriggered(ctx: JChannelHandlerContext, event: AnyRef): Unit = {
     event match {
       case _: HandshakeComplete => executeAsync(ctx, ss.onOpen(ctx.channel().remoteAddress()).uninterruptible)
-      case event => ctx.fireUserEventTriggered(event)
+      case event                => ctx.fireUserEventTriggered(event)
     }
     ()
   }
