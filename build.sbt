@@ -31,10 +31,10 @@ ThisBuild / githubWorkflowPublish :=
     WorkflowStep.Sbt(
       List("ci-release"),
       env = Map(
-        "PGP_PASSPHRASE"    -> "${{ secrets.PGP_PASSPHRASE }}",
-        "PGP_SECRET"        -> "${{ secrets.PGP_SECRET }}",
-        "SONATYPE_PASSWORD" -> "${{ secrets.SONATYPE_PASSWORD }}",
-        "SONATYPE_USERNAME" -> "${{ secrets.SONATYPE_USERNAME }}",
+        "PGP_PASSPHRASE"      -> "${{ secrets.PGP_PASSPHRASE }}",
+        "PGP_SECRET"          -> "${{ secrets.PGP_SECRET }}",
+        "SONATYPE_PASSWORD"   -> "${{ secrets.SONATYPE_PASSWORD }}",
+        "SONATYPE_USERNAME"   -> "${{ secrets.SONATYPE_USERNAME }}",
         "CI_SONATYPE_RELEASE" -> "${{ secrets.CI_SONATYPE_RELEASE }}",
       ),
     ),

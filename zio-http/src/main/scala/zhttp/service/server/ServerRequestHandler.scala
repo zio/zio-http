@@ -53,7 +53,7 @@ final case class ServerRequestHandler[R](
           }
         }
       } catch {
-        case cause: JWebSocketHandshakeException =>
+        case _: JWebSocketHandshakeException =>
           JWebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel, ctx.channel().voidPromise())
       }
     }
