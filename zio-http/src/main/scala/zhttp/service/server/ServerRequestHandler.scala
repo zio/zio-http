@@ -42,7 +42,6 @@ final case class ServerRequestHandler[R](
           // FAILURE CONDITION
           if (!future.isSuccess) {
             pl.remove(WEB_SOCKET_HANDLER)
-            ctx.fireExceptionCaught(future.cause)
             zExec.unsafeExecute_(ctx)(settings.onError(future.cause()))
             ()
           } else {
@@ -56,7 +55,6 @@ final case class ServerRequestHandler[R](
       } catch {
         case cause: JWebSocketHandshakeException =>
           JWebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel, ctx.channel().voidPromise())
-          zExec.unsafeExecute_(ctx)(settings.onError(cause))
       }
     }
     ()
