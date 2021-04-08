@@ -1,6 +1,5 @@
 import sbt._
 import Keys._
-import dotty.tools.sbtplugin.DottyPlugin.autoImport._
 import scalafix.sbt.ScalafixPlugin.autoImport._
 import xerial.sbt.Sonatype.autoImport._
 
@@ -40,9 +39,9 @@ object BuildHelper extends ScalaSettings {
       )
     else Nil
 
-  def extraOptions(scalaVersion: String, isDotty: Boolean, optimize: Boolean) =
+  def extraOptions(scalaVersion: String, optimize: Boolean) =
     CrossVersion.partialVersion(scalaVersion) match {
-      case _ if isDotty  =>
+      case Some((3, 0))  =>
         Seq(
           "-language:implicitConversions",
           "-Xignore-scala2-macros",
@@ -57,27 +56,19 @@ object BuildHelper extends ScalaSettings {
     val publishSettings = Seq(
       sonatypeCredentialHost := "s01.oss.sonatype.org",
       sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
-      sonatypeProfileName := "io.d11"
+      sonatypeProfileName := "io.d11",
     )
-    val skipSettings = Seq(
+    val skipSettings    = Seq(
       publish / skip := true,
-      publishArtifact := false
+      publishArtifact := false,
     )
     if (publishArtifacts) publishSettings else publishSettings ++ skipSettings
   }
-  def stdSettings(prjName: String) = Seq(
+  def stdSettings(prjName: String)                          = Seq(
     name := s"$prjName",
     ThisBuild / crossScalaVersions := Seq(Scala213, ScalaDotty),
     ThisBuild / scalaVersion := Scala213,
-    useScala3doc := true,
-    scalacOptions := stdOptions ++ extraOptions(scalaVersion.value, isDotty.value, optimize = !isSnapshot.value),
-    scalacOptions --= {
-      if (isDotty.value)
-        Seq("-Xfatal-warnings")
-      else
-        Seq()
-    },
-    semanticdbEnabled := !isDotty.value,              // enable SemanticDB
+    scalacOptions := stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
     semanticdbVersion := scalafixSemanticdb.revision, // use Scalafix compatible version
     ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
     ThisBuild / scalafixDependencies ++=
