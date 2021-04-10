@@ -47,8 +47,6 @@ final case class ServerRequestHandler[R](
           } else {
             // SUCCESS
             pl.remove(HTTP_REQUEST_HANDLER)
-            // TODO: handle channel closure on failure
-            zExec.unsafeExecute_(ctx)(settings.onOpen(ctx.channel().remoteAddress()))
             ()
           }
         }
