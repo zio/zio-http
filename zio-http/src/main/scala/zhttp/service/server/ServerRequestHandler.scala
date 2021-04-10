@@ -1,9 +1,6 @@
 package zhttp.service.server
 
-import io.netty.handler.codec.http.websocketx.{
-  WebSocketServerProtocolConfig => JWebSocketServerProtocolConfig,
-  WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler,
-}
+import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler}
 import zhttp.core._
 import zhttp.http._
 import zhttp.service._
@@ -61,13 +58,11 @@ final case class ServerRequestHandler[R](
         releaseOrIgnore(jReq)
         ()
       case res @ Response.SocketResponse(_)     =>
-        val settings = res.socket.settings
-        val config   = JWebSocketServerProtocolConfig.newBuilder().websocketPath(jReq.uri())
-        if (settings.subProtocol.isDefined) config.subprotocols(settings.subProtocol.get)
+        val config = res.socket.settings.config.websocketPath(jReq.uri()).build()
         ctx
           .channel()
           .pipeline()
-          .addLast(new JWebSocketServerProtocolHandler(config.build()))
+          .addLast(new JWebSocketServerProtocolHandler(config))
           .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket.settings))
         ctx.fireChannelRead(jReq)
         ()

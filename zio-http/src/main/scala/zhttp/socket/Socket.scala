@@ -1,5 +1,6 @@
 package zhttp.socket
 
+import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolConfig => JWebSocketServerProtocolConfig}
 import zio._
 import zio.stream.ZStream
 
@@ -15,11 +16,11 @@ object Socket {
   type Cause      = Option[Throwable]
 
   case class Settings[-R, +E](
-    subProtocol: Option[String] = None,
     onOpen: Connection => ZStream[R, E, WebSocketFrame] = (_: Connection) => ZStream.empty,
     onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame] = (_: WebSocketFrame) => ZStream.empty,
     onError: Throwable => ZIO[R, Nothing, Unit] = (_: Throwable) => ZIO.unit,
     onClose: Connection => ZIO[R, Nothing, Unit] = (_: Connection) => ZIO.unit,
+    config: JWebSocketServerProtocolConfig.Builder = JWebSocketServerProtocolConfig.newBuilder(),
   )
 
   private case class SubProtocol(name: String)                                                   extends Socket[Any, Nothing]
@@ -66,7 +67,7 @@ object Socket {
 
   def settings[R, E](ss: Socket[R, E]): Settings[R, E] = {
     def loop(ss: Socket[R, E], s: Settings[R, E]): Settings[R, E] = ss match {
-      case SubProtocol(name)    => s.copy(Option(name))
+      case SubProtocol(name)    => s.copy(config = s.config.subprotocols(name))
       case OnOpen(onOpen)       => s.copy(onOpen = onOpen)
       case OnMessage(onMessage) => s.copy(onMessage = ws => s.onMessage(ws).merge(onMessage(ws)))
       case OnError(onError)     => s.copy(onError = onError)
