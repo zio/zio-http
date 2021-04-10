@@ -1,6 +1,9 @@
 package zhttp.service.server
 
-import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
+import io.netty.handler.codec.http.websocketx.{
+  WebSocketServerProtocolConfig => JWebSocketServerProtocolConfig,
+  WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler,
+}
 import zhttp.core._
 import zhttp.http._
 import zhttp.service._
@@ -23,41 +26,6 @@ final case class ServerRequestHandler[R](
    * Tries to release the request byte buffer, ignores if it can not.
    */
   private def releaseOrIgnore(jReq: JFullHttpRequest): Boolean = jReq.release(jReq.content().refCnt())
-
-  private def webSocketUpgrade(
-    ctx: JChannelHandlerContext,
-    jReq: JFullHttpRequest,
-    res: Response.SocketResponse[R, Throwable],
-  ): Unit = {
-    val settings = res.ss.settings
-    val hh       = new JWebSocketServerHandshakerFactory(jReq.uri(), settings.subProtocol.orNull, false).newHandshaker(jReq)
-    if (hh == null) {
-      JWebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel, ctx.channel().voidPromise())
-    } else {
-      val pl = ctx.channel().pipeline()
-      pl.addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, settings))
-      try {
-        // handshake can throw
-        hh.handshake(ctx.channel(), jReq).addListener { (future: JChannelFuture) =>
-          // FAILURE CONDITION
-          if (!future.isSuccess) {
-            pl.remove(WEB_SOCKET_HANDLER)
-            ctx.fireExceptionCaught(future.cause())
-            ()
-          } else {
-            // SUCCESS
-            pl.remove(HTTP_REQUEST_HANDLER)
-            ()
-          }
-        }
-      } catch {
-        case _: JWebSocketHandshakeException =>
-          JWebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel, ctx.channel().voidPromise())
-        case cause: Throwable                => ctx.fireExceptionCaught(cause)
-      }
-    }
-    ()
-  }
 
   /**
    * Asynchronously executes the Http app and passes the response to the callback.
@@ -93,8 +61,15 @@ final case class ServerRequestHandler[R](
         releaseOrIgnore(jReq)
         ()
       case res @ Response.SocketResponse(_)     =>
-        self.webSocketUpgrade(ctx, jReq, res)
-        releaseOrIgnore(jReq)
+        val settings = res.socket.settings
+        val config   = JWebSocketServerProtocolConfig.newBuilder().websocketPath(jReq.uri())
+        if (settings.subProtocol.isDefined) config.subprotocols(settings.subProtocol.get)
+        ctx
+          .channel()
+          .pipeline()
+          .addLast(new JWebSocketServerProtocolHandler(config.build()))
+          .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket.settings))
+        ctx.fireChannelRead(jReq)
         ()
     }
   }
