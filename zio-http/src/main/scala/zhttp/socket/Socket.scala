@@ -64,12 +64,16 @@ object Socket {
    */
   def close[R](onClose: (Connection) => ZIO[R, Nothing, Unit]): Socket[R, Nothing] = OnClose(onClose)
 
-  def settings[R, E](ss: Socket[R, E], s: Settings[R, E] = Settings()): Settings[R, E] = ss match {
-    case SubProtocol(name)    => s.copy(Option(name))
-    case OnOpen(onOpen)       => s.copy(onOpen = onOpen)
-    case OnMessage(onMessage) => s.copy(onMessage = ws => s.onMessage(ws).merge(onMessage(ws)))
-    case OnError(onError)     => s.copy(onError = onError)
-    case OnClose(onClose)     => s.copy(onClose = onClose)
-    case Concat(a, b)         => settings(b, settings(a, s))
+  def settings[R, E](ss: Socket[R, E]): Settings[R, E] = {
+    def loop(ss: Socket[R, E], s: Settings[R, E]): Settings[R, E] = ss match {
+      case SubProtocol(name)    => s.copy(Option(name))
+      case OnOpen(onOpen)       => s.copy(onOpen = onOpen)
+      case OnMessage(onMessage) => s.copy(onMessage = ws => s.onMessage(ws).merge(onMessage(ws)))
+      case OnError(onError)     => s.copy(onError = onError)
+      case OnClose(onClose)     => s.copy(onClose = onClose)
+      case Concat(a, b)         => loop(b, loop(a, s))
+    }
+
+    loop(ss, Settings())
   }
 }
