@@ -4,6 +4,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.Han
 import zhttp.core.{JChannelHandlerContext, JSimpleChannelInboundHandler, JWebSocketFrame}
 import zhttp.service.{ChannelFuture, UnsafeChannelExecutor}
 import zhttp.socket.{Socket, WebSocketFrame}
+import zio.stream.ZStream
 import zio.{Exit, ZIO}
 
 /**
@@ -18,17 +19,18 @@ final case class ServerSocketHandler[R](
    * Unsafe channel reader for WSFrame
    */
 
+  private def writeAndFlush(ctx: JChannelHandlerContext, stream: ZStream[R, Throwable, WebSocketFrame]): Unit =
+    executeAsync(
+      ctx,
+      stream
+        .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toJWebSocketFrame)))
+        .runDrain,
+    )
+
   override def channelRead0(ctx: JChannelHandlerContext, msg: JWebSocketFrame): Unit = {
     WebSocketFrame.fromJFrame(msg) match {
-      case Some(frame) =>
-        executeAsync(
-          ctx,
-          ss.onMessage(frame)
-            .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toJWebSocketFrame)))
-            .runDrain,
-        )
-
-      case _ => ()
+      case Some(frame) => writeAndFlush(ctx, ss.onMessage(frame))
+      case _           => ()
     }
   }
 
@@ -53,7 +55,7 @@ final case class ServerSocketHandler[R](
 
   override def userEventTriggered(ctx: JChannelHandlerContext, event: AnyRef): Unit = {
     event match {
-      case _: HandshakeComplete => executeAsync(ctx, ss.onOpen(ctx.channel().remoteAddress()).uninterruptible)
+      case _: HandshakeComplete => writeAndFlush(ctx, ss.onOpen(ctx.channel().remoteAddress()))
       case event                => ctx.fireUserEventTriggered(event)
     }
     ()

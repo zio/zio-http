@@ -8,7 +8,7 @@ import zio.stream.ZStream
 object WebSocketAdvanced extends App {
 
   // Called after the request is successfully upgraded to websocket
-  private val open = Socket.open(_ => console.putStrLn("OPENED"))
+  private val open = Socket.open(_ => ZStream.succeed(WebSocketFrame.text("Greetings!")))
 
   // Called after the connection is closed
   private val close = Socket.close((_, _) => console.putStrLn("CLOSED"))

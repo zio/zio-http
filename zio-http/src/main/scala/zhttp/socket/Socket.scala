@@ -20,7 +20,7 @@ object Socket {
     subProtocol: Option[String] = None,
     // Triggered when the socket is upgraded
     // there is a failure, ctx.close() is called
-    onOpen: Connection => ZIO[R, E, Unit] = (_: Connection) => ZIO.unit,
+    onOpen: Connection => ZStream[R, E, WebSocketFrame] = (_: Connection) => ZStream.empty,
     // There is a failure, ctx.close() is called.
     onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame] = (_: WebSocketFrame) => ZStream.empty,
     // No error channel because there is nothing left to handle it.
@@ -32,14 +32,14 @@ object Socket {
   )
 
   private case class SubProtocol(name: String)                                                   extends Socket[Any, Nothing]
-  private case class OnOpen[R, E](onOpen: Connection => ZIO[R, E, Unit])                         extends Socket[R, E]
+  private case class OnOpen[R, E](onOpen: Connection => ZStream[R, E, WebSocketFrame])           extends Socket[R, E]
   private case class OnMessage[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame]) extends Socket[R, E]
   private case class OnError[R](onError: Throwable => ZIO[R, Nothing, Unit])                     extends Socket[R, Nothing]
   private case class OnClose[R](onClose: (Connection, Cause) => ZIO[R, Nothing, Unit])           extends Socket[R, Nothing]
   private case class Concat[R, E](a: Socket[R, E], b: Socket[R, E])                              extends Socket[R, E]
 
   def subProtocol(name: String): Socket[Any, Nothing]                                                        = SubProtocol(name)
-  def open[R, E](onOpen: Connection => ZIO[R, E, Unit]): Socket[R, E]                                        = OnOpen(onOpen)
+  def open[R, E](onOpen: Connection => ZStream[R, E, WebSocketFrame]): Socket[R, E]                          = OnOpen(onOpen)
   def message[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame]): Socket[R, E]                =
     OnMessage(onMessage)
   def collect[R, E](onMessage: PartialFunction[WebSocketFrame, ZStream[R, E, WebSocketFrame]]): Socket[R, E] =
