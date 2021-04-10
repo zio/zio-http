@@ -51,7 +51,7 @@ final case class ServerSocketHandler[R](
     executeAsync(ctx, ss.onError(x).uninterruptible)
 
   override def channelUnregistered(ctx: JChannelHandlerContext): Unit =
-    executeAsync(ctx, ss.onClose(ctx.channel().remoteAddress(), None).uninterruptible)
+    executeAsync(ctx, ss.onClose(ctx.channel().remoteAddress()).uninterruptible)
 
   override def userEventTriggered(ctx: JChannelHandlerContext, event: AnyRef): Unit = {
     event match {

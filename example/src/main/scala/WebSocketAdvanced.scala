@@ -11,7 +11,7 @@ object WebSocketAdvanced extends App {
   private val open = Socket.open(_ => ZStream.succeed(WebSocketFrame.text("Greetings!")))
 
   // Called after the connection is closed
-  private val close = Socket.close((_, _) => console.putStrLn("CLOSED"))
+  private val close = Socket.close(_ => console.putStrLn("CLOSED"))
 
   // Called whenever there is an error on the socket channel
   private val error = Socket.error(_ => console.putStrLn("Error!"))

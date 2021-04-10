@@ -14,38 +14,55 @@ object Socket {
   type Connection = JSocketAddress
   type Cause      = Option[Throwable]
 
-  // [R, Nothing, Boolean]
-  // Boolean, [R, E, Unit]
   case class Settings[-R, +E](
     subProtocol: Option[String] = None,
-    // Triggered when the socket is upgraded
-    // there is a failure, ctx.close() is called
     onOpen: Connection => ZStream[R, E, WebSocketFrame] = (_: Connection) => ZStream.empty,
-    // There is a failure, ctx.close() is called.
     onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame] = (_: WebSocketFrame) => ZStream.empty,
-    // No error channel because there is nothing left to handle it.
-    // Channel should get closed after execution.
     onError: Throwable => ZIO[R, Nothing, Unit] = (_: Throwable) => ZIO.unit,
-    // Last thing in the pipeline, so it can't fail.
-    // TODO: Http Context may be required in certain cases
-    onClose: (Connection, Cause) => ZIO[R, Nothing, Unit] = (_: Connection, _: Cause) => ZIO.unit,
+    onClose: Connection => ZIO[R, Nothing, Unit] = (_: Connection) => ZIO.unit,
   )
 
   private case class SubProtocol(name: String)                                                   extends Socket[Any, Nothing]
   private case class OnOpen[R, E](onOpen: Connection => ZStream[R, E, WebSocketFrame])           extends Socket[R, E]
   private case class OnMessage[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame]) extends Socket[R, E]
   private case class OnError[R](onError: Throwable => ZIO[R, Nothing, Unit])                     extends Socket[R, Nothing]
-  private case class OnClose[R](onClose: (Connection, Cause) => ZIO[R, Nothing, Unit])           extends Socket[R, Nothing]
+  private case class OnClose[R](onClose: Connection => ZIO[R, Nothing, Unit])                    extends Socket[R, Nothing]
   private case class Concat[R, E](a: Socket[R, E], b: Socket[R, E])                              extends Socket[R, E]
 
-  def subProtocol(name: String): Socket[Any, Nothing]                                                        = SubProtocol(name)
-  def open[R, E](onOpen: Connection => ZStream[R, E, WebSocketFrame]): Socket[R, E]                          = OnOpen(onOpen)
-  def message[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame]): Socket[R, E]                =
+  /**
+   * Used to specify the websocket sub-protocol
+   */
+  def subProtocol(name: String): Socket[Any, Nothing] = SubProtocol(name)
+
+  /**
+   * Called when the connection is successfully upgrade to a websocket one. In case of a failure on the returned stream,
+   * the socket is forcefully closed.
+   */
+  def open[R, E](onOpen: Connection => ZStream[R, E, WebSocketFrame]): Socket[R, E] = OnOpen(onOpen)
+
+  /**
+   * Called on every incoming WebSocketFrame. In case of a failure on the returned stream, the socket is forcefully
+   * closed.
+   */
+  def message[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame]): Socket[R, E] =
     OnMessage(onMessage)
+
+  /**
+   * Collects the incoming messages using a partial function. In case of a failure on the returned stream, the socket is
+   * forcefully closed.
+   */
   def collect[R, E](onMessage: PartialFunction[WebSocketFrame, ZStream[R, E, WebSocketFrame]]): Socket[R, E] =
     message(ws => if (onMessage.isDefinedAt(ws)) onMessage(ws) else ZStream.empty)
-  def error[R](onError: Throwable => ZIO[R, Nothing, Unit]): Socket[R, Nothing]                              = OnError(onError)
-  def close[R](onClose: (Connection, Cause) => ZIO[R, Nothing, Unit]): Socket[R, Nothing]                    = OnClose(onClose)
+
+  /**
+   * Called whenever there is an error on the channel after a successful upgrade to websocket.
+   */
+  def error[R](onError: Throwable => ZIO[R, Nothing, Unit]): Socket[R, Nothing] = OnError(onError)
+
+  /**
+   * Called when the websocket connection is closed successfully.
+   */
+  def close[R](onClose: (Connection) => ZIO[R, Nothing, Unit]): Socket[R, Nothing] = OnClose(onClose)
 
   def settings[R, E](ss: Socket[R, E], s: Settings[R, E] = Settings()): Settings[R, E] = ss match {
     case SubProtocol(name)    => s.copy(Option(name))
