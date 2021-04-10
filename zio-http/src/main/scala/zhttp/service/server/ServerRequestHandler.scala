@@ -42,6 +42,7 @@ final case class ServerRequestHandler[R](
           // FAILURE CONDITION
           if (!future.isSuccess) {
             pl.remove(WEB_SOCKET_HANDLER)
+            ctx.fireExceptionCaught(future.cause())
             ()
           } else {
             // SUCCESS
