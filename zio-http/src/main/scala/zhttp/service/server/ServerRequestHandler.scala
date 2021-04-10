@@ -42,7 +42,6 @@ final case class ServerRequestHandler[R](
           // FAILURE CONDITION
           if (!future.isSuccess) {
             pl.remove(WEB_SOCKET_HANDLER)
-            zExec.unsafeExecute_(ctx)(settings.onError(future.cause()))
             ()
           } else {
             // SUCCESS
