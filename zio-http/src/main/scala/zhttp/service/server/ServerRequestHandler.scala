@@ -55,7 +55,7 @@ final case class ServerRequestHandler[R](
       } catch {
         case _: JWebSocketHandshakeException =>
           JWebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel, ctx.channel().voidPromise())
-        case cause                           => ctx.fireExceptionCaught(cause)
+        case cause: Throwable                => ctx.fireExceptionCaught(cause)
       }
     }
     ()
