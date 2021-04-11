@@ -39,7 +39,6 @@ object Socket {
   }
   object ProtocolConfig {
     case class SubProtocol(name: String)                   extends ProtocolConfig
-    case object CheckStartsWith                            extends ProtocolConfig
     case class HandshakeTimeoutMillis(duration: Duration)  extends ProtocolConfig
     case class ForceCloseTimeoutMillis(duration: Duration) extends ProtocolConfig
     case object HandleCloseFrames                          extends ProtocolConfig
@@ -56,7 +55,6 @@ object Socket {
       ): JWebSocketServerProtocolConfig.Builder =
         config match {
           case SubProtocol(name)                 => b.subprotocols(name)
-          case CheckStartsWith                   => b.checkStartsWith(true)
           case HandshakeTimeoutMillis(duration)  => b.handshakeTimeoutMillis(duration.toMillis)
           case ForceCloseTimeoutMillis(duration) => b.forceCloseTimeoutMillis(duration.toMillis)
           case HandleCloseFrames                 => b.handleCloseFrames(true)
@@ -135,6 +133,7 @@ object Socket {
       .newBuilder()
       .handleCloseFrames(false)
       .dropPongFrames(false)
+      .checkStartsWith(false)
 
     val decoderBuilder = JWebSocketDecoderConfig
       .newBuilder()
