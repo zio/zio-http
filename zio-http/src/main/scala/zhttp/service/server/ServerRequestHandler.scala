@@ -58,11 +58,10 @@ final case class ServerRequestHandler[R](
         releaseOrIgnore(jReq)
         ()
       case res @ Response.SocketResponse(_)     =>
-        val config = res.socket.settings.config.websocketPath(jReq.uri()).build()
         ctx
           .channel()
           .pipeline()
-          .addLast(new JWebSocketServerProtocolHandler(config))
+          .addLast(new JWebSocketServerProtocolHandler(res.socket.settings.protocolConfig))
           .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket.settings))
         ctx.fireChannelRead(jReq)
         ()

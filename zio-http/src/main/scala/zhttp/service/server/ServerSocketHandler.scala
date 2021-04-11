@@ -3,7 +3,7 @@ package zhttp.service.server
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.{HandshakeComplete => JHandshakeComplete}
 import zhttp.core.{JChannelHandlerContext, JSimpleChannelInboundHandler, JWebSocketFrame}
 import zhttp.service.{ChannelFuture, UnsafeChannelExecutor}
-import zhttp.socket.{Socket, WebSocketFrame}
+import zhttp.socket.{SocketConfig, WebSocketFrame}
 import zio.stream.ZStream
 import zio.{Exit, ZIO}
 
@@ -12,7 +12,7 @@ import zio.{Exit, ZIO}
  */
 final case class ServerSocketHandler[R](
   zExec: UnsafeChannelExecutor[R],
-  ss: Socket.Settings[R, Throwable],
+  ss: SocketConfig[R, Throwable],
 ) extends JSimpleChannelInboundHandler[JWebSocketFrame] {
 
   /**
