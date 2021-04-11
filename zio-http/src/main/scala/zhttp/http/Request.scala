@@ -1,7 +1,9 @@
 package zhttp.http
 
 // REQUEST
-final case class Request(endpoint: Endpoint, data: Request.Data = Request.Data.empty) { self =>
+final case class Request(endpoint: Endpoint, data: Request.Data = Request.Data.empty)
+    extends HasHeaders
+    with HeadersHelpers { self =>
   val headers: List[Header] = data.headers
   val method: Method        = endpoint._1
   val url: URL              = endpoint._2
