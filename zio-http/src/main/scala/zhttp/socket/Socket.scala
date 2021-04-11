@@ -101,6 +101,73 @@ object Socket {
   def subProtocol(name: String): Socket[Any, Nothing] = ProtocolConfig.SubProtocol(name)
 
   /**
+   * {@code true} to handle all requests, where URI path component starts from {@link WebSocketServerProtocolConfig#
+   * websocketPath ( )}, {@code false} for exact match (default).
+   */
+  def checkStartsWith: Socket[Any, Nothing] = ProtocolConfig.CheckStartsWith
+
+  /**
+   * Handshake timeout in mills, when handshake timeout, will trigger user event {@link ClientHandshakeStateEvent#
+   * HANDSHAKE_TIMEOUT}
+   */
+  def handshakeTimeoutMillis(duration: Duration): Socket[Any, Nothing] = ProtocolConfig.HandshakeTimeoutMillis(duration)
+
+  /**
+   * Close the connection if it was not closed by the client after timeout specified
+   */
+  def forceCloseTimeoutMillis(duration: Duration): Socket[Any, Nothing] =
+    ProtocolConfig.ForceCloseTimeoutMillis(duration)
+
+  /**
+   * {@code true} if close frames should not be forwarded and just close the channel
+   */
+  def handleCloseFrames: Socket[Any, Nothing] = ProtocolConfig.HandleCloseFrames
+
+  /**
+   * Close frame to send, when close frame was not send manually. Or {@code null} to disable proper close.
+   */
+  def sendCloseFrame(status: CloseStatus): Socket[Any, Nothing] = ProtocolConfig.SendCloseFrame(status)
+
+  /**
+   * {@code true} if pong frames should not be forwarded
+   */
+  def dropPongFrames: Socket[Any, Nothing] = ProtocolConfig.DropPongFrames
+
+  /**
+   * Sets Maximum length of a frame's payload. Setting this to an appropriate value for you application helps check for
+   * denial of services attacks.
+   */
+  def decoderMaxFramePayloadLength(length: Int): Socket[Any, Nothing] =
+    DecoderConfig.DecoderMaxFramePayloadLength(length)
+
+  /**
+   * Web socket servers must set this to true processed incoming masked payload. Client implementations must set this to
+   * false.
+   */
+  def expectMaskedFrames: Socket[Any, Nothing] = DecoderConfig.ExpectMaskedFrames
+
+  /**
+   * When set to true, frames which are not masked properly according to the standard will still be accepted.
+   */
+  def allowMaskMismatch: Socket[Any, Nothing] = DecoderConfig.AllowMaskMismatch
+
+  /**
+   * Allow extensions to be used in the reserved bits of the web socket frame
+   */
+  def allowExtensions: Socket[Any, Nothing] = DecoderConfig.AllowExtensions
+
+  /**
+   * Flag to send close frame immediately on any protocol violation.ion.
+   */
+  def closeOnProtocolViolation: Socket[Any, Nothing] = DecoderConfig.CloseOnProtocolViolation
+
+  /**
+   * Allows you to avoid adding of Utf8FrameValidator to the pipeline on the WebSocketServerProtocolHandler creation.
+   * This is useful (less overhead) when you use only BinaryWebSocketFrame within your web socket connection.
+   */
+  def withUTF8Validator: Socket[Any, Nothing] = DecoderConfig.WithUTF8Validator
+
+  /**
    * Called when the connection is successfully upgrade to a websocket one. In case of a failure on the returned stream,
    * the socket is forcefully closed.
    */
