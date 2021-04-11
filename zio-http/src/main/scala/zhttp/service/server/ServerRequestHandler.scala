@@ -1,6 +1,6 @@
 package zhttp.service.server
 
-import io.netty.handler.codec.http.websocketx.{WebSocketServerHandshakerFactory => JWebSocketServerHandshakerFactory}
+import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler}
 import zhttp.core._
 import zhttp.http._
 import zhttp.service._
@@ -10,9 +10,9 @@ import zio.Exit
  * Helper class with channel methods
  */
 @JSharable
-final case class ServerRequestHandler[R, E: SilentResponse](
+final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
-  app: Http[R, E],
+  app: RHttp[R],
 ) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
     with HttpMessageCodec
     with ServerHttpExceptionHandler {
@@ -24,53 +24,24 @@ final case class ServerRequestHandler[R, E: SilentResponse](
    */
   private def releaseOrIgnore(jReq: JFullHttpRequest): Boolean = jReq.release(jReq.content().refCnt())
 
-  private def webSocketUpgrade(
-    ctx: JChannelHandlerContext,
-    jReq: JFullHttpRequest,
-    res: Response.SocketResponse[R, E],
-  ): Unit = {
-    val hh = new JWebSocketServerHandshakerFactory(jReq.uri(), res.subProtocol.orNull, false).newHandshaker(jReq)
-    if (hh == null) {
-      JWebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel, ctx.channel().voidPromise())
-    } else {
-      val pl = ctx.channel().pipeline()
-      pl.addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket))
-      try {
-        // handshake can throw
-        hh.handshake(ctx.channel(), jReq).addListener { (future: JChannelFuture) =>
-          if (!future.isSuccess) {
-            pl.remove(WEB_SOCKET_HANDLER)
-            ctx.fireExceptionCaught(future.cause)
-            ()
-          } else {
-            pl.remove(HTTP_REQUEST_HANDLER)
-            ()
-          }
-        }
-      } catch {
-        case _: JWebSocketHandshakeException =>
-          JWebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel, ctx.channel().voidPromise())
-      }
-    }
-    ()
-  }
-
   /**
    * Asynchronously executes the Http app and passes the response to the callback.
    */
-  private def executeAsync(ctx: JChannelHandlerContext, jReq: JFullHttpRequest)(cb: Response[R, E] => Unit): Unit =
+  private def executeAsync(ctx: JChannelHandlerContext, jReq: JFullHttpRequest)(
+    cb: Response[R, Throwable] => Unit,
+  ): Unit =
     decodeJRequest(jReq) match {
       case Left(err)  => cb(err.toResponse)
       case Right(req) =>
         app.eval(req) match {
           case HttpResult.Success(a)  => cb(a)
-          case HttpResult.Failure(e)  => cb(implicitly[SilentResponse[E]].silent(e))
+          case HttpResult.Failure(e)  => cb(SilentResponse[Throwable].silent(e))
           case HttpResult.Continue(z) =>
             zExec.unsafeExecute(ctx, z) {
               case Exit.Success(res)   => cb(res)
               case Exit.Failure(cause) =>
                 cause.failureOption match {
-                  case Some(e) => cb(implicitly[SilentResponse[E]].silent(e))
+                  case Some(e) => cb(SilentResponse[Throwable].silent(e))
                   case None    => ()
                 }
             }
@@ -86,9 +57,14 @@ final case class ServerRequestHandler[R, E: SilentResponse](
         ctx.writeAndFlush(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
         releaseOrIgnore(jReq)
         ()
-      case res @ Response.SocketResponse(_, _)  =>
-        self.webSocketUpgrade(ctx, jReq, res)
-        releaseOrIgnore(jReq)
+      case res @ Response.SocketResponse(_)     =>
+        val config = res.socket.settings.config.websocketPath(jReq.uri()).build()
+        ctx
+          .channel()
+          .pipeline()
+          .addLast(new JWebSocketServerProtocolHandler(config))
+          .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket.settings))
+        ctx.fireChannelRead(jReq)
         ()
     }
   }
