@@ -1,15 +1,15 @@
 package zhttp.socket
 
-import zio.stream.ZStream
-import zio.ZIO
-import zhttp.socket.Socket._
 import io.netty.handler.codec.http.websocketx.{
   WebSocketDecoderConfig => JWebSocketDecoderConfig,
   WebSocketServerProtocolConfig => JWebSocketServerProtocolConfig,
 }
 import zhttp.socket.Socket.DecoderConfig._
-import zhttp.socket.Socket.ProtocolConfig._
 import zhttp.socket.Socket.HandlerConfig._
+import zhttp.socket.Socket.ProtocolConfig._
+import zhttp.socket.Socket._
+import zio.ZIO
+import zio.stream.ZStream
 
 case class SocketConfig[-R, +E](
   onOpen: Connection => ZStream[R, E, WebSocketFrame] = (_: Connection) => ZStream.empty,
