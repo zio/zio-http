@@ -1,8 +1,8 @@
 package zhttp.http
 
+import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpHeaderValues => JHttpHeaderValues}
 import io.netty.util.AsciiString
 import io.netty.util.AsciiString.toLowerCase
-import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpHeaderValues => JHttpHeaderValues}
 
 trait HeadersHelpers { self: HasHeaders =>
   private def equalsIgnoreCase(a: Char, b: Char) = a == b || toLowerCase(a) == toLowerCase(b)
