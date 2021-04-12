@@ -51,16 +51,30 @@ final case class ServerSocketHandler[R](
   }
 
   override def exceptionCaught(ctx: JChannelHandlerContext, x: Throwable): Unit =
-    executeAsync(ctx, ss.onError(x).uninterruptible)
+    ss.onError match {
+      case Some(value) => executeAsync(ctx, value(x).uninterruptible)
+      case None        => ()
+    }
 
   override def channelUnregistered(ctx: JChannelHandlerContext): Unit =
-    executeAsync(ctx, ss.onClose(ctx.channel().remoteAddress()).uninterruptible)
+    ss.onClose match {
+      case Some(value) => executeAsync(ctx, value(ctx.channel().remoteAddress()).uninterruptible)
+      case None        => ()
+    }
 
   override def userEventTriggered(ctx: JChannelHandlerContext, event: AnyRef): Unit = {
+
     event match {
-      case _: JHandshakeComplete                                                              => writeAndFlush(ctx, ss.onOpen(ctx.channel().remoteAddress()))
+      case _: JHandshakeComplete                                                              =>
+        ss.onOpen match {
+          case Some(value) => writeAndFlush(ctx, value(ctx.channel().remoteAddress()))
+          case None        => ()
+        }
       case m: JServerHandshakeStateEvent if m == JServerHandshakeStateEvent.HANDSHAKE_TIMEOUT =>
-        zExec.unsafeExecute_(ctx)(ss.onTimeout)
+        ss.onTimeout match {
+          case Some(value) => zExec.unsafeExecute_(ctx)(value)
+          case None        => ()
+        }
       case event                                                                              => ctx.fireUserEventTriggered(event)
     }
     ()

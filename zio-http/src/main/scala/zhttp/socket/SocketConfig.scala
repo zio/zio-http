@@ -13,11 +13,11 @@ import zio.ZIO
 import zio.stream.ZStream
 
 case class SocketConfig[-R, +E](
-  onTimeout: ZIO[R, Nothing, Unit] = ZIO.unit,
-  onOpen: Connection => ZStream[R, E, WebSocketFrame] = (_: Connection) => ZStream.empty,
+  onTimeout: Option[ZIO[R, Nothing, Unit]] = None,
+  onOpen: Option[Connection => ZStream[R, E, WebSocketFrame]] = None,
   onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame] = (_: WebSocketFrame) => ZStream.empty,
-  onError: Throwable => ZIO[R, Nothing, Unit] = (_: Throwable) => ZIO.unit,
-  onClose: Connection => ZIO[R, Nothing, Unit] = (_: Connection) => ZIO.unit,
+  onError: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
+  onClose: Option[Connection => ZIO[R, Nothing, Unit]] = None,
   protocolConfig: JWebSocketServerProtocolConfig = SocketConfig.protocolConfigBuilder.build(),
 )
 
@@ -65,11 +65,11 @@ object SocketConfig {
 
     def updateHandlerConfig(config: HandlerConfig[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] =
       config match {
-        case OnTimeout(onTimeout) => s.copy(onTimeout = onTimeout)
-        case OnOpen(onOpen)       => s.copy(onOpen = onOpen)
+        case OnTimeout(onTimeout) => s.copy(onTimeout = Option(onTimeout))
+        case OnOpen(onOpen)       => s.copy(onOpen = Option(onOpen))
         case OnMessage(onMessage) => s.copy(onMessage = ws => s.onMessage(ws).merge(onMessage(ws)))
-        case OnError(onError)     => s.copy(onError = onError)
-        case OnClose(onClose)     => s.copy(onClose = onClose)
+        case OnError(onError)     => s.copy(onError = Option(onError))
+        case OnClose(onClose)     => s.copy(onClose = Option(onClose))
       }
 
     def loop(ss: Socket[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] = ss match {
