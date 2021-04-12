@@ -31,10 +31,18 @@ final case class ServerSocketHandler[R](
     )
 
   override def channelRead0(ctx: JChannelHandlerContext, msg: JWebSocketFrame): Unit = {
-    WebSocketFrame.fromJFrame(msg) match {
-      case Some(frame) => writeAndFlush(ctx, ss.onMessage(frame))
-      case _           => ()
+    ss.onMessage match {
+      case Some(value) =>
+        WebSocketFrame.fromJFrame(msg) match {
+          case Some(frame) => writeAndFlush(ctx, value(frame))
+          case _           => ()
+        }
+      case None        => {
+        ctx.writeAndFlush(msg)
+        ()
+      }
     }
+
   }
 
   def executeAsync(ctx: JChannelHandlerContext, program: ZIO[R, Throwable, Unit]): Unit = {
@@ -53,13 +61,19 @@ final case class ServerSocketHandler[R](
   override def exceptionCaught(ctx: JChannelHandlerContext, x: Throwable): Unit =
     ss.onError match {
       case Some(value) => executeAsync(ctx, value(x).uninterruptible)
-      case None        => ()
+      case None        => {
+        ctx.fireExceptionCaught(x)
+        ()
+      }
     }
 
   override def channelUnregistered(ctx: JChannelHandlerContext): Unit =
     ss.onClose match {
       case Some(value) => executeAsync(ctx, value(ctx.channel().remoteAddress()).uninterruptible)
-      case None        => ()
+      case None        => {
+        ctx.fireChannelUnregistered()
+        ()
+      }
     }
 
   override def userEventTriggered(ctx: JChannelHandlerContext, event: AnyRef): Unit = {
@@ -68,12 +82,12 @@ final case class ServerSocketHandler[R](
       case _: JHandshakeComplete                                                              =>
         ss.onOpen match {
           case Some(value) => writeAndFlush(ctx, value(ctx.channel().remoteAddress()))
-          case None        => ()
+          case None        => ctx.fireUserEventTriggered(event)
         }
       case m: JServerHandshakeStateEvent if m == JServerHandshakeStateEvent.HANDSHAKE_TIMEOUT =>
         ss.onTimeout match {
           case Some(value) => zExec.unsafeExecute_(ctx)(value)
-          case None        => ()
+          case None        => ctx.fireUserEventTriggered(event)
         }
       case event                                                                              => ctx.fireUserEventTriggered(event)
     }
