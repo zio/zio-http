@@ -1,6 +1,7 @@
 package zhttp.socket
 
 import io.netty.handler.codec.http.websocketx.{
+  WebSocketCloseStatus => JWebSocketCloseStatus,
   WebSocketDecoderConfig => JWebSocketDecoderConfig,
   WebSocketServerProtocolConfig => JWebSocketServerProtocolConfig,
 }
@@ -43,6 +44,8 @@ object SocketConfig {
         case ForceCloseTimeoutMillis(duration) => iProtocolConfigBuilder.forceCloseTimeoutMillis(duration.toMillis)
         case ForwardCloseFrames                => iProtocolConfigBuilder.handleCloseFrames(false)
         case SendCloseFrame(status)            => iProtocolConfigBuilder.sendCloseFrame(status.asJava)
+        case SendCloseFrameCode(code, reason)  =>
+          iProtocolConfigBuilder.sendCloseFrame(new JWebSocketCloseStatus(code, reason))
         case ForwardPongFrames                 => iProtocolConfigBuilder.dropPongFrames(false)
       }
       s
@@ -50,12 +53,12 @@ object SocketConfig {
 
     def updateDecoderConfig(config: DecoderConfig, s: SocketConfig[R, E]): SocketConfig[R, E] = {
       config match {
-        case DecoderMaxFramePayloadLength(length) => iDecoderConfigBuilder.maxFramePayloadLength(length)
-        case RejectMaskedFrames                   => iDecoderConfigBuilder.expectMaskedFrames(false)
-        case AllowMaskMismatch                    => iDecoderConfigBuilder.allowMaskMismatch(true)
-        case AllowExtensions                      => iDecoderConfigBuilder.allowExtensions(true)
-        case AllowProtocolViolation               => iDecoderConfigBuilder.closeOnProtocolViolation(false)
-        case SkipUTF8Validation                   => iDecoderConfigBuilder.withUTF8Validator(false)
+        case MaxFramePayloadLength(length) => iDecoderConfigBuilder.maxFramePayloadLength(length)
+        case RejectMaskedFrames            => iDecoderConfigBuilder.expectMaskedFrames(false)
+        case AllowMaskMismatch             => iDecoderConfigBuilder.allowMaskMismatch(true)
+        case AllowExtensions               => iDecoderConfigBuilder.allowExtensions(true)
+        case AllowProtocolViolation        => iDecoderConfigBuilder.closeOnProtocolViolation(false)
+        case SkipUTF8Validation            => iDecoderConfigBuilder.withUTF8Validator(false)
       }
       s
     }

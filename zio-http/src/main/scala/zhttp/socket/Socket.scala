@@ -28,23 +28,24 @@ object Socket {
 
   sealed trait ProtocolConfig extends Socket[Any, Nothing]
   object ProtocolConfig {
-    case class SubProtocol(name: String)                   extends ProtocolConfig
-    case class HandshakeTimeoutMillis(duration: Duration)  extends ProtocolConfig
-    case class ForceCloseTimeoutMillis(duration: Duration) extends ProtocolConfig
-    case object ForwardCloseFrames                         extends ProtocolConfig
-    case class SendCloseFrame(status: CloseStatus)         extends ProtocolConfig
-    case object ForwardPongFrames                          extends ProtocolConfig
+    case class SubProtocol(name: String)                     extends ProtocolConfig
+    case class HandshakeTimeoutMillis(duration: Duration)    extends ProtocolConfig
+    case class ForceCloseTimeoutMillis(duration: Duration)   extends ProtocolConfig
+    case object ForwardCloseFrames                           extends ProtocolConfig
+    case class SendCloseFrame(status: CloseStatus)           extends ProtocolConfig
+    case class SendCloseFrameCode(code: Int, reason: String) extends ProtocolConfig
+    case object ForwardPongFrames                            extends ProtocolConfig
 
   }
 
   sealed trait DecoderConfig extends Socket[Any, Nothing]
   object DecoderConfig {
-    case class DecoderMaxFramePayloadLength(length: Int) extends DecoderConfig
-    case object RejectMaskedFrames                       extends DecoderConfig
-    case object AllowMaskMismatch                        extends DecoderConfig
-    case object AllowExtensions                          extends DecoderConfig
-    case object AllowProtocolViolation                   extends DecoderConfig
-    case object SkipUTF8Validation                       extends DecoderConfig
+    case class MaxFramePayloadLength(length: Int) extends DecoderConfig
+    case object RejectMaskedFrames                extends DecoderConfig
+    case object AllowMaskMismatch                 extends DecoderConfig
+    case object AllowExtensions                   extends DecoderConfig
+    case object AllowProtocolViolation            extends DecoderConfig
+    case object SkipUTF8Validation                extends DecoderConfig
   }
 
   /**
@@ -90,12 +91,12 @@ object Socket {
   /**
    * Handshake timeout in mills
    */
-  def handshakeTimeoutMillis(duration: Duration): Socket[Any, Nothing] = ProtocolConfig.HandshakeTimeoutMillis(duration)
+  def handshakeTimeout(duration: Duration): Socket[Any, Nothing] = ProtocolConfig.HandshakeTimeoutMillis(duration)
 
   /**
    * Close the connection if it was not closed by the client after timeout specified
    */
-  def forceCloseTimeoutMillis(duration: Duration): Socket[Any, Nothing] =
+  def forceCloseTimeout(duration: Duration): Socket[Any, Nothing] =
     ProtocolConfig.ForceCloseTimeoutMillis(duration)
 
   /**
@@ -106,7 +107,12 @@ object Socket {
   /**
    * Close frame to send, when close frame was not send manually.
    */
-  def sendCloseFrame(status: CloseStatus): Socket[Any, Nothing] = ProtocolConfig.SendCloseFrame(status)
+  def closeFrame(status: CloseStatus): Socket[Any, Nothing] = ProtocolConfig.SendCloseFrame(status)
+
+  /**
+   * Close frame to send, when close frame was not send manually.
+   */
+  def closeFrame(code: Int, reason: String): Socket[Any, Nothing] = ProtocolConfig.SendCloseFrameCode(code, reason)
 
   /**
    * If pong frames should be forwarded
@@ -117,8 +123,8 @@ object Socket {
    * Sets Maximum length of a frame's payload. Setting this to an appropriate value for you application helps check for
    * denial of services attacks.
    */
-  def decoderMaxFramePayloadLength(length: Int): Socket[Any, Nothing] =
-    DecoderConfig.DecoderMaxFramePayloadLength(length)
+  def maxFramePayloadLength(length: Int): Socket[Any, Nothing] =
+    DecoderConfig.MaxFramePayloadLength(length)
 
   /**
    * Web socket servers must set this to true to reject incoming masked payload.
