@@ -30,20 +30,15 @@ final case class ServerSocketHandler[R](
         .runDrain,
     )
 
-  override def channelRead0(ctx: JChannelHandlerContext, msg: JWebSocketFrame): Unit = {
+  override def channelRead0(ctx: JChannelHandlerContext, msg: JWebSocketFrame): Unit =
     ss.onMessage match {
       case Some(v) =>
         WebSocketFrame.fromJFrame(msg) match {
           case Some(frame) => writeAndFlush(ctx, v(frame))
           case _           => ()
         }
-      case None    => {
-        ctx.writeAndFlush(msg)
-        ()
-      }
+      case None    => ()
     }
-
-  }
 
   def executeAsync(ctx: JChannelHandlerContext, program: ZIO[R, Throwable, Unit]): Unit = {
     zExec.unsafeExecute(ctx, program) {
@@ -58,23 +53,21 @@ final case class ServerSocketHandler[R](
     }
   }
 
-  override def exceptionCaught(ctx: JChannelHandlerContext, x: Throwable): Unit =
+  override def exceptionCaught(ctx: JChannelHandlerContext, x: Throwable): Unit = {
     ss.onError match {
       case Some(v) => executeAsync(ctx, v(x).uninterruptible)
-      case None    => {
-        ctx.fireExceptionCaught(x)
-        ()
-      }
+      case None    => ctx.fireExceptionCaught(x)
     }
+    ()
+  }
 
-  override def channelUnregistered(ctx: JChannelHandlerContext): Unit =
+  override def channelUnregistered(ctx: JChannelHandlerContext): Unit = {
     ss.onClose match {
       case Some(v) => executeAsync(ctx, v(ctx.channel().remoteAddress()).uninterruptible)
-      case None    => {
-        ctx.fireChannelUnregistered()
-        ()
-      }
+      case None    => ctx.fireChannelUnregistered()
     }
+    ()
+  }
 
   override def userEventTriggered(ctx: JChannelHandlerContext, event: AnyRef): Unit = {
 
