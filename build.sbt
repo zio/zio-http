@@ -115,7 +115,7 @@ lazy val example = (project in file("./example"))
   .settings(publishSetting(false))
   .settings(
     fork := true,
-    Compile / run / mainClass := Option("WebSocketAdvanced"),
+    Compile / run / mainClass := Option("HelloWorldAdvanced"),
   )
   .dependsOn(zhttp)
 
