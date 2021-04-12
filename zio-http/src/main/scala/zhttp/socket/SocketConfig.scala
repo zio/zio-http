@@ -31,7 +31,7 @@ object SocketConfig {
 
   private def decoderConfigBuilder = JWebSocketDecoderConfig
     .newBuilder()
-    .expectMaskedFrames(false)
+    .expectMaskedFrames(true)
     .closeOnProtocolViolation(false)
     .withUTF8Validator(false)
 
@@ -56,8 +56,8 @@ object SocketConfig {
     def updateDecoderConfig(config: DecoderConfig, s: SocketConfig[R, E]): SocketConfig[R, E] = {
       config match {
         case DecoderMaxFramePayloadLength(length) => iDecoderConfigBuilder.maxFramePayloadLength(length)
-        case ExpectMaskedFrames                   => iDecoderConfigBuilder.expectMaskedFrames(true)
-        case AllowMaskMismatch                    => iDecoderConfigBuilder.allowMaskMismatch(true)
+        case ExpectMaskedFrames(flag)             => iDecoderConfigBuilder.expectMaskedFrames(flag)
+        case AllowMaskMismatch(flag)              => iDecoderConfigBuilder.allowMaskMismatch(flag)
         case AllowExtensions                      => iDecoderConfigBuilder.allowExtensions(true)
         case CloseOnProtocolViolation             => iDecoderConfigBuilder.closeOnProtocolViolation(true)
         case WithUTF8Validator                    => iDecoderConfigBuilder.withUTF8Validator(true)
