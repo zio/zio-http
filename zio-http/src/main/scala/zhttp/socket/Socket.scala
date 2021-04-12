@@ -43,7 +43,7 @@ object Socket {
     case object AllowMaskMismatch                        extends DecoderConfig
     case object AllowExtensions                          extends DecoderConfig
     case object AllowProtocolViolation                   extends DecoderConfig
-    case object SkipUTF8Validator                        extends DecoderConfig
+    case object SkipUTF8Validation                       extends DecoderConfig
   }
 
   /**
@@ -138,5 +138,5 @@ object Socket {
    * Allows you to avoid adding of Utf8FrameValidator to the pipeline on the WebSocketServerProtocolHandler creation.
    * This is useful (less overhead) when you use only BinaryWebSocketFrame within your web socket connection.
    */
-  def skipUTF8Validator: Socket[Any, Nothing] = DecoderConfig.SkipUTF8Validator
+  def skipUTF8Validation: Socket[Any, Nothing] = DecoderConfig.SkipUTF8Validation
 }

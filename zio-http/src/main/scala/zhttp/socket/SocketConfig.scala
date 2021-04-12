@@ -55,7 +55,7 @@ object SocketConfig {
         case AllowMaskMismatch                    => iDecoderConfigBuilder.allowMaskMismatch(true)
         case AllowExtensions                      => iDecoderConfigBuilder.allowExtensions(true)
         case AllowProtocolViolation               => iDecoderConfigBuilder.closeOnProtocolViolation(false)
-        case SkipUTF8Validator                    => iDecoderConfigBuilder.withUTF8Validator(false)
+        case SkipUTF8Validation                   => iDecoderConfigBuilder.withUTF8Validator(false)
       }
       s
     }
