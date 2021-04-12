@@ -51,7 +51,7 @@ object SocketConfig {
     def updateDecoderConfig(config: DecoderConfig, s: SocketConfig[R, E]): SocketConfig[R, E] = {
       config match {
         case DecoderMaxFramePayloadLength(length) => iDecoderConfigBuilder.maxFramePayloadLength(length)
-        case NeglectMaskedFrames                  => iDecoderConfigBuilder.expectMaskedFrames(false)
+        case RejectMaskedFrames                   => iDecoderConfigBuilder.expectMaskedFrames(false)
         case AllowMaskMismatch                    => iDecoderConfigBuilder.allowMaskMismatch(true)
         case AllowExtensions                      => iDecoderConfigBuilder.allowExtensions(true)
         case IgnoreOnProtocolViolation            => iDecoderConfigBuilder.closeOnProtocolViolation(false)

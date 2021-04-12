@@ -39,7 +39,7 @@ object Socket {
   sealed trait DecoderConfig extends Socket[Any, Nothing]
   object DecoderConfig {
     case class DecoderMaxFramePayloadLength(length: Int) extends DecoderConfig
-    case object NeglectMaskedFrames                      extends DecoderConfig
+    case object RejectMaskedFrames                       extends DecoderConfig
     case object AllowMaskMismatch                        extends DecoderConfig
     case object AllowExtensions                          extends DecoderConfig
     case object IgnoreOnProtocolViolation                extends DecoderConfig
@@ -115,9 +115,9 @@ object Socket {
     DecoderConfig.DecoderMaxFramePayloadLength(length)
 
   /**
-   * Web socket servers must set this to true to neglect incoming masked payload.
+   * Web socket servers must set this to true to reject incoming masked payload.
    */
-  def neglectMaskedFrames: Socket[Any, Nothing] = DecoderConfig.NeglectMaskedFrames
+  def rejectMaskedFrames: Socket[Any, Nothing] = DecoderConfig.RejectMaskedFrames
 
   /**
    * When set to true, frames which are not masked properly according to the standard will still be accepted.
