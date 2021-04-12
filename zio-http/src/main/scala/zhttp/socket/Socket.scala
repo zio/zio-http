@@ -117,7 +117,7 @@ object Socket {
   /**
    * Web socket servers must set this to true to process incoming masked payload.
    */
-  def rejectMaskedFrames: Socket[Any, Nothing] = DecoderConfig.NeglectMaskedFrames
+  def neglectMaskedFrames: Socket[Any, Nothing] = DecoderConfig.NeglectMaskedFrames
 
   /**
    * When set to true, frames which are not masked properly according to the standard will still be accepted.
