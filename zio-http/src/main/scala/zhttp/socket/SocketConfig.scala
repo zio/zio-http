@@ -68,7 +68,7 @@ object SocketConfig {
         case OnTimeout(onTimeout) =>
           s.copy(onTimeout = s.onTimeout.fold(Option(onTimeout))(v => Option(v *> onTimeout)))
         case OnOpen(onOpen)       =>
-          s.copy(onOpen = s.onOpen.fold(Option(onOpen))(v => Option(ws => v(ws).merge(onOpen(ws)))))
+          s.copy(onOpen = s.onOpen.fold(Option(onOpen))(v => Option((c: Connection) => v(c).merge(onOpen(c)))))
         case OnMessage(onMessage) =>
           s.copy(onMessage = s.onMessage.fold(Option(onMessage))(v => Option(ws => v(ws).merge(onMessage(ws)))))
         case OnError(onError)     => s.copy(onError = s.onError.fold(Option(onError))(v => Option(c => v(c) *> onError(c))))
