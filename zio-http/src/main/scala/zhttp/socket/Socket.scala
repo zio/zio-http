@@ -39,8 +39,8 @@ object Socket {
   sealed trait DecoderConfig extends Socket[Any, Nothing]
   object DecoderConfig {
     case class DecoderMaxFramePayloadLength(length: Int) extends DecoderConfig
-    case class ExpectMaskedFrames(flag: Boolean)         extends DecoderConfig
-    case class AllowMaskMismatch(flag: Boolean)          extends DecoderConfig
+    case object RejectMaskedFrames                       extends DecoderConfig
+    case object RejectMaskMismatch                       extends DecoderConfig
     case object AllowExtensions                          extends DecoderConfig
     case object CloseOnProtocolViolation                 extends DecoderConfig
     case object WithUTF8Validator                        extends DecoderConfig
@@ -117,12 +117,12 @@ object Socket {
   /**
    * Web socket servers must set this to true to process incoming masked payload.
    */
-  def expectMaskedFrames(flag: Boolean): Socket[Any, Nothing] = DecoderConfig.ExpectMaskedFrames(flag)
+  def rejectMaskedFrames: Socket[Any, Nothing] = DecoderConfig.RejectMaskedFrames
 
   /**
    * When set to true, frames which are not masked properly according to the standard will still be accepted.
    */
-  def allowMaskMismatch(flag: Boolean): Socket[Any, Nothing] = DecoderConfig.AllowMaskMismatch(flag)
+  def rejectMaskMismatch: Socket[Any, Nothing] = DecoderConfig.RejectMaskMismatch
 
   /**
    * Allow extensions to be used in the reserved bits of the web socket frame
