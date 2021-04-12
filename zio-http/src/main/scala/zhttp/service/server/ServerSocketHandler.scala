@@ -1,6 +1,9 @@
 package zhttp.service.server
 
-import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.{HandshakeComplete => JHandshakeComplete}
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.{
+  HandshakeComplete => JHandshakeComplete,
+  ServerHandshakeStateEvent => JServerHandshakeStateEvent,
+}
 import zhttp.core.{JChannelHandlerContext, JSimpleChannelInboundHandler, JWebSocketFrame}
 import zhttp.service.{ChannelFuture, UnsafeChannelExecutor}
 import zhttp.socket.{SocketConfig, WebSocketFrame}
@@ -55,8 +58,10 @@ final case class ServerSocketHandler[R](
 
   override def userEventTriggered(ctx: JChannelHandlerContext, event: AnyRef): Unit = {
     event match {
-      case _: JHandshakeComplete => writeAndFlush(ctx, ss.onOpen(ctx.channel().remoteAddress()))
-      case event                 => ctx.fireUserEventTriggered(event)
+      case _: JHandshakeComplete                                                              => writeAndFlush(ctx, ss.onOpen(ctx.channel().remoteAddress()))
+      case m: JServerHandshakeStateEvent if m == JServerHandshakeStateEvent.HANDSHAKE_TIMEOUT =>
+        zExec.unsafeExecute_(ctx)(ss.onTimeout)
+      case event                                                                              => ctx.fireUserEventTriggered(event)
     }
     ()
   }

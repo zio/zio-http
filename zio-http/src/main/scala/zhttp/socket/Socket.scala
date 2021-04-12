@@ -23,6 +23,7 @@ object Socket {
     case class OnMessage[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame]) extends HandlerConfig[R, E]
     case class OnError[R](onError: Throwable => ZIO[R, Nothing, Unit])                     extends HandlerConfig[R, Nothing]
     case class OnClose[R](onClose: Connection => ZIO[R, Nothing, Unit])                    extends HandlerConfig[R, Nothing]
+    case class OnTimeout[R](onTimeout: ZIO[R, Nothing, Unit])                              extends HandlerConfig[R, Nothing]
   }
 
   sealed trait ProtocolConfig extends Socket[Any, Nothing]
@@ -56,6 +57,11 @@ object Socket {
    * the socket is forcefully closed.
    */
   def open[R, E](onOpen: Connection => ZStream[R, E, WebSocketFrame]): Socket[R, E] = HandlerConfig.OnOpen(onOpen)
+
+  /**
+   * Called when the handshake gets timeout.
+   */
+  def timeout[R](onTimeout: ZIO[R, Nothing, Unit]): Socket[R, Nothing] = HandlerConfig.OnTimeout(onTimeout)
 
   /**
    * Called on every incoming WebSocketFrame. In case of a failure on the returned stream, the socket is forcefully

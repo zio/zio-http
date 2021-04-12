@@ -12,6 +12,7 @@ import zio.ZIO
 import zio.stream.ZStream
 
 case class SocketConfig[-R, +E](
+  onTimeout: ZIO[R, Nothing, Unit] = ZIO.unit,
   onOpen: Connection => ZStream[R, E, WebSocketFrame] = (_: Connection) => ZStream.empty,
   onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame] = (_: WebSocketFrame) => ZStream.empty,
   onError: Throwable => ZIO[R, Nothing, Unit] = (_: Throwable) => ZIO.unit,
@@ -62,6 +63,7 @@ object SocketConfig {
 
     def updateHandlerConfig(config: HandlerConfig[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] =
       config match {
+        case OnTimeout(onTimeout) => s.copy(onTimeout = onTimeout)
         case OnOpen(onOpen)       => s.copy(onOpen = onOpen)
         case OnMessage(onMessage) => s.copy(onMessage = ws => s.onMessage(ws).merge(onMessage(ws)))
         case OnError(onError)     => s.copy(onError = onError)
