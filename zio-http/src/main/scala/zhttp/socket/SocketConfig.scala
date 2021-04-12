@@ -24,8 +24,6 @@ object SocketConfig {
   // TODO: reset defaults to protocol defaults
   private def protocolConfigBuilder = JWebSocketServerProtocolConfig
     .newBuilder()
-    .handleCloseFrames(false)
-    .dropPongFrames(false)
     .checkStartsWith(true)
     .websocketPath("")
 
@@ -43,9 +41,9 @@ object SocketConfig {
         case SubProtocol(name)                 => iProtocolConfigBuilder.subprotocols(name)
         case HandshakeTimeoutMillis(duration)  => iProtocolConfigBuilder.handshakeTimeoutMillis(duration.toMillis)
         case ForceCloseTimeoutMillis(duration) => iProtocolConfigBuilder.forceCloseTimeoutMillis(duration.toMillis)
-        case HandleCloseFrames                 => iProtocolConfigBuilder.handleCloseFrames(true)
+        case ForwardCloseFrames                => iProtocolConfigBuilder.handleCloseFrames(false)
         case SendCloseFrame(status)            => iProtocolConfigBuilder.sendCloseFrame(status.asJava)
-        case DropPongFrames                    => iProtocolConfigBuilder.dropPongFrames(true)
+        case ForwardPongFrames                 => iProtocolConfigBuilder.dropPongFrames(false)
       }
       s
     }
@@ -56,8 +54,8 @@ object SocketConfig {
         case NeglectMaskedFrames                  => iDecoderConfigBuilder.expectMaskedFrames(false)
         case AllowMaskMismatch                    => iDecoderConfigBuilder.allowMaskMismatch(true)
         case AllowExtensions                      => iDecoderConfigBuilder.allowExtensions(true)
-        case CloseOnProtocolViolation             => iDecoderConfigBuilder.closeOnProtocolViolation(true)
-        case WithUTF8Validator                    => iDecoderConfigBuilder.withUTF8Validator(true)
+        case IgnoreOnProtocolViolation            => iDecoderConfigBuilder.closeOnProtocolViolation(false)
+        case WithoutUTF8Validator                 => iDecoderConfigBuilder.withUTF8Validator(false)
       }
       s
     }

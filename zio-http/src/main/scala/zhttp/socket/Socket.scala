@@ -30,9 +30,9 @@ object Socket {
     case class SubProtocol(name: String)                   extends ProtocolConfig
     case class HandshakeTimeoutMillis(duration: Duration)  extends ProtocolConfig
     case class ForceCloseTimeoutMillis(duration: Duration) extends ProtocolConfig
-    case object HandleCloseFrames                          extends ProtocolConfig
+    case object ForwardCloseFrames                         extends ProtocolConfig
     case class SendCloseFrame(status: CloseStatus)         extends ProtocolConfig
-    case object DropPongFrames                             extends ProtocolConfig
+    case object ForwardPongFrames                          extends ProtocolConfig
 
   }
 
@@ -42,8 +42,8 @@ object Socket {
     case object NeglectMaskedFrames                      extends DecoderConfig
     case object AllowMaskMismatch                        extends DecoderConfig
     case object AllowExtensions                          extends DecoderConfig
-    case object CloseOnProtocolViolation                 extends DecoderConfig
-    case object WithUTF8Validator                        extends DecoderConfig
+    case object IgnoreOnProtocolViolation                extends DecoderConfig
+    case object WithoutUTF8Validator                     extends DecoderConfig
   }
 
   /**
@@ -93,9 +93,9 @@ object Socket {
     ProtocolConfig.ForceCloseTimeoutMillis(duration)
 
   /**
-   * Close frames should not be forwarded and just close the channel
+   * Close frames should be forwarded
    */
-  def handleCloseFrames: Socket[Any, Nothing] = ProtocolConfig.HandleCloseFrames
+  def forwardCloseFrames: Socket[Any, Nothing] = ProtocolConfig.ForwardCloseFrames
 
   /**
    * Close frame to send, when close frame was not send manually.
@@ -103,9 +103,9 @@ object Socket {
   def sendCloseFrame(status: CloseStatus): Socket[Any, Nothing] = ProtocolConfig.SendCloseFrame(status)
 
   /**
-   * If pong frames should not be forwarded
+   * If pong frames should be forwarded
    */
-  def dropPongFrames: Socket[Any, Nothing] = ProtocolConfig.DropPongFrames
+  def forwardPongFrames: Socket[Any, Nothing] = ProtocolConfig.ForwardPongFrames
 
   /**
    * Sets Maximum length of a frame's payload. Setting this to an appropriate value for you application helps check for
@@ -115,7 +115,7 @@ object Socket {
     DecoderConfig.DecoderMaxFramePayloadLength(length)
 
   /**
-   * Web socket servers must set this to true to process incoming masked payload.
+   * Web socket servers must set this to true to neglect incoming masked payload.
    */
   def neglectMaskedFrames: Socket[Any, Nothing] = DecoderConfig.NeglectMaskedFrames
 
@@ -130,13 +130,13 @@ object Socket {
   def allowExtensions: Socket[Any, Nothing] = DecoderConfig.AllowExtensions
 
   /**
-   * Flag to send close frame immediately on any protocol violation.ion.
+   * Flag to not send close frame immediately on any protocol violation.ion.
    */
-  def closeOnProtocolViolation: Socket[Any, Nothing] = DecoderConfig.CloseOnProtocolViolation
+  def ignoreOnProtocolViolation: Socket[Any, Nothing] = DecoderConfig.IgnoreOnProtocolViolation
 
   /**
    * Allows you to avoid adding of Utf8FrameValidator to the pipeline on the WebSocketServerProtocolHandler creation.
    * This is useful (less overhead) when you use only BinaryWebSocketFrame within your web socket connection.
    */
-  def withUTF8Validator: Socket[Any, Nothing] = DecoderConfig.WithUTF8Validator
+  def withoutUTF8Validator: Socket[Any, Nothing] = DecoderConfig.WithoutUTF8Validator
 }
