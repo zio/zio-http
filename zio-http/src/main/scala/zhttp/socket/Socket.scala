@@ -42,8 +42,8 @@ object Socket {
     case object RejectMaskedFrames                       extends DecoderConfig
     case object AllowMaskMismatch                        extends DecoderConfig
     case object AllowExtensions                          extends DecoderConfig
-    case object IgnoreOnProtocolViolation                extends DecoderConfig
-    case object WithoutUTF8Validator                     extends DecoderConfig
+    case object AllowProtocolViolation                   extends DecoderConfig
+    case object SkipUTF8Validator                        extends DecoderConfig
   }
 
   /**
@@ -132,11 +132,11 @@ object Socket {
   /**
    * Flag to not send close frame immediately on any protocol violation.ion.
    */
-  def ignoreOnProtocolViolation: Socket[Any, Nothing] = DecoderConfig.IgnoreOnProtocolViolation
+  def allowProtocolViolation: Socket[Any, Nothing] = DecoderConfig.AllowProtocolViolation
 
   /**
    * Allows you to avoid adding of Utf8FrameValidator to the pipeline on the WebSocketServerProtocolHandler creation.
    * This is useful (less overhead) when you use only BinaryWebSocketFrame within your web socket connection.
    */
-  def withoutUTF8Validator: Socket[Any, Nothing] = DecoderConfig.WithoutUTF8Validator
+  def skipUTF8Validator: Socket[Any, Nothing] = DecoderConfig.SkipUTF8Validator
 }

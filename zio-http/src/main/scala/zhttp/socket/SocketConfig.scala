@@ -54,8 +54,8 @@ object SocketConfig {
         case RejectMaskedFrames                   => iDecoderConfigBuilder.expectMaskedFrames(false)
         case AllowMaskMismatch                    => iDecoderConfigBuilder.allowMaskMismatch(true)
         case AllowExtensions                      => iDecoderConfigBuilder.allowExtensions(true)
-        case IgnoreOnProtocolViolation            => iDecoderConfigBuilder.closeOnProtocolViolation(false)
-        case WithoutUTF8Validator                 => iDecoderConfigBuilder.withUTF8Validator(false)
+        case AllowProtocolViolation               => iDecoderConfigBuilder.closeOnProtocolViolation(false)
+        case SkipUTF8Validator                    => iDecoderConfigBuilder.withUTF8Validator(false)
       }
       s
     }
