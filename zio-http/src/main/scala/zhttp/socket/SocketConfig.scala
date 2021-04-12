@@ -24,16 +24,11 @@ object SocketConfig {
   // TODO: reset defaults to protocol defaults
   private def protocolConfigBuilder = JWebSocketServerProtocolConfig
     .newBuilder()
-    .handleCloseFrames(false)
-    .dropPongFrames(false)
     .checkStartsWith(true)
     .websocketPath("")
 
   private def decoderConfigBuilder = JWebSocketDecoderConfig
     .newBuilder()
-    .expectMaskedFrames(false)
-    .closeOnProtocolViolation(false)
-    .withUTF8Validator(false)
 
   def fromSocket[R, E](socket: Socket[R, E]): SocketConfig[R, E] = {
     val iSettings              =
@@ -46,9 +41,9 @@ object SocketConfig {
         case SubProtocol(name)                 => iProtocolConfigBuilder.subprotocols(name)
         case HandshakeTimeoutMillis(duration)  => iProtocolConfigBuilder.handshakeTimeoutMillis(duration.toMillis)
         case ForceCloseTimeoutMillis(duration) => iProtocolConfigBuilder.forceCloseTimeoutMillis(duration.toMillis)
-        case HandleCloseFrames                 => iProtocolConfigBuilder.handleCloseFrames(true)
+        case ForwardCloseFrames                => iProtocolConfigBuilder.handleCloseFrames(false)
         case SendCloseFrame(status)            => iProtocolConfigBuilder.sendCloseFrame(status.asJava)
-        case DropPongFrames                    => iProtocolConfigBuilder.dropPongFrames(true)
+        case ForwardPongFrames                 => iProtocolConfigBuilder.dropPongFrames(false)
       }
       s
     }
@@ -56,11 +51,11 @@ object SocketConfig {
     def updateDecoderConfig(config: DecoderConfig, s: SocketConfig[R, E]): SocketConfig[R, E] = {
       config match {
         case DecoderMaxFramePayloadLength(length) => iDecoderConfigBuilder.maxFramePayloadLength(length)
-        case ExpectMaskedFrames                   => iDecoderConfigBuilder.expectMaskedFrames(true)
+        case RejectMaskedFrames                   => iDecoderConfigBuilder.expectMaskedFrames(false)
         case AllowMaskMismatch                    => iDecoderConfigBuilder.allowMaskMismatch(true)
         case AllowExtensions                      => iDecoderConfigBuilder.allowExtensions(true)
-        case CloseOnProtocolViolation             => iDecoderConfigBuilder.closeOnProtocolViolation(true)
-        case WithUTF8Validator                    => iDecoderConfigBuilder.withUTF8Validator(true)
+        case AllowProtocolViolation               => iDecoderConfigBuilder.closeOnProtocolViolation(false)
+        case SkipUTF8Validation                   => iDecoderConfigBuilder.withUTF8Validator(false)
       }
       s
     }
