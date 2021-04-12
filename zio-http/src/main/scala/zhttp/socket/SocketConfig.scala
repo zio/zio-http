@@ -22,7 +22,6 @@ case class SocketConfig[-R, +E](
 
 object SocketConfig {
 
-  // TODO: reset defaults to protocol defaults
   private def protocolConfigBuilder = JWebSocketServerProtocolConfig
     .newBuilder()
     .checkStartsWith(true)
