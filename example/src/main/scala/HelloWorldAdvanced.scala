@@ -13,15 +13,25 @@ object HelloWorldAdvanced extends App {
   }
 
   private val app = Http.collectM {
-    case Method.GET -> Root / "random" => random.nextString(10).map(Response.text)
-    case Method.GET -> Root / "utc"    =>
-      clock.currentDateTime.map(s => Response.text(s.toString))
+    case req @ Method.GET -> Root / "random" => req.discardContent &> random.nextString(10).map(Response.text)
+    case req @ Method.GET -> Root / "utc"    =>
+      req.discardContent &> clock.currentDateTime.map(s => Response.text(s.toString))
+
+    case req @ Method.POST -> Root / "upload" =>
+      req.headers.find(h => h.lowercaseEquals(Header.contentTypeJson)) match {
+        case Some(_) =>
+          req.getBodyAsString.map(echoText => echoText.map(Response.text).getOrElse(Response.status(Status.OK)))
+        case None    =>
+          req.contentSize.map(length => Response.text(s"done: ${length}"))
+      }
   }
 
   private val server =
-    Server.port(PORT) ++              // Setup port
-      Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
-      Server.app(fooBar <> app)       // Setup the Http app
+    Server.port(PORT) ++             // Setup port
+      Server.disableLeakDetection ++ // Paranoid leak detection (affects performance)
+      Server.streamingRequests ++    // Get the request body as a stream
+      Server.maxRequestSize(100 * 1024) ++
+      Server.app(fooBar <> app)      // Setup the Http app
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     // Configure thread count using CLI

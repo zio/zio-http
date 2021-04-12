@@ -5,7 +5,13 @@ import zhttp.core.{JDefaultHttpHeaders, JHttpHeaders}
 
 import scala.jdk.CollectionConverters._
 
-final case class Header private[Header] (name: CharSequence, value: CharSequence)
+final case class Header private[Header] (name: CharSequence, value: CharSequence) {
+  def nameLowerCaseEquals(other: Header): Boolean = name.toString.toLowerCase == other.name.toString.toLowerCase
+
+  def valueLowerCaseEquals(other: Header): Boolean = value.toString.toLowerCase == other.value.toString.toLowerCase
+
+  def lowercaseEquals(other: Header): Boolean = nameLowerCaseEquals(other) && valueLowerCaseEquals(other)
+}
 
 object Header {
 

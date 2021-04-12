@@ -8,7 +8,7 @@ import zio.{Exit, Fiber, URIO, ZIO}
  * Provides basic ZIO based utilities for any ZIO based program to execute in a channel's context. It will automatically
  * cancel the execution when the channel closes.
  */
-final class UnsafeChannelExecutor[R](runtime: zio.Runtime[R]) {
+final class UnsafeChannelExecutor[R](val runtime: zio.Runtime[R]) {
   def unsafeExecute_(ctx: JChannelHandlerContext)(program: ZIO[R, Throwable, Unit]): Unit = {
     unsafeExecute(ctx, program)({
       case Exit.Success(_)     => ()
@@ -40,6 +40,7 @@ final class UnsafeChannelExecutor[R](runtime: zio.Runtime[R]) {
 
     ()
   }
+
 }
 
 object UnsafeChannelExecutor {

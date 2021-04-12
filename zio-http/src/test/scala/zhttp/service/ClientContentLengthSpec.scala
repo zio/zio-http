@@ -31,7 +31,7 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
     }
 
   def getApp(state: Ref[ServerState]) = serve {
-    Http.collectM { case Request((_, URL(Root / path, _, _)), Request.Data(headers, _)) =>
+    Http.collectM { case Request((_, URL(Root / path, _, _)), headers, _) =>
       state.update(updateState(_, headers, path)) *> ZIO.succeed(Response.ok)
     }
   }

@@ -1,8 +1,8 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import zio.Chunk
-import zio.stream.ZStream
+import zio.stream.{ZStream, ZTransducer}
+import zio.{Chunk, UIO, ZIO}
 
 /**
  * Content holder for Requests and Responses
@@ -10,9 +10,14 @@ import zio.stream.ZStream
 sealed trait HttpData[-R, +E] extends Product with Serializable
 
 object HttpData {
-  case object Empty                                            extends HttpData[Any, Nothing]
-  final case class CompleteData(data: Chunk[Byte])             extends HttpData[Any, Nothing]
-  final case class StreamData[R, E](data: ZStream[R, E, Byte]) extends HttpData[R, E]
+  case object Empty                                extends HttpData[Any, Nothing]
+  final case class CompleteData(data: Chunk[Byte]) extends HttpData[Any, Nothing] {
+    def asString: ZIO[Any, Nothing, String] = UIO.succeed(data.map(_.toChar).mkString)
+  }
+
+  final case class StreamData[R, E](data: ZStream[R, E, Byte]) extends HttpData[R, E] {
+    def asString: ZIO[R, E, String] = data.aggregate(ZTransducer.utf8Decode).fold("")(_ + _)
+  }
 
   /**
    * Helper to create CompleteData from ByteBuf

@@ -34,10 +34,10 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
 
   def request(request: Request): Task[UHttpResponse] = for {
     promise <- Promise.make[Throwable, JFullHttpResponse]
-    jReq = encodeRequest(JHttpVersion.HTTP_1_1, request)
-    _    <- asyncRequest(request, jReq, promise).catchAll(cause => promise.fail(cause)).fork
-    jRes <- promise.await
-    res  <- ZIO.fromEither(decodeJResponse(jRes))
+    jReq    <- encodeRequest(JHttpVersion.HTTP_1_1, request)
+    _       <- asyncRequest(request, jReq, promise).catchAll(cause => promise.fail(cause)).fork
+    jRes    <- promise.await
+    res     <- ZIO.fromEither(decodeJResponse(jRes))
   } yield res
 }
 
@@ -54,7 +54,7 @@ object Client {
   } yield res
 
   def request(endpoint: Endpoint): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
-    request(Request(endpoint))
+    request(Request(endpoint, headers = List.empty, content = HttpData.Empty))
 
   def request(req: Request): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
     make.flatMap(_.request(req))
