@@ -40,7 +40,7 @@ object Socket {
   object DecoderConfig {
     case class DecoderMaxFramePayloadLength(length: Int) extends DecoderConfig
     case object RejectMaskedFrames                       extends DecoderConfig
-    case object RejectMaskMismatch                       extends DecoderConfig
+    case object AllowMaskMismatch                        extends DecoderConfig
     case object AllowExtensions                          extends DecoderConfig
     case object CloseOnProtocolViolation                 extends DecoderConfig
     case object WithUTF8Validator                        extends DecoderConfig
@@ -122,7 +122,7 @@ object Socket {
   /**
    * When set to true, frames which are not masked properly according to the standard will still be accepted.
    */
-  def rejectMaskMismatch: Socket[Any, Nothing] = DecoderConfig.RejectMaskMismatch
+  def allowMaskMismatch: Socket[Any, Nothing] = DecoderConfig.AllowMaskMismatch
 
   /**
    * Allow extensions to be used in the reserved bits of the web socket frame
