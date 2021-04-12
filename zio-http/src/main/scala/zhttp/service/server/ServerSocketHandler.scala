@@ -32,12 +32,12 @@ final case class ServerSocketHandler[R](
 
   override def channelRead0(ctx: JChannelHandlerContext, msg: JWebSocketFrame): Unit = {
     ss.onMessage match {
-      case Some(value) =>
+      case Some(v) =>
         WebSocketFrame.fromJFrame(msg) match {
-          case Some(frame) => writeAndFlush(ctx, value(frame))
+          case Some(frame) => writeAndFlush(ctx, v(frame))
           case _           => ()
         }
-      case None        => {
+      case None    => {
         ctx.writeAndFlush(msg)
         ()
       }
@@ -60,8 +60,8 @@ final case class ServerSocketHandler[R](
 
   override def exceptionCaught(ctx: JChannelHandlerContext, x: Throwable): Unit =
     ss.onError match {
-      case Some(value) => executeAsync(ctx, value(x).uninterruptible)
-      case None        => {
+      case Some(v) => executeAsync(ctx, v(x).uninterruptible)
+      case None    => {
         ctx.fireExceptionCaught(x)
         ()
       }
@@ -69,8 +69,8 @@ final case class ServerSocketHandler[R](
 
   override def channelUnregistered(ctx: JChannelHandlerContext): Unit =
     ss.onClose match {
-      case Some(value) => executeAsync(ctx, value(ctx.channel().remoteAddress()).uninterruptible)
-      case None        => {
+      case Some(v) => executeAsync(ctx, v(ctx.channel().remoteAddress()).uninterruptible)
+      case None    => {
         ctx.fireChannelUnregistered()
         ()
       }
@@ -81,13 +81,13 @@ final case class ServerSocketHandler[R](
     event match {
       case _: JHandshakeComplete                                                              =>
         ss.onOpen match {
-          case Some(value) => writeAndFlush(ctx, value(ctx.channel().remoteAddress()))
-          case None        => ctx.fireUserEventTriggered(event)
+          case Some(v) => writeAndFlush(ctx, v(ctx.channel().remoteAddress()))
+          case None    => ctx.fireUserEventTriggered(event)
         }
       case m: JServerHandshakeStateEvent if m == JServerHandshakeStateEvent.HANDSHAKE_TIMEOUT =>
         ss.onTimeout match {
-          case Some(value) => zExec.unsafeExecute_(ctx)(value)
-          case None        => ctx.fireUserEventTriggered(event)
+          case Some(v) => zExec.unsafeExecute_(ctx)(v)
+          case None    => ctx.fireUserEventTriggered(event)
         }
       case event                                                                              => ctx.fireUserEventTriggered(event)
     }

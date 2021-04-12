@@ -66,11 +66,11 @@ object SocketConfig {
     def updateHandlerConfig(config: HandlerConfig[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] =
       config match {
         case OnTimeout(onTimeout) =>
-          s.copy(onTimeout = s.onTimeout.fold(Option(onTimeout))(value => Option(value *> onTimeout)))
+          s.copy(onTimeout = s.onTimeout.fold(Option(onTimeout))(v => Option(v *> onTimeout)))
         case OnOpen(onOpen)       =>
-          s.copy(onOpen = s.onOpen.fold(Option(onOpen))(value => Option(ws => value(ws).merge(onOpen(ws)))))
+          s.copy(onOpen = s.onOpen.fold(Option(onOpen))(v => Option(ws => v(ws).merge(onOpen(ws)))))
         case OnMessage(onMessage) =>
-          s.copy(onMessage = s.onMessage.fold(Option(onMessage))(value => Option(ws => value(ws).merge(onMessage(ws)))))
+          s.copy(onMessage = s.onMessage.fold(Option(onMessage))(v => Option(ws => v(ws).merge(onMessage(ws)))))
         case OnError(onError)     => s.copy(onError = s.onError.fold(Option(onError))(v => Option(c => v(c) *> onError(c))))
         case OnClose(onClose)     => s.copy(onClose = s.onClose.fold(Option(onClose))(v => Option(c => v(c) *> onClose(c))))
       }
