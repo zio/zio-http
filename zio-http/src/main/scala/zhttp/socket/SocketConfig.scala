@@ -13,11 +13,11 @@ import zio.ZIO
 import zio.stream.ZStream
 
 case class SocketConfig[-R, +E](
-  onTimeout: ZIO[R, Nothing, Unit] = ZIO.unit,
-  onOpen: Connection => ZStream[R, E, WebSocketFrame] = (_: Connection) => ZStream.empty,
-  onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame] = (_: WebSocketFrame) => ZStream.empty,
-  onError: Throwable => ZIO[R, Nothing, Unit] = (_: Throwable) => ZIO.unit,
-  onClose: Connection => ZIO[R, Nothing, Unit] = (_: Connection) => ZIO.unit,
+  onTimeout: Option[ZIO[R, Nothing, Unit]] = None,
+  onOpen: Option[Connection => ZStream[R, E, WebSocketFrame]] = None,
+  onMessage: Option[WebSocketFrame => ZStream[R, E, WebSocketFrame]] = None,
+  onError: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
+  onClose: Option[Connection => ZIO[R, Nothing, Unit]] = None,
   protocolConfig: JWebSocketServerProtocolConfig = SocketConfig.protocolConfigBuilder.build(),
 )
 
@@ -32,10 +32,10 @@ object SocketConfig {
     .newBuilder()
 
   def fromSocket[R, E](socket: Socket[R, E]): SocketConfig[R, E] = {
-    val iSettings              =
+    val iSettings: SocketConfig[Any, Nothing] =
       SocketConfig(protocolConfig = protocolConfigBuilder.decoderConfig(decoderConfigBuilder.build()).build())
-    val iProtocolConfigBuilder = protocolConfigBuilder
-    val iDecoderConfigBuilder  = decoderConfigBuilder
+    val iProtocolConfigBuilder                = protocolConfigBuilder
+    val iDecoderConfigBuilder                 = decoderConfigBuilder
 
     def updateProtocolConfig(config: ProtocolConfig, s: SocketConfig[R, E]): SocketConfig[R, E] = {
       config match {
@@ -65,11 +65,14 @@ object SocketConfig {
 
     def updateHandlerConfig(config: HandlerConfig[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] =
       config match {
-        case OnTimeout(onTimeout) => s.copy(onTimeout = onTimeout)
-        case OnOpen(onOpen)       => s.copy(onOpen = onOpen)
-        case OnMessage(onMessage) => s.copy(onMessage = ws => s.onMessage(ws).merge(onMessage(ws)))
-        case OnError(onError)     => s.copy(onError = onError)
-        case OnClose(onClose)     => s.copy(onClose = onClose)
+        case OnTimeout(onTimeout) =>
+          s.copy(onTimeout = s.onTimeout.fold(Option(onTimeout))(v => Option(v &> onTimeout)))
+        case OnOpen(onOpen)       =>
+          s.copy(onOpen = s.onOpen.fold(Option(onOpen))(v => Option((c: Connection) => v(c).merge(onOpen(c)))))
+        case OnMessage(onMessage) =>
+          s.copy(onMessage = s.onMessage.fold(Option(onMessage))(v => Option(ws => v(ws).merge(onMessage(ws)))))
+        case OnError(onError)     => s.copy(onError = s.onError.fold(Option(onError))(v => Option(c => v(c) &> onError(c))))
+        case OnClose(onClose)     => s.copy(onClose = s.onClose.fold(Option(onClose))(v => Option(c => v(c) &> onClose(c))))
       }
 
     def loop(ss: Socket[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] = ss match {
