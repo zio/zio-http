@@ -25,7 +25,7 @@ trait EncodeResponse {
         jh.set(hh.name, hh.value)
       }
     val jStatus      = res.status.toJHttpStatus
-    val response     = res.content match {
+    res.content match {
       case HttpContent.Complete(data) =>
         jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, data.length)
         jHttpHeaders.set(JHttpHeaderNames.SERVER, SERVER_NAME)
@@ -42,12 +42,6 @@ trait EncodeResponse {
         jHttpHeaders.set(JHttpHeaderNames.SERVER, SERVER_NAME)
         jHttpHeaders.set(JHttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
         new JDefaultHttpResponse(jVersion, jStatus, jHttpHeaders)
-      case _                          =>
-        jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, 0)
-
-        new JDefaultFullHttpResponse(jVersion, jStatus, JUnpooled.buffer(0), jHttpHeaders, jTrailingHeaders)
     }
-
-    response
   }
 }
