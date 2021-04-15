@@ -7,8 +7,8 @@ import zio.stream.ZStream
 import java.net.{SocketAddress => JSocketAddress}
 
 sealed trait Socket[-R, +E] { self =>
-  def <+>[R1 <: R, E1 >: E](other: Socket[R1, E1]): Socket[R1, E1] = Socket.Concat(self, other)
-  lazy val settings: SocketConfig[R, E]                            = SocketConfig.fromSocket(self)
+  def ++[R1 <: R, E1 >: E](other: Socket[R1, E1]): Socket[R1, E1] = Socket.Concat(self, other)
+  lazy val settings: SocketConfig[R, E]                           = SocketConfig.fromSocket(self)
 }
 
 object Socket {
