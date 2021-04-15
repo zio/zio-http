@@ -1,9 +1,12 @@
 package zhttp.service.server
 
-import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.{HandshakeComplete => JHandshakeComplete}
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.{
+  HandshakeComplete => JHandshakeComplete,
+  ServerHandshakeStateEvent => JServerHandshakeStateEvent,
+}
 import zhttp.core.{JChannelHandlerContext, JSimpleChannelInboundHandler, JWebSocketFrame}
 import zhttp.service.{ChannelFuture, UnsafeChannelExecutor}
-import zhttp.socket.{Socket, WebSocketFrame}
+import zhttp.socket.{SocketConfig, WebSocketFrame}
 import zio.stream.ZStream
 import zio.{Exit, ZIO}
 
@@ -12,7 +15,7 @@ import zio.{Exit, ZIO}
  */
 final case class ServerSocketHandler[R](
   zExec: UnsafeChannelExecutor[R],
-  ss: Socket.Settings[R, Throwable],
+  ss: SocketConfig[R, Throwable],
 ) extends JSimpleChannelInboundHandler[JWebSocketFrame] {
 
   /**
@@ -27,12 +30,15 @@ final case class ServerSocketHandler[R](
         .runDrain,
     )
 
-  override def channelRead0(ctx: JChannelHandlerContext, msg: JWebSocketFrame): Unit = {
-    WebSocketFrame.fromJFrame(msg) match {
-      case Some(frame) => writeAndFlush(ctx, ss.onMessage(frame))
-      case _           => ()
+  override def channelRead0(ctx: JChannelHandlerContext, msg: JWebSocketFrame): Unit =
+    ss.onMessage match {
+      case Some(v) =>
+        WebSocketFrame.fromJFrame(msg) match {
+          case Some(frame) => writeAndFlush(ctx, v(frame))
+          case _           => ()
+        }
+      case None    => ()
     }
-  }
 
   def executeAsync(ctx: JChannelHandlerContext, program: ZIO[R, Throwable, Unit]): Unit = {
     zExec.unsafeExecute(ctx, program) {
@@ -47,16 +53,36 @@ final case class ServerSocketHandler[R](
     }
   }
 
-  override def exceptionCaught(ctx: JChannelHandlerContext, x: Throwable): Unit =
-    executeAsync(ctx, ss.onError(x).uninterruptible)
+  override def exceptionCaught(ctx: JChannelHandlerContext, x: Throwable): Unit = {
+    ss.onError match {
+      case Some(v) => executeAsync(ctx, v(x).uninterruptible)
+      case None    => ctx.fireExceptionCaught(x)
+    }
+    ()
+  }
 
-  override def channelUnregistered(ctx: JChannelHandlerContext): Unit =
-    executeAsync(ctx, ss.onClose(ctx.channel().remoteAddress()).uninterruptible)
+  override def channelUnregistered(ctx: JChannelHandlerContext): Unit = {
+    ss.onClose match {
+      case Some(v) => executeAsync(ctx, v(ctx.channel().remoteAddress()).uninterruptible)
+      case None    => ctx.fireChannelUnregistered()
+    }
+    ()
+  }
 
   override def userEventTriggered(ctx: JChannelHandlerContext, event: AnyRef): Unit = {
+
     event match {
-      case _: JHandshakeComplete => writeAndFlush(ctx, ss.onOpen(ctx.channel().remoteAddress()))
-      case event                 => ctx.fireUserEventTriggered(event)
+      case _: JHandshakeComplete                                                              =>
+        ss.onOpen match {
+          case Some(v) => writeAndFlush(ctx, v(ctx.channel().remoteAddress()))
+          case None    => ctx.fireUserEventTriggered(event)
+        }
+      case m: JServerHandshakeStateEvent if m == JServerHandshakeStateEvent.HANDSHAKE_TIMEOUT =>
+        ss.onTimeout match {
+          case Some(v) => zExec.unsafeExecute_(ctx)(v)
+          case None    => ctx.fireUserEventTriggered(event)
+        }
+      case event                                                                              => ctx.fireUserEventTriggered(event)
     }
     ()
   }
