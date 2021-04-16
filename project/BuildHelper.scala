@@ -5,7 +5,7 @@ import xerial.sbt.Sonatype.autoImport._
 
 object BuildHelper extends ScalaSettings {
   val Scala213   = "2.13.5"
-  val ScalaDotty = "3.0.0-RC1"
+  val ScalaDotty = "3.0.0-RC2"
 
   private val stdOptions = Seq(
     "-deprecation",
