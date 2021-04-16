@@ -75,8 +75,7 @@ object Socket {
    * Collects the incoming messages using a partial function. In case of a failure on the returned stream, the socket is
    * forcefully closed.
    */
-  def collect[R, E](onMessage: PartialFunction[WebSocketFrame, ZStream[R, E, WebSocketFrame]]): Socket[R, E] =
-    message(ws => if (onMessage.isDefinedAt(ws)) onMessage(ws) else ZStream.empty)
+  def collect[A] = new MkCollectSome[A](())
 
   /**
    * Called whenever there is an error on the channel after a successful upgrade to websocket.
@@ -151,4 +150,16 @@ object Socket {
    * This is useful (less overhead) when you use only BinaryWebSocketFrame within your web socket connection.
    */
   def skipUTF8Validation: Socket[Any, Nothing] = DecoderConfig.SkipUTF8Validation
+
+  final class MkCollectSome[A](val unit: Unit) extends AnyVal {
+    def apply[R, E, E1, B](
+      pf: PartialFunction[A, ZStream[R, E, B]],
+    )(implicit e: SocketEncoder[B], d: SocketDecoder[E1, A], ev: E1 <:< E): Socket[R, E] =
+      message { ws =>
+        d.decode(ws) match {
+          case Left(cause) => ZStream.fail(cause)
+          case Right(a)    => if (pf.isDefinedAt(a)) pf(a).map(e.encode) else ZStream.empty
+        }
+      }
+  }
 }

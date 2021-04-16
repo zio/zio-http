@@ -7,6 +7,7 @@ import sbt.enablePlugins
 // ZIO Version
 val zioVersion            = "1.0.6"
 val zioConfigVersion      = "1.0.2"
+val zioJsonVersion        = "0.1.4"
 val releaseDrafterVersion = "5"
 
 lazy val root = (project in file("."))
@@ -93,6 +94,7 @@ lazy val zhttp = (project in file("./zio-http"))
       Seq(
         "dev.zio" %% "zio"         % zioVersion,
         "dev.zio" %% "zio-streams" % zioVersion,
+        "dev.zio" %% "zio-json"    % zioJsonVersion,
         "io.netty" % "netty-all"   % "4.1.63.Final",
       ),
   )
