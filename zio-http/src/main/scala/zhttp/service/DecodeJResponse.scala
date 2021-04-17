@@ -15,7 +15,7 @@ trait DecodeJResponse {
     val status  = Status.fromJHttpResponseStatus(jRes.status())
     val headers = Header.parse(jRes.headers())
     val bytes   = new Array[Byte](jRes.content().readableBytes)
-    jRes.content().duplicate.readBytes(bytes)
+    jRes.content().readBytes(bytes)
     val content = HttpContent.Complete(Chunk.fromArray(bytes))
 
     Response.http(status, headers, content): UHttpResponse

@@ -15,7 +15,7 @@ trait DecodeJRequest {
     headers  = Header.make(jReq.headers())
     endpoint = method -> url
     bytes    = new Array[Byte](jReq.content().readableBytes)
-    _        = jReq.content().duplicate.readBytes(bytes)
+    _        = jReq.content().readBytes(bytes)
     data     = Request.Data(
       headers,
       HttpContent.Complete(Chunk.fromArray(bytes)),
