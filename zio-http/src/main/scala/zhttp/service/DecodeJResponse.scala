@@ -14,7 +14,9 @@ trait DecodeJResponse {
   def decodeJResponse(jRes: JFullHttpResponse): Either[Throwable, UHttpResponse] = Try {
     val status  = Status.fromJHttpResponseStatus(jRes.status())
     val headers = Header.parse(jRes.headers())
-    val content = HttpContent.Complete(Chunk.fromArray(jRes.content().toString(HTTP_CHARSET).getBytes()))
+    val bytes   = new Array[Byte](jRes.content().readableBytes)
+    jRes.content().duplicate.readBytes(bytes)
+    val content = HttpContent.Complete(Chunk.fromArray(bytes))
 
     Response.http(status, headers, content): UHttpResponse
   }.toEither
