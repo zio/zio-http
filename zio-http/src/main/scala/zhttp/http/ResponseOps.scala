@@ -2,13 +2,14 @@ package zhttp.http
 
 import zhttp.http.Response.{HttpResponse, SocketResponse}
 import zhttp.socket.Socket
+import zio.Chunk
 
 import java.io.{PrintWriter, StringWriter}
 
 trait ResponseOps {
   private val defaultStatus  = Status.OK
   private val defaultHeaders = Nil
-  private val emptyContent   = HttpContent.Complete("")
+  private val emptyContent   = HttpContent.Complete(Chunk.empty)
 
   // Helpers
 
@@ -18,7 +19,7 @@ trait ResponseOps {
   def http[R](
     status: Status = defaultStatus,
     headers: List[Header] = defaultHeaders,
-    content: HttpContent[R, String] = emptyContent,
+    content: HttpContent[R, Byte] = emptyContent,
   ): Response.HttpResponse[R] =
     HttpResponse(status, headers, content)
 
@@ -37,11 +38,11 @@ trait ResponseOps {
             case Some(throwable) =>
               val sw = new StringWriter
               throwable.printStackTrace(new PrintWriter(sw))
-              s"${cause.message}:\n${sw.toString}"
-            case None            => s"${cause.message}"
+              Chunk.fromArray(s"${cause.message}:\n${sw.toString}".getBytes(HTTP_CHARSET))
+            case None            => Chunk.fromArray(s"${cause.message}".getBytes(HTTP_CHARSET))
           }),
         )
-      case _                         => http(error.status, Nil, HttpContent.Complete(error.message))
+      case _                         => http(error.status, Nil, HttpContent.Complete(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
     }
 
   }
@@ -50,13 +51,13 @@ trait ResponseOps {
 
   def text(text: String): UResponse =
     http(
-      content = HttpContent.Complete(text),
+      content = HttpContent.Complete(Chunk.fromArray(text.getBytes(HTTP_CHARSET))),
       headers = List(Header.contentTypeTextPlain),
     )
 
   def jsonString(data: String): UResponse =
     http(
-      content = HttpContent.Complete(data),
+      content = HttpContent.Complete(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
       headers = List(Header.contentTypeJson),
     )
 

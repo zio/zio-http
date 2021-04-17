@@ -9,7 +9,7 @@ object SimpleClient extends App {
     res <- Client.request("https://api.github.com/users/zio/repos")
     _   <- console.putStrLn {
       res.content match {
-        case HttpContent.Complete(data) => data
+        case HttpContent.Complete(data) => data.map(_.toChar).mkString
         case HttpContent.Chunked(_)     => "<Chunked>"
       }
     }

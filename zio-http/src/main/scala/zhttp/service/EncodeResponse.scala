@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpVersion => JHttpVersion}
 import zhttp.core.{JDefaultFullHttpResponse, JDefaultHttpHeaders, JFullHttpResponse, JHttpHeaders}
-import zhttp.http.{HTTP_CHARSET, HttpContent, Response}
+import zhttp.http.{HttpContent, Response}
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -23,10 +23,10 @@ trait EncodeResponse {
     val jStatus        = res.status.toJHttpStatus
     val jContentBytBuf = res.content match {
       case HttpContent.Complete(data) =>
-        jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, data.length())
+        jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, data.length)
         jHttpHeaders.set(JHttpHeaderNames.SERVER, SERVER_NAME)
         jHttpHeaders.set(JHttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
-        JUnpooled.copiedBuffer(data, HTTP_CHARSET)
+        JUnpooled.copiedBuffer(data.toArray)
 
       case _ =>
         jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, 0)

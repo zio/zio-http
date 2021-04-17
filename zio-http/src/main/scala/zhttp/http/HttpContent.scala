@@ -1,5 +1,6 @@
 package zhttp.http
 
+import zio.Chunk
 import zio.stream.ZStream
 
 /**
@@ -8,6 +9,6 @@ import zio.stream.ZStream
 sealed trait HttpContent[-R, +A] extends Product with Serializable
 
 object HttpContent {
-  final case class Complete[A](data: A)                        extends HttpContent[Any, A]
-  final case class Chunked[R, A](data: ZStream[R, Nothing, A]) extends HttpContent[R, A]
+  final case class Complete[A](data: Chunk[A])                        extends HttpContent[Any, A]
+  final case class Chunked[R, A](data: ZStream[R, Nothing, Chunk[A]]) extends HttpContent[R, A]
 }
