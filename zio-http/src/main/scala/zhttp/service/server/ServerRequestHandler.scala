@@ -1,8 +1,8 @@
 package zhttp.service.server
 
 import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http.{LastHttpContent => JLastHttpContent}
 import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler}
+import io.netty.handler.codec.http.{LastHttpContent => JLastHttpContent}
 import zhttp.core._
 import zhttp.http._
 import zhttp.service._
