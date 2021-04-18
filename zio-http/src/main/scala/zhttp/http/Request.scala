@@ -15,7 +15,7 @@ final case class Request(endpoint: Endpoint, data: Request.Data = Request.Data.e
 }
 
 object Request {
-  final case class Data(headers: List[Header], content: HttpData[Any, Byte])
+  final case class Data(headers: List[Header], content: HttpData[Any, Nothing])
   object Data {
     val empty: Data = Data(Nil, HttpData.empty)
   }
