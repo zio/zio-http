@@ -1,12 +1,13 @@
 package zhttp.service.server
 
-import io.netty.buffer.Unpooled
+import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler}
 import io.netty.handler.codec.http.{LastHttpContent => JLastHttpContent}
 import zhttp.core._
 import zhttp.http._
 import zhttp.service._
 import zio.Exit
+import zio.stream.ZStream
 
 /**
  * Helper class with channel methods
@@ -56,22 +57,20 @@ final case class ServerRequestHandler[R](
   override def channelRead0(ctx: JChannelHandlerContext, jReq: JFullHttpRequest): Unit = {
     executeAsync(ctx, jReq) {
       case res @ Response.HttpResponse(_, _, content) =>
+        ctx.write(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
+        releaseOrIgnore(jReq)
         content match {
-          case HttpData.CompleteData(_)  =>
-            writeAndFlush(ctx, jReq, res)
-            ()
-          case HttpData.StreamData(data) =>
-            writeAndFlush(ctx, jReq, res)
+          case HttpData.StreamData(data)   =>
             zExec.unsafeExecute_(ctx) {
-              data
-                .mapM(t => ChannelFuture.unit(ctx.writeAndFlush(Unpooled.copiedBuffer(t.toArray))))
-                .runDrain *> ChannelFuture.unit(ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT))
+              (data.map(c => JUnpooled.copiedBuffer(c.toArray)) ++ ZStream(JLastHttpContent.EMPTY_LAST_CONTENT))
+                .mapM(t => ChannelFuture.unit(ctx.writeAndFlush(t)))
+                .runDrain
             }
-          case HttpData.Empty            =>
-            writeAndFlush(ctx, jReq, res)
-            ()
-
+          case HttpData.CompleteData(data) =>
+            ctx.writeAndFlush(JUnpooled.copiedBuffer(data.toArray), ctx.channel().voidPromise())
+          case HttpData.Empty              => ctx.flush()
         }
+        ()
 
       case res @ Response.SocketResponse(_) =>
         ctx
@@ -82,15 +81,6 @@ final case class ServerRequestHandler[R](
         ctx.fireChannelRead(jReq)
         ()
     }
-  }
-
-  private def writeAndFlush(
-    ctx: JChannelHandlerContext,
-    jReq: JFullHttpRequest,
-    res: Response.HttpResponse[R, Throwable],
-  ) = {
-    ctx.writeAndFlush(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
-    releaseOrIgnore(jReq)
   }
 
   /**

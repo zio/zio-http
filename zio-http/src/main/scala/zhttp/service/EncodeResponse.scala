@@ -1,12 +1,11 @@
 package zhttp.service
 
-import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.handler.codec.http.{
   DefaultHttpResponse => JDefaultHttpResponse,
   HttpHeaderNames => JHttpHeaderNames,
   HttpVersion => JHttpVersion,
 }
-import zhttp.core.{JDefaultFullHttpResponse, JDefaultHttpHeaders, JHttpHeaders}
+import zhttp.core.{JDefaultHttpHeaders, JHttpHeaders}
 import zhttp.http.{HttpData, Response}
 
 import java.time.ZonedDateTime
@@ -14,7 +13,6 @@ import java.time.format.DateTimeFormatter
 
 trait EncodeResponse {
   private val SERVER_NAME: String = "ZIO-Http"
-  private val jTrailingHeaders    = new JDefaultHttpHeaders(false)
 
   /**
    * Encode the [[zhttp.http.UHttpResponse]] to [io.netty.handler.codec.http.FullHttpResponse]
@@ -30,18 +28,12 @@ trait EncodeResponse {
     res.content match {
       case HttpData.CompleteData(data) =>
         jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, data.length)
-        new JDefaultFullHttpResponse(
-          jVersion,
-          jStatus,
-          JUnpooled.copiedBuffer(data.toArray),
-          jHttpHeaders,
-          jTrailingHeaders,
-        )
-      case HttpData.StreamData(_)      => new JDefaultHttpResponse(jVersion, jStatus, jHttpHeaders)
+
+      case HttpData.StreamData(_) => ()
 
       case HttpData.Empty =>
         jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, 0)
-        new JDefaultHttpResponse(jVersion, jStatus, jHttpHeaders)
     }
+    new JDefaultHttpResponse(jVersion, jStatus, jHttpHeaders)
   }
 }
