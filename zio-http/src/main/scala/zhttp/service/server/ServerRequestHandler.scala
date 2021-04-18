@@ -78,16 +78,7 @@ final case class ServerRequestHandler[R](
             releaseOrIgnore(jReq)
             executeAsync2(
               ctx, {
-                data
-                  .map(t =>
-                    t.map(x => {
-                      Unpooled.copiedBuffer(x, HTTP_CHARSET)
-                    }).map(x => {
-                      ctx.writeAndFlush(x)
-                      ()
-                    }),
-                  )
-                  .runDrain
+                data.map(t => ctx.writeAndFlush(Unpooled.copiedBuffer(t.toArray))).runDrain
               } *> ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)),
             )
 

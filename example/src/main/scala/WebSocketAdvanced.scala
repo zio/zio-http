@@ -34,7 +34,10 @@ object WebSocketAdvanced extends App {
         Response.http(
           status = Status.OK,
           content = HttpContent.Chunked(
-            ZStream.repeat(Chunk("Hello world !")).schedule(Schedule.spaced(1 microsecond)).take(2000000),
+            ZStream
+              .repeat(Chunk.fromArray("Hello world !".getBytes(HTTP_CHARSET)))
+              .schedule(Schedule.spaced(1 microsecond))
+              .take(2000000),
           ),
         )
     }
