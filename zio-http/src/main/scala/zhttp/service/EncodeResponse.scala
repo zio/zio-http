@@ -7,7 +7,7 @@ import io.netty.handler.codec.http.{
   HttpVersion => JHttpVersion,
 }
 import zhttp.core.{JDefaultFullHttpResponse, JDefaultHttpHeaders, JHttpHeaders}
-import zhttp.http.{HttpContent, Response}
+import zhttp.http.{HttpData, Response}
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -19,7 +19,7 @@ trait EncodeResponse {
   /**
    * Encode the [[zhttp.http.UHttpResponse]] to [io.netty.handler.codec.http.FullHttpResponse]
    */
-  def encodeResponse[R](jVersion: JHttpVersion, res: Response.HttpResponse[R]): JDefaultHttpResponse = {
+  def encodeResponse[R, E](jVersion: JHttpVersion, res: Response.HttpResponse[R, E]): JDefaultHttpResponse = {
     val jHttpHeaders =
       res.headers.foldLeft[JHttpHeaders](new JDefaultHttpHeaders()) { (jh, hh) =>
         jh.set(hh.name, hh.value)
@@ -28,7 +28,7 @@ trait EncodeResponse {
     jHttpHeaders.set(JHttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
     val jStatus      = res.status.toJHttpStatus
     res.content match {
-      case HttpContent.Complete(data) =>
+      case HttpData.CompleteData(data) =>
         jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, data.length)
         new JDefaultFullHttpResponse(
           jVersion,
@@ -37,7 +37,10 @@ trait EncodeResponse {
           jHttpHeaders,
           jTrailingHeaders,
         )
-      case HttpContent.Chunked(_)     =>
+      case HttpData.StreamData(_)      => new JDefaultHttpResponse(jVersion, jStatus, jHttpHeaders)
+
+      case HttpData.Empty =>
+        jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, 0)
         new JDefaultHttpResponse(jVersion, jStatus, jHttpHeaders)
     }
   }

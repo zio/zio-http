@@ -1,6 +1,7 @@
 package zhttp.service.server
 
 import io.netty.buffer.Unpooled
+import io.netty.handler.codec.http.{LastHttpContent => JLastHttpContent}
 import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler}
 import zhttp.core._
 import zhttp.http._
@@ -56,14 +57,19 @@ final case class ServerRequestHandler[R](
     executeAsync(ctx, jReq) {
       case res @ Response.HttpResponse(_, _, content) =>
         content match {
-          case HttpContent.Complete(_)   =>
+          case HttpData.CompleteData(_)  =>
             writeAndFlush(ctx, jReq, res)
             ()
-          case HttpContent.Chunked(data) =>
+          case HttpData.StreamData(data) =>
             writeAndFlush(ctx, jReq, res)
             zExec.unsafeExecute_(ctx) {
-              data.mapM(t => ChannelFuture.unit(ctx.writeAndFlush(Unpooled.copiedBuffer(t.toArray)))).runDrain
+              data
+                .mapM(t => ChannelFuture.unit(ctx.writeAndFlush(Unpooled.copiedBuffer(t.toArray))))
+                .runDrain *> ChannelFuture.unit(ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT))
             }
+          case HttpData.Empty            =>
+            writeAndFlush(ctx, jReq, res)
+            ()
 
         }
 
@@ -78,7 +84,11 @@ final case class ServerRequestHandler[R](
     }
   }
 
-  private def writeAndFlush(ctx: JChannelHandlerContext, jReq: JFullHttpRequest, res: Response.HttpResponse[R]) = {
+  private def writeAndFlush(
+    ctx: JChannelHandlerContext,
+    jReq: JFullHttpRequest,
+    res: Response.HttpResponse[R, Throwable],
+  ) = {
     ctx.writeAndFlush(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
     releaseOrIgnore(jReq)
   }
