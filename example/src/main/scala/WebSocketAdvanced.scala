@@ -30,16 +30,6 @@ object WebSocketAdvanced extends App {
     Http.collect {
       case Method.GET -> Root / "greet" / name  => Response.text(s"Greetings {$name}!")
       case Method.GET -> Root / "subscriptions" => Response.socket(open ++ close ++ error ++ wsEcho ++ wsClose)
-      case Method.GET -> Root / "chunked"       =>
-        Response.http(
-          status = Status.OK,
-          content = HttpContent.Chunked(
-            ZStream
-              .repeat(Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET)))
-              .schedule(Schedule.spaced(1 second))
-              .take(10),
-          ),
-        )
     }
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
