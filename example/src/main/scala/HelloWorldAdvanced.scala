@@ -2,26 +2,14 @@ import zhttp.http._
 import zhttp.service._
 import zhttp.service.server.ServerChannelFactory
 import zio._
-import zio.duration._
-import zio.stream.ZStream
 
 object HelloWorldAdvanced extends App {
   // Set a port
   private val PORT = 8090
 
   private val fooBar = Http.collect {
-    case Method.GET -> Root / "foo"     => Response.text("bar")
-    case Method.GET -> Root / "bar"     => Response.text("foo")
-    case Method.GET -> Root / "chunked" =>
-      Response.http(
-        status = Status.OK,
-        content = HttpContent.Chunked(
-          ZStream
-            .repeat(Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET)))
-            .schedule(Schedule.spaced(1 second))
-            .take(10),
-        ),
-      )
+    case Method.GET -> Root / "foo" => Response.text("bar")
+    case Method.GET -> Root / "bar" => Response.text("foo")
   }
 
   private val app = Http.collectM {
