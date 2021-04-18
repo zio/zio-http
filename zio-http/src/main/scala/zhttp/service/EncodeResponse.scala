@@ -24,12 +24,12 @@ trait EncodeResponse {
       res.headers.foldLeft[JHttpHeaders](new JDefaultHttpHeaders()) { (jh, hh) =>
         jh.set(hh.name, hh.value)
       }
+    jHttpHeaders.set(JHttpHeaderNames.SERVER, SERVER_NAME)
+    jHttpHeaders.set(JHttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
     val jStatus      = res.status.toJHttpStatus
     res.content match {
       case HttpContent.Complete(data) =>
         jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, data.length)
-        jHttpHeaders.set(JHttpHeaderNames.SERVER, SERVER_NAME)
-        jHttpHeaders.set(JHttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
         new JDefaultFullHttpResponse(
           jVersion,
           jStatus,
@@ -38,9 +38,6 @@ trait EncodeResponse {
           jTrailingHeaders,
         )
       case HttpContent.Chunked(_)     =>
-        jHttpHeaders.set(JHttpHeaderNames.TRANSFER_ENCODING, "Chunked")
-        jHttpHeaders.set(JHttpHeaderNames.SERVER, SERVER_NAME)
-        jHttpHeaders.set(JHttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
         new JDefaultHttpResponse(jVersion, jStatus, jHttpHeaders)
     }
   }

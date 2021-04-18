@@ -35,9 +35,9 @@ object WebSocketAdvanced extends App {
           status = Status.OK,
           content = HttpContent.Chunked(
             ZStream
-              .repeat(Chunk.fromArray("Hello world !".getBytes(HTTP_CHARSET)))
-              .schedule(Schedule.spaced(1 microsecond))
-              .take(2000000),
+              .repeat(Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET)))
+              .schedule(Schedule.spaced(1 second))
+              .take(10),
           ),
         )
     }

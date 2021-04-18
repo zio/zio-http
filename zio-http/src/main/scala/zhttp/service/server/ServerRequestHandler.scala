@@ -6,7 +6,7 @@ import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler =>
 import zhttp.core._
 import zhttp.http._
 import zhttp.service._
-import zio.{Exit, ZIO}
+import zio.Exit
 
 /**
  * Helper class with channel methods
@@ -49,18 +49,6 @@ final case class ServerRequestHandler[R](
             }
         }
     }
-  def executeAsync2(ctx: JChannelHandlerContext, program: ZIO[R, Throwable, Unit]): Unit = {
-    zExec.unsafeExecute(ctx, program) {
-      case Exit.Success(_)     => ()
-      case Exit.Failure(cause) =>
-        cause.failureOption match {
-          case Some(error: Throwable) => ctx.fireExceptionCaught(error)
-          case _                      => ()
-        }
-        ctx.close()
-        ()
-    }
-  }
 
   /**
    * Unsafe channel reader for HttpRequest
@@ -76,9 +64,9 @@ final case class ServerRequestHandler[R](
           case HttpContent.Chunked(data) =>
             ctx.writeAndFlush(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
             releaseOrIgnore(jReq)
-            executeAsync2(
-              ctx, {
-                data.map(t => ctx.writeAndFlush(Unpooled.copiedBuffer(t.toArray))).runDrain
+            zExec.unsafeExecute_(ctx)(
+              {
+                data.mapM(t => ChannelFuture.unit(ctx.writeAndFlush(Unpooled.copiedBuffer(t.toArray)))).runDrain
               } *> ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)),
             )
 
