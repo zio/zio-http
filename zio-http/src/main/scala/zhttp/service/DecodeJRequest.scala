@@ -2,7 +2,6 @@ package zhttp.service
 
 import zhttp.core.JFullHttpRequest
 import zhttp.http._
-import zio.Chunk
 
 trait DecodeJRequest {
 
@@ -14,11 +13,9 @@ trait DecodeJRequest {
     method   = Method.fromJHttpMethod(jReq.method())
     headers  = Header.make(jReq.headers())
     endpoint = method -> url
-    bytes    = new Array[Byte](jReq.content().readableBytes)
-    _        = jReq.content().readBytes(bytes)
     data     = Request.Data(
       headers,
-      HttpContent.Complete(Chunk.fromArray(bytes)),
+      HttpContent.complete(jReq.content()),
     )
   } yield Request(endpoint, data)
 }
