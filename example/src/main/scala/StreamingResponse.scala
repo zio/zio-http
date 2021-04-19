@@ -21,7 +21,7 @@ object StreamingResponse extends App {
       Response.http(
         status = Status.OK,
         headers = List(Header.contentLength(message.length.toLong)),
-        content = HttpData.fromStream(ZStream.succeed(message)), // Encoding content using a ZStream
+        content = HttpData.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
       )
 
   }
