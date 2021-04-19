@@ -1,10 +1,13 @@
 package zhttp.service.server
 
+import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler}
+import io.netty.handler.codec.http.{LastHttpContent => JLastHttpContent}
 import zhttp.core._
 import zhttp.http._
 import zhttp.service._
 import zio.Exit
+import zio.stream.ZStream
 
 /**
  * Helper class with channel methods
@@ -53,11 +56,23 @@ final case class ServerRequestHandler[R](
    */
   override def channelRead0(ctx: JChannelHandlerContext, jReq: JFullHttpRequest): Unit = {
     executeAsync(ctx, jReq) {
-      case res @ Response.HttpResponse(_, _, _) =>
-        ctx.writeAndFlush(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
+      case res @ Response.HttpResponse(_, _, content) =>
+        ctx.write(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
         releaseOrIgnore(jReq)
+        content match {
+          case HttpData.StreamData(data)   =>
+            zExec.unsafeExecute_(ctx) {
+              (data.map(c => JUnpooled.copiedBuffer(c.toArray)) ++ ZStream(JLastHttpContent.EMPTY_LAST_CONTENT))
+                .mapM(t => ChannelFuture.unit(ctx.writeAndFlush(t)))
+                .runDrain
+            }
+          case HttpData.CompleteData(data) =>
+            ctx.writeAndFlush(JUnpooled.copiedBuffer(data.toArray), ctx.channel().voidPromise())
+          case HttpData.Empty              => ctx.flush()
+        }
         ()
-      case res @ Response.SocketResponse(_)     =>
+
+      case res @ Response.SocketResponse(_) =>
         ctx
           .channel()
           .pipeline()

@@ -9,18 +9,17 @@ import java.io.{PrintWriter, StringWriter}
 trait ResponseOps {
   private val defaultStatus  = Status.OK
   private val defaultHeaders = Nil
-  private val emptyContent   = HttpContent.Complete(Chunk.empty)
 
   // Helpers
 
   /**
    * Creates a new Http Response
    */
-  def http[R](
+  def http[R, E](
     status: Status = defaultStatus,
     headers: List[Header] = defaultHeaders,
-    content: HttpContent[R, Byte] = emptyContent,
-  ): Response.HttpResponse[R] =
+    content: HttpData[R, E] = HttpData.empty,
+  ): Response.HttpResponse[R, E] =
     HttpResponse(status, headers, content)
 
   /**
@@ -34,7 +33,7 @@ trait ResponseOps {
         http(
           error.status,
           Nil,
-          HttpContent.Complete(cause.cause match {
+          HttpData.CompleteData(cause.cause match {
             case Some(throwable) =>
               val sw = new StringWriter
               throwable.printStackTrace(new PrintWriter(sw))
@@ -42,7 +41,7 @@ trait ResponseOps {
             case None            => Chunk.fromArray(s"${cause.message}".getBytes(HTTP_CHARSET))
           }),
         )
-      case _                         => http(error.status, Nil, HttpContent.Complete(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
+      case _                         => http(error.status, Nil, HttpData.CompleteData(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
     }
 
   }
@@ -51,13 +50,13 @@ trait ResponseOps {
 
   def text(text: String): UResponse =
     http(
-      content = HttpContent.Complete(Chunk.fromArray(text.getBytes(HTTP_CHARSET))),
+      content = HttpData.CompleteData(Chunk.fromArray(text.getBytes(HTTP_CHARSET))),
       headers = List(Header.contentTypeTextPlain),
     )
 
   def jsonString(data: String): UResponse =
     http(
-      content = HttpContent.Complete(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
+      content = HttpData.CompleteData(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
       headers = List(Header.contentTypeJson),
     )
 
