@@ -10,9 +10,9 @@ import zio.stream.ZStream
 sealed trait HttpData[-R, +E] extends Product with Serializable
 
 object HttpData {
-  case object Empty                                                   extends HttpData[Any, Nothing]
-  final case class CompleteData(data: Chunk[Byte])                    extends HttpData[Any, Nothing]
-  final case class StreamData[R, E](data: ZStream[R, E, Chunk[Byte]]) extends HttpData[R, E]
+  case object Empty                                            extends HttpData[Any, Nothing]
+  final case class CompleteData(data: Chunk[Byte])             extends HttpData[Any, Nothing]
+  final case class StreamData[R, E](data: ZStream[R, E, Byte]) extends HttpData[R, E]
 
   /**
    * Helper to create CompleteData from ByteBuf
@@ -26,7 +26,7 @@ object HttpData {
   /**
    * Helper to create StreamData from Stream of Chunks
    */
-  def fromStream[R, E](data: ZStream[R, E, Chunk[Byte]]): HttpData[R, E] = HttpData.StreamData(data)
+  def fromStream[R, E](data: ZStream[R, E, Byte]): HttpData[R, E] = HttpData.StreamData(data)
 
   /**
    * Helper to create Empty HttpData

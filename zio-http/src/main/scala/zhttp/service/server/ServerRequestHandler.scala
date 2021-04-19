@@ -7,7 +7,6 @@ import zhttp.core._
 import zhttp.http._
 import zhttp.service._
 import zio.Exit
-import zio.stream.ZStream
 
 /**
  * Helper class with channel methods
@@ -62,9 +61,10 @@ final case class ServerRequestHandler[R](
         content match {
           case HttpData.StreamData(data)   =>
             zExec.unsafeExecute_(ctx) {
-              (data.map(c => JUnpooled.copiedBuffer(c.toArray)) ++ ZStream(JLastHttpContent.EMPTY_LAST_CONTENT))
-                .mapM(t => ChannelFuture.unit(ctx.writeAndFlush(t)))
-                .runDrain
+              for {
+                _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(JUnpooled.copiedBuffer(c.toArray))))
+                _ <- ChannelFuture.unit(ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT))
+              } yield ()
             }
           case HttpData.CompleteData(data) =>
             ctx.writeAndFlush(JUnpooled.copiedBuffer(data.toArray), ctx.channel().voidPromise())
