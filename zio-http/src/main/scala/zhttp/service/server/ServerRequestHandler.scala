@@ -76,7 +76,7 @@ final case class ServerRequestHandler[R](
         ctx
           .channel()
           .pipeline()
-          .addLast(new JWebSocketServerProtocolHandler(res.socket.settings.protocolConfig))
+          .addLast(new JWebSocketServerProtocolHandler(res.socket.settings.protocolConfig.asJava))
           .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket.settings))
         ctx.fireChannelRead(jReq)
         ()
