@@ -1,5 +1,7 @@
 package zhttp.socket
 
+import zhttp.http.Response
+import zhttp.http.Response.SocketResponse
 import zio._
 import zio.stream.ZStream
 
@@ -7,24 +9,31 @@ import java.net.{SocketAddress => JSocketAddress}
 
 sealed trait Socket[-R, +E] { self =>
   def ++[R1 <: R, E1 >: E](other: Socket[R1, E1]): Socket[R1, E1] = Socket.Concat(self, other)
-  lazy val settings: SocketConfig[R, E]                           = SocketConfig.fromSocket(self)
+  def asResponse: Response[R, E]                                  = Socket.asResponse(self)
 }
 
 object Socket {
   type Connection = JSocketAddress
   type Cause      = Option[Throwable]
 
-  case class Concat[R, E](a: Socket[R, E], b: Socket[R, E])                              extends Socket[R, E]
-  case class OnOpen[R, E](onOpen: Connection => ZStream[R, E, WebSocketFrame])           extends Socket[R, E]
-  case class OnMessage[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame]) extends Socket[R, E]
-  case class OnError[R](onError: Throwable => ZIO[R, Nothing, Unit])                     extends Socket[R, Nothing]
-  case class OnClose[R](onClose: Connection => ZIO[R, Nothing, Unit])                    extends Socket[R, Nothing]
-  case class OnTimeout[R](onTimeout: ZIO[R, Nothing, Unit])                              extends Socket[R, Nothing]
-  case class Protocol(config: ProtocolConfig)                                            extends Socket[Any, Nothing]
-  case class Decoder(config: DecoderConfig)                                              extends Socket[Any, Nothing]
+  private case class Concat[R, E](a: Socket[R, E], b: Socket[R, E])                              extends Socket[R, E]
+  private case class OnOpen[R, E](onOpen: Connection => ZStream[R, E, WebSocketFrame])           extends Socket[R, E]
+  private case class OnMessage[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame]) extends Socket[R, E]
+  private case class OnError[R](onError: Throwable => ZIO[R, Nothing, Unit])                     extends Socket[R, Nothing]
+  private case class OnClose[R](onClose: Connection => ZIO[R, Nothing, Unit])                    extends Socket[R, Nothing]
+  private case class OnTimeout[R](onTimeout: ZIO[R, Nothing, Unit])                              extends Socket[R, Nothing]
+  private case class Protocol(config: ProtocolConfig)                                            extends Socket[Any, Nothing]
+  private case class Decoder(config: DecoderConfig)                                              extends Socket[Any, Nothing]
 
+  /**
+   * Server configuration for the websocket
+   */
   def protocol(config: ProtocolConfig): Socket[Any, Nothing] = Protocol(config)
-  def decoder(config: DecoderConfig): Socket[Any, Nothing]   = Decoder(config)
+
+  /**
+   * Decoder configuration for the websocket
+   */
+  def decoder(config: DecoderConfig): Socket[Any, Nothing] = Decoder(config)
 
   /**
    * Called when the connection is successfully upgrade to a websocket one. In case of a failure on the returned stream,
@@ -70,5 +79,31 @@ object Socket {
           case Right(a)    => if (pf.isDefinedAt(a)) pf(a).map(e.encode) else ZStream.empty
         }
       }
+  }
+
+  /**
+   * Converts a socket to a Response type.
+   */
+  def asResponse[R, E](socket: Socket[R, E]): SocketResponse[R, E] = {
+    val iSettings: SocketResponse[Any, Nothing] = SocketResponse()
+
+    def loop(socket: Socket[R, E], s: SocketResponse[R, E]): SocketResponse[R, E] =
+      socket match {
+        case OnTimeout(onTimeout) =>
+          s.copy(onTimeout = s.onTimeout.fold(Option(onTimeout))(v => Option(v &> onTimeout)))
+        case OnOpen(onOpen)       =>
+          s.copy(onOpen = s.onOpen.fold(Option(onOpen))(v => Option((c: Connection) => v(c).merge(onOpen(c)))))
+        case OnMessage(onMessage) =>
+          s.copy(onMessage = s.onMessage.fold(Option(onMessage))(v => Option(ws => v(ws).merge(onMessage(ws)))))
+        case OnError(onError)     =>
+          s.copy(onError = s.onError.fold(Option(onError))(v => Option(c => v(c) &> onError(c))))
+        case OnClose(onClose)     =>
+          s.copy(onClose = s.onClose.fold(Option(onClose))(v => Option(c => v(c) &> onClose(c))))
+        case Decoder(config)      => s.copy(decoderConfig = s.decoderConfig ++ config)
+        case Protocol(config)     => s.copy(protocolConfig = s.protocolConfig ++ config)
+        case Concat(a, b)         => loop(b, loop(a, s))
+      }
+
+    loop(socket, iSettings)
   }
 }
