@@ -14,12 +14,22 @@ object HttpData {
   final case class CompleteData(data: Chunk[Byte])                    extends HttpData[Any, Nothing]
   final case class StreamData[R, E](data: ZStream[R, E, Chunk[Byte]]) extends HttpData[R, E]
 
+  /**
+   * Helper to create CompleteData from ByteBuf
+   */
   def fromByteBuf(byteBuf: ByteBuf): HttpData[Any, Nothing] = {
     val bytes = new Array[Byte](byteBuf.readableBytes)
     byteBuf.readBytes(bytes)
     HttpData.CompleteData(Chunk.fromArray(bytes))
   }
+
+  /**
+   * Helper to create StreamData from Stream of Chunks
+   */
   def fromStream[R, E](data: ZStream[R, E, Chunk[Byte]]): HttpData[R, E] = HttpData.StreamData(data)
 
+  /**
+   * Helper to create Empty HttpData
+   */
   def empty: HttpData[Any, Nothing] = Empty
 }
