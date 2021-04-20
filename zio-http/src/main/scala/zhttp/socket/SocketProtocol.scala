@@ -12,7 +12,6 @@ import zio.duration.Duration
 sealed trait SocketProtocol { self =>
   def ++(other: SocketProtocol): SocketProtocol  = SocketProtocol.Concat(self, other)
   def javaConfig: JWebSocketServerProtocolConfig = SocketProtocol.asJava(self)
-  def asSocket: Socket[Any, Nothing]             = Socket.protocol(self)
 }
 
 object SocketProtocol {

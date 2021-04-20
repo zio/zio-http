@@ -8,14 +8,16 @@ sealed trait Socket[-R, +E] { self =>
 }
 
 object Socket {
+  import scala.language.implicitConversions
+
   private case class Concat[R, E](a: Socket[R, E], b: Socket[R, E]) extends Socket[R, E]
   private case class Channel[R, E](socket: SocketChannel[R, E])     extends Socket[R, E]
   private case class Protocol(config: SocketProtocol)               extends Socket[Any, Nothing]
   private case class Decoder(config: SocketDecoder)                 extends Socket[Any, Nothing]
 
-  def channel[R, E](config: SocketChannel[R, E]): Socket[R, E] = Channel(config)
-  def protocol(protocol: SocketProtocol): Socket[Any, Nothing] = Protocol(protocol)
-  def decoder(decoder: SocketDecoder): Socket[Any, Nothing]    = Decoder(decoder)
+  implicit def channel[R, E](config: SocketChannel[R, E]): Socket[R, E] = Channel(config)
+  implicit def protocol(protocol: SocketProtocol): Socket[Any, Nothing] = Protocol(protocol)
+  implicit def decoder(decoder: SocketDecoder): Socket[Any, Nothing]    = Decoder(decoder)
 
   def asResponse[R, E](self: Socket[R, E]): SocketResponse[R, E] = {
     def loop(socketB: Socket[R, E], res: SocketResponse[R, E]): SocketResponse[R, E] = {
@@ -28,5 +30,4 @@ object Socket {
     }
     loop(self, SocketResponse())
   }
-
 }

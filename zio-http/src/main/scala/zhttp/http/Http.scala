@@ -72,7 +72,7 @@ object Http {
   def socketM[R, E >: Throwable: PartialRequest](subProtocol: String)(
     pf: PartialFunction[Request, ZIO[R, E, Socket[R, E]]],
   ): Http[R, E] = {
-    val protocol = Socket.protocol(SocketProtocol.subProtocol(subProtocol))
+    val protocol = SocketProtocol.subProtocol(subProtocol)
     HttpChannel
       .collectM(pf)
       .map(socket => Response.socket(socket ++ protocol))
