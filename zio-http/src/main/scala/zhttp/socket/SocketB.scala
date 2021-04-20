@@ -10,11 +10,11 @@ sealed trait SocketB[-R, +E] { self =>
 
 object SocketB {
   private case class Concat[R, E](a: SocketB[R, E], b: SocketB[R, E]) extends SocketB[R, E]
-  private case class SocketConfig[R, E](socket: Socket[R, E])         extends SocketB[R, E]
+  private case class SocketConfig[R, E](socket: SocketChannel[R, E])         extends SocketB[R, E]
   private case class Protocol(config: SocketProtocol)                 extends SocketB[Any, Nothing]
   private case class Decoder(config: SocketDecoder)                   extends SocketB[Any, Nothing]
 
-  def config[R, E](config: Socket[R, E]): SocketB[R, E]         = SocketConfig(config)
+  def config[R, E](config: SocketChannel[R, E]): SocketB[R, E]         = SocketConfig(config)
   def protocol(protocol: SocketProtocol): SocketB[Any, Nothing] = Protocol(protocol)
   def decoder(decoder: SocketDecoder): SocketB[Any, Nothing]    = Decoder(decoder)
 
