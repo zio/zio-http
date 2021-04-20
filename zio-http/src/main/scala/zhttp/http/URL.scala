@@ -1,7 +1,10 @@
 package zhttp.http
 
+import io.netty.handler.codec.http.QueryStringDecoder
+
 import java.net.URI
 import scala.util.Try
+import scala.jdk.CollectionConverters._
 
 case class URL(path: Path, kind: URL.Location = URL.Location.Relative, query: String = "") { self =>
   val host: Option[String] = kind match {
@@ -12,6 +15,12 @@ case class URL(path: Path, kind: URL.Location = URL.Location.Relative, query: St
   val port: Option[Int] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.port)
+  }
+
+  lazy val queryParams: Map[String, List[String]] = {
+    val decoder = new QueryStringDecoder(query, false)
+    val params = decoder.parameters()
+    params.asScala.view.mapValues(_.asScala.toList).toMap
   }
 
   def asString: String = URL.asString(self)
