@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.buffer.ByteBuf
+import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import zio.Chunk
 import zio.stream.ZStream
 
@@ -18,9 +18,7 @@ object HttpData {
    * Helper to create CompleteData from ByteBuf
    */
   def fromByteBuf(byteBuf: ByteBuf): HttpData[Any, Nothing] = {
-    val bytes = new Array[Byte](byteBuf.readableBytes)
-    byteBuf.readBytes(bytes)
-    HttpData.CompleteData(Chunk.fromArray(bytes))
+    HttpData.CompleteData(Chunk.fromArray(ByteBufUtil.getBytes(byteBuf)))
   }
 
   /**
