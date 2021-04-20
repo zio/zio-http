@@ -68,7 +68,8 @@ final case class ServerRequestHandler[R](
             }
           case HttpData.CompleteData(data) =>
             ctx.writeAndFlush(JUnpooled.copiedBuffer(data.toArray), ctx.channel().voidPromise())
-          case HttpData.Empty              => ctx.flush()
+            ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
+          case HttpData.Empty              => ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
         }
         ()
 
