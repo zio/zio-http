@@ -12,7 +12,7 @@ import io.netty.handler.codec.http.websocketx.{
 sealed trait SocketProtocol { self =>
   def ++(other: SocketProtocol): SocketProtocol  = SocketProtocol.Concat(self, other)
   def javaConfig: JWebSocketServerProtocolConfig = SocketProtocol.asJava(self)
-  def asSocket: SocketB[Any, Nothing] = SocketB.protocol(self)
+  def asSocket: Socket[Any, Nothing] = Socket.protocol(self)
 }
 
 object SocketProtocol {

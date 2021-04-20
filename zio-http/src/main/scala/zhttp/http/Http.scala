@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zhttp.socket.{SocketB, SocketProtocol}
+import zhttp.socket.{Socket, SocketProtocol}
 import zio.ZIO
 
 object Http {
@@ -62,7 +62,7 @@ object Http {
   /**
    * Creates an HTTP app which accepts a requests and produces a websocket response.
    */
-  def socket[R, E >: Throwable: PartialRequest](pf: PartialFunction[Request, SocketB[R, E]]): Http[R, E] =
+  def socket[R, E >: Throwable: PartialRequest](pf: PartialFunction[Request, Socket[R, E]]): Http[R, E] =
     HttpChannel.collect(pf).map(Response.socket)
 
   /**
@@ -70,9 +70,9 @@ object Http {
    * effectfully.
    */
   def socketM[R, E >: Throwable: PartialRequest](subProtocol: String)(
-    pf: PartialFunction[Request, ZIO[R, E, SocketB[R, E]]],
+    pf: PartialFunction[Request, ZIO[R, E, Socket[R, E]]],
   ): Http[R, E] = {
-    val protocol = SocketB.protocol(SocketProtocol.subProtocol(subProtocol))
+    val protocol = Socket.protocol(SocketProtocol.subProtocol(subProtocol))
     HttpChannel
       .collectM(pf)
       .map(socket => Response.socket(socket ++ protocol))
@@ -82,6 +82,6 @@ object Http {
    * Creates an HTTP app which accepts a requests and produces a websocket response effectfully.
    */
   def socketM[R, E >: Throwable: PartialRequest](
-    pf: PartialFunction[Request, ZIO[R, E, SocketB[R, E]]],
+                                                  pf: PartialFunction[Request, ZIO[R, E, Socket[R, E]]],
   ): Http[R, E] = HttpChannel.collectM(pf).map(Response.socket)
 }
