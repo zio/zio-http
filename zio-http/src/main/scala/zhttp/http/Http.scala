@@ -75,7 +75,7 @@ object Http {
     val protocol = SocketProtocol.subProtocol(subProtocol)
     HttpChannel
       .collectM(pf)
-      .map(socket => Response.socket(socket ++ protocol))
+      .map(socket => Response.socket(socket +++ protocol))
   }
 
   /**

@@ -26,10 +26,16 @@ object WebSocketAdvanced extends App {
     ZStream.succeed(WebSocketFrame.close(1000))
   }
 
+  // Combine all channel handlers together
+  private val channel = open ++ close ++ error ++ wsEcho ++ wsClose
+
+  // Setup protcol settings
+  private val protocol = SocketProtocol.subProtocol("json")
+
   private val app =
     Http.collect {
-      case Method.GET -> Root / "greet" / name  => Response.text(s"Greetings {$name}!")
-      case Method.GET -> Root / "subscriptions" => Response.socket(open ++ close ++ error ++ wsEcho ++ wsClose)
+      case Method.GET -> Root / "greet" / name  => Response.text(s"Greetings ${name}!")
+      case Method.GET -> Root / "subscriptions" => Response.socket(channel +++ protocol)
     }
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
