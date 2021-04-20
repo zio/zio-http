@@ -13,8 +13,8 @@ import zio.stream.ZStream
  * Creates a new websocket handler
  */
 final case class ServerSocketHandler[R](
-                                         zExec: UnsafeChannelExecutor[R],
-                                         ss: SocketChannel.SocketConfig[R, Throwable],
+  zExec: UnsafeChannelExecutor[R],
+  ss: SocketChannel.SocketConfig[R, Throwable],
 ) extends JSimpleChannelInboundHandler[JWebSocketFrame] {
 
   /**

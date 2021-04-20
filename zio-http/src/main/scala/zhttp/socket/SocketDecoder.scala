@@ -8,7 +8,7 @@ import io.netty.handler.codec.http.websocketx.{WebSocketDecoderConfig => JWebSoc
 sealed trait SocketDecoder { self =>
   def ++(other: SocketDecoder): SocketDecoder = SocketDecoder.Concat(self, other)
   def javaConfig: JWebSocketDecoderConfig     = SocketDecoder.asJava(self)
-  def asSocket: Socket[Any, Nothing]         = Socket.decoder(self)
+  def asSocket: Socket[Any, Nothing]          = Socket.decoder(self)
 }
 
 object SocketDecoder {

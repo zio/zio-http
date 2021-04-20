@@ -82,6 +82,6 @@ object Http {
    * Creates an HTTP app which accepts a requests and produces a websocket response effectfully.
    */
   def socketM[R, E >: Throwable: PartialRequest](
-                                                  pf: PartialFunction[Request, ZIO[R, E, Socket[R, E]]],
+    pf: PartialFunction[Request, ZIO[R, E, Socket[R, E]]],
   ): Http[R, E] = HttpChannel.collectM(pf).map(Response.socket)
 }

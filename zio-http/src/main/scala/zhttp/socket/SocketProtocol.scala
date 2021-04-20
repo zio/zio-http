@@ -1,10 +1,10 @@
 package zhttp.socket
 
-import zio.duration.Duration
 import io.netty.handler.codec.http.websocketx.{
   WebSocketCloseStatus => JWebSocketCloseStatus,
   WebSocketServerProtocolConfig => JWebSocketServerProtocolConfig,
 }
+import zio.duration.Duration
 
 /**
  * Server side websocket configuration
@@ -12,7 +12,7 @@ import io.netty.handler.codec.http.websocketx.{
 sealed trait SocketProtocol { self =>
   def ++(other: SocketProtocol): SocketProtocol  = SocketProtocol.Concat(self, other)
   def javaConfig: JWebSocketServerProtocolConfig = SocketProtocol.asJava(self)
-  def asSocket: Socket[Any, Nothing] = Socket.protocol(self)
+  def asSocket: Socket[Any, Nothing]             = Socket.protocol(self)
 }
 
 object SocketProtocol {

@@ -8,7 +8,7 @@ import java.net.{SocketAddress => JSocketAddress}
 sealed trait SocketChannel[-R, +E] { self =>
   def ++[R1 <: R, E1 >: E](other: SocketChannel[R1, E1]): SocketChannel[R1, E1] = SocketChannel.Concat(self, other)
   def config: SocketChannel.SocketConfig[R, E]                                  = SocketChannel.SocketConfig(self)
-  def asSocket: Socket[R, E]                                                   = Socket.config(self)
+  def asSocket: Socket[R, E]                                                    = Socket.config(self)
 }
 
 object SocketChannel {
