@@ -9,6 +9,5 @@ object Response extends ResponseOps {
   // Constructors
   final case class HttpResponse[-R, +E](status: Status, headers: List[Header], content: HttpData[R, E])
       extends Response[R, E]
-
   final case class SocketResponse[-R, +E](socket: Socket[R, E]) extends Response[R, E]
 }
