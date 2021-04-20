@@ -1,12 +1,12 @@
 package zhttp.service.server
 
 import io.netty.buffer.{Unpooled => JUnpooled}
-import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.{HttpContent => JHttpContent, LastHttpContent => JLastHttpContent}
+import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler}
+import io.netty.handler.codec.http.{HttpContent => JHttpContent, LastHttpContent => JLastHttpContent, _}
 import io.netty.util.AttributeKey
 import zhttp.core.{JChannelHandlerContext, JSharable, JSimpleChannelInboundHandler}
 import zhttp.http._
-import zhttp.service.{ChannelFuture, HttpMessageCodec, UnsafeChannelExecutor}
+import zhttp.service.{ChannelFuture, HttpMessageCodec, UnsafeChannelExecutor, WEB_SOCKET_HANDLER}
 import zio.stream.ZStream
 import zio.{Chunk, Exit, Queue}
 
@@ -62,11 +62,11 @@ final case class StreamingRequestHandler[R](
     }
   }
 
-  private def writeResponse(ctx: JChannelHandlerContext, releaseMessage: Option[JHttpContent])(
+  private def writeResponse(ctx: JChannelHandlerContext, message: JHttpContent)(
     res: Response[R, Throwable],
   ): Unit = res match {
     case res @ Response.HttpResponse(_, _, content) =>
-      releaseMessage.foreach(_.release())
+      message.release()
       // Ignore all next messages passing by. This makes it possible to skip consuming the entire request
       // and still send out a response without blocking.
       ctx.channel().attr(handleMessages).set(false)
@@ -86,8 +86,13 @@ final case class StreamingRequestHandler[R](
           ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
       }
       ()
-    case _                                          =>
-      // TODO: deal with websockets
+    case res @ Response.SocketResponse(_)           =>
+      ctx
+        .channel()
+        .pipeline()
+        .addLast(new JWebSocketServerProtocolHandler(res.socket.settings.protocolConfig))
+        .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket.settings))
+      ctx.fireChannelRead(message)
       ()
   }
 
@@ -127,7 +132,7 @@ final case class StreamingRequestHandler[R](
       ctx.channel().config().setAutoRead(true)
       ()
 
-    case lastHttpContent: LastHttpContent if ctx.channel().attr(handleMessages).get() =>
+    case lastHttpContent: JLastHttpContent if ctx.channel().attr(handleMessages).get() =>
       // NOTE: we don't support trailing headers in this setup.
       // Toggling AUTO_READ will block reading next messages from the socket
       ctx.channel().config().setAutoRead(false)
@@ -138,11 +143,13 @@ final case class StreamingRequestHandler[R](
       } else {
         // No request content has been pushed into the stream so we can take a shortcut and
         // create the ZStream from one Chunk instead of a Queue for better performance.
-        lastHttpContent.retain()
+
         // Chunk.fromByteBuffer instead of Chunk.fromArray uses way less memory
         val byteStream = ZStream.fromChunk(Chunk.fromByteBuffer(lastHttpContent.content().nioBuffer()))
         val request    = buildRequest(ctx, HttpData.StreamData(byteStream))
-        executeAsync(ctx, request)(writeResponse(ctx, Some(lastHttpContent)))
+        // Retain this message since it will only be released in writeResponse
+        lastHttpContent.retain()
+        executeAsync(ctx, request)(writeResponse(ctx, lastHttpContent))
       }
       ctx.channel().config().setAutoRead(true)
       ()
@@ -157,7 +164,9 @@ final case class StreamingRequestHandler[R](
         val q       = zExec.runtime.unsafeRun(Queue.bounded[Chunk[Byte]](1))
         ctx.channel().attr(queue).set(q)
         val request = buildRequest(ctx, HttpData.StreamData(ZStream.fromChunkQueue(q)))
-        executeAsync(ctx, request)(writeResponse(ctx, None))
+        // Retain this message since it will only be released in writeResponse
+        httpContent.retain()
+        executeAsync(ctx, request)(writeResponse(ctx, httpContent))
       }
 
       enqueueContent(ctx, httpContent, isLastElement = false)
