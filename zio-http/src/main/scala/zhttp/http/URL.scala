@@ -19,7 +19,7 @@ case class URL(path: Path, kind: URL.Location = URL.Location.Relative, query: St
 
   lazy val queryParams: Map[String, List[String]] = {
     val decoder = new QueryStringDecoder(query, false)
-    val params = decoder.parameters()
+    val params  = decoder.parameters()
     params.asScala.view.mapValues(_.asScala.toList).toMap
   }
 
