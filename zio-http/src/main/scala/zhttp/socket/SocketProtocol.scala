@@ -23,6 +23,7 @@ object SocketProtocol {
   private case class SendCloseFrameCode(code: Int, reason: String) extends SocketProtocol
   private case object ForwardPongFrames                            extends SocketProtocol
   private case class Concat(a: SocketProtocol, b: SocketProtocol)  extends SocketProtocol
+  private case object Default                                      extends SocketProtocol
 
   /**
    * Used to specify the websocket sub-protocol
@@ -62,10 +63,16 @@ object SocketProtocol {
    */
   def forwardPongFrames: SocketProtocol = ForwardPongFrames
 
+  /**
+   * Creates an default decoder configuration.
+   */
+  def default: SocketProtocol = Default
+
   def asJava(protocol: SocketProtocol): JWebSocketServerProtocolConfig = {
     val b = JWebSocketServerProtocolConfig.newBuilder().checkStartsWith(true).websocketPath("")
     def loop(protocol: SocketProtocol): Unit = {
       protocol match {
+        case Default                           => ()
         case SubProtocol(name)                 => b.subprotocols(name)
         case HandshakeTimeoutMillis(duration)  => b.handshakeTimeoutMillis(duration.toMillis)
         case ForceCloseTimeoutMillis(duration) => b.forceCloseTimeoutMillis(duration.toMillis)

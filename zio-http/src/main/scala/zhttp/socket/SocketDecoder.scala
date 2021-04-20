@@ -18,6 +18,7 @@ object SocketDecoder {
   private case object AllowProtocolViolation                    extends SocketDecoder
   private case object SkipUTF8Validation                        extends SocketDecoder
   private case class Concat(a: SocketDecoder, b: SocketDecoder) extends SocketDecoder
+  private case object Default                                   extends SocketDecoder
 
   /**
    * Sets Maximum length of a frame's payload. Setting this to an appropriate value for you application helps check for
@@ -51,10 +52,16 @@ object SocketDecoder {
    */
   def skipUTF8Validation: SocketDecoder = SkipUTF8Validation
 
+  /**
+   * Creates an default decoder configuration.
+   */
+  def default: SocketDecoder = Default
+
   def asJava(decoder: SocketDecoder): JWebSocketDecoderConfig = {
     val b = JWebSocketDecoderConfig.newBuilder()
     def loop(decoder: SocketDecoder): Unit = {
       decoder match {
+        case Default                       => ()
         case MaxFramePayloadLength(length) => b.maxFramePayloadLength(length)
         case RejectMaskedFrames            => b.expectMaskedFrames(false)
         case AllowMaskMismatch             => b.allowMaskMismatch(true)

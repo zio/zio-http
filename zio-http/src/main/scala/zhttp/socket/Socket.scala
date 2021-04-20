@@ -21,6 +21,7 @@ object Socket {
   private case class OnError[R](onError: Throwable => ZIO[R, Nothing, Unit])                     extends Socket[R, Nothing]
   private case class OnClose[R](onClose: Connection => ZIO[R, Nothing, Unit])                    extends Socket[R, Nothing]
   private case class OnTimeout[R](onTimeout: ZIO[R, Nothing, Unit])                              extends Socket[R, Nothing]
+  private case object Empty                                                                      extends Socket[Any, Nothing]
 
   /**
    * Called when the connection is successfully upgrade to a websocket one. In case of a failure on the returned stream,
@@ -59,6 +60,11 @@ object Socket {
   def close[R](onClose: (Connection) => ZIO[R, Nothing, Unit]): Socket[R, Nothing] =
     Socket.OnClose(onClose)
 
+  /**
+   * Creates a new empty socket handler
+   */
+  def empty: Socket[Any, Nothing] = Empty
+
   // TODO: rename to HandlerConfig
   case class SocketConfig[-R, +E](
     onTimeout: Option[ZIO[R, Nothing, Unit]] = None,
@@ -73,6 +79,8 @@ object Socket {
 
       def loop(config: Socket[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] =
         config match {
+          case Empty => s
+
           case OnTimeout(onTimeout) =>
             s.copy(onTimeout = s.onTimeout.fold(Option(onTimeout))(v => Option(v &> onTimeout)))
 
