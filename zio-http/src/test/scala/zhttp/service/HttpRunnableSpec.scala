@@ -13,8 +13,8 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
     Server.make(Server.app(app) ++ Server.port(port)).orDie
 
-  def serveWithSsl[R <: Has[_], E: SilentResponse](
-    app: Http[R, E],
+  def serveWithSsl[R <: Has[_]](
+    app: RHttp[R],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
     Ssl.serverContext.orDie.toManaged_.flatMap { sslContext =>
       Server.make(Server.app(app) ++ Server.port(8081) ++ Server.ssl(sslContext)).orDie
