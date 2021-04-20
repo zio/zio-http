@@ -9,6 +9,7 @@ import java.net.{SocketAddress => JSocketAddress}
 sealed trait Socket[-R, +E] { self =>
   def ++[R1 <: R, E1 >: E](other: Socket[R1, E1]): Socket[R1, E1] = Socket.Concat(self, other)
   def config: Socket.SocketConfig[R, E]                           = Socket.SocketConfig(self)
+  def asSocket: SocketB[R, E]                                     = SocketB.config(self)
 }
 
 object Socket {

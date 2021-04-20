@@ -73,12 +73,12 @@ final case class ServerRequestHandler[R](
         }
         ()
 
-      case res @ Response.SocketResponse(_) =>
+      case res @ Response.SocketResponse(_, _, _) =>
         ctx
           .channel()
           .pipeline()
-          .addLast(new JWebSocketServerProtocolHandler(res.socket.settings.protocolConfig))
-          .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket.settings))
+          .addLast(new JWebSocketServerProtocolHandler(res.protocol.javaConfig))
+          .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket.config))
         ctx.fireChannelRead(jReq)
         ()
     }
