@@ -1,7 +1,7 @@
 package zhttp.socket
 
-import zio.stream.ZStream
 import zio.Cause
+import zio.stream.ZStream
 
 sealed trait Message[-R, +E, -A, +B] { self =>
   def apply(a: A): ZStream[R, E, B] = Message.asStream(a, self)
