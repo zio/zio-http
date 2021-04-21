@@ -25,7 +25,7 @@ object Message {
   private final case class Succeed[A](a: A)                                               extends Message[Any, Nothing, Any, A]
   private final case class FMap[R, E, A, B, C](m: Message[R, E, A, B], bc: B => C)        extends Message[R, E, A, C]
   private final case class FCMap[R, E, X, A, B](m: Message[R, E, A, B], xa: X => A)       extends Message[R, E, X, B]
-  private final case object End                                                           extends Message[Any, Nothing, Any, Nothing]
+  private case object End                                                                 extends Message[Any, Nothing, Any, Nothing]
   private final case class FOrElse[R, E, A, B](a: Message[R, E, A, B], b: Message[R, E, A, B])
       extends Message[R, E, A, B]
 
