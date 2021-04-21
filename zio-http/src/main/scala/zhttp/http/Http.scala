@@ -63,7 +63,7 @@ object Http {
    * Creates an HTTP app which accepts a requests and produces a websocket response.
    */
   def socket[R, E >: Throwable: PartialRequest](pf: PartialFunction[Request, Socket[R, E]]): Http[R, E] =
-    HttpChannel.collect(pf).map(Response.socket)
+    HttpChannel.collect(pf).map(Response.socket(_))
 
   /**
    * Creates an HTTP app which accepts a requests and produces a websocket response for the provided sub-protocol,
@@ -83,5 +83,5 @@ object Http {
    */
   def socketM[R, E >: Throwable: PartialRequest](
     pf: PartialFunction[Request, ZIO[R, E, Socket[R, E]]],
-  ): Http[R, E] = HttpChannel.collectM(pf).map(Response.socket)
+  ): Http[R, E] = HttpChannel.collectM(pf).map(Response.socket(_))
 }

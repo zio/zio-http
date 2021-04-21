@@ -1,7 +1,6 @@
 package zhttp.socket
 
 import zio._
-import zio.stream.ZStream
 
 import java.net.{SocketAddress => JSocketAddress}
 
@@ -14,20 +13,20 @@ object SocketChannel {
   type Connection = JSocketAddress
   type Cause      = Option[Throwable]
 
-  private case class Concat[R, E](a: SocketChannel[R, E], b: SocketChannel[R, E])      extends SocketChannel[R, E]
-  private case class OnOpen[R, E](onOpen: Connection => ZStream[R, E, WebSocketFrame]) extends SocketChannel[R, E]
-  private case class OnMessage[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame])
+  private case class Concat[R, E](a: SocketChannel[R, E], b: SocketChannel[R, E])    extends SocketChannel[R, E]
+  private case class OnOpen[R, E](onOpen: Message[R, E, Connection, WebSocketFrame]) extends SocketChannel[R, E]
+  private case class OnMessage[R, E](onMessage: Message[R, E, WebSocketFrame, WebSocketFrame])
       extends SocketChannel[R, E]
-  private case class OnError[R](onError: Throwable => ZIO[R, Nothing, Unit])           extends SocketChannel[R, Nothing]
-  private case class OnClose[R](onClose: Connection => ZIO[R, Nothing, Unit])          extends SocketChannel[R, Nothing]
-  private case class OnTimeout[R](onTimeout: ZIO[R, Nothing, Unit])                    extends SocketChannel[R, Nothing]
-  private case object Empty                                                            extends SocketChannel[Any, Nothing]
+  private case class OnError[R](onError: Throwable => ZIO[R, Nothing, Unit])         extends SocketChannel[R, Nothing]
+  private case class OnClose[R](onClose: Connection => ZIO[R, Nothing, Unit])        extends SocketChannel[R, Nothing]
+  private case class OnTimeout[R](onTimeout: ZIO[R, Nothing, Unit])                  extends SocketChannel[R, Nothing]
+  private case object Empty                                                          extends SocketChannel[Any, Nothing]
 
   /**
    * Called when the connection is successfully upgrade to a websocket one. In case of a failure on the returned stream,
    * the socket is forcefully closed.
    */
-  def open[R, E](onOpen: Connection => ZStream[R, E, WebSocketFrame]): SocketChannel[R, E] =
+  def open[R, E](onOpen: Message[R, E, Connection, WebSocketFrame]): SocketChannel[R, E] =
     SocketChannel.OnOpen(onOpen)
 
   /**
@@ -39,15 +38,8 @@ object SocketChannel {
    * Called on every incoming WebSocketFrame. In case of a failure on the returned stream, the socket is forcefully
    * closed.
    */
-  def message[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame]): SocketChannel[R, E] =
+  def message[R, E](onMessage: Message[R, E, WebSocketFrame, WebSocketFrame]): SocketChannel[R, E] =
     SocketChannel.OnMessage(onMessage)
-
-  /**
-   * Collects the incoming messages using a partial function. In case of a failure on the returned stream, the socket is
-   * forcefully closed.
-   */
-  def collect[R, E](onMessage: PartialFunction[WebSocketFrame, ZStream[R, E, WebSocketFrame]]): SocketChannel[R, E] =
-    message(ws => if (onMessage.isDefinedAt(ws)) onMessage(ws) else ZStream.empty)
 
   /**
    * Called whenever there is an error on the channel after a successful upgrade to websocket.
@@ -68,8 +60,8 @@ object SocketChannel {
   // TODO: rename to HandlerConfig
   case class SocketConfig[-R, +E](
     onTimeout: Option[ZIO[R, Nothing, Unit]] = None,
-    onOpen: Option[Connection => ZStream[R, E, WebSocketFrame]] = None,
-    onMessage: Option[WebSocketFrame => ZStream[R, E, WebSocketFrame]] = None,
+    onOpen: Option[Message[R, E, Connection, WebSocketFrame]] = None,
+    onMessage: Option[Message[R, E, WebSocketFrame, WebSocketFrame]] = None,
     onError: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
     onClose: Option[Connection => ZIO[R, Nothing, Unit]] = None,
   )
@@ -84,11 +76,17 @@ object SocketChannel {
           case OnTimeout(onTimeout) =>
             s.copy(onTimeout = s.onTimeout.fold(Option(onTimeout))(v => Option(v &> onTimeout)))
 
-          case OnOpen(onOpen) =>
-            s.copy(onOpen = s.onOpen.fold(Option(onOpen))(v => Option((c: Connection) => v(c).merge(onOpen(c)))))
+          case OnOpen(a) =>
+            s.copy(onOpen = s.onOpen match {
+              case Some(b) => Option(b merge a)
+              case None    => Option(a)
+            })
 
-          case OnMessage(onMessage) =>
-            s.copy(onMessage = s.onMessage.fold(Option(onMessage))(v => Option(ws => v(ws).merge(onMessage(ws)))))
+          case OnMessage(a) =>
+            s.copy(onMessage = s.onMessage match {
+              case Some(b) => Option(b merge a)
+              case None    => Option(a)
+            })
 
           case OnError(onError) =>
             s.copy(onError = s.onError.fold(Option(onError))(v => Option(c => v(c) &> onError(c))))

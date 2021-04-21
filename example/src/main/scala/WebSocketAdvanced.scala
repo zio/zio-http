@@ -8,7 +8,7 @@ import zio.stream.ZStream
 object WebSocketAdvanced extends App {
 
   // Called after the request is successfully upgraded to websocket
-  private val open = SocketChannel.open(_ => ZStream.succeed(WebSocketFrame.text("Greetings!")))
+  private val open = SocketChannel.open(Message.succeed(WebSocketFrame.text("Greetings!")))
 
   // Called after the connection is closed
   private val close = SocketChannel.close(_ => console.putStrLn("CLOSED"))
@@ -17,13 +17,17 @@ object WebSocketAdvanced extends App {
   private val error = SocketChannel.error(_ => console.putStrLn("Error!"))
 
   // Echos each message that is received on the channel
-  private val wsEcho = SocketChannel.collect { case WebSocketFrame.Text(text) =>
-    ZStream.repeat(WebSocketFrame.text(s"server:${text}")).schedule(Schedule.spaced(1 second)).take(3)
+  private val wsEcho = SocketChannel.message {
+    Message.collect { case WebSocketFrame.Text(text) =>
+      ZStream.repeat(WebSocketFrame.text(s"server:${text}")).schedule(Schedule.spaced(1 second)).take(3)
+    }
   }
 
   // Responds with a close message for each incoming close message
-  private val wsClose = SocketChannel.collect { case WebSocketFrame.Close(_, _) =>
-    ZStream.succeed(WebSocketFrame.close(1000))
+  private val wsClose = SocketChannel.message {
+    Message.collect { case WebSocketFrame.Close(_, _) =>
+      ZStream.succeed(WebSocketFrame.close(1000))
+    }
   }
 
   // Combine all channel handlers together
