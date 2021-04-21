@@ -6,6 +6,8 @@ import zio.Cause
 sealed trait Message[-R, +E, -A, +B] { self =>
   def apply(a: A): ZStream[R, E, B] = Message.asStream(a, self)
 
+  def asStream(a: A): ZStream[R, E, B] = self(a)
+
   def map[C](bc: B => C): Message[R, E, A, C] = Message.FMap(self, bc)
 
   def cmap[Z](za: Z => A): Message[R, E, Z, B] = Message.FCMap(self, za)
