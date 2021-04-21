@@ -6,34 +6,24 @@ import zio.duration._
 import zio.stream.ZStream
 
 object WebSocketAdvanced extends App {
-
-  // Called after the request is successfully upgraded to websocket
-  private val open = SocketChannel.open(Message.succeed(WebSocketFrame.text("Greetings!")))
-
-  // Called after the connection is closed
-  private val close = SocketChannel.close(_ => console.putStrLn("CLOSED"))
-
-  // Called whenever there is an error on the socket channel
-  private val error = SocketChannel.error(_ => console.putStrLn("Error!"))
-
-  // Echos each message that is received on the channel
-  private val wsEcho = SocketChannel.message {
-    Message.collect { case WebSocketFrame.Text(text) =>
-      ZStream.repeat(WebSocketFrame.text(s"server:${text}")).schedule(Schedule.spaced(1 second)).take(3)
-    }
+  // Message Handlers
+  private val open   = Message.succeed(WebSocketFrame.text("Greetings!"))
+  private val echo   = Message.collect[WebSocketFrame] { case WebSocketFrame.Text(text) =>
+    ZStream.repeat(WebSocketFrame.text(s"Received: $text")).schedule(Schedule.spaced(1 second)).take(3)
   }
-
-  // Responds with a close message for each incoming close message
-  private val wsClose = SocketChannel.message {
-    Message.collect { case WebSocketFrame.Close(_, _) =>
-      ZStream.succeed(WebSocketFrame.close(1000))
-    }
+  private val fooBar = Message.collect[WebSocketFrame] {
+    case WebSocketFrame.Text("FOO") => ZStream.succeed(WebSocketFrame.text("BAR"))
+    case WebSocketFrame.Text("BAR") => ZStream.succeed(WebSocketFrame.text("FOO"))
   }
 
   // Combine all channel handlers together
-  private val channel = open ++ close ++ error ++ wsEcho ++ wsClose
+  private val channel =
+    SocketChannel.open(open) ++                                // Called after the request is successfully upgraded to websocket
+      SocketChannel.message(echo merge fooBar) ++              // Called after each message being received on the channel
+      SocketChannel.close(_ => console.putStrLn("Closed!")) ++ // Called after the connection is closed
+      SocketChannel.error(_ => console.putStrLn("Error!"))     // Called whenever there is an error on the socket channel
 
-  // Setup protcol settings
+  // Setup protocol settings
   private val protocol = SocketProtocol.subProtocol("json")
 
   private val app =
