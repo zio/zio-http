@@ -7,13 +7,13 @@ import zio.stream.ZStream
 
 object WebSocketAdvanced extends App {
   // Message Handlers
-  private val open = Message.succeed(WebSocketFrame.text("Greetings!"))
+  private val open = Socket.succeed(WebSocketFrame.text("Greetings!"))
 
-  private val echo = Message.collect[WebSocketFrame] { case WebSocketFrame.Text(text) =>
+  private val echo = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text(text) =>
     ZStream.repeat(WebSocketFrame.text(s"Received: $text")).schedule(Schedule.spaced(1 second)).take(3)
   }
 
-  private val fooBar = Message.collect[WebSocketFrame] {
+  private val fooBar = Socket.collect[WebSocketFrame] {
     case WebSocketFrame.Text("FOO") => ZStream.succeed(WebSocketFrame.text("BAR"))
     case WebSocketFrame.Text("BAR") => ZStream.succeed(WebSocketFrame.text("FOO"))
   }
