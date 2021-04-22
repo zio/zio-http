@@ -20,6 +20,8 @@ object SocketChannel {
   private case class OnError[R](onError: Throwable => ZIO[R, Nothing, Unit])         extends SocketChannel[R, Nothing]
   private case class OnClose[R](onClose: Connection => ZIO[R, Nothing, Unit])        extends SocketChannel[R, Nothing]
   private case class OnTimeout[R](onTimeout: ZIO[R, Nothing, Unit])                  extends SocketChannel[R, Nothing]
+  private case class Protocol(protocol: SocketProtocol)                              extends SocketChannel[Any, Nothing]
+  private case class Decoder(decoder: SocketDecoder)                                 extends SocketChannel[Any, Nothing]
   private case object Empty                                                          extends SocketChannel[Any, Nothing]
 
   /**
@@ -53,6 +55,16 @@ object SocketChannel {
     SocketChannel.OnClose(onClose)
 
   /**
+   * Frame decoder configuration
+   */
+  def decoder(decoder: SocketDecoder): SocketChannel[Any, Nothing] = Decoder(decoder)
+
+  /**
+   * Server side websocket configuration
+   */
+  def protocol(protocol: SocketProtocol): SocketChannel[Any, Nothing] = Protocol(protocol)
+
+  /**
    * Creates a new empty socket handler
    */
   def empty: SocketChannel[Any, Nothing] = Empty
@@ -64,12 +76,18 @@ object SocketChannel {
     onMessage: Option[Message[R, E, WebSocketFrame, WebSocketFrame]] = None,
     onError: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
     onClose: Option[Connection => ZIO[R, Nothing, Unit]] = None,
+    decoder: SocketDecoder = SocketDecoder.default,
+    protocol: SocketProtocol = SocketProtocol.default,
   )
 
   def asSocketConfig[R, E](socket: SocketChannel[R, E]): SocketConfig[R, E] = {
     def loop(config: SocketChannel[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] =
       config match {
         case Empty => s
+
+        case Decoder(decoder) => s.copy(decoder = s.decoder ++ decoder)
+
+        case Protocol(protocol) => s.copy(protocol = s.protocol ++ protocol)
 
         case OnTimeout(onTimeout) =>
           s.copy(onTimeout = s.onTimeout.fold(Option(onTimeout))(v => Option(v &> onTimeout)))
