@@ -12,7 +12,7 @@ sealed trait Message[-R, +E, -A, +B] { self =>
 
   def cmap[Z](za: Z => A): Message[R, E, Z, B] = Message.FCMap(self, za)
 
-  def <>[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Message[R1, E1, A1, B1]): Message[R1, E1, A1, B1] =
+  def <>[R1 <: R, E1, A1 <: A, B1 >: B](other: Message[R1, E1, A1, B1]): Message[R1, E1, A1, B1] =
     Message.FOrElse(self, other)
 
   def merge[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Message[R1, E1, A1, B1]): Message[R1, E1, A1, B1] =
@@ -26,8 +26,8 @@ object Message {
   private final case class FMap[R, E, A, B, C](m: Message[R, E, A, B], bc: B => C)        extends Message[R, E, A, C]
   private final case class FCMap[R, E, X, A, B](m: Message[R, E, A, B], xa: X => A)       extends Message[R, E, X, B]
   private case object End                                                                 extends Message[Any, Nothing, Any, Nothing]
-  private final case class FOrElse[R, E, A, B](a: Message[R, E, A, B], b: Message[R, E, A, B])
-      extends Message[R, E, A, B]
+  private final case class FOrElse[R, E, E1, A, B](a: Message[R, E, A, B], b: Message[R, E1, A, B])
+      extends Message[R, E1, A, B]
 
   private final case class FMerge[R, E, A, B](a: Message[R, E, A, B], b: Message[R, E, A, B])
       extends Message[R, E, A, B]
