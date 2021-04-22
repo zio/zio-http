@@ -10,7 +10,7 @@ object ServerSpec extends HttpRunnableSpec(8081) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
   val app = serve {
-    Http.collectM {
+    HttpApp.collectM {
       case Method.GET -> Root / "success" => ZIO.succeed(Response.ok)
       case Method.GET -> Root / "failure" => ZIO.fail(new RuntimeException("FAILURE"))
     }
