@@ -16,7 +16,7 @@ object WebSocketEcho extends App {
     }
 
   private val app =
-    Http.collect {
+    HttpApp.collect {
       case Method.GET -> Root / "greet" / name  => Response.text(s"Greetings {$name}!")
       case Method.GET -> Root / "subscriptions" => Response.socket(socket)
     }

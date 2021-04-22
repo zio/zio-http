@@ -9,7 +9,7 @@ import zio.{Chunk, Has, ZIO, ZManaged}
 abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
 
   def serve[R <: Has[_]](
-    app: RHttp[R],
+    app: RHttpApp[R],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
     Server.make(Server.app(app) ++ Server.port(port)).orDie
 
