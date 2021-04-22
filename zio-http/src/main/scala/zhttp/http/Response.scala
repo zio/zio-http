@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zhttp.socket.{SocketChannel, SocketDecoder, SocketProtocol}
+import zhttp.socket.{SocketApp, SocketDecoder, SocketProtocol}
 
 // RESPONSE
 sealed trait Response[-R, +E] extends Product with Serializable { self => }
@@ -11,7 +11,7 @@ object Response extends ResponseOps {
       extends Response[R, E]
 
   final case class SocketResponse[-R, +E](
-    socket: SocketChannel[R, E] = SocketChannel.empty,
+    socket: SocketApp[R, E] = SocketApp.empty,
     protocol: SocketProtocol = SocketProtocol.default,
     decoder: SocketDecoder = SocketDecoder.default,
   ) extends Response[R, E]

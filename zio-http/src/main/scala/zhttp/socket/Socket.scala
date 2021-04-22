@@ -9,7 +9,7 @@ sealed trait Socket[-R, +E] { self =>
 
 object Socket {
   private[socket] case class Concat[R, E](a: Socket[R, E], b: Socket[R, E]) extends Socket[R, E]
-  private[socket] case class Channel[R, E](socket: SocketChannel[R, E])     extends Socket[R, E]
+  private[socket] case class Channel[R, E](socket: SocketApp[R, E])         extends Socket[R, E]
   private[socket] case class Protocol(config: SocketProtocol)               extends Socket[Any, Nothing]
   private[socket] case class Decoder(config: SocketDecoder)                 extends Socket[Any, Nothing]
   private[socket] case object Empty                                         extends Socket[Any, Nothing]

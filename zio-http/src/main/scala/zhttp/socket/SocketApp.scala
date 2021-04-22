@@ -4,70 +4,69 @@ import zio._
 
 import java.net.{SocketAddress => JSocketAddress}
 
-sealed trait SocketChannel[-R, +E] { self =>
-  def ++[R1 <: R, E1 >: E](other: SocketChannel[R1, E1]): SocketChannel[R1, E1] = SocketChannel.Concat(self, other)
-  def config: SocketChannel.SocketConfig[R, E]                                  = SocketChannel.asSocketConfig(self)
+sealed trait SocketApp[-R, +E] { self =>
+  def ++[R1 <: R, E1 >: E](other: SocketApp[R1, E1]): SocketApp[R1, E1] = SocketApp.Concat(self, other)
+  def config: SocketApp.SocketConfig[R, E]                              = SocketApp.asSocketConfig(self)
 }
 
-object SocketChannel {
+object SocketApp {
   type Connection = JSocketAddress
   type Cause      = Option[Throwable]
 
-  private case class Concat[R, E](a: SocketChannel[R, E], b: SocketChannel[R, E])    extends SocketChannel[R, E]
-  private case class OnOpen[R, E](onOpen: Message[R, E, Connection, WebSocketFrame]) extends SocketChannel[R, E]
-  private case class OnMessage[R, E](onMessage: Message[R, E, WebSocketFrame, WebSocketFrame])
-      extends SocketChannel[R, E]
-  private case class OnError[R](onError: Throwable => ZIO[R, Nothing, Unit])         extends SocketChannel[R, Nothing]
-  private case class OnClose[R](onClose: Connection => ZIO[R, Nothing, Unit])        extends SocketChannel[R, Nothing]
-  private case class OnTimeout[R](onTimeout: ZIO[R, Nothing, Unit])                  extends SocketChannel[R, Nothing]
-  private case class Protocol(protocol: SocketProtocol)                              extends SocketChannel[Any, Nothing]
-  private case class Decoder(decoder: SocketDecoder)                                 extends SocketChannel[Any, Nothing]
-  private case object Empty                                                          extends SocketChannel[Any, Nothing]
+  private case class Concat[R, E](a: SocketApp[R, E], b: SocketApp[R, E])                      extends SocketApp[R, E]
+  private case class OnOpen[R, E](onOpen: Message[R, E, Connection, WebSocketFrame])           extends SocketApp[R, E]
+  private case class OnMessage[R, E](onMessage: Message[R, E, WebSocketFrame, WebSocketFrame]) extends SocketApp[R, E]
+  private case class OnError[R](onError: Throwable => ZIO[R, Nothing, Unit])                   extends SocketApp[R, Nothing]
+  private case class OnClose[R](onClose: Connection => ZIO[R, Nothing, Unit])                  extends SocketApp[R, Nothing]
+  private case class OnTimeout[R](onTimeout: ZIO[R, Nothing, Unit])                            extends SocketApp[R, Nothing]
+  private case class Protocol(protocol: SocketProtocol)                                        extends SocketApp[Any, Nothing]
+  private case class Decoder(decoder: SocketDecoder)                                           extends SocketApp[Any, Nothing]
+  private case object Empty                                                                    extends SocketApp[Any, Nothing]
 
   /**
    * Called when the connection is successfully upgrade to a websocket one. In case of a failure on the returned stream,
    * the socket is forcefully closed.
    */
-  def open[R, E](onOpen: Message[R, E, Connection, WebSocketFrame]): SocketChannel[R, E] =
-    SocketChannel.OnOpen(onOpen)
+  def open[R, E](onOpen: Message[R, E, Connection, WebSocketFrame]): SocketApp[R, E] =
+    SocketApp.OnOpen(onOpen)
 
   /**
    * Called when the handshake gets timeout.
    */
-  def timeout[R](onTimeout: ZIO[R, Nothing, Unit]): SocketChannel[R, Nothing] = SocketChannel.OnTimeout(onTimeout)
+  def timeout[R](onTimeout: ZIO[R, Nothing, Unit]): SocketApp[R, Nothing] = SocketApp.OnTimeout(onTimeout)
 
   /**
    * Called on every incoming WebSocketFrame. In case of a failure on the returned stream, the socket is forcefully
    * closed.
    */
-  def message[R, E](onMessage: Message[R, E, WebSocketFrame, WebSocketFrame]): SocketChannel[R, E] =
-    SocketChannel.OnMessage(onMessage)
+  def message[R, E](onMessage: Message[R, E, WebSocketFrame, WebSocketFrame]): SocketApp[R, E] =
+    SocketApp.OnMessage(onMessage)
 
   /**
    * Called whenever there is an error on the channel after a successful upgrade to websocket.
    */
-  def error[R](onError: Throwable => ZIO[R, Nothing, Unit]): SocketChannel[R, Nothing] = SocketChannel.OnError(onError)
+  def error[R](onError: Throwable => ZIO[R, Nothing, Unit]): SocketApp[R, Nothing] = SocketApp.OnError(onError)
 
   /**
    * Called when the websocket connection is closed successfully.
    */
-  def close[R](onClose: (Connection) => ZIO[R, Nothing, Unit]): SocketChannel[R, Nothing] =
-    SocketChannel.OnClose(onClose)
+  def close[R](onClose: (Connection) => ZIO[R, Nothing, Unit]): SocketApp[R, Nothing] =
+    SocketApp.OnClose(onClose)
 
   /**
    * Frame decoder configuration
    */
-  def decoder(decoder: SocketDecoder): SocketChannel[Any, Nothing] = Decoder(decoder)
+  def decoder(decoder: SocketDecoder): SocketApp[Any, Nothing] = Decoder(decoder)
 
   /**
    * Server side websocket configuration
    */
-  def protocol(protocol: SocketProtocol): SocketChannel[Any, Nothing] = Protocol(protocol)
+  def protocol(protocol: SocketProtocol): SocketApp[Any, Nothing] = Protocol(protocol)
 
   /**
    * Creates a new empty socket handler
    */
-  def empty: SocketChannel[Any, Nothing] = Empty
+  def empty: SocketApp[Any, Nothing] = Empty
 
   // TODO: rename to HandlerConfig
   case class SocketConfig[-R, +E](
@@ -80,8 +79,8 @@ object SocketChannel {
     protocol: SocketProtocol = SocketProtocol.default,
   )
 
-  def asSocketConfig[R, E](socket: SocketChannel[R, E]): SocketConfig[R, E] = {
-    def loop(config: SocketChannel[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] =
+  def asSocketConfig[R, E](socket: SocketApp[R, E]): SocketConfig[R, E] = {
+    def loop(config: SocketApp[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] =
       config match {
         case Empty => s
 
