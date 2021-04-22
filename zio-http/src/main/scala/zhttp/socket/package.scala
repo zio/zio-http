@@ -1,3 +1,3 @@
 package zhttp
 
-package object socket {}
+package object socket extends Conversion {}

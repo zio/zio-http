@@ -1,7 +1,7 @@
 package zhttp.http
 
-import zhttp.http.Response.{HttpResponse, SocketResponse}
-import zhttp.socket.Socket
+import zhttp.http.Response.HttpResponse
+import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
 
 import java.io.{PrintWriter, StringWriter}
@@ -23,9 +23,15 @@ trait ResponseOps {
     HttpResponse(status, headers, content)
 
   /**
-   * Creates a new WebSocket Response with a sub-protocol
+   * Creates a new WebSocket Response
    */
-  def socket[R, E](ss: Socket[R, E]): Response[R, E] = SocketResponse(ss)
+  def socket[R, E](ss: SocketApp[R, E]): Response[R, E] = ss.asResponse
+
+  /**
+   * Creates a new WebSocket Response
+   */
+  def socket[R, E](ss: Socket[R, E, WebSocketFrame, WebSocketFrame]): Response[R, E] =
+    SocketApp.message(ss).asResponse
 
   def fromHttpError(error: HttpError): UResponse = {
     error match {
