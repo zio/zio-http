@@ -15,15 +15,15 @@ object SocketApp {
   type Connection = JSocketAddress
   type Cause      = Option[Throwable]
 
-  private case class Concat[R, E](a: SocketApp[R, E], b: SocketApp[R, E])                      extends SocketApp[R, E]
+  private case class Concat[R, E](a: SocketApp[R, E], b: SocketApp[R, E])                     extends SocketApp[R, E]
   private case class OnOpen[R, E](onOpen: Socket[R, E, Connection, WebSocketFrame])           extends SocketApp[R, E]
   private case class OnMessage[R, E](onMessage: Socket[R, E, WebSocketFrame, WebSocketFrame]) extends SocketApp[R, E]
-  private case class OnError[R](onError: Throwable => ZIO[R, Nothing, Unit])                   extends SocketApp[R, Nothing]
-  private case class OnClose[R](onClose: Connection => ZIO[R, Nothing, Unit])                  extends SocketApp[R, Nothing]
-  private case class OnTimeout[R](onTimeout: ZIO[R, Nothing, Unit])                            extends SocketApp[R, Nothing]
-  private case class Protocol(protocol: SocketProtocol)                                        extends SocketApp[Any, Nothing]
-  private case class Decoder(decoder: SocketDecoder)                                           extends SocketApp[Any, Nothing]
-  private case object Empty                                                                    extends SocketApp[Any, Nothing]
+  private case class OnError[R](onError: Throwable => ZIO[R, Nothing, Unit])                  extends SocketApp[R, Nothing]
+  private case class OnClose[R](onClose: Connection => ZIO[R, Nothing, Unit])                 extends SocketApp[R, Nothing]
+  private case class OnTimeout[R](onTimeout: ZIO[R, Nothing, Unit])                           extends SocketApp[R, Nothing]
+  private case class Protocol(protocol: SocketProtocol)                                       extends SocketApp[Any, Nothing]
+  private case class Decoder(decoder: SocketDecoder)                                          extends SocketApp[Any, Nothing]
+  private case object Empty                                                                   extends SocketApp[Any, Nothing]
 
   /**
    * Called when the connection is successfully upgrade to a websocket one. In case of a failure on the returned stream,
@@ -74,13 +74,13 @@ object SocketApp {
 
   // TODO: rename to HandlerConfig
   case class SocketConfig[-R, +E](
-                                   onTimeout: Option[ZIO[R, Nothing, Unit]] = None,
-                                   onOpen: Option[Socket[R, E, Connection, WebSocketFrame]] = None,
-                                   onMessage: Option[Socket[R, E, WebSocketFrame, WebSocketFrame]] = None,
-                                   onError: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
-                                   onClose: Option[Connection => ZIO[R, Nothing, Unit]] = None,
-                                   decoder: SocketDecoder = SocketDecoder.default,
-                                   protocol: SocketProtocol = SocketProtocol.default,
+    onTimeout: Option[ZIO[R, Nothing, Unit]] = None,
+    onOpen: Option[Socket[R, E, Connection, WebSocketFrame]] = None,
+    onMessage: Option[Socket[R, E, WebSocketFrame, WebSocketFrame]] = None,
+    onError: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
+    onClose: Option[Connection => ZIO[R, Nothing, Unit]] = None,
+    decoder: SocketDecoder = SocketDecoder.default,
+    protocol: SocketProtocol = SocketProtocol.default,
   )
 
   def asSocketConfig[R, E](socket: SocketApp[R, E]): SocketConfig[R, E] = {
