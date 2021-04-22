@@ -1,6 +1,5 @@
 package zhttp.http
 
-import zhttp.socket.SocketApp
 import zio.ZIO
 
 object Http {
@@ -58,29 +57,4 @@ object Http {
    * Creates an HTTP app which always responds with a 200 status code.
    */
   def ok: Http[Any, Nothing] = Http.empty(Status.OK)
-
-  /**
-   * Creates an HTTP app which accepts a requests and produces a websocket response.
-   */
-  def socket[R, E >: Throwable: PartialRequest](pf: PartialFunction[Request, SocketApp[R, E]]): Http[R, E] =
-    HttpChannel.collect(pf).map(Response.socket(_))
-
-  /**
-   * Creates an HTTP app which accepts a requests and produces a websocket response for the provided sub-protocol,
-   * effectfully.
-   */
-  def socketM[R, E >: Throwable: PartialRequest](subProtocol: String)(
-    pf: PartialFunction[Request, ZIO[R, E, SocketApp[R, E]]],
-  ): Http[R, E] = {
-    HttpChannel
-      .collectM(pf)
-      .map(socket => Response.socket(socket ++ SocketApp.protocol(subProtocol)))
-  }
-
-  /**
-   * Creates an HTTP app which accepts a requests and produces a websocket response effectfully.
-   */
-  def socketM[R, E >: Throwable: PartialRequest](
-    pf: PartialFunction[Request, ZIO[R, E, SocketApp[R, E]]],
-  ): Http[R, E] = HttpChannel.collectM(pf).map(Response.socket(_))
 }
