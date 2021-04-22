@@ -25,7 +25,7 @@ object WebSocketAdvanced extends App {
   private val decoder = SocketDecoder.allowExtensions
 
   // Combine all channel handlers together
-  private val channel =
+  private val socketApp =
     SocketApp.open(open) ++                                // Called after the request is successfully upgraded to websocket
       SocketApp.message(echo merge fooBar) ++              // Called after each message being received on the channel
       SocketApp.close(_ => console.putStrLn("Closed!")) ++ // Called after the connection is closed
@@ -36,7 +36,7 @@ object WebSocketAdvanced extends App {
   private val app =
     Http.collect {
       case Method.GET -> Root / "greet" / name  => Response.text(s"Greetings ${name}!")
-      case Method.GET -> Root / "subscriptions" => Response.socket(channel)
+      case Method.GET -> Root / "subscriptions" => socketApp
     }
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

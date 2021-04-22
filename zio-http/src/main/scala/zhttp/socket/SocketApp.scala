@@ -1,5 +1,6 @@
 package zhttp.socket
 
+import zhttp.http.Response
 import zio._
 
 import java.net.{SocketAddress => JSocketAddress}
@@ -7,6 +8,7 @@ import java.net.{SocketAddress => JSocketAddress}
 sealed trait SocketApp[-R, +E] { self =>
   def ++[R1 <: R, E1 >: E](other: SocketApp[R1, E1]): SocketApp[R1, E1] = SocketApp.Concat(self, other)
   def config: SocketApp.SocketConfig[R, E]                              = SocketApp.asSocketConfig(self)
+  def asResponse: Response[R, E]                                        = Response.SocketResponse(self)
 }
 
 object SocketApp {
@@ -62,6 +64,8 @@ object SocketApp {
    * Server side websocket configuration
    */
   def protocol(protocol: SocketProtocol): SocketApp[Any, Nothing] = Protocol(protocol)
+
+  def protocol(name: String): SocketApp[Any, Nothing] = Protocol(SocketProtocol.subProtocol(name))
 
   /**
    * Creates a new empty socket handler
