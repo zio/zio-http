@@ -147,17 +147,17 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   def apply(req: => A): ZIO[R, E, B] = self.evalAsEffect(req)
 }
 
-object Http extends HttpConstructors with HttpExecutors {
-  case object Identity                                                             extends Http[Any, Nothing, Any, Nothing]
-  case class Succeed[B](b: B)                                                      extends Http[Any, Nothing, Any, B]
-  case class Fail[E](e: E)                                                         extends Http[Any, E, Any, Nothing]
-  case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B])                  extends Http[R, E, A, B]
-  case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C]) extends Http[R, E, A, C]
-  case class FoldM[R, E, EE, A, B, BB](
+object Http {
+  private case object Identity                                                             extends Http[Any, Nothing, Any, Nothing]
+  private case class Succeed[B](b: B)                                                      extends Http[Any, Nothing, Any, B]
+  private case class Fail[E](e: E)                                                         extends Http[Any, E, Any, Nothing]
+  private case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B])                  extends Http[R, E, A, B]
+  private case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C]) extends Http[R, E, A, C]
+  private case class FoldM[R, E, EE, A, B, BB](
     self: Http[R, E, A, B],
     ee: E => Http[R, EE, A, BB],
     bb: B => Http[R, EE, A, BB],
-  )                                                                                extends Http[R, EE, A, BB]
+  )                                                                                        extends Http[R, EE, A, BB]
 
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {
@@ -177,4 +177,67 @@ object Http extends HttpConstructors with HttpExecutors {
   final case class MakeFromEffectFunction[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = Http.FromEffectFunction(f)
   }
+
+  def evalSuspended[R, E, A, B](http: Http[R, E, A, B], a: => A): HttpResult[R, E, B] =
+    http match {
+      case Identity              => HttpResult.success(a.asInstanceOf[B])
+      case Succeed(b)            => HttpResult.success(b)
+      case Fail(e)               => HttpResult.failure(e)
+      case FromEffectFunction(f) => HttpResult.continue(f(a))
+      case Chain(self, other)    => HttpResult.suspend(self.evalSuspended(a) >>= (other.evalSuspended(_)))
+      case FoldM(http, ee, bb)   =>
+        HttpResult.suspend(http.evalSuspended(a).foldM(ee(_).evalSuspended(a), bb(_).evalSuspended(a)))
+    }
+
+  /**
+   * Creates an Http that always returns the same response and never fails.
+   */
+  def succeed[B](b: B): Http[Any, Nothing, Any, B] = Http.Succeed(b)
+
+  /**
+   * Creates an Http app from a function that returns a ZIO
+   */
+  def fromEffectFunction[A]: Http.MakeFromEffectFunction[A] = Http.MakeFromEffectFunction(())
+
+  /**
+   * Converts a ZIO to an Http type
+   */
+  def fromEffect[R, E, B](effect: ZIO[R, E, B]): Http[R, E, Any, B] = Http.fromEffectFunction(_ => effect)
+
+  /**
+   * Creates an Http that always fails
+   */
+  def fail[E](e: E): Http[Any, E, Any, Nothing] = Http.Fail(e)
+
+  /**
+   * Creates a pass thru Http instances
+   */
+  def identity[A]: Http[Any, Nothing, A, A] = Http.Identity
+
+  /**
+   * Creates an HTTP app which accepts a request and produces response.
+   */
+  def collect[A]: Http.MakeCollect[A] = Http.MakeCollect(())
+
+  /**
+   * Creates an HTTP app which accepts a request and produces response effectfully.
+   */
+  def collectM[A]: Http.MakeCollectM[A] = Http.MakeCollectM(())
+
+  /**
+   * Creates an HTTP app which for any request produces a response.
+   */
+  def succeedM[R, E, B](zio: ZIO[R, E, B]): Http[R, E, Any, B] = Http.fromEffectFunction(_ => zio)
+
+  /**
+   * Flattens an Http app of an Http app
+   */
+  def flatten[R, E, A, B](http: Http[R, E, A, Http[R, E, A, B]]): Http[R, E, A, B] =
+    http.flatten
+
+  /**
+   * Flattens an Http app of an effectful response
+   */
+  def flattenM[R, E, A, B](http: Http[R, E, A, ZIO[R, E, B]]): Http[R, E, A, B] =
+    http.flatMap(Http.fromEffect)
 }
