@@ -87,6 +87,7 @@ final case class ServerRequestHandler[R](
 
   override def channelUnregistered(ctx: JChannelHandlerContext): Unit = {
     ctx.close()
+    ()
   }
 
   /**
@@ -95,7 +96,8 @@ final case class ServerRequestHandler[R](
   override def exceptionCaught(ctx: JChannelHandlerContext, cause: Throwable): Unit = {
     if (self.canThrowException(cause)) {
       super.exceptionCaught(ctx, cause)
-      ctx.close()
     }
+    ctx.close()
+    ()
   }
 }
