@@ -3,7 +3,7 @@ package zhttp.http
 import zio.test.Assertion.equalTo
 import zio.test.{DefaultRunnableSpec, assert}
 
-object HttpSpec$ extends DefaultRunnableSpec {
+object HttpSpec extends DefaultRunnableSpec {
   implicit val canSupportPartial: CanSupportPartial[Any, String] = _ => "NOT_FOUND"
   implicit val canConcatenate: CanConcatenate[String]            = _ == "NOT_FOUND"
 
@@ -16,7 +16,7 @@ object HttpSpec$ extends DefaultRunnableSpec {
       },
       test("should be stack-safe") {
         val i      = 100000
-        val app    = (0 until i).foldLeft(Http.identity[Int])((i, _) => i.flatMap(c => Http.Succeed(c + 1)))
+        val app    = (0 until i).foldLeft(Http.identity[Int])((i, _) => i.flatMap(c => Http.succeed(c + 1)))
         val actual = app.eval(0)
         assert(actual)(equalTo(HttpResult.success(i)))
       },
