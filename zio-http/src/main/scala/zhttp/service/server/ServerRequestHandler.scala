@@ -63,12 +63,12 @@ final case class ServerRequestHandler[R](
           case HttpData.StreamData(data)   =>
             zExec.unsafeExecute_(ctx) {
               for {
-                _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(JUnpooled.copiedBuffer(c.toArray))))
+                _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(JUnpooled.wrappedBuffer(c.toArray))))
                 _ <- ChannelFuture.unit(ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT))
               } yield ()
             }
           case HttpData.CompleteData(data) =>
-            ctx.write(JUnpooled.copiedBuffer(data.toArray), ctx.channel().voidPromise())
+            ctx.write(JUnpooled.wrappedBuffer(data.toArray), ctx.channel().voidPromise())
             ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
           case HttpData.Empty              => ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
         }
