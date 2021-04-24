@@ -9,8 +9,6 @@ import java.util.concurrent.TimeUnit
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class HttpConcatEval {
-  implicit val canSupportPartial: CanSupportPartial[Int, String] = _ => ""
-  implicit val canConcatenate: CanConcatenate[Any]               = _ => true
 
   private val MAX = 1_000
 
