@@ -10,12 +10,16 @@ import scala.annotation.unused
 sealed trait Http[-R, +E, -A, +B] { self =>
 
   /**
-   * Combines two HTTP apps.
+   * Runs self but if it fails, runs other, ignoring the result from self.
    */
-  def <>[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1])(implicit
-    ev: CanConcatenate[E1],
-  ): Http[R1, E1, A1, B1] =
-    self.foldM(e => if (ev.is(e)) other else Http.fail(e), a => Http.succeed(a))
+  def <>[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    self.foldM(_ => other, Http.succeed)
+
+  /**
+   * Combines two Http into one
+   */
+  def +++[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    Http.combine(self, other)
 
   /**
    * Pipes the output of one app into the other
@@ -50,17 +54,13 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Collects some of the results of the http and converts it to another type.
    */
-  def collect[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](
-    pf: PartialFunction[B1, C],
-  )(implicit error: CanSupportPartial[B1, E1]): Http[R1, E1, A1, C] =
+  def collect[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](pf: PartialFunction[B1, C]): Http[R1, E1, A1, C] =
     self >>> Http.collect(pf)
 
   /**
    * Collects some of the results of the http and effectfully converts it to another type.
    */
-  def collectM[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](
-    pf: PartialFunction[B1, ZIO[R1, E1, C]],
-  )(implicit error: CanSupportPartial[B1, E1]): Http[R1, E1, A1, C] =
+  def collectM[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](pf: PartialFunction[B1, ZIO[R1, E1, C]]): Http[R1, E1, A1, C] =
     self >>> Http.collectM(pf)
 
   /**
@@ -132,7 +132,11 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Evaluates the Http app in an executionally optimized way.
    */
-  def eval(a: => A): HttpResult.Out[R, E, B] = Http.evalSuspended(self, a).evaluate
+  def eval[E1 >: E](a: => A)(implicit ev: HttpEmpty[E1]): HttpResult.Out[R, E1, B] =
+    Http.evalSuspended(self, a).evaluate[E1]
+
+  def evalOrElse[E1 >: E](a: => A)(e: => E1): HttpResult.Out[R, E1, B] =
+    Http.evalSuspended(self, a).evaluate(HttpEmpty(e))
 
   /**
    * Evalutes the app and suspends immediately.
@@ -142,17 +146,21 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Evaluates the app as a ZIO
    */
-  def evalAsEffect(a: => A): ZIO[R, E, B] = self.eval(a).asEffect
+  def evalAsEffect[E1 >: E](a: => A)(implicit ev: HttpEmpty[E1]): ZIO[R, E1, B] =
+    self.eval[E1](a).asEffect
 
-  def apply(req: => A): ZIO[R, E, B] = self.evalAsEffect(req)
+  def apply[E1 >: E](a: => A)(implicit ev: HttpEmpty[E1]): ZIO[R, E1, B] =
+    self.evalAsEffect[E1](a)
 }
 
 object Http {
+  private case object Empty                                                                extends Http[Any, Nothing, Any, Nothing]
   private case object Identity                                                             extends Http[Any, Nothing, Any, Nothing]
   private case class Succeed[B](b: B)                                                      extends Http[Any, Nothing, Any, B]
   private case class Fail[E](e: E)                                                         extends Http[Any, E, Any, Nothing]
   private case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B])                  extends Http[R, E, A, B]
   private case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C]) extends Http[R, E, A, C]
+  private case class Combine[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B])  extends Http[R, E, A, B]
   private case class FoldM[R, E, EE, A, B, BB](
     self: Http[R, E, A, B],
     ee: E => Http[R, EE, A, BB],
@@ -161,17 +169,13 @@ object Http {
 
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {
-    def apply[R, E, B](
-      pf: PartialFunction[A, ZIO[R, E, B]],
-    )(implicit error: CanSupportPartial[A, E]): Http[R, E, A, B] =
-      Http.fromEffectFunction[A](a => if (pf.isDefinedAt(a)) pf(a) else ZIO.fail(error(a)))
+    def apply[R, E, B](pf: PartialFunction[A, ZIO[R, E, B]]): Http[R, E, A, B] =
+      Http.collect[A]({ case a if pf.isDefinedAt(a) => Http.fromEffect(pf(a)) }).flatten
   }
 
   final case class MakeCollect[A](unit: Unit) extends AnyVal {
-    def apply[R, E, B](
-      pf: PartialFunction[A, B],
-    )(implicit error: CanSupportPartial[A, E]): Http[R, E, A, B] = Http.identity[A] >>=
-      (a => if (pf.isDefinedAt(a)) Http.succeed(pf(a)) else Http.fail(error(a)))
+    def apply[R, E, B](pf: PartialFunction[A, B]): Http[R, E, A, B] = Http.identity[A] >>=
+      (a => if (pf.isDefinedAt(a)) Http.succeed(pf(a)) else Http.empty)
   }
 
   final case class MakeFromEffectFunction[A](unit: Unit) extends AnyVal {
@@ -180,11 +184,13 @@ object Http {
 
   def evalSuspended[R, E, A, B](http: Http[R, E, A, B], a: => A): HttpResult[R, E, B] =
     http match {
+      case Empty                 => HttpResult.empty
       case Identity              => HttpResult.success(a.asInstanceOf[B])
       case Succeed(b)            => HttpResult.success(b)
       case Fail(e)               => HttpResult.failure(e)
       case FromEffectFunction(f) => HttpResult.continue(f(a))
       case Chain(self, other)    => HttpResult.suspend(self.evalSuspended(a) >>= (other.evalSuspended(_)))
+      case Combine(self, other)  => self.evalSuspended(a).defaultWith(other.evalSuspended(a))
       case FoldM(http, ee, bb)   =>
         HttpResult.suspend(http.evalSuspended(a).foldM(ee(_).evalSuspended(a), bb(_).evalSuspended(a)))
     }
@@ -240,4 +246,14 @@ object Http {
    */
   def flattenM[R, E, A, B](http: Http[R, E, A, ZIO[R, E, B]]): Http[R, E, A, B] =
     http.flatMap(Http.fromEffect)
+
+  /**
+   * Combines two Http values into one
+   */
+  def combine[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B]): Http[R, E, A, B] = Combine(self, other)
+
+  /**
+   * Creates an empty Http value
+   */
+  def empty: Http[Any, Nothing, Any, Nothing] = Http.Empty
 }
