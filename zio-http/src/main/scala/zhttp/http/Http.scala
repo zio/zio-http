@@ -132,7 +132,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
-  def asResult(a: => A): HttpResult[R, E, B] = Http.asResult(self, a)
+  def asResult[E1 >: E: HttpEmpty](a: => A): HttpResult[R, E1, B] = Http.asResult(self: Http[R, E1, A, B], a)
 }
 
 object Http {
@@ -164,13 +164,13 @@ object Http {
     def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = Http.FromEffectFunction(f)
   }
 
-  def asResult[R, E, A, B](http: Http[R, E, A, B], a: => A): HttpResult[R, E, B] =
+  def asResult[R, E: HttpEmpty, A, B](http: Http[R, E, A, B], a: => A): HttpResult[R, E, B] =
     http match {
-      case Empty                 => HttpResult.empty
+      case Empty                 => HttpResult.empty(implicitly[HttpEmpty[E]].get)
       case Identity              => HttpResult.success(a.asInstanceOf[B])
       case Succeed(b)            => HttpResult.success(b)
       case Fail(e)               => HttpResult.failure(e)
-      case FromEffectFunction(f) => HttpResult.continue(f(a))
+      case FromEffectFunction(f) => HttpResult.fromEffect(f(a))
       case Chain(self, other)    => HttpResult.suspend(self.asResult(a) >>= (other.asResult(_)))
       case Combine(self, other)  => self.asResult(a).defaultWith(other.asResult(a))
       case FoldM(http, ee, bb)   =>
