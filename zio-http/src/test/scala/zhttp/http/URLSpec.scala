@@ -27,7 +27,7 @@ object URLSpec extends DefaultRunnableSpec {
     },
   )
 
-  val toStringSpec = {
+  val asStringSpec = {
 
     def roundtrip(url: String) =
       assert(URL.fromString(url).map(_.asString))(isRight(equalTo(url)))
@@ -49,5 +49,5 @@ object URLSpec extends DefaultRunnableSpec {
   }
 
   def spec =
-    suite("URL")(fromStringSpec, toStringSpec)
+    suite("URL")(fromStringSpec, asStringSpec)
 }
