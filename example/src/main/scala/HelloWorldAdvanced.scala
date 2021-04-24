@@ -14,14 +14,13 @@ object HelloWorldAdvanced extends App {
 
   private val app = HttpApp.collectM {
     case Method.GET -> Root / "random" => random.nextString(10).map(Response.text)
-    case Method.GET -> Root / "utc"    =>
-      clock.currentDateTime.map(s => Response.text(s.toString))
+    case Method.GET -> Root / "utc"    => clock.currentDateTime.map(s => Response.text(s.toString))
   }
 
   private val server =
     Server.port(PORT) ++              // Setup port
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
-      Server.app(fooBar <> app)       // Setup the Http app
+      Server.app(fooBar +++ app)      // Setup the Http app
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     // Configure thread count using CLI

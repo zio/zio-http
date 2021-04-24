@@ -36,6 +36,7 @@ final case class ServerRequestHandler[R](
       case Left(err)  => cb(err.toResponse)
       case Right(req) =>
         app.eval(req) match {
+          case HttpResult.Empty       => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
           case HttpResult.Success(a)  => cb(a)
           case HttpResult.Failure(e)  => cb(SilentResponse[Throwable].silent(e))
           case HttpResult.Continue(z) =>
