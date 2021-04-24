@@ -9,7 +9,7 @@ object HttpResultSpec extends DefaultRunnableSpec {
       suite("catchAll") {
         test("should handle error") {
           val actual =
-            HttpResult.failure(1).catchAll(e => HttpResult.success(e + 1)).out
+            HttpResult.failure(1).flatMapError(e => HttpResult.success(e + 1)).asOut
           assert(actual)(equalTo(HttpResult.success(2)))
         }
       },
@@ -18,9 +18,9 @@ object HttpResultSpec extends DefaultRunnableSpec {
           val a = HttpResult
             .success(0)
             .flatMap(_ => HttpResult.failure("FAIL"))
-            .catchAll(e => HttpResult.failure("FOLD_" + e))
+            .flatMapError(e => HttpResult.failure("FOLD_" + e))
 
-          val actual = a.evaluateOrElse("UNEVALUATED")
+          val actual = a.asOut
           assert(actual)(equalTo(HttpResult.failure("FOLD_FAIL")))
         }
       },
