@@ -32,7 +32,7 @@ object URLSpec extends DefaultRunnableSpec {
     def roundtrip(url: String) =
       assert(URL.fromString(url).map(_.asString))(isRight(equalTo(url)))
 
-    suite("toString")(
+    suite("asString")(
       test("relative with pathname only") {
         roundtrip("/users")
       },
