@@ -18,13 +18,13 @@ object HttpApp {
   /**
    * Creates an HTTP app which accepts a request and produces response.
    */
-  def collect[R, E >: Throwable: PartialRequest](pf: PartialFunction[Request, Response[R, E]]): HttpApp[R, E] =
+  def collect[R, E](pf: PartialFunction[Request, Response[R, E]]): HttpApp[R, E] =
     Http.collect[Request](pf)
 
   /**
    * Creates an HTTP app which accepts a requests and produces another Http app as response.
    */
-  def collectM[R, E >: Throwable: PartialRequest](pf: PartialFunction[Request, ResponseM[R, E]]): HttpApp[R, E] =
+  def collectM[R, E](pf: PartialFunction[Request, ResponseM[R, E]]): HttpApp[R, E] =
     Http.collectM[Request](pf)
 
   /**

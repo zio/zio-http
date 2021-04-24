@@ -9,7 +9,6 @@ import java.util.concurrent.TimeUnit
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class HttpNestedFlatMapEval {
-  implicit val canSupportPartial: CanSupportPartial[Int, String] = _ => "NOT_FOUND"
 
   private val MAX = 10_000
 

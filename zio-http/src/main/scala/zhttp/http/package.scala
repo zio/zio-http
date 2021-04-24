@@ -14,7 +14,6 @@ package object http extends PathModule with RequestSyntax {
   type UResponse          = Response[Any, Nothing]
   type UHttpResponse      = Response.HttpResponse[Any, Nothing]
   type ResponseM[-R, +E]  = ZIO[R, E, Response[R, E]]
-  type PartialRequest[+E] = CanSupportPartial[Request, E]
 
   object SilentResponse {
     def apply[E: SilentResponse]: SilentResponse[E] = implicitly[SilentResponse[E]]
