@@ -27,9 +27,9 @@ sealed trait HttpResult[-R, +E, +A] { self =>
   def foldM[R1 <: R, E1, B1](h: E => HttpResult[R1, E1, B1], ab: A => HttpResult[R1, E1, B1]): HttpResult[R1, E1, B1] =
     HttpResult.foldM(self, h, ab)
 
-  def asEffect[E1 >: E](implicit ev: HttpEmpty[E1]): ZIO[R, E1, A]            = evaluate[E1].asEffect
-  def evaluate[E1 >: E](implicit ev: HttpEmpty[E1]): HttpResult.Out[R, E1, A] = HttpResult.evaluate[R, E1, A](self)
-  def evaluateOrElse[E1 >: E](e: E1): HttpResult.Out[R, E1, A]                = HttpResult.evaluate[R, E1, A](self)(HttpEmpty(e))
+  def asEffect[E1 >: E](implicit ev: HttpEmpty[E1]): ZIO[R, E1, A]       = out[E1].asEffect
+  def out[E1 >: E](implicit ev: HttpEmpty[E1]): HttpResult.Out[R, E1, A] = HttpResult.evaluate[R, E1, A](self)
+  def evaluateOrElse[E1 >: E](e: E1): HttpResult.Out[R, E1, A]           = HttpResult.evaluate[R, E1, A](self)(HttpEmpty(e))
 }
 
 object HttpResult {

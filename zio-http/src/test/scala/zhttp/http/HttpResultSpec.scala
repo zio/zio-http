@@ -9,7 +9,7 @@ object HttpResultSpec extends DefaultRunnableSpec {
       suite("catchAll") {
         test("should handle error") {
           val actual =
-            HttpResult.failure(1).catchAll(e => HttpResult.success(e + 1)).evaluate
+            HttpResult.failure(1).catchAll(e => HttpResult.success(e + 1)).out
           assert(actual)(equalTo(HttpResult.success(2)))
         }
       },
