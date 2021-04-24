@@ -1,13 +1,12 @@
 package zhttp.http
 
-import zio.test.Assertion.equalTo
-import zio.test.{DefaultRunnableSpec, assert}
+import zio.duration.durationInt
+import zio.test.Assertion._
+import zio.test._
+import zio.test.TestAspect.timeout
 
 object HttpSpec extends DefaultRunnableSpec {
-  implicit val canSupportPartial: CanSupportPartial[Any, String] = _ => "NOT_FOUND"
-  implicit val canConcatenate: CanConcatenate[String]            = _ == "NOT_FOUND"
-
-  def spec = suite("HttpChannel")(
+  def spec = suite("Http")(
     suite("flatMap")(
       test("should flatten") {
         val app    = Http.identity[Int].flatMap(i => Http.succeed(i + 1))
@@ -34,20 +33,13 @@ object HttpSpec extends DefaultRunnableSpec {
         val a2     = Http.succeed("B")
         val a      = a1 <> a2
         val actual = a.eval(())
-        assert(actual)(equalTo(HttpResult.failure("A")))
-      },
-      test("should succeed with second") {
-        val a1     = Http.fail("NOT_FOUND")
-        val a2     = Http.succeed("B")
-        val a      = a1 <> a2
-        val actual = a.eval(())
         assert(actual)(equalTo(HttpResult.success("B")))
       },
     ),
     suite("fail")(
       test("should fail") {
         val a      = Http.fail(100)
-        val actual = a.eval(1)
+        val actual = a.evalOrElse(())(-1)
         assert(actual)(equalTo(HttpResult.failure(100)))
       },
     ),
@@ -74,8 +66,40 @@ object HttpSpec extends DefaultRunnableSpec {
       test("should fail") {
         val a      = Http.collect[Int] { case 1 => "OK" }
         val actual = a.eval(0)
-        assert(actual)(equalTo(HttpResult.failure("NOT_FOUND")))
+        assert(actual)(equalTo(HttpResult.empty))
       },
     ),
-  )
+    suite("combine")(
+      test("should resolve first") {
+        val a      = Http.collect[Int] { case 1 => "A" }
+        val b      = Http.collect[Int] { case 2 => "B" }
+        val actual = (a +++ b).eval(1)
+        assert(actual)(equalTo(HttpResult.success("A")))
+      },
+      test("should resolve second") {
+        val a      = Http.collect[Int] { case 1 => "A" }
+        val b      = Http.collect[Int] { case 2 => "B" }
+        val actual = (a +++ b).eval(2)
+        assert(actual)(equalTo(HttpResult.success("B")))
+      },
+      test("should not resolve") {
+        val a      = Http.collect[Int] { case 1 => "A" }
+        val b      = Http.collect[Int] { case 2 => "B" }
+        val actual = (a +++ b).eval(3)
+        assert(actual)(equalTo(HttpResult.empty))
+      },
+    ),
+    suite("evalAsEffect")(
+      testM("should resolve") {
+        val a      = Http.collect[Int] { case 1 => "A" }
+        val actual = a.evalAsEffect(1)
+        assertM(actual)(equalTo("A"))
+      },
+      testM("should complete") {
+        val a      = Http.collect[Int] { case 1 => "A" }
+        val actual = a.evalOrElse(2)(-1).asEffect(-1).either
+        assertM(actual)(isLeft(equalTo(-1)))
+      },
+    ),
+  ) @@ timeout(10 seconds)
 }
