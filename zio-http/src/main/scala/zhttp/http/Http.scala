@@ -130,27 +130,9 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   ): Http[R1, E1, A1, B1] = Http.FoldM(self, ee, bb)
 
   /**
-   * Evaluates the Http app in an executionally optimized way.
+   * Evaluates the app and returns an HttpResult that can be resolved further
    */
-  def eval[E1 >: E](a: => A)(implicit ev: HttpEmpty[E1]): HttpResult.Out[R, E1, B] =
-    Http.evalSuspended(self, a).evaluate[E1]
-
-  def evalOrElse[E1 >: E](a: => A)(e: => E1): HttpResult.Out[R, E1, B] =
-    Http.evalSuspended(self, a).evaluate(HttpEmpty(e))
-
-  /**
-   * Evalutes the app and suspends immediately.
-   */
-  def evalSuspended(a: => A): HttpResult[R, E, B] = Http.evalSuspended(self, a)
-
-  /**
-   * Evaluates the app as a ZIO
-   */
-  def evalAsEffect[E1 >: E](a: => A)(implicit ev: HttpEmpty[E1]): ZIO[R, E1, B] =
-    self.eval[E1](a).asEffect
-
-  def apply[E1 >: E](a: => A)(implicit ev: HttpEmpty[E1]): ZIO[R, E1, B] =
-    self.evalAsEffect[E1](a)
+  def asResult(a: => A): HttpResult[R, E, B] = Http.asResult(self, a)
 }
 
 object Http {
@@ -182,17 +164,17 @@ object Http {
     def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = Http.FromEffectFunction(f)
   }
 
-  def evalSuspended[R, E, A, B](http: Http[R, E, A, B], a: => A): HttpResult[R, E, B] =
+  def asResult[R, E, A, B](http: Http[R, E, A, B], a: => A): HttpResult[R, E, B] =
     http match {
       case Empty                 => HttpResult.empty
       case Identity              => HttpResult.success(a.asInstanceOf[B])
       case Succeed(b)            => HttpResult.success(b)
       case Fail(e)               => HttpResult.failure(e)
       case FromEffectFunction(f) => HttpResult.continue(f(a))
-      case Chain(self, other)    => HttpResult.suspend(self.evalSuspended(a) >>= (other.evalSuspended(_)))
-      case Combine(self, other)  => self.evalSuspended(a).defaultWith(other.evalSuspended(a))
+      case Chain(self, other)    => HttpResult.suspend(self.asResult(a) >>= (other.asResult(_)))
+      case Combine(self, other)  => self.asResult(a).defaultWith(other.asResult(a))
       case FoldM(http, ee, bb)   =>
-        HttpResult.suspend(http.evalSuspended(a).foldM(ee(_).evalSuspended(a), bb(_).evalSuspended(a)))
+        HttpResult.suspend(http.asResult(a).foldM(ee(_).asResult(a), bb(_).asResult(a)))
     }
 
   /**
