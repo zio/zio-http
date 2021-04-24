@@ -20,7 +20,7 @@ object HttpResultSpec extends DefaultRunnableSpec {
             .flatMap(_ => HttpResult.failure("FAIL"))
             .catchAll(e => HttpResult.failure("FOLD_" + e))
 
-          val actual = a.evaluate
+          val actual = a.evaluateOrElse("UNEVALUATED")
           assert(actual)(equalTo(HttpResult.failure("FOLD_FAIL")))
         }
       },
