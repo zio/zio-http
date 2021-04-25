@@ -1,6 +1,8 @@
 package zhttp.service
 
+import zio.duration._
 import zio.test.Assertion.anything
+import zio.test.TestAspect.timeout
 import zio.test.assertM
 
 object ClientSpec extends HttpRunnableSpec(8082) {
@@ -9,6 +11,6 @@ object ClientSpec extends HttpRunnableSpec(8082) {
     testM("respond Ok") {
       val actual = Client.request("https://api.github.com/users/zio/repos")
       assertM(actual)(anything)
-    },
+    } @@ timeout(20 second),
   ).provideCustomLayer(env)
 }
