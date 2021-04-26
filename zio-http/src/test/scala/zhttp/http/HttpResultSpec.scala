@@ -1,7 +1,7 @@
 package zhttp.http
 
 import zio.test.Assertion.{equalTo, isLeft, isRight, isSome}
-import zio.test.{assert, assertM, DefaultRunnableSpec, ZSpec}
+import zio.test.{DefaultRunnableSpec, ZSpec, assert, assertM}
 
 object HttpResultSpec extends DefaultRunnableSpec {
   def spec: ZSpec[Environment, Failure] =
