@@ -38,9 +38,8 @@ object HttpSpec extends DefaultRunnableSpec {
     ),
     suite("fail")(
       test("should fail") {
-        implicit val e = HttpEmpty(-1)
-        val a          = Http.fail(100)
-        val actual     = a.asResult(()).asOut
+        val a      = Http.fail(100)
+        val actual = a.asResult(()).asOut
         assert(actual)(equalTo(HttpResult.failure(100)))
       },
     ),
@@ -65,10 +64,9 @@ object HttpSpec extends DefaultRunnableSpec {
         assert(actual)(equalTo(HttpResult.success("OK")))
       },
       test("should fail") {
-        implicit val e = HttpEmpty(-1)
-        val a          = Http.collect[Int] { case 1 => "OK" }
-        val actual     = a.asResult(0).asOut
-        assert(actual)(equalTo(HttpResult.failure(-1)))
+        val a      = Http.collect[Int] { case 1 => "OK" }
+        val actual = a.asResult(0).asOut
+        assert(actual)(equalTo(HttpResult.empty))
       },
     ),
     suite("combine")(
@@ -85,24 +83,22 @@ object HttpSpec extends DefaultRunnableSpec {
         assert(actual)(equalTo(HttpResult.success("B")))
       },
       test("should not resolve") {
-        implicit val e = HttpEmpty(-1)
-        val a          = Http.collect[Int] { case 1 => "A" }
-        val b          = Http.collect[Int] { case 2 => "B" }
-        val actual     = (a +++ b).asResult(3).asOut
-        assert(actual)(equalTo(HttpResult.failure(-1)))
+        val a      = Http.collect[Int] { case 1 => "A" }
+        val b      = Http.collect[Int] { case 2 => "B" }
+        val actual = (a +++ b).asResult(3).asOut
+        assert(actual)(equalTo(HttpResult.empty))
       },
     ),
-    suite("evalAsEffect")(
+    suite("asEffect")(
       testM("should resolve") {
         val a      = Http.collect[Int] { case 1 => "A" }
         val actual = a.asResult(1).asOut.asEffect
         assertM(actual)(equalTo("A"))
       },
       testM("should complete") {
-        implicit val e = HttpEmpty(-1)
-        val a          = Http.collect[Int] { case 1 => "A" }
-        val actual     = a.asResult(2).asOut.asEffect.either
-        assertM(actual)(isLeft(equalTo(-1)))
+        val a      = Http.collect[Int] { case 1 => "A" }
+        val actual = a.asResult(2).asOut.asEffect.either
+        assertM(actual)(isLeft(equalTo(None)))
       },
     ),
   ) @@ timeout(10 seconds)
