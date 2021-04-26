@@ -17,7 +17,7 @@ class HttpConcatEval {
 
   @Benchmark
   def benchmarkHttpFlatMap(): Unit = {
-    spec.asResult(-1).asOut
+    spec.evaluate(-1).asOut
     ()
   }
 }
