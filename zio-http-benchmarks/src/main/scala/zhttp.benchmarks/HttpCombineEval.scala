@@ -8,12 +8,10 @@ import java.util.concurrent.TimeUnit
 @State(Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
-class HttpConcatEval {
-
-  private val MAX = 1_000
-
-  val app: Http[Any, String, Int, String] = Http.collect[Int]({ case 0 => "A" })
-  val spec                                = (0 to MAX).foldLeft(app)((a, _) => a <> app)
+class HttpCombineEval {
+  private val MAX  = 1_000
+  private val app  = Http.collect[Int]({ case 0 => 1 })
+  private val spec = (0 to MAX).foldLeft(app)((a, _) => a +++ app)
 
   @Benchmark
   def benchmarkHttpFlatMap(): Unit = {
