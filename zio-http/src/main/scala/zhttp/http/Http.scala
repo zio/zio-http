@@ -132,7 +132,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
-  def asResult[E1 >: E: HttpEmpty](a: => A): HttpResult[R, E1, B] = Http.asResult(self: Http[R, E1, A, B], a)
+  def asResult(a: => A): HttpResult[R, E, B] = Http.asResult(self: Http[R, E, A, B], a)
 }
 
 object Http {
@@ -152,29 +152,29 @@ object Http {
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, ZIO[R, E, B]]): Http[R, E, A, B] =
-      Http.collect[A]({ case a if pf.isDefinedAt(a) => Http.fromEffect(pf(a)) }).flatten
+      Http.collect[A](a => if (pf.isDefinedAt(a)) Http.fromEffect(pf(a)) else Http.empty).flatten
   }
 
   final case class MakeCollect[A](unit: Unit) extends AnyVal {
-    def apply[R, E, B](pf: PartialFunction[A, B]): Http[R, E, A, B] = Http.identity[A] >>=
-      (a => if (pf.isDefinedAt(a)) Http.succeed(pf(a)) else Http.empty)
+    def apply[R, E, B](pf: PartialFunction[A, B]): Http[R, E, A, B] =
+      Http.identity[A] >>=
+        (a => if (pf.isDefinedAt(a)) Http.succeed(pf(a)) else Http.empty)
   }
 
   final case class MakeFromEffectFunction[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = Http.FromEffectFunction(f)
   }
 
-  def asResult[R, E: HttpEmpty, A, B](http: Http[R, E, A, B], a: => A): HttpResult[R, E, B] =
+  def asResult[R, E, A, B](http: Http[R, E, A, B], a: => A): HttpResult[R, E, B] =
     http match {
-      case Empty                 => HttpResult.empty(implicitly[HttpEmpty[E]].get)
+      case Empty                 => HttpResult.empty
       case Identity              => HttpResult.success(a.asInstanceOf[B])
       case Succeed(b)            => HttpResult.success(b)
       case Fail(e)               => HttpResult.failure(e)
       case FromEffectFunction(f) => HttpResult.fromEffect(f(a))
       case Chain(self, other)    => HttpResult.suspend(self.asResult(a) >>= (other.asResult(_)))
       case Combine(self, other)  => self.asResult(a).defaultWith(other.asResult(a))
-      case FoldM(http, ee, bb)   =>
-        HttpResult.suspend(http.asResult(a).foldM(ee(_).asResult(a), bb(_).asResult(a)))
+      case FoldM(http, ee, bb)   => HttpResult.suspend(http.asResult(a).foldM(ee(_).asResult(a), bb(_).asResult(a)))
     }
 
   /**
@@ -224,7 +224,7 @@ object Http {
     http.flatten
 
   /**
-   * Flattens an Http app of an effectful response
+   * Flattens an Http app of an that returns an effectful response
    */
   def flattenM[R, E, A, B](http: Http[R, E, A, ZIO[R, E, B]]): Http[R, E, A, B] =
     http.flatMap(Http.fromEffect)
