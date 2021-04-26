@@ -14,7 +14,7 @@ import zio.Exit
 @JSharable
 final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
-  app: RHttp[R],
+  app: RHttpApp[R],
 ) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
     with HttpMessageCodec
     with ServerHttpExceptionHandler {
@@ -35,10 +35,11 @@ final case class ServerRequestHandler[R](
     decodeJRequest(jReq) match {
       case Left(err)  => cb(err.toResponse)
       case Right(req) =>
-        app.eval(req) match {
-          case HttpResult.Success(a)  => cb(a)
-          case HttpResult.Failure(e)  => cb(SilentResponse[Throwable].silent(e))
-          case HttpResult.Continue(z) =>
+        app.evaluate(req).asOut match {
+          case HttpResult.Empty      => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
+          case HttpResult.Success(a) => cb(a)
+          case HttpResult.Failure(e) => cb(SilentResponse[Throwable].silent(e))
+          case HttpResult.Effect(z)  =>
             zExec.unsafeExecute(ctx, z) {
               case Exit.Success(res)   => cb(res)
               case Exit.Failure(cause) =>
