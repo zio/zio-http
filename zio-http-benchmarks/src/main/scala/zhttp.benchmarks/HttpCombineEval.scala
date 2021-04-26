@@ -14,7 +14,7 @@ class HttpCombineEval {
   private val spec = (0 to MAX).foldLeft(app)((a, _) => a +++ app)
 
   @Benchmark
-  def benchmarkHttpFlatMap(): Unit = {
+  def benchmark(): Unit = {
     spec.evaluate(-1).asOut
     ()
   }
