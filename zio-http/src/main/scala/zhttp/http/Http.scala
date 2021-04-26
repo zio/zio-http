@@ -133,6 +133,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
   def asResult(a: => A): HttpResult[R, E, B] = Http.asResult(self: Http[R, E, A, B], a)
+
 }
 
 object Http {
@@ -152,7 +153,7 @@ object Http {
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, ZIO[R, E, B]]): Http[R, E, A, B] =
-      Http.collect[A](a => if (pf.isDefinedAt(a)) Http.fromEffect(pf(a)) else Http.empty).flatten
+      Http.collect[A]({ case a if pf.isDefinedAt(a) => Http.fromEffect(pf(a)) }).flatten
   }
 
   final case class MakeCollect[A](unit: Unit) extends AnyVal {
@@ -238,4 +239,13 @@ object Http {
    * Creates an empty Http value
    */
   def empty: Http[Any, Nothing, Any, Nothing] = Http.Empty
+
+  /**
+   * Creates a Http from a pure function
+   */
+  def fromFunction[A]: MkTotal[A] = new MkTotal[A](())
+
+  final class MkTotal[A](val unit: Unit) extends AnyVal {
+    def apply[B](f: A => B): Http[Any, Nothing, A, B] = Http.identity[A].map(f)
+  }
 }
