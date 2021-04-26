@@ -30,8 +30,6 @@ sealed trait HttpResult[-R, +E, +A] { self =>
   def foldM[R1 <: R, E1, B1](h: E => HttpResult[R1, E1, B1], ab: A => HttpResult[R1, E1, B1]): HttpResult[R1, E1, B1] =
     HttpResult.foldM(self, h, ab)
 
-  // def asOut[E1 >: E: HttpEmpty]: HttpResult.Out[R, E1, A] = HttpResult.asOut(self: HttpResult[R, E1, A])
-
   def asOut: HttpResult.Out[R, E, A] = HttpResult.asOut(self: HttpResult[R, E, A])
 }
 
