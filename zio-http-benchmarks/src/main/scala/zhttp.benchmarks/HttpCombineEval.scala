@@ -14,8 +14,14 @@ class HttpCombineEval {
   private val spec = (0 to MAX).foldLeft(app)((a, _) => a +++ app)
 
   @Benchmark
-  def benchmark(): Unit = {
+  def benchmarkNotFound(): Unit = {
     spec.evaluate(-1).asOut
+    ()
+  }
+
+  @Benchmark
+  def benchmarkOk(): Unit = {
+    spec.evaluate(0).asOut
     ()
   }
 }
