@@ -132,8 +132,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
-  def evaluate(a: => A): HttpResult[R, E, B] = Http.evaluate(self: Http[R, E, A, B], a)
-
+  def evaluate(a: A): HttpResult[R, E, B] = Http.evaluate(self: Http[R, E, A, B], a)
 }
 
 object Http {
@@ -165,7 +164,7 @@ object Http {
     def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = Http.FromEffectFunction(f)
   }
 
-  def evaluate[R, E, A, B](http: Http[R, E, A, B], a: => A): HttpResult[R, E, B] =
+  def evaluate[R, E, A, B](http: Http[R, E, A, B], a: A): HttpResult[R, E, B] =
     http match {
       case Empty                 => HttpResult.empty
       case Identity              => HttpResult.success(a.asInstanceOf[B])
