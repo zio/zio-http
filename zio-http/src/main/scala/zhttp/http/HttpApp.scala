@@ -51,7 +51,7 @@ object HttpApp {
    * Creates an HTTP app that fails with a NotFound exception.
    */
   def notFound: HttpApp[Any, HttpError] =
-    Http.fromEffectFunction(req => ZIO.fail(HttpError.NotFound(req.url.path)))
+    Http.collect[Request](req => Http.fail(HttpError.NotFound(req.url.path))).flatten
 
   /**
    * Creates an HTTP app which always responds with a 200 status code.
