@@ -12,7 +12,6 @@ class HttpConcatEval {
 
   private val MAX = 1_000
 
-  implicit val httpEmpty                  = HttpEmpty("NOT_FOUND")
   val app: Http[Any, String, Int, String] = Http.collect[Int]({ case 0 => "A" })
   val spec                                = (0 to MAX).foldLeft(app)((a, _) => a <> app)
 
