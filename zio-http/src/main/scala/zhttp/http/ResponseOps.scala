@@ -54,6 +54,12 @@ trait ResponseOps {
 
   def ok: UResponse = http(Status.OK)
 
+  def bytes(bytes:Chunk[Byte], length: Long): UResponse = {
+    http(
+      content = HttpData.CompleteData(bytes),
+      headers = List(Header.contentTypeTextPlain, Header.contentLength(length)),
+    )
+  }
   def text(text: String): UResponse =
     http(
       content = HttpData.CompleteData(Chunk.fromArray(text.getBytes(HTTP_CHARSET))),

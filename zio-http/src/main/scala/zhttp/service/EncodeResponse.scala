@@ -26,8 +26,11 @@ trait EncodeResponse {
     jHttpHeaders.set(JHttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
     val jStatus      = res.status.toJHttpStatus
     res.content match {
-      case HttpData.CompleteData(data) =>
-        jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, data.length)
+      case HttpData.CompleteData(data) => {
+        if(!res.headers.exists(h => h.name == JHttpHeaderNames.CONTENT_LENGTH))
+          jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, data.length)
+        else ()
+      }
 
       case HttpData.StreamData(_) => ()
 
