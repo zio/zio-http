@@ -1,154 +1,68 @@
 package zhttp.socket
 
-import zio._
-import zio.duration.Duration
 import zio.stream.ZStream
+import zio.{Cause, ZIO}
 
-import java.net.{SocketAddress => JSocketAddress}
+sealed trait Socket[-R, +E, -A, +B] { self =>
+  def apply(a: A): ZStream[R, E, B] = Socket.asStream(a, self)
 
-sealed trait Socket[-R, +E] { self =>
-  def <+>[R1 <: R, E1 >: E](other: Socket[R1, E1]): Socket[R1, E1] = Socket.Concat(self, other)
-  lazy val settings: SocketConfig[R, E]                            = SocketConfig.fromSocket(self)
+  def asStream(a: A): ZStream[R, E, B] = self(a)
+
+  def map[C](bc: B => C): Socket[R, E, A, C] = Socket.FMap(self, bc)
+
+  def mapM[R1 <: R, E1 >: E, C](bc: B => ZIO[R1, E1, C]): Socket[R1, E1, A, C] = Socket.FMapM(self, bc)
+
+  def cmap[Z](za: Z => A): Socket[R, E, Z, B] = Socket.FCMap(self, za)
+
+  def cmapM[R1 <: R, E1 >: E, Z](za: Z => ZIO[R1, E1, A]): Socket[R1, E1, Z, B] = Socket.FCMapM(self, za)
+
+  def <>[R1 <: R, E1, A1 <: A, B1 >: B](other: Socket[R1, E1, A1, B1]): Socket[R1, E1, A1, B1] =
+    Socket.FOrElse(self, other)
+
+  def merge[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Socket[R1, E1, A1, B1]): Socket[R1, E1, A1, B1] =
+    Socket.FMerge(self, other)
 }
 
 object Socket {
-  type Connection = JSocketAddress
-  type Cause      = Option[Throwable]
+  private final case class FromStreamingFunction[R, E, A, B](func: A => ZStream[R, E, B])     extends Socket[R, E, A, B]
+  private final case class FromStream[R, E, B](stream: ZStream[R, E, B])                      extends Socket[R, E, Any, B]
+  private final case class Succeed[A](a: A)                                                   extends Socket[Any, Nothing, Any, A]
+  private final case class FMap[R, E, A, B, C](m: Socket[R, E, A, B], bc: B => C)             extends Socket[R, E, A, C]
+  private final case class FMapM[R, E, A, B, C](m: Socket[R, E, A, B], bc: B => ZIO[R, E, C]) extends Socket[R, E, A, C]
+  private final case class FCMap[R, E, X, A, B](m: Socket[R, E, A, B], xa: X => A)            extends Socket[R, E, X, B]
+  private final case class FCMapM[R, E, X, A, B](m: Socket[R, E, A, B], xa: X => ZIO[R, E, A])
+      extends Socket[R, E, X, B]
+  private case object End                                                                     extends Socket[Any, Nothing, Any, Nothing]
+  private final case class FOrElse[R, E, E1, A, B](a: Socket[R, E, A, B], b: Socket[R, E1, A, B])
+      extends Socket[R, E1, A, B]
 
-  case class Concat[R, E](a: Socket[R, E], b: Socket[R, E]) extends Socket[R, E]
+  private final case class FMerge[R, E, A, B](a: Socket[R, E, A, B], b: Socket[R, E, A, B]) extends Socket[R, E, A, B]
 
-  sealed trait HandlerConfig[-R, +E] extends Socket[R, E]
-  object HandlerConfig {
-    case class OnOpen[R, E](onOpen: Connection => ZStream[R, E, WebSocketFrame])           extends HandlerConfig[R, E]
-    case class OnMessage[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame]) extends HandlerConfig[R, E]
-    case class OnError[R](onError: Throwable => ZIO[R, Nothing, Unit])                     extends HandlerConfig[R, Nothing]
-    case class OnClose[R](onClose: Connection => ZIO[R, Nothing, Unit])                    extends HandlerConfig[R, Nothing]
-    case class OnTimeout[R](onTimeout: ZIO[R, Nothing, Unit])                              extends HandlerConfig[R, Nothing]
+  def collect[A]: MkCollect[A] = new MkCollect[A](())
+
+  def succeed[A](a: A): Socket[Any, Nothing, Any, A] = Succeed(a)
+
+  def end: ZStream[Any, Nothing, Nothing] = ZStream.halt(Cause.empty)
+
+  final class MkCollect[A](val unit: Unit) extends AnyVal {
+    def apply[R, E, B](pf: PartialFunction[A, ZStream[R, E, B]]): Socket[R, E, A, B] = Socket.FromStreamingFunction {
+      a =>
+        if (pf.isDefinedAt(a)) pf(a) else ZStream.empty
+    }
   }
 
-  sealed trait ProtocolConfig extends Socket[Any, Nothing]
-  object ProtocolConfig {
-    case class SubProtocol(name: String)                     extends ProtocolConfig
-    case class HandshakeTimeoutMillis(duration: Duration)    extends ProtocolConfig
-    case class ForceCloseTimeoutMillis(duration: Duration)   extends ProtocolConfig
-    case object ForwardCloseFrames                           extends ProtocolConfig
-    case class SendCloseFrame(status: CloseStatus)           extends ProtocolConfig
-    case class SendCloseFrameCode(code: Int, reason: String) extends ProtocolConfig
-    case object ForwardPongFrames                            extends ProtocolConfig
-
+  def asStream[R, E, A, B](a: A, message: Socket[R, E, A, B]): ZStream[R, E, B] = {
+    message match {
+      case End                         => ZStream.halt(Cause.empty)
+      case FromStreamingFunction(func) => func(a)
+      case FromStream(s)               => s
+      case FMap(m, bc)                 => m(a).map(bc)
+      case FMapM(m, bc)                => m(a).mapM(bc)
+      case FCMap(m, xa)                => m(xa(a))
+      case FCMapM(m, xa)               => ZStream.fromEffect(xa(a)).flatMap(a => m(a))
+      case FOrElse(sa, sb)             => sa(a) <> sb(a)
+      case FMerge(sa, sb)              => sa(a) merge sb(a)
+      case Succeed(a)                  => ZStream.succeed(a)
+    }
   }
-
-  sealed trait DecoderConfig extends Socket[Any, Nothing]
-  object DecoderConfig {
-    case class MaxFramePayloadLength(length: Int) extends DecoderConfig
-    case object RejectMaskedFrames                extends DecoderConfig
-    case object AllowMaskMismatch                 extends DecoderConfig
-    case object AllowExtensions                   extends DecoderConfig
-    case object AllowProtocolViolation            extends DecoderConfig
-    case object SkipUTF8Validation                extends DecoderConfig
-  }
-
-  /**
-   * Used to specify the websocket sub-protocol
-   */
-  def subProtocol(name: String): Socket[Any, Nothing] = ProtocolConfig.SubProtocol(name)
-
-  /**
-   * Called when the connection is successfully upgrade to a websocket one. In case of a failure on the returned stream,
-   * the socket is forcefully closed.
-   */
-  def open[R, E](onOpen: Connection => ZStream[R, E, WebSocketFrame]): Socket[R, E] = HandlerConfig.OnOpen(onOpen)
-
-  /**
-   * Called when the handshake gets timeout.
-   */
-  def timeout[R](onTimeout: ZIO[R, Nothing, Unit]): Socket[R, Nothing] = HandlerConfig.OnTimeout(onTimeout)
-
-  /**
-   * Called on every incoming WebSocketFrame. In case of a failure on the returned stream, the socket is forcefully
-   * closed.
-   */
-  def message[R, E](onMessage: WebSocketFrame => ZStream[R, E, WebSocketFrame]): Socket[R, E] =
-    HandlerConfig.OnMessage(onMessage)
-
-  /**
-   * Collects the incoming messages using a partial function. In case of a failure on the returned stream, the socket is
-   * forcefully closed.
-   */
-  def collect[R, E](onMessage: PartialFunction[WebSocketFrame, ZStream[R, E, WebSocketFrame]]): Socket[R, E] =
-    message(ws => if (onMessage.isDefinedAt(ws)) onMessage(ws) else ZStream.empty)
-
-  /**
-   * Called whenever there is an error on the channel after a successful upgrade to websocket.
-   */
-  def error[R](onError: Throwable => ZIO[R, Nothing, Unit]): Socket[R, Nothing] = HandlerConfig.OnError(onError)
-
-  /**
-   * Called when the websocket connection is closed successfully.
-   */
-  def close[R](onClose: (Connection) => ZIO[R, Nothing, Unit]): Socket[R, Nothing] = HandlerConfig.OnClose(onClose)
-
-  /**
-   * Handshake timeout in mills
-   */
-  def handshakeTimeout(duration: Duration): Socket[Any, Nothing] = ProtocolConfig.HandshakeTimeoutMillis(duration)
-
-  /**
-   * Close the connection if it was not closed by the client after timeout specified
-   */
-  def forceCloseTimeout(duration: Duration): Socket[Any, Nothing] =
-    ProtocolConfig.ForceCloseTimeoutMillis(duration)
-
-  /**
-   * Close frames should be forwarded
-   */
-  def forwardCloseFrames: Socket[Any, Nothing] = ProtocolConfig.ForwardCloseFrames
-
-  /**
-   * Close frame to send, when close frame was not send manually.
-   */
-  def closeFrame(status: CloseStatus): Socket[Any, Nothing] = ProtocolConfig.SendCloseFrame(status)
-
-  /**
-   * Close frame to send, when close frame was not send manually.
-   */
-  def closeFrame(code: Int, reason: String): Socket[Any, Nothing] = ProtocolConfig.SendCloseFrameCode(code, reason)
-
-  /**
-   * If pong frames should be forwarded
-   */
-  def forwardPongFrames: Socket[Any, Nothing] = ProtocolConfig.ForwardPongFrames
-
-  /**
-   * Sets Maximum length of a frame's payload. Setting this to an appropriate value for you application helps check for
-   * denial of services attacks.
-   */
-  def maxFramePayloadLength(length: Int): Socket[Any, Nothing] =
-    DecoderConfig.MaxFramePayloadLength(length)
-
-  /**
-   * Web socket servers must set this to true to reject incoming masked payload.
-   */
-  def rejectMaskedFrames: Socket[Any, Nothing] = DecoderConfig.RejectMaskedFrames
-
-  /**
-   * When set to true, frames which are not masked properly according to the standard will still be accepted.
-   */
-  def allowMaskMismatch: Socket[Any, Nothing] = DecoderConfig.AllowMaskMismatch
-
-  /**
-   * Allow extensions to be used in the reserved bits of the web socket frame
-   */
-  def allowExtensions: Socket[Any, Nothing] = DecoderConfig.AllowExtensions
-
-  /**
-   * Flag to not send close frame immediately on any protocol violation.ion.
-   */
-  def allowProtocolViolation: Socket[Any, Nothing] = DecoderConfig.AllowProtocolViolation
-
-  /**
-   * Allows you to avoid adding of Utf8FrameValidator to the pipeline on the WebSocketServerProtocolHandler creation.
-   * This is useful (less overhead) when you use only BinaryWebSocketFrame within your web socket connection.
-   */
-  def skipUTF8Validation: Socket[Any, Nothing] = DecoderConfig.SkipUTF8Validation
 }

@@ -6,30 +6,37 @@ import zio.duration._
 import zio.stream.ZStream
 
 object WebSocketAdvanced extends App {
+  // Message Handlers
+  private val open = Socket.succeed(WebSocketFrame.text("Greetings!"))
 
-  // Called after the request is successfully upgraded to websocket
-  private val open = Socket.open(_ => ZStream.succeed(WebSocketFrame.text("Greetings!")))
-
-  // Called after the connection is closed
-  private val close = Socket.close(_ => console.putStrLn("CLOSED"))
-
-  // Called whenever there is an error on the socket channel
-  private val error = Socket.error(_ => console.putStrLn("Error!"))
-
-  // Echos each message that is received on the channel
-  private val wsEcho = Socket.collect { case WebSocketFrame.Text(text) =>
-    ZStream.repeat(WebSocketFrame.text(s"server:${text}")).schedule(Schedule.spaced(1 second)).take(3)
+  private val echo = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text(text) =>
+    ZStream.repeat(WebSocketFrame.text(s"Received: $text")).schedule(Schedule.spaced(1 second)).take(3)
   }
 
-  // Responds with a close message for each incoming close message
-  private val wsClose = Socket.collect { case WebSocketFrame.Close(_, _) =>
-    ZStream.succeed(WebSocketFrame.close(1000))
+  private val fooBar = Socket.collect[WebSocketFrame] {
+    case WebSocketFrame.Text("FOO") => ZStream.succeed(WebSocketFrame.text("BAR"))
+    case WebSocketFrame.Text("BAR") => ZStream.succeed(WebSocketFrame.text("FOO"))
   }
+
+  // Setup protocol settings
+  private val protocol = SocketProtocol.subProtocol("json")
+
+  // Setup decoder settings
+  private val decoder = SocketDecoder.allowExtensions
+
+  // Combine all channel handlers together
+  private val socketApp =
+    SocketApp.open(open) ++                                // Called after the request is successfully upgraded to websocket
+      SocketApp.message(echo merge fooBar) ++              // Called after each message being received on the channel
+      SocketApp.close(_ => console.putStrLn("Closed!")) ++ // Called after the connection is closed
+      SocketApp.error(_ => console.putStrLn("Error!")) ++  // Called whenever there is an error on the socket channel
+      SocketApp.decoder(decoder) ++
+      SocketApp.protocol(protocol)
 
   private val app =
-    Http.collect {
-      case Method.GET -> Root / "greet" / name  => Response.text(s"Greetings {$name}!")
-      case Method.GET -> Root / "subscriptions" => Response.socket(open <+> close <+> error <+> wsEcho <+> wsClose)
+    HttpApp.collect {
+      case Method.GET -> Root / "greet" / name  => Response.text(s"Greetings ${name}!")
+      case Method.GET -> Root / "subscriptions" => socketApp
     }
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

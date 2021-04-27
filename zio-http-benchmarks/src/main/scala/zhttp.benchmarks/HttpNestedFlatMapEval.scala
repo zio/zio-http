@@ -9,16 +9,15 @@ import java.util.concurrent.TimeUnit
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class HttpNestedFlatMapEval {
-  implicit val canSupportPartial: CanSupportPartial[Int, String] = _ => "NOT_FOUND"
 
   private val MAX = 10_000
 
-  val programFlatMap: HttpChannel[Any, Nothing, Int, Int] =
-    (0 to MAX).foldLeft(HttpChannel.identity[Int])((a, _) => a.flatMap(i => HttpChannel.succeed(i + 1)))
+  val programFlatMap: Http[Any, Nothing, Int, Int] =
+    (0 to MAX).foldLeft(Http.identity[Int])((a, _) => a.flatMap(i => Http.succeed(i + 1)))
 
   @Benchmark
   def benchmarkHttpFlatMap(): Unit = {
-    programFlatMap.eval(0)
+    programFlatMap.evaluate(0).asOut
     ()
   }
 }

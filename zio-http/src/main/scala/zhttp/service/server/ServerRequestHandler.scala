@@ -1,6 +1,8 @@
 package zhttp.service.server
 
+import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler}
+import io.netty.handler.codec.http.{LastHttpContent => JLastHttpContent}
 import zhttp.core._
 import zhttp.http._
 import zhttp.service._
@@ -12,7 +14,7 @@ import zio.Exit
 @JSharable
 final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
-  app: RHttp[R],
+  app: RHttpApp[R],
 ) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
     with HttpMessageCodec
     with ServerHttpExceptionHandler {
@@ -33,10 +35,11 @@ final case class ServerRequestHandler[R](
     decodeJRequest(jReq) match {
       case Left(err)  => cb(err.toResponse)
       case Right(req) =>
-        app.eval(req) match {
-          case HttpResult.Success(a)  => cb(a)
-          case HttpResult.Failure(e)  => cb(SilentResponse[Throwable].silent(e))
-          case HttpResult.Continue(z) =>
+        app.evaluate(req).asOut match {
+          case HttpResult.Empty      => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
+          case HttpResult.Success(a) => cb(a)
+          case HttpResult.Failure(e) => cb(SilentResponse[Throwable].silent(e))
+          case HttpResult.Effect(z)  =>
             zExec.unsafeExecute(ctx, z) {
               case Exit.Success(res)   => cb(res)
               case Exit.Failure(cause) =>
@@ -53,16 +56,30 @@ final case class ServerRequestHandler[R](
    */
   override def channelRead0(ctx: JChannelHandlerContext, jReq: JFullHttpRequest): Unit = {
     executeAsync(ctx, jReq) {
-      case res @ Response.HttpResponse(_, _, _) =>
-        ctx.writeAndFlush(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
+      case res @ Response.HttpResponse(_, _, content) =>
+        ctx.write(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
         releaseOrIgnore(jReq)
+        content match {
+          case HttpData.StreamData(data)   =>
+            zExec.unsafeExecute_(ctx) {
+              for {
+                _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(JUnpooled.copiedBuffer(c.toArray))))
+                _ <- ChannelFuture.unit(ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT))
+              } yield ()
+            }
+          case HttpData.CompleteData(data) =>
+            ctx.write(JUnpooled.copiedBuffer(data.toArray), ctx.channel().voidPromise())
+            ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
+          case HttpData.Empty              => ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
+        }
         ()
-      case res @ Response.SocketResponse(_)     =>
+
+      case res @ Response.SocketResponse(_) =>
         ctx
           .channel()
           .pipeline()
-          .addLast(new JWebSocketServerProtocolHandler(res.socket.settings.protocolConfig))
-          .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket.settings))
+          .addLast(new JWebSocketServerProtocolHandler(res.socket.config.protocol.javaConfig))
+          .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket.config))
         ctx.fireChannelRead(jReq)
         ()
     }

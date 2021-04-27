@@ -1,15 +1,15 @@
 package zhttp.service
 
-import zhttp.http.HttpContent.Complete
+import zhttp.http.HttpData.CompleteData
 import zhttp.http.URL.Location
 import zhttp.http._
 import zio.test.DefaultRunnableSpec
-import zio.{Has, ZIO, ZManaged}
+import zio.{Chunk, Has, ZIO, ZManaged}
 
 abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
 
   def serve[R <: Has[_]](
-    app: RHttp[R],
+    app: RHttpApp[R],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
     Server.make(Server.app(app) ++ Server.port(port)).orDie
 
@@ -25,7 +25,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
     content: String,
     headers: List[Header] = Nil,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] = {
-    val data = Request.Data(headers, Complete[String](content))
+    val data = Request.Data(headers, CompleteData(Chunk.fromArray(content.getBytes(HTTP_CHARSET))))
     Client.request(Request(method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), data))
   }
 }

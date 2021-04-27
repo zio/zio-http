@@ -10,16 +10,15 @@ final case class Request(endpoint: Endpoint, data: Request.Data = Request.Data.e
   val route: Route          = method -> url.path
 
   def getBodyAsString: Option[String] = data.content match {
-    case HttpContent.Complete(data) => Option(data)
-    case _                          => Option.empty
+    case HttpData.CompleteData(data) => Option(data.map(_.toChar).mkString)
+    case _                           => Option.empty
   }
 
 }
 
 object Request {
-  val emptyContent: HttpContent.Complete[String] = HttpContent.Complete("")
-  final case class Data(headers: List[Header], content: HttpContent[Any, String])
+  final case class Data(headers: List[Header], content: HttpData[Any, Nothing])
   object Data {
-    val empty: Data = Data(Nil, emptyContent)
+    val empty: Data = Data(Nil, HttpData.empty)
   }
 }

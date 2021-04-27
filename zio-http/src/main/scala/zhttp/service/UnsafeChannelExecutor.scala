@@ -10,7 +10,16 @@ import zio.{Exit, Fiber, URIO, ZIO}
  */
 final class UnsafeChannelExecutor[R](runtime: zio.Runtime[R]) {
   def unsafeExecute_(ctx: JChannelHandlerContext)(program: ZIO[R, Throwable, Unit]): Unit = {
-    unsafeExecute(ctx, program)(_ => ())
+    unsafeExecute(ctx, program)({
+      case Exit.Success(_)     => ()
+      case Exit.Failure(cause) =>
+        cause.failureOption match {
+          case Some(error: Throwable) => ctx.fireExceptionCaught(error)
+          case _                      => ()
+        }
+        ctx.close()
+        ()
+    })
   }
 
   def unsafeExecute[A](ctx: JChannelHandlerContext, program: ZIO[R, Throwable, A])(
@@ -20,7 +29,7 @@ final class UnsafeChannelExecutor[R](runtime: zio.Runtime[R]) {
 
     var listener: GenericFutureListener[Future[Any]] = _ => ()
 
-    val cancel = runtime.unsafeRunAsyncCancelable(program) { exit =>
+    val cancel = runtime.unsafeRunAsyncCancelable(program.disconnect) { exit =>
       cb(exit)
       close.removeListener(listener)
     }

@@ -1,31 +1,37 @@
 package zhttp.http
 
-import zhttp.http.Response.{HttpResponse, SocketResponse}
-import zhttp.socket.Socket
+import zhttp.http.Response.HttpResponse
+import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
+import zio.Chunk
 
 import java.io.{PrintWriter, StringWriter}
 
 trait ResponseOps {
   private val defaultStatus  = Status.OK
   private val defaultHeaders = Nil
-  private val emptyContent   = HttpContent.Complete("")
 
   // Helpers
 
   /**
    * Creates a new Http Response
    */
-  def http[R](
+  def http[R, E](
     status: Status = defaultStatus,
     headers: List[Header] = defaultHeaders,
-    content: HttpContent[R, String] = emptyContent,
-  ): Response.HttpResponse[R] =
+    content: HttpData[R, E] = HttpData.empty,
+  ): Response.HttpResponse[R, E] =
     HttpResponse(status, headers, content)
 
   /**
-   * Creates a new WebSocket Response with a sub-protocol
+   * Creates a new WebSocket Response
    */
-  def socket[R, E](ss: Socket[R, E]): Response[R, E] = SocketResponse(ss)
+  def socket[R, E](ss: SocketApp[R, E]): Response[R, E] = ss.asResponse
+
+  /**
+   * Creates a new WebSocket Response
+   */
+  def socket[R, E](ss: Socket[R, E, WebSocketFrame, WebSocketFrame]): Response[R, E] =
+    SocketApp.message(ss).asResponse
 
   def fromHttpError(error: HttpError): UResponse = {
     error match {
@@ -33,15 +39,15 @@ trait ResponseOps {
         http(
           error.status,
           Nil,
-          HttpContent.Complete(cause.cause match {
+          HttpData.CompleteData(cause.cause match {
             case Some(throwable) =>
               val sw = new StringWriter
               throwable.printStackTrace(new PrintWriter(sw))
-              s"${cause.message}:\n${sw.toString}"
-            case None            => s"${cause.message}"
+              Chunk.fromArray(s"${cause.message}:\n${sw.toString}".getBytes(HTTP_CHARSET))
+            case None            => Chunk.fromArray(s"${cause.message}".getBytes(HTTP_CHARSET))
           }),
         )
-      case _                         => http(error.status, Nil, HttpContent.Complete(error.message))
+      case _                         => http(error.status, Nil, HttpData.CompleteData(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
     }
 
   }
@@ -50,13 +56,13 @@ trait ResponseOps {
 
   def text(text: String): UResponse =
     http(
-      content = HttpContent.Complete(text),
+      content = HttpData.CompleteData(Chunk.fromArray(text.getBytes(HTTP_CHARSET))),
       headers = List(Header.contentTypeTextPlain),
     )
 
   def jsonString(data: String): UResponse =
     http(
-      content = HttpContent.Complete(data),
+      content = HttpData.CompleteData(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
       headers = List(Header.contentTypeJson),
     )
 

@@ -7,7 +7,7 @@ import zio.stream.ZStream
 
 object WebSocketEcho extends App {
   private val socket =
-    Socket.collect {
+    Socket.collect[WebSocketFrame] {
       case WebSocketFrame.Text("FOO")  => ZStream.succeed(WebSocketFrame.text("BAR"))
       case WebSocketFrame.Text("BAR")  => ZStream.succeed(WebSocketFrame.text("FOO"))
       case WebSocketFrame.Ping         => ZStream.succeed(WebSocketFrame.pong)
@@ -16,7 +16,7 @@ object WebSocketEcho extends App {
     }
 
   private val app =
-    Http.collect {
+    HttpApp.collect {
       case Method.GET -> Root / "greet" / name  => Response.text(s"Greetings {$name}!")
       case Method.GET -> Root / "subscriptions" => Response.socket(socket)
     }

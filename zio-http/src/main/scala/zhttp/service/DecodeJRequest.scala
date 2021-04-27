@@ -13,6 +13,9 @@ trait DecodeJRequest {
     method   = Method.fromJHttpMethod(jReq.method())
     headers  = Header.make(jReq.headers())
     endpoint = method -> url
-    data     = Request.Data(headers, HttpContent.Complete(jReq.content().toString(HTTP_CHARSET)))
+    data     = Request.Data(
+      headers,
+      HttpData.fromByteBuf(jReq.content()),
+    )
   } yield Request(endpoint, data)
 }
