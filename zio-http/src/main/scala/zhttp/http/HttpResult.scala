@@ -10,7 +10,7 @@ sealed trait HttpResult[-R, +E, +A] { self =>
   def >>=[R1 <: R, E1 >: E, B](ab: A => HttpResult[R1, E1, B]): HttpResult[R1, E1, B] =
     self.flatMap(ab)
 
-  def *>[R1 <: R, E1 >: E, B](other: => HttpResult[R1, E1, B]): HttpResult[R1, E1, B] =
+  def *>[R1 <: R, E1 >: E, B](other: HttpResult[R1, E1, B]): HttpResult[R1, E1, B] =
     self.flatMap(_ => other)
 
   def flatMap[R1 <: R, E1 >: E, B](ab: A => HttpResult[R1, E1, B]): HttpResult[R1, E1, B] =

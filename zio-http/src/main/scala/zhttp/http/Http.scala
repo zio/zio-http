@@ -132,8 +132,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
-  def evaluate(a: => A): HttpResult[R, E, B] = Http.evaluate(self: Http[R, E, A, B], a)
-
+  def evaluate(a: A): HttpResult[R, E, B] = Http.evaluate(self: Http[R, E, A, B], a)
 }
 
 object Http {
@@ -142,6 +141,7 @@ object Http {
   private case class Succeed[B](b: B)                                                      extends Http[Any, Nothing, Any, B]
   private case class Fail[E](e: E)                                                         extends Http[Any, E, Any, Nothing]
   private case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B])                  extends Http[R, E, A, B]
+  private case class Collect[R, E, A, B](ab: PartialFunction[A, B])                        extends Http[R, E, A, B]
   private case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C]) extends Http[R, E, A, C]
   private case class Combine[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B])  extends Http[R, E, A, B]
   private case class FoldM[R, E, EE, A, B, BB](
@@ -157,25 +157,24 @@ object Http {
   }
 
   final case class MakeCollect[A](unit: Unit) extends AnyVal {
-    def apply[R, E, B](pf: PartialFunction[A, B]): Http[R, E, A, B] =
-      Http.identity[A] >>=
-        (a => if (pf.isDefinedAt(a)) Http.succeed(pf(a)) else Http.empty)
+    def apply[B](pf: PartialFunction[A, B]): Http[Any, Nothing, A, B] = Collect(pf)
   }
 
   final case class MakeFromEffectFunction[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = Http.FromEffectFunction(f)
   }
 
-  def evaluate[R, E, A, B](http: Http[R, E, A, B], a: => A): HttpResult[R, E, B] =
+  def evaluate[R, E, A, B](http: Http[R, E, A, B], a: A): HttpResult[R, E, B] =
     http match {
       case Empty                 => HttpResult.empty
       case Identity              => HttpResult.success(a.asInstanceOf[B])
       case Succeed(b)            => HttpResult.success(b)
       case Fail(e)               => HttpResult.failure(e)
       case FromEffectFunction(f) => HttpResult.fromEffect(f(a))
+      case Collect(pf)           => if (pf.isDefinedAt(a)) HttpResult.success(pf(a)) else HttpResult.empty
       case Chain(self, other)    => HttpResult.suspend(self.evaluate(a) >>= (other.evaluate(_)))
-      case Combine(self, other)  => self.evaluate(a).defaultWith(other.evaluate(a))
-      case FoldM(http, ee, bb)   => HttpResult.suspend(http.evaluate(a).foldM(ee(_).evaluate(a), bb(_).evaluate(a)))
+      case Combine(self, other)  => HttpResult.suspend(self.evaluate(a).defaultWith(other.evaluate(a)))
+      case FoldM(self, ee, bb)   => HttpResult.suspend(self.evaluate(a).foldM(ee(_).evaluate(a), bb(_).evaluate(a)))
     }
 
   /**

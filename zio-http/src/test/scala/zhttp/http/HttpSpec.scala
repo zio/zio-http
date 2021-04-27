@@ -88,6 +88,13 @@ object HttpSpec extends DefaultRunnableSpec {
         val actual = (a +++ b).evaluate(3).asOut
         assert(actual)(equalTo(HttpResult.empty))
       },
+      test("should be stack-safe") {
+        val i      = 100000
+        val a      = Http.collect[Int]({ case i => i + 1 })
+        val app    = (0 until i).foldLeft(a)((i, _) => i +++ a)
+        val actual = app.evaluate(0).asOut
+        assert(actual)(equalTo(HttpResult.success(1)))
+      },
     ),
     suite("asEffect")(
       testM("should resolve") {
