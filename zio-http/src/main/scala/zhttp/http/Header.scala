@@ -39,6 +39,8 @@ object Header {
   val contentTypeFormUrlEncoded: Header =
     Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED)
 
+  def createAuthorizationHeader(value: String): Header = Header(JHttpHeaderNames.AUTHORIZATION, value)
+
   /**
    * Use built-in header methods for better performance.
    */
