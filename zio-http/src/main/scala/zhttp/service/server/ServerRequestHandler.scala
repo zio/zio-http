@@ -63,15 +63,15 @@ final case class ServerRequestHandler[R](
             releaseOrIgnore(jReq)
             zExec.unsafeExecute_(ctx) {
               for {
-                _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(JUnpooled.wrappedBuffer(c.toArray))))
-                _ <- ChannelFuture.unit(ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT))
+                _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.write(JUnpooled.wrappedBuffer(c.toArray))))
+                _ <- ChannelFuture.unit(ctx.write(JLastHttpContent.EMPTY_LAST_CONTENT))
               } yield ()
             }
           case HttpData.CompleteData(_) =>
-            ctx.writeAndFlush(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
+            ctx.write(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
             releaseOrIgnore(jReq)
           case HttpData.Empty              =>
-            ctx.writeAndFlush(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
+            ctx.write(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
             releaseOrIgnore(jReq)
         }
         ()
@@ -92,6 +92,10 @@ final case class ServerRequestHandler[R](
     ()
   }
 
+  override def channelReadComplete(ctx: JChannelHandlerContext): Unit = {
+    ctx.flush()
+    ()
+  }
   /**
    * Handles exceptions that throws
    */
