@@ -57,20 +57,22 @@ final case class ServerRequestHandler[R](
   override def channelRead0(ctx: JChannelHandlerContext, jReq: JFullHttpRequest): Unit = {
     executeAsync(ctx, jReq) {
       case res @ Response.HttpResponse(_, _, content) =>
-        ctx.write(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
-        releaseOrIgnore(jReq)
         content match {
           case HttpData.StreamData(data)   =>
+            ctx.write(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
+            releaseOrIgnore(jReq)
             zExec.unsafeExecute_(ctx) {
               for {
                 _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(JUnpooled.wrappedBuffer(c.toArray))))
                 _ <- ChannelFuture.unit(ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT))
               } yield ()
             }
-          case HttpData.CompleteData(data) =>
-            ctx.write(JUnpooled.wrappedBuffer(data.toArray), ctx.channel().voidPromise())
-            ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
-          case HttpData.Empty              => ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
+          case HttpData.CompleteData(_) =>
+            ctx.writeAndFlush(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
+            releaseOrIgnore(jReq)
+          case HttpData.Empty              =>
+            ctx.writeAndFlush(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
+            releaseOrIgnore(jReq)
         }
         ()
 
