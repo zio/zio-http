@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.test.Assertion
+import zio.test._
 
 trait HttpResultAssertion {
   def isEffect[R, E, A]: Assertion[HttpResult[R, E, A]] =
@@ -26,4 +26,8 @@ trait HttpResultAssertion {
       case HttpResult.Failure(e) => ass.test(e)
       case _                     => false
     })
+
+  implicit class HttpResultSyntax[R, E, A](result: HttpResult[R, E, A]) {
+    def ===(assertion: Assertion[HttpResult[R, E, A]]) = assert(result.asOut)(assertion)
+  }
 }
