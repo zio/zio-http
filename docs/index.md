@@ -7,12 +7,9 @@
   - [ZIO Integration](#zio-integration)
 - [Socket](#socket)
   - [Creating a socket app](#creating-a-socket-app)
-  - [WebSocket Support](#websocket-support)
 - [Server](#server)
   - [Starting an Http App](#starting-an-http-app)
-  - [Advanced Usage](#advanced-usage)
-  - [Performance Tuning](#performance-tuning)
-- [Client](#client)
+- [Examples](#examples)
 
 # Http
 
@@ -69,26 +66,14 @@ val app = Http.collectM[Request] {
 ```scala
 import zhttp.socket._
 
-val socket = Socket.forall[WebSocketFrame](_ => ZStream.repeat(WebSocketFrame.text("Hello!")).take(10))
-```
-
-## WebSocket Support
-
-ZIO Http comes with first-class support for web sockets.
-
-```scala
-import zhttp.socket._
-import zhttp.http._
-import zio.stream._
-import zio._
-
-val socket = Socket.forall[WebSocketFrame](_ => ZStream.repeat(WebSocketFrame.text("Hello!")).take(10))
-
-val app = Http.collectM[Request] {
-  case Method.GET -> Root / "health" => UIO(Response.ok)
-  case _ -> Root / "subscription"    => socket.asResponse()
+private val socket = Socket.collect[WebSocketFrame] {
+  case WebSocketFrame.Text("FOO")  => ZStream.succeed(WebSocketFrame.text("BAR"))
 }
 
+private val app = HttpApp.collect {
+  case Method.GET -> Root / "greet" / name  => Response.text(s"Greetings {$name}!")
+  case Method.GET -> Root / "ws" => Response.socket(socket)
+}
 ```
 
 # Server
@@ -110,14 +95,11 @@ object HelloWorld extends App {
 
 A simple Http app that responds with empty content and a `200` status code is deployed on port `8090` using `Server.start`.
 
-## Advanced Usage
+# Examples
 
-???
-
-## Performance Tuning
-
-???
-
-# Client
-
-???
+- [Simple Server](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/HelloWorld.scala)
+- [Advanced Server](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/HelloWorldAdvanced.scala)
+- [WebSocket Server](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/SocketEchoServer.scala)
+- [Streaming Response](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/StreamingResponse.scala)
+- [Simple Client](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/SimpleClient.scala)
+- [File Streaming](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/FileStreaming.scala)
