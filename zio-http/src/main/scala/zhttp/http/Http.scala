@@ -167,11 +167,11 @@ object Http {
   def evaluate[R, E, A, B](http: Http[R, E, A, B], a: A): HttpResult[R, E, B] =
     http match {
       case Empty                 => HttpResult.empty
-      case Identity              => HttpResult.success(a.asInstanceOf[B])
-      case Succeed(b)            => HttpResult.success(b)
-      case Fail(e)               => HttpResult.failure(e)
+      case Identity              => HttpResult.succeed(a.asInstanceOf[B])
+      case Succeed(b)            => HttpResult.succeed(b)
+      case Fail(e)               => HttpResult.fail(e)
       case FromEffectFunction(f) => HttpResult.fromEffect(f(a))
-      case Collect(pf)           => if (pf.isDefinedAt(a)) HttpResult.success(pf(a)) else HttpResult.empty
+      case Collect(pf)           => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
       case Chain(self, other)    => HttpResult.suspend(self.evaluate(a) >>= (other.evaluate(_)))
       case Combine(self, other)  => HttpResult.suspend(self.evaluate(a).defaultWith(other.evaluate(a)))
       case FoldM(self, ee, bb)   => HttpResult.suspend(self.evaluate(a).foldM(ee(_).evaluate(a), bb(_).evaluate(a)))

@@ -5,7 +5,7 @@ import zio.{CanFail, ZIO}
 import scala.annotation.{tailrec, unused}
 
 sealed trait HttpResult[-R, +E, +A] { self =>
-  def map[B](ab: A => B): HttpResult[R, E, B] = self.flatMap(a => HttpResult.success(ab(a)))
+  def map[B](ab: A => B): HttpResult[R, E, B] = self.flatMap(a => HttpResult.succeed(ab(a)))
 
   def >>=[R1 <: R, E1 >: E, B](ab: A => HttpResult[R1, E1, B]): HttpResult[R1, E1, B] =
     self.flatMap(ab)
@@ -21,6 +21,10 @@ sealed trait HttpResult[-R, +E, +A] { self =>
 
   def defaultWith[R1 <: R, E1 >: E, A1 >: A](other: HttpResult[R1, E1, A1]): HttpResult[R1, E1, A1] =
     HttpResult.DefaultWith(self, other)
+
+  def orSucceedWith[A1 >: A](a: A1): HttpResult[R, E, A1] = this.defaultWith(HttpResult.succeed(a))
+
+  def orFailWith[E1 >: E](e: E1): HttpResult[R, E1, A] = this.defaultWith(HttpResult.fail(e))
 
   def flatMapError[R1 <: R, E1, A1 >: A](h: E => HttpResult[R1, E1, A1])(implicit
     @unused ev: CanFail[E],
@@ -60,7 +64,7 @@ object HttpResult {
   )                                                                       extends HttpResult[R, EE, AA]
 
   // Help
-  def success[A](a: A): HttpResult.Out[Any, Nothing, A] = Success(a)
+  def succeed[A](a: A): HttpResult.Out[Any, Nothing, A] = Success(a)
   def failure[E](e: E): HttpResult.Out[Any, E, Nothing] = Failure(e)
   def empty: HttpResult.Out[Any, Nothing, Nothing]      = Empty
 
