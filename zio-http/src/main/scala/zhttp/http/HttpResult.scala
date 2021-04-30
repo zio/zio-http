@@ -13,6 +13,9 @@ sealed trait HttpResult[-R, +E, +A] { self =>
   def *>[R1 <: R, E1 >: E, B](other: HttpResult[R1, E1, B]): HttpResult[R1, E1, B] =
     self.flatMap(_ => other)
 
+  def <>[R1 <: R, E1, A1 >: A](other: HttpResult[R1, E1, A1]): HttpResult[R1, E1, A1] =
+    self.flatMapError(_ => other)
+
   def flatMap[R1 <: R, E1 >: E, B](ab: A => HttpResult[R1, E1, B]): HttpResult[R1, E1, B] =
     HttpResult.flatMap(self, ab)
 
@@ -20,21 +23,23 @@ sealed trait HttpResult[-R, +E, +A] { self =>
     self.flatMap(identity(_))
 
   def defaultWith[R1 <: R, E1 >: E, A1 >: A](other: HttpResult[R1, E1, A1]): HttpResult[R1, E1, A1] =
-    HttpResult.DefaultWith(self, other)
+    self.foldM(HttpResult.fail, HttpResult.succeed, other)
 
-  def orSucceedWith[A1 >: A](a: A1): HttpResult[R, E, A1] = this.defaultWith(HttpResult.succeed(a))
-
-  def orFailWith[E1 >: E](e: E1): HttpResult[R, E1, A] = this.defaultWith(HttpResult.fail(e))
+  def <+>[R1 <: R, E1 >: E, A1 >: A](other: HttpResult[R1, E1, A1]): HttpResult[R1, E1, A1] =
+    this defaultWith other
 
   def flatMapError[R1 <: R, E1, A1 >: A](h: E => HttpResult[R1, E1, A1])(implicit
     @unused ev: CanFail[E],
-  ): HttpResult[R1, E1, A1] =
-    self.foldM(h, HttpResult.success)
+  ): HttpResult[R1, E1, A1] = HttpResult.flatMapError(self, h)
 
-  def foldM[R1 <: R, E1, B1](h: E => HttpResult[R1, E1, B1], ab: A => HttpResult[R1, E1, B1]): HttpResult[R1, E1, B1] =
-    HttpResult.foldM(self, h, ab)
+  def foldM[R1 <: R, E1, B1](
+    ee: E => HttpResult[R1, E1, B1],
+    aa: A => HttpResult[R1, E1, B1],
+    dd: HttpResult[R1, E1, B1],
+  ): HttpResult[R1, E1, B1] =
+    HttpResult.foldM(self, ee, aa, dd)
 
-  def asOut: HttpResult.Out[R, E, A] = HttpResult.asOut(self: HttpResult[R, E, A])
+  def asOut: HttpResult.Out[R, E, A] = HttpResult.asOut(self)
 }
 
 object HttpResult {
@@ -43,36 +48,35 @@ object HttpResult {
       case Empty      => ZIO.fail(None)
       case Success(a) => ZIO.succeed(a)
       case Failure(e) => ZIO.fail(Option(e))
-      case Effect(z)  => z.mapError(Option(_))
+      case Effect(z)  => z
     }
   }
 
   // CTOR
-  final case class Success[A](a: A)                 extends Out[Any, Nothing, A]
-  final case class Failure[E](e: E)                 extends Out[Any, E, Nothing]
-  final case class Effect[R, E, A](z: ZIO[R, E, A]) extends Out[R, E, A]
-  case object Empty                                 extends Out[Any, Nothing, Nothing]
+  final case class Success[A](a: A)                         extends Out[Any, Nothing, A]
+  final case class Failure[E](e: E)                         extends Out[Any, E, Nothing]
+  final case class Effect[R, E, A](z: ZIO[R, Option[E], A]) extends Out[R, E, A]
+  case object Empty                                         extends Out[Any, Nothing, Nothing]
 
   // OPR
   private final case class Suspend[R, E, A](r: () => HttpResult[R, E, A]) extends HttpResult[R, E, A]
-  private final case class DefaultWith[R, E, A](self: HttpResult[R, E, A], other: HttpResult[R, E, A])
-      extends HttpResult[R, E, A]
   private final case class FoldM[R, E, EE, A, AA](
-    r: HttpResult[R, E, A],
+    rr: HttpResult[R, E, A],
     ee: E => HttpResult[R, EE, AA],
     aa: A => HttpResult[R, EE, AA],
+    dd: HttpResult[R, EE, AA],
   )                                                                       extends HttpResult[R, EE, AA]
 
   // Help
   def succeed[A](a: A): HttpResult.Out[Any, Nothing, A] = Success(a)
-  def failure[E](e: E): HttpResult.Out[Any, E, Nothing] = Failure(e)
+  def fail[E](e: E): HttpResult.Out[Any, E, Nothing]    = Failure(e)
   def empty: HttpResult.Out[Any, Nothing, Nothing]      = Empty
 
-  def fromEffect[R, E, A](z: ZIO[R, E, A]): HttpResult.Out[R, E, A] = Effect(z)
-  def unit: HttpResult[Any, Nothing, Unit]                          = HttpResult.success(())
+  def effect[R, E, A](z: ZIO[R, E, A]): HttpResult.Out[R, E, A] = Effect(z.mapError(Option(_)))
+  def unit: HttpResult[Any, Nothing, Unit]                      = HttpResult.succeed(())
 
-  def flatMap[R, E, A, B](self: HttpResult[R, E, A], ab: A => HttpResult[R, E, B]): HttpResult[R, E, B] =
-    self.foldM(HttpResult.failure, ab)
+  def flatMap[R, E, A, B](r: HttpResult[R, E, A], aa: A => HttpResult[R, E, B]): HttpResult[R, E, B] =
+    HttpResult.foldM(r, HttpResult.fail[E], aa, HttpResult.empty)
 
   def suspend[R, E, A](r: => HttpResult[R, E, A]): HttpResult[R, E, A] = HttpResult.Suspend(() => r)
 
@@ -80,42 +84,40 @@ object HttpResult {
     r: HttpResult[R, E, A],
     ee: E => HttpResult[R, EE, AA],
     aa: A => HttpResult[R, EE, AA],
+    dd: HttpResult[R, EE, AA],
   ): HttpResult[R, EE, AA] =
-    HttpResult.FoldM(r, ee, aa)
+    HttpResult.FoldM(r, ee, aa, dd)
+
+  def flatMapError[R, E, E1, A](r: HttpResult[R, E, A], ee: E => HttpResult[R, E1, A]): HttpResult[R, E1, A] =
+    HttpResult.foldM(r, ee, HttpResult.succeed[A], HttpResult.empty)
 
   // EVAL
   @tailrec
   def asOut[R, E, A](result: HttpResult[R, E, A]): Out[R, E, A] = {
     result match {
-      case m @ Effect(_)            => m
-      case m @ Success(_)           => m
-      case m @ Failure(_)           => m
-      case Empty                    => Empty
-      case Suspend(r)               => asOut(r())
-      case DefaultWith(self, other) =>
+      case m: Out[_, _, _]         => m
+      case Suspend(r)              => asOut(r())
+      case FoldM(self, ee, aa, dd) =>
         asOut(self match {
-          case Empty                      => other
-          case m: Out[_, _, _]            => m
-          case Suspend(r)                 => r().defaultWith(other)
-          case DefaultWith(self0, other0) => self0.defaultWith(other.defaultWith(other0))
-          case FoldM(r, ee, aa)           =>
-            r.foldM(
-              ee(_).defaultWith(other),
-              aa(_).defaultWith(other),
+          case Empty                      => dd
+          case Success(a)                 => aa(a)
+          case Failure(e)                 => ee(e)
+          case Suspend(r)                 => r().foldM(ee, aa, dd)
+          case Effect(z)                  =>
+            Effect(
+              z.foldM(
+                {
+                  case None    => ZIO.fail(None)
+                  case Some(e) => ee(e).asOut.asEffect
+                },
+                aa(_).asOut.asEffect,
+              ),
             )
-        })
-      case FoldM(r, ee, aa)         =>
-        asOut(r match {
-          case Empty               => Empty
-          case Success(a)          => aa(a)
-          case Failure(e)          => ee(e)
-          case Effect(z)           => HttpResult.fromEffect(z.fold(ee, aa)).flatten
-          case Suspend(r)          => r().foldM(ee, aa)
-          case FoldM(r0, ee0, aa0) => r0.foldM(ee0(_).foldM(ee, aa), aa0(_).foldM(ee, aa))
-          case DefaultWith(h1, h2) =>
-            h1.foldM(
-              ee(_).defaultWith(h2.foldM(ee, aa)),
-              aa(_).defaultWith(h2.foldM(ee, aa)),
+          case FoldM(self, ee0, aa0, dd0) =>
+            self.foldM(
+              e => ee0(e).foldM(ee, aa, dd),
+              a => aa0(a).foldM(ee, aa, dd),
+              dd0.foldM(ee, aa, dd),
             )
         })
     }
