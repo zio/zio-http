@@ -170,11 +170,12 @@ object Http {
       case Identity              => HttpResult.succeed(a.asInstanceOf[B])
       case Succeed(b)            => HttpResult.succeed(b)
       case Fail(e)               => HttpResult.fail(e)
-      case FromEffectFunction(f) => HttpResult.fromEffect(f(a))
+      case FromEffectFunction(f) => HttpResult.effect(f(a))
       case Collect(pf)           => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
       case Chain(self, other)    => HttpResult.suspend(self.evaluate(a) >>= (other.evaluate(_)))
       case Combine(self, other)  => HttpResult.suspend(self.evaluate(a).defaultWith(other.evaluate(a)))
-      case FoldM(self, ee, bb)   => HttpResult.suspend(self.evaluate(a).foldM(ee(_).evaluate(a), bb(_).evaluate(a)))
+      case FoldM(self, ee, bb)   =>
+        HttpResult.suspend(self.evaluate(a).foldM(ee(_).evaluate(a), bb(_).evaluate(a), HttpResult.empty))
     }
 
   /**

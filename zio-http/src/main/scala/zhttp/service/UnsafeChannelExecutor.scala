@@ -22,8 +22,8 @@ final class UnsafeChannelExecutor[R](runtime: zio.Runtime[R]) {
     })
   }
 
-  def unsafeExecute[A](ctx: JChannelHandlerContext, program: ZIO[R, Throwable, A])(
-    cb: Exit[Throwable, A] => Unit,
+  def unsafeExecute[E, A](ctx: JChannelHandlerContext, program: ZIO[R, E, A])(
+    cb: Exit[E, A] => Unit,
   ): Unit = {
     val close = ctx.channel().closeFuture()
 
