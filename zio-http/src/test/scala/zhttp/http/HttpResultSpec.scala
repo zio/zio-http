@@ -1,77 +1,61 @@
 package zhttp.http
 
-import zio.test.Assertion.{equalTo, isLeft, isRight, isSome}
-import zio.test.{DefaultRunnableSpec, ZSpec, assert, assertM}
+import zio.UIO
+import zio.duration._
+import zio.test.Assertion._
+import zio.test.TestAspect._
+import zio.test._
 
-object HttpResultSpec extends DefaultRunnableSpec {
-  def spec: ZSpec[Environment, Failure] =
+object HttpResultSpec extends DefaultRunnableSpec with HttpResultAssertion {
+  def spec: ZSpec[Environment, Failure] = {
+    import HttpResult._
     suite("HttpResult")(
-      suite("catchAll") {
-        test("should handle error") {
-          val actual =
-            HttpResult.failure(1).flatMapError(e => HttpResult.success(e + 1)).asOut
-          assert(actual)(equalTo(HttpResult.success(2)))
-        }
+      test("out") {
+        empty === isEmpty &&
+        succeed(1) === isSuccess(equalTo(1)) &&
+        fail(1) === isFailure(equalTo(1)) &&
+        effect(UIO(1)) === isEffect
       },
-      suite("catchAll") {
-        test("should capture nested error") {
-          val a = HttpResult
-            .success(0)
-            .flatMap(_ => HttpResult.failure("FAIL"))
-            .flatMapError(e => HttpResult.failure("FOLD_" + e))
-
-          val actual = a.asOut
-          assert(actual)(equalTo(HttpResult.failure("FOLD_FAIL")))
-        }
+      test("flatMapError") {
+        succeed(0) *> fail(1) <> fail(2) === isFailure(equalTo(2)) &&
+        succeed(0) *> fail(1) *> fail(2) === isFailure(equalTo(1))
       },
-      suite("asEffect")(
-        testM("should succeed") {
-          val actual = HttpResult.success(1).asOut.asEffect.either
-          assertM(actual)(isRight(equalTo(1)))
-        },
-        testM("should fail") {
-          val actual = HttpResult.failure(1).asOut.asEffect.either
-          assertM(actual)(isLeft(isSome(equalTo(1))))
-        },
-      ),
-      suite("flatMap")(
-        testM("should succeed") {
-          val res    = HttpResult.success(1) *> HttpResult.success(2)
-          val actual = res.asOut.asEffect.either
-          assertM(actual)(isRight(equalTo(2)))
-        },
-        testM("should fail") {
-          val res    = HttpResult.failure(1) *> HttpResult.success(2)
-          val actual = res.asOut.asEffect.either
-          assertM(actual)(isLeft(isSome(equalTo(1))))
-        },
-      ),
       suite("defaultWith")(
-        test("should succeed") {
-          val res    = HttpResult.success(1).defaultWith(HttpResult.success(2))
-          val actual = res.asOut
-          assert(actual)(equalTo(HttpResult.success(1)))
+        test("succeed") {
+          empty <+> succeed(1) === isSuccess(equalTo(1)) &&
+          succeed(1) <+> empty === isSuccess(equalTo(1)) &&
+          succeed(1) <+> succeed(2) === isSuccess(equalTo(1)) &&
+          succeed(1) <+> empty === isSuccess(equalTo(1)) &&
+          empty <+> empty === isEmpty
         },
-        test("should fail") {
-          val res    = HttpResult.failure(1).defaultWith(HttpResult.success(2))
-          val actual = res.asOut
-          assert(actual)(equalTo(HttpResult.failure(1)))
+        test("fail") {
+          empty <+> fail(1) === isFailure(equalTo(1)) &&
+          fail(1) <+> empty === isFailure(equalTo(1)) &&
+          fail(1) <+> fail(2) === isFailure(equalTo(1)) &&
+          fail(1) <+> empty === isFailure(equalTo(1))
         },
-        test("should succeed with default") {
-          val res    = HttpResult.empty.defaultWith(HttpResult.success(2))
-          val actual = res.asOut
-          assert(actual)(equalTo(HttpResult.success(2)))
+        test("empty") {
+          empty <+> empty === isEmpty
         },
-        test("should succeed with default") {
-          val res    = (HttpResult.success(1) *> HttpResult.empty).defaultWith(HttpResult.success(2))
-          val actual = res.asOut
-          assert(actual)(equalTo(HttpResult.success(2)))
+        test("effect") {
+          effect(UIO(1)) <+> empty === isEffect &&
+          empty <+> effect(UIO(1)) === isEffect &&
+          empty *> effect(UIO(1)) *> effect(UIO(1)) === isEmpty
         },
-        test("should fail with default") {
-          val res    = (HttpResult.success(1) *> HttpResult.empty).defaultWith(HttpResult.failure(2))
-          val actual = res.asOut
-          assert(actual)(equalTo(HttpResult.failure(2)))
+        test("nested succeed") {
+          empty <+> succeed(1) <+> succeed(2) === isSuccess(equalTo(1)) &&
+          succeed(1) <+> empty <+> succeed(2) === isSuccess(equalTo(1)) &&
+          empty <+> empty <+> succeed(1) === isSuccess(equalTo(1))
+        },
+        test("flatMap") {
+          succeed(0) *> empty <+> succeed(1) === isSuccess(equalTo(1)) &&
+          empty *> empty <+> succeed(1) === isSuccess(equalTo(1)) &&
+          empty *> empty *> empty <+> succeed(1) === isSuccess(equalTo(1))
+        },
+        test("reversed") {
+          empty <+> (empty <+> (empty <+> succeed(1))) === isSuccess(equalTo(1))
         },
       ),
-    )
+    ) @@ timeout(5 second)
+  }
 }

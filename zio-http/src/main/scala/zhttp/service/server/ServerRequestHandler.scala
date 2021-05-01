@@ -44,8 +44,9 @@ final case class ServerRequestHandler[R](
               case Exit.Success(res)   => cb(res)
               case Exit.Failure(cause) =>
                 cause.failureOption match {
-                  case Some(e) => cb(SilentResponse[Throwable].silent(e))
-                  case None    => ()
+                  case Some(Some(e)) => cb(SilentResponse[Throwable].silent(e))
+                  case Some(None)    => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
+                  case None          => ()
                 }
             }
         }
