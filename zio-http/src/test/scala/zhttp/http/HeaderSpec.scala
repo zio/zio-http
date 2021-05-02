@@ -206,14 +206,14 @@ object HeaderSpec extends DefaultRunnableSpec {
     ),
     suite("getBearerToken")(
       test("should get bearer token") {
-        val someToken   = "token"
-        val headerValue = String.format("%s %s", BearerSchemeName, someToken)
+        val someToken    = "token"
+        val headerValue  = String.format("%s %s", BearerSchemeName, someToken)
         val headerHolder = HeadersHolder(List(Header.authorization(headerValue)))
         val found        = headerHolder.getBearerToken
         assert(found)(isSome(equalTo(someToken)))
       },
       test("should get empty bearer token") {
-        val headerValue = String.format("%s %s", BearerSchemeName, "")
+        val headerValue  = String.format("%s %s", BearerSchemeName, "")
         val headerHolder = HeadersHolder(List(Header.authorization(headerValue)))
         val found        = headerHolder.getBearerToken
         assert(found)(isSome(equalTo("")))
