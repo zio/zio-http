@@ -1,8 +1,13 @@
 package zhttp.http
 
+import io.netty.buffer.Unpooled
+import io.netty.handler.codec.base64.Base64
 import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpHeaderValues => JHttpHeaderValues}
-import io.netty.util.AsciiString
 import io.netty.util.AsciiString.toLowerCase
+import io.netty.util.{AsciiString, CharsetUtil}
+import zhttp.http.HeadersHelpers.{BasicSchemeName, BearerSchemeName}
+
+import scala.util.control.NonFatal
 
 trait HeadersHelpers { self: HasHeaders =>
   private def equalsIgnoreCase(a: Char, b: Char) = a == b || toLowerCase(a) == toLowerCase(b)
@@ -55,4 +60,48 @@ trait HeadersHelpers { self: HasHeaders =>
   def getAuthorization: Option[String] =
     getHeaderValue(JHttpHeaderNames.AUTHORIZATION)
 
+  private def decodeHttpBasic(encoded: String): Option[(String, String)] = {
+    val authChannelBuffer        = Unpooled.wrappedBuffer(encoded.getBytes(CharsetUtil.UTF_8))
+    val decodedAuthChannelBuffer = Base64.decode(authChannelBuffer)
+    val decoded                  = decodedAuthChannelBuffer.toString(CharsetUtil.UTF_8)
+    val colonIndex               = decoded.indexOf(":")
+    if (colonIndex == -1)
+      None
+    else {
+      val username = decoded.substring(0, colonIndex)
+      val password =
+        if (colonIndex == decoded.length - 1)
+          ""
+        else
+          decoded.substring(colonIndex + 1)
+      Some((username, password))
+    }
+  }
+  def getBasicAuthorizationCredentials: Option[(String, String)] = {
+    getAuthorization.flatMap(v => {
+      val indexOfBasic = v.indexOf(BasicSchemeName)
+      if (indexOfBasic != 0 || v.length == BasicSchemeName.length)
+        None
+      else {
+        try {
+          val encoded = v.substring(BasicSchemeName.length + 1)
+          decodeHttpBasic(encoded)
+        } catch {
+          case NonFatal(_) => None
+        }
+      }
+    })
+  }
+  def getBearerToken: Option[String]   = getAuthorization.flatMap(v => {
+    val indexOfBearer = v.indexOf(BearerSchemeName)
+    if (indexOfBearer != 0 || v.length == BearerSchemeName.length)
+      None
+    else
+      Some(v.substring(BearerSchemeName.length + 1))
+  })
+}
+
+object HeadersHelpers {
+  val BasicSchemeName  = "Basic"
+  val BearerSchemeName = "Bearer"
 }

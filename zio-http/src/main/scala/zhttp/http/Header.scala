@@ -1,7 +1,11 @@
 package zhttp.http
 
+import io.netty.buffer.Unpooled
+import io.netty.handler.codec.base64.Base64
 import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpHeaderValues => JHttpHeaderValues}
+import io.netty.util.CharsetUtil
 import zhttp.core.{JDefaultHttpHeaders, JHttpHeaders}
+import zhttp.http.HeadersHelpers.BasicSchemeName
 
 import scala.jdk.CollectionConverters._
 
@@ -38,6 +42,16 @@ object Header {
   def contentLength(size: Long): Header = Header(JHttpHeaderNames.CONTENT_LENGTH, size.toString)
   val contentTypeFormUrlEncoded: Header =
     Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED)
+
+  def authorization(value: String): Header = Header(JHttpHeaderNames.AUTHORIZATION, value)
+
+  def basicHttpAuthorization(username: String, password: String): Header = {
+    val authString    = String.format("%s:%s", username, password)
+    val authCB        = Unpooled.wrappedBuffer(authString.getBytes(CharsetUtil.UTF_8))
+    val encodedAuthCB = Base64.encode(authCB)
+    val value         = String.format("%s:%s", BasicSchemeName, encodedAuthCB.toString(CharsetUtil.UTF_8))
+    Header(JHttpHeaderNames.AUTHORIZATION, value)
+  }
 
   def createAuthorizationHeader(value: String): Header = Header(JHttpHeaderNames.AUTHORIZATION, value)
 
