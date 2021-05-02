@@ -1,9 +1,9 @@
-import zio._
+import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import zhttp.http.{Method, _}
 import zhttp.service.Server
+import zio._
 
 import java.time.Clock
-import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 
 object Authentication extends App {
   // Secret Authentication key
