@@ -116,6 +116,7 @@ lazy val example = (project in file("./example"))
   .settings(
     fork := true,
     Compile / run / mainClass := Option("HelloWorldAdvanced"),
+    crossScalaVersions := Seq(Scala213), // Examples running only for scala 2 at the moment
     libraryDependencies ++= Seq(
       "com.github.jwt-scala" %% "jwt-core" % "7.1.3",
     ),
