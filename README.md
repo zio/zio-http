@@ -28,7 +28,7 @@ import zhttp.http._
 import zhttp.service.Server
 
 object HelloWorld extends App {
-  val app = Http.collect {
+  val app = Http.collect[Request] {
     case Method.GET -> Root / "text" => Response.text("Hello World!")
   }
 
