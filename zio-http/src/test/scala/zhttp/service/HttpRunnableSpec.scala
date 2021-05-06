@@ -19,6 +19,14 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
   def requestPath(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
     Client.request(Method.GET -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)))
 
+  def headers(
+    path: Path,
+    method: Method,
+    content: String,
+    headers: (CharSequence, CharSequence)*,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, List[Header]]                            =
+    request(path, method, content, headers.map(h => Header.custom(h._1.toString(), h._2)).toList).map(_.headers)
+
   def request(
     path: Path,
     method: Method,
