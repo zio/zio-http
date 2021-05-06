@@ -164,6 +164,11 @@ object Http {
     def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = Http.FromEffectFunction(f)
   }
 
+  final case class MakeRoute[A](unit: Unit) extends AnyVal {
+    def apply[R, E, B](pf: PartialFunction[A, Http[R, E, A, B]]) =
+      Http.collect[A]({ case r if pf.isDefinedAt(r) => pf(r) }).flatten
+  }
+
   def evaluate[R, E, A, B](http: Http[R, E, A, B], a: A): HttpResult[R, E, B] =
     http match {
       case Empty                 => HttpResult.empty
@@ -244,6 +249,11 @@ object Http {
    * Creates a Http from a pure function
    */
   def fromFunction[A]: MkTotal[A] = new MkTotal[A](())
+
+  /**
+   * Creates an Http that delegates to other Https.
+   */
+  def route[A]: Http.MakeRoute[A] = Http.MakeRoute(())
 
   final class MkTotal[A](val unit: Unit) extends AnyVal {
     def apply[B](f: A => B): Http[Any, Nothing, A, B] = Http.identity[A].map(f)

@@ -133,5 +133,20 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
         assert(actual)(isSuccess(equalTo("B")))
       },
     ),
+    suite("route")(
+      test("should delegate to its HTTP apps") {
+        val app    = Http.route[Int]({
+          case 1 => Http.succeed(1)
+          case 2 => Http.succeed(2)
+        })
+        val actual = app.evaluate(2).asOut
+        assert(actual)(isSuccess(equalTo(2)))
+      },
+      test("should be empty if no matches") {
+        val app    = Http.route[Int](Map.empty)
+        val actual = app.evaluate(1).asOut
+        assert(actual)(isEmpty)
+      },
+    ),
   ) @@ timeout(10 seconds)
 }
