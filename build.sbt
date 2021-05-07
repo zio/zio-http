@@ -115,7 +115,10 @@ lazy val example = (project in file("./example"))
   .settings(publishSetting(false))
   .settings(
     fork := true,
-    Compile / run / mainClass := Option("HelloWorldAdvanced"),
+    Compile / run / mainClass := Option("Authentication"),
+    libraryDependencies ++= Seq(
+      "com.github.jwt-scala" %% "jwt-core" % "7.1.4",
+    ),
   )
   .dependsOn(zhttp)
 

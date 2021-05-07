@@ -57,4 +57,9 @@ object HttpApp {
    * Creates an HTTP app which always responds with a 200 status code.
    */
   def ok: HttpApp[Any, Nothing] = HttpApp.empty(Status.OK)
+
+  /**
+   * Creates an HTTP app that responds with 403 - Forbidden status code
+   */
+  def forbidden(msg: String): UHttpApp = Http.succeed(HttpError.Forbidden(msg).toResponse)
 }
