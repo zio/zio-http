@@ -4,6 +4,7 @@ import io.netty.handler.codec.http.{HttpMethod => JHttpMethod}
 
 sealed trait Method { self =>
   lazy val asJHttpMethod: JHttpMethod = Method.asJHttpMethod(self)
+  override def toString(): String     = Method.asJHttpMethod(self).name()
 }
 
 object Method {
@@ -30,6 +31,20 @@ object Method {
       case JHttpMethod.TRACE   => TRACE
       case JHttpMethod.CONNECT => CONNECT
       case method              => CUSTOM(method.name())
+    }
+
+  def fromString(method: String): Method =
+    method.toUpperCase match {
+      case "POST"    => Method.POST
+      case "GET"     => Method.GET
+      case "OPTIONS" => Method.OPTIONS
+      case "HEAD"    => Method.HEAD
+      case "PUT"     => Method.PUT
+      case "PATCH"   => Method.PATCH
+      case "DELETE"  => Method.DELETE
+      case "TRACE"   => Method.TRACE
+      case "CONNECT" => Method.CONNECT
+      case x         => Method.CUSTOM(x)
     }
 
   def asJHttpMethod(self: Method): JHttpMethod = self match {
