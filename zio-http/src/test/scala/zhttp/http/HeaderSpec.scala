@@ -1,7 +1,8 @@
 package zhttp.http
 
 import zhttp.http.Header._
-import zio.test.Assertion.{equalTo, isFalse, isNone, isSome, isTrue}
+import zhttp.http.HeadersHelpers.BearerSchemeName
+import zio.test.Assertion._
 import zio.test.{DefaultRunnableSpec, assert}
 
 object HeaderSpec extends DefaultRunnableSpec {
@@ -162,6 +163,70 @@ object HeaderSpec extends DefaultRunnableSpec {
         val headersHolder = HeadersHolder(List(acceptJson))
         val found         = headersHolder.isFormUrlencodedContentType
         assert(found)(isFalse)
+      },
+    ),
+    suite("getBasicAuthorizationCredentials")(
+      test("should decode proper basic http authorization header") {
+        val headerHolder = HeadersHolder(List(Header.authorization("Basic dXNlcjpwYXNzd29yZCAxMQ==")))
+        val found        = headerHolder.getBasicAuthorizationCredentials
+        assert(found)(isSome(equalTo(("user", "password 11"))))
+      },
+      test("should decode basic http authorization header with empty name and password") {
+        val headerHolder = HeadersHolder(List(Header.authorization("Basic Og==")))
+        val found        = headerHolder.getBasicAuthorizationCredentials
+        assert(found)(isSome(equalTo(("", ""))))
+      },
+      test("should not decode improper base64") {
+        val headerHolder = HeadersHolder(List(Header.authorization("Basic Og=")))
+        val found        = headerHolder.getBasicAuthorizationCredentials
+        assert(found)(isNone)
+      },
+      test("should not decode only basic") {
+        val headerHolder = HeadersHolder(List(Header.authorization("Basic")))
+        val found        = headerHolder.getBasicAuthorizationCredentials
+        assert(found)(isNone)
+      },
+      test("should not decode basic contained header value") {
+        val headerHolder = HeadersHolder(List(Header.authorization("wrongBasic Og==")))
+        val found        = headerHolder.getBasicAuthorizationCredentials
+        assert(found)(isNone)
+      },
+      test("should get credentials for nonbasic schema") {
+        val headerHolder = HeadersHolder(List(Header.authorization("DummySchema Og==")))
+        val found        = headerHolder.getBasicAuthorizationCredentials
+        assert(found)(isNone)
+      },
+      test("should decode header from Header.basicHttpAuthorization") {
+        val username     = "username"
+        val password     = "password"
+        val headerHolder = HeadersHolder(List(Header.basicHttpAuthorization(username, password)))
+        val found        = headerHolder.getBasicAuthorizationCredentials
+        assert(found)(isSome(equalTo((username, password))))
+      },
+    ),
+    suite("getBearerToken")(
+      test("should get bearer token") {
+        val someToken    = "token"
+        val headerValue  = String.format("%s %s", BearerSchemeName, someToken)
+        val headerHolder = HeadersHolder(List(Header.authorization(headerValue)))
+        val found        = headerHolder.getBearerToken
+        assert(found)(isSome(equalTo(someToken)))
+      },
+      test("should get empty bearer token") {
+        val headerValue  = String.format("%s %s", BearerSchemeName, "")
+        val headerHolder = HeadersHolder(List(Header.authorization(headerValue)))
+        val found        = headerHolder.getBearerToken
+        assert(found)(isSome(equalTo("")))
+      },
+      test("should not get bearer token for nonbearer schema") {
+        val headerHolder = HeadersHolder(List(Header.authorization("DummySchema token")))
+        val found        = headerHolder.getBearerToken
+        assert(found)(isNone)
+      },
+      test("should not get bearer token for bearer contained header") {
+        val headerHolder = HeadersHolder(List(Header.authorization("wrongBearer token")))
+        val found        = headerHolder.getBearerToken
+        assert(found)(isNone)
       },
     ),
   )
