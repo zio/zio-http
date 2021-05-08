@@ -1,7 +1,7 @@
 package zhttp.http
 
 import zhttp.http.Http.{Chain, Combine, FoldM, FromEffectFunction}
-import zio.{CanFail, Has, NeedsEnv, Tag, ZEnv, ZIO, ZLayer}
+import zio._
 
 import scala.annotation.unused
 
