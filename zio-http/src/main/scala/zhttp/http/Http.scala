@@ -1,6 +1,7 @@
 package zhttp.http
 
-import zio.{CanFail, ZIO}
+import zhttp.http.Http.{Chain, Combine, FoldM, FromEffectFunction}
+import zio.{CanFail, Has, NeedsEnv, Tag, ZEnv, ZIO, ZLayer}
 
 import scala.annotation.unused
 
@@ -133,6 +134,63 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
   def evaluate(a: A): HttpResult[R, E, B] = Http.evaluate(self: Http[R, E, A, B], a)
+
+  /**
+   * Provide the entire set of requirements to an Http instance
+   */
+  def provide(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
+    provideSome(_ => r)
+
+  /**
+   * Provide a partial requirement to an Http instance
+   */
+  def provideSome[R0](f: R0 => R)(implicit ev: NeedsEnv[R]): Http[R0, E, A, B] =
+    self match {
+      case FromEffectFunction(g) => FromEffectFunction((a: A) => g(a).provideSome(f))
+      case Combine(a, b)         => Combine(a.provideSome(f), b.provideSome(f))
+      case Chain(a, b)           => Chain(a.provideSome(f), b.provideSome(f))
+      case FoldM(a, ee, bb)      =>
+        FoldM(a.provideSome(f), ee(_: Any).provideSome(f), bb(_: Any).provideSome(f))
+      case _                     => self.asInstanceOf[Http[R0, E, A, B]]
+    }
+
+  /**
+   * Provide a ZLayer to an Http instance to reduce its dependencies
+   */
+  def provideLayer[E1 >: E, R0, R1](
+    layer: ZLayer[R0, E1, R1],
+  )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R]): Http[R0, E1, A, B] =
+    self match {
+      case FromEffectFunction(f) => FromEffectFunction((a: A) => f(a).provideLayer(layer))
+      case Combine(a, b)         => Combine(a.provideLayer(layer), b.provideLayer(layer))
+      case Chain(a, b)           => Chain(a.provideLayer(layer), b.provideLayer(layer))
+      case FoldM(a, ee, bb)      =>
+        FoldM(a.provideLayer(layer), ee(_: Any).provideLayer(layer), bb(_: Any).provideLayer(layer))
+      case _                     => self.asInstanceOf[Http[R0, E1, A, B]]
+    }
+
+  /**
+   * Provide a custom layer (which represents everything not in ZEnv) to an Http instance
+   */
+  def provideCustomLayer[E1 >: E, R1 <: Has[_]](
+    layer: ZLayer[ZEnv, E1, R1],
+  )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): Http[ZEnv, E1, A, B] =
+    provideSomeLayer[ZEnv, E1, R1](layer)
+
+  /**
+   * Provide a ZLayer to an Http instance
+   */
+  def provideSomeLayer[R0 <: Has[_], E1 >: E, R1 <: Has[_]](
+    layer: ZLayer[R0, E1, R1],
+  )(implicit ev1: R0 with R1 <:< R, ev2: NeedsEnv[R], tagged: Tag[R1]): Http[R0, E1, A, B] =
+    self match {
+      case FromEffectFunction(f) => FromEffectFunction((a: A) => f(a).provideSomeLayer(layer))
+      case Combine(a, b)         => Combine(a.provideSomeLayer(layer), b.provideSomeLayer(layer))
+      case Chain(a, b)           => Chain(a.provideSomeLayer(layer), b.provideSomeLayer(layer))
+      case FoldM(a, ee, bb)      =>
+        FoldM(a.provideSomeLayer(layer), ee(_: Any).provideSomeLayer(layer), bb(_: Any).provideSomeLayer(layer))
+      case _                     => self.asInstanceOf[Http[R0, E1, A, B]]
+    }
 }
 
 object Http {
