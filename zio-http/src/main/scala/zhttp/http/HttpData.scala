@@ -30,4 +30,10 @@ object HttpData {
    * Helper to create Empty HttpData
    */
   def empty: HttpData[Any, Nothing] = Empty
+
+  /**
+   * Creates HttpData from string
+   */
+  def fromString(text: String): HttpData[Any, Nothing] =
+    HttpData.CompleteData(Chunk.fromArray(text.getBytes(HTTP_CHARSET)))
 }
