@@ -2,14 +2,15 @@ package zhttp.service
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
-import zhttp.service.server.ServerChannelFactory
+import zhttp.service.server._
+import zio.ZManaged
 import zio.test.Assertion._
 import zio.test.assertM
 
 object CORSSpec extends HttpRunnableSpec(8089) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
-  val app = serve {
+  val app: ZManaged[EventLoopGroup with ServerChannelFactory, Nothing, Unit] = serve {
     CORS(HttpApp.collect { case _ -> Root / "success" =>
       Response.ok
     })

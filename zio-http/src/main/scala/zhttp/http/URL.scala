@@ -39,7 +39,7 @@ object URL {
     } else {
       val decoder = new JQueryStringDecoder(query, false)
       val params  = decoder.parameters()
-      params.asScala.view.mapValues(_.asScala.toList).toMap
+      params.asScala.view.map { case (k, v) => (k, v.asScala.toList) }.toMap
     }
   }
 

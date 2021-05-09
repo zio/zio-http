@@ -3,11 +3,13 @@ import zhttp.service._
 import zhttp.service.server.ServerChannelFactory
 import zio._
 
+import scala.util.Try
+
 object HelloWorldAdvanced extends App {
   // Set a port
   private val PORT = 8090
 
-  private val fooBar = HttpApp.collect {
+  private val fooBar: HttpApp[Any, Nothing] = HttpApp.collect {
     case Method.GET -> Root / "foo" => Response.text("bar")
     case Method.GET -> Root / "bar" => Response.text("foo")
   }
@@ -24,7 +26,7 @@ object HelloWorldAdvanced extends App {
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     // Configure thread count using CLI
-    val nThreads: Int = args.headOption.flatMap(_.toIntOption).getOrElse(0)
+    val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
     // Create a new server
     server.make
