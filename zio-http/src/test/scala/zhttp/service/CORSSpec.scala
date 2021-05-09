@@ -10,7 +10,7 @@ import zio.{Has, ZManaged}
 object CORSSpec extends HttpRunnableSpec(8089) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
-  val app: ZManaged[Has[_] with EventLoopGroup with ServerChannelFactory, Nothing, Unit] = serve {
+  val app: ZManaged[EventLoopGroup with ServerChannelFactory, Nothing, Unit] = serve {
     CORS(HttpApp.collect { case _ -> Root / "success" =>
       Response.ok
     })
