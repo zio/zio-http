@@ -1,7 +1,7 @@
 package zhttp.service
 
 import zhttp.http._
-import zhttp.service.server.ServerChannelFactory
+import zhttp.service.server._
 import zio.test.Assertion.{isNone, isPositive, isSome}
 import zio.test.TestAspect.ignore
 import zio.test.assertM

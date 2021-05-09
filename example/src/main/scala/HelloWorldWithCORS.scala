@@ -4,7 +4,7 @@ import zio._
 
 object HelloWorldWithCORS extends App {
   // Create HTTP route with CORS enabled
-  val app = CORS(
+  val app: HttpApp[Any, Nothing] = CORS(
     HttpApp.collect {
       case Method.GET -> Root / "text" => Response.text("Hello World!")
       case Method.GET -> Root / "json" => Response.jsonString("""{"greetings": "Hello World!"}""")

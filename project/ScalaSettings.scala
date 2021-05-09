@@ -43,7 +43,6 @@ trait ScalaSettings {
     "-Wunused:privates",                         // Warn if a private member is unused.
     "-Wunused:locals",                           // Warn if a local definition is unused.
     "-Wunused:explicits",                        // Warn if an explicit parameter is unused.
-    "-Wunused:implicits",                        // Warn if an implicit parameter is unused.
     "-Wunused:params",                           // Enable -Wunused:explicits,implicits.
     "-Wunused:linted",
     "-Wvalue-discard",                           // Warn when non-Unit expression results are unused.

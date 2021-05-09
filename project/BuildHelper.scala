@@ -50,7 +50,7 @@ object BuildHelper extends ScalaSettings {
           "-noindent",
         )
       case Some((2, 12)) =>
-        Seq("-Ywarn-unused:params,-implicits") ++ std2xOptions ++ optimizerOptions(optimize)
+        Seq("-Ywarn-unused:params,-implicits") ++ std2xOptions
       case Some((2, 13)) =>
         Seq("-Ywarn-unused:params,-implicits", "-Ywarn-macros:after") ++ std2xOptions ++ tpoleCatSettings ++
           optimizerOptions(optimize)
