@@ -19,7 +19,7 @@ sealed trait Server[-R, +E] { self =>
     case LeakDetection(level) => s.copy(leakDetectionLevel = level)
     case App(http)            => s.copy(http = http)
     case MaxRequestSize(size) => s.copy(maxRequestSize = size)
-    case Error(errorHandler)  => s.copy(errorHandler = errorHandler)
+    case Error(errorHandler)  => s.copy(error = Some(errorHandler))
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
@@ -35,7 +35,7 @@ object Server {
     port: Int = 8080,
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
-    errorHandler: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
+    error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E]) extends Server[R, E]
@@ -43,12 +43,12 @@ object Server {
   private final case class LeakDetection(level: LeakDetectionLevel)              extends UServer
   private final case class MaxRequestSize(size: Int)                             extends UServer
   private final case class App[R, E](http: HttpApp[R, E])                        extends Server[R, E]
-  private final case class Error[R](errorHandler: Option[Throwable => ZIO[R, Nothing, Unit]]) extends Server[R, Nothing]
+  private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]                                   = Server.App(http)
   def maxRequestSize(size: Int): UServer                                             = Server.MaxRequestSize(size)
   def port(int: Int): UServer                                                        = Server.Port(int)
-  def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(Some(errorHandler))
+  def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   val disableLeakDetection: UServer                                                  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer                                                   = LeakDetection(LeakDetectionLevel.SIMPLE)
   val advancedLeakDetection: UServer                                                 = LeakDetection(LeakDetectionLevel.ADVANCED)
@@ -69,7 +69,7 @@ object Server {
       zExec          <- UnsafeChannelExecutor.make[R].toManaged_
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
-      httpH           = ServerRequestHandler(zExec, settings.http, settings.errorHandler)
+      httpH           = ServerRequestHandler(zExec, settings.http, settings.error)
       init            = ServerChannelInitializer(httpH, settings.maxRequestSize)
       serverBootstrap = new JServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.port))

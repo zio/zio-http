@@ -17,8 +17,7 @@ final case class ServerRequestHandler[R](
   app: RHttpApp[R],
   errorHandler: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
 ) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
-    with HttpMessageCodec
-    with ServerHttpExceptionHandler {
+    with HttpMessageCodec {
 
   self =>
 
@@ -94,11 +93,9 @@ final case class ServerRequestHandler[R](
    * Handles exceptions that throws
    */
   override def exceptionCaught(ctx: JChannelHandlerContext, cause: Throwable): Unit = {
-    if (self.canThrowException(cause)) {
-      errorHandler match {
-        case Some(v) => zExec.unsafeExecute_(ctx)(v(cause).uninterruptible)
-        case None    => super.exceptionCaught(ctx, cause)
-      }
+    errorHandler match {
+      case Some(v) => zExec.unsafeExecute_(ctx)(v(cause).uninterruptible)
+      case None    => super.exceptionCaught(ctx, cause)
     }
   }
 }
