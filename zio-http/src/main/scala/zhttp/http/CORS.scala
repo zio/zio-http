@@ -66,28 +66,31 @@ object CORS {
 
     Http.flatten {
       Http.fromFunction[Request](req => {
-        val responseHeaders = (
+        (
           req.method,
           req.getHeader(HttpHeaderNames.ORIGIN),
           req.getHeader(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
         ) match {
           case (Method.OPTIONS, Some(origin), Some(acrm))
               if allowCORS(origin, Method.fromString(acrm.value.toString())) =>
-            corsHeaders(origin, Method.fromString(acrm.value.toString()), isPreflight = true)
+            Http.succeed(
+              Response.http(
+                Status.NO_CONTENT,
+                headers = corsHeaders(origin, Method.fromString(acrm.value.toString()), isPreflight = true),
+              ),
+            )
           case (_, Some(origin), _) if allowCORS(origin, req.method) =>
-            corsHeaders(origin, req.method)
-          case _                                                     =>
-            List.empty[Header]
+            httpApp >>>
+              Http.fromFunction[Response[R, E]](r =>
+                r match {
+                  case r: Response.HttpResponse[R, E] =>
+                    r.copy(headers = r.headers ++ corsHeaders(origin, req.method))
+                  case x                              =>
+                    x
+                },
+              )
+          case _                                                     => httpApp
         }
-        httpApp >>>
-          Http.fromFunction[Response[R, E]](r =>
-            r match {
-              case r: Response.HttpResponse[R, E] =>
-                r.copy(headers = r.headers ++ responseHeaders)
-              case x                              =>
-                x
-            },
-          )
       })
     }
   }
