@@ -3,10 +3,10 @@ package zhttp.service.server
 import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler}
 import io.netty.handler.codec.http.{LastHttpContent => JLastHttpContent}
-import zhttp.core._
+import zhttp.core.{JFullHttpRequest, _}
 import zhttp.http._
 import zhttp.service._
-import zio.Exit
+import zio.{Exit, ZIO}
 
 /**
  * Helper class with channel methods
@@ -15,6 +15,7 @@ import zio.Exit
 final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
   app: RHttpApp[R],
+  errorHandler: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
 ) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
     with HttpMessageCodec
     with ServerHttpExceptionHandler {
@@ -94,7 +95,10 @@ final case class ServerRequestHandler[R](
    */
   override def exceptionCaught(ctx: JChannelHandlerContext, cause: Throwable): Unit = {
     if (self.canThrowException(cause)) {
-      super.exceptionCaught(ctx, cause)
+      errorHandler match {
+        case Some(v) => zExec.unsafeExecute_(ctx)(v(cause).uninterruptible)
+        case None    => super.exceptionCaught(ctx, cause)
+      }
     }
   }
 }
