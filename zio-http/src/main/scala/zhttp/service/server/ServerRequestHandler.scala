@@ -95,7 +95,10 @@ final case class ServerRequestHandler[R](
   override def exceptionCaught(ctx: JChannelHandlerContext, cause: Throwable): Unit = {
     errorHandler match {
       case Some(v) => zExec.unsafeExecute_(ctx)(v(cause).uninterruptible)
-      case None    => super.exceptionCaught(ctx, cause)
+      case None    => {
+        ctx.fireExceptionCaught(cause)
+        ()
+      }
     }
   }
 }
