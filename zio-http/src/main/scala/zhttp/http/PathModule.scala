@@ -1,6 +1,6 @@
 package zhttp.http
 
-trait PathModule { module =>
+private[zhttp] trait PathModule { module =>
   sealed trait Path {
     self =>
     def asString: String

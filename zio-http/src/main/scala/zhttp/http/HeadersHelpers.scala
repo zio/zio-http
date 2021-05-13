@@ -9,7 +9,7 @@ import zhttp.http.HeadersHelpers.{BasicSchemeName, BearerSchemeName}
 
 import scala.util.control.NonFatal
 
-trait HeadersHelpers { self: HasHeaders =>
+private[zhttp] trait HeadersHelpers { self: HasHeaders =>
   private def equalsIgnoreCase(a: Char, b: Char) = a == b || toLowerCase(a) == toLowerCase(b)
 
   private def contentEqualsIgnoreCase(a: CharSequence, b: CharSequence): Boolean = {
