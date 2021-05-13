@@ -154,6 +154,12 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   ): Http[R1, E1, A1, B1] = Http.FoldM(self, ee, bb)
 
   /**
+   * Unwraps an Http that returns a ZIO of Http
+   */
+  def unwrap[R1 <: R, E1 >: E, C](implicit ev: B <:< ZIO[R1, E1, C]): Http[R1, E1, A, C] =
+    self.flatMap(Http.fromEffect(_))
+
+  /**
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
   private[zhttp] def execute(a: A): HttpResult[R, E, B] = Http.execute(self: Http[R, E, A, B], a)
@@ -190,7 +196,7 @@ object Http {
   }
 
   final case class MakeRoute[A](unit: Unit) extends AnyVal {
-    def apply[R, E, B](pf: PartialFunction[A, Http[R, E, A, B]]) =
+    def apply[R, E, B](pf: PartialFunction[A, Http[R, E, A, B]]): Http[R, E, A, B] =
       Http.collect[A]({ case r if pf.isDefinedAt(r) => pf(r) }).flatten
   }
 
@@ -205,7 +211,9 @@ object Http {
       case Chain(self, other)    => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
       case Combine(self, other)  => HttpResult.suspend(self.execute(a).defaultWith(other.execute(a)))
       case FoldM(self, ee, bb)   =>
-        HttpResult.suspend(self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), HttpResult.empty))
+        HttpResult.suspend {
+          self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), HttpResult.empty)
+        }
     }
 
   /**
@@ -242,11 +250,6 @@ object Http {
    * Creates an HTTP app which accepts a request and produces response effectfully.
    */
   def collectM[A]: Http.MakeCollectM[A] = Http.MakeCollectM(())
-
-  /**
-   * Creates an HTTP app which for any request produces a response.
-   */
-  def succeedM[R, E, B](zio: ZIO[R, E, B]): Http[R, E, Any, B] = Http.fromEffectFunction(_ => zio)
 
   /**
    * Flattens an Http app of an Http app
