@@ -12,9 +12,9 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
 
   def mapM[R1 <: R, E1 >: E, C](bc: B => ZIO[R1, E1, C]): Socket[R1, E1, A, C] = Socket.FMapM(self, bc)
 
-  def cmap[Z](za: Z => A): Socket[R, E, Z, B] = Socket.FCMap(self, za)
+  def contramap[Z](za: Z => A): Socket[R, E, Z, B] = Socket.FCMap(self, za)
 
-  def cmapM[R1 <: R, E1 >: E, Z](za: Z => ZIO[R1, E1, A]): Socket[R1, E1, Z, B] = Socket.FCMapM(self, za)
+  def contramapM[R1 <: R, E1 >: E, Z](za: Z => ZIO[R1, E1, A]): Socket[R1, E1, Z, B] = Socket.FCMapM(self, za)
 
   def <>[R1 <: R, E1, A1 <: A, B1 >: B](other: Socket[R1, E1, A1, B1]): Socket[R1, E1, A1, B1] =
     Socket.FOrElse(self, other)

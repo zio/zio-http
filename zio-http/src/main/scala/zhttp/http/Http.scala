@@ -95,7 +95,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Transforms the input of the http before giving it
    */
-  def cmap[X](xa: X => A): Http[R, E, X, B] = Http.identity[X].map(xa) >>> self
+  def contramap[X](xa: X => A): Http[R, E, X, B] = Http.identity[X].map(xa) >>> self
 
   /**
    * Transforms the output of the http effectfully
@@ -106,7 +106,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Transforms the input of the http before giving it effectfully
    */
-  def cmapM[R1 <: R, E1 >: E, X](xa: X => ZIO[R1, E1, A]): Http[R1, E1, X, B] =
+  def contramapM[R1 <: R, E1 >: E, X](xa: X => ZIO[R1, E1, A]): Http[R1, E1, X, B] =
     Http.fromEffectFunction[X](xa) >>> self
 
   /**
