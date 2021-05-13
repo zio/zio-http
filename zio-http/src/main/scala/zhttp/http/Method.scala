@@ -47,7 +47,7 @@ object Method {
       case x         => Method.CUSTOM(x)
     }
 
-  def asJHttpMethod(self: Method): JHttpMethod = self match {
+  private[zhttp] def asJHttpMethod(self: Method): JHttpMethod = self match {
     case OPTIONS      => JHttpMethod.OPTIONS
     case GET          => JHttpMethod.GET
     case HEAD         => JHttpMethod.HEAD

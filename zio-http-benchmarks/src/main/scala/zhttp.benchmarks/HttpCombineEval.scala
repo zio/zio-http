@@ -15,13 +15,13 @@ class HttpCombineEval {
 
   @Benchmark
   def benchmarkNotFound(): Unit = {
-    spec.execute(-1).asOut
+    spec.execute(-1).evaluate
     ()
   }
 
   @Benchmark
   def benchmarkOk(): Unit = {
-    spec.execute(0).asOut
+    spec.execute(0).evaluate
     ()
   }
 }

@@ -28,6 +28,6 @@ trait HttpResultAssertion {
     })
 
   implicit class HttpResultSyntax[R, E, A](result: HttpResult[R, E, A]) {
-    def ===(assertion: Assertion[HttpResult[R, E, A]]) = assert(result.asOut)(assertion)
+    def ===(assertion: Assertion[HttpResult[R, E, A]]) = assert(result.evaluate)(assertion)
   }
 }

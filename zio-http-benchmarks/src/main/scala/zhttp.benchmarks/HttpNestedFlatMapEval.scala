@@ -17,7 +17,7 @@ class HttpNestedFlatMapEval {
 
   @Benchmark
   def benchmarkHttpFlatMap(): Unit = {
-    programFlatMap.execute(0).asOut
+    programFlatMap.execute(0).evaluate
     ()
   }
 }

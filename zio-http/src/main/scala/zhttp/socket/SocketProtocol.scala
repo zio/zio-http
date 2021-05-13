@@ -11,7 +11,7 @@ import zio.duration.Duration
  */
 sealed trait SocketProtocol { self =>
   def ++(other: SocketProtocol): SocketProtocol  = SocketProtocol.Concat(self, other)
-  def javaConfig: JWebSocketServerProtocolConfig = SocketProtocol.asJava(self)
+  def javaConfig: JWebSocketServerProtocolConfig = SocketProtocol.generate(self)
 }
 
 object SocketProtocol {
@@ -68,7 +68,7 @@ object SocketProtocol {
    */
   def default: SocketProtocol = Default
 
-  def asJava(protocol: SocketProtocol): JWebSocketServerProtocolConfig = {
+  private[zhttp] def generate(protocol: SocketProtocol): JWebSocketServerProtocolConfig = {
     val b = JWebSocketServerProtocolConfig.newBuilder().checkStartsWith(true).websocketPath("")
     def loop(protocol: SocketProtocol): Unit = {
       protocol match {

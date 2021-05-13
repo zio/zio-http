@@ -39,7 +39,7 @@ sealed trait HttpResult[-R, +E, +A] { self =>
   ): HttpResult[R1, E1, B1] =
     HttpResult.foldM(self, ee, aa, dd)
 
-  def asOut: HttpResult.Out[R, E, A] = HttpResult.asOut(self)
+  private[zhttp] def evaluate: HttpResult.Out[R, E, A] = HttpResult.evaluate(self)
 }
 
 object HttpResult {
@@ -93,12 +93,12 @@ object HttpResult {
 
   // EVAL
   @tailrec
-  def asOut[R, E, A](result: HttpResult[R, E, A]): Out[R, E, A] = {
+  private[zhttp] def evaluate[R, E, A](result: HttpResult[R, E, A]): Out[R, E, A] = {
     result match {
       case m: Out[_, _, _]         => m
-      case Suspend(r)              => asOut(r())
+      case Suspend(r)              => evaluate(r())
       case FoldM(self, ee, aa, dd) =>
-        asOut(self match {
+        evaluate(self match {
           case Empty                      => dd
           case Success(a)                 => aa(a)
           case Failure(e)                 => ee(e)
@@ -108,9 +108,9 @@ object HttpResult {
               z.foldM(
                 {
                   case None    => ZIO.fail(None)
-                  case Some(e) => ee(e).asOut.asEffect
+                  case Some(e) => ee(e).evaluate.asEffect
                 },
-                aa(_).asOut.asEffect,
+                aa(_).evaluate.asEffect,
               ),
             )
           case FoldM(self, ee0, aa0, dd0) =>
