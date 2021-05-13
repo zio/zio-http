@@ -16,16 +16,40 @@ sealed trait Http[-R, +E, -A, +B] { self =>
     self.foldM(_ => other, Http.succeed)
 
   /**
-   * Combines two Http into one
+   * Combines two Http into one.
    */
   def +++[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    self combine other
+
+  /**
+   * Named alias for `+++`
+   */
+  def combine[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
     Http.combine(self, other)
 
   /**
    * Pipes the output of one app into the other
    */
-  def >>>[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C1](other: Http[R1, E1, B1, C1]): Http[R1, E1, A1, C1] =
+  def >>>[R1 <: R, E1 >: E, B1 >: B, C](other: Http[R1, E1, B1, C]): Http[R1, E1, A, C] =
+    self andThen other
+
+  /**
+   * Named alias for `>>>`
+   */
+  def andThen[R1 <: R, E1 >: E, B1 >: B, C](other: Http[R1, E1, B1, C]): Http[R1, E1, A, C] =
     Http.Chain(self, other)
+
+  /**
+   * Composes one Http app with another.
+   */
+  def <<<[R1 <: R, E1 >: E, A1 <: A, X](other: Http[R1, E1, X, A1]): Http[R1, E1, X, B] =
+    self compose other
+
+  /**
+   * Named alias for `<<<`
+   */
+  def compose[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, C1, A1]): Http[R1, E1, C1, B] =
+    other andThen self
 
   /**
    * Alias for flatmap
