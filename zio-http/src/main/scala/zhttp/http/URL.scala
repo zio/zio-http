@@ -9,7 +9,7 @@ import java.net.URI
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
-case class URL(
+final case class URL(
   path: Path,
   kind: URL.Location = URL.Location.Relative,
   queryParams: Map[String, List[String]] = Map.empty,
@@ -29,8 +29,8 @@ case class URL(
 object URL {
   sealed trait Location
   object Location {
-    case object Relative                                         extends Location
-    case class Absolute(scheme: Scheme, host: String, port: Int) extends Location
+    case object Relative                                               extends Location
+    final case class Absolute(scheme: Scheme, host: String, port: Int) extends Location
   }
 
   private def queryParams(query: String) = {

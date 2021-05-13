@@ -15,15 +15,15 @@ sealed trait SocketProtocol { self =>
 }
 
 object SocketProtocol {
-  private case class SubProtocol(name: String)                     extends SocketProtocol
-  private case class HandshakeTimeoutMillis(duration: Duration)    extends SocketProtocol
-  private case class ForceCloseTimeoutMillis(duration: Duration)   extends SocketProtocol
-  private case object ForwardCloseFrames                           extends SocketProtocol
-  private case class SendCloseFrame(status: CloseStatus)           extends SocketProtocol
-  private case class SendCloseFrameCode(code: Int, reason: String) extends SocketProtocol
-  private case object ForwardPongFrames                            extends SocketProtocol
-  private case class Concat(a: SocketProtocol, b: SocketProtocol)  extends SocketProtocol
-  private case object Default                                      extends SocketProtocol
+  private final case class SubProtocol(name: String)                     extends SocketProtocol
+  private final case class HandshakeTimeoutMillis(duration: Duration)    extends SocketProtocol
+  private final case class ForceCloseTimeoutMillis(duration: Duration)   extends SocketProtocol
+  private case object ForwardCloseFrames                                 extends SocketProtocol
+  private final case class SendCloseFrame(status: CloseStatus)           extends SocketProtocol
+  private final case class SendCloseFrameCode(code: Int, reason: String) extends SocketProtocol
+  private case object ForwardPongFrames                                  extends SocketProtocol
+  private final case class Concat(a: SocketProtocol, b: SocketProtocol)  extends SocketProtocol
+  private case object Default                                            extends SocketProtocol
 
   /**
    * Used to specify the websocket sub-protocol

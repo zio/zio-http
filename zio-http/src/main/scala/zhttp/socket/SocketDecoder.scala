@@ -11,14 +11,14 @@ sealed trait SocketDecoder { self =>
 }
 
 object SocketDecoder {
-  private case class MaxFramePayloadLength(length: Int)         extends SocketDecoder
-  private case object RejectMaskedFrames                        extends SocketDecoder
-  private case object AllowMaskMismatch                         extends SocketDecoder
-  private case object AllowExtensions                           extends SocketDecoder
-  private case object AllowProtocolViolation                    extends SocketDecoder
-  private case object SkipUTF8Validation                        extends SocketDecoder
-  private case class Concat(a: SocketDecoder, b: SocketDecoder) extends SocketDecoder
-  private case object Default                                   extends SocketDecoder
+  private final case class MaxFramePayloadLength(length: Int)         extends SocketDecoder
+  private case object RejectMaskedFrames                              extends SocketDecoder
+  private case object AllowMaskMismatch                               extends SocketDecoder
+  private case object AllowExtensions                                 extends SocketDecoder
+  private case object AllowProtocolViolation                          extends SocketDecoder
+  private case object SkipUTF8Validation                              extends SocketDecoder
+  private final case class Concat(a: SocketDecoder, b: SocketDecoder) extends SocketDecoder
+  private case object Default                                         extends SocketDecoder
 
   /**
    * Sets Maximum length of a frame's payload. Setting this to an appropriate value for you application helps check for

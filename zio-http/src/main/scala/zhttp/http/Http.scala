@@ -160,19 +160,20 @@ sealed trait Http[-R, +E, -A, +B] { self =>
 }
 
 object Http {
-  private case object Empty                                                                extends Http[Any, Nothing, Any, Nothing]
-  private case object Identity                                                             extends Http[Any, Nothing, Any, Nothing]
-  private case class Succeed[B](b: B)                                                      extends Http[Any, Nothing, Any, B]
-  private case class Fail[E](e: E)                                                         extends Http[Any, E, Any, Nothing]
-  private case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B])                  extends Http[R, E, A, B]
-  private case class Collect[R, E, A, B](ab: PartialFunction[A, B])                        extends Http[R, E, A, B]
-  private case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C]) extends Http[R, E, A, C]
-  private case class Combine[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B])  extends Http[R, E, A, B]
-  private case class FoldM[R, E, EE, A, B, BB](
+  private case object Empty                                                                     extends Http[Any, Nothing, Any, Nothing]
+  private case object Identity                                                                  extends Http[Any, Nothing, Any, Nothing]
+  private final case class Succeed[B](b: B)                                                     extends Http[Any, Nothing, Any, B]
+  private final case class Fail[E](e: E)                                                        extends Http[Any, E, Any, Nothing]
+  private final case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B])                 extends Http[R, E, A, B]
+  private final case class Collect[R, E, A, B](ab: PartialFunction[A, B])                       extends Http[R, E, A, B]
+  private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C])
+      extends Http[R, E, A, C]
+  private final case class Combine[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B]) extends Http[R, E, A, B]
+  private final case class FoldM[R, E, EE, A, B, BB](
     self: Http[R, E, A, B],
     ee: E => Http[R, EE, A, BB],
     bb: B => Http[R, EE, A, BB],
-  )                                                                                        extends Http[R, EE, A, BB]
+  )                                                                                             extends Http[R, EE, A, BB]
 
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {
