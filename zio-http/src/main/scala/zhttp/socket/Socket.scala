@@ -4,9 +4,9 @@ import zio.stream.ZStream
 import zio.{Cause, ZIO}
 
 sealed trait Socket[-R, +E, -A, +B] { self =>
-  def apply(a: A): ZStream[R, E, B] = Socket.asStream(a, self)
+  def apply(a: A): ZStream[R, E, B] = Socket.execute(a, self)
 
-  def asStream(a: A): ZStream[R, E, B] = self(a)
+  private[zhttp] def execute(a: A): ZStream[R, E, B] = self(a)
 
   def map[C](bc: B => C): Socket[R, E, A, C] = Socket.FMap(self, bc)
 
@@ -51,7 +51,7 @@ object Socket {
     }
   }
 
-  def asStream[R, E, A, B](a: A, message: Socket[R, E, A, B]): ZStream[R, E, B] = {
+  private[zhttp] def execute[R, E, A, B](a: A, message: Socket[R, E, A, B]): ZStream[R, E, B] = {
     message match {
       case End                         => ZStream.halt(Cause.empty)
       case FromStreamingFunction(func) => func(a)

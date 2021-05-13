@@ -156,7 +156,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
-  def evaluate(a: A): HttpResult[R, E, B] = Http.evaluate(self: Http[R, E, A, B], a)
+  private[zhttp] def execute(a: A): HttpResult[R, E, B] = Http.execute(self: Http[R, E, A, B], a)
 }
 
 object Http {
@@ -194,7 +194,7 @@ object Http {
       Http.collect[A]({ case r if pf.isDefinedAt(r) => pf(r) }).flatten
   }
 
-  def evaluate[R, E, A, B](http: Http[R, E, A, B], a: A): HttpResult[R, E, B] =
+  private[zhttp] def execute[R, E, A, B](http: Http[R, E, A, B], a: A): HttpResult[R, E, B] =
     http match {
       case Empty                 => HttpResult.empty
       case Identity              => HttpResult.succeed(a.asInstanceOf[B])
@@ -202,10 +202,10 @@ object Http {
       case Fail(e)               => HttpResult.fail(e)
       case FromEffectFunction(f) => HttpResult.effect(f(a))
       case Collect(pf)           => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
-      case Chain(self, other)    => HttpResult.suspend(self.evaluate(a) >>= (other.evaluate(_)))
-      case Combine(self, other)  => HttpResult.suspend(self.evaluate(a).defaultWith(other.evaluate(a)))
+      case Chain(self, other)    => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
+      case Combine(self, other)  => HttpResult.suspend(self.execute(a).defaultWith(other.execute(a)))
       case FoldM(self, ee, bb)   =>
-        HttpResult.suspend(self.evaluate(a).foldM(ee(_).evaluate(a), bb(_).evaluate(a), HttpResult.empty))
+        HttpResult.suspend(self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), HttpResult.empty))
     }
 
   /**

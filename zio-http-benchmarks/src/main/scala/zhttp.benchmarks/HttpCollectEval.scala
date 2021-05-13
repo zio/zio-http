@@ -15,7 +15,7 @@ class HttpCollectEval {
 
   @Benchmark
   def benchmarkApp(): Unit = {
-    (0 to MAX).foreach(_ => app.evaluate(0).asOut)
+    (0 to MAX).foreach(_ => app.execute(0).asOut)
     ()
   }
 
