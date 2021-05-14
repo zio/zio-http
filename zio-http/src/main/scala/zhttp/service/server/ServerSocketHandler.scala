@@ -6,6 +6,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.{
 }
 import zhttp.core.{JChannelHandlerContext, JSimpleChannelInboundHandler, JWebSocketFrame}
 import zhttp.service.{ChannelFuture, UnsafeChannelExecutor}
+import zhttp.socket.SocketApp.Open
 import zhttp.socket.{SocketApp, WebSocketFrame}
 import zio.stream.ZStream
 
@@ -59,7 +60,11 @@ final case class ServerSocketHandler[R](
     event match {
       case _: JHandshakeComplete                                                              =>
         ss.onOpen match {
-          case Some(v) => writeAndFlush(ctx, v(ctx.channel().remoteAddress()))
+          case Some(v) =>
+            v match {
+              case Open.WithEffect(f) => zExec.unsafeExecute_(ctx)(f(ctx.channel().remoteAddress()))
+              case Open.WithSocket(s) => writeAndFlush(ctx, s(ctx.channel().remoteAddress()))
+            }
           case None    => ctx.fireUserEventTriggered(event)
         }
       case m: JServerHandshakeStateEvent if m == JServerHandshakeStateEvent.HANDSHAKE_TIMEOUT =>
