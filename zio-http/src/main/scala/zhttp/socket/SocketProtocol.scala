@@ -10,8 +10,29 @@ import zio.duration.Duration
  * Server side websocket configuration
  */
 sealed trait SocketProtocol { self =>
-  def ++(other: SocketProtocol): SocketProtocol  = SocketProtocol.Concat(self, other)
-  def javaConfig: JWebSocketServerProtocolConfig = SocketProtocol.generate(self)
+  import SocketProtocol._
+  def ++(other: SocketProtocol): SocketProtocol = SocketProtocol.Concat(self, other)
+  def javaConfig: JWebSocketServerProtocolConfig = {
+    val b = JWebSocketServerProtocolConfig.newBuilder().checkStartsWith(true).websocketPath("")
+    def loop(protocol: SocketProtocol): Unit = {
+      protocol match {
+        case Default                           => ()
+        case SubProtocol(name)                 => b.subprotocols(name)
+        case HandshakeTimeoutMillis(duration)  => b.handshakeTimeoutMillis(duration.toMillis)
+        case ForceCloseTimeoutMillis(duration) => b.forceCloseTimeoutMillis(duration.toMillis)
+        case ForwardCloseFrames                => b.handleCloseFrames(false)
+        case SendCloseFrame(status)            => b.sendCloseFrame(status.asJava)
+        case SendCloseFrameCode(code, reason)  => b.sendCloseFrame(new JWebSocketCloseStatus(code, reason))
+        case ForwardPongFrames                 => b.dropPongFrames(false)
+        case Concat(a, b)                      =>
+          loop(a)
+          loop(b)
+      }
+      ()
+    }
+    loop(self)
+    b.build()
+  }
 }
 
 object SocketProtocol {
@@ -67,26 +88,4 @@ object SocketProtocol {
    * Creates an default decoder configuration.
    */
   def default: SocketProtocol = Default
-
-  private[zhttp] def generate(protocol: SocketProtocol): JWebSocketServerProtocolConfig = {
-    val b = JWebSocketServerProtocolConfig.newBuilder().checkStartsWith(true).websocketPath("")
-    def loop(protocol: SocketProtocol): Unit = {
-      protocol match {
-        case Default                           => ()
-        case SubProtocol(name)                 => b.subprotocols(name)
-        case HandshakeTimeoutMillis(duration)  => b.handshakeTimeoutMillis(duration.toMillis)
-        case ForceCloseTimeoutMillis(duration) => b.forceCloseTimeoutMillis(duration.toMillis)
-        case ForwardCloseFrames                => b.handleCloseFrames(false)
-        case SendCloseFrame(status)            => b.sendCloseFrame(status.asJava)
-        case SendCloseFrameCode(code, reason)  => b.sendCloseFrame(new JWebSocketCloseStatus(code, reason))
-        case ForwardPongFrames                 => b.dropPongFrames(false)
-        case Concat(a, b)                      =>
-          loop(a)
-          loop(b)
-      }
-      ()
-    }
-    loop(protocol)
-    b.build()
-  }
 }

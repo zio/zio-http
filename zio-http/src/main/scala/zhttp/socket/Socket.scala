@@ -4,7 +4,19 @@ import zio.stream.ZStream
 import zio.{Cause, ZIO}
 
 sealed trait Socket[-R, +E, -A, +B] { self =>
-  def apply(a: A): ZStream[R, E, B] = Socket.execute(a, self)
+  import Socket._
+  def apply(a: A): ZStream[R, E, B] = self match {
+    case End                         => ZStream.halt(Cause.empty)
+    case FromStreamingFunction(func) => func(a)
+    case FromStream(s)               => s
+    case FMap(m, bc)                 => m(a).map(bc)
+    case FMapM(m, bc)                => m(a).mapM(bc)
+    case FCMap(m, xa)                => m(xa(a))
+    case FCMapM(m, xa)               => ZStream.fromEffect(xa(a)).flatMap(a => m(a))
+    case FOrElse(sa, sb)             => sa(a) <> sb(a)
+    case FMerge(sa, sb)              => sa(a) merge sb(a)
+    case Succeed(a)                  => ZStream.succeed(a)
+  }
 
   private[zhttp] def execute(a: A): ZStream[R, E, B] = self(a)
 
@@ -54,21 +66,6 @@ object Socket {
     def apply[R, E, B](pf: PartialFunction[A, ZStream[R, E, B]]): Socket[R, E, A, B] = Socket.FromStreamingFunction {
       a =>
         if (pf.isDefinedAt(a)) pf(a) else ZStream.empty
-    }
-  }
-
-  private[zhttp] def execute[R, E, A, B](a: A, message: Socket[R, E, A, B]): ZStream[R, E, B] = {
-    message match {
-      case End                         => ZStream.halt(Cause.empty)
-      case FromStreamingFunction(func) => func(a)
-      case FromStream(s)               => s
-      case FMap(m, bc)                 => m(a).map(bc)
-      case FMapM(m, bc)                => m(a).mapM(bc)
-      case FCMap(m, xa)                => m(xa(a))
-      case FCMapM(m, xa)               => ZStream.fromEffect(xa(a)).flatMap(a => m(a))
-      case FOrElse(sa, sb)             => sa(a) <> sb(a)
-      case FMerge(sa, sb)              => sa(a) merge sb(a)
-      case Succeed(a)                  => ZStream.succeed(a)
     }
   }
 }

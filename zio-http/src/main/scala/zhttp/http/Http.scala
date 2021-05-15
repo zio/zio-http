@@ -9,6 +9,8 @@ import scala.annotation.unused
  */
 sealed trait Http[-R, +E, -A, +B] { self =>
 
+  import Http._
+
   /**
    * Runs self but if it fails, runs other, ignoring the result from self.
    */
@@ -121,7 +123,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   def flatten[R1 <: R, E1 >: E, A1 <: A, B1](implicit
     ev: B <:< Http[R1, E1, A1, B1],
   ): Http[R1, E1, A1, B1] = {
-    self.flatMap(identity(_))
+    self.flatMap(scala.Predef.identity(_))
   }
 
   /**
@@ -168,7 +170,22 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
-  private[zhttp] def execute(a: A): HttpResult[R, E, B] = Http.execute(self: Http[R, E, A, B], a)
+  private[zhttp] def execute(a: A): HttpResult[R, E, B] = {
+    self match {
+      case Empty                 => HttpResult.empty
+      case Identity              => HttpResult.succeed(a.asInstanceOf[B])
+      case Succeed(b)            => HttpResult.succeed(b)
+      case Fail(e)               => HttpResult.fail(e)
+      case FromEffectFunction(f) => HttpResult.effect(f(a))
+      case Collect(pf)           => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
+      case Chain(self, other)    => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
+      case Combine(self, other)  => HttpResult.suspend(self.execute(a).defaultWith(other.execute(a)))
+      case FoldM(self, ee, bb)   =>
+        HttpResult.suspend {
+          self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), HttpResult.empty)
+        }
+    }
+  }
 }
 
 object Http {
@@ -205,22 +222,6 @@ object Http {
     def apply[R, E, B](pf: PartialFunction[A, Http[R, E, A, B]]): Http[R, E, A, B] =
       Http.collect[A]({ case r if pf.isDefinedAt(r) => pf(r) }).flatten
   }
-
-  private[zhttp] def execute[R, E, A, B](http: Http[R, E, A, B], a: A): HttpResult[R, E, B] =
-    http match {
-      case Empty                 => HttpResult.empty
-      case Identity              => HttpResult.succeed(a.asInstanceOf[B])
-      case Succeed(b)            => HttpResult.succeed(b)
-      case Fail(e)               => HttpResult.fail(e)
-      case FromEffectFunction(f) => HttpResult.effect(f(a))
-      case Collect(pf)           => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
-      case Chain(self, other)    => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
-      case Combine(self, other)  => HttpResult.suspend(self.execute(a).defaultWith(other.execute(a)))
-      case FoldM(self, ee, bb)   =>
-        HttpResult.suspend {
-          self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), HttpResult.empty)
-        }
-    }
 
   /**
    * Creates an Http that always returns the same response and never fails.

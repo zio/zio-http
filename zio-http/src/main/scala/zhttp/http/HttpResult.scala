@@ -5,6 +5,7 @@ import zio.{CanFail, ZIO}
 import scala.annotation.{tailrec, unused}
 
 sealed trait HttpResult[-R, +E, +A] { self =>
+
   def map[B](ab: A => B): HttpResult[R, E, B] = self.flatMap(a => HttpResult.succeed(ab(a)))
 
   def >>=[R1 <: R, E1 >: E, B](ab: A => HttpResult[R1, E1, B]): HttpResult[R1, E1, B] =

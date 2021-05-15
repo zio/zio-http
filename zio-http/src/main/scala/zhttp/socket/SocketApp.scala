@@ -7,9 +7,48 @@ import zio.stream.ZStream
 import java.net.{SocketAddress => JSocketAddress}
 
 sealed trait SocketApp[-R, +E] { self =>
+  import SocketApp._
   def ++[R1 <: R, E1 >: E](other: SocketApp[R1, E1]): SocketApp[R1, E1] = SocketApp.Concat(self, other)
-  def config: SocketApp.SocketConfig[R, E]                              = SocketApp.generate(self)
-  def asResponse: Response[R, E]                                        = Response.SocketResponse(self)
+
+  def asResponse: Response[R, E] = Response.SocketResponse(self)
+
+  def config: SocketApp.SocketConfig[R, E] = {
+    def loop(config: SocketApp[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] =
+      config match {
+        case Empty => s
+
+        case Decoder(decoder) => s.copy(decoder = s.decoder ++ decoder)
+
+        case Protocol(protocol) => s.copy(protocol = s.protocol ++ protocol)
+
+        case OnTimeout(onTimeout) =>
+          s.copy(onTimeout = s.onTimeout.fold(Option(onTimeout))(v => Option(v &> onTimeout)))
+
+        case a: Open[_, _] =>
+          s.copy(onOpen = s.onOpen match {
+            case Some(b) => Option(b merge a)
+            case None    => Option(a)
+          })
+
+        case OnMessage(a) =>
+          s.copy(onMessage = s.onMessage match {
+            case Some(b) => Option(b merge a)
+            case None    => Option(a)
+          })
+
+        case OnError(onError) =>
+          s.copy(onError = s.onError.fold(Option(onError))(v => Option(c => v(c) &> onError(c))))
+
+        case OnClose(onClose) =>
+          s.copy(onClose = s.onClose.fold(Option(onClose))(v => Option(c => v(c) &> onClose(c))))
+
+        case Concat(a, b) =>
+          loop(b, loop(a, s))
+      }
+
+    loop(self, SocketConfig[R, E]())
+  }
+
 }
 
 object SocketApp {
@@ -110,42 +149,4 @@ object SocketApp {
     decoder: SocketDecoder = SocketDecoder.default,
     protocol: SocketProtocol = SocketProtocol.default,
   )
-
-  private[zhttp] def generate[R, E](socket: SocketApp[R, E]): SocketConfig[R, E] = {
-    def loop(config: SocketApp[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] =
-      config match {
-        case Empty => s
-
-        case Decoder(decoder) => s.copy(decoder = s.decoder ++ decoder)
-
-        case Protocol(protocol) => s.copy(protocol = s.protocol ++ protocol)
-
-        case OnTimeout(onTimeout) =>
-          s.copy(onTimeout = s.onTimeout.fold(Option(onTimeout))(v => Option(v &> onTimeout)))
-
-        case a: Open[_, _] =>
-          s.copy(onOpen = s.onOpen match {
-            case Some(b) => Option(b merge a)
-            case None    => Option(a)
-          })
-
-        case OnMessage(a) =>
-          s.copy(onMessage = s.onMessage match {
-            case Some(b) => Option(b merge a)
-            case None    => Option(a)
-          })
-
-        case OnError(onError) =>
-          s.copy(onError = s.onError.fold(Option(onError))(v => Option(c => v(c) &> onError(c))))
-
-        case OnClose(onClose) =>
-          s.copy(onClose = s.onClose.fold(Option(onClose))(v => Option(c => v(c) &> onClose(c))))
-
-        case Concat(a, b) =>
-          loop(b, loop(a, s))
-      }
-
-    loop(socket, SocketConfig[R, E]())
-  }
-
 }
