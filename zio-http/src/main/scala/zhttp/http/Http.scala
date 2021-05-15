@@ -13,6 +13,12 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * Runs self but if it fails, runs other, ignoring the result from self.
    */
   def <>[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    self orElse other
+
+  /**
+   * Named alias for `<>`
+   */
+  def orElse[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
     self.foldM(_ => other, Http.succeed)
 
   /**
