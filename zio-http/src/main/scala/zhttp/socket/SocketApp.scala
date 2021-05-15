@@ -19,7 +19,7 @@ object SocketApp {
   private[zhttp] sealed trait Open[-R, +E] extends SocketApp[R, E] { self =>
     import Open._
     private def sock: Open[R, E] = self match {
-      case WithEffect(f)     => WithSocket(Socket.collect(c => ZStream.fromEffect(f(c)) *> ZStream.empty))
+      case WithEffect(f)     => WithSocket(Socket.fromFunction(c => ZStream.fromEffect(f(c)) *> ZStream.empty))
       case s @ WithSocket(_) => s
     }
 

@@ -44,6 +44,12 @@ object Socket {
 
   def end: ZStream[Any, Nothing, Nothing] = ZStream.halt(Cause.empty)
 
+  def fromFunction[A]: MkFromFunction[A] = new MkFromFunction[A](())
+
+  final class MkFromFunction[A](val unit: Unit) extends AnyVal {
+    def apply[R, E, B](f: A => ZStream[R, E, B]): Socket[R, E, A, B] = FromStreamingFunction(f)
+  }
+
   final class MkCollect[A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, ZStream[R, E, B]]): Socket[R, E, A, B] = Socket.FromStreamingFunction {
       a =>
