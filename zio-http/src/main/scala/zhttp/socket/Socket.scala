@@ -29,6 +29,9 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
   def contramapM[R1 <: R, E1 >: E, Z](za: Z => ZIO[R1, E1, A]): Socket[R1, E1, Z, B] = Socket.FCMapM(self, za)
 
   def <>[R1 <: R, E1, A1 <: A, B1 >: B](other: Socket[R1, E1, A1, B1]): Socket[R1, E1, A1, B1] =
+    self orElse other
+
+  def orElse[R1 <: R, E1, A1 <: A, B1 >: B](other: Socket[R1, E1, A1, B1]): Socket[R1, E1, A1, B1] =
     Socket.FOrElse(self, other)
 
   def merge[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Socket[R1, E1, A1, B1]): Socket[R1, E1, A1, B1] =
