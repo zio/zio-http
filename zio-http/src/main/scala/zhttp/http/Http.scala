@@ -27,13 +27,13 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * Combines two Http into one.
    */
   def +++[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    self combine other
+    self defaultWith other
 
   /**
    * Named alias for `+++`
    */
-  def combine[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    Http.combine(self, other)
+  def defaultWith[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    self.foldM(Http.fail, Http.succeed, other)
 
   /**
    * Pipes the output of one app into the other
@@ -159,7 +159,8 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   def foldM[R1 <: R, A1 <: A, E1, B1](
     ee: E => Http[R1, E1, A1, B1],
     bb: B => Http[R1, E1, A1, B1],
-  ): Http[R1, E1, A1, B1] = Http.FoldM(self, ee, bb)
+    dd: Http[R1, E1, A1, B1] = Http.empty,
+  ): Http[R1, E1, A1, B1] = Http.FoldM(self, ee, bb, dd)
 
   /**
    * Unwraps an Http that returns a ZIO of Http
@@ -172,37 +173,36 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   private[zhttp] def execute(a: A): HttpResult[R, E, B] = {
     self match {
-      case Empty                 => HttpResult.empty
-      case Identity              => HttpResult.succeed(a.asInstanceOf[B])
-      case Succeed(b)            => HttpResult.succeed(b)
-      case Fail(e)               => HttpResult.fail(e)
-      case FromEffectFunction(f) => HttpResult.effect(f(a))
-      case Collect(pf)           => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
-      case Chain(self, other)    => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
-      case Combine(self, other)  => HttpResult.suspend(self.execute(a).defaultWith(other.execute(a)))
-      case FoldM(self, ee, bb)   =>
+      case Empty                   => HttpResult.empty
+      case Identity                => HttpResult.succeed(a.asInstanceOf[B])
+      case Succeed(b)              => HttpResult.succeed(b)
+      case Fail(e)                 => HttpResult.fail(e)
+      case FromEffectFunction(f)   => HttpResult.effect(f(a))
+      case Collect(pf)             => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
+      case Chain(self, other)      => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
+      case FoldM(self, ee, bb, dd) =>
         HttpResult.suspend {
-          self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), HttpResult.empty)
+          self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
         }
     }
   }
 }
 
 object Http {
-  private case object Empty                                                                     extends Http[Any, Nothing, Any, Nothing]
-  private case object Identity                                                                  extends Http[Any, Nothing, Any, Nothing]
-  private final case class Succeed[B](b: B)                                                     extends Http[Any, Nothing, Any, B]
-  private final case class Fail[E](e: E)                                                        extends Http[Any, E, Any, Nothing]
-  private final case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B])                 extends Http[R, E, A, B]
-  private final case class Collect[R, E, A, B](ab: PartialFunction[A, B])                       extends Http[R, E, A, B]
+  private case object Empty                                                     extends Http[Any, Nothing, Any, Nothing]
+  private case object Identity                                                  extends Http[Any, Nothing, Any, Nothing]
+  private final case class Succeed[B](b: B)                                     extends Http[Any, Nothing, Any, B]
+  private final case class Fail[E](e: E)                                        extends Http[Any, E, Any, Nothing]
+  private final case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B]) extends Http[R, E, A, B]
+  private final case class Collect[R, E, A, B](ab: PartialFunction[A, B])       extends Http[R, E, A, B]
   private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C])
       extends Http[R, E, A, C]
-  private final case class Combine[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B]) extends Http[R, E, A, B]
   private final case class FoldM[R, E, EE, A, B, BB](
     self: Http[R, E, A, B],
     ee: E => Http[R, EE, A, BB],
     bb: B => Http[R, EE, A, BB],
-  )                                                                                             extends Http[R, EE, A, BB]
+    dd: Http[R, EE, A, BB],
+  )                                                                             extends Http[R, EE, A, BB]
 
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {
@@ -271,9 +271,10 @@ object Http {
     http.flatMap(Http.fromEffect)
 
   /**
-   * Combines two Http values into one
+   * Combines multiple Http apps into one
    */
-  def combine[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B]): Http[R, E, A, B] = Combine(self, other)
+  def combine[R, E, A, B](i: Iterable[Http[R, E, A, B]]): Http[R, E, A, B] =
+    i.reduce(_.defaultWith(_))
 
   /**
    * Creates an empty Http value
