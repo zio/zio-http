@@ -21,7 +21,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * Named alias for `<>`
    */
   def orElse[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    self.foldM(_ => other, Http.succeed)
+    self.catchAll(_ => other)
 
   /**
    * Combines two Http into one.
@@ -81,7 +81,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
    */
   def silent[E1 >: E, B1 >: B](implicit s: CanBeSilenced[E1, B1]): Http[R, Nothing, A, B1] =
-    self.foldM(e => Http.succeed(s.silent(e)), Http.succeed)
+    self.catchAll(e => Http.succeed(s.silent(e)))
 
   /**
    * Collects some of the results of the http and converts it to another type.
@@ -142,7 +142,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * Creates a new Http app from another
    */
   def flatMap[R1 <: R, E1 >: E, A1 <: A, C1](f: B => Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] = {
-    self.foldM(Http.fail, f)
+    self.foldM(Http.fail, f, Http.empty)
   }
 
   /**
@@ -151,7 +151,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   def catchAll[R1 <: R, E1, A1 <: A, B1 >: B](f: E => Http[R1, E1, A1, B1])(implicit
     @unused ev: CanFail[E],
   ): Http[R1, E1, A1, B1] =
-    self.foldM(f, Http.succeed)
+    self.foldM(f, Http.succeed, Http.empty)
 
   /**
    * Folds over the http app by taking in two functions one for success and one for failure respectively.
@@ -159,7 +159,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   def foldM[R1 <: R, A1 <: A, E1, B1](
     ee: E => Http[R1, E1, A1, B1],
     bb: B => Http[R1, E1, A1, B1],
-    dd: Http[R1, E1, A1, B1] = Http.empty,
+    dd: Http[R1, E1, A1, B1],
   ): Http[R1, E1, A1, B1] = Http.FoldM(self, ee, bb, dd)
 
   /**

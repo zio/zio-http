@@ -46,7 +46,7 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
     ),
     suite("foldM")(
       test("should catch") {
-        val a      = Http.fail(100).foldM(e => Http.succeed(e + 1), (_: Any) => Http.succeed(()))
+        val a      = Http.fail(100).catchAll(e => Http.succeed(e + 1))
         val actual = a.execute(0).evaluate
         assert(actual)(isSuccess(equalTo(101)))
       },
