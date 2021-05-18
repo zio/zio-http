@@ -3,8 +3,9 @@ package zhttp.service.server
 import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler}
 import io.netty.handler.codec.http.{LastHttpContent => JLastHttpContent}
-import zhttp.core._
+import zhttp.core.{JFullHttpRequest, _}
 import zhttp.http._
+import zhttp.service.Server.Settings
 import zhttp.service._
 import zio.Exit
 
@@ -14,10 +15,9 @@ import zio.Exit
 @JSharable
 final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
-  app: RHttpApp[R],
+  settings: Settings[R, Throwable],
 ) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
-    with HttpMessageCodec
-    with ServerHttpExceptionHandler {
+    with HttpMessageCodec {
 
   self =>
 
@@ -35,7 +35,7 @@ final case class ServerRequestHandler[R](
     decodeJRequest(jReq) match {
       case Left(err)  => cb(err.toResponse)
       case Right(req) =>
-        app.execute(req).evaluate match {
+        settings.http.execute(req).evaluate match {
           case HttpResult.Empty      => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
           case HttpResult.Success(a) => cb(a)
           case HttpResult.Failure(e) => cb(SilentResponse[Throwable].silent(e))
@@ -93,8 +93,12 @@ final case class ServerRequestHandler[R](
    * Handles exceptions that throws
    */
   override def exceptionCaught(ctx: JChannelHandlerContext, cause: Throwable): Unit = {
-    if (self.canThrowException(cause)) {
-      super.exceptionCaught(ctx, cause)
+    settings.error match {
+      case Some(v) => zExec.unsafeExecute_(ctx)(v(cause).uninterruptible)
+      case None    => {
+        ctx.fireExceptionCaught(cause)
+        ()
+      }
     }
   }
 }
