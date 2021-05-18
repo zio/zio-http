@@ -8,15 +8,3 @@ private[auth] trait AuthMiddlewareSyntax {
       authMiddleware >>> httpApp
   }
 }
-
-// R = Console
-// initial R1 = Logging
-// => R1 = Console with Logging
-
-// E = HttpError
-// inital E1 = Nothing
-// => HttpError
-
-// E = Nothing
-// initial E1 = Throwable
-// => Throwable
