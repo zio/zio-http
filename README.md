@@ -59,12 +59,12 @@ libraryDependencies += "io.d11" %% "zhttp" % "[version]"
 
 These are some basic benchmarks of how ZIO Http performs wrt other main-stream libraries.
 
-| **Benchmark (req/sec)** |  `json`   | `plain-text` |
-| :---------------------- | :-------: | -----------: |
-| **ZIO-Http**            | 700073.31 |    719576.04 |
-| **Vert.x**              | 644854.27 |    707991.69 |
-| **Finagle**             | 567496.97 |    572231.69 |
-| **Play**                | 261223.68 |    263819.25 |
-| **Http4s**              | 135565.22 |    139573.98 |
+| **Benchmark (req/sec)** |   `json`   |  `plain-text` |
+| :---------------------- | :--------: | ------------: |
+| **ZIO-Http**            | 700,073.31 |    719,576.04 |
+| **Vert.x**              | 644,854.27 |    707,991.69 |
+| **Finagle**             | 567,496.97 |    572,231.69 |
+| **Play**                | 261,223.68 |    263,819.25 |
+| **Http4s**              | 135,565.22 |    139,573.98 |
 
 More details are available [here](https://github.com/dream11/zio-http/blob/main/BENCHMARKS.md).
