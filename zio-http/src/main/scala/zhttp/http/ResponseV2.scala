@@ -46,10 +46,10 @@ object ResponseV2 {
 
     def header(header: Header): Response[Nothing, Nothing] = ResponseHeader(header)
 
-    def containsHTTPData[A](response: Response[Status, A]): Boolean = response match {
+    def containsHTTPContent[A](response: Response[Status, A]): Boolean = response match {
       case ResponseContent(_) => true
       case Combine(a, b) => {
-        containsHTTPData(a) || containsHTTPData(b)
+        containsHTTPContent(a) || containsHTTPContent(b)
       }
       case _ => false
     }
@@ -95,20 +95,23 @@ object ResponseV2 {
 
       loop1(response)
 
-      def loop2(response: Response[Status, A]): HttpData[Any, Nothing] = if (Response.containsHTTPData(response)) {
-        response match {
-        case ResponseContent(data) => data match {
-        case HttpData.Empty => HttpData.empty
-        case HttpData.CompleteData(data) => HttpData.CompleteData(data)
-        case HttpData.StreamData(_) => ???
+      def loop2(response: Response[Status, A]): HttpData[Any, Nothing] =
+        if (Response.containsHTTPContent(response)) {
+          response match {
+            case ResponseContent(data) => data match {
+              case HttpData.Empty => HttpData.empty
+              case HttpData.CompleteData(data) => HttpData.CompleteData(data)
+              case HttpData.StreamData(_) => HttpData.empty
+            }
+            case Combine(a, b) => {
+              val c: HttpData[Any, Nothing] = loop2(a)
+              if (c.equals(HttpData.empty)) loop2(b) else c
+            }
+            case _ => HttpData.empty
+          }
+        } else {
+          throw new Exception("Response doesn't contain content")
         }
-        case Combine(_, _) => ???
-        case _ => ???
-
-        }
-      } else {
-        throw new Exception("Response doesn't contain content")
-      }
 
       CompleteResponse(jResponse, loop2(response))
     }
