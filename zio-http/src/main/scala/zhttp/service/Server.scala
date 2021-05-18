@@ -29,18 +29,18 @@ sealed trait Server[-R, +E] { self =>
 }
 
 object Server {
-  private case class Settings[-R, +E](
+  private final case class Settings[-R, +E](
     http: HttpApp[R, E] = HttpApp.empty(Status.NOT_FOUND),
     port: Int = 8080,
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
   )
 
-  private case class Concat[R, E](self: Server[R, E], other: Server[R, E]) extends Server[R, E]
-  private case class Port(port: Int)                                       extends UServer
-  private case class LeakDetection(level: LeakDetectionLevel)              extends UServer
-  private case class MaxRequestSize(size: Int)                             extends UServer
-  private case class App[R, E](http: HttpApp[R, E])                        extends Server[R, E]
+  private final case class Concat[R, E](self: Server[R, E], other: Server[R, E]) extends Server[R, E]
+  private final case class Port(port: Int)                                       extends UServer
+  private final case class LeakDetection(level: LeakDetectionLevel)              extends UServer
+  private final case class MaxRequestSize(size: Int)                             extends UServer
+  private final case class App[R, E](http: HttpApp[R, E])                        extends Server[R, E]
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E] = Server.App(http)
   def maxRequestSize(size: Int): UServer           = Server.MaxRequestSize(size)

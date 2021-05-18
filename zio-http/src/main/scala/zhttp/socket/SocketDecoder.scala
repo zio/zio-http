@@ -6,19 +6,39 @@ import io.netty.handler.codec.http.websocketx.{WebSocketDecoderConfig => JWebSoc
  * Frame decoder configuration
  */
 sealed trait SocketDecoder { self =>
+  import SocketDecoder._
   def ++(other: SocketDecoder): SocketDecoder = SocketDecoder.Concat(self, other)
-  def javaConfig: JWebSocketDecoderConfig     = SocketDecoder.asJava(self)
+  def javaConfig: JWebSocketDecoderConfig = {
+    val b = JWebSocketDecoderConfig.newBuilder()
+    def loop(decoder: SocketDecoder): Unit = {
+      decoder match {
+        case Default                       => ()
+        case MaxFramePayloadLength(length) => b.maxFramePayloadLength(length)
+        case RejectMaskedFrames            => b.expectMaskedFrames(false)
+        case AllowMaskMismatch             => b.allowMaskMismatch(true)
+        case AllowExtensions               => b.allowExtensions(true)
+        case AllowProtocolViolation        => b.closeOnProtocolViolation(false)
+        case SkipUTF8Validation            => b.withUTF8Validator(false)
+        case Concat(a, b)                  =>
+          loop(a)
+          loop(b)
+      }
+      ()
+    }
+    loop(self)
+    b.build()
+  }
 }
 
 object SocketDecoder {
-  private case class MaxFramePayloadLength(length: Int)         extends SocketDecoder
-  private case object RejectMaskedFrames                        extends SocketDecoder
-  private case object AllowMaskMismatch                         extends SocketDecoder
-  private case object AllowExtensions                           extends SocketDecoder
-  private case object AllowProtocolViolation                    extends SocketDecoder
-  private case object SkipUTF8Validation                        extends SocketDecoder
-  private case class Concat(a: SocketDecoder, b: SocketDecoder) extends SocketDecoder
-  private case object Default                                   extends SocketDecoder
+  private final case class MaxFramePayloadLength(length: Int)         extends SocketDecoder
+  private case object RejectMaskedFrames                              extends SocketDecoder
+  private case object AllowMaskMismatch                               extends SocketDecoder
+  private case object AllowExtensions                                 extends SocketDecoder
+  private case object AllowProtocolViolation                          extends SocketDecoder
+  private case object SkipUTF8Validation                              extends SocketDecoder
+  private final case class Concat(a: SocketDecoder, b: SocketDecoder) extends SocketDecoder
+  private case object Default                                         extends SocketDecoder
 
   /**
    * Sets Maximum length of a frame's payload. Setting this to an appropriate value for you application helps check for
@@ -56,26 +76,4 @@ object SocketDecoder {
    * Creates an default decoder configuration.
    */
   def default: SocketDecoder = Default
-
-  def asJava(decoder: SocketDecoder): JWebSocketDecoderConfig = {
-    val b = JWebSocketDecoderConfig.newBuilder()
-    def loop(decoder: SocketDecoder): Unit = {
-      decoder match {
-        case Default                       => ()
-        case MaxFramePayloadLength(length) => b.maxFramePayloadLength(length)
-        case RejectMaskedFrames            => b.expectMaskedFrames(false)
-        case AllowMaskMismatch             => b.allowMaskMismatch(true)
-        case AllowExtensions               => b.allowExtensions(true)
-        case AllowProtocolViolation        => b.closeOnProtocolViolation(false)
-        case SkipUTF8Validation            => b.withUTF8Validator(false)
-        case Concat(a, b)                  =>
-          loop(a)
-          loop(b)
-      }
-      ()
-    }
-    loop(decoder)
-    b.build()
-  }
-
 }

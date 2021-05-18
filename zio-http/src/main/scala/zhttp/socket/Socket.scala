@@ -4,19 +4,34 @@ import zio.stream.ZStream
 import zio.{Cause, ZIO}
 
 sealed trait Socket[-R, +E, -A, +B] { self =>
-  def apply(a: A): ZStream[R, E, B] = Socket.asStream(a, self)
+  import Socket._
+  def apply(a: A): ZStream[R, E, B] = self match {
+    case End                         => ZStream.halt(Cause.empty)
+    case FromStreamingFunction(func) => func(a)
+    case FromStream(s)               => s
+    case FMap(m, bc)                 => m(a).map(bc)
+    case FMapM(m, bc)                => m(a).mapM(bc)
+    case FCMap(m, xa)                => m(xa(a))
+    case FCMapM(m, xa)               => ZStream.fromEffect(xa(a)).flatMap(a => m(a))
+    case FOrElse(sa, sb)             => sa(a) <> sb(a)
+    case FMerge(sa, sb)              => sa(a) merge sb(a)
+    case Succeed(a)                  => ZStream.succeed(a)
+  }
 
-  def asStream(a: A): ZStream[R, E, B] = self(a)
+  private[zhttp] def execute(a: A): ZStream[R, E, B] = self(a)
 
   def map[C](bc: B => C): Socket[R, E, A, C] = Socket.FMap(self, bc)
 
   def mapM[R1 <: R, E1 >: E, C](bc: B => ZIO[R1, E1, C]): Socket[R1, E1, A, C] = Socket.FMapM(self, bc)
 
-  def cmap[Z](za: Z => A): Socket[R, E, Z, B] = Socket.FCMap(self, za)
+  def contramap[Z](za: Z => A): Socket[R, E, Z, B] = Socket.FCMap(self, za)
 
-  def cmapM[R1 <: R, E1 >: E, Z](za: Z => ZIO[R1, E1, A]): Socket[R1, E1, Z, B] = Socket.FCMapM(self, za)
+  def contramapM[R1 <: R, E1 >: E, Z](za: Z => ZIO[R1, E1, A]): Socket[R1, E1, Z, B] = Socket.FCMapM(self, za)
 
   def <>[R1 <: R, E1, A1 <: A, B1 >: B](other: Socket[R1, E1, A1, B1]): Socket[R1, E1, A1, B1] =
+    self orElse other
+
+  def orElse[R1 <: R, E1, A1 <: A, B1 >: B](other: Socket[R1, E1, A1, B1]): Socket[R1, E1, A1, B1] =
     Socket.FOrElse(self, other)
 
   def merge[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Socket[R1, E1, A1, B1]): Socket[R1, E1, A1, B1] =
@@ -44,25 +59,16 @@ object Socket {
 
   def end: ZStream[Any, Nothing, Nothing] = ZStream.halt(Cause.empty)
 
+  def fromFunction[A]: MkFromFunction[A] = new MkFromFunction[A](())
+
+  final class MkFromFunction[A](val unit: Unit) extends AnyVal {
+    def apply[R, E, B](f: A => ZStream[R, E, B]): Socket[R, E, A, B] = FromStreamingFunction(f)
+  }
+
   final class MkCollect[A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, ZStream[R, E, B]]): Socket[R, E, A, B] = Socket.FromStreamingFunction {
       a =>
         if (pf.isDefinedAt(a)) pf(a) else ZStream.empty
-    }
-  }
-
-  def asStream[R, E, A, B](a: A, message: Socket[R, E, A, B]): ZStream[R, E, B] = {
-    message match {
-      case End                         => ZStream.halt(Cause.empty)
-      case FromStreamingFunction(func) => func(a)
-      case FromStream(s)               => s
-      case FMap(m, bc)                 => m(a).map(bc)
-      case FMapM(m, bc)                => m(a).mapM(bc)
-      case FCMap(m, xa)                => m(xa(a))
-      case FCMapM(m, xa)               => ZStream.fromEffect(xa(a)).flatMap(a => m(a))
-      case FOrElse(sa, sb)             => sa(a) <> sb(a)
-      case FMerge(sa, sb)              => sa(a) merge sb(a)
-      case Succeed(a)                  => ZStream.succeed(a)
     }
   }
 }

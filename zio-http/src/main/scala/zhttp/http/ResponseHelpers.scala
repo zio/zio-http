@@ -6,7 +6,7 @@ import zio.Chunk
 
 import java.io.{PrintWriter, StringWriter}
 
-trait ResponseOps {
+private[zhttp] trait ResponseHelpers {
   private val defaultStatus  = Status.OK
   private val defaultHeaders = Nil
 
