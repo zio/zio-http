@@ -30,7 +30,7 @@ sealed trait Server[-R, +E] { self =>
 }
 
 object Server {
-  private final case class Settings[-R, +E](
+  private[zhttp] final case class Settings[-R, +E](
     http: HttpApp[R, E] = HttpApp.empty(Status.NOT_FOUND),
     port: Int = 8080,
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
@@ -69,7 +69,7 @@ object Server {
       zExec          <- UnsafeChannelExecutor.make[R].toManaged_
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
-      httpH           = ServerRequestHandler(zExec, settings.http, settings.error)
+      httpH           = ServerRequestHandler(zExec, settings)
       init            = ServerChannelInitializer(httpH, settings.maxRequestSize)
       serverBootstrap = new JServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.port))
