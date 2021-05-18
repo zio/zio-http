@@ -38,11 +38,11 @@ object Server {
     error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
   )
 
-  private final case class Concat[R, E](self: Server[R, E], other: Server[R, E]) extends Server[R, E]
-  private final case class Port(port: Int)                                       extends UServer
-  private final case class LeakDetection(level: LeakDetectionLevel)              extends UServer
-  private final case class MaxRequestSize(size: Int)                             extends UServer
-  private final case class App[R, E](http: HttpApp[R, E])                        extends Server[R, E]
+  private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
+  private final case class Port(port: Int)                                            extends UServer
+  private final case class LeakDetection(level: LeakDetectionLevel)                   extends UServer
+  private final case class MaxRequestSize(size: Int)                                  extends UServer
+  private final case class App[R, E](http: HttpApp[R, E])                             extends Server[R, E]
   private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]                                   = Server.App(http)
