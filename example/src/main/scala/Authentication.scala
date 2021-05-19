@@ -27,30 +27,35 @@ object Authentication extends App {
   // Takes in a Failing HttpApp and a Succeed HttpApp which are called based on Authentication success or failure
   // For each request tries to read the `X-ACCESS-TOKEN` header
   // Validates JWT Claim
-  def authenticate[R, E](fail: HttpApp[R, E], success: JwtClaim => HttpApp[R, E]): HttpApp[R, E] = Http.flatten {
+  def authenticate[R, E](
+    fail: Http[R, E, Request, Response[R, E]],
+    success: JwtClaim => Http[R, E, Request, Response[R, E]],
+  ): Http[R, E, Request, Response[R, E]] = Http.flatten {
     Http
       .fromFunction[Request] {
         _.getHeader("X-ACCESS-TOKEN")
           .flatMap(header => jwtDecode(header.value.toString))
-          .fold[HttpApp[R, E]](fail)(success)
+          .fold[Http[R, E, Request, Response[R, E]]](fail)(success)
       }
   }
 
   // Http app that requires a JWT claim
-  def user(claim: JwtClaim): UHttpApp = Http.collect[Request] {
+  def user(claim: JwtClaim) = Http.collect[Request] {
     case Method.GET -> Root / "user" / name / "greet" => Response.text(s"Welcome to the ZIO party! ${name}")
     case Method.GET -> Root / "user" / "expiration"   => Response.text(s"Expires in: ${claim.expiration.getOrElse(-1L)}")
   }
 
   // App that let's the user login
   // Login is successful only if the password is the reverse of the username
-  def login: UHttpApp = Http.collect[Request] { case Method.GET -> Root / "login" / username / password =>
+  def login: UHttpApp = HttpApp.collect[Any, Nothing] { case Method.GET -> Root / "login" / username / password =>
     if (password.reverse == username) Response.text(jwtEncode(username))
     else Response.fromHttpError(HttpError.Unauthorized("Invalid username of password\n"))
   }
 
   // Composing all the HttpApps together
-  val app: UHttpApp = login +++ authenticate(HttpApp.forbidden("Not allowed!"), user)
+  val app: UHttpApp = new HttpApp.HttpApp[Any, Nothing](
+    login.asHttp +++ authenticate(Http.succeed(HttpError.Forbidden("Not allowed!").toResponse), user),
+  )
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

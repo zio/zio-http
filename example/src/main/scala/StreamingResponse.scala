@@ -11,7 +11,7 @@ object StreamingResponse extends App {
   val message = Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET))
 
   // Use `Http.collect` to match on route
-  val app: HttpApp[Any, Nothing] = HttpApp.collect {
+  val app: HttpApp.HttpApp[Any, Nothing] = HttpApp.collect {
 
     // Simple (non-stream) based route
     case Method.GET -> Root / "health" => Response.ok
@@ -28,6 +28,6 @@ object StreamingResponse extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
 
     // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
-    Server.start(8090, app.silent).exitCode
+    Server.start(8090, new HttpApp.HttpApp(app.asHttp.silent)).exitCode
   }
 }

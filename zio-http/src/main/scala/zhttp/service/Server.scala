@@ -2,7 +2,7 @@ package zhttp.service
 
 import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
 import zhttp.core._
-import zhttp.http.{Status, _}
+import zhttp.http.{HttpApp, Status, _}
 import zhttp.service.server.{LeakDetectionLevel, ServerChannelFactory, ServerChannelInitializer, ServerRequestHandler}
 import zio.{ZManaged, _}
 
@@ -31,7 +31,7 @@ sealed trait Server[-R, +E] { self =>
 
 object Server {
   private[zhttp] final case class Settings[-R, +E](
-    http: HttpApp[R, E] = HttpApp.empty(Status.NOT_FOUND),
+    http: HttpApp.HttpApp[R, E] = HttpApp.empty(Status.NOT_FOUND),
     port: Int = 8080,
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
@@ -42,10 +42,10 @@ object Server {
   private final case class Port(port: Int)                                            extends UServer
   private final case class LeakDetection(level: LeakDetectionLevel)                   extends UServer
   private final case class MaxRequestSize(size: Int)                                  extends UServer
-  private final case class App[R, E](http: HttpApp[R, E])                             extends Server[R, E]
+  private final case class App[R, E](http: HttpApp.HttpApp[R, E])                     extends Server[R, E]
   private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
 
-  def app[R, E](http: HttpApp[R, E]): Server[R, E]                                   = Server.App(http)
+  def app[R, E](http: HttpApp.HttpApp[R, E]): Server[R, E]                           = Server.App(http)
   def maxRequestSize(size: Int): UServer                                             = Server.MaxRequestSize(size)
   def port(int: Int): UServer                                                        = Server.Port(int)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
