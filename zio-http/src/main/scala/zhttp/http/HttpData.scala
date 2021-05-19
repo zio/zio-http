@@ -38,6 +38,6 @@ object HttpData {
   def fromString(text: String): HttpData[Any, Nothing] =
     HttpData.CompleteData(Chunk.fromArray(text.getBytes(HTTP_CHARSET)))
 
-  def changeData[R,E](current: HttpData[R, E]): HttpData[Any, Nothing] = ???
+  def changeData[R, E](current: HttpData[R, E]): HttpData[Any, Nothing] = ???
 
 }

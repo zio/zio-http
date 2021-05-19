@@ -1,7 +1,11 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_0
-import io.netty.handler.codec.http.{DefaultHttpResponse => JDefaultHttpResponse, HttpHeaderNames => JHttpHeaderNames, HttpResponse => JHttpResponse}
+import io.netty.handler.codec.http.{
+  DefaultHttpResponse => JDefaultHttpResponse,
+  HttpHeaderNames => JHttpHeaderNames,
+  HttpResponse => JHttpResponse,
+}
 import zhttp.http.Status.OK
 import zhttp.socket.SocketApp
 
@@ -20,10 +24,10 @@ object ResponseV2 {
   sealed trait Response[+S, +A] {
     self =>
     def ++[S1 >: S, S2, S3, A1 >: A, A2, A3](other: Response[S2, A2])(implicit
-                                                                      @unused @implicitNotFound("Content is already set once.")
-                                                                      a: CanCombine[A1, A2, A3],
-                                                                      @unused @implicitNotFound("Status is already set once.")
-                                                                      s: CanCombine[S1, S2, S3],
+      @unused @implicitNotFound("Content is already set once.")
+      a: CanCombine[A1, A2, A3],
+      @unused @implicitNotFound("Status is already set once.")
+      s: CanCombine[S1, S2, S3],
     ): Response[S3, A3] = Response.Combine(self.asInstanceOf[Response[S3, A3]], other.asInstanceOf[Response[S3, A3]])
 
   }
@@ -37,7 +41,6 @@ object ResponseV2 {
         Response.header("A", "B") ++
         Response.header("A", "B")
 
-
     def status(status: Status): Response[Status, Nothing] = ResponseStatus(status)
 
     def header(name: CharSequence, value: CharSequence): Response[Nothing, Nothing] = ResponseHeader(
@@ -48,10 +51,10 @@ object ResponseV2 {
 
     def containsHTTPContent[A](response: Response[Status, A]): Boolean = response match {
       case ResponseContent(_) => true
-      case Combine(a, b) => {
+      case Combine(a, b)      => {
         containsHTTPContent(a) || containsHTTPContent(b)
       }
-      case _ => false
+      case _                  => false
     }
 
     def content[R, E](data: HttpData[R, E]): Response[Nothing, HttpData[R, E]] = ResponseContent(data)
@@ -73,24 +76,25 @@ object ResponseV2 {
             jResponse.headers().set(header.name, header.value)
             ()
           }
-          case ResponseContent(data) => data match {
-            case HttpData.Empty => {
-              jResponse.headers().set(JHttpHeaderNames.CONTENT_LENGTH, 0)
-              ()
+          case ResponseContent(data)  =>
+            data match {
+              case HttpData.Empty              => {
+                jResponse.headers().set(JHttpHeaderNames.CONTENT_LENGTH, 0)
+                ()
+              }
+              case HttpData.CompleteData(data) => {
+                jResponse.headers().set(JHttpHeaderNames.CONTENT_LENGTH, data.length)
+                ()
+              }
+              case HttpData.StreamData(_)      => {
+                ()
+              }
             }
-            case HttpData.CompleteData(data) => {
-              jResponse.headers().set(JHttpHeaderNames.CONTENT_LENGTH, data.length)
-              ()
-            }
-            case HttpData.StreamData(_) => {
-              ()
-            }
-          }
-          case Combine(a, b) => {
+          case Combine(a, b)          => {
             loop1(a)
             loop1(b)
           }
-          case _ => ()
+          case _                      => ()
         }
 
       loop1(response)
@@ -98,16 +102,17 @@ object ResponseV2 {
       def loop2(response: Response[Status, A]): HttpData[Any, Nothing] =
         if (Response.containsHTTPContent(response)) {
           response match {
-            case ResponseContent(data) => data match {
-              case HttpData.Empty => HttpData.empty
-              case HttpData.CompleteData(data) => HttpData.CompleteData(data)
-              case HttpData.StreamData(_) => HttpData.empty
-            }
-            case Combine(a, b) => {
+            case ResponseContent(data) =>
+              data match {
+                case HttpData.Empty              => HttpData.empty
+                case HttpData.CompleteData(data) => HttpData.CompleteData(data)
+                case HttpData.StreamData(_)      => HttpData.empty
+              }
+            case Combine(a, b)         => {
               val c: HttpData[Any, Nothing] = loop2(a)
               if (c.equals(HttpData.empty)) loop2(b) else c
             }
-            case _ => HttpData.empty
+            case _                     => HttpData.empty
           }
         } else {
           throw new Exception("Response doesn't contain content")
@@ -115,7 +120,6 @@ object ResponseV2 {
 
       CompleteResponse(jResponse, loop2(response))
     }
-
 
     sealed trait ResponseWithStatus[A] extends Response[Status, A]
 
