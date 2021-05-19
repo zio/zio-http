@@ -1,140 +1,137 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.HttpVersion.HTTP_1_0
 import io.netty.handler.codec.http.{
   DefaultHttpResponse => JDefaultHttpResponse,
-  HttpHeaderNames => JHttpHeaderNames,
   HttpResponse => JHttpResponse,
+  HttpVersion => JHttpVersion,
 }
 import zhttp.http.Status.OK
 import zhttp.socket.SocketApp
 
-import scala.annotation.{implicitNotFound, unused}
+import scala.annotation.{implicitAmbiguous, implicitNotFound, unused}
 
 object ResponseV2 {
 
   sealed trait CanCombine[X, Y, A]
 
-  implicit def combineL[A]: CanCombine[A, Nothing, A] = null
-
-  implicit def combineR[A]: CanCombine[Nothing, A, A] = null
-
-  implicit def combineNothing: CanCombine[Nothing, Nothing, Nothing] = null
-
-  sealed trait Response[+S, +A] {
-    self =>
-    def ++[S1 >: S, S2, S3, A1 >: A, A2, A3](other: Response[S2, A2])(implicit
-      @unused @implicitNotFound("Content is already set once.")
-      a: CanCombine[A1, A2, A3],
-      @unused @implicitNotFound("Status is already set once.")
-      s: CanCombine[S1, S2, S3],
-    ): Response[S3, A3] = Response.Combine(self.asInstanceOf[Response[S3, A3]], other.asInstanceOf[Response[S3, A3]])
-
+  object CanCombine {
+    implicit def combineL[A]: CanCombine[A, Nothing, A]                = null
+    implicit def combineR[A]: CanCombine[Nothing, A, A]                = null
+    implicit def combineNothing: CanCombine[Nothing, Nothing, Nothing] = null
   }
 
-  object Response {
+  @implicitNotFound("Response doesn't have status set")
+  sealed trait HasStatus[S]
+  implicit object HasStatus extends HasStatus[Status]
 
-    val eg0: Response[Status, HttpData[Nothing, Nothing]] =
-      Response.status(Status.NOT_FOUND) ++
-        Response.content(HttpData.fromString("ok!")) ++
-        Response.header("A", "B") ++
-        Response.header("A", "B") ++
-        Response.header("A", "B")
+  @implicitAmbiguous("Response doesn't have status set")
+  implicit object HasNoStatus0 extends HasStatus[Nothing]
+  implicit object HasNoStatus1 extends HasStatus[Nothing]
 
-    def status(status: Status): Response[Status, Nothing] = ResponseStatus(status)
+  trait HasContent[A] {
+    def isEmpty: Boolean
+  }
 
-    def header(name: CharSequence, value: CharSequence): Response[Nothing, Nothing] = ResponseHeader(
-      Header(name, value),
-    )
+  implicit object NoContent0 extends HasContent[Nothing] {
+    override def isEmpty: Boolean = true
+  }
 
-    def header(header: Header): Response[Nothing, Nothing] = ResponseHeader(header)
+  implicit def hasContent[A]: HasContent[A] = new HasContent[A] {
+    override def isEmpty: Boolean = false
+  }
 
-    def containsHTTPContent[A](response: Response[Status, A]): Boolean = response match {
-      case ResponseContent(_) => true
-      case Combine(a, b)      => {
-        containsHTTPContent(a) || containsHTTPContent(b)
-      }
-      case _                  => false
-    }
+  sealed trait HttpResponse[+S, +A] { self =>
+    import HttpResponse._
 
-    def content[R, E](data: HttpData[R, E]): Response[Nothing, HttpData[R, E]] = ResponseContent(data)
+    def ++[S1 >: S, S2, S3, A1 >: A, A2, A3](other: HttpResponse[S2, A2])(implicit
+      @unused @implicitNotFound("Content is already set once")
+      a: CanCombine[A1, A2, A3],
+      @unused @implicitNotFound("Status is already set once")
+      s: CanCombine[S1, S2, S3],
+    ): HttpResponse[S3, A3] =
+      HttpResponse.Combine(self.asInstanceOf[HttpResponse[S3, A3]], other.asInstanceOf[HttpResponse[S3, A3]])
 
-    // Evaluate Response => CompleteResponse(JHttpResponse) (fast)
+    def widen[S1, A1](implicit evS: S <:< S1, evA: A <:< A1): HttpResponse[S1, A1] =
+      self.asInstanceOf[HttpResponse[S1, A1]]
 
-    // TODO: @shruti
-    def evaluate[A](response: Response[Status, A]): CompleteResponse[HttpData[Any, Nothing]] = {
+    private def jHttpResponse[S1 >: S](implicit ev: S1 <:< Status): JHttpResponse = {
+      val jResponse: JHttpResponse = new JDefaultHttpResponse(JHttpVersion.HTTP_1_1, OK.toJHttpStatus)
 
-      val jResponse: JHttpResponse = new JDefaultHttpResponse(HTTP_1_0, OK.toJHttpStatus)
-
-      def loop1(response: Response[Status, A]): Unit =
+      def loop(response: HttpResponse[Status, A]): Unit = {
         response match {
-          case ResponseStatus(status) => {
-            jResponse.setStatus(status.toJHttpStatus)
-            ()
-          }
-          case ResponseHeader(header) => {
-            jResponse.headers().set(header.name, header.value)
-            ()
-          }
-          case ResponseContent(data)  =>
-            data match {
-              case HttpData.Empty              => {
-                jResponse.headers().set(JHttpHeaderNames.CONTENT_LENGTH, 0)
-                ()
-              }
-              case HttpData.CompleteData(data) => {
-                jResponse.headers().set(JHttpHeaderNames.CONTENT_LENGTH, data.length)
-                ()
-              }
-              case HttpData.StreamData(_)      => {
-                ()
-              }
-            }
-          case Combine(a, b)          => {
-            loop1(a)
-            loop1(b)
-          }
+          case ResponseStatus(status) => jResponse.setStatus(status.toJHttpStatus)
+          case ResponseHeader(header) => jResponse.headers().set(header.name, header.value)
+          case Combine(a, b)          => loop(a); loop(b)
           case _                      => ()
         }
+        ()
+      }
 
-      loop1(response)
-
-      def loop2(response: Response[Status, A]): HttpData[Any, Nothing] =
-        if (Response.containsHTTPContent(response)) {
-          response match {
-            case ResponseContent(data) =>
-              data match {
-                case HttpData.Empty              => HttpData.empty
-                case HttpData.CompleteData(data) => HttpData.CompleteData(data)
-                case HttpData.StreamData(_)      => HttpData.empty
-              }
-            case Combine(a, b)         => {
-              val c: HttpData[Any, Nothing] = loop2(a)
-              if (c.equals(HttpData.empty)) loop2(b) else c
-            }
-            case _                     => HttpData.empty
-          }
-        } else {
-          throw new Exception("Response doesn't contain content")
-        }
-
-      CompleteResponse(jResponse, loop2(response))
+      loop(self.widen)
+      jResponse
     }
 
-    sealed trait ResponseWithStatus[A] extends Response[Status, A]
+    private def content[A1 >: A](implicit @unused ev: HasContent[A1]): A1 = {
+      val nullA = null.asInstanceOf[A1]
+      def loop(response: HttpResponse[S, A1]): A1 = {
+        response match {
+          case Combine(a, b)            =>
+            val a0 = loop(a)
+            if (a0 == null) loop(b) else a0
+          case ResponseContent(content) => content
+          case _                        => nullA
+        }
+      }
+      loop(self)
+    }
 
-    case class CompleteResponse[A](jResponse: JHttpResponse, content: A) extends ResponseWithStatus[A]
-
-    case class SocketResponse[R, E](socket: SocketApp[R, E]) extends ResponseWithStatus[SocketApp[R, E]]
-
-    case class ResponseStatus(status: Status) extends Response[Status, Nothing]
-
-    case class ResponseHeader(header: Header) extends Response[Nothing, Nothing]
-
-    case class ResponseContent[R, E](data: HttpData[R, E]) extends Response[Nothing, HttpData[R, E]]
-
-    case class Combine[S, A](a: Response[S, A], b: Response[S, A]) extends Response[S, A]
-
+    def asResponse[S1 >: S, A1 >: A, R, E](implicit
+      evS: S1 <:< Status,
+      @unused evStatus: HasStatus[S1],
+      evA: HasContent[A1],
+      evD: A <:< HttpData[R, E],
+    ): Response[R, E] = {
+      if (evA.isEmpty) Response.SimpleResponse(self.jHttpResponse)
+      else Response.ContentResponse(self.jHttpResponse, self.content)
+    }
   }
 
+  sealed trait Response[-R, +E]
+
+  object Response {
+    case class ContentResponse[R, E](jResponse: JHttpResponse, content: HttpData[R, E]) extends Response[R, E]
+    case class SimpleResponse(jResponse: JHttpResponse)                                 extends Response[Any, Nothing]
+    case class SocketResponse[R, E](socket: SocketApp[R, E])                            extends Response[R, E]
+  }
+
+  object HttpResponse {
+    def status(status: Status): HttpResponse[Status, Nothing]                           = ResponseStatus(status)
+    def header(name: CharSequence, value: CharSequence): HttpResponse[Nothing, Nothing] = ResponseHeader(
+      Header(name, value),
+    )
+    def header(header: Header): HttpResponse[Nothing, Nothing]                          = ResponseHeader(header)
+    def content[R, E](data: HttpData[R, E]): HttpResponse[Nothing, HttpData[R, E]]      = ResponseContent(data)
+
+    case class ResponseStatus[S](status: S)                                extends HttpResponse[S, Nothing]
+    case class ResponseHeader(header: Header)                              extends HttpResponse[Nothing, Nothing]
+    case class ResponseContent[A](data: A)                                 extends HttpResponse[Nothing, A]
+    case class Combine[S, A](a: HttpResponse[S, A], b: HttpResponse[S, A]) extends HttpResponse[S, A]
+  }
+
+  object Example {
+//    val eg0: Response[Status, HttpData[Nothing, Nothing]] =
+//      Response.status(Status.NOT_FOUND) ++
+//        Response.content(HttpData.fromString("ok!")) ++
+//        Response.header("A", "B") ++
+//        Response.header("A", "B") ++
+//        Response.header("A", "B")
+
+    val eg0 = HttpResponse.header("Server", "ZIO Http") ++
+      HttpResponse.content(HttpData.fromString("ABC")) ++
+      HttpResponse.status(Status.OK)
+
+    eg0.asResponse
+
+    val eg1 = HttpResponse.status(Status.OK).asResponse
+  }
 }
