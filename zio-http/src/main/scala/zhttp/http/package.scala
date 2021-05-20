@@ -1,7 +1,6 @@
 package zhttp
 
 import io.netty.util.CharsetUtil
-import zhttp.http.HttpApp.HttpApp
 import zio.ZIO
 
 import java.nio.charset.Charset

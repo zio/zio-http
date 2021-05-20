@@ -53,7 +53,7 @@ object Authentication extends App {
   }
 
   // Composing all the HttpApps together
-  val app: UHttpApp = new HttpApp.HttpApp[Any, Nothing](
+  val app: UHttpApp = new HttpApp[Any, Nothing](
     login.asHttp +++ authenticate(Http.succeed(HttpError.Forbidden("Not allowed!").toResponse), user),
   )
 

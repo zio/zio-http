@@ -63,5 +63,5 @@ object HttpApp {
    */
   def forbidden(msg: String): UHttpApp = new HttpApp(Http.succeed(HttpError.Forbidden(msg).toResponse))
 
-  final class HttpApp[-R, +E](val asHttp: Http[R, E, Request, Response[R, E]]) extends AnyVal
 }
+final class HttpApp[-R, +E](val asHttp: Http[R, E, Request, Response[R, E]]) extends AnyVal
