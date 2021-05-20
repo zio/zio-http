@@ -2,6 +2,8 @@ package zhttp.http
 
 import zio.ZIO
 
+final case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) extends AnyVal
+
 object HttpApp {
 
   /**
@@ -64,4 +66,3 @@ object HttpApp {
   def forbidden(msg: String): UHttpApp = HttpApp(Http.succeed(HttpError.Forbidden(msg).toResponse))
 
 }
-final case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) extends AnyVal
