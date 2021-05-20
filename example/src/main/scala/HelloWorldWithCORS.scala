@@ -1,4 +1,4 @@
-import zhttp.http.{HttpApp, _}
+import zhttp.http._
 import zhttp.service.Server
 import zio._
 

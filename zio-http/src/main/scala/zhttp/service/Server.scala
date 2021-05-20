@@ -2,7 +2,7 @@ package zhttp.service
 
 import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
 import zhttp.core._
-import zhttp.http.{HttpApp, Status, _}
+import zhttp.http.{Status, _}
 import zhttp.service.server.{LeakDetectionLevel, ServerChannelFactory, ServerChannelInitializer, ServerRequestHandler}
 import zio.{ZManaged, _}
 
