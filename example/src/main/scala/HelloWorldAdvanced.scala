@@ -20,9 +20,9 @@ object HelloWorldAdvanced extends App {
   }
 
   private val server =
-    Server.port(PORT) ++                                    // Setup port
-      Server.paranoidLeakDetection ++                       // Paranoid leak detection (affects performance)
-      Server.app(new HttpApp(fooBar.asHttp +++ app.asHttp)) // Setup the Http app
+    Server.port(PORT) ++                                // Setup port
+      Server.paranoidLeakDetection ++                   // Paranoid leak detection (affects performance)
+      Server.app(HttpApp(fooBar.asHttp +++ app.asHttp)) // Setup the Http app
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     // Configure thread count using CLI

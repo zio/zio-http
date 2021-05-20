@@ -1,7 +1,6 @@
 import zhttp.http._
 import zhttp.service._
 import zio._
-import zio.blocking.Blocking
 import zio.stream._
 
 import java.nio.file.{Paths => JPaths}
@@ -20,5 +19,5 @@ object FileStreaming extends App {
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, new HttpApp[Blocking, Throwable](app.asHttp.silent)).exitCode
+    Server.start(8090, HttpApp(app.asHttp.silent)).exitCode
 }

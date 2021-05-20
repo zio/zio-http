@@ -28,6 +28,6 @@ object StreamingResponse extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
 
     // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
-    Server.start(8090, new HttpApp(app.asHttp.silent)).exitCode
+    Server.start(8090, HttpApp(app.asHttp.silent)).exitCode
   }
 }
