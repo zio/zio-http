@@ -67,4 +67,5 @@ private[zhttp] trait ResponseHelpers {
     )
 
   def status(status: Status): UResponse = http(status)
+
 }
