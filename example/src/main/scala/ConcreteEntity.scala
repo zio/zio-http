@@ -2,9 +2,14 @@ import zhttp.http._
 import zhttp.service.Server
 import zio._
 
+/**
+ * Example to build app on concrete entity
+ */
 object ConcreteEntity extends App {
-
+  //Request
   case class CreateUser(name: String)
+
+  //Response
   case class UserCreated(id: Long)
 
   val user: Http[Any, Nothing, CreateUser, UserCreated] =
