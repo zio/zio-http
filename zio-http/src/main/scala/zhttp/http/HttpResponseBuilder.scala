@@ -1,11 +1,11 @@
 package zhttp.http
 
-import zhttp.http.Status.OK
 import io.netty.handler.codec.http.{
   DefaultHttpResponse => JDefaultHttpResponse,
   HttpResponse => JHttpResponse,
   HttpVersion => JHttpVersion,
 }
+import zhttp.http.Status.OK
 
 import scala.annotation.{implicitAmbiguous, implicitNotFound, unused}
 import scala.language.implicitConversions
@@ -58,7 +58,7 @@ sealed trait HttpResponseBuilder[+S, +A] { self =>
     loop(self)
   }
 
-  private[zhttp] def asHttpResponse[S1 >: S, A1 >: A, R, E](implicit
+  private[zhttp] def asResponse[S1 >: S, A1 >: A, R, E](implicit
     evS: S1 <:< Status,
     @unused evStatus: HasStatus[S1],
     evA: HasContent[A1],
