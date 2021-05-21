@@ -71,4 +71,9 @@ object HttpApp {
    */
   def forbidden(msg: String): UHttpApp = HttpApp(Http.succeed(HttpError.Forbidden(msg).toResponse))
 
+  /**
+   * Creates a Http app from a pure function
+   */
+  def fromFunction[R, E, B](f: Request => HttpApp[R, E]) = HttpApp(Http.flatten(Http.fromFunction(f).map(_.asHttp)))
+
 }
