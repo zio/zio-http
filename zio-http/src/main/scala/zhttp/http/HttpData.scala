@@ -31,13 +31,9 @@ object HttpData {
    */
   def empty: HttpData[Any, Nothing] = Empty
 
-//  def throwError: HttpData[Any, Nothing] = throwError
   /**
    * Creates HttpData from string
    */
   def fromString(text: String): HttpData[Any, Nothing] =
     HttpData.CompleteData(Chunk.fromArray(text.getBytes(HTTP_CHARSET)))
-
-  def changeData[R, E](current: HttpData[R, E]): HttpData[Any, Nothing] = ???
-
 }
