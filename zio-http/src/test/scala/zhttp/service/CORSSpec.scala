@@ -11,9 +11,9 @@ object CORSSpec extends HttpRunnableSpec(8089) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
   val app: ZManaged[EventLoopGroup with ServerChannelFactory, Nothing, Unit] = serve {
-    CORS(HttpApp.collect { case _ -> Root / "success" =>
+    HttpApp(CORS(Http.collect { case _ -> Root / "success" =>
       Response.ok
-    })
+    }))
   }
 
   override def spec = suiteM("CORS")(
