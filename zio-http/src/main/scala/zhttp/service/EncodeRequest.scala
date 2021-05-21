@@ -4,7 +4,7 @@ import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpVersion => JHttpVersion}
 import zhttp.core.{JDefaultFullHttpRequest, JFullHttpRequest}
 import zhttp.http.{HTTP_CHARSET, Header, Request}
-trait EncodeRequest {
+private[zhttp] trait EncodeRequest {
 
   /**
    * Converts Request to JFullHttpRequest

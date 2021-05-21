@@ -5,7 +5,7 @@ import zhttp.http._
 
 import scala.util.Try
 
-trait DecodeJResponse {
+private[zhttp] trait DecodeJResponse {
 
   /**
    * Tries to decode netty request into ZIO Http Request

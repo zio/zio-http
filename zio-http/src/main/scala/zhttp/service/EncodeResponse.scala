@@ -11,7 +11,7 @@ import zhttp.http.{HttpData, Response}
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
-trait EncodeResponse {
+private[zhttp] trait EncodeResponse {
   private val SERVER_NAME: String = "ZIO-Http"
 
   /**
