@@ -78,12 +78,6 @@ sealed trait Http[-R, +E, -A, +B] { self =>
     self.flatMap(_ => other)
 
   /**
-   * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
-   */
-  def silent[E1 >: E, B1 >: B](implicit s: CanBeSilenced[E1, B1]): Http[R, Nothing, A, B1] =
-    self.catchAll(e => Http.succeed(s.silent(e)))
-
-  /**
    * Collects some of the results of the http and converts it to another type.
    */
   def collect[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](pf: PartialFunction[B1, C]): Http[R1, E1, A1, C] =

@@ -3,7 +3,9 @@ package zhttp.http
 import zio.ZIO
 
 final case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) extends AnyVal {
-  def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1]]) = HttpApp(asHttp.silent(s))
+  def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1]]) = HttpApp(
+    asHttp.catchAll(e => Http.succeed(s.silent(e))),
+  )
   def +++[R1 <: R, E1 >: E](other: HttpApp[R1, E1])                             = HttpApp(asHttp +++ other.asHttp)
   def execute(r: Request)                                                       = asHttp.execute(r)
 }
