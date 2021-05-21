@@ -4,6 +4,7 @@ import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler}
 import io.netty.handler.codec.http.{LastHttpContent => JLastHttpContent}
 import zhttp.core.{JFullHttpRequest, _}
+import zhttp.http.Response._
 import zhttp.http._
 import zhttp.service.Server.Settings
 import zhttp.service._
@@ -56,29 +57,36 @@ final case class ServerRequestHandler[R](
     }
 
   /**
+   * Write content on the channel
+   */
+  private def writeContent(ctx: JChannelHandlerContext, content: HttpData[R, Throwable]): Unit = {
+    content match {
+      case HttpData.StreamData(data)   =>
+        zExec.unsafeExecute_(ctx) {
+          for {
+            _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(JUnpooled.copiedBuffer(c.toArray))))
+            _ <- ChannelFuture.unit(ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT))
+          } yield ()
+        }
+      case HttpData.CompleteData(data) =>
+        ctx.write(JUnpooled.copiedBuffer(data.toArray), ctx.channel().voidPromise())
+        ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
+      case HttpData.Empty              => ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
+    }
+    ()
+  }
+
+  /**
    * Unsafe channel reader for HttpRequest
    */
   override def channelRead0(ctx: JChannelHandlerContext, jReq: JFullHttpRequest): Unit = {
     executeAsync(ctx, jReq) {
-      case res @ Response.HttpResponse(_, _, content) =>
+      case res @ HttpResponse(_, _, content) =>
         ctx.write(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
         releaseOrIgnore(jReq)
-        content match {
-          case HttpData.StreamData(data)   =>
-            zExec.unsafeExecute_(ctx) {
-              for {
-                _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(JUnpooled.copiedBuffer(c.toArray))))
-                _ <- ChannelFuture.unit(ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT))
-              } yield ()
-            }
-          case HttpData.CompleteData(data) =>
-            ctx.write(JUnpooled.copiedBuffer(data.toArray), ctx.channel().voidPromise())
-            ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
-          case HttpData.Empty              => ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
-        }
-        ()
+        writeContent(ctx, content)
 
-      case res @ Response.SocketResponse(_) =>
+      case res @ SocketResponse(_) =>
         ctx
           .channel()
           .pipeline()

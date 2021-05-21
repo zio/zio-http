@@ -16,9 +16,6 @@ object Response extends ResponseHelpers {
       with HasHeaders
       with HeadersHelpers
 
-  private[zhttp] final case class FromResponseBuilder[R, E](builder: HttpResponseBuilder[Status, HttpData[R, E]])
-      extends Response[R, E]
-
   private[zhttp] final case class SocketResponse[-R, +E](socket: SocketApp[R, E] = SocketApp.empty)
       extends Response[R, E]
 }
