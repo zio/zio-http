@@ -1,5 +1,5 @@
 package zhttp.http
 
 trait HasHeaders {
-  val headers: List[Header]
+  def headers: List[Header]
 }
