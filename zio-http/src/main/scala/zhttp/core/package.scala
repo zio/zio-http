@@ -1,3 +1,7 @@
 package zhttp
 
-package object core extends AliasModule {}
+import zhttp.core.Nat._
+
+package object core extends AliasModule {
+  type ReadableHBuf = HBuf[Two, Direction.Out]
+}
