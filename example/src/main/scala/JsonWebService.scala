@@ -8,7 +8,7 @@ import zio.json._
  */
 object JsonWebService extends App {
 
-  case class Employee(id: String, name: String, experience: String)
+  final case class Employee(id: String, name: String, experience: String)
   object Employee {
     implicit val encoder: JsonEncoder[Employee] = DeriveJsonEncoder.gen[Employee]
   }
