@@ -1,7 +1,7 @@
 import zhttp.http._
 import zhttp.service.Server
-import zio.json._
 import zio._
+import zio.json._
 
 /**
  * Example to build app using JSON web service
