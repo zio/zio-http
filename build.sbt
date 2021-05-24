@@ -118,6 +118,7 @@ lazy val example = (project in file("./example"))
     fork := true,
     Compile / run / mainClass := Option("Authentication"),
     libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-json" % "0.1.5",
       "com.github.jwt-scala" %% "jwt-core" % "8.0.1",
     ),
   )

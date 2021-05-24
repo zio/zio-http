@@ -1,5 +1,6 @@
 import zhttp.http._
 import zhttp.service.Server
+import zio.json._
 import zio._
 
 /**
@@ -7,14 +8,18 @@ import zio._
  */
 object JsonWebService extends App {
 
-  case class Employee(id: String, name: String, Experience: String)
+  case class Employee(id: String, name: String, experience: String)
+  object Employee {
+    implicit val encoder: JsonEncoder[Employee] = DeriveJsonEncoder.gen[Employee]
+  }
+
   val employees = List(Employee("1", "abc", "1yr"), Employee("2", "def", "2yrs"), Employee("3", "xyz", "3yrs"))
 
   //get employee details if employee exists
   def getDetails(id: String): String = {
     val emp = employees.filter(_.id.equals(id))
     if (emp.isEmpty) s"""Employee doesn't exist"""
-    else s"""{"id": "${emp.head.id}", "name": "${emp.head.name}", "experience": "${emp.head.Experience}"}"""
+    else emp.head.toJson
   }
 
   // Create HTTP route
