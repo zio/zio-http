@@ -1,18 +1,17 @@
 package zhttp.socket
 
-import zhttp.core.{ByteBuf, _}
+import zhttp.core.{HBuf, _}
 
 sealed trait WebSocketFrame extends Product with Serializable { self =>
   def toJWebSocketFrame: JWebSocketFrame = WebSocketFrame.toJFrame(self)
 }
 object WebSocketFrame {
-
-  final case class Binary(buffer: ByteBuf)                    extends WebSocketFrame
-  final case class Text(text: String)                         extends WebSocketFrame
-  final case class Close(status: Int, reason: Option[String]) extends WebSocketFrame
-  case object Ping                                            extends WebSocketFrame
-  case object Pong                                            extends WebSocketFrame
-  final case class Continuation(buffer: ByteBuf)              extends WebSocketFrame
+  final case class Binary(buffer: HBuf[Nat.One, Direction.Out])       extends WebSocketFrame
+  final case class Text(text: String)                                 extends WebSocketFrame
+  final case class Close(status: Int, reason: Option[String])         extends WebSocketFrame
+  case object Ping                                                    extends WebSocketFrame
+  case object Pong                                                    extends WebSocketFrame
+  final case class Continuation(buffer: HBuf[Nat.One, Direction.Out]) extends WebSocketFrame
 
   def text(string: String): WebSocketFrame =
     WebSocketFrame.Text(string)
@@ -20,36 +19,35 @@ object WebSocketFrame {
   def close(status: Int, reason: Option[String] = None): WebSocketFrame =
     WebSocketFrame.Close(status, reason)
 
-  def binary(chunks: ByteBuf): WebSocketFrame = WebSocketFrame.Binary(chunks)
+  def binary(buffer: HBuf[Nat.One, Direction.In]): WebSocketFrame = WebSocketFrame.Binary(buffer.flip)
 
   def ping: WebSocketFrame = WebSocketFrame.Ping
 
   def pong: WebSocketFrame = WebSocketFrame.Pong
 
-  def continuation(chunks: ByteBuf): WebSocketFrame = WebSocketFrame.Continuation(chunks)
+  def continuation(buffer: HBuf[Nat.One, Direction.In]): WebSocketFrame = WebSocketFrame.Continuation(buffer.flip)
 
-  def fromJFrame(jFrame: JWebSocketFrame): Option[WebSocketFrame] =
+  def fromJFrame(jFrame: JWebSocketFrame): WebSocketFrame =
     jFrame match {
       case _: JPingWebSocketFrame         =>
-        Option(Ping)
+        Ping
       case _: JPongWebSocketFrame         =>
-        Option(Pong)
+        Pong
       case m: JBinaryWebSocketFrame       =>
-        Option(Binary(ByteBuf(m.content())))
+        Binary(HBuf.one(m.content()))
       case m: JTextWebSocketFrame         =>
-        Option(Text(m.text()))
+        Text(m.text())
       case m: JCloseWebSocketFrame        =>
-        Option(Close(m.statusCode(), Option(m.reasonText())))
+        Close(m.statusCode(), Option(m.reasonText()))
       case m: JContinuationWebSocketFrame =>
-        Option(Continuation(ByteBuf(m.content())))
-
-      case _ => None
+        Continuation(HBuf.one(m.content()))
+      case _                              => throw new Error(s"WebSocketFrame could not be made from: ${jFrame}")
     }
 
   def toJFrame(frame: WebSocketFrame): JWebSocketFrame =
     frame match {
       case Binary(buffer)            =>
-        new JBinaryWebSocketFrame(buffer.asJava)
+        new JBinaryWebSocketFrame(buffer.asJByteBuf)
       case Text(text)                =>
         new JTextWebSocketFrame(text)
       case Close(status, Some(text)) =>
@@ -61,6 +59,6 @@ object WebSocketFrame {
       case Pong                      =>
         new JPongWebSocketFrame()
       case Continuation(buffer)      =>
-        new JContinuationWebSocketFrame(buffer.asJava)
+        new JContinuationWebSocketFrame(buffer.asJByteBuf)
     }
 }
