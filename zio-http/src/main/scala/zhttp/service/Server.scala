@@ -4,6 +4,7 @@ import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
 import zhttp.core._
 import zhttp.http.{Status, _}
 import zhttp.service.server.{LeakDetectionLevel, ServerChannelFactory, ServerChannelInitializer, ServerRequestHandler}
+import zio.console.Console
 import zio.{ZManaged, _}
 
 sealed trait Server[-R, +E] { self =>
@@ -57,9 +58,11 @@ object Server {
   /**
    * Launches the app on the provided port.
    */
-  def start[R <: Has[_]](port: Int, http: RHttpApp[R]): ZIO[R, Throwable, Nothing] =
-    (Server.port(port) ++ Server.app(http)).make.useForever
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
+  def start[R <: Has[_]](port: Int, http: RHttpApp[R]): ZIO[R with Console, Throwable, Nothing] =
+    (Server.port(port) ++ Server.app(http)).make
+      .mapM(_ => console.putStrLn(s"Server started on port: ${port}"))
+      .useForever
+      .provideSomeLayer[R with Console](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def make[R](
     server: Server[R, Throwable],
