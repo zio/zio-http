@@ -7,11 +7,8 @@ import java.nio.file.{Paths => JPaths}
 
 object FileStreaming extends App {
   // Read the file as ZStream
-<<<<<<< HEAD
+
   val content= HttpData.fromStream {
-=======
-  val content= HttpData.fromStream {
->>>>>>> ef5b1a90f5a6203da5cf21e2e34f3e14fe4f2c97
     ZStream.fromFile(JPaths.get("README.md"))
   }
 
