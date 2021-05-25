@@ -19,12 +19,12 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
     ChannelFuture.unit {
       val read = ClientHttpChannelReader(jReq, promise)
       val hand = ClientInboundHandler(zx, read)
-      val init = ClientChannelInitializer(hand)
       val host = req.url.host
       val port = req.url.port.getOrElse(80) match {
         case -1   => 80
         case port => port
       }
+      val init = ClientChannelInitializer(hand, port)
 
       val jboo = new JBootstrap().channelFactory(cf).group(el).handler(init)
       if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
