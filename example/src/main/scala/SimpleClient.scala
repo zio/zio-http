@@ -1,4 +1,3 @@
-import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames}
 import zhttp.http.{Header, HttpData}
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
