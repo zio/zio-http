@@ -118,7 +118,7 @@ lazy val example = (project in file("./example"))
     fork := true,
     Compile / run / mainClass := Option("Authentication"),
     libraryDependencies ++= Seq(
-      "io.circe"              %% "circe-core"                     % "0.13.0",
+      "io.circe"              %% "circe-core"                     % "0.14.0",
       "com.github.jwt-scala" %% "jwt-core" % "7.1.5",
     ),
   )
