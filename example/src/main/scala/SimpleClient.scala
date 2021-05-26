@@ -6,7 +6,7 @@ import zio._
 object SimpleClient extends App {
   val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
   val url     = "http://sports.api.decathlon.com/groups/water-aerobics"
-  val headers = List(Header(JHttpHeaderNames.HOST, "sports.api.decathlon.com"))
+  val headers = List(Header.host("sports.api.decathlon.com"))
 
   val program = for {
     res <- Client.request(url, headers)
