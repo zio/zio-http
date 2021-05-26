@@ -1,8 +1,8 @@
+import io.circe.Encoder
+import io.circe.syntax.EncoderOps
 import zhttp.http._
 import zhttp.service.Server
 import zio._
-import io.circe.Encoder
-import io.circe.syntax.EncoderOps
 
 /**
  * Example to build app using JSON web service
