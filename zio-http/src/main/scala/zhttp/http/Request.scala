@@ -1,21 +1,38 @@
 package zhttp.http
 
-// REQUEST
-final case class Request(
-  endpoint: Endpoint,
-  headers: List[Header] = List.empty,
-  content: HttpData[Any, Nothing] = HttpData.empty,
-) extends HasHeaders
-    with HeadersHelpers { self =>
-  val method: Method = endpoint._1
-  val url: URL       = endpoint._2
-  val route: Route   = method -> url.path
+import io.netty.handler.codec.http.{HttpRequest => JHttpRequest}
 
-  def getBodyAsString: Option[String] = content match {
-    case HttpData.CompleteData(data) => Option(data.map(_.toChar).mkString)
-    case _                           => Option.empty
-  }
+sealed trait Request extends Product with Serializable with HasHeaders with HeadersHelpers { self =>
+  def method: Method
+  def url: URL
+  def headers: List[Header]
 
+  def route: Route            = method -> url.path
+  def endpoint: (Method, URL) = method -> url
+
+  def getBodyAsString: Option[String] = ???
 }
 
-object Request {}
+object Request {
+  def apply(jReq: JHttpRequest): Request = FromJHttpRequest(jReq)
+  def apply(endpoint: Endpoint): Request = Request(method = endpoint._1, url = endpoint._2, Nil, HttpData.Empty)
+  def apply(
+    method: Method = Method.GET,
+    url: URL = URL.empty,
+    headers: List[Header] = Nil,
+    data: HttpData[Any, Nothing] = HttpData.empty,
+  ): Request                             =
+    Complete(method, url, headers, data)
+
+  private[zhttp] final case class Complete(
+    method: Method,
+    url: URL,
+    headers: List[Header] = Nil,
+    body: HttpData[Any, Nothing],
+  )                                                                    extends Request
+  private[zhttp] final case class FromJHttpRequest(jReq: JHttpRequest) extends Request {
+    override def method: Method        = Method.fromJHttpMethod(jReq.method())
+    override def url: URL              = URL.fromString(jReq.uri()).getOrElse(URL.empty)
+    override def headers: List[Header] = Header.make(jReq.headers())
+  }
+}
