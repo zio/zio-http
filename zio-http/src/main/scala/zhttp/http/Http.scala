@@ -294,4 +294,12 @@ object Http {
   final class MkTotal[A](val unit: Unit) extends AnyVal {
     def apply[B](f: A => B): Http[Any, Nothing, A, B] = Http.identity[A].map(f)
   }
+
+  /**
+   * Creates an Http from an Either
+   */
+  def fromEither[E, A](e: Either[E, A]): Http[Any, E, Any, A] = e match {
+    case Left(value)  => Http.fail(value)
+    case Right(value) => Http.succeed(value)
+  }
 }
