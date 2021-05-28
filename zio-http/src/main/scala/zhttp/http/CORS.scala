@@ -80,14 +80,10 @@ object CORS {
             List.empty[Header]
         }
         httpApp >>>
-          Http.fromFunction[Response[R, E]](r =>
-            r match {
-              case r: Response.HttpResponse[R, E] =>
-                r.copy(headers = r.headers ++ responseHeaders)
-              case x                              =>
-                x
-            },
-          )
+          Http.fromFunction[Response[R, E]] {
+            case r: Response.HttpResponse[R, E] => r.copy(headers = r.headers ++ responseHeaders)
+            case x                       => x
+          }
       })
     }
   }
