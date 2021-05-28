@@ -95,4 +95,6 @@ object URL {
         else s"${scheme.asString}://$host:$port$path"
     }
   }
+
+  def empty: URL = URL(Path.empty)
 }
