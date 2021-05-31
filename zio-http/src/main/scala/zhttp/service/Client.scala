@@ -32,30 +32,30 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
       jboo.connect()
     }
 
-  def request(request: Request): Task[UHttpResponse] = for {
+  def request(request: Request): Task[UResponse] = for {
     promise <- Promise.make[Throwable, JFullHttpResponse]
     jReq = encodeRequest(JHttpVersion.HTTP_1_1, request)
     _    <- asyncRequest(request, jReq, promise).catchAll(cause => promise.fail(cause)).fork
     jRes <- promise.await
-    res  <- ZIO.fromEither(decodeJResponse(jRes))
+    res = Response.fromJResponse(jRes)
   } yield res
 }
 
 object Client {
   def make: ZIO[EventLoopGroup with ChannelFactory, Nothing, Client] = for {
-    cf <- ZIO.access[ChannelFactory](_.get)
-    el <- ZIO.access[EventLoopGroup](_.get)
+    cf <- ZIO.service[JChannelFactory[JChannel]]
+    el <- ZIO.service[JEventLoopGroup]
     zx <- UnsafeChannelExecutor.make[Any]
   } yield service.Client(zx, cf, el)
 
-  def request(url: String): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] = for {
+  def request(url: String): ZIO[EventLoopGroup with ChannelFactory, Throwable, UResponse] = for {
     url <- ZIO.fromEither(URL.fromString(url))
     res <- request(Method.GET -> url)
   } yield res
 
-  def request(endpoint: Endpoint): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+  def request(endpoint: Endpoint): ZIO[EventLoopGroup with ChannelFactory, Throwable, UResponse] =
     request(Request(endpoint))
 
-  def request(req: Request): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+  def request(req: Request): ZIO[EventLoopGroup with ChannelFactory, Throwable, UResponse] =
     make.flatMap(_.request(req))
 }

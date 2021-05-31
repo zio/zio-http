@@ -7,7 +7,11 @@ object HelloWorldWithCORS extends App {
   val app: HttpApp[Any, Nothing] = CORS(
     HttpApp.collect {
       case Method.GET -> Root / "text" => Response.text("Hello World!")
-      case Method.GET -> Root / "json" => Response.jsonString("""{"greetings": "Hello World!"}""")
+      case Method.GET -> Root / "json" =>
+        Response(
+          content = HttpData("""{"greetings": "Hello World!"}"""),
+          headers = Header.contentTypeJson :: Nil,
+        )
     },
     config = CORSConfig(anyOrigin = true),
   )

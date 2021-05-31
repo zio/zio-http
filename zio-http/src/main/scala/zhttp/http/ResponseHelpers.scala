@@ -1,8 +1,10 @@
 package zhttp.http
 
-import zhttp.http.Response.HttpResponse
+import zhttp.http.Response.{Decode, Decoder, FromJResponse, HttpResponse}
+import io.netty.handler.codec.http.{HttpResponse => JHttpResponse}
+import zhttp.core.{Direction, HBuf1}
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
-import zio.Chunk
+import zio.stm.TQueue
 
 import java.io.{PrintWriter, StringWriter}
 
@@ -14,6 +16,8 @@ private[zhttp] trait ResponseHelpers {
 
   /**
    * Creates a new Http Response
+   * @deprecated
+   *   use `Response(status = ???, headers = ???, content = ???)`
    */
   def http[R, E](
     status: Status = defaultStatus,
@@ -36,35 +40,49 @@ private[zhttp] trait ResponseHelpers {
   def fromHttpError(error: HttpError): UResponse = {
     error match {
       case cause: HTTPErrorWithCause =>
-        http(
+        Response(
           error.status,
           Nil,
-          HttpData.CompleteData(cause.cause match {
+          HttpData.fromString(cause.cause match {
             case Some(throwable) =>
               val sw = new StringWriter
               throwable.printStackTrace(new PrintWriter(sw))
-              Chunk.fromArray(s"${cause.message}:\n${sw.toString}".getBytes(HTTP_CHARSET))
-            case None            => Chunk.fromArray(s"${cause.message}".getBytes(HTTP_CHARSET))
+              s"${cause.message}:\n${sw.toString}"
+            case None            => s"${cause.message}"
           }),
         )
-      case _                         => http(error.status, Nil, HttpData.CompleteData(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
+      case _                         =>
+        Response(
+          status = error.status,
+          content = HttpData.fromString(error.message),
+        )
     }
 
   }
 
-  def ok: UResponse = http(Status.OK)
+  def ok: UResponse = Response(Status.OK)
 
   def text(text: String): UResponse =
-    http(
-      content = HttpData.CompleteData(Chunk.fromArray(text.getBytes(HTTP_CHARSET))),
-      headers = List(Header.contentTypeTextPlain),
+    Response(
+      content = HttpData.fromString(text),
+      headers = Header.contentTypeTextPlain :: Nil,
     )
 
   def jsonString(data: String): UResponse =
-    http(
-      content = HttpData.CompleteData(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
-      headers = List(Header.contentTypeJson),
+    Response(
+      content = HttpData.fromString(data),
+      headers = Header.contentTypeJson :: Nil,
     )
 
-  def status(status: Status): UResponse = http(status)
+  def status(status: Status): UResponse = Response(status)
+
+  def fromJResponse(jRes: JHttpResponse): Response[Any, Nothing] = FromJResponse(jRes)
+
+  def decode[R, E, A](decoder: Decoder[A])(cb: A => Response[R, E]): Response[R, E] = Decode(decoder, cb)
+
+  def decodeComplete[R, E](maxSize: Int)(cb: HBuf1[Direction.In] => Response[R, E]): Response[R, E] =
+    Response.decode(Decoder.Complete(maxSize))(cb)
+
+  def decodeBuffered[R, E](maxSize: Int)(cb: TQueue[HBuf1[Direction.In]] => Response[R, E]): Response[R, E] =
+    Response.decode(Decoder.Buffered(maxSize))(cb)
 }

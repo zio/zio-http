@@ -47,7 +47,7 @@ object WebSocketFrame {
   def toJFrame(frame: WebSocketFrame): JWebSocketFrame =
     frame match {
       case Binary(buffer)            =>
-        new JBinaryWebSocketFrame(buffer.asJByteBuf)
+        new JBinaryWebSocketFrame(buffer.asJava)
       case Text(text)                =>
         new JTextWebSocketFrame(text)
       case Close(status, Some(text)) =>
@@ -59,6 +59,6 @@ object WebSocketFrame {
       case Pong                      =>
         new JPongWebSocketFrame()
       case Continuation(buffer)      =>
-        new JContinuationWebSocketFrame(buffer.asJByteBuf)
+        new JContinuationWebSocketFrame(buffer.asJava)
     }
 }

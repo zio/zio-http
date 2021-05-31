@@ -1,7 +1,7 @@
 package zhttp.core
 
 import io.netty.buffer.{Unpooled, ByteBufUtil => JByteBufUtil}
-import zhttp.core.Direction.Out
+import zhttp.core.Direction.{Flip, Out, In}
 import zhttp.core.Nat._
 import zio.Chunk
 
@@ -10,7 +10,7 @@ import java.nio.charset.Charset
 /**
  * A wrapper on netty's ByteBuf which maintains reference count in it's type
  */
-final class HBuf[C <: Nat, D <: Direction](private[zhttp] val asJava: JByteBuf) extends AnyVal { self =>
+final class HBuf[C <: Nat, D](private[zhttp] val asJava: JByteBuf) extends AnyVal { self =>
 
   /**
    * Increases the ref count by 1
@@ -28,12 +28,12 @@ final class HBuf[C <: Nat, D <: Direction](private[zhttp] val asJava: JByteBuf) 
   /**
    * Flips the direction of the buffer
    */
-  private[zhttp] def flip[D0 <: Direction](implicit ev: Flip[D, D0]): HBuf[C, D0] = HBuf(asJava)
+  private[zhttp] def flip[D0](implicit ev: Flip[D, D0]): HBuf[C, D0] = HBuf(asJava)
 
   /**
    * Reads the data as a chunk of bytes
    */
-  def read(implicit c: C =:= Two, d: D =:= Out): Chunk[Byte] =
+  def toByteChunk(implicit c: C =:= Two, d: D =:= Out): Chunk[Byte] =
     Chunk.fromArray(JByteBufUtil.getBytes(asJava))
 }
 
@@ -42,11 +42,11 @@ object HBuf {
     override def getMessage: String = s"Expected ByteBuf.refCount to be ${1} but is ${actual}"
   }
 
-  private[zhttp] def one[D <: Direction](byteBuf: JByteBuf): HBuf[One, D] = any(1, byteBuf)
-  private[zhttp] def two[D <: Direction](byteBuf: JByteBuf): HBuf[One, D] = any(2, byteBuf)
+  private[zhttp] def one[D](byteBuf: JByteBuf): HBuf[One, D] = any(1, byteBuf)
+  private[zhttp] def two[D](byteBuf: JByteBuf): HBuf[One, D] = any(2, byteBuf)
 
-  private def apply[C <: Nat, D <: Direction](byteBuf: JByteBuf): HBuf[C, D] = new HBuf(byteBuf)
-  private def any[C <: Nat, D <: Direction](cnt: Int, byteBuf: JByteBuf): HBuf[One, D] = {
+  private def apply[C <: Nat, D](byteBuf: JByteBuf): HBuf[C, D] = new HBuf(byteBuf)
+  private def any[C <: Nat, D](cnt: Int, byteBuf: JByteBuf): HBuf[One, D] = {
     if (byteBuf.refCnt() == cnt) new HBuf(byteBuf)
     else throw UnexpectedRefCount(byteBuf.refCnt(), cnt)
   }
@@ -68,4 +68,9 @@ object HBuf {
    */
   def fromArray(array: Array[Byte]): HBuf[One, Out] =
     HBuf(Unpooled.copiedBuffer(array))
+
+  /**
+   * Creates an empty HBuf
+   */
+  def empty: HBuf[One, In] = HBuf(Unpooled.EMPTY_BUFFER)
 }

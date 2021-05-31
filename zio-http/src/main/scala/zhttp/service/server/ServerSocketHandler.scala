@@ -31,12 +31,10 @@ final case class ServerSocketHandler[R](
 
   override def channelRead0(ctx: JChannelHandlerContext, msg: JWebSocketFrame): Unit =
     ss.onMessage match {
-      case Some(v) =>
-        WebSocketFrame.fromJFrame(msg) match {
-          case Some(frame) => writeAndFlush(ctx, v(frame))
-          case _           => ()
-        }
-      case None    => ()
+      case Some(cb) =>
+        val frame = WebSocketFrame.fromJFrame(msg)
+        writeAndFlush(ctx, cb(frame))
+      case None     => ()
     }
 
   override def exceptionCaught(ctx: JChannelHandlerContext, x: Throwable): Unit = {
