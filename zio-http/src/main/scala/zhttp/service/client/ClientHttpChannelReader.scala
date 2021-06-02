@@ -1,12 +1,11 @@
 package zhttp.service.client
 
 import io.netty.handler.codec.DecoderException
-import javax.net.ssl.SSLHandshakeException
 import zhttp.core.JChannelHandlerContext
 import zhttp.service.ChannelFuture
 import zio.{Promise, Task, UIO}
+import javax.net.ssl.SSLHandshakeException
 
-final case class SSLHandshake(message: String) extends Throwable
 final case class ClientHttpChannelReader[E, A](msg: AnyRef, promise: Promise[E, A]) {
   def onChannelRead(a: A): UIO[Unit]                    = promise.succeed(a).unit
   def onExceptionCaught(e: E): UIO[Unit] = {

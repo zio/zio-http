@@ -1,13 +1,12 @@
 package zhttp.service.client
 
-import java.io.FileInputStream
-import java.security.KeyStore
 import io.netty.channel.ChannelPipeline
 import io.netty.handler.codec.http.{HttpClientCodec => JHttpClientCodec}
 import io.netty.handler.ssl.SslContext
-import javax.net.ssl.TrustManagerFactory
 import zhttp.core.{JChannel, JChannelHandler, JChannelInitializer, JHttpObjectAggregator}
-
+import java.io.FileInputStream
+import java.security.KeyStore
+import javax.net.ssl.TrustManagerFactory
 import scala.util.{Failure, Success, Try}
 final case class ClientChannelInitializer[R](channelHandler: JChannelHandler, port: Int)
     extends JChannelInitializer[JChannel]() {
