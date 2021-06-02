@@ -12,6 +12,7 @@ final case class ServerChannelInitializer(httpH: JChannelHandler, maxSize: Int) 
   override def initChannel(channel: JChannel): Unit = {
     channel
       .pipeline()
+      .addFirst("ssl", SslContext.sslCtx.newHandler(channel.alloc()))
       .addLast(SERVER_CODEC_HANDLER, new JHttpServerCodec)
       .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
       .addLast(OBJECT_AGGREGATOR, new JHttpObjectAggregator(maxSize))
