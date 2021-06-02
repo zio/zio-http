@@ -4,6 +4,7 @@ import io.netty.handler.codec.DecoderException
 import zhttp.core.JChannelHandlerContext
 import zhttp.service.ChannelFuture
 import zio.{Promise, Task, UIO}
+
 import javax.net.ssl.SSLHandshakeException
 
 final case class ClientHttpChannelReader[E, A](msg: AnyRef, promise: Promise[E, A]) {

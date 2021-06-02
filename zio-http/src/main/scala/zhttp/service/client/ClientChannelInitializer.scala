@@ -4,6 +4,7 @@ import io.netty.channel.ChannelPipeline
 import io.netty.handler.codec.http.{HttpClientCodec => JHttpClientCodec}
 import io.netty.handler.ssl.SslContext
 import zhttp.core.{JChannel, JChannelHandler, JChannelInitializer, JHttpObjectAggregator}
+
 import java.io.FileInputStream
 import java.security.KeyStore
 import javax.net.ssl.TrustManagerFactory
