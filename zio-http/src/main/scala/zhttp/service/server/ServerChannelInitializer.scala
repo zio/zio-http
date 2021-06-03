@@ -10,13 +10,19 @@ import zhttp.service.{HTTP_KEEPALIVE_HANDLER, HTTP_REQUEST_HANDLER, OBJECT_AGGRE
 @JSharable
 final case class ServerChannelInitializer(httpH: JChannelHandler, maxSize: Int) extends JChannelInitializer[JChannel] {
   override def initChannel(channel: JChannel): Unit = {
-    channel
+    val p = channel
       .pipeline()
-      .addFirst("ssl", SslContext.sslCtx.newHandler(channel.alloc()))
       .addLast(SERVER_CODEC_HANDLER, new JHttpServerCodec)
       .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
       .addLast(OBJECT_AGGREGATOR, new JHttpObjectAggregator(maxSize))
       .addLast(HTTP_REQUEST_HANDLER, httpH)
     ()
+
+    ServerSslHandler.ssl match {
+      case Some(value) =>
+        p.addFirst("ssl", value.newHandler(channel.alloc()))
+        ()
+      case None        => ()
+    }
   }
 }
