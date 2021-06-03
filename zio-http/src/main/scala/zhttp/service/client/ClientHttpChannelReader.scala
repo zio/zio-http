@@ -15,7 +15,9 @@ final case class ClientHttpChannelReader[E, A](msg: AnyRef, promise: Promise[E, 
         a.getCause match {
           case _: SSLHandshakeException =>
             promise
-              .fail(new Exception("SSL certificate problem: unable to get local issuer certificate").asInstanceOf[E])
+              .fail(
+                new Exception("SSL certificate problem: unable to get local issuer certificate").asInstanceOf[E],
+              ) //throw sslHandshake exception
               .unit
           case _                        => promise.fail(e).unit
         }
