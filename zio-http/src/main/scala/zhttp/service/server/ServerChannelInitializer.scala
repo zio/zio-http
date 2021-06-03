@@ -16,13 +16,12 @@ final case class ServerChannelInitializer(httpH: JChannelHandler, maxSize: Int) 
       .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
       .addLast(OBJECT_AGGREGATOR, new JHttpObjectAggregator(maxSize))
       .addLast(HTTP_REQUEST_HANDLER, httpH)
-    ()
 
     ServerSslHandler.ssl match {
-      case Some(value) =>
-        p.addFirst("ssl", value.newHandler(channel.alloc()))
+      case Some(ssl) =>
+        p.addFirst("ssl", ssl.newHandler(channel.alloc()))
         ()
-      case None        => ()
+      case None      => ()
     }
   }
 }
