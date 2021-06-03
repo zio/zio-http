@@ -9,6 +9,8 @@ import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
 
+import zhttp.http.URL.Location
+
 final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JChannel], el: JEventLoopGroup)
     extends HttpMessageCodec {
   private def asyncRequest(
@@ -17,14 +19,18 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
     promise: Promise[Throwable, JFullHttpResponse],
   ): Task[Unit] =
     ChannelFuture.unit {
-      val read = ClientHttpChannelReader(jReq, promise)
-      val hand = ClientInboundHandler(zx, read)
-      val host = req.url.host
-      val port = req.url.port.getOrElse(80) match {
+      val read   = ClientHttpChannelReader(jReq, promise)
+      val hand   = ClientInboundHandler(zx, read)
+      val host   = req.url.host
+      val port   = req.url.port.getOrElse(80) match {
         case -1   => 80
         case port => port
       }
-      val init = ClientChannelInitializer(hand, port)
+      val scheme = req.url.kind match {
+        case Location.Relative               => ""
+        case Location.Absolute(scheme, _, _) => scheme.asString
+      }
+      val init   = ClientChannelInitializer(hand, scheme)
 
       val jboo = new JBootstrap().channelFactory(cf).group(el).handler(init)
       if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
