@@ -43,6 +43,8 @@ object Header {
   val contentTypeFormUrlEncoded: Header =
     Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED)
 
+  def host(name: String): Header           = Header(JHttpHeaderNames.HOST, name)
+  def userAgent(name: String): Header      = Header(JHttpHeaderNames.USER_AGENT, name)
   def authorization(value: String): Header = Header(JHttpHeaderNames.AUTHORIZATION, value)
 
   def basicHttpAuthorization(username: String, password: String): Header = {

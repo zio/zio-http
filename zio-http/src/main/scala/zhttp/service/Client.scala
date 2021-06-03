@@ -53,8 +53,20 @@ object Client {
     res <- request(Method.GET -> url)
   } yield res
 
+  def request(url: String, headers: List[Header]): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+    for {
+      url <- ZIO.fromEither(URL.fromString(url))
+      res <- request(Method.GET -> url, headers)
+    } yield res
+
   def request(endpoint: Endpoint): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
     request(Request(endpoint))
+
+  def request(
+    endpoint: Endpoint,
+    headers: List[Header],
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+    request(Request(endpoint, headers))
 
   def request(req: Request): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
     make.flatMap(_.request(req))
