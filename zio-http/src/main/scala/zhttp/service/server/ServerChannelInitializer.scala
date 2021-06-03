@@ -8,7 +8,8 @@ import zhttp.service.{HTTP_KEEPALIVE_HANDLER, HTTP_REQUEST_HANDLER, OBJECT_AGGRE
  * Initializes the netty channel with default handlers
  */
 @JSharable
-final case class ServerChannelInitializer(httpH: JChannelHandler, maxSize: Int) extends JChannelInitializer[JChannel] {
+final case class ServerChannelInitializer(httpH: JChannelHandler, maxSize: Int, enableSsl: Boolean = false)
+    extends JChannelInitializer[JChannel] {
   override def initChannel(channel: JChannel): Unit = {
     val p = channel
       .pipeline()
@@ -17,11 +18,14 @@ final case class ServerChannelInitializer(httpH: JChannelHandler, maxSize: Int) 
       .addLast(OBJECT_AGGREGATOR, new JHttpObjectAggregator(maxSize))
       .addLast(HTTP_REQUEST_HANDLER, httpH)
 
-    ServerSslHandler.ssl match {
-      case Some(ssl) =>
-        p.addFirst("ssl", ssl.newHandler(channel.alloc()))
-        ()
-      case None      => ()
-    }
+    if (enableSsl)
+      ServerSslHandler.ssl match {
+        case Some(ssl) =>
+          p.addFirst("ssl", ssl.newHandler(channel.alloc()))
+          ()
+        case None      => ()
+      }
+    else
+      ()
   }
 }
