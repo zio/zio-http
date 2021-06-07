@@ -2,7 +2,7 @@ package zhttp.service
 
 import java.net.InetSocketAddress
 
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpVersion => JHttpVersion}
+import io.netty.handler.codec.http.{HttpVersion => JHttpVersion}
 import zhttp.core._
 import zhttp.http.URL.Location
 import zhttp.http._
@@ -16,8 +16,7 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
     req: Request,
     jReq: JFullHttpRequest,
     promise: Promise[Throwable, JFullHttpResponse],
-    trustStorePath: String,
-    trustStorePassword: String,
+    trustStoreConfig: TrustStoreConfig,
   ): Task[Unit] =
     ChannelFuture.unit {
       val read   = ClientHttpChannelReader(jReq, promise)
@@ -31,7 +30,7 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
         case Location.Relative               => ""
         case Location.Absolute(scheme, _, _) => scheme.asString
       }
-      val init   = ClientChannelInitializer(hand, scheme, trustStorePath, trustStorePassword)
+      val init   = ClientChannelInitializer(hand, scheme, trustStoreConfig)
 
       val jboo = new JBootstrap().channelFactory(cf).group(el).handler(init)
       if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
@@ -39,15 +38,14 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
       jboo.connect()
     }
 
-  def request(request: Request, trustStorePath: String, trustStorePassword: String): Task[UHttpResponse] = for {
+  def request(request: Request, trustStoreConfig: TrustStoreConfig = TrustStoreConfig()): Task[UHttpResponse] = for {
     promise <- Promise.make[Throwable, JFullHttpResponse]
     jReq = encodeRequest(JHttpVersion.HTTP_1_1, request)
-    _    <- asyncRequest(request, jReq, promise, trustStorePath, trustStorePassword)
-      .catchAll(cause => promise.fail(cause))
-      .fork
+    _    <- asyncRequest(request, jReq, promise, trustStoreConfig).catchAll(cause => promise.fail(cause)).fork
     jRes <- promise.await
     res  <- ZIO.fromEither(decodeJResponse(jRes))
   } yield res
+
 }
 
 object Client {
@@ -57,39 +55,44 @@ object Client {
     zx <- UnsafeChannelExecutor.make[Any]
   } yield service.Client(zx, cf, el)
 
-  def request(url: String): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] = for {
+  def request(
+    url: String,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] = for {
     url <- ZIO.fromEither(URL.fromString(url))
     res <- request(Method.GET -> url)
   } yield res
 
   def request(
     url: String,
-    trustStorePath: String,
-    trustStorePassword: String,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] = for {
-    url <- ZIO.fromEither(URL.fromString(url))
-    res <- request(Method.GET -> url, trustStorePath, trustStorePassword)
-  } yield res
+    headers: List[Header],
+    trustStoreConfig: TrustStoreConfig = TrustStoreConfig(),
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+    for {
+      url <- ZIO.fromEither(URL.fromString(url))
+      res <- request(Method.GET -> url, headers, trustStoreConfig)
+    } yield res
 
-  def request(endpoint: Endpoint): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+  def request(
+    endpoint: Endpoint,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
     request(Request(endpoint))
 
   def request(
     endpoint: Endpoint,
-    trustStorePath: String,
-    trustStorePassword: String,
+    headers: List[Header],
+    trustStoreConfig: TrustStoreConfig,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
-    request(
-      Request(endpoint),
-      trustStorePath,
-      trustStorePassword,
-    )
+    request(Request(endpoint, headers), trustStoreConfig)
 
   def request(
     req: Request,
-    trustStorePath: String = "",
-    trustStorePassword: String = "",
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
-    make.flatMap(_.request(req, trustStorePath, trustStorePassword))
+    make.flatMap(_.request(req))
+
+  def request(
+    req: Request,
+    trustStoreConfig: TrustStoreConfig,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+    make.flatMap(_.request(req, trustStoreConfig))
 
 }

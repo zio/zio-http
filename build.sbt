@@ -5,7 +5,7 @@ import scala.concurrent.duration.FiniteDuration
 import sbt.enablePlugins
 
 // ZIO Version
-val zioVersion            = "1.0.8"
+val zioVersion            = "1.0.9"
 val zioConfigVersion      = "1.0.2"
 val releaseDrafterVersion = "5"
 
@@ -118,7 +118,7 @@ lazy val example = (project in file("./example"))
     fork := true,
     Compile / run / mainClass := Option("Authentication"),
     libraryDependencies ++= Seq(
-      "com.github.jwt-scala" %% "jwt-core" % "7.1.5",
+      "com.github.jwt-scala" %% "jwt-core" % "8.0.2",
     ),
   )
   .dependsOn(zhttp)

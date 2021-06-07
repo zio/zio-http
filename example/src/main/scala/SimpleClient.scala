@@ -1,14 +1,19 @@
-import zhttp.http.HttpData
+import zhttp.http.{Header, HttpData, TrustStoreConfig}
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
 
 object SimpleClient extends App {
-  val env                = ChannelFactory.auto ++ EventLoopGroup.auto()
-  val trustStorePath     = System.getProperty("javax.net.ssl.trustStore")
-  val trustStorePassword = System.getProperty("javax.net.ssl.trustStorePassword")
+  val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
+  val url     = "https://sports.api.decathlon.com/groups/water-aerobics"
+  val headers = List(Header.host("sports.api.decathlon.com"))
 
-  val program            = for {
-    res <- Client.request("https://api.github.com/users/zio/repos", trustStorePath, trustStorePassword)
+  //Configuring Truststore for https(optional)
+  val trustStorePath                     = System.getProperty("javax.net.ssl.trustStore")
+  val trustStorePassword                 = System.getProperty("javax.net.ssl.trustStorePassword")
+  val trustStoreConfig: TrustStoreConfig = TrustStoreConfig(trustStorePath, trustStorePassword)
+
+  val program = for {
+    res <- Client.request(url, headers, trustStoreConfig)
     _   <- console.putStrLn {
       res.content match {
         case HttpData.CompleteData(data) => data.map(_.toChar).mkString

@@ -4,7 +4,7 @@ import scalafix.sbt.ScalafixPlugin.autoImport._
 import xerial.sbt.Sonatype.autoImport._
 
 object BuildHelper extends ScalaSettings {
-  val Scala212   = "2.12.13"
+  val Scala212   = "2.12.14"
   val Scala213   = "2.13.6"
   val ScalaDotty = "3.0.0"
 

@@ -8,7 +8,7 @@ import java.nio.file.{Paths => JPaths}
 object FileStreaming extends App {
   // Read the file as ZStream
   val content = HttpData.fromStream {
-    ZStream.fromFile(JPaths.get("../README.md"))
+    ZStream.fromFile(JPaths.get("README.md"))
   }
 
   // Create HTTP route

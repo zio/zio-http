@@ -11,7 +11,7 @@ object CORSSpec extends HttpRunnableSpec(8089) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
   val app: ZManaged[EventLoopGroup with ServerChannelFactory, Nothing, Unit] = serve {
-    CORS(HttpApp.collect { case _ -> Root / "success" =>
+    CORS(HttpApp.collect { case Method.GET -> Root / "success" =>
       Response.ok
     })
   }
@@ -21,14 +21,16 @@ object CORSSpec extends HttpRunnableSpec(8089) {
       .as(
         List(
           testM("OPTIONS request") {
-            val actual = headers(
+            val actual = request(
               Root / "success",
               Method.OPTIONS,
               "",
-              HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD -> Method.GET.toString(),
-              HttpHeaderNames.ORIGIN                        -> "Test-env",
+              List[Header](
+                Header.custom(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD.toString(), Method.GET.toString()),
+                Header.custom(HttpHeaderNames.ORIGIN.toString(), "Test-env"),
+              ),
             )
-            assertM(actual)(
+            assertM(actual.map(_.headers))(
               hasSubset(
                 List(
                   Header.custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS.toString(), "true"),
@@ -39,6 +41,11 @@ object CORSSpec extends HttpRunnableSpec(8089) {
                     CORS.DefaultCORSConfig.allowedHeaders.get.mkString(","),
                   ),
                 ),
+              ),
+            )
+            assertM(actual.map(_.status))(
+              equalTo(
+                Status.NO_CONTENT,
               ),
             )
           },
