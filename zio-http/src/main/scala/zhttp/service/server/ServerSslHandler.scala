@@ -18,10 +18,19 @@ import java.security.KeyStore
 import javax.net.ssl.KeyManagerFactory
 
 object ServerSslHandler {
-  val keyStore: KeyStore       = KeyStore.getInstance("JKS")
-  val keyStorePath: String     = System.getProperty("javax.net.ssl.keyStore")
-  val keyStorePassword: String = System.getProperty("javax.net.ssl.keyStorePassword")
-  val certPassword: String     = System.getProperty("javax.net.ssl.certPassword")
+
+  sealed trait SslOptions
+  object SslOptions {
+    final case object NoSsl                            extends SslOptions
+    final case object SelfSigned                       extends SslOptions
+    final case class DefaultCertificate(
+      keyStore: KeyStore = KeyStore.getInstance("JKS"),
+      keyStorePath: String = "default path",
+      keyStorePassword: String = "123456",
+      certPassword: String = "123456",
+    )                                                  extends SslOptions
+    final case class CustomSsl(sslContext: SslContext) extends SslOptions
+  }
 
   def getSslContext(
     keyStore: KeyStore,
@@ -51,5 +60,30 @@ object ServerSslHandler {
     }
   }
 
-  val ssl: Option[SslContext] = getSslContext(keyStore, keyStorePath, keyStorePassword, certPassword)
+  def ssl(sslOption: SslOptions): Option[SslContext] = {
+    sslOption match {
+      case SslOptions.NoSsl                               => None
+      case SslOptions.SelfSigned                          => {
+        import io.netty.handler.ssl.util.SelfSignedCertificate
+        val ssc = new SelfSignedCertificate
+        Option(
+          SslContextBuilder
+            .forServer(ssc.certificate(), ssc.privateKey())
+            .sslProvider(SslProvider.JDK)
+            .applicationProtocolConfig(
+              new ApplicationProtocolConfig(
+                Protocol.ALPN,
+                SelectorFailureBehavior.NO_ADVERTISE,
+                SelectedListenerFailureBehavior.ACCEPT,
+                ApplicationProtocolNames.HTTP_1_1,
+              ),
+            )
+            .build(),
+        )
+      }
+      case dc @ SslOptions.DefaultCertificate(_, _, _, _) =>
+        getSslContext(dc.keyStore, dc.keyStorePath, dc.keyStorePassword, dc.certPassword)
+      case SslOptions.CustomSsl(sslContext)               => Some(sslContext)
+    }
+  }
 }
