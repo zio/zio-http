@@ -3,10 +3,22 @@ package zhttp.http
 import zio.ZIO
 
 final case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) extends AnyVal {
+
+  /**
+   * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
+   */
   def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1]]) = HttpApp(
     asHttp.catchAll(e => Http.succeed(s.silent(e))),
   )
+
+  /**
+   * Combines two HttpApps into one.
+   */
   def +++[R1 <: R, E1 >: E](other: HttpApp[R1, E1])                             = HttpApp(asHttp +++ other.asHttp)
+
+  /**
+   * Evaluates the app and returns an HttpResult that can be resolved further
+   */
   def execute(r: Request)                                                       = asHttp.execute(r)
 }
 
@@ -72,7 +84,7 @@ object HttpApp {
   def forbidden(msg: String): UHttpApp = HttpApp(Http.succeed(HttpError.Forbidden(msg).toResponse))
 
   /**
-   * Creates a Http app from a pure function
+   * Creates a Http app from a function from Request to HttpApp
    */
   def fromFunction[R, E, B](f: Request => HttpApp[R, E]) = HttpApp(Http.flatten(Http.fromFunction(f).map(_.asHttp)))
 
