@@ -74,7 +74,7 @@ object Server {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
       httpH           = ServerRequestHandler(zExec, settings)
-      init            = ServerChannelInitializer(httpH, settings.maxRequestSize, settings.ssl)
+      init            = ServerChannelInitializer(httpH, settings)
       serverBootstrap = new JServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.port))
     } yield {
