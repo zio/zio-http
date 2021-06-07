@@ -23,7 +23,7 @@ object HttpsServerSpec extends HttpRunnableSpec(8080) {
       .as(
         List(
           testM("200 response") {
-            val actual = Client.request("http://localhost:8081/success").map(_.status)
+            val actual = Client.request("http://localhost:8080/success").map(_.status)
             assertM(actual)(equalTo(Status.OK))
           },
           // TODO: to be implemented after getting ssl support for client
