@@ -1,12 +1,11 @@
 package zhttp.service.client
 
-import java.io.FileInputStream
-import java.security.KeyStore
-
 import io.netty.handler.ssl.{SslContext, SslContextBuilder}
-import javax.net.ssl.TrustManagerFactory
 import zhttp.http.TrustStoreConfig
 
+import java.io.FileInputStream
+import java.security.KeyStore
+import javax.net.ssl.TrustManagerFactory
 import scala.util.Try
 
 case object ClientSSLContext {

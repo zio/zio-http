@@ -1,7 +1,5 @@
 package zhttp.service
 
-import java.net.InetSocketAddress
-
 import io.netty.handler.codec.http.{HttpVersion => JHttpVersion}
 import zhttp.core._
 import zhttp.http.URL.Location
@@ -9,6 +7,8 @@ import zhttp.http._
 import zhttp.service
 import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
 import zio.{Promise, Task, ZIO}
+
+import java.net.InetSocketAddress
 
 final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JChannel], el: JEventLoopGroup)
     extends HttpMessageCodec {
