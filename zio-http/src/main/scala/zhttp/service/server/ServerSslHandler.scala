@@ -21,8 +21,8 @@ object ServerSslHandler {
 
   sealed trait SslOptions
   object SslOptions {
-    final case object NoSsl                            extends SslOptions
-    final case object SelfSigned                       extends SslOptions
+    case object NoSsl                                  extends SslOptions
+    case object SelfSigned                             extends SslOptions
     final case class DefaultCertificate(
       keyStorePath: String,
       keyStore: KeyStore = KeyStore.getInstance("JKS"),
