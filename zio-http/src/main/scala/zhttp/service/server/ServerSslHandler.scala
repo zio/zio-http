@@ -24,8 +24,8 @@ object ServerSslHandler {
     final case object NoSsl                            extends SslOptions
     final case object SelfSigned                       extends SslOptions
     final case class DefaultCertificate(
+      keyStorePath: String,
       keyStore: KeyStore = KeyStore.getInstance("JKS"),
-      keyStorePath: String = "default path",
       keyStorePassword: String = "123456",
       certPassword: String = "123456",
     )                                                  extends SslOptions
@@ -33,8 +33,8 @@ object ServerSslHandler {
   }
 
   def getSslContext(
-    keyStore: KeyStore,
     keyStorePath: String,
+    keyStore: KeyStore,
     keyStorePassword: String,
     certPassword: String,
   ): Option[SslContext] = {
@@ -82,7 +82,7 @@ object ServerSslHandler {
         )
       }
       case dc @ SslOptions.DefaultCertificate(_, _, _, _) =>
-        getSslContext(dc.keyStore, dc.keyStorePath, dc.keyStorePassword, dc.certPassword)
+        getSslContext(dc.keyStorePath, dc.keyStore, dc.keyStorePassword, dc.certPassword)
       case SslOptions.CustomSsl(sslContext)               => Some(sslContext)
     }
   }

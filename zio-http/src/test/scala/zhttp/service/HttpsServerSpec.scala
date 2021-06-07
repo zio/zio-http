@@ -1,7 +1,7 @@
 package zhttp.service
 
 import zhttp.http._
-import zhttp.service.server.ServerSslHandler.SslOptions.DefaultCertificate
+import zhttp.service.server.ServerSslHandler.SslOptions.SelfSigned
 import zhttp.service.server._
 import zio.ZIO
 import zio.test.Assertion.equalTo
@@ -15,7 +15,7 @@ object HttpsServerSpec extends HttpRunnableSpec(8081) {
       case Method.GET -> Root / "success" => ZIO.succeed(Response.ok)
       case Method.GET -> Root / "failure" => ZIO.fail(new RuntimeException("FAILURE"))
     },
-    DefaultCertificate(),
+    SelfSigned,
   )
 
   override def spec = suiteM("Server")(
