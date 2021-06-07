@@ -9,6 +9,18 @@ import zio._
  */
 object JsonWebService extends App {
 
+  sealed trait UserRequest
+  object UserRequest  {
+    case class Post(route: Route, body: Option[String]) extends UserRequest
+    case class Get(route: Route)                        extends UserRequest
+    case object BadRequest                              extends UserRequest
+  }
+  sealed trait UserResponse
+  object UserResponse {
+    case class UStatus(msg: String)     extends UserResponse
+    case class JsonString(data: String) extends UserResponse
+  }
+
   final case class Employee(id: Long, name: String, experience: Int)
 
   implicit val employeeEncoder: Encoder[Employee] =
@@ -17,16 +29,35 @@ object JsonWebService extends App {
   val employees = List(Employee(1, "abc", 3), Employee(2, "def", 2), Employee(3, "xyz", 4))
 
   //get employee details if employee exists
-  def getDetails(id: String): String = {
-    val emp = employees.filter(_.id.toString.equals(id))
-    if (emp.isEmpty) s"""Employee doesn't exist"""
-    else emp.head.asJson.noSpaces
-  }
+  def getDetails(id: String): String =
+    employees.filter(_.id.toString.equals(id)).asJson.noSpaces
+
+  val user: Http[Any, Nothing, UserRequest, UserResponse] =
+    Http.collect[UserRequest]({
+      case UserRequest.Get((Method.GET, Root / "employee" / id))         => UserResponse.JsonString(getDetails(id))
+      case UserRequest.Post((Method.POST, Root / "createUser"), content) =>
+        UserResponse.UStatus(content match {
+          case Some(content) if !content.isEmpty => s"user created with content: ${content}"
+          case None                              => "failed to create user"
+          case _                                 => "failed to create user"
+        })
+    })
 
   // Create HTTP route
-  val app: HttpApp[Any, Nothing] = HttpApp.collect { case Method.GET -> Root / "get-employee-details" / id =>
-    Response.jsonString(getDetails(id))
-  }
+  val app: Http[Any, Nothing, Request, UResponse] = user
+    .contramap[Request](req =>
+      req match {
+        case Method.GET -> Root / "employee" / _ => UserRequest.Get(req.route)
+        case Method.POST -> Root / "createUser"  => UserRequest.Post(req.route, req.getBodyAsString)
+        case _                                   => UserRequest.BadRequest
+      },
+    )
+    .map(response =>
+      response match {
+        case UserResponse.UStatus(msg)     => Response.text(msg)
+        case UserResponse.JsonString(data) => Response.jsonString(data)
+      },
+    )
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
