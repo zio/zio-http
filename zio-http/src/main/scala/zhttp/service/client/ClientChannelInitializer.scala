@@ -5,10 +5,15 @@ import io.netty.handler.codec.http.{HttpClientCodec => JHttpClientCodec}
 import io.netty.handler.ssl.SslContext
 import zhttp.core.{JChannel, JChannelHandler, JChannelInitializer, JHttpObjectAggregator}
 
-final case class ClientChannelInitializer[R](channelHandler: JChannelHandler, scheme: String)
-    extends JChannelInitializer[JChannel]() {
+final case class ClientChannelInitializer[R](
+  channelHandler: JChannelHandler,
+  scheme: String,
+  trustStorePath: String,
+  trustStorePassword: String,
+) extends JChannelInitializer[JChannel]() {
   override def initChannel(ch: JChannel): Unit = {
-    val sslCtx: SslContext = if (scheme == "https") ClientSSLContext.getSSLContext() else null
+    val sslCtx: SslContext =
+      if (scheme == "https") ClientSSLContext.getSSLContext(trustStorePath, trustStorePassword) else null
     val p: ChannelPipeline = ch
       .pipeline()
       .addLast(new JHttpClientCodec)
