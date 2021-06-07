@@ -11,14 +11,14 @@ object JsonWebService extends App {
 
   sealed trait UserRequest
   object UserRequest  {
-    case class Post(route: Route, body: Option[String]) extends UserRequest
-    case class Get(route: Route)                        extends UserRequest
-    case object BadRequest                              extends UserRequest
+    case class Post(route: Route, content: Option[String]) extends UserRequest
+    case class Get(route: Route)                           extends UserRequest
+    case object BadRequest                                 extends UserRequest
   }
   sealed trait UserResponse
   object UserResponse {
-    case class UStatus(msg: String)     extends UserResponse
-    case class JsonString(data: String) extends UserResponse
+    case class StatusResponse(msg: String) extends UserResponse
+    case class JsonResponse(data: String)  extends UserResponse
   }
 
   final case class Employee(id: Long, name: String, experience: Int)
@@ -29,14 +29,13 @@ object JsonWebService extends App {
   val employees = List(Employee(1, "abc", 3), Employee(2, "def", 2), Employee(3, "xyz", 4))
 
   //get employee details if employee exists
-  def getDetails(id: String): String =
-    employees.filter(_.id.toString.equals(id)).asJson.noSpaces
+  def getDetails(id: String): String = employees.filter(_.id.toString.equals(id)).asJson.noSpaces
 
   val user: Http[Any, Nothing, UserRequest, UserResponse] =
     Http.collect[UserRequest]({
-      case UserRequest.Get((Method.GET, Root / "employee" / id))         => UserResponse.JsonString(getDetails(id))
+      case UserRequest.Get((Method.GET, Root / "employee" / id))         => UserResponse.JsonResponse(getDetails(id))
       case UserRequest.Post((Method.POST, Root / "createUser"), content) =>
-        UserResponse.UStatus(content match {
+        UserResponse.StatusResponse(content match {
           case Some(content) if !content.isEmpty => s"user created with content: ${content}"
           case None                              => "failed to create user"
           case _                                 => "failed to create user"
@@ -54,8 +53,8 @@ object JsonWebService extends App {
     )
     .map(response =>
       response match {
-        case UserResponse.UStatus(msg)     => Response.text(msg)
-        case UserResponse.JsonString(data) => Response.jsonString(data)
+        case UserResponse.StatusResponse(msg) => Response.text(msg)
+        case UserResponse.JsonResponse(data)  => Response.jsonString(data)
       },
     )
 
