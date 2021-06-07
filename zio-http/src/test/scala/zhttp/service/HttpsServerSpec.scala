@@ -1,7 +1,7 @@
 package zhttp.service
 
 import zhttp.http._
-import zhttp.service.server.ServerSslHandler.SslOptions.SelfSigned
+import zhttp.service.server.ServerSslHandler.SslOptions._
 import zhttp.service.server._
 import zio.ZIO
 import zio.test.Assertion.equalTo
@@ -15,7 +15,7 @@ object HttpsServerSpec extends HttpRunnableSpec(8081) {
       case Method.GET -> Root / "success" => ZIO.succeed(Response.ok)
       case Method.GET -> Root / "failure" => ZIO.fail(new RuntimeException("FAILURE"))
     },
-    SelfSigned,
+    NoSsl,
   )
 
   override def spec = suiteM("Server")(
@@ -23,7 +23,7 @@ object HttpsServerSpec extends HttpRunnableSpec(8081) {
       .as(
         List(
           testM("200 response") {
-            val actual = Client.request("https://localhost:8081/success").map(_.status)
+            val actual = Client.request("http://localhost:8081/success").map(_.status)
             assertM(actual)(equalTo(Status.OK))
           },
           // TODO: to be implemented after getting ssl support for client

@@ -23,7 +23,7 @@ final case class ServerChannelInitializer[R](httpH: JChannelHandler, settings: S
       case Some(ssl) =>
         p.addFirst("ssl", ssl.newHandler(channel.alloc()))
         ()
-      case None      => println("not adding ssl")
+      case None      => ()
     }
 
   }
