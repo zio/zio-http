@@ -3,9 +3,9 @@ import zhttp.http.{Header, HttpData}
 import zhttp.service.client.ClientSSLHandler.SslClientOptions
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
-
-import java.io.FileInputStream
+import java.io.{ InputStream}
 import java.security.KeyStore
+
 import javax.net.ssl.TrustManagerFactory
 
 object HttpsClient extends App {
@@ -15,9 +15,8 @@ object HttpsClient extends App {
 
   //Configuring Truststore for https(optional)
   val trustStore: KeyStore                     = KeyStore.getInstance("JKS")
-  val trustStorePath                           = System.getProperty("javax.net.ssl.trustStore")
-  val trustStorePassword                       = System.getProperty("javax.net.ssl.trustStorePassword")
-  val trustStoreFile: FileInputStream          = new FileInputStream(trustStorePath)
+  val trustStorePassword                       = "changeit"
+  val trustStoreFile: InputStream              = getClass.getResourceAsStream("truststore.jks")
   val trustManagerFactory: TrustManagerFactory =
     TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
 
