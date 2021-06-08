@@ -1,0 +1,46 @@
+package zhttp.service
+
+import io.netty.handler.codec.DecoderException
+import io.netty.handler.ssl.SslContextBuilder
+import zhttp.service.client.ClientSSLHandler.SslClientOptions
+import zio.test.Assertion.{anything, fails, isSubtype}
+import zio.test.assertM
+
+import java.io.FileInputStream
+import java.security.KeyStore
+import javax.net.ssl.TrustManagerFactory
+
+object ClientHttpsSpec extends HttpRunnableSpec(8082) {
+  val env                                      = ChannelFactory.auto ++ EventLoopGroup.auto()
+  val trustStore: KeyStore                     = KeyStore.getInstance("JKS")
+  val trustStorePath: String                   = "truststore.jks"
+  val trustStorePassword: String               = "changeit"
+  val trustStoreFile: FileInputStream          = new FileInputStream(trustStorePath)
+  val trustManagerFactory: TrustManagerFactory =
+    TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
+
+  trustStore.load(trustStoreFile, trustStorePassword.toCharArray)
+  trustManagerFactory.init(trustStore)
+
+  val sslOption: SslClientOptions =
+    SslClientOptions.CustomSslClient(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
+  override def spec               = suite("Https Client request")(
+    testM("respond Ok") {
+      val actual = Client.request("https://api.github.com/users/zio/repos")
+      assertM(actual)(anything)
+    },
+    testM("respond Ok") {
+      val actual = Client.request("https://api.github.com/users/zio/repos", sslOption)
+      assertM(actual)(anything)
+    },
+    testM("should throw DecoderException for handshake failure") {
+      val actual = Client
+        .request(
+          "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
+          sslOption,
+        )
+        .run
+      assertM(actual)(fails(isSubtype[DecoderException](anything)))
+    },
+  ).provideCustomLayer(env)
+}

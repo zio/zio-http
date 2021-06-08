@@ -67,6 +67,14 @@ object Client {
 
   def request(
     url: String,
+    sslOptions: SslClientOptions,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] = for {
+    url <- ZIO.fromEither(URL.fromString(url))
+    res <- request(Method.GET -> url, sslOptions)
+  } yield res
+
+  def request(
+    url: String,
     headers: List[Header],
     sslOptions: SslClientOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
@@ -80,6 +88,12 @@ object Client {
     sslOption: SslClientOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
     request(Request(endpoint),sslOption)
+
+  def request(
+    endpoint: Endpoint,
+    sslOptions: SslClientOptions,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+    request(Request(endpoint), sslOptions)
 
   def request(
     endpoint: Endpoint,
