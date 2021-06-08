@@ -6,16 +6,16 @@ import zhttp.service.client.ClientSSLHandler.SslClientOptions
 import zio.test.Assertion.{anything, fails, isSubtype}
 import zio.test.assertM
 
-import java.io.FileInputStream
+import java.io.InputStream
 import java.security.KeyStore
 import javax.net.ssl.TrustManagerFactory
 
 object ClientHttpsSpec extends HttpRunnableSpec(8082) {
-  val env                                      = ChannelFactory.auto ++ EventLoopGroup.auto()
-  val trustStore: KeyStore                     = KeyStore.getInstance("JKS")
-  val trustStorePath: String                   = "truststore.jks"
-  val trustStorePassword: String               = "changeit"
-  val trustStoreFile: FileInputStream          = new FileInputStream(trustStorePath)
+  val env                         = ChannelFactory.auto ++ EventLoopGroup.auto()
+  val trustStore: KeyStore        = KeyStore.getInstance("JKS")
+  val trustStorePassword: String  = "changeit"
+  val trustStoreFile: InputStream = getClass().getClassLoader().getResourceAsStream("truststore.jks")
+
   val trustManagerFactory: TrustManagerFactory =
     TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
 
@@ -29,7 +29,7 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
       val actual = Client.request("https://api.github.com/users/zio/repos")
       assertM(actual)(anything)
     },
-    testM("respond Ok") {
+    testM("respond Ok with sslOption") {
       val actual = Client.request("https://api.github.com/users/zio/repos", sslOption)
       assertM(actual)(anything)
     },

@@ -111,10 +111,6 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
       ),
   )
 
-val javaxOptions = Seq(
-  s"-Djavax.net.ssl.trustStore=${file("truststore.jks").getAbsoluteFile}",
-  "-Djavax.net.ssl.trustStorePassword=changeit",
-)
 lazy val example = (project in file("./example"))
   .settings(stdSettings("example"))
   .settings(publishSetting(false))
@@ -124,7 +120,6 @@ lazy val example = (project in file("./example"))
     libraryDependencies ++= Seq(
       "com.github.jwt-scala" %% "jwt-core" % "8.0.2",
     ),
-    javaOptions ++= javaxOptions,
   )
   .dependsOn(zhttp)
 
