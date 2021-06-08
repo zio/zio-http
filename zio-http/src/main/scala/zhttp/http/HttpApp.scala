@@ -46,7 +46,7 @@ object HttpApp {
   def collectComplete[R, E, B: HasContent](
     pf: PartialFunction[Request[Any, Nothing, Complete], Response[R, E, B]],
   ): HttpApp[R, E] =
-    Http.collect[Request[Any, Nothing, Complete]] { req =>
+    Http.fromFunction { req =>
       Response.decodeComplete { bytes =>
         pf(req.copy(content = Content.fromBytes(bytes)))
       }
@@ -54,11 +54,10 @@ object HttpApp {
   def collectBuffered[R, E, B: HasContent](
     pf: PartialFunction[Request[Any, Nothing, Buffered], Response[R, E, B]],
   ): HttpApp[R, E] =
-    Http.collect[Request[Any, Nothing, Buffered]] { req =>
+    Http.fromFunction { req =>
       Response.decodeBuffered { stream =>
         pf(req.copy(content = Content.fromStream(stream)))
       }
-
     }
 
   def collectM[R, E, B](
