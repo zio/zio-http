@@ -1,6 +1,6 @@
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http.{Header, HttpData}
-import zhttp.service.client.ClientSSLHandler.SslClientOptions
+import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
 
@@ -23,8 +23,8 @@ object HttpsClient extends App {
   trustStore.load(trustStoreFile, trustStorePassword.toCharArray)
   trustManagerFactory.init(trustStore)
 
-  val sslOption: SslClientOptions =
-    SslClientOptions.CustomSslClient(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
+  val sslOption: ClientSSLOptions =
+    ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
 
   val program = for {
     res <- Client.request(url, headers, sslOption)

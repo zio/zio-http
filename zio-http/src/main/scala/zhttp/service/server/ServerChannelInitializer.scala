@@ -19,7 +19,7 @@ final case class ServerChannelInitializer[R](httpH: JChannelHandler, settings: S
       .addLast(OBJECT_AGGREGATOR, new JHttpObjectAggregator(settings.maxRequestSize))
       .addLast(HTTP_REQUEST_HANDLER, httpH)
 
-    ServerSslHandler.ssl(settings.sslOption) match {
+    ServerSSLHandler.ssl(settings.sslOption) match {
       case Some(ssl) =>
         p.addFirst("ssl", ssl.newHandler(channel.alloc()))
         ()

@@ -6,7 +6,7 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.{
 import io.netty.handler.ssl.{ApplicationProtocolConfig, ApplicationProtocolNames, SslContextBuilder, SslProvider}
 import zhttp.http._
 import zhttp.service.Server
-import zhttp.service.server.ServerSslHandler.SslServerOptions._
+import zhttp.service.server.ServerSSLHandler.ServerSSLOptions._
 import zio._
 
 import java.io.InputStream
@@ -47,5 +47,5 @@ object HttpsHelloWorld extends App {
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app.silent, CustomSsl(sslctx)).exitCode
+    Server.start(8090, app.silent, CustomSSL(sslctx)).exitCode
 }

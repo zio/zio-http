@@ -5,7 +5,7 @@ import zhttp.core._
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service
-import zhttp.service.client.ClientSSLHandler.SslClientOptions
+import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
 import zio.{Promise, Task, ZIO}
 
@@ -17,7 +17,7 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
     req: Request,
     jReq: JFullHttpRequest,
     promise: Promise[Throwable, JFullHttpResponse],
-    sslOption: SslClientOptions,
+    sslOption: ClientSSLOptions,
   ): Task[Unit] =
     ChannelFuture.unit {
       val read   = ClientHttpChannelReader(jReq, promise)
@@ -39,7 +39,7 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
       jboo.connect()
     }
 
-  def request(request: Request, sslOption: SslClientOptions = SslClientOptions.DefaultSSLClient): Task[UHttpResponse] =
+  def request(request: Request, sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL): Task[UHttpResponse] =
     for {
       promise <- Promise.make[Throwable, JFullHttpResponse]
       jReq = encodeRequest(JHttpVersion.HTTP_1_1, request)
@@ -66,7 +66,7 @@ object Client {
 
   def request(
     url: String,
-    sslOptions: SslClientOptions,
+    sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] = for {
     url <- ZIO.fromEither(URL.fromString(url))
     res <- request(Method.GET -> url, sslOptions)
@@ -75,7 +75,7 @@ object Client {
   def request(
     url: String,
     headers: List[Header],
-    sslOptions: SslClientOptions = SslClientOptions.DefaultSSLClient,
+    sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
     for {
       url <- ZIO.fromEither(URL.fromString(url))
@@ -89,14 +89,14 @@ object Client {
 
   def request(
     endpoint: Endpoint,
-    sslOptions: SslClientOptions,
+    sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
     request(Request(endpoint), sslOptions)
 
   def request(
     endpoint: Endpoint,
     headers: List[Header],
-    sslOptions: SslClientOptions,
+    sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
     request(Request(endpoint, headers), sslOptions)
 
@@ -107,7 +107,7 @@ object Client {
 
   def request(
     req: Request,
-    sslOptions: SslClientOptions,
+    sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
     make.flatMap(_.request(req, sslOptions))
 

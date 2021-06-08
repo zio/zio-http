@@ -13,19 +13,19 @@ import io.netty.handler.ssl.{
   SslProvider,
 }
 
-object ServerSslHandler {
+object ServerSSLHandler {
 
-  sealed trait SslServerOptions
-  object SslServerOptions {
-    case object NoSsl                                  extends SslServerOptions
-    case object SelfSigned                             extends SslServerOptions
-    final case class CustomSsl(sslContext: SslContext) extends SslServerOptions
+  sealed trait ServerSSLOptions
+  object ServerSSLOptions {
+    case object NoSSL                                  extends ServerSSLOptions
+    case object SelfSigned                             extends ServerSSLOptions
+    final case class CustomSSL(sslContext: SslContext) extends ServerSSLOptions
   }
 
-  def ssl(sslOption: SslServerOptions): Option[SslContext] = {
+  def ssl(sslOption: ServerSSLOptions): Option[SslContext] = {
     sslOption match {
-      case SslServerOptions.NoSsl                 => None
-      case SslServerOptions.SelfSigned            => {
+      case ServerSSLOptions.NoSSL                 => None
+      case ServerSSLOptions.SelfSigned            => {
         import io.netty.handler.ssl.util.SelfSignedCertificate
         val ssc = new SelfSignedCertificate
         Option(
@@ -43,7 +43,7 @@ object ServerSslHandler {
             .build(),
         )
       }
-      case SslServerOptions.CustomSsl(sslContext) => Some(sslContext)
+      case ServerSSLOptions.CustomSSL(sslContext) => Some(sslContext)
     }
   }
 }

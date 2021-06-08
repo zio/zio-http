@@ -2,7 +2,7 @@ package zhttp.service
 
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
-import zhttp.service.client.ClientSSLHandler.SslClientOptions
+import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.Assertion.{anything, fails, isSubtype}
 import zio.test.assertM
 
@@ -21,8 +21,8 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
   trustStore.load(trustStoreFile, trustStorePassword.toCharArray)
   trustManagerFactory.init(trustStore)
 
-  val sslOption: SslClientOptions =
-    SslClientOptions.CustomSslClient(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
+  val sslOption: ClientSSLOptions =
+    ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
   override def spec               = suite("Https Client request")(
     testM("respond Ok") {
       val actual = Client.request("https://api.github.com/users/zio/repos")

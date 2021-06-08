@@ -3,9 +3,9 @@ package zhttp.service
 import zhttp.http.HttpData.CompleteData
 import zhttp.http.URL.Location
 import zhttp.http._
-import zhttp.service.client.ClientSSLHandler.SslClientOptions
-import zhttp.service.server.ServerSslHandler.SslServerOptions
-import zhttp.service.server.ServerSslHandler.SslServerOptions._
+import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zhttp.service.server.ServerSSLHandler.ServerSSLOptions
+import zhttp.service.server.ServerSSLHandler.ServerSSLOptions._
 import zio.test.DefaultRunnableSpec
 import zio.{Chunk, Has, ZIO, ZManaged}
 
@@ -13,7 +13,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
 
   def serve[R <: Has[_]](
     app: RHttpApp[R],
-    sslServerOptions: SslServerOptions = NoSsl,
+    sslServerOptions: ServerSSLOptions = NoSSL,
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
     Server.make(Server.app(app) ++ Server.port(port) ++ Server.ssl(sslServerOptions)).orDie
 
@@ -23,7 +23,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
   def requestPath(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
     Client.request(
       Method.GET -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
-      SslClientOptions.DefaultSSLClient,
+      ClientSSLOptions.DefaultSSL,
     )
 
   def headers(
@@ -43,7 +43,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
     val data = CompleteData(Chunk.fromArray(content.getBytes(HTTP_CHARSET)))
     Client.request(
       Request(method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
-      SslClientOptions.DefaultSSLClient,
+      ClientSSLOptions.DefaultSSL,
     )
   }
 }
