@@ -5,11 +5,10 @@ import zhttp.core._
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service
+import zhttp.service.client.ClientSSLHandler.SslClientOptions
 import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
 import zio.{Promise, Task, ZIO}
 import java.net.InetSocketAddress
-
-import zhttp.service.client.ClientSSLHandler.SslClientOptions
 
 final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JChannel], el: JEventLoopGroup)
     extends HttpMessageCodec {
