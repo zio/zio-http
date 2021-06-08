@@ -1,6 +1,6 @@
 package zhttp.service
 
-import io.netty.handler.ssl.{ApplicationProtocolConfig, ApplicationProtocolNames, NotSslRecordException, SslContextBuilder, SslProvider}
+import io.netty.handler.ssl.{ApplicationProtocolConfig, ApplicationProtocolNames, SslContextBuilder, SslProvider}
 import io.netty.handler.ssl.ApplicationProtocolConfig.{Protocol, SelectedListenerFailureBehavior, SelectorFailureBehavior}
 import io.netty.handler.ssl.util.SelfSignedCertificate
 import javax.net.ssl.SSLHandshakeException
@@ -53,12 +53,12 @@ val ssc2 = new SelfSignedCertificate()
             })
             assertM(actual)(equalTo("SSLHandshakeException"))
           },
-          testM("fail with NotSslRecordException when client doesn't have the server certificate") {
-            val actual = Client.request("http://localhost:8080/success",SslClientOptions.CustomSslClient(clientssl1)).map(_.status).catchSome(_.getCause match {
-              case  _:NotSslRecordException=>ZIO.succeed("NotSslRecordException")
-            })
-            assertM(actual)(equalTo("NotSslRecordException"))
-          },
+//          testM("fail with NotSslRecordException when client doesn't have the server certificate") {
+//            val actual = Client.request("http://localhost:8080/success",SslClientOptions.CustomSslClient(clientssl1)).map(_.status).catchSome(_.getCause match {
+//              case  _:NotSslRecordException=>ZIO.succeed("NotSslRecordException")
+//            })
+//            assertM(actual)(equalTo("NotSslRecordException"))
+//          },
         ),
       )
       .useNow,
