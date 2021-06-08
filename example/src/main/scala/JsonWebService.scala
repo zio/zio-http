@@ -36,10 +36,10 @@ object JsonWebService extends App {
   val user: Http[Random with Sized, Nothing, UserRequest, UserResponse] =
     Http.collectM[UserRequest]({
       case UserRequest.Get(Method.GET -> Root / "employees")             =>
-        getDetails().map(UserResponse.JsonResponse)
+        getDetails().map(x => UserResponse.JsonResponse(x))
       case UserRequest.Post(Method.POST -> Root / "createUser", content) =>
         UIO(UserResponse.StatusResponse(content match {
-          case Some(content) if content.nonEmpty => s"user created with content: ${content}"
+          case Some(content) if content.nonEmpty => s"user created with content: $content"
           case None                              => "failed to create user"
           case _                                 => "failed to create user"
         }))
@@ -48,9 +48,9 @@ object JsonWebService extends App {
   // Create HTTP route
   val app: Http[Random with Sized, Nothing, Request, UResponse] = user
     .contramap[Request] {
-      case req @ (Method.GET -> Root / "employees")   => UserRequest.Get(req)
-      case req @ (Method.POST -> Root / "createUser") => UserRequest.Post(req, req.getBodyAsString)
-      case _                                          => UserRequest.BadRequest
+      case req @ Method.GET -> Root / "employees"   => UserRequest.Get(req)
+      case req @ Method.POST -> Root / "createUser" => UserRequest.Post(req, req.getBodyAsString)
+      case _                                        => UserRequest.BadRequest
     }
     .map {
       case UserResponse.StatusResponse(msg) => Response.text(msg)
