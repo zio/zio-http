@@ -3,21 +3,21 @@ package zhttp.service
 import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpVersion => JHttpVersion}
 import zhttp.core.{JDefaultFullHttpRequest, JFullHttpRequest}
-import zhttp.http.{HTTP_CHARSET, Header, Request, Root}
+import zhttp.http._
 trait EncodeRequest {
 
   /**
    * Converts Request to JFullHttpRequest
    */
-  def encodeRequest(jVersion: JHttpVersion, req: Request): JFullHttpRequest = {
+  def encodeRequest(jVersion: JHttpVersion, req: Request[Any, Nothing, Complete]): JFullHttpRequest = {
     val method      = req.method.asJHttpMethod
     val uri         = req.url.path match {
       case Root => "/"
       case path => path.asString
     }
-    val content     = req.getBodyAsString match {
-      case Some(text) => JUnpooled.copiedBuffer(text, HTTP_CHARSET)
-      case None       => JUnpooled.EMPTY_BUFFER
+    val content     = req.content match {
+      case Content.CompleteContent(bytes) => JUnpooled.wrappedBuffer(bytes.toArray)
+      case _                              => JUnpooled.EMPTY_BUFFER
     }
     val headers     = Header.disassemble(req.headers)
     val writerIndex = content.writerIndex()

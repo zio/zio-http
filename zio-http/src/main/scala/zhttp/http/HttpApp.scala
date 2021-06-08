@@ -27,7 +27,7 @@ object HttpApp {
   /**
    * Creates an Http app from a function that returns a ZIO
    */
-  def fromEffectFunction[R, E](f: Request => ZIO[R, E, Response[R, E]]): HttpApp[R, E] =
+  def fromEffectFunction[R, E](f: Request[Any, Nothing, Nothing] => ZIO[R, E, Response[R, E]]): HttpApp[R, E] =
     HttpApp(Http.fromEffectFunction(f))
 
   /**
@@ -38,14 +38,33 @@ object HttpApp {
   /**
    * Creates an HTTP app which accepts a request and produces response.
    */
-  def collect[R, E](pf: PartialFunction[Request, Response[R, E]]): HttpApp[R, E] =
-    HttpApp(Http.collect[Request](pf))
+  def collect[R, E, B](
+    pf: PartialFunction[Request[Any, Nothing, Nothing], Response[R, E, B]],
+  ): HttpApp[R, E] =
+    Http.collect[Request[Any, Nothing, Nothing]](pf)
 
-  /**
-   * Creates an HTTP app which accepts a requests and produces another Http app as response.
-   */
-  def collectM[R, E](pf: PartialFunction[Request, ResponseM[R, E]]): HttpApp[R, E] =
-    HttpApp(Http.collectM[Request](pf))
+  def collectComplete[R, E, B: HasContent](
+    pf: PartialFunction[Request[Any, Nothing, Complete], Response[R, E, B]],
+  ): HttpApp[R, E] =
+    Http.collect[Request[Any, Nothing, Complete]] { req =>
+      Response.decodeComplete { bytes =>
+        pf(req.copy(content = Content.fromBytes(bytes)))
+      }
+    }
+  def collectBuffered[R, E, B: HasContent](
+    pf: PartialFunction[Request[Any, Nothing, Buffered], Response[R, E, B]],
+  ): HttpApp[R, E] =
+    Http.collect[Request[Any, Nothing, Buffered]] { req =>
+      Response.decodeBuffered { stream =>
+        pf(req.copy(content = Content.fromStream(stream)))
+      }
+
+    }
+
+  def collectM[R, E, B](
+    pf: PartialFunction[Request[Any, Nothing, Nothing], ResponseM[R, E, B]],
+  ): HttpApp[R, E] =
+    HttpApp(Http.collectM[Request[Any, Nothing, Nothing]](pf))
 
   /**
    * Creates an HTTP app which always responds with the same plain text.
@@ -55,7 +74,7 @@ object HttpApp {
   /**
    * Creates an HTTP app which always responds with the same value.
    */
-  def response[R, E](response: Response[R, E]): HttpApp[R, E] = HttpApp(Http.succeed(response))
+  def response[R, E, B: HasContent](response: Response[R, E, B]): HttpApp[R, E] = HttpApp(Http.succeed(response))
 
   /**
    * Creates an HTTP app which always responds with the same status code and empty data.
@@ -71,7 +90,9 @@ object HttpApp {
    * Creates an HTTP app that fails with a NotFound exception.
    */
   def notFound: HttpApp[Any, HttpError] =
-    HttpApp(Http.fromFunction[Request](req => Http.fail(HttpError.NotFound(req.url.path))).flatten)
+    HttpApp(
+      Http.fromFunction[Request[Any, Nothing, Nothing]](req => Http.fail(HttpError.NotFound(req.url.path))).flatten,
+    )
 
   /**
    * Creates an HTTP app which always responds with a 200 status code.

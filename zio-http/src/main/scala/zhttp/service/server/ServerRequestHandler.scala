@@ -13,7 +13,7 @@ import zio.Exit
  * Helper class with channel methods
  */
 @JSharable
-final case class ServerRequestHandler[R](
+final case class ServerRequestHandler[R, +E](
   zExec: UnsafeChannelExecutor[R],
   settings: Settings[R, Throwable],
 ) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
@@ -30,27 +30,23 @@ final case class ServerRequestHandler[R](
    * Asynchronously executes the Http app and passes the response to the callback.
    */
   private def executeAsync(ctx: JChannelHandlerContext, jReq: JFullHttpRequest)(
-    cb: Response[R, Throwable] => Unit,
+    cb: Response[R, Throwable, Any] => Unit,
   ): Unit =
-    decodeJRequest(jReq) match {
-      case Left(err)  => cb(err.toResponse)
-      case Right(req) =>
-        settings.http.execute(req).evaluate match {
-          case HttpResult.Empty      => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
-          case HttpResult.Success(a) => cb(a)
-          case HttpResult.Failure(e) => cb(SilentResponse[Throwable].silent(e))
-          case HttpResult.Effect(z)  =>
-            zExec.unsafeExecute(ctx, z) {
-              case Exit.Success(res)   => cb(res)
-              case Exit.Failure(cause) =>
-                cause.failureOption match {
-                  case Some(Some(e)) => cb(SilentResponse[Throwable].silent(e))
-                  case Some(None)    => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
-                  case None          => {
-                    ctx.close()
-                    ()
-                  }
-                }
+    settings.http.execute(decodeJRequest(jReq)).evaluate match {
+      case HttpResult.Empty      => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
+      case HttpResult.Success(a) => cb(a)
+      case HttpResult.Failure(e) => cb(SilentResponse[Throwable].silent(e))
+      case HttpResult.Effect(z)  =>
+        zExec.unsafeExecute(ctx, z) {
+          case Exit.Success(res)   => cb(res)
+          case Exit.Failure(cause) =>
+            cause.failureOption match {
+              case Some(Some(e)) => cb(SilentResponse[Throwable].silent(e))
+              case Some(None)    => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
+              case None          => {
+                ctx.close()
+                ()
+              }
             }
         }
     }
@@ -60,25 +56,28 @@ final case class ServerRequestHandler[R](
    */
   override def channelRead0(ctx: JChannelHandlerContext, jReq: JFullHttpRequest): Unit = {
     executeAsync(ctx, jReq) {
-      case res @ Response.HttpResponse(_, _, content) =>
-        ctx.write(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
+      case res @ Response.Default(_, _, content) =>
+        ctx.write(
+          encodeResponse(jReq.protocolVersion(), res.asInstanceOf[Response[Any, Nothing, Opaque]]),
+          ctx.channel().voidPromise(),
+        )
         releaseOrIgnore(jReq)
         content match {
-          case HttpData.StreamData(data)   =>
+          case Content.BufferedContent(data) =>
             zExec.unsafeExecute_(ctx) {
               for {
                 _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(JUnpooled.copiedBuffer(c.toArray))))
                 _ <- ChannelFuture.unit(ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT))
               } yield ()
             }
-          case HttpData.CompleteData(data) =>
+          case Content.CompleteContent(data) =>
             ctx.write(JUnpooled.copiedBuffer(data.toArray), ctx.channel().voidPromise())
             ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
-          case HttpData.Empty              => ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
+          case Content.EmptyContent          => ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
         }
         ()
 
-      case res @ Response.SocketResponse(_) =>
+      case res @ Response.Socket(_) =>
         ctx
           .channel()
           .pipeline()
@@ -86,6 +85,7 @@ final case class ServerRequestHandler[R](
           .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket.config))
         ctx.channel().eventLoop().submit(() => ctx.fireChannelRead(jReq))
         ()
+      case _                        => ()
     }
   }
 

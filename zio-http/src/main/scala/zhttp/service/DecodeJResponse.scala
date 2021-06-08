@@ -10,11 +10,11 @@ trait DecodeJResponse {
   /**
    * Tries to decode netty request into ZIO Http Request
    */
-  def decodeJResponse(jRes: JFullHttpResponse): Either[Throwable, UHttpResponse] = Try {
+  def decodeJResponse(jRes: JFullHttpResponse): Either[Throwable, Response[Any, Nothing, Complete]] = Try {
     val status  = Status.fromJHttpResponseStatus(jRes.status())
     val headers = Header.parse(jRes.headers())
-    val content = HttpData.fromByteBuf(jRes.content())
+    val content = Content.fromByteBuf(jRes.content())
 
-    Response.http(status, headers, content): UHttpResponse
+    Response.http(status, headers, content): Response[Any, Nothing, Complete]
   }.toEither
 }

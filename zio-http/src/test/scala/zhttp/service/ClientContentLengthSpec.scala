@@ -5,7 +5,7 @@ import zhttp.service.server._
 import zio.test.Assertion.{isNone, isPositive, isSome}
 import zio.test.TestAspect.ignore
 import zio.test.assertM
-import zio.{Ref, UIO, ZIO, ZRef}
+import zio.{Ref, UIO, ZRef}
 
 import scala.util.Try
 
@@ -32,7 +32,7 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
 
   def getApp(state: Ref[ServerState]) = serve {
     HttpApp.collectM { case req @ _ -> Root / path =>
-      state.update(updateState(_, req.headers, path)) *> ZIO.succeed(Response.ok)
+      state.update(updateState(_, req.headers, path)).as(Response.ok)
     }
   }
 
