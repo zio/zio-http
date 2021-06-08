@@ -28,7 +28,7 @@ object BuildHelper extends ScalaSettings {
     "-language:existentials",
     "-explaintypes",
     "-Yrangepos",
-    "-Xlint:_,-missing-interpolator,-type-parameter-shadow",
+    "-Xlint:_,-missing-interpolator,-type-parameter-shadow,-byname-implicit",
     "-Ywarn-numeric-widen",
     "-Ywarn-value-discard",
     "-Ywarn-macros:after",
