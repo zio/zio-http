@@ -1,12 +1,14 @@
-import zhttp.http.HttpData
+import zhttp.http.{Header, HttpData}
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
 
 object SimpleClient extends App {
-  val env = ChannelFactory.auto ++ EventLoopGroup.auto()
+  val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
+  val url     = "http://sports.api.decathlon.com/groups/water-aerobics"
+  val headers = List(Header.host("sports.api.decathlon.com"))
 
   val program = for {
-    res <- Client.request("https://api.github.com/users/zio/repos")
+    res <- Client.request(url, headers)
     _   <- console.putStrLn {
       res.content match {
         case HttpData.CompleteData(data) => data.map(_.toChar).mkString
