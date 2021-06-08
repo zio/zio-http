@@ -1,4 +1,4 @@
-//import java.io.InputStream
+
 import java.io.FileInputStream
 import java.security.KeyStore
 
@@ -44,5 +44,5 @@ object HttpsHelloWorld extends App {
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app.silent,NoSsl).exitCode
+    Server.start(8090, app.silent,CustomSsl(sslctx)).exitCode
 }

@@ -13,10 +13,6 @@ import io.netty.handler.ssl.{
   SslProvider,
 }
 
-import java.io.FileInputStream
-import java.security.KeyStore
-import javax.net.ssl.KeyManagerFactory
-
 object ServerSslHandler {
 
   sealed trait SslServerOptions
