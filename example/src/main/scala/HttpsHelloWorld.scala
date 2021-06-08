@@ -1,5 +1,5 @@
 
-import java.io.FileInputStream
+import java.io.InputStream
 import java.security.KeyStore
 
 import io.netty.handler.ssl.{ApplicationProtocolConfig, ApplicationProtocolNames, SslContextBuilder, SslProvider}
@@ -17,16 +17,16 @@ object HttpsHelloWorld extends App {
     case Method.GET -> Root / "text" => Response.text("Hello World!")
     case Method.GET -> Root / "json" => Response.jsonString("""{"greetings": "Hello World!"}""")
   }
+
+  /**
+   * sslcontext can be created using SslContexBuilder. In this example a custom keystore is used.
+   */
   val keyStore: KeyStore = KeyStore.getInstance("JKS")
   val keyStorePassword: String = "123456"
   val certPassword: String = "123456"
-//  val keyStroreInputStream: InputStream= getClass.getResourceAsStream("mysslstore.jks")
-//  println("hi")
-//  println(keyStroreInputStream)
-  val v: String= getClass.getResource("mysslstore.jks").getPath
-  println(v)
+  val keyStroreInputStream: InputStream= getClass.getResourceAsStream("mysslstore.jks")
 
-  keyStore.load(new FileInputStream(v), keyStorePassword.toCharArray)
+  keyStore.load(keyStroreInputStream, keyStorePassword.toCharArray)
   val kmf = KeyManagerFactory.getInstance("SunX509")
   kmf.init(keyStore, certPassword.toCharArray)
   val sslctx=SslContextBuilder
