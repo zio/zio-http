@@ -8,6 +8,7 @@ import zhttp.service
 import zhttp.service.client.ClientSSLHandler.SslClientOptions
 import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
 import zio.{Promise, Task, ZIO}
+
 import java.net.InetSocketAddress
 
 final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JChannel], el: JEventLoopGroup)
@@ -38,7 +39,7 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
       jboo.connect()
     }
 
-  def request(request: Request, sslOption: SslClientOptions = SslClientOptions.DefaultSSLClient$): Task[UHttpResponse] =
+  def request(request: Request, sslOption: SslClientOptions = SslClientOptions.DefaultSSLClient): Task[UHttpResponse] =
     for {
       promise <- Promise.make[Throwable, JFullHttpResponse]
       jReq = encodeRequest(JHttpVersion.HTTP_1_1, request)
@@ -66,7 +67,7 @@ object Client {
   def request(
     url: String,
     headers: List[Header],
-    sslOptions: SslClientOptions = SslClientOptions.DefaultSSLClient$,
+    sslOptions: SslClientOptions = SslClientOptions.DefaultSSLClient,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
     for {
       url <- ZIO.fromEither(URL.fromString(url))

@@ -9,7 +9,7 @@ import zhttp.service.client.ClientSSLHandler.SslClientOptions
 final case class ClientChannelInitializer[R](
   channelHandler: JChannelHandler,
   scheme: String,
-  sslOption: SslClientOptions = SslClientOptions.DefaultSSLClient$,
+  sslOption: SslClientOptions = SslClientOptions.DefaultSSLClient,
 ) extends JChannelInitializer[JChannel]() {
   override def initChannel(ch: JChannel): Unit = {
     val sslCtx: SslContext =
