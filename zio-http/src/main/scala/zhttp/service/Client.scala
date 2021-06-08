@@ -7,8 +7,9 @@ import zhttp.http._
 import zhttp.service
 import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
 import zio.{Promise, Task, ZIO}
-
 import java.net.InetSocketAddress
+
+import zhttp.service.client.ClientSSLHandler.SslClientOptions
 
 final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JChannel], el: JEventLoopGroup)
     extends HttpMessageCodec {
@@ -16,7 +17,7 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
     req: Request,
     jReq: JFullHttpRequest,
     promise: Promise[Throwable, JFullHttpResponse],
-    trustStoreConfig: TrustStoreConfig,
+    sslOption: SslClientOptions,
   ): Task[Unit] =
     ChannelFuture.unit {
       val read   = ClientHttpChannelReader(jReq, promise)
@@ -30,7 +31,7 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
         case Location.Relative               => ""
         case Location.Absolute(scheme, _, _) => scheme.asString
       }
-      val init   = ClientChannelInitializer(hand, scheme, trustStoreConfig)
+      val init   = ClientChannelInitializer(hand, scheme, sslOption)
 
       val jboo = new JBootstrap().channelFactory(cf).group(el).handler(init)
       if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
@@ -38,13 +39,14 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
       jboo.connect()
     }
 
-  def request(request: Request, trustStoreConfig: TrustStoreConfig = TrustStoreConfig()): Task[UHttpResponse] = for {
-    promise <- Promise.make[Throwable, JFullHttpResponse]
-    jReq = encodeRequest(JHttpVersion.HTTP_1_1, request)
-    _    <- asyncRequest(request, jReq, promise, trustStoreConfig).catchAll(cause => promise.fail(cause)).fork
-    jRes <- promise.await
-    res  <- ZIO.fromEither(decodeJResponse(jRes))
-  } yield res
+  def request(request: Request, sslOption: SslClientOptions = SslClientOptions.DefaultSSLClient$): Task[UHttpResponse] =
+    for {
+      promise <- Promise.make[Throwable, JFullHttpResponse]
+      jReq = encodeRequest(JHttpVersion.HTTP_1_1, request)
+      _    <- asyncRequest(request, jReq, promise, sslOption).catchAll(cause => promise.fail(cause)).fork
+      jRes <- promise.await
+      res  <- ZIO.fromEither(decodeJResponse(jRes))
+    } yield res
 
 }
 
@@ -65,11 +67,11 @@ object Client {
   def request(
     url: String,
     headers: List[Header],
-    trustStoreConfig: TrustStoreConfig = TrustStoreConfig(),
+    sslOptions: SslClientOptions = SslClientOptions.DefaultSSLClient$,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
     for {
       url <- ZIO.fromEither(URL.fromString(url))
-      res <- request(Method.GET -> url, headers, trustStoreConfig)
+      res <- request(Method.GET -> url, headers, sslOptions)
     } yield res
 
   def request(
@@ -80,9 +82,9 @@ object Client {
   def request(
     endpoint: Endpoint,
     headers: List[Header],
-    trustStoreConfig: TrustStoreConfig,
+    sslOptions: SslClientOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
-    request(Request(endpoint, headers), trustStoreConfig)
+    request(Request(endpoint, headers), sslOptions)
 
   def request(
     req: Request,
@@ -91,8 +93,8 @@ object Client {
 
   def request(
     req: Request,
-    trustStoreConfig: TrustStoreConfig,
+    sslOptions: SslClientOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
-    make.flatMap(_.request(req, trustStoreConfig))
+    make.flatMap(_.request(req, sslOptions))
 
 }

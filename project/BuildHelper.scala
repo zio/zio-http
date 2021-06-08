@@ -33,10 +33,6 @@ object BuildHelper extends ScalaSettings {
     "-Ywarn-value-discard",
     "-Ywarn-macros:after",
   )
-  private val javaxOptions = Seq(
-    s"-Djavax.net.ssl.trustStore=${file("truststore.jks").getAbsoluteFile}",
-    "-Djavax.net.ssl.trustStorePassword=changeit"
-  )
 
   private def optimizerOptions(optimize: Boolean) =
     if (optimize)
@@ -88,6 +84,5 @@ object BuildHelper extends ScalaSettings {
     Test / parallelExecution := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
     autoAPIMappings := true,
-    javaOptions ++= javaxOptions
   )
 }
