@@ -3,9 +3,9 @@ import zhttp.http.{Header, HttpData}
 import zhttp.service.client.ClientSSLHandler.SslClientOptions
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
-import java.io.{ InputStream}
-import java.security.KeyStore
 
+import java.io.InputStream
+import java.security.KeyStore
 import javax.net.ssl.TrustManagerFactory
 
 object HttpsClient extends App {

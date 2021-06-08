@@ -24,8 +24,8 @@ object ServerSslHandler {
 
   def ssl(sslOption: SslServerOptions): Option[SslContext] = {
     sslOption match {
-      case SslServerOptions.NoSsl                               => None
-      case SslServerOptions.SelfSigned                          => {
+      case SslServerOptions.NoSsl                 => None
+      case SslServerOptions.SelfSigned            => {
         import io.netty.handler.ssl.util.SelfSignedCertificate
         val ssc = new SelfSignedCertificate
         Option(
@@ -43,7 +43,7 @@ object ServerSslHandler {
             .build(),
         )
       }
-      case SslServerOptions.CustomSsl(sslContext)               => Some(sslContext)
+      case SslServerOptions.CustomSsl(sslContext) => Some(sslContext)
     }
   }
 }

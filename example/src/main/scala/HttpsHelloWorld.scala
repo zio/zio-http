@@ -1,14 +1,17 @@
-
-import java.io.InputStream
-import java.security.KeyStore
-
+import io.netty.handler.ssl.ApplicationProtocolConfig.{
+  Protocol,
+  SelectedListenerFailureBehavior,
+  SelectorFailureBehavior,
+}
 import io.netty.handler.ssl.{ApplicationProtocolConfig, ApplicationProtocolNames, SslContextBuilder, SslProvider}
-import io.netty.handler.ssl.ApplicationProtocolConfig.{Protocol, SelectedListenerFailureBehavior, SelectorFailureBehavior}
-import javax.net.ssl.KeyManagerFactory
 import zhttp.http._
 import zhttp.service.Server
 import zhttp.service.server.ServerSslHandler.SslServerOptions._
 import zio._
+
+import java.io.InputStream
+import java.security.KeyStore
+import javax.net.ssl.KeyManagerFactory
 
 object HttpsHelloWorld extends App {
 
@@ -21,15 +24,15 @@ object HttpsHelloWorld extends App {
   /**
    * sslcontext can be created using SslContexBuilder. In this example a custom keystore is used.
    */
-  val keyStore: KeyStore = KeyStore.getInstance("JKS")
-  val keyStorePassword: String = "123456"
-  val certPassword: String = "123456"
-  val keyStroreInputStream: InputStream= getClass.getResourceAsStream("mysslstore.jks")
+  val keyStore: KeyStore                = KeyStore.getInstance("JKS")
+  val keyStorePassword: String          = "123456"
+  val certPassword: String              = "123456"
+  val keyStroreInputStream: InputStream = getClass.getResourceAsStream("mysslstore.jks")
 
   keyStore.load(keyStroreInputStream, keyStorePassword.toCharArray)
-  val kmf = KeyManagerFactory.getInstance("SunX509")
+  val kmf    = KeyManagerFactory.getInstance("SunX509")
   kmf.init(keyStore, certPassword.toCharArray)
-  val sslctx=SslContextBuilder
+  val sslctx = SslContextBuilder
     .forServer(kmf)
     .sslProvider(SslProvider.JDK)
     .applicationProtocolConfig(
@@ -44,5 +47,5 @@ object HttpsHelloWorld extends App {
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app.silent,CustomSsl(sslctx)).exitCode
+    Server.start(8090, app.silent, CustomSsl(sslctx)).exitCode
 }

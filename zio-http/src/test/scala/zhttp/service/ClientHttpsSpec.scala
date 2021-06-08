@@ -5,9 +5,9 @@ import io.netty.handler.ssl.SslContextBuilder
 import zhttp.service.client.ClientSSLHandler.SslClientOptions
 import zio.test.Assertion.{anything, fails, isSubtype}
 import zio.test.assertM
+
 import java.io._
 import java.security.KeyStore
-
 import javax.net.ssl.TrustManagerFactory
 
 object ClientHttpsSpec extends HttpRunnableSpec(8082) {
