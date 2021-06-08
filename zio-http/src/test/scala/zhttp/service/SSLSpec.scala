@@ -17,7 +17,7 @@ import zio.test.assertM
 
 import javax.net.ssl.SSLHandshakeException
 
-object SslSpec extends HttpRunnableSpec(8080) {
+object SSLSpec extends HttpRunnableSpec(8080) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
   val ssc1       = new SelfSignedCertificate
@@ -38,7 +38,7 @@ object SslSpec extends HttpRunnableSpec(8080) {
   val clientssl2 = SslContextBuilder.forClient().trustManager(ssc2.cert()).build()
 
   val app = serve(
-    HttpApp.collectM { case Method.GET -> Root / "success" =>
+    HttpApp.collectM[Any, Nothing]{ case Method.GET -> Root / "success" =>
       ZIO.succeed(Response.ok)
     },
     CustomSSL(serverssl),
