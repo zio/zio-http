@@ -1,4 +1,5 @@
 import zhttp.http.{Header, HttpData}
+import zhttp.service.client.ClientSSLHandler.SslClientOptions
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
 
@@ -8,7 +9,7 @@ object SimpleClient extends App {
   val headers = List(Header.host("sports.api.decathlon.com"))
 
   val program = for {
-    res <- Client.request(url, headers)
+    res <- Client.request(url, headers,SslClientOptions.DefaultSSLClient)
     _   <- console.putStrLn {
       res.content match {
         case HttpData.CompleteData(data) => data.map(_.toChar).mkString

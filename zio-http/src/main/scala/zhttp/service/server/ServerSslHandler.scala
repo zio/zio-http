@@ -19,51 +19,17 @@ import javax.net.ssl.KeyManagerFactory
 
 object ServerSslHandler {
 
-  sealed trait SslOptions
-  object SslOptions {
-    case object NoSsl                                  extends SslOptions
-    case object SelfSigned                             extends SslOptions
-    final case class DefaultCertificate(
-      keyStorePath: String,
-      keyStore: KeyStore = KeyStore.getInstance("JKS"),
-      keyStorePassword: String = "123456",
-      certPassword: String = "123456",
-    )                                                  extends SslOptions
-    final case class CustomSsl(sslContext: SslContext) extends SslOptions
+  sealed trait SslServerOptions
+  object SslServerOptions {
+    case object NoSsl                                  extends SslServerOptions
+    case object SelfSigned                             extends SslServerOptions
+    final case class CustomSsl(sslContext: SslContext) extends SslServerOptions
   }
 
-  def getSslContext(
-    keyStorePath: String,
-    keyStore: KeyStore,
-    keyStorePassword: String,
-    certPassword: String,
-  ): Option[SslContext] = {
-    if (keyStorePath == null || keyStorePassword == null || certPassword == null) None
-    else {
-      keyStore.load(new FileInputStream(keyStorePath), keyStorePassword.toCharArray)
-      val kmf = KeyManagerFactory.getInstance("SunX509")
-      kmf.init(keyStore, certPassword.toCharArray)
-      Option(
-        SslContextBuilder
-          .forServer(kmf)
-          .sslProvider(SslProvider.JDK)
-          .applicationProtocolConfig(
-            new ApplicationProtocolConfig(
-              Protocol.ALPN,
-              SelectorFailureBehavior.NO_ADVERTISE,
-              SelectedListenerFailureBehavior.ACCEPT,
-              ApplicationProtocolNames.HTTP_1_1,
-            ),
-          )
-          .build(),
-      )
-    }
-  }
-
-  def ssl(sslOption: SslOptions): Option[SslContext] = {
+  def ssl(sslOption: SslServerOptions): Option[SslContext] = {
     sslOption match {
-      case SslOptions.NoSsl                               => None
-      case SslOptions.SelfSigned                          => {
+      case SslServerOptions.NoSsl                               => None
+      case SslServerOptions.SelfSigned                          => {
         import io.netty.handler.ssl.util.SelfSignedCertificate
         val ssc = new SelfSignedCertificate
         Option(
@@ -81,9 +47,7 @@ object ServerSslHandler {
             .build(),
         )
       }
-      case dc @ SslOptions.DefaultCertificate(_, _, _, _) =>
-        getSslContext(dc.keyStorePath, dc.keyStore, dc.keyStorePassword, dc.certPassword)
-      case SslOptions.CustomSsl(sslContext)               => Some(sslContext)
+      case SslServerOptions.CustomSsl(sslContext)               => Some(sslContext)
     }
   }
 }
