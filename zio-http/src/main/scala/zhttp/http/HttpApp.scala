@@ -48,7 +48,7 @@ object HttpApp {
   ): HttpApp[R, E] =
     Http.fromFunction { req =>
       Response.decodeComplete { bytes =>
-        pf(req.copy(content = Content.fromBytes(bytes)))
+        pf(req.copy(req.method, req.url, req.headers, content = Content.fromBytes(bytes)))
       }
     }
   def collectBuffered[R, E, B: HasContent](
@@ -56,7 +56,7 @@ object HttpApp {
   ): HttpApp[R, E] =
     Http.fromFunction { req =>
       Response.decodeBuffered { stream =>
-        pf(req.copy(content = Content.fromStream(stream)))
+        pf(req.copy(req.method, req.url, req.headers, content = Content.fromStream(stream)))
       }
     }
 

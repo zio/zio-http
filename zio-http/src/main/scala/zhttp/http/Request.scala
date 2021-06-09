@@ -29,9 +29,9 @@ sealed trait Request[-R, +E, +A] { self =>
   def getHeader(name: String): Option[Header]                    = self.headers.find(h => h.name == name)
   def content(implicit ev: HasContent[A]): Content[R, E, ev.Out] = ev.content(self)
   def copy[R1, E1, A1](
-    method: Method = self.method,
-    url: URL = self.url,
-    headers: List[Header] = self.headers,
+    method: Method,
+    url: URL,
+    headers: List[Header],
     content: Content[R1, E1, A1],
   ): Request[R1, E1, A1]                                         =
     Request.Default(method, url, headers, content)
@@ -48,4 +48,5 @@ object Request                   {
     Default[R, E, A](method, url, headers, content)
   def apply[R, E, A](endpoint: Endpoint, headers: List[Header], content: Content[R, E, A]): Request[R, E, A] =
     Default[R, E, A](endpoint._1, endpoint._2, headers, content)
+
 }
