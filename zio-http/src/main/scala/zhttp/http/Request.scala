@@ -28,10 +28,10 @@ sealed trait Request[-R, +E, +A] { self =>
   def headers: List[Header]
   def getHeader(name: String): Option[Header]                    = self.headers.find(h => h.name == name)
   def content(implicit ev: HasContent[A]): Content[R, E, ev.Out] = ev.content(self)
-  def copy[R1, E1, A1](
-    method: Method,
-    url: URL,
-    headers: List[Header],
+  def update[R1, E1, A1](
+    method: Method = self.method,
+    url: URL = self.url,
+    headers: List[Header] = self.headers,
     content: Content[R1, E1, A1],
   ): Request[R1, E1, A1]                                         =
     Request.Default(method, url, headers, content)
