@@ -2,12 +2,13 @@ package zhttp.http
 
 import zio.ZIO
 
-final case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) extends AnyVal {
+final case class HttpApp[-R, +E](asHttp: Http[R, E, Request[Any, Nothing, Nothing], Response[R, E, Any]])
+    extends AnyVal {
 
   /**
    * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
    */
-  def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1]]) = HttpApp(
+  def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1, Any]]) = HttpApp(
     asHttp.catchAll(e => Http.succeed(s.silent(e))),
   )
 
@@ -19,7 +20,7 @@ final case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) ex
   /**
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
-  def execute(r: Request) = asHttp.execute(r)
+  def execute(r: Request[Any, Nothing, Nothing]) = asHttp.execute(r)
 }
 
 object HttpApp {
@@ -27,13 +28,13 @@ object HttpApp {
   /**
    * Creates an Http app from a function that returns a ZIO
    */
-  def fromEffectFunction[R, E](f: Request[Any, Nothing, Nothing] => ZIO[R, E, Response[R, E]]): HttpApp[R, E] =
+  def fromEffectFunction[R, E](f: Request[Any, Nothing, Nothing] => ZIO[R, E, Response[R, E, Any]]): HttpApp[R, E] =
     HttpApp(Http.fromEffectFunction(f))
 
   /**
    * Converts a ZIO to an Http type
    */
-  def responseM[R, E](res: ResponseM[R, E]): HttpApp[R, E] = HttpApp(Http.fromEffect(res))
+  def responseM[R, E, B: HasContent](res: ResponseM[R, E, B]): HttpApp[R, E] = HttpApp(Http.fromEffect(res))
 
   /**
    * Creates an HTTP app which accepts a request and produces response.
@@ -41,24 +42,24 @@ object HttpApp {
   def collect[R, E, B](
     pf: PartialFunction[Request[Any, Nothing, Nothing], Response[R, E, B]],
   ): HttpApp[R, E] =
-    Http.collect[Request[Any, Nothing, Nothing]](pf)
+    HttpApp(Http.collect[Request[Any, Nothing, Nothing]](pf))
 
   def collectComplete[R, E, B: HasContent](
     pf: PartialFunction[Request[Any, Nothing, Complete], Response[R, E, B]],
   ): HttpApp[R, E] =
-    Http.fromFunction { req =>
+    HttpApp(Http.fromFunction { req =>
       Response.decodeComplete { bytes =>
         pf(req.copy(req.method, req.url, req.headers, content = Content.fromBytes(bytes)))
       }
-    }
+    })
   def collectBuffered[R, E, B: HasContent](
     pf: PartialFunction[Request[Any, Nothing, Buffered], Response[R, E, B]],
   ): HttpApp[R, E] =
-    Http.fromFunction { req =>
+    HttpApp(Http.fromFunction { req =>
       Response.decodeBuffered { stream =>
         pf(req.copy(req.method, req.url, req.headers, content = Content.fromStream(stream)))
       }
-    }
+    })
 
   def collectM[R, E, B](
     pf: PartialFunction[Request[Any, Nothing, Nothing], ResponseM[R, E, B]],
@@ -106,6 +107,8 @@ object HttpApp {
   /**
    * Creates a Http app from a function from Request to HttpApp
    */
-  def fromFunction[R, E, B](f: Request => HttpApp[R, E]) = HttpApp(Http.flatten(Http.fromFunction(f).map(_.asHttp)))
+  def fromFunction[R, E, B](f: Request[Any, Nothing, Nothing] => HttpApp[R, E]) = HttpApp(
+    Http.flatten(Http.fromFunction(f).map(_.asHttp)),
+  )
 
 }

@@ -6,7 +6,6 @@ import zio.ZIO
 import java.nio.charset.Charset
 
 package object http extends PathModule with RequestSyntax {
-  type HttpApp[-R, +E]       = Http[R, E, Request[Any, Nothing, Nothing], Response[R, E, Any]]
   type UHttpApp              = HttpApp[Any, Nothing]
   type RHttpApp[-R]          = HttpApp[R, Throwable]
   type Endpoint              = (Method, URL)

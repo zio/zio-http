@@ -65,11 +65,11 @@ object CORS {
     }
 
     Http.flatten {
-      Http.fromFunction[Request](req => {
+      Http.fromFunction[Request[Any, Nothing, Nothing]](req => {
         (
           req.method,
-          req.getHeader(HttpHeaderNames.ORIGIN),
-          req.getHeader(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
+          req.getHeader(HttpHeaderNames.ORIGIN.toString),
+          req.getHeader(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD.toString),
         ) match {
           case (Method.OPTIONS, Some(origin), Some(acrm))
               if allowCORS(origin, Method.fromString(acrm.value.toString())) =>
@@ -81,14 +81,11 @@ object CORS {
             )
           case (_, Some(origin), _) if allowCORS(origin, req.method) =>
             httpApp.asHttp >>>
-              Http.fromFunction[Response[R, E]](r =>
-                r match {
-                  case r: Response.HttpResponse[R, E] =>
-                    r.copy(headers = r.headers ++ corsHeaders(origin, req.method))
-                  case x                              =>
-                    x
-                },
-              )
+              Http.fromFunction[Response[R, E, Any]] {
+                case res @ Response.Default(_, dHeaders, _) =>
+                  res.copy(dHeaders = dHeaders ++ corsHeaders(origin, req.method))
+                case x                                      => x
+              }
           case _                                                     => httpApp.asHttp
         }
       })
