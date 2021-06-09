@@ -6,7 +6,7 @@ import io.netty.handler.codec.http.{
   HttpVersion => JHttpVersion,
 }
 import zhttp.core.{JDefaultHttpHeaders, JHttpHeaders}
-import zhttp.http.{HttpData, HasContent, Response}
+import zhttp.http.{HasContent, HttpData, Response}
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
