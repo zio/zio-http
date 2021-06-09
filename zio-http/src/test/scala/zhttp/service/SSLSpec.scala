@@ -12,8 +12,10 @@ import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.server.ServerSSLHandler.ServerSSLOptions._
 import zhttp.service.server._
 import zio.ZIO
-import zio.test.Assertion.equalTo
+import zio.duration.durationInt
+import zio.test.Assertion.{equalTo, isNone}
 import zio.test.assertM
+import zio.test.environment.TestClock
 
 import javax.net.ssl.SSLHandshakeException
 
@@ -63,12 +65,17 @@ object SSLSpec extends HttpRunnableSpec(8080) {
               })
             assertM(actual)(equalTo("SSLHandshakeException"))
           },
-//          testM("fail with NotSslRecordException when client doesn't have the server certificate") {
-//            val actual = Client.request("http://localhost:8080/success",ClientSSLOptions.CustomSSL(clientssl1)).map(_.status).catchSome(_.getCause match {
-//              case  _:NotSslRecordException=>ZIO.succeed("NotSslRecordException")
-//            })
-//            assertM(actual)(equalTo("NotSslRecordException"))
-//          },
+          testM("empty response when client makes http request") {
+            val actual = for {
+              fiber <- Client
+                .request("http://localhost:8080/success", ClientSSLOptions.CustomSSL(clientssl1))
+                .timeout(3 seconds)
+                .fork
+              _     <- TestClock.adjust(3 seconds)
+              res   <- fiber.join
+            } yield res
+            assertM(actual)(isNone)
+          },
         ),
       )
       .useNow,
