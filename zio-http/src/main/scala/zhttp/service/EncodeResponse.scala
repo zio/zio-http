@@ -6,7 +6,7 @@ import io.netty.handler.codec.http.{
   HttpVersion => JHttpVersion,
 }
 import zhttp.core.{JDefaultHttpHeaders, JHttpHeaders}
-import zhttp.http.{Content, HasContent, Response}
+import zhttp.http.{HttpData, HasContent, Response}
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -15,7 +15,7 @@ trait EncodeResponse {
   private val SERVER_NAME: String = "ZIO-Http"
 
   /**
-   * Encode the [[zhttp.http.UHttpResponse]] to [io.netty.handler.codec.http.FullHttpResponse]
+   * Encode the [[zhttp.http.UResponse]] to [io.netty.handler.codec.http.FullHttpResponse]
    */
   def encodeResponse[R, E, A: HasContent](jVersion: JHttpVersion, res: Response[R, E, A]): JDefaultHttpResponse = {
     val jHttpHeaders =
@@ -28,9 +28,9 @@ trait EncodeResponse {
     res match {
       case Response.Default(_, _, dContent) =>
         dContent match {
-          case Content.CompleteContent(data) => jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, data.length)
-          case Content.BufferedContent(_)    => ()
-          case Content.EmptyContent          => jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, 0)
+          case HttpData.CompleteContent(data) => jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, data.length)
+          case HttpData.BufferedContent(_)    => ()
+          case HttpData.EmptyContent          => jHttpHeaders.set(JHttpHeaderNames.CONTENT_LENGTH, 0)
         }
       case _                                => ()
     }

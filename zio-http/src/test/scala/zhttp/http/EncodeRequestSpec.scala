@@ -12,7 +12,7 @@ object EncodeRequestSpec extends DefaultRunnableSpec with EncodeRequest {
   val request: Request[Any, Nothing, Complete] = Request(
     Method.GET -> URL(Path("/"), Location.Absolute(Scheme.HTTP, "localhost", 8000)),
     Nil,
-    Content.fromByteBuf(Unpooled.EMPTY_BUFFER),
+    HttpData.fromByteBuf(Unpooled.EMPTY_BUFFER),
   )
 
   def spec = suite("EncodeRequest")(

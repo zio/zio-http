@@ -49,25 +49,28 @@ object Client {
     zx <- UnsafeChannelExecutor.make[Any]
   } yield service.Client(zx, cf, el)
 
-  def request(url: String): ZIO[EventLoopGroup with ChannelFactory, Throwable, UResponse] = for {
+  def request(url: String): ZIO[EventLoopGroup with ChannelFactory, Throwable, CompleteResponse] = for {
     url <- ZIO.fromEither(URL.fromString(url))
     res <- request(Method.GET -> url)
   } yield res
 
-  def request(url: String, headers: List[Header]): ZIO[EventLoopGroup with ChannelFactory, Throwable, UResponse] =
+  def request(
+    url: String,
+    headers: List[Header],
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, CompleteResponse] =
     for {
       url <- ZIO.fromEither(URL.fromString(url))
       res <- request(Method.GET -> url, headers)
     } yield res
 
-  def request(endpoint: Endpoint): ZIO[EventLoopGroup with ChannelFactory, Throwable, UResponse] =
-    request(Request(endpoint, Nil, Content.fromByteBuf(Unpooled.EMPTY_BUFFER)))
+  def request(endpoint: Endpoint): ZIO[EventLoopGroup with ChannelFactory, Throwable, CompleteResponse] =
+    request(Request(endpoint, Nil, HttpData.fromByteBuf(Unpooled.EMPTY_BUFFER)))
 
   def request(
     endpoint: Endpoint,
     headers: List[Header],
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UResponse] =
-    request(Request(endpoint, headers, Content.fromByteBuf(Unpooled.EMPTY_BUFFER)))
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, CompleteResponse] =
+    request(Request(endpoint, headers, HttpData.fromByteBuf(Unpooled.EMPTY_BUFFER)))
 
   def request(
     req: Request[Any, Nothing, Complete],

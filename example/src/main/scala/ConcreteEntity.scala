@@ -17,10 +17,8 @@ object ConcreteEntity extends App {
       UserCreated(2)
     })
 
-  val app: Http[Any, Nothing, Request[Any, Nothing, Nothing], Response[Any, Nothing, Any]] = user
-    .contramap[Request[Any, Nothing, Nothing]](req =>
-      CreateUser(req.url.toString),
-    )                                                           //Http[Any, Nothing, Request, UserCreated]
+  val app: Http[Any, Nothing, URequest, CompleteResponse] = user
+    .contramap[URequest](req => CreateUser(req.url.toString))   //Http[Any, Nothing, Request, UserCreated]
     .map(userCreated => Response.text(userCreated.id.toString)) //Http[Any, Nothing, Request, Response]
 
   // Run it like any simple app

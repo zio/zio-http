@@ -7,7 +7,7 @@ import java.nio.file.{Paths => JPaths}
 
 object FileStreaming extends App {
   // Read the file as ZStream
-  val content = Content.fromStream {
+  val content = HttpData.fromStream {
     ZStream.fromFile(JPaths.get("README.md"))
   }
 

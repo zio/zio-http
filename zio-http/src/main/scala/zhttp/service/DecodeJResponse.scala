@@ -13,7 +13,7 @@ trait DecodeJResponse {
   def decodeJResponse(jRes: JFullHttpResponse): Either[Throwable, Response[Any, Nothing, Complete]] = Try {
     val status  = Status.fromJHttpResponseStatus(jRes.status())
     val headers = Header.parse(jRes.headers())
-    val content = Content.fromByteBuf(jRes.content())
+    val content = HttpData.fromByteBuf(jRes.content())
 
     Response.http(status, headers, content): Response[Any, Nothing, Complete]
   }.toEither

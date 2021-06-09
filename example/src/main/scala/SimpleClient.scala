@@ -1,4 +1,4 @@
-import zhttp.http.{Content, Header}
+import zhttp.http.{HttpData, Header}
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
 
@@ -11,8 +11,8 @@ object SimpleClient extends App {
     res <- Client.request(url, headers)
     _   <- console.putStrLn {
       res.content match {
-        case Content.CompleteContent(data) => data.map(_.toChar).mkString
-        case _                             => ""
+        case HttpData.CompleteContent(data) => data.map(_.toChar).mkString
+        case _                              => ""
       }
     }
   } yield ()

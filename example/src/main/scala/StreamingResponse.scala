@@ -19,9 +19,9 @@ object StreamingResponse extends App {
     // ZStream powered response
     case Method.GET -> Root / "stream" =>
       Response.Default(
-        dStatus = Status.OK,
-        dHeaders = List(Header.contentLength(message.length.toLong)),
-        dContent = Content.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
+        status = Status.OK,
+        headers = List(Header.contentLength(message.length.toLong)),
+        content = HttpData.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
       )
 
   }

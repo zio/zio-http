@@ -83,7 +83,7 @@ object CORS {
             httpApp.asHttp >>>
               Http.fromFunction[Response[R, E, Any]] {
                 case res @ Response.Default(_, dHeaders, _) =>
-                  res.copy(dHeaders = dHeaders ++ corsHeaders(origin, req.method))
+                  res.copy(headers = dHeaders ++ corsHeaders(origin, req.method))
                 case x                                      => x
               }
           case _                                                     => httpApp.asHttp

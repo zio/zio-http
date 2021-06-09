@@ -16,8 +16,8 @@ trait EncodeRequest {
       case path => path.asString
     }
     val content     = req.content match {
-      case Content.CompleteContent(bytes) => JUnpooled.wrappedBuffer(bytes.toArray)
-      case _                              => JUnpooled.EMPTY_BUFFER
+      case HttpData.CompleteContent(bytes) => JUnpooled.wrappedBuffer(bytes.toArray)
+      case _                               => JUnpooled.EMPTY_BUFFER
     }
     val headers     = Header.disassemble(req.headers)
     val writerIndex = content.writerIndex()
