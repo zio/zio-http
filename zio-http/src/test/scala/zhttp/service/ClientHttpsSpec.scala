@@ -27,11 +27,11 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
   override def spec               = suite("Https Client request")(
     testM("respond Ok") {
-      val actual = Client.request("https://api.github.com/users/zio/repos")
+      val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
       assertM(actual)(anything)
     },
     testM("respond Ok with sslOption") {
-      val actual = Client.request("https://api.github.com/users/zio/repos", sslOption)
+      val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", sslOption)
       assertM(actual)(anything)
     },
     testM("should throw DecoderException for handshake failure") {
