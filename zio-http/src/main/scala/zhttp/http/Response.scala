@@ -4,19 +4,6 @@ import zhttp.socket.SocketApp
 import zio.stream.ZStream
 import zio.{Chunk, ZIO}
 
-// RESPONSE
-/*sealed trait Response[-R, +E] extends Product with Serializable { self => }
-
-object Response extends ResponseHelpers {
-  // Constructors
-  final case class HttpResponse[-R, +E](status: Status, headers: List[Header], content: HttpData[R, E])
-      extends Response[R, E]
-      with HasHeaders
-      with HeadersHelpers
-
-  final case class SocketResponse[-R, +E](socket: SocketApp[R, E] = SocketApp.empty) extends Response[R, E]
-}*/
-
 sealed trait Response[-R, +E, +A] {
   self =>
   def status(implicit ev: HasContent[A]): Status                  = ev.status(self)
