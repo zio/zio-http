@@ -58,7 +58,7 @@ final case class ServerRequestHandler[R, +E](
     executeAsync(ctx, jReq) {
       case res @ Response.Default(_, _, content) =>
         ctx.write(
-          encodeResponse(jReq.protocolVersion(), res.asInstanceOf[Response[Any, Nothing, Opaque]]),
+          encodeResponse(jReq.protocolVersion(), res),
           ctx.channel().voidPromise(),
         )
         releaseOrIgnore(jReq)
