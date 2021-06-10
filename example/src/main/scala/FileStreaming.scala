@@ -3,10 +3,13 @@ import zhttp.service._
 import zio._
 import zio.stream._
 
+import java.nio.file.{Paths => JPaths}
+
 object FileStreaming extends App {
-  // Read the file as InputStream
-  val content =
-    HttpData.fromStream(ZStream.fromInputStream(getClass.getClassLoader.getResourceAsStream("SampleFile.txt")))
+  // Read the file as ZStream
+  val content = HttpData.fromStream {
+    ZStream.fromFile(JPaths.get("README.md"))
+  }
 
   // Create HTTP route
   val app = HttpApp.collect {
