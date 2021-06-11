@@ -4,7 +4,7 @@ scala_212: &scala_212
   SCALA_VERSION: 2.12.13
 
 scala_213: &scala_213
-  SCALA_VERSION: 2.13.5
+  SCALA_VERSION: 2.13.6
 
 jdk_8: &jdk_8
   JDK_VERSION: 8
