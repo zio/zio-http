@@ -10,7 +10,7 @@ object BuildHelper {
 
   // Keep this consistent with the version in .circleci/config.yml
   val Scala211 = "2.11.12"
-  val Scala212 = "2.12.13"
+  val Scala212 = "2.12.14"
   val Scala213 = "2.13.5"
 
   val zioVersion        = "1.0.5"
