@@ -30,7 +30,7 @@ object BuildHelper {
     val stdCompileOnlyDeps = Seq(
       ("com.github.ghik" % "silencer-lib" % silencerVersion % Provided).cross(CrossVersion.full),
       compilerPlugin(("com.github.ghik" % "silencer-plugin" % silencerVersion).cross(CrossVersion.full)),
-      compilerPlugin(("org.typelevel"   %% "kind-projector" % "0.11.3").cross(CrossVersion.full))
+      compilerPlugin(("org.typelevel"   %% "kind-projector" % "0.13.0").cross(CrossVersion.full))
     )
     CrossVersion.partialVersion(scalaVersion) match {
       case Some((2, x)) if x <= 12 =>
