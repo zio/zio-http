@@ -23,6 +23,7 @@ import zio.web.docs._
  */
 package object web {
   type AnyF[+A]        = Any
+  type Id[A]           = A
   type NothingF[+A]    = Nothing
   type Unannotated[+A] = Nothing
 

@@ -1,11 +1,13 @@
 package zio.web
 
 import zio.Chunk
+import zio.web.codec.{ Codec, JsonCodec }
 
-package object http extends HttpProtocolModule {
-  val defaultProtocol: codec.Codec = codec.JsonCodec
+package object http extends HttpProtocol {
 
-  val allProtocols: Map[String, codec.Codec] = Map("application/json" -> codec.JsonCodec)
+  val defaultProtocol: Codec = JsonCodec
+
+  val allProtocols: Map[String, Codec] = Map("application/json" -> JsonCodec)
 
   private[http] val CR: Byte          = 13
   private[http] val LF: Byte          = 10

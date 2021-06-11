@@ -151,53 +151,67 @@ object HttpServer {
     closed: Promise[Throwable, Unit]
   ) { self =>
 
-    val awaitOpen: UIO[Unit] = channel.isOpen.repeatUntil(identity).unit
+    lazy val awaitOpen: UIO[Unit] = channel.isOpen.repeatUntil(identity).unit
 
-    val awaitShutdown: IO[Throwable, Unit] = closed.await
+    lazy val awaitShutdown: IO[Throwable, Unit] = closed.await
 
-    val read: URIO[Logging, Unit] =
+    lazy val read: ZIO[Logging, Nothing, Unit] =
       (for {
-        _           <- awaitOpen
-        reader      = ChannelReader(channel, 32)
-        data        <- reader.readUntilNewLine()
-        firstLine   = new String(data.value.toArray)
-        _           <- log.info(s"Read start line:\n$firstLine")
-        startLine   = HttpLexer.parseStartLine(new StringReader(firstLine))
-        _           <- log.info(s"Parsed ${startLine}")
-        endpoint    <- router.route(startLine)
-        _           <- log.info(s"Request matched to [${endpoint.endpointName}].")
-        data        <- reader.readUntilEmptyLine(data.tail)
-        headerLines = new String(data.value.toArray)
-        _           <- log.info(s"Read headers:\n$headerLines")
-        // TODO: extract headers parsing and wrap them in HttpHeaders to tidy up a little here
-        headerNames  = Array("Content-Length") // TODO: handle when not given then do not read the content
-        headerValues = HttpLexer.parseHeaders(headerNames, new StringReader(headerLines))
-        headers = headerNames
-          .zip(headerValues.map(_.headOption))
-          .collect { case (key, Some(value)) => key -> value }
-          .toMap
-        _          <- log.info(s"Parsed headers:\n$headers")
-        bodyLength = headers("Content-Length").toInt
-        data       <- reader.read(bodyLength, data.tail)
-        bodyLines  = new String(data.toArray)
-        _          <- log.info(s"Read body:\n$bodyLines")
-        input      <- Connection.decodeInput(data, endpoint)
-        _          <- log.info(s"Parsed body:\n$input")
-        output     <- controller.handle(endpoint)(input, ())
-        _          <- log.info(s"Handler returned $output")
-        success    <- Connection.sucessResponse(output, endpoint)
-        _          <- channel.register(selector, Operation.Write, Some(self))
-      } yield success).to(response).unit
+        reader    <- awaitOpen.as(ChannelReader(channel, 32))
+        data      <- reader.readUntilNewLine()
+        firstLine = new String(data.value.toArray)
+        _         <- log.info(s"Read start line:\n$firstLine")
+        startLine = HttpLexer.parseStartLine(new StringReader(firstLine))
+        _         <- log.info(s"Parsed ${startLine}")
+        _ <- router.route(startLine).flatMap {
+              case None =>
+                for {
+                  _ <- log.info("Request not matched")
+                  _ <- Connection.notFoundResponse().to(response)
+                } yield ()
+              case Some(endpoint) =>
+                for {
+                  _           <- log.info(s"Request matched to [${endpoint.endpointName}].")
+                  data        <- reader.readUntilEmptyLine(data.tail)
+                  headerLines = new String(data.value.toArray)
+                  _           <- log.info(s"Read headers:\n$headerLines")
+                  // TODO: extract headers parsing and wrap them in HttpHeaders to tidy up a little here
+                  headerNames  = Array("Content-Length") // TODO: handle when not given then do not read the content
+                  headerValues = HttpLexer.parseHeaders(headerNames, new StringReader(headerLines))
+                  headers = headerNames
+                    .zip(headerValues.map(_.headOption))
+                    .collect { case (key, Some(value)) => key -> value }
+                    .toMap
+                  _          <- log.info(s"Parsed headers:\n$headers")
+                  bodyLength = headers("Content-Length").toInt
+                  data       <- reader.read(bodyLength, data.tail)
+                  bodyLines  = new String(data.toArray)
+                  _          <- log.info(s"Read body:\n$bodyLines")
+                  input      <- Connection.decodeInput(data, endpoint)
+                  _          <- log.info(s"Parsed body:\n$input")
+                  output     <- controller.handle(endpoint)(input, ())
+                  _          <- log.info(s"Handler returned $output")
+                  _          <- Connection.sucessResponse(output, endpoint).to(response)
+                } yield ()
+            }
+      } yield ())
+        .catchAllCause(
+          cause =>
+            for {
+              _ <- log.error("Internal server error occured", cause)
+              _ <- Connection.internalServerErrorResponse().to(response)
+            } yield ()
+        )
+        .ensuring(channel.register(selector, Operation.Write, Some(self)).orElse(shutdown))
 
-    val write: ZIO[Logging, IOException, Unit] =
-      for {
+    lazy val write: ZIO[Logging, IOException, Unit] =
+      (for {
         bytes <- response.await
         _     <- channel.writeChunk(bytes)
         _     <- log.info(s"Sent response data")
-        _     <- shutdown
-      } yield ()
+      } yield ()).ensuring(shutdown)
 
-    val shutdown: URIO[Logging, Unit] =
+    lazy val shutdown: URIO[Logging, Unit] =
       for {
         _ <- log.debug("Stopping connection...")
         _ <- ZIO.whenM(channel.isOpen)(channel.close).unit.to(closed)
@@ -230,6 +244,12 @@ object HttpServer {
         _   <- channel.configureBlocking(false)
         key <- channel.register(selector, Operation.Read, Some(connection))
       } yield key).toManaged(_.cancel)
+
+    def notFoundResponse(): UIO[Chunk[Byte]] =
+      ZIO.succeed(httpHeaders("HTTP/1.0 404 Not Found"))
+
+    def internalServerErrorResponse(): UIO[Chunk[Byte]] =
+      ZIO.succeed(httpHeaders("HTTP/1.0 500 Internal Server Error"))
 
     def sucessResponse[O](output: O, endpoint: Endpoint[AnyF, _, _, _]): UIO[Chunk[Byte]] =
       for {

@@ -2,6 +2,7 @@ package zio.web
 
 import zio.schema.Schema
 import zio.web.docs._
+import zio.web.internal.Combine
 
 /**
  * A `Endpoint[M, P, I, O]` represents an endpoint that requires parameters `P` produced by metadata `M`
@@ -25,8 +26,8 @@ final case class Endpoint[+M[+_], P, I, O](
   /**
    * Adds an annotation to the endpoint.
    */
-  def @@[M1[+_] >: M[_], P2](metadata: M1[P2])(implicit ac: Annotations.Combine[P2, P]): Endpoint[M1, ac.Out, I, O] =
-    copy(annotations = self.annotations.+[M1, P2](metadata)(ac))
+  def @@[M1[+_] >: M[_], P2](metadata: M1[P2])(implicit c: Combine[P2, P]): Endpoint[M1, c.Out, I, O] =
+    copy(annotations = self.annotations.+[M1, P2](metadata)(c))
 
   /**
    * Returns a new endpoint that attaches additional documentation to this

@@ -26,11 +26,11 @@ Let's create a simple endpoint which will receive a `name` and respond with a gr
 import zio.ZIO
 import zio.web.{endpoint, Endpoints, Handler, Handlers}
 import zio.web.codec.Codec
-import zio.web.http.HttpProtocolModule
+import zio.web.http.HttpProtocol
 import zio.web.http.model.{ Method, Route }
 import zio.schema.Schema
 
-object GreetingModule extends HttpProtocolModule {
+object GreetingModule extends HttpProtocol {
 
   override val defaultProtocol: Codec           = null
   override val allProtocols: Map[String, Codec] = Map.empty
@@ -39,7 +39,7 @@ object GreetingModule extends HttpProtocolModule {
   val greetingEndpoint =
     endpoint("greet")
       .withRequest(Schema[String])
-      .withResponse(Schema[String]) @@ Route("/greet/") @@ Method.GET
+      .withResponse(Schema[String]) @@ Route(_ / "greet") @@ Method.GET
 
   val endpoints = Endpoints(greetingEndpoint)
 

@@ -1,14 +1,13 @@
 package zio.web.http.internal
 
-import zio.{ IO, ZIO, ZManaged }
+import zio.{ UIO, ZIO, ZManaged }
 import zio.web.{ AnyF, Endpoint, Endpoints }
 import zio.web.http.model.StartLine
-import java.io.IOException
 
 final private[http] class HttpRouter(endpoints: Endpoints[AnyF, _]) {
 
-  def route(startLine: StartLine): IO[IOException, Endpoint[AnyF, _, _, _]] =
-    ZIO.fromOption {
+  def route(startLine: StartLine): UIO[Option[Endpoint[AnyF, _, _, _]]] =
+    ZIO.effectTotal {
       import Endpoints.{ Cons, Empty }
       val calledEndpoint = startLine.uri.toString.stripPrefix("/")
 
@@ -19,7 +18,7 @@ final private[http] class HttpRouter(endpoints: Endpoints[AnyF, _]) {
       }
 
       loop(endpoints.asInstanceOf[Endpoints[AnyF, _]])
-    }.mapError(_ => new IOException("Request not matched"))
+    }
 }
 
 object HttpRouter {

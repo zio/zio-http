@@ -1,5 +1,8 @@
 package zio.web.http.model
 
+import java.util.UUID
+import zio.web.internal.Combine
+
 sealed trait HttpAnn[+A]
 sealed abstract class Method(val name: String) extends HttpAnn[Unit] {
   override def toString(): String = s"Method.$name"
@@ -48,7 +51,40 @@ object Method {
 sealed trait Route[+A] extends HttpAnn[A]
 
 object Route {
-  def apply(v: String): Route[Unit] = Path(v)
+  case class Cons[P0, H <: Segment[P0], P, T <: Route[P], O] private (
+    head: H,
+    tail: T,
+    combine: Combine.Aux[P0, P, O]
+  ) extends Route[O]
 
-  final case class Path(path: String) extends Route[Unit]
+  sealed trait Root extends Route[Unit]
+  case object Root  extends Root
+
+  sealed trait Segment[A]
+
+  object Segment {
+    final private[http] case class Static(value: String) extends Segment[Unit]
+
+    final case class Param[A](from: String => A, to: A => String) extends Segment[A] {
+
+      def derive[B](map: A => B, contramap: B => A): Param[B] =
+        Param[B](v => map(from(v)), v => to(contramap(v)))
+    }
+  }
+
+  val IntVal    = Segment.Param[Int](_.toInt, _.toString)
+  val LongVal   = Segment.Param[Long](_.toLong, _.toString)
+  val StringVal = Segment.Param[String](identity, identity)
+  val UUIDVal   = Segment.Param[UUID](UUID.fromString, _.toString)
+
+  def apply[A](f: Root => Route[A]): Route[A] = f(Root)
+
+  implicit class RouteOps[P](tail: Route[P]) {
+
+    final def /(segment: String)(implicit c: Combine[Unit, P]): Route[c.Out] =
+      Cons[Unit, Segment.Static, P, Route[P], c.Out](Segment.Static(segment), tail, c)
+
+    final def /[P0](param: Segment.Param[P0])(implicit c: Combine[P0, P]): Route[c.Out] =
+      Cons[P0, Segment.Param[P0], P, Route[P], c.Out](param, tail, c)
+  }
 }

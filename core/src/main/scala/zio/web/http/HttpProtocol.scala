@@ -1,15 +1,16 @@
 package zio.web.http
 
-import zio._
+import zio.{ Has, Tag, ZIO, ZLayer }
 import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.logging.Logging
-import zio.web.http.model._
-import zio.web._
+import zio.web.{ Endpoints, Handlers, Protocol }
+import zio.web.codec.Codec
+import zio.web.http.model.HttpAnn
 
 import java.io.IOException
 
-trait HttpProtocolModule extends ProtocolModule {
+trait HttpProtocol extends Protocol {
   type ServerConfig       = HttpServerConfig
   type ClientConfig       = HttpClientConfig
   type ServerService      = HttpServer
@@ -17,9 +18,9 @@ trait HttpProtocolModule extends ProtocolModule {
   type Middleware[-R, +E] = HttpMiddleware[R, E]
   type MinMetadata[+A]    = HttpAnn[A]
 
-  val defaultProtocol: codec.Codec
+  val defaultProtocol: Codec
 
-  val allProtocols: Map[String, codec.Codec]
+  val allProtocols: Map[String, Codec]
 
   override def makeServer[M[+_] <: MinMetadata[_], R <: Has[ServerConfig]: Tag, E, Ids: Tag](
     middleware: Middleware[R, E],
