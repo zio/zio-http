@@ -18,7 +18,7 @@ object BuildHelper {
   val zioSchemaVersion  = "0.0.1"
   val zioJsonVersion    = "0.1"
   val zioNioVersion     = "1.0.0-RC10"
-  val silencerVersion   = "1.7.3"
+  val silencerVersion   = "1.7.5"
   val magnoliaVersion   = "0.17.0"
 
   private val testDeps = Seq(
