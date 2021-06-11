@@ -17,7 +17,7 @@ object BuildHelper {
   val zioLoggingVersion = "0.5.8"
   val zioSchemaVersion  = "0.0.1"
   val zioJsonVersion    = "0.1"
-  val zioNioVersion     = "1.0.0-RC10"
+  val zioNioVersion     = "1.0.0-RC11"
   val silencerVersion   = "1.7.3"
   val magnoliaVersion   = "0.17.0"
 
