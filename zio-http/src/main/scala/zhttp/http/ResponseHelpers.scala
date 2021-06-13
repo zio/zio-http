@@ -17,7 +17,7 @@ private[zhttp] trait ResponseHelpers {
   def http[R, E, B: HasContent](
     status: Status = defaultStatus,
     headers: List[Header] = defaultHeaders,
-    content: HttpData[R, E, B] = HttpData.empty,
+    content: Content[R, E, B] = Content.empty,
   ): Response[R, E, B] =
     Response(status, headers, content)
 
@@ -38,7 +38,7 @@ private[zhttp] trait ResponseHelpers {
         http(
           error.status,
           Nil,
-          HttpData.fromBytes(cause.cause match {
+          Content.fromBytes(cause.cause match {
             case Some(throwable) =>
               val sw = new StringWriter
               throwable.printStackTrace(new PrintWriter(sw))
@@ -46,7 +46,7 @@ private[zhttp] trait ResponseHelpers {
             case None            => Chunk.fromArray(s"${cause.message}".getBytes(HTTP_CHARSET))
           }),
         )
-      case _                         => http(error.status, Nil, HttpData.fromBytes(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
+      case _                         => http(error.status, Nil, Content.fromBytes(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
     }
 
   }
@@ -55,13 +55,13 @@ private[zhttp] trait ResponseHelpers {
 
   def text(text: String): CompleteResponse =
     http(
-      content = HttpData.fromBytes(Chunk.fromArray(text.getBytes(HTTP_CHARSET))),
+      content = Content.fromBytes(Chunk.fromArray(text.getBytes(HTTP_CHARSET))),
       headers = List(Header.contentTypeTextPlain),
     )
 
   def jsonString(data: String): CompleteResponse =
     http(
-      content = HttpData.fromBytes(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
+      content = Content.fromBytes(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
       headers = List(Header.contentTypeJson),
     )
 

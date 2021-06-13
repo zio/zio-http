@@ -63,17 +63,17 @@ final case class ServerRequestHandler[R, +E](
         )
         releaseOrIgnore(jReq)
         content match {
-          case HttpData.BufferedContent(data) =>
+          case Content.BufferedContent(data) =>
             zExec.unsafeExecute_(ctx) {
               for {
                 _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(JUnpooled.copiedBuffer(c.toArray))))
                 _ <- ChannelFuture.unit(ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT))
               } yield ()
             }
-          case HttpData.CompleteContent(data) =>
+          case Content.CompleteContent(data) =>
             ctx.write(JUnpooled.copiedBuffer(data.toArray), ctx.channel().voidPromise())
             ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
-          case HttpData.EmptyContent          => ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
+          case Content.EmptyContent          => ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
         }
         ()
 

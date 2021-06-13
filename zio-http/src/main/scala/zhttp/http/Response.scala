@@ -6,13 +6,13 @@ import zio.{Chunk, ZIO}
 
 sealed trait Response[-R, +E, +A] {
   self =>
-  def status(implicit ev: HasContent[A]): Status                  = ev.status(self)
-  def headers(implicit ev: HasContent[A]): List[Header]           = ev.headers(self)
-  def content(implicit ev: HasContent[A]): HttpData[R, E, ev.Out] = ev.content(self)
+  def status(implicit ev: HasContent[A]): Status                 = ev.status(self)
+  def headers(implicit ev: HasContent[A]): List[Header]          = ev.headers(self)
+  def content(implicit ev: HasContent[A]): Content[R, E, ev.Out] = ev.content(self)
 }
 
 object Response extends ResponseHelpers {
-  final case class Default[R, E, A](status: Status, headers: List[Header], content: HttpData[R, E, A])
+  final case class Default[R, E, A](status: Status, headers: List[Header], content: Content[R, E, A])
       extends Response[R, E, A]
   final case class Socket[R, E](socket: SocketApp[R, E])                                 extends Response[R, E, Opaque]
   final case class Decode[R, E, A, B, C](d: DecodeMap[A, B], cb: B => Response[R, E, C]) extends Response[R, E, Nothing]
@@ -45,7 +45,7 @@ object Response extends ResponseHelpers {
   def apply[R, E, A](
     status: Status = Status.OK,
     headers: List[Header] = Nil,
-    content: HttpData[R, E, A] = HttpData.empty,
+    content: Content[R, E, A] = Content.empty,
   ): Response[R, E, A] =
     Default(status, headers, content)
 }

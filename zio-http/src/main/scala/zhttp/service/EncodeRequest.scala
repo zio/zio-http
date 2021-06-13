@@ -18,9 +18,9 @@ trait EncodeRequest {
     val content     = req match {
       case Request.Default(_, _, _, dContent) =>
         dContent match {
-          case HttpData.CompleteContent(bytes) => JUnpooled.wrappedBuffer(bytes.toArray)
-          case HttpData.BufferedContent(_)     => JUnpooled.EMPTY_BUFFER
-          case HttpData.EmptyContent           => JUnpooled.EMPTY_BUFFER
+          case Content.CompleteContent(bytes) => JUnpooled.wrappedBuffer(bytes.toArray)
+          case Content.BufferedContent(_)     => JUnpooled.EMPTY_BUFFER
+          case Content.EmptyContent           => JUnpooled.EMPTY_BUFFER
         }
       case _                                  => JUnpooled.EMPTY_BUFFER
     }

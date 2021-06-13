@@ -1,7 +1,7 @@
 package zhttp.service
 
 import zhttp.http.URL.Location
-import zhttp.http.{HttpData, _}
+import zhttp.http.{Content, _}
 import zio.test.DefaultRunnableSpec
 import zio.{Chunk, Has, ZIO, ZManaged}
 
@@ -32,7 +32,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
     content: String,
     headers: List[Header] = Nil,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, CompleteResponse] = {
-    val data = HttpData.fromBytes(Chunk.fromArray(content.getBytes(HTTP_CHARSET)))
+    val data = Content.fromBytes(Chunk.fromArray(content.getBytes(HTTP_CHARSET)))
     Client.request(Request(method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data))
   }
 }
