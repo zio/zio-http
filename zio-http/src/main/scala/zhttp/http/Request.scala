@@ -21,12 +21,13 @@ object Request                   {
       extends Request[R, E, A]
   final case class FromJHttpRequest(jReq: JHttpRequest) extends Request[Any, Nothing, Nothing] {
     override def method: Method        = Method.fromJHttpMethod(jReq.method())
-    override def url: URL              = URL.fromString(jReq.uri()).fold(_ => URL(Path("/")), u => u)
+    override def url: URL              = URL(Path(jReq.uri()))
     override def headers: List[Header] = Header.make(jReq.headers())
   }
   def apply[R, E, A](method: Method, url: URL, headers: List[Header], content: HttpData[R, E, A]): Request[R, E, A] =
     Default[R, E, A](method, url, headers, content)
   def apply[R, E, A](endpoint: Endpoint, headers: List[Header], content: HttpData[R, E, A]): Request[R, E, A] =
     Default[R, E, A](endpoint._1, endpoint._2, headers, content)
-
+  def apply(endpoint: Endpoint, headers: List[Header]): Request[Any, Nothing, Opaque]                         =
+    Default(endpoint._1, endpoint._2, headers, HttpData.empty)
 }

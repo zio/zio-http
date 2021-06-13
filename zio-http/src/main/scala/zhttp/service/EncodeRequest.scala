@@ -9,15 +9,20 @@ trait EncodeRequest {
   /**
    * Converts Request to JFullHttpRequest
    */
-  def encodeRequest(jVersion: JHttpVersion, req: Request[Any, Nothing, Complete]): JFullHttpRequest = {
+  def encodeRequest(jVersion: JHttpVersion, req: Request[Any, Nothing, Any]): JFullHttpRequest = {
     val method      = req.method.asJHttpMethod
     val uri         = req.url.path match {
       case Root => "/"
       case path => path.asString
     }
-    val content     = req.content match {
-      case HttpData.CompleteContent(bytes) => JUnpooled.wrappedBuffer(bytes.toArray)
-      case _                               => JUnpooled.EMPTY_BUFFER
+    val content     = req match {
+      case Request.Default(_, _, _, dContent) =>
+        dContent match {
+          case HttpData.CompleteContent(bytes) => JUnpooled.wrappedBuffer(bytes.toArray)
+          case HttpData.BufferedContent(_)     => JUnpooled.EMPTY_BUFFER
+          case HttpData.EmptyContent           => JUnpooled.EMPTY_BUFFER
+        }
+      case _                                  => JUnpooled.EMPTY_BUFFER
     }
     val headers     = Header.disassemble(req.headers)
     val writerIndex = content.writerIndex()

@@ -2,8 +2,7 @@ package zhttp.http
 
 import zio.ZIO
 
-final case class HttpApp[-R, +E](asHttp: Http[R, E, Request[Any, Nothing, Nothing], Response[R, E, Any]])
-    extends AnyVal {
+final case class HttpApp[-R, +E](asHttp: Http[R, E, Request[Any, Nothing, Any], Response[R, E, Any]]) extends AnyVal {
 
   /**
    * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
@@ -20,7 +19,8 @@ final case class HttpApp[-R, +E](asHttp: Http[R, E, Request[Any, Nothing, Nothin
   /**
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
-  def execute(r: Request[Any, Nothing, Nothing]) = asHttp.execute(r)
+  def execute(r: Request[Any, Nothing, Any]): HttpResult[R, E, Response[R, E, Any]] =
+    asHttp.execute(r)
 }
 
 object HttpApp {
@@ -28,7 +28,7 @@ object HttpApp {
   /**
    * Creates an Http app from a function that returns a ZIO
    */
-  def fromEffectFunction[R, E](f: Request[Any, Nothing, Nothing] => ZIO[R, E, Response[R, E, Any]]): HttpApp[R, E] =
+  def fromEffectFunction[R, E](f: Request[Any, Nothing, Any] => ZIO[R, E, Response[R, E, Any]]): HttpApp[R, E] =
     HttpApp(Http.fromEffectFunction(f))
 
   /**
@@ -40,9 +40,9 @@ object HttpApp {
    * Creates an HTTP app which accepts a request and produces response.
    */
   def collect[R, E, B](
-    pf: PartialFunction[Request[Any, Nothing, Nothing], Response[R, E, B]],
+    pf: PartialFunction[Request[Any, Nothing, Any], Response[R, E, B]],
   ): HttpApp[R, E] =
-    HttpApp(Http.collect[Request[Any, Nothing, Nothing]](pf))
+    HttpApp(Http.collect(pf))
 
   def collectComplete[R, E, B: HasContent](
     pf: PartialFunction[Request[Any, Nothing, Complete], Response[R, E, B]],
@@ -62,9 +62,9 @@ object HttpApp {
     })
 
   def collectM[R, E, B](
-    pf: PartialFunction[Request[Any, Nothing, Nothing], ResponseM[R, E, B]],
+    pf: PartialFunction[Request[Any, Nothing, Any], ResponseM[R, E, B]],
   ): HttpApp[R, E] =
-    HttpApp(Http.collectM[Request[Any, Nothing, Nothing]](pf))
+    HttpApp(Http.collectM(pf))
 
   /**
    * Creates an HTTP app which always responds with the same plain text.
@@ -91,7 +91,7 @@ object HttpApp {
    */
   def notFound: HttpApp[Any, HttpError] =
     HttpApp(
-      Http.fromFunction[Request[Any, Nothing, Nothing]](req => Http.fail(HttpError.NotFound(req.url.path))).flatten,
+      Http.fromFunction[Request[Any, Nothing, Any]](req => Http.fail(HttpError.NotFound(req.url.path))).flatten,
     )
 
   /**
@@ -107,7 +107,7 @@ object HttpApp {
   /**
    * Creates a Http app from a function from Request to HttpApp
    */
-  def fromFunction[R, E, B](f: Request[Any, Nothing, Nothing] => HttpApp[R, E]) = HttpApp(
+  def fromFunction[R, E, B](f: Request[Any, Nothing, Any] => HttpApp[R, E]) = HttpApp(
     Http.flatten(Http.fromFunction(f).map(_.asHttp)),
   )
 

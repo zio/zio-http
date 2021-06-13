@@ -65,7 +65,7 @@ object CORS {
     }
 
     Http.flatten {
-      Http.fromFunction[Request[Any, Nothing, Nothing]](req => {
+      Http.fromFunction[Request[Any, Nothing, Any]](req => {
         (
           req.method,
           req.getHeader(HttpHeaderNames.ORIGIN.toString),

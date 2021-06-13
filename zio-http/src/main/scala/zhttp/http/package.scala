@@ -11,8 +11,8 @@ package object http extends PathModule with RequestSyntax {
   type Endpoint              = (Method, URL)
   type Route                 = (Method, Path)
   type SilentResponse[-E]    = CanBeSilenced[E, Response[Any, Nothing, Complete]]
-  type URequest              = Request[Any, Nothing, Nothing]
-  type UResponse             = Request[Any, Nothing, Any]
+  type URequest              = Request[Any, Nothing, Any]
+  type UResponse             = Response[Any, Nothing, Any]
   type CompleteResponse      = Response[Any, Nothing, Complete]
   type ResponseM[-R, +E, +B] = ZIO[R, E, Response[R, E, B]]
   type Complete
