@@ -1,5 +1,9 @@
 package zhttp.http
 
+import scala.annotation.implicitNotFound
+import scala.annotation.implicitAmbiguous
+
+@implicitNotFound("content unavailable")
 sealed trait HasContent[-A] {
   type Out >: A
 
@@ -24,12 +28,17 @@ sealed trait HasContent[-A] {
 }
 
 object HasContent {
-  implicit case object HasNothing  extends HasContent[Opaque]   {
-    override type Out = Any
+  @implicitAmbiguous("content unavailable")
+  implicit case object HasNothing extends HasContent[Opaque] {
+    override type Out = Opaque
   }
+
+  @implicitAmbiguous("content unavailable")
   implicit case object HasBuffered extends HasContent[Buffered] {
     override type Out = Buffered
   }
+
+  @implicitAmbiguous("content unavailable")
   implicit case object HasComplete extends HasContent[Complete] {
     override type Out = Complete
   }

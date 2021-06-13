@@ -27,19 +27,24 @@ object Response extends ResponseHelpers {
     implicit object DecodeComplete extends DecodeMap[Complete, Chunk[Byte]]
     implicit object DecodeBuffered extends DecodeMap[Buffered, ZStream[Any, Nothing, Byte]]
   }
+
   def decode[R, E, A, B, C: HasContent](decoder: DecodeMap[A, B])(cb: B => Response[R, E, C]): Response[R, E, Nothing] =
     Decode(decoder, cb)
+
   def decodeComplete[R, E, C: HasContent](cb: Chunk[Byte] => Response[R, E, C]): Response[R, E, Nothing] =
     Decode(DecodeMap.DecodeComplete, cb)
+
   def decodeBuffered[R, E, C: HasContent](
     cb: ZStream[Any, Nothing, Byte] => Response[R, E, C],
-  ): Response[R, E, Nothing]                                                                             = Decode(DecodeMap.DecodeBuffered, cb)
+  ): Response[R, E, Nothing] = Decode(DecodeMap.DecodeBuffered, cb)
+
   def decodeCompleteM[R, E, C: HasContent](
     cb: Chunk[Byte] => ZIO[R, Option[E], Response[R, E, C]],
-  ): Response[R, E, Nothing]                                                                             = DecodeM(DecodeMap.DecodeComplete, cb)
+  ): Response[R, E, Nothing] = DecodeM(DecodeMap.DecodeComplete, cb)
+
   def decodeBufferedM[R, E, C: HasContent](
     cb: ZStream[Any, Nothing, Byte] => ZIO[R, Option[E], Response[R, E, C]],
-  ): Response[R, E, Nothing]                                                                             =
+  ): Response[R, E, Nothing] =
     DecodeM(DecodeMap.DecodeBuffered, cb)
 
   def apply[R, E, A](
