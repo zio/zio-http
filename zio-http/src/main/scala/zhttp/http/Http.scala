@@ -1,6 +1,5 @@
 package zhttp.http
 
-// import zhttp.http.Http.{Chain, Collect, FoldM, FromEffectFunction}
 import zio._
 
 import scala.annotation.unused
