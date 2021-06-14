@@ -1,5 +1,6 @@
 package zhttp.http
 
+import zio._
 import zio.UIO
 import zio.duration._
 import zio.test.Assertion._
@@ -55,6 +56,77 @@ object HttpResultSpec extends DefaultRunnableSpec with HttpResultAssertion {
         test("reversed") {
           empty <+> (empty <+> (empty <+> succeed(1))) === isSuccess(equalTo(1))
         },
+      ),
+      suite("provide")(
+        testM("provides the environment") {
+          val app = effect(for {
+            _ <- ZIO.environment[String]
+          } yield 1)
+
+          for {
+            res <- app.provide("string").evaluate.asEffect
+          } yield assert(res)(equalTo(1))
+        },
+        testM("it composes with foldM") {
+          val needsEnv = effect(for {
+            _ <- ZIO.environment[String]
+          } yield 0)
+          val app      = (needsEnv *> succeed(1)).provide("string")
+
+          for {
+            res <- app.evaluate.asEffect
+          } yield assert(res)(equalTo(1))
+        },
+      ),
+      suite("provideSome")(
+        testM("it provides parts of the environment") {
+          trait HasInt    {
+            val int: Int
+          }
+          trait HasString {
+            val string: String
+          }
+
+          val needsEnv = effect(for {
+            _   <- ZIO.environment[HasString]
+            int <- ZIO.environment[HasInt]
+          } yield int.int)
+
+          val app = (needsEnv *> needsEnv).provideSome[HasInt](env =>
+            new HasInt with HasString {
+              val int    = env.int
+              val string = "String"
+            },
+          )
+
+          for {
+            res <- app.provide(new HasInt { val int = 2 }).evaluate.asEffect
+          } yield assert(res)(equalTo(2))
+        },
+        suite("provideLayer")(
+          testM("it provides the environment") {
+            val app = effect(for {
+              _   <- ZIO.service[String]
+              int <- ZIO.service[Int]
+            } yield int)
+
+            val res =
+              app.provideLayer(ZLayer.succeed("String") ++ ZLayer.succeed(2)).evaluate.asEffect
+            assertM(res)(equalTo(2))
+          },
+        ),
+        suite("provideCustomLayer")(
+          testM("it provides the environment") {
+            val app = effect(for {
+              _   <- ZIO.service[String]
+              int <- ZIO.service[Int]
+            } yield int)
+
+            val res =
+              app.provideCustomLayer(ZLayer.succeed("String") ++ ZLayer.succeed(2)).evaluate.asEffect
+            assertM(res)(equalTo(2))
+          },
+        ),
       ),
     ) @@ timeout(5 second)
   }

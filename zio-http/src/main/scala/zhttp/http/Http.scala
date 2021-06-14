@@ -1,6 +1,7 @@
 package zhttp.http
 
-import zio.{CanFail, ZIO}
+// import zhttp.http.Http.{Chain, Collect, FoldM, FromEffectFunction}
+import zio._
 
 import scala.annotation.unused
 
@@ -163,6 +164,35 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   ): Http[R1, E1, A1, B1] = Http.FoldM(self, ee, bb, dd)
 
   /**
+   * Provides the `Http` with its required environment, which eliminates its dependency on `R`.
+   */
+  def provide(r: R): Http[Any, E, A, B] = Http.Provide(self, r)
+
+  /**
+   * Provides some of the environment required to run this `Http`, leaving the remainder `R0`.
+   *
+   * {{{
+   * val res: Http[Console with Logging, Nothing, String, String] = ???
+   *
+   * res.provideSome[Console](env =>
+   *   new Console with Logging {
+   *     val console = env.console
+   *     val logging = new Logging.Service[Any] {
+   *       def log(line: String) = console.putStrLn(line)
+   *     }
+   *   }
+   * )
+   * }}}
+   */
+  def provideSome[R0](f: R0 => R): Http[R0, E, A, B] = Http.ProvideSome(self, f)
+
+  /**
+   * Provides a layer to the `Http`, which translates it to another level.
+   */
+  def provideLayer[E1 >: E, R0, R1 <: R](layer: ZLayer[R0, E1, R1]): Http[R0, E1, A, B] =
+    Http.ProvideLayer(self, layer)
+
+  /**
    * Unwraps an Http that returns a ZIO of Http
    */
   def unwrap[R1 <: R, E1 >: E, C](implicit ev: B <:< ZIO[R1, E1, C]): Http[R1, E1, A, C] =
@@ -229,28 +259,35 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   final private[zhttp] def execute(a: A): HttpResult[R, E, B] = {
     self match {
-      case Empty                   => HttpResult.empty
-      case Identity                => HttpResult.succeed(a.asInstanceOf[B])
-      case Succeed(b)              => HttpResult.succeed(b)
-      case Fail(e)                 => HttpResult.fail(e)
-      case FromEffectFunction(f)   => HttpResult.effect(f(a))
-      case Collect(pf)             => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
-      case Chain(self, other)      => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
-      case FoldM(self, ee, bb, dd) =>
+      case Empty                     => HttpResult.empty
+      case Identity                  => HttpResult.succeed(a.asInstanceOf[B])
+      case Succeed(b)                => HttpResult.succeed(b)
+      case Fail(e)                   => HttpResult.fail(e)
+      case FromEffectFunction(f)     => HttpResult.effect(f(a))
+      case Collect(pf)               => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
+      case Chain(self, other)        => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
+      case FoldM(self, ee, bb, dd)   =>
         HttpResult.suspend {
           self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
         }
+      case Provide(self, r)          =>
+        self.execute(a).provide(r)
+      case ProvideSome(self, f)      =>
+        self.execute(a).provideSome(f)
+      case ProvideLayer(self, layer) =>
+        self.execute(a).provideLayer(layer)
     }
   }
+
 }
 
 object Http {
-  private case object Empty                                                     extends Http[Any, Nothing, Any, Nothing]
-  private case object Identity                                                  extends Http[Any, Nothing, Any, Nothing]
-  private final case class Succeed[B](b: B)                                     extends Http[Any, Nothing, Any, B]
-  private final case class Fail[E](e: E)                                        extends Http[Any, E, Any, Nothing]
-  private final case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B]) extends Http[R, E, A, B]
-  private final case class Collect[R, E, A, B](ab: PartialFunction[A, B])       extends Http[R, E, A, B]
+  private case object Empty                                                                extends Http[Any, Nothing, Any, Nothing]
+  private case object Identity                                                             extends Http[Any, Nothing, Any, Nothing]
+  private final case class Succeed[B](b: B)                                                extends Http[Any, Nothing, Any, B]
+  private final case class Fail[E](e: E)                                                   extends Http[Any, E, Any, Nothing]
+  private final case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B])            extends Http[R, E, A, B]
+  private final case class Collect[R, E, A, B](ab: PartialFunction[A, B])                  extends Http[R, E, A, B]
   private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C])
       extends Http[R, E, A, C]
   private final case class FoldM[R, E, EE, A, B, BB](
@@ -258,7 +295,13 @@ object Http {
     ee: E => Http[R, EE, A, BB],
     bb: B => Http[R, EE, A, BB],
     dd: Http[R, EE, A, BB],
-  )                                                                             extends Http[R, EE, A, BB]
+  )                                                                                        extends Http[R, EE, A, BB]
+  private final case class Provide[R, E, A, B](self: Http[R, E, A, B], r: R)               extends Http[Any, E, A, B]
+  private final case class ProvideSome[R, R0, E, A, B](self: Http[R, E, A, B], f: R0 => R) extends Http[R0, E, A, B]
+  private final case class ProvideLayer[E, E1 >: E, R, R0, R1 <: R, A, B](
+    self: Http[R, E, A, B],
+    layer: ZLayer[R0, E1, R1],
+  )                                                                                        extends Http[R0, E1, A, B]
 
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {

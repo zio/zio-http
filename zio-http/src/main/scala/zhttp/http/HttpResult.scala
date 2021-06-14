@@ -1,7 +1,6 @@
 package zhttp.http
 
-import zio.{CanFail, ZIO}
-
+import zio._
 import scala.annotation.{tailrec, unused}
 
 sealed trait HttpResult[-R, +E, +A] { self =>
@@ -40,6 +39,68 @@ sealed trait HttpResult[-R, +E, +A] { self =>
   ): HttpResult[R1, E1, B1] =
     HttpResult.foldM(self, ee, aa, dd)
 
+  /**
+   * Provides the `HttpResult` with its required environment, which eliminates its dependency on `R`.
+   */
+  def provide(r: R): HttpResult[Any, E, A] = HttpResult.Provide(self, r)
+
+  /**
+   * Provides some of the environment required to run this `HttpResult`, leaving the remainder `R0`.
+   *
+   * If your environment has the type `Has[_]`, please see [[zhttp.http.HttpResult.provideSomeLayer]]
+   *
+   * {{{
+   * val res: HttpResult[Console with Logging, Nothing, Unit] = ???
+   *
+   * res.provideSome[Console](env =>
+   *   new Console with Logging {
+   *     val console = env.console
+   *     val logging = new Logging.Service[Any] {
+   *       def log(line: String) = console.putStrLn(line)
+   *     }
+   *   }
+   * )
+   * }}}
+   */
+  def provideSome[R0](f: R0 => R): HttpResult[R0, E, A] = HttpResult.ProvideSome(self, f)
+
+  /**
+   * Provides a layer to the `HttpResult`, which translates it to another level.
+   */
+  def provideLayer[E1 >: E, R0, R1 <: R](layer: ZLayer[R0, E1, R1]): HttpResult[R0, E1, A] =
+    HttpResult.ProvideLayer(self, layer.mapError(e => Some(e)))
+
+  /**
+   * Splits the environment into two parts, providing one part using the specified layer and leaving the remainder `R0`.
+   *
+   * {{{
+   * val clockLayer: ZLayer[Any, Nothing, Clock] = ???
+   *
+   * val result: HttpResult[Clock with Random, Nothing, Unit] = ???
+   *
+   * val result2 = result.provideSomeLayer[Random](clockLayer)
+   * }}}
+   */
+  final def provideSomeLayer[R0 <: Has[_]]: HttpResult.ProvideSomeLayer.Build[R0, R, E, A] =
+    new HttpResult.ProvideSomeLayer.Build[R0, R, E, A](self)
+
+  /**
+   * Provides the part of the environment that is not part of the `ZEnv`, leaving a `HttpResult` that only depends on
+   * the `ZEnv`.
+   *
+   * {{{
+   * val loggingLayer: ZLayer[Any, Nothing, Logging] = ???
+   *
+   * val result: HttpResult[ZEnv with Logging, Nothing, Unit] = ???
+   *
+   * val result2 = result.provideCustomLayer(loggingLayer)
+   * }}}
+   */
+  final def provideCustomLayer[E1 >: E, R1 <: Has[_]](
+    layer: ZLayer[ZEnv, E1, R1],
+  )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): HttpResult[ZEnv, E1, A] =
+    provideSomeLayer[ZEnv](layer)
+
   final private[zhttp] def evaluate: HttpResult.Out[R, E, A] = HttpResult.evaluate(self)
 }
 
@@ -67,6 +128,51 @@ object HttpResult {
     aa: A => HttpResult[R, EE, AA],
     dd: HttpResult[R, EE, AA],
   )                                                                       extends HttpResult[R, EE, AA]
+  private final case class Provide[R, E, A](private val self: HttpResult[R, E, A], r: R)(implicit ev: NeedsEnv[R])
+      extends HttpResult[Any, E, A] {
+    override private[zhttp] def evaluate: Out[Any, E, A] =
+      HttpResult.evaluate(Effect(self.evaluate.asEffect.provide(r)))
+  }
+
+  private final case class ProvideSome[R, R0, E, A](private val self: HttpResult[R, E, A], r: R0 => R)(implicit
+    ev: NeedsEnv[R],
+  ) extends HttpResult[R0, E, A] {
+    override private[zhttp] def evaluate: Out[R0, E, A] =
+      HttpResult.evaluate(Effect(self.evaluate.asEffect.provideSome(r)))
+  }
+
+  private final case class ProvideLayer[E, E1 >: E, R, R0, R1 <: R, A](
+    private val self: HttpResult[R, E, A],
+    layer: ZLayer[R0, Option[E1], R1],
+  ) extends HttpResult[R0, E1, A] {
+    override private[zhttp] def evaluate: Out[R0, E1, A] =
+      HttpResult.evaluate(Effect(self.evaluate.asEffect.provideLayer(layer)))
+  }
+
+  final case class ProvideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E, -R, E, +A](
+    private val self: HttpResult[R, E, A],
+    layer: ZLayer[R0, Option[E1], R1],
+  )(implicit
+    ev1: R0 with R1 <:< R,
+    tagged: Tag[R1],
+  ) extends HttpResult[R0, E1, A] {
+    override private[zhttp] def evaluate: Out[R0, E1, A] =
+      HttpResult.evaluate(Effect(self.evaluate.asEffect.provideSomeLayer(layer)))
+  }
+
+  case object ProvideSomeLayer {
+    final class Build[R0 <: Has[_], -R, +E, +A](
+      private val self: HttpResult[R, E, A],
+    ) extends AnyVal {
+      def apply[E1 >: E, R1 <: Has[_]](
+        layer: ZLayer[R0, E1, R1],
+      )(implicit
+        ev1: R0 with R1 <:< R,
+        tagged: Tag[R1],
+      ): HttpResult[R0, E1, A] =
+        HttpResult.ProvideSomeLayer(self, layer.mapError(e => Option(e)))
+    }
+  }
 
   // Help
   def succeed[A](a: A): HttpResult.Out[Any, Nothing, A] = Success(a)
@@ -94,16 +200,22 @@ object HttpResult {
 
   // EVAL
   @tailrec
-  private[zhttp] def evaluate[R, E, A](result: HttpResult[R, E, A]): Out[R, E, A] = {
+  private[zhttp] def evaluate[R, R0 <: R, E, A](
+    result: HttpResult[R, E, A],
+  )(implicit ev: NeedsEnv[R]): Out[R0, E, A] = {
     result match {
-      case m: Out[_, _, _]         => m
-      case Suspend(r)              => evaluate(r())
-      case FoldM(self, ee, aa, dd) =>
+      case m: Out[_, _, _]            => m
+      case Suspend(r)                 => evaluate(r())
+      case FoldM(self, ee, aa, dd)    =>
         evaluate(self match {
           case Empty                      => dd
           case Success(a)                 => aa(a)
           case Failure(e)                 => ee(e)
           case Suspend(r)                 => r().foldM(ee, aa, dd)
+          case p @ Provide(_, _)          => p.evaluate.foldM(ee, aa, dd)
+          case p @ ProvideSome(_, _)      => p.evaluate.foldM(ee, aa, dd)
+          case p @ ProvideLayer(_, _)     => p.evaluate.foldM(ee, aa, dd)
+          case p @ ProvideSomeLayer(_, _) => p.evaluate.foldM(ee, aa, dd)
           case Effect(z)                  =>
             Effect(
               z.foldM(
@@ -121,6 +233,10 @@ object HttpResult {
               dd0.foldM(ee, aa, dd),
             )
         })
+      case p @ Provide(_, _)          => p.evaluate
+      case p @ ProvideSome(_, _)      => p.evaluate
+      case p @ ProvideLayer(_, _)     => p.evaluate
+      case p @ ProvideSomeLayer(_, _) => p.evaluate
     }
   }
 }
