@@ -205,18 +205,14 @@ object HttpResult {
     result: HttpResult[R, E, A],
   )(implicit ev: NeedsEnv[R]): Out[R0, E, A] = {
     result match {
-      case m: Out[_, _, _]            => m
-      case Suspend(r)                 => evaluate(r())
-      case FoldM(self, ee, aa, dd)    =>
+      case m: Out[_, _, _]         => m
+      case Suspend(r)              => evaluate(r())
+      case FoldM(self, ee, aa, dd) =>
         evaluate(self match {
           case Empty                      => dd
           case Success(a)                 => aa(a)
           case Failure(e)                 => ee(e)
           case Suspend(r)                 => r().foldM(ee, aa, dd)
-          case p @ Provide(_, _)          => p.evaluate.foldM(ee, aa, dd)
-          case p @ ProvideSome(_, _)      => p.evaluate.foldM(ee, aa, dd)
-          case p @ ProvideLayer(_, _)     => p.evaluate.foldM(ee, aa, dd)
-          case p @ ProvideSomeLayer(_, _) => p.evaluate.foldM(ee, aa, dd)
           case Effect(z)                  =>
             Effect(
               z.foldM(
@@ -233,11 +229,10 @@ object HttpResult {
               a => aa0(a).foldM(ee, aa, dd),
               dd0.foldM(ee, aa, dd),
             )
+          case x                          => x.evaluate.foldM(ee, aa, dd)
         })
-      case p @ Provide(_, _)          => p.evaluate
-      case p @ ProvideSome(_, _)      => p.evaluate
-      case p @ ProvideLayer(_, _)     => p.evaluate
-      case p @ ProvideSomeLayer(_, _) => p.evaluate
+
+      case x => x.evaluate
     }
   }
 }
