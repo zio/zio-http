@@ -3,8 +3,7 @@ package zhttp.http
 import zio.Chunk
 import zio.stream.ZStream
 
-import scala.annotation.implicitAmbiguous
-import scala.annotation.implicitNotFound
+import scala.annotation.{implicitAmbiguous, implicitNotFound}
 
 /**
  * Extracts data from `Content`

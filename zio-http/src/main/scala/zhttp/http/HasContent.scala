@@ -1,7 +1,6 @@
 package zhttp.http
 
-import scala.annotation.implicitNotFound
-import scala.annotation.implicitAmbiguous
+import scala.annotation.{implicitAmbiguous, implicitNotFound}
 
 @implicitNotFound("content unavailable")
 sealed trait HasContent[-A] {
