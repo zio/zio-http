@@ -1,6 +1,7 @@
 package zhttp.http
 
 import zio._
+
 import scala.annotation.{tailrec, unused}
 
 sealed trait HttpResult[-R, +E, +A] { self =>
