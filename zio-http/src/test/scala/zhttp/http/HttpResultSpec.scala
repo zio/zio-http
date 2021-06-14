@@ -1,11 +1,10 @@
 package zhttp.http
 
-import zio._
-import zio.UIO
 import zio.duration._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
+import zio.{UIO, ZIO, ZLayer}
 
 object HttpResultSpec extends DefaultRunnableSpec with HttpResultAssertion {
   def spec: ZSpec[Environment, Failure] = {
