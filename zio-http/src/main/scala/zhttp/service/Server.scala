@@ -66,9 +66,8 @@ object Server {
   def start[R <: Has[_]](
     port: Int,
     http: RHttpApp[R],
-    sslOptions: ServerSSLOptions = NoSSL,
   ): ZIO[R, Throwable, Nothing] =
-    (Server.port(port) ++ Server.app(http) ++ Server.ssl(sslOptions)).make.useForever
+    (Server.port(port) ++ Server.app(http)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def make[R](
