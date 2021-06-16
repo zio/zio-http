@@ -32,14 +32,12 @@ object JsonWebService extends App {
     val name            = cursor.downField("name").as[String]
     User(id.getOrElse(0), name.getOrElse(""))
   }
-  var users                           = List.empty[User]
-  def addUser(user: User): List[User] = users :+ user
-
+  var users                                                  = List.empty[User]
   val userApp: Http[Any, Nothing, UserRequest, UserResponse] =
     Http.collectM[UserRequest]({
       case UserRequest.Show         => UIO(UserResponse.Show(users))
       case UserRequest.Create(user) => {
-        users = addUser(user)
+        users = users :+ user
         UIO(UserResponse.Create(user))
       }
     })
@@ -60,6 +58,6 @@ object JsonWebService extends App {
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+    Server.start(8090, HttpApp(app)).exitCode
 
 }
