@@ -169,6 +169,14 @@ sealed trait Http[-R, +E, -A, +B] { self =>
     self.flatMap(Http.fromEffect(_))
 
   /**
+   * Wraps an `Http` app in a surrounding effect that controls the execution of the underlying `Http`.
+   */
+  def wrap[R1 <: R, A1 <: A, E1 >: E, C](
+    next: (A1, ZIO[R, Option[E], B]) => ZIO[R1, E1, C],
+  ): Http[R1, E1, A1, C] =
+    Http.Wrap(self, next)
+
+  /**
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
   final private[zhttp] def execute(a: A): HttpResult[R, E, B] = {
@@ -184,6 +192,10 @@ sealed trait Http[-R, +E, -A, +B] { self =>
         HttpResult.suspend {
           self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
         }
+      case Wrap(self, wrapper)     => {
+        val eff = self.execute(a).evaluate.asEffect
+        HttpResult.suspend(HttpResult.effect(wrapper(a, eff)))
+      }
     }
   }
 }
@@ -197,6 +209,10 @@ object Http {
   private final case class Collect[R, E, A, B](ab: PartialFunction[A, B])       extends Http[R, E, A, B]
   private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C])
       extends Http[R, E, A, C]
+  private final case class Wrap[R, R1 <: R, E, E1 >: E, A, B, C](
+    self: Http[R, E, A, B],
+    wrapper: (A, ZIO[R, Option[E], B]) => ZIO[R1, E1, C],
+  )                                                                             extends Http[R1, E1, A, C]
   private final case class FoldM[R, E, EE, A, B, BB](
     self: Http[R, E, A, B],
     ee: E => Http[R, EE, A, BB],

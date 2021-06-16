@@ -1,10 +1,10 @@
 package zhttp.http
 
-import zio.UIO
 import zio.duration.durationInt
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
+import zio.{Has, Ref, UIO, ZIO, ZManaged}
 
 object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
   def spec = suite("Http")(
@@ -146,6 +146,30 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
         val app    = Http.route[Int](Map.empty)
         val actual = app.execute(1).evaluate
         assert(actual)(isEmpty)
+      },
+    ),
+    suite("wrap")(
+      testM("allows to effectfully wrap Http execution") {
+        for {
+          ref <- Ref.make(0)
+          app     = Http.fromFunction[Int](i => i)
+          wrapped = app.wrap((a: Int, eff) =>
+            ZManaged.make(ref.set(a) *> ZIO.succeed(ref))(_ => ref.update(_ - 1)).use { r =>
+              eff *> r.get
+            },
+          )
+          refBefore <- ref.get
+          res       <- wrapped.execute(10).evaluate.asEffect
+          refAfter  <- ref.get
+        } yield assert(refBefore)(equalTo(0)) &&
+          assert(res)(equalTo(10)) &&
+          assert(refAfter)(equalTo(9))
+      },
+      testM("infers the environment properly") {
+        val app     = Http.fromEffect(ZIO.service[Int])
+        val wrapped = app.wrap((_: Any, eff) => ZIO.service[String].flatMap(s => eff.map(i => s"$s: $i")))
+        val res     = wrapped.execute(0).evaluate.asEffect.provide(Has("string") ++ Has(1))
+        assertM(res)(equalTo("string: 1"))
       },
     ),
   ) @@ timeout(10 seconds)
