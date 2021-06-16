@@ -19,7 +19,7 @@ final case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) ex
   /**
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
-  def execute(r: Request) = asHttp.execute(r)
+  private[zhttp] final def execute(r: Request) = asHttp.execute(r)
 }
 
 object HttpApp {

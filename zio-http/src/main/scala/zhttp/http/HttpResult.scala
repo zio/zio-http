@@ -40,7 +40,7 @@ sealed trait HttpResult[-R, +E, +A] { self =>
   ): HttpResult[R1, E1, B1] =
     HttpResult.foldM(self, ee, aa, dd)
 
-  private[zhttp] def evaluate: HttpResult.Out[R, E, A] = HttpResult.evaluate(self)
+  final private[zhttp] def evaluate: HttpResult.Out[R, E, A] = HttpResult.evaluate(self)
 }
 
 object HttpResult {

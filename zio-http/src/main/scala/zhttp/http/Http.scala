@@ -171,7 +171,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
-  private[zhttp] def execute(a: A): HttpResult[R, E, B] = {
+  final private[zhttp] def execute(a: A): HttpResult[R, E, B] = {
     self match {
       case Empty                   => HttpResult.empty
       case Identity                => HttpResult.succeed(a.asInstanceOf[B])
