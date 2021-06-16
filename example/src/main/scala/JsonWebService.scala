@@ -13,9 +13,9 @@ object JsonWebService extends App {
 
   sealed trait UserRequest
   object UserRequest  {
-    case class Create(user: User) extends UserRequest
-    case object Show              extends UserRequest
-    case object BadRequest        extends UserRequest
+    case class Create(user: User, ref: Ref[List[User]]) extends UserRequest
+    case class Show(ref: Ref[List[User]])               extends UserRequest
+    case object BadRequest                              extends UserRequest
   }
   sealed trait UserResponse
   object UserResponse {
@@ -32,24 +32,29 @@ object JsonWebService extends App {
     val name            = cursor.downField("name").as[String]
     User(id.getOrElse(0), name.getOrElse(""))
   }
-  var users                                                  = List.empty[User]
   val userApp: Http[Any, Nothing, UserRequest, UserResponse] =
     Http.collectM[UserRequest]({
-      case UserRequest.Show         => UIO(UserResponse.Show(users))
-      case UserRequest.Create(user) => {
-        users = users :+ user
-        UIO(UserResponse.Create(user))
+      case UserRequest.Show(ref)         => {
+        for {
+          users <- ref.get
+        } yield UserResponse.Show(users)
+      }
+      case UserRequest.Create(user, ref) => {
+        for {
+          users <- ref.get
+          _     <- ref.set(users :+ user)
+        } yield UserResponse.Create(user)
       }
     })
 
   // Create HTTP route
-  val app: Http[Any, Nothing, Request, UResponse] = userApp
+  def app(ref: Ref[List[User]]): Http[Any, Nothing, Request, UResponse] = userApp
     .contramap[Request] {
-      case Method.GET -> Root / "show"              => UserRequest.Show
-      case req @ Method.POST -> Root / "createUser" => {
-        UserRequest.Create(getUser(req.getBodyAsString.get))
+      case Method.GET -> Root / "show"          => UserRequest.Show(ref)
+      case req @ Method.POST -> Root / "create" => {
+        UserRequest.Create(getUser(req.getBodyAsString.get), ref)
       }
-      case _                                        => UserRequest.BadRequest
+      case _                                    => UserRequest.BadRequest
     }
     .map {
       case UserResponse.Show(users)  => Response.text(users.asJson.noSpaces)
@@ -57,7 +62,12 @@ object JsonWebService extends App {
     }
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, HttpApp(app)).exitCode
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+    val ref: UIO[Ref[List[User]]] = Ref.make(List[User]())
+    for {
+      r <- ref
+      s <- Server.start(8090, HttpApp(app(r))).exitCode
+    } yield s
+  }
 
 }
