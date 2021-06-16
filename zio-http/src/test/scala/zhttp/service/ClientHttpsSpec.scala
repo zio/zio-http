@@ -1,7 +1,7 @@
 package zhttp.service
 
-import io.netty.handler.codec.DecoderException
-import io.netty.handler.ssl.SslContextBuilder
+import io.netty.handler.codec.{DecoderException => JDecoderException}
+import io.netty.handler.ssl.{SslContextBuilder => JSslContextBuilder}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.Assertion.{anything, fails, isSubtype}
 import zio.test.assertM
@@ -24,7 +24,7 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
   trustManagerFactory.init(trustStore)
 
   val sslOption: ClientSSLOptions =
-    ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
+    ClientSSLOptions.CustomSSL(JSslContextBuilder.forClient().trustManager(trustManagerFactory).build())
   override def spec               = suite("Https Client request")(
     testM("respond Ok") {
       val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
@@ -41,7 +41,7 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
           sslOption,
         )
         .run
-      assertM(actual)(fails(isSubtype[DecoderException](anything)))
+      assertM(actual)(fails(isSubtype[JDecoderException](anything)))
     },
   ).provideCustomLayer(env)
 }
