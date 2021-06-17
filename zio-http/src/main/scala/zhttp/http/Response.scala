@@ -4,6 +4,14 @@ import zhttp.socket.SocketApp
 import zio.stream.ZStream
 import zio.{Chunk, ZIO}
 
+/**
+ * Used to decode request body
+ */
+sealed trait DecodeMap[+A, +B]
+object DecodeMap                  {
+  implicit object DecodeComplete extends DecodeMap[Complete, Chunk[Byte]]
+  implicit object DecodeBuffered extends DecodeMap[Buffered, ZStream[Any, Nothing, Byte]]
+}
 sealed trait Response[-R, +E, +A] {
   self =>
   def status(implicit ev: HasContent[A]): Status                 = ev.status(self)
@@ -18,15 +26,6 @@ object Response extends ResponseHelpers {
   final case class Decode[R, E, A, B, C](d: DecodeMap[A, B], cb: B => Response[R, E, C]) extends Response[R, E, Nothing]
   final case class DecodeM[R, E, A, B, C](d: DecodeMap[A, B], cb: B => ZIO[R, Option[E], Response[R, E, C]])
       extends Response[R, E, Nothing]
-
-  /**
-   * Used to decode request body
-   */
-  sealed trait DecodeMap[-A, B]
-  object DecodeMap {
-    implicit object DecodeComplete extends DecodeMap[Complete, Chunk[Byte]]
-    implicit object DecodeBuffered extends DecodeMap[Buffered, ZStream[Any, Nothing, Byte]]
-  }
 
   def decode[R, E, A, B, C: HasContent](decoder: DecodeMap[A, B])(cb: B => Response[R, E, C]): Response[R, E, Nothing] =
     Decode(decoder, cb)

@@ -1,6 +1,6 @@
 package zhttp.service
 
-import zhttp.core.JFullHttpRequest
+import zhttp.core.JHttpRequest
 import zhttp.http._
 
 trait DecodeJRequest {
@@ -8,5 +8,5 @@ trait DecodeJRequest {
   /**
    * Tries to decode the [io.netty.handler.codec.http.FullHttpRequest] to [Request].
    */
-  def decodeJRequest(jReq: JFullHttpRequest): Request[Any, Nothing, Nothing] = Request.FromJHttpRequest(jReq)
+  def decodeJRequest(jReq: JHttpRequest): Request[Any, Nothing, Nothing] = Request.FromJHttpRequest(jReq)
 }
