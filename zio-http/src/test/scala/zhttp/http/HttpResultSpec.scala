@@ -1,10 +1,10 @@
 package zhttp.http
 
-import zio.UIO
 import zio.duration._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
+import zio.{UIO, ZIO}
 
 object HttpResultSpec extends DefaultRunnableSpec with HttpResultAssertion {
   def spec: ZSpec[Environment, Failure] = {
@@ -54,6 +54,16 @@ object HttpResultSpec extends DefaultRunnableSpec with HttpResultAssertion {
         },
         test("reversed") {
           empty <+> (empty <+> (empty <+> succeed(1))) === isSuccess(equalTo(1))
+        },
+      ),
+      suite("provide")(
+        testM("provide") {
+          val app = HttpResult.effect(ZIO.environment[Int]).provide(1).evaluate.asEffect
+          assertM(app)(equalTo(1))
+        },
+        testM("foldM") {
+          val app = (effect(ZIO.environment[Int]) *> succeed(1)).provide(1).evaluate.asEffect
+          assertM(app)(equalTo(1))
         },
       ),
     ) @@ timeout(5 second)

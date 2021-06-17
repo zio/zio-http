@@ -29,6 +29,8 @@ sealed trait HttpResult[-R, +E, +A] { self =>
   def <+>[R1 <: R, E1 >: E, A1 >: A](other: HttpResult[R1, E1, A1]): HttpResult[R1, E1, A1] =
     this defaultWith other
 
+  def provide(env: R): HttpResult[Any, E, A] = HttpResult.Provide(self, env)
+
   def flatMapError[R1 <: R, E1, A1 >: A](h: E => HttpResult[R1, E1, A1])(implicit
     @unused ev: CanFail[E],
   ): HttpResult[R1, E1, A1] = HttpResult.flatMapError(self, h)
@@ -60,13 +62,14 @@ object HttpResult {
   case object Empty                                         extends Out[Any, Nothing, Nothing]
 
   // OPR
-  private final case class Suspend[R, E, A](r: () => HttpResult[R, E, A]) extends HttpResult[R, E, A]
+  private final case class Suspend[R, E, A](r: () => HttpResult[R, E, A])   extends HttpResult[R, E, A]
   private final case class FoldM[R, E, EE, A, AA](
     rr: HttpResult[R, E, A],
     ee: E => HttpResult[R, EE, AA],
     aa: A => HttpResult[R, EE, AA],
     dd: HttpResult[R, EE, AA],
-  )                                                                       extends HttpResult[R, EE, AA]
+  )                                                                         extends HttpResult[R, EE, AA]
+  private final case class Provide[R, E, A](r: HttpResult[R, E, A], env: R) extends HttpResult[Any, E, A]
 
   // Help
   def succeed[A](a: A): HttpResult.Out[Any, Nothing, A] = Success(a)
@@ -98,6 +101,14 @@ object HttpResult {
     result match {
       case m: Out[_, _, _]         => m
       case Suspend(r)              => evaluate(r())
+      case Provide(r, env)         =>
+        evaluate(r match {
+          case Effect(z)             => Effect(ZIO.provide(env)(z))
+          case out: Out[_, _, _]     => out
+          case Suspend(r)            => r().provide(env)
+          case FoldM(rr, ee, aa, dd) => rr.foldM(e => ee(e).provide(env), a => aa(a).provide(env), dd.provide(env))
+          case Provide(r, _)         => r
+        })
       case FoldM(self, ee, aa, dd) =>
         evaluate(self match {
           case Empty                      => dd
@@ -120,6 +131,9 @@ object HttpResult {
               a => aa0(a).foldM(ee, aa, dd),
               dd0.foldM(ee, aa, dd),
             )
+
+          case Provide(r: HttpResult[R @unchecked, E @unchecked, A @unchecked], env) =>
+            r.foldM(e => ee(e).provide(env), a => aa(a).provide(env), dd.provide(env))
         })
     }
   }
