@@ -289,18 +289,23 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   final private[zhttp] def execute(a: A): HttpResult[R, E, B] = {
     self match {
-      case Empty                   => HttpResult.empty
-      case Identity                => HttpResult.succeed(a.asInstanceOf[B])
-      case Succeed(b)              => HttpResult.succeed(b)
-      case Fail(e)                 => HttpResult.fail(e)
-      case FromEffectFunction(f)   => HttpResult.effect(f(a))
-      case Collect(pf)             => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
-      case Chain(self, other)      => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
-      case FoldM(self, ee, bb, dd) =>
+      case Empty                                    => HttpResult.empty
+      case Identity                                 => HttpResult.succeed(a.asInstanceOf[B])
+      case Succeed(b)                               => HttpResult.succeed(b)
+      case Fail(e)                                  => HttpResult.fail(e)
+      case FromEffectFunction(f)                    => HttpResult.effect(f(a))
+      case Collect(pf)                              => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
+      case Chain(self, other)                       => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
+      case FoldM(self, ee, bb, dd)                  =>
         HttpResult.suspend {
           self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
         }
-      case x                       => x.execute(a)
+      case Provide(self, r)                         => self.execute(a).provide(r)
+      case ProvideSome(self, f)                     => self.execute(a).provideSome(f)
+      // We can't inline this due to exhaustivity warning.
+      case p: ProvideLayer[_, _, _, _, _, _, _]     => p.doProvide(a)
+      // We can't inline this due to: Cannot prove that R & zio.Has[?] <:< Nothing.
+      case p: ProvideSomeLayer[_, _, _, _, _, _, _] => p.doProvide(a)
     }
   }
 
@@ -322,22 +327,15 @@ object Http {
     dd: Http[R, EE, A, BB],
   )                                                                             extends Http[R, EE, A, BB]
 
-  private final case class Provide[R, E, A, B](self: Http[R, E, A, B], r: R) extends Http[Any, E, A, B] {
-    override private[zhttp] def execute(a: A): HttpResult[Any, E, B] =
-      self.execute(a).provide(r)
-  }
+  private final case class Provide[R, E, A, B](self: Http[R, E, A, B], r: R) extends Http[Any, E, A, B]
 
-  private final case class ProvideSome[R, R0, E, A, B](self: Http[R, E, A, B], f: R0 => R) extends Http[R0, E, A, B] {
-    override private[zhttp] def execute(a: A): HttpResult[R0, E, B] =
-      self.execute(a).provideSome(f)
-
-  }
+  private final case class ProvideSome[R, R0, E, A, B](self: Http[R, E, A, B], f: R0 => R) extends Http[R0, E, A, B]
 
   private final case class ProvideLayer[E, E1 >: E, R, R0, R1 <: R, A, B](
     self: Http[R, E, A, B],
     layer: ZLayer[R0, E1, R1],
   ) extends Http[R0, E1, A, B] {
-    override private[zhttp] def execute(a: A): HttpResult[R0, E1, B] =
+    private[zhttp] def doProvide(a: A): HttpResult[R0, E1, B] =
       self.execute(a).provideLayer(layer)
   }
 
@@ -348,7 +346,7 @@ object Http {
     ev1: R0 with R1 <:< R,
     tagged: Tag[R1],
   ) extends Http[R0, E1, A, B] {
-    override private[zhttp] def execute(a: A): HttpResult[R0, E1, B] =
+    private[zhttp] def doProvide(a: A): HttpResult[R0, E1, B] =
       self.execute(a).provideSomeLayer(layer)
   }
 

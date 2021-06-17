@@ -131,14 +131,14 @@ object HttpResult {
   )                                                                       extends HttpResult[R, EE, AA]
   private final case class Provide[R, E, A](private val self: HttpResult[R, E, A], r: R)(implicit ev: NeedsEnv[R])
       extends HttpResult[Any, E, A] {
-    override private[zhttp] def evaluate: Out[Any, E, A] =
+    private[zhttp] def doProvide: HttpResult.Out[Any, E, A] =
       HttpResult.evaluate(Effect(self.evaluate.asEffect.provide(r)))
   }
 
   private final case class ProvideSome[R, R0, E, A](private val self: HttpResult[R, E, A], r: R0 => R)(implicit
     ev: NeedsEnv[R],
   ) extends HttpResult[R0, E, A] {
-    override private[zhttp] def evaluate: Out[R0, E, A] =
+    private[zhttp] def doProvide: HttpResult.Out[R0, E, A] =
       HttpResult.evaluate(Effect(self.evaluate.asEffect.provideSome(r)))
   }
 
@@ -146,7 +146,7 @@ object HttpResult {
     private val self: HttpResult[R, E, A],
     layer: ZLayer[R0, Option[E1], R1],
   ) extends HttpResult[R0, E1, A] {
-    override private[zhttp] def evaluate: Out[R0, E1, A] =
+    private[zhttp] def doProvide: HttpResult.Out[R0, E1, A] =
       HttpResult.evaluate(Effect(self.evaluate.asEffect.provideLayer(layer)))
   }
 
@@ -157,7 +157,7 @@ object HttpResult {
     ev1: R0 with R1 <:< R,
     tagged: Tag[R1],
   ) extends HttpResult[R0, E1, A] {
-    override private[zhttp] def evaluate: Out[R0, E1, A] =
+    private[zhttp] def doProvide: HttpResult.Out[R0, E1, A] =
       HttpResult.evaluate(Effect(self.evaluate.asEffect.provideSomeLayer(layer)))
   }
 
@@ -201,13 +201,13 @@ object HttpResult {
 
   // EVAL
   @tailrec
-  private[zhttp] def evaluate[R, R0 <: R, E, A](
+  private[zhttp] def evaluate[R, E, A](
     result: HttpResult[R, E, A],
-  )(implicit ev: NeedsEnv[R]): Out[R0, E, A] = {
+  )(implicit ev: NeedsEnv[R]): Out[R, E, A] = {
     result match {
-      case m: Out[_, _, _]         => m
-      case Suspend(r)              => evaluate(r())
-      case FoldM(self, ee, aa, dd) =>
+      case m: Out[_, _, _]                       => m
+      case Suspend(r)                            => evaluate(r())
+      case FoldM(self, ee, aa, dd)               =>
         evaluate(self match {
           case Empty                      => dd
           case Success(a)                 => aa(a)
@@ -231,8 +231,10 @@ object HttpResult {
             )
           case x                          => x.evaluate.foldM(ee, aa, dd)
         })
-
-      case x => x.evaluate
+      case p: Provide[_, _, _]                   => p.doProvide
+      case p: ProvideLayer[_, _, _, _, _, _]     => p.doProvide
+      case p: ProvideSome[_, _, _, _]            => p.doProvide
+      case p: ProvideSomeLayer[_, _, _, _, _, _] => p.doProvide
     }
   }
 }
