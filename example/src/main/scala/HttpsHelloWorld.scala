@@ -7,7 +7,7 @@ import zio._
 object HttpsHelloWorld extends App {
 
   // Create HTTP route
-  val app = HttpApp.collect {
+  val app: HttpApp[Any, Nothing] = HttpApp.collect {
     case Method.GET -> Root / "text" => Response.text("Hello World!")
     case Method.GET -> Root / "json" => Response.jsonString("""{"greetings": "Hello World!"}""")
   }
