@@ -302,10 +302,5 @@ object Http {
      */
     def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1]]) =
       self.catchAll(e => Http.succeed(s.silent(e)))
-
-    /**
-     * Converts a ZIO to an Http type
-     */
-    def responseM[R1, E1](res: ResponseM[R1, E1]): Http[R1, E1, Request, Response[R1, E1]] = Http.fromEffect(res)
   }
 }

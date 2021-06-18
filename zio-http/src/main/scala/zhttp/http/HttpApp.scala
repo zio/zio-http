@@ -1,6 +1,31 @@
 package zhttp.http
 
+import zio.ZIO
+
 object HttpApp {
+
+  /**
+   * Creates an Http app from a function that returns a ZIO
+   */
+  def fromEffectFunction[R, E](f: Request => ZIO[R, E, Response[R, E]]): HttpApp[R, E] =
+    Http.fromEffectFunction(f)
+
+  /**
+   * Converts a ZIO to an Http type
+   */
+  def responseM[R, E](res: ResponseM[R, E]): HttpApp[R, E] = Http.fromEffect(res)
+
+  /**
+   * Creates an HTTP app which accepts a request and produces response.
+   */
+  def collect[R, E](pf: PartialFunction[Request, Response[R, E]]): HttpApp[R, E] =
+    Http.collect[Request](pf)
+
+  /**
+   * Creates an HTTP app which accepts a requests and produces another Http app as response.
+   */
+  def collectM[R, E](pf: PartialFunction[Request, ResponseM[R, E]]): HttpApp[R, E] =
+    Http.collectM[Request](pf)
 
   /**
    * Creates an HTTP app which always responds with the same plain text.
@@ -42,5 +67,4 @@ object HttpApp {
    * Creates a Http app from a function from Request to HttpApp
    */
   def fromFunction[R, E, B](f: Request => HttpApp[R, E]) = Http.fromFunction[Request](f)
-
 }
