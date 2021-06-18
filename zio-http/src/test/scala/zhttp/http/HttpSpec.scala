@@ -244,5 +244,95 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
         } yield assert(res)(equalTo(1))
       },
     ),
+    suite("provide")(
+      testM("provide") {
+        val app = Http.fromEffect(ZIO.environment[Int]).provide(1).execute(1).evaluate.asEffect
+        assertM(app)(equalTo(1))
+      },
+      testM("foldM") {
+        val app = (Http.fromEffect(ZIO.environment[Int]) *> Http.succeed(1)).provide(1).execute(1).evaluate.asEffect
+        assertM(app)(equalTo(1))
+      },
+    ),
+    suite("provideSome")(
+      testM("provideSome") {
+        trait HasInt {
+          val int: Int
+        }
+
+        val needsEnv = Http.fromEffect(for {
+          int <- ZIO.environment[HasInt]
+        } yield int.int)
+
+        val app = needsEnv.provideSome[Any](_ => {
+          new HasInt {
+            val int = 2
+          }
+        })
+        val res = app.execute(1).evaluate.asEffect
+        assertM(res)(equalTo(2))
+      },
+      testM("foldM 1") {
+        trait HasInt {
+          val int: Int
+        }
+
+        val needsEnv = Http.fromEffect(for {
+          int <- ZIO.environment[HasInt]
+        } yield int.int)
+
+        val app = (needsEnv *> Http.succeed(1)).provideSome[Any](_ => {
+          new HasInt { val int = 1 }
+        })
+        val res = app.execute(1).evaluate.asEffect
+
+        assertM(res)(equalTo(1))
+      },
+      testM("it provides parts of the environment") {
+        trait HasInt    {
+          val int: Int
+        }
+        trait HasString {
+          val string: String
+        }
+
+        val needsEnv = Http.fromEffect(for {
+          _   <- ZIO.environment[HasString]
+          int <- ZIO.environment[HasInt]
+        } yield int.int)
+
+        val app = (needsEnv *> needsEnv).provideSome[HasInt](env =>
+          new HasInt with HasString {
+            val int    = env.int
+            val string = "String"
+          },
+        )
+
+        val res = app.provide(new HasInt { val int = 2 }).execute(1).evaluate.asEffect
+        assertM(res)(equalTo(2))
+      },
+    ),
+    suite("provideLayer")(
+      testM("provideLayer") {
+        val app = Http.fromEffect(for {
+          _   <- ZIO.service[String]
+          int <- ZIO.service[Int]
+        } yield int)
+
+        val res =
+          app.provideLayer(ZLayer.succeed("String") ++ ZLayer.succeed(2)).execute(1).evaluate.asEffect
+        assertM(res)(equalTo(2))
+      },
+      testM("foldM") {
+        val app = Http.fromEffect(for {
+          _   <- ZIO.service[String]
+          int <- ZIO.service[Int]
+        } yield int) *> Http.succeed(2)
+
+        val res =
+          app.provideLayer(ZLayer.succeed("String") ++ ZLayer.succeed(2)).execute(1).evaluate.asEffect
+        assertM(res)(equalTo(2))
+      },
+    ),
   ) @@ timeout(10 seconds)
 }

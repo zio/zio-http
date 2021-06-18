@@ -4,7 +4,7 @@ import zio.duration._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-import zio.{UIO, ZIO, ZLayer}
+import zio._
 
 object HttpResultSpec extends DefaultRunnableSpec with HttpResultAssertion {
   def spec: ZSpec[Environment, Failure] = {
@@ -57,52 +57,96 @@ object HttpResultSpec extends DefaultRunnableSpec with HttpResultAssertion {
         },
       ),
       suite("provide")(
-        testM("provides the environment") {
-          val app = effect(for {
-            _ <- ZIO.environment[String]
-          } yield 1)
+        testM("provide") {
+          val app = HttpResult.effect(ZIO.environment[Int]).provide(1).evaluate.asEffect
+          assertM(app)(equalTo(1))
+        },
+        testM("foldM") {
+          val app = (effect(ZIO.environment[Int]) *> succeed(1)).provide(1).evaluate.asEffect
+          assertM(app)(equalTo(1))
+        },
+      ),
+      suite("provideSome")(
+        testM("provideSome") {
+          trait HasInt {
+            val int: Int
+          }
+
+          val needsEnv = effect(for {
+            int <- ZIO.environment[HasInt]
+          } yield int.int)
+
+          val app = needsEnv.provideSome[Any](_ => {
+            new HasInt {
+              val int = 2
+            }
+          })
 
           for {
-            res <- app.provide("string").evaluate.asEffect
-          } yield assert(res)(equalTo(1))
+            res <- app.evaluate.asEffect
+          } yield assert(res)(equalTo(2))
         },
-        testM("it composes with foldM") {
+        testM("foldM 1") {
+          trait HasInt {
+            val int: Int
+          }
+
           val needsEnv = effect(for {
-            _ <- ZIO.environment[String]
-          } yield 0)
-          val app      = (needsEnv *> succeed(1)).provide("string")
+            int <- ZIO.environment[HasInt]
+          } yield int.int)
+
+          val app = (needsEnv *> succeed(1)).provideSome[Any](_ => {
+            new HasInt { val int = 1 }
+          })
 
           for {
             res <- app.evaluate.asEffect
           } yield assert(res)(equalTo(1))
         },
+        testM("foldM 2") {
+          trait HasInt {
+            val int: Int
+          }
+
+          val needsEnv = effect(for {
+            int <- ZIO.environment[HasInt]
+          } yield int.int)
+
+          val app = (succeed(1) *> needsEnv).provideSome[Any](_ => {
+            new HasInt { val int = 1 }
+          })
+
+          for {
+            res <- app.evaluate.asEffect
+          } yield assert(res)(equalTo(1))
+        },
+        testM("it provides parts of the environment") {
+          trait HasInt    {
+            val int: Int
+          }
+          trait HasString {
+            val string: String
+          }
+
+          val needsEnv = effect(for {
+            _   <- ZIO.environment[HasString]
+            int <- ZIO.environment[HasInt]
+          } yield int.int)
+
+          val app = (needsEnv *> needsEnv).provideSome[HasInt](env =>
+            new HasInt with HasString {
+              val int    = env.int
+              val string = "String"
+            },
+          )
+
+          for {
+            res <- app.provide(new HasInt { val int = 2 }).evaluate.asEffect
+          } yield assert(res)(equalTo(2))
+        },
       ),
-      suite("provideSome")(testM("it provides parts of the environment") {
-        trait HasInt    {
-          val int: Int
-        }
-        trait HasString {
-          val string: String
-        }
-
-        val needsEnv = effect(for {
-          _   <- ZIO.environment[HasString]
-          int <- ZIO.environment[HasInt]
-        } yield int.int)
-
-        val app = (needsEnv *> needsEnv).provideSome[HasInt](env =>
-          new HasInt with HasString {
-            val int    = env.int
-            val string = "String"
-          },
-        )
-
-        for {
-          res <- app.provide(new HasInt { val int = 2 }).evaluate.asEffect
-        } yield assert(res)(equalTo(2))
-      }),
       suite("provideLayer")(
-        testM("it provides the environment") {
+        testM("provideLayer") {
           val app = effect(for {
             _   <- ZIO.service[String]
             int <- ZIO.service[Int]
@@ -112,16 +156,14 @@ object HttpResultSpec extends DefaultRunnableSpec with HttpResultAssertion {
             app.provideLayer(ZLayer.succeed("String") ++ ZLayer.succeed(2)).evaluate.asEffect
           assertM(res)(equalTo(2))
         },
-      ),
-      suite("provideCustomLayer")(
-        testM("it provides the environment") {
+        testM("foldM") {
           val app = effect(for {
             _   <- ZIO.service[String]
             int <- ZIO.service[Int]
-          } yield int)
+          } yield int) *> succeed(2)
 
           val res =
-            app.provideCustomLayer(ZLayer.succeed("String") ++ ZLayer.succeed(2)).evaluate.asEffect
+            app.provideLayer(ZLayer.succeed("String") ++ ZLayer.succeed(2)).evaluate.asEffect
           assertM(res)(equalTo(2))
         },
       ),

@@ -43,7 +43,7 @@ sealed trait HttpResult[-R, +E, +A] { self =>
   /**
    * Provides the `HttpResult` with its required environment, which eliminates its dependency on `R`.
    */
-  def provide(r: R): HttpResult[Any, E, A] = HttpResult.Provide(self, r)
+  def provide(r: R)(implicit ev: NeedsEnv[R]): HttpResult[Any, E, A] = HttpResult.Provide(self, r)
 
   /**
    * Provides some of the environment required to run this `HttpResult`, leaving the remainder `R0`.
@@ -63,44 +63,16 @@ sealed trait HttpResult[-R, +E, +A] { self =>
    * )
    * }}}
    */
-  def provideSome[R0](f: R0 => R): HttpResult[R0, E, A] = HttpResult.ProvideSome(self, f)
+  def provideSome[R0](f: R0 => R): HttpResult[R0, E, A] =
+    HttpResult.effect(ZIO.access[R0](identity)).flatMap(e => { self.provide(f(e)) })
 
   /**
    * Provides a layer to the `HttpResult`, which translates it to another level.
    */
-  def provideLayer[E1 >: E, R0, R1 <: R](layer: ZLayer[R0, E1, R1]): HttpResult[R0, E1, A] =
+  def provideLayer[E1 >: E, R0, R1 <: R](
+    layer: ZLayer[R0, E1, R1],
+  )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R]): HttpResult[R0, E1, A] =
     HttpResult.ProvideLayer(self, layer.mapError(e => Some(e)))
-
-  /**
-   * Splits the environment into two parts, providing one part using the specified layer and leaving the remainder `R0`.
-   *
-   * {{{
-   * val clockLayer: ZLayer[Any, Nothing, Clock] = ???
-   *
-   * val result: HttpResult[Clock with Random, Nothing, Unit] = ???
-   *
-   * val result2 = result.provideSomeLayer[Random](clockLayer)
-   * }}}
-   */
-  final def provideSomeLayer[R0 <: Has[_]]: HttpResult.ProvideSomeLayer.Build[R0, R, E, A] =
-    new HttpResult.ProvideSomeLayer.Build[R0, R, E, A](self)
-
-  /**
-   * Provides the part of the environment that is not part of the `ZEnv`, leaving a `HttpResult` that only depends on
-   * the `ZEnv`.
-   *
-   * {{{
-   * val loggingLayer: ZLayer[Any, Nothing, Logging] = ???
-   *
-   * val result: HttpResult[ZEnv with Logging, Nothing, Unit] = ???
-   *
-   * val result2 = result.provideCustomLayer(loggingLayer)
-   * }}}
-   */
-  final def provideCustomLayer[E1 >: E, R1 <: Has[_]](
-    layer: ZLayer[ZEnv, E1, R1],
-  )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): HttpResult[ZEnv, E1, A] =
-    provideSomeLayer[ZEnv](layer)
 
   final private[zhttp] def evaluate: HttpResult.Out[R, E, A] = HttpResult.evaluate(self)
 }
@@ -122,58 +94,20 @@ object HttpResult {
   case object Empty                                         extends Out[Any, Nothing, Nothing]
 
   // OPR
-  private final case class Suspend[R, E, A](r: () => HttpResult[R, E, A]) extends HttpResult[R, E, A]
+  private final case class Suspend[R, E, A](r: () => HttpResult[R, E, A])   extends HttpResult[R, E, A]
   private final case class FoldM[R, E, EE, A, AA](
     rr: HttpResult[R, E, A],
     ee: E => HttpResult[R, EE, AA],
     aa: A => HttpResult[R, EE, AA],
     dd: HttpResult[R, EE, AA],
-  )                                                                       extends HttpResult[R, EE, AA]
-  private final case class Provide[R, E, A](private val self: HttpResult[R, E, A], r: R)(implicit ev: NeedsEnv[R])
-      extends HttpResult[Any, E, A] {
-    private[zhttp] def doProvide: HttpResult.Out[Any, E, A] =
-      HttpResult.evaluate(Effect(self.evaluate.asEffect.provide(r)))
-  }
-
-  private final case class ProvideSome[R, R0, E, A](private val self: HttpResult[R, E, A], r: R0 => R)(implicit
-    ev: NeedsEnv[R],
-  ) extends HttpResult[R0, E, A] {
-    private[zhttp] def doProvide: HttpResult.Out[R0, E, A] =
-      HttpResult.evaluate(Effect(self.evaluate.asEffect.provideSome(r)))
-  }
+  )                                                                         extends HttpResult[R, EE, AA]
+  private final case class Provide[R, E, A](r: HttpResult[R, E, A], env: R) extends HttpResult[Any, E, A]
 
   private final case class ProvideLayer[E, E1 >: E, R, R0, R1 <: R, A](
-    private val self: HttpResult[R, E, A],
+    r: HttpResult[R, E, A],
     layer: ZLayer[R0, Option[E1], R1],
-  ) extends HttpResult[R0, E1, A] {
-    private[zhttp] def doProvide: HttpResult.Out[R0, E1, A] =
-      HttpResult.evaluate(Effect(self.evaluate.asEffect.provideLayer(layer)))
-  }
-
-  final case class ProvideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E, -R, E, +A](
-    private val self: HttpResult[R, E, A],
-    layer: ZLayer[R0, Option[E1], R1],
-  )(implicit
-    ev1: R0 with R1 <:< R,
-    tagged: Tag[R1],
-  ) extends HttpResult[R0, E1, A] {
-    private[zhttp] def doProvide: HttpResult.Out[R0, E1, A] =
-      HttpResult.evaluate(Effect(self.evaluate.asEffect.provideSomeLayer(layer)))
-  }
-
-  case object ProvideSomeLayer {
-    final class Build[R0 <: Has[_], -R, +E, +A](
-      private val self: HttpResult[R, E, A],
-    ) extends AnyVal {
-      def apply[E1 >: E, R1 <: Has[_]](
-        layer: ZLayer[R0, E1, R1],
-      )(implicit
-        ev1: R0 with R1 <:< R,
-        tagged: Tag[R1],
-      ): HttpResult[R0, E1, A] =
-        HttpResult.ProvideSomeLayer(self, layer.mapError(e => Option(e)))
-    }
-  }
+  )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R])
+      extends HttpResult[R0, E1, A]
 
   // Help
   def succeed[A](a: A): HttpResult.Out[Any, Nothing, A] = Success(a)
@@ -201,19 +135,47 @@ object HttpResult {
 
   // EVAL
   @tailrec
-  private[zhttp] def evaluate[R, E, A](
+  private[zhttp] def evaluate[R, R0, R1 <: R, E, E1 >: E, A](
     result: HttpResult[R, E, A],
   )(implicit ev: NeedsEnv[R]): Out[R, E, A] = {
     result match {
-      case m: Out[_, _, _]                       => m
-      case Suspend(r)                            => evaluate(r())
-      case FoldM(self, ee, aa, dd)               =>
+      case m: Out[_, _, _]                                     => m
+      case Suspend(r)                                          => evaluate(r())
+      case Provide(r, env)                                     => {
+        evaluate(r match {
+          case Effect(z)                                        => {
+            Effect(z.provide(env))
+          }
+          case out: Out[R, E, A] @unchecked                     => out
+          case Suspend(r)                                       => r().provide(env)
+          case FoldM(rr, ee, aa, dd)                            => {
+            rr.foldM(e => ee(e), a => aa(a), dd).evaluate.provide(env)
+          }
+          case Provide(self: HttpResult[R, E, A] @unchecked, _) => self
+          case ProvideLayer(r2, _)                              => r2.provide(env)
+        })
+      }
+      case ProvideLayer(r, layer: ZLayer[R, E, R1] @unchecked) => {
+        evaluate(r match {
+          case Effect(z)             => {
+            Effect(z.provideLayer(layer))
+          }
+          case m: Out[_, _, _]       => m
+          case Suspend(r)            => r().provideLayer(layer)
+          case FoldM(rr, ee, aa, dd) => {
+            rr.foldM(e => ee(e), a => aa(a), dd).evaluate.provideLayer(layer)
+          }
+          case p @ Provide(_, _)     => p.evaluate.provideLayer(layer)
+          case ProvideLayer(r2, _)   => r2
+        })
+      }
+      case FoldM(self, ee, aa, dd)                             =>
         evaluate(self match {
-          case Empty                      => dd
-          case Success(a)                 => aa(a)
-          case Failure(e)                 => ee(e)
-          case Suspend(r)                 => r().foldM(ee, aa, dd)
-          case Effect(z)                  =>
+          case Empty                                                                 => dd
+          case Success(a)                                                            => aa(a)
+          case Failure(e)                                                            => ee(e)
+          case Suspend(r)                                                            => r().foldM(ee, aa, dd)
+          case Effect(z)                                                             => {
             Effect(
               z.foldM(
                 {
@@ -223,18 +185,20 @@ object HttpResult {
                 aa(_).evaluate.asEffect,
               ),
             )
-          case FoldM(self, ee0, aa0, dd0) =>
+          }
+          case FoldM(self, ee0, aa0, dd0)                                            =>
             self.foldM(
               e => ee0(e).foldM(ee, aa, dd),
               a => aa0(a).foldM(ee, aa, dd),
               dd0.foldM(ee, aa, dd),
             )
-          case x                          => x.evaluate.foldM(ee, aa, dd)
+          case Provide(r: HttpResult[R @unchecked, E @unchecked, A @unchecked], env) => {
+            r.foldM(e => ee(e).provide(env), a => aa(a).provide(env), dd.provide(env))
+          }
+          case ProvideLayer(r, layer: ZLayer[R, E, R] @unchecked)                    => {
+            r.foldM(ee, aa, dd).evaluate.provideLayer(layer)
+          }
         })
-      case p: Provide[_, _, _]                   => p.doProvide
-      case p: ProvideLayer[_, _, _, _, _, _]     => p.doProvide
-      case p: ProvideSome[_, _, _, _]            => p.doProvide
-      case p: ProvideSomeLayer[_, _, _, _, _, _] => p.doProvide
     }
   }
 }

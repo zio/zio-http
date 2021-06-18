@@ -165,13 +165,15 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Provides the `Http` with its required environment, which eliminates its dependency on `R`.
    */
-  def provide(r: R): Http[Any, E, A, B] = Http.Provide(self, r)
+  def provide(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] = Http.Provide(self, r)
 
   /**
-   * Provides some of the environment required to run this `Http`, leaving the remainder `R0`.
+   * Provides some of the environment required to run this `HttpResult`, leaving the remainder `R0`.
+   *
+   * If your environment has the type `Has[_]`, please see [[zhttp.http.HttpResult.provideSomeLayer]]
    *
    * {{{
-   * val res: Http[Console with Logging, Nothing, String, String] = ???
+   * val res: HttpResult[Console with Logging, Nothing, Unit] = ???
    *
    * res.provideSome[Console](env =>
    *   new Console with Logging {
@@ -183,44 +185,16 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * )
    * }}}
    */
-  def provideSome[R0](f: R0 => R): Http[R0, E, A, B] = Http.ProvideSome(self, f)
+  def provideSome[R0](f: R0 => R): Http[R0, E, A, B] =
+    Http.fromEffect(ZIO.access[R0](Predef.identity)).flatMap(e => { self.provide(f(e)) })
 
   /**
    * Provides a layer to the `Http`, which translates it to another level.
    */
-  def provideLayer[E1 >: E, R0, R1 <: R](layer: ZLayer[R0, E1, R1]): Http[R0, E1, A, B] =
+  def provideLayer[E1 >: E, R0, R1 <: R](
+    layer: ZLayer[R0, E1, R1],
+  )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R]): Http[R0, E1, A, B] =
     Http.ProvideLayer(self, layer)
-
-  /**
-   * Splits the environment into two parts, providing one part using the specified layer and leaving the remainder `R0`.
-   *
-   * {{{
-   * val clockLayer: ZLayer[Any, Nothing, Clock] = ???
-   *
-   * val result: Http[Clock with Random, Nothing, String, String] = ???
-   *
-   * val result2 = result.provideSomeLayer[Random](clockLayer)
-   * }}}
-   */
-  final def provideSomeLayer[R0 <: Has[_]]: Http.ProvideSomeLayer.Build[R0, R, E, A, B] =
-    new Http.ProvideSomeLayer.Build[R0, R, E, A, B](self)
-
-  /**
-   * Provides the part of the environment that is not part of the `ZEnv`, leaving a `Http` that only depends on the
-   * `ZEnv`.
-   *
-   * {{{
-   * val loggingLayer: ZLayer[Any, Nothing, Logging] = ???
-   *
-   * val result: Http[ZEnv with Logging, Nothing, String, String] = ???
-   *
-   * val result2 = result.provideCustomLayer(loggingLayer)
-   * }}}
-   */
-  final def provideCustomLayer[E1 >: E, R1 <: Has[_]](
-    layer: ZLayer[ZEnv, E1, R1],
-  )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): Http[ZEnv, E1, A, B] =
-    provideSomeLayer[ZEnv](layer)
 
   /**
    * Unwraps an Http that returns a ZIO of Http
@@ -287,25 +261,22 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
-  final private[zhttp] def execute(a: A): HttpResult[R, E, B] = {
+  final private[zhttp] def execute[R0, R1 <: R, E1 >: E](a: A): HttpResult[R, E, B] = {
     self match {
-      case Empty                                    => HttpResult.empty
-      case Identity                                 => HttpResult.succeed(a.asInstanceOf[B])
-      case Succeed(b)                               => HttpResult.succeed(b)
-      case Fail(e)                                  => HttpResult.fail(e)
-      case FromEffectFunction(f)                    => HttpResult.effect(f(a))
-      case Collect(pf)                              => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
-      case Chain(self, other)                       => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
-      case FoldM(self, ee, bb, dd)                  =>
+      case Empty                                              => HttpResult.empty
+      case Identity                                           => HttpResult.succeed(a.asInstanceOf[B])
+      case Succeed(b)                                         => HttpResult.succeed(b)
+      case Fail(e)                                            => HttpResult.fail(e)
+      case FromEffectFunction(f)                              => HttpResult.effect(f(a))
+      case Collect(pf)                                        => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
+      case Chain(self, other)                                 => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
+      case FoldM(self, ee, bb, dd)                            =>
         HttpResult.suspend {
           self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
         }
-      case Provide(self, r)                         => self.execute(a).provide(r)
-      case ProvideSome(self, f)                     => self.execute(a).provideSome(f)
-      // We can't inline this due to exhaustivity warning.
-      case p: ProvideLayer[_, _, _, _, _, _, _]     => p.doProvide(a)
-      // We can't inline this due to: Cannot prove that R & zio.Has[?] <:< Nothing.
-      case p: ProvideSomeLayer[_, _, _, _, _, _, _] => p.doProvide(a)
+      case p: Provide[R, E, A, B] @unchecked                  => HttpResult.suspend(p.self.execute(a).provide(p.r))
+      case p: ProvideLayer[E, E1, R, R0, R1, A, B] @unchecked =>
+        HttpResult.suspend(p.self.execute(a).provideLayer(p.layer))
     }
   }
 
@@ -329,40 +300,11 @@ object Http {
 
   private final case class Provide[R, E, A, B](self: Http[R, E, A, B], r: R) extends Http[Any, E, A, B]
 
-  private final case class ProvideSome[R, R0, E, A, B](self: Http[R, E, A, B], f: R0 => R) extends Http[R0, E, A, B]
-
   private final case class ProvideLayer[E, E1 >: E, R, R0, R1 <: R, A, B](
     self: Http[R, E, A, B],
     layer: ZLayer[R0, E1, R1],
-  ) extends Http[R0, E1, A, B] {
-    private[zhttp] def doProvide(a: A): HttpResult[R0, E1, B] =
-      self.execute(a).provideLayer(layer)
-  }
-
-  final case class ProvideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E, -R, E, -A, +B](
-    private val self: Http[R, E, A, B],
-    layer: ZLayer[R0, E1, R1],
-  )(implicit
-    ev1: R0 with R1 <:< R,
-    tagged: Tag[R1],
-  ) extends Http[R0, E1, A, B] {
-    private[zhttp] def doProvide(a: A): HttpResult[R0, E1, B] =
-      self.execute(a).provideSomeLayer(layer)
-  }
-
-  object ProvideSomeLayer {
-    final class Build[R0 <: Has[_], -R, +E, -A, +B](
-      private val self: Http[R, E, A, B],
-    ) extends AnyVal {
-      def apply[E1 >: E, R1 <: Has[_]](
-        layer: ZLayer[R0, E1, R1],
-      )(implicit
-        ev1: R0 with R1 <:< R,
-        tagged: Tag[R1],
-      ): Http[R0, E1, A, B] =
-        Http.ProvideSomeLayer(self, layer)
-    }
-  }
+  )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R])
+      extends Http[R0, E1, A, B]
 
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {
