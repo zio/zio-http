@@ -39,10 +39,10 @@ final case class ServerChannelInitializer[R](httpH: JChannelHandler, settings: S
               } else {
                 settings.sslHttpBehaviour match {
                   case SSLHttpBehaviour.Redirect => {
-                    context.pipeline().replace("ssl", "SERVER_CODEC_HANDLER", new JHttpServerCodec)
+                    context.pipeline().replace("ssl", SERVER_CODEC_HANDLER, new JHttpServerCodec)
                     context
                       .pipeline()
-                      .addAfter("SERVER_CODEC_HANDLER", "RedirectHttpHandler", new RedirectHttpsHandler())
+                      .addLast("RedirectHttpHandler", new RedirectHttpsHandler())
                     ()
                   }
                   case SSLHttpBehaviour.Accept   => {

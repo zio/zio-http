@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
 import zhttp.core._
 import zhttp.http.{Status, _}
-import zhttp.service.server.ServerSSLHandler.SSLHttpBehaviour.Redirect
+import zhttp.service.server.ServerSSLHandler.SSLHttpBehaviour._
 import zhttp.service.server.ServerSSLHandler.ServerSSLOptions.NoSSL
 import zhttp.service.server.ServerSSLHandler.{SSLHttpBehaviour, ServerSSLOptions}
 import zhttp.service.server.{LeakDetectionLevel, ServerChannelFactory, ServerChannelInitializer, ServerRequestHandler}
@@ -59,7 +59,7 @@ object Server {
   def port(int: Int): UServer                                                        = Server.Port(int)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
-  def sslHttpBehaviour(sslHttpBehaviour: SslHttpBehaviour): UServer                  = Server.sslHttpBehaviour(sslHttpBehaviour)
+  def sslHttpBehaviour(sslHttpBehaviour: SSLHttpBehaviour): UServer                  = Server.SslHttpBehaviour(sslHttpBehaviour)
   val disableLeakDetection: UServer                                                  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer                                                   = LeakDetection(LeakDetectionLevel.SIMPLE)
   val advancedLeakDetection: UServer                                                 = LeakDetection(LeakDetectionLevel.ADVANCED)
