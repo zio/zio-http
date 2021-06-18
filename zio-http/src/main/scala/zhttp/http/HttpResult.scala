@@ -106,8 +106,7 @@ object HttpResult {
   private final case class ProvideLayer[E, E1 >: E, R, R0, R1 <: R, A](
     r: HttpResult[R, E, A],
     layer: ZLayer[R0, Option[E1], R1],
-  )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R])
-      extends HttpResult[R0, E1, A]
+  ) extends HttpResult[R0, E1, A]
 
   // Help
   def succeed[A](a: A): HttpResult.Out[Any, Nothing, A] = Success(a)

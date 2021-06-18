@@ -303,8 +303,7 @@ object Http {
   private final case class ProvideLayer[E, E1 >: E, R, R0, R1 <: R, A, B](
     self: Http[R, E, A, B],
     layer: ZLayer[R0, E1, R1],
-  )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R])
-      extends Http[R0, E1, A, B]
+  ) extends Http[R0, E1, A, B]
 
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {
