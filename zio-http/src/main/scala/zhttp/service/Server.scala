@@ -3,8 +3,9 @@ package zhttp.service
 import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
 import zhttp.core._
 import zhttp.http.{Status, _}
-import zhttp.service.server.ServerSSLHandler.ServerSSLOptions
+import zhttp.service.server.ServerSSLHandler.SSLHttpBehaviour.Redirect
 import zhttp.service.server.ServerSSLHandler.ServerSSLOptions.NoSSL
+import zhttp.service.server.ServerSSLHandler.{SSLHttpBehaviour, ServerSSLOptions}
 import zhttp.service.server.{LeakDetectionLevel, ServerChannelFactory, ServerChannelInitializer, ServerRequestHandler}
 import zio.{ZManaged, _}
 
@@ -16,13 +17,14 @@ sealed trait Server[-R, +E] { self =>
     Concat(self, other)
 
   private def settings[R1 <: R, E1 >: E](s: Settings[R1, E1] = Settings()): Settings[R1, E1] = self match {
-    case Concat(self, other)  => other.settings(self.settings(s))
-    case Port(port)           => s.copy(port = port)
-    case LeakDetection(level) => s.copy(leakDetectionLevel = level)
-    case App(http)            => s.copy(http = http)
-    case MaxRequestSize(size) => s.copy(maxRequestSize = size)
-    case Error(errorHandler)  => s.copy(error = Some(errorHandler))
-    case Ssl(sslOption)       => s.copy(sslOption = sslOption)
+    case Concat(self, other)                => other.settings(self.settings(s))
+    case Port(port)                         => s.copy(port = port)
+    case LeakDetection(level)               => s.copy(leakDetectionLevel = level)
+    case App(http)                          => s.copy(http = http)
+    case MaxRequestSize(size)               => s.copy(maxRequestSize = size)
+    case Error(errorHandler)                => s.copy(error = Some(errorHandler))
+    case Ssl(sslOption)                     => s.copy(sslOption = sslOption)
+    case SslHttpBehaviour(sslHttpBehaviour) => s.copy(sslHttpBehaviour = sslHttpBehaviour)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
@@ -40,6 +42,7 @@ object Server {
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
     error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
     sslOption: ServerSSLOptions = NoSSL,
+    sslHttpBehaviour: SSLHttpBehaviour = Redirect,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -49,12 +52,14 @@ object Server {
   private final case class App[R, E](http: HttpApp[R, E])                             extends Server[R, E]
   private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
+  private final case class SslHttpBehaviour(sslHttpBehaviour: SSLHttpBehaviour)       extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]                                   = Server.App(http)
   def maxRequestSize(size: Int): UServer                                             = Server.MaxRequestSize(size)
   def port(int: Int): UServer                                                        = Server.Port(int)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
+  def sslHttpBehaviour(sslHttpBehaviour: SslHttpBehaviour): UServer                  = Server.sslHttpBehaviour(sslHttpBehaviour)
   val disableLeakDetection: UServer                                                  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer                                                   = LeakDetection(LeakDetectionLevel.SIMPLE)
   val advancedLeakDetection: UServer                                                 = LeakDetection(LeakDetectionLevel.ADVANCED)
