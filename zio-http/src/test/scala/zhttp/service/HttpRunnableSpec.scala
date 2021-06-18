@@ -4,8 +4,6 @@ import zhttp.http.HttpData.CompleteData
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.server.ServerSSLHandler.ServerSSLOptions
-import zhttp.service.server.ServerSSLHandler.ServerSSLOptions._
 import zio.test.DefaultRunnableSpec
 import zio.{Chunk, Has, ZIO, ZManaged}
 
@@ -13,9 +11,8 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
 
   def serve[R <: Has[_]](
     app: RHttpApp[R],
-    sslServerOptions: ServerSSLOptions = NoSSL,
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
-    Server.make(Server.app(app) ++ Server.port(port) ++ Server.ssl(sslServerOptions)).orDie
+    Server.make(Server.app(app) ++ Server.port(port)).orDie
 
   def status(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, Status] =
     requestPath(path).map(_.status)

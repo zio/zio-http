@@ -19,7 +19,7 @@ import zio.test.environment.TestClock
 
 import javax.net.ssl.SSLHandshakeException
 
-object SSLSpec extends HttpRunnableSpec(8080) {
+object SSLSpec extends HttpRunnableSpec(8090) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
   val ssc1       = new SelfSignedCertificate
@@ -39,26 +39,25 @@ object SSLSpec extends HttpRunnableSpec(8080) {
   val clientssl1 = SslContextBuilder.forClient().trustManager(ssc1.cert()).build()
   val clientssl2 = SslContextBuilder.forClient().trustManager(ssc2.cert()).build()
 
-  val app = serve(
-    HttpApp.collectM[Any, Nothing] { case Method.GET -> Root / "success" =>
-      ZIO.succeed(Response.ok)
-    },
-    CustomSSL(serverssl),
-  )
+  val app = HttpApp.collectM[Any, Nothing] { case Method.GET -> Root / "success" =>
+    ZIO.succeed(Response.ok)
+  }
 
   override def spec = suiteM("SSL")(
-    app
+    Server
+      .make(Server.app(app) ++ Server.port(8090) ++ Server.ssl(CustomSSL(serverssl)))
+      .orDie
       .as(
         List(
           testM("succeed when client has the server certificate") {
             val actual = Client
-              .request("https://localhost:8080/success", ClientSSLOptions.CustomSSL(clientssl1))
+              .request("https://localhost:8090/success", ClientSSLOptions.CustomSSL(clientssl1))
               .map(_.status)
             assertM(actual)(equalTo(Status.OK))
           },
           testM("fail with SSLHandshakeException when client doesn't have the server certificate") {
             val actual = Client
-              .request("https://localhost:8080/success", ClientSSLOptions.CustomSSL(clientssl2))
+              .request("https://localhost:8090/success", ClientSSLOptions.CustomSSL(clientssl2))
               .map(_.status)
               .catchSome(_.getCause match {
                 case _: SSLHandshakeException => ZIO.succeed("SSLHandshakeException")
@@ -68,7 +67,7 @@ object SSLSpec extends HttpRunnableSpec(8080) {
           testM("empty response when client makes http request") {
             val actual = for {
               fiber <- Client
-                .request("http://localhost:8080/success", ClientSSLOptions.CustomSSL(clientssl1))
+                .request("http://localhost:8090/success", ClientSSLOptions.CustomSSL(clientssl1))
                 .timeout(3 seconds)
                 .fork
               _     <- TestClock.adjust(3 seconds)
