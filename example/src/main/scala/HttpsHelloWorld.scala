@@ -16,7 +16,7 @@ object HttpsHelloWorld extends App {
    * custom sslcontext can be created using SslContexBuilder. In this example an inbuilt API using keystore is used
    */
   private val server = Server.port(8090) ++ Server.app(app) ++ Server.ssl(
-    SSLFromKeystore(getClass.getResourceAsStream("mysslstore.jks"), "123456", "123456"),
+    SSLFromKeystore(getClass.getResourceAsStream("keystore.jks"), "password", "password"),
   )
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
