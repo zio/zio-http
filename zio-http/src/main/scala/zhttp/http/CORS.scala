@@ -16,7 +16,7 @@ object CORS {
   def DefaultCORSConfig =
     CORSConfig(anyOrigin = true, allowCredentials = true)
 
-  def apply[R, E](httpApp: HttpApp[R, E], config: CORSConfig = DefaultCORSConfig): HttpApp[R, E] = HttpApp {
+  def apply[R, E](httpApp: HttpApp[R, E], config: CORSConfig = DefaultCORSConfig): HttpApp[R, E] = {
     def allowCORS(origin: Header, acrm: Method): Boolean =
       (config.anyOrigin, config.anyMethod, origin.value.toString(), acrm) match {
         case (true, true, _, _)           => true
@@ -80,7 +80,7 @@ object CORS {
               ),
             )
           case (_, Some(origin), _) if allowCORS(origin, req.method) =>
-            httpApp.asHttp >>>
+            httpApp >>>
               Http.fromFunction[Response[R, E]](r =>
                 r match {
                   case r: Response.HttpResponse[R, E] =>
@@ -89,7 +89,7 @@ object CORS {
                     x
                 },
               )
-          case _                                                     => httpApp.asHttp
+          case _                                                     => httpApp
         }
       })
     }
