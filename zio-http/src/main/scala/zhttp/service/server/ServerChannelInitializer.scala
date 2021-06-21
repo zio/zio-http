@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.HttpServerKeepAliveHandler
 import io.netty.handler.ssl.{OptionalSslHandler, SslHandler}
 import zhttp.core._
 import zhttp.service.Server.Settings
-import zhttp.service.server.ServerSSLHandler.SSLHttpBehaviour
+import zhttp.service.server.ServerSSLHandler.{SSLHttpBehaviour, ServerSSLOptions}
 import zhttp.service.{HTTP_KEEPALIVE_HANDLER, HTTP_REQUEST_HANDLER, OBJECT_AGGREGATOR, SERVER_CODEC_HANDLER}
 
 import java.util
@@ -17,7 +17,10 @@ final case class ServerChannelInitializer[R](httpH: JChannelHandler, settings: S
     extends JChannelInitializer[JChannel] {
   override def initChannel(channel: JChannel): Unit = {
 
-    val sslctx = ServerSSLHandler.ssl(settings.sslOption)
+    val sslctx = settings.sslOption match {
+      case ServerSSLOptions.NoSSL                 => null
+      case ServerSSLOptions.CustomSSL(sslContext) => sslContext
+    }
     if (sslctx != null) {
       channel
         .pipeline()
