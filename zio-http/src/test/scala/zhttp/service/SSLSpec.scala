@@ -9,7 +9,7 @@ import io.netty.handler.ssl.util.SelfSignedCertificate
 import io.netty.handler.ssl.{ApplicationProtocolConfig, ApplicationProtocolNames, SslContextBuilder, SslProvider}
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.server.ServerSSLHandler.ServerSSLOptions._
+import zhttp.service.server.ServerSSLHandler.ServerSSLOptions
 import zhttp.service.server._
 import zio.ZIO
 import zio.test.Assertion.equalTo
@@ -43,7 +43,7 @@ object SSLSpec extends HttpRunnableSpec(8073) {
 
   override def spec = suiteM("SSL")(
     Server
-      .make(Server.app(app) ++ Server.port(8073) ++ Server.ssl(CustomSSL(serverssl)))
+      .make(Server.app(app) ++ Server.port(8073) ++ Server.ssl(ServerSSLOptions(serverssl)))
       .orDie
       .as(
         List(

@@ -1,7 +1,6 @@
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.server.ServerSSLHandler.ServerSSLOptions._
-import zhttp.service.server.ServerSSLHandler.ctxFromKeystore
+import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromKeystore}
 import zhttp.service.{EventLoopGroup, Server}
 import zio._
 
@@ -18,7 +17,8 @@ object HttpsHelloWorld extends App {
    */
   val sslctx = ctxFromKeystore(getClass.getResourceAsStream("keystore.jks"), "password", "password")
 
-  private val server = Server.port(8090) ++ Server.app(app) ++ Server.ssl(CustomSSL(sslctx))
+  private val server =
+    Server.port(8090) ++ Server.app(app) ++ Server.ssl(ServerSSLOptions(sslctx))
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     server.make.useForever
