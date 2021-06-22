@@ -3,7 +3,13 @@ package zhttp.service.server
 import io.netty.handler.codec.http.{HttpServerKeepAliveHandler => JHttpServerKeepAliveHandler}
 import zhttp.core._
 import zhttp.service.Server.Settings
-import zhttp.service.{HTTP_KEEPALIVE_HANDLER, HTTP_REQUEST_HANDLER, OBJECT_AGGREGATOR, SERVER_CODEC_HANDLER}
+import zhttp.service.{
+  HTTP_KEEPALIVE_HANDLER,
+  HTTP_REQUEST_HANDLER,
+  OBJECT_AGGREGATOR,
+  SERVER_CODEC_HANDLER,
+  SSL_HANDLER,
+}
 
 /**
  * Initializes the netty channel with default handlers
@@ -18,7 +24,7 @@ final case class ServerChannelInitializer[R](httpH: JChannelHandler, settings: S
       channel
         .pipeline()
         .addFirst(
-          "ssl",
+          SSL_HANDLER,
           new OptionalSSLHandler(sslctx, settings.sslOption.httpBehaviour),
         )
       ()

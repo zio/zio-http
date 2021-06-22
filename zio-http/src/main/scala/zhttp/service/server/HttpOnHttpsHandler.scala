@@ -1,7 +1,12 @@
 package zhttp.service.server
 
 import io.netty.channel.{ChannelFutureListener => JChannelFutureListener}
-import io.netty.handler.codec.http.{DefaultHttpResponse => JDefaultHttpResponse, HttpMessage => JHttpMessage, HttpResponseStatus => JHttpResponseStatus, HttpVersion => JHttpVersion}
+import io.netty.handler.codec.http.{
+  DefaultHttpResponse => JDefaultHttpResponse,
+  HttpMessage => JHttpMessage,
+  HttpResponseStatus => JHttpResponseStatus,
+  HttpVersion => JHttpVersion,
+}
 import zhttp.core.{JChannelHandlerContext, JSimpleChannelInboundHandler}
 import zhttp.service.server.ServerSSLHandler.SSLHttpBehaviour
 

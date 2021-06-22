@@ -5,7 +5,13 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.{
   SelectedListenerFailureBehavior => JSelectedListenerFailureBehavior,
   SelectorFailureBehavior => JSelectorFailureBehavior,
 }
-import io.netty.handler.ssl.{ApplicationProtocolConfig => JApplicationProtocolConfig, ApplicationProtocolNames => JApplicationProtocolNames, SslContext => JSslContext, SslContextBuilder => JSslContextBuilder, SslProvider => JSslProvider}
+import io.netty.handler.ssl.{
+  ApplicationProtocolConfig => JApplicationProtocolConfig,
+  ApplicationProtocolNames => JApplicationProtocolNames,
+  SslContext => JSslContext,
+  SslContextBuilder => JSslContextBuilder,
+  SslProvider => JSslProvider,
+}
 
 import java.io.{File, InputStream}
 import java.security.KeyStore
