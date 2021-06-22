@@ -294,13 +294,4 @@ object Http {
   final class MkTotal[A](val unit: Unit) extends AnyVal {
     def apply[B](f: A => B): Http[Any, Nothing, A, B] = Http.identity[A].map(f)
   }
-
-  implicit final class HttpAppSyntax[R, E](val self: HttpApp[R, E]) extends AnyVal {
-
-    /**
-     * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
-     */
-    def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1]]) =
-      self.catchAll(e => Http.succeed(s.silent(e)))
-  }
 }
