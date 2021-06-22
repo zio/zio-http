@@ -8,6 +8,7 @@ import zhttp.http._
 import zhttp.service.Server.Settings
 import zhttp.service._
 import zio.Exit
+import java.net.InetSocketAddress
 
 /**
  * Helper class with channel methods
@@ -31,8 +32,13 @@ final case class ServerRequestHandler[R](
    */
   private def executeAsync(ctx: JChannelHandlerContext, jReq: JFullHttpRequest)(
     cb: Response[R, Throwable] => Unit,
-  ): Unit =
-    decodeJRequest(jReq) match {
+  ): Unit = {
+    val remoteAddr = ctx.channel().remoteAddress() match {
+      case i: InetSocketAddress => i.getAddress().getHostAddress()
+      case _                    => ""
+    }
+
+    decodeJRequest(jReq, remoteAddr) match {
       case Left(err)  => cb(err.toResponse)
       case Right(req) =>
         settings.http.execute(req).evaluate match {
@@ -54,6 +60,7 @@ final case class ServerRequestHandler[R](
             }
         }
     }
+  }
 
   /**
    * Unsafe channel reader for HttpRequest

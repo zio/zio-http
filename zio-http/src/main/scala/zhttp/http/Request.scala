@@ -5,6 +5,7 @@ final case class Request(
   endpoint: Endpoint,
   headers: List[Header] = List.empty,
   content: HttpData[Any, Nothing] = HttpData.empty,
+  remoteAddress: String = "",
 ) extends HasHeaders
     with HeadersHelpers { self =>
   val method: Method = endpoint._1
