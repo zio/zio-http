@@ -3,6 +3,7 @@ package zhttp.http
 import zio.ZIO
 
 object HttpApp {
+  def apply[R, E](self: HttpApp[R, E]): HttpApp[R, E] = self
 
   /**
    * Creates an Http app from a function that returns a ZIO
@@ -77,6 +78,8 @@ private[zhttp] trait HttpAppSyntax {
 }
 
 private[zhttp] final class HttpAppOps[R, E](val self: HttpApp[R, E]) extends AnyVal {
+  @deprecated("you no longer need to unwrap an HttpApp", "zio-http 1.0.0.0-RC18")
+  def asHttp: HttpApp[R, E] = self
 
   /**
    * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
