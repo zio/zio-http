@@ -6,7 +6,12 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.{
   SelectorFailureBehavior => JSelectorFailureBehavior,
 }
 import io.netty.handler.ssl.util.{SelfSignedCertificate => JSelfSignedCertificate}
-import io.netty.handler.ssl.{ApplicationProtocolConfig => JApplicationProtocolConfig, ApplicationProtocolNames => JApplicationProtocolNames, SslContextBuilder => JSslContextBuilder, SslProvider => JSslProvider}
+import io.netty.handler.ssl.{
+  ApplicationProtocolConfig => JApplicationProtocolConfig,
+  ApplicationProtocolNames => JApplicationProtocolNames,
+  SslContextBuilder => JSslContextBuilder,
+  SslProvider => JSslProvider,
+}
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.server.ServerSSLHandler.ServerSSLOptions
