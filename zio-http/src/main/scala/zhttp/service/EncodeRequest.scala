@@ -13,7 +13,7 @@ trait EncodeRequest {
     val method      = req.method.asJHttpMethod
     val uri         = req.url.path match {
       case Root => "/"
-      case path => path.asString
+      case _    => req.url.relative.asString
     }
     val content     = req.getBodyAsString match {
       case Some(text) => JUnpooled.copiedBuffer(text, HTTP_CHARSET)

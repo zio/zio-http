@@ -24,6 +24,11 @@ final case class URL(
     case abs: URL.Location.Absolute => Option(abs.port)
   }
 
+  private[zhttp] def relative: URL = self.kind match {
+    case URL.Location.Relative => self
+    case _                     => self.copy(kind = URL.Location.Relative)
+  }
+
   def asString: String = URL.asString(self)
 }
 object URL {
