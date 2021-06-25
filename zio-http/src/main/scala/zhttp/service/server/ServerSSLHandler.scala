@@ -8,7 +8,6 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.{
 import io.netty.handler.ssl.{
   ApplicationProtocolConfig => JApplicationProtocolConfig,
   ApplicationProtocolNames => JApplicationProtocolNames,
-  SslContext => JSslContext,
   SslContextBuilder => JSslContextBuilder,
   SslProvider => JSslProvider,
 }
@@ -19,7 +18,7 @@ import javax.net.ssl.KeyManagerFactory
 
 object ServerSSLHandler {
 
-  case class ServerSSLOptions(sslContext: JSslContext, httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect)
+  case class ServerSSLOptions(sslContext: JSslContextBuilder, httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect)
 
   sealed trait SSLHttpBehaviour
 
@@ -33,7 +32,7 @@ object ServerSSLHandler {
 
   }
 
-  def ctxSelfSigned(): JSslContext = {
+  def ctxSelfSigned(): JSslContextBuilder = {
     import io.netty.handler.ssl.util.SelfSignedCertificate
     val ssc = new SelfSignedCertificate
     JSslContextBuilder
@@ -47,14 +46,13 @@ object ServerSSLHandler {
           JApplicationProtocolNames.HTTP_1_1,
         ),
       )
-      .build()
   }
 
   def ctxFromKeystore(
     keyStoreInputStream: InputStream,
     keyStorePassword: String,
     certPassword: String,
-  ): JSslContext = {
+  ): JSslContextBuilder = {
     val keyStore: KeyStore = KeyStore.getInstance("JKS")
     keyStore.load(keyStoreInputStream, keyStorePassword.toCharArray)
     val kmf                = KeyManagerFactory.getInstance("SunX509")
@@ -70,10 +68,9 @@ object ServerSSLHandler {
           JApplicationProtocolNames.HTTP_1_1,
         ),
       )
-      .build()
   }
 
-  def ctxFromCert(certFile: File, keyFile: File): JSslContext = {
+  def ctxFromCert(certFile: File, keyFile: File): JSslContextBuilder = {
     JSslContextBuilder
       .forServer(certFile, keyFile)
       .sslProvider(JSslProvider.JDK)
@@ -85,6 +82,5 @@ object ServerSSLHandler {
           JApplicationProtocolNames.HTTP_1_1,
         ),
       )
-      .build()
   }
 }
