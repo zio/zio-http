@@ -24,7 +24,7 @@ final case class URL(
     case abs: URL.Location.Absolute => Option(abs.port)
   }
 
-  lazy val relative: URL = self.copy(kind = URL.Location.Relative)
+  private[zhttp] def relative: URL = self.copy(kind = URL.Location.Relative)
 
   def asString: String = URL.asString(self)
 }
