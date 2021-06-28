@@ -5,7 +5,7 @@ import io.netty.handler.codec.http2.Http2FrameCodecBuilder
 import io.netty.handler.ssl.{ApplicationProtocolNames, ApplicationProtocolNegotiationHandler}
 import zhttp.core.{JChannelHandler, JHttpObjectAggregator, JHttpServerCodec}
 import zhttp.service.Server.Settings
-import zhttp.service.{HTTP_KEEPALIVE_HANDLER, HTTP_REQUEST_HANDLER, OBJECT_AGGREGATOR, SERVER_CODEC_HANDLER}
+import zhttp.service._
 final case class Http2OrHttpHandler[R](
   httpH: JChannelHandler,
   http2H: JChannelHandler,
@@ -14,7 +14,9 @@ final case class Http2OrHttpHandler[R](
   @throws[Exception]
   override protected def configurePipeline(ctx: ChannelHandlerContext, protocol: String): Unit = {
     if (ApplicationProtocolNames.HTTP_2 == protocol) {
-      ctx.pipeline.addLast(Http2FrameCodecBuilder.forServer().build(), http2H)
+      ctx.pipeline
+        .addLast(HTTP2_SERVER_CODEC_HANDLER, Http2FrameCodecBuilder.forServer().build())
+        .addLast(HTTP2_REQUEST_HANDLER, http2H)
       ()
     } else if (ApplicationProtocolNames.HTTP_1_1 == protocol) {
       ctx.pipeline

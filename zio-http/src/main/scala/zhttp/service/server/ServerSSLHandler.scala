@@ -1,15 +1,18 @@
 package zhttp.service.server
 
+import io.netty.handler.codec.http2.Http2SecurityUtil
 import io.netty.handler.ssl.ApplicationProtocolConfig.{
-  Protocol => JProtocol,
-  SelectedListenerFailureBehavior => JSelectedListenerFailureBehavior,
-  SelectorFailureBehavior => JSelectorFailureBehavior,
+  Protocol,
+  SelectedListenerFailureBehavior,
+  SelectorFailureBehavior,
 }
 import io.netty.handler.ssl.{
   ApplicationProtocolConfig => JApplicationProtocolConfig,
   ApplicationProtocolNames => JApplicationProtocolNames,
+  SslContext => JSslContext,
   SslContextBuilder => JSslContextBuilder,
   SslProvider => JSslProvider,
+  SupportedCipherSuiteFilter,
 }
 
 import java.io.{File, InputStream}
@@ -41,14 +44,6 @@ object ServerSSLHandler {
     JSslContextBuilder
       .forServer(ssc.certificate(), ssc.privateKey())
       .sslProvider(JSslProvider.JDK)
-      .applicationProtocolConfig(
-        new JApplicationProtocolConfig(
-          JProtocol.ALPN,
-          JSelectorFailureBehavior.NO_ADVERTISE,
-          JSelectedListenerFailureBehavior.ACCEPT,
-          JApplicationProtocolNames.HTTP_1_1,
-        ),
-      )
   }
 
   def ctxFromKeystore(
@@ -63,27 +58,42 @@ object ServerSSLHandler {
     JSslContextBuilder
       .forServer(kmf)
       .sslProvider(JSslProvider.JDK)
-      .applicationProtocolConfig(
-        new JApplicationProtocolConfig(
-          JProtocol.ALPN,
-          JSelectorFailureBehavior.NO_ADVERTISE,
-          JSelectedListenerFailureBehavior.ACCEPT,
-          JApplicationProtocolNames.HTTP_1_1,
-        ),
-      )
   }
 
   def ctxFromCert(certFile: File, keyFile: File): JSslContextBuilder = {
     JSslContextBuilder
       .forServer(certFile, keyFile)
       .sslProvider(JSslProvider.JDK)
-      .applicationProtocolConfig(
-        new JApplicationProtocolConfig(
-          JProtocol.ALPN,
-          JSelectorFailureBehavior.NO_ADVERTISE,
-          JSelectedListenerFailureBehavior.ACCEPT,
-          JApplicationProtocolNames.HTTP_1_1,
-        ),
-      )
+  }
+
+  def build(serverSSLOptions: ServerSSLOptions, enableHttp2: Boolean): JSslContext = {
+    if (serverSSLOptions == null) null
+    else {
+      if (enableHttp2 == true) {
+        serverSSLOptions.sslContext
+          .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
+          .applicationProtocolConfig(
+            new JApplicationProtocolConfig(
+              Protocol.ALPN,
+              SelectorFailureBehavior.NO_ADVERTISE,
+              SelectedListenerFailureBehavior.ACCEPT,
+              JApplicationProtocolNames.HTTP_2,
+              JApplicationProtocolNames.HTTP_1_1,
+            ),
+          )
+          .build()
+      } else {
+        serverSSLOptions.sslContext
+          .applicationProtocolConfig(
+            new JApplicationProtocolConfig(
+              Protocol.ALPN,
+              SelectorFailureBehavior.NO_ADVERTISE,
+              SelectedListenerFailureBehavior.ACCEPT,
+              JApplicationProtocolNames.HTTP_1_1,
+            ),
+          )
+          .build()
+      }
+    }
   }
 }
