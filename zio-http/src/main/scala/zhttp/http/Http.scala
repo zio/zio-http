@@ -216,7 +216,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   def tapAllM[R1 <: R, E1 >: E](
     f: E => ZIO[R1, E1, Any],
     g: B => ZIO[R1, E1, Any],
-    h: Unit => ZIO[R1, E1, Any],
+    h: ZIO[R1, E1, Any],
   ): Http[R1, E1, A, B] =
     tapAll(
       e => Http.fromEffect(f(e)),
