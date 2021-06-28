@@ -1,24 +1,23 @@
 package zhttp.service.server
 import io.netty.buffer.Unpooled
-import io.netty.buffer.Unpooled.{copiedBuffer, unreleasableBuffer}
 import io.netty.channel.{ChannelDuplexHandler, ChannelHandlerContext}
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import io.netty.handler.codec.http2._
-import io.netty.util.CharsetUtil
-import zhttp.core.{JByteBuf, JChannelHandlerContext}
+import zhttp.core.{JByteBuf, JChannelHandlerContext, JSharable}
 import zhttp.http.Status.OK
 import zhttp.http.{HttpError, HttpResult, Response, SilentResponse, _}
 import zhttp.service.Server.Settings
 import zhttp.service.{ChannelFuture, HttpMessageCodec, UnsafeChannelExecutor, WEB_SOCKET_HANDLER}
 import zio.Exit
-class Http2Handler[R](
+
+@JSharable
+final case class Http2ServerRequestHandler[R](
                        zExec: UnsafeChannelExecutor[R],
                        settings: Settings[R, Throwable],
                      ) extends ChannelDuplexHandler with HttpMessageCodec{
-  val RESPONSE_BYTES: JByteBuf = unreleasableBuffer(copiedBuffer("Hello Woorld", CharsetUtil.UTF_8))
+
   @throws[Exception]
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    println("exceptionCaught")
     super.exceptionCaught(ctx, cause)
     cause.printStackTrace()
     ctx.close
@@ -41,7 +40,6 @@ class Http2Handler[R](
    */
   @throws[Exception]
   private def onDataRead(ctx: ChannelHandlerContext, data: Http2DataFrame): Unit = {
-    println("onDataRead")
     val stream = data.stream
     if (data.isEndStream) {
       sendResponse(ctx, stream, data.content)
@@ -55,24 +53,21 @@ class Http2Handler[R](
   }
   @throws[Exception]
   private def onHeadersRead(ctx: ChannelHandlerContext, headers: Http2HeadersFrame): Unit = {
-    println("onHeaerRead")
-    println(headers)
-
     if (headers.isEndStream) {
       executeAsync(ctx,headers){
         case res @ Response.HttpResponse(_, _, content) =>
           ctx.write(new DefaultHttp2HeadersFrame(encodeResponse( res)).stream(headers.stream()), ctx.channel().voidPromise())
           content match {
-            case HttpData.StreamData(data)   =>
-              zExec.unsafeExecute_(ctx) {
+            case HttpData.StreamData(data)   => zExec.unsafeExecute_(ctx) {
                 for {
                   _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(  new DefaultHttp2DataFrame(Unpooled.copiedBuffer(c.toArray)).stream(headers.stream())  )))
-                  _ <- ChannelFuture.unit(ctx.writeAndFlush(new DefaultHttp2DataFrame(true)))
+                  _ <- ChannelFuture.unit(ctx.writeAndFlush(new DefaultHttp2DataFrame(true).stream(headers.stream())))
                 } yield ()
               }
             case HttpData.CompleteData(data) =>
               ctx.write(new DefaultHttp2DataFrame(Unpooled.copiedBuffer(data.toArray),true).stream(headers.stream()), ctx.channel().voidPromise())
-            case HttpData.Empty              => ctx.writeAndFlush(new DefaultHttp2DataFrame(true))
+            case HttpData.Empty              =>
+              ctx.write(new DefaultHttp2DataFrame(true).stream(headers.stream()),ctx.channel().voidPromise())
           }
           ()
 
@@ -102,24 +97,25 @@ class Http2Handler[R](
   ): Unit =
     decodeHttp2Header(hh) match {
       case Left(err)  => cb(err.toResponse)
-      case Right(req) =>
-        settings.http.execute(req).evaluate match {
-          case HttpResult.Empty      => cb(Response.fromHttpError(HttpError.NotFound(Path(hh.headers().path().toString))))
-          case HttpResult.Success(a) => cb(a)
+      case Right(req) => {settings.http.execute(req).evaluate match {
+          case HttpResult.Empty => cb(Response.fromHttpError(HttpError.NotFound(Path(hh.headers().path().toString))))
+          case HttpResult.Success(a) => {
+          }
           case HttpResult.Failure(e) => cb(SilentResponse[Throwable].silent(e))
-          case HttpResult.Effect(z)  =>
+          case HttpResult.Effect(z) =>
             zExec.unsafeExecute(ctx, z) {
-              case Exit.Success(res)   => cb(res)
+              case Exit.Success(res) => cb(res)
               case Exit.Failure(cause) =>
                 cause.failureOption match {
                   case Some(Some(e)) => cb(SilentResponse[Throwable].silent(e))
-                  case Some(None)    => cb(Response.fromHttpError(HttpError.NotFound(Path(hh.headers().path().toString))))
-                  case None          => {
+                  case Some(None) => cb(Response.fromHttpError(HttpError.NotFound(Path(hh.headers().path().toString))))
+                  case None => {
                     ctx.close()
                     ()
                   }
                 }
             }
         }
+      }
     }
 }

@@ -4,7 +4,7 @@ import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
 import zhttp.core._
 import zhttp.http.{Status, _}
 import zhttp.service.server.ServerSSLHandler._
-import zhttp.service.server.{LeakDetectionLevel, ServerChannelFactory, ServerChannelInitializer, ServerRequestHandler}
+import zhttp.service.server.{Http2ServerRequestHandler, LeakDetectionLevel, ServerChannelFactory, ServerChannelInitializer, ServerRequestHandler}
 import zio.{ZManaged, _}
 
 sealed trait Server[-R, +E] { self =>
@@ -82,7 +82,8 @@ object Server {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
       httpH           = ServerRequestHandler(zExec, settings)
-      init            = ServerChannelInitializer(httpH, settings,zExec)
+      http2H          = Http2ServerRequestHandler(zExec,settings)
+      init            = ServerChannelInitializer(httpH, http2H, settings)
       serverBootstrap = new JServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.port))
     } yield {

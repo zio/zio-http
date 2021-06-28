@@ -6,24 +6,23 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.{Protocol, SelectedListene
 import io.netty.handler.ssl.{ApplicationProtocolConfig, ApplicationProtocolNames, SupportedCipherSuiteFilter}
 import zhttp.core._
 import zhttp.service.Server.Settings
-import zhttp.service.{HTTP_KEEPALIVE_HANDLER, HTTP_REQUEST_HANDLER, OBJECT_AGGREGATOR, SERVER_CODEC_HANDLER, SSL_HANDLER, UnsafeChannelExecutor}
+import zhttp.service._
+
+import io.netty.handler.codec.http.HttpServerUpgradeHandler.UpgradeCodecFactory
+import io.netty.handler.codec.http2.{Http2CodecUtil, Http2FrameCodecBuilder, Http2ServerUpgradeCodec}
+import io.netty.util.AsciiString
 
 /**
  * Initializes the netty channel with default handlers
  */
 @JSharable
-final case class ServerChannelInitializer[R](httpH: JChannelHandler, settings: Settings[R, Throwable],zExec: UnsafeChannelExecutor[R])
+final case class ServerChannelInitializer[R](httpH: JChannelHandler,http2H: JChannelHandler, settings: Settings[R, Throwable])
     extends JChannelInitializer[JChannel] {
 
-  import io.netty.handler.codec.http.HttpServerUpgradeHandler.UpgradeCodecFactory
-  import io.netty.handler.codec.http2.Http2CodecUtil
-  import io.netty.handler.codec.http2.Http2FrameCodecBuilder
-  import io.netty.handler.codec.http2.Http2ServerUpgradeCodec
-  import io.netty.util.AsciiString
 
   private def upgradeCodecFactory:UpgradeCodecFactory = new HttpServerUpgradeHandler.UpgradeCodecFactory() {
     override def newUpgradeCodec(protocol: CharSequence): Http2ServerUpgradeCodec = if (AsciiString.contentEquals(Http2CodecUtil.HTTP_UPGRADE_PROTOCOL_NAME, protocol))
-      new Http2ServerUpgradeCodec(Http2FrameCodecBuilder.forServer.build, new Http2Handler(zExec,settings)) //TODO: suppy http2 Handler
+      new Http2ServerUpgradeCodec(Http2FrameCodecBuilder.forServer.build, http2H) //TODO: suppy http2 Handler
     else null
   }
 
@@ -60,7 +59,7 @@ final case class ServerChannelInitializer[R](httpH: JChannelHandler, settings: S
               ApplicationProtocolNames.HTTP_2,
               ApplicationProtocolNames.HTTP_1_1,
             )
-            ).build().newHandler(channel.alloc()), Http2OrHttpHandler(httpH,settings,zExec))
+            ).build().newHandler(channel.alloc()), Http2OrHttpHandler(httpH,http2H,settings))
         ()
       }
       else
