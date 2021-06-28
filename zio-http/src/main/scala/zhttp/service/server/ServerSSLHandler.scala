@@ -1,10 +1,10 @@
 package zhttp.service.server
 
-import io.netty.handler.codec.http2.Http2SecurityUtil
+import io.netty.handler.codec.http2.{Http2SecurityUtil => JHttp2SecurityUtil}
 import io.netty.handler.ssl.ApplicationProtocolConfig.{
-  Protocol,
-  SelectedListenerFailureBehavior,
-  SelectorFailureBehavior,
+  Protocol => JProtocol,
+  SelectedListenerFailureBehavior => JSelectedListenerFailureBehavior,
+  SelectorFailureBehavior => JSelectorFailureBehavior,
 }
 import io.netty.handler.ssl.{
   ApplicationProtocolConfig => JApplicationProtocolConfig,
@@ -71,12 +71,12 @@ object ServerSSLHandler {
     else {
       if (enableHttp2 == true) {
         serverSSLOptions.sslContext
-          .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
+          .ciphers(JHttp2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
           .applicationProtocolConfig(
             new JApplicationProtocolConfig(
-              Protocol.ALPN,
-              SelectorFailureBehavior.NO_ADVERTISE,
-              SelectedListenerFailureBehavior.ACCEPT,
+              JProtocol.ALPN,
+              JSelectorFailureBehavior.NO_ADVERTISE,
+              JSelectedListenerFailureBehavior.ACCEPT,
               JApplicationProtocolNames.HTTP_2,
               JApplicationProtocolNames.HTTP_1_1,
             ),
@@ -86,9 +86,9 @@ object ServerSSLHandler {
         serverSSLOptions.sslContext
           .applicationProtocolConfig(
             new JApplicationProtocolConfig(
-              Protocol.ALPN,
-              SelectorFailureBehavior.NO_ADVERTISE,
-              SelectedListenerFailureBehavior.ACCEPT,
+              JProtocol.ALPN,
+              JSelectorFailureBehavior.NO_ADVERTISE,
+              JSelectedListenerFailureBehavior.ACCEPT,
               JApplicationProtocolNames.HTTP_1_1,
             ),
           )

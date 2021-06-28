@@ -1,6 +1,6 @@
 package zhttp.service.server
 
-import io.netty.handler.codec.http.HttpServerKeepAliveHandler
+import io.netty.handler.codec.http.{HttpServerKeepAliveHandler => JHttpServerKeepAliveHandler}
 import io.netty.handler.codec.{ByteToMessageDecoder => JByteToMessageDecoder}
 import io.netty.handler.ssl.{SslHandler => JSslHandler}
 import zhttp.core.{JByteBuf, JChannelHandler, JChannelHandlerContext, JHttpObjectAggregator}
@@ -18,7 +18,7 @@ case class EncryptedMessageFilter[R](httpH: JChannelHandler, settings: Settings[
       context
         .channel()
         .pipeline()
-        .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
+        .addLast(HTTP_KEEPALIVE_HANDLER, new JHttpServerKeepAliveHandler)
         .addLast(OBJECT_AGGREGATOR, new JHttpObjectAggregator(settings.maxRequestSize))
         .addLast(HTTP_REQUEST_HANDLER, httpH)
         .remove(this)

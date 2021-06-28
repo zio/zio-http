@@ -12,7 +12,7 @@ import zio.test.assertM
 
 import javax.net.ssl.SSLHandshakeException
 
-object SSLSpec extends HttpRunnableSpec(666) {
+object SSLSpec extends HttpRunnableSpec(8077) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
   val ssc1      = new JSelfSignedCertificate
@@ -30,19 +30,19 @@ object SSLSpec extends HttpRunnableSpec(666) {
 
   override def spec = suiteM("SSL")(
     Server
-      .make(Server.app(app) ++ Server.port(666) ++ Server.ssl(ServerSSLOptions(serverssl)))
+      .make(Server.app(app) ++ Server.port(8077) ++ Server.ssl(ServerSSLOptions(serverssl)))
       .orDie
       .as(
         List(
           testM("succeed when client has the server certificate") {
             val actual = Client
-              .request("https://localhost:666/success", ClientSSLOptions.CustomSSL(clientssl1))
+              .request("https://localhost:8077/success", ClientSSLOptions.CustomSSL(clientssl1))
               .map(_.status)
             assertM(actual)(equalTo(Status.OK))
           },
           testM("fail with SSLHandshakeException when client doesn't have the server certificate") {
             val actual = Client
-              .request("https://localhost:666/success", ClientSSLOptions.CustomSSL(clientssl2))
+              .request("https://localhost:8077/success", ClientSSLOptions.CustomSSL(clientssl2))
               .map(_.status)
               .catchSome(_.getCause match {
                 case _: SSLHandshakeException => ZIO.succeed("SSLHandshakeException")
@@ -51,13 +51,13 @@ object SSLSpec extends HttpRunnableSpec(666) {
           },
           testM("succeed when client has default SSL") {
             val actual = Client
-              .request("https://localhost:666/success", ClientSSLOptions.DefaultSSL)
+              .request("https://localhost:8077/success", ClientSSLOptions.DefaultSSL)
               .map(_.status)
             assertM(actual)(equalTo(Status.OK))
           },
           testM("Https Redirect when client makes http request") {
             val actual = Client
-              .request("http://localhost:666/success", ClientSSLOptions.CustomSSL(clientssl1))
+              .request("http://localhost:8077/success", ClientSSLOptions.CustomSSL(clientssl1))
               .map(_.status)
             assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
           },
