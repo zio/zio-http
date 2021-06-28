@@ -194,7 +194,7 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
       testM("taps the success") {
         for {
           r <- Ref.make(0)
-          app = Http.succeed(1).tapAll((_ => Http.empty): @nowarn, v => Http.fromEffect(r.set(v)), _ => Http.empty)
+          app = Http.succeed(1).tapAll((_ => Http.empty): @nowarn, v => Http.fromEffect(r.set(v)), Http.empty)
           _   <- app.execute(()).evaluate.asEffect
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -202,7 +202,9 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
       testM("taps the failure") {
         for {
           r <- Ref.make(0)
-          app = Http.fail(1).tapAll(v => Http.fromEffect(r.set(v)), (_ => Http.empty): @nowarn, _ => Http.empty)
+          app = Http
+            .fromEffect(ZIO.fail(1))
+            .tapAll(v => Http.fromEffect(r.set(v)), (_ => Http.empty): @nowarn, Http.empty)
           _   <- app.execute(()).evaluate.asEffect.catchAll(_ => ZIO.unit)
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -211,7 +213,7 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
         for {
           r <- Ref.make(0)
           app = Http.empty
-            .tapAll((_ => Http.empty): @nowarn, (_ => Http.empty): @nowarn, _ => Http.fromEffect(r.set(1)))
+            .tapAll((_ => Http.empty): @nowarn, (_ => Http.empty): @nowarn, Http.fromEffect(r.set(1)))
           _   <- app.execute(()).evaluate.asEffect.catchAll(_ => ZIO.unit)
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -221,7 +223,7 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
       testM("taps the success") {
         for {
           r <- Ref.make(0)
-          app = Http.succeed(1).tapAllM((_ => ZIO.unit): @nowarn, r.set, _ => ZIO.unit)
+          app = Http.succeed(1).tapAllM((_ => ZIO.unit): @nowarn, r.set, ZIO.unit)
           _   <- app.execute(()).evaluate.asEffect
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -229,7 +231,7 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
       testM("taps the failure") {
         for {
           r <- Ref.make(0)
-          app = Http.fail(1).tapAllM(r.set, (_ => ZIO.unit): @nowarn, _ => ZIO.unit)
+          app = Http.fail(1).tapAllM(r.set, (_ => ZIO.unit): @nowarn, ZIO.unit)
           _   <- app.execute(()).evaluate.asEffect.catchAll(_ => ZIO.unit)
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -237,7 +239,7 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
       testM("taps the empty value") {
         for {
           r <- Ref.make(0)
-          app = Http.empty.tapAllM((_ => ZIO.unit): @nowarn, (_ => ZIO.unit): @nowarn, _ => r.set(1))
+          app = Http.empty.tapAllM((_ => ZIO.unit): @nowarn, (_ => ZIO.unit): @nowarn, r.set(1))
           _   <- app.execute(()).evaluate.asEffect.catchAll(_ => ZIO.unit)
           res <- r.get
         } yield assert(res)(equalTo(1))

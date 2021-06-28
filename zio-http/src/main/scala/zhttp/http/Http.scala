@@ -202,12 +202,12 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   def tapAll[R1 <: R, E1 >: E](
     f: E => Http[R1, E1, Any, Any],
     g: B => Http[R1, E1, Any, Any],
-    h: Http[R1, E1, Any, Any],
+    h: => Http[R1, E1, Any, Any],
   ): Http[R1, E1, A, B] =
     self.foldM(
       e => f(e) *> Http.fail(e),
       x => g(x) *> Http.succeed(x),
-      h(()) *> Http.empty,
+      h *> Http.empty,
     )
 
   /**
@@ -216,12 +216,12 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   def tapAllM[R1 <: R, E1 >: E](
     f: E => ZIO[R1, E1, Any],
     g: B => ZIO[R1, E1, Any],
-    h: ZIO[R1, E1, Any],
+    h: => ZIO[R1, E1, Any],
   ): Http[R1, E1, A, B] =
     tapAll(
       e => Http.fromEffect(f(e)),
       x => Http.fromEffect(g(x)),
-      x => Http.fromEffect(h(x)),
+      Http.fromEffect(h),
     )
 
   /**
