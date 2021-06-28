@@ -19,10 +19,10 @@ import zhttp.service._
  */
 @JSharable
 final case class ServerChannelInitializer[R](
-                                              httpH: JChannelHandler,
-                                              http2H: JChannelHandler,
-                                              settings: Settings[R, Throwable],
-                                            ) extends JChannelInitializer[JChannel] {
+  httpH: JChannelHandler,
+  http2H: JChannelHandler,
+  settings: Settings[R, Throwable],
+) extends JChannelInitializer[JChannel] {
 
   private def upgradeCodecFactory: UpgradeCodecFactory = new HttpServerUpgradeHandler.UpgradeCodecFactory() {
     override def newUpgradeCodec(protocol: CharSequence): Http2ServerUpgradeCodec = if (
@@ -40,15 +40,19 @@ final case class ServerChannelInitializer[R](
           .pipeline()
           .addFirst(
             SSL_HANDLER,
-            new OptionalSSLHandler(sslctx.applicationProtocolConfig(
-              new ApplicationProtocolConfig(
-                Protocol.ALPN,
-                SelectorFailureBehavior.NO_ADVERTISE,
-                SelectedListenerFailureBehavior.ACCEPT,
-                ApplicationProtocolNames.HTTP_1_1,
-              ),
-            )
-              .build(), settings.sslOption.httpBehaviour),
+            new OptionalSSLHandler(
+              sslctx
+                .applicationProtocolConfig(
+                  new ApplicationProtocolConfig(
+                    Protocol.ALPN,
+                    SelectorFailureBehavior.NO_ADVERTISE,
+                    SelectedListenerFailureBehavior.ACCEPT,
+                    ApplicationProtocolNames.HTTP_1_1,
+                  ),
+                )
+                .build(),
+              settings.sslOption.httpBehaviour,
+            ),
           )
         ()
       }
@@ -84,7 +88,7 @@ final case class ServerChannelInitializer[R](
       } else {
         import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
         import io.netty.handler.codec.http.{HttpMessage, HttpServerCodec, HttpServerUpgradeHandler}
-        val p = channel.pipeline
+        val p           = channel.pipeline
         val sourceCodec = new HttpServerCodec
         p.addLast(sourceCodec)
         p.addLast(new HttpServerUpgradeHandler(sourceCodec, upgradeCodecFactory))
@@ -93,7 +97,7 @@ final case class ServerChannelInitializer[R](
           override protected def channelRead0(ctx: ChannelHandlerContext, msg: HttpMessage): Unit = { // If this handler is hit then no upgrade has been attempted and the client is just talking HTTP.
             System.err.println("Directly talking: " + msg.protocolVersion + " (no upgrade was attempted)")
             val pipeline = ctx.pipeline
-            val thisCtx = pipeline.context(this)
+            val thisCtx  = pipeline.context(this)
             pipeline
               .addAfter(thisCtx.name(), OBJECT_AGGREGATOR, new JHttpObjectAggregator(settings.maxRequestSize))
               .addAfter(OBJECT_AGGREGATOR, HTTP_REQUEST_HANDLER, httpH)

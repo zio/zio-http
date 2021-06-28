@@ -17,7 +17,8 @@ final case class Http2OrHttpHandler[R](
       ctx.pipeline.addLast(Http2FrameCodecBuilder.forServer().build(), http2H)
       ()
     } else if (ApplicationProtocolNames.HTTP_1_1 == protocol) {
-      ctx.pipeline.addLast(SERVER_CODEC_HANDLER, new JHttpServerCodec)
+      ctx.pipeline
+        .addLast(SERVER_CODEC_HANDLER, new JHttpServerCodec)
         .addLast(HTTP_KEEPALIVE_HANDLER, new JHttpServerKeepAliveHandler)
         .addLast(OBJECT_AGGREGATOR, new JHttpObjectAggregator(settings.maxRequestSize))
         .addLast(HTTP_REQUEST_HANDLER, httpH)
