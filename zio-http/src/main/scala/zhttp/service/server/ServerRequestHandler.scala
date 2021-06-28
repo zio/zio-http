@@ -12,9 +12,9 @@ import zhttp.http.Response.{Decode, DecodeM}
 import zhttp.http._
 import zhttp.service.Server.Settings
 import zhttp.service._
+import zio.UIO
 import zio.stm.TQueue
 import zio.stream.ZStream
-import zio.{Exit, UIO}
 
 /**
  * Helper class with channel methods
@@ -24,37 +24,14 @@ final case class ServerRequestHandler[R, +E](
   zExec: UnsafeChannelExecutor[R],
   settings: Settings[R, Throwable],
 ) extends JSimpleChannelInboundHandler[JHttpRequest](AUTO_RELEASE_REQUEST)
-    with HttpMessageCodec {
+    with HttpMessageCodec
+    with ExecuterHelper[R] {
 
   self =>
 
   /**
    * Tries to release the request byte buffer, ignores if it can not.
    */
-
-  /**
-   * Asynchronously executes the Http app and passes the response to the callback.
-   */
-  private def executeAsync(ctx: JChannelHandlerContext, jReq: JHttpRequest)(
-    cb: Response[R, Throwable, Any] => Unit,
-  ): Unit =
-    settings.http.execute(decodeJRequest(jReq)).evaluate match {
-      case HttpResult.Empty      => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
-      case HttpResult.Success(a) => cb(a)
-      case HttpResult.Failure(e) => cb(SilentResponse[Throwable].silent(e))
-      case HttpResult.Effect(z)  =>
-        zExec.unsafeExecute(ctx, z) {
-          case Exit.Success(res)   => cb(res)
-          case Exit.Failure(cause) =>
-            cause.failureOption match {
-              case Some(Some(e)) => cb(SilentResponse[Throwable].silent(e))
-              case Some(None)    => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
-              case None          =>
-                ctx.close()
-                ()
-            }
-        }
-    }
 
   private def writeContent(ctx: JChannelHandlerContext, content: Content[R, Throwable, Any]) = content match {
     case Content.BufferedContent(data) =>
@@ -98,18 +75,27 @@ final case class ServerRequestHandler[R, +E](
         ()
       case Decode(d, cb)            =>
         d match {
-          case DecodeMap.DecodeComplete => ???
-          case DecodeMap.DecodeBuffered =>
+          case DecodeMap.DecodeComplete => {
+            println("DecodeComplete")
+            val p = ctx.channel().pipeline()
+            p.addAfter(SERVER_CODEC_HANDLER, OBJECT_AGGREGATOR, new JHttpObjectAggregator(settings.maxRequestSize))
+            if (p.get(STREAM_HANDLER) != null) p.remove(STREAM_HANDLER) else ()
+            p.replace(this, COMPLETE_HANDLER, DecodeCompleteHandler[R](zExec, settings, jReq, cb))
+            ()
+          }
+          case DecodeMap.DecodeBuffered => {
+            println("DecodeBuffered")
             zExec.unsafeExecute_(ctx) {
               for {
                 q <- TQueue.bounded[JDefaultHttpContent](8).commit
                 _ <- UIO {
-                  ctx
-                    .channel()
-                    .pipeline()
-                    //                  .addAfter(SERVER_CODEC_HANDLER, CONTINUE_100_HANDLER, new JHttpServerExpectContinueHandler())
-                    .replace(this, STREAM_HANDLER, DecodeBufferedHandler[R](zExec, q))
-
+                  val p = ctx.channel().pipeline()
+                  if (p.get(COMPLETE_HANDLER) != null) p.remove(COMPLETE_HANDLER) else ()
+                  if (p.get(COMPLETE_HANDLER) != null) {
+                    p.remove(COMPLETE_HANDLER)
+                    p.remove(OBJECT_AGGREGATOR)
+                  } else ()
+                  p.replace(this, STREAM_HANDLER, DecodeBufferedHandler[R](zExec, q))
                   ctx
                     .writeAndFlush(
                       new JDefaultFullHttpResponse(jReq.protocolVersion(), HttpResponseStatus.CONTINUE, false),
@@ -127,12 +113,17 @@ final case class ServerRequestHandler[R, +E](
                 }
               } yield ()
             }
+          }
         }
 
       //case Decode(DecodeMap.DecodeComplete, cb) => ???
-      case DecodeM(_, _)            => ???
+      case DecodeM(d, _)            =>
+        d match {
+          case DecodeMap.DecodeComplete => ???
+          case DecodeMap.DecodeBuffered => ???
+        }
     }
-    executeAsync(ctx, jReq)(asyncWriteResponse)
+    executeAsync(zExec, settings, ctx, decodeJRequest(jReq))(asyncWriteResponse)
   }
 
   /**

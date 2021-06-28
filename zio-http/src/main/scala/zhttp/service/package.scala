@@ -11,6 +11,7 @@ package object service {
   private[service] val HTTP_KEEPALIVE_HANDLER = "HTTP_KEEPALIVE"
   private[service] val WEB_SOCKET_HANDLER     = "WEB_SOCKET_HANDLER"
   private[service] val STREAM_HANDLER         = "STREAM_HANDLER"
+  private[service] val COMPLETE_HANDLER       = "COMPLETE_HANDLER"
 
   type ChannelFactory       = Has[JChannelFactory[JChannel]]
   type EventLoopGroup       = Has[JEventLoopGroup]
