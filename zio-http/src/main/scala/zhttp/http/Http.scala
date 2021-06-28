@@ -202,7 +202,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   def tapAll[R1 <: R, E1 >: E](
     f: E => Http[R1, E1, Any, Any],
     g: B => Http[R1, E1, Any, Any],
-    h: Unit => Http[R1, E1, Any, Any],
+    h: Http[R1, E1, Any, Any],
   ): Http[R1, E1, A, B] =
     self.foldM(
       e => f(e) *> Http.fail(e),
