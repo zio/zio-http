@@ -11,6 +11,7 @@ object Response extends ResponseHelpers {
       extends Response[R, E]
       with HasHeaders
       with HeadersHelpers
+      with CookieHelpers
 
   final case class SocketResponse[-R, +E](socket: SocketApp[R, E] = SocketApp.empty) extends Response[R, E]
 }

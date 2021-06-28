@@ -68,4 +68,5 @@ private[zhttp] trait ResponseHelpers {
 
   def status(status: Status): UResponse = http(status)
 
+  def setCookie[M <: Meta](cookie: Cookie[M]): UResponse = http(headers = List(Header.setCookie(cookie)))
 }
