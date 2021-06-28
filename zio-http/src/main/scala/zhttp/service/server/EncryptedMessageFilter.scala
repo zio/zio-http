@@ -23,6 +23,9 @@ case class EncryptedMessageFilter[R](httpH: JChannelHandler, settings: Settings[
         .addLast(HTTP_REQUEST_HANDLER, httpH)
         .remove(this)
       ()
+    } else {
+      context.pipeline().remove(this)
+      ()
     }
   }
 }
