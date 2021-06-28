@@ -27,11 +27,15 @@ final case class Http2ServerRequestHandler[R](
 
   @throws[Exception]
   override def exceptionCaught(ctx: JChannelHandlerContext, cause: Throwable): Unit = {
-    super.exceptionCaught(ctx, cause)
-    cause.printStackTrace()
-    ctx.close
-    ()
+    settings.error match {
+      case Some(v) => zExec.unsafeExecute_(ctx)(v(cause).uninterruptible)
+      case None    => {
+        ctx.fireExceptionCaught(cause)
+        ()
+      }
+    }
   }
+
   @throws[Exception]
   override def channelRead(ctx: JChannelHandlerContext, msg: Any): Unit = {
     if (msg.isInstanceOf[JHttp2HeadersFrame]) onHeadersRead(ctx, msg.asInstanceOf[JHttp2HeadersFrame])
