@@ -51,7 +51,7 @@ object Header {
     val authString    = String.format("%s:%s", username, password)
     val authCB        = Unpooled.wrappedBuffer(authString.getBytes(CharsetUtil.UTF_8))
     val encodedAuthCB = Base64.encode(authCB)
-    val value         = String.format("%s:%s", BasicSchemeName, encodedAuthCB.toString(CharsetUtil.UTF_8))
+    val value         = String.format("%s %s", BasicSchemeName, encodedAuthCB.toString(CharsetUtil.UTF_8))
     Header(JHttpHeaderNames.AUTHORIZATION, value)
   }
 

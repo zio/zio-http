@@ -203,6 +203,13 @@ object HeaderSpec extends DefaultRunnableSpec {
         val found        = headerHolder.getBasicAuthorizationCredentials
         assert(found)(isSome(equalTo((username, password))))
       },
+      test("should decode value from Header.basicHttpAuthorization") {
+        val username    = "username"
+        val password    = "password"
+        val headerValue = Header.basicHttpAuthorization(username, password).value
+        val found       = "Basic dXNlcm5hbWU6cGFzc3dvcmQ="
+        assert(found)(equalTo(headerValue))
+      },
     ),
     suite("getBearerToken")(
       test("should get bearer token") {
