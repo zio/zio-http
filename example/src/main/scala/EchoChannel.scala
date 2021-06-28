@@ -4,7 +4,7 @@ import zhttp.http._
 import zhttp.service.Server
 import zio._
 
-object HelloChannel extends App {
+object EchoChannel extends App {
 
   val app: HttpChannel[Any, Nothing, JByteBuf, JByteBuf] =
     HttpChannel.collect[JByteBuf] {
