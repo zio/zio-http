@@ -12,9 +12,10 @@ import zio.Exit
 
 @JSharable
 final case class Http2ServerRequestHandler[R](
-                       zExec: UnsafeChannelExecutor[R],
-                       settings: Settings[R, Throwable],
-                     ) extends ChannelDuplexHandler with HttpMessageCodec{
+  zExec: UnsafeChannelExecutor[R],
+  settings: Settings[R, Throwable],
+) extends ChannelDuplexHandler
+    with HttpMessageCodec {
 
   @throws[Exception]
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
@@ -35,6 +36,7 @@ final case class Http2ServerRequestHandler[R](
     ctx.flush
     ()
   }
+
   /**
    * If receive a frame with end-of-stream set, send a pre-canned response.
    */
@@ -43,8 +45,7 @@ final case class Http2ServerRequestHandler[R](
     val stream = data.stream
     if (data.isEndStream) {
       sendResponse(ctx, stream, data.content)
-    }
-    else { // We do not send back the response to the remote-peer, so we need to release it.
+    } else { // We do not send back the response to the remote-peer, so we need to release it.
       data.release
     }
     // Update the flowcontroller
@@ -54,20 +55,33 @@ final case class Http2ServerRequestHandler[R](
   @throws[Exception]
   private def onHeadersRead(ctx: ChannelHandlerContext, headers: Http2HeadersFrame): Unit = {
     if (headers.isEndStream) {
-      executeAsync(ctx,headers){
+      executeAsync(ctx, headers) {
         case res @ Response.HttpResponse(_, _, content) =>
-          ctx.write(new DefaultHttp2HeadersFrame(encodeResponse( res)).stream(headers.stream()), ctx.channel().voidPromise())
+          ctx.write(
+            new DefaultHttp2HeadersFrame(encodeResponse(res)).stream(headers.stream()),
+            ctx.channel().voidPromise(),
+          )
           content match {
-            case HttpData.StreamData(data)   => zExec.unsafeExecute_(ctx) {
+            case HttpData.StreamData(data)   =>
+              zExec.unsafeExecute_(ctx) {
                 for {
-                  _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(  new DefaultHttp2DataFrame(Unpooled.copiedBuffer(c.toArray)).stream(headers.stream())  )))
+                  _ <- data.foreachChunk(c =>
+                    ChannelFuture.unit(
+                      ctx.writeAndFlush(
+                        new DefaultHttp2DataFrame(Unpooled.copiedBuffer(c.toArray)).stream(headers.stream()),
+                      ),
+                    ),
+                  )
                   _ <- ChannelFuture.unit(ctx.writeAndFlush(new DefaultHttp2DataFrame(true).stream(headers.stream())))
                 } yield ()
               }
             case HttpData.CompleteData(data) =>
-              ctx.write(new DefaultHttp2DataFrame(Unpooled.copiedBuffer(data.toArray),true).stream(headers.stream()), ctx.channel().voidPromise())
+              ctx.write(
+                new DefaultHttp2DataFrame(Unpooled.copiedBuffer(data.toArray), true).stream(headers.stream()),
+                ctx.channel().voidPromise(),
+              )
             case HttpData.Empty              =>
-              ctx.write(new DefaultHttp2DataFrame(true).stream(headers.stream()),ctx.channel().voidPromise())
+              ctx.write(new DefaultHttp2DataFrame(true).stream(headers.stream()), ctx.channel().voidPromise())
           }
           ()
 
@@ -83,6 +97,7 @@ final case class Http2ServerRequestHandler[R](
     }
     ()
   }
+
   /**
    * Sends a "Hello World" DATA frame to the client.
    */
@@ -97,19 +112,19 @@ final case class Http2ServerRequestHandler[R](
   ): Unit =
     decodeHttp2Header(hh) match {
       case Left(err)  => cb(err.toResponse)
-      case Right(req) => {settings.http.execute(req).evaluate match {
-          case HttpResult.Empty => cb(Response.fromHttpError(HttpError.NotFound(Path(hh.headers().path().toString))))
-          case HttpResult.Success(a) => {
-          }
+      case Right(req) => {
+        settings.http.execute(req).evaluate match {
+          case HttpResult.Empty      => cb(Response.fromHttpError(HttpError.NotFound(Path(hh.headers().path().toString))))
+          case HttpResult.Success(a) => cb(a)
           case HttpResult.Failure(e) => cb(SilentResponse[Throwable].silent(e))
-          case HttpResult.Effect(z) =>
+          case HttpResult.Effect(z)  =>
             zExec.unsafeExecute(ctx, z) {
-              case Exit.Success(res) => cb(res)
+              case Exit.Success(res)   => cb(res)
               case Exit.Failure(cause) =>
                 cause.failureOption match {
                   case Some(Some(e)) => cb(SilentResponse[Throwable].silent(e))
-                  case Some(None) => cb(Response.fromHttpError(HttpError.NotFound(Path(hh.headers().path().toString))))
-                  case None => {
+                  case Some(None)    => cb(Response.fromHttpError(HttpError.NotFound(Path(hh.headers().path().toString))))
+                  case None          => {
                     ctx.close()
                     ()
                   }

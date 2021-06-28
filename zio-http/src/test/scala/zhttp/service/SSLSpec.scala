@@ -2,7 +2,6 @@ package zhttp.service
 
 import io.netty.handler.ssl.util.{SelfSignedCertificate => JSelfSignedCertificate}
 import io.netty.handler.ssl.{SslContextBuilder => JSslContextBuilder, SslProvider => JSslProvider}
-import javax.net.ssl.SSLHandshakeException
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.server.ServerSSLHandler.ServerSSLOptions
@@ -11,11 +10,13 @@ import zio.ZIO
 import zio.test.Assertion.equalTo
 import zio.test.assertM
 
+import javax.net.ssl.SSLHandshakeException
+
 object SSLSpec extends HttpRunnableSpec(8073) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
-  val ssc1       = new JSelfSignedCertificate
-  val serverssl  = JSslContextBuilder
+  val ssc1      = new JSelfSignedCertificate
+  val serverssl = JSslContextBuilder
     .forServer(ssc1.certificate(), ssc1.privateKey())
     .sslProvider(JSslProvider.JDK)
 

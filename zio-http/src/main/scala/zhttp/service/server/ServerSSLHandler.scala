@@ -18,7 +18,10 @@ import javax.net.ssl.KeyManagerFactory
 
 object ServerSSLHandler {
 
-  case class ServerSSLOptions(sslContext: JSslContextBuilder, httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect)
+  case class ServerSSLOptions(
+    sslContext: JSslContextBuilder,
+    httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect,
+  )
 
   sealed trait SSLHttpBehaviour
 
