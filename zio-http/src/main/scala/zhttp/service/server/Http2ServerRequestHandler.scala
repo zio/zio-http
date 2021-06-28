@@ -88,12 +88,12 @@ final case class Http2ServerRequestHandler[R](
                 } yield ()
               }
             case HttpData.CompleteData(data) =>
-              ctx.write(
-                new JDefaultHttp2DataFrame(JUnpooled.copiedBuffer(data.toArray), true).stream(headers.stream()),
-                ctx.channel().voidPromise(),
+              ctx.writeAndFlush(
+                new JDefaultHttp2DataFrame(JUnpooled.copiedBuffer(data.toArray)).stream(headers.stream()),
               )
-            case HttpData.Empty              =>
-              ctx.write(new JDefaultHttp2DataFrame(true).stream(headers.stream()), ctx.channel().voidPromise())
+              ctx.write(new JDefaultHttp2DataFrame(true).stream(headers.stream()))
+            case HttpData.Empty              => ctx.write(new JDefaultHttp2DataFrame(true).stream(headers.stream()))
+
           }
           ()
 
