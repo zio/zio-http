@@ -121,12 +121,13 @@ object ServerChannelInitializer {
     c: JChannel,
     settings: Settings[R, Throwable],
   ) = if (settings.enableHttp2) {
+
+    //TODO: add an encryptedmessagefilter
     val p           = c.pipeline
     val sourceCodec = new HttpServerCodec
-    println("configuring clear text")
+    p.addLast(EncryptedMessageFilter(httpH, settings))
     p.addLast(SERVER_CODEC_HANDLER, sourceCodec)
     p.addLast(CLEAR_TEXT_HTTP2_HANDLER, new HttpServerUpgradeHandler(sourceCodec, upgradeCodecFactory(http2H)))
-    println("here")
     p.addLast(
       CLEAR_TEXT_HTTP2_FALLBACK_HANDLER,
       new SimpleChannelInboundHandler[HttpMessage]() {
@@ -155,16 +156,10 @@ object ServerChannelInitializer {
   }
 
   private def upgradeCodecFactory(http2H: JChannelHandler): UpgradeCodecFactory = {
-    println("upgradecodec facory")
     new HttpServerUpgradeHandler.UpgradeCodecFactory() {
       override def newUpgradeCodec(protocol: CharSequence): Http2ServerUpgradeCodec = {
-        println(s"protocol=$protocol")
-        if (
-          AsciiString.contentEquals(Http2CodecUtil.HTTP_UPGRADE_PROTOCOL_NAME, protocol)
-        ) {
-          println(s"true for $protocol")
+        if (AsciiString.contentEquals(Http2CodecUtil.HTTP_UPGRADE_PROTOCOL_NAME, protocol))
           new Http2ServerUpgradeCodec(Http2FrameCodecBuilder.forServer.build, http2H)
-        } //TODO: suppy http2 Handler
         else null
       }
     }
