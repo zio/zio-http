@@ -10,7 +10,7 @@ import zhttp.service._
 import java.util
 
 case class EncryptedMessageFilter[R](httpH: JChannelHandler, settings: Settings[R, Throwable])
-    extends JByteToMessageDecoder {
+  extends JByteToMessageDecoder {
   override def decode(context: JChannelHandlerContext, in: JByteBuf, out: util.List[AnyRef]): Unit = {
     if (JSslHandler.isEncrypted(in)) {
       context.channel().pipeline().remove(CLEAR_TEXT_HTTP2_HANDLER)
@@ -22,7 +22,6 @@ case class EncryptedMessageFilter[R](httpH: JChannelHandler, settings: Settings[
         .addLast(OBJECT_AGGREGATOR, new JHttpObjectAggregator(settings.maxRequestSize))
         .addLast(HTTP_REQUEST_HANDLER, httpH)
         .remove(this)
-      ()
       ()
     }
   }
