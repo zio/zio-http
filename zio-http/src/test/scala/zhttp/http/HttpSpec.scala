@@ -6,8 +6,6 @@ import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
 
-import scala.annotation.nowarn
-
 object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
   def spec = suite("Http")(
     suite("flatMap")(
@@ -175,7 +173,7 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
         for {
           r <- Ref.make(0)
           app = Http.fail(1).tapError(v => Http.fromEffect(r.set(v)))
-          _   <- app.execute(()).evaluate.asEffect.catchAll(_ => ZIO.unit)
+          _   <- app.execute(()).evaluate.asEffect.ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
       },
@@ -185,7 +183,7 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
         for {
           r <- Ref.make(0)
           app = Http.fail(1).tapErrorM(r.set)
-          _   <- app.execute(()).evaluate.asEffect.catchAll(_ => ZIO.unit)
+          _   <- app.execute(()).evaluate.asEffect.ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
       },
@@ -194,7 +192,8 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
       testM("taps the success") {
         for {
           r <- Ref.make(0)
-          app = Http.succeed(1).tapAll((_ => Http.empty): @nowarn, v => Http.fromEffect(r.set(v)), Http.empty)
+          app = (Http.succeed(1): Http[Any, Any, Any, Int])
+            .tapAll(_ => Http.empty, v => Http.fromEffect(r.set(v)), Http.empty)
           _   <- app.execute(()).evaluate.asEffect
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -202,19 +201,18 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
       testM("taps the failure") {
         for {
           r <- Ref.make(0)
-          app = Http
-            .fromEffect(ZIO.fail(1))
-            .tapAll(v => Http.fromEffect(r.set(v)), (_ => Http.empty): @nowarn, Http.empty)
-          _   <- app.execute(()).evaluate.asEffect.catchAll(_ => ZIO.unit)
+          app = (Http.fail(1): Http[Any, Int, Any, Any])
+            .tapAll(v => Http.fromEffect(r.set(v)), _ => Http.empty, Http.empty)
+          _   <- app.execute(()).evaluate.asEffect.ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
       },
-      testM("taps the empty value") {
+      testM("taps the empty") {
         for {
           r <- Ref.make(0)
-          app = Http.empty
-            .tapAll((_ => Http.empty): @nowarn, (_ => Http.empty): @nowarn, Http.fromEffect(r.set(1)))
-          _   <- app.execute(()).evaluate.asEffect.catchAll(_ => ZIO.unit)
+          app = (Http.empty: Http[Any, Any, Any, Any])
+            .tapAll(_ => Http.empty, _ => Http.empty, Http.fromEffect(r.set(1)))
+          _   <- app.execute(()).evaluate.asEffect.ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
       },
@@ -223,7 +221,7 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
       testM("taps the success") {
         for {
           r <- Ref.make(0)
-          app = Http.succeed(1).tapAllM((_ => ZIO.unit): @nowarn, r.set, ZIO.unit)
+          app = (Http.succeed(1): Http[Any, Any, Any, Int]).tapAllM(_ => ZIO.unit, r.set, ZIO.unit)
           _   <- app.execute(()).evaluate.asEffect
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -231,16 +229,17 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
       testM("taps the failure") {
         for {
           r <- Ref.make(0)
-          app = Http.fail(1).tapAllM(r.set, (_ => ZIO.unit): @nowarn, ZIO.unit)
-          _   <- app.execute(()).evaluate.asEffect.catchAll(_ => ZIO.unit)
+          app = (Http.fail(1): Http[Any, Int, Any, Any]).tapAllM(r.set, _ => ZIO.unit, ZIO.unit)
+          _   <- app.execute(()).evaluate.asEffect.ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
       },
-      testM("taps the empty value") {
+      testM("taps the empty") {
         for {
           r <- Ref.make(0)
-          app = Http.empty.tapAllM((_ => ZIO.unit): @nowarn, (_ => ZIO.unit): @nowarn, r.set(1))
-          _   <- app.execute(()).evaluate.asEffect.catchAll(_ => ZIO.unit)
+          app = (Http.empty: Http[Any, Any, Any, Any])
+            .tapAllM(_ => ZIO.unit, _ => ZIO.unit, r.set(1))
+          _   <- app.execute(()).evaluate.asEffect.ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
       },
