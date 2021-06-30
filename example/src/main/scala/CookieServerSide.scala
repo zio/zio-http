@@ -4,10 +4,17 @@ import zio._
 
 object CookieServerSide extends App {
 
-  val app: HttpApp[Any, Nothing] = HttpApp.collect { case Method.GET -> Root / "cookie" =>
-    Response.setCookie(
-      Cookie("abc", "value", Some(Meta(Some("Thu, 31 Oct 2021 07:28:00 GMT"), None, Some(Path("/cookie")), true, true))),
-    )
+  val app: HttpApp[Any, Nothing] = HttpApp.collect {
+    case Method.GET -> Root / "addCookie"    =>
+      Response.addCookie(
+        Cookie(
+          "abc",
+          "value",
+          Some(Meta(Some("Thu, 31 Oct 2021 07:28:00 GMT"), None, Some(Path("/cookie")), true, true)),
+        ),
+      )
+    case Method.GET -> Root / "removeCookie" =>
+      Response.removeCookie("abc")
   }
 
   // Run it like any simple app

@@ -56,6 +56,9 @@ object Header {
   def setCookie[M <: Meta](cookie: Cookie[M]): Header =
     Header(JHttpHeaderNames.SET_COOKIE, cookie.fromCookie)
 
+  def removeCookie[M <: Meta](cookie: String): Header =
+    Header(JHttpHeaderNames.SET_COOKIE, Cookie(cookie, "", None).fromCookie)
+
   def basicHttpAuthorization(username: String, password: String): Header = {
     val authString    = String.format("%s:%s", username, password)
     val authCB        = Unpooled.wrappedBuffer(authString.getBytes(CharsetUtil.UTF_8))
