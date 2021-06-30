@@ -1,32 +1,41 @@
-import io.netty.buffer.{ByteBuf => JByteBuf}
+import io.netty.handler.codec.http.{
+  DefaultHttpHeaders => JDefaultHttpHeaders,
+  DefaultHttpResponse => JDefaultHttpResponse,
+  HttpContent => JHttpContent,
+  HttpHeaderNames => JHttpHeaderNames,
+  HttpHeaderValues => JHttpHeaderValues,
+  HttpObject => JHttpObject,
+  HttpRequest => JHttpRequest,
+  HttpResponseStatus => JHttpResponseStatus,
+  HttpVersion => JHttpVersion,
+}
 import zhttp.channel._
-import zhttp.http._
 import zhttp.service.Server
 import zio._
 
 object EchoChannel extends App {
+  // Echo File
 
-  val app: HttpChannel[Any, Nothing, JByteBuf, JByteBuf] =
-    HttpChannel.collect[JByteBuf] {
+  val eg =
+    HttpChannel.collect[JHttpObject] {
+      case Event.Read(_: JHttpRequest) =>
+        Operation.write(
+          new JDefaultHttpResponse(
+            JHttpVersion.HTTP_1_1,
+            JHttpResponseStatus.OK,
+            new JDefaultHttpHeaders().set(JHttpHeaderNames.TRANSFER_ENCODING, JHttpHeaderValues.CHUNKED),
+          ),
+        )
 
-      case Event.Request(_, _, _) =>
-        Operation.response(Status.OK, Header.transferEncodingChunked :: Nil) ++
-          Operation.flush ++
-          Operation.read
-
-      case Event.Content(data) =>
-        Operation.content(data)
+      case Event.Read(data: JHttpContent) =>
+        Operation.write(data)
 
       case Event.Complete =>
-        Operation.flush ++
-          Operation.read
-
-      case Event.End(data) =>
-        Operation.end(data) ++
-          Operation.flush
+        Operation.flush ++ Operation.read
     }
 
-  // Run it like any simple app
+  val app = eg
+
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     Server.start0(8090, app).exitCode
   }
