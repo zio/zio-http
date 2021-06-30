@@ -169,6 +169,62 @@ sealed trait Http[-R, +E, -A, +B] { self =>
     self.flatMap(Http.fromEffect(_))
 
   /**
+   * Returns an Http that peeks at the success of this Http.
+   */
+  def tap[R1 <: R, E1 >: E, A1 <: A](f: B => Http[R1, E1, Any, Any]): Http[R1, E1, A, B] =
+    self.flatMap(v => f(v).as(v))
+
+  /**
+   * Returns an Http that effectfully peeks at the success of this Http.
+   */
+  def tapM[R1 <: R, E1 >: E](f: B => ZIO[R1, E1, Any]): Http[R1, E1, A, B] =
+    self.tap(v => Http.fromEffect(f(v)))
+
+  /**
+   * Returns an Http that peeks at the failure of this Http.
+   */
+  def tapError[R1 <: R, E1 >: E](f: E => Http[R1, E1, Any, Any]): Http[R1, E1, A, B] =
+    self.foldM(
+      e => f(e) *> Http.fail(e),
+      Http.succeed,
+      Http.empty,
+    )
+
+  /**
+   * Returns an Http that effectfully peeks at the failure of this Http.
+   */
+  def tapErrorM[R1 <: R, E1 >: E](f: E => ZIO[R1, E1, Any]): Http[R1, E1, A, B] =
+    self.tapError(e => Http.fromEffect(f(e)))
+
+  /**
+   * Returns an Http that peeks at the success, failed or empty value of this Http.
+   */
+  def tapAll[R1 <: R, E1 >: E](
+    f: E => Http[R1, E1, Any, Any],
+    g: B => Http[R1, E1, Any, Any],
+    h: Http[R1, E1, Any, Any],
+  ): Http[R1, E1, A, B] =
+    self.foldM(
+      e => f(e) *> Http.fail(e),
+      x => g(x) *> Http.succeed(x),
+      h *> Http.empty,
+    )
+
+  /**
+   * Returns an Http that effectfully peeks at the success, failed or empty value of this Http.
+   */
+  def tapAllM[R1 <: R, E1 >: E](
+    f: E => ZIO[R1, E1, Any],
+    g: B => ZIO[R1, E1, Any],
+    h: ZIO[R1, E1, Any],
+  ): Http[R1, E1, A, B] =
+    tapAll(
+      e => Http.fromEffect(f(e)),
+      x => Http.fromEffect(g(x)),
+      Http.fromEffect(h),
+    )
+
+  /**
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
   final private[zhttp] def execute(a: A): HttpResult[R, E, B] = {
