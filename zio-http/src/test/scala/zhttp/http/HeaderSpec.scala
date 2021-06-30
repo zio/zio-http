@@ -236,5 +236,31 @@ object HeaderSpec extends DefaultRunnableSpec {
         assert(found)(isNone)
       },
     ),
+    suite("Cookie")(
+      test("should return set-cookie") {
+        val cookie       = Cookie("abc", "value")
+        val headerHolder = HeadersHolder(List(Header.setCookie(cookie)))
+        val found        = headerHolder.getSetCookie
+        assert(found)(isSome(equalTo(cookie.fromCookie)))
+      },
+      test("should return cookie") {
+        val cookie       = Cookie("abc", "value")
+        val headerHolder = HeadersHolder(List(Header.cookie(cookie)))
+        val found        = headerHolder.getCookie
+        assert(found)(isSome(equalTo(cookie.fromCookie)))
+      },
+      test("should return cookies") {
+        val cookie1      = Cookie("abc", "value1")
+        val cookie2      = Cookie("xyz", "value2")
+        val headerHolder = HeadersHolder(List(Header.cookies(List(cookie1, cookie2))))
+        val found        = headerHolder.getCookie
+        assert(found)(isSome(equalTo(s"""${cookie1.fromCookie};${cookie2.fromCookie}""")))
+      },
+      test("should remove set-cookie") {
+        val headerHolder = HeadersHolder(List(Header.removeCookie("abc")))
+        val found        = headerHolder.getSetCookie
+        assert(found)(isSome(equalTo("abc=")))
+      },
+    ),
   )
 }
