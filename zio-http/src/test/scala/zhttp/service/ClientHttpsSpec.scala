@@ -2,8 +2,11 @@ package zhttp.service
 
 import io.netty.handler.codec.{DecoderException => JDecoderException}
 import io.netty.handler.ssl.{SslContextBuilder => JSslContextBuilder}
+import zhttp.http.Status
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zio.test.Assertion.{anything, fails, isSubtype}
+import zio.duration.durationInt
+import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
+import zio.test.TestAspect.timeout
 import zio.test.assertM
 
 import java.io._
@@ -34,14 +37,23 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
       val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", sslOption)
       assertM(actual)(anything)
     },
-    testM("should throw DecoderException for handshake failure") {
+    testM("should respond as Bad Request") {
       val actual = Client
         .request(
           "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
           sslOption,
         )
+        .map(_.status)
+      assertM(actual)(equalTo(Status.BAD_REQUEST))
+    },
+    testM("should throw DecoderException for handshake failure") {
+      val actual = Client
+        .request(
+          "https://untrusted-root.badssl.com/",
+          sslOption,
+        )
         .run
       assertM(actual)(fails(isSubtype[JDecoderException](anything)))
-    },
+    } @@ timeout(1.second),
   ).provideCustomLayer(env)
 }
