@@ -2,10 +2,13 @@ import zhttp.http._
 import zhttp.service._
 import zio._
 
+/**
+ * Example to make app using cookies
+ */
 object CookieServerSide extends App {
 
   val app: HttpApp[Any, Nothing] = HttpApp.collect {
-    case Method.GET -> Root / "addCookie"    =>
+    case Method.GET -> Root / "cookie"            =>
       Response.addCookie(
         Cookie(
           "abc",
@@ -13,7 +16,7 @@ object CookieServerSide extends App {
           Some(Meta(Some("Thu, 31 Oct 2021 07:28:00 GMT"), None, Some(Path("/cookie")), true, true)),
         ),
       )
-    case Method.GET -> Root / "removeCookie" =>
+    case Method.GET -> Root / "cookie" / "remove" =>
       Response.removeCookie("abc")
   }
 
