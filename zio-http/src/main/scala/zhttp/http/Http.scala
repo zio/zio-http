@@ -362,13 +362,6 @@ object Http {
    */
   def route[A]: Http.MakeRoute[A] = Http.MakeRoute(())
 
-  def sequence[R, E, A, B](list: List[Http[R, E, A, B]]): Http[R, E, A, List[B]] =
-    list match {
-      case Nil          => Http.empty
-      case head :: Nil  => head.map(List(_))
-      case head :: tail => head.flatMap(b => sequence(tail).map(l => b :: l))
-    }
-
   final class MkTotal[A](val unit: Unit) extends AnyVal {
     def apply[B](f: A => B): Http[Any, Nothing, A, B] = Http.identity[A].map(f)
   }
