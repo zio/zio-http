@@ -1,40 +1,49 @@
 import io.netty.handler.codec.http.{
   DefaultHttpHeaders => JDefaultHttpHeaders,
   DefaultHttpResponse => JDefaultHttpResponse,
-  HttpContent => JHttpContent,
   HttpHeaderNames => JHttpHeaderNames,
-  HttpHeaderValues => JHttpHeaderValues,
   HttpObject => JHttpObject,
   HttpRequest => JHttpRequest,
   HttpResponseStatus => JHttpResponseStatus,
-  HttpVersion => JHttpVersion,
+  LastHttpContent => JLastHttpContent,
 }
 import zhttp.channel._
+import zhttp.http._
 import zhttp.service.Server
 import zio._
 
 object EchoChannel extends App {
   // Echo File
 
-  val eg =
-    HttpChannel.collect[JHttpObject] {
-      case Event.Read(_: JHttpRequest) =>
-        Operation.write(
-          new JDefaultHttpResponse(
-            JHttpVersion.HTTP_1_1,
-            JHttpResponseStatus.OK,
-            new JDefaultHttpHeaders().set(JHttpHeaderNames.TRANSFER_ENCODING, JHttpHeaderValues.CHUNKED),
-          ),
-        )
+  val health = Http.collect[JHttpRequest] {
+    case req if req.uri() == "/health" =>
+      new JDefaultHttpResponse(
+        req.protocolVersion(),
+        JHttpResponseStatus.OK,
+        new JDefaultHttpHeaders().set(JHttpHeaderNames.CONTENT_LENGTH, "0"),
+      )
+  }
 
-      case Event.Read(data: JHttpContent) =>
-        Operation.write(data)
+  val notFound = Http.collect[JHttpRequest]({ case req =>
+    new JDefaultHttpResponse(
+      req.protocolVersion(),
+      JHttpResponseStatus.NOT_FOUND,
+      new JDefaultHttpHeaders().set(JHttpHeaderNames.CONTENT_LENGTH, "0"),
+    )
+  })
 
-      case Event.Complete =>
-        Operation.flush ++ Operation.read
+  val eg2 = (health +++ notFound)
+    .contraFlatMap[Event[JHttpObject]] {
+      case Event.Read(data: JHttpRequest) => Http.succeed(data)
+      case _                              => Http.empty
+    }
+    .map { data =>
+      Operation.write(data) ++
+        Operation.write(JLastHttpContent.EMPTY_LAST_CONTENT) ++
+        Operation.flush
     }
 
-  val app = eg
+  val app = HttpChannel(eg2)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     Server.start0(8090, app).exitCode

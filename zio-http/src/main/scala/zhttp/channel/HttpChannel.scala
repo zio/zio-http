@@ -41,12 +41,12 @@ object HttpChannel {
       override def channelReadComplete(ctx: JChannelHandlerContext): Unit =
         execute(ctx, Event.Complete)
 
-      override def channelRead(ctx: JChannelHandlerContext, msg: Any): Unit =
+      override def channelRead(ctx: JChannelHandlerContext, msg: Any): Unit = {
         execute(ctx, Event.Read(msg.asInstanceOf[JHttpObject]))
+      }
 
       override def channelRegistered(ctx: JChannelHandlerContext): Unit = {
-        ctx.channel().config().setAutoRead(false)
-        ctx.read()
+        execute(ctx, Event.Register)
         ()
       }
     }
