@@ -1,7 +1,6 @@
 import io.circe.generic.auto._
 import io.circe.parser._
 import io.circe.syntax._
-import io.circe.{HCursor, Json}
 import zhttp.http._
 import zhttp.service.Server
 import zio._
@@ -13,33 +12,27 @@ object JsonWebService extends App {
 
   sealed trait UserRequest
   object UserRequest  {
-    case class Create(user: User, ref: Ref[List[User]]) extends UserRequest
-    case class Show(ref: Ref[List[User]])               extends UserRequest
-    case object BadRequest                              extends UserRequest
+    case class Create(user: User) extends UserRequest
+    case object Show              extends UserRequest
+    case object BadRequest        extends UserRequest
   }
   sealed trait UserResponse
   object UserResponse {
     case class Show(users: List[User]) extends UserResponse
     case class Create(user: User)      extends UserResponse
   }
-
   final case class User(id: Long, name: String)
 
-  def getUser(jsonString: String): User = {
-    val json: Json      = parse(jsonString).getOrElse(null)
-    val cursor: HCursor = json.hcursor
-    val id              = cursor.downField("id").as[Long]
-    val name            = cursor.downField("name").as[String]
-    User(id.getOrElse(0), name.getOrElse(""))
-  }
-  val userApp: Http[Any, Nothing, UserRequest, UserResponse] =
+  def getUser(jsonString: String): User = decode[User](jsonString).getOrElse(null)
+
+  def userApp(ref: Ref[List[User]]): Http[Any, Nothing, UserRequest, UserResponse] =
     Http.collectM[UserRequest]({
-      case UserRequest.Show(ref)         => {
+      case UserRequest.Show         => {
         for {
           users <- ref.get
         } yield UserResponse.Show(users)
       }
-      case UserRequest.Create(user, ref) => {
+      case UserRequest.Create(user) => {
         for {
           users <- ref.get
           _     <- ref.set(users :+ user)
@@ -48,11 +41,11 @@ object JsonWebService extends App {
     })
 
   // Create HTTP route
-  def app(ref: Ref[List[User]]): Http[Any, Nothing, Request, UResponse] = userApp
+  def app(ref: Ref[List[User]]): Http[Any, Nothing, Request, UResponse] = userApp(ref)
     .contramap[Request] {
-      case Method.GET -> Root / "show"          => UserRequest.Show(ref)
+      case Method.GET -> Root / "show"          => UserRequest.Show
       case req @ Method.POST -> Root / "create" => {
-        UserRequest.Create(getUser(req.getBodyAsString.get), ref)
+        UserRequest.Create(getUser(req.getBodyAsString.get))
       }
       case _                                    => UserRequest.BadRequest
     }
@@ -63,9 +56,8 @@ object JsonWebService extends App {
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    val ref: UIO[Ref[List[User]]] = Ref.make(List[User]())
     for {
-      r <- ref
+      r <- Ref.make(List[User]())
       s <- Server.start(8090, HttpApp(app(r))).exitCode
     } yield s
   }
