@@ -1,7 +1,6 @@
 package zhttp.channel
 
 import io.netty.channel.{ChannelHandlerContext => JChannelHandlerContext}
-import io.netty.handler.codec.http.{HttpObject => JHttpObject}
 
 /**
  * Domain to model all the main operations that are available on a Channel
@@ -42,6 +41,4 @@ object Operation           {
   case class Combine[A](self: Operation[A], other: Operation[A]) extends Operation[A]
   case object StartAutoRead                                      extends Operation[Nothing]
   case object StopAutoRead                                       extends Operation[Nothing]
-
-  type ServerResponse = JHttpObject
 }

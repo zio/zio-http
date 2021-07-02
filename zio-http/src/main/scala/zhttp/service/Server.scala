@@ -1,9 +1,8 @@
 package zhttp.service
 
+import io.netty.handler.codec.http.{HttpObject => JHttpObject}
 import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
-import zhttp.channel.Event.ServerRequest
 import zhttp.channel.HttpChannel
-import zhttp.channel.Operation.ServerResponse
 import zhttp.core._
 import zhttp.http.{Status, _}
 import zhttp.service.server.ServerSSLHandler._
@@ -11,7 +10,6 @@ import zhttp.service.server.{LeakDetectionLevel, ServerChannelFactory, ServerCha
 import zio.{ZManaged, _}
 
 sealed trait Server[-R, +E] { self =>
-
   import Server._
 
   def ++[R1 <: R, E1 >: E](other: Server[R1, E1]): Server[R1, E1] =
@@ -36,6 +34,9 @@ sealed trait Server[-R, +E] { self =>
 }
 
 object Server {
+  type ServerResponse = JHttpObject
+  type ServerRequest  = JHttpObject
+
   private[zhttp] final case class Settings[-R, +E](
     http: HttpApp[R, E] = HttpApp.empty(Status.NOT_FOUND),
     port: Int = 8080,
