@@ -1,6 +1,6 @@
 package zhttp.service
 
-import io.netty.handler.codec.http.{HttpObject => JHttpObject}
+import io.netty.handler.codec.http.{HttpContent => JHttpContent, HttpObject => JHttpObject}
 import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
 import zhttp.channel.HttpChannel
 import zhttp.core._
@@ -34,8 +34,8 @@ sealed trait Server[-R, +E] { self =>
 }
 
 object Server {
-  type ServerResponse = JHttpObject
-  type ServerRequest  = JHttpObject
+  // TODO: Rename to HttpApp
+  type HttpDeploy[-R, +E] = Http[R, E, JHttpRequest, HttpChannel[Any, Nothing, JHttpContent, JHttpObject]]
 
   private[zhttp] final case class Settings[-R, +E](
     http: HttpApp[R, E] = HttpApp.empty(Status.NOT_FOUND),
@@ -44,28 +44,28 @@ object Server {
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
     error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
     sslOption: ServerSSLOptions = null,
-    channel: HttpChannel[R, E, ServerRequest, ServerResponse] = HttpChannel.empty,
+    channel: HttpDeploy[R, E] = Http.empty,
   )
 
-  private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])                    extends Server[R, E]
-  private final case class Port(port: Int)                                                          extends UServer
-  private final case class LeakDetection(level: LeakDetectionLevel)                                 extends UServer
-  private final case class MaxRequestSize(size: Int)                                                extends UServer
-  private final case class App[R, E](http: HttpApp[R, E])                                           extends Server[R, E]
-  private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit])               extends Server[R, Nothing]
-  private final case class Ssl(sslOptions: ServerSSLOptions)                                        extends UServer
-  private final case class Channel[R, E](channel: HttpChannel[R, E, ServerRequest, ServerResponse]) extends Server[R, E]
+  private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
+  private final case class Port(port: Int)                                            extends UServer
+  private final case class LeakDetection(level: LeakDetectionLevel)                   extends UServer
+  private final case class MaxRequestSize(size: Int)                                  extends UServer
+  private final case class App[R, E](http: HttpApp[R, E])                             extends Server[R, E]
+  private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
+  private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
+  private final case class Channel[R, E](channel: HttpDeploy[R, E])                   extends Server[R, E]
 
-  def app[R, E](http: HttpApp[R, E]): Server[R, E]                                           = Server.App(http)
-  def maxRequestSize(size: Int): UServer                                                     = Server.MaxRequestSize(size)
-  def port(int: Int): UServer                                                                = Server.Port(int)
-  def channel[R, E](channel: HttpChannel[R, E, ServerRequest, ServerResponse]): Server[R, E] = Server.Channel(channel)
-  def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing]         = Server.Error(errorHandler)
-  def ssl(sslOptions: ServerSSLOptions): UServer                                             = Server.Ssl(sslOptions)
-  val disableLeakDetection: UServer                                                          = LeakDetection(LeakDetectionLevel.DISABLED)
-  val simpleLeakDetection: UServer                                                           = LeakDetection(LeakDetectionLevel.SIMPLE)
-  val advancedLeakDetection: UServer                                                         = LeakDetection(LeakDetectionLevel.ADVANCED)
-  val paranoidLeakDetection: UServer                                                         = LeakDetection(LeakDetectionLevel.PARANOID)
+  def app[R, E](http: HttpApp[R, E]): Server[R, E]                                   = Server.App(http)
+  def maxRequestSize(size: Int): UServer                                             = Server.MaxRequestSize(size)
+  def port(int: Int): UServer                                                        = Server.Port(int)
+  def channel[R, E](channel: HttpDeploy[R, E]): Server[R, E]                         = Server.Channel(channel)
+  def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
+  def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
+  val disableLeakDetection: UServer                                                  = LeakDetection(LeakDetectionLevel.DISABLED)
+  val simpleLeakDetection: UServer                                                   = LeakDetection(LeakDetectionLevel.SIMPLE)
+  val advancedLeakDetection: UServer                                                 = LeakDetection(LeakDetectionLevel.ADVANCED)
+  val paranoidLeakDetection: UServer                                                 = LeakDetection(LeakDetectionLevel.PARANOID)
 
   /**
    * Launches the app on the provided port.
@@ -79,7 +79,7 @@ object Server {
 
   def start0[R <: Has[_]](
     port: Int,
-    ch: HttpChannel[R, Throwable, ServerRequest, ServerResponse],
+    ch: HttpDeploy[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
     (Server.port(port) ++ Server.channel(ch)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
