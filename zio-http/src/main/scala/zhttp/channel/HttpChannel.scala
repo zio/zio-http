@@ -26,7 +26,7 @@ object HttpChannel {
     HttpChannel.succeed(Operation.empty)
   def collect[A]: MkHttpChannel[A]                                     =
     new MkHttpChannel(())
-  def echoBody[A]: HttpChannel[Any, Nothing, A, A]                         =
+  def echoBody[A]: HttpChannel[Any, Nothing, A, A]                     =
     HttpChannel(Http.collect[Event[A]] {
       case Read(data) => Operation.write(data)
       case Complete   => Operation.flush ++ Operation.read
