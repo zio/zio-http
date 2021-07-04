@@ -9,30 +9,24 @@ import zio._
 sealed trait Operation[-R, +E, +A] { self =>
   import Operation._
 
-  def map[B](ab: A => B): Operation[R, E, B] = self match {
-    case Write(data) => Write(ab(data))
-    case msg         => msg.asInstanceOf[Operation[R, E, B]]
-  }
-
   def ++[R1 <: R, E1 >: E, A1 >: A](other: Operation[R1, E1, A1]): Operation[R1, E1, A1] =
     Operation.Combine(self, other)
 
-  private[zhttp] def execute(ctx: JChannelHandlerContext): Unit = {
+  private[zhttp] def execute(ctx: JChannelHandlerContext): Unit =
     self match {
-      case Write(data)          => ctx.write(data)
-      case Read                 => ctx.read()
-      case Flush                => ctx.flush()
-      case Close                => ctx.close()
+      case Write(data)          => ctx.write(data): Unit
+      case Read                 => ctx.read(): Unit
+      case Flush                => ctx.flush(): Unit
+      case Close                => ctx.close(): Unit
       case Empty                => ()
-      case StartAutoRead        => ctx.channel().config().setAutoRead(true)
-      case StopAutoRead         => ctx.channel().config().setAutoRead(false)
+      case StartAutoRead        => ctx.channel().config().setAutoRead(true): Unit
+      case StopAutoRead         => ctx.channel().config().setAutoRead(false): Unit
       case Effect(_)            => ???
       case Combine(self, other) => self.execute(ctx); other.execute(ctx)
     }
-    ()
-  }
 }
-object Operation                   {
+
+object Operation {
   def close: Operation[Any, Nothing, Nothing]                       = Close
   def read: Operation[Any, Nothing, Nothing]                        = Read
   def flush: Operation[Any, Nothing, Nothing]                       = Flush

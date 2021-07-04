@@ -6,7 +6,7 @@ import zhttp.core.{JChannelHandler, JChannelHandlerContext}
 import zhttp.http.{Http, HttpResult}
 import zhttp.service.UnsafeChannelExecutor
 
-case class HttpChannel[-R, +E, -A, +B](asHttp: Http[R, E, Event[A], UOperation[B]]) { self =>
+case class HttpChannel[-R, +E, -A, +B](asHttp: Http[R, E, Event[A], Operation[R, E, B]]) { self =>
   def ++[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: HttpChannel[R1, E1, A1, B1]): HttpChannel[R1, E1, A1, B1] =
     HttpChannel(self.asHttp.flatMap(b => other.asHttp.map(b1 => b ++ b1)))
 }
@@ -14,26 +14,26 @@ case class HttpChannel[-R, +E, -A, +B](asHttp: Http[R, E, Event[A], UOperation[B
 object HttpChannel {
   import Event._
 
-  def succeed[B](op: UOperation[B]): HttpChannel[Any, Nothing, Any, B] =
+  def succeed[R, E, B](op: Operation[R, E, B]): HttpChannel[R, E, Any, B] =
     HttpChannel(Http.succeed(op))
-  def write[B](b: B): HttpChannel[Any, Nothing, Any, B]                =
+  def write[B](b: B): HttpChannel[Any, Nothing, Any, B]                   =
     HttpChannel.succeed(Operation.write(b))
-  def flush: HttpChannel[Any, Nothing, Any, Nothing]                   =
+  def flush: HttpChannel[Any, Nothing, Any, Nothing]                      =
     HttpChannel.succeed(Operation.flush)
-  def read: HttpChannel[Any, Nothing, Any, Nothing]                    =
+  def read: HttpChannel[Any, Nothing, Any, Nothing]                       =
     HttpChannel.succeed(Operation.read)
-  def empty: HttpChannel[Any, Nothing, Any, Nothing]                   =
+  def empty: HttpChannel[Any, Nothing, Any, Nothing]                      =
     HttpChannel.succeed(Operation.empty)
-  def echoBody[A]: HttpChannel[Any, Nothing, A, A]                     =
+  def echoBody[A]: HttpChannel[Any, Nothing, A, A]                        =
     HttpChannel.collect[A] {
       case Read(data) => Operation.write(data)
       case Complete   => Operation.flush ++ Operation.read
     }
-  def collect[A]: MkHttpChannel[A]                                     =
+  def collect[A]: MkHttpChannel[A]                                        =
     new MkHttpChannel(())
 
   final class MkHttpChannel[A](val unit: Unit) extends AnyVal {
-    def apply[B](pf: PartialFunction[Event[A], UOperation[B]]): HttpChannel[Any, Nothing, A, B] =
+    def apply[R, E, B](pf: PartialFunction[Event[A], Operation[R, E, B]]): HttpChannel[R, E, A, B] =
       HttpChannel(Http.collect(pf))
   }
 
