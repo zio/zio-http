@@ -24,13 +24,13 @@ object HttpChannel {
     HttpChannel.succeed(Operation.read)
   def empty: HttpChannel[Any, Nothing, Any, Nothing]                   =
     HttpChannel.succeed(Operation.empty)
-  def collect[A]: MkHttpChannel[A]                                     =
-    new MkHttpChannel(())
   def echoBody[A]: HttpChannel[Any, Nothing, A, A]                     =
-    HttpChannel(Http.collect[Event[A]] {
+    HttpChannel.collect[A] {
       case Read(data) => Operation.write(data)
       case Complete   => Operation.flush ++ Operation.read
-    })
+    }
+  def collect[A]: MkHttpChannel[A]                                     =
+    new MkHttpChannel(())
 
   final class MkHttpChannel[A](val unit: Unit) extends AnyVal {
     def apply[B](pf: PartialFunction[Event[A], UOperation[B]]): HttpChannel[Any, Nothing, A, B] =
