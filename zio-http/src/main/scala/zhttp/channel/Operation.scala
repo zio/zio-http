@@ -1,44 +1,54 @@
 package zhttp.channel
 
 import io.netty.channel.{ChannelHandlerContext => JChannelHandlerContext}
+import zio._
 
 /**
  * Domain to model all the main operations that are available on a Channel
  */
-sealed trait Operation[+A] { self =>
-  def ++[A1 >: A](other: Operation[A1]) = Operation.Combine(self, other)
+sealed trait Operation[-R, +E, +A] { self =>
+  import Operation._
+
+  def map[B](ab: A => B): Operation[R, E, B] = self match {
+    case Write(data) => Write(ab(data))
+    case msg         => msg.asInstanceOf[Operation[R, E, B]]
+  }
+
+  def ++[R1 <: R, E1 >: E, A1 >: A](other: Operation[R1, E1, A1]): Operation[R1, E1, A1] =
+    Operation.Combine(self, other)
 
   private[zhttp] def execute(ctx: JChannelHandlerContext): Unit = {
     self match {
-      case Operation.Write(data)          => ctx.write(data)
-      case Operation.Read                 => ctx.read()
-      case Operation.Flush                => ctx.flush()
-      case Operation.Close                => ctx.close()
-      case Operation.Empty                => ()
-      case Operation.StartAutoRead        => ctx.channel().config().setAutoRead(true)
-      case Operation.StopAutoRead         => ctx.channel().config().setAutoRead(false)
-      case Operation.Combine(self, other) =>
-        self.execute(ctx)
-        other.execute(ctx)
+      case Write(data)          => ctx.write(data)
+      case Read                 => ctx.read()
+      case Flush                => ctx.flush()
+      case Close                => ctx.close()
+      case Empty                => ()
+      case StartAutoRead        => ctx.channel().config().setAutoRead(true)
+      case StopAutoRead         => ctx.channel().config().setAutoRead(false)
+      case Effect(_)            => ???
+      case Combine(self, other) => self.execute(ctx); other.execute(ctx)
     }
     ()
   }
 }
-object Operation           {
-  def close: Operation[Nothing]         = Close
-  def read: Operation[Nothing]          = Read
-  def flush: Operation[Nothing]         = Flush
-  def write[A](a: A): Operation[A]      = Write(a)
-  def empty: Operation[Nothing]         = Empty
-  def startAutoRead: Operation[Nothing] = StartAutoRead
-  def stopAutoRead: Operation[Nothing]  = StopAutoRead
+object Operation                   {
+  def close: Operation[Any, Nothing, Nothing]                       = Close
+  def read: Operation[Any, Nothing, Nothing]                        = Read
+  def flush: Operation[Any, Nothing, Nothing]                       = Flush
+  def write[A](a: A): Operation[Any, Nothing, A]                    = Write(a)
+  def empty: Operation[Any, Nothing, Nothing]                       = Empty
+  def startAutoRead: Operation[Any, Nothing, Nothing]               = StartAutoRead
+  def stopAutoRead: Operation[Any, Nothing, Nothing]                = StopAutoRead
+  def fromEffect[R, E, A](effect: ZIO[R, E, A]): Operation[R, E, A] = Effect(effect)
 
-  case object Empty                                              extends Operation[Nothing]
-  case object Read                                               extends Operation[Nothing]
-  case object Flush                                              extends Operation[Nothing]
-  case object Close                                              extends Operation[Nothing]
-  case class Write[A](data: A)                                   extends Operation[A]
-  case class Combine[A](self: Operation[A], other: Operation[A]) extends Operation[A]
-  case object StartAutoRead                                      extends Operation[Nothing]
-  case object StopAutoRead                                       extends Operation[Nothing]
+  case object Empty                                                                extends Operation[Any, Nothing, Nothing]
+  case object Read                                                                 extends Operation[Any, Nothing, Nothing]
+  case object Flush                                                                extends Operation[Any, Nothing, Nothing]
+  case object Close                                                                extends Operation[Any, Nothing, Nothing]
+  case class Write[A](data: A)                                                     extends Operation[Any, Nothing, A]
+  case class Combine[R, E, A](self: Operation[R, E, A], other: Operation[R, E, A]) extends Operation[R, E, A]
+  case class Effect[R, E, A](effect: ZIO[R, E, A])                                 extends Operation[R, E, A]
+  case object StartAutoRead                                                        extends Operation[Any, Nothing, Nothing]
+  case object StopAutoRead                                                         extends Operation[Any, Nothing, Nothing]
 }
