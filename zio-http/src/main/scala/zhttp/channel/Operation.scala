@@ -2,6 +2,7 @@ package zhttp.channel
 
 import io.netty.channel.{ChannelHandlerContext => JChannelHandlerContext}
 import zio._
+import zhttp.socket.SocketApp
 
 /**
  * Domain to model all the main operations that are available on a Channel. The type `A` does not represent the output
@@ -26,8 +27,9 @@ sealed trait Operation[-R, +E, +A] { self =>
       case Empty                => ()
       case StartAutoRead        => ctx.channel().config().setAutoRead(true): Unit
       case StopAutoRead         => ctx.channel().config().setAutoRead(false): Unit
-      case Effect(_)            => ???
+      case Effect(_)            => ??? // TODO: @amitksingh1490
       case Combine(self, other) => self.execute(ctx); other.execute(ctx)
+      case Socket(_)            => ??? // TODO: @amitksingh1490
       case FMap(self, ab)       =>
         self match {
           case Write(data)          => ctx.write(ab(data)): Unit
@@ -47,6 +49,7 @@ object Operation {
   def startAutoRead: Operation[Any, Nothing, Nothing]                    = StartAutoRead
   def stopAutoRead: Operation[Any, Nothing, Nothing]                     = StopAutoRead
   def fromEffect[R, E](effect: ZIO[R, E, Any]): Operation[R, E, Nothing] = Effect(effect)
+  def socket[R, E](app: SocketApp[R, E]): Operation[R, E, Nothing]       = Socket(app)
 
   case object Empty                                                                extends Operation[Any, Nothing, Nothing]
   case object Read                                                                 extends Operation[Any, Nothing, Nothing]
@@ -58,4 +61,5 @@ object Operation {
   case object StopAutoRead                                                         extends Operation[Any, Nothing, Nothing]
   case class FMap[R, E, A, B](self: Operation[R, E, A], ab: A => B)                extends Operation[R, E, B]
   case class Combine[R, E, A](self: Operation[R, E, A], other: Operation[R, E, A]) extends Operation[R, E, A]
+  case class Socket[R, E](app: SocketApp[R, E])                                    extends Operation[R, E, Nothing]
 }
