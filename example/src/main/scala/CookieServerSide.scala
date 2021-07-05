@@ -13,7 +13,17 @@ object CookieServerSide extends App {
         Cookie(
           "abc",
           "value",
-          Some(Meta(Some("Thu, 31 Oct 2021 07:28:00 GMT"), None, Some(Path("/cookie")), true, true)),
+          Some(
+            Meta(
+              Some("Thu, 31 Oct 2021 07:28:00 GMT"),
+              None,
+              Some(Path("/cookie")),
+              true,
+              true,
+              None,
+              Some(SameSite.None),
+            ),
+          ),
         ),
       )
     case Method.GET -> Root / "cookie" / "remove" =>
