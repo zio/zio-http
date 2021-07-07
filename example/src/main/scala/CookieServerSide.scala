@@ -2,28 +2,20 @@ import zhttp.http._
 import zhttp.service._
 import zio._
 
+import java.util.Date
+
 /**
  * Example to make app using cookies
  */
 object CookieServerSide extends App {
-
+  val date                       = new Date(2625675999550L)
   val app: HttpApp[Any, Nothing] = HttpApp.collect {
     case Method.GET -> Root / "cookie"            =>
       Response.addCookie(
         Cookie(
           "abc",
           "value",
-          Some(
-            Meta(
-              Some("Thu, 31 Oct 2021 07:28:00 GMT"),
-              None,
-              Some(Path("/cookie")),
-              true,
-              true,
-              None,
-              Some(SameSite.None),
-            ),
-          ),
+          Some(Meta(Some(date), None, Some(Path("/cookie")), true, true, None, Some(SameSite.None))),
         ),
       )
     case Method.GET -> Root / "cookie" / "remove" =>
