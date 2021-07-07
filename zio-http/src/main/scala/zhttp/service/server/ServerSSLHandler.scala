@@ -12,7 +12,7 @@ import io.netty.handler.ssl.{
   SslContext => JSslContext,
   SslContextBuilder => JSslContextBuilder,
   SslProvider => JSslProvider,
-  SupportedCipherSuiteFilter,
+  SupportedCipherSuiteFilter => JSupportedCipherSuiteFilter,
 }
 
 import java.io.InputStream
@@ -71,7 +71,7 @@ object ServerSSLHandler {
     else {
       if (enableHttp2 == true) {
         serverSSLOptions.sslContext
-          .ciphers(JHttp2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
+          .ciphers(JHttp2SecurityUtil.CIPHERS, JSupportedCipherSuiteFilter.INSTANCE)
           .applicationProtocolConfig(
             new JApplicationProtocolConfig(
               JProtocol.ALPN,
