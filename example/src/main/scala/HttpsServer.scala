@@ -4,7 +4,7 @@ import zhttp.service.server.ServerSSLHandler.{SSLHttpBehaviour, ServerSSLOptions
 import zhttp.service.{EventLoopGroup, Server}
 import zio._
 
-object HttpsHelloWorld extends App {
+object HttpsServer extends App {
 
   // Create HTTP route
   val app: HttpApp[Any, Nothing] = HttpApp.collect {
@@ -13,7 +13,7 @@ object HttpsHelloWorld extends App {
   }
 
   /**
-   * sslcontext can be created using SslContexBuilder. In this example an inbuilt API using keystore is used
+   * sslcontext can be created using SslContexBuilder. In this example an inbuilt API a certificate and key is used
    */
   val sslctx = ctxFromCert(getClass.getResourceAsStream("server.crt"), getClass.getResourceAsStream("server.key"))
 
