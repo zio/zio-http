@@ -1,7 +1,8 @@
 package zhttp.service.server
+
 import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.channel.{ChannelDuplexHandler => JChannelDuplexHandler}
-import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler}
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponseStatus}
 import io.netty.handler.codec.http2.{
   DefaultHttp2DataFrame => JDefaultHttp2DataFrame,
   DefaultHttp2Headers => JDefaultHttp2Headers,
@@ -15,8 +16,11 @@ import zhttp.core.{JByteBuf, JChannelHandlerContext, JSharable}
 import zhttp.http.Status.OK
 import zhttp.http.{HttpError, HttpResult, Response, SilentResponse, _}
 import zhttp.service.Server.Settings
-import zhttp.service.{ChannelFuture, HttpMessageCodec, UnsafeChannelExecutor, WEB_SOCKET_HANDLER}
-import zio.Exit
+import zhttp.service._
+import zio.{Chunk, Exit}
+
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 @JSharable
 final case class Http2ServerRequestHandler[R](
@@ -97,14 +101,23 @@ final case class Http2ServerRequestHandler[R](
           }
           ()
 
-        case res @ Response.SocketResponse(_) =>
-          ctx
-            .channel()
-            .pipeline()
-            .addLast(new JWebSocketServerProtocolHandler(res.socket.config.protocol.javaConfig))
-            .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket.config))
-          ctx.channel().eventLoop().submit(() => ctx.fireChannelRead(headers))
+        case _ @Response.SocketResponse(_) => {
+          val hhh = new JDefaultHttp2Headers().status(HttpResponseStatus.UPGRADE_REQUIRED.codeAsText())
+          hhh
+            .set(HttpHeaderNames.SERVER, "ZIO-Http")
+            .set(HttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
+          ctx.write(
+            new JDefaultHttp2HeadersFrame(hhh).stream(headers.stream()),
+            ctx.channel().voidPromise(),
+          )
+          val c   = Chunk.fromArray(
+            "Websockets are not supported over HTTP/2. Make HTTP/1.1 connection.".getBytes(HTTP_CHARSET),
+          )
+          ctx.writeAndFlush(
+            new JDefaultHttp2DataFrame(JUnpooled.copiedBuffer(c.toArray), true).stream(headers.stream()),
+          )
           ()
+        }
       }
     }
     ()

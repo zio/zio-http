@@ -15,7 +15,7 @@ import io.netty.handler.ssl.{
   SupportedCipherSuiteFilter,
 }
 
-import java.io.{File, InputStream}
+import java.io.InputStream
 import java.security.KeyStore
 import javax.net.ssl.KeyManagerFactory
 
@@ -60,9 +60,9 @@ object ServerSSLHandler {
       .sslProvider(JSslProvider.JDK)
   }
 
-  def ctxFromCert(certFile: File, keyFile: File): JSslContextBuilder = {
+  def ctxFromCert(cert: InputStream, key: InputStream): JSslContextBuilder = {
     JSslContextBuilder
-      .forServer(certFile, keyFile)
+      .forServer(cert, key)
       .sslProvider(JSslProvider.JDK)
   }
 
