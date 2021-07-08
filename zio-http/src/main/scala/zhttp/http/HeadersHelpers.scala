@@ -1,7 +1,5 @@
 package zhttp.http
 
-import java.nio.charset.Charset
-
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.base64.Base64
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
@@ -9,6 +7,7 @@ import io.netty.util.AsciiString.toLowerCase
 import io.netty.util.{AsciiString, CharsetUtil}
 import zhttp.http.HeadersHelpers.{BasicSchemeName, BearerSchemeName}
 
+import java.nio.charset.Charset
 import scala.util.control.NonFatal
 
 private[zhttp] trait HeadersHelpers { self: HasHeaders =>
@@ -36,13 +35,13 @@ private[zhttp] trait HeadersHelpers { self: HasHeaders =>
       Some(CharsetUtil.UTF_8)
     else
       charSetList.head match {
-        case "UTF-8"      => Some(CharsetUtil.UTF_8)
-        case "UTF_16"     => Some(CharsetUtil.UTF_16)
-        case "UTF_16BE"   => Some(CharsetUtil.UTF_16BE)
-        case "UTF_16LE"   => Some(CharsetUtil.UTF_16LE)
-        case "ISO_8859_1" => Some(CharsetUtil.ISO_8859_1)
-        case "US_ASCII"   => Some(CharsetUtil.US_ASCII)
-        case _            => None
+        case "UTF-8" | "utf-8"           => Some(CharsetUtil.UTF_8)
+        case "UTF-16" | "utf-16"         => Some(CharsetUtil.UTF_16)
+        case "UTF-16BE" | "utf-16be"     => Some(CharsetUtil.UTF_16BE)
+        case "UTF-16LE" | "utf-16le"     => Some(CharsetUtil.UTF_16LE)
+        case "ISO-8859-1" | "iso-8859-1" => Some(CharsetUtil.ISO_8859_1)
+        case "US-ASCII" | "us-ascii"     => Some(CharsetUtil.US_ASCII)
+        case _                           => None
       }
   }
 
