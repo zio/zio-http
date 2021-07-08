@@ -16,11 +16,10 @@ final case class Request(
   val url: URL       = endpoint._2
   val route: Route   = method -> url.path
 
-  val charSet = getCharSet
-
+  val charSet                         = getCharSet
   def getBodyAsString: Option[String] = content match {
     case HttpData.CompleteData(data) =>
-      getCharSet match {
+      charSet match {
         case Some(value) => Option(new String(data.toArray, value))
         case None        => Option(data.map(_.toChar).mkString)
       }

@@ -32,11 +32,17 @@ private[zhttp] trait HeadersHelpers { self: HasHeaders =>
     val charSetList = headers
       .filter(_.value.toString.contains("charset="))
       .map(a => a.value.toString.split("=")(1))
-    if (charSetList.isEmpty) Some(HTTP_CHARSET)
+    if (charSetList.isEmpty)
+      Some(CharsetUtil.UTF_8)
     else
       charSetList.head match {
-        case "UTF-8" => Some(HTTP_CHARSET)
-        case _       => None
+        case "UTF-8"      => Some(CharsetUtil.UTF_8)
+        case "UTF_16"     => Some(CharsetUtil.UTF_16)
+        case "UTF_16BE"   => Some(CharsetUtil.UTF_16BE)
+        case "UTF_16LE"   => Some(CharsetUtil.UTF_16LE)
+        case "ISO_8859_1" => Some(CharsetUtil.ISO_8859_1)
+        case "US_ASCII"   => Some(CharsetUtil.US_ASCII)
+        case _            => None
       }
   }
 
