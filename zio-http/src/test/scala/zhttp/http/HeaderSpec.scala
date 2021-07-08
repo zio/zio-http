@@ -1,5 +1,8 @@
 package zhttp.http
 
+import java.nio.charset.Charset
+
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Header._
 import zhttp.http.HeadersHelpers.BearerSchemeName
 import zio.test.Assertion._
@@ -234,6 +237,26 @@ object HeaderSpec extends DefaultRunnableSpec {
         val headerHolder = HeadersHolder(List(Header.authorization("wrongBearer token")))
         val found        = headerHolder.getBearerToken
         assert(found)(isNone)
+      },
+    ),
+    suite("charSet spec")(
+      test("should return UTF-8 charset if header contains charset UTF-8") {
+        val headerHolder: HeadersHolder =
+          HeadersHolder(List(Header.custom(HttpHeaderNames.CONTENT_TYPE.toString, "text/html; charset=UTF-8")))
+        val found: Option[Charset]      = Some(HTTP_CHARSET)
+        assert(found)(equalTo(headerHolder.getCharSet))
+      },
+      test("should return UTF-8 charset if header doesn't contain charset") {
+        val headerHolder: HeadersHolder =
+          HeadersHolder(List(Header.custom(HttpHeaderNames.CONTENT_TYPE.toString, "text/html")))
+        val found: Option[Charset]      = Some(HTTP_CHARSET)
+        assert(found)(equalTo(headerHolder.getCharSet))
+      },
+      test("should return None if header contains charset other than UTF-8") {
+        val headerHolder: HeadersHolder =
+          HeadersHolder(List(Header.custom(HttpHeaderNames.CONTENT_TYPE.toString, "text/html; charset=UTF-16")))
+        val found: Option[Charset]      = None
+        assert(found)(equalTo(headerHolder.getCharSet))
       },
     ),
   )

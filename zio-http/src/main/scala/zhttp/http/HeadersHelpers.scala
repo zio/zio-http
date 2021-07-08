@@ -1,5 +1,7 @@
 package zhttp.http
 
+import java.nio.charset.Charset
+
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.base64.Base64
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
@@ -24,6 +26,18 @@ private[zhttp] trait HeadersHelpers { self: HasHeaders =>
     } else {
       (0 until a.length()).forall(i => equalsIgnoreCase(a.charAt(i), b.charAt(i)))
     }
+  }
+
+  def getCharSet: Option[Charset] = {
+    val charSetList = headers
+      .filter(_.value.toString.contains("charset="))
+      .map(a => a.value.toString.split("=")(1))
+    if (charSetList.isEmpty) Some(HTTP_CHARSET)
+    else
+      charSetList.head match {
+        case "UTF-8" => Some(HTTP_CHARSET)
+        case _       => None
+      }
   }
 
   def getHeaderValue(headerName: CharSequence): Option[String] =
