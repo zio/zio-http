@@ -32,7 +32,7 @@ final case class ServerRequestHandler[R](
   private def executeAsync(ctx: JChannelHandlerContext, jReq: JFullHttpRequest)(
     cb: Response[R, Throwable] => Unit,
   ): Unit =
-    decodeJRequest(jReq) match {
+    decodeJRequest(jReq, ctx) match {
       case Left(err)  => cb(err.toResponse)
       case Right(req) =>
         settings.http.execute(req).evaluate match {
