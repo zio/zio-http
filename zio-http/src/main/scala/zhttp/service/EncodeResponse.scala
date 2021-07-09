@@ -20,7 +20,7 @@ trait EncodeResponse {
   def encodeResponse[R, E](jVersion: JHttpVersion, res: Response.HttpResponse[R, E]): JDefaultHttpResponse = {
     val jHttpHeaders =
       res.headers.foldLeft[JHttpHeaders](new JDefaultHttpHeaders()) { (jh, hh) =>
-        jh.set(hh.name, hh.value)
+        jh.add(hh.name, hh.value)
       }
     jHttpHeaders.set(JHttpHeaderNames.SERVER, SERVER_NAME)
     jHttpHeaders.set(JHttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
