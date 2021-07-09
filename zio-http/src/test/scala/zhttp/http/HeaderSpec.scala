@@ -282,10 +282,13 @@ object HeaderSpec extends DefaultRunnableSpec {
         val found: Option[Charset]      = Some(CharsetUtil.US_ASCII)
         assert(found)(equalTo(headerHolder.getCharSet))
       },
-      test("should return default UTF-8 charset if header doesn't contain charset") {
+      test("should return default UTF-8 charset if header contain non-standard charset") {
         val headerHolder: HeadersHolder =
           HeadersHolder(
-            List(Header.host("xyz.com"), Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html")),
+            List(
+              Header.host("xyz.com"),
+              Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html; charset=ISO-9"),
+            ),
           )
         val found: Option[Charset]      = Some(HTTP_CHARSET)
         assert(found)(equalTo(headerHolder.getCharSet))
