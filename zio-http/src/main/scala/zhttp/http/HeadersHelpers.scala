@@ -7,7 +7,6 @@ import io.netty.util.AsciiString.toLowerCase
 import io.netty.util.{AsciiString, CharsetUtil}
 import zhttp.http.HeadersHelpers.{BasicSchemeName, BearerSchemeName}
 
-import java.nio.charset.Charset
 import scala.util.control.NonFatal
 
 private[zhttp] trait HeadersHelpers { self: HasHeaders =>
@@ -25,24 +24,6 @@ private[zhttp] trait HeadersHelpers { self: HasHeaders =>
     } else {
       (0 until a.length()).forall(i => equalsIgnoreCase(a.charAt(i), b.charAt(i)))
     }
-  }
-
-  def getCharSet: Option[Charset] = {
-    val charSetList = headers
-      .filter(_.value.toString.contains("charset="))
-      .map(_.value.toString.split("=")(1))
-    if (charSetList.isEmpty)
-      Some(CharsetUtil.UTF_8)
-    else
-      charSetList.head.toLowerCase() match {
-        case "utf-8"      => Some(CharsetUtil.UTF_8)
-        case "utf-16"     => Some(CharsetUtil.UTF_16)
-        case "utf-16be"   => Some(CharsetUtil.UTF_16BE)
-        case "utf-16le"   => Some(CharsetUtil.UTF_16LE)
-        case "iso-8859-1" => Some(CharsetUtil.ISO_8859_1)
-        case "us-ascii"   => Some(CharsetUtil.US_ASCII)
-        case _            => None
-      }
   }
 
   def getHeaderValue(headerName: CharSequence): Option[String] =

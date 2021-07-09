@@ -273,19 +273,26 @@ object HeaderSpec extends DefaultRunnableSpec {
       },
       test("should return US_ASCII charset if header contains charset US_ASCII") {
         val headerHolder: HeadersHolder =
-          HeadersHolder(List(Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html; charset=US-ASCII")))
+          HeadersHolder(
+            List(
+              Header.host("xyz.com"),
+              Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html; charset=US-ASCII"),
+            ),
+          )
         val found: Option[Charset]      = Some(CharsetUtil.US_ASCII)
         assert(found)(equalTo(headerHolder.getCharSet))
       },
-      test("should return UTF-8 charset if header doesn't contain charset") {
+      test("should return default UTF-8 charset if header doesn't contain charset") {
         val headerHolder: HeadersHolder =
-          HeadersHolder(List(Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html")))
+          HeadersHolder(
+            List(Header.host("xyz.com"), Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html")),
+          )
         val found: Option[Charset]      = Some(HTTP_CHARSET)
         assert(found)(equalTo(headerHolder.getCharSet))
       },
-      test("should return None if header contains charset other than Standard Charsets") {
+      test("should return None if header doesn't contain content-type") {
         val headerHolder: HeadersHolder =
-          HeadersHolder(List(Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html; charset=ISO-8859-9")))
+          HeadersHolder(List(Header.host("s")))
         val found: Option[Charset]      = None
         assert(found)(equalTo(headerHolder.getCharSet))
       },
