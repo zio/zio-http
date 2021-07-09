@@ -273,7 +273,7 @@ object HeaderSpec extends DefaultRunnableSpec {
       },
       test("should return US_ASCII charset if header contains charset US_ASCII") {
         val headerHolder: HeadersHolder =
-          HeadersHolder(List(Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html; charset=us-ascii")))
+          HeadersHolder(List(Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html; charset=US-ASCII")))
         val found: Option[Charset]      = Some(CharsetUtil.US_ASCII)
         assert(found)(equalTo(headerHolder.getCharSet))
       },

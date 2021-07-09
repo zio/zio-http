@@ -30,18 +30,18 @@ private[zhttp] trait HeadersHelpers { self: HasHeaders =>
   def getCharSet: Option[Charset] = {
     val charSetList = headers
       .filter(_.value.toString.contains("charset="))
-      .map(a => a.value.toString.split("=")(1))
+      .map(_.value.toString.split("=")(1))
     if (charSetList.isEmpty)
       Some(CharsetUtil.UTF_8)
     else
-      charSetList.head match {
-        case "UTF-8" | "utf-8"           => Some(CharsetUtil.UTF_8)
-        case "UTF-16" | "utf-16"         => Some(CharsetUtil.UTF_16)
-        case "UTF-16BE" | "utf-16be"     => Some(CharsetUtil.UTF_16BE)
-        case "UTF-16LE" | "utf-16le"     => Some(CharsetUtil.UTF_16LE)
-        case "ISO-8859-1" | "iso-8859-1" => Some(CharsetUtil.ISO_8859_1)
-        case "US-ASCII" | "us-ascii"     => Some(CharsetUtil.US_ASCII)
-        case _                           => None
+      charSetList.head.toLowerCase() match {
+        case "utf-8"      => Some(CharsetUtil.UTF_8)
+        case "utf-16"     => Some(CharsetUtil.UTF_16)
+        case "utf-16be"   => Some(CharsetUtil.UTF_16BE)
+        case "utf-16le"   => Some(CharsetUtil.UTF_16LE)
+        case "iso-8859-1" => Some(CharsetUtil.ISO_8859_1)
+        case "us-ascii"   => Some(CharsetUtil.US_ASCII)
+        case _            => None
       }
   }
 
