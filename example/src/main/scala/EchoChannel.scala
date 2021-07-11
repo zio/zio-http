@@ -1,3 +1,4 @@
+import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.handler.codec.http.{
   DefaultFullHttpResponse => JDefaultFullHttpResponse,
   DefaultHttpHeaders => JDefaultHttpHeaders,
@@ -12,7 +13,6 @@ import io.netty.handler.codec.http.{
   HttpResponseStatus => JHttpResponseStatus,
   LastHttpContent => JLastHttpContent,
 }
-import io.netty.buffer.{Unpooled => JUnpooled}
 import zhttp.channel._
 import zhttp.http._
 import zhttp.service.Server
