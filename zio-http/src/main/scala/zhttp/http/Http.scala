@@ -263,23 +263,21 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   final private[zhttp] def execute[R0, R1 <: R, E1 >: E](a: A): HttpResult[R, E, B] = {
     self match {
-      case Empty                                              => HttpResult.empty
-      case Identity                                           => HttpResult.succeed(a.asInstanceOf[B])
-      case Succeed(b)                                         => HttpResult.succeed(b)
-      case Fail(e)                                            => HttpResult.fail(e)
-      case FromEffectFunction(f)                              => HttpResult.effect(f(a))
-      case Collect(pf)                                        => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
-      case Chain(self, other)                                 => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
-      case FoldM(self, ee, bb, dd)                            =>
+      case Empty                   => HttpResult.empty
+      case Identity                => HttpResult.succeed(a.asInstanceOf[B])
+      case Succeed(b)              => HttpResult.succeed(b)
+      case Fail(e)                 => HttpResult.fail(e)
+      case FromEffectFunction(f)   => HttpResult.effect(f(a))
+      case Collect(pf)             => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
+      case Chain(self, other)      => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
+      case FoldM(self, ee, bb, dd) =>
         HttpResult.suspend {
           self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
         }
-      case p: Provide[R, E, A, B] @unchecked                  => HttpResult.suspend(p.self.execute(a).provide(p.r))
-      case p: ProvideLayer[E, E1, R, R0, R1, A, B] @unchecked =>
-        HttpResult.suspend(p.self.execute(a).provideLayer(p.layer))
+      case p @ Provide(_, _)       => p.evaluate(a)
+      case p @ ProvideLayer(_, _)  => p.evaluate(a)
     }
   }
-
 }
 
 object Http {
@@ -298,12 +296,16 @@ object Http {
     dd: Http[R, EE, A, BB],
   )                                                                             extends Http[R, EE, A, BB]
 
-  private final case class Provide[R, E, A, B](self: Http[R, E, A, B], r: R) extends Http[Any, E, A, B]
+  private final case class Provide[R, E, A, B](self: Http[R, E, A, B], r: R) extends Http[Any, E, A, B] {
+    private[zhttp] def evaluate(a: A) = HttpResult.suspend(self.execute(a).provide(r))
+  }
 
   private final case class ProvideLayer[E, E1 >: E, R, R0, R1 <: R, A, B](
     self: Http[R, E, A, B],
     layer: ZLayer[R0, E1, R1],
-  ) extends Http[R0, E1, A, B]
+  ) extends Http[R0, E1, A, B] {
+    private[zhttp] def evaluate(a: A) = HttpResult.suspend(self.execute(a).provideLayer(layer))
+  }
 
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {
