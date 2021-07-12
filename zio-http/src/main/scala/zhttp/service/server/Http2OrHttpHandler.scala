@@ -10,10 +10,10 @@ import zhttp.core.{JChannelHandler, JHttpObjectAggregator, JHttpServerCodec}
 import zhttp.service.Server.Settings
 import zhttp.service._
 final case class Http2OrHttpHandler[R](
-                                        httpH: JChannelHandler,
-                                        http2H: JChannelHandler,
-                                        settings: Settings[R, Throwable],
-                                      ) extends JApplicationProtocolNegotiationHandler(JApplicationProtocolNames.HTTP_1_1) {
+  httpH: JChannelHandler,
+  http2H: JChannelHandler,
+  settings: Settings[R, Throwable],
+) extends JApplicationProtocolNegotiationHandler(JApplicationProtocolNames.HTTP_1_1) {
   @throws[Exception]
   override protected def configurePipeline(ctx: JChannelHandlerContext, protocol: String): Unit = {
     if (JApplicationProtocolNames.HTTP_2 == protocol) {

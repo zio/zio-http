@@ -21,10 +21,10 @@ import java.time.format.DateTimeFormatter
 
 @JSharable
 final case class Http2ServerRequestHandler[R](
-                                               zExec: UnsafeChannelExecutor[R],
-                                               settings: Settings[R, Throwable],
-                                             ) extends JChannelDuplexHandler
-  with HttpMessageCodec {
+  zExec: UnsafeChannelExecutor[R],
+  settings: Settings[R, Throwable],
+) extends JChannelDuplexHandler
+    with HttpMessageCodec {
 
   @throws[Exception]
   override def exceptionCaught(ctx: JChannelHandlerContext, cause: Throwable): Unit = {

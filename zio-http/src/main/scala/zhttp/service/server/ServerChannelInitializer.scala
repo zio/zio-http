@@ -27,10 +27,10 @@ import zhttp.service.server.ServerChannelInitializer.configureClearText
  */
 @JSharable
 final case class ServerChannelInitializer[R](
-                                              httpH: JChannelHandler,
-                                              http2H: JChannelHandler,
-                                              settings: Settings[R, Throwable],
-                                            ) extends JChannelInitializer[JChannel] {
+  httpH: JChannelHandler,
+  http2H: JChannelHandler,
+  settings: Settings[R, Throwable],
+) extends JChannelInitializer[JChannel] {
 
   override def initChannel(channel: JChannel): Unit = {
     val sslctx = ServerSSLHandler.build(settings.sslOption, settings.enableHttp2)
@@ -46,11 +46,11 @@ final case class ServerChannelInitializer[R](
 
 object ServerChannelInitializer {
   def configureClearText[R](
-                             httpH: JChannelHandler,
-                             http2H: JChannelHandler,
-                             c: JChannel,
-                             settings: Settings[R, Throwable],
-                           ) = if (settings.enableHttp2) {
+    httpH: JChannelHandler,
+    http2H: JChannelHandler,
+    c: JChannel,
+    settings: Settings[R, Throwable],
+  ) = if (settings.enableHttp2) {
 
     //TODO: add an encryptedmessagefilter
     val p           = c.pipeline

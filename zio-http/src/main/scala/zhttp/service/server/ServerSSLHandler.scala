@@ -15,16 +15,16 @@ import io.netty.handler.ssl.{
   SupportedCipherSuiteFilter => JSupportedCipherSuiteFilter,
 }
 
-import java.io.{ InputStream}
+import java.io.InputStream
 import java.security.KeyStore
 import javax.net.ssl.KeyManagerFactory
 
 object ServerSSLHandler {
 
   case class ServerSSLOptions(
-                               sslContext: JSslContextBuilder,
-                               httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect,
-                             )
+    sslContext: JSslContextBuilder,
+    httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect,
+  )
 
   sealed trait SSLHttpBehaviour
 

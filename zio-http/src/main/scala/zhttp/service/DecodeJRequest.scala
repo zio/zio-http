@@ -16,7 +16,7 @@ trait DecodeJRequest {
     endpoint = method -> url
     data     = HttpData.fromByteBuf(jReq.content())
   } yield Request(endpoint, headers, data, ctx)
-  def decodeHttp2Header(hh: JHttp2HeadersFrame): Either[HttpError, Request] = for {
+  def decodeHttp2Header(hh: JHttp2HeadersFrame): Either[HttpError, Request]                           = for {
     url <- URL.fromString(hh.headers().path().toString)
     method   = Method.fromString(hh.headers().method().toString)
     endpoint = method -> url

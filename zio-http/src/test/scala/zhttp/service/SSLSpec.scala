@@ -15,8 +15,8 @@ import javax.net.ssl.SSLHandshakeException
 object SSLSpec extends HttpRunnableSpec(8073) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
-  val ssc1       = new JSelfSignedCertificate
-  val serverssl  = JSslContextBuilder
+  val ssc1      = new JSelfSignedCertificate
+  val serverssl = JSslContextBuilder
     .forServer(ssc1.certificate(), ssc1.privateKey())
     .sslProvider(JSslProvider.JDK)
 
