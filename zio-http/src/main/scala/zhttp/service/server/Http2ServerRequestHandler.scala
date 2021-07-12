@@ -1,6 +1,7 @@
 package zhttp.service.server
 
 import io.netty.buffer.{Unpooled => JUnpooled}
+import io.netty.channel.unix.Errors.NativeIoException
 import io.netty.channel.{ChannelDuplexHandler => JChannelDuplexHandler}
 import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpResponseStatus => JHttpResponseStatus}
 import io.netty.handler.codec.http2.{
@@ -29,12 +30,19 @@ final case class Http2ServerRequestHandler[R](
   override def exceptionCaught(ctx: JChannelHandlerContext, cause: Throwable): Unit = {
     settings.error match {
       case Some(v) => zExec.unsafeExecute_(ctx)(v(cause).uninterruptible)
-      case None    => {
-        ctx.fireExceptionCaught(cause)
+      case None    =>
+        if (ignoreException(cause)) {
+          if (ctx.channel.isActive) {
+            ctx.close
+            ()
+          }
+        } else ctx.fireExceptionCaught(cause)
         ()
-      }
     }
   }
+
+  private def ignoreException(throwable: Throwable): Boolean =
+    throwable.isInstanceOf[NativeIoException]
 
   @throws[Exception]
   override def channelRead(ctx: JChannelHandlerContext, msg: Any): Unit = {
@@ -42,6 +50,7 @@ final case class Http2ServerRequestHandler[R](
     else super.channelRead(ctx, msg)
     ()
   }
+
   @throws[Exception]
   override def channelReadComplete(ctx: JChannelHandlerContext): Unit = {
     ctx.flush
@@ -76,26 +85,30 @@ final case class Http2ServerRequestHandler[R](
                 new JDefaultHttp2DataFrame(JUnpooled.copiedBuffer(data.toArray)).stream(headers.stream()),
               )
               ctx.write(new JDefaultHttp2DataFrame(true).stream(headers.stream()))
-            case HttpData.Empty              => ctx.write(new JDefaultHttp2DataFrame(true).stream(headers.stream()))
-
+            case HttpData.Empty              =>
+              ctx.write(new JDefaultHttp2DataFrame(true).stream(headers.stream()))
+              ()
           }
           ()
 
         case _ @Response.SocketResponse(_) => {
+          val c   = Chunk.fromArray(
+            "Websockets are not supported over HTTP/2. Make HTTP/1.1 connection.".getBytes(HTTP_CHARSET),
+          )
           val hhh = new JDefaultHttp2Headers().status(JHttpResponseStatus.UPGRADE_REQUIRED.codeAsText())
           hhh
             .set(JHttpHeaderNames.SERVER, "ZIO-Http")
             .set(JHttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
+            .setInt(JHttpHeaderNames.CONTENT_LENGTH, c.length)
           ctx.write(
             new JDefaultHttp2HeadersFrame(hhh).stream(headers.stream()),
             ctx.channel().voidPromise(),
           )
-          val c   = Chunk.fromArray(
-            "Websockets are not supported over HTTP/2. Make HTTP/1.1 connection.".getBytes(HTTP_CHARSET),
-          )
+
           ctx.writeAndFlush(
-            new JDefaultHttp2DataFrame(JUnpooled.copiedBuffer(c.toArray), true).stream(headers.stream()),
+            new JDefaultHttp2DataFrame(JUnpooled.copiedBuffer(c.toArray)).stream(headers.stream()),
           )
+          ctx.write(new JDefaultHttp2DataFrame(true).stream(headers.stream()))
           ()
         }
       }
