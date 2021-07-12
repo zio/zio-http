@@ -263,19 +263,19 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   final private[zhttp] def execute[R0, R1 <: R, E1 >: E](a: A): HttpResult[R, E, B] = {
     self match {
-      case Empty                   => HttpResult.empty
-      case Identity                => HttpResult.succeed(a.asInstanceOf[B])
-      case Succeed(b)              => HttpResult.succeed(b)
-      case Fail(e)                 => HttpResult.fail(e)
-      case FromEffectFunction(f)   => HttpResult.effect(f(a))
-      case Collect(pf)             => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
-      case Chain(self, other)      => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
-      case FoldM(self, ee, bb, dd) =>
+      case Empty                                => HttpResult.empty
+      case Identity                             => HttpResult.succeed(a.asInstanceOf[B])
+      case Succeed(b)                           => HttpResult.succeed(b)
+      case Fail(e)                              => HttpResult.fail(e)
+      case FromEffectFunction(f)                => HttpResult.effect(f(a))
+      case Collect(pf)                          => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
+      case Chain(self, other)                   => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
+      case FoldM(self, ee, bb, dd)              =>
         HttpResult.suspend {
           self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
         }
-      case p @ Provide(_, _)       => p.evaluate(a)
-      case p @ ProvideLayer(_, _)  => p.evaluate(a)
+      case p: Provide[_, _, _, _]               => p.evaluate(a)
+      case p: ProvideLayer[_, _, _, _, _, _, _] => p.evaluate(a)
     }
   }
 }
