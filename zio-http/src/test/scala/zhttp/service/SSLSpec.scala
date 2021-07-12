@@ -1,17 +1,7 @@
 package zhttp.service
 
-import io.netty.handler.ssl.ApplicationProtocolConfig.{
-  Protocol => JProtocol,
-  SelectedListenerFailureBehavior => JSelectedListenerFailureBehavior,
-  SelectorFailureBehavior => JSelectorFailureBehavior,
-}
 import io.netty.handler.ssl.util.{SelfSignedCertificate => JSelfSignedCertificate}
-import io.netty.handler.ssl.{
-  ApplicationProtocolConfig => JApplicationProtocolConfig,
-  ApplicationProtocolNames => JApplicationProtocolNames,
-  SslContextBuilder => JSslContextBuilder,
-  SslProvider => JSslProvider,
-}
+import io.netty.handler.ssl.{SslContextBuilder => JSslContextBuilder, SslProvider => JSslProvider}
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.server.ServerSSLHandler.ServerSSLOptions
@@ -29,15 +19,7 @@ object SSLSpec extends HttpRunnableSpec(8073) {
   val serverssl  = JSslContextBuilder
     .forServer(ssc1.certificate(), ssc1.privateKey())
     .sslProvider(JSslProvider.JDK)
-    .applicationProtocolConfig(
-      new JApplicationProtocolConfig(
-        JProtocol.ALPN,
-        JSelectorFailureBehavior.NO_ADVERTISE,
-        JSelectedListenerFailureBehavior.ACCEPT,
-        JApplicationProtocolNames.HTTP_1_1,
-      ),
-    )
-    .build()
+
   val ssc2       = new JSelfSignedCertificate()
   val clientssl1 = JSslContextBuilder.forClient().trustManager(ssc1.cert()).build()
   val clientssl2 = JSslContextBuilder.forClient().trustManager(ssc2.cert()).build()
