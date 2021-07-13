@@ -1,13 +1,9 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames}
-import io.netty.util.CharsetUtil
 import zhttp.http.Header._
 import zhttp.http.HeadersHelpers.BearerSchemeName
 import zio.test.Assertion._
 import zio.test.{DefaultRunnableSpec, assert}
-
-import java.nio.charset.Charset
 
 object HeaderSpec extends DefaultRunnableSpec {
 
@@ -238,66 +234,6 @@ object HeaderSpec extends DefaultRunnableSpec {
         val headerHolder = HeadersHolder(List(Header.authorization("wrongBearer token")))
         val found        = headerHolder.getBearerToken
         assert(found)(isNone)
-      },
-    ),
-    suite("charSet spec")(
-      test("should return UTF-8 charset if header contains charset UTF-8") {
-        val headerHolder: HeadersHolder =
-          HeadersHolder(List(Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html; charset=utf-8")))
-        val found: Option[Charset]      = Some(HTTP_CHARSET)
-        assert(found)(equalTo(headerHolder.getCharSet))
-      },
-      test("should return UTF-16 charset if header contains charset UTF-16") {
-        val headerHolder: HeadersHolder =
-          HeadersHolder(List(Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html; charset=utf-16")))
-        val found: Option[Charset]      = Some(CharsetUtil.UTF_16)
-        assert(found)(equalTo(headerHolder.getCharSet))
-      },
-      test("should return UTF-16BE charset if header contains charset UTF-16BE") {
-        val headerHolder: HeadersHolder =
-          HeadersHolder(List(Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html; charset=utf-16be")))
-        val found: Option[Charset]      = Some(CharsetUtil.UTF_16BE)
-        assert(found)(equalTo(headerHolder.getCharSet))
-      },
-      test("should return UTF_16LE charset if header contains charset UTF_16LE") {
-        val headerHolder: HeadersHolder =
-          HeadersHolder(List(Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html; charset=utf-16le")))
-        val found: Option[Charset]      = Some(CharsetUtil.UTF_16LE)
-        assert(found)(equalTo(headerHolder.getCharSet))
-      },
-      test("should return ISO_8859_1 charset if header contains charset ISO_8859_1") {
-        val headerHolder: HeadersHolder =
-          HeadersHolder(List(Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html; charset=iso-8859-1")))
-        val found: Option[Charset]      = Some(CharsetUtil.ISO_8859_1)
-        assert(found)(equalTo(headerHolder.getCharSet))
-      },
-      test("should return US_ASCII charset if header contains charset US_ASCII") {
-        val headerHolder: HeadersHolder =
-          HeadersHolder(
-            List(
-              Header.host("xyz.com"),
-              Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html; charset=US-ASCII"),
-            ),
-          )
-        val found: Option[Charset]      = Some(CharsetUtil.US_ASCII)
-        assert(found)(equalTo(headerHolder.getCharSet))
-      },
-      test("should return default UTF-8 charset if header contain non-standard charset") {
-        val headerHolder: HeadersHolder =
-          HeadersHolder(
-            List(
-              Header.host("xyz.com"),
-              Header.custom(JHttpHeaderNames.CONTENT_TYPE.toString, "text/html; charset=ISO-9"),
-            ),
-          )
-        val found: Option[Charset]      = Some(HTTP_CHARSET)
-        assert(found)(equalTo(headerHolder.getCharSet))
-      },
-      test("should return None if header doesn't contain content-type") {
-        val headerHolder: HeadersHolder =
-          HeadersHolder(List(Header.host("s")))
-        val found: Option[Charset]      = None
-        assert(found)(equalTo(headerHolder.getCharSet))
       },
     ),
   )

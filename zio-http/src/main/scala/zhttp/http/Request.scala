@@ -1,8 +1,10 @@
 package zhttp.http
 
 import io.netty.channel.ChannelHandlerContext
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpUtil}
 
 import java.net.{InetAddress, InetSocketAddress}
+import java.nio.charset.Charset
 
 // REQUEST
 final case class Request(
@@ -16,8 +18,11 @@ final case class Request(
   val url: URL       = endpoint._2
   val route: Route   = method -> url.path
 
+  val getCharset: Option[Charset] =
+    getHeaderValue(HttpHeaderNames.CONTENT_TYPE).map(HttpUtil.getCharset(_, HTTP_CHARSET))
+
   def getBodyAsString: Option[String] = content match {
-    case HttpData.CompleteData(data) => Option(data.map(_.toChar).mkString)
+    case HttpData.CompleteData(data) => Option(new String(data.toArray, getCharset.getOrElse(HTTP_CHARSET)))
     case _                           => Option.empty
   }
 

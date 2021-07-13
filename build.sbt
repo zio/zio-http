@@ -54,8 +54,9 @@ ThisBuild / githubWorkflowBuildPreamble :=
 // Test Configuration
 ThisBuild / libraryDependencies ++=
   Seq(
-    "dev.zio" %% "zio-test"     % zioVersion % "test",
-    "dev.zio" %% "zio-test-sbt" % zioVersion % "test",
+    "dev.zio" %% "zio-test"          % zioVersion % "test",
+    "dev.zio" %% "zio-test-sbt"      % zioVersion % "test",
+    "dev.zio" %% "zio-test-magnolia" % zioVersion % "test",
   )
 ThisBuild / testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 
