@@ -10,13 +10,18 @@ import io.netty.channel.{ChannelHandlerContext => JChannelHandlerContext}
  * TODO: Add Benchmarks and possibly add stack-safety.
  */
 sealed trait Operation[+A, +S] { self =>
-  import Operation._
 
   def combine[A1 >: A, S1 >: S](other: Operation[A1, S1]): Operation[A1, S1] = Operation.Combine(self, other)
 
   def ++[A1 >: A, S1 >: S](other: Operation[A1, S1]): Operation[A1, S1] = self combine other
 
-  def map[B](aa: A => B): Operation[B, S] = FMap(self, aa)
+  def map[B](f: A => B): Operation[B, S] = self.mapA(f)
+
+  def mapA[B](f: A => B): Operation[B, S] = Operation.BiMap[A, S, B, S](self, f, identity)
+
+  def mapS[T](f: S => T): Operation[A, T] = Operation.BiMap[A, S, A, T](self, identity, f)
+
+  def bimap[B, T](ab: A => B, st: S => T): Operation[B, T] = Operation.BiMap(self, ab, st)
 }
 
 object Operation {
@@ -34,7 +39,8 @@ object Operation {
 
   private[zhttp] final case class Write[A](data: A)                                            extends Operation[A, Nothing]
   private[zhttp] final case class Combine[A, S](self: Operation[A, S], other: Operation[A, S]) extends Operation[A, S]
-  private[zhttp] final case class FMap[A, B, S](self: Operation[A, S], ab: A => B)             extends Operation[B, S]
+  private[zhttp] final case class BiMap[A, S, B, T](self: Operation[A, S], ab: A => B, st: S => T)
+      extends Operation[B, T]
   private[zhttp] final case class Run(cb: JChannelHandlerContext => Any)                       extends Operation[Nothing, Nothing]
   private[zhttp] final case class Save[S](cb: S)                                               extends Operation[Nothing, S]
 }
