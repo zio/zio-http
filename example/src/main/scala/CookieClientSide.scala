@@ -12,7 +12,6 @@ object CookieClientSide extends App {
 
   val program = for {
     res1 <- Client.request(url, headers)
-    _    <- console.putStrLn { res1.cookies().toString() } //set-cookie header
     res2 <- Client.request(
       url,
       List(Header.host("github.com"), Header.cookies(res1.cookies())),
