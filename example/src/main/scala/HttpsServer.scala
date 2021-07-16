@@ -18,7 +18,7 @@ object HttpsServer extends App {
   val sslctx = ctxFromCert(getClass.getResourceAsStream("server.crt"), getClass.getResourceAsStream("server.key"))
 
   private val server =
-    Server.port(8090) ++ Server.app(app) ++ Server.enableHttp2(false) ++ Server.ssl(
+    Server.port(8090) ++ Server.app(app) ++ Server.http2 ++ Server.ssl(
       ServerSSLOptions(sslctx, SSLHttpBehaviour.Accept),
     )
 
