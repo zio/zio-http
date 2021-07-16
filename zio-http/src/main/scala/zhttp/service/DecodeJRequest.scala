@@ -1,8 +1,14 @@
 package zhttp.service
 
-import io.netty.handler.codec.http2.{Http2HeadersFrame => JHttp2HeadersFrame}
+import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.handler.codec.http2.{
+  DefaultHttp2DataFrame => JDefaultHttp2DataFrame,
+  Http2HeadersFrame => JHttp2HeadersFrame,
+}
 import zhttp.core.{JChannelHandlerContext, JFullHttpRequest}
 import zhttp.http._
+
+import scala.annotation.tailrec
 
 trait DecodeJRequest {
 
@@ -16,9 +22,29 @@ trait DecodeJRequest {
     endpoint = method -> url
     data     = HttpData.fromByteBuf(jReq.content())
   } yield Request(endpoint, headers, data, ctx)
-  def decodeHttp2Header(hh: JHttp2HeadersFrame): Either[HttpError, Request]                           = for {
+  def decodeHttp2Header(
+    hh: JHttp2HeadersFrame,
+    ctx: JChannelHandlerContext,
+    dataL: List[JDefaultHttp2DataFrame] = null,
+  ): Either[HttpError, Request]                                                                       = for {
     url <- URL.fromString(hh.headers().path().toString)
     method   = Method.fromString(hh.headers().method().toString)
+    headers  = Header.make(hh.headers())
     endpoint = method -> url
-  } yield Request(endpoint)
+    data     =
+      if (dataL == null) HttpData.empty
+      else {
+        @tailrec
+        def looper(byteBufList: List[ByteBuf], byteBuf: ByteBuf): ByteBuf = {
+          if (byteBufList.isEmpty)
+            byteBuf
+          else {
+            val b = byteBufList.head
+
+            looper(byteBufList.tail, Unpooled.copiedBuffer(byteBuf, b))
+          }
+        }
+        HttpData.fromByteBuf(looper(dataL.map(_.content()), Unpooled.EMPTY_BUFFER))
+      }
+  } yield Request(endpoint, headers, data, ctx)
 }

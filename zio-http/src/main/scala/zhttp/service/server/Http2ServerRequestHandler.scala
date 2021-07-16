@@ -18,6 +18,7 @@ import zio.{Chunk, Exit}
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import scala.collection.mutable.Map
 
 @JSharable
 final case class Http2ServerRequestHandler[R](
@@ -25,6 +26,8 @@ final case class Http2ServerRequestHandler[R](
   settings: Settings[R, Throwable],
 ) extends JChannelDuplexHandler
     with HttpMessageCodec {
+  val hedaerMap: Map[Int, JHttp2HeadersFrame]         = Map.empty[Int, JHttp2HeadersFrame]
+  val dataMap: Map[Int, List[JDefaultHttp2DataFrame]] = Map.empty[Int, List[JDefaultHttp2DataFrame]]
 
   @throws[Exception]
   override def exceptionCaught(ctx: JChannelHandlerContext, cause: Throwable): Unit = {
@@ -46,9 +49,43 @@ final case class Http2ServerRequestHandler[R](
 
   @throws[Exception]
   override def channelRead(ctx: JChannelHandlerContext, msg: Any): Unit = {
-    if (msg.isInstanceOf[JHttp2HeadersFrame]) onHeadersRead(ctx, msg.asInstanceOf[JHttp2HeadersFrame])
-    else super.channelRead(ctx, msg)
+    if (msg.isInstanceOf[JHttp2HeadersFrame]) {
+      onHeaderRead(ctx, msg.asInstanceOf[JHttp2HeadersFrame])
+    } else if (msg.isInstanceOf[JDefaultHttp2DataFrame]) {
+      onDataRead(ctx, msg.asInstanceOf[JDefaultHttp2DataFrame])
+    } else super.channelRead(ctx, msg)
     ()
+  }
+
+  private def onHeaderRead(ctx: JChannelHandlerContext, header: JHttp2HeadersFrame): Unit = {
+    if (header.isEndStream) {
+      onEndStream(ctx, header)
+    } else {
+      hedaerMap.put(header.stream().id(), header)
+      ()
+    }
+  }
+
+  private def onDataRead(ctx: JChannelHandlerContext, data: JDefaultHttp2DataFrame) = {
+    val stream = data.stream().id()
+    if (data.isEndStream) {
+      if (hedaerMap.contains(stream)) {
+        val header = hedaerMap.get(stream).get
+        if (dataMap.contains(stream)) {
+          onEndStream(ctx, header, dataMap.get(stream).get.appended(data))
+        } else {
+          onEndStream(ctx, header, List(data))
+        }
+      } else {
+        //TODO: say that there is no header
+      }
+    } else {
+      if (dataMap.contains(stream)) {
+        dataMap.update(stream, dataMap.get(stream).get.appended(data))
+      } else {
+        dataMap.put(stream, List(data))
+      }
+    }
   }
 
   @throws[Exception]
@@ -58,68 +95,69 @@ final case class Http2ServerRequestHandler[R](
   }
 
   @throws[Exception]
-  private def onHeadersRead(ctx: JChannelHandlerContext, headers: JHttp2HeadersFrame): Unit = {
-    if (headers.isEndStream) {
-      executeAsync(ctx, headers) {
-        case res @ Response.HttpResponse(_, _, content) =>
-          ctx.write(
-            new JDefaultHttp2HeadersFrame(encodeResponse(res)).stream(headers.stream()),
-            ctx.channel().voidPromise(),
-          )
-          content match {
-            case HttpData.StreamData(data)   =>
-              zExec.unsafeExecute_(ctx) {
-                for {
-                  _ <- data.foreachChunk(c =>
-                    ChannelFuture.unit(
-                      ctx.writeAndFlush(
-                        new JDefaultHttp2DataFrame(JUnpooled.copiedBuffer(c.toArray)).stream(headers.stream()),
-                      ),
+  private def onEndStream(
+    ctx: JChannelHandlerContext,
+    headers: JHttp2HeadersFrame,
+    dataL: List[JDefaultHttp2DataFrame] = null,
+  ): Unit =
+    executeAsync(ctx, headers, dataL) {
+      case res @ Response.HttpResponse(_, _, content) =>
+        ctx.write(
+          new JDefaultHttp2HeadersFrame(encodeResponse(res)).stream(headers.stream()),
+          ctx.channel().voidPromise(),
+        )
+        content match {
+          case HttpData.StreamData(data)   =>
+            zExec.unsafeExecute_(ctx) {
+              for {
+                _ <- data.foreachChunk(c =>
+                  ChannelFuture.unit(
+                    ctx.writeAndFlush(
+                      new JDefaultHttp2DataFrame(JUnpooled.copiedBuffer(c.toArray)).stream(headers.stream()),
                     ),
-                  )
-                  _ <- ChannelFuture.unit(ctx.writeAndFlush(new JDefaultHttp2DataFrame(true).stream(headers.stream())))
-                } yield ()
-              }
-            case HttpData.CompleteData(data) =>
-              ctx.writeAndFlush(
-                new JDefaultHttp2DataFrame(JUnpooled.copiedBuffer(data.toArray)).stream(headers.stream()),
-              )
-              ctx.write(new JDefaultHttp2DataFrame(true).stream(headers.stream()))
-            case HttpData.Empty              =>
-              ctx.write(new JDefaultHttp2DataFrame(true).stream(headers.stream()))
-              ()
-          }
-          ()
-
-        case _ @Response.SocketResponse(_) => {
-          val c   = Chunk.fromArray(
-            "Websockets are not supported over HTTP/2. Make HTTP/1.1 connection.".getBytes(HTTP_CHARSET),
-          )
-          val hhh = new JDefaultHttp2Headers().status(JHttpResponseStatus.UPGRADE_REQUIRED.codeAsText())
-          hhh
-            .set(JHttpHeaderNames.SERVER, "ZIO-Http")
-            .set(JHttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
-            .setInt(JHttpHeaderNames.CONTENT_LENGTH, c.length)
-          ctx.write(
-            new JDefaultHttp2HeadersFrame(hhh).stream(headers.stream()),
-            ctx.channel().voidPromise(),
-          )
-
-          ctx.writeAndFlush(
-            new JDefaultHttp2DataFrame(JUnpooled.copiedBuffer(c.toArray)).stream(headers.stream()),
-          )
-          ctx.write(new JDefaultHttp2DataFrame(true).stream(headers.stream()))
-          ()
+                  ),
+                )
+                _ <- ChannelFuture.unit(ctx.writeAndFlush(new JDefaultHttp2DataFrame(true).stream(headers.stream())))
+              } yield ()
+            }
+          case HttpData.CompleteData(data) =>
+            ctx.writeAndFlush(
+              new JDefaultHttp2DataFrame(JUnpooled.copiedBuffer(data.toArray)).stream(headers.stream()),
+            )
+            ctx.write(new JDefaultHttp2DataFrame(true).stream(headers.stream()))
+            ()
+          case HttpData.Empty              =>
+            ctx.write(new JDefaultHttp2DataFrame(true).stream(headers.stream()))
+            ()
         }
+
+      case _ @Response.SocketResponse(_) => {
+        val c   = Chunk.fromArray(
+          "Websockets are not supported over HTTP/2. Make HTTP/1.1 connection.".getBytes(HTTP_CHARSET),
+        )
+        val hhh = new JDefaultHttp2Headers().status(JHttpResponseStatus.UPGRADE_REQUIRED.codeAsText())
+        hhh
+          .set(JHttpHeaderNames.SERVER, "ZIO-Http")
+          .set(JHttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
+          .setInt(JHttpHeaderNames.CONTENT_LENGTH, c.length)
+        ctx.write(
+          new JDefaultHttp2HeadersFrame(hhh).stream(headers.stream()),
+          ctx.channel().voidPromise(),
+        )
+
+        ctx.writeAndFlush(
+          new JDefaultHttp2DataFrame(JUnpooled.copiedBuffer(c.toArray)).stream(headers.stream()),
+        )
+        ctx.write(new JDefaultHttp2DataFrame(true).stream(headers.stream()))
+        ()
       }
     }
-    ()
-  }
+  ()
 
-  private def executeAsync(ctx: JChannelHandlerContext, hh: JHttp2HeadersFrame)(
+  private def executeAsync(ctx: JChannelHandlerContext, hh: JHttp2HeadersFrame, dataL: List[JDefaultHttp2DataFrame])(
     cb: Response[R, Throwable] => Unit,
   ): Unit =
-    decodeHttp2Header(hh) match {
+    decodeHttp2Header(hh, ctx, dataL) match {
       case Left(err)  => cb(err.toResponse)
       case Right(req) => {
         settings.http.execute(req).evaluate match {

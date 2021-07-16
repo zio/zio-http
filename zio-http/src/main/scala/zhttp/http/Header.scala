@@ -3,6 +3,7 @@ package zhttp.http
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.base64.Base64
 import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpHeaderValues => JHttpHeaderValues}
+import io.netty.handler.codec.http2.Http2Headers
 import io.netty.util.CharsetUtil
 import zhttp.core.{JDefaultHttpHeaders, JHttpHeaders}
 import zhttp.http.HeadersHelpers.BasicSchemeName
@@ -24,6 +25,13 @@ object Header {
   def make(headers: JHttpHeaders): List[Header] =
     headers
       .iteratorCharSequence()
+      .asScala
+      .map(h => Header(h.getKey, h.getValue))
+      .toList
+
+  def make(headers: Http2Headers): List[Header] =
+    headers
+      .iterator()
       .asScala
       .map(h => Header(h.getKey, h.getValue))
       .toList
