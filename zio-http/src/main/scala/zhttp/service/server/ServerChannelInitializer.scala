@@ -1,6 +1,7 @@
 package zhttp.service.server
 
 import io.netty.handler.codec.http.{HttpServerKeepAliveHandler => JHttpServerKeepAliveHandler}
+import io.netty.handler.flow.{FlowControlHandler => JFlowControlHandler}
 import zhttp.channel.HttpChannel
 import zhttp.core._
 import zhttp.service.Server.Settings
@@ -25,8 +26,9 @@ final case class ServerChannelInitializer[R](zExec: UnsafeChannelExecutor[R], se
     }
     channel
       .pipeline()
-      .addLast(SERVER_CODEC_HANDLER, new JHttpServerCodec)
-      .addLast(HTTP_KEEPALIVE_HANDLER, new JHttpServerKeepAliveHandler)
+      .addLast(new JHttpServerCodec)
+      .addLast(new JFlowControlHandler())
+      .addLast(new JHttpServerKeepAliveHandler)
       .addLast(HTTP_REQUEST_HANDLER, HttpChannel.compile(zExec, settings.channel))
     ()
   }
