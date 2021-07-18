@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.{CanFail, ZIO}
+import zio.{CanFail, Cause, ZIO}
 
 import scala.annotation.unused
 
@@ -249,6 +249,28 @@ sealed trait Http[-R, +E, -A, +B] { self =>
       case FoldM(self, ee, bb, dd) =>
         HttpResult.suspend {
           self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
+        }
+    }
+  }
+
+  /**
+   * Completely evaluates an Http program to a ZIO skipping the intermediary HttpResult.
+   */
+  final private[zhttp] def executeAsZIO(a: A): ZIO[R, Option[E], B] = {
+    self match {
+      case Empty                   => ZIO.fail(None)
+      case Identity                => ZIO.succeed(a.asInstanceOf[B])
+      case Succeed(b)              => ZIO.succeed(b)
+      case Fail(e)                 => ZIO.fail(Option(e))
+      case FromEffectFunction(f)   => f(a).mapError(Option(_))
+      case Collect(pf)             => if (pf.isDefinedAt(a)) ZIO.succeed(pf(a)) else ZIO.halt(Cause.empty)
+      case Chain(self, other)      => ZIO.effectSuspendTotal(self.executeAsZIO(a) >>= (other.executeAsZIO(_)))
+      case FoldM(self, ee, bb, dd) =>
+        ZIO.effectSuspendTotal {
+          self.executeAsZIO(a).flatMap(bb(_).executeAsZIO(a)).catchAll {
+            case Some(value) => ee(value).executeAsZIO(a)
+            case None        => dd.executeAsZIO(a)
+          }
         }
     }
   }
