@@ -1,4 +1,4 @@
-package zhttp.channel
+package zhttp.experiment
 
 /**
  * Represents all the incoming events on a channel

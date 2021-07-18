@@ -13,7 +13,7 @@ import io.netty.handler.codec.http.{
   HttpResponseStatus => JHttpResponseStatus,
   LastHttpContent => JLastHttpContent,
 }
-import zhttp.channel._
+import zhttp.experiment._
 import zhttp.http._
 import zhttp.service.Server
 import zio._

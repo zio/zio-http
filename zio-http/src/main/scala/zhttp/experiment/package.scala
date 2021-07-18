@@ -2,7 +2,7 @@ package zhttp
 
 import zhttp.http._
 
-package object channel {
+package object experiment {
   type UOperation[+A]                    = Operation[A, Unit]
   type HttpDataChannel[-R, +E, S]        = HttpChannel[R, E, S, S]
   type HttpChannelHandler[-R, +E, -A, B] = Http[R, E, A, HttpDataChannel[R, E, B]]

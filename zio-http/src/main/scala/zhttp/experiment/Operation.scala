@@ -1,4 +1,4 @@
-package zhttp.channel
+package zhttp.experiment
 
 import io.netty.channel.{ChannelHandlerContext => JChannelHandlerContext}
 

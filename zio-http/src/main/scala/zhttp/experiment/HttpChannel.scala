@@ -1,4 +1,4 @@
-package zhttp.channel
+package zhttp.experiment
 
 import io.netty.channel.{ChannelInboundHandlerAdapter => JChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.{HttpContent => JHttpContent, HttpObject => JHttpObject, HttpRequest => JHttpRequest}
