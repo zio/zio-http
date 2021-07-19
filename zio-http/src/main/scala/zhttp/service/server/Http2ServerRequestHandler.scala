@@ -72,7 +72,7 @@ final case class Http2ServerRequestHandler[R](
       if (hedaerMap.contains(stream)) {
         val header = hedaerMap.get(stream).get
         if (dataMap.contains(stream)) {
-          onEndStream(ctx, header, dataMap.get(stream).get.appended(data))
+          onEndStream(ctx, header, dataMap.get(stream).get :+ data)
         } else {
           onEndStream(ctx, header, List(data))
         }
@@ -81,7 +81,7 @@ final case class Http2ServerRequestHandler[R](
       }
     } else {
       if (dataMap.contains(stream)) {
-        dataMap.update(stream, dataMap.get(stream).get.appended(data))
+        dataMap.update(stream, dataMap.get(stream).get :+ data)
       } else {
         dataMap.put(stream, List(data))
       }
