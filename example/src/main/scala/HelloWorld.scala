@@ -1,13 +1,20 @@
 import zhttp.http._
 import zhttp.service.Server
 import zio._
+import zio.duration._
 
 object HelloWorld extends App {
 
-  // Create HTTP route
-  val app: HttpApp[Any, Nothing] = HttpApp.collect {
-    case Method.GET -> Root / "text" => Response.text("Hello World!")
-    case Method.GET -> Root / "json" => Response.jsonString("""{"greetings": "Hello World!"}""")
+  def printThread(tag: String) =
+    UIO(println(s"${tag.padTo(6, ' ')}: ${Thread.currentThread().getName}"))
+
+  val app = HttpApp.collectM { case Method.GET -> Root / "text" =>
+    for {
+      _  <- printThread("Start")
+      f1 <- ZIO.sleep(1 second).zipLeft(printThread("First")).fork
+      f2 <- ZIO.sleep(1 second).zipLeft(printThread("Second")).fork
+      _  <- f1.join <*> f2.join
+    } yield Response.text("Hello World!")
   }
 
   // Run it like any simple app
