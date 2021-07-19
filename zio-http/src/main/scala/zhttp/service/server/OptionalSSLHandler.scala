@@ -5,6 +5,7 @@ import io.netty.handler.ssl.{SslContext => JSslContext, SslHandler => JSslHandle
 import zhttp.core.{JByteBuf, JChannelHandler, JChannelHandlerContext, JHttpServerCodec}
 import zhttp.service.Server.Settings
 import zhttp.service._
+import zhttp.service.server.ServerChannelInitializerUtil.configureClearText
 import zhttp.service.server.ServerSSLHandler.SSLHttpBehaviour
 
 import java.util
@@ -25,7 +26,7 @@ class OptionalSSLHandler[R](
       settings.sslOption.httpBehaviour match {
         case SSLHttpBehaviour.Accept =>
           context.channel().pipeline().remove(HTTP2_OR_HTTP_HANDLER)
-          ServerChannelInitializer.configureClearText(httpH, http2H, context.channel(), settings)
+          configureClearText(httpH, http2H, context.channel(), settings)
           context.channel().pipeline().remove(this)
           ()
         case _                       =>

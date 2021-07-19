@@ -50,19 +50,20 @@ trait AliasModule {
   type JWebSocketHandshakeException      = jwebsocketx.WebSocketHandshakeException
 
   // HTTP
-  type JHttpMethod              = jHttp.HttpMethod
-  type JHttpScheme              = jHttp.HttpScheme
-  type JHttpHeaders             = jHttp.HttpHeaders
-  type JHttpVersion             = jHttp.HttpVersion
-  type JHttpRequest             = jHttp.HttpRequest
-  type JDefaultHttpHeaders      = jHttp.DefaultHttpHeaders
-  type JFullHttpRequest         = jHttp.FullHttpRequest
-  type JFullHttpResponse        = jHttp.FullHttpResponse
-  type JHttpObjectAggregator    = jHttp.HttpObjectAggregator
-  type JHttpServerCodec         = jHttp.HttpServerCodec
-  type JHttpResponseStatus      = jHttp.HttpResponseStatus
-  type JDefaultFullHttpResponse = jHttp.DefaultFullHttpResponse
-  type JDefaultFullHttpRequest  = jHttp.DefaultFullHttpRequest
+  type JHttpMethod                 = jHttp.HttpMethod
+  type JHttpScheme                 = jHttp.HttpScheme
+  type JHttpHeaders                = jHttp.HttpHeaders
+  type JHttpVersion                = jHttp.HttpVersion
+  type JHttpRequest                = jHttp.HttpRequest
+  type JDefaultHttpHeaders         = jHttp.DefaultHttpHeaders
+  type JFullHttpRequest            = jHttp.FullHttpRequest
+  type JFullHttpResponse           = jHttp.FullHttpResponse
+  type JHttpObjectAggregator       = jHttp.HttpObjectAggregator
+  type JHttpServerCodec            = jHttp.HttpServerCodec
+  type JHttpResponseStatus         = jHttp.HttpResponseStatus
+  type JDefaultFullHttpResponse    = jHttp.DefaultFullHttpResponse
+  type JDefaultFullHttpRequest     = jHttp.DefaultFullHttpRequest
+  type JHttpServerKeepAliveHandler = jHttp.HttpServerKeepAliveHandler
 
   // Misc
   type JEmbeddedChannel         = jEmbedded.EmbeddedChannel

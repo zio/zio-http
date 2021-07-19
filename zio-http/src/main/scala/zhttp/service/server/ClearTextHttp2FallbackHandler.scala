@@ -1,11 +1,15 @@
 package zhttp.service.server
 
-import io.netty.handler.codec.http.{HttpMessage => JHttpMessage, HttpServerKeepAliveHandler => JHttpServerKeepAliveHandler}
+import io.netty.handler.codec.http.{
+  HttpMessage => JHttpMessage,
+  HttpServerKeepAliveHandler => JHttpServerKeepAliveHandler,
+}
 import zhttp.core.{JChannelHandler, JChannelHandlerContext, JHttpObjectAggregator, JSimpleChannelInboundHandler}
 import zhttp.service.Server.Settings
 import zhttp.service.{HTTP_KEEPALIVE_HANDLER, HTTP_REQUEST_HANDLER, OBJECT_AGGREGATOR}
 
-final case class ClearTextHttp2FallbackHandler[R](httpH: JChannelHandler,settings: Settings[R, Throwable]) extends JSimpleChannelInboundHandler[JHttpMessage]() {
+final case class ClearTextHttp2FallbackHandler[R](httpH: JChannelHandler, settings: Settings[R, Throwable])
+    extends JSimpleChannelInboundHandler[JHttpMessage]() {
   @throws[Exception]
   override protected def channelRead0(ctx: JChannelHandlerContext, msg: JHttpMessage): Unit = { // If this handler is hit then no upgrade has been attempted and the client is just talking HTTP.
     val pipeline = ctx.pipeline
