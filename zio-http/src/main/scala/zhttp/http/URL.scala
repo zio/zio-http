@@ -69,7 +69,7 @@ object URL {
   } yield URL(Path(path), Location.Relative, queryParams(uri.getRawQuery))
 
   def fromString(string: String): Either[HttpError, URL] = {
-    val invalidURL = Left(HttpError.BadRequest(s"Invalid URL: $string"))
+    def invalidURL = Left(HttpError.BadRequest(s"Invalid URL: $string"))
     for {
       url <- Try(new URI(string)).toEither match {
         case Left(_)      => invalidURL
