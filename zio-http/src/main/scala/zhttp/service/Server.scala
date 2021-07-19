@@ -65,7 +65,7 @@ object Server {
 
   private final case class Ssl(sslOptions: ServerSSLOptions) extends UServer
 
-  private final case object Http2 extends UServer
+  private case object Http2 extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E] = Server.App(http)
 
