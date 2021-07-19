@@ -152,7 +152,6 @@ final case class Http2ServerRequestHandler[R](
         ()
       }
     }
-  ()
 
   private def executeAsync(ctx: JChannelHandlerContext, hh: JHttp2HeadersFrame, dataL: List[JDefaultHttp2DataFrame])(
     cb: Response[R, Throwable] => Unit,
