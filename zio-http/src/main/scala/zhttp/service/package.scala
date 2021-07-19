@@ -17,6 +17,7 @@ package object service {
   private[service] val CLEAR_TEXT_HTTP2_HANDLER          = "CLEAR_TEXT_HTTP2"
   private[service] val CLEAR_TEXT_HTTP2_FALLBACK_HANDLER = "CLEAR_TEXT_HTTP2_FALLBACK"
   private[service] val HTTP2_OR_HTTP_HANDLER             = "HTTP2_OR_HTTP"
+  private[service] val ENCRYPTION_FILTER_HANDLER         = "ENCRYPTION_FILTER"
 
   type ChannelFactory       = Has[JChannelFactory[JChannel]]
   type EventLoopGroup       = Has[JEventLoopGroup]
