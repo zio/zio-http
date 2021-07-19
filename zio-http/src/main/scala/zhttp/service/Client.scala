@@ -54,7 +54,7 @@ object Client {
   def make: ZIO[EventLoopGroup with ChannelFactory, Nothing, Client] = for {
     cf <- ZIO.access[ChannelFactory](_.get)
     el <- ZIO.access[EventLoopGroup](_.get)
-    zx <- UnsafeChannelExecutor.make[Any]
+    zx <- UnsafeChannelExecutor.make[Any](el)
   } yield service.Client(zx, cf, el)
 
   def request(
