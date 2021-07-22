@@ -18,7 +18,7 @@ final case class ClientChannelInitializer[R](
       .addLast(channelHandler)
 
     if (scheme == "https") {
-      p.addFirst(ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc))
+      p.addFirst(ClientSSLHandler.ssl(sslOption,false).newHandler(ch.alloc))
     }
     ()
   }

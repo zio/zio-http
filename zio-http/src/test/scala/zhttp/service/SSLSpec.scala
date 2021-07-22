@@ -21,8 +21,8 @@ object SSLSpec extends HttpRunnableSpec(8073) {
     .sslProvider(JSslProvider.JDK)
 
   val ssc2       = new JSelfSignedCertificate()
-  val clientssl1 = JSslContextBuilder.forClient().trustManager(ssc1.cert()).build()
-  val clientssl2 = JSslContextBuilder.forClient().trustManager(ssc2.cert()).build()
+  val clientssl1 = JSslContextBuilder.forClient().trustManager(ssc1.cert())
+  val clientssl2 = JSslContextBuilder.forClient().trustManager(ssc2.cert())
 
   val app = HttpApp.collectM[Any, Nothing] { case Method.GET -> Root / "success" =>
     ZIO.succeed(Response.ok)

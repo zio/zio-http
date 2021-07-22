@@ -27,7 +27,7 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
   trustManagerFactory.init(trustStore)
 
   val sslOption: ClientSSLOptions =
-    ClientSSLOptions.CustomSSL(JSslContextBuilder.forClient().trustManager(trustManagerFactory).build())
+    ClientSSLOptions.CustomSSL(JSslContextBuilder.forClient().trustManager(trustManagerFactory))
   override def spec               = suite("Https Client request")(
     testM("respond Ok") {
       val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
