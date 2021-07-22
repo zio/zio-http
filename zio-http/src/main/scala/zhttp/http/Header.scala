@@ -45,6 +45,7 @@ object Header {
 
   def host(name: String): Header           = Header(JHttpHeaderNames.HOST, name)
   def userAgent(name: String): Header      = Header(JHttpHeaderNames.USER_AGENT, name)
+  def location(value: String): Header      = Header(JHttpHeaderNames.LOCATION, value)
   def authorization(value: String): Header = Header(JHttpHeaderNames.AUTHORIZATION, value)
 
   def basicHttpAuthorization(username: String, password: String): Header = {
