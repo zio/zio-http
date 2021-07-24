@@ -1,8 +1,7 @@
 package zhttp.http
 
-import zio.test._
 import zio.test.Assertion._
-import zio.test.assert
+import zio.test.{assert, _}
 
 object ResponseHelpersSpec {
   val redirectSpec = {
@@ -10,7 +9,7 @@ object ResponseHelpersSpec {
     suite("redirectSpec")(
       test("Temporary redirect should produce a response with a TEMPORARY_REDIRECT") {
         val x = Response.temporaryRedirect(location)
-        assert(x.status)(equalTo(Status.TEMPORARY_REDIRECT))
+        assert(x.status)(equalTo(Status.TEMPORARY_REDIRECT)) && assert(x.headers)(contains(Header.location(location)))
       },
       test("Temporary redirect should produce a response with a location") {
         val x = Response.temporaryRedirect(location)
@@ -23,7 +22,7 @@ object ResponseHelpersSpec {
       test("Permanent redirect should produce a response with a location") {
         val x = Response.permanentRedirect(location)
         assert(x.headers)(contains(Header.location(location)))
-      }
+      },
     )
   }
 
