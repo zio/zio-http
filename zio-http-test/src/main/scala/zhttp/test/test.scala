@@ -8,4 +8,3 @@ package object test {
     def apply(req: A): ZIO[R, Option[E], B] = http.execute(req).evaluate.asEffect
   }
 }
-
