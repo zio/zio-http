@@ -5,6 +5,7 @@
   - [Routing](#routing)
   - [Composition](#composition)
   - [ZIO Integration](#zio-integration)
+  - [Requests](#accessing-the-request)
 - [Socket](#socket)
   - [Creating a socket app](#creating-a-socket-app)
 - [Server](#server)
