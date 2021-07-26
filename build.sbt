@@ -12,7 +12,7 @@ val releaseDrafterVersion = "5"
 lazy val root = (project in file("."))
   .settings(stdSettings("root"))
   .settings(publishSetting(false))
-  .aggregate(zhttp, zhttpBenchmarks, example)
+  .aggregate(zhttp, zhttpBenchmarks, zhttpTest, example)
 
 // CI Configuration
 ThisBuild / githubWorkflowAddedJobs :=
