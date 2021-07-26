@@ -114,7 +114,7 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
 // Testing Package
 lazy val zhttpTest = (project in file("./zio-http-test"))
   .dependsOn(zhttp)
-  .settings(stdSettings("zhttpTest"))
+  .settings(stdSettings("zhttp-test"))
   .settings(publishSetting(true))
 
 lazy val example = (project in file("./example"))
