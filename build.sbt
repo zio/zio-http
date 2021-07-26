@@ -66,9 +66,6 @@ lazy val zhttp = (project in file("./zio-http"))
   .settings(stdSettings("zhttp"))
   .settings(publishSetting(true))
   .settings(
-    organization := "io.d11",
-    organizationName := "d11",
-    licenses += ("MIT License", new URL("https://github.com/dream11/zio-http/blob/master/LICENSE")),
     ThisBuild / homepage := Some(url("https://github.com/dream11/zio-http")),
     ThisBuild / scmInfo :=
       Some(
