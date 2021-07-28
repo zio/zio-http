@@ -28,7 +28,7 @@ object EchoChannel extends App {
   val health: Http[Any, Throwable, JHttpRequest, Channel[Any, Nothing, JHttpContent, JHttpObject]] =
     Http.collect[JHttpRequest] {
       case req if req.uri() == "/health" =>
-        Channel.make[JHttpContent, JHttpObject] { case (Event.Register, context) =>
+        Channel.collect[JHttpContent, JHttpObject] { case (Event.Register, context) =>
           context.write(res200) *>
             context.write(JLastHttpContent.EMPTY_LAST_CONTENT) *>
             context.flush
@@ -42,7 +42,7 @@ object EchoChannel extends App {
 
   val upload = Http.collect[JHttpRequest] {
     case req if req.uri() == "/upload" && req.method == JHttpMethod.POST =>
-      Channel.make[JHttpContent, JHttpObject] {
+      Channel.collect[JHttpContent, JHttpObject] {
         case (Event.Read(data: JLastHttpContent), context) => context.write(data) *> context.flush
         case (Event.Read(data: JHttpContent), context)     => context.write(data) *> context.flush *> context.read
         case (Event.Register, context)                     =>
@@ -88,7 +88,7 @@ object EchoChannel extends App {
 //  }
 
   val notFound = Http.succeed {
-    Channel.make[JHttpContent, JHttpObject] { case (_, context) =>
+    Channel.collect[JHttpContent, JHttpObject] { case (_, context) =>
       context.write(res404) *>
         context.write(JLastHttpContent.EMPTY_LAST_CONTENT) *>
         context.flush

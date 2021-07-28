@@ -23,7 +23,7 @@ final case class Channel[-R, +E, -A, +B](private[zhttp] val channel: Channel.Han
 }
 
 object Channel {
-  def make[A, B]: MkCollect[A, B] = new MkCollect(())
+  def collect[A, B]: MkCollect[A, B] = new MkCollect(())
   final class MkCollect[A, B](val unit: Unit) extends AnyVal {
     def apply[R, E](pf: PartialFunction[(Event[A], Context[B]), ZIO[R, E, Any]]): Channel[R, E, A, B] =
       Channel(
