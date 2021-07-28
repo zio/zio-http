@@ -68,4 +68,10 @@ private[zhttp] trait ResponseHelpers {
 
   def status(status: Status): UResponse = http(status)
 
+  def temporaryRedirect(location: String): HttpResponse[Any, Nothing] =
+    HttpResponse(Status.TEMPORARY_REDIRECT, List(Header.location(location)), content = HttpData.empty)
+
+  def permanentRedirect(location: String): HttpResponse[Any, Nothing] =
+    HttpResponse(Status.PERMANENT_REDIRECT, List(Header.location(location)), content = HttpData.empty)
+
 }
