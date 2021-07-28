@@ -57,7 +57,7 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
   def request(
     request: Request,
     sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-    http2: Boolean = true,
+    http2: Boolean = false,
   ): Task[UHttpResponse] =
     for {
       promise <- Promise.make[Throwable, JFullHttpResponse]
