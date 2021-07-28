@@ -3,7 +3,7 @@ import zhttp.service.Server
 import zio._
 import zio.duration._
 
-object HelloWorld extends App {
+object ThreadSafety extends App {
 
   def printThread(tag: String) =
     UIO(println(s"${tag.padTo(6, ' ')}: ${Thread.currentThread().getName}"))
