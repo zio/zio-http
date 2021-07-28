@@ -10,6 +10,7 @@ import io.netty.handler.codec.http.{
   HttpObject => JHttpObject,
   HttpRequest => JHttpRequest,
   HttpResponseStatus => JHttpResponseStatus,
+  HttpVersion => JHttpVersion,
   LastHttpContent => JLastHttpContent,
 }
 import zhttp.experiment._
@@ -18,14 +19,17 @@ import zhttp.service.Server
 import zio._
 
 object EchoChannel extends App {
-  def chunkedHeaders = new JDefaultHttpHeaders().set(JHttpHeaderNames.TRANSFER_ENCODING, JHttpHeaderValues.CHUNKED)
+  val chunkedHeaders = new JDefaultHttpHeaders().set(JHttpHeaderNames.TRANSFER_ENCODING, JHttpHeaderValues.CHUNKED)
+  val res100         = new JDefaultFullHttpResponse(JHttpVersion.HTTP_1_1, JHttpResponseStatus.CONTINUE, JUnpooled.EMPTY_BUFFER)
+  val res200Chunked  = new JDefaultHttpResponse(JHttpVersion.HTTP_1_1, JHttpResponseStatus.OK, chunkedHeaders)
+  val res200         = new JDefaultHttpResponse(JHttpVersion.HTTP_1_1, JHttpResponseStatus.OK)
+  val res404         = new JDefaultHttpResponse(JHttpVersion.HTTP_1_1, JHttpResponseStatus.NOT_FOUND)
 
   val health: Http[Any, Throwable, JHttpRequest, Channel[Any, Nothing, JHttpContent, JHttpObject]] =
     Http.collect[JHttpRequest] {
       case req if req.uri() == "/health" =>
         Channel.make[JHttpContent, JHttpObject] { case (Event.Register, context) =>
-          ZIO.fail(new Error("What up?"))
-          context.write(new JDefaultHttpResponse(req.protocolVersion(), JHttpResponseStatus.OK)) *>
+          context.write(res200) *>
             context.write(JLastHttpContent.EMPTY_LAST_CONTENT) *>
             context.flush
         }
@@ -42,13 +46,10 @@ object EchoChannel extends App {
         case (Event.Read(data: JLastHttpContent), context) => context.write(data) *> context.flush
         case (Event.Read(data: JHttpContent), context)     => context.write(data) *> context.flush *> context.read
         case (Event.Register, context)                     =>
-          context.write(
-            new JDefaultFullHttpResponse(req.protocolVersion(), JHttpResponseStatus.CONTINUE, JUnpooled.EMPTY_BUFFER),
-          )
-          context.flush *>
-            context.write(
-              new JDefaultHttpResponse(req.protocolVersion(), JHttpResponseStatus.OK, chunkedHeaders),
-            ) *> context.flush *>
+          context.write(res100) *>
+            context.flush *>
+            context.write(res200Chunked) *>
+            context.flush *>
             context.read
       }
   }
@@ -86,13 +87,12 @@ object EchoChannel extends App {
 //      }
 //  }
 
-  val notFound = Http.collect[JHttpRequest] { case req =>
+  val notFound = Http.succeed {
     Channel.make[JHttpContent, JHttpObject] { case (_, context) =>
-      context.write(new JDefaultHttpResponse(req.protocolVersion(), JHttpResponseStatus.NOT_FOUND)) *>
+      context.write(res404) *>
         context.write(JLastHttpContent.EMPTY_LAST_CONTENT) *>
         context.flush
     }
-
   }
 
   val app = health +++ upload +++ serverError +++ notFound
