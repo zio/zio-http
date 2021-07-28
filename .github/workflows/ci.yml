@@ -59,7 +59,7 @@ jobs:
         run: sbt --client '++${{ matrix.scala }}; test'
 
       - name: Compress target directories
-        run: tar cf targets.tar target zio-http/target zio-http-benchmarks/target example/target project/target
+        run: tar cf targets.tar target zio-http-test/target zio-http/target zio-http-benchmarks/target example/target project/target
 
       - name: Upload target directories
         uses: actions/upload-artifact@v2
