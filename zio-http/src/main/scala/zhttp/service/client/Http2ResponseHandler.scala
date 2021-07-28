@@ -1,35 +1,44 @@
 package zhttp.service.client
 
-
-import java.util
-
 import io.netty.channel.{ChannelFuture, ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpResponse
 import io.netty.handler.codec.http2.HttpConversionUtil
 import zhttp.core.{JFullHttpResponse, JSharable}
 import zio.Promise
 
+import java.util
 import scala.collection.mutable.Map
-
 
 /**
  * Process {@link io.netty.handler.codec.http.FullHttpResponse} translated from HTTP/2 frames
  */
 @JSharable
 final case class Http2ResponseHandler() extends SimpleChannelInboundHandler[FullHttpResponse] {
-  val streamidPromiseMap :Map[Integer, util.Map.Entry[ChannelFuture, Promise[Throwable, JFullHttpResponse]]]= Map.empty[Integer, util.Map.Entry[ChannelFuture, Promise[Throwable, JFullHttpResponse]]]
-
+  val streamidPromiseMap: Map[Integer, util.Map.Entry[ChannelFuture, Promise[Throwable, JFullHttpResponse]]] =
+    Map.empty[Integer, util.Map.Entry[ChannelFuture, Promise[Throwable, JFullHttpResponse]]]
 
   /**
    * Create an association between an anticipated response stream id and a {@link io.netty.channel.ChannelPromise}
    *
-   * @param streamId    The stream for which a response is expected
-   * @param writeFuture A future that represent the request write operation
-   * @param promise     The promise object that will be used to wait/notify events
-   * @return The previous object associated with {@code streamId}
-   * @see HttpResponseHandler#awaitResponses(long, java.util.concurrent.TimeUnit)
+   * @param streamId
+   *   The stream for which a response is expected
+   * @param writeFuture
+   *   A future that represent the request write operation
+   * @param promise
+   *   The promise object that will be used to wait/notify events
+   * @return
+   *   The previous object associated with {@code streamId}
+   * @see
+   *   HttpResponseHandler#awaitResponses(long, java.util.concurrent.TimeUnit)
    */
-  def put(streamId: Int, writeFuture: ChannelFuture, promise: Promise[Throwable, JFullHttpResponse]): Option[util.Map.Entry[ChannelFuture, Promise[Throwable, JFullHttpResponse]]] = streamidPromiseMap.put(streamId, new util.AbstractMap.SimpleEntry[ChannelFuture, Promise[Throwable, JFullHttpResponse]](writeFuture, promise))
+  def put(
+    streamId: Int,
+    writeFuture: ChannelFuture,
+    promise: Promise[Throwable, JFullHttpResponse],
+  ): Option[util.Map.Entry[ChannelFuture, Promise[Throwable, JFullHttpResponse]]] = streamidPromiseMap.put(
+    streamId,
+    new util.AbstractMap.SimpleEntry[ChannelFuture, Promise[Throwable, JFullHttpResponse]](writeFuture, promise),
+  )
 
 //  /**
 //   * Wait (sequentially) for a time duration for each anticipated response
@@ -62,7 +71,7 @@ final case class Http2ResponseHandler() extends SimpleChannelInboundHandler[Full
       System.err.println("HttpResponseHandler unexpected message received: " + msg)
       return
     }
-    val entry = streamidPromiseMap.get(streamId)
+    val entry    = streamidPromiseMap.get(streamId)
     if (entry == null) System.err.println("Message received for unknown stream id " + streamId)
     else {
       entry.get.getValue.succeed(msg)
@@ -71,6 +80,8 @@ final case class Http2ResponseHandler() extends SimpleChannelInboundHandler[Full
     }
   }
 
-  override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = streamidPromiseMap.foreach(p=>{p._2.getValue.fail(cause)
-  streamidPromiseMap.remove(p._1)} )
+  override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = streamidPromiseMap.foreach(p => {
+    p._2.getValue.fail(cause)
+    streamidPromiseMap.remove(p._1)
+  })
 }

@@ -1,11 +1,9 @@
 package zhttp.service.client
 
-import io.netty.channel.ChannelHandlerContext
-import io.netty.channel.ChannelPromise
-import io.netty.channel.SimpleChannelInboundHandler
+import io.netty.channel.{ChannelHandlerContext, ChannelPromise, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http2.Http2Settings
-import java.util.concurrent.TimeUnit
 
+import java.util.concurrent.TimeUnit
 
 /**
  * Reads the first {@link Http2Settings} object and notifies a {@link io.netty.channel.ChannelPromise}
@@ -15,16 +13,20 @@ final case class Http2SettingsHandler(promise: ChannelPromise)
 /**
  * Create new instance
  *
- * @param promise Promise object used to notify when first settings are received
+ * @param promise
+ *   Promise object used to notify when first settings are received
  */
-  extends SimpleChannelInboundHandler[Http2Settings] {
+    extends SimpleChannelInboundHandler[Http2Settings] {
+
   /**
-   * Wait for this handler to be added after the upgrade to HTTP/2, and for initial preface
-   * handshake to complete.
+   * Wait for this handler to be added after the upgrade to HTTP/2, and for initial preface handshake to complete.
    *
-   * @param timeout Time to wait
-   * @param unit    {@link java.util.concurrent.TimeUnit} for {@code timeout}
-   * @throws Exception if timeout or other failure occurs
+   * @param timeout
+   *   Time to wait
+   * @param unit
+   *   {@link java.util.concurrent.TimeUnit} for {@code timeout}
+   * @throws
+   *   Exception if timeout or other failure occurs
    */
   @throws[Exception]
   def awaitSettings(timeout: Long, unit: TimeUnit): Unit = {
