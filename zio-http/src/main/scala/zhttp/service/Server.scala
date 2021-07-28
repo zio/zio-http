@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.handler.codec.http.{HttpContent => JHttpContent, HttpObject => JHttpObject}
 import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
 import zhttp.core._
-import zhttp.experiment.HttpChannel
+import zhttp.experiment.Channel
 import zhttp.http.{Status, _}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server.{LeakDetectionLevel, ServerChannelFactory, ServerChannelInitializer}
@@ -23,7 +23,7 @@ sealed trait Server[-R, +E] { self =>
     case MaxRequestSize(size) => s.copy(maxRequestSize = size)
     case Error(errorHandler)  => s.copy(error = Some(errorHandler))
     case Ssl(sslOption)       => s.copy(sslOption = sslOption)
-    case Channel(channel)     => s.copy(channel = channel)
+    case Application(channel) => s.copy(channel = channel)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
@@ -35,7 +35,7 @@ sealed trait Server[-R, +E] { self =>
 
 object Server {
   // TODO: Rename to HttpApp
-  type HttpDeploy[-R, +E] = Http[R, E, JHttpRequest, HttpChannel[Any, Nothing, JHttpContent, JHttpObject]]
+  type HttpDeploy[-R, +E] = Http[R, E, JHttpRequest, Channel[Any, Nothing, JHttpContent, JHttpObject]]
 
   private[zhttp] final case class Settings[-R, +E](
     http: HttpApp[R, E] = HttpApp.empty(Status.NOT_FOUND),
@@ -54,12 +54,12 @@ object Server {
   private final case class App[R, E](http: HttpApp[R, E])                             extends Server[R, E]
   private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
-  private final case class Channel[R, E](channel: HttpDeploy[R, E])                   extends Server[R, E]
+  private final case class Application[R, E](app: HttpDeploy[R, E])                   extends Server[R, E]
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]                                   = Server.App(http)
   def maxRequestSize(size: Int): UServer                                             = Server.MaxRequestSize(size)
   def port(int: Int): UServer                                                        = Server.Port(int)
-  def channel[R, E](channel: HttpDeploy[R, E]): Server[R, E]                         = Server.Channel(channel)
+  def channel[R, E](channel: HttpDeploy[R, E]): Server[R, E]                         = Server.Application(channel)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   val disableLeakDetection: UServer                                                  = LeakDetection(LeakDetectionLevel.DISABLED)

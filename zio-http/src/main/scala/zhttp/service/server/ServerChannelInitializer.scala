@@ -3,7 +3,7 @@ package zhttp.service.server
 import io.netty.handler.codec.http.{HttpServerKeepAliveHandler => JHttpServerKeepAliveHandler}
 import io.netty.handler.flow.{FlowControlHandler => JFlowControlHandler}
 import zhttp.core._
-import zhttp.experiment.HttpChannel
+import zhttp.experiment.Channel
 import zhttp.service.Server.Settings
 import zhttp.service._
 
@@ -29,7 +29,7 @@ final case class ServerChannelInitializer[R](zExec: UnsafeChannelExecutor[R], se
       .addLast(new JHttpServerCodec)
       .addLast(new JFlowControlHandler())
       .addLast(new JHttpServerKeepAliveHandler)
-      .addLast(HTTP_REQUEST_HANDLER, HttpChannel.compile(zExec, settings.channel))
+      .addLast(HTTP_REQUEST_HANDLER, Channel.compile(zExec, settings.channel))
     ()
   }
 

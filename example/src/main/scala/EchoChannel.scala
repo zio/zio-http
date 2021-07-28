@@ -20,10 +20,10 @@ import zio._
 object EchoChannel extends App {
   def chunkedHeaders = new JDefaultHttpHeaders().set(JHttpHeaderNames.TRANSFER_ENCODING, JHttpHeaderValues.CHUNKED)
 
-  val health: Http[Any, Throwable, JHttpRequest, HttpChannel[Any, Nothing, JHttpContent, JHttpObject]] =
+  val health: Http[Any, Throwable, JHttpRequest, Channel[Any, Nothing, JHttpContent, JHttpObject]] =
     Http.collect[JHttpRequest] {
       case req if req.uri() == "/health" =>
-        HttpChannel.make[JHttpContent, JHttpObject] { case (Event.Register, context) =>
+        Channel.make[JHttpContent, JHttpObject] { case (Event.Register, context) =>
           ZIO.fail(new Error("What up?"))
           context.write(new JDefaultHttpResponse(req.protocolVersion(), JHttpResponseStatus.OK)) *>
             context.write(JLastHttpContent.EMPTY_LAST_CONTENT) *>
@@ -31,14 +31,14 @@ object EchoChannel extends App {
         }
     }
 
-  val serverError: Http[Any, Throwable, JHttpRequest, HttpChannel[Any, Nothing, JHttpContent, JHttpObject]] =
+  val serverError: Http[Any, Throwable, JHttpRequest, Channel[Any, Nothing, JHttpContent, JHttpObject]] =
     Http.collectM[JHttpRequest] {
       case req if req.uri() == "/server-error" => ZIO.fail(new Error("What up?"))
     }
 
   val upload = Http.collect[JHttpRequest] {
     case req if req.uri() == "/upload" && req.method == JHttpMethod.POST =>
-      HttpChannel.make[JHttpContent, JHttpObject] {
+      Channel.make[JHttpContent, JHttpObject] {
         case (Event.Read(data: JLastHttpContent), context) => context.write(data) *> context.flush
         case (Event.Read(data: JHttpContent), context)     => context.write(data) *> context.flush *> context.read
         case (Event.Register, context)                     =>
@@ -87,7 +87,7 @@ object EchoChannel extends App {
 //  }
 
   val notFound = Http.collect[JHttpRequest] { case req =>
-    HttpChannel.make[JHttpContent, JHttpObject] { case (_, context) =>
+    Channel.make[JHttpContent, JHttpObject] { case (_, context) =>
       context.write(new JDefaultHttpResponse(req.protocolVersion(), JHttpResponseStatus.NOT_FOUND)) *>
         context.write(JLastHttpContent.EMPTY_LAST_CONTENT) *>
         context.flush
@@ -95,7 +95,7 @@ object EchoChannel extends App {
 
   }
 
-  val app = health +++ upload +++ serverError
+  val app = health +++ upload +++ serverError +++ notFound
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     Server.start0(8090, app).exitCode
