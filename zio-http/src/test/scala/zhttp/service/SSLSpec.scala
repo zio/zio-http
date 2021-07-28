@@ -68,7 +68,7 @@ object SSLSpec extends HttpRunnableSpec(8073) {
                 case _: SSLHandshakeException => ZIO.succeed("SSLHandshakeException")
               })
             assertM(actual)(equalTo("SSLHandshakeException"))
-          } @@ timeout(1 second) @@ flaky,
+          } @@ timeout(5 second) @@ flaky,
           testM("succeed when client has default SSL") {
             val actual = Client
               .request("https://localhost:8073/success", ClientSSLOptions.DefaultSSL)
