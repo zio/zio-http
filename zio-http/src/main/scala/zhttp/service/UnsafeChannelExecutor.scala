@@ -14,16 +14,18 @@ import scala.jdk.CollectionConverters._
  * cancel the execution when the channel closes.
  */
 final class UnsafeChannelExecutor[R](runtime: zio.Runtime[R], group: JEventLoopGroup) {
-  private val localRuntime: mutable.Map[JEventExecutor, Runtime[R]] =
-    mutable.Map.from {
-      group.asScala.map { exe =>
-        exe -> runtime.withYieldOnStart(false).withExecutor {
-          Executor.fromExecutionContext(runtime.platform.executor.yieldOpCount) {
-            JExecutionContext.fromExecutor(exe)
-          }
+  private val localRuntime: mutable.Map[JEventExecutor, Runtime[R]] = {
+    val map = mutable.Map.empty[JEventExecutor, Runtime[R]]
+
+    for (exe <- group.asScala)
+      map += exe -> runtime.withYieldOnStart(false).withExecutor {
+        Executor.fromExecutionContext(runtime.platform.executor.yieldOpCount) {
+          JExecutionContext.fromExecutor(exe)
         }
       }
-    }
+
+    map
+  }
 
   def unsafeExecute_(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
     unsafeExecute(ctx, program) {
