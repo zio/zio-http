@@ -2,8 +2,8 @@ package zhttp.service
 
 import io.netty.handler.codec.http.{HttpContent => JHttpContent, HttpObject => JHttpObject}
 import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
-import zhttp.experiment.HttpChannel
 import zhttp.core._
+import zhttp.experiment.HttpChannel
 import zhttp.http.{Status, _}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server.{LeakDetectionLevel, ServerChannelFactory, ServerChannelInitializer}

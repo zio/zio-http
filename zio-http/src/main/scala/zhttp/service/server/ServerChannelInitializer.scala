@@ -2,8 +2,8 @@ package zhttp.service.server
 
 import io.netty.handler.codec.http.{HttpServerKeepAliveHandler => JHttpServerKeepAliveHandler}
 import io.netty.handler.flow.{FlowControlHandler => JFlowControlHandler}
-import zhttp.experiment.HttpChannel
 import zhttp.core._
+import zhttp.experiment.HttpChannel
 import zhttp.service.Server.Settings
 import zhttp.service._
 
