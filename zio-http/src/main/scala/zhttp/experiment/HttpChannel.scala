@@ -1,11 +1,15 @@
 package zhttp.experiment
 
-import io.netty.channel.{ChannelInboundHandlerAdapter => JChannelInboundHandlerAdapter}
+import io.netty.channel.{
+  ChannelHandler => JChannelHandler,
+  ChannelHandlerContext => JChannelHandlerContext,
+  ChannelInboundHandlerAdapter => JChannelInboundHandlerAdapter,
+  SimpleChannelInboundHandler => JSimpleChannelInboundHandler,
+}
 import io.netty.handler.codec.http.{HttpContent => JHttpContent, HttpObject => JHttpObject, HttpRequest => JHttpRequest}
-import zhttp.core.{JChannelHandler, JChannelHandlerContext}
-import zhttp.http.{Http, HttpResult}
+import zhttp.http.Http
 import zhttp.service.UnsafeChannelExecutor
-import zio.Queue
+import zio.{UIO, ZIO}
 
 /**
  * Low level handle to control the flow of messages over a network channel.
@@ -13,154 +17,91 @@ import zio.Queue
  * TODO: Benchmark and optimize for performance
  */
 
-case class HttpChannel[-R, +E, -A, +B](private val channel: HttpChannel.Channel[R, E, A, B]) { self =>
-  def map[C](bc: B => C): HttpChannel[R, E, A, C] = {
-    HttpChannel.make(channel.initialize) { (state, event) =>
-      self.channel.execute(state, event).map(_.map(bc))
-    }
-  }
+final class Context[-A](private[zhttp] val asJava: JChannelHandlerContext) extends AnyVal {
+  private[zhttp] def fireExceptionCaught(cause: Throwable): UIO[Unit] = UIO(asJava.fireExceptionCaught(cause): Unit)
+  private[zhttp] def fireRegistered(): UIO[Unit]                      = UIO(asJava.fireChannelRegistered(): Unit)
+  private[zhttp] def fireChannelRead(data: Any): UIO[Unit]            = UIO(asJava.fireChannelRead(data): Unit)
+  private[zhttp] def fireChannelReadComplete(): UIO[Unit]             = UIO(asJava.fireChannelReadComplete(): Unit)
+  def write(a: A): UIO[Unit]                                          = UIO(asJava.write(a): Unit)
+  def writeAndFlush(a: A): UIO[Unit]                                  = UIO(asJava.writeAndFlush(a): Unit)
+  def read: UIO[Unit]                                                 = UIO(asJava.read(): Unit)
+  def flush: UIO[Unit]                                                = UIO(asJava.flush(): Unit)
+  def close: UIO[Unit]                                                = UIO(asJava.close(): Unit)
+}
 
-  def contramap[X](xa: X => A): HttpChannel[R, E, X, B] =
-    HttpChannel.make(channel.initialize) { (state, event) =>
-      self.channel.execute(state, event.map(xa))
-    }
+final case class HttpChannel[-R, +E, -A, +B](private[zhttp] val channel: HttpChannel.Channel[R, E, A, B]) { self =>
+  def compile[R1 <: R, A1 <: A](implicit rtm: UnsafeChannelExecutor[R1]): JSimpleChannelInboundHandler[A1] = ???
 
-  def orElse[R1 <: R, E1, A1 <: A, B1 >: B](other: HttpChannel[R1, E1, A1, B1]): HttpChannel[R1, E1, A1, B1] =
-    HttpChannel.make((self.channel.initialize, other.channel.initialize)) { (state, event) =>
-      val l = self.channel.execute(state._1, event).map(_.mapS(s => (s, state._2)))
-      val r = other.channel.execute(state._2, event).map(_.mapS(s => (state._1, s)))
-      l.orElse(r)
-    }
-
-  // This API is impossible to implement
-  def plug[A1 <: A, B1 >: B](in: Queue[A1], out: Queue[B1]): HttpChannel[R, E, A1, B1] = ???
+  def ++[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: HttpChannel[R1, E1, A1, B1]): HttpChannel[R1, E1, A1, B1] =
+    HttpChannel(self.channel.zipRight(other.channel))
 }
 
 object HttpChannel {
-  type Process[-R, +E, S, -A, +B] = (S, Event[A]) => HttpResult[R, E, Operation[B, S]]
 
-  def make[R, E, A, B, S](state: S)(exe: Process[R, E, S, A, B]): HttpChannel[R, E, A, B] =
-    HttpChannel(Channel.make(state)(exe))
+  def make[A, B]: MkCollect[A, B] = new MkCollect(())
 
-  def collectM[R, E, A, B](exe: Event[A] => HttpResult[R, E, Operation[B, Unit]]): HttpChannel[R, E, A, B] =
-    HttpChannel.make(())((_, event) => exe(event))
+  final class MkCollect[A, B](val unit: Unit) extends AnyVal {
+    def apply[R, E](pf: PartialFunction[(Event[A], Context[B]), ZIO[R, E, Any]]): HttpChannel[R, E, A, B] = HttpChannel(
+      new Channel[R, E, A, B] {
+        override def execute(event: Event[A], ctx: Context[B]): ZIO[R, E, Any] =
+          pf((event, ctx)).when(pf.isDefinedAt((event, ctx)))
+      },
+    )
+  }
 
-  def collect[A]: MkCollect[A] = new MkCollect[A](())
+  trait Channel[-R, +E, -A, +B] { self =>
+    def execute(event: Event[A], ctx: Context[B]): ZIO[R, E, Any] =
+      event match {
+        case Event.Read(data)     => ctx.fireChannelRead(data)
+        case Event.Register       => ctx.fireRegistered()
+        case Event.Failure(cause) => ctx.fireExceptionCaught(cause)
+        case Event.Complete       => ctx.fireChannelReadComplete()
+      }
 
-  def collectWith[A]: MkCollectWith[A] = new MkCollectWith[A](())
+    final def *>[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Channel[R1, E1, A1, B1]): Channel[R1, E1, A1, B1] =
+      self.zipRight(other)
 
-  def empty: HttpChannel[Any, Nothing, Any, Nothing] = HttpChannel.collectM(_ => HttpResult.empty)
+    final def zipRight[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Channel[R1, E1, A1, B1]): Channel[R1, E1, A1, B1] =
+      new Channel[R1, E1, A1, B1] {
+        override def execute(event: Event[A1], ctx: Context[B1]): ZIO[R1, E1, Any] =
+          self.execute(event, ctx) *> other.execute(event, ctx)
+      }
+  }
 
-  /**
-   * Compiles a HttpChannel into a netty channel handler
-   */
-  private[zhttp] def compile[R, E <: Throwable](
+  private[zhttp] def compile[R](
     zExec: UnsafeChannelExecutor[R],
-    http: Http[R, E, JHttpRequest, HttpChannel[R, E, JHttpContent, JHttpObject]],
+    http: Http[R, Throwable, JHttpRequest, HttpChannel[Any, Nothing, JHttpContent, JHttpObject]],
   ): JChannelHandler =
-    new JChannelInboundHandlerAdapter {
-      import Operation._
+    new JChannelInboundHandlerAdapter { self =>
+      private var channel: HttpChannel[Any, Nothing, JHttpContent, JHttpObject] = _
 
-      private var dataChannel: HttpChannel[R, E, JHttpContent, JHttpObject] = _
-      private var state: Any                                                = _
-
-      private def executeOp[A, S](ctx: JChannelHandlerContext, operation: Operation[A, S]): Unit = {
-        operation match {
-          case Write(data)          => ctx.write(data): Unit
-          case Run(cb)              => cb(ctx): Unit
-          case Save(s)              => state = s
-          case Combine(self, other) =>
-            executeOp(ctx, self)
-            executeOp(ctx, other)
-          case BiMap(self, ab, st)  =>
-            executeOp(
-              ctx,
-              self match {
-                case Save(state)           => Save(st(state))
-                case Write(data)           => Write(ab(data))
-                case Combine(self, other)  => Combine(self.bimap(ab, st), other.bimap(ab, st))
-                case BiMap(self, st0, ab0) => self.bimap(ab0.andThen(ab), st0.andThen(st))
-                case m @ Run(_)            => m
-              },
-            )
-        }
-      }
-
-      private def executeCh(ctx: JChannelHandlerContext, event: Event[JHttpContent]): Unit = {
-        dataChannel.channel.executeWithAnyState(state, event).evaluate match {
-          case HttpResult.Success(a)      => executeOp(ctx, a)
-          case HttpResult.Failure(e)      => ctx.fireExceptionCaught(e): Unit
-          case HttpResult.Effect(program) => zExec.unsafeExecute(ctx, program) { _ => ??? }
-          case HttpResult.Empty           => ()
-        }
-      }
-
-      private def executeH(ctx: JChannelHandlerContext, event: JHttpRequest): Unit = {
-        http.execute(event).evaluate match {
-          case HttpResult.Empty           => ()
-          case HttpResult.Success(a)      =>
-            dataChannel = a
-            state = dataChannel.channel.initialize
-            executeCh(ctx, Event.Register)
-          case HttpResult.Failure(e)      => ctx.fireExceptionCaught(e): Unit
-          case HttpResult.Effect(program) => zExec.unsafeExecute(ctx, program) { _ => ??? }
-        }
-      }
-
-      override def channelReadComplete(ctx: JChannelHandlerContext): Unit = {
-        executeCh(ctx, Event.Complete)
+      override def channelRegistered(ctx: JChannelHandlerContext): Unit = {
+        ctx.channel().config().setAutoRead(false)
+        ctx.read(): Unit
       }
 
       override def channelRead(ctx: JChannelHandlerContext, msg: Any): Unit = {
-        msg match {
-          case msg: JHttpRequest => executeH(ctx, msg)
-          case msg: JHttpContent => executeCh(ctx, Event.Read(msg))
-          case _                 => ctx.fireExceptionCaught(new Error("Unhandled message on HttpChannel")): Unit
+        zExec.unsafeExecute_(ctx) {
+          val c = new Context(ctx)
+          msg match {
+            case req: JHttpRequest     =>
+              http
+                .executeAsZIO(req)
+                .flatMap(channel => UIO(self.channel = channel))
+                .zipRight(self.channel.channel.execute(Event.Register, c))
+                .catchAll({
+                  case None    => ??? // TODO: send a not found response
+                  case Some(_) => ??? // TODO: send an internal server error response
+                })
+            case content: JHttpContent => self.channel.channel.execute(Event.Read(content), c)
+            case _                     => UIO(ctx.fireExceptionCaught(new Error("Unknown message")))
+          }
         }
       }
 
-      override def channelRegistered(ctx: JChannelHandlerContext): Unit = {
-        ctx.channel.config.setAutoRead(false)
-        ctx.channel.read(): Unit
-      }
+      override def exceptionCaught(ctx: JChannelHandlerContext, cause: Throwable): Unit =
+        zExec.unsafeExecute_(ctx) {
+          channel.channel.execute(Event.Failure(cause), new Context(ctx))
+        }
     }
-
-  final class MkCollect[A](val unit: Unit) extends AnyVal {
-    def apply[B, S](execute: PartialFunction[Event[A], Operation[B, Unit]]): HttpChannel[Any, Nothing, A, B] =
-      HttpChannel.make(()) { (_, event) =>
-        if (execute.isDefinedAt(event)) HttpResult.succeed(execute(event))
-        else HttpResult.empty
-      }
-  }
-
-  final class MkCollectWith[A](val unit: Unit) extends AnyVal {
-    def apply[B, S](s: S)(
-      execute: PartialFunction[(S, Event[A]), Operation[B, S]],
-    ): HttpChannel[Any, Nothing, A, B] =
-      HttpChannel.make(s) { (s, event) =>
-        if (execute.isDefinedAt((s, event))) HttpResult.succeed(execute(s -> event))
-        else HttpResult.empty
-      }
-  }
-
-  private[zhttp] sealed trait Channel[-R, +E, -A, +B] { self =>
-    type State
-    def initialize: State
-    def execute(state: State, event: Event[A]): HttpResult[R, E, Operation[B, State]]
-    def executeWithAnyState(state: Any, event: Event[A]): HttpResult[R, E, Operation[B, State]] =
-      execute(state.asInstanceOf[State], event)
-  }
-
-  object Channel {
-    type Aux[-R, +E, S, -A, +B] = Channel[R, E, A, B] {
-      type State = S
-    }
-
-    def make[R, E, A, B, S](state: S)(exe: Process[R, E, S, A, B]): Channel[R, E, A, B] =
-      new Channel[R, E, A, B] {
-        override type State = S
-        override def execute(state: State, event: Event[A]): HttpResult[R, E, Operation[B, State]] = exe(state, event)
-        override def initialize: State                                                             = state
-      }
-  }
 }
