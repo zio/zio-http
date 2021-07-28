@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.{CanFail, Cause, ZIO}
+import zio.{CanFail, ZIO}
 
 import scala.annotation.unused
 
@@ -263,7 +263,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
       case Succeed(b)              => ZIO.succeed(b)
       case Fail(e)                 => ZIO.fail(Option(e))
       case FromEffectFunction(f)   => f(a).mapError(Option(_))
-      case Collect(pf)             => if (pf.isDefinedAt(a)) ZIO.succeed(pf(a)) else ZIO.halt(Cause.empty)
+      case Collect(pf)             => if (pf.isDefinedAt(a)) ZIO.succeed(pf(a)) else ZIO.fail(Option.empty)
       case Chain(self, other)      => ZIO.effectSuspendTotal(self.executeAsZIO(a) >>= (other.executeAsZIO(_)))
       case FoldM(self, ee, bb, dd) =>
         ZIO.effectSuspendTotal {
