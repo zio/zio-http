@@ -25,17 +25,17 @@ final case class Channel[-R, +E, -A, +B](private[zhttp] val channel: Channel.Han
 object Channel {
   def make[A, B]: MkCollect[A, B] = new MkCollect(())
   final class MkCollect[A, B](val unit: Unit) extends AnyVal {
-    def apply[R, E](pf: PartialFunction[(Event[A], ChannelContext[B]), ZIO[R, E, Any]]): Channel[R, E, A, B] =
+    def apply[R, E](pf: PartialFunction[(Event[A], Context[B]), ZIO[R, E, Any]]): Channel[R, E, A, B] =
       Channel(
         new Handle[R, E, A, B] {
-          override def execute(event: Event[A], ctx: ChannelContext[B]): ZIO[R, E, Any] =
+          override def execute(event: Event[A], ctx: Context[B]): ZIO[R, E, Any] =
             pf((event, ctx)).when(pf.isDefinedAt((event, ctx)))
         },
       )
   }
 
   trait Handle[-R, +E, -A, +B] { self =>
-    def execute(event: Event[A], ctx: ChannelContext[B]): ZIO[R, E, Any] =
+    def execute(event: Event[A], ctx: Context[B]): ZIO[R, E, Any] =
       event match {
         case Event.Read(data)     => ctx.fireChannelRead(data)
         case Event.Register       => ctx.fireRegistered()
@@ -52,7 +52,7 @@ object Channel {
       other: Handle[R1, E1, A1, B1],
     ): Handle[R1, E1, A1, B1] =
       new Handle[R1, E1, A1, B1] {
-        override def execute(event: Event[A1], ctx: ChannelContext[B1]): ZIO[R1, E1, Any] =
+        override def execute(event: Event[A1], ctx: Context[B1]): ZIO[R1, E1, Any] =
           self.execute(event, ctx) *> other.execute(event, ctx)
       }
   }
@@ -71,7 +71,7 @@ object Channel {
 
       override def channelRead(ctx: JChannelHandlerContext, msg: Any): Unit = {
         zExec.unsafeExecute_(ctx) {
-          val c = new ChannelContext(ctx)
+          val c = new Context(ctx)
           msg match {
             case req: JHttpRequest     =>
               http
@@ -90,7 +90,7 @@ object Channel {
 
       override def exceptionCaught(ctx: JChannelHandlerContext, cause: Throwable): Unit =
         zExec.unsafeExecute_(ctx) {
-          channel.channel.execute(Event.Failure(cause), new ChannelContext(ctx))
+          channel.channel.execute(Event.Failure(cause), new Context(ctx))
         }
     }
 }
