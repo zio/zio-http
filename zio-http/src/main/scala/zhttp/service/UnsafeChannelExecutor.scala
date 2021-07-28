@@ -17,7 +17,7 @@ final class UnsafeChannelExecutor[R](runtime: zio.Runtime[R], group: JEventLoopG
   private val localRuntime: mutable.Map[JEventExecutor, Runtime[R]] =
     mutable.Map.from {
       group.asScala.map { exe =>
-        exe -> runtime.withExecutor {
+        exe -> runtime.withYieldOnStart(false).withExecutor {
           Executor.fromExecutionContext(runtime.platform.executor.yieldOpCount) {
             JExecutionContext.fromExecutor(exe)
           }
