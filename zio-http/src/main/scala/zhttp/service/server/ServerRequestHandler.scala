@@ -1,9 +1,10 @@
 package zhttp.service.server
 
 import io.netty.buffer.{Unpooled => JUnpooled}
+import io.netty.channel.ChannelHandler.Sharable
+import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler}
-import io.netty.handler.codec.http.{LastHttpContent => JLastHttpContent}
-import zhttp.core.{JFullHttpRequest, _}
+import io.netty.handler.codec.http.{FullHttpRequest, LastHttpContent => JLastHttpContent}
 import zhttp.http._
 import zhttp.service.Server.Settings
 import zhttp.service._
@@ -12,11 +13,11 @@ import zio.Exit
 /**
  * Helper class with channel methods
  */
-@JSharable
+@Sharable
 final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
   settings: Settings[R, Throwable],
-) extends JSimpleChannelInboundHandler[JFullHttpRequest](AUTO_RELEASE_REQUEST)
+) extends SimpleChannelInboundHandler[FullHttpRequest](AUTO_RELEASE_REQUEST)
     with HttpMessageCodec {
 
   self =>
@@ -24,12 +25,12 @@ final case class ServerRequestHandler[R](
   /**
    * Tries to release the request byte buffer, ignores if it can not.
    */
-  private def releaseOrIgnore(jReq: JFullHttpRequest): Boolean = jReq.release(jReq.content().refCnt())
+  private def releaseOrIgnore(jReq: FullHttpRequest): Boolean = jReq.release(jReq.content().refCnt())
 
   /**
    * Asynchronously executes the Http app and passes the response to the callback.
    */
-  private def executeAsync(ctx: JChannelHandlerContext, jReq: JFullHttpRequest)(
+  private def executeAsync(ctx: ChannelHandlerContext, jReq: FullHttpRequest)(
     cb: Response[R, Throwable] => Unit,
   ): Unit =
     decodeJRequest(jReq, ctx) match {
@@ -58,7 +59,7 @@ final case class ServerRequestHandler[R](
   /**
    * Unsafe channel reader for HttpRequest
    */
-  override def channelRead0(ctx: JChannelHandlerContext, jReq: JFullHttpRequest): Unit = {
+  override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
     executeAsync(ctx, jReq) {
       case res @ Response.HttpResponse(_, _, content) =>
         ctx.write(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
@@ -92,7 +93,7 @@ final case class ServerRequestHandler[R](
   /**
    * Handles exceptions that throws
    */
-  override def exceptionCaught(ctx: JChannelHandlerContext, cause: Throwable): Unit = {
+  override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     settings.error match {
       case Some(v) => zExec.unsafeExecute_(ctx)(v(cause).uninterruptible)
       case None    => {

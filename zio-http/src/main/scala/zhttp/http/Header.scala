@@ -2,9 +2,8 @@ package zhttp.http
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.base64.Base64
-import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpHeaderValues => JHttpHeaderValues}
+import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames => JHttpHeaderNames, HttpHeaderValues => JHttpHeaderValues, HttpHeaders}
 import io.netty.util.CharsetUtil
-import zhttp.core.{JDefaultHttpHeaders, JHttpHeaders}
 import zhttp.http.HeadersHelpers.BasicSchemeName
 
 import scala.jdk.CollectionConverters._
@@ -16,12 +15,12 @@ object Header {
   /**
    * Converts a List[Header] to [io.netty.handler.codec.http.HttpHeaders]
    */
-  def disassemble(headers: List[Header]): JHttpHeaders =
-    headers.foldLeft[JHttpHeaders](new JDefaultHttpHeaders()) { case (headers, entry) =>
+  def disassemble(headers: List[Header]): HttpHeaders =
+    headers.foldLeft[HttpHeaders](new DefaultHttpHeaders()) { case (headers, entry) =>
       headers.set(entry.name, entry.value)
     }
 
-  def make(headers: JHttpHeaders): List[Header] =
+  def make(headers: HttpHeaders): List[Header] =
     headers
       .iteratorCharSequence()
       .asScala
@@ -63,6 +62,6 @@ object Header {
    */
   def custom(name: String, value: CharSequence): Header = Header(name, value)
 
-  def parse(headers: JHttpHeaders): List[Header] =
+  def parse(headers: HttpHeaders): List[Header] =
     headers.entries().asScala.toList.map(entry => Header(entry.getKey, entry.getValue))
 }

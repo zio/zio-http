@@ -1,15 +1,19 @@
 package zhttp.service
 
 import io.netty.buffer.{Unpooled => JUnpooled}
-import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpVersion => JHttpVersion}
-import zhttp.core.{JDefaultFullHttpRequest, JFullHttpRequest}
+import io.netty.handler.codec.http.{
+  DefaultFullHttpRequest,
+  FullHttpRequest,
+  HttpHeaderNames => JHttpHeaderNames,
+  HttpVersion => JHttpVersion,
+}
 import zhttp.http.{HTTP_CHARSET, Header, Request, Root}
 trait EncodeRequest {
 
   /**
    * Converts Request to JFullHttpRequest
    */
-  def encodeRequest(jVersion: JHttpVersion, req: Request): JFullHttpRequest = {
+  def encodeRequest(jVersion: JHttpVersion, req: Request): FullHttpRequest = {
     val method      = req.method.asJHttpMethod
     val uri         = req.url.path match {
       case Root => "/"
@@ -24,7 +28,7 @@ trait EncodeRequest {
     if (writerIndex != 0) {
       headers.set(JHttpHeaderNames.CONTENT_LENGTH, writerIndex.toString())
     }
-    val jReq        = new JDefaultFullHttpRequest(jVersion, method, uri, content)
+    val jReq        = new DefaultFullHttpRequest(jVersion, method, uri, content)
     jReq.headers().set(headers)
 
     jReq

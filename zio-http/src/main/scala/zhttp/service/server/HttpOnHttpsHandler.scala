@@ -1,17 +1,16 @@
 package zhttp.service.server
 
-import io.netty.channel.{ChannelFutureListener => JChannelFutureListener}
+import io.netty.channel.{ChannelFutureListener => JChannelFutureListener, ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{
   DefaultHttpResponse => JDefaultHttpResponse,
   HttpMessage => JHttpMessage,
   HttpResponseStatus => JHttpResponseStatus,
   HttpVersion => JHttpVersion,
 }
-import zhttp.core.{JChannelHandlerContext, JSimpleChannelInboundHandler}
 import zhttp.service.server.ServerSSLHandler.SSLHttpBehaviour
 
-class HttpOnHttpsHandler(httpBehaviour: SSLHttpBehaviour) extends JSimpleChannelInboundHandler[JHttpMessage] {
-  override def channelRead0(ctx: JChannelHandlerContext, msg: JHttpMessage): Unit = {
+class HttpOnHttpsHandler(httpBehaviour: SSLHttpBehaviour) extends SimpleChannelInboundHandler[JHttpMessage] {
+  override def channelRead0(ctx: ChannelHandlerContext, msg: JHttpMessage): Unit = {
 
     if (msg.isInstanceOf[JHttpMessage]) {
       if (httpBehaviour == SSLHttpBehaviour.Redirect) {

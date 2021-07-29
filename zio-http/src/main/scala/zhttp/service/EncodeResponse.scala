@@ -1,11 +1,6 @@
 package zhttp.service
 
-import io.netty.handler.codec.http.{
-  DefaultHttpResponse => JDefaultHttpResponse,
-  HttpHeaderNames => JHttpHeaderNames,
-  HttpVersion => JHttpVersion,
-}
-import zhttp.core.{JDefaultHttpHeaders, JHttpHeaders}
+import io.netty.handler.codec.http.{DefaultHttpHeaders, DefaultHttpResponse => JDefaultHttpResponse, HttpHeaderNames => JHttpHeaderNames, HttpHeaders, HttpVersion => JHttpVersion}
 import zhttp.http.{HttpData, Response}
 
 import java.time.ZonedDateTime
@@ -19,7 +14,7 @@ trait EncodeResponse {
    */
   def encodeResponse[R, E](jVersion: JHttpVersion, res: Response.HttpResponse[R, E]): JDefaultHttpResponse = {
     val jHttpHeaders =
-      res.headers.foldLeft[JHttpHeaders](new JDefaultHttpHeaders()) { (jh, hh) =>
+      res.headers.foldLeft[HttpHeaders](new DefaultHttpHeaders()) { (jh, hh) =>
         jh.add(hh.name, hh.value)
       }
     jHttpHeaders.set(JHttpHeaderNames.SERVER, SERVER_NAME)

@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zhttp.core.JChannelHandlerContext
+import io.netty.channel.ChannelHandlerContext
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -9,7 +9,7 @@ final case class Request(
   endpoint: Endpoint,
   headers: List[Header] = List.empty,
   content: HttpData[Any, Nothing] = HttpData.empty,
-  private val channelContext: JChannelHandlerContext = null,
+  private val channelContext: ChannelHandlerContext = null,
 ) extends HasHeaders
     with HeadersHelpers { self =>
   val method: Method = endpoint._1
