@@ -1,6 +1,12 @@
 package zhttp.service
 
-import io.netty.handler.codec.http.{DefaultHttpHeaders, DefaultHttpResponse => JDefaultHttpResponse, HttpHeaderNames => JHttpHeaderNames, HttpHeaders, HttpVersion => JHttpVersion}
+import io.netty.handler.codec.http.{
+  DefaultHttpHeaders,
+  DefaultHttpResponse => JDefaultHttpResponse,
+  HttpHeaderNames => JHttpHeaderNames,
+  HttpHeaders,
+  HttpVersion => JHttpVersion,
+}
 import zhttp.http.{HttpData, Response}
 
 import java.time.ZonedDateTime

@@ -2,7 +2,12 @@ package zhttp.http
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.base64.Base64
-import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames => JHttpHeaderNames, HttpHeaderValues => JHttpHeaderValues, HttpHeaders}
+import io.netty.handler.codec.http.{
+  DefaultHttpHeaders,
+  HttpHeaderNames => JHttpHeaderNames,
+  HttpHeaderValues => JHttpHeaderValues,
+  HttpHeaders,
+}
 import io.netty.util.CharsetUtil
 import zhttp.http.HeadersHelpers.BasicSchemeName
 

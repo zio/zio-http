@@ -1,6 +1,10 @@
 package zhttp.service.server
 
-import io.netty.channel.{ChannelFutureListener => JChannelFutureListener, ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.channel.{
+  ChannelFutureListener => JChannelFutureListener,
+  ChannelHandlerContext,
+  SimpleChannelInboundHandler,
+}
 import io.netty.handler.codec.http.{
   DefaultHttpResponse => JDefaultHttpResponse,
   HttpMessage => JHttpMessage,
