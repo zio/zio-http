@@ -59,6 +59,9 @@ object BuildHelper extends ScalaSettings {
 
   def publishSetting(publishArtifacts: Boolean) = {
     val publishSettings = Seq(
+      organization := "io.d11",
+      organizationName := "d11",
+      licenses += ("MIT License", new URL("https://github.com/dream11/zio-http/blob/master/LICENSE")),
       sonatypeCredentialHost := "s01.oss.sonatype.org",
       sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
       sonatypeProfileName := "io.d11",

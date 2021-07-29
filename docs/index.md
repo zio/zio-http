@@ -6,6 +6,7 @@
   - [Composition](#composition)
   - [ZIO Integration](#zio-integration)
   - [Requests](#accessing-the-request)
+  - [Testing](#testing)
 - [Socket](#socket)
   - [Creating a socket app](#creating-a-socket-app)
 - [Server](#server)
@@ -61,6 +62,41 @@ val app = Http.collectM[Request] {
 `Http.collectM` allow routes to return a ZIO effect value.
 
 ## Accessing the Request
+
+```scala
+import zhttp.http._
+
+val app = Http.collect[Request] {
+  case req @ Method.GET -> Root / "fruits" / "a"  =>
+    Response.text("URL:" + req.url.path.asString + " Headers: " + r.headers)
+  case req @ Method.POST -> Root / "fruits" / "a" =>
+    Response.text(req.getBodyAsString.getOrElse("No body!"))
+}
+```
+
+## Testing
+
+zhttp provides a `zhttp-test` package for use in unit tests. You can utilize it as follows:
+
+```scala
+import zio.test._
+import zhttp.test._
+import zhttp.http._
+
+object Spec extends DefaultRunnableSpec {
+  val app = Http.collect[Request] {
+    case Method.GET -> Root / "text" => Response.text("Hello World!")
+  }
+  
+  def spec = suite("http") (
+    testM("should be ok") {
+      val req         = ???
+      val expectedRes = resp => resp.status.toJHttpStatus.code() == Status.OK
+      assertM(app(req))(expectedRes) // an apply method is added via `zhttp.test` package
+    }
+  )
+}
+```
 
 ```scala
 import zhttp.http._

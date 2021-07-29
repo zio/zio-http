@@ -12,7 +12,7 @@ val releaseDrafterVersion = "5"
 lazy val root = (project in file("."))
   .settings(stdSettings("root"))
   .settings(publishSetting(false))
-  .aggregate(zhttp, zhttpBenchmarks, example)
+  .aggregate(zhttp, zhttpBenchmarks, zhttpTest, example)
 
 // CI Configuration
 ThisBuild / githubWorkflowAddedJobs :=
@@ -66,9 +66,6 @@ lazy val zhttp = (project in file("./zio-http"))
   .settings(stdSettings("zhttp"))
   .settings(publishSetting(true))
   .settings(
-    organization := "io.d11",
-    organizationName := "d11",
-    licenses += ("MIT License", new URL("https://github.com/dream11/zio-http/blob/master/LICENSE")),
     ThisBuild / homepage := Some(url("https://github.com/dream11/zio-http")),
     ThisBuild / scmInfo :=
       Some(
@@ -110,6 +107,12 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
         "dev.zio" %% "zio" % zioVersion,
       ),
   )
+
+// Testing Package
+lazy val zhttpTest = (project in file("./zio-http-test"))
+  .dependsOn(zhttp)
+  .settings(stdSettings("zhttp-test"))
+  .settings(publishSetting(true))
 
 lazy val example = (project in file("./example"))
   .settings(stdSettings("example"))
