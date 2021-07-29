@@ -1,6 +1,6 @@
 package zhttp.core
 
-import io.netty.{buffer => jBuffer}
+import io.netty.buffer
 import zio.{Task, UIO}
 
 import java.nio.charset.Charset
@@ -8,7 +8,7 @@ import java.nio.charset.Charset
 /**
  * ZIO API for netty's zero-copy byte buffer
  */
-final case class ByteBuf(asJava: jBuffer.ByteBuf) extends AnyVal {
+final case class ByteBuf(asJava: buffer.ByteBuf) extends AnyVal {
 
   /**
    * Returns the number of readable bytes which is equal to
@@ -28,5 +28,5 @@ final case class ByteBuf(asJava: jBuffer.ByteBuf) extends AnyVal {
 
 object ByteBuf {
   def fromString(string: String, charset: Charset = Charset.defaultCharset()): UIO[ByteBuf] =
-    UIO(ByteBuf(jBuffer.Unpooled.copiedBuffer(string, charset)))
+    UIO(ByteBuf(buffer.Unpooled.copiedBuffer(string, charset)))
 }

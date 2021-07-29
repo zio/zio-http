@@ -13,7 +13,7 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
 
   type ServerState = Map[String, Int]
 
-  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
+  val env = HEventLoopGroup.auto() ++ HChannelFactory.auto ++ ServerChannelFactory.auto
 
   val contentLengthName = "content-length"
 

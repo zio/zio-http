@@ -1,10 +1,10 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.{HttpMethod => JHttpMethod}
+import io.netty.handler.codec.http.HttpMethod
 
 sealed trait Method { self =>
-  lazy val asJHttpMethod: JHttpMethod = Method.asJHttpMethod(self)
-  override def toString(): String     = Method.asJHttpMethod(self).name()
+  lazy val asHttpMethod: HttpMethod = Method.asHttpMethod(self)
+  override def toString(): String   = Method.asHttpMethod(self).name()
 }
 
 object Method {
@@ -19,18 +19,18 @@ object Method {
   object CONNECT                        extends Method
   final case class CUSTOM(name: String) extends Method
 
-  def fromJHttpMethod(method: JHttpMethod): Method =
+  def fromHttpMethod(method: HttpMethod): Method =
     method match {
-      case JHttpMethod.OPTIONS => OPTIONS
-      case JHttpMethod.GET     => GET
-      case JHttpMethod.HEAD    => HEAD
-      case JHttpMethod.POST    => POST
-      case JHttpMethod.PUT     => PUT
-      case JHttpMethod.PATCH   => PATCH
-      case JHttpMethod.DELETE  => DELETE
-      case JHttpMethod.TRACE   => TRACE
-      case JHttpMethod.CONNECT => CONNECT
-      case method              => CUSTOM(method.name())
+      case HttpMethod.OPTIONS => OPTIONS
+      case HttpMethod.GET     => GET
+      case HttpMethod.HEAD    => HEAD
+      case HttpMethod.POST    => POST
+      case HttpMethod.PUT     => PUT
+      case HttpMethod.PATCH   => PATCH
+      case HttpMethod.DELETE  => DELETE
+      case HttpMethod.TRACE   => TRACE
+      case HttpMethod.CONNECT => CONNECT
+      case method             => CUSTOM(method.name())
     }
 
   def fromString(method: String): Method =
@@ -47,16 +47,16 @@ object Method {
       case x         => Method.CUSTOM(x)
     }
 
-  private[zhttp] def asJHttpMethod(self: Method): JHttpMethod = self match {
-    case OPTIONS      => JHttpMethod.OPTIONS
-    case GET          => JHttpMethod.GET
-    case HEAD         => JHttpMethod.HEAD
-    case POST         => JHttpMethod.POST
-    case PUT          => JHttpMethod.PUT
-    case PATCH        => JHttpMethod.PATCH
-    case DELETE       => JHttpMethod.DELETE
-    case TRACE        => JHttpMethod.TRACE
-    case CONNECT      => JHttpMethod.CONNECT
-    case CUSTOM(name) => new JHttpMethod(name)
+  private[zhttp] def asHttpMethod(self: Method): HttpMethod = self match {
+    case OPTIONS      => HttpMethod.OPTIONS
+    case GET          => HttpMethod.GET
+    case HEAD         => HttpMethod.HEAD
+    case POST         => HttpMethod.POST
+    case PUT          => HttpMethod.PUT
+    case PATCH        => HttpMethod.PATCH
+    case DELETE       => HttpMethod.DELETE
+    case TRACE        => HttpMethod.TRACE
+    case CONNECT      => HttpMethod.CONNECT
+    case CUSTOM(name) => new HttpMethod(name)
   }
 }

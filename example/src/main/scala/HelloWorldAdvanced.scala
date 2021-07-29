@@ -37,7 +37,7 @@ object HelloWorldAdvanced extends App {
         // Ensures the server doesn't die after printing
           *> ZIO.never,
       )
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
+      .provideCustomLayer(ServerChannelFactory.auto ++ HEventLoopGroup.auto(nThreads))
       .exitCode
   }
 }

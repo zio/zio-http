@@ -1,10 +1,10 @@
 package zhttp.service.server
 
-import io.netty.channel.epoll.{Epoll => JEpoll, EpollServerSocketChannel}
-import io.netty.channel.kqueue.{KQueue => JKQueue, KQueueServerSocketChannel}
+import io.netty.channel.epoll.{Epoll, EpollServerSocketChannel}
+import io.netty.channel.kqueue.{KQueue, KQueueServerSocketChannel}
 import io.netty.channel.socket.nio.NioServerSocketChannel
-import io.netty.channel.{ChannelFactory => HChannelFactory, ServerChannel}
-import zhttp.service.{ChannelFactory, ServerChannelFactory}
+import io.netty.channel.{ChannelFactory, ServerChannel}
+import zhttp.service.{HChannelFactory, ServerChannelFactory}
 import zio.{UIO, ZLayer}
 
 object ServerChannelFactory {
@@ -13,12 +13,12 @@ object ServerChannelFactory {
   def auto: ZLayer[Any, Nothing, ServerChannelFactory]  = Live.auto.toLayer
 
   object Live {
-    def nio: UIO[HChannelFactory[ServerChannel]]    = ChannelFactory.make(() => new NioServerSocketChannel())
-    def epoll: UIO[HChannelFactory[ServerChannel]]  = ChannelFactory.make(() => new EpollServerSocketChannel())
-    def kQueue: UIO[HChannelFactory[ServerChannel]] = ChannelFactory.make(() => new KQueueServerSocketChannel())
-    def auto: UIO[HChannelFactory[ServerChannel]]   =
-      if (JEpoll.isAvailable) epoll
-      else if (JKQueue.isAvailable) kQueue
+    def nio: UIO[ChannelFactory[ServerChannel]]    = HChannelFactory.make(() => new NioServerSocketChannel())
+    def epoll: UIO[ChannelFactory[ServerChannel]]  = HChannelFactory.make(() => new EpollServerSocketChannel())
+    def kQueue: UIO[ChannelFactory[ServerChannel]] = HChannelFactory.make(() => new KQueueServerSocketChannel())
+    def auto: UIO[ChannelFactory[ServerChannel]]   =
+      if (Epoll.isAvailable) epoll
+      else if (KQueue.isAvailable) kQueue
       else nio
   }
 }

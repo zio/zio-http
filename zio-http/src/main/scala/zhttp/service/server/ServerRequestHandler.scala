@@ -1,10 +1,10 @@
 package zhttp.service.server
 
-import io.netty.buffer.{Unpooled => JUnpooled}
+import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler => JWebSocketServerProtocolHandler}
-import io.netty.handler.codec.http.{FullHttpRequest, LastHttpContent => JLastHttpContent}
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
+import io.netty.handler.codec.http.{FullHttpRequest, LastHttpContent}
 import zhttp.http._
 import zhttp.service.Server.Settings
 import zhttp.service._
@@ -68,14 +68,14 @@ final case class ServerRequestHandler[R](
           case HttpData.StreamData(data)   =>
             zExec.unsafeExecute_(ctx) {
               for {
-                _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(JUnpooled.copiedBuffer(c.toArray))))
-                _ <- ChannelFuture.unit(ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT))
+                _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(Unpooled.copiedBuffer(c.toArray))))
+                _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
               } yield ()
             }
           case HttpData.CompleteData(data) =>
-            ctx.write(JUnpooled.copiedBuffer(data.toArray), ctx.channel().voidPromise())
-            ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
-          case HttpData.Empty              => ctx.writeAndFlush(JLastHttpContent.EMPTY_LAST_CONTENT)
+            ctx.write(Unpooled.copiedBuffer(data.toArray), ctx.channel().voidPromise())
+            ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+          case HttpData.Empty              => ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
         }
         ()
 
@@ -83,7 +83,7 @@ final case class ServerRequestHandler[R](
         ctx
           .channel()
           .pipeline()
-          .addLast(new JWebSocketServerProtocolHandler(res.socket.config.protocol.javaConfig))
+          .addLast(new WebSocketServerProtocolHandler(res.socket.config.protocol.javaConfig))
           .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket.config))
         ctx.channel().eventLoop().submit(() => ctx.fireChannelRead(jReq))
         ()

@@ -14,7 +14,7 @@ trait EncodeRequest {
    * Converts Request to JFullHttpRequest
    */
   def encodeRequest(jVersion: JHttpVersion, req: Request): FullHttpRequest = {
-    val method      = req.method.asJHttpMethod
+    val method      = req.method.asHttpMethod
     val uri         = req.url.path match {
       case Root => "/"
       case _    => req.url.relative.asString

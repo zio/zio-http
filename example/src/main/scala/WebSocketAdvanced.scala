@@ -7,15 +7,15 @@ import zio.stream.ZStream
 
 object WebSocketAdvanced extends App {
   // Message Handlers
-  private val open = Socket.succeed(WebSocketFrame.text("Greetings!"))
+  private val open = Socket.succeed(HWebSocketFrame.text("Greetings!"))
 
-  private val echo = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text(text) =>
-    ZStream.repeat(WebSocketFrame.text(s"Received: $text")).schedule(Schedule.spaced(1 second)).take(3)
+  private val echo = Socket.collect[HWebSocketFrame] { case HWebSocketFrame.Text(text) =>
+    ZStream.repeat(HWebSocketFrame.text(s"Received: $text")).schedule(Schedule.spaced(1 second)).take(3)
   }
 
-  private val fooBar = Socket.collect[WebSocketFrame] {
-    case WebSocketFrame.Text("FOO") => ZStream.succeed(WebSocketFrame.text("BAR"))
-    case WebSocketFrame.Text("BAR") => ZStream.succeed(WebSocketFrame.text("FOO"))
+  private val fooBar = Socket.collect[HWebSocketFrame] {
+    case HWebSocketFrame.Text("FOO") => ZStream.succeed(HWebSocketFrame.text("BAR"))
+    case HWebSocketFrame.Text("BAR") => ZStream.succeed(HWebSocketFrame.text("FOO"))
   }
 
   // Setup protocol settings

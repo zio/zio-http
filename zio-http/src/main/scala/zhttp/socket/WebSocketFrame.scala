@@ -1,35 +1,35 @@
 package zhttp.socket
 
-import io.netty.handler.codec.http.websocketx.{WebSocketFrame => HWebSocketFrame, _}
+import io.netty.handler.codec.http.websocketx._
 import zhttp.core.ByteBuf
 
-sealed trait WebSocketFrame extends Product with Serializable { self =>
-  def toJWebSocketFrame: HWebSocketFrame = WebSocketFrame.toJFrame(self)
+sealed trait HWebSocketFrame extends Product with Serializable { self =>
+  def toWebSocketFrame: WebSocketFrame = HWebSocketFrame.toJFrame(self)
 }
-object WebSocketFrame {
+object HWebSocketFrame {
 
-  final case class Binary(buffer: ByteBuf)                    extends WebSocketFrame
-  final case class Text(text: String)                         extends WebSocketFrame
-  final case class Close(status: Int, reason: Option[String]) extends WebSocketFrame
-  case object Ping                                            extends WebSocketFrame
-  case object Pong                                            extends WebSocketFrame
-  final case class Continuation(buffer: ByteBuf)              extends WebSocketFrame
+  final case class Binary(buffer: ByteBuf)                    extends HWebSocketFrame
+  final case class Text(text: String)                         extends HWebSocketFrame
+  final case class Close(status: Int, reason: Option[String]) extends HWebSocketFrame
+  case object Ping                                            extends HWebSocketFrame
+  case object Pong                                            extends HWebSocketFrame
+  final case class Continuation(buffer: ByteBuf)              extends HWebSocketFrame
 
-  def text(string: String): WebSocketFrame =
-    WebSocketFrame.Text(string)
+  def text(string: String): HWebSocketFrame =
+    HWebSocketFrame.Text(string)
 
-  def close(status: Int, reason: Option[String] = None): WebSocketFrame =
-    WebSocketFrame.Close(status, reason)
+  def close(status: Int, reason: Option[String] = None): HWebSocketFrame =
+    HWebSocketFrame.Close(status, reason)
 
-  def binary(chunks: ByteBuf): WebSocketFrame = WebSocketFrame.Binary(chunks)
+  def binary(chunks: ByteBuf): HWebSocketFrame = HWebSocketFrame.Binary(chunks)
 
-  def ping: WebSocketFrame = WebSocketFrame.Ping
+  def ping: HWebSocketFrame = HWebSocketFrame.Ping
 
-  def pong: WebSocketFrame = WebSocketFrame.Pong
+  def pong: HWebSocketFrame = HWebSocketFrame.Pong
 
-  def continuation(chunks: ByteBuf): WebSocketFrame = WebSocketFrame.Continuation(chunks)
+  def continuation(chunks: ByteBuf): HWebSocketFrame = HWebSocketFrame.Continuation(chunks)
 
-  def fromJFrame(jFrame: HWebSocketFrame): Option[WebSocketFrame] =
+  def fromJFrame(jFrame: WebSocketFrame): Option[HWebSocketFrame] =
     jFrame match {
       case _: PingWebSocketFrame         =>
         Option(Ping)
@@ -47,7 +47,7 @@ object WebSocketFrame {
       case _ => None
     }
 
-  def toJFrame(frame: WebSocketFrame): HWebSocketFrame =
+  def toJFrame(frame: HWebSocketFrame): WebSocketFrame =
     frame match {
       case Binary(buffer)            =>
         new BinaryWebSocketFrame(buffer.asJava)

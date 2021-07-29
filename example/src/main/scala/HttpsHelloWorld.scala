@@ -1,7 +1,7 @@
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromKeystore}
-import zhttp.service.{EventLoopGroup, Server}
+import zhttp.service.{HEventLoopGroup, Server}
 import zio._
 
 object HttpsHelloWorld extends App {
@@ -22,7 +22,7 @@ object HttpsHelloWorld extends App {
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     server.make.useForever
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(0))
+      .provideCustomLayer(ServerChannelFactory.auto ++ HEventLoopGroup.auto(0))
       .exitCode
   }
 }

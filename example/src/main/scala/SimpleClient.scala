@@ -1,9 +1,9 @@
 import zhttp.http.{Header, HttpData}
-import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
+import zhttp.service.{Client, HChannelFactory, HEventLoopGroup}
 import zio._
 
 object SimpleClient extends App {
-  val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
+  val env     = HChannelFactory.auto ++ HEventLoopGroup.auto()
   val url     = "http://sports.api.decathlon.com/groups/water-aerobics"
   val headers = List(Header.host("sports.api.decathlon.com"))
 

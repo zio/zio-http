@@ -2,12 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.base64.Base64
-import io.netty.handler.codec.http.{
-  DefaultHttpHeaders,
-  HttpHeaderNames => JHttpHeaderNames,
-  HttpHeaderValues => JHttpHeaderValues,
-  HttpHeaders,
-}
+import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaderValues, HttpHeaders}
 import io.netty.util.CharsetUtil
 import zhttp.http.HeadersHelpers.BasicSchemeName
 
@@ -33,34 +28,34 @@ object Header {
       .toList
 
   // Helper utils to create Header instances
-  val acceptJson: Header     = Header(JHttpHeaderNames.ACCEPT, JHttpHeaderValues.APPLICATION_JSON)
-  val acceptXhtmlXml: Header = Header(JHttpHeaderNames.ACCEPT, JHttpHeaderValues.APPLICATION_XHTML)
-  val acceptXml: Header      = Header(JHttpHeaderNames.ACCEPT, JHttpHeaderValues.APPLICATION_XML)
-  val acceptAll: Header      = Header(JHttpHeaderNames.ACCEPT, "*/*")
+  val acceptJson: Header     = Header(HttpHeaderNames.ACCEPT, HttpHeaderValues.APPLICATION_JSON)
+  val acceptXhtmlXml: Header = Header(HttpHeaderNames.ACCEPT, HttpHeaderValues.APPLICATION_XHTML)
+  val acceptXml: Header      = Header(HttpHeaderNames.ACCEPT, HttpHeaderValues.APPLICATION_XML)
+  val acceptAll: Header      = Header(HttpHeaderNames.ACCEPT, "*/*")
 
-  val contentTypeJson: Header           = Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.APPLICATION_JSON)
-  val contentTypeXml: Header            = Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.APPLICATION_XML)
-  val contentTypeXhtmlXml: Header       = Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.APPLICATION_XHTML)
-  val contentTypeTextPlain: Header      = Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.TEXT_PLAIN)
-  val transferEncodingChunked: Header   = Header(JHttpHeaderNames.TRANSFER_ENCODING, JHttpHeaderValues.CHUNKED)
-  def contentLength(size: Long): Header = Header(JHttpHeaderNames.CONTENT_LENGTH, size.toString)
+  val contentTypeJson: Header           = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
+  val contentTypeXml: Header            = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_XML)
+  val contentTypeXhtmlXml: Header       = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_XHTML)
+  val contentTypeTextPlain: Header      = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.TEXT_PLAIN)
+  val transferEncodingChunked: Header   = Header(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
+  def contentLength(size: Long): Header = Header(HttpHeaderNames.CONTENT_LENGTH, size.toString)
   val contentTypeFormUrlEncoded: Header =
-    Header(JHttpHeaderNames.CONTENT_TYPE, JHttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED)
+    Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED)
 
-  def host(name: String): Header           = Header(JHttpHeaderNames.HOST, name)
-  def userAgent(name: String): Header      = Header(JHttpHeaderNames.USER_AGENT, name)
-  def location(value: String): Header      = Header(JHttpHeaderNames.LOCATION, value)
-  def authorization(value: String): Header = Header(JHttpHeaderNames.AUTHORIZATION, value)
+  def host(name: String): Header           = Header(HttpHeaderNames.HOST, name)
+  def userAgent(name: String): Header      = Header(HttpHeaderNames.USER_AGENT, name)
+  def location(value: String): Header      = Header(HttpHeaderNames.LOCATION, value)
+  def authorization(value: String): Header = Header(HttpHeaderNames.AUTHORIZATION, value)
 
   def basicHttpAuthorization(username: String, password: String): Header = {
     val authString    = String.format("%s:%s", username, password)
     val authCB        = Unpooled.wrappedBuffer(authString.getBytes(CharsetUtil.UTF_8))
     val encodedAuthCB = Base64.encode(authCB)
     val value         = String.format("%s %s", BasicSchemeName, encodedAuthCB.toString(CharsetUtil.UTF_8))
-    Header(JHttpHeaderNames.AUTHORIZATION, value)
+    Header(HttpHeaderNames.AUTHORIZATION, value)
   }
 
-  def createAuthorizationHeader(value: String): Header = Header(JHttpHeaderNames.AUTHORIZATION, value)
+  def createAuthorizationHeader(value: String): Header = Header(HttpHeaderNames.AUTHORIZATION, value)
 
   /**
    * Use built-in header methods for better performance.

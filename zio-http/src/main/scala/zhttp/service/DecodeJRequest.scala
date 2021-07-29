@@ -11,7 +11,7 @@ trait DecodeJRequest {
    */
   def decodeJRequest(jReq: FullHttpRequest, ctx: ChannelHandlerContext): Either[HttpError, Request] = for {
     url <- URL.fromString(jReq.uri())
-    method   = Method.fromJHttpMethod(jReq.method())
+    method   = Method.fromHttpMethod(jReq.method())
     headers  = Header.make(jReq.headers())
     endpoint = method -> url
     data     = HttpData.fromByteBuf(jReq.content())

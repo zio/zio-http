@@ -1,14 +1,14 @@
 package zhttp.service.server
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.handler.codec.http.websocketx.WebSocketFrame
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.{
-  HandshakeComplete => JHandshakeComplete,
-  ServerHandshakeStateEvent => JServerHandshakeStateEvent,
+  HandshakeComplete,
+  ServerHandshakeStateEvent,
 }
-import io.netty.handler.codec.http.websocketx.{WebSocketFrame => HWebSocketFrame}
 import zhttp.service.{ChannelFuture, UnsafeChannelExecutor}
 import zhttp.socket.SocketApp.Open
-import zhttp.socket.{SocketApp, WebSocketFrame}
+import zhttp.socket.{HWebSocketFrame, SocketApp}
 import zio.stream.ZStream
 
 /**
@@ -17,23 +17,23 @@ import zio.stream.ZStream
 final case class ServerSocketHandler[R](
   zExec: UnsafeChannelExecutor[R],
   ss: SocketApp.SocketConfig[R, Throwable],
-) extends SimpleChannelInboundHandler[HWebSocketFrame] {
+) extends SimpleChannelInboundHandler[WebSocketFrame] {
 
   /**
    * Unsafe channel reader for WSFrame
    */
 
-  private def writeAndFlush(ctx: ChannelHandlerContext, stream: ZStream[R, Throwable, WebSocketFrame]): Unit =
+  private def writeAndFlush(ctx: ChannelHandlerContext, stream: ZStream[R, Throwable, HWebSocketFrame]): Unit =
     zExec.unsafeExecute_(ctx)(
       stream
-        .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toJWebSocketFrame)))
+        .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toWebSocketFrame)))
         .runDrain,
     )
 
-  override def channelRead0(ctx: ChannelHandlerContext, msg: HWebSocketFrame): Unit =
+  override def channelRead0(ctx: ChannelHandlerContext, msg: WebSocketFrame): Unit =
     ss.onMessage match {
       case Some(v) =>
-        WebSocketFrame.fromJFrame(msg) match {
+        HWebSocketFrame.fromJFrame(msg) match {
           case Some(frame) => writeAndFlush(ctx, v(frame))
           case _           => ()
         }
@@ -59,7 +59,7 @@ final case class ServerSocketHandler[R](
   override def userEventTriggered(ctx: ChannelHandlerContext, event: AnyRef): Unit = {
 
     event match {
-      case _: JHandshakeComplete                                                              =>
+      case _: HandshakeComplete                                                             =>
         ss.onOpen match {
           case Some(v) =>
             v match {
@@ -68,12 +68,12 @@ final case class ServerSocketHandler[R](
             }
           case None    => ctx.fireUserEventTriggered(event)
         }
-      case m: JServerHandshakeStateEvent if m == JServerHandshakeStateEvent.HANDSHAKE_TIMEOUT =>
+      case m: ServerHandshakeStateEvent if m == ServerHandshakeStateEvent.HANDSHAKE_TIMEOUT =>
         ss.onTimeout match {
           case Some(v) => zExec.unsafeExecute_(ctx)(v)
           case None    => ctx.fireUserEventTriggered(event)
         }
-      case event                                                                              => ctx.fireUserEventTriggered(event)
+      case event                                                                            => ctx.fireUserEventTriggered(event)
     }
     ()
   }

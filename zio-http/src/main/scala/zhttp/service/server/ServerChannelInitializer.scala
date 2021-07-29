@@ -2,11 +2,7 @@ package zhttp.service.server
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer}
-import io.netty.handler.codec.http.{
-  HttpObjectAggregator,
-  HttpServerCodec,
-  HttpServerKeepAliveHandler => JHttpServerKeepAliveHandler,
-}
+import io.netty.handler.codec.http.{HttpObjectAggregator, HttpServerCodec, HttpServerKeepAliveHandler}
 import zhttp.service.Server.Settings
 import zhttp.service.{
   HTTP_KEEPALIVE_HANDLER,
@@ -37,7 +33,7 @@ final case class ServerChannelInitializer[R](httpH: ChannelHandler, settings: Se
     channel
       .pipeline()
       .addLast(SERVER_CODEC_HANDLER, new HttpServerCodec)
-      .addLast(HTTP_KEEPALIVE_HANDLER, new JHttpServerKeepAliveHandler)
+      .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
       .addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(settings.maxRequestSize))
       .addLast(HTTP_REQUEST_HANDLER, httpH)
     ()
