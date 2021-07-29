@@ -84,5 +84,5 @@ object SSLSpec extends HttpRunnableSpec(8073) {
         ),
       )
       .useNow,
-  ).provideCustomLayer(env)
+  ).provideCustomLayer(env) @@ flaky @@ timeout(5 second)
 }
