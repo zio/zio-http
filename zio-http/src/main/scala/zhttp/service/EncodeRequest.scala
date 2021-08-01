@@ -1,6 +1,6 @@
 package zhttp.service
 
-import io.netty.buffer.{Unpooled => JUnpooled}
+import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{
   DefaultFullHttpRequest,
   FullHttpRequest,
@@ -20,8 +20,8 @@ trait EncodeRequest {
       case _    => req.url.relative.asString
     }
     val content     = req.getBodyAsString match {
-      case Some(text) => JUnpooled.copiedBuffer(text, HTTP_CHARSET)
-      case None       => JUnpooled.EMPTY_BUFFER
+      case Some(text) => Unpooled.copiedBuffer(text, HTTP_CHARSET)
+      case None       => Unpooled.EMPTY_BUFFER
     }
     val headers     = Header.disassemble(req.headers)
     val writerIndex = content.writerIndex()

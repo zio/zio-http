@@ -1,8 +1,8 @@
 package zhttp.service
 
 import io.netty.channel.embedded.EmbeddedChannel
-import io.netty.channel.epoll.{Epoll => JEpoll, EpollSocketChannel}
-import io.netty.channel.kqueue.{KQueue => JKQueue, KQueueSocketChannel}
+import io.netty.channel.epoll.{Epoll, EpollSocketChannel}
+import io.netty.channel.kqueue.{KQueue, KQueueSocketChannel}
 import io.netty.channel.socket.nio.NioSocketChannel
 import io.netty.channel.{Channel, ChannelFactory}
 import zio.{UIO, ZLayer}
@@ -23,8 +23,8 @@ object HChannelFactory {
     def kQueue: UIO[ChannelFactory[Channel]]   = make(() => new KQueueSocketChannel())
     def embedded: UIO[ChannelFactory[Channel]] = make(() => new EmbeddedChannel(false, false))
     def auto: UIO[ChannelFactory[Channel]]     =
-      if (JEpoll.isAvailable) epoll
-      else if (JKQueue.isAvailable) kQueue
+      if (Epoll.isAvailable) epoll
+      else if (KQueue.isAvailable) kQueue
       else nio
   }
 

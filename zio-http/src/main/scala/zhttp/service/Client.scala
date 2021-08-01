@@ -2,7 +2,7 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{Channel, ChannelFactory, EventLoopGroup}
-import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpVersion => JHttpVersion}
+import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpVersion}
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service
@@ -43,7 +43,7 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: ChannelFactory[Chann
   def request(request: Request, sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL): Task[UHttpResponse] =
     for {
       promise <- Promise.make[Throwable, FullHttpResponse]
-      jReq = encodeRequest(JHttpVersion.HTTP_1_1, request)
+      jReq = encodeRequest(HttpVersion.HTTP_1_1, request)
       _    <- asyncRequest(request, jReq, promise, sslOption).catchAll(cause => promise.fail(cause)).fork
       jRes <- promise.await
       res  <- ZIO.fromEither(decodeJResponse(jRes))
