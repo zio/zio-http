@@ -1,7 +1,7 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{Channel, ChannelFactory => HChannelFactory, EventLoopGroup => HEventLoopGroup}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpVersion}
 import zhttp.http.URL.Location
 import zhttp.http._
@@ -12,7 +12,7 @@ import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
 
-final case class Client(zx: UnsafeChannelExecutor[Any], cf: HChannelFactory[Channel], el: HEventLoopGroup)
+final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
   private def asyncRequest(
     req: Request,

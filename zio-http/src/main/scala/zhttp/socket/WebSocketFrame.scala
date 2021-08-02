@@ -1,10 +1,10 @@
 package zhttp.socket
 
-import io.netty.handler.codec.http.websocketx.{WebSocketFrame => HWebSocketFrame, _}
+import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}
 import zhttp.core.ByteBuf
 
 sealed trait WebSocketFrame extends Product with Serializable { self =>
-  def toWebSocketFrame: HWebSocketFrame = WebSocketFrame.toJFrame(self)
+  def toWebSocketFrame: JWebSocketFrame = WebSocketFrame.toJFrame(self)
 }
 object WebSocketFrame {
 
@@ -29,7 +29,7 @@ object WebSocketFrame {
 
   def continuation(chunks: ByteBuf): WebSocketFrame = WebSocketFrame.Continuation(chunks)
 
-  def fromJFrame(jFrame: HWebSocketFrame): Option[WebSocketFrame] =
+  def fromJFrame(jFrame: JWebSocketFrame): Option[WebSocketFrame] =
     jFrame match {
       case _: PingWebSocketFrame         =>
         Option(Ping)
@@ -47,7 +47,7 @@ object WebSocketFrame {
       case _ => None
     }
 
-  def toJFrame(frame: WebSocketFrame): HWebSocketFrame =
+  def toJFrame(frame: WebSocketFrame): JWebSocketFrame =
     frame match {
       case Binary(buffer)            =>
         new BinaryWebSocketFrame(buffer.asJava)

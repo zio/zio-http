@@ -5,7 +5,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.{
   HandshakeComplete,
   ServerHandshakeStateEvent,
 }
-import io.netty.handler.codec.http.websocketx.{WebSocketFrame => HWebSocketFrame}
+import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame}
 import zhttp.service.{ChannelFuture, UnsafeChannelExecutor}
 import zhttp.socket.SocketApp.Open
 import zhttp.socket.{SocketApp, WebSocketFrame}
@@ -17,7 +17,7 @@ import zio.stream.ZStream
 final case class ServerSocketHandler[R](
   zExec: UnsafeChannelExecutor[R],
   ss: SocketApp.SocketConfig[R, Throwable],
-) extends SimpleChannelInboundHandler[HWebSocketFrame] {
+) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
   /**
    * Unsafe channel reader for WSFrame
@@ -30,7 +30,7 @@ final case class ServerSocketHandler[R](
         .runDrain,
     )
 
-  override def channelRead0(ctx: ChannelHandlerContext, msg: HWebSocketFrame): Unit =
+  override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit =
     ss.onMessage match {
       case Some(v) =>
         WebSocketFrame.fromJFrame(msg) match {
