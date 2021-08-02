@@ -1,6 +1,6 @@
 package zhttp.experiment
 
-import io.netty.handler.codec.http.HttpRequest
+import io.netty.handler.codec.http.{DefaultHttpResponse, HttpRequest, HttpResponse, HttpVersion}
 import zhttp.http.{Header, Method, Status, URL}
 import zio.Chunk
 import zio.stream.ZStream
@@ -26,7 +26,12 @@ object HttpMessage {
       extends HRequest
 
   object AnyRequest {
-    def from(jReq: HttpRequest): AnyRequest = ???
+    def from(jReq: HttpRequest): AnyRequest = AnyRequest(
+      // TODO: improve for performance
+      method = Method.fromJHttpMethod(jReq.method()),
+      url = URL.fromString(jReq.uri()).getOrElse(null),
+      headers = Header.make(jReq.headers()),
+    )
   }
 
   case class CompleteRequest(req: HRequest, content: Chunk[Byte]) extends HRequest {
@@ -48,7 +53,15 @@ object HttpMessage {
     status: Status = Status.OK,
     headers: List[Header] = Nil,
     content: HContent[R, E] = HContent.empty,
-  )
+  ) {
+    def asJava: HttpResponse = {
+      new DefaultHttpResponse(
+        HttpVersion.HTTP_1_1,
+        status.toJHttpStatus,
+        Header.disassemble(headers),
+      )
+    }
+  }
 
   type CompleteResponse = HResponse[Any, Nothing]
   object CompleteResponse {
