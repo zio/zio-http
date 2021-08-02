@@ -24,16 +24,9 @@ object HelloWorld extends App {
     }
   }
 
-  val h: HApp[Any, Nothing] = h1 +++ h2 +++ h3 +++ h4
-  
-  // Create HTTP route
-
-  val app: HttpApp[Any, Nothing] = HttpApp.collect {
-    case Method.GET -> Root / "text" => Response.text("Hello World!")
-    case Method.GET -> Root / "json" => Response.jsonString("""{"greetings": "Hello World!"}""")
-  }
+  val app: HApp[Any, Nothing] = h1 +++ h2 +++ h3 +++ h4
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app.silent).exitCode
+    Server.start0(8090, app).exitCode
 }
