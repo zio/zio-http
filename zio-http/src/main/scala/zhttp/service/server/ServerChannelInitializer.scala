@@ -1,21 +1,15 @@
 package zhttp.service.server
 
-import io.netty.handler.codec.http.{HttpServerKeepAliveHandler => JHttpServerKeepAliveHandler}
+import io.netty.handler.codec.http.{HttpServerCodec, HttpServerKeepAliveHandler}
 import zhttp.core._
 import zhttp.service.Server.Settings
-import zhttp.service.{
-  HTTP_KEEPALIVE_HANDLER,
-  HTTP_REQUEST_HANDLER,
-  OBJECT_AGGREGATOR,
-  SERVER_CODEC_HANDLER,
-  SSL_HANDLER,
-}
+import zhttp.service.{SSL_HANDLER, UnsafeChannelExecutor}
 
 /**
  * Initializes the netty channel with default handlers
  */
 @JSharable
-final case class ServerChannelInitializer[R](httpH: JChannelHandler, settings: Settings[R, Throwable])
+final case class ServerChannelInitializer[R](zExec: UnsafeChannelExecutor[R], settings: Settings[R, Throwable])
     extends JChannelInitializer[JChannel] {
   override def initChannel(channel: JChannel): Unit = {
 
@@ -31,10 +25,9 @@ final case class ServerChannelInitializer[R](httpH: JChannelHandler, settings: S
     }
     channel
       .pipeline()
-      .addLast(SERVER_CODEC_HANDLER, new JHttpServerCodec)
-      .addLast(HTTP_KEEPALIVE_HANDLER, new JHttpServerKeepAliveHandler)
-      .addLast(OBJECT_AGGREGATOR, new JHttpObjectAggregator(settings.maxRequestSize))
-      .addLast(HTTP_REQUEST_HANDLER, httpH)
+      .addLast(new HttpServerCodec())          // TODO: See if server codec is really required
+      .addLast(new HttpServerKeepAliveHandler) // TODO: Make keep-alive configurable
+      .addLast(settings.hApp.compile(zExec))
     ()
   }
 
