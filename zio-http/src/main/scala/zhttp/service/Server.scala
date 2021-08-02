@@ -1,5 +1,7 @@
 package zhttp.service
 
+import zhttp.core._
+import zhttp.experiment.HApp
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.{Status, _}
@@ -22,6 +24,7 @@ sealed trait Server[-R, +E] { self =>
     case MaxRequestSize(size) => s.copy(maxRequestSize = size)
     case Error(errorHandler)  => s.copy(error = Some(errorHandler))
     case Ssl(sslOption)       => s.copy(sslOption = sslOption)
+    case HAppServer(hApp)     => s.copy(hApp = hApp)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
@@ -39,6 +42,7 @@ object Server {
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
     error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
     sslOption: ServerSSLOptions = null,
+    hApp: HApp[R, E] = HApp.empty,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -48,8 +52,10 @@ object Server {
   private final case class App[R, E](http: HttpApp[R, E])                             extends Server[R, E]
   private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
+  private final case class HAppServer[R, E](hApp: HApp[R, E])                         extends Server[R, E]
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]                                   = Server.App(http)
+  def hApp[R, E](http: HApp[R, E]): Server[R, E]                                     = Server.HAppServer(http)
   def maxRequestSize(size: Int): UServer                                             = Server.MaxRequestSize(size)
   def port(int: Int): UServer                                                        = Server.Port(int)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
@@ -69,6 +75,13 @@ object Server {
     (Server.port(port) ++ Server.app(http)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
+  def start0[R <: Has[_]](
+    port: Int,
+    app: HApp[R, Throwable],
+  ): ZIO[R, Throwable, Nothing] =
+    (Server.port(port) ++ Server.hApp(app)).make.useForever
+      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
+
   def make[R](
     server: Server[R, Throwable],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] = {
@@ -78,7 +91,7 @@ object Server {
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
       zExec          <- UnsafeChannelExecutor.make[R](eventLoopGroup).toManaged_
       httpH           = ServerRequestHandler(zExec, settings)
-      init            = ServerChannelInitializer(httpH, settings)
+      init            = ServerChannelInitializer(zExec, settings)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.port))
     } yield {
