@@ -8,9 +8,9 @@ import zio.test.Assertion._
 import zio.test.assertM
 
 object CORSSpec extends HttpRunnableSpec(8089) {
-  val env = HEventLoopGroup.auto() ++ HChannelFactory.auto ++ ServerChannelFactory.auto
+  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
-  val app: ZManaged[HEventLoopGroup with ServerChannelFactory, Nothing, Unit] = serve {
+  val app: ZManaged[EventLoopGroup with ServerChannelFactory, Nothing, Unit] = serve {
     CORS(HttpApp.collect { case Method.GET -> Root / "success" =>
       Response.ok
     })

@@ -7,7 +7,7 @@ import zio.test.Assertion.equalTo
 import zio.test.assertM
 
 object ServerSpec extends HttpRunnableSpec(8081) {
-  val env = HEventLoopGroup.auto() ++ HChannelFactory.auto ++ ServerChannelFactory.auto
+  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
   val app = serve {
     HttpApp.collectM {

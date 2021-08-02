@@ -10,14 +10,14 @@ import java.util.concurrent.Executor
 /**
  * Simple wrapper over NioEventLoopGroup
  */
-object HEventLoopGroup {
-  def nio(nThreads: Int): ZLayer[Any, Nothing, HEventLoopGroup] = HEventLoopGroup.Live.nio(nThreads).toLayer
+object EventLoopGroup {
+  def nio(nThreads: Int): ZLayer[Any, Nothing, EventLoopGroup] = EventLoopGroup.Live.nio(nThreads).toLayer
 
-  def epoll(nThreads: Int): ZLayer[Any, Nothing, HEventLoopGroup] = HEventLoopGroup.Live.epoll(nThreads).toLayer
+  def epoll(nThreads: Int): ZLayer[Any, Nothing, EventLoopGroup] = EventLoopGroup.Live.epoll(nThreads).toLayer
 
-  def auto(nThreads: Int = 0): ZLayer[Any, Nothing, HEventLoopGroup] = HEventLoopGroup.Live.auto(nThreads).toLayer
+  def auto(nThreads: Int = 0): ZLayer[Any, Nothing, EventLoopGroup] = EventLoopGroup.Live.auto(nThreads).toLayer
 
-  def default: ZLayer[Any, Nothing, HEventLoopGroup] = HEventLoopGroup.Live.default.toLayer
+  def default: ZLayer[Any, Nothing, EventLoopGroup] = EventLoopGroup.Live.default.toLayer
 
   object Live {
     def nio(nThreads: Int): ZManaged[Any, Nothing, channel.EventLoopGroup] =

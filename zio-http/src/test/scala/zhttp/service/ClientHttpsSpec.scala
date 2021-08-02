@@ -14,7 +14,7 @@ import javax.net.ssl.TrustManagerFactory
 
 object ClientHttpsSpec extends HttpRunnableSpec(8082) {
 
-  val env                         = HChannelFactory.auto ++ HEventLoopGroup.auto()
+  val env                         = ChannelFactory.auto ++ EventLoopGroup.auto()
   val trustStore: KeyStore        = KeyStore.getInstance("JKS")
   val trustStorePassword: String  = "changeit"
   val trustStoreFile: InputStream = getClass().getClassLoader().getResourceAsStream("truststore.jks")

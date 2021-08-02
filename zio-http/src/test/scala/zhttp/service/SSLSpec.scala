@@ -20,7 +20,7 @@ import zio.test.assertM
 import javax.net.ssl.SSLHandshakeException
 
 object SSLSpec extends HttpRunnableSpec(8073) {
-  val env = HEventLoopGroup.auto() ++ HChannelFactory.auto ++ ServerChannelFactory.auto
+  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
   val ssc1       = new SelfSignedCertificate
   val serverssl  = SslContextBuilder

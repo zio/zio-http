@@ -72,11 +72,11 @@ object SocketApp {
   }
 
   private[zhttp] object Open {
-    final case class WithEffect[R, E](f: Connection => ZIO[R, E, Any])              extends Open[R, E]
-    final case class WithSocket[R, E](s: Socket[R, E, Connection, HWebSocketFrame]) extends Open[R, E]
+    final case class WithEffect[R, E](f: Connection => ZIO[R, E, Any])             extends Open[R, E]
+    final case class WithSocket[R, E](s: Socket[R, E, Connection, WebSocketFrame]) extends Open[R, E]
   }
   private final case class Concat[R, E](a: SocketApp[R, E], b: SocketApp[R, E]) extends SocketApp[R, E]
-  private final case class OnMessage[R, E](onMessage: Socket[R, E, HWebSocketFrame, HWebSocketFrame])
+  private final case class OnMessage[R, E](onMessage: Socket[R, E, WebSocketFrame, WebSocketFrame])
       extends SocketApp[R, E]
   private final case class OnError[R](onError: Throwable => ZIO[R, Nothing, Any])  extends SocketApp[R, Nothing]
   private final case class OnClose[R](onClose: Connection => ZIO[R, Nothing, Any]) extends SocketApp[R, Nothing]
@@ -89,7 +89,7 @@ object SocketApp {
    * Called when the connection is successfully upgrade to a websocket one. In case of a failure on the returned stream,
    * the socket is forcefully closed.
    */
-  def open[R, E](onOpen: Socket[R, E, Connection, HWebSocketFrame]): SocketApp[R, E] =
+  def open[R, E](onOpen: Socket[R, E, Connection, WebSocketFrame]): SocketApp[R, E] =
     SocketApp.Open.WithSocket(onOpen)
 
   /**
@@ -108,7 +108,7 @@ object SocketApp {
    * Called on every incoming WebSocketFrame. In case of a failure on the returned stream, the socket is forcefully
    * closed.
    */
-  def message[R, E](onMessage: Socket[R, E, HWebSocketFrame, HWebSocketFrame]): SocketApp[R, E] =
+  def message[R, E](onMessage: Socket[R, E, WebSocketFrame, WebSocketFrame]): SocketApp[R, E] =
     SocketApp.OnMessage(onMessage)
 
   /**
@@ -143,7 +143,7 @@ object SocketApp {
   final case class SocketConfig[-R, +E](
     onTimeout: Option[ZIO[R, Nothing, Any]] = None,
     onOpen: Option[Open[R, E]] = None,
-    onMessage: Option[Socket[R, E, HWebSocketFrame, HWebSocketFrame]] = None,
+    onMessage: Option[Socket[R, E, WebSocketFrame, WebSocketFrame]] = None,
     onError: Option[Throwable => ZIO[R, Nothing, Any]] = None,
     onClose: Option[Connection => ZIO[R, Nothing, Any]] = None,
     decoder: SocketDecoder = SocketDecoder.default,

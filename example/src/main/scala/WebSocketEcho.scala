@@ -7,12 +7,12 @@ import zio.stream.ZStream
 
 object WebSocketEcho extends App {
   private val socket =
-    Socket.collect[HWebSocketFrame] {
-      case HWebSocketFrame.Text("FOO")  => ZStream.succeed(HWebSocketFrame.text("BAR"))
-      case HWebSocketFrame.Text("BAR")  => ZStream.succeed(HWebSocketFrame.text("FOO"))
-      case HWebSocketFrame.Ping         => ZStream.succeed(HWebSocketFrame.pong)
-      case HWebSocketFrame.Pong         => ZStream.succeed(HWebSocketFrame.ping)
-      case fr @ HWebSocketFrame.Text(_) => ZStream.repeat(fr).schedule(Schedule.spaced(1 second)).take(10)
+    Socket.collect[WebSocketFrame] {
+      case WebSocketFrame.Text("FOO")  => ZStream.succeed(WebSocketFrame.text("BAR"))
+      case WebSocketFrame.Text("BAR")  => ZStream.succeed(WebSocketFrame.text("FOO"))
+      case WebSocketFrame.Ping         => ZStream.succeed(WebSocketFrame.pong)
+      case WebSocketFrame.Pong         => ZStream.succeed(WebSocketFrame.ping)
+      case fr @ WebSocketFrame.Text(_) => ZStream.repeat(fr).schedule(Schedule.spaced(1 second)).take(10)
     }
 
   private val app =

@@ -24,10 +24,10 @@ sealed trait Server[-R, +E] { self =>
     case Ssl(sslOption)       => s.copy(sslOption = sslOption)
   }
 
-  def make(implicit ev: E <:< Throwable): ZManaged[R with HEventLoopGroup with ServerChannelFactory, Throwable, Unit] =
+  def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
     Server.make(self.asInstanceOf[Server[R, Throwable]])
 
-  def start(implicit ev: E <:< Throwable): ZIO[R with HEventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
+  def start(implicit ev: E <:< Throwable): ZIO[R with EventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
     make.useForever
 }
 
@@ -67,16 +67,16 @@ object Server {
     http: RHttpApp[R],
   ): ZIO[R, Throwable, Nothing] =
     (Server.port(port) ++ Server.app(http)).make.useForever
-      .provideSomeLayer[R](HEventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
+      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def make[R](
     server: Server[R, Throwable],
-  ): ZManaged[R with HEventLoopGroup with ServerChannelFactory, Throwable, Unit] = {
+  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] = {
     val settings = server.settings()
     for {
       zExec          <- UnsafeChannelExecutor.make[R].toManaged_
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
-      eventLoopGroup <- ZManaged.access[HEventLoopGroup](_.get)
+      eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
       httpH           = ServerRequestHandler(zExec, settings)
       init            = ServerChannelInitializer(httpH, settings)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)

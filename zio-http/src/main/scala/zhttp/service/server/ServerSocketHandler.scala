@@ -1,14 +1,14 @@
 package zhttp.service.server
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.websocketx.WebSocketFrame
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.{
   HandshakeComplete,
   ServerHandshakeStateEvent,
 }
+import io.netty.handler.codec.http.websocketx.{WebSocketFrame => HWebSocketFrame}
 import zhttp.service.{ChannelFuture, UnsafeChannelExecutor}
 import zhttp.socket.SocketApp.Open
-import zhttp.socket.{HWebSocketFrame, SocketApp}
+import zhttp.socket.{SocketApp, WebSocketFrame}
 import zio.stream.ZStream
 
 /**
@@ -17,23 +17,23 @@ import zio.stream.ZStream
 final case class ServerSocketHandler[R](
   zExec: UnsafeChannelExecutor[R],
   ss: SocketApp.SocketConfig[R, Throwable],
-) extends SimpleChannelInboundHandler[WebSocketFrame] {
+) extends SimpleChannelInboundHandler[HWebSocketFrame] {
 
   /**
    * Unsafe channel reader for WSFrame
    */
 
-  private def writeAndFlush(ctx: ChannelHandlerContext, stream: ZStream[R, Throwable, HWebSocketFrame]): Unit =
+  private def writeAndFlush(ctx: ChannelHandlerContext, stream: ZStream[R, Throwable, WebSocketFrame]): Unit =
     zExec.unsafeExecute_(ctx)(
       stream
         .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toWebSocketFrame)))
         .runDrain,
     )
 
-  override def channelRead0(ctx: ChannelHandlerContext, msg: WebSocketFrame): Unit =
+  override def channelRead0(ctx: ChannelHandlerContext, msg: HWebSocketFrame): Unit =
     ss.onMessage match {
       case Some(v) =>
-        HWebSocketFrame.fromJFrame(msg) match {
+        WebSocketFrame.fromJFrame(msg) match {
           case Some(frame) => writeAndFlush(ctx, v(frame))
           case _           => ()
         }
