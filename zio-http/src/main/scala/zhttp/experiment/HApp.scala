@@ -3,116 +3,90 @@ package zhttp.experiment
 import io.netty.buffer.Unpooled
 import io.netty.channel.{ChannelHandler, ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http._
-import zhttp.core.Util
 import zhttp.experiment.Check.AutoCheck
-import zhttp.experiment.HttpMessage.{AnyRequest, HResponse}
-import zhttp.http._
+import zhttp.experiment.HttpMessage.HResponse
+import zhttp.http.{Header, HTTP_CHARSET}
 import zhttp.service.UnsafeChannelExecutor
 import zio.stream.ZStream
-import zio.{Chunk, UIO, ZIO, ZQueue}
+import zio.{Chunk, UIO, ZQueue}
+
+import scala.annotation.unused
 
 sealed trait HApp[-R, +E] { self =>
   def combine[R1 <: R, E1 >: E](other: HApp[R1, E1]): HApp[R1, E1] = HApp.Combine(self, other)
   def +++[R1 <: R, E1 >: E](other: HApp[R1, E1]): HApp[R1, E1]     = self combine other
 
-  private[zhttp] def compile[R1 <: R](zExec: UnsafeChannelExecutor[R1])(implicit ev: E <:< Throwable): ChannelHandler =
+  private[zhttp] def compile[R1 <: R](
+    @unused zExec: UnsafeChannelExecutor[R1],
+    @unused config: HApp.Config = HApp.Config(),
+  )(implicit
+    ev: E <:< Throwable,
+  ): ChannelHandler =
     new ChannelInboundHandlerAdapter { adapter =>
-      private var data: Chunk[Byte]                                                          = Chunk.empty
-      private var completeHttp: Http[R, Throwable, CompleteRequest, HResponse[R, Throwable]] = Http.empty
-      private var anyRequest: AnyRequest                                                     = _
-      private var isComplete: Boolean                                                        = false
-      override def channelRead(jCtx: ChannelHandlerContext, msg: Any): Unit = {
-        def writeResponse(res: HResponse[R, Throwable]): ZIO[R, Option[Throwable], Unit] = {
-          res.content match {
-            case HContent.Empty             => UIO(jCtx.flush(): Unit)
-            case HContent.Complete(data)    => UIO(jCtx.writeAndFlush(data): Unit)
-            case HContent.Streaming(stream) =>
-              stream.foreachChunk(bytes => UIO(jCtx.writeAndFlush(Unpooled.copiedBuffer(bytes.toArray)): Unit))
-            case HContent.FromChannel(ch)   =>
-              UIO(jCtx.pipeline().replace(adapter, "zhttp.streaming", ch.compile): Unit)
-          }
-        }
-
-        zExec.unsafeExecute_(jCtx) {
-
-          (msg match {
-            case msg: HttpRequest =>
-              val req = AnyRequest.from(msg)
-              adapter.anyRequest = req
-              def find(app: HApp[R, Throwable]): ZIO[R, Option[Throwable], Any] = {
-                app match {
-                  case HApp.Empty => ZIO.fail(None)
-
-                  case HApp.Combine(self, other) => find(self) *> find(other)
-
-                  case HApp.Complete(check, http) =>
-                    if (adapter.isComplete) {
-                      println("Completed")
-                      http.executeAsZIO(anyRequest.toCompleteRequest(data))
-                    } else if (check.is(req)) UIO(adapter.completeHttp = http)
-                    else ZIO.unit
-
-                  case HApp.Partial(check, http) =>
-                    if (check.is(req)) for {
-                      res <- http.executeAsZIO(req)
-                      _   <- UIO(jCtx.writeAndFlush(res.asJava))
-                      _   <- writeResponse(res)
-                    } yield ()
-                    else ZIO.unit
+      override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
+        val void = ctx.channel().voidPromise()
+        msg match {
+          case _: HttpRequest     =>
+            self match {
+              case HApp.Empty          =>
+                ctx.writeAndFlush(HApp.notFoundResponse, void): Unit
+              case HApp.Succeed(http)  =>
+                zExec.unsafeExecute_(ctx) {
+                  (for {
+                    res <- http.executeAsZIO(())
+                    _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
+                  } yield ()).catchAll({
+                    case Some(cause) => UIO(ctx.writeAndFlush(HApp.serverErrorResponse(cause), void): Unit)
+                    case None        => UIO(ctx.writeAndFlush(HApp.notFoundResponse, void): Unit)
+                  })
                 }
-              }
-
-              find(self.asInstanceOf[HApp[R, Throwable]])
-
-            case msg: LastHttpContent =>
-              for {
-                _   <- UIO {
-                  adapter.data = data ++ Chunk.fromArray(msg.content().array())
-                  adapter.isComplete = true
-                }
-                res <- completeHttp.executeAsZIO(anyRequest.toCompleteRequest(data))
-                _   <- writeResponse(res)
-              } yield ()
-            case msg: HttpContent     =>
-              UIO {
-                data = data ++ Chunk.fromArray(msg.content().array())
-              }
-            case msg                  => UIO(jCtx.fireChannelRead(msg))
-          }).catchAll({
-            case Some(cause) =>
-              UIO {
-                val status  = HttpResponseStatus.INTERNAL_SERVER_ERROR
-                val version = HttpVersion.HTTP_1_1
-                val content = Unpooled.copiedBuffer(Util.prettyPrint(cause).getBytes())
-                val res     = new DefaultFullHttpResponse(version, status, content)
-
-                jCtx.writeAndFlush(res)
-              }
-            case None        =>
-              UIO {
-                UIO {
-                  val status  = HttpResponseStatus.NOT_FOUND
-                  val version = HttpVersion.HTTP_1_1
-                  val content = Unpooled.copiedBuffer(s"${anyRequest.url.path.toString}".getBytes())
-                  val res     = new DefaultFullHttpResponse(version, status, content)
-
-                  jCtx.writeAndFlush(res)
-                }
-              }
-          })
+              case HApp.Combine(_, _)  => ???
+              case HApp.Complete(_, _) => ???
+              case HApp.Partial(_, _)  => ???
+            }
+          case _: LastHttpContent => ???
+          case _: HttpContent     => ???
+          case _                  => ???
         }
       }
     }
+
+  private def decodeResponse(res: HResponse[_, _]): HttpResponse = {
+    new DefaultHttpResponse(
+      HttpVersion.HTTP_1_1,
+      res.status.toJHttpStatus,
+      Header.disassemble(res.headers),
+    )
+  }
 }
 
 object HApp {
+
+  import HttpVersion._
+  import HttpResponseStatus._
+
   case object Empty                                                                       extends HApp[Any, Nothing]
   case class Combine[R, E](self: HApp[R, E], other: HApp[R, E])                           extends HApp[R, E]
   case class Complete[R, E](check: Check[AnyRequest], http: RHttp[R, E, CompleteRequest]) extends HApp[R, E]
   case class Partial[R, E](check: Check[AnyRequest], http: RHttp[R, E, AnyRequest])       extends HApp[R, E]
+  case class Succeed[R, E](http: RHttp[R, E, Any])                                        extends HApp[R, E]
+
+  case class Config(validateHeaders: Boolean = true)
+
+  private val notFoundResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
+  private def serverErrorResponse(cause: Throwable): HttpResponse = {
+    val content  = cause.toString
+    val response = new DefaultFullHttpResponse(
+      HTTP_1_1,
+      INTERNAL_SERVER_ERROR,
+      Unpooled.copiedBuffer(content, HTTP_CHARSET),
+    )
+    response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.length)
+    response
+  }
 
   // App Generators
-  sealed trait HAppGen[+A] {
+  sealed trait HAppGen[A] {
     def make[R, E](check: Check[AnyRequest], http: RHttp[R, E, A]): HApp[R, E]
   }
 
@@ -131,6 +105,11 @@ object HApp {
       HApp.streaming(check, http)
   }
 
+  implicit object AnyHAppGen extends HAppGen[Any] {
+    override def make[R, E](check: Check[AnyRequest], http: RHttp[R, E, Any]): HApp[R, E] =
+      HApp.streaming(check, http)
+  }
+
   // Constructor
   def apply[R, E, A, C](c: Check[AnyRequest], http: RHttp[R, E, A])(implicit hl: HAppGen[A]): HApp[R, E] =
     hl.make(c, http)
@@ -142,6 +121,8 @@ object HApp {
     HApp(Check.isTrue, http)
 
   def empty: HApp[Any, Nothing] = HApp.Empty
+
+  def succeed[R, E](http: RHttp[R, E, Any]): HApp[R, E] = HApp.Succeed(http)
 
   // Helper
   private[zhttp] def partial[E, R](check: Check[AnyRequest], http: RHttp[R, E, AnyRequest]): HApp[R, E] =
