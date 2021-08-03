@@ -20,7 +20,7 @@ trait HttpMessageAssertion {
     Assertion.assertion("statusIs")(param(code))(_.status().code() == code)
 
   def hasHeader[A](name: String, value: String, ignoreCase: Boolean = true): Assertion[HttpResponse] =
-    Assertion.assertion("hasHeader")()(_.headers().contains(name, value, ignoreCase))
+    Assertion.assertion("hasHeader")(param(s"$name: $value"))(_.headers().contains(name, value, ignoreCase))
 
   def isAnyResponse: Assertion[Any] = isResponse(anything)
 
