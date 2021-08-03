@@ -2,7 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.base64.Base64
-import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames, HttpHeaderValues => JHttpHeaderValues}
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import io.netty.util.AsciiString.toLowerCase
 import io.netty.util.{AsciiString, CharsetUtil}
 import zhttp.http.HeadersHelpers.{BasicSchemeName, BearerSchemeName}
@@ -36,29 +36,29 @@ private[zhttp] trait HeadersHelpers { self: HasHeaders =>
     headers.filter(h => contentEqualsIgnoreCase(h.name, headerName)).map(_.value.toString)
 
   def getContentType: Option[String] =
-    getHeaderValue(JHttpHeaderNames.CONTENT_TYPE)
+    getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
 
   private def checkContentType(value: AsciiString): Boolean =
     getContentType
       .exists(v => value.contentEquals(v))
 
   def isJsonContentType: Boolean =
-    checkContentType(JHttpHeaderValues.APPLICATION_JSON)
+    checkContentType(HttpHeaderValues.APPLICATION_JSON)
 
   def isTextPlainContentType: Boolean =
-    checkContentType(JHttpHeaderValues.TEXT_PLAIN)
+    checkContentType(HttpHeaderValues.TEXT_PLAIN)
 
   def isXmlContentType: Boolean =
-    checkContentType(JHttpHeaderValues.APPLICATION_XML)
+    checkContentType(HttpHeaderValues.APPLICATION_XML)
 
   def isXhtmlXmlContentType: Boolean =
-    checkContentType(JHttpHeaderValues.APPLICATION_XHTML)
+    checkContentType(HttpHeaderValues.APPLICATION_XHTML)
 
   def isFormUrlencodedContentType: Boolean =
-    checkContentType(JHttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED)
+    checkContentType(HttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED)
 
   def getAuthorization: Option[String] =
-    getHeaderValue(JHttpHeaderNames.AUTHORIZATION)
+    getHeaderValue(HttpHeaderNames.AUTHORIZATION)
 
   private def decodeHttpBasic(encoded: String): Option[(String, String)] = {
     val authChannelBuffer        = Unpooled.wrappedBuffer(encoded.getBytes(CharsetUtil.UTF_8))

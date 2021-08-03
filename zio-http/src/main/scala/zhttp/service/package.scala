@@ -1,6 +1,6 @@
 package zhttp
 
-import zhttp.core._
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup, ServerChannel}
 import zio.Has
 
 package object service {
@@ -13,8 +13,8 @@ package object service {
   private[service] val SSL_HANDLER            = "SSL_HANDLER"
   private[service] val HTTP_ON_HTTPS_HANDLER  = "HTTP_ON_HTTPS_HANDLER"
 
-  type ChannelFactory       = Has[JChannelFactory[JChannel]]
+  type ChannelFactory       = Has[JChannelFactory[Channel]]
   type EventLoopGroup       = Has[JEventLoopGroup]
-  type ServerChannelFactory = Has[JChannelFactory[JServerChannel]]
+  type ServerChannelFactory = Has[JChannelFactory[ServerChannel]]
   type UServer              = Server[Any, Nothing]
 }

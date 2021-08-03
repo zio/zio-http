@@ -4,7 +4,7 @@ import zhttp.http.Response
 import zio._
 import zio.stream.ZStream
 
-import java.net.{SocketAddress => JSocketAddress}
+import java.net.SocketAddress
 
 sealed trait SocketApp[-R, +E] { self =>
   import SocketApp._
@@ -52,7 +52,7 @@ sealed trait SocketApp[-R, +E] { self =>
 }
 
 object SocketApp {
-  type Connection = JSocketAddress
+  type Connection = SocketAddress
   type Cause      = Option[Throwable]
 
   private[zhttp] sealed trait Open[-R, +E] extends SocketApp[R, E] { self =>

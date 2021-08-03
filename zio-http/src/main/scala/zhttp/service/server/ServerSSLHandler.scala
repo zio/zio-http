@@ -1,16 +1,16 @@
 package zhttp.service.server
 
 import io.netty.handler.ssl.ApplicationProtocolConfig.{
-  Protocol => JProtocol,
-  SelectedListenerFailureBehavior => JSelectedListenerFailureBehavior,
-  SelectorFailureBehavior => JSelectorFailureBehavior,
+  Protocol,
+  SelectedListenerFailureBehavior,
+  SelectorFailureBehavior,
 }
 import io.netty.handler.ssl.{
-  ApplicationProtocolConfig => JApplicationProtocolConfig,
-  ApplicationProtocolNames => JApplicationProtocolNames,
-  SslContext => JSslContext,
-  SslContextBuilder => JSslContextBuilder,
-  SslProvider => JSslProvider,
+  ApplicationProtocolConfig,
+  ApplicationProtocolNames,
+  SslContext,
+  SslContextBuilder,
+  SslProvider,
 }
 
 import java.io.{File, InputStream}
@@ -19,7 +19,7 @@ import javax.net.ssl.KeyManagerFactory
 
 object ServerSSLHandler {
 
-  case class ServerSSLOptions(sslContext: JSslContext, httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect)
+  case class ServerSSLOptions(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect)
 
   sealed trait SSLHttpBehaviour
 
@@ -33,18 +33,18 @@ object ServerSSLHandler {
 
   }
 
-  def ctxSelfSigned(): JSslContext = {
+  def ctxSelfSigned(): SslContext = {
     import io.netty.handler.ssl.util.SelfSignedCertificate
     val ssc = new SelfSignedCertificate
-    JSslContextBuilder
+    SslContextBuilder
       .forServer(ssc.certificate(), ssc.privateKey())
-      .sslProvider(JSslProvider.JDK)
+      .sslProvider(SslProvider.JDK)
       .applicationProtocolConfig(
-        new JApplicationProtocolConfig(
-          JProtocol.ALPN,
-          JSelectorFailureBehavior.NO_ADVERTISE,
-          JSelectedListenerFailureBehavior.ACCEPT,
-          JApplicationProtocolNames.HTTP_1_1,
+        new ApplicationProtocolConfig(
+          Protocol.ALPN,
+          SelectorFailureBehavior.NO_ADVERTISE,
+          SelectedListenerFailureBehavior.ACCEPT,
+          ApplicationProtocolNames.HTTP_1_1,
         ),
       )
       .build()
@@ -54,35 +54,35 @@ object ServerSSLHandler {
     keyStoreInputStream: InputStream,
     keyStorePassword: String,
     certPassword: String,
-  ): JSslContext = {
+  ): SslContext = {
     val keyStore: KeyStore = KeyStore.getInstance("JKS")
     keyStore.load(keyStoreInputStream, keyStorePassword.toCharArray)
     val kmf                = KeyManagerFactory.getInstance("SunX509")
     kmf.init(keyStore, certPassword.toCharArray)
-    JSslContextBuilder
+    SslContextBuilder
       .forServer(kmf)
-      .sslProvider(JSslProvider.JDK)
+      .sslProvider(SslProvider.JDK)
       .applicationProtocolConfig(
-        new JApplicationProtocolConfig(
-          JProtocol.ALPN,
-          JSelectorFailureBehavior.NO_ADVERTISE,
-          JSelectedListenerFailureBehavior.ACCEPT,
-          JApplicationProtocolNames.HTTP_1_1,
+        new ApplicationProtocolConfig(
+          Protocol.ALPN,
+          SelectorFailureBehavior.NO_ADVERTISE,
+          SelectedListenerFailureBehavior.ACCEPT,
+          ApplicationProtocolNames.HTTP_1_1,
         ),
       )
       .build()
   }
 
-  def ctxFromCert(certFile: File, keyFile: File): JSslContext = {
-    JSslContextBuilder
+  def ctxFromCert(certFile: File, keyFile: File): SslContext = {
+    SslContextBuilder
       .forServer(certFile, keyFile)
-      .sslProvider(JSslProvider.JDK)
+      .sslProvider(SslProvider.JDK)
       .applicationProtocolConfig(
-        new JApplicationProtocolConfig(
-          JProtocol.ALPN,
-          JSelectorFailureBehavior.NO_ADVERTISE,
-          JSelectedListenerFailureBehavior.ACCEPT,
-          JApplicationProtocolNames.HTTP_1_1,
+        new ApplicationProtocolConfig(
+          Protocol.ALPN,
+          SelectorFailureBehavior.NO_ADVERTISE,
+          SelectedListenerFailureBehavior.ACCEPT,
+          ApplicationProtocolNames.HTTP_1_1,
         ),
       )
       .build()

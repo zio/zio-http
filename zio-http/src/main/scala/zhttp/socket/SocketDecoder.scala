@@ -1,6 +1,6 @@
 package zhttp.socket
 
-import io.netty.handler.codec.http.websocketx.{WebSocketDecoderConfig => JWebSocketDecoderConfig}
+import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig
 
 /**
  * Frame decoder configuration
@@ -8,8 +8,8 @@ import io.netty.handler.codec.http.websocketx.{WebSocketDecoderConfig => JWebSoc
 sealed trait SocketDecoder { self =>
   import SocketDecoder._
   def ++(other: SocketDecoder): SocketDecoder = SocketDecoder.Concat(self, other)
-  def javaConfig: JWebSocketDecoderConfig = {
-    val b = JWebSocketDecoderConfig.newBuilder()
+  def javaConfig: WebSocketDecoderConfig = {
+    val b = WebSocketDecoderConfig.newBuilder()
     def loop(decoder: SocketDecoder): Unit = {
       decoder match {
         case Default                       => ()

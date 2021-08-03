@@ -1,11 +1,11 @@
 package zhttp.service
 
-import io.netty.util.concurrent.{Future => JFuture, GenericFutureListener}
+import io.netty.util.concurrent.{Future, GenericFutureListener}
 import zio._
 
 import java.util.concurrent.CancellationException
 
-final class ChannelFuture[A] private (jFuture: JFuture[A]) {
+final class ChannelFuture[A] private (jFuture: Future[A]) {
 
   /**
    * Resolves when the underlying future resolves and removes the handler (output: A) - if the future is resolved
@@ -13,7 +13,7 @@ final class ChannelFuture[A] private (jFuture: JFuture[A]) {
    * fails with any other Exception
    */
   def execute: Task[Option[A]] = {
-    var handler: GenericFutureListener[JFuture[A]] = { _ => {} }
+    var handler: GenericFutureListener[Future[A]] = { _ => {} }
     ZIO
       .effectAsync[Any, Throwable, Option[A]](cb => {
         handler = _ => {
@@ -37,9 +37,9 @@ final class ChannelFuture[A] private (jFuture: JFuture[A]) {
 }
 
 object ChannelFuture {
-  def make[A](jFuture: => JFuture[A]): Task[ChannelFuture[A]] = Task(new ChannelFuture(jFuture))
+  def make[A](jFuture: => Future[A]): Task[ChannelFuture[A]] = Task(new ChannelFuture(jFuture))
 
-  def unit[A](jFuture: => JFuture[A]): Task[Unit] = make(jFuture).flatMap(_.execute.unit)
+  def unit[A](jFuture: => Future[A]): Task[Unit] = make(jFuture).flatMap(_.execute.unit)
 
-  def asManaged[A](jFuture: => JFuture[A]): TaskManaged[Unit] = make(jFuture).toManaged_.flatMap(_.toManaged.unit)
+  def asManaged[A](jFuture: => Future[A]): TaskManaged[Unit] = make(jFuture).toManaged_.flatMap(_.toManaged.unit)
 }
