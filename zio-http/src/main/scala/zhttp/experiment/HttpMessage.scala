@@ -1,6 +1,6 @@
 package zhttp.experiment
 
-import io.netty.handler.codec.http.{DefaultHttpResponse, HttpRequest, HttpResponse, HttpVersion}
+import io.netty.handler.codec.http.HttpRequest
 import zhttp.http.{Header, Method, Status, URL}
 import zio.Chunk
 import zio.stream.ZStream
@@ -53,15 +53,7 @@ object HttpMessage {
     status: Status = Status.OK,
     headers: List[Header] = Nil,
     content: HContent[R, E] = HContent.empty,
-  ) {
-    def asJava: HttpResponse = {
-      new DefaultHttpResponse(
-        HttpVersion.HTTP_1_1,
-        status.toJHttpStatus,
-        Header.disassemble(headers),
-      )
-    }
-  }
+  )
 
   type CompleteResponse = HResponse[Any, Nothing]
   object CompleteResponse {
