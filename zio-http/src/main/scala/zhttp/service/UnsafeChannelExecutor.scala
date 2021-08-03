@@ -1,6 +1,6 @@
 package zhttp.service
 
-import io.netty.channel.{ChannelHandlerContext, EventLoopGroup}
+import io.netty.channel.{ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
 import io.netty.util.concurrent.EventExecutor
 import zio.internal.Executor
 import zio.{Exit, Runtime, URIO, ZIO}
@@ -54,7 +54,7 @@ object UnsafeChannelExecutor {
       override def getRuntime(ctx: ChannelHandlerContext): Runtime[R] = runtime
     }
 
-    case class Group[R](runtime: Runtime[R], group: EventLoopGroup) extends RuntimeMap[R] {
+    case class Group[R](runtime: Runtime[R], group: JEventLoopGroup) extends RuntimeMap[R] {
       private val localRuntime: mutable.Map[EventExecutor, Runtime[R]] = {
         val map = mutable.Map.empty[EventExecutor, Runtime[R]]
         for (exe <- group.asScala)
@@ -71,14 +71,14 @@ object UnsafeChannelExecutor {
         localRuntime.getOrElse(ctx.executor(), runtime)
     }
 
-    def make[R](group: EventLoopGroup): ZIO[R, Nothing, RuntimeMap[R]] =
+    def make[R](group: JEventLoopGroup): ZIO[R, Nothing, RuntimeMap[R]] =
       ZIO.runtime[R].map(runtime => Group(runtime, group))
 
     def make[R](): ZIO[R, Nothing, RuntimeMap[R]] =
       ZIO.runtime[R].map(runtime => Default(runtime))
   }
 
-  def make[R](group: EventLoopGroup): URIO[R, UnsafeChannelExecutor[R]] =
+  def make[R](group: JEventLoopGroup): URIO[R, UnsafeChannelExecutor[R]] =
     RuntimeMap.make(group).map(runtime => new UnsafeChannelExecutor[R](runtime))
 
   def make[R](): URIO[R, UnsafeChannelExecutor[R]] =
