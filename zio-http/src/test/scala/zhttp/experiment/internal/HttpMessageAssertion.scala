@@ -17,7 +17,7 @@ trait HttpMessageAssertion {
     })
 
   def statusIs[A](code: Int): Assertion[HttpResponse] =
-    Assertion.assertion("statusIs")()(_.status.code == code)
+    Assertion.assertion("statusIs")(param(code))(_.status().code() == code)
 
   def hasHeader[A](name: String, value: String, ignoreCase: Boolean = true): Assertion[HttpResponse] =
     Assertion.assertion("hasHeader")()(_.headers().contains(name, value, ignoreCase))
