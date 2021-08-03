@@ -11,7 +11,10 @@ trait HttpMessageAssertion {
   }
 
   def isResponse[A](assertion: Assertion[HttpResponse]): Assertion[A] =
-    Assertion.assertionRec("isResponse")(param(assertion))(assertion)(x => Option(x.asInstanceOf[HttpResponse]))
+    Assertion.assertionRec("isResponse")(param(assertion))(assertion)({
+      case msg: HttpResponse => Option(msg)
+      case _                 => None
+    })
 
   def statusIs[A](code: Int): Assertion[HttpResponse] =
     Assertion.assertion("statusIs")()(_.status.code == code)
