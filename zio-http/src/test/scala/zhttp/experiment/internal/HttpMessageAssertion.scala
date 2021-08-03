@@ -11,13 +11,13 @@ trait HttpMessageAssertion {
   }
 
   def isResponse[A](assertion: Assertion[HttpResponse]): Assertion[A] =
-    Assertion.assertion("isResponse")(param(assertion))(_.isInstanceOf[HttpResponse])
+    Assertion.assertionRec("isResponse")(param(assertion))(assertion)(x => Option(x.asInstanceOf[HttpResponse]))
 
   def statusIs[A](code: Int): Assertion[HttpResponse] =
     Assertion.assertion("statusIs")()(_.status.code == code)
 
   def hasHeader[A](name: String, value: String, ignoreCase: Boolean = true): Assertion[HttpResponse] =
-    Assertion.assertion("statusIs")()(_.headers().contains(name, value, ignoreCase))
+    Assertion.assertion("hasHeader")()(_.headers().contains(name, value, ignoreCase))
 
   def isAnyResponse: Assertion[Any] = isResponse(anything)
 
