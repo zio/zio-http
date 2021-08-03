@@ -7,8 +7,8 @@ import zhttp.http.Http
 import zhttp.service.EventLoopGroup
 import zio.Chunk
 import zio.duration._
-import zio.test.{assert, DefaultRunnableSpec}
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect._
+import zio.test._
 
 /**
  * Be prepared for some real nasty runtime tests.
@@ -20,12 +20,18 @@ object HAppSpec extends DefaultRunnableSpec with HttpMessageAssertion {
     testM("simple response") {
       for {
         proxy <- HttpQueue.make {
-          HApp(Http.succeed(CompleteResponse(content = Chunk.fromArray("Hello!".getBytes()))))
+          // Todo: Use Http.succeed after fixing the issue
+          HApp {
+            Http.collect[AnyRequest] { case _ =>
+              CompleteResponse(content = Chunk.fromArray("Hello!".getBytes()))
+            }
+          }
         }
         _     <- proxy.offer(new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/text"))
         res   <- proxy.take
+        _ = println(s"res: $res")
       } yield assert(res)(isResponse {
-        statusIs(201)
+        statusIs(200)
       })
 
     }

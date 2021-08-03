@@ -1,10 +1,10 @@
 package zhttp.experiment.internal
 
+import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.handler.codec.http.HttpMessage
 import zhttp.experiment.HApp
-import zio.{Queue, UIO, ZIO}
-import io.netty.channel.embedded.EmbeddedChannel
 import zhttp.service.{EventLoopGroup, UnsafeChannelExecutor}
+import zio.{Queue, UIO, ZIO}
 
 case class HttpQueue(rtm: zio.Runtime[Any], channel: EmbeddedChannel, queue: Queue[HttpMessage]) {
   def offer(a: HttpMessage): UIO[Boolean] = UIO(channel.writeInbound(a))
