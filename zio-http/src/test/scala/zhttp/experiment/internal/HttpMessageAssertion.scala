@@ -1,15 +1,23 @@
 package zhttp.experiment.internal
 
-import io.netty.handler.codec.http.{HttpContent, HttpMessage, HttpResponse, LastHttpContent}
-import zio.test.Assertion
+import io.netty.handler.codec.http._
+import zhttp.experiment.HApp
+import zhttp.service.EventLoopGroup
+import zio.test.{assertM, Assertion, TestResult}
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
+import zio.ZIO
 
 import java.nio.charset.Charset
 
 trait HttpMessageAssertion {
   implicit final class HttpMessageSyntax(m: HttpMessage) {
     def asString: String = m.toString.dropWhile(_ != '\n')
+  }
+
+  implicit final class HAppSyntax[R, E](app: HApp[R, Throwable]) {
+    def ===(assertion: Assertion[HttpMessage]): ZIO[R with EventLoopGroup, Nothing, TestResult] =
+      assertM(execute(app))(assertion)
   }
 
   def isResponse[A](assertion: Assertion[HttpResponse]): Assertion[A] =
@@ -34,10 +42,28 @@ trait HttpMessageAssertion {
     Assertion.assertion("status")(param(code))(_.status().code() == code)
 
   def bodyText(data: String, charset: Charset = Charset.defaultCharset()): Assertion[HttpContent] =
-    Assertion.assertion("body")(param(data))(_.content().toString(charset) == data)
+    Assertion.assertion("body")(param(data))(_.content().toString(charset).contains(data))
 
-  def header[A](name: String, value: String, ignoreCase: Boolean = true): Assertion[HttpResponse] =
+  def header(name: String, value: String, ignoreCase: Boolean = true): Assertion[HttpResponse] =
     Assertion.assertion("header")(param(s"$name: $value"))(_.headers().contains(name, value, ignoreCase))
 
+  def header(name: String): Assertion[HttpResponse] =
+    Assertion.assertion("header")(param(s"$name: ???"))(_.headers().contains(name))
+
+  def noHeader: Assertion[HttpResponse] = Assertion.assertion("no header")()(_.headers().size() == 0)
+
+  def version(name: String): Assertion[HttpResponse] =
+    Assertion.assertion("version")(param(name))(_.protocolVersion().toString == name)
+
   def isAnyResponse: Assertion[Any] = isResponse(anything)
+
+  def execute[R](
+    app: HApp[R, Throwable],
+    req: HttpRequest = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/"),
+  ): ZIO[R with EventLoopGroup, Nothing, HttpMessage] =
+    for {
+      proxy <- HttpQueue.make(app)
+      _     <- proxy.offer(req)
+      res   <- proxy.take
+    } yield res
 }
