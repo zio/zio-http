@@ -1,6 +1,7 @@
 package zhttp.service
 
-import zhttp.core.{JChannelHandlerContext, JFullHttpRequest}
+import io.netty.channel.ChannelHandlerContext
+import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.http._
 
 trait DecodeJRequest {
@@ -8,9 +9,9 @@ trait DecodeJRequest {
   /**
    * Tries to decode the [io.netty.handler.codec.http.FullHttpRequest] to [Request].
    */
-  def decodeJRequest(jReq: JFullHttpRequest, ctx: JChannelHandlerContext): Either[HttpError, Request] = for {
+  def decodeJRequest(jReq: FullHttpRequest, ctx: ChannelHandlerContext): Either[HttpError, Request] = for {
     url <- URL.fromString(jReq.uri())
-    method   = Method.fromJHttpMethod(jReq.method())
+    method   = Method.fromHttpMethod(jReq.method())
     headers  = Header.make(jReq.headers())
     endpoint = method -> url
     data     = HttpData.fromByteBuf(jReq.content())

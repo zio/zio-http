@@ -1,18 +1,18 @@
 package zhttp.service.client
 
-import io.netty.handler.ssl.util.{InsecureTrustManagerFactory => JInsecureTrustManagerFactory}
-import io.netty.handler.ssl.{SslContext => JSslContext, SslContextBuilder => JSslContextBuilder}
+import io.netty.handler.ssl.util.InsecureTrustManagerFactory
+import io.netty.handler.ssl.{SslContext, SslContextBuilder}
 
 case object ClientSSLHandler {
   sealed trait ClientSSLOptions
   object ClientSSLOptions {
-    case object DefaultSSL                              extends ClientSSLOptions
-    final case class CustomSSL(sslContext: JSslContext) extends ClientSSLOptions
+    case object DefaultSSL                             extends ClientSSLOptions
+    final case class CustomSSL(sslContext: SslContext) extends ClientSSLOptions
   }
-  def ssl(sslOption: ClientSSLOptions): JSslContext = {
+  def ssl(sslOption: ClientSSLOptions): SslContext = {
     sslOption match {
       case ClientSSLOptions.DefaultSSL            =>
-        JSslContextBuilder.forClient().trustManager(JInsecureTrustManagerFactory.INSTANCE).build()
+        SslContextBuilder.forClient().trustManager(InsecureTrustManagerFactory.INSTANCE).build()
       case ClientSSLOptions.CustomSSL(sslContext) => sslContext
     }
   }

@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.handler.codec.{http => jHttp}
+import io.netty.handler.codec.http.HttpScheme
 sealed trait Scheme { self =>
   def asString: String = Scheme.asString(self)
 }
@@ -13,11 +13,11 @@ object Scheme       {
   case object HTTP  extends Scheme
   case object HTTPS extends Scheme
 
-  def fromJScheme(scheme: jHttp.HttpScheme): Option[Scheme] =
+  def fromJScheme(scheme: HttpScheme): Option[Scheme] =
     scheme match {
-      case jHttp.HttpScheme.HTTPS => Option(HTTPS)
-      case jHttp.HttpScheme.HTTP  => Option(HTTP)
-      case _                      => None
+      case HttpScheme.HTTPS => Option(HTTPS)
+      case HttpScheme.HTTP  => Option(HTTP)
+      case _                => None
     }
 
   def fromString(scheme: String): Option[Scheme] =

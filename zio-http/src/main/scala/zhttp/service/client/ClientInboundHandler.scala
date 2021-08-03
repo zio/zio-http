@@ -1,7 +1,7 @@
 package zhttp.service.client
 
-import io.netty.channel.ChannelHandlerContext
-import zhttp.core.{JFullHttpResponse, JSimpleChannelInboundHandler}
+import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.handler.codec.http.FullHttpResponse
 import zhttp.service.UnsafeChannelExecutor
 
 /**
@@ -9,10 +9,10 @@ import zhttp.service.UnsafeChannelExecutor
  */
 final case class ClientInboundHandler[R](
   zExec: UnsafeChannelExecutor[R],
-  reader: ClientHttpChannelReader[Throwable, JFullHttpResponse],
-) extends JSimpleChannelInboundHandler[JFullHttpResponse](false) {
+  reader: ClientHttpChannelReader[Throwable, FullHttpResponse],
+) extends SimpleChannelInboundHandler[FullHttpResponse](false) {
 
-  override def channelRead0(ctx: ChannelHandlerContext, msg: JFullHttpResponse): Unit =
+  override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit =
     zExec.unsafeExecute_(ctx)(reader.onChannelRead(msg))
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit =

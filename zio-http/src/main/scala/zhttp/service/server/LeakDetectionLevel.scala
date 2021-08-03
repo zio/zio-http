@@ -1,13 +1,13 @@
 package zhttp.service.server
 
-import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
+import io.netty.util.ResourceLeakDetector
 
 sealed trait LeakDetectionLevel { self =>
-  def jResourceLeakDetectionLevel: JResourceLeakDetector.Level = self match {
-    case LeakDetectionLevel.DISABLED => JResourceLeakDetector.Level.DISABLED
-    case LeakDetectionLevel.SIMPLE   => JResourceLeakDetector.Level.SIMPLE
-    case LeakDetectionLevel.ADVANCED => JResourceLeakDetector.Level.ADVANCED
-    case LeakDetectionLevel.PARANOID => JResourceLeakDetector.Level.PARANOID
+  def jResourceLeakDetectionLevel: ResourceLeakDetector.Level = self match {
+    case LeakDetectionLevel.DISABLED => ResourceLeakDetector.Level.DISABLED
+    case LeakDetectionLevel.SIMPLE   => ResourceLeakDetector.Level.SIMPLE
+    case LeakDetectionLevel.ADVANCED => ResourceLeakDetector.Level.ADVANCED
+    case LeakDetectionLevel.PARANOID => ResourceLeakDetector.Level.PARANOID
   }
 }
 
