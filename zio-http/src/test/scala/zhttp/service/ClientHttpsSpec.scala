@@ -4,9 +4,8 @@ import io.netty.handler.codec.{DecoderException => JDecoderException}
 import io.netty.handler.ssl.{SslContextBuilder => JSslContextBuilder}
 import zhttp.http.Status
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zio.duration._
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
-import zio.test.TestAspect.{flaky, timeout}
+import zio.test.TestAspect.flaky
 import zio.test.assertM
 
 import java.io._
@@ -54,6 +53,6 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
         )
         .run
       assertM(actual)(fails(isSubtype[JDecoderException](anything)))
-    },
-  ).provideCustomLayer(env) @@ flaky @@ timeout(5 seconds)
+    } @@ flaky,
+  ).provideCustomLayer(env)
 }
