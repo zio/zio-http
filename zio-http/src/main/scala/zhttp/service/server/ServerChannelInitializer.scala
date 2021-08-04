@@ -1,17 +1,18 @@
 package zhttp.service.server
 
+import io.netty.channel.{Channel, ChannelInitializer}
+import io.netty.channel.ChannelHandler.Sharable
 import io.netty.handler.codec.http.{HttpServerCodec, HttpServerKeepAliveHandler}
-import zhttp.core._
 import zhttp.service.Server.Settings
 import zhttp.service.{SSL_HANDLER, UnsafeChannelExecutor}
 
 /**
  * Initializes the netty channel with default handlers
  */
-@JSharable
+@Sharable
 final case class ServerChannelInitializer[R](zExec: UnsafeChannelExecutor[R], settings: Settings[R, Throwable])
-    extends JChannelInitializer[JChannel] {
-  override def initChannel(channel: JChannel): Unit = {
+    extends ChannelInitializer[Channel] {
+  override def initChannel(channel: Channel): Unit = {
 
     val sslctx = if (settings.sslOption == null) null else settings.sslOption.sslContext
     if (sslctx != null) {

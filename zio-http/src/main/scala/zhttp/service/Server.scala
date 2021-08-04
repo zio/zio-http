@@ -1,6 +1,5 @@
 package zhttp.service
 
-import zhttp.core._
 import zhttp.experiment.HApp
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.util.ResourceLeakDetector

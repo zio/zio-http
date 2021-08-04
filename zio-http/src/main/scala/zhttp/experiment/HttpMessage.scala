@@ -28,7 +28,7 @@ object HttpMessage {
   object AnyRequest {
     def from(jReq: HttpRequest): AnyRequest = AnyRequest(
       // TODO: improve for performance
-      method = Method.fromJHttpMethod(jReq.method()),
+      method = Method.fromHttpMethod(jReq.method()),
       url = URL.fromString(jReq.uri()).getOrElse(null),
       headers = Header.make(jReq.headers()),
     )

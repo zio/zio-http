@@ -1,7 +1,7 @@
 package zhttp.service
 
 import io.netty.channel.{ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
-import io.netty.util.concurrent.{EventExecutor => JEventExecutor}
+import io.netty.util.concurrent.EventExecutor
 import zio.internal.Executor
 import zio.{Exit, Runtime, URIO, ZIO}
 
@@ -20,7 +20,7 @@ trait UnsafeChannelExecutor[R] {
 }
 
 object UnsafeChannelExecutor {
-  final class Default[R](map: mutable.Map[JEventExecutor, Runtime[R]], defaultRuntime: zio.Runtime[R])
+  final class Default[R](map: mutable.Map[EventExecutor, Runtime[R]], defaultRuntime: zio.Runtime[R])
       extends UnsafeChannelExecutor[R] {
 
     private def runtime(ctx: ChannelHandlerContext): Runtime[R] =
@@ -56,7 +56,7 @@ object UnsafeChannelExecutor {
 
   def make[R](group: JEventLoopGroup): URIO[R, UnsafeChannelExecutor[R]] =
     ZIO.runtime.map(runtime => {
-      val map = mutable.Map.empty[JEventExecutor, Runtime[R]]
+      val map = mutable.Map.empty[EventExecutor, Runtime[R]]
       for (exe <- group.asScala)
         map += exe -> runtime.withYieldOnStart(false).withExecutor {
           Executor.fromExecutionContext(runtime.platform.executor.yieldOpCount) {
