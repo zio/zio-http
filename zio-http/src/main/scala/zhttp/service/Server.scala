@@ -1,8 +1,8 @@
 package zhttp.service
 
-import zhttp.experiment.HApp
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.util.ResourceLeakDetector
+import zhttp.experiment.HApp
 import zhttp.http.{Status, _}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._

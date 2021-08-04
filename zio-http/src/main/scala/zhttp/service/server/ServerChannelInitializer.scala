@@ -1,7 +1,7 @@
 package zhttp.service.server
 
-import io.netty.channel.{Channel, ChannelInitializer}
 import io.netty.channel.ChannelHandler.Sharable
+import io.netty.channel.{Channel, ChannelInitializer}
 import io.netty.handler.codec.http.{HttpServerCodec, HttpServerKeepAliveHandler}
 import zhttp.service.Server.Settings
 import zhttp.service.{SSL_HANDLER, UnsafeChannelExecutor}
