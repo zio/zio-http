@@ -119,7 +119,7 @@ lazy val example = (project in file("./example"))
   .settings(publishSetting(false))
   .settings(
     fork := true,
-    Compile / run / mainClass := Option("Authentication"),
+    Compile / run / mainClass := Option("HelloWorld"),
     libraryDependencies ++= Seq(
       "com.github.jwt-scala" %% "jwt-core" % "9.0.0",
     ),

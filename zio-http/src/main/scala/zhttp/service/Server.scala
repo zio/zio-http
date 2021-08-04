@@ -74,9 +74,9 @@ object Server {
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] = {
     val settings = server.settings()
     for {
-      zExec          <- UnsafeChannelExecutor.make[R].toManaged_
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
+      zExec          <- UnsafeChannelExecutor.make[R](eventLoopGroup).toManaged_
       httpH           = ServerRequestHandler(zExec, settings)
       init            = ServerChannelInitializer(httpH, settings)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
