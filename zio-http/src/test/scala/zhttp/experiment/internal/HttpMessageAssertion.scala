@@ -3,20 +3,20 @@ package zhttp.experiment.internal
 import io.netty.handler.codec.http._
 import zhttp.experiment.HApp
 import zhttp.service.EventLoopGroup
-import zio.test.{assertM, Assertion, TestResult}
+import zio.ZIO
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
-import zio.ZIO
+import zio.test.{Assertion, TestResult, assertM}
 
 import java.nio.charset.Charset
 
 trait HttpMessageAssertion {
-  implicit final class HttpMessageSyntax(m: HttpMessage) {
+  implicit final class HttpMessageSyntax(m: HttpObject) {
     def asString: String = m.toString.dropWhile(_ != '\n')
   }
 
   implicit final class HAppSyntax[R, E](app: HApp[R, Throwable]) {
-    def ===(assertion: Assertion[HttpMessage]): ZIO[R with EventLoopGroup, Nothing, TestResult] =
+    def ===(assertion: Assertion[HttpObject]): ZIO[R with EventLoopGroup, Nothing, TestResult] =
       assertM(execute(app))(assertion)
   }
 
@@ -60,10 +60,10 @@ trait HttpMessageAssertion {
   def execute[R](
     app: HApp[R, Throwable],
     req: HttpRequest = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/"),
-  ): ZIO[R with EventLoopGroup, Nothing, HttpMessage] =
+  ): ZIO[R with EventLoopGroup, Nothing, HttpObject] =
     for {
       proxy <- HttpQueue.make(app)
-      _     <- proxy.offer(req)
-      res   <- proxy.take
+      _     <- proxy.dispatch(req)
+      res   <- proxy.receive
     } yield res
 }
