@@ -3,7 +3,7 @@ package zhttp.experiment
 import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.HResponse
-import zhttp.experiment.internal.{HttpMessageAssertion, HttpQueue}
+import zhttp.experiment.internal.{ChannelProxy, HttpMessageAssertion}
 import zhttp.http.{HTTP_CHARSET, Header, Http}
 import zhttp.service.EventLoopGroup
 import zio.Promise
@@ -93,20 +93,19 @@ object HAppSpec extends DefaultRunnableSpec with HttpMessageAssertion {
     suite("succeed(CompleteRequest)")(
       testM("status is 200") {
         for {
-          proxy <- HttpQueue.make(HApp.from(Http.collect[CompleteRequest[ByteBuf]](req => HResponse())))
-          _     <- proxy.request(HttpVersion.HTTP_1_1, HttpMethod.POST, "/")
-          _     <- proxy.content("Hello")
-          _     <- proxy.content("World", true)
+          proxy <- ChannelProxy.make(HApp.from(Http.collect[CompleteRequest[ByteBuf]](req => HResponse())))
+          _     <- proxy.request()
+          _     <- proxy.last
           res   <- proxy.receive
         } yield assert(res)(isResponse(status(200)))
       },
-      testM("content is Hello World") {
+      testM("req.content is Hello World") {
         for {
           promise <- Promise.make[Nothing, ByteBuf]
-          proxy   <- HttpQueue.make(
+          proxy   <- ChannelProxy.make(
             HApp.from(Http.collectM[CompleteRequest[ByteBuf]](req => promise.succeed(req.content) as HResponse())),
           )
-          _       <- proxy.request(HttpVersion.HTTP_1_1, HttpMethod.POST, "/")
+          _       <- proxy.post()
           _       <- proxy.content("Hello")
           _       <- proxy.content("World", true)
           res     <- promise.await.map(bytes => bytes.toString(HTTP_CHARSET))

@@ -8,17 +8,28 @@ import zhttp.experiment.HApp
 import zhttp.service.{EventLoopGroup, UnsafeChannelExecutor}
 import zio.{Queue, UIO, ZIO}
 
-case class HttpQueue(rtm: zio.Runtime[Any], channel: EmbeddedChannel, queue: Queue[HttpObject]) {
+case class ChannelProxy(rtm: zio.Runtime[Any], channel: EmbeddedChannel, queue: Queue[HttpObject]) {
   def dispatch(a: HttpObject): UIO[Boolean] = UIO(channel.writeInbound(a))
   def receive: UIO[HttpObject]              = queue.take
 
-  def request(version: HttpVersion, method: HttpMethod, url: String, headers: HttpHeaders): UIO[Boolean] = {
+  def request(
+    version: HttpVersion = HttpVersion.HTTP_1_1,
+    method: HttpMethod = HttpMethod.GET,
+    url: String = "/",
+    headers: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+  ): UIO[Boolean] = {
     dispatch(new DefaultHttpRequest(version, method, url, headers))
   }
 
-  def request(version: HttpVersion, method: HttpMethod, url: String): UIO[Boolean] = {
-    dispatch(new DefaultHttpRequest(version, method, url))
-  }
+  def get(
+    url: String = "/",
+    headers: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+  ): UIO[Boolean] = request(url = url, headers = headers)
+
+  def post(
+    url: String = "/",
+    headers: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+  ): UIO[Boolean] = request(method = HttpMethod.POST, url = url, headers = headers)
 
   def content(text: String, isLast: Boolean = false): UIO[Boolean] = {
     if (isLast)
@@ -31,10 +42,10 @@ case class HttpQueue(rtm: zio.Runtime[Any], channel: EmbeddedChannel, queue: Que
 
 }
 
-object HttpQueue {
+object ChannelProxy {
   def make[R](
     app: HApp[R, Throwable],
-  ): ZIO[R with EventLoopGroup, Nothing, HttpQueue] =
+  ): ZIO[R with EventLoopGroup, Nothing, ChannelProxy] =
     for {
       zExec <- UnsafeChannelExecutor.make[R]
       rtm   <- ZIO.runtime[Any]
@@ -46,6 +57,6 @@ object HttpQueue {
           super.handleOutboundMessage(msg)
         }
       }
-      HttpQueue(rtm, embeddedChannel, queue)
+      ChannelProxy(rtm, embeddedChannel, queue)
     }
 }

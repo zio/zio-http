@@ -62,7 +62,7 @@ trait HttpMessageAssertion {
     req: HttpRequest = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/"),
   ): ZIO[R with EventLoopGroup, Nothing, HttpObject] =
     for {
-      proxy <- HttpQueue.make(app)
+      proxy <- ChannelProxy.make(app)
       _     <- proxy.dispatch(req)
       res   <- proxy.receive
     } yield res
