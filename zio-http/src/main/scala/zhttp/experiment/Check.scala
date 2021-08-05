@@ -15,16 +15,16 @@ object Check {
     def toCheck(a: A): Check[B]
   }
 
-  implicit object PathChecker extends AutoCheck[Path, AnyRequest[Any]] {
-    override def toCheck(a: Path): Check[AnyRequest[Any]] = Check[AnyRequest[Any]](_.url.path == a)
+  implicit object PathChecker extends AutoCheck[Path, AnyRequest] {
+    override def toCheck(a: Path): Check[AnyRequest] = Check[AnyRequest](_.url.path == a)
   }
 
-  implicit object MethodChecker extends AutoCheck[Method, AnyRequest[Any]] {
-    override def toCheck(a: Method): Check[AnyRequest[Any]] = Check[AnyRequest[Any]](_.method == a)
+  implicit object MethodChecker extends AutoCheck[Method, AnyRequest] {
+    override def toCheck(a: Method): Check[AnyRequest] = Check[AnyRequest](_.method == a)
   }
 
-  implicit object RouteChecker extends AutoCheck[(Method, Path), AnyRequest[Any]] {
-    override def toCheck(a: (Method, Path)): Check[AnyRequest[Any]] =
-      Check[AnyRequest[Any]](_.method == a._1) && Check[AnyRequest[Any]](_.url.path == a._2)
+  implicit object RouteChecker extends AutoCheck[(Method, Path), AnyRequest] {
+    override def toCheck(a: (Method, Path)): Check[AnyRequest] =
+      Check[AnyRequest](_.method == a._1) && Check[AnyRequest](_.url.path == a._2)
   }
 }

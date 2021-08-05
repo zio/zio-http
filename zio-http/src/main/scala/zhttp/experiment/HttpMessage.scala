@@ -21,13 +21,11 @@ object HttpMessage {
       BufferedRequest(self, content)
   }
 
-  type EmptyRequest[+A]
-
-  case class AnyRequest[+A](override val method: Method, override val url: URL, override val headers: List[Header])
+  case class AnyRequest(override val method: Method, override val url: URL, override val headers: List[Header])
       extends HRequest
 
   object AnyRequest {
-    def from(jReq: HttpRequest): AnyRequest[Nothing] = AnyRequest(
+    def from(jReq: HttpRequest): AnyRequest = AnyRequest(
       // TODO: improve for performance
       method = Method.fromHttpMethod(jReq.method()),
       url = URL.fromString(jReq.uri()).getOrElse(null),
