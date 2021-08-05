@@ -1,3 +1,4 @@
+import io.netty.buffer.{ByteBuf, Unpooled}
 import zhttp.experiment.HttpMessage.{BufferedResponse, CompleteResponse, HResponse}
 import zhttp.experiment._
 import zhttp.http._
@@ -6,21 +7,21 @@ import zio._
 
 object HelloWorld extends App {
 
-  val h1: HApp[Any, Nothing] = HApp(Root / "text") {
-    Http.collect[CompleteRequest]({ case req => CompleteResponse(content = req.content) })
+  val h1: HApp[Any, Nothing] = HApp.from {
+    Http.collect[CompleteRequest[ByteBuf]]({ case req => CompleteResponse(content = req.content) })
   }
 
-  val h2: HApp[Any, Nothing] = HApp(Root / "upload") {
-    Http.collect[AnyRequest]({ case req => HResponse(headers = req.headers, content = HContent.echo) })
+  val h2: HApp[Any, Nothing] = HApp.from {
+    Http.collect[AnyRequest[ByteBuf]]({ case req => HResponse(headers = req.headers, content = HContent.echo) })
   }
 
-  val h3: HApp[Any, Nothing] = HApp(Root / "upload") {
-    Http.collect[BufferedRequest]({ case req => BufferedResponse(content = req.content) })
+  val h3: HApp[Any, Nothing] = HApp.from {
+    Http.collect[BufferedRequest[ByteBuf]]({ case req => BufferedResponse(content = req.content) })
   }
 
-  val h4: HApp[Any, Nothing] = HApp {
-    Http.collect[CompleteRequest] {
-      case req if req.url.path == Root / "health" => CompleteResponse(content = Chunk.fromArray("Ok".getBytes()))
+  val h4: HApp[Any, Nothing] = HApp.from {
+    Http.collect[CompleteRequest[ByteBuf]] {
+      case req if req.url.path == Root / "health" => CompleteResponse(content = Unpooled.copiedBuffer("Ok".getBytes()))
     }
   }
 
