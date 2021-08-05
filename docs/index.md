@@ -20,7 +20,7 @@
 ```scala
 import zhttp.http._
 
-val app = Http.text("Hello World!")
+val app = HttpApp.text("Hello World!")
 ```
 
 An application can be made using any of the available operators on `zhttp.Http`. In the above program for any Http request, the response is always `"Hello World!"`.
@@ -136,7 +136,7 @@ import zhttp.service.Server
 import zio._
 
 object HelloWorld extends App {
-  val app = Http.ok
+  val app = HttpApp.ok
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     Server.start(8090, app).exitCode
