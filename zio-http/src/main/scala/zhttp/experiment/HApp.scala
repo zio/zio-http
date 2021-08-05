@@ -3,13 +3,14 @@ package zhttp.experiment
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.{ChannelHandler, ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http._
+import zhttp.experiment.Codec._
 import zhttp.experiment.HttpMessage.{AnyRequest, CompleteRequest, HResponse}
+import zhttp.experiment.Params._
 import zhttp.http.{HTTP_CHARSET, Header, Http}
 import zhttp.service.UnsafeChannelExecutor
 import zio.{UIO, ZIO}
+
 import scala.annotation.unused
-import Params._
-import Codec._
 
 sealed trait HApp[-R, +E] { self =>
   def combine[R1 <: R, E1 >: E](other: HApp[R1, E1]): HApp[R1, E1] = HApp.Combine(self, other)

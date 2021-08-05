@@ -1,8 +1,7 @@
 package zhttp.experiment
 
-import io.netty.buffer.ByteBuf
+import io.netty.buffer.{ByteBuf, Unpooled}
 import zio.Chunk
-import io.netty.buffer.Unpooled
 
 trait Codec[A] extends Codec.Encoder[A] with Codec.Decoder[A]
 

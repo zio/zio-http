@@ -12,7 +12,7 @@ object HelloWorld extends App {
   }
 
   val h2: HApp[Any, Nothing] = HApp.from {
-    Http.collect[AnyRequest[ByteBuf]]({ case req => HResponse(headers = req.headers, content = HContent.echo) })
+    Http.collect[AnyRequest]({ case req => HResponse(headers = req.headers, content = HContent.echo) })
   }
 
   val h3: HApp[Any, Nothing] = HApp.from {
