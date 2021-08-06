@@ -11,7 +11,12 @@ import zhttp.service.UnsafeChannelExecutor
 import zio.{UIO, ZIO}
 
 import scala.annotation.unused
-
+sealed trait RequestType
+object RequestType        {
+  case object AnyRequest      extends RequestType
+  case object CompleteRequest extends RequestType
+  case object BufferedRequest extends RequestType
+}
 sealed trait HApp[-R, +E] { self =>
   def combine[R1 <: R, E1 >: E](other: HApp[R1, E1]): HApp[R1, E1] = HApp.Combine(self, other)
   def +++[R1 <: R, E1 >: E](other: HApp[R1, E1]): HApp[R1, E1]     = self combine other
@@ -27,6 +32,7 @@ sealed trait HApp[-R, +E] { self =>
       var completeHttpApp: Http[R, Throwable, CompleteRequest[_], HResponse[R, Throwable, _]] = Http.empty
       val completeBody: ByteBuf                                                               = Unpooled.compositeBuffer()
       var jRequest: HttpRequest                                                               = _
+      var requestType: RequestType                                                            = RequestType.AnyRequest
       @unused var encoder: Encoder[_]                                                         = _
       var decoder: Decoder[_]                                                                 = _
 
@@ -57,32 +63,61 @@ sealed trait HApp[-R, +E] { self =>
                 }
 
               case HApp.Complete(decoder, encoder, http) =>
+                adapter.requestType = RequestType.CompleteRequest
                 adapter.completeHttpApp = http
                 adapter.encoder = encoder
                 adapter.decoder = decoder
 
-              case HApp.Unknown(_, _) => ???
+              case HApp.Unknown(encoder, http) =>
+                adapter.requestType = RequestType.AnyRequest
+                eval {
+                  (for {
+                    res <- http.executeAsZIO(AnyRequest.from(adapter.jRequest))
+                    _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
+                    _   <- res.content match {
+                      case HContent.Empty             => UIO(())
+                      case HContent.Complete(data)    => UIO(ctx.writeAndFlush(encoder.encode(data), void))
+                      case HContent.Streaming(stream) =>
+                        stream.map(data => ctx.writeAndFlush(encoder.encode(data), void)).runDrain
+                      case HContent.FromChannel(_)    => ???
+                    }
+
+                  } yield ()).catchAll({
+                    case Some(cause) => UIO(ctx.writeAndFlush(serverErrorResponse(cause), void): Unit)
+                    case None        => UIO(ctx.writeAndFlush(notFoundResponse, void): Unit)
+                  })
+                }
 
               case HApp.Buffered(_, _, _) => ???
 
               case HApp.Combine(_, _) => ???
             }
           case msg: LastHttpContent =>
-            adapter.completeBody.writeBytes(msg.content())
-            val request = AnyRequest.from(adapter.jRequest)
-            eval {
-              (for {
-                res <- adapter.completeHttpApp.executeAsZIO(
-                  CompleteRequest(request, adapter.decoder.decode(adapter.completeBody)),
-                )
-                _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
+            adapter.requestType match {
+              case RequestType.AnyRequest      => ()
+              case RequestType.CompleteRequest =>
+                adapter.completeBody.writeBytes(msg.content())
+                val request = AnyRequest.from(adapter.jRequest)
+                eval {
+                  (for {
+                    res <- adapter.completeHttpApp.executeAsZIO(
+                      CompleteRequest(request, adapter.decoder.decode(adapter.completeBody)),
+                    )
+                    _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
 
-              } yield ()).catchAll({
-                case Some(_) => ???
-                case None    => ???
-              })
+                  } yield ()).catchAll({
+                    case Some(_) => ???
+                    case None    => ???
+                  })
+                }
+              case RequestType.BufferedRequest => ???
             }
-          case msg: HttpContent     => completeBody.writeBytes(msg.content()): Unit
+          case msg: HttpContent     =>
+            adapter.requestType match {
+              case RequestType.AnyRequest      => ()
+              case RequestType.CompleteRequest => completeBody.writeBytes(msg.content()): Unit
+              case RequestType.BufferedRequest => ???
+            }
           case _                    => ???
         }
       }
