@@ -6,69 +6,97 @@ import zio.internal.Executor
 import zio.{Exit, Runtime, URIO, ZIO}
 
 import scala.collection.mutable
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext => JExecutionContext}
 import scala.jdk.CollectionConverters._
 
 /**
  * Provides basic ZIO based utilities for any ZIO based program to execute in a channel's context. It will automatically
  * cancel the execution when the channel closes.
  */
+final class UnsafeChannelExecutor[R](runtime: UnsafeChannelExecutor.RuntimeMap[R]) {
 
-trait UnsafeChannelExecutor[R] {
-  def unsafeExecute_(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit
-  def unsafeExecute[E, A](ctx: ChannelHandlerContext, program: ZIO[R, E, A])(cb: Exit[E, A] => Any): Unit
-}
-
-object UnsafeChannelExecutor {
-  final class Default[R](map: mutable.Map[EventExecutor, Runtime[R]], defaultRuntime: zio.Runtime[R])
-      extends UnsafeChannelExecutor[R] {
-
-    private def runtime(ctx: ChannelHandlerContext): Runtime[R] =
-      map.getOrElse(ctx.executor(), defaultRuntime)
-
-    override def unsafeExecute_(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
-      unsafeExecute(ctx, program) {
-        case Exit.Success(_)     => ()
-        case Exit.Failure(cause) =>
-          cause.failureOption match {
-            case Some(error: Throwable) => ctx.fireExceptionCaught(error)
-            case _                      => ()
-          }
-          ctx.close()
-      }
-    }
-
-    override def unsafeExecute[E, A](ctx: ChannelHandlerContext, program: ZIO[R, E, A])(
-      cb: Exit[E, A] => Any,
-    ): Unit = {
-      val rtm = runtime(ctx)
-      rtm
-        .unsafeRunAsync(for {
-          fiber  <- program.fork
-          _      <- ZIO.effectTotal {
-            ctx.channel.closeFuture.addListener((_: AnyRef) => rtm.unsafeRunAsync_(fiber.interrupt): Unit)
-          }
-          result <- fiber.join
-        } yield result)(cb)
-
+  def unsafeExecute_(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
+    unsafeExecute(ctx, program) {
+      case Exit.Success(_)     => ()
+      case Exit.Failure(cause) =>
+        cause.failureOption match {
+          case Some(error: Throwable) => ctx.fireExceptionCaught(error)
+          case _                      => ()
+        }
+        ctx.close()
     }
   }
 
-  def make[R](group: JEventLoopGroup): URIO[R, UnsafeChannelExecutor[R]] =
-    ZIO.runtime.map(runtime => {
-      val map = mutable.Map.empty[EventExecutor, Runtime[R]]
-      for (exe <- group.asScala)
-        map += exe -> runtime.withYieldOnStart(false).withExecutor {
-          Executor.fromExecutionContext(runtime.platform.executor.yieldOpCount) {
-            ExecutionContext.fromExecutor(exe)
-          }
+  def unsafeExecute[E, A](ctx: ChannelHandlerContext, program: ZIO[R, E, A])(
+    cb: Exit[E, A] => Any,
+  ): Unit = {
+    val rtm = runtime.getRuntime(ctx)
+    rtm
+      .unsafeRunAsync(for {
+        fiber  <- program.fork
+        _      <- ZIO.effectTotal {
+          ctx.channel.closeFuture.addListener((_: AnyRef) => rtm.unsafeRunAsync_(fiber.interrupt): Unit)
         }
+        result <- fiber.join
+      } yield result)(cb)
 
-      new Default[R](map, runtime)
-    })
+  }
+}
 
-  def make[R]: URIO[R with EventLoopGroup, UnsafeChannelExecutor[R]] = for {
-    eg  <- ZIO.access[EventLoopGroup](_.get)
-    exe <- UnsafeChannelExecutor.make[R](eg)
-  } yield exe
+object UnsafeChannelExecutor {
+  sealed trait RuntimeMap[R] {
+    def getRuntime(ctx: ChannelHandlerContext): Runtime[R]
+  }
+
+  object RuntimeMap {
+
+    case class Default[R](runtime: Runtime[R]) extends RuntimeMap[R] {
+      override def getRuntime(ctx: ChannelHandlerContext): Runtime[R] = runtime
+    }
+
+    case class Dedicated[R](runtime: Runtime[R], group: JEventLoopGroup) extends RuntimeMap[R] {
+      private val localRuntime: Runtime[R] = runtime.withYieldOnStart(false).withExecutor {
+        Executor.fromExecutionContext(runtime.platform.executor.yieldOpCount) {
+          JExecutionContext.fromExecutor(group)
+        }
+      }
+
+      override def getRuntime(ctx: ChannelHandlerContext): Runtime[R] = localRuntime
+    }
+
+    case class Group[R](runtime: Runtime[R], group: JEventLoopGroup) extends RuntimeMap[R] {
+      private val localRuntime: mutable.Map[EventExecutor, Runtime[R]] = {
+        val map = mutable.Map.empty[EventExecutor, Runtime[R]]
+        for (exe <- group.asScala)
+          map += exe -> runtime.withYieldOnStart(false).withExecutor {
+            Executor.fromExecutionContext(runtime.platform.executor.yieldOpCount) {
+              JExecutionContext.fromExecutor(exe)
+            }
+          }
+
+        map
+      }
+
+      override def getRuntime(ctx: ChannelHandlerContext): Runtime[R] =
+        localRuntime.getOrElse(ctx.executor(), runtime)
+    }
+
+    def sharded[R](group: JEventLoopGroup): ZIO[R, Nothing, RuntimeMap[R]] =
+      ZIO.runtime[R].map(runtime => Group(runtime, group))
+
+    def default[R](): ZIO[R, Nothing, RuntimeMap[R]] =
+      ZIO.runtime[R].map(runtime => Default(runtime))
+
+    def dedicated[R](group: JEventLoopGroup): ZIO[R, Nothing, RuntimeMap[R]] =
+      ZIO.runtime[R].map(runtime => Dedicated(runtime, group))
+  }
+
+  def sharded[R](group: JEventLoopGroup): URIO[R, UnsafeChannelExecutor[R]] =
+    RuntimeMap.sharded(group).map(runtime => new UnsafeChannelExecutor[R](runtime))
+
+  def dedicated[R](group: JEventLoopGroup): URIO[R, UnsafeChannelExecutor[R]] =
+    RuntimeMap.dedicated(group).map(runtime => new UnsafeChannelExecutor[R](runtime))
+
+  def make[R](): URIO[R, UnsafeChannelExecutor[R]] =
+    RuntimeMap.default().map(runtime => new UnsafeChannelExecutor[R](runtime))
 }
