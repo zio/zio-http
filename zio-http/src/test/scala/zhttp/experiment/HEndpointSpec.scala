@@ -145,7 +145,7 @@ object HEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
             assertCompleteRequest(method = HttpMethod.POST)(isRequest(method(Method.POST)))
           },
           testM("req.header is 'H1: K1'") {
-            assertCompleteRequest(header = new DefaultHttpHeaders().set("H1", "K1"))(
+            assertCompleteRequest(header = header.set("H1", "K1"))(
               isRequest(header(Header("H1", "K1"))),
             )
           },
@@ -186,7 +186,45 @@ object HEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
             assertBufferedRequest(method = HttpMethod.POST)(isRequest(method(Method.POST)))
           },
           testM("req.header is 'H1: K1'") {
-            assertBufferedRequest(header = new DefaultHttpHeaders().set("H1", "K1"))(
+            assertBufferedRequest(header = header.set("H1", "K1"))(
+              isRequest(header(Header("H1", "K1"))),
+            )
+          },
+        ),
+        suite("succeed(AnyRequest)")(
+          testM("status is 200") {
+            assertResponse(HEndpoint.from(Http.collect[AnyRequest](_ => HResponse())))(
+              isResponse(status(200)),
+            )
+          },
+          testM("status is 500") {
+            assertResponse(
+              HEndpoint.from(Http.collectM[AnyRequest](_ => ZIO.fail(new Error("SERVER ERROR")))),
+            )(
+              isResponse(status(500)),
+            )
+          },
+          testM("status is 404") {
+            assertResponse(HEndpoint.from(Http.empty.contramap[AnyRequest](i => i)))(
+              isResponse(status(404)),
+            )
+          },
+          testM("status is 200") {
+            assertResponse(HEndpoint.from(Http.collectM[AnyRequest](_ => UIO(HResponse()))))(
+              isResponse(status(200)),
+            )
+          },
+          testM("req.url is '/abc'") {
+            assertBufferedRequest("/abc", HttpMethod.GET)(isRequest(url("/abc")))
+          },
+          testM("req.method is 'GET'") {
+            assertBufferedRequest(method = HttpMethod.GET)(isRequest(method(Method.GET)))
+          },
+          testM("req.method is 'POST'") {
+            assertBufferedRequest(method = HttpMethod.POST)(isRequest(method(Method.POST)))
+          },
+          testM("req.header is 'H1: K1'") {
+            assertBufferedRequest(header = header.set("H1", "K1"))(
               isRequest(header(Header("H1", "K1"))),
             )
           },

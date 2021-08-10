@@ -6,7 +6,7 @@ import io.netty.handler.codec.http._
 import zhttp.experiment.Codec._
 import zhttp.experiment.HttpMessage.{AnyRequest, CompleteRequest, HResponse}
 import zhttp.experiment.Params._
-import zhttp.http.{HTTP_CHARSET, Header, Http}
+import zhttp.http.{Header, Http, HTTP_CHARSET}
 import zhttp.service.UnsafeChannelExecutor
 import zio.stm.TQueue
 import zio.stream.ZStream
@@ -53,8 +53,8 @@ sealed trait HEndpoint[-R, +E] { self =>
           }),
         )
         msg match {
-          case msg: HttpRequest     =>
-            adapter.jRequest = msg
+          case jRequest: HttpRequest =>
+            adapter.jRequest = jRequest
 
             app match {
               case HEndpoint.Fail(cause) =>
@@ -78,7 +78,13 @@ sealed trait HEndpoint[-R, +E] { self =>
                 adapter.isComplete = true
                 ctx.read(): Unit
 
-              case HEndpoint.SomeRequest(_, _) => ???
+              case HEndpoint.SomeRequest(_, http) =>
+                unsafeEval {
+                  for {
+                    res <- http.executeAsZIO(AnyRequest.from(jRequest))
+                    _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
+                  } yield ()
+                }
 
               case HEndpoint.Buffered(decoder, encoder, http) =>
                 ctx.channel().config().setAutoRead(false)
@@ -115,7 +121,7 @@ sealed trait HEndpoint[-R, +E] { self =>
 
               case HEndpoint.Condition(_, _) => ???
             }
-          case msg: LastHttpContent =>
+          case msg: LastHttpContent  =>
             if (isBuffered) {
               unsafeEval {
                 bufferedQueue.offer(msg).commit
@@ -133,7 +139,7 @@ sealed trait HEndpoint[-R, +E] { self =>
                 } yield ()
               }
             }
-          case msg: HttpContent     =>
+          case msg: HttpContent      =>
             if (adapter.isBuffered) {
               unsafeEval {
                 bufferedQueue.offer(msg).commit *> UIO(ctx.read())

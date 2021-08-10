@@ -103,6 +103,11 @@ trait HttpMessageAssertion {
     } yield res
 
   /**
+   * Helper to create empty headers
+   */
+  def header = { new DefaultHttpHeaders() }
+
+  /**
    * Creates an HEndpoint internally that requires a BufferedRequest. Allows asserting on any field of the request using
    * the `assertion` parameter.
    */
