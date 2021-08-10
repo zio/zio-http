@@ -6,13 +6,16 @@ import io.netty.handler.codec.http._
 import zhttp.experiment.Codec._
 import zhttp.experiment.HttpMessage.{AnyRequest, CompleteRequest, HResponse}
 import zhttp.experiment.Params._
-import zhttp.http.{HTTP_CHARSET, Header, Http}
+import zhttp.http.{Header, Http, HTTP_CHARSET}
 import zhttp.service.UnsafeChannelExecutor
+import zio.stm.TQueue
+import zio.stream.ZStream
 import zio.{UIO, ZIO}
 
 import scala.annotation.unused
 
 sealed trait HApp[-R, +E] { self =>
+  def cond(f: AnyRequest => Boolean): HApp[R, E]                   = HApp.Condition(f, self)
   def combine[R1 <: R, E1 >: E](other: HApp[R1, E1]): HApp[R1, E1] = HApp.Combine(self, other)
   def +++[R1 <: R, E1 >: E](other: HApp[R1, E1]): HApp[R1, E1]     = self combine other
 
@@ -24,16 +27,25 @@ sealed trait HApp[-R, +E] { self =>
       import HttpResponseStatus._
 
       val app                                                                                 = self.asInstanceOf[HApp[R, Throwable]]
+      var isComplete: Boolean                                                                 = false
+      var isBuffered: Boolean                                                                 = false
       var completeHttpApp: Http[R, Throwable, CompleteRequest[_], HResponse[R, Throwable, _]] = Http.empty
       val completeBody: ByteBuf                                                               = Unpooled.compositeBuffer()
+      var bufferedQueue: TQueue[HttpContent]                                                  = _
       var jRequest: HttpRequest                                                               = _
       @unused var encoder: Encoder[_]                                                         = _
       var decoder: Decoder[_]                                                                 = _
 
       override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
-        def eval(program: ZIO[R, Throwable, Any]): Unit = zExec.unsafeExecute_(ctx)(program)
 
         val void = ctx.channel().voidPromise()
+
+        def unsafeEval(program: ZIO[R, Option[Throwable], Any]): Unit = zExec.unsafeExecute_(ctx)(
+          program.catchAll({
+            case Some(cause) => UIO(ctx.writeAndFlush(serverErrorResponse(cause), void): Unit)
+            case None        => UIO(ctx.writeAndFlush(notFoundResponse, void): Unit)
+          }),
+        )
         msg match {
           case msg: HttpRequest     =>
             adapter.jRequest = msg
@@ -46,44 +58,84 @@ sealed trait HApp[-R, +E] { self =>
                 ctx.writeAndFlush(notFoundResponse, void): Unit
 
               case HApp.Response(_, http) =>
-                eval {
-                  (for {
+                unsafeEval {
+                  for {
                     res <- http.executeAsZIO(())
                     _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
-                  } yield ()).catchAll({
-                    case Some(cause) => UIO(ctx.writeAndFlush(serverErrorResponse(cause), void): Unit)
-                    case None        => UIO(ctx.writeAndFlush(notFoundResponse, void): Unit)
-                  })
+                  } yield ()
                 }
 
               case HApp.Complete(decoder, encoder, http) =>
                 adapter.completeHttpApp = http
                 adapter.encoder = encoder
                 adapter.decoder = decoder
+                adapter.isComplete = true
 
-              case HApp.Unknown(_, _) => ???
+              case HApp.SomeRequest(_, _) => ???
 
-              case HApp.Buffered(_, _, _) => ???
+              case HApp.Buffered(decoder, encoder, http) =>
+                ctx.channel().config().setAutoRead(false)
+                adapter.encoder = encoder
+                adapter.decoder = decoder
+                adapter.isBuffered = true
+
+                unsafeEval {
+                  for {
+                    q   <- TQueue.bounded[HttpContent](1).commit
+                    _   <- UIO {
+                      adapter.bufferedQueue = q
+                      ctx.read()
+                    }
+                    res <- http.executeAsZIO(
+                      AnyRequest
+                        .from(adapter.jRequest)
+                        .toBufferedRequest(
+                          ZStream
+                            .fromTQueue(bufferedQueue)
+                            .takeWhile(!_.isInstanceOf[LastHttpContent])
+                            .map(_.content()),
+                        ),
+                    )
+
+                    _ <- UIO {
+                      ctx.writeAndFlush(decodeResponse(res), void)
+                    }
+
+                  } yield ()
+                }
 
               case HApp.Combine(_, _) => ???
+
+              case HApp.Condition(_, _) => ???
             }
           case msg: LastHttpContent =>
-            adapter.completeBody.writeBytes(msg.content())
-            val request = AnyRequest.from(adapter.jRequest)
-            eval {
-              (for {
-                res <- adapter.completeHttpApp.executeAsZIO(
-                  CompleteRequest(request, adapter.decoder.decode(adapter.completeBody)),
-                )
-                _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
+            if (isBuffered) {
+              unsafeEval {
+                bufferedQueue.offer(msg).commit
+              }
+            } else if (adapter.isComplete) {
+              adapter.completeBody.writeBytes(msg.content())
+              val request = AnyRequest.from(adapter.jRequest)
+              unsafeEval {
+                for {
+                  res <- adapter.completeHttpApp.executeAsZIO(
+                    CompleteRequest(request, adapter.decoder.decode(adapter.completeBody)),
+                  )
+                  _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
 
-              } yield ()).catchAll({
-                case Some(_) => ???
-                case None    => ???
-              })
+                } yield ()
+              }
             }
-          case msg: HttpContent     => completeBody.writeBytes(msg.content()): Unit
-          case _                    => ???
+          case msg: HttpContent     =>
+            if (adapter.isBuffered) {
+              unsafeEval {
+                bufferedQueue.offer(msg).commit *> UIO(ctx.read())
+              }
+            } else if (adapter.isComplete) {
+              completeBody.writeBytes(msg.content()): Unit
+            }
+
+          case _ => ???
         }
       }
       private def decodeResponse(res: HResponse[_, _, _]): HttpResponse = {
@@ -104,7 +156,6 @@ sealed trait HApp[-R, +E] { self =>
       }
 
     }
-
 }
 
 object HApp {
@@ -112,6 +163,8 @@ object HApp {
   case object Empty extends HApp[Any, Nothing]
 
   final case class Combine[R, E](self: HApp[R, E], other: HApp[R, E]) extends HApp[R, E]
+
+  final case class Condition[R, E](cond: AnyRequest => Boolean, app: HApp[R, E]) extends HApp[R, E]
 
   final case class Complete[R, E, A, B](
     decoder: Decoder[A],
@@ -125,7 +178,7 @@ object HApp {
     http: Http[R, E, BufferedRequest[A], HResponse[R, E, B]],
   ) extends HApp[R, E]
 
-  final case class Unknown[R, E, B](encoder: Encoder[B], http: Http[R, E, AnyRequest, HResponse[R, E, B]])
+  final case class SomeRequest[R, E, B](encoder: Encoder[B], http: Http[R, E, AnyRequest, HResponse[R, E, B]])
       extends HApp[R, E]
 
   final case class Response[R, E, B](encoder: Encoder[B], http: Http[R, E, Any, HResponse[R, E, B]]) extends HApp[R, E]
@@ -153,7 +206,7 @@ object HApp {
   def from[R, E](
     http: Http[R, E, AnyRequest, HResponse[R, E, ByteBuf]],
   )(implicit encoder: Encoder[ByteBuf], ev: P4): HApp[R, E] =
-    Unknown(encoder, http)
+    SomeRequest(encoder, http)
 
   def fail[E](cause: E): HApp[Any, E] = HApp.Fail(cause)
 }
