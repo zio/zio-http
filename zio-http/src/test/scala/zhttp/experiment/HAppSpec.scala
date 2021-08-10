@@ -169,15 +169,21 @@ object HAppSpec extends DefaultRunnableSpec with HttpMessageAssertion {
           },
           testM("req.content is 'ABCDE'") {
             for {
-              promise <- Promise.make[Nothing, Chunk[ByteBuf]]
+              promise <- Promise.make[Nothing, Chunk[String]]
               proxy   <- HApp.from {
                 Http.collectM[BufferedRequest[ByteBuf]] { req =>
-                  req.content.runCollect.tap(promise.succeed).as(HResponse())
+                  req.content
+                    .map(_.toString(HTTP_CHARSET))
+                    .runCollect
+                    .tap(promise.succeed)
+                    .as(HResponse())
                 }
               }.proxy
-              _       <- proxy.request("/", HttpMethod.POST)
-              _       <- proxy.data(List("A", "B", "C", "D", "E"))
-              req     <- promise.await.map(_.toList.map(_.toString(HTTP_CHARSET)))
+
+              _   <- proxy.request("/", HttpMethod.POST)
+              _   <- proxy.data(List("A", "B", "C", "D", "E"))
+              req <- promise.await.map(_.toList)
+
             } yield assert(req)(equalTo(List("A", "B", "C", "D", "E")))
           },
           testM("req.url is '/abc'") {
@@ -194,7 +200,7 @@ object HAppSpec extends DefaultRunnableSpec with HttpMessageAssertion {
               isRequest(header(Header("H1", "K1"))),
             )
           },
-        ) @@ nonFlaky,
+        ) @@ nonFlaky(1000),
       ),
-    ).provideCustomLayer(env) @@ timeout(10 second)
+    ).provideCustomLayer(env) @@ timeout(120 second)
 }
