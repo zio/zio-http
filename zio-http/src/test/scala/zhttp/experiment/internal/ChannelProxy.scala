@@ -2,25 +2,38 @@ package zhttp.experiment.internal
 
 import io.netty.buffer.Unpooled
 import io.netty.channel.embedded.EmbeddedChannel
-import io.netty.channel.{EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http._
 import io.netty.util.CharsetUtil
 import zhttp.experiment.HApp
 import zhttp.service.{EventLoopGroup, UnsafeChannelExecutor}
-import zio.{Queue, UIO, ZIO}
+import zio.{UIO, ZIO}
+import zio.internal.Executor
+import zio.stm.TQueue
 
-case class ChannelProxy(queue: Queue[HttpObject], channel: EmbeddedChannel, group: JEventLoopGroup)
-    extends EmbeddedChannel {
+import scala.concurrent.ExecutionContext
+
+case class ChannelProxy(
+  inbound: TQueue[HttpObject],
+  outbound: TQueue[HttpObject],
+  channel: EmbeddedChannel,
+  ec: ExecutionContext,
+) extends EmbeddedChannel {
 
   /**
    * Schedules a `writeInbound` operation on the channel using the provided group. This is done to make sure that all
    * the execution of HApp happens in the same thread.
    */
-  private def scheduleWrite(msg: => HttpObject): UIO[Unit] = UIO {
-    group.execute(() => channel.writeInbound(msg): Unit)
-  }
+  private def scheduleWrite(msg: => HttpObject): UIO[Unit] = (for {
+    canWrite <- UIO(channel.config().isAutoRead)
+    _        <-
+      if (canWrite) UIO { channel.writeInbound(msg) }
+      else
+        for {
+          _ <- inbound.offer(msg).commit
+        } yield ()
+  } yield ()).on(ec)
 
-  def receive: UIO[HttpObject] = queue.take
+  def receive: UIO[HttpObject] = outbound.take.commit
 
   def request(
     url: String = "/",
@@ -39,7 +52,7 @@ case class ChannelProxy(queue: Queue[HttpObject], channel: EmbeddedChannel, grou
   }
 
   def data(iter: Iterable[String]): UIO[Unit] = {
-    ZIO.foreach(iter)(a => data(a)) *> end
+    ZIO.foreach(iter)(a => data(a, isLast = false)) *> end
   }
 
   def end: UIO[Unit] = scheduleWrite(new DefaultLastHttpContent(Unpooled.EMPTY_BUFFER))
@@ -50,50 +63,41 @@ object ChannelProxy {
     for {
 
       group <- ZIO.access[EventLoopGroup](_.get)
-      zExec <- UnsafeChannelExecutor.dedicated[R](group)
       rtm   <- ZIO.runtime[Any]
-      queue <- Queue.unbounded[HttpObject]
+      ec   = ExecutionContext.fromExecutor(group)
+      exe  = Executor.fromExecutionContext(2048)(ec)
+      gRtm = rtm.withExecutor(exe)
+      zExec    <- UnsafeChannelExecutor.dedicated[R](group)
+      outbound <- TQueue.unbounded[HttpObject].commit
+      inbound  <- TQueue.unbounded[HttpObject].commit
+      proxy    <- UIO {
+        val embeddedChannel = new EmbeddedChannel(app.compile(zExec)) { self =>
+          /**
+           * Handles all the outgoing messages ie all the `ctx.write()` and `ctx.writeAndFlush()` that happens inside of
+           * the HApp.
+           */
+          override def handleOutboundMessage(msg: AnyRef): Unit = {
+            gRtm.unsafeRunAsync_(outbound.offer(msg.asInstanceOf[HttpObject]).commit)
+          }
 
-    } yield {
-      val embeddedChannel = new EmbeddedChannel(app.compile(zExec)) { self =>
-        /**
-         * Handles all the outgoing messages ie all the `ctx.write()` and `ctx.writeAndFlush()` that happens inside of
-         * the HApp.
-         */
-        override def handleOutboundMessage(msg: AnyRef): Unit = {
-          rtm.unsafeRunAsync_(queue.offer(msg.asInstanceOf[HttpObject]))
-          super.handleOutboundMessage(msg)
-        }
-
-        /**
-         * Called whenever `ctx.read()` is called from withing the HApp
-         */
-        override def doBeginRead(): Unit = {
-          val msg = self.readInbound[HttpObject]()
-          if (msg != null) {
-            super.writeInbound(msg): Unit
+          /**
+           * Called whenever `ctx.read()` is called from withing the HApp
+           */
+          override def doBeginRead(): Unit = {
+            gRtm
+              .unsafeRunAsync_(
+                inbound.take.commit
+                  .tap(msg =>
+                    UIO {
+                      self.writeInbound(msg)
+                    },
+                  )
+                  .on(ec),
+              ): Unit
           }
         }
 
-        /**
-         * This is used to simulate the requests and the content coming from the client.
-         */
-        override def writeInbound(msgs: AnyRef*): Boolean = {
-          if (self.config().isAutoRead) {
-
-            // If auto-read is set to `true` continue with the default behaviour.
-            super.writeInbound(msgs: _*)
-          } else {
-
-            // If auto-read is set to `false` insert the messages into the internal queue.
-            for (msg <- msgs) {
-              handleInboundMessage(msg)
-            }
-            true
-          }
-        }
+        ChannelProxy(inbound, outbound, embeddedChannel, ec)
       }
-
-      ChannelProxy(queue, embeddedChannel, group)
-    }
+    } yield proxy
 }
