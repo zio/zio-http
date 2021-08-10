@@ -26,6 +26,12 @@ object Meta {
     case None        => ""
   }
 
+  private def metaOptionSite[S](m: Option[S], v: String): String =
+    m match {
+      case Some(value) => s"; $v=$value"
+      case None        => s"; $v=Lax"
+    }
+
   private def metaBool(m: Boolean, v: String) = if (m) s"; $v=true" else ""
 
   private def format(maybeDate: Option[Date]): Option[String] = maybeDate match {
@@ -35,11 +41,13 @@ object Meta {
 
   def getMeta[M <: Meta](meta: Option[M]) = meta match {
     case Some(value) =>
-      s"""${metaOption(format(value.expires), "Expires")}${metaOption(value.path, "Path")}
-        ${metaOption(value.domain, "Domain")}${metaOption(value.maxAge, "Max-Age")}
-        ${metaOption(site(value.sameSite), "SameSite")}
-        ${metaBool(value.secure, "Secure")}
-        ${metaBool(value.httpOnly, "HttpOnly")}"""
+      s"""${metaOption(format(value.expires), "Expires")}${metaOption(value.domain, "Domain")}${metaOption(
+        value.path,
+        "Path",
+      )}${metaBool(value.secure, "Secure")}${metaBool(value.httpOnly, "HttpOnly")}${metaOption(
+        value.maxAge,
+        "Max-Age",
+      )}${metaOptionSite(site(value.sameSite), "SameSite")}"""
     case None        => ""
   }
 }

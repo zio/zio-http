@@ -5,7 +5,7 @@ import zhttp.http.Header._
 import zhttp.http.HeadersHelpers.BearerSchemeName
 import zhttp.http.Response.http
 import zio.test.Assertion._
-import zio.test.{DefaultRunnableSpec, assert}
+import zio.test._
 
 object HeaderSpec extends DefaultRunnableSpec {
 
@@ -239,12 +239,6 @@ object HeaderSpec extends DefaultRunnableSpec {
       },
     ),
     suite("Cookie")(
-      test("should return set-cookie") {
-        val cookie       = Cookie("abc", "value")
-        val headerHolder = HeadersHolder(List(Header.setCookie(cookie)))
-        val found        = headerHolder.getSetCookie
-        assert(found)(isSome(equalTo(cookie.fromCookie)))
-      },
       test("should return cookie") {
         val cookie       = Cookie("abc", "value")
         val headerHolder = HeadersHolder(List(Header.cookie(cookie)))
@@ -269,6 +263,47 @@ object HeaderSpec extends DefaultRunnableSpec {
         val headerHolder                                  = HeadersHolder(List(Header.cookies(response)))
         val found                                         = headerHolder.getCookie
         assert(found)(isSome(equalTo("k1=v1; k2=v2")))
+      },
+      testM("should return set-cookies with meta") {
+        val nameGen     = Gen.alphaNumericStringBounded(1, 5)
+        val contentGen  = Gen.anyASCIIString
+        val pathGen     = Gen.elements(Path.apply("/"))
+        val httpOnlyGen = Gen.boolean
+        val maxAgeGen   = Gen.anyLong
+
+        check(nameGen, contentGen, pathGen, httpOnlyGen, maxAgeGen) { (name, content, path, httpOnly, maxAge) =>
+          val cookie = Cookie(name, content, Some(Meta(None, None, Some(path), httpOnly, httpOnly, Some(maxAge), None)))
+
+          val headerHolder = HeadersHolder(
+            List(
+              Header.setCookie(
+                cookie,
+              ),
+            ),
+          )
+          val found        = headerHolder.getSetCookie
+          assert(found)(isSome(equalTo(cookie.fromCookie)))
+
+        }
+      },
+      testM("should return set-cookies without meta") {
+        val nameGen    = Gen.alphaNumericStringBounded(1, 5)
+        val contentGen = Gen.anyASCIIString
+
+        check(nameGen, contentGen) { (name, content) =>
+          val cookie = Cookie(name, content, None)
+
+          val headerHolder = HeadersHolder(
+            List(
+              Header.setCookie(
+                cookie,
+              ),
+            ),
+          )
+          val found        = headerHolder.getSetCookie
+          assert(found)(isSome(equalTo(cookie.fromCookie)))
+
+        }
       },
     ),
   )

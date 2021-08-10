@@ -47,10 +47,12 @@ object Header {
   def location(value: String): Header      = Header(HttpHeaderNames.LOCATION, value)
   def authorization(value: String): Header = Header(HttpHeaderNames.AUTHORIZATION, value)
 
-  def cookieParser[M <: Meta](cookie: List[Cookie[M]]): String =
-    cookie.map(a => s"${a.name}=${a.content}").reduce((a, b) => a + "; " + b)
+  def cookieParser[M <: Meta](cookie: List[(String, String)]): String =
+    cookie.map(p => p._1 + "=" + p._2).mkString("; ")
 
-  def cookies[M <: Meta](cookie: List[Cookie[M]]): Header = Header(HttpHeaderNames.COOKIE, cookieParser(cookie))
+  def cookies[M <: Meta](cookie: List[Cookie[M]]): Header = {
+    Header(HttpHeaderNames.COOKIE, cookieParser(cookie.map(c => (c.name, c.content))))
+  }
 
   def cookies(response: UHttpResponse): Header = cookies(
     response.cookies,
