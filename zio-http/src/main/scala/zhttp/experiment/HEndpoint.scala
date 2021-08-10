@@ -36,6 +36,12 @@ sealed trait HEndpoint[-R, +E] { self =>
       @unused var encoder: Encoder[_]                                                         = _
       var decoder: Decoder[_]                                                                 = _
 
+      override def channelRegistered(ctx: ChannelHandlerContext): Unit = {
+        super.channelRegistered(ctx)
+        ctx.channel().config().setAutoRead(false)
+        ctx.read(): Unit
+      }
+
       override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
 
         val void = ctx.channel().voidPromise()
@@ -70,6 +76,7 @@ sealed trait HEndpoint[-R, +E] { self =>
                 adapter.encoder = encoder
                 adapter.decoder = decoder
                 adapter.isComplete = true
+                ctx.read(): Unit
 
               case HEndpoint.SomeRequest(_, _) => ???
 
@@ -132,7 +139,8 @@ sealed trait HEndpoint[-R, +E] { self =>
                 bufferedQueue.offer(msg).commit *> UIO(ctx.read())
               }
             } else if (adapter.isComplete) {
-              completeBody.writeBytes(msg.content()): Unit
+              completeBody.writeBytes(msg.content())
+              ctx.read(): Unit
             }
 
           case _ => ???
