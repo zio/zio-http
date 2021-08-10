@@ -5,7 +5,7 @@ import io.netty.handler.codec.http.HttpObject
 import zhttp.service.UnsafeChannelExecutor
 import zio.{UIO, ZIO}
 
-trait Channel[-R, +E, -A, +B] {
+trait HChannel[-R, +E, -A, +B] {
   def message(message: A, context: Context[B]): ZIO[R, E, Unit]
   def error(cause: Throwable, context: Context[B]): ZIO[R, E, Unit]
 
@@ -13,7 +13,7 @@ trait Channel[-R, +E, -A, +B] {
     zExec: UnsafeChannelExecutor[R1],
   )(implicit evE: E <:< Throwable): ChannelHandler =
     new ChannelInboundHandlerAdapter {
-      private val self = this.asInstanceOf[Channel[R1, Throwable, HttpObject, HttpObject]]
+      private val self = this.asInstanceOf[HChannel[R1, Throwable, HttpObject, HttpObject]]
       override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
         zExec.unsafeExecute_(ctx)(msg match {
           case msg: HttpObject => self.message(msg, Context(ctx))
@@ -26,11 +26,11 @@ trait Channel[-R, +E, -A, +B] {
     }
 }
 
-object Channel {
+object HChannel {
   def apply[R, E, A, B](
     onRead: (A, Context[B]) => ZIO[R, E, Any] = (a: A, b: Context[B]) => b.fireChannelRead(a),
     onError: (Throwable, Context[B]) => ZIO[R, E, Any] = (a: Throwable, b: Context[B]) => b.fireExceptionCaught(a),
-  ): Channel[R, E, A, B] = new Channel[R, E, A, B] {
+  ): HChannel[R, E, A, B] = new HChannel[R, E, A, B] {
     override def message(message: A, context: Context[B]): ZIO[R, E, Unit]     = onRead(message, context).unit
     override def error(cause: Throwable, context: Context[B]): ZIO[R, E, Unit] = onError(cause, context).unit
   }

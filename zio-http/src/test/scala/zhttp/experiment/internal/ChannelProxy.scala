@@ -4,11 +4,11 @@ import io.netty.buffer.Unpooled
 import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.handler.codec.http._
 import io.netty.util.CharsetUtil
-import zhttp.experiment.HApp
+import zhttp.experiment.HEndpoint
 import zhttp.service.{EventLoopGroup, UnsafeChannelExecutor}
-import zio.{UIO, ZIO}
 import zio.internal.Executor
 import zio.stm.TQueue
+import zio.{UIO, ZIO}
 
 import scala.concurrent.ExecutionContext
 
@@ -21,7 +21,7 @@ case class ChannelProxy(
 
   /**
    * Schedules a `writeInbound` operation on the channel using the provided group. This is done to make sure that all
-   * the execution of HApp happens in the same thread.
+   * the execution of HEndpoint happens in the same thread.
    */
   private def scheduleWrite(msg: => HttpObject): UIO[Unit] = (for {
     canWrite <- UIO(channel.config().isAutoRead)
@@ -59,7 +59,7 @@ case class ChannelProxy(
 }
 
 object ChannelProxy {
-  def make[R](app: HApp[R, Throwable]): ZIO[R with EventLoopGroup, Nothing, ChannelProxy] =
+  def make[R](app: HEndpoint[R, Throwable]): ZIO[R with EventLoopGroup, Nothing, ChannelProxy] =
     for {
 
       group <- ZIO.access[EventLoopGroup](_.get)
@@ -74,14 +74,14 @@ object ChannelProxy {
         val embeddedChannel = new EmbeddedChannel(app.compile(zExec)) { self =>
           /**
            * Handles all the outgoing messages ie all the `ctx.write()` and `ctx.writeAndFlush()` that happens inside of
-           * the HApp.
+           * the HEndpoint.
            */
           override def handleOutboundMessage(msg: AnyRef): Unit = {
             gRtm.unsafeRunAsync_(outbound.offer(msg.asInstanceOf[HttpObject]).commit)
           }
 
           /**
-           * Called whenever `ctx.read()` is called from withing the HApp
+           * Called whenever `ctx.read()` is called from withing the HEndpoint
            */
           override def doBeginRead(): Unit = {
             gRtm

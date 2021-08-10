@@ -28,7 +28,7 @@ final case class ServerChannelInitializer[R](zExec: UnsafeChannelExecutor[R], se
       .pipeline()
       .addLast(new HttpServerCodec())          // TODO: See if server codec is really required
       .addLast(new HttpServerKeepAliveHandler) // TODO: Make keep-alive configurable
-      .addLast(settings.hApp.compile(zExec))
+      .addLast(settings.endpoint.compile(zExec))
     ()
   }
 

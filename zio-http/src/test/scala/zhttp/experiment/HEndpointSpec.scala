@@ -15,54 +15,56 @@ import zio.test._
 /**
  * Be prepared for some real nasty runtime tests.
  */
-object HAppSpec extends DefaultRunnableSpec with HttpMessageAssertion {
+object HEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
   private val env = EventLoopGroup.auto(1)
 
   def spec =
-    suite("HApp")(
+    suite("HEndpoint")(
       suite("empty")(
         suite("GET")(
           testM("status is 404") {
-            assertResponse(HApp.empty)(isResponse(status(404)))
+            assertResponse(HEndpoint.empty)(isResponse(status(404)))
           },
           testM("headers are empty") {
-            assertResponse(HApp.empty)(isResponse(noHeader))
+            assertResponse(HEndpoint.empty)(isResponse(noHeader))
           },
           testM("version is 1.1") {
-            assertResponse(HApp.empty)(isResponse(version("HTTP/1.1")))
+            assertResponse(HEndpoint.empty)(isResponse(version("HTTP/1.1")))
           },
           testM("version is 1.1") {
-            assertResponse(HApp.empty)(isResponse(version("HTTP/1.1")))
+            assertResponse(HEndpoint.empty)(isResponse(version("HTTP/1.1")))
           },
         ),
         suite("POST")(
           testM("status is 404") {
-            assertResponse(HApp.empty, method = HttpMethod.POST, content = List("A", "B", "C"))(isResponse(status(404)))
+            assertResponse(HEndpoint.empty, method = HttpMethod.POST, content = List("A", "B", "C"))(
+              isResponse(status(404)),
+            )
           },
         ),
       ),
       suite("succeed(empty)")(
         testM("status is 404") {
-          assertResponse(HApp.empty)(isResponse(status(404)))
+          assertResponse(HEndpoint.empty)(isResponse(status(404)))
         },
         testM("headers are empty") {
-          assertResponse(HApp.empty)(isResponse(noHeader))
+          assertResponse(HEndpoint.empty)(isResponse(noHeader))
         },
         testM("version is 1.1") {
-          assertResponse(HApp.empty)(isResponse(version("HTTP/1.1")))
+          assertResponse(HEndpoint.empty)(isResponse(version("HTTP/1.1")))
         },
         testM("version is 1.1") {
-          assertResponse(HApp.empty)(isResponse(version("HTTP/1.1")))
+          assertResponse(HEndpoint.empty)(isResponse(version("HTTP/1.1")))
         },
       ),
       suite("succeed(ok)")(
         testM("status is 200") {
-          assertResponse(HApp.from(Http.succeed(HResponse())))(isResponse(status(200)))
+          assertResponse(HEndpoint.from(Http.succeed(HResponse())))(isResponse(status(200)))
         },
         suite("POST")(
           testM("status is 200") {
             assertResponse(
-              HApp.from(Http.succeed(HResponse())),
+              HEndpoint.from(Http.succeed(HResponse())),
               method = HttpMethod.POST,
               content = List("A", "B", "C"),
             )(
@@ -71,58 +73,60 @@ object HAppSpec extends DefaultRunnableSpec with HttpMessageAssertion {
           },
         ),
         testM("headers are empty") {
-          assertResponse(HApp.from(Http.succeed(HResponse())))(isResponse(noHeader))
+          assertResponse(HEndpoint.from(Http.succeed(HResponse())))(isResponse(noHeader))
         },
         testM("headers are set") {
-          assertResponse(HApp.from(Http.succeed(HResponse(headers = List(Header("key", "value"))))))(
+          assertResponse(HEndpoint.from(Http.succeed(HResponse(headers = List(Header("key", "value"))))))(
             isResponse(header("key", "value")),
           )
         },
         testM("version is 1.1") {
-          assertResponse(HApp.from(Http.succeed(HResponse())))(isResponse(version("HTTP/1.1")))
+          assertResponse(HEndpoint.from(Http.succeed(HResponse())))(isResponse(version("HTTP/1.1")))
         },
         testM("version is 1.1") {
-          assertResponse(HApp.from(Http.succeed(HResponse())))(isResponse(version("HTTP/1.1")))
+          assertResponse(HEndpoint.from(Http.succeed(HResponse())))(isResponse(version("HTTP/1.1")))
         },
       ),
       suite("succeed(fail)")(
         testM("status is 500") {
-          assertResponse(HApp.from(Http.fail(new Error("SERVER_ERROR"))))(isResponse(status(500)))
+          assertResponse(HEndpoint.from(Http.fail(new Error("SERVER_ERROR"))))(isResponse(status(500)))
         },
         testM("content is SERVER_ERROR") {
-          assertResponse(HApp.from(Http.fail(new Error("SERVER_ERROR"))))(
+          assertResponse(HEndpoint.from(Http.fail(new Error("SERVER_ERROR"))))(
             isResponse(isContent(bodyText("SERVER_ERROR"))),
           )
         },
         testM("headers are set") {
-          assertResponse(HApp.from(Http.fail(new Error("SERVER_ERROR"))))(isResponse(header("content-length")))
+          assertResponse(HEndpoint.from(Http.fail(new Error("SERVER_ERROR"))))(isResponse(header("content-length")))
         },
       ),
       suite("fail(cause)")(
         testM("status is 500") {
-          assertResponse(HApp.fail(new Error("SERVER_ERROR")))(isResponse(status(500)))
+          assertResponse(HEndpoint.fail(new Error("SERVER_ERROR")))(isResponse(status(500)))
         },
         testM("content is SERVER_ERROR") {
-          assertResponse(HApp.fail(new Error("SERVER_ERROR")))(isResponse(isContent(bodyText("SERVER_ERROR"))))
+          assertResponse(HEndpoint.fail(new Error("SERVER_ERROR")))(isResponse(isContent(bodyText("SERVER_ERROR"))))
         },
         testM("headers are set") {
-          assertResponse(HApp.fail(new Error("SERVER_ERROR")))(isResponse(header("content-length")))
+          assertResponse(HEndpoint.fail(new Error("SERVER_ERROR")))(isResponse(header("content-length")))
         },
       ),
       suite("request")(
         suite("succeed(CompleteRequest)")(
           testM("status is 200") {
-            assertResponse(HApp.from(Http.collect[CompleteRequest[ByteBuf]](_ => HResponse())))(isResponse(status(200)))
+            assertResponse(HEndpoint.from(Http.collect[CompleteRequest[ByteBuf]](_ => HResponse())))(
+              isResponse(status(200)),
+            )
           },
           testM("status is 500") {
             assertResponse(
-              HApp.from(Http.collectM[CompleteRequest[ByteBuf]](_ => ZIO.fail(new Error("SERVER ERROR")))),
+              HEndpoint.from(Http.collectM[CompleteRequest[ByteBuf]](_ => ZIO.fail(new Error("SERVER ERROR")))),
             )(
               isResponse(status(500)),
             )
           },
           testM("status is 404") {
-            assertResponse(HApp.from(Http.empty.contramap[CompleteRequest[ByteBuf]](i => i)))(
+            assertResponse(HEndpoint.from(Http.empty.contramap[CompleteRequest[ByteBuf]](i => i)))(
               isResponse(status(404)),
             )
           },
@@ -148,29 +152,31 @@ object HAppSpec extends DefaultRunnableSpec with HttpMessageAssertion {
         ),
         suite("succeed(Buffered)")(
           testM("status is 200") {
-            assertResponse(HApp.from(Http.collect[BufferedRequest[ByteBuf]](_ => HResponse())))(isResponse(status(200)))
+            assertResponse(HEndpoint.from(Http.collect[BufferedRequest[ByteBuf]](_ => HResponse())))(
+              isResponse(status(200)),
+            )
           },
           testM("status is 500") {
             assertResponse(
-              HApp.from(Http.collectM[BufferedRequest[ByteBuf]](_ => ZIO.fail(new Error("SERVER ERROR")))),
+              HEndpoint.from(Http.collectM[BufferedRequest[ByteBuf]](_ => ZIO.fail(new Error("SERVER ERROR")))),
             )(
               isResponse(status(500)),
             )
           },
           testM("status is 404") {
-            assertResponse(HApp.from(Http.empty.contramap[BufferedRequest[ByteBuf]](i => i)))(
+            assertResponse(HEndpoint.from(Http.empty.contramap[BufferedRequest[ByteBuf]](i => i)))(
               isResponse(status(404)),
             )
           },
           testM("status is 200") {
-            assertResponse(HApp.from(Http.collectM[BufferedRequest[ByteBuf]](_ => UIO(HResponse()))))(
+            assertResponse(HEndpoint.from(Http.collectM[BufferedRequest[ByteBuf]](_ => UIO(HResponse()))))(
               isResponse(status(200)),
             )
           },
           testM("req.content is 'ABCDE'") {
             for {
               promise <- Promise.make[Nothing, Chunk[String]]
-              proxy   <- HApp.from {
+              proxy   <- HEndpoint.from {
                 Http.collectM[BufferedRequest[ByteBuf]] { req =>
                   req.content
                     .map(_.toString(HTTP_CHARSET))
