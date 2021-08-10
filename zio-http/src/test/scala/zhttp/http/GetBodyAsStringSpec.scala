@@ -1,5 +1,6 @@
 package zhttp.http
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zio.Chunk
 import zio.test.Assertion._
 import zio.test._
@@ -17,9 +18,10 @@ object GetBodyAsStringSpec extends DefaultRunnableSpec {
       check(charsetGen) { charset =>
         val encoded = Request(
           endpoint = Method.GET -> URL(Path("/")),
-          content = HttpData.CompleteData(Chunk.fromArray("abc".getBytes(charset))),
-        ).getBodyAsString(charset)
-        val actual  = Option(new String(Chunk.fromArray("abc".getBytes(charset)).toArray, charset))
+          headers = List(Header.custom(HttpHeaderNames.CONTENT_TYPE.toString, s"text/html; charset=$charset")),
+          content = HttpData.CompleteData(Chunk.fromArray("abc".getBytes())),
+        ).getBodyAsString
+        val actual  = Option(new String(Chunk.fromArray("abc".getBytes()).toArray, charset))
 
         assert(actual)(equalTo(encoded))
       }
@@ -28,7 +30,7 @@ object GetBodyAsStringSpec extends DefaultRunnableSpec {
       val data                            = Chunk.fromArray("abc".getBytes())
       val content: HttpData[Any, Nothing] = HttpData.CompleteData(data)
       val request                         = Request(endpoint = Method.GET -> URL(Path("/")), content = content)
-      val encoded                         = request.getBodyAsString()
+      val encoded                         = request.getBodyAsString
       val actual                          = Option(new String(data.toArray, HTTP_CHARSET))
       assert(actual)(equalTo(encoded))
     },
