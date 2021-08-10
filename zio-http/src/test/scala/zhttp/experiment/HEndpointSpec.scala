@@ -174,24 +174,8 @@ object HEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
             )
           },
           testM("req.content is 'ABCDE'") {
-            for {
-              promise <- Promise.make[Nothing, Chunk[String]]
-              proxy   <- HEndpoint.from {
-                Http.collectM[BufferedRequest[ByteBuf]] { req =>
-                  req.content
-                    .map(_.toString(HTTP_CHARSET))
-                    .runCollect
-                    .tap(promise.succeed)
-                    .as(HResponse())
-                }
-              }.proxy
-
-              _   <- proxy.request("/", HttpMethod.POST)
-              _   <- proxy.data(List("A", "B", "C", "D", "E"))
-              req <- promise.await.map(_.toList)
-
-            } yield assert(req)(equalTo(List("A", "B", "C", "D", "E")))
-          },
+            assertBufferedRequestContent(content = "ABCDE".split(""))(equalTo(List("A", "B", "C", "D", "E")))
+          } @@ nonFlaky,
           testM("req.url is '/abc'") {
             assertBufferedRequest("/abc", HttpMethod.GET)(isRequest(url("/abc")))
           },
@@ -206,7 +190,7 @@ object HEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
               isRequest(header(Header("H1", "K1"))),
             )
           },
-        ) @@ nonFlaky(1000),
+        ),
       ),
-    ).provideCustomLayer(env) @@ timeout(120 second)
+    ).provideCustomLayer(env) @@ timeout(10 second)
 }
