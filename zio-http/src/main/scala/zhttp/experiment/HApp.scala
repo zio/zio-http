@@ -32,7 +32,9 @@ sealed trait HApp[-R, +E] { self =>
       var completeHttpApp: Http[R, Throwable, CompleteRequest[_], HResponse[R, Throwable, _]] = Http.empty
       val completeBody: ByteBuf                                                               = Unpooled.compositeBuffer()
       var jRequest: HttpRequest                                                               = _
-      var requestType: RequestType                                                            = RequestType.AnyRequest
+      var isComplete                                                                          = false
+      var isBuffered                                                                          = false
+      var isUnknown                                                                           = true
       @unused var encoder: Encoder[_]                                                         = _
       var decoder: Decoder[_]                                                                 = _
 
@@ -63,13 +65,17 @@ sealed trait HApp[-R, +E] { self =>
                 }
 
               case HApp.Complete(decoder, encoder, http) =>
-                adapter.requestType = RequestType.CompleteRequest
+                adapter.isComplete = true
+                adapter.isBuffered = false
+                adapter.isUnknown = false
                 adapter.completeHttpApp = http
                 adapter.encoder = encoder
                 adapter.decoder = decoder
 
               case HApp.Unknown(encoder, http) =>
-                adapter.requestType = RequestType.AnyRequest
+                adapter.isComplete = false
+                adapter.isBuffered = false
+                adapter.isUnknown = true
                 eval {
                   (for {
                     res <- http.executeAsZIO(AnyRequest.from(adapter.jRequest))
@@ -93,32 +99,30 @@ sealed trait HApp[-R, +E] { self =>
               case HApp.Combine(_, _) => ???
             }
           case msg: LastHttpContent =>
-            adapter.requestType match {
-              case RequestType.AnyRequest      => ()
-              case RequestType.CompleteRequest =>
-                adapter.completeBody.writeBytes(msg.content())
-                val request = AnyRequest.from(adapter.jRequest)
-                eval {
-                  (for {
-                    res <- adapter.completeHttpApp.executeAsZIO(
-                      CompleteRequest(request, adapter.decoder.decode(adapter.completeBody)),
-                    )
-                    _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
+            if (adapter.isUnknown) ()
+            else if (adapter.isComplete) {
+              adapter.completeBody.writeBytes(msg.content())
+              val request = AnyRequest.from(adapter.jRequest)
+              eval {
+                (for {
+                  res <- adapter.completeHttpApp.executeAsZIO(
+                    CompleteRequest(request, adapter.decoder.decode(adapter.completeBody)),
+                  )
+                  _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
 
-                  } yield ()).catchAll({
-                    case Some(_) => ???
-                    case None    => ???
-                  })
-                }
-              case RequestType.BufferedRequest => ???
-            }
+                } yield ()).catchAll({
+                  case Some(cause) => UIO(ctx.writeAndFlush(serverErrorResponse(cause), void): Unit)
+                  case None        => UIO(ctx.writeAndFlush(notFoundResponse, void): Unit)
+                })
+              }
+            } else if (adapter.isBuffered) ???
           case msg: HttpContent     =>
-            adapter.requestType match {
-              case RequestType.AnyRequest      => ()
-              case RequestType.CompleteRequest => completeBody.writeBytes(msg.content()): Unit
-              case RequestType.BufferedRequest => ???
-            }
-          case _                    => ???
+            if (adapter.isUnknown)
+              ()
+            else if (adapter.isComplete) completeBody.writeBytes(msg.content()): Unit
+            else if (adapter.isBuffered) ???
+
+          case _ => ???
         }
       }
       private def decodeResponse(res: HResponse[_, _, _]): HttpResponse = {
