@@ -63,6 +63,9 @@ object Header {
   def setCookie[M <: Meta](cookie: Cookie[M]): Header =
     Header(HttpHeaderNames.SET_COOKIE, cookie.fromCookie)
 
+  def setCookieString(cookie: String): Header =
+    Header(HttpHeaderNames.SET_COOKIE, cookie)
+
   def removeCookie[M <: Meta](cookie: String): Header =
     Header(HttpHeaderNames.SET_COOKIE, Cookie(cookie, "", None).fromCookie)
 

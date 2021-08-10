@@ -1,6 +1,5 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Header._
 import zhttp.http.HeadersHelpers.BearerSchemeName
 import zhttp.http.Response.http
@@ -259,7 +258,7 @@ object HeaderSpec extends DefaultRunnableSpec {
       },
       test("should set cookies from response") {
         val response: Response.HttpResponse[Any, Nothing] =
-          http(headers = List(Header(HttpHeaderNames.SET_COOKIE, "k1=v1"), Header(HttpHeaderNames.SET_COOKIE, "k2=v2")))
+          http(headers = List(Header.setCookieString("k1=v1"), Header.setCookieString("k2=v2")))
         val headerHolder                                  = HeadersHolder(List(Header.cookies(response)))
         val found                                         = headerHolder.getCookie
         assert(found)(isSome(equalTo("k1=v1; k2=v2")))
