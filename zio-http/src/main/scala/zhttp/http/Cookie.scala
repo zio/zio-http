@@ -10,18 +10,20 @@ final case class Cookie[M <: Meta](name: String, content: String, meta: Option[M
 }
 
 object Cookie {
-  def toCookie(header: Header): Cookie[Nothing] = {
-    val list    = header.value.toString.split(";").toList.head.split("=")
-    val name    = list(0)
-    val content = list(1)
-    Cookie(name, content)
-  }
 
-  def toCookieList(header: Header): List[Cookie[Nothing]] = {
-    val list: List[String] = header.value.toString.split(";").toList
-    list.map(a => {
-      val list = a.split("=").toList
-      Cookie(list.head, list.tail.head)
-    })
+  /**
+   * Parse the cookie
+   */
+  def toCookie(headerValue: String): Cookie[Meta] = {
+    def splitNameContent(kv: String): (String, Option[String]) =
+      (kv.split("=", 2).map(_.trim): @unchecked) match {
+        case Array(v1)     => (v1, None)
+        case Array(v1, v2) => (v1, Some(v2))
+      }
+
+    val cookie          = headerValue.split(";").map(_.trim)
+    val (first, _)      = (cookie.head, cookie.tail)
+    val (name, content) = splitNameContent(first)
+    Cookie(name, content.getOrElse(""))
   }
 }

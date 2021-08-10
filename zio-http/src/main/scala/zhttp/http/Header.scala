@@ -47,11 +47,16 @@ object Header {
   def userAgent(name: String): Header      = Header(JHttpHeaderNames.USER_AGENT, name)
   def authorization(value: String): Header = Header(JHttpHeaderNames.AUTHORIZATION, value)
 
-  def cookieParser(cookie: List[Cookie[Nothing]]): String =
-    cookie.map(a => s"${a.name}=${a.content}").reduce((a, b) => a + ";" + b)
+  def cookieParser[M <: Meta](cookie: List[Cookie[M]]): String =
+    cookie.map(a => s"${a.name}=${a.content}").reduce((a, b) => a + "; " + b)
 
-  def cookies(cookie: List[Cookie[Nothing]]): Header = Header(JHttpHeaderNames.COOKIE, cookieParser(cookie))
-  def cookie(cookie: Cookie[Nothing]): Header        = Header(JHttpHeaderNames.COOKIE, cookie.name + "=" + cookie.content)
+  def cookies[M <: Meta](cookie: List[Cookie[M]]): Header = Header(JHttpHeaderNames.COOKIE, cookieParser(cookie))
+
+  def cookies(response: UHttpResponse): Header = cookies(
+    response.cookies,
+  )
+
+  def cookie(cookie: Cookie[Nothing]): Header = Header(JHttpHeaderNames.COOKIE, cookie.name + "=" + cookie.content)
 
   def setCookie[M <: Meta](cookie: Cookie[M]): Header =
     Header(JHttpHeaderNames.SET_COOKIE, cookie.fromCookie)
@@ -76,4 +81,5 @@ object Header {
 
   def parse(headers: JHttpHeaders): List[Header] =
     headers.entries().asScala.toList.map(entry => Header(entry.getKey, entry.getValue))
+
 }

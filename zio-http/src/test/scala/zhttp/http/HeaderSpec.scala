@@ -1,7 +1,9 @@
 package zhttp.http
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Header._
 import zhttp.http.HeadersHelpers.BearerSchemeName
+import zhttp.http.Response.http
 import zio.test.Assertion._
 import zio.test.{DefaultRunnableSpec, assert}
 
@@ -254,12 +256,19 @@ object HeaderSpec extends DefaultRunnableSpec {
         val cookie2      = Cookie("xyz", "value2")
         val headerHolder = HeadersHolder(List(Header.cookies(List(cookie1, cookie2))))
         val found        = headerHolder.getCookie
-        assert(found)(isSome(equalTo(s"""${cookie1.fromCookie};${cookie2.fromCookie}""")))
+        assert(found)(isSome(equalTo(s"""${cookie1.fromCookie}; ${cookie2.fromCookie}""")))
       },
       test("should remove set-cookie") {
         val headerHolder = HeadersHolder(List(Header.removeCookie("abc")))
         val found        = headerHolder.getSetCookie
         assert(found)(isSome(equalTo("abc=")))
+      },
+      test("should set cookies from response") {
+        val response: Response.HttpResponse[Any, Nothing] =
+          http(headers = List(Header(HttpHeaderNames.SET_COOKIE, "k1=v1"), Header(HttpHeaderNames.SET_COOKIE, "k2=v2")))
+        val headerHolder                                  = HeadersHolder(List(Header.cookies(response)))
+        val found                                         = headerHolder.getCookie
+        assert(found)(isSome(equalTo("k1=v1; k2=v2")))
       },
     ),
   )
