@@ -8,6 +8,8 @@ sealed trait HttpResult[-R, +E, +A] { self =>
 
   def map[B](ab: A => B): HttpResult[R, E, B] = self.flatMap(a => HttpResult.succeed(ab(a)))
 
+  def as[B](b: B): HttpResult[R, E, B] = self.map(_ => b)
+
   def >>=[R1 <: R, E1 >: E, B](ab: A => HttpResult[R1, E1, B]): HttpResult[R1, E1, B] =
     self.flatMap(ab)
 
@@ -15,6 +17,9 @@ sealed trait HttpResult[-R, +E, +A] { self =>
     self.flatMap(_ => other)
 
   def <>[R1 <: R, E1, A1 >: A](other: HttpResult[R1, E1, A1]): HttpResult[R1, E1, A1] =
+    self orElse other
+
+  def orElse[R1 <: R, E1, A1 >: A](other: HttpResult[R1, E1, A1]): HttpResult[R1, E1, A1] =
     self.flatMapError(_ => other)
 
   def flatMap[R1 <: R, E1 >: E, B](ab: A => HttpResult[R1, E1, B]): HttpResult[R1, E1, B] =
@@ -40,6 +45,12 @@ sealed trait HttpResult[-R, +E, +A] { self =>
   ): HttpResult[R1, E1, B1] =
     HttpResult.foldM(self, ee, aa, dd)
 
+  def fold[E1, B1](ee: E => E1, aa: A => B1): HttpResult[R, E1, B1] =
+    self.foldM(e => HttpResult.fail(ee(e)), a => HttpResult.succeed(aa(a)), HttpResult.empty)
+
+  def mapError[E1](ee: E => E1): HttpResult[R, E1, A] =
+    self.fold(ee, identity(_))
+
   final private[zhttp] def evaluate: HttpResult.Out[R, E, A] = HttpResult.evaluate(self)
 }
 
@@ -60,6 +71,7 @@ object HttpResult {
   case object Empty                                         extends Out[Any, Nothing, Nothing]
 
   // OPR
+  private final case class EffectTotal[A](f: () => A)                     extends HttpResult[Any, Nothing, A]
   private final case class Suspend[R, E, A](r: () => HttpResult[R, E, A]) extends HttpResult[R, E, A]
   private final case class FoldM[R, E, EE, A, AA](
     rr: HttpResult[R, E, A],
@@ -74,6 +86,7 @@ object HttpResult {
   def empty: HttpResult.Out[Any, Nothing, Nothing]      = Empty
 
   def effect[R, E, A](z: ZIO[R, E, A]): HttpResult.Out[R, E, A] = Effect(z.mapError(Option(_)))
+  def effectTotal[A](z: => A): HttpResult[Any, Nothing, A]      = EffectTotal(() => z)
   def unit: HttpResult[Any, Nothing, Unit]                      = HttpResult.succeed(())
 
   def flatMap[R, E, A, B](r: HttpResult[R, E, A], aa: A => HttpResult[R, E, B]): HttpResult[R, E, B] =
@@ -98,12 +111,14 @@ object HttpResult {
     result match {
       case m: Out[_, _, _]         => m
       case Suspend(r)              => evaluate(r())
+      case EffectTotal(f)          => HttpResult.succeed(f())
       case FoldM(self, ee, aa, dd) =>
         evaluate(self match {
           case Empty                      => dd
           case Success(a)                 => aa(a)
           case Failure(e)                 => ee(e)
           case Suspend(r)                 => r().foldM(ee, aa, dd)
+          case EffectTotal(f)             => aa(f())
           case Effect(z)                  =>
             Effect(
               z.foldM(

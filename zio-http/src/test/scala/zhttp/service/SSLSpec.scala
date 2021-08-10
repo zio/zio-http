@@ -1,23 +1,20 @@
 package zhttp.service
 
 import io.netty.handler.ssl.ApplicationProtocolConfig.{
-  Protocol => JProtocol,
-  SelectedListenerFailureBehavior => JSelectedListenerFailureBehavior,
-  SelectorFailureBehavior => JSelectorFailureBehavior,
+  Protocol,
+  SelectedListenerFailureBehavior,
+  SelectorFailureBehavior,
 }
-import io.netty.handler.ssl.util.{SelfSignedCertificate => JSelfSignedCertificate}
-import io.netty.handler.ssl.{
-  ApplicationProtocolConfig => JApplicationProtocolConfig,
-  ApplicationProtocolNames => JApplicationProtocolNames,
-  SslContextBuilder => JSslContextBuilder,
-  SslProvider => JSslProvider,
-}
+import io.netty.handler.ssl.util.SelfSignedCertificate
+import io.netty.handler.ssl.{ApplicationProtocolConfig, ApplicationProtocolNames, SslContextBuilder, SslProvider}
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.server.ServerSSLHandler.ServerSSLOptions
 import zhttp.service.server._
 import zio.ZIO
+import zio.duration.durationInt
 import zio.test.Assertion.equalTo
+import zio.test.TestAspect.{flaky, timeout}
 import zio.test.assertM
 
 import javax.net.ssl.SSLHandshakeException
@@ -25,22 +22,22 @@ import javax.net.ssl.SSLHandshakeException
 object SSLSpec extends HttpRunnableSpec(8073) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
-  val ssc1       = new JSelfSignedCertificate
-  val serverssl  = JSslContextBuilder
+  val ssc1       = new SelfSignedCertificate
+  val serverssl  = SslContextBuilder
     .forServer(ssc1.certificate(), ssc1.privateKey())
-    .sslProvider(JSslProvider.JDK)
+    .sslProvider(SslProvider.JDK)
     .applicationProtocolConfig(
-      new JApplicationProtocolConfig(
-        JProtocol.ALPN,
-        JSelectorFailureBehavior.NO_ADVERTISE,
-        JSelectedListenerFailureBehavior.ACCEPT,
-        JApplicationProtocolNames.HTTP_1_1,
+      new ApplicationProtocolConfig(
+        Protocol.ALPN,
+        SelectorFailureBehavior.NO_ADVERTISE,
+        SelectedListenerFailureBehavior.ACCEPT,
+        ApplicationProtocolNames.HTTP_1_1,
       ),
     )
     .build()
-  val ssc2       = new JSelfSignedCertificate()
-  val clientssl1 = JSslContextBuilder.forClient().trustManager(ssc1.cert()).build()
-  val clientssl2 = JSslContextBuilder.forClient().trustManager(ssc2.cert()).build()
+  val ssc2       = new SelfSignedCertificate()
+  val clientssl1 = SslContextBuilder.forClient().trustManager(ssc1.cert()).build()
+  val clientssl2 = SslContextBuilder.forClient().trustManager(ssc2.cert()).build()
 
   val app = HttpApp.collectM[Any, Nothing] { case Method.GET -> Root / "success" =>
     ZIO.succeed(Response.ok)
@@ -66,7 +63,7 @@ object SSLSpec extends HttpRunnableSpec(8073) {
                 case _: SSLHandshakeException => ZIO.succeed("SSLHandshakeException")
               })
             assertM(actual)(equalTo("SSLHandshakeException"))
-          },
+          } @@ timeout(5 second) @@ flaky,
           testM("succeed when client has default SSL") {
             val actual = Client
               .request("https://localhost:8073/success", ClientSSLOptions.DefaultSSL)

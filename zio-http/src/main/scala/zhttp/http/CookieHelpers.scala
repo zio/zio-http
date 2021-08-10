@@ -1,12 +1,12 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.{HttpHeaderNames => JHttpHeaderNames}
+import io.netty.handler.codec.http.HttpHeaderNames
 
 private[zhttp] trait CookieHelpers { self: HasHeaders =>
 
   def cookies: List[Cookie[Meta]] = {
     self.headers
-      .filter(x => x.name.toString.equalsIgnoreCase(JHttpHeaderNames.SET_COOKIE.toString))
+      .filter(x => x.name.toString.equalsIgnoreCase(HttpHeaderNames.SET_COOKIE.toString))
       .map(h => Cookie.toCookie(h.value.toString))
   }
 }

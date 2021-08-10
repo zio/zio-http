@@ -1,9 +1,6 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.{
-  QueryStringDecoder => JQueryStringDecoder,
-  QueryStringEncoder => JQueryStringEncoder,
-}
+import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
 
 import java.net.URI
 import scala.jdk.CollectionConverters._
@@ -42,7 +39,7 @@ object URL {
     if (query == null || query.isEmpty) {
       Map.empty[String, List[String]]
     } else {
-      val decoder = new JQueryStringDecoder(query, false)
+      val decoder = new QueryStringDecoder(query, false)
       val params  = decoder.parameters()
       params.asScala.view.map { case (k, v) => (k, v.asScala.toList) }.toMap
     }
@@ -69,7 +66,7 @@ object URL {
   } yield URL(Path(path), Location.Relative, queryParams(uri.getRawQuery))
 
   def fromString(string: String): Either[HttpError, URL] = {
-    val invalidURL = Left(HttpError.BadRequest(s"Invalid URL: $string"))
+    def invalidURL = Left(HttpError.BadRequest(s"Invalid URL: $string"))
     for {
       url <- Try(new URI(string)).toEither match {
         case Left(_)      => invalidURL
@@ -86,7 +83,7 @@ object URL {
   def asString(url: URL): String = {
 
     def path = {
-      val encoder = new JQueryStringEncoder(url.path.asString)
+      val encoder = new QueryStringEncoder(url.path.asString)
       url.queryParams.foreach { case (key, values) =>
         values.foreach { value => encoder.addParam(key, value) }
       }

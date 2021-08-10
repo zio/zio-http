@@ -57,6 +57,8 @@ object Socket {
 
   def succeed[A](a: A): Socket[Any, Nothing, Any, A] = Succeed(a)
 
+  def fromStream[R, E, B](stream: ZStream[R, E, B]): Socket[R, E, Any, B] = FromStream(stream)
+
   def end: ZStream[Any, Nothing, Nothing] = ZStream.halt(Cause.empty)
 
   def fromFunction[A]: MkFromFunction[A] = new MkFromFunction[A](())

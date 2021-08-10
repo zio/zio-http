@@ -1,7 +1,8 @@
 package zhttp.service
 
-import io.netty.handler.codec.http.{HttpVersion => JHttpVersion}
-import zhttp.core._
+import io.netty.bootstrap.Bootstrap
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup}
+import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpVersion}
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service
@@ -11,12 +12,12 @@ import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
 
-final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JChannel], el: JEventLoopGroup)
+final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
   private def asyncRequest(
     req: Request,
-    jReq: JFullHttpRequest,
-    promise: Promise[Throwable, JFullHttpResponse],
+    jReq: FullHttpRequest,
+    promise: Promise[Throwable, FullHttpResponse],
     sslOption: ClientSSLOptions,
   ): Task[Unit] =
     ChannelFuture.unit {
@@ -33,7 +34,7 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
       }
       val init   = ClientChannelInitializer(hand, scheme, sslOption)
 
-      val jboo = new JBootstrap().channelFactory(cf).group(el).handler(init)
+      val jboo = new Bootstrap().channelFactory(cf).group(el).handler(init)
       if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
 
       jboo.connect()
@@ -41,8 +42,8 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[JCha
 
   def request(request: Request, sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL): Task[UHttpResponse] =
     for {
-      promise <- Promise.make[Throwable, JFullHttpResponse]
-      jReq = encodeRequest(JHttpVersion.HTTP_1_1, request)
+      promise <- Promise.make[Throwable, FullHttpResponse]
+      jReq = encodeRequest(HttpVersion.HTTP_1_1, request)
       _    <- asyncRequest(request, jReq, promise, sslOption).catchAll(cause => promise.fail(cause)).fork
       jRes <- promise.await
       res  <- ZIO.fromEither(decodeJResponse(jRes))
@@ -54,7 +55,7 @@ object Client {
   def make: ZIO[EventLoopGroup with ChannelFactory, Nothing, Client] = for {
     cf <- ZIO.access[ChannelFactory](_.get)
     el <- ZIO.access[EventLoopGroup](_.get)
-    zx <- UnsafeChannelExecutor.make[Any]
+    zx <- UnsafeChannelExecutor.make[Any]()
   } yield service.Client(zx, cf, el)
 
   def request(

@@ -1,10 +1,10 @@
 package zhttp.service
 
-import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
-import zhttp.core._
+import io.netty.bootstrap.ServerBootstrap
+import io.netty.util.ResourceLeakDetector
 import zhttp.http.{Status, _}
 import zhttp.service.server.ServerSSLHandler._
-import zhttp.service.server.{LeakDetectionLevel, ServerChannelFactory, ServerChannelInitializer, ServerRequestHandler}
+import zhttp.service.server._
 import zio.{ZManaged, _}
 
 sealed trait Server[-R, +E] { self =>
@@ -74,15 +74,15 @@ object Server {
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] = {
     val settings = server.settings()
     for {
-      zExec          <- UnsafeChannelExecutor.make[R].toManaged_
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
+      zExec          <- UnsafeChannelExecutor.make[R](eventLoopGroup).toManaged_
       httpH           = ServerRequestHandler(zExec, settings)
       init            = ServerChannelInitializer(httpH, settings)
-      serverBootstrap = new JServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
+      serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.port))
     } yield {
-      JResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
+      ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
     }
   }
 }

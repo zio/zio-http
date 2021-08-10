@@ -101,9 +101,19 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   def map[C](bc: B => C): Http[R, E, A, C] = self.flatMap(b => Http.succeed(bc(b)))
 
   /**
-   * Transforms the input of the http before giving it
+   * Transforms the failure of the http app
+   */
+  def mapError[E1](ee: E => E1): Http[R, E1, A, B] = self.foldM(e => Http.fail(ee(e)), Http.succeed, Http.empty)
+
+  /**
+   * Transforms the input of the http before passing it on to the current Http
    */
   def contramap[X](xa: X => A): Http[R, E, X, B] = Http.identity[X].map(xa) >>> self
+
+  /**
+   * Transforms the input of the http before passing it on to the current Http
+   */
+  def contraFlatMap[X]: MkContraFlatMap[R, E, A, B, X] = MkContraFlatMap[R, E, A, B, X](self)
 
   /**
    * Transforms the output of the http effectfully
@@ -277,6 +287,11 @@ object Http {
   final case class MakeRoute[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, Http[R, E, A, B]]): Http[R, E, A, B] =
       Http.collect[A]({ case r if pf.isDefinedAt(r) => pf(r) }).flatten
+  }
+
+  final case class MkContraFlatMap[-R, +E, -A, +B, X](self: Http[R, E, A, B]) extends AnyVal {
+    def apply[R1 <: R, E1 >: E](xa: X => Http[R1, E1, Any, A]): Http[R1, E1, X, B] =
+      Http.identity[X].flatMap(xa) >>> self
   }
 
   /**

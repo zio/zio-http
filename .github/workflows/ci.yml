@@ -23,7 +23,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.12.14, 2.13.6, 3.0.0]
+        scala: [2.12.14, 2.13.6, 3.0.1]
         java: [adopt@1.8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -59,7 +59,7 @@ jobs:
         run: sbt --client '++${{ matrix.scala }}; test'
 
       - name: Compress target directories
-        run: tar cf targets.tar target zio-http/target zio-http-benchmarks/target example/target project/target
+        run: tar cf targets.tar target zio-http-test/target zio-http/target zio-http-benchmarks/target example/target project/target
 
       - name: Upload target directories
         uses: actions/upload-artifact@v2
@@ -120,12 +120,12 @@ jobs:
           tar xf targets.tar
           rm targets.tar
 
-      - name: Download target directories (3.0.0)
+      - name: Download target directories (3.0.1)
         uses: actions/download-artifact@v2
         with:
-          name: target-${{ matrix.os }}-3.0.0-${{ matrix.java }}
+          name: target-${{ matrix.os }}-3.0.1-${{ matrix.java }}
 
-      - name: Inflate target directories (3.0.0)
+      - name: Inflate target directories (3.0.1)
         run: |
           tar xf targets.tar
           rm targets.tar
