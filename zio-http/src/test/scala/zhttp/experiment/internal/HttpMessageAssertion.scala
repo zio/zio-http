@@ -4,11 +4,11 @@ import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.{HRequest, HResponse}
 import zhttp.experiment.{BufferedRequest, CompleteRequest, HEndpoint}
-import zhttp.http.{HTTP_CHARSET, Header, Http, Method}
+import zhttp.http.{Header, Http, HTTP_CHARSET, Method}
 import zhttp.service.EventLoopGroup
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
-import zio.test.{Assertion, TestResult, assert, assertM}
+import zio.test.{assert, assertM, Assertion, TestResult}
 import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.nio.charset.Charset
@@ -125,7 +125,7 @@ trait HttpMessageAssertion {
    */
   def assertBufferedRequestContent[R, E](
     url: String = "/",
-    method: HttpMethod = HttpMethod.GET,
+    method: HttpMethod = HttpMethod.POST,
     header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
     content: Iterable[String] = Nil,
   )(
@@ -134,12 +134,12 @@ trait HttpMessageAssertion {
     promise <- Promise.make[Nothing, Chunk[ByteBuf]]
     proxy   <- ChannelProxy.make(
       HEndpoint.from(
-        Http.collectM[BufferedRequest[ByteBuf]](req => req.content.runCollect.tap(promise.succeed(_)) as HResponse()),
+        Http.collectM[BufferedRequest[ByteBuf]](req => req.content.runCollect.tap(promise.succeed) as HResponse()),
       ),
     )
 
     _ <- proxy.request(url, method, header)
-    _ <- ZIO.foreach(content)(proxy.data(_))
+    _ <- proxy.data(content)
     _ <- proxy.end
 
     req <- promise.await
