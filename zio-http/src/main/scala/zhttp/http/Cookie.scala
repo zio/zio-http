@@ -13,12 +13,12 @@ final case class Cookie[M <: Meta](name: String, content: String, meta: Option[M
     case None    => value
   }
   override def toString: String       = Try {
-    s"${validate(self.name)}=${self.content}${self.meta match {
+    s"${validate(self.name)}=${validate(self.content)}${self.meta match {
       case Some(value) => "; " + value.toString
       case None        => ""
     }}"
   } match {
-    case Failure(_)     => "invalid cookie: cannot use Separators or control characters"
+    case Failure(_)     => "Invalid cookie: cannot use Separators or control characters"
     case Success(value) => value
   }
 }
@@ -31,7 +31,7 @@ object Cookie {
 
   def validateCookie(v: String): Option[String] = {
     if (regex.unapplySeq(v).isEmpty) {
-      Some("invalid cookie: cannot use Separators or control characters")
+      Some("Invalid cookie: cannot use Separators or control characters")
     } else None
   }
 

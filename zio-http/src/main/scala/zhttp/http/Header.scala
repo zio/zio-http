@@ -55,7 +55,7 @@ object Header {
         case None    => throw new Exception()
       }
     } match {
-      case Failure(_)     => "invalid cookie: cannot use Separators or control characters"
+      case Failure(_)     => "Invalid cookie: cannot use Separators or control characters"
       case Success(value) => value.mkString("; ")
     }
 

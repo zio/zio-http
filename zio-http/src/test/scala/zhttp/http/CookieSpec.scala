@@ -39,7 +39,7 @@ object CookieSpec extends DefaultRunnableSpec {
       },
       test("should not  convert invalid cookie to string") {
         val cookie = Cookie("na me", "content")
-        assert(cookie.toString)(equalTo("invalid cookie: cannot use Separators or control characters"))
+        assert(cookie.toString)(equalTo("Invalid cookie: cannot use Separators or control characters"))
       },
     ),
   )
