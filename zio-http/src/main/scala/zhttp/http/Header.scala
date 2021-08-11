@@ -7,6 +7,7 @@ import io.netty.util.CharsetUtil
 import zhttp.http.HeadersHelpers.BasicSchemeName
 
 import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success, Try}
 
 final case class Header private[Header] (name: CharSequence, value: CharSequence)
 
@@ -47,11 +48,32 @@ object Header {
   def location(value: String): Header      = Header(HttpHeaderNames.LOCATION, value)
   def authorization(value: String): Header = Header(HttpHeaderNames.AUTHORIZATION, value)
 
-  def cookieParser[M <: Meta](cookie: List[(String, String)]): String =
-    cookie.map(p => p._1 + "=" + p._2).mkString("; ")
+  def cookieParser[M <: Meta](cookie: List[Option[(String, String)]]): String =
+    Try {
+      cookie.map {
+        case Some(p) => p._1 + "=" + p._2
+        case None    => throw new Exception()
+      }
+    } match {
+      case Failure(_)     => "invalid cookie: cannot use Separators or control characters"
+      case Success(value) => value.mkString("; ")
+    }
 
-  def cookies[M <: Meta](cookie: List[Cookie[M]]): Header = {
-    Header(HttpHeaderNames.COOKIE, cookieParser(cookie.map(c => (c.name, c.content))))
+  def cookies[M <: Meta](cookie: List[Option[Cookie[M]]]): Header = {
+    Header(
+      HttpHeaderNames.COOKIE,
+      cookieParser(
+        cookie.map {
+          case Some(value) =>
+            Cookie.validateCookie(value.name) match {
+              case Some(_) => None
+              case None    => Some((value.name, value.content))
+            }
+
+          case None => None
+        },
+      ),
+    )
   }
 
   def cookies(response: UHttpResponse): Header = cookies(
@@ -67,7 +89,7 @@ object Header {
     Header(HttpHeaderNames.SET_COOKIE, cookie)
 
   def removeCookie[M <: Meta](cookie: String): Header =
-    Header(HttpHeaderNames.SET_COOKIE, Cookie(cookie, "", None).toString)
+    Header(HttpHeaderNames.SET_COOKIE, Cookie[M](cookie, "", None).toString) //TODO
 
   def basicHttpAuthorization(username: String, password: String): Header = {
     val authString    = String.format("%s:%s", username, password)

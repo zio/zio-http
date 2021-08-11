@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.test.Assertion.equalTo
+import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.{DefaultRunnableSpec, assert}
 
 object CookieSpec extends DefaultRunnableSpec {
@@ -8,11 +8,15 @@ object CookieSpec extends DefaultRunnableSpec {
     suite("toCookie")(
       test("should parse the cookie") {
         val cookieHeaderValue = "name=content; Expires=1817616; Max-Age= 123; Secure; HttpOnly "
-        assert(Cookie.toCookie(cookieHeaderValue))(equalTo(Cookie("name", "content")))
+        assert(Cookie.toCookie(cookieHeaderValue))(isSome(equalTo(Cookie("name", "content"))))
+      },
+      test("shouldn't parse cookie with invalid name") {
+        val cookieHeaderValue = "s s=content; Expires=1817616; Max-Age= 123; Secure; HttpOnly "
+        assert(Cookie.toCookie(cookieHeaderValue))(isNone)
       },
       test("should parse the cookie with empty content") {
         val cookieHeaderValue = "name=; Expires=1817616; Max-Age= 123; Secure; HttpOnly "
-        assert(Cookie.toCookie(cookieHeaderValue))(equalTo(Cookie("name", "")))
+        assert(Cookie.toCookie(cookieHeaderValue))(isSome(equalTo(Cookie("name", ""))))
       },
     ),
     suite("toString in cookie")(
@@ -32,6 +36,10 @@ object CookieSpec extends DefaultRunnableSpec {
       test("should convert cookie to string without meta") {
         val cookie = Cookie("name", "content")
         assert(cookie.toString)(equalTo("name=content"))
+      },
+      test("should not  convert invalid cookie to string") {
+        val cookie = Cookie("na me", "content")
+        assert(cookie.toString)(equalTo("invalid cookie: cannot use Separators or control characters"))
       },
     ),
   )
