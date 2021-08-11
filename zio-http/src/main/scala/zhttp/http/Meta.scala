@@ -1,8 +1,7 @@
 package zhttp.http
 
-import zhttp.http.SameSite.site
-
-import java.util.Date
+import java.text.SimpleDateFormat
+import java.util.{Date, TimeZone}
 
 final case class Meta(
   expires: Option[Date] = None,
@@ -12,42 +11,22 @@ final case class Meta(
   httpOnly: Boolean = false,
   maxAge: Option[Long] = None,
   sameSite: Option[SameSite] = None,
-)
-
-object Meta {
-  import java.text.SimpleDateFormat
-  import java.util.TimeZone
+) {
 
   val df = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", java.util.Locale.US)
   df.setTimeZone(TimeZone.getTimeZone("GMT"))
 
-  private def metaOption[S](m: Option[S], v: String): String = m match {
-    case Some(value) => s"; $v=$value"
-    case None        => ""
-  }
-
-  private def metaOptionSite[S](m: Option[S], v: String): String =
-    m match {
-      case Some(value) => s"; $v=$value"
-      case None        => s"; $v=Lax"
-    }
-
-  private def metaBool(m: Boolean, v: String) = if (m) s"; $v=true" else ""
-
-  private def format(maybeDate: Option[Date]): Option[String] = maybeDate match {
-    case Some(value) => Some(df.format(value))
-    case None        => None
-  }
-
-  def getMeta[M <: Meta](meta: Option[M]) = meta match {
-    case Some(value) =>
-      s"""${metaOption(format(value.expires), "Expires")}${metaOption(value.domain, "Domain")}${metaOption(
-        value.path,
-        "Path",
-      )}${metaBool(value.secure, "Secure")}${metaBool(value.httpOnly, "HttpOnly")}${metaOption(
-        value.maxAge,
-        "Max-Age",
-      )}${metaOptionSite(site(value.sameSite), "SameSite")}"""
-    case None        => ""
+  override def toString: String = {
+    val meta = List(
+      expires.map(e => s"Expires=${df.format(e)}"),
+      maxAge.map(a => s"Max-Age=$a"),
+      domain.map(d => s"Domain=$d"),
+      path.map(p => s"Path=$p"),
+      if (secure) Some("Secure") else None,
+      if (httpOnly) Some("HttpOnly") else None,
+      sameSite.map(s => s"SameSite=$s"),
+    )
+    meta.flatten.mkString("; ")
   }
 }
+object Meta {}

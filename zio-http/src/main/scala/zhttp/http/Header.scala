@@ -61,13 +61,13 @@ object Header {
   def cookie(cookie: Cookie[Nothing]): Header = Header(HttpHeaderNames.COOKIE, cookie.name + "=" + cookie.content)
 
   def setCookie[M <: Meta](cookie: Cookie[M]): Header =
-    Header(HttpHeaderNames.SET_COOKIE, cookie.fromCookie)
+    Header(HttpHeaderNames.SET_COOKIE, cookie.toString)
 
   def setCookieString(cookie: String): Header =
     Header(HttpHeaderNames.SET_COOKIE, cookie)
 
   def removeCookie[M <: Meta](cookie: String): Header =
-    Header(HttpHeaderNames.SET_COOKIE, Cookie(cookie, "", None).fromCookie)
+    Header(HttpHeaderNames.SET_COOKIE, Cookie(cookie, "", None).toString)
 
   def basicHttpAuthorization(username: String, password: String): Header = {
     val authString    = String.format("%s:%s", username, password)

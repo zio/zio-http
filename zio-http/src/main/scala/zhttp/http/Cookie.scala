@@ -1,12 +1,13 @@
 package zhttp.http
 
-import zhttp.http.Meta.getMeta
-
 final case class Cookie[M <: Meta](name: String, content: String, meta: Option[M] = None) { self =>
   def clearCookie: Cookie[Nothing] =
     copy(content = "", meta = None)
 
-  def fromCookie: String = s"""${self.name}=${self.content}${getMeta(self.meta)}"""
+  override def toString: String = s"${self.name}=${self.content}${self.meta match {
+    case Some(value) => "; " + value.toString
+    case None        => ""
+  }}"
 }
 
 object Cookie {
