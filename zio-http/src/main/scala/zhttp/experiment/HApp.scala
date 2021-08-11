@@ -11,12 +11,7 @@ import zhttp.service.UnsafeChannelExecutor
 import zio.{UIO, ZIO}
 
 import scala.annotation.unused
-sealed trait RequestType
-object RequestType        {
-  case object AnyRequest      extends RequestType
-  case object CompleteRequest extends RequestType
-  case object BufferedRequest extends RequestType
-}
+
 sealed trait HApp[-R, +E] { self =>
   def combine[R1 <: R, E1 >: E](other: HApp[R1, E1]): HApp[R1, E1] = HApp.Combine(self, other)
   def +++[R1 <: R, E1 >: E](other: HApp[R1, E1]): HApp[R1, E1]     = self combine other
