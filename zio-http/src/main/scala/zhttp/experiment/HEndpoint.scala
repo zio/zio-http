@@ -11,8 +11,8 @@ import zio.stream.ZStream
 import zio.{Queue, UIO, ZIO}
 
 sealed trait HEndpoint[-R, +E] { self =>
-  def combine[R1 <: R, E1 >: E](other: HEndpoint[R1, E1]): HEndpoint[R1, E1] = HEndpoint.OrElse(self, other)
-  def +++[R1 <: R, E1 >: E](other: HEndpoint[R1, E1]): HEndpoint[R1, E1]     = self combine other
+  def orElse[R1 <: R, E1 >: E](other: HEndpoint[R1, E1]): HEndpoint[R1, E1] = HEndpoint.OrElse(self, other)
+  def <>[R1 <: R, E1 >: E](other: HEndpoint[R1, E1]): HEndpoint[R1, E1]     = self orElse other
   def check: Check[AnyRequest]
 
   private[zhttp] def compile[R1 <: R](zExec: HttpRuntime[R1])(implicit
@@ -192,18 +192,18 @@ object HEndpoint {
     override def check: Check[AnyRequest] = self.check || other.check
   }
 
-  def from[R, E](serverEndpoint: ServerEndpoint[R, E]): HEndpoint[R, E] =
+  private[zhttp] def mount[R, E](serverEndpoint: ServerEndpoint[R, E]): HEndpoint[R, E] =
     Default(serverEndpoint)
 
-  def from[R, E, A](http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit m: IsEndpoint[A]): HEndpoint[R, E] =
-    from(m.endpoint(http))
+  def mount[R, E, A](http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit m: IsEndpoint[A]): HEndpoint[R, E] =
+    mount(m.endpoint(http))
 
-  def from[R, E, A](path: String)(http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit
+  def mount[R, E, A](path: String)(http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit
     m: IsEndpoint[A],
   ): HEndpoint[R, E] =
     Default(m.endpoint(http), Check.startsWith(path))
 
-  def fail[E](cause: E): HEndpoint[Any, E] = from(ServerEndpoint.fail(cause))
+  def fail[E](cause: E): HEndpoint[Any, E] = mount(ServerEndpoint.fail(cause))
 
-  def empty: HEndpoint[Any, Nothing] = from(ServerEndpoint.empty)
+  def empty: HEndpoint[Any, Nothing] = mount(ServerEndpoint.empty)
 }

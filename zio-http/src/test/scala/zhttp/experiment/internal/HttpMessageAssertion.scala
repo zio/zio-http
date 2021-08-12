@@ -118,7 +118,7 @@ trait HttpMessageAssertion {
   ): ZIO[EventLoopGroup with R, E, TestResult] = for {
     promise <- Promise.make[Nothing, BufferedRequest[ByteBuf]]
     proxy   <- ChannelProxy.make(
-      HEndpoint.from(Http.collectM[BufferedRequest[ByteBuf]](req => promise.succeed(req) as HResponse())),
+      HEndpoint.mount(Http.collectM[BufferedRequest[ByteBuf]](req => promise.succeed(req) as HResponse())),
     )
     _       <- f(proxy)
     req     <- promise.await
@@ -138,7 +138,7 @@ trait HttpMessageAssertion {
   ): ZIO[EventLoopGroup with R, E, TestResult] = for {
     promise <- Promise.make[Nothing, Chunk[ByteBuf]]
     proxy   <- ChannelProxy.make(
-      HEndpoint.from(
+      HEndpoint.mount(
         Http.collectM[BufferedRequest[ByteBuf]](req => req.content.runCollect.tap(promise.succeed) as HResponse()),
       ),
     )
@@ -177,7 +177,7 @@ trait HttpMessageAssertion {
   ): ZIO[EventLoopGroup with R, E, TestResult] = for {
     promise <- Promise.make[Nothing, CompleteRequest[ByteBuf]]
     proxy   <- ChannelProxy.make(
-      HEndpoint.from(Http.collectM[CompleteRequest[ByteBuf]](req => promise.succeed(req) as HResponse())),
+      HEndpoint.mount(Http.collectM[CompleteRequest[ByteBuf]](req => promise.succeed(req) as HResponse())),
     )
     _       <- f(proxy)
     req     <- promise.await
