@@ -6,7 +6,7 @@ import io.netty.handler.codec.http._
 import zhttp.experiment.HEndpoint.ServerEndpoint
 import zhttp.experiment.HttpMessage.{AnyRequest, CompleteRequest, HResponse}
 import zhttp.experiment.Params._
-import zhttp.http.{Header, Http, HTTP_CHARSET}
+import zhttp.http.{HTTP_CHARSET, Header, Http}
 import zhttp.service.HttpRuntime
 import zio.stream.ZStream
 import zio.{Queue, UIO, ZIO}
@@ -41,7 +41,7 @@ sealed trait HEndpoint[-R, +E] { self =>
 
         val void = ctx.channel().voidPromise()
 
-        def unsafeEval(program: ZIO[R, Option[Throwable], Any]): Unit = zExec.unsafeExecute_(ctx)(
+        def unsafeEval(program: ZIO[R, Option[Throwable], Any]): Unit = zExec.unsafeRun(ctx)(
           program.catchAll({
             case Some(cause) => UIO(ctx.writeAndFlush(serverErrorResponse(cause), void): Unit)
             case None        => UIO(ctx.writeAndFlush(notFoundResponse, void): Unit)

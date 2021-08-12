@@ -65,7 +65,7 @@ final case class ServerRequestHandler[R](
         releaseOrIgnore(jReq)
         content match {
           case HttpData.StreamData(data)   =>
-            zExec.unsafeExecute_(ctx) {
+            zExec.unsafeRun(ctx) {
               for {
                 _ <- data.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(Unpooled.copiedBuffer(c.toArray))))
                 _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
@@ -94,7 +94,7 @@ final case class ServerRequestHandler[R](
    */
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     settings.error match {
-      case Some(v) => zExec.unsafeExecute_(ctx)(v(cause).uninterruptible)
+      case Some(v) => zExec.unsafeRun(ctx)(v(cause).uninterruptible)
       case None    => {
         ctx.fireExceptionCaught(cause)
         ()

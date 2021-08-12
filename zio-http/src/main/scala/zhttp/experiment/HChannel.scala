@@ -15,15 +15,14 @@ trait HChannel[-R, +E, -A, +B] {
     new ChannelInboundHandlerAdapter {
       private val self = this.asInstanceOf[HChannel[R1, Throwable, HttpObject, HttpObject]]
       override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
-        zExec.unsafeExecute_(ctx)(
-          msg match {
-            case msg: HttpObject => self.message(msg, Context(ctx))
-            case _               => UIO(ctx.fireChannelRead(msg))
+        zExec.unsafeRun(ctx)(msg match {
+          case msg: HttpObject => self.message(msg, Context(ctx))
+          case _               => UIO(ctx.fireChannelRead(msg))
         })
       }
 
       override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
-        zExec.unsafeExecute_(ctx)(self.error(cause, Context(ctx)))
+        zExec.unsafeRun(ctx)(self.error(cause, Context(ctx)))
     }
 }
 
