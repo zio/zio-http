@@ -30,12 +30,14 @@ object HEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
         BufferedRequestSpec,
         AnyRequestSpec,
       ),
+      UnmatchedPathSpec,
+      CombineSpec,
     ).provideCustomLayer(env) @@ timeout(10 second)
 
   /**
    * Spec for asserting AnyRequest fields and behaviour
    */
-  private def AnyRequestSpec = {
+  def AnyRequestSpec = {
     suite("succeed(AnyRequest)")(
       testM("status is 200") {
         assertResponse(HEndpoint.from(Http.collect[AnyRequest](_ => HResponse())))(
@@ -80,7 +82,7 @@ object HEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
    * Spec for asserting BufferedRequest fields and behaviour
    */
 
-  private def BufferedRequestSpec = {
+  def BufferedRequestSpec = {
     suite("succeed(Buffered)")(
       testM("status is 200") {
         assertResponse(HEndpoint.from(Http.collect[BufferedRequest[ByteBuf]](_ => HResponse())))(
@@ -128,7 +130,7 @@ object HEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
    * Spec for asserting CompleteRequest fields and behaviour
    */
 
-  private def CompleteRequestSpec = {
+  def CompleteRequestSpec = {
     suite("succeed(CompleteRequest)")(
       testM("status is 200") {
         assertResponse(HEndpoint.from(Http.collect[CompleteRequest[ByteBuf]](_ => HResponse())))(
@@ -172,7 +174,7 @@ object HEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
   /**
    * Spec for asserting behaviour of an failing endpoint
    */
-  private def FailCauseSpec = {
+  def FailCauseSpec = {
     suite("fail(cause)")(
       testM("status is 500") {
         assertResponse(HEndpoint.fail(new Error("SERVER_ERROR")))(isResponse(status(500)))
@@ -189,7 +191,7 @@ object HEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
   /**
    * Spec for an Endpoint that succeed with a failing Http
    */
-  private def SucceedFailSpec = {
+  def SucceedFailSpec = {
     suite("succeed(fail)")(
       testM("status is 500") {
         assertResponse(HEndpoint.from(Http.fail(new Error("SERVER_ERROR"))))(isResponse(status(500)))
@@ -208,7 +210,7 @@ object HEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
   /**
    * Spec for an Endpoint that succeeds with a succeeding Http
    */
-  private def SucceedOkSpec = {
+  def SucceedOkSpec = {
     suite("succeed(ok)")(
       testM("status is 200") {
         assertResponse(HEndpoint.from(Http.succeed(HResponse())))(isResponse(status(200)))
@@ -244,7 +246,7 @@ object HEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
   /**
    * Spec for an Endpoint that succeeds with an empty Http
    */
-  private def SucceedEmptySpec = {
+  def SucceedEmptySpec = {
     suite("succeed(empty)")(
       testM("status is 404") {
         assertResponse(HEndpoint.empty)(isResponse(status(404)))
@@ -264,7 +266,7 @@ object HEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
   /**
    * Spec for an Endpoint that is empty
    */
-  private def EmptySpec = {
+  def EmptySpec = {
     suite("empty")(
       suite("GET")(
         testM("status is 404") {
@@ -287,6 +289,48 @@ object HEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
           )
         },
       ),
+    )
+  }
+
+  def CombineSpec = {
+    suite("orElse")(
+      testM("status is 200") {
+        val app = HEndpoint.from("/a")(Http.succeed(HResponse(status = Status.OK))) +++
+          HEndpoint.from("/b")(Http.succeed(HResponse(status = Status.CREATED)))
+
+        assertResponse(url = "/a", app = app)(isResponse(status(200)))
+      },
+      testM("status is 404") {
+        val app = HEndpoint.from("/a")(Http.succeed(HResponse(status = Status.OK))) +++
+          HEndpoint.from("/b")(Http.succeed(HResponse(status = Status.CREATED)))
+
+        assertResponse(url = "/c", app = app)(isResponse(status(404)))
+      },
+    )
+  }
+
+  def UnmatchedPathSpec = {
+    suite("unmatched path /abc")(
+      testM("type AnyRequest") {
+        assertResponse(HEndpoint.from("/abc")(Http.collect[AnyRequest](_ => HResponse())))(
+          isResponse(status(404)),
+        )
+      },
+      testM("type BufferedRequest") {
+        assertResponse(HEndpoint.from("/abc")(Http.collect[BufferedRequest[ByteBuf]](_ => HResponse())))(
+          isResponse(status(404)),
+        )
+      },
+      testM("type CompleteRequest") {
+        assertResponse(HEndpoint.from("/abc")(Http.collect[CompleteRequest[ByteBuf]](_ => HResponse())))(
+          isResponse(status(404)),
+        )
+      },
+      testM("type Any") {
+        assertResponse(HEndpoint.from("/abc")(Http.succeed(HResponse())))(
+          isResponse(status(404)),
+        )
+      },
     )
   }
 }

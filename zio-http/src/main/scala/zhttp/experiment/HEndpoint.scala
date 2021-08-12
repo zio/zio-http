@@ -3,17 +3,18 @@ package zhttp.experiment
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.{ChannelHandler, ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http._
+import zhttp.experiment.HEndpoint.ServerEndpoint
 import zhttp.experiment.HttpMessage.{AnyRequest, CompleteRequest, HResponse}
 import zhttp.experiment.Params._
-import zhttp.http.{HTTP_CHARSET, Header, Http}
+import zhttp.http.{Header, Http, HTTP_CHARSET}
 import zhttp.service.UnsafeChannelExecutor
 import zio.stream.ZStream
 import zio.{Queue, UIO, ZIO}
 
 sealed trait HEndpoint[-R, +E] { self =>
-  def cond(f: AnyRequest => Boolean): HEndpoint[R, E]                        = HEndpoint.Condition(f, self)
-  def combine[R1 <: R, E1 >: E](other: HEndpoint[R1, E1]): HEndpoint[R1, E1] = HEndpoint.Combine(self, other)
+  def combine[R1 <: R, E1 >: E](other: HEndpoint[R1, E1]): HEndpoint[R1, E1] = HEndpoint.OrElse(self, other)
   def +++[R1 <: R, E1 >: E](other: HEndpoint[R1, E1]): HEndpoint[R1, E1]     = self combine other
+  def check: Check[AnyRequest]
 
   private[zhttp] def compile[R1 <: R](zExec: UnsafeChannelExecutor[R1])(implicit
     evE: E <:< Throwable,
@@ -50,68 +51,88 @@ sealed trait HEndpoint[-R, +E] { self =>
           case jRequest: HttpRequest =>
             adapter.jRequest = jRequest
 
-            app match {
-              case HEndpoint.Fail(cause) =>
-                ctx.writeAndFlush(serverErrorResponse(cause), void): Unit
+            def execute(endpoint: HEndpoint[R, Throwable]): Boolean = {
+              endpoint match {
+                case HEndpoint.OrElse(a, b) =>
+                  if (execute(a)) {
+                    true
+                  } else {
+                    execute(b)
+                  }
 
-              case HEndpoint.Empty =>
-                ctx.writeAndFlush(notFoundResponse, void): Unit
+                case HEndpoint.Default(endpoint, check) =>
+                  if (check.is(AnyRequest.from(jRequest))) {
+                    (endpoint: ServerEndpoint[R, Throwable]) match {
+                      case ServerEndpoint.Fail(cause) =>
+                        ctx.writeAndFlush(serverErrorResponse(cause), void): Unit
 
-              case HEndpoint.ForAny(http) =>
-                unsafeEval {
-                  for {
-                    res <- http.executeAsZIO(())
-                    _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
-                  } yield ()
-                }
+                      case ServerEndpoint.Empty =>
+                        ctx.writeAndFlush(notFoundResponse, void): Unit
 
-              case HEndpoint.ForComplete(http) =>
-                adapter.completeHttpApp = http
-                adapter.isComplete = true
-                ctx.read(): Unit
+                      case ServerEndpoint.HttpAny(http) =>
+                        unsafeEval {
+                          for {
+                            res <- http.executeAsZIO(())
+                            _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
+                          } yield ()
+                        }
 
-              case HEndpoint.ForAnyRequest(http) =>
-                unsafeEval {
-                  for {
-                    res <- http.executeAsZIO(AnyRequest.from(jRequest))
-                    _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
-                  } yield ()
-                }
+                      case ServerEndpoint.HttpComplete(http) =>
+                        adapter.completeHttpApp = http
+                        adapter.isComplete = true
+                        ctx.read(): Unit
 
-              case HEndpoint.ForBuffered(http) =>
-                ctx.channel().config().setAutoRead(false)
-                adapter.isBuffered = true
+                      case ServerEndpoint.HttpAnyRequest(http) =>
+                        unsafeEval {
+                          for {
+                            res <- http.executeAsZIO(AnyRequest.from(jRequest))
+                            _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
+                          } yield ()
+                        }
 
-                unsafeEval {
-                  for {
-                    q   <- Queue.bounded[HttpContent](1)
-                    _   <- UIO {
-                      adapter.bufferedQueue = q
-                      ctx.read()
+                      case ServerEndpoint.HttpBuffered(http) =>
+                        ctx.channel().config().setAutoRead(false)
+                        adapter.isBuffered = true
+
+                        unsafeEval {
+                          for {
+                            q   <- Queue.bounded[HttpContent](1)
+                            _   <- UIO {
+                              adapter.bufferedQueue = q
+                              ctx.read()
+                            }
+                            res <- http.executeAsZIO(
+                              AnyRequest
+                                .from(adapter.jRequest)
+                                .toBufferedRequest(
+                                  ZStream
+                                    .fromQueue(bufferedQueue)
+                                    .takeWhile(!_.isInstanceOf[LastHttpContent])
+                                    .map(buf => buf.content()),
+                                ),
+                            )
+
+                            _ <- UIO {
+                              ctx.writeAndFlush(decodeResponse(res), void)
+                            }
+
+                          } yield ()
+                        }
+
                     }
-                    res <- http.executeAsZIO(
-                      AnyRequest
-                        .from(adapter.jRequest)
-                        .toBufferedRequest(
-                          ZStream
-                            .fromQueue(bufferedQueue)
-                            .takeWhile(!_.isInstanceOf[LastHttpContent])
-                            .map(buf => buf.content()),
-                        ),
-                    )
 
-                    _ <- UIO {
-                      ctx.writeAndFlush(decodeResponse(res), void)
-                    }
-
-                  } yield ()
-                }
-
-              case HEndpoint.Combine(_, _) => ???
-
-              case HEndpoint.Condition(_, _) => ???
+                    true
+                  } else {
+                    false
+                  }
+              }
             }
-          case msg: LastHttpContent  =>
+
+            if (!execute(app)) {
+              ctx.writeAndFlush(notFoundResponse, void): Unit
+            }
+
+          case msg: LastHttpContent =>
             if (isBuffered) {
               unsafeEval {
                 bufferedQueue.offer(msg)
@@ -129,7 +150,7 @@ sealed trait HEndpoint[-R, +E] { self =>
                 } yield ()
               }
             }
-          case msg: HttpContent      =>
+          case msg: HttpContent     =>
             if (adapter.isBuffered) {
               unsafeEval {
                 bufferedQueue.offer(msg) *> UIO(ctx.read())
@@ -146,7 +167,8 @@ sealed trait HEndpoint[-R, +E] { self =>
         new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.toJHttpStatus, Header.disassemble(res.headers))
       }
 
-      private val notFoundResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
+      private val notFoundResponse =
+        new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
 
       private def serverErrorResponse(cause: Throwable): HttpResponse = {
         val content  = cause.toString
@@ -164,35 +186,68 @@ sealed trait HEndpoint[-R, +E] { self =>
 
 object HEndpoint {
 
-  case object Empty extends HEndpoint[Any, Nothing]
+  /**
+   * It represents a set of "valid" types that the server can manage to decode a request into.
+   */
+  sealed trait ServerEndpoint[-R, +E] { self => }
 
-  final case class Combine[R, E](self: HEndpoint[R, E], other: HEndpoint[R, E])                extends HEndpoint[R, E]
-  final case class Condition[R, E](cond: AnyRequest => Boolean, app: HEndpoint[R, E])          extends HEndpoint[R, E]
-  final case class ForComplete[R, E, A, B](http: Http[R, E, CompleteRequest[ByteBuf], HResponse[R, E, ByteBuf]])
+  object ServerEndpoint {
+
+    case object Empty extends ServerEndpoint[Any, Nothing]
+
+    final case class Fail[E, A](cause: E) extends ServerEndpoint[Any, E]
+
+    final case class HttpComplete[R, E](http: Http[R, E, CompleteRequest[ByteBuf], HResponse[R, E, ByteBuf]])
+        extends ServerEndpoint[R, E]
+
+    final case class HttpBuffered[R, E](http: Http[R, E, BufferedRequest[ByteBuf], HResponse[R, E, ByteBuf]])
+        extends ServerEndpoint[R, E]
+
+    final case class HttpAnyRequest[R, E](http: Http[R, E, AnyRequest, HResponse[R, E, ByteBuf]])
+        extends ServerEndpoint[R, E]
+
+    final case class HttpAny[R, E](http: Http[R, E, Any, HResponse[R, E, ByteBuf]]) extends ServerEndpoint[R, E]
+
+    def from[R, E](http: Http[R, E, Any, HResponse[R, E, ByteBuf]])(implicit P: P1): ServerEndpoint[R, E] =
+      HttpAnyRequest(http)
+
+    def from[R, E](http: Http[R, E, CompleteRequest[ByteBuf], HResponse[R, E, ByteBuf]])(implicit
+      P: P2,
+    ): ServerEndpoint[R, E] =
+      HttpComplete(http)
+
+    def from[R, E](http: Http[R, E, BufferedRequest[ByteBuf], HResponse[R, E, ByteBuf]])(implicit
+      P: P3,
+    ): ServerEndpoint[R, E] =
+      HttpBuffered(http)
+
+    def from[R, E](http: Http[R, E, AnyRequest, HResponse[R, E, ByteBuf]])(implicit P: P4): ServerEndpoint[R, E] =
+      HttpAnyRequest(http)
+
+    def empty: ServerEndpoint[Any, Nothing] = Empty
+
+    def fail[E](error: E): ServerEndpoint[Any, E] = Fail(error)
+  }
+
+  final case class Default[R, E](se: ServerEndpoint[R, E], check: Check[AnyRequest] = Check.isTrue)
       extends HEndpoint[R, E]
-  final case class ForBuffered[R, E](http: Http[R, E, BufferedRequest[ByteBuf], HResponse[R, E, ByteBuf]])
-      extends HEndpoint[R, E]
-  final case class ForAnyRequest[R, E](http: Http[R, E, AnyRequest, HResponse[R, E, ByteBuf]]) extends HEndpoint[R, E]
-  final case class ForAny[R, E](http: Http[R, E, Any, HResponse[R, E, ByteBuf]])               extends HEndpoint[R, E]
-  final case class Fail[E, A](cause: E)                                                        extends HEndpoint[Any, E]
 
-  def empty: HEndpoint[Any, Nothing] =
-    HEndpoint.Empty
+  final case class OrElse[R, E](self: HEndpoint[R, E], other: HEndpoint[R, E]) extends HEndpoint[R, E] {
+    override def check: Check[AnyRequest] = self.check || other.check
+  }
 
-  def from[R, E](http: Http[R, E, Any, HResponse[R, E, ByteBuf]])(implicit P: P1): HEndpoint[R, E] = ForAny(http)
+  def from[R, E](serverEndpoint: ServerEndpoint[R, E]): HEndpoint[R, E] =
+    Default(serverEndpoint)
 
-  def from[R, E](http: Http[R, E, CompleteRequest[ByteBuf], HResponse[R, E, ByteBuf]])(implicit
-    P: P2,
+  def from[R, E, A](http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit m: IsEndpoint[A]): HEndpoint[R, E] =
+    from(m.endpoint(http))
+
+  def from[R, E, A](path: String)(http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit
+    m: IsEndpoint[A],
   ): HEndpoint[R, E] =
-    ForComplete(http)
+    Default(m.endpoint(http), Check.startsWith(path))
 
-  def from[R, E](http: Http[R, E, BufferedRequest[ByteBuf], HResponse[R, E, ByteBuf]])(implicit
-    P: P3,
-  ): HEndpoint[R, E] =
-    ForBuffered(http)
+  def fail[E](cause: E): HEndpoint[Any, E] = from(ServerEndpoint.fail(cause))
 
-  def from[R, E](http: Http[R, E, AnyRequest, HResponse[R, E, ByteBuf]])(implicit P: P4): HEndpoint[R, E] =
-    ForAnyRequest(http)
-
-  def fail[E](cause: E): HEndpoint[Any, E] = HEndpoint.Fail(cause)
+  def empty: HEndpoint[Any, Nothing] = from(ServerEndpoint.empty)
 }
