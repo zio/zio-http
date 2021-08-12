@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.test.Assertion.equalTo
+import zio.test.Assertion.{equalTo, isFalse, isTrue}
 import zio.test._
 
 object PathSpec extends DefaultRunnableSpec {
@@ -22,6 +22,17 @@ object PathSpec extends DefaultRunnableSpec {
         test("/A/B")((Path("A", "B"): @unchecked) match { case Root / x / y => assert((x, y))(equalTo(("A", "B"))) }),
         test("/A/B/C") {
           (Path("A", "B", "C"): @unchecked) match { case Path(x, y, z) => assert((x, y, z))(equalTo(("A", "B", "C"))) }
+        },
+      ),
+      suite("startsWith")(
+        test("/a/b/c vs /a/b") {
+          assert(Root / "a" / "b" / "c" startsWith Root / "a" / "b")(isTrue)
+        },
+        test("/a/b/c vs /a/b/c") {
+          assert(Root / "a" / "b" / "c" startsWith Root / "a" / "b" / "c")(isTrue)
+        },
+        test("/a/b vs /a/b/c") {
+          assert(Root / "a" / "b" startsWith Root / "a" / "b" / "c")(isFalse)
         },
       ),
     )

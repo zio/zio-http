@@ -12,6 +12,8 @@ private[zhttp] trait PathModule { module =>
     def toList: List[String]
 
     override def toString: String = this.asString
+
+    def startsWith(other: Path): Boolean = self.asString.startsWith(other.asString)
   }
 
   object Path {
