@@ -6,6 +6,7 @@ import zio.Chunk
 
 import java.io.{PrintWriter, StringWriter}
 import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 
 private[zhttp] trait ResponseHelpers {
   private val defaultStatus  = Status.OK
@@ -57,7 +58,7 @@ private[zhttp] trait ResponseHelpers {
 
   def text(text: String): UResponse =
     http(
-      content = HttpData.CompleteData(Chunk.fromArray(URLDecoder.decode(text, HTTP_CHARSET).getBytes())),
+      content = HttpData.CompleteData(Chunk.fromArray(URLDecoder.decode(text, StandardCharsets.UTF_8).getBytes())),
       headers = List(Header.contentTypeTextPlain),
     )
 
