@@ -13,7 +13,7 @@ import scala.jdk.CollectionConverters._
  * Provides basic ZIO based utilities for any ZIO based program to execute in a channel's context. It will automatically
  * cancel the execution when the channel closes.
  */
-final class HttpRuntime[R](strategy: HttpRuntime.Strategy[R]) {
+final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
 
   def unsafeExecute_(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
     val rtm = strategy.getRuntime(ctx)
