@@ -5,14 +5,14 @@ import io.netty.channel.{ChannelHandler, ChannelHandlerContext, ChannelInboundHa
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.{AnyRequest, CompleteRequest, HResponse}
 import zhttp.experiment.ServerEndpoint.IsEndpoint
-import zhttp.http.{Header, Http, HTTP_CHARSET}
+import zhttp.http.{HTTP_CHARSET, Header, Http}
 import zhttp.service.HttpRuntime
 import zio.stream.ZStream
 import zio.{Queue, UIO, ZIO}
 
-sealed trait HEndpoint[-R, +E] { self =>
-  def orElse[R1 <: R, E1 >: E](other: HEndpoint[R1, E1]): HEndpoint[R1, E1] = HEndpoint.OrElse(self, other)
-  def <>[R1 <: R, E1 >: E](other: HEndpoint[R1, E1]): HEndpoint[R1, E1]     = self orElse other
+sealed trait HttpEndpoint[-R, +E] { self =>
+  def orElse[R1 <: R, E1 >: E](other: HttpEndpoint[R1, E1]): HttpEndpoint[R1, E1] = HttpEndpoint.OrElse(self, other)
+  def <>[R1 <: R, E1 >: E](other: HttpEndpoint[R1, E1]): HttpEndpoint[R1, E1]     = self orElse other
   def check: Check[AnyRequest]
 
   private[zhttp] def compile[R1 <: R](zExec: HttpRuntime[R1])(implicit
@@ -22,7 +22,7 @@ sealed trait HEndpoint[-R, +E] { self =>
       import HttpVersion._
       import HttpResponseStatus._
 
-      val app                                                                                             = self.asInstanceOf[HEndpoint[R, Throwable]]
+      val app                                                                                             = self.asInstanceOf[HttpEndpoint[R, Throwable]]
       var isComplete: Boolean                                                                             = false
       var isBuffered: Boolean                                                                             = false
       var completeHttpApp: Http[R, Throwable, CompleteRequest[ByteBuf], HResponse[R, Throwable, ByteBuf]] = Http.empty
@@ -50,16 +50,16 @@ sealed trait HEndpoint[-R, +E] { self =>
           case jRequest: HttpRequest =>
             adapter.jRequest = jRequest
 
-            def execute(endpoint: HEndpoint[R, Throwable]): Boolean = {
+            def execute(endpoint: HttpEndpoint[R, Throwable]): Boolean = {
               endpoint match {
-                case HEndpoint.OrElse(a, b) =>
+                case HttpEndpoint.OrElse(a, b) =>
                   if (execute(a)) {
                     true
                   } else {
                     execute(b)
                   }
 
-                case HEndpoint.Default(endpoint, check) =>
+                case HttpEndpoint.Default(endpoint, check) =>
                   if (check.is(AnyRequest.from(jRequest))) {
                     endpoint match {
                       case ServerEndpoint.Fail(cause) =>
@@ -183,27 +183,27 @@ sealed trait HEndpoint[-R, +E] { self =>
     }
 }
 
-object HEndpoint {
+object HttpEndpoint {
 
   final case class Default[R, E](se: ServerEndpoint[R, E], check: Check[AnyRequest] = Check.isTrue)
-      extends HEndpoint[R, E]
+      extends HttpEndpoint[R, E]
 
-  final case class OrElse[R, E](self: HEndpoint[R, E], other: HEndpoint[R, E]) extends HEndpoint[R, E] {
+  final case class OrElse[R, E](self: HttpEndpoint[R, E], other: HttpEndpoint[R, E]) extends HttpEndpoint[R, E] {
     override def check: Check[AnyRequest] = self.check || other.check
   }
 
-  private[zhttp] def mount[R, E](serverEndpoint: ServerEndpoint[R, E]): HEndpoint[R, E] =
+  private[zhttp] def mount[R, E](serverEndpoint: ServerEndpoint[R, E]): HttpEndpoint[R, E] =
     Default(serverEndpoint)
 
-  def mount[R, E, A](http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit m: IsEndpoint[A]): HEndpoint[R, E] =
+  def mount[R, E, A](http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit m: IsEndpoint[A]): HttpEndpoint[R, E] =
     mount(m.endpoint(http))
 
   def mount[R, E, A](path: String)(http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit
     m: IsEndpoint[A],
-  ): HEndpoint[R, E] =
+  ): HttpEndpoint[R, E] =
     Default(m.endpoint(http), Check.startsWith(path))
 
-  def fail[E](cause: E): HEndpoint[Any, E] = mount(ServerEndpoint.fail(cause))
+  def fail[E](cause: E): HttpEndpoint[Any, E] = mount(ServerEndpoint.fail(cause))
 
-  def empty: HEndpoint[Any, Nothing] = mount(ServerEndpoint.empty)
+  def empty: HttpEndpoint[Any, Nothing] = mount(ServerEndpoint.empty)
 }

@@ -3,7 +3,7 @@ package zhttp.experiment.internal
 import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.{HRequest, HResponse}
-import zhttp.experiment.{BufferedRequest, CompleteRequest, HEndpoint}
+import zhttp.experiment.{BufferedRequest, CompleteRequest, HttpEndpoint}
 import zhttp.http.{HTTP_CHARSET, Header, Http, Method}
 import zhttp.service.EventLoopGroup
 import zio.test.Assertion.anything
@@ -18,7 +18,7 @@ trait HttpMessageAssertion {
     def asString: String = m.toString.dropWhile(_ != '\n')
   }
 
-  implicit final class HEndpointSyntax[R, E](app: HEndpoint[R, Throwable]) {
+  implicit final class HttpEndpointSyntax[R, E](app: HttpEndpoint[R, Throwable]) {
     def ===(assertion: Assertion[HttpObject]): ZIO[R with EventLoopGroup, Nothing, TestResult] =
       assertM(execute(app)(_.request("/")))(assertion)
 
@@ -94,7 +94,7 @@ trait HttpMessageAssertion {
   def isAnyResponse: Assertion[Any] = isResponse(anything)
 
   def execute[R](
-    app: HEndpoint[R, Throwable],
+    app: HttpEndpoint[R, Throwable],
   )(f: ChannelProxy => UIO[Any]): ZIO[R with EventLoopGroup, Nothing, HttpObject] =
     for {
       proxy <- ChannelProxy.make(app)
@@ -108,8 +108,8 @@ trait HttpMessageAssertion {
   def header = { new DefaultHttpHeaders() }
 
   /**
-   * Creates an HEndpoint internally that requires a BufferedRequest. Allows asserting on any field of the request using
-   * the `assertion` parameter.
+   * Creates an HttpEndpoint internally that requires a BufferedRequest. Allows asserting on any field of the request
+   * using the `assertion` parameter.
    */
   def assertBufferedRequest[R, E](
     f: ChannelProxy => ZIO[R, E, Any],
@@ -118,14 +118,14 @@ trait HttpMessageAssertion {
   ): ZIO[EventLoopGroup with R, E, TestResult] = for {
     promise <- Promise.make[Nothing, BufferedRequest[ByteBuf]]
     proxy   <- ChannelProxy.make(
-      HEndpoint.mount(Http.collectM[BufferedRequest[ByteBuf]](req => promise.succeed(req) as HResponse())),
+      HttpEndpoint.mount(Http.collectM[BufferedRequest[ByteBuf]](req => promise.succeed(req) as HResponse())),
     )
     _       <- f(proxy)
     req     <- promise.await
   } yield assert(req)(assertion)
 
   /**
-   * Creates an HEndpoint internally that requires a BufferedRequest. Allows asserting on the content of the request
+   * Creates an HttpEndpoint internally that requires a BufferedRequest. Allows asserting on the content of the request
    * using the `assertion` parameter.
    */
   def assertBufferedRequestContent[R, E](
@@ -138,7 +138,7 @@ trait HttpMessageAssertion {
   ): ZIO[EventLoopGroup with R, E, TestResult] = for {
     promise <- Promise.make[Nothing, Chunk[ByteBuf]]
     proxy   <- ChannelProxy.make(
-      HEndpoint.mount(
+      HttpEndpoint.mount(
         Http.collectM[BufferedRequest[ByteBuf]](req => req.content.runCollect.tap(promise.succeed) as HResponse()),
       ),
     )
@@ -151,8 +151,8 @@ trait HttpMessageAssertion {
   } yield assert(req.toList.map(bytes => bytes.toString(HTTP_CHARSET)))(assertion)
 
   /**
-   * Creates an HEndpoint internally that requires a BufferedRequest. Allows asserting on any field of the request using
-   * the `assertion` parameter.
+   * Creates an HttpEndpoint internally that requires a BufferedRequest. Allows asserting on any field of the request
+   * using the `assertion` parameter.
    */
   def assertBufferedRequest(
     url: String = "/",
@@ -169,23 +169,23 @@ trait HttpMessageAssertion {
     )(assertion)
 
   /**
-   * Creates an HEndpoint internally that requires a CompleteRequest. The request to be sent can be configured via the
-   * `f` function. Allows any kind of custom assertion on the CompleteRequest.
+   * Creates an HttpEndpoint internally that requires a CompleteRequest. The request to be sent can be configured via
+   * the `f` function. Allows any kind of custom assertion on the CompleteRequest.
    */
   def assertCompleteRequest[R, E](f: ChannelProxy => ZIO[R, E, Any])(
     assertion: Assertion[CompleteRequest[ByteBuf]],
   ): ZIO[EventLoopGroup with R, E, TestResult] = for {
     promise <- Promise.make[Nothing, CompleteRequest[ByteBuf]]
     proxy   <- ChannelProxy.make(
-      HEndpoint.mount(Http.collectM[CompleteRequest[ByteBuf]](req => promise.succeed(req) as HResponse())),
+      HttpEndpoint.mount(Http.collectM[CompleteRequest[ByteBuf]](req => promise.succeed(req) as HResponse())),
     )
     _       <- f(proxy)
     req     <- promise.await
   } yield assert(req)(assertion)
 
   /**
-   * Creates an HEndpoint internally that requires a CompleteRequest. Allows asserting on any field of the request using
-   * the `assertion` parameter.
+   * Creates an HttpEndpoint internally that requires a CompleteRequest. Allows asserting on any field of the request
+   * using the `assertion` parameter.
    */
   def assertCompleteRequest(
     url: String = "/",
@@ -202,10 +202,10 @@ trait HttpMessageAssertion {
     )(assertion)
 
   /**
-   * Dispatches a request with some content and asserts on the response received on an HEndpoint
+   * Dispatches a request with some content and asserts on the response received on an HttpEndpoint
    */
   def assertResponse[R](
-    app: HEndpoint[R, Throwable],
+    app: HttpEndpoint[R, Throwable],
     url: String = "/",
     method: HttpMethod = HttpMethod.GET,
     header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
