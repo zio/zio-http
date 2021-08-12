@@ -12,19 +12,11 @@ object CookieServerSide extends App {
   val app: HttpApp[Any, Nothing] = HttpApp.collect {
     case Method.GET -> Root / "cookie"            =>
       Response.addCookie(
-        Cookie(
-          "abc",
-          "value",
-          Some(Meta(Some(date), None, Some(Path("/cookie")), false, true, None, None)),
-        ),
+        Cookie("abc", "value", Some(date), None, Some(Path("/cookie")), false, true, None, None),
       )
     case Method.GET -> Root / "cookie" / "remove" =>
       Response.removeCookie(
-        Cookie(
-          "abc",
-          "value",
-          Some(Meta(Some(date), None, Some(Path("/cookie")), false, true, None, None)),
-        ),
+        Cookie("abc", "value", Some(date), None, Some(Path("/cookie")), false, true, None, None),
       )
   }
 

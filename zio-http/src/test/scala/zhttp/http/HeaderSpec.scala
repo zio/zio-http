@@ -242,21 +242,14 @@ object HeaderSpec extends DefaultRunnableSpec {
         val cookie       = Cookie("abc", "value")
         val headerHolder = HeadersHolder(List(Header.cookie(cookie)))
         val found        = headerHolder.getCookie
-        assert(found)(isSome(equalTo(cookie.toString)))
+        assert(found)(isSome(equalTo(cookie.asString)))
       },
       test("should return cookies") {
         val cookie1      = Cookie("abc", "value1")
         val cookie2      = Cookie("xyz", "value2")
-        val headerHolder = HeadersHolder(List(Header.cookies(List(Some(cookie1), Some(cookie2)))))
+        val headerHolder = HeadersHolder(List(Header.cookies(List(cookie1, cookie2))))
         val found        = headerHolder.getCookie
-        assert(found)(isSome(equalTo(s"${cookie1.toString}; ${cookie2.toString}")))
-      },
-      test("should return invalid cookie message") {
-        val cookie1      = Cookie("abc", "value1")
-        val cookie2      = Cookie("xy z", "value2")
-        val headerHolder = HeadersHolder(List(Header.cookies(List(Some(cookie1), Some(cookie2)))))
-        val found        = headerHolder.getCookie
-        assert(found)(isSome(equalTo("Invalid cookie: cannot use Separators or control characters")))
+        assert(found)(isSome(equalTo(s"${cookie1.asString}; ${cookie2.asString}")))
       },
       test("should remove set-cookie") {
         val headerHolder = HeadersHolder(List(Header.removeCookie(Cookie("abc", "val"))))
@@ -278,10 +271,10 @@ object HeaderSpec extends DefaultRunnableSpec {
         val maxAgeGen   = Gen.anyLong
 
         check(nameGen, contentGen, pathGen, httpOnlyGen, maxAgeGen) { (name, content, path, httpOnly, maxAge) =>
-          val cookie       = Cookie(name, content, Some(Meta(None, None, Some(path), httpOnly, httpOnly, Some(maxAge), None)))
+          val cookie       = Cookie(name, content, None, None, Some(path), httpOnly, httpOnly, Some(maxAge), None)
           val headerHolder = HeadersHolder(List(Header.setCookie(cookie)))
           val found        = headerHolder.getSetCookie
-          assert(found)(isSome(equalTo(cookie.toString)))
+          assert(found)(isSome(equalTo(cookie.asString)))
         }
       },
       testM("should return set-cookies without meta") {
@@ -292,7 +285,7 @@ object HeaderSpec extends DefaultRunnableSpec {
           val cookie       = Cookie(name, content, None)
           val headerHolder = HeadersHolder(List(Header.setCookie(cookie)))
           val found        = headerHolder.getSetCookie
-          assert(found)(isSome(equalTo(cookie.toString)))
+          assert(found)(isSome(equalTo(cookie.asString)))
         }
       },
     ),

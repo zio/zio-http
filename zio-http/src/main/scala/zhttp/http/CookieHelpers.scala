@@ -4,9 +4,10 @@ import io.netty.handler.codec.http.HttpHeaderNames
 
 private[zhttp] trait CookieHelpers { self: HasHeaders =>
 
-  def cookies: List[Option[Cookie[Nothing]]] = {
+  def cookies: List[Cookie] = {
     self.headers
       .filter(x => x.name.toString.equalsIgnoreCase(HttpHeaderNames.SET_COOKIE.toString))
-      .map(h => Cookie.toCookie(h.value.toString))
+      .map(h => Cookie.fromString(h.value.toString))
   }
+
 }

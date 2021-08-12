@@ -68,9 +68,9 @@ private[zhttp] trait ResponseHelpers {
 
   def status(status: Status): UResponse = http(status)
 
-  def addCookie[M <: Meta](cookie: Cookie[M]): UResponse = http(headers = List(Header.setCookie(cookie)))
+  def addCookie(cookie: Cookie): UResponse = http(headers = List(Header.setCookie(cookie)))
 
-  def removeCookie[M <: Meta](cookie: Cookie[M]): UResponse = http(headers = List(Header.removeCookie(cookie)))
+  def removeCookie(cookie: Cookie): UResponse = http(headers = List(Header.removeCookie(cookie)))
 
   def temporaryRedirect(location: String): HttpResponse[Any, Nothing] =
     HttpResponse(Status.TEMPORARY_REDIRECT, List(Header.location(location)), content = HttpData.empty)

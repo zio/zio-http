@@ -1,4 +1,4 @@
-import zhttp.http.Header
+import zhttp.http.{Cookie, Header}
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
 
@@ -14,7 +14,7 @@ object CookieClientSide extends App {
     res1 <- Client.request(url, headers)
     res2 <- Client.request(
       url,
-      List(Header.host("github.com"), Header.cookies(res1)),
+      List(Header.host("github.com"), Header.cookies(res1.cookies), Header.cookie(Cookie("name", "value"))),
     ) //add set-cookie from response header to request
     _    <- console.putStrLn {
       res2.cookies.toString //Empty as cookies are already set
