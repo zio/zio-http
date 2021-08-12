@@ -21,16 +21,19 @@ object HttpMessage {
       BufferedRequest(self, content)
   }
 
-  case class AnyRequest(override val method: Method, override val url: URL, override val headers: List[Header])
-      extends HRequest
+   sealed trait AnyRequest extends HRequest
 
   object AnyRequest {
-    def from(jReq: HttpRequest): AnyRequest = AnyRequest(
-      // TODO: improve for performance
-      method = Method.fromHttpMethod(jReq.method()),
-      url = URL.fromString(jReq.uri()).getOrElse(null),
-      headers = Header.make(jReq.headers()),
-    )
+    case class Default(override val method: Method, override val url: URL, override val headers: List[Header])
+        extends AnyRequest
+
+    case class FromJRequest(jReq: HttpRequest) extends AnyRequest {
+      override def method: Method        = Method.fromHttpMethod(jReq.method())
+      override def url: URL              = URL.fromString(jReq.uri()).getOrElse(null)
+      override def headers: List[Header] = Header.make(jReq.headers())
+    }
+
+    def from(jReq: HttpRequest): AnyRequest = FromJRequest(jReq)
   }
 
   case class CompleteRequest[+A](req: HRequest, content: A) extends HRequest {
