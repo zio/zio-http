@@ -88,8 +88,8 @@ object Header {
   def setCookieString(cookie: String): Header =
     Header(HttpHeaderNames.SET_COOKIE, cookie)
 
-  def removeCookie[M <: Meta](cookie: String): Header =
-    Header(HttpHeaderNames.SET_COOKIE, Cookie[M](cookie, "", None).toString) //TODO
+  def removeCookie[M <: Meta](cookie: Cookie[M]): Header =
+    Header(HttpHeaderNames.SET_COOKIE, cookie.clearCookie.toString)
 
   def basicHttpAuthorization(username: String, password: String): Header = {
     val authString    = String.format("%s:%s", username, password)

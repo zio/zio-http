@@ -259,7 +259,7 @@ object HeaderSpec extends DefaultRunnableSpec {
         assert(found)(isSome(equalTo("Invalid cookie: cannot use Separators or control characters")))
       },
       test("should remove set-cookie") {
-        val headerHolder = HeadersHolder(List(Header.removeCookie("abc")))
+        val headerHolder = HeadersHolder(List(Header.removeCookie(Cookie("abc", "val"))))
         val found        = headerHolder.getSetCookie
         assert(found)(isSome(equalTo("abc=")))
       },

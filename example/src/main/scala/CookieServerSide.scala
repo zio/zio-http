@@ -19,7 +19,13 @@ object CookieServerSide extends App {
         ),
       )
     case Method.GET -> Root / "cookie" / "remove" =>
-      Response.removeCookie("abc")
+      Response.removeCookie(
+        Cookie(
+          "abc",
+          "value",
+          Some(Meta(Some(date), None, Some(Path("/cookie")), false, true, None, None)),
+        ),
+      )
   }
 
   // Run it like any simple app
