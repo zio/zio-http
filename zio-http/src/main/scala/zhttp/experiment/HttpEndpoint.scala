@@ -106,7 +106,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
                                 .toBufferedRequest(
                                   ZStream
                                     .fromQueue(bufferedQueue)
-                                    .takeWhile(!_.isInstanceOf[LastHttpContent])
+                                    .takeUntil(_.isInstanceOf[LastHttpContent])
                                     .map(buf => buf.content()),
                                 ),
                             )

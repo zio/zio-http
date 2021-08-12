@@ -145,7 +145,6 @@ trait HttpMessageAssertion {
 
     _ <- proxy.request(url, method, header)
     _ <- proxy.data(content)
-    _ <- proxy.end
 
     req <- promise.await
   } yield assert(req.toList.map(bytes => bytes.toString(HTTP_CHARSET)))(assertion)
