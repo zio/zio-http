@@ -3,10 +3,9 @@ package zhttp.experiment
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.{ChannelHandler, ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http._
-import zhttp.experiment.HEndpoint.ServerEndpoint
 import zhttp.experiment.HttpMessage.{AnyRequest, CompleteRequest, HResponse}
-import zhttp.experiment.Params._
-import zhttp.http.{HTTP_CHARSET, Header, Http}
+import zhttp.experiment.ServerEndpoint.IsEndpoint
+import zhttp.http.{Header, Http, HTTP_CHARSET}
 import zhttp.service.HttpRuntime
 import zio.stream.ZStream
 import zio.{Queue, UIO, ZIO}
@@ -41,11 +40,11 @@ sealed trait HEndpoint[-R, +E] { self =>
 
         val void = ctx.channel().voidPromise()
 
-        def unsafeEval(program: ZIO[R, Option[Throwable], Any]): Unit = zExec.unsafeRun(ctx)(
-          program.catchAll({
+        def unsafeRun(program: ZIO[R, Option[Throwable], Any]): Unit = zExec.unsafeRun(ctx)(
+          program.catchAll {
             case Some(cause) => UIO(ctx.writeAndFlush(serverErrorResponse(cause), void): Unit)
             case None        => UIO(ctx.writeAndFlush(notFoundResponse, void): Unit)
-          }),
+          },
         )
         msg match {
           case jRequest: HttpRequest =>
@@ -62,7 +61,7 @@ sealed trait HEndpoint[-R, +E] { self =>
 
                 case HEndpoint.Default(endpoint, check) =>
                   if (check.is(AnyRequest.from(jRequest))) {
-                    (endpoint: ServerEndpoint[R, Throwable]) match {
+                    endpoint match {
                       case ServerEndpoint.Fail(cause) =>
                         ctx.writeAndFlush(serverErrorResponse(cause), void): Unit
 
@@ -70,7 +69,7 @@ sealed trait HEndpoint[-R, +E] { self =>
                         ctx.writeAndFlush(notFoundResponse, void): Unit
 
                       case ServerEndpoint.HttpAny(http) =>
-                        unsafeEval {
+                        unsafeRun {
                           for {
                             res <- http.executeAsZIO(())
                             _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
@@ -83,7 +82,7 @@ sealed trait HEndpoint[-R, +E] { self =>
                         ctx.read(): Unit
 
                       case ServerEndpoint.HttpAnyRequest(http) =>
-                        unsafeEval {
+                        unsafeRun {
                           for {
                             res <- http.executeAsZIO(AnyRequest.from(jRequest))
                             _   <- UIO(ctx.writeAndFlush(decodeResponse(res), void))
@@ -94,7 +93,7 @@ sealed trait HEndpoint[-R, +E] { self =>
                         ctx.channel().config().setAutoRead(false)
                         adapter.isBuffered = true
 
-                        unsafeEval {
+                        unsafeRun {
                           for {
                             q   <- Queue.bounded[HttpContent](1)
                             _   <- UIO {
@@ -134,13 +133,13 @@ sealed trait HEndpoint[-R, +E] { self =>
 
           case msg: LastHttpContent =>
             if (isBuffered) {
-              unsafeEval {
+              unsafeRun {
                 bufferedQueue.offer(msg)
               }
             } else if (adapter.isComplete) {
               adapter.completeBody.writeBytes(msg.content())
               val request = AnyRequest.from(adapter.jRequest)
-              unsafeEval {
+              unsafeRun {
                 for {
                   res <- adapter.completeHttpApp.executeAsZIO(
                     CompleteRequest(request, adapter.completeBody),
@@ -152,7 +151,7 @@ sealed trait HEndpoint[-R, +E] { self =>
             }
           case msg: HttpContent     =>
             if (adapter.isBuffered) {
-              unsafeEval {
+              unsafeRun {
                 bufferedQueue.offer(msg) *> UIO(ctx.read())
               }
             } else if (adapter.isComplete) {
@@ -185,49 +184,6 @@ sealed trait HEndpoint[-R, +E] { self =>
 }
 
 object HEndpoint {
-
-  /**
-   * It represents a set of "valid" types that the server can manage to decode a request into.
-   */
-  sealed trait ServerEndpoint[-R, +E] { self => }
-
-  object ServerEndpoint {
-
-    case object Empty extends ServerEndpoint[Any, Nothing]
-
-    final case class Fail[E, A](cause: E) extends ServerEndpoint[Any, E]
-
-    final case class HttpComplete[R, E](http: Http[R, E, CompleteRequest[ByteBuf], HResponse[R, E, ByteBuf]])
-        extends ServerEndpoint[R, E]
-
-    final case class HttpBuffered[R, E](http: Http[R, E, BufferedRequest[ByteBuf], HResponse[R, E, ByteBuf]])
-        extends ServerEndpoint[R, E]
-
-    final case class HttpAnyRequest[R, E](http: Http[R, E, AnyRequest, HResponse[R, E, ByteBuf]])
-        extends ServerEndpoint[R, E]
-
-    final case class HttpAny[R, E](http: Http[R, E, Any, HResponse[R, E, ByteBuf]]) extends ServerEndpoint[R, E]
-
-    def from[R, E](http: Http[R, E, Any, HResponse[R, E, ByteBuf]])(implicit P: P1): ServerEndpoint[R, E] =
-      HttpAnyRequest(http)
-
-    def from[R, E](http: Http[R, E, CompleteRequest[ByteBuf], HResponse[R, E, ByteBuf]])(implicit
-      P: P2,
-    ): ServerEndpoint[R, E] =
-      HttpComplete(http)
-
-    def from[R, E](http: Http[R, E, BufferedRequest[ByteBuf], HResponse[R, E, ByteBuf]])(implicit
-      P: P3,
-    ): ServerEndpoint[R, E] =
-      HttpBuffered(http)
-
-    def from[R, E](http: Http[R, E, AnyRequest, HResponse[R, E, ByteBuf]])(implicit P: P4): ServerEndpoint[R, E] =
-      HttpAnyRequest(http)
-
-    def empty: ServerEndpoint[Any, Nothing] = Empty
-
-    def fail[E](error: E): ServerEndpoint[Any, E] = Fail(error)
-  }
 
   final case class Default[R, E](se: ServerEndpoint[R, E], check: Check[AnyRequest] = Check.isTrue)
       extends HEndpoint[R, E]
