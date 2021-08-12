@@ -4,11 +4,11 @@ import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.{HRequest, HResponse}
 import zhttp.experiment.{BufferedRequest, CompleteRequest, HEndpoint}
-import zhttp.http.{Header, Http, HTTP_CHARSET, Method}
+import zhttp.http.{HTTP_CHARSET, Header, Http, Method}
 import zhttp.service.EventLoopGroup
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
-import zio.test.{assert, assertM, Assertion, TestResult}
+import zio.test.{Assertion, TestResult, assert, assertM}
 import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.nio.charset.Charset
