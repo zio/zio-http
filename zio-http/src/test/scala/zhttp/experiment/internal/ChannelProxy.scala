@@ -5,7 +5,7 @@ import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.handler.codec.http._
 import io.netty.util.CharsetUtil
 import zhttp.experiment.HEndpoint
-import zhttp.service.{EventLoopGroup, UnsafeChannelExecutor}
+import zhttp.service.{EventLoopGroup, HttpRuntime}
 import zio.internal.Executor
 import zio.stm.TQueue
 import zio.{UIO, ZIO}
@@ -94,7 +94,7 @@ object ChannelProxy {
       ec   = ExecutionContext.fromExecutor(group)
       exe  = Executor.fromExecutionContext(2048)(ec)
       gRtm = rtm.withExecutor(exe)
-      zExec    <- UnsafeChannelExecutor.dedicated[R](group)
+      zExec    <- HttpRuntime.dedicated[R](group)
       outbound <- TQueue.unbounded[HttpObject].commit
       inbound  <- TQueue.unbounded[HttpObject].commit
       proxy    <- UIO {

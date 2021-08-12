@@ -7,7 +7,7 @@ import zhttp.experiment.HEndpoint.ServerEndpoint
 import zhttp.experiment.HttpMessage.{AnyRequest, CompleteRequest, HResponse}
 import zhttp.experiment.Params._
 import zhttp.http.{Header, Http, HTTP_CHARSET}
-import zhttp.service.UnsafeChannelExecutor
+import zhttp.service.HttpRuntime
 import zio.stream.ZStream
 import zio.{Queue, UIO, ZIO}
 
@@ -16,7 +16,7 @@ sealed trait HEndpoint[-R, +E] { self =>
   def +++[R1 <: R, E1 >: E](other: HEndpoint[R1, E1]): HEndpoint[R1, E1]     = self combine other
   def check: Check[AnyRequest]
 
-  private[zhttp] def compile[R1 <: R](zExec: UnsafeChannelExecutor[R1])(implicit
+  private[zhttp] def compile[R1 <: R](zExec: HttpRuntime[R1])(implicit
     evE: E <:< Throwable,
   ): ChannelHandler =
     new ChannelInboundHandlerAdapter { adapter =>

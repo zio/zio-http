@@ -13,37 +13,27 @@ import scala.jdk.CollectionConverters._
  * Provides basic ZIO based utilities for any ZIO based program to execute in a channel's context. It will automatically
  * cancel the execution when the channel closes.
  */
-final class UnsafeChannelExecutor[R](runtime: UnsafeChannelExecutor.Strategy[R]) {
+final class HttpRuntime[R](strategy: HttpRuntime.Strategy[R]) {
 
   def unsafeExecute_(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
-    unsafeExecute(ctx, program) {
-      case Exit.Success(_)     => ()
-      case Exit.Failure(cause) =>
-        cause.failureOption match {
-          case Some(error: Throwable) => ctx.fireExceptionCaught(error)
-          case _                      => ()
-        }
-        ctx.close()
-    }
-  }
-
-  def unsafeExecute[E, A](ctx: ChannelHandlerContext, program: ZIO[R, E, A])(
-    cb: Exit[E, A] => Any,
-  ): Unit = {
-    val rtm = runtime.getRuntime(ctx)
+    val rtm = strategy.getRuntime(ctx)
     rtm
       .unsafeRunAsync(for {
-        fiber  <- program.fork
-        _      <- ZIO.effectTotal {
-          ctx.channel.closeFuture.addListener((_: AnyRef) => rtm.unsafeRunAsync_(fiber.interrupt): Unit)
+        fiber <- program.fork
+        _     <- ZIO.effectTotal {
+          ctx.channel().closeFuture.addListener((_: AnyRef) => rtm.unsafeRunAsync_(fiber.interrupt): Unit)
         }
-        result <- fiber.join
-      } yield result)(cb)
-
+        _     <- fiber.join
+      } yield ()) {
+        case Exit.Success(_)     => ()
+        case Exit.Failure(cause) =>
+          strategy.getRuntime(ctx).platform.reportFailure(cause)
+          ctx.close()
+      }
   }
 }
 
-object UnsafeChannelExecutor {
+object HttpRuntime {
   sealed trait Strategy[R] {
     def getRuntime(ctx: ChannelHandlerContext): Runtime[R]
   }
@@ -91,12 +81,12 @@ object UnsafeChannelExecutor {
       ZIO.runtime[R].map(runtime => Dedicated(runtime, group))
   }
 
-  def sticky[R](group: JEventLoopGroup): URIO[R, UnsafeChannelExecutor[R]] =
-    Strategy.sticky(group).map(runtime => new UnsafeChannelExecutor[R](runtime))
+  def sticky[R](group: JEventLoopGroup): URIO[R, HttpRuntime[R]] =
+    Strategy.sticky(group).map(runtime => new HttpRuntime[R](runtime))
 
-  def dedicated[R](group: JEventLoopGroup): URIO[R, UnsafeChannelExecutor[R]] =
-    Strategy.dedicated(group).map(runtime => new UnsafeChannelExecutor[R](runtime))
+  def dedicated[R](group: JEventLoopGroup): URIO[R, HttpRuntime[R]] =
+    Strategy.dedicated(group).map(runtime => new HttpRuntime[R](runtime))
 
-  def default[R](): URIO[R, UnsafeChannelExecutor[R]] =
-    Strategy.default().map(runtime => new UnsafeChannelExecutor[R](runtime))
+  def default[R](): URIO[R, HttpRuntime[R]] =
+    Strategy.default().map(runtime => new HttpRuntime[R](runtime))
 }

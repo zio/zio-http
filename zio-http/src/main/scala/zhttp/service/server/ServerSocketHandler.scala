@@ -6,7 +6,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.{
   ServerHandshakeStateEvent,
 }
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame}
-import zhttp.service.{ChannelFuture, UnsafeChannelExecutor}
+import zhttp.service.{ChannelFuture, HttpRuntime}
 import zhttp.socket.SocketApp.Open
 import zhttp.socket.{SocketApp, WebSocketFrame}
 import zio.stream.ZStream
@@ -15,7 +15,7 @@ import zio.stream.ZStream
  * Creates a new websocket handler
  */
 final case class ServerSocketHandler[R](
-  zExec: UnsafeChannelExecutor[R],
+  zExec: HttpRuntime[R],
   ss: SocketApp.SocketConfig[R, Throwable],
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 

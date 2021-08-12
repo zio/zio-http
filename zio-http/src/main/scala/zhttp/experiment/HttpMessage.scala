@@ -21,7 +21,7 @@ object HttpMessage {
       BufferedRequest(self, content)
   }
 
-   sealed trait AnyRequest extends HRequest
+  sealed trait AnyRequest extends HRequest
 
   object AnyRequest {
     case class Default(override val method: Method, override val url: URL, override val headers: List[Header])

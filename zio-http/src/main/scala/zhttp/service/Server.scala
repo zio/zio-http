@@ -88,7 +88,7 @@ object Server {
     for {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
-      zExec          <- UnsafeChannelExecutor.sticky[R](eventLoopGroup).toManaged_
+      zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
       httpH           = ServerRequestHandler(zExec, settings)
       init            = ServerChannelInitializer(zExec, settings)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)

@@ -2,7 +2,7 @@ package zhttp.experiment
 
 import io.netty.channel.{ChannelHandler, ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.HttpObject
-import zhttp.service.UnsafeChannelExecutor
+import zhttp.service.HttpRuntime
 import zio.{UIO, ZIO}
 
 trait HChannel[-R, +E, -A, +B] {
@@ -10,14 +10,15 @@ trait HChannel[-R, +E, -A, +B] {
   def error(cause: Throwable, context: Context[B]): ZIO[R, E, Unit]
 
   def compile[R1 <: R](
-    zExec: UnsafeChannelExecutor[R1],
+    zExec: HttpRuntime[R1],
   )(implicit evE: E <:< Throwable): ChannelHandler =
     new ChannelInboundHandlerAdapter {
       private val self = this.asInstanceOf[HChannel[R1, Throwable, HttpObject, HttpObject]]
       override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
-        zExec.unsafeExecute_(ctx)(msg match {
-          case msg: HttpObject => self.message(msg, Context(ctx))
-          case _               => UIO(ctx.fireChannelRead(msg))
+        zExec.unsafeExecute_(ctx)(
+          msg match {
+            case msg: HttpObject => self.message(msg, Context(ctx))
+            case _               => UIO(ctx.fireChannelRead(msg))
         })
       }
 

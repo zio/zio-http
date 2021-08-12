@@ -4,13 +4,13 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{Channel, ChannelInitializer}
 import io.netty.handler.codec.http.{HttpServerCodec, HttpServerKeepAliveHandler}
 import zhttp.service.Server.Settings
-import zhttp.service.{SSL_HANDLER, UnsafeChannelExecutor}
+import zhttp.service.{HttpRuntime, SSL_HANDLER}
 
 /**
  * Initializes the netty channel with default handlers
  */
 @Sharable
-final case class ServerChannelInitializer[R](zExec: UnsafeChannelExecutor[R], settings: Settings[R, Throwable])
+final case class ServerChannelInitializer[R](zExec: HttpRuntime[R], settings: Settings[R, Throwable])
     extends ChannelInitializer[Channel] {
   override def initChannel(channel: Channel): Unit = {
 

@@ -12,7 +12,7 @@ import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
 
-final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[Channel], el: JEventLoopGroup)
+final case class Client(zx: HttpRuntime[Any], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
   private def asyncRequest(
     req: Request,
@@ -55,7 +55,7 @@ object Client {
   def make: ZIO[EventLoopGroup with ChannelFactory, Nothing, Client] = for {
     cf <- ZIO.access[ChannelFactory](_.get)
     el <- ZIO.access[EventLoopGroup](_.get)
-    zx <- UnsafeChannelExecutor.default[Any]()
+    zx <- HttpRuntime.default[Any]()
   } yield service.Client(zx, cf, el)
 
   def request(

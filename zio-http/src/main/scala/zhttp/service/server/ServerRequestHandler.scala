@@ -8,14 +8,13 @@ import io.netty.handler.codec.http.{FullHttpRequest, LastHttpContent}
 import zhttp.http._
 import zhttp.service.Server.Settings
 import zhttp.service._
-import zio.Exit
 
 /**
  * Helper class with channel methods
  */
 @Sharable
 final case class ServerRequestHandler[R](
-  zExec: UnsafeChannelExecutor[R],
+  zExec: HttpRuntime[R],
   settings: Settings[R, Throwable],
 ) extends SimpleChannelInboundHandler[FullHttpRequest](AUTO_RELEASE_REQUEST)
     with HttpMessageCodec {
@@ -32,29 +31,29 @@ final case class ServerRequestHandler[R](
    */
   private def executeAsync(ctx: ChannelHandlerContext, jReq: FullHttpRequest)(
     cb: Response[R, Throwable] => Unit,
-  ): Unit =
-    decodeJRequest(jReq, ctx) match {
-      case Left(err)  => cb(err.toResponse)
-      case Right(req) =>
-        settings.http.execute(req).evaluate match {
-          case HttpResult.Empty      => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
-          case HttpResult.Success(a) => cb(a)
-          case HttpResult.Failure(e) => cb(SilentResponse[Throwable].silent(e))
-          case HttpResult.Effect(z)  =>
-            zExec.unsafeExecute(ctx, z) {
-              case Exit.Success(res)   => cb(res)
-              case Exit.Failure(cause) =>
-                cause.failureOption match {
-                  case Some(Some(e)) => cb(SilentResponse[Throwable].silent(e))
-                  case Some(None)    => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
-                  case None          => {
-                    ctx.close()
-                    ()
-                  }
-                }
-            }
-        }
-    }
+  ): Unit = ???
+//    decodeJRequest(jReq, ctx) match {
+//      case Left(err)  => cb(err.toResponse)
+//      case Right(req) =>
+//        settings.http.execute(req).evaluate match {
+//          case HttpResult.Empty      => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
+//          case HttpResult.Success(a) => cb(a)
+//          case HttpResult.Failure(e) => cb(SilentResponse[Throwable].silent(e))
+//          case HttpResult.Effect(z)  =>
+//            zExec.unsafeExecute(ctx)( z) {
+//              case Exit.Success(res)   => cb(res)
+//              case Exit.Failure(cause) =>
+//                cause.failureOption match {
+//                  case Some(Some(e)) => cb(SilentResponse[Throwable].silent(e))
+//                  case Some(None)    => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
+//                  case None          => {
+//                    ctx.close()
+//                    ()
+//                  }
+//                }
+//            }
+//        }
+//    }
 
   /**
    * Unsafe channel reader for HttpRequest

@@ -5,7 +5,7 @@ import zhttp.experiment.HEndpoint.ServerEndpoint
 import zhttp.experiment.HttpMessage.HResponse
 import zhttp.http.Http
 
-private [zhttp] sealed trait IsEndpoint[A] {
+private[zhttp] sealed trait IsEndpoint[A] {
   def endpoint[R, E, B](http: Http[R, E, A, HResponse[R, E, ByteBuf]]): ServerEndpoint[R, E]
 }
 
