@@ -1,9 +1,10 @@
 package zhttp.service
 
-import io.netty.util.{ResourceLeakDetector => JResourceLeakDetector}
-import zhttp.core._
+import io.netty.bootstrap.ServerBootstrap
+import io.netty.util.ResourceLeakDetector
 import zhttp.http.{Status, _}
-import zhttp.service.server.{LeakDetectionLevel, ServerChannelFactory, ServerChannelInitializer, ServerRequestHandler}
+import zhttp.service.server.ServerSSLHandler._
+import zhttp.service.server._
 import zio.{ZManaged, _}
 
 sealed trait Server[-R, +E] { self =>
@@ -20,6 +21,7 @@ sealed trait Server[-R, +E] { self =>
     case App(http)            => s.copy(http = http)
     case MaxRequestSize(size) => s.copy(maxRequestSize = size)
     case Error(errorHandler)  => s.copy(error = Some(errorHandler))
+    case Ssl(sslOption)       => s.copy(sslOption = sslOption)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
@@ -36,6 +38,7 @@ object Server {
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
     error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
+    sslOption: ServerSSLOptions = null,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -44,11 +47,13 @@ object Server {
   private final case class MaxRequestSize(size: Int)                                  extends UServer
   private final case class App[R, E](http: HttpApp[R, E])                             extends Server[R, E]
   private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
+  private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]                                   = Server.App(http)
   def maxRequestSize(size: Int): UServer                                             = Server.MaxRequestSize(size)
   def port(int: Int): UServer                                                        = Server.Port(int)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
+  def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   val disableLeakDetection: UServer                                                  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer                                                   = LeakDetection(LeakDetectionLevel.SIMPLE)
   val advancedLeakDetection: UServer                                                 = LeakDetection(LeakDetectionLevel.ADVANCED)
@@ -57,7 +62,10 @@ object Server {
   /**
    * Launches the app on the provided port.
    */
-  def start[R <: Has[_]](port: Int, http: RHttpApp[R]): ZIO[R, Throwable, Nothing] =
+  def start[R <: Has[_]](
+    port: Int,
+    http: RHttpApp[R],
+  ): ZIO[R, Throwable, Nothing] =
     (Server.port(port) ++ Server.app(http)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
@@ -66,15 +74,15 @@ object Server {
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] = {
     val settings = server.settings()
     for {
-      zExec          <- UnsafeChannelExecutor.make[R].toManaged_
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
+      zExec          <- UnsafeChannelExecutor.make[R](eventLoopGroup).toManaged_
       httpH           = ServerRequestHandler(zExec, settings)
-      init            = ServerChannelInitializer(httpH, settings.maxRequestSize)
-      serverBootstrap = new JServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
+      init            = ServerChannelInitializer(httpH, settings)
+      serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.port))
     } yield {
-      JResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
+      ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
     }
   }
 }

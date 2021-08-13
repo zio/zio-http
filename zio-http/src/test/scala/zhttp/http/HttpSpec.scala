@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.UIO
+import zio._
 import zio.duration.durationInt
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
@@ -146,6 +146,102 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
         val app    = Http.route[Int](Map.empty)
         val actual = app.execute(1).evaluate
         assert(actual)(isEmpty)
+      },
+    ),
+    suite("tap")(
+      testM("taps the successs") {
+        for {
+          r <- Ref.make(0)
+          app = Http.succeed(1).tap(v => Http.fromEffect(r.set(v)))
+          _   <- app.execute(()).evaluate.asEffect
+          res <- r.get
+        } yield assert(res)(equalTo(1))
+      },
+    ),
+    suite("tapM")(
+      testM("taps the successs") {
+        for {
+          r <- Ref.make(0)
+          app = Http.succeed(1).tapM(r.set)
+          _   <- app.execute(()).evaluate.asEffect
+          res <- r.get
+        } yield assert(res)(equalTo(1))
+      },
+    ),
+    suite("tapError")(
+      testM("taps the error") {
+        for {
+          r <- Ref.make(0)
+          app = Http.fail(1).tapError(v => Http.fromEffect(r.set(v)))
+          _   <- app.execute(()).evaluate.asEffect.ignore
+          res <- r.get
+        } yield assert(res)(equalTo(1))
+      },
+    ),
+    suite("tapErrorM")(
+      testM("taps the error") {
+        for {
+          r <- Ref.make(0)
+          app = Http.fail(1).tapErrorM(r.set)
+          _   <- app.execute(()).evaluate.asEffect.ignore
+          res <- r.get
+        } yield assert(res)(equalTo(1))
+      },
+    ),
+    suite("tapAll")(
+      testM("taps the success") {
+        for {
+          r <- Ref.make(0)
+          app = (Http.succeed(1): Http[Any, Any, Any, Int])
+            .tapAll(_ => Http.empty, v => Http.fromEffect(r.set(v)), Http.empty)
+          _   <- app.execute(()).evaluate.asEffect
+          res <- r.get
+        } yield assert(res)(equalTo(1))
+      },
+      testM("taps the failure") {
+        for {
+          r <- Ref.make(0)
+          app = (Http.fail(1): Http[Any, Int, Any, Any])
+            .tapAll(v => Http.fromEffect(r.set(v)), _ => Http.empty, Http.empty)
+          _   <- app.execute(()).evaluate.asEffect.ignore
+          res <- r.get
+        } yield assert(res)(equalTo(1))
+      },
+      testM("taps the empty") {
+        for {
+          r <- Ref.make(0)
+          app = (Http.empty: Http[Any, Any, Any, Any])
+            .tapAll(_ => Http.empty, _ => Http.empty, Http.fromEffect(r.set(1)))
+          _   <- app.execute(()).evaluate.asEffect.ignore
+          res <- r.get
+        } yield assert(res)(equalTo(1))
+      },
+    ),
+    suite("tapAllM")(
+      testM("taps the success") {
+        for {
+          r <- Ref.make(0)
+          app = (Http.succeed(1): Http[Any, Any, Any, Int]).tapAllM(_ => ZIO.unit, r.set, ZIO.unit)
+          _   <- app.execute(()).evaluate.asEffect
+          res <- r.get
+        } yield assert(res)(equalTo(1))
+      },
+      testM("taps the failure") {
+        for {
+          r <- Ref.make(0)
+          app = (Http.fail(1): Http[Any, Int, Any, Any]).tapAllM(r.set, _ => ZIO.unit, ZIO.unit)
+          _   <- app.execute(()).evaluate.asEffect.ignore
+          res <- r.get
+        } yield assert(res)(equalTo(1))
+      },
+      testM("taps the empty") {
+        for {
+          r <- Ref.make(0)
+          app = (Http.empty: Http[Any, Any, Any, Any])
+            .tapAllM(_ => ZIO.unit, _ => ZIO.unit, r.set(1))
+          _   <- app.execute(()).evaluate.asEffect.ignore
+          res <- r.get
+        } yield assert(res)(equalTo(1))
       },
     ),
   ) @@ timeout(10 seconds)

@@ -1,9 +1,6 @@
 package zhttp.socket
 
-import io.netty.handler.codec.http.websocketx.{
-  WebSocketCloseStatus => JWebSocketCloseStatus,
-  WebSocketServerProtocolConfig => JWebSocketServerProtocolConfig,
-}
+import io.netty.handler.codec.http.websocketx.{WebSocketCloseStatus, WebSocketServerProtocolConfig}
 import zio.duration.Duration
 
 /**
@@ -12,8 +9,8 @@ import zio.duration.Duration
 sealed trait SocketProtocol { self =>
   import SocketProtocol._
   def ++(other: SocketProtocol): SocketProtocol = SocketProtocol.Concat(self, other)
-  def javaConfig: JWebSocketServerProtocolConfig = {
-    val b = JWebSocketServerProtocolConfig.newBuilder().checkStartsWith(true).websocketPath("")
+  def javaConfig: WebSocketServerProtocolConfig = {
+    val b = WebSocketServerProtocolConfig.newBuilder().checkStartsWith(true).websocketPath("")
     def loop(protocol: SocketProtocol): Unit = {
       protocol match {
         case Default                           => ()
@@ -22,7 +19,7 @@ sealed trait SocketProtocol { self =>
         case ForceCloseTimeoutMillis(duration) => b.forceCloseTimeoutMillis(duration.toMillis)
         case ForwardCloseFrames                => b.handleCloseFrames(false)
         case SendCloseFrame(status)            => b.sendCloseFrame(status.asJava)
-        case SendCloseFrameCode(code, reason)  => b.sendCloseFrame(new JWebSocketCloseStatus(code, reason))
+        case SendCloseFrameCode(code, reason)  => b.sendCloseFrame(new WebSocketCloseStatus(code, reason))
         case ForwardPongFrames                 => b.dropPongFrames(false)
         case Concat(a, b)                      =>
           loop(a)

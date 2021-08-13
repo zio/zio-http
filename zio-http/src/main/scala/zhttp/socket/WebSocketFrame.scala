@@ -1,9 +1,10 @@
 package zhttp.socket
 
-import zhttp.core.{ByteBuf, _}
+import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}
+import zhttp.core.ByteBuf
 
 sealed trait WebSocketFrame extends Product with Serializable { self =>
-  def toJWebSocketFrame: JWebSocketFrame = WebSocketFrame.toJFrame(self)
+  def toWebSocketFrame: JWebSocketFrame = WebSocketFrame.toJFrame(self)
 }
 object WebSocketFrame {
 
@@ -30,17 +31,17 @@ object WebSocketFrame {
 
   def fromJFrame(jFrame: JWebSocketFrame): Option[WebSocketFrame] =
     jFrame match {
-      case _: JPingWebSocketFrame         =>
+      case _: PingWebSocketFrame         =>
         Option(Ping)
-      case _: JPongWebSocketFrame         =>
+      case _: PongWebSocketFrame         =>
         Option(Pong)
-      case m: JBinaryWebSocketFrame       =>
+      case m: BinaryWebSocketFrame       =>
         Option(Binary(ByteBuf(m.content())))
-      case m: JTextWebSocketFrame         =>
+      case m: TextWebSocketFrame         =>
         Option(Text(m.text()))
-      case m: JCloseWebSocketFrame        =>
+      case m: CloseWebSocketFrame        =>
         Option(Close(m.statusCode(), Option(m.reasonText())))
-      case m: JContinuationWebSocketFrame =>
+      case m: ContinuationWebSocketFrame =>
         Option(Continuation(ByteBuf(m.content())))
 
       case _ => None
@@ -49,18 +50,18 @@ object WebSocketFrame {
   def toJFrame(frame: WebSocketFrame): JWebSocketFrame =
     frame match {
       case Binary(buffer)            =>
-        new JBinaryWebSocketFrame(buffer.asJava)
+        new BinaryWebSocketFrame(buffer.asJava)
       case Text(text)                =>
-        new JTextWebSocketFrame(text)
+        new TextWebSocketFrame(text)
       case Close(status, Some(text)) =>
-        new JCloseWebSocketFrame(status, text)
+        new CloseWebSocketFrame(status, text)
       case Close(status, None)       =>
-        new JCloseWebSocketFrame(status, null)
+        new CloseWebSocketFrame(status, null)
       case Ping                      =>
-        new JPingWebSocketFrame()
+        new PingWebSocketFrame()
       case Pong                      =>
-        new JPongWebSocketFrame()
+        new PongWebSocketFrame()
       case Continuation(buffer)      =>
-        new JContinuationWebSocketFrame(buffer.asJava)
+        new ContinuationWebSocketFrame(buffer.asJava)
     }
 }

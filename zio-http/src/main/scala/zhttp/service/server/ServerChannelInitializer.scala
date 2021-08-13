@@ -1,21 +1,42 @@
 package zhttp.service.server
 
-import io.netty.handler.codec.http.HttpServerKeepAliveHandler
-import zhttp.core._
-import zhttp.service.{HTTP_KEEPALIVE_HANDLER, HTTP_REQUEST_HANDLER, OBJECT_AGGREGATOR, SERVER_CODEC_HANDLER}
+import io.netty.channel.ChannelHandler.Sharable
+import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer}
+import io.netty.handler.codec.http.{HttpObjectAggregator, HttpServerCodec, HttpServerKeepAliveHandler}
+import zhttp.service.Server.Settings
+import zhttp.service.{
+  HTTP_KEEPALIVE_HANDLER,
+  HTTP_REQUEST_HANDLER,
+  OBJECT_AGGREGATOR,
+  SERVER_CODEC_HANDLER,
+  SSL_HANDLER,
+}
 
 /**
  * Initializes the netty channel with default handlers
  */
-@JSharable
-final case class ServerChannelInitializer(httpH: JChannelHandler, maxSize: Int) extends JChannelInitializer[JChannel] {
-  override def initChannel(channel: JChannel): Unit = {
+@Sharable
+final case class ServerChannelInitializer[R](httpH: ChannelHandler, settings: Settings[R, Throwable])
+    extends ChannelInitializer[Channel] {
+  override def initChannel(channel: Channel): Unit = {
+
+    val sslctx = if (settings.sslOption == null) null else settings.sslOption.sslContext
+    if (sslctx != null) {
+      channel
+        .pipeline()
+        .addFirst(
+          SSL_HANDLER,
+          new OptionalSSLHandler(sslctx, settings.sslOption.httpBehaviour),
+        )
+      ()
+    }
     channel
       .pipeline()
-      .addLast(SERVER_CODEC_HANDLER, new JHttpServerCodec)
+      .addLast(SERVER_CODEC_HANDLER, new HttpServerCodec)
       .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
-      .addLast(OBJECT_AGGREGATOR, new JHttpObjectAggregator(maxSize))
+      .addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(settings.maxRequestSize))
       .addLast(HTTP_REQUEST_HANDLER, httpH)
     ()
   }
+
 }
