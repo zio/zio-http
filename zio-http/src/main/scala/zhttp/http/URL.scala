@@ -55,14 +55,14 @@ object URL {
     for {
       scheme <- Scheme.fromString(uri.getScheme)
       host   <- Option(uri.getHost)
-      path   <- Option(uri.getPath)
+      path   <- Option(uri.getRawPath)
       port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
       connection = URL.Location.Absolute(scheme, host, port)
     } yield URL(Path(path), connection, queryParams(uri.getRawQuery))
   }
 
   private def fromRelativeURI(uri: URI): Option[URL] = for {
-    path <- Option(uri.getPath)
+    path <- Option(uri.getRawPath)
   } yield URL(Path(path), Location.Relative, queryParams(uri.getRawQuery))
 
   def fromString(string: String): Either[HttpError, URL] = {
