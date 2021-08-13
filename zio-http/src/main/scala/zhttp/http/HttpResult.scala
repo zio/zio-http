@@ -73,9 +73,8 @@ object HttpResult {
   case object Empty                                         extends Out[Any, Nothing, Nothing]
 
   // OPR
+  private final case class EffectTotal[A](f: () => A)                       extends HttpResult[Any, Nothing, A]
   private final case class Suspend[R, E, A](r: () => HttpResult[R, E, A])   extends HttpResult[R, E, A]
-  private final case class EffectTotal[A](f: () => A)                     extends HttpResult[Any, Nothing, A]
-  private final case class Suspend[R, E, A](r: () => HttpResult[R, E, A]) extends HttpResult[R, E, A]
   private final case class FoldM[R, E, EE, A, AA](
     rr: HttpResult[R, E, A],
     ee: E => HttpResult[R, EE, AA],
@@ -121,6 +120,7 @@ object HttpResult {
           case out: Out[_, _, _]     => out
           case Suspend(r)            => r().provide(env)
           case FoldM(rr, ee, aa, dd) => rr.foldM(e => ee(e).provide(env), a => aa(a).provide(env), dd.provide(env))
+          case EffectTotal(f)        => HttpResult.succeed(f())
           case Provide(r, _)         => r
         })
       case EffectTotal(f)          => HttpResult.succeed(f())
