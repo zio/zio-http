@@ -1,7 +1,8 @@
 package zhttp.http
 
-import java.text.SimpleDateFormat
-import java.util.{Date, TimeZone}
+import java.time.format.DateTimeFormatter
+import java.time.{Instant, ZoneId}
+import scala.util.{Failure, Success, Try}
 
 sealed trait SameSite
 object SameSite {
@@ -13,7 +14,7 @@ object SameSite {
 final case class Cookie(
   name: String,
   content: String,
-  expires: Option[Date] = None,
+  expires: Option[Instant] = None,
   domain: Option[String] = None,
   path: Option[Path] = None,
   secure: Boolean = false,
@@ -25,7 +26,7 @@ final case class Cookie(
     copy(content = "")
 
   def setContent(v: String): Cookie            = copy(content = v)
-  def setExpires(v: Option[Date]): Cookie      = copy(expires = v)
+  def setExpires(v: Option[Instant]): Cookie   = copy(expires = v)
   def setMaxAge(v: Option[Long]): Cookie       = copy(maxAge = v)
   def setDomain(v: Option[String]): Cookie     = copy(domain = v)
   def setPath(v: Option[Path]): Cookie         = copy(path = v)
@@ -39,13 +40,10 @@ final case class Cookie(
   def removeMaxAge(): Cookie   = copy(maxAge = None)
   def removeSameSite(): Cookie = copy(sameSite = None)
 
-  val df = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", java.util.Locale.US)
-  df.setTimeZone(TimeZone.getTimeZone("GMT"))
-
   def asString: String = {
     val cookie = List(
       Some(s"$name=$content"),
-      expires.map(e => s"Expires=${df.format(e)}"),
+      expires.map(e => s"Expires=${DateTimeFormatter.RFC_1123_DATE_TIME.format(e.atZone(ZoneId.of("GMT")))}"),
       maxAge.map(a => s"Max-Age=$a"),
       domain.map(d => s"Domain=$d"),
       path.map(p => s"Path=$p"),
@@ -71,9 +69,46 @@ object Cookie {
         case _             => ("", None)
       }
 
-    val cookie          = headerValue.split(";").map(_.trim)
-    val (first, _)      = (cookie.head, cookie.tail)
-    val (name, content) = splitNameContent(first)
-    Cookie(name, content.getOrElse(""))
+    val cookieWithoutMeta = headerValue.split(";").map(_.trim)
+    val (first, other)    = (cookieWithoutMeta.head, cookieWithoutMeta.tail)
+    val (name, content)   = splitNameContent(first)
+    val cookie: Cookie    = Cookie(name, content.getOrElse(""))
+
+    other.map(splitNameContent).map(t => (t._1, t._2)).foreach {
+      case (ci"expires", Some(v))  =>
+        cookie.setExpires(parseDate(v) match {
+          case Left(_)      => None
+          case Right(value) => Some(value)
+        })
+      case (ci"max-age", Some(v))  =>
+        cookie.setMaxAge(Try(v.toLong) match {
+          case Success(maxAge) => Some(maxAge)
+          case Failure(_)      => None
+        })
+      case (ci"domain", v)         => cookie.setDomain(Some(v.getOrElse("")))
+      case (ci"path", v)           => cookie.setPath(Some(Path(v.getOrElse(""))))
+      case (ci"secure", _)         => cookie.setSecure(true)
+      case (ci"httponly", _)       => cookie.setHttpOnly(true)
+      case (ci"samesite", Some(v)) =>
+        v.trim match {
+          case ci"lax"    => cookie.setSameSite(Some(SameSite.Lax))
+          case ci"strict" => cookie.setSameSite(Some(SameSite.Strict))
+          case ci"none"   => cookie.setSameSite(Some(SameSite.None))
+          case _          => cookie.setSameSite(None)
+        }
+      case (_, _)                  => cookie
+    }
+
+    cookie
   }
+
+  implicit class CaseInsensitiveRegex(sc: StringContext) {
+    def ci = ("(?i)" + sc.parts.mkString).r
+  }
+  def parseDate(v: String): Either[String, Instant] =
+    Try(Instant.from(DateTimeFormatter.RFC_1123_DATE_TIME.parse(v))) match {
+      case Success(r) => Right(r)
+      case Failure(e) => Left(s"Invalid http date: $v (${e.getMessage})")
+    }
+
 }

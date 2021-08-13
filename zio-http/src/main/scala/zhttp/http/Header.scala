@@ -50,18 +50,15 @@ object Header {
   def cookieParser(cookie: List[(String, String)]): String =
     cookie.map(p => p._1 + "=" + p._2) mkString "; "
 
-  def cookies(cookie: List[Cookie]): Header = {
+  def cookies(cookie: List[Cookie]): Header =
     Header(
       HttpHeaderNames.COOKIE,
       cookieParser(
         cookie.map(value => (value.name, value.content)),
       ),
     )
-  }
 
-  def cookies(response: UHttpResponse): Header = cookies(
-    response.cookies,
-  )
+  def cookies(response: UHttpResponse): Header = cookies(response.cookies)
 
   def cookie(cookie: Cookie): Header = Header(HttpHeaderNames.COOKIE, cookie.name + "=" + cookie.content)
 
@@ -73,6 +70,9 @@ object Header {
 
   def removeCookie(cookie: Cookie): Header =
     Header(HttpHeaderNames.SET_COOKIE, cookie.clearCookie.asString)
+
+  def removeCookie(cookie: String): Header =
+    Header(HttpHeaderNames.SET_COOKIE, Cookie(cookie, content = "").asString)
 
   def basicHttpAuthorization(username: String, password: String): Header = {
     val authString    = String.format("%s:%s", username, password)
