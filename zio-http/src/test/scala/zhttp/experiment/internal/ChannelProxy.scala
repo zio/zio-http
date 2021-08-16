@@ -14,8 +14,8 @@ import zio.stm.TQueue
 import scala.concurrent.ExecutionContext
 
 case class ChannelProxy(
-  inbound: MessageQueue,
-  outbound: MessageQueue,
+  inbound: MessageQueue[HttpObject],
+  outbound: MessageQueue[HttpObject],
   ec: ExecutionContext,
   rtm: zio.Runtime[Any],
 ) extends EmbeddedChannel { self =>
@@ -39,7 +39,8 @@ case class ChannelProxy(
   }
     .on(ec)
 
-  def receive: UIO[HttpObject] = outbound.take
+  def receive: UIO[HttpObject]                = outbound.take
+  def receiveN(n: Int): UIO[List[HttpObject]] = outbound.takeN(n)
 
   def request(
     url: String = "/",
@@ -101,24 +102,34 @@ case class ChannelProxy(
 
 object ChannelProxy {
 
-  sealed trait MessageQueue {
-    def offer(msg: HttpObject): UIO[Unit]
-    def take: UIO[HttpObject]
+  sealed trait MessageQueue[A] {
+    def offer(msg: A): UIO[Unit]
+    def take: UIO[A]
+    def takeN(n: Int): UIO[List[A]]
   }
 
   object MessageQueue {
-    case class Live(q: Queue[HttpObject]) extends MessageQueue {
-      override def offer(msg: HttpObject): UIO[Unit] = q.offer(msg).unit
-      override def take: UIO[HttpObject]             = q.take
+    case class Live[A](q: Queue[A]) extends MessageQueue[A] {
+      override def offer(msg: A): UIO[Unit]    = q.offer(msg).unit
+      override def take: UIO[A]                = q.take
+      override def takeN(n: Int): UIO[List[A]] = q.takeN(n)
     }
 
-    case class Transactional(q: TQueue[HttpObject]) extends MessageQueue {
-      override def offer(msg: HttpObject): UIO[Unit] = q.offer(msg).commit.unit
-      override def take: UIO[HttpObject]             = q.take.commit
+    case class Transactional[A](q: TQueue[A]) extends MessageQueue[A] {
+      override def offer(msg: A): UIO[Unit] = q.offer(msg).commit.unit
+      override def take: UIO[A]             = q.take.commit
+      override def takeN(n: Int): UIO[List[A]] = {
+        def loop(list: List[A]): UIO[List[A]] = {
+          if (list.size == n) UIO(list)
+          else q.take.commit.flatMap(i => loop(i :: list))
+        }
+
+        loop(Nil)
+      }
     }
 
-    def stm: UIO[MessageQueue]     = TQueue.unbounded[HttpObject].commit.map(Transactional)
-    def default: UIO[MessageQueue] = Queue.unbounded[HttpObject].map(Live)
+    def stm[A]: UIO[MessageQueue[A]]     = TQueue.unbounded[A].commit.map(Transactional(_))
+    def default[A]: UIO[MessageQueue[A]] = Queue.unbounded[A].map(Live(_))
   }
 
   def make[R](app: HttpEndpoint[R, Throwable]): ZIO[R with EventLoopGroup, Nothing, ChannelProxy] = {
@@ -132,8 +143,8 @@ object ChannelProxy {
       // Otherwise, it is possible to have messages being inserted out of order.
       grtm = rtm.withExecutor(Executor.fromExecutionContext(2048)(ec))
       zExec    <- HttpRuntime.dedicated[R](group)
-      outbound <- MessageQueue.default
-      inbound  <- MessageQueue.default
+      outbound <- MessageQueue.default[HttpObject]
+      inbound  <- MessageQueue.default[HttpObject]
       proxy    <- UIO {
         val ch = ChannelProxy(inbound, outbound, ec, grtm)
         ch.pipeline().addLast(app.compile(zExec))
