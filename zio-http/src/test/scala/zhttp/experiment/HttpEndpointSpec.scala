@@ -7,6 +7,8 @@ import zhttp.experiment.internal.{ChannelProxy, HttpMessageAssertion}
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio._
+import zio.duration.durationInt
+import zio.stream.ZStream
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect._
 import zio.test._
@@ -31,7 +33,8 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
       ),
       UnmatchedPathSpec,
       CombineSpec,
-      CompleteResponseSpec,
+      EchoCompleteResponseSpec,
+      EchoStreamingResponseSpec,
     ).provideCustomLayer(env)
 
   /**
@@ -107,7 +110,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
         )
       },
       testM("req.content is 'ABCDE'") {
-        assertBufferedRequestContent(content = "ABCDE".split(""))(equalTo(List("A", "B", "C", "D", "E")))
+        assertBufferedRequestContent(content = List("A", "B", "C", "D", "E"))(equalTo(List("A", "B", "C", "D", "E")))
       } @@ nonFlaky,
       testM("req.url is '/abc'") {
         assertBufferedRequest("/abc", HttpMethod.GET)(isRequest(url("/abc")))
@@ -334,14 +337,20 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
     )
   }
 
-  def CompleteResponseSpec = {
-    val greet = HResponse(content = HContent.complete(Unpooled.copiedBuffer("Hello".getBytes(HTTP_CHARSET))))
+  def echoComplete(req: BufferedRequest[ByteBuf]): ZIO[Any, Nothing, HResponse[Any, Nothing, ByteBuf]] =
+    for {
+      content <- req.content.runCollect.map(chunk => Unpooled.copiedBuffer(chunk.toArray: _*))
+    } yield HResponse(content = HContent.complete(content))
 
-    suite("complete response") {
+  def echoComplete(req: CompleteRequest[ByteBuf]): ZIO[Any, Nothing, HResponse[Any, Nothing, ByteBuf]] =
+    UIO(HResponse(content = HContent.complete(req.content)))
+
+  def EchoCompleteResponseSpec = {
+    suite("CompleteResponse")(
       suite("CompleteRequest")(
         testM("status is 200") {
           for {
-            proxy <- ChannelProxy.make(HttpEndpoint.mount(Http.collect[CompleteRequest[ByteBuf]](_ => greet)))
+            proxy <- ChannelProxy.make(HttpEndpoint.mount(Http.collectM[CompleteRequest[ByteBuf]](echoComplete(_))))
             _     <- proxy.request()
             _     <- proxy.end
             res   <- proxy.receive
@@ -349,23 +358,134 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
         },
         testM("has Content") {
           for {
-            proxy <- ChannelProxy.make(HttpEndpoint.mount(Http.collect[CompleteRequest[ByteBuf]](_ => greet)))
+            proxy <- ChannelProxy.make(HttpEndpoint.mount(Http.collectM[CompleteRequest[ByteBuf]](echoComplete(_))))
             _     <- proxy.request()
             _     <- proxy.end
             _     <- proxy.receive
             data  <- proxy.receive
           } yield assert(data)(isContent)
         },
-        testM("content is 'Hello'") {
+        testM("content is 'ABCD'") {
           for {
-            proxy <- ChannelProxy.make(HttpEndpoint.mount(Http.collect[CompleteRequest[ByteBuf]](_ => greet)))
+            proxy <- ChannelProxy.make(HttpEndpoint.mount(Http.collectM[CompleteRequest[ByteBuf]](echoComplete(_))))
+            _     <- proxy.request()
+            _     <- proxy.end("A", "B", "C", "D")
+            _     <- proxy.receive
+            data  <- proxy.receive
+          } yield assert(data)(isLastContent(body("ABCD")))
+        } @@ nonFlaky,
+      ),
+      suite("BufferedRequest")(
+        testM("status is 200") {
+          for {
+            proxy <- ChannelProxy.make(HttpEndpoint.mount(Http.collectM[BufferedRequest[ByteBuf]](echoComplete(_))))
+            _     <- proxy.request()
+            _     <- proxy.end("A", "B", "C", "D")
+            res   <- proxy.receive
+          } yield assert(res)(isResponse(status(200)))
+        },
+        testM("has Content") {
+          for {
+            proxy <- ChannelProxy.make(HttpEndpoint.mount(Http.collectM[BufferedRequest[ByteBuf]](echoComplete(_))))
+            _     <- proxy.request()
+            _     <- proxy.end("A", "B", "C", "D")
+            _     <- proxy.receive
+            data  <- proxy.receive
+          } yield assert(data)(isContent)
+        },
+        testM("content is 'ABCD'") {
+          for {
+            proxy <- ChannelProxy.make(HttpEndpoint.mount(Http.collectM[BufferedRequest[ByteBuf]](echoComplete(_))))
+            _     <- proxy.request()
+            _     <- proxy.end("A", "B", "C", "D")
+            _     <- proxy.receive
+            data  <- proxy.receive
+          } yield assert(data)(isLastContent(body("ABCD")))
+        } @@ nonFlaky,
+      ) @@ timeout(10 seconds),
+    )
+  }
+
+  def EchoStreamingResponseSpec = {
+    val streamingResponse = HResponse(content =
+      HContent.fromStream(
+        ZStream
+          .fromIterable(List("A", "B", "C", "D"))
+          .map(text => Unpooled.copiedBuffer(text.getBytes)),
+      ),
+    )
+
+    suite("StreamingResponse")(
+      suite("CompleteRequest")(
+        testM("status is 200") {
+          for {
+            proxy <- ChannelProxy.make(
+              HttpEndpoint.mount(Http.collect[CompleteRequest[ByteBuf]](_ => streamingResponse)),
+            )
+            _     <- proxy.request()
+            _     <- proxy.end
+            res   <- proxy.receive
+          } yield assert(res)(isResponse(status(200)))
+        },
+        testM("has Content") {
+          for {
+            proxy <- ChannelProxy.make(
+              HttpEndpoint.mount(Http.collect[CompleteRequest[ByteBuf]](_ => streamingResponse)),
+            )
             _     <- proxy.request()
             _     <- proxy.end
             _     <- proxy.receive
             data  <- proxy.receive
-          } yield assert(data)(isLastContent(body("Hello")))
+          } yield assert(data)(isContent)
         },
-      )
-    }
+        testM("content is 'ABCD'") {
+          for {
+            proxy <- ChannelProxy.make(
+              HttpEndpoint.mount(Http.collect[CompleteRequest[ByteBuf]](_ => streamingResponse)),
+            )
+            _     <- proxy.request()
+            _     <- proxy.end("A", "B", "C", "D")
+            _     <- proxy.receive
+            bytes <- proxy.receiveN(4).map(_.asInstanceOf[List[HttpContent]])
+            str = bytes.map(_.content.toString(HTTP_CHARSET)).mkString("")
+          } yield assert(str)(equalTo("ABCD"))
+        } @@ nonFlaky,
+      ),
+      suite("BufferedRequest")(
+        testM("status is 200") {
+          for {
+            proxy <- ChannelProxy.make(
+              HttpEndpoint.mount(Http.collect[BufferedRequest[ByteBuf]](_ => streamingResponse)),
+            )
+            _     <- proxy.request()
+            _     <- proxy.end
+            res   <- proxy.receive
+          } yield assert(res)(isResponse(status(200)))
+        },
+        testM("has Content") {
+          for {
+            proxy <- ChannelProxy.make(
+              HttpEndpoint.mount(Http.collect[BufferedRequest[ByteBuf]](_ => streamingResponse)),
+            )
+            _     <- proxy.request()
+            _     <- proxy.end
+            _     <- proxy.receive
+            data  <- proxy.receive
+          } yield assert(data)(isContent)
+        },
+        testM("content is 'ABCD'") {
+          for {
+            proxy <- ChannelProxy.make(
+              HttpEndpoint.mount(Http.collect[BufferedRequest[ByteBuf]](_ => streamingResponse)),
+            )
+            _     <- proxy.request()
+            _     <- proxy.end("A", "B", "C", "D")
+            _     <- proxy.receive
+            bytes <- proxy.receiveN(4).map(_.asInstanceOf[List[HttpContent]])
+            str = bytes.map(_.content.toString(HTTP_CHARSET)).mkString("")
+          } yield assert(str)(equalTo("ABCD"))
+        } @@ nonFlaky,
+      ),
+    )
   }
 }

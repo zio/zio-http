@@ -45,20 +45,21 @@ sealed trait HttpEndpoint[-R, +E] { self =>
 
         val read = UIO(ctx.read())
 
-        def runHttp[A](http: Http[R, Throwable, A, HResponse[R, Throwable, ByteBuf]], a: A) = for {
+        def run[A](http: Http[R, Throwable, A, HResponse[R, Throwable, ByteBuf]], a: A) = for {
           res <- http.executeAsZIO(a)
-          _   <- UIO {
-            ctx.write(decodeResponse(res), void)
-            res.content match {
-              case Empty          => ctx.flush()
-              case Complete(data) => ctx.writeAndFlush(new DefaultLastHttpContent(data))
-              case Streaming(_)   => ()
-              case FromChannel(_) => ()
-            }
+          _   <- UIO(ctx.write(decodeResponse(res), void))
+          _   <- res.content match {
+            case Empty             => UIO { ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT) }
+            case Complete(data)    => UIO { ctx.writeAndFlush(new DefaultLastHttpContent(data)) }
+            case Streaming(stream) =>
+              stream
+                .tap(bytes => UIO(ctx.writeAndFlush(new DefaultHttpContent(bytes), void)))
+                .runDrain
+            case FromChannel(_)    => UIO(ctx.close())
           }
         } yield ()
 
-        def unsafeRun(program: ZIO[R, Option[Throwable], Any]) = zExec.unsafeRun(ctx) {
+        def unsafeRun(program: ZIO[R, Option[Throwable], Any]): Unit = zExec.unsafeRun(ctx) {
           program.catchAll {
             case Some(cause) => UIO(ctx.writeAndFlush(serverErrorResponse(cause), void): Unit)
             case None        => UIO(ctx.writeAndFlush(notFoundResponse, void): Unit)
@@ -78,7 +79,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
                   ctx.writeAndFlush(notFoundResponse, void): Unit
 
                 case ServerEndpoint.HttpAny(http) =>
-                  unsafeRun { runHttp(http, ()) }
+                  unsafeRun { run(http, ()) }
 
                 case ServerEndpoint.HttpComplete(http) =>
                   adapter.anyRequest = AnyRequest.from(jRequest)
@@ -87,7 +88,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
                   ctx.read(): Unit
 
                 case ServerEndpoint.HttpAnyRequest(http) =>
-                  unsafeRun { runHttp(http, AnyRequest.from(jRequest)) }
+                  unsafeRun { run(http, AnyRequest.from(jRequest)) }
 
                 case ServerEndpoint.HttpBuffered(http) =>
                   adapter.isBuffered = true
@@ -96,7 +97,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
                     for {
                       _ <- setupBufferedQueue
                       _ <- read
-                      _ <- runHttp(http, makeBufferedRequest(AnyRequest.from(jRequest)))
+                      _ <- run(http, makeBufferedRequest(AnyRequest.from(jRequest)))
                     } yield ()
                   }
               }
@@ -107,7 +108,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
               unsafeRun { bQueue.offer(msg) }
             } else if (adapter.isComplete) {
               adapter.cBody.writeBytes(msg.content())
-              unsafeRun { runHttp(adapter.cHttpApp, makeCompleteRequest(anyRequest)) }
+              unsafeRun { run(adapter.cHttpApp, makeCompleteRequest(anyRequest)) }
             }
 
           case msg: HttpContent =>
@@ -153,7 +154,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
           ZStream
             .fromQueue(bQueue)
             .takeUntil(_.isInstanceOf[LastHttpContent])
-            .map(buf => buf.content())
+            .map(_.content())
         }
       }
 
