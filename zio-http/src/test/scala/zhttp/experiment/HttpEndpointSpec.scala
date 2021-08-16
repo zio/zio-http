@@ -1,13 +1,12 @@
 package zhttp.experiment
 
-import io.netty.buffer.ByteBuf
+import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.HResponse
-import zhttp.experiment.internal.HttpMessageAssertion
+import zhttp.experiment.internal.{ChannelProxy, HttpMessageAssertion}
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio._
-import zio.duration._
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect._
 import zio.test._
@@ -32,7 +31,8 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
       ),
       UnmatchedPathSpec,
       CombineSpec,
-    ).provideCustomLayer(env) @@ timeout(10 second)
+      CompleteResponseSpec,
+    ).provideCustomLayer(env)
 
   /**
    * Spec for asserting AnyRequest fields and behaviour
@@ -151,7 +151,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
       },
       testM("req.content is 'ABCD'") {
         assertCompleteRequest(content = List("A", "B", "C", "D"))(
-          isCompleteRequest(content("ABCD")),
+          isCompleteRequest(requestBody("ABCD")),
         )
       },
       testM("req.url is '/abc'") {
@@ -180,7 +180,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
         assertResponse(HttpEndpoint.fail(new Error("SERVER_ERROR")))(isResponse(status(500)))
       },
       testM("content is SERVER_ERROR") {
-        assertResponse(HttpEndpoint.fail(new Error("SERVER_ERROR")))(isResponse(isContent(bodyText("SERVER_ERROR"))))
+        assertResponse(HttpEndpoint.fail(new Error("SERVER_ERROR")))(isResponse(isContent(hasBody("SERVER_ERROR"))))
       },
       testM("headers are set") {
         assertResponse(HttpEndpoint.fail(new Error("SERVER_ERROR")))(isResponse(header("content-length")))
@@ -198,7 +198,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
       },
       testM("content is SERVER_ERROR") {
         assertResponse(HttpEndpoint.mount(Http.fail(new Error("SERVER_ERROR"))))(
-          isResponse(isContent(bodyText("SERVER_ERROR"))),
+          isResponse(isContent(hasBody("SERVER_ERROR"))),
         )
       },
       testM("headers are set") {
@@ -332,5 +332,40 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
         )
       },
     )
+  }
+
+  def CompleteResponseSpec = {
+    val greet = HResponse(content = HContent.complete(Unpooled.copiedBuffer("Hello".getBytes(HTTP_CHARSET))))
+
+    suite("complete response") {
+      suite("CompleteRequest")(
+        testM("status is 200") {
+          for {
+            proxy <- ChannelProxy.make(HttpEndpoint.mount(Http.collect[CompleteRequest[ByteBuf]](_ => greet)))
+            _     <- proxy.request()
+            _     <- proxy.end
+            res   <- proxy.receive
+          } yield assert(res)(isResponse(status(200)))
+        },
+        testM("has Content") {
+          for {
+            proxy <- ChannelProxy.make(HttpEndpoint.mount(Http.collect[CompleteRequest[ByteBuf]](_ => greet)))
+            _     <- proxy.request()
+            _     <- proxy.end
+            _     <- proxy.receive
+            data  <- proxy.receive
+          } yield assert(data)(isContent)
+        },
+        testM("content is 'Hello'") {
+          for {
+            proxy <- ChannelProxy.make(HttpEndpoint.mount(Http.collect[CompleteRequest[ByteBuf]](_ => greet)))
+            _     <- proxy.request()
+            _     <- proxy.end
+            _     <- proxy.receive
+            data  <- proxy.receive
+          } yield assert(data)(isLastContent(body("Hello")))
+        },
+      )
+    }
   }
 }
