@@ -27,7 +27,7 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
       } yield ()) {
         case Exit.Success(_)     => ()
         case Exit.Failure(cause) =>
-          strategy.getRuntime(ctx).platform.reportFailure(cause)
+          System.err.println(cause.prettyPrint)
           ctx.close()
       }
   }
