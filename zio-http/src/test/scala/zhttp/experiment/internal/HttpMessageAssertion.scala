@@ -4,11 +4,11 @@ import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.{HRequest, HResponse}
 import zhttp.experiment.{BufferedRequest, CompleteRequest, HttpEndpoint}
-import zhttp.http.{HTTP_CHARSET, Header, Http, Method}
+import zhttp.http.{Header, Http, HTTP_CHARSET, Method}
 import zhttp.service.EventLoopGroup
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
-import zio.test.{Assertion, TestResult, assert, assertM}
+import zio.test.{assert, assertM, Assertion, TestResult}
 import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.nio.charset.Charset
@@ -50,6 +50,8 @@ trait HttpMessageAssertion {
       case _                       => None
     })
 
+  def isContent: Assertion[Any] = isContent(anything)
+
   def isContent[A](assertion: Assertion[HttpContent]): Assertion[A] =
     Assertion.assertionRec("isContent")(param(assertion))(assertion)({
       case msg: HttpContent => Option(msg)
@@ -65,8 +67,8 @@ trait HttpMessageAssertion {
   def status(code: Int): Assertion[HttpResponse] =
     Assertion.assertion("status")(param(code))(_.status().code() == code)
 
-  def content[A](text: String): Assertion[CompleteRequest[ByteBuf]] =
-    Assertion.assertion("content")(param(text))(_.content.toString(HTTP_CHARSET) == text)
+  def requestBody[A](text: String): Assertion[CompleteRequest[ByteBuf]] =
+    Assertion.assertion("requestBody")(param(text))(_.content.toString(HTTP_CHARSET) == text)
 
   def url(url: String): Assertion[HRequest] =
     Assertion.assertion("status")(param(url))(_.url.asString == url)
@@ -77,7 +79,10 @@ trait HttpMessageAssertion {
   def header(header: Header): Assertion[HRequest] =
     Assertion.assertion("header")(param(header))(_.headers.contains(header))
 
-  def bodyText(data: String, charset: Charset = Charset.defaultCharset()): Assertion[HttpContent] =
+  def body[A](text: String, charset: Charset = Charset.defaultCharset()): Assertion[HttpContent] =
+    Assertion.assertion("body")(param(text))(_.content.toString(charset) == text)
+
+  def hasBody(data: String, charset: Charset = Charset.defaultCharset()): Assertion[HttpContent] =
     Assertion.assertion("body")(param(data))(_.content().toString(charset).contains(data))
 
   def header(name: String, value: String, ignoreCase: Boolean = true): Assertion[HttpResponse] =
