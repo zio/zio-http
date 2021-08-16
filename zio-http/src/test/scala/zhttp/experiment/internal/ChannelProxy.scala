@@ -6,15 +6,13 @@ import io.netty.handler.codec.http._
 import io.netty.util.CharsetUtil
 import zhttp.experiment.HttpEndpoint
 import zhttp.service.{EventLoopGroup, HttpRuntime}
-import zio.internal.Executor
-import zio.stm.TQueue
-import zio.{UIO, ZIO}
+import zio.{Exit, Queue, UIO, ZIO}
 
 import scala.concurrent.ExecutionContext
 
 case class ChannelProxy(
-  inbound: TQueue[HttpObject],
-  outbound: TQueue[HttpObject],
+  inbound: Queue[HttpObject],
+  outbound: Queue[HttpObject],
   ec: ExecutionContext,
   rtm: zio.Runtime[Any],
 ) extends EmbeddedChannel { self =>
@@ -38,7 +36,9 @@ case class ChannelProxy(
   }
     .on(ec)
 
-  def receive: UIO[HttpObject] = outbound.take.commit
+  def receive: UIO[HttpObject] = outbound.take
+
+  def receiveN(n: Int): UIO[List[HttpObject]] = outbound.takeUpTo(n)
 
   def request(
     url: String = "/",
@@ -69,7 +69,13 @@ case class ChannelProxy(
    * HttpEndpoint.
    */
   override def handleOutboundMessage(msg: AnyRef): Unit = {
-    rtm.unsafeRunAsync_(outbound.offer(msg.asInstanceOf[HttpObject]).commit)
+    // `rtm.unsafeRunAsync_` needs to execute in a single threaded env only.
+    // Otherwise, it is possible to have messages being inserted out of order.
+    rtm
+      .unsafeRunAsync(outbound.offer(msg.asInstanceOf[HttpObject])) {
+        case Exit.Failure(cause) => System.err.println(cause.prettyPrint)
+        case _                   => ()
+      }
   }
 
   /**
@@ -91,14 +97,12 @@ object ChannelProxy {
     for {
       group <- ZIO.access[EventLoopGroup](_.get)
       rtm   <- ZIO.runtime[Any]
-      ec   = ExecutionContext.fromExecutor(group)
-      exe  = Executor.fromExecutionContext(2048)(ec)
-      gRtm = rtm.withExecutor(exe)
+      ec = ExecutionContext.fromExecutor(group)
       zExec    <- HttpRuntime.dedicated[R](group)
-      outbound <- TQueue.unbounded[HttpObject].commit
-      inbound  <- TQueue.unbounded[HttpObject].commit
+      outbound <- Queue.unbounded[HttpObject]
+      inbound  <- Queue.unbounded[HttpObject]
       proxy    <- UIO {
-        val ch = ChannelProxy(inbound, outbound, ec, gRtm)
+        val ch = ChannelProxy(inbound, outbound, ec, rtm)
         ch.pipeline().addLast(app.compile(zExec))
         ch
       }
