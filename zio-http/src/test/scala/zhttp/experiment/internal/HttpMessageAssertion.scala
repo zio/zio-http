@@ -67,8 +67,8 @@ trait HttpMessageAssertion {
   def status(code: Int): Assertion[HttpResponse] =
     Assertion.assertion("status")(param(code))(_.status().code() == code)
 
-  def requestBody[A](text: String): Assertion[CompleteRequest[ByteBuf]] =
-    Assertion.assertion("requestBody")(param(text))(_.content.toString(HTTP_CHARSET) == text)
+  def requestBody[A](text: String, charset: Charset = HTTP_CHARSET): Assertion[CompleteRequest[ByteBuf]] =
+    Assertion.assertion("requestBody")(param(text))(_.content.toString(charset) == text)
 
   def url(url: String): Assertion[HRequest] =
     Assertion.assertion("status")(param(url))(_.url.asString == url)
@@ -149,7 +149,7 @@ trait HttpMessageAssertion {
     )
 
     _ <- proxy.request(url, method, header)
-    _ <- proxy.data(content)
+    _ <- proxy.end(content)
 
     req <- promise.await
   } yield assert(req.toList.map(bytes => bytes.toString(HTTP_CHARSET)))(assertion)
@@ -168,7 +168,7 @@ trait HttpMessageAssertion {
   ): ZIO[EventLoopGroup, Nothing, TestResult] =
     assertBufferedRequest(proxy =>
       proxy.request(url, method, header) *>
-        ZIO.foreach(content)(proxy.data(_)) *>
+        ZIO.foreach_(content)(proxy.data(_)) *>
         proxy.end,
     )(assertion)
 

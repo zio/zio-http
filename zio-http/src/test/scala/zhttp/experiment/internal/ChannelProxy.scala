@@ -5,14 +5,17 @@ import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.handler.codec.http._
 import io.netty.util.CharsetUtil
 import zhttp.experiment.HttpEndpoint
+import zhttp.experiment.internal.ChannelProxy.MessageQueue
 import zhttp.service.{EventLoopGroup, HttpRuntime}
 import zio.{Exit, Queue, UIO, ZIO}
+import zio.internal.Executor
+import zio.stm.TQueue
 
 import scala.concurrent.ExecutionContext
 
 case class ChannelProxy(
-  inbound: Queue[HttpObject],
-  outbound: Queue[HttpObject],
+  inbound: MessageQueue,
+  outbound: MessageQueue,
   ec: ExecutionContext,
   rtm: zio.Runtime[Any],
 ) extends EmbeddedChannel { self =>
@@ -38,8 +41,6 @@ case class ChannelProxy(
 
   def receive: UIO[HttpObject] = outbound.take
 
-  def receiveN(n: Int): UIO[List[HttpObject]] = outbound.takeUpTo(n)
-
   def request(
     url: String = "/",
     method: HttpMethod = HttpMethod.GET,
@@ -49,28 +50,34 @@ case class ChannelProxy(
     scheduleWrite(new DefaultHttpRequest(version, method, url, headers))
   }
 
-  def data(text: String, isLast: Boolean = false): UIO[Unit] = {
+  def write(text: String, isLast: Boolean = false): UIO[Unit] = {
     if (isLast)
       scheduleWrite(new DefaultLastHttpContent(Unpooled.copiedBuffer(text.getBytes(CharsetUtil.UTF_8))))
     else
       scheduleWrite(new DefaultHttpContent(Unpooled.copiedBuffer(text.getBytes(CharsetUtil.UTF_8))))
   }
 
+  def data(iter: String*): UIO[Unit] = data(iter)
+
   def data(iter: Iterable[String]): UIO[Unit] = {
-    ZIO.foreach(iter.zipWithIndex)({ case (a, i) => data(a, isLast = i == iter.size - 1) }).unit
+    ZIO.foreach(iter)(write(_, isLast = false)).unit
+  }
+
+  def end(iter: Iterable[String]): UIO[Unit] = {
+    ZIO
+      .foreach(iter.zipWithIndex)({ case (c, i) => write(c, isLast = i == iter.size - 1) })
+      .unit
   }
 
   def end: UIO[Unit] = scheduleWrite(new DefaultLastHttpContent(Unpooled.EMPTY_BUFFER))
 
-  def end(text: String): UIO[Unit] = data(text, true)
+  def end(iter: String*): UIO[Unit] = end(iter)
 
   /**
    * Handles all the outgoing messages ie all the `ctx.write()` and `ctx.writeAndFlush()` that happens inside of the
    * HttpEndpoint.
    */
   override def handleOutboundMessage(msg: AnyRef): Unit = {
-    // `rtm.unsafeRunAsync_` needs to execute in a single threaded env only.
-    // Otherwise, it is possible to have messages being inserted out of order.
     rtm
       .unsafeRunAsync(outbound.offer(msg.asInstanceOf[HttpObject])) {
         case Exit.Failure(cause) => System.err.println(cause.prettyPrint)
@@ -93,16 +100,42 @@ case class ChannelProxy(
 }
 
 object ChannelProxy {
+
+  sealed trait MessageQueue {
+    def offer(msg: HttpObject): UIO[Unit]
+    def take: UIO[HttpObject]
+  }
+
+  object MessageQueue {
+    case class Live(q: Queue[HttpObject]) extends MessageQueue {
+      override def offer(msg: HttpObject): UIO[Unit] = q.offer(msg).unit
+      override def take: UIO[HttpObject]             = q.take
+    }
+
+    case class Transactional(q: TQueue[HttpObject]) extends MessageQueue {
+      override def offer(msg: HttpObject): UIO[Unit] = q.offer(msg).commit.unit
+      override def take: UIO[HttpObject]             = q.take.commit
+    }
+
+    def stm: UIO[MessageQueue]     = TQueue.unbounded[HttpObject].commit.map(Transactional)
+    def default: UIO[MessageQueue] = Queue.unbounded[HttpObject].map(Live)
+  }
+
   def make[R](app: HttpEndpoint[R, Throwable]): ZIO[R with EventLoopGroup, Nothing, ChannelProxy] = {
     for {
       group <- ZIO.access[EventLoopGroup](_.get)
       rtm   <- ZIO.runtime[Any]
       ec = ExecutionContext.fromExecutor(group)
+
+      // !!! IMPORTANT !!!
+      // `rtm.unsafeRunAsync_` needs to execute in a single threaded env only.
+      // Otherwise, it is possible to have messages being inserted out of order.
+      grtm = rtm.withExecutor(Executor.fromExecutionContext(2048)(ec))
       zExec    <- HttpRuntime.dedicated[R](group)
-      outbound <- Queue.unbounded[HttpObject]
-      inbound  <- Queue.unbounded[HttpObject]
+      outbound <- MessageQueue.default
+      inbound  <- MessageQueue.default
       proxy    <- UIO {
-        val ch = ChannelProxy(inbound, outbound, ec, rtm)
+        val ch = ChannelProxy(inbound, outbound, ec, grtm)
         ch.pipeline().addLast(app.compile(zExec))
         ch
       }
