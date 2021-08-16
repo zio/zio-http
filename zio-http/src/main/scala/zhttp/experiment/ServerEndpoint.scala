@@ -29,31 +29,31 @@ object ServerEndpoint {
 
   def fail[E](error: E): ServerEndpoint[Any, E] = Fail(error)
 
-  private[zhttp] sealed trait IsEndpoint[A] {
+  private[zhttp] sealed trait CanDecode[A] {
     def endpoint[R, E, B](http: Http[R, E, A, HResponse[R, E, ByteBuf]]): ServerEndpoint[R, E]
   }
 
-  object IsEndpoint {
-    implicit case object MountAnything extends IsEndpoint[Any] {
+  object CanDecode {
+    implicit case object MountAnything extends CanDecode[Any] {
       override def endpoint[R, E, B](http: Http[R, E, Any, HResponse[R, E, ByteBuf]]): ServerEndpoint[R, E] =
         ServerEndpoint.HttpAny(http)
     }
 
-    implicit case object MountComplete extends IsEndpoint[CompleteRequest[ByteBuf]] {
+    implicit case object MountComplete extends CanDecode[CompleteRequest[ByteBuf]] {
       override def endpoint[R, E, B](
         http: Http[R, E, CompleteRequest[ByteBuf], HResponse[R, E, ByteBuf]],
       ): ServerEndpoint[R, E] =
         ServerEndpoint.HttpComplete(http)
     }
 
-    implicit case object MountBuffered extends IsEndpoint[BufferedRequest[ByteBuf]] {
+    implicit case object MountBuffered extends CanDecode[BufferedRequest[ByteBuf]] {
       override def endpoint[R, E, B](
         http: Http[R, E, BufferedRequest[ByteBuf], HResponse[R, E, ByteBuf]],
       ): ServerEndpoint[R, E] =
         ServerEndpoint.HttpBuffered(http)
     }
 
-    implicit case object MountAnyRequest extends IsEndpoint[AnyRequest] {
+    implicit case object MountAnyRequest extends CanDecode[AnyRequest] {
       override def endpoint[R, E, B](
         http: Http[R, E, AnyRequest, HResponse[R, E, ByteBuf]],
       ): ServerEndpoint[R, E] =

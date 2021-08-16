@@ -4,7 +4,7 @@ import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel._
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.{AnyRequest, CompleteRequest, HResponse}
-import zhttp.experiment.ServerEndpoint.IsEndpoint
+import zhttp.experiment.ServerEndpoint.CanDecode
 import zhttp.http.{HTTP_CHARSET, Header, Http}
 import zhttp.service.HttpRuntime
 import zio.stream.ZStream
@@ -180,11 +180,11 @@ object HttpEndpoint {
   private[zhttp] def mount[R, E](serverEndpoint: ServerEndpoint[R, E]): HttpEndpoint[R, E] =
     Default(serverEndpoint)
 
-  def mount[R, E, A](http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit m: IsEndpoint[A]): HttpEndpoint[R, E] =
+  def mount[R, E, A](http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit m: CanDecode[A]): HttpEndpoint[R, E] =
     mount(m.endpoint(http))
 
   def mount[R, E, A](path: String)(http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit
-    m: IsEndpoint[A],
+    m: CanDecode[A],
   ): HttpEndpoint[R, E] =
     Default(m.endpoint(http), Check.startsWith(path))
 
