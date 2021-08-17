@@ -1,5 +1,7 @@
 package zhttp.http
 
+import scala.annotation.tailrec
+
 private[zhttp] trait PathModule { module =>
   sealed trait Path {
     self =>
@@ -13,7 +15,16 @@ private[zhttp] trait PathModule { module =>
 
     override def toString: String = this.asString
 
-    def startsWith(other: Path): Boolean = self.asString.startsWith(other.asString)
+    @tailrec
+    final def startsWith(other: Path): Boolean = {
+      if (self == other) true
+      else
+        (self, other) match {
+          case (/(p1, _), p2) => p1.startsWith(p2)
+          case _              => false
+
+        }
+    }
   }
 
   object Path {

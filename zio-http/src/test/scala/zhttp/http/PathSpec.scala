@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.test.Assertion.{equalTo, isFalse, isTrue}
+import zio.test.Assertion._
 import zio.test._
 
 object PathSpec extends DefaultRunnableSpec {
@@ -30,14 +30,20 @@ object PathSpec extends DefaultRunnableSpec {
         },
       ),
       suite("startsWith")(
-        test("/a/b/c vs /a/b") {
-          assert(Root / "a" / "b" / "c" startsWith Root / "a" / "b")(isTrue)
+        test("isTrue") {
+          assert(Root / "a" / "b" / "c" / "d" startsWith Root / "a")(isTrue) &&
+          assert(Root / "a" / "b" / "c" / "d" startsWith Root / "a" / "b")(isTrue) &&
+          assert(Root / "a" / "b" / "c" / "d" startsWith Root / "a" / "b" / "c")(isTrue) &&
+          assert(Root / "a" / "b" / "c" / "d" startsWith Root / "a" / "b" / "c" / "d")(isTrue)
         },
-        test("/a/b/c vs /a/b/c") {
-          assert(Root / "a" / "b" / "c" startsWith Root / "a" / "b" / "c")(isTrue)
+        test("isFalse") {
+          assert(Root / "a" / "b" / "c" / "d" startsWith Root / "a" / "b" / "c" / "d" / "e")(isFalse) &&
+          assert(Root / "a" / "b" / "c" startsWith Root / "a" / "b" / "c" / "d")(isFalse) &&
+          assert(Root / "a" / "b" startsWith Root / "a" / "b" / "c")(isFalse) &&
+          assert(Root / "a" startsWith Root / "a" / "b")(isFalse)
         },
-        test("/a/b vs /a/b/c") {
-          assert(Root / "a" / "b" startsWith Root / "a" / "b" / "c")(isFalse)
+        test("isFalse") {
+          assert(Root / "abcd" startsWith Root / "a")(isFalse)
         },
       ),
     )
