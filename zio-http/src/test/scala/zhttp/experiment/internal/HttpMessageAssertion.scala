@@ -4,11 +4,11 @@ import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.{HRequest, HResponse}
 import zhttp.experiment.{BufferedRequest, CompleteRequest, HttpEndpoint}
-import zhttp.http.{Header, Http, HTTP_CHARSET, Method}
+import zhttp.http.{HTTP_CHARSET, Header, Http, Method}
 import zhttp.service.EventLoopGroup
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
-import zio.test.{assert, assertM, Assertion, TestResult}
+import zio.test.{Assertion, TestResult, assert, assertM}
 import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.nio.charset.Charset
@@ -223,5 +223,72 @@ trait HttpMessageAssertion {
           ZIO.foreach(content)(proxy.data(_)) *>
           proxy.end,
       ),
+    )(assertion)
+
+  def assertCompleteResponse[R](
+    app: HttpEndpoint[R, Throwable],
+    url: String = "/",
+    method: HttpMethod = HttpMethod.GET,
+    header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+    content: Iterable[String] = List("A", "B", "C", "D"),
+  )(assertion: Assertion[HttpObject]): ZIO[R with EventLoopGroup, Nothing, TestResult] =
+    assertM(
+      for {
+        proxy <- ChannelProxy.make(app)
+        _     <- proxy.request(url, method, header)
+        _     <- proxy.end(content)
+        res   <- proxy.receive
+      } yield res,
+    )(assertion)
+
+  def assertCompleteContent[R](
+    app: HttpEndpoint[R, Throwable],
+    url: String = "/",
+    method: HttpMethod = HttpMethod.GET,
+    header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+    content: Iterable[String] = List("A", "B", "C", "D"),
+  )(assertion: Assertion[HttpObject]): ZIO[R with EventLoopGroup, Nothing, TestResult] =
+    assertM(
+      for {
+        proxy <- ChannelProxy.make(app)
+        _     <- proxy.request(url, method, header)
+        _     <- proxy.end(content)
+        _     <- proxy.receive
+        data  <- proxy.receive
+      } yield data,
+    )(assertion)
+
+  def assertBufferedContent[R](
+    app: HttpEndpoint[R, Throwable],
+    url: String = "/",
+    method: HttpMethod = HttpMethod.GET,
+    header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+    content: Iterable[String] = List("A", "B", "C", "D"),
+  )(assertion: Assertion[String]): ZIO[R with EventLoopGroup, Nothing, TestResult] =
+    assertM(
+      for {
+        proxy <- ChannelProxy.make(app)
+        _     <- proxy.request(url, method, header)
+        _     <- proxy.end(content)
+        _     <- proxy.receive
+        bytes <- proxy.receiveN(4).map(_.asInstanceOf[List[HttpContent]])
+        str = bytes.map(_.content.toString(HTTP_CHARSET)).mkString("")
+      } yield str,
+    )(assertion)
+
+  def assertBufferedResponse[R](
+    app: HttpEndpoint[R, Throwable],
+    url: String = "/",
+    method: HttpMethod = HttpMethod.GET,
+    header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+    content: Iterable[String] = List("A", "B", "C", "D"),
+  )(assertion: Assertion[HttpObject]): ZIO[R with EventLoopGroup, Nothing, TestResult] =
+    assertM(
+      for {
+        proxy <- ChannelProxy.make(app)
+        _     <- proxy.request(url, method, header)
+        _     <- proxy.end(content)
+        res   <- proxy.receive
+      } yield res,
     )(assertion)
 }
