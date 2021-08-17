@@ -7,9 +7,9 @@ import io.netty.util.CharsetUtil
 import zhttp.experiment.HttpEndpoint
 import zhttp.experiment.internal.ChannelProxy.MessageQueue
 import zhttp.service.{EventLoopGroup, HttpRuntime}
-import zio.{Exit, Queue, UIO, ZIO}
 import zio.internal.Executor
 import zio.stm.TQueue
+import zio.{Exit, Queue, UIO, ZIO}
 
 import scala.concurrent.ExecutionContext
 
@@ -65,9 +65,8 @@ case class ChannelProxy(
   }
 
   def end(iter: Iterable[String]): UIO[Unit] = {
-    ZIO
-      .foreach(iter.zipWithIndex)({ case (c, i) => write(c, isLast = i == iter.size - 1) })
-      .unit
+    if (iter.isEmpty) end
+    else ZIO.foreach(iter.zipWithIndex)({ case (c, i) => write(c, isLast = i == iter.size - 1) }).unit
   }
 
   def end: UIO[Unit] = scheduleWrite(new DefaultLastHttpContent(Unpooled.EMPTY_BUFFER))
