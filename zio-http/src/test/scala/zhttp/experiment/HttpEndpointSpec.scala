@@ -32,6 +32,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
         AnyRequestSpec,
       ),
       UnmatchedPathSpec,
+      MatchedPathSpec,
       CombineSpec,
       EchoCompleteResponseSpec,
       EchoStreamingResponseSpec,
@@ -295,42 +296,86 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
     )
   }
 
+  /**
+   * Spec for combining multiple Endpoints that succeed
+   */
   def CombineSpec = {
     suite("orElse")(
       testM("status is 200") {
-        val app = HttpEndpoint.mount("/a")(Http.succeed(HResponse(status = Status.OK))) <>
-          HttpEndpoint.mount("/b")(Http.succeed(HResponse(status = Status.CREATED)))
+        val app = HttpEndpoint.mount(Root / "a")(Http.succeed(HResponse(status = Status.OK))) <>
+          HttpEndpoint.mount(Root / "b")(Http.succeed(HResponse(status = Status.CREATED)))
+
+        assertResponse(url = "/a", app = app)(isResponse(status(200)))
+      },
+      testM("matches first") {
+        val app = HttpEndpoint.mount(Root / "a")(Http.succeed(HResponse(status = Status.OK))) <>
+          HttpEndpoint.mount(Root / "a")(Http.succeed(HResponse(status = Status.CREATED)))
 
         assertResponse(url = "/a", app = app)(isResponse(status(200)))
       },
       testM("status is 404") {
-        val app = HttpEndpoint.mount("/a")(Http.succeed(HResponse(status = Status.OK))) <>
-          HttpEndpoint.mount("/b")(Http.succeed(HResponse(status = Status.CREATED)))
+        val app = HttpEndpoint.mount(Root / "a")(Http.succeed(HResponse(status = Status.OK))) <>
+          HttpEndpoint.mount(Root / "b")(Http.succeed(HResponse(status = Status.CREATED)))
 
         assertResponse(url = "/c", app = app)(isResponse(status(404)))
       },
     )
   }
 
+  /**
+   * Spec to handle cases when no endpoint matches
+   */
   def UnmatchedPathSpec = {
     suite("unmatched path /abc")(
       testM("type AnyRequest") {
-        assertResponse(HttpEndpoint.mount("/abc")(Http.collect[AnyRequest](_ => HResponse())))(
+        assertResponse(HttpEndpoint.mount(Root / "abc")(Http.collect[AnyRequest](_ => HResponse())))(
           isResponse(status(404)),
         )
       },
       testM("type BufferedRequest") {
-        assertResponse(HttpEndpoint.mount("/abc")(Http.collect[BufferedRequest[ByteBuf]](_ => HResponse())))(
+        assertResponse(HttpEndpoint.mount(Root / "abc")(Http.collect[BufferedRequest[ByteBuf]](_ => HResponse())))(
           isResponse(status(404)),
         )
       },
       testM("type CompleteRequest") {
-        assertResponse(HttpEndpoint.mount("/abc")(Http.collect[CompleteRequest[ByteBuf]](_ => HResponse())))(
+        assertResponse(HttpEndpoint.mount(Root / "abc")(Http.collect[CompleteRequest[ByteBuf]](_ => HResponse())))(
           isResponse(status(404)),
         )
       },
       testM("type Any") {
-        assertResponse(HttpEndpoint.mount("/abc")(Http.succeed(HResponse())))(
+        assertResponse(HttpEndpoint.mount(Root / "abc")(Http.succeed(HResponse())))(
+          isResponse(status(404)),
+        )
+      },
+    )
+  }
+
+  /**
+   * Spec to handle cases when endpoint matches
+   */
+  def MatchedPathSpec = {
+    suite("matched path")(
+      testM("exact match") {
+        assertResponse(
+          url = "/abc",
+          app = HttpEndpoint.mount(Root / "abc")(Http.collect[AnyRequest](_ => HResponse())),
+        )(
+          isResponse(status(200)),
+        )
+      },
+      testM("starts with match") {
+        assertResponse(
+          url = "/abc/p",
+          app = HttpEndpoint.mount(Root / "abc")(Http.collect[AnyRequest](_ => HResponse())),
+        )(
+          isResponse(status(200)),
+        )
+      },
+      testM("does not match") {
+        assertResponse(
+          url = "/abcd",
+          app = HttpEndpoint.mount(Root / "abc")(Http.collect[AnyRequest](_ => HResponse())),
+        )(
           isResponse(status(404)),
         )
       },

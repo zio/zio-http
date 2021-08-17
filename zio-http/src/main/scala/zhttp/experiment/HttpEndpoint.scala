@@ -6,10 +6,10 @@ import io.netty.handler.codec.http._
 import zhttp.experiment.HContent.{Complete, Empty, FromChannel, Streaming}
 import zhttp.experiment.HttpMessage.{AnyRequest, CompleteRequest, HResponse}
 import zhttp.experiment.ServerEndpoint.CanDecode
-import zhttp.http.{Header, Http, HTTP_CHARSET}
 import zhttp.service.HttpRuntime
 import zio.stream.ZStream
 import zio.{Queue, UIO, ZIO}
+import zhttp.http.{Header, Http, HTTP_CHARSET, _}
 
 import scala.collection.mutable
 
@@ -193,7 +193,7 @@ object HttpEndpoint {
   def mount[R, E, A](http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit m: CanDecode[A]): HttpEndpoint[R, E] =
     mount(m.endpoint(http))
 
-  def mount[R, E, A](path: String)(http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit
+  def mount[R, E, A](path: Path)(http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit
     m: CanDecode[A],
   ): HttpEndpoint[R, E] =
     Default(m.endpoint(http), Check.startsWith(path))
