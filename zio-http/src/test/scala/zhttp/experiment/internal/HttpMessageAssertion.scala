@@ -4,11 +4,11 @@ import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.{HRequest, HResponse}
 import zhttp.experiment.{BufferedRequest, CompleteRequest, HttpEndpoint}
-import zhttp.http.{HTTP_CHARSET, Header, Http, Method}
+import zhttp.http.{Header, Http, HTTP_CHARSET, Method}
 import zhttp.service.EventLoopGroup
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
-import zio.test.{Assertion, TestResult, assert, assertM}
+import zio.test.{assert, assertM, Assertion, TestResult}
 import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.nio.charset.Charset
@@ -22,8 +22,24 @@ trait HttpMessageAssertion {
     def ===(assertion: Assertion[HttpObject]): ZIO[R with EventLoopGroup, Nothing, TestResult] =
       assertM(execute(app)(_.request("/")))(assertion)
 
+    def getResponse: ZIO[R with EventLoopGroup, Nothing, HttpResponse] = getResponse()
+
+    def getResponse(
+      url: String = "/",
+      method: HttpMethod = HttpMethod.GET,
+      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+      content: Iterable[String] = List("A", "B", "C", "D"),
+    ): ZIO[R with EventLoopGroup, Nothing, HttpResponse]               = for {
+      proxy <- ChannelProxy.make(app)
+      _     <- proxy.request(url, method, header)
+      _     <- proxy.end(content)
+      res   <- proxy.receive
+    } yield res.asInstanceOf[HttpResponse]
+
     def proxy: ZIO[R with EventLoopGroup, Nothing, ChannelProxy] = ChannelProxy.make(app)
   }
+
+  def isResponse[A]: Assertion[A] = isResponse(anything)
 
   def isResponse[A](assertion: Assertion[HttpResponse]): Assertion[A] =
     Assertion.assertionRec("isResponse")(param(assertion))(assertion)({
