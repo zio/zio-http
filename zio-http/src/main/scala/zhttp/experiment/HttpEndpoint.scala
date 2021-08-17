@@ -6,7 +6,7 @@ import io.netty.handler.codec.http._
 import zhttp.experiment.HContent.{Complete, Empty, FromChannel, Streaming}
 import zhttp.experiment.HttpMessage.{AnyRequest, CompleteRequest, HResponse}
 import zhttp.experiment.ServerEndpoint.CanDecode
-import zhttp.http.{HTTP_CHARSET, Header, Http, _}
+import zhttp.http.{Header, Http, HTTP_CHARSET, _}
 import zhttp.service.HttpRuntime
 import zio.stream.ZStream
 import zio.{Queue, UIO, ZIO}
@@ -201,4 +201,20 @@ object HttpEndpoint {
   def fail[E](cause: E): HttpEndpoint[Any, E] = mount(ServerEndpoint.fail(cause))
 
   def empty: HttpEndpoint[Any, Nothing] = mount(ServerEndpoint.empty)
+
+  def collect[A]: MkCollect[A]   = new MkCollect(())
+
+  def collectM[A]: MkCollectM[A] = new MkCollectM(())
+
+  final class MkCollect[A](val unit: Unit) extends AnyVal {
+    def apply[R, E](pf: PartialFunction[A, HResponse[R, E, ByteBuf]])(implicit ev: CanDecode[A]): HttpEndpoint[R, E] =
+      HttpEndpoint.mount(Http.collect(pf))
+  }
+
+  final class MkCollectM[A](val unit: Unit) extends AnyVal {
+    def apply[R, E](pf: PartialFunction[A, ZIO[R, E, HResponse[R, E, ByteBuf]]])(implicit
+      ev: CanDecode[A],
+    ): HttpEndpoint[R, E] =
+      HttpEndpoint.mount(Http.collectM(pf))
+  }
 }
