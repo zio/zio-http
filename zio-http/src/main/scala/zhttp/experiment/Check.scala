@@ -1,7 +1,7 @@
 package zhttp.experiment
 
-import zhttp.http._
 import io.netty.handler.codec.http.HttpRequest
+import zhttp.http._
 
 final case class Check[-A](is: A => Boolean) { self =>
   def &&[A1 <: A](other: Check[A1]): Check[A1]     = Check(a => self.is(a) && other.is(a))
