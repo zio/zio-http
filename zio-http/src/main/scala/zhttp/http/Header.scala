@@ -6,6 +6,7 @@ import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHea
 import io.netty.util.CharsetUtil
 import zhttp.http.HeadersHelpers.BasicSchemeName
 
+import java.time.Instant
 import scala.jdk.CollectionConverters._
 
 final case class Header private[Header] (name: CharSequence, value: CharSequence)
@@ -72,7 +73,7 @@ object Header {
     Header(HttpHeaderNames.SET_COOKIE, cookie.clearCookie.asString)
 
   def removeCookie(cookie: String): Header =
-    Header(HttpHeaderNames.SET_COOKIE, Cookie(cookie, content = "").asString)
+    Header(HttpHeaderNames.SET_COOKIE, Cookie(cookie, content = "", expires = Some(Instant.ofEpochSecond(0))).asString)
 
   def basicHttpAuthorization(username: String, password: String): Header = {
     val authString    = String.format("%s:%s", username, password)

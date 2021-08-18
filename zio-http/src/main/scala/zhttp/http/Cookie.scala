@@ -23,7 +23,7 @@ final case class Cookie(
   sameSite: Option[SameSite] = None,
 ) { self =>
   def clearCookie =
-    copy(content = "")
+    copy(content = "", expires = Some(Instant.ofEpochSecond(0)))
 
   def setContent(v: String): Cookie            = copy(content = v)
   def setExpires(v: Option[Instant]): Cookie   = copy(expires = v)
@@ -75,35 +75,35 @@ object Cookie {
     val cookie: Cookie    = Cookie(name, content.getOrElse(""))
 
     other.map(splitNameContent).map(t => (t._1, t._2)).foreach {
-      case (ci"expires", Some(v))  =>
+      case (ignoreCase"expires", Some(v))  =>
         cookie.setExpires(parseDate(v) match {
           case Left(_)      => None
           case Right(value) => Some(value)
         })
-      case (ci"max-age", Some(v))  =>
+      case (ignoreCase"max-age", Some(v))  =>
         cookie.setMaxAge(Try(v.toLong) match {
           case Success(maxAge) => Some(maxAge)
           case Failure(_)      => None
         })
-      case (ci"domain", v)         => cookie.setDomain(Some(v.getOrElse("")))
-      case (ci"path", v)           => cookie.setPath(Some(Path(v.getOrElse(""))))
-      case (ci"secure", _)         => cookie.setSecure(true)
-      case (ci"httponly", _)       => cookie.setHttpOnly(true)
-      case (ci"samesite", Some(v)) =>
+      case (ignoreCase"domain", v)         => cookie.setDomain(Some(v.getOrElse("")))
+      case (ignoreCase"path", v)           => cookie.setPath(Some(Path(v.getOrElse(""))))
+      case (ignoreCase"secure", _)         => cookie.setSecure(true)
+      case (ignoreCase"httponly", _)       => cookie.setHttpOnly(true)
+      case (ignoreCase"samesite", Some(v)) =>
         v.trim match {
-          case ci"lax"    => cookie.setSameSite(Some(SameSite.Lax))
-          case ci"strict" => cookie.setSameSite(Some(SameSite.Strict))
-          case ci"none"   => cookie.setSameSite(Some(SameSite.None))
-          case _          => cookie.setSameSite(None)
+          case ignoreCase"lax"    => cookie.setSameSite(Some(SameSite.Lax))
+          case ignoreCase"strict" => cookie.setSameSite(Some(SameSite.Strict))
+          case ignoreCase"none"   => cookie.setSameSite(Some(SameSite.None))
+          case _                  => cookie.setSameSite(None)
         }
-      case (_, _)                  => cookie
+      case (_, _)                          => cookie
     }
 
     cookie
   }
 
   implicit class CaseInsensitiveRegex(sc: StringContext) {
-    def ci = ("(?i)" + sc.parts.mkString).r
+    def ignoreCase = ("(?i)" + sc.parts.mkString).r
   }
   def parseDate(v: String): Either[String, Instant] =
     Try(Instant.from(DateTimeFormatter.RFC_1123_DATE_TIME.parse(v))) match {
