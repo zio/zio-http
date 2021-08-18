@@ -21,6 +21,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
 
   def spec =
     suite("HttpEndpoint")(
+      RequestSuite,
       EmptySpec,
       SucceedEmptySpec,
       SucceedOkSpec,
@@ -37,6 +38,78 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
       EchoCompleteResponseSpec,
       EchoStreamingResponseSpec,
     ).provideCustomLayer(env)
+
+  /**
+   * Spec for all the possible Http Request types
+   */
+  def RequestSuite = {
+    suite("Request")(
+      suite("AnyRequest")(
+        testM("req.url is '/abc'") {
+          val req = getRequest[AnyRequest](url = "/abc")
+          assertM(req)(isRequest(url("/abc")))
+        },
+        testM("req.method is 'GET'") {
+          val req = getRequest[AnyRequest](url = "/abc")
+          assertM(req)(isRequest(method(Method.GET)))
+        },
+        testM("req.method is 'POST'") {
+          val req = getRequest[AnyRequest](url = "/abc", method = HttpMethod.POST)
+          assertM(req)(isRequest(method(Method.POST)))
+        },
+        testM("req.header is 'H1: K1'") {
+          val req = getRequest[AnyRequest](url = "/abc", header = header.set("H1", "K1"))
+          assertM(req)(isRequest(header(Header("H1", "K1"))))
+        },
+      ),
+      suite("BufferedRequest")(
+        testM("req.content is 'ABCDE'") {
+          val req     = getRequest[BufferedRequest[ByteBuf]](url = "/abc", content = List("A", "B", "C", "D", "E"))
+          val content = req.flatMap(_.content.runCollect).map(_.toList.map(_.toString(HTTP_CHARSET)))
+          assertM(content)(equalTo(List("A", "B", "C", "D", "E")))
+        } @@ nonFlaky,
+        testM("req.url is '/abc'") {
+          val req = getRequest[BufferedRequest[ByteBuf]](url = "/abc")
+          assertM(req)(isRequest(url("/abc")))
+        },
+        testM("req.method is 'GET'") {
+          val req = getRequest[BufferedRequest[ByteBuf]](url = "/abc")
+          assertM(req)(isRequest(method(Method.GET)))
+        },
+        testM("req.method is 'POST'") {
+          val req = getRequest[BufferedRequest[ByteBuf]](url = "/abc", method = HttpMethod.POST)
+          assertM(req)(isRequest(method(Method.POST)))
+        },
+        testM("req.header is 'H1: K1'") {
+          val req = getRequest[BufferedRequest[ByteBuf]](url = "/abc", header = header.set("H1", "K1"))
+          assertM(req)(isRequest(header(Header("H1", "K1"))))
+        },
+      ),
+      suite("CompleteRequest")(
+        testM("req.content is 'ABCDE'") {
+          val req     = getRequest[CompleteRequest[ByteBuf]](url = "/abc", content = List("A", "B", "C", "D", "E"))
+          val content = req.map(_.content.toString(HTTP_CHARSET))
+          assertM(content)(equalTo("ABCDE"))
+        },
+        testM("req.url is '/abc'") {
+          val req = getRequest[CompleteRequest[ByteBuf]](url = "/abc")
+          assertM(req)(isRequest(url("/abc")))
+        },
+        testM("req.method is 'GET'") {
+          val req = getRequest[CompleteRequest[ByteBuf]](url = "/abc")
+          assertM(req)(isRequest(method(Method.GET)))
+        },
+        testM("req.method is 'POST'") {
+          val req = getRequest[CompleteRequest[ByteBuf]](url = "/abc", method = HttpMethod.POST)
+          assertM(req)(isRequest(method(Method.POST)))
+        },
+        testM("req.header is 'H1: K1'") {
+          val req = getRequest[CompleteRequest[ByteBuf]](url = "/abc", header = header.set("H1", "K1"))
+          assertM(req)(isRequest(header(Header("H1", "K1"))))
+        },
+      ),
+    )
+  }
 
   /**
    * Spec for asserting AnyRequest fields and behaviour
@@ -63,20 +136,6 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
       testM("status is 200") {
         assertResponse(HttpEndpoint.mount(Http.collectM[AnyRequest](_ => UIO(HResponse()))))(
           isResponse(status(200)),
-        )
-      },
-      testM("req.url is '/abc'") {
-        assertBufferedRequest("/abc", HttpMethod.GET)(isRequest(url("/abc")))
-      },
-      testM("req.method is 'GET'") {
-        assertBufferedRequest(method = HttpMethod.GET)(isRequest(method(Method.GET)))
-      },
-      testM("req.method is 'POST'") {
-        assertBufferedRequest(method = HttpMethod.POST)(isRequest(method(Method.POST)))
-      },
-      testM("req.header is 'H1: K1'") {
-        assertBufferedRequest(header = header.set("H1", "K1"))(
-          isRequest(header(Header("H1", "K1"))),
         )
       },
     )
@@ -110,23 +169,6 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
           isResponse(status(200)),
         )
       },
-      testM("req.content is 'ABCDE'") {
-        assertBufferedRequestContent(content = List("A", "B", "C", "D", "E"))(equalTo(List("A", "B", "C", "D", "E")))
-      } @@ nonFlaky,
-      testM("req.url is '/abc'") {
-        assertBufferedRequest("/abc", HttpMethod.GET)(isRequest(url("/abc")))
-      },
-      testM("req.method is 'GET'") {
-        assertBufferedRequest(method = HttpMethod.GET)(isRequest(method(Method.GET)))
-      },
-      testM("req.method is 'POST'") {
-        assertBufferedRequest(method = HttpMethod.POST)(isRequest(method(Method.POST)))
-      },
-      testM("req.header is 'H1: K1'") {
-        assertBufferedRequest(header = header.set("H1", "K1"))(
-          isRequest(header(Header("H1", "K1"))),
-        )
-      },
     )
   }
 
@@ -151,25 +193,6 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
       testM("status is 404") {
         assertResponse(HttpEndpoint.mount(Http.empty.contramap[CompleteRequest[ByteBuf]](i => i)))(
           isResponse(status(404)),
-        )
-      },
-      testM("req.content is 'ABCD'") {
-        assertCompleteRequest(content = List("A", "B", "C", "D"))(
-          isCompleteRequest(requestBody("ABCD")),
-        )
-      },
-      testM("req.url is '/abc'") {
-        assertCompleteRequest("/abc", HttpMethod.GET)(isRequest(url("/abc")))
-      },
-      testM("req.method is 'GET'") {
-        assertCompleteRequest(method = HttpMethod.GET)(isRequest(method(Method.GET)))
-      },
-      testM("req.method is 'POST'") {
-        assertCompleteRequest(method = HttpMethod.POST)(isRequest(method(Method.POST)))
-      },
-      testM("req.header is 'H1: K1'") {
-        assertCompleteRequest(header = header.set("H1", "K1"))(
-          isRequest(header(Header("H1", "K1"))),
         )
       },
     )
