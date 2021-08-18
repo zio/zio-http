@@ -2,14 +2,14 @@ package zhttp.experiment
 
 import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http.HttpMethod
-import zhttp.experiment.internal.HttpMessageAssertion
+import zhttp.experiment.internal.HttpMessageAssertions
 import zhttp.http.{Header, HTTP_CHARSET, Method}
 import zhttp.service.EventLoopGroup
 import zio.test.Assertion.equalTo
 import zio.test.{assertM, DefaultRunnableSpec}
 import zio.test.TestAspect.nonFlaky
 
-object HttpEndpointRequestSpec extends DefaultRunnableSpec with HttpMessageAssertion {
+object HttpEndpointRequestSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
   private val env = EventLoopGroup.auto(1)
 

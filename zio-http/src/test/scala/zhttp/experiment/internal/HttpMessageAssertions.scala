@@ -14,7 +14,7 @@ import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.nio.charset.Charset
 
-trait HttpMessageAssertion {
+trait HttpMessageAssertions {
   implicit final class HttpMessageSyntax(m: HttpObject) {
     def asString: String = m.toString.dropWhile(_ != '\n')
   }

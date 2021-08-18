@@ -3,7 +3,7 @@ package zhttp.experiment
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.HResponse
-import zhttp.experiment.internal.HttpMessageAssertion
+import zhttp.experiment.internal.HttpMessageAssertions
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio._
@@ -16,7 +16,7 @@ import zio.test._
 /**
  * Be prepared for some real nasty runtime tests.
  */
-object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertion {
+object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   private val env = EventLoopGroup.auto(1)
 
   def spec =
