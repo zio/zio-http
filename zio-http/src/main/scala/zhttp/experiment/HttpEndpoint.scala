@@ -45,17 +45,32 @@ sealed trait HttpEndpoint[-R, +E] { self =>
 
         val read = UIO(ctx.read())
 
-        def run[A](http: Http[R, Throwable, A, HResponse[R, Throwable, ByteBuf]], a: A) = for {
+        def run[A](
+          http: Http[R, Throwable, A, HResponse[R, Throwable, ByteBuf]],
+          a: A,
+        ): ZIO[R, Option[Throwable], Unit] = for {
           res <- http.executeAsZIO(a)
           _   <- UIO(ctx.write(decodeResponse(res), void))
           _   <- res.content match {
             case Empty             => UIO { ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT) }
             case Complete(data)    => UIO { ctx.writeAndFlush(new DefaultLastHttpContent(data)) }
             case Streaming(stream) =>
-              stream
-                .tap(bytes => UIO(ctx.writeAndFlush(new DefaultHttpContent(bytes), void)))
-                .runDrain
-            case FromChannel(_)    => UIO(ctx.close())
+              stream.process.map { pull =>
+                def loop: ZIO[R, Option[Throwable], Unit] = pull
+                  .foldM(
+                    {
+                      case None        => UIO(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, void)).unit
+                      case Some(error) => ZIO.fail(error)
+                    },
+                    chunks =>
+                      ZIO.foreach_(chunks)(bytes => UIO(ctx.writeAndFlush(new DefaultHttpContent(bytes), void))) *>
+                        loop,
+                  )
+
+                loop
+              }.useNow.flatten
+
+            case FromChannel(_) => UIO(ctx.close())
           }
         } yield ()
 
