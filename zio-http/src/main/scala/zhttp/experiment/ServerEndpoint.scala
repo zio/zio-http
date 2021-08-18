@@ -12,8 +12,6 @@ sealed trait ServerEndpoint[-R, +E] { self => }
 object ServerEndpoint {
   case object Empty extends ServerEndpoint[Any, Nothing]
 
-  final case class Fail[E, A](cause: E) extends ServerEndpoint[Any, E]
-
   final case class HttpComplete[R, E](http: Http[R, E, CompleteRequest[ByteBuf], HResponse[R, E, ByteBuf]])
       extends ServerEndpoint[R, E]
 
@@ -27,7 +25,7 @@ object ServerEndpoint {
 
   def empty: ServerEndpoint[Any, Nothing] = Empty
 
-  def fail[E](error: E): ServerEndpoint[Any, E] = Fail(error)
+  def fail[E](error: E): ServerEndpoint[Any, E] = HttpAny(Http.fail(error))
 
   private[zhttp] sealed trait CanDecode[A] {
     def endpoint[R, E, B](http: Http[R, E, A, HResponse[R, E, ByteBuf]]): ServerEndpoint[R, E]
