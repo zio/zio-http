@@ -6,7 +6,7 @@ import io.netty.handler.codec.http._
 import zhttp.experiment.HContent.{Complete, Empty, FromChannel, Streaming}
 import zhttp.experiment.HttpMessage.{AnyRequest, CompleteRequest, HResponse}
 import zhttp.experiment.ServerEndpoint.CanDecode
-import zhttp.http.{Header, Http, HTTP_CHARSET, _}
+import zhttp.http.{HTTP_CHARSET, Header, Http, _}
 import zhttp.service.HttpRuntime
 import zio.stream.ZStream
 import zio.{Queue, UIO, ZIO}
