@@ -10,6 +10,7 @@ import zhttp.service.{EventLoopGroup, HttpRuntime}
 import zio.internal.Executor
 import zio.stm.TQueue
 import zio.{Exit, Queue, UIO, ZIO}
+import zio.stream.ZStream
 
 import scala.concurrent.ExecutionContext
 
@@ -105,18 +106,20 @@ object ChannelProxy {
     def offer(msg: A): UIO[Unit]
     def take: UIO[A]
     def takeN(n: Int): UIO[List[A]]
+    def asStream: ZStream[Any, Nothing, A]
   }
 
   object MessageQueue {
     case class Live[A](q: Queue[A]) extends MessageQueue[A] {
-      override def offer(msg: A): UIO[Unit]    = q.offer(msg).unit
-      override def take: UIO[A]                = q.take
-      override def takeN(n: Int): UIO[List[A]] = q.takeN(n)
+      override def offer(msg: A): UIO[Unit]           = q.offer(msg).unit
+      override def take: UIO[A]                       = q.take
+      override def takeN(n: Int): UIO[List[A]]        = q.takeN(n)
+      override def asStream: ZStream[Any, Nothing, A] = ZStream.fromQueue(q)
     }
 
     case class Transactional[A](q: TQueue[A]) extends MessageQueue[A] {
-      override def offer(msg: A): UIO[Unit] = q.offer(msg).commit.unit
-      override def take: UIO[A]             = q.take.commit
+      override def offer(msg: A): UIO[Unit]           = q.offer(msg).commit.unit
+      override def take: UIO[A]                       = q.take.commit
       override def takeN(n: Int): UIO[List[A]] = {
         def loop(list: List[A]): UIO[List[A]] = {
           if (list.size == n) UIO(list)
@@ -125,6 +128,7 @@ object ChannelProxy {
 
         loop(Nil)
       }
+      override def asStream: ZStream[Any, Nothing, A] = ZStream.fromTQueue(q)
     }
 
     def stm[A]: UIO[MessageQueue[A]]     = TQueue.unbounded[A].commit.map(Transactional(_))
