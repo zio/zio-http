@@ -15,6 +15,9 @@ import zio.{Chunk, Promise, UIO, ZIO}
 import java.nio.charset.Charset
 
 trait HttpMessageAssertions {
+  type Buffered = BufferedRequest[ByteBuf]
+  type Complete = CompleteRequest[ByteBuf]
+
   implicit final class HttpMessageSyntax(m: HttpObject) {
     def asString: String = m.toString.dropWhile(_ != '\n')
   }

@@ -1,13 +1,12 @@
 package zhttp.experiment
 
-import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http.HttpMethod
 import zhttp.experiment.internal.HttpMessageAssertions
 import zhttp.http.{Header, HTTP_CHARSET, Method}
 import zhttp.service.EventLoopGroup
 import zio.test.Assertion.equalTo
-import zio.test.{assertM, DefaultRunnableSpec}
 import zio.test.TestAspect.nonFlaky
+import zio.test.{assertM, DefaultRunnableSpec}
 
 object HttpEndpointRequestSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
@@ -38,47 +37,47 @@ object HttpEndpointRequestSpec extends DefaultRunnableSpec with HttpMessageAsser
       ),
       suite("BufferedRequest")(
         testM("req.content is 'ABCDE'") {
-          val req     = getRequest[BufferedRequest[ByteBuf]](url = "/abc", content = List("A", "B", "C", "D", "E"))
+          val req     = getRequest[Buffered](url = "/abc", content = List("A", "B", "C", "D", "E"))
           val content = req.flatMap(_.content.runCollect).map(_.toList.map(_.toString(HTTP_CHARSET)))
           assertM(content)(equalTo(List("A", "B", "C", "D", "E")))
         } @@ nonFlaky,
         testM("req.url is '/abc'") {
-          val req = getRequest[BufferedRequest[ByteBuf]](url = "/abc")
+          val req = getRequest[Buffered](url = "/abc")
           assertM(req)(isRequest(url("/abc")))
         },
         testM("req.method is 'GET'") {
-          val req = getRequest[BufferedRequest[ByteBuf]](url = "/abc")
+          val req = getRequest[Buffered](url = "/abc")
           assertM(req)(isRequest(method(Method.GET)))
         },
         testM("req.method is 'POST'") {
-          val req = getRequest[BufferedRequest[ByteBuf]](url = "/abc", method = HttpMethod.POST)
+          val req = getRequest[Buffered](url = "/abc", method = HttpMethod.POST)
           assertM(req)(isRequest(method(Method.POST)))
         },
         testM("req.header is 'H1: K1'") {
-          val req = getRequest[BufferedRequest[ByteBuf]](url = "/abc", header = header.set("H1", "K1"))
+          val req = getRequest[Buffered](url = "/abc", header = header.set("H1", "K1"))
           assertM(req)(isRequest(header(Header("H1", "K1"))))
         },
       ),
       suite("CompleteRequest")(
         testM("req.content is 'ABCDE'") {
-          val req     = getRequest[CompleteRequest[ByteBuf]](url = "/abc", content = List("A", "B", "C", "D", "E"))
+          val req     = getRequest[Complete](url = "/abc", content = List("A", "B", "C", "D", "E"))
           val content = req.map(_.content.toString(HTTP_CHARSET))
           assertM(content)(equalTo("ABCDE"))
         },
         testM("req.url is '/abc'") {
-          val req = getRequest[CompleteRequest[ByteBuf]](url = "/abc")
+          val req = getRequest[Complete](url = "/abc")
           assertM(req)(isRequest(url("/abc")))
         },
         testM("req.method is 'GET'") {
-          val req = getRequest[CompleteRequest[ByteBuf]](url = "/abc")
+          val req = getRequest[Complete](url = "/abc")
           assertM(req)(isRequest(method(Method.GET)))
         },
         testM("req.method is 'POST'") {
-          val req = getRequest[CompleteRequest[ByteBuf]](url = "/abc", method = HttpMethod.POST)
+          val req = getRequest[Complete](url = "/abc", method = HttpMethod.POST)
           assertM(req)(isRequest(method(Method.POST)))
         },
         testM("req.header is 'H1: K1'") {
-          val req = getRequest[CompleteRequest[ByteBuf]](url = "/abc", header = header.set("H1", "K1"))
+          val req = getRequest[Complete](url = "/abc", header = header.set("H1", "K1"))
           assertM(req)(isRequest(header(Header("H1", "K1"))))
         },
       ),
