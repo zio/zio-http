@@ -7,7 +7,7 @@ import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
 import zio.{ZManaged, _}
 
-import java.net.InetAddress
+import java.net.{InetAddress, InetSocketAddress}
 
 sealed trait Server[-R, +E] { self =>
 
@@ -18,14 +18,12 @@ sealed trait Server[-R, +E] { self =>
 
   private def settings[R1 <: R, E1 >: E](s: Settings[R1, E1] = Settings()): Settings[R1, E1] = self match {
     case Concat(self, other)  => other.settings(self.settings(s))
-    case Port(port)           => s.copy(port = port)
     case LeakDetection(level) => s.copy(leakDetectionLevel = level)
     case App(http)            => s.copy(http = http)
     case MaxRequestSize(size) => s.copy(maxRequestSize = size)
     case Error(errorHandler)  => s.copy(error = Some(errorHandler))
     case Ssl(sslOption)       => s.copy(sslOption = sslOption)
-    case Hostname(hostname)   => s.copy(hostname = Some(hostname))
-    case Address(inetAddress) => s.copy(inetAddress = Some(inetAddress))
+    case Address(address)     => s.copy(address = address)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
@@ -38,28 +36,27 @@ sealed trait Server[-R, +E] { self =>
 object Server {
   private[zhttp] final case class Settings[-R, +E](
     http: HttpApp[R, E] = HttpApp.empty(Status.NOT_FOUND),
-    port: Int = 8080,
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
     error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
     sslOption: ServerSSLOptions = null,
-    hostname: Option[String] = None,
-    inetAddress: Option[InetAddress] = None,
+    address: InetSocketAddress = new InetSocketAddress(8080),
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
-  private final case class Port(port: Int)                                            extends UServer
   private final case class LeakDetection(level: LeakDetectionLevel)                   extends UServer
   private final case class MaxRequestSize(size: Int)                                  extends UServer
   private final case class App[R, E](http: HttpApp[R, E])                             extends Server[R, E]
   private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
-  private final case class Hostname(hostname: String)                                 extends UServer
-  private final case class Address(inetAddress: InetAddress)                          extends UServer
+  private final case class Address(address: InetSocketAddress)                        extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]                                   = Server.App(http)
   def maxRequestSize(size: Int): UServer                                             = Server.MaxRequestSize(size)
-  def port(int: Int): UServer                                                        = Server.Port(int)
+  def port(port: Int): UServer                                                       = Server.Address(new InetSocketAddress(port))
+  def address(hostname: String, port: Int): UServer                                  = Server.Address(new InetSocketAddress(hostname, port))
+  def address(port: Int): UServer                                                    = Server.Address(new InetSocketAddress(port))
+  def address(inetAddress: InetAddress, port: Int): UServer                          = Server.Address(new InetSocketAddress(inetAddress, port))
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
@@ -74,7 +71,7 @@ object Server {
     port: Int,
     http: RHttpApp[R],
   ): ZIO[R, Throwable, Nothing] =
-    (Server.port(port) ++ Server.app(http)).make.useForever
+    (Server.address(port) ++ Server.app(http)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def start[R <: Has[_]](
@@ -82,7 +79,7 @@ object Server {
     port: Int,
     http: RHttpApp[R],
   ): ZIO[R, Throwable, Nothing] =
-    (Server.port(port) ++ Server.app(http) ++ Server.Hostname(hostname)).make.useForever
+    (Server.address(hostname, port) ++ Server.app(http)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def start[R <: Has[_]](
@@ -90,7 +87,7 @@ object Server {
     port: Int,
     http: RHttpApp[R],
   ): ZIO[R, Throwable, Nothing] =
-    (Server.port(port) ++ Server.app(http) ++ Server.Address(address)).make.useForever
+    (Server.app(http) ++ Server.address(address, port)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def make[R](
@@ -104,18 +101,8 @@ object Server {
       httpH           = ServerRequestHandler(zExec, settings)
       init            = ServerChannelInitializer(httpH, settings)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
-      _ <- {
-        settings.hostname match {
-          case Some(hostname) =>
-            ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(hostname, settings.port))
-          case None           =>
-            settings.inetAddress match {
-              case Some(inetAddress) =>
-                ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(inetAddress, settings.port))
-              case None              => ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.port))
-            }
-        }
-      }
+      _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.address))
+
     } yield {
       ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
     }
