@@ -3,13 +3,14 @@ package zhttp.experiment.internal
 import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.{HRequest, HResponse}
-import zhttp.experiment.{BufferedRequest, CompleteRequest, HttpEndpoint}
 import zhttp.experiment.ServerEndpoint.CanDecode
-import zhttp.http.{Header, Http, HTTP_CHARSET, Method}
+import zhttp.experiment.{BufferedRequest, CompleteRequest, HttpEndpoint}
+import zhttp.http.{HTTP_CHARSET, Header, Http, Method}
 import zhttp.service.EventLoopGroup
+import zio.stream.ZStream
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
-import zio.test.{assert, assertM, Assertion, TestResult}
+import zio.test.{Assertion, TestResult, assert, assertM}
 import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.nio.charset.Charset
@@ -39,6 +40,26 @@ trait HttpMessageAssertions {
       _     <- proxy.end(content)
       res   <- proxy.receive
     } yield res.asInstanceOf[HttpResponse]
+
+    def getContent: ZIO[R with EventLoopGroup, Nothing, String] = getContent()
+
+    def getContent(
+      url: String = "/",
+      method: HttpMethod = HttpMethod.GET,
+      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+      content: Iterable[String] = List("A", "B", "C", "D"),
+    ): ZIO[R with EventLoopGroup, Nothing, String] = ZStream
+      .unwrap(for {
+        proxy <- ChannelProxy.make(app)
+        _     <- proxy.request(url, method, header)
+        _     <- proxy.end(content)
+        _     <- proxy.receive
+
+      } yield proxy.outbound.asStream.map(_.asInstanceOf[HttpContent]))
+      .takeUntil(_.isInstanceOf[LastHttpContent])
+      .filter(_ != LastHttpContent.EMPTY_LAST_CONTENT)
+      .runCollect
+      .map(_.map(_.content().toString(HTTP_CHARSET)).mkString(""))
 
     def proxy: ZIO[R with EventLoopGroup, Nothing, ChannelProxy] = ChannelProxy.make(app)
   }
