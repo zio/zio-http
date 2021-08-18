@@ -9,8 +9,8 @@ import zhttp.experiment.internal.ChannelProxy.MessageQueue
 import zhttp.service.{EventLoopGroup, HttpRuntime}
 import zio.internal.Executor
 import zio.stm.TQueue
-import zio.{Exit, Queue, UIO, ZIO}
 import zio.stream.ZStream
+import zio.{Exit, Queue, UIO, ZIO}
 
 import scala.concurrent.ExecutionContext
 
