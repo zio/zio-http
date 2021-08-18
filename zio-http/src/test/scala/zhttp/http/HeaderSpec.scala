@@ -254,7 +254,7 @@ object HeaderSpec extends DefaultRunnableSpec {
       test("should remove set-cookie") {
         val headerHolder = HeadersHolder(List(Header.removeCookie(Cookie("abc", "val"))))
         val found        = headerHolder.getSetCookie
-        assert(found)(isSome(equalTo("abc=")))
+        assert(found)(isSome(equalTo("abc=; Expires=Thu, 1 Jan 1970 00:00:00 GMT")))
       },
       test("should set cookies from response") {
         val response: Response.HttpResponse[Any, Nothing] =
