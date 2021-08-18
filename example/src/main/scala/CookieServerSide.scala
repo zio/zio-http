@@ -2,8 +2,6 @@ import zhttp.http._
 import zhttp.service._
 import zio._
 
-import java.util.Date
-
 /**
  * Example to make app using cookies
  */
