@@ -1,13 +1,13 @@
 package zhttp.service
 
-import java.net.InetAddress
-
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.{Status, _}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
 import zio.{ZManaged, _}
+
+import java.net.InetAddress
 
 sealed trait Server[-R, +E] { self =>
 
@@ -17,15 +17,15 @@ sealed trait Server[-R, +E] { self =>
     Concat(self, other)
 
   private def settings[R1 <: R, E1 >: E](s: Settings[R1, E1] = Settings()): Settings[R1, E1] = self match {
-    case Concat(self, other)         => other.settings(self.settings(s))
-    case Port(port)                  => s.copy(port = port)
-    case LeakDetection(level)        => s.copy(leakDetectionLevel = level)
-    case App(http)                   => s.copy(http = http)
-    case MaxRequestSize(size)        => s.copy(maxRequestSize = size)
-    case Error(errorHandler)         => s.copy(error = Some(errorHandler))
-    case Ssl(sslOption)              => s.copy(sslOption = sslOption)
-    case Hostname(hostname)          => s.copy(hostname = hostname)
-    case InetAddressInp(inetAddress) => s.copy(inetAddress = inetAddress)
+    case Concat(self, other)  => other.settings(self.settings(s))
+    case Port(port)           => s.copy(port = port)
+    case LeakDetection(level) => s.copy(leakDetectionLevel = level)
+    case App(http)            => s.copy(http = http)
+    case MaxRequestSize(size) => s.copy(maxRequestSize = size)
+    case Error(errorHandler)  => s.copy(error = Some(errorHandler))
+    case Ssl(sslOption)       => s.copy(sslOption = sslOption)
+    case Hostname(hostname)   => s.copy(hostname = Some(hostname))
+    case Address(inetAddress) => s.copy(inetAddress = Some(inetAddress))
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
@@ -43,8 +43,8 @@ object Server {
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
     error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
     sslOption: ServerSSLOptions = null,
-    hostname: String = null,
-    inetAddress: InetAddress = null,
+    hostname: Option[String] = None,
+    inetAddress: Option[InetAddress] = None,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -55,7 +55,7 @@ object Server {
   private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
   private final case class Hostname(hostname: String)                                 extends UServer
-  private final case class InetAddressInp(inetAddress: InetAddress)                   extends UServer
+  private final case class Address(inetAddress: InetAddress)                          extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]                                   = Server.App(http)
   def maxRequestSize(size: Int): UServer                                             = Server.MaxRequestSize(size)
@@ -86,11 +86,11 @@ object Server {
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def start[R <: Has[_]](
-    hostAddress: InetAddress,
+    address: InetAddress,
     port: Int,
     http: RHttpApp[R],
   ): ZIO[R, Throwable, Nothing] =
-    (Server.port(port) ++ Server.app(http) ++ Server.InetAddressInp(hostAddress)).make.useForever
+    (Server.port(port) ++ Server.app(http) ++ Server.Address(address)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def make[R](
@@ -105,12 +105,15 @@ object Server {
       init            = ServerChannelInitializer(httpH, settings)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- {
-        if (settings.hostname != null) {
-          ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.hostname, settings.port))
-        } else if (settings.inetAddress != null) {
-          ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.inetAddress, settings.port))
-        } else {
-          ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.port))
+        settings.hostname match {
+          case Some(hostname) =>
+            ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(hostname, settings.port))
+          case None           =>
+            settings.inetAddress match {
+              case Some(inetAddress) =>
+                ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(inetAddress, settings.port))
+              case None              => ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.port))
+            }
         }
       }
     } yield {
