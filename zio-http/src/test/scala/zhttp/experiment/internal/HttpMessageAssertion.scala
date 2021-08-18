@@ -4,6 +4,7 @@ import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.{HRequest, HResponse}
 import zhttp.experiment.{BufferedRequest, CompleteRequest, HttpEndpoint}
+import zhttp.experiment.ServerEndpoint.CanDecode
 import zhttp.http.{Header, Http, HTTP_CHARSET, Method}
 import zhttp.service.EventLoopGroup
 import zio.test.Assertion.anything
@@ -29,7 +30,7 @@ trait HttpMessageAssertion {
       method: HttpMethod = HttpMethod.GET,
       header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
       content: Iterable[String] = List("A", "B", "C", "D"),
-    ): ZIO[R with EventLoopGroup, Nothing, HttpResponse]               = for {
+    ): ZIO[R with EventLoopGroup, Nothing, HttpResponse] = for {
       proxy <- ChannelProxy.make(app)
       _     <- proxy.request(url, method, header)
       _     <- proxy.end(content)
@@ -307,4 +308,21 @@ trait HttpMessageAssertion {
         res   <- proxy.receive
       } yield res,
     )(assertion)
+
+  def getRequest[A]: GetRequest[A] = new GetRequest[A](())
+
+  final class GetRequest[A](val unit: Unit) {
+    def apply(
+      url: String = "/",
+      method: HttpMethod = HttpMethod.GET,
+      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+      content: Iterable[String] = List("A", "B", "C", "D"),
+    )(implicit ev: CanDecode[A]): ZIO[Any with EventLoopGroup, Nothing, A] = for {
+      promise <- Promise.make[Nothing, A]
+      proxy   <- ChannelProxy.make(HttpEndpoint.mount(Http.collectM[A]({ case a => promise.succeed(a) as HResponse() })))
+      _       <- proxy.request(url, method, header)
+      _       <- proxy.end(content)
+      request <- promise.await
+    } yield request
+  }
 }
