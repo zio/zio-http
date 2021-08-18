@@ -55,7 +55,6 @@ object Server {
   def maxRequestSize(size: Int): UServer                                             = Server.MaxRequestSize(size)
   def port(port: Int): UServer                                                       = Server.Address(new InetSocketAddress(port))
   def address(hostname: String, port: Int): UServer                                  = Server.Address(new InetSocketAddress(hostname, port))
-  def address(port: Int): UServer                                                    = Server.Address(new InetSocketAddress(port))
   def address(inetAddress: InetAddress, port: Int): UServer                          = Server.Address(new InetSocketAddress(inetAddress, port))
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
@@ -71,7 +70,7 @@ object Server {
     port: Int,
     http: RHttpApp[R],
   ): ZIO[R, Throwable, Nothing] =
-    (Server.address(port) ++ Server.app(http)).make.useForever
+    (Server.port(port) ++ Server.app(http)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def start[R <: Has[_]](
