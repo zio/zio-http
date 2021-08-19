@@ -38,7 +38,7 @@ object Authentication extends App {
   // Http app that requires a JWT claim
   def user(claim: JwtClaim): UHttpApp = Http.collect {
     case Method.GET -> Root / "user" / name / "greet" => Response.text(s"Welcome to the ZIO party! ${name}")
-    case Method.GET -> Root / "user" / "expiration"   => Response.text(s"Expires in: ${claim.expiration.getOrElse(-1L)}")
+    case Method.GET -> Root / "user" / "expiration" => Response.text(s"Expires in: ${claim.expiration.getOrElse(-1L)}")
   }
 
   // App that let's the user login
