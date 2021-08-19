@@ -1,6 +1,7 @@
 package zhttp.service
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, DefaultHttpResponse, HttpHeaderNames, HttpHeaders, HttpVersion}
+import io.netty.handler.codec.http2.{DefaultHttp2Headers, Http2Headers}
 import zhttp.http.{HttpData, Response}
 
 import java.time.ZonedDateTime
@@ -30,5 +31,21 @@ trait EncodeResponse {
         jHttpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, 0)
     }
     new DefaultHttpResponse(jVersion, jStatus, jHttpHeaders)
+  }
+
+  def encodeResponse[R, E](res: Response.HttpResponse[R, E]): Http2Headers = {
+    val headers = new DefaultHttp2Headers().status(res.status.toJHttpStatus.codeAsText())
+    headers
+      .set(HttpHeaderNames.SERVER, SERVER_NAME)
+      .set(HttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
+    val length  = res.content match {
+      case HttpData.CompleteData(data) => data.length
+
+      case HttpData.StreamData(_) => -1
+
+      case HttpData.Empty => 0
+    }
+    if (length >= 0) headers.setInt(HttpHeaderNames.CONTENT_LENGTH, length)
+    headers
   }
 }
