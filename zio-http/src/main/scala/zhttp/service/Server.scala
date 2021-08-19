@@ -56,6 +56,7 @@ object Server {
   def port(port: Int): UServer                                                       = Server.Address(new InetSocketAddress(port))
   def address(hostname: String, port: Int): UServer                                  = Server.Address(new InetSocketAddress(hostname, port))
   def address(inetAddress: InetAddress, port: Int): UServer                          = Server.Address(new InetSocketAddress(inetAddress, port))
+  def address(inetSocketAddress: InetSocketAddress): UServer                         = Server.Address(inetSocketAddress)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
@@ -87,6 +88,13 @@ object Server {
     http: RHttpApp[R],
   ): ZIO[R, Throwable, Nothing] =
     (Server.app(http) ++ Server.address(address, port)).make.useForever
+      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
+
+  def start[R <: Has[_]](
+    socketAddress: InetSocketAddress,
+    http: RHttpApp[R],
+  ): ZIO[R, Throwable, Nothing] =
+    (Server.app(http) ++ Server.address(socketAddress)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def make[R](
