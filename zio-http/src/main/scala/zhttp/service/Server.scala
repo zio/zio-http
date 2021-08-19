@@ -53,10 +53,10 @@ object Server {
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]                                   = Server.App(http)
   def maxRequestSize(size: Int): UServer                                             = Server.MaxRequestSize(size)
-  def port(port: Int): UServer                                                       = Server.Address(new InetSocketAddress(port))
-  def address(hostname: String, port: Int): UServer                                  = Server.Address(new InetSocketAddress(hostname, port))
-  def address(inetAddress: InetAddress, port: Int): UServer                          = Server.Address(new InetSocketAddress(inetAddress, port))
-  def address(inetSocketAddress: InetSocketAddress): UServer                         = Server.Address(inetSocketAddress)
+  def bind(port: Int): UServer                                                       = Server.Address(new InetSocketAddress(port))
+  def bind(hostname: String, port: Int): UServer                                     = Server.Address(new InetSocketAddress(hostname, port))
+  def bind(inetAddress: InetAddress, port: Int): UServer                             = Server.Address(new InetSocketAddress(inetAddress, port))
+  def bind(inetSocketAddress: InetSocketAddress): UServer                            = Server.Address(inetSocketAddress)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
@@ -71,7 +71,7 @@ object Server {
     port: Int,
     http: RHttpApp[R],
   ): ZIO[R, Throwable, Nothing] =
-    (Server.port(port) ++ Server.app(http)).make.useForever
+    (Server.bind(port) ++ Server.app(http)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def start[R <: Has[_]](
@@ -79,7 +79,7 @@ object Server {
     port: Int,
     http: RHttpApp[R],
   ): ZIO[R, Throwable, Nothing] =
-    (Server.address(hostname, port) ++ Server.app(http)).make.useForever
+    (Server.bind(hostname, port) ++ Server.app(http)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def start[R <: Has[_]](
@@ -87,14 +87,14 @@ object Server {
     port: Int,
     http: RHttpApp[R],
   ): ZIO[R, Throwable, Nothing] =
-    (Server.app(http) ++ Server.address(address, port)).make.useForever
+    (Server.app(http) ++ Server.bind(address, port)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def start[R <: Has[_]](
     socketAddress: InetSocketAddress,
     http: RHttpApp[R],
   ): ZIO[R, Throwable, Nothing] =
-    (Server.app(http) ++ Server.address(socketAddress)).make.useForever
+    (Server.app(http) ++ Server.bind(socketAddress)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def make[R](

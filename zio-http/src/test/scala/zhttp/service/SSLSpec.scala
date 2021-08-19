@@ -45,7 +45,7 @@ object SSLSpec extends HttpRunnableSpec(8073) {
 
   override def spec = suiteM("SSL")(
     Server
-      .make(Server.app(app) ++ Server.port(8073) ++ Server.ssl(ServerSSLOptions(serverssl)))
+      .make(Server.app(app) ++ Server.bind(8073) ++ Server.ssl(ServerSSLOptions(serverssl)))
       .orDie
       .as(
         List(

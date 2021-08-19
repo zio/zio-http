@@ -20,7 +20,7 @@ object HelloWorldAdvanced extends App {
   }
 
   private val server =
-    Server.port(PORT) ++              // Setup port
+    Server.bind(PORT) ++              // Setup port
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
       Server.app(fooBar +++ app)      // Setup the Http app
 
