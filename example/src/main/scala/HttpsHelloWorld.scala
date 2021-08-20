@@ -18,7 +18,7 @@ object HttpsHelloWorld extends App {
   val sslctx = ctxFromKeystore(getClass.getResourceAsStream("keystore.jks"), "password", "password")
 
   private val server =
-    Server.bind(8090) ++ Server.app(app) ++ Server.ssl(ServerSSLOptions(sslctx))
+    Server.port(8090) ++ Server.app(app) ++ Server.ssl(ServerSSLOptions(sslctx))
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     server.make.useForever

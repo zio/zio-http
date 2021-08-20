@@ -12,7 +12,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
   def serve[R <: Has[_]](
     app: RHttpApp[R],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
-    Server.make(Server.app(app) ++ Server.bind(port)).orDie
+    Server.make(Server.app(app) ++ Server.port(port)).orDie
 
   def status(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, Status] =
     requestPath(path).map(_.status)

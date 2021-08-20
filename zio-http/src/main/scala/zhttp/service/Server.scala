@@ -53,6 +53,7 @@ object Server {
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]                                   = Server.App(http)
   def maxRequestSize(size: Int): UServer                                             = Server.MaxRequestSize(size)
+  def port(port: Int): UServer                                                       = Server.Address(new InetSocketAddress(port))
   def bind(port: Int): UServer                                                       = Server.Address(new InetSocketAddress(port))
   def bind(hostname: String, port: Int): UServer                                     = Server.Address(new InetSocketAddress(hostname, port))
   def bind(inetAddress: InetAddress, port: Int): UServer                             = Server.Address(new InetSocketAddress(inetAddress, port))
