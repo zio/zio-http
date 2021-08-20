@@ -77,17 +77,14 @@ private[zhttp] trait ResponseHelpers {
   }
 
   def addSetCookie(cookie: Cookie): UResponse =
-    http(headers = List(Header(HttpHeaderNames.SET_COOKIE, cookie.asString)))
+    http(headers = List(Header.setCookie(cookie.asString)))
 
   def removeSetCookie(cookie: Cookie): UResponse =
-    http(headers = List(Header(HttpHeaderNames.SET_COOKIE, cookie.clearCookie.asString)))
+    http(headers = List(Header.setCookie(cookie.clearCookie.asString)))
 
   def removeSetCookie(cookie: String): UResponse = http(headers =
     List(
-      Header(
-        HttpHeaderNames.SET_COOKIE,
-        Cookie(cookie, content = "", expires = Some(Instant.ofEpochSecond(0))).asString,
-      ),
+      Header.setCookie(Cookie(cookie, content = "", expires = Some(Instant.ofEpochSecond(0))).asString),
     ),
   )
 

@@ -1,4 +1,4 @@
-import zhttp.http.{Cookie, Header, Request, Response}
+import zhttp.http._
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
 
@@ -13,12 +13,12 @@ object CookieClientSide extends App {
   val program = for {
     res1 <- Client.request(url, headers)
     res2 <- Client.request(
-      url,
-      List(
-        Header.host("github.com"),
-        Request.cookiesFromHeader(res1.headers),
-        Request.cookies(List(Cookie("a", "b"))),
-      ),
+      Request(
+        (Method.GET, URL.fromString(url).getOrElse(null)),
+        List(
+          Header.host("github.com"),
+        ),
+      ).cookiesFromHeader(res1.headers).cookies(List(Cookie("a", "value"))),
     ) //add set-cookie from response header to request
     _    <- console.putStrLn {
       Response.cookies(res2.headers).toString //Empty as cookies are already set

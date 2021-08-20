@@ -48,6 +48,8 @@ object Header {
   def userAgent(name: String): Header      = Header(HttpHeaderNames.USER_AGENT, name)
   def location(value: String): Header      = Header(HttpHeaderNames.LOCATION, value)
   def authorization(value: String): Header = Header(HttpHeaderNames.AUTHORIZATION, value)
+  def setCookie(value: String): Header     = Header(HttpHeaderNames.SET_COOKIE, value)
+  def cookie(value: String): Header        = Header(HttpHeaderNames.COOKIE, value)
 
   def basicHttpAuthorization(username: String, password: String): Header = {
     val authString    = String.format("%s:%s", username, password)

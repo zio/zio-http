@@ -105,6 +105,7 @@ private[zhttp] trait HeadersHelpers { self: HasHeaders =>
     else
       Some(v.substring(BearerSchemeName.length + 1))
   })
+
 }
 
 object HeadersHelpers {

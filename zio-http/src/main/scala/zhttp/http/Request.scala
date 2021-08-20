@@ -1,7 +1,6 @@
 package zhttp.http
 
 import io.netty.channel.ChannelHandlerContext
-import io.netty.handler.codec.http.HttpHeaderNames
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -29,17 +28,14 @@ final case class Request(
       None
   }
 
-}
+  def cookies(cookies: List[Cookie]): Request =
+    self.copy(headers = headers ++ List(Header.cookie(cookies.map(p => p.name + "=" + p.content) mkString "; ")))
 
-object Request {
-  def cookies(cookies: List[Cookie]): Header =
-    Header(
-      HttpHeaderNames.COOKIE,
-      cookies.map(p => p.name + "=" + p.content) mkString "; ",
-    )
-
-  def cookiesFromHeader(headers: List[Header]): Header = Header(
-    HttpHeaderNames.COOKIE,
-    Response.cookies(headers).map(p => p.name + "=" + p.content) mkString "; ",
+  def cookiesFromHeader(headers: List[Header]): Request = self.copy(headers =
+    headers ++ List(
+      Header.cookie(
+        Response.cookies(headers).map(p => p.name + "=" + p.content) mkString "; ",
+      ),
+    ),
   )
 }
