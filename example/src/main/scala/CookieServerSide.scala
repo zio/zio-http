@@ -8,7 +8,7 @@ import zio._
 object CookieServerSide extends App {
   val app: HttpApp[Any, Nothing] = HttpApp.collect {
     case Method.GET -> Root / "cookie"            =>
-      Response.addCookie(
+      Response.addSetCookie(
         Cookie(
           name = "abc",
           content = "value",
@@ -21,7 +21,7 @@ object CookieServerSide extends App {
         ),
       )
     case Method.GET -> Root / "cookie" / "remove" =>
-      Response.removeCookie("abc")
+      Response.removeSetCookie("abc")
   }
 
   // Run it like any simple app

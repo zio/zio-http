@@ -2,7 +2,6 @@ package zhttp.http
 
 import zhttp.http.Header._
 import zhttp.http.HeadersHelpers.BearerSchemeName
-import zhttp.http.Response.http
 import zio.test.Assertion._
 import zio.test._
 
@@ -235,58 +234,6 @@ object HeaderSpec extends DefaultRunnableSpec {
         val headerHolder = HeadersHolder(List(Header.authorization("wrongBearer token")))
         val found        = headerHolder.getBearerToken
         assert(found)(isNone)
-      },
-    ),
-    suite("Cookie")(
-      test("should return cookie") {
-        val cookie       = Cookie("abc", "value")
-        val headerHolder = HeadersHolder(List(Header.cookie(cookie)))
-        val found        = headerHolder.getCookie
-        assert(found)(isSome(equalTo(cookie.asString)))
-      },
-      test("should return cookies") {
-        val cookie1      = Cookie("abc", "value1")
-        val cookie2      = Cookie("xyz", "value2")
-        val headerHolder = HeadersHolder(List(Header.cookies(List(cookie1, cookie2))))
-        val found        = headerHolder.getCookie
-        assert(found)(isSome(equalTo(s"${cookie1.asString}; ${cookie2.asString}")))
-      },
-      test("should remove set-cookie") {
-        val headerHolder = HeadersHolder(List(Header.removeCookie(Cookie("abc", "val"))))
-        val found        = headerHolder.getSetCookie
-        assert(found)(isSome(equalTo("abc=; Expires=Thu, 1 Jan 1970 00:00:00 GMT")))
-      },
-      test("should set cookies from response") {
-        val response: Response.HttpResponse[Any, Nothing] =
-          http(headers = List(Header.setCookieString("k1=v1"), Header.setCookieString("k2=v2")))
-        val headerHolder                                  = HeadersHolder(List(Header.cookies(response)))
-        val found                                         = headerHolder.getCookie
-        assert(found)(isSome(equalTo("k1=v1; k2=v2")))
-      },
-      testM("should return set-cookies with meta") {
-        val nameGen     = Gen.alphaNumericStringBounded(1, 5)
-        val contentGen  = Gen.anyASCIIString
-        val pathGen     = Gen.elements(Path.apply("/"))
-        val httpOnlyGen = Gen.boolean
-        val maxAgeGen   = Gen.anyLong
-
-        check(nameGen, contentGen, pathGen, httpOnlyGen, maxAgeGen) { (name, content, path, httpOnly, maxAge) =>
-          val cookie       = Cookie(name, content, None, None, Some(path), httpOnly, httpOnly, Some(maxAge), None)
-          val headerHolder = HeadersHolder(List(Header.setCookie(cookie)))
-          val found        = headerHolder.getSetCookie
-          assert(found)(isSome(equalTo(cookie.asString)))
-        }
-      },
-      testM("should return set-cookies without meta") {
-        val nameGen    = Gen.alphaNumericStringBounded(1, 5)
-        val contentGen = Gen.anyASCIIString
-
-        check(nameGen, contentGen) { (name, content) =>
-          val cookie       = Cookie(name, content, None)
-          val headerHolder = HeadersHolder(List(Header.setCookie(cookie)))
-          val found        = headerHolder.getSetCookie
-          assert(found)(isSome(equalTo(cookie.asString)))
-        }
       },
     ),
   )
