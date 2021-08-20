@@ -15,7 +15,7 @@ lazy val root = (project in file("."))
   .aggregate(zhttp, zhttpBenchmarks, zhttpTest, example)
 
 // CI Configuration
-ThisBuild / githubWorkflowAddedJobs :=
+ThisBuild / githubWorkflowAddedJobs     :=
   Seq(
     WorkflowJob(
       id = "update_release_draft",
@@ -26,7 +26,7 @@ ThisBuild / githubWorkflowAddedJobs :=
   )
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
-ThisBuild / githubWorkflowPublish :=
+ThisBuild / githubWorkflowPublish       :=
   Seq(
     WorkflowStep.Sbt(
       List("ci-release"),
@@ -66,8 +66,8 @@ lazy val zhttp = (project in file("./zio-http"))
   .settings(stdSettings("zhttp"))
   .settings(publishSetting(true))
   .settings(
-    ThisBuild / homepage := Some(url("https://github.com/dream11/zio-http")),
-    ThisBuild / scmInfo :=
+    ThisBuild / homepage   := Some(url("https://github.com/dream11/zio-http")),
+    ThisBuild / scmInfo    :=
       Some(
         ScmInfo(url("https://github.com/dream11/zio-http"), "scm:git@github.com:dream11/zio-http.git"),
       ),
@@ -118,7 +118,7 @@ lazy val example = (project in file("./example"))
   .settings(stdSettings("example"))
   .settings(publishSetting(false))
   .settings(
-    fork := true,
+    fork                      := true,
     Compile / run / mainClass := Option("HelloWorld"),
     libraryDependencies ++= Seq(
       "com.github.jwt-scala" %% "jwt-core" % "9.0.0",
@@ -132,4 +132,4 @@ addCommandAlias("sFix", "scalafix OrganizeImports; test:scalafix OrganizeImports
 addCommandAlias("sFixCheck", "scalafix --check OrganizeImports; test:scalafix --check OrganizeImports")
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
-Global / watchAntiEntropy := FiniteDuration(2000, TimeUnit.MILLISECONDS)
+Global / watchAntiEntropy     := FiniteDuration(2000, TimeUnit.MILLISECONDS)

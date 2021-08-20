@@ -97,7 +97,7 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
       },
       test("should be stack-safe") {
         val i      = 100000
-        val a      = Http.collect[Int]({ case i => i + 1 })
+        val a      = Http.collect[Int] { case i => i + 1 }
         val app    = (0 until i).foldLeft(a)((i, _) => i +++ a)
         val actual = app.execute(0).evaluate
         assert(actual)(isSuccess(equalTo(1)))
@@ -135,10 +135,10 @@ object HttpSpec extends DefaultRunnableSpec with HttpResultAssertion {
     ),
     suite("route")(
       test("should delegate to its HTTP apps") {
-        val app    = Http.route[Int]({
+        val app    = Http.route[Int] {
           case 1 => Http.succeed(1)
           case 2 => Http.succeed(2)
-        })
+        }
         val actual = app.execute(2).evaluate
         assert(actual)(isSuccess(equalTo(2)))
       },

@@ -54,10 +54,10 @@ object Server {
   def port(int: Int): UServer                                                        = Server.Port(int)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
-  val disableLeakDetection: UServer                                                  = LeakDetection(LeakDetectionLevel.DISABLED)
-  val simpleLeakDetection: UServer                                                   = LeakDetection(LeakDetectionLevel.SIMPLE)
-  val advancedLeakDetection: UServer                                                 = LeakDetection(LeakDetectionLevel.ADVANCED)
-  val paranoidLeakDetection: UServer                                                 = LeakDetection(LeakDetectionLevel.PARANOID)
+  val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
+  val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
+  val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
+  val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
 
   /**
    * Launches the app on the provided port.
