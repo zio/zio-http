@@ -22,9 +22,16 @@ final case class Cookie(
   maxAge: Option[Long] = None,
   sameSite: Option[SameSite] = None,
 ) { self =>
+
+  /**
+   * remove cookie helper
+   */
   def clearCookie =
     copy(content = "", expires = Some(Instant.ofEpochSecond(0)))
 
+  /**
+   * helpers for setting cookie values
+   */
   def setContent(v: String): Cookie            = copy(content = v)
   def setExpires(v: Option[Instant]): Cookie   = copy(expires = v)
   def setMaxAge(v: Option[Long]): Cookie       = copy(maxAge = v)
@@ -34,12 +41,18 @@ final case class Cookie(
   def setHttpOnly(v: Boolean): Cookie          = copy(httpOnly = v)
   def setSameSite(s: Option[SameSite]): Cookie = copy(sameSite = s)
 
+  /**
+   * helpers for removing cookie values
+   */
   def removeExpiry(): Cookie   = copy(expires = None)
   def removeDomain(): Cookie   = copy(domain = None)
   def removePath(): Cookie     = copy(path = None)
   def removeMaxAge(): Cookie   = copy(maxAge = None)
   def removeSameSite(): Cookie = copy(sameSite = None)
 
+  /**
+   * Cookie header to String
+   */
   def asString: String = {
     val cookie = List(
       Some(s"$name=$content"),
@@ -59,9 +72,9 @@ final case class Cookie(
 object Cookie {
 
   /**
-   * Parse the cookie
+   * Parse cookie
    */
-  def fromString(headerValue: String): Cookie = {
+  private[zhttp] def fromString(headerValue: String): Cookie = {
     def splitNameContent(kv: String): (String, Option[String]) =
       kv.split("=", 2).map(_.trim) match {
         case Array(v1)     => (v1, None)
@@ -98,13 +111,13 @@ object Cookie {
         }
       case (_, _)                          => cookie
     }
-
     cookie
   }
 
   implicit class CaseInsensitiveRegex(sc: StringContext) {
     def ignoreCase = ("(?i)" + sc.parts.mkString).r
   }
+
   def parseDate(v: String): Either[String, Instant] =
     Try(Instant.from(DateTimeFormatter.RFC_1123_DATE_TIME.parse(v))) match {
       case Success(r) => Right(r)

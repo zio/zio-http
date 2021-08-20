@@ -23,15 +23,14 @@ object CookieSpec extends DefaultRunnableSpec {
       test("should convert cookie to string with meta") {
         val cookie =
           Cookie(
-            "name",
-            "content",
-            None,
-            None,
-            Some(Path("/cookie")),
-            false,
-            true,
-            Some(0L),
-            Some(SameSite.Lax),
+            name = "name",
+            content = "content",
+            expires = None,
+            domain = None,
+            path = Some(Path("/cookie")),
+            httpOnly = true,
+            maxAge = Some(0L),
+            sameSite = Some(SameSite.Lax),
           )
         assert(cookie.asString)(equalTo("name=content; Max-Age=0; Path=/cookie; HttpOnly; SameSite=Lax"))
       },
