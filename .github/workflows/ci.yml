@@ -33,7 +33,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Java and Scala
-        uses: olafurpg/setup-scala@v12
+        uses: olafurpg/setup-scala@v13
         with:
           java-version: ${{ matrix.java }}
 
@@ -53,10 +53,10 @@ jobs:
         run: sbt ++2.13.6 fmtCheck
 
       - name: Check that workflows are up to date
-        run: sbt --client '++${{ matrix.scala }}; githubWorkflowCheck'
+        run: sbt ++${{ matrix.scala }} githubWorkflowCheck
 
       - name: Build project
-        run: sbt --client '++${{ matrix.scala }}; test'
+        run: sbt ++${{ matrix.scala }} test
 
       - name: Compress target directories
         run: tar cf targets.tar target zio-http-test/target zio-http/target zio-http-benchmarks/target example/target project/target
@@ -84,7 +84,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Java and Scala
-        uses: olafurpg/setup-scala@v12
+        uses: olafurpg/setup-scala@v13
         with:
           java-version: ${{ matrix.java }}
 
@@ -136,7 +136,7 @@ jobs:
           CI_SONATYPE_RELEASE: ${{ secrets.CI_SONATYPE_RELEASE }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
-        run: sbt --client '++${{ matrix.scala }}; ci-release'
+        run: sbt ++${{ matrix.scala }} ci-release
 
   update_release_draft:
     name: Release Drafter
