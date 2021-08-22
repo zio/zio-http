@@ -37,16 +37,4 @@ private[zhttp] trait PathModule { module =>
   }
 
   val !! = Path.End
-
-  abstract class Decode[A](f: String => Option[A]) {
-    def unapply(a: String): Option[A] = f(a)
-  }
-
-  object boolean extends Decode(_.toBooleanOption)
-  object byte    extends Decode(_.toByteOption)
-  object short   extends Decode(_.toShortOption)
-  object int     extends Decode(_.toIntOption)
-  object long    extends Decode(_.toLongOption)
-  object float   extends Decode(_.toFloatOption)
-  object double  extends Decode(_.toDoubleOption)
 }
