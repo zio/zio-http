@@ -11,9 +11,9 @@ object ServerSpec extends HttpRunnableSpec(8081) {
 
   val app = serve {
     HttpApp.collectM {
-      case Method.GET -> Root / "success"       => ZIO.succeed(Response.ok)
-      case Method.GET -> Root / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
-      case Method.GET -> Root / "get%2Fsuccess" =>
+      case Method.GET -> "success" /: _       => ZIO.succeed(Response.ok)
+      case Method.GET -> "failure" /: _       => ZIO.fail(new RuntimeException("FAILURE"))
+      case Method.GET -> "get%2Fsuccess" /: _ =>
         ZIO.succeed(Response.ok)
     }
   }
@@ -23,19 +23,19 @@ object ServerSpec extends HttpRunnableSpec(8081) {
       .as(
         List(
           testM("200 response") {
-            val actual = status(Root / "success")
+            val actual = status("success" /: !!)
             assertM(actual)(equalTo(Status.OK))
           },
           testM("500 response") {
-            val actual = status(Root / "failure")
+            val actual = status("failure" /: !!)
             assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
           },
           testM("404 response") {
-            val actual = status(Root / "random")
+            val actual = status("random" /: !!)
             assertM(actual)(equalTo(Status.NOT_FOUND))
           },
           testM("200 response with encoded path") {
-            val actual = status(Root / "get%2Fsuccess")
+            val actual = status("get%2Fsuccess" /: !!)
             assertM(actual)(equalTo(Status.OK))
           },
         ),

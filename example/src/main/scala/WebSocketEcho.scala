@@ -17,8 +17,8 @@ object WebSocketEcho extends App {
 
   private val app =
     HttpApp.collect {
-      case Method.GET -> Root / "greet" / name  => Response.text(s"Greetings {$name}!")
-      case Method.GET -> Root / "subscriptions" => Response.socket(socket)
+      case Method.GET -> "greet" /: name /: _ => Response.text(s"Greetings {$name}!")
+      case Method.GET -> "subscriptions" /: _ => Response.socket(socket)
     }
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

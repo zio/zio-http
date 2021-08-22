@@ -13,8 +13,8 @@ object FileStreaming extends App {
 
   // Create HTTP route
   val app = HttpApp.collect {
-    case Method.GET -> Root / "health" => Response.ok
-    case Method.GET -> Root / "file"   => Response.http(content = content)
+    case Method.GET -> "health" /: _ => Response.ok
+    case Method.GET -> "file" /: _   => Response.http(content = content)
   }
 
   // Run it like any simple app

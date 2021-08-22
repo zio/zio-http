@@ -6,8 +6,8 @@ object HelloWorld extends App {
 
   // Create HTTP route
   val app: HttpApp[Any, Nothing] = HttpApp.collect {
-    case Method.GET -> Root / "text" => Response.text("Hello World!")
-    case Method.GET -> Root / "json" => Response.jsonString("""{"greetings": "Hello World!"}""")
+    case Method.GET -> "text" /: _ => Response.text("Hello World!")
+    case Method.GET -> "json" /: _ => Response.jsonString("""{"greetings": "Hello World!"}""")
   }
 
   // Run it like any simple app

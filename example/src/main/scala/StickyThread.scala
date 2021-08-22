@@ -24,7 +24,7 @@ object StickyThread extends App {
   /**
    * The expected behaviour is that all the `printThread` output different fiber ids with the same thread name.
    */
-  val app = HttpApp.collectM { case Method.GET -> Root / "text" =>
+  val app = HttpApp.collectM { case Method.GET -> "text" /: _ =>
     for {
 
       _  <- printThread("Start")
