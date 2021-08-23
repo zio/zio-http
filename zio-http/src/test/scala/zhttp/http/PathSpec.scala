@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.test.Assertion.{equalTo, isFalse, isNone, isSome, isTrue}
+import zio.test.Assertion._
 import zio.test._
 
 object PathSpec extends DefaultRunnableSpec with HttpResultAssertion {
@@ -13,8 +13,8 @@ object PathSpec extends DefaultRunnableSpec with HttpResultAssertion {
         test("just /")(assert(Path("/").toList)(equalTo(Nil))),
         test("un-prefixed")(assert(Path("A").toList)(equalTo(List("A")))),
         test("prefixed")(assert(Path("/A").toList)(equalTo(List("A")))),
-        test("encoding string")(assert(Path("A", "B%2FC").toList)(equalTo(List("A", "B%2FC")))),
         test("nested paths")(assert(Path("A", "B", "C").toList)(equalTo(List("A", "B", "C")))),
+        test("encoding string")(assert(Path("A", "B%2FC").toList)(equalTo(List("A", "B%2FC")))),
       ),
       suite("apply()")(
         test("empty")(assert(Path())(equalTo(!!))),
@@ -23,6 +23,12 @@ object PathSpec extends DefaultRunnableSpec with HttpResultAssertion {
         test("prefixed path")(assert(Path("/A"))(equalTo(Path("A")))),
         test("encoded paths")(assert(Path("/A/B%2FC"))(equalTo(Path("A", "B%2FC")))),
         test("nested paths")(assert(Path("/A/B/C"))(equalTo(Path("A", "B", "C")))),
+      ),
+      suite("unapplySeq")(
+        test("a, b, c") {
+          val path = collect { case Path(a, b, c) => (a, b, c) }
+          assert(path(Path("a", "b", "c")))(isSome(equalTo(("a", "b", "c"))))
+        },
       ),
       suite("asString")(
         test("a, b, c") {
@@ -34,7 +40,29 @@ object PathSpec extends DefaultRunnableSpec with HttpResultAssertion {
           assert(path)(equalTo(""))
         },
       ),
+      suite("PathSyntax /")(
+        test("construction") {
+          val path = !! / "a" / "b" / "c"
+          assert(path)(equalTo(Path("a", "b", "c")))
+        },
+        test("extract path / a / b / c") {
+          val path = collect { case !! / "a" / b / c => (b, c) }
+          assert(path(Path("a", "b", "c")))(isSome(equalTo(("b", "c"))))
+        },
+        test("extract path / a / b / c") {
+          val path = collect { case !! / "a" / b => b }
+          assert(path(Path("a", "b", "c")))(isNone)
+        },
+        test("extract path / a / b / c") {
+          val path = collect { case !! / "a" / b => b }
+          assert(path(Path("a", "b")))(isSome(equalTo("b")))
+        },
+      ),
       suite("PathSyntax /:")(
+        test("construction") {
+          val path = "a" /: "b" /: "c" /: !!
+          assert(path)(equalTo(Path("a", "b", "c")))
+        },
         suite("default")(
           test("extract path 'name' /: name") {
             val path = collect { case "name" /: name => name.asString }
