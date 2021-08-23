@@ -3,6 +3,8 @@ package zhttp.http
 import zio.test.Assertion.equalTo
 import zio.test.{DefaultRunnableSpec, assert}
 
+import scala.util.{Failure, Success, Try}
+
 object CookieSpec extends DefaultRunnableSpec {
   def spec = suite("Cookies")(
     suite("toCookie")(
@@ -13,6 +15,16 @@ object CookieSpec extends DefaultRunnableSpec {
       test("should parse the cookie with empty content") {
         val cookieHeaderValue = "name=; Expires=1817616; Max-Age= 123; Secure; HttpOnly "
         assert(Cookie.fromString(cookieHeaderValue))(equalTo(Cookie("name", "")))
+      },
+      test("shouldn't parse the cookie with empty content and empty name") {
+        val cookieHeaderValue = ""
+        val actual            = Try {
+          Cookie.fromString(cookieHeaderValue)
+        } match {
+          case Failure(_)     => "failure"
+          case Success(value) => value.toString
+        }
+        assert(actual)(equalTo("failure"))
       },
     ),
     suite("asString in cookie")(

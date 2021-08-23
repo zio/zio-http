@@ -85,7 +85,9 @@ object Cookie {
     val cookieWithoutMeta = headerValue.split(";").map(_.trim)
     val (first, other)    = (cookieWithoutMeta.head, cookieWithoutMeta.tail)
     val (name, content)   = splitNameContent(first)
-    val cookie: Cookie    = Cookie(name, content.getOrElse(""))
+    val cookie            =
+      if (name.trim == "" && content.isEmpty) throw new IllegalArgumentException("Cookie can't be parsed")
+      else Cookie(name, content.getOrElse(""))
 
     other.map(splitNameContent).map(t => (t._1, t._2)).foreach {
       case (ignoreCase"expires", Some(v))  =>
