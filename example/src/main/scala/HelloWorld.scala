@@ -1,5 +1,5 @@
 import io.netty.buffer.{ByteBuf, Unpooled}
-import zhttp.experiment.HttpMessage.{BufferedResponse, CompleteResponse, AnyResponse}
+import zhttp.experiment.HttpMessage.{AnyResponse, BufferedResponse, CompleteResponse}
 import zhttp.experiment._
 import zhttp.http._
 import zhttp.service.Server

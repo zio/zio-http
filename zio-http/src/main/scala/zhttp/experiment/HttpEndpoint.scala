@@ -31,6 +31,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
       private val app: HttpEndpoint[R, Throwable] = self.asInstanceOf[HttpEndpoint[R, Throwable]]
       private var isComplete: Boolean             = false
       private var isBuffered: Boolean             = false
+      private var isEcho: Boolean                 = false
       private var cHttpApp: CompleteHttpApp       = Http.empty
       private val cBody: ByteBuf                  = Unpooled.compositeBuffer()
 
@@ -54,6 +55,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
           _   <- res.content match {
             case Empty             => UIO { ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT) }
             case Complete(data)    => UIO { ctx.writeAndFlush(new DefaultLastHttpContent(data)) }
+            case Echo              => UIO { adapter.isEcho = true }
             case Streaming(stream) =>
               stream.process.map { pull =>
                 def loop: ZIO[R, Option[Throwable], Unit] = pull
@@ -116,7 +118,9 @@ sealed trait HttpEndpoint[-R, +E] { self =>
             }
 
           case msg: LastHttpContent =>
-            if (isBuffered) {
+            if (adapter.isEcho) {
+              ctx.writeAndFlush(msg): Unit
+            } else if (isBuffered) {
               unsafeRun { bQueue.offer(msg) }
             } else if (adapter.isComplete) {
               adapter.cBody.writeBytes(msg.content())
@@ -124,7 +128,10 @@ sealed trait HttpEndpoint[-R, +E] { self =>
             }
 
           case msg: HttpContent =>
-            if (adapter.isBuffered) {
+            if (adapter.isEcho) {
+              ctx.writeAndFlush(msg)
+              ctx.read(): Unit
+            } else if (adapter.isBuffered) {
               unsafeRun { bQueue.offer(msg) *> read }
             } else if (adapter.isComplete) {
               cBody.writeBytes(msg.content())
@@ -152,6 +159,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
         null
       }
 
+      // TODO: use `new Stream` to implement a more performant queue
       private def setupBufferedQueue: UIO[Queue[HttpContent]] = for {
         q <- Queue.bounded[HttpContent](1)
         _ <- UIO(adapter.bQueue = q)
