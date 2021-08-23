@@ -77,7 +77,18 @@ object HttpGen {
             Content.fromStream(ZStream.fromIterable(list).map(b => Unpooled.copiedBuffer(b.getBytes()))),
             Content.complete(Unpooled.copiedBuffer(list.mkString("").getBytes())),
             Content.empty,
-            Content.echo,
+          ),
+        )
+    } yield cnt
+
+  def nonEmptyContent[R](gen: Gen[R, List[String]]) =
+    for {
+      list <- gen
+      cnt  <- Gen
+        .fromIterable(
+          List(
+            Content.fromStream(ZStream.fromIterable(list).map(b => Unpooled.copiedBuffer(b.getBytes()))),
+            Content.complete(Unpooled.copiedBuffer(list.mkString("").getBytes())),
           ),
         )
     } yield cnt

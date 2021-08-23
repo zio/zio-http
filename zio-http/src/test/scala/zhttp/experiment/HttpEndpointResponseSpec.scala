@@ -14,7 +14,7 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
 
   private val params = for {
     data    <- Gen.listOf(Gen.alphaNumericString)
-    content <- HttpGen.content(Gen.const(data))
+    content <- HttpGen.nonEmptyContent(Gen.const(data))
     header  <- HttpGen.header
     status  <- HttpGen.status
     decode  <- HttpGen.canDecode
@@ -33,7 +33,7 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
         }
       },
       testM("response content") {
-        checkM(params) { case (data, content, status, header, decode) =>
+        checkAllM(params) { case (data, content, status, header, decode) =>
           val endpoint = HttpEndpoint.mount(decode)(Http.collect(_ => AnyResponse(status, List(header), content)))
           assertM(endpoint.getContent(content = data))(equalTo(data.mkString("")))
         }

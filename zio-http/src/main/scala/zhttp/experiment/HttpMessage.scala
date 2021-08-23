@@ -65,14 +65,6 @@ object HttpMessage {
     ): EmptyResponse = AnyResponse(status, headers)
   }
 
-  type EchoResponse = AnyResponse[Any, Nothing, Nothing]
-  object EchoResponse {
-    def apply(
-      status: Status = Status.OK,
-      headers: List[Header] = Nil,
-    ): EchoResponse = AnyResponse(status, headers, Content.echo)
-  }
-
   type CompleteResponse[+A] = AnyResponse[Any, Nothing, A]
   object CompleteResponse {
     def apply[A](

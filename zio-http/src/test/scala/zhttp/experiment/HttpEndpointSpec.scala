@@ -37,7 +37,6 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       CombineSpec,
       EchoCompleteResponseSpec,
       EchoStreamingResponseSpec,
-      EchoContentSpec,
     ).provideCustomLayer(env) @@ timeout(10 seconds)
 
   /**
@@ -379,12 +378,4 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       ),
     )
   }
-
-  def EchoContentSpec = suite("EchoContent")(
-    testM("should echo content") {
-      val content =
-        HttpEndpoint.mount(Http.collect[AnyRequest] { req => AnyResponse(content = Content.echo) }).getContent
-      assertM(content)(equalTo("ABCD"))
-    },
-  )
 }

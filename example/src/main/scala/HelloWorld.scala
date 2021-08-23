@@ -1,5 +1,5 @@
 import io.netty.buffer.{ByteBuf, Unpooled}
-import zhttp.experiment.HttpMessage.{AnyResponse, BufferedResponse, CompleteResponse}
+import zhttp.experiment.HttpMessage.{BufferedResponse, CompleteResponse}
 import zhttp.experiment._
 import zhttp.http._
 import zhttp.service.Server
@@ -9,10 +9,6 @@ object HelloWorld extends App {
 
   val h1: HttpEndpoint[Any, Nothing] = HttpEndpoint.mount {
     Http.collect[CompleteRequest[ByteBuf]]({ case req => CompleteResponse(content = req.content) })
-  }
-
-  val h2: HttpEndpoint[Any, Nothing] = HttpEndpoint.mount {
-    Http.collect[AnyRequest]({ case req => AnyResponse(headers = req.headers, content = Content.echo) })
   }
 
   val h3: HttpEndpoint[Any, Nothing] = HttpEndpoint.mount {
@@ -25,7 +21,7 @@ object HelloWorld extends App {
     }
   }
 
-  val app: HttpEndpoint[Any, Nothing] = h1 <> h2 <> h3 <> h4
+  val app: HttpEndpoint[Any, Nothing] = h1 <> h3 <> h4
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
