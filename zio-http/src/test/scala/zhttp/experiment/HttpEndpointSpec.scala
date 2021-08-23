@@ -2,8 +2,8 @@ package zhttp.experiment
 
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.handler.codec.http._
-import zhttp.experiment.HttpMessage.{AnyResponse, BufferedResponse, CompleteResponse}
-import zhttp.experiment.internal.HttpMessageAssertions
+import zhttp.experiment.HttpMessage._
+import zhttp.experiment.internal.{HttpMessageAssertions}
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio._
@@ -41,87 +41,87 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
     ).provideCustomLayer(env) @@ timeout(10 seconds)
 
   /**
-   * Spec for asserting AnyRequest fields and behaviour
+   * Spec for asserting AnyRequest fields and behavior
    */
   def AnyRequestSpec = {
     suite("succeed(AnyRequest)")(
       testM("status is 200") {
         val res = HttpEndpoint.mount(Http.collect[AnyRequest](_ => Ok)).getResponse
-        assertM(res)(isResponse(status(200)))
+        assertM(res)(isResponse(responseStatus(200)))
       },
       testM("status is 500") {
         val res = HttpEndpoint.mount(Http.collectM[AnyRequest](_ => ZIO.fail(new Error("SERVER ERROR")))).getResponse
-        assertM(res)(isResponse(status(500)))
+        assertM(res)(isResponse(responseStatus(500)))
       },
       testM("status is 404") {
         val res = HttpEndpoint.mount(Http.empty.contramap[AnyRequest](i => i)).getResponse
-        assertM(res)(isResponse(status(404)))
+        assertM(res)(isResponse(responseStatus(404)))
       },
       testM("status is 200") {
         val res = HttpEndpoint.mount(Http.collectM[AnyRequest](_ => UIO(Ok))).getResponse
-        assertM(res)(isResponse(status(200)))
+        assertM(res)(isResponse(responseStatus(200)))
       },
     )
   }
 
   /**
-   * Spec for asserting BufferedRequest fields and behaviour
+   * Spec for asserting BufferedRequest fields and behavior
    */
 
   def BufferedRequestSpec = {
     suite("succeed(Buffered)")(
       testM("status is 200") {
         val res = HttpEndpoint.mount(Http.collect[BufferedRequest[ByteBuf]](_ => Ok)).getResponse
-        assertM(res)(isResponse(status(200)))
+        assertM(res)(isResponse(responseStatus(200)))
       },
       testM("status is 500") {
         val res = HttpEndpoint
           .mount(Http.collectM[BufferedRequest[ByteBuf]](_ => ZIO.fail(new Error("SERVER ERROR"))))
           .getResponse
-        assertM(res)(isResponse(status(500)))
+        assertM(res)(isResponse(responseStatus(500)))
       },
       testM("status is 404") {
         val res = HttpEndpoint.mount(Http.empty.contramap[BufferedRequest[ByteBuf]](i => i)).getResponse
-        assertM(res)(isResponse(status(404)))
+        assertM(res)(isResponse(responseStatus(404)))
       },
       testM("status is 200") {
         val res = HttpEndpoint.mount(Http.collectM[BufferedRequest[ByteBuf]](_ => UIO(Ok))).getResponse
-        assertM(res)(isResponse(status(200)))
+        assertM(res)(isResponse(responseStatus(200)))
       },
     )
   }
 
   /**
-   * Spec for asserting CompleteRequest fields and behaviour
+   * Spec for asserting CompleteRequest fields and behavior
    */
 
   def CompleteRequestSpec = {
     suite("succeed(CompleteRequest)")(
       testM("status is 200") {
         val res = HttpEndpoint.mount(Http.collect[CompleteRequest[ByteBuf]](_ => Ok)).getResponse
-        assertM(res)(isResponse(status(200)))
+        assertM(res)(isResponse(responseStatus(200)))
       },
       testM("status is 500") {
         val res = HttpEndpoint
           .mount(Http.collectM[CompleteRequest[ByteBuf]](_ => ZIO.fail(new Error("SERVER ERROR"))))
           .getResponse
-        assertM(res)(isResponse(status(500)))
+        assertM(res)(isResponse(responseStatus(500)))
       },
       testM("status is 404") {
         val res = HttpEndpoint.mount(Http.empty.contramap[CompleteRequest[ByteBuf]](i => i)).getResponse
-        assertM(res)(isResponse(status(404)))
+        assertM(res)(isResponse(responseStatus(404)))
       },
     )
   }
 
   /**
-   * Spec for asserting behaviour of an failing endpoint
+   * Spec for asserting behavior of an failing endpoint
    */
   def FailCauseSpec = {
     suite("fail(cause)")(
       testM("status is 500") {
         val res = HttpEndpoint.fail(new Error("SERVER_ERROR")).getResponse
-        assertM(res)(isResponse(status(500)))
+        assertM(res)(isResponse(responseStatus(500)))
       },
       testM("content is SERVER_ERROR") {
         val res = HttpEndpoint.fail(new Error("SERVER_ERROR")).getResponse
@@ -129,7 +129,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       },
       testM("headers are set") {
         val res = HttpEndpoint.fail(new Error("SERVER_ERROR")).getResponse
-        assertM(res)(isResponse(header("content-length")))
+        assertM(res)(isResponse(responseHeader("content-length")))
       },
     )
   }
@@ -142,7 +142,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
     suite("succeed(fail)")(
       testM("status is 500") {
         val res = HttpEndpoint.mount(Http.fail(new Error("SERVER_ERROR"))).getResponse
-        assertM(res)(isResponse(status(500)))
+        assertM(res)(isResponse(responseStatus(500)))
       },
       testM("content is SERVER_ERROR") {
         val res = HttpEndpoint.mount(Http.fail(new Error("SERVER_ERROR"))).getResponse
@@ -150,7 +150,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       },
       testM("headers are set") {
         val res = HttpEndpoint.mount(Http.fail(new Error("SERVER_ERROR"))).getResponse
-        assertM(res)(isResponse(header("content-length")))
+        assertM(res)(isResponse(responseHeader("content-length")))
       },
     )
   }
@@ -162,13 +162,13 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
     suite("succeed(ok)")(
       testM("status is 200") {
         val res = HttpEndpoint.mount(Http.succeed(Ok)).getResponse
-        assertM(res)(isResponse(status(200)))
+        assertM(res)(isResponse(responseStatus(200)))
       },
       suite("POST")(
         testM("status is 200") {
           val content = List("A", "B", "C")
           val res     = HttpEndpoint.mount(Http.succeed(Ok)).getResponse(method = HttpMethod.POST, content = content)
-          assertM(res)(isResponse(status(200)))
+          assertM(res)(isResponse(responseStatus(200)))
         },
       ),
       testM("headers are empty") {
@@ -177,7 +177,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       },
       testM("headers are set") {
         val res = HttpEndpoint.mount(Http.succeed(AnyResponse(headers = List(Header("key", "value"))))).getResponse
-        assertM(res)(isResponse(header("key", "value")))
+        assertM(res)(isResponse(responseHeader("key", "value")))
       },
       testM("version is 1.1") {
         val res = HttpEndpoint.mount(Http.succeed(Ok)).getResponse
@@ -197,7 +197,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
     suite("succeed(empty)")(
       testM("status is 404") {
         val res = HttpEndpoint.empty.getResponse
-        assertM(res)(isResponse(status(404)))
+        assertM(res)(isResponse(responseStatus(404)))
       },
       testM("headers are empty") {
         val res = HttpEndpoint.empty.getResponse
@@ -222,7 +222,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       suite("GET")(
         testM("status is 404") {
           val res = HttpEndpoint.empty.getResponse
-          assertM(res)(isResponse(status(404)))
+          assertM(res)(isResponse(responseStatus(404)))
         },
         testM("headers are empty") {
           val res = HttpEndpoint.empty.getResponse
@@ -240,7 +240,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       suite("POST")(
         testM("status is 404") {
           val res = HttpEndpoint.empty.getResponse(method = HttpMethod.POST, content = List("A", "B", "C"))
-          assertM(res)(isResponse(status(404)))
+          assertM(res)(isResponse(responseStatus(404)))
         },
       ),
     )
@@ -255,19 +255,19 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         val a   = HttpEndpoint.mount(Root / "a")(Http.succeed(AnyResponse(status = Status.OK)))
         val b   = HttpEndpoint.mount(Root / "b")(Http.succeed(AnyResponse(status = Status.CREATED)))
         val res = (a <> b).getResponse("/a")
-        assertM(res)(isResponse(status(200)))
+        assertM(res)(isResponse(responseStatus(200)))
       },
       testM("matches first") {
         val a   = HttpEndpoint.mount(Root / "a")(Http.succeed(AnyResponse(status = Status.OK)))
         val b   = HttpEndpoint.mount(Root / "a")(Http.succeed(AnyResponse(status = Status.CREATED)))
         val res = (a <> b).getResponse("/a")
-        assertM(res)(isResponse(status(200)))
+        assertM(res)(isResponse(responseStatus(200)))
       },
       testM("status is 404") {
         val a   = HttpEndpoint.mount(Root / "a")(Http.succeed(AnyResponse(status = Status.OK)))
         val b   = HttpEndpoint.mount(Root / "b")(Http.succeed(AnyResponse(status = Status.CREATED)))
         val res = (a <> b).getResponse("/c")
-        assertM(res)(isResponse(status(404)))
+        assertM(res)(isResponse(responseStatus(404)))
       },
     )
   }
@@ -279,19 +279,19 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
     suite("unmatched path /abc")(
       testM("type AnyRequest") {
         val res = HttpEndpoint.mount(Root / "abc")(Http.collect[AnyRequest](_ => Ok)).getResponse
-        assertM(res)(isResponse(status(404)))
+        assertM(res)(isResponse(responseStatus(404)))
       },
       testM("type BufferedRequest") {
         val res = HttpEndpoint.mount(Root / "abc")(Http.collect[BufferedRequest[ByteBuf]](_ => Ok)).getResponse
-        assertM(res)(isResponse(status(404)))
+        assertM(res)(isResponse(responseStatus(404)))
       },
       testM("type CompleteRequest") {
         val res = HttpEndpoint.mount(Root / "abc")(Http.collect[CompleteRequest[ByteBuf]](_ => Ok)).getResponse
-        assertM(res)(isResponse(status(404)))
+        assertM(res)(isResponse(responseStatus(404)))
       },
       testM("type Any") {
         val res = HttpEndpoint.mount(Root / "abc")(Http.succeed(Ok)).getResponse
-        assertM(res)(isResponse(status(404)))
+        assertM(res)(isResponse(responseStatus(404)))
       },
     )
   }
@@ -303,15 +303,15 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
     suite("matched path")(
       testM("exact match") {
         val res = HttpEndpoint.mount(Root / "abc")(Http.collect[AnyRequest](_ => Ok)).getResponse("/abc")
-        assertM(res)(isResponse(status(200)))
+        assertM(res)(isResponse(responseStatus(200)))
       },
       testM("starts with match") {
         val res = HttpEndpoint.mount(Root / "abc")(Http.collect[AnyRequest](_ => Ok)).getResponse("/abc")
-        assertM(res)(isResponse(status(200)))
+        assertM(res)(isResponse(responseStatus(200)))
       },
       testM("does not match") {
         val res = HttpEndpoint.mount(Root / "abc")(Http.collect[AnyRequest](_ => Ok)).getResponse("/abcd")
-        assertM(res)(isResponse(status(404)))
+        assertM(res)(isResponse(responseStatus(404)))
       },
     )
   }
@@ -329,7 +329,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       suite("CompleteRequest")(
         testM("status is 200") {
           val res = HttpEndpoint.mount(Http.collectM[CompleteRequest[ByteBuf]](echoComplete(_))).getResponse
-          assertM(res)(isResponse(status(200)))
+          assertM(res)(isResponse(responseStatus(200)))
         },
         testM("content is 'ABCD'") {
           val content = HttpEndpoint.mount(Http.collectM[CompleteRequest[ByteBuf]](echoComplete(_))).getContent
@@ -339,7 +339,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       suite("BufferedRequest")(
         testM("status is 200") {
           val res = HttpEndpoint.mount(Http.collectM[BufferedRequest[ByteBuf]](echoComplete(_))).getResponse
-          assertM(res)(isResponse(status(200)))
+          assertM(res)(isResponse(responseStatus(200)))
         },
         testM("content is 'ABCD'") {
           val content = HttpEndpoint.mount(Http.collectM[BufferedRequest[ByteBuf]](echoComplete(_))).getContent
@@ -360,7 +360,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       suite("CompleteRequest")(
         testM("status is 200") {
           val res = HttpEndpoint.mount(Http.collect[CompleteRequest[ByteBuf]](_ => streamingResponse)).getResponse
-          assertM(res)(isResponse(status(200)))
+          assertM(res)(isResponse(responseStatus(200)))
         },
         testM("content is 'ABCD'") {
           val content = HttpEndpoint.mount(Http.collect[CompleteRequest[ByteBuf]](_ => streamingResponse)).getContent
@@ -370,7 +370,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       suite("BufferedRequest")(
         testM("status is 200") {
           val res = HttpEndpoint.mount(Http.collect[BufferedRequest[ByteBuf]](_ => streamingResponse)).getResponse
-          assertM(res)(isResponse(status(200)))
+          assertM(res)(isResponse(responseStatus(200)))
         },
         testM("content is 'ABCD'") {
           val content = HttpEndpoint.mount(Http.collect[BufferedRequest[ByteBuf]](_ => streamingResponse)).getContent

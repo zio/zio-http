@@ -5,7 +5,7 @@ import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.{AnyRequest, AnyResponse}
 import zhttp.experiment.ServerEndpoint.CanDecode
 import zhttp.experiment.{BufferedRequest, CompleteRequest, HttpEndpoint}
-import zhttp.http.{HTTP_CHARSET, Header, Http, Method}
+import zhttp.http.{HTTP_CHARSET, Header, Http, Method, Status}
 import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
 import zio.test.Assertion.anything
@@ -105,8 +105,11 @@ trait HttpMessageAssertions {
       case _                    => None
     })
 
-  def status(code: Int): Assertion[HttpResponse] =
+  def responseStatus(code: Int): Assertion[HttpResponse] =
     Assertion.assertion("status")(param(code))(_.status().code() == code)
+
+  def responseStatus(status: Status): Assertion[HttpResponse] =
+    Assertion.assertion("status")(param(status))(_.status().code() == status.asJava.code())
 
   def requestBody[A](text: String, charset: Charset = HTTP_CHARSET): Assertion[CompleteRequest[ByteBuf]] =
     Assertion.assertion("requestBody")(param(text))(_.content.toString(charset) == text)
@@ -126,10 +129,15 @@ trait HttpMessageAssertions {
   def hasBody(data: String, charset: Charset = Charset.defaultCharset()): Assertion[HttpContent] =
     Assertion.assertion("body")(param(data))(_.content().toString(charset).contains(data))
 
-  def header(name: String, value: String, ignoreCase: Boolean = true): Assertion[HttpResponse] =
+  def responseHeader(name: String, value: String, ignoreCase: Boolean = true): Assertion[HttpResponse] =
     Assertion.assertion("header")(param(s"$name: $value"))(_.headers().contains(name, value, ignoreCase))
 
-  def header(name: String): Assertion[HttpResponse] =
+  def responseHeader(value: Header): Assertion[HttpResponse] =
+    Assertion.assertion("header")(param(s"${value.name}: ${value.value}"))(
+      _.headers().contains(value.name, value.value, true),
+    )
+
+  def responseHeader(name: String): Assertion[HttpResponse] =
     Assertion.assertion("header")(param(s"$name: ???"))(_.headers().contains(name))
 
   def noHeader: Assertion[HttpResponse] = Assertion.assertion("no header")()(_.headers().size() == 0)
