@@ -51,13 +51,13 @@ object Server {
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
   private final case class Address(address: InetSocketAddress)                        extends UServer
 
-  def app[R, E](http: HttpApp[R, E]): Server[R, E]                                   = Server.App(http)
-  def maxRequestSize(size: Int): UServer                                             = Server.MaxRequestSize(size)
-  def port(port: Int): UServer                                                       = Server.Address(new InetSocketAddress(port))
-  def bind(port: Int): UServer                                                       = Server.Address(new InetSocketAddress(port))
-  def bind(hostname: String, port: Int): UServer                                     = Server.Address(new InetSocketAddress(hostname, port))
-  def bind(inetAddress: InetAddress, port: Int): UServer                             = Server.Address(new InetSocketAddress(inetAddress, port))
-  def bind(inetSocketAddress: InetSocketAddress): UServer                            = Server.Address(inetSocketAddress)
+  def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
+  def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
+  def port(port: Int): UServer                            = Server.Address(new InetSocketAddress(port))
+  def bind(port: Int): UServer                            = Server.Address(new InetSocketAddress(port))
+  def bind(hostname: String, port: Int): UServer          = Server.Address(new InetSocketAddress(hostname, port))
+  def bind(inetAddress: InetAddress, port: Int): UServer  = Server.Address(new InetSocketAddress(inetAddress, port))
+  def bind(inetSocketAddress: InetSocketAddress): UServer = Server.Address(inetSocketAddress)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
