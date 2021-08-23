@@ -2,7 +2,7 @@ package zhttp.experiment
 
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.handler.codec.http._
-import zhttp.experiment.HttpMessage.HResponse
+import zhttp.experiment.HttpMessage.{AnyResponse, BufferedResponse, CompleteResponse}
 import zhttp.experiment.internal.HttpMessageAssertions
 import zhttp.http._
 import zhttp.service.EventLoopGroup
@@ -17,8 +17,8 @@ import zio.test._
  * Be prepared for some real nasty runtime tests.
  */
 object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
-  private val env                                  = EventLoopGroup.auto(1)
-  private val Ok: HResponse[Any, Nothing, Nothing] = HResponse()
+  private val env                                    = EventLoopGroup.auto(1)
+  private val Ok: AnyResponse[Any, Nothing, Nothing] = AnyResponse()
 
   def spec =
     suite("HttpEndpoint")(
@@ -175,7 +175,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         assertM(res)(isResponse(noHeader))
       },
       testM("headers are set") {
-        val res = HttpEndpoint.mount(Http.succeed(HResponse(headers = List(Header("key", "value"))))).getResponse
+        val res = HttpEndpoint.mount(Http.succeed(AnyResponse(headers = List(Header("key", "value"))))).getResponse
         assertM(res)(isResponse(header("key", "value")))
       },
       testM("version is 1.1") {
@@ -251,20 +251,20 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   def CombineSpec = {
     suite("orElse")(
       testM("status is 200") {
-        val a   = HttpEndpoint.mount(Root / "a")(Http.succeed(HResponse(status = Status.OK)))
-        val b   = HttpEndpoint.mount(Root / "b")(Http.succeed(HResponse(status = Status.CREATED)))
+        val a   = HttpEndpoint.mount(Root / "a")(Http.succeed(AnyResponse(status = Status.OK)))
+        val b   = HttpEndpoint.mount(Root / "b")(Http.succeed(AnyResponse(status = Status.CREATED)))
         val res = (a <> b).getResponse("/a")
         assertM(res)(isResponse(status(200)))
       },
       testM("matches first") {
-        val a   = HttpEndpoint.mount(Root / "a")(Http.succeed(HResponse(status = Status.OK)))
-        val b   = HttpEndpoint.mount(Root / "a")(Http.succeed(HResponse(status = Status.CREATED)))
+        val a   = HttpEndpoint.mount(Root / "a")(Http.succeed(AnyResponse(status = Status.OK)))
+        val b   = HttpEndpoint.mount(Root / "a")(Http.succeed(AnyResponse(status = Status.CREATED)))
         val res = (a <> b).getResponse("/a")
         assertM(res)(isResponse(status(200)))
       },
       testM("status is 404") {
-        val a   = HttpEndpoint.mount(Root / "a")(Http.succeed(HResponse(status = Status.OK)))
-        val b   = HttpEndpoint.mount(Root / "b")(Http.succeed(HResponse(status = Status.CREATED)))
+        val a   = HttpEndpoint.mount(Root / "a")(Http.succeed(AnyResponse(status = Status.OK)))
+        val b   = HttpEndpoint.mount(Root / "b")(Http.succeed(AnyResponse(status = Status.CREATED)))
         val res = (a <> b).getResponse("/c")
         assertM(res)(isResponse(status(404)))
       },
@@ -315,13 +315,13 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
     )
   }
 
-  def echoComplete(req: BufferedRequest[ByteBuf]): ZIO[Any, Nothing, HResponse[Any, Nothing, ByteBuf]] =
+  def echoComplete(req: BufferedRequest[ByteBuf]): ZIO[Any, Nothing, AnyResponse[Any, Nothing, ByteBuf]] =
     for {
       content <- req.content.runCollect.map(chunk => Unpooled.copiedBuffer(chunk.toArray: _*))
-    } yield HResponse(content = HContent.complete(content))
+    } yield CompleteResponse(content = content)
 
-  def echoComplete(req: CompleteRequest[ByteBuf]): ZIO[Any, Nothing, HResponse[Any, Nothing, ByteBuf]] =
-    UIO(HResponse(content = HContent.complete(req.content)))
+  def echoComplete(req: CompleteRequest[ByteBuf]): ZIO[Any, Nothing, AnyResponse[Any, Nothing, ByteBuf]] =
+    UIO(CompleteResponse(content = req.content))
 
   def EchoCompleteResponseSpec = {
     suite("CompleteResponse")(
@@ -349,12 +349,10 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   }
 
   def EchoStreamingResponseSpec = {
-    val streamingResponse = HResponse(content =
-      HContent.fromStream(
-        ZStream
-          .fromIterable(List("A", "B", "C", "D"))
-          .map(text => Unpooled.copiedBuffer(text.getBytes)),
-      ),
+    val streamingResponse = BufferedResponse(content =
+      ZStream
+        .fromIterable(List("A", "B", "C", "D"))
+        .map(text => Unpooled.copiedBuffer(text.getBytes)),
     )
 
     suite("StreamingResponse")(

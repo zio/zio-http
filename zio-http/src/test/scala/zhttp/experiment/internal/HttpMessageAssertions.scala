@@ -2,7 +2,7 @@ package zhttp.experiment.internal
 
 import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http._
-import zhttp.experiment.HttpMessage.{HRequest, HResponse}
+import zhttp.experiment.HttpMessage.{AnyRequest, AnyResponse}
 import zhttp.experiment.ServerEndpoint.CanDecode
 import zhttp.experiment.{BufferedRequest, CompleteRequest, HttpEndpoint}
 import zhttp.http.{HTTP_CHARSET, Header, Http, Method}
@@ -72,10 +72,10 @@ trait HttpMessageAssertions {
       case _                 => None
     })
 
-  def isRequest[A](assertion: Assertion[HRequest]): Assertion[A] =
+  def isRequest[A](assertion: Assertion[AnyRequest]): Assertion[A] =
     Assertion.assertionRec("isRequest")(param(assertion))(assertion)({
-      case msg: HRequest => Option(msg)
-      case _             => None
+      case msg: AnyRequest => Option(msg)
+      case _               => None
     })
 
   def isCompleteRequest[A](assertion: Assertion[CompleteRequest[ByteBuf]]): Assertion[A] =
@@ -111,13 +111,13 @@ trait HttpMessageAssertions {
   def requestBody[A](text: String, charset: Charset = HTTP_CHARSET): Assertion[CompleteRequest[ByteBuf]] =
     Assertion.assertion("requestBody")(param(text))(_.content.toString(charset) == text)
 
-  def url(url: String): Assertion[HRequest] =
+  def url(url: String): Assertion[AnyRequest] =
     Assertion.assertion("status")(param(url))(_.url.asString == url)
 
-  def method(method: Method): Assertion[HRequest] =
+  def method(method: Method): Assertion[AnyRequest] =
     Assertion.assertion("method")(param(method))(_.method == method)
 
-  def header(header: Header): Assertion[HRequest] =
+  def header(header: Header): Assertion[AnyRequest] =
     Assertion.assertion("header")(param(header))(_.headers.contains(header))
 
   def body[A](text: String, charset: Charset = Charset.defaultCharset()): Assertion[HttpContent] =
@@ -164,7 +164,7 @@ trait HttpMessageAssertions {
   ): ZIO[EventLoopGroup with R, E, TestResult] = for {
     promise <- Promise.make[Nothing, BufferedRequest[ByteBuf]]
     proxy   <- ChannelProxy.make(
-      HttpEndpoint.mount(Http.collectM[BufferedRequest[ByteBuf]](req => promise.succeed(req) as HResponse())),
+      HttpEndpoint.mount(Http.collectM[BufferedRequest[ByteBuf]](req => promise.succeed(req) as AnyResponse())),
     )
     _       <- f(proxy)
     req     <- promise.await
@@ -185,7 +185,7 @@ trait HttpMessageAssertions {
     promise <- Promise.make[Nothing, Chunk[ByteBuf]]
     proxy   <- ChannelProxy.make(
       HttpEndpoint.mount(
-        Http.collectM[BufferedRequest[ByteBuf]](req => req.content.runCollect.tap(promise.succeed) as HResponse()),
+        Http.collectM[BufferedRequest[ByteBuf]](req => req.content.runCollect.tap(promise.succeed) as AnyResponse()),
       ),
     )
 
@@ -222,7 +222,7 @@ trait HttpMessageAssertions {
   ): ZIO[EventLoopGroup with R, E, TestResult] = for {
     promise <- Promise.make[Nothing, CompleteRequest[ByteBuf]]
     proxy   <- ChannelProxy.make(
-      HttpEndpoint.mount(Http.collectM[CompleteRequest[ByteBuf]](req => promise.succeed(req) as HResponse())),
+      HttpEndpoint.mount(Http.collectM[CompleteRequest[ByteBuf]](req => promise.succeed(req) as AnyResponse())),
     )
     _       <- f(proxy)
     req     <- promise.await
@@ -343,7 +343,9 @@ trait HttpMessageAssertions {
       content: Iterable[String] = List("A", "B", "C", "D"),
     )(implicit ev: CanDecode[A]): ZIO[Any with EventLoopGroup, Nothing, A] = for {
       promise <- Promise.make[Nothing, A]
-      proxy   <- ChannelProxy.make(HttpEndpoint.mount(Http.collectM[A]({ case a => promise.succeed(a) as HResponse() })))
+      proxy   <- ChannelProxy.make(HttpEndpoint.mount(Http.collectM[A]({ case a =>
+        promise.succeed(a) as AnyResponse()
+      })))
       _       <- proxy.request(url, method, header)
       _       <- proxy.end(content)
       request <- promise.await

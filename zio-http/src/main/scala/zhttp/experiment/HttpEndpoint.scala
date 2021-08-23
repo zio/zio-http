@@ -3,8 +3,8 @@ package zhttp.experiment
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel._
 import io.netty.handler.codec.http._
-import zhttp.experiment.HContent.{Complete, Empty, FromChannel, Streaming}
-import zhttp.experiment.HttpMessage.{AnyRequest, CompleteRequest, HResponse}
+import zhttp.experiment.Content._
+import zhttp.experiment.HttpMessage._
 import zhttp.experiment.ServerEndpoint.CanDecode
 import zhttp.http.{HTTP_CHARSET, Header, Http, _}
 import zhttp.service.HttpRuntime
@@ -24,7 +24,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
       import HttpVersion._
       import HttpResponseStatus._
 
-      type CompleteHttpApp = Http[R, Throwable, CompleteRequest[ByteBuf], HResponse[R, Throwable, ByteBuf]]
+      type CompleteHttpApp = Http[R, Throwable, CompleteRequest[ByteBuf], AnyResponse[R, Throwable, ByteBuf]]
       private var bQueue: Queue[HttpContent] = _
       private var anyRequest: AnyRequest     = _
 
@@ -46,7 +46,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
         val read = UIO(ctx.read())
 
         def run[A](
-          http: Http[R, Throwable, A, HResponse[R, Throwable, ByteBuf]],
+          http: Http[R, Throwable, A, AnyResponse[R, Throwable, ByteBuf]],
           a: A,
         ): ZIO[R, Option[Throwable], Unit] = for {
           res <- http.executeAsZIO(a)
@@ -70,7 +70,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
                 loop
               }.useNow.flatten
 
-            case FromChannel(_) => UIO(ctx.close())
+            case FromSocket(_) => ???
           }
         } yield ()
 
@@ -170,7 +170,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
         }
       }
 
-      private def decodeResponse(res: HResponse[_, _, _]): HttpResponse = {
+      private def decodeResponse(res: AnyResponse[_, _, _]): HttpResponse = {
         new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.toJHttpStatus, Header.disassemble(res.headers))
       }
 
@@ -202,10 +202,10 @@ object HttpEndpoint {
   private[zhttp] def mount[R, E](serverEndpoint: ServerEndpoint[R, E]): HttpEndpoint[R, E] =
     Default(serverEndpoint)
 
-  def mount[R, E, A](http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit m: CanDecode[A]): HttpEndpoint[R, E] =
+  def mount[R, E, A](http: Http[R, E, A, AnyResponse[R, E, ByteBuf]])(implicit m: CanDecode[A]): HttpEndpoint[R, E] =
     mount(m.endpoint(http))
 
-  def mount[R, E, A](path: Path)(http: Http[R, E, A, HResponse[R, E, ByteBuf]])(implicit
+  def mount[R, E, A](path: Path)(http: Http[R, E, A, AnyResponse[R, E, ByteBuf]])(implicit
     m: CanDecode[A],
   ): HttpEndpoint[R, E] =
     Default(m.endpoint(http), Check.startsWith(path))
@@ -219,12 +219,12 @@ object HttpEndpoint {
   def collectM[A]: MkCollectM[A] = new MkCollectM(())
 
   final class MkCollect[A](val unit: Unit) extends AnyVal {
-    def apply[R, E](pf: PartialFunction[A, HResponse[R, E, ByteBuf]])(implicit ev: CanDecode[A]): HttpEndpoint[R, E] =
+    def apply[R, E](pf: PartialFunction[A, AnyResponse[R, E, ByteBuf]])(implicit ev: CanDecode[A]): HttpEndpoint[R, E] =
       HttpEndpoint.mount(Http.collect(pf))
   }
 
   final class MkCollectM[A](val unit: Unit) extends AnyVal {
-    def apply[R, E](pf: PartialFunction[A, ZIO[R, E, HResponse[R, E, ByteBuf]]])(implicit
+    def apply[R, E](pf: PartialFunction[A, ZIO[R, E, AnyResponse[R, E, ByteBuf]]])(implicit
       ev: CanDecode[A],
     ): HttpEndpoint[R, E] =
       HttpEndpoint.mount(Http.collectM(pf))

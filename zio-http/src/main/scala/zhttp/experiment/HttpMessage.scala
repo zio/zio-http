@@ -4,12 +4,14 @@ import io.netty.handler.codec.http.HttpRequest
 import zhttp.http.{Header, Method, Status, URL}
 import zio.stream.ZStream
 
+sealed trait HttpMessage
+
 object HttpMessage {
 
   /**
    * Request
    */
-  trait HRequest { self =>
+  sealed trait AnyRequest extends HttpMessage { self =>
     def method: Method
     def url: URL
     def headers: List[Header]
@@ -21,8 +23,6 @@ object HttpMessage {
       BufferedRequest(self, content)
   }
 
-  sealed trait AnyRequest extends HRequest
-
   object AnyRequest {
     case class Default(override val method: Method, override val url: URL, override val headers: List[Header])
         extends AnyRequest
@@ -33,16 +33,16 @@ object HttpMessage {
       override def headers: List[Header] = Header.make(jReq.headers())
     }
 
-    def from(jReq: HttpRequest): AnyRequest = FromJRequest(jReq)
+    private[zhttp] def from(jReq: HttpRequest): AnyRequest = FromJRequest(jReq)
   }
 
-  case class CompleteRequest[+A](req: HRequest, content: A) extends HRequest {
+  case class CompleteRequest[+A](req: AnyRequest, content: A) extends AnyRequest {
     override def method: Method        = req.method
     override def url: URL              = req.url
     override def headers: List[Header] = req.headers
   }
 
-  case class BufferedRequest[+A](req: HRequest, content: ZStream[Any, Nothing, A]) extends HRequest {
+  case class BufferedRequest[+A](req: AnyRequest, content: ZStream[Any, Nothing, A]) extends AnyRequest {
     override def method: Method        = req.method
     override def url: URL              = req.url
     override def headers: List[Header] = req.headers
@@ -51,28 +51,37 @@ object HttpMessage {
   /**
    * Response
    */
-  case class HResponse[-R, +E, +A](
+  case class AnyResponse[-R, +E, +A](
     status: Status = Status.OK,
     headers: List[Header] = Nil,
-    content: HContent[R, E, A] = HContent.empty,
-  )
+    content: Content[R, E, A] = Content.empty,
+  ) extends HttpMessage
 
-  type CompleteResponse[+A] = HResponse[Any, Nothing, A]
+  type EmptyResponse = AnyResponse[Any, Nothing, Nothing]
+  object EmptyResponse {
+    def apply(
+      status: Status = Status.OK,
+      headers: List[Header] = Nil,
+    ): EmptyResponse = AnyResponse(status, headers)
+  }
+
+  type CompleteResponse[+A] = AnyResponse[Any, Nothing, A]
   object CompleteResponse {
     def apply[A](
       status: Status = Status.OK,
       headers: List[Header] = Nil,
       content: A,
-    ): CompleteResponse[A] = HResponse(status, headers, HContent.complete(content))
+    ): CompleteResponse[A] = AnyResponse(status, headers, Content.complete(content))
   }
 
-  type BufferedResponse[-R, +E, +A] = HResponse[R, E, A]
+  type BufferedResponse[-R, +E, +A] = AnyResponse[R, E, A]
   object BufferedResponse {
     def apply[R, E, A](
       status: Status = Status.OK,
       headers: List[Header] = Nil,
       content: ZStream[R, E, A] = ZStream.empty,
-    ): BufferedResponse[R, E, A] = HResponse(status, headers, HContent.fromStream(content))
+    ): BufferedResponse[R, E, A] = AnyResponse(status, headers, Content.fromStream(content))
   }
 
+  case class AnyContent[+A](content: A, isLast: Boolean) extends HttpMessage
 }
