@@ -13,9 +13,9 @@ object ConcreteEntity extends App {
   case class UserCreated(id: Long)
 
   val user: Http[Any, Nothing, CreateUser, UserCreated] =
-    Http.collect[CreateUser]({ case CreateUser(_) =>
+    Http.collect[CreateUser] { case CreateUser(_) =>
       UserCreated(2)
-    })
+    }
 
   val app: Http[Any, Nothing, Request, Response[Any, Nothing]] = user
     .contramap[Request](req => CreateUser(req.endpoint._2.toString)) //Http[Any, Nothing, Request, UserCreated]

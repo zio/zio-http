@@ -8,11 +8,11 @@ import zio._
 object HelloWorld extends App {
 
   val h1: HttpEndpoint[Any, Nothing] = HttpEndpoint.mount {
-    Http.collect[CompleteRequest[ByteBuf]]({ case req => CompleteResponse(content = req.content) })
+    Http.collect[CompleteRequest[ByteBuf]] { case req => CompleteResponse(content = req.content) }
   }
 
   val h3: HttpEndpoint[Any, Nothing] = HttpEndpoint.mount {
-    Http.collect[BufferedRequest[ByteBuf]]({ case req => BufferedResponse(content = req.content) })
+    Http.collect[BufferedRequest[ByteBuf]] { case req => BufferedResponse(content = req.content) }
   }
 
   val h4: HttpEndpoint[Any, Nothing] = HttpEndpoint.mount {

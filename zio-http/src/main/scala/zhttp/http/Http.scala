@@ -295,7 +295,7 @@ object Http {
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, ZIO[R, E, B]]): Http[R, E, A, B] =
-      Http.collect[A]({ case a if pf.isDefinedAt(a) => Http.fromEffect(pf(a)) }).flatten
+      Http.collect[A] { case a if pf.isDefinedAt(a) => Http.fromEffect(pf(a)) }.flatten
   }
 
   final case class MakeCollect[A](unit: Unit) extends AnyVal {
@@ -308,7 +308,7 @@ object Http {
 
   final case class MakeRoute[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, Http[R, E, A, B]]): Http[R, E, A, B] =
-      Http.collect[A]({ case r if pf.isDefinedAt(r) => pf(r) }).flatten
+      Http.collect[A] { case r if pf.isDefinedAt(r) => pf(r) }.flatten
   }
 
   final case class MkContraFlatMap[-R, +E, -A, +B, X](self: Http[R, E, A, B]) extends AnyVal {

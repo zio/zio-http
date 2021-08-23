@@ -67,43 +67,43 @@ trait HttpMessageAssertions {
   def isResponse[A]: Assertion[A] = isResponse(anything)
 
   def isResponse[A](assertion: Assertion[HttpResponse]): Assertion[A] =
-    Assertion.assertionRec("isResponse")(param(assertion))(assertion)({
+    Assertion.assertionRec("isResponse")(param(assertion))(assertion) {
       case msg: HttpResponse => Option(msg)
       case _                 => None
-    })
+    }
 
   def isRequest[A](assertion: Assertion[AnyRequest]): Assertion[A] =
-    Assertion.assertionRec("isRequest")(param(assertion))(assertion)({
+    Assertion.assertionRec("isRequest")(param(assertion))(assertion) {
       case msg: AnyRequest => Option(msg)
       case _               => None
-    })
+    }
 
   def isCompleteRequest[A](assertion: Assertion[CompleteRequest[ByteBuf]]): Assertion[A] =
-    Assertion.assertionRec("isCompleteRequest")(param(assertion))(assertion)({
+    Assertion.assertionRec("isCompleteRequest")(param(assertion))(assertion) {
       case msg: CompleteRequest[_] if msg.content.isInstanceOf[ByteBuf] =>
         Option(msg.asInstanceOf[CompleteRequest[ByteBuf]])
       case _                                                            => None
-    })
+    }
 
   def isBufferedRequest[A](assertion: Assertion[BufferedRequest[ByteBuf]]): Assertion[A] =
-    Assertion.assertionRec("isBufferedRequest")(param(assertion))(assertion)({
+    Assertion.assertionRec("isBufferedRequest")(param(assertion))(assertion) {
       case msg: BufferedRequest[_] => Option(msg.asInstanceOf[BufferedRequest[ByteBuf]])
       case _                       => None
-    })
+    }
 
   def isContent: Assertion[Any] = isContent(anything)
 
   def isContent[A](assertion: Assertion[HttpContent]): Assertion[A] =
-    Assertion.assertionRec("isContent")(param(assertion))(assertion)({
+    Assertion.assertionRec("isContent")(param(assertion))(assertion) {
       case msg: HttpContent => Option(msg)
       case _                => None
-    })
+    }
 
   def isLastContent[A](assertion: Assertion[LastHttpContent]): Assertion[A] =
-    Assertion.assertionRec("isLastContent")(param(assertion))(assertion)({
+    Assertion.assertionRec("isLastContent")(param(assertion))(assertion) {
       case msg: LastHttpContent => Option(msg)
       case _                    => None
-    })
+    }
 
   def responseStatus(code: Int): Assertion[HttpResponse] =
     Assertion.assertion("status")(param(code))(_.status().code() == code)
@@ -351,9 +351,9 @@ trait HttpMessageAssertions {
       content: Iterable[String] = List("A", "B", "C", "D"),
     )(implicit ev: CanDecode[A]): ZIO[Any with EventLoopGroup, Nothing, A] = for {
       promise <- Promise.make[Nothing, A]
-      proxy   <- ChannelProxy.make(HttpEndpoint.mount(Http.collectM[A]({ case a =>
+      proxy   <- ChannelProxy.make(HttpEndpoint.mount(Http.collectM[A] { case a =>
         promise.succeed(a) as AnyResponse()
-      })))
+      }))
       _       <- proxy.request(url, method, header)
       _       <- proxy.end(content)
       request <- promise.await

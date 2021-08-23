@@ -67,7 +67,7 @@ case class ChannelProxy(
 
   def end(iter: Iterable[String]): UIO[Unit] = {
     if (iter.isEmpty) end
-    else ZIO.foreach(iter.zipWithIndex)({ case (c, i) => write(c, isLast = i == iter.size - 1) }).unit
+    else ZIO.foreach(iter.zipWithIndex) { case (c, i) => write(c, isLast = i == iter.size - 1) }.unit
   }
 
   def end: UIO[Unit] = scheduleWrite(new DefaultLastHttpContent(Unpooled.EMPTY_BUFFER))

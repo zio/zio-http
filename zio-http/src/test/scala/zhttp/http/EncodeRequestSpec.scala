@@ -26,7 +26,7 @@ object EncodeRequestSpec extends DefaultRunnableSpec with EncodeRequest {
             Gen.alphaNumericStringBounded(1, 5),
             Gen.listOfBounded(1, 5)(Gen.alphaNumericStringBounded(1, 5)),
           )
-        val uriGen         = Gen.zipN(Gen.alphaNumericStringBounded(1, 5), Gen.const("/"), Gen.alphaNumericStringBounded(1, 5))(
+        val uriGen = Gen.zipN(Gen.alphaNumericStringBounded(1, 5), Gen.const("/"), Gen.alphaNumericStringBounded(1, 5))(
           _ ++ _ ++ _,
         )
 
