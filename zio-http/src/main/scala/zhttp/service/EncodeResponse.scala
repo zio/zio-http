@@ -19,7 +19,7 @@ trait EncodeResponse {
       }
     jHttpHeaders.set(HttpHeaderNames.SERVER, SERVER_NAME)
     jHttpHeaders.set(HttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
-    val jStatus      = res.status.toJHttpStatus
+    val jStatus      = res.status.asJava
     res.content match {
       case HttpData.CompleteData(data) =>
         jHttpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, data.length)

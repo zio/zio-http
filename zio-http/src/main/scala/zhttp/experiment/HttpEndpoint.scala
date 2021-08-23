@@ -179,7 +179,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
       }
 
       private def decodeResponse(res: AnyResponse[_, _, _]): HttpResponse = {
-        new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.toJHttpStatus, Header.disassemble(res.headers))
+        new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, Header.disassemble(res.headers))
       }
 
       private val notFoundResponse =
@@ -209,6 +209,9 @@ object HttpEndpoint {
 
   private[zhttp] def mount[R, E](serverEndpoint: ServerEndpoint[R, E]): HttpEndpoint[R, E] =
     Default(serverEndpoint)
+
+  def mount[R, E, A](decoder: CanDecode[A])(http: Http[R, E, A, AnyResponse[R, E, ByteBuf]]): HttpEndpoint[R, E] =
+    mount(decoder.endpoint(http))
 
   def mount[R, E, A](http: Http[R, E, A, AnyResponse[R, E, ByteBuf]])(implicit m: CanDecode[A]): HttpEndpoint[R, E] =
     mount(m.endpoint(http))
