@@ -27,7 +27,7 @@ object ServerEndpoint {
 
   def fail[E](error: E): ServerEndpoint[Any, E] = HttpAny(Http.fail(error))
 
-  private[zhttp] sealed trait CanDecode[A] {
+  private[zhttp] sealed trait CanDecode[A] extends Serializable with Product {
     def endpoint[R, E, B](http: Http[R, E, A, AnyResponse[R, E, ByteBuf]]): ServerEndpoint[R, E]
   }
 
