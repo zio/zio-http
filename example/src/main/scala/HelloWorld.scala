@@ -1,5 +1,5 @@
 import io.netty.buffer.{ByteBuf, Unpooled}
-import zhttp.experiment.HttpMessage.{BufferedResponse, CompleteResponse, HResponse}
+import zhttp.experiment.HttpMessage.{BufferedResponse, CompleteResponse, AnyResponse}
 import zhttp.experiment._
 import zhttp.http._
 import zhttp.service.Server
@@ -12,7 +12,7 @@ object HelloWorld extends App {
   }
 
   val h2: HttpEndpoint[Any, Nothing] = HttpEndpoint.mount {
-    Http.collect[AnyRequest]({ case req => HResponse(headers = req.headers, content = HContent.echo) })
+    Http.collect[AnyRequest]({ case req => AnyResponse(headers = req.headers, content = Content.echo) })
   }
 
   val h3: HttpEndpoint[Any, Nothing] = HttpEndpoint.mount {
