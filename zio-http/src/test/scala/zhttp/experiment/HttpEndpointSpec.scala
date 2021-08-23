@@ -3,7 +3,7 @@ package zhttp.experiment
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage._
-import zhttp.experiment.internal.{HttpMessageAssertions}
+import zhttp.experiment.internal.HttpMessageAssertions
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio._

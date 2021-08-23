@@ -12,9 +12,17 @@ import zio.test._
 object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   private val env = EventLoopGroup.auto(1)
 
-  private val params = for {
+  private val nonEmpty = for {
     data    <- Gen.listOf(Gen.alphaNumericString)
     content <- HttpGen.nonEmptyContent(Gen.const(data))
+    header  <- HttpGen.header
+    status  <- HttpGen.status
+    decode  <- HttpGen.canDecode
+  } yield (data, content, status, header, decode)
+
+  private val params = for {
+    data    <- Gen.listOf(Gen.alphaNumericString)
+    content <- HttpGen.content(Gen.const(data))
     header  <- HttpGen.header
     status  <- HttpGen.status
     decode  <- HttpGen.canDecode
@@ -23,7 +31,7 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
   def spec =
     suite("HttpEndpointResponse")(
       testM("response fields") {
-        checkM(params) { case (data, content, status, header, decode) =>
+        checkAllM(params) { case (data, content, status, header, decode) =>
           val endpoint = HttpEndpoint.mount(decode)(Http.collect(_ => AnyResponse(status, List(header), content)))
           assertM(endpoint.getResponse(content = data))(isResponse {
             responseStatus(status.asJava.code()) &&
@@ -32,8 +40,8 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
           })
         }
       },
-      testM("response content") {
-        checkAllM(params) { case (data, content, status, header, decode) =>
+      testM("response non-empty content") {
+        checkAllM(nonEmpty) { case (data, content, status, header, decode) =>
           val endpoint = HttpEndpoint.mount(decode)(Http.collect(_ => AnyResponse(status, List(header), content)))
           assertM(endpoint.getContent(content = data))(equalTo(data.mkString("")))
         }
