@@ -31,7 +31,7 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
     }
 
   def getApp(state: Ref[ServerState]) = serve {
-    HttpApp.collectM { case req @ _ -> path /: !! =>
+    HttpApp.collectM { case req @ _ -> !! / path =>
       state.update(updateState(_, req.headers, path)) *> ZIO.succeed(Response.ok)
     }
   }
@@ -52,20 +52,20 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
         List(
           testM("get request without content") {
             val path   = "getWithoutContent"
-            val actual = status(path /: !!) *> getLengthForPath(state, path)
+            val actual = status(!! / path) *> getLengthForPath(state, path)
             assertM(actual)(isNone)
           } @@ ignore,
           testM("post request with nonempty content") {
             val path    = "postWithNonemptyContent"
             val content = "content"
-            val actual  = request(path /: !!, Method.POST, content) *> getLengthForPath(state, path)
+            val actual  = request(!! / path, Method.POST, content) *> getLengthForPath(state, path)
             assertM(actual)(isSome(isPositive[Int]))
           },
           testM("post request with nonempty content and set content-length") {
             val path    = "postWithNonemptyContentAndSetContentLength"
             val content = "content"
             val headers = List(Header.custom(contentLengthName, "dummy"))
-            val actual  = request(path /: !!, Method.POST, content, headers) *> getLengthForPath(state, path)
+            val actual  = request(!! / path, Method.POST, content, headers) *> getLengthForPath(state, path)
             assertM(actual)(isSome(isPositive[Int]))
           },
         ),

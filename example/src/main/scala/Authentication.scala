@@ -37,13 +37,13 @@ object Authentication extends App {
 
   // Http app that requires a JWT claim
   def user(claim: JwtClaim): UHttpApp = Http.collect {
-    case Method.GET -> "user" /: name /: "greet" /: _ => Response.text(s"Welcome to the ZIO party! ${name}")
-    case Method.GET -> "user" /: "expiration" /: _ => Response.text(s"Expires in: ${claim.expiration.getOrElse(-1L)}")
+    case Method.GET -> !! / "user" / name / "greet" => Response.text(s"Welcome to the ZIO party! ${name}")
+    case Method.GET -> !! / "user" / "expiration"   => Response.text(s"Expires in: ${claim.expiration.getOrElse(-1L)}")
   }
 
   // App that let's the user login
   // Login is successful only if the password is the reverse of the username
-  def login: UHttpApp = Http.collect { case Method.GET -> "login" /: username /: password /: _ =>
+  def login: UHttpApp = Http.collect { case Method.GET -> !! / "login" / username / password =>
     if (password.reverse == username) Response.text(jwtEncode(username))
     else Response.fromHttpError(HttpError.Unauthorized("Invalid username of password\n"))
   }

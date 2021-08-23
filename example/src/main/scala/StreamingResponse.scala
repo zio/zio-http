@@ -14,10 +14,10 @@ object StreamingResponse extends App {
   val app: HttpApp[Any, Nothing] = HttpApp.collect {
 
     // Simple (non-stream) based route
-    case Method.GET -> "health" /: _ => Response.ok
+    case Method.GET -> !! / "health" => Response.ok
 
     // ZStream powered response
-    case Method.GET -> "stream" /: _ =>
+    case Method.GET -> !! / "stream" =>
       Response.http(
         status = Status.OK,
         headers = List(Header.contentLength(message.length.toLong)),
