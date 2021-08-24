@@ -10,7 +10,7 @@ import zhttp.service.{EventLoopGroup, HttpRuntime}
 import zio.internal.Executor
 import zio.stm.TQueue
 import zio.stream.ZStream
-import zio.{Exit, Queue, UIO, ZIO}
+import zio.{Exit, Queue, Task, UIO, ZIO}
 
 import scala.concurrent.ExecutionContext
 
@@ -27,7 +27,7 @@ case class ChannelProxy(
    * Schedules a `writeInbound` operation on the channel using the provided group. This is done to make sure that all
    * the execution of HttpEndpoint happens in the same thread.
    */
-  private def scheduleWrite(msg: => HttpObject): UIO[Unit] = UIO {
+  def scheduleWrite(msg: => Any): Task[Unit] = Task {
     val autoRead = self.config().isAutoRead
     if (autoRead) self.writeInbound(msg): Unit
     else {
@@ -48,31 +48,31 @@ case class ChannelProxy(
     method: HttpMethod = HttpMethod.GET,
     headers: HttpHeaders = EmptyHttpHeaders.INSTANCE,
     version: HttpVersion = HttpVersion.HTTP_1_1,
-  ): UIO[Unit] = {
+  ): Task[Unit] = {
     scheduleWrite(new DefaultHttpRequest(version, method, url, headers))
   }
 
-  def write(text: String, isLast: Boolean = false): UIO[Unit] = {
+  def write(text: String, isLast: Boolean = false): Task[Unit] = {
     if (isLast)
       scheduleWrite(new DefaultLastHttpContent(Unpooled.copiedBuffer(text.getBytes(CharsetUtil.UTF_8))))
     else
       scheduleWrite(new DefaultHttpContent(Unpooled.copiedBuffer(text.getBytes(CharsetUtil.UTF_8))))
   }
 
-  def data(iter: String*): UIO[Unit] = data(iter)
+  def data(iter: String*): Task[Unit] = data(iter)
 
-  def data(iter: Iterable[String]): UIO[Unit] = {
-    ZIO.foreach(iter)(write(_, isLast = false)).unit
+  def data(iter: Iterable[String]): Task[Unit] = {
+    ZIO.foreach(iter)(write(_)).unit
   }
 
-  def end(iter: Iterable[String]): UIO[Unit] = {
+  def end(iter: Iterable[String]): Task[Unit] = {
     if (iter.isEmpty) end
     else ZIO.foreach(iter.zipWithIndex) { case (c, i) => write(c, isLast = i == iter.size - 1) }.unit
   }
 
-  def end: UIO[Unit] = scheduleWrite(new DefaultLastHttpContent(Unpooled.EMPTY_BUFFER))
+  def end: Task[Unit] = scheduleWrite(new DefaultLastHttpContent(Unpooled.EMPTY_BUFFER))
 
-  def end(iter: String*): UIO[Unit] = end(iter)
+  def end(iter: String*): Task[Unit] = end(iter)
 
   /**
    * Handles all the outgoing messages ie all the `ctx.write()` and `ctx.writeAndFlush()` that happens inside of the
