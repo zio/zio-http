@@ -5,7 +5,7 @@ import zio.ZIO
 
 import java.nio.charset.Charset
 
-package object http extends PathModule with RequestSyntax with HttpAppSyntax {
+package object http extends PathModule with RequestSyntax with HttpAppSyntax with RouteDecoderModule {
   type UHttp[-A, +B]      = Http[Any, Nothing, A, B]
   type HttpApp[-R, +E]    = Http[R, E, Request, Response[R, E]]
   type UHttpApp           = HttpApp[Any, Nothing]

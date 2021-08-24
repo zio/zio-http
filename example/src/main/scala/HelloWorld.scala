@@ -17,7 +17,7 @@ object HelloWorld extends App {
 
   val h4: HttpEndpoint[Any, Nothing] = HttpEndpoint.mount {
     Http.collect[CompleteRequest[ByteBuf]] {
-      case req if req.url.path == Root / "health" => CompleteResponse(content = Unpooled.copiedBuffer("Ok".getBytes()))
+      case req if req.url.path == !! / "health" => CompleteResponse(content = Unpooled.copiedBuffer("Ok".getBytes()))
     }
   }
 

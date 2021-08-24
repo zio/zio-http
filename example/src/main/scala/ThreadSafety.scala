@@ -8,7 +8,7 @@ object ThreadSafety extends App {
   def printThread(tag: String) =
     UIO(println(s"${tag.padTo(6, ' ')}: ${Thread.currentThread().getName}"))
 
-  val app = HttpApp.collectM { case Method.GET -> Root / "text" =>
+  val app = HttpApp.collectM { case Method.GET -> !! / "text" =>
     for {
       _  <- printThread("Start")
       f1 <- ZIO.sleep(1 second).zipLeft(printThread("First")).fork

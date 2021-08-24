@@ -166,7 +166,7 @@ trait HttpMessageAssertions {
    * using the `assertion` parameter.
    */
   def assertBufferedRequest[R, E](
-                                   f: EndpointClient => ZIO[R, E, Any],
+    f: EndpointClient => ZIO[R, E, Any],
   )(
     assertion: Assertion[BufferedRequest[ByteBuf]],
   ): ZIO[EventLoopGroup with R, E, TestResult] = for {
