@@ -11,7 +11,7 @@ object CORSSpec extends HttpRunnableSpec(8089) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
   val app: ZManaged[EventLoopGroup with ServerChannelFactory, Nothing, Unit] = serve {
-    CORS(HttpApp.collect { case Method.GET -> Root / "success" =>
+    CORS(HttpApp.collect { case Method.GET -> !! / "success" =>
       Response.ok
     })
   }
@@ -22,7 +22,7 @@ object CORSSpec extends HttpRunnableSpec(8089) {
         List(
           testM("OPTIONS request") {
             val actual = request(
-              Root / "success",
+              !! / "success",
               Method.OPTIONS,
               "",
               List[Header](
@@ -51,7 +51,7 @@ object CORSSpec extends HttpRunnableSpec(8089) {
           },
           testM("GET request") {
             val actual = headers(
-              Root / "success",
+              !! / "success",
               Method.GET,
               "",
               HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD -> Method.GET.toString(),
