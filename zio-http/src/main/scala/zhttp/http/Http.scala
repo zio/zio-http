@@ -267,10 +267,15 @@ sealed trait Http[-R, +E, -A, +B] { self =>
       case Chain(self, other)      => ZIO.effectSuspendTotal(self.executeAsZIO(a) >>= (other.executeAsZIO(_)))
       case FoldM(self, ee, bb, dd) =>
         ZIO.effectSuspendTotal {
-          self.executeAsZIO(a).flatMap(bb(_).executeAsZIO(a)).catchAll {
-            case Some(value) => ee(value).executeAsZIO(a)
-            case None        => dd.executeAsZIO(a)
-          }
+          self
+            .executeAsZIO(a)
+            .foldM(
+              {
+                case Some(e) => ee(e).executeAsZIO(a)
+                case None    => dd.executeAsZIO(a)
+              },
+              bb(_).executeAsZIO(a),
+            )
         }
     }
   }
