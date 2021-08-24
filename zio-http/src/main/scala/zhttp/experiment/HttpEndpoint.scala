@@ -4,6 +4,7 @@ import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel._
 import io.netty.handler.codec.http._
 import zhttp.experiment.Content._
+import zhttp.experiment.HttpEndpoint.InvalidMessage
 import zhttp.experiment.HttpMessage._
 import zhttp.experiment.ServerEndpoint.CanDecode
 import zhttp.http._
@@ -182,7 +183,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
               ctx.read(): Unit
             }
 
-          case _ => () // TODO: Throw an exception
+          case msg => ctx.fireExceptionCaught(InvalidMessage(msg)): Unit
         }
       }
 
@@ -244,6 +245,10 @@ sealed trait HttpEndpoint[-R, +E] { self =>
 }
 
 object HttpEndpoint {
+
+  final case class InvalidMessage(message: Any) extends IllegalArgumentException {
+    override def getMessage: String = s"Endpoint could not handle message: ${message.getClass.getName}"
+  }
 
   private[zhttp] final case class Default[R, E](se: ServerEndpoint[R, E], check: Check[HttpRequest] = Check.isTrue)
       extends HttpEndpoint[R, E]

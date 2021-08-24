@@ -2,14 +2,15 @@ package zhttp.experiment
 
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.handler.codec.http._
+import zhttp.experiment.HttpEndpoint.InvalidMessage
 import zhttp.experiment.HttpMessage._
-import zhttp.experiment.internal.HttpMessageAssertions
+import zhttp.experiment.internal.{EndpointClient, HttpMessageAssertions}
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio._
 import zio.duration.durationInt
 import zio.stream.ZStream
-import zio.test.Assertion.equalTo
+import zio.test.Assertion.{equalTo, isLeft}
 import zio.test.TestAspect._
 import zio.test._
 
@@ -37,6 +38,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       CombineSpec,
       EchoCompleteResponseSpec,
       EchoStreamingResponseSpec,
+      IllegalMessageSpec,
     ).provideCustomLayer(env) @@ timeout(10 seconds)
 
   /**
@@ -378,4 +380,14 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       ),
     )
   }
+
+  /**
+   * Captures scenarios when an invalid message is sent to the Endpoint.
+   */
+  def IllegalMessageSpec = suite("IllegalMessage")(
+    testM("throws exception") {
+      val program = EndpointClient.deploy(HttpEndpoint.empty).flatMap(_.write("ILLEGAL_MESSAGE").either)
+      assertM(program)(isLeft(equalTo(InvalidMessage("ILLEGAL_MESSAGE"))))
+    },
+  )
 }
