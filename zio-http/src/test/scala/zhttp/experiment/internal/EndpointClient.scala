@@ -17,7 +17,7 @@ import scala.concurrent.ExecutionContext
 case class EndpointClient(outbound: MessageQueue[HttpObject], channel: ProxyChannel) { self =>
   def receive: UIO[HttpObject] = outbound.take
 
-  def write(data: Any): Task[Unit] = channel.writeM(data)
+  def write(data: AnyRef): Task[Unit] = channel.writeM(data)
 
   def receiveN(n: Int): UIO[List[HttpObject]] = outbound.takeN(n)
 
@@ -99,7 +99,7 @@ object EndpointClient {
      * Schedules a `writeInbound` operation on the channel using the provided group. This is done to make sure that all
      * the execution of HttpEndpoint happens in the same thread.
      */
-    def writeM(msg: => Any): Task[Unit] = Task {
+    def writeM(msg: => AnyRef): Task[Unit] = Task {
       val autoRead = self.config().isAutoRead
       if (autoRead) self.writeInbound(msg): Unit
       else {
