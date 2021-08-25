@@ -32,14 +32,14 @@ final case class Cookie(
   /**
    * helpers for setting cookie values
    */
-  def setContent(v: String): Cookie            = copy(content = v)
-  def setExpires(v: Option[Instant]): Cookie   = copy(expires = v)
-  def setMaxAge(v: Option[Long]): Cookie       = copy(maxAge = v)
-  def setDomain(v: Option[String]): Cookie     = copy(domain = v)
-  def setPath(v: Option[String]): Cookie       = copy(path = v)
-  def setSecure(v: Boolean): Cookie            = copy(secure = v)
-  def setHttpOnly(v: Boolean): Cookie          = copy(httpOnly = v)
-  def setSameSite(s: Option[SameSite]): Cookie = copy(sameSite = s)
+  def setContent(v: String): Cookie    = copy(content = v)
+  def setExpires(v: Instant): Cookie   = copy(expires = Some(v))
+  def setMaxAge(v: Long): Cookie       = copy(maxAge = Some(v))
+  def setDomain(v: String): Cookie     = copy(domain = Some(v))
+  def setPath(v: String): Cookie       = copy(path = Some(v))
+  def setSecure(v: Boolean): Cookie    = copy(secure = v)
+  def setHttpOnly(v: Boolean): Cookie  = copy(httpOnly = v)
+  def setSameSite(v: SameSite): Cookie = copy(sameSite = Some(v))
 
   /**
    * helpers for removing cookie values
@@ -85,31 +85,31 @@ object Cookie {
     val cookieWithoutMeta = headerValue.split(";").map(_.trim)
     val (first, other)    = (cookieWithoutMeta.head, cookieWithoutMeta.tail)
     val (name, content)   = splitNameContent(first)
-    val cookie            =
+    var cookie            =
       if (name.trim == "" && content.isEmpty) throw new IllegalArgumentException("Cookie can't be parsed")
       else Cookie(name, content.getOrElse(""))
 
     other.map(splitNameContent).map(t => (t._1, t._2)).foreach {
       case (ignoreCase"expires", Some(v))  =>
-        cookie.setExpires(parseDate(v) match {
+        parseDate(v) match {
           case Left(_)      => None
-          case Right(value) => Some(value)
-        })
+          case Right(value) => cookie = cookie.setExpires(value)
+        }
       case (ignoreCase"max-age", Some(v))  =>
-        cookie.setMaxAge(Try(v.toLong) match {
-          case Success(maxAge) => Some(maxAge)
+        Try(v.toLong) match {
+          case Success(maxAge) => cookie = cookie.setMaxAge(maxAge)
           case Failure(_)      => None
-        })
-      case (ignoreCase"domain", v)         => cookie.setDomain(Some(v.getOrElse("")))
-      case (ignoreCase"path", v)           => cookie.setPath(Some(v.getOrElse("")))
-      case (ignoreCase"secure", _)         => cookie.setSecure(true)
-      case (ignoreCase"httponly", _)       => cookie.setHttpOnly(true)
+        }
+      case (ignoreCase"domain", v)         => cookie = cookie.setDomain(v.getOrElse(""))
+      case (ignoreCase"path", v)           => cookie = cookie.setPath(v.getOrElse(""))
+      case (ignoreCase"secure", _)         => cookie = cookie.setSecure(true)
+      case (ignoreCase"httponly", _)       => cookie = cookie.setHttpOnly(true)
       case (ignoreCase"samesite", Some(v)) =>
         v.trim match {
-          case ignoreCase"lax"    => cookie.setSameSite(Some(SameSite.Lax))
-          case ignoreCase"strict" => cookie.setSameSite(Some(SameSite.Strict))
-          case ignoreCase"none"   => cookie.setSameSite(Some(SameSite.None))
-          case _                  => cookie.setSameSite(None)
+          case ignoreCase"lax"    => cookie = cookie.setSameSite(SameSite.Lax)
+          case ignoreCase"strict" => cookie = cookie.setSameSite(SameSite.Strict)
+          case ignoreCase"none"   => cookie = cookie.setSameSite(SameSite.None)
+          case _                  => None
         }
       case (_, _)                          => cookie
     }
