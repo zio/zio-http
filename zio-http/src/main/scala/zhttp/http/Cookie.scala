@@ -2,6 +2,7 @@ package zhttp.http
 
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneId}
+import scala.concurrent.duration.{Duration, SECONDS}
 import scala.util.{Failure, Success, Try}
 
 sealed trait SameSite
@@ -19,7 +20,7 @@ final case class Cookie(
   path: Option[String] = None,
   secure: Boolean = false,
   httpOnly: Boolean = false,
-  maxAge: Option[Long] = None,
+  maxAge: Option[Duration] = None,
   sameSite: Option[SameSite] = None,
 ) { self =>
 
@@ -34,7 +35,7 @@ final case class Cookie(
    */
   def setContent(v: String): Cookie    = copy(content = v)
   def setExpires(v: Instant): Cookie   = copy(expires = Some(v))
-  def setMaxAge(v: Long): Cookie       = copy(maxAge = Some(v))
+  def setMaxAge(v: Duration): Cookie   = copy(maxAge = Some(v))
   def setDomain(v: String): Cookie     = copy(domain = Some(v))
   def setPath(v: String): Cookie       = copy(path = Some(v))
   def setSecure(v: Boolean): Cookie    = copy(secure = v)
@@ -57,7 +58,7 @@ final case class Cookie(
     val cookie = List(
       Some(s"$name=$content"),
       expires.map(e => s"Expires=${DateTimeFormatter.RFC_1123_DATE_TIME.format(e.atZone(ZoneId.of("GMT")))}"),
-      maxAge.map(a => s"Max-Age=$a"),
+      maxAge.map(a => s"Max-Age=${a.toSeconds}"),
       domain.map(d => s"Domain=$d"),
       path.map(p => s"Path=$p"),
       if (secure) Some("Secure") else None,
@@ -97,7 +98,7 @@ object Cookie {
         }
       case (ignoreCase"max-age", Some(v))  =>
         Try(v.toLong) match {
-          case Success(maxAge) => cookie = cookie.setMaxAge(maxAge)
+          case Success(maxAge) => cookie = cookie.setMaxAge(Duration(maxAge, SECONDS))
           case Failure(_)      => None
         }
       case (ignoreCase"domain", v)         => cookie = cookie.setDomain(v.getOrElse(""))

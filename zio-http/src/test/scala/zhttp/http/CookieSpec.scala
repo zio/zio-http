@@ -3,21 +3,24 @@ package zhttp.http
 import zio.test.Assertion.equalTo
 import zio.test.{DefaultRunnableSpec, assert}
 
+import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success, Try}
 
 object CookieSpec extends DefaultRunnableSpec {
   def spec = suite("Cookies")(
     suite("toCookie")(
       test("should parse the cookie") {
-        val cookieHeaderValue = "name=content; Max-Age= 123; Secure; HttpOnly "
+        val cookieHeaderValue = "name=content; Max-Age=123; Secure; HttpOnly "
         assert(Cookie.fromString(cookieHeaderValue))(
-          equalTo(Cookie("name", "content", None, None, None, true, true, Some(123L), None)),
+          equalTo(Cookie("name", "content", None, None, None, true, true, Some(123 seconds), None)),
         )
       },
       test("should parse the cookie with empty content") {
-        val cookieHeaderValue = "name=; Expires=1816; Max-Age= 123; Secure; HttpOnly; Path=/cookie "
+        val cookieHeaderValue = "name=; Expires=1816; Max-Age=123; Secure; HttpOnly; Path=/cookie "
         assert(Cookie.fromString(cookieHeaderValue))(
-          equalTo(Cookie("name", "", None, None, Some("/cookie"), true, true, Some(123), None)),
+          equalTo(
+            Cookie("name", "", None, None, Some("/cookie"), true, true, Some(123 seconds), None),
+          ),
         )
       },
       test("shouldn't parse the cookie with empty content and empty name") {
@@ -45,10 +48,10 @@ object CookieSpec extends DefaultRunnableSpec {
             domain = None,
             path = Some("/cookie"),
             httpOnly = true,
-            maxAge = Some(0L),
+            maxAge = Some(5 days),
             sameSite = Some(SameSite.Lax),
           )
-        assert(cookie.asString)(equalTo("name=content; Max-Age=0; Path=/cookie; HttpOnly; SameSite=Lax"))
+        assert(cookie.asString)(equalTo("name=content; Max-Age=432000; Path=/cookie; HttpOnly; SameSite=Lax"))
       },
       test("should convert cookie to string without meta") {
         val cookie = Cookie("name", "content")

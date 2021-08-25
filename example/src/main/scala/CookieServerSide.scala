@@ -2,6 +2,8 @@ import zhttp.http._
 import zhttp.service._
 import zio._
 
+import scala.concurrent.duration.DurationInt
+
 /**
  * Example to make app using cookies
  */
@@ -16,7 +18,7 @@ object CookieServerSide extends App {
           domain = None,
           path = Some("/cookie"),
           httpOnly = true,
-          maxAge = None,
+          maxAge = Some(5 days),
           sameSite = None,
         ),
       )
