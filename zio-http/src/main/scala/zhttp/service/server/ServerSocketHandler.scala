@@ -73,7 +73,7 @@ final case class ServerSocketHandler[R](
           case Some(v) => zExec.unsafeExecute_(ctx)(v)
           case None    => ctx.fireUserEventTriggered(event)
         }
-      case event                                                                            => ctx.fireUserEventTriggered(event)
+      case event => ctx.fireUserEventTriggered(event)
     }
     ()
   }

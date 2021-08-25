@@ -66,5 +66,4 @@ object Header {
 
   def parse(headers: HttpHeaders): List[Header] =
     headers.entries().asScala.toList.map(entry => Header(entry.getKey, entry.getValue))
-
 }

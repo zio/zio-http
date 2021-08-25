@@ -3,7 +3,7 @@ package zhttp.http
 import zhttp.http.Header._
 import zhttp.http.HeadersHelpers.BearerSchemeName
 import zio.test.Assertion._
-import zio.test._
+import zio.test.{DefaultRunnableSpec, assert}
 
 object HeaderSpec extends DefaultRunnableSpec {
 

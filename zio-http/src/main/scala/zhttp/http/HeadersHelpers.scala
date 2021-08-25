@@ -60,12 +60,6 @@ private[zhttp] trait HeadersHelpers { self: HasHeaders =>
   def getAuthorization: Option[String] =
     getHeaderValue(HttpHeaderNames.AUTHORIZATION)
 
-  def getSetCookie: Option[String] =
-    getHeaderValue(HttpHeaderNames.SET_COOKIE)
-
-  def getCookie: Option[String]      =
-    getHeaderValue(HttpHeaderNames.COOKIE)
-
   private def decodeHttpBasic(encoded: String): Option[(String, String)] = {
     val authChannelBuffer        = Unpooled.wrappedBuffer(encoded.getBytes(CharsetUtil.UTF_8))
     val decodedAuthChannelBuffer = Base64.decode(authChannelBuffer)
@@ -98,14 +92,13 @@ private[zhttp] trait HeadersHelpers { self: HasHeaders =>
       }
     })
   }
-  def getBearerToken: Option[String] = getAuthorization.flatMap(v => {
+  def getBearerToken: Option[String]   = getAuthorization.flatMap(v => {
     val indexOfBearer = v.indexOf(BearerSchemeName)
     if (indexOfBearer != 0 || v.length == BearerSchemeName.length)
       None
     else
       Some(v.substring(BearerSchemeName.length + 1))
   })
-
 }
 
 object HeadersHelpers {

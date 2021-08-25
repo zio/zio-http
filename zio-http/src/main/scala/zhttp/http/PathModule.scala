@@ -1,35 +1,53 @@
 package zhttp.http
 
 private[zhttp] trait PathModule { module =>
-  sealed trait Path {
-    self =>
+  sealed trait Path { self =>
     def asString: String
-
-    def /(name: String): Path = append(name)
-
-    def append(name: String): Path = if (name.isEmpty) this else module./(this, name)
-
+    def /(name: String): Path      = Path(self.toList :+ name)
+    def /:(name: String): Path     = append(name)
+    def append(name: String): Path = if (name.isEmpty) self else Path.Cons(name, self)
     def toList: List[String]
-
-    override def toString: String = this.asString
+    def reverse: Path              = Path(toList.reverse)
   }
 
   object Path {
-    def apply(): Path                               = Root
-    def apply(string: String): Path                 = if (string.trim.isEmpty) Root else Path(string.split("/").toList)
+    def apply(): Path                               = End
+    def apply(string: String): Path                 = if (string.trim.isEmpty) End else Path(string.split("/").toList)
     def apply(seqString: String*): Path             = Path(seqString.toList)
-    def apply(list: List[String]): Path             = list.foldLeft[Path](Root)((a, s) => a.append(s))
+    def apply(list: List[String]): Path             = list.foldRight[Path](End)((s, a) => a.append(s))
     def unapplySeq(arg: Path): Option[List[String]] = Option(arg.toList)
-    def empty: Path                                 = Root
+    def empty: Path                                 = End
+
+    case object End extends Path {
+      override def asString: String     = ""
+      override def toList: List[String] = Nil
+    }
+
+    case class Cons(name: String, path: Path) extends Path {
+      override def asString: String     = s"/${name}${path.asString}"
+      override def toList: List[String] = name :: path.toList
+    }
   }
 
-  case class /(path: Path, name: String) extends Path {
-    override lazy val asString: String = s"${path.asString}/${name}"
-    override def toList: List[String]  = path.toList ::: List(name)
+  object /: {
+    def unapply(path: Path): Option[(String, Path)] =
+      path match {
+        case Path.End              => None
+        case Path.Cons(name, path) => Option(name -> path)
+      }
   }
 
-  case object Root extends Path {
-    override lazy val asString: String = ""
-    override def toList: List[String]  = Nil
+  object / {
+    def unapply(path: Path): Option[(Path, String)] = {
+      path.toList.reverse match {
+        case Nil          => None
+        case head :: next => Option((Path(next.reverse), head))
+      }
+    }
   }
+
+  val !! = Path.End
+
+  @deprecated("Use `!!` operator instead.", "23-Aug-2021")
+  val Root = !!
 }

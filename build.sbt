@@ -5,7 +5,7 @@ import scala.concurrent.duration.FiniteDuration
 import sbt.enablePlugins
 
 // ZIO Version
-val zioVersion            = "1.0.10"
+val zioVersion            = "1.0.11"
 val zioConfigVersion      = "1.0.2"
 val releaseDrafterVersion = "5"
 
@@ -15,7 +15,7 @@ lazy val root = (project in file("."))
   .aggregate(zhttp, zhttpBenchmarks, zhttpTest, example)
 
 // CI Configuration
-ThisBuild / githubWorkflowAddedJobs :=
+ThisBuild / githubWorkflowAddedJobs     :=
   Seq(
     WorkflowJob(
       id = "update_release_draft",
@@ -26,7 +26,7 @@ ThisBuild / githubWorkflowAddedJobs :=
   )
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
-ThisBuild / githubWorkflowPublish :=
+ThisBuild / githubWorkflowPublish       :=
   Seq(
     WorkflowStep.Sbt(
       List("ci-release"),
@@ -66,8 +66,8 @@ lazy val zhttp = (project in file("./zio-http"))
   .settings(stdSettings("zhttp"))
   .settings(publishSetting(true))
   .settings(
-    ThisBuild / homepage := Some(url("https://github.com/dream11/zio-http")),
-    ThisBuild / scmInfo :=
+    ThisBuild / homepage   := Some(url("https://github.com/dream11/zio-http")),
+    ThisBuild / scmInfo    :=
       Some(
         ScmInfo(url("https://github.com/dream11/zio-http"), "scm:git@github.com:dream11/zio-http.git"),
       ),
@@ -90,7 +90,7 @@ lazy val zhttp = (project in file("./zio-http"))
       Seq(
         "dev.zio"                %% "zio"                     % zioVersion,
         "dev.zio"                %% "zio-streams"             % zioVersion,
-        "io.netty"                % "netty-all"               % "4.1.66.Final",
+        "io.netty"                % "netty-all"               % "4.1.67.Final",
         "org.scala-lang.modules" %% "scala-collection-compat" % "2.5.0",
       ),
   )
@@ -118,10 +118,10 @@ lazy val example = (project in file("./example"))
   .settings(stdSettings("example"))
   .settings(publishSetting(false))
   .settings(
-    fork := true,
+    fork                      := true,
     Compile / run / mainClass := Option("HelloWorld"),
     libraryDependencies ++= Seq(
-      "com.github.jwt-scala" %% "jwt-core" % "9.0.0",
+      "com.github.jwt-scala" %% "jwt-core" % "9.0.1",
     ),
   )
   .dependsOn(zhttp)
@@ -132,4 +132,4 @@ addCommandAlias("sFix", "scalafix OrganizeImports; test:scalafix OrganizeImports
 addCommandAlias("sFixCheck", "scalafix --check OrganizeImports; test:scalafix --check OrganizeImports")
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
-Global / watchAntiEntropy := FiniteDuration(2000, TimeUnit.MILLISECONDS)
+Global / watchAntiEntropy     := FiniteDuration(2000, TimeUnit.MILLISECONDS)
