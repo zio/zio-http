@@ -16,7 +16,7 @@ final case class Cookie(
   content: String,
   expires: Option[Instant] = None,
   domain: Option[String] = None,
-  path: Option[Path] = None,
+  path: Option[String] = None,
   secure: Boolean = false,
   httpOnly: Boolean = false,
   maxAge: Option[Long] = None,
@@ -36,7 +36,7 @@ final case class Cookie(
   def setExpires(v: Option[Instant]): Cookie   = copy(expires = v)
   def setMaxAge(v: Option[Long]): Cookie       = copy(maxAge = v)
   def setDomain(v: Option[String]): Cookie     = copy(domain = v)
-  def setPath(v: Option[Path]): Cookie         = copy(path = v)
+  def setPath(v: Option[String]): Cookie       = copy(path = v)
   def setSecure(v: Boolean): Cookie            = copy(secure = v)
   def setHttpOnly(v: Boolean): Cookie          = copy(httpOnly = v)
   def setSameSite(s: Option[SameSite]): Cookie = copy(sameSite = s)
@@ -101,7 +101,7 @@ object Cookie {
           case Failure(_)      => None
         })
       case (ignoreCase"domain", v)         => cookie.setDomain(Some(v.getOrElse("")))
-      case (ignoreCase"path", v)           => cookie.setPath(Some(Path(v.getOrElse(""))))
+      case (ignoreCase"path", v)           => cookie.setPath(Some(v.getOrElse("")))
       case (ignoreCase"secure", _)         => cookie.setSecure(true)
       case (ignoreCase"httponly", _)       => cookie.setHttpOnly(true)
       case (ignoreCase"samesite", Some(v)) =>

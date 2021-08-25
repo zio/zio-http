@@ -29,7 +29,7 @@ object CookieSpec extends DefaultRunnableSpec {
     ),
     suite("asString in cookie")(
       test("should convert cookie to string with meta") {
-        val cookie = Cookie("name", "content", None, None, Some(Path("/cookie")), false, true, None, None)
+        val cookie = Cookie("name", "content", None, None, Some("/cookie"), false, true, None, None)
         assert(cookie.asString)(equalTo("name=content; Path=/cookie; HttpOnly"))
       },
       test("should convert cookie to string with meta") {
@@ -39,7 +39,7 @@ object CookieSpec extends DefaultRunnableSpec {
             content = "content",
             expires = None,
             domain = None,
-            path = Some(Path("/cookie")),
+            path = Some("/cookie"),
             httpOnly = true,
             maxAge = Some(0L),
             sameSite = Some(SameSite.Lax),

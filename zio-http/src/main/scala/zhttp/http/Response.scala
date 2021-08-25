@@ -13,5 +13,4 @@ object Response extends ResponseHelpers {
       with HeadersHelpers
 
   final case class SocketResponse[-R, +E](socket: SocketApp[R, E] = SocketApp.empty) extends Response[R, E]
-
 }

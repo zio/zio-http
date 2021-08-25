@@ -33,6 +33,9 @@ final case class Request(
       None
   }
 
+  /**
+   * request with COOKIE header as list of cookies
+   */
   def cookies(cookies: List[Cookie]): Request =
     self.copy(headers =
       headers ++ List(
@@ -40,6 +43,9 @@ final case class Request(
       ),
     )
 
+  /**
+   * request with COOKIE from another response headers
+   */
   def cookiesFromHeader(headers: List[Header]): Request = self.copy(headers =
     headers ++ List(
       Header.custom(

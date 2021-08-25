@@ -71,8 +71,11 @@ private[zhttp] trait ResponseHelpers {
 
   def status(status: Status): UResponse = http(status)
 
-  def cookies(headers: List[Header]): List[Cookie] = {
-    headers
+  /**
+   * returns a list of cookies from response header
+   */
+  def cookies(header: List[Header]): List[Cookie] = {
+    header
       .filter(x => x.name.toString.equalsIgnoreCase(HttpHeaderNames.SET_COOKIE.toString))
       .map(h =>
         Try {
@@ -84,9 +87,15 @@ private[zhttp] trait ResponseHelpers {
       )
   }
 
+  /**
+   * response with SET_COOKIE header to add cookies
+   */
   def addSetCookie(cookie: Cookie): UResponse =
     http(headers = List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.asString)))
 
+  /**
+   * response with SET_COOKIE header to remove cookies
+   */
   def removeSetCookie(cookie: Cookie): UResponse =
     http(headers = List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.clearCookie.asString)))
 
