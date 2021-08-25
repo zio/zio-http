@@ -385,11 +385,20 @@ object Http {
   def fromFunction[A]: MkTotal[A] = new MkTotal[A](())
 
   /**
+   * Creates a Http from an effectful pure function
+   */
+  def fromFunctionM[A]: MkTotalM[A] = new MkTotalM[A](())
+
+  /**
    * Creates an Http that delegates to other Https.
    */
   def route[A]: Http.MakeRoute[A] = Http.MakeRoute(())
 
   final class MkTotal[A](val unit: Unit) extends AnyVal {
     def apply[B](f: A => B): Http[Any, Nothing, A, B] = Http.identity[A].map(f)
+  }
+
+  final class MkTotalM[A](val unit: Unit) extends AnyVal {
+    def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = Http.identity[A].mapM(f)
   }
 }
