@@ -17,7 +17,7 @@ final case class Cookie(
   content: String,
   expires: Option[Instant] = None,
   domain: Option[String] = None,
-  path: Option[String] = None,
+  path: Option[Path] = None,
   secure: Boolean = false,
   httpOnly: Boolean = false,
   maxAge: Option[Duration] = None,
@@ -37,7 +37,7 @@ final case class Cookie(
   def setExpires(v: Instant): Cookie   = copy(expires = Some(v))
   def setMaxAge(v: Duration): Cookie   = copy(maxAge = Some(v))
   def setDomain(v: String): Cookie     = copy(domain = Some(v))
-  def setPath(v: String): Cookie       = copy(path = Some(v))
+  def setPath(v: Path): Cookie         = copy(path = Some(v))
   def setSecure(v: Boolean): Cookie    = copy(secure = v)
   def setHttpOnly(v: Boolean): Cookie  = copy(httpOnly = v)
   def setSameSite(v: SameSite): Cookie = copy(sameSite = Some(v))
@@ -60,7 +60,7 @@ final case class Cookie(
       expires.map(e => s"Expires=${DateTimeFormatter.RFC_1123_DATE_TIME.format(e.atZone(ZoneId.of("GMT")))}"),
       maxAge.map(a => s"Max-Age=${a.toSeconds}"),
       domain.map(d => s"Domain=$d"),
-      path.map(p => s"Path=$p"),
+      path.map(p => s"Path=${p.asString}"),
       if (secure) Some("Secure") else None,
       if (httpOnly) Some("HttpOnly") else None,
       sameSite.map(s => s"SameSite=$s"),
@@ -102,7 +102,7 @@ object Cookie {
           case Failure(_)      => None
         }
       case (ignoreCase"domain", v)         => cookie = cookie.setDomain(v.getOrElse(""))
-      case (ignoreCase"path", v)           => cookie = cookie.setPath(v.getOrElse(""))
+      case (ignoreCase"path", v)           => cookie = cookie.setPath(Path(v.getOrElse("")))
       case (ignoreCase"secure", _)         => cookie = cookie.setSecure(true)
       case (ignoreCase"httponly", _)       => cookie = cookie.setHttpOnly(true)
       case (ignoreCase"samesite", Some(v)) =>

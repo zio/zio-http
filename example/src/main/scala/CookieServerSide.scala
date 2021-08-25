@@ -16,7 +16,7 @@ object CookieServerSide extends App {
           content = "value",
           expires = None,
           domain = None,
-          path = Some("/cookie"),
+          path = Some(Path("/cookie")),
           httpOnly = true,
           maxAge = Some(5 days),
           sameSite = None,
