@@ -253,20 +253,20 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   def CombineSpec = {
     suite("orElse")(
       testM("status is 200") {
-        val a   = HttpEndpoint.mount(Root / "a")(Http.succeed(AnyResponse(status = Status.OK)))
-        val b   = HttpEndpoint.mount(Root / "b")(Http.succeed(AnyResponse(status = Status.CREATED)))
+        val a   = HttpEndpoint.mount(!! / "a")(Http.succeed(AnyResponse(status = Status.OK)))
+        val b   = HttpEndpoint.mount(!! / "b")(Http.succeed(AnyResponse(status = Status.CREATED)))
         val res = (a <> b).getResponse("/a")
         assertM(res)(isResponse(responseStatus(200)))
       },
       testM("matches first") {
-        val a   = HttpEndpoint.mount(Root / "a")(Http.succeed(AnyResponse(status = Status.OK)))
-        val b   = HttpEndpoint.mount(Root / "a")(Http.succeed(AnyResponse(status = Status.CREATED)))
+        val a   = HttpEndpoint.mount(!! / "a")(Http.succeed(AnyResponse(status = Status.OK)))
+        val b   = HttpEndpoint.mount(!! / "a")(Http.succeed(AnyResponse(status = Status.CREATED)))
         val res = (a <> b).getResponse("/a")
         assertM(res)(isResponse(responseStatus(200)))
       },
       testM("status is 404") {
-        val a   = HttpEndpoint.mount(Root / "a")(Http.succeed(AnyResponse(status = Status.OK)))
-        val b   = HttpEndpoint.mount(Root / "b")(Http.succeed(AnyResponse(status = Status.CREATED)))
+        val a   = HttpEndpoint.mount(!! / "a")(Http.succeed(AnyResponse(status = Status.OK)))
+        val b   = HttpEndpoint.mount(!! / "b")(Http.succeed(AnyResponse(status = Status.CREATED)))
         val res = (a <> b).getResponse("/c")
         assertM(res)(isResponse(responseStatus(404)))
       },
@@ -279,19 +279,19 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   def UnmatchedPathSpec = {
     suite("unmatched path /abc")(
       testM("type AnyRequest") {
-        val res = HttpEndpoint.mount(Root / "abc")(Http.collect[AnyRequest](_ => Ok)).getResponse
+        val res = HttpEndpoint.mount(!! / "abc")(Http.collect[AnyRequest](_ => Ok)).getResponse
         assertM(res)(isResponse(responseStatus(404)))
       },
       testM("type BufferedRequest") {
-        val res = HttpEndpoint.mount(Root / "abc")(Http.collect[BufferedRequest[ByteBuf]](_ => Ok)).getResponse
+        val res = HttpEndpoint.mount(!! / "abc")(Http.collect[BufferedRequest[ByteBuf]](_ => Ok)).getResponse
         assertM(res)(isResponse(responseStatus(404)))
       },
       testM("type CompleteRequest") {
-        val res = HttpEndpoint.mount(Root / "abc")(Http.collect[CompleteRequest[ByteBuf]](_ => Ok)).getResponse
+        val res = HttpEndpoint.mount(!! / "abc")(Http.collect[CompleteRequest[ByteBuf]](_ => Ok)).getResponse
         assertM(res)(isResponse(responseStatus(404)))
       },
       testM("type Any") {
-        val res = HttpEndpoint.mount(Root / "abc")(Http.succeed(Ok)).getResponse
+        val res = HttpEndpoint.mount(!! / "abc")(Http.succeed(Ok)).getResponse
         assertM(res)(isResponse(responseStatus(404)))
       },
     )
@@ -303,15 +303,15 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   def MatchedPathSpec = {
     suite("matched path")(
       testM("exact match") {
-        val res = HttpEndpoint.mount(Root / "abc")(Http.collect[AnyRequest](_ => Ok)).getResponse("/abc")
+        val res = HttpEndpoint.mount(!! / "abc")(Http.collect[AnyRequest](_ => Ok)).getResponse("/abc")
         assertM(res)(isResponse(responseStatus(200)))
       },
       testM("starts with match") {
-        val res = HttpEndpoint.mount(Root / "abc")(Http.collect[AnyRequest](_ => Ok)).getResponse("/abc")
+        val res = HttpEndpoint.mount(!! / "abc")(Http.collect[AnyRequest](_ => Ok)).getResponse("/abc")
         assertM(res)(isResponse(responseStatus(200)))
       },
       testM("does not match") {
-        val res = HttpEndpoint.mount(Root / "abc")(Http.collect[AnyRequest](_ => Ok)).getResponse("/abcd")
+        val res = HttpEndpoint.mount(!! / "abc")(Http.collect[AnyRequest](_ => Ok)).getResponse("/abcd")
         assertM(res)(isResponse(responseStatus(404)))
       },
     )

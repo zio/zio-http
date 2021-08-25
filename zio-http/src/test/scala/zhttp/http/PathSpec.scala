@@ -104,19 +104,19 @@ object PathSpec extends DefaultRunnableSpec with HttpResultAssertion {
       ),
       suite("startsWith")(
         test("isTrue") {
-          assert(Root / "a" / "b" / "c" / "d" startsWith Root / "a")(isTrue) &&
-          assert(Root / "a" / "b" / "c" / "d" startsWith Root / "a" / "b")(isTrue) &&
-          assert(Root / "a" / "b" / "c" / "d" startsWith Root / "a" / "b" / "c")(isTrue) &&
-          assert(Root / "a" / "b" / "c" / "d" startsWith Root / "a" / "b" / "c" / "d")(isTrue)
+          assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a")(isTrue) &&
+          assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b")(isTrue) &&
+          assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b" / "c")(isTrue) &&
+          assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b" / "c" / "d")(isTrue)
         },
         test("isFalse") {
-          assert(Root / "a" / "b" / "c" / "d" startsWith Root / "a" / "b" / "c" / "d" / "e")(isFalse) &&
-          assert(Root / "a" / "b" / "c" startsWith Root / "a" / "b" / "c" / "d")(isFalse) &&
-          assert(Root / "a" / "b" startsWith Root / "a" / "b" / "c")(isFalse) &&
-          assert(Root / "a" startsWith Root / "a" / "b")(isFalse)
+          assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b" / "c" / "d" / "e")(isFalse) &&
+          assert(!! / "a" / "b" / "c" startsWith !! / "a" / "b" / "c" / "d")(isFalse) &&
+          assert(!! / "a" / "b" startsWith !! / "a" / "b" / "c")(isFalse) &&
+          assert(!! / "a" startsWith !! / "a" / "b")(isFalse)
         },
         test("isFalse") {
-          assert(Root / "abcd" startsWith Root / "a")(isFalse)
+          assert(!! / "abcd" startsWith !! / "a")(isFalse)
         },
       ),
     )
