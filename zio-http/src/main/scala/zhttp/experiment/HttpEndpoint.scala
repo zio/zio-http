@@ -21,7 +21,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
   private[zhttp] def compile[R1 <: R](zExec: HttpRuntime[R1])(implicit
     evE: E <:< Throwable,
   ): ChannelHandler =
-    new ChannelInboundHandlerAdapter { adapter =>
+    new ChannelInboundHandlerAdapter { ad =>
       import HttpVersion._
       import HttpResponseStatus._
 
@@ -146,16 +146,16 @@ sealed trait HttpEndpoint[-R, +E] { self =>
                   unsafeRun(http, ())
 
                 case ServerEndpoint.HttpComplete(http) =>
-                  adapter.anyRequest = AnyRequest.from(jRequest)
-                  adapter.cHttpApp = http
-                  adapter.isComplete = true
+                  ad.anyRequest = AnyRequest.from(jRequest)
+                  ad.cHttpApp = http
+                  ad.isComplete = true
                   ctx.read(): Unit
 
                 case ServerEndpoint.HttpAnyRequest(http) =>
                   unsafeRun(http, AnyRequest.from(jRequest))
 
                 case ServerEndpoint.HttpBuffered(http) =>
-                  adapter.isBuffered = true
+                  ad.isBuffered = true
 
                   unsafeRunZIO {
                     for {
@@ -168,17 +168,17 @@ sealed trait HttpEndpoint[-R, +E] { self =>
             }
 
           case msg: LastHttpContent =>
-            if (isBuffered) {
+            if (ad.isBuffered) {
               unsafeRunZIO { bQueue.offer(msg) }
-            } else if (adapter.isComplete) {
-              adapter.cBody.writeBytes(msg.content())
-              unsafeRun(adapter.cHttpApp, makeCompleteRequest(anyRequest))
+            } else if (ad.isComplete) {
+              ad.cBody.writeBytes(msg.content())
+              unsafeRun(ad.cHttpApp, makeCompleteRequest(anyRequest))
             }
 
           case msg: HttpContent =>
-            if (adapter.isBuffered) {
+            if (ad.isBuffered) {
               unsafeRunZIO { bQueue.offer(msg) *> read }
-            } else if (adapter.isComplete) {
+            } else if (ad.isComplete) {
               cBody.writeBytes(msg.content())
               ctx.read(): Unit
             }
@@ -207,11 +207,11 @@ sealed trait HttpEndpoint[-R, +E] { self =>
       // TODO: use `new Stream` to implement a more performant queue
       private def setupBufferedQueue: UIO[Queue[HttpContent]] = for {
         q <- Queue.bounded[HttpContent](1)
-        _ <- UIO(adapter.bQueue = q)
+        _ <- UIO(ad.bQueue = q)
       } yield q
 
       private def makeCompleteRequest(anyRequest: AnyRequest) = {
-        CompleteRequest(anyRequest, adapter.cBody)
+        CompleteRequest(anyRequest, ad.cBody)
       }
 
       private def makeBufferedRequest(anyRequest: AnyRequest): BufferedRequest[ByteBuf] = {
