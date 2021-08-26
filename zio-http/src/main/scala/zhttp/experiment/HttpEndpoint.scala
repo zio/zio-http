@@ -62,8 +62,11 @@ sealed trait HttpEndpoint[-R, +E] { self =>
                   case Some(error) => ZIO.fail(error)
                 },
                 chunks =>
-                  ZIO.foreach_(chunks)(bytes => UIO(ctx.writeAndFlush(new DefaultHttpContent(bytes), void))) *>
-                    loop,
+                  for {
+                    _ <- ZIO.foreach_(chunks)(buf => UIO(ctx.write(new DefaultHttpContent(buf), void)))
+                    _ <- UIO(ctx.flush())
+                    _ <- loop
+                  } yield (),
               )
 
             loop
