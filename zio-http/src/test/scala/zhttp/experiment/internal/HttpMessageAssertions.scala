@@ -61,6 +61,8 @@ trait HttpMessageAssertions {
       .runCollect
       .map(_.map(_.content().toString(HTTP_CHARSET)).mkString(""))
 
+    def getHttpContent: ZIO[R with EventLoopGroup, Throwable, Chunk[HttpContent]] = getHttpContent()
+
     def getHttpContent(
       url: String = "/",
       method: HttpMethod = HttpMethod.GET,

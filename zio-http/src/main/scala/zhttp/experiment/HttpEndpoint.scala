@@ -119,12 +119,13 @@ sealed trait HttpEndpoint[-R, +E] { self =>
         }
 
         def unsafeWriteAndFlushErrorResponse(cause: Throwable): Unit = {
-          ctx.writeAndFlush(serverErrorResponse(cause), void): Unit
+          ctx.write(serverErrorResponse(cause), void)
+          ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, void): Unit
         }
 
         def unsafeWriteAndFlushNotFoundResponse(): Unit = {
           ctx.write(notFoundResponse, void)
-          ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
+          ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, void): Unit
         }
 
         def unsafeRunZIO(program: ZIO[R, Option[Throwable], Any]): Unit = zExec.unsafeRun(ctx) {

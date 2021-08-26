@@ -60,35 +60,45 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
           })
         }
       },
-      testM("failing effect") {
-        checkM(contentLess) { case (data, decode) =>
-          val endpoint = HttpEndpoint.mount(decode)(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
-          assertM(endpoint.getResponse(content = data))(isResponse {
-            responseStatus(500) && version("HTTP/1.1")
-          })
-        }
-      },
+      suite("server-error")(
+        testM("status and headers") {
+          checkM(HttpGen.canDecode) { case (decode) =>
+            val endpoint = HttpEndpoint.mount(decode)(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
+            assertM(endpoint.getResponse())(isResponse {
+              responseStatus(500) && version("HTTP/1.1")
+            })
+          }
+        },
+        testM("content") {
+          checkM(HttpGen.canDecode) { case (decode) =>
+            val endpoint = HttpEndpoint.mount(decode)(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
+            assertM(endpoint.getHttpContent)(equalTo(Chunk(LastHttpContent.EMPTY_LAST_CONTENT)))
+          }
+        },
+      ),
       testM("empty Http") {
-        checkM(contentLess) { case (data, decode) =>
+        checkM(HttpGen.canDecode) { case (decode) =>
           val endpoint = HttpEndpoint.mount(decode)(Http.empty)
-          assertM(endpoint.getResponse(content = data))(isResponse {
+          assertM(endpoint.getResponse())(isResponse {
             responseStatus(404) && version("HTTP/1.1") && noHeader
           })
         }
       },
-      testM("404 content") {
-        checkM(contentLess) { case (data, decode) =>
-          val endpoint = HttpEndpoint.mount(decode)(Http.empty)
-          assertM(endpoint.getHttpContent(content = data))(equalTo(Chunk(LastHttpContent.EMPTY_LAST_CONTENT)))
-        }
-      },
-      testM("404 non-empty content") {
-        checkAllM(contentLess) { case (data, decode) =>
-          val endpoint =
-            HttpEndpoint.mount(!! / "a", decode)(Http.collect(_ => AnyResponse()))
-          assertM(endpoint.getHttpContent(content = data))(equalTo(Chunk(LastHttpContent.EMPTY_LAST_CONTENT)))
-        }
-      },
+      suite("not-found content")(
+        testM("Http.empty") {
+          checkM(HttpGen.canDecode) { case (decode) =>
+            val endpoint = HttpEndpoint.mount(decode)(Http.empty)
+            assertM(endpoint.getHttpContent)(equalTo(Chunk(LastHttpContent.EMPTY_LAST_CONTENT)))
+          }
+        },
+        testM("unmatched path") {
+          checkAllM(HttpGen.canDecode) { case (decode) =>
+            val endpoint =
+              HttpEndpoint.mount(!! / "a", decode)(Http.collect(_ => AnyResponse()))
+            assertM(endpoint.getHttpContent)(equalTo(Chunk(LastHttpContent.EMPTY_LAST_CONTENT)))
+          }
+        },
+      ),
       testM("successful effect") {
         checkM(everything) { case (data, content, status, header, decode) =>
           val endpoint = HttpEndpoint.mount(decode)(Http.collectM(_ => UIO(AnyResponse(status, List(header), content))))
