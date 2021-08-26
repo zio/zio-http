@@ -6,7 +6,7 @@ import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio._
 import zio.duration.durationInt
-import zio.test.Assertion.equalTo
+import zio.test.Assertion.{anything, equalTo, isSubtype}
 import zio.test.TestAspect._
 import zio.test._
 
@@ -69,10 +69,10 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
             })
           }
         },
-        testM("content") {
-          checkM(HttpGen.canDecode) { case (decode) =>
+        testM("response is LastHttpContent") {
+          checkM(HttpGen.canDecode) { case decode =>
             val endpoint = HttpEndpoint.mount(decode)(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
-            assertM(endpoint.getHttpContent)(equalTo(Chunk(LastHttpContent.EMPTY_LAST_CONTENT)))
+            assertM(endpoint.getResponse)(isSubtype[LastHttpContent](anything))
           }
         },
       ),
@@ -84,18 +84,18 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
           })
         }
       },
-      suite("not-found content")(
+      suite("not-found response")(
         testM("Http.empty") {
-          checkM(HttpGen.canDecode) { case (decode) =>
+          checkM(HttpGen.canDecode) { case decode =>
             val endpoint = HttpEndpoint.mount(decode)(Http.empty)
-            assertM(endpoint.getHttpContent)(equalTo(Chunk(LastHttpContent.EMPTY_LAST_CONTENT)))
+            assertM(endpoint.getResponse)(isSubtype[LastHttpContent](anything))
           }
         },
         testM("unmatched path") {
-          checkAllM(HttpGen.canDecode) { case (decode) =>
+          checkAllM(HttpGen.canDecode) { case decode =>
             val endpoint =
               HttpEndpoint.mount(!! / "a", decode)(Http.collect(_ => AnyResponse()))
-            assertM(endpoint.getHttpContent)(equalTo(Chunk(LastHttpContent.EMPTY_LAST_CONTENT)))
+            assertM(endpoint.getResponse)(isSubtype[LastHttpContent](anything))
           }
         },
       ),

@@ -119,13 +119,11 @@ sealed trait HttpEndpoint[-R, +E] { self =>
         }
 
         def unsafeWriteAndFlushErrorResponse(cause: Throwable): Unit = {
-          ctx.write(serverErrorResponse(cause), void)
-          ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, void): Unit
+          ctx.writeAndFlush(serverErrorResponse(cause), void): Unit
         }
 
         def unsafeWriteAndFlushNotFoundResponse(): Unit = {
-          ctx.write(notFoundResponse, void)
-          ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, void): Unit
+          ctx.writeAndFlush(notFoundResponse, void): Unit
         }
 
         def unsafeRunZIO(program: ZIO[R, Option[Throwable], Any]): Unit = zExec.unsafeRun(ctx) {
@@ -230,7 +228,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
       }
 
       private val notFoundResponse =
-        new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
+        new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
 
       private def serverErrorResponse(cause: Throwable): HttpResponse = {
         val content  = cause.toString
