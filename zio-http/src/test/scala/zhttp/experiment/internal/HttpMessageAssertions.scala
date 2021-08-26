@@ -5,12 +5,12 @@ import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.{AnyRequest, AnyResponse}
 import zhttp.experiment.ServerEndpoint.CanDecode
 import zhttp.experiment.{BufferedRequest, CompleteRequest, HttpEndpoint}
-import zhttp.http.{HTTP_CHARSET, Header, Http, Method, Status}
+import zhttp.http.{Header, Http, HTTP_CHARSET, Method, Status}
 import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
-import zio.test.{Assertion, TestResult, assert, assertM}
+import zio.test.{assert, assertM, Assertion, TestResult}
 import zio.{Chunk, Promise, Task, ZIO}
 
 import java.nio.charset.Charset
@@ -211,7 +211,9 @@ trait HttpMessageAssertions {
     promise <- Promise.make[Nothing, Chunk[ByteBuf]]
     proxy   <- EndpointClient.deploy(
       HttpEndpoint.mount(
-        Http.collectM[BufferedRequest[ByteBuf]](req => req.content.runCollect.tap(promise.succeed) as AnyResponse()),
+        Http.collectM[BufferedRequest[ByteBuf]](req =>
+          ZStream.fromQueue(req.content).runCollect.tap(promise.succeed) as AnyResponse(),
+        ),
       ),
     )
 

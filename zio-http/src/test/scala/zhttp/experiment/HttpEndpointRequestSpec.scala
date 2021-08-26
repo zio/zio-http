@@ -2,11 +2,12 @@ package zhttp.experiment
 
 import io.netty.handler.codec.http.HttpMethod
 import zhttp.experiment.internal.HttpMessageAssertions
-import zhttp.http.{HTTP_CHARSET, Header, Method}
+import zhttp.http.{Header, HTTP_CHARSET, Method}
 import zhttp.service.EventLoopGroup
+import zio.stream.ZStream
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.nonFlaky
-import zio.test.{DefaultRunnableSpec, assertM}
+import zio.test.{assertM, DefaultRunnableSpec}
 
 object HttpEndpointRequestSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
@@ -38,7 +39,9 @@ object HttpEndpointRequestSpec extends DefaultRunnableSpec with HttpMessageAsser
       suite("BufferedRequest")(
         testM("req.content is 'ABCDE'") {
           val req     = getRequest[Buffered](url = "/abc", content = List("A", "B", "C", "D", "E"))
-          val content = req.flatMap(_.content.runCollect).map(_.toList.map(_.toString(HTTP_CHARSET)))
+          val content = req
+            .flatMap(req => ZStream.fromQueue(req.content).runCollect)
+            .map(_.toList.map(_.toString(HTTP_CHARSET)))
           assertM(content)(equalTo(List("A", "B", "C", "D", "E")))
         } @@ nonFlaky,
         testM("req.url is '/abc'") {

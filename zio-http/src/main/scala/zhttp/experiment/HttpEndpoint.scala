@@ -216,10 +216,10 @@ sealed trait HttpEndpoint[-R, +E] { self =>
 
       private def makeBufferedRequest(anyRequest: AnyRequest): BufferedRequest[ByteBuf] = {
         anyRequest.toBufferedRequest {
-          ZStream
-            .fromQueue(bQueue)
-            .takeUntil(_.isInstanceOf[LastHttpContent])
-            .map(_.content())
+          bQueue.mapM {
+            case cnt: LastHttpContent => bQueue.shutdown.as(cnt.content())
+            case cnt                  => UIO(cnt.content())
+          }
         }
       }
 

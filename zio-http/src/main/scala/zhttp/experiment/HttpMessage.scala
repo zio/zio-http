@@ -3,6 +3,7 @@ package zhttp.experiment
 import io.netty.handler.codec.http.HttpRequest
 import zhttp.http.{Header, Method, Status, URL}
 import zio.stream.ZStream
+import zio.ZDequeue
 
 sealed trait HttpMessage
 
@@ -19,7 +20,7 @@ object HttpMessage {
     private[zhttp] def toCompleteRequest[A](content: A): CompleteRequest[A] =
       CompleteRequest(self, content)
 
-    private[zhttp] def toBufferedRequest[A](content: ZStream[Any, Nothing, A]): BufferedRequest[A] =
+    private[zhttp] def toBufferedRequest[A](content: ZDequeue[Any, Nothing, A]): BufferedRequest[A] =
       BufferedRequest(self, content)
   }
 
@@ -42,7 +43,7 @@ object HttpMessage {
     override def headers: List[Header] = req.headers
   }
 
-  case class BufferedRequest[+A](req: AnyRequest, content: ZStream[Any, Nothing, A]) extends AnyRequest {
+  case class BufferedRequest[+A](req: AnyRequest, content: ZDequeue[Any, Nothing, A]) extends AnyRequest {
     override def method: Method        = req.method
     override def url: URL              = req.url
     override def headers: List[Header] = req.headers

@@ -319,7 +319,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
   def echoComplete(req: BufferedRequest[ByteBuf]): ZIO[Any, Nothing, AnyResponse[Any, Nothing, ByteBuf]] =
     for {
-      content <- req.content.runCollect.map(chunk => Unpooled.copiedBuffer(chunk.toArray: _*))
+      content <- ZStream.fromQueue(req.content).runCollect.map(chunk => Unpooled.copiedBuffer(chunk.toArray: _*))
     } yield CompleteResponse(content = content)
 
   def echoComplete(req: CompleteRequest[ByteBuf]): ZIO[Any, Nothing, AnyResponse[Any, Nothing, ByteBuf]] =
