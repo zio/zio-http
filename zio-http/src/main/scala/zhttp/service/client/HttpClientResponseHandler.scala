@@ -7,7 +7,7 @@ import zhttp.service.UnsafeChannelExecutor
 /**
  * Handles HTTP response
  */
-final case class ClientInboundHandler[R](
+final case class HttpClientResponseHandler[R](
   zExec: UnsafeChannelExecutor[R],
   reader: ClientHttpChannelReader[Throwable, FullHttpResponse],
 ) extends SimpleChannelInboundHandler[FullHttpResponse](false) {

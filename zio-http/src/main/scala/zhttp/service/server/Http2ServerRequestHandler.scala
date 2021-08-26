@@ -49,6 +49,7 @@ final case class Http2ServerRequestHandler[R](
 
   @throws[Exception]
   override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
+    println(msg)
     if (msg.isInstanceOf[Http2HeadersFrame]) {
       onHeaderRead(ctx, msg.asInstanceOf[Http2HeadersFrame])
     } else if (msg.isInstanceOf[DefaultHttp2DataFrame]) {

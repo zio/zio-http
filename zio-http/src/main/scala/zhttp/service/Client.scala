@@ -7,7 +7,12 @@ import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
+import zhttp.service.client.{
+  ClientHttpChannelReader,
+  Http2ClientInitializer,
+  Http2ClientResponseHandler,
+  HttpClientResponseHandler,
+}
 import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
@@ -19,25 +24,29 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[Chan
     jReq: FullHttpRequest,
     promise: Promise[Throwable, FullHttpResponse],
     sslOption: ClientSSLOptions,
+    enableHttp2: Boolean = true,
   ): Task[Unit] =
     ChannelFuture.unit {
+      val scheme = req.url.kind match {
+        case Location.Relative               => ""
+        case Location.Absolute(scheme, _, _) => scheme.asString
+      }
       val read   = ClientHttpChannelReader(jReq, promise)
-      val hand   = ClientInboundHandler(zx, read)
+      val hand   = HttpClientResponseHandler(zx, read)
       val host   = req.url.host
       val port   = req.url.port.getOrElse(80) match {
         case -1   => 80
         case port => port
       }
-      val scheme = req.url.kind match {
-        case Location.Relative               => ""
-        case Location.Absolute(scheme, _, _) => scheme.asString
-      }
-      val init   = ClientChannelInitializer(hand, scheme, sslOption)
+      val hand2  = Http2ClientResponseHandler(zx)
+      val ini    = Http2ClientInitializer(sslOption, hand, hand2, scheme, enableHttp2, jReq)
+      hand2.put(3, promise)
 
-      val jboo = new Bootstrap().channelFactory(cf).group(el).handler(init)
+      val jboo = new Bootstrap().channelFactory(cf).group(el).handler(ini)
       if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
 
       jboo.connect()
+
     }
 
   def request(request: Request, sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL): Task[UHttpResponse] =
