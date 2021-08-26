@@ -5,12 +5,12 @@ import io.netty.handler.codec.http._
 import zhttp.experiment.HttpMessage.{AnyRequest, AnyResponse}
 import zhttp.experiment.ServerEndpoint.CanDecode
 import zhttp.experiment.{BufferedRequest, CompleteRequest, HttpEndpoint}
-import zhttp.http.{HTTP_CHARSET, Header, Http, Method, Status}
+import zhttp.http.{Header, Http, HTTP_CHARSET, Method, Status}
 import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
-import zio.test.{Assertion, TestResult, assert, assertM}
+import zio.test.{assert, assertM, Assertion, TestResult}
 import zio.{Chunk, Promise, Task, ZIO}
 
 import java.nio.charset.Charset
@@ -60,6 +60,22 @@ trait HttpMessageAssertions {
       .filter(_ != LastHttpContent.EMPTY_LAST_CONTENT)
       .runCollect
       .map(_.map(_.content().toString(HTTP_CHARSET)).mkString(""))
+
+    def getHttpContent(
+      url: String = "/",
+      method: HttpMethod = HttpMethod.GET,
+      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+      content: Iterable[String] = List("A", "B", "C", "D"),
+    ): ZIO[R with EventLoopGroup, Throwable, Chunk[HttpContent]] = ZStream
+      .unwrap(for {
+        proxy <- EndpointClient.deploy(app)
+        _     <- proxy.request(url, method, header)
+        _     <- proxy.end(content)
+        _     <- proxy.receive
+
+      } yield proxy.outbound.asStream.map(_.asInstanceOf[HttpContent]))
+      .takeUntil(_.isInstanceOf[LastHttpContent])
+      .runCollect
 
     def proxy: ZIO[R with EventLoopGroup, Throwable, EndpointClient] = EndpointClient.deploy(app)
   }
@@ -269,7 +285,7 @@ trait HttpMessageAssertions {
     assertM(
       execute(app)(proxy =>
         proxy.request(url, method, header) *>
-          ZIO.foreach(content)(proxy.data(_)) *>
+          ZIO.foreach_(content)(proxy.data(_)) *>
           proxy.end,
       ),
     )(assertion)

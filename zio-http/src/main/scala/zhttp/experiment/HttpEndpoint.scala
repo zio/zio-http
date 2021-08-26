@@ -123,7 +123,8 @@ sealed trait HttpEndpoint[-R, +E] { self =>
         }
 
         def unsafeWriteAndFlushNotFoundResponse(): Unit = {
-          ctx.writeAndFlush(notFoundResponse, void): Unit
+          ctx.write(notFoundResponse, void)
+          ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
         }
 
         def unsafeRunZIO(program: ZIO[R, Option[Throwable], Any]): Unit = zExec.unsafeRun(ctx) {
@@ -258,6 +259,10 @@ object HttpEndpoint {
 
   private[zhttp] def mount[R, E](serverEndpoint: ServerEndpoint[R, E]): HttpEndpoint[R, E] =
     Default(serverEndpoint)
+
+  def mount[R, E, A](path: Path, decoder: CanDecode[A])(
+    http: Http[R, E, A, AnyResponse[R, E, ByteBuf]],
+  ): HttpEndpoint[R, E] = Default(decoder.endpoint(http), Check.startsWith(path))
 
   def mount[R, E, A](decoder: CanDecode[A])(http: Http[R, E, A, AnyResponse[R, E, ByteBuf]]): HttpEndpoint[R, E] =
     mount(decoder.endpoint(http))
