@@ -3,7 +3,6 @@ package zhttp.experiment
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel._
 import io.netty.handler.codec.http._
-import zhttp.experiment.Content._
 import zhttp.experiment.HttpEndpoint.InvalidMessage
 import zhttp.experiment.HttpMessage._
 import zhttp.experiment.ServerEndpoint.CanDecode
@@ -53,9 +52,9 @@ sealed trait HttpEndpoint[-R, +E] { self =>
           ctx.writeAndFlush(new DefaultLastHttpContent(data)): Unit
         }
 
-        def writeStreamContent[A](stream: ZStream[R, Option[Throwable], ByteBuf]) = {
+        def writeStreamContent[A](stream: ZStream[R, Throwable, ByteBuf]) = {
           stream.process.map { pull =>
-            def loop: ZIO[R, Option[Throwable], Unit] = pull
+            def loop: ZIO[R, Throwable, Unit] = pull
               .foldM(
                 {
                   case None        => UIO(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, void)).unit
@@ -76,16 +75,25 @@ sealed trait HttpEndpoint[-R, +E] { self =>
         def run[A](
           http: Http[R, Throwable, A, AnyResponse[R, Throwable, ByteBuf]],
           a: A,
-        ): ZIO[R, Option[Throwable], Unit] = for {
-          res <- http.executeAsZIO(a)
-          _   <- UIO(ctx.write(decodeResponse(res), void))
-          _   <- res.content match {
-            case Empty             => UIO { unsafeWriteEmptyLastContent() }
-            case Complete(data)    => UIO { unsafeWriteLastContent(data) }
-            case Streaming(stream) => writeStreamContent(stream)
-            case FromSocket(_)     => ???
-          }
-        } yield ()
+        ): ZIO[R, Throwable, Unit] =
+          http
+            .executeAsZIO(a)
+            .foldM(
+              {
+                case Some(cause) => UIO(unsafeWriteAndFlushErrorResponse(cause))
+                case None        => UIO(unsafeWriteAndFlushNotFoundResponse())
+              },
+              res =>
+                for {
+                  _ <- UIO(ctx.write(decodeResponse(res), void))
+                  _ <- res.content match {
+                    case Content.Empty             => UIO { unsafeWriteEmptyLastContent() }
+                    case Content.Complete(data)    => UIO { unsafeWriteLastContent(data) }
+                    case Content.Streaming(stream) => writeStreamContent(stream)
+                    case Content.FromSocket(_)     => ???
+                  }
+                } yield (),
+            )
 
         def unsafeWriteAnyResponse[A](res: AnyResponse[R, Throwable, ByteBuf]): Unit = {
           ctx.write(decodeResponse(res), void): Unit
@@ -95,16 +103,22 @@ sealed trait HttpEndpoint[-R, +E] { self =>
           http.execute(a).evaluate match {
             case HttpResult.Effect(resM) =>
               unsafeRunZIO {
-                for {
-                  res <- resM
-                  _   <- UIO(unsafeWriteAnyResponse(res))
-                  _   <- res.content match {
-                    case Content.Empty             => UIO(unsafeWriteAndFlushNotFoundResponse())
-                    case Content.Complete(data)    => UIO(unsafeWriteLastContent(data))
-                    case Content.Streaming(stream) => writeStreamContent(stream)
-                    case Content.FromSocket(_)     => ???
-                  }
-                } yield ()
+                resM.foldM(
+                  {
+                    case Some(cause) => UIO(unsafeWriteAndFlushErrorResponse(cause))
+                    case None        => UIO(unsafeWriteAndFlushNotFoundResponse())
+                  },
+                  res =>
+                    for {
+                      _ <- UIO(unsafeWriteAnyResponse(res))
+                      _ <- res.content match {
+                        case Content.Empty             => UIO(unsafeWriteAndFlushNotFoundResponse())
+                        case Content.Complete(data)    => UIO(unsafeWriteLastContent(data))
+                        case Content.Streaming(stream) => writeStreamContent(stream)
+                        case Content.FromSocket(_)     => ???
+                      }
+                    } yield (),
+                )
               }
 
             case HttpResult.Success(a) =>
@@ -129,11 +143,8 @@ sealed trait HttpEndpoint[-R, +E] { self =>
           ctx.writeAndFlush(notFoundResponse, void): Unit
         }
 
-        def unsafeRunZIO(program: ZIO[R, Option[Throwable], Any]): Unit = zExec.unsafeRun(ctx) {
-          program.catchAll {
-            case Some(cause) => UIO(unsafeWriteAndFlushErrorResponse(cause))
-            case None        => UIO(unsafeWriteAndFlushNotFoundResponse())
-          }
+        def unsafeRunZIO(program: ZIO[R, Throwable, Any]): Unit = zExec.unsafeRun(ctx) {
+          program
         }
 
         msg match {
