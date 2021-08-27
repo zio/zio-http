@@ -35,7 +35,7 @@ trait EncodeRequest {
     jReq
       .headers()
       .set(HttpConversionUtil.ExtensionHeaderNames.STREAM_ID.text(), 3)
-      .add(HttpConversionUtil.ExtensionHeaderNames.SCHEME.text(), "https")
+      .add(HttpConversionUtil.ExtensionHeaderNames.SCHEME.text(), "http")
       .add(HttpHeaderNames.ACCEPT_ENCODING, HttpHeaderValues.GZIP)
       .add(HttpHeaderNames.ACCEPT_ENCODING, HttpHeaderValues.DEFLATE)
 

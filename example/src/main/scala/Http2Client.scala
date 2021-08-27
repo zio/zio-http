@@ -6,7 +6,7 @@ import zio._
 
 object Http2Client extends App {
   val env = ChannelFactory.auto ++ EventLoopGroup.auto()
-  val url = "https://localhost:8090/text"
+  val url = "http://localhost:8090/text"
 
   val sslOption: ClientSSLOptions =
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(getClass.getResourceAsStream("server.crt")))

@@ -1,5 +1,7 @@
 package zhttp.service
 
+import java.net.InetSocketAddress
+
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpVersion}
@@ -7,15 +9,8 @@ import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.{
-  ClientHttpChannelReader,
-  Http2ClientInitializer,
-  Http2ClientResponseHandler,
-  HttpClientResponseHandler,
-}
+import zhttp.service.client.{ClientHttpChannelReader, Http2ClientInitializer, Http2ClientResponseHandler, HttpClientResponseHandler}
 import zio.{Promise, Task, ZIO}
-
-import java.net.InetSocketAddress
 
 final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {

@@ -1,20 +1,14 @@
 package zhttp.service.client
 
+import java.util.concurrent.{CountDownLatch, TimeUnit}
+
 import example.client.Http2SettingsHandler
-import io.netty.channel.{
-  Channel,
-  ChannelHandler,
-  ChannelHandlerContext,
-  ChannelInboundHandlerAdapter,
-  ChannelInitializer,
-}
+import io.netty.channel._
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http2._
 import io.netty.handler.logging.LogLevel.INFO
 import io.netty.handler.ssl.{ApplicationProtocolNames, ApplicationProtocolNegotiationHandler}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 /**
  * Configures the client pipeline to support HTTP/2 frames.
@@ -121,7 +115,10 @@ case class Http2ClientInitializer(
     val upgradeCodec   = new Http2ClientUpgradeCodec(connectionHandler)
     val upgradeHandler = new HttpClientUpgradeHandler(sourceCodec, upgradeCodec, 65536)
     ch.pipeline.addLast(sourceCodec)
-    if (enableHttp2) ch.pipeline.addLast(upgradeHandler, new UpgradeRequestHandler)
+    if (enableHttp2) {
+      ch.pipeline.addLast(upgradeHandler, new UpgradeRequestHandler)
+      ch.pipeline().addLast(ClearTextHttp2FallbackClientHandler(httpResponseHandler))
+    }
     else
       ch.pipeline
         .addLast(new HttpObjectAggregator(Int.MaxValue))
@@ -136,7 +133,7 @@ case class Http2ClientInitializer(
   final private class UpgradeRequestHandler extends ChannelInboundHandlerAdapter {
     @throws[Exception]
     override def channelActive(ctx: ChannelHandlerContext): Unit = {
-      val upgradeRequest = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/")
+      val upgradeRequest = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.HEAD, "/")
       ctx.writeAndFlush(upgradeRequest)
       ctx.fireChannelActive
       // Done with this handler, remove it from the pipeline.
