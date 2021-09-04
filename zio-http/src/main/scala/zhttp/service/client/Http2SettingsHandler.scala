@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 /**
  * Reads the first {@link Http2Settings} object and notifies a {@link ChannelPromise}
  */
-class Http2SettingsHandler(val promise: ChannelPromise, jReq: FullHttpRequest)
+class Http2SettingsHandler(val promise: ChannelPromise, jReq: Option[FullHttpRequest],scheme :String)
     extends SimpleChannelInboundHandler[Http2Settings] {
 
   /**
@@ -32,9 +32,22 @@ class Http2SettingsHandler(val promise: ChannelPromise, jReq: FullHttpRequest)
   override protected def channelRead0(ctx: ChannelHandlerContext, msg: Http2Settings): Unit = {
     promise.setSuccess
     // Only care about the first settings message
-    println("writing")
-    ctx.channel().writeAndFlush(jReq)
+    if (scheme=="https"){
+      println("sending request from settings handler")
+      jReq match {
+        case Some(value) => ctx.channel().writeAndFlush(value)
+        case None => println("none")
+      }
+    } else
+      ()
     ctx.pipeline.remove(this)
     ()
   }
+
+  def multiplexpromise(timeout: Long = 5, unit: TimeUnit = TimeUnit.SECONDS):Boolean = {
+    if (!promise.awaitUninterruptibly(timeout, unit)) return (false)
+    if (!promise.isSuccess) false
+    else true
+  }
+
 }

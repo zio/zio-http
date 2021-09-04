@@ -60,6 +60,8 @@ final case class ServerRequestHandler[R](
    * Unsafe channel reader for HttpRequest
    */
   override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
+    println("http server got the following request")
+    println(jReq)
     executeAsync(ctx, jReq) {
       case res @ Response.HttpResponse(_, _, content) =>
         ctx.write(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())

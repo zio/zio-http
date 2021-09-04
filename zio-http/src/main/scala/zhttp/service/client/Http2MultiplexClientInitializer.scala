@@ -1,3 +1,4 @@
+
 package zhttp.service.client
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
@@ -14,17 +15,15 @@ import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
  * Configures the client pipeline to support HTTP/2 frames.
  */
 
-case class Http2ClientInitializer(
-  sslOption: ClientSSLOptions,
-  httpResponseHandler: ChannelHandler,
-  http2ResponseHandler: Http2ClientResponseHandler,
-  scheme: String,
-  enableHttp2: Boolean,
-  jReq: FullHttpRequest,
-  maxContentLength: Int = Int.MaxValue,
-) extends ChannelInitializer[Channel] {
+case class Http2MultiplexClientInitializer(
+                                   sslOption: ClientSSLOptions,
+                                          scheme:String,
+                                   http2ResponseHandler: Http2ClientResponseHandler,
+                                   maxContentLength: Int = Int.MaxValue,
+                                 ) extends ChannelInitializer[Channel] {
   var connectionHandler: HttpToHttp2ConnectionHandler = null
   var settingsHandler: Http2SettingsHandler           = null
+  var sp:ChannelPromise =null
   private val latch                                   = new CountDownLatch(1)
 
   @throws[Exception]
@@ -38,14 +37,7 @@ case class Http2ClientInitializer(
   /**
    * Class that logs any User Events triggered on this channel.
    */
-  private class UserEventLogger extends ChannelInboundHandlerAdapter {
-    @throws[Exception]
-    override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit = {
-      System.out.println("User Event Triggered: " + evt)
-      ctx.fireUserEventTriggered(evt)
-      ()
-    }
-  }
+
 
   @throws[Exception]
   override def initChannel(ch: Channel): Unit = {
@@ -63,7 +55,8 @@ case class Http2ClientInitializer(
       .frameLogger(logger)
       .connection(connection)
       .build()
-    settingsHandler = new Http2SettingsHandler(ch.newPromise, Some(jReq),scheme)
+    sp= ch.newPromise()
+    settingsHandler = new Http2SettingsHandler(sp, None,scheme)
     if (scheme == "https") configureSsl(ch)
     else configureClearText(ch)
   }
@@ -76,10 +69,9 @@ case class Http2ClientInitializer(
   private def configureSsl(ch: Channel): Unit = {
     println("client is trying ssl!")
     val pipeline = ch.pipeline
-    pipeline.addLast(ClientSSLHandler.ssl(sslOption, enableHttp2).newHandler(ch.alloc))
+    pipeline.addLast(ClientSSLHandler.ssl(sslOption, true).newHandler(ch.alloc))
     // We must wait for the handshake to finish and the protocol to be negotiated before configuring
     // the HTTP/2 components of the pipeline.
-    if (enableHttp2) {
       println("client is trying http2")
       pipeline.addLast(new ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
         override protected def configurePipeline(ctx: ChannelHandlerContext, protocol: String): Unit = {
@@ -90,29 +82,14 @@ case class Http2ClientInitializer(
             println("server accepted http2")
             ()
           } else if (ApplicationProtocolNames.HTTP_1_1 == protocol) {
-            pipeline.addLast(new HttpClientCodec, new HttpObjectAggregator(Int.MaxValue), httpResponseHandler)
-            println("server accepted http")
-            println("Handlers in pipeline")
-            println(pipeline.names())
-            ctx.channel().writeAndFlush(jReq)
-            ch.pipeline().remove(this)
+            sp.setFailure( new RuntimeException ("Server doesn't support http2"))
             ()
           } else {
             throw new IllegalStateException("unknown protocol: " + protocol)
-
           }
         }
       })
       ()
-    } else {
-      println("client not trying http2")
-      ch
-        .pipeline()
-        .addLast(new HttpClientCodec)
-        .addLast(new HttpObjectAggregator(Int.MaxValue))
-        .addLast(httpResponseHandler)
-      ()
-    }
   }
 
   /**
@@ -124,20 +101,11 @@ case class Http2ClientInitializer(
     val upgradeCodec   = new Http2ClientUpgradeCodec(connectionHandler)
     val upgradeHandler = new HttpClientUpgradeHandler(sourceCodec, upgradeCodec, 65536)
     ch.pipeline.addLast(sourceCodec)
-    if (enableHttp2) {
       println("client is trying http2")
       ch.pipeline.addLast(upgradeHandler, new UpgradeRequestHandler)
-      ch.pipeline().addLast(ClearTextHttp2FallbackClientHandler(httpResponseHandler))
+      ch.pipeline().addLast(MultiplexClearTextFallback(sp))
       ()
-    }
-    else {
-      println("client is not trying http2")
-      ch.pipeline
-        .addLast(new HttpObjectAggregator(Int.MaxValue))
-        .addLast(httpResponseHandler)
-      ch.pipeline.addLast(new UserEventLogger)
-      ()
-    }
+
   }
 
   /**
@@ -146,11 +114,13 @@ case class Http2ClientInitializer(
   final private class UpgradeRequestHandler extends ChannelInboundHandlerAdapter {
     @throws[Exception]
     override def channelActive(ctx: ChannelHandlerContext): Unit = {
-//      val upgradeRequest = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.HEAD, "/")
+      //      val upgradeRequest = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.HEAD, "/")
       println("as part of tyring to make http2 connection client is sending the request from upgrade handler")
       println("handlers before upgrade request")
       println(ctx.pipeline().names())
-      ctx.writeAndFlush(jReq)
+      import io.netty.handler.codec.http.{DefaultFullHttpRequest, HttpMethod, HttpVersion}
+      val upgradeRequest = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/")
+      ctx.writeAndFlush(upgradeRequest)
       ctx.fireChannelActive
       // Done with this handler, remove it from the pipeline.
       ctx.pipeline.addAfter(ctx.name() ,"setting", settingsHandler)
@@ -160,5 +130,6 @@ case class Http2ClientInitializer(
       ()
     }
   }
+
 
 }

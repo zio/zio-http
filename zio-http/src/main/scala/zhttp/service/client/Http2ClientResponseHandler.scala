@@ -19,28 +19,28 @@ case class Http2ClientResponseHandler(zExec: UnsafeChannelExecutor[Any])
     def getPromise = promise
   }
 
-  def put(streamId: Int, promise: Promise[Throwable, FullHttpResponse]) =
+  def put(streamId: Int, promise: Promise[Throwable, FullHttpResponse]) = {
+    println("putting")
     streamIdMap.put(streamId, new FP(promise))
+  }
+
 
   @throws[Exception]
   override protected def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
-    println(msg)
-    val streamId = msg.headers.getInt(HttpConversionUtil.ExtensionHeaderNames.STREAM_ID.text)
+    val streamId = msg.retain.headers.getInt(HttpConversionUtil.ExtensionHeaderNames.STREAM_ID.text)
+    println("Checking the difference in handlers in the success and failure")
+    println(ctx.pipeline().names())
     if (streamId == null) {
       System.err.println("Http2ClientResponseHandler unexpected message received: " + msg)
       return
     }
-    else if (streamId == 1)
-      {
-        return
-      }
     val fp       = streamIdMap.get(streamId)
     if (fp == None)
     {
       System.err.println("Message received for unknown stream id " + streamId)
     }
     else {
-      zExec.unsafeExecute_(ctx)(fp.get.getPromise.succeed(msg.retain()).unit)
+      zExec.unsafeExecute_(ctx)(fp.get.getPromise.succeed(msg).unit)
     }
     ()
   }

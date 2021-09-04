@@ -15,7 +15,7 @@ trait EncodeRequest {
   /**
    * Converts Request to JFullHttpRequest
    */
-  def encodeRequest(jVersion: HttpVersion, req: Request): FullHttpRequest = {
+  def encodeRequest(jVersion: HttpVersion, req: Request,s:Int=1): FullHttpRequest = {
     val method      = req.method.asHttpMethod
     val uri         = req.url.path match {
       case Root => "/"
@@ -34,7 +34,7 @@ trait EncodeRequest {
     jReq.headers().set(headers)
     jReq
       .headers()
-      .set(HttpConversionUtil.ExtensionHeaderNames.STREAM_ID.text(), 3)
+      .set(HttpConversionUtil.ExtensionHeaderNames.STREAM_ID.text(), s)
       .add(HttpConversionUtil.ExtensionHeaderNames.SCHEME.text(), "http")
       .add(HttpHeaderNames.ACCEPT_ENCODING, HttpHeaderValues.GZIP)
       .add(HttpHeaderNames.ACCEPT_ENCODING, HttpHeaderValues.DEFLATE)
