@@ -7,7 +7,7 @@ import scala.annotation.unused
 /**
  * A functional domain to model Http apps using ZIO and that can work over any kind of request and response types.
  */
-sealed trait Http[-R, +E, -A, +B] { self =>
+sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
   import Http._
 
@@ -233,6 +233,10 @@ sealed trait Http[-R, +E, -A, +B] { self =>
       x => Http.fromEffect(g(x)),
       Http.fromEffect(h),
     )
+
+  final def apply(a: A): ZIO[R, Option[E], B] = executeAsZIO(a)
+
+  final def isDefinedAt(a: A): Boolean = self.execute(a).evaluate.isEmpty
 
   /**
    * Evaluates the app and returns an HttpResult that can be resolved further
