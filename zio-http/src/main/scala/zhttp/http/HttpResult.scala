@@ -62,6 +62,11 @@ object HttpResult {
       case Failure(e) => ZIO.fail(Option(e))
       case Effect(z)  => z
     }
+
+    def isEmpty: Boolean = self match {
+      case HttpResult.Empty => true
+      case _                => false
+    }
   }
 
   // CTOR
