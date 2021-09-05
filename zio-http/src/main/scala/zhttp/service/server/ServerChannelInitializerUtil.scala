@@ -26,11 +26,11 @@ case object ServerChannelInitializerUtil {
   }
 
   def configureClearText[R](
-                             httpH: ChannelHandler,
-                             http2H: ChannelHandler,
-                             c: Channel,
-                             settings: Settings[R, Throwable],
-                           ) = if (settings.enableHttp2) {
+    httpH: ChannelHandler,
+    http2H: ChannelHandler,
+    c: Channel,
+    settings: Settings[R, Throwable],
+  ) = if (settings.enableHttp2) {
     val p           = c.pipeline
     val sourceCodec = new HttpServerCodec
     p.addLast(ENCRYPTION_FILTER_HANDLER, EncryptedMessageFilter(httpH, settings))

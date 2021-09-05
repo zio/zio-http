@@ -1,11 +1,11 @@
 package zhttp.service
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, DefaultHttpResponse, HttpHeaderNames, HttpHeaders, HttpVersion}
+import io.netty.handler.codec.http2.{DefaultHttp2Headers, Http2Headers}
 import zhttp.http.{HttpData, Response}
+
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-
-import io.netty.handler.codec.http2.{DefaultHttp2Headers, Http2Headers}
 
 trait EncodeResponse {
   private val SERVER_NAME: String = "ZIO-Http"

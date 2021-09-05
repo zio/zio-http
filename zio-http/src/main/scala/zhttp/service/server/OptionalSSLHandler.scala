@@ -3,21 +3,21 @@ package zhttp.service.server
 import io.netty.buffer.ByteBuf
 import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
 import io.netty.handler.codec.ByteToMessageDecoder
+import io.netty.handler.codec.http.HttpServerCodec
 import io.netty.handler.ssl.{SslContext, SslHandler}
+import zhttp.service.Server.Settings
 import zhttp.service._
+import zhttp.service.server.ServerChannelInitializerUtil.configureClearText
 import zhttp.service.server.ServerSSLHandler.SSLHttpBehaviour
+
 import java.util
 
-import io.netty.handler.codec.http.HttpServerCodec
-import zhttp.service.Server.Settings
-import zhttp.service.server.ServerChannelInitializerUtil.configureClearText
-
 class OptionalSSLHandler[R](
-                             httpH: ChannelHandler,
-                             http2H: ChannelHandler,
-                             sslContext: SslContext,
-                             settings: Settings[R, Throwable],
-                           ) extends ByteToMessageDecoder {
+  httpH: ChannelHandler,
+  http2H: ChannelHandler,
+  sslContext: SslContext,
+  settings: Settings[R, Throwable],
+) extends ByteToMessageDecoder {
   override def decode(context: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
     if (in.readableBytes < 5)
       ()

@@ -22,10 +22,10 @@ import scala.collection.mutable.Map
 
 @Sharable
 final case class Http2ServerRequestHandler[R](
-                                               zExec: UnsafeChannelExecutor[R],
-                                               settings: Settings[R, Throwable],
-                                             ) extends ChannelDuplexHandler
-  with HttpMessageCodec {
+  zExec: UnsafeChannelExecutor[R],
+  settings: Settings[R, Throwable],
+) extends ChannelDuplexHandler
+    with HttpMessageCodec {
   val hedaerMap: Map[Int, Http2HeadersFrame]         = Map.empty[Int, Http2HeadersFrame]
   val dataMap: Map[Int, List[DefaultHttp2DataFrame]] = Map.empty[Int, List[DefaultHttp2DataFrame]]
 
@@ -100,10 +100,10 @@ final case class Http2ServerRequestHandler[R](
 
   @throws[Exception]
   private def onEndStream(
-                           ctx: ChannelHandlerContext,
-                           headers: Http2HeadersFrame,
-                           dataL: List[DefaultHttp2DataFrame] = null,
-                         ): Unit =
+    ctx: ChannelHandlerContext,
+    headers: Http2HeadersFrame,
+    dataL: List[DefaultHttp2DataFrame] = null,
+  ): Unit =
     executeAsync(ctx, headers, dataL) {
       case res @ Response.HttpResponse(_, _, content) =>
         ctx.write(
@@ -164,7 +164,7 @@ final case class Http2ServerRequestHandler[R](
       case Left(err)  => cb(err.toResponse)
       case Right(req) => {
         settings.http.execute(req).evaluate match {
-          case HttpResult.Empty      => cb(Response.fromHttpError(HttpError.NotFound(Path(hh.headers().path().toString))))
+          case HttpResult.Empty => cb(Response.fromHttpError(HttpError.NotFound(Path(hh.headers().path().toString))))
           case HttpResult.Success(a) => cb(a)
           case HttpResult.Failure(e) => cb(SilentResponse[Throwable].silent(e))
           case HttpResult.Effect(z)  =>
@@ -173,8 +173,8 @@ final case class Http2ServerRequestHandler[R](
               case Exit.Failure(cause) =>
                 cause.failureOption match {
                   case Some(Some(e)) => cb(SilentResponse[Throwable].silent(e))
-                  case Some(None)    => cb(Response.fromHttpError(HttpError.NotFound(Path(hh.headers().path().toString))))
-                  case None          => {
+                  case Some(None) => cb(Response.fromHttpError(HttpError.NotFound(Path(hh.headers().path().toString))))
+                  case None       => {
                     ctx.close()
                     ()
                   }

@@ -11,10 +11,10 @@ import zhttp.service.{HTTP2_OR_HTTP_HANDLER, SSL_HANDLER}
  */
 @Sharable
 final case class ServerChannelInitializer[R](
-                                              httpH: ChannelHandler,
-                                              http2H: ChannelHandler,
-                                              settings: Settings[R, Throwable],
-                                            ) extends ChannelInitializer[Channel] {
+  httpH: ChannelHandler,
+  http2H: ChannelHandler,
+  settings: Settings[R, Throwable],
+) extends ChannelInitializer[Channel] {
   override def initChannel(channel: Channel): Unit = {
 
     val sslctx = ServerSSLHandler.build(settings.sslOption, settings.enableHttp2)

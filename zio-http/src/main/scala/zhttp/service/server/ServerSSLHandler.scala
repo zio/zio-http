@@ -1,16 +1,23 @@
 package zhttp.service.server
 
-import io.netty.handler.ssl.ApplicationProtocolConfig.{Protocol, SelectedListenerFailureBehavior, SelectorFailureBehavior}
+import io.netty.handler.codec.http2.Http2SecurityUtil
+import io.netty.handler.ssl.ApplicationProtocolConfig.{
+  Protocol,
+  SelectedListenerFailureBehavior,
+  SelectorFailureBehavior,
+}
+import io.netty.handler.ssl._
+
 import java.io.InputStream
 import java.security.KeyStore
-
-import io.netty.handler.codec.http2.Http2SecurityUtil
-import io.netty.handler.ssl.{ApplicationProtocolConfig, ApplicationProtocolNames, SslContext, SslContextBuilder, SslProvider, SupportedCipherSuiteFilter}
 import javax.net.ssl.KeyManagerFactory
 
 object ServerSSLHandler {
 
-  case class ServerSSLOptions(sslContext: SslContextBuilder, httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect)
+  case class ServerSSLOptions(
+    sslContext: SslContextBuilder,
+    httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect,
+  )
 
   sealed trait SSLHttpBehaviour
 

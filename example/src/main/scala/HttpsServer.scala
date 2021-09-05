@@ -13,7 +13,8 @@ object HttpsServer extends App {
   }
 
   /**
-   * sslcontext can be created using SslContexBuilder. In this example an inbuilt API that requires a certificate and key is used
+   * sslcontext can be created using SslContexBuilder. In this example an inbuilt API that requires a certificate and
+   * key is used
    */
   val sslctx = ctxFromCert(getClass.getResourceAsStream("server.crt"), getClass.getResourceAsStream("server.key"))
 
