@@ -4,7 +4,7 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer}
 import zhttp.service.Server.Settings
 import zhttp.service.server.ServerChannelInitializerUtil.configureClearText
-import zhttp.service.{HTTP2_OR_HTTP_HANDLER, SSL_HANDLER}
+import zhttp.service.{HTTP2_OR_HTTP_SERVER_HANDLER, SSL_HANDLER}
 
 /**
  * Initializes the netty channel with default handlers
@@ -21,7 +21,7 @@ final case class ServerChannelInitializer[R](
     if (sslctx != null) {
       channel
         .pipeline()
-        .addLast(HTTP2_OR_HTTP_HANDLER, Http2OrHttpHandler(httpH, http2H, settings))
+        .addLast(HTTP2_OR_HTTP_SERVER_HANDLER, Http2OrHttpServerHandler(httpH, http2H, settings))
         .addFirst(SSL_HANDLER, new OptionalSSLHandler(httpH, http2H, sslctx, settings))
       ()
     } else configureClearText(httpH, http2H, channel, settings)

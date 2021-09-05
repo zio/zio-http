@@ -14,8 +14,8 @@ case class EncryptedMessageFilter[R](httpH: ChannelHandler, settings: Settings[R
     extends ByteToMessageDecoder {
   override def decode(context: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
     if (SslHandler.isEncrypted(in)) {
-      context.channel().pipeline().remove(CLEAR_TEXT_HTTP2_HANDLER)
-      context.channel().pipeline().remove(CLEAR_TEXT_HTTP2_FALLBACK_HANDLER)
+      context.channel().pipeline().remove(SERVER_CLEAR_TEXT_HTTP2_HANDLER)
+      context.channel().pipeline().remove(SERVER_CLEAR_TEXT_HTTP2_FALLBACK_HANDLER)
       context
         .channel()
         .pipeline()

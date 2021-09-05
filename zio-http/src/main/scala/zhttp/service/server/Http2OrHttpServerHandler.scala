@@ -3,31 +3,31 @@ import io.netty.channel.{ChannelHandler, ChannelHandlerContext => JChannelHandle
 import io.netty.handler.codec.http.{
   HttpObjectAggregator,
   HttpServerCodec,
-  HttpServerKeepAliveHandler => JHttpServerKeepAliveHandler,
+  HttpServerKeepAliveHandler ,
 }
-import io.netty.handler.codec.http2.{Http2FrameCodecBuilder => JHttp2FrameCodecBuilder}
+import io.netty.handler.codec.http2.{Http2FrameCodecBuilder}
 import io.netty.handler.ssl.{
-  ApplicationProtocolNames => JApplicationProtocolNames,
-  ApplicationProtocolNegotiationHandler => JApplicationProtocolNegotiationHandler,
+  ApplicationProtocolNames ,
+  ApplicationProtocolNegotiationHandler,
 }
 import zhttp.service.Server.Settings
 import zhttp.service._
-final case class Http2OrHttpHandler[R](
+final case class Http2OrHttpServerHandler[R](
   httpH: ChannelHandler,
   http2H: ChannelHandler,
   settings: Settings[R, Throwable],
-) extends JApplicationProtocolNegotiationHandler(JApplicationProtocolNames.HTTP_1_1) {
+) extends ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
   @throws[Exception]
   override protected def configurePipeline(ctx: JChannelHandlerContext, protocol: String): Unit = {
-    if (JApplicationProtocolNames.HTTP_2 == protocol) {
+    if (ApplicationProtocolNames.HTTP_2 == protocol) {
       ctx.pipeline
-        .addLast(HTTP2_SERVER_CODEC_HANDLER, JHttp2FrameCodecBuilder.forServer().build())
+        .addLast(HTTP2_SERVER_CODEC_HANDLER, Http2FrameCodecBuilder.forServer().build())
         .addLast(HTTP2_REQUEST_HANDLER, http2H)
       ()
-    } else if (JApplicationProtocolNames.HTTP_1_1 == protocol) {
+    } else if (ApplicationProtocolNames.HTTP_1_1 == protocol) {
       ctx.pipeline
         .addLast(SERVER_CODEC_HANDLER, new HttpServerCodec)
-        .addLast(HTTP_KEEPALIVE_HANDLER, new JHttpServerKeepAliveHandler)
+        .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
         .addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(settings.maxRequestSize))
         .addLast(HTTP_REQUEST_HANDLER, httpH)
       ()

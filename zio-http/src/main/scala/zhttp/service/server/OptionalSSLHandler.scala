@@ -27,12 +27,12 @@ class OptionalSSLHandler[R](
     } else {
       settings.sslOption.httpBehaviour match {
         case SSLHttpBehaviour.Accept =>
-          context.channel().pipeline().remove(HTTP2_OR_HTTP_HANDLER)
+          context.channel().pipeline().remove(HTTP2_OR_HTTP_SERVER_HANDLER)
           configureClearText(httpH, http2H, context.channel(), settings)
           context.channel().pipeline().remove(this)
           ()
         case _                       =>
-          context.channel().pipeline().remove(HTTP2_OR_HTTP_HANDLER)
+          context.channel().pipeline().remove(HTTP2_OR_HTTP_SERVER_HANDLER)
           context.channel().pipeline().replace(this, SERVER_CODEC_HANDLER, new HttpServerCodec)
           context
             .channel()
