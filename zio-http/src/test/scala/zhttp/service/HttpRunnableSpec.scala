@@ -21,6 +21,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
     Client.request(
       Method.GET -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
       ClientSSLOptions.DefaultSSL,
+      false
     )
 
   def headers(
@@ -40,6 +41,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
     val data = CompleteData(Chunk.fromArray(content.getBytes(HTTP_CHARSET)))
     Client.request(
       Request(method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
+      false,
       ClientSSLOptions.DefaultSSL,
     )
   }
