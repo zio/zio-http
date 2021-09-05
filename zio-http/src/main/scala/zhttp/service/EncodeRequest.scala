@@ -1,7 +1,13 @@
 package zhttp.service
 
 import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames, HttpHeaderValues, HttpVersion}
+import io.netty.handler.codec.http.{
+  DefaultFullHttpRequest,
+  FullHttpRequest,
+  HttpHeaderNames,
+  HttpHeaderValues,
+  HttpVersion,
+}
 import io.netty.handler.codec.http2.HttpConversionUtil
 import zhttp.http.URL.Location
 import zhttp.http.{HTTP_CHARSET, Header, Path, Request}
@@ -32,7 +38,7 @@ trait EncodeRequest {
     if (writerIndex != 0) {
       headers.set(HttpHeaderNames.CONTENT_LENGTH, writerIndex.toString())
     }
-    val scheme=req.url.kind match {
+    val scheme      = req.url.kind match {
       case Location.Relative               => ""
       case Location.Absolute(scheme, _, _) => scheme.asString
     }
