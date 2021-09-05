@@ -7,7 +7,7 @@ import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
+import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, HttpClientResponseHandler}
 import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
@@ -22,7 +22,7 @@ final case class Client(zx: UnsafeChannelExecutor[Any], cf: JChannelFactory[Chan
   ): Task[Unit] =
     ChannelFuture.unit {
       val read   = ClientHttpChannelReader(jReq, promise)
-      val hand   = ClientInboundHandler(zx, read)
+      val hand   = HttpClientResponseHandler(zx, read)
       val host   = req.url.host
       val port   = req.url.port.getOrElse(80) match {
         case -1   => 80
