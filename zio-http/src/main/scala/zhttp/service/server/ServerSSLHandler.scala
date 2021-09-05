@@ -1,25 +1,16 @@
 package zhttp.service.server
 
-import io.netty.handler.ssl.ApplicationProtocolConfig.{
-  Protocol,
-  SelectedListenerFailureBehavior,
-  SelectorFailureBehavior,
-}
-import io.netty.handler.ssl.{
-  ApplicationProtocolConfig,
-  ApplicationProtocolNames,
-  SslContext,
-  SslContextBuilder,
-  SslProvider,
-}
-
-import java.io.{File, InputStream}
+import io.netty.handler.ssl.ApplicationProtocolConfig.{Protocol, SelectedListenerFailureBehavior, SelectorFailureBehavior}
+import java.io.InputStream
 import java.security.KeyStore
+
+import io.netty.handler.codec.http2.Http2SecurityUtil
+import io.netty.handler.ssl.{ApplicationProtocolConfig, ApplicationProtocolNames, SslContext, SslContextBuilder, SslProvider, SupportedCipherSuiteFilter}
 import javax.net.ssl.KeyManagerFactory
 
 object ServerSSLHandler {
 
-  case class ServerSSLOptions(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect)
+  case class ServerSSLOptions(sslContext: SslContextBuilder, httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect)
 
   sealed trait SSLHttpBehaviour
 
@@ -33,28 +24,19 @@ object ServerSSLHandler {
 
   }
 
-  def ctxSelfSigned(): SslContext = {
+  def ctxSelfSigned(): SslContextBuilder = {
     import io.netty.handler.ssl.util.SelfSignedCertificate
     val ssc = new SelfSignedCertificate
     SslContextBuilder
       .forServer(ssc.certificate(), ssc.privateKey())
       .sslProvider(SslProvider.JDK)
-      .applicationProtocolConfig(
-        new ApplicationProtocolConfig(
-          Protocol.ALPN,
-          SelectorFailureBehavior.NO_ADVERTISE,
-          SelectedListenerFailureBehavior.ACCEPT,
-          ApplicationProtocolNames.HTTP_1_1,
-        ),
-      )
-      .build()
   }
 
   def ctxFromKeystore(
     keyStoreInputStream: InputStream,
     keyStorePassword: String,
     certPassword: String,
-  ): SslContext = {
+  ): SslContextBuilder = {
     val keyStore: KeyStore = KeyStore.getInstance("JKS")
     keyStore.load(keyStoreInputStream, keyStorePassword.toCharArray)
     val kmf                = KeyManagerFactory.getInstance("SunX509")
@@ -62,29 +44,42 @@ object ServerSSLHandler {
     SslContextBuilder
       .forServer(kmf)
       .sslProvider(SslProvider.JDK)
-      .applicationProtocolConfig(
-        new ApplicationProtocolConfig(
-          Protocol.ALPN,
-          SelectorFailureBehavior.NO_ADVERTISE,
-          SelectedListenerFailureBehavior.ACCEPT,
-          ApplicationProtocolNames.HTTP_1_1,
-        ),
-      )
-      .build()
   }
 
-  def ctxFromCert(certFile: File, keyFile: File): SslContext = {
+  def ctxFromCert(cert: InputStream, key: InputStream): SslContextBuilder = {
     SslContextBuilder
-      .forServer(certFile, keyFile)
+      .forServer(cert, key)
       .sslProvider(SslProvider.JDK)
-      .applicationProtocolConfig(
-        new ApplicationProtocolConfig(
-          Protocol.ALPN,
-          SelectorFailureBehavior.NO_ADVERTISE,
-          SelectedListenerFailureBehavior.ACCEPT,
-          ApplicationProtocolNames.HTTP_1_1,
-        ),
-      )
-      .build()
+  }
+
+  def build(serverSSLOptions: ServerSSLOptions, enableHttp2: Boolean): SslContext = {
+    if (serverSSLOptions == null) null
+    else {
+      if (enableHttp2 == true) {
+        serverSSLOptions.sslContext
+          .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
+          .applicationProtocolConfig(
+            new ApplicationProtocolConfig(
+              Protocol.ALPN,
+              SelectorFailureBehavior.NO_ADVERTISE,
+              SelectedListenerFailureBehavior.ACCEPT,
+              ApplicationProtocolNames.HTTP_2,
+              ApplicationProtocolNames.HTTP_1_1,
+            ),
+          )
+          .build()
+      } else {
+        serverSSLOptions.sslContext
+          .applicationProtocolConfig(
+            new ApplicationProtocolConfig(
+              Protocol.ALPN,
+              SelectorFailureBehavior.NO_ADVERTISE,
+              SelectedListenerFailureBehavior.ACCEPT,
+              ApplicationProtocolNames.HTTP_1_1,
+            ),
+          )
+          .build()
+      }
+    }
   }
 }
