@@ -23,6 +23,7 @@ sealed trait Server[-R, +E] { self =>
     case MaxRequestSize(size) => s.copy(maxRequestSize = size)
     case Error(errorHandler)  => s.copy(error = Some(errorHandler))
     case Ssl(sslOption)       => s.copy(sslOption = sslOption)
+    case Http2                => s.copy(enableHttp2 = true)
     case Address(address)     => s.copy(address = address)
   }
 
@@ -40,6 +41,7 @@ object Server {
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
     error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
     sslOption: ServerSSLOptions = null,
+    enableHttp2: Boolean = false,
     address: InetSocketAddress = new InetSocketAddress(8080),
   )
 
@@ -49,6 +51,7 @@ object Server {
   private final case class App[R, E](http: HttpApp[R, E])                             extends Server[R, E]
   private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
+  private case object Http2                                                           extends UServer
   private final case class Address(address: InetSocketAddress)                        extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
@@ -60,6 +63,7 @@ object Server {
   def bind(inetSocketAddress: InetSocketAddress): UServer = Server.Address(inetSocketAddress)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
+  def http2: UServer                                                                 = Server.Http2
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
@@ -107,7 +111,8 @@ object Server {
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
       zExec          <- UnsafeChannelExecutor.make[R](eventLoopGroup).toManaged_
       httpH           = ServerRequestHandler(zExec, settings)
-      init            = ServerChannelInitializer(httpH, settings)
+      http2H          = Http2ServerRequestHandler(zExec, settings)
+      init            = ServerChannelInitializer(httpH, http2H, settings)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.address))
 
