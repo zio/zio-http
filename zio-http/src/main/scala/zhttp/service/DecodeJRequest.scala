@@ -11,7 +11,7 @@ import scala.annotation.tailrec
 trait DecodeJRequest {
 
   /**
-   * Tries to decode the [io.netty.handler.codec.http.FullHttpRequest] to [Request].
+   * Tries to decode the [[io.netty.handler.codec.http.FullHttpRequest]] to [Request].
    */
   def decodeJRequest(jReq: FullHttpRequest, ctx: ChannelHandlerContext): Either[HttpError, Request] = for {
     url <- URL.fromString(jReq.uri())
@@ -22,7 +22,7 @@ trait DecodeJRequest {
   } yield Request(endpoint, headers, data, ctx)
 
  /**
-  * Tries to decode the [io.netty.handler.codec.http2.Http@HeadersFrame] to [Request].
+  * Tries to decode the [[io.netty.handler.codec.http2.Http2HeadersFrame]] to [Request].
   */
   def decodeHttp2Header(
                          hh: Http2HeadersFrame,
