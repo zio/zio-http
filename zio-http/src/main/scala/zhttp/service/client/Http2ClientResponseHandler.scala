@@ -12,17 +12,15 @@ import scala.collection.mutable.Map
  * Process {@link FullHttpResponse} translated from HTTP/2 frames
  */
 case class Http2ClientResponseHandler(zExec: UnsafeChannelExecutor[Any])
-  extends SimpleChannelInboundHandler[FullHttpResponse] {
+    extends SimpleChannelInboundHandler[FullHttpResponse] {
   val streamIdMap: Map[Int, FP] = Map.empty[Int, FP]
   class FP(promise: Promise[Throwable, FullHttpResponse]) {
     def getPromise(): Promise[Throwable, FullHttpResponse] = promise
   }
 
-
   def put(streamId: Int, promise: Promise[Throwable, FullHttpResponse]) = {
     streamIdMap.put(streamId, new FP(promise))
   }
-
 
   @throws[Exception]
   override protected def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
@@ -32,15 +30,12 @@ case class Http2ClientResponseHandler(zExec: UnsafeChannelExecutor[Any])
       return
     }
     val fp       = streamIdMap.get(streamId)
-    if (fp == None)
-    {
+    if (fp == None) {
       System.err.println("Message received for unknown stream id " + streamId)
-    }
-    else {
-      zExec.unsafeExecute_(ctx)(fp.get.getPromise.succeed(msg).unit)
+    } else {
+      zExec.unsafeExecute_(ctx)(fp.get.getPromise().succeed(msg).unit)
     }
     ()
   }
-
 
 }

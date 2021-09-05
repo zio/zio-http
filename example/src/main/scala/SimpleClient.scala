@@ -8,7 +8,7 @@ object SimpleClient extends App {
   val headers = List(Header.host("sports.api.decathlon.com"))
 
   val program = for {
-    res <- Client.request(url, headers)
+    res <- Client.request(url, headers, false)
     _   <- console.putStrLn {
       res.content match {
         case HttpData.CompleteData(data) => data.map(_.toChar).mkString

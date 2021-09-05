@@ -9,12 +9,12 @@ import java.util.concurrent.TimeUnit
 /**
  * Reads the first {@link Http2Settings} object and notifies a {@link ChannelPromise}
  */
-case class Http2SettingsHandler( promise: ChannelPromise, jReq: FullHttpRequest,scheme :String)
-  extends SimpleChannelInboundHandler[Http2Settings] {
+case class Http2SettingsHandler(promise: ChannelPromise, jReq: FullHttpRequest, scheme: String)
+    extends SimpleChannelInboundHandler[Http2Settings] {
 
   /**
    * Wait for this handler to be added after the upgrade to HTTP/2, and for initial preface handshake to complete.
-   *   Exception if timeout or other failure occurs
+   * Exception if timeout or other failure occurs
    */
   @throws[Exception]
   def awaitSettings(timeout: Long, unit: TimeUnit): Unit = {
@@ -25,9 +25,9 @@ case class Http2SettingsHandler( promise: ChannelPromise, jReq: FullHttpRequest,
   @throws[Exception]
   override protected def channelRead0(ctx: ChannelHandlerContext, msg: Http2Settings): Unit = {
     promise.setSuccess
-    if (scheme=="https"){
+    if (scheme == "https") {
       //incase of http the first request will be send from the upgrade handler
-     ctx.channel().writeAndFlush(jReq)
+      ctx.channel().writeAndFlush(jReq)
     } else
       ()
     ctx.pipeline.remove(this)

@@ -1,15 +1,8 @@
 package zhttp.service.server
 import io.netty.channel.{ChannelHandler, ChannelHandlerContext => JChannelHandlerContext}
-import io.netty.handler.codec.http.{
-  HttpObjectAggregator,
-  HttpServerCodec,
-  HttpServerKeepAliveHandler ,
-}
-import io.netty.handler.codec.http2.{Http2FrameCodecBuilder}
-import io.netty.handler.ssl.{
-  ApplicationProtocolNames ,
-  ApplicationProtocolNegotiationHandler,
-}
+import io.netty.handler.codec.http.{HttpObjectAggregator, HttpServerCodec, HttpServerKeepAliveHandler}
+import io.netty.handler.codec.http2.Http2FrameCodecBuilder
+import io.netty.handler.ssl.{ApplicationProtocolNames, ApplicationProtocolNegotiationHandler}
 import zhttp.service.Server.Settings
 import zhttp.service._
 final case class Http2OrHttpServerHandler[R](

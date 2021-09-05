@@ -24,10 +24,10 @@ object HttpsClient extends App {
   trustManagerFactory.init(trustStore)
 
   val sslOption: ClientSSLOptions =
-    ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
+    ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory))
 
   val program = for {
-    res <- Client.request(url, headers, sslOption)
+    res <- Client.request(url, headers, false, sslOption)
     _   <- console.putStrLn {
       res.content match {
         case HttpData.CompleteData(data) => data.map(_.toChar).mkString
