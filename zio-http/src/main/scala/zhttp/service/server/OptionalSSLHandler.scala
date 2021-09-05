@@ -1,15 +1,23 @@
 package zhttp.service.server
 
 import io.netty.buffer.ByteBuf
-import io.netty.channel.ChannelHandlerContext
+import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
 import io.netty.handler.codec.ByteToMessageDecoder
 import io.netty.handler.ssl.{SslContext, SslHandler}
 import zhttp.service._
 import zhttp.service.server.ServerSSLHandler.SSLHttpBehaviour
-
 import java.util
 
-class OptionalSSLHandler(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour) extends ByteToMessageDecoder {
+import io.netty.handler.codec.http.HttpServerCodec
+import zhttp.service.Server.Settings
+import zhttp.service.server.ServerChannelInitializerUtil.configureClearText
+
+class OptionalSSLHandler[R](
+                             httpH: ChannelHandler,
+                             http2H: ChannelHandler,
+                             sslContext: SslContext,
+                             settings: Settings[R, Throwable],
+                           ) extends ByteToMessageDecoder {
   override def decode(context: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
     if (in.readableBytes < 5)
       ()
@@ -17,16 +25,19 @@ class OptionalSSLHandler(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour
       context.pipeline().replace(this, SSL_HANDLER, sslContext.newHandler(context.alloc()))
       ()
     } else {
-      httpBehaviour match {
+      settings.sslOption.httpBehaviour match {
         case SSLHttpBehaviour.Accept =>
+          context.channel().pipeline().remove(HTTP2_OR_HTTP_HANDLER)
+          configureClearText(httpH, http2H, context.channel(), settings)
           context.channel().pipeline().remove(this)
           ()
         case _                       =>
-          context.channel().pipeline().remove(HTTP_REQUEST_HANDLER)
-          context.channel().pipeline().remove(OBJECT_AGGREGATOR)
-          context.channel().pipeline().remove(HTTP_KEEPALIVE_HANDLER)
-          context.channel().pipeline().remove(this)
-          context.channel().pipeline().addLast(new HttpOnHttpsHandler(httpBehaviour))
+          context.channel().pipeline().remove(HTTP2_OR_HTTP_HANDLER)
+          context.channel().pipeline().replace(this, SERVER_CODEC_HANDLER, new HttpServerCodec)
+          context
+            .channel()
+            .pipeline()
+            .addLast(HTTP_ON_HTTPS_HANDLER, new HttpOnHttpsHandler(settings.sslOption.httpBehaviour))
           ()
       }
     }
