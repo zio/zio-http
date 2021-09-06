@@ -5,8 +5,10 @@ import java.time.{Instant, ZoneId}
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.util.{Failure, Success, Try}
 
-sealed trait SameSite
-object SameSite {
+sealed trait SameSite {
+  def asString: String
+}
+object SameSite       {
   case object Lax    extends SameSite { def asString = "Lax"    }
   case object Strict extends SameSite { def asString = "Strict" }
   case object None   extends SameSite { def asString = "None"   }
@@ -63,7 +65,7 @@ final case class Cookie(
       path.map(p => s"Path=${p.asString}"),
       if (secure) Some("Secure") else None,
       if (httpOnly) Some("HttpOnly") else None,
-      sameSite.map(s => s"SameSite=$s"),
+      sameSite.map(s => s"SameSite=${s.asString}"),
     )
     cookie.flatten.mkString("; ")
   }
