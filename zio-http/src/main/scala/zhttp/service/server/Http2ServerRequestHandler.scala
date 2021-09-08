@@ -128,10 +128,10 @@ final case class Http2ServerRequestHandler[R](
             ctx.writeAndFlush(
               new DefaultHttp2DataFrame(JUnpooled.copiedBuffer(data.toArray)).stream(headers.stream()),
             )
-            ctx.write(new DefaultHttp2DataFrame(true).stream(headers.stream()))
+            ctx.writeAndFlush(new DefaultHttp2DataFrame(true).stream(headers.stream()))
             ()
           case HttpData.Empty              =>
-            ctx.write(new DefaultHttp2DataFrame(true).stream(headers.stream()))
+            ctx.writeAndFlush(new DefaultHttp2DataFrame(true).stream(headers.stream()))
             ()
         }
 
