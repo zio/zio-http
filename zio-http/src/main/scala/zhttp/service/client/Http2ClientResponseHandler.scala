@@ -34,6 +34,7 @@ case class Http2ClientResponseHandler(zExec: UnsafeChannelExecutor[Any])
       System.err.println("Message received for unknown stream id " + streamId)
     } else {
       zExec.unsafeExecute_(ctx)(fp.get.getPromise().succeed(msg).unit)
+      streamIdMap.remove(streamId)
     }
     ()
   }

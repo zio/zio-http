@@ -12,7 +12,7 @@ import zhttp.service.server.ServerSSLHandler.SSLHttpBehaviour
 
 import java.util
 
-class OptionalSSLHandler[R](
+class OptionalServerSSLHandler[R](
   httpH: ChannelHandler,
   http2H: ChannelHandler,
   sslContext: SslContext,

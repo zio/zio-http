@@ -22,7 +22,7 @@ final case class ServerChannelInitializer[R](
       channel
         .pipeline()
         .addLast(HTTP2_OR_HTTP_SERVER_HANDLER, Http2OrHttpServerHandler(httpH, http2H, settings))
-        .addFirst(SSL_HANDLER, new OptionalSSLHandler(httpH, http2H, sslctx, settings))
+        .addFirst(SSL_HANDLER, new OptionalServerSSLHandler(httpH, http2H, sslctx, settings))
       ()
     } else configureClearText(httpH, http2H, channel, settings)
   }

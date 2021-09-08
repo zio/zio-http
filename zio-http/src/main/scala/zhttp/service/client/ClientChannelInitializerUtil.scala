@@ -23,8 +23,9 @@ case object ClientChannelInitializerUtil {
     jReq: FullHttpRequest,
   ): Unit = {
     val pipeline = ch.pipeline
-    pipeline.addFirst(SSL_HANDLER, ClientSSLHandler.ssl(sslOption, enableHttp2).newHandler(ch.alloc))
     if (enableHttp2) {
+      pipeline.addFirst(SSL_HANDLER, ClientSSLHandler.ssl(sslOption, enableHttp2).newHandler(ch.alloc))
+      pipeline.addFirst(new OptionalClientSSLHandler(httpResponseHandler))
       pipeline.addLast(
         HTTP2_OR_HTTP_CLIENT_HANDLER,
         Http2OrHttpClientHandler(
@@ -38,8 +39,8 @@ case object ClientChannelInitializerUtil {
       )
       ()
     } else {
-      ch
-        .pipeline()
+      pipeline.addFirst(SSL_HANDLER, ClientSSLHandler.ssl(sslOption, enableHttp2).newHandler(ch.alloc))
+      pipeline
         .addLast(CLIENT_CODEC_HANDLER, new HttpClientCodec)
         .addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
         .addLast(HTTP_RESPONSE_HANDLER, httpResponseHandler)
