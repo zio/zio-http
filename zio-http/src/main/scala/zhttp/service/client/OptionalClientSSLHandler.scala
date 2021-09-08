@@ -1,13 +1,13 @@
 package zhttp.service.client
 
-import java.util
-
 import io.netty.buffer.ByteBuf
 import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
 import io.netty.handler.codec.ByteToMessageDecoder
 import io.netty.handler.codec.http.{HttpClientCodec, HttpObjectAggregator}
 import io.netty.handler.ssl.SslHandler
 import zhttp.service._
+
+import java.util
 
 class OptionalClientSSLHandler(httpResponseHandler: ChannelHandler) extends ByteToMessageDecoder {
   override def decode(context: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
@@ -18,7 +18,8 @@ class OptionalClientSSLHandler(httpResponseHandler: ChannelHandler) extends Byte
       ()
     } else {
       context.pipeline().remove(HTTP2_OR_HTTP_CLIENT_HANDLER)
-      context.pipeline()
+      context
+        .pipeline()
         .addLast(CLIENT_CODEC_HANDLER, new HttpClientCodec)
         .addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
         .addLast(HTTP_RESPONSE_HANDLER, httpResponseHandler)

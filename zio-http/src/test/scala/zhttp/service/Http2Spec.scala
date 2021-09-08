@@ -26,18 +26,26 @@ object Http2Spec extends HttpRunnableSpec(8023) {
 
   override def spec = suiteM("Http2")(
     for {
-      a<-Server
-        .make(Server.app(app) ++ Server.port(8023) ++ Server.ssl(ServerSSLOptions(serverssl, SSLHttpBehaviour.Accept)) ++ Server.http2)
+      a <- Server
+        .make(
+          Server.app(app) ++ Server.port(8023) ++ Server.ssl(
+            ServerSSLOptions(serverssl, SSLHttpBehaviour.Accept),
+          ) ++ Server.http2,
+        )
         .orDie
         .as(
           List(
-            testM("secure http2 request should succeed on a secure server which has http2 support and accept insecure requests") {
+            testM(
+              "secure http2 request should succeed on a secure server which has http2 support and accept insecure requests",
+            ) {
               val actual = Client
                 .request("https://localhost:8023/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
               assertM(actual)(equalTo(Status.OK))
             },
-            testM("insecure http2 request should succeed on a secure server which have http2 support and accept insecure requests") {
+            testM(
+              "insecure http2 request should succeed on a secure server which have http2 support and accept insecure requests",
+            ) {
               val actual = Client
                 .request("http://localhost:8023/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
@@ -47,18 +55,22 @@ object Http2Spec extends HttpRunnableSpec(8023) {
         )
         .useNow
 
-      b<-Server
+      b <- Server
         .make(Server.app(app) ++ Server.port(8024) ++ Server.ssl(ServerSSLOptions(serverssl, SSLHttpBehaviour.Accept)))
         .orDie
         .as(
           List(
-            testM("secure http2 request should succeed on a secure server which doesn't have http2 support and accept insecure requests") {
+            testM(
+              "secure http2 request should succeed on a secure server which doesn't have http2 support and accept insecure requests",
+            ) {
               val actual = Client
                 .request("https://localhost:8024/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
               assertM(actual)(equalTo(Status.OK))
             },
-            testM("insecure http2 request should succeed on a secure server which doesn't have http2 support and accept insecure requests") {
+            testM(
+              "insecure http2 request should succeed on a secure server which doesn't have http2 support and accept insecure requests",
+            ) {
               val actual = Client
                 .request("http://localhost:8024/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
@@ -67,12 +79,18 @@ object Http2Spec extends HttpRunnableSpec(8023) {
           ),
         )
         .useNow
-      c<-Server
-        .make(Server.app(app) ++ Server.port(8025) ++ Server.ssl(ServerSSLOptions(serverssl, SSLHttpBehaviour.Redirect)) ++ Server.http2)
+      c <- Server
+        .make(
+          Server.app(app) ++ Server.port(8025) ++ Server.ssl(
+            ServerSSLOptions(serverssl, SSLHttpBehaviour.Redirect),
+          ) ++ Server.http2,
+        )
         .orDie
         .as(
           List(
-            testM("insecure http2 request should be redirected on a secure server which have http2 support and redirects insecure requests") {
+            testM(
+              "insecure http2 request should be redirected on a secure server which have http2 support and redirects insecure requests",
+            ) {
               val actual = Client
                 .request("http://localhost:8025/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
@@ -82,12 +100,16 @@ object Http2Spec extends HttpRunnableSpec(8023) {
         )
         .useNow
 
-      d<-Server
-        .make(Server.app(app) ++ Server.port(8026) ++ Server.ssl(ServerSSLOptions(serverssl, SSLHttpBehaviour.Redirect)))
+      d <- Server
+        .make(
+          Server.app(app) ++ Server.port(8026) ++ Server.ssl(ServerSSLOptions(serverssl, SSLHttpBehaviour.Redirect)),
+        )
         .orDie
         .as(
           List(
-            testM("insecure http2 request should be redirected on a secure server which doesn't have http2 support and redirects insecure requests") {
+            testM(
+              "insecure http2 request should be redirected on a secure server which doesn't have http2 support and redirects insecure requests",
+            ) {
               val actual = Client
                 .request("http://localhost:8026/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
@@ -96,12 +118,18 @@ object Http2Spec extends HttpRunnableSpec(8023) {
           ),
         )
         .useNow
-      e<-Server
-        .make(Server.app(app) ++ Server.port(8027) ++ Server.ssl(ServerSSLOptions(serverssl, SSLHttpBehaviour.Fail)) ++ Server.http2)
+      e <- Server
+        .make(
+          Server.app(app) ++ Server.port(8027) ++ Server.ssl(
+            ServerSSLOptions(serverssl, SSLHttpBehaviour.Fail),
+          ) ++ Server.http2,
+        )
         .orDie
         .as(
           List(
-            testM("insecure http2 request should be failed on a secure server which have http2 support and fails insecure requests") {
+            testM(
+              "insecure http2 request should be failed on a secure server which have http2 support and fails insecure requests",
+            ) {
               val actual = Client
                 .request("http://localhost:8027/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
@@ -111,12 +139,14 @@ object Http2Spec extends HttpRunnableSpec(8023) {
         )
         .useNow
 
-      f<-Server
+      f <- Server
         .make(Server.app(app) ++ Server.port(8028) ++ Server.ssl(ServerSSLOptions(serverssl, SSLHttpBehaviour.Fail)))
         .orDie
         .as(
           List(
-            testM("insecure http2 request should be failed on a secure server which doesn't have http2 support and fails insecure requests") {
+            testM(
+              "insecure http2 request should be failed on a secure server which doesn't have http2 support and fails insecure requests",
+            ) {
               val actual = Client
                 .request("http://localhost:8028/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
@@ -125,7 +155,7 @@ object Http2Spec extends HttpRunnableSpec(8023) {
           ),
         )
         .useNow
-      g<-Server
+      g <- Server
         .make(Server.app(app) ++ Server.port(8029) ++ Server.http2)
         .orDie
         .as(
@@ -149,8 +179,8 @@ object Http2Spec extends HttpRunnableSpec(8023) {
         )
         .useNow
 
-      h<-Server
-        .make(Server.app(app) ++ Server.port(8030) )
+      h <- Server
+        .make(Server.app(app) ++ Server.port(8030))
         .orDie
         .as(
           List(
@@ -172,6 +202,6 @@ object Http2Spec extends HttpRunnableSpec(8023) {
           ),
         )
         .useNow
-    } yield a ++ b ++ c ++ d ++ e ++ f ++ g ++ h
+    } yield a ++ b ++ c ++ d ++ e ++ f ++ g ++ h,
   ).provideCustomLayer(env)
 }
