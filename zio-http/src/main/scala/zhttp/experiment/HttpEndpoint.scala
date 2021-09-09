@@ -3,11 +3,14 @@ package zhttp.experiment
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel._
 import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import zhttp.experiment.HttpEndpoint.InvalidMessage
 import zhttp.experiment.HttpMessage._
 import zhttp.experiment.ServerEndpoint.CanDecode
 import zhttp.http._
 import zhttp.service.HttpRuntime
+import zhttp.service.server.ServerSocketHandler
+import zhttp.socket.SocketApp
 import zio.stream.ZStream
 import zio.{Queue, UIO, ZIO}
 
@@ -21,13 +24,13 @@ sealed trait HttpEndpoint[-R, +E] { self =>
     evE: E <:< Throwable,
   ): ChannelHandler =
     new ChannelInboundHandlerAdapter { ad =>
-      import HttpVersion._
       import HttpResponseStatus._
+      import HttpVersion._
 
       type CompleteHttpApp = Http[R, Throwable, CompleteRequest[ByteBuf], AnyResponse[R, Throwable, ByteBuf]]
-      private var bQueue: Queue[HttpContent] = _
-      private var anyRequest: AnyRequest     = _
-
+      private var bQueue: Queue[HttpContent]      = _
+      private var anyRequest: AnyRequest          = _
+      private val WEB_SOCKET_HANDLER              = "WEB_SOCKET_HANDLER"
       private val app: HttpEndpoint[R, Throwable] = self.asInstanceOf[HttpEndpoint[R, Throwable]]
       private var isComplete: Boolean             = false
       private var isBuffered: Boolean             = false
@@ -99,7 +102,11 @@ sealed trait HttpEndpoint[-R, +E] { self =>
           ctx.write(decodeResponse(res), void): Unit
         }
 
-        def unsafeRun[A](http: Http[R, Throwable, A, AnyResponse[R, Throwable, ByteBuf]], a: A): Unit = {
+        def unsafeRun[A](
+          http: Http[R, Throwable, A, AnyResponse[R, Throwable, ByteBuf]],
+          a: A,
+          jreq: HttpRequest,
+        ): Unit = {
           http.execute(a).evaluate match {
             case HttpResult.Effect(resM) =>
               unsafeRunZIO {
@@ -112,22 +119,34 @@ sealed trait HttpEndpoint[-R, +E] { self =>
                     for {
                       _ <- UIO(unsafeWriteAnyResponse(res))
                       _ <- res.content match {
-                        case Content.Empty             => UIO(unsafeWriteAndFlushNotFoundResponse())
-                        case Content.Complete(data)    => UIO(unsafeWriteLastContent(data))
-                        case Content.Streaming(stream) => writeStreamContent(stream)
-                        case Content.FromSocket(_)     => ???
+                        case Content.Empty              => UIO(unsafeWriteAndFlushNotFoundResponse())
+                        case Content.Complete(data)     => UIO(unsafeWriteLastContent(data))
+                        case Content.Streaming(stream)  => writeStreamContent(stream)
+                        case Content.FromSocket(socket) =>
+                          ZIO(handleHandshake(ctx, jreq, socket))
                       }
                     } yield (),
                 )
               }
 
             case HttpResult.Success(a) =>
-              unsafeWriteAnyResponse(a)
               a.content match {
-                case Content.Empty             => unsafeWriteAndFlushNotFoundResponse()
-                case Content.Complete(data)    => unsafeWriteLastContent(data)
-                case Content.Streaming(stream) => unsafeRunZIO(writeStreamContent(stream))
-                case Content.FromSocket(_)     => ???
+                case Content.Empty              => {
+                  unsafeWriteAndFlushNotFoundResponse()
+                  unsafeWriteAnyResponse(a)
+                }
+                case Content.Complete(data)     => {
+                  unsafeWriteLastContent(data)
+                  unsafeWriteAnyResponse(a)
+                }
+                case Content.Streaming(stream)  => {
+                  unsafeRunZIO(writeStreamContent(stream))
+                  unsafeWriteAnyResponse(a)
+                }
+                case Content.FromSocket(socket) =>
+                  unsafeRunZIO(
+                    ZIO(handleHandshake(ctx, jreq, socket)),
+                  )
               }
 
             case HttpResult.Failure(e) => unsafeWriteAndFlushErrorResponse(e)
@@ -157,7 +176,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
                   unsafeWriteAndFlushNotFoundResponse()
 
                 case ServerEndpoint.HttpAny(http) =>
-                  unsafeRun(http, ())
+                  unsafeRun(http, (), null)
 
                 case ServerEndpoint.HttpComplete(http) =>
                   ad.anyRequest = AnyRequest.from(jRequest)
@@ -166,7 +185,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
                   ctx.read(): Unit
 
                 case ServerEndpoint.HttpAnyRequest(http) =>
-                  unsafeRun(http, AnyRequest.from(jRequest))
+                  unsafeRun(http, AnyRequest.from(jRequest), jRequest)
 
                 case ServerEndpoint.HttpBuffered(http) =>
                   ad.isBuffered = true
@@ -186,7 +205,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
               unsafeRunZIO { bQueue.offer(msg) }
             } else if (ad.isComplete) {
               ad.cBody.writeBytes(msg.content())
-              unsafeRun(ad.cHttpApp, makeCompleteRequest(anyRequest))
+              unsafeRun(ad.cHttpApp, makeCompleteRequest(anyRequest), null)
             }
 
           case msg: HttpContent =>
@@ -199,6 +218,26 @@ sealed trait HttpEndpoint[-R, +E] { self =>
 
           case msg => ctx.fireExceptionCaught(InvalidMessage(msg)): Unit
         }
+      }
+
+      import io.netty.channel.ChannelHandlerContext
+
+      protected def handleHandshake(
+        ctx: ChannelHandlerContext,
+        req: HttpRequest,
+        socket: SocketApp[R, Throwable],
+      ) = {
+        val fullReq = new DefaultFullHttpRequest(HTTP_1_1, req.method(), req.uri(), Unpooled.EMPTY_BUFFER, false)
+        fullReq.headers().setAll(req.headers())
+        ctx
+          .channel()
+          .pipeline()
+          .addLast(new WebSocketServerProtocolHandler(socket.config.protocol.javaConfig))
+          .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, socket.config))
+        ctx
+          .channel()
+          .eventLoop()
+          .submit(() => ctx.fireChannelRead(fullReq))
       }
 
       private def getMatchingEndpoint(request: HttpRequest): ServerEndpoint[R, Throwable] = {

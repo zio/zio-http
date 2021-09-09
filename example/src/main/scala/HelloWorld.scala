@@ -4,6 +4,7 @@ import zhttp.experiment._
 import zhttp.http._
 import zhttp.service.Server
 import zio._
+import zio.stream.ZStream
 
 object HelloWorld extends App {
 
@@ -12,7 +13,7 @@ object HelloWorld extends App {
   }
 
   val h3: HttpEndpoint[Any, Nothing] = HttpEndpoint.mount {
-    Http.collect[BufferedRequest[ByteBuf]] { case req => BufferedResponse(content = req.content) }
+    Http.collect[BufferedRequest[ByteBuf]] { case req => BufferedResponse(content = ZStream.fromQueue(req.content)) }
   }
 
   val h4: HttpEndpoint[Any, Nothing] = HttpEndpoint.mount {

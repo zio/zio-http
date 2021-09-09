@@ -19,6 +19,11 @@ final case class ServerSocketHandler[R](
   ss: SocketApp.SocketConfig[R, Throwable],
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
+  override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
+    ctx.channel().config().setAutoRead(true)
+    ()
+  }
+
   /**
    * Unsafe channel reader for WSFrame
    */
