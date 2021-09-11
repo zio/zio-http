@@ -1,9 +1,10 @@
 package zhttp.http
 
+import zio.random.Random
 import zio.test.Assertion.equalTo
-import zio.test.{DefaultRunnableSpec, assert}
+import zio.test._
 
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{Duration, DurationInt, SECONDS}
 import scala.util.{Failure, Success, Try}
 
 object CookieSpec extends DefaultRunnableSpec {
@@ -58,5 +59,24 @@ object CookieSpec extends DefaultRunnableSpec {
         assert(cookie.asString)(equalTo("name=content"))
       },
     ),
+    suite("encode/decode cookies")(
+      testM("encode/decode cookies with ZIO Test Gen") {
+        val genCookies: Gen[Random with Sized, Cookie] = for {
+          name <- Gen.anyString
+          content <- Gen.anyString
+          expires <- Gen.anyInstant
+          domain <- Gen.anyString
+          path <- Gen.fromIterable(List(Path("/"), Path(""), Path("/path")))
+          secure <- Gen.boolean
+          httpOnly <- Gen.boolean
+          maxAge <- Gen.anyFiniteDuration
+          sameSite <- Gen.fromIterable(List(SameSite.None, SameSite.Strict, SameSite.Lax))
+        } yield Cookie(name,content,Some(expires),Some(domain),Some(path),secure,httpOnly,Some(Duration(Duration.fromNanos(maxAge.toNanos).toSeconds,SECONDS)), Some(sameSite))
+
+        check(genCookies) { cookie =>
+          assert(Cookie.fromString(cookie.asString))(equalTo(cookie))
+        }
+      }
+    )
   )
 }

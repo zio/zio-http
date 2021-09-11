@@ -1,7 +1,6 @@
 package zhttp.http
 
-import java.time.format.DateTimeFormatter
-import java.time.{Instant, ZoneId}
+import java.time.Instant
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.util.{Failure, Success, Try}
 
@@ -37,7 +36,7 @@ final case class Cookie(
    */
   def setContent(v: String): Cookie    = copy(content = v)
   def setExpires(v: Instant): Cookie   = copy(expires = Some(v))
-  def setMaxAge(v: Duration): Cookie   = copy(maxAge = Some(v))
+  def setMaxAge(v: Duration): Cookie   = copy(maxAge = Some(Duration(v.toSeconds, SECONDS)))
   def setDomain(v: String): Cookie     = copy(domain = Some(v))
   def setPath(v: Path): Cookie         = copy(path = Some(v))
   def setSecure(v: Boolean): Cookie    = copy(secure = v)
@@ -59,7 +58,7 @@ final case class Cookie(
   def asString: String = {
     val cookie = List(
       Some(s"$name=$content"),
-      expires.map(e => s"Expires=${DateTimeFormatter.RFC_1123_DATE_TIME.format(e.atZone(ZoneId.of("GMT")))}"),
+      expires.map(e => s"Expires=$e"),
       maxAge.map(a => s"Max-Age=${a.toSeconds}"),
       domain.map(d => s"Domain=$d"),
       path.map(p => s"Path=${p.asString}"),
@@ -124,7 +123,7 @@ object Cookie {
   }
 
   def parseDate(v: String): Either[String, Instant] =
-    Try(Instant.from(DateTimeFormatter.RFC_1123_DATE_TIME.parse(v))) match {
+    Try(Instant.parse(v)) match {
       case Success(r) => Right(r)
       case Failure(e) => Left(s"Invalid http date: $v (${e.getMessage})")
     }
