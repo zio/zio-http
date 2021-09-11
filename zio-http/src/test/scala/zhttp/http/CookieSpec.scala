@@ -62,21 +62,31 @@ object CookieSpec extends DefaultRunnableSpec {
     suite("encode/decode cookies")(
       testM("encode/decode cookies with ZIO Test Gen") {
         val genCookies: Gen[Random with Sized, Cookie] = for {
-          name <- Gen.anyString
-          content <- Gen.anyString
-          expires <- Gen.anyInstant
-          domain <- Gen.anyString
-          path <- Gen.fromIterable(List(Path("/"), Path(""), Path("/path")))
-          secure <- Gen.boolean
+          name     <- Gen.anyString
+          content  <- Gen.anyString
+          expires  <- Gen.anyInstant
+          domain   <- Gen.anyString
+          path     <- Gen.fromIterable(List(Path("/"), Path(""), Path("/path")))
+          secure   <- Gen.boolean
           httpOnly <- Gen.boolean
-          maxAge <- Gen.anyFiniteDuration
+          maxAge   <- Gen.anyFiniteDuration
           sameSite <- Gen.fromIterable(List(SameSite.None, SameSite.Strict, SameSite.Lax))
-        } yield Cookie(name,content,Some(expires),Some(domain),Some(path),secure,httpOnly,Some(Duration(Duration.fromNanos(maxAge.toNanos).toSeconds,SECONDS)), Some(sameSite))
+        } yield Cookie(
+          name,
+          content,
+          Some(expires),
+          Some(domain),
+          Some(path),
+          secure,
+          httpOnly,
+          Some(Duration(Duration.fromNanos(maxAge.toNanos).toSeconds, SECONDS)),
+          Some(sameSite),
+        )
 
         check(genCookies) { cookie =>
           assert(Cookie.fromString(cookie.asString))(equalTo(cookie))
         }
-      }
-    )
+      },
+    ),
   )
 }
