@@ -4,6 +4,7 @@ import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel._
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
+import io.netty.handler.flow.FlowControlHandler
 import zhttp.experiment.HttpEndpoint.InvalidMessage
 import zhttp.experiment.HttpMessage._
 import zhttp.experiment.ServerEndpoint.CanDecode
@@ -189,6 +190,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
 
                 case ServerEndpoint.HttpBuffered(http) =>
                   ad.isBuffered = true
+                  ctx.channel().pipeline().addLast(new FlowControlHandler())
 
                   unsafeRunZIO {
                     for {
@@ -238,6 +240,10 @@ sealed trait HttpEndpoint[-R, +E] { self =>
           .channel()
           .eventLoop()
           .submit(() => ctx.fireChannelRead(fullReq))
+          .addListener((_: Any) => {
+            ctx.channel().pipeline().remove("SERVER_HTTP")
+            ctx.channel().config().setAutoRead(true): Unit
+          })
       }
 
       private def getMatchingEndpoint(request: HttpRequest): ServerEndpoint[R, Throwable] = {

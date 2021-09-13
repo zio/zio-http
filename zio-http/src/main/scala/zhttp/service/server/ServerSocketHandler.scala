@@ -19,11 +19,6 @@ final case class ServerSocketHandler[R](
   ss: SocketApp.SocketConfig[R, Throwable],
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
-  override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
-    ctx.channel().config().setAutoRead(true)
-    ()
-  }
-
   /**
    * Unsafe channel reader for WSFrame
    */
@@ -35,7 +30,10 @@ final case class ServerSocketHandler[R](
         .runDrain,
     )
 
-  override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit =
+  override def channelRegistered(ctx: ChannelHandlerContext): Unit = {
+    ctx.channel().config().setAutoRead(true): Unit
+  }
+  override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit                          =
     ss.onMessage match {
       case Some(v) =>
         WebSocketFrame.fromJFrame(msg) match {
