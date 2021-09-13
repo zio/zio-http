@@ -2,12 +2,12 @@ package zhttp.experiment
 
 import io.netty.handler.codec.http.HttpMethod
 import zhttp.experiment.internal.HttpMessageAssertions
-import zhttp.http.{Header, HTTP_CHARSET, Method}
+import zhttp.http.{HTTP_CHARSET, Header, Method}
 import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.nonFlaky
-import zio.test.{assertM, DefaultRunnableSpec}
+import zio.test.{DefaultRunnableSpec, assertM}
 
 object HttpEndpointRequestSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
