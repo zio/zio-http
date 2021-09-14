@@ -1,7 +1,6 @@
 package zhttp.experiment
 
 import io.netty.buffer.ByteBuf
-import zhttp.experiment.HttpMessage.AnyResponse
 import zhttp.http.Http
 
 /**
@@ -22,6 +21,9 @@ object ServerEndpoint {
       extends ServerEndpoint[R, E]
 
   final case class HttpAny[R, E](http: Http[R, E, Any, AnyResponse[R, E, ByteBuf]]) extends ServerEndpoint[R, E]
+
+  final case class HttpLazy[R, E](http: Http[R, E, LazyRequest, AnyResponse[R, E, ByteBuf]])
+      extends ServerEndpoint[R, E]
 
   def empty: ServerEndpoint[Any, Nothing] = Empty
 
@@ -56,6 +58,13 @@ object ServerEndpoint {
         http: Http[R, E, AnyRequest, AnyResponse[R, E, ByteBuf]],
       ): ServerEndpoint[R, E] =
         ServerEndpoint.HttpAnyRequest(http)
+    }
+
+    implicit case object MountLazyRequest extends CanDecode[LazyRequest] {
+      override def endpoint[R, E, B](
+        http: Http[R, E, LazyRequest, AnyResponse[R, E, ByteBuf]],
+      ): ServerEndpoint[R, E] =
+        ServerEndpoint.HttpLazy(http)
     }
   }
 }

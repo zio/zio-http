@@ -111,6 +111,7 @@ object HttpGen {
       ServerEndpoint.CanDecode.MountComplete,
       ServerEndpoint.CanDecode.MountBuffered,
       ServerEndpoint.CanDecode.MountAnyRequest,
+      ServerEndpoint.CanDecode.MountLazyRequest,
     ),
   )
 }

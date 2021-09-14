@@ -39,6 +39,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       EchoCompleteResponseSpec,
       EchoStreamingResponseSpec,
       IllegalMessageSpec,
+      LazyRequestSpec,
     ).provideCustomLayer(env) @@ timeout(10 seconds)
 
   /**
@@ -388,6 +389,27 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
     testM("throws exception") {
       val program = EndpointClient.deploy(HttpEndpoint.empty).flatMap(_.write("ILLEGAL_MESSAGE").either)
       assertM(program)(isLeft(equalTo(InvalidMessage("ILLEGAL_MESSAGE"))))
+    },
+  )
+
+  def LazyRequestSpec = suite("LazyRequest")(
+    testM("status is 200") {
+      val res = HttpEndpoint.mount(Http.collect[LazyRequest] { _ => Ok }).getResponse
+      assertM(res)(isResponse(responseStatus(200)))
+    },
+    testM("content is ABCD") {
+      val endpoint = for {
+        content <- Ref.make("")
+        client  <- EndpointClient.deploy {
+          HttpEndpoint.mount(Http.collectM[LazyRequest] { req =>
+            req.decodeContent(ContentDecoder.text).flatMap(text => content.set(text).as(Ok))
+          })
+        }
+        _       <- client.request()
+        _       <- client.end("A", "B", "C", "D")
+        data    <- content.get
+      } yield data
+      assertM(endpoint)(equalTo("ABCD"))
     },
   )
 }

@@ -9,7 +9,7 @@ import zhttp.experiment.ServerEndpoint.CanDecode
 import zhttp.http._
 import zhttp.service.HttpRuntime
 import zio.stream.ZStream
-import zio.{Queue, UIO, ZIO}
+import zio.{Promise, Queue, UIO, ZIO}
 
 import scala.collection.mutable
 
@@ -28,11 +28,13 @@ sealed trait HttpEndpoint[-R, +E] { self =>
       private var bQueue: Queue[HttpContent] = _
       private var anyRequest: AnyRequest     = _
 
-      private val app: HttpEndpoint[R, Throwable] = self.asInstanceOf[HttpEndpoint[R, Throwable]]
-      private var isComplete: Boolean             = false
-      private var isBuffered: Boolean             = false
-      private var cHttpApp: CompleteHttpApp       = Http.empty
-      private val cBody: ByteBuf                  = Unpooled.compositeBuffer()
+      private val app: HttpEndpoint[R, Throwable]              = self.asInstanceOf[HttpEndpoint[R, Throwable]]
+      private var isComplete: Boolean                          = false
+      private var isBuffered: Boolean                          = false
+      private var cHttpApp: CompleteHttpApp                    = Http.empty
+      private val cBody: ByteBuf                               = Unpooled.compositeBuffer()
+      private var decoder: ContentDecoder[Any, Throwable, Any] = _
+      private var completePromise: Promise[Throwable, Any]     = _
 
       override def channelRegistered(ctx: ChannelHandlerContext): Unit = {
         super.channelRegistered(ctx)
@@ -147,12 +149,50 @@ sealed trait HttpEndpoint[-R, +E] { self =>
           program
         }
 
+        def decodeContent(
+          msg: HttpContent,
+          decoder: ContentDecoder[Any, Throwable, Any],
+        ): Unit = {
+          decoder match {
+            case ContentDecoder.Text         =>
+              cBody.writeBytes(msg.content())
+              ctx.read()
+              if (msg.isInstanceOf[LastHttpContent]) {
+                unsafeRunZIO(ad.completePromise.succeed(cBody.toString(HTTP_CHARSET)))
+              }
+            case ContentDecoder.Custom(_, _) => ???
+          }
+        }
+
         msg match {
           case jRequest: HttpRequest =>
             val endpoint = getMatchingEndpoint(jRequest)
             if (endpoint == null) unsafeWriteAndFlushNotFoundResponse()
             else {
               endpoint match {
+                case ServerEndpoint.HttpLazy(http) =>
+                  unsafeRun(
+                    http,
+                    new LazyRequest {
+                      override def decodeContent[R0, E0, B](
+                        decoder: ContentDecoder[R0, E0, B],
+                      ): ZIO[R0, E0, B] =
+                        for {
+                          p <- Promise.make[E0, B]
+                          _ <- UIO {
+                            ad.decoder = decoder.asInstanceOf[ContentDecoder[Any, Throwable, B]]
+                            ad.completePromise = p.asInstanceOf[Promise[Throwable, Any]]
+                          }
+                          b <- p.await
+                        } yield b
+
+                      override def method: Method        = Method.fromHttpMethod(jRequest.method())
+                      override def url: URL              = URL.fromString(jRequest.uri()).getOrElse(null)
+                      override def headers: List[Header] = Header.make(jRequest.headers())
+
+                    },
+                  )
+
                 case ServerEndpoint.Empty =>
                   unsafeWriteAndFlushNotFoundResponse()
 
@@ -182,7 +222,9 @@ sealed trait HttpEndpoint[-R, +E] { self =>
             }
 
           case msg: LastHttpContent =>
-            if (ad.isBuffered) {
+            if (decoder != null) {
+              decodeContent(msg, decoder)
+            } else if (ad.isBuffered) {
               unsafeRunZIO { bQueue.offer(msg) }
             } else if (ad.isComplete) {
               ad.cBody.writeBytes(msg.content())
@@ -190,7 +232,9 @@ sealed trait HttpEndpoint[-R, +E] { self =>
             }
 
           case msg: HttpContent =>
-            if (ad.isBuffered) {
+            if (decoder != null) {
+              decodeContent(msg, decoder)
+            } else if (ad.isBuffered) {
               unsafeRunZIO { bQueue.offer(msg) *> read }
             } else if (ad.isComplete) {
               cBody.writeBytes(msg.content())
