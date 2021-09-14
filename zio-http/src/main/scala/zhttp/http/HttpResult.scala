@@ -4,7 +4,7 @@ import zio.{CanFail, ZIO}
 
 import scala.annotation.{tailrec, unused}
 
-private [zhttp] sealed trait HttpResult[-R, +E, +A] { self =>
+private[zhttp] sealed trait HttpResult[-R, +E, +A] { self =>
 
   def map[B](ab: A => B): HttpResult[R, E, B] = self.flatMap(a => HttpResult.succeed(ab(a)))
 
@@ -73,7 +73,7 @@ object HttpResult {
   final case class Success[A](a: A)                         extends Out[Any, Nothing, A]
   final case class Failure[E](e: E)                         extends Out[Any, E, Nothing]
   final case class Effect[R, E, A](z: ZIO[R, Option[E], A]) extends Out[R, E, A]
-  case object Empty                                                        extends Out[Any, Nothing, Nothing]
+  case object Empty                                         extends Out[Any, Nothing, Nothing]
 
   // OPR
   private final case class EffectTotal[A](f: () => A)                     extends HttpResult[Any, Nothing, A]
@@ -83,7 +83,7 @@ object HttpResult {
     ee: E => HttpResult[R, EE, AA],
     aa: A => HttpResult[R, EE, AA],
     dd: HttpResult[R, EE, AA],
-  )                                                                              extends HttpResult[R, EE, AA]
+  )                                                                       extends HttpResult[R, EE, AA]
 
   // Help
   def succeed[A](a: A): HttpResult.Out[Any, Nothing, A] = Success(a)

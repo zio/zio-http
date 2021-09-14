@@ -2,8 +2,8 @@ package zhttp.experiment
 
 import io.netty.handler.codec.http.HttpRequest
 import zhttp.http.{Header, Method, Status, URL}
-import zio.stream.ZStream
 import zio.ZDequeue
+import zio.stream.ZStream
 
 sealed trait HttpMessage
 
