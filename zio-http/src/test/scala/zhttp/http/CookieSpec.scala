@@ -1,11 +1,11 @@
 package zhttp.http
 
+import zio.duration.Duration
 import zio.random.Random
-import zio.test.Assertion.equalTo
+import zio.test.Assertion.{equalTo, isLeft}
 import zio.test._
 
-import scala.concurrent.duration.{Duration, DurationInt, SECONDS}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.duration.{DurationInt, SECONDS}
 
 object CookieSpec extends DefaultRunnableSpec {
   def spec = suite("Cookies")(
@@ -13,26 +13,35 @@ object CookieSpec extends DefaultRunnableSpec {
       test("should parse the cookie") {
         val cookieHeaderValue = "name=content; Max-Age=123; Secure; HttpOnly "
         assert(Cookie.fromString(cookieHeaderValue))(
-          equalTo(Cookie("name", "content", None, None, None, true, true, Some(123 seconds), None)),
+          equalTo(
+            Right(Cookie("name", "content", None, None, None, true, true, Some(Duration.fromScala(123 seconds)), None)),
+          ),
         )
       },
       test("should parse the cookie with empty content") {
-        val cookieHeaderValue = "name=; Expires=1816; Max-Age=123; Secure; HttpOnly; Path=/cookie "
+        val cookieHeaderValue = "name=; Max-Age=123; Secure; HttpOnly; Path=/cookie "
         assert(Cookie.fromString(cookieHeaderValue))(
           equalTo(
-            Cookie("name", "", None, None, Some(Path("/cookie")), true, true, Some(123 seconds), None),
+            Right(
+              Cookie(
+                "name",
+                "",
+                None,
+                None,
+                Some(Path("/cookie")),
+                true,
+                true,
+                Some(Duration.fromScala(123 seconds)),
+                None,
+              ),
+            ),
           ),
         )
       },
       test("shouldn't parse the cookie with empty content and empty name") {
         val cookieHeaderValue = ""
-        val actual            = Try {
-          Cookie.fromString(cookieHeaderValue)
-        } match {
-          case Failure(_)     => "failure"
-          case Success(value) => value.toString
-        }
-        assert(actual)(equalTo("failure"))
+        val actual            = Cookie.fromString(cookieHeaderValue)
+        assert(actual)(isLeft)
       },
     ),
     suite("asString in cookie")(
@@ -49,7 +58,7 @@ object CookieSpec extends DefaultRunnableSpec {
             domain = None,
             path = Some(Path("/cookie")),
             httpOnly = true,
-            maxAge = Some(5 days),
+            maxAge = Some(Duration.fromScala(5 days)),
             sameSite = Some(SameSite.Lax),
           )
         assert(cookie.asString)(equalTo("name=content; Max-Age=432000; Path=/cookie; HttpOnly; SameSite=Lax"))
@@ -64,27 +73,27 @@ object CookieSpec extends DefaultRunnableSpec {
         val genCookies: Gen[Random with Sized, Cookie] = for {
           name     <- Gen.anyString
           content  <- Gen.anyString
-          expires  <- Gen.anyInstant
-          domain   <- Gen.anyString
-          path     <- Gen.fromIterable(List(Path("/"), Path(""), Path("/path")))
+          expires  <- Gen.option(Gen.anyInstant)
+          domain   <- Gen.option(Gen.anyString)
+          path     <- Gen.option(Gen.fromIterable(List(Path("/"), Path(""), Path("/path"))))
           secure   <- Gen.boolean
           httpOnly <- Gen.boolean
           maxAge   <- Gen.anyFiniteDuration
-          sameSite <- Gen.fromIterable(List(SameSite.None, SameSite.Strict, SameSite.Lax))
+          sameSite <- Gen.option(Gen.fromIterable(List(SameSite.Strict, SameSite.Lax)))
         } yield Cookie(
           name,
           content,
-          Some(expires),
-          Some(domain),
-          Some(path),
+          expires,
+          domain,
+          path,
           secure,
           httpOnly,
-          Some(Duration(Duration.fromNanos(maxAge.toNanos).toSeconds, SECONDS)),
-          Some(sameSite),
+          Some(Duration(maxAge.toSeconds, SECONDS)),
+          sameSite,
         )
 
         check(genCookies) { cookie =>
-          assert(Cookie.fromString(cookie.asString))(equalTo(cookie))
+          assert(Cookie.fromString(cookie.asString))(equalTo(Right(cookie)))
         }
       },
     ),

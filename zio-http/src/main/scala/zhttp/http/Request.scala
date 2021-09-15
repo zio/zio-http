@@ -36,7 +36,7 @@ final case class Request(
   /**
    * request with COOKIE header as list of cookies
    */
-  def cookies(cookies: List[Cookie]): Request =
+  def addCookies(cookies: List[Cookie]): Request =
     self.copy(headers =
       headers ++ List(
         Header.custom(HttpHeaderNames.COOKIE.toString, cookies.map(p => p.name + "=" + p.content) mkString "; "),

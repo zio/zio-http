@@ -18,7 +18,7 @@ object CookieClientSide extends App {
         List(
           Header.host("github.com"),
         ),
-      ).cookiesFromHeader(res1.headers).cookies(List(Cookie("a", "value"))),
+      ).cookiesFromHeader(res1.headers).addCookies(List(Cookie("a", "value"))),
     ) //add set-cookie from response header to request
     _    <- console.putStrLn {
       Response.cookies(res2.headers).toString //Empty as cookies are already set

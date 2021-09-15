@@ -1,7 +1,9 @@
 package zhttp.http
 
+import zio.duration.Duration
+
 import java.time.Instant
-import scala.concurrent.duration.{Duration, SECONDS}
+import scala.concurrent.duration.SECONDS
 import scala.util.{Failure, Success, Try}
 
 sealed trait SameSite {
@@ -39,13 +41,15 @@ final case class Cookie(
   def setMaxAge(v: Duration): Cookie   = copy(maxAge = Some(Duration(v.toSeconds, SECONDS)))
   def setDomain(v: String): Cookie     = copy(domain = Some(v))
   def setPath(v: Path): Cookie         = copy(path = Some(v))
-  def setSecure(v: Boolean): Cookie    = copy(secure = v)
-  def setHttpOnly(v: Boolean): Cookie  = copy(httpOnly = v)
+  def setSecure(): Cookie              = copy(secure = true)
+  def setHttpOnly(): Cookie            = copy(httpOnly = true)
   def setSameSite(v: SameSite): Cookie = copy(sameSite = Some(v))
 
   /**
    * helpers for removing cookie values
    */
+  def resetSecure(): Cookie    = copy(secure = false)
+  def resetHttpOnly(): Cookie  = copy(httpOnly = false)
   def removeExpiry(): Cookie   = copy(expires = None)
   def removeDomain(): Cookie   = copy(domain = None)
   def removePath(): Cookie     = copy(path = None)
@@ -59,7 +63,7 @@ final case class Cookie(
     val cookie = List(
       Some(s"$name=$content"),
       expires.map(e => s"Expires=$e"),
-      maxAge.map(a => s"Max-Age=${a.toSeconds}"),
+      maxAge.map((a: Duration) => s"Max-Age=${Duration(a.toSeconds, SECONDS).toSeconds}"),
       domain.map(d => s"Domain=$d"),
       path.map(p => s"Path=${p.asString}"),
       if (secure) Some("Secure") else None,
@@ -76,7 +80,7 @@ object Cookie {
   /**
    * Parse cookie
    */
-  private[zhttp] def fromString(headerValue: String): Cookie = {
+  private[zhttp] def fromString(headerValue: String): Either[Throwable, Cookie] = {
     def splitNameContent(kv: String): (String, Option[String]) =
       kv.split("=", 2).map(_.trim) match {
         case Array(v1)     => (v1, None)
@@ -88,38 +92,34 @@ object Cookie {
     val (first, other)    = (cookieWithoutMeta.head, cookieWithoutMeta.tail)
     val (name, content)   = splitNameContent(first)
     var cookie            =
-      if (name.trim == "" && content.isEmpty) throw new IllegalArgumentException("Cookie can't be parsed")
-      else Cookie(name, content.getOrElse(""))
+      if (name.trim == "" && content.isEmpty) Left(new IllegalArgumentException("Cookie can't be parsed"))
+      else Right(Cookie(name, content.getOrElse("")))
 
-    other.map(splitNameContent).map(t => (t._1, t._2)).foreach {
-      case (ignoreCase"expires", Some(v))  =>
+    other.map(splitNameContent).map(t => (t._1.toLowerCase, t._2)).foreach {
+      case ("expires", Some(v))  =>
         parseDate(v) match {
-          case Left(_)      => None
-          case Right(value) => cookie = cookie.setExpires(value)
+          case Left(_)      => cookie = Left(new IllegalArgumentException("expiry date cannot be parsed"))
+          case Right(value) => cookie = cookie.map(_.setExpires(value))
         }
-      case (ignoreCase"max-age", Some(v))  =>
+      case ("max-age", Some(v))  =>
         Try(v.toLong) match {
-          case Success(maxAge) => cookie = cookie.setMaxAge(Duration(maxAge, SECONDS))
-          case Failure(_)      => None
+          case Success(maxAge) => cookie = cookie.map(_.setMaxAge(Duration(maxAge, SECONDS)))
+          case Failure(_)      => cookie = Left(new IllegalArgumentException("max-age cannot be parsed"))
         }
-      case (ignoreCase"domain", v)         => cookie = cookie.setDomain(v.getOrElse(""))
-      case (ignoreCase"path", v)           => cookie = cookie.setPath(Path(v.getOrElse("")))
-      case (ignoreCase"secure", _)         => cookie = cookie.setSecure(true)
-      case (ignoreCase"httponly", _)       => cookie = cookie.setHttpOnly(true)
-      case (ignoreCase"samesite", Some(v)) =>
-        v.trim match {
-          case ignoreCase"lax"    => cookie = cookie.setSameSite(SameSite.Lax)
-          case ignoreCase"strict" => cookie = cookie.setSameSite(SameSite.Strict)
-          case ignoreCase"none"   => cookie = cookie.setSameSite(SameSite.None)
-          case _                  => None
+      case ("domain", v)         => cookie = cookie.map(_.setDomain(v.getOrElse("")))
+      case ("path", v)           => cookie = cookie.map(_.setPath(Path(v.getOrElse(""))))
+      case ("secure", _)         => cookie = cookie.map(_.setSecure())
+      case ("httponly", _)       => cookie = cookie.map(_.setHttpOnly())
+      case ("samesite", Some(v)) =>
+        v.trim.toLowerCase match {
+          case "lax"    => cookie = cookie.map(_.setSameSite(SameSite.Lax))
+          case "strict" => cookie = cookie.map(_.setSameSite(SameSite.Strict))
+          case "none"   => cookie = cookie.map(_.setSameSite(SameSite.None))
+          case _        => None
         }
-      case (_, _)                          => cookie
+      case (_, _)                => cookie
     }
     cookie
-  }
-
-  implicit class CaseInsensitiveRegex(sc: StringContext) {
-    def ignoreCase = ("(?i)" + sc.parts.mkString).r
   }
 
   def parseDate(v: String): Either[String, Instant] =

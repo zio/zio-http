@@ -7,7 +7,6 @@ import zio.Chunk
 
 import java.io.{PrintWriter, StringWriter}
 import java.time.Instant
-import scala.util.{Failure, Success, Try}
 
 private[zhttp] trait ResponseHelpers {
   private val defaultStatus  = Status.OK
@@ -78,11 +77,9 @@ private[zhttp] trait ResponseHelpers {
     header
       .filter(x => x.name.toString.equalsIgnoreCase(HttpHeaderNames.SET_COOKIE.toString))
       .map(h =>
-        Try {
-          Cookie.fromString(h.value.toString)
-        } match {
-          case Failure(exception) => throw exception
-          case Success(value)     => value
+        Cookie.fromString(h.value.toString) match {
+          case Left(value)  => throw value
+          case Right(value) => value
         },
       )
   }
@@ -90,16 +87,16 @@ private[zhttp] trait ResponseHelpers {
   /**
    * response with SET_COOKIE header to add cookies
    */
-  def addSetCookie(cookie: Cookie): UResponse =
+  def addCookie(cookie: Cookie): UResponse =
     http(headers = List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.asString)))
 
   /**
    * response with SET_COOKIE header to remove cookies
    */
-  def removeSetCookie(cookie: Cookie): UResponse =
+  def removeCookie(cookie: Cookie): UResponse =
     http(headers = List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.clearCookie.asString)))
 
-  def removeSetCookie(cookie: String): UResponse = http(headers =
+  def removeCookie(cookie: String): UResponse = http(headers =
     List(
       Header.custom(
         HttpHeaderNames.SET_COOKIE.toString,
