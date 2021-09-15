@@ -38,7 +38,7 @@ final case class Cookie(
    */
   def setContent(v: String): Cookie    = copy(content = v)
   def setExpires(v: Instant): Cookie   = copy(expires = Some(v))
-  def setMaxAge(v: Duration): Cookie   = copy(maxAge = Some(Duration(v.toSeconds, SECONDS)))
+  def setMaxAge(v: Duration): Cookie   = copy(maxAge = Some(v))
   def setDomain(v: String): Cookie     = copy(domain = Some(v))
   def setPath(v: Path): Cookie         = copy(path = Some(v))
   def setSecure(): Cookie              = copy(secure = true)
@@ -63,7 +63,7 @@ final case class Cookie(
     val cookie = List(
       Some(s"$name=$content"),
       expires.map(e => s"Expires=$e"),
-      maxAge.map((a: Duration) => s"Max-Age=${Duration(a.toSeconds, SECONDS).toSeconds}"),
+      maxAge.map(a => s"Max-Age=${a.toSeconds}"),
       domain.map(d => s"Domain=$d"),
       path.map(p => s"Path=${p.asString}"),
       if (secure) Some("Secure") else None,
