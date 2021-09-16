@@ -17,14 +17,14 @@ object ContentDecoder {
     def withFirst(cond: Boolean): BackPressure[B]   = if (cond == isFirst) self else self.copy(isFirst = cond)
   }
 
-  def text: ContentDecoder[Any, Nothing, String] = Text
+  val text: ContentDecoder[Any, Nothing, String] = Text
 
   def collect[R, E, S, B](state: S)(
     run: (Chunk[Byte], S, Boolean) => ZIO[R, E, (Option[B], S)],
   ): ContentDecoder[R, E, B] =
     Custom(state, run)
 
-  def backPressure: ContentDecoder[Any, Nothing, Queue[Chunk[Byte]]] =
+  val backPressure: ContentDecoder[Any, Nothing, Queue[Chunk[Byte]]] =
     ContentDecoder.collect(BackPressure[Chunk[Byte]]()) { case (msg, state, _) =>
       for {
         queue <- state.queue.fold(Queue.bounded[Chunk[Byte]](1))(UIO(_))
