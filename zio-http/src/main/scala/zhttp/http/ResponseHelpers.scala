@@ -1,12 +1,10 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Response.HttpResponse
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
 
 import java.io.{PrintWriter, StringWriter}
-import java.time.Instant
 
 private[zhttp] trait ResponseHelpers {
   private val defaultStatus  = Status.OK
@@ -69,41 +67,6 @@ private[zhttp] trait ResponseHelpers {
     )
 
   def status(status: Status): UResponse = http(status)
-
-  /**
-   * returns a list of cookies from response header
-   */
-  def cookies(header: List[Header]): List[Cookie] = {
-    header
-      .filter(x => x.name.toString.equalsIgnoreCase(HttpHeaderNames.SET_COOKIE.toString))
-      .map(h =>
-        Cookie.fromString(h.value.toString) match {
-          case Left(value)  => throw value
-          case Right(value) => value
-        },
-      )
-  }
-
-  /**
-   * response with SET_COOKIE header to add cookies
-   */
-  def addCookie(cookie: Cookie): UResponse =
-    http(headers = List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.asString)))
-
-  /**
-   * response with SET_COOKIE header to remove cookies
-   */
-  def removeCookie(cookie: Cookie): UResponse =
-    http(headers = List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.clearCookie.asString)))
-
-  def removeCookie(cookie: String): UResponse = http(headers =
-    List(
-      Header.custom(
-        HttpHeaderNames.SET_COOKIE.toString,
-        Cookie(cookie, content = "", expires = Some(Instant.ofEpochSecond(0))).asString,
-      ),
-    ),
-  )
 
   def temporaryRedirect(location: String): HttpResponse[Any, Nothing] =
     HttpResponse(Status.TEMPORARY_REDIRECT, List(Header.location(location)), content = HttpData.empty)
