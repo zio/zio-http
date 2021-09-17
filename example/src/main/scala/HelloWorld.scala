@@ -1,28 +1,29 @@
-import io.netty.buffer.{ByteBuf, Unpooled}
-import zhttp.experiment.HttpMessage.{BufferedResponse, CompleteResponse}
+import zhttp.experiment.HttpMessage._
 import zhttp.experiment._
-import zhttp.http._
+import zhttp.http.Http
 import zhttp.service.Server
 import zio._
-import zio.stream.ZStream
+import zio.stream._
 
 object HelloWorld extends App {
 
-  val h1: HttpEndpoint[Any, Nothing] = HttpEndpoint.mount {
-    Http.collect[CompleteRequest[ByteBuf]] { case req => CompleteResponse(content = req.content) }
-  }
-
-  val h3: HttpEndpoint[Any, Nothing] = HttpEndpoint.mount {
-    Http.collect[BufferedRequest[ByteBuf]] { case req => BufferedResponse(content = ZStream.fromQueue(req.content)) }
-  }
-
-  val h4: HttpEndpoint[Any, Nothing] = HttpEndpoint.mount {
-    Http.collect[CompleteRequest[ByteBuf]] {
-      case req if req.url.path == !! / "health" => CompleteResponse(content = Unpooled.copiedBuffer("Ok".getBytes()))
+  def h1 = HttpEndpoint.mount {
+    Http.collectM[AnyRequest] { case req =>
+      req.decodeContent(ContentDecoder.text).map { content =>
+        CompleteResponse(content = content)
+      }
     }
   }
 
-  val app: HttpEndpoint[Any, Nothing] = h1 <> h3 <> h4
+  def h2 = HttpEndpoint.mount {
+    Http.collectM[AnyRequest] { case req =>
+      req.decodeContent(ContentDecoder.backPressure).map { content =>
+        BufferedResponse(content = ZStream.fromChunkQueue(content))
+      }
+    }
+  }
+
+  def app: HttpEndpoint[Any, Nothing] = h1 +++ h2
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

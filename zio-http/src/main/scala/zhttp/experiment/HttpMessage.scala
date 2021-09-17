@@ -22,15 +22,13 @@ object HttpMessage {
   /**
    * Response
    */
-  case class AnyResponse[-R, +E, +A](
+  case class AnyResponse[-R, +E](
     status: Status = Status.OK,
     headers: List[Header] = Nil,
-    content: Content[R, E, A] = Content.empty,
-  ) extends HttpMessage { self =>
-    def map[B](ab: A => B): AnyResponse[R, E, B] = self.copy(content = self.content.map(ab))
-  }
+    content: Content[R, E] = Content.empty,
+  ) extends HttpMessage
 
-  type EmptyResponse = AnyResponse[Any, Nothing, Nothing]
+  type EmptyResponse = AnyResponse[Any, Nothing]
   object EmptyResponse {
     def apply(
       status: Status = Status.OK,
@@ -38,22 +36,22 @@ object HttpMessage {
     ): EmptyResponse = AnyResponse(status, headers)
   }
 
-  type CompleteResponse[+A] = AnyResponse[Any, Nothing, A]
+  type CompleteResponse = AnyResponse[Any, Nothing]
   object CompleteResponse {
     def apply[A](
       status: Status = Status.OK,
       headers: List[Header] = Nil,
-      content: A,
-    ): CompleteResponse[A] = AnyResponse(status, headers, Content.complete(content))
+      content: String,
+    ): CompleteResponse = AnyResponse(status, headers, Content.text(content))
   }
 
-  type BufferedResponse[-R, +E, +A] = AnyResponse[R, E, A]
+  type BufferedResponse[-R, +E] = AnyResponse[R, E]
   object BufferedResponse {
-    def apply[R, E, A](
+    def apply[R, E](
       status: Status = Status.OK,
       headers: List[Header] = Nil,
-      content: ZStream[R, E, A] = ZStream.empty,
-    ): BufferedResponse[R, E, A] = AnyResponse(status, headers, Content.fromStream(content))
+      content: ZStream[R, E, Byte] = ZStream.empty,
+    ): BufferedResponse[R, E] = AnyResponse(status, headers, Content.fromStream(content))
   }
 
   case class AnyContent[+A](content: A, isLast: Boolean) extends HttpMessage

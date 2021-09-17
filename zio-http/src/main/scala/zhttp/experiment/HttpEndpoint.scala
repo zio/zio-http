@@ -10,7 +10,7 @@ import zhttp.service.HttpRuntime
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
 
-case class HttpEndpoint[-R, +E](http: Http[R, E, AnyRequest, AnyResponse[R, E, ByteBuf]]) { self =>
+case class HttpEndpoint[-R, +E](http: Http[R, E, AnyRequest, AnyResponse[R, E]]) { self =>
   def orElse[R1 <: R, E1 >: E](other: HttpEndpoint[R1, E1]): HttpEndpoint[R1, E1] =
     HttpEndpoint(self.http orElse other.http)
 
@@ -66,11 +66,11 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, AnyRequest, AnyResponse[R, E, B
           }.useNow.flatten
         }
 
-        def unsafeWriteAnyResponse[A](res: AnyResponse[R, Throwable, ByteBuf]): Unit = {
+        def unsafeWriteAnyResponse[A](res: AnyResponse[R, Throwable]): Unit = {
           ctx.write(decodeResponse(res), void): Unit
         }
 
-        def unsafeRun[A](http: Http[R, Throwable, A, AnyResponse[R, Throwable, ByteBuf]], a: A): Unit = {
+        def unsafeRun[A](http: Http[R, Throwable, A, AnyResponse[R, Throwable]], a: A): Unit = {
           http.execute(a).evaluate match {
             case HttpResult.Effect(resM) =>
               unsafeRunZIO {
@@ -83,10 +83,18 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, AnyRequest, AnyResponse[R, E, B
                     for {
                       _ <- UIO(unsafeWriteAnyResponse(res))
                       _ <- res.content match {
-                        case Content.Empty             => UIO(unsafeWriteAndFlushNotFoundResponse())
-                        case Content.Complete(data)    => UIO(unsafeWriteLastContent(data))
-                        case Content.Streaming(stream) => writeStreamContent(stream)
-                        case Content.FromSocket(_)     => ???
+                        case Content.Empty =>
+                          UIO(unsafeWriteAndFlushNotFoundResponse())
+
+                        case Content.Text(data, charset) =>
+                          UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset)))
+
+                        case Content.Binary(data) =>
+                          UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray)))
+
+                        case Content.BinaryStream(stream) =>
+                          writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
+                        case Content.FromSocket(_)        => ???
                       }
                     } yield (),
                 )
@@ -95,10 +103,20 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, AnyRequest, AnyResponse[R, E, B
             case HttpResult.Success(a) =>
               unsafeWriteAnyResponse(a)
               a.content match {
-                case Content.Empty             => unsafeWriteAndFlushNotFoundResponse()
-                case Content.Complete(data)    => unsafeWriteLastContent(data)
-                case Content.Streaming(stream) => unsafeRunZIO(writeStreamContent(stream))
-                case Content.FromSocket(_)     => ???
+                case Content.Empty =>
+                  unsafeWriteAndFlushNotFoundResponse()
+
+                case Content.Text(data, charset) =>
+                  unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset))
+
+                case Content.Binary(data) =>
+                  unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray))
+
+                case Content.BinaryStream(stream) =>
+                  unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
+
+                case Content.FromSocket(_) =>
+                  ???
               }
 
             case HttpResult.Failure(e) => unsafeWriteAndFlushErrorResponse(e)
@@ -162,7 +180,7 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, AnyRequest, AnyResponse[R, E, B
             ctx.channel().config().setAutoRead(false)
 
             unsafeRun(
-              http.asInstanceOf[Http[R, Throwable, AnyRequest, AnyResponse[R, Throwable, ByteBuf]]],
+              http.asInstanceOf[Http[R, Throwable, AnyRequest, AnyResponse[R, Throwable]]],
               new AnyRequest {
                 override def decodeContent[R0, E0, B](
                   decoder: ContentDecoder[R0, E0, B],
@@ -198,7 +216,7 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, AnyRequest, AnyResponse[R, E, B
         }
       }
 
-      private def decodeResponse(res: AnyResponse[_, _, _]): HttpResponse = {
+      private def decodeResponse(res: AnyResponse[_, _]): HttpResponse = {
         new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, Header.disassemble(res.headers))
       }
 
@@ -224,33 +242,15 @@ object HttpEndpoint {
   final case class InvalidMessage(message: Any) extends IllegalArgumentException {
     override def getMessage: String = s"Endpoint could not handle message: ${message.getClass.getName}"
   }
-
-  trait CanEncode[A] {
-    def encode(a: A): ByteBuf
-  }
-  object CanEncode   {
-    implicit case object ChunkByte   extends CanEncode[Chunk[Byte]]   {
-      override def encode(a: Chunk[Byte]): ByteBuf = Unpooled.copiedBuffer(a.toArray)
-    }
-    implicit case object ChunkString extends CanEncode[Chunk[String]] {
-      override def encode(a: Chunk[String]): ByteBuf = Unpooled.copiedBuffer(a.toArray.mkString(""), HTTP_CHARSET)
-    }
-    implicit case object Text        extends CanEncode[String]        {
-      override def encode(a: String): ByteBuf = Unpooled.copiedBuffer(a, HTTP_CHARSET)
-    }
-  }
-
-  def mount[R, E, A](http: Http[R, E, AnyRequest, AnyResponse[R, E, A]])(implicit
-    ev: CanEncode[A],
-  ): HttpEndpoint[R, E] = HttpEndpoint(http.map(a => a.map(ev.encode(_))))
+  def mount[R, E](http: Http[R, E, AnyRequest, AnyResponse[R, E]]): HttpEndpoint[R, E] = HttpEndpoint(http)
 
   def fail[E](cause: E): HttpEndpoint[Any, E] = HttpEndpoint(Http.fail(cause))
 
   def empty: HttpEndpoint[Any, Nothing] = HttpEndpoint(Http.empty)
 
-  def collect[R, E](pf: PartialFunction[AnyRequest, AnyResponse[R, E, ByteBuf]]): HttpEndpoint[R, E] =
+  def collect[R, E](pf: PartialFunction[AnyRequest, AnyResponse[R, E]]): HttpEndpoint[R, E] =
     HttpEndpoint(Http.collect(pf))
 
-  def collectM[R, E](pf: PartialFunction[AnyRequest, ZIO[R, E, AnyResponse[R, E, ByteBuf]]]): HttpEndpoint[R, E] =
+  def collectM[R, E](pf: PartialFunction[AnyRequest, ZIO[R, E, AnyResponse[R, E]]]): HttpEndpoint[R, E] =
     HttpEndpoint(Http.collectM(pf))
 }

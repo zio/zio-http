@@ -1,8 +1,8 @@
 package zhttp.experiment.internal
 
-import io.netty.buffer.Unpooled
 import zhttp.experiment.{Content, HttpMessage}
 import zhttp.http.{Header, Status}
+import zio.Chunk
 import zio.stream.ZStream
 import zio.test.Gen
 
@@ -74,8 +74,8 @@ object HttpGen {
       cnt  <- Gen
         .fromIterable(
           List(
-            Content.fromStream(ZStream.fromIterable(list).map(b => Unpooled.copiedBuffer(b.getBytes()))),
-            Content.complete(Unpooled.copiedBuffer(list.mkString("").getBytes())),
+            Content.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
+            Content.text((list.mkString(""))),
             Content.empty,
           ),
         )
@@ -87,8 +87,8 @@ object HttpGen {
       cnt  <- Gen
         .fromIterable(
           List(
-            Content.fromStream(ZStream.fromIterable(list).map(b => Unpooled.copiedBuffer(b.getBytes()))),
-            Content.complete(Unpooled.copiedBuffer(list.mkString("").getBytes())),
+            Content.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
+            Content.text(list.mkString("")),
           ),
         )
     } yield cnt

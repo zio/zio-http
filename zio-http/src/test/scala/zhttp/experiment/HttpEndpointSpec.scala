@@ -1,6 +1,5 @@
 package zhttp.experiment
 
-import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpEndpoint.InvalidMessage
 import zhttp.experiment.HttpMessage._
@@ -18,8 +17,8 @@ import zio.test._
  * Be prepared for some real nasty runtime tests.
  */
 object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
-  private val env                                    = EventLoopGroup.auto(1)
-  private val Ok: AnyResponse[Any, Nothing, Nothing] = AnyResponse()
+  private val env                           = EventLoopGroup.auto(1)
+  private val Ok: AnyResponse[Any, Nothing] = AnyResponse()
 
   def spec =
     suite("HttpEndpoint")(
@@ -147,7 +146,8 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
     val streamingResponse = BufferedResponse(content =
       ZStream
         .fromIterable(List("A", "B", "C", "D"))
-        .map(text => Unpooled.copiedBuffer(text.getBytes)),
+        .map(text => Chunk.fromArray(text.getBytes))
+        .flattenChunks,
     )
 
     suite("StreamingResponse") {
