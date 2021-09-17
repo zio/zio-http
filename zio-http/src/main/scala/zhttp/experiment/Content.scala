@@ -3,7 +3,15 @@ package zhttp.experiment
 import zhttp.socket.SocketApp
 import zio.stream.ZStream
 
-private[zhttp] sealed trait Content[-R, +E, +A] {}
+private[zhttp] sealed trait Content[-R, +E, +A] { self =>
+  def map[B](ab: A => B): Content[R, E, B] =
+    self match {
+      case Content.Empty             => Content.Empty
+      case Content.Complete(data)    => Content.Complete(ab(data))
+      case Content.Streaming(stream) => Content.Streaming(stream.map(ab))
+      case Content.FromSocket(app)   => Content.FromSocket(app)
+    }
+}
 
 object Content {
   case object Empty                                             extends Content[Any, Nothing, Nothing]
