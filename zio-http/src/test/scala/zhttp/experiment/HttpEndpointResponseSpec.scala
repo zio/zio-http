@@ -18,94 +18,69 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
     content <- HttpGen.nonEmptyContent(Gen.const(data))
     header  <- HttpGen.header
     status  <- HttpGen.status
-    decode  <- HttpGen.canDecode
-  } yield (data, content, status, header, decode)
+  } yield (data, content, status, header)
 
   private val everything = for {
     data    <- Gen.listOf(Gen.alphaNumericString)
     content <- HttpGen.content(Gen.const(data))
     header  <- HttpGen.header
     status  <- HttpGen.status
-    decode  <- HttpGen.canDecode
-  } yield (data, content, status, header, decode)
-
-  private val contentLess = for {
-    data   <- Gen.listOf(Gen.alphaNumericString)
-    decode <- HttpGen.canDecode
-  } yield (data, decode)
+  } yield (data, content, status, header)
 
   def spec =
-    suite("HttpEndpointResponse")(
-      testM("response fields") {
-        checkAllM(everything) { case (data, content, status, header, decode) =>
-          val endpoint = HttpEndpoint.mount(decode)(Http.collect(_ => AnyResponse(status, List(header), content)))
+    suite("HttpEndpointResponse") {
+
+      testM("collect") {
+        checkAllM(everything) { case (data, content, status, header) =>
+          val endpoint = HttpEndpoint.collect(_ => AnyResponse(status, List(header), content))
           assertM(endpoint.getResponse(content = data))(isResponse {
             responseStatus(status.asJava.code()) &&
             responseHeader(header) &&
             version("HTTP/1.1")
           })
         }
-      },
-      testM("response non-empty content") {
-        checkAllM(nonEmptyContent) { case (data, content, status, header, decode) =>
-          val endpoint = HttpEndpoint.mount(decode)(Http.collect(_ => AnyResponse(status, List(header), content)))
-          assertM(endpoint.getContent(content = data))(equalTo(data.mkString("")))
-        }
-      },
-      testM("failing Http") {
-        checkM(contentLess) { case (data, decode) =>
-          val endpoint = HttpEndpoint.mount(decode)(Http.fail(new Error("SERVER ERROR")))
-          assertM(endpoint.getResponse(content = data))(isResponse {
-            responseStatus(500) && version("HTTP/1.1")
-          })
-        }
-      },
-      suite("server-error")(
-        testM("status and headers") {
-          checkM(HttpGen.canDecode) { case (decode) =>
-            val endpoint = HttpEndpoint.mount(decode)(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
-            assertM(endpoint.getResponse())(isResponse {
-              responseStatus(500) && version("HTTP/1.1")
+      } +
+        testM("collectM") {
+          checkAllM(everything) { case (data, content, status, header) =>
+            val endpoint = HttpEndpoint.collectM(_ => UIO(AnyResponse(status, List(header), content)))
+            assertM(endpoint.getResponse(content = data))(isResponse {
+              responseStatus(status.asJava.code()) &&
+              responseHeader(header) &&
+              version("HTTP/1.1")
             })
           }
-        },
-        testM("response is LastHttpContent") {
-          checkM(HttpGen.canDecode) { case decode =>
-            val endpoint = HttpEndpoint.mount(decode)(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
-            assertM(endpoint.getResponse)(isSubtype[LastHttpContent](anything))
+        } +
+        testM("content") {
+          checkAllM(nonEmptyContent) { case (data, content, status, header) =>
+            val endpoint = HttpEndpoint.mount(Http.collect(_ => AnyResponse(status, List(header), content)))
+            assertM(endpoint.getContent(content = data))(equalTo(data.mkString("")))
           }
-        },
-      ),
-      testM("empty Http") {
-        checkM(HttpGen.canDecode) { case (decode) =>
-          val endpoint = HttpEndpoint.mount(decode)(Http.empty)
+        } +
+        testM("failing Http") {
+          val endpoint = HttpEndpoint.mount(Http.fail(new Error("SERVER ERROR")))
+          assertM(endpoint.getResponse())(isResponse {
+            responseStatus(500) && version("HTTP/1.1")
+          })
+        } +
+        testM("server-error") {
+          val endpoint = HttpEndpoint.mount(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
+          assertM(endpoint.getResponse())(isResponse {
+            responseStatus(500) && version("HTTP/1.1")
+          })
+        } +
+        testM("response is LastHttpContent") {
+          val endpoint = HttpEndpoint.mount(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
+          assertM(endpoint.getResponse)(isSubtype[LastHttpContent](anything))
+        } +
+        testM("empty Http") {
+          val endpoint = HttpEndpoint.mount(Http.empty)
           assertM(endpoint.getResponse())(isResponse {
             responseStatus(404) && version("HTTP/1.1") && noHeader
           })
-        }
-      },
-      suite("not-found response")(
+        } +
         testM("Http.empty") {
-          checkM(HttpGen.canDecode) { case decode =>
-            val endpoint = HttpEndpoint.mount(decode)(Http.empty)
-            assertM(endpoint.getResponse)(isSubtype[LastHttpContent](anything))
-          }
-        },
-        testM("unmatched path") {
-          checkAllM(HttpGen.canDecode) { case decode =>
-            val endpoint =
-              HttpEndpoint.mount(!! / "a", decode)(Http.collect(_ => AnyResponse()))
-            assertM(endpoint.getResponse)(isSubtype[LastHttpContent](anything))
-          }
-        },
-      ),
-      testM("successful effect") {
-        checkM(everything) { case (data, content, status, header, decode) =>
-          val endpoint = HttpEndpoint.mount(decode)(Http.collectM(_ => UIO(AnyResponse(status, List(header), content))))
-          assertM(endpoint.getResponse(content = data))(isResponse {
-            responseStatus(status.asJava.code()) && version("HTTP/1.1")
-          })
+          val endpoint = HttpEndpoint.mount(Http.empty)
+          assertM(endpoint.getResponse)(isSubtype[LastHttpContent](anything))
         }
-      },
-    ).provideCustomLayer(env) @@ timeout(10 seconds)
+    }.provideCustomLayer(env) @@ timeout(10 seconds)
 }

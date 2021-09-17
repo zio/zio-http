@@ -5,17 +5,21 @@ import io.netty.channel._
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpEndpoint.InvalidMessage
 import zhttp.experiment.HttpMessage._
-import zhttp.experiment.ServerEndpoint.CanDecode
 import zhttp.http._
 import zhttp.service.HttpRuntime
 import zio.stream.ZStream
-import zio.{Chunk, Promise, Queue, UIO, ZIO}
+import zio.{Chunk, Promise, UIO, ZIO}
 
-import scala.collection.mutable
+case class HttpEndpoint[-R, +E](http: Http[R, E, AnyRequest, AnyResponse[R, E, ByteBuf]]) { self =>
+  def orElse[R1 <: R, E1 >: E](other: HttpEndpoint[R1, E1]): HttpEndpoint[R1, E1] =
+    HttpEndpoint(self.http orElse other.http)
 
-sealed trait HttpEndpoint[-R, +E] { self =>
-  def orElse[R1 <: R, E1 >: E](other: HttpEndpoint[R1, E1]): HttpEndpoint[R1, E1] = HttpEndpoint.OrElse(self, other)
-  def <>[R1 <: R, E1 >: E](other: HttpEndpoint[R1, E1]): HttpEndpoint[R1, E1]     = self orElse other
+  def defaultWith[R1 <: R, E1 >: E](other: HttpEndpoint[R1, E1]): HttpEndpoint[R1, E1] =
+    HttpEndpoint(self.http defaultWith other.http)
+
+  def <>[R1 <: R, E1 >: E](other: HttpEndpoint[R1, E1]): HttpEndpoint[R1, E1] = self orElse other
+
+  def +++[R1 <: R, E1 >: E](other: HttpEndpoint[R1, E1]): HttpEndpoint[R1, E1] = self defaultWith other
 
   private[zhttp] def compile[R1 <: R](zExec: HttpRuntime[R1])(implicit
     evE: E <:< Throwable,
@@ -24,14 +28,6 @@ sealed trait HttpEndpoint[-R, +E] { self =>
       import HttpVersion._
       import HttpResponseStatus._
 
-      type CompleteHttpApp = Http[R, Throwable, CompleteRequest[ByteBuf], AnyResponse[R, Throwable, ByteBuf]]
-      private var bQueue: Queue[HttpContent] = _
-      private var anyRequest: AnyRequest     = _
-
-      private val app: HttpEndpoint[R, Throwable]              = self.asInstanceOf[HttpEndpoint[R, Throwable]]
-      private var isComplete: Boolean                          = false
-      private var isBuffered: Boolean                          = false
-      private var cHttpApp: CompleteHttpApp                    = Http.empty
       private val cBody: ByteBuf                               = Unpooled.compositeBuffer()
       private var decoder: ContentDecoder[Any, Throwable, Any] = _
       private var completePromise: Promise[Throwable, Any]     = _
@@ -45,11 +41,6 @@ sealed trait HttpEndpoint[-R, +E] { self =>
 
       override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
         val void = ctx.voidPromise()
-        val read = UIO(ctx.read())
-
-        def unsafeWriteEmptyLastContent[A](): Unit = {
-          ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
-        }
 
         def unsafeWriteLastContent[A](data: ByteBuf): Unit = {
           ctx.writeAndFlush(new DefaultLastHttpContent(data)): Unit
@@ -74,29 +65,6 @@ sealed trait HttpEndpoint[-R, +E] { self =>
             loop
           }.useNow.flatten
         }
-
-        def run[A](
-          http: Http[R, Throwable, A, AnyResponse[R, Throwable, ByteBuf]],
-          a: A,
-        ): ZIO[R, Throwable, Unit] =
-          http
-            .executeAsZIO(a)
-            .foldM(
-              {
-                case Some(cause) => UIO(unsafeWriteAndFlushErrorResponse(cause))
-                case None        => UIO(unsafeWriteAndFlushNotFoundResponse())
-              },
-              res =>
-                for {
-                  _ <- UIO(ctx.write(decodeResponse(res), void))
-                  _ <- res.content match {
-                    case Content.Empty             => UIO { unsafeWriteEmptyLastContent() }
-                    case Content.Complete(data)    => UIO { unsafeWriteLastContent(data) }
-                    case Content.Streaming(stream) => writeStreamContent(stream)
-                    case Content.FromSocket(_)     => ???
-                  }
-                } yield (),
-            )
 
         def unsafeWriteAnyResponse[A](res: AnyResponse[R, Throwable, ByteBuf]): Unit = {
           ctx.write(decodeResponse(res), void): Unit
@@ -193,119 +161,40 @@ sealed trait HttpEndpoint[-R, +E] { self =>
             // The explicit call here is added to make unit tests work properly
             ctx.channel().config().setAutoRead(false)
 
-            val endpoint = getMatchingEndpoint(jRequest)
-            if (endpoint == null) unsafeWriteAndFlushNotFoundResponse()
-            else {
-              endpoint match {
-                case ServerEndpoint.HttpLazy(http) =>
-                  unsafeRun(
-                    http,
-                    new LazyRequest {
-                      override def decodeContent[R0, E0, B](
-                        decoder: ContentDecoder[R0, E0, B],
-                      ): ZIO[R0, E0, B] =
-                        for {
-                          p <- Promise.make[E0, B]
-                          _ <- UIO {
-                            ad.decoder = decoder.asInstanceOf[ContentDecoder[Any, Throwable, B]]
-                            ad.completePromise = p.asInstanceOf[Promise[Throwable, Any]]
-                            ctx.read(): Unit
-                          }
-                          b <- p.await
-                        } yield b
+            unsafeRun(
+              http.asInstanceOf[Http[R, Throwable, AnyRequest, AnyResponse[R, Throwable, ByteBuf]]],
+              new AnyRequest {
+                override def decodeContent[R0, E0, B](
+                  decoder: ContentDecoder[R0, E0, B],
+                ): ZIO[R0, E0, B] =
+                  for {
+                    p <- Promise.make[E0, B]
+                    _ <- UIO {
+                      ad.decoder = decoder.asInstanceOf[ContentDecoder[Any, Throwable, B]]
+                      ad.completePromise = p.asInstanceOf[Promise[Throwable, Any]]
+                      ctx.read(): Unit
+                    }
+                    b <- p.await
+                  } yield b
 
-                      override def method: Method        = Method.fromHttpMethod(jRequest.method())
-                      override def url: URL              = URL.fromString(jRequest.uri()).getOrElse(null)
-                      override def headers: List[Header] = Header.make(jRequest.headers())
+                override def method: Method        = Method.fromHttpMethod(jRequest.method())
+                override def url: URL              = URL.fromString(jRequest.uri()).getOrElse(null)
+                override def headers: List[Header] = Header.make(jRequest.headers())
 
-                    },
-                  )
-
-                case ServerEndpoint.Empty =>
-                  unsafeWriteAndFlushNotFoundResponse()
-
-                case ServerEndpoint.HttpAny(http) =>
-                  unsafeRun(http, ())
-
-                case ServerEndpoint.HttpComplete(http) =>
-                  ad.anyRequest = AnyRequest.from(jRequest)
-                  ad.cHttpApp = http
-                  ad.isComplete = true
-                  ctx.read(): Unit
-
-                case ServerEndpoint.HttpAnyRequest(http) =>
-                  unsafeRun(http, AnyRequest.from(jRequest))
-
-                case ServerEndpoint.HttpBuffered(http) =>
-                  ad.isBuffered = true
-
-                  unsafeRunZIO {
-                    for {
-                      _ <- setupBufferedQueue
-                      _ <- read
-                      _ <- run(http, makeBufferedRequest(AnyRequest.from(jRequest)))
-                    } yield ()
-                  }
-              }
-            }
+              },
+            )
 
           case msg: LastHttpContent =>
             if (decoder != null) {
               decodeContent(msg.content(), decoder, true)
-            } else if (ad.isBuffered) {
-              unsafeRunZIO { bQueue.offer(msg) }
-            } else if (ad.isComplete) {
-              ad.cBody.writeBytes(msg.content())
-              unsafeRun(ad.cHttpApp, makeCompleteRequest(anyRequest))
             }
 
           case msg: HttpContent =>
             if (decoder != null) {
               decodeContent(msg.content(), decoder, false)
-            } else if (ad.isBuffered) {
-              unsafeRunZIO { bQueue.offer(msg) *> read }
-            } else if (ad.isComplete) {
-              cBody.writeBytes(msg.content())
-              ctx.read(): Unit
             }
 
           case msg => ctx.fireExceptionCaught(InvalidMessage(msg)): Unit
-        }
-      }
-
-      private def getMatchingEndpoint(request: HttpRequest): ServerEndpoint[R, Throwable] = {
-        val stack = mutable.Stack(app)
-        while (stack.nonEmpty) {
-          stack.pop() match {
-            case HttpEndpoint.OrElse(self, other) =>
-              stack.push(other)
-              stack.push(self)
-
-            case HttpEndpoint.Default(se, check) =>
-              if (check.is(request)) return se
-
-            case null => return null
-          }
-        }
-        null
-      }
-
-      // TODO: use `new Stream` to implement a more performant queue
-      private def setupBufferedQueue: UIO[Queue[HttpContent]] = for {
-        q <- Queue.bounded[HttpContent](1)
-        _ <- UIO(ad.bQueue = q)
-      } yield q
-
-      private def makeCompleteRequest(anyRequest: AnyRequest) = {
-        CompleteRequest(anyRequest, ad.cBody)
-      }
-
-      private def makeBufferedRequest(anyRequest: AnyRequest): BufferedRequest[ByteBuf] = {
-        anyRequest.toBufferedRequest {
-          bQueue.mapM {
-            case cnt: LastHttpContent => bQueue.shutdown.as(cnt.content())
-            case cnt                  => UIO(cnt.content())
-          }
         }
       }
 
@@ -336,47 +225,32 @@ object HttpEndpoint {
     override def getMessage: String = s"Endpoint could not handle message: ${message.getClass.getName}"
   }
 
-  private[zhttp] final case class Default[R, E](se: ServerEndpoint[R, E], check: Check[HttpRequest] = Check.isTrue)
-      extends HttpEndpoint[R, E]
-
-  private[zhttp] final case class OrElse[R, E](self: HttpEndpoint[R, E], other: HttpEndpoint[R, E])
-      extends HttpEndpoint[R, E]
-
-  private[zhttp] def mount[R, E](serverEndpoint: ServerEndpoint[R, E]): HttpEndpoint[R, E] =
-    Default(serverEndpoint)
-
-  def mount[R, E, A](path: Path, decoder: CanDecode[A])(
-    http: Http[R, E, A, AnyResponse[R, E, ByteBuf]],
-  ): HttpEndpoint[R, E] = Default(decoder.endpoint(http), Check.startsWith(path))
-
-  def mount[R, E, A](decoder: CanDecode[A])(http: Http[R, E, A, AnyResponse[R, E, ByteBuf]]): HttpEndpoint[R, E] =
-    mount(decoder.endpoint(http))
-
-  def mount[R, E, A](http: Http[R, E, A, AnyResponse[R, E, ByteBuf]])(implicit m: CanDecode[A]): HttpEndpoint[R, E] =
-    mount(m.endpoint(http))
-
-  def mount[R, E, A](path: Path)(http: Http[R, E, A, AnyResponse[R, E, ByteBuf]])(implicit
-    m: CanDecode[A],
-  ): HttpEndpoint[R, E] =
-    Default(m.endpoint(http), Check.startsWith(path))
-
-  def fail[E](cause: E): HttpEndpoint[Any, E] = mount(ServerEndpoint.fail(cause))
-
-  def empty: HttpEndpoint[Any, Nothing] = mount(ServerEndpoint.empty)
-
-  def collect[A]: MkCollect[A] = new MkCollect(())
-
-  def collectM[A]: MkCollectM[A] = new MkCollectM(())
-
-  final class MkCollect[A](val unit: Unit) extends AnyVal {
-    def apply[R, E](pf: PartialFunction[A, AnyResponse[R, E, ByteBuf]])(implicit ev: CanDecode[A]): HttpEndpoint[R, E] =
-      HttpEndpoint.mount(Http.collect(pf))
+  trait CanEncode[A] {
+    def encode(a: A): ByteBuf
+  }
+  object CanEncode   {
+    implicit case object ChunkByte   extends CanEncode[Chunk[Byte]]   {
+      override def encode(a: Chunk[Byte]): ByteBuf = Unpooled.copiedBuffer(a.toArray)
+    }
+    implicit case object ChunkString extends CanEncode[Chunk[String]] {
+      override def encode(a: Chunk[String]): ByteBuf = Unpooled.copiedBuffer(a.toArray.mkString(""), HTTP_CHARSET)
+    }
+    implicit case object Text        extends CanEncode[String]        {
+      override def encode(a: String): ByteBuf = Unpooled.copiedBuffer(a, HTTP_CHARSET)
+    }
   }
 
-  final class MkCollectM[A](val unit: Unit) extends AnyVal {
-    def apply[R, E](pf: PartialFunction[A, ZIO[R, E, AnyResponse[R, E, ByteBuf]]])(implicit
-      ev: CanDecode[A],
-    ): HttpEndpoint[R, E] =
-      HttpEndpoint.mount(Http.collectM(pf))
-  }
+  def mount[R, E, A](http: Http[R, E, AnyRequest, AnyResponse[R, E, A]])(implicit
+    ev: CanEncode[A],
+  ): HttpEndpoint[R, E] = HttpEndpoint(http.map(a => a.map(ev.encode(_))))
+
+  def fail[E](cause: E): HttpEndpoint[Any, E] = HttpEndpoint(Http.fail(cause))
+
+  def empty: HttpEndpoint[Any, Nothing] = HttpEndpoint(Http.empty)
+
+  def collect[R, E](pf: PartialFunction[AnyRequest, AnyResponse[R, E, ByteBuf]]): HttpEndpoint[R, E] =
+    HttpEndpoint(Http.collect(pf))
+
+  def collectM[R, E](pf: PartialFunction[AnyRequest, ZIO[R, E, AnyResponse[R, E, ByteBuf]]]): HttpEndpoint[R, E] =
+    HttpEndpoint(Http.collectM(pf))
 }

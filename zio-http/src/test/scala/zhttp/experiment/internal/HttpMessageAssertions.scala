@@ -1,23 +1,19 @@
 package zhttp.experiment.internal
 
-import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http._
-import zhttp.experiment.HttpMessage.{AnyRequest, AnyResponse}
-import zhttp.experiment.ServerEndpoint.CanDecode
-import zhttp.experiment.{BufferedRequest, CompleteRequest, HttpEndpoint}
+import zhttp.experiment.HttpMessage.AnyResponse
+import zhttp.experiment.{AnyRequest, HttpEndpoint}
 import zhttp.http.{HTTP_CHARSET, Header, Http, Method, Status}
 import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
-import zio.test.{Assertion, TestResult, assert, assertM}
+import zio.test.{Assertion, TestResult, assertM}
 import zio.{Chunk, Promise, Task, ZIO}
 
 import java.nio.charset.Charset
 
 trait HttpMessageAssertions {
-  type Buffered = BufferedRequest[ByteBuf]
-  type Complete = CompleteRequest[ByteBuf]
 
   implicit final class HttpMessageSyntax(m: HttpObject) {
     def asString: String = m.toString.dropWhile(_ != '\n')
@@ -96,19 +92,6 @@ trait HttpMessageAssertions {
       case _               => None
     }
 
-  def isCompleteRequest[A](assertion: Assertion[CompleteRequest[ByteBuf]]): Assertion[A] =
-    Assertion.assertionRec("isCompleteRequest")(param(assertion))(assertion) {
-      case msg: CompleteRequest[_] if msg.content.isInstanceOf[ByteBuf] =>
-        Option(msg.asInstanceOf[CompleteRequest[ByteBuf]])
-      case _                                                            => None
-    }
-
-  def isBufferedRequest[A](assertion: Assertion[BufferedRequest[ByteBuf]]): Assertion[A] =
-    Assertion.assertionRec("isBufferedRequest")(param(assertion))(assertion) {
-      case msg: BufferedRequest[_] => Option(msg.asInstanceOf[BufferedRequest[ByteBuf]])
-      case _                       => None
-    }
-
   def isContent: Assertion[Any] = isContent(anything)
 
   def isContent[A](assertion: Assertion[HttpContent]): Assertion[A] =
@@ -128,9 +111,6 @@ trait HttpMessageAssertions {
 
   def responseStatus(status: Status): Assertion[HttpResponse] =
     Assertion.assertion("status")(param(status))(_.status().code() == status.asJava.code())
-
-  def requestBody[A](text: String, charset: Charset = HTTP_CHARSET): Assertion[CompleteRequest[ByteBuf]] =
-    Assertion.assertion("requestBody")(param(text))(_.content.toString(charset) == text)
 
   def url(url: String): Assertion[AnyRequest] =
     Assertion.assertion("status")(param(url))(_.url.asString == url)
@@ -178,101 +158,6 @@ trait HttpMessageAssertions {
    * Helper to create empty headers
    */
   def header = { new DefaultHttpHeaders() }
-
-  /**
-   * Creates an HttpEndpoint internally that requires a BufferedRequest. Allows asserting on any field of the request
-   * using the `assertion` parameter.
-   */
-  def assertBufferedRequest[R, E](
-    f: EndpointClient => ZIO[R, E, Any],
-  )(
-    assertion: Assertion[BufferedRequest[ByteBuf]],
-  ): ZIO[EventLoopGroup with R, E, TestResult] = for {
-    promise <- Promise.make[Nothing, BufferedRequest[ByteBuf]]
-    proxy   <- EndpointClient.deploy(
-      HttpEndpoint.mount(Http.collectM[BufferedRequest[ByteBuf]](req => promise.succeed(req) as AnyResponse())),
-    )
-    _       <- f(proxy)
-    req     <- promise.await
-  } yield assert(req)(assertion)
-
-  /**
-   * Creates an HttpEndpoint internally that requires a BufferedRequest. Allows asserting on the content of the request
-   * using the `assertion` parameter.
-   */
-  def assertBufferedRequestContent(
-    url: String = "/",
-    method: HttpMethod = HttpMethod.POST,
-    header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
-    content: Iterable[String] = Nil,
-  )(
-    assertion: Assertion[Iterable[String]],
-  ): ZIO[EventLoopGroup, Throwable, TestResult] = for {
-    promise <- Promise.make[Nothing, Chunk[ByteBuf]]
-    proxy   <- EndpointClient.deploy(
-      HttpEndpoint.mount(
-        Http.collectM[BufferedRequest[ByteBuf]](req =>
-          ZStream.fromQueue(req.content).runCollect.tap(promise.succeed) as AnyResponse(),
-        ),
-      ),
-    )
-
-    _ <- proxy.request(url, method, header)
-    _ <- proxy.end(content)
-
-    req <- promise.await
-  } yield assert(req.toList.map(bytes => bytes.toString(HTTP_CHARSET)))(assertion)
-
-  /**
-   * Creates an HttpEndpoint internally that requires a BufferedRequest. Allows asserting on any field of the request
-   * using the `assertion` parameter.
-   */
-  def assertBufferedRequest(
-    url: String = "/",
-    method: HttpMethod = HttpMethod.GET,
-    header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
-    content: Iterable[String] = Nil,
-  )(
-    assertion: Assertion[BufferedRequest[ByteBuf]],
-  ): ZIO[EventLoopGroup, Throwable, TestResult] =
-    assertBufferedRequest(proxy =>
-      proxy.request(url, method, header) *>
-        ZIO.foreach_(content)(proxy.data(_)) *>
-        proxy.end,
-    )(assertion)
-
-  /**
-   * Creates an HttpEndpoint internally that requires a CompleteRequest. The request to be sent can be configured via
-   * the `f` function. Allows any kind of custom assertion on the CompleteRequest.
-   */
-  def assertCompleteRequest[R, E](f: EndpointClient => ZIO[R, E, Any])(
-    assertion: Assertion[CompleteRequest[ByteBuf]],
-  ): ZIO[EventLoopGroup with R, E, TestResult] = for {
-    promise <- Promise.make[Nothing, CompleteRequest[ByteBuf]]
-    proxy   <- EndpointClient.deploy(
-      HttpEndpoint.mount(Http.collectM[CompleteRequest[ByteBuf]](req => promise.succeed(req) as AnyResponse())),
-    )
-    _       <- f(proxy)
-    req     <- promise.await
-  } yield assert(req)(assertion)
-
-  /**
-   * Creates an HttpEndpoint internally that requires a CompleteRequest. Allows asserting on any field of the request
-   * using the `assertion` parameter.
-   */
-  def assertCompleteRequest(
-    url: String = "/",
-    method: HttpMethod = HttpMethod.GET,
-    header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
-    content: Iterable[String] = Nil,
-  )(
-    assertion: Assertion[CompleteRequest[ByteBuf]],
-  ): ZIO[EventLoopGroup, Throwable, TestResult] =
-    assertCompleteRequest(proxy =>
-      proxy.request(url, method, header) *>
-        ZIO.foreach(content)(proxy.data(_)) *>
-        proxy.end,
-    )(assertion)
 
   /**
    * Dispatches a request with some content and asserts on the response received on an HttpEndpoint
@@ -361,22 +246,18 @@ trait HttpMessageAssertions {
       } yield res,
     )(assertion)
 
-  def getRequest[A]: GetRequest[A] = new GetRequest[A](())
-
-  final class GetRequest[A](val unit: Unit) {
-    def apply(
-      url: String = "/",
-      method: HttpMethod = HttpMethod.GET,
-      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
-      content: Iterable[String] = List("A", "B", "C", "D"),
-    )(implicit ev: CanDecode[A]): ZIO[Any with EventLoopGroup, Throwable, A] = for {
-      promise <- Promise.make[Nothing, A]
-      proxy   <- EndpointClient.deploy(HttpEndpoint.mount(Http.collectM[A] { case a =>
-        promise.succeed(a) as AnyResponse()
-      }))
-      _       <- proxy.request(url, method, header)
-      _       <- proxy.end(content)
-      request <- promise.await
-    } yield request
-  }
+  def getRequest(
+    url: String = "/",
+    method: HttpMethod = HttpMethod.GET,
+    header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+    content: Iterable[String] = List("A", "B", "C", "D"),
+  ): ZIO[Any with EventLoopGroup, Throwable, AnyRequest] = for {
+    promise <- Promise.make[Nothing, AnyRequest]
+    proxy   <- EndpointClient.deploy(HttpEndpoint.mount(Http.collectM[AnyRequest] { case a =>
+      promise.succeed(a) as AnyResponse()
+    }))
+    _       <- proxy.request(url, method, header)
+    _       <- proxy.end(content)
+    request <- promise.await
+  } yield request
 }

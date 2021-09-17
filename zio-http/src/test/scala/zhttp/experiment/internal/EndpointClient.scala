@@ -7,10 +7,10 @@ import io.netty.util.CharsetUtil
 import zhttp.experiment.HttpEndpoint
 import zhttp.experiment.internal.EndpointClient.{MessageQueue, ProxyChannel}
 import zhttp.service.{EventLoopGroup, HttpRuntime}
+import zio._
 import zio.internal.Executor
 import zio.stm.TQueue
 import zio.stream.ZStream
-import zio.{Exit, Queue, Task, UIO, ZIO, Promise}
 
 import scala.concurrent.ExecutionContext
 

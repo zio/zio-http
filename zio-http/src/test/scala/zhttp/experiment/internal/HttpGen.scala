@@ -1,7 +1,7 @@
 package zhttp.experiment.internal
 
 import io.netty.buffer.Unpooled
-import zhttp.experiment.{Content, HttpMessage, ServerEndpoint}
+import zhttp.experiment.{Content, HttpMessage}
 import zhttp.http.{Header, Status}
 import zio.stream.ZStream
 import zio.test.Gen
@@ -104,14 +104,4 @@ object HttpGen {
       headers <- HttpGen.header.map(List(_))
       status  <- HttpGen.status
     } yield HttpMessage.AnyResponse(status, headers, content)
-
-  def canDecode = Gen.fromIterable(
-    List(
-      ServerEndpoint.CanDecode.MountAnything,
-      ServerEndpoint.CanDecode.MountComplete,
-      ServerEndpoint.CanDecode.MountBuffered,
-      ServerEndpoint.CanDecode.MountAnyRequest,
-      ServerEndpoint.CanDecode.MountLazyRequest,
-    ),
-  )
 }
