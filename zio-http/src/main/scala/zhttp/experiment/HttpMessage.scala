@@ -1,8 +1,7 @@
 package zhttp.experiment
 
-import io.netty.handler.codec.http.HttpRequest
-import zhttp.http.{Header, Method, Status, URL}
-import zio.ZDequeue
+import zhttp.http._
+import zio._
 import zio.stream.ZStream
 
 sealed trait HttpMessage
@@ -12,41 +11,12 @@ object HttpMessage {
   /**
    * Request
    */
-  sealed trait AnyRequest extends HttpMessage { self =>
+  trait AnyRequest extends HttpMessage {
     def method: Method
     def url: URL
+    def path: Path = url.path
     def headers: List[Header]
-
-    private[zhttp] def toCompleteRequest[A](content: A): CompleteRequest[A] =
-      CompleteRequest(self, content)
-
-    private[zhttp] def toBufferedRequest[A](content: ZDequeue[Any, Nothing, A]): BufferedRequest[A] =
-      BufferedRequest(self, content)
-  }
-
-  object AnyRequest {
-    case class Default(override val method: Method, override val url: URL, override val headers: List[Header])
-        extends AnyRequest
-
-    case class FromJRequest(jReq: HttpRequest) extends AnyRequest {
-      override def method: Method        = Method.fromHttpMethod(jReq.method())
-      override def url: URL              = URL.fromString(jReq.uri()).getOrElse(null)
-      override def headers: List[Header] = Header.make(jReq.headers())
-    }
-
-    private[zhttp] def from(jReq: HttpRequest): AnyRequest = FromJRequest(jReq)
-  }
-
-  case class CompleteRequest[+A](req: AnyRequest, content: A) extends AnyRequest {
-    override def method: Method        = req.method
-    override def url: URL              = req.url
-    override def headers: List[Header] = req.headers
-  }
-
-  case class BufferedRequest[+A](req: AnyRequest, content: ZDequeue[Any, Nothing, A]) extends AnyRequest {
-    override def method: Method        = req.method
-    override def url: URL              = req.url
-    override def headers: List[Header] = req.headers
+    def decodeContent[R, E, B](decoder: ContentDecoder[R, E, B]): ZIO[R, E, B]
   }
 
   /**
@@ -56,7 +26,9 @@ object HttpMessage {
     status: Status = Status.OK,
     headers: List[Header] = Nil,
     content: Content[R, E, A] = Content.empty,
-  ) extends HttpMessage
+  ) extends HttpMessage { self =>
+    def map[B](ab: A => B): AnyResponse[R, E, B] = self.copy(content = self.content.map(ab))
+  }
 
   type EmptyResponse = AnyResponse[Any, Nothing, Nothing]
   object EmptyResponse {
