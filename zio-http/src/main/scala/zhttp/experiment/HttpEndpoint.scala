@@ -9,7 +9,7 @@ import zhttp.experiment.ServerEndpoint.CanDecode
 import zhttp.http._
 import zhttp.service.HttpRuntime
 import zio.stream.ZStream
-import zio.{Promise, Queue, UIO, ZIO}
+import zio.{Chunk, Promise, Queue, UIO, ZIO}
 
 import scala.collection.mutable
 
@@ -35,9 +35,10 @@ sealed trait HttpEndpoint[-R, +E] { self =>
       private val cBody: ByteBuf                               = Unpooled.compositeBuffer()
       private var decoder: ContentDecoder[Any, Throwable, Any] = _
       private var completePromise: Promise[Throwable, Any]     = _
+      private var isFirst: Boolean                             = true
+      private var decoderState: Any                            = _
 
       override def channelRegistered(ctx: ChannelHandlerContext): Unit = {
-        super.channelRegistered(ctx)
         ctx.channel().config().setAutoRead(false)
         ctx.read(): Unit
       }
@@ -150,22 +151,48 @@ sealed trait HttpEndpoint[-R, +E] { self =>
         }
 
         def decodeContent(
-          msg: HttpContent,
+          content: ByteBuf,
           decoder: ContentDecoder[Any, Throwable, Any],
+          isLast: Boolean,
         ): Unit = {
           decoder match {
-            case ContentDecoder.Text         =>
-              cBody.writeBytes(msg.content())
-              ctx.read()
-              if (msg.isInstanceOf[LastHttpContent]) {
+            case ContentDecoder.Text =>
+              cBody.writeBytes(content)
+              if (isLast) {
                 unsafeRunZIO(ad.completePromise.succeed(cBody.toString(HTTP_CHARSET)))
+              } else {
+                ctx.read(): Unit
               }
-            case ContentDecoder.Custom(_, _) => ???
+
+            case ContentDecoder.Custom(state, run) =>
+              if (ad.isFirst) {
+                ad.decoderState = state
+                ad.isFirst = false
+              }
+              val nState = ad.decoderState
+
+              unsafeRunZIO(for {
+                (publish, state) <- run(Chunk.fromArray(content.array()), nState, isLast)
+                _                <- publish match {
+                  case Some(out) => ad.completePromise.succeed(out)
+                  case None      => ZIO.unit
+                }
+                _                <- UIO {
+                  ad.decoderState = state
+                  if (!isLast) ctx.read(): Unit
+                }
+              } yield ())
+
           }
         }
 
         msg match {
           case jRequest: HttpRequest =>
+            // TODO: Unnecessary requirement
+            // `autoRead` is set when the channel is registered in the event loop.
+            // The explicit call here is added to make unit tests work properly
+            ctx.channel().config().setAutoRead(false)
+
             val endpoint = getMatchingEndpoint(jRequest)
             if (endpoint == null) unsafeWriteAndFlushNotFoundResponse()
             else {
@@ -182,6 +209,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
                           _ <- UIO {
                             ad.decoder = decoder.asInstanceOf[ContentDecoder[Any, Throwable, B]]
                             ad.completePromise = p.asInstanceOf[Promise[Throwable, Any]]
+                            ctx.read(): Unit
                           }
                           b <- p.await
                         } yield b
@@ -223,7 +251,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
 
           case msg: LastHttpContent =>
             if (decoder != null) {
-              decodeContent(msg, decoder)
+              decodeContent(msg.content(), decoder, true)
             } else if (ad.isBuffered) {
               unsafeRunZIO { bQueue.offer(msg) }
             } else if (ad.isComplete) {
@@ -233,7 +261,7 @@ sealed trait HttpEndpoint[-R, +E] { self =>
 
           case msg: HttpContent =>
             if (decoder != null) {
-              decodeContent(msg, decoder)
+              decodeContent(msg.content(), decoder, false)
             } else if (ad.isBuffered) {
               unsafeRunZIO { bQueue.offer(msg) *> read }
             } else if (ad.isComplete) {

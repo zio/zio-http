@@ -398,7 +398,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       assertM(res)(isResponse(responseStatus(200)))
     },
     testM("content is ABCD") {
-      val endpoint = for {
+      val content = for {
         content <- Ref.make("")
         client  <- EndpointClient.deploy {
           HttpEndpoint.mount(Http.collectM[LazyRequest] { req =>
@@ -409,7 +409,26 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         _       <- client.end("A", "B", "C", "D")
         data    <- content.get
       } yield data
-      assertM(endpoint)(equalTo("ABCD"))
+      assertM(content)(equalTo("ABCD"))
+    },
+    testM("custom") {
+      val decoder = ContentDecoder.collect(Chunk[Byte]()) { case (a, b, isLast) =>
+        val c = b ++ a
+        ZIO((if (isLast) Option(c) else None, c))
+      }
+
+      val content = for {
+        content <- Ref.make("")
+        client  <- EndpointClient.deploy {
+          HttpEndpoint.mount(Http.collectM[LazyRequest] { req =>
+            req.decodeContent(decoder).flatMap(text => content.set(new String(text.toArray)).as(Ok))
+          })
+        }
+        _       <- client.request()
+        _       <- client.end("A", "B", "C", "D")
+        data    <- content.get
+      } yield data
+      assertM(content)(equalTo("ABCD"))
     },
   )
 }
