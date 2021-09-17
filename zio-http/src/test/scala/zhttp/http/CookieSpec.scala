@@ -87,7 +87,7 @@ object CookieSpec extends DefaultRunnableSpec {
           path,
           secure,
           httpOnly,
-          Some(Duration(maxAge.toSeconds, SECONDS)),
+          Some(Duration(maxAge.getSeconds, SECONDS)),
           sameSite,
         )
 
