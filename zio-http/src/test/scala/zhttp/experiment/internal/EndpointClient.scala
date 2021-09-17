@@ -10,7 +10,7 @@ import zhttp.service.{EventLoopGroup, HttpRuntime}
 import zio.internal.Executor
 import zio.stm.TQueue
 import zio.stream.ZStream
-import zio.{Exit, Queue, Task, UIO, ZIO}
+import zio.{Exit, Queue, Task, UIO, ZIO, Promise}
 
 import scala.concurrent.ExecutionContext
 
@@ -92,23 +92,48 @@ object EndpointClient {
     outbound: MessageQueue[HttpObject],
     ec: ExecutionContext,
     rtm: zio.Runtime[Any],
+    allowedThread: Thread,
   ) extends EmbeddedChannel() { self =>
     private var pendingRead: Boolean = false
+
+    /**
+     * Asserts if the function has been called within the same thread.
+     */
+    def assertThread(name: String): Unit = {
+      val cThread = Thread.currentThread()
+      assert(
+        cThread == allowedThread,
+        s"'${name}' was called from ${cThread.getName()}. Expected thread was: ${allowedThread.getName()}",
+      )
+    }
 
     /**
      * Schedules a `writeInbound` operation on the channel using the provided group. This is done to make sure that all
      * the execution of HttpEndpoint happens in the same thread.
      */
     def writeM(msg: => AnyRef): Task[Unit] = Task {
+      assertThread("writeM")
+
       val autoRead = self.config().isAutoRead
-      if (autoRead) self.writeInbound(msg): Unit
-      else {
+
+      if (autoRead || pendingRead) {
+
+        // Calls to `writeInbound()` internally triggers `fireChannelRead()`
+        // Which can call `ctx.read()` within the channel handler.
+        // `ctx.read` can set the pendingRead flag to true, which should be carried forwarded.
+        // So `pendingRead` should be set to false before `writeInbound` is called.
+        self.pendingRead = false
+
+        // Triggers `fireChannelRead` on the channel handler.
+        self.writeInbound(msg): Unit
+      } else {
+
+        // Insert message into internal "read" queue.
+        // Messages will be pulled from that queue every time `ctx.read` is called.
         self.handleInboundMessage(msg): Unit
-        if (pendingRead) {
-          self.doBeginRead()
-          pendingRead = false
-        }
+
       }
+
     }
       .on(ec)
 
@@ -117,6 +142,7 @@ object EndpointClient {
      * HttpEndpoint.
      */
     override def handleOutboundMessage(msg: AnyRef): Unit = {
+      assertThread("handleOutboundMessage")
       rtm
         .unsafeRunAsync(outbound.offer(msg.asInstanceOf[HttpObject])) {
           case Exit.Failure(cause) => System.err.println(cause.prettyPrint)
@@ -128,20 +154,26 @@ object EndpointClient {
      * Called whenever `ctx.read()` is called from withing the HttpEndpoint
      */
     override def doBeginRead(): Unit = {
+      assertThread("doBeginRead")
       val msg = self.readInbound[HttpObject]()
       if (msg == null) {
-        pendingRead = true
+        self.pendingRead = true
       } else {
         self.writeInbound(msg): Unit
-        pendingRead = false
+        self.pendingRead = false
+
       }
+
     }
   }
 
   def deploy[R](app: HttpEndpoint[R, Throwable]): ZIO[R with EventLoopGroup, Nothing, EndpointClient] = {
     for {
-      group <- ZIO.access[EventLoopGroup](_.get)
-      rtm   <- ZIO.runtime[Any]
+      // Create a promise that resolves with the thread that is allowed for the execution
+      // It is later used to guarantee that all the execution happens on the same thread.
+      threadRef <- Promise.make[Nothing, Thread]
+      group     <- ZIO.access[EventLoopGroup](_.get)
+      rtm       <- ZIO.runtime[Any]
       ec = ExecutionContext.fromExecutor(group)
 
       // !!! IMPORTANT !!!
@@ -151,11 +183,14 @@ object EndpointClient {
       zExec    <- HttpRuntime.dedicated[R](group)
       outbound <- MessageQueue.default[HttpObject]
       inbound  <- MessageQueue.default[HttpObject]
+      _        <- ZIO.effectSuspendTotal(threadRef.succeed(Thread.currentThread())).on(ec)
+      thread   <- threadRef.await
       proxy    <- UIO {
-        val channel = ProxyChannel(inbound, outbound, ec, grtm)
+
+        val channel = ProxyChannel(inbound, outbound, ec, grtm, thread)
         channel.pipeline().addLast(app.compile(zExec))
         EndpointClient(outbound, channel)
-      }
+      }.on(ec)
     } yield proxy
   }
 }
