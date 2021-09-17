@@ -1,11 +1,10 @@
 package zhttp.http
 
-import zio.duration.Duration
 import zio.random.Random
 import zio.test.Assertion.{equalTo, isLeft}
 import zio.test._
 
-import scala.concurrent.duration.{DurationInt, SECONDS}
+import scala.concurrent.duration.{Duration, DurationInt, SECONDS}
 
 object CookieSpec extends DefaultRunnableSpec {
   def spec = suite("Cookies")(
@@ -14,7 +13,7 @@ object CookieSpec extends DefaultRunnableSpec {
         val cookieHeaderValue = "name=content; Max-Age=123; Secure; HttpOnly "
         assert(Cookie.fromString(cookieHeaderValue))(
           equalTo(
-            Right(Cookie("name", "content", None, None, None, true, true, Some(Duration.fromScala(123 seconds)), None)),
+            Right(Cookie("name", "content", None, None, None, true, true, Some(123 seconds), None)),
           ),
         )
       },
@@ -31,7 +30,7 @@ object CookieSpec extends DefaultRunnableSpec {
                 Some(Path("/cookie")),
                 true,
                 true,
-                Some(Duration.fromScala(123 seconds)),
+                Some(123 seconds),
                 None,
               ),
             ),
@@ -58,7 +57,7 @@ object CookieSpec extends DefaultRunnableSpec {
             domain = None,
             path = Some(Path("/cookie")),
             httpOnly = true,
-            maxAge = Some(Duration.fromScala(5 days)),
+            maxAge = Some(5 days),
             sameSite = Some(SameSite.Lax),
           )
         assert(cookie.asString)(equalTo("name=content; Max-Age=432000; Path=/cookie; HttpOnly; SameSite=Lax"))

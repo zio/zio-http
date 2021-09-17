@@ -1,7 +1,6 @@
 import zhttp.http._
 import zhttp.service._
 import zio._
-import zio.duration.Duration
 
 import scala.concurrent.duration.DurationInt
 
@@ -19,7 +18,7 @@ object CookieServerSide extends App {
           domain = None,
           path = Some(Path("/cookie")),
           httpOnly = true,
-          maxAge = Some(Duration.fromScala(5 days)),
+          maxAge = Some(5 days),
           sameSite = None,
         ),
       )
