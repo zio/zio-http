@@ -10,6 +10,8 @@ import zhttp.service.HttpRuntime
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
 
+import java.net.{InetAddress, InetSocketAddress}
+
 case class HttpEndpoint[-R, +E](http: Http[R, E, AnyRequest, AnyResponse[R, E]]) { self =>
   def orElse[R1 <: R, E1 >: E](other: HttpEndpoint[R1, E1]): HttpEndpoint[R1, E1] =
     HttpEndpoint(self.http orElse other.http)
@@ -198,7 +200,12 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, AnyRequest, AnyResponse[R, E]])
                 override def method: Method        = Method.fromHttpMethod(jRequest.method())
                 override def url: URL              = URL.fromString(jRequest.uri()).getOrElse(null)
                 override def headers: List[Header] = Header.make(jRequest.headers())
-
+                override def remoteAddress: Option[InetAddress] = {
+                  ctx.channel().remoteAddress() match {
+                    case m: InetSocketAddress => Some(m.getAddress())
+                    case _                    => None
+                  }
+                }
               },
             )
 

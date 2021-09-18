@@ -9,9 +9,10 @@ import zhttp.service.EventLoopGroup
 import zio._
 import zio.duration.durationInt
 import zio.stream.ZStream
-import zio.test.Assertion.{equalTo, isLeft}
+import zio.test.Assertion.{equalTo, isLeft, isNone}
 import zio.test.TestAspect._
 import zio.test._
+import java.net.InetAddress
 
 /**
  * Be prepared for some real nasty runtime tests.
@@ -209,6 +210,19 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         data    <- content.get
       } yield data
       assertM(content)(equalTo("ABCD"))
+    },
+    testM("remoteAddress") {
+      val content = for {
+        content <- Ref.make(Option.empty[InetAddress])
+        client  <- EndpointClient.deploy {
+          HttpEndpoint.mount(Http.collectM[AnyRequest] { req =>
+            content.set(req.remoteAddress).as(Ok)
+          })
+        }
+        _       <- client.request()
+        data    <- content.get
+      } yield data
+      assertM(content)(isNone)
     },
   )
 }
