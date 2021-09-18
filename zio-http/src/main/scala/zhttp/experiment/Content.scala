@@ -1,10 +1,11 @@
 package zhttp.experiment
 
-import zhttp.socket.SocketApp
-import zio.stream.ZStream
-import zio.Chunk
-import java.nio.charset.Charset
 import zhttp.http._
+import zhttp.socket.SocketApp
+import zio.Chunk
+import zio.stream.ZStream
+
+import java.nio.charset.Charset
 
 private[zhttp] sealed trait Content[-R, +E]
 
