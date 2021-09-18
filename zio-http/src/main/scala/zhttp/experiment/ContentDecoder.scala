@@ -31,4 +31,17 @@ object ContentDecoder {
         _     <- queue.offer(msg)
       } yield (if (state.isFirst) Option(queue) else None, state.withQueue(queue).withFirst(false))
     }
+
+  sealed trait Error extends Throwable with Product { self =>
+    override def getMessage(): String =
+      self match {
+        case Error.ContentDecodedOnce => "Content has already been decoded once."
+        case Error.DecodeEmptyContent => "Can not decode empty content"
+      }
+  }
+
+  object Error {
+    case object ContentDecodedOnce extends Error
+    case object DecodeEmptyContent extends Error
+  }
 }
