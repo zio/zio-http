@@ -1,6 +1,6 @@
 import zhttp.experiment.HttpMessage._
 import zhttp.experiment._
-import zhttp.http.Http
+import zhttp.http.{Http, Request}
 import zhttp.service.Server
 import zio._
 import zio.stream._
@@ -8,7 +8,7 @@ import zio.stream._
 object HelloWorld extends App {
 
   def h1 = HttpEndpoint.mount {
-    Http.collectM[AnyRequest] { case req =>
+    Http.collectM[Request] { case req =>
       req.decodeContent(ContentDecoder.text).map { content =>
         CompleteResponse(content = content)
       }
@@ -16,14 +16,14 @@ object HelloWorld extends App {
   }
 
   def h2 = HttpEndpoint.mount {
-    Http.collectM[AnyRequest] { case req =>
+    Http.collectM[Request] { case req =>
       req.decodeContent(ContentDecoder.backPressure).map { content =>
         BufferedResponse(content = ZStream.fromChunkQueue(content))
       }
     }
   }
 
-  def app: HttpEndpoint[Any, Nothing] = h1 +++ h2
+  def app: HttpEndpoint[Any, Throwable] = h1 +++ h2
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

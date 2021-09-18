@@ -2,13 +2,13 @@ package zhttp.service
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames, HttpVersion}
-import zhttp.http.{HTTP_CHARSET, Header, Path, Request}
-trait EncodeRequest {
+import zhttp.http.{HTTP_CHARSET, Header, Path}
+trait EncodeClientParams {
 
   /**
-   * Converts Request to JFullHttpRequest
+   * Converts client params to JFullHttpRequest
    */
-  def encodeRequest(jVersion: HttpVersion, req: Request): FullHttpRequest = {
+  def encodeClientParams(jVersion: HttpVersion, req: Client.ClientParams): FullHttpRequest = {
     val method      = req.method.asHttpMethod
     val uri         = req.url.path match {
       case Path.End => "/"

@@ -12,6 +12,7 @@ import zio.stream.ZStream
 import zio.test.Assertion.{equalTo, isLeft, isNone}
 import zio.test.TestAspect._
 import zio.test._
+
 import java.net.InetAddress
 
 /**
@@ -26,31 +27,31 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       EmptySpec,
       OkSpec,
       FailSpec,
-      AnyRequestSpec,
+      RequestSpec,
       EchoStreamingResponseSpec,
       IllegalMessageSpec,
       ContentDecoderSpec,
     ).provideCustomLayer(env) @@ timeout(10 seconds)
 
   /**
-   * Spec for asserting AnyRequest fields and behavior
+   * Spec for asserting Request fields and behavior
    */
-  def AnyRequestSpec = {
-    suite("succeed(AnyRequest)")(
+  def RequestSpec = {
+    suite("succeed(Request)")(
       testM("status is 200") {
-        val res = HttpEndpoint.mount(Http.collect[AnyRequest](_ => Ok)).getResponse
+        val res = HttpEndpoint.mount(Http.collect[Request](_ => Ok)).getResponse
         assertM(res)(isResponse(responseStatus(200)))
       },
       testM("status is 500") {
-        val res = HttpEndpoint.mount(Http.collectM[AnyRequest](_ => ZIO.fail(new Error("SERVER ERROR")))).getResponse
+        val res = HttpEndpoint.mount(Http.collectM[Request](_ => ZIO.fail(new Error("SERVER ERROR")))).getResponse
         assertM(res)(isResponse(responseStatus(500)))
       },
       testM("status is 404") {
-        val res = HttpEndpoint.mount(Http.empty.contramap[AnyRequest](i => i)).getResponse
+        val res = HttpEndpoint.mount(Http.empty.contramap[Request](i => i)).getResponse
         assertM(res)(isResponse(responseStatus(404)))
       },
       testM("status is 200 in collectM") {
-        val res = HttpEndpoint.mount(Http.collectM[AnyRequest](_ => UIO(Ok))).getResponse
+        val res = HttpEndpoint.mount(Http.collectM[Request](_ => UIO(Ok))).getResponse
         assertM(res)(isResponse(responseStatus(200)))
       },
     )
@@ -153,11 +154,11 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
     suite("StreamingResponse") {
       testM("status is 200") {
-        val res = HttpEndpoint.mount(Http.collect[AnyRequest](_ => streamingResponse)).getResponse
+        val res = HttpEndpoint.mount(Http.collect[Request](_ => streamingResponse)).getResponse
         assertM(res)(isResponse(responseStatus(200)))
       } +
         testM("content is 'ABCD'") {
-          val content = HttpEndpoint.mount(Http.collect[AnyRequest](_ => streamingResponse)).getContent
+          val content = HttpEndpoint.mount(Http.collect[Request](_ => streamingResponse)).getContent
           assertM(content)(equalTo("ABCD"))
         } @@ nonFlaky
     }
@@ -175,14 +176,14 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
   def ContentDecoderSpec = suite("ContentDecoder")(
     testM("status is 200") {
-      val res = HttpEndpoint.mount(Http.collect[AnyRequest] { _ => Ok }).getResponse
+      val res = HttpEndpoint.mount(Http.collect[Request] { _ => Ok }).getResponse
       assertM(res)(isResponse(responseStatus(200)))
     },
     testM("content is ABCD") {
       val content = for {
         content <- Ref.make("")
         client  <- EndpointClient.deploy {
-          HttpEndpoint.mount(Http.collectM[AnyRequest] { req =>
+          HttpEndpoint.mount(Http.collectM[Request] { req =>
             req.decodeContent(ContentDecoder.text).flatMap(text => content.set(text).as(Ok))
           })
         }
@@ -201,7 +202,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       val content = for {
         content <- Ref.make("")
         client  <- EndpointClient.deploy {
-          HttpEndpoint.mount(Http.collectM[AnyRequest] { req =>
+          HttpEndpoint.mount(Http.collectM[Request] { req =>
             req.decodeContent(decoder).flatMap(text => content.set(new String(text.toArray)).as(Ok))
           })
         }
@@ -215,7 +216,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       val content = for {
         content <- Ref.make(Option.empty[InetAddress])
         client  <- EndpointClient.deploy {
-          HttpEndpoint.mount(Http.collectM[AnyRequest] { req =>
+          HttpEndpoint.mount(Http.collectM[Request] { req =>
             content.set(req.remoteAddress).as(Ok)
           })
         }

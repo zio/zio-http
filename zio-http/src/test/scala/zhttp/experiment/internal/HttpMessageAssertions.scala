@@ -1,9 +1,9 @@
 package zhttp.experiment.internal
 
 import io.netty.handler.codec.http._
+import zhttp.experiment.HttpEndpoint
 import zhttp.experiment.HttpMessage.AnyResponse
-import zhttp.experiment.{AnyRequest, HttpEndpoint}
-import zhttp.http.{HTTP_CHARSET, Header, Http, Method, Status}
+import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
 import zio.test.Assertion.anything
@@ -86,10 +86,10 @@ trait HttpMessageAssertions {
       case _                 => None
     }
 
-  def isRequest[A](assertion: Assertion[AnyRequest]): Assertion[A] =
+  def isRequest[A](assertion: Assertion[Request]): Assertion[A] =
     Assertion.assertionRec("isRequest")(param(assertion))(assertion) {
-      case msg: AnyRequest => Option(msg)
-      case _               => None
+      case msg: Request => Option(msg)
+      case _            => None
     }
 
   def isContent: Assertion[Any] = isContent(anything)
@@ -112,13 +112,13 @@ trait HttpMessageAssertions {
   def responseStatus(status: Status): Assertion[HttpResponse] =
     Assertion.assertion("status")(param(status))(_.status().code() == status.asJava.code())
 
-  def url(url: String): Assertion[AnyRequest] =
+  def url(url: String): Assertion[Request] =
     Assertion.assertion("status")(param(url))(_.url.asString == url)
 
-  def method(method: Method): Assertion[AnyRequest] =
+  def method(method: Method): Assertion[Request] =
     Assertion.assertion("method")(param(method))(_.method == method)
 
-  def header(header: Header): Assertion[AnyRequest] =
+  def header(header: Header): Assertion[Request] =
     Assertion.assertion("header")(param(header))(_.headers.contains(header))
 
   def body[A](text: String, charset: Charset = Charset.defaultCharset()): Assertion[HttpContent] =
@@ -251,9 +251,9 @@ trait HttpMessageAssertions {
     method: HttpMethod = HttpMethod.GET,
     header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
     content: Iterable[String] = List("A", "B", "C", "D"),
-  ): ZIO[Any with EventLoopGroup, Throwable, AnyRequest] = for {
-    promise <- Promise.make[Nothing, AnyRequest]
-    proxy   <- EndpointClient.deploy(HttpEndpoint.mount(Http.collectM[AnyRequest] { case a =>
+  ): ZIO[Any with EventLoopGroup, Throwable, Request] = for {
+    promise <- Promise.make[Nothing, Request]
+    proxy   <- EndpointClient.deploy(HttpEndpoint.mount(Http.collectM[Request] { case a =>
       promise.succeed(a) as AnyResponse()
     }))
     _       <- proxy.request(url, method, header)

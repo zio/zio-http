@@ -1,7 +1,12 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup}
+import io.netty.channel.{
+  Channel,
+  ChannelFactory => JChannelFactory,
+  ChannelHandlerContext,
+  EventLoopGroup => JEventLoopGroup,
+}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpVersion}
 import zhttp.http.URL.Location
 import zhttp.http._
@@ -10,12 +15,12 @@ import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
 import zio.{Promise, Task, ZIO}
 
-import java.net.InetSocketAddress
+import java.net.{InetAddress, InetSocketAddress}
 
 final case class Client(zx: HttpRuntime[Any], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
   private def asyncRequest(
-    req: Request,
+    req: Client.ClientParams,
     jReq: FullHttpRequest,
     promise: Promise[Throwable, FullHttpResponse],
     sslOption: ClientSSLOptions,
@@ -40,10 +45,13 @@ final case class Client(zx: HttpRuntime[Any], cf: JChannelFactory[Channel], el: 
       jboo.connect()
     }
 
-  def request(request: Request, sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL): Task[UHttpResponse] =
+  def request(
+    request: Client.ClientParams,
+    sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+  ): Task[UHttpResponse] =
     for {
       promise <- Promise.make[Throwable, FullHttpResponse]
-      jReq = encodeRequest(HttpVersion.HTTP_1_1, request)
+      jReq = encodeClientParams(HttpVersion.HTTP_1_1, request)
       _    <- asyncRequest(request, jReq, promise, sslOption).catchAll(cause => promise.fail(cause)).fork
       jRes <- promise.await
       res  <- ZIO.fromEither(decodeJResponse(jRes))
@@ -96,37 +104,59 @@ object Client {
   def request(
     endpoint: Endpoint,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
-    request(Request(endpoint))
+    request(ClientParams(endpoint))
 
   def request(
     endpoint: Endpoint,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
-    request(Request(endpoint), sslOptions)
+    request(ClientParams(endpoint), sslOptions)
 
   def request(
     endpoint: Endpoint,
     headers: List[Header],
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
-    request(Request(endpoint, headers), sslOptions)
+    request(ClientParams(endpoint, headers), sslOptions)
 
   def request(
     endpoint: Endpoint,
     headers: List[Header],
     content: HttpData[Any, Nothing],
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
-    request(Request(endpoint, headers, content))
+    request(ClientParams(endpoint, headers, content))
 
   def request(
-    req: Request,
+    req: ClientParams,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
     make.flatMap(_.request(req))
 
   def request(
-    req: Request,
+    req: ClientParams,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
     make.flatMap(_.request(req, sslOptions))
 
+  final case class ClientParams(
+    endpoint: Endpoint,
+    headers: List[Header] = List.empty,
+    content: HttpData[Any, Nothing] = HttpData.empty,
+    private val channelContext: ChannelHandlerContext = null,
+  ) extends HeadersHelpers { self =>
+    val method: Method = endpoint._1
+    val url: URL       = endpoint._2
+    val route: Route   = method -> url.path
+
+    def getBodyAsString: Option[String] = content match {
+      case HttpData.CompleteData(data) => Option(new String(data.toArray, getCharset.getOrElse(HTTP_CHARSET)))
+      case _                           => Option.empty
+    }
+
+    def remoteAddress: Option[InetAddress] = {
+      if (channelContext != null && channelContext.channel().remoteAddress().isInstanceOf[InetSocketAddress])
+        Some(channelContext.channel().remoteAddress().asInstanceOf[InetSocketAddress].getAddress)
+      else
+        None
+    }
+  }
 }

@@ -3,6 +3,7 @@ package zhttp.service
 import zhttp.http.HttpData.CompleteData
 import zhttp.http.URL.Location
 import zhttp.http._
+import zhttp.service.Client
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.DefaultRunnableSpec
 import zio.{Chunk, Has, ZIO, ZManaged}
@@ -39,7 +40,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] = {
     val data = CompleteData(Chunk.fromArray(content.getBytes(HTTP_CHARSET)))
     Client.request(
-      Request(method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
+      Client.ClientParams(method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
       ClientSSLOptions.DefaultSSL,
     )
   }
