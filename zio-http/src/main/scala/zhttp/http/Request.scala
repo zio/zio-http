@@ -18,8 +18,6 @@ trait Request extends HeadersHelpers { self =>
 
   def remoteAddress: Option[InetAddress]
 
-  def withMethod(method: Method): Request = self.copy(method = method)
-
   def addHeader(header: Header): Request = self.copy(headers = header :: self.headers)
 
   def removeHeader(name: CharSequence): Request = self.copy(headers = self.headers.filter(_.name != name))

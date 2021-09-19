@@ -41,6 +41,4 @@ object HttpMessage {
       content: ZStream[R, E, Byte] = ZStream.empty,
     ): BufferedResponse[R, E] = AnyResponse(status, headers, Content.fromStream(content))
   }
-
-  case class AnyContent[+A](content: A, isLast: Boolean) extends HttpMessage
 }
