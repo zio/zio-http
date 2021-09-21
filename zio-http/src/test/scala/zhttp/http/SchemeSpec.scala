@@ -17,6 +17,7 @@ object SchemeSpec extends DefaultRunnableSpec {
     suite("fromString")(
       test("http")(assert(Scheme.fromString("httP"))(equalTo(Option(Scheme.HTTP)))),
       test("https")(assert(Scheme.fromString("httPs"))(equalTo(Option(Scheme.HTTPS)))),
+      test("something else")(assert(Scheme.fromString("someThingElse"))(equalTo(None))),
     ),
   )
 }
