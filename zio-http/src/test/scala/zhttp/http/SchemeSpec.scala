@@ -14,5 +14,10 @@ def spec = suite("Scheme")(
   suite("fromJScheme")(
     test("HTTP")(assert(Scheme.fromJScheme(HttpScheme.HTTP))(equalTo(Option(Scheme.HTTP)))),
     test("HTTPS")(assert(Scheme.fromJScheme(HttpScheme.HTTPS))(equalTo(Option(Scheme.HTTPS)))),
-))
+  ),
+  suite("fromString")(
+    test("http")(assert(Scheme.fromString("httP"))(equalTo(Option(Scheme.HTTP)))),
+    test("https")(assert(Scheme.fromString("httPs"))(equalTo(Option(Scheme.HTTPS)))),
+  ),
+)
 }
