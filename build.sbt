@@ -5,7 +5,7 @@ import scala.concurrent.duration.FiniteDuration
 import sbt.enablePlugins
 
 // ZIO Version
-val zioVersion            = "1.0.11"
+val zioVersion            = "1.0.12"
 val zioConfigVersion      = "1.0.2"
 val releaseDrafterVersion = "5"
 
