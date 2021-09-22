@@ -29,15 +29,15 @@ trait RouteDecoderModule {
       }
   }
 
-  object boolean extends RouteDecode(_.toBoolean)
-  object byte    extends RouteDecode(_.toByte)
-  object short   extends RouteDecode(_.toShort)
-  object int     extends RouteDecode(_.toInt)
-  object long    extends RouteDecode(_.toLong)
-  object float   extends RouteDecode(_.toFloat)
-  object double  extends RouteDecode(_.toDouble)
-  object uuid    extends RouteDecode(str => UUID.fromString(str))
-  object date    extends RouteDecode(str => LocalDate.parse(str))
-  object time    extends RouteDecode(str => LocalTime.parse(str))
+  object boolean  extends RouteDecode(_.toBoolean)
+  object byte     extends RouteDecode(_.toByte)
+  object short    extends RouteDecode(_.toShort)
+  object int      extends RouteDecode(_.toInt)
+  object long     extends RouteDecode(_.toLong)
+  object float    extends RouteDecode(_.toFloat)
+  object double   extends RouteDecode(_.toDouble)
+  object uuid     extends RouteDecode(str => UUID.fromString(str))
+  object date     extends RouteDecode(str => LocalDate.parse(str))
+  object time     extends RouteDecode(str => LocalTime.parse(str))
   object datetime extends RouteDecode(str => LocalDateTime.parse(str))
 }

@@ -109,7 +109,7 @@ object RouteDecoderModuleSpec extends DefaultRunnableSpec {
     ),
     suite("datetime")(
       test("string in the format: YYYY-MM-DD")(
-        assert(datetime.unapply("1996-06-04T23:59:21"))(equalTo(Some(LocalDateTime.of(1996, 6, 4,23, 59, 21)))),
+        assert(datetime.unapply("1996-06-04T23:59:21"))(equalTo(Some(LocalDateTime.of(1996, 6, 4, 23, 59, 21)))),
       ),
       test("illegal string for datetime")(assert(date.unapply("1996/99-04T55:23:59"))(isNone)),
     ),
