@@ -3,7 +3,7 @@ package zhttp.http
 import zio.test.Assertion.{equalTo, isNone}
 import zio.test._
 
-import java.time.LocalDate
+import java.time.{LocalDate, LocalDateTime, LocalTime}
 import java.util.UUID
 
 object RouteDecoderModuleSpec extends DefaultRunnableSpec {
@@ -100,6 +100,12 @@ object RouteDecoderModuleSpec extends DefaultRunnableSpec {
         assert(date.unapply("1996-06-04"))(equalTo(Some(LocalDate.of(1996, 6, 4)))),
       ),
       test("illegal string for date")(assert(date.unapply("1996/99-04"))(isNone)),
+    ),
+    suite("time")(
+      test("string in the format: HH:MM:SS")(
+        assert(time.unapply("23:59:21"))(equalTo(Some(LocalTime.of(23, 59, 21)))),
+      ),
+      test("illegal string for time")(assert(date.unapply("55:23:59"))(isNone)),
     ),
   )
 

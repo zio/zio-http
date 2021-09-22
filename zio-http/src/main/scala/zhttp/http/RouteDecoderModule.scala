@@ -1,6 +1,6 @@
 package zhttp.http
 
-import java.time.{LocalDate, LocalDateTime}
+import java.time.{LocalDate, LocalDateTime, LocalTime}
 import java.util.UUID
 
 /**
@@ -38,5 +38,6 @@ trait RouteDecoderModule {
   object double  extends RouteDecode(_.toDouble)
   object uuid    extends RouteDecode(str => UUID.fromString(str))
   object date    extends RouteDecode(str => LocalDate.parse(str))
-  object time    extends RouteDecode(str => LocalDateTime.parse(str))
+  object time    extends RouteDecode(str => LocalTime.parse(str))
+  object datetime extends RouteDecode(str => LocalDateTime.parse(str))
 }
