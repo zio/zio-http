@@ -145,11 +145,13 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   }
 
   def EchoStreamingResponseSpec = {
-    val streamingResponse = BufferedResponse(content =
-      ZStream
-        .fromIterable(List("A", "B", "C", "D"))
-        .map(text => Chunk.fromArray(text.getBytes))
-        .flattenChunks,
+    val streamingResponse = AnyResponse(content =
+      HttpData.fromStream(
+        ZStream
+          .fromIterable(List("A", "B", "C", "D"))
+          .map(text => Chunk.fromArray(text.getBytes))
+          .flattenChunks,
+      ),
     )
 
     suite("StreamingResponse") {

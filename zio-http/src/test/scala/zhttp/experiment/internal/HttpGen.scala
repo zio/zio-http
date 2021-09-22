@@ -1,7 +1,8 @@
 package zhttp.experiment.internal
 
-import zhttp.experiment.{Content, HttpMessage}
-import zhttp.http.{Header, Status}
+import io.netty.buffer.Unpooled
+import zhttp.experiment.HttpMessage
+import zhttp.http.{HTTP_CHARSET, Header, HttpData, Status}
 import zio.Chunk
 import zio.stream.ZStream
 import zio.test.Gen
@@ -74,9 +75,11 @@ object HttpGen {
       cnt  <- Gen
         .fromIterable(
           List(
-            Content.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
-            Content.text((list.mkString(""))),
-            Content.empty,
+            HttpData.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
+            HttpData.fromText(list.mkString("")),
+            HttpData.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
+            HttpData.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
+            HttpData.empty,
           ),
         )
     } yield cnt
@@ -87,8 +90,10 @@ object HttpGen {
       cnt  <- Gen
         .fromIterable(
           List(
-            Content.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
-            Content.text(list.mkString("")),
+            HttpData.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
+            HttpData.fromText(list.mkString("")),
+            HttpData.fromChunk(Chunk.fromArray((list.mkString("").getBytes()))),
+            HttpData.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
           ),
         )
     } yield cnt

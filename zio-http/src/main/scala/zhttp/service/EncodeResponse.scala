@@ -21,13 +21,16 @@ trait EncodeResponse {
     jHttpHeaders.set(HttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
     val jStatus      = res.status.asJava
     res.content match {
-      case HttpData.CompleteData(data) =>
+      case HttpData.Binary(data) =>
         jHttpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, data.length)
 
-      case HttpData.StreamData(_) => ()
+      case HttpData.Text(data, _) =>
+        jHttpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, data.length)
 
       case HttpData.Empty =>
         jHttpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, 0)
+
+      case _ => ()
     }
     new DefaultHttpResponse(jVersion, jStatus, jHttpHeaders)
   }

@@ -13,7 +13,7 @@ import zhttp.http._
 import zhttp.service
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
-import zio.{Promise, Task, ZIO}
+import zio.{Chunk, Promise, Task, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -48,7 +48,7 @@ final case class Client(zx: HttpRuntime[Any], cf: JChannelFactory[Channel], el: 
   def request(
     request: Client.ClientParams,
     sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): Task[UHttpResponse] =
+  ): Task[Client.ClientResponse] =
     for {
       promise <- Promise.make[Throwable, FullHttpResponse]
       jReq = encodeClientParams(HttpVersion.HTTP_1_1, request)
@@ -68,7 +68,7 @@ object Client {
 
   def request(
     url: String,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] = for {
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
     url <- ZIO.fromEither(URL.fromString(url))
     res <- request(Method.GET -> url)
   } yield res
@@ -76,7 +76,7 @@ object Client {
   def request(
     url: String,
     sslOptions: ClientSSLOptions,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] = for {
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
     url <- ZIO.fromEither(URL.fromString(url))
     res <- request(Method.GET -> url, sslOptions)
   } yield res
@@ -85,7 +85,7 @@ object Client {
     url: String,
     headers: List[Header],
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
       url <- ZIO.fromEither(URL.fromString(url))
       res <- request(Method.GET -> url, headers, sslOptions)
@@ -95,7 +95,7 @@ object Client {
     url: String,
     headers: List[Header],
     content: HttpData[Any, Nothing],
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
       url <- ZIO.fromEither(URL.fromString(url))
       res <- request(Method.GET -> url, headers, content)
@@ -103,38 +103,38 @@ object Client {
 
   def request(
     endpoint: Endpoint,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint))
 
   def request(
     endpoint: Endpoint,
     sslOptions: ClientSSLOptions,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint), sslOptions)
 
   def request(
     endpoint: Endpoint,
     headers: List[Header],
     sslOptions: ClientSSLOptions,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint, headers), sslOptions)
 
   def request(
     endpoint: Endpoint,
     headers: List[Header],
     content: HttpData[Any, Nothing],
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint, headers, content))
 
   def request(
     req: ClientParams,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     make.flatMap(_.request(req))
 
   def request(
     req: ClientParams,
     sslOptions: ClientSSLOptions,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     make.flatMap(_.request(req, sslOptions))
 
   final case class ClientParams(
@@ -148,8 +148,8 @@ object Client {
     val route: Route   = method -> url.path
 
     def getBodyAsString: Option[String] = content match {
-      case HttpData.CompleteData(data) => Option(new String(data.toArray, getCharset.getOrElse(HTTP_CHARSET)))
-      case _                           => Option.empty
+      case HttpData.Binary(data) => Option(new String(data.toArray, getCharset.getOrElse(HTTP_CHARSET)))
+      case _                     => Option.empty
     }
 
     def remoteAddress: Option[InetAddress] = {
@@ -159,4 +159,6 @@ object Client {
         None
     }
   }
+
+  final case class ClientResponse(status: Status, headers: List[Header], content: Chunk[Byte])
 }

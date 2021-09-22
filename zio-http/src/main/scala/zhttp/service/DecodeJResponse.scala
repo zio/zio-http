@@ -2,6 +2,7 @@ package zhttp.service
 
 import io.netty.handler.codec.http.FullHttpResponse
 import zhttp.http._
+import zio.Chunk
 
 import scala.util.Try
 
@@ -10,11 +11,11 @@ trait DecodeJResponse {
   /**
    * Tries to decode netty request into ZIO Http Request
    */
-  def decodeJResponse(jRes: FullHttpResponse): Either[Throwable, UHttpResponse] = Try {
+  def decodeJResponse(jRes: FullHttpResponse): Either[Throwable, Client.ClientResponse] = Try {
     val status  = Status.fromHttpResponseStatus(jRes.status())
     val headers = Header.parse(jRes.headers())
-    val content = HttpData.fromByteBuf(jRes.content())
+    val content = Chunk.fromArray(jRes.content().array())
 
-    Response.http(status, headers, content): UHttpResponse
+    Client.ClientResponse(status, headers, content)
   }.toEither
 }
