@@ -259,17 +259,17 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Evaluates the app and returns an HttpResult that can be resolved further
    */
-  final private[zhttp] def execute(a: A): HttpResult[R, E, B] = {
+  final private[zhttp] def execute(a: A): HExit[R, E, B] = {
     self match {
-      case Empty                   => HttpResult.empty
-      case Identity                => HttpResult.succeed(a.asInstanceOf[B])
-      case Succeed(b)              => HttpResult.succeed(b)
-      case Fail(e)                 => HttpResult.fail(e)
-      case FromEffectFunction(f)   => HttpResult.effect(f(a))
-      case Collect(pf)             => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
-      case Chain(self, other)      => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
+      case Empty                   => HExit.empty
+      case Identity                => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)              => HExit.succeed(b)
+      case Fail(e)                 => HExit.fail(e)
+      case FromEffectFunction(f)   => HExit.effect(f(a))
+      case Collect(pf)             => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
+      case Chain(self, other)      => HExit.suspend(self.execute(a) >>= (other.execute(_)))
       case FoldM(self, ee, bb, dd) =>
-        HttpResult.suspend {
+        HExit.suspend {
           self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
         }
     }

@@ -36,10 +36,10 @@ final case class ServerRequestHandler[R](
 //      case Left(err)  => cb(err.toResponse)
 //      case Right(req) =>
 //        settings.http.execute(req).evaluate match {
-//          case HttpResult.Empty      => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
-//          case HttpResult.Success(a) => cb(a)
-//          case HttpResult.Failure(e) => cb(SilentResponse[Throwable].silent(e))
-//          case HttpResult.Effect(z)  =>
+//          case HExit.Empty      => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
+//          case HExit.Success(a) => cb(a)
+//          case HExit.Failure(e) => cb(SilentResponse[Throwable].silent(e))
+//          case HExit.Effect(z)  =>
 //            zExec.unsafeExecute(ctx)( z) {
 //              case Exit.Success(res)   => cb(res)
 //              case Exit.Failure(cause) =>

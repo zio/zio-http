@@ -74,7 +74,7 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, Request, AnyResponse[R, E]]) { 
 
         def unsafeRun[A](http: Http[R, Throwable, A, AnyResponse[R, Throwable]], a: A): Unit = {
           http.execute(a).evaluate match {
-            case HttpResult.Effect(resM) =>
+            case HExit.Effect(resM) =>
               unsafeRunZIO {
                 resM.foldM(
                   {
@@ -102,7 +102,7 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, Request, AnyResponse[R, E]]) { 
                 )
               }
 
-            case HttpResult.Success(a) =>
+            case HExit.Success(a) =>
               unsafeWriteAnyResponse(a)
               a.content match {
                 case Content.Empty =>
@@ -121,8 +121,8 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, Request, AnyResponse[R, E]]) { 
                   ???
               }
 
-            case HttpResult.Failure(e) => unsafeWriteAndFlushErrorResponse(e)
-            case HttpResult.Empty      => unsafeWriteAndFlushNotFoundResponse()
+            case HExit.Failure(e) => unsafeWriteAndFlushErrorResponse(e)
+            case HExit.Empty      => unsafeWriteAndFlushNotFoundResponse()
           }
         }
 

@@ -6,10 +6,10 @@ import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
-object HttpResultSpec extends DefaultRunnableSpec with HttpResultAssertion {
+object HExitSpec extends DefaultRunnableSpec with HExitAssertion {
   def spec: ZSpec[Environment, Failure] = {
-    import HttpResult._
-    suite("HttpResult")(
+    import HExit._
+    suite("HExit")(
       test("out") {
         empty === isEmpty &&
         succeed(1) === isSuccess(equalTo(1)) &&
