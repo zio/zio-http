@@ -4,9 +4,9 @@ import scalafix.sbt.ScalafixPlugin.autoImport._
 import xerial.sbt.Sonatype.autoImport._
 
 object BuildHelper extends ScalaSettings {
-  val Scala212   = "2.12.14"
+  val Scala212   = "2.12.15"
   val Scala213   = "2.13.6"
-  val ScalaDotty = "3.0.1"
+  val ScalaDotty = "3.0.2"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -59,33 +59,33 @@ object BuildHelper extends ScalaSettings {
 
   def publishSetting(publishArtifacts: Boolean) = {
     val publishSettings = Seq(
-      organization := "io.d11",
-      organizationName := "d11",
+      organization           := "io.d11",
+      organizationName       := "d11",
       licenses += ("MIT License", new URL("https://github.com/dream11/zio-http/blob/master/LICENSE")),
       sonatypeCredentialHost := "s01.oss.sonatype.org",
-      sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
-      sonatypeProfileName := "io.d11",
+      sonatypeRepository     := "https://s01.oss.sonatype.org/service/local",
+      sonatypeProfileName    := "io.d11",
     )
     val skipSettings    = Seq(
-      publish / skip := true,
+      publish / skip  := true,
       publishArtifact := false,
     )
     if (publishArtifacts) publishSettings else publishSettings ++ skipSettings
   }
   def stdSettings(prjName: String)                          = Seq(
-    name := s"$prjName",
+    name                           := s"$prjName",
     ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, ScalaDotty),
-    ThisBuild / scalaVersion := Scala213,
-    scalacOptions := stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
-    semanticdbVersion := scalafixSemanticdb.revision, // use Scalafix compatible version
+    ThisBuild / scalaVersion       := Scala213,
+    scalacOptions                  := stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
+    semanticdbVersion              := scalafixSemanticdb.revision, // use Scalafix compatible version
     ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
     ThisBuild / scalafixDependencies ++=
       List(
         "com.github.liancheng" %% "organize-imports" % "0.5.0",
         "com.github.vovapolu"  %% "scaluzzi"         % "0.1.16",
       ),
-    Test / parallelExecution := true,
+    Test / parallelExecution               := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
-    autoAPIMappings := true,
+    autoAPIMappings                        := true,
   )
 }

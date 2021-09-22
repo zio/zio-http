@@ -8,8 +8,8 @@ object HttpsHelloWorld extends App {
 
   // Create HTTP route
   val app: HttpApp[Any, Nothing] = HttpApp.collect {
-    case Method.GET -> Root / "text" => Response.text("Hello World!")
-    case Method.GET -> Root / "json" => Response.jsonString("""{"greetings": "Hello World!"}""")
+    case Method.GET -> !! / "text" => Response.text("Hello World!")
+    case Method.GET -> !! / "json" => Response.jsonString("""{"greetings": "Hello World!"}""")
   }
 
   /**
