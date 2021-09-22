@@ -4,12 +4,12 @@ import zio.test.Assertion.{equalTo, isNone}
 import zio.test._
 
 object RouteDecoderModuleSpec extends DefaultRunnableSpec {
-  def spec  = suite("RouteDecoderModule")(
+  def spec = suite("RouteDecoderModule")(
     suite("boolean")(
       test("true")(assert(boolean.unapply("true"))(equalTo(Some(true)))),
       test("false")(assert(boolean.unapply("false"))(equalTo(Some(false)))),
       test("something else")(assert(boolean.unapply("something"))(isNone)),
-      ),
+    ),
     suite("byte")(
       test("positive below 128")(assert(byte.unapply("127"))(equalTo(Some(127.byteValue())))),
       test("number greater than 127")(assert(byte.unapply("128"))(isNone)),
@@ -29,9 +29,13 @@ object RouteDecoderModuleSpec extends DefaultRunnableSpec {
       test("number smaller than -2147483648")(assert(int.unapply("-2147483649"))(isNone)),
     ),
     suite("long")(
-      test("positive below 9223372036854775808")(assert(long.unapply("9223372036854775807"))(equalTo(Some(9223372036854775807L.longValue())))),
+      test("positive below 9223372036854775808")(
+        assert(long.unapply("9223372036854775807"))(equalTo(Some(9223372036854775807L.longValue()))),
+      ),
       test("number greater than 9223372036854775807")(assert(long.unapply("9223372036854775808"))(isNone)),
-      test("negative above -9223372036854775809")(assert(long.unapply("-9223372036854775808"))(equalTo(Some(-9223372036854775808L.longValue())))),
+      test("negative above -9223372036854775809")(
+        assert(long.unapply("-9223372036854775808"))(equalTo(Some(-9223372036854775808L.longValue()))),
+      ),
       test("number smaller than -9223372036854775808")(assert(long.unapply("-9223372036854775809"))(isNone)),
     ),
   )
