@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.{CanFail, ZIO}
+import zio.{CanFail, NeedsEnv, UIO, ZIO}
 
 import scala.annotation.unused
 
@@ -234,9 +234,27 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
       Http.fromEffect(h),
     )
 
-  final def apply(a: A): ZIO[R, Option[E], B] = executeAsZIO(a)
+  /**
+   * Consumes the input and executes the Http.
+   */
+  final def apply(a: A): ZIO[R, Option[E], B] = execute(a).evaluate.asEffect
 
+  /**
+   * Checks in the Http is defined for the given input value.
+   */
   final def isDefinedAt(a: A): Boolean = self.execute(a).evaluate.isEmpty
+
+  /**
+   * Provides the environment to Http.
+   */
+  final def provide(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provide(r))
+
+  /**
+   * Provides some of the environment to Http.
+   */
+  final def provideSome[R1](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provideSome(r))
 
   /**
    * Evaluates the app and returns an HttpResult that can be resolved further
@@ -253,33 +271,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
       case FoldM(self, ee, bb, dd) =>
         HttpResult.suspend {
           self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
-        }
-    }
-  }
-
-  /**
-   * Bypasses HttpResult and evaluates the app into a `ZIO[R, E, B]`
-   */
-  final private[zhttp] def executeAsZIO(a: A): ZIO[R, Option[E], B] = {
-    self match {
-      case Empty                   => ZIO.fail(None)
-      case Identity                => ZIO.succeed(a.asInstanceOf[B])
-      case Succeed(b)              => ZIO.succeed(b)
-      case Fail(e)                 => ZIO.fail(Option(e))
-      case FromEffectFunction(f)   => f(a).mapError(Option(_))
-      case Collect(pf)             => if (pf.isDefinedAt(a)) ZIO.succeed(pf(a)) else ZIO.fail(Option.empty)
-      case Chain(self, other)      => ZIO.effectSuspendTotal(self.executeAsZIO(a) >>= (other.executeAsZIO(_)))
-      case FoldM(self, ee, bb, dd) =>
-        ZIO.effectSuspendTotal {
-          self
-            .executeAsZIO(a)
-            .foldM(
-              {
-                case Some(e) => ee(e).executeAsZIO(a)
-                case None    => dd.executeAsZIO(a)
-              },
-              bb(_).executeAsZIO(a),
-            )
         }
     }
   }
@@ -386,23 +377,40 @@ object Http {
   /**
    * Creates a Http from a pure function
    */
-  def fromFunction[A]: MkTotal[A] = new MkTotal[A](())
+  def fromFunction[A]: FromFunction[A] = new FromFunction[A](())
 
   /**
    * Creates a Http from an effectful pure function
    */
-  def fromFunctionM[A]: MkTotalM[A] = new MkTotalM[A](())
+  def fromFunctionM[A]: FromFunctionM[A] = new FromFunctionM[A](())
+
+  /**
+   * Creates an `Http` from a function that takes a value of type `A` and returns with a `ZIO[R, Option[E], B]`. The
+   * returned effect can fail with a `None` to signal "not found" to the backend.
+   */
+  def fromPartialFunction[A]: FromPartialFunction[A] = new FromPartialFunction(())
+
+  final class FromPartialFunction[A](val unit: Unit) extends AnyVal {
+    def apply[R, E, B](f: A => ZIO[R, Option[E], B]): Http[R, E, A, B] = Http
+      .collectM[A] { case a =>
+        f(a).map(Http.succeed(_)).catchAll {
+          case Some(error) => UIO(Http.fail(error))
+          case None        => UIO(Http.empty)
+        }
+      }
+      .flatten
+  }
 
   /**
    * Creates an Http that delegates to other Https.
    */
   def route[A]: Http.MakeRoute[A] = Http.MakeRoute(())
 
-  final class MkTotal[A](val unit: Unit) extends AnyVal {
+  final class FromFunction[A](val unit: Unit) extends AnyVal {
     def apply[B](f: A => B): Http[Any, Nothing, A, B] = Http.identity[A].map(f)
   }
 
-  final class MkTotalM[A](val unit: Unit) extends AnyVal {
+  final class FromFunctionM[A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = Http.identity[A].mapM(f)
   }
 }
