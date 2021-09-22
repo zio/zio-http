@@ -257,7 +257,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     Http.fromPartialFunction[A](a => self(a).provideSome(r))
 
   /**
-   * Evaluates the app and returns an HttpResult that can be resolved further
+   * Evaluates the app and returns an HExit that can be resolved further
    */
   final private[zhttp] def execute(a: A): HExit[R, E, B] = {
     self match {
