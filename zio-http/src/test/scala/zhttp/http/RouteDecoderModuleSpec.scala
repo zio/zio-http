@@ -61,6 +61,29 @@ object RouteDecoderModuleSpec extends DefaultRunnableSpec {
       test("negative greater than the max negative limit")(assert(float.unapply("-1.4E-46"))(equalTo(Some(0.0f)))),
       test("illegal strings")(assert(float.unapply("some other string"))(isNone)),
     ),
+    suite("double")(
+      test("positive lesser than or equal to max positive limit")(
+        assert(double.unapply("1.7976931348623157E308"))(equalTo(Some(Double.MaxValue))),
+      ),
+      test("positive greater than the max limit")(
+        assert(double.unapply("1.7976931348623157E309"))(equalTo(Some(Double.PositiveInfinity))),
+      ),
+      test("positive greater than or equal to min positive limit")(
+        assert(double.unapply("4.9E-324"))(equalTo(Some(4.9e-324d))),
+      ),
+      test("positive lesser than the min positive limit")(assert(double.unapply("4.9E-325"))(equalTo(Some(0.0d)))),
+      test("negative greater than or equal to min negative limit")(
+        assert(double.unapply("-1.7976931348623157E308"))(equalTo(Some(Double.MinValue))),
+      ),
+      test("negative lesser than the min negative limit")(
+        assert(double.unapply("-1.7976931348623157E309"))(equalTo(Some(Double.NegativeInfinity))),
+      ),
+      test("negative lesser than or equal to max negative limit")(
+        assert(double.unapply("-4.9E-324"))(equalTo(Some(-4.9e-324d))),
+      ),
+      test("negative greater than the max negative limit")(assert(double.unapply("-4.9E-325"))(equalTo(Some(0.0d)))),
+      test("illegal strings")(assert(double.unapply("some other string"))(isNone)),
+    ),
   )
 
 }
