@@ -3,6 +3,8 @@ package zhttp.http
 import zio.test.Assertion.{equalTo, isNone}
 import zio.test._
 
+import java.util.UUID
+
 object RouteDecoderModuleSpec extends DefaultRunnableSpec {
   def spec = suite("RouteDecoderModule")(
     suite("boolean")(
@@ -83,6 +85,14 @@ object RouteDecoderModuleSpec extends DefaultRunnableSpec {
       ),
       test("negative greater than the max negative limit")(assert(double.unapply("-4.9E-325"))(equalTo(Some(0.0d)))),
       test("illegal strings")(assert(double.unapply("some other string"))(isNone)),
+    ),
+    suite("uuid")(
+      test("eligible uuid string")(
+        assert(uuid.unapply("123e4567-e89b-12d3-a456-556642440000"))(
+          equalTo(Some(UUID.fromString("123e4567-e89b-12d3-a456-556642440000"))),
+        ),
+      ),
+      test("illegal string")(assert(uuid.unapply("something"))(isNone)),
     ),
   )
 
