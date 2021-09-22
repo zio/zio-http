@@ -39,17 +39,28 @@ object RouteDecoderModuleSpec extends DefaultRunnableSpec {
       test("number smaller than -9223372036854775808")(assert(long.unapply("-9223372036854775809"))(isNone)),
     ),
     suite("float")(
-      test("positive lesser than or equal to max positive limit")(assert(float.unapply("3.4028235E38"))(equalTo(Some(Float.MaxValue)))),
-      test("positive greater than the max limit")(assert(float.unapply("3.4028235E39"))(equalTo(Some(Float.PositiveInfinity)))),
-      test("positive greater than or equal to min positive limit")(assert(float.unapply("1.4E-45"))(equalTo(Some(1.4E-45f)))),
+      test("positive lesser than or equal to max positive limit")(
+        assert(float.unapply("3.4028235E38"))(equalTo(Some(Float.MaxValue))),
+      ),
+      test("positive greater than the max limit")(
+        assert(float.unapply("3.4028235E39"))(equalTo(Some(Float.PositiveInfinity))),
+      ),
+      test("positive greater than or equal to min positive limit")(
+        assert(float.unapply("1.4E-45"))(equalTo(Some(1.4e-45f))),
+      ),
       test("positive lesser than the min positive limit")(assert(float.unapply("1.4E-46"))(equalTo(Some(0.0f)))),
-      test("negative greater than or equal to min negative limit")(assert(float.unapply("-3.4028235E38"))(equalTo(Some(Float.MinValue)))),
-      test("negative lesser than the min negative limit")(assert(float.unapply("-3.4028235E39"))(equalTo(Some(Float.NegativeInfinity)))),
-      test("negative lesser than or equal to max negative limit")(assert(float.unapply("-1.4E-45"))(equalTo(Some(-1.4E-45f)))),
+      test("negative greater than or equal to min negative limit")(
+        assert(float.unapply("-3.4028235E38"))(equalTo(Some(Float.MinValue))),
+      ),
+      test("negative lesser than the min negative limit")(
+        assert(float.unapply("-3.4028235E39"))(equalTo(Some(Float.NegativeInfinity))),
+      ),
+      test("negative lesser than or equal to max negative limit")(
+        assert(float.unapply("-1.4E-45"))(equalTo(Some(-1.4e-45f))),
+      ),
       test("negative greater than the max negative limit")(assert(float.unapply("-1.4E-46"))(equalTo(Some(0.0f)))),
-      test("illegal strings")(assert(float.unapply("some other string"))(isNone))
-
-    )
+      test("illegal strings")(assert(float.unapply("some other string"))(isNone)),
+    ),
   )
 
 }
