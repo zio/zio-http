@@ -25,8 +25,14 @@ object RouteDecoderModuleSpec extends DefaultRunnableSpec {
     suite("int")(
       test("positive below 2147483648")(assert(int.unapply("2147483647"))(equalTo(Some(2147483647.intValue())))),
       test("number greater than 2147483647")(assert(int.unapply("2147483648"))(isNone)),
-      test("negative above -2147483648")(assert(int.unapply("-2147483647"))(equalTo(Some(-2147483647.intValue())))),
-      test("number smaller than -2147483648")(assert(int.unapply("-2147483651"))(isNone)),
+      test("negative above -2147483649")(assert(int.unapply("-2147483648"))(equalTo(Some(-2147483648.intValue())))),
+      test("number smaller than -2147483648")(assert(int.unapply("-2147483649"))(isNone)),
+    ),
+    suite("long")(
+      test("positive below 9223372036854775808")(assert(long.unapply("9223372036854775807"))(equalTo(Some(9223372036854775807L.longValue())))),
+      test("number greater than 9223372036854775807")(assert(long.unapply("9223372036854775808"))(isNone)),
+      test("negative above -9223372036854775809")(assert(long.unapply("-9223372036854775808"))(equalTo(Some(-9223372036854775808L.longValue())))),
+      test("number smaller than -9223372036854775808")(assert(long.unapply("-9223372036854775809"))(isNone)),
     ),
   )
 
