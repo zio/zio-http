@@ -3,9 +3,12 @@ package zhttp.experiment
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel._
 import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import zhttp.experiment.HttpEndpoint.InvalidMessage
 import zhttp.http._
-import zhttp.service.HttpRuntime
+import zhttp.service.server.ServerSocketHandler
+import zhttp.service.{HTTP_HANDLER, HttpRuntime, WEB_SOCKET_HANDLER}
+import zhttp.socket.SocketApp
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
 
@@ -82,47 +85,55 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, Request, Response[R, E]]) { sel
                   },
                   res =>
                     for {
-                      _ <- UIO(unsafeWriteAnyResponse(res))
                       _ <- res.data match {
                         case HttpData.Empty =>
-                          UIO(unsafeWriteAndFlushNotFoundResponse())
+                          UIO(unsafeWriteAnyResponse(res)) *> UIO(unsafeWriteAndFlushNotFoundResponse())
 
                         case HttpData.Text(data, charset) =>
-                          UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset)))
+                          UIO(unsafeWriteAnyResponse(res)) *> UIO(
+                            unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset)),
+                          )
 
                         case HttpData.BinaryN(data) => UIO(unsafeWriteLastContent(data))
 
                         case HttpData.Binary(data) =>
-                          UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray)))
+                          UIO(unsafeWriteAnyResponse(res)) *> UIO(
+                            unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray)),
+                          )
 
                         case HttpData.BinaryStream(stream) =>
-                          writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
-
-                        case HttpData.Socket(_) => ???
+                          UIO(unsafeWriteAnyResponse(res)) *> writeStreamContent(
+                            stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))),
+                          )
+                        case HttpData.Socket(socket)       =>
+                          ZIO(handleHandshake(ctx, a.asInstanceOf[Request], socket))
                       }
                     } yield (),
                 )
               }
 
-            case HExit.Success(a) =>
-              unsafeWriteAnyResponse(a)
-              a.data match {
+            case HExit.Success(b) =>
+              b.data match {
                 case HttpData.Empty =>
+                  unsafeWriteAnyResponse(b)
                   unsafeWriteAndFlushNotFoundResponse()
 
                 case HttpData.Text(data, charset) =>
+                  unsafeWriteAnyResponse(b)
                   unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset))
 
                 case HttpData.BinaryN(data) =>
                   unsafeWriteLastContent(data)
 
                 case HttpData.Binary(data) =>
+                  unsafeWriteAnyResponse(b)
                   unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray))
 
                 case HttpData.BinaryStream(stream) =>
+                  unsafeWriteAnyResponse(b)
                   unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
 
-                case HttpData.Socket(_) => ???
+                case HttpData.Socket(socket) => unsafeRunZIO(ZIO(handleHandshake(ctx, a.asInstanceOf[Request], socket)))
               }
 
             case HExit.Failure(e) => unsafeWriteAndFlushErrorResponse(e)
@@ -226,7 +237,28 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, Request, Response[R, E]]) { sel
           case msg => ctx.fireExceptionCaught(InvalidMessage(msg)): Unit
         }
       }
-
+      protected def handleHandshake(
+        ctx: ChannelHandlerContext,
+        req: Request,
+        socket: SocketApp[R, Throwable],
+      ) = {
+        val fullReq =
+          new DefaultFullHttpRequest(HTTP_1_1, req.method.asHttpMethod, req.url.asString, Unpooled.EMPTY_BUFFER, false)
+        fullReq.headers().setAll(Header.disassemble(req.headers))
+        ctx
+          .channel()
+          .pipeline()
+          .addLast(new WebSocketServerProtocolHandler(socket.config.protocol.javaConfig))
+          .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, socket.config))
+        ctx
+          .channel()
+          .eventLoop()
+          .submit(() => ctx.fireChannelRead(fullReq))
+          .addListener((_: Any) => {
+            ctx.channel().pipeline().remove(HTTP_HANDLER)
+            ctx.channel().config().setAutoRead(true): Unit
+          })
+      }
       private def decodeResponse(res: Response[_, _]): HttpResponse = {
         new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, Header.disassemble(res.headers))
       }
