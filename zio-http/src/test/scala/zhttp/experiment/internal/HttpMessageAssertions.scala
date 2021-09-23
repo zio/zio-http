@@ -1,7 +1,7 @@
 package zhttp.experiment.internal
 
 import io.netty.handler.codec.http._
-import zhttp.experiment.HttpEndpoint
+import zhttp.experiment.{ContentDecoder, HttpEndpoint}
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
@@ -75,6 +75,44 @@ trait HttpMessageAssertions {
       .runCollect
 
     def proxy: ZIO[R with EventLoopGroup, Throwable, EndpointClient] = EndpointClient.deploy(app)
+
+    def getRequestContent[R1 <: R, A](
+      decoder: ContentDecoder[R1, Throwable, A],
+      content: List[String] = List("A", "B", "C", "D"),
+    ): ZIO[R1 with EventLoopGroup, Throwable, A] =
+      for {
+        p    <- Promise.make[Throwable, A]
+        c    <- EndpointClient.deploy {
+          HttpEndpoint.mount(Http.fromPartialFunction[Request] { req =>
+            for {
+              res <- app.http(req)
+              _   <- req.decodeContent(decoder).to(p)
+            } yield res
+          })
+        }
+        _    <- c.request()
+        _    <- c.end(content)
+        data <- p.await
+      } yield data
+
+    def getRequest(
+      url: String = "/",
+      method: HttpMethod = HttpMethod.GET,
+      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+      content: Iterable[String] = List("A", "B", "C", "D"),
+    ): ZIO[R with EventLoopGroup, Throwable, Request] =
+      for {
+        p    <- Promise.make[Throwable, Request]
+        c    <- EndpointClient.deploy {
+          HttpEndpoint.mount(Http.collectM[Request] { req =>
+            p.succeed(req).as(Response())
+          })
+        }
+        _    <- c.request(url, method, header)
+        _    <- c.end(content)
+        data <- p.await
+      } yield data
+
   }
 
   def isResponse[A]: Assertion[A] = isResponse(anything)

@@ -188,11 +188,11 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, Request, Response[R, E]]) { sel
             unsafeRun(
               http.asInstanceOf[Http[R, Throwable, Request, Response[R, Throwable]]],
               new Request {
-                override def decodeContent[R0, E0, B](
-                  decoder: ContentDecoder[R0, E0, B],
-                ): ZIO[R0, E0, B] =
+                override def decodeContent[R0, B](
+                  decoder: ContentDecoder[R0, Throwable, B],
+                ): ZIO[R0, Throwable, B] =
                   for {
-                    p <- Promise.make[E0, B]
+                    p <- Promise.make[Throwable, B]
                     _ <- UIO {
                       ad.decoder = decoder.asInstanceOf[ContentDecoder[Any, Throwable, B]]
                       ad.completePromise = p.asInstanceOf[Promise[Throwable, Any]]

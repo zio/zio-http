@@ -30,6 +30,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       EchoStreamingResponseSpec,
       IllegalMessageSpec,
       ContentDecoderSpec,
+      RemoteAddressSpec,
     ).provideCustomLayer(env) @@ timeout(10 seconds)
 
   /**
@@ -180,51 +181,28 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       val res = HttpEndpoint.mount(Http.collect[Request] { _ => Ok }).getResponse
       assertM(res)(isResponse(responseStatus(200)))
     },
-    testM("content is ABCD") {
-      val content = for {
-        content <- Ref.make("")
-        client  <- EndpointClient.deploy {
-          HttpEndpoint.mount(Http.collectM[Request] { req =>
-            req.decodeContent(ContentDecoder.text).flatMap(text => content.set(text).as(Ok))
-          })
-        }
-        _       <- client.request()
-        _       <- client.end("A", "B", "C", "D")
-        data    <- content.get
-      } yield data
+    testM("text") {
+      val content = HttpEndpoint
+        .mount(Http.collect[Request](_ => Ok))
+        .getRequestContent(ContentDecoder.text)
+
       assertM(content)(equalTo("ABCD"))
     },
     testM("custom") {
-      val decoder = ContentDecoder.collect(Chunk[Byte]()) { case (a, b, isLast) =>
-        val c = b ++ a
-        ZIO((if (isLast) Option(c) else None, c))
-      }
-
-      val content = for {
-        content <- Ref.make("")
-        client  <- EndpointClient.deploy {
-          HttpEndpoint.mount(Http.collectM[Request] { req =>
-            req.decodeContent(decoder).flatMap(text => content.set(new String(text.toArray)).as(Ok))
-          })
-        }
-        _       <- client.request()
-        _       <- client.end("A", "B", "C", "D")
-        data    <- content.get
-      } yield data
+      val content = HttpEndpoint
+        .mount(Http.collect[Request](_ => Ok))
+        .getRequestContent(ContentDecoder.collect(Chunk[Byte]()) { case (a, b, isLast) =>
+          ZIO((if (isLast) Option(b ++ a) else None, b ++ a))
+        })
+        .map(chunk => new String(chunk.toArray))
       assertM(content)(equalTo("ABCD"))
     },
-    testM("remoteAddress") {
-      val content = for {
-        content <- Ref.make(Option.empty[InetAddress])
-        client  <- EndpointClient.deploy {
-          HttpEndpoint.mount(Http.collectM[Request] { req =>
-            content.set(req.remoteAddress).as(Ok)
-          })
-        }
-        _       <- client.request()
-        data    <- content.get
-      } yield data
-      assertM(content)(isNone)
-    },
   )
+
+  def RemoteAddressSpec = suite("RemoteAddressSpec") {
+    testM("remoteAddress") {
+      val addr = HttpEndpoint.mount(Http.succeed(Ok)).getRequest().map(_.remoteAddress)
+      assertM(addr)(isNone)
+    }
+  }
 }
