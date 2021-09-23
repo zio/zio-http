@@ -1,7 +1,8 @@
 package zhttp.experiment.internal
 
 import io.netty.handler.codec.http._
-import zhttp.experiment.{ContentDecoder, HttpEndpoint}
+import zhttp.experiment.HttpApp
+import zhttp.experiment.{ContentDecoder}
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
@@ -18,7 +19,7 @@ trait HttpMessageAssertions {
     def asString: String = m.toString.dropWhile(_ != '\n')
   }
 
-  implicit final class HttpEndpointSyntax[R, E](app: HttpEndpoint[R, Throwable]) {
+  implicit final class HttpEndpointSyntax[R, E](app: HttpApp[R, Throwable]) {
     def ===(assertion: Assertion[HttpObject]): ZIO[R with EventLoopGroup, Throwable, TestResult] =
       assertM(execute(app)(_.request("/")))(assertion)
 
@@ -83,7 +84,7 @@ trait HttpMessageAssertions {
       for {
         p    <- Promise.make[Throwable, A]
         c    <- EndpointClient.deploy {
-          HttpEndpoint.mount(Http.fromPartialFunction[Request] { req =>
+          HttpApp.mount(Http.fromPartialFunction[Request] { req =>
             for {
               res <- app.http(req)
               _   <- req.decodeContent(decoder).to(p)
@@ -104,7 +105,7 @@ trait HttpMessageAssertions {
       for {
         p    <- Promise.make[Throwable, Request]
         c    <- EndpointClient.deploy {
-          HttpEndpoint.mount(Http.collectM[Request] { req =>
+          HttpApp.mount(Http.collectM[Request] { req =>
             p.succeed(req).as(Response())
           })
         }
@@ -183,7 +184,7 @@ trait HttpMessageAssertions {
   def isAnyResponse: Assertion[Any] = isResponse(anything)
 
   def execute[R](
-    app: HttpEndpoint[R, Throwable],
+    app: HttpApp[R, Throwable],
   )(f: EndpointClient => Task[Any]): ZIO[R with EventLoopGroup, Throwable, HttpObject] =
     for {
       proxy <- EndpointClient.deploy(app)
@@ -200,7 +201,7 @@ trait HttpMessageAssertions {
    * Dispatches a request with some content and asserts on the response received on an HttpEndpoint
    */
   def assertResponse[R](
-    app: HttpEndpoint[R, Throwable],
+    app: HttpApp[R, Throwable],
     url: String = "/",
     method: HttpMethod = HttpMethod.GET,
     header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
@@ -217,7 +218,7 @@ trait HttpMessageAssertions {
     )(assertion)
 
   def assertCompleteResponse[R](
-    app: HttpEndpoint[R, Throwable],
+    app: HttpApp[R, Throwable],
     url: String = "/",
     method: HttpMethod = HttpMethod.GET,
     header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
@@ -233,7 +234,7 @@ trait HttpMessageAssertions {
     )(assertion)
 
   def assertCompleteContent[R](
-    app: HttpEndpoint[R, Throwable],
+    app: HttpApp[R, Throwable],
     url: String = "/",
     method: HttpMethod = HttpMethod.GET,
     header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
@@ -250,7 +251,7 @@ trait HttpMessageAssertions {
     )(assertion)
 
   def assertBufferedContent[R](
-    app: HttpEndpoint[R, Throwable],
+    app: HttpApp[R, Throwable],
     url: String = "/",
     method: HttpMethod = HttpMethod.GET,
     header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
@@ -268,7 +269,7 @@ trait HttpMessageAssertions {
     )(assertion)
 
   def assertBufferedResponse[R](
-    app: HttpEndpoint[R, Throwable],
+    app: HttpApp[R, Throwable],
     url: String = "/",
     method: HttpMethod = HttpMethod.GET,
     header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
@@ -290,7 +291,7 @@ trait HttpMessageAssertions {
     content: Iterable[String] = List("A", "B", "C", "D"),
   ): ZIO[Any with EventLoopGroup, Throwable, Request] = for {
     promise <- Promise.make[Nothing, Request]
-    proxy   <- EndpointClient.deploy(HttpEndpoint.mount(Http.collectM[Request] { case a =>
+    proxy   <- EndpointClient.deploy(HttpApp.mount(Http.collectM[Request] { case a =>
       promise.succeed(a) as Response()
     }))
     _       <- proxy.request(url, method, header)

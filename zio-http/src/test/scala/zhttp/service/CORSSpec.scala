@@ -1,6 +1,7 @@
 package zhttp.service
 
 import io.netty.handler.codec.http.HttpHeaderNames
+import zhttp.experiment.HttpApp
 import zhttp.http._
 import zhttp.service.server._
 import zio.ZManaged

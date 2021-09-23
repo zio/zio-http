@@ -3,7 +3,7 @@ package zhttp.experiment
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel._
 import io.netty.handler.codec.http._
-import zhttp.experiment.HttpEndpoint.InvalidMessage
+import zhttp.experiment.HttpApp.InvalidMessage
 import zhttp.http._
 import zhttp.service.HttpRuntime
 import zio.stream.ZStream
@@ -11,16 +11,16 @@ import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
-case class HttpEndpoint[-R, +E](http: Http[R, E, Request, Response[R, E]]) { self =>
-  def orElse[R1 <: R, E1 >: E](other: HttpEndpoint[R1, E1]): HttpEndpoint[R1, E1] =
-    HttpEndpoint(self.http orElse other.http)
+case class HttpApp[-R, +E](http: Http[R, E, Request, Response[R, E]]) { self =>
+  def orElse[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
+    HttpApp(self.http orElse other.http)
 
-  def defaultWith[R1 <: R, E1 >: E](other: HttpEndpoint[R1, E1]): HttpEndpoint[R1, E1] =
-    HttpEndpoint(self.http defaultWith other.http)
+  def defaultWith[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
+    HttpApp(self.http defaultWith other.http)
 
-  def <>[R1 <: R, E1 >: E](other: HttpEndpoint[R1, E1]): HttpEndpoint[R1, E1] = self orElse other
+  def <>[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] = self orElse other
 
-  def +++[R1 <: R, E1 >: E](other: HttpEndpoint[R1, E1]): HttpEndpoint[R1, E1] = self defaultWith other
+  def +++[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] = self defaultWith other
 
   private[zhttp] def compile[R1 <: R](zExec: HttpRuntime[R1])(implicit
     evE: E <:< Throwable,
@@ -253,49 +253,49 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, Request, Response[R, E]]) { sel
     }
 }
 
-object HttpEndpoint {
+object HttpApp {
 
   final case class InvalidMessage(message: Any) extends IllegalArgumentException {
     override def getMessage: String = s"Endpoint could not handle message: ${message.getClass.getName}"
   }
-  def mount[R, E](http: Http[R, E, Request, Response[R, E]]): HttpEndpoint[R, E] = HttpEndpoint(http)
+  def mount[R, E](http: Http[R, E, Request, Response[R, E]]): HttpApp[R, E] = HttpApp(http)
 
-  def fail[E](cause: E): HttpEndpoint[Any, E] = HttpEndpoint(Http.fail(cause))
+  def fail[E](cause: E): HttpApp[Any, E] = HttpApp(Http.fail(cause))
 
-  def empty: HttpEndpoint[Any, Nothing] = HttpEndpoint(Http.empty)
+  def empty: HttpApp[Any, Nothing] = HttpApp(Http.empty)
 
-  def collect[R, E](pf: PartialFunction[Request, Response[R, E]]): HttpEndpoint[R, E] =
-    HttpEndpoint(Http.collect(pf))
+  def collect[R, E](pf: PartialFunction[Request, Response[R, E]]): HttpApp[R, E] =
+    HttpApp(Http.collect(pf))
 
-  def collectM[R, E](pf: PartialFunction[Request, ZIO[R, E, Response[R, E]]]): HttpEndpoint[R, E] =
-    HttpEndpoint(Http.collectM(pf))
+  def collectM[R, E](pf: PartialFunction[Request, ZIO[R, E, Response[R, E]]]): HttpApp[R, E] =
+    HttpApp(Http.collectM(pf))
 
   /**
    * Creates an Http endpoint from a function that returns a ZIO
    */
-  def fromEffectFunction[R, E](f: Request => ZIO[R, E, Response[R, E]]): HttpEndpoint[R, E] =
-    HttpEndpoint(Http.fromEffectFunction(f))
+  def fromEffectFunction[R, E](f: Request => ZIO[R, E, Response[R, E]]): HttpApp[R, E] =
+    HttpApp(Http.fromEffectFunction(f))
 
   /**
    * Converts a ZIO to an Http Endpoint type
    */
-  def responseM[R, E](res: ZIO[R, E, Response[R, E]]): HttpEndpoint[R, E] = HttpEndpoint(Http.fromEffect(res))
+  def responseM[R, E](res: ZIO[R, E, Response[R, E]]): HttpApp[R, E] = HttpApp(Http.fromEffect(res))
 
   /**
    * Creates an HTTP Endpoint which always responds with the same plain text.
    */
-  def text(str: String): HttpEndpoint[Any, Nothing] = HttpEndpoint(Http.succeed(Response.text(str)))
+  def text(str: String): HttpApp[Any, Nothing] = HttpApp(Http.succeed(Response.text(str)))
 
   /**
    * Creates an HTTP Endpoint which always responds with the same value.
    */
-  def response[R, E](response: Response[R, E]): HttpEndpoint[R, E] = HttpEndpoint(Http.succeed(response))
+  def response[R, E](response: Response[R, E]): HttpApp[R, E] = HttpApp(Http.succeed(response))
 
   /**
    * Creates an HTTP Endpoint that fails with a NotFound exception.
    */
-  def notFound: HttpEndpoint[Any, HttpError] =
-    HttpEndpoint(
+  def notFound: HttpApp[Any, HttpError] =
+    HttpApp(
       Http
         .fromFunction[Request](req => Http.succeed(Response.fromHttpError(HttpError.NotFound(req.url.path))))
         .flatten,
@@ -304,12 +304,12 @@ object HttpEndpoint {
   /**
    * Creates an HTTP Endpoint that responds with 403 - Forbidden status code
    */
-  def forbidden(msg: String): HttpEndpoint[Any, Nothing] =
-    HttpEndpoint(Http.succeed(Response.fromHttpError(HttpError.Forbidden(msg))))
+  def forbidden(msg: String): HttpApp[Any, Nothing] =
+    HttpApp(Http.succeed(Response.fromHttpError(HttpError.Forbidden(msg))))
 
   /**
    * Creates a Http Endpoint from a function from Request to HttpEndpoint
    */
-  def fromFunction[R, E, B](f: Request => HttpEndpoint[R, E]): HttpEndpoint[R, E] =
-    HttpEndpoint(Http.fromFunction[Request](f(_).http).flatten)
+  def fromFunction[R, E, B](f: Request => HttpApp[R, E]): HttpApp[R, E] =
+    HttpApp(Http.fromFunction[Request](f(_).http).flatten)
 }

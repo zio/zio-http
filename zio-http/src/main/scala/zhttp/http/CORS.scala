@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
+import zhttp.experiment.HttpApp
 
 final case class CORSConfig(
   anyOrigin: Boolean = false,
@@ -64,7 +65,7 @@ object CORS {
          else List.empty[Header])
     }
 
-    Http.flatten {
+    HttpApp(Http.flatten {
       Http.fromFunction[Request](req => {
         (
           req.method,
@@ -80,11 +81,11 @@ object CORS {
               ),
             )
           case (_, Some(origin), _) if allowCORS(origin, req.method) =>
-            httpApp >>>
+            httpApp.http >>>
               Http.fromFunction[Response[R, E]](r => r.copy(headers = r.headers ++ corsHeaders(origin, req.method)))
-          case _                                                     => httpApp
+          case _                                                     => httpApp.http
         }
       })
-    }
+    })
   }
 }

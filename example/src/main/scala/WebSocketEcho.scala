@@ -1,3 +1,4 @@
+import zhttp.experiment.HttpApp
 import zhttp.http._
 import zhttp.service._
 import zhttp.socket._
