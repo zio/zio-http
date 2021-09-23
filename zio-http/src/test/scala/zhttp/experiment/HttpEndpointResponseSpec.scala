@@ -49,6 +49,59 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
             })
           }
         } +
+        testM("fromEffectFunction") {
+          checkAllM(everything) { case (data, content, status, header) =>
+            val endpoint = HttpEndpoint.fromEffectFunction(_ => UIO(AnyResponse(status, List(header), content)))
+            assertM(endpoint.getResponse(content = data))(isResponse {
+              responseStatus(status.asJava.code()) &&
+              responseHeader(header) &&
+              version("HTTP/1.1")
+            })
+          }
+        } +
+        testM("responseM") {
+          checkAllM(everything) { case (data, content, status, header) =>
+            val endpoint = HttpEndpoint.responseM(UIO(AnyResponse(status, List(header), content)))
+            assertM(endpoint.getResponse(content = data))(isResponse {
+              responseStatus(status.asJava.code()) &&
+              responseHeader(header) &&
+              version("HTTP/1.1")
+            })
+          }
+        } +
+        testM("text") {
+          checkAllM(everything) { case (data, _, _, _) =>
+            val endpoint = HttpEndpoint.text(data.mkString(""))
+            assertM(endpoint.getContent)(equalTo(data.mkString("")))
+          }
+        } +
+        testM("response") {
+          checkAllM(everything) { case (data, content, status, header) =>
+            val endpoint = HttpEndpoint.response(AnyResponse(status, List(header), content))
+            assertM(endpoint.getResponse(content = data))(isResponse {
+              responseStatus(status.asJava.code()) &&
+              responseHeader(header) &&
+              version("HTTP/1.1")
+            })
+          }
+        } +
+        /*testM("notFound") {
+          val endpoint = HttpEndpoint.notFound
+          assertM(endpoint.getResponse)(isResponse {
+            responseStatus(404) && version("HTTP/1.1")
+          })
+        } +*/
+        testM("fromFunction") {
+          checkAllM(everything) { case (data, content, status, header) =>
+            val endpoint =
+              HttpEndpoint.fromFunction(_ => HttpEndpoint.response(AnyResponse(status, List(header), content)))
+            assertM(endpoint.getResponse(content = data))(isResponse {
+              responseStatus(status.asJava.code()) &&
+              responseHeader(header) &&
+              version("HTTP/1.1")
+            })
+          }
+        } +
         testM("content") {
           checkAllM(nonEmptyContent) { case (data, content, status, header) =>
             val endpoint = HttpEndpoint.mount(Http.collect(_ => Response(status, List(header), content)))
