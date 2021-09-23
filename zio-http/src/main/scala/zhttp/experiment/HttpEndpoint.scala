@@ -26,8 +26,8 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, Request, Response[R, E]]) { sel
     evE: E <:< Throwable,
   ): ChannelHandler =
     new ChannelInboundHandlerAdapter { ad =>
-      import HttpVersion._
       import HttpResponseStatus._
+      import HttpVersion._
 
       private val cBody: ByteBuf                               = Unpooled.compositeBuffer()
       private var decoder: ContentDecoder[Any, Throwable, Any] = _
@@ -269,4 +269,37 @@ object HttpEndpoint {
 
   def collectM[R, E](pf: PartialFunction[Request, ZIO[R, E, Response[R, E]]]): HttpEndpoint[R, E] =
     HttpEndpoint(Http.collectM(pf))
+
+  /**
+   * Creates an Http endpoint from a function that returns a ZIO
+   */
+  def fromEffectFunction[R, E](f: Request => ZIO[R, E, Response[R, E]]): HttpEndpoint[R, E] =
+    HttpEndpoint(Http.fromEffectFunction(f))
+
+  /**
+   * Converts a ZIO to an Http Endpoint type
+   */
+  def responseM[R, E](res: ZIO[R, E, Response[R, E]]): HttpEndpoint[R, E] = HttpEndpoint(Http.fromEffect(res))
+
+  /**
+   * Creates an HTTP Endpoint which always responds with the same plain text.
+   */
+  def text(str: String): HttpEndpoint[Any, Nothing] = HttpEndpoint(Http.succeed(CompleteResponse.text(str)))
+
+  /**
+   * Creates an HTTP Endpoint which always responds with the same value.
+   */
+  def response[R, E](response: Response[R, E]): HttpEndpoint[R, E] = HttpEndpoint(Http.succeed(response))
+
+  /**
+   * Creates an HTTP Endpoint that fails with a NotFound exception.
+   */
+  /*def notFound: HttpEndpoint[Any, HttpError] =
+    HttpEndpoint(Http.fromFunction[Request](req => Http.fail(HttpError.NotFound(req.url.path))).flatten)*/
+
+  /**
+   * Creates a Http Endpoint from a function from Request to HttpEndpoint
+   */
+  def fromFunction[R, E, B](f: Request => HttpEndpoint[R, E]): HttpEndpoint[R, E] =
+    HttpEndpoint(Http.fromFunction[Request](f(_).http).flatten)
 }
