@@ -4,7 +4,6 @@ import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel._
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpEndpoint.InvalidMessage
-import zhttp.experiment.HttpMessage._
 import zhttp.http._
 import zhttp.service.HttpRuntime
 import zio.stream.ZStream
@@ -12,7 +11,7 @@ import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
-case class HttpEndpoint[-R, +E](http: Http[R, E, Request, AnyResponse[R, E]]) { self =>
+case class HttpEndpoint[-R, +E](http: Http[R, E, Request, Response[R, E]]) { self =>
   def orElse[R1 <: R, E1 >: E](other: HttpEndpoint[R1, E1]): HttpEndpoint[R1, E1] =
     HttpEndpoint(self.http orElse other.http)
 
@@ -68,11 +67,11 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, Request, AnyResponse[R, E]]) { 
           }.useNow.flatten
         }
 
-        def unsafeWriteAnyResponse[A](res: AnyResponse[R, Throwable]): Unit = {
+        def unsafeWriteAnyResponse[A](res: Response[R, Throwable]): Unit = {
           ctx.write(decodeResponse(res), void): Unit
         }
 
-        def unsafeRun[A](http: Http[R, Throwable, A, AnyResponse[R, Throwable]], a: A): Unit = {
+        def unsafeRun[A](http: Http[R, Throwable, A, Response[R, Throwable]], a: A): Unit = {
           http.execute(a).evaluate match {
             case HExit.Effect(resM) =>
               unsafeRunZIO {
@@ -84,7 +83,7 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, Request, AnyResponse[R, E]]) { 
                   res =>
                     for {
                       _ <- UIO(unsafeWriteAnyResponse(res))
-                      _ <- res.content match {
+                      _ <- res.data match {
                         case HttpData.Empty =>
                           UIO(unsafeWriteAndFlushNotFoundResponse())
 
@@ -107,7 +106,7 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, Request, AnyResponse[R, E]]) { 
 
             case HExit.Success(a) =>
               unsafeWriteAnyResponse(a)
-              a.content match {
+              a.data match {
                 case HttpData.Empty =>
                   unsafeWriteAndFlushNotFoundResponse()
 
@@ -187,7 +186,7 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, Request, AnyResponse[R, E]]) { 
             ctx.channel().config().setAutoRead(false)
 
             unsafeRun(
-              http.asInstanceOf[Http[R, Throwable, Request, AnyResponse[R, Throwable]]],
+              http.asInstanceOf[Http[R, Throwable, Request, Response[R, Throwable]]],
               new Request {
                 override def decodeContent[R0, E0, B](
                   decoder: ContentDecoder[R0, E0, B],
@@ -228,7 +227,7 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, Request, AnyResponse[R, E]]) { 
         }
       }
 
-      private def decodeResponse(res: AnyResponse[_, _]): HttpResponse = {
+      private def decodeResponse(res: Response[_, _]): HttpResponse = {
         new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, Header.disassemble(res.headers))
       }
 
@@ -254,15 +253,15 @@ object HttpEndpoint {
   final case class InvalidMessage(message: Any) extends IllegalArgumentException {
     override def getMessage: String = s"Endpoint could not handle message: ${message.getClass.getName}"
   }
-  def mount[R, E](http: Http[R, E, Request, AnyResponse[R, E]]): HttpEndpoint[R, E] = HttpEndpoint(http)
+  def mount[R, E](http: Http[R, E, Request, Response[R, E]]): HttpEndpoint[R, E] = HttpEndpoint(http)
 
   def fail[E](cause: E): HttpEndpoint[Any, E] = HttpEndpoint(Http.fail(cause))
 
   def empty: HttpEndpoint[Any, Nothing] = HttpEndpoint(Http.empty)
 
-  def collect[R, E](pf: PartialFunction[Request, AnyResponse[R, E]]): HttpEndpoint[R, E] =
+  def collect[R, E](pf: PartialFunction[Request, Response[R, E]]): HttpEndpoint[R, E] =
     HttpEndpoint(Http.collect(pf))
 
-  def collectM[R, E](pf: PartialFunction[Request, ZIO[R, E, AnyResponse[R, E]]]): HttpEndpoint[R, E] =
+  def collectM[R, E](pf: PartialFunction[Request, ZIO[R, E, Response[R, E]]]): HttpEndpoint[R, E] =
     HttpEndpoint(Http.collectM(pf))
 }

@@ -2,7 +2,6 @@ package zhttp.experiment
 
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpEndpoint.InvalidMessage
-import zhttp.experiment.HttpMessage._
 import zhttp.experiment.internal.{EndpointClient, HttpMessageAssertions}
 import zhttp.http._
 import zhttp.service.EventLoopGroup
@@ -19,8 +18,8 @@ import java.net.InetAddress
  * Be prepared for some real nasty runtime tests.
  */
 object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
-  private val env                           = EventLoopGroup.auto(1)
-  private val Ok: AnyResponse[Any, Nothing] = AnyResponse()
+  private val env                        = EventLoopGroup.auto(1)
+  private val Ok: Response[Any, Nothing] = Response()
 
   def spec =
     suite("HttpEndpoint")(
@@ -98,7 +97,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         assertM(res)(isResponse(noHeader))
       },
       testM("headers are set") {
-        val res = HttpEndpoint.mount(Http.succeed(AnyResponse(headers = List(Header("key", "value"))))).getResponse
+        val res = HttpEndpoint.mount(Http.succeed(Response(headers = List(Header("key", "value"))))).getResponse
         assertM(res)(isResponse(responseHeader("key", "value")))
       },
       testM("version is 1.1") {
@@ -145,7 +144,7 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   }
 
   def EchoStreamingResponseSpec = {
-    val streamingResponse = AnyResponse(content =
+    val streamingResponse = Response(data =
       HttpData.fromStream(
         ZStream
           .fromIterable(List("A", "B", "C", "D"))

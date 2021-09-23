@@ -2,7 +2,6 @@ package zhttp.experiment.internal
 
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpEndpoint
-import zhttp.experiment.HttpMessage.AnyResponse
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
@@ -254,7 +253,7 @@ trait HttpMessageAssertions {
   ): ZIO[Any with EventLoopGroup, Throwable, Request] = for {
     promise <- Promise.make[Nothing, Request]
     proxy   <- EndpointClient.deploy(HttpEndpoint.mount(Http.collectM[Request] { case a =>
-      promise.succeed(a) as AnyResponse()
+      promise.succeed(a) as Response()
     }))
     _       <- proxy.request(url, method, header)
     _       <- proxy.end(content)

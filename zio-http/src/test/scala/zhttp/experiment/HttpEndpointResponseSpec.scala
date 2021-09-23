@@ -1,6 +1,5 @@
 package zhttp.experiment
 import io.netty.handler.codec.http.LastHttpContent
-import zhttp.experiment.HttpMessage._
 import zhttp.experiment.internal._
 import zhttp.http._
 import zhttp.service.EventLoopGroup
@@ -32,7 +31,7 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
 
       testM("collect") {
         checkAllM(everything) { case (data, content, status, header) =>
-          val endpoint = HttpEndpoint.collect(_ => AnyResponse(status, List(header), content))
+          val endpoint = HttpEndpoint.collect(_ => Response(status, List(header), content))
           assertM(endpoint.getResponse(content = data))(isResponse {
             responseStatus(status.asJava.code()) &&
             responseHeader(header) &&
@@ -42,7 +41,7 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
       } +
         testM("collectM") {
           checkAllM(everything) { case (data, content, status, header) =>
-            val endpoint = HttpEndpoint.collectM(_ => UIO(AnyResponse(status, List(header), content)))
+            val endpoint = HttpEndpoint.collectM(_ => UIO(Response(status, List(header), content)))
             assertM(endpoint.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
               responseHeader(header) &&
@@ -52,7 +51,7 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
         } +
         testM("content") {
           checkAllM(nonEmptyContent) { case (data, content, status, header) =>
-            val endpoint = HttpEndpoint.mount(Http.collect(_ => AnyResponse(status, List(header), content)))
+            val endpoint = HttpEndpoint.mount(Http.collect(_ => Response(status, List(header), content)))
             assertM(endpoint.getContent(content = data))(equalTo(data.mkString("")))
           }
         } +

@@ -1,8 +1,7 @@
 package zhttp.experiment.internal
 
 import io.netty.buffer.Unpooled
-import zhttp.experiment.HttpMessage
-import zhttp.http.{HTTP_CHARSET, Header, HttpData, Status}
+import zhttp.http.{HTTP_CHARSET, Header, HttpData, Response, Status}
 import zio.Chunk
 import zio.stream.ZStream
 import zio.test.Gen
@@ -108,5 +107,5 @@ object HttpGen {
       content <- HttpGen.content(gContent)
       headers <- HttpGen.header.map(List(_))
       status  <- HttpGen.status
-    } yield HttpMessage.AnyResponse(status, headers, content)
+    } yield Response(status, headers, content)
 }
