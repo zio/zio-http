@@ -1,5 +1,4 @@
-import zhttp.experiment.HttpMessage.AnyResponse
-import zhttp.experiment.{Content, HttpEndpoint}
+import zhttp.experiment.HttpEndpoint
 import zhttp.http._
 import zhttp.service._
 import zhttp.socket._
@@ -40,12 +39,12 @@ object WebSocketAdvanced extends App {
   private val app = HttpEndpoint.mount {
     Http.collect[Request] {
       case req if req.url.path == !! / "subscriptions" =>
-        AnyResponse(
-          content = Content.fromSocket(socketApp),
+        Response(
+          data = HttpData.fromSocket(socketApp),
         )
     }
   }
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start0(8090, app).exitCode
+    Server.start(8090, app).exitCode
 }
