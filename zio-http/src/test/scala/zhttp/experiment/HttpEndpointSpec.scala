@@ -12,8 +12,6 @@ import zio.test.Assertion.{equalTo, isLeft, isNone}
 import zio.test.TestAspect._
 import zio.test._
 
-import java.net.InetAddress
-
 /**
  * Be prepared for some real nasty runtime tests.
  */
@@ -187,6 +185,14 @@ object HttpEndpointSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         .getRequestContent(ContentDecoder.text)
 
       assertM(content)(equalTo("ABCD"))
+    },
+    testM("text (twice)") {
+      val content = HttpEndpoint
+        .mount(Http.collectM[Request](req => req.decodeContent(ContentDecoder.text).as(Ok)))
+        .getRequestContent(ContentDecoder.text)
+        .either
+
+      assertM(content)(isLeft(equalTo(ContentDecoder.Error.ContentDecodedOnce)))
     },
     testM("custom") {
       val content = HttpEndpoint

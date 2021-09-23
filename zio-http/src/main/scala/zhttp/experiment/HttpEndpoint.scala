@@ -191,15 +191,20 @@ case class HttpEndpoint[-R, +E](http: Http[R, E, Request, Response[R, E]]) { sel
                 override def decodeContent[R0, B](
                   decoder: ContentDecoder[R0, Throwable, B],
                 ): ZIO[R0, Throwable, B] =
-                  for {
-                    p <- Promise.make[Throwable, B]
-                    _ <- UIO {
-                      ad.decoder = decoder.asInstanceOf[ContentDecoder[Any, Throwable, B]]
-                      ad.completePromise = p.asInstanceOf[Promise[Throwable, Any]]
-                      ctx.read(): Unit
-                    }
-                    b <- p.await
-                  } yield b
+                  ZIO.effectSuspendTotal {
+                    if (ad.decoder != null)
+                      ZIO.fail(ContentDecoder.Error.ContentDecodedOnce)
+                    else
+                      for {
+                        p <- Promise.make[Throwable, B]
+                        _ <- UIO {
+                          ad.decoder = decoder.asInstanceOf[ContentDecoder[Any, Throwable, B]]
+                          ad.completePromise = p.asInstanceOf[Promise[Throwable, Any]]
+                          ctx.read(): Unit
+                        }
+                        b <- p.await
+                      } yield b
+                  }
 
                 override def method: Method        = Method.fromHttpMethod(jRequest.method())
                 override def url: URL              = URL.fromString(jRequest.uri()).getOrElse(null)
