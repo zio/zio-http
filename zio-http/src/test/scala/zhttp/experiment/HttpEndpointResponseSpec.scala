@@ -51,7 +51,7 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
         } +
         testM("fromEffectFunction") {
           checkAllM(everything) { case (data, content, status, header) =>
-            val endpoint = HttpEndpoint.fromEffectFunction(_ => UIO(AnyResponse(status, List(header), content)))
+            val endpoint = HttpEndpoint.fromEffectFunction(_ => UIO(Response(status, List(header), content)))
             assertM(endpoint.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
               responseHeader(header) &&
@@ -61,7 +61,7 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
         } +
         testM("responseM") {
           checkAllM(everything) { case (data, content, status, header) =>
-            val endpoint = HttpEndpoint.responseM(UIO(AnyResponse(status, List(header), content)))
+            val endpoint = HttpEndpoint.responseM(UIO(Response(status, List(header), content)))
             assertM(endpoint.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
               responseHeader(header) &&
@@ -77,7 +77,7 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
         } +
         testM("response") {
           checkAllM(everything) { case (data, content, status, header) =>
-            val endpoint = HttpEndpoint.response(AnyResponse(status, List(header), content))
+            val endpoint = HttpEndpoint.response(Response(status, List(header), content))
             assertM(endpoint.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
               responseHeader(header) &&
@@ -100,7 +100,7 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
         testM("fromFunction") {
           checkAllM(everything) { case (data, content, status, header) =>
             val endpoint =
-              HttpEndpoint.fromFunction(_ => HttpEndpoint.response(AnyResponse(status, List(header), content)))
+              HttpEndpoint.fromFunction(_ => HttpEndpoint.response(Response(status, List(header), content)))
             assertM(endpoint.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
               responseHeader(header) &&

@@ -284,7 +284,7 @@ object HttpEndpoint {
   /**
    * Creates an HTTP Endpoint which always responds with the same plain text.
    */
-  def text(str: String): HttpEndpoint[Any, Nothing] = HttpEndpoint(Http.succeed(CompleteResponse.text(str)))
+  def text(str: String): HttpEndpoint[Any, Nothing] = HttpEndpoint(Http.succeed(Response.text(str)))
 
   /**
    * Creates an HTTP Endpoint which always responds with the same value.
@@ -297,7 +297,7 @@ object HttpEndpoint {
   def notFound: HttpEndpoint[Any, HttpError] =
     HttpEndpoint(
       Http
-        .fromFunction[Request](req => Http.succeed(CompleteResponse.fromHttpError(HttpError.NotFound(req.url.path))))
+        .fromFunction[Request](req => Http.succeed(Response.fromHttpError(HttpError.NotFound(req.url.path))))
         .flatten,
     )
 
@@ -305,7 +305,7 @@ object HttpEndpoint {
    * Creates an HTTP Endpoint that responds with 403 - Forbidden status code
    */
   def forbidden(msg: String): HttpEndpoint[Any, Nothing] =
-    HttpEndpoint(Http.succeed(CompleteResponse.fromHttpError(HttpError.Forbidden(msg))))
+    HttpEndpoint(Http.succeed(Response.fromHttpError(HttpError.Forbidden(msg))))
 
   /**
    * Creates a Http Endpoint from a function from Request to HttpEndpoint
