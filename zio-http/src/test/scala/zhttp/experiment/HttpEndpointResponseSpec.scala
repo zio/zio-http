@@ -85,12 +85,18 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
             })
           }
         } +
-        /*testM("notFound") {
+        testM("notFound") {
           val endpoint = HttpEndpoint.notFound
           assertM(endpoint.getResponse)(isResponse {
             responseStatus(404) && version("HTTP/1.1")
           })
-        } +*/
+        } +
+        testM("Forbidden") {
+          val endpoint = HttpEndpoint.forbidden("Permission Denied")
+          assertM(endpoint.getResponse)(isResponse {
+            responseStatus(403) && version("HTTP/1.1")
+          })
+        } +
         testM("fromFunction") {
           checkAllM(everything) { case (data, content, status, header) =>
             val endpoint =

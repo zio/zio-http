@@ -294,8 +294,18 @@ object HttpEndpoint {
   /**
    * Creates an HTTP Endpoint that fails with a NotFound exception.
    */
-  /*def notFound: HttpEndpoint[Any, HttpError] =
-    HttpEndpoint(Http.fromFunction[Request](req => Http.fail(HttpError.NotFound(req.url.path))).flatten)*/
+  def notFound: HttpEndpoint[Any, HttpError] =
+    HttpEndpoint(
+      Http
+        .fromFunction[Request](req => Http.succeed(CompleteResponse.fromHttpError(HttpError.NotFound(req.url.path))))
+        .flatten,
+    )
+
+  /**
+   * Creates an HTTP Endpoint that responds with 403 - Forbidden status code
+   */
+  def forbidden(msg: String): HttpEndpoint[Any, Nothing] =
+    HttpEndpoint(Http.succeed(CompleteResponse.fromHttpError(HttpError.Forbidden(msg))))
 
   /**
    * Creates a Http Endpoint from a function from Request to HttpEndpoint
