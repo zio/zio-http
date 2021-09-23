@@ -1,8 +1,7 @@
 package zhttp.experiment.internal
 
 import io.netty.handler.codec.http._
-import zhttp.experiment.HttpApp
-import zhttp.experiment.{ContentDecoder}
+import zhttp.experiment.{ContentDecoder, HttpApp}
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
