@@ -4,7 +4,7 @@ import io.netty.buffer.Unpooled
 import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.handler.codec.http._
 import io.netty.util.CharsetUtil
-import zhttp.experiment.HttpEndpoint
+import zhttp.experiment.HttpApp
 import zhttp.experiment.internal.EndpointClient.{MessageQueue, ProxyChannel}
 import zhttp.service.{EventLoopGroup, HttpRuntime}
 import zio._
@@ -167,7 +167,7 @@ object EndpointClient {
     }
   }
 
-  def deploy[R](app: HttpEndpoint[R, Throwable]): ZIO[R with EventLoopGroup, Nothing, EndpointClient] = {
+  def deploy[R](app: HttpApp[R, Throwable]): ZIO[R with EventLoopGroup, Nothing, EndpointClient] = {
     for {
       // Create a promise that resolves with the thread that is allowed for the execution
       // It is later used to guarantee that all the execution happens on the same thread.

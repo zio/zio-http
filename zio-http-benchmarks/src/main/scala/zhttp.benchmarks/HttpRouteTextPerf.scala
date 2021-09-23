@@ -1,6 +1,7 @@
 package zhttp.benchmarks
 
 import org.openjdk.jmh.annotations._
+import zhttp.experiment.HttpApp
 import zhttp.http._
 import zio._
 
@@ -16,7 +17,7 @@ class HttpRouteTextPerf {
   private val res                        = Response.text("HELLO WORLD")
   private val app: HttpApp[Any, Nothing] = HttpApp.text("HELLO WORLD")
   private val req: Request               = Request(Method.GET, URL(!!))
-  private val httpProgram                = ZIO.foreach_(0 to 1000) { _ => app.execute(req).evaluate.asEffect }
+  private val httpProgram                = ZIO.foreach_(0 to 1000) { _ => app.http.execute(req).evaluate.asEffect }
   private val UIOProgram                 = ZIO.foreach_(0 to 1000) { _ => UIO(res) }
 
   @Benchmark

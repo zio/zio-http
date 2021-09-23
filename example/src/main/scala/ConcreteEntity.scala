@@ -1,3 +1,4 @@
+import zhttp.experiment.HttpApp
 import zhttp.http._
 import zhttp.service.Server
 import zio._
@@ -17,9 +18,11 @@ object ConcreteEntity extends App {
       UserCreated(2)
     }
 
-  val app: Http[Any, Nothing, Request, Response[Any, Nothing]] = user
-    .contramap[Request](req => CreateUser(req.path.toString))   //Http[Any, Nothing, Request, UserCreated]
-    .map(userCreated => Response.text(userCreated.id.toString)) //Http[Any, Nothing, Request, Response]
+  val app: HttpApp[Any, Nothing] = HttpApp(
+    user
+      .contramap[Request](req => CreateUser(req.path.toString)) //Http[Any, Nothing, Request, UserCreated]
+      .map(userCreated => Response.text(userCreated.id.toString)),
+  )                                                             //Http[Any, Nothing, Request, Response]
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

@@ -6,7 +6,7 @@ import zhttp.http.{Header, Method}
 import zhttp.service.EventLoopGroup
 import zio.test.{DefaultRunnableSpec, assertM}
 
-object HttpEndpointRequestSpec extends DefaultRunnableSpec with HttpMessageAssertions {
+object HttpAppRequestSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
   private val env = EventLoopGroup.auto(1)
 

@@ -9,7 +9,7 @@ import zio.test.Assertion.{anything, equalTo, isSubtype}
 import zio.test.TestAspect._
 import zio.test._
 
-object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAssertions {
+object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   private val env = EventLoopGroup.auto(1)
 
   private val nonEmptyContent = for {
@@ -31,7 +31,7 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
 
       testM("collect") {
         checkAllM(everything) { case (data, content, status, header) =>
-          val endpoint = HttpEndpoint.collect(_ => Response(status, List(header), content))
+          val endpoint = HttpApp.collect(_ => Response(status, List(header), content))
           assertM(endpoint.getResponse(content = data))(isResponse {
             responseStatus(status.asJava.code()) &&
             responseHeader(header) &&
@@ -41,7 +41,7 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
       } +
         testM("collectM") {
           checkAllM(everything) { case (data, content, status, header) =>
-            val endpoint = HttpEndpoint.collectM(_ => UIO(Response(status, List(header), content)))
+            val endpoint = HttpApp.collectM(_ => UIO(Response(status, List(header), content)))
             assertM(endpoint.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
               responseHeader(header) &&
@@ -51,7 +51,7 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
         } +
         testM("fromEffectFunction") {
           checkAllM(everything) { case (data, content, status, header) =>
-            val endpoint = HttpEndpoint.fromEffectFunction(_ => UIO(Response(status, List(header), content)))
+            val endpoint = HttpApp.fromEffectFunction(_ => UIO(Response(status, List(header), content)))
             assertM(endpoint.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
               responseHeader(header) &&
@@ -61,7 +61,7 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
         } +
         testM("responseM") {
           checkAllM(everything) { case (data, content, status, header) =>
-            val endpoint = HttpEndpoint.responseM(UIO(Response(status, List(header), content)))
+            val endpoint = HttpApp.responseM(UIO(Response(status, List(header), content)))
             assertM(endpoint.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
               responseHeader(header) &&
@@ -71,13 +71,13 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
         } +
         testM("text") {
           checkAllM(everything) { case (data, _, _, _) =>
-            val endpoint = HttpEndpoint.text(data.mkString(""))
+            val endpoint = HttpApp.text(data.mkString(""))
             assertM(endpoint.getContent)(equalTo(data.mkString("")))
           }
         } +
         testM("response") {
           checkAllM(everything) { case (data, content, status, header) =>
-            val endpoint = HttpEndpoint.response(Response(status, List(header), content))
+            val endpoint = HttpApp.response(Response(status, List(header), content))
             assertM(endpoint.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
               responseHeader(header) &&
@@ -86,13 +86,13 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
           }
         } +
         testM("notFound") {
-          val endpoint = HttpEndpoint.notFound
+          val endpoint = HttpApp.notFound
           assertM(endpoint.getResponse)(isResponse {
             responseStatus(404) && version("HTTP/1.1")
           })
         } +
         testM("Forbidden") {
-          val endpoint = HttpEndpoint.forbidden("Permission Denied")
+          val endpoint = HttpApp.forbidden("Permission Denied")
           assertM(endpoint.getResponse)(isResponse {
             responseStatus(403) && version("HTTP/1.1")
           })
@@ -100,7 +100,7 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
         testM("fromFunction") {
           checkAllM(everything) { case (data, content, status, header) =>
             val endpoint =
-              HttpEndpoint.fromFunction(_ => HttpEndpoint.response(Response(status, List(header), content)))
+              HttpApp.fromFunction(_ => HttpApp.response(Response(status, List(header), content)))
             assertM(endpoint.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
               responseHeader(header) &&
@@ -110,34 +110,34 @@ object HttpEndpointResponseSpec extends DefaultRunnableSpec with HttpMessageAsse
         } +
         testM("content") {
           checkAllM(nonEmptyContent) { case (data, content, status, header) =>
-            val endpoint = HttpEndpoint.mount(Http.collect(_ => Response(status, List(header), content)))
+            val endpoint = HttpApp.mount(Http.collect(_ => Response(status, List(header), content)))
             assertM(endpoint.getContent(content = data))(equalTo(data.mkString("")))
           }
         } +
         testM("failing Http") {
-          val endpoint = HttpEndpoint.mount(Http.fail(new Error("SERVER ERROR")))
+          val endpoint = HttpApp.mount(Http.fail(new Error("SERVER ERROR")))
           assertM(endpoint.getResponse())(isResponse {
             responseStatus(500) && version("HTTP/1.1")
           })
         } +
         testM("server-error") {
-          val endpoint = HttpEndpoint.mount(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
+          val endpoint = HttpApp.mount(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
           assertM(endpoint.getResponse())(isResponse {
             responseStatus(500) && version("HTTP/1.1")
           })
         } +
         testM("response is LastHttpContent") {
-          val endpoint = HttpEndpoint.mount(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
+          val endpoint = HttpApp.mount(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
           assertM(endpoint.getResponse)(isSubtype[LastHttpContent](anything))
         } +
         testM("empty Http") {
-          val endpoint = HttpEndpoint.mount(Http.empty)
+          val endpoint = HttpApp.mount(Http.empty)
           assertM(endpoint.getResponse())(isResponse {
             responseStatus(404) && version("HTTP/1.1") && noHeader
           })
         } +
         testM("Http.empty") {
-          val endpoint = HttpEndpoint.mount(Http.empty)
+          val endpoint = HttpApp.mount(Http.empty)
           assertM(endpoint.getResponse)(isSubtype[LastHttpContent](anything))
         }
     }.provideCustomLayer(env) @@ timeout(10 seconds)

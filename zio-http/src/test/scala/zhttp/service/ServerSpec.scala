@@ -1,5 +1,6 @@
 package zhttp.service
 
+import zhttp.experiment.HttpApp
 import zhttp.http._
 import zhttp.service.server._
 import zio.ZIO
