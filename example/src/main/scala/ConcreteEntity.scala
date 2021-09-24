@@ -17,11 +17,11 @@ object ConcreteEntity extends App {
       UserCreated(2)
     }
 
-  val app: HttpApp[Any, Nothing] = HttpApp(
+  val app: HttpApp[Any, Nothing] =
     user
-      .contramap[Request](req => CreateUser(req.path.toString)) //Http[Any, Nothing, Request, UserCreated]
-      .map(userCreated => Response.text(userCreated.id.toString)),
-  )                                                             //Http[Any, Nothing, Request, Response]
+      .contramap[Request](req => CreateUser(req.path.toString))   //Http[Any, Nothing, Request, UserCreated]
+      .map(userCreated => Response.text(userCreated.id.toString)) //Http[Any, Nothing, Request, Response]
+      .toHttpApp
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
