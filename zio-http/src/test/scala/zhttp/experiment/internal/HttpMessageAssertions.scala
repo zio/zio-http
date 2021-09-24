@@ -83,9 +83,9 @@ trait HttpMessageAssertions {
       for {
         p    <- Promise.make[Throwable, A]
         c    <- HttpAppClient.deploy {
-          HttpApp.mount(Http.fromPartialFunction[Request] { req =>
+          HttpApp.fromHttp(Http.fromPartialFunction[Request] { req =>
             for {
-              res <- app.http(req)
+              res <- app.asHttp(req)
               _   <- req.decodeContent(decoder).to(p)
             } yield res
           })
@@ -104,7 +104,7 @@ trait HttpMessageAssertions {
       for {
         p    <- Promise.make[Throwable, Request]
         c    <- HttpAppClient.deploy {
-          HttpApp.mount(Http.collectM[Request] { req =>
+          HttpApp.fromHttp(Http.collectM[Request] { req =>
             p.succeed(req).as(Response())
           })
         }
@@ -290,7 +290,7 @@ trait HttpMessageAssertions {
     content: Iterable[String] = List("A", "B", "C", "D"),
   ): ZIO[Any with EventLoopGroup, Throwable, Request] = for {
     promise <- Promise.make[Nothing, Request]
-    proxy   <- HttpAppClient.deploy(HttpApp.mount(Http.collectM[Request] { case a =>
+    proxy   <- HttpAppClient.deploy(HttpApp.fromHttp(Http.collectM[Request] { case a =>
       promise.succeed(a) as Response()
     }))
     _       <- proxy.request(url, method, header)

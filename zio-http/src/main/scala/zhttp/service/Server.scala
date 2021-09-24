@@ -22,7 +22,7 @@ sealed trait Server[-R, +E] { self =>
     case MaxRequestSize(size) => s.copy(maxRequestSize = size)
     case Error(errorHandler)  => s.copy(error = Some(errorHandler))
     case Ssl(sslOption)       => s.copy(sslOption = sslOption)
-    case Endpoint(endpoint)   => s.copy(endpoint = endpoint)
+    case App(endpoint)        => s.copy(app = endpoint)
     case Address(address)     => s.copy(address = address)
   }
 
@@ -39,7 +39,7 @@ object Server {
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
     error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
     sslOption: ServerSSLOptions = null,
-    endpoint: HttpApp[R, E] = HttpApp.empty,
+    app: HttpApp[R, E] = HttpApp.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
   )
 
@@ -49,9 +49,9 @@ object Server {
   private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
   private final case class Address(address: InetSocketAddress)                        extends UServer
-  private final case class Endpoint[R, E](endpoint: HttpApp[R, E])                    extends Server[R, E]
+  private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
 
-  def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.Endpoint(http)
+  def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
   def port(port: Int): UServer                            = Server.Address(new InetSocketAddress(port))
   def bind(port: Int): UServer                            = Server.Address(new InetSocketAddress(port))
@@ -98,7 +98,7 @@ object Server {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
       zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
-      httpH           = settings.endpoint.compile(zExec)
+      httpH           = settings.app.compile(zExec)
       init            = ServerChannelInitializer(zExec, settings)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.address))
