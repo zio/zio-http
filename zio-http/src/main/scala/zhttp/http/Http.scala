@@ -1,5 +1,6 @@
 package zhttp.http
 
+import zhttp.experiment.HttpApp
 import zio.{CanFail, NeedsEnv, UIO, ZIO}
 
 import scala.annotation.unused
@@ -255,6 +256,9 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def provideSome[R1](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
     Http.fromPartialFunction[A](a => self(a).provideSome(r))
+
+  final def toHttpApp[R1 <: R, E1 >: E](implicit ev: Request <:< A, ev2: B <:< Response[R1, E1]): HttpApp[R1, E1] =
+    HttpApp.mount(self.asInstanceOf[Http[R, E, Request, Response[R, E]]])
 
   /**
    * Evaluates the app and returns an HExit that can be resolved further
