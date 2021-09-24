@@ -22,7 +22,7 @@ sealed trait Server[-R, +E] { self =>
     case MaxRequestSize(size) => s.copy(maxRequestSize = size)
     case Error(errorHandler)  => s.copy(error = Some(errorHandler))
     case Ssl(sslOption)       => s.copy(sslOption = sslOption)
-    case App(app)        => s.copy(app = app)
+    case App(app)             => s.copy(app = app)
     case Address(address)     => s.copy(address = address)
   }
 
