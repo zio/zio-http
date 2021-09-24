@@ -1,4 +1,3 @@
-import zhttp.experiment.HttpApp
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromKeystore}

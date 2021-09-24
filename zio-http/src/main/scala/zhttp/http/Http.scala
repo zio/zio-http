@@ -1,6 +1,5 @@
 package zhttp.http
 
-import zhttp.experiment.HttpApp
 import zio.{CanFail, NeedsEnv, UIO, ZIO}
 
 import scala.annotation.unused

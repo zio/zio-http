@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zhttp.experiment.HttpAppSpec._
+import zhttp.http.HttpAppSpec._
 import zhttp.service.EventLoopGroup
 import zio._
 import zio.duration.durationInt

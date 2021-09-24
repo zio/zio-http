@@ -1,7 +1,5 @@
 package zhttp.http
 
-import zhttp.experiment.HttpApp
-
 private[zhttp] trait HttpAppSyntax {
   import scala.language.implicitConversions
 

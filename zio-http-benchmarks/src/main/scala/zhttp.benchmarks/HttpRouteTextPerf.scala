@@ -1,7 +1,6 @@
 package zhttp.benchmarks
 
 import org.openjdk.jmh.annotations._
-import zhttp.experiment.HttpApp
 import zhttp.http._
 import zio._
 

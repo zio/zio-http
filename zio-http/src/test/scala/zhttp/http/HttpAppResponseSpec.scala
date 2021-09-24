@@ -1,13 +1,13 @@
-package zhttp.experiment
+package zhttp.http
+
 import io.netty.handler.codec.http.LastHttpContent
-import zhttp.experiment.internal._
-import zhttp.http._
+import zhttp.experiment.internal.{HttpGen, HttpMessageAssertions}
 import zhttp.service.EventLoopGroup
-import zio._
-import zio.duration.durationInt
+import zio.duration._
 import zio.test.Assertion.{anything, equalTo, isSubtype}
-import zio.test.TestAspect._
-import zio.test._
+import zio.test.TestAspect.timeout
+import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAllM}
+import zio.{UIO, ZIO}
 
 object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   private val env = EventLoopGroup.auto(1)

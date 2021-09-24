@@ -1,6 +1,5 @@
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
-import zhttp.experiment.HttpApp
-import zhttp.http.{Method, _}
+import zhttp.http._
 import zhttp.service.Server
 import zio._
 

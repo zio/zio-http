@@ -1,16 +1,16 @@
-package zhttp.experiment
+package zhttp.http
 
-import io.netty.handler.codec.http._
-import zhttp.experiment.HttpApp.InvalidMessage
+import io.netty.handler.codec.http.HttpMethod
+import zhttp.experiment.ContentDecoder
 import zhttp.experiment.internal.{HttpAppClient, HttpMessageAssertions}
-import zhttp.http._
+import zhttp.http.HttpApp.InvalidMessage
 import zhttp.service.EventLoopGroup
-import zio._
-import zio.duration.durationInt
+import zio.duration._
 import zio.stream.ZStream
 import zio.test.Assertion.{equalTo, isLeft, isNone}
-import zio.test.TestAspect._
-import zio.test._
+import zio.test.TestAspect.{nonFlaky, timeout}
+import zio.test.{DefaultRunnableSpec, assertM}
+import zio.{Chunk, UIO, ZIO}
 
 /**
  * Be prepared for some real nasty runtime tests.
