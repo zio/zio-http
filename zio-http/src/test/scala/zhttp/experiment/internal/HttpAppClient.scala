@@ -4,8 +4,8 @@ import io.netty.buffer.Unpooled
 import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.handler.codec.http._
 import io.netty.util.CharsetUtil
-import zhttp.experiment.HttpApp
 import zhttp.experiment.internal.HttpAppClient.{MessageQueue, ProxyChannel}
+import zhttp.http.HttpApp
 import zhttp.service.{EventLoopGroup, HttpRuntime}
 import zio._
 import zio.internal.Executor

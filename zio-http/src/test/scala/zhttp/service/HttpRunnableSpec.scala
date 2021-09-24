@@ -1,6 +1,5 @@
 package zhttp.service
 
-import zhttp.experiment.HttpApp
 import zhttp.http.HttpData.Binary
 import zhttp.http.URL.Location
 import zhttp.http._

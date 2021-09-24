@@ -1,10 +1,9 @@
-package zhttp.experiment
+package zhttp.http
 
 import io.netty.handler.codec.http.HttpMethod
 import zhttp.experiment.internal.HttpMessageAssertions
-import zhttp.http.{Header, Method}
 import zhttp.service.EventLoopGroup
-import zio.test.{DefaultRunnableSpec, assertM}
+import zio.test._
 
 object HttpAppRequestSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 

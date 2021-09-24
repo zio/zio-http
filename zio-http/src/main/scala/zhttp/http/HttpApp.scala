@@ -1,10 +1,10 @@
-package zhttp.experiment
+package zhttp.http
 
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel._
 import io.netty.handler.codec.http._
-import zhttp.experiment.HttpApp.InvalidMessage
-import zhttp.http._
+import zhttp.experiment.ContentDecoder
+import zhttp.http.HttpApp.InvalidMessage
 import zhttp.service.HttpRuntime
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}

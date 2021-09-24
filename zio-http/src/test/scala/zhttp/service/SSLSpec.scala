@@ -7,7 +7,6 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.{
 }
 import io.netty.handler.ssl.util.SelfSignedCertificate
 import io.netty.handler.ssl.{ApplicationProtocolConfig, ApplicationProtocolNames, SslContextBuilder, SslProvider}
-import zhttp.experiment.HttpApp
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.server.ServerSSLHandler.ServerSSLOptions

@@ -1,7 +1,6 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
-import zhttp.experiment.HttpApp
 
 final case class CORSConfig(
   anyOrigin: Boolean = false,
