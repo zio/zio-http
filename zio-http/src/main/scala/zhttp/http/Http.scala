@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.{CanFail, NeedsEnv, UIO, ZIO}
+import zio._
 
 import scala.annotation.unused
 
@@ -255,6 +255,51 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def provideSome[R1](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
     Http.fromPartialFunction[A](a => self(a).provideSome(r))
+
+  /**
+   * Provides layer to HttpApp.
+   * {{{
+   * private val app: HttpApp[Random, Nothing] = ???
+   *
+   * val layer: ZLayer[Any, Nothing, Random] = ???
+   * val newApp: Http[Any, Nothing, Request, Response[Random, Nothing]] =
+   * app.provideLayer(layer)
+   * }}}
+   */
+  final def provideLayer[E1 >: E, R0, R1](
+    layer: ZLayer[R0, E1, R1],
+  )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R]): Http[R0, E1, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provideLayer(layer.mapError(Option(_))))
+
+  /**
+   * Provides custom layer to HttpApp.
+   * {{{
+   * private val app: HttpApp[Random, Nothing] = ???
+   *
+   * val layer: ZLayer[ZEnv, Nothing, Clock] = ???
+   * val newApp: Http[ZEnv, Nothing, Request, Response[Random with Clock,Nothing]] =
+   * app.provideCustomLayer(layer)
+   * }}}
+   */
+  final def provideCustomLayer[E1 >: E, R1 <: Has[_]](
+    layer: ZLayer[ZEnv, E1, R1],
+  )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): Http[ZEnv, E1, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provideCustomLayer(layer.mapError(Option(_))))
+
+  /**
+   * Provides some layer to HttpApp.
+   * {{{
+   * private val app: HttpApp[Random with Clock, Nothing] = ???
+   *
+   * val layer: ZLayer[Random, Nothing, Clock] = ???
+   * val newApp: Http[Random, Nothing, Request, Response[Random with Clock, Nothing]] =
+   * app.provideSomeLayer(layer)
+   * }}}
+   */
+  final def provideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E](
+    layer: ZLayer[R0, E1, R1],
+  )(implicit ev: R0 with R1 <:< R, tagged: Tag[R1]): Http[R0, E1, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provideSomeLayer(layer.mapError(Option(_))))
 
   /**
    * Evaluates the app and returns an HExit that can be resolved further
