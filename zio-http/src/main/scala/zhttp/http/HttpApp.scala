@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.ZIO
+import zio._
 
 object HttpApp {
   def apply[R, E](self: HttpApp[R, E]): HttpApp[R, E] = self
@@ -68,5 +68,39 @@ object HttpApp {
    * Creates a Http app from a function from Request to HttpApp
    */
   def fromFunction[R, E, B](f: Request => HttpApp[R, E]) = Http.fromFunction[Request](f)
+
+  /**
+   * Provides the environment to Http.
+   */
+  def provide[R, E](http: HttpApp[R, E], r: R)(implicit ev: NeedsEnv[R]) = http.provide(r)
+
+  /**
+   * Provides some of the environment to Http.
+   */
+  def provideSome[R, E, R1 <: R](http: HttpApp[R, E], r: R1 => R)(implicit ev: NeedsEnv[R]) = http.provideSome(r)
+
+  /**
+   * Provides layer to Http.
+   */
+  def provideLayer[R, R0, R1, E, E1 >: E](http: HttpApp[R, E], layer: ZLayer[R0, E1, R1])(implicit
+    ev1: R1 <:< R,
+    ev2: NeedsEnv[R],
+  ) = http.provideLayer(layer)
+
+  /**
+   * Provide part of the environment to HTTP that is not part of ZEnv
+   */
+  def provideCustomLayer[E, E1 >: E, R, R1 <: Has[_]](http: HttpApp[R, E], layer: ZLayer[ZEnv, E1, R1])(implicit
+    ev: ZEnv with R1 <:< R,
+    tagged: Tag[R1],
+  ) = http.provideCustomLayer(layer)
+
+  /**
+   * Provides some of the environment to Http leaving the remainder `R0`.
+   */
+  def provideSomeLayer[R, R0 <: Has[_], R1 <: Has[_], E, E1 >: E](
+    http: HttpApp[R, E],
+    layer: ZLayer[R0, E1, R1],
+  )(implicit ev: R0 with R1 <:< R, tagged: Tag[R1]) = http.provideSomeLayer(layer)
 
 }

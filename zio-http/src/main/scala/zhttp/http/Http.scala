@@ -253,18 +253,11 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Provides some of the environment to Http.
    */
-  final def provideSome[R1](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
+  final def provideSome[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
     Http.fromPartialFunction[A](a => self(a).provideSome(r))
 
   /**
-   * Provides layer to HttpApp.
-   * {{{
-   * private val app: HttpApp[Random, Nothing] = ???
-   *
-   * val layer: ZLayer[Any, Nothing, Random] = ???
-   * val newApp: Http[Any, Nothing, Request, Response[Random, Nothing]] =
-   * app.provideLayer(layer)
-   * }}}
+   * Provides layer to Http.
    */
   final def provideLayer[E1 >: E, R0, R1](
     layer: ZLayer[R0, E1, R1],
@@ -272,14 +265,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     Http.fromPartialFunction[A](a => self(a).provideLayer(layer.mapError(Option(_))))
 
   /**
-   * Provides custom layer to HttpApp.
-   * {{{
-   * private val app: HttpApp[Random, Nothing] = ???
-   *
-   * val layer: ZLayer[ZEnv, Nothing, Clock] = ???
-   * val newApp: Http[ZEnv, Nothing, Request, Response[Random with Clock,Nothing]] =
-   * app.provideCustomLayer(layer)
-   * }}}
+   * Provide part of the environment to HTTP that is not part of ZEnv
    */
   final def provideCustomLayer[E1 >: E, R1 <: Has[_]](
     layer: ZLayer[ZEnv, E1, R1],
@@ -287,14 +273,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     Http.fromPartialFunction[A](a => self(a).provideCustomLayer(layer.mapError(Option(_))))
 
   /**
-   * Provides some layer to HttpApp.
-   * {{{
-   * private val app: HttpApp[Random with Clock, Nothing] = ???
-   *
-   * val layer: ZLayer[Random, Nothing, Clock] = ???
-   * val newApp: Http[Random, Nothing, Request, Response[Random with Clock, Nothing]] =
-   * app.provideSomeLayer(layer)
-   * }}}
+   * Provides some of the environment to Http leaving the remainder `R0`.
    */
   final def provideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E](
     layer: ZLayer[R0, E1, R1],
