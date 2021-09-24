@@ -65,7 +65,7 @@ object CORS {
          else List.empty[Header])
     }
 
-    HttpApp(Http.flatten {
+    Http.flatten {
       Http.fromFunction[Request](req => {
         (
           req.method,
@@ -86,6 +86,6 @@ object CORS {
           case _                                                     => httpApp.http
         }
       })
-    })
+    }.toHttpApp
   }
 }
