@@ -29,7 +29,7 @@ final class ChannelFuture[A] private (jFuture: Future[A]) {
   }
 
   def toManaged: ZManaged[Any, Throwable, Option[A]] = {
-    execute.toManaged(_ => cancel(true))
+    execute.toManagedWith(_ => cancel(true))
   }
 
   // Cancels the future

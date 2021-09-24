@@ -2,7 +2,7 @@ import zhttp.http._
 import zhttp.service._
 import zhttp.socket._
 import zio._
-import zio.duration._
+import zio.durationInt
 import zio.stream.ZStream
 
 object WebSocketEcho extends App {

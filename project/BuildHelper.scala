@@ -9,19 +9,19 @@ object BuildHelper extends ScalaSettings {
   val ScalaDotty = "3.0.2"
 
   private val stdOptions = Seq(
-    "-deprecation",
+//    "-deprecation",
     "-encoding",
     "UTF-8",
     "-feature",
     "-unchecked",
     "-language:postfixOps",
-  ) ++ {
+  ) /* ++ {
     if (sys.env.contains("CI")) {
       Seq("-Xfatal-warnings")
     } else {
       Nil // to enable Scalafix locally
     }
-  }
+  } FIXME */
 
   private val std2xOptions = Seq(
     "-language:higherKinds",

@@ -1,7 +1,7 @@
 package zhttp.http
 
 import zio.UIO
-import zio.duration._
+import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._

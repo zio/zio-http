@@ -11,7 +11,7 @@ import java.nio.charset.StandardCharsets._
 object GetBodyAsStringSpec extends DefaultRunnableSpec {
 
   def spec = suite("getBodyAsString")(
-    testM("should map bytes according to charset given") {
+    test("should map bytes according to charset given") {
       val charsetGen: Gen[Any, Charset] =
         Gen.fromIterable(List(UTF_8, UTF_16, UTF_16BE, UTF_16LE, US_ASCII, ISO_8859_1))
 

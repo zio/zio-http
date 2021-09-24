@@ -50,18 +50,18 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
     serverAppState
       .map((state: Ref[ServerState]) =>
         List(
-          testM("get request without content") {
+          test("get request without content") {
             val path   = "getWithoutContent"
             val actual = status(!! / path) *> getLengthForPath(state, path)
             assertM(actual)(isNone)
           } @@ ignore,
-          testM("post request with nonempty content") {
+          test("post request with nonempty content") {
             val path    = "postWithNonemptyContent"
             val content = "content"
             val actual  = request(!! / path, Method.POST, content) *> getLengthForPath(state, path)
             assertM(actual)(isSome(isPositive[Int]))
           },
-          testM("post request with nonempty content and set content-length") {
+          test("post request with nonempty content and set content-length") {
             val path    = "postWithNonemptyContentAndSetContentLength"
             val content = "content"
             val headers = List(Header.custom(contentLengthName, "dummy"))

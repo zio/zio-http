@@ -3,6 +3,7 @@ import zhttp.http.{Header, HttpData}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
+import zio.{Console => console}
 
 import java.io.InputStream
 import java.security.KeyStore

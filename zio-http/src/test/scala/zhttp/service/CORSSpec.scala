@@ -20,7 +20,7 @@ object CORSSpec extends HttpRunnableSpec(8089) {
     app
       .as(
         List(
-          testM("OPTIONS request") {
+          test("OPTIONS request") {
             val actual = request(
               !! / "success",
               Method.OPTIONS,
@@ -49,7 +49,7 @@ object CORSSpec extends HttpRunnableSpec(8089) {
               ),
             )
           },
-          testM("GET request") {
+          test("GET request") {
             val actual = headers(
               !! / "success",
               Method.GET,

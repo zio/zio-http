@@ -12,7 +12,7 @@ import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.server.ServerSSLHandler.ServerSSLOptions
 import zhttp.service.server._
 import zio.ZIO
-import zio.duration.durationInt
+import zio.durationInt
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{flaky, timeout}
 import zio.test.assertM
@@ -49,13 +49,13 @@ object SSLSpec extends HttpRunnableSpec(8073) {
       .orDie
       .as(
         List(
-          testM("succeed when client has the server certificate") {
+          test("succeed when client has the server certificate") {
             val actual = Client
               .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientssl1))
               .map(_.status)
             assertM(actual)(equalTo(Status.OK))
           },
-          testM("fail with SSLHandshakeException when client doesn't have the server certificate") {
+          test("fail with SSLHandshakeException when client doesn't have the server certificate") {
             val actual = Client
               .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientssl2))
               .map(_.status)
@@ -64,13 +64,13 @@ object SSLSpec extends HttpRunnableSpec(8073) {
               })
             assertM(actual)(equalTo("SSLHandshakeException"))
           } @@ timeout(5 second) @@ flaky,
-          testM("succeed when client has default SSL") {
+          test("succeed when client has default SSL") {
             val actual = Client
               .request("https://localhost:8073/success", ClientSSLOptions.DefaultSSL)
               .map(_.status)
             assertM(actual)(equalTo(Status.OK))
           },
-          testM("Https Redirect when client makes http request") {
+          test("Https Redirect when client makes http request") {
             val actual = Client
               .request("http://localhost:8073/success", ClientSSLOptions.CustomSSL(clientssl1))
               .map(_.status)

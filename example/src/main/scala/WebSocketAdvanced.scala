@@ -2,8 +2,8 @@ import zhttp.http._
 import zhttp.service._
 import zhttp.socket._
 import zio._
-import zio.duration._
 import zio.stream.ZStream
+import zio.{Console => console}
 
 object WebSocketAdvanced extends App {
   // Message Handlers

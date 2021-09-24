@@ -2,7 +2,7 @@ trait ScalaSettings {
   //RECOMMENDED SETTINGS: https://tpolecat.github.io/2017/04/25/scalac-flags.html
   val tpoleCatSettings = Seq(
     "-language:postfixOps",      // Added by @tusharmath
-    "-deprecation",              // Emit warning and location for usages of deprecated APIs.
+//    "-deprecation",              // Emit warning and location for usages of deprecated APIs.
     "-encoding",
     "utf-8",                     // Specify character encoding used by source files.
     "-explaintypes",             // Explain type errors in more detail.
@@ -32,7 +32,7 @@ trait ScalaSettings {
     "-Xlint:valpattern",             // Enable pattern checks in val definitions.
     "-Xlint:eta-zero",               // Warn on eta-expansion (rather than auto-application) of zero-ary method.
     "-Xlint:eta-sam", // Warn on eta-expansion to meet a Java-defined functional interface that is not explicitly annotated with @FunctionalInterface.
-    "-Xlint:deprecation",                        // Enable linted deprecations.
+//    "-Xlint:deprecation",                        // Enable linted deprecations.
     "-Wdead-code",                               // Warn when dead code is identified.
     "-Wextra-implicit",                          // Warn when more than one implicit parameter section is defined.
     "-Wmacros:both",                             // Lints code before and after applying a macro
@@ -50,6 +50,8 @@ trait ScalaSettings {
     "8",                                         // Enable paralellisation — change to desired number!
     "-Ycache-plugin-class-loader:last-modified", // Enables caching of classloaders for compiler plugins
     "-Ycache-macro-class-loader:last-modified",  // and macro definitions. This can lead to performance improvements.
+    "-Wconf:any:wv",
+    "-nowarn",
 
     // FIXME: Disabled because of scalac bug https://github.com/scala/bug/issues/11798
     //  "-Xlint:infer-any",                 // Warn when a type argument is inferred to be `Any`.

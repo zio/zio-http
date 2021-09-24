@@ -27,7 +27,7 @@ object EventLoopGroup {
       make(UIO(new channel.nio.NioEventLoopGroup(nThreads, executor)))
 
     def make(eventLoopGroup: UIO[channel.EventLoopGroup]): ZManaged[Any, Nothing, channel.EventLoopGroup] =
-      eventLoopGroup.toManaged(ev => ChannelFuture.unit(ev.shutdownGracefully).orDie)
+      eventLoopGroup.toManagedWith(ev => ChannelFuture.unit(ev.shutdownGracefully).orDie)
 
     def epoll(nThreads: Int): ZManaged[Any, Nothing, channel.EventLoopGroup] =
       make(UIO(new channel.epoll.EpollEventLoopGroup(nThreads)))

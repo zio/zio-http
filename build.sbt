@@ -5,8 +5,8 @@ import scala.concurrent.duration.FiniteDuration
 import sbt.enablePlugins
 
 // ZIO Version
-val zioVersion            = "1.0.12"
-val zioConfigVersion      = "1.0.2"
+val zioVersion            = "2.0.0-M3"
+val zioConfigVersion      = "1.0.10"
 val releaseDrafterVersion = "5"
 
 lazy val root = (project in file("."))

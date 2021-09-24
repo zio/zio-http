@@ -1,7 +1,7 @@
 import zhttp.http._
 import zhttp.service.Server
 import zio._
-import zio.duration._
+import zio.durationInt
 
 /**
  * The following example depicts thread stickiness. The way it works is — once a request is received on the server, a

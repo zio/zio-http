@@ -32,10 +32,10 @@ final class UnsafeChannelExecutor[R](runtime: UnsafeChannelExecutor.RuntimeMap[R
   ): Unit = {
     val rtm = runtime.getRuntime(ctx)
     rtm
-      .unsafeRunAsync(for {
+      .unsafeRunAsyncWith(for {
         fiber  <- program.fork
         _      <- ZIO.effectTotal {
-          ctx.channel.closeFuture.addListener((_: AnyRef) => rtm.unsafeRunAsync_(fiber.interrupt): Unit)
+          ctx.channel.closeFuture.addListener((_: AnyRef) => rtm.unsafeRunAsync(fiber.interrupt): Unit)
         }
         result <- fiber.join
       } yield result)(cb)
@@ -58,7 +58,7 @@ object UnsafeChannelExecutor {
       private val localRuntime: mutable.Map[EventExecutor, Runtime[R]] = {
         val map = mutable.Map.empty[EventExecutor, Runtime[R]]
         for (exe <- group.asScala)
-          map += exe -> runtime.withYieldOnStart(false).withExecutor {
+          map += exe -> runtime.withExecutor {
             Executor.fromExecutionContext(runtime.platform.executor.yieldOpCount) {
               JExecutionContext.fromExecutor(exe)
             }

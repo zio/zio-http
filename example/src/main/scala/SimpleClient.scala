@@ -1,6 +1,7 @@
 import zhttp.http.{Header, HttpData}
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
+import zio.{Console => console}
 
 object SimpleClient extends App {
   val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
