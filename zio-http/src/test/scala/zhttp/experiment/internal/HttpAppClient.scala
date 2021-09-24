@@ -109,7 +109,7 @@ object HttpAppClient {
 
     /**
      * Schedules a `writeInbound` operation on the channel using the provided group. This is done to make sure that all
-     * the execution of HttpEndpoint happens in the same thread.
+     * the execution of HttpApp happens in the same thread.
      */
     def writeM(msg: => AnyRef): Task[Unit] = Task {
       assertThread("writeM")
@@ -139,7 +139,7 @@ object HttpAppClient {
 
     /**
      * Handles all the outgoing messages ie all the `ctx.write()` and `ctx.writeAndFlush()` that happens inside of the
-     * HttpEndpoint.
+     * HttpApp.
      */
     override def handleOutboundMessage(msg: AnyRef): Unit = {
       assertThread("handleOutboundMessage")
@@ -151,7 +151,7 @@ object HttpAppClient {
     }
 
     /**
-     * Called whenever `ctx.read()` is called from withing the HttpEndpoint
+     * Called whenever `ctx.read()` is called from withing the HttpApp
      */
     override def doBeginRead(): Unit = {
       assertThread("doBeginRead")
