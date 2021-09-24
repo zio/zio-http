@@ -1,11 +1,14 @@
 package zhttp
 
 import io.netty.util.CharsetUtil
+import zhttp.experiment.HttpApp
 import zio.ZIO
 
 import java.nio.charset.Charset
 
 package object http extends PathModule with RequestSyntax with HttpAppSyntax with RouteDecoderModule {
+  type UHttpApp           = HttpApp[Any, Nothing]
+  type RHttpApp[-R]       = HttpApp[R, Throwable]
   type UHttp[-A, +B]      = Http[Any, Nothing, A, B]
   type Endpoint           = (Method, URL)
   type Route              = (Method, Path)
