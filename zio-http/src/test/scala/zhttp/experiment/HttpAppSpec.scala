@@ -2,7 +2,7 @@ package zhttp.experiment
 
 import io.netty.handler.codec.http._
 import zhttp.experiment.HttpApp.InvalidMessage
-import zhttp.experiment.internal.{EndpointClient, HttpMessageAssertions}
+import zhttp.experiment.internal.{HttpAppClient, HttpMessageAssertions}
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio._
@@ -169,7 +169,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
    */
   def IllegalMessageSpec = suite("IllegalMessage")(
     testM("throws exception") {
-      val program = EndpointClient.deploy(HttpApp.empty).flatMap(_.write("ILLEGAL_MESSAGE").either)
+      val program = HttpAppClient.deploy(HttpApp.empty).flatMap(_.write("ILLEGAL_MESSAGE").either)
       assertM(program)(isLeft(equalTo(InvalidMessage("ILLEGAL_MESSAGE"))))
     },
   )
