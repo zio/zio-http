@@ -18,7 +18,7 @@ trait HttpMessageAssertions {
     def asString: String = m.toString.dropWhile(_ != '\n')
   }
 
-  implicit final class HttpEndpointSyntax[R, E](app: HttpApp[R, Throwable]) {
+  implicit final class HttpAppSyntax[R, E](app: HttpApp[R, Throwable]) {
     def ===(assertion: Assertion[HttpObject]): ZIO[R with EventLoopGroup, Throwable, TestResult] =
       assertM(execute(app)(_.request("/")))(assertion)
 
@@ -197,7 +197,7 @@ trait HttpMessageAssertions {
   def header = { new DefaultHttpHeaders() }
 
   /**
-   * Dispatches a request with some content and asserts on the response received on an HttpEndpoint
+   * Dispatches a request with some content and asserts on the response received on an HttpApp
    */
   def assertResponse[R](
     app: HttpApp[R, Throwable],

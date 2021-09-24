@@ -20,7 +20,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   private val Ok: Response[Any, Nothing] = Response()
 
   def spec =
-    suite("HttpEndpoint")(
+    suite("HttpHttpApp")(
       EmptySpec,
       OkSpec,
       FailSpec,
@@ -76,7 +76,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   }
 
   /**
-   * Spec for an Endpoint that succeeds with a succeeding Http
+   * Spec for an HttpApp that succeeds with a succeeding Http
    */
   def OkSpec = {
     suite("succeed(ok)")(
@@ -111,7 +111,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   }
 
   /**
-   * Spec for an Endpoint that is empty
+   * Spec for an HttpApp that is empty
    */
   def EmptySpec = {
     suite("empty")(
@@ -165,7 +165,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   }
 
   /**
-   * Captures scenarios when an invalid message is sent to the Endpoint.
+   * Captures scenarios when an invalid message is sent to the HttpApp.
    */
   def IllegalMessageSpec = suite("IllegalMessage")(
     testM("throws exception") {
