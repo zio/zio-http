@@ -110,34 +110,34 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
         } +
         testM("content") {
           checkAllM(nonEmptyContent) { case (data, content, status, header) =>
-            val endpoint = HttpApp.mount(Http.collect(_ => Response(status, List(header), content)))
+            val endpoint = HttpApp.fromHttp(Http.collect(_ => Response(status, List(header), content)))
             assertM(endpoint.getContent(content = data))(equalTo(data.mkString("")))
           }
         } +
         testM("failing Http") {
-          val endpoint = HttpApp.mount(Http.fail(new Error("SERVER ERROR")))
+          val endpoint = HttpApp.fromHttp(Http.fail(new Error("SERVER ERROR")))
           assertM(endpoint.getResponse())(isResponse {
             responseStatus(500) && version("HTTP/1.1")
           })
         } +
         testM("server-error") {
-          val endpoint = HttpApp.mount(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
+          val endpoint = HttpApp.fromHttp(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
           assertM(endpoint.getResponse())(isResponse {
             responseStatus(500) && version("HTTP/1.1")
           })
         } +
         testM("response is LastHttpContent") {
-          val endpoint = HttpApp.mount(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
+          val endpoint = HttpApp.fromHttp(Http.collectM(_ => ZIO.fail(new Error("SERVER ERROR"))))
           assertM(endpoint.getResponse)(isSubtype[LastHttpContent](anything))
         } +
         testM("empty Http") {
-          val endpoint = HttpApp.mount(Http.empty)
+          val endpoint = HttpApp.fromHttp(Http.empty)
           assertM(endpoint.getResponse())(isResponse {
             responseStatus(404) && version("HTTP/1.1") && noHeader
           })
         } +
         testM("Http.empty") {
-          val endpoint = HttpApp.mount(Http.empty)
+          val endpoint = HttpApp.fromHttp(Http.empty)
           assertM(endpoint.getResponse)(isSubtype[LastHttpContent](anything))
         }
     }.provideCustomLayer(env) @@ timeout(10 seconds)

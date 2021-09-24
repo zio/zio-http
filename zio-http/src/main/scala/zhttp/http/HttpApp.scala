@@ -7,20 +7,29 @@ import zhttp.experiment.ContentDecoder
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.service.HttpRuntime
 import zio.stream.ZStream
-import zio.{Chunk, Promise, UIO, ZIO}
+import zio.{CanFail, Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
+import scala.annotation.unused
 
-case class HttpApp[-R, +E](http: Http[R, E, Request, Response[R, E]]) { self =>
+case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =>
   def orElse[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
-    HttpApp(self.http orElse other.http)
+    HttpApp(self.asHttp orElse other.asHttp)
 
   def defaultWith[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
-    HttpApp(self.http defaultWith other.http)
+    HttpApp(self.asHttp defaultWith other.asHttp)
 
   def <>[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] = self orElse other
 
   def +++[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] = self defaultWith other
+
+  /**
+   * Catches all the exceptions that the http app can fail with
+   */
+  def catchAll[R1 <: R, E1](f: E => HttpApp[R1, E1])(implicit
+    @unused ev: CanFail[E],
+  ): HttpApp[R1, E1] =
+    HttpApp(self.asHttp.catchAll(e => f(e).asHttp).asInstanceOf[Http[R1, E1, Request, Response[R1, E1]]])
 
   private[zhttp] def compile[R1 <: R](zExec: HttpRuntime[R1])(implicit
     evE: E <:< Throwable,
@@ -186,7 +195,7 @@ case class HttpApp[-R, +E](http: Http[R, E, Request, Response[R, E]]) { self =>
             ctx.channel().config().setAutoRead(false)
 
             unsafeRun(
-              http.asInstanceOf[Http[R, Throwable, Request, Response[R, Throwable]]],
+              asHttp.asInstanceOf[Http[R, Throwable, Request, Response[R, Throwable]]],
               new Request {
                 override def decodeContent[R0, B](
                   decoder: ContentDecoder[R0, Throwable, B],
@@ -258,41 +267,57 @@ object HttpApp {
   final case class InvalidMessage(message: Any) extends IllegalArgumentException {
     override def getMessage: String = s"Endpoint could not handle message: ${message.getClass.getName}"
   }
-  def mount[R, E](http: Http[R, E, Request, Response[R, E]]): HttpApp[R, E] = HttpApp(http)
 
+  /**
+   * Creates an Http app from an Http type
+   */
+  def fromHttp[R, E](http: Http[R, E, Request, Response[R, E]]): HttpApp[R, E] = HttpApp(http)
+
+  /**
+   * Creates an Http app which always fails with the same error.
+   */
   def fail[E](cause: E): HttpApp[Any, E] = HttpApp(Http.fail(cause))
 
+  /**
+   * Creates an Http app which always responds with empty data.
+   */
   def empty: HttpApp[Any, Nothing] = HttpApp(Http.empty)
 
+  /**
+   * Creates an Http app which accepts a request and produces response.
+   */
   def collect[R, E](pf: PartialFunction[Request, Response[R, E]]): HttpApp[R, E] =
     HttpApp(Http.collect(pf))
 
+  /**
+   * Creates an Http app which accepts a requests and produces a ZIO as response.
+   */
   def collectM[R, E](pf: PartialFunction[Request, ZIO[R, E, Response[R, E]]]): HttpApp[R, E] =
     HttpApp(Http.collectM(pf))
 
   /**
-   * Creates an Http endpoint from a function that returns a ZIO
+   * Creates an Http app from a function that returns a ZIO
    */
   def fromEffectFunction[R, E](f: Request => ZIO[R, E, Response[R, E]]): HttpApp[R, E] =
     HttpApp(Http.fromEffectFunction(f))
 
   /**
-   * Converts a ZIO to an Http Endpoint type
+   * Converts a ZIO to an Http app type
    */
   def responseM[R, E](res: ZIO[R, E, Response[R, E]]): HttpApp[R, E] = HttpApp(Http.fromEffect(res))
 
   /**
-   * Creates an HTTP Endpoint which always responds with the same plain text.
+   * Creates an Http app which always responds with the same plain text.
    */
   def text(str: String): HttpApp[Any, Nothing] = HttpApp(Http.succeed(Response.text(str)))
 
   /**
-   * Creates an HTTP Endpoint which always responds with the same value.
+   * Creates an Http app which always responds with the same value.
    */
   def response[R, E](response: Response[R, E]): HttpApp[R, E] = HttpApp(Http.succeed(response))
 
   /**
-   * Creates an HTTP Endpoint that fails with a NotFound exception.
+   * Creates an Http app that fails with a NotFound exception.
    */
   def notFound: HttpApp[Any, HttpError] =
     HttpApp(
@@ -302,14 +327,15 @@ object HttpApp {
     )
 
   /**
-   * Creates an HTTP Endpoint that responds with 403 - Forbidden status code
+   * Creates an Http app that responds with 403 - Forbidden status code
    */
   def forbidden(msg: String): HttpApp[Any, Nothing] =
     HttpApp(Http.succeed(Response.fromHttpError(HttpError.Forbidden(msg))))
 
   /**
-   * Creates a Http Endpoint from a function from Request to HttpEndpoint
+   * Creates a Http app from a function from Request to HttpApp
    */
   def fromFunction[R, E, B](f: Request => HttpApp[R, E]): HttpApp[R, E] =
-    HttpApp(Http.fromFunction[Request](f(_).http).flatten)
+    HttpApp(Http.fromFunction[Request](f(_).asHttp).flatten)
+
 }

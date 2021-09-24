@@ -35,20 +35,20 @@ object Authentication extends App {
     }
 
   // Http app that requires a JWT claim
-  def user(claim: JwtClaim): HttpApp[Any, Nothing] = HttpApp.collect {
+  def user(claim: JwtClaim): UHttpApp = HttpApp.collect {
     case Method.GET -> !! / "user" / name / "greet" => Response.text(s"Welcome to the ZIO party! ${name}")
     case Method.GET -> !! / "user" / "expiration"   => Response.text(s"Expires in: ${claim.expiration.getOrElse(-1L)}")
   }
 
   // App that let's the user login
   // Login is successful only if the password is the reverse of the username
-  def login: HttpApp[Any, Nothing] = HttpApp.collect { case Method.GET -> !! / "login" / username / password =>
+  def login: UHttpApp = HttpApp.collect { case Method.GET -> !! / "login" / username / password =>
     if (password.reverse == username) Response.text(jwtEncode(username))
     else Response.fromHttpError(HttpError.Unauthorized("Invalid username of password\n"))
   }
 
   // Composing all the HttpApps together
-  val app: HttpApp[Any, Nothing] = login +++ authenticate(HttpApp.forbidden("Not allowed!"), user)
+  val app: UHttpApp = login +++ authenticate(HttpApp.forbidden("Not allowed!"), user)
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
