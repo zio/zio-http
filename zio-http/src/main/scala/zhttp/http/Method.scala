@@ -33,7 +33,7 @@ object Method {
       case method             => CUSTOM(method.name())
     }
 
-  def fromString(method: String): Method =
+  def fromString(method: String): Method                    =
     method.toUpperCase match {
       case "POST"    => Method.POST
       case "GET"     => Method.GET

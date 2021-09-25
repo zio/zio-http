@@ -8,7 +8,7 @@ object BuildHelper extends ScalaSettings {
   val Scala213   = "2.13.6"
   val ScalaDotty = "3.0.2"
 
-  private val stdOptions = Seq(
+  private val stdOptions                          = Seq(
     "-deprecation",
     "-encoding",
     "UTF-8",
@@ -23,7 +23,7 @@ object BuildHelper extends ScalaSettings {
     }
   }
 
-  private val std2xOptions = Seq(
+  private val std2xOptions                        = Seq(
     "-language:higherKinds",
     "-language:existentials",
     "-explaintypes",
@@ -72,7 +72,7 @@ object BuildHelper extends ScalaSettings {
     )
     if (publishArtifacts) publishSettings else publishSettings ++ skipSettings
   }
-  def stdSettings(prjName: String)                          = Seq(
+  def stdSettings(prjName: String)              = Seq(
     name                           := s"$prjName",
     ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, ScalaDotty),
     ThisBuild / scalaVersion       := Scala213,

@@ -55,7 +55,7 @@ object SocketApp {
   type Connection = SocketAddress
   type Cause      = Option[Throwable]
 
-  private[zhttp] sealed trait Open[-R, +E] extends SocketApp[R, E] { self =>
+  private[zhttp] sealed trait Open[-R, +E]                                         extends SocketApp[R, E] { self =>
     import Open._
     private def sock: Open[R, E] = self match {
       case WithEffect(f)     => WithSocket(Socket.fromFunction(c => ZStream.fromEffect(f(c)) *> ZStream.empty))
@@ -75,7 +75,7 @@ object SocketApp {
     final case class WithEffect[R, E](f: Connection => ZIO[R, E, Any])             extends Open[R, E]
     final case class WithSocket[R, E](s: Socket[R, E, Connection, WebSocketFrame]) extends Open[R, E]
   }
-  private final case class Concat[R, E](a: SocketApp[R, E], b: SocketApp[R, E]) extends SocketApp[R, E]
+  private final case class Concat[R, E](a: SocketApp[R, E], b: SocketApp[R, E])    extends SocketApp[R, E]
   private final case class OnMessage[R, E](onMessage: Socket[R, E, WebSocketFrame, WebSocketFrame])
       extends SocketApp[R, E]
   private final case class OnError[R](onError: Throwable => ZIO[R, Nothing, Any])  extends SocketApp[R, Nothing]

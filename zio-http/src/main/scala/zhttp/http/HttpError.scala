@@ -1,10 +1,10 @@
 package zhttp.http
 
-sealed abstract class HttpError(val status: Status, val message: String) extends Throwable(message) { self =>
+sealed abstract class HttpError(val status: Status, val message: String) extends Throwable(message)     { self =>
   def toResponse: UResponse = Response.fromHttpError(self)
 }
 
-abstract class HTTPErrorWithCause(status: Status, msg: String) extends HttpError(status, msg) {
+abstract class HTTPErrorWithCause(status: Status, msg: String)           extends HttpError(status, msg) {
   def cause: Option[Throwable]
   cause.foreach(initCause)
 }

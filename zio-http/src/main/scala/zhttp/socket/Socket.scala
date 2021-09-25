@@ -5,7 +5,7 @@ import zio.{Cause, ZIO}
 
 sealed trait Socket[-R, +E, -A, +B] { self =>
   import Socket._
-  def apply(a: A): ZStream[R, E, B] = self match {
+  def apply(a: A): ZStream[R, E, B]                  = self match {
     case End                         => ZStream.halt(Cause.empty)
     case FromStreamingFunction(func) => func(a)
     case FromStream(s)               => s
@@ -67,7 +67,7 @@ object Socket {
     def apply[R, E, B](f: A => ZStream[R, E, B]): Socket[R, E, A, B] = FromStreamingFunction(f)
   }
 
-  final class MkCollect[A](val unit: Unit) extends AnyVal {
+  final class MkCollect[A](val unit: Unit)      extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, ZStream[R, E, B]]): Socket[R, E, A, B] = Socket.FromStreamingFunction {
       a =>
         if (pf.isDefinedAt(a)) pf(a) else ZStream.empty

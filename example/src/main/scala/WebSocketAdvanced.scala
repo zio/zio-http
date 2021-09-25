@@ -9,7 +9,7 @@ object WebSocketAdvanced extends App {
   // Message Handlers
   private val open = Socket.succeed(WebSocketFrame.text("Greetings!"))
 
-  private val echo = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text(text) =>
+  private val echo   = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text(text) =>
     ZStream.repeat(WebSocketFrame.text(s"Received: $text")).schedule(Schedule.spaced(1 second)).take(3)
   }
 
@@ -35,7 +35,7 @@ object WebSocketAdvanced extends App {
       SocketApp.decoder(decoder) ++
       SocketApp.protocol(protocol)
 
-  private val app =
+  private val app                                                =
     HttpApp.collect {
       case Method.GET -> !! / "greet" / name  => Response.text(s"Greetings ${name}!")
       case Method.GET -> !! / "subscriptions" => socketApp

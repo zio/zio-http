@@ -16,7 +16,7 @@ object CORSSpec extends HttpRunnableSpec(8089) {
     })
   }
 
-  override def spec = suiteM("CORS")(
+  override def spec                                                          = suiteM("CORS")(
     app
       .as(
         List(

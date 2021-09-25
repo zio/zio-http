@@ -14,12 +14,12 @@ object HelloWorldAdvanced extends App {
     case Method.GET -> !! / "bar" => Response.text("foo")
   }
 
-  private val app = HttpApp.collectM {
+  private val app                           = HttpApp.collectM {
     case Method.GET -> !! / "random" => random.nextString(10).map(Response.text)
     case Method.GET -> !! / "utc"    => clock.currentDateTime.map(s => Response.text(s.toString))
   }
 
-  private val server =
+  private val server                        =
     Server.port(PORT) ++              // Setup port
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
       Server.app(fooBar +++ app)      // Setup the Http app

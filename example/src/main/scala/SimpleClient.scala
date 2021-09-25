@@ -7,7 +7,7 @@ object SimpleClient extends App {
   val url     = "http://sports.api.decathlon.com/groups/water-aerobics"
   val headers = List(Header.host("sports.api.decathlon.com"))
 
-  val program = for {
+  val program                                                    = for {
     res <- Client.request(url, headers)
     _   <- console.putStrLn {
       res.content match {

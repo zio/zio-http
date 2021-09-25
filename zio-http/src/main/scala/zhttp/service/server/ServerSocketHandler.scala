@@ -30,7 +30,7 @@ final case class ServerSocketHandler[R](
         .runDrain,
     )
 
-  override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit =
+  override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit                          =
     ss.onMessage match {
       case Some(v) =>
         WebSocketFrame.fromJFrame(msg) match {
@@ -40,7 +40,7 @@ final case class ServerSocketHandler[R](
       case None    => ()
     }
 
-  override def exceptionCaught(ctx: ChannelHandlerContext, x: Throwable): Unit = {
+  override def exceptionCaught(ctx: ChannelHandlerContext, x: Throwable): Unit                               = {
     ss.onError match {
       case Some(v) => zExec.unsafeExecute_(ctx)(v(x).uninterruptible)
       case None    => ctx.fireExceptionCaught(x)
@@ -48,7 +48,7 @@ final case class ServerSocketHandler[R](
     ()
   }
 
-  override def channelUnregistered(ctx: ChannelHandlerContext): Unit = {
+  override def channelUnregistered(ctx: ChannelHandlerContext): Unit                                         = {
     ss.onClose match {
       case Some(v) => zExec.unsafeExecute_(ctx)(v(ctx.channel().remoteAddress()).uninterruptible)
       case None    => ctx.fireChannelUnregistered()
@@ -56,7 +56,7 @@ final case class ServerSocketHandler[R](
     ()
   }
 
-  override def userEventTriggered(ctx: ChannelHandlerContext, event: AnyRef): Unit = {
+  override def userEventTriggered(ctx: ChannelHandlerContext, event: AnyRef): Unit                           = {
 
     event match {
       case _: HandshakeComplete                                                             =>

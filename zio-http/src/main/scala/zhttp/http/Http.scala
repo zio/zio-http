@@ -268,23 +268,23 @@ object Http {
     ee: E => Http[R, EE, A, BB],
     bb: B => Http[R, EE, A, BB],
     dd: Http[R, EE, A, BB],
-  )                                                                             extends Http[R, EE, A, BB]
+  ) extends Http[R, EE, A, BB]
 
   // Ctor Help
-  final case class MakeCollectM[A](unit: Unit) extends AnyVal {
+  final case class MakeCollectM[A](unit: Unit)                                extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, ZIO[R, E, B]]): Http[R, E, A, B] =
       Http.collect[A] { case a if pf.isDefinedAt(a) => Http.fromEffect(pf(a)) }.flatten
   }
 
-  final case class MakeCollect[A](unit: Unit) extends AnyVal {
+  final case class MakeCollect[A](unit: Unit)                                 extends AnyVal {
     def apply[B](pf: PartialFunction[A, B]): Http[Any, Nothing, A, B] = Collect(pf)
   }
 
-  final case class MakeFromEffectFunction[A](unit: Unit) extends AnyVal {
+  final case class MakeFromEffectFunction[A](unit: Unit)                      extends AnyVal {
     def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = Http.FromEffectFunction(f)
   }
 
-  final case class MakeRoute[A](unit: Unit) extends AnyVal {
+  final case class MakeRoute[A](unit: Unit)                                   extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, Http[R, E, A, B]]): Http[R, E, A, B] =
       Http.collect[A] { case r if pf.isDefinedAt(r) => pf(r) }.flatten
   }

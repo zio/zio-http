@@ -35,7 +35,7 @@ private[zhttp] trait HeadersHelpers { self: HasHeaders =>
   def getHeaderValues(headerName: CharSequence): List[String] =
     headers.filter(h => contentEqualsIgnoreCase(h.name, headerName)).map(_.value.toString)
 
-  def getContentType: Option[String] =
+  def getContentType: Option[String]                        =
     getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
 
   private def checkContentType(value: AsciiString): Boolean =
@@ -57,7 +57,7 @@ private[zhttp] trait HeadersHelpers { self: HasHeaders =>
   def isFormUrlencodedContentType: Boolean =
     checkContentType(HttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED)
 
-  def getAuthorization: Option[String] =
+  def getAuthorization: Option[String]                                   =
     getHeaderValue(HttpHeaderNames.AUTHORIZATION)
 
   private def decodeHttpBasic(encoded: String): Option[(String, String)] = {
@@ -77,7 +77,7 @@ private[zhttp] trait HeadersHelpers { self: HasHeaders =>
       Some((username, password))
     }
   }
-  def getBasicAuthorizationCredentials: Option[(String, String)] = {
+  def getBasicAuthorizationCredentials: Option[(String, String)]         = {
     getAuthorization.flatMap(v => {
       val indexOfBasic = v.indexOf(BasicSchemeName)
       if (indexOfBasic != 0 || v.length == BasicSchemeName.length)
@@ -92,7 +92,7 @@ private[zhttp] trait HeadersHelpers { self: HasHeaders =>
       }
     })
   }
-  def getBearerToken: Option[String]   = getAuthorization.flatMap(v => {
+  def getBearerToken: Option[String]                                     = getAuthorization.flatMap(v => {
     val indexOfBearer = v.indexOf(BearerSchemeName)
     if (indexOfBearer != 0 || v.length == BearerSchemeName.length)
       None

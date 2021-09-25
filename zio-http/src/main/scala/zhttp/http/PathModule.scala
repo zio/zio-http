@@ -18,7 +18,7 @@ private[zhttp] trait PathModule { module =>
     def unapplySeq(arg: Path): Option[List[String]] = Option(arg.toList)
     def empty: Path                                 = End
 
-    case object End extends Path {
+    case object End                           extends Path {
       override def asString: String     = ""
       override def toList: List[String] = Nil
     }

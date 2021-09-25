@@ -13,7 +13,7 @@ sealed trait Server[-R, +E] { self =>
 
   import Server._
 
-  def ++[R1 <: R, E1 >: E](other: Server[R1, E1]): Server[R1, E1] =
+  def ++[R1 <: R, E1 >: E](other: Server[R1, E1]): Server[R1, E1]                            =
     Concat(self, other)
 
   private def settings[R1 <: R, E1 >: E](s: Settings[R1, E1] = Settings()): Settings[R1, E1] = self match {

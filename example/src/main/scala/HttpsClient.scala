@@ -26,7 +26,7 @@ object HttpsClient extends App {
   val sslOption: ClientSSLOptions =
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
 
-  val program = for {
+  val program                                                    = for {
     res <- Client.request(url, headers, sslOption)
     _   <- console.putStrLn {
       res.content match {

@@ -114,7 +114,7 @@ lazy val zhttpTest = (project in file("./zio-http-test"))
   .settings(stdSettings("zhttp-test"))
   .settings(publishSetting(true))
 
-lazy val example = (project in file("./example"))
+lazy val example   = (project in file("./example"))
   .settings(stdSettings("example"))
   .settings(publishSetting(false))
   .settings(

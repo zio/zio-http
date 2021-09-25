@@ -39,7 +39,7 @@ object SSLSpec extends HttpRunnableSpec(8073) {
   val clientssl1 = SslContextBuilder.forClient().trustManager(ssc1.cert()).build()
   val clientssl2 = SslContextBuilder.forClient().trustManager(ssc2.cert()).build()
 
-  val app = HttpApp.collectM[Any, Nothing] { case Method.GET -> !! / "success" =>
+  val app           = HttpApp.collectM[Any, Nothing] { case Method.GET -> !! / "success" =>
     ZIO.succeed(Response.ok)
   }
 

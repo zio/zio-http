@@ -10,7 +10,7 @@ object Scheme       {
     case HTTPS => "https"
   }
 
-  case object HTTP  extends Scheme
+  case object HTTP extends Scheme
   case object HTTPS extends Scheme
 
   def fromJScheme(scheme: HttpScheme): Option[Scheme] =

@@ -46,7 +46,7 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
       _     <- getApp(state)
     } yield state
 
-  override def spec = suiteM("Client Content-Length auto assign")(
+  override def spec  = suiteM("Client Content-Length auto assign")(
     serverAppState
       .map((state: Ref[ServerState]) =>
         List(

@@ -50,7 +50,7 @@ object UnsafeChannelExecutor {
 
   object RuntimeMap {
 
-    case class Default[R](runtime: Runtime[R]) extends RuntimeMap[R] {
+    case class Default[R](runtime: Runtime[R])                       extends RuntimeMap[R] {
       override def getRuntime(ctx: ChannelHandlerContext): Runtime[R] = runtime
     }
 
@@ -67,7 +67,7 @@ object UnsafeChannelExecutor {
         map
       }
 
-      override def getRuntime(ctx: ChannelHandlerContext): Runtime[R] =
+      override def getRuntime(ctx: ChannelHandlerContext): Runtime[R]  =
         localRuntime.getOrElse(ctx.executor(), runtime)
     }
 
