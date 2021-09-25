@@ -30,7 +30,7 @@ final case class ServerChannelInitializer[R](zExec: HttpRuntime[R], settings: Se
       .addLast(new HttpServerCodec())          // TODO: See if server codec is really required
       .addLast(new HttpServerKeepAliveHandler) // TODO: Make keep-alive configurable
       .addLast(new FlowControlHandler())
-      .addLast(settings.endpoint.compile(zExec))
+      .addLast(settings.app.compile(zExec))
     ()
   }
 

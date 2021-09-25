@@ -1,5 +1,7 @@
 package zhttp.http
 
+import zhttp.http.HttpAppSpec._
+import zhttp.service.EventLoopGroup
 import zio._
 import zio.duration.durationInt
 import zio.test.Assertion._
@@ -36,6 +38,12 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         val actual = a.execute(()).evaluate
         assert(actual)(isSuccess(equalTo("B")))
       },
+    ),
+    suite("toApp")(
+      testM("should convert to HttpApp") {
+        val res = Http.succeed(Response.text("Hello")).toApp.getResponse
+        assertM(res)(isResponse(responseStatus(200)))
+      }.provideCustomLayer(EventLoopGroup.auto(1)),
     ),
     suite("fail")(
       test("should fail") {
