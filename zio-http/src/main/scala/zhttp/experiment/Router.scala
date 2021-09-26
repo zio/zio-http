@@ -11,7 +11,8 @@ sealed trait Router[A] { self =>
 }
 
 object Router {
-
+  case class OnlyMethod(v: Method) extends Router[Unit]
+  case class OnlyString(v: String) extends Router[Unit]
   // Extract
   trait RouteParam[A] {
     def extract(data: String): Option[A]
@@ -28,12 +29,17 @@ object Router {
 
   def apply[A](implicit ev: RouteParam[A]): Router[A] = ???
 
-  implicit final class MethodRouterSyntax(val method: Method) extends AnyVal {
-    def /(name: String): Router[Unit]                                              = ???
-    def /[B, C](other: Router[B])(implicit ev: Combine.Aux[Unit, B, C]): Router[C] = ???
+  class RouteSet[A, B, C](val head: Router[A], val tail: Router[B]) extends Router[C]
+  object RouteSet {
+    def apply[A, B, C](head: Router[A], tail: Router[B])(implicit ev: Router.Combine.Aux[A, B, C]): Router[C] =
+      new RouteSet(head, tail)
   }
 
-  val route: Router[(Int, String, Int)] = Method.GET / "a" / "b" / Router[Int] / "c" / Router[String] / Router[Int]
+  implicit final class MethodRouterSyntax(val method: Method) extends AnyVal {
+    def /(name: String): Router[Unit]                                              = OnlyMethod(method) / name
+    def /[B, C](other: Router[B])(implicit ev: Combine.Aux[Unit, B, C]): Router[C] =
+      OnlyMethod(method) / other
+  }
 
   trait Request {
     def is[A](router: Router[A]): Boolean
