@@ -15,13 +15,13 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         val app    = Http.identity[Int].flatMap(i => Http.succeed(i + 1))
         val actual = app.execute(0).evaluate
         assert(actual)(isSuccess(equalTo(1)))
-      },
-      test("should be stack-safe") {
-        val i      = 100000
-        val app    = (0 until i).foldLeft(Http.identity[Int])((i, _) => i.flatMap(c => Http.succeed(c + 1)))
-        val actual = app.execute(0).evaluate
-        assert(actual)(isSuccess(equalTo(i)))
-      },
+      } +
+        test("should be stack-safe") {
+          val i      = 100000
+          val app    = (0 until i).foldLeft(Http.identity[Int])((i, _) => i.flatMap(c => Http.succeed(c + 1)))
+          val actual = app.execute(0).evaluate
+          assert(actual)(isSuccess(equalTo(i)))
+        },
     ),
     suite("orElse")(
       test("should succeed") {
@@ -30,14 +30,14 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         val a      = a1 <> a2
         val actual = a.execute(()).evaluate
         assert(actual)(isSuccess(equalTo(1)))
-      },
-      test("should fail with first") {
-        val a1     = Http.fail("A")
-        val a2     = Http.succeed("B")
-        val a      = a1 <> a2
-        val actual = a.execute(()).evaluate
-        assert(actual)(isSuccess(equalTo("B")))
-      },
+      } +
+        test("should fail with first") {
+          val a1     = Http.fail("A")
+          val a2     = Http.succeed("B")
+          val a      = a1 <> a2
+          val actual = a.execute(()).evaluate
+          assert(actual)(isSuccess(equalTo("B")))
+        },
     ),
     suite("toApp")(
       testM("should convert to HttpApp") {
@@ -71,12 +71,12 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         val a      = Http.collect[Int] { case 1 => "OK" }
         val actual = a.execute(1).evaluate
         assert(actual)(isSuccess(equalTo("OK")))
-      },
-      test("should fail") {
-        val a      = Http.collect[Int] { case 1 => "OK" }
-        val actual = a.execute(0).evaluate
-        assert(actual)(isEmpty)
-      },
+      } +
+        test("should fail") {
+          val a      = Http.collect[Int] { case 1 => "OK" }
+          val actual = a.execute(0).evaluate
+          assert(actual)(isEmpty)
+        },
     ),
     suite("combine")(
       test("should resolve first") {
@@ -84,62 +84,62 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         val b      = Http.collect[Int] { case 2 => "B" }
         val actual = (a +++ b).execute(1).evaluate
         assert(actual)(isSuccess(equalTo("A")))
-      },
-      test("should resolve second") {
-        val a      = Http.empty
-        val b      = Http.succeed("A")
-        val actual = (a +++ b).execute(()).evaluate
-        assert(actual)(isSuccess(equalTo("A")))
-      },
-      test("should resolve second") {
-        val a      = Http.collect[Int] { case 1 => "A" }
-        val b      = Http.collect[Int] { case 2 => "B" }
-        val actual = (a +++ b).execute(2).evaluate
-        assert(actual)(isSuccess(equalTo("B")))
-      },
-      test("should not resolve") {
-        val a      = Http.collect[Int] { case 1 => "A" }
-        val b      = Http.collect[Int] { case 2 => "B" }
-        val actual = (a +++ b).execute(3).evaluate
-        assert(actual)(isEmpty)
-      },
-      test("should be stack-safe") {
-        val i      = 100000
-        val a      = Http.collect[Int] { case i => i + 1 }
-        val app    = (0 until i).foldLeft(a)((i, _) => i +++ a)
-        val actual = app.execute(0).evaluate
-        assert(actual)(isSuccess(equalTo(1)))
-      },
+      } +
+        test("should resolve second") {
+          val a      = Http.empty
+          val b      = Http.succeed("A")
+          val actual = (a +++ b).execute(()).evaluate
+          assert(actual)(isSuccess(equalTo("A")))
+        } +
+        test("should resolve second") {
+          val a      = Http.collect[Int] { case 1 => "A" }
+          val b      = Http.collect[Int] { case 2 => "B" }
+          val actual = (a +++ b).execute(2).evaluate
+          assert(actual)(isSuccess(equalTo("B")))
+        } +
+        test("should not resolve") {
+          val a      = Http.collect[Int] { case 1 => "A" }
+          val b      = Http.collect[Int] { case 2 => "B" }
+          val actual = (a +++ b).execute(3).evaluate
+          assert(actual)(isEmpty)
+        } +
+        test("should be stack-safe") {
+          val i      = 100000
+          val a      = Http.collect[Int] { case i => i + 1 }
+          val app    = (0 until i).foldLeft(a)((i, _) => i +++ a)
+          val actual = app.execute(0).evaluate
+          assert(actual)(isSuccess(equalTo(1)))
+        },
     ),
     suite("asEffect")(
       testM("should resolve") {
         val a      = Http.collect[Int] { case 1 => "A" }
         val actual = a.execute(1).evaluate.asEffect
         assertM(actual)(equalTo("A"))
-      },
-      testM("should complete") {
-        val a      = Http.collect[Int] { case 1 => "A" }
-        val actual = a.execute(2).evaluate.asEffect.either
-        assertM(actual)(isLeft(isNone))
-      },
+      } +
+        testM("should complete") {
+          val a      = Http.collect[Int] { case 1 => "A" }
+          val actual = a.execute(2).evaluate.asEffect.either
+          assertM(actual)(isLeft(isNone))
+        },
     ),
     suite("collectM")(
       test("should be empty") {
         val a      = Http.collectM[Int] { case 1 => UIO("A") }
         val actual = a.execute(2).evaluate
         assert(actual)(isEmpty)
-      },
-      test("should resolve") {
-        val a      = Http.collectM[Int] { case 1 => UIO("A") }
-        val actual = a.execute(1).evaluate
-        assert(actual)(isEffect)
-      },
-      test("should resolve second effect") {
-        val a      = Http.empty.flatten
-        val b      = Http.succeed("B")
-        val actual = (a +++ b).execute(2).evaluate
-        assert(actual)(isSuccess(equalTo("B")))
-      },
+      } +
+        test("should resolve") {
+          val a      = Http.collectM[Int] { case 1 => UIO("A") }
+          val actual = a.execute(1).evaluate
+          assert(actual)(isEffect)
+        } +
+        test("should resolve second effect") {
+          val a      = Http.empty.flatten
+          val b      = Http.succeed("B")
+          val actual = (a +++ b).execute(2).evaluate
+          assert(actual)(isSuccess(equalTo("B")))
+        },
     ),
     suite("route")(
       test("should delegate to its HTTP apps") {
@@ -149,12 +149,12 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         }
         val actual = app.execute(2).evaluate
         assert(actual)(isSuccess(equalTo(2)))
-      },
-      test("should be empty if no matches") {
-        val app    = Http.route[Int](Map.empty)
-        val actual = app.execute(1).evaluate
-        assert(actual)(isEmpty)
-      },
+      } +
+        test("should be empty if no matches") {
+          val app    = Http.route[Int](Map.empty)
+          val actual = app.execute(1).evaluate
+          assert(actual)(isEmpty)
+        },
     ),
     suite("tap")(
       testM("taps the successs") {
@@ -205,25 +205,25 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           _   <- app.execute(()).evaluate.asEffect
           res <- r.get
         } yield assert(res)(equalTo(1))
-      },
-      testM("taps the failure") {
-        for {
-          r <- Ref.make(0)
-          app = (Http.fail(1): Http[Any, Int, Any, Any])
-            .tapAll(v => Http.fromEffect(r.set(v)), _ => Http.empty, Http.empty)
-          _   <- app.execute(()).evaluate.asEffect.ignore
-          res <- r.get
-        } yield assert(res)(equalTo(1))
-      },
-      testM("taps the empty") {
-        for {
-          r <- Ref.make(0)
-          app = (Http.empty: Http[Any, Any, Any, Any])
-            .tapAll(_ => Http.empty, _ => Http.empty, Http.fromEffect(r.set(1)))
-          _   <- app.execute(()).evaluate.asEffect.ignore
-          res <- r.get
-        } yield assert(res)(equalTo(1))
-      },
+      } +
+        testM("taps the failure") {
+          for {
+            r <- Ref.make(0)
+            app = (Http.fail(1): Http[Any, Int, Any, Any])
+              .tapAll(v => Http.fromEffect(r.set(v)), _ => Http.empty, Http.empty)
+            _   <- app.execute(()).evaluate.asEffect.ignore
+            res <- r.get
+          } yield assert(res)(equalTo(1))
+        } +
+        testM("taps the empty") {
+          for {
+            r <- Ref.make(0)
+            app = (Http.empty: Http[Any, Any, Any, Any])
+              .tapAll(_ => Http.empty, _ => Http.empty, Http.fromEffect(r.set(1)))
+            _   <- app.execute(()).evaluate.asEffect.ignore
+            res <- r.get
+          } yield assert(res)(equalTo(1))
+        },
     ),
     suite("tapAllM")(
       testM("taps the success") {
@@ -233,24 +233,24 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           _   <- app.execute(()).evaluate.asEffect
           res <- r.get
         } yield assert(res)(equalTo(1))
-      },
-      testM("taps the failure") {
-        for {
-          r <- Ref.make(0)
-          app = (Http.fail(1): Http[Any, Int, Any, Any]).tapAllM(r.set, _ => ZIO.unit, ZIO.unit)
-          _   <- app.execute(()).evaluate.asEffect.ignore
-          res <- r.get
-        } yield assert(res)(equalTo(1))
-      },
-      testM("taps the empty") {
-        for {
-          r <- Ref.make(0)
-          app = (Http.empty: Http[Any, Any, Any, Any])
-            .tapAllM(_ => ZIO.unit, _ => ZIO.unit, r.set(1))
-          _   <- app.execute(()).evaluate.asEffect.ignore
-          res <- r.get
-        } yield assert(res)(equalTo(1))
-      },
+      } +
+        testM("taps the failure") {
+          for {
+            r <- Ref.make(0)
+            app = (Http.fail(1): Http[Any, Int, Any, Any]).tapAllM(r.set, _ => ZIO.unit, ZIO.unit)
+            _   <- app.execute(()).evaluate.asEffect.ignore
+            res <- r.get
+          } yield assert(res)(equalTo(1))
+        } +
+        testM("taps the empty") {
+          for {
+            r <- Ref.make(0)
+            app = (Http.empty: Http[Any, Any, Any, Any])
+              .tapAllM(_ => ZIO.unit, _ => ZIO.unit, r.set(1))
+            _   <- app.execute(()).evaluate.asEffect.ignore
+            res <- r.get
+          } yield assert(res)(equalTo(1))
+        },
     ),
   ) @@ timeout(10 seconds)
 }
