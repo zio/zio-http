@@ -24,6 +24,19 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
   def +++[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] = self defaultWith other
 
   /**
+   * Consumes the input and executes the HttpApp.
+   */
+  def apply[R1 <: R, E1 >: E, A <: Request, B >: Response[R1, E1]](a: A): ZIO[R, Option[E], B] =
+    self.asHttp.execute(a).evaluate.asEffect
+
+  /**
+   * Evaluates the HttpApp and returns an HExit that can be resolved further
+   */
+  def execute[R1 <: R, E1 >: E, A <: Request](
+    a: A,
+  ): HExit[R, E, Response[R, E]] = self.asHttp.execute(a)
+
+  /**
    * Catches all the exceptions that the http app can fail with
    */
   def catchAll[R1 <: R, E1](f: E => HttpApp[R1, E1])(implicit
