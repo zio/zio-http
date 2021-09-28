@@ -6,8 +6,8 @@ import io.netty.handler.codec.http._
 import zhttp.experiment.ContentDecoder
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.service.HttpRuntime
+import zio._
 import zio.stream.ZStream
-import zio.{CanFail, Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 import scala.annotation.unused
@@ -260,6 +260,39 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
       }
 
     }
+
+  /**
+   * Provides the environment to Http.
+   */
+  def provide(r: R)(implicit ev: NeedsEnv[R]) = self.asHttp.provide(r)
+
+  /**
+   * Provides some of the environment to Http.
+   */
+  def provideSome[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]) = self.asHttp.provideSome(r)
+
+  /**
+   * Provides layer to Http.
+   */
+  def provideLayer[R0, R1, E1 >: E](layer: ZLayer[R0, E1, R1])(implicit
+    ev1: R1 <:< R,
+    ev2: NeedsEnv[R],
+  ) = self.asHttp.provideLayer(layer)
+
+  /**
+   * Provide part of the environment to HTTP that is not part of ZEnv
+   */
+  def provideCustomLayer[E1 >: E, R1 <: Has[_]](layer: ZLayer[ZEnv, E1, R1])(implicit
+    ev: ZEnv with R1 <:< R,
+    tagged: Tag[R1],
+  ) = self.asHttp.provideCustomLayer(layer)
+
+  /**
+   * Provides some of the environment to Http leaving the remainder `R0`.
+   */
+  def provideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E](
+    layer: ZLayer[R0, E1, R1],
+  )(implicit ev: R0 with R1 <:< R, tagged: Tag[R1]) = self.asHttp.provideSomeLayer(layer)
 }
 
 object HttpApp {

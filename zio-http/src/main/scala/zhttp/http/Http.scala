@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.{CanFail, NeedsEnv, UIO, ZIO}
+import zio._
 
 import scala.annotation.unused
 
@@ -253,11 +253,35 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Provides some of the environment to Http.
    */
-  final def provideSome[R1](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
+  final def provideSome[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
     Http.fromPartialFunction[A](a => self(a).provideSome(r))
 
   final def toApp[R1 <: R, E1 >: E](implicit evA: Request <:< A, evB: B <:< Response[R1, E1]): HttpApp[R1, E1] =
     HttpApp.fromHttp(self.asInstanceOf[Http[R, E, Request, Response[R, E]]])
+
+  /**
+   * Provides layer to Http.
+   */
+  final def provideLayer[E1 >: E, R0, R1](
+    layer: ZLayer[R0, E1, R1],
+  )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R]): Http[R0, E1, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provideLayer(layer.mapError(Option(_))))
+
+  /**
+   * Provide part of the environment to HTTP that is not part of ZEnv
+   */
+  final def provideCustomLayer[E1 >: E, R1 <: Has[_]](
+    layer: ZLayer[ZEnv, E1, R1],
+  )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): Http[ZEnv, E1, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provideCustomLayer(layer.mapError(Option(_))))
+
+  /**
+   * Provides some of the environment to Http leaving the remainder `R0`.
+   */
+  final def provideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E](
+    layer: ZLayer[R0, E1, R1],
+  )(implicit ev: R0 with R1 <:< R, tagged: Tag[R1]): Http[R0, E1, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provideSomeLayer(layer.mapError(Option(_))))
 
   /**
    * Evaluates the app and returns an HExit that can be resolved further
