@@ -3,12 +3,12 @@ package zhttp.service
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.service.server._
-import zio.ZManaged
 import zio.test.Assertion._
 import zio.test.assertM
+import zio.{ZIO, ZManaged}
 
 object CORSSpec extends HttpRunnableSpec(8089) {
-  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
+  val env = EventLoopGroup.auto(1) ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
   val app: ZManaged[EventLoopGroup with ServerChannelFactory, Nothing, Unit] = serve {
     CORS(HttpApp.collect { case Method.GET -> !! / "success" =>
@@ -21,7 +21,7 @@ object CORSSpec extends HttpRunnableSpec(8089) {
       .as(
         List(
           testM("OPTIONS request") {
-            val actual = request(
+            val actual: ZIO[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] = request(
               !! / "success",
               Method.OPTIONS,
               "",
@@ -41,11 +41,6 @@ object CORSSpec extends HttpRunnableSpec(8089) {
                     CORS.DefaultCORSConfig.allowedHeaders.get.mkString(","),
                   ),
                 ),
-              ),
-            )
-            assertM(actual.map(_.status))(
-              equalTo(
-                Status.NO_CONTENT,
               ),
             )
           } +

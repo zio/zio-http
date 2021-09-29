@@ -18,7 +18,7 @@ object CORS {
 
   def apply[R, E](httpApp: HttpApp[R, E], config: CORSConfig = DefaultCORSConfig): HttpApp[R, E] = {
     def allowCORS(origin: Header, acrm: Method): Boolean =
-      (config.anyOrigin, config.anyMethod, origin.value.toString(), acrm) match {
+      (config.anyOrigin, config.anyMethod, origin.value.toString, acrm) match {
         case (true, true, _, _)           => true
         case (true, false, _, acrm)       =>
           config.allowedMethods.exists(_.contains(acrm))

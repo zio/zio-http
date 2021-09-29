@@ -104,7 +104,7 @@ trait HttpMessageAssertions {
       for {
         p    <- Promise.make[Throwable, Request]
         c    <- HttpAppClient.deploy {
-          HttpApp.fromHttp(Http.collectM[Request] { req =>
+          HttpApp.fromHttp(Http.collectM[Request] { case req =>
             p.succeed(req).as(Response())
           })
         }
@@ -172,7 +172,7 @@ trait HttpMessageAssertions {
       _.headers().contains(value.name, value.value, true),
     )
 
-  def responseHeader(name: String): Assertion[HttpResponse] =
+  def responseHeaderName(name: String): Assertion[HttpResponse] =
     Assertion.assertion("header")(param(s"$name: ???"))(_.headers().contains(name))
 
   def noHeader: Assertion[HttpResponse] = Assertion.assertion("no header")()(_.headers().size() == 0)
