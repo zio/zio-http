@@ -28,14 +28,14 @@ object GetBodyAsStringSpec extends DefaultRunnableSpec {
 
         assert(actual)(equalTo(encoded))
       }
-    },
-    test("should map bytes to default utf-8 if no charset given") {
-      val data                            = Chunk.fromArray("abc".getBytes())
-      val content: HttpData[Any, Nothing] = HttpData.Binary(data)
-      val request = Client.ClientParams(endpoint = Method.GET -> URL(Path("/")), content = content)
-      val encoded = request.getBodyAsString
-      val actual  = Option(new String(data.toArray, HTTP_CHARSET))
-      assert(actual)(equalTo(encoded))
-    },
+    } +
+      test("should map bytes to default utf-8 if no charset given") {
+        val data                            = Chunk.fromArray("abc".getBytes())
+        val content: HttpData[Any, Nothing] = HttpData.Binary(data)
+        val request = Client.ClientParams(endpoint = Method.GET -> URL(Path("/")), content = content)
+        val encoded = request.getBodyAsString
+        val actual  = Option(new String(data.toArray, HTTP_CHARSET))
+        assert(actual)(equalTo(encoded))
+      },
   )
 }
