@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.HttpMethod
+import io.netty.handler.codec.http.{HttpMethod, HttpResponse}
 import zhttp.experiment.ContentDecoder
 import zhttp.experiment.internal.{HttpAppClient, HttpMessageAssertions}
 import zhttp.http.HttpApp.InvalidMessage
@@ -37,11 +37,13 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   def RequestSpec = {
     suite("succeed(Request)")(
       testM("status is 200") {
-        val res = HttpApp.fromHttp(Http.collect[Request](_ => Ok)).getResponse
+        val res = HttpApp.fromHttp(Http.collect[Request] { case _ => Ok }).getResponse
         assertM(res)(isResponse(responseStatus(200)))
       } +
         testM("status is 500") {
-          val res = HttpApp.fromHttp(Http.collectM[Request](_ => ZIO.fail(new Error("SERVER ERROR")))).getResponse
+          val res: ZIO[Any with EventLoopGroup, Throwable, HttpResponse] = HttpApp
+            .fromHttp(Http.fromEffect(ZIO.fail(new Error("SERVER ERROR"))))
+            .getResponse
           assertM(res)(isResponse(responseStatus(500)))
         } +
         testM("status is 404") {
@@ -49,7 +51,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
           assertM(res)(isResponse(responseStatus(404)))
         } +
         testM("status is 200 in collectM") {
-          val res = HttpApp.fromHttp(Http.collectM[Request](_ => UIO(Ok))).getResponse
+          val res = HttpApp.fromHttp(Http.collectM[Request] { case _ => UIO(Ok) }).getResponse
           assertM(res)(isResponse(responseStatus(200)))
         },
     )
@@ -70,7 +72,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         } +
         testM("headers are set") {
           val res = HttpApp.fail(new Error("SERVER_ERROR")).getResponse
-          assertM(res)(isResponse(responseHeader("content-length")))
+          assertM(res)(isResponse(responseHeaderName("content-length")))
         },
     )
   }
@@ -96,7 +98,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         assertM(res)(isResponse(noHeader))
       } +
         testM("headers are set") {
-          val res = HttpApp.fromHttp(Http.succeed(Response(headers = List(Header("key", "value"))))).getResponse
+          val res = HttpApp.fromHttp(Http.succeed(Response(headers = List(Header.custom("key", "value"))))).getResponse
           assertM(res)(isResponse(responseHeader("key", "value")))
         } +
         testM("version is 1.1") {
@@ -154,11 +156,11 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
     suite("StreamingResponse") {
       testM("status is 200") {
-        val res = HttpApp.fromHttp(Http.collect[Request](_ => streamingResponse)).getResponse
+        val res = HttpApp.fromHttp(Http.collect[Request] { case _ => streamingResponse }).getResponse
         assertM(res)(isResponse(responseStatus(200)))
       } +
         testM("content is 'ABCD'") {
-          val content = HttpApp.fromHttp(Http.collect[Request](_ => streamingResponse)).getContent
+          val content = HttpApp.fromHttp(Http.collect[Request] { case _ => streamingResponse }).getContent
           assertM(content)(equalTo("ABCD"))
         } @@ nonFlaky
     }
@@ -176,19 +178,19 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
   def ContentDecoderSpec = suite("ContentDecoder")(
     testM("status is 200") {
-      val res = HttpApp.fromHttp(Http.collect[Request] { _ => Ok }).getResponse
+      val res = HttpApp.fromHttp(Http.collect[Request] { case _ => Ok }).getResponse
       assertM(res)(isResponse(responseStatus(200)))
     } +
       testM("text") {
         val content = HttpApp
-          .fromHttp(Http.collect[Request](_ => Ok))
+          .fromHttp(Http.collect[Request] { case _ => Ok })
           .getRequestContent(ContentDecoder.text)
 
         assertM(content)(equalTo("ABCD"))
       } +
       testM("text (twice)") {
         val content = HttpApp
-          .fromHttp(Http.collectM[Request](req => req.decodeContent(ContentDecoder.text).as(Ok)))
+          .fromHttp(Http.collectM[Request] { case req => req.decodeContent(ContentDecoder.text).as(Ok) })
           .getRequestContent(ContentDecoder.text)
           .either
 
@@ -196,7 +198,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       } +
       testM("custom") {
         val content = HttpApp
-          .fromHttp(Http.collect[Request](_ => Ok))
+          .fromHttp(Http.collect[Request] { case _ => Ok })
           .getRequestContent(ContentDecoder.collect(Chunk[Byte]()) { case (a, b, isLast) =>
             ZIO((if (isLast) Option(b ++ a) else None, b ++ a))
           })

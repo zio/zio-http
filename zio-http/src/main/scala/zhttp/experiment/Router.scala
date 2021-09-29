@@ -3,6 +3,8 @@ package zhttp.experiment
 import zhttp.http._
 import zio._
 
+import scala.util.Try
+
 sealed trait Router[A] {
   def /(name: String): Router[A]                                                     = ???
   def /[B, C](other: Router[B])(implicit ev: Router.Combine.Aux[A, B, C]): Router[C] = ???
@@ -16,7 +18,7 @@ object Router {
   }
   object RouteParam   {
     implicit object IntExtract extends RouteParam[Int] {
-      override def extract(data: String): Option[Int] = data.toIntOption
+      override def extract(data: String): Option[Int] = Try(data.toInt).toOption
     }
 
     implicit object StringExtract extends RouteParam[String] {
@@ -34,7 +36,7 @@ object Router {
     def /[B, C](other: Router[B])(implicit ev: Combine.Aux[Unit, B, C]): Router[C] = ???
   }
 
-  val route = Method.GET / "a" / "b" / ![Int] / "c" / ![String] / ![Int]
+  // val route = Method.GET / "a" / "b" / ![Int] / "c" / ![String] / ![Int]
 
   trait Request {
     def is[A](router: Router[A]): Boolean

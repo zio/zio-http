@@ -3,7 +3,6 @@ package zhttp.service
 import zhttp.http.HttpData.Binary
 import zhttp.http.URL.Location
 import zhttp.http._
-import zhttp.service.Client
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.DefaultRunnableSpec
 import zio.{Chunk, Has, ZIO, ZManaged}
