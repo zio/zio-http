@@ -1,15 +1,24 @@
 package zhttp.experiment
 
+import io.netty.buffer.ByteBuf
+import zhttp.http.HTTP_CHARSET
 import zio.{Chunk, Queue, UIO, ZIO}
 
-sealed trait ContentDecoder[-R, +E, +B] { self => }
+sealed trait ContentDecoder[-R, +E, +B] { self =>
+  def getContent(content:ByteBuf):ZIO[R,E,B]}
 
 object ContentDecoder {
 
-  case object Text extends ContentDecoder[Any, Nothing, String]
+  case object Text extends ContentDecoder[Any, Nothing, String] {
+    override def getContent(content: ByteBuf): ZIO[Any, Nothing, String] = ZIO.succeed(content.toString(HTTP_CHARSET))
+  }
 
   case class Custom[-R, +E, S, +B](state: S, run: (Chunk[Byte], S, Boolean) => ZIO[R, E, (Option[B], S)])
-      extends ContentDecoder[R, E, B]
+    extends ContentDecoder[R, E, B] {
+    override def getContent(content: ByteBuf): ZIO[R, E, B] = for {
+      (a,_)<- run(Chunk.fromArray(content.array()),state,true)
+    } yield a.get
+  }
 
   private[zhttp] case class BackPressure[B](queue: Option[Queue[B]] = None, isFirst: Boolean = true) {
     self =>

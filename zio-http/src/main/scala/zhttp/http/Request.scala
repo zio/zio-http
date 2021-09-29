@@ -1,7 +1,8 @@
 package zhttp.http
 
+import io.netty.buffer.{ByteBuf, Unpooled}
 import zhttp.experiment.ContentDecoder
-import zio.ZIO
+import zio._
 
 import java.net.InetAddress
 
@@ -43,7 +44,7 @@ trait Request extends HeadersHelpers { self =>
 }
 
 object Request {
-  def apply(method: Method = Method.GET, url: URL = URL.root, headers: List[Header] = Nil): Request = {
+  def apply(method: Method = Method.GET, url: URL = URL.root, headers: List[Header] = Nil, content :ByteBuf =Unpooled.EMPTY_BUFFER): Request = {
     val m = method
     val u = url
     val h = headers
@@ -57,7 +58,7 @@ object Request {
       override def remoteAddress: Option[InetAddress] = None
 
       override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, B]): ZIO[R, Throwable, B] =
-        ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+        decoder.getContent(content)
     }
   }
 }
