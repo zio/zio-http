@@ -57,8 +57,13 @@ object Request {
 
       override def remoteAddress: Option[InetAddress] = None
 
-      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, B]): ZIO[R, Throwable, B] =
-        decoder.getContent(content)
+      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, B]): ZIO[R, Throwable, B] =   for {
+      v<-decoder.getContent(content)
+      res <- v match {
+        case Some(value) => ZIO.succeed(value)
+        case None => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent.asInstanceOf[Throwable])
+      }
+      } yield res
     }
   }
 }
