@@ -173,13 +173,13 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
               val nState = ad.decoderState
 
               unsafeRunZIO(for {
-                (publish, state) <- run(Chunk.fromArray(content.array()), nState, isLast)
-                _                <- publish match {
+                a <- run(Chunk.fromArray(content.array()), nState, isLast)
+                _ <- a._1 match {
                   case Some(out) => ad.completePromise.succeed(out)
                   case None      => ZIO.unit
                 }
-                _                <- UIO {
-                  ad.decoderState = state
+                _ <- UIO {
+                  ad.decoderState = a._2
                   if (!isLast) ctx.read(): Unit
                 }
               } yield ())
