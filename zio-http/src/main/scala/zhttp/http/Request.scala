@@ -44,7 +44,12 @@ trait Request extends HeadersHelpers { self =>
 }
 
 object Request {
-  def apply(method: Method = Method.GET, url: URL = URL.root, headers: List[Header] = Nil, content :ByteBuf =Unpooled.EMPTY_BUFFER): Request = {
+  def apply(
+    method: Method = Method.GET,
+    url: URL = URL.root,
+    headers: List[Header] = Nil,
+    content: ByteBuf = Unpooled.EMPTY_BUFFER,
+  ): Request = {
     val m = method
     val u = url
     val h = headers
@@ -57,13 +62,26 @@ object Request {
 
       override def remoteAddress: Option[InetAddress] = None
 
-      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, B]): ZIO[R, Throwable, B] =   for {
-      v<-decoder.getContent(content)
-      res <- v match {
-        case Some(value) => ZIO.succeed(value)
-        case None => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent.asInstanceOf[Throwable])
-      }
-      } yield res
+      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, B]): ZIO[R, Throwable, B] =
+        for {
+          v   <- decoder.getContent(content)
+          res <- v match {
+            case Some(value) => ZIO.succeed(value)
+            case None        => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+          }
+        } yield res
+//
+//        decoder match {
+//        case ContentDecoder.Text  => ZIO(content.toString(HTTP_CHARSET))
+//        case ContentDecoder.Custom(state, run) =>for {
+//          (a, _) <- run(Chunk.fromArray(ByteBufUtil.getBytes(content)), state, true)
+//        res <- a match {
+//          case Some(value) => ZIO(value)
+//          case None => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+//        }
+//        } yield res
+//      }
+
     }
   }
 }
