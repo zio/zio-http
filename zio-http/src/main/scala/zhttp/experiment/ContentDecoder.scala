@@ -17,9 +17,8 @@ object ContentDecoder {
 
   case class Custom[R, E, S, B](state: S, run: (Chunk[Byte], S, Boolean) => ZIO[R, E, (Option[B], S)])
       extends ContentDecoder[R, E, B] {
-    override def getContent(content: ByteBuf): ZIO[R, E, Option[B]] = for {
-      (a, _) <- run(Chunk.fromArray(ByteBufUtil.getBytes(content)), state, true)
-    } yield a
+    override def getContent(content: ByteBuf): ZIO[R, E, Option[B]] =
+      run(Chunk.fromArray(ByteBufUtil.getBytes(content)), state, true).map(a => a._1)
   }
 
   private[zhttp] case class BackPressure[B](queue: Option[Queue[B]] = None, isFirst: Boolean = true) {
