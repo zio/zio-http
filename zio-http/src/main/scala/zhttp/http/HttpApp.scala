@@ -1,5 +1,7 @@
 package zhttp.http
 
+import java.net.{InetAddress, InetSocketAddress}
+
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel._
 import io.netty.handler.codec.http._
@@ -9,7 +11,6 @@ import zhttp.service.HttpRuntime
 import zio._
 import zio.stream.ZStream
 
-import java.net.{InetAddress, InetSocketAddress}
 import scala.annotation.unused
 
 case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =>
@@ -24,17 +25,30 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
   def +++[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] = self defaultWith other
 
   /**
-   * Consumes the input and executes the HttpApp.
+   * Checks in the HttpApp is defined for the given input value.
    */
-  def apply[R1 <: R, E1 >: E, A <: Request, B >: Response[R1, E1]](a: A): ZIO[R, Option[E], B] =
-    self.asHttp.execute(a).evaluate.asEffect
+  def isDefinedAt[A <: Request](a: A): Boolean = self.asHttp.execute(a).evaluate.isEmpty
 
   /**
-   * Evaluates the HttpApp and returns an HExit that can be resolved further
+   * Combines multiple Http apps into one
    */
-  def execute[R1 <: R, E1 >: E, A <: Request](
-    a: A,
-  ): HExit[R, E, Response[R, E]] = self.asHttp.execute(a)
+  def combine[R1 <: R, E1 >: E](i: Iterable[HttpApp[R1, E1]]): HttpApp[R1, E1] =
+    i.reduce(_.defaultWith(_))
+
+  /**
+   * Returns an HttpApp that peeks at the success, failed or empty value of this Http.
+   */
+  def tapAll[R1 <: R, E1 >: E, A, B](
+    f: E => HttpApp[R1, E1],
+    g: Response[R1, E1] => HttpApp[R1, E1],
+    h: HttpApp[R1, E1],
+  )(implicit ev1: A =:= Request): HttpApp[R1, E1] = HttpApp(
+    self.asHttp.foldM(
+      e => f(e).asHttp *> Http.fail(e),
+      x => g(x).asHttp *> Http.succeed(x),
+      h.asHttp *> Http.empty,
+    ),
+  )
 
   /**
    * Catches all the exceptions that the http app can fail with
@@ -383,5 +397,11 @@ object HttpApp {
    */
   def fromFunction[R, E, B](f: Request => HttpApp[R, E]): HttpApp[R, E] =
     HttpApp(Http.fromFunction[Request](f(_).asHttp).flatten)
+
+  /**
+   * Creates a Http app from a partial function from Request to HttpApp
+   */
+  def fromPartialFunction[R, E, B](f: Request => HttpApp[R, E]): HttpApp[R, E] =
+    HttpApp(Http.fromPartialFunction[Request](a => f(a).asHttp(a)))
 
 }
