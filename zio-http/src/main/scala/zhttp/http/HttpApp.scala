@@ -1,7 +1,5 @@
 package zhttp.http
 
-import java.net.{InetAddress, InetSocketAddress}
-
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel._
 import io.netty.handler.codec.http._
@@ -11,6 +9,7 @@ import zhttp.service.HttpRuntime
 import zio._
 import zio.stream.ZStream
 
+import java.net.{InetAddress, InetSocketAddress}
 import scala.annotation.unused
 
 case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =>
