@@ -8,7 +8,7 @@ import zhttp.http.HeadersHelpers.BasicSchemeName
 
 import scala.jdk.CollectionConverters._
 
-final case class Header private[Header] (name: CharSequence, value: CharSequence)
+final case class Header(name: CharSequence, value: CharSequence)
 
 object Header {
 

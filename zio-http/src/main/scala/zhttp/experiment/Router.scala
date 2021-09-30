@@ -5,7 +5,7 @@ import zio._
 
 import scala.util.Try
 
-sealed trait Router[A] {
+sealed trait Router[A] { self =>
   def /(name: String): Router[A]                                                     = ???
   def /[B, C](other: Router[B])(implicit ev: Router.Combine.Aux[A, B, C]): Router[C] = ???
 }
@@ -26,8 +26,8 @@ object Router {
     }
   }
 
-  sealed trait ![A] extends Router[A]
-  object ! {
+  sealed trait Arg[A] extends Router[A]
+  object Arg {
     def apply[A](implicit ev: RouteParam[A]): Router[A] = ???
   }
 
@@ -36,7 +36,7 @@ object Router {
     def /[B, C](other: Router[B])(implicit ev: Combine.Aux[Unit, B, C]): Router[C] = ???
   }
 
-  // val route = Method.GET / "a" / "b" / ![Int] / "c" / ![String] / ![Int]
+  val route: Router[(Int, String, Int)] = Method.GET / "a" / "b" / Arg[Int] / "c" / Arg[String] / Arg[Int]
 
   trait Request {
     def is[A](router: Router[A]): Boolean
