@@ -6,7 +6,7 @@ import zio.stream._
 
 object HelloWorld extends App {
 
-  def h1 = HttpApp {
+  def h1 = HttpApp.fromHttp {
     Http.collectM[Request] { case req =>
       req.decodeContent(ContentDecoder.text).map { content =>
         Response(data = HttpData.fromText(content))

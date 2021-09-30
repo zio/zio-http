@@ -30,7 +30,7 @@ object CORSSpec extends HttpRunnableSpec(8089) {
                 Header.custom(HttpHeaderNames.ORIGIN.toString(), "Test-env"),
               ),
             )
-            assertM(actual.map(_.headers))(
+            (assertM(actual.map(_.headers))(
               hasSubset(
                 List(
                   Header.custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS.toString(), "true"),
@@ -42,7 +42,11 @@ object CORSSpec extends HttpRunnableSpec(8089) {
                   ),
                 ),
               ),
-            )
+            ) <&> assertM(actual.map(_.status))(
+              equalTo(
+                Status.NO_CONTENT,
+              ),
+            )).map(d => d._1 && d._2)
           } +
             testM("GET request") {
               val actual = headers(

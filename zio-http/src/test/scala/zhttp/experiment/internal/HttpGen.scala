@@ -100,7 +100,7 @@ object HttpGen {
   def header = for {
     key   <- Gen.alphaNumericStringBounded(1, 4)
     value <- Gen.alphaNumericStringBounded(1, 4)
-  } yield Header.custom(key, value)
+  } yield Header(key, value)
 
   def response[R](gContent: Gen[R, List[String]]) = {
     for {
