@@ -70,18 +70,6 @@ object Request {
             case None        => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
           }
         } yield res
-//
-//        decoder match {
-//        case ContentDecoder.Text  => ZIO(content.toString(HTTP_CHARSET))
-//        case ContentDecoder.Custom(state, run) =>for {
-//          (a, _) <- run(Chunk.fromArray(ByteBufUtil.getBytes(content)), state, true)
-//        res <- a match {
-//          case Some(value) => ZIO(value)
-//          case None => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
-//        }
-//        } yield res
-//      }
-
     }
   }
 }
