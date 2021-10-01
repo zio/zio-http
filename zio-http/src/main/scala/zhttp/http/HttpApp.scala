@@ -38,11 +38,11 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
       import HttpResponseStatus._
       import HttpVersion._
 
-      private val cBody: ByteBuf                               = Unpooled.compositeBuffer()
-      private var decoder: ContentDecoder[Any, Throwable, Any] = _
-      private var completePromise: Promise[Throwable, Any]     = _
-      private var isFirst: Boolean                             = true
-      private var decoderState: Any                            = _
+      private val cBody: ByteBuf                                            = Unpooled.compositeBuffer()
+      private var decoder: ContentDecoder[Any, Throwable, Chunk[Byte], Any] = _
+      private var completePromise: Promise[Throwable, Any]                  = _
+      private var isFirst: Boolean                                          = true
+      private var decoderState: Any                                         = _
 
       override def channelRegistered(ctx: ChannelHandlerContext): Unit = {
         ctx.channel().config().setAutoRead(false)
@@ -153,7 +153,7 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
 
         def decodeContent(
           content: ByteBuf,
-          decoder: ContentDecoder[Any, Throwable, Any],
+          decoder: ContentDecoder[Any, Throwable, Chunk[Byte], Any],
           isLast: Boolean,
         ): Unit = {
           decoder match {
@@ -165,15 +165,15 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
                 ctx.read(): Unit
               }
 
-            case ContentDecoder.Custom(state, run) =>
+            case step: ContentDecoder.Step[_, _, _, _, _] =>
               if (ad.isFirst) {
-                ad.decoderState = state
+                ad.decoderState = step.state
                 ad.isFirst = false
               }
               val nState = ad.decoderState
 
               unsafeRunZIO(for {
-                (publish, state) <- run(Chunk.fromArray(content.array()), nState, isLast)
+                (publish, state) <- step.next(Chunk.fromArray(content.array()), nState, isLast)
                 _                <- publish match {
                   case Some(out) => ad.completePromise.succeed(out)
                   case None      => ZIO.unit
@@ -198,7 +198,7 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
               asHttp.asInstanceOf[Http[R, Throwable, Request, Response[R, Throwable]]],
               new Request {
                 override def decodeContent[R0, B](
-                  decoder: ContentDecoder[R0, Throwable, B],
+                  decoder: ContentDecoder[R0, Throwable, Chunk[Byte], B],
                 ): ZIO[R0, Throwable, B] =
                   ZIO.effectSuspendTotal {
                     if (ad.decoder != null)
@@ -207,7 +207,7 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
                       for {
                         p <- Promise.make[Throwable, B]
                         _ <- UIO {
-                          ad.decoder = decoder.asInstanceOf[ContentDecoder[Any, Throwable, B]]
+                          ad.decoder = decoder.asInstanceOf[ContentDecoder[Any, Throwable, Chunk[Byte], B]]
                           ad.completePromise = p.asInstanceOf[Promise[Throwable, Any]]
                           ctx.read(): Unit
                         }
