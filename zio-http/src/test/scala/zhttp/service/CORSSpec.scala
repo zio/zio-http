@@ -8,7 +8,7 @@ import zio.test.assertM
 import zio.{ZIO, ZManaged}
 
 object CORSSpec extends HttpRunnableSpec(8089) {
-  val env = EventLoopGroup.auto(1) ++ ChannelFactory.auto ++ ServerChannelFactory.auto
+  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
   val app: ZManaged[EventLoopGroup with ServerChannelFactory, Nothing, Unit] = serve {
     CORS(HttpApp.collect { case Method.GET -> !! / "success" =>
