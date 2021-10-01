@@ -59,14 +59,14 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
               val content = "content"
               val actual  = request(!! / path, Method.POST, content) *> getLengthForPath(state, path)
               assertM(actual)(isSome(isPositive[Int]))
+            } +
+            testM("post request with nonempty content and set content-length") {
+              val path    = "postWithNonemptyContentAndSetContentLength"
+              val content = "content"
+              val headers = List(Header.custom(contentLengthName, "dummy"))
+              val actual  = request(!! / path, Method.POST, content, headers) *> getLengthForPath(state, path)
+              assertM(actual)(isSome(isPositive[Int]))
             },
-          testM("post request with nonempty content and set content-length") {
-            val path    = "postWithNonemptyContentAndSetContentLength"
-            val content = "content"
-            val headers = List(Header.custom(contentLengthName, "dummy"))
-            val actual  = request(!! / path, Method.POST, content, headers) *> getLengthForPath(state, path)
-            assertM(actual)(isSome(isPositive[Int]))
-          },
         ),
       )
       .useNow,
