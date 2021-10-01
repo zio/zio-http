@@ -43,7 +43,12 @@ trait Request extends HeadersHelpers { self =>
 }
 
 object Request {
-  def apply(method: Method = Method.GET, url: URL = URL.root, headers: List[Header] = Nil): Request = {
+  def apply[R, E](
+    method: Method = Method.GET,
+    url: URL = URL.root,
+    headers: List[Header] = Nil,
+    content: HttpData[R, E] = HttpData.empty,
+  ): Request = {
     val m = method
     val u = url
     val h = headers
@@ -57,7 +62,14 @@ object Request {
       override def remoteAddress: Option[InetAddress] = None
 
       override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
-        ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+        for {
+          a   <- ContentDecoder.decodeContent(decoder, content)
+          res <- a match {
+            case Some(value) => ZIO(value)
+            case None        => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+          }
+        } yield res
+
     }
   }
 }

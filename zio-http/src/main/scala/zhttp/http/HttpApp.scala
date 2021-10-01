@@ -178,7 +178,7 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
                 ctx.read(): Unit
               }
 
-            case step: ContentDecoder.Step[_, _, _, _, _] =>
+            case step: ContentDecoder.Step[Any, Throwable, Any, Chunk[Byte], Any] =>
               if (ad.isFirst) {
                 ad.decoderState = step.state
                 ad.isFirst = false
