@@ -24,30 +24,17 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
   def +++[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] = self defaultWith other
 
   /**
-   * Checks in the HttpApp is defined for the given input value.
+   * Converts a failing Http app into a non-failing one by handling the failure and converting it to a result if
+   * possible.
    */
-  def isDefinedAt[A <: Request](a: A): Boolean = self.asHttp.execute(a).evaluate.isEmpty
+  def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1]]): HttpApp[R1, E1] =
+    self.catchAll(e => Http.succeed(s.silent(e)).toApp)
 
   /**
    * Combines multiple Http apps into one
    */
   def combine[R1 <: R, E1 >: E](i: Iterable[HttpApp[R1, E1]]): HttpApp[R1, E1] =
     i.reduce(_.defaultWith(_))
-
-  /**
-   * Returns an HttpApp that peeks at the success, failed or empty value of this Http.
-   */
-  def tapAll[R1 <: R, E1 >: E, A, B](
-    f: E => HttpApp[R1, E1],
-    g: Response[R1, E1] => HttpApp[R1, E1],
-    h: HttpApp[R1, E1],
-  )(implicit ev1: A =:= Request): HttpApp[R1, E1] = HttpApp(
-    self.asHttp.foldM(
-      e => f(e).asHttp *> Http.fail(e),
-      x => g(x).asHttp *> Http.succeed(x),
-      h.asHttp *> Http.empty,
-    ),
-  )
 
   /**
    * Catches all the exceptions that the http app can fail with
@@ -400,7 +387,7 @@ object HttpApp {
   /**
    * Creates a Http app from a partial function from Request to HttpApp
    */
-  def fromPartialFunction[R, E, B](f: Request => HttpApp[R, E]): HttpApp[R, E] =
-    HttpApp(Http.fromPartialFunction[Request](a => f(a).asHttp(a)))
+  def fromPartialFunction[R, E, A, B](f: Request => ZIO[R, Option[E], Response[R, E]]): HttpApp[R, E] =
+    HttpApp(Http.fromPartialFunction(f))
 
 }
