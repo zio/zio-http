@@ -240,11 +240,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def apply(a: A): ZIO[R, Option[E], B] = execute(a).evaluate.asEffect
 
   /**
-   * Checks in the Http is defined for the given input value.
-   */
-  final def isDefinedAt(a: A): Boolean = self.execute(a).evaluate.isEmpty
-
-  /**
    * Provides the environment to Http.
    */
   final def provide(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =

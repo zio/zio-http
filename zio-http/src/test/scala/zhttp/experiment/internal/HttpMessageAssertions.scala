@@ -7,7 +7,7 @@ import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
-import zio.test.{Assertion, TestResult, assertM}
+import zio.test.{assertM, Assertion, TestResult}
 import zio.{Chunk, Promise, Task, ZIO}
 
 import java.nio.charset.Charset
@@ -77,7 +77,7 @@ trait HttpMessageAssertions {
     def proxy: ZIO[R with EventLoopGroup, Throwable, HttpAppClient] = HttpAppClient.deploy(app)
 
     def getRequestContent[R1 <: R, A](
-      decoder: ContentDecoder[R1, Throwable, A],
+      decoder: ContentDecoder[R1, Throwable, Chunk[Byte], A],
       content: List[String] = List("A", "B", "C", "D"),
     ): ZIO[R1 with EventLoopGroup, Throwable, A] =
       for {
