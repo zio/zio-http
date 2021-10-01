@@ -1,8 +1,10 @@
 package zhttp.experiment
 
-import io.netty.buffer.ByteBufUtil
+import io.netty.buffer.{ByteBufUtil, CompositeByteBuf}
 import zhttp.http.{HTTP_CHARSET, HttpData}
 import zio.{Chunk, Queue, UIO, ZIO}
+
+import java.nio.ByteBuffer
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self => }
 
@@ -28,20 +30,19 @@ object ContentDecoder {
         content match {
           case HttpData.Empty           => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
           case HttpData.Text(text, _)   => ZIO(Option(text))
-          case HttpData.Binary(_)       => ???
+          case HttpData.Binary(data)    => ZIO(new String(data.toArray,HTTP_CHARSET))
           case HttpData.BinaryN(data)   => ZIO(Option(data.toString(HTTP_CHARSET)))
           case HttpData.BinaryStream(_) => ???
           case HttpData.Socket(_)       => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
         }
       case step: Step[R, Throwable, Any, Chunk[Byte], B] =>
         content match {
-          case HttpData.Empty           => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
-          case HttpData.Text(_, _)      => ???
-          case HttpData.Binary(data)    => step.next(data, step.state, true).map(a => a._1)
-          case HttpData.BinaryN(data)   =>
-            step.next(Chunk.fromArray(ByteBufUtil.getBytes(data)), step.state, true).map(a => a._1)
-          case HttpData.BinaryStream(_) => ???
-          case HttpData.Socket(_)       => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+          case HttpData.Empty                 => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+          case HttpData.Text(data, charset)   => step.next(Chunk.fromArray(data.getBytes(charset)), step.state, true).map(a => a._1)
+          case HttpData.Binary(data)          => step.next(data, step.state, true).map(a => a._1)
+          case HttpData.BinaryN(data)         => step.next(Chunk.fromArray(ByteBufUtil.getBytes(data)), step.state, true).map(a => a._1)
+          case HttpData.BinaryStream(_)       => ???
+          case HttpData.Socket(_)              => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
         }
     }
 
