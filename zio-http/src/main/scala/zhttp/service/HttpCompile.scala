@@ -11,8 +11,10 @@ import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
-private[zhttp] object HttpCompiler {
-  def compile[R, E](app: HttpApp[R, E], zExec: HttpRuntime[R])(implicit
+final case class HttpCompile[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRuntime[R])
+
+object HttpCompile {
+  def apply[R, E](app: HttpApp[R, E], zExec: HttpRuntime[R])(implicit
     evE: E <:< Throwable,
   ): ChannelHandler = new ChannelInboundHandlerAdapter {
     ad =>
@@ -239,7 +241,5 @@ private[zhttp] object HttpCompiler {
       response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.length)
       response
     }
-
   }
-
 }
