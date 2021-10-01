@@ -2,6 +2,8 @@ package zhttp.service
 
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
+import io.netty.handler.codec.http.HttpResponseStatus._
+import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
 import zhttp.experiment.ContentDecoder
 import zhttp.http.HttpApp.InvalidMessage
@@ -13,8 +15,6 @@ import java.net.{InetAddress, InetSocketAddress}
 
 final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRuntime[R])
     extends ChannelInboundHandlerAdapter { ad =>
-  import HttpResponseStatus._
-  import HttpVersion._
 
   private val cBody: ByteBuf                               = Unpooled.compositeBuffer()
   private var decoder: ContentDecoder[Any, Throwable, Any] = _
@@ -30,10 +30,16 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
   override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
     val void = ctx.voidPromise()
 
+    /**
+     * Writes ByteBuf data to the Channel
+     */
     def unsafeWriteLastContent[A](data: ByteBuf): Unit = {
       ctx.writeAndFlush(new DefaultLastHttpContent(data)): Unit
     }
 
+    /**
+     * Writes Binary Stream data to the Channel
+     */
     def writeStreamContent[A](stream: ZStream[R, Throwable, ByteBuf]) = {
       stream.process.map { pull =>
         def loop: ZIO[R, Throwable, Unit] = pull
@@ -54,10 +60,16 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
       }.useNow.flatten
     }
 
+    /**
+     * Writes any response to the Channel
+     */
     def unsafeWriteAnyResponse[A](res: Response[R, Throwable]): Unit = {
       ctx.write(decodeResponse(res), void): Unit
     }
 
+    /**
+     * Executes http apps
+     */
     def unsafeRun[A](http: Http[R, Throwable, A, Response[R, Throwable]], a: A): Unit = {
       http.execute(a).evaluate match {
         case HExit.Effect(resM) =>
@@ -117,18 +129,30 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
       }
     }
 
+    /**
+     * Writes error response to the Channel
+     */
     def unsafeWriteAndFlushErrorResponse(cause: Throwable): Unit = {
       ctx.writeAndFlush(serverErrorResponse(cause), void): Unit
     }
 
+    /**
+     * Writes not found error response to the Channel
+     */
     def unsafeWriteAndFlushNotFoundResponse(): Unit = {
       ctx.writeAndFlush(notFoundResponse, void): Unit
     }
 
+    /**
+     * Executes program
+     */
     def unsafeRunZIO(program: ZIO[R, Throwable, Any]): Unit = zExec.unsafeRun(ctx) {
       program
     }
 
+    /**
+     * Decodes content and executes according to the ContentDecoder provided
+     */
     def decodeContent(
       content: ByteBuf,
       decoder: ContentDecoder[Any, Throwable, Any],
