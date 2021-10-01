@@ -40,7 +40,7 @@ case class HttpAppClient(outbound: MessageQueue[HttpObject], channel: ProxyChann
   def data(iter: String*): Task[Unit] = data(iter)
 
   def data(iter: Iterable[String]): Task[Unit] = {
-    ZIO.foreach(iter)(writeText(_)).as(())
+    ZIO.foreach(iter)(writeText(_)).unit
   }
 
   def end(iter: Iterable[String]): Task[Unit] = {
@@ -50,7 +50,7 @@ case class HttpAppClient(outbound: MessageQueue[HttpObject], channel: ProxyChann
         .foreach(iter.zipWithIndex) { case (c, i) =>
           writeText(c, isLast = i == iter.size - 1)
         }
-        .as(())
+        .unit
   }
 
   def end: Task[Unit] = channel.writeM(new DefaultLastHttpContent(Unpooled.EMPTY_BUFFER))
