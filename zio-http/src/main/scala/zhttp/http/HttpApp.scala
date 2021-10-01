@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.channel._
-import zhttp.service.{HttpCompile, HttpRuntime}
+import zhttp.service.{Handler, HttpRuntime}
 import zio._
 
 import scala.annotation.unused
@@ -28,7 +28,7 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
   private[zhttp] def compile[R1 <: R](zExec: HttpRuntime[R1])(implicit
     evE: E <:< Throwable,
   ): ChannelHandler =
-    HttpCompile(self, zExec)
+    Handler(self, zExec)
 
   /**
    * Provides the environment to Http.
