@@ -7,7 +7,7 @@ import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
-import zio.test.{assertM, Assertion, TestResult}
+import zio.test.{Assertion, TestResult, assertM}
 import zio.{Chunk, Promise, Task, ZIO}
 
 import java.nio.charset.Charset
