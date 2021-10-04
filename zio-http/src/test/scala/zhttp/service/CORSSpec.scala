@@ -3,9 +3,9 @@ package zhttp.service
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.service.server._
+import zio.ZManaged
 import zio.test.Assertion._
 import zio.test.assertM
-import zio.{ZIO, ZManaged}
 
 object CORSSpec extends HttpRunnableSpec(8089) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
