@@ -100,6 +100,7 @@ object HttpAppClient {
     allowedThread: Thread,
   ) extends EmbeddedChannel() { self =>
     private var pendingRead: Boolean = false
+    private var canWrite             = true
 
     /**
      * Asserts if the function has been called within the same thread.
@@ -148,11 +149,22 @@ object HttpAppClient {
      */
     override def handleOutboundMessage(msg: AnyRef): Unit = {
       assertThread("handleOutboundMessage")
-      rtm
-        .unsafeRunAsync(outbound.offer(msg.asInstanceOf[HttpObject])) {
-          case Exit.Failure(cause) => System.err.println(cause.prettyPrint)
-          case _                   => ()
+      rtm.unsafeRunAsync {
+        if (canWrite) {
+          ZIO.effect(if (!msg.isInstanceOf[LastHttpContent]) {
+            canWrite = false
+
+          } else {
+            canWrite = true
+          }) *> outbound.offer(msg.asInstanceOf[HttpObject])
+
+        } else {
+          ZIO.fail(new Error("Unable to write"))
         }
+      } {
+        case Exit.Failure(cause) => System.err.println(cause.prettyPrint)
+        case _                   => ()
+      }
     }
 
     /**
