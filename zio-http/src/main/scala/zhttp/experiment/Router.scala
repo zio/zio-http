@@ -26,17 +26,14 @@ object Router {
     }
   }
 
-  sealed trait Arg[A] extends Router[A]
-  object Arg {
-    def apply[A](implicit ev: RouteParam[A]): Router[A] = ???
-  }
+  def apply[A](implicit ev: RouteParam[A]): Router[A] = ???
 
   implicit final class MethodRouterSyntax(val method: Method) extends AnyVal {
     def /(name: String): Router[Unit]                                              = ???
     def /[B, C](other: Router[B])(implicit ev: Combine.Aux[Unit, B, C]): Router[C] = ???
   }
 
-  val route: Router[(Int, String, Int)] = Method.GET / "a" / "b" / Arg[Int] / "c" / Arg[String] / Arg[Int]
+  val route: Router[(Int, String, Int)] = Method.GET / "a" / "b" / Router[Int] / "c" / Router[String] / Router[Int]
 
   trait Request {
     def is[A](router: Router[A]): Boolean
