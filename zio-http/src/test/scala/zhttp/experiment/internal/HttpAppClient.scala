@@ -4,8 +4,8 @@ import io.netty.buffer.Unpooled
 import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.handler.codec.http._
 import io.netty.util.CharsetUtil
-import zhttp.experiment.HttpEndpoint
-import zhttp.experiment.internal.EndpointClient.{MessageQueue, ProxyChannel}
+import zhttp.experiment.internal.HttpAppClient.{MessageQueue, ProxyChannel}
+import zhttp.http.HttpApp
 import zhttp.service.{EventLoopGroup, HttpRuntime}
 import zio._
 import zio.internal.Executor
@@ -14,7 +14,7 @@ import zio.stream.ZStream
 
 import scala.concurrent.ExecutionContext
 
-case class EndpointClient(outbound: MessageQueue[HttpObject], channel: ProxyChannel) { self =>
+case class HttpAppClient(outbound: MessageQueue[HttpObject], channel: ProxyChannel) { self =>
   def receive: UIO[HttpObject] = outbound.take
 
   def write(data: AnyRef): Task[Unit] = channel.writeM(data)
@@ -53,7 +53,7 @@ case class EndpointClient(outbound: MessageQueue[HttpObject], channel: ProxyChan
   def end(iter: String*): Task[Unit] = end(iter)
 }
 
-object EndpointClient {
+object HttpAppClient {
   sealed trait MessageQueue[A] {
     def offer(msg: A): UIO[Unit]
     def take: UIO[A]
@@ -109,7 +109,7 @@ object EndpointClient {
 
     /**
      * Schedules a `writeInbound` operation on the channel using the provided group. This is done to make sure that all
-     * the execution of HttpEndpoint happens in the same thread.
+     * the execution of HttpApp happens in the same thread.
      */
     def writeM(msg: => AnyRef): Task[Unit] = Task {
       assertThread("writeM")
@@ -139,7 +139,7 @@ object EndpointClient {
 
     /**
      * Handles all the outgoing messages ie all the `ctx.write()` and `ctx.writeAndFlush()` that happens inside of the
-     * HttpEndpoint.
+     * HttpApp.
      */
     override def handleOutboundMessage(msg: AnyRef): Unit = {
       assertThread("handleOutboundMessage")
@@ -151,7 +151,7 @@ object EndpointClient {
     }
 
     /**
-     * Called whenever `ctx.read()` is called from withing the HttpEndpoint
+     * Called whenever `ctx.read()` is called from withing the HttpApp
      */
     override def doBeginRead(): Unit = {
       assertThread("doBeginRead")
@@ -167,7 +167,7 @@ object EndpointClient {
     }
   }
 
-  def deploy[R](app: HttpEndpoint[R, Throwable]): ZIO[R with EventLoopGroup, Nothing, EndpointClient] = {
+  def deploy[R](app: HttpApp[R, Throwable]): ZIO[R with EventLoopGroup, Nothing, HttpAppClient] = {
     for {
       // Create a promise that resolves with the thread that is allowed for the execution
       // It is later used to guarantee that all the execution happens on the same thread.
@@ -189,7 +189,7 @@ object EndpointClient {
 
         val channel = ProxyChannel(inbound, outbound, ec, grtm, thread)
         channel.pipeline().addLast(app.compile(zExec))
-        EndpointClient(outbound, channel)
+        HttpAppClient(outbound, channel)
       }.on(ec)
     } yield proxy
   }

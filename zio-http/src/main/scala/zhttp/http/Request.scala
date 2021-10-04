@@ -1,7 +1,7 @@
 package zhttp.http
 
 import zhttp.experiment.ContentDecoder
-import zio.ZIO
+import zio.{Chunk, ZIO}
 
 import java.net.InetAddress
 
@@ -14,7 +14,7 @@ trait Request extends HeadersHelpers { self =>
 
   def path: Path = url.path
 
-  def decodeContent[R, E >: Throwable, B](decoder: ContentDecoder[R, E, B]): ZIO[R, E, B]
+  def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B]
 
   def remoteAddress: Option[InetAddress]
 
@@ -36,7 +36,7 @@ trait Request extends HeadersHelpers { self =>
       override def remoteAddress: Option[InetAddress] =
         self.remoteAddress
 
-      override def decodeContent[R, E >: Throwable, B](decoder: ContentDecoder[R, E, B]): ZIO[R, E, B] =
+      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
         self.decodeContent(decoder)
     }
   }
@@ -56,7 +56,7 @@ object Request {
 
       override def remoteAddress: Option[InetAddress] = None
 
-      override def decodeContent[R, E >: Throwable, B](decoder: ContentDecoder[R, E, B]): ZIO[R, E, B] =
+      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
         ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
     }
   }

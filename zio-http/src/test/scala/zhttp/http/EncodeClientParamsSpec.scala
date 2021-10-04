@@ -20,32 +20,33 @@ object EncodeClientParamsSpec extends DefaultRunnableSpec with EncodeClientParam
 
         val encoded                      = encodeClientParams(jVersion = HttpVersion.HTTP_1_1, req = request)
         assert(encoded.uri())(equalTo("/"))
-      },
-      testM("should encode a request with query parameters") {
-        val queryParamsGen =
-          Gen.mapOfBounded(1, 5)(
-            Gen.alphaNumericStringBounded(1, 5),
-            Gen.listOfBounded(1, 5)(Gen.alphaNumericStringBounded(1, 5)),
-          )
-        val uriGen = Gen.zipN(Gen.alphaNumericStringBounded(1, 5), Gen.const("/"), Gen.alphaNumericStringBounded(1, 5))(
-          _ ++ _ ++ _,
-        )
-
-        check(queryParamsGen, uriGen) { (queryParams, uri) =>
-          val queryString                                 = queryParamsAsString(queryParams)
-          val requestWithQueryParams: Client.ClientParams =
-            Client.ClientParams(
-              Method.GET -> URL(
-                Path(s"/$uri"),
-                Location.Absolute(Scheme.HTTP, "localhost", 8000),
-                queryParams,
-              ),
+      } +
+        testM("should encode a request with query parameters") {
+          val queryParamsGen =
+            Gen.mapOfBounded(1, 5)(
+              Gen.alphaNumericStringBounded(1, 5),
+              Gen.listOfBounded(1, 5)(Gen.alphaNumericStringBounded(1, 5)),
+            )
+          val uriGen         =
+            Gen.zipN(Gen.alphaNumericStringBounded(1, 5), Gen.const("/"), Gen.alphaNumericStringBounded(1, 5))(
+              _ ++ _ ++ _,
             )
 
-          val encoded = encodeClientParams(jVersion = HttpVersion.HTTP_1_1, req = requestWithQueryParams)
-          assert(encoded.uri())(equalTo(s"/$uri?$queryString"))
-        }
-      },
+          check(queryParamsGen, uriGen) { (queryParams, uri) =>
+            val queryString                                 = queryParamsAsString(queryParams)
+            val requestWithQueryParams: Client.ClientParams =
+              Client.ClientParams(
+                Method.GET -> URL(
+                  Path(s"/$uri"),
+                  Location.Absolute(Scheme.HTTP, "localhost", 8000),
+                  queryParams,
+                ),
+              )
+
+            val encoded = encodeClientParams(jVersion = HttpVersion.HTTP_1_1, req = requestWithQueryParams)
+            assert(encoded.uri())(equalTo(s"/$uri?$queryString"))
+          }
+        },
     ),
   )
 }

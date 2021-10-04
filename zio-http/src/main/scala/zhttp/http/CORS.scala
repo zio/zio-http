@@ -80,11 +80,11 @@ object CORS {
               ),
             )
           case (_, Some(origin), _) if allowCORS(origin, req.method) =>
-            httpApp >>>
+            httpApp.asHttp >>>
               Http.fromFunction[Response[R, E]](r => r.copy(headers = r.headers ++ corsHeaders(origin, req.method)))
-          case _                                                     => httpApp
+          case _                                                     => httpApp.asHttp
         }
       })
-    }
+    }.toApp
   }
 }

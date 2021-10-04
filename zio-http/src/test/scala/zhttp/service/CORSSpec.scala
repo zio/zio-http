@@ -48,26 +48,26 @@ object CORSSpec extends HttpRunnableSpec(8089) {
                 Status.NO_CONTENT,
               ),
             )
-          },
-          testM("GET request") {
-            val actual = headers(
-              !! / "success",
-              Method.GET,
-              "",
-              HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD -> Method.GET.toString(),
-              HttpHeaderNames.ORIGIN                        -> "Test-env",
-            )
-            assertM(actual)(
-              hasSubset(
-                List[Header](
-                  Header.custom(HttpHeaderNames.ACCESS_CONTROL_EXPOSE_HEADERS.toString(), "*"),
-                  Header.custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN.toString(), "Test-env"),
-                  Header.custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS.toString(), Method.GET.toString()),
-                  Header.custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS.toString(), "true"),
+          } +
+            testM("GET request") {
+              val actual = headers(
+                !! / "success",
+                Method.GET,
+                "",
+                HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD -> Method.GET.toString(),
+                HttpHeaderNames.ORIGIN                        -> "Test-env",
+              )
+              assertM(actual)(
+                hasSubset(
+                  List[Header](
+                    Header.custom(HttpHeaderNames.ACCESS_CONTROL_EXPOSE_HEADERS.toString(), "*"),
+                    Header.custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN.toString(), "Test-env"),
+                    Header.custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS.toString(), Method.GET.toString()),
+                    Header.custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS.toString(), "true"),
+                  ),
                 ),
-              ),
-            )
-          },
+              )
+            },
         ),
       )
       .useNow,

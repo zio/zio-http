@@ -1,5 +1,5 @@
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
-import zhttp.http.{Method, _}
+import zhttp.http._
 import zhttp.service.Server
 import zio._
 
@@ -27,23 +27,22 @@ object Authentication extends App {
   // Takes in a Failing HttpApp and a Succeed HttpApp which are called based on Authentication success or failure
   // For each request tries to read the `X-ACCESS-TOKEN` header
   // Validates JWT Claim
-  def authenticate[R, E](fail: HttpApp[R, E], success: JwtClaim => HttpApp[R, E]): HttpApp[R, E] = Http.flatten {
+  def authenticate[R, E](fail: HttpApp[R, E], success: JwtClaim => HttpApp[R, E]): HttpApp[R, E] =
     HttpApp.fromFunction {
       _.getHeader("X-ACCESS-TOKEN")
         .flatMap(header => jwtDecode(header.value.toString))
         .fold[HttpApp[R, E]](fail)(success)
     }
-  }
 
   // Http app that requires a JWT claim
-  def user(claim: JwtClaim): UHttpApp = Http.collect {
+  def user(claim: JwtClaim): UHttpApp = HttpApp.collect {
     case Method.GET -> !! / "user" / name / "greet" => Response.text(s"Welcome to the ZIO party! ${name}")
     case Method.GET -> !! / "user" / "expiration"   => Response.text(s"Expires in: ${claim.expiration.getOrElse(-1L)}")
   }
 
   // App that let's the user login
   // Login is successful only if the password is the reverse of the username
-  def login: UHttpApp = Http.collect { case Method.GET -> !! / "login" / username / password =>
+  def login: UHttpApp = HttpApp.collect { case Method.GET -> !! / "login" / username / password =>
     if (password.reverse == username) Response.text(jwtEncode(username))
     else Response.fromHttpError(HttpError.Unauthorized("Invalid username of password\n"))
   }
