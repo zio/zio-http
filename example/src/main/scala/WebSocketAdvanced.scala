@@ -19,9 +19,6 @@ object WebSocketAdvanced extends App {
     case WebSocketFrame.Text("BAR") => ZStream.succeed(WebSocketFrame.text("FOO"))
   }
 
-  // Setup protocol settings
-  private val protocol = SocketProtocol.subProtocol("json")
-
   // Setup decoder settings
   private val decoder = SocketDecoder.allowExtensions
 
@@ -33,8 +30,7 @@ object WebSocketAdvanced extends App {
       SocketApp.error(_ =>
         console.putStrLn("Error!").ignore,
       ) ++ // Called whenever there is an error on the socket channel
-      SocketApp.decoder(decoder) ++
-      SocketApp.protocol(protocol)
+      SocketApp.decoder(decoder)
 
   private val app = HttpEndpoint.mount {
     Http.collect[Request] {
