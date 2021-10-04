@@ -91,6 +91,7 @@ lazy val zhttp = (project in file("./zio-http"))
         "dev.zio"                %% "zio"                     % zioVersion,
         "dev.zio"                %% "zio-streams"             % zioVersion,
         "io.netty"                % "netty-all"               % "4.1.68.Final",
+        "io.netty.incubator"      % "netty-incubator-transport-native-io_uring" % "0.0.8.Final" classifier "linux-x86_64",
         "org.scala-lang.modules" %% "scala-collection-compat" % "2.5.0",
       ),
   )
