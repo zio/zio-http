@@ -4,8 +4,6 @@ import io.netty.channel._
 import zhttp.service.{Handler, HttpRuntime}
 import zio._
 
-import scala.annotation.unused
-
 case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =>
   def orElse[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
     HttpApp(self.asHttp orElse other.asHttp)

@@ -175,7 +175,9 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
           val nState = ad.decoderState
 
           unsafeRunZIO(for {
-            (publish, state) <- step.next(Chunk.fromArray(content.array()), nState, isLast)
+            (publish, state) <- step
+              .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], Any]]
+              .next(Chunk.fromArray(content.array()), nState, isLast)
             _                <- publish match {
               case Some(out) => ad.completePromise.succeed(out)
               case None      => ZIO.unit
