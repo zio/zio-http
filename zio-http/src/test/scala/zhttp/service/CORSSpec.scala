@@ -20,8 +20,8 @@ object CORSSpec extends HttpRunnableSpec(8089) {
     app
       .as(
         List(
-          testM("OPTIONS request") {
-            val actual: ZIO[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] = request(
+          testM("OPTIONS request headers") {
+            val actual = request(
               !! / "success",
               Method.OPTIONS,
               "",
@@ -30,7 +30,7 @@ object CORSSpec extends HttpRunnableSpec(8089) {
                 Header.custom(HttpHeaderNames.ORIGIN.toString(), "Test-env"),
               ),
             )
-            (assertM(actual.map(_.headers))(
+            assertM(actual.map(_.headers))(
               hasSubset(
                 List(
                   Header.custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS.toString(), "true"),
@@ -42,12 +42,24 @@ object CORSSpec extends HttpRunnableSpec(8089) {
                   ),
                 ),
               ),
-            ) <&> assertM(actual.map(_.status))(
-              equalTo(
-                Status.NO_CONTENT,
-              ),
-            )).map(d => d._1 && d._2)
+            )
           } +
+            testM("Option Request status") {
+              val actual = request(
+                !! / "success",
+                Method.OPTIONS,
+                "",
+                List[Header](
+                  Header.custom(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD.toString(), Method.GET.toString()),
+                  Header.custom(HttpHeaderNames.ORIGIN.toString(), "Test-env"),
+                ),
+              )
+              assertM(actual.map(_.status))(
+                equalTo(
+                  Status.NO_CONTENT,
+                ),
+              )
+            } +
             testM("GET request") {
               val actual = headers(
                 !! / "success",
