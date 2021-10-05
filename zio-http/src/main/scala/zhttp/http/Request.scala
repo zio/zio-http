@@ -36,14 +36,21 @@ trait Request extends HeadersHelpers { self =>
       override def remoteAddress: Option[InetAddress] =
         self.remoteAddress
 
-      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
+      override def decodeContent[R, B](
+        decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+      ): ZIO[R, Throwable, B] =
         self.decodeContent(decoder)
     }
   }
 }
 
 object Request {
-  def apply(method: Method = Method.GET, url: URL = URL.root, headers: List[Header] = Nil, content: HttpData[Any,Nothing]=HttpData.Empty): Request = {
+  def apply[R, E](
+    method: Method = Method.GET,
+    url: URL = URL.root,
+    headers: List[Header] = Nil,
+    content: HttpData[R, E] = HttpData.Empty,
+  ): Request = {
     val m = method
     val u = url
     val h = headers
@@ -56,7 +63,9 @@ object Request {
 
       override def remoteAddress: Option[InetAddress] = None
 
-      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
+      override def decodeContent[R1 <: R, B](
+        decoder: ContentDecoder[R1, Throwable, Chunk[Byte], B],
+      ): ZIO[R1, Throwable, B] =
         for {
           a   <- ContentDecoder.decodeContent(decoder, content)
           res <- a match {
