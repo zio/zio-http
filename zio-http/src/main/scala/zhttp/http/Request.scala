@@ -43,7 +43,7 @@ trait Request extends HeadersHelpers { self =>
 }
 
 object Request {
-  def apply[R1<: R,E1>:E](method: Method = Method.GET, url: URL = URL.root, headers: List[Header] = Nil, content: HttpData[R1,E1]=HttpData.empty): Request = {
+  def apply(method: Method = Method.GET, url: URL = URL.root, headers: List[Header] = Nil, content: HttpData[Any,Nothing]=HttpData.Empty): Request = {
     val m = method
     val u = url
     val h = headers
@@ -58,9 +58,9 @@ object Request {
 
       override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
         for {
-          v   <- decoder.getContent(content)
-          res <- v match {
-            case Some(value) => ZIO.succeed(value)
+          a   <- ContentDecoder.decodeContent(decoder, content)
+          res <- a match {
+            case Some(value) => ZIO(value)
             case None        => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
           }
         } yield res

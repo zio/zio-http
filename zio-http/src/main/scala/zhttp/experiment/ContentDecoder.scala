@@ -1,5 +1,7 @@
 package zhttp.experiment
 
+import io.netty.buffer.ByteBufUtil
+import zhttp.http.{HTTP_CHARSET, HttpData}
 import zio.{Chunk, Queue, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self => }
@@ -16,6 +18,31 @@ object ContentDecoder {
     def withQueue(queue: Queue[B]): BackPressure[B] = if (self.queue.isEmpty) self.copy(queue = Option(queue)) else self
     def withFirst(cond: Boolean): BackPressure[B]   = if (cond == isFirst) self else self.copy(isFirst = cond)
   }
+
+  def decodeContent[R, E, B](
+                              decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+                              content: HttpData[R, E],
+                            ): ZIO[R, Throwable, Option[B]] =
+    decoder match {
+      case Text                                          =>
+        content match {
+          case HttpData.Empty           => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+          case HttpData.Text(text, _)   => ZIO(Option(text))
+          case HttpData.Binary(data)    => ZIO(new String(data.toArray,HTTP_CHARSET))
+          case HttpData.BinaryN(data)   => ZIO(Option(data.toString(HTTP_CHARSET)))
+          case HttpData.BinaryStream(_) => ???
+          case HttpData.Socket(_)       => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+        }
+      case step: Step[R, Throwable, Any, Chunk[Byte], B] =>
+        content match {
+          case HttpData.Empty                 => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+          case HttpData.Text(data, charset)   => step.next(Chunk.fromArray(data.getBytes(charset)), step.state, true).map(a => a._1)
+          case HttpData.Binary(data)          => step.next(data, step.state, true).map(a => a._1)
+          case HttpData.BinaryN(data)         => step.next(Chunk.fromArray(ByteBufUtil.getBytes(data)), step.state, true).map(a => a._1)
+          case HttpData.BinaryStream(_)       => ???
+          case HttpData.Socket(_)              => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+        }
+    }
 
   val text: ContentDecoder[Any, Nothing, Any, String] = Text
 
