@@ -1,59 +1,63 @@
 package zhttp.http
 
-import io.netty.channel.ChannelHandlerContext
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpUtil}
+import zhttp.experiment.ContentDecoder
+import zio.{Chunk, ZIO}
 
-import java.net.{InetAddress, InetSocketAddress}
-import java.nio.charset.Charset
+import java.net.InetAddress
 
-// REQUEST
-final case class Request(
-  endpoint: Endpoint,
-  headers: List[Header] = List.empty,
-  content: HttpData[Any, Nothing] = HttpData.empty,
-  private val channelContext: ChannelHandlerContext = null,
-) extends HasHeaders
-    with HeadersHelpers { self =>
-  val method: Method = endpoint._1
-  val url: URL       = endpoint._2
-  val route: Route   = method -> url.path
+trait Request extends HeadersHelpers { self =>
+  def method: Method
 
-  val getCharset: Option[Charset] =
-    getHeaderValue(HttpHeaderNames.CONTENT_TYPE).map(HttpUtil.getCharset(_, HTTP_CHARSET))
+  def url: URL
 
-  def getBodyAsString: Option[String] = content match {
-    case HttpData.CompleteData(data) => Option(new String(data.toArray, getCharset.getOrElse(HTTP_CHARSET)))
-    case _                           => Option.empty
+  def headers: List[Header]
+
+  def path: Path = url.path
+
+  def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B]
+
+  def remoteAddress: Option[InetAddress]
+
+  def addHeader(header: Header): Request = self.copy(headers = header :: self.headers)
+
+  def removeHeader(name: CharSequence): Request = self.copy(headers = self.headers.filter(_.name != name))
+
+  def copy(method: Method = self.method, url: URL = self.url, headers: List[Header] = self.headers): Request = {
+    val m = method
+    val u = url
+    val h = headers
+    new Request {
+      override def method: Method = m
+
+      override def url: URL = u
+
+      override def headers: List[Header] = h
+
+      override def remoteAddress: Option[InetAddress] =
+        self.remoteAddress
+
+      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
+        self.decodeContent(decoder)
+    }
   }
-
-  def remoteAddress: Option[InetAddress] = {
-    if (channelContext != null && channelContext.channel().remoteAddress().isInstanceOf[InetSocketAddress])
-      Some(channelContext.channel().remoteAddress().asInstanceOf[InetSocketAddress].getAddress)
-    else
-      None
-  }
-
-  /**
-   * request with COOKIE header as list of cookies
-   */
-  def addCookies(cookies: List[Cookie]): Request =
-    self.copy(headers =
-      headers ++ List(
-        Header.custom(HttpHeaderNames.COOKIE.toString, cookies.map(p => p.name + "=" + p.content) mkString "; "),
-      ),
-    )
-
-  /**
-   * request with COOKIE from another response headers
-   */
-  def cookiesFromHeader(headers: List[Header]): Request = self.copy(headers =
-    headers ++ List(
-      Header.custom(
-        HttpHeaderNames.COOKIE.toString,
-        Response.cookies(headers).map(p => p.name + "=" + p.content) mkString "; ",
-      ),
-    ),
-  )
 }
 
-object Request {}
+object Request {
+  def apply(method: Method = Method.GET, url: URL = URL.root, headers: List[Header] = Nil): Request = {
+    val m = method
+    val u = url
+    val h = headers
+    new Request {
+      override def method: Method = m
+
+      override def url: URL = u
+
+      override def headers: List[Header] = h
+
+      override def remoteAddress: Option[InetAddress] = None
+
+      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
+        ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+    }
+  }
+}

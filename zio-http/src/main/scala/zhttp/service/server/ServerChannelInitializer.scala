@@ -1,22 +1,17 @@
 package zhttp.service.server
 
 import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer}
-import io.netty.handler.codec.http.{HttpObjectAggregator, HttpServerCodec, HttpServerKeepAliveHandler}
+import io.netty.channel.{Channel, ChannelInitializer}
+import io.netty.handler.codec.http.{HttpServerCodec, HttpServerKeepAliveHandler}
+import io.netty.handler.flow.FlowControlHandler
 import zhttp.service.Server.Settings
-import zhttp.service.{
-  HTTP_KEEPALIVE_HANDLER,
-  HTTP_REQUEST_HANDLER,
-  OBJECT_AGGREGATOR,
-  SERVER_CODEC_HANDLER,
-  SSL_HANDLER,
-}
+import zhttp.service._
 
 /**
  * Initializes the netty channel with default handlers
  */
 @Sharable
-final case class ServerChannelInitializer[R](httpH: ChannelHandler, settings: Settings[R, Throwable])
+final case class ServerChannelInitializer[R](zExec: HttpRuntime[R], settings: Settings[R, Throwable])
     extends ChannelInitializer[Channel] {
   override def initChannel(channel: Channel): Unit = {
 
@@ -32,10 +27,10 @@ final case class ServerChannelInitializer[R](httpH: ChannelHandler, settings: Se
     }
     channel
       .pipeline()
-      .addLast(SERVER_CODEC_HANDLER, new HttpServerCodec)
-      .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
-      .addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(settings.maxRequestSize))
-      .addLast(HTTP_REQUEST_HANDLER, httpH)
+      .addLast(new HttpServerCodec())                                  // TODO: See if server codec is really required
+      .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler) // TODO: Make keep-alive configurable
+      .addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
+      .addLast(HTTP_REQUEST_HANDLER, settings.app.compile(zExec))
     ()
   }
 

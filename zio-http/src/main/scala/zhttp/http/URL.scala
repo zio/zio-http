@@ -97,4 +97,6 @@ object URL {
         else s"${scheme.asString}://$host:$port$path"
     }
   }
+
+  def root: URL = URL(!!)
 }

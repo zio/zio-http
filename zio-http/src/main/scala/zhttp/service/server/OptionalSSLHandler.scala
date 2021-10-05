@@ -23,7 +23,6 @@ class OptionalSSLHandler(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour
           ()
         case _                       =>
           context.channel().pipeline().remove(HTTP_REQUEST_HANDLER)
-          context.channel().pipeline().remove(OBJECT_AGGREGATOR)
           context.channel().pipeline().remove(HTTP_KEEPALIVE_HANDLER)
           context.channel().pipeline().remove(this)
           context.channel().pipeline().addLast(new HttpOnHttpsHandler(httpBehaviour))

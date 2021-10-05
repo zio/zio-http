@@ -11,7 +11,7 @@ object EncodeResponseSpec extends DefaultRunnableSpec with EncodeResponse {
 
   def spec = suite("EncodeResponse")(
     test("should set multiple Headers with same name") {
-      val res    = Response.http(Status.OK, List(Header.custom("Set-Cookie", "x1"), Header.custom("Set-Cookie", "x2")))
+      val res    = Response(Status.OK, List(Header.custom("Set-Cookie", "x1"), Header.custom("Set-Cookie", "x2")))
       val actual = encodeResponse(HttpVersion.HTTP_1_1, res)
       assert(actual.headers().getAll("Set-Cookie").asScala.toList)(equalTo(List("x1", "x2")))
     },

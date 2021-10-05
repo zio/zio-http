@@ -4,7 +4,7 @@ import scalafix.sbt.ScalafixPlugin.autoImport._
 import xerial.sbt.Sonatype.autoImport._
 
 object BuildHelper extends ScalaSettings {
-  val Scala212   = "2.12.14"
+  val Scala212   = "2.12.15"
   val Scala213   = "2.13.6"
   val ScalaDotty = "3.0.2"
 
@@ -30,7 +30,6 @@ object BuildHelper extends ScalaSettings {
     "-Yrangepos",
     "-Xlint:_,-missing-interpolator,-type-parameter-shadow",
     "-Ywarn-numeric-widen",
-    "-Ywarn-value-discard",
     "-Ywarn-macros:after",
   )
 
@@ -52,7 +51,11 @@ object BuildHelper extends ScalaSettings {
       case Some((2, 12)) =>
         Seq("-Ywarn-unused:params,-implicits") ++ std2xOptions
       case Some((2, 13)) =>
-        Seq("-Ywarn-unused:params,-implicits", "-Ywarn-macros:after") ++ std2xOptions ++ tpoleCatSettings ++
+        Seq(
+          "-Ywarn-unused:params,-implicits",
+          "-Ywarn-macros:after",
+          "-Ywarn-value-discard",
+        ) ++ std2xOptions ++ tpoleCatSettings ++
           optimizerOptions(optimize)
       case _             => Seq.empty
     }

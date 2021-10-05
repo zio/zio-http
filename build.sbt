@@ -5,7 +5,7 @@ import scala.concurrent.duration.FiniteDuration
 import sbt.enablePlugins
 
 // ZIO Version
-val zioVersion            = "1.0.11"
+val zioVersion            = "1.0.12"
 val zioConfigVersion      = "1.0.2"
 val releaseDrafterVersion = "5"
 
@@ -90,7 +90,7 @@ lazy val zhttp = (project in file("./zio-http"))
       Seq(
         "dev.zio"                %% "zio"                     % zioVersion,
         "dev.zio"                %% "zio-streams"             % zioVersion,
-        "io.netty"                % "netty-all"               % "4.1.67.Final",
+        "io.netty"                % "netty-all"               % "4.1.68.Final",
         "org.scala-lang.modules" %% "scala-collection-compat" % "2.5.0",
       ),
   )

@@ -1,13 +1,13 @@
 package zhttp.http
 
-import zio.{CanFail, ZIO}
+import zio._
 
 import scala.annotation.unused
 
 /**
  * A functional domain to model Http apps using ZIO and that can work over any kind of request and response types.
  */
-sealed trait Http[-R, +E, -A, +B] { self =>
+sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
   import Http._
 
@@ -235,19 +235,63 @@ sealed trait Http[-R, +E, -A, +B] { self =>
     )
 
   /**
-   * Evaluates the app and returns an HttpResult that can be resolved further
+   * Consumes the input and executes the Http.
    */
-  final private[zhttp] def execute(a: A): HttpResult[R, E, B] = {
+  final def apply(a: A): ZIO[R, Option[E], B] = execute(a).evaluate.asEffect
+
+  /**
+   * Provides the environment to Http.
+   */
+  final def provide(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provide(r))
+
+  /**
+   * Provides some of the environment to Http.
+   */
+  final def provideSome[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provideSome(r))
+
+  final def toApp[R1 <: R, E1 >: E](implicit evA: Request <:< A, evB: B <:< Response[R1, E1]): HttpApp[R1, E1] =
+    HttpApp.fromHttp(self.asInstanceOf[Http[R, E, Request, Response[R, E]]])
+
+  /**
+   * Provides layer to Http.
+   */
+  final def provideLayer[E1 >: E, R0, R1](
+    layer: ZLayer[R0, E1, R1],
+  )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R]): Http[R0, E1, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provideLayer(layer.mapError(Option(_))))
+
+  /**
+   * Provide part of the environment to HTTP that is not part of ZEnv
+   */
+  final def provideCustomLayer[E1 >: E, R1 <: Has[_]](
+    layer: ZLayer[ZEnv, E1, R1],
+  )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): Http[ZEnv, E1, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provideCustomLayer(layer.mapError(Option(_))))
+
+  /**
+   * Provides some of the environment to Http leaving the remainder `R0`.
+   */
+  final def provideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E](
+    layer: ZLayer[R0, E1, R1],
+  )(implicit ev: R0 with R1 <:< R, tagged: Tag[R1]): Http[R0, E1, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provideSomeLayer(layer.mapError(Option(_))))
+
+  /**
+   * Evaluates the app and returns an HExit that can be resolved further
+   */
+  final private[zhttp] def execute(a: A): HExit[R, E, B] = {
     self match {
-      case Empty                   => HttpResult.empty
-      case Identity                => HttpResult.succeed(a.asInstanceOf[B])
-      case Succeed(b)              => HttpResult.succeed(b)
-      case Fail(e)                 => HttpResult.fail(e)
-      case FromEffectFunction(f)   => HttpResult.effect(f(a))
-      case Collect(pf)             => if (pf.isDefinedAt(a)) HttpResult.succeed(pf(a)) else HttpResult.empty
-      case Chain(self, other)      => HttpResult.suspend(self.execute(a) >>= (other.execute(_)))
+      case Empty                   => HExit.empty
+      case Identity                => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)              => HExit.succeed(b)
+      case Fail(e)                 => HExit.fail(e)
+      case FromEffectFunction(f)   => HExit.effect(f(a))
+      case Collect(pf)             => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
+      case Chain(self, other)      => HExit.suspend(self.execute(a) >>= (other.execute(_)))
       case FoldM(self, ee, bb, dd) =>
-        HttpResult.suspend {
+        HExit.suspend {
           self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
         }
     }
@@ -355,14 +399,40 @@ object Http {
   /**
    * Creates a Http from a pure function
    */
-  def fromFunction[A]: MkTotal[A] = new MkTotal[A](())
+  def fromFunction[A]: FromFunction[A] = new FromFunction[A](())
+
+  /**
+   * Creates a Http from an effectful pure function
+   */
+  def fromFunctionM[A]: FromFunctionM[A] = new FromFunctionM[A](())
+
+  /**
+   * Creates an `Http` from a function that takes a value of type `A` and returns with a `ZIO[R, Option[E], B]`. The
+   * returned effect can fail with a `None` to signal "not found" to the backend.
+   */
+  def fromPartialFunction[A]: FromPartialFunction[A] = new FromPartialFunction(())
+
+  final class FromPartialFunction[A](val unit: Unit) extends AnyVal {
+    def apply[R, E, B](f: A => ZIO[R, Option[E], B]): Http[R, E, A, B] = Http
+      .collectM[A] { case a =>
+        f(a).map(Http.succeed(_)).catchAll {
+          case Some(error) => UIO(Http.fail(error))
+          case None        => UIO(Http.empty)
+        }
+      }
+      .flatten
+  }
 
   /**
    * Creates an Http that delegates to other Https.
    */
   def route[A]: Http.MakeRoute[A] = Http.MakeRoute(())
 
-  final class MkTotal[A](val unit: Unit) extends AnyVal {
+  final class FromFunction[A](val unit: Unit) extends AnyVal {
     def apply[B](f: A => B): Http[Any, Nothing, A, B] = Http.identity[A].map(f)
+  }
+
+  final class FromFunctionM[A](val unit: Unit) extends AnyVal {
+    def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = Http.identity[A].mapM(f)
   }
 }

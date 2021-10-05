@@ -9,18 +9,12 @@ object CookieClientSide extends App {
   val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
   val url     = "https://github.com/dream11/zio-http"
   val headers = List(Header.host("github.com"))
-
   val program = for {
     res1 <- Client.request(url, headers)
-    res2 <- Client.request(
-      Request(
-        (Method.GET, URL.fromString(url).getOrElse(null)),
-        List(
-          Header.host("github.com"),
-        ),
-      ).cookiesFromHeader(res1.headers).addCookies(List(Cookie("a", "value"))),
-    ) //add set-cookie from response header to request
-    _    <- console.putStrLn {
+    res2 <- Client.request(url, headers) //add set-cookie from response header to request
+    _ = res2.addCookies(List(Cookie("a", "value")))
+    _ = res2.cookiesFromHeader(res1.headers)
+    _ <- console.putStrLn {
       Response.cookies(res2.headers).toString //Empty as cookies are already set
     }
   } yield ()

@@ -2,7 +2,7 @@ package zhttp.service
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.util.ResourceLeakDetector
-import zhttp.http.{Status, _}
+import zhttp.http.HttpApp
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
 import zio.{ZManaged, _}
@@ -19,10 +19,10 @@ sealed trait Server[-R, +E] { self =>
   private def settings[R1 <: R, E1 >: E](s: Settings[R1, E1] = Settings()): Settings[R1, E1] = self match {
     case Concat(self, other)  => other.settings(self.settings(s))
     case LeakDetection(level) => s.copy(leakDetectionLevel = level)
-    case App(http)            => s.copy(http = http)
     case MaxRequestSize(size) => s.copy(maxRequestSize = size)
     case Error(errorHandler)  => s.copy(error = Some(errorHandler))
     case Ssl(sslOption)       => s.copy(sslOption = sslOption)
+    case App(app)             => s.copy(app = app)
     case Address(address)     => s.copy(address = address)
   }
 
@@ -35,21 +35,21 @@ sealed trait Server[-R, +E] { self =>
 
 object Server {
   private[zhttp] final case class Settings[-R, +E](
-    http: HttpApp[R, E] = HttpApp.empty(Status.NOT_FOUND),
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
     error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
     sslOption: ServerSSLOptions = null,
+    app: HttpApp[R, E] = HttpApp.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
   private final case class LeakDetection(level: LeakDetectionLevel)                   extends UServer
   private final case class MaxRequestSize(size: Int)                                  extends UServer
-  private final case class App[R, E](http: HttpApp[R, E])                             extends Server[R, E]
   private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
   private final case class Address(address: InetSocketAddress)                        extends UServer
+  private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -70,30 +70,22 @@ object Server {
    */
   def start[R <: Has[_]](
     port: Int,
-    http: RHttpApp[R],
+    http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
     (Server.bind(port) ++ Server.app(http)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def start[R <: Has[_]](
-    hostname: String,
-    port: Int,
-    http: RHttpApp[R],
-  ): ZIO[R, Throwable, Nothing] =
-    (Server.bind(hostname, port) ++ Server.app(http)).make.useForever
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
-
-  def start[R <: Has[_]](
     address: InetAddress,
     port: Int,
-    http: RHttpApp[R],
+    http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
     (Server.app(http) ++ Server.bind(address, port)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def start[R <: Has[_]](
     socketAddress: InetSocketAddress,
-    http: RHttpApp[R],
+    http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
     (Server.app(http) ++ Server.bind(socketAddress)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
@@ -105,9 +97,8 @@ object Server {
     for {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
-      zExec          <- UnsafeChannelExecutor.make[R](eventLoopGroup).toManaged_
-      httpH           = ServerRequestHandler(zExec, settings)
-      init            = ServerChannelInitializer(httpH, settings)
+      zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
+      init            = ServerChannelInitializer(zExec, settings)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.address))
 
