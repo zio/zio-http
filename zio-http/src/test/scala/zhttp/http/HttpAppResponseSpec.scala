@@ -139,6 +139,10 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
         testM("Http.empty") {
           val app = HttpApp.fromHttp(Http.empty)
           assertM(app.getResponse)(isSubtype[LastHttpContent](anything))
+        } +
+        testM("Http.ok") {
+          val app = HttpApp.response(Response.ok)
+          assertM(app.getResponse)(isResponse(responseStatus(200)))
         }
     }.provideCustomLayer(env) @@ timeout(10 seconds)
 }

@@ -100,7 +100,8 @@ object HttpAppClient {
     allowedThread: Thread,
   ) extends EmbeddedChannel() { self =>
     private var pendingRead: Boolean = false
-    private var canWrite             = true
+
+    private var pendingFirstWrite = true // This is used to detect whether first response is written on a channel
 
     /**
      * Asserts if the function has been called within the same thread.
@@ -149,21 +150,22 @@ object HttpAppClient {
      */
     override def handleOutboundMessage(msg: AnyRef): Unit = {
       assertThread("handleOutboundMessage")
-      rtm.unsafeRunAsync {
-        if (canWrite) {
-          ZIO.effect(if (!msg.isInstanceOf[LastHttpContent]) {
-            canWrite = false
-
-          } else {
-            canWrite = true
-          }) *> outbound.offer(msg.asInstanceOf[HttpObject])
-
-        } else {
-          ZIO.fail(new Error("Unable to write"))
+      // Check if first HttpResponse is written
+      if (pendingFirstWrite || (msg.isInstanceOf[HttpContent] && !msg.isInstanceOf[HttpResponse])) {
+        pendingFirstWrite = false //  set the flag which indicates first HttpResponse is written
+        rtm.unsafeRunAsync {
+          outbound.offer(msg.asInstanceOf[HttpObject])
+        } {
+          case Exit.Failure(cause) => System.err.println(cause.prettyPrint)
+          case _                   => ()
         }
-      } {
-        case Exit.Failure(cause) => System.err.println(cause.prettyPrint)
-        case _                   => ()
+      } else {
+        // Throw exception if two messages of type HttpResponse is received
+        self.pipeline.fireExceptionCaught(
+          new Exception(
+            s"Invalid msg type: ${msg.getClass.getSimpleName}, Not Possible to write message of type HttpResponse twice for a request",
+          ),
+        ): Unit
       }
     }
 
