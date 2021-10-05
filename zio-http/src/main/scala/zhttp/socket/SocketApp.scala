@@ -132,6 +132,8 @@ object SocketApp {
    */
   def protocol(protocol: SocketProtocol): SocketApp[Any, Nothing] = Protocol(protocol)
 
+  def protocol(name: String): SocketApp[Any, Nothing] = Protocol(SocketProtocol.subProtocol(name))
+
   /**
    * Creates a new empty socket handler
    */

@@ -5,9 +5,12 @@ import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import zhttp.experiment.ContentDecoder
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.http._
+import zhttp.service.server.ServerSocketHandler
+import zhttp.socket.SocketApp
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
 
@@ -81,47 +84,53 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
               },
               res =>
                 for {
-                  _ <- UIO(unsafeWriteAnyResponse(res))
                   _ <- res.data match {
                     case HttpData.Empty =>
-                      UIO(unsafeWriteAndFlushNotFoundResponse())
+                      UIO(unsafeWriteAnyResponse(res)) *> UIO(unsafeWriteAndFlushNotFoundResponse())
 
                     case HttpData.Text(data, charset) =>
-                      UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset)))
+                      UIO(unsafeWriteAnyResponse(res)) *> UIO(
+                        unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset)),
+                      )
 
                     case HttpData.BinaryN(data) => UIO(unsafeWriteLastContent(data))
 
-                    case HttpData.Binary(data) =>
-                      UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray)))
-
+                    case HttpData.Binary(data)         =>
+                      UIO(unsafeWriteAnyResponse(res)) *> UIO(
+                        unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray)),
+                      )
                     case HttpData.BinaryStream(stream) =>
-                      writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
+                      UIO(unsafeWriteAnyResponse(res)) *> writeStreamContent(
+                        stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))),
+                      )
 
-                    case HttpData.Socket(_) => ???
+                    case HttpData.Socket(socket) => ZIO(handleHandshake(ctx, a.asInstanceOf[Request], socket))
                   }
                 } yield (),
             )
           }
 
-        case HExit.Success(a) =>
-          unsafeWriteAnyResponse(a)
-          a.data match {
+        case HExit.Success(b) =>
+          b.data match {
             case HttpData.Empty =>
+              unsafeWriteAnyResponse(b)
               unsafeWriteAndFlushNotFoundResponse()
 
             case HttpData.Text(data, charset) =>
+              unsafeWriteAnyResponse(b)
               unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset))
 
             case HttpData.BinaryN(data) =>
               unsafeWriteLastContent(data)
 
             case HttpData.Binary(data) =>
+              unsafeWriteAnyResponse(b)
               unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray))
 
             case HttpData.BinaryStream(stream) =>
               unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
 
-            case HttpData.Socket(_) => ???
+            case HttpData.Socket(socket) => handleHandshake(ctx, a.asInstanceOf[Request], socket): Unit
           }
 
         case HExit.Failure(e) => unsafeWriteAndFlushErrorResponse(e)
@@ -175,7 +184,9 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
           val nState = ad.decoderState
 
           unsafeRunZIO(for {
-            (publish, state) <- step.next(Chunk.fromArray(content.array()), nState, isLast)
+            (publish, state) <- step
+              .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], Any]]
+              .next(Chunk.fromArray(content.array()), nState, isLast)
             _                <- publish match {
               case Some(out) => ad.completePromise.succeed(out)
               case None      => ZIO.unit
@@ -241,6 +252,29 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
 
       case msg => ctx.fireExceptionCaught(InvalidMessage(msg)): Unit
     }
+  }
+
+  protected def handleHandshake(
+    ctx: ChannelHandlerContext,
+    req: Request,
+    socket: SocketApp[R, Throwable],
+  ) = {
+    val fullReq =
+      new DefaultFullHttpRequest(HTTP_1_1, req.method.asHttpMethod, req.url.asString, Unpooled.EMPTY_BUFFER, false)
+    fullReq.headers().setAll(Header.disassemble(req.headers))
+    ctx
+      .channel()
+      .pipeline()
+      .addLast(new WebSocketServerProtocolHandler(socket.config.protocol.javaConfig))
+      .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, socket.config))
+    ctx
+      .channel()
+      .eventLoop()
+      .submit(() => ctx.fireChannelRead(fullReq))
+      .addListener((_: Any) => {
+        ctx.channel().pipeline().remove(HTTP_HANDLER)
+        ctx.channel().config().setAutoRead(true): Unit
+      })
   }
 
   private def decodeResponse(res: Response[_, _]): HttpResponse = {

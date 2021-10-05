@@ -1,4 +1,3 @@
-import zhttp.experiment.HttpEndpoint
 import zhttp.http._
 import zhttp.service._
 import zhttp.socket._
@@ -19,6 +18,9 @@ object WebSocketAdvanced extends App {
     case WebSocketFrame.Text("BAR") => ZStream.succeed(WebSocketFrame.text("FOO"))
   }
 
+  // Setup protocol settings
+  private val protocol = SocketProtocol.subProtocol("json")
+
   // Setup decoder settings
   private val decoder = SocketDecoder.allowExtensions
 
@@ -30,14 +32,13 @@ object WebSocketAdvanced extends App {
       SocketApp.error(_ =>
         console.putStrLn("Error!").ignore,
       ) ++ // Called whenever there is an error on the socket channel
-      SocketApp.decoder(decoder)
+      SocketApp.decoder(decoder) ++
+      SocketApp.protocol(protocol)
 
-  private val app = HttpEndpoint.mount {
+  private val app = HttpApp.fromHttp {
     Http.collect[Request] {
       case req if req.url.path == !! / "subscriptions" =>
-        Response(
-          data = HttpData.fromSocket(socketApp),
-        )
+        Response(data = HttpData.fromSocket(socketApp))
     }
   }
 

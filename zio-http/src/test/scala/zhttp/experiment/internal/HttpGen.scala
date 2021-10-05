@@ -102,10 +102,11 @@ object HttpGen {
     value <- Gen.alphaNumericStringBounded(1, 4)
   } yield Header(key, value)
 
-  def response[R](gContent: Gen[R, List[String]]) =
+  def response[R](gContent: Gen[R, List[String]]) = {
     for {
       content <- HttpGen.content(gContent)
       headers <- HttpGen.header.map(List(_))
       status  <- HttpGen.status
     } yield Response(status, headers, content)
+  }
 }

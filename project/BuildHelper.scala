@@ -30,7 +30,6 @@ object BuildHelper extends ScalaSettings {
     "-Yrangepos",
     "-Xlint:_,-missing-interpolator,-type-parameter-shadow",
     "-Ywarn-numeric-widen",
-    "-Ywarn-value-discard",
     "-Ywarn-macros:after",
   )
 
@@ -52,7 +51,11 @@ object BuildHelper extends ScalaSettings {
       case Some((2, 12)) =>
         Seq("-Ywarn-unused:params,-implicits") ++ std2xOptions
       case Some((2, 13)) =>
-        Seq("-Ywarn-unused:params,-implicits", "-Ywarn-macros:after") ++ std2xOptions ++ tpoleCatSettings ++
+        Seq(
+          "-Ywarn-unused:params,-implicits",
+          "-Ywarn-macros:after",
+          "-Ywarn-value-discard",
+        ) ++ std2xOptions ++ tpoleCatSettings ++
           optimizerOptions(optimize)
       case _             => Seq.empty
     }

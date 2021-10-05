@@ -20,7 +20,7 @@ object CORSSpec extends HttpRunnableSpec(8089) {
     app
       .as(
         List(
-          testM("OPTIONS request") {
+          testM("OPTIONS request headers") {
             val actual = request(
               !! / "success",
               Method.OPTIONS,
@@ -43,12 +43,23 @@ object CORSSpec extends HttpRunnableSpec(8089) {
                 ),
               ),
             )
-            assertM(actual.map(_.status))(
-              equalTo(
-                Status.NO_CONTENT,
-              ),
-            )
           } +
+            testM("Option Request status") {
+              val actual = request(
+                !! / "success",
+                Method.OPTIONS,
+                "",
+                List[Header](
+                  Header.custom(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD.toString(), Method.GET.toString()),
+                  Header.custom(HttpHeaderNames.ORIGIN.toString(), "Test-env"),
+                ),
+              )
+              assertM(actual.map(_.status))(
+                equalTo(
+                  Status.NO_CONTENT,
+                ),
+              )
+            } +
             testM("GET request") {
               val actual = headers(
                 !! / "success",

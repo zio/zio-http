@@ -3,7 +3,6 @@ package zhttp.service
 import zhttp.http._
 import zhttp.service.server._
 import zio.test.Assertion.{isNone, isPositive, isSome}
-import zio.test.TestAspect.ignore
 import zio.test.assertM
 import zio.{Ref, UIO, ZIO, ZRef}
 
@@ -54,7 +53,7 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
             val path   = "getWithoutContent"
             val actual = status(!! / path) *> getLengthForPath(state, path)
             assertM(actual)(isNone)
-          } @@ ignore +
+          } +
             testM("post request with nonempty content") {
               val path    = "postWithNonemptyContent"
               val content = "content"
