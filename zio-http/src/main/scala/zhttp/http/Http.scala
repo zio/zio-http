@@ -251,8 +251,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def provideSome[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
     Http.fromPartialFunction[A](a => self(a).provideSome(r))
 
-  final def toApp[R1 <: R, E1 >: E](implicit evA: Request <:< A, evB: B <:< Response[R1, E1]): HttpApp[R1, E1] =
-    HttpApp.fromHttp(self.asInstanceOf[Http[R, E, Request, Response[R, E]]])
+  final def toApp[R1 <: R, E1 >: E](implicit evA: Request[R1, E1] <:< A, evB: B <:< Response[R1, E1]): HttpApp[R1, E1] =
+    HttpApp.fromHttp(self.asInstanceOf[Http[R, E, Request[R, E], Response[R, E]]])
 
   /**
    * Provides layer to Http.

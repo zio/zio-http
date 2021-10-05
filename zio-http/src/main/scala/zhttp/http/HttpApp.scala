@@ -4,7 +4,7 @@ import io.netty.channel._
 import zhttp.service.{Handler, HttpRuntime}
 import zio._
 
-case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =>
+case class HttpApp[-R, +E](asHttp: Http[R, E, Request[R, E], Response[R, E]]) { self =>
   def orElse[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
     HttpApp(self.asHttp orElse other.asHttp)
 
@@ -82,7 +82,7 @@ object HttpApp {
   /**
    * Creates an Http app from an Http type
    */
-  def fromHttp[R, E](http: Http[R, E, Request, Response[R, E]]): HttpApp[R, E] = HttpApp(http)
+  def fromHttp[R, E](http: Http[R, E, Request[R, E], Response[R, E]]): HttpApp[R, E] = HttpApp(http)
 
   /**
    * Creates an Http app which always fails with the same error.
@@ -97,19 +97,19 @@ object HttpApp {
   /**
    * Creates an Http app which accepts a request and produces response.
    */
-  def collect[R, E](pf: PartialFunction[Request, Response[R, E]]): HttpApp[R, E] =
+  def collect[R, E](pf: PartialFunction[Request[R, E], Response[R, E]]): HttpApp[R, E] =
     HttpApp(Http.collect(pf))
 
   /**
    * Creates an Http app which accepts a requests and produces a ZIO as response.
    */
-  def collectM[R, E](pf: PartialFunction[Request, ZIO[R, E, Response[R, E]]]): HttpApp[R, E] =
+  def collectM[R, E](pf: PartialFunction[Request[R, E], ZIO[R, E, Response[R, E]]]): HttpApp[R, E] =
     HttpApp(Http.collectM(pf))
 
   /**
    * Creates an Http app from a function that returns a ZIO
    */
-  def fromEffectFunction[R, E](f: Request => ZIO[R, E, Response[R, E]]): HttpApp[R, E] =
+  def fromEffectFunction[R, E](f: Request[R, E] => ZIO[R, E, Response[R, E]]): HttpApp[R, E] =
     HttpApp(Http.fromEffectFunction(f))
 
   /**
@@ -133,7 +133,9 @@ object HttpApp {
   def notFound: HttpApp[Any, HttpError] =
     HttpApp(
       Http
-        .fromFunction[Request](req => Http.succeed(Response.fromHttpError(HttpError.NotFound(req.url.path))))
+        .fromFunction[Request[Any, Nothing]](req =>
+          Http.succeed(Response.fromHttpError(HttpError.NotFound(req.url.path))),
+        )
         .flatten,
     )
 
@@ -146,13 +148,13 @@ object HttpApp {
   /**
    * Creates a Http app from a function from Request to HttpApp
    */
-  def fromFunction[R, E, B](f: Request => HttpApp[R, E]): HttpApp[R, E] =
-    HttpApp(Http.fromFunction[Request](f(_).asHttp).flatten)
+  def fromFunction[R, E, B](f: Request[R, E] => HttpApp[R, E]): HttpApp[R, E] =
+    HttpApp(Http.fromFunction[Request[R, E]](f(_).asHttp).flatten)
 
   /**
    * Creates a Http app from a partial function from Request to HttpApp
    */
-  def fromPartialFunction[R, E, A, B](f: Request => ZIO[R, Option[E], Response[R, E]]): HttpApp[R, E] =
+  def fromPartialFunction[R, E, A, B](f: Request[R, E] => ZIO[R, Option[E], Response[R, E]]): HttpApp[R, E] =
     HttpApp(Http.fromPartialFunction(f))
 
 }
