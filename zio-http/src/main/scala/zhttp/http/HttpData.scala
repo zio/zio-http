@@ -39,5 +39,5 @@ object HttpData {
 
   def fromChunk(data: Chunk[Byte]): HttpData[Any, Nothing] = Binary(data)
 
-  def fromSocket[R, E](socketApp: SocketApp[R, E]): HttpData[R, E] = Socket(socketApp)
+  def fromSocket[R, E](socketApp: SocketApp[R, E]): HttpData.Socket[R, E] = Socket(socketApp)
 }

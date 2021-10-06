@@ -1,9 +1,9 @@
 package zhttp.http
 
-import java.net.InetAddress
-
 import zhttp.experiment.ContentDecoder
 import zio.{Chunk, ZIO}
+
+import java.net.InetAddress
 
 trait Request extends HeadersHelpers { self =>
   def method: Method
@@ -49,10 +49,10 @@ trait Request extends HeadersHelpers { self =>
     case Some(_) => true
     case None    => false
   }
-  private def checkMethod: Boolean           = self.method.equals(Method.GET)
-  private def checkScheme: Boolean           = ???
+  private def checkWebSocketMethod: Boolean  = self.method.equals(Method.GET)
 
-  def validateRequest: Boolean = checkWebSocketKey && checkWebSocketUpgrade && checkMethod && checkScheme
+  def isValidWebSocketRequest: Boolean =
+    checkWebSocketKey && checkWebSocketUpgrade && checkWebSocketMethod
 }
 
 object Request {
