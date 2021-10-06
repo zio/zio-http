@@ -84,7 +84,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
                   _ <- UIO(unsafeWriteAnyResponse(res))
                   _ <- res.data match {
                     case HttpData.Empty =>
-                      UIO(unsafeWriteAndFlushNotFoundResponse())
+                      UIO(unsafeWriteLastContent(Unpooled.EMPTY_BUFFER))
 
                     case HttpData.Text(data, charset) =>
                       UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset)))
@@ -107,7 +107,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
           unsafeWriteAnyResponse(a)
           a.data match {
             case HttpData.Empty =>
-              unsafeWriteAndFlushNotFoundResponse()
+              unsafeWriteLastContent(Unpooled.EMPTY_BUFFER)
 
             case HttpData.Text(data, charset) =>
               unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset))
