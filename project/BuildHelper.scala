@@ -72,7 +72,7 @@ object BuildHelper extends ScalaSettings {
     )
     if (publishArtifacts) publishSettings else publishSettings ++ skipSettings
   }
-  def stdSettings(prjName: String)                          = Seq(
+  def stdSettings(prjName: String)              = Seq(
     name                           := s"$prjName",
     ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, ScalaDotty),
     ThisBuild / scalaVersion       := Scala213,

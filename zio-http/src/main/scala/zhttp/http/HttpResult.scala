@@ -78,7 +78,7 @@ object HttpResult {
     ee: E => HttpResult[R, EE, AA],
     aa: A => HttpResult[R, EE, AA],
     dd: HttpResult[R, EE, AA],
-  )                                                                       extends HttpResult[R, EE, AA]
+  ) extends HttpResult[R, EE, AA]
 
   // Help
   def succeed[A](a: A): HttpResult.Out[Any, Nothing, A] = Success(a)
