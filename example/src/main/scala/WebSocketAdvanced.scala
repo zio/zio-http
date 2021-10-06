@@ -38,7 +38,7 @@ object WebSocketAdvanced extends App {
   private val app = HttpApp.fromHttp {
     Http.collect[Request] {
       case req if req.url.path == !! / "subscriptions" && req.isValidWebSocketRequest =>
-        SocketResponse(data = HttpData.fromSocket(socketApp), req = req)
+        SocketResponse(socketApp = socketApp, req = req)
 
     }
   }

@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
+import zhttp.socket.SocketApp
 
 import java.security.MessageDigest
 import java.util.Base64
@@ -8,13 +9,13 @@ import java.util.Base64
 object SocketResponse {
   def apply[R, E](
     headers: List[Header] = Nil,
-    data: HttpData.Socket[R, E],
+    socketApp: SocketApp[R, E],
     req: Request,
   ): Response[R, E] = {
     Response(
       status = Status.SWITCHING_PROTOCOLS,
       headers = headers ++ webSocketHeaders(req),
-      data = data,
+      data = HttpData.fromSocket(socketApp),
     )
   }
   private def webSocketHeaders(req: Request) =
