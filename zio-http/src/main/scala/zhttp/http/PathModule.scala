@@ -10,8 +10,19 @@ private[zhttp] trait PathModule { module =>
     def append(name: String): Path = if (name.isEmpty) self else Path.Cons(name, self)
     def toList: List[String]
     def reverse: Path              = Path(toList.reverse)
-
-    override def toString: String = this.asString
+    def last: Option[String]       = self match {
+      case Path.End           => None
+      case Path.Cons(name, _) => Option(name)
+    }
+    def initial: Path                 = self match {
+      case Path.End           => self
+      case Path.Cons(_, path) => path
+    }
+    def isEnd: Boolean             = self match {
+      case Path.End        => true
+      case Path.Cons(_, _) => false
+    }
+    override def toString: String  = this.asString
 
     @tailrec
     final def startsWith(other: Path): Boolean = {
@@ -65,4 +76,5 @@ private[zhttp] trait PathModule { module =>
 
   @deprecated("Use `!!` operator instead.", "23-Aug-2021")
   val Root = !!
+
 }
