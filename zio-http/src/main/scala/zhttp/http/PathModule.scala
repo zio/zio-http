@@ -14,7 +14,7 @@ private[zhttp] trait PathModule { module =>
       case Path.End           => None
       case Path.Cons(name, _) => Option(name)
     }
-    def initial: Path                 = self match {
+    def initial: Path              = self match {
       case Path.End           => self
       case Path.Cons(_, path) => path
     }
