@@ -1,5 +1,6 @@
 package zhttp.http
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.experiment.ContentDecoder
 import zio.{Chunk, ZIO}
 
@@ -40,12 +41,12 @@ trait Request extends HeadersHelpers { self =>
         self.decodeContent(decoder)
     }
   }
-  private def checkWebSocketUpgrade: Boolean = self.getHeaderValue("Upgrade") match {
+  private def checkWebSocketUpgrade: Boolean = self.getHeaderValue(HttpHeaderNames.UPGRADE) match {
     case Some(value) if value.toLowerCase equals "websocket" => true
     case Some(_)                                             => false
     case None                                                => false
   }
-  private def checkWebSocketKey: Boolean     = self getHeaderValue "Sec-WebSocket-Key" match {
+  private def checkWebSocketKey: Boolean     = self getHeaderValue HttpHeaderNames.SEC_WEBSOCKET_KEY match {
     case Some(_) => true
     case None    => false
   }
