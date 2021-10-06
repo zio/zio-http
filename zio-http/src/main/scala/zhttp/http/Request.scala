@@ -40,6 +40,17 @@ trait Request extends HeadersHelpers { self =>
         self.decodeContent(decoder)
     }
   }
+  private def checkWebSocketUpgrade: Boolean = self.getHeaderValue("Upgrade") match {
+    case Some(value) if value.toLowerCase equals "websocket" => true
+    case Some(_)                                             => false
+    case None                                                => false
+  }
+  private def checkWebSocketKey: Boolean     = self getHeaderValue "Sec-WebSocket-Key" match {
+    case Some(_) => true
+    case None    => false
+  }
+
+  def validateRequest: Boolean = checkWebSocketKey && checkWebSocketUpgrade
 }
 
 object Request {
