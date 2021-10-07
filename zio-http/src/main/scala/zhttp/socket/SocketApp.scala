@@ -1,6 +1,6 @@
 package zhttp.socket
 
-import zhttp.http.{Response, SocketResponse}
+import zhttp.http.{Request, Response, SocketResponse}
 import zio._
 import zio.stream.ZStream
 
@@ -10,7 +10,7 @@ sealed trait SocketApp[-R, +E] { self =>
   import SocketApp._
   def ++[R1 <: R, E1 >: E](other: SocketApp[R1, E1]): SocketApp[R1, E1] = SocketApp.Concat(self, other)
 
-  def asResponse(key: Option[String] = None): Response[R, E] = SocketResponse(socketApp = self, webSocketKey = key)
+  def asResponse(req: Request): Response[R, E] = SocketResponse.from(socketApp = self, req = req)
 
   def config: SocketApp.SocketConfig[R, E] = {
     def loop(config: SocketApp[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] =

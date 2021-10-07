@@ -1,4 +1,3 @@
-import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.service._
 import zhttp.socket._
@@ -20,7 +19,7 @@ object WebSocketEcho extends App {
     HttpApp.collect {
       case Method.GET -> !! / "greet" / name        => Response.text(s"Greetings {$name}!")
       case req @ Method.GET -> !! / "subscriptions" =>
-        Response.socket(socket, req.getHeaderValue(HttpHeaderNames.SEC_WEBSOCKET_KEY))
+        Response.socket(socket, req)
     }
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
