@@ -10,7 +10,7 @@ final case class URL(
   path: Path,
   kind: URL.Location = URL.Location.Relative,
   queryParams: Map[String, List[String]] = Map.empty,
-)          { self =>
+) { self =>
   val host: Option[String] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.host)
