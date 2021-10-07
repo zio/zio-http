@@ -19,10 +19,11 @@ object ContentDecoder {
 
   val text: ContentDecoder[Any, Nothing, Any, String] = Text
 
-  def collect[R, E, S, A, B](state: S)(
-    run: (A, S, Boolean) => ZIO[R, E, (Option[B], S)],
-  ): ContentDecoder[R, E, A, B] =
-    Step(state, run)
+  def collect[S, A]: PartiallyAppliedCollect[S, A] = new PartiallyAppliedCollect(())
+
+  final class PartiallyAppliedCollect[S, A](val unit: Unit) extends AnyVal {
+    def apply[R, E, B](s: S)(f: (A, S, Boolean) => ZIO[R, E, (Option[B], S)]): ContentDecoder[R, E, A, B] = Step(s, f)
+  }
 
   val backPressure: ContentDecoder[Any, Nothing, Chunk[Byte], Queue[Chunk[Byte]]] =
     ContentDecoder.collect(BackPressure[Chunk[Byte]]()) { case (msg, state, _) =>
