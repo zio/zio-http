@@ -34,7 +34,14 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
      * Writes ByteBuf data to the Channel
      */
     def unsafeWriteLastContent[A](data: ByteBuf): Unit = {
-      ctx.writeAndFlush(new DefaultLastHttpContent(data)): Unit
+      ctx.writeAndFlush(new DefaultLastHttpContent(data), void): Unit
+    }
+
+    /**
+     * Writes last empty content to the Channel
+     */
+    def unsafeWriteAndFlushLastEmptyContent(): Unit = {
+      ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, void): Unit
     }
 
     /**
@@ -77,14 +84,14 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
             resM.foldM(
               {
                 case Some(cause) => UIO(unsafeWriteAndFlushErrorResponse(cause))
-                case None        => UIO(unsafeWriteAndFlushNotFoundResponse())
+                case None        => UIO(unsafeWriteAndFlushEmptyResponse())
               },
               res =>
                 for {
                   _ <- UIO(unsafeWriteAnyResponse(res))
                   _ <- res.data match {
                     case HttpData.Empty =>
-                      UIO(unsafeWriteAndFlushNotFoundResponse())
+                      UIO(unsafeWriteAndFlushLastEmptyContent())
 
                     case HttpData.Text(data, charset) =>
                       UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset)))
@@ -107,7 +114,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
           unsafeWriteAnyResponse(a)
           a.data match {
             case HttpData.Empty =>
-              unsafeWriteAndFlushNotFoundResponse()
+              unsafeWriteAndFlushLastEmptyContent()
 
             case HttpData.Text(data, charset) =>
               unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset))
@@ -125,7 +132,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
           }
 
         case HExit.Failure(e) => unsafeWriteAndFlushErrorResponse(e)
-        case HExit.Empty      => unsafeWriteAndFlushNotFoundResponse()
+        case HExit.Empty      => unsafeWriteAndFlushEmptyResponse()
       }
     }
 
@@ -139,7 +146,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
     /**
      * Writes not found error response to the Channel
      */
-    def unsafeWriteAndFlushNotFoundResponse(): Unit = {
+    def unsafeWriteAndFlushEmptyResponse(): Unit = {
       ctx.writeAndFlush(notFoundResponse, void): Unit
     }
 
