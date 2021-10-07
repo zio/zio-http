@@ -54,6 +54,12 @@ object RouteSpec extends DefaultRunnableSpec {
         assert(route(!! / "1" / "c"))(isSome(equalTo(1))) &&
         assert(route(!! / "1"))(isNone) &&
         assert(route(!! / "c"))(isNone)
+      } +
+      test("Route[Int] / c") {
+        val route = Route.get / Route[Int] / "c"
+        assert(route(!! / "1" / "c"))(isSome(equalTo(1))) &&
+        assert(route(!! / "1"))(isNone) &&
+        assert(route(!! / "c"))(isNone)
       }
   }
 }
