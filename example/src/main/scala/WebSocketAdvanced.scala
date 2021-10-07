@@ -1,3 +1,4 @@
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.service._
 import zhttp.socket._
@@ -38,7 +39,10 @@ object WebSocketAdvanced extends App {
   private val app = HttpApp.fromHttp {
     Http.collect[Request] {
       case req if req.url.path == !! / "subscriptions" && req.isValidWebSocketRequest =>
-        SocketResponse(socketApp = socketApp, req = req)
+        SocketResponse(
+          socketApp = socketApp,
+          webSocketKey = req.getHeaderValue(HttpHeaderNames.SEC_WEBSOCKET_KEY).getOrElse(""),
+        )
 
     }
   }

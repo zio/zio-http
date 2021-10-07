@@ -10,26 +10,25 @@ object SocketResponse {
   def apply[R, E](
     headers: List[Header] = Nil,
     socketApp: SocketApp[R, E],
-    req: Request,
+    webSocketKey: String,
   ): Response[R, E] = {
     Response(
       status = Status.SWITCHING_PROTOCOLS,
-      headers = headers ++ webSocketHeaders(req),
+      headers = headers ++ webSocketHeaders(webSocketKey),
       data = HttpData.fromSocket(socketApp),
     )
   }
-  private def webSocketHeaders(req: Request) =
+  private def webSocketHeaders(key: String) =
     List(
       Header.custom(HttpHeaderNames.UPGRADE.toString(), "websocket"),
       Header.custom(HttpHeaderNames.CONNECTION.toString(), "upgrade"),
-      Header.custom(HttpHeaderNames.SEC_WEBSOCKET_ACCEPT.toString(), secWebSocketAcceptHeader(req)),
+      Header.custom(HttpHeaderNames.SEC_WEBSOCKET_ACCEPT.toString(), secWebSocketAcceptHeader(key)),
     )
 
-  private def secWebSocketAcceptHeader(req: Request) = {
-    val secWebSocketKey: Option[String] = req.getHeaderValue("Sec-WebSocket-Key")
-    val globalUID                       = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-    val combinedKey                     = secWebSocketKey.getOrElse("") + globalUID
-    val sha1                            = MessageDigest.getInstance("SHA-1")
+  private def secWebSocketAcceptHeader(key: String) = {
+    val globalUID   = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+    val combinedKey = key + globalUID
+    val sha1        = MessageDigest.getInstance("SHA-1")
     Base64.getEncoder.encodeToString(sha1.digest(combinedKey.getBytes()))
   }
 }
