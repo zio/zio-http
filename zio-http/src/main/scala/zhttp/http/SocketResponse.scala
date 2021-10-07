@@ -9,7 +9,10 @@ import java.util.Base64
 object SocketResponse {
 
   def from[R, E](headers: List[Header] = Nil, socketApp: SocketApp[R, E], req: Request): Response[R, E] = {
-    val webSocketKey = req.getHeaderValue(HttpHeaderNames.SEC_WEBSOCKET_KEY).getOrElse("")
+    val webSocketKey = req.getHeaderValue(HttpHeaderNames.SEC_WEBSOCKET_KEY) match {
+      case Some(value) => value
+      case None        => throw new Error("sec-websocket-key not present in request headers")
+    }
     val wsHeader     = secWebSocketAcceptHeader(webSocketKey)
     Response(
       status = Status.SWITCHING_PROTOCOLS,
