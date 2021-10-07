@@ -22,13 +22,13 @@ object Response {
   /**
    * Creates a new WebSocket Response
    */
-  def socket[R, E](ss: SocketApp[R, E]): Response[R, E] = ss.asResponse
+  def socket[R, E](ss: SocketApp[R, E], key: Option[String]): Response[R, E] = ss.asResponse(key)
 
   /**
    * Creates a new WebSocket Response
    */
-  def socket[R, E](ss: Socket[R, E, WebSocketFrame, WebSocketFrame]): Response[R, E] =
-    SocketApp.message(ss).asResponse
+  def socket[R, E](ss: Socket[R, E, WebSocketFrame, WebSocketFrame], key: Option[String]): Response[R, E] =
+    SocketApp.message(ss).asResponse(key)
 
   def fromHttpError(error: HttpError): UResponse = {
     error match {
