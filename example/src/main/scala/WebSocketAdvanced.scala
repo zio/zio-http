@@ -41,7 +41,7 @@ object WebSocketAdvanced extends App {
       case req if req.url.path == !! / "subscriptions" && req.isValidWebSocketRequest =>
         SocketResponse(
           socketApp = socketApp,
-          webSocketKey = req.getHeaderValue(HttpHeaderNames.SEC_WEBSOCKET_KEY).getOrElse(""),
+          webSocketKey = req.getHeaderValue(HttpHeaderNames.SEC_WEBSOCKET_KEY),
         )
 
     }
