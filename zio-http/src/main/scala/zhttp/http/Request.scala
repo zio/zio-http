@@ -14,7 +14,10 @@ trait Request extends HeadersHelpers { self =>
 
   def path: Path = url.path
 
-  def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B]
+  def decodeContent[R, E, B](
+    decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+    content: RequestContent[R, E] = RequestContent.empty,
+  ): ZIO[R, Throwable, B]
 
   def remoteAddress: Option[InetAddress]
 
@@ -36,20 +39,20 @@ trait Request extends HeadersHelpers { self =>
       override def remoteAddress: Option[InetAddress] =
         self.remoteAddress
 
-      override def decodeContent[R, B](
+      override def decodeContent[R, E, B](
         decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+        content: RequestContent[R, E] = RequestContent.empty,
       ): ZIO[R, Throwable, B] =
-        self.decodeContent(decoder)
+        self.decodeContent(decoder, content)
     }
   }
 }
 
 object Request {
-  def apply[R, E](
+  def apply(
     method: Method = Method.GET,
     url: URL = URL.root,
     headers: List[Header] = Nil,
-    content: HttpData[R, E] = HttpData.Empty,
   ): Request = {
     val m = method
     val u = url
@@ -63,11 +66,14 @@ object Request {
 
       override def remoteAddress: Option[InetAddress] = None
 
-      override def decodeContent[R1 <: R, B](
-        decoder: ContentDecoder[R1, Throwable, Chunk[Byte], B],
-      ): ZIO[R1, Throwable, B] =
+      override def decodeContent[R, E, B](
+        decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+        content: RequestContent[R, E] = RequestContent.empty,
+      ): ZIO[R, Throwable, B] =
         for {
-          a   <- ContentDecoder.decodeContent(decoder, content)
+          r <- ZIO.environment[R]
+          c = RequestContent.provide(r, content)
+          a   <- ContentDecoder.decodeContent(decoder, c)
           res <- a match {
             case Some(value) => ZIO(value)
             case None        => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)

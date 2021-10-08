@@ -1,7 +1,7 @@
 package zhttp.experiment
 
 import io.netty.buffer.ByteBufUtil
-import zhttp.http.{HTTP_CHARSET, HttpData}
+import zhttp.http.{HTTP_CHARSET, RequestContent}
 import zio.{Chunk, Queue, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self => }
@@ -21,38 +21,38 @@ object ContentDecoder {
 
   def decodeContent[R, E, B](
     decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
-    content: HttpData[R, E],
+    content: RequestContent[Any, E],
   ): ZIO[R, Throwable, Option[B]] =
     decoder match {
       case Text                                     =>
         content match {
-          case HttpData.Empty           => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
-          case HttpData.Text(text, _)   => ZIO(Option(text))
-          case HttpData.Binary(data)    => ZIO(Some(new String(data.toArray, HTTP_CHARSET)))
-          case HttpData.BinaryN(data)   => ZIO(Option(data.toString(HTTP_CHARSET)))
-          case HttpData.BinaryStream(_) => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
-          case HttpData.Socket(_)       => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+          case RequestContent.Empty           => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+          case RequestContent.Text(text, _)   => ZIO(Option(text))
+          case RequestContent.Binary(data)    => ZIO(Some(new String(data.toArray, HTTP_CHARSET)))
+          case RequestContent.BinaryN(data)   => ZIO(Option(data.toString(HTTP_CHARSET)))
+          case RequestContent.BinaryStream(_) => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+
         }
       case step: ContentDecoder.Step[_, _, _, _, _] =>
         content match {
-          case HttpData.Empty               => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
-          case HttpData.Text(data, charset) =>
+          case RequestContent.Empty               => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+          case RequestContent.Text(data, charset) =>
             step
               .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
               .next(Chunk.fromArray(data.getBytes(charset)), step.state, true)
               .map(a => a._1)
-          case HttpData.Binary(data)        =>
+          case RequestContent.Binary(data)        =>
             step
               .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
               .next(data, step.state, true)
               .map(a => a._1)
-          case HttpData.BinaryN(data)       =>
+          case RequestContent.BinaryN(data)       =>
             step
               .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
               .next(Chunk.fromArray(ByteBufUtil.getBytes(data)), step.state, true)
               .map(a => a._1)
-          case HttpData.BinaryStream(_)     => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
-          case HttpData.Socket(_)           => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+          case RequestContent.BinaryStream(_)     => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+
         }
     }
 
