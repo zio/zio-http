@@ -16,7 +16,7 @@ trait Request extends HeadersHelpers { self =>
 
   def decodeContent[R, E, B](
     decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
-    content: RequestContent[R, E] = RequestContent.empty,
+    content: RequestContent[R, Throwable] = RequestContent.empty,
   ): ZIO[R, Throwable, B]
 
   def remoteAddress: Option[InetAddress]
@@ -41,7 +41,7 @@ trait Request extends HeadersHelpers { self =>
 
       override def decodeContent[R, E, B](
         decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
-        content: RequestContent[R, E] = RequestContent.empty,
+        content: RequestContent[R, Throwable] = RequestContent.empty,
       ): ZIO[R, Throwable, B] =
         self.decodeContent(decoder, content)
     }
@@ -68,7 +68,7 @@ object Request {
 
       override def decodeContent[R, E, B](
         decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
-        content: RequestContent[R, E] = RequestContent.empty,
+        content: RequestContent[R, Throwable] = RequestContent.empty,
       ): ZIO[R, Throwable, B] =
         for {
           r <- ZIO.environment[R]

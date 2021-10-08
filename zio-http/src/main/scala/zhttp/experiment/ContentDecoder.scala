@@ -1,6 +1,6 @@
 package zhttp.experiment
 
-import io.netty.buffer.ByteBufUtil
+import io.netty.buffer.{ByteBufUtil, Unpooled}
 import zhttp.http.{HTTP_CHARSET, RequestContent}
 import zio.{Chunk, Queue, UIO, ZIO}
 
@@ -19,7 +19,7 @@ object ContentDecoder {
     def withFirst(cond: Boolean): BackPressure[B]   = if (cond == isFirst) self else self.copy(isFirst = cond)
   }
 
-  def decodeContent[R, E, B](
+  def decodeContent[R, E<:Throwable, B](
     decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
     content: RequestContent[Any, E],
   ): ZIO[R, Throwable, Option[B]] =
@@ -30,7 +30,7 @@ object ContentDecoder {
           case RequestContent.Text(text, _)   => ZIO(Option(text))
           case RequestContent.Binary(data)    => ZIO(Some(new String(data.toArray, HTTP_CHARSET)))
           case RequestContent.BinaryN(data)   => ZIO(Option(data.toString(HTTP_CHARSET)))
-          case RequestContent.BinaryStream(_) => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+          case RequestContent.BinaryStream(s) => s.fold(Unpooled.compositeBuffer())((s,b)=>s.writeBytes(Array(b))).map(b=>Some(b.toString(HTTP_CHARSET)))
 
         }
       case step: ContentDecoder.Step[_, _, _, _, _] =>
@@ -51,8 +51,10 @@ object ContentDecoder {
               .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
               .next(Chunk.fromArray(ByteBufUtil.getBytes(data)), step.state, true)
               .map(a => a._1)
-          case RequestContent.BinaryStream(_)     => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
-
+          case RequestContent.BinaryStream(s)     => s.fold(Unpooled.compositeBuffer())((s,b)=>s.writeBytes(Array(b))).map(_.array()).map(Chunk.fromArray(_)).flatMap(step
+            .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
+            .next(_, step.state, true)
+            .map(a => a._1))
         }
     }
 
