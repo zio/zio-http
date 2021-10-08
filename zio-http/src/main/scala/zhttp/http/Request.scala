@@ -14,10 +14,7 @@ trait Request extends HeadersHelpers { self =>
 
   def path: Path = url.path
 
-  def decodeContent[R, E, B](
-    decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
-    content: RequestContent[R, Throwable] = RequestContent.empty,
-  ): ZIO[R, Throwable, B]
+  def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B]
 
   def remoteAddress: Option[InetAddress]
 
@@ -39,25 +36,30 @@ trait Request extends HeadersHelpers { self =>
       override def remoteAddress: Option[InetAddress] =
         self.remoteAddress
 
-      override def decodeContent[R, E, B](
+      override def decodeContent[R, B](
         decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
-        content: RequestContent[R, Throwable] = RequestContent.empty,
       ): ZIO[R, Throwable, B] =
-        self.decodeContent(decoder, content)
+        self.decodeContent(decoder)
     }
   }
 }
 
 object Request {
-  def apply(
+  def apply[R, E](
     method: Method = Method.GET,
     url: URL = URL.root,
     headers: List[Header] = Nil,
-  ): Request = {
+    content: RequestContent[R, E] = RequestContent.empty,
+  ): ZIO[R, Nothing, Request] = {
     val m = method
     val u = url
     val h = headers
-    new Request {
+
+    for {
+      r <- ZIO.environment[R]
+      c = RequestContent.provide(r, content)
+
+    } yield new Request {
       override def method: Method = m
 
       override def url: URL = u
@@ -66,13 +68,10 @@ object Request {
 
       override def remoteAddress: Option[InetAddress] = None
 
-      override def decodeContent[R, E, B](
-        decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
-        content: RequestContent[R, Throwable] = RequestContent.empty,
-      ): ZIO[R, Throwable, B] =
+      override def decodeContent[R1, B](
+        decoder: ContentDecoder[R1, Throwable, Chunk[Byte], B],
+      ): ZIO[R1, Throwable, B] =
         for {
-          r <- ZIO.environment[R]
-          c = RequestContent.provide(r, content)
           a   <- ContentDecoder.decodeContent(decoder, c)
           res <- a match {
             case Some(value) => ZIO(value)

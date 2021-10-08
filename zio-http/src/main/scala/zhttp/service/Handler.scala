@@ -208,9 +208,8 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
         unsafeRun(
           app.asHttp.asInstanceOf[Http[R, Throwable, Request, Response[R, Throwable]]],
           new Request {
-            override def decodeContent[R0, E0, B](
+            override def decodeContent[R0, B](
               decoder: ContentDecoder[R0, Throwable, Chunk[Byte], B],
-              content: RequestContent[R0, Throwable] = RequestContent.empty,
             ): ZIO[R0, Throwable, B] =
               ZIO.effectSuspendTotal {
                 if (ad.decoder != null)
