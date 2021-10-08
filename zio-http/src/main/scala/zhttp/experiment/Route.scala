@@ -69,8 +69,7 @@ object Route {
     def extract[A](r: RoutePath[A], p: Path): Option[A] = extract(r, p.toList.reverse)
 
     /**
-     * Recursively iterate through RoutePath and List of String.
-     * Returns Option of tuple in case of matching RoutePath
+     * Recursively iterate through RoutePath and List of String. Returns Option of tuple in case of matching RoutePath
      * and path list
      */
     private def extract[A](r: RoutePath[A], p: List[String]): Option[A] = {

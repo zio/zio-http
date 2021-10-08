@@ -5,10 +5,10 @@ object ListToOptionTuple {
   /**
    * Utility to create Tuple from a list
    */
-  def getOptionTuple(input: List[Any]): Option[Any] = if (input == List()) { Some(()) }
-  else
+  def getOptionTuple(input: List[Any]): Option[Any] =
     input match {
       // scalafmt: { maxColumn = 1200 }
+      case List()                                                                                                   => Some(())
       case List(a0)                                                                                                 => Some(a0)
       case List(a0, a1)                                                                                             => Some((a0, a1))
       case List(a0, a1, a2)                                                                                         => Some((a0, a1, a2))
