@@ -45,7 +45,7 @@ trait Request extends HeadersHelpers { self =>
 }
 
 object Request {
-  def apply[R, E](
+  def apply[R, E <: Throwable](
     method: Method = Method.GET,
     url: URL = URL.root,
     headers: List[Header] = Nil,
