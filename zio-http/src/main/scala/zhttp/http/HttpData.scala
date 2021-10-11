@@ -2,9 +2,8 @@ package zhttp.http
 
 import io.netty.buffer.ByteBuf
 import zhttp.socket.SocketApp
-import zio.Chunk
+import zio.{Chunk, Queue}
 import zio.stream.ZStream
-
 import java.nio.charset.Charset
 
 /**
@@ -40,4 +39,11 @@ object HttpData {
   def fromChunk(data: Chunk[Byte]): HttpData[Any, Nothing] = Binary(data)
 
   def fromSocket[R, E](socketApp: SocketApp[R, E]): HttpData[R, E] = Socket(socketApp)
+}
+
+case class AttributeData(name: String, value: Queue[Chunk[Byte]])
+case class FileData(name: String, value: Queue[Chunk[Byte]], contentType: String)
+final case class MultipartFormData(attributes: Map[String, AttributeData], files: Map[String, FileData])
+object MultipartFormData {
+  def empty: MultipartFormData = MultipartFormData(Map.empty, Map.empty)
 }

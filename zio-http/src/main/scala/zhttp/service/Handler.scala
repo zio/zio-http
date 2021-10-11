@@ -5,13 +5,15 @@ import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.multipart._
 import zhttp.experiment.ContentDecoder
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.http._
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
-
 import java.net.{InetAddress, InetSocketAddress}
+
+import scala.util.{Success, Try}
 
 final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRuntime[R])
     extends ChannelInboundHandlerAdapter { ad =>
@@ -28,7 +30,10 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
   }
 
   override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
-    val void = ctx.voidPromise()
+    val void                                     = ctx.voidPromise()
+    val factory                                  = new DefaultHttpDataFactory(DefaultHttpDataFactory.MINSIZE)
+    var JRequest0: Option[HttpRequest]           = None
+    var multipartDecoder: HttpPostRequestDecoder = null
 
     /**
      * Writes ByteBuf data to the Channel
@@ -159,14 +164,28 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
       isLast: Boolean,
     ): Unit = {
       decoder match {
-        case ContentDecoder.Text =>
+        case ContentDecoder.Text                      =>
           cBody.writeBytes(content)
           if (isLast) {
             unsafeRunZIO(ad.completePromise.succeed(cBody.toString(HTTP_CHARSET)))
           } else {
             ctx.read(): Unit
           }
+        case ContentDecoder.Multipart                 => {
+          multipartDecoder.offer(content.asInstanceOf[HttpContent])
+          if (isLast) {
+            val multipartData = multipartDecoder.getBodyHttpDatas().toArray().foldLeft(Try(MultipartFormData.empty)) {
+              case (Success(acc), f: FileUpload) => { ??? } // accumulate data to MultipartFormData
+              case (Success(acc), a: Attribute)  => { ??? } // accumulate data to MultipartFormData
+              case (acc, _)                      => acc
+            }
+            // Failure handling need to be added.
+            ad.completePromise.succeed(multipartData)
+          } else {
+            ctx.read()
+          }
 
+        }
         case step: ContentDecoder.Step[_, _, _, _, _] =>
           if (ad.isFirst) {
             ad.decoderState = step.state
@@ -197,7 +216,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
         // `autoRead` is set when the channel is registered in the event loop.
         // The explicit call here is added to make unit tests work properly
         ctx.channel().config().setAutoRead(false)
-
+        multipartDecoder = new HttpPostRequestDecoder(factory, jRequest)
         unsafeRun(
           app.asHttp.asInstanceOf[Http[R, Throwable, Request, Response[R, Throwable]]],
           new Request {

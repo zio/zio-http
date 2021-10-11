@@ -1,12 +1,14 @@
 package zhttp.experiment
 
+import zhttp.http.MultipartFormData
 import zio.{Chunk, Queue, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self => }
 
 object ContentDecoder {
 
-  case object Text extends ContentDecoder[Any, Nothing, Any, String]
+  case object Text      extends ContentDecoder[Any, Nothing, Any, String]
+  case object Multipart extends ContentDecoder[Any, Nothing, Any, MultipartFormData]
 
   case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])
       extends ContentDecoder[R, E, A, B]
@@ -18,8 +20,8 @@ object ContentDecoder {
   }
 
   val text: ContentDecoder[Any, Nothing, Any, String] = Text
-
-  def collect[S, A]: PartiallyAppliedCollect[S, A] = new PartiallyAppliedCollect(())
+  val multipart                                       = Multipart
+  def collect[S, A]: PartiallyAppliedCollect[S, A]    = new PartiallyAppliedCollect(())
 
   final class PartiallyAppliedCollect[S, A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](s: S)(f: (A, S, Boolean) => ZIO[R, E, (Option[B], S)]): ContentDecoder[R, E, A, B] = Step(s, f)
