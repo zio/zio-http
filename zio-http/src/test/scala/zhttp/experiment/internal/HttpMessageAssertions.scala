@@ -36,6 +36,18 @@ trait HttpMessageAssertions {
       res   <- proxy.receive
     } yield res.asInstanceOf[HttpResponse]
 
+    def getResponseCount(
+      url: String = "/",
+      method: HttpMethod = HttpMethod.GET,
+      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+      content: Iterable[String] = List("A", "B", "C", "D"),
+    ): ZIO[R with EventLoopGroup, Throwable, Int] = for {
+      proxy <- HttpAppClient.deploy(app)
+      _     <- proxy.request(url, method, header)
+      _     <- proxy.end(content)
+      count <- proxy.outbound.takeAll.map(_.count(_.isInstanceOf[HttpResponse]))
+    } yield count
+
     def getContent: ZIO[R with EventLoopGroup, Throwable, String] = getContent()
 
     def getContent(

@@ -59,34 +59,53 @@ case class HttpAppClient(outbound: MessageQueue[HttpObject], channel: ProxyChann
 }
 
 object HttpAppClient {
-  sealed trait MessageQueue[A] {
-    def offer(msg: A): UIO[Unit]
-    def take: UIO[A]
-    def takeN(n: Int): UIO[List[A]]
-    def asStream: ZStream[Any, Nothing, A]
+  sealed trait MessageQueue[A] { self =>
+    def offer(msg: A): UIO[Unit] =
+      self match {
+        case MessageQueue.Live(q)          => q.offer(msg).unit
+        case MessageQueue.Transactional(q) => q.offer(msg).commit
+      }
+
+    def take: UIO[A] = self match {
+      case MessageQueue.Live(q)          => q.take
+      case MessageQueue.Transactional(q) => q.take.commit
+    }
+
+    def takeN(n: Int): UIO[List[A]] =
+      self match {
+        case MessageQueue.Live(q)          => q.takeN(n)
+        case MessageQueue.Transactional(q) =>
+          def loop(list: List[A]): UIO[List[A]] = {
+            if (list.size == n) UIO(list)
+            else q.take.commit.flatMap(i => loop(i :: list))
+          }
+
+          loop(Nil)
+      }
+
+    def asStream: ZStream[Any, Nothing, A] =
+      self match {
+        case MessageQueue.Live(q)          => ZStream.fromQueue(q)
+        case MessageQueue.Transactional(q) => ZStream.fromTQueue(q)
+      }
+
+    def size: UIO[Int] = self match {
+      case MessageQueue.Live(q)          => q.size
+      case MessageQueue.Transactional(q) => q.size.commit
+    }
+
+    def takeAll: UIO[List[A]] = self match {
+      case MessageQueue.Live(q)          => q.takeAll
+      case MessageQueue.Transactional(q) => q.takeAll.commit
+    }
   }
 
+  /**
+   * Generic message queue which can support both TQueue or ZQueue.
+   */
   object MessageQueue {
-    case class Live[A](q: Queue[A]) extends MessageQueue[A] {
-      override def offer(msg: A): UIO[Unit]           = q.offer(msg).unit
-      override def take: UIO[A]                       = q.take
-      override def takeN(n: Int): UIO[List[A]]        = q.takeN(n)
-      override def asStream: ZStream[Any, Nothing, A] = ZStream.fromQueue(q)
-    }
-
-    case class Transactional[A](q: TQueue[A]) extends MessageQueue[A] {
-      override def offer(msg: A): UIO[Unit]           = q.offer(msg).commit.unit
-      override def take: UIO[A]                       = q.take.commit
-      override def takeN(n: Int): UIO[List[A]] = {
-        def loop(list: List[A]): UIO[List[A]] = {
-          if (list.size == n) UIO(list)
-          else q.take.commit.flatMap(i => loop(i :: list))
-        }
-
-        loop(Nil)
-      }
-      override def asStream: ZStream[Any, Nothing, A] = ZStream.fromTQueue(q)
-    }
+    case class Live[A](q: Queue[A])           extends MessageQueue[A]
+    case class Transactional[A](q: TQueue[A]) extends MessageQueue[A]
 
     def stm[A]: UIO[MessageQueue[A]]     = TQueue.unbounded[A].commit.map(Transactional(_))
     def default[A]: UIO[MessageQueue[A]] = Queue.unbounded[A].map(Live(_))
@@ -132,11 +151,9 @@ object HttpAppClient {
         // Triggers `fireChannelRead` on the channel handler.
         self.writeInbound(msg): Unit
       } else {
-
         // Insert message into internal "read" queue.
         // Messages will be pulled from that queue every time `ctx.read` is called.
         self.handleInboundMessage(msg): Unit
-
       }
 
     }
@@ -166,9 +183,7 @@ object HttpAppClient {
       } else {
         self.writeInbound(msg): Unit
         self.pendingRead = false
-
       }
-
     }
   }
 
