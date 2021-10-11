@@ -3,6 +3,7 @@ import zhttp.experiment.Route.{RoutePath, RouteToken}
 import zhttp.http._
 
 import scala.annotation.tailrec
+import scala.util.Try
 
 final case class Route[A](method: Method, routePath: RoutePath[A]) { self =>
 
@@ -82,7 +83,7 @@ object Route {
             else {
               head.extract(p.head) match {
                 case Some(value) => {
-                  if (value == ()) loop(tail, p.tail, output) else loop(tail, p.tail, value :: output)
+                  if (value.isInstanceOf[Unit]) loop(tail, p.tail, output) else loop(tail, p.tail, value :: output)
                 }
                 case None        => None
               }
@@ -157,13 +158,13 @@ object Route {
   }
   object RouteParam {
     implicit object IntExtract     extends RouteParam[Int]     {
-      override def extract(data: String): Option[Int] = data.toIntOption
+      override def extract(data: String): Option[Int] = Try(data.toInt).toOption
     }
     implicit object StringExtract  extends RouteParam[String]  {
       override def extract(data: String): Option[String] = Option(data)
     }
     implicit object BooleanExtract extends RouteParam[Boolean] {
-      override def extract(data: String): Option[Boolean] = data.toBooleanOption
+      override def extract(data: String): Option[Boolean] = Try(data.toBoolean).toOption
     }
   }
 
