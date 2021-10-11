@@ -5,7 +5,7 @@ import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.multipart._
+import io.netty.handler.codec.http.multipart.{DefaultHttpDataFactory, HttpPostRequestDecoder, FileUpload, Attribute}
 import zhttp.experiment.ContentDecoder
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.http._
@@ -108,6 +108,9 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
                     case HttpData.BinaryStream(stream) =>
                       writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
 
+                    case HttpData.MultipartFormData(_, _) =>
+                      UIO(unsafeWriteAndFlushLastEmptyContent()) // decoder.cleanFiles(); decoder.destroy()
+
                     case HttpData.Socket(_) => ???
                   }
                 } yield (),
@@ -131,6 +134,8 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
 
             case HttpData.BinaryStream(stream) =>
               unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
+
+            case HttpData.MultipartFormData(_, _) => unsafeWriteAndFlushEmptyResponse()
 
             case HttpData.Socket(_) => ???
           }
@@ -180,11 +185,12 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
         case ContentDecoder.Multipart                 => {
           multipartDecoder.offer(content.asInstanceOf[HttpContent])
           if (isLast) {
-            val multipartData = multipartDecoder.getBodyHttpDatas().toArray().foldLeft(Try(MultipartFormData.empty)) {
-              case (Success(acc), f: FileUpload) => { ??? } // accumulate data to MultipartFormData
-              case (Success(acc), a: Attribute)  => { ??? } // accumulate data to MultipartFormData
-              case (acc, _)                      => acc
-            }
+            val multipartData =
+              multipartDecoder.getBodyHttpDatas().toArray().foldLeft(Try(HttpData.MultipartFormData)) {
+                case (Success(acc), f: FileUpload) => { ??? } // accumulate data to MultipartFormData
+                case (Success(acc), a: Attribute)  => { ??? } // accumulate data to MultipartFormData
+                case (acc, _)                      => acc
+              }
             // Failure handling need to be added.
             ad.completePromise.succeed(multipartData)
           } else {

@@ -1,6 +1,6 @@
 package zhttp.experiment
 
-import zhttp.http.MultipartFormData
+import zhttp.http.HttpData
 import zio.{Chunk, Queue, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self => }
@@ -8,7 +8,7 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self => }
 object ContentDecoder {
 
   case object Text      extends ContentDecoder[Any, Nothing, Any, String]
-  case object Multipart extends ContentDecoder[Any, Nothing, Any, MultipartFormData]
+  case object Multipart extends ContentDecoder[Any, Nothing, Any, HttpData.MultipartFormData]
 
   case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])
       extends ContentDecoder[R, E, A, B]

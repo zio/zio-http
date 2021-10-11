@@ -18,6 +18,15 @@ object HttpData {
   private[zhttp] final case class BinaryN(data: ByteBuf)                        extends HttpData[Any, Nothing]
   private[zhttp] final case class BinaryStream[R, E](data: ZStream[R, E, Byte]) extends HttpData[R, E]
   private[zhttp] final case class Socket[R, E](app: SocketApp[R, E])            extends HttpData[R, E]
+  private[zhttp] final case class MultipartFormData(
+    attributes: Map[String, AttributeData],
+    files: Map[String, FileData],
+  )                                                                             extends HttpData[Any, Nothing]
+  private[zhttp] object MultipartFormData {
+    def empty: MultipartFormData = MultipartFormData(Map.empty, Map.empty)
+  }
+  case class AttributeData(name: String, value: Queue[Chunk[Byte]])
+  case class FileData(name: String, value: Queue[Chunk[Byte]], contentType: String)
 
   /**
    * Helper to create CompleteData from ByteBuf
@@ -39,11 +48,4 @@ object HttpData {
   def fromChunk(data: Chunk[Byte]): HttpData[Any, Nothing] = Binary(data)
 
   def fromSocket[R, E](socketApp: SocketApp[R, E]): HttpData[R, E] = Socket(socketApp)
-}
-
-case class AttributeData(name: String, value: Queue[Chunk[Byte]])
-case class FileData(name: String, value: Queue[Chunk[Byte]], contentType: String)
-final case class MultipartFormData(attributes: Map[String, AttributeData], files: Map[String, FileData])
-object MultipartFormData {
-  def empty: MultipartFormData = MultipartFormData(Map.empty, Map.empty)
 }
