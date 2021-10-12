@@ -9,13 +9,13 @@ object WebSocketAdvanced extends App {
   // Message Handlers
   private val open = Socket.succeed(WebSocketFrame.text("Greetings!"))
 
-  private val echo = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text(text) =>
+  private val echo = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text(text, _) =>
     ZStream.repeat(WebSocketFrame.text(s"Received: $text")).schedule(Schedule.spaced(1 second)).take(3)
   }
 
   private val fooBar = Socket.collect[WebSocketFrame] {
-    case WebSocketFrame.Text("FOO") => ZStream.succeed(WebSocketFrame.text("BAR"))
-    case WebSocketFrame.Text("BAR") => ZStream.succeed(WebSocketFrame.text("FOO"))
+    case WebSocketFrame.Text("FOO", _) => ZStream.succeed(WebSocketFrame.text("BAR"))
+    case WebSocketFrame.Text("BAR", _) => ZStream.succeed(WebSocketFrame.text("FOO"))
   }
 
   // Setup protocol settings
