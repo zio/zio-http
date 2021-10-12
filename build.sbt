@@ -90,7 +90,7 @@ lazy val zhttp = (project in file("./zio-http"))
       Seq(
         "dev.zio"                %% "zio"                     % zioVersion,
         "dev.zio"                %% "zio-streams"             % zioVersion,
-        "io.netty"                % "netty-all"               % "4.1.68.Final",
+        "io.netty"                % "netty-all"               % "4.1.69.Final",
         "org.scala-lang.modules" %% "scala-collection-compat" % "2.5.0",
       ),
   )
