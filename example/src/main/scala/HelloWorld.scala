@@ -21,7 +21,15 @@ object HelloWorld extends App {
     }
   }
 
-  def app: HttpApp[Any, Throwable] = h1 +++ h2
+  def h3 = HttpApp.endpoint(HttpApp.GET / "a" / Route[Int] / "b") { case (req, route) =>
+    Response.text(route.extract(req.path).toString)
+  }
+
+  def h4 = HttpApp.endpointM(HttpApp.GET / "a" / Route[Int] / "b") { case (req, route) =>
+    UIO(Response.text(route.extract(req.path).toString))
+  }
+
+  def app: HttpApp[Any, Throwable] = h1 +++ h2 +++ h3
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

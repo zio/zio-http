@@ -10,7 +10,7 @@ package object http extends PathModule with RequestSyntax with RouteDecoderModul
   type RHttpApp[-R]       = HttpApp[R, Throwable]
   type UHttp[-A, +B]      = Http[Any, Nothing, A, B]
   type Endpoint           = (Method, URL)
-  type Route              = (Method, Path)
+  type Router              = (Method, Path)
   type SilentResponse[-E] = CanBeSilenced[E, UResponse]
   type UResponse          = Response[Any, Nothing]
   type UHttpResponse      = Response[Any, Nothing]

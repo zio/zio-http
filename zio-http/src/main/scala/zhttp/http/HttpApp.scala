@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.channel._
+import zhttp.experiment.Route
 import zhttp.service.{Handler, HttpRuntime}
 import zio._
 
@@ -155,4 +156,32 @@ object HttpApp {
   def fromPartialFunction[R, E, A, B](f: Request => ZIO[R, Option[E], Response[R, E]]): HttpApp[R, E] =
     HttpApp(Http.fromPartialFunction(f))
 
+  /**
+   * Creates a HTTP app for a Route[A] from a function from Request to Response
+   */
+  def endpoint[R, E, A](route: Route[A])(pf: PartialFunction[(Request, Route[A]), Response[R, E]]): HttpApp[R, E] =
+    HttpApp.collect(req =>
+      route.extract(req) match {
+        case Some(_) => pf((req, route))
+        case None    => Response.fromHttpError(HttpError.NotFound(req.url.path))
+      },
+    )
+
+  /**
+   * Creates an Http app for a Route[A] from a function which accepts a requests and produces a ZIO as response
+   */
+  def endpointM[R, E, A](
+    route: Route[A],
+  )(pf: PartialFunction[(Request, Route[A]), ZIO[R, E, Response[R, E]]]): HttpApp[R, E] =
+    HttpApp.collectM(req =>
+      route.extract(req) match {
+        case Some(_) => pf((req, route))
+        case None    => UIO(Response.fromHttpError(HttpError.NotFound(req.url.path)))
+      },
+    )
+  
+  
+  def GET: Route[Unit]  = Route.get
+  def POST: Route[Unit] = Route.post
+  def PUT: Route[Unit]  = Route.put
 }
