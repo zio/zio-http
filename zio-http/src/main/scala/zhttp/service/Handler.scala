@@ -272,7 +272,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
       .eventLoop()
       .submit(() => ctx.fireChannelRead(fullReq))
       .addListener((_: Any) => {
-        ctx.channel().pipeline().remove(HTTP_HANDLER)
+        if (ctx.channel().pipeline().get(HTTP_HANDLER) != null) ctx.channel().pipeline().remove(HTTP_HANDLER)
         ctx.channel().config().setAutoRead(true): Unit
       })
   }

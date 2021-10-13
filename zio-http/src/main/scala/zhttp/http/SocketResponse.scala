@@ -11,14 +11,18 @@ object SocketResponse {
   def from[R, E](headers: List[Header] = Nil, socketApp: SocketApp[R, E], req: Request): Response[R, E] = {
     val webSocketKey = req.getHeaderValue(HttpHeaderNames.SEC_WEBSOCKET_KEY) match {
       case Some(value) => value
-      case None        => throw new Error("sec-websocket-key not present in request headers")
+      case None        => null
     }
-    val wsHeader     = secWebSocketAcceptHeader(webSocketKey)
-    Response(
-      status = Status.SWITCHING_PROTOCOLS,
-      data = HttpData.fromSocket(socketApp),
-      headers = headers ++ webSocketHeaders(wsHeader),
-    )
+    if (webSocketKey != null) {
+      val wsHeader = secWebSocketAcceptHeader(webSocketKey)
+      Response(
+        status = Status.SWITCHING_PROTOCOLS,
+        data = HttpData.fromSocket(socketApp),
+        headers = headers ++ webSocketHeaders(wsHeader),
+      )
+    } else {
+      Response.fromHttpError(HttpError.BadRequest("missing WS Key Header"))
+    }
   }
 
   private def webSocketHeaders(key: String) = List(

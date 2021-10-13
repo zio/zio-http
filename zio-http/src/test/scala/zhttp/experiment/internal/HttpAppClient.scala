@@ -6,7 +6,7 @@ import io.netty.handler.codec.http._
 import io.netty.util.CharsetUtil
 import zhttp.experiment.internal.HttpAppClient.{MessageQueue, ProxyChannel}
 import zhttp.http.HttpApp
-import zhttp.service.{EventLoopGroup, HttpRuntime}
+import zhttp.service.{EventLoopGroup, HTTP_HANDLER, HttpRuntime}
 import zio._
 import zio.internal.Executor
 import zio.stm.TQueue
@@ -14,12 +14,12 @@ import zio.stream.ZStream
 
 import scala.concurrent.ExecutionContext
 
-case class HttpAppClient(outbound: MessageQueue[HttpObject], channel: ProxyChannel) { self =>
-  def receive: UIO[HttpObject] = outbound.take
+case class HttpAppClient(outbound: MessageQueue[Any], channel: ProxyChannel) { self =>
+  def receive: UIO[Any] = outbound.take
 
   def write(data: AnyRef): Task[Unit] = channel.writeM(data)
 
-  def receiveN(n: Int): UIO[List[HttpObject]] = outbound.takeN(n)
+  def receiveN(n: Int): UIO[List[Any]] = outbound.takeN(n)
 
   def request(
     url: String = "/",
@@ -93,8 +93,8 @@ object HttpAppClient {
   }
 
   final case class ProxyChannel(
-    inbound: MessageQueue[HttpObject],
-    outbound: MessageQueue[HttpObject],
+    inbound: MessageQueue[Any],
+    outbound: MessageQueue[Any],
     ec: ExecutionContext,
     rtm: zio.Runtime[Any],
     allowedThread: Thread,
@@ -149,7 +149,7 @@ object HttpAppClient {
     override def handleOutboundMessage(msg: AnyRef): Unit = {
       assertThread("handleOutboundMessage")
       rtm
-        .unsafeRunAsync(outbound.offer(msg.asInstanceOf[HttpObject])) {
+        .unsafeRunAsync(outbound.offer(msg.asInstanceOf[Any])) {
           case Exit.Failure(cause) => System.err.println(cause.prettyPrint)
           case _                   => ()
         }
@@ -160,7 +160,7 @@ object HttpAppClient {
      */
     override def doBeginRead(): Unit = {
       assertThread("doBeginRead")
-      val msg = self.readInbound[HttpObject]()
+      val msg = self.readInbound[Any]()
       if (msg == null) {
         self.pendingRead = true
       } else {
@@ -186,14 +186,14 @@ object HttpAppClient {
       // Otherwise, it is possible to have messages being inserted out of order.
       grtm = rtm.withExecutor(Executor.fromExecutionContext(2048)(ec))
       zExec    <- HttpRuntime.dedicated[R](group)
-      outbound <- MessageQueue.default[HttpObject]
-      inbound  <- MessageQueue.default[HttpObject]
+      outbound <- MessageQueue.default[Any]
+      inbound  <- MessageQueue.default[Any]
       _        <- ZIO.effectSuspendTotal(threadRef.succeed(Thread.currentThread())).on(ec)
       thread   <- threadRef.await
       proxy    <- UIO {
 
         val channel = ProxyChannel(inbound, outbound, ec, grtm, thread)
-        channel.pipeline().addLast(app.compile(zExec))
+        channel.pipeline().addLast(HTTP_HANDLER, app.compile(zExec))
         HttpAppClient(outbound, channel)
       }.on(ec)
     } yield proxy
