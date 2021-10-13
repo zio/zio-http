@@ -185,10 +185,12 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
             (publish, state) <- step
               .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], Any]]
               .next(
+                // content.array() can fail in case of no backing byte array
+                // Link: https://livebook.manning.com/book/netty-in-action/chapter-5/54
                 Chunk.fromArray(content.array()),
                 nState,
                 isLast,
-              ) //content.array can fail, refer https://livebook.manning.com/book/netty-in-action/chapter-5/54
+              )
             _                <- publish match {
               case Some(out) => ad.completePromise.succeed(out)
               case None      => ZIO.unit
