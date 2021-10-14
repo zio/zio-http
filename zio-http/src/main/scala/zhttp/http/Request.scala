@@ -4,7 +4,7 @@ import io.netty.buffer.Unpooled
 import zhttp.experiment.ContentDecoder
 import zhttp.experiment.ContentDecoder.Text
 import zio.stream.ZStream
-import zio.{Chunk, ZIO}
+import zio.{Chunk, Task, ZIO}
 
 import java.net.InetAddress
 
@@ -36,17 +36,36 @@ trait Request extends HeadersHelpers { self =>
 }
 
 object Request {
-  def apply(method: Method = Method.GET, url: URL = URL.root, headers: List[Header] = Nil): Request = {
-    val m = method
-    val u = url
-    val h = headers
+  private[zhttp] sealed trait RequestContent
+
+  object RequestContent {
+    case class Text(data: String)                             extends RequestContent
+    case class Streaming(stream: ZStream[Any, Nothing, Byte]) extends RequestContent
+    case class Binary(data: Chunk[Byte])                      extends RequestContent
+  }
+
+  private[zhttp] def apply(
+    method: Method = Method.GET,
+    url: URL = URL.root,
+    headers: List[Header] = Nil,
+    remoteAddress: Option[InetAddress],
+    content: RequestContent,
+  ): Request = {
+    val m  = method
+    val u  = url
+    val h  = headers
+    val ra = remoteAddress
     new Request {
-      override def method: Method                     = m
-      override def url: URL                           = u
-      override def headers: List[Header]              = h
-      override def remoteAddress: Option[InetAddress] = None
+      override def method: Method                                                                                   = m
+      override def url: URL                                                                                         = u
+      override def headers: List[Header]                                                                            = h
+      override def remoteAddress: Option[InetAddress]                                                               = ra
       override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
-        ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+        content match {
+          case RequestContent.Text(data) => ???
+          case RequestContent.Streaming(stream) => ???
+          case RequestContent.Binary(data) => ???
+        }
     }
   }
 
@@ -77,10 +96,7 @@ object Request {
                   .next(Chunk.fromArray(content.getBytes(HTTP_CHARSET)), step.state, true)
                   .map(a => a._1)
             }
-            res <- a match {
-              case Some(value) => ZIO(value)
-              case None        => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
-            }
+            res <- contentFromOption(a)
           } yield res
       }
     }
@@ -113,10 +129,7 @@ object Request {
                   .next(content, step.state, true)
                   .map(a => a._1)
             }
-            res <- a match {
-              case Some(value) => ZIO(value)
-              case None        => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
-            }
+            res <- contentFromOption(a)
           } yield res
       }
     }
@@ -159,11 +172,15 @@ object Request {
                     .map(a => a._1),
                 )
           }
-          res <- a match {
-            case Some(value) => ZIO(value)
-            case None        => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
-          }
+          res <- contentFromOption(a)
         } yield res
+    }
+  }
+
+  private def contentFromOption[E <: Throwable, R, B, R1](a: Option[B]): Task[B] = {
+    a match {
+      case Some(value) => ZIO(value)
+      case None        => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
     }
   }
 }
