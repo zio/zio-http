@@ -1,7 +1,7 @@
 package zhttp.experiment
-import zhttp.experiment.Route.{HttpAppConstructor, RoutePath, RouteToken}
+import zhttp.experiment.Route.{RoutePath, RouteToken}
+import zhttp.http.HttpApp.HttpAppConstructor
 import zhttp.http._
-import zio.ZIO
 
 import scala.annotation.tailrec
 import scala.util.Try
@@ -48,36 +48,6 @@ final case class Route[A](method: Method, routePath: RoutePath[A]) { self =>
 }
 
 object Route {
-
-  // TODO: move to `HttpApp.scala`
-  sealed trait HttpAppConstructor[B] {
-    type ROut
-    type EOut
-    def make(f: Request => B): HttpApp[ROut, EOut]
-  }
-
-  object HttpAppConstructor {
-    type Aux[R, E, A] = HttpAppConstructor[A] {
-      type ROut = R
-      type EOut = E
-    }
-
-    implicit def f1[R, E]: Aux[R, E, Response[R, E]] = new HttpAppConstructor[Response[R, E]] {
-      override type ROut = R
-      override type EOut = E
-
-      override def make(f: Request => Response[R, E]): HttpApp[R, E] =
-        HttpApp.collect { case req => f(req) }
-    }
-
-    implicit def f2[R, E]: Aux[R, E, ZIO[R, E, Response[R, E]]] = new HttpAppConstructor[ZIO[R, E, Response[R, E]]] {
-      override type ROut = R
-      override type EOut = E
-
-      override def make(f: Request => ZIO[R, E, Response[R, E]]): HttpApp[R, E] =
-        HttpApp.collectM { case req => f(req) }
-    }
-  }
 
   private def unit[A]: Option[A] = Option(().asInstanceOf[A])
 
