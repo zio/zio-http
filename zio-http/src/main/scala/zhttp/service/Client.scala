@@ -145,7 +145,7 @@ object Client {
   ) extends HeadersHelpers { self =>
     val method: Method = endpoint._1
     val url: URL       = endpoint._2
-    val route: Router   = method -> url.path
+    val route: Router  = method -> url.path
 
     def getBodyAsString: Option[String] = content match {
       case HttpData.Text(text, _) => Some(text)

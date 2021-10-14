@@ -179,8 +179,7 @@ object HttpApp {
         case None    => UIO(Response.fromHttpError(HttpError.NotFound(req.url.path)))
       },
     )
-  
-  
+
   def GET: Route[Unit]  = Route.get
   def POST: Route[Unit] = Route.post
   def PUT: Route[Unit]  = Route.put
