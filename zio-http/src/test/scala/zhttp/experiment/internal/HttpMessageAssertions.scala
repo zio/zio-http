@@ -9,8 +9,9 @@ import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
 import zio.test.{Assertion, TestResult, assertM}
 import zio.{Chunk, Promise, Task, ZIO}
-
 import java.nio.charset.Charset
+
+import io.netty.buffer.{ByteBuf, ByteBufUtil}
 
 trait HttpMessageAssertions {
 
@@ -37,14 +38,18 @@ trait HttpMessageAssertions {
     } yield res.asInstanceOf[HttpResponse]
 
     def getWebSocketResponse(
-      url: String = "/",
+      url: String = "/subscriptions",
       method: HttpMethod = HttpMethod.GET,
       header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
-    ): ZIO[R with EventLoopGroup, Throwable, HttpResponse] = for {
+    ): ZIO[R with EventLoopGroup, Throwable, Any] = for {
       proxy <- HttpAppClient.deploy(app)
-      _     <- proxy.request(url, method, header)
-      res   <- proxy.receive
-    } yield res.asInstanceOf[HttpResponse]
+      _ = println("url " + url)
+      _ = println("method " + method)
+      _ = println("header " + header)
+      _   <- proxy.request(url, method, header)
+      res <- proxy.receive
+      _ = println("response " + res)
+    } yield ByteBufUtil.getBytes(res.asInstanceOf[ByteBuf]).mkString("")
 
     def getWebSocketFrame(
       url: String = "/",
@@ -57,6 +62,18 @@ trait HttpMessageAssertions {
         res   <- proxy.receive
       } yield (res.asInstanceOf[HttpResponse], proxy)
     }.flatMap(x => x._2.receive)
+
+    def getResponseCount(
+      url: String = "/",
+      method: HttpMethod = HttpMethod.GET,
+      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+      content: Iterable[String] = List("A", "B", "C", "D"),
+    ): ZIO[R with EventLoopGroup, Throwable, Int] = for {
+      proxy <- HttpAppClient.deploy(app)
+      _     <- proxy.request(url, method, header)
+      _     <- proxy.end(content)
+      count <- proxy.outbound.takeAll.map(_.count(_.isInstanceOf[HttpResponse]))
+    } yield count
 
     def getContent: ZIO[R with EventLoopGroup, Throwable, String] = getContent()
 

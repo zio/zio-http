@@ -1,12 +1,10 @@
-import java.util.concurrent.TimeUnit
+import sbt.enablePlugins
+import Dependencies._
 import BuildHelper.{Scala213, publishSetting, stdSettings}
 
 import scala.concurrent.duration.FiniteDuration
-import sbt.enablePlugins
+import java.util.concurrent.TimeUnit
 
-// ZIO Version
-val zioVersion            = "1.0.12"
-val zioConfigVersion      = "1.0.2"
 val releaseDrafterVersion = "5"
 
 lazy val root = (project in file("."))
@@ -52,11 +50,7 @@ ThisBuild / githubWorkflowBuildPreamble :=
   ).steps
 
 // Test Configuration
-ThisBuild / libraryDependencies ++=
-  Seq(
-    "dev.zio" %% "zio-test"     % zioVersion % "test",
-    "dev.zio" %% "zio-test-sbt" % zioVersion % "test",
-  )
+ThisBuild / libraryDependencies ++= Seq(`zio-test`, `zio-test-sbt`)
 ThisBuild / testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 
 // Projects
@@ -86,13 +80,7 @@ lazy val zhttp = (project in file("./zio-http"))
           new URL("https://github.com/amitksingh1490"),
         ),
       ),
-    libraryDependencies ++=
-      Seq(
-        "dev.zio"                %% "zio"                     % zioVersion,
-        "dev.zio"                %% "zio-streams"             % zioVersion,
-        "io.netty"                % "netty-all"               % "4.1.68.Final",
-        "org.scala-lang.modules" %% "scala-collection-compat" % "2.5.0",
-      ),
+    libraryDependencies ++= Seq(`zio`, `zio-streams`, netty, `scala-compact-collection`)
   )
 
 // Project Benchmarks
@@ -102,10 +90,7 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
   .settings(stdSettings("zhttpBenchmarks"))
   .settings(publishSetting(false))
   .settings(
-    libraryDependencies ++=
-      Seq(
-        "dev.zio" %% "zio" % zioVersion,
-      ),
+    libraryDependencies ++= Seq(zio),
   )
 
 // Testing Package
@@ -120,9 +105,7 @@ lazy val example = (project in file("./example"))
   .settings(
     fork                      := true,
     Compile / run / mainClass := Option("HelloWorld"),
-    libraryDependencies ++= Seq(
-      "com.github.jwt-scala" %% "jwt-core" % "9.0.1",
-    ),
+    libraryDependencies ++= Seq(`jwt-core`),
   )
   .dependsOn(zhttp)
 

@@ -37,7 +37,14 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
      * Writes ByteBuf data to the Channel
      */
     def unsafeWriteLastContent[A](data: ByteBuf): Unit = {
-      ctx.writeAndFlush(new DefaultLastHttpContent(data)): Unit
+      ctx.writeAndFlush(new DefaultLastHttpContent(data), void): Unit
+    }
+
+    /**
+     * Writes last empty content to the Channel
+     */
+    def unsafeWriteAndFlushLastEmptyContent(): Unit = {
+      ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, void): Unit
     }
 
     /**
@@ -80,29 +87,25 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
             resM.foldM(
               {
                 case Some(cause) => UIO(unsafeWriteAndFlushErrorResponse(cause))
-                case None        => UIO(unsafeWriteAndFlushNotFoundResponse())
+                case None        => UIO(unsafeWriteAndFlushEmptyResponse())
               },
               res =>
                 for {
+                  _ <- UIO(unsafeWriteAnyResponse(res))
                   _ <- res.data match {
                     case HttpData.Empty =>
-                      UIO(unsafeWriteAnyResponse(res)) *> UIO(unsafeWriteAndFlushNotFoundResponse())
+                      UIO(unsafeWriteAndFlushLastEmptyContent())
 
                     case HttpData.Text(data, charset) =>
-                      UIO(unsafeWriteAnyResponse(res)) *> UIO(
-                        unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset)),
-                      )
+                      UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset)))
 
                     case HttpData.BinaryN(data) => UIO(unsafeWriteLastContent(data))
 
-                    case HttpData.Binary(data)         =>
-                      UIO(unsafeWriteAnyResponse(res)) *> UIO(
-                        unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray)),
-                      )
+                    case HttpData.Binary(data) =>
+                      UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray)))
+
                     case HttpData.BinaryStream(stream) =>
-                      UIO(unsafeWriteAnyResponse(res)) *> writeStreamContent(
-                        stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))),
-                      )
+                      writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
 
                     case HttpData.Socket(socket) => ZIO(handleHandshake(ctx, a.asInstanceOf[Request], socket))
                   }
@@ -114,7 +117,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
           b.data match {
             case HttpData.Empty =>
               unsafeWriteAnyResponse(b)
-              unsafeWriteAndFlushNotFoundResponse()
+              unsafeWriteAndFlushLastEmptyContent()
 
             case HttpData.Text(data, charset) =>
               unsafeWriteAnyResponse(b)
@@ -134,7 +137,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
           }
 
         case HExit.Failure(e) => unsafeWriteAndFlushErrorResponse(e)
-        case HExit.Empty      => unsafeWriteAndFlushNotFoundResponse()
+        case HExit.Empty      => unsafeWriteAndFlushEmptyResponse()
       }
     }
 
@@ -148,7 +151,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
     /**
      * Writes not found error response to the Channel
      */
-    def unsafeWriteAndFlushNotFoundResponse(): Unit = {
+    def unsafeWriteAndFlushEmptyResponse(): Unit = {
       ctx.writeAndFlush(notFoundResponse, void): Unit
     }
 
