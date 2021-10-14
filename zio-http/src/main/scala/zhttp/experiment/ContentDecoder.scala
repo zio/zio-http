@@ -1,6 +1,6 @@
 package zhttp.experiment
 
-import zhttp.http.HttpData
+import zio.stream.ZStream
 import zio.{Chunk, Queue, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self => }
@@ -8,15 +8,21 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self => }
 object ContentDecoder {
 
   case object Text      extends ContentDecoder[Any, Nothing, Any, String]
-  case object Multipart extends ContentDecoder[Any, Nothing, Any, HttpData.MultipartFormData]
+  case object Multipart extends ContentDecoder[Any, Nothing, Any, ZStream[Any, Nothing, Part]]
 
   case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])
       extends ContentDecoder[R, E, A, B]
 
-  private[zhttp] case class BackPressure[B](queue: Option[Queue[B]] = None, isFirst: Boolean = true) {
+  private[zhttp] case class BackPressure[B](queue: Option[Queue[B]] = None, isFirst: Boolean = true)          {
     self =>
     def withQueue(queue: Queue[B]): BackPressure[B] = if (self.queue.isEmpty) self.copy(queue = Option(queue)) else self
     def withFirst(cond: Boolean): BackPressure[B]   = if (cond == isFirst) self else self.copy(isFirst = cond)
+  }
+  private[zhttp] case class MultiPartBackPressure[B](queue: Option[Queue[B]] = None, isFirst: Boolean = true) {
+    self =>
+    def withQueue(queue: Queue[B]): MultiPartBackPressure[B] =
+      if (self.queue.isEmpty) self.copy(queue = Option(queue)) else self
+    def withFirst(cond: Boolean): MultiPartBackPressure[B]   = if (cond == isFirst) self else self.copy(isFirst = cond)
   }
 
   val text: ContentDecoder[Any, Nothing, Any, String] = Text

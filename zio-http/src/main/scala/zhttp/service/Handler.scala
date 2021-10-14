@@ -1,19 +1,21 @@
 package zhttp.service
 
-import io.netty.buffer.{ByteBuf, Unpooled}
+import java.net.{InetAddress, InetSocketAddress}
+
+import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.multipart.{DefaultHttpDataFactory, HttpPostRequestDecoder, FileUpload, Attribute}
-import zhttp.experiment.ContentDecoder
+import io.netty.handler.codec.http.multipart.{HttpData => _, _}
+import zhttp.experiment.ContentDecoder.BackPressure
+import zhttp.experiment.{ContentDecoder, Part}
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.http._
 import zio.stream.ZStream
-import zio.{Chunk, Promise, UIO, ZIO}
-import java.net.{InetAddress, InetSocketAddress}
+import zio.{Chunk, Promise, Queue, UIO, ZIO}
 
-import scala.util.{Success, Try}
+import scala.util.Try
 
 final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRuntime[R])
     extends ChannelInboundHandlerAdapter { ad =>
@@ -23,6 +25,27 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
   private var completePromise: Promise[Throwable, Any]                  = _
   private var isFirst: Boolean                                          = true
   private var decoderState: Any                                         = _
+  var multipartDecoder: HttpPostRequestDecoder                          = null
+  val queue: UIO[Queue[InterfaceHttpData]]                              = Queue.bounded[InterfaceHttpData](1)
+  val stream: ZStream[Any, Nothing, Part]                               = ZStream.unwrap(
+    queue.map(a =>
+      ZStream
+        .fromQueue(a)
+        .map {
+          case data: multipart.HttpData =>
+            data match {
+              case _: AbstractHttpData  => ???
+              case attribute: Attribute =>
+                Part.Attribute(attribute.getName, Try(attribute.getValue).toOption) // todo: Handle null case if needed
+              case upload: FileUpload =>
+                Part
+                  .FileData(ZStream.fromIterable(ByteBufUtil.getBytes(upload.content())), Option(upload.getFilename))
+              case _                  => ???
+            }
+          case _                        => ???
+        },
+    ),
+  )
 
   override def channelRegistered(ctx: ChannelHandlerContext): Unit = {
     ctx.channel().config().setAutoRead(false)
@@ -30,9 +53,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
   }
 
   override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
-    val void                                     = ctx.voidPromise()
-    val factory                                  = new DefaultHttpDataFactory(DefaultHttpDataFactory.MINSIZE)
-    var multipartDecoder: HttpPostRequestDecoder = null
+    val void = ctx.voidPromise()
 
     /**
      * Writes ByteBuf data to the Channel
@@ -107,11 +128,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
 
                     case HttpData.BinaryStream(stream) =>
                       writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
-
-                    case HttpData.MultipartFormData(_, _) =>
-                      UIO(unsafeWriteAndFlushLastEmptyContent()) // decoder.cleanFiles(); decoder.destroy()
-
-                    case HttpData.Socket(_) => ???
+                    case HttpData.Socket(_)            => ???
                   }
                 } yield (),
             )
@@ -134,8 +151,6 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
 
             case HttpData.BinaryStream(stream) =>
               unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
-
-            case HttpData.MultipartFormData(_, _) => unsafeWriteAndFlushEmptyResponse()
 
             case HttpData.Socket(_) => ???
           }
@@ -170,34 +185,48 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
      * Decodes content and executes according to the ContentDecoder provided
      */
     def decodeContent(
-      content: ByteBuf,
+      content: HttpContent,
       decoder: ContentDecoder[Any, Throwable, Chunk[Byte], Any],
       isLast: Boolean,
     ): Unit = {
       decoder match {
         case ContentDecoder.Text                      =>
-          cBody.writeBytes(content)
+          cBody.writeBytes(content.content())
           if (isLast) {
             unsafeRunZIO(ad.completePromise.succeed(cBody.toString(HTTP_CHARSET)))
           } else {
             ctx.read(): Unit
           }
         case ContentDecoder.Multipart                 => {
-          multipartDecoder.offer(content.asInstanceOf[HttpContent])
-          if (isLast) {
-            val multipartData =
-              multipartDecoder.getBodyHttpDatas().toArray().foldLeft(Try(HttpData.MultipartFormData)) {
-                case (Success(acc), f: FileUpload) => { ??? } // accumulate data to MultipartFormData
-                case (Success(acc), a: Attribute)  => { ??? } // accumulate data to MultipartFormData
-                case (acc, _)                      => acc
-              }
-            // Failure handling need to be added.
-            ad.completePromise.succeed(multipartData)
-          } else {
-            ctx.read()
-          }
-
+          val a: ContentDecoder[Any, Nothing, HttpContent, Queue[HttpContent]] =
+            ContentDecoder.collect(BackPressure[HttpContent]()) { case (msg, state, _) =>
+              for {
+                queue <- state.queue.fold(Queue.bounded[HttpContent](1))(UIO(_))
+                _     <- queue.offer(msg)
+              } yield (if (state.isFirst) Option(queue) else None, state.withQueue(queue).withFirst(false))
+            }
         }
+//        {
+//          content match {
+//            case httpContent: HttpContent =>
+//              multipartDecoder.offer(httpContent)
+//              while (multipartDecoder.hasNext) {
+//                val chunk = multipartDecoder.next()
+//                if (chunk != null) {
+//                  unsafeRunZIO(queue.map(_.offer(chunk)) *> ad.completePromise.succeed(stream) *> UIO(chunk.release()))
+//                }
+//              }
+//            case _                        => ()
+//          }
+//          if (isLast) {
+//            unsafeRunZIO(queue.map(_.shutdown))
+//            multipartDecoder.destroy()
+//          } else {
+//            ctx.read()
+//            ()
+//          }
+//
+//        }
         case step: ContentDecoder.Step[_, _, _, _, _] =>
           if (ad.isFirst) {
             ad.decoderState = step.state
@@ -208,7 +237,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
           unsafeRunZIO(for {
             (publish, state) <- step
               .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], Any]]
-              .next(Chunk.fromArray(content.array()), nState, isLast)
+              .next(Chunk.fromArray(content.content().array()), nState, isLast)
             _                <- publish match {
               case Some(out) => ad.completePromise.succeed(out)
               case None      => ZIO.unit
@@ -228,7 +257,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
         // `autoRead` is set when the channel is registered in the event loop.
         // The explicit call here is added to make unit tests work properly
         ctx.channel().config().setAutoRead(false)
-        multipartDecoder = new HttpPostRequestDecoder(factory, jRequest)
+        multipartDecoder = new HttpPostRequestDecoder(jRequest)
         unsafeRun(
           app.asHttp.asInstanceOf[Http[R, Throwable, Request, Response[R, Throwable]]],
           new Request {
@@ -264,12 +293,12 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
 
       case msg: LastHttpContent =>
         if (decoder != null) {
-          decodeContent(msg.content(), decoder, true)
+          decodeContent(msg, decoder, true)
         }
 
       case msg: HttpContent =>
         if (decoder != null) {
-          decodeContent(msg.content(), decoder, false)
+          decodeContent(msg, decoder, false)
         }
 
       case msg => ctx.fireExceptionCaught(InvalidMessage(msg)): Unit

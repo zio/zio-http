@@ -1,10 +1,11 @@
 package zhttp.http
 
+import java.nio.charset.Charset
+
 import io.netty.buffer.ByteBuf
 import zhttp.socket.SocketApp
-import zio.{Chunk, Queue}
+import zio.Chunk
 import zio.stream.ZStream
-import java.nio.charset.Charset
 
 /**
  * Content holder for and Responses
@@ -18,15 +19,6 @@ object HttpData {
   private[zhttp] final case class BinaryN(data: ByteBuf)                        extends HttpData[Any, Nothing]
   private[zhttp] final case class BinaryStream[R, E](data: ZStream[R, E, Byte]) extends HttpData[R, E]
   private[zhttp] final case class Socket[R, E](app: SocketApp[R, E])            extends HttpData[R, E]
-  private[zhttp] final case class MultipartFormData(
-    attributes: Map[String, AttributeData],
-    files: Map[String, FileData],
-  )                                                                             extends HttpData[Any, Nothing]
-  private[zhttp] object MultipartFormData {
-    def empty: MultipartFormData = MultipartFormData(Map.empty, Map.empty)
-  }
-  case class AttributeData(name: String, value: Queue[Chunk[Byte]])
-  case class FileData(name: String, value: Queue[Chunk[Byte]], contentType: String)
 
   /**
    * Helper to create CompleteData from ByteBuf
