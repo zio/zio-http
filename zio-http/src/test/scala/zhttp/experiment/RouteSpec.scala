@@ -5,25 +5,37 @@ import zio.test._
 
 object RouteSpec extends DefaultRunnableSpec {
   def spec = suite("Route") {
-    test("match method") {
-      val route   = Route.get
-      val request = Request(Method.GET)
-      assert(route(request))(isSome(equalTo(())))
+    testM("match method") {
+      for {
+        request <- Request.make(Method.GET, URL.root, Nil, None)
+        route = Route.get
+      } yield assert(route(request))(isSome(equalTo(())))
     }
-    test("not match method") {
-      val route   = Route.post
-      val request = Request(Method.GET)
-      assert(route(request))(isNone)
+
+    {
+      for {
+        request <- Request.make(Method.GET, URL(Path("b")), Nil, None)
+        route = Route.get / "a"
+      } yield assert(route(request))(isNone)
+    }
+
+    testM("not match method") {
+      for {
+        request <- Request.make(Method.GET, URL.root, Nil, None)
+        route = Route.post
+      } yield assert(route(request))(isNone)
     } +
-      test("match method and string") {
-        val route   = Route.get / "a"
-        val request = Request(Method.GET, URL(Path("a")))
-        assert(route(request))(isSome(equalTo(())))
+      testM("match method and string") {
+        for {
+          request <- Request.make(Method.GET, URL(Path("a")), Nil, None)
+          route = Route.get / "a"
+        } yield assert(route(request))(isSome(equalTo(())))
       } +
-      test("match method and not string") {
-        val route   = Route.get / "a"
-        val request = Request(Method.GET, URL(Path("b")))
-        assert(route(request))(isNone)
+      testM("match method and not string") {
+        for {
+          request <- Request.make(Method.GET, URL(Path("b")), Nil, None)
+          route = Route.get / "a"
+        } yield assert(route(request))(isNone)
       }
   } + suite("Path") {
     test("Route[Int]") {
