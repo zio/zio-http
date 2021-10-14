@@ -5,16 +5,23 @@ import zhttp.core.ByteBuf
 
 sealed trait WebSocketFrame extends Product with Serializable { self =>
   def toWebSocketFrame: JWebSocketFrame = WebSocketFrame.toJFrame(self)
-  val finalFragment: Boolean            = true
+  def isFinal: Boolean                  = true
 }
 object WebSocketFrame {
 
-  final case class Binary(buffer: ByteBuf, override val finalFragment: Boolean = false)       extends WebSocketFrame
-  final case class Text(text: String, override val finalFragment: Boolean = false)            extends WebSocketFrame
-  final case class Close(status: Int, reason: Option[String])                                 extends WebSocketFrame
-  case object Ping                                                                            extends WebSocketFrame
-  case object Pong                                                                            extends WebSocketFrame
-  final case class Continuation(buffer: ByteBuf, override val finalFragment: Boolean = false) extends WebSocketFrame
+  case class Binary(buffer: ByteBuf, override val isFinal: Boolean = true) extends WebSocketFrame
+  object Binary { def unapply(frame: WebSocketFrame.Binary) = Some(frame.buffer) }
+
+  final case class Text(text: String, override val isFinal: Boolean = true) extends WebSocketFrame
+  object Text { def unapply(frame: WebSocketFrame.Text) = Some(frame.text) }
+
+  final case class Close(status: Int, reason: Option[String]) extends WebSocketFrame
+
+  case object Ping extends WebSocketFrame
+  case object Pong extends WebSocketFrame
+
+  final case class Continuation(buffer: ByteBuf, override val isFinal: Boolean = true) extends WebSocketFrame
+  object Continuation { def unapply(frame: WebSocketFrame.Continuation) = Some(frame.buffer) }
 
   def text(string: String): WebSocketFrame =
     WebSocketFrame.Text(string)
@@ -50,19 +57,19 @@ object WebSocketFrame {
 
   def toJFrame(frame: WebSocketFrame): JWebSocketFrame =
     frame match {
-      case Binary(buffer, isFinalFragment)       =>
-        new BinaryWebSocketFrame(isFinalFragment, 0, buffer.asJava)
-      case Text(text, isFinalFragment)           =>
-        new TextWebSocketFrame(isFinalFragment, 0, text)
-      case Close(status, Some(text))             =>
+      case b @ Binary(buffer)        =>
+        new BinaryWebSocketFrame(b.isFinal, 0, buffer.asJava)
+      case t @ Text(text)            =>
+        new TextWebSocketFrame(t.isFinal, 0, text)
+      case Close(status, Some(text)) =>
         new CloseWebSocketFrame(status, text)
-      case Close(status, None)                   =>
+      case Close(status, None)       =>
         new CloseWebSocketFrame(status, null)
-      case Ping                                  =>
+      case Ping                      =>
         new PingWebSocketFrame()
-      case Pong                                  =>
+      case Pong                      =>
         new PongWebSocketFrame()
-      case Continuation(buffer, isFinalFragment) =>
-        new ContinuationWebSocketFrame(isFinalFragment, 0, buffer.asJava)
+      case c @ Continuation(buffer)  =>
+        new ContinuationWebSocketFrame(c.isFinal, 0, buffer.asJava)
     }
 }
