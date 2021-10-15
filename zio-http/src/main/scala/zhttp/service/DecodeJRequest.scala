@@ -14,7 +14,7 @@ trait DecodeJRequest {
     method   = Method.fromHttpMethod(jReq.method())
     headers  = Header.make(jReq.headers())
     endpoint = method -> url
-    data     = HttpData.fromByteBuf(jReq.content())
+    data     = HttpAttribute.fromByteBuf(jReq.content())
   } yield Client.ClientParams(endpoint, headers, data, ctx)
 
 }

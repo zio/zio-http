@@ -2,7 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.{ByteBufUtil, Unpooled}
 import zhttp.experiment.ContentDecoder.Text
-import zhttp.experiment.{Content, ContentDecoder}
+import zhttp.experiment.{ContentDecoder, HttpData}
 import zio.{Chunk, Task, ZIO}
 
 import java.net.InetAddress
@@ -44,7 +44,7 @@ object Request {
     url: URL = URL.root,
     headers: List[Header] = Nil,
     remoteAddress: Option[InetAddress] = None,
-    content: Content[Any, Throwable] = Content.Empty,
+    content: HttpData[Any, Throwable] = HttpData.Empty,
   ): Request = {
     val m  = method
     val u  = url
@@ -57,8 +57,8 @@ object Request {
       override def remoteAddress: Option[InetAddress]                                                               = ra
       override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
         content match {
-          case Content.Empty                => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
-          case Content.Text(data, charset)  =>
+          case HttpData.Empty                => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+          case HttpData.Text(data, charset)  =>
             for {
               a   <- decoder match {
                 case Text                                     => ZIO(Option(data.asInstanceOf[B]))
@@ -70,7 +70,7 @@ object Request {
               }
               res <- contentFromOption(a)
             } yield res
-          case Content.BinaryStream(stream) =>
+          case HttpData.BinaryStream(stream) =>
             for {
               a   <- decoder match {
                 case Text =>
@@ -92,7 +92,7 @@ object Request {
               }
               res <- contentFromOption(a)
             } yield res
-          case Content.Binary(data)         =>
+          case HttpData.Binary(data)         =>
             for {
               a   <- decoder match {
                 case Text => ZIO(Some((new String(data.toArray, HTTP_CHARSET)).asInstanceOf[B]))
@@ -104,7 +104,7 @@ object Request {
               }
               res <- contentFromOption(a)
             } yield res
-          case Content.BinaryN(data)        =>
+          case HttpData.BinaryN(data)        =>
             for {
               a   <- decoder match {
                 case Text                                     => ZIO(Some(data.toString(HTTP_CHARSET).asInstanceOf[B]))
@@ -128,7 +128,7 @@ object Request {
     url: URL = URL.root,
     headers: List[Header] = Nil,
     remoteAddress: Option[InetAddress],
-    content: Content[R, E] = Content.empty,
+    content: HttpData[R, E] = HttpData.empty,
   ): ZIO[R, Nothing, Request] =
     for {
       r <- ZIO.environment[R]

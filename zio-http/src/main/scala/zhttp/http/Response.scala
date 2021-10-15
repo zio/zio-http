@@ -1,29 +1,27 @@
 package zhttp.http
 
-import zhttp.experiment.Content
+import zhttp.experiment.HttpData
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
 
 import java.io.{PrintWriter, StringWriter}
 
-case class Response[-R, +E] private (status: Status, headers: List[Header], data: HttpData[R, E])
+case class Response[-R, +E] private (status: Status, headers: List[Header], data: HttpAttribute[R, E])
 
 object Response {
 
-  def apply[R, E](status: Status, headers: List[Header], data: Content[R, E]): Response[R, E] =
-    Response(status, headers, HttpData.fromContent(data))
   def apply[R, E](
     status: Status = Status.OK,
     headers: List[Header] = Nil,
     data: HttpData[R, E] = HttpData.Empty,
-  ): Response[R, E]                                                                           =
-    Response(status, headers, data)
+  ): Response[R, E] =
+    Response(status, headers, HttpAttribute.fromContent(data))
 
   @deprecated("Use `Response(status, headers, content)` constructor instead.", "22-Sep-2021")
   def http[R, E](
     status: Status,
     headers: List[Header],
-    data: HttpData[R, E],
+    data: HttpAttribute[R, E],
   ): Response[R, E] = Response(status, headers, data)
 
   /**
@@ -43,7 +41,7 @@ object Response {
         Response(
           error.status,
           Nil,
-          HttpData.fromChunk(cause.cause match {
+          HttpAttribute.fromChunk(cause.cause match {
             case Some(throwable) =>
               val sw = new StringWriter
               throwable.printStackTrace(new PrintWriter(sw))
@@ -51,7 +49,8 @@ object Response {
             case None            => Chunk.fromArray(s"${cause.message}".getBytes(HTTP_CHARSET))
           }),
         )
-      case _ => Response(error.status, Nil, HttpData.fromChunk(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
+      case _                         =>
+        Response(error.status, Nil, HttpAttribute.fromChunk(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
     }
 
   }
@@ -73,9 +72,9 @@ object Response {
   def status(status: Status): UResponse = Response(status)
 
   def temporaryRedirect(location: String): Response[Any, Nothing] =
-    Response(Status.TEMPORARY_REDIRECT, List(Header.location(location)), data = HttpData.empty)
+    Response(Status.TEMPORARY_REDIRECT, List(Header.location(location)), data = HttpAttribute.empty)
 
   def permanentRedirect(location: String): Response[Any, Nothing] =
-    Response(Status.PERMANENT_REDIRECT, List(Header.location(location)), data = HttpData.empty)
+    Response(Status.PERMANENT_REDIRECT, List(Header.location(location)), data = HttpAttribute.empty)
 
 }

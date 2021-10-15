@@ -8,7 +8,7 @@ import io.netty.channel.{
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpVersion}
-import zhttp.experiment.Content
+import zhttp.experiment.HttpData
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service
@@ -95,7 +95,7 @@ object Client {
   def request(
     url: String,
     headers: List[Header],
-    content: HttpData[Any, Nothing],
+    content: HttpAttribute[Any, Nothing],
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
       url <- ZIO.fromEither(URL.fromString(url))
@@ -123,7 +123,7 @@ object Client {
   def request(
     endpoint: Endpoint,
     headers: List[Header],
-    content: HttpData[Any, Nothing],
+    content: HttpAttribute[Any, Nothing],
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint, headers, content))
 
@@ -141,7 +141,7 @@ object Client {
   final case class ClientParams(
     endpoint: Endpoint,
     headers: List[Header] = List.empty,
-    content: HttpData[Any, Nothing] = HttpData.empty,
+    content: HttpAttribute[Any, Nothing] = HttpAttribute.empty,
     private val channelContext: ChannelHandlerContext = null,
   ) extends HeadersHelpers { self =>
     val method: Method = endpoint._1
@@ -149,14 +149,14 @@ object Client {
     val route: Route   = method -> url.path
 
     def getBodyAsString: Option[String] = content match {
-      case HttpData.HttpContent(data) =>
+      case HttpAttribute.HttpContent(data) =>
         data match {
-          case Content.Text(text, _) => Some(text)
-          case Content.Binary(data)  => Some((new String(data.toArray, HTTP_CHARSET)))
-          case Content.BinaryN(data) => Some(data.toString(HTTP_CHARSET))
-          case _                     => Option.empty
+          case HttpData.Text(text, _) => Some(text)
+          case HttpData.Binary(data)  => Some((new String(data.toArray, HTTP_CHARSET)))
+          case HttpData.BinaryN(data) => Some(data.toString(HTTP_CHARSET))
+          case _                      => Option.empty
         }
-      case _                          => Option.empty
+      case _                               => Option.empty
     }
 
     def remoteAddress: Option[InetAddress] = {
