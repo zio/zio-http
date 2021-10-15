@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame
 import zhttp.core.ByteBuf
 
 sealed trait WebSocketFrame extends Product with Serializable { self =>
-  def toWebSocketFrame: JWebSocketFrame = WebSocketFrame.toJFrame(self)
+  final def toWebSocketFrame: JWebSocketFrame = WebSocketFrame.toJFrame(self)
   def isFinal: Boolean                  = true
 }
 object WebSocketFrame {
