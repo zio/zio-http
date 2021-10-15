@@ -1,5 +1,7 @@
 package zhttp.experiment
 
+import io.netty.handler.codec.http.multipart.InterfaceHttpData
+import zio.stream.{UStream, ZStream}
 import zio.{Chunk, Queue, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self => }
@@ -9,6 +11,9 @@ object ContentDecoder {
   case object Text extends ContentDecoder[Any, Nothing, Any, String]
 
   case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])
+      extends ContentDecoder[R, E, A, B]
+
+  case class StreamStep[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])
       extends ContentDecoder[R, E, A, B]
 
   private[zhttp] case class BackPressure[B](queue: Option[Queue[B]] = None, isFirst: Boolean = true) {
@@ -24,6 +29,11 @@ object ContentDecoder {
   final class PartiallyAppliedCollect[S, A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](s: S)(f: (A, S, Boolean) => ZIO[R, E, (Option[B], S)]): ContentDecoder[R, E, A, B] = Step(s, f)
   }
+  def collectS[S, A]: PartiallyAppliedCollect[S, A] = new PartiallyAppliedCollect(())
+
+  final class PartiallyAppliedCollectS[S, A](val unit: Unit) extends AnyVal {
+    def apply[R, E, B](s: S)(f: (A, S, Boolean) => ZIO[R, E, (Option[B], S)]): ContentDecoder[R, E, A, B] = Step(s, f)
+  }
 
   val backPressure: ContentDecoder[Any, Nothing, Chunk[Byte], Queue[Chunk[Byte]]] =
     ContentDecoder.collect(BackPressure[Chunk[Byte]]()) { case (msg, state, _) =>
@@ -32,6 +42,18 @@ object ContentDecoder {
         _     <- queue.offer(msg)
       } yield (if (state.isFirst) Option(queue) else None, state.withQueue(queue).withFirst(false))
     }
+
+  val multiPart: ContentDecoder[Any, Nothing, List[InterfaceHttpData], UStream[List[InterfaceHttpData]]] = {
+    ContentDecoder.collectS(BackPressure[List[InterfaceHttpData]]()) { case (msg, state, _) =>
+      (for {
+        queue <- state.queue.fold(Queue.bounded[List[InterfaceHttpData]](1))(UIO(_))
+        _     <- queue.offer(msg)
+      } yield (
+        if (state.isFirst) Option(ZStream.fromQueue(queue)) else None,
+        state.withQueue(queue).withFirst(false),
+      ))
+    }
+  }
 
   sealed trait Error extends Throwable with Product { self =>
     override def getMessage(): String =

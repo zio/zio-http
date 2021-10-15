@@ -5,13 +5,17 @@ import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
-import zhttp.experiment.ContentDecoder
+import zhttp.experiment.{ContentDecoder, Part}
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.http._
-import zio.stream.ZStream
+import zio.stream.{UStream, ZStream}
 import zio.{Chunk, Promise, UIO, ZIO}
-
 import java.net.{InetAddress, InetSocketAddress}
+
+import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder.ErrorDataDecoderException
+import io.netty.handler.codec.http.multipart.{HttpPostRequestDecoder, InterfaceHttpData}
+
+import scala.util.Try
 
 final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRuntime[R])
     extends ChannelInboundHandlerAdapter { ad =>
@@ -21,7 +25,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
   private var completePromise: Promise[Throwable, Any]                  = _
   private var isFirst: Boolean                                          = true
   private var decoderState: Any                                         = _
-
+  var multipartDecoder: HttpPostRequestDecoder                          = null
   override def channelRegistered(ctx: ChannelHandlerContext): Unit = {
     ctx.channel().config().setAutoRead(false)
     ctx.read(): Unit
@@ -161,20 +165,55 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
      * Decodes content and executes according to the ContentDecoder provided
      */
     def decodeContent(
-      content: ByteBuf,
+      content: HttpContent,
       decoder: ContentDecoder[Any, Throwable, Chunk[Byte], Any],
       isLast: Boolean,
     ): Unit = {
       decoder match {
-        case ContentDecoder.Text =>
-          cBody.writeBytes(content)
+        case ContentDecoder.Text                            =>
+          cBody.writeBytes(content.content())
           if (isLast) {
             unsafeRunZIO(ad.completePromise.succeed(cBody.toString(HTTP_CHARSET)))
           } else {
             ctx.read(): Unit
           }
+        case step: ContentDecoder.StreamStep[_, _, _, _, _] =>
+          if (ad.isFirst) {
+            ad.decoderState = step.state
+            ad.isFirst = false
+          }
+          val nState = ad.decoderState
+          //Can throw ErrorDataDecoderException
+          try {
+            multipartDecoder.offer(content)
+          } catch {
+            case e: ErrorDataDecoderException => ???
+          }
+          var httpData: List[InterfaceHttpData] = List.empty
+          unsafeRunZIO(for {
+            availableDecodedChunks <- ZIO.fromTry(Try {
+              while (multipartDecoder.hasNext) {
+                val data = multipartDecoder.next()
+                httpData = httpData :+ data // needs to released after usage
+              }
 
-        case step: ContentDecoder.Step[_, _, _, _, _] =>
+              httpData
+            }) // handle exception
+            (publish, state)       <- step
+              .asInstanceOf[ContentDecoder.StreamStep[R, Throwable, Any, List[InterfaceHttpData], UStream[
+                InterfaceHttpData,
+              ]]]
+              .next(availableDecodedChunks, nState, isLast)
+            _                      <- publish match {
+              case Some(out) => ad.completePromise.succeed(out)
+              case None      => ZIO.unit
+            }
+            _                      <- UIO {
+              ad.decoderState = state
+              if (!isLast) ctx.read(): Unit
+            }
+          } yield ())
+        case step: ContentDecoder.Step[_, _, _, _, _]       =>
           if (ad.isFirst) {
             ad.decoderState = step.state
             ad.isFirst = false
@@ -184,7 +223,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
           unsafeRunZIO(for {
             (publish, state) <- step
               .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], Any]]
-              .next(Chunk.fromArray(content.array()), nState, isLast)
+              .next(Chunk.fromArray(content.content().array()), nState, isLast)
             _                <- publish match {
               case Some(out) => ad.completePromise.succeed(out)
               case None      => ZIO.unit
@@ -205,6 +244,15 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
         // The explicit call here is added to make unit tests work properly
         ctx.channel().config().setAutoRead(false)
 
+        // HttpUtil.isTransferEncodingChunked(jRequest) might be useful
+        decoder match {
+          case ContentDecoder.StreamStep(_, _) =>
+            try {
+              multipartDecoder = new HttpPostRequestDecoder(jRequest)
+            } catch {
+              case e: ErrorDataDecoderException => ??? // if the default charset was wrong when decoding or other errors
+            }
+        }
         unsafeRun(
           app.asHttp.asInstanceOf[Http[R, Throwable, Request, Response[R, Throwable]]],
           new Request {
@@ -240,12 +288,12 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
 
       case msg: LastHttpContent =>
         if (decoder != null) {
-          decodeContent(msg.content(), decoder, true)
+          decodeContent(msg, decoder, true)
         }
 
       case msg: HttpContent =>
         if (decoder != null) {
-          decodeContent(msg.content(), decoder, false)
+          decodeContent(msg, decoder, false)
         }
 
       case msg => ctx.fireExceptionCaught(InvalidMessage(msg)): Unit
