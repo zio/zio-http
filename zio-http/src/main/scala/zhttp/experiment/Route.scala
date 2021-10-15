@@ -34,12 +34,12 @@ final case class Route[A](method: Method, routePath: RoutePath[A]) { self =>
   /**
    * Execute extract on request path and returns Option[A]
    */
-  def parse(path: Path): Option[A] = self.extract(path)
+  def apply(path: Path): Option[A] = self.extract(path)
 
   /**
    * Execute extract on request and returns Option[A]
    */
-  def parse(request: Request): Option[A] = self.extract(request)
+  def apply(request: Request): Option[A] = self.extract(request)
 
   /**
    * Creates an HttpApp from a Request to Response function
