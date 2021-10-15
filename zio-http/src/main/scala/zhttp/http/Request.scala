@@ -1,9 +1,8 @@
 package zhttp.http
 
 import io.netty.buffer.Unpooled
-import zhttp.experiment.ContentDecoder
+import zhttp.experiment.{Content, ContentDecoder}
 import zhttp.experiment.ContentDecoder.Text
-import zio.stream.ZStream
 import zio.{Chunk, Task, ZIO}
 
 import java.net.InetAddress
@@ -36,21 +35,16 @@ trait Request extends HeadersHelpers { self =>
 }
 
 object Request {
-  private[zhttp] sealed trait RequestContent[+E]
 
-  object RequestContent {
-    case object Empty                                      extends RequestContent[Nothing]
-    case class Text(data: String)                          extends RequestContent[Nothing]
-    case class Streaming[E](stream: ZStream[Any, E, Byte]) extends RequestContent[E]
-    case class Binary(data: Chunk[Byte])                   extends RequestContent[Nothing]
-  }
-
-  private[zhttp] def apply[E <: Throwable](
+  /**
+   * Constructor for Request
+   */
+  def apply(
     method: Method = Method.GET,
     url: URL = URL.root,
     headers: List[Header] = Nil,
     remoteAddress: Option[InetAddress] = None,
-    content: RequestContent[E],
+    content: Content[Any, Throwable],
   ): Request = {
     val m  = method
     val u  = url
@@ -63,20 +57,20 @@ object Request {
       override def remoteAddress: Option[InetAddress]                                                               = ra
       override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
         content match {
-          case RequestContent.Empty             => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
-          case RequestContent.Text(data)        =>
+          case Content.Empty                => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+          case Content.Text(data, charset)  =>
             for {
               a   <- decoder match {
                 case Text                                     => ZIO(Option(data.asInstanceOf[B]))
                 case step: ContentDecoder.Step[_, _, _, _, _] =>
                   step
                     .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
-                    .next(Chunk.fromArray(data.getBytes(HTTP_CHARSET)), step.state, true)
+                    .next(Chunk.fromArray(data.getBytes(charset)), step.state, true)
                     .map(a => a._1)
               }
               res <- contentFromOption(a)
             } yield res
-          case RequestContent.Streaming(stream) =>
+          case Content.BinaryStream(stream) =>
             for {
               a   <- decoder match {
                 case Text =>
@@ -98,7 +92,7 @@ object Request {
               }
               res <- contentFromOption(a)
             } yield res
-          case RequestContent.Binary(data)      =>
+          case Content.Binary(data)         =>
             for {
               a   <- decoder match {
                 case Text => ZIO(Some((new String(data.toArray, HTTP_CHARSET)).asInstanceOf[B]))
@@ -114,44 +108,20 @@ object Request {
     }
   }
 
+  /**
+   * Effectfully create a new Request object
+   */
   def make[R, E <: Throwable](
-    method: Method,
-    url: URL,
-    headers: List[Header],
+    method: Method = Method.GET,
+    url: URL = URL.root,
+    headers: List[Header] = Nil,
     remoteAddress: Option[InetAddress],
-    content: String,
-  ): ZIO[R, Nothing, Request] = ZIO.succeed {
-    Request(method, url, headers, remoteAddress, RequestContent.Text(content))
-  }
-
-  def make[R, E <: Throwable](
-    method: Method,
-    url: URL,
-    headers: List[Header],
-    remoteAddress: Option[InetAddress],
-    content: Chunk[Byte],
-  ): ZIO[R, Nothing, Request] = ZIO.succeed {
-    Request(method, url, headers, remoteAddress, RequestContent.Binary(content))
-  }
-
-  def make[R, E <: Throwable](
-    method: Method,
-    url: URL,
-    headers: List[Header],
-    remoteAddress: Option[InetAddress],
-    content: ZStream[R, E, Byte],
+    content: Content[R, E] = Content.empty,
   ): ZIO[R, Nothing, Request] =
     for {
       r <- ZIO.environment[R]
       c = content.provide(r)
-    } yield Request(method, url, headers, remoteAddress, RequestContent.Streaming(c))
-
-  def make[R, E <: Throwable](
-    method: Method,
-    url: URL,
-    headers: List[Header],
-    remoteAddress: Option[InetAddress],
-  ): ZIO[R, Nothing, Request] = ZIO.succeed(Request(method, url, headers, remoteAddress, RequestContent.Empty))
+    } yield Request(method, url, headers, remoteAddress, c)
 
   private def contentFromOption[B](a: Option[B]): Task[B] = {
     a match {
