@@ -5,7 +5,7 @@ import zhttp.core.ByteBuf
 
 sealed trait WebSocketFrame extends Product with Serializable { self =>
   def toWebSocketFrame: JWebSocketFrame = WebSocketFrame.toJFrame(self)
-  def isFinal: Boolean
+  def isFinal: Boolean                  = true
 }
 object WebSocketFrame {
 
