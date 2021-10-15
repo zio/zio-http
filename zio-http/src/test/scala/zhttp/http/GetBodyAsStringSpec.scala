@@ -21,17 +21,17 @@ object GetBodyAsStringSpec extends DefaultRunnableSpec {
           .ClientParams(
             endpoint = Method.GET -> URL(Path("/")),
             headers = List(Header.custom(HttpHeaderNames.CONTENT_TYPE.toString, s"text/html; charset=$charset")),
-            content = HttpAttribute.fromChunk(Chunk.fromArray("abc".getBytes())),
+            content = HttpData.Binary(Chunk.fromArray("abc".getBytes())),
           )
           .getBodyAsString
-        val actual  = Option(new String(Chunk.fromArray("abc".getBytes(charset)).toArray, charset))
+        val actual  = Option(new String(Chunk.fromArray("abc".getBytes()).toArray, charset))
 
         assert(actual)(equalTo(encoded))
       }
     } +
       test("should map bytes to default utf-8 if no charset given") {
-        val data                                 = Chunk.fromArray("abc".getBytes())
-        val content: HttpAttribute[Any, Nothing] = HttpAttribute.fromChunk(data)
+        val data                            = Chunk.fromArray("abc".getBytes())
+        val content: HttpData[Any, Nothing] = HttpData.Binary(data)
         val request = Client.ClientParams(endpoint = Method.GET -> URL(Path("/")), content = content)
         val encoded = request.getBodyAsString
         val actual  = Option(new String(data.toArray, HTTP_CHARSET))

@@ -1,7 +1,7 @@
 package zhttp.experiment.internal
 
 import io.netty.buffer.Unpooled
-import zhttp.http.{HTTP_CHARSET, Header, HttpAttribute, Response, Status}
+import zhttp.http.{HTTP_CHARSET, Header, HttpData, Response, Status}
 import zio.Chunk
 import zio.stream.ZStream
 import zio.test.Gen
@@ -74,11 +74,11 @@ object HttpGen {
       cnt  <- Gen
         .fromIterable(
           List(
-            HttpAttribute.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
-            HttpAttribute.fromText(list.mkString("")),
-            HttpAttribute.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
-            HttpAttribute.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
-            HttpAttribute.empty,
+            HttpData.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
+            HttpData.fromText(list.mkString("")),
+            HttpData.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
+            HttpData.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
+            HttpData.empty,
           ),
         )
     } yield cnt
@@ -89,10 +89,10 @@ object HttpGen {
       cnt  <- Gen
         .fromIterable(
           List(
-            HttpAttribute.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
-            HttpAttribute.fromText(list.mkString("")),
-            HttpAttribute.fromChunk(Chunk.fromArray((list.mkString("").getBytes()))),
-            HttpAttribute.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
+            HttpData.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
+            HttpData.fromText(list.mkString("")),
+            HttpData.fromChunk(Chunk.fromArray((list.mkString("").getBytes()))),
+            HttpData.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
           ),
         )
     } yield cnt

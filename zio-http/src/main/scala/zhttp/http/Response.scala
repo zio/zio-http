@@ -5,7 +5,12 @@ import zio.Chunk
 
 import java.io.{PrintWriter, StringWriter}
 
-case class Response[-R, +E] private (status: Status, headers: List[Header], data: HttpAttribute[R, E])
+case class Response[-R, +E] private (
+  status: Status,
+  headers: List[Header],
+  data: HttpData[R, E],
+  private[zhttp] val attribute: HttpAttribute[R, E],
+)
 
 object Response {
 
@@ -14,13 +19,13 @@ object Response {
     headers: List[Header] = Nil,
     data: HttpData[R, E] = HttpData.Empty,
   ): Response[R, E] =
-    Response(status, headers, HttpAttribute.fromContent(data))
+    Response(status, headers, data, HttpAttribute.empty)
 
   @deprecated("Use `Response(status, headers, content)` constructor instead.", "22-Sep-2021")
   def http[R, E](
-    status: Status,
-    headers: List[Header],
-    data: HttpAttribute[R, E],
+    status: Status = Status.OK,
+    headers: List[Header] = Nil,
+    data: HttpData[R, E] = HttpData.empty,
   ): Response[R, E] = Response(status, headers, data)
 
   /**
@@ -40,7 +45,7 @@ object Response {
         Response(
           error.status,
           Nil,
-          HttpAttribute.fromChunk(cause.cause match {
+          HttpData.fromChunk(cause.cause match {
             case Some(throwable) =>
               val sw = new StringWriter
               throwable.printStackTrace(new PrintWriter(sw))
@@ -49,7 +54,7 @@ object Response {
           }),
         )
       case _                         =>
-        Response(error.status, Nil, HttpAttribute.fromChunk(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
+        Response(error.status, Nil, HttpData.fromChunk(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
     }
 
   }
