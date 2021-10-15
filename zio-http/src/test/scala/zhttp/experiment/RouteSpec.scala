@@ -10,21 +10,13 @@ object RouteSpec extends DefaultRunnableSpec {
         request <- Request.make(Method.GET, URL.root, Nil, None)
         route = Route.get
       } yield assert(route(request))(isSome(equalTo(())))
-    }
-
-    {
-      for {
-        request <- Request.make(Method.GET, URL(Path("b")), Nil, None)
-        route = Route.get / "a"
-      } yield assert(route(request))(isNone)
-    }
-
-    testM("not match method") {
-      for {
-        request <- Request.make(Method.GET, URL.root, Nil, None)
-        route = Route.post
-      } yield assert(route(request))(isNone)
     } +
+      testM("not match method") {
+        for {
+          request <- Request.make(Method.GET, URL.root, Nil, None)
+          route = Route.post
+        } yield assert(route(request))(isNone)
+      } +
       testM("match method and string") {
         for {
           request <- Request.make(Method.GET, URL(Path("a")), Nil, None)
