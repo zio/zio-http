@@ -1,4 +1,3 @@
-import zhttp.experiment.HttpData
 import zhttp.http._
 import zhttp.service._
 import zio._

@@ -1,6 +1,5 @@
 package zhttp.http
 
-import zhttp.experiment.HttpData
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
 

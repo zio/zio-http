@@ -1,16 +1,10 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel,
-  ChannelFactory => JChannelFactory,
-  ChannelHandlerContext,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpVersion}
-import zhttp.experiment.HttpData
 import zhttp.http.URL.Location
-import zhttp.http._
+import zhttp.http.{HttpData, _}
 import zhttp.service
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}

@@ -1,14 +1,13 @@
-package zhttp.experiment
+package zhttp.http
 
 import io.netty.buffer.ByteBuf
-import zhttp.http.HTTP_CHARSET
 import zio.stream.ZStream
 import zio.{Chunk, NeedsEnv}
 
 import java.nio.charset.Charset
 
 /**
- * Holds content that needs to be written on the HttpChannel
+ * Holds HttpData that needs to be written on the HttpChannel
  */
 sealed trait HttpData[-R, +E] { self =>
   def provide[R1 <: R](env: R)(implicit ev: NeedsEnv[R]): HttpData[Any, E] =
@@ -26,27 +25,27 @@ object HttpData {
   private[zhttp] final case class BinaryStream[R, E](stream: ZStream[R, E, Byte]) extends HttpData[R, E]
 
   /**
-   * Helper to create content from ByteBuf
+   * Helper to create HttpData from ByteBuf
    */
   private[zhttp] def fromByteBuf(byteBuf: ByteBuf): HttpData[Any, Nothing] = HttpData.BinaryN(byteBuf)
 
   /**
-   * Helper to create content from Stream of Chunks
+   * Helper to create HttpData from Stream of Chunks
    */
   def fromStream[R, E](stream: ZStream[R, E, Byte]): HttpData[R, E] = HttpData.BinaryStream(stream)
 
   /**
-   * Helper to create empty content
+   * Helper to create empty HttpData
    */
   def empty: HttpData[Any, Nothing] = Empty
 
   /**
-   * Helper to create content from String
+   * Helper to create HttpData from String
    */
   def fromText(text: String, charset: Charset = HTTP_CHARSET): HttpData[Any, Nothing] = Text(text, charset)
 
   /**
-   * Helper to create content from chunk of bytes
+   * Helper to create HttpData from chunk of bytes
    */
   def fromChunk(data: Chunk[Byte]): HttpData[Any, Nothing] = Binary(data)
 }
