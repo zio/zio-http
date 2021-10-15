@@ -117,7 +117,7 @@ trait HttpMessageAssertions {
         p    <- Promise.make[Throwable, Request]
         c    <- HttpAppClient.deploy {
           HttpApp.fromHttp(Http.collectM[Request] { case req =>
-            p.succeed(req).as(Response())
+            p.succeed(req).as(Response(Status.OK, Nil, HttpData.empty))
           })
         }
         _    <- c.request(url, method, header)
@@ -303,7 +303,7 @@ trait HttpMessageAssertions {
   ): ZIO[Any with EventLoopGroup, Throwable, Request] = for {
     promise <- Promise.make[Nothing, Request]
     proxy   <- HttpAppClient.deploy(HttpApp.fromHttp(Http.collectM[Request] { case a =>
-      promise.succeed(a) as Response()
+      promise.succeed(a) as Response(Status.OK, Nil, HttpData.empty)
     }))
     _       <- proxy.request(url, method, header)
     _       <- proxy.end(content)

@@ -6,11 +6,7 @@ import zio.Chunk
 
 import java.io.{PrintWriter, StringWriter}
 
-case class Response[-R, +E] private (
-  status: Status = Status.OK,
-  headers: List[Header] = Nil,
-  data: HttpData[R, E] = HttpData.empty,
-)
+case class Response[-R, +E] private (status: Status, headers: List[Header], data: HttpData[R, E])
 
 object Response {
 
@@ -54,21 +50,23 @@ object Response {
 
   }
 
-  def ok: UResponse = Response(Status.OK)
+  def ok: UResponse = Response(Status.OK, Nil, HttpData.Empty)
 
   def text(text: String): UResponse =
     Response(
+      status = Status.OK,
       data = HttpData.fromChunk(Chunk.fromArray(text.getBytes(HTTP_CHARSET))),
       headers = List(Header.contentTypeTextPlain),
     )
 
   def jsonString(data: String): UResponse =
     Response(
+      status = Status.OK,
       data = HttpData.fromChunk(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
       headers = List(Header.contentTypeJson),
     )
 
-  def status(status: Status): UResponse = Response(status)
+  def status(status: Status): UResponse = Response(status, Nil, HttpData.Empty)
 
   def temporaryRedirect(location: String): Response[Any, Nothing] =
     Response(Status.TEMPORARY_REDIRECT, List(Header.location(location)), data = HttpData.empty)

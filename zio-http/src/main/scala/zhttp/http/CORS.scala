@@ -77,6 +77,7 @@ object CORS {
               Response(
                 Status.NO_CONTENT,
                 headers = corsHeaders(origin, Method.fromString(acrm.value.toString()), isPreflight = true),
+                HttpData.empty,
               ),
             )
           case (_, Some(origin), _) if allowCORS(origin, req.method) =>

@@ -9,7 +9,7 @@ object HelloWorld extends App {
   def h1 = HttpApp.fromHttp {
     Http.collectM[Request] { case req =>
       req.decodeContent(ContentDecoder.text).map { content =>
-        Response(data = HttpData.fromText(content))
+        Response(Status.OK, Nil, HttpData.fromText(content))
       }
     }
   }
@@ -17,7 +17,7 @@ object HelloWorld extends App {
   def h2 = HttpApp.fromHttp {
     Http.collectM[Request] { case req =>
       req.decodeContent(ContentDecoder.backPressure).map { content =>
-        Response(data = HttpData.fromStream(ZStream.fromChunkQueue(content)))
+        Response(Status.OK, Nil, HttpData.fromStream(ZStream.fromChunkQueue(content)))
       }
     }
   }
