@@ -1,8 +1,8 @@
 package zhttp.http
 
-import io.netty.buffer.Unpooled
-import zhttp.experiment.{Content, ContentDecoder}
+import io.netty.buffer.{ByteBufUtil, Unpooled}
 import zhttp.experiment.ContentDecoder.Text
+import zhttp.experiment.{Content, ContentDecoder}
 import zio.{Chunk, Task, ZIO}
 
 import java.net.InetAddress
@@ -100,6 +100,18 @@ object Request {
                   step
                     .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
                     .next(data, step.state, true)
+                    .map(a => a._1)
+              }
+              res <- contentFromOption(a)
+            } yield res
+          case Content.BinaryN(data)        =>
+            for {
+              a   <- decoder match {
+                case Text                                     => ZIO(Some(data.toString(HTTP_CHARSET).asInstanceOf[B]))
+                case step: ContentDecoder.Step[_, _, _, _, _] =>
+                  step
+                    .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
+                    .next(Chunk.fromArray(ByteBufUtil.getBytes(data)), step.state, true)
                     .map(a => a._1)
               }
               res <- contentFromOption(a)

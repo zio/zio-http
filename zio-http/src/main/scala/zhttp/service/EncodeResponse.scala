@@ -1,7 +1,10 @@
 package zhttp.service
 
+import io.netty.buffer.ByteBufUtil
 import io.netty.handler.codec.http.{DefaultHttpHeaders, DefaultHttpResponse, HttpHeaderNames, HttpHeaders, HttpVersion}
+import zhttp.experiment.Content
 import zhttp.http.{HttpData, Response}
+import zio.Chunk
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -21,11 +24,14 @@ trait EncodeResponse {
     jHttpHeaders.set(HttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
     val jStatus      = res.status.asJava
     res.data match {
-      case HttpData.Binary(data) =>
-        jHttpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, data.length)
-
-      case HttpData.Text(data, _) =>
-        jHttpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, data.length)
+      case HttpData.HttpContent(data) =>
+        data match {
+          case Content.Text(text, _) => jHttpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, text.length)
+          case Content.Binary(data)  => jHttpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, data.length)
+          case Content.BinaryN(data) =>
+            jHttpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, Chunk.fromArray(ByteBufUtil.getBytes(data)).length)
+          case _                     => jHttpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, 0)
+        }
 
       case HttpData.Empty =>
         jHttpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, 0)

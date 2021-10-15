@@ -13,7 +13,7 @@ case class Response[-R, +E] private (
 )
 
 object Response {
-  def apply[R, E](status: Status = Status.OK, headers: List[Header] = Nil, content: Content[R, E]): Response[R, E] =
+  def apply[R, E](status: Status, headers: List[Header], content: Content[R, E]): Response[R, E] =
     Response(status, headers, HttpData.fromContent(content))
 
   @deprecated("Use `Response(status, headers, content)` constructor instead.", "22-Sep-2021")

@@ -1,10 +1,11 @@
 package zhttp.experiment
 
-import java.nio.charset.Charset
-import zio.stream.ZStream
-import zio.{Chunk, NeedsEnv}
 import io.netty.buffer.ByteBuf
 import zhttp.http.HTTP_CHARSET
+import zio.stream.ZStream
+import zio.{Chunk, NeedsEnv}
+
+import java.nio.charset.Charset
 
 /**
  * Holds content that needs to be written on the HttpChannel
