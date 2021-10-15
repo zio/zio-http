@@ -22,7 +22,7 @@ object GetBodyAsStringSpec extends DefaultRunnableSpec {
           .ClientParams(
             endpoint = Method.GET -> URL(Path("/")),
             headers = List(Header.custom(HttpHeaderNames.CONTENT_TYPE.toString, s"text/html; charset=$charset")),
-            content = HttpData.HttpContent(Binary(Chunk.fromArray("abc".getBytes()))),
+            content = HttpData.fromChunk(Chunk.fromArray("abc".getBytes())),
           )
           .getBodyAsString
         val actual  = Option(new String(Chunk.fromArray("abc".getBytes(charset)).toArray, charset))

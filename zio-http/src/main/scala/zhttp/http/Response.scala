@@ -12,6 +12,12 @@ object Response {
 
   def apply[R, E](status: Status, headers: List[Header], data: Content[R, E]): Response[R, E] =
     Response(status, headers, HttpData.fromContent(data))
+  def apply[R, E](
+    status: Status = Status.OK,
+    headers: List[Header] = Nil,
+    data: HttpData[R, E] = HttpData.Empty,
+  ): Response[R, E]                                                                           =
+    Response(status, headers, data)
 
   @deprecated("Use `Response(status, headers, content)` constructor instead.", "22-Sep-2021")
   def http[R, E](
@@ -50,23 +56,21 @@ object Response {
 
   }
 
-  def ok: UResponse = Response(Status.OK, Nil, HttpData.Empty)
+  def ok: UResponse = Response(Status.OK)
 
   def text(text: String): UResponse =
     Response(
-      status = Status.OK,
       data = HttpData.fromChunk(Chunk.fromArray(text.getBytes(HTTP_CHARSET))),
       headers = List(Header.contentTypeTextPlain),
     )
 
   def jsonString(data: String): UResponse =
     Response(
-      status = Status.OK,
       data = HttpData.fromChunk(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
       headers = List(Header.contentTypeJson),
     )
 
-  def status(status: Status): UResponse = Response(status, Nil, HttpData.Empty)
+  def status(status: Status): UResponse = Response(status)
 
   def temporaryRedirect(location: String): Response[Any, Nothing] =
     Response(Status.TEMPORARY_REDIRECT, List(Header.location(location)), data = HttpData.empty)

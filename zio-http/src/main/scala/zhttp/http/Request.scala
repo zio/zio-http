@@ -44,7 +44,7 @@ object Request {
     url: URL = URL.root,
     headers: List[Header] = Nil,
     remoteAddress: Option[InetAddress] = None,
-    content: Content[Any, Throwable],
+    content: Content[Any, Throwable] = Content.Empty,
   ): Request = {
     val m  = method
     val u  = url

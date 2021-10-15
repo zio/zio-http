@@ -17,7 +17,7 @@ import zio.{Chunk, UIO, ZIO}
  */
 object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   private val env                        = EventLoopGroup.auto(1)
-  private val Ok: Response[Any, Nothing] = Response(Status.OK, Nil, HttpData.empty)
+  private val Ok: Response[Any, Nothing] = Response()
 
   def spec =
     suite("HttpHttpApp")(
@@ -98,9 +98,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         assertM(res)(isResponse(noHeader))
       } +
         testM("headers are set") {
-          val res = HttpApp
-            .fromHttp(Http.succeed(Response(Status.OK, List(Header.custom("key", "value")), HttpData.Empty)))
-            .getResponse
+          val res = HttpApp.fromHttp(Http.succeed(Response(headers = List(Header.custom("key", "value"))))).getResponse
           assertM(res)(isResponse(responseHeader("key", "value")))
         } +
         testM("version is 1.1") {
@@ -157,9 +155,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   }
 
   def EchoStreamingResponseSpec = {
-    val streamingResponse = Response(
-      Status.OK,
-      Nil,
+    val streamingResponse = Response(data =
       HttpData.fromStream(
         ZStream
           .fromIterable(List("A", "B", "C", "D"))

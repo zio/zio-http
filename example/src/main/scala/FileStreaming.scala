@@ -14,7 +14,7 @@ object FileStreaming extends App {
   // Create HTTP route
   val app = HttpApp.collect {
     case Method.GET -> !! / "health" => Response.ok
-    case Method.GET -> !! / "file"   => Response(Status.OK, Nil, content)
+    case Method.GET -> !! / "file"   => Response(data = content)
   }
 
   // Run it like any simple app
