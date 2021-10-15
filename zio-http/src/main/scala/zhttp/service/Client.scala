@@ -94,7 +94,7 @@ object Client {
   def request(
     url: String,
     headers: List[Header],
-    content: HttpAttribute[Any, Nothing],
+    content: HttpData[Any, Nothing],
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
       url <- ZIO.fromEither(URL.fromString(url))
@@ -122,7 +122,7 @@ object Client {
   def request(
     endpoint: Endpoint,
     headers: List[Header],
-    content: HttpAttribute[Any, Nothing],
+    content: HttpData[Any, Nothing],
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint, headers, content))
 
@@ -140,7 +140,7 @@ object Client {
   final case class ClientParams(
     endpoint: Endpoint,
     headers: List[Header] = List.empty,
-    content: HttpAttribute[Any, Nothing] = HttpAttribute.empty,
+    content: HttpData[Any, Nothing] = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
   ) extends HeadersHelpers { self =>
     val method: Method = endpoint._1
@@ -148,14 +148,10 @@ object Client {
     val route: Route   = method -> url.path
 
     def getBodyAsString: Option[String] = content match {
-      case HttpAttribute.HttpContent(data) =>
-        data match {
-          case HttpData.Text(text, _) => Some(text)
-          case HttpData.Binary(data)  => Some((new String(data.toArray, HTTP_CHARSET)))
-          case HttpData.BinaryN(data) => Some(data.toString(HTTP_CHARSET))
-          case _                      => Option.empty
-        }
-      case _                               => Option.empty
+      case HttpData.Text(text, _) => Some(text)
+      case HttpData.Binary(data)  => Some((new String(data.toArray, HTTP_CHARSET)))
+      case HttpData.BinaryN(data) => Some(data.toString(HTTP_CHARSET))
+      case _                      => Option.empty
     }
 
     def remoteAddress: Option[InetAddress] = {
