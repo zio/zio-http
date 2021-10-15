@@ -51,4 +51,9 @@ object HttpData {
    * Helper to create HttpData from a SocketApp
    */
   def fromSocket[R, E](socketApp: SocketApp[R, E]): HttpData[R, E] = Socket(socketApp)
+
+  /**
+   * Helper to create HttpData from Content
+   */
+  private[zhttp] def fromContent[R, E](content: Content[R, E]): HttpData[R, E] = HttpContent(content)
 }

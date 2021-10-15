@@ -1,17 +1,21 @@
 package zhttp.http
 
+import zhttp.experiment.Content
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
 
 import java.io.{PrintWriter, StringWriter}
 
-case class Response[-R, +E](
+case class Response[-R, +E] private (
   status: Status = Status.OK,
   headers: List[Header] = Nil,
   data: HttpData[R, E] = HttpData.empty,
 )
 
 object Response {
+  def apply[R, E](status: Status = Status.OK, headers: List[Header] = Nil, content: Content[R, E]): Response[R, E] =
+    Response(status, headers, HttpData.fromContent(content))
+
   @deprecated("Use `Response(status, headers, content)` constructor instead.", "22-Sep-2021")
   def http[R, E](
     status: Status = Status.OK,
