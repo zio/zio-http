@@ -71,9 +71,9 @@ object Response {
   def status(status: Status): UResponse = Response(status)
 
   def temporaryRedirect(location: String): Response[Any, Nothing] =
-    Response(Status.TEMPORARY_REDIRECT, List(Header.location(location)), data = HttpAttribute.empty)
+    Response(Status.TEMPORARY_REDIRECT, List(Header.location(location)))
 
   def permanentRedirect(location: String): Response[Any, Nothing] =
-    Response(Status.PERMANENT_REDIRECT, List(Header.location(location)), data = HttpAttribute.empty)
+    Response(Status.PERMANENT_REDIRECT, List(Header.location(location)))
 
 }

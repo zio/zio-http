@@ -44,7 +44,7 @@ object Request {
     url: URL = URL.root,
     headers: List[Header] = Nil,
     remoteAddress: Option[InetAddress] = None,
-    content: HttpData[Any, Throwable] = HttpData.Empty,
+    data: HttpData[Any, Throwable] = HttpData.Empty,
   ): Request = {
     val m  = method
     val u  = url
@@ -56,7 +56,7 @@ object Request {
       override def headers: List[Header]                                                                            = h
       override def remoteAddress: Option[InetAddress]                                                               = ra
       override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
-        content match {
+        data match {
           case HttpData.Empty                => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
           case HttpData.Text(data, charset)  =>
             for {

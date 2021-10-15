@@ -10,7 +10,7 @@ import java.nio.charset.Charset
 /**
  * Content holder for and Responses
  */
-sealed trait HttpAttribute[-R, +E] extends Product with Serializable
+private[zhttp] sealed trait HttpAttribute[-R, +E] extends Product with Serializable
 
 object HttpAttribute {
   private[zhttp] case object Empty                                           extends HttpAttribute[Any, Nothing]
