@@ -18,9 +18,9 @@ object Response {
 
   @deprecated("Use `Response(status, headers, content)` constructor instead.", "22-Sep-2021")
   def http[R, E](
-    status: Status = Status.OK,
-    headers: List[Header] = Nil,
-    data: HttpData[R, E] = HttpData.empty,
+    status: Status,
+    headers: List[Header],
+    data: HttpData[R, E],
   ): Response[R, E] = Response(status, headers, data)
 
   /**
