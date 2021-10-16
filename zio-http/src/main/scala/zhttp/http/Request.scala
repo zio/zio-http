@@ -17,7 +17,7 @@ trait Request extends HeadersHelpers { self =>
 
   def remoteAddress: Option[InetAddress]
 
-  def addHeader(header: Header): Request        = self.copy(headers = header :: self.headers)
+  def addHeader(header: Header): Request = self.copy(headers = header :: self.headers)
 
   def removeHeader(name: CharSequence): Request = self.copy(headers = self.headers.filter(_.name != name))
 
@@ -26,11 +26,11 @@ trait Request extends HeadersHelpers { self =>
     val u = url
     val h = headers
     new Request {
-      override def method: Method                     = m
+      override def method: Method = m
 
-      override def url: URL                           = u
+      override def url: URL = u
 
-      override def headers: List[Header]              = h
+      override def headers: List[Header] = h
 
       override def remoteAddress: Option[InetAddress] =
         self.remoteAddress
