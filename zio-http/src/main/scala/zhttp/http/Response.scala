@@ -5,13 +5,22 @@ import zio.Chunk
 
 import java.io.{PrintWriter, StringWriter}
 
-case class Response[-R, +E](
-  status: Status = Status.OK,
-  headers: List[Header] = Nil,
-  data: HttpData[R, E] = HttpData.empty,
+case class Response[-R, +E] private (
+  status: Status,
+  headers: List[Header],
+  data: HttpData[R, E],
+  private[zhttp] val attribute: HttpAttribute[R, E],
 )
 
 object Response {
+
+  def apply[R, E](
+    status: Status = Status.OK,
+    headers: List[Header] = Nil,
+    data: HttpData[R, E] = HttpData.Empty,
+  ): Response[R, E] =
+    Response(status, headers, data, HttpAttribute.empty)
+
   @deprecated("Use `Response(status, headers, content)` constructor instead.", "22-Sep-2021")
   def http[R, E](
     status: Status = Status.OK,
@@ -66,9 +75,9 @@ object Response {
   def status(status: Status): UResponse = Response(status)
 
   def temporaryRedirect(location: String): Response[Any, Nothing] =
-    Response(Status.TEMPORARY_REDIRECT, List(Header.location(location)), data = HttpData.empty)
+    Response(Status.TEMPORARY_REDIRECT, List(Header.location(location)))
 
   def permanentRedirect(location: String): Response[Any, Nothing] =
-    Response(Status.PERMANENT_REDIRECT, List(Header.location(location)), data = HttpData.empty)
+    Response(Status.PERMANENT_REDIRECT, List(Header.location(location)))
 
 }

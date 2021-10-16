@@ -5,7 +5,6 @@ import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
-import zhttp.experiment.ContentDecoder
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.http._
 import zio.stream.ZStream
@@ -103,8 +102,6 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
 
                     case HttpData.BinaryStream(stream) =>
                       writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
-
-                    case HttpData.Socket(_) => ???
                   }
                 } yield (),
             )
@@ -127,8 +124,6 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
 
             case HttpData.BinaryStream(stream) =>
               unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
-
-            case HttpData.Socket(_) => ???
           }
 
         case HExit.Failure(e) => unsafeWriteAndFlushErrorResponse(e)

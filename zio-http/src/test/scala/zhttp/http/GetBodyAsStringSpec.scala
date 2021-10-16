@@ -24,7 +24,7 @@ object GetBodyAsStringSpec extends DefaultRunnableSpec {
             content = HttpData.Binary(Chunk.fromArray("abc".getBytes())),
           )
           .getBodyAsString
-        val actual  = Option(new String(Chunk.fromArray("abc".getBytes()).toArray, charset))
+        val actual  = Option(new String(Chunk.fromArray("abc".getBytes(charset)).toArray, charset))
 
         assert(actual)(equalTo(encoded))
       }
