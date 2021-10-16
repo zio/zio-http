@@ -1,9 +1,9 @@
 package zhttp.http
 
 import zhttp.experiment.internal.{HttpGen, HttpMessageAssertions}
-import zio.{Chunk, ZIO}
 import zio.test.Assertion.equalTo
 import zio.test._
+import zio.{Chunk, ZIO}
 
 object ContentDecoderSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
@@ -17,15 +17,16 @@ object ContentDecoderSpec extends DefaultRunnableSpec with HttpMessageAssertions
     } +
       testM("Step decoder") {
         checkAllM(content) { case c =>
-          val sampleStepDecoder: ContentDecoder[Any, Nothing, Chunk[Byte], String]=ContentDecoder.collect(Chunk.fromIterable(List.empty[Byte]))((a, s, b) =>
-            if (b == true) {
-              val state = s ++ a
-              ZIO.succeed((Some(new String(state.toArray, HTTP_CHARSET)), state))
-            } else {
-              val state = s ++ a
-              ZIO.succeed((None, state))
-            },
-          )
+          val sampleStepDecoder: ContentDecoder[Any, Nothing, Chunk[Byte], String] =
+            ContentDecoder.collect(Chunk.fromIterable(List.empty[Byte]))((a, s, b) =>
+              if (b == true) {
+                val state = s ++ a
+                ZIO.succeed((Some(new String(state.toArray, HTTP_CHARSET)), state))
+              } else {
+                val state = s ++ a
+                ZIO.succeed((None, state))
+              },
+            )
           assertM(sampleStepDecoder.decode(c))(equalTo("ABCD"))
         }
       }
