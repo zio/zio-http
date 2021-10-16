@@ -53,8 +53,7 @@ object Response {
             case None            => Chunk.fromArray(s"${cause.message}".getBytes(HTTP_CHARSET))
           }),
         )
-      case _                         =>
-        Response(error.status, Nil, HttpData.fromChunk(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
+      case _ => Response(error.status, Nil, HttpData.fromChunk(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
     }
 
   }
