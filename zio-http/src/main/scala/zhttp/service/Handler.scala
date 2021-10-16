@@ -90,11 +90,18 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
                 for {
                   _ <- UIO(unsafeWriteAnyResponse(res))
                   _ <- res.data match {
-                    case HttpData.Empty               => UIO(unsafeWriteAndFlushLastEmptyContent())
+                    case HttpData.Empty =>
+                      UIO(unsafeWriteAndFlushLastEmptyContent())
+
                     case HttpData.Text(data, charset) =>
                       UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset)))
-                    case HttpData.Binary(data)  => UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray)))
-                    case HttpData.BinaryN(data) => UIO(unsafeWriteLastContent(data))
+
+                    case HttpData.Binary(data) =>
+                      UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray)))
+
+                    case HttpData.BinaryN(data) =>
+                      UIO(unsafeWriteLastContent(data))
+
                     case HttpData.BinaryStream(stream) =>
                       writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
                   }
@@ -105,10 +112,18 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
         case HExit.Success(a) =>
           unsafeWriteAnyResponse(a)
           a.data match {
-            case HttpData.Empty                => unsafeWriteAndFlushLastEmptyContent()
-            case HttpData.Text(data, charset)  => unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset))
-            case HttpData.Binary(data)         => unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray))
-            case HttpData.BinaryN(data)        => unsafeWriteLastContent(data)
+            case HttpData.Empty =>
+              unsafeWriteAndFlushLastEmptyContent()
+
+            case HttpData.Text(data, charset) =>
+              unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset))
+
+            case HttpData.Binary(data) =>
+              unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray))
+
+            case HttpData.BinaryN(data) =>
+              unsafeWriteLastContent(data)
+
             case HttpData.BinaryStream(stream) =>
               unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
           }
