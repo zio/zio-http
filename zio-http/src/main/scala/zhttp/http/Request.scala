@@ -1,8 +1,7 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBufUtil, Unpooled}
-import zhttp.experiment.ContentDecoder
-import zhttp.experiment.ContentDecoder.Text
+import zhttp.http.ContentDecoder.Text
 import zio.{Chunk, Task, ZIO}
 
 import java.net.InetAddress

@@ -1,7 +1,6 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{HttpMethod, HttpResponse}
-import zhttp.experiment.ContentDecoder
 import zhttp.experiment.internal.{HttpAppClient, HttpMessageAssertions}
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.service.EventLoopGroup

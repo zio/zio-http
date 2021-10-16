@@ -1,6 +1,5 @@
-package zhttp.experiment
+package zhttp.http
 
-import zhttp.http.HttpData
 import zio.{Chunk, Queue, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
