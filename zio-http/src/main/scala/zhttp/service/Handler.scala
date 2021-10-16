@@ -98,10 +98,6 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
                     case HttpData.BinaryStream(stream) =>
                       writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
                   }
-//                  _ <- res.attribute match {
-//                    case HttpAttribute.Empty     => UIO(unsafeWriteAndFlushLastEmptyContent())
-//                    case HttpAttribute.Socket(_) => ???
-//                  }
                 } yield (),
             )
           }
@@ -116,10 +112,6 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
             case HttpData.BinaryStream(stream) =>
               unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
           }
-//          a.attribute match {
-//            case HttpAttribute.Empty     => unsafeWriteAndFlushLastEmptyContent()
-//            case HttpAttribute.Socket(_) => ???
-//          }
 
         case HExit.Failure(e) => unsafeWriteAndFlushErrorResponse(e)
         case HExit.Empty      => unsafeWriteAndFlushEmptyResponse()
