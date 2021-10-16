@@ -1,10 +1,11 @@
 package zhttp.http
 
-import zio.{Chunk, Queue, UIO, ZIO}
+import io.netty.buffer.{ByteBufUtil, Unpooled}
+import zio.{Chunk, Queue, Task, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
-  def decode[R1 <: R, E1 >: E](data: HttpData[R1, E1])(implicit ev: Chunk[Byte] <:< A): ZIO[R1, E1, B] =
-    ContentDecoder.decode(self.asInstanceOf[ContentDecoder[R1, E1, Chunk[Byte], B]], data)
+  def decode(data: HttpData[Any, Throwable])(implicit ev: Chunk[Byte] <:< A): ZIO[R, Throwable, B] =
+    ContentDecoder.decode(self.asInstanceOf[ContentDecoder[R, Throwable, Chunk[Byte], B]], data)
 }
 
 object ContentDecoder {
@@ -44,7 +45,77 @@ object ContentDecoder {
       }
   }
 
-  private def decode[R, E, A](decoder: ContentDecoder[R, E, Chunk[Byte], A], data: HttpData[R, E]): ZIO[R, E, A] = ???
+  private def decode[R, B](
+    decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+    data: HttpData[Any, Throwable],
+  ): ZIO[R, Throwable, B] =
+    data match {
+      case HttpData.Empty                => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+      case HttpData.Text(data, charset)  =>
+        for {
+          a   <- decoder match {
+            case Text                                     => ZIO(Option(data.asInstanceOf[B]))
+            case step: ContentDecoder.Step[_, _, _, _, _] =>
+              step
+                .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
+                .next(Chunk.fromArray(data.getBytes(charset)), step.state, true)
+                .map(a => a._1)
+          }
+          res <- contentFromOption(a)
+        } yield res
+      case HttpData.BinaryStream(stream) =>
+        for {
+          a   <- decoder match {
+            case Text =>
+              stream
+                .fold(Unpooled.compositeBuffer())((s, b) => s.writeBytes(Array(b)))
+                .map(b => Option(b.toString(HTTP_CHARSET).asInstanceOf[B]))
+
+            case step: ContentDecoder.Step[_, _, _, _, _] =>
+              stream
+                .fold(Unpooled.compositeBuffer())((s, b) => s.writeBytes(Array(b)))
+                .map(_.array())
+                .map(Chunk.fromArray(_))
+                .flatMap(
+                  step
+                    .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
+                    .next(_, step.state, true)
+                    .map(a => a._1),
+                )
+          }
+          res <- contentFromOption(a)
+        } yield res
+      case HttpData.Binary(data)         =>
+        for {
+          a   <- decoder match {
+            case Text => ZIO(Some((new String(data.toArray, HTTP_CHARSET)).asInstanceOf[B]))
+            case step: ContentDecoder.Step[_, _, _, _, _] =>
+              step
+                .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
+                .next(data, step.state, true)
+                .map(a => a._1)
+          }
+          res <- contentFromOption(a)
+        } yield res
+      case HttpData.BinaryN(data)        =>
+        for {
+          a   <- decoder match {
+            case Text                                     => ZIO(Some(data.toString(HTTP_CHARSET).asInstanceOf[B]))
+            case step: ContentDecoder.Step[_, _, _, _, _] =>
+              step
+                .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
+                .next(Chunk.fromArray(ByteBufUtil.getBytes(data)), step.state, true)
+                .map(a => a._1)
+          }
+          res <- contentFromOption(a)
+        } yield res
+    }
+  private def contentFromOption[B](a: Option[B]): Task[B] = {
+    a match {
+      case Some(value) => ZIO(value)
+      case None        => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+    }
+  }
 
   object Error {
     case object ContentDecodedOnce extends Error
