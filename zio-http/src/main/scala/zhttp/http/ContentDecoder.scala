@@ -29,6 +29,11 @@ object ContentDecoder {
     def apply[R, E, B](s: S)(f: (A, S, Boolean) => ZIO[R, E, (Option[B], S)]): ContentDecoder[R, E, A, B] = Step(s, f)
   }
 
+  def collectAll[A]: ContentDecoder[Any, Nothing, A, Chunk[A]] = ContentDecoder.collect[Chunk[A], A](Chunk.empty) {
+    case (a, chunk, true)  => UIO((Option(chunk :+ a), chunk))
+    case (a, chunk, false) => UIO((None, chunk :+ a))
+  }
+
   val backPressure: ContentDecoder[Any, Nothing, Chunk[Byte], Queue[Chunk[Byte]]] =
     ContentDecoder.collect(BackPressure[Chunk[Byte]]()) { case (msg, state, _) =>
       for {
