@@ -1,8 +1,12 @@
 package zhttp.experiment
 
+import zhttp.http.HttpData
 import zio.{Chunk, Queue, UIO, ZIO}
 
-sealed trait ContentDecoder[-R, +E, -A, +B] { self => }
+sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
+  def decode[R1 <: R, E1 >: E](data: HttpData[R1, E1])(implicit ev: Chunk[Byte] <:< A): ZIO[R1, E1, B] =
+    ContentDecoder.decode(self.asInstanceOf[ContentDecoder[R1, E1, Chunk[Byte], B]], data)
+}
 
 object ContentDecoder {
 
@@ -40,6 +44,8 @@ object ContentDecoder {
         case Error.DecodeEmptyContent => "Can not decode empty content"
       }
   }
+
+  private def decode[R, E, A](decoder: ContentDecoder[R, E, Chunk[Byte], A], data: HttpData[R, E]): ZIO[R, E, A] = ???
 
   object Error {
     case object ContentDecodedOnce extends Error
