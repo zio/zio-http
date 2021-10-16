@@ -74,7 +74,7 @@ object ContentDecoder {
             case step: ContentDecoder.Step[_, _, _, _, _] =>
               stream
                 .fold(Unpooled.compositeBuffer())((s, b) => s.writeBytes(Array(b)))
-                .map(_.array())
+                .map(a => a.array().take(a.writerIndex()))
                 .map(Chunk.fromArray(_))
                 .flatMap(
                   step
