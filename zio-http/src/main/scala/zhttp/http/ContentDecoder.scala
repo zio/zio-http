@@ -57,63 +57,54 @@ object ContentDecoder {
     data match {
       case HttpData.Empty                => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
       case HttpData.Text(data, charset)  =>
-        for {
-          a   <- decoder match {
-            case Text                                     => ZIO(Option(data.asInstanceOf[B]))
-            case step: ContentDecoder.Step[_, _, _, _, _] =>
-              step
-                .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
-                .next(Chunk.fromArray(data.getBytes(charset)), step.state, true)
-                .map(a => a._1)
-          }
-          res <- contentFromOption(a)
-        } yield res
+        decoder match {
+          case Text                                     => UIO(data.asInstanceOf[B])
+          case step: ContentDecoder.Step[_, _, _, _, _] =>
+            step
+              .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
+              .next(Chunk.fromArray(data.getBytes(charset)), step.state, true)
+              .map(a => a._1)
+              .flatMap(contentFromOption)
+        }
       case HttpData.BinaryStream(stream) =>
-        for {
-          a   <- decoder match {
-            case Text =>
-              stream
-                .fold(Unpooled.compositeBuffer())((s, b) => s.writeBytes(Array(b)))
-                .map(b => Option(b.toString(HTTP_CHARSET).asInstanceOf[B]))
-
-            case step: ContentDecoder.Step[_, _, _, _, _] =>
-              stream
-                .fold(Unpooled.compositeBuffer())((s, b) => s.writeBytes(Array(b)))
-                .map(a => a.array().take(a.writerIndex()))
-                .map(Chunk.fromArray(_))
-                .flatMap(
-                  step
-                    .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
-                    .next(_, step.state, true)
-                    .map(a => a._1),
-                )
-          }
-          res <- contentFromOption(a)
-        } yield res
+        decoder match {
+          case Text                                     =>
+            stream
+              .fold(Unpooled.compositeBuffer())((s, b) => s.writeBytes(Array(b)))
+              .map(b => b.toString(HTTP_CHARSET).asInstanceOf[B])
+          case step: ContentDecoder.Step[_, _, _, _, _] =>
+            stream
+              .fold(Unpooled.compositeBuffer())((s, b) => s.writeBytes(Array(b)))
+              .map(a => a.array().take(a.writerIndex()))
+              .map(Chunk.fromArray(_))
+              .flatMap(
+                step
+                  .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
+                  .next(_, step.state, true)
+                  .map(a => a._1)
+                  .flatMap(contentFromOption),
+              )
+        }
       case HttpData.Binary(data)         =>
-        for {
-          a   <- decoder match {
-            case Text => ZIO(Some((new String(data.toArray, HTTP_CHARSET)).asInstanceOf[B]))
-            case step: ContentDecoder.Step[_, _, _, _, _] =>
-              step
-                .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
-                .next(data, step.state, true)
-                .map(a => a._1)
-          }
-          res <- contentFromOption(a)
-        } yield res
+        decoder match {
+          case Text                                     => UIO((new String(data.toArray, HTTP_CHARSET)).asInstanceOf[B])
+          case step: ContentDecoder.Step[_, _, _, _, _] =>
+            step
+              .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
+              .next(data, step.state, true)
+              .map(a => a._1)
+              .flatMap(contentFromOption)
+        }
       case HttpData.BinaryN(data)        =>
-        for {
-          a   <- decoder match {
-            case Text                                     => ZIO(Some(data.toString(HTTP_CHARSET).asInstanceOf[B]))
-            case step: ContentDecoder.Step[_, _, _, _, _] =>
-              step
-                .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
-                .next(Chunk.fromArray(ByteBufUtil.getBytes(data)), step.state, true)
-                .map(a => a._1)
-          }
-          res <- contentFromOption(a)
-        } yield res
+        decoder match {
+          case Text                                     => UIO(data.toString(HTTP_CHARSET).asInstanceOf[B])
+          case step: ContentDecoder.Step[_, _, _, _, _] =>
+            step
+              .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
+              .next(Chunk.fromArray(ByteBufUtil.getBytes(data)), step.state, true)
+              .map(a => a._1)
+              .flatMap(contentFromOption)
+        }
     }
   private def contentFromOption[B](a: Option[B]): Task[B] = {
     a match {
