@@ -160,42 +160,43 @@ object HttpApp {
   def POST: Route[Unit] = Route.post
   def PUT: Route[Unit]  = Route.put
 
-  sealed trait HttpAppConstructor[B] {
+  sealed trait HttpAppConstructor[A, B] {
     type ROut
     type EOut
-    def make[C](route: Route[C], f: Request => B): HttpApp[ROut, EOut]
+    def make(route: Route[A], f: (Request, A) => B): HttpApp[ROut, EOut]
   }
 
   object HttpAppConstructor {
-    type Aux[R, E, A] = HttpAppConstructor[A] {
+    type Aux[R, E, A, B] = HttpAppConstructor[A, B] {
       type ROut = R
       type EOut = E
     }
 
-    implicit def f1[R, E]: Aux[R, E, Response[R, E]] = new HttpAppConstructor[Response[R, E]] {
+    implicit def f1[R, E, A]: Aux[R, E, A, Response[R, E]] = new HttpAppConstructor[A, Response[R, E]] {
       override type ROut = R
       override type EOut = E
 
-      override def make[B](route: Route[B], f: Request => Response[R, E]): HttpApp[R, E] =
+      override def make(route: Route[A], f: (Request, A) => Response[R, E]): HttpApp[R, E] =
         HttpApp.collect { case req =>
           route.extract(req) match {
-            case Some(_) => f(req)
-            case None    => Response.fromHttpError(HttpError.NotFound(req.url.path))
+            case Some(value) => f(req, value)
+            case None        => Response.fromHttpError(HttpError.NotFound(req.url.path))
           }
         }
     }
 
-    implicit def f2[R, E]: Aux[R, E, ZIO[R, E, Response[R, E]]] = new HttpAppConstructor[ZIO[R, E, Response[R, E]]] {
-      override type ROut = R
-      override type EOut = E
+    implicit def f2[R, E, A]: Aux[R, E, A, ZIO[R, E, Response[R, E]]] =
+      new HttpAppConstructor[A, ZIO[R, E, Response[R, E]]] {
+        override type ROut = R
+        override type EOut = E
 
-      override def make[B](route: Route[B], f: Request => ZIO[R, E, Response[R, E]]): HttpApp[R, E] =
-        HttpApp.collectM { case req =>
-          route.extract(req) match {
-            case Some(_) => f(req)
-            case None    => UIO(Response.fromHttpError(HttpError.NotFound(req.url.path)))
+        override def make(route: Route[A], f: (Request, A) => ZIO[R, E, Response[R, E]]): HttpApp[R, E] =
+          HttpApp.collectM { case req =>
+            route.extract(req) match {
+              case Some(value) => f(req, value)
+              case None        => UIO(Response.fromHttpError(HttpError.NotFound(req.url.path)))
+            }
           }
-        }
-    }
+      }
   }
 }

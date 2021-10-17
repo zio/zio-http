@@ -44,8 +44,8 @@ final case class Route[A](method: Method, routePath: RoutePath[A]) { self =>
   /**
    * Creates an HttpApp from a Request to Response function
    */
-  def to[B](f: Request => B)(implicit ctor: HttpAppConstructor[B]): HttpApp[ctor.ROut, ctor.EOut] =
-    ctor.make[A](self, f)
+  def to[B](f: (Request, A) => B)(implicit ctor: HttpAppConstructor[A, B]): HttpApp[ctor.ROut, ctor.EOut] =
+    ctor.make(self, f)
 }
 
 object Route {
