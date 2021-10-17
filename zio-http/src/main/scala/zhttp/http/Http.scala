@@ -1,5 +1,6 @@
 package zhttp.http
 
+import zhttp.experiment.Middleware
 import zio._
 
 import scala.annotation.unused
@@ -296,6 +297,11 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
         }
     }
   }
+
+  def @@[R1 <: R, E1 >: E, AIn <: A, BIn >: B, AOut, BOut](
+    middleware: Middleware[R1, E1, AIn, BIn, AOut, BOut],
+  ): Http[R1, E1, AOut, BOut] =
+    middleware(self)
 }
 
 object Http {
