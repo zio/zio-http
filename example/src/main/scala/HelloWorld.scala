@@ -21,6 +21,12 @@ object HelloWorld extends App {
     }
   }
 
+  def h3 = HttpApp.fromHttp {
+    Http.collectM[Request] { case req =>
+      req.decodeContent(ContentDecoder.multipart(req.toJHttpRequest)).map { _ => ??? }
+    }
+  }
+
   def app: HttpApp[Any, Throwable] = h1 +++ h2
 
   // Run it like any simple app
