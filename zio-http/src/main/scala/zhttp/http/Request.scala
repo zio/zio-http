@@ -1,8 +1,9 @@
 package zhttp.http
 
-import zio.{Chunk, ZIO}
-
 import java.net.InetAddress
+
+import io.netty.handler.codec.http.HttpContent
+import zio.ZIO
 
 trait Request extends HeadersHelpers { self =>
   def method: Method
@@ -13,7 +14,7 @@ trait Request extends HeadersHelpers { self =>
 
   def path: Path = url.path
 
-  def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B]
+  def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, HttpContent, B]): ZIO[R, Throwable, B]
 
   def remoteAddress: Option[InetAddress]
 
@@ -35,7 +36,7 @@ trait Request extends HeadersHelpers { self =>
       override def remoteAddress: Option[InetAddress] =
         self.remoteAddress
 
-      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
+      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, HttpContent, B]): ZIO[R, Throwable, B] =
         self.decodeContent(decoder)
     }
   }
@@ -62,7 +63,7 @@ object Request {
       override def url: URL                                                                                         = u
       override def headers: List[Header]                                                                            = h
       override def remoteAddress: Option[InetAddress]                                                               = ra
-      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
+      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, HttpContent, B]): ZIO[R, Throwable, B] =
         decoder.decode(data)
     }
   }

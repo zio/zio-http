@@ -1,12 +1,23 @@
 package zhttp.experiment
 
-import zio.{Chunk}
+import io.netty.buffer.ByteBufUtil
+import io.netty.handler.codec.http.multipart.{Attribute => JAttribute, FileUpload, HttpData, InterfaceHttpData}
+import zio.Chunk
 
-//case class MultipartData(parts: Queue[Part])
 sealed trait Part
 
 object Part {
+  def fromHTTPData(data: InterfaceHttpData): Part = data match {
+    case data: HttpData => // todo: move this code to Part
+      data match {
+        case attribute: JAttribute => Part.Attribute(attribute.getName, Option(attribute.getValue))
+        case upload: FileUpload    =>
+          Part.FileData(Chunk.fromArray(ByteBufUtil.getBytes(upload.content())), Option(upload.getFilename))
+        case _                     => Part.Empty
+      }
+    case _              => Part.Empty
+  }
   case class FileData(content: Chunk[Byte], fileName: Option[String]) extends Part
-  case class Attribute(name: String, value: Option[String])           extends Part
-  case object Empty                                                   extends Part
+  case class Attribute(name: String, value: Option[String]) extends Part
+  case object Empty                                         extends Part
 }
