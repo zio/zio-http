@@ -1,5 +1,7 @@
 package zhttp.experiment.internal
 
+import java.nio.charset.Charset
+
 import io.netty.handler.codec.http._
 import zhttp.experiment.ContentDecoder
 import zhttp.http._
@@ -9,9 +11,6 @@ import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
 import zio.test.{Assertion, TestResult, assertM}
 import zio.{Chunk, Promise, Task, ZIO}
-import java.nio.charset.Charset
-
-import io.netty.buffer.{ByteBuf, ByteBufUtil}
 
 trait HttpMessageAssertions {
 
@@ -38,18 +37,17 @@ trait HttpMessageAssertions {
     } yield res.asInstanceOf[HttpResponse]
 
     def getWebSocketResponse(
-      url: String = "/subscriptions",
+      url: String = "/",
       method: HttpMethod = HttpMethod.GET,
       header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
-    ): ZIO[R with EventLoopGroup, Throwable, Any] = for {
-      proxy <- HttpAppClient.deploy(app)
-      _ = println("url " + url)
-      _ = println("method " + method)
-      _ = println("header " + header)
-      _   <- proxy.request(url, method, header)
-      res <- proxy.receive
-      _ = println("response " + res)
-    } yield ByteBufUtil.getBytes(res.asInstanceOf[ByteBuf]).mkString("")
+    ): ZIO[R with EventLoopGroup, Throwable, Any] = {
+      for {
+        proxy <- HttpAppClient.deployWebSocket(app)
+        _     <- proxy.request(url, method, header)
+        res   <- proxy.receive
+        _ = println("res" + res)
+      } yield (res.asInstanceOf[HttpResponse], proxy)
+    }.flatMap(x => x._2.receive)
 
     def getWebSocketFrame(
       url: String = "/",

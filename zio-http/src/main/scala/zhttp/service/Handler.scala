@@ -113,28 +113,38 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
             )
           }
 
-        case HExit.Success(b) =>
+        case HExit.Success(b) => {
           b.data match {
-            case HttpData.Empty =>
+            case HttpData.Empty => {
               unsafeWriteAnyResponse(b)
               unsafeWriteAndFlushLastEmptyContent()
+            }
 
-            case HttpData.Text(data, charset) =>
+            case HttpData.Text(data, charset) => {
               unsafeWriteAnyResponse(b)
               unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset))
+            }
 
-            case HttpData.BinaryN(data) =>
+            case HttpData.BinaryN(data) => {
+              unsafeWriteAnyResponse(b)
               unsafeWriteLastContent(data)
+            }
 
-            case HttpData.Binary(data) =>
+            case HttpData.Binary(data) => {
               unsafeWriteAnyResponse(b)
               unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray))
+            }
 
-            case HttpData.BinaryStream(stream) =>
+            case HttpData.BinaryStream(stream) => {
+              unsafeWriteAnyResponse(b)
               unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
+            }
 
-            case HttpData.Socket(socket) => handleHandshake(ctx, a.asInstanceOf[Request], socket): Unit
+            case HttpData.Socket(socket) => {
+              handleHandshake(ctx, a.asInstanceOf[Request], socket): Unit
+            }
           }
+        }
 
         case HExit.Failure(e) => unsafeWriteAndFlushErrorResponse(e)
         case HExit.Empty      => unsafeWriteAndFlushEmptyResponse()
@@ -262,20 +272,27 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
     req: Request,
     socket: SocketApp[R, Throwable],
   ) = {
+    //Todo: Use netty req
     val fullReq =
       new DefaultFullHttpRequest(HTTP_1_1, req.method.asHttpMethod, req.url.asString, Unpooled.EMPTY_BUFFER, false)
     fullReq.headers().setAll(Header.disassemble(req.headers))
+    println("handleHandshake" + ctx.channel().pipeline())
     ctx
       .channel()
       .pipeline()
       .addLast(new WebSocketServerProtocolHandler(socket.config.protocol.javaConfig))
-      .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, socket.config))
+    ctx.channel().pipeline().addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, socket.config))
     ctx
       .channel()
       .eventLoop()
-      .submit(() => ctx.fireChannelRead(fullReq))
+      .submit(() => {
+        println("ctx " + ctx)
+        println(fullReq)
+        ctx.fireChannelRead(fullReq)
+      })
       .addListener((_: Any) => {
-        if (ctx.channel().pipeline().get(HTTP_HANDLER) != null) ctx.channel().pipeline().remove(HTTP_HANDLER)
+        ctx.channel().pipeline().remove(HTTP_HANDLER)
+        println("listener" + ctx.channel().pipeline())
         ctx.channel().config().setAutoRead(true): Unit
       })
   }

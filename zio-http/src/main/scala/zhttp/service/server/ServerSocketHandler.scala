@@ -64,7 +64,9 @@ final case class ServerSocketHandler[R](
           case Some(v) =>
             v match {
               case Open.WithEffect(f) => zExec.unsafeRun(ctx)(f(ctx.channel().remoteAddress()))
-              case Open.WithSocket(s) => writeAndFlush(ctx, s(ctx.channel().remoteAddress()))
+              case Open.WithSocket(s) => {
+                writeAndFlush(ctx, s(ctx.channel().remoteAddress()))
+              }
             }
           case None    => ctx.fireUserEventTriggered(event)
         }

@@ -137,9 +137,8 @@ object HttpAppClient {
      */
     def writeM(msg: => AnyRef): Task[Unit] = Task {
       assertThread("writeM")
-
+      println("writeM" + msg)
       val autoRead = self.config().isAutoRead
-
       if (autoRead || pendingRead) {
 
         // Calls to `writeInbound()` internally triggers `fireChannelRead()`
@@ -165,6 +164,7 @@ object HttpAppClient {
      */
     override def handleOutboundMessage(msg: AnyRef): Unit = {
       assertThread("handleOutboundMessage")
+      println("outbound " + msg)
       rtm
         .unsafeRunAsync(outbound.offer(msg.asInstanceOf[Any])) {
           case Exit.Failure(cause) => System.err.println(cause.prettyPrint)
@@ -210,10 +210,39 @@ object HttpAppClient {
         val channel = ProxyChannel(inbound, outbound, ec, grtm, thread)
         channel
           .pipeline()
-          .addLast(new HttpClientCodec)
-          .addLast(new HttpObjectAggregator(Int.MaxValue))
-          .addLast(new HttpObjectDecoder)
+//          .addLast(new HttpServerCodec())
           .addLast(HTTP_HANDLER, app.compile(zExec))
+        println(channel.pipeline())
+        HttpAppClient(outbound, channel)
+      }.on(ec)
+    } yield proxy
+  }
+  def deployWebSocket[R](app: HttpApp[R, Throwable]): ZIO[R with EventLoopGroup, Nothing, HttpAppClient] = {
+    for {
+      // Create a promise that resolves with the thread that is allowed for the execution
+      // It is later used to guarantee that all the execution happens on the same thread.
+      threadRef <- Promise.make[Nothing, Thread]
+      group     <- ZIO.access[EventLoopGroup](_.get)
+      rtm       <- ZIO.runtime[Any]
+      ec = ExecutionContext.fromExecutor(group)
+
+      // !!! IMPORTANT !!!
+      // `rtm.unsafeRunAsync_` needs to execute in a single threaded env only.
+      // Otherwise, it is possible to have messages being inserted out of order.
+      grtm = rtm.withExecutor(Executor.fromExecutionContext(2048)(ec))
+      zExec    <- HttpRuntime.dedicated[R](group)
+      outbound <- MessageQueue.default[Any]
+      inbound  <- MessageQueue.default[Any]
+      _        <- ZIO.effectSuspendTotal(threadRef.succeed(Thread.currentThread())).on(ec)
+      thread   <- threadRef.await
+      proxy    <- UIO {
+
+        val channel = ProxyChannel(inbound, outbound, ec, grtm, thread)
+        channel
+          .pipeline()
+          .addLast(new HttpServerCodec())
+          .addLast(HTTP_HANDLER, app.compile(zExec))
+        println(channel.pipeline())
         HttpAppClient(outbound, channel)
       }.on(ec)
     } yield proxy
