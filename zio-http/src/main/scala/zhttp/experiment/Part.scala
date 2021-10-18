@@ -8,7 +8,7 @@ sealed trait Part
 
 object Part {
   def fromHTTPData(data: InterfaceHttpData): Part = data match {
-    case data: HttpData => // todo: move this code to Part
+    case data: HttpData =>
       data match {
         case attribute: JAttribute => Part.Attribute(attribute.getName, Option(attribute.getValue))
         case upload: FileUpload    =>
