@@ -128,6 +128,11 @@ object HttpApp {
   def response[R, E](response: Response[R, E]): HttpApp[R, E] = HttpApp(Http.succeed(response))
 
   /**
+   * Creates an HTTP app which always responds with the same status code and empty data.
+   */
+  def status(code: Status): HttpApp[Any, Nothing] = HttpApp(Http.succeed(Response(code)))
+
+  /**
    * Creates an Http app that fails with a NotFound exception.
    */
   def notFound: HttpApp[Any, HttpError] =
@@ -136,6 +141,11 @@ object HttpApp {
         .fromFunction[Request](req => Http.succeed(Response.fromHttpError(HttpError.NotFound(req.url.path))))
         .flatten,
     )
+
+  /**
+   * Creates an HTTP app which always responds with a 200 status code.
+   */
+  def ok: HttpApp[Any, Nothing] = status(Status.OK)
 
   /**
    * Creates an Http app that responds with 403 - Forbidden status code
@@ -154,5 +164,4 @@ object HttpApp {
    */
   def fromPartialFunction[R, E, A, B](f: Request => ZIO[R, Option[E], Response[R, E]]): HttpApp[R, E] =
     HttpApp(Http.fromPartialFunction(f))
-
 }
