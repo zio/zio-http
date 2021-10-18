@@ -7,13 +7,14 @@ sealed trait WebSocketFrame extends Product with Serializable { self =>
   final def toWebSocketFrame: JWebSocketFrame = WebSocketFrame.toJFrame(self)
   def isFinal: Boolean                  = true
 }
+
 object WebSocketFrame {
 
   case class Binary(buffer: ByteBuf, override val isFinal: Boolean = true) extends WebSocketFrame
-  object Binary { def unapply(frame: WebSocketFrame.Binary) = Some(frame.buffer) }
+  object Binary { def unapply(frame: WebSocketFrame.Binary): Option[ByteBuf] = Some(frame.buffer) }
 
   final case class Text(text: String, override val isFinal: Boolean = true) extends WebSocketFrame
-  object Text { def unapply(frame: WebSocketFrame.Text) = Some(frame.text) }
+  object Text { def unapply(frame: WebSocketFrame.Text): Option[String] = Some(frame.text) }
 
   final case class Close(status: Int, reason: Option[String]) extends WebSocketFrame
 
@@ -21,7 +22,7 @@ object WebSocketFrame {
   case object Pong extends WebSocketFrame
 
   final case class Continuation(buffer: ByteBuf, override val isFinal: Boolean = true) extends WebSocketFrame
-  object Continuation { def unapply(frame: WebSocketFrame.Continuation) = Some(frame.buffer) }
+  object Continuation { def unapply(frame: WebSocketFrame.Continuation): Option[ByteBuf] = Some(frame.buffer) }
 
   def text(string: String): WebSocketFrame =
     WebSocketFrame.Text(string)
@@ -57,10 +58,10 @@ object WebSocketFrame {
 
   def toJFrame(frame: WebSocketFrame): JWebSocketFrame =
     frame match {
-      case b @ Binary(buffer)        =>
-        new BinaryWebSocketFrame(b.isFinal, 0, buffer.asJava)
-      case t @ Text(text)            =>
-        new TextWebSocketFrame(t.isFinal, 0, text)
+      case b: Binary                 =>
+        new BinaryWebSocketFrame(b.isFinal, 0, b.buffer.asJava)
+      case t: Text                   =>
+        new TextWebSocketFrame(t.isFinal, 0, t.text)
       case Close(status, Some(text)) =>
         new CloseWebSocketFrame(status, text)
       case Close(status, None)       =>
@@ -69,7 +70,7 @@ object WebSocketFrame {
         new PingWebSocketFrame()
       case Pong                      =>
         new PongWebSocketFrame()
-      case c @ Continuation(buffer)  =>
-        new ContinuationWebSocketFrame(c.isFinal, 0, buffer.asJava)
+      case c: Continuation           =>
+        new ContinuationWebSocketFrame(c.isFinal, 0, c.buffer.asJava)
     }
 }
