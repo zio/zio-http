@@ -133,6 +133,11 @@ object HttpApp {
   def status(code: Status): HttpApp[Any, Nothing] = HttpApp(Http.succeed(Response(code)))
 
   /**
+   * Takes an HTTP app and returns a ZIO effect.
+   */
+  def toEffect[R, E](req: Request, httpApp: HttpApp[R, E]): ZIO[R, Option[E], Response[R, E]] = httpApp.asHttp(req)
+
+  /**
    * Creates an Http app that fails with a NotFound exception.
    */
   def notFound: HttpApp[Any, HttpError] =
