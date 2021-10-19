@@ -60,6 +60,8 @@ libraryDependencies += "io.d11" %% "zhttp"      % "[version]"
 libraryDependencies += "io.d11" %% "zhttp-test" % "[version]" % Test
 ```
 
+**NOTE:** Currently ZIO Http is compatible with `ZIO 1.x` only. The library will migrate to `ZIO 2.x` as soon as a stable release is published.
+
 # Benchmarks
 
 These are some basic benchmarks of how ZIO Http performs wrt other main-stream libraries.
