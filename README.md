@@ -2,7 +2,9 @@
 
 ZIO Http is a scala library for building http apps. It is powered by [ZIO] and [netty] and aims at being the defacto solution for writing, highly scalable and [performant](#benchmarks) web applications using idiomatic scala.
 
-Check out the full documentation here: [![Documentation](https://dream11.github.io/zio-http/)](https://dream11.github.io/zio-http/)]
+Check out the full documentation here: [Documentation]
+
+[Documentation]: https://dream11.github.io/zio-http
 
 ![Continuous Integration](https://github.com/dream11/zio-http/workflows/Continuous%20Integration/badge.svg)
 [![Discord Chat](https://img.shields.io/discord/629491597070827530.svg?logo=discord)](https://discord.com/channels/629491597070827530/819703129267372113)
