@@ -12,14 +12,14 @@ final case class Route[A](method: Method, routePath: RoutePath[A]) { self =>
    * Create a new Route[A] with existing RoutePath and new string
    */
   def /(name: String): Route[A] =
-    Route(self.method, RoutePath(RouteToken.Literal(name), self.routePath))
+    Route(self.method, RoutePath.parse(RouteToken.Literal(name), self.routePath))
 
   /**
    * Create a new Route[C] by combining RouteToken[B] and existing RoutePath[A]. C here is path dependent type and will
    * be resolved using combing aux implicit
    */
   def /[B, C](other: RouteToken[B])(implicit ev: Route.Combine.Aux[A, B, C]): Route[C] =
-    Route(self.method, RoutePath(other, self.routePath))
+    Route(self.method, RoutePath.parse(other, self.routePath))
 
   /**
    * Extract route params from request
@@ -34,18 +34,22 @@ final case class Route[A](method: Method, routePath: RoutePath[A]) { self =>
   /**
    * Execute extract on request path and returns Option[A]
    */
-  def apply(path: Path): Option[A] = self.extract(path)
+  def parse(path: Path): Option[A] = self.extract(path)
 
   /**
    * Execute extract on request and returns Option[A]
    */
-  def apply(request: Request): Option[A] = self.extract(request)
+  def parse(request: Request): Option[A] = self.extract(request)
 
   /**
    * Creates an HttpApp from a Request to Response function
    */
-  def to[B](f: (Request, A) => B)(implicit ctor: HttpAppConstructor[A, B]): HttpApp[ctor.ROut, ctor.EOut] =
+  def to[B](f: Request.Typed[A] => B)(implicit ctor: HttpAppConstructor[A, B]): HttpApp[ctor.ROut, ctor.EOut] =
     ctor.make(self, f)
+
+  // TODO: Better name
+  def toP[B](f: A => B)(implicit ctor: HttpAppConstructor[A, B]): HttpApp[ctor.ROut, ctor.EOut] =
+    ctor.make(self, a => f(a.params))
 }
 
 object Route {
@@ -61,13 +65,13 @@ object Route {
     /**
      * Create RoutePath by combining RouteToken[Unit] and RoutePath[A]
      */
-    def apply[A](head: RouteToken[Unit], tail: RoutePath[A]): RoutePath[A] =
+    def parse[A](head: RouteToken[Unit], tail: RoutePath[A]): RoutePath[A] =
       RoutePath.Cons(head, tail)
 
     /**
      * Create RoutePath[C] by combining RouteToken[B] and RoutePath[A]. Return type C is determined by implicit combine
      */
-    def apply[A, B, C](head: RouteToken[B], tail: RoutePath[A])(implicit ev: Combine.Aux[A, B, C]): RoutePath[C] =
+    def parse[A, B, C](head: RouteToken[B], tail: RoutePath[A])(implicit ev: Combine.Aux[A, B, C]): RoutePath[C] =
       RoutePath.Cons(head, tail)
 
     case object Empty extends RoutePath[Unit]
@@ -215,4 +219,5 @@ object Route {
     // scalafmt: { maxColumn = 120 }
   }
 
+  def ![A](implicit ev: Route.RouteParam[A]): Route.RouteToken[A] = Route[A]
 }
