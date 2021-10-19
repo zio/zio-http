@@ -62,16 +62,9 @@ libraryDependencies += "io.d11" %% "zhttp-test" % "[version]" % Test
 
 **NOTE:** Currently ZIO Http is compatible with `ZIO 1.x` only. The library will migrate to `ZIO 2.x` as soon as a stable release is published.
 
-# Benchmarks
 
-These are some basic benchmarks of how ZIO Http performs wrt other main-stream libraries.
+# Watch Mode
 
-| **Benchmark (req/sec)** |   `json`   |  `plain-text` |
-| :---------------------- | :--------: | ------------: |
-| **ZIO-Http**            | 700,073.31 |    719,576.04 |
-| **Vert.x**              | 644,854.27 |    707,991.69 |
-| **Finagle**             | 567,496.97 |    572,231.69 |
-| **Play**                | 261,223.68 |    263,819.25 |
-| **Http4s**              | 135,565.22 |    139,573.98 |
+You can use the [sbt-revolver] plugin to start the server and run it in watch mode using `~ reStart` command on the SBT console.
 
-More details are available [here](https://github.com/dream11/zio-http/blob/main/BENCHMARKS.md).
+[sbt-revolver]: https://github.com/spray/sbt-revolver
