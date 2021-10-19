@@ -105,7 +105,7 @@ lazy val example = (project in file("./example"))
   .settings(
     fork                      := true,
     Compile / run / mainClass := Option("HelloWorld"),
-    libraryDependencies ++= Seq(`jwt-core`),
+    libraryDependencies ++= Seq(`jwt-core`, `zio-prometheus`),
   )
   .dependsOn(zhttp)
 
