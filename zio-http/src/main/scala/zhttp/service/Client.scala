@@ -60,6 +60,8 @@ final case class Client(zx: HttpRuntime[Any], cf: JChannelFactory[Channel], el: 
 }
 
 object Client {
+  type Endpoint = (Method, URL)
+
   def make: ZIO[EventLoopGroup with ChannelFactory, Nothing, Client] = for {
     cf <- ZIO.access[ChannelFactory](_.get)
     el <- ZIO.access[EventLoopGroup](_.get)
@@ -143,9 +145,9 @@ object Client {
     content: HttpData[Any, Nothing] = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
   ) extends HeadersHelpers { self =>
-    val method: Method = endpoint._1
-    val url: URL       = endpoint._2
-    val route: Router  = method -> url.path
+    val method: Method        = endpoint._1
+    val url: URL              = endpoint._2
+    val route: (Method, Path) = method -> url.path
 
     def getBodyAsString: Option[String] = content match {
       case HttpData.Text(text, _) => Some(text)
