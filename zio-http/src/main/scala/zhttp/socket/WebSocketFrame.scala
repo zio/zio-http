@@ -10,19 +10,34 @@ sealed trait WebSocketFrame extends Product with Serializable { self =>
 
 object WebSocketFrame {
 
-  case class Binary(buffer: ByteBuf, override val isFinal: Boolean = true) extends WebSocketFrame
-  object Binary { def unapply(frame: WebSocketFrame.Binary): Option[ByteBuf] = Some(frame.buffer) }
+  case class Binary(buffer: ByteBuf) extends WebSocketFrame { override val isFinal: Boolean = true }
+  object Binary {
+    def apply(buffer: ByteBuf, isFinal: Boolean): Binary       = new Binary(buffer) {
+      override val isFinal: Boolean = isFinal
+    }
+    def unapply(frame: WebSocketFrame.Binary): Option[ByteBuf] = Some(frame.buffer)
+  }
 
-  final case class Text(text: String, override val isFinal: Boolean = true) extends WebSocketFrame
-  object Text { def unapply(frame: WebSocketFrame.Text): Option[String] = Some(frame.text) }
+  case class Text(text: String) extends WebSocketFrame { override val isFinal: Boolean = true }
+  object Text {
+    def apply(text: String, isFinal: Boolean): Text         = new Text(text) {
+      override val isFinal: Boolean = isFinal
+    }
+    def unapply(frame: WebSocketFrame.Text): Option[String] = Some(frame.text)
+  }
 
   final case class Close(status: Int, reason: Option[String]) extends WebSocketFrame
 
   case object Ping extends WebSocketFrame
   case object Pong extends WebSocketFrame
 
-  final case class Continuation(buffer: ByteBuf, override val isFinal: Boolean = true) extends WebSocketFrame
-  object Continuation { def unapply(frame: WebSocketFrame.Continuation): Option[ByteBuf] = Some(frame.buffer) }
+  case class Continuation(buffer: ByteBuf) extends WebSocketFrame { override val isFinal: Boolean = true }
+  object Continuation {
+    def apply(buffer: ByteBuf, isFinal: Boolean): Continuation       = new Continuation(buffer) {
+      override val isFinal: Boolean = isFinal
+    }
+    def unapply(frame: WebSocketFrame.Continuation): Option[ByteBuf] = Some(frame.buffer)
+  }
 
   def text(string: String): WebSocketFrame =
     WebSocketFrame.Text(string)
