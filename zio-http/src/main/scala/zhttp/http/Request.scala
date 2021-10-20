@@ -2,9 +2,7 @@ package zhttp.http
 
 import io.netty.handler.codec.http.HttpContent
 import zio.ZIO
-
 import java.net.InetAddress
-
 trait Request extends HeadersHelpers { self =>
   def method: Method
 
@@ -40,8 +38,10 @@ trait Request extends HeadersHelpers { self =>
         self.decodeContent(decoder)
     }
   }
-  def toJHttpRequest =
-    new DefaultHttpRequest(HttpVersion.HTTP_1_1, self.method.asHttpMethod, self.url.asString)
+}
+
+private[zhttp] trait ServerRequest extends Request {
+  def sourceRequest: HttpRequest
 }
 
 object Request {
