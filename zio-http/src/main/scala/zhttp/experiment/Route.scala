@@ -1,6 +1,5 @@
 package zhttp.experiment
 import zhttp.experiment.Route.{RoutePath, RouteToken}
-import zhttp.http.HttpApp.HttpAppConstructor
 import zhttp.http._
 
 import scala.annotation.tailrec
@@ -142,6 +141,31 @@ object Route {
    * Create a Route[Unit] with Method type DELETE
    */
   def delete: Route[Unit] = fromMethod(Method.DELETE)
+
+  /**
+   * Create a Route[Unit] with Method type HEAD
+   */
+  def head: Route[Unit] = fromMethod(Method.HEAD)
+
+  /**
+   * Create a Route[Unit] with Method type PATCH
+   */
+  def patch: Route[Unit] = fromMethod(Method.PATCH)
+
+  /**
+   * Create a Route[Unit] with Method type PATCH
+   */
+  def options: Route[Unit] = fromMethod(Method.OPTIONS)
+
+  /**
+   * Create a Route[Unit] with Method type PATCH
+   */
+  def trace: Route[Unit] = fromMethod(Method.TRACE)
+
+  /**
+   * Create a Route[Unit] with Method type CONNECT
+   */
+  def connect: Route[Unit] = fromMethod(Method.CONNECT)
 
   /**
    * Create RouteToken of Param category

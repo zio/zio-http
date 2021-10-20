@@ -156,47 +156,14 @@ object HttpApp {
   def fromPartialFunction[R, E, A, B](f: Request => ZIO[R, Option[E], Response[R, E]]): HttpApp[R, E] =
     HttpApp(Http.fromPartialFunction(f))
 
-  def GET: Route[Unit]  = Route.get
-  def POST: Route[Unit] = Route.post
-  def PUT: Route[Unit]  = Route.put
+  def GET: Route[Unit]     = Route.get
+  def POST: Route[Unit]    = Route.post
+  def PUT: Route[Unit]     = Route.put
+  def DELETE: Route[Unit]  = Route.delete
+  def HEAD: Route[Unit]    = Route.head
+  def PATCH: Route[Unit]   = Route.patch
+  def OPTIONS: Route[Unit] = Route.options
+  def TRACE: Route[Unit]   = Route.trace
+  def CONNECT: Route[Unit] = Route.connect
 
-  sealed trait HttpAppConstructor[A, B] {
-    type ROut
-    type EOut
-    def make(route: Route[A], f: Request.Typed[A] => B): HttpApp[ROut, EOut]
-  }
-
-  object HttpAppConstructor {
-    type Aux[R, E, A, B] = HttpAppConstructor[A, B] {
-      type ROut = R
-      type EOut = E
-    }
-
-    implicit def f1[R, E, A]: Aux[R, E, A, Response[R, E]] = new HttpAppConstructor[A, Response[R, E]] {
-      override type ROut = R
-      override type EOut = E
-
-      override def make(route: Route[A], f: Request.Typed[A] => Response[R, E]): HttpApp[R, E] =
-        HttpApp.collect { case req =>
-          route.extract(req) match {
-            case Some(value) => f(Request.Typed(req, value))
-            case None        => Response.fromHttpError(HttpError.NotFound(req.url.path))
-          }
-        }
-    }
-
-    implicit def f2[R, E, A]: Aux[R, E, A, ZIO[R, E, Response[R, E]]] =
-      new HttpAppConstructor[A, ZIO[R, E, Response[R, E]]] {
-        override type ROut = R
-        override type EOut = E
-
-        override def make(route: Route[A], f: Request.Typed[A] => ZIO[R, E, Response[R, E]]): HttpApp[R, E] =
-          HttpApp.collectM { case req =>
-            route.extract(req) match {
-              case Some(value) => f(Request.Typed(req, value))
-              case None        => UIO(Response.fromHttpError(HttpError.NotFound(req.url.path)))
-            }
-          }
-      }
-  }
 }
