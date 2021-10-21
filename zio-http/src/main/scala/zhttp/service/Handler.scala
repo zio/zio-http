@@ -161,14 +161,6 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
       isLast: Boolean,
     ): Unit = {
       decoder match {
-        case ContentDecoder.Text =>
-          cBody.writeBytes(content)
-          if (isLast) {
-            unsafeRunZIO(ad.completePromise.succeed(cBody.toString(HTTP_CHARSET)))
-          } else {
-            ctx.read(): Unit
-          }
-
         case step: ContentDecoder.Step[_, _, _, _, _] =>
           if (ad.isFirst) {
             ad.decoderState = step.state
@@ -195,7 +187,23 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
               if (!isLast) ctx.read(): Unit
             }
           } yield ())
-
+        case a                                        =>
+          cBody.writeBytes(content)
+          if (isLast) {
+            unsafeRunZIO(
+              ad.completePromise.complete(
+                a.decode(Chunk.fromArray(content.array()))
+                  .mapError(o =>
+                    o match {
+                      case Some(value) => value
+                      case None        => ContentDecoder.Error.DecodeEmptyContent
+                    },
+                  ),
+              ),
+            )
+          } else {
+            ctx.read(): Unit
+          }
       }
     }
 

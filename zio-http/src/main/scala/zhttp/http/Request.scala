@@ -1,6 +1,7 @@
 package zhttp.http
 
-import zio.{Chunk, ZIO}
+import io.netty.buffer.{ByteBufUtil, Unpooled}
+import zio.{Chunk, Task, ZIO}
 
 import java.net.InetAddress
 
@@ -58,14 +59,40 @@ object Request {
     val h  = headers
     val ra = remoteAddress
     new Request {
-      override def method: Method                                                                                   = m
-      override def url: URL                                                                                         = u
-      override def headers: List[Header]                                                                            = h
-      override def remoteAddress: Option[InetAddress]                                                               = ra
+      override def method: Method = m
+
+      override def url: URL = u
+
+      override def headers: List[Header] = h
+
+      override def remoteAddress: Option[InetAddress] = ra
+
       override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
-        decoder.decode(data)
+        toChunk(data).flatMap { zoc =>
+          decoder
+            .decode(zoc)
+            .mapError(e =>
+              e match {
+                case Some(value) => value
+                case None        => ContentDecoder.Error.DecodeEmptyContent
+              },
+            )
+        }
     }
   }
+
+  def toChunk(data: HttpData[Any, Throwable]): Task[Chunk[Byte]] =
+    data match {
+      case HttpData.Empty                => ZIO.succeed(Chunk.empty)
+      case HttpData.Text(text, charset)  => ZIO.succeed(Chunk.fromArray(text.getBytes(charset)))
+      case HttpData.Binary(data)         => ZIO.succeed(data)
+      case HttpData.BinaryN(data)        => ZIO.succeed(Chunk.fromArray(ByteBufUtil.getBytes(data)))
+      case HttpData.BinaryStream(stream) =>
+        stream
+          .fold(Unpooled.compositeBuffer())((s, b) => s.writeBytes(Array(b)))
+          .map(a => a.array().take(a.writerIndex()))
+          .map(Chunk.fromArray(_))
+    }
 
   /**
    * Effectfully create a new Request object
