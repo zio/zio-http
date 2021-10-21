@@ -11,7 +11,9 @@ object ContentDecoderSpec extends DefaultRunnableSpec with HttpMessageAssertions
 
   def spec = suite("ContentDecoder") {
     testM("text") {
-      checkAllM(content) { c => assertM(Request.toChunk(c).flatMap(v=>ContentDecoder.text.decode(v)))(equalTo("ABCD")) }
+      checkAllM(content) { c =>
+        assertM(Request.toChunk(c).flatMap(v => ContentDecoder.text.decode(v)))(equalTo("ABCD"))
+      }
     } +
       testM("collectAll") {
         checkAllM(content) { c =>
