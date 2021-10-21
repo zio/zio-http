@@ -210,15 +210,8 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         val content = HttpApp
           .fromHttp(Http.collect[Request] { case _ => Ok })
           .getRequestContent(ContentDecoder.collect(Chunk[Byte]()) { case (a, b, isLast) =>
-            val value = Chunk.fromArray(a.content().array())
-            ZIO(
-              (
-                if (isLast) {
-                  Option(b ++ value)
-                } else None,
-                b ++ value,
-              ),
-            )
+            val d = Chunk.fromArray(a.content().array())
+            ZIO((if (isLast) Option(b ++ d) else None, b ++ d))
           })
           .map(chunk => new String(chunk.toArray))
         assertM(content)(equalTo("ABCD"))
@@ -226,8 +219,9 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       testM("multipart") {
         val content = HttpApp
           .fromHttp(Http.collect[Request] { case _ => Ok })
-          .getRequestContent(ContentDecoder.multipart(testDecoder), List("a", "ab", "abc", "abcd"))
-        assertM(content)(equalTo(List(1, 2, 3, 4)))
+          .getRequestContent(ContentDecoder.multipart(testDecoder), List("a", "ab", "abc", "abcd", "abcde", "abcdef"))
+          .flatMap(_.takeAll)
+        assertM(content)(equalTo(List(1, 2, 3, 4, 5, 6)))
       },
   )
 
