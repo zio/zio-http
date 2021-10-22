@@ -14,14 +14,14 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
 
   private val nonEmptyContent = for {
     data    <- Gen.listOf(Gen.alphaNumericString)
-    content <- HttpGen.nonEmptyContent(Gen.const(data))
+    content <- HttpGen.nonEmptyHttpData(Gen.const(data))
     header  <- HttpGen.header
     status  <- HttpGen.status
   } yield (data, content, status, header)
 
   private val everything = for {
     data    <- Gen.listOf(Gen.alphaNumericString)
-    content <- HttpGen.content(Gen.const(data))
+    content <- HttpGen.httpData(Gen.const(data))
     header  <- HttpGen.header
     status  <- HttpGen.status
   } yield (data, content, status, header)

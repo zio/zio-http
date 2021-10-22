@@ -1,7 +1,6 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{HttpMethod, HttpResponse}
-import zhttp.experiment.ContentDecoder
 import zhttp.experiment.internal.{HttpAppClient, HttpMessageAssertions}
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.service.EventLoopGroup
@@ -116,8 +115,8 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
    * Spec for an HttpApp that is empty
    */
   def EmptySpec = {
-    suite("empty")(
-      suite("GET")(
+    suite("empty") {
+      suite("GET") {
         testM("status is 404") {
           val res = HttpApp.empty.getResponse
           assertM(res)(isResponse(responseStatus(404)))
@@ -133,15 +132,25 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
           testM("version is 1.1") {
             val res = HttpApp.empty.getResponse
             assertM(res)(isResponse(version("HTTP/1.1")))
-          },
-      ),
-      suite("POST")(
-        testM("status is 404") {
-          val res = HttpApp.empty.getResponse(method = HttpMethod.POST, content = List("A", "B", "C"))
-          assertM(res)(isResponse(responseStatus(404)))
-        },
-      ),
-    )
+          }
+      } +
+        suite("POST") {
+          testM("status is 404") {
+            val res = HttpApp.empty.getResponse(method = HttpMethod.POST, content = List("A", "B", "C"))
+            assertM(res)(isResponse(responseStatus(404)))
+          }
+        } +
+        suite("Response Count") {
+          testM("pure") {
+            val count = HttpApp.response(Response.ok).getResponseCount()
+            assertM(count)(equalTo(1))
+          } +
+            testM("effect") {
+              val count = HttpApp.fromEffectFunction(_ => UIO(Response.ok)).getResponseCount()
+              assertM(count)(equalTo(1))
+            }
+        }
+    }
   }
 
   def EchoStreamingResponseSpec = {

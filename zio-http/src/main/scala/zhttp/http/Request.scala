@@ -1,6 +1,5 @@
 package zhttp.http
 
-import zhttp.experiment.ContentDecoder
 import zio.{Chunk, ZIO}
 
 import java.net.InetAddress
@@ -43,21 +42,43 @@ trait Request extends HeadersHelpers { self =>
 }
 
 object Request {
-  def apply(method: Method = Method.GET, url: URL = URL.root, headers: List[Header] = Nil): Request = {
-    val m = method
-    val u = url
-    val h = headers
+
+  /**
+   * Constructor for Request
+   */
+  def apply(
+    method: Method = Method.GET,
+    url: URL = URL.root,
+    headers: List[Header] = Nil,
+    remoteAddress: Option[InetAddress] = None,
+    data: HttpData[Any, Throwable] = HttpData.Empty,
+  ): Request = {
+    val m  = method
+    val u  = url
+    val h  = headers
+    val ra = remoteAddress
     new Request {
-      override def method: Method = m
-
-      override def url: URL = u
-
-      override def headers: List[Header] = h
-
-      override def remoteAddress: Option[InetAddress] = None
-
+      override def method: Method                                                                                   = m
+      override def url: URL                                                                                         = u
+      override def headers: List[Header]                                                                            = h
+      override def remoteAddress: Option[InetAddress]                                                               = ra
       override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
-        ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+        decoder.decode(data)
     }
   }
+
+  /**
+   * Effectfully create a new Request object
+   */
+  def make[R, E <: Throwable](
+    method: Method = Method.GET,
+    url: URL = URL.root,
+    headers: List[Header] = Nil,
+    remoteAddress: Option[InetAddress],
+    content: HttpData[R, E] = HttpData.empty,
+  ): ZIO[R, Nothing, Request] =
+    for {
+      r <- ZIO.environment[R]
+      c = content.provide(r)
+    } yield Request(method, url, headers, remoteAddress, c)
 }

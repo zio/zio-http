@@ -9,7 +9,7 @@ import io.netty.channel.{
 }
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpHeaderNames, HttpVersion}
 import zhttp.http.URL.Location
-import zhttp.http._
+import zhttp.http.{HttpData, _}
 import zhttp.service
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
@@ -148,8 +148,10 @@ object Client {
     val route: Route   = method -> url.path
 
     def getBodyAsString: Option[String] = content match {
-      case HttpData.Binary(data) => Option(new String(data.toArray, getCharset.getOrElse(HTTP_CHARSET)))
-      case _                     => Option.empty
+      case HttpData.Text(text, _) => Some(text)
+      case HttpData.Binary(data)  => Some((new String(data.toArray, HTTP_CHARSET)))
+      case HttpData.BinaryN(data) => Some(data.toString(HTTP_CHARSET))
+      case _                      => Option.empty
     }
 
     def remoteAddress: Option[InetAddress] = {

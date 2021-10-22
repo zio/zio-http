@@ -1,7 +1,6 @@
 package zhttp.experiment.internal
 
 import io.netty.handler.codec.http._
-import zhttp.experiment.ContentDecoder
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
@@ -35,6 +34,18 @@ trait HttpMessageAssertions {
       _     <- proxy.end(content)
       res   <- proxy.receive
     } yield res.asInstanceOf[HttpResponse]
+
+    def getResponseCount(
+      url: String = "/",
+      method: HttpMethod = HttpMethod.GET,
+      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+      content: Iterable[String] = List("A", "B", "C", "D"),
+    ): ZIO[R with EventLoopGroup, Throwable, Int] = for {
+      proxy <- HttpAppClient.deploy(app)
+      _     <- proxy.request(url, method, header)
+      _     <- proxy.end(content)
+      count <- proxy.outbound.takeAll.map(_.count(_.isInstanceOf[HttpResponse]))
+    } yield count
 
     def getContent: ZIO[R with EventLoopGroup, Throwable, String] = getContent()
 

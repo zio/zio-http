@@ -1,10 +1,11 @@
 package zhttp.experiment.internal
 
 import io.netty.buffer.Unpooled
-import zhttp.http.{HTTP_CHARSET, Header, HttpData, Response, Status}
+import zhttp.http._
 import zio.Chunk
+import zio.random.Random
 import zio.stream.ZStream
-import zio.test.Gen
+import zio.test.{Gen, Sized}
 
 object HttpGen {
   val status: Gen[Any, Status] = Gen.fromIterable(
@@ -68,7 +69,7 @@ object HttpGen {
     ),
   )
 
-  def content[R](gen: Gen[R, List[String]]) =
+  def httpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData[Any, Nothing]] =
     for {
       list <- gen
       cnt  <- Gen
@@ -83,7 +84,7 @@ object HttpGen {
         )
     } yield cnt
 
-  def nonEmptyContent[R](gen: Gen[R, List[String]]) =
+  def nonEmptyHttpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData[Any, Nothing]] =
     for {
       list <- gen
       cnt  <- Gen
@@ -91,20 +92,20 @@ object HttpGen {
           List(
             HttpData.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
             HttpData.fromText(list.mkString("")),
-            HttpData.fromChunk(Chunk.fromArray((list.mkString("").getBytes()))),
+            HttpData.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
             HttpData.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
           ),
         )
     } yield cnt
 
-  def header = for {
+  def header: Gen[Random with Sized, Header] = for {
     key   <- Gen.alphaNumericStringBounded(1, 4)
     value <- Gen.alphaNumericStringBounded(1, 4)
   } yield Header(key, value)
 
-  def response[R](gContent: Gen[R, List[String]]) = {
+  def response[R](gContent: Gen[R, List[String]]): Gen[Random with Sized with R, Response[Any, Nothing]] = {
     for {
-      content <- HttpGen.content(gContent)
+      content <- HttpGen.httpData(gContent)
       headers <- HttpGen.header.map(List(_))
       status  <- HttpGen.status
     } yield Response(status, headers, content)
