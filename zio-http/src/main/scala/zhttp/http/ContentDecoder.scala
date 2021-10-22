@@ -3,8 +3,10 @@ package zhttp.http
 import io.netty.buffer.{ByteBufUtil, Unpooled}
 import io.netty.handler.codec.http.{HttpContent, HttpRequest}
 import io.netty.handler.codec.http.multipart.{HttpPostRequestDecoder, InterfaceHttpData}
-import zio.stream.ZStream
+import zio.stream.{UStream, ZStream}
 import zio.{Chunk, IO, Queue, Task, UIO, ZIO}
+
+import scala.jdk.CollectionConverters._
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
   def decode(data: HttpData[Any, Throwable])(implicit ev: Chunk[Byte] <:< A): ZIO[R, Throwable, B] =
@@ -39,12 +41,12 @@ object ContentDecoder {
       override def poll: IO[Throwable, List[InterfaceHttpData]] = Task(decoder.getBodyHttpDatas().asScala.toList)
     })
 
-  def testDecoder: ZIO[Any, Nothing, PostBodyDecoder[Throwable, HttpContent, Int]] = {
+  def testDecoder: ZIO[Any, Nothing, PostBodyDecoder[Throwable, Chunk[Byte], Int]] = {
     for {
-      q <- Queue.bounded[HttpContent](1)
-    } yield new PostBodyDecoder[Nothing, HttpContent, Int] {
-      override def offer(a: HttpContent): UIO[Unit] = q.offer(a).unit
-      override def poll: UIO[List[Int]]             = q.map(_.content().array().length).takeAll
+      q <- Queue.bounded[Chunk[Byte]](1)
+    } yield new PostBodyDecoder[Nothing, Chunk[Byte], Int] {
+      override def offer(a: Chunk[Byte]): UIO[Unit] = q.offer(a).unit
+      override def poll: UIO[List[Int]]             = q.map(_.length).takeAll
     }
   }
   def multipart[E, A, B](decoder: IO[E, PostBodyDecoder[E, A, B]]): ContentDecoder[Any, E, A, UStream[B]] =
@@ -78,11 +80,11 @@ object ContentDecoder {
     case (a, chunk, false) => UIO((None, chunk :+ a))
   }
 
-  val backPressure: ContentDecoder[Any, Nothing, HttpContent, Queue[Chunk[Byte]]] =
+  val backPressure: ContentDecoder[Any, Nothing, Chunk[Byte], Queue[Chunk[Byte]]] =
     ContentDecoder.collect(BackPressure[Queue[Chunk[Byte]]]()) { case (msg, state, _) =>
       for {
         queue <- state.acc.fold(Queue.bounded[Chunk[Byte]](1))(UIO(_))
-        _     <- queue.offer(Chunk.fromArray(msg.content().array()))
+        _     <- queue.offer(msg)
       } yield (if (state.isFirst) Option(queue) else None, state.withAcc(queue).withFirst(false))
     }
 

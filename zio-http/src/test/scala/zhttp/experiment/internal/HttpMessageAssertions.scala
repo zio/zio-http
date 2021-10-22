@@ -1,7 +1,7 @@
 package zhttp.experiment.internal
 
 import io.netty.handler.codec.http._
-import zhttp.http.{ContentDecoder, _}
+import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
 import zio.test.Assertion.anything
@@ -88,7 +88,7 @@ trait HttpMessageAssertions {
     def proxy: ZIO[R with EventLoopGroup, Throwable, HttpAppClient] = HttpAppClient.deploy(app)
 
     def getRequestContent[R1 <: R, A](
-      decoder: ContentDecoder[R1, Throwable, HttpContent, A],
+      decoder: ContentDecoder[R1, Throwable, Chunk[Byte], A],
       content: List[String] = List("A", "B", "C", "D"),
     ): ZIO[R1 with EventLoopGroup, Throwable, A] =
       for {

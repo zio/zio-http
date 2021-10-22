@@ -6,7 +6,7 @@ import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
 import zhttp.http.HttpApp.InvalidMessage
-import zhttp.http.{ContentDecoder, _}
+import zhttp.http._
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
 
@@ -156,13 +156,13 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
      * Decodes content and executes according to the ContentDecoder provided
      */
     def decodeContent(
-      content: HttpContent,
+      content: ByteBuf,
       decoder: ContentDecoder[Any, Throwable, Chunk[Byte], Any],
       isLast: Boolean,
     ): Unit = {
       decoder match {
         case ContentDecoder.Text =>
-          cBody.writeBytes(content.content())
+          cBody.writeBytes(content)
           if (isLast) {
             unsafeRunZIO(ad.completePromise.succeed(cBody.toString(HTTP_CHARSET)))
           } else {
@@ -178,11 +178,11 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
 
           unsafeRunZIO(for {
             (publish, state) <- step
-              .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, HttpContent, Any]]
+              .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], Any]]
               .next(
                 // content.array() can fail in case of no backing byte array
                 // Link: https://livebook.manning.com/book/netty-in-action/chapter-5/54
-                content,
+                Chunk.fromArray(content.array()),
                 nState,
                 isLast,
               )
@@ -210,7 +210,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
           app.asHttp.asInstanceOf[Http[R, Throwable, Request, Response[R, Throwable]]],
           new Request {
             override def decodeContent[R0, B](
-              decoder: ContentDecoder[R0, Throwable, HttpContent, B],
+              decoder: ContentDecoder[R0, Throwable, Chunk[Byte], B],
             ): ZIO[R0, Throwable, B] =
               ZIO.effectSuspendTotal {
                 if (ad.decoder != null)
@@ -241,12 +241,12 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
 
       case msg: LastHttpContent =>
         if (decoder != null) {
-          decodeContent(msg, decoder, true)
+          decodeContent(msg.content(), decoder, true)
         }
 
       case msg: HttpContent =>
         if (decoder != null) {
-          decodeContent(msg, decoder, false)
+          decodeContent(msg.content(), decoder, false)
         }
 
       case msg => ctx.fireExceptionCaught(InvalidMessage(msg)): Unit
