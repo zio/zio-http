@@ -5,7 +5,6 @@ import io.netty.handler.codec.http.multipart.{HttpPostRequestDecoder, InterfaceH
 import io.netty.handler.codec.http.{HttpContent, HttpRequest}
 import zhttp.http.ContentDecoder.Step
 import zio._
-import zio.stream.{UStream, ZStream}
 
 import scala.jdk.CollectionConverters._
 
@@ -37,7 +36,7 @@ object ContentDecoder {
   }
   def toJRequest(req: Request): HttpRequest = ??? // todo: remove this
 
-  def multipartDecoder(req: Request): Task[PostBodyDecoder[Throwable, HttpContent, InterfaceHttpData]]    =
+  def multipartDecoder(req: Request): Task[PostBodyDecoder[Throwable, HttpContent, InterfaceHttpData]] =
     Task(new PostBodyDecoder[Throwable, HttpContent, InterfaceHttpData] {
       private val decoder                                       = new HttpPostRequestDecoder(toJRequest(req)) //
       override def offer(a: HttpContent): IO[Throwable, Unit]   = Task(decoder.offer(a): Unit)
@@ -52,30 +51,30 @@ object ContentDecoder {
       override def poll: UIO[List[Int]]             = q.map(_.length).takeAll
     }
   }
-  def multipart[E, A, B](decoder: IO[E, PostBodyDecoder[E, A, B]]): ContentDecoder[Any, E, A, UStream[B]] =
-    ContentDecoder.collect(BackPressure[(PostBodyDecoder[E, A, B], Queue[B], UStream[B])]()) {
-      case (msg, state, flag) =>
+  def multipart[E, A, B](
+    decoder: IO[E, PostBodyDecoder[E, A, B]],
+  ): Step[Any, E, BackPressure[(PostBodyDecoder[E, A, B], Queue[B])], A, Queue[B]]                     =
+    ContentDecoder
+      .collect(BackPressure[(PostBodyDecoder[E, A, B], Queue[B])]()) { case (msg, state, _) =>
         for {
           data <- state.acc.fold(for {
             d <- decoder
             c <- Queue.bounded[B](1)
-            s <- UIO(ZStream.fromQueue(c))
-          } yield (d, c, s))(UIO(_))
-          (multipart, q, s) = data
+          } yield (d, c))(UIO(_))
+          (multipart, q) = data
           _    <- multipart.offer(msg)
           list <- multipart.poll
           _    <- q.offerAll(list)
-          _    <- q.shutdown.when(flag)
         } yield (
-          if (state.isFirst) Option(s) else None,
-          state.withAcc((multipart, q, s)).withFirst(false),
+          if (state.isFirst) Option(q) else None,
+          state.withAcc((multipart, q)).withFirst(false),
         )
-    }
+      }
 
   def collect[S, A]: PartiallyAppliedCollect[S, A] = new PartiallyAppliedCollect(())
 
   final class PartiallyAppliedCollect[S, A](val unit: Unit) extends AnyVal {
-    def apply[R, E, B](s: S)(f: (A, S, Boolean) => ZIO[R, E, (Option[B], S)]): ContentDecoder[R, E, A, B] = Step(s, f)
+    def apply[R, E, B](s: S)(f: (A, S, Boolean) => ZIO[R, E, (Option[B], S)]): Step[R, E, S, A, B] = Step(s, f)
   }
 
   def collectAll[A]: ContentDecoder[Any, Nothing, A, Chunk[A]] = ContentDecoder.collect[Chunk[A], A](Chunk.empty) {
