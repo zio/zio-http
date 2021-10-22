@@ -9,7 +9,7 @@ import zio.{UIO, ZIO}
 sealed trait HttpAppConstructor[A, B] {
   type ROut
   type EOut
-  def make(route: Route[A], f: Request.Typed[A] => B): HttpApp[ROut, EOut]
+  def make(route: Route[A], f: Request.TypedRequest[A] => B): HttpApp[ROut, EOut]
 }
 
 object HttpAppConstructor {
@@ -22,10 +22,10 @@ object HttpAppConstructor {
     override type ROut = R
     override type EOut = E
 
-    override def make(route: Route[A], f: Request.Typed[A] => Response[R, E]): HttpApp[R, E] =
+    override def make(route: Route[A], f: Request.TypedRequest[A] => Response[R, E]): HttpApp[R, E] =
       HttpApp.collect { case req =>
         route.extract(req) match {
-          case Some(value) => f(Request.Typed(req, value))
+          case Some(value) => f(Request.TypedRequest(req, value))
           case None        => Response.fromHttpError(HttpError.NotFound(req.url.path))
         }
       }
@@ -36,10 +36,10 @@ object HttpAppConstructor {
       override type ROut = R
       override type EOut = E
 
-      override def make(route: Route[A], f: Request.Typed[A] => ZIO[R, E, Response[R, E]]): HttpApp[R, E] =
+      override def make(route: Route[A], f: Request.TypedRequest[A] => ZIO[R, E, Response[R, E]]): HttpApp[R, E] =
         HttpApp.collectM { case req =>
           route.extract(req) match {
-            case Some(value) => f(Request.Typed(req, value))
+            case Some(value) => f(Request.TypedRequest(req, value))
             case None        => UIO(Response.fromHttpError(HttpError.NotFound(req.url.path)))
           }
         }

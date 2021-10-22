@@ -156,14 +156,4 @@ object HttpApp {
   def fromPartialFunction[R, E, A, B](f: Request => ZIO[R, Option[E], Response[R, E]]): HttpApp[R, E] =
     HttpApp(Http.fromPartialFunction(f))
 
-  def GET: Route[Unit]     = Route.get
-  def POST: Route[Unit]    = Route.post
-  def PUT: Route[Unit]     = Route.put
-  def DELETE: Route[Unit]  = Route.delete
-  def HEAD: Route[Unit]    = Route.head
-  def PATCH: Route[Unit]   = Route.patch
-  def OPTIONS: Route[Unit] = Route.options
-  def TRACE: Route[Unit]   = Route.trace
-  def CONNECT: Route[Unit] = Route.connect
-
 }

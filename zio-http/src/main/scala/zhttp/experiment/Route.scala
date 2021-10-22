@@ -43,12 +43,8 @@ final case class Route[A](method: Method, routePath: RoutePath[A]) { self =>
   /**
    * Creates an HttpApp from a Request to Response function
    */
-  def to[B](f: Request.Typed[A] => B)(implicit ctor: HttpAppConstructor[A, B]): HttpApp[ctor.ROut, ctor.EOut] =
+  def to[B](f: Request.TypedRequest[A] => B)(implicit ctor: HttpAppConstructor[A, B]): HttpApp[ctor.ROut, ctor.EOut] =
     ctor.make(self, f)
-
-  // TODO: Better name
-  def toP[B](f: A => B)(implicit ctor: HttpAppConstructor[A, B]): HttpApp[ctor.ROut, ctor.EOut] =
-    ctor.make(self, a => f(a.params))
 }
 
 object Route {
@@ -92,9 +88,8 @@ object Route {
             if (p.isEmpty) None
             else {
               head.extract(p.head) match {
-                case Some(value) => {
+                case Some(value) =>
                   if (value.isInstanceOf[Unit]) loop(tail, p.tail, output) else loop(tail, p.tail, value :: output)
-                }
                 case None        => None
               }
             }
@@ -242,6 +237,4 @@ object Route {
     implicit def combine21[A, B, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, B)] = null
     // scalafmt: { maxColumn = 120 }
   }
-
-  def ![A](implicit ev: Route.RouteParam[A]): Route.RouteToken[A] = Route[A]
 }
