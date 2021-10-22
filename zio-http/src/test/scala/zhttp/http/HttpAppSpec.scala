@@ -2,7 +2,6 @@ package zhttp.http
 
 import io.netty.handler.codec.http.{HttpMethod, HttpResponse}
 import zhttp.experiment.internal.{HttpAppClient, HttpMessageAssertions}
-import zhttp.http.ContentDecoder.testDecoder
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.service.EventLoopGroup
 import zio.duration._
@@ -214,17 +213,17 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
           })
           .map(chunk => new String(chunk.toArray))
         assertM(content)(equalTo("ABCD"))
-      } +
-      testM("multipart") {
-        val content = HttpApp
-          .fromHttp(Http.collect[Request] { case _ => Ok })
-          .getRequestContent(
-            ContentDecoder.multipart(testDecoder).map(ZStream.fromQueue(_)),
-            List("a", "ab", "abc", "abcd", "abcde", "abcdef"),
-          )
-          .flatMap(_.take(6).runCollect)
-        assertM(content)(equalTo(Chunk(1, 2, 3, 4, 5, 6)))
-      } @@ nonFlaky,
+      },
+//      testM("multipart") {
+//        val content = HttpApp
+//          .fromHttp(Http.collect[Request] { case _ => Ok })
+//          .getRequestContent(
+//            ContentDecoder.multipart(testDecoder).map(ZStream.fromQueue(_)),
+//            List("a", "ab", "abc", "abcd", "abcde", "abcdef"),
+//          )
+//          .flatMap(_.take(6).runCollect)
+//        assertM(content)(equalTo(Chunk(1, 2, 3, 4, 5, 6)))
+//      } @@ nonFlaky,
   )
 
   def RemoteAddressSpec = suite("RemoteAddressSpec") {

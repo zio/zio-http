@@ -3,16 +3,13 @@ package zhttp.http
 import io.netty.buffer.{ByteBufUtil, Unpooled}
 import io.netty.handler.codec.http.multipart.{HttpPostRequestDecoder, InterfaceHttpData}
 import io.netty.handler.codec.http.{HttpContent, HttpRequest}
-import zhttp.http.ContentDecoder.Step
 import zio._
 
 import scala.jdk.CollectionConverters._
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
-  def decode(data: HttpData[Any, Throwable])(implicit ev: Chunk[Byte] <:< A): ZIO[R, Throwable, B]   =
+  def decode(data: HttpData[Any, Throwable])(implicit ev: Chunk[Byte] <:< A): ZIO[R, Throwable, B] =
     ContentDecoder.decode(self.asInstanceOf[ContentDecoder[R, Throwable, Chunk[Byte], B]], data)
-  def map[C](bc: B => C)(implicit ev: self.type <:< Step[_, _, _, _, _]): ContentDecoder[R, E, A, C] =
-    ContentDecoder.map(self, bc)
 }
 
 object ContentDecoder {
@@ -97,16 +94,7 @@ object ContentDecoder {
         case Error.DecodeEmptyContent => "Can not decode empty content"
       }
   }
-  private def map[R, E, A, B, C](decoder: ContentDecoder[R, E, A, B], bc: B => C): ContentDecoder[R, E, A, C] =
-    decoder match {
-      case m @ Text               => m.asInstanceOf
-      case s: Step[R, E, _, A, B] =>
-        Step(
-          s.state,
-          (a, state: Any, boolean) =>
-            s.asInstanceOf[Step[R, E, Any, A, B]].next(a, state, boolean).map(a => (a._1.map(bc), a._2)),
-        )
-    }
+
   private def decode[R, B](
     decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
     data: HttpData[Any, Throwable],
