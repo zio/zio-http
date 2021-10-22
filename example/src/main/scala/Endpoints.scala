@@ -1,11 +1,11 @@
-import zhttp.experiment.Route
+import zhttp.experiment.Route.*
 import zhttp.http.Request.GET
 import zhttp.http._
 import zhttp.service.Server
 import zio._
 
 object Endpoints extends App {
-  def h1 = GET / "a" / Route[Int] / "b" / Route[String] / "c" / "d" / Route[Boolean] to { a =>
+  def h1 = GET / "a" / *[Int] / "b" / *[String] / "c" / "d" / *[Boolean] to { a =>
     Response.text(a.params.toString)
   }
 
