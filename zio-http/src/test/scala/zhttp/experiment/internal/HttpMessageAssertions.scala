@@ -1,7 +1,7 @@
 package zhttp.experiment.internal
 
 import io.netty.handler.codec.http._
-import zhttp.http._
+import zhttp.http.{ContentDecoder, _}
 import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
 import zio.test.Assertion.anything

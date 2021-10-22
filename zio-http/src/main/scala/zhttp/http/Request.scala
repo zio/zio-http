@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.HttpContent
+import io.netty.handler.codec.http.{HttpContent, HttpRequest}
 import zio.ZIO
 
 import java.net.InetAddress

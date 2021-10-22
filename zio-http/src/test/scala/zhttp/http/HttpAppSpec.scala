@@ -3,6 +3,7 @@ package zhttp.http
 import zhttp.http._
 import io.netty.handler.codec.http.{HttpMethod, HttpResponse}
 import zhttp.experiment.internal.{HttpAppClient, HttpMessageAssertions}
+import zhttp.http.ContentDecoder.testDecoder
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.service.EventLoopGroup
 import zio.duration._

@@ -1,7 +1,10 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBufUtil, Unpooled}
-import zio.{Chunk, Queue, Task, UIO, ZIO}
+import io.netty.handler.codec.http.{HttpContent, HttpRequest}
+import io.netty.handler.codec.http.multipart.{HttpPostRequestDecoder, InterfaceHttpData}
+import zio.stream.ZStream
+import zio.{Chunk, IO, Queue, Task, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
   def decode(data: HttpData[Any, Throwable])(implicit ev: Chunk[Byte] <:< A): ZIO[R, Throwable, B] =
@@ -15,13 +18,54 @@ object ContentDecoder {
   case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])
       extends ContentDecoder[R, E, A, B]
 
-  private[zhttp] case class BackPressure[B](queue: Option[Queue[B]] = None, isFirst: Boolean = true) {
+  private[zhttp] case class BackPressure[B](acc: Option[B] = None, isFirst: Boolean = true) {
     self =>
-    def withQueue(queue: Queue[B]): BackPressure[B] = if (self.queue.isEmpty) self.copy(queue = Option(queue)) else self
-    def withFirst(cond: Boolean): BackPressure[B]   = if (cond == isFirst) self else self.copy(isFirst = cond)
+    def withAcc(acc: B): BackPressure[B]          =
+      if (self.acc.isEmpty) self.copy(acc = Option(acc)) else self
+    def withFirst(cond: Boolean): BackPressure[B] = if (cond == isFirst) self else self.copy(isFirst = cond)
   }
 
   val text: ContentDecoder[Any, Nothing, Any, String] = Text
+  trait PostBodyDecoder[+E, -A, +B] {
+    def offer(a: A): IO[E, Unit]
+    def poll: IO[E, List[B]]
+  }
+  def toJRequest(req: Request): HttpRequest = ??? // todo: remove this
+
+  def multipartDecoder(req: Request): Task[PostBodyDecoder[Throwable, HttpContent, InterfaceHttpData]]    =
+    Task(new PostBodyDecoder[Throwable, HttpContent, InterfaceHttpData] {
+      private val decoder                                       = new HttpPostRequestDecoder(toJRequest(req)) //
+      override def offer(a: HttpContent): IO[Throwable, Unit]   = Task(decoder.offer(a): Unit)
+      override def poll: IO[Throwable, List[InterfaceHttpData]] = Task(decoder.getBodyHttpDatas().asScala.toList)
+    })
+
+  def testDecoder: ZIO[Any, Nothing, PostBodyDecoder[Throwable, HttpContent, Int]] = {
+    for {
+      q <- Queue.bounded[HttpContent](1)
+    } yield new PostBodyDecoder[Nothing, HttpContent, Int] {
+      override def offer(a: HttpContent): UIO[Unit] = q.offer(a).unit
+      override def poll: UIO[List[Int]]             = q.map(_.content().array().length).takeAll
+    }
+  }
+  def multipart[E, A, B](decoder: IO[E, PostBodyDecoder[E, A, B]]): ContentDecoder[Any, E, A, UStream[B]] =
+    ContentDecoder.collect(BackPressure[(PostBodyDecoder[E, A, B], Queue[B], UStream[B])]()) {
+      case (msg, state, flag) =>
+        for {
+          data <- state.acc.fold(for {
+            d <- decoder
+            c <- Queue.bounded[B](1)
+            s <- UIO(ZStream.fromQueue(c))
+          } yield (d, c, s))(UIO(_))
+          (multipart, q, s) = data
+          _    <- multipart.offer(msg)
+          list <- multipart.poll
+          _    <- q.offerAll(list)
+          _    <- q.shutdown.when(flag)
+        } yield (
+          if (state.isFirst) Option(s) else None,
+          state.withAcc((multipart, q, s)).withFirst(false),
+        )
+    }
 
   def collect[S, A]: PartiallyAppliedCollect[S, A] = new PartiallyAppliedCollect(())
 
@@ -34,12 +78,12 @@ object ContentDecoder {
     case (a, chunk, false) => UIO((None, chunk :+ a))
   }
 
-  val backPressure: ContentDecoder[Any, Nothing, Chunk[Byte], Queue[Chunk[Byte]]] =
-    ContentDecoder.collect(BackPressure[Chunk[Byte]]()) { case (msg, state, _) =>
+  val backPressure: ContentDecoder[Any, Nothing, HttpContent, Queue[Chunk[Byte]]] =
+    ContentDecoder.collect(BackPressure[Queue[Chunk[Byte]]]()) { case (msg, state, _) =>
       for {
-        queue <- state.queue.fold(Queue.bounded[Chunk[Byte]](1))(UIO(_))
-        _     <- queue.offer(msg)
-      } yield (if (state.isFirst) Option(queue) else None, state.withQueue(queue).withFirst(false))
+        queue <- state.acc.fold(Queue.bounded[Chunk[Byte]](1))(UIO(_))
+        _     <- queue.offer(Chunk.fromArray(msg.content().array()))
+      } yield (if (state.isFirst) Option(queue) else None, state.withAcc(queue).withFirst(false))
     }
 
   sealed trait Error extends Throwable with Product { self =>

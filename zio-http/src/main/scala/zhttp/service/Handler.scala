@@ -6,7 +6,7 @@ import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
 import zhttp.http.HttpApp.InvalidMessage
-import zhttp.http._
+import zhttp.http.{ContentDecoder, _}
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
 
