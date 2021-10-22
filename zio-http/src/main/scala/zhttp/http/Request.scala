@@ -82,8 +82,10 @@ object Request {
       c = content.provide(r)
     } yield Request(method, url, headers, remoteAddress, c)
 
-  // TODO: Scala DOC
-  final class Typed[A](req: Request, val params: A) extends Request {
+  /**
+   * Lift request to TypedRequest with option to extract params
+   */
+  final class TypedRequest[A](req: Request, val params: A) extends Request {
     override def method: Method                     = req.method
     override def url: URL                           = req.url
     override def headers: List[Header]              = req.headers
@@ -92,8 +94,8 @@ object Request {
       req.decodeContent(decoder)
   }
 
-  object Typed {
-    def unapply[A](req: Request.Typed[A]): Option[A] = Some(req.params)
-    def apply[A](req: Request, params: A): Typed[A]  = new Typed(req, params)
+  object TypedRequest {
+    def unapply[A](req: Request.TypedRequest[A]): Option[A] = Some(req.params)
+    def apply[A](req: Request, params: A): TypedRequest[A]  = new TypedRequest(req, params)
   }
 }

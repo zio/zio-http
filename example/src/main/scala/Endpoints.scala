@@ -1,5 +1,4 @@
-import zhttp.experiment.Route._
-import zhttp.experiment._
+import zhttp.experiment.Route
 import zhttp.http.Request.GET
 import zhttp.http._
 import zhttp.service.Server
