@@ -192,7 +192,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
           if (isLast) {
             unsafeRunZIO(
               ad.completePromise.complete(
-                a.decode(Chunk.fromArray(content.array()))
+                a.decode(Chunk.fromArray(cBody.array().take(cBody.writerIndex())))
                   .mapError(o =>
                     o match {
                       case Some(value) => value
