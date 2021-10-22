@@ -15,7 +15,7 @@ object CookieClientSide extends App {
     _ = res2.addCookies(List(Cookie("a", "value")))
     _ = res2.cookiesFromHeader(res1.headers)
     _ <- console.putStrLn {
-      Response.cookies(res2.headers).toString //Empty as cookies are already set
+      Response.cookies(res2.headers).toString //Empty cookies as cookies are already set
     }
   } yield ()
 
