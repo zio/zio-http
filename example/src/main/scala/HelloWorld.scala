@@ -1,3 +1,4 @@
+import zhttp.experiment.Part
 import zhttp.http.ContentDecoder.multipartDecoder
 import zhttp.http._
 import zhttp.service.Server
@@ -23,13 +24,28 @@ object HelloWorld extends App {
   }
   def h3 = HttpApp.fromHttp {
     Http.collectM[Request] { case req =>
-      req.decodeContent(ContentDecoder.multipart(multipartDecoder(req))).map {
-        ???
-      }
+      req
+        .decodeContent(ContentDecoder.multipart(multipartDecoder(req)))
+        .map(content => {
+          Response(data =
+            HttpData.fromStream(
+              ZStream
+                .fromQueue(content)
+                .map(Part.fromHTTPData)
+                .map {
+                  case Part.FileData(content, _) => content
+                  case Part.Attribute(_, _)      => ???
+                  case Part.Empty                => ???
+                }
+                .mapChunks(_.flatten),
+            ),
+          )
+
+        })
     }
   }
 
-  def app: HttpApp[Any, Throwable] = h1 +++ h2
+  def app: HttpApp[Any, Throwable] = h3
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

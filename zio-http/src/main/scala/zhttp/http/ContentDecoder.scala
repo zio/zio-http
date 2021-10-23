@@ -2,7 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.multipart.{HttpPostRequestDecoder, InterfaceHttpData}
-import io.netty.handler.codec.http.{DefaultHttpContent, HttpContent, HttpRequest}
+import io.netty.handler.codec.http.{DefaultHttpContent, DefaultHttpRequest, HttpContent, HttpRequest, HttpVersion}
 import zhttp.experiment.HttpMessage
 import zio._
 
@@ -32,7 +32,12 @@ object ContentDecoder {
     def offer(a: A): IO[E, Unit]
     def poll: IO[E, List[B]]
   }
-  def toJRequest(req: Request): HttpRequest = ??? // todo: remove this
+  def toJRequest(req: Request): HttpRequest = new DefaultHttpRequest(
+    HttpVersion.HTTP_1_1,
+    req.method.asHttpMethod,
+    req.url.asString,
+    Header.disassemble(req.headers),
+  ) // todo: remove this
 
   def multipartDecoder(req: Request): Task[PostBodyDecoder[Throwable, HttpContent, InterfaceHttpData]] =
     Task(new PostBodyDecoder[Throwable, HttpContent, InterfaceHttpData] {
