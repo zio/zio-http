@@ -1,3 +1,4 @@
+import zhttp.http.ContentDecoder.multipartDecoder
 import zhttp.http._
 import zhttp.service.Server
 import zio._
@@ -17,6 +18,13 @@ object HelloWorld extends App {
     Http.collectM[Request] { case req =>
       req.decodeContent(ContentDecoder.backPressure).map { content =>
         Response(data = HttpData.fromStream(ZStream.fromChunkQueue(content)))
+      }
+    }
+  }
+  def h3 = HttpApp.fromHttp {
+    Http.collectM[Request] { case req =>
+      req.decodeContent(ContentDecoder.multipart(multipartDecoder(req))).map {
+        ???
       }
     }
   }

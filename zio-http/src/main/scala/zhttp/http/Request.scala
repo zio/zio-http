@@ -1,6 +1,8 @@
 package zhttp.http
 
-import zio.{Chunk, ZIO}
+import io.netty.handler.codec.http.HttpContent
+import zhttp.experiment.HttpMessage
+import zio.ZIO
 
 import java.net.InetAddress
 
@@ -13,7 +15,7 @@ trait Request extends HeadersHelpers { self =>
 
   def path: Path = url.path
 
-  def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B]
+  def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, HttpMessage[HttpContent], B]): ZIO[R, Throwable, B]
 
   def remoteAddress: Option[InetAddress]
 
@@ -35,7 +37,9 @@ trait Request extends HeadersHelpers { self =>
       override def remoteAddress: Option[InetAddress] =
         self.remoteAddress
 
-      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
+      override def decodeContent[R, B](
+        decoder: ContentDecoder[R, Throwable, HttpMessage[HttpContent], B],
+      ): ZIO[R, Throwable, B] =
         self.decodeContent(decoder)
     }
   }
@@ -58,11 +62,13 @@ object Request {
     val h  = headers
     val ra = remoteAddress
     new Request {
-      override def method: Method                                                                                   = m
-      override def url: URL                                                                                         = u
-      override def headers: List[Header]                                                                            = h
-      override def remoteAddress: Option[InetAddress]                                                               = ra
-      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
+      override def method: Method                     = m
+      override def url: URL                           = u
+      override def headers: List[Header]              = h
+      override def remoteAddress: Option[InetAddress] = ra
+      override def decodeContent[R, B](
+        decoder: ContentDecoder[R, Throwable, HttpMessage[HttpContent], B],
+      ): ZIO[R, Throwable, B]                         =
         decoder.decode(data)
     }
   }

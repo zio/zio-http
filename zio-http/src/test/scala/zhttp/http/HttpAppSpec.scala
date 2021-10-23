@@ -209,7 +209,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         val content = HttpApp
           .fromHttp(Http.collect[Request] { case _ => Ok })
           .getRequestContent(ContentDecoder.collect(Chunk[Byte]()) { case (a, b, isLast) =>
-            ZIO((if (isLast) Option(b ++ a) else None, b ++ a))
+            ZIO((if (isLast) Option(b ++ a.data) else None, b ++ a.data))
           })
           .map(chunk => new String(chunk.toArray))
         assertM(content)(equalTo("ABCD"))

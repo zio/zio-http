@@ -1,9 +1,11 @@
 package zhttp.http
 
+import io.netty.handler.codec.http.HttpContent
+import zhttp.experiment.HttpMessage
 import zhttp.experiment.internal.{HttpGen, HttpMessageAssertions}
+import zio.ZIO
 import zio.test.Assertion.equalTo
 import zio.test._
-import zio.{Chunk, ZIO}
 
 object ContentDecoderSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
@@ -15,8 +17,10 @@ object ContentDecoderSpec extends DefaultRunnableSpec with HttpMessageAssertions
     } +
       testM("collectAll") {
         checkAllM(content) { c =>
-          val sampleStepDecoder = ContentDecoder.collectAll[Chunk[Byte]]
-          assertM(sampleStepDecoder.decode(c).map(_.flatten).map(ch => new String(ch.toArray)))(equalTo("ABCD"))
+          val sampleStepDecoder = ContentDecoder.collectAll[HttpMessage[HttpContent]]
+          assertM(sampleStepDecoder.decode(c).map(_.map(_.data).flatten).map(ch => new String(ch.toArray)))(
+            equalTo("ABCD"),
+          )
         }
       } +
       testM("Multipart") {
