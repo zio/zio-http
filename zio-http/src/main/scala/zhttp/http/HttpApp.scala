@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.channel._
+import zhttp.experiment.HttpMiddleware
 import zhttp.service.{Handler, HttpRuntime}
 import zio._
 
@@ -72,7 +73,20 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
     layer: ZLayer[R0, E1, R1],
   )(implicit ev: R0 with R1 <:< R, tagged: Tag[R1]) = self.asHttp.provideSomeLayer(layer)
 
+  /**
+   * Executes the HttpApp and produces a Response
+   */
   def apply(req: Request): ZIO[R, Option[E], Response[R, E]] = self.asHttp.execute(req).evaluate.asEffect
+
+  /**
+   * Attaches the provided middleware to the HttpApp
+   */
+  def middleware[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = mid(self)
+
+  /**
+   * Attaches the provided middleware to the HttpApp
+   */
+  def @@[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = middleware(self)
 }
 
 object HttpApp {
