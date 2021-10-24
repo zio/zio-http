@@ -1,12 +1,11 @@
 package zhttp.experiment
 
-import zhttp.http.HttpApp
-import zio.{UIO, ZIO}
+import zhttp.http._
+import zio.ZIO
 
 /**
  * Middlewares for HttpApp.
  */
-
 sealed trait HttpMiddleware[-R, +E] { self =>
   def run[R1 <: R, E1 >: E](app: HttpApp[R1, E1]): HttpApp[R1, E1] = ???
 
@@ -20,51 +19,79 @@ sealed trait HttpMiddleware[-R, +E] { self =>
 }
 
 object HttpMiddleware {
-  type Request
-  type Response
 
-  case class Transform[R, E, S](
-    req: Request => ZIO[R, E, (Request, S)],
-    res: (Request, Response, S) => ZIO[R, E, Response],
-  ) extends HttpMiddleware[R, E]
+  sealed trait Patch { self =>
+    def ++(that: Patch): Patch = Patch.Combine(self, that)
+  }
+
+  object Patch {
+    case object Empty                                     extends Patch
+    final case class AddHeaders(headers: List[Header])    extends Patch
+    final case class RemoveHeaders(headers: List[String]) extends Patch
+    final case class SetStatus(status: Status)            extends Patch
+    final case class Combine(left: Patch, right: Patch)   extends Patch
+
+    val empty: Patch                                = Empty
+    def addHeaders(headers: List[Header]): Patch    = AddHeaders(headers)
+    def removeHeaders(headers: List[String]): Patch = RemoveHeaders(headers)
+    def setStatus(status: Status): Patch            = SetStatus(status)
+  }
+
+  sealed trait RequestMiddleware[-R, +E, +S] {
+    def process(method: Method, url: URL, headers: List[Header]): ZIO[R, E, S] = ???
+  }
+
+  object RequestMiddleware {
+    case class ConsM[R, E, S](f: (Method, URL, List[Header]) => ZIO[R, E, S]) extends RequestMiddleware[R, E, S]
+    case class Cons[S](f: (Method, URL, List[Header]) => S)                   extends RequestMiddleware[Any, Nothing, S]
+    case object Identity extends RequestMiddleware[Any, Nothing, Unit]
+
+    def identity: RequestMiddleware[Any, Nothing, Unit] = new RequestMiddleware[Any, Nothing, Unit] {
+      override def process(method: Method, url: URL, headers: List[Header]): ZIO[Any, Nothing, Unit] = ZIO.unit
+    }
+
+    def makeM[R, E, S](f: (Method, URL, List[Header]) => ZIO[R, E, S]): RequestMiddleware[R, E, S] =
+      ConsM(f)
+
+    def make[R, E, S](f: (Method, URL, List[Header]) => S): RequestMiddleware[R, E, S] =
+      Cons(f)
+
+    def apply[R, E, S](f: (Method, URL, List[Header]) => S): RequestMiddleware[R, E, S] =
+      make(f)
+  }
+
+  sealed trait ResponseMiddleware[-R, +E, -S] {
+    def apply[S1 <: S](status: Status, headers: List[Header], state: S1): ZIO[R, E, Patch]
+  }
+
+  object ResponseMiddleware {
+    case class ConsM[R, E, S](f: (Status, List[Header], S) => ZIO[R, E, Patch]) extends ResponseMiddleware[R, E, S]
+    case class Cons[S](f: (Status, List[Header], S) => Patch) extends ResponseMiddleware[Any, Nothing, S]
+    case object Identity                                      extends ResponseMiddleware[Any, Nothing, Unit]
+
+    def identity: ResponseMiddleware[Any, Nothing, Unit] = Identity
+
+    def makeM[S]: PartiallyAppliedMakeM[S] = PartiallyAppliedMakeM(())
+    def make[S]: PartiallyAppliedMake[S]   = PartiallyAppliedMake(())
+
+    final case class PartiallyAppliedMakeM[S](unit: Unit) extends AnyVal {
+      def apply[R, E](f: (Status, List[Header], S) => ZIO[R, E, Patch]): ResponseMiddleware[R, E, S] = ConsM(f)
+    }
+
+    final case class PartiallyAppliedMake[S](unit: Unit) extends AnyVal {
+      def apply(f: (Status, List[Header], S) => Patch): ResponseMiddleware[Any, Nothing, S] = Cons(f)
+    }
+  }
+
+  case object Identity extends HttpMiddleware[Any, Nothing]
+
+  case class Transform[R, E, S](req: RequestMiddleware[R, E, S], res: ResponseMiddleware[R, E, S])
+      extends HttpMiddleware[R, E]
 
   case class Combine[R, E](self: HttpMiddleware[R, E], other: HttpMiddleware[R, E]) extends HttpMiddleware[R, E]
 
-  def identity: HttpMiddleware[Any, Nothing] = state[Unit](req => (req, ()), (_, res, _) => res)
+  def identity: HttpMiddleware[Any, Nothing] = Identity
 
-  def stateM[S]: PartiallyAppliedCollectM[S] = PartiallyAppliedCollectM(())
-
-  def state[S]: PartiallyAppliedCollect[S] = PartiallyAppliedCollect(())
-
-  def request(f: Request => Request): HttpMiddleware[Any, Nothing] =
-    state[Unit](req => (f(req), ()), (_, res, _) => res)
-
-  def requestM[R, E](f: Request => ZIO[R, E, Request]): HttpMiddleware[R, E] =
-    stateM[Unit](req => f(req).map((_, ())), (_, res, _) => UIO(res))
-
-  def tapM[S]: PartiallyAppliedTapM[S] = PartiallyAppliedTapM(())
-
-  def tap[S]: PartiallyAppliedTap[S] = PartiallyAppliedTap(())
-
-  final case class PartiallyAppliedTapM[S](unit: Unit) extends AnyVal {
-    def apply[R, E](f: Request => ZIO[R, E, S], g: (Request, Response, S) => ZIO[R, E, Any]): HttpMiddleware[R, E] =
-      HttpMiddleware.stateM[S](req => f(req).map(s => (req, s)), (req, res, s) => g(req, res, s).as(res))
-  }
-
-  final case class PartiallyAppliedTap[S](unit: Unit) extends AnyVal {
-    def apply(f: Request => S, g: (Request, Response, S) => Any): HttpMiddleware[Any, Nothing] =
-      HttpMiddleware.stateM[S](req => UIO((req, f(req))), (req, res, s) => UIO(g(req, res, s)).as(res))
-  }
-
-  final case class PartiallyAppliedCollectM[S](unit: Unit) extends AnyVal {
-    def apply[R, E](
-      f: Request => ZIO[R, E, (Request, S)],
-      g: (Request, Response, S) => ZIO[R, E, Response],
-    ): HttpMiddleware[R, E] = Transform(f, g)
-  }
-
-  final case class PartiallyAppliedCollect[S](unit: Unit) extends AnyVal {
-    def apply(f: Request => (Request, S), g: (Request, Response, S) => Response): HttpMiddleware[Any, Nothing] =
-      stateM[S](req => UIO(f(req)), (req, res, s) => UIO(g(req, res, s)))
-  }
+  def make[R, E, S](req: RequestMiddleware[R, E, S], res: ResponseMiddleware[R, E, S]): HttpMiddleware[R, E] =
+    Transform(req, res)
 }

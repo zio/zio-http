@@ -86,7 +86,7 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
   /**
    * Attaches the provided middleware to the HttpApp
    */
-  def @@[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = middleware(self)
+  def @@[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = self.middleware(mid)
 }
 
 object HttpApp {
