@@ -63,7 +63,7 @@ object ContentDecoder {
   ): Step[Any, E, BackPressure[(PostBodyDecoder[E, A, B], Queue[B])], HttpMessage[A], Queue[B]]        =
     ContentDecoder
       .collect(BackPressure[(PostBodyDecoder[E, A, B], Queue[B])]()) { case (msg, state, _) =>
-        for {
+        (for {
           data <- state.acc.fold(for {
             d <- decoder
             c <- Queue.bounded[B](1)
@@ -75,7 +75,7 @@ object ContentDecoder {
         } yield (
           if (state.isFirst) Option(q) else None,
           state.withAcc((multipart, q)).withFirst(false),
-        )
+        )) <* state.acc.map(_._2.shutdown).fold(ZIO.unit)(x => x).when(msg.isLast)
       }
 
   def collect[S, A]: PartiallyAppliedCollect[S, A] = new PartiallyAppliedCollect(())
