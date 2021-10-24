@@ -6,6 +6,8 @@ import zio.{Chunk, ZIO}
 import java.net.InetAddress
 
 trait Request extends HeadersHelpers { self =>
+  def isPreflight: Boolean = method == Method.OPTIONS
+
   def method: Method
 
   def url: URL
