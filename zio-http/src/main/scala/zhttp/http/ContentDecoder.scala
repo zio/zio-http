@@ -6,8 +6,6 @@ import io.netty.handler.codec.http.{DefaultHttpContent, DefaultHttpRequest, Http
 import zhttp.experiment.HttpMessage
 import zio._
 
-import scala.jdk.CollectionConverters._
-
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
   def decode(data: HttpData[Any, Throwable])(implicit ev: HttpMessage[HttpContent] <:< A): ZIO[R, Throwable, B] =
     ContentDecoder.decode(self.asInstanceOf[ContentDecoder[R, Throwable, HttpMessage[HttpContent], B]], data)
@@ -43,7 +41,13 @@ object ContentDecoder {
     Task(new PostBodyDecoder[Throwable, HttpContent, InterfaceHttpData] {
       private val decoder                                       = new HttpPostRequestDecoder(toJRequest(req)) //
       override def offer(a: HttpContent): IO[Throwable, Unit]   = Task(decoder.offer(a): Unit)
-      override def poll: IO[Throwable, List[InterfaceHttpData]] = Task(decoder.getBodyHttpDatas().asScala.toList)
+      override def poll: IO[Throwable, List[InterfaceHttpData]] = Task {
+        var datas: List[InterfaceHttpData] = List.empty
+        while (decoder.hasNext) {
+          datas = datas :+ decoder.next
+        }
+        datas
+      }
     })
 
   def testDecoder: ZIO[Any, Nothing, PostBodyDecoder[Throwable, HttpContent, Int]] = {
