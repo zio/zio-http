@@ -71,6 +71,8 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
   def provideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E](
     layer: ZLayer[R0, E1, R1],
   )(implicit ev: R0 with R1 <:< R, tagged: Tag[R1]) = self.asHttp.provideSomeLayer(layer)
+
+  def apply(req: Request): ZIO[R, Option[E], Response[R, E]] = self.asHttp.execute(req).evaluate.asEffect
 }
 
 object HttpApp {
