@@ -1,6 +1,8 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.HttpMethod
+import zhttp.experiment.Route
+import zhttp.experiment.Route.RouteToken
 
 sealed trait Method { self =>
   lazy val asHttpMethod: HttpMethod = Method.asHttpMethod(self)
@@ -58,5 +60,13 @@ object Method {
     case TRACE        => HttpMethod.TRACE
     case CONNECT      => HttpMethod.CONNECT
     case CUSTOM(name) => new HttpMethod(name)
+  }
+
+  /**
+   * Implicitly convert any method to Route
+   */
+  implicit class MethodToRoute(method: Method) {
+    def /(name: String): Route[Unit]         = Route.fromMethod(method) / name
+    def /[A](token: RouteToken[A]): Route[A] = Route.fromMethod(method) / token
   }
 }
