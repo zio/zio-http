@@ -3,6 +3,7 @@ package zhttp.http
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.multipart.{HttpPostRequestDecoder, InterfaceHttpData}
 import io.netty.handler.codec.http.{DefaultHttpContent, DefaultHttpRequest, HttpContent, HttpRequest, HttpVersion}
+import io.netty.util.ReferenceCountUtil
 import zhttp.experiment.HttpMessage
 import zio._
 
@@ -40,7 +41,8 @@ object ContentDecoder {
   def multipartDecoder(req: Request): Task[PostBodyDecoder[Throwable, HttpContent, InterfaceHttpData]] =
     Task(new PostBodyDecoder[Throwable, HttpContent, InterfaceHttpData] {
       private val decoder                                       = new HttpPostRequestDecoder(toJRequest(req)) //
-      override def offer(a: HttpContent): IO[Throwable, Unit]   = Task(decoder.offer(a): Unit)
+      override def offer(a: HttpContent): IO[Throwable, Unit]   =
+        Task(decoder.offer(a): Unit) andThen Task(ReferenceCountUtil.release(a): Unit)
       override def poll: IO[Throwable, List[InterfaceHttpData]] = Task {
         var datas: List[InterfaceHttpData] = List.empty
         while (decoder.hasNext) {
