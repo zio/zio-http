@@ -77,7 +77,7 @@ private[zhttp] trait HeadersHelpers { self: HasHeaders =>
       Some((username, password))
     }
   }
-  def getBasicAuthorizationCredentials: Option[(String, String)] = {
+  def getBasicAuthorizationCredentials: Option[(String, String)]         = {
     getAuthorization.flatMap(v => {
       val indexOfBasic = v.indexOf(BasicSchemeName)
       if (indexOfBasic != 0 || v.length == BasicSchemeName.length)
@@ -92,7 +92,7 @@ private[zhttp] trait HeadersHelpers { self: HasHeaders =>
       }
     })
   }
-  def getBearerToken: Option[String]   = getAuthorization.flatMap(v => {
+  def getBearerToken: Option[String]                                     = getAuthorization.flatMap(v => {
     val indexOfBearer = v.indexOf(BearerSchemeName)
     if (indexOfBearer != 0 || v.length == BearerSchemeName.length)
       None
