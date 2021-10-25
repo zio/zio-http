@@ -118,51 +118,6 @@ object Route {
   def fromMethod(method: Method): Route[Unit] = Route(method, RoutePath.Empty)
 
   /**
-   * Create a Route[Unit] with Method type GET
-   */
-  def get: Route[Unit] = fromMethod(Method.GET)
-
-  /**
-   * Create a Route[Unit] with Method type POST
-   */
-  def post: Route[Unit] = fromMethod(Method.POST)
-
-  /**
-   * Create a Route[Unit] with Method type PUT
-   */
-  def put: Route[Unit] = fromMethod(Method.PUT)
-
-  /**
-   * Create a Route[Unit] with Method type DELETE
-   */
-  def delete: Route[Unit] = fromMethod(Method.DELETE)
-
-  /**
-   * Create a Route[Unit] with Method type HEAD
-   */
-  def head: Route[Unit] = fromMethod(Method.HEAD)
-
-  /**
-   * Create a Route[Unit] with Method type PATCH
-   */
-  def patch: Route[Unit] = fromMethod(Method.PATCH)
-
-  /**
-   * Create a Route[Unit] with Method type PATCH
-   */
-  def options: Route[Unit] = fromMethod(Method.OPTIONS)
-
-  /**
-   * Create a Route[Unit] with Method type PATCH
-   */
-  def trace: Route[Unit] = fromMethod(Method.TRACE)
-
-  /**
-   * Create a Route[Unit] with Method type CONNECT
-   */
-  def connect: Route[Unit] = fromMethod(Method.CONNECT)
-
-  /**
    * Create RouteToken of Param category
    */
   def apply[A](implicit ev: RouteParam[A]): RouteToken[A] = RouteToken.Param(ev)
@@ -237,5 +192,9 @@ object Route {
     implicit def combine21[A, B, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, B)] = null
     // scalafmt: { maxColumn = 120 }
   }
+
+  /**
+   * Operator to create RouteToken with param of type A
+   */
   final def *[A](implicit ev: RouteParam[A]): RouteToken[A] = Route[A]
 }
