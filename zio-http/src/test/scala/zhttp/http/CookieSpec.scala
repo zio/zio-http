@@ -95,7 +95,10 @@ object CookieSpec extends DefaultRunnableSpec {
         )
 
         checkAll(genCookies) { cookie =>
-          assert(Cookie.parse(cookie.asString))(isRight(equalTo(cookie)))
+          val cookieString = cookie.asString
+
+          assert(Cookie.parse(cookieString))(isRight(equalTo(cookie))) &&
+          assert(Cookie.parse(cookieString).map(_.asString))(isRight(equalTo(cookieString)))
         }
       },
     ),
