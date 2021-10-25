@@ -1,13 +1,8 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel,
-  ChannelFactory => JChannelFactory,
-  ChannelHandlerContext,
-  EventLoopGroup => JEventLoopGroup,
-}
-import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpHeaderNames, HttpVersion}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
+import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpVersion}
 import zhttp.http.URL.Location
 import zhttp.http.{HttpData, _}
 import zhttp.service
@@ -162,28 +157,5 @@ object Client {
     }
   }
 
-  final case class ClientResponse(status: Status, headers: List[Header], content: Chunk[Byte]) { self =>
-
-    /**
-     * request with COOKIE header as list of cookies
-     */
-    def addCookies(cookies: List[Cookie]): ClientResponse =
-      self.copy(headers =
-        self.headers ++ List(
-          Header.custom(HttpHeaderNames.COOKIE.toString, cookies.map(p => p.name + "=" + p.content) mkString "; "),
-        ),
-      )
-
-    /**
-     * request with COOKIE from another response headers
-     */
-    def cookiesFromHeader(headers: List[Header]): ClientResponse = self.copy(headers =
-      self.headers ++ List(
-        Header.custom(
-          HttpHeaderNames.COOKIE.toString,
-          Response.cookies(headers).map(p => p.name + "=" + p.content) mkString "; ",
-        ),
-      ),
-    )
-  }
+  final case class ClientResponse(status: Status, headers: List[Header], content: Chunk[Byte])
 }
