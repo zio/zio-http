@@ -85,17 +85,12 @@ object Request {
   /**
    * Lift request to TypedRequest with option to extract params
    */
-  final class TypedRequest[A](req: Request, val params: A) extends Request {
+  case class ParameterizedRequest[A](req: Request, params: A) extends Request {
     override def method: Method                     = req.method
     override def url: URL                           = req.url
     override def headers: List[Header]              = req.headers
     override def remoteAddress: Option[InetAddress] = req.remoteAddress
     override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
       req.decodeContent(decoder)
-  }
-
-  object TypedRequest {
-    def unapply[A](req: Request.TypedRequest[A]): Option[A] = Some(req.params)
-    def apply[A](req: Request, params: A): TypedRequest[A]  = new TypedRequest(req, params)
   }
 }
