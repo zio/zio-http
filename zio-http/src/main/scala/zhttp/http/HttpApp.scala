@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.channel._
-import zhttp.experiment.HttpMiddleware
+import zhttp.http.middleware.HttpMiddleware
 import zhttp.service.{Handler, HttpRuntime}
 import zio._
 
