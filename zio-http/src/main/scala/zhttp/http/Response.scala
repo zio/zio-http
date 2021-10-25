@@ -12,7 +12,36 @@ case class Response[-R, +E] private (
   headers: List[Header],
   data: HttpData[R, E],
   private[zhttp] val attribute: HttpAttribute[R, E],
-)
+) { self =>
+
+  /**
+   * add cookies in response headers
+   */
+  def addCookie(cookie: Cookie): Response[R, E] =
+    self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.asString)))
+
+  /**
+   * remove cookie from response headers
+   */
+  def removeCookie(cookie: Cookie): Response[R, E] =
+    self.copy(headers =
+      self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.clearCookie.asString)),
+    )
+
+  /**
+   * remove cookie from response headers
+   */
+  def removeCookie(cookie: String): Response[R, E] =
+    self.copy(headers =
+      self.headers ++ List(
+        Header.custom(
+          HttpHeaderNames.SET_COOKIE.toString,
+          Cookie(cookie, content = "", expires = Some(Instant.ofEpochSecond(0))).asString,
+        ),
+      ),
+    )
+
+}
 
 object Response {
 
@@ -82,38 +111,4 @@ object Response {
   def permanentRedirect(location: String): Response[Any, Nothing] =
     Response(Status.PERMANENT_REDIRECT, List(Header.location(location)))
 
-  /**
-   * returns a list of cookies from response header
-   */
-  def cookies(header: List[Header]): List[Cookie] = {
-    header
-      .filter(x => x.name.toString.equalsIgnoreCase(HttpHeaderNames.SET_COOKIE.toString))
-      .map(h =>
-        Cookie.parse(h.value.toString) match {
-          case Left(value)  => throw value
-          case Right(value) => value
-        },
-      )
-  }
-
-  /**
-   * response with SET_COOKIE header to add cookies
-   */
-  def addCookie(cookie: Cookie): UResponse =
-    Response(headers = List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.asString)))
-
-  /**
-   * response with SET_COOKIE header to remove cookies
-   */
-  def removeCookie(cookie: Cookie): UResponse =
-    Response(headers = List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.clearCookie.asString)))
-
-  def removeCookie(cookie: String): UResponse = Response(headers =
-    List(
-      Header.custom(
-        HttpHeaderNames.SET_COOKIE.toString,
-        Cookie(cookie, content = "", expires = Some(Instant.ofEpochSecond(0))).asString,
-      ),
-    ),
-  )
 }
