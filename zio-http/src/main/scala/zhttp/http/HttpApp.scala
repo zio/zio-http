@@ -128,6 +128,11 @@ object HttpApp {
   def response[R, E](response: Response[R, E]): HttpApp[R, E] = HttpApp(Http.succeed(response))
 
   /**
+   * Creates an Http app that fails with a NotFound exception.
+   */
+  def notFound: HttpApp[Any, Nothing] = HttpApp.fromFunction(req => HttpApp.error(HttpError.NotFound(req.url.path)))
+
+  /**
    * Creates an HTTP app which always responds with the same status code and empty data.
    */
   def status(code: Status): HttpApp[Any, Nothing] = HttpApp(Http.succeed(Response(code)))
@@ -135,8 +140,7 @@ object HttpApp {
   /**
    * Creates an Http app that responds with 403 - Forbidden status code
    */
-  def forbidden(msg: String): HttpApp[Any, Nothing] =
-    HttpApp(Http.succeed(Response.fromHttpError(HttpError.Forbidden(msg))))
+  def forbidden(msg: String): HttpApp[Any, Nothing] = HttpApp.error(HttpError.Forbidden(msg))
 
   /**
    * Creates an HTTP app which always responds with a 200 status code.
@@ -144,24 +148,19 @@ object HttpApp {
   def ok: HttpApp[Any, Nothing] = status(Status.OK)
 
   /**
-   * Creates an HTTP app which always responds with a 404 status code.
+   * Creates an HTTP app with HttpError.
    */
-  def notFound(path: Path): HttpApp[Any, Nothing] = HttpApp(
-    Http.succeed(Response.fromHttpError(HttpError.NotFound(path))),
-  )
+  def error(cause: HttpError): HttpApp[Any, Nothing] = HttpApp.response(Response.fromHttpError(cause))
 
   /**
    * Creates an HTTP app which always responds with a 400 status code.
    */
-  def badRequest(msg: String): HttpApp[Any, Nothing] = HttpApp(
-    Http.succeed(Response.fromHttpError(HttpError.BadRequest(msg))),
-  )
+  def badRequest(msg: String): HttpApp[Any, Nothing] = HttpApp.error(HttpError.BadRequest(msg))
 
   /**
    * Creates an Http app that responds with 500 status code
    */
-  def error(msg: String): HttpApp[Any, Nothing] =
-    HttpApp(Http.succeed(Response.fromHttpError(HttpError.InternalServerError(msg))))
+  def error(msg: String): HttpApp[Any, Nothing] = HttpApp.error(HttpError.InternalServerError(msg))
 
   /**
    * Creates a Http app from a function from Request to HttpApp
