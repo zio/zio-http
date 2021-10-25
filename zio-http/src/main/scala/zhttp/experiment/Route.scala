@@ -17,7 +17,7 @@ final case class Route[A](method: Method, routePath: RoutePath[A]) { self =>
    * Create a new Route[C] by combining RouteToken[B] and existing RoutePath[A]. C here is path dependent type and will
    * be resolved using combing aux implicit
    */
-  def /[B, C](other: RouteToken[B])(implicit ev: Route.Combine.Aux[A, B, C]): Route[C] =
+  def /[B, C](other: RouteToken[B])(implicit ev: RouteCombine.Aux[A, B, C]): Route[C] =
     Route(self.method, RoutePath.parse(other, self.routePath))
 
   /**
@@ -43,7 +43,9 @@ final case class Route[A](method: Method, routePath: RoutePath[A]) { self =>
   /**
    * Creates an HttpApp from a Request to Response function
    */
-  def to[B](f: Request.TypedRequest[A] => B)(implicit ctor: HttpAppConstructor[A, B]): HttpApp[ctor.ROut, ctor.EOut] =
+  def to[B](f: Request.ParameterizedRequest[A] => B)(implicit
+    ctor: HttpAppConstructor[A, B],
+  ): HttpApp[ctor.ROut, ctor.EOut] =
     ctor.make(self, f)
 }
 
@@ -66,7 +68,7 @@ object Route {
     /**
      * Create RoutePath[C] by combining RouteToken[B] and RoutePath[A]. Return type C is determined by implicit combine
      */
-    def parse[A, B, C](head: RouteToken[B], tail: RoutePath[A])(implicit ev: Combine.Aux[A, B, C]): RoutePath[C] =
+    def parse[A, B, C](head: RouteToken[B], tail: RoutePath[A])(implicit ev: RouteCombine.Aux[A, B, C]): RoutePath[C] =
       RoutePath.Cons(head, tail)
 
     case object Empty extends RoutePath[Unit]
@@ -151,46 +153,6 @@ object Route {
     implicit object BooleanExtract extends RouteParam[Boolean] {
       override def extract(data: String): Option[Boolean] = Try(data.toBoolean).toOption
     }
-  }
-
-  // Combine Logic for Router
-  sealed trait Combine[A, B] {
-    type Out
-  }
-
-  object Combine {
-    type Aux[A, B, C] = Combine[A, B] {
-      type Out = C
-    }
-
-    // scalafmt: { maxColumn = 1200 }
-
-    /**
-     * Path dependent implicit for combination of (A,B)
-     */
-    implicit def combine0[A, B](implicit ev: A =:= Unit): Combine.Aux[A, B, B]                                                                                                                                                                                                                                                                                                                     = null
-    implicit def combine1[A, B](implicit evA: RouteParam[A], evB: RouteParam[B]): Combine.Aux[A, B, (A, B)]                                                                                                                                                                                                                                                                                        = null
-    implicit def combine2[A, B, T1, T2](implicit evA: A =:= (T1, T2), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, B)]                                                                                                                                                                                                                                                                          = null
-    implicit def combine3[A, B, T1, T2, T3](implicit evA: A =:= (T1, T2, T3), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, B)]                                                                                                                                                                                                                                                              = null
-    implicit def combine4[A, B, T1, T2, T3, T4](implicit evA: A =:= (T1, T2, T3, T4), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, B)]                                                                                                                                                                                                                                                  = null
-    implicit def combine5[A, B, T1, T2, T3, T4, T5](implicit evA: A =:= (T1, T2, T3, T4, T5), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, B)]                                                                                                                                                                                                                                      = null
-    implicit def combine6[A, B, T1, T2, T3, T4, T5, T6](implicit evA: A =:= (T1, T2, T3, T4, T5, T6), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, B)]                                                                                                                                                                                                                          = null
-    implicit def combine7[A, B, T1, T2, T3, T4, T5, T6, T7](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, B)]                                                                                                                                                                                                              = null
-    implicit def combine8[A, B, T1, T2, T3, T4, T5, T6, T7, T8](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, B)]                                                                                                                                                                                                  = null
-    implicit def combine9[A, B, T1, T2, T3, T4, T5, T6, T7, T8, T9](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8, T9), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, T9, B)]                                                                                                                                                                                      = null
-    implicit def combine10[A, B, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, B)]                                                                                                                                                                      = null
-    implicit def combine11[A, B, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, B)]                                                                                                                                                       = null
-    implicit def combine12[A, B, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, B)]                                                                                                                                        = null
-    implicit def combine13[A, B, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, B)]                                                                                                                         = null
-    implicit def combine14[A, B, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, B)]                                                                                                          = null
-    implicit def combine15[A, B, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, B)]                                                                                           = null
-    implicit def combine16[A, B, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, B)]                                                                            = null
-    implicit def combine17[A, B, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, B)]                                                             = null
-    implicit def combine18[A, B, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, B)]                                              = null
-    implicit def combine19[A, B, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, B)]                               = null
-    implicit def combine20[A, B, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, B)]                = null
-    implicit def combine21[A, B, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21](implicit evA: A =:= (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, B)] = null
-    // scalafmt: { maxColumn = 120 }
   }
 
   /**
