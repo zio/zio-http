@@ -1,7 +1,7 @@
 package zhttp.http
 
 import zio.random.Random
-import zio.test.Assertion.{equalTo, isLeft}
+import zio.test.Assertion.{equalTo, isLeft, isRight}
 import zio.test._
 
 import scala.concurrent.duration.{Duration, DurationInt, SECONDS}
@@ -12,24 +12,26 @@ object CookieSpec extends DefaultRunnableSpec {
       test("should parse the cookie") {
         val cookieHeaderValue = "name=content; Max-Age=123; Secure; HttpOnly "
         assert(Cookie.parse(cookieHeaderValue))(
-          equalTo(
-            Right(Cookie("name", "content", None, None, None, true, true, Some(123 seconds), None)),
+          isRight(
+            equalTo(
+              Cookie("name", "content", None, None, None, secure = true, httpOnly = true, Some(123 seconds), None),
+            ),
           ),
         )
       },
       test("should parse the cookie with empty content") {
         val cookieHeaderValue = "name=; Max-Age=123; Secure; HttpOnly; Path=/cookie "
         assert(Cookie.parse(cookieHeaderValue))(
-          equalTo(
-            Right(
+          isRight(
+            equalTo(
               Cookie(
                 "name",
                 "",
                 None,
                 None,
                 Some(Path("/cookie")),
-                true,
-                true,
+                secure = true,
+                httpOnly = true,
                 Some(123 seconds),
                 None,
               ),
@@ -45,7 +47,8 @@ object CookieSpec extends DefaultRunnableSpec {
     ),
     suite("asString in cookie")(
       test("should convert cookie to string with meta") {
-        val cookie = Cookie("name", "content", None, None, Some(Path("/cookie")), false, true, None, None)
+        val cookie =
+          Cookie("name", "content", None, None, Some(Path("/cookie")), secure = false, httpOnly = true, None, None)
         assert(cookie.asString)(equalTo("name=content; Path=/cookie; HttpOnly"))
       },
       test("should convert cookie to string with meta") {
@@ -91,8 +94,8 @@ object CookieSpec extends DefaultRunnableSpec {
           sameSite,
         )
 
-        check(genCookies) { cookie =>
-          assert(Cookie.parse(cookie.asString))(equalTo(Right(cookie)))
+        checkAll(genCookies) { cookie =>
+          assert(Cookie.parse(cookie.asString))(isRight(equalTo(cookie)))
         }
       },
     ),
