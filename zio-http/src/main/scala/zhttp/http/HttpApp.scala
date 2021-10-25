@@ -42,15 +42,16 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
   /**
    * Provides the environment to HttpApp.
    */
-  def provide(r: R)(implicit ev: NeedsEnv[R]): HttpApp[R, E] = HttpApp(self.asHttp.provide(r))
+  def provide(r: R)(implicit ev: NeedsEnv[R]): HttpApp[Any, E] =
+    HttpApp(self.asHttp.provide(r).map(_.asInstanceOf[Response[Any, E]]))
 
   /**
-   * Provides some of the environment to Http.
+   * Provides some of the environment to HttpApp.
    */
   def provideSome[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): HttpApp[R1, E] = HttpApp(self.asHttp.provideSome(r))
 
   /**
-   * Provides layer to Http.
+   * Provides layer to HttpApp.
    */
   def provideLayer[R0, R1, E1 >: E](layer: ZLayer[R0, E1, R1])(implicit
     ev1: R1 <:< R,
@@ -58,7 +59,7 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
   ): HttpApp[R with R0, E1] = HttpApp(self.asHttp.provideLayer(layer))
 
   /**
-   * Provide part of the environment to HTTP that is not part of ZEnv
+   * Provide part of the environment to HttpApp that is not part of ZEnv
    */
   def provideCustomLayer[E1 >: E, R1 <: Has[_]](layer: ZLayer[ZEnv, E1, R1])(implicit
     ev: ZEnv with R1 <:< R,
@@ -66,7 +67,7 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
   ): HttpApp[R with zio.ZEnv, E1] = HttpApp(self.asHttp.provideCustomLayer(layer))
 
   /**
-   * Provides some of the environment to Http leaving the remainder `R0`.
+   * Provides some of the environment to HttpApp leaving the remainder `R0`.
    */
   def provideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E](
     layer: ZLayer[R0, E1, R1],

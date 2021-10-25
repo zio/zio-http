@@ -6,10 +6,10 @@ import zhttp.http.HttpApp.InvalidMessage
 import zhttp.service.EventLoopGroup
 import zio.duration._
 import zio.stream.ZStream
-import zio.test.Assertion.{equalTo, isLeft, isNone}
+import zio.test.Assertion.{anything, equalTo, isLeft, isNone}
 import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test.{DefaultRunnableSpec, assertM}
-import zio.{Chunk, UIO, ZIO}
+import zio.{Chunk, Has, UIO, ZIO}
 
 /**
  * Be prepared for some real nasty runtime tests.
@@ -28,6 +28,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       IllegalMessageSpec,
       ContentDecoderSpec,
       RemoteAddressSpec,
+      ProvideSpec,
     ).provideCustomLayer(env) @@ timeout(10 seconds)
 
   /**
@@ -222,4 +223,28 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       assertM(addr)(isNone)
     }
   }
+
+  def ProvideSpec = suite("ProvideSpec") {
+    testM("provide method") {
+      trait Logging {
+        def log(line: String): UIO[Unit]
+      }
+
+      val logger: Has[Logging]                                       = Has(new Logging {
+        override def log(line: String): UIO[Unit] = ZIO.succeed(println(line))
+      })
+
+      val res: HttpApp[Has[Logging], Nothing] = {
+        HttpApp.fromHttp(
+          Http.fromEffectFunction(_ =>
+            UIO(Response(data = HttpData.fromText("s").asInstanceOf[HttpData[Has[Logging], Nothing]])),
+          ),
+        )
+      }
+      val zio: ZIO[Any with EventLoopGroup, Throwable, HttpResponse] = res.provide(logger).getResponse()
+
+      assertM(zio)(anything)
+    }
+  }
+
 }
