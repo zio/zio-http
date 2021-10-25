@@ -1,8 +1,8 @@
 package zhttp.http
 
 import io.netty.buffer.Unpooled
+import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.multipart.{HttpPostRequestDecoder, InterfaceHttpData}
-import io.netty.handler.codec.http.{DefaultHttpContent, DefaultHttpRequest, HttpContent, HttpRequest, HttpVersion}
 import io.netty.util.ReferenceCountUtil
 import zhttp.experiment.HttpMessage
 import zio._
@@ -62,22 +62,24 @@ object ContentDecoder {
   }
   def multipart[E, A, B](
     decoder: IO[E, PostBodyDecoder[E, A, B]],
-  ): Step[Any, E, BackPressure[(PostBodyDecoder[E, A, B], Queue[B])], HttpMessage[A], Queue[B]]        =
+  ): Step[Any, E, BackPressure[(PostBodyDecoder[E, A, B], Queue[HttpMessage[B]])], HttpMessage[A], Queue[
+    HttpMessage[B],
+  ]]                                                                                                   =
     ContentDecoder
-      .collect(BackPressure[(PostBodyDecoder[E, A, B], Queue[B])]()) { case (msg, state, _) =>
+      .collect(BackPressure[(PostBodyDecoder[E, A, B], Queue[HttpMessage[B]])]()) { case (msg, state, _) =>
         (for {
           data <- state.acc.fold(for {
             d <- decoder
-            c <- Queue.bounded[B](1)
+            c <- Queue.bounded[HttpMessage[B]](1)
           } yield (d, c))(UIO(_))
           (multipart, q) = data
           _    <- multipart.offer(msg.raw)
           list <- multipart.poll
-          _    <- q.offerAll(list)
+          _    <- q.offerAll(list.map(d => HttpMessage(d, msg.isLast)))
         } yield (
           if (state.isFirst) Option(q) else None,
           state.withAcc((multipart, q)).withFirst(false),
-        )) <* state.acc.map(_._2.shutdown).fold(ZIO.unit)(x => x).when(msg.isLast)
+        ))
       }
 
   def collect[S, A]: PartiallyAppliedCollect[S, A] = new PartiallyAppliedCollect(())

@@ -29,7 +29,7 @@ object ContentDecoderSpec extends DefaultRunnableSpec with HttpMessageAssertions
           {
             val decoder                                 = ContentDecoder.multipart(ContentDecoder.testDecoder)
             val content: ZIO[Any, Throwable, List[Int]] =
-              decoder.decode(c).flatMap(b => b.takeAll)
+              decoder.decode(c).flatMap(b => b.takeAll.map(_.map(_.raw)))
             assertM(content)(
               equalTo(List(21)),
             )
