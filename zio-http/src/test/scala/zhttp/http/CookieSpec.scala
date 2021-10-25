@@ -58,7 +58,7 @@ object CookieSpec extends DefaultRunnableSpec {
             path = Some(Path("/cookie")),
             httpOnly = true,
             maxAge = Some(5 days),
-            sameSite = Some(SameSite.Lax),
+            sameSite = Some(Cookie.SameSite.Lax),
           )
         assert(cookie.asString)(equalTo("name=content; Max-Age=432000; Path=/cookie; HttpOnly; SameSite=Lax"))
       },
@@ -78,7 +78,7 @@ object CookieSpec extends DefaultRunnableSpec {
           secure   <- Gen.boolean
           httpOnly <- Gen.boolean
           maxAge   <- Gen.anyFiniteDuration
-          sameSite <- Gen.option(Gen.fromIterable(List(SameSite.Strict, SameSite.Lax)))
+          sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
         } yield Cookie(
           name,
           content,

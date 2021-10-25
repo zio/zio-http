@@ -4,15 +4,6 @@ import java.time.Instant
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.util.{Failure, Success, Try}
 
-sealed trait SameSite {
-  def asString: String
-}
-object SameSite       {
-  case object Lax    extends SameSite { def asString = "Lax"    }
-  case object Strict extends SameSite { def asString = "Strict" }
-  case object None   extends SameSite { def asString = "None"   }
-}
-
 final case class Cookie(
   name: String,
   content: String,
@@ -22,7 +13,7 @@ final case class Cookie(
   secure: Boolean = false,
   httpOnly: Boolean = false,
   maxAge: Option[Duration] = None,
-  sameSite: Option[SameSite] = None,
+  sameSite: Option[Cookie.SameSite] = None,
 ) { self =>
 
   /**
@@ -34,14 +25,14 @@ final case class Cookie(
   /**
    * helpers for setting cookie values
    */
-  def setContent(v: String): Cookie    = copy(content = v)
-  def setExpires(v: Instant): Cookie   = copy(expires = Some(v))
-  def setMaxAge(v: Duration): Cookie   = copy(maxAge = Some(v))
-  def setDomain(v: String): Cookie     = copy(domain = Some(v))
-  def setPath(v: Path): Cookie         = copy(path = Some(v))
-  def setSecure(): Cookie              = copy(secure = true)
-  def setHttpOnly(): Cookie            = copy(httpOnly = true)
-  def setSameSite(v: SameSite): Cookie = copy(sameSite = Some(v))
+  def setContent(v: String): Cookie           = copy(content = v)
+  def setExpires(v: Instant): Cookie          = copy(expires = Some(v))
+  def setMaxAge(v: Duration): Cookie          = copy(maxAge = Some(v))
+  def setDomain(v: String): Cookie            = copy(domain = Some(v))
+  def setPath(v: Path): Cookie                = copy(path = Some(v))
+  def setSecure(): Cookie                     = copy(secure = true)
+  def setHttpOnly(): Cookie                   = copy(httpOnly = true)
+  def setSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
 
   /**
    * helpers for removing cookie values
@@ -125,5 +116,14 @@ object Cookie {
       case Success(r) => Right(r)
       case Failure(e) => Left(s"Invalid http date: $v (${e.getMessage})")
     }
+
+  sealed trait SameSite {
+    def asString: String
+  }
+  object SameSite       {
+    case object Lax    extends SameSite { def asString = "Lax"    }
+    case object Strict extends SameSite { def asString = "Strict" }
+    case object None   extends SameSite { def asString = "None"   }
+  }
 
 }
