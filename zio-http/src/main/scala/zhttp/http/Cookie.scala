@@ -118,6 +118,15 @@ final case class Cookie(
 
 object Cookie {
 
+  sealed trait SameSite {
+    def asString: String
+  }
+  object SameSite       {
+    case object Lax    extends SameSite { def asString = "Lax"    }
+    case object Strict extends SameSite { def asString = "Strict" }
+    case object None   extends SameSite { def asString = "None"   }
+  }
+
   /**
    * Parse cookie
    */
@@ -168,14 +177,5 @@ object Cookie {
       case Success(r) => Right(r)
       case Failure(e) => Left(s"Invalid http date: $v (${e.getMessage})")
     }
-
-  sealed trait SameSite {
-    def asString: String
-  }
-  object SameSite       {
-    case object Lax    extends SameSite { def asString = "Lax"    }
-    case object Strict extends SameSite { def asString = "Strict" }
-    case object None   extends SameSite { def asString = "None"   }
-  }
 
 }
