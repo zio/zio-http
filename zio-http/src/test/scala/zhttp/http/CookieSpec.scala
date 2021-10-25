@@ -11,7 +11,7 @@ object CookieSpec extends DefaultRunnableSpec {
     suite("toCookie")(
       test("should parse the cookie") {
         val cookieHeaderValue = "name=content; Max-Age=123; Secure; HttpOnly "
-        assert(Cookie.fromString(cookieHeaderValue))(
+        assert(Cookie.parse(cookieHeaderValue))(
           equalTo(
             Right(Cookie("name", "content", None, None, None, true, true, Some(123 seconds), None)),
           ),
@@ -19,7 +19,7 @@ object CookieSpec extends DefaultRunnableSpec {
       },
       test("should parse the cookie with empty content") {
         val cookieHeaderValue = "name=; Max-Age=123; Secure; HttpOnly; Path=/cookie "
-        assert(Cookie.fromString(cookieHeaderValue))(
+        assert(Cookie.parse(cookieHeaderValue))(
           equalTo(
             Right(
               Cookie(
@@ -39,7 +39,7 @@ object CookieSpec extends DefaultRunnableSpec {
       },
       test("shouldn't parse the cookie with empty content and empty name") {
         val cookieHeaderValue = ""
-        val actual            = Cookie.fromString(cookieHeaderValue)
+        val actual            = Cookie.parse(cookieHeaderValue)
         assert(actual)(isLeft)
       },
     ),
@@ -92,7 +92,7 @@ object CookieSpec extends DefaultRunnableSpec {
         )
 
         check(genCookies) { cookie =>
-          assert(Cookie.fromString(cookie.asString))(equalTo(Right(cookie)))
+          assert(Cookie.parse(cookie.asString))(equalTo(Right(cookie)))
         }
       },
     ),

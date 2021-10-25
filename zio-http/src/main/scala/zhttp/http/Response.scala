@@ -89,7 +89,7 @@ object Response {
     header
       .filter(x => x.name.toString.equalsIgnoreCase(HttpHeaderNames.SET_COOKIE.toString))
       .map(h =>
-        Cookie.fromString(h.value.toString) match {
+        Cookie.parse(h.value.toString) match {
           case Left(value)  => throw value
           case Right(value) => value
         },

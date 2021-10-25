@@ -17,33 +17,85 @@ final case class Cookie(
 ) { self =>
 
   /**
-   * remove cookie helper
+   * clears the cookie with empty content
    */
-  def clearCookie =
+  def clearCookie: Cookie =
     copy(content = "", expires = Some(Instant.ofEpochSecond(0)))
 
   /**
-   * helpers for setting cookie values
+   * set content in cookie
    */
-  def setContent(v: String): Cookie           = copy(content = v)
-  def setExpires(v: Instant): Cookie          = copy(expires = Some(v))
-  def setMaxAge(v: Duration): Cookie          = copy(maxAge = Some(v))
-  def setDomain(v: String): Cookie            = copy(domain = Some(v))
-  def setPath(v: Path): Cookie                = copy(path = Some(v))
-  def setSecure(): Cookie                     = copy(secure = true)
-  def setHttpOnly(): Cookie                   = copy(httpOnly = true)
-  def setSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
+  def setContent(v: String): Cookie = copy(content = v)
 
   /**
-   * helpers for removing cookie values
+   * set expiry in Cookie
    */
-  def resetSecure(): Cookie    = copy(secure = false)
-  def resetHttpOnly(): Cookie  = copy(httpOnly = false)
-  def removeExpiry(): Cookie   = copy(expires = None)
-  def removeDomain(): Cookie   = copy(domain = None)
-  def removePath(): Cookie     = copy(path = None)
-  def removeMaxAge(): Cookie   = copy(maxAge = None)
-  def removeSameSite(): Cookie = copy(sameSite = None)
+  def setExpiry(v: Instant): Cookie = copy(expires = Some(v))
+
+  /**
+   * set max-age in Cookie
+   */
+  def setMaxAge(v: Duration): Cookie = copy(maxAge = Some(v))
+
+  /**
+   * set domain in Cookie
+   */
+  def setDomain(v: String): Cookie = copy(domain = Some(v))
+
+  /**
+   * set path in Cookie
+   */
+  def setPath(v: Path): Cookie = copy(path = Some(v))
+
+  /**
+   * set cookie with secure
+   */
+  def withSecure: Cookie = copy(secure = true)
+
+  /**
+   * set httpOnly in Cookie
+   */
+  def withHttpOnly: Cookie = copy(httpOnly = true)
+
+  /**
+   * set same-site in Cookie
+   */
+  def withSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
+
+  /**
+   * reset secure in Cookie
+   */
+  def resetSecure: Cookie = copy(secure = false)
+
+  /**
+   * reset httpOnly in Cookie
+   */
+  def resetHttpOnly: Cookie = copy(httpOnly = false)
+
+  /**
+   * remove expires in Cookie
+   */
+  def removeExpiry: Cookie = copy(expires = None)
+
+  /**
+   * remove domain in Cookie
+   */
+  def removeDomain: Cookie = copy(domain = None)
+
+  /**
+   * remove path in Cookie
+   */
+  def removePath: Cookie = copy(path = None)
+
+  /**
+   * remove max-age in Cookie
+   */
+  def removeMaxAge: Cookie = copy(maxAge = None)
+
+  /**
+   * remove same-site in Cookie
+   */
+  def removeSameSite: Cookie = copy(sameSite = None)
 
   /**
    * Cookie header to String
@@ -69,7 +121,7 @@ object Cookie {
   /**
    * Parse cookie
    */
-  private[zhttp] def fromString(headerValue: String): Either[Throwable, Cookie] = {
+  private[zhttp] def parse(headerValue: String): Either[Throwable, Cookie] = {
     def splitNameContent(kv: String): (String, Option[String]) =
       kv.split("=", 2).map(_.trim) match {
         case Array(v1)     => (v1, None)
@@ -88,7 +140,7 @@ object Cookie {
       case ("expires", Some(v))  =>
         parseDate(v) match {
           case Left(_)      => cookie = Left(new IllegalArgumentException("expiry date cannot be parsed"))
-          case Right(value) => cookie = cookie.map(_.setExpires(value))
+          case Right(value) => cookie = cookie.map(_.setExpiry(value))
         }
       case ("max-age", Some(v))  =>
         Try(v.toLong) match {
@@ -97,13 +149,13 @@ object Cookie {
         }
       case ("domain", v)         => cookie = cookie.map(_.setDomain(v.getOrElse("")))
       case ("path", v)           => cookie = cookie.map(_.setPath(Path(v.getOrElse(""))))
-      case ("secure", _)         => cookie = cookie.map(_.setSecure())
-      case ("httponly", _)       => cookie = cookie.map(_.setHttpOnly())
+      case ("secure", _)         => cookie = cookie.map(_.withSecure)
+      case ("httponly", _)       => cookie = cookie.map(_.withHttpOnly)
       case ("samesite", Some(v)) =>
         v.trim.toLowerCase match {
-          case "lax"    => cookie = cookie.map(_.setSameSite(SameSite.Lax))
-          case "strict" => cookie = cookie.map(_.setSameSite(SameSite.Strict))
-          case "none"   => cookie = cookie.map(_.setSameSite(SameSite.None))
+          case "lax"    => cookie = cookie.map(_.withSameSite(SameSite.Lax))
+          case "strict" => cookie = cookie.map(_.withSameSite(SameSite.Strict))
+          case "none"   => cookie = cookie.map(_.withSameSite(SameSite.None))
           case _        => None
         }
       case (_, _)                => cookie
