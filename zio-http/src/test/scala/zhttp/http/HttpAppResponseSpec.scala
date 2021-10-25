@@ -86,7 +86,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
           }
         } +
         testM("notFound") {
-          val app = HttpApp.notFound
+          val app = HttpApp.notFound(!!)
           assertM(app.getResponse)(isResponse {
             responseStatus(404) && version("HTTP/1.1")
           })
