@@ -14,6 +14,10 @@ sealed trait HttpMiddleware[-R, +E] { self =>
 
   def combine[R1 <: R, E1 >: E](other: HttpMiddleware[R1, E1]): HttpMiddleware[R1, E1] =
     HttpMiddleware.Combine(self, other)
+
+  def when(f: (Method, URL, List[Header]) => Boolean): HttpMiddleware[R, E] = ???
+
+  def whenM[R1 <: R, E1 >: E](f: (Method, URL, List[Header]) => ZIO[R1, E1, Boolean]): HttpMiddleware[R1, E1] = ???
 }
 
 object HttpMiddleware {
