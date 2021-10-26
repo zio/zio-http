@@ -1,20 +1,20 @@
 package zhttp
 
-import zhttp.endpoint.Endpoint.{EParam, EToken}
 import zhttp.http.Method
 
 package object endpoint {
 
   /**
-   * Implicitly convert any method to Route
+   * Extends Http Method to support syntax to create endpoints.
    */
-  implicit class MethodToRoute(method: Method) {
-    def /(name: String): Endpoint[Unit]     = Endpoint.fromMethod(method) / name
-    def /[A](token: EToken[A]): Endpoint[A] = Endpoint.fromMethod(method) / token
+  implicit class EndpointSyntax(method: Method) {
+    def /(name: String): Endpoint[Unit] = Endpoint.fromMethod(method) / name
+    def /[A](token: Parameter[A])(implicit ev: CanCombine.Aux[Unit, A, A]): Endpoint[A] =
+      Endpoint.fromMethod(method) / token
   }
 
   /**
-   * Operator to create RouteToken with param of type A
+   * Alias to `Parameter[A]`
    */
-  final def *[A](implicit ev: EParam[A]): EToken[A] = Endpoint[A]
+  final def *[A](implicit ev: CanExtract[A]): Parameter[A] = Parameter[A]
 }
