@@ -1,9 +1,13 @@
 package zhttp.http.middleware
 
-import zhttp.http.{Header, Status}
+import zhttp.http.{Header, Response, Status}
 
+/**
+ * Models the set of operations that one would want to apply on a Response.
+ */
 sealed trait Patch { self =>
-  def ++(that: Patch): Patch = Patch.Combine(self, that)
+  def ++(that: Patch): Patch                           = Patch.Combine(self, that)
+  def apply[R, E](res: Response[R, E]): Response[R, E] = ???
 }
 
 object Patch {
