@@ -12,16 +12,18 @@ object WebSocketFrame {
 
   case class Binary(buffer: ByteBuf) extends WebSocketFrame { override val isFinal: Boolean = true }
   object Binary {
-    def apply(buffer: ByteBuf, isFinal: Boolean): Binary       = new Binary(buffer) {
-      override val isFinal: Boolean = isFinal
+    def apply(buffer: ByteBuf, isFinal: Boolean): Binary       = {
+      val arg = isFinal
+      new Binary(buffer) { override val isFinal: Boolean = arg }
     }
     def unapply(frame: WebSocketFrame.Binary): Option[ByteBuf] = Some(frame.buffer)
   }
 
   case class Text(text: String) extends WebSocketFrame { override val isFinal: Boolean = true }
   object Text {
-    def apply(text: String, isFinal: Boolean): Text         = new Text(text) {
-      override val isFinal: Boolean = isFinal
+    def apply(text: String, isFinal: Boolean): Text         = {
+      val arg = isFinal
+      new Text(text) { override val isFinal: Boolean = arg }
     }
     def unapply(frame: WebSocketFrame.Text): Option[String] = Some(frame.text)
   }
@@ -33,8 +35,9 @@ object WebSocketFrame {
 
   case class Continuation(buffer: ByteBuf) extends WebSocketFrame { override val isFinal: Boolean = true }
   object Continuation {
-    def apply(buffer: ByteBuf, isFinal: Boolean): Continuation       = new Continuation(buffer) {
-      override val isFinal: Boolean = isFinal
+    def apply(buffer: ByteBuf, isFinal: Boolean): Continuation       = {
+      val arg = isFinal
+      new Continuation(buffer) { override val isFinal: Boolean = arg }
     }
     def unapply(frame: WebSocketFrame.Continuation): Option[ByteBuf] = Some(frame.buffer)
   }
