@@ -1,5 +1,6 @@
-package zhttp.http
+package zhttp.endpoint
 
+import zhttp.http.{HttpApp, HttpError, Request, Response}
 import zio.{UIO, ZIO}
 
 /**

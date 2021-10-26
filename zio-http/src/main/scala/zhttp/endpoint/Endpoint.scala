@@ -1,6 +1,7 @@
-package zhttp.http
+package zhttp.endpoint
 
-import zhttp.http.Endpoint.{EPath, EToken}
+import zhttp.endpoint.Endpoint.{EPath, EToken}
+import zhttp.http._
 
 import scala.annotation.tailrec
 import scala.util.Try
@@ -155,8 +156,4 @@ object Endpoint {
     }
   }
 
-  /**
-   * Operator to create RouteToken with param of type A
-   */
-  final def *[A](implicit ev: EParam[A]): EToken[A] = Endpoint[A]
 }

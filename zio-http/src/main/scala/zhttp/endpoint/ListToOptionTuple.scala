@@ -1,4 +1,4 @@
-package zhttp.http
+package zhttp.endpoint
 
 object ListToOptionTuple {
 

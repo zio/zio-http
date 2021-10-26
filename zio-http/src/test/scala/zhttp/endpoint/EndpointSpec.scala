@@ -1,5 +1,6 @@
-package zhttp.http
+package zhttp.endpoint
 
+import zhttp.http._
 import zio.test.Assertion._
 import zio.test.{DefaultRunnableSpec, assert}
 

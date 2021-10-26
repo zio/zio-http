@@ -1,6 +1,6 @@
-package zhttp.http
+package zhttp.endpoint
 
-import zhttp.http.Endpoint.EParam
+import zhttp.endpoint.Endpoint.EParam
 
 // Combine Logic for Router
 sealed trait EndpointCombine[A, B] {
