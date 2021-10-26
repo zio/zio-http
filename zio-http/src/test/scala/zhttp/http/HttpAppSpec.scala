@@ -9,7 +9,7 @@ import zio.stream.ZStream
 import zio.test.Assertion.{anything, equalTo, isLeft, isNone}
 import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test.{DefaultRunnableSpec, assertM}
-import zio.{Chunk, Has, UIO, ZIO}
+import zio.{Chunk, Has, UIO, ZIO, ZLayer}
 
 /**
  * Be prepared for some real nasty runtime tests.
@@ -224,24 +224,24 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
     }
   }
 
+  /**
+   * Spec for provide methods in HttpApp
+   */
   def ProvideSpec = suite("ProvideSpec") {
+    type Logging = Has[Logging.Service]
+
+    object Logging {
+      trait Service
+      val live: ZLayer[Any, Nothing, Logging] = ZLayer.succeed(new Logging.Service {})
+    }
+
     testM("provide method") {
-      trait Logging {
-        def log(line: String): UIO[Unit]
-      }
+      val logging: Logging               = Has(new Logging.Service {})
+      val app: HttpApp[Logging, Nothing] =
+        HttpApp.fromFunction[Logging, Nothing, Unit](_ => HttpApp.empty)
 
-      val logger: Has[Logging]                                       = Has(new Logging {
-        override def log(line: String): UIO[Unit] = ZIO.succeed(println(line))
-      })
-
-      val res: HttpApp[Has[Logging], Nothing] = {
-        HttpApp.fromHttp(
-          Http.fromEffectFunction(_ =>
-            UIO(Response(data = HttpData.fromText("s").asInstanceOf[HttpData[Has[Logging], Nothing]])),
-          ),
-        )
-      }
-      val zio: ZIO[Any with EventLoopGroup, Throwable, HttpResponse] = res.provide(logger).getResponse()
+      val zio: ZIO[Any with EventLoopGroup, Throwable, HttpResponse] =
+        app.provide(logging).getResponse()
 
       assertM(zio)(anything)
     }

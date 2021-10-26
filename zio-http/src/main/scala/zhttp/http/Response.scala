@@ -1,7 +1,7 @@
 package zhttp.http
 
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
-import zio.Chunk
+import zio.{Chunk, NeedsEnv}
 
 import java.io.{PrintWriter, StringWriter}
 
@@ -10,7 +10,11 @@ case class Response[-R, +E] private (
   headers: List[Header],
   data: HttpData[R, E],
   private[zhttp] val attribute: HttpAttribute[R, E],
-)
+) { self =>
+  def provide[R1 <: R](r: R)(implicit ev: NeedsEnv[R]): Response[Any, E] =
+    self.copy(data = data.provide(r), attribute = attribute.asInstanceOf[HttpAttribute[Any, E]])
+
+}
 
 object Response {
 
