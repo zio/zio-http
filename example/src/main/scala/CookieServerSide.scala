@@ -9,7 +9,7 @@ import scala.concurrent.duration.DurationInt
  * Example to make app using cookies
  */
 object CookieServerSide extends App {
-  val cookie = Cookie("key", "value") @@ maxAge(5 days) @@ httpOnly @@ path(Path("/cookie"))
+  val cookie = Cookie("key", "value") @@ maxAge(5 days) @@ httpOnly @@ path(!! / "/cookie")
   val app    = HttpApp.collect {
     case Method.GET -> !! / "cookie"            =>
       Response
