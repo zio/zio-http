@@ -14,7 +14,7 @@ object CookieSpec extends DefaultRunnableSpec {
         assert(Cookie.parse(cookieHeaderValue))(
           isRight(
             equalTo(
-              Cookie("name", "content", None, None, None, secure = true, httpOnly = true, Some(123 seconds), None),
+              Cookie("name", "content", None, None, None, isSecure = true, isHttpOnly = true, Some(123 seconds), None),
             ),
           ),
         )
@@ -30,8 +30,8 @@ object CookieSpec extends DefaultRunnableSpec {
                 None,
                 None,
                 Some(Path("/cookie")),
-                secure = true,
-                httpOnly = true,
+                isSecure = true,
+                isHttpOnly = true,
                 Some(123 seconds),
                 None,
               ),
@@ -48,7 +48,7 @@ object CookieSpec extends DefaultRunnableSpec {
     suite("asString in cookie")(
       test("should convert cookie to string with meta") {
         val cookie =
-          Cookie("name", "content", None, None, Some(Path("/cookie")), secure = false, httpOnly = true, None, None)
+          Cookie("name", "content", None, None, Some(Path("/cookie")), isSecure = false, isHttpOnly = true, None, None)
         assert(cookie.asString)(equalTo("name=content; Path=/cookie; HttpOnly"))
       },
       test("should convert cookie to string with meta") {
@@ -59,9 +59,9 @@ object CookieSpec extends DefaultRunnableSpec {
             expires = None,
             domain = None,
             path = Some(Path("/cookie")),
-            httpOnly = true,
+            isHttpOnly = true,
             maxAge = Some(5 days),
-            sameSite = Some(Cookie.SameSiteCookie.Lax),
+            sameSite = Some(Cookie.SameSite.Lax),
           )
         assert(cookie.asString)(equalTo("name=content; Max-Age=432000; Path=/cookie; HttpOnly; SameSite=Lax"))
       },
@@ -81,7 +81,7 @@ object CookieSpec extends DefaultRunnableSpec {
           secure   <- Gen.boolean
           httpOnly <- Gen.boolean
           maxAge   <- Gen.anyFiniteDuration
-          sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSiteCookie.Strict, Cookie.SameSiteCookie.Lax)))
+          sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
         } yield Cookie(
           name,
           content,
