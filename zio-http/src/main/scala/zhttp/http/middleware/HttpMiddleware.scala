@@ -66,10 +66,18 @@ object HttpMiddleware {
           } yield patch(res)
         }
       case Combine(self, other)   => other(self(app))
-      case When(_, _)             =>
-        ???
-      case WhenM(_, _)            =>
-        ???
+      case When(f, self)          =>
+        HttpApp.fromFunction { req =>
+          if (f(req.method, req.url, req.headers)) self(app) else app
+        }
+      case WhenM(f, self)         =>
+        HttpApp.fromPartialFunction { req =>
+          for {
+            b   <- f(req.method, req.url, req.headers)
+            res <- if (b) self(app)(req) else app(req)
+          } yield res
+        }
+
     }
 
   final case class PartiallyAppliedMake[S](req: (Method, URL, List[Header]) => S) extends AnyVal {
