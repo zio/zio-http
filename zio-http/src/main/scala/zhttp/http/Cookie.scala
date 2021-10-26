@@ -188,35 +188,35 @@ object Cookie {
   /**
    * To update maxAge in cookie
    */
-  def maxAge(maxAge: Duration): UpdateCookie = UpdateCookie((self: Cookie) => self.setMaxAge(maxAge))
+  def maxAge(maxAge: Duration): UpdateCookie = UpdateCookie(cookie => cookie.setMaxAge(maxAge))
 
   /**
    * To update domain in cookie
    */
-  def domain(domain: String): UpdateCookie = UpdateCookie((self: Cookie) => self.setDomain(domain))
+  def domain(domain: String): UpdateCookie = UpdateCookie(cookie => cookie.setDomain(domain))
 
   /**
    * To update expiry in cookie
    */
-  def expiry(expires: Instant): UpdateCookie = UpdateCookie((self: Cookie) => self.setExpiry(expires))
+  def expiry(expires: Instant): UpdateCookie = UpdateCookie(cookie => cookie.setExpiry(expires))
 
   /**
    * To update path in cookie
    */
-  def path(path: Path): UpdateCookie = UpdateCookie((self: Cookie) => self.setPath(path))
+  def path(path: Path): UpdateCookie = UpdateCookie(cookie => cookie.setPath(path))
 
   /**
    * To update secure in cookie
    */
-  def secure: UpdateCookie = UpdateCookie((self: Cookie) => self.withSecure)
+  def secure: UpdateCookie = UpdateCookie(cookie => cookie.withSecure)
 
   /**
    * To update httpOnly in cookie
    */
-  def httpOnly: UpdateCookie = UpdateCookie((self: Cookie) => self.withHttpOnly)
+  def httpOnly: UpdateCookie = UpdateCookie(cookie => cookie.withHttpOnly)
 
   /**
    * To update sameSite in cookie
    */
-  def sameSite(sameSite: SameSite): UpdateCookie = UpdateCookie((self: Cookie) => self.withSameSite(sameSite))
+  def sameSite(sameSite: SameSite): UpdateCookie = UpdateCookie(cookie => cookie.withSameSite(sameSite))
 }
