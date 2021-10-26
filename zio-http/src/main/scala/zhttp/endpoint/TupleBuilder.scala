@@ -1,11 +1,11 @@
-package zhttp.experiment
+package zhttp.endpoint
 
-object ListToOptionTuple {
+object TupleBuilder {
 
   /**
    * Utility to create Tuple from a list
    */
-  def getOptionTuple(input: List[Any]): Option[Any] =
+  def apply(input: List[Any]): Option[Any] =
     input match {
       // scalafmt: { maxColumn = 1200 }
       case List()                                                                                                   => Some(())

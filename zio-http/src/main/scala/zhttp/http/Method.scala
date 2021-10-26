@@ -59,4 +59,5 @@ object Method {
     case CONNECT      => HttpMethod.CONNECT
     case CUSTOM(name) => new HttpMethod(name)
   }
+
 }

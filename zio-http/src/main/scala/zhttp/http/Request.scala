@@ -81,4 +81,20 @@ object Request {
       r <- ZIO.environment[R]
       c = content.provide(r)
     } yield Request(method, url, headers, remoteAddress, c)
+
+  /**
+   * Lift request to TypedRequest with option to extract params
+   */
+  final class ParameterizedRequest[A](req: Request, val params: A) extends Request {
+    override def method: Method                     = req.method
+    override def url: URL                           = req.url
+    override def headers: List[Header]              = req.headers
+    override def remoteAddress: Option[InetAddress] = req.remoteAddress
+    override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
+      req.decodeContent(decoder)
+  }
+
+  object ParameterizedRequest {
+    def apply[A](req: Request, params: A): ParameterizedRequest[A] = new ParameterizedRequest(req, params)
+  }
 }
