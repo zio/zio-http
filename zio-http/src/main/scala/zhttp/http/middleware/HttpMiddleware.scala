@@ -1,6 +1,7 @@
 package zhttp.http.middleware
 
 import zhttp.http._
+import zio.ZIO.ifM
 import zio.{UIO, ZIO}
 
 /**
@@ -15,9 +16,10 @@ sealed trait HttpMiddleware[-R, +E] { self =>
   def combine[R1 <: R, E1 >: E](other: HttpMiddleware[R1, E1]): HttpMiddleware[R1, E1] =
     HttpMiddleware.Combine(self, other)
 
-  def when(f: (Method, URL, List[Header]) => Boolean): HttpMiddleware[R, E] = ???
+  def when(f: (Method, URL, List[Header]) => Boolean): HttpMiddleware[R, E] = HttpMiddleware.When(f, self)
 
-  def whenM[R1 <: R, E1 >: E](f: (Method, URL, List[Header]) => ZIO[R1, E1, Boolean]): HttpMiddleware[R1, E1] = ???
+  def whenM[R1 <: R, E1 >: E](f: (Method, URL, List[Header]) => ZIO[R1, E1, Boolean]): HttpMiddleware[R1, E1] =
+    HttpMiddleware.WhenM(f, self)
 }
 
 object HttpMiddleware {
@@ -30,6 +32,11 @@ object HttpMiddleware {
   ) extends HttpMiddleware[R, E]
 
   case class Combine[R, E](self: HttpMiddleware[R, E], other: HttpMiddleware[R, E]) extends HttpMiddleware[R, E]
+
+  case class When[R, E](f: (Method, URL, List[Header]) => Boolean, mid: HttpMiddleware[R, E])
+      extends HttpMiddleware[R, E]
+  case class WhenM[R, E](f: (Method, URL, List[Header]) => ZIO[R, E, Boolean], mid: HttpMiddleware[R, E])
+      extends HttpMiddleware[R, E]
 
   /**
    * An empty middleware that doesn't do anything
@@ -59,6 +66,10 @@ object HttpMiddleware {
           } yield patch(res)
         }
       case Combine(self, other)   => other(self(app))
+      case When(_, _)             =>
+        ???
+      case WhenM(_, _)            =>
+        ???
     }
 
   final case class PartiallyAppliedMake[S](req: (Method, URL, List[Header]) => S) extends AnyVal {
