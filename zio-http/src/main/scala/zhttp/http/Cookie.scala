@@ -1,8 +1,22 @@
 package zhttp.http
 
+import zhttp.http.Cookie.SameSiteCookie
+import zhttp.http.CookieOps._
+
 import java.time.Instant
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.util.{Failure, Success, Try}
+
+sealed trait CookieOps
+object CookieOps {
+  case class Expires(expires: Instant)          extends CookieOps
+  case class Domain(domain: String)             extends CookieOps
+  case object Secure                            extends CookieOps
+  case object HttpOnly                          extends CookieOps
+  case class MaxAge(value: Duration)            extends CookieOps
+  case class SameSite(sameSite: SameSiteCookie) extends CookieOps
+  case class CookiePath(path: Path)             extends CookieOps
+}
 
 final case class Cookie(
   name: String,
@@ -13,7 +27,7 @@ final case class Cookie(
   secure: Boolean = false,
   httpOnly: Boolean = false,
   maxAge: Option[Duration] = None,
-  sameSite: Option[Cookie.SameSite] = None,
+  sameSite: Option[Cookie.SameSiteCookie] = None,
 ) { self =>
 
   /**
@@ -60,7 +74,7 @@ final case class Cookie(
   /**
    * set same-site in Cookie
    */
-  def withSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
+  def withSameSite(v: Cookie.SameSiteCookie): Cookie = copy(sameSite = Some(v))
 
   /**
    * reset secure in Cookie
@@ -118,13 +132,29 @@ final case class Cookie(
 
 object Cookie {
 
-  sealed trait SameSite {
+  sealed trait SameSiteCookie {
     def asString: String
   }
-  object SameSite       {
-    case object Lax    extends SameSite { def asString = "Lax"    }
-    case object Strict extends SameSite { def asString = "Strict" }
-    case object None   extends SameSite { def asString = "None"   }
+  object SameSiteCookie       {
+    case object Lax    extends SameSiteCookie { def asString = "Lax"    }
+    case object Strict extends SameSiteCookie { def asString = "Strict" }
+    case object None   extends SameSiteCookie { def asString = "None"   }
+  }
+
+  trait Ops[A, B] {
+    def @@(p: A): B
+  }
+
+  implicit class toCookie(self: Cookie) extends Ops[CookieOps, Cookie] {
+    override def @@(ops: CookieOps): Cookie = ops match {
+      case Expires(expires)             => self.copy(expires = Some(expires))
+      case Domain(domain)               => self.copy(domain = Some(domain))
+      case CookieOps.Secure             => self.copy(secure = true)
+      case CookieOps.HttpOnly           => self.copy(httpOnly = true)
+      case MaxAge(value)                => self.copy(maxAge = Some(value))
+      case CookieOps.CookiePath(path)   => self.copy(path = Some(path))
+      case CookieOps.SameSite(sameSite) => self.copy(sameSite = Some(sameSite))
+    }
   }
 
   /**
@@ -153,18 +183,18 @@ object Cookie {
         }
       case ("max-age", Some(v))  =>
         Try(v.toLong) match {
-          case Success(maxAge) => cookie = cookie.map(_.setMaxAge(Duration(maxAge, SECONDS)))
+          case Success(maxAge) => cookie = cookie.map(_ @@ MaxAge(Duration(maxAge, SECONDS)))
           case Failure(_)      => cookie = Left(new IllegalArgumentException("max-age cannot be parsed"))
         }
-      case ("domain", v)         => cookie = cookie.map(_.setDomain(v.getOrElse("")))
-      case ("path", v)           => cookie = cookie.map(_.setPath(Path(v.getOrElse(""))))
-      case ("secure", _)         => cookie = cookie.map(_.withSecure)
-      case ("httponly", _)       => cookie = cookie.map(_.withHttpOnly)
+      case ("domain", v)         => cookie = cookie.map(_ @@ Domain(v.getOrElse("")))
+      case ("path", v)           => cookie = cookie.map(_ @@ CookiePath(Path(v.getOrElse(""))))
+      case ("secure", _)         => cookie = cookie.map(_ @@ Secure)
+      case ("httponly", _)       => cookie = cookie.map(_ @@ HttpOnly)
       case ("samesite", Some(v)) =>
         v.trim.toLowerCase match {
-          case "lax"    => cookie = cookie.map(_.withSameSite(SameSite.Lax))
-          case "strict" => cookie = cookie.map(_.withSameSite(SameSite.Strict))
-          case "none"   => cookie = cookie.map(_.withSameSite(SameSite.None))
+          case "lax"    => cookie = cookie.map(_ @@ SameSite(SameSiteCookie.Lax))
+          case "strict" => cookie = cookie.map(_ @@ SameSite(SameSiteCookie.Strict))
+          case "none"   => cookie = cookie.map(_ @@ SameSite(SameSiteCookie.None))
           case _        => None
         }
       case (_, _)                => cookie
