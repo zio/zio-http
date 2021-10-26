@@ -6,8 +6,25 @@ import zhttp.http.{Header, Response, Status}
  * Models the set of operations that one would want to apply on a Response.
  */
 sealed trait Patch { self =>
-  def ++(that: Patch): Patch                           = Patch.Combine(self, that)
-  def apply[R, E](res: Response[R, E]): Response[R, E] = ???
+  def ++(that: Patch): Patch = Patch.Combine(self, that)
+  def apply[R, E](res: Response[R, E]): Response[R, E] = {
+    val s = res.status
+    val h = res.headers
+    val d = res.data
+
+    self match {
+      case Patch.Empty                  => res
+      case Patch.AddHeaders(headers)    => Response(s, headers ++ h, d)
+      case Patch.RemoveHeaders(headers) =>
+        val newHeaders = h.filter(p => headers.contains(p.name))
+        Response(s, newHeaders, d)
+      case Patch.SetStatus(status)      => Response(status, h, d)
+      case Patch.Combine(left, right)   =>
+        val res1 = left(res)
+        val res2 = right(res1)
+        res2
+    }
+  }
 }
 
 object Patch {
