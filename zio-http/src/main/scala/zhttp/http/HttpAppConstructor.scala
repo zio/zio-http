@@ -1,6 +1,5 @@
 package zhttp.http
 
-import zhttp.experiment.Route
 import zio.{UIO, ZIO}
 
 /**
@@ -9,7 +8,7 @@ import zio.{UIO, ZIO}
 sealed trait HttpAppConstructor[A, B] {
   type ROut
   type EOut
-  def make(route: Route[A], f: Request.ParameterizedRequest[A] => B): HttpApp[ROut, EOut]
+  def make(route: Endpoint[A], f: Request.ParameterizedRequest[A] => B): HttpApp[ROut, EOut]
 }
 
 object HttpAppConstructor {
@@ -22,7 +21,7 @@ object HttpAppConstructor {
     override type ROut = R
     override type EOut = E
 
-    override def make(route: Route[A], f: Request.ParameterizedRequest[A] => Response[R, E]): HttpApp[R, E] =
+    override def make(route: Endpoint[A], f: Request.ParameterizedRequest[A] => Response[R, E]): HttpApp[R, E] =
       HttpApp.collect { case req =>
         route.extract(req) match {
           case Some(value) => f(Request.ParameterizedRequest(req, value))
@@ -37,7 +36,7 @@ object HttpAppConstructor {
       override type EOut = E
 
       override def make(
-        route: Route[A],
+        route: Endpoint[A],
         f: Request.ParameterizedRequest[A] => ZIO[R, E, Response[R, E]],
       ): HttpApp[R, E] =
         HttpApp.collectM { case req =>

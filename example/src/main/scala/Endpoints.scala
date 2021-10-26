@@ -1,4 +1,4 @@
-import zhttp.experiment.Route.*
+import zhttp.http.Endpoint.*
 import zhttp.http.Method.GET
 import zhttp.http._
 import zhttp.service.Server
