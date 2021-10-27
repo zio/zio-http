@@ -34,7 +34,7 @@ object Patch {
   final case class SetStatus(status: Status)            extends Patch
   final case class Combine(left: Patch, right: Patch)   extends Patch
 
-  val empty: Patch                                = Empty
+  def empty: Patch                                = Empty
   def addHeaders(headers: List[Header]): Patch    = AddHeaders(headers)
   def removeHeaders(headers: List[String]): Patch = RemoveHeaders(headers)
   def setStatus(status: Status): Patch            = SetStatus(status)

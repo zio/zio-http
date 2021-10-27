@@ -1,7 +1,6 @@
 package zhttp.http.middleware
 
 import zhttp.http._
-import zio.ZIO.ifM
 import zio.{UIO, ZIO}
 
 /**
@@ -18,13 +17,13 @@ sealed trait HttpMiddleware[-R, +E] { self =>
 
   def when(f: (Method, URL, List[Header]) => Boolean): HttpMiddleware[R, E] = HttpMiddleware.When(f, self)
 
-  def whenM[R1 <: R, E1 >: E](f: (Method, URL, List[Header]) => ZIO[R1, E1, Boolean]): HttpMiddleware[R1, E1] =
+  def whenM[R1 <: R, E1 >: E](f: (Method, URL, List[Header]) => ZIO[R1, Option[E1], Boolean]): HttpMiddleware[R1, E1] =
     HttpMiddleware.WhenM(f, self)
 }
 
 object HttpMiddleware {
 
-  case object Identity extends HttpMiddleware[Any, Nothing]
+  case object Empty extends HttpMiddleware[Any, Nothing]
 
   case class TransformM[R, E, S](
     req: (Method, URL, List[Header]) => ZIO[R, Option[E], S],
@@ -35,13 +34,13 @@ object HttpMiddleware {
 
   case class When[R, E](f: (Method, URL, List[Header]) => Boolean, mid: HttpMiddleware[R, E])
       extends HttpMiddleware[R, E]
-  case class WhenM[R, E](f: (Method, URL, List[Header]) => ZIO[R, E, Boolean], mid: HttpMiddleware[R, E])
+  case class WhenM[R, E](f: (Method, URL, List[Header]) => ZIO[R, Option[E], Boolean], mid: HttpMiddleware[R, E])
       extends HttpMiddleware[R, E]
 
   /**
    * An empty middleware that doesn't do anything
    */
-  def empty: HttpMiddleware[Any, Nothing] = Identity
+  def empty: HttpMiddleware[Any, Nothing] = Empty
 
   /**
    * Creates a new middleware using transformation functions
@@ -56,7 +55,7 @@ object HttpMiddleware {
 
   private[zhttp] def transform[R, E](mid: HttpMiddleware[R, E], app: HttpApp[R, E]): HttpApp[R, E] =
     mid match {
-      case Identity               => app
+      case Empty                  => app
       case TransformM(reqF, resF) =>
         HttpApp.fromPartialFunction { req =>
           for {
