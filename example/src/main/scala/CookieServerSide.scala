@@ -1,4 +1,4 @@
-import zhttp.http.Cookie.{httpOnly, maxAge, path}
+import zhttp.http.Cookie.{httpOnly, maxAge, path, secure}
 import zhttp.http._
 import zhttp.service._
 import zio._
@@ -9,7 +9,7 @@ import scala.concurrent.duration.DurationInt
  * Example to make app using cookies
  */
 object CookieServerSide extends App {
-  val cookie = Cookie("key", "value") @@ maxAge(5 days) @@ httpOnly @@ path(!! / "/cookie")
+  val cookie = Cookie("key", "value") @@ maxAge(5 days) @@ httpOnly @@ path(!! / "cookie")
   val app    = HttpApp.collect {
     case Method.GET -> !! / "cookie"            =>
       Response
@@ -18,7 +18,7 @@ object CookieServerSide extends App {
     case Method.GET -> !! / "secure-cookie"     =>
       Response
         .text("Cookies with secure true added")
-        .addCookie(cookie.withSecure)
+        .addCookie(cookie @@ secure)
     case Method.GET -> !! / "cookie" / "remove" =>
       Response.text("Cookies removed").removeCookie("key")
   }

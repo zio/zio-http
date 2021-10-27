@@ -4,8 +4,6 @@ import java.time.Instant
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.util.{Failure, Success, Try}
 
-case class UpdateCookie(f: Cookie => Cookie)
-
 final case class Cookie(
   name: String,
   content: String,
@@ -21,7 +19,7 @@ final case class Cookie(
   /**
    * Helper method to create cookies
    */
-  def @@(update: UpdateCookie): Cookie = update.f(self)
+  def @@(update: Cookie.Update): Cookie = update.f(self)
 
   /**
    * Clears the cookie with empty content
@@ -133,6 +131,7 @@ object Cookie {
     case object Strict extends SameSite { def asString = "Strict" }
     case object None   extends SameSite { def asString = "None"   }
   }
+  case class Update(f: Cookie => Cookie)
 
   /**
    * Parse cookie
@@ -188,35 +187,35 @@ object Cookie {
   /**
    * To update maxAge in cookie
    */
-  def maxAge(maxAge: Duration): UpdateCookie = UpdateCookie(_.setMaxAge(maxAge))
+  def maxAge(maxAge: Duration): Update = Update(_.setMaxAge(maxAge))
 
   /**
    * To update domain in cookie
    */
-  def domain(domain: String): UpdateCookie = UpdateCookie(_.setDomain(domain))
+  def domain(domain: String): Update = Update(_.setDomain(domain))
 
   /**
    * To update expiry in cookie
    */
-  def expiry(expires: Instant): UpdateCookie = UpdateCookie(_.setExpiry(expires))
+  def expiry(expires: Instant): Update = Update(_.setExpiry(expires))
 
   /**
    * To update path in cookie
    */
-  def path(path: Path): UpdateCookie = UpdateCookie(_.setPath(path))
+  def path(path: Path): Update = Update(_.setPath(path))
 
   /**
    * To update secure in cookie
    */
-  def secure: UpdateCookie = UpdateCookie(_.withSecure)
+  def secure: Update = Update(_.withSecure)
 
   /**
    * To update httpOnly in cookie
    */
-  def httpOnly: UpdateCookie = UpdateCookie(_.withHttpOnly)
+  def httpOnly: Update = Update(_.withHttpOnly)
 
   /**
    * To update sameSite in cookie
    */
-  def sameSite(sameSite: SameSite): UpdateCookie = UpdateCookie(_.withSameSite(sameSite))
+  def sameSite(sameSite: SameSite): Update = Update(_.withSameSite(sameSite))
 }
