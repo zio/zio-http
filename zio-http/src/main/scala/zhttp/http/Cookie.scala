@@ -3,7 +3,6 @@ package zhttp.http
 import zio.duration._
 
 import java.time.Instant
-import scala.concurrent.duration.SECONDS
 import scala.util.{Failure, Success, Try}
 
 final case class Cookie(
@@ -14,7 +13,7 @@ final case class Cookie(
   path: Option[Path] = None,
   isSecure: Boolean = false,
   isHttpOnly: Boolean = false,
-  maxAge: Option[Duration] = None,
+  maxAge: Option[Long] = None,
   sameSite: Option[Cookie.SameSite] = None,
 ) { self =>
 
@@ -42,7 +41,12 @@ final case class Cookie(
   /**
    * Set max-age in cookie
    */
-  def setMaxAge(v: Duration): Cookie = copy(maxAge = Some(v))
+  def setMaxAge(v: Duration): Cookie = copy(maxAge = Some(v.toSeconds))
+
+  /**
+   * Set max-age in seconds in cookie
+   */
+  def setMaxAge(v: Long): Cookie = copy(maxAge = Some(v))
 
   /**
    * Set domain in cookie
@@ -111,7 +115,7 @@ final case class Cookie(
     val cookie = List(
       Some(s"$name=$content"),
       expires.map(e => s"Expires=$e"),
-      maxAge.map(a => s"Max-Age=${a.asScala.toSeconds}"),
+      maxAge.map(a => s"Max-Age=${a.toString}"),
       domain.map(d => s"Domain=$d"),
       path.map(p => s"Path=${p.asString}"),
       if (isSecure) Some("Secure") else None,
@@ -161,7 +165,7 @@ object Cookie {
         }
       case ("max-age", Some(v))  =>
         Try(v.toLong) match {
-          case Success(age) => cookie = cookie.map(x => x @@ maxAge(Duration(age, SECONDS)))
+          case Success(age) => cookie = cookie.map(x => x.setMaxAge(age))
           case Failure(_)   => cookie = Left(new IllegalArgumentException("max-age cannot be parsed"))
         }
       case ("domain", v)         => cookie = cookie.map(_ @@ domain(v.getOrElse("")))

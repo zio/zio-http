@@ -119,7 +119,7 @@ object HttpGen {
     path     <- Gen.option(path)
     secure   <- Gen.boolean
     httpOnly <- Gen.boolean
-    maxAge   <- Gen.option(Gen.anyFiniteDuration)
+    maxAge   <- Gen.option(Gen.anyLong)
     sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
   } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite)
 
