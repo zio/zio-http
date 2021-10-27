@@ -41,7 +41,7 @@ final case class Cookie(
   /**
    * Set max-age in cookie
    */
-  def setMaxAge(v: Duration): Cookie = copy(maxAge = Some(v.toSeconds))
+  def setMaxAge(v: Duration): Cookie = copy(maxAge = Some(v.asScala.toSeconds))
 
   /**
    * Set max-age in seconds in cookie
@@ -71,7 +71,7 @@ final case class Cookie(
   /**
    * Set same-site in cookie
    */
-  def withSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
+  def setSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
 
   /**
    * Reset secure in cookie
@@ -168,15 +168,15 @@ object Cookie {
           case Success(age) => cookie = cookie.map(x => x.setMaxAge(age))
           case Failure(_)   => cookie = Left(new IllegalArgumentException("max-age cannot be parsed"))
         }
-      case ("domain", v)         => cookie = cookie.map(_ @@ domain(v.getOrElse("")))
-      case ("path", v)           => cookie = cookie.map(_ @@ path(Path(v.getOrElse(""))))
-      case ("secure", _)         => cookie = cookie.map(_ @@ secure)
-      case ("httponly", _)       => cookie = cookie.map(_ @@ httpOnly)
+      case ("domain", v)         => cookie = cookie.map(_.setDomain(v.getOrElse("")))
+      case ("path", v)           => cookie = cookie.map(_.setPath(Path(v.getOrElse(""))))
+      case ("secure", _)         => cookie = cookie.map(_.withSecure)
+      case ("httponly", _)       => cookie = cookie.map(_.withHttpOnly)
       case ("samesite", Some(v)) =>
         v.trim.toLowerCase match {
-          case "lax"    => cookie = cookie.map(_ @@ sameSite(SameSite.Lax))
-          case "strict" => cookie = cookie.map(_ @@ sameSite(SameSite.Strict))
-          case "none"   => cookie = cookie.map(_ @@ sameSite(SameSite.None))
+          case "lax"    => cookie = cookie.map(_.setSameSite(SameSite.Lax))
+          case "strict" => cookie = cookie.map(_.setSameSite(SameSite.Strict))
+          case "none"   => cookie = cookie.map(_.setSameSite(SameSite.None))
           case _        => None
         }
       case (_, _)                => cookie
@@ -223,5 +223,5 @@ object Cookie {
   /**
    * To update sameSite in cookie
    */
-  def sameSite(sameSite: SameSite): Update = Update(_.withSameSite(sameSite))
+  def sameSite(sameSite: SameSite): Update = Update(_.setSameSite(sameSite))
 }
