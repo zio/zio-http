@@ -2,8 +2,7 @@ import zhttp.http.Cookie.{httpOnly, maxAge, path, secure}
 import zhttp.http._
 import zhttp.service._
 import zio._
-
-import scala.concurrent.duration.DurationInt
+import zio.duration.durationInt
 
 /**
  * Example to make app using cookies

@@ -3,11 +3,10 @@ package zhttp.experiment.internal
 import io.netty.buffer.Unpooled
 import zhttp.http._
 import zio.Chunk
+import zio.duration.Duration
 import zio.random.Random
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
-
-import scala.concurrent.duration.FiniteDuration
 
 object HttpGen {
   val status: Gen[Any, Status] = Gen.fromIterable(
@@ -115,7 +114,7 @@ object HttpGen {
 
   def cookies(
     gPath: Gen[Random, Option[Path]],
-    gMaxAge: Gen[Random, Some[FiniteDuration]],
+    gMaxAge: Gen[Random, Some[Duration]],
   ): Gen[Random with Sized, Cookie] = for {
     name     <- Gen.anyString
     content  <- Gen.anyString

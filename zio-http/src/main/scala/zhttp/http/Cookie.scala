@@ -1,7 +1,9 @@
 package zhttp.http
 
+import zio.duration.Duration
+
 import java.time.Instant
-import scala.concurrent.duration.{Duration, SECONDS}
+import scala.concurrent.duration.SECONDS
 import scala.util.{Failure, Success, Try}
 
 final case class Cookie(
