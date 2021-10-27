@@ -12,7 +12,7 @@ case class Response[-R, +E] private (
   headers: List[Header],
   data: HttpData[R, E],
   private[zhttp] val attribute: HttpAttribute[R, E],
-) { self =>
+) extends HeadersHelpers { self =>
 
   /**
    * add cookies in response headers
@@ -20,7 +20,13 @@ case class Response[-R, +E] private (
   def addCookie(cookie: Cookie): Response[R, E] =
     self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.asString)))
 
-  def getCookies: List[Cookie] = ???
+  /**
+   * get cookies from response
+   */
+  def getCookies: List[Cookie] = getHeaderValues(HttpHeaderNames.SET_COOKIE).map(Cookie.parse(_) match {
+    case Left(error)  => throw error
+    case Right(value) => value
+  })
 
   /**
    * remove cookie from response headers

@@ -1,5 +1,6 @@
 package zhttp.http
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zio.{Chunk, ZIO}
 
 import java.net.InetAddress
@@ -21,7 +22,13 @@ trait Request extends HeadersHelpers { self =>
 
   def removeHeader(name: CharSequence): Request = self.copy(headers = self.headers.filter(_.name != name))
 
-  def getCookies: List[Cookie] = ???
+  /**
+   * get cookies from request
+   */
+  def getCookies: List[Cookie] = getHeaderValues(HttpHeaderNames.SET_COOKIE).map(Cookie.parse(_) match {
+    case Left(error)  => throw error
+    case Right(value) => value
+  })
 
   def copy(method: Method = self.method, url: URL = self.url, headers: List[Header] = self.headers): Request = {
     val m = method
