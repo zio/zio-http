@@ -35,11 +35,13 @@ object WebSocketAdvanced extends App {
       SocketApp.decoder(decoder) ++
       SocketApp.protocol(protocol)
 
-  private val app =
-    HttpApp.collect {
-      case Method.GET -> !! / "greet" / name  => Response.text(s"Greetings ${name}!")
-      case Method.GET -> !! / "subscriptions" => socketApp
+  private val app = HttpApp.fromHttp {
+    Http.collect[Request] {
+      case req if req.url.path == !! / "subscriptions" && req.isValidWebSocketRequest => {
+        SocketResponse.from(socketApp = socketApp, req = req)
+      }
     }
+  }
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     Server.start(8090, app).exitCode

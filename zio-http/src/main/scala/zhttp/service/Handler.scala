@@ -1,16 +1,18 @@
 package zhttp.service
 
+import java.net.{InetAddress, InetSocketAddress}
+
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.http._
+import zhttp.socket.SocketApp
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
-
-import java.net.{InetAddress, InetSocketAddress}
 
 final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRuntime[R])
     extends ChannelInboundHandlerAdapter { ad =>
@@ -88,6 +90,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
               res =>
                 for {
                   _ <- UIO(unsafeWriteAnyResponse(res))
+
                   _ <- res.data match {
                     case HttpData.Empty =>
                       UIO(unsafeWriteAndFlushLastEmptyContent())
@@ -103,6 +106,13 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
                     case HttpData.BinaryStream(stream) =>
                       writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
                   }
+                  _ <- res.attribute match {
+                    case HttpAttribute.Empty => UIO(println("empty"))
+
+                    case HttpAttribute.Socket(socketApp) =>
+                      ZIO(handleHandshake(ctx, a.asInstanceOf[Request], socketApp))
+                  }
+
                 } yield (),
             )
           }
@@ -124,6 +134,11 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
 
             case HttpData.BinaryStream(stream) =>
               unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
+
+          }
+          a.attribute match {
+            case HttpAttribute.Empty             => println("k")
+            case HttpAttribute.Socket(socketApp) => handleHandshake(ctx, a.asInstanceOf[Request], socketApp): Unit
           }
 
         case HExit.Failure(e) => unsafeWriteAndFlushErrorResponse(e)
@@ -198,7 +213,6 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
 
       }
     }
-
     msg match {
       case jRequest: HttpRequest =>
         // TODO: Unnecessary requirement
@@ -251,6 +265,38 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
 
       case msg => ctx.fireExceptionCaught(InvalidMessage(msg)): Unit
     }
+  }
+
+  def getWebSocketURL(req: HttpRequest): String = "ws://" + req.headers.get("Host") + req.uri()
+
+  protected def handleHandshake(
+    ctx: ChannelHandlerContext,
+    req: Request,
+    socket: SocketApp[R, Throwable],
+  ) = {
+    val fullReq    =
+      new DefaultFullHttpRequest(HTTP_1_1, req.method.asHttpMethod, req.url.asString, Unpooled.EMPTY_BUFFER, false)
+    fullReq.headers().setAll(Header.disassemble(req.headers))
+    ctx
+      .channel()
+      .pipeline()
+      .addLast(new WebSocketServerProtocolHandler(socket.config.protocol.javaConfig))
+    import io.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory
+    val wsFactory  = new WebSocketServerHandshakerFactory(getWebSocketURL(fullReq), null, true)
+    val handshaker = wsFactory.newHandshaker(fullReq)
+    if (handshaker == null) WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel)
+    else handshaker.handshake(ctx.channel, fullReq)
+//    ctx.channel().pipeline().addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, socket.config))
+//    ctx
+//      .channel()
+//      .eventLoop()
+//      .submit(() => {
+//        ctx.fireChannelRead(fullReq)
+//      })
+//      .addListener((_: Any) => {
+//        if (ctx.channel().pipeline().get(HTTP_HANDLER) != null) ctx.channel().pipeline().remove(HTTP_HANDLER)
+//        ctx.channel().config().setAutoRead(true): Unit
+//      })
   }
 
   private def decodeResponse(res: Response[_, _]): HttpResponse = {

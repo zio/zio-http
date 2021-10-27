@@ -1,5 +1,7 @@
 package zhttp.experiment.internal
 
+import java.nio.charset.Charset
+
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.EventLoopGroup
@@ -9,16 +11,14 @@ import zio.test.AssertionM.Render.param
 import zio.test.{Assertion, TestResult, assertM}
 import zio.{Chunk, Promise, Task, ZIO}
 
-import java.nio.charset.Charset
+trait WebSocketMessageAssertions {
 
-trait HttpMessageAssertions {
-
-  implicit final class HttpMessageSyntax(m: HttpObject) {
+  implicit final class HttpMessageSyntax(m: Any) {
     def asString: String = m.toString.dropWhile(_ != '\n')
   }
 
   implicit final class HttpAppSyntax[R, E](app: HttpApp[R, Throwable]) {
-    def ===(assertion: Assertion[HttpObject]): ZIO[R with EventLoopGroup, Throwable, TestResult] =
+    def ===(assertion: Assertion[Any]): ZIO[R with EventLoopGroup, Throwable, TestResult] =
       assertM(execute(app)(_.request("/")))(assertion)
 
     def getResponse: ZIO[R with EventLoopGroup, Throwable, HttpResponse] = getResponse()
@@ -29,37 +29,44 @@ trait HttpMessageAssertions {
       header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
       content: Iterable[String] = List("A", "B", "C", "D"),
     ): ZIO[R with EventLoopGroup, Throwable, HttpResponse] = for {
-      proxy <- HttpAppClient.deploy(app)
+      proxy <- WebSocketAppClient.deploy(app)
       _     <- proxy.request(url, method, header)
       _     <- proxy.end(content)
       res   <- proxy.receive
     } yield res.asInstanceOf[HttpResponse]
 
-    val wheaders                                           = Header.disassemble(
-      List(
-        Header.custom(HttpHeaderNames.UPGRADE.toString(), "websocket"),
-        Header.custom(HttpHeaderNames.CONNECTION.toString(), "upgrade"),
-        Header.custom(HttpHeaderNames.SEC_WEBSOCKET_ACCEPT.toString(), "122"),
-      ),
-    )
     def getWebSocketResponse(
       url: String = "/",
       method: HttpMethod = HttpMethod.GET,
-      header: HttpHeaders = wheaders,
-      content: Iterable[String] = List("A", "B", "C", "D"),
-    ): ZIO[R with EventLoopGroup, Throwable, HttpResponse] = for {
-      proxy <- HttpAppClient.deploy(app)
-      _     <- proxy.request(url, method, header)
-      _     <- proxy.end(content)
-      res   <- proxy.receive
-    } yield res.asInstanceOf[HttpResponse]
+      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+    ): ZIO[R with EventLoopGroup, Throwable, Any] = {
+      for {
+        proxy <- WebSocketAppClient.deployWebSocket(app)
+        _     <- proxy.request(url, method, header)
+        res   <- proxy.receive
+        _ = println("res" + res)
+      } yield (res.asInstanceOf[HttpResponse], proxy)
+    }.flatMap(x => x._2.receive)
+
+    def getWebSocketFrame(
+      url: String = "/",
+      method: HttpMethod = HttpMethod.GET,
+      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+    ): ZIO[R with EventLoopGroup, Throwable, Any] = {
+      for {
+        proxy <- WebSocketAppClient.deploy(app)
+        _     <- proxy.request(url, method, header)
+        res   <- proxy.receive
+      } yield (res.asInstanceOf[HttpResponse], proxy)
+    }.flatMap(x => x._2.receive)
+
     def getResponseCount(
       url: String = "/",
       method: HttpMethod = HttpMethod.GET,
       header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
       content: Iterable[String] = List("A", "B", "C", "D"),
-    ): ZIO[R with EventLoopGroup, Throwable, Int]          = for {
-      proxy <- HttpAppClient.deploy(app)
+    ): ZIO[R with EventLoopGroup, Throwable, Int] = for {
+      proxy <- WebSocketAppClient.deploy(app)
       _     <- proxy.request(url, method, header)
       _     <- proxy.end(content)
       count <- proxy.outbound.takeAll.map(_.count(_.isInstanceOf[HttpResponse]))
@@ -74,7 +81,7 @@ trait HttpMessageAssertions {
       content: Iterable[String] = List("A", "B", "C", "D"),
     ): ZIO[R with EventLoopGroup, Throwable, String] = ZStream
       .unwrap(for {
-        proxy <- HttpAppClient.deploy(app)
+        proxy <- WebSocketAppClient.deploy(app)
         _     <- proxy.request(url, method, header)
         _     <- proxy.end(content)
         _     <- proxy.receive
@@ -94,7 +101,7 @@ trait HttpMessageAssertions {
       content: Iterable[String] = List("A", "B", "C", "D"),
     ): ZIO[R with EventLoopGroup, Throwable, Chunk[HttpContent]] = ZStream
       .unwrap(for {
-        proxy <- HttpAppClient.deploy(app)
+        proxy <- WebSocketAppClient.deploy(app)
         _     <- proxy.request(url, method, header)
         _     <- proxy.end(content)
         _     <- proxy.receive
@@ -103,7 +110,7 @@ trait HttpMessageAssertions {
       .takeUntil(_.isInstanceOf[LastHttpContent])
       .runCollect
 
-    def proxy: ZIO[R with EventLoopGroup, Throwable, HttpAppClient] = HttpAppClient.deploy(app)
+    def proxy: ZIO[R with EventLoopGroup, Throwable, WebSocketAppClient] = WebSocketAppClient.deploy(app)
 
     def getRequestContent[R1 <: R, A](
       decoder: ContentDecoder[R1, Throwable, Chunk[Byte], A],
@@ -111,7 +118,7 @@ trait HttpMessageAssertions {
     ): ZIO[R1 with EventLoopGroup, Throwable, A] =
       for {
         p    <- Promise.make[Throwable, A]
-        c    <- HttpAppClient.deploy {
+        c    <- WebSocketAppClient.deploy {
           HttpApp.fromHttp(Http.fromPartialFunction[Request] { req =>
             for {
               res <- app.asHttp(req)
@@ -132,7 +139,7 @@ trait HttpMessageAssertions {
     ): ZIO[R with EventLoopGroup, Throwable, Request] =
       for {
         p    <- Promise.make[Throwable, Request]
-        c    <- HttpAppClient.deploy {
+        c    <- WebSocketAppClient.deploy {
           HttpApp.fromHttp(Http.collectM[Request] { case req =>
             p.succeed(req).as(Response())
           })
@@ -213,9 +220,9 @@ trait HttpMessageAssertions {
 
   def execute[R](
     app: HttpApp[R, Throwable],
-  )(f: HttpAppClient => Task[Any]): ZIO[R with EventLoopGroup, Throwable, HttpObject] =
+  )(f: WebSocketAppClient => Task[Any]): ZIO[R with EventLoopGroup, Throwable, Any] =
     for {
-      proxy <- HttpAppClient.deploy(app)
+      proxy <- WebSocketAppClient.deploy(app)
       _     <- f(proxy)
       res   <- proxy.receive
     } yield res
@@ -235,7 +242,7 @@ trait HttpMessageAssertions {
     header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
     content: Iterable[String] = Nil,
   )(
-    assertion: Assertion[HttpObject],
+    assertion: Assertion[Any],
   ): ZIO[R with EventLoopGroup, Throwable, TestResult] =
     assertM(
       execute(app)(proxy =>
@@ -251,10 +258,10 @@ trait HttpMessageAssertions {
     method: HttpMethod = HttpMethod.GET,
     header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
     content: Iterable[String] = List("A", "B", "C", "D"),
-  )(assertion: Assertion[HttpObject]): ZIO[R with EventLoopGroup, Throwable, TestResult] =
+  )(assertion: Assertion[Any]): ZIO[R with EventLoopGroup, Throwable, TestResult] =
     assertM(
       for {
-        proxy <- HttpAppClient.deploy(app)
+        proxy <- WebSocketAppClient.deploy(app)
         _     <- proxy.request(url, method, header)
         _     <- proxy.end(content)
         res   <- proxy.receive
@@ -267,10 +274,10 @@ trait HttpMessageAssertions {
     method: HttpMethod = HttpMethod.GET,
     header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
     content: Iterable[String] = List("A", "B", "C", "D"),
-  )(assertion: Assertion[HttpObject]): ZIO[R with EventLoopGroup, Throwable, TestResult] =
+  )(assertion: Assertion[Any]): ZIO[R with EventLoopGroup, Throwable, TestResult] =
     assertM(
       for {
-        proxy <- HttpAppClient.deploy(app)
+        proxy <- WebSocketAppClient.deploy(app)
         _     <- proxy.request(url, method, header)
         _     <- proxy.end(content)
         _     <- proxy.receive
@@ -287,7 +294,7 @@ trait HttpMessageAssertions {
   )(assertion: Assertion[String]): ZIO[R with EventLoopGroup, Throwable, TestResult] =
     assertM(
       for {
-        proxy <- HttpAppClient.deploy(app)
+        proxy <- WebSocketAppClient.deploy(app)
         _     <- proxy.request(url, method, header)
         _     <- proxy.end(content)
         _     <- proxy.receive
@@ -302,10 +309,10 @@ trait HttpMessageAssertions {
     method: HttpMethod = HttpMethod.GET,
     header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
     content: Iterable[String] = List("A", "B", "C", "D"),
-  )(assertion: Assertion[HttpObject]): ZIO[R with EventLoopGroup, Throwable, TestResult] =
+  )(assertion: Assertion[Any]): ZIO[R with EventLoopGroup, Throwable, TestResult] =
     assertM(
       for {
-        proxy <- HttpAppClient.deploy(app)
+        proxy <- WebSocketAppClient.deploy(app)
         _     <- proxy.request(url, method, header)
         _     <- proxy.end(content)
         res   <- proxy.receive
@@ -319,7 +326,7 @@ trait HttpMessageAssertions {
     content: Iterable[String] = List("A", "B", "C", "D"),
   ): ZIO[Any with EventLoopGroup, Throwable, Request] = for {
     promise <- Promise.make[Nothing, Request]
-    proxy   <- HttpAppClient.deploy(HttpApp.fromHttp(Http.collectM[Request] { case a =>
+    proxy   <- WebSocketAppClient.deploy(HttpApp.fromHttp(Http.collectM[Request] { case a =>
       promise.succeed(a) as Response()
     }))
     _       <- proxy.request(url, method, header)

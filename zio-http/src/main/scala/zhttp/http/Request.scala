@@ -1,8 +1,9 @@
 package zhttp.http
 
 import zio.{Chunk, ZIO}
-
 import java.net.InetAddress
+
+import io.netty.handler.codec.http.HttpHeaderNames
 
 trait Request extends HeadersHelpers { self =>
   def method: Method
@@ -39,6 +40,19 @@ trait Request extends HeadersHelpers { self =>
         self.decodeContent(decoder)
     }
   }
+  private def checkWebSocketUpgrade: Boolean = self.getHeaderValue(HttpHeaderNames.UPGRADE) match {
+    case Some(value) if value.toLowerCase equals "websocket" => true
+    case Some(_)                                             => false
+    case None                                                => false
+  }
+  private def checkWebSocketKey: Boolean     = self getHeaderValue HttpHeaderNames.SEC_WEBSOCKET_KEY match {
+    case Some(_) => true
+    case None    => false
+  }
+  private def checkWebSocketMethod: Boolean  = self.method.equals(Method.GET)
+
+  def isValidWebSocketRequest: Boolean =
+    checkWebSocketKey && checkWebSocketUpgrade && checkWebSocketMethod
 }
 
 object Request {

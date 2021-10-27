@@ -31,13 +31,13 @@ object Response {
   /**
    * Creates a new WebSocket Response
    */
-  def socket[R, E](ss: SocketApp[R, E]): Response[R, E] = ss.asResponse
+  def socket[R, E](ss: SocketApp[R, E], req: Request): Response[R, E] = ss.asResponse(req)
 
   /**
    * Creates a new WebSocket Response
    */
-  def socket[R, E](ss: Socket[R, E, WebSocketFrame, WebSocketFrame]): Response[R, E] =
-    SocketApp.message(ss).asResponse
+  def socket[R, E](ss: Socket[R, E, WebSocketFrame, WebSocketFrame], req: Request): Response[R, E] =
+    SocketApp.message(ss).asResponse(req)
 
   def fromHttpError(error: HttpError): UResponse = {
     error match {

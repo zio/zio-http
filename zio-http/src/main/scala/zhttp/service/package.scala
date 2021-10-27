@@ -13,6 +13,7 @@ package object service {
   private[service] val WEB_SOCKET_HANDLER     = "WEB_SOCKET_HANDLER"
   private[service] val SSL_HANDLER            = "SSL_HANDLER"
   private[service] val HTTP_ON_HTTPS_HANDLER  = "HTTP_ON_HTTPS_HANDLER"
+  private[zhttp] val HTTP_HANDLER             = "HTTP_HANDLER"
 
   type ChannelFactory       = Has[JChannelFactory[Channel]]
   type EventLoopGroup       = Has[JEventLoopGroup]

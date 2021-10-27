@@ -1,16 +1,16 @@
 package zhttp.socket
 
-import zhttp.http.{HttpAttribute, HttpData, Response, Status}
+import java.net.SocketAddress
+
+import zhttp.http.{Request, Response, SocketResponse}
 import zio._
 import zio.stream.ZStream
-
-import java.net.SocketAddress
 
 sealed trait SocketApp[-R, +E] { self =>
   import SocketApp._
   def ++[R1 <: R, E1 >: E](other: SocketApp[R1, E1]): SocketApp[R1, E1] = SocketApp.Concat(self, other)
 
-  def asResponse: Response[R, E] = Response(Status.OK, Nil, HttpData.empty, HttpAttribute.fromSocket(self))
+  def asResponse(req: Request): Response[R, E] = SocketResponse.from(socketApp = self, req = req)
 
   def config: SocketApp.SocketConfig[R, E] = {
     def loop(config: SocketApp[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] =
