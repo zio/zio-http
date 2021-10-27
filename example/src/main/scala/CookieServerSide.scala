@@ -8,18 +8,19 @@ import zio.duration.durationInt
  * Example to make app using cookies
  */
 object CookieServerSide extends App {
-  val cookie = Cookie("key", "value") @@ maxAge(5 days) @@ httpOnly @@ path(!! / "cookie")
-  val app    = HttpApp.collect {
-    case Method.GET -> !! / "cookie"            =>
-      Response
-        .text("Cookies added")
-        .addCookie(cookie)
-    case Method.GET -> !! / "secure-cookie"     =>
-      Response
-        .text("Cookies with secure true added")
-        .addCookie(cookie @@ secure)
+
+  // Setting cookies with an expiry of 5 days
+  private val cookie = Cookie("key", "value") @@ maxAge(5 days)
+
+  private val app = HttpApp.collect {
+    case Method.GET -> !! / "cookie" =>
+      Response.ok.addCookie(cookie @@ path(!! / "cookie") @@ httpOnly)
+
+    case Method.GET -> !! / "secure-cookie" =>
+      Response.ok.addCookie(cookie @@ secure @@ path(!! / "cookie"))
+
     case Method.GET -> !! / "cookie" / "remove" =>
-      Response.text("Cookies removed").removeCookie("key")
+      Response.ok.removeCookie("key")
   }
 
   // Run it like any simple app

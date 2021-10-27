@@ -20,6 +20,8 @@ case class Response[-R, +E] private (
   def addCookie(cookie: Cookie): Response[R, E] =
     self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.asString)))
 
+  def getCookies: List[Cookie] = ???
+
   /**
    * remove cookie from response headers
    */

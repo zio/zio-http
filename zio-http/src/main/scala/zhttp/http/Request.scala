@@ -21,6 +21,8 @@ trait Request extends HeadersHelpers { self =>
 
   def removeHeader(name: CharSequence): Request = self.copy(headers = self.headers.filter(_.name != name))
 
+  def getCookies: List[Cookie] = ???
+
   def copy(method: Method = self.method, url: URL = self.url, headers: List[Header] = self.headers): Request = {
     val m = method
     val u = url

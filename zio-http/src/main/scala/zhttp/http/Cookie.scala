@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.duration.Duration
+import zio.duration._
 
 import java.time.Instant
 import scala.concurrent.duration.SECONDS
@@ -111,7 +111,7 @@ final case class Cookie(
     val cookie = List(
       Some(s"$name=$content"),
       expires.map(e => s"Expires=$e"),
-      maxAge.map(a => s"Max-Age=${a.toSeconds}"),
+      maxAge.map(a => s"Max-Age=${a.asScala.toSeconds}"),
       domain.map(d => s"Domain=$d"),
       path.map(p => s"Path=${p.asString}"),
       if (isSecure) Some("Secure") else None,
