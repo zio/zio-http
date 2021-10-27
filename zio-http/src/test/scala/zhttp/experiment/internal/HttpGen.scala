@@ -7,6 +7,8 @@ import zio.random.Random
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
 
+import scala.concurrent.duration.FiniteDuration
+
 object HttpGen {
   val status: Gen[Any, Status] = Gen.fromIterable(
     List(
@@ -110,4 +112,19 @@ object HttpGen {
       status  <- HttpGen.status
     } yield Response(status, headers, content)
   }
+
+  def cookies(
+    gPath: Gen[Random, Option[Path]],
+    gMaxAge: Gen[Random, Some[FiniteDuration]],
+  ): Gen[Random with Sized, Cookie] = for {
+    name     <- Gen.anyString
+    content  <- Gen.anyString
+    expires  <- Gen.option(Gen.anyInstant)
+    domain   <- Gen.option(Gen.anyString)
+    path     <- gPath
+    secure   <- Gen.boolean
+    httpOnly <- Gen.boolean
+    maxAge   <- gMaxAge
+    sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
+  } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite)
 }
