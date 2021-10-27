@@ -8,21 +8,13 @@ import zhttp.http.{Header, Response, Status}
 sealed trait Patch { self =>
   def ++(that: Patch): Patch = Patch.Combine(self, that)
   def apply[R, E](res: Response[R, E]): Response[R, E] = {
-    val s = res.status
-    val h = res.headers
-    val d = res.data
-
     self match {
       case Patch.Empty                  => res
-      case Patch.AddHeaders(headers)    => Response(s, headers ++ h, d)
+      case Patch.AddHeaders(headers)    => res.addHeaders(headers)
       case Patch.RemoveHeaders(headers) =>
-        val newHeaders = h.filter(p => headers.contains(p.name))
-        Response(s, newHeaders, d)
-      case Patch.SetStatus(status)      => Response(status, h, d)
-      case Patch.Combine(left, right)   =>
-        val res1 = left(res)
-        val res2 = right(res1)
-        res2
+        res.removeHeaders(headers)
+      case Patch.SetStatus(status)      => res.setStatus(status)
+      case Patch.Combine(self, other)   => other(self(res))
     }
   }
 }

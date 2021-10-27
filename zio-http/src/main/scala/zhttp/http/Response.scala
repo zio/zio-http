@@ -68,7 +68,6 @@ object Response {
         )
       case _ => Response(error.status, Nil, HttpData.fromChunk(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
     }
-
   }
 
   def ok: UResponse = Response(Status.OK)
@@ -92,5 +91,4 @@ object Response {
 
   def permanentRedirect(location: String): Response[Any, Nothing] =
     Response(Status.PERMANENT_REDIRECT, List(Header.location(location)))
-
 }
