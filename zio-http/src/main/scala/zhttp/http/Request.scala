@@ -25,9 +25,9 @@ trait Request extends HeadersHelpers { self =>
   /**
    * get cookies from request
    */
-  def getCookies: List[Cookie] = getHeaderValues(HttpHeaderNames.SET_COOKIE).map(Cookie.parse(_) match {
-    case Left(error)  => throw error
-    case Right(value) => value
+  def getCookies: List[Cookie] = getHeaderValues(HttpHeaderNames.SET_COOKIE).flatMap(Cookie.parse(_) match {
+    case Left(_)      => Nil
+    case Right(value) => List(value)
   })
 
   def copy(method: Method = self.method, url: URL = self.url, headers: List[Header] = self.headers): Request = {

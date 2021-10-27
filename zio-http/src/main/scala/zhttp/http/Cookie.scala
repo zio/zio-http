@@ -184,7 +184,7 @@ object Cookie {
     cookie
   }
 
-  def parseDate(v: String): Either[String, Instant] =
+  private def parseDate(v: String): Either[String, Instant] =
     Try(Instant.parse(v)) match {
       case Success(r) => Right(r)
       case Failure(e) => Left(s"Invalid http date: $v (${e.getMessage})")

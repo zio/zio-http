@@ -23,9 +23,9 @@ case class Response[-R, +E] private (
   /**
    * get cookies from response
    */
-  def getCookies: List[Cookie] = getHeaderValues(HttpHeaderNames.SET_COOKIE).map(Cookie.parse(_) match {
-    case Left(error)  => throw error
-    case Right(value) => value
+  def getCookies: List[Cookie] = getHeaderValues(HttpHeaderNames.SET_COOKIE).flatMap(Cookie.parse(_) match {
+    case Left(_)      => Nil
+    case Right(value) => List(value)
   })
 
   /**
