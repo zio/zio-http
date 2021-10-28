@@ -1,7 +1,5 @@
 package zhttp.service
 
-import java.net.{InetAddress, InetSocketAddress}
-
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.HttpResponseStatus._
@@ -13,6 +11,8 @@ import zhttp.http._
 import zhttp.socket.SocketApp
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
+
+import java.net.{InetAddress, InetSocketAddress}
 
 final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRuntime[R])
     extends ChannelInboundHandlerAdapter { ad =>

@@ -15,7 +15,9 @@ import zio.stream.ZStream
 import scala.concurrent.ExecutionContext
 
 case class WebSocketAppClient(outbound: MessageQueue[Any], channel: ProxyChannel) { self =>
-  def receive: UIO[Any] = outbound.take
+  def receive: UIO[Any] = {
+    outbound.take
+  }
 
   def write(data: AnyRef): Task[Unit] = channel.writeM(data)
 
@@ -170,6 +172,7 @@ object WebSocketAppClient {
      * HttpApp.
      */
     override def handleOutboundMessage(msg: AnyRef): Unit = {
+      println(msg)
       assertThread("handleOutboundMessage")
       rtm
         .unsafeRunAsync(outbound.offer(msg.asInstanceOf[Any])) {
@@ -245,7 +248,6 @@ object WebSocketAppClient {
           .pipeline()
           .addLast(new HttpServerCodec())
           .addLast(HTTP_HANDLER, app.compile(zExec))
-        println(channel.pipeline())
         WebSocketAppClient(outbound, channel)
       }.on(ec)
     } yield proxy

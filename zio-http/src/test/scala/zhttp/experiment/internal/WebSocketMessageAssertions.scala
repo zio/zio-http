@@ -1,6 +1,7 @@
 package zhttp.experiment.internal
 
 import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
@@ -39,15 +40,16 @@ trait WebSocketMessageAssertions {
       url: String = "/",
       method: HttpMethod = HttpMethod.GET,
       header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
-    ): ZIO[R with EventLoopGroup, Throwable, Any] = {
-      for {
-        proxy <- WebSocketAppClient.deploy(app)
-        _     <- proxy.request(url, method, header)
-        _     <- proxy.receive
-        res   <- proxy.receive
-        _ = println(res)
-      } yield (res.asInstanceOf[HttpResponse], proxy)
-    }.flatMap(x => x._2.receive)
+      content: Iterable[String] = List("A", "B", "C", "D"),
+    ): ZIO[R with EventLoopGroup, Throwable, CloseWebSocketFrame] = for {
+      proxy <- WebSocketAppClient.deploy(app)
+      _     <- proxy.request(url, method, header)
+      _     <- proxy.end(content)
+      _     <- proxy.receive
+      _     <- proxy.receive
+      _     <- proxy.receive
+      res   <- proxy.receive
+    } yield res.asInstanceOf[CloseWebSocketFrame]
 
     def getResponseCount(
       url: String = "/",

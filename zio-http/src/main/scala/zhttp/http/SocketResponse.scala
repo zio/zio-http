@@ -1,10 +1,10 @@
 package zhttp.http
 
-import java.security.MessageDigest
-import java.util.Base64
-
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.socket.SocketApp
+
+import java.security.MessageDigest
+import java.util.Base64
 
 object SocketResponse {
 
