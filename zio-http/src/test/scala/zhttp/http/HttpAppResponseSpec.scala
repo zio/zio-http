@@ -59,6 +59,12 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
             })
           }
         } +
+        testM("fromEffectFunction") {
+          val app = HttpApp.fromOptionFunction(_ => ZIO.fail(None))
+          assertM(app.getResponse())(isResponse {
+            responseStatus(404) && version("HTTP/1.1")
+          })
+        } +
         testM("responseM") {
           checkAllM(everything) { case (data, content, status, header) =>
             val app = HttpApp.responseM(UIO(Response(status, List(header), content)))
