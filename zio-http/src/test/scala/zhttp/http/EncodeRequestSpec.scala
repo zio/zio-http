@@ -20,6 +20,28 @@ object EncodeRequestSpec extends DefaultRunnableSpec with EncodeRequest {
         val encoded = encodeRequest(jVersion = HttpVersion.HTTP_1_1, req = request)
         assert(encoded.uri())(equalTo("/"))
       },
+      testM("should encode a request with query parameters and root url") {
+        val queryParamsGen =
+          Gen.mapOfBounded(1, 5)(
+            Gen.alphaNumericStringBounded(1, 5),
+            Gen.listOfBounded(1, 5)(Gen.alphaNumericStringBounded(1, 5)),
+          )
+
+        check(queryParamsGen) { queryParams =>
+          val queryString                     = queryParamsAsString(queryParams)
+          val requestWithQueryParams: Request =
+            Request(
+              Method.GET -> URL(
+                Path(""),
+                Location.Absolute(Scheme.HTTP, "localhost", 8000),
+                queryParams,
+              ),
+            )
+
+          val encoded = encodeRequest(jVersion = HttpVersion.HTTP_1_1, req = requestWithQueryParams)
+          assert(encoded.uri())(equalTo(s"/?$queryString"))
+        }
+      },
       testM("should encode a request with query parameters") {
         val queryParamsGen =
           Gen.mapOfBounded(1, 5)(
