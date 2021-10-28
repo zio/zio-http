@@ -31,6 +31,12 @@ sealed trait HttpMiddleware[-R, +E] { self =>
     HttpMiddleware.fromMiddlewareFunction { (m, u, h) =>
       if (f(m, u, h)) self else HttpMiddleware.empty
     }
+
+  def <>[R1 <: R, E1](other: HttpMiddleware[R1, E1]): HttpMiddleware[R1, E1] =
+    self orElse other
+
+  def orElse[R1 <: R, E1](other: HttpMiddleware[R1, E1]): HttpMiddleware[R1, E1] =
+    HttpMiddleware.OrElse(self, other)
 }
 
 object HttpMiddleware {
@@ -51,10 +57,11 @@ object HttpMiddleware {
     f: (Method, URL, List[Header]) => ZIO[R, Option[E], HttpMiddleware[R, E]],
   ) extends HttpMiddleware[R, E]
 
-  final case class Race[R, E](effect: HttpMiddleware[R, E], middleware: HttpMiddleware[R, E])
-      extends HttpMiddleware[R, E]
+  final case class Race[R, E](self: HttpMiddleware[R, E], other: HttpMiddleware[R, E]) extends HttpMiddleware[R, E]
 
   final case class Constant[R, E](app: HttpApp[R, E]) extends HttpMiddleware[R, E]
+
+  final case class OrElse[R, E](self: HttpMiddleware[R, Any], other: HttpMiddleware[R, E]) extends HttpMiddleware[R, E]
 
   final case class PartiallyAppliedMake[S](req: (Method, URL, List[Header]) => S) extends AnyVal {
     def apply(res: (Status, List[Header], S) => Patch): HttpMiddleware[Any, Nothing] =
@@ -95,13 +102,13 @@ object HttpMiddleware {
   /**
    * Creates a new middleware using a function from request parameters to a ZIO of HttpMiddleware
    */
-  def fromMiddlewareFunctionM[R, E](f: RequestP[ZIO[R, Option[E], HttpMiddleware[R, E]]]): FromFunctionM[R, E] =
+  def fromMiddlewareFunctionM[R, E](f: RequestP[ZIO[R, Option[E], HttpMiddleware[R, E]]]): HttpMiddleware[R, E] =
     HttpMiddleware.FromFunctionM(f)
 
   /**
    * Creates a new middleware using a function from request parameters to a HttpMiddleware
    */
-  def fromMiddlewareFunction[R, E](f: RequestP[HttpMiddleware[R, E]]): FromFunctionM[R, E] =
+  def fromMiddlewareFunction[R, E](f: RequestP[HttpMiddleware[R, E]]): HttpMiddleware[R, E] =
     fromMiddlewareFunctionM((method, url, headers) => UIO(f(method, url, headers)))
 
   private[zhttp] def transform[R, E](mid: HttpMiddleware[R, E], app: HttpApp[R, E]): HttpApp[R, E] =
@@ -127,15 +134,17 @@ object HttpMiddleware {
           } yield res
         }
 
-      case Race(effect, self) =>
+      case Race(self, other) =>
         HttpApp.fromPartialFunction { req =>
-          for {
-            output <- effect
-            res    <- output(req).raceFirst(self(app)(req))
-          } yield res
+          self(app)(req) raceFirst other(app)(req)
         }
 
       case Constant(self) => self
+
+      case OrElse(self, other) =>
+        HttpApp.fromPartialFunction { req =>
+          (self(app)(req) orElse other(app)(req)).asInstanceOf[ZIO[R, Option[E], Response[R, E]]]
+        }
     }
 
 }
