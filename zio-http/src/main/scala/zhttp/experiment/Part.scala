@@ -14,7 +14,8 @@ object Part {
           val b     = attribute.content()
           val count = b.readableBytes()
           val res   = Part.Attribute(attribute.getName, Option(attribute.getValue))
-          b.readBytes(count)
+          val c     = b.readBytes(count)
+          c.release()
           res
 
         case upload: multipart.FileUpload =>
