@@ -10,6 +10,13 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
 
 object ContentDecoder {
 
+  sealed trait DExit[-R, +E, -A, +B]
+  object DExit {
+    case object Text                                                                              extends DExit[Any, Nothing, Any, String]
+    case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])  extends DExit[R, E, A, B]
+  }
+
+
   case object Text extends ContentDecoder[Any, Nothing, Any, String]
 
   case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])
