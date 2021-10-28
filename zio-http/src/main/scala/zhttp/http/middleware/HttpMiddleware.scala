@@ -4,7 +4,8 @@ import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware.RequestP
 import zio.clock.Clock
 import zio.console.Console
-import zio.{UIO, ZIO}
+import zio.duration.Duration
+import zio.{clock, console, UIO, ZIO}
 
 import java.io.IOException
 
@@ -20,8 +21,8 @@ sealed trait HttpMiddleware[-R, +E] { self =>
   def combine[R1 <: R, E1 >: E](other: HttpMiddleware[R1, E1]): HttpMiddleware[R1, E1] =
     HttpMiddleware.Combine(self, other)
 
-  def race[R1 <: R, E1 >: E](app: HttpMiddleware[R1, E1]): HttpMiddleware[R1, E1] =
-    HttpMiddleware.Race(app, self)
+  def race[R1 <: R, E1 >: E](other: HttpMiddleware[R1, E1]): HttpMiddleware[R1, E1] =
+    HttpMiddleware.Race(self, other)
 
   def replace[R1 <: R, E1 >: E](app: HttpApp[R1, E1]): HttpMiddleware[R1, E1] =
     HttpMiddleware.Constant(app)
@@ -32,15 +33,23 @@ sealed trait HttpMiddleware[-R, +E] { self =>
     }
 
   def when(f: RequestP[Boolean]): HttpMiddleware[R, E] =
-    HttpMiddleware.fromMiddlewareFunction { (m, u, h) =>
-      if (f(m, u, h)) self else HttpMiddleware.empty
-    }
+    modify((m, u, h) => if (f(m, u, h)) self else HttpMiddleware.empty)
 
   def <>[R1 <: R, E1](other: HttpMiddleware[R1, E1]): HttpMiddleware[R1, E1] =
     self orElse other
 
   def orElse[R1 <: R, E1](other: HttpMiddleware[R1, E1]): HttpMiddleware[R1, E1] =
     HttpMiddleware.OrElse(self, other)
+
+  def delay(duration: Duration): HttpMiddleware[R with Clock, E] = {
+    self.modifyM((_, _, _) => UIO(self).delay(duration))
+  }
+
+  def modify[R1 <: R, E1 >: E](f: RequestP[HttpMiddleware[R1, E1]]): HttpMiddleware[R1, E1] =
+    HttpMiddleware.fromMiddlewareFunction((m, u, h) => f(m, u, h))
+
+  def modifyM[R1 <: R, E1 >: E](f: RequestP[ZIO[R1, Option[E1], HttpMiddleware[R1, E1]]]): HttpMiddleware[R1, E1] =
+    HttpMiddleware.fromMiddlewareFunctionM((m, u, h) => f(m, u, h))
 
 }
 
@@ -123,12 +132,23 @@ object HttpMiddleware {
     HttpMiddleware.makeM((method, url, _) => zio.clock.nanoTime.map(start => (method, url, start))) {
       case (status, _, (method, url, start)) =>
         for {
-          end <- zio.clock.nanoTime
-          _   <- zio.console
-            .putStrLn(s"${status.asJava.code()} ${method} ${url.asString} ${(end - start) / 1000}ms")
+          end <- clock.nanoTime
+          _   <- console
+            .putStrLn(s"${status.asJava.code()} ${method} ${url.asString} ${(end - start) / 1000000}ms")
             .mapError(Option(_))
         } yield Patch.empty
     }
+
+  /**
+   * Runs the effect after the response is available
+   */
+  def after[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
+    HttpMiddleware.makeM((_, _, _) => ZIO.unit) { (_, _, _) =>
+      effect.mapBoth(Option(_), _ => Patch.empty)
+    }
+
+  def timeout(duration: Duration): HttpMiddleware[Clock, Nothing] =
+    HttpMiddleware.empty.race(HttpMiddleware.fromApp(HttpApp.status(Status.REQUEST_TIMEOUT).delayAfter(duration)))
 
   private[zhttp] def transform[R, E](mid: HttpMiddleware[R, E], app: HttpApp[R, E]): HttpApp[R, E] =
     mid match {
