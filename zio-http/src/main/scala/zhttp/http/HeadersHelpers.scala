@@ -38,6 +38,9 @@ private[zhttp] trait HeadersHelpers {
   def getHeaderValues(headerName: CharSequence): List[String] =
     headers.filter(h => contentEqualsIgnoreCase(h.name, headerName)).map(_.value.toString)
 
+  def getNotFilteredHeaderValues(headerName: CharSequence, headerValue: String): List[Header] =
+    headers.filterNot(h => contentEqualsIgnoreCase(h.name, headerName) && h.value.toString.equals(headerValue))
+
   def getContentType: Option[String] =
     getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
 

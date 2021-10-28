@@ -11,6 +11,7 @@ object CookieServerSide extends App {
 
   // Setting cookies with an expiry of 5 days
   private val cookie = Cookie("key", "value") @@ maxAge(5 days)
+  val res            = Response.ok.addCookie(cookie)
 
   private val app = HttpApp.collect {
     case Method.GET -> !! / "cookie" =>
@@ -19,8 +20,11 @@ object CookieServerSide extends App {
     case Method.GET -> !! / "secure-cookie" =>
       Response.ok.addCookie(cookie @@ secure @@ path(!! / "cookie"))
 
+    case Method.GET -> !! / "cookie" / "set-empty" =>
+      Response.ok.setEmptyCookie("key")
+
     case Method.GET -> !! / "cookie" / "remove" =>
-      Response.ok.removeCookie("key")
+      res.removeCookie(cookie @@ secure @@ path(!! / "cookie"))
   }
 
   // Run it like any simple app

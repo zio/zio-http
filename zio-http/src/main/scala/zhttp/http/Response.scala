@@ -29,17 +29,17 @@ case class Response[-R, +E] private (
   })
 
   /**
-   * remove cookie from response headers
+   * set empty cookie in response headers
    */
-  def removeCookie(cookie: Cookie): Response[R, E] =
+  def setEmptyCookie(cookie: Cookie): Response[R, E] =
     self.copy(headers =
       self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.clearCookie.asString)),
     )
 
   /**
-   * remove cookie from response headers
+   * set empty cookie in response headers
    */
-  def removeCookie(cookie: String): Response[R, E] =
+  def setEmptyCookie(cookie: String): Response[R, E] =
     self.copy(headers =
       self.headers ++ List(
         Header.custom(
@@ -48,6 +48,12 @@ case class Response[-R, +E] private (
         ),
       ),
     )
+
+  /**
+   * remove cookie from response headers
+   */
+  def removeCookie(cookie: Cookie): Response[R, E] =
+    self.copy(headers = getNotFilteredHeaderValues(HttpHeaderNames.SET_COOKIE, cookie.asString))
 
 }
 
