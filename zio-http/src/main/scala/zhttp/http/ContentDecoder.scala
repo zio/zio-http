@@ -21,12 +21,7 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
 
   final private[zhttp] def toZIO(a: A, isLast: Boolean = true): ZIO[R, Option[E], B] = {
     self match {
-
-      case ContentDecoder.Identity                  => ZIO.succeed(a.asInstanceOf[B])
-      case ContentDecoder.Succeed(b)                => ZIO.succeed(b)
-      case ContentDecoder.Fail(e)                   => ZIO.fail(Some(e))
-      case ContentDecoder.FromEffectFunction(f)     => f(a).mapError(Option(_))
-      case ContentDecoder.Collect(pf)               => if (pf.isDefinedAt(a)) ZIO.succeed(pf(a)) else ZIO.fail(None)
+      case ContentDecoder.Text                 => ZIO.succeed(a.toString.asInstanceOf)
       case step: ContentDecoder.Step[_, _, _, _, _] =>
         step
           .asInstanceOf[ContentDecoder.Step[R, E, Any, A, B]]
@@ -38,9 +33,13 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
               case None        => ZIO.fail(None)
             },
           )
-
-      case ContentDecoder.Chain(self, other)  => self.toZIO(a, isLast) >>= (other.toZIO(_, isLast))
-      case ContentDecoder.FoldM(self, ee, bb) =>
+      case ContentDecoder.Identity                  => ZIO.succeed(a.asInstanceOf[B])
+      case ContentDecoder.Succeed(b)                => ZIO.succeed(b)
+      case ContentDecoder.Fail(e)                   => ZIO.fail(Some(e))
+      case ContentDecoder.Collect(pf)               => if (pf.isDefinedAt(a)) ZIO.succeed(pf(a)) else ZIO.fail(None)
+      case ContentDecoder.FromEffectFunction(f)     => f(a).mapError(Option(_))
+      case ContentDecoder.Chain(self, other)        => self.toZIO(a, isLast) >>= (other.toZIO(_, isLast))
+      case ContentDecoder.FoldM(self, ee, bb)       =>
         self
           .toZIO(a, isLast)
           .foldM(
@@ -60,23 +59,23 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
 
       case ContentDecoder.Identity   => DExit.Collect((a: A) => a.asInstanceOf[B])
       case ContentDecoder.Succeed(b) => DExit.Collect((_: A) => b)
-      case ContentDecoder.Fail(e) => DExit.Step(Array.emptyByteArray, (a: A, s: Array[Byte], _: Boolean) => ZIO.fail(e))
+      case ContentDecoder.Fail(e) => DExit.Step(Array.emptyByteArray, (_: A, _: Array[Byte], _: Boolean) => ZIO.fail(e))
       case ContentDecoder.FromEffectFunction(f) =>
         DExit.Step(Array.emptyByteArray, (a: A, s: Array[Byte], _: Boolean) => f(a).map(Some(_)).map((_, s)))
       case ContentDecoder.Step(state, next)     => DExit.Step(state, next)
       case ContentDecoder.Collect(pf)           => DExit.Collect(pf)
 
-      case ContentDecoder.Chain(self, other)  =>
+      case ContentDecoder.Chain(self, _)    =>
         self.evaluate match {
-          case DExit.Text              => ???
-          case DExit.Collect(f)        => ???
-          case DExit.Step(state, next) => ???
+          case DExit.Text       => ???
+          case DExit.Collect(_) => ???
+          case DExit.Step(_, _) => ???
         }
-      case ContentDecoder.FoldM(self, ee, bb) =>
+      case ContentDecoder.FoldM(self, _, _) =>
         self.evaluate match {
-          case DExit.Text              => ???
-          case DExit.Collect(f)        => ???
-          case DExit.Step(state, next) => ???
+          case DExit.Text       => ???
+          case DExit.Collect(_) => ???
+          case DExit.Step(_, _) => ???
         }
 
     }
