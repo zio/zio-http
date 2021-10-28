@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBufUtil, Unpooled}
+import zhttp.http.ContentDecoder.DExit
 import zio.{Chunk, Queue, Task, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
@@ -25,7 +26,7 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
       case ContentDecoder.Succeed(b)                => ZIO.succeed(b)
       case ContentDecoder.Fail(e)                   => ZIO.fail(Some(e))
       case ContentDecoder.FromEffectFunction(f)     => f(a).mapError(Option(_))
-      case ContentDecoder.Collect(pf)               => if (pf.isDefinedAt(a)) ZIO.succeed(pf(a)) else ZIO.fail(None)
+//      case ContentDecoder.Collect(pf)               => if (pf.isDefinedAt(a)) ZIO.succeed(pf(a)) else ZIO.fail(None)
       case step: ContentDecoder.Step[_, _, _, _, _] =>
         step
           .asInstanceOf[ContentDecoder.Step[R, E, Any, A, B]]
@@ -53,13 +54,34 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
 
     }
   }
+
+  final private[zhttp] def evaluate: DExit[R, E, A, B] = {
+    self match {
+
+      case ContentDecoder.Identity => DExit.Text(f=Some(a=>a.asInstanceOf[B]))
+      case ContentDecoder.Succeed(b) => DExit.Text(b=Some(b))
+      case ContentDecoder.Fail(e) => DExit.Text(e=Some(e))
+      case ContentDecoder.FromEffectFunction(f) => DExit.Step(Array.emptyByteArray, (a: A, s: Array[Byte], _: Boolean) => f(a).map(Some(_)).map((_, s)))
+      case ContentDecoder.Step(state, next) => DExit.Step(state, next)
+
+      case ContentDecoder.Chain(self, other) => self.evaluate match {
+        case DExit.Text(f, e, b) => ???
+        case DExit.Step(state, next) => ???
+      }
+      case ContentDecoder.FoldM(self, ee, bb) => self.evaluate match {
+        case DExit.Text(f, e, b) => ???
+        case DExit.Step(state, next) => ???
+      }
+
+    }
+  }
 }
 
 object ContentDecoder {
 
   sealed trait DExit[-R, +E, -A, +B]
   object DExit {
-    case object Text                                                                              extends DExit[Any, Nothing, Any, String]
+    case class Text[E,A,B](f: Option[A=>B]= None,e :Option[E]=None,b:Option[B]= None)                                                                              extends DExit[Any, E, Any, B]
     case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])  extends DExit[R, E, A, B]
   }
 
@@ -71,8 +93,6 @@ object ContentDecoder {
   private final case class Succeed[B](b: B) extends ContentDecoder[Any, Nothing, Any, B]
   private final case class Fail[E](e: E)    extends ContentDecoder[Any, E, Any, Nothing]
   private final case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B]) extends ContentDecoder[R, E, A, B]
-  private final case class Collect[R, E, A, B](ab: PartialFunction[A, B])       extends ContentDecoder[R, E, A, B]
-
   private final case class Chain[R, E, A, B, C](self: ContentDecoder[R, E, A, B], other: ContentDecoder[R, E, B, C])
     extends ContentDecoder[R, E, A, C]
   private final case class FoldM[R, E, EE, A, B, BB](
