@@ -1,5 +1,6 @@
 package zhttp.http
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
 
@@ -10,7 +11,19 @@ case class Response[-R, +E] private (
   headers: List[Header],
   data: HttpData[R, E],
   private[zhttp] val attribute: HttpAttribute[R, E],
-)
+) extends HeadersHelpers { self =>
+
+  /**
+   * Adds cookies in the response headers
+   */
+  def addCookie(cookie: Cookie): Response[R, E] =
+    self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
+
+  /**
+   * Gets cookies from the response headers
+   */
+  def cookies: List[Cookie] = getCookieFromHeader(HttpHeaderNames.SET_COOKIE)
+}
 
 object Response {
 

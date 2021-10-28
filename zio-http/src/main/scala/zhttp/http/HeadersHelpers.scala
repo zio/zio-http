@@ -106,6 +106,11 @@ private[zhttp] trait HeadersHelpers {
   def getCharset: Option[Charset] =
     getHeaderValue(HttpHeaderNames.CONTENT_TYPE).map(HttpUtil.getCharset(_, HTTP_CHARSET))
 
+  def getCookieFromHeader(headerName: AsciiString): List[Cookie] =
+    getHeaderValues(headerName).flatMap(Cookie.decode(_) match {
+      case Left(_)      => Nil
+      case Right(value) => List(value)
+    })
 }
 
 object HeadersHelpers {

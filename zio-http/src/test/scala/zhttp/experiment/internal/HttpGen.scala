@@ -110,4 +110,23 @@ object HttpGen {
       status  <- HttpGen.status
     } yield Response(status, headers, content)
   }
+
+  def cookies: Gen[Random with Sized, Cookie] = for {
+    name     <- Gen.anyString
+    content  <- Gen.anyString
+    expires  <- Gen.option(Gen.anyInstant)
+    domain   <- Gen.option(Gen.anyString)
+    path     <- Gen.option(path)
+    secure   <- Gen.boolean
+    httpOnly <- Gen.boolean
+    maxAge   <- Gen.option(Gen.anyLong)
+    sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
+  } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite)
+
+  def path: Gen[Random with Sized, Path] = {
+    for {
+      l <- Gen.listOf(Gen.alphaNumericString)
+      p <- Gen.const(Path(l))
+    } yield p
+  }
 }
