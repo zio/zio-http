@@ -53,7 +53,7 @@ case class Response[-R, +E] private (
    * remove cookie from response headers
    */
   def removeCookie(cookie: Cookie): Response[R, E] =
-    self.copy(headers = getNotFilteredHeaderValues(HttpHeaderNames.SET_COOKIE, cookie.asString))
+    self.copy(headers = getFilterNotHeaderValues(HttpHeaderNames.SET_COOKIE, cookie.asString))
 
 }
 
