@@ -26,7 +26,7 @@ final case class ServerChannelInitializer[R](zExec: HttpRuntime[R], settings: Se
     }
     channel
       .pipeline()
-      .addLast(new HttpServerCodec())                                  // TODO: See if server codec is really required
+      .addLast(HTTP_SERVER_CODEC, new HttpServerCodec())               // TODO: See if server codec is really required
       .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler) // TODO: Make keep-alive configurable
       .addLast(HTTP_REQUEST_HANDLER, settings.app.compile(zExec))
     ()

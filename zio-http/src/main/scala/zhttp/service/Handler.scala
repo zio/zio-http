@@ -11,8 +11,9 @@ import zhttp.http._
 import zhttp.socket.SocketApp
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
-
 import java.net.{InetAddress, InetSocketAddress}
+
+import zhttp.service.server.ServerSocketHandler
 
 final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRuntime[R])
     extends ChannelInboundHandlerAdapter { ad =>
@@ -107,7 +108,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
                       writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
                   }
                   _ <- res.attribute match {
-                    case HttpAttribute.Empty => UIO(println("empty"))
+                    case HttpAttribute.Empty => UIO(println("empty attribute"))
 
                     case HttpAttribute.Socket(socketApp) =>
                       ZIO(handleHandshake(ctx, a.asInstanceOf[Request], socketApp))
@@ -137,7 +138,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
 
           }
           b.attribute match {
-            case HttpAttribute.Empty             => println("k")
+            case HttpAttribute.Empty             => println("empty attribute")
             case HttpAttribute.Socket(socketApp) => handleHandshake(ctx, a.asInstanceOf[Request], socketApp): Unit
           }
 
@@ -277,26 +278,25 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
     val fullReq =
       new DefaultFullHttpRequest(HTTP_1_1, req.method.asHttpMethod, req.url.asString, Unpooled.EMPTY_BUFFER, false)
     fullReq.headers().setAll(Header.disassemble(req.headers))
+    println("before websocket handlers " + ctx.channel().pipeline())
     ctx
       .channel()
       .pipeline()
-      .addLast(new WebSocketServerProtocolHandler(socket.config.protocol.javaConfig))
-//      .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, socket.config))
+      .addFirst(WEB_SOCKET_PROTOCOL_HANDLER, new WebSocketServerProtocolHandler(socket.config.protocol.javaConfig))
+      .addAfter(WEB_SOCKET_PROTOCOL_HANDLER, WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, socket.config))
+    println("after websocket handlers " + ctx.channel().pipeline())
 
-    import io.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory
-    val wsFactory  = new WebSocketServerHandshakerFactory(getWebSocketURL(fullReq), null, true)
-    val handshaker = wsFactory.newHandshaker(fullReq)
-    if (handshaker == null) WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel)
-    else handshaker.handshake(ctx.channel, fullReq)
-//    ctx
-//      .channel()
-//      .eventLoop()
-//      .submit(() => {
-//        ctx.fireChannelRead(fullReq.retain())
-//      })
-//      .addListener((_: Any) => {
-//        ctx.channel().config().setAutoRead(true): Unit
-//      })
+    ctx
+      .channel()
+      .eventLoop()
+      .submit(() => {
+        ctx.fireChannelRead(fullReq.retain())
+      })
+      .addListener((_: Any) => {
+        ctx.channel().pipeline().remove(HTTP_KEEPALIVE_HANDLER)
+        ctx.channel().config().setAutoRead(true): Unit
+
+      })
   }
 
   private def decodeResponse(res: Response[_, _]): HttpResponse = {

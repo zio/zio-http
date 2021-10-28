@@ -1,7 +1,9 @@
 package zhttp.experiment.internal
 
+import java.nio.charset.Charset
+
 import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
@@ -9,8 +11,6 @@ import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
 import zio.test.{Assertion, TestResult, assertM}
 import zio.{Chunk, Promise, Task, ZIO}
-
-import java.nio.charset.Charset
 
 trait WebSocketMessageAssertions {
 
@@ -28,11 +28,9 @@ trait WebSocketMessageAssertions {
       url: String = "/",
       method: HttpMethod = HttpMethod.GET,
       header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
-      content: Iterable[String] = List("A", "B", "C", "D"),
     ): ZIO[R with EventLoopGroup, Throwable, HttpResponse] = for {
       proxy <- WebSocketAppClient.deploy(app)
       _     <- proxy.request(url, method, header)
-      _     <- proxy.end(content)
       res   <- proxy.receive
     } yield res.asInstanceOf[HttpResponse]
 
@@ -40,16 +38,15 @@ trait WebSocketMessageAssertions {
       url: String = "/",
       method: HttpMethod = HttpMethod.GET,
       header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
-      content: Iterable[String] = List("A", "B", "C", "D"),
-    ): ZIO[R with EventLoopGroup, Throwable, CloseWebSocketFrame] = for {
+    ): ZIO[R with EventLoopGroup, Throwable, TextWebSocketFrame] = for {
       proxy <- WebSocketAppClient.deploy(app)
       _     <- proxy.request(url, method, header)
-      _     <- proxy.end(content)
       _     <- proxy.receive
       _     <- proxy.receive
       _     <- proxy.receive
       res   <- proxy.receive
-    } yield res.asInstanceOf[CloseWebSocketFrame]
+      _ = println(res)
+    } yield res.asInstanceOf[TextWebSocketFrame]
 
     def getResponseCount(
       url: String = "/",

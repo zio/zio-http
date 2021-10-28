@@ -1,7 +1,7 @@
 package zhttp.socket
 
 import io.netty.handler.codec.http.HttpHeaderNames
-import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame
 import zhttp.experiment.internal.WebSocketMessageAssertions
 import zhttp.http._
 import zhttp.service.EventLoopGroup
@@ -22,12 +22,13 @@ object SocketAppSpec extends DefaultRunnableSpec with WebSocketMessageAssertions
       WebSocketFrameSpec,
     ).provideCustomLayer(env) @@ timeout(10 seconds)
 
-  val wHeaders = List(
+  val correctHeaders   = List(
     Header.custom(HttpHeaderNames.UPGRADE.toString(), "websocket"),
     Header.custom(HttpHeaderNames.CONNECTION.toString(), "upgrade"),
     Header.custom(HttpHeaderNames.SEC_WEBSOCKET_KEY.toString(), "key"),
+    Header.custom(HttpHeaderNames.ORIGIN.toString(), "/ws"),
   )
-  val nHeaders = List(
+  val incorrectHeaders = List(
     Header.custom(HttpHeaderNames.UPGRADE.toString(), "websocket"),
     Header.custom(HttpHeaderNames.CONNECTION.toString(), "upgrade"),
   )
@@ -40,19 +41,19 @@ object SocketAppSpec extends DefaultRunnableSpec with WebSocketMessageAssertions
       testM("status 101") {
         val res = HttpApp
           .fromHttp(Http.collect[Request] { case req =>
-            SocketResponse.from(headers = wHeaders, socketApp = socketApp, req = req)
+            SocketResponse.from(headers = correctHeaders, socketApp = socketApp, req = req)
           })
-          .getResponse(header = Header.disassemble(wHeaders))
+          .getResponse(header = Header.disassemble(correctHeaders))
         assertM(res)(isResponse(responseStatus(101)))
       },
-//      testM("status 400") {
-//        val res = HttpApp
-//          .fromHttp(Http.collect[Request] { case req =>
-//            SocketResponse.from(headers = nHeaders, socketApp = socketApp, req = req)
-//          })
-//          .getResponse(header = Header.disassemble(nHeaders))
-//        assertM(res)(isResponse(responseStatus(400)))
-//      },
+      testM("status 400") {
+        val res = HttpApp
+          .fromHttp(Http.collect[Request] { case req =>
+            SocketResponse.from(headers = incorrectHeaders, socketApp = socketApp, req = req)
+          })
+          .getResponse(header = Header.disassemble(incorrectHeaders))
+        assertM(res)(isResponse(responseStatus(400)))
+      },
     )
   }
 
@@ -64,10 +65,10 @@ object SocketAppSpec extends DefaultRunnableSpec with WebSocketMessageAssertions
       testM("should receive websocket frame") {
         val frame = HttpApp
           .fromHttp(Http.collect[Request] { case req =>
-            SocketResponse.from(headers = wHeaders, socketApp = socketApp, req = req)
+            SocketResponse.from(headers = correctHeaders, socketApp = socketApp, req = req)
           })
-          .getWebSocketFrame(header = Header.disassemble(wHeaders))
-        assertM(frame)(isSubtype[CloseWebSocketFrame](anything))
+          .getWebSocketFrame(header = Header.disassemble(correctHeaders))
+        assertM(frame)(isSubtype[TextWebSocketFrame](anything))
       },
     )
   }

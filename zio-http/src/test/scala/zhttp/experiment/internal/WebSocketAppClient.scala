@@ -6,7 +6,7 @@ import io.netty.handler.codec.http._
 import io.netty.util.CharsetUtil
 import zhttp.experiment.internal.WebSocketAppClient.{MessageQueue, ProxyChannel}
 import zhttp.http.HttpApp
-import zhttp.service.{EventLoopGroup, HTTP_HANDLER, HttpRuntime}
+import zhttp.service._
 import zio._
 import zio.internal.Executor
 import zio.stm.TQueue
@@ -29,6 +29,10 @@ case class WebSocketAppClient(outbound: MessageQueue[Any], channel: ProxyChannel
     headers: HttpHeaders = EmptyHttpHeaders.INSTANCE,
     version: HttpVersion = HttpVersion.HTTP_1_1,
   ): Task[Unit] = {
+    channel
+      .pipeline()
+      .addLast(HTTP_SERVER_CODEC, new HttpServerCodec())
+      .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerCodec())
     channel.writeM(new DefaultHttpRequest(version, method, url, headers))
   }
 
@@ -172,7 +176,6 @@ object WebSocketAppClient {
      * HttpApp.
      */
     override def handleOutboundMessage(msg: AnyRef): Unit = {
-      println(msg)
       assertThread("handleOutboundMessage")
       rtm
         .unsafeRunAsync(outbound.offer(msg.asInstanceOf[Any])) {
@@ -246,8 +249,7 @@ object WebSocketAppClient {
         val channel = ProxyChannel(inbound, outbound, ec, grtm, thread)
         channel
           .pipeline()
-          .addLast(new HttpServerCodec())
-          .addLast(HTTP_HANDLER, app.compile(zExec))
+          .addLast(HTTP_REQUEST_HANDLER, app.compile(zExec))
         WebSocketAppClient(outbound, channel)
       }.on(ec)
     } yield proxy
