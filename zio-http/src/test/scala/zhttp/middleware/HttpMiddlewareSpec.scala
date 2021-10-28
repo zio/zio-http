@@ -6,9 +6,8 @@ import zio.clock.Clock
 import zio.duration._
 import zio.test.Assertion.equalTo
 import zio.test.environment.{TestClock, TestConsole}
-import zio.test.{assertM, DefaultRunnableSpec}
-import zio.{console, UIO, ZIO}
-import zio.test.TestAspect.{ignore, nonFlaky}
+import zio.test.{DefaultRunnableSpec, assertM}
+import zio.{UIO, ZIO}
 
 object HttpMiddlewareSpec extends DefaultRunnableSpec {
   val app: HttpApp[Any with Clock, Nothing] = HttpApp.collectM { case Method.GET -> !! / "health" =>
@@ -41,27 +40,11 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec {
           }
       } +
       suite("race") {
-        testM("timeout achieved") {
-          val program = run(app @@ HttpMiddleware.debug.race(HttpMiddleware.after(console.putStrLn("Came First")))) *>
-            TestConsole.output
-
-          assertM(program)(equalTo(Vector("Came First\n")))
-        } @@ nonFlaky +
-          testM("timeout un-achieved") {
-            val middleware = HttpMiddleware.debug.race {
-              HttpMiddleware.after(console.putStrLn("Came First").delay(1500 millis))
-            }
-
-            val program = run(app @@ middleware) *> TestConsole.output
-            assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
-          }
-      } @@ ignore +
-      suite("timeout") {
         testM("achieved") {
           val program = run(app @@ HttpMiddleware.timeout(5 seconds)).map(_.status)
           assertM(program)(equalTo(Status.OK))
         } +
-          testM("unachived") {
+          testM("un-achieved") {
             val program = run(app @@ HttpMiddleware.timeout(500 millis)).map(_.status)
             assertM(program)(equalTo(Status.REQUEST_TIMEOUT))
           }
