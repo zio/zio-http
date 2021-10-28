@@ -1,5 +1,7 @@
 package zhttp.service
 
+import java.net.{InetAddress, InetSocketAddress}
+
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.HttpResponseStatus._
@@ -11,8 +13,6 @@ import zhttp.http._
 import zhttp.socket.SocketApp
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
-
-import java.net.{InetAddress, InetSocketAddress}
 
 final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRuntime[R])
     extends ChannelInboundHandlerAdapter { ad =>
@@ -274,27 +274,27 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
     req: Request,
     socket: SocketApp[R, Throwable],
   ) = {
-    val fullReq    =
+    val fullReq =
       new DefaultFullHttpRequest(HTTP_1_1, req.method.asHttpMethod, req.url.asString, Unpooled.EMPTY_BUFFER, false)
     fullReq.headers().setAll(Header.disassemble(req.headers))
     ctx
       .channel()
       .pipeline()
       .addLast(new WebSocketServerProtocolHandler(socket.config.protocol.javaConfig))
+//      .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, socket.config))
+
     import io.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory
     val wsFactory  = new WebSocketServerHandshakerFactory(getWebSocketURL(fullReq), null, true)
     val handshaker = wsFactory.newHandshaker(fullReq)
     if (handshaker == null) WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel)
     else handshaker.handshake(ctx.channel, fullReq)
-//    ctx.channel().pipeline().addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, socket.config))
 //    ctx
 //      .channel()
 //      .eventLoop()
 //      .submit(() => {
-//        ctx.fireChannelRead(fullReq)
+//        ctx.fireChannelRead(fullReq.retain())
 //      })
 //      .addListener((_: Any) => {
-//        if (ctx.channel().pipeline().get(HTTP_HANDLER) != null) ctx.channel().pipeline().remove(HTTP_HANDLER)
 //        ctx.channel().config().setAutoRead(true): Unit
 //      })
   }

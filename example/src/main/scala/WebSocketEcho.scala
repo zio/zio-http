@@ -19,7 +19,6 @@ object WebSocketEcho extends App {
     HttpApp.collect {
       case Method.GET -> !! / "greet" / name        => Response.text(s"Greetings {$name}!")
       case req @ Method.GET -> !! / "subscriptions" => {
-        println(req)
         Response.socket(socket, req)
       }
     }

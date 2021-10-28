@@ -21,17 +21,12 @@ trait WebSocketMessageAssertions {
     def ===(assertion: Assertion[Any]): ZIO[R with EventLoopGroup, Throwable, TestResult] =
       assertM(execute(app)(_.request("/")))(assertion)
 
-    val wHeaders                                                         = List(
-      Header.custom(HttpHeaderNames.UPGRADE.toString(), "websocket"),
-      Header.custom(HttpHeaderNames.CONNECTION.toString(), "upgrade"),
-      Header.custom(HttpHeaderNames.SEC_WEBSOCKET_KEY.toString(), "key"),
-    )
     def getResponse: ZIO[R with EventLoopGroup, Throwable, HttpResponse] = getResponse()
 
     def getResponse(
       url: String = "/",
       method: HttpMethod = HttpMethod.GET,
-      header: HttpHeaders = Header.disassemble(wHeaders),
+      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
       content: Iterable[String] = List("A", "B", "C", "D"),
     ): ZIO[R with EventLoopGroup, Throwable, HttpResponse] = for {
       proxy <- WebSocketAppClient.deploy(app)
@@ -39,19 +34,6 @@ trait WebSocketMessageAssertions {
       _     <- proxy.end(content)
       res   <- proxy.receive
     } yield res.asInstanceOf[HttpResponse]
-
-    def getWebSocketResponse(
-      url: String = "/",
-      method: HttpMethod = HttpMethod.GET,
-      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
-    ): ZIO[R with EventLoopGroup, Throwable, Any] = {
-      for {
-        proxy <- WebSocketAppClient.deployWebSocket(app)
-        _     <- proxy.request(url, method, header)
-        res   <- proxy.receive
-        _ = println("res" + res)
-      } yield (res.asInstanceOf[HttpResponse], proxy)
-    }.flatMap(x => x._2.receive)
 
     def getWebSocketFrame(
       url: String = "/",
@@ -61,7 +43,9 @@ trait WebSocketMessageAssertions {
       for {
         proxy <- WebSocketAppClient.deploy(app)
         _     <- proxy.request(url, method, header)
+        _     <- proxy.receive
         res   <- proxy.receive
+        _ = println(res)
       } yield (res.asInstanceOf[HttpResponse], proxy)
     }.flatMap(x => x._2.receive)
 
