@@ -89,7 +89,7 @@ object ContentDecoder {
   sealed trait DExit[-R, +E, -A, +B]
   object DExit {
     case object Text                                   extends DExit[Any, Nothing, Any, String]
-    case class Collect[A, B](f: PartialFunction[A, B]) extends DExit[Any, Nothing, A, B]
+    case class Collect[A, B](f: A=>B) extends DExit[Any, Nothing, A, B]
     case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])
         extends DExit[R, E, A, B]
   }
