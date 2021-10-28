@@ -4,7 +4,7 @@ import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.multipart.{HttpPostRequestDecoder, InterfaceHttpData}
 import io.netty.util.ReferenceCountUtil
-import zhttp.experiment.HttpMessage
+import zhttp.experiment.{HttpMessage, Part}
 import zio._
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
@@ -38,17 +38,18 @@ object ContentDecoder {
     Header.disassemble(req.headers),
   ) // todo: remove this
 
-  def multipartDecoder(req: Request): Task[PostBodyDecoder[Throwable, HttpContent, InterfaceHttpData]] =
-    Task(new PostBodyDecoder[Throwable, HttpContent, InterfaceHttpData] {
-      private val decoder                                       = new HttpPostRequestDecoder(toJRequest(req)) //
-      override def offer(a: HttpContent): IO[Throwable, Unit]   =
+  def multipartDecoder(req: Request): Task[PostBodyDecoder[Throwable, HttpContent, Part]] =
+    Task(new PostBodyDecoder[Throwable, HttpContent, Part] {
+      private val decoder                                     = new HttpPostRequestDecoder(toJRequest(req)) //
+      override def offer(a: HttpContent): IO[Throwable, Unit] =
         Task(decoder.offer(a): Unit) andThen Task(ReferenceCountUtil.release(a): Unit)
-      override def poll: IO[Throwable, List[InterfaceHttpData]] = Task {
+      override def poll: IO[Throwable, List[Part]]            = Task {
         var datas: List[InterfaceHttpData] = List.empty
         while (decoder.hasNext) {
           datas = datas :+ decoder.next
         }
-        datas
+        datas = datas :+ decoder.currentPartialHttpData()
+        datas.map(Part.fromHTTPData)
       }
     })
 
@@ -64,7 +65,7 @@ object ContentDecoder {
     decoder: IO[E, PostBodyDecoder[E, A, B]],
   ): Step[Any, E, BackPressure[(PostBodyDecoder[E, A, B], Queue[HttpMessage[B]])], HttpMessage[A], Queue[
     HttpMessage[B],
-  ]]                                                                                                   =
+  ]]                                                                                      =
     ContentDecoder
       .collect(BackPressure[(PostBodyDecoder[E, A, B], Queue[HttpMessage[B]])]()) { case (msg, state, _) =>
         (for {

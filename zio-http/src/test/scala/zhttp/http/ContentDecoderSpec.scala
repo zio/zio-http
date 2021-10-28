@@ -51,12 +51,21 @@ object ContentDecoderSpec extends DefaultRunnableSpec with HttpMessageAssertions
             |Content-Disposition: form-data; name="file1"; filename="a.txt"
             |Content-Type: text/plain
             |
-            |Content of a.txt.Content of a.txt.Content of a.txt.Content of a.txt.Content of a.txt.Content of a.txt.Content of a.txt.Content of a.txt.Content of a.txt.Content of a.txt.
-            |Content of a.txt.
-            |Content of a.txt.
-            |Content of a.txt.
-            |Content of a.txt.
-            |Content of a.txt.
+            |1: Content of a.txt.Content of a.txt.Content of a.txt.Content of a.txt.Content of a.txt.Content of a.txt.Content of a.txt.Content of a.txt.Content of a.txt.Content of a.txt.
+            |2: Content of a.txt.
+            |3: Content of a.txt.
+            |4: Content of a.txt.
+            |5: Content of a.txt.
+            |6: Content of a.txt.
+            |7: Content of a.txt.
+            |8: Content of a.txt.
+            |9: Content of a.txt.
+            |10: Content of a.txt.
+            |11: Content of a.txt.
+            |12: Content of a.txt.
+            |13: Content of a.txt.
+            |14: Content of a.txt.
+            |15: Content of a.txt.
             |
             |-----------------------------9051914041544843365972754266
             |Content-Disposition: form-data; name="file2"; filename="a.html"
@@ -84,13 +93,11 @@ object ContentDecoderSpec extends DefaultRunnableSpec with HttpMessageAssertions
         } yield assert(
           y.flatten
             .filter(_ != Part.Empty)
-            .map(part =>
-              part match {
-                case Part.FileData(content, _) => new String(content.toArray, HTTP_CHARSET).mkString("")
-                case Part.Attribute(_, value)  => value.get
-                case Part.Empty                => ???
-              },
-            ),
+            .map {
+              case Part.FileData(content, _) => new String(content.toArray, HTTP_CHARSET).mkString("")
+              case Part.Attribute(_, value)  => value.get
+              case Part.Empty                => ???
+            },
         )(equalTo(List()))
 
       }

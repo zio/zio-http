@@ -32,7 +32,8 @@ object HelloWorld extends App {
               ZStream
                 .fromQueue(content)
                 .takeUntil(_.isLast)
-                .map(a => Part.fromHTTPData(a.raw))
+                .map(_.raw)
+                .filter(_ != Part.Empty)
                 .map {
                   case Part.FileData(content, _) => content
                   case Part.Attribute(_, _)      => ???
