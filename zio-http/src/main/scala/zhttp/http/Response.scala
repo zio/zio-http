@@ -5,7 +5,6 @@ import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
 
 import java.io.{PrintWriter, StringWriter}
-import java.time.Instant
 
 case class Response[-R, +E] private (
   status: Status,
@@ -15,46 +14,15 @@ case class Response[-R, +E] private (
 ) extends HeadersHelpers { self =>
 
   /**
-   * add cookies in response headers
+   * Adds cookies in the response headers
    */
   def addCookie(cookie: Cookie): Response[R, E] =
-    self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.asString)))
+    self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
 
   /**
-   * get cookies from response
+   * Gets cookies from the response headers
    */
-  def getCookies: List[Cookie] = getHeaderValues(HttpHeaderNames.SET_COOKIE).flatMap(Cookie.parse(_) match {
-    case Left(_)      => Nil
-    case Right(value) => List(value)
-  })
-
-  /**
-   * set empty cookie in response headers
-   */
-  def setEmptyCookie(cookie: Cookie): Response[R, E] =
-    self.copy(headers =
-      self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.clearCookie.asString)),
-    )
-
-  /**
-   * set empty cookie in response headers
-   */
-  def setEmptyCookie(cookie: String): Response[R, E] =
-    self.copy(headers =
-      self.headers ++ List(
-        Header.custom(
-          HttpHeaderNames.SET_COOKIE.toString,
-          Cookie(cookie, content = "", expires = Some(Instant.ofEpochSecond(0))).asString,
-        ),
-      ),
-    )
-
-  /**
-   * remove cookie from response headers
-   */
-  def removeCookie(cookie: Cookie): Response[R, E] =
-    self.copy(headers = getFilterNotHeaderValues(HttpHeaderNames.SET_COOKIE, cookie.asString))
-
+  def cookies: List[Cookie] = getCookieFromHeader(HttpHeaderNames.SET_COOKIE)
 }
 
 object Response {

@@ -18,13 +18,10 @@ object CookieServerSide extends App {
       Response.ok.addCookie(cookie @@ path(!! / "cookie") @@ httpOnly)
 
     case Method.GET -> !! / "secure-cookie" =>
-      Response.ok.addCookie(cookie @@ secure @@ path(!! / "cookie"))
-
-    case Method.GET -> !! / "cookie" / "set-empty" =>
-      Response.ok.setEmptyCookie("key")
+      Response.ok.addCookie(cookie @@ secure @@ path(!! / "secure-cookie"))
 
     case Method.GET -> !! / "cookie" / "remove" =>
-      res.removeCookie(cookie @@ secure @@ path(!! / "cookie"))
+      res.addCookie(cookie.clear)
   }
 
   // Run it like any simple app

@@ -23,12 +23,9 @@ trait Request extends HeadersHelpers { self =>
   def removeHeader(name: CharSequence): Request = self.copy(headers = self.headers.filter(_.name != name))
 
   /**
-   * get cookies from request
+   * Get cookies from request
    */
-  def getCookies: List[Cookie] = getHeaderValues(HttpHeaderNames.COOKIE).flatMap(Cookie.parse(_) match {
-    case Left(_)      => Nil
-    case Right(value) => List(value)
-  })
+  def cookies: List[Cookie] = getCookieFromHeader(HttpHeaderNames.COOKIE)
 
   def copy(method: Method = self.method, url: URL = self.url, headers: List[Header] = self.headers): Request = {
     val m = method

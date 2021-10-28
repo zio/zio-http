@@ -23,95 +23,95 @@ final case class Cookie(
   def @@(update: Cookie.Update): Cookie = update.f(self)
 
   /**
-   * Clears the cookie with empty content
+   * Creates a new cookie that can be used to clear the original cookie on the client.
    */
-  def clearCookie: Cookie =
+  def clear: Cookie =
     copy(content = "", expires = Some(Instant.ofEpochSecond(0)))
 
   /**
-   * Set content in cookie
+   * Sets content in cookie
    */
-  def setContent(v: String): Cookie = copy(content = v)
+  def withContent(v: String): Cookie = copy(content = v)
 
   /**
-   * Set expiry in cookie
+   * Sets expiry in cookie
    */
-  def setExpiry(v: Instant): Cookie = copy(expires = Some(v))
+  def withExpiry(v: Instant): Cookie = copy(expires = Some(v))
 
   /**
-   * Set max-age in cookie
+   * Sets max-age in cookie
    */
-  def setMaxAge(v: Duration): Cookie = copy(maxAge = Some(v.asScala.toSeconds))
+  def withMaxAge(v: Duration): Cookie = copy(maxAge = Some(v.asScala.toSeconds))
 
   /**
-   * Set max-age in seconds in cookie
+   * Sets max-age in seconds in cookie
    */
-  def setMaxAge(v: Long): Cookie = copy(maxAge = Some(v))
+  def withMaxAge(v: Long): Cookie = copy(maxAge = Some(v))
 
   /**
-   * Set domain in cookie
+   * Sets domain in cookie
    */
-  def setDomain(v: String): Cookie = copy(domain = Some(v))
+  def withDomain(v: String): Cookie = copy(domain = Some(v))
 
   /**
-   * Set path in cookie
+   * Sets path in cookie
    */
-  def setPath(v: Path): Cookie = copy(path = Some(v))
+  def withPath(v: Path): Cookie = copy(path = Some(v))
 
   /**
-   * Set secure in cookie
+   * Sets secure in cookie
    */
   def withSecure: Cookie = copy(isSecure = true)
 
   /**
-   * Set httpOnly in cookie
+   * Sets httpOnly in cookie
    */
   def withHttpOnly: Cookie = copy(isHttpOnly = true)
 
   /**
-   * Set same-site in cookie
+   * Sets same-site in cookie
    */
-  def setSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
+  def withSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
 
   /**
-   * Reset secure in cookie
+   * Resets secure flag in the cookie
    */
-  def resetSecure: Cookie = copy(isSecure = false)
+  def withoutSecure: Cookie = copy(isSecure = false)
 
   /**
-   * Reset httpOnly in cookie
+   * Resets httpOnly flag in the cookie
    */
-  def resetHttpOnly: Cookie = copy(isHttpOnly = false)
+  def withoutHttpOnly: Cookie = copy(isHttpOnly = false)
 
   /**
-   * Remove expires in cookie
+   * Removes expiry from the cookie
    */
-  def removeExpiry: Cookie = copy(expires = None)
+  def withoutExpiry: Cookie = copy(expires = None)
 
   /**
-   * Remove domain in cookie
+   * Removes domain from the cookie
    */
-  def removeDomain: Cookie = copy(domain = None)
+  def withoutDomain: Cookie = copy(domain = None)
 
   /**
-   * Remove path in cookie
+   * Removes path from the cookie
    */
-  def removePath: Cookie = copy(path = None)
+  def withoutPath: Cookie = copy(path = None)
 
   /**
-   * Remove max-age in cookie
+   * Removes max-age from the cookie
    */
-  def removeMaxAge: Cookie = copy(maxAge = None)
+  def withoutMaxAge: Cookie = copy(maxAge = None)
 
   /**
-   * Remove same-site in cookie
+   * Removes same-site from the cookie
    */
-  def removeSameSite: Cookie = copy(sameSite = None)
+  def withoutSameSite: Cookie = copy(sameSite = None)
 
   /**
-   * Cookie header to String
+   * Converts cookie into a string
    */
-  def asString: String = {
+  def encode: String = {
     val cookie = List(
       Some(s"$name=$content"),
       expires.map(e => s"Expires=$e"),
@@ -140,9 +140,9 @@ object Cookie {
   case class Update(f: Cookie => Cookie)
 
   /**
-   * Parse cookie
+   * Decodes a string into a cookie
    */
-  private[zhttp] def parse(headerValue: String): Either[Throwable, Cookie] = {
+  def decode(headerValue: String): Either[Throwable, Cookie] = {
     def splitNameContent(kv: String): (String, Option[String]) =
       kv.split("=", 2).map(_.trim) match {
         case Array(v1)     => (v1, None)
@@ -161,22 +161,22 @@ object Cookie {
       case ("expires", Some(v))  =>
         parseDate(v) match {
           case Left(_)      => cookie = Left(new IllegalArgumentException("expiry date cannot be parsed"))
-          case Right(value) => cookie = cookie.map(_ @@ expiry(value))
+          case Right(value) => cookie = cookie.map(_.withExpiry(value))
         }
       case ("max-age", Some(v))  =>
         Try(v.toLong) match {
-          case Success(age) => cookie = cookie.map(x => x.setMaxAge(age))
+          case Success(age) => cookie = cookie.map(x => x.withMaxAge(age))
           case Failure(_)   => cookie = Left(new IllegalArgumentException("max-age cannot be parsed"))
         }
-      case ("domain", v)         => cookie = cookie.map(_.setDomain(v.getOrElse("")))
-      case ("path", v)           => cookie = cookie.map(_.setPath(Path(v.getOrElse(""))))
+      case ("domain", v)         => cookie = cookie.map(_.withDomain(v.getOrElse("")))
+      case ("path", v)           => cookie = cookie.map(_.withPath(Path(v.getOrElse(""))))
       case ("secure", _)         => cookie = cookie.map(_.withSecure)
       case ("httponly", _)       => cookie = cookie.map(_.withHttpOnly)
       case ("samesite", Some(v)) =>
         v.trim.toLowerCase match {
-          case "lax"    => cookie = cookie.map(_.setSameSite(SameSite.Lax))
-          case "strict" => cookie = cookie.map(_.setSameSite(SameSite.Strict))
-          case "none"   => cookie = cookie.map(_.setSameSite(SameSite.None))
+          case "lax"    => cookie = cookie.map(_.withSameSite(SameSite.Lax))
+          case "strict" => cookie = cookie.map(_.withSameSite(SameSite.Strict))
+          case "none"   => cookie = cookie.map(_.withSameSite(SameSite.None))
           case _        => None
         }
       case (_, _)                => cookie
@@ -191,37 +191,37 @@ object Cookie {
     }
 
   /**
-   * To update maxAge in cookie
+   * Updates maxAge in cookie
    */
-  def maxAge(maxAge: Duration): Update = Update(_.setMaxAge(maxAge))
+  def maxAge(maxAge: Duration): Update = Update(_.withMaxAge(maxAge))
 
   /**
-   * To update domain in cookie
+   * Updates domain in cookie
    */
-  def domain(domain: String): Update = Update(_.setDomain(domain))
+  def domain(domain: String): Update = Update(_.withDomain(domain))
 
   /**
-   * To update expiry in cookie
+   * Updates expiry in cookie
    */
-  def expiry(expires: Instant): Update = Update(_.setExpiry(expires))
+  def expiry(expires: Instant): Update = Update(_.withExpiry(expires))
 
   /**
-   * To update path in cookie
+   * Updates path in cookie
    */
-  def path(path: Path): Update = Update(_.setPath(path))
+  def path(path: Path): Update = Update(_.withPath(path))
 
   /**
-   * To update secure in cookie
+   * Updates secure in cookie
    */
   def secure: Update = Update(_.withSecure)
 
   /**
-   * To update httpOnly in cookie
+   * Updates httpOnly in cookie
    */
   def httpOnly: Update = Update(_.withHttpOnly)
 
   /**
-   * To update sameSite in cookie
+   * Updates sameSite in cookie
    */
-  def sameSite(sameSite: SameSite): Update = Update(_.setSameSite(sameSite))
+  def sameSite(sameSite: SameSite): Update = Update(_.withSameSite(sameSite))
 }

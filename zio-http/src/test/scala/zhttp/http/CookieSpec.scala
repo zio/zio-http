@@ -9,9 +9,9 @@ object CookieSpec extends DefaultRunnableSpec {
     suite("encode/decode cookies")(
       testM("encode/decode cookies with ZIO Test Gen") {
         checkAll(HttpGen.cookies) { cookie =>
-          val cookieString = cookie.asString
-          assert(Cookie.parse(cookieString))(isRight(equalTo(cookie))) &&
-          assert(Cookie.parse(cookieString).map(_.asString))(isRight(equalTo(cookieString)))
+          val cookieString = cookie.encode
+          assert(Cookie.decode(cookieString))(isRight(equalTo(cookie))) &&
+          assert(Cookie.decode(cookieString).map(_.encode))(isRight(equalTo(cookieString)))
         }
       },
     ),
