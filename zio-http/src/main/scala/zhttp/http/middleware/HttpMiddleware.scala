@@ -2,7 +2,11 @@ package zhttp.http.middleware
 
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware.RequestP
+import zio.clock.Clock
+import zio.console.Console
 import zio.{UIO, ZIO}
+
+import java.io.IOException
 
 /**
  * Middlewares for HttpApp.
@@ -37,6 +41,7 @@ sealed trait HttpMiddleware[-R, +E] { self =>
 
   def orElse[R1 <: R, E1](other: HttpMiddleware[R1, E1]): HttpMiddleware[R1, E1] =
     HttpMiddleware.OrElse(self, other)
+
 }
 
 object HttpMiddleware {
@@ -110,6 +115,20 @@ object HttpMiddleware {
    */
   def fromMiddlewareFunction[R, E](f: RequestP[HttpMiddleware[R, E]]): HttpMiddleware[R, E] =
     fromMiddlewareFunctionM((method, url, headers) => UIO(f(method, url, headers)))
+
+  /**
+   * Add log status, method, url and time taken from req to res
+   */
+  def debug: HttpMiddleware[Console with Clock, IOException] =
+    HttpMiddleware.makeM((method, url, _) => zio.clock.nanoTime.map(start => (method, url, start))) {
+      case (status, _, (method, url, start)) =>
+        for {
+          end <- zio.clock.nanoTime
+          _   <- zio.console
+            .putStrLn(s"${status.asJava.code()} ${method} ${url.asString} ${(end - start) / 1000}ms")
+            .mapError(Option(_))
+        } yield Patch.empty
+    }
 
   private[zhttp] def transform[R, E](mid: HttpMiddleware[R, E], app: HttpApp[R, E]): HttpApp[R, E] =
     mid match {
