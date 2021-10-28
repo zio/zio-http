@@ -18,9 +18,12 @@ object Part {
           res
 
         case upload: multipart.FileUpload =>
-          val b     = upload.content()
-          val count = b.readableBytes()
-          Part.FileData(Chunk.fromArray(ByteBufUtil.getBytes(b.readBytes(count))), Option(upload.getFilename))
+          val b         = upload.content()
+          val count     = b.readableBytes()
+          val readBytes = b.readBytes(count)
+          val res       = Part.FileData(Chunk.fromArray(ByteBufUtil.getBytes(readBytes)), Option(upload.getFilename))
+          readBytes.release()
+          res
         case _                            => Part.Empty
       }
     case _                        => Part.Empty

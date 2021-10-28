@@ -2,8 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.multipart.{HttpPostRequestDecoder, InterfaceHttpData}
-import io.netty.util.ReferenceCountUtil
+import io.netty.handler.codec.http.multipart.{DefaultHttpDataFactory, HttpPostRequestDecoder}
 import zhttp.experiment.{HttpMessage, Part}
 import zio._
 
@@ -30,6 +29,7 @@ object ContentDecoder {
   trait PostBodyDecoder[+E, -A, +B] {
     def offer(a: A): IO[E, Unit]
     def poll: IO[E, List[B]]
+    def destroy: IO[E, Unit]
   }
   def toJRequest(req: Request): HttpRequest = new DefaultHttpRequest(
     HttpVersion.HTTP_1_1,
@@ -40,17 +40,20 @@ object ContentDecoder {
 
   def multipartDecoder(req: Request): Task[PostBodyDecoder[Throwable, HttpContent, Part]] =
     Task(new PostBodyDecoder[Throwable, HttpContent, Part] {
-      private val decoder                                     = new HttpPostRequestDecoder(toJRequest(req)) //
-      override def offer(a: HttpContent): IO[Throwable, Unit] =
-        Task(decoder.offer(a): Unit) andThen Task(ReferenceCountUtil.release(a): Unit)
-      override def poll: IO[Throwable, List[Part]]            = Task {
-        var datas: List[InterfaceHttpData] = List.empty
-        while (decoder.hasNext) {
-          datas = datas :+ decoder.next
-        }
-        datas = datas :+ decoder.currentPartialHttpData()
-        datas.map(Part.fromHTTPData)
+      private val decoder = new HttpPostRequestDecoder(new DefaultHttpDataFactory(false), toJRequest(req)) //
+      override def offer(a: HttpContent): IO[Throwable, Unit] = {
+        Task(decoder.offer(a): Unit) <* Task(a.release(): Unit)
       }
+      override def poll: IO[Throwable, List[Part]] = Task {
+        var datas: List[Part] = List.empty
+        while (decoder.hasNext) {
+          datas = datas :+ Part.fromHTTPData(decoder.next)
+        }
+        if (decoder.currentPartialHttpData() != null)
+          datas = datas :+ Part.fromHTTPData(decoder.currentPartialHttpData())
+        datas
+      }
+      override def destroy: Task[Unit]             = UIO(decoder.destroy())
     })
 
   def testDecoder: ZIO[Any, Nothing, PostBodyDecoder[Throwable, HttpContent, Int]] = {
@@ -59,6 +62,7 @@ object ContentDecoder {
     } yield new PostBodyDecoder[Nothing, HttpContent, Int] {
       override def offer(a: HttpContent): UIO[Unit] = q.offer(a).unit
       override def poll: UIO[List[Int]]             = q.map(x => Chunk.fromArray(x.content().array()).length).takeAll
+      override def destroy: UIO[Unit]               = UIO(())
     }
   }
   def multipart[E, A, B](
@@ -80,7 +84,17 @@ object ContentDecoder {
         } yield (
           if (state.isFirst) Option(q) else None,
           state.withAcc((multipart, q)).withFirst(false),
-        ))
+        )) <*
+          UIO(
+            if (msg.isLast)
+              state.acc match {
+                case Some(value) => {
+                  value._1.destroy
+                }
+                case None        => ZIO.unit
+              }
+            else ZIO.unit,
+          )
       }
 
   def collect[S, A]: PartiallyAppliedCollect[S, A] = new PartiallyAppliedCollect(())
