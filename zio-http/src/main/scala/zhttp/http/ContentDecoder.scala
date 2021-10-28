@@ -67,9 +67,7 @@ object ContentDecoder {
   }
   def multipart[E, A, B](
     decoder: IO[E, PostBodyDecoder[E, A, B]],
-  ): Step[Any, E, BackPressure[(PostBodyDecoder[E, A, B], Queue[HttpMessage[B]])], HttpMessage[A], Queue[
-    HttpMessage[B],
-  ]]                                                                                      =
+  ): ContentDecoder[Any, E, HttpMessage[A], Queue[HttpMessage[B]]]                        =
     ContentDecoder
       .collect(BackPressure[(PostBodyDecoder[E, A, B], Queue[HttpMessage[B]])]()) { case (msg, state, _) =>
         (for {
@@ -100,7 +98,7 @@ object ContentDecoder {
   def collect[S, A]: PartiallyAppliedCollect[S, A] = new PartiallyAppliedCollect(())
 
   final class PartiallyAppliedCollect[S, A](val unit: Unit) extends AnyVal {
-    def apply[R, E, B](s: S)(f: (A, S, Boolean) => ZIO[R, E, (Option[B], S)]): Step[R, E, S, A, B] = Step(s, f)
+    def apply[R, E, B](s: S)(f: (A, S, Boolean) => ZIO[R, E, (Option[B], S)]): ContentDecoder[R, E, A, B] = Step(s, f)
   }
 
   def collectAll[A]: ContentDecoder[Any, Nothing, A, Chunk[A]] = ContentDecoder.collect[Chunk[A], A](Chunk.empty) {
