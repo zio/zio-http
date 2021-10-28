@@ -9,9 +9,9 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
     ContentDecoder.decode(self.asInstanceOf[ContentDecoder[R, Throwable, Chunk[Byte], B]], data)
 
   def foldM[R1 <: R, A1 <: A, E1, B1](
-                                       ee: E => ContentDecoder[R1, E1, A1, B1],
-                                       bb: B => ContentDecoder[R1, E1, A1, B1],
-                                     ): ContentDecoder[R1, E1, A1, B1] = ContentDecoder.FoldM(self, ee, bb)
+    ee: E => ContentDecoder[R1, E1, A1, B1],
+    bb: B => ContentDecoder[R1, E1, A1, B1],
+  ): ContentDecoder[R1, E1, A1, B1] = ContentDecoder.FoldM(self, ee, bb)
   def flatMap[R1 <: R, E1 >: E, A1 <: A, C1](f: B => ContentDecoder[R1, E1, A1, C1]): ContentDecoder[R1, E1, A1, C1] = {
     self.foldM(ContentDecoder.fail, f)
   }
@@ -58,23 +58,26 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
   final private[zhttp] def evaluate: DExit[R, E, A, B] = {
     self match {
 
-      case ContentDecoder.Identity => DExit.Collect((a:A)=>a.asInstanceOf[B])
-      case ContentDecoder.Succeed(b) => DExit.Collect((_:A)=>b)
+      case ContentDecoder.Identity   => DExit.Collect((a: A) => a.asInstanceOf[B])
+      case ContentDecoder.Succeed(b) => DExit.Collect((_: A) => b)
       case ContentDecoder.Fail(e) => DExit.Step(Array.emptyByteArray, (a: A, s: Array[Byte], _: Boolean) => ZIO.fail(e))
-      case ContentDecoder.FromEffectFunction(f) => DExit.Step(Array.emptyByteArray, (a: A, s: Array[Byte], _: Boolean) => f(a).map(Some(_)).map((_, s)))
-      case ContentDecoder.Step(state, next) => DExit.Step(state, next)
-      case ContentDecoder.Collect(pf)               =>DExit.Collect(pf)
+      case ContentDecoder.FromEffectFunction(f) =>
+        DExit.Step(Array.emptyByteArray, (a: A, s: Array[Byte], _: Boolean) => f(a).map(Some(_)).map((_, s)))
+      case ContentDecoder.Step(state, next)     => DExit.Step(state, next)
+      case ContentDecoder.Collect(pf)           => DExit.Collect(pf)
 
-      case ContentDecoder.Chain(self, other) => self.evaluate match {
-        case DExit.Text => ???
-        case DExit.Collect(f) => ???
-        case DExit.Step(state, next) => ???
-      }
-      case ContentDecoder.FoldM(self, ee, bb) => self.evaluate match {
-        case DExit.Text => ???
-        case DExit.Collect(f) => ???
-        case DExit.Step(state, next) => ???
-      }
+      case ContentDecoder.Chain(self, other)  =>
+        self.evaluate match {
+          case DExit.Text              => ???
+          case DExit.Collect(f)        => ???
+          case DExit.Step(state, next) => ???
+        }
+      case ContentDecoder.FoldM(self, ee, bb) =>
+        self.evaluate match {
+          case DExit.Text              => ???
+          case DExit.Collect(f)        => ???
+          case DExit.Step(state, next) => ???
+        }
 
     }
 
@@ -85,13 +88,13 @@ object ContentDecoder {
 
   sealed trait DExit[-R, +E, -A, +B]
   object DExit {
-    case object Text extends DExit[Any, Nothing, Any, String]
-    case class Collect[A,B](f: PartialFunction[A,B])                                                 extends DExit[Any, Nothing, A, B]
-    case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])  extends DExit[R, E, A, B]
+    case object Text                                   extends DExit[Any, Nothing, Any, String]
+    case class Collect[A, B](f: PartialFunction[A, B]) extends DExit[Any, Nothing, A, B]
+    case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])
+        extends DExit[R, E, A, B]
   }
 
-
-  case object Text extends ContentDecoder[Any, Nothing, Any, String]
+  case object Text                          extends ContentDecoder[Any, Nothing, Any, String]
   case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])
       extends ContentDecoder[R, E, A, B]
   private case object Identity              extends ContentDecoder[Any, Nothing, Any, Nothing]
@@ -100,12 +103,12 @@ object ContentDecoder {
   private final case class Collect[R, E, A, B](ab: PartialFunction[A, B])       extends ContentDecoder[R, E, A, B]
   private final case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B]) extends ContentDecoder[R, E, A, B]
   private final case class Chain[R, E, A, B, C](self: ContentDecoder[R, E, A, B], other: ContentDecoder[R, E, B, C])
-    extends ContentDecoder[R, E, A, C]
+      extends ContentDecoder[R, E, A, C]
   private final case class FoldM[R, E, EE, A, B, BB](
-                                                      self: ContentDecoder[R, E, A, B],
-                                                      ee: E => ContentDecoder[R, EE, A, BB],
-                                                      bb: B => ContentDecoder[R, EE, A, BB],
-                                                    ) extends ContentDecoder[R, EE, A, BB]
+    self: ContentDecoder[R, E, A, B],
+    ee: E => ContentDecoder[R, EE, A, BB],
+    bb: B => ContentDecoder[R, EE, A, BB],
+  )                                                                             extends ContentDecoder[R, EE, A, BB]
 
   def fail[E](e: E): ContentDecoder[Any, E, Any, Nothing] = ContentDecoder.Fail(e)
 
