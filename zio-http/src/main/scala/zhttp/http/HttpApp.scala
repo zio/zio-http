@@ -99,6 +99,12 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
    * Attaches the provided middleware to the HttpApp
    */
   def @@[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = self.middleware(mid)
+
+  /**
+   * Performs a race between two apps
+   */
+  def race[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
+    HttpApp(self.asHttp race other.asHttp)
 }
 
 object HttpApp {

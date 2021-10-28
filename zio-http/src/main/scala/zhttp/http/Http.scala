@@ -308,6 +308,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Delays consumption of input A for the specified duration of time
    */
   def delayBefore(duration: Duration): Http[R with Clock, E, A, B] = self.contramapM(a => UIO(a).delay(duration))
+
+  /**
+   * Performs a race between two apps
+   */
+  def race[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    Http.fromPartialFunction(a => self(a) raceFirst other(a))
 }
 
 object Http {
