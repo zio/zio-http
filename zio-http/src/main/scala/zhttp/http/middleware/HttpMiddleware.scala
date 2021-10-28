@@ -15,10 +15,13 @@ sealed trait HttpMiddleware[-R, +E] { self =>
   def combine[R1 <: R, E1 >: E](other: HttpMiddleware[R1, E1]): HttpMiddleware[R1, E1] =
     HttpMiddleware.Combine(self, other)
 
-  def when(f: (Method, URL, List[Header]) => Boolean): HttpMiddleware[R, E] = HttpMiddleware.When(f, self)
+  def fromFunction[R1 <: R, E1 >: E](f: (Method, URL, List[Header]) => HttpMiddleware[R1, E1]): HttpMiddleware[R1, E1] =
+    HttpMiddleware.FromFunction(f)
 
-  def whenM[R1 <: R, E1 >: E](f: (Method, URL, List[Header]) => ZIO[R1, Option[E1], Boolean]): HttpMiddleware[R1, E1] =
-    HttpMiddleware.WhenM(f, self)
+  def fromFunctionM[R1 <: R, E1 >: E](
+    f: (Method, URL, List[Header]) => ZIO[R1, Option[E1], HttpMiddleware[R1, E1]],
+  ): HttpMiddleware[R1, E1] =
+    HttpMiddleware.FromFunctionM(f)
 }
 
 object HttpMiddleware {
@@ -32,9 +35,8 @@ object HttpMiddleware {
 
   case class Combine[R, E](self: HttpMiddleware[R, E], other: HttpMiddleware[R, E]) extends HttpMiddleware[R, E]
 
-  case class When[R, E](f: (Method, URL, List[Header]) => Boolean, mid: HttpMiddleware[R, E])
-      extends HttpMiddleware[R, E]
-  case class WhenM[R, E](f: (Method, URL, List[Header]) => ZIO[R, Option[E], Boolean], mid: HttpMiddleware[R, E])
+  case class FromFunction[R, E](f: (Method, URL, List[Header]) => HttpMiddleware[R, E]) extends HttpMiddleware[R, E]
+  case class FromFunctionM[R, E](f: (Method, URL, List[Header]) => ZIO[R, Option[E], HttpMiddleware[R, E]])
       extends HttpMiddleware[R, E]
 
   /**
@@ -65,19 +67,33 @@ object HttpMiddleware {
           } yield patch(res)
         }
       case Combine(self, other)   => other(self(app))
-      case When(f, self)          =>
+      case FromFunction(f)        =>
         HttpApp.fromFunction { req =>
-          if (f(req.method, req.url, req.headers)) self(app) else app
+          f(req.method, req.url, req.headers)(app)
         }
-      case WhenM(f, self)         =>
+      case FromFunctionM(f)       =>
         HttpApp.fromPartialFunction { req =>
           for {
-            b   <- f(req.method, req.url, req.headers)
-            res <- if (b) self(app)(req) else app(req)
+            output <- f(req.method, req.url, req.headers)
+            res    <- output(app)(req)
           } yield res
         }
 
+      case Race(effect, self) =>
+        HttpApp.fromPartialFunction { req =>
+          for {
+            output <- effect
+            res    <- output(req).raceFirst(self(app)(req))
+          } yield res
+        }
+
+      case Constant(self) => self
     }
+
+  final case class Race[R, E](effect: ZIO[R, Option[E], HttpApp[R, E]], middleware: HttpMiddleware[R, E])
+      extends HttpMiddleware[R, E]
+
+  final case class Constant[R, E](app: HttpApp[R, E]) extends HttpMiddleware[R, E]
 
   final case class PartiallyAppliedMake[S](req: (Method, URL, List[Header]) => S) extends AnyVal {
     def apply(res: (Status, List[Header], S) => Patch): HttpMiddleware[Any, Nothing] =
