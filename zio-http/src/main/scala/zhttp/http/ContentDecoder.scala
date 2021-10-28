@@ -6,6 +6,18 @@ import zio.{Chunk, Queue, Task, UIO, ZIO}
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
   def decode(data: HttpData[Any, Throwable])(implicit ev: Chunk[Byte] <:< A): ZIO[R, Throwable, B] =
     ContentDecoder.decode(self.asInstanceOf[ContentDecoder[R, Throwable, Chunk[Byte], B]], data)
+
+  def foldM[R1 <: R, A1 <: A, E1, B1](
+                                       ee: E => ContentDecoder[R1, E1, A1, B1],
+                                       bb: B => ContentDecoder[R1, E1, A1, B1],
+                                     ): ContentDecoder[R1, E1, A1, B1] = ContentDecoder.FoldM(self, ee, bb)
+  def flatMap[R1 <: R, E1 >: E, A1 <: A, C1](f: B => ContentDecoder[R1, E1, A1, C1]): ContentDecoder[R1, E1, A1, C1] = {
+    self.foldM(ContentDecoder.fail, f)
+  }
+  def andThen[R1 <: R, E1 >: E, B1 >: B, C](other: ContentDecoder[R1, E1, B1, C]): ContentDecoder[R1, E1, A, C] =
+    ContentDecoder.Chain(self, other)
+  def map[C](bc: B => C): ContentDecoder[R, E, A, C] = self.flatMap(b => ContentDecoder.succeed(bc(b)))
+
 }
 
 object ContentDecoder {
@@ -18,9 +30,32 @@ object ContentDecoder {
 
 
   case object Text extends ContentDecoder[Any, Nothing, Any, String]
-
   case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])
       extends ContentDecoder[R, E, A, B]
+  private case object Identity              extends ContentDecoder[Any, Nothing, Any, Nothing]
+  private final case class Succeed[B](b: B) extends ContentDecoder[Any, Nothing, Any, B]
+  private final case class Fail[E](e: E)    extends ContentDecoder[Any, E, Any, Nothing]
+  private final case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B]) extends ContentDecoder[R, E, A, B]
+  private final case class Collect[R, E, A, B](ab: PartialFunction[A, B])       extends ContentDecoder[R, E, A, B]
+
+  private final case class Chain[R, E, A, B, C](self: ContentDecoder[R, E, A, B], other: ContentDecoder[R, E, B, C])
+    extends ContentDecoder[R, E, A, C]
+  private final case class FoldM[R, E, EE, A, B, BB](
+                                                      self: ContentDecoder[R, E, A, B],
+                                                      ee: E => ContentDecoder[R, EE, A, BB],
+                                                      bb: B => ContentDecoder[R, EE, A, BB],
+                                                    ) extends ContentDecoder[R, EE, A, BB]
+
+  def fail[E](e: E): ContentDecoder[Any, E, Any, Nothing] = ContentDecoder.Fail(e)
+
+  def succeed[B](b: B): ContentDecoder[Any, Nothing, Any, B] = ContentDecoder.Succeed(b)
+
+  final class FromFunction[A](val unit: Unit) extends AnyVal {
+    def apply[B](f: A => B): ContentDecoder[Any, Nothing, A, B] = ContentDecoder.identity[A].map(f)
+  }
+  def identity[A]: ContentDecoder[Any, Nothing, A, A] = ContentDecoder.Identity
+
+  def fromFunction[A]: FromFunction[A] = new FromFunction[A](())
 
   private[zhttp] case class BackPressure[B](queue: Option[Queue[B]] = None, isFirst: Boolean = true) {
     self =>
