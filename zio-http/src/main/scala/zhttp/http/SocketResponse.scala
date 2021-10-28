@@ -1,28 +1,29 @@
 package zhttp.http
 
-import java.security.MessageDigest
-import java.util.Base64
-
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.socket.SocketApp
 
+import java.security.MessageDigest
+import java.util.Base64
+
 object SocketResponse {
 
-  def from[R, E](socketApp: SocketApp[R, E], req: Request): Response[R, E] = {
+  def from[R, E](headers: List[Header] = Nil, socketApp: SocketApp[R, E], req: Request): Response[R, E] = {
     val webSocketKey = req.getHeaderValue(HttpHeaderNames.SEC_WEBSOCKET_KEY) match {
       case Some(value) => value
       case None        => null
     }
+    println(webSocketKey)
     if (webSocketKey != null) {
       val wsHeader = secWebSocketAcceptHeader(webSocketKey)
       Response(
         status = Status.SWITCHING_PROTOCOLS,
-        headers = webSocketHeaders(wsHeader),
+        headers = headers ++ webSocketHeaders(wsHeader), //TODO: update headers not replace
         data = HttpData.empty,
         attribute = HttpAttribute.fromSocket(socketApp),
       )
     } else {
-      Response.fromHttpError(HttpError.BadRequest("missing WS Key Header"))
+      Response.fromHttpError(HttpError.Unauthorized("missing WS Key Header"))
     }
   }
 

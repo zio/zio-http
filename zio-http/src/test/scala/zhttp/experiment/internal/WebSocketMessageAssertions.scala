@@ -1,7 +1,5 @@
 package zhttp.experiment.internal
 
-import java.nio.charset.Charset
-
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.EventLoopGroup
@@ -10,6 +8,8 @@ import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
 import zio.test.{Assertion, TestResult, assertM}
 import zio.{Chunk, Promise, Task, ZIO}
+
+import java.nio.charset.Charset
 
 trait WebSocketMessageAssertions {
 
@@ -21,12 +21,17 @@ trait WebSocketMessageAssertions {
     def ===(assertion: Assertion[Any]): ZIO[R with EventLoopGroup, Throwable, TestResult] =
       assertM(execute(app)(_.request("/")))(assertion)
 
+    val wHeaders                                                         = List(
+      Header.custom(HttpHeaderNames.UPGRADE.toString(), "websocket"),
+      Header.custom(HttpHeaderNames.CONNECTION.toString(), "upgrade"),
+      Header.custom(HttpHeaderNames.SEC_WEBSOCKET_KEY.toString(), "key"),
+    )
     def getResponse: ZIO[R with EventLoopGroup, Throwable, HttpResponse] = getResponse()
 
     def getResponse(
       url: String = "/",
       method: HttpMethod = HttpMethod.GET,
-      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+      header: HttpHeaders = Header.disassemble(wHeaders),
       content: Iterable[String] = List("A", "B", "C", "D"),
     ): ZIO[R with EventLoopGroup, Throwable, HttpResponse] = for {
       proxy <- WebSocketAppClient.deploy(app)

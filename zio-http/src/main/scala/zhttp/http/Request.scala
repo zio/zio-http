@@ -1,9 +1,9 @@
 package zhttp.http
 
-import zio.{Chunk, ZIO}
-import java.net.InetAddress
-
 import io.netty.handler.codec.http.HttpHeaderNames
+import zio.{Chunk, ZIO}
+
+import java.net.InetAddress
 
 trait Request extends HeadersHelpers { self =>
   def method: Method

@@ -1,10 +1,10 @@
 package zhttp.socket
 
-import java.net.SocketAddress
-
 import zhttp.http.{Request, Response, SocketResponse}
 import zio._
 import zio.stream.ZStream
+
+import java.net.SocketAddress
 
 sealed trait SocketApp[-R, +E] { self =>
   import SocketApp._

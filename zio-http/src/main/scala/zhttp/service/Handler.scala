@@ -1,7 +1,5 @@
 package zhttp.service
 
-import java.net.{InetAddress, InetSocketAddress}
-
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.HttpResponseStatus._
@@ -13,6 +11,8 @@ import zhttp.http._
 import zhttp.socket.SocketApp
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
+
+import java.net.{InetAddress, InetSocketAddress}
 
 final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRuntime[R])
     extends ChannelInboundHandlerAdapter { ad =>
@@ -117,9 +117,9 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
             )
           }
 
-        case HExit.Success(a) =>
-          unsafeWriteAnyResponse(a)
-          a.data match {
+        case HExit.Success(b) =>
+          unsafeWriteAnyResponse(b)
+          b.data match {
             case HttpData.Empty =>
               unsafeWriteAndFlushLastEmptyContent()
 
@@ -136,7 +136,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
               unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
 
           }
-          a.attribute match {
+          b.attribute match {
             case HttpAttribute.Empty             => println("k")
             case HttpAttribute.Socket(socketApp) => handleHandshake(ctx, a.asInstanceOf[Request], socketApp): Unit
           }
