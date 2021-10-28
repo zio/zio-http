@@ -171,6 +171,6 @@ object HttpApp {
   /**
    * Creates a Http app from a partial function from Request to HttpApp
    */
-  def fromPartialFunction[R, E, A, B](f: Request => ZIO[R, Option[E], Response[R, E]]): HttpApp[R, E] =
+  def fromOptionFunction[R, E, A, B](f: Request => ZIO[R, Option[E], Response[R, E]]): HttpApp[R, E] =
     HttpApp(Http.fromPartialFunction(f))
 }

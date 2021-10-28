@@ -148,6 +148,10 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
             testM("effect") {
               val count = HttpApp.fromEffectFunction(_ => UIO(Response.ok)).getResponseCount()
               assertM(count)(equalTo(1))
+            } +
+            testM("effect option") {
+              val count = HttpApp.fromOptionFunction(_ => ZIO.fail(None)).getResponseCount()
+              assertM(count)(equalTo(1))
             }
         }
     }
