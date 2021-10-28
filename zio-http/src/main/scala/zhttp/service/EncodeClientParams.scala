@@ -11,7 +11,7 @@ trait EncodeClientParams {
   def encodeClientParams(jVersion: HttpVersion, req: Client.ClientParams): FullHttpRequest = {
     val method      = req.method.asHttpMethod
     val uri         = req.url.path match {
-      case Path.End => "/"
+      case Path.End => "/" + req.url.relative.asString
       case _        => req.url.relative.asString
     }
     val content     = req.getBodyAsString match {
