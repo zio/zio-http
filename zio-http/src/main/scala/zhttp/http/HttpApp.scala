@@ -4,6 +4,8 @@ import io.netty.channel._
 import zhttp.http.middleware.HttpMiddleware
 import zhttp.service.{Handler, HttpRuntime}
 import zio._
+import zio.clock.Clock
+import zio.duration.Duration
 
 case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =>
   def orElse[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
@@ -82,6 +84,16 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
    * Attaches the provided middleware to the HttpApp
    */
   def middleware[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = mid(self)
+
+  /**
+   * Delays the response by the provided duration
+   */
+  def delayAfter(duration: Duration): HttpApp[R with Clock, E] = HttpApp(asHttp.delayAfter(duration))
+
+  /**
+   * Delays the execution of the app by the provided duration
+   */
+  def delayBefore(duration: Duration): HttpApp[R with Clock, E] = HttpApp(asHttp.delayBefore(duration))
 
   /**
    * Attaches the provided middleware to the HttpApp
@@ -189,4 +201,9 @@ object HttpApp {
    */
   def fromOptionFunction[R, E, A, B](f: Request => ZIO[R, Option[E], Response[R, E]]): HttpApp[R, E] =
     HttpApp(Http.fromPartialFunction(f))
+
+  /**
+   * Creates an HttpApp which returns always returns the same status
+   */
+  def status(status: Status): HttpApp[Any, Nothing] = HttpApp(Http.succeed(Response.status(status)))
 }
