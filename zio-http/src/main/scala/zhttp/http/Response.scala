@@ -15,15 +15,33 @@ case class Response[-R, +E] private (
 ) extends HeadersHelpers { self =>
 
   /**
+   * Sets the status of the response
+   */
+  def setStatus(status: Status): Response[R, E] =
+    self.copy(status = status)
+
+  /**
    * Adds cookies in the response headers
    */
   def addCookie(cookie: Cookie): Response[R, E] =
     self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
 
   /**
+   * Removes headers by name from the response
+   */
+  def removeHeaders(headers: List[String]): Response[R, E] =
+    self.copy(headers = self.headers.filterNot(h => headers.contains(h.name)))
+
+  /**
    * Gets cookies from the response headers
    */
   def cookies: List[Cookie] = getCookieFromHeader(HttpHeaderNames.SET_COOKIE)
+
+  /**
+   * Adds headers to response
+   */
+  def addHeaders(headers: List[Header]): Response[R, E] =
+    self.copy(headers = self.headers ++ headers)
 }
 
 object Response {
