@@ -21,7 +21,7 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
 
   final private[zhttp] def toZIO(a: A, isLast: Boolean = true): ZIO[R, Option[E], B] = {
     self match {
-      case ContentDecoder.Text                 => ZIO.succeed(a.toString.asInstanceOf)
+      case ContentDecoder.Text                      => ZIO.succeed(a.toString.asInstanceOf)
       case step: ContentDecoder.Step[_, _, _, _, _] =>
         step
           .asInstanceOf[ContentDecoder.Step[R, E, Any, A, B]]
