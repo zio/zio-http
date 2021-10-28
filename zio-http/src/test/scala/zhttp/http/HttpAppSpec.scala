@@ -214,16 +214,6 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
           .map(chunk => new String(chunk.toArray))
         assertM(content)(equalTo("ABCD"))
       },
-//      testM("multipart") {
-//        val content = HttpApp
-//          .fromHttp(Http.collect[Request] { case _ => Ok })
-//          .getRequestContent(
-//            ContentDecoder.multipart(testDecoder).map(ZStream.fromQueue(_)),
-//            List("a", "ab", "abc", "abcd", "abcde", "abcdef"),
-//          )
-//          .flatMap(_.take(6).runCollect)
-//        assertM(content)(equalTo(Chunk(1, 2, 3, 4, 5, 6)))
-//      } @@ nonFlaky,
   )
 
   def RemoteAddressSpec = suite("RemoteAddressSpec") {
