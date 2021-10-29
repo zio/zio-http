@@ -12,7 +12,7 @@ case class Response[-R, +E] private (
   headers: List[Header],
   data: HttpData[R, E],
   private[zhttp] val attribute: HttpAttribute[R, E],
-) extends HeadersHelpers[Response[R, E]] { self =>
+) extends HeaderExtension[Response[R, E]] { self =>
 
   /**
    * Sets the status of the response

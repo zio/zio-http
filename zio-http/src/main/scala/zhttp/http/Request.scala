@@ -5,7 +5,7 @@ import zio.{Chunk, ZIO}
 
 import java.net.InetAddress
 
-trait Request extends HeadersHelpers[Request] { self =>
+trait Request extends HeaderExtension[Request] { self =>
   def isPreflight: Boolean = method == Method.OPTIONS
 
   def method: Method

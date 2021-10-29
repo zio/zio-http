@@ -144,7 +144,7 @@ object Client {
     headers: List[Header] = List.empty,
     content: HttpData[Any, Nothing] = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
-  ) extends HeadersHelpers[ClientParams] { self =>
+  ) extends HeaderExtension[ClientParams] { self =>
     val method: Method = endpoint._1
     val url: URL       = endpoint._2
 

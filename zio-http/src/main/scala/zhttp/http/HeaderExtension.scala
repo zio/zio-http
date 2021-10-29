@@ -5,12 +5,12 @@ import io.netty.handler.codec.base64.Base64
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues, HttpUtil}
 import io.netty.util.AsciiString.toLowerCase
 import io.netty.util.{AsciiString, CharsetUtil}
-import zhttp.http.HeadersHelpers.{BasicSchemeName, BearerSchemeName}
+import zhttp.http.HeaderExtension.{BasicSchemeName, BearerSchemeName}
 
 import java.nio.charset.Charset
 import scala.util.control.NonFatal
 
-private[zhttp] trait HeadersHelpers[+A] { self =>
+private[zhttp] trait HeaderExtension[+A] { self =>
   def headers: List[Header]
 
   def addHeaders(headers: List[Header]): A
@@ -136,7 +136,7 @@ private[zhttp] trait HeadersHelpers[+A] { self =>
     getHeaderValue(name).nonEmpty
 }
 
-object HeadersHelpers {
+object HeaderExtension {
   val BasicSchemeName  = "Basic"
   val BearerSchemeName = "Bearer"
 }
