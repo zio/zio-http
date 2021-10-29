@@ -2,8 +2,8 @@ package zhttp.service.server
 
 import io.netty.buffer.Unpooled
 import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
-import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import zhttp.http.{Response, Status}
 import zhttp.service.{HttpRuntime, WEB_SOCKET_HANDLER}
 import zhttp.socket.SocketApp
