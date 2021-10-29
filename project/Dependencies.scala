@@ -3,6 +3,7 @@ import sbt._
 object Dependencies {
   val JwtCoreVersion                = "9.0.1"
   val NettyVersion                  = "4.1.68.Final"
+  val NettyIncubatorVersion         = "0.0.9.Final"
   val ScalaCompactCollectionVersion = "2.5.0"
   val ZioVersion                    = "1.0.12"
 
@@ -13,4 +14,6 @@ object Dependencies {
   val `zio-streams`              = "dev.zio"                %% "zio-streams"             % ZioVersion
   val `zio-test`                 = "dev.zio"                %% "zio-test"                % ZioVersion % "test"
   val `zio-test-sbt`             = "dev.zio"                %% "zio-test-sbt"            % ZioVersion % "test"
+  val `netty-incubator`          =
+    "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % NettyIncubatorVersion classifier "linux-x86_64"
 }

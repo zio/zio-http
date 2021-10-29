@@ -83,7 +83,7 @@ object HExit {
     ee: E => HExit[R, EE, AA],
     aa: A => HExit[R, EE, AA],
     dd: HExit[R, EE, AA],
-  )                                                                  extends HExit[R, EE, AA]
+  ) extends HExit[R, EE, AA]
 
   // Help
   def succeed[A](a: A): HExit.Out[Any, Nothing, A] = Success(a)

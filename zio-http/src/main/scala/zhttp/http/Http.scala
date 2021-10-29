@@ -312,7 +312,7 @@ object Http {
     ee: E => Http[R, EE, A, BB],
     bb: B => Http[R, EE, A, BB],
     dd: Http[R, EE, A, BB],
-  )                                                                             extends Http[R, EE, A, BB]
+  ) extends Http[R, EE, A, BB]
 
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {

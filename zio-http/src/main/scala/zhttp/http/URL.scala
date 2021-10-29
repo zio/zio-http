@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
+import zhttp.http.URL.Fragment
 
 import java.net.URI
 import scala.jdk.CollectionConverters._
@@ -10,7 +11,8 @@ final case class URL(
   path: Path,
   kind: URL.Location = URL.Location.Relative,
   queryParams: Map[String, List[String]] = Map.empty,
-)          { self =>
+  fragment: Option[Fragment] = None,
+) { self =>
   val host: Option[String] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.host)
@@ -58,12 +60,12 @@ object URL {
       path   <- Option(uri.getRawPath)
       port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
       connection = URL.Location.Absolute(scheme, host, port)
-    } yield URL(Path(path), connection, queryParams(uri.getRawQuery))
+    } yield URL(Path(path), connection, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
   }
 
   private def fromRelativeURI(uri: URI): Option[URL] = for {
     path <- Option(uri.getRawPath)
-  } yield URL(Path(path), Location.Relative, queryParams(uri.getRawQuery))
+  } yield URL(Path(path), Location.Relative, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
 
   def fromString(string: String): Either[HttpError, URL] = {
     def invalidURL = Left(HttpError.BadRequest(s"Invalid URL: $string"))
@@ -82,8 +84,8 @@ object URL {
 
   def asString(url: URL): String = {
 
-    def path = {
-      val encoder = new QueryStringEncoder(url.path.asString)
+    def path: String = {
+      val encoder = new QueryStringEncoder(s"${url.path.asString}${url.fragment.fold("")(f => "#" + f.raw)}")
       url.queryParams.foreach { case (key, values) =>
         values.foreach { value => encoder.addParam(key, value) }
       }
@@ -96,6 +98,14 @@ object URL {
         if (port == 80 || port == 443) s"${scheme.asString}://$host$path"
         else s"${scheme.asString}://$host:$port$path"
     }
+  }
+
+  case class Fragment private (raw: String, decoded: String)
+  object Fragment {
+    def fromURI(uri: URI): Option[Fragment] = for {
+      raw     <- Option(uri.getRawFragment)
+      decoded <- Option(uri.getFragment)
+    } yield Fragment(raw, decoded)
   }
 
   def root: URL = URL(!!)

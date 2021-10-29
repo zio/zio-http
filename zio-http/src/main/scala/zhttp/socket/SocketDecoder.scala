@@ -8,8 +8,8 @@ import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig
 sealed trait SocketDecoder { self =>
   import SocketDecoder._
   def ++(other: SocketDecoder): SocketDecoder = SocketDecoder.Concat(self, other)
-  def javaConfig: WebSocketDecoderConfig = {
-    val b = WebSocketDecoderConfig.newBuilder()
+  def javaConfig: WebSocketDecoderConfig      = {
+    val b                                  = WebSocketDecoderConfig.newBuilder()
     def loop(decoder: SocketDecoder): Unit = {
       decoder match {
         case Default                       => ()

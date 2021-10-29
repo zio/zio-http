@@ -1,5 +1,6 @@
 package zhttp.http
 
+import zhttp.http.URL.Fragment
 import zio.test.Assertion._
 import zio.test._
 
@@ -27,6 +28,19 @@ object URLSpec extends DefaultRunnableSpec {
           ),
         )
       },
+    test("Should handle uri fragment") {
+      assert(
+        URL
+          .fromString(
+            "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21#the%20hash",
+          )
+          .map(_.fragment),
+      )(
+        isRight(
+          isSome(equalTo(Fragment("the%20hash", "the hash"))),
+        ),
+      )
+    },
   )
 
   val asStringSpec = {
@@ -47,6 +61,12 @@ object URLSpec extends DefaultRunnableSpec {
         test("absolute with query string") {
           roundtrip("http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21")
         },
+      test("absolute with fragment") {
+        roundtrip("http://yourdomain.com/list/users#the%20hash")
+      },
+      test("relative with fragment") {
+        roundtrip("/list/users#the%20hash")
+      },
     )
   }
 
