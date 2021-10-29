@@ -13,7 +13,7 @@ import java.io.IOException
  * Middlewares for HttpApp.
  */
 sealed trait HttpMiddleware[-R, +E] { self =>
-  def apply[R1 <: R, E1 >: E](app: HttpApp[R1, E1]): HttpApp[R1, E1] = HttpMiddleware.transform(self, app)
+  def apply[R1 <: R, E1 >: E](app: HttpApp[R1, E1]): HttpApp[R1, E1] = HttpMiddleware.execute(self, app)
 
   def ++[R1 <: R, E1 >: E](other: HttpMiddleware[R1, E1]): HttpMiddleware[R1, E1] =
     self combine other
@@ -33,7 +33,7 @@ sealed trait HttpMiddleware[-R, +E] { self =>
     }
 
   def when(f: RequestP[Boolean]): HttpMiddleware[R, E] =
-    modify((m, u, h) => if (f(m, u, h)) self else HttpMiddleware.empty)
+    modify((m, u, h) => if (f(m, u, h)) self else HttpMiddleware.identity)
 
   def <>[R1 <: R, E1](other: HttpMiddleware[R1, E1]): HttpMiddleware[R1, E1] =
     self orElse other
@@ -57,7 +57,7 @@ object HttpMiddleware {
 
   type RequestP[+A] = (Method, URL, List[Header]) => A
 
-  private final case object Empty extends HttpMiddleware[Any, Nothing]
+  private final case object Identity extends HttpMiddleware[Any, Nothing]
 
   private final case class TransformM[R, E, S](
     req: (Method, URL, List[Header]) => ZIO[R, Option[E], S],
@@ -94,7 +94,7 @@ object HttpMiddleware {
   /**
    * An empty middleware that doesn't do anything
    */
-  def empty: HttpMiddleware[Any, Nothing] = Empty
+  def identity: HttpMiddleware[Any, Nothing] = Identity
 
   /**
    * Creates a new middleware using transformation functions
@@ -140,19 +140,41 @@ object HttpMiddleware {
     }
 
   /**
-   * Runs the effect after the response is available
+   * Runs the effect after the response is produced
    */
-  def after[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
-    HttpMiddleware.makeM((_, _, _) => ZIO.unit) { (_, _, _) =>
-      effect.mapBoth(Option(_), _ => Patch.empty)
-    }
+  def runAfter[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
+    patchM((_, _) => effect.mapError(Option(_)).as(Patch.empty))
 
+  /**
+   * Runs the effect before the request is passed on to the HttpApp on which the middleware is applied.
+   */
+  def runBefore[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
+    HttpMiddleware.makeM((_, _, _) => effect.mapError(Option(_)).unit)((_, _, _) => UIO(Patch.empty))
+
+  /**
+   * Creates a middleware that produces a Patch for the Response effectfully.
+   */
+  def patchM[R, E](f: (Status, List[Header]) => ZIO[R, Option[E], Patch]): HttpMiddleware[R, E] =
+    HttpMiddleware.makeM((_, _, _) => ZIO.unit)((status, headers, _) => f(status, headers))
+
+  /**
+   * Creates a middleware that produces a Patch for the Response
+   */
+  def patch[R, E](f: (Status, List[Header]) => Patch): HttpMiddleware[R, E] =
+    HttpMiddleware.make((_, _, _) => ())((status, headers, _) => f(status, headers))
+
+  /**
+   * Times out the application with a 408 status code.
+   */
   def timeout(duration: Duration): HttpMiddleware[Clock, Nothing] =
-    HttpMiddleware.empty.race(HttpMiddleware.fromApp(HttpApp.status(Status.REQUEST_TIMEOUT).delayAfter(duration)))
+    HttpMiddleware.identity.race(HttpMiddleware.fromApp(HttpApp.status(Status.REQUEST_TIMEOUT).delayAfter(duration)))
 
-  private[zhttp] def transform[R, E](mid: HttpMiddleware[R, E], app: HttpApp[R, E]): HttpApp[R, E] =
+  /**
+   * Applies the middleware on an HttpApp
+   */
+  private[zhttp] def execute[R, E](mid: HttpMiddleware[R, E], app: HttpApp[R, E]): HttpApp[R, E] =
     mid match {
-      case Empty => app
+      case Identity => app
 
       case TransformM(reqF, resF) =>
         HttpApp.fromPartialFunction { req =>
@@ -165,10 +187,10 @@ object HttpMiddleware {
 
       case Combine(self, other) => other(self(app))
 
-      case FromFunctionM(f) =>
+      case FromFunctionM(reqF) =>
         HttpApp.fromPartialFunction { req =>
           for {
-            output <- f(req.method, req.url, req.headers)
+            output <- reqF(req.method, req.url, req.headers)
             res    <- output(app)(req)
           } yield res
         }

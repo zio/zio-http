@@ -7,7 +7,7 @@ import zio.duration._
 import zio.test.Assertion.equalTo
 import zio.test.environment.{TestClock, TestConsole}
 import zio.test.{DefaultRunnableSpec, assertM}
-import zio.{UIO, ZIO}
+import zio.{UIO, ZIO, console}
 
 object HttpMiddlewareSpec extends DefaultRunnableSpec {
   val app: HttpApp[Any with Clock, Nothing] = HttpApp.collectM { case Method.GET -> !! / "health" =>
@@ -23,31 +23,39 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec {
   }
 
   def spec = suite("HttpMiddleware") {
+    import HttpMiddleware._
     suite("debug") {
       testM("log status method url and time") {
-        val program = run(app @@ HttpMiddleware.debug) *> TestConsole.output
+        val program = run(app @@ debug) *> TestConsole.output
         assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
       }
     } +
       suite("when") {
         testM("condition is true") {
-          val program = run(app @@ HttpMiddleware.debug.when((_, _, _) => true)) *> TestConsole.output
+          val program = run(app @@ debug.when((_, _, _) => true)) *> TestConsole.output
           assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
         } +
           testM("condition is false") {
-            val log = run(app @@ HttpMiddleware.debug.when((_, _, _) => false)) *> TestConsole.output
+            val log = run(app @@ debug.when((_, _, _) => false)) *> TestConsole.output
             assertM(log)(equalTo(Vector()))
           }
       } +
       suite("race") {
         testM("achieved") {
-          val program = run(app @@ HttpMiddleware.timeout(5 seconds)).map(_.status)
+          val program = run(app @@ timeout(5 seconds)).map(_.status)
           assertM(program)(equalTo(Status.OK))
         } +
           testM("un-achieved") {
-            val program = run(app @@ HttpMiddleware.timeout(500 millis)).map(_.status)
+            val program = run(app @@ timeout(500 millis)).map(_.status)
             assertM(program)(equalTo(Status.REQUEST_TIMEOUT))
           }
+      } +
+      suite("combine") {
+        testM("before and after") {
+          val middleware = runBefore(console.putStrLn("A")) ++ runAfter(console.putStrLn("B"))
+          val program    = run(app @@ middleware) *> TestConsole.output
+          assertM(program)(equalTo(Vector("A\n", "B\n")))
+        }
       }
 
   }
