@@ -177,7 +177,7 @@ object HttpMiddleware {
       case Identity => app
 
       case TransformM(reqF, resF) =>
-        HttpApp.fromPartialFunction { req =>
+        HttpApp.fromOptionFunction { req =>
           for {
             s     <- reqF(req.method, req.url, req.headers)
             res   <- app(req)
@@ -188,7 +188,7 @@ object HttpMiddleware {
       case Combine(self, other) => other(self(app))
 
       case FromFunctionM(reqF) =>
-        HttpApp.fromPartialFunction { req =>
+        HttpApp.fromOptionFunction { req =>
           for {
             output <- reqF(req.method, req.url, req.headers)
             res    <- output(app)(req)
@@ -196,14 +196,14 @@ object HttpMiddleware {
         }
 
       case Race(self, other) =>
-        HttpApp.fromPartialFunction { req =>
+        HttpApp.fromOptionFunction { req =>
           self(app)(req) raceFirst other(app)(req)
         }
 
       case Constant(self) => self
 
       case OrElse(self, other) =>
-        HttpApp.fromPartialFunction { req =>
+        HttpApp.fromOptionFunction { req =>
           (self(app)(req) orElse other(app)(req)).asInstanceOf[ZIO[R, Option[E], Response[R, E]]]
         }
     }

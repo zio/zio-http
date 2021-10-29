@@ -207,9 +207,4 @@ object HttpApp {
    */
   def fromOptionFunction[R, E, A, B](f: Request => ZIO[R, Option[E], Response[R, E]]): HttpApp[R, E] =
     HttpApp(Http.fromPartialFunction(f))
-
-  /**
-   * Creates an HttpApp which returns always returns the same status
-   */
-  def status(status: Status): HttpApp[Any, Nothing] = HttpApp(Http.succeed(Response.status(status)))
 }
