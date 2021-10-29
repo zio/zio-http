@@ -43,8 +43,9 @@ case class Response[-R, +E] private (
   def addHeaders(headers: List[Header]): Response[R, E] =
     self.copy(headers = self.headers ++ headers)
 
+  // TODO Fix here: HttpAttribute's provide
   def provide(r: R)(implicit ev: NeedsEnv[R]): Response[Any, E] =
-    self.copy(data = self.data.provide(r), attribute = self.attribute.provide(r))
+    self.copy(data = self.data.provide(r), attribute = self.attribute.provide)
 }
 
 object Response {

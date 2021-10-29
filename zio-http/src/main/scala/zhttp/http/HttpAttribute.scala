@@ -1,16 +1,15 @@
 package zhttp.http
 
 import zhttp.socket.SocketApp
-import zio.NeedsEnv
 
 /**
  * Attribute holder for and Responses
  */
 private[zhttp] sealed trait HttpAttribute[-R, +E] extends Product with Serializable { self =>
 
-  def provide(r: R)(implicit ev: NeedsEnv[R]): HttpAttribute[Any, E] = self match {
-    case HttpAttribute.Empty       => HttpAttribute.empty
-//    case HttpAttribute.Socket(app) => HttpAttribute.Socket(app.provide(r))
+  // TODO: fix .provide to handle exhaustive cases
+  def provide: HttpAttribute[Any, Nothing] = self match {
+    case _ => HttpAttribute.empty
   }
 
 }
