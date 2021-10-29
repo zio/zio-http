@@ -57,7 +57,7 @@ object HttpMiddleware {
 
   type RequestP[+A] = (Method, URL, List[Header]) => A
 
-  private final case object Identity extends HttpMiddleware[Any, Nothing]
+  private case object Identity extends HttpMiddleware[Any, Nothing]
 
   private final case class TransformM[R, E, S](
     req: (Method, URL, List[Header]) => ZIO[R, Option[E], S],
@@ -71,11 +71,13 @@ object HttpMiddleware {
     f: (Method, URL, List[Header]) => ZIO[R, Option[E], HttpMiddleware[R, E]],
   ) extends HttpMiddleware[R, E]
 
-  final case class Race[R, E](self: HttpMiddleware[R, E], other: HttpMiddleware[R, E]) extends HttpMiddleware[R, E]
+  private final case class Race[R, E](self: HttpMiddleware[R, E], other: HttpMiddleware[R, E])
+      extends HttpMiddleware[R, E]
 
-  final case class Constant[R, E](app: HttpApp[R, E]) extends HttpMiddleware[R, E]
+  private final case class Constant[R, E](app: HttpApp[R, E]) extends HttpMiddleware[R, E]
 
-  final case class OrElse[R, E](self: HttpMiddleware[R, Any], other: HttpMiddleware[R, E]) extends HttpMiddleware[R, E]
+  private final case class OrElse[R, E](self: HttpMiddleware[R, Any], other: HttpMiddleware[R, E])
+      extends HttpMiddleware[R, E]
 
   final case class PartiallyAppliedMake[S](req: (Method, URL, List[Header]) => S) extends AnyVal {
     def apply(res: (Status, List[Header], S) => Patch): HttpMiddleware[Any, Nothing] =
