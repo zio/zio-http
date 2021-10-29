@@ -7,19 +7,22 @@ import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.http._
+import zhttp.service.server.WebSocketUpgrade
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
-final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRuntime[R])
-    extends ChannelInboundHandlerAdapter { ad =>
+final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: HttpRuntime[R])
+    extends ChannelInboundHandlerAdapter
+    with WebSocketUpgrade[R] { self =>
 
   private val cBody: ByteBuf                                            = Unpooled.compositeBuffer()
   private var decoder: ContentDecoder[Any, Throwable, Chunk[Byte], Any] = _
   private var completePromise: Promise[Throwable, Any]                  = _
   private var isFirst: Boolean                                          = true
   private var decoderState: Any                                         = _
+  private var jReq: HttpRequest                                         = _
 
   override def channelRegistered(ctx: ChannelHandlerContext): Unit = {
     ctx.channel().config().setAutoRead(false)
@@ -86,44 +89,52 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
                 case None        => UIO(unsafeWriteAndFlushEmptyResponse())
               },
               res =>
-                for {
-                  _ <- UIO(unsafeWriteAnyResponse(res))
-                  _ <- res.data match {
-                    case HttpData.Empty =>
-                      UIO(unsafeWriteAndFlushLastEmptyContent())
+                if (self.canSwitchProtocol(res)) UIO(self.initializeSwitch(ctx, res))
+                else {
+                  for {
+                    _ <- UIO(unsafeWriteAnyResponse(res))
+                    _ <- res.data match {
+                      case HttpData.Empty =>
+                        UIO(unsafeWriteAndFlushLastEmptyContent())
 
-                    case HttpData.Text(data, charset) =>
-                      UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset)))
+                      case HttpData.Text(data, charset) =>
+                        UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset)))
 
-                    case HttpData.BinaryN(data) => UIO(unsafeWriteLastContent(data))
+                      case HttpData.BinaryN(data) => UIO(unsafeWriteLastContent(data))
 
-                    case HttpData.Binary(data) =>
-                      UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray)))
+                      case HttpData.Binary(data) =>
+                        UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray)))
 
-                    case HttpData.BinaryStream(stream) =>
-                      writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
-                  }
-                } yield (),
+                      case HttpData.BinaryStream(stream) =>
+                        writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
+                    }
+                  } yield ()
+                },
             )
           }
 
-        case HExit.Success(a) =>
-          unsafeWriteAnyResponse(a)
-          a.data match {
-            case HttpData.Empty =>
-              unsafeWriteAndFlushLastEmptyContent()
+        case HExit.Success(res) =>
+          if (self.canSwitchProtocol(res)) {
+            self.initializeSwitch(ctx, res)
+          } else {
+            unsafeWriteAnyResponse(res)
 
-            case HttpData.Text(data, charset) =>
-              unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset))
+            res.data match {
+              case HttpData.Empty =>
+                unsafeWriteAndFlushLastEmptyContent()
 
-            case HttpData.BinaryN(data) =>
-              unsafeWriteLastContent(data)
+              case HttpData.Text(data, charset) =>
+                unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset))
 
-            case HttpData.Binary(data) =>
-              unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray))
+              case HttpData.BinaryN(data) =>
+                unsafeWriteLastContent(data)
 
-            case HttpData.BinaryStream(stream) =>
-              unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
+              case HttpData.Binary(data) =>
+                unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray))
+
+              case HttpData.BinaryStream(stream) =>
+                unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
+            }
           }
 
         case HExit.Failure(e) => unsafeWriteAndFlushErrorResponse(e)
@@ -148,7 +159,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
     /**
      * Executes program
      */
-    def unsafeRunZIO(program: ZIO[R, Throwable, Any]): Unit = zExec.unsafeRun(ctx) {
+    def unsafeRunZIO(program: ZIO[R, Throwable, Any]): Unit = runtime.unsafeRun(ctx) {
       program
     }
 
@@ -164,17 +175,17 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
         case ContentDecoder.Text =>
           cBody.writeBytes(content)
           if (isLast) {
-            unsafeRunZIO(ad.completePromise.succeed(cBody.toString(HTTP_CHARSET)))
+            unsafeRunZIO(self.completePromise.succeed(cBody.toString(HTTP_CHARSET)))
           } else {
             ctx.read(): Unit
           }
 
         case step: ContentDecoder.Step[_, _, _, _, _] =>
-          if (ad.isFirst) {
-            ad.decoderState = step.state
-            ad.isFirst = false
+          if (self.isFirst) {
+            self.decoderState = step.state
+            self.isFirst = false
           }
-          val nState = ad.decoderState
+          val nState = self.decoderState
 
           unsafeRunZIO(for {
             (publish, state) <- step
@@ -187,11 +198,11 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
                 isLast,
               )
             _                <- publish match {
-              case Some(out) => ad.completePromise.succeed(out)
+              case Some(out) => self.completePromise.succeed(out)
               case None      => ZIO.unit
             }
             _                <- UIO {
-              ad.decoderState = state
+              self.decoderState = state
               if (!isLast) ctx.read(): Unit
             }
           } yield ())
@@ -205,7 +216,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
         // `autoRead` is set when the channel is registered in the event loop.
         // The explicit call here is added to make unit tests work properly
         ctx.channel().config().setAutoRead(false)
-
+        self.jReq = jRequest
         unsafeRun(
           app.asHttp.asInstanceOf[Http[R, Throwable, Request, Response[R, Throwable]]],
           new Request {
@@ -213,14 +224,14 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
               decoder: ContentDecoder[R0, Throwable, Chunk[Byte], B],
             ): ZIO[R0, Throwable, B] =
               ZIO.effectSuspendTotal {
-                if (ad.decoder != null)
+                if (self.decoder != null)
                   ZIO.fail(ContentDecoder.Error.ContentDecodedOnce)
                 else
                   for {
                     p <- Promise.make[Throwable, B]
                     _ <- UIO {
-                      ad.decoder = decoder.asInstanceOf[ContentDecoder[Any, Throwable, Chunk[Byte], B]]
-                      ad.completePromise = p.asInstanceOf[Promise[Throwable, Any]]
+                      self.decoder = decoder.asInstanceOf[ContentDecoder[Any, Throwable, Chunk[Byte], B]]
+                      self.completePromise = p.asInstanceOf[Promise[Throwable, Any]]
                       ctx.read(): Unit
                     }
                     b <- p.await
@@ -240,7 +251,9 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], zExec: HttpRu
         )
 
       case msg: LastHttpContent =>
-        if (decoder != null) {
+        if (self.isInitialized) {
+          self.switchProtocol(ctx, jReq)
+        } else if (decoder != null) {
           decodeContent(msg.content(), decoder, true)
         }
 
