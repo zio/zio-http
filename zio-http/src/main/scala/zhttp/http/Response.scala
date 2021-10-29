@@ -3,7 +3,7 @@ package zhttp.http
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
-import zio.Chunk
+import zio.{Chunk, NeedsEnv}
 
 import java.io.{PrintWriter, StringWriter}
 
@@ -42,6 +42,9 @@ case class Response[-R, +E] private (
    */
   def addHeaders(headers: List[Header]): Response[R, E] =
     self.copy(headers = self.headers ++ headers)
+
+  def provide(r: R)(implicit ev: NeedsEnv[R]): Response[Any, E] =
+    self.copy(data = self.data.provide(r), attribute = self.attribute.provide(r))
 }
 
 object Response {

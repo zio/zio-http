@@ -28,6 +28,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       IllegalMessageSpec,
       ContentDecoderSpec,
       RemoteAddressSpec,
+      OperationsSpec
     ).provideCustomLayer(env) @@ timeout(10 seconds)
 
   /**
@@ -224,6 +225,19 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
     testM("remoteAddress") {
       val addr = HttpApp.fromHttp(Http.succeed(Ok)).getRequest().map(_.remoteAddress)
       assertM(addr)(isNone)
+    }
+  }
+
+  def OperationsSpec = suite("OperationsSpec") {
+    testM("provide") {
+      val http: Http[Response[Any, Nothing], Nothing, Request, Response[Any, Nothing]] = Http.collectM[Request] {
+        case Method.GET -> !! => ZIO.accessM[Response[Any, Nothing]]((response: Response[Any, Nothing]) => ZIO.succeed(response))
+      }
+      val app = HttpApp.fromHttp(http)
+        .provide(Response(Status.FORBIDDEN))
+        .getResponse
+
+      assertM(app)(isResponse(responseStatus(403)))
     }
   }
 }

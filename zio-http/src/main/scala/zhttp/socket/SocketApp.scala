@@ -12,6 +12,8 @@ sealed trait SocketApp[-R, +E] { self =>
 
   def asResponse: Response[R, E] = Response(Status.OK, Nil, HttpData.empty, HttpAttribute.fromSocket(self))
 
+//  def provide(r: R)(implicit ev: NeedsEnv[R]): SocketApp[Any, E] = SocketApp.Provide(self, r)
+
   def config: SocketApp.SocketConfig[R, E] = {
     def loop(config: SocketApp[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] =
       config match {
@@ -44,6 +46,20 @@ sealed trait SocketApp[-R, +E] { self =>
 
         case Concat(a, b) =>
           loop(b, loop(a, s))
+//
+//        case Provide(app, r: R) =>
+//          self match {
+//            case a: Open[_, _]        => ???
+//            case Concat(a, b)         => ???
+//            case OnMessage(onMessage) => ???
+//            case OnError(onError)     => s.copy(onError = s.onError.map(f => f(_).provide(r)))
+//            case OnClose(onClose)     => s.copy(onClose = s.onClose.map(f => f(_).provide(r)))
+//            case OnTimeout(onTimeout) => s.copy(onTimeout = s.onTimeout.map(f => f.provide(r)))
+//            case Protocol(protocol)   => s
+//            case Decoder(decoder)     => s
+//            case SocketApp.Empty      => s
+//            case Provide(app, r)      => ???
+//          }
       }
 
     loop(self, SocketConfig[R, E]())
@@ -84,6 +100,7 @@ object SocketApp {
   private final case class Protocol(protocol: SocketProtocol)                      extends SocketApp[Any, Nothing]
   private final case class Decoder(decoder: SocketDecoder)                         extends SocketApp[Any, Nothing]
   private case object Empty                                                        extends SocketApp[Any, Nothing]
+//  private case class Provide[R, E](app: SocketApp[R, E], r: R)                     extends SocketApp[Any, E]
 
   /**
    * Called when the connection is successfully upgrade to a websocket one. In case of a failure on the returned stream,

@@ -45,7 +45,8 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
   /**
    * Provides the environment to Http.
    */
-  def provide(r: R)(implicit ev: NeedsEnv[R]) = self.asHttp.provide(r)
+  def provide(r: R)(implicit ev: NeedsEnv[R]) =
+    self.copy(self.asHttp.provide(r).map(_.provide(r)))
 
   /**
    * Provides some of the environment to Http.
