@@ -10,8 +10,22 @@ import zhttp.http.HeadersHelpers.{BasicSchemeName, BearerSchemeName}
 import java.nio.charset.Charset
 import scala.util.control.NonFatal
 
-private[zhttp] trait HeadersHelpers {
+private[zhttp] trait HeadersHelpers[+A] { self =>
   def headers: List[Header]
+
+  def addHeaders(headers: List[Header]): A
+
+  def removeHeaders(headers: List[String]): A
+
+  def addHeader(header: Header): A = addHeaders(List(header))
+
+  def removeHeader(name: String): A = removeHeaders(List(name))
+
+  def setContentLength(value: Long): A =
+    addHeader(Header(HttpHeaderNames.CONTENT_LENGTH, value.toString))
+
+  def setChunkedEncoding: A =
+    addHeader(Header(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED))
 
   private def equalsIgnoreCase(a: Char, b: Char) = a == b || toLowerCase(a) == toLowerCase(b)
 
