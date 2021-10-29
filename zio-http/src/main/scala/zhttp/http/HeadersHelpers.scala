@@ -111,6 +111,15 @@ private[zhttp] trait HeadersHelpers {
       case Left(_)      => Nil
       case Right(value) => List(value)
     })
+
+  def hasHeader(name: CharSequence, value: CharSequence): Boolean =
+    getHeaderValue(name) match {
+      case Some(v1) => v1 == value
+      case None     => false
+    }
+
+  def hasHeader(name: CharSequence): Boolean =
+    getHeaderValue(name).nonEmpty
 }
 
 object HeadersHelpers {
