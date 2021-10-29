@@ -19,7 +19,7 @@ object SSLSpec extends HttpRunnableSpec(8073) {
   /**
    * a custom keystore and a certificate from it
    */
-  val keystore = getClass().getClassLoader().getResourceAsStream("keystore.jks")
+  val keystore   = getClass().getClassLoader().getResourceAsStream("keystore.jks")
   val servercert = getClass().getClassLoader().getResourceAsStream("cert.crt.pem")
 
   /**
@@ -27,7 +27,7 @@ object SSLSpec extends HttpRunnableSpec(8073) {
    */
   val ssc2 = getClass().getClassLoader().getResourceAsStream("ss2.crt.pem")
 
-  val serverssl  = ctxFromKeystore(keystore,"password","password")
+  val serverssl  = ctxFromKeystore(keystore, "password", "password")
   val clientssl1 = SslContextBuilder.forClient().trustManager(servercert).build()
   val clientssl2 = SslContextBuilder.forClient().trustManager(ssc2).build()
 
