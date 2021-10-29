@@ -1,8 +1,11 @@
 package zhttp.http
 
 import io.netty.channel._
+import zhttp.http.middleware.HttpMiddleware
 import zhttp.service.{Handler, HttpRuntime}
 import zio._
+import zio.clock.Clock
+import zio.duration.Duration
 
 case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =>
   def orElse[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
@@ -71,6 +74,37 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
   def provideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E](
     layer: ZLayer[R0, E1, R1],
   )(implicit ev: R0 with R1 <:< R, tagged: Tag[R1]) = self.asHttp.provideSomeLayer(layer)
+
+  /**
+   * Executes the HttpApp and produces a Response
+   */
+  def apply(req: Request): ZIO[R, Option[E], Response[R, E]] = self.asHttp.execute(req).evaluate.asEffect
+
+  /**
+   * Attaches the provided middleware to the HttpApp
+   */
+  def middleware[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = mid(self)
+
+  /**
+   * Delays the response by the provided duration
+   */
+  def delayAfter(duration: Duration): HttpApp[R with Clock, E] = HttpApp(asHttp.delayAfter(duration))
+
+  /**
+   * Delays the execution of the app by the provided duration
+   */
+  def delayBefore(duration: Duration): HttpApp[R with Clock, E] = HttpApp(asHttp.delayBefore(duration))
+
+  /**
+   * Attaches the provided middleware to the HttpApp
+   */
+  def @@[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = self.middleware(mid)
+
+  /**
+   * Performs a race between two apps
+   */
+  def race[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
+    HttpApp(self.asHttp race other.asHttp)
 }
 
 object HttpApp {

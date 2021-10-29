@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
+import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
 
@@ -14,19 +15,36 @@ case class Response[-R, +E] private (
 ) extends HeadersHelpers { self =>
 
   /**
+   * Sets the status of the response
+   */
+  def setStatus(status: Status): Response[R, E] =
+    self.copy(status = status)
+
+  /**
    * Adds cookies in the response headers
    */
   def addCookie(cookie: Cookie): Response[R, E] =
     self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
 
   /**
+   * Removes headers by name from the response
+   */
+  def removeHeaders(headers: List[String]): Response[R, E] =
+    self.copy(headers = self.headers.filterNot(h => headers.contains(h.name)))
+
+  /**
    * Gets cookies from the response headers
    */
   def cookies: List[Cookie] = getCookieFromHeader(HttpHeaderNames.SET_COOKIE)
+
+  /**
+   * Adds headers to response
+   */
+  def addHeaders(headers: List[Header]): Response[R, E] =
+    self.copy(headers = self.headers ++ headers)
 }
 
 object Response {
-
   def apply[R, E](
     status: Status = Status.OK,
     headers: List[Header] = Nil,
@@ -34,7 +52,7 @@ object Response {
   ): Response[R, E] =
     Response(status, headers, data, HttpAttribute.empty)
 
-  @deprecated("Use `Response(status, headers, content)` constructor instead.", "22-Sep-2021")
+  @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
   def http[R, E](
     status: Status = Status.OK,
     headers: List[Header] = Nil,
@@ -68,7 +86,6 @@ object Response {
         )
       case _ => Response(error.status, Nil, HttpData.fromChunk(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
     }
-
   }
 
   def ok: UResponse = Response(Status.OK)
@@ -92,5 +109,4 @@ object Response {
 
   def permanentRedirect(location: String): Response[Any, Nothing] =
     Response(Status.PERMANENT_REDIRECT, List(Header.location(location)))
-
 }

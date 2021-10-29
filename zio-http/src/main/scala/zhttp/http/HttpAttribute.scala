@@ -20,4 +20,5 @@ object HttpAttribute {
    * Helper to create Attribute from a SocketApp
    */
   def fromSocket[R, E](socketApp: SocketApp[R, E]): HttpAttribute[R, E] = Socket(socketApp)
+
 }
