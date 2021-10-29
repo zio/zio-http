@@ -49,6 +49,12 @@ sealed trait SocketApp[-R, +E] { self =>
     loop(self, SocketConfig[R, E]())
   }
 
+  def isEmpty: Boolean = self match {
+    case Empty => true
+    case _     => false
+  }
+
+  def nonEmpty: Boolean = !isEmpty
 }
 
 object SocketApp {
