@@ -60,9 +60,10 @@ object Response {
   ): Response[R, E] = Response(status, headers, data)
 
   /**
-   * Creates a new WebSocket Response
+   * Creates a socket response using an app
    */
-  def socket[R, E](ss: SocketApp[R, E]): Response[R, E] = ss.asResponse
+  def socket[R, E](ss: SocketApp[R, E]): Response[R, E] =
+    Response(Status.SWITCHING_PROTOCOLS, Nil, HttpData.empty, HttpAttribute.socket(ss))
 
   /**
    * Creates a new WebSocket Response
