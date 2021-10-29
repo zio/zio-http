@@ -5,7 +5,7 @@ import zhttp.http.middleware.HttpMiddleware.RequestP
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
-import zio.{clock, console, UIO, ZIO}
+import zio.{UIO, ZIO, clock, console}
 
 import java.io.IOException
 

@@ -6,8 +6,8 @@ import zio.clock.Clock
 import zio.duration._
 import zio.test.Assertion.equalTo
 import zio.test.environment.{TestClock, TestConsole}
-import zio.test.{assertM, DefaultRunnableSpec}
-import zio.{console, UIO, ZIO}
+import zio.test.{DefaultRunnableSpec, assertM}
+import zio.{UIO, ZIO, console}
 
 object HttpMiddlewareSpec extends DefaultRunnableSpec {
   val app: HttpApp[Any with Clock, Nothing] = HttpApp.collectM { case Method.GET -> !! / "health" =>
