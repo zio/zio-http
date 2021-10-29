@@ -6,8 +6,8 @@ import zio.clock.Clock
 import zio.duration._
 import zio.test.Assertion.equalTo
 import zio.test.environment.{TestClock, TestConsole}
-import zio.test.{DefaultRunnableSpec, assertM}
-import zio.{UIO, ZIO, console}
+import zio.test.{assertM, DefaultRunnableSpec}
+import zio.{console, UIO, ZIO}
 
 object HttpMiddlewareSpec extends DefaultRunnableSpec {
   val app: HttpApp[Any with Clock, Nothing] = HttpApp.collectM { case Method.GET -> !! / "health" =>
@@ -55,7 +55,17 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec {
           val middleware = runBefore(console.putStrLn("A")) ++ runAfter(console.putStrLn("B"))
           val program    = run(app @@ middleware) *> TestConsole.output
           assertM(program)(equalTo(Vector("A\n", "B\n")))
-        }
+        } +
+          testM("add headers twice") {
+            val middleware = addHeader("KeyA", "ValueA") ++ addHeader("KeyB", "ValueB")
+            val program    = run(app @@ middleware).map(_.headers)
+            assertM(program)(equalTo(List(Header("KeyA", "ValueA"), Header("KeyB", "ValueB"))))
+          } +
+          testM("add and remove header") {
+            val middleware = addHeader("KeyA", "ValueA") ++ removeHeader("KeyA")
+            val program    = run(app @@ middleware).map(_.headers)
+            assertM(program)(equalTo(Nil))
+          }
       }
 
   }

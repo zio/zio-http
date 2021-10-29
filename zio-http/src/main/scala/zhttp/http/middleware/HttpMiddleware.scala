@@ -5,7 +5,7 @@ import zhttp.http.middleware.HttpMiddleware.RequestP
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
-import zio.{UIO, ZIO, clock, console}
+import zio.{clock, console, UIO, ZIO}
 
 import java.io.IOException
 
@@ -24,13 +24,8 @@ sealed trait HttpMiddleware[-R, +E] { self =>
   def race[R1 <: R, E1 >: E](other: HttpMiddleware[R1, E1]): HttpMiddleware[R1, E1] =
     HttpMiddleware.Race(self, other)
 
-  def replace[R1 <: R, E1 >: E](app: HttpApp[R1, E1]): HttpMiddleware[R1, E1] =
+  def as[R1 <: R, E1 >: E](app: HttpApp[R1, E1]): HttpMiddleware[R1, E1] =
     HttpMiddleware.Constant(app)
-
-  def replaceWhen[R1 <: R, E1 >: E](f: HttpMiddleware.RequestP[Boolean], app: HttpApp[R1, E1]): HttpMiddleware[R1, E1] =
-    HttpMiddleware.fromMiddlewareFunction { (method, url, headers) =>
-      if (f(method, url, headers)) self else HttpMiddleware.fromApp(app)
-    }
 
   def when(f: RequestP[Boolean]): HttpMiddleware[R, E] =
     modify((m, u, h) => if (f(m, u, h)) self else HttpMiddleware.identity)
@@ -145,7 +140,7 @@ object HttpMiddleware {
    * Runs the effect after the response is produced
    */
   def runAfter[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
-    patchM((_, _) => effect.mapError(Option(_)).as(Patch.empty))
+    patchM((_, _) => effect.mapBoth(Option(_), _ => Patch.empty))
 
   /**
    * Runs the effect before the request is passed on to the HttpApp on which the middleware is applied.
@@ -170,6 +165,18 @@ object HttpMiddleware {
    */
   def timeout(duration: Duration): HttpMiddleware[Clock, Nothing] =
     HttpMiddleware.identity.race(HttpMiddleware.fromApp(HttpApp.status(Status.REQUEST_TIMEOUT).delayAfter(duration)))
+
+  /**
+   * Adds the provided header and value
+   */
+  def addHeader(name: String, value: String): HttpMiddleware[Any, Nothing] =
+    patch((_, _) => Patch.addHeaders(List(Header(name, value))))
+
+  /**
+   * Removes the header by name
+   */
+  def removeHeader(name: String): HttpMiddleware[Any, Nothing] =
+    patch((_, _) => Patch.removeHeaders(List(name)))
 
   /**
    * Applies the middleware on an HttpApp
