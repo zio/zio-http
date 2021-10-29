@@ -6,26 +6,26 @@ import io.netty.channel.kqueue.{KQueue, KQueueSocketChannel}
 import io.netty.channel.socket.nio.NioSocketChannel
 import io.netty.channel.{Channel, ChannelFactory => JChannelFactory}
 import io.netty.incubator.channel.uring.IOUringSocketChannel
-import zio.{UIO, ZLayer}
+import zio.{Task, ZLayer}
 
 object ChannelFactory {
-  def nio: ZLayer[Any, Nothing, ChannelFactory]      = Live.nio.toLayer
-  def epoll: ZLayer[Any, Nothing, ChannelFactory]    = Live.epoll.toLayer
-  def uring: ZLayer[Any, Nothing, ChannelFactory]    = Live.uring.toLayer
-  def embedded: ZLayer[Any, Nothing, ChannelFactory] = Live.embedded.toLayer
-  def auto: ZLayer[Any, Nothing, ChannelFactory]     = Live.auto.toLayer
+  def nio: ZLayer[Any, Nothing, ChannelFactory]      = Live.nio.toLayer.orDie
+  def epoll: ZLayer[Any, Nothing, ChannelFactory]    = Live.epoll.toLayer.orDie
+  def uring: ZLayer[Any, Nothing, ChannelFactory]    = Live.uring.toLayer.orDie
+  def embedded: ZLayer[Any, Nothing, ChannelFactory] = Live.embedded.toLayer.orDie
+  def auto: ZLayer[Any, Nothing, ChannelFactory]     = Live.auto.toLayer.orDie
 
-  def make[A <: Channel](fn: () => A): UIO[JChannelFactory[A]] = UIO(new JChannelFactory[A] {
+  def make[A <: Channel](fn: () => A): Task[JChannelFactory[A]] = Task(new JChannelFactory[A] {
     override def newChannel(): A = fn()
   })
 
   object Live {
-    def nio: UIO[JChannelFactory[Channel]]      = make(() => new NioSocketChannel())
-    def epoll: UIO[JChannelFactory[Channel]]    = make(() => new EpollSocketChannel())
-    def kQueue: UIO[JChannelFactory[Channel]]   = make(() => new KQueueSocketChannel())
-    def uring: UIO[JChannelFactory[Channel]]    = make(() => new IOUringSocketChannel())
-    def embedded: UIO[JChannelFactory[Channel]] = make(() => new EmbeddedChannel(false, false))
-    def auto: UIO[JChannelFactory[Channel]]     =
+    def nio: Task[JChannelFactory[Channel]]      = make(() => new NioSocketChannel())
+    def epoll: Task[JChannelFactory[Channel]]    = make(() => new EpollSocketChannel())
+    def kQueue: Task[JChannelFactory[Channel]]   = make(() => new KQueueSocketChannel())
+    def uring: Task[JChannelFactory[Channel]]    = make(() => new IOUringSocketChannel())
+    def embedded: Task[JChannelFactory[Channel]] = make(() => new EmbeddedChannel(false, false))
+    def auto: Task[JChannelFactory[Channel]]     =
       if (Epoll.isAvailable) epoll
       else if (KQueue.isAvailable) kQueue
       else nio
