@@ -33,23 +33,6 @@ object ServerSSLHandler {
 
   }
 
-  def ctxSelfSigned(): SslContext = {
-    import io.netty.handler.ssl.util.SelfSignedCertificate
-    val ssc = new SelfSignedCertificate
-    SslContextBuilder
-      .forServer(ssc.certificate(), ssc.privateKey())
-      .sslProvider(SslProvider.JDK)
-      .applicationProtocolConfig(
-        new ApplicationProtocolConfig(
-          Protocol.ALPN,
-          SelectorFailureBehavior.NO_ADVERTISE,
-          SelectedListenerFailureBehavior.ACCEPT,
-          ApplicationProtocolNames.HTTP_1_1,
-        ),
-      )
-      .build()
-  }
-
   def ctxFromKeystore(
     keyStoreInputStream: InputStream,
     keyStorePassword: String,
