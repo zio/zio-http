@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBufUtil, Unpooled}
-import zhttp.http.ContentDecoder.DExit
+import zhttp.experiment.DExit
 import zio.{Chunk, Queue, Task, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
@@ -11,9 +11,10 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
   def foldM[R1 <: R, A1 <: A, E1, B1](
     ee: E => ContentDecoder[R1, E1, A1, B1],
     bb: B => ContentDecoder[R1, E1, A1, B1],
-  ): ContentDecoder[R1, E1, A1, B1] = ContentDecoder.FoldM(self, ee, bb)
+    dd: ContentDecoder[R1, E1, A1, B1]
+  ): ContentDecoder[R1, E1, A1, B1] = ContentDecoder.FoldM(self, ee, bb,dd)
   def flatMap[R1 <: R, E1 >: E, A1 <: A, C1](f: B => ContentDecoder[R1, E1, A1, C1]): ContentDecoder[R1, E1, A1, C1] = {
-    self.foldM(ContentDecoder.fail, f)
+    self.foldM(ContentDecoder.fail, f, ContentDecoder.Empty)
   }
   def andThen[R1 <: R, E1 >: E, B1 >: B, C](other: ContentDecoder[R1, E1, B1, C]): ContentDecoder[R1, E1, A, C] =
     ContentDecoder.Chain(self, other)
@@ -21,7 +22,7 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
 
   final private[zhttp] def toZIO(a: A, isLast: Boolean = true): ZIO[R, Option[E], B] = {
     self match {
-      case ContentDecoder.Text                      => ZIO.succeed(a.toString.asInstanceOf)
+
       case step: ContentDecoder.Step[_, _, _, _, _] =>
         step
           .asInstanceOf[ContentDecoder.Step[R, E, Any, A, B]]
@@ -33,50 +34,35 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
               case None        => ZIO.fail(None)
             },
           )
-      case ContentDecoder.Identity                  => ZIO.succeed(a.asInstanceOf[B])
       case ContentDecoder.Succeed(b)                => ZIO.succeed(b)
       case ContentDecoder.Fail(e)                   => ZIO.fail(Some(e))
-      case ContentDecoder.Collect(pf)               => if (pf.isDefinedAt(a)) ZIO.succeed(pf(a)) else ZIO.fail(None)
       case ContentDecoder.FromEffectFunction(f)     => f(a).mapError(Option(_))
       case ContentDecoder.Chain(self, other)        => self.toZIO(a, isLast) >>= (other.toZIO(_, isLast))
-      case ContentDecoder.FoldM(self, ee, bb)       =>
+      case ContentDecoder.FoldM(self, ee, bb,dd)       =>
         self
           .toZIO(a, isLast)
           .foldM(
             e =>
               e match {
                 case Some(value) => ee(value).toZIO(a, isLast)
-                case None        => ZIO.fail(None)
+                case None        => dd.toZIO(a, isLast)
               },
             bb(_).toZIO(a, isLast),
           )
-
+      case ContentDecoder.Empty => ZIO.fail(None)
+      case ContentDecoder.Text => ZIO.succeed(a.toString)
     }
   }
 
   final private[zhttp] def evaluate: DExit[R, E, A, B] = {
     self match {
-
-      case ContentDecoder.Identity   => DExit.Collect((a: A) => a.asInstanceOf[B])
-      case ContentDecoder.Succeed(b) => DExit.Collect((_: A) => b)
-      case ContentDecoder.Fail(e) => DExit.Step(Array.emptyByteArray, (_: A, _: Array[Byte], _: Boolean) => ZIO.fail(e))
-      case ContentDecoder.FromEffectFunction(f) =>
-        DExit.Step(Array.emptyByteArray, (a: A, s: Array[Byte], _: Boolean) => f(a).map(Some(_)).map((_, s)))
+      case ContentDecoder.Empty => DExit.Empty
+      case ContentDecoder.Succeed(b) => DExit.Success(b)
+      case ContentDecoder.Fail(e) => DExit.fail(e)
+      case ContentDecoder.FromEffectFunction(f) =>DExit.effect(f)
       case ContentDecoder.Step(state, next)     => DExit.Step(state, next)
-      case ContentDecoder.Collect(pf)           => DExit.Collect(pf)
-
-      case ContentDecoder.Chain(self, _)    =>
-        self.evaluate match {
-          case DExit.Text       => ???
-          case DExit.Collect(_) => ???
-          case DExit.Step(_, _) => ???
-        }
-      case ContentDecoder.FoldM(self, _, _) =>
-        self.evaluate match {
-          case DExit.Text       => ???
-          case DExit.Collect(_) => ???
-          case DExit.Step(_, _) => ???
-        }
+      case ContentDecoder.Chain(self, other)    =>DExit.suspend(???)
+      case ContentDecoder.FoldM(self, ee, bb,dd) => DExit.suspend(self.evaluate.foldM(ee(_).evaluate, bb(_).evaluate,dd.evaluate))
 
     }
 
@@ -85,21 +71,12 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
 
 object ContentDecoder {
 
-  sealed trait DExit[-R, +E, -A, +B]
-  object DExit {
-    case object Text                    extends DExit[Any, Nothing, Any, String]
-    case class Collect[A, B](f: A => B) extends DExit[Any, Nothing, A, B]
-    case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])
-        extends DExit[R, E, A, B]
-  }
-
+  private case object Empty                                                     extends ContentDecoder[Any, Nothing, Any, Nothing]
   case object Text                          extends ContentDecoder[Any, Nothing, Any, String]
   case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])
       extends ContentDecoder[R, E, A, B]
-  private case object Identity              extends ContentDecoder[Any, Nothing, Any, Nothing]
   private final case class Succeed[B](b: B) extends ContentDecoder[Any, Nothing, Any, B]
   private final case class Fail[E](e: E)    extends ContentDecoder[Any, E, Any, Nothing]
-  private final case class Collect[R, E, A, B](ab: PartialFunction[A, B])       extends ContentDecoder[R, E, A, B]
   private final case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B]) extends ContentDecoder[R, E, A, B]
   private final case class Chain[R, E, A, B, C](self: ContentDecoder[R, E, A, B], other: ContentDecoder[R, E, B, C])
       extends ContentDecoder[R, E, A, C]
@@ -107,6 +84,7 @@ object ContentDecoder {
     self: ContentDecoder[R, E, A, B],
     ee: E => ContentDecoder[R, EE, A, BB],
     bb: B => ContentDecoder[R, EE, A, BB],
+    dd : ContentDecoder[R,EE,A,BB]
   )                                                                             extends ContentDecoder[R, EE, A, BB]
 
   def fail[E](e: E): ContentDecoder[Any, E, Any, Nothing] = ContentDecoder.Fail(e)
