@@ -17,7 +17,7 @@ object SocketResponse {
       val wsHeader = secWebSocketAcceptHeader(webSocketKey)
       Response(
         status = Status.SWITCHING_PROTOCOLS,
-        headers = headers ++ webSocketHeaders(wsHeader),
+        headers = headers ++ webSocketHeaders(wsHeader, req),
         data = HttpData.empty,
         attribute = HttpAttribute.fromSocket(socketApp),
       )
@@ -26,10 +26,11 @@ object SocketResponse {
     }
   }
 
-  private def webSocketHeaders(key: String) = List(
+  private def webSocketHeaders(key: String, req: Request) = List(
     Header.custom(HttpHeaderNames.UPGRADE.toString(), "websocket"),
     Header.custom(HttpHeaderNames.CONNECTION.toString(), "upgrade"),
     Header.custom(HttpHeaderNames.SEC_WEBSOCKET_ACCEPT.toString(), key),
+    Header.custom(HttpHeaderNames.ORIGIN.toString(), req.url.asString), //TODO confirm origin header value
   )
 
   private def secWebSocketAcceptHeader(key: String) = {

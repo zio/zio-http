@@ -31,8 +31,8 @@ case class WebSocketAppClient(outbound: MessageQueue[Any], channel: ProxyChannel
   ): Task[Unit] = {
     channel
       .pipeline()
-      .addLast(HTTP_SERVER_CODEC, new HttpServerCodec())
-      .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerCodec())
+      .addLast(HTTP_SERVER_CODEC, new HttpServerCodec)
+      .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
     channel.writeM(new DefaultHttpRequest(version, method, url, headers))
   }
 

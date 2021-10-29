@@ -1,12 +1,11 @@
 package zhttp.socket
 
 import io.netty.handler.codec.http.HttpHeaderNames
-import io.netty.handler.codec.http.websocketx.TextWebSocketFrame
 import zhttp.experiment.internal.WebSocketMessageAssertions
 import zhttp.http._
 import zhttp.service.EventLoopGroup
 import zio.duration.durationInt
-import zio.test.Assertion.{anything, isSubtype}
+import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
 import zio.test.{DefaultRunnableSpec, assertM}
 
@@ -26,7 +25,7 @@ object SocketAppSpec extends DefaultRunnableSpec with WebSocketMessageAssertions
     Header.custom(HttpHeaderNames.UPGRADE.toString(), "websocket"),
     Header.custom(HttpHeaderNames.CONNECTION.toString(), "upgrade"),
     Header.custom(HttpHeaderNames.SEC_WEBSOCKET_KEY.toString(), "key"),
-    Header.custom(HttpHeaderNames.ORIGIN.toString(), "/ws"),
+    Header.custom(HttpHeaderNames.ORIGIN.toString(), "http://localhost:8090/subscriptions"),
   )
   val incorrectHeaders = List(
     Header.custom(HttpHeaderNames.UPGRADE.toString(), "websocket"),
@@ -68,7 +67,8 @@ object SocketAppSpec extends DefaultRunnableSpec with WebSocketMessageAssertions
             SocketResponse.from(headers = correctHeaders, socketApp = socketApp, req = req)
           })
           .getWebSocketFrame(header = Header.disassemble(correctHeaders))
-        assertM(frame)(isSubtype[TextWebSocketFrame](anything))
+          .map(_.text())
+        assertM(frame)(equalTo("Greetings!"))
       },
     )
   }
