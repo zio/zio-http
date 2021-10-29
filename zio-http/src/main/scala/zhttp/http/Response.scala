@@ -12,7 +12,7 @@ case class Response[-R, +E] private (
   headers: List[Header],
   data: HttpData[R, E],
   private[zhttp] val attribute: HttpAttribute[R, E],
-) extends HeadersHelpers { self =>
+) extends HeadersHelpers[Response[R, E]] { self =>
 
   /**
    * Sets the status of the response
@@ -29,19 +29,31 @@ case class Response[-R, +E] private (
   /**
    * Removes headers by name from the response
    */
-  def removeHeaders(headers: List[String]): Response[R, E] =
+  override def removeHeaders(headers: List[String]): Response[R, E] =
     self.copy(headers = self.headers.filterNot(h => headers.contains(h.name)))
+
+  /**
+   * Adds headers to response
+   */
+  override def addHeaders(headers: List[Header]): Response[R, E] =
+    self.copy(headers = self.headers ++ headers)
 
   /**
    * Gets cookies from the response headers
    */
   def cookies: List[Cookie] = getCookieFromHeader(HttpHeaderNames.SET_COOKIE)
 
+  def getContentLength: Option[Long] = self.data.size
+
   /**
-   * Adds headers to response
+   * Automatically detects the size of the content and sets it
    */
-  def addHeaders(headers: List[Header]): Response[R, E] =
-    self.copy(headers = self.headers ++ headers)
+  def setPayloadHeaders: Response[R, E] = {
+    getContentLength match {
+      case Some(value) => setContentLength(value)
+      case None        => setChunkedEncoding
+    }
+  }
 }
 
 object Response {
@@ -60,9 +72,10 @@ object Response {
   ): Response[R, E] = Response(status, headers, data)
 
   /**
-   * Creates a new WebSocket Response
+   * Creates a socket response using an app
    */
-  def socket[R, E](ss: SocketApp[R, E]): Response[R, E] = ss.asResponse
+  def socket[R, E](ss: SocketApp[R, E]): Response[R, E] =
+    Response(Status.SWITCHING_PROTOCOLS, Nil, HttpData.empty, HttpAttribute.socket(ss))
 
   /**
    * Creates a new WebSocket Response

@@ -5,7 +5,7 @@ import zio.{Chunk, ZIO}
 
 import java.net.InetAddress
 
-trait Request extends HeadersHelpers { self =>
+trait Request extends HeadersHelpers[Request] { self =>
   def isPreflight: Boolean = method == Method.OPTIONS
 
   def method: Method
@@ -20,9 +20,11 @@ trait Request extends HeadersHelpers { self =>
 
   def remoteAddress: Option[InetAddress]
 
-  def addHeader(header: Header): Request = self.copy(headers = header :: self.headers)
+  override def addHeaders(headers: List[Header]): Request =
+    self.copy(headers = self.headers ++ headers)
 
-  def removeHeader(name: CharSequence): Request = self.copy(headers = self.headers.filter(_.name != name))
+  override def removeHeaders(headers: List[String]): Request =
+    self.copy(headers = self.headers.filterNot(h => headers.contains(h)))
 
   /**
    * Get cookies from request
