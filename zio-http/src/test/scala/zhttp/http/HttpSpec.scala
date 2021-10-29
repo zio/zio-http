@@ -252,5 +252,5 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             } yield assert(res)(equalTo(1))
           },
       ),
-  ) @@ timeout(10 seconds)
+  ).mapError(TestFailure.fail) @@ timeout(10 seconds)
 }

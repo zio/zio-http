@@ -4,7 +4,7 @@ import zhttp.http._
 import zhttp.service.server._
 import zio.ZIO
 import zio.test.Assertion.equalTo
-import zio.test.assertM
+import zio.test.{TestFailure, assertM}
 
 object ServerSpec extends HttpRunnableSpec(8087) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
@@ -41,5 +41,5 @@ object ServerSpec extends HttpRunnableSpec(8087) {
         ),
       )
       .useNow,
-  ).provideCustomLayer(env)
+  ).provideCustomLayer(env).mapError(TestFailure.fail)
 }

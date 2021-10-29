@@ -1,10 +1,6 @@
 package zhttp.service
 
-import io.netty.handler.ssl.ApplicationProtocolConfig.{
-  Protocol,
-  SelectedListenerFailureBehavior,
-  SelectorFailureBehavior,
-}
+import io.netty.handler.ssl.ApplicationProtocolConfig.{Protocol, SelectedListenerFailureBehavior, SelectorFailureBehavior}
 import io.netty.handler.ssl.util.SelfSignedCertificate
 import io.netty.handler.ssl.{ApplicationProtocolConfig, ApplicationProtocolNames, SslContextBuilder, SslProvider}
 import zhttp.http._
@@ -15,7 +11,7 @@ import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{flaky, timeout}
-import zio.test.assertM
+import zio.test.{TestFailure, assertM}
 
 import javax.net.ssl.SSLHandshakeException
 
@@ -79,5 +75,5 @@ object SSLSpec extends HttpRunnableSpec(8073) {
         ),
       )
       .useNow,
-  ).provideCustomLayer(env) @@ flaky @@ timeout(5 second)
+  ).provideCustomLayer(env).mapError(TestFailure.fail) @@ flaky @@ timeout(5 second)
 }

@@ -9,10 +9,10 @@ import zhttp.service.{ChannelFactory, ServerChannelFactory}
 import zio.{Task, ZLayer}
 
 object ServerChannelFactory {
-  def nio: ZLayer[Any, Nothing, ServerChannelFactory]   = Live.nio.toLayer.orDie
-  def epoll: ZLayer[Any, Nothing, ServerChannelFactory] = Live.epoll.toLayer.orDie
-  def uring: ZLayer[Any, Nothing, ServerChannelFactory] = Live.uring.toLayer.orDie
-  def auto: ZLayer[Any, Nothing, ServerChannelFactory]  = Live.auto.toLayer.orDie
+  def nio: ZLayer[Any, Throwable, ServerChannelFactory]   = Live.nio.toLayer
+  def epoll: ZLayer[Any, Throwable, ServerChannelFactory] = Live.epoll.toLayer
+  def uring: ZLayer[Any, Throwable, ServerChannelFactory] = Live.uring.toLayer
+  def auto: ZLayer[Any, Throwable, ServerChannelFactory]  = Live.auto.toLayer
 
   object Live {
     def nio: Task[JChannelFactory[ServerChannel]]    = ChannelFactory.make(() => new NioServerSocketChannel())

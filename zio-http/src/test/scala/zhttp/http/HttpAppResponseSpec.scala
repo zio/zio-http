@@ -6,7 +6,7 @@ import zhttp.service.EventLoopGroup
 import zio.duration._
 import zio.test.Assertion.{anything, equalTo, isSubtype}
 import zio.test.TestAspect.timeout
-import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAllM}
+import zio.test.{DefaultRunnableSpec, Gen, TestFailure, assertM, checkAllM}
 import zio.{UIO, ZIO}
 
 object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertions {
@@ -146,5 +146,5 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
           val app = HttpApp.fromHttp(Http.empty)
           assertM(app.getResponse)(isSubtype[LastHttpContent](anything))
         }
-    }.provideCustomLayer(env) @@ timeout(10 seconds)
+    }.provideCustomLayer(env).mapError(TestFailure.fail) @@ timeout(10 seconds)
 }

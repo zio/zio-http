@@ -8,7 +8,7 @@ import zio.duration._
 import zio.stream.ZStream
 import zio.test.Assertion.{equalTo, isLeft, isNone}
 import zio.test.TestAspect.{nonFlaky, timeout}
-import zio.test.{DefaultRunnableSpec, assertM}
+import zio.test.{DefaultRunnableSpec, TestFailure, assertM}
 import zio.{Chunk, UIO, ZIO}
 
 /**
@@ -28,7 +28,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       IllegalMessageSpec,
       ContentDecoderSpec,
       RemoteAddressSpec,
-    ).provideCustomLayer(env) @@ timeout(10 seconds)
+    ).provideCustomLayer(env).mapError(TestFailure.fail) @@ timeout(10 seconds)
 
   /**
    * Spec for asserting Request fields and behavior

@@ -9,11 +9,11 @@ import io.netty.incubator.channel.uring.IOUringSocketChannel
 import zio.{Task, ZLayer}
 
 object ChannelFactory {
-  def nio: ZLayer[Any, Nothing, ChannelFactory]      = Live.nio.toLayer.orDie
-  def epoll: ZLayer[Any, Nothing, ChannelFactory]    = Live.epoll.toLayer.orDie
-  def uring: ZLayer[Any, Nothing, ChannelFactory]    = Live.uring.toLayer.orDie
-  def embedded: ZLayer[Any, Nothing, ChannelFactory] = Live.embedded.toLayer.orDie
-  def auto: ZLayer[Any, Nothing, ChannelFactory]     = Live.auto.toLayer.orDie
+  def nio: ZLayer[Any, Throwable, ChannelFactory]      = Live.nio.toLayer
+  def epoll: ZLayer[Any, Throwable, ChannelFactory]    = Live.epoll.toLayer
+  def uring: ZLayer[Any, Throwable, ChannelFactory]    = Live.uring.toLayer
+  def embedded: ZLayer[Any, Throwable, ChannelFactory] = Live.embedded.toLayer
+  def auto: ZLayer[Any, Throwable, ChannelFactory]     = Live.auto.toLayer
 
   def make[A <: Channel](fn: () => A): Task[JChannelFactory[A]] = Task(new JChannelFactory[A] {
     override def newChannel(): A = fn()

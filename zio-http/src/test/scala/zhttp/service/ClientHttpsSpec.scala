@@ -6,7 +6,7 @@ import zhttp.http.Status
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.flaky
-import zio.test.assertM
+import zio.test.{TestFailure, assertM}
 
 import java.io._
 import java.security.KeyStore
@@ -54,5 +54,5 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
           .run
         assertM(actual)(fails(isSubtype[DecoderException](anything)))
       } @@ flaky,
-  ).provideCustomLayer(env)
+  ).provideCustomLayer(env).mapError(TestFailure.fail)
 }

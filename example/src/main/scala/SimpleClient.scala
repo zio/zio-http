@@ -14,6 +14,7 @@ object SimpleClient extends App {
     }
   } yield ()
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = program.exitCode.provideCustomLayer(env)
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+    program.provideCustomLayer(env).exitCode
 
 }

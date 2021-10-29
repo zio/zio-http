@@ -2,7 +2,7 @@ package zhttp.service
 
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.Assertion.anything
-import zio.test.assertM
+import zio.test.{TestFailure, assertM}
 
 object ClientSpec extends HttpRunnableSpec(8082) {
   val env           = ChannelFactory.auto ++ EventLoopGroup.auto()
@@ -11,5 +11,5 @@ object ClientSpec extends HttpRunnableSpec(8082) {
       val actual = Client.request("http://api.github.com/users/zio/repos", ClientSSLOptions.DefaultSSL)
       assertM(actual)(anything)
     },
-  ).provideCustomLayer(env)
+  ).provideCustomLayer(env).mapError(TestFailure.fail)
 }

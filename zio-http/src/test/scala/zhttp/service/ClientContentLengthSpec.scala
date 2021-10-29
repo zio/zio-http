@@ -3,7 +3,7 @@ package zhttp.service
 import zhttp.http._
 import zhttp.service.server._
 import zio.test.Assertion.{isNone, isPositive, isSome}
-import zio.test.assertM
+import zio.test.{TestFailure, assertM}
 import zio.{Ref, UIO, ZIO, ZRef}
 
 import scala.util.Try
@@ -70,5 +70,5 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
         ),
       )
       .useNow,
-  ).provideCustomLayer(env)
+  ).provideCustomLayer(env).mapError(TestFailure.fail)
 }

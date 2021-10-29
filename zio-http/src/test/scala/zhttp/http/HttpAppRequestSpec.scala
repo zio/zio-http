@@ -31,6 +31,6 @@ object HttpAppRequestSpec extends DefaultRunnableSpec with HttpMessageAssertions
           val req = getRequest(url = "/abc", header = header.set("H1", "K1"))
           assertM(req)(isRequest(header(Header("H1", "K1"))))
         }
-    }.provideCustomLayer(env)
+    }.provideCustomLayer(env).mapError(TestFailure.fail)
   }
 }

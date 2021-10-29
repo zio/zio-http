@@ -33,6 +33,6 @@ object HttpsClient extends App {
     }
   } yield ()
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = program.exitCode.provideCustomLayer(env)
-
+  override def run(args: List[String]): ZIO[zio.ZEnv, Nothing, ExitCode] =
+    program.provideCustomLayer(env).exitCode
 }

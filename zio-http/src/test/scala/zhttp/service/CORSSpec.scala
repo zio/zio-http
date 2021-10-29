@@ -82,5 +82,5 @@ object CORSSpec extends HttpRunnableSpec(8089) {
         ),
       )
       .useNow,
-  ).provideCustomLayer(env)
+  ).provideCustomLayer(env.orDie)
 }
