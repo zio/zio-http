@@ -1,15 +1,9 @@
 package zhttp.service
 
-import io.netty.handler.ssl.ApplicationProtocolConfig.{
-  Protocol,
-  SelectedListenerFailureBehavior,
-  SelectorFailureBehavior,
-}
-import io.netty.handler.ssl.util.SelfSignedCertificate
-import io.netty.handler.ssl.{ApplicationProtocolConfig, ApplicationProtocolNames, SslContextBuilder, SslProvider}
+import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.server.ServerSSLHandler.ServerSSLOptions
+import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromKeystore}
 import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
@@ -22,22 +16,20 @@ import javax.net.ssl.SSLHandshakeException
 object SSLSpec extends HttpRunnableSpec(8073) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
-  val ssc1       = new SelfSignedCertificate
-  val serverssl  = SslContextBuilder
-    .forServer(ssc1.certificate(), ssc1.privateKey())
-    .sslProvider(SslProvider.JDK)
-    .applicationProtocolConfig(
-      new ApplicationProtocolConfig(
-        Protocol.ALPN,
-        SelectorFailureBehavior.NO_ADVERTISE,
-        SelectedListenerFailureBehavior.ACCEPT,
-        ApplicationProtocolNames.HTTP_1_1,
-      ),
-    )
-    .build()
-  val ssc2       = new SelfSignedCertificate()
-  val clientssl1 = SslContextBuilder.forClient().trustManager(ssc1.cert()).build()
-  val clientssl2 = SslContextBuilder.forClient().trustManager(ssc2.cert()).build()
+  /**
+   * a custom keystore and a certificate from it
+   */
+  val keystore = getClass().getClassLoader().getResourceAsStream("keystore.jks")
+  val servercert = getClass().getClassLoader().getResourceAsStream("cert.crt.pem")
+
+  /**
+   * a second certificate
+   */
+  val ssc2 = getClass().getClassLoader().getResourceAsStream("ss2.crt.pem")
+
+  val serverssl  = ctxFromKeystore(keystore,"password","password")
+  val clientssl1 = SslContextBuilder.forClient().trustManager(servercert).build()
+  val clientssl2 = SslContextBuilder.forClient().trustManager(ssc2).build()
 
   val app = HttpApp.collectM[Any, Nothing] { case Method.GET -> !! / "success" =>
     ZIO.succeed(Response.ok)
