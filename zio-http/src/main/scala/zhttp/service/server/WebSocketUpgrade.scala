@@ -3,7 +3,7 @@ package zhttp.service.server
 import io.netty.buffer.Unpooled
 import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
-import io.netty.handler.codec.http.{DefaultFullHttpRequest, EmptyHttpHeaders, FullHttpRequest, HttpRequest}
+import io.netty.handler.codec.http._
 import zhttp.http.{Response, Status}
 import zhttp.service.{HttpRuntime, WEB_SOCKET_HANDLER}
 import zhttp.socket.SocketApp
@@ -16,14 +16,15 @@ trait WebSocketUpgrade[R] { self: ChannelHandler =>
 
   private var app: SocketApp[R, Throwable] = _
 
-  def canSwitchProtocol(res: Response[R, Throwable]): Boolean = res.status == Status.SWITCHING_PROTOCOLS
+  def canSwitchProtocol(res: Response[R, Throwable]): Boolean = res.attribute.exit.socketApp.nonEmpty
 
   /**
    * Checks if the response requires to switch protocol to websocket. Returns true if it can, otherwise returns false
    */
   def initializeSwitch(ctx: ChannelHandlerContext, res: Response[R, Throwable]): Unit = {
-    if (res.status == Status.SWITCHING_PROTOCOLS) {
-      self.app = res.attribute.exit.socketApp
+    val app = res.attribute.exit.socketApp
+    if (res.status == Status.SWITCHING_PROTOCOLS && app.nonEmpty) {
+      self.app = app
       ctx.channel().config().setAutoRead(true): Unit
     }
   }
