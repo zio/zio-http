@@ -8,8 +8,8 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 const config = {
   title: 'ZIO-HTTP',
   tagline: 'Scala library for building http apps',
-  url: 'https://github.com/dream11/zio-http',
-  baseUrl: '/',
+  url: 'https://github.com/dream11',
+  baseUrl: '/zio-http/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   organizationName: 'dream11', // Usually your GitHub org/user name.
@@ -23,13 +23,10 @@ const config = {
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
           // Please change this to your repo.
-          editUrl: 'https://github.com/facebook/docusaurus/edit/main/website/',
         },
         blog: {
           showReadingTime: true,
           // Please change this to your repo.
-          editUrl:
-            'https://github.com/facebook/docusaurus/edit/main/website/blog/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
@@ -46,7 +43,7 @@ const config = {
         items: [
           {
             type: 'doc',
-            docId: 'intro',
+            docId: 'index',
             position: 'left',
             label: 'Tutorial',
           }
@@ -60,7 +57,7 @@ const config = {
             items: [
               {
                 label: 'Documents',
-                to: '/docs/intro',
+                to: '/docs/index',
               },
             ],
           },
@@ -78,6 +75,7 @@ const config = {
       prism: {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
+        additionalLanguages: ["java", "scala"]
       },
     }),
 };
