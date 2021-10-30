@@ -1,5 +1,6 @@
 package zhttp.middleware
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware
 import zio.clock.Clock
@@ -66,7 +67,54 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec {
             val program    = run(app @@ middleware).map(_.headers)
             assertM(program)(equalTo(Nil))
           }
+      } +
+      suite("CSRF Builder") {
+        testM("Should set set-cookie header") {
+          val app: HttpApp[Any, Nothing]      = HttpApp.collect { case Method.GET -> !! / "health" =>
+            Response.ok
+          }
+          def run(app: HttpApp[Any, Nothing]) = {
+            app { Request(url = URL(!! / "health")) }
+          }
+          val middleware                      = CSRFBuilder.csrfBuilder(UIO("token"))
+          val program                         = run(app @@ middleware).map(_.headers)
+          assertM(program)(equalTo(List(Header("Set-Cookie", "csrf-token=token"))))
+        } +
+          testM("Should set response status to UNAUTHORIZED, if CSRF header is not set") {
+            val app: HttpApp[Any, Nothing]      = HttpApp.collect { case Method.GET -> !! / "health" =>
+              Response.ok
+            }
+            def run(app: HttpApp[Any, Nothing]) = {
+              app {
+                Request(
+                  url = URL(!! / "health"),
+                  headers = List(Header(HttpHeaderNames.COOKIE, Cookie(name = "csrf-token", content = "token").encode)),
+                )
+              }
+            }
+            val middleware                      = CSRFBuilder.csrfChecker("x-csrf")
+            val program                         = run(app @@ middleware).map(_.status)
+            assertM(program)(equalTo(Status.UNAUTHORIZED))
+          } +
+          testM("Should set response status to OK, if CSRF header is set correctly") {
+            val app: HttpApp[Any, Nothing]      = HttpApp.collect { case Method.GET -> !! / "health" =>
+              Response.ok
+            }
+            def run(app: HttpApp[Any, Nothing]) = {
+              app {
+                Request(
+                  url = URL(!! / "health"),
+                  headers = List(
+                    Header(HttpHeaderNames.COOKIE, Cookie(name = "csrf-token", content = "token").encode),
+                    Header("x-csrf", "token"),
+                  ),
+                )
+              }
+            }
+            val middleware                      = CSRFBuilder.csrfChecker("x-csrf")
+            val program                         = run(app @@ middleware).map(_.status)
+            assertM(program)(equalTo(Status.OK))
+          }
       }
-
   }
 }

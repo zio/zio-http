@@ -10,8 +10,9 @@ import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
 import zio.{UIO, ZIO, clock, console}
-
 import java.io.IOException
+
+import io.netty.handler.codec.http.HttpHeaderNames
 
 /**
  * Middlewares for HttpApp.
@@ -139,6 +140,51 @@ object HttpMiddleware {
             .mapError(Option(_))
         } yield Patch.empty
     }
+
+  object CSRFBuilder {
+    val CSRF_COOKIE_NAME                                      = "csrf-token"
+    def getCSRFCookies(headers: List[Header]): Option[String] = headers
+      .find(p => p.name == HttpHeaderNames.COOKIE)
+      .flatMap(a => Cookie.decode(a.value.toString).toOption)
+      .find(p => p.name == CSRF_COOKIE_NAME)
+      .map(_.content) // check if toString safe here ?
+
+    def csrfBuilder(tokenGen: => UIO[String]): HttpMiddleware[Any, Nothing] =
+      HttpMiddleware.makeM((_, _, headers) => {
+        for {
+          cookie <- UIO(getCSRFCookies(headers))
+          token  <- cookie match {
+            case Some(_) => UIO.none
+            case None    => tokenGen.map(Some(_))
+          }
+        } yield token
+      }) {
+        case (_, _, token) => {
+          token match {
+            case Some(t) =>
+              UIO(Patch.addHeaders(List(Header("Set-Cookie", Cookie(name = CSRF_COOKIE_NAME, content = t).encode))))
+            case None    => UIO(Patch.empty)
+          }
+        }
+      }
+
+    def csrfChecker(csrfHeaderName: String): HttpMiddleware[Any, Nothing] = HttpMiddleware.make((_, _, headers) => {
+      val headerVal = headers.find(p => p.name == csrfHeaderName).map(_.value.toString)
+      val cookieVal = getCSRFCookies(headers)
+      (headerVal, cookieVal) match {
+        case (Some(hv), Some(cv)) => hv == cv
+        case _                    => false
+      }
+    }) {
+      case (_, _, verified) => {
+        if (verified) {
+          Patch.empty
+        } else {
+          Patch.setStatus(Status.UNAUTHORIZED)
+        }
+      }
+    }
+  }
 
   /**
    * Runs the effect after the response is produced
