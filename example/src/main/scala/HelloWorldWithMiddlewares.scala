@@ -19,22 +19,24 @@ object HelloWorldWithMiddlewares extends App {
     case Method.GET -> !! / "long-running" => ZIO.succeed(Response.text("Hello World!")).delay(5 seconds)
   }
 
-  val middlewares: HttpMiddleware[Console with Clock, IOException] =
+  val currentTimeMiddleware: HttpMiddleware[Clock, Nothing] = patchM((_, _) =>
+    for {
+      currentMilliseconds <- currentTime(TimeUnit.MILLISECONDS)
+      withHeader = Patch.addHeaders(List(Header("X-Time", currentMilliseconds.toString)))
+    } yield withHeader,
+  )
+
+  val appWithMiddlewares: HttpApp[Console with Clock, IOException] = app @@
     // print debug info about request and response
-    debug ++
-      // close connection if request takes more than 3 seconds
-      timeout(3 seconds) ++
-      // add static header
-      addHeader("X-Environment", "Dev") ++
-      // add dynamic header
-      patchM((_, _) =>
-        for {
-          currentMilliseconds <- currentTime(TimeUnit.MILLISECONDS)
-          withHeader = Patch.addHeaders(List(Header("X-Time", currentMilliseconds.toString)))
-        } yield withHeader,
-      )
+    debug @@
+    // close connection if request takes more than 3 seconds
+    timeout(3 seconds) @@
+    // add static header
+    addHeader("X-Environment", "Dev") @@
+    // add dynamic header
+    currentTimeMiddleware
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, (app @@ middlewares).silent).exitCode
+    Server.start(8090, appWithMiddlewares.silent).exitCode
 }
