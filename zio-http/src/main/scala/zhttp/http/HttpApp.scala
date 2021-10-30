@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.channel._
-import zhttp.http.middleware.HttpMiddleware
+import zhttp.http.middleware.{AuthMiddleware, HttpMiddleware}
 import zhttp.service.{Handler, HttpRuntime}
 import zio._
 import zio.clock.Clock
@@ -52,6 +52,8 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
    */
   def middleware[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = mid(self)
 
+  def authmiddleware[R1 <: R, E1 >: E](mid: AuthMiddleware[R1, E1]): HttpApp[R1, E1] = mid(self)
+
   /**
    * Delays the response by the provided duration
    */
@@ -66,6 +68,7 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
    * Attaches the provided middleware to the HttpApp
    */
   def @@[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = self.middleware(mid)
+  def @@[R1 <: R, E1 >: E](mid: AuthMiddleware[R1, E1]): HttpApp[R1, E1] = self.authmiddleware(mid)
 
   /**
    * Performs a race between two apps
@@ -168,6 +171,9 @@ object HttpApp {
    */
   def fromFunction[R, E, B](f: Request => HttpApp[R, E]): HttpApp[R, E] =
     HttpApp(Http.fromFunction[Request](f(_).asHttp).flatten)
+
+  def fromFunctionM[R, E, B](f: Request => ZIO[R, E, HttpApp[R, E]]): HttpApp[R, E] =
+    HttpApp(Http.fromFunctionM[Request](f(_).map(_.asHttp)).flatten)
 
   /**
    * Creates a Http app from a partial function from Request to HttpApp
