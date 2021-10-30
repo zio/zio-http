@@ -19,7 +19,7 @@ object Authentication extends App {
     Jwt.encode(claim, SECRET_KEY, JwtAlgorithm.HS512)
   }
 
-  // Http app that requires a JWT claim
+  // Final httpApp
   val user: UHttpApp = HttpApp.collect { case Method.GET -> !! / "user" / name / "greet" =>
     Response.text(s"Welcome to the ZIO party! ${name}")
   }

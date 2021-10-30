@@ -8,6 +8,9 @@ import zhttp.http.HttpError.Unauthorized
 import zhttp.http.{Header, HeaderExtension, HttpApp, HttpError}
 import zio.ZIO
 
+/**
+ * Authentication Middlewares for HttpApp.
+ */
 sealed trait AuthMiddleware[-R, +E] { self =>
   def apply[R1 <: R, E1 >: E](app: HttpApp[R1, E1]): HttpApp[R1, E1] = AuthMiddleware.execute(self, app)
 
@@ -26,9 +29,15 @@ object AuthMiddleware {
   private final case class Combine[R, E](self: AuthMiddleware[R, E], other: AuthMiddleware[R, E])
       extends AuthMiddleware[R, E]
 
+  /**
+   * creates a middleware that check the content of X-ACCESS-TOKEN header and try to decode a JwtClaim
+   */
   def jwt(secretKey: String, algo: Seq[JwtHmacAlgorithm] = Seq(JwtAlgorithm.HS512)): AuthMiddleware[Any, Nothing] =
     JwtSecret(secretKey, algo)
 
+  /**
+   * creates a middleware for basic authentication
+   */
   def basicAuth[R, E](f: (String, String) => ZIO[R, E, Boolean]): AuthMiddleware[R, E] = AuthFunction(
     { h =>
       HeadersHolder(h).getBasicAuthorizationCredentials match {
@@ -39,11 +48,17 @@ object AuthMiddleware {
     List(Header(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName)),
   )
 
+  /**
+   * creates a generic authentication middleware
+   */
   def authFunction[R, E](
     f: List[Header] => ZIO[R, E, Boolean],
     h: List[Header] = List.empty[Header],
   ): AuthMiddleware[R, E] = AuthFunction(f, h)
 
+  /**
+   * Applies the middleware on an HttpApp
+   */
   private[zhttp] def execute[R, E](mid: AuthMiddleware[R, E], app: HttpApp[R, E]): HttpApp[R, E] = mid match {
     case AuthFunction(f, h)         =>
       HttpApp.fromFunctionM { req =>
