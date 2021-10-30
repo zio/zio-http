@@ -1,4 +1,4 @@
-# Hello World Advanced
+# Advanced Server
 
 ```scala
 import zhttp.http._
