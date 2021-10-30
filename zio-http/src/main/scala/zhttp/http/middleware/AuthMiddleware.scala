@@ -4,7 +4,6 @@ import io.netty.handler.codec.http.HttpHeaderNames
 import pdi.jwt._
 import pdi.jwt.algorithms.JwtHmacAlgorithm
 import zhttp.http.HeaderExtension.BasicSchemeName
-import zhttp.http.HttpError.Unauthorized
 import zhttp.http.{Header, HeaderExtension, HttpApp, HttpError}
 import zio.ZIO
 
@@ -24,8 +23,6 @@ sealed trait AuthMiddleware[-R, +E] { self =>
 object AuthMiddleware {
   private final case class AuthFunction[R, E](f: List[Header] => ZIO[R, E, Boolean], h: List[Header])
       extends AuthMiddleware[R, E]
-  private final case class JwtSecret(secretKey: String, algo: Seq[JwtHmacAlgorithm])
-      extends AuthMiddleware[Any, Nothing]
   private final case class Combine[R, E](self: AuthMiddleware[R, E], other: AuthMiddleware[R, E])
       extends AuthMiddleware[R, E]
 
@@ -33,7 +30,15 @@ object AuthMiddleware {
    * creates a middleware that check the content of X-ACCESS-TOKEN header and try to decode a JwtClaim
    */
   def jwt(secretKey: String, algo: Seq[JwtHmacAlgorithm] = Seq(JwtAlgorithm.HS512)): AuthMiddleware[Any, Nothing] =
-    JwtSecret(secretKey, algo)
+    AuthFunction(
+      { h =>
+        HeadersHolder(h)
+          .getHeader("X-ACCESS-TOKEN")
+          .flatMap(header => Jwt.decode(header.value.toString, secretKey, algo).toOption)
+          .fold(ZIO.succeed(false))(_ => ZIO.succeed(true))
+      },
+      List.empty[Header],
+    )
 
   /**
    * creates a middleware for basic authentication
@@ -60,7 +65,7 @@ object AuthMiddleware {
    * Applies the middleware on an HttpApp
    */
   private[zhttp] def execute[R, E](mid: AuthMiddleware[R, E], app: HttpApp[R, E]): HttpApp[R, E] = mid match {
-    case AuthFunction(f, h)         =>
+    case AuthFunction(f, h)   =>
       HttpApp.fromFunctionM { req =>
         for {
           bool <- f(req.headers)
@@ -69,14 +74,7 @@ object AuthMiddleware {
             else ZIO.succeed(HttpApp.response(HttpError.Unauthorized().toResponse.addHeaders(h)))
         } yield res
       }
-    case JwtSecret(secretKey, algo) =>
-      HttpApp.fromFunction {
-        _.getHeader("X-ACCESS-TOKEN")
-          .flatMap(header => Jwt.decode(header.value.toString, secretKey, algo).toOption)
-          .fold[HttpApp[R, E]](HttpApp.error(Unauthorized()))(_ => app)
-      }
-    case Combine(self, other)       => other(self(app))
-
+    case Combine(self, other) => other(self(app))
   }
 
   final case class HeadersHolder(headers: List[Header]) extends HeaderExtension[HeadersHolder] { self =>
