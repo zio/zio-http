@@ -1,5 +1,5 @@
 trait ScalaSettings {
-  //RECOMMENDED SETTINGS: https://tpolecat.github.io/2017/04/25/scalac-flags.html
+  // RECOMMENDED SETTINGS: https://tpolecat.github.io/2017/04/25/scalac-flags.html
   val tpoleCatSettings = Seq(
     "-language:postfixOps",      // Added by @tusharmath
     "-deprecation",              // Emit warning and location for usages of deprecated APIs.
