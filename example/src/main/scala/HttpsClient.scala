@@ -13,7 +13,7 @@ object HttpsClient extends App {
   val url     = "https://sports.api.decathlon.com/groups/water-aerobics"
   val headers = List(Header.host("sports.api.decathlon.com"))
 
-  //Configuring Truststore for https(optional)
+  // Configuring Truststore for https(optional)
   val trustStore: KeyStore                     = KeyStore.getInstance("JKS")
   val trustStorePath: InputStream              = getClass.getResourceAsStream("truststore.jks")
   val trustStorePassword: String               = "changeit"

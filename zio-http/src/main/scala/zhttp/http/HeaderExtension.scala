@@ -5,13 +5,27 @@ import io.netty.handler.codec.base64.Base64
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues, HttpUtil}
 import io.netty.util.AsciiString.toLowerCase
 import io.netty.util.{AsciiString, CharsetUtil}
-import zhttp.http.HeadersHelpers.{BasicSchemeName, BearerSchemeName}
+import zhttp.http.HeaderExtension.{BasicSchemeName, BearerSchemeName}
 
 import java.nio.charset.Charset
 import scala.util.control.NonFatal
 
-private[zhttp] trait HeadersHelpers {
+private[zhttp] trait HeaderExtension[+A] { self =>
   def headers: List[Header]
+
+  def addHeaders(headers: List[Header]): A
+
+  def removeHeaders(headers: List[String]): A
+
+  def addHeader(header: Header): A = addHeaders(List(header))
+
+  def removeHeader(name: String): A = removeHeaders(List(name))
+
+  def setContentLength(value: Long): A =
+    addHeader(Header(HttpHeaderNames.CONTENT_LENGTH, value.toString))
+
+  def setChunkedEncoding: A =
+    addHeader(Header(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED))
 
   private def equalsIgnoreCase(a: Char, b: Char) = a == b || toLowerCase(a) == toLowerCase(b)
 
@@ -111,9 +125,18 @@ private[zhttp] trait HeadersHelpers {
       case Left(_)      => Nil
       case Right(value) => List(value)
     })
+
+  def hasHeader(name: CharSequence, value: CharSequence): Boolean =
+    getHeaderValue(name) match {
+      case Some(v1) => v1 == value
+      case None     => false
+    }
+
+  def hasHeader(name: CharSequence): Boolean =
+    getHeaderValue(name).nonEmpty
 }
 
-object HeadersHelpers {
+object HeaderExtension {
   val BasicSchemeName  = "Basic"
   val BearerSchemeName = "Bearer"
 }

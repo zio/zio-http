@@ -18,9 +18,9 @@ object LogMiddleware {
     case class Skip(when: (RequestT, ResponseT) => Boolean) extends Options
   }
 
-  type RequestT = (Method, URL, List[Header])
-  type ResponseT = (Status, List[Header])
-  type LogRequestStep = (LogBuilder, Long, RequestT)  // request log, start, request
+  private type RequestT = (Method, URL, List[Header])
+  private type ResponseT = (Status, List[Header])
+  private type LogRequestStep = (LogBuilder, Long, RequestT)  // request log, start, request
 
   private def generateCorrelationId: String =
     java.lang.Long.toHexString(scala.util.Random.nextLong() | java.lang.Long.MIN_VALUE)

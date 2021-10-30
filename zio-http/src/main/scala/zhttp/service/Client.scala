@@ -9,7 +9,7 @@ import io.netty.channel.{
 }
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpVersion}
 import zhttp.http.URL.Location
-import zhttp.http.{HttpData, _}
+import zhttp.http._
 import zhttp.service
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
@@ -144,7 +144,7 @@ object Client {
     headers: List[Header] = List.empty,
     content: HttpData[Any, Nothing] = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
-  ) extends HeadersHelpers { self =>
+  ) extends HeaderExtension[ClientParams] { self =>
     val method: Method = endpoint._1
     val url: URL       = endpoint._2
 
@@ -161,6 +161,12 @@ object Client {
       else
         None
     }
+
+    override def addHeaders(headers: List[Header]): ClientParams =
+      self.copy(headers = self.headers ++ headers)
+
+    override def removeHeaders(headers: List[String]): ClientParams =
+      self.copy(headers = self.headers.filterNot(h => headers.contains(h)))
   }
 
   final case class ClientResponse(status: Status, headers: List[Header], content: Chunk[Byte])
