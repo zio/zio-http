@@ -4,8 +4,14 @@ import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
+import zhttp.http.HttpData.Empty
+import zhttp.http.HttpData.Text
+import zhttp.http.HttpData.Binary
+import zhttp.http.HttpData.BinaryN
+import zhttp.http.HttpData.BinaryStream
 
 import java.io.{PrintWriter, StringWriter}
+import scala.collection.immutable
 
 case class Response[-R, +E] private (
   status: Status,
@@ -26,6 +32,19 @@ case class Response[-R, +E] private (
   def addCookie(cookie: Cookie): Response[R, E] =
     self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
 
+    def defaultHealders: Response[R,E] = self.headers.map(_.name.toString.toLowerCase()).filter(_=="content-length") match {
+      case _ :: _ => self
+  
+      case immutable.Nil =>self.data match {
+          case Empty => copy(headers=self.headers ++ List(Header("Content-Length",{0}.toString())))
+          case Text(text, _) =>copy(headers=self.headers ++ List(Header("Content-Length",{text.getBytes().length}.toString())))
+          case Binary(data) =>copy(headers=self.headers ++ List(Header("Content-Length",{data.toVector.length}.toString())))
+          case BinaryN(data) =>copy(headers=self.headers ++ List(Header("Content-Length",{data.array().length}.toString())))
+          case BinaryStream(_) =>copy(headers=self.headers ++ List(Header("Transer-Encoding","chunked")))
+        }
+     
+    }  
+        
   /**
    * Removes headers by name from the response
    */

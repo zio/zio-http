@@ -232,8 +232,8 @@ object Cookie {
              val decipheredCookie=cipher.doFinal(decodedText).toString()
             (for {
              cookieValue<-   decode(decipheredCookie)
-              encrypedCookie=cookieValue.signedCookie(secret)
-              result=if(encrypedCookie==decipheredCookie)Right(decipheredCookie) else Left( new RuntimeException)
+              encryptedCookie=cookieValue.signedCookie(secret)
+              result=if(encryptedCookie==decipheredCookie)Right(decipheredCookie) else Left( new RuntimeException)
             }  yield result).flatten
 
 
