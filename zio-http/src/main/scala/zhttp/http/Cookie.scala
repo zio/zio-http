@@ -1,7 +1,11 @@
 package zhttp.http
 
 import zio.duration._
-
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
+import java.util.Base64._
+import javax.crypto.Cipher
+import java.security.MessageDigest
 import java.time.Instant
 import scala.util.{Failure, Success, Try}
 
@@ -87,6 +91,28 @@ final case class Cookie(
    * Removes expiry from the cookie
    */
   def withoutExpiry: Cookie = copy(expires = None)
+
+
+/**
+ * 
+ *
+ */ 
+def signedCookie(secret:String)= {
+        
+       val sha256=Mac.getInstance("HmacSHA-256")
+       val secretKey= new SecretKeySpec(secret.getBytes(),"HmacSHA-256")
+       sha256.init(secretKey)
+       val signed=sha256.doFinal(self.content.getBytes())
+
+     def getCookieHash(cookie:Array[Byte])={
+        val mda= MessageDigest.getInstance("SHA-512")
+        getEncoder().encodeToString(mda.digest(cookie))
+      }
+
+     getCookieHash(signed)
+
+      }
+
 
   /**
    * Removes domain from the cookie
@@ -190,6 +216,28 @@ object Cookie {
       case Failure(e) => Left(s"Invalid http date: $v (${e.getMessage})")
     }
 
+    /**
+     * 
+     *
+     */ 
+
+     def decipher(signedCookie:String)={
+           val secret="same asused to sign cookie"
+
+           //import java.security.MessageDigest
+            val decodedText=getDecoder().decode(signedCookie)
+            val secretKey= new SecretKeySpec(secret.getBytes(),"HmacSHA-256")
+            val cipher= Cipher.getInstance("HmacSHA-256")
+            cipher.init(Cipher.DECRYPT_MODE,secretKey)
+             val decipheredCookie=cipher.doFinal(decodedText).toString()
+            (for {
+             cookieValue<-   decode(decipheredCookie)
+              encrypedCookie=cookieValue.signedCookie(secret)
+              result=if(encrypedCookie==decipheredCookie)Right(decipheredCookie) else Left( new RuntimeException)
+            }  yield result).flatten
+
+
+         }
   /**
    * Updates maxAge in cookie
    */
