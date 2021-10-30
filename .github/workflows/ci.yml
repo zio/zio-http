@@ -55,8 +55,13 @@ jobs:
       - name: Check that workflows are up to date
         run: sbt ++${{ matrix.scala }} githubWorkflowCheck
 
-      - name: Build project
-        run: sbt ++${{ matrix.scala }} test
+      - name: Build, test and  verify Coverage
+        id: test_and_coverage
+        run: sbt ++${{ matrix.scala }} clean coverage test
+
+      - name: Generate coverage report
+        id: generate_coverage_report
+        run: sbt ++${{ matrix.scala }} coverageReport
 
       - name: Compress target directories
         run: tar cf targets.tar target zio-http-test/target zio-http/target zio-http-benchmarks/target example/target project/target

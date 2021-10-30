@@ -1,9 +1,8 @@
-import sbt.enablePlugins
-import Dependencies._
 import BuildHelper.{Scala213, publishSetting, stdSettings}
+import Dependencies._
 
-import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.FiniteDuration
 
 val releaseDrafterVersion = "5"
 
@@ -49,6 +48,19 @@ ThisBuild / githubWorkflowBuildPreamble :=
     scalas = List(Scala213),
   ).steps
 
+ThisBuild / githubWorkflowBuild         := Seq(
+  WorkflowStep.Sbt(
+    id = Some("test_and_coverage"),
+    name = Some("Build, test and  verify Coverage"),
+    commands = List("clean", "coverage", "test"),
+  ),
+  WorkflowStep.Sbt(
+    id = Some("generate_coverage_report"),
+    name = Some("Generate coverage report"),
+    commands = List("coverageReport"),
+  ),
+)
+
 // Test Configuration
 ThisBuild / libraryDependencies ++= Seq(`zio-test`, `zio-test-sbt`)
 ThisBuild / testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
@@ -60,12 +72,12 @@ lazy val zhttp = (project in file("./zio-http"))
   .settings(stdSettings("zhttp"))
   .settings(publishSetting(true))
   .settings(
-    ThisBuild / homepage   := Some(url("https://github.com/dream11/zio-http")),
-    ThisBuild / scmInfo    :=
+    ThisBuild / homepage       := Some(url("https://github.com/dream11/zio-http")),
+    ThisBuild / scmInfo        :=
       Some(
         ScmInfo(url("https://github.com/dream11/zio-http"), "scm:git@github.com:dream11/zio-http.git"),
       ),
-    ThisBuild / developers :=
+    ThisBuild / developers     :=
       List(
         Developer(
           "tusharmath",
@@ -80,6 +92,10 @@ lazy val zhttp = (project in file("./zio-http"))
           new URL("https://github.com/amitksingh1490"),
         ),
       ),
+    coverageEnabled            := true,
+    coverageFailOnMinimum      := true,
+    coverageMinimumStmtTotal   := 54,
+    coverageMinimumBranchTotal := 65,
     libraryDependencies ++= Seq(`zio`, `zio-streams`, netty, `scala-compact-collection`, `netty-incubator`),
   )
 
@@ -91,13 +107,17 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
   .settings(publishSetting(false))
   .settings(
     libraryDependencies ++= Seq(zio),
+    coverageEnabled := false
   )
 
 // Testing Package
 lazy val zhttpTest = (project in file("./zio-http-test"))
   .dependsOn(zhttp)
-  .settings(stdSettings("zhttp-test"))
-  .settings(publishSetting(true))
+  .settings(
+    stdSettings("zhttp-test"),
+    publishSetting(true),
+    coverageEnabled := false
+  )
 
 lazy val example = (project in file("./example"))
   .settings(stdSettings("example"))
@@ -106,6 +126,7 @@ lazy val example = (project in file("./example"))
     fork                      := true,
     Compile / run / mainClass := Option("HelloWorld"),
     libraryDependencies ++= Seq(`jwt-core`),
+    coverageEnabled := false
   )
   .dependsOn(zhttp)
 
