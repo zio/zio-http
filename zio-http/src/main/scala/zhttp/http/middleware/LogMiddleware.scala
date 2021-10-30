@@ -9,9 +9,46 @@ import zio.logging._
 import zhttp.http._
 
 object LogMiddleware {
-  final case class RequestLogger(logMethod: Boolean, logHeaders: Boolean, level: LogLevel)
-  final case class ResponseLogger(logMethod: Boolean, logHeaders: Boolean, level: LogLevel)
 
+  /**
+   * Configures the way the request is displayed
+   * @param logMethod
+   *   Should the HTTP method be logged
+   * @param logHeaders
+   *   Determines if the HTTP request headers are logged
+   * @param mapHeaders
+   *   It allows to change the display message or filter headers. Defaults to identity function.
+   * @param level
+   *   LogLevel
+   */
+  final case class RequestLogger(
+    logMethod: Boolean,
+    logHeaders: Boolean,
+    mapHeaders: (List[Header]) => List[Header] = identity,
+    level: LogLevel = LogLevel.Debug,
+  )
+
+  /**
+   * Configures the way the response is displayed
+   * @param logMethod
+   *   Should the HTTP method be logged
+   * @param logHeaders
+   *   Determines if the HTTP response headers are logged
+   * @param mapHeaders
+   *   It allows to change the display message or filter headers. Defaults to identity function.
+   * @param level
+   *   LogLevel
+   */
+  final case class ResponseLogger(
+    logMethod: Boolean,
+    logHeaders: Boolean,
+    mapHeaders: (List[Header]) => List[Header] = identity,
+    level: LogLevel = LogLevel.Debug,
+  )
+
+  /**
+   * Basic options of the log middleware Skip(when): determines when a request should be logged
+   */
   sealed trait Options
   object Options {
     case object Default                                     extends Options
@@ -27,26 +64,29 @@ object LogMiddleware {
 
   private case class LogBuilder(id: String, prefix: String) {
     private val log = new StringBuilder()
-    log.append(s"${prefix}[$id] ")
+    log.append(s"${prefix}[$id]")
 
-    def append[A](name: String, value: A)                       = ZIO.succeed(log.append(s"${name}=${value}, "))
-    def appendIf[A](name: String, value: A, condition: Boolean) =
-      if (condition) append(name, value)
+    def append[A](name: String, value: A, units: String = ""): zio.UIO[Any]                       =
+      ZIO.succeed(log.append(s", ${name}=${value}${units}"))
+    def appendIf[A](name: String, value: A, condition: Boolean, units: String = ""): zio.UIO[Any] =
+      if (condition) append(name, value, units)
       else ZIO.unit
 
-    override def toString = log.toString()
+    override def toString: String = log.toString()
   }
 
-  private def doLogRequest(logDef: RequestLogger, req: RequestT) = {
+  private def doLogRequest(requestOptions: RequestLogger, req: RequestT): ZIO[Clock, Nothing, LogRequestStep] = {
     val (method, url, headers) = req
     val requestId              = generateCorrelationId
     val logContent             = LogBuilder(requestId, "Request")
 
+    val filteredHeaders = requestOptions.mapHeaders(headers)
+
     for {
       start <- clock.nanoTime
       _     <- logContent.append("Url", url.path)
-      _     <- logContent.appendIf("Method", method, logDef.logMethod)
-      _     <- logContent.appendIf("Headers", headers, logDef.logHeaders)
+      _     <- logContent.appendIf("Method", method, requestOptions.logMethod)
+      _     <- logContent.appendIf("Headers", filteredHeaders, requestOptions.logHeaders)
     } yield (logContent, start, (method, url, headers))
   }
 
@@ -54,31 +94,36 @@ object LogMiddleware {
     responseOptions: ResponseLogger,
     options: Options,
     response: (Status, List[Header], LogRequestStep),
-  ) = {
+  ): ZIO[Logging with Clock, Nothing, Patch] = {
     val (status, responseHeaders, prevData) = response
     val (requestLog, start, sourceReq)      = prevData
     val (method, _, _)                      = sourceReq
 
     val logContent = LogBuilder(requestLog.id, "Response")
 
+    val filteredHeaders = responseOptions.mapHeaders(responseHeaders)
+
     def doLog = {
       for {
         _   <- zio.logging.log(responseOptions.level)(requestLog.toString)
         end <- clock.nanoTime
         _   <- logContent.append("Status", status)
+        _   <- logContent.append("Elapsed", (end - start) / 1000000, "ms")
         _   <- logContent.appendIf("Method", method, responseOptions.logMethod)
-        _   <- logContent.appendIf("Headers", responseHeaders, responseOptions.logHeaders)
-        _   <- logContent.append("Elapsed", (end - start) / 1000000)
+        _   <- logContent.appendIf("Headers", filteredHeaders, responseOptions.logHeaders)
         _   <- zio.logging.log(responseOptions.level)(logContent.toString)
       } yield Patch.empty
     }
 
     options match {
-      case Options.Skip(filterFn) if !filterFn(sourceReq, (status, responseHeaders)) => ZIO.succeed(Patch.empty)
-      case _                                                                         => doLog
+      case Options.Skip(excludeFn) if excludeFn(sourceReq, (status, responseHeaders)) => ZIO.succeed(Patch.empty)
+      case _                                                                          => doLog
     }
   }
 
+  /**
+   * Creates a log middleware with different options for logging request/response info.
+   */
   def log(
     request: RequestLogger,
     response: ResponseLogger,
