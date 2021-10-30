@@ -12,7 +12,7 @@ lazy val root = (project in file("."))
   .aggregate(zhttp, zhttpBenchmarks, zhttpTest, example)
 
 // CI Configuration
-ThisBuild / githubWorkflowAddedJobs     :=
+ThisBuild / githubWorkflowAddedJobs      :=
   Seq(
     WorkflowJob(
       id = "update_release_draft",
@@ -23,7 +23,7 @@ ThisBuild / githubWorkflowAddedJobs     :=
   )
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
-ThisBuild / githubWorkflowPublish       :=
+ThisBuild / githubWorkflowPublish        :=
   Seq(
     WorkflowStep.Sbt(
       List("ci-release"),
@@ -38,7 +38,7 @@ ThisBuild / githubWorkflowPublish       :=
   )
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
-ThisBuild / githubWorkflowBuildPreamble :=
+ThisBuild / githubWorkflowBuildPreamble  :=
   WorkflowJob(
     "fmtCheck",
     "Format",
@@ -48,18 +48,15 @@ ThisBuild / githubWorkflowBuildPreamble :=
     scalas = List(Scala213),
   ).steps
 
-ThisBuild / githubWorkflowBuild         := Seq(
-  WorkflowStep.Sbt(
-    id = Some("test_and_coverage"),
-    name = Some("Build, test and  verify Coverage"),
-    commands = List("clean", "coverage", "test"),
-  ),
-  WorkflowStep.Sbt(
-    id = Some("generate_coverage_report"),
-    name = Some("Generate coverage report"),
-    commands = List("coverageReport"),
-  ),
-)
+ThisBuild / githubWorkflowBuildPostamble :=
+  WorkflowJob(
+    "generate_coverage_report",
+    "Generate Coverage Report",
+    List(
+      WorkflowStep.Run(List(s"sbt ++${Scala213} coverage test coverageReport"), name = Some("Generate Coverage Report")),
+    ),
+    scalas = List(Scala213),
+  ).steps
 
 // Test Configuration
 ThisBuild / libraryDependencies ++= Seq(`zio-test`, `zio-test-sbt`)
@@ -95,7 +92,7 @@ lazy val zhttp = (project in file("./zio-http"))
     coverageEnabled            := true,
     coverageFailOnMinimum      := true,
     coverageMinimumStmtTotal   := 54,
-    coverageMinimumBranchTotal := 65,
+    coverageMinimumBranchTotal := 69,
     libraryDependencies ++= Seq(`zio`, `zio-streams`, netty, `scala-compact-collection`, `netty-incubator`),
   )
 
@@ -107,7 +104,7 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
   .settings(publishSetting(false))
   .settings(
     libraryDependencies ++= Seq(zio),
-    coverageEnabled := false
+    coverageEnabled := false,
   )
 
 // Testing Package
@@ -116,7 +113,7 @@ lazy val zhttpTest = (project in file("./zio-http-test"))
   .settings(
     stdSettings("zhttp-test"),
     publishSetting(true),
-    coverageEnabled := false
+    coverageEnabled := false,
   )
 
 lazy val example = (project in file("./example"))
@@ -126,7 +123,7 @@ lazy val example = (project in file("./example"))
     fork                      := true,
     Compile / run / mainClass := Option("HelloWorld"),
     libraryDependencies ++= Seq(`jwt-core`),
-    coverageEnabled := false
+    coverageEnabled           := false,
   )
   .dependsOn(zhttp)
 
