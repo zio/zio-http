@@ -1,4 +1,4 @@
-import sbt.enablePlugins
+import sbt.{ThisBuild, enablePlugins}
 import Dependencies._
 import BuildHelper.{Scala213, publishSetting, stdSettings}
 
@@ -13,6 +13,14 @@ lazy val root = (project in file("."))
   .aggregate(zhttp, zhttpBenchmarks, zhttpTest, example)
 
 // CI Configuration
+ThisBuild / githubWorkflowBuild         := Seq(
+  WorkflowStep.Sbt(
+    id = Some("build_and_test"),
+    name = Some("Build, test and  verify Coverage"),
+    commands = List("clean", "coverage", "test"),
+  ),
+  WorkflowStep.Sbt(List("coverageReport")),
+)
 ThisBuild / githubWorkflowAddedJobs     :=
   Seq(
     WorkflowJob(
@@ -60,6 +68,13 @@ lazy val zhttp = (project in file("./zio-http"))
   .settings(stdSettings("zhttp"))
   .settings(publishSetting(true))
   .settings(
+    coverageExcludedPackages   := "zio-http-benchmarks; zio-http-test",
+    coverageEnabled            := true,
+    coverageFailOnMinimum      := true,
+    coverageMinimumStmtTotal   := 53,
+    coverageMinimumBranchTotal := 65,
+  )
+  .settings(
     ThisBuild / homepage   := Some(url("https://github.com/dream11/zio-http")),
     ThisBuild / scmInfo    :=
       Some(
@@ -91,6 +106,7 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
   .settings(publishSetting(false))
   .settings(
     libraryDependencies ++= Seq(zio),
+    coverageEnabled := false,
   )
 
 // Testing Package
@@ -98,12 +114,14 @@ lazy val zhttpTest = (project in file("./zio-http-test"))
   .dependsOn(zhttp)
   .settings(stdSettings("zhttp-test"))
   .settings(publishSetting(true))
+  .settings(coverageEnabled := false)
 
 lazy val example = (project in file("./example"))
   .settings(stdSettings("example"))
   .settings(publishSetting(false))
   .settings(
     fork                      := true,
+    coverageEnabled           := false,
     Compile / run / mainClass := Option("HelloWorld"),
     libraryDependencies ++= Seq(`jwt-core`),
   )
