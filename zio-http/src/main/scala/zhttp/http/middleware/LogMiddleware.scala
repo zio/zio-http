@@ -1,11 +1,8 @@
 package zhttp.http.middleware
 
-import java.io.IOException
-
 import zio.{ZIO}
 import zio.clock
 import zio.clock.Clock
-import zio.logging._
 import zhttp.http._
 
 object LogMiddleware {
@@ -18,14 +15,11 @@ object LogMiddleware {
    *   Determines if the HTTP request headers are logged
    * @param mapHeaders
    *   It allows to change the display message or filter headers. Defaults to identity function.
-   * @param level
-   *   LogLevel
    */
   final case class RequestLogger(
     logMethod: Boolean,
     logHeaders: Boolean,
     mapHeaders: (List[Header]) => List[Header] = identity,
-    level: LogLevel = LogLevel.Debug,
   )
 
   /**
@@ -36,14 +30,11 @@ object LogMiddleware {
    *   Determines if the HTTP response headers are logged
    * @param mapHeaders
    *   It allows to change the display message or filter headers. Defaults to identity function.
-   * @param level
-   *   LogLevel
    */
   final case class ResponseLogger(
     logMethod: Boolean,
     logHeaders: Boolean,
     mapHeaders: (List[Header]) => List[Header] = identity,
-    level: LogLevel = LogLevel.Debug,
   )
 
   /**
@@ -55,6 +46,7 @@ object LogMiddleware {
     case class Skip(when: (RequestT, ResponseT) => Boolean) extends Options
   }
 
+  private type LogF[-R, +E]   = (String) => ZIO[R, E, Unit]
   private type RequestT       = (Method, URL, List[Header])
   private type ResponseT      = (Status, List[Header])
   private type LogRequestStep = (LogBuilder, Long, RequestT) // request log, start, request
@@ -90,11 +82,12 @@ object LogMiddleware {
     } yield (logContent, start, (method, url, headers))
   }
 
-  private def doLogResponse(
+  private def doLogResponse[R, E](
     responseOptions: ResponseLogger,
     options: Options,
     response: (Status, List[Header], LogRequestStep),
-  ): ZIO[Logging with Clock, Nothing, Patch] = {
+    logImpl: LogF[R, E],
+  ) = {
     val (status, responseHeaders, prevData) = response
     val (requestLog, start, sourceReq)      = prevData
     val (method, _, _)                      = sourceReq
@@ -105,13 +98,13 @@ object LogMiddleware {
 
     def doLog = {
       for {
-        _   <- zio.logging.log(responseOptions.level)(requestLog.toString)
+        _   <- logImpl(requestLog.toString)
         end <- clock.nanoTime
         _   <- logContent.append("Status", status)
         _   <- logContent.append("Elapsed", (end - start) / 1000000, "ms")
         _   <- logContent.appendIf("Method", method, responseOptions.logMethod)
         _   <- logContent.appendIf("Headers", filteredHeaders, responseOptions.logHeaders)
-        _   <- zio.logging.log(responseOptions.level)(logContent.toString)
+        _   <- logImpl(logContent.toString)
       } yield Patch.empty
     }
 
@@ -124,10 +117,12 @@ object LogMiddleware {
   /**
    * Creates a log middleware with different options for logging request/response info.
    */
-  def log(
+  def log[R, E](
     request: RequestLogger,
     response: ResponseLogger,
     options: Options,
-  ): HttpMiddleware[Clock with Logging, IOException] =
-    HttpMiddleware.makeM { case r => doLogRequest(request, r) } { case r => doLogResponse(response, options, r) }
+  )(logImpl: LogF[R, E]): HttpMiddleware[R with Clock, E] =
+    HttpMiddleware.makeM { case r => doLogRequest(request, r) } { case r =>
+      doLogResponse(response, options, r, logImpl).mapError(e => Some(e))
+    }
 }

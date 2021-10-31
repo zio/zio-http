@@ -23,11 +23,10 @@ object LogMiddlewareSample extends App {
   val requestLogger  = RequestLogger(
     logMethod = true,
     logHeaders = true,
-    level = LogLevel.Debug,
     mapHeaders = _.filter(h => h.name == "Host"),
   )
   val responseLogger =
-    ResponseLogger(logMethod = true, logHeaders = true, level = LogLevel.Info)
+    ResponseLogger(logMethod = true, logHeaders = true)
 
   val options = Options.Skip { case ((_, url, _), _) => url.path.startsWith(Path("test")) }
 
@@ -36,7 +35,7 @@ object LogMiddlewareSample extends App {
       request = requestLogger,
       response = responseLogger,
       options = options,
-    )
+    ) { logging.log.info(_) }
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     Server.start(8090, app).provideCustomLayer(env).exitCode
