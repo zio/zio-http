@@ -14,7 +14,7 @@ trait DecodeJResponse {
    */
   def decodeJResponse(jRes: FullHttpResponse): Either[Throwable, Client.ClientResponse] = Try {
     val status  = Status.fromHttpResponseStatus(jRes.status())
-    val headers = Header.parse(jRes.headers())
+    val headers = Header.fromHttpHeaders(jRes.headers())
     val content = Chunk.fromArray(ByteBufUtil.getBytes(jRes.content()))
     Client.ClientResponse(status, headers, content)
   }.toEither

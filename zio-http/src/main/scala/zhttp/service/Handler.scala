@@ -240,7 +240,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
 
             override def method: Method                     = Method.fromHttpMethod(jRequest.method())
             override def url: URL                           = URL.fromString(jRequest.uri()).getOrElse(null)
-            override def headers: List[Header]              = Header.make(jRequest.headers())
+            override def headers: List[Header]              = Header.fromHttpHeaders(jRequest.headers())
             override def remoteAddress: Option[InetAddress] = {
               ctx.channel().remoteAddress() match {
                 case m: InetSocketAddress => Some(m.getAddress())

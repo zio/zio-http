@@ -51,7 +51,7 @@ case class Response[-R, +E] private (
   def setPayloadHeaders: Response[R, E] = {
     getContentLength match {
       case Some(value) => setContentLength(value)
-      case None        => setChunkedEncoding
+      case None        => setTransferEncodingChunked
     }
   }
 }
