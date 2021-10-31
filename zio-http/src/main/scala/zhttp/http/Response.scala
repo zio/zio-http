@@ -31,12 +31,15 @@ case class Response[-R, +E] private (
    */
   def addCookie(cookie: Cookie): Response[R, E] =
     self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
-
-    def defaultHealders: Response[R,E] = self.headers.map(_.name.toString.toLowerCase()).filter(_=="content-length") match {
+/**
+ * Adds default headers to Response based on the data
+ * content-length if the size of the HttpData is known.
+ *transfer-encoding: chunked if the size of HttpData is unknown.
+ */ 
+    def defaultHeaders: Response[R,E] = self.headers.map(_.name.toString.toLowerCase()).filter(_=="content-length") match {
       case _ :: _ => self
-  
       case immutable.Nil =>self.data match {
-          case Empty => copy(headers=self.headers ++ List(Header("Content-Length",{0}.toString())))
+          case Empty => copy(headers=self.headers ++ List(Header("Content-Length",{0L}.toString())))
           case Text(text, _) =>copy(headers=self.headers ++ List(Header("Content-Length",{text.getBytes().length}.toString())))
           case Binary(data) =>copy(headers=self.headers ++ List(Header("Content-Length",{data.toVector.length}.toString())))
           case BinaryN(data) =>copy(headers=self.headers ++ List(Header("Content-Length",{data.array().length}.toString())))
