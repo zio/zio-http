@@ -56,6 +56,23 @@ object HttpMiddleware {
 
   type RequestP[+A] = (Method, URL, List[Header]) => A
 
+  def ifThenElse[R, E](cond: RequestP[Boolean])(left: HttpApp[R, E], right: HttpApp[R, E]): HttpMiddleware[R, E] =
+    HttpMiddleware.fromMiddlewareFunction((m, u, h) =>
+      if (cond(m, u, h)) {
+        fromApp(left)
+      } else {
+        fromApp(right)
+      },
+    )
+
+  def ifThenElseM[R, E](cond: RequestP[UIO[Boolean]])(left: HttpApp[R, E], right: HttpApp[R, E]): HttpMiddleware[R, E] =
+    HttpMiddleware.fromMiddlewareFunctionM((m, u, h) =>
+      cond(m, u, h).map {
+        case true  => fromApp(left)
+        case false => fromApp(right)
+      },
+    )
+
   private case object Identity extends HttpMiddleware[Any, Nothing]
 
   private final case class TransformM[R, E, S](
