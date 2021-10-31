@@ -111,7 +111,7 @@ object HttpGen {
     } yield Response(status, headers, content)
   }
 
-  def resCookies: Gen[Random with Sized, Cookie] = for {
+  def cookies: Gen[Random with Sized, Cookie] = for {
     name     <- Gen.anyString
     content  <- Gen.anyString
     expires  <- Gen.option(Gen.anyInstant)
