@@ -1,6 +1,5 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.HttpHeaderNames
 import zio.{Chunk, ZIO}
 
 import java.net.InetAddress
@@ -29,7 +28,7 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Get cookies from request
    */
-  def cookies: List[Cookie] = getCookieFromHeader(HttpHeaderNames.COOKIE)
+  def cookies: List[Cookie] = getRequestCookieFromHeader
 
   def copy(method: Method = self.method, url: URL = self.url, headers: List[Header] = self.headers): Request = {
     val m = method

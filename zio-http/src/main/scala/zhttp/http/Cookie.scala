@@ -139,16 +139,17 @@ object Cookie {
   }
   case class Update(f: Cookie => Cookie)
 
+  private def splitNameContent(kv: String): (String, Option[String]) =
+    kv.split("=", 2).map(_.trim) match {
+      case Array(v1)     => (v1, None)
+      case Array(v1, v2) => (v1, Some(v2))
+      case _             => ("", None)
+    }
+
   /**
    * Decodes a string into a cookie
    */
-  def decode(headerValue: String): Either[Throwable, Cookie] = {
-    def splitNameContent(kv: String): (String, Option[String]) =
-      kv.split("=", 2).map(_.trim) match {
-        case Array(v1)     => (v1, None)
-        case Array(v1, v2) => (v1, Some(v2))
-        case _             => ("", None)
-      }
+  def decodeSetCookie(headerValue: String): Either[Throwable, Cookie] = {
 
     val cookieWithoutMeta = headerValue.split(";").map(_.trim)
     val (first, other)    = (cookieWithoutMeta.head, cookieWithoutMeta.tail)
@@ -189,6 +190,22 @@ object Cookie {
       case Success(r) => Right(r)
       case Failure(e) => Left(s"Invalid http date: $v (${e.getMessage})")
     }
+
+  /**
+   * Decodes a string with multiple cookies into a list of cookie
+   */
+
+  def decodeCookie(headerValue: String): Either[Throwable, List[Cookie]] = {
+    val cookies: Array[String]  = headerValue.split(";").map(_.trim)
+    val x: List[Option[Cookie]] = cookies.toList.map(a => {
+      val (name, content) = splitNameContent(a)
+      if (name.trim == "" && content.isEmpty) None
+      else Some(Cookie(name, content.getOrElse("")))
+    })
+    if (x.contains(None))
+      Left(new IllegalArgumentException("Cookie can't be parsed"))
+    else Right(x.map(_.get))
+  }
 
   /**
    * Updates maxAge in cookie
