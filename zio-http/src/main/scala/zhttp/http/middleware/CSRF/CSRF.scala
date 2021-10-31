@@ -1,13 +1,13 @@
 package zhttp.http.middleware.CSRF
 
-import java.time.Instant
-
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.util.AsciiString
 import io.netty.util.AsciiString.toLowerCase
 import zhttp.http._
 import zhttp.http.middleware.{HttpMiddleware, Patch}
 import zio.UIO
+
+import java.time.Instant
 
 final class CSRF(headerName: String, cookieSetting: CSRF.CookieSetting, tokenGen: () => UIO[String]) {
   private def equalsIgnoreCase(a: Char, b: Char) = a == b || toLowerCase(a) == toLowerCase(b)
