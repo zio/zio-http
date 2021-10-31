@@ -2,7 +2,7 @@ package zhttp.service
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
-import zhttp.http.middleware.HttpMiddleware
+import zhttp.http.middleware.HttpMiddleware.cors
 import zhttp.service.server._
 import zio.ZManaged
 import zio.test.Assertion._
@@ -14,7 +14,7 @@ object CORSSpec extends HttpRunnableSpec(8089) {
   val app: ZManaged[EventLoopGroup with ServerChannelFactory, Nothing, Unit] = serve {
     HttpApp.collect { case Method.GET -> !! / "success" =>
       Response.ok
-    } @@ HttpMiddleware.cors()
+    } @@ cors()
   }
 
   override def spec = suiteM("CORS")(
