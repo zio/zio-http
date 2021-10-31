@@ -11,7 +11,7 @@ import zhttp.http.HttpData.BinaryN
 import zhttp.http.HttpData.BinaryStream
 
 import java.io.{PrintWriter, StringWriter}
-import scala.collection.immutable
+import io.netty.handler.codec.http.HttpHeaderValues
 
 case class Response[-R, +E] private (
   status: Status,
@@ -31,23 +31,34 @@ case class Response[-R, +E] private (
    */
   def addCookie(cookie: Cookie): Response[R, E] =
     self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
-/**
- * Adds default headers to Response based on the data
- * content-length if the size of the HttpData is known.
- *transfer-encoding: chunked if the size of HttpData is unknown.
- */ 
-    def defaultHeaders: Response[R,E] = self.headers.map(_.name.toString.toLowerCase()).filter(_=="content-length") match {
-      case _ :: _ => self
-      case immutable.Nil =>self.data match {
-          case Empty => copy(headers=self.headers ++ List(Header("Content-Length",{0L}.toString())))
-          case Text(text, _) =>copy(headers=self.headers ++ List(Header("Content-Length",{text.getBytes().length}.toString())))
-          case Binary(data) =>copy(headers=self.headers ++ List(Header("Content-Length",{data.toVector.length}.toString())))
-          case BinaryN(data) =>copy(headers=self.headers ++ List(Header("Content-Length",{data.array().length}.toString())))
-          case BinaryStream(_) =>copy(headers=self.headers ++ List(Header("Transer-Encoding","chunked")))
-        }
-     
-    }  
-        
+
+  /**
+   * Adds default headers to Response based on the data content-length if the size of the HttpData is known.
+   * transfer-encoding: chunked if the size of HttpData is unknown.
+   */
+  def defaultHeaders: Response[R, E] = getHeaderValue(HttpHeaderNames.CONTENT_LENGTH) match {
+    case Some(_) => self
+    case None    =>
+      self.data match {
+        case Empty => copy(headers = self.headers ++ List(Header(HttpHeaderNames.CONTENT_LENGTH, { 0L }.toString())))
+        case Text(text, _)   =>
+          copy(headers =
+            self.headers ++ List(Header(HttpHeaderNames.CONTENT_LENGTH, { text.getBytes().length }.toString())),
+          )
+        case Binary(data)    =>
+          copy(headers =
+            self.headers ++ List(Header(HttpHeaderNames.CONTENT_LENGTH, { data.toVector.length }.toString())),
+          )
+        case BinaryN(data)   =>
+          copy(headers =
+            self.headers ++ List(Header(HttpHeaderNames.CONTENT_LENGTH, { data.array().length }.toString())),
+          )
+        case BinaryStream(_) =>
+          copy(headers = self.headers ++ List(Header(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)))
+      }
+
+  }
+
   /**
    * Removes headers by name from the response
    */
