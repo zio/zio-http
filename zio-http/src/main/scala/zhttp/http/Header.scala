@@ -13,19 +13,21 @@ final case class Header(name: CharSequence, value: CharSequence)
 object Header {
 
   // Helper utils to create Header instances
-  val acceptAll: Header                 = Header(HttpHeaderNames.ACCEPT, "*/*")
-  val acceptJson: Header                = Header(HttpHeaderNames.ACCEPT, HttpHeaderValues.APPLICATION_JSON)
-  val acceptXhtmlXml: Header            = Header(HttpHeaderNames.ACCEPT, HttpHeaderValues.APPLICATION_XHTML)
-  val acceptXml: Header                 = Header(HttpHeaderNames.ACCEPT, HttpHeaderValues.APPLICATION_XML)
-  val contentTypeFormUrlEncoded: Header =
+  val acceptAll: Header                    = Header(HttpHeaderNames.ACCEPT, "*/*")
+  val acceptJson: Header                   = Header(HttpHeaderNames.ACCEPT, HttpHeaderValues.APPLICATION_JSON)
+  val acceptXhtmlXml: Header               = Header(HttpHeaderNames.ACCEPT, HttpHeaderValues.APPLICATION_XHTML)
+  val acceptXml: Header                    = Header(HttpHeaderNames.ACCEPT, HttpHeaderValues.APPLICATION_XML)
+  val contentTypeFormUrlEncoded: Header    =
     Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED)
-  val contentTypeHtml: Header           = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.TEXT_HTML)
-  val contentTypeJson: Header           = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
-  val contentTypeTextPlain: Header      = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.TEXT_PLAIN)
-  val contentTypeXml: Header            = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_XML)
-  val contentTypeXhtmlXml: Header       = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_XHTML)
-  val contentTypeYaml: Header           = Header(HttpHeaderNames.CONTENT_TYPE, "text/yaml")
-  val transferEncodingChunked: Header   = Header(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
+  val contentTypeHtml: Header              = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.TEXT_HTML)
+  val contentTypeJson: Header              = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
+  val contentTypeMultiPartFormData: Header = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.MULTIPART_FORM_DATA)
+  val contentTypeMultiPartMixed: Header    = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.MULTIPART_MIXED)
+  val contentTypeTextPlain: Header         = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.TEXT_PLAIN)
+  val contentTypeXml: Header               = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_XML)
+  val contentTypeXhtmlXml: Header          = Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_XHTML)
+  val contentTypeYaml: Header              = Header(HttpHeaderNames.CONTENT_TYPE, "text/yaml")
+  val transferEncodingChunked: Header      = Header(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
 
   /**
    * Creates a [[HttpHeaderNames.AUTHORIZATION]] [[Header]].

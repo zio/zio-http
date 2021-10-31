@@ -156,6 +156,18 @@ private[zhttp] trait HeaderExtension[+A] { self =>
   def isXhtmlXmlContentType: Boolean =
     checkContentType(HttpHeaderValues.APPLICATION_XHTML)
 
+  /**
+   * Checks if the [[Header]]'s [[HttpHeaderNames.CONTENT_TYPE]] is [[HttpHeaderValues.MULTIPART_FORM_DATA]]
+   */
+  def isMultiPartFormDataContentType: Boolean =
+    checkContentType(HttpHeaderValues.MULTIPART_FORM_DATA)
+
+  /**
+   * Checks if the [[Header]]'s [[HttpHeaderNames.CONTENT_TYPE]] is [[HttpHeaderValues.MULTIPART_MIXED]]
+   */
+  def isMultiPartMixedContentType: Boolean =
+    checkContentType(HttpHeaderValues.MULTIPART_MIXED)
+
   def removeHeader(name: String): A = removeHeaders(List(name))
 
   def removeHeaders(headers: List[String]): A

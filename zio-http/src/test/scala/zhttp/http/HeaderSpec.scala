@@ -171,6 +171,40 @@ object HeaderSpec extends DefaultRunnableSpec {
             assert(found)(isFalse)
           },
       ) +
+      suite("isMultiPartFormDataContentType")(
+        test("should return true if content-type is multipart/form-data") {
+          val headersHolder = HeadersHolder(List(contentTypeMultiPartFormData))
+          val found         = headersHolder.isMultiPartFormDataContentType
+          assert(found)(isTrue)
+        } +
+          test("should return false if content-type is not multipart/form-data") {
+            val headersHolder = HeadersHolder(List(acceptJson))
+            val found         = headersHolder.isMultiPartFormDataContentType
+            assert(found)(isFalse)
+          } +
+          test("should return false if content-type doesn't exist") {
+            val headersHolder = HeadersHolder(List())
+            val found         = headersHolder.isMultiPartFormDataContentType
+            assert(found)(isFalse)
+          },
+      ) +
+      suite("isMultiPartMixedContentType")(
+        test("should return true if content-type is multipart/mixed") {
+          val headersHolder = HeadersHolder(List(contentTypeMultiPartMixed))
+          val found         = headersHolder.isMultiPartMixedContentType
+          assert(found)(isTrue)
+        } +
+          test("should return false if content-type is not multipart/mixed") {
+            val headersHolder = HeadersHolder(List(acceptJson))
+            val found         = headersHolder.isMultiPartMixedContentType
+            assert(found)(isFalse)
+          } +
+          test("should return false if content-type doesn't exist") {
+            val headersHolder = HeadersHolder(List())
+            val found         = headersHolder.isMultiPartMixedContentType
+            assert(found)(isFalse)
+          },
+      ) +
       suite("getBasicAuthorizationCredentials")(
         test("should decode proper basic http authorization header") {
           val headerHolder = HeadersHolder(List(Header.authorization("Basic dXNlcjpwYXNzd29yZCAxMQ==")))
