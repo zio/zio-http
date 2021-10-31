@@ -1,10 +1,10 @@
-import zio._
-import zio.console._
-import zio.clock._
-import zio.logging.{LogFormat, LogLevel, Logging}
 import zhttp.http._
 import zhttp.http.middleware.LogMiddleware._
 import zhttp.service.Server
+import zio._
+import zio.clock._
+import zio.console._
+import zio.logging.{LogFormat, LogLevel, Logging}
 
 object LogMiddlewareSample extends App {
   val env =

@@ -1,9 +1,8 @@
 package zhttp.http.middleware
 
-import zio.{ZIO}
-import zio.clock
-import zio.clock.Clock
 import zhttp.http._
+import zio.clock.Clock
+import zio.{ZIO, clock}/**/
 
 object LogMiddleware {
 
