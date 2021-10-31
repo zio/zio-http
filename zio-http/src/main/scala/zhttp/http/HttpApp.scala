@@ -6,6 +6,7 @@ import zhttp.service.{Handler, HttpRuntime}
 import zio._
 import zio.clock.Clock
 import zio.duration.Duration
+import io.netty.handler.codec.http.HttpHeaderNames
 
 case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) {
   self =>
@@ -46,7 +47,16 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) {
   /**
    * Executes the HttpApp and produces a Response
    */
-  def apply(req: Request): ZIO[R, Option[E], Response[R, E]] = self.asHttp.execute(req).evaluate.asEffect
+  def apply(req: Request): ZIO[R, Option[E], Response[R, E]] =
+    self.asHttp.execute(req).evaluate.asEffect.map { resp =>
+      val hasHeader = resp.getContentLength match {
+        case Some(_) => resp.hasHeader(HttpHeaderNames.CONTENT_LENGTH)
+        case _       => resp.hasHeader(HttpHeaderNames.TRANSFER_ENCODING)
+      }
+
+      if(hasHeader) resp
+      else resp.setPayloadHeaders
+    }
 
   /**
    * Attaches the provided middleware to the HttpApp
