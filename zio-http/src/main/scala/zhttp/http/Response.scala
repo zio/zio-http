@@ -41,7 +41,7 @@ case class Response[-R, +E] private (
   /**
    * Gets cookies from the response headers
    */
-  def cookies: List[Cookie] = getResponseCookieFromHeader
+  def cookies: List[Cookie] = getCookieFromHeader
 
   def getContentLength: Option[Long] = self.data.size
 
