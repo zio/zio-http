@@ -30,12 +30,12 @@ object Header {
   /**
    * Creates a [[HttpHeaderNames.AUTHORIZATION]] [[Header]].
    */
-  def authorization(value: String): Header = Header(HttpHeaderNames.AUTHORIZATION, value)
+  def authorization(value: CharSequence): Header = Header(HttpHeaderNames.AUTHORIZATION, value)
 
   /**
    * Creates a basic http authorization header.
    */
-  def basicHttpAuthorization(username: String, password: String): Header = {
+  def basicHttpAuthorization(username: CharSequence, password: CharSequence): Header = {
     val authString    = String.format("%s:%s", username, password)
     val authCB        = Unpooled.wrappedBuffer(authString.getBytes(CharsetUtil.UTF_8))
     val encodedAuthCB = Base64.encode(authCB)
@@ -51,7 +51,7 @@ object Header {
   /**
    * Use built-in header methods for better performance.
    */
-  def custom(name: String, value: CharSequence): Header = Header(name, value)
+  def custom(name: CharSequence, value: CharSequence): Header = Header(name, value)
 
   /**
    * Converts a [[List]] of [[Header]] to [[io.netty.handler.codec.http.HttpHeaders]]
@@ -74,15 +74,15 @@ object Header {
   /**
    * Creates a [[HttpHeaderNames.HOST]] [[Header]].
    */
-  def host(name: String): Header = Header(HttpHeaderNames.HOST, name)
+  def host(name: CharSequence): Header = Header(HttpHeaderNames.HOST, name)
 
   /**
    * Creates a [[HttpHeaderNames.LOCATION]] [[Header]].
    */
-  def location(value: String): Header = Header(HttpHeaderNames.LOCATION, value)
+  def location(value: CharSequence): Header = Header(HttpHeaderNames.LOCATION, value)
 
   /**
    * Creates a [[HttpHeaderNames.USER_AGENT]] [[Header]].
    */
-  def userAgent(name: String): Header = Header(HttpHeaderNames.USER_AGENT, name)
+  def userAgent(name: CharSequence): Header = Header(HttpHeaderNames.USER_AGENT, name)
 }
