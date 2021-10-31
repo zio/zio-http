@@ -1,36 +1,20 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.HttpHeaderNames
 import zio.{Chunk, ZIO}
 
 import java.net.InetAddress
 
 trait Request extends HeaderExtension[Request] { self =>
-  def isPreflight: Boolean = method == Method.OPTIONS
 
-  def method: Method
-
-  def url: URL
-
-  def headers: List[Header]
-
-  def path: Path = url.path
-
-  def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B]
-
-  def remoteAddress: Option[InetAddress]
-
+  /**
+   * Adds headers to the [[Request]]
+   */
   override def addHeaders(headers: List[Header]): Request =
     self.copy(headers = self.headers ++ headers)
 
-  override def removeHeaders(headers: List[String]): Request =
-    self.copy(headers = self.headers.filterNot(h => headers.contains(h)))
-
   /**
-   * Get cookies from request
+   * Creates a copy of the [[Request]]
    */
-  def cookies: List[Cookie] = getCookieFromHeader(HttpHeaderNames.COOKIE)
-
   def copy(method: Method = self.method, url: URL = self.url, headers: List[Header] = self.headers): Request = {
     val m = method
     val u = url
@@ -49,6 +33,23 @@ trait Request extends HeaderExtension[Request] { self =>
         self.decodeContent(decoder)
     }
   }
+
+  def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B]
+
+  def headers: List[Header]
+
+  def isPreflight: Boolean = method == Method.OPTIONS
+
+  def method: Method
+
+  def path: Path = url.path
+
+  def remoteAddress: Option[InetAddress]
+
+  override def removeHeaders(headers: List[String]): Request =
+    self.copy(headers = self.headers.filterNot(h => headers.contains(h)))
+
+  def url: URL
 }
 
 object Request {

@@ -17,6 +17,11 @@ private[zhttp] trait HeaderExtension[+A] { self =>
   def addHeaders(headers: List[Header]): A
 
   /**
+   * Gets [[Cookie]]s from the [[HttpHeaderNames.COOKIE]] [[Header]] .
+   */
+  def cookies: List[Cookie] = getCookieFromHeader(HttpHeaderNames.COOKIE)
+
+  /**
    * Gets the [[HttpHeaderNames.AUTHORIZATION]] header value if present.
    */
   def getAuthorizationValue: Option[String] = getHeaderValue(HttpHeaderNames.AUTHORIZATION)

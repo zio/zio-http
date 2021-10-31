@@ -15,22 +15,10 @@ case class Response[-R, +E] private (
 ) extends HeaderExtension[Response[R, E]] { self =>
 
   /**
-   * Sets the status of the response
-   */
-  def setStatus(status: Status): Response[R, E] =
-    self.copy(status = status)
-
-  /**
    * Adds cookies in the response headers
    */
   def addCookie(cookie: Cookie): Response[R, E] =
     self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
-
-  /**
-   * Removes headers by name from the response
-   */
-  override def removeHeaders(headers: List[String]): Response[R, E] =
-    self.copy(headers = self.headers.filterNot(h => headers.contains(h.name)))
 
   /**
    * Adds headers to response
@@ -39,11 +27,18 @@ case class Response[-R, +E] private (
     self.copy(headers = self.headers ++ headers)
 
   /**
-   * Gets cookies from the response headers
+   * Gets the http [[Method]] of this request.
    */
-  def cookies: List[Cookie] = getCookieFromHeader(HttpHeaderNames.SET_COOKIE)
-
+  /**
+   * Gets content length of the response, if possible.
+   */
   def getContentLength: Option[Long] = self.data.size
+
+  /**
+   * Removes headers by name from the response
+   */
+  override def removeHeaders(headers: List[String]): Response[R, E] =
+    self.copy(headers = self.headers.filterNot(h => headers.contains(h.name)))
 
   /**
    * Automatically detects the size of the content and sets it
@@ -54,6 +49,12 @@ case class Response[-R, +E] private (
       case None        => setTransferEncodingChunked
     }
   }
+
+  /**
+   * Sets the status of the response
+   */
+  def setStatus(status: Status): Response[R, E] =
+    self.copy(status = status)
 }
 
 object Response {
@@ -64,25 +65,9 @@ object Response {
   ): Response[R, E] =
     Response(status, headers, data, HttpAttribute.empty)
 
-  @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
-  def http[R, E](
-    status: Status = Status.OK,
-    headers: List[Header] = Nil,
-    data: HttpData[R, E] = HttpData.empty,
-  ): Response[R, E] = Response(status, headers, data)
-
   /**
-   * Creates a socket response using an app
+   * Builds an error [[Response]] from the given [[HttpError]].
    */
-  def socket[R, E](ss: SocketApp[R, E]): Response[R, E] =
-    Response(Status.SWITCHING_PROTOCOLS, Nil, HttpData.empty, HttpAttribute.socket(ss))
-
-  /**
-   * Creates a new WebSocket Response
-   */
-  def socket[R, E](ss: Socket[R, E, WebSocketFrame, WebSocketFrame]): Response[R, E] =
-    SocketApp.message(ss).asResponse
-
   def fromHttpError(error: HttpError): UResponse = {
     error match {
       case cause: HTTPErrorWithCause =>
@@ -101,25 +86,66 @@ object Response {
     }
   }
 
-  def ok: UResponse = Response(Status.OK)
-
-  def text(text: String): UResponse =
-    Response(
-      data = HttpData.fromChunk(Chunk.fromArray(text.getBytes(HTTP_CHARSET))),
-      headers = List(Header.contentTypeTextPlain),
-    )
-
+  /**
+   * Creates a [[io.netty.handler.codec.http.HttpHeaderValues.APPLICATION_JSON]] [[Response]] from the data.
+   * @param data
+   *   the response body
+   */
   def jsonString(data: String): UResponse =
     Response(
       data = HttpData.fromChunk(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
       headers = List(Header.contentTypeJson),
     )
 
-  def status(status: Status): UResponse = Response(status)
+  @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
+  def http[R, E](
+    status: Status = Status.OK,
+    headers: List[Header] = Nil,
+    data: HttpData[R, E] = HttpData.empty,
+  ): Response[R, E] = Response(status, headers, data)
 
-  def temporaryRedirect(location: String): Response[Any, Nothing] =
-    Response(Status.TEMPORARY_REDIRECT, List(Header.location(location)))
+  /**
+   * Creates a [[Response]] with [[Status.OK]].
+   */
+  def ok: UResponse = Response(Status.OK)
 
+  /**
+   * Creates a permanent redirect [[Response]] to the given location.
+   */
   def permanentRedirect(location: String): Response[Any, Nothing] =
     Response(Status.PERMANENT_REDIRECT, List(Header.location(location)))
+
+  /**
+   * Creates a socket response using an app
+   */
+  def socket[R, E](ss: SocketApp[R, E]): Response[R, E] =
+    Response(Status.SWITCHING_PROTOCOLS, Nil, HttpData.empty, HttpAttribute.socket(ss))
+
+  /**
+   * Creates a new WebSocket Response
+   */
+  def socket[R, E](ss: Socket[R, E, WebSocketFrame, WebSocketFrame]): Response[R, E] =
+    SocketApp.message(ss).asResponse
+
+  /**
+   * Creates a [[Response]] with given status.
+   */
+  def status(status: Status): UResponse = Response(status)
+
+  /**
+   * Creates a [[io.netty.handler.codec.http.HttpHeaderValues.TEXT_PLAIN]] [[Response]] from the data.
+   * @param text
+   *   the response body
+   */
+  def text(text: String): UResponse =
+    Response(
+      data = HttpData.fromChunk(Chunk.fromArray(text.getBytes(HTTP_CHARSET))),
+      headers = List(Header.contentTypeTextPlain),
+    )
+
+  /**
+   * Creates a temporary redirect [[Response]] to the given location.
+   */
+  def temporaryRedirect(location: String): Response[Any, Nothing] =
+    Response(Status.TEMPORARY_REDIRECT, List(Header.location(location)))
 }
