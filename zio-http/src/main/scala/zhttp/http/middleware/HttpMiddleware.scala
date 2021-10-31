@@ -1,6 +1,8 @@
 package zhttp.http.middleware
 
 import io.netty.handler.codec.http.HttpHeaderNames
+import io.netty.util.AsciiString
+import io.netty.util.AsciiString.toLowerCase
 import zhttp.http.CORS.DefaultCORSConfig
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware.RequestP
@@ -186,6 +188,22 @@ object HttpMiddleware {
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
    */
   def cors[R, E](config: CORSConfig = DefaultCORSConfig): HttpMiddleware[R, E] = {
+    def equalsIgnoreCase(a: Char, b: Char)                                 = a == b || toLowerCase(a) == toLowerCase(b)
+    def contentEqualsIgnoreCase(a: CharSequence, b: CharSequence): Boolean = {
+      if (a == b)
+        true
+      else if (a.length() != b.length())
+        false
+      else if (a.isInstanceOf[AsciiString]) {
+        a.asInstanceOf[AsciiString].contentEqualsIgnoreCase(b)
+      } else if (b.isInstanceOf[AsciiString]) {
+        b.asInstanceOf[AsciiString].contentEqualsIgnoreCase(a)
+      } else {
+        (0 until a.length()).forall(i => equalsIgnoreCase(a.charAt(i), b.charAt(i)))
+      }
+    }
+    def getHeader(headers: List[Header], headerName: CharSequence): Option[Header]      =
+      headers.find(h => contentEqualsIgnoreCase(h.name, headerName))
     def allowCORS(origin: Header, acrm: Method): Boolean                                =
       (config.anyOrigin, config.anyMethod, origin.value.toString, acrm) match {
         case (true, true, _, _)           => true
@@ -233,10 +251,9 @@ object HttpMiddleware {
     }
 
     val existingRoutesWithHeaders = HttpMiddleware.make((method, _, headers) => {
-      val headersList = HeadersList(headers)
       (
         method,
-        headersList.getHeader(HttpHeaderNames.ORIGIN),
+        getHeader(headers, HttpHeaderNames.ORIGIN),
       ) match {
         case (_, Some(origin)) if allowCORS(origin, method) => (Some(origin), method)
         case _                                              => (None, method)
@@ -250,11 +267,10 @@ object HttpMiddleware {
     })
 
     val optionsHeaders = fromMiddlewareFunction { case (method, _, headers) =>
-      val headersList = HeadersList(headers)
       (
         method,
-        headersList.getHeader(HttpHeaderNames.ORIGIN),
-        headersList.getHeader(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
+        getHeader(headers, HttpHeaderNames.ORIGIN),
+        getHeader(headers, HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
       ) match {
         case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm.value.toString)) =>
           fromApp(

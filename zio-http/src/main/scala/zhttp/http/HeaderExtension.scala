@@ -10,9 +10,9 @@ import zhttp.http.HeaderExtension.{BasicSchemeName, BearerSchemeName}
 import java.nio.charset.Charset
 import scala.util.control.NonFatal
 
-case class HeadersList(val headers: List[Header]) extends ReadHeaderExtension[HeadersList]
+private[zhttp] trait HeaderExtension[+A] { self =>
+  def headers: List[Header]
 
-private[zhttp] trait HeaderExtension[+A] extends ReadHeaderExtension[A] { self =>
   def addHeaders(headers: List[Header]): A
 
   def removeHeaders(headers: List[String]): A
@@ -26,15 +26,6 @@ private[zhttp] trait HeaderExtension[+A] extends ReadHeaderExtension[A] { self =
 
   def setChunkedEncoding: A =
     addHeader(Header(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED))
-}
-
-object HeaderExtension {
-  val BasicSchemeName  = "Basic"
-  val BearerSchemeName = "Bearer"
-}
-
-private[zhttp] trait ReadHeaderExtension[+A] { self =>
-  def headers: List[Header]
 
   private def equalsIgnoreCase(a: Char, b: Char) = a == b || toLowerCase(a) == toLowerCase(b)
 
@@ -143,4 +134,9 @@ private[zhttp] trait ReadHeaderExtension[+A] { self =>
 
   def hasHeader(name: CharSequence): Boolean =
     getHeaderValue(name).nonEmpty
+}
+
+object HeaderExtension {
+  val BasicSchemeName  = "Basic"
+  val BearerSchemeName = "Bearer"
 }
