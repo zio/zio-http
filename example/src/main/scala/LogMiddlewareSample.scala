@@ -16,7 +16,7 @@ object LogMiddlewareSample extends App {
     ) >>> Logging.withRootLoggerName("zio-http")
 
   def echo = GET / *[String] to { a =>
-    Response.text(a.params.toString + "\n")
+    Response.text(a.params + "\n")
   }
 
   def test = GET / "test" to { _ =>
@@ -27,7 +27,7 @@ object LogMiddlewareSample extends App {
     logMethod = true,
     logHeaders = true,
     level = LogLevel.Debug,
-    mapHeaders = _.filter(h => h.name == "Host")
+    mapHeaders = _.filter(h => h.name == "Host"),
   )
   val responseLogger =
     ResponseLogger(logMethod = true, logHeaders = true, level = LogLevel.Info)

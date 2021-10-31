@@ -17,7 +17,7 @@ object LogMiddlewareSpec extends DefaultRunnableSpec {
       format = LogFormat.ColoredLogFormat(),
     ) >>> Logging.withRootLoggerName("zio-http") ++ EventLoopGroup.auto(1)
 
-  val requestLogger  = RequestLogger(
+  val requestLogger = RequestLogger(
     logMethod = true,
     logHeaders = true,
     level = LogLevel.Debug,
