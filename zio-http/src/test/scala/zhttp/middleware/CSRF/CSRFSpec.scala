@@ -21,7 +21,7 @@ object CSRFSpec extends DefaultRunnableSpec {
       }
       val middleware                      = csrf.generateToken
       val program                         = run(app @@ middleware).map(_.headers)
-      assertM(program)(equalTo(List(Header("Set-Cookie", "csrf-token=token; SameSite=Lax"))))
+      assertM(program)(equalTo(List(Header("Set-Cookie", "csrf-token=token"))))
     } +
       testM("Should set response status to UNAUTHORIZED, if CSRF header is not set") {
         val app: HttpApp[Any, Nothing]      = HttpApp.collect { case Method.GET -> !! / "health" =>
@@ -48,7 +48,7 @@ object CSRFSpec extends DefaultRunnableSpec {
             Request(
               url = URL(!! / "health"),
               headers = List(
-                Header(HttpHeaderNames.COOKIE, Cookie(name = "csrf-token", content = "token").encode),
+                Header(HttpHeaderNames.COOKIE.toString, Cookie(name = "csrf-token", content = "token").encode),
                 Header("x-csrf", "token"),
               ),
             )
