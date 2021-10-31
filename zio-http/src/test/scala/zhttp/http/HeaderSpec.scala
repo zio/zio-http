@@ -77,7 +77,7 @@ object HeaderSpec extends DefaultRunnableSpec {
         test("should return authorization value") {
           val authorizationValue = "dummyValue"
           val headersHolder      = HeadersHolder(List(Header.authorization(authorizationValue)))
-          val found              = headersHolder.getAuthorization
+          val found              = headersHolder.getAuthorizationValue
           assert(found)(isSome(equalTo(authorizationValue)))
         } +
           test("should not return authorization value if it doesn't exist") {

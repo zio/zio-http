@@ -27,8 +27,14 @@ object Header {
   val contentTypeYaml: Header           = Header(HttpHeaderNames.CONTENT_TYPE, "text/yaml")
   val transferEncodingChunked: Header   = Header(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
 
+  /**
+   * Creates a [[HttpHeaderNames.AUTHORIZATION]] [[Header]].
+   */
   def authorization(value: String): Header = Header(HttpHeaderNames.AUTHORIZATION, value)
 
+  /**
+   * Creates a basic http authorization header.
+   */
   def basicHttpAuthorization(username: String, password: String): Header = {
     val authString    = String.format("%s:%s", username, password)
     val authCB        = Unpooled.wrappedBuffer(authString.getBytes(CharsetUtil.UTF_8))
@@ -37,6 +43,9 @@ object Header {
     authorization(value)
   }
 
+  /**
+   * Creates a [[HttpHeaderNames.CONTENT_LENGTH]] [[Header]].
+   */
   def contentLength(size: Long): Header = Header(HttpHeaderNames.CONTENT_LENGTH, size.toString)
 
   /**
@@ -62,9 +71,18 @@ object Header {
       .map(h => Header(h.getKey, h.getValue))
       .toList
 
+  /**
+   * Creates a [[HttpHeaderNames.HOST]] [[Header]].
+   */
   def host(name: String): Header = Header(HttpHeaderNames.HOST, name)
 
+  /**
+   * Creates a [[HttpHeaderNames.LOCATION]] [[Header]].
+   */
   def location(value: String): Header = Header(HttpHeaderNames.LOCATION, value)
 
+  /**
+   * Creates a [[HttpHeaderNames.USER_AGENT]] [[Header]].
+   */
   def userAgent(name: String): Header = Header(HttpHeaderNames.USER_AGENT, name)
 }
