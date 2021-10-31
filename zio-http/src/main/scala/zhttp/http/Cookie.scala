@@ -2,13 +2,12 @@ package zhttp.http
 
 import zio.duration._
 import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
 import java.util.Base64._
 import javax.crypto.Cipher
 import java.security.MessageDigest
 import java.time.Instant
 import scala.util.{Failure, Success, Try}
-
+import javax.crypto.spec.SecretKeySpec
 final case class Cookie(
   name: String,
   content: String,
@@ -92,27 +91,24 @@ final case class Cookie(
    */
   def withoutExpiry: Cookie = copy(expires = None)
 
+  /**
+   * Signs the content of this cookie value
+   */
+  def signedCookie(secret: String) = {
 
-/**
- * 
- *
- */ 
-def signedCookie(secret:String)= {
-        
-       val sha256=Mac.getInstance("HmacSHA-256")
-       val secretKey= new SecretKeySpec(secret.getBytes(),"HmacSHA-256")
-       sha256.init(secretKey)
-       val signed=sha256.doFinal(self.content.getBytes())
+    val sha256    = Mac.getInstance("HmacSHA256")
+    val secretKey = new SecretKeySpec(secret.getBytes(), "RSA")
+    sha256.init(secretKey)
+    val signed    = sha256.doFinal(self.content.getBytes())
 
-     def getCookieHash(cookie:Array[Byte])={
-        val mda= MessageDigest.getInstance("SHA-512")
-        getEncoder().encodeToString(mda.digest(cookie))
-      }
+    def getCookieHash(cookie: Array[Byte]) = {
+      val mda = MessageDigest.getInstance("SHA-512")
+      getEncoder().encodeToString(mda.digest(cookie))
+    }
 
-     getCookieHash(signed)
+    self.copy(content = getCookieHash(signed))
 
-      }
-
+  }
 
   /**
    * Removes domain from the cookie
@@ -216,28 +212,28 @@ object Cookie {
       case Failure(e) => Left(s"Invalid http date: $v (${e.getMessage})")
     }
 
-    /**
-     * 
-     *
-     */ 
+  /**
+   * Verifies cookie value, translating exceptions to a string error message
+   */
 
-     def decipher(signedCookie:String)={
-           val secret="same asused to sign cookie"
+  def decipher(signedCookie: String) = {
+    val secret           = "same asused to sign cookie"
+    // val ivBytes =  ArrayBuffer[Byte]
+    // random.nextBytes(ivBytes);
+    // val  iv = new IvParameterSpec(ivBytes);
+    val decodedText      = getDecoder().decode(signedCookie)
+    val publicKey        = new SecretKeySpec(secret.getBytes(), "AES")
+    val cipher           = Cipher.getInstance("RSA")
+    cipher.init(Cipher.DECRYPT_MODE, publicKey)
+    val decipheredCookie = cipher.doFinal(decodedText).toString()
+    (for {
+      cookieValue <- decode(decipheredCookie)
+      encryptedCookie = cookieValue.signedCookie(secret)
+      result = if (encryptedCookie.content == decipheredCookie) Right(decipheredCookie) else Left(new RuntimeException)
+    } yield result).flatten.fold(_ => "Invalid Cookie Value", identity)
 
-           //import java.security.MessageDigest
-            val decodedText=getDecoder().decode(signedCookie)
-            val secretKey= new SecretKeySpec(secret.getBytes(),"HmacSHA-256")
-            val cipher= Cipher.getInstance("HmacSHA-256")
-            cipher.init(Cipher.DECRYPT_MODE,secretKey)
-             val decipheredCookie=cipher.doFinal(decodedText).toString()
-            (for {
-             cookieValue<-   decode(decipheredCookie)
-              encryptedCookie=cookieValue.signedCookie(secret)
-              result=if(encryptedCookie==decipheredCookie)Right(decipheredCookie) else Left( new RuntimeException)
-            }  yield result).flatten
+  }
 
-
-         }
   /**
    * Updates maxAge in cookie
    */

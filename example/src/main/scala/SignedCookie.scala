@@ -1,0 +1,34 @@
+import zhttp.http.Cookie.{httpOnly, maxAge, path, secure}
+import zhttp.http._
+import zhttp.service._
+import zio._
+import zio.duration.durationInt
+
+/**
+ * Example to make app using signed cookies
+ */
+
+object SignedCookie extends App {
+
+  // Setting cookies with an expiry of 5 days
+  private val cookie = Cookie("key", "value") @@ maxAge(5 days)
+  val res            = Response.ok.addCookie(cookie)
+
+  private val app = HttpApp.collect {
+    case Method.GET -> !! / "cookie" =>
+      Response.ok.addCookie(cookie @@ path(!! / "cookie") @@ httpOnly)
+
+    case Method.GET -> !! / "secure-cookie" =>
+      Response.ok.addCookie(cookie @@ secure @@ path(!! / "secure-cookie"))
+
+    case Method.GET -> !! / "cookie" / "signed"   =>
+      res.addCookie(cookie.signedCookie("secret"))
+    case Method.GET -> !! / "cookie" / "decipher" =>
+      res
+  }
+
+  // Run it like any simple app
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+    Server.start(8090, app.silent).exitCode
+
+}
