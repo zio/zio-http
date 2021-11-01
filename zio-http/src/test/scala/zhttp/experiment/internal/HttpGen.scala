@@ -125,11 +125,11 @@ object HttpGen {
 
   def reqCookies: Gen[Random with Sized, (List[Cookie], String)] = {
     for {
-      name <- Gen.anyString
-      content <- Gen.anyString
-      cookieList <- Gen.listOfN(3)(Gen.const(Cookie(name, content)))
-      cookieString <- Gen.const(cookieList.map(x => s"${x.name}=${x.content}" ).mkString(";"))
-    } yield (cookieList,cookieString)
+      name         <- Gen.anyString
+      content      <- Gen.anyString
+      cookieList   <- Gen.listOfN(3)(Gen.const(Cookie(name, content)))
+      cookieString <- Gen.const(cookieList.map(x => s"${x.name}=${x.content}").mkString(";"))
+    } yield (cookieList, cookieString)
   }
 
   def path: Gen[Random with Sized, Path] = {
