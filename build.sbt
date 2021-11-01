@@ -12,6 +12,7 @@ lazy val root = (project in file("."))
   .aggregate(zhttp, zhttpBenchmarks, zhttpTest, example)
 
 // CI Configuration
+// TODO Workaround for scoverage plugin and scala 3 matrix build
 ThisBuild / githubWorkflowAddedJobs      :=
   Seq(
     WorkflowJob(
@@ -20,7 +21,8 @@ ThisBuild / githubWorkflowAddedJobs      :=
       steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
       cond = Option("${{ github.base_ref == 'main' }}"),
     ),
-  )
+  ) ++ WorkflowHelper.Scoverage(54,69)
+
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
 ThisBuild / githubWorkflowPublish        :=
@@ -48,15 +50,6 @@ ThisBuild / githubWorkflowBuildPreamble  :=
     scalas = List(Scala213),
   ).steps
 
-ThisBuild / githubWorkflowBuildPostamble :=
-  WorkflowJob(
-    "generate_coverage_report",
-    "Generate Coverage Report",
-    List(
-      WorkflowStep.Run(List(s"sbt ++${Scala213} coverage test coverageReport"), name = Some("Generate Coverage Report")),
-    ),
-    scalas = List(Scala213),
-  ).steps
 
 // Test Configuration
 ThisBuild / libraryDependencies ++= Seq(`zio-test`, `zio-test-sbt`)
@@ -89,10 +82,6 @@ lazy val zhttp = (project in file("./zio-http"))
           new URL("https://github.com/amitksingh1490"),
         ),
       ),
-    coverageEnabled            := true,
-    coverageFailOnMinimum      := true,
-    coverageMinimumStmtTotal   := 54,
-    coverageMinimumBranchTotal := 69,
     libraryDependencies ++= Seq(`zio`, `zio-streams`, netty, `scala-compact-collection`, `netty-incubator`),
   )
 
@@ -104,7 +93,6 @@ lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
   .settings(publishSetting(false))
   .settings(
     libraryDependencies ++= Seq(zio),
-    coverageEnabled := false,
   )
 
 // Testing Package
@@ -113,7 +101,6 @@ lazy val zhttpTest = (project in file("./zio-http-test"))
   .settings(
     stdSettings("zhttp-test"),
     publishSetting(true),
-    coverageEnabled := false,
   )
 
 lazy val example = (project in file("./example"))
@@ -123,7 +110,6 @@ lazy val example = (project in file("./example"))
     fork                      := true,
     Compile / run / mainClass := Option("HelloWorld"),
     libraryDependencies ++= Seq(`jwt-core`),
-    coverageEnabled           := false,
   )
   .dependsOn(zhttp)
 
