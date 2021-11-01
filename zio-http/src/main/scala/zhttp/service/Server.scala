@@ -17,13 +17,13 @@ sealed trait Server[-R, +E] { self =>
     Concat(self, other)
 
   private def settings[R1 <: R, E1 >: E](s: Settings[R1, E1] = Settings()): Settings[R1, E1] = self match {
-    case Concat(self, other)  => other.settings(self.settings(s))
-    case LeakDetection(level) => s.copy(leakDetectionLevel = level)
-    case MaxRequestSize(size) => s.copy(maxRequestSize = size)
-    case Error(errorHandler)  => s.copy(error = Some(errorHandler))
-    case Ssl(sslOption)       => s.copy(sslOption = sslOption)
-    case App(app)             => s.copy(app = app)
-    case Address(address)     => s.copy(address = address)
+    case Concat(self, other)      => other.settings(self.settings(s))
+    case LeakDetection(level)     => s.copy(leakDetectionLevel = level)
+    case MaxRequestSize(size)     => s.copy(maxRequestSize = size)
+    case Error(errorHandler)      => s.copy(error = Some(errorHandler))
+    case Ssl(sslOption)           => s.copy(sslOption = sslOption)
+    case App(app)                 => s.copy(app = app)
+    case Address(address)         => s.copy(address = address)
     case ServerChannel(transport) => s.copy(transport = transport)
   }
 
@@ -36,13 +36,13 @@ sealed trait Server[-R, +E] { self =>
 
 object Server {
   private[zhttp] final case class Settings[-R, +E](
-                                                    leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
-                                                    maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
-                                                    error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
-                                                    sslOption: ServerSSLOptions = null,
-                                                    app: HttpApp[R, E] = HttpApp.empty,
-                                                    address: InetSocketAddress = new InetSocketAddress(8080),
-                                                    transport: Transport = Transport.Auto,
+    leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
+    maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
+    error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
+    sslOption: ServerSSLOptions = null,
+    app: HttpApp[R, E] = HttpApp.empty,
+    address: InetSocketAddress = new InetSocketAddress(8080),
+    transport: Transport = Transport.Auto,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -68,9 +68,7 @@ object Server {
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
 
-  def serverChannel(transport: Transport): UServer             = Server.ServerChannel(transport)
-
-
+  def serverChannel(transport: Transport): UServer = Server.ServerChannel(transport)
 
   /**
    * Launches the app on the provided port.
@@ -101,7 +99,7 @@ object Server {
     server: Server[R, Throwable],
   ): ZManaged[R with EventLoopGroup, Throwable, Unit] = {
     val settings = server.settings()
-    val ch =  Transport.make(settings.transport)
+    val ch       = Transport.make(settings.transport)
     for {
       channelFactory <- ZManaged.fromEffect(ch)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
