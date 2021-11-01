@@ -1,4 +1,4 @@
-import sbtghactions.GenerativePlugin.autoImport.{WorkflowJob, WorkflowStep}
+import sbtghactions.GenerativePlugin.autoImport.{Ref, WorkflowJob, WorkflowStep}
 
 object WorkflowHelper {
   object Scoverage {
@@ -12,14 +12,15 @@ object WorkflowHelper {
           id = "unsafeRunScoverage",
           name = "Unsafe Scoverage",
           steps = List(
+            WorkflowStep.CheckoutFull,
             WorkflowStep.Run(
-              commands = List(s"sed -i -e '$$a${scoveragePlugin}' /home/runner/work/zio-http/project/plugins.sbt"),
+              commands = List(s"sed -i -e '$$a${scoveragePlugin}' project/plugins.sbt"),
               id = Some("add_plugin"),
               name = Some("Add Scoverage"),
             ),
             WorkflowStep.Run(
               commands = List(
-                s"\nsed -i -e 's+${coverageDirectivesBase}+${coverageDirectivesBase}.${coverageDirectivesSettings}+g' /home/runner/work/zio-http/build.sbt",
+                s"\nsed -i -e 's+${coverageDirectivesBase}+${coverageDirectivesBase}.${coverageDirectivesSettings}+g' build.sbt",
               ),
               id = Some("update_build_definition"),
               name = Some("Update Build Definition"),
