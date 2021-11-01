@@ -165,7 +165,7 @@ object Client {
     override def addHeaders(headers: List[Header]): ClientParams =
       self.copy(headers = self.headers ++ headers)
 
-    override def removeHeaders(headers: List[String]): ClientParams =
+    override def removeHeaders(headers: List[CharSequence]): ClientParams =
       self.copy(headers = self.headers.filterNot(h => headers.contains(h)))
   }
 

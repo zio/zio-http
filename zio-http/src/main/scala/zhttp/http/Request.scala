@@ -46,7 +46,7 @@ trait Request extends HeaderExtension[Request] { self =>
 
   def remoteAddress: Option[InetAddress]
 
-  override def removeHeaders(headers: List[String]): Request =
+  override def removeHeaders(headers: List[CharSequence]): Request =
     self.copy(headers = self.headers.filterNot(h => headers.contains(h)))
 
   def url: URL

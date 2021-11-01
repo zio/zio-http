@@ -17,7 +17,7 @@ object HeaderSpec extends DefaultRunnableSpec {
     override def addHeaders(headers: List[Header]): HeadersHolder =
       HeadersHolder(self.headers ++ headers)
 
-    override def removeHeaders(headers: List[String]): HeadersHolder =
+    override def removeHeaders(headers: List[CharSequence]): HeadersHolder =
       HeadersHolder(self.headers.filterNot(h => headers.contains(h.name)))
   }
 

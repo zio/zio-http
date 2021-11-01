@@ -37,7 +37,7 @@ case class Response[-R, +E] private (
   /**
    * Removes headers by name from the response
    */
-  override def removeHeaders(headers: List[String]): Response[R, E] =
+  override def removeHeaders(headers: List[CharSequence]): Response[R, E] =
     self.copy(headers = self.headers.filterNot(h => headers.contains(h.name)))
 
   /**

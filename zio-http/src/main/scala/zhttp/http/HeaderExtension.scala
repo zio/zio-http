@@ -24,19 +24,19 @@ private[zhttp] trait HeaderExtension[+A] { self =>
   /**
    * Gets the [[HttpHeaderNames.AUTHORIZATION]] header value if present.
    */
-  def getAuthorizationValue: Option[String] = getHeaderValue(HttpHeaderNames.AUTHORIZATION)
+  def getAuthorizationValue: Option[CharSequence] = getHeaderValue(HttpHeaderNames.AUTHORIZATION)
 
   /**
    * Gets the Basic Authorization Credentials if present.
    */
-  def getBasicAuthorizationCredentials: Option[(String, String)] = {
+  def getBasicAuthorizationCredentials: Option[(CharSequence, CharSequence)] = {
     getAuthorizationValue.flatMap(v => {
-      val indexOfBasic = v.indexOf(BasicSchemeName)
+      val indexOfBasic = v.toString.indexOf(BasicSchemeName)
       if (indexOfBasic != 0 || v.length == BasicSchemeName.length)
         None
       else {
         try {
-          val encoded = v.substring(BasicSchemeName.length + 1)
+          val encoded = v.toString.substring(BasicSchemeName.length + 1)
           decodeHttpBasic(encoded)
         } catch {
           case NonFatal(_) => None
@@ -48,12 +48,12 @@ private[zhttp] trait HeaderExtension[+A] { self =>
   /**
    * Gets the Bearer Token from the [[HttpHeaderNames.AUTHORIZATION]] [[Header]], if present.
    */
-  def getBearerToken: Option[String] = getAuthorizationValue.flatMap(v => {
-    val indexOfBearer = v.indexOf(BearerSchemeName)
+  def getBearerToken: Option[CharSequence] = getAuthorizationValue.flatMap(v => {
+    val indexOfBearer = v.toString.indexOf(BearerSchemeName)
     if (indexOfBearer != 0 || v.length == BearerSchemeName.length)
       None
     else
-      Some(v.substring(BearerSchemeName.length + 1))
+      Some(v.toString.substring(BearerSchemeName.length + 1))
   })
 
   /**
@@ -65,7 +65,7 @@ private[zhttp] trait HeaderExtension[+A] { self =>
   /**
    * Gets the value of [[HttpHeaderNames.CONTENT_TYPE]], if present.
    */
-  def getContentType: Option[String] = getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
+  def getContentType: Option[CharSequence] = getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
 
   /**
    * @param headerName
@@ -74,10 +74,12 @@ private[zhttp] trait HeaderExtension[+A] { self =>
    *   A [[List]] of [[Cookie]] for the given headerName.
    */
   def getCookieFromHeader(headerName: AsciiString): List[Cookie] =
-    getHeaderValues(headerName).flatMap(Cookie.decode(_) match {
-      case Left(_)      => Nil
-      case Right(value) => List(value)
-    })
+    getHeaderValues(headerName).flatMap(header =>
+      Cookie.decode(header.toString) match {
+        case Left(_)      => Nil
+        case Right(value) => List(value)
+      },
+    )
 
   /**
    * Gets the [[Header]] for this headerName, if present.
@@ -88,7 +90,7 @@ private[zhttp] trait HeaderExtension[+A] { self =>
   /**
    * Gets the header value for this headerName, if present.
    */
-  def getHeaderValue(headerName: CharSequence): Option[String] =
+  def getHeaderValue(headerName: CharSequence): Option[CharSequence] =
     getHeader(headerName).map(_.value.toString)
 
   /**
@@ -99,7 +101,7 @@ private[zhttp] trait HeaderExtension[+A] { self =>
    * @return
    *   the matched header values.
    */
-  def getHeaderValues(headerName: CharSequence): List[String] =
+  def getHeaderValues(headerName: CharSequence): List[CharSequence] =
     headers.filter(h => contentEqualsIgnoreCase(h.name, headerName)).map(_.value.toString)
 
   /**
@@ -173,9 +175,9 @@ private[zhttp] trait HeaderExtension[+A] { self =>
   def isMultiPartMixedContentType: Boolean =
     checkContentType(HttpHeaderValues.MULTIPART_MIXED)
 
-  def removeHeader(name: String): A = removeHeaders(List(name))
+  def removeHeader(name: CharSequence): A = removeHeaders(List(name))
 
-  def removeHeaders(headers: List[String]): A
+  def removeHeaders(headers: List[CharSequence]): A
 
   /**
    * Sets the [[HttpHeaderNames.CONTENT_LENGTH]] [[Header]]
@@ -205,8 +207,8 @@ private[zhttp] trait HeaderExtension[+A] { self =>
     getContentType
       .exists(v => value.contentEquals(v))
 
-  private def decodeHttpBasic(encoded: String): Option[(String, String)] = {
-    val authChannelBuffer        = Unpooled.wrappedBuffer(encoded.getBytes(CharsetUtil.UTF_8))
+  private def decodeHttpBasic(encoded: CharSequence): Option[(CharSequence, CharSequence)] = {
+    val authChannelBuffer        = Unpooled.wrappedBuffer(encoded.toString.getBytes(CharsetUtil.UTF_8))
     val decodedAuthChannelBuffer = Base64.decode(authChannelBuffer)
     val decoded                  = decodedAuthChannelBuffer.toString(CharsetUtil.UTF_8)
     val colonIndex               = decoded.indexOf(":")
