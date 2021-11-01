@@ -13,13 +13,13 @@ object WorkflowHelper {
           name = "Unsafe Scoverage",
           steps = List(
             WorkflowStep.Run(
-              commands = List(s"sed -i -e '$$a${scoveragePlugin}' project/plugins.sbt"),
+              commands = List(s"sed -i -e '$$a${scoveragePlugin}' ./project/plugins.sbt"),
               id = Some("add_plugin"),
               name = Some("Add Scoverage"),
             ),
             WorkflowStep.Run(
               commands = List(
-                s"\nsed -i -e 's+${coverageDirectivesBase}+${coverageDirectivesBase}.${coverageDirectivesSettings}+g' build.sbt",
+                s"\nsed -i -e 's+${coverageDirectivesBase}+${coverageDirectivesBase}.${coverageDirectivesSettings}+g' ./build.sbt",
               ),
               id = Some("update_build_definition"),
               name = Some("Update Build Definition"),
