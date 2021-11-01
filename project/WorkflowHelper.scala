@@ -25,8 +25,8 @@ object WorkflowHelper {
               id = Some("update_build_definition"),
               name = Some("Update Build Definition"),
             ),
-            WorkflowStep.Sbt(
-              commands = List(s"coverage zhttp/test coverageReport"),
+            WorkflowStep.Run(
+              commands = List(s"sbt ++$${{ matrix.scala }} coverage 'project zhttp;test' coverageReport"),
               id = Some("run_coverage"),
               name = Some("Run Coverage"),
             ),

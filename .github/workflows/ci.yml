@@ -176,4 +176,4 @@ jobs:
 
       - name: Run Coverage
         id: run_coverage
-        run: sbt ++${{ matrix.scala }} 'coverage zhttp/test coverageReport'
+        run: sbt ++${{ matrix.scala }} coverage 'project zhttp;test' coverageReport
