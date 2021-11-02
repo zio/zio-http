@@ -136,19 +136,19 @@ object HttpMiddleware {
     HttpMiddleware.FromFunctionM(f)
 
   /**
-   * Creates a new HttpApp using a function from request parameters to a ZIO of HttpApp
-   */
-  def fromHttpFunctionM[R, E](f: RequestP[ZIO[R, Option[E], HttpApp[R, E]]]): HttpMiddleware[R, E] =
-    HttpMiddleware.FromHttpFunctionM(f)
-
-  /**
    * Creates a new middleware using a function from request parameters to a HttpMiddleware
    */
   def fromMiddlewareFunction[R, E](f: RequestP[HttpMiddleware[R, E]]): HttpMiddleware[R, E] =
     fromMiddlewareFunctionM((method, url, headers) => UIO(f(method, url, headers)))
 
   /**
-   * Creates a new HttpApp using a function from request parameters to a HttpApp
+   * Creates a new middleware using a function from request parameters to a ZIO of HttpApp
+   */
+  def fromHttpFunctionM[R, E](f: RequestP[ZIO[R, Option[E], HttpApp[R, E]]]): HttpMiddleware[R, E] =
+    HttpMiddleware.FromHttpFunctionM(f)
+
+  /**
+   * Creates a new middleware using a function from request parameters to a HttpApp
    */
   def fromHttpFunction[R, E](f: RequestP[HttpApp[R, E]]): HttpMiddleware[R, E] =
     fromHttpFunctionM((method, url, headers) => UIO(f(method, url, headers)))
