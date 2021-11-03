@@ -161,10 +161,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/setup-node@v2
+        with:
+          cache: npm
+
+      - uses: actions/checkout@v2
 
       - env:
-          GIT_PASS: ${{secrets.SCALA_STEWARD_PAT}}
-          GIT_USER: amitksingh1490
+          GIT_PASS: ${{secrets.ACTIONS_PAT}}
+          GIT_USER: ${{secrets.GIT_USER}}
         run: |
+          cd ./docs/website
           npm install
+          git config --global user.name "${{secrets.GIT_USER}}"
           npm run deploy

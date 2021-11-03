@@ -27,10 +27,16 @@ ThisBuild / githubWorkflowAddedJobs     :=
       id = "update_docs",
       name = "Publish Documentation",
       steps = List(
-        WorkflowStep.Use(UseRef.Public("actions", "setup-node", s"v2")),
+        WorkflowStep.Use(UseRef.Public("actions", "setup-node", s"v2"), params = Map("cache" -> "npm")),
+        WorkflowStep.Use(UseRef.Public("actions", "checkout", s"v2")),
         WorkflowStep.Run(
-          env = Map("GIT_PASS" -> "${{secrets.SCALA_STEWARD_PAT}}", "GIT_USER" -> "amitksingh1490"),
-          commands = List("npm install", "npm run deploy"),
+          env = Map("GIT_PASS" -> "${{secrets.ACTIONS_PAT}}", "GIT_USER" -> "${{secrets.GIT_USER}}"),
+          commands = List(
+            "cd ./docs/website",
+            "npm install",
+            "git config --global user.name \"${{secrets.GIT_USER}}\"",
+            "npm run deploy",
+          ),
         ),
       ),
       cond = Option("${{ github.ref == 'refs/heads/doc/website' }}"),
