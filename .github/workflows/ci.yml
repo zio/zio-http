@@ -160,11 +160,9 @@ jobs:
         java: [adopt@1.8]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/setup-node@v2
-        with:
-          cache: npm
-
       - uses: actions/checkout@v2
+
+      - uses: actions/setup-node@v2
 
       - env:
           GIT_PASS: ${{secrets.ACTIONS_PAT}}
