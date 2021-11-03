@@ -1,6 +1,6 @@
 import zhttp.http._
 import zhttp.service._
-import zhttp.service.server.ServerChannelFactory
+import zhttp.service.server.{Transport}
 import zio._
 
 import scala.util.Try
@@ -22,7 +22,8 @@ object HelloWorldAdvanced extends App {
   private val server =
     Server.port(PORT) ++              // Setup port
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
-      Server.app(fooBar +++ app)      // Setup the Http app
+      Server.app(fooBar +++ app)   ++  // Setup the Http app
+      Server.serverChannel(Transport.Auto)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     // Configure thread count using CLI
@@ -37,7 +38,8 @@ object HelloWorldAdvanced extends App {
         // Ensures the server doesn't die after printing
           *> ZIO.never,
       )
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
+//      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
+      .provideCustomLayer(EventLoopGroup.auto(nThreads))
       .exitCode
   }
 }

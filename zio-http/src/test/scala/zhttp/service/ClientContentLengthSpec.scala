@@ -1,8 +1,9 @@
 package zhttp.service
 
 import zhttp.http._
-import zhttp.service.server._
-import zio.test.Assertion.{isNone, isPositive, isSome}
+import zhttp.service.server.Transport
+//import zio.test.Assertion.{isNone, isPositive, isSome}
+import zio.test.Assertion.{isNone}
 import zio.test.assertM
 import zio.{Ref, UIO, ZIO, ZRef}
 
@@ -12,7 +13,7 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
 
   type ServerState = Map[String, Int]
 
-  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
+  val env = EventLoopGroup.auto() ++ ChannelFactory.auto // ++ ServerChannelFactory.auto
 
   val contentLengthName = "content-length"
 
@@ -35,6 +36,16 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
     }
   }
 
+  def getApp1(state: Ref[ServerState]): Server[Any,Throwable] = {
+    val app: HttpApp[Any,Throwable] = HttpApp.collectM { case req @ _ -> !! / path =>
+      state.update(updateState(_, req.headers, path)) *> ZIO.succeed(Response.ok)
+    }
+    Server.port(8083) ++              // Setup port
+      Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
+      Server.app(app)   ++  // Setup the Http app
+      Server.serverChannel(Transport.Auto)
+  }
+
   def getLengthForPath(state: Ref[ServerState], path: String): UIO[Option[Int]] = {
     state.get.map(_.get(path))
   }
@@ -42,33 +53,64 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
   val serverAppState =
     for {
       state <- ZRef.make(Map[String, Int]()).toManaged_
-      _     <- getApp(state)
+//      _     <- getApp(state)
+      _     <- getApp1(state).make
     } yield state
 
-  override def spec = suiteM("Client Content-Length auto assign")(
-    serverAppState
-      .map((state: Ref[ServerState]) =>
-        List(
-          testM("get request without content") {
+//  override def spec = suiteM("Client Content-Length auto assign")(
+//    serverAppState
+//      .map((state: Ref[ServerState]) =>
+//        List(
+//          testM("get request without content") {
+//            val path   = "getWithoutContent"
+//            val actual = status(!! / path) *> getLengthForPath(state, path)
+//            assertM(actual)(isNone)
+//          } +
+//            testM("post request with nonempty content") {
+//              val path    = "postWithNonemptyContent"
+//              val content = "content"
+//              val actual  = request(!! / path, Method.POST, content) *> getLengthForPath(state, path)
+//              assertM(actual)(isSome(isPositive[Int]))
+//            } +
+//            testM("post request with nonempty content and set content-length") {
+//              val path    = "postWithNonemptyContentAndSetContentLength"
+//              val content = "content"
+//              val headers = List(Header.custom(contentLengthName, "dummy"))
+//              val actual  = request(!! / path, Method.POST, content, headers) *> getLengthForPath(state, path)
+//              assertM(actual)(isSome(isPositive[Int]))
+//            },
+//        ),
+//      )
+//      .useNow,
+//  ).provideCustomLayer(env)
+
+  override def spec = suite("Client Content-Length auto assign")(
+    testM("get request without content") {
+
+      serverAppState.use{ state =>
+
+//        List(
             val path   = "getWithoutContent"
             val actual = status(!! / path) *> getLengthForPath(state, path)
             assertM(actual)(isNone)
-          } +
-            testM("post request with nonempty content") {
-              val path    = "postWithNonemptyContent"
-              val content = "content"
-              val actual  = request(!! / path, Method.POST, content) *> getLengthForPath(state, path)
-              assertM(actual)(isSome(isPositive[Int]))
-            } +
-            testM("post request with nonempty content and set content-length") {
-              val path    = "postWithNonemptyContentAndSetContentLength"
-              val content = "content"
-              val headers = List(Header.custom(contentLengthName, "dummy"))
-              val actual  = request(!! / path, Method.POST, content, headers) *> getLengthForPath(state, path)
-              assertM(actual)(isSome(isPositive[Int]))
-            },
-        ),
-      )
-      .useNow,
+
+//            testM("post request with nonempty content") {
+//              val path    = "postWithNonemptyContent"
+//              val content = "content"
+//              val actual  = request(!! / path, Method.POST, content) *> getLengthForPath(state, path)
+//              assertM(actual)(isSome(isPositive[Int]))
+//            } +
+//            testM("post request with nonempty content and set content-length") {
+//              val path    = "postWithNonemptyContentAndSetContentLength"
+//              val content = "content"
+//              val headers = List(Header.custom(contentLengthName, "dummy"))
+//              val actual  = request(!! / path, Method.POST, content, headers) *> getLengthForPath(state, path)
+//              assertM(actual)(isSome(isPositive[Int]))
+//            },
+//        ),
+      }
+    } //+
+//      .useNow,
   ).provideCustomLayer(env)
+
 }

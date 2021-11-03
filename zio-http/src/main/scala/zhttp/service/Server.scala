@@ -25,15 +25,18 @@ sealed trait Server[-R, +E] { self =>
     case App(app)                 => s.copy(app = app)
     case Address(address)         => s.copy(address = address)
     case ServerChannel(transport) => s.copy(transport = transport)
+    case ELG(elg)                 => s.copy(elg = elg)
   }
 
-  def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup, Throwable, Unit] =
+  def make(implicit ev: E <:< Throwable): ZManaged[R, Throwable, Unit] =
     Server.make(self.asInstanceOf[Server[R, Throwable]])
 
-  def start(implicit ev: E <:< Throwable): ZIO[R with EventLoopGroup, Throwable, Nothing] =
+  def start(implicit ev: E <:< Throwable): ZIO[R, Throwable, Nothing] =
     make.useForever
+
 }
 
+import zhttp.service.server.Transport
 object Server {
   private[zhttp] final case class Settings[-R, +E](
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
@@ -43,6 +46,7 @@ object Server {
     app: HttpApp[R, E] = HttpApp.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
     transport: Transport = Transport.Auto,
+    elg: EventLoopGroupItem = AutoELG(0)
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -53,6 +57,7 @@ object Server {
   private final case class Address(address: InetSocketAddress)                        extends UServer
   private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
   private final case class ServerChannel(transport: Transport)                        extends UServer
+  private final case class ELG(elg: EventLoopGroupItem)                                  extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -69,6 +74,7 @@ object Server {
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
 
   def serverChannel(transport: Transport): UServer = Server.ServerChannel(transport)
+  def elg(elg: EventLoopGroupItem): UServer = Server.ELG(elg)
 
   /**
    * Launches the app on the provided port.
@@ -78,7 +84,6 @@ object Server {
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
     (Server.bind(port) ++ Server.app(http)).make.useForever
-      .provideSomeLayer[R](EventLoopGroup.auto(0))
 
   def start[R <: Has[_]](
     address: InetAddress,
@@ -86,23 +91,21 @@ object Server {
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
     (Server.app(http) ++ Server.bind(address, port)).make.useForever
-      .provideSomeLayer[R](EventLoopGroup.auto(0))
 
   def start[R <: Has[_]](
     socketAddress: InetSocketAddress,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
     (Server.app(http) ++ Server.bind(socketAddress)).make.useForever
-      .provideSomeLayer[R](EventLoopGroup.auto(0))
 
   def make[R](
     server: Server[R, Throwable],
-  ): ZManaged[R with EventLoopGroup, Throwable, Unit] = {
+             ): ZManaged[R, Throwable, Unit] = {
     val settings = server.settings()
-    val ch       = Transport.make(settings.transport)
+    val ch              = Transport.make(settings.transport)
     for {
       channelFactory <- ZManaged.fromEffect(ch)
-      eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
+      eventLoopGroup <- EventLoopGroup.Live.make(settings.elg)
       zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
       init            = ServerChannelInitializer(zExec, settings)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)

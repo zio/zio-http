@@ -103,6 +103,17 @@ object Client {
       res <- request(Method.GET -> url, headers, content)
     } yield res
 
+  def request1(
+               url: String,
+               method: Method,
+               headers: List[Header],
+               content: HttpData[Any, Nothing],
+             ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+    for {
+      url <- ZIO.fromEither(URL.fromString(url))
+      res <- request(method -> url, headers, content)
+    } yield res
+
   def request(
     endpoint: Endpoint,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =

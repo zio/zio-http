@@ -17,8 +17,9 @@ object Transport        {
   case object Auto   extends Transport
 
   import zhttp.service.server.TransportFactory._
+//  import zhttp.service.server.ServerChannelFactory
   def make(trans: Transport) = trans match {
-    case Nio    => nio
+    case Nio    => auto
     case Epoll  => epoll
     case KQueue => kQueue
     case URing  => uring

@@ -3,15 +3,21 @@ package zhttp.service
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zhttp.service.server.Transport
 import zio.test.DefaultRunnableSpec
-import zio.{Chunk, Has, ZIO, ZManaged}
+import zio.{Chunk, ZIO, ZManaged}
 
 abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
 
-  def serve[R <: Has[_]](
+  def serve[R](
     app: HttpApp[R, Throwable],
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
-    Server.make(Server.app(app) ++ Server.port(port)).orDie
+    ): ZManaged[R, Nothing, Unit] =
+    Server.make(Server.port(port) ++              // Setup port
+      Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
+      Server.app(app)   ++  // Setup the Http app
+      Server.serverChannel(Transport.Auto)).orDie
+
+  //Server.make(Server.app(app) ++ Server.port(port)).orDie
 
   def status(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, Status] =
     requestPath(path).map(_.status)

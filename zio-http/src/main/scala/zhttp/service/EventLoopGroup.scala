@@ -8,6 +8,13 @@ import zio._
 
 import java.util.concurrent.Executor
 
+sealed trait EventLoopGroupItem
+case class NioELG(nThreads: Int) extends EventLoopGroupItem
+case class EpollELG(nThreads: Int) extends EventLoopGroupItem
+case class UringELG(nThreads: Int) extends EventLoopGroupItem
+case class AutoELG(nThreads: Int) extends EventLoopGroupItem
+case object DefaultELG extends EventLoopGroupItem
+
 /**
  * Simple wrapper over NioEventLoopGroup
  */
@@ -23,6 +30,15 @@ object EventLoopGroup {
   def default: ZLayer[Any, Nothing, EventLoopGroup] = EventLoopGroup.Live.default.toLayer
 
   object Live {
+
+    def make(elg: EventLoopGroupItem) = elg match {
+      case NioELG(nThreads)       => nio(nThreads)
+      case EpollELG(nThreads)     => epoll(nThreads)
+      case UringELG(nThreads)     => uring(nThreads)
+      case AutoELG(nThreads)      => auto(nThreads)
+      case DefaultELG             => default
+    }
+
     def nio(nThreads: Int): ZManaged[Any, Nothing, channel.EventLoopGroup] =
       make(UIO(new channel.nio.NioEventLoopGroup(nThreads)))
 
@@ -56,5 +72,4 @@ object EventLoopGroup {
 
     def default: ZManaged[Any, Nothing, channel.EventLoopGroup] = make(UIO(new channel.DefaultEventLoopGroup()))
   }
-
 }
