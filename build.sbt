@@ -33,7 +33,7 @@ ThisBuild / githubWorkflowAddedJobs     :=
           commands = List("npm install", "npm run deploy"),
         ),
       ),
-      cond = Option("${{ github.ref == 'doc/website' }}"),
+      cond = Option("${{ github.ref == 'refs/heads/doc/website' }}"),
     ),
   )
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")

@@ -152,7 +152,7 @@ jobs:
 
   update_docs:
     name: Publish Documentation
-    if: ${{ github.ref == 'doc/website' }}
+    if: ${{ github.ref == 'refs/heads/doc/website' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
