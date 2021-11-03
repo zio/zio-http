@@ -23,6 +23,18 @@ ThisBuild / githubWorkflowAddedJobs     :=
       steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
       cond = Option("${{ github.base_ref == 'main' }}"),
     ),
+    WorkflowJob(
+      id = "update_docs",
+      name = "Publish Documentation",
+      steps = List(
+        WorkflowStep.Use(UseRef.Public("actions", "setup-node", s"v2")),
+        WorkflowStep.Run(
+          env = Map("GIT_PASS" -> "${{secrets.SCALA_STEWARD_PAT}}", "GIT_USER" -> "amitksingh1490"),
+          commands = List("npm install", "npm run deploy"),
+        ),
+      ),
+      cond = Option("${{ github.ref == 'doc/website' }}"),
+    ),
   )
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
