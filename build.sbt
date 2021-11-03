@@ -39,7 +39,7 @@ ThisBuild / githubWorkflowAddedJobs     :=
           ),
         ),
       ),
-      cond = Option("${{ github.ref == 'refs/heads/doc/website' }}"),
+      cond = Option("${{ github.ref == 'refs/heads/main' }}"),
     ),
   )
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
