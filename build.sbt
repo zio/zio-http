@@ -27,8 +27,8 @@ ThisBuild / githubWorkflowAddedJobs     :=
       id = "update_docs",
       name = "Publish Documentation",
       steps = List(
-        WorkflowStep.Use(UseRef.Public("actions", "setup-node", s"v2"), params = Map("cache" -> "npm")),
         WorkflowStep.Use(UseRef.Public("actions", "checkout", s"v2")),
+        WorkflowStep.Use(UseRef.Public("actions", "setup-node", s"v2")),
         WorkflowStep.Run(
           env = Map("GIT_PASS" -> "${{secrets.ACTIONS_PAT}}", "GIT_USER" -> "${{secrets.GIT_USER}}"),
           commands = List(
