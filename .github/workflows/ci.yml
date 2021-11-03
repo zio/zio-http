@@ -149,3 +149,22 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: release-drafter/release-drafter@v5
+
+  update_docs:
+    name: Publish Documentation
+    if: ${{ github.ref == 'doc/website' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.4]
+        java: [adopt@1.8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/setup-node@v2
+
+      - env:
+          GIT_PASS: ${{secrets.SCALA_STEWARD_PAT}}
+          GIT_USER: amitksingh1490
+        run: |
+          npm install
+          npm run deploy
