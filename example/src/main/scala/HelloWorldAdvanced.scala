@@ -30,7 +30,7 @@ object HelloWorldAdvanced extends App {
     val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
     // Create a new server
-    server.make
+    (server ++ Server.elg(AutoELG(nThreads))).make
       .use(_ =>
         // Waiting for the server to start
         console.putStrLn(s"Server started on port $PORT")
@@ -38,8 +38,6 @@ object HelloWorldAdvanced extends App {
         // Ensures the server doesn't die after printing
           *> ZIO.never,
       )
-//      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
-      .provideCustomLayer(EventLoopGroup.auto(nThreads))
       .exitCode
   }
 }
