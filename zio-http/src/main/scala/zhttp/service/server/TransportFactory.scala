@@ -3,10 +3,10 @@ package zhttp.service.server
 import io.netty.channel.epoll.{Epoll, EpollServerSocketChannel}
 import io.netty.channel.kqueue.{KQueue, KQueueServerSocketChannel}
 import io.netty.channel.socket.nio.NioServerSocketChannel
-import io.netty.channel.{ServerChannel, ChannelFactory => JChannelFactory}
+import io.netty.channel.{ChannelFactory => JChannelFactory, ServerChannel}
 import io.netty.incubator.channel.uring.IOUringServerSocketChannel
 import zhttp.service.ChannelFactory
-import zio.{Task}
+import zio.Task
 
 sealed trait Transport
 object Transport        {
