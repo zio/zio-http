@@ -1,4 +1,3 @@
-import sbt.enablePlugins
 import Dependencies._
 import BuildHelper.{Scala213, publishSetting, stdSettings}
 
@@ -100,12 +99,20 @@ lazy val zhttpTest = (project in file("./zio-http-test"))
   .settings(publishSetting(true))
 
 lazy val example = (project in file("./example"))
+  .enablePlugins(SbtTwirl)
   .settings(stdSettings("example"))
+  .settings(
+    libraryDependencies := libraryDependencies.value.map {
+      case module if module.name == "twirl-api" =>
+        module.cross(CrossVersion.for3Use2_13)
+      case module => module
+    })
   .settings(publishSetting(false))
   .settings(
     fork                      := true,
     Compile / run / mainClass := Option("HelloWorld"),
     libraryDependencies ++= Seq(`jwt-core`),
+    TwirlKeys.templateImports := Seq(),
   )
   .dependsOn(zhttp)
 
