@@ -1,6 +1,6 @@
 import zhttp.http._
 import zhttp.service._
-import zhttp.service.server.{Transport}
+import zhttp.service.server.Transport
 import zio._
 
 import scala.util.Try
@@ -22,7 +22,7 @@ object HelloWorldAdvanced extends App {
   private val server =
     Server.port(PORT) ++              // Setup port
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
-      Server.app(fooBar +++ app)   ++  // Setup the Http app
+      Server.app(fooBar +++ app) ++   // Setup the Http app
       Server.serverChannel(Transport.Auto)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {

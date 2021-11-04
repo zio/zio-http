@@ -13,20 +13,27 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
 
   def serve[R](
     app: HttpApp[R, Throwable],
-    ): ZManaged[R, Nothing, Unit] =
-    Server.make(Server.port(port) ++              // Setup port
-      Server.app(app)   ++  // Setup the Http app
-      Server.serverChannel(Transport.Auto)).orDie
+  ): ZManaged[R, Nothing, Unit] =
+    Server
+      .make(
+        Server.port(port) ++ // Setup port
+          Server.app(app) ++ // Setup the Http app
+          Server.serverChannel(Transport.Auto),
+      )
+      .orDie
 
   def serveWithSSL[R](
-                app: HttpApp[R, Throwable],
-                sslContext: SslContext
-              ): ZManaged[R, Nothing, Unit] =
-    Server.make(Server.port(port) ++              // Setup port
-      Server.app(app)   ++  // Setup the Http app
-      Server.serverChannel(Transport.Auto) ++
-      Server.ssl(ServerSSLOptions(sslContext))
-    ).orDie
+    app: HttpApp[R, Throwable],
+    sslContext: SslContext,
+  ): ZManaged[R, Nothing, Unit] =
+    Server
+      .make(
+        Server.port(port) ++ // Setup port
+          Server.app(app) ++ // Setup the Http app
+          Server.serverChannel(Transport.Auto) ++
+          Server.ssl(ServerSSLOptions(sslContext)),
+      )
+      .orDie
 
   def status(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, Status] =
     requestPath(path).map(_.status)

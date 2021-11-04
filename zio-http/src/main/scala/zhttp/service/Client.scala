@@ -18,13 +18,13 @@ import zio.{Chunk, Promise, Task, ZIO}
 import java.net.{InetAddress, InetSocketAddress}
 
 final case class Client(zx: HttpRuntime[Any], cf: JChannelFactory[Channel], el: JEventLoopGroup)
-  extends HttpMessageCodec {
+    extends HttpMessageCodec {
   private def asyncRequest(
-                            req: Client.ClientParams,
-                            jReq: FullHttpRequest,
-                            promise: Promise[Throwable, FullHttpResponse],
-                            sslOption: ClientSSLOptions,
-                          ): Task[Unit] =
+    req: Client.ClientParams,
+    jReq: FullHttpRequest,
+    promise: Promise[Throwable, FullHttpResponse],
+    sslOption: ClientSSLOptions,
+  ): Task[Unit] =
     ChannelFuture.unit {
       val read   = ClientHttpChannelReader(jReq, promise)
       val hand   = ClientInboundHandler(zx, read)
@@ -46,9 +46,9 @@ final case class Client(zx: HttpRuntime[Any], cf: JChannelFactory[Channel], el: 
     }
 
   def request(
-               request: Client.ClientParams,
-               sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-             ): Task[Client.ClientResponse] =
+    request: Client.ClientParams,
+    sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+  ): Task[Client.ClientResponse] =
     for {
       promise <- Promise.make[Throwable, FullHttpResponse]
       jReq = encodeClientParams(HttpVersion.HTTP_1_1, request)
@@ -69,82 +69,82 @@ object Client {
   } yield service.Client(zx, cf, el)
 
   def request(
-               url: String,
-             ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
+    url: String,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
     url <- ZIO.fromEither(URL.fromString(url))
     res <- request(Method.GET -> url)
   } yield res
 
   def request(
-               url: String,
-               sslOptions: ClientSSLOptions,
-             ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
+    url: String,
+    sslOptions: ClientSSLOptions,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
     url <- ZIO.fromEither(URL.fromString(url))
     res <- request(Method.GET -> url, sslOptions)
   } yield res
 
   def request(
-               url: String,
-               headers: List[Header],
-               sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-             ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+    url: String,
+    headers: List[Header],
+    sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
       url <- ZIO.fromEither(URL.fromString(url))
       res <- request(Method.GET -> url, headers, sslOptions)
     } yield res
 
   def request(
-               url: String,
-               headers: List[Header],
-               content: HttpData[Any, Nothing],
-             ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+    url: String,
+    headers: List[Header],
+    content: HttpData[Any, Nothing],
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
       url <- ZIO.fromEither(URL.fromString(url))
       res <- request(Method.GET -> url, headers, content)
     } yield res
 
   def request(
-               endpoint: Endpoint,
-             ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+    endpoint: Endpoint,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint))
 
   def request(
-               endpoint: Endpoint,
-               sslOptions: ClientSSLOptions,
-             ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+    endpoint: Endpoint,
+    sslOptions: ClientSSLOptions,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint), sslOptions)
 
   def request(
-               endpoint: Endpoint,
-               headers: List[Header],
-               sslOptions: ClientSSLOptions,
-             ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+    endpoint: Endpoint,
+    headers: List[Header],
+    sslOptions: ClientSSLOptions,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint, headers), sslOptions)
 
   def request(
-               endpoint: Endpoint,
-               headers: List[Header],
-               content: HttpData[Any, Nothing],
-             ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+    endpoint: Endpoint,
+    headers: List[Header],
+    content: HttpData[Any, Nothing],
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint, headers, content))
 
   def request(
-               req: ClientParams,
-             ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+    req: ClientParams,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     make.flatMap(_.request(req))
 
   def request(
-               req: ClientParams,
-               sslOptions: ClientSSLOptions,
-             ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+    req: ClientParams,
+    sslOptions: ClientSSLOptions,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     make.flatMap(_.request(req, sslOptions))
 
   final case class ClientParams(
-                                 endpoint: Endpoint,
-                                 headers: List[Header] = List.empty,
-                                 content: HttpData[Any, Nothing] = HttpData.empty,
-                                 private val channelContext: ChannelHandlerContext = null,
-                               ) extends HeaderExtension[ClientParams] { self =>
+    endpoint: Endpoint,
+    headers: List[Header] = List.empty,
+    content: HttpData[Any, Nothing] = HttpData.empty,
+    private val channelContext: ChannelHandlerContext = null,
+  ) extends HeaderExtension[ClientParams] { self =>
     val method: Method = endpoint._1
     val url: URL       = endpoint._2
 
