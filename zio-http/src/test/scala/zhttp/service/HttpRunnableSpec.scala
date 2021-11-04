@@ -1,8 +1,10 @@
 package zhttp.service
 
+import io.netty.handler.ssl.SslContext
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zhttp.service.server.ServerSSLHandler.ServerSSLOptions
 import zhttp.service.server.Transport
 import zio.test.DefaultRunnableSpec
 import zio.{Chunk, ZIO, ZManaged}
@@ -13,11 +15,18 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
     app: HttpApp[R, Throwable],
     ): ZManaged[R, Nothing, Unit] =
     Server.make(Server.port(port) ++              // Setup port
-      Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
       Server.app(app)   ++  // Setup the Http app
       Server.serverChannel(Transport.Auto)).orDie
 
-  //Server.make(Server.app(app) ++ Server.port(port)).orDie
+  def serveWithSSL[R](
+                app: HttpApp[R, Throwable],
+                sslContext: SslContext
+              ): ZManaged[R, Nothing, Unit] =
+    Server.make(Server.port(port) ++              // Setup port
+      Server.app(app)   ++  // Setup the Http app
+      Server.serverChannel(Transport.Auto) ++
+      Server.ssl(ServerSSLOptions(sslContext))
+    ).orDie
 
   def status(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, Status] =
     requestPath(path).map(_.status)
