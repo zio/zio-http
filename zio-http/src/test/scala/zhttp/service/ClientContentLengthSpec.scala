@@ -30,13 +30,7 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
       case _                                     => state
     }
 
-  def getApp(state: Ref[ServerState]) = serve {
-    HttpApp.collectM { case req @ _ -> !! / path =>
-      state.update(updateState(_, req.headers, path)) *> ZIO.succeed(Response.ok)
-    }
-  }
-
-  def getApp1(state: Ref[ServerState]): Server[Any, Throwable] = {
+  def getApp(state: Ref[ServerState]): Server[Any, Throwable] = {
     val app: HttpApp[Any, Throwable] = HttpApp.collectM { case req @ _ -> !! / path =>
       state.update(updateState(_, req.headers, path)) *> ZIO.succeed(Response.ok)
     }
@@ -52,36 +46,8 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
   val serverAppState =
     for {
       state <- ZRef.make(Map[String, Int]()).toManaged_
-//      _     <- getApp(state)
-      _     <- getApp1(state).make
+      _     <- getApp(state).make
     } yield state
-
-//  override def spec = suiteM("Client Content-Length auto assign")(
-//    serverAppState
-//      .map((state: Ref[ServerState]) =>
-//        List(
-//          testM("get request without content") {
-//            val path   = "getWithoutContent"
-//            val actual = status(!! / path) *> getLengthForPath(state, path)
-//            assertM(actual)(isNone)
-//          } +
-//            testM("post request with nonempty content") {
-//              val path    = "postWithNonemptyContent"
-//              val content = "content"
-//              val actual  = request(!! / path, Method.POST, content) *> getLengthForPath(state, path)
-//              assertM(actual)(isSome(isPositive[Int]))
-//            } +
-//            testM("post request with nonempty content and set content-length") {
-//              val path    = "postWithNonemptyContentAndSetContentLength"
-//              val content = "content"
-//              val headers = List(Header.custom(contentLengthName, "dummy"))
-//              val actual  = request(!! / path, Method.POST, content, headers) *> getLengthForPath(state, path)
-//              assertM(actual)(isSome(isPositive[Int]))
-//            },
-//        ),
-//      )
-//      .useNow,
-//  ).provideCustomLayer(env)
 
   override def spec = suite("Client Content-Length auto assign")(
     testM("get request without content") {
