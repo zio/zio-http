@@ -17,9 +17,6 @@ object CORSSpec extends HttpRunnableSpec(8089) {
   }
 
   override def spec = suite("CORS")(
-//    app
-//      .as(
-//        List(
     testM("OPTIONS request headers") {
       app.use { _ =>
         val actual = request(
@@ -85,8 +82,5 @@ object CORSSpec extends HttpRunnableSpec(8089) {
         )
       }
     },
-//        ),
-//      )
-//      .useNow,
   ).provideCustomLayer(env) @@ sequential
 }

@@ -38,9 +38,6 @@ object SSLSpec extends HttpRunnableSpec(8073) {
   )
 
   override def spec = suite("SSL")(
-//    app
-//      .as(
-//        List(
     testM("succeed when client has the server certificate") {
       app.use { _ =>
         val actual = Client
@@ -76,8 +73,5 @@ object SSLSpec extends HttpRunnableSpec(8073) {
         assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
       }
     },
-//        ),
-//      )
-//      .useNow,
   ).provideCustomLayer(env) @@ flaky @@ timeout(5 second) @@ sequential
 }

@@ -19,9 +19,6 @@ object ServerSpec extends HttpRunnableSpec(8087) {
   }
 
   override def spec = suite("Server")(
-//    app
-//      .as(
-//        List(
     testM("200 response") {
       app.use { _ =>
         val actual = status(!! / "success")
@@ -46,8 +43,5 @@ object ServerSpec extends HttpRunnableSpec(8087) {
         assertM(actual)(equalTo(Status.OK))
       }
     },
-//        ),
-//      )
-//      .useNow,
   ).provideCustomLayer(env) @@ sequential
 }
