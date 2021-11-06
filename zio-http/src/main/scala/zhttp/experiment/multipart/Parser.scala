@@ -31,22 +31,25 @@ class Parser(boundary: String) {
   var matchIndex: Int              = 0 // matching index of boundary and double dash
   var CRLFIndex: Int               = 0
   var tempData: Chunk[Byte]        = Chunk.empty
+  var partChunk: Chunk[Byte]       = Chunk.empty
   def getMessages(input: Chunk[Byte], startIndex: Int = 0, outChunk: Chunk[Message] = Chunk.empty): Chunk[Message] = {
     state match {
       case NotStarted   => {
         var i            = startIndex
         var outChunkTemp = outChunk
+        // Look for starting Boundary
         while (i < input.length && state == NotStarted) {
           if (input.byte(i) == delimiter.byte(matchIndex)) {
             i = i + 1
             matchIndex = matchIndex + 1
             tempData = tempData ++ Chunk(input.byte(i))
             if (matchIndex == delimiter.length) { // match complete
-              state = PartHeader
+              state = PartHeader                  // start getting part header data
               matchIndex = 0
-              tempData = Chunk.empty              // release temp data to GC
+              tempData = Chunk.empty              // discard boundary bytes
             }
           } else {
+            println("invalid input")
             i = input.length // Invalid input. Break the loop
           }
         }
@@ -54,24 +57,28 @@ class Parser(boundary: String) {
           outChunkTemp = getMessages(input, i - 1, outChunk ++ Chunk(Boundary))
         }
         outChunkTemp
-      } // Look for starting Boundary
+      }
       case PartHeader   => {
-        var i                = startIndex
-        var terminatingMatch = 0
-        var outChunkTemp     = outChunk
-        println("Part Header")
-        println(outChunkTemp)
+        var i            = startIndex
+        var outChunkTemp = outChunk
+        // Look until double CRLF
         while (i < input.length && state == PartHeader) {
-          if (doubleCRLFBytes.byte(terminatingMatch) == input.byte(i)) {
-            terminatingMatch = terminatingMatch + 1
+          if (doubleCRLFBytes.byte(matchIndex) == input.byte(i)) {
+            matchIndex = matchIndex + 1
           } else {
-            terminatingMatch = 0
+            // do look behind check
+            if (doubleCRLFBytes.byte(0) == input.byte(i)) {
+              matchIndex = 1
+            } else {
+              matchIndex = 0
+            }
           }
           tempData = tempData ++ Chunk(input.byte(i))
           i = i + 1
-          if (terminatingMatch == doubleCRLFBytes.length) {
+          if (matchIndex == doubleCRLFBytes.length) {
             // todo: Add header parsing logic here Parse and create Header Chunk
-            outChunkTemp = outChunkTemp ++ Chunk(MetaInfo(tempData.byte(0).toString(), "abc", Some("abc.jpg")))
+            matchIndex = 0
+            outChunkTemp = outChunkTemp ++ Chunk(MetaInfo("formData", "abc", Some("abc.jpg")))
             tempData = Chunk.empty
             state = PartData
           }
@@ -82,11 +89,9 @@ class Parser(boundary: String) {
         outChunkTemp
       }
       case PartData     => {
-        var i                      = startIndex
-        var outChunkTemp           = outChunk
-        var partChunk: Chunk[Byte] = Chunk.empty
-        println("part data")
-        println(outChunkTemp)
+        var i            = startIndex
+        var outChunkTemp = outChunk
+        // Look until boundary delimiter
         while (i < input.length && state == PartData) {
           if (delimiter.byte(matchIndex) == input.byte(i)) {
             matchIndex = matchIndex + 1
@@ -94,8 +99,14 @@ class Parser(boundary: String) {
           } else {
             matchIndex = 0
             partChunk = partChunk ++ tempData
-            partChunk = partChunk.appended(input.byte(i))
             tempData = Chunk.empty
+            // do look behind check
+            if (delimiter.byte(matchIndex) == input.byte(i)) {
+              matchIndex = 1
+              tempData = Chunk(input.byte(i))
+            } else {
+              partChunk = partChunk.appended(input.byte(i))
+            }
           }
           if (matchIndex == delimiter.length) {
             outChunkTemp =
@@ -107,7 +118,6 @@ class Parser(boundary: String) {
           }
           i = i + 1
         }
-        outChunkTemp = outChunkTemp ++ Chunk(ChunkedData(new String(partChunk.toArray, StandardCharsets.UTF_8)))
         if (i < input.length && state != PartData) {
           outChunkTemp = getMessages(input, i - 1, outChunkTemp)
         }
@@ -119,9 +129,16 @@ class Parser(boundary: String) {
         while (i < input.length && state == PartComplete) {
           if (dashDashBytesN.byte(matchIndex) == input.byte(i)) {
             matchIndex = matchIndex + 1
+          } else {
+            matchIndex = 0
           }
           if (CRLFBytes.byte(CRLFIndex) == input.byte(i)) {
             CRLFIndex = CRLFIndex + 1
+          } else {
+            CRLFIndex = 0
+          }
+          if (matchIndex == 0 && CRLFIndex == 0) {
+            println("invalid input")
           }
           if (CRLFIndex == CRLFBytes.length) {
             CRLFIndex = 0
