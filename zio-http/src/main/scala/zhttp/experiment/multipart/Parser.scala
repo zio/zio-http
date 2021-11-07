@@ -13,12 +13,21 @@ case object PartData     extends State
 case object PartComplete extends State
 case object End          extends State
 
+sealed trait PartMeta
+case class PartContentDisposition(name: String, filename: Option[String]) extends PartMeta
+case class PartContentType(ContentType: String, charset: Option[String])  extends PartMeta
+case class PartContentTransferEncoding(encoding: String)                  extends PartMeta
+
 sealed trait Message
-case object Boundary                                                                          extends Message
-final case class MetaInfo(ContentDisposition: String, name: String, fileName: Option[String]) extends Message
-final case class ChunkedData(chunkedData: String)                                             extends Message
-case object BodyEnd                                                                           extends Message
-case object Empty                                                                             extends Message
+case object Boundary                              extends Message
+final case class MetaInfo(
+  contentDisposition: PartContentDisposition,
+  contentType: Option[PartContentType] = None,
+  transferEncoding: Option[PartContentTransferEncoding] = None,
+) extends Message
+final case class ChunkedData(chunkedData: String) extends Message
+case object BodyEnd                               extends Message
+case object Empty                                 extends Message
 
 class Parser(boundary: String) {
   val boundaryBytes: Chunk[Byte]   = Chunk.fromArray(boundary.getBytes(CharsetUtil.UTF_8))
@@ -54,7 +63,7 @@ class Parser(boundary: String) {
           }
         }
         if (i < input.length && state != NotStarted) { // more data is there in input
-          outChunkTemp = getMessages(input, i - 1, outChunk ++ Chunk(Boundary))
+          outChunkTemp = getMessages(input, i, outChunk ++ Chunk(Boundary))
         }
         outChunkTemp
       }
@@ -78,13 +87,63 @@ class Parser(boundary: String) {
           if (matchIndex == doubleCRLFBytes.length) {
             // todo: Add header parsing logic here Parse and create Header Chunk
             matchIndex = 0
-            outChunkTemp = outChunkTemp ++ Chunk(MetaInfo("formData", "abc", Some("abc.jpg")))
+            val headerString       = new String(tempData.toArray, StandardCharsets.UTF_8)
+            val metaInfo: MetaInfo = headerString
+              .split("\r\n")
+              .foldLeft(MetaInfo(PartContentDisposition("", None), None, None))((metaInfo, aHeader) => {
+                val subPart       = aHeader.split(";").map(_.trim())
+                val subPartHeader = subPart.head.split(":")
+                val metaInfoType  = subPartHeader.head
+                val directiveData = subPart.tail
+                  .map(s => {
+                    s.split("=").map(_.trim) match {
+                      case Array(v1, v2) => (v1, v2)
+                      case _             => ("", "") // should throw error here
+                    }
+                  })
+                if (metaInfoType == "Content-Disposition") {
+                  metaInfo.copy(contentDisposition =
+                    directiveData
+                      .foldLeft(PartContentDisposition("", None))((acc, value) => {
+                        println(value)
+                        if (value._1.toLowerCase == "name") {
+                          acc.copy(name = value._2)
+                        } else if (value._1.toLowerCase == "filename") {
+                          acc.copy(filename = Some(value._2))
+                        } else {
+                          acc
+                        }
+                      }),
+                  )
+                } else if (metaInfoType == "Content-Type") {
+                  if (directiveData.isEmpty) {
+                    metaInfo.copy(contentType = Some(PartContentType(subPartHeader.tail.head.trim, None)))
+                  } else {
+                    metaInfo.copy(contentType =
+                      Some(
+                        directiveData
+                          .foldLeft(PartContentType(subPartHeader.tail.head.trim, None))((acc, value) => {
+                            if (value._1.toLowerCase == "charset") {
+                              acc.copy(charset = Some(value._2))
+                            }
+                            acc
+                          }),
+                      ),
+                    )
+                  }
+                } else if (metaInfoType == "Content-Transfer-Encoding") {
+                  metaInfo.copy(transferEncoding = Some(PartContentTransferEncoding(subPartHeader.tail.head.trim)))
+                } else {
+                  metaInfo
+                }
+              })
+            outChunkTemp = outChunkTemp ++ Chunk(metaInfo)
             tempData = Chunk.empty
             state = PartData
           }
         }
         if (i < input.length && state != PartHeader) {
-          outChunkTemp = getMessages(input, i - 1, outChunkTemp)
+          outChunkTemp = getMessages(input, i, outChunkTemp)
         }
         outChunkTemp
       }
@@ -119,7 +178,7 @@ class Parser(boundary: String) {
           i = i + 1
         }
         if (i < input.length && state != PartData) {
-          outChunkTemp = getMessages(input, i - 1, outChunkTemp)
+          outChunkTemp = getMessages(input, i, outChunkTemp)
         }
         outChunkTemp
       }

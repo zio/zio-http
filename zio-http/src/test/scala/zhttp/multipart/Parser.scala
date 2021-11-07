@@ -28,7 +28,7 @@ object ParserTest extends DefaultRunnableSpec {
         val processedData2 = makeHttpString(data2)
         val output2        = parser.getMessages(Chunk.fromArray(processedData2.getBytes()))
         assert(output1)(equalTo(Chunk(Boundary))) && assert(output2)(
-          equalTo(Chunk(MetaInfo("formData", "abc", Some("abc.jpg")))),
+          equalTo(Chunk.empty),
         )
       },
       test("multiple parts") {
