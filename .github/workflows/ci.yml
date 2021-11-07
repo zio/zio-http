@@ -149,3 +149,31 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: release-drafter/release-drafter@v5
+
+  unsafeRunScoverage:
+    name: Unsafe Scoverage
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.4]
+        java: [adopt@1.8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout current branch (full)
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Add Scoverage
+        id: add_plugin
+        run: sed -i -e '$aaddSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.9.1")' project/plugins.sbt
+
+      - name: Update Build Definition
+        id: update_build_definition
+        run: |
+
+          sed -i -e 's+(project in file("./zio-http"))+(project in file("./zio-http")).settings(coverageEnabled:=true,coverageFailOnMinimum:=true,coverageMinimumStmtTotal:=54.0,coverageMinimumBranchTotal:=69.0)+g' build.sbt
+
+      - name: Run Coverage
+        id: run_coverage
+        run: sbt ++${{ matrix.scala }} coverage 'project zhttp;test' coverageReport
