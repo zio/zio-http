@@ -104,22 +104,7 @@ object AuthMiddlewareSpec extends DefaultRunnableSpec {
             ),
           )
           assertM(program.map(_.status))(equalTo(Status.OK))
-        } +
-          testM("should succeed if 1st authentication fails and 2nd succeed") {
-            val program = (app @@ (basicAuth((u, p) => ZIO.succeed(u.reverse == p)) <> jwt("secretKey")))
-              .apply(
-                req.addHeaders(
-                  List(
-                    Header.basicHttpAuthorization("user", "WrongPassword"),
-                    Header.custom(
-                      "X-ACCESS-TOKEN",
-                      Jwt.encode(JwtClaim { s"""{"user": "SomeUserName"}""" }, "secretKey", JwtAlgorithm.HS512),
-                    ),
-                  ),
-                ),
-              )
-            assertM(program.map(_.status))(equalTo(Status.OK))
-          }
+        }
       }
   }
 }
