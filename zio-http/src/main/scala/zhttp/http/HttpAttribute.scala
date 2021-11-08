@@ -1,6 +1,8 @@
 package zhttp.http
 
+import zhttp.http.HttpAttribute.Empty
 import zhttp.socket.SocketApp
+import zio.NeedsEnv
 
 /**
  * Attribute holder for and Responses
@@ -8,6 +10,11 @@ import zhttp.socket.SocketApp
 private[zhttp] sealed trait HttpAttribute[-R, +E] extends Product with Serializable { self =>
   def exit: HttpAttribute.AttributeExit[R, E]                                   = HttpAttribute.exit(self)
   def ++[R1 <: R, E1 >: E](other: HttpAttribute[R1, E1]): HttpAttribute[R1, E1] = HttpAttribute.Combine(self, other)
+  def provide(r: R)(implicit env: NeedsEnv[R]): HttpAttribute[Any, E]           = self match {
+    case HttpAttribute.Empty                => Empty
+    case HttpAttribute.Combine(self, other) => HttpAttribute.Combine(self.provide(r), other.provide(r))
+    case HttpAttribute.Socket(app)          => HttpAttribute.Socket(app.provide(r))
+  }
 }
 
 object HttpAttribute {

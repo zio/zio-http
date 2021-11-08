@@ -1,6 +1,7 @@
 package zhttp.socket
 
 import zhttp.http._
+import zhttp.socket.SocketApp.Open.{WithEffect, WithSocket}
 import zio._
 import zio.stream.ZStream
 
@@ -48,6 +49,23 @@ sealed trait SocketApp[-R, +E] { self =>
 
     loop(self, SocketConfig[R, E]())
   }
+
+  def provide(r: R)(implicit env: NeedsEnv[R]): SocketApp[Any, E] =
+    self match {
+      case open: Open[_, _]     =>
+        open match {
+          case WithSocket(s)      => WithSocket(s.provide(r))
+          case WithEffect(effect) => WithEffect(effect(_).provide(r))
+        }
+      case Concat(a, b)         => Concat(a.provide(r), b.provide(r))
+      case OnMessage(onMessage) => OnMessage(onMessage.provide(r))
+      case OnError(onError)     => OnError(onError(_).provide(r))
+      case OnClose(onClose)     => OnClose(onClose(_).provide(r))
+      case OnTimeout(onTimeout) => OnTimeout(onTimeout.provide(r))
+      case Protocol(protocol)   => Protocol(protocol)
+      case Decoder(decoder)     => Decoder(decoder)
+      case SocketApp.Empty      => Empty
+    }
 
   def isEmpty: Boolean = self match {
     case Empty => true

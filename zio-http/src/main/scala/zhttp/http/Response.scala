@@ -3,7 +3,7 @@ package zhttp.http
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
-import zio.Chunk
+import zio.{Chunk, NeedsEnv}
 
 import java.io.{PrintWriter, StringWriter}
 
@@ -13,6 +13,9 @@ case class Response[-R, +E] private (
   data: HttpData[R, E],
   private[zhttp] val attribute: HttpAttribute[R, E],
 ) extends HeaderExtension[Response[R, E]] { self =>
+
+  def provide(r: R)(implicit env: NeedsEnv[R]): Response[Any, E] =
+    self.copy(data = self.data.provide(r), attribute = self.attribute.provide(r))
 
   /**
    * Sets the status of the response

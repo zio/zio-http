@@ -1,10 +1,9 @@
 package zhttp.socket
 
 import zio.Chunk
+import zio.stream.{Sink, ZStream}
 import zio.test.Assertion._
 import zio.test._
-import zio.stream.{Sink, ZStream}
-import zio.test.DefaultRunnableSpec
 
 object SocketSpec extends DefaultRunnableSpec {
   def spec = suite("SocketSpec") {

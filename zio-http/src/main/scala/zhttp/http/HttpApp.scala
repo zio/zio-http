@@ -8,6 +8,9 @@ import zio.clock.Clock
 import zio.duration.Duration
 
 case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =>
+  def provide(r: R)(implicit env: NeedsEnv[R]): HttpApp[Any, E] =
+    self.copy(self.asHttp.map(_.provide(r)).provide(r))
+
   def orElse[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
     HttpApp(self.asHttp orElse other.asHttp)
 
