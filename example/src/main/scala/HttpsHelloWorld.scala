@@ -15,7 +15,7 @@ object HttpsHelloWorld extends App {
   /**
    * sslcontext can be created using SslContexBuilder. In this example an inbuilt API using keystore is used
    */
-  val sslctx = ctxFromKeystore(getClass.getResourceAsStream("keystore.jks"), "password", "password")
+  val sslctx = ctxFromKeystore(getClass.getResourceAsStream("mysslstore.jks"), "password", "password")
 
   private val server =
     Server.port(8090) ++ Server.app(app) ++ Server.ssl(ServerSSLOptions(sslctx))
