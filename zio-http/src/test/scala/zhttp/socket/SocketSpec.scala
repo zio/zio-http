@@ -17,7 +17,7 @@ object SocketSpec extends DefaultRunnableSpec {
 
       assertM(socket.execute(24).run(Sink.collectAll))(equalTo(Chunk(42)))
     } + testM("fromFunction provide") {
-      val streamFunc: Int => ZStream[Int, Nothing, Int] = (x: Int) => ZStream.environment[Int]
+      val streamFunc: Int => ZStream[Int, Nothing, Int] = (_: Int) => ZStream.environment[Int]
       val socket: Socket[Any, Nothing, Int, Int]        = Socket.fromFunction(streamFunc).provide(42)
 
       assertM(socket.execute(24).run(Sink.collectAll))(equalTo(Chunk(42)))
