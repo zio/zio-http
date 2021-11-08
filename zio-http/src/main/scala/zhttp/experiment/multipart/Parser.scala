@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets
 
 import io.netty.util.CharsetUtil
 import zio.Chunk
-import zio.stream.ZTransducer
+import zio.stream.{UStream, ZStream, ZTransducer}
 
 sealed trait State
 case object NotStarted   extends State
@@ -19,15 +19,15 @@ case class PartContentType(ContentType: String, charset: Option[String])  extend
 case class PartContentTransferEncoding(encoding: String)                  extends PartMeta
 
 sealed trait Message
-case object Boundary                              extends Message
+case object Boundary                                   extends Message //todo: make case class
 final case class MetaInfo(
   contentDisposition: PartContentDisposition,
   contentType: Option[PartContentType] = None,
   transferEncoding: Option[PartContentTransferEncoding] = None,
 ) extends Message
-final case class ChunkedData(chunkedData: String) extends Message
-case object BodyEnd                               extends Message
-case object Empty                                 extends Message
+final case class ChunkedData(chunkedData: Chunk[Byte]) extends Message
+case object BodyEnd                                    extends Message
+case object Empty                                      extends Message
 
 class Parser(boundary: String) {
   val boundaryBytes: Chunk[Byte]   = Chunk.fromArray(boundary.getBytes(CharsetUtil.UTF_8))
@@ -168,8 +168,7 @@ class Parser(boundary: String) {
             }
           }
           if (matchIndex == delimiter.length) {
-            outChunkTemp =
-              outChunkTemp ++ Chunk(ChunkedData(new String(partChunk.toArray, StandardCharsets.UTF_8)), Boundary)
+            outChunkTemp = outChunkTemp ++ Chunk(ChunkedData(partChunk), Boundary)
             partChunk = Chunk.empty
             matchIndex = 0
             tempData = Chunk.empty
@@ -177,9 +176,14 @@ class Parser(boundary: String) {
           }
           i = i + 1
         }
+        if (i >= input.length && state == PartData && !partChunk.isEmpty) {
+          outChunkTemp = outChunkTemp ++ Chunk(ChunkedData(partChunk))
+          partChunk = Chunk.empty
+        }
         if (i < input.length && state != PartData) {
           outChunkTemp = getMessages(input, i, outChunkTemp)
         }
+        // add partial chunk logic
         outChunkTemp
       }
       case PartComplete => {
@@ -219,8 +223,9 @@ class Parser(boundary: String) {
       case End          => outChunk
     }
   }
-  val byteToMessageTransducer: ZTransducer[Any, Nothing, Chunk[Byte], Message]                                     =
+  private val byteToMessageTransducer: ZTransducer[Any, Nothing, Chunk[Byte], Message]                             =
     ZTransducer.fromFunction[Chunk[Byte], Chunk[Message]](a => getMessages(a)).mapChunks(_.flatten)
 
-//  def byteStreamToMessageStream(input: UStream[Chunk[Byte]]) = input.transduce(byteToMessageTransducer)
+  def byteStreamToMessageStream(input: UStream[Chunk[Byte]]): ZStream[Any, Nothing, Message] =
+    input.transduce(byteToMessageTransducer)
 }
