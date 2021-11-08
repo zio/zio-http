@@ -3,7 +3,10 @@ package zhttp.http.middleware
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.util.AsciiString
 import io.netty.util.AsciiString.toLowerCase
+import pdi.jwt.algorithms.JwtHmacAlgorithm
+import pdi.jwt.{Jwt, JwtAlgorithm}
 import zhttp.http.CORS.DefaultCORSConfig
+import zhttp.http.HeaderExtension.BasicSchemeName
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware.RequestP
 import zio.clock.Clock
@@ -69,6 +72,9 @@ object HttpMiddleware {
   private final case class FromFunctionM[R, E](
     f: (Method, URL, List[Header]) => ZIO[R, Option[E], HttpMiddleware[R, E]],
   ) extends HttpMiddleware[R, E]
+
+  private final case class AuthFunction[R, E](f: List[Header] => ZIO[R, E, Boolean], h: List[Header])
+      extends HttpMiddleware[R, E]
 
   private final case class Race[R, E](self: HttpMiddleware[R, E], other: HttpMiddleware[R, E])
       extends HttpMiddleware[R, E]
@@ -183,6 +189,41 @@ object HttpMiddleware {
     patch((_, _) => Patch.removeHeaders(List(name)))
 
   /**
+   * creates a middleware that check the content of X-ACCESS-TOKEN header and try to decode a JwtClaim
+   */
+  def jwt(secretKey: String, algo: Seq[JwtHmacAlgorithm] = Seq(JwtAlgorithm.HS512)): HttpMiddleware[Any, Nothing] =
+    AuthFunction(
+      { h =>
+        HeadersHolder(h)
+          .getHeader("X-ACCESS-TOKEN")
+          .flatMap(header => Jwt.decode(header.value.toString, secretKey, algo).toOption)
+          .fold(ZIO.succeed(false))(_ => ZIO.succeed(true))
+      },
+      List.empty[Header],
+    )
+
+  /**
+   * creates a middleware for basic authentication
+   */
+  def basicAuth[R, E](f: (String, String) => ZIO[R, E, Boolean]): HttpMiddleware[R, E] = AuthFunction(
+    { h =>
+      HeadersHolder(h).getBasicAuthorizationCredentials match {
+        case Some((username, password)) => f(username, password)
+        case None                       => ZIO.succeed(false)
+      }
+    },
+    List(Header(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName)),
+  )
+
+  /**
+   * creates a generic authentication middleware
+   */
+  def authFunction[R, E](
+    f: List[Header] => ZIO[R, E, Boolean],
+    h: List[Header] = List.empty[Header],
+  ): HttpMiddleware[R, E] = AuthFunction(f, h)
+
+  /**
    * Creates a middleware for Cross-Origin Resource Sharing (CORS).
    * @see
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
@@ -290,6 +331,14 @@ object HttpMiddleware {
     existingRoutesWithHeaders orElse optionsHeaders
   }
 
+  final case class HeadersHolder(headers: List[Header]) extends HeaderExtension[HeadersHolder] { self =>
+    override def addHeaders(headers: List[Header]): HeadersHolder =
+      HeadersHolder(self.headers ++ headers)
+
+    override def removeHeaders(headers: List[String]): HeadersHolder =
+      HeadersHolder(self.headers.filterNot(h => headers.contains(h.name)))
+  }
+
   /**
    * Applies the middleware on an HttpApp
    */
@@ -313,6 +362,16 @@ object HttpMiddleware {
           for {
             output <- reqF(req.method, req.url, req.headers)
             res    <- output(app)(req)
+          } yield res
+        }
+
+      case AuthFunction(f, h) =>
+        HttpApp.fromFunctionM { req =>
+          for {
+            bool <- f(req.headers)
+            res  <-
+              if (bool) ZIO.succeed(app)
+              else ZIO.succeed(HttpApp.response(HttpError.Unauthorized().toResponse.addHeaders(h)))
           } yield res
         }
 
