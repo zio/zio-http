@@ -1,7 +1,7 @@
 package zhttp.socket
 
 import zio.stream.ZStream
-import zio.{Cause, ZIO}
+import zio.{Cause, NeedsEnv, ZIO}
 
 sealed trait Socket[-R, +E, -A, +B] { self =>
   import Socket._
@@ -19,6 +19,18 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
   }
 
   private[zhttp] def execute(a: A): ZStream[R, E, B] = self(a)
+
+  def provide(r: R)(implicit ev: NeedsEnv[R]): Socket[Any, E, A, B] = self match {
+    case FromStreamingFunction(func) => FromStreamingFunction(func(_).provide(r))
+    case FromStream(stream) => FromStream(stream.provide(r))
+//    case FMap(m, bc) => FMap(m, bc)
+//    case FMapM(m, bc) => FMapM(m, bc(_).provide(r))
+//    case FCMap(m, xa) => FCMap(m, xa)
+//    case FCMapM(m, xa) => FCMapM(m, xa(_).provide(r))
+//    case Socket.End => Socket.End
+//    case FOrElse(a, b) => FOrElse(a, b)
+//    case FMerge(a, b) => FMerge(a, b)
+  }
 
   def map[C](bc: B => C): Socket[R, E, A, C] = Socket.FMap(self, bc)
 
