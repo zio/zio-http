@@ -13,9 +13,12 @@ object HttpsHelloWorld extends App {
   }
 
   /**
-   * sslcontext can be created using SslContexBuilder. In this example an inbuilt API using keystore is used
+   * sslcontext can be created using SslContexBuilder. In this example an inbuilt API using keystore is used. For
+   * testing this example using curl, setup the certificate named "localhost.cert" from resources for the OS.
+   * Alternatively you can create the keystore and certificate using the following link
+   * https://medium.com/@maanadev/netty-with-https-tls-9bf699e07f01
    */
-  val sslctx = ctxFromKeystore(getClass.getResourceAsStream("keystore.jks"), "password", "password")
+  val sslctx = ctxFromKeystore(getClass.getResourceAsStream("mysslstore.jks"), "password", "password")
 
   private val server =
     Server.port(8090) ++ Server.app(app) ++ Server.ssl(ServerSSLOptions(sslctx))
