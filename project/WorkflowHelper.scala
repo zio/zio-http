@@ -30,6 +30,11 @@ object WorkflowHelper {
               id = Some("run_coverage"),
               name = Some("Run Coverage"),
             ),
+            WorkflowStep.Run(
+              commands = List("bash <(curl -s https://codecov.io/bash)"),
+              id = Some("push_codecov"),
+              name = Some("Push Codecov"),
+            ),
           ),
         ),
       )
