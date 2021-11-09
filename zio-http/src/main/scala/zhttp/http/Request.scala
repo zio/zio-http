@@ -19,17 +19,6 @@ trait Request extends HeaderExtension[Request] { self =>
 
   def remoteAddress: Option[InetAddress]
 
-  override def addHeaders(headers: List[Header]): Request =
-    self.copy(headers = self.headers ++ headers)
-
-  override def removeHeaders(headers: List[String]): Request =
-    self.copy(headers = self.headers.filterNot(h => headers.contains(h)))
-
-  /**
-   * Get cookies from request
-   */
-  def cookies: List[Cookie] = getRequestCookieFromHeader
-
   def copy(method: Method = self.method, url: URL = self.url, headers: List[Header] = self.headers): Request = {
     val m = method
     val u = url
@@ -48,6 +37,11 @@ trait Request extends HeaderExtension[Request] { self =>
         self.decodeContent(decoder)
     }
   }
+
+  /**
+   * Updates the headers using the provided function
+   */
+  final override def updateHeaders(f: List[Header] => List[Header]): Request = self.copy(headers = f(self.headers))
 }
 
 object Request {
