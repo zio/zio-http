@@ -56,42 +56,27 @@ object HttpMiddleware {
 
   type RequestP[+A] = (Method, URL, List[Header]) => A
 
-  def ifThenElse[R, E](cond: RequestP[Boolean])(left: HttpApp[R, E], right: HttpApp[R, E]): HttpMiddleware[R, E] =
-    HttpMiddleware.fromHttpFunction((m, u, h) => if (cond(m, u, h)) left else right)
-
-  def ifThenElseM[R, E](cond: RequestP[UIO[Boolean]])(left: HttpApp[R, E], right: HttpApp[R, E]): HttpMiddleware[R, E] =
-    HttpMiddleware.fromHttpFunctionM((m, u, h) =>
-      cond(m, u, h).map {
-        case true  => left
-        case false => right
-      },
-    )
-
   private case object Identity extends HttpMiddleware[Any, Nothing]
 
   private final case class TransformM[R, E, S](
-    req: (Method, URL, List[Header]) => ZIO[R, Option[E], S],
-    res: (Status, List[Header], S) => ZIO[R, Option[E], Patch],
-  ) extends HttpMiddleware[R, E]
+                                                req: (Method, URL, List[Header]) => ZIO[R, Option[E], S],
+                                                res: (Status, List[Header], S) => ZIO[R, Option[E], Patch],
+                                              ) extends HttpMiddleware[R, E]
 
   private final case class Combine[R, E](self: HttpMiddleware[R, E], other: HttpMiddleware[R, E])
-      extends HttpMiddleware[R, E]
+    extends HttpMiddleware[R, E]
 
   private final case class FromFunctionM[R, E](
-    f: (Method, URL, List[Header]) => ZIO[R, Option[E], HttpMiddleware[R, E]],
-  ) extends HttpMiddleware[R, E]
-
-  private final case class FromHttpFunctionM[R, E](
-    f: (Method, URL, List[Header]) => ZIO[R, Option[E], HttpApp[R, E]],
-  ) extends HttpMiddleware[R, E]
+                                                f: (Method, URL, List[Header]) => ZIO[R, Option[E], HttpMiddleware[R, E]],
+                                              ) extends HttpMiddleware[R, E]
 
   private final case class Race[R, E](self: HttpMiddleware[R, E], other: HttpMiddleware[R, E])
-      extends HttpMiddleware[R, E]
+    extends HttpMiddleware[R, E]
 
   private final case class Constant[R, E](app: HttpApp[R, E]) extends HttpMiddleware[R, E]
 
   private final case class OrElse[R, E](self: HttpMiddleware[R, Any], other: HttpMiddleware[R, E])
-      extends HttpMiddleware[R, E]
+    extends HttpMiddleware[R, E]
 
   final case class PartiallyAppliedMake[S](req: (Method, URL, List[Header]) => S) extends AnyVal {
     def apply(res: (Status, List[Header], S) => Patch): HttpMiddleware[Any, Nothing] =
@@ -102,15 +87,23 @@ object HttpMiddleware {
   }
 
   final case class PartiallyAppliedMakeM[R, E, S](req: (Method, URL, List[Header]) => ZIO[R, Option[E], S])
-      extends AnyVal {
+    extends AnyVal {
     def apply[R1 <: R, E1 >: E](res: (Status, List[Header], S) => ZIO[R1, Option[E1], Patch]): HttpMiddleware[R1, E1] =
       TransformM(req, res)
   }
-
   /**
    * An empty middleware that doesn't do anything
    */
   def identity: HttpMiddleware[Any, Nothing] = Identity
+
+  def ifThenElseM[R,E](cond:RequestP[ZIO[R,E,Boolean]])(left: HttpMiddleware[R,E], right : HttpMiddleware[R,E]) : HttpMiddleware[R,E] =
+    HttpMiddleware.FromFunctionM((method,url,headers)=> cond(method,url,headers).mapError(Option(_)).map{
+      case true => left
+      case false => right
+    })
+
+  def ifThenElse[R,E](cond:RequestP[Boolean])(left: HttpMiddleware[R,E], right : HttpMiddleware[R,E]) : HttpMiddleware[R,E] =
+    HttpMiddleware.FromFunctionM((method,url,headers)=>  UIO(if (cond(method,url,headers)) left else right))
 
   /**
    * Creates a new middleware using transformation functions
@@ -140,18 +133,6 @@ object HttpMiddleware {
    */
   def fromMiddlewareFunction[R, E](f: RequestP[HttpMiddleware[R, E]]): HttpMiddleware[R, E] =
     fromMiddlewareFunctionM((method, url, headers) => UIO(f(method, url, headers)))
-
-  /**
-   * Creates a new middleware using a function from request parameters to a ZIO of HttpApp
-   */
-  def fromHttpFunctionM[R, E](f: RequestP[ZIO[R, Option[E], HttpApp[R, E]]]): HttpMiddleware[R, E] =
-    HttpMiddleware.FromHttpFunctionM(f)
-
-  /**
-   * Creates a new middleware using a function from request parameters to a HttpApp
-   */
-  def fromHttpFunction[R, E](f: RequestP[HttpApp[R, E]]): HttpMiddleware[R, E] =
-    fromHttpFunctionM((method, url, headers) => UIO(f(method, url, headers)))
 
   /**
    * Add log status, method, url and time taken from req to res
@@ -270,11 +251,11 @@ object HttpMiddleware {
           ),
         ) ++
         (if (config.allowCredentials)
-           List(
-             Header
-               .custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS.toString(), config.allowCredentials.toString),
-           )
-         else List.empty[Header])
+          List(
+            Header
+              .custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS.toString(), config.allowCredentials.toString),
+          )
+        else List.empty[Header])
     }
 
     val existingRoutesWithHeaders = HttpMiddleware.make((method, _, headers) => {
@@ -340,14 +321,6 @@ object HttpMiddleware {
           for {
             output <- reqF(req.method, req.url, req.headers)
             res    <- output(app)(req)
-          } yield res
-        }
-
-      case FromHttpFunctionM(reqF) =>
-        HttpApp.fromOptionFunction { req =>
-          for {
-            output <- reqF(req.method, req.url, req.headers)
-            res    <- output(req)
           } yield res
         }
 
