@@ -28,8 +28,8 @@ object WorkflowHelper {
               name = Some("Update Build Definition"),
             ),
             WorkflowStep.Run(
-              commands = List(s"sbt ++$${{ matrix.scala }} coverage 'project zhttp;test' coverageReport coveralls"),
-              id = Some("run_coverage_and_push_coveralls"),
+              commands = List(s"sbt ++$${{ matrix.scala }} coverage 'project zhttp;test' coverageReport"),
+              id = Some("run_coverage"),
               name = Some("Run Coverage"),
             ),
           ),
