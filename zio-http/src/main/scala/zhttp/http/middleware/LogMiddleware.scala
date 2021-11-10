@@ -2,7 +2,7 @@ package zhttp.http.middleware
 
 import zhttp.http._
 import zio.clock.Clock
-import zio.{ZIO, clock}/**/
+import zio.{ZIO, clock}
 
 object LogMiddleware {
 
