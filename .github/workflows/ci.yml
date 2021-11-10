@@ -168,7 +168,7 @@ jobs:
         id: add_plugin
         run: |
           sed -i -e '$aaddSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.9.1")' project/plugins.sbt
-          sed -i -e '$a(project in file("./zio-http"))' project/plugins.sbt
+          sed -i -e '$aaddSbtPlugin("org.scoverage" % "sbt-coveralls" % "1.3.1")' project/plugins.sbt
 
       - name: Update Build Definition
         id: update_build_definition

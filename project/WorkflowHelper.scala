@@ -7,7 +7,7 @@ object WorkflowHelper {
     val coverallsPlugin        = """addSbtPlugin("org.scoverage" % "sbt-coveralls" % "1.3.1")"""
     val coverageDirectivesBase = """(project in file("./zio-http"))"""
 
-    val plugins = List(scoveragePlugin, coverageDirectivesBase)
+    val plugins = List(scoveragePlugin, coverallsPlugin)
     def apply(statementTotal: Double, branchTotal: Double): Seq[WorkflowJob] = {
       val coverageDirectivesSettings =
         s"settings(coverageEnabled:=true,coverageFailOnMinimum:=true,coverageMinimumStmtTotal:=${statementTotal},coverageMinimumBranchTotal:=${branchTotal})"
