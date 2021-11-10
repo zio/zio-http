@@ -92,13 +92,49 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
             assertM(res)(isResponse(responseStatus(200)))
           },
         ),
-      testM("headers are empty") {
+      testM("headers are empty, payload header is set automatically") {
         val res = HttpApp.fromHttp(Http.succeed(Ok)).getResponse
-        assertM(res)(isResponse(noHeader))
+        assertM(res)(isResponse(responseHeader("content-length", "0")))
       } +
         testM("headers are set") {
           val res = HttpApp.fromHttp(Http.succeed(Response(headers = List(Header.custom("key", "value"))))).getResponse
           assertM(res)(isResponse(responseHeader("key", "value")))
+        } +
+        testM("content-length header is set, do not override it") {
+          val res = HttpApp.fromHttp(Http.succeed(Response(headers = List(Header.contentLength(10))))).getResponse
+          assertM(res)(isResponse(responseHeader("content-length", "10")))
+        } +
+        testM("transfer-encoding header is set to 'chunked', do not override it") {
+          val res = HttpApp.fromHttp(Http.succeed(Response(headers = List(Header.transferEncodingChunked)))).getResponse
+          assertM(res)(isResponse(responseHeader("transfer-encoding", "chunked")))
+        } +
+        testM("transfer-encoding header is set to 'deflate', set to 'deflate, chunked'") {
+          val res = HttpApp
+            .fromHttp(
+              Http.succeed(
+                Response(
+                  data = HttpData.fromStream(ZStream.fromIterable(List(1, 2, 3))),
+                  headers = List(Header.custom("transfer-encoding", "deflate")),
+                ),
+              ),
+            )
+            .getResponse
+
+          assertM(res)(isResponse(responseHeader("transfer-encoding", "deflate, chunked")))
+        } +
+        testM("transfer-encoding header is set to 'deflate, chunked', do nothing") {
+          val res = HttpApp
+            .fromHttp(
+              Http.succeed(
+                Response(
+                  data = HttpData.fromStream(ZStream.fromIterable(List(1, 2, 3))),
+                  headers = List(Header.custom("transfer-encoding", "deflate, chunked")),
+                ),
+              ),
+            )
+            .getResponse
+
+          assertM(res)(isResponse(responseHeader("transfer-encoding", "deflate, chunked")))
         } +
         testM("version is 1.1") {
           val res = HttpApp.fromHttp(Http.succeed(Ok)).getResponse

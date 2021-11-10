@@ -1,5 +1,6 @@
 package zhttp.middleware
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware
 import zio.clock.Clock
@@ -8,7 +9,6 @@ import zio.test.Assertion.equalTo
 import zio.test.environment.{TestClock, TestConsole}
 import zio.test.{DefaultRunnableSpec, assertM}
 import zio.{UIO, ZIO, console}
-import io.netty.handler.codec.http.HttpHeaderNames
 
 object HttpMiddlewareSpec extends DefaultRunnableSpec {
   val app: HttpApp[Any with Clock, Nothing] = HttpApp.collectM { case Method.GET -> !! / "health" =>

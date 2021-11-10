@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.HttpHeaderNames
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
@@ -46,23 +46,46 @@ case class Response[-R, +E] private (
   def getContentLength: Option[Long] = self.data.size
 
   /**
+   * Adds to the existing 'Transfer-Encoding' header a new value separated by comma or sets a given value if the header
+   * is not set
+   */
+  def setTransferEncoding(value: String): Response[R, E] =
+    getHeaderValue(Header.transferEncodingChunked.name) match {
+      case Some(current) if !current.contains(value) =>
+        self
+          .removeHeader(Header.transferEncodingChunked.name.toString())
+          .addHeader(Header(Header.transferEncodingChunked.name, s"$current, $value"))
+      case _                                         =>
+        self.addHeader(Header(Header.transferEncodingChunked.name, value))
+    }
+
+  /**
    * Automatically detects the size of the content and sets it
    */
   def setPayloadHeaders: Response[R, E] = {
     getContentLength match {
       case Some(value) => setContentLength(value)
-      case None        => setChunkedEncoding
+      case None        => setTransferEncoding(HttpHeaderValues.CHUNKED.toString)
     }
   }
 }
 
 object Response {
+
   def apply[R, E](
     status: Status = Status.OK,
     headers: List[Header] = Nil,
     data: HttpData[R, E] = HttpData.Empty,
-  ): Response[R, E] =
-    Response(status, headers, data, HttpAttribute.empty)
+  ): Response[R, E] = {
+    val resp       = Response(status, headers, data, HttpAttribute.empty)
+    // Since these headers are mutual exclusive, check for the presence of at least one of them
+    val hasHeaders =
+      resp.getHeader(HttpHeaderNames.TRANSFER_ENCODING).exists(_.value.toString.contains(HttpHeaderValues.CHUNKED)) ||
+        resp.getHeader(HttpHeaderNames.CONTENT_LENGTH).isDefined
+
+    if (hasHeaders) resp
+    else resp.setPayloadHeaders
+  }
 
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
   def http[R, E](

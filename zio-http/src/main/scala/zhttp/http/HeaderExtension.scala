@@ -21,11 +21,9 @@ private[zhttp] trait HeaderExtension[+A] { self =>
 
   def removeHeader(name: String): A = removeHeaders(List(name))
 
-  def setContentLength(value: Long): A =
-    addHeader(Header(HttpHeaderNames.CONTENT_LENGTH, value.toString))
+  def setContentLength(value: Long): A = addHeader(Header.contentLength(value))
 
-  def setChunkedEncoding: A =
-    addHeader(Header(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED))
+  def setChunkedEncoding: A = addHeader(Header.transferEncodingChunked)
 
   private def equalsIgnoreCase(a: Char, b: Char) = a == b || toLowerCase(a) == toLowerCase(b)
 
