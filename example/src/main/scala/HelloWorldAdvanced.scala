@@ -3,8 +3,6 @@ import zhttp.service._
 import zhttp.service.server.Transport
 import zio._
 
-import scala.util.Try
-
 object HelloWorldAdvanced extends App {
   // Set a port
   private val PORT = 8090
@@ -26,11 +24,8 @@ object HelloWorldAdvanced extends App {
       Server.serverChannel(Transport.Auto)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    // Configure thread count using CLI
-    val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
-
     // Create a new server
-    (server ++ Server.elg(AutoELG(nThreads))).make
+    server.make
       .use(_ =>
         // Waiting for the server to start
         console.putStrLn(s"Server started on port $PORT")

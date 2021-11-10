@@ -50,7 +50,7 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
 
   override def spec = suite("Client Content-Length auto assign")(
     testM("get request without content") {
-      val p = 8083
+      val p = 38083
       serverAppState(p).use { state =>
         val path   = "getWithoutContent"
         val actual = statusWithPort(p, !! / path) *> getLengthForPath(state, path)
@@ -58,7 +58,7 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
       }
     },
     testM("post request with nonempty content") {
-      val p = 8084
+      val p = 38084
       serverAppState(p).use { state =>
         val path    = "postWithNonemptyContent"
         val content = "content"
@@ -67,8 +67,8 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
       }
     },
     testM("post request with nonempty content and set content-length") {
-      val p = 8085
-      serverAppState(8085).use { state =>
+      val p = 38085
+      serverAppState(p).use { state =>
         val path    = "postWithNonemptyContentAndSetContentLength"
         val content = "content"
         val headers = List(Header.custom(contentLengthName, "dummy"))

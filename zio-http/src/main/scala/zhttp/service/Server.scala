@@ -25,7 +25,6 @@ sealed trait Server[-R, +E] { self =>
     case App(app)                 => s.copy(app = app)
     case Address(address)         => s.copy(address = address)
     case ServerChannel(transport) => s.copy(transport = transport)
-    case Group(group)             => s.copy(group = group)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R, Throwable, Unit] =
@@ -46,7 +45,6 @@ object Server {
     app: HttpApp[R, E] = HttpApp.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
     transport: Transport = Transport.Auto,
-    group: EventLoopGroupItem = AutoELG(0),
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -57,7 +55,6 @@ object Server {
   private final case class Address(address: InetSocketAddress)                        extends UServer
   private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
   private final case class ServerChannel(transport: Transport)                        extends UServer
-  private final case class Group(elgItem: EventLoopGroupItem)                         extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -74,7 +71,6 @@ object Server {
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
 
   def serverChannel(transport: Transport): UServer = Server.ServerChannel(transport)
-  def elg(elg: EventLoopGroupItem): UServer        = Server.Group(elg)
 
   /**
    * Launches the app on the provided port.
@@ -102,13 +98,14 @@ object Server {
     server: Server[R, Throwable],
   ): ZManaged[R, Throwable, Unit] = {
     val settings = server.settings()
-    val ch       = Transport.make(settings.transport)
     for {
-      channelFactory <- ZManaged.fromEffect(ch)
-      eventLoopGroup <- EventLoopGroup.Live.make(settings.group)
+      channelEventLoopGroupTuple <- Transport.make(settings.transport)
+      (channel,eventLoopGroup) = channelEventLoopGroupTuple
       zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
       init            = ServerChannelInitializer(zExec, settings)
-      serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
+      serverBootstrap = new ServerBootstrap()
+        .channelFactory(channel)
+        .group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.address))
 
     } yield {
