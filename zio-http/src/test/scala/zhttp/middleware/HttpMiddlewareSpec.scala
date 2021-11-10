@@ -1,5 +1,6 @@
 package zhttp.middleware
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware
 import zhttp.internal.HttpAppTestExtensions
