@@ -59,24 +59,24 @@ object HttpMiddleware {
   private case object Identity extends HttpMiddleware[Any, Nothing]
 
   private final case class TransformM[R, E, S](
-                                                req: (Method, URL, List[Header]) => ZIO[R, Option[E], S],
-                                                res: (Status, List[Header], S) => ZIO[R, Option[E], Patch],
-                                              ) extends HttpMiddleware[R, E]
+    req: (Method, URL, List[Header]) => ZIO[R, Option[E], S],
+    res: (Status, List[Header], S) => ZIO[R, Option[E], Patch],
+  ) extends HttpMiddleware[R, E]
 
   private final case class Combine[R, E](self: HttpMiddleware[R, E], other: HttpMiddleware[R, E])
-    extends HttpMiddleware[R, E]
+      extends HttpMiddleware[R, E]
 
   private final case class FromFunctionM[R, E](
-                                                f: (Method, URL, List[Header]) => ZIO[R, Option[E], HttpMiddleware[R, E]],
-                                              ) extends HttpMiddleware[R, E]
+    f: (Method, URL, List[Header]) => ZIO[R, Option[E], HttpMiddleware[R, E]],
+  ) extends HttpMiddleware[R, E]
 
   private final case class Race[R, E](self: HttpMiddleware[R, E], other: HttpMiddleware[R, E])
-    extends HttpMiddleware[R, E]
+      extends HttpMiddleware[R, E]
 
   private final case class Constant[R, E](app: HttpApp[R, E]) extends HttpMiddleware[R, E]
 
   private final case class OrElse[R, E](self: HttpMiddleware[R, Any], other: HttpMiddleware[R, E])
-    extends HttpMiddleware[R, E]
+      extends HttpMiddleware[R, E]
 
   final case class PartiallyAppliedMake[S](req: (Method, URL, List[Header]) => S) extends AnyVal {
     def apply(res: (Status, List[Header], S) => Patch): HttpMiddleware[Any, Nothing] =
@@ -87,23 +87,30 @@ object HttpMiddleware {
   }
 
   final case class PartiallyAppliedMakeM[R, E, S](req: (Method, URL, List[Header]) => ZIO[R, Option[E], S])
-    extends AnyVal {
+      extends AnyVal {
     def apply[R1 <: R, E1 >: E](res: (Status, List[Header], S) => ZIO[R1, Option[E1], Patch]): HttpMiddleware[R1, E1] =
       TransformM(req, res)
   }
+
   /**
    * An empty middleware that doesn't do anything
    */
   def identity: HttpMiddleware[Any, Nothing] = Identity
 
-  def ifThenElseM[R,E](cond:RequestP[ZIO[R,E,Boolean]])(left: HttpMiddleware[R,E], right : HttpMiddleware[R,E]) : HttpMiddleware[R,E] =
-    HttpMiddleware.FromFunctionM((method,url,headers)=> cond(method,url,headers).mapError(Option(_)).map{
-      case true => left
-      case false => right
-    })
+  def ifThenElseM[R, E](
+    cond: RequestP[ZIO[R, E, Boolean]],
+  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    HttpMiddleware.FromFunctionM((method, url, headers) =>
+      cond(method, url, headers).mapError(Option(_)).map {
+        case true  => left
+        case false => right
+      },
+    )
 
-  def ifThenElse[R,E](cond:RequestP[Boolean])(left: HttpMiddleware[R,E], right : HttpMiddleware[R,E]) : HttpMiddleware[R,E] =
-    HttpMiddleware.FromFunctionM((method,url,headers)=>  UIO(if (cond(method,url,headers)) left else right))
+  def ifThenElse[R, E](
+    cond: RequestP[Boolean],
+  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    HttpMiddleware.FromFunctionM((method, url, headers) => UIO(if (cond(method, url, headers)) left else right))
 
   /**
    * Creates a new middleware using transformation functions
@@ -251,11 +258,11 @@ object HttpMiddleware {
           ),
         ) ++
         (if (config.allowCredentials)
-          List(
-            Header
-              .custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS.toString(), config.allowCredentials.toString),
-          )
-        else List.empty[Header])
+           List(
+             Header
+               .custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS.toString(), config.allowCredentials.toString),
+           )
+         else List.empty[Header])
     }
 
     val existingRoutesWithHeaders = HttpMiddleware.make((method, _, headers) => {

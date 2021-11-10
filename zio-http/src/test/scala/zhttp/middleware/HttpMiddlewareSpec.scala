@@ -69,21 +69,41 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec {
       } +
       suite("ifThenElseM") {
         testM("if the condition is true take first") {
-          val program = run(app @@ ifThenElseM((_, _, _)=>UIO(true))(HttpMiddleware.identity,HttpMiddleware.fromApp(HttpApp.forbidden("forbidden")))).map(_.status)
+          val program = run(
+            app @@ ifThenElseM((_, _, _) => UIO(true))(
+              HttpMiddleware.identity,
+              HttpMiddleware.fromApp(HttpApp.forbidden("forbidden")),
+            ),
+          ).map(_.status)
           assertM(program)(equalTo(Status.OK))
         } +
           testM("if the condition is false take second") {
-            val program = run(app @@ ifThenElseM((_, _, _)=>UIO(false))(HttpMiddleware.identity,HttpMiddleware.fromApp(HttpApp.forbidden("forbidden")))).map(_.status)
+            val program = run(
+              app @@ ifThenElseM((_, _, _) => UIO(false))(
+                HttpMiddleware.identity,
+                HttpMiddleware.fromApp(HttpApp.forbidden("forbidden")),
+              ),
+            ).map(_.status)
             assertM(program)(equalTo(Status.FORBIDDEN))
           }
       } +
       suite("ifThenElse") {
         testM("if the condition is true take first") {
-          val program = run(app @@ ifThenElse((_, _, _)=>(true))(HttpMiddleware.identity,HttpMiddleware.fromApp(HttpApp.forbidden("forbidden")))).map(_.status)
+          val program = run(
+            app @@ ifThenElse((_, _, _) => true)(
+              HttpMiddleware.identity,
+              HttpMiddleware.fromApp(HttpApp.forbidden("forbidden")),
+            ),
+          ).map(_.status)
           assertM(program)(equalTo(Status.OK))
         } +
           testM("if the condition is false take second") {
-            val program = run(app @@ ifThenElse((_, _, _)=>(false))(HttpMiddleware.identity,HttpMiddleware.fromApp(HttpApp.forbidden("forbidden")))).map(_.status)
+            val program = run(
+              app @@ ifThenElse((_, _, _) => false)(
+                HttpMiddleware.identity,
+                HttpMiddleware.fromApp(HttpApp.forbidden("forbidden")),
+              ),
+            ).map(_.status)
             assertM(program)(equalTo(Status.FORBIDDEN))
           }
       }
