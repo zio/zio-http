@@ -3,24 +3,25 @@ package zhttp.service
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware.cors
-import zio.ZManaged
 import zio.test.Assertion._
-import zio.test.TestAspect.sequential
 import zio.test.assertM
 
 object CORSSpec extends HttpRunnableSpec(8089) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto
 
-  val app: ZManaged[Any, Nothing, Unit] = serve {
+  val app = serveWithPort {
     HttpApp.collect { case Method.GET -> !! / "success" =>
       Response.ok
     } @@ cors()
-  }
+  } _
+
 
   override def spec = suite("CORS")(
     testM("OPTIONS request headers") {
-      app.use { _ =>
-        val actual = request(
+      val p = 8089
+      app(8089).use { _ =>
+        val actual = requestWithPort(
+          p,
           !! / "success",
           Method.OPTIONS,
           "",
@@ -45,8 +46,10 @@ object CORSSpec extends HttpRunnableSpec(8089) {
       }
     },
     testM("Option Request status") {
-      app.use { _ =>
-        val actual = request(
+      val p = 8090
+      app(p).use { _ =>
+        val actual = requestWithPort(
+          p,
           !! / "success",
           Method.OPTIONS,
           "",
@@ -63,8 +66,10 @@ object CORSSpec extends HttpRunnableSpec(8089) {
       }
     },
     testM("GET request") {
-      app.use { _ =>
-        val actual = headers(
+      val p = 8091
+      app(p).use { _ =>
+        val actual = headersWithPort(
+          p,
           !! / "success",
           Method.GET,
           "",
@@ -83,5 +88,5 @@ object CORSSpec extends HttpRunnableSpec(8089) {
         )
       }
     },
-  ).provideCustomLayer(env) @@ sequential
+  ).provideCustomLayer(env)
 }

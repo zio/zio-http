@@ -7,7 +7,7 @@ import zhttp.service.server.ServerSSLHandler.ctxFromKeystore
 import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{flaky, sequential, timeout}
+import zio.test.TestAspect.{flaky, timeout}
 import zio.test.assertM
 
 import javax.net.ssl.SSLHandshakeException
@@ -30,26 +30,28 @@ object SSLSpec extends HttpRunnableSpec(8073) {
   val clientssl1 = SslContextBuilder.forClient().trustManager(servercert).build()
   val clientssl2 = SslContextBuilder.forClient().trustManager(ssc2).build()
 
-  val app = serveWithSSL(
+  val app = serveWithPortWithSSL(
     HttpApp.collectM[Any, Nothing] { case Method.GET -> !! / "success" =>
       ZIO.succeed(Response.ok)
     },
     serverssl,
-  )
+  ) _
 
   override def spec = suite("SSL")(
     testM("succeed when client has the server certificate") {
-      app.use { _ =>
+      val p = 28073
+      app(p).use { _ =>
         val actual = Client
-          .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientssl1))
+          .request(s"https://localhost:$p/success", ClientSSLOptions.CustomSSL(clientssl1))
           .map(_.status)
         assertM(actual)(equalTo(Status.OK))
       }
     },
     testM("fail with SSLHandshakeException when client doesn't have the server certificate") {
-      app.use { _ =>
+      val p = 28074
+      app(p).use { _ =>
         val actual = Client
-          .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientssl2))
+          .request(s"https://localhost:$p/success", ClientSSLOptions.CustomSSL(clientssl2))
           .map(_.status)
           .catchSome(_.getCause match {
             case _: SSLHandshakeException => ZIO.succeed("SSLHandshakeException")
@@ -58,20 +60,22 @@ object SSLSpec extends HttpRunnableSpec(8073) {
       }
     } @@ timeout(5 second) @@ flaky,
     testM("succeed when client has default SSL") {
-      app.use { _ =>
+      val p = 28075
+      app(p).use { _ =>
         val actual = Client
-          .request("https://localhost:8073/success", ClientSSLOptions.DefaultSSL)
+          .request(s"https://localhost:$p/success", ClientSSLOptions.DefaultSSL)
           .map(_.status)
         assertM(actual)(equalTo(Status.OK))
       }
     },
     testM("Https Redirect when client makes http request") {
-      app.use { _ =>
+      val p = 28076
+      app(p).use { _ =>
         val actual = Client
-          .request("http://localhost:8073/success", ClientSSLOptions.CustomSSL(clientssl1))
+          .request(s"http://localhost:$p/success", ClientSSLOptions.CustomSSL(clientssl1))
           .map(_.status)
         assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
       }
     },
-  ).provideCustomLayer(env) @@ flaky @@ timeout(5 second) @@ sequential
+  ).provideCustomLayer(env) @@ flaky @@ timeout(5 second)
 }
