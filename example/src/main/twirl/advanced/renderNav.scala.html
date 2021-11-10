@@ -1,0 +1,14 @@
+@*************************************
+ * Navigation template.              *
+ *                                   *
+ *************************************@
+@import zhttp.nav.Navigation
+@(navigation: Seq[Navigation])
+
+<ul>
+@for(nav <- navigation) {
+  @advanced.html.button(nav)
+}
+</ul>
+
+
