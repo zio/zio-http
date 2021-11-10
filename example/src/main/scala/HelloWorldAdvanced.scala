@@ -1,6 +1,6 @@
 import zhttp.http._
 import zhttp.service._
-import zhttp.service.server.Transport
+import zhttp.service.server.TransportType.Auto
 import zio._
 
 object HelloWorldAdvanced extends App {
@@ -21,7 +21,8 @@ object HelloWorldAdvanced extends App {
     Server.port(PORT) ++              // Setup port
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
       Server.app(fooBar +++ app) ++   // Setup the Http app
-      Server.serverChannel(Transport.Auto)
+      Server.transport(Auto) ++       // (Server.epoll, Server.kqueue, Server.uring, Server.auto)
+      Server.nThreads(1)              // number of threads for event loop
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     // Create a new server

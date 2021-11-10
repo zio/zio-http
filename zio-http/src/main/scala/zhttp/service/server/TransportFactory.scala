@@ -8,28 +8,22 @@ import io.netty.incubator.channel.uring.IOUringServerSocketChannel
 import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zio.{Task, ZManaged}
 
-sealed trait Transport
-object Transport        {
-  case object Nio    extends Transport
-  case object Epoll  extends Transport
-  case object KQueue extends Transport
-  case object URing  extends Transport
-  case object Auto   extends Transport
+sealed trait TransportType
+object TransportType    {
+  case object Nio    extends TransportType
+  case object Epoll  extends TransportType
+  case object KQueue extends TransportType
+  case object URing  extends TransportType
+  case object Auto   extends TransportType
 
   import zhttp.service.server.TransportFactory._
 
-//  case NioELG(nThreads)   => nio(nThreads)
-//  case EpollELG(nThreads) => epoll(nThreads)
-//  case UringELG(nThreads) => uring(nThreads)
-//  case AutoELG(nThreads)  => auto(nThreads)
-//  case DefaultELG         => default
-
-  def make(trans: Transport) = trans match {
-    case Nio    => ZManaged.fromEffect(nio).zip(EventLoopGroup.Live.nio(1))
-    case Epoll  => ZManaged.fromEffect(epoll).zip(EventLoopGroup.Live.epoll(1))
-    case KQueue => ZManaged.fromEffect(kQueue).zip(EventLoopGroup.Live.kQueue(1))
-    case URing  => ZManaged.fromEffect(uring).zip(EventLoopGroup.Live.uring(1))
-    case Auto   => ZManaged.fromEffect(auto).zip(EventLoopGroup.Live.auto(1))
+  def make(transType: TransportType, nThreads: Int = 0) = transType match {
+    case Nio    => ZManaged.fromEffect(nio).zip(EventLoopGroup.Live.nio(nThreads))
+    case Epoll  => ZManaged.fromEffect(epoll).zip(EventLoopGroup.Live.epoll(nThreads))
+    case KQueue => ZManaged.fromEffect(kQueue).zip(EventLoopGroup.Live.kQueue(nThreads))
+    case URing  => ZManaged.fromEffect(uring).zip(EventLoopGroup.Live.uring(nThreads))
+    case Auto   => ZManaged.fromEffect(auto).zip(EventLoopGroup.Live.auto(nThreads))
   }
 }
 object TransportFactory {

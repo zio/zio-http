@@ -17,14 +17,15 @@ sealed trait Server[-R, +E] { self =>
     Concat(self, other)
 
   private def settings[R1 <: R, E1 >: E](s: Settings[R1, E1] = Settings()): Settings[R1, E1] = self match {
-    case Concat(self, other)      => other.settings(self.settings(s))
-    case LeakDetection(level)     => s.copy(leakDetectionLevel = level)
-    case MaxRequestSize(size)     => s.copy(maxRequestSize = size)
-    case Error(errorHandler)      => s.copy(error = Some(errorHandler))
-    case Ssl(sslOption)           => s.copy(sslOption = sslOption)
-    case App(app)                 => s.copy(app = app)
-    case Address(address)         => s.copy(address = address)
-    case ServerChannel(transport) => s.copy(transport = transport)
+    case Concat(self, other)  => other.settings(self.settings(s))
+    case LeakDetection(level) => s.copy(leakDetectionLevel = level)
+    case MaxRequestSize(size) => s.copy(maxRequestSize = size)
+    case Error(errorHandler)  => s.copy(error = Some(errorHandler))
+    case Ssl(sslOption)       => s.copy(sslOption = sslOption)
+    case App(app)             => s.copy(app = app)
+    case Address(address)     => s.copy(address = address)
+    case Transport(transport) => s.copy(transport = transport)
+    case NThreads(nThreads)   => s.copy(nThreads = nThreads)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R, Throwable, Unit] =
@@ -35,7 +36,7 @@ sealed trait Server[-R, +E] { self =>
 
 }
 
-import zhttp.service.server.Transport
+import zhttp.service.server.TransportType.Auto
 object Server {
   private[zhttp] final case class Settings[-R, +E](
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
@@ -44,7 +45,8 @@ object Server {
     sslOption: ServerSSLOptions = null,
     app: HttpApp[R, E] = HttpApp.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
-    transport: Transport = Transport.Auto,
+    transport: TransportType = Auto,
+    nThreads: Int = 0,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -54,7 +56,8 @@ object Server {
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
   private final case class Address(address: InetSocketAddress)                        extends UServer
   private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
-  private final case class ServerChannel(transport: Transport)                        extends UServer
+  private final case class Transport(transport: TransportType)                        extends UServer
+  private final case class NThreads(nThreads: Int)                                    extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -70,7 +73,8 @@ object Server {
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
 
-  def serverChannel(transport: Transport): UServer = Server.ServerChannel(transport)
+  def transport(transportType: TransportType): UServer = Server.Transport(transportType)
+  def nThreads(nThreads: Int): UServer                 = Server.NThreads(nThreads)
 
   /**
    * Launches the app on the provided port.
@@ -99,7 +103,7 @@ object Server {
   ): ZManaged[R, Throwable, Unit] = {
     val settings = server.settings()
     for {
-      channelEventLoopGroupTuple <- Transport.make(settings.transport)
+      channelEventLoopGroupTuple <- TransportType.make(settings.transport, settings.nThreads)
       (channel, eventLoopGroup) = channelEventLoopGroupTuple
       zExec <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
       init            = ServerChannelInitializer(zExec, settings)

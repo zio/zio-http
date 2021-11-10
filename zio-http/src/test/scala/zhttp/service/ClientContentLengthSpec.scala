@@ -1,7 +1,7 @@
 package zhttp.service
 
 import zhttp.http._
-import zhttp.service.server.Transport
+import zhttp.service.server.TransportType.Auto
 import zio.test.Assertion.{isNone, isPositive, isSome}
 import zio.test.assertM
 import zio.{Ref, UIO, ZIO, ZRef}
@@ -35,7 +35,7 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
     }
     Server.port(p) ++    // Setup port
       Server.app(app) ++ // Setup the Http app
-      Server.serverChannel(Transport.Auto)
+      Server.transport(Auto)
   }
 
   def getLengthForPath(state: Ref[ServerState], path: String): UIO[Option[Int]] = {
