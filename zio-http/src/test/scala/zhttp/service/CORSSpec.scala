@@ -15,7 +15,6 @@ object CORSSpec extends HttpRunnableSpec(8089) {
     } @@ cors()
   } _
 
-
   override def spec = suite("CORS")(
     testM("OPTIONS request headers") {
       val p = 8089

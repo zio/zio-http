@@ -28,21 +28,21 @@ object ServerSpec extends HttpRunnableSpec(8087) {
     testM("500 response") {
       val p = 18088
       app(p).use { _ =>
-        val actual = statusWithPort(p,!! / "failure")
+        val actual = statusWithPort(p, !! / "failure")
         assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
       }
     },
     testM("404 response") {
       val p = 18089
       app(p).use { _ =>
-        val actual = statusWithPort(p,!! / "random")
+        val actual = statusWithPort(p, !! / "random")
         assertM(actual)(equalTo(Status.NOT_FOUND))
       }
     },
     testM("200 response with encoded path") {
       val p = 18090
       app(p).use { _ =>
-        val actual = statusWithPort(p,!! / "get%2Fsuccess")
+        val actual = statusWithPort(p, !! / "get%2Fsuccess")
         assertM(actual)(equalTo(Status.OK))
       }
     },
