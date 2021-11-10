@@ -125,14 +125,6 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
   final def getCharset: Option[Charset] =
     getHeaderValue(HttpHeaderNames.CONTENT_TYPE).map(HttpUtil.getCharset(_, HTTP_CHARSET))
 
-  final def getCookies(implicit ev: HasCookieHeaders[A]): List[Cookie] =
-    ev(self).flatMap(seq =>
-      Cookie.decodeMultiple(seq.toString) match {
-        case Left(_)     => Nil
-        case Right(list) => list
-      },
-    )
-
   final def getCookiesRaw(implicit ev: HasCookieHeaders[A]): List[CharSequence] = ev(self)
 
   final def hasHeader(name: CharSequence, value: CharSequence): Boolean =

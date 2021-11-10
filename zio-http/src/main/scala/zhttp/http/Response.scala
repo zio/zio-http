@@ -26,6 +26,14 @@ case class Response[-R, +E] private (
   def addCookie(cookie: Cookie): Response[R, E] =
     self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
 
+  /**
+   * Gets cookies from the response headers
+   */
+  def getCookies: List[Cookie] = getHeaderValues(HttpHeaderNames.SET_COOKIE).flatMap(Cookie.decode(_) match {
+    case Left(_)      => Nil
+    case Right(value) => List(value)
+  })
+
   def getContentLength: Option[Long] = self.data.size
 
   /**
