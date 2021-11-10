@@ -100,8 +100,8 @@ object Server {
     val settings = server.settings()
     for {
       channelEventLoopGroupTuple <- Transport.make(settings.transport)
-      (channel,eventLoopGroup) = channelEventLoopGroupTuple
-      zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
+      (channel, eventLoopGroup) = channelEventLoopGroupTuple
+      zExec <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
       init            = ServerChannelInitializer(zExec, settings)
       serverBootstrap = new ServerBootstrap()
         .channelFactory(channel)
