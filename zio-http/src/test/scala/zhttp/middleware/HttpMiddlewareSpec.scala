@@ -4,7 +4,7 @@ import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware
 import zio.clock.Clock
 import zio.duration._
-import zio.test.Assertion.equalTo
+import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.environment.{TestClock, TestConsole}
 import zio.test.{DefaultRunnableSpec, assertM}
 import zio.{UIO, ZIO, console}
@@ -69,42 +69,70 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec {
       } +
       suite("ifThenElseM") {
         testM("if the condition is true take first") {
-          val program = run(
-            app @@ ifThenElseM((_, _, _) => UIO(true))(
-              HttpMiddleware.identity,
-              HttpMiddleware.fromApp(HttpApp.forbidden("forbidden")),
-            ),
-          ).map(_.status)
-          assertM(program)(equalTo(Status.OK))
+          val app =
+            (HttpApp.ok @@ ifThenElseM((_, _, _) => UIO(true))(
+              HttpMiddleware.addHeader("TestHeader", "left"),
+              HttpMiddleware.addHeader("TestHeader", "right"),
+            ))(Request())
+          assertM(app.map(_.getHeaderValue("TestHeader")))(isSome(equalTo("left")))
         } +
-          testM("if the condition is false take second") {
-            val program = run(
-              app @@ ifThenElseM((_, _, _) => UIO(false))(
-                HttpMiddleware.identity,
-                HttpMiddleware.fromApp(HttpApp.forbidden("forbidden")),
-              ),
-            ).map(_.status)
-            assertM(program)(equalTo(Status.FORBIDDEN))
+          testM("if the condition is false take 2nd") {
+            val app =
+              (HttpApp.ok @@ ifThenElseM((_, _, _) => UIO(false))(
+                HttpMiddleware.addHeader("TestHeader", "left"),
+                HttpMiddleware.addHeader("TestHeader", "right"),
+              ))(Request())
+            assertM(app.map(_.getHeaderValue("TestHeader")))(isSome(equalTo("right")))
           }
       } +
       suite("ifThenElse") {
         testM("if the condition is true take first") {
-          val program = run(
-            app @@ ifThenElse((_, _, _) => true)(
-              HttpMiddleware.identity,
-              HttpMiddleware.fromApp(HttpApp.forbidden("forbidden")),
-            ),
-          ).map(_.status)
-          assertM(program)(equalTo(Status.OK))
+          val app =
+            (HttpApp.ok @@ ifThenElse((_, _, _) => true)(
+              HttpMiddleware.addHeader("TestHeader", "left"),
+              HttpMiddleware.addHeader("TestHeader", "right"),
+            ))(Request())
+          assertM(app.map(_.getHeaderValue("TestHeader")))(isSome(equalTo("left")))
         } +
-          testM("if the condition is false take second") {
-            val program = run(
-              app @@ ifThenElse((_, _, _) => false)(
-                HttpMiddleware.identity,
-                HttpMiddleware.fromApp(HttpApp.forbidden("forbidden")),
-              ),
-            ).map(_.status)
-            assertM(program)(equalTo(Status.FORBIDDEN))
+          testM("if the condition is false take 2nd") {
+            val app =
+              (HttpApp.ok @@ ifThenElse((_, _, _) => false)(
+                HttpMiddleware.addHeader("TestHeader", "left"),
+                HttpMiddleware.addHeader("TestHeader", "right"),
+              ))(Request())
+            assertM(app.map(_.getHeaderValue("TestHeader")))(isSome(equalTo("right")))
+          }
+      } +
+      suite("whenM") {
+        testM("if the condition is true apply middleware") {
+          val app =
+            (HttpApp.ok @@ whenM((_, _, _) => UIO(true))(
+              HttpMiddleware.addHeader("TestHeader", "TestValue"),
+            ))(Request())
+          assertM(app.map(_.getHeaderValue("TestHeader")))(isSome(equalTo("TestValue")))
+        } +
+          testM("if the condition is false don't apply any middleware") {
+            val app =
+              (HttpApp.ok @@ whenM((_, _, _) => UIO(false))(
+                HttpMiddleware.addHeader("TestHeader", "TestValue"),
+              ))(Request())
+            assertM(app.map(_.getHeaderValue("TestHeader")))(isNone)
+          }
+      } +
+      suite("when") {
+        testM("if the condition is true apple middleware") {
+          val app =
+            (HttpApp.ok @@ when((_, _, _) => true)(
+              HttpMiddleware.addHeader("TestHeader", "TestValue"),
+            ))(Request())
+          assertM(app.map(_.getHeaderValue("TestHeader")))(isSome(equalTo("TestValue")))
+        } +
+          testM("if the condition is false don't apply the middleware") {
+            val app =
+              (HttpApp.ok @@ when((_, _, _) => false)(
+                HttpMiddleware.addHeader("TestHeader", "TestValue"),
+              ))(Request())
+            assertM(app.map(_.getHeaderValue("TestHeader")))(isNone)
           }
       }
 
