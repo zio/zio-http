@@ -1,6 +1,6 @@
 package example
 
-import zhttp.endpoint.{*, EndpointSyntax}
+import zhttp.endpoint._
 import zhttp.http.Method.GET
 import zhttp.http.{HttpApp, Response}
 import zhttp.service.Server
