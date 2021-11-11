@@ -187,11 +187,11 @@ object HttpMiddleware {
       List(Header(HttpHeaderNames.WWW_AUTHENTICATE, HeaderExtension.BasicSchemeName)),
     )
 
-  def basicAuth[R, E](u :String, p:String): HttpMiddleware[R, E] =
+  def basicAuth[R, E](u: String, p: String): HttpMiddleware[R, E] =
     auth(
       { headers =>
         HeaderExtension(headers).getBasicAuthorizationCredentials match {
-          case Some((username, password)) => (username==u) && (password==p)
+          case Some((username, password)) => (username == u) && (password == p)
           case None                       => false
         }
       },
