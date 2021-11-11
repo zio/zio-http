@@ -27,13 +27,8 @@ case class Response[-R, +E] private (
     self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
 
   /**
-   * Gets cookies from the response headers
+   * Extracts the length of the content specified in the response data.
    */
-  def getCookies: List[Cookie] = getHeaderValues(HttpHeaderNames.SET_COOKIE).flatMap(Cookie.decode(_) match {
-    case Left(_)      => Nil
-    case Right(value) => List(value)
-  })
-
   def getContentLength: Option[Long] = self.data.size
 
   /**

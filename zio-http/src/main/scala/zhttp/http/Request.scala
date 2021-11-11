@@ -1,6 +1,5 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.HttpHeaderNames
 import zio.{Chunk, ZIO}
 
 import java.net.InetAddress
@@ -38,18 +37,6 @@ trait Request extends HeaderExtension[Request] { self =>
         self.decodeContent(decoder)
     }
   }
-
-  /**
-   * Gets cookies from the request headers
-   */
-  def getCookies: List[Cookie] =
-    getHeaderValues(HttpHeaderNames.COOKIE).flatMap(value => {
-      println(value)
-      Cookie.decodeMultiple(value) match {
-        case Left(_)     => Nil
-        case Right(list) => list
-      }
-    })
 
   /**
    * Updates the headers using the provided function
