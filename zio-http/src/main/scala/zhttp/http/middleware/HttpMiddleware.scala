@@ -3,8 +3,8 @@ package zhttp.http.middleware
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.util.AsciiString
 import io.netty.util.AsciiString.toLowerCase
-import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import pdi.jwt.algorithms.JwtHmacAlgorithm
+import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import zhttp.http.CORS.DefaultCORSConfig
 import zhttp.http.HeaderExtension.BasicSchemeName
 import zhttp.http._
