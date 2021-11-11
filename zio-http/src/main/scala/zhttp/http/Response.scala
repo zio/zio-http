@@ -9,7 +9,7 @@ import java.io.{PrintWriter, StringWriter}
 
 case class Response[-R, +E] private (
   status: Status,
-  headers: List[Header],
+  getHeaders: List[Header],
   data: HttpData[R, E],
   private[zhttp] val attribute: HttpAttribute[R, E],
 ) extends HeaderExtension[Response[R, E]] { self =>
@@ -24,7 +24,7 @@ case class Response[-R, +E] private (
    * Adds cookies in the response headers
    */
   def addCookie(cookie: Cookie): Response[R, E] =
-    self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
+    self.copy(getHeaders = self.getHeaders ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
 
   /**
    * Extracts the length of the content specified in the response data.
@@ -45,7 +45,7 @@ case class Response[-R, +E] private (
    * Updates the headers using the provided function
    */
   final override def updateHeaders(f: List[Header] => List[Header]): Response[R, E] =
-    self.copy(headers = f(self.headers))
+    self.copy(getHeaders = f(self.getHeaders))
 }
 
 object Response {

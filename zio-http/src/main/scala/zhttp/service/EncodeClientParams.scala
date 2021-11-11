@@ -18,7 +18,7 @@ trait EncodeClientParams {
       case Some(text) => Unpooled.copiedBuffer(text, HTTP_CHARSET)
       case None       => Unpooled.EMPTY_BUFFER
     }
-    val headers     = Header.disassemble(req.headers)
+    val headers     = Header.disassemble(req.getHeaders)
     val writerIndex = content.writerIndex()
     if (writerIndex != 0) {
       headers.set(HttpHeaderNames.CONTENT_LENGTH, writerIndex.toString())

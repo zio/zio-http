@@ -70,12 +70,12 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
         } +
           testM("add headers twice") {
             val middleware = addHeader("KeyA", "ValueA") ++ addHeader("KeyB", "ValueB")
-            val program    = run(app @@ middleware).map(_.headers)
+            val program    = run(app @@ middleware).map(_.getHeaders)
             assertM(program)(equalTo(List(Header("KeyA", "ValueA"), Header("KeyB", "ValueB"))))
           } +
           testM("add and remove header") {
             val middleware = addHeader("KeyA", "ValueA") ++ removeHeader("KeyA")
-            val program    = run(app @@ middleware).map(_.headers)
+            val program    = run(app @@ middleware).map(_.getHeaders)
             assertM(program)(equalTo(Nil))
           }
       } +

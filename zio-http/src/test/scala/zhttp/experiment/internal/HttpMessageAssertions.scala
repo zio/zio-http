@@ -167,7 +167,7 @@ trait HttpMessageAssertions {
     Assertion.assertion("method")(param(method))(_.method == method)
 
   def header(header: Header): Assertion[Request] =
-    Assertion.assertion("header")(param(header))(_.headers.contains(header))
+    Assertion.assertion("header")(param(header))(_.getHeaders.contains(header))
 
   def body[A](text: String, charset: Charset = Charset.defaultCharset()): Assertion[HttpContent] =
     Assertion.assertion("body")(param(text))(_.content.toString(charset) == text)

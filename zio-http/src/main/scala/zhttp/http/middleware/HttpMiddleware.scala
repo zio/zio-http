@@ -367,9 +367,9 @@ object HttpMiddleware {
       case TransformM(reqF, resF) =>
         HttpApp.fromOptionFunction { req =>
           for {
-            s     <- reqF(req.method, req.url, req.headers)
+            s     <- reqF(req.method, req.url, req.getHeaders)
             res   <- app(req)
-            patch <- resF(res.status, res.headers, s)
+            patch <- resF(res.status, res.getHeaders, s)
           } yield patch(res)
         }
 
@@ -378,7 +378,7 @@ object HttpMiddleware {
       case FromFunctionM(reqF) =>
         HttpApp.fromOptionFunction { req =>
           for {
-            output <- reqF(req.method, req.url, req.headers)
+            output <- reqF(req.method, req.url, req.getHeaders)
             res    <- output(app)(req)
           } yield res
         }

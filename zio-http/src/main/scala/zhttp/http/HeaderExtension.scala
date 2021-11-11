@@ -11,7 +11,7 @@ import java.nio.charset.Charset
 import scala.util.control.NonFatal
 
 private[zhttp] trait HeaderExtension[+A] { self: A =>
-  def headers: List[Header]
+  def getHeaders: List[Header]
 
   def updateHeaders(f: List[Header] => List[Header]): A
 
@@ -52,10 +52,10 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
     getHeader(headerName).map(_.value.toString)
 
   final def getHeader(headerName: CharSequence): Option[Header] =
-    headers.find(h => contentEqualsIgnoreCase(h.name, headerName))
+    getHeaders.find(h => contentEqualsIgnoreCase(h.name, headerName))
 
   final def getHeaderValues(headerName: CharSequence): List[String] =
-    headers.filter(h => contentEqualsIgnoreCase(h.name, headerName)).map(_.value.toString)
+    getHeaders.filter(h => contentEqualsIgnoreCase(h.name, headerName)).map(_.value.toString)
 
   final def getContentType: Option[String] =
     getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
@@ -145,8 +145,8 @@ object HeaderExtension {
   val BasicSchemeName  = "Basic"
   val BearerSchemeName = "Bearer"
 
-  case class Only(headers: List[Header]) extends HeaderExtension[Only] {
-    override def updateHeaders(f: List[Header] => List[Header]): Only = Only(f(headers))
+  case class Only(getHeaders: List[Header]) extends HeaderExtension[Only] {
+    override def updateHeaders(f: List[Header] => List[Header]): Only = Only(f(getHeaders))
   }
 
   def apply(headers: List[Header]): HeaderExtension[Only] = Only(headers)
