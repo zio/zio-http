@@ -1,7 +1,7 @@
 package zhttp.service
 
 import zhttp.http._
-import zhttp.service.server.Transport.Auto
+import zhttp.service.server.Auto
 import zio.test.Assertion.{isNone, isPositive, isSome}
 import zio.test.assertM
 import zio.{Ref, UIO, ZIO, ZRef}

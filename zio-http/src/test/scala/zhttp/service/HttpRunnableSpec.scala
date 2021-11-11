@@ -4,8 +4,8 @@ import io.netty.handler.ssl.SslContext
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zhttp.service.server.Auto
 import zhttp.service.server.ServerSSLHandler.ServerSSLOptions
-import zhttp.service.server.Transport.Auto
 import zio.test.DefaultRunnableSpec
 import zio.{Chunk, ZIO, ZManaged}
 

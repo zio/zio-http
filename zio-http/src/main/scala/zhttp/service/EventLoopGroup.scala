@@ -23,7 +23,6 @@ object EventLoopGroup {
   def default: ZLayer[Any, Nothing, EventLoopGroup] = EventLoopGroup.Live.default.toLayer
 
   object Live {
-
     def nio(nThreads: Int): ZManaged[Any, Nothing, channel.EventLoopGroup] =
       make(UIO(new channel.nio.NioEventLoopGroup(nThreads)))
 

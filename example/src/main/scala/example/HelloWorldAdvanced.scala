@@ -2,8 +2,10 @@ package example
 
 import zhttp.http.{HttpApp, Method, Response, _}
 import zhttp.service.Server
-import zhttp.service.server.Transport.Auto
+import zhttp.service.server.Auto
 import zio._
+
+import scala.util.Try
 
 object HelloWorldAdvanced extends App {
   // Set a port
@@ -23,12 +25,14 @@ object HelloWorldAdvanced extends App {
     Server.port(PORT) ++              // Setup port
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
       Server.app(fooBar +++ app) ++   // Setup the Http app
-      Server.transport(Auto) ++       // (Server.epoll, Server.kqueue, Server.uring, Server.auto)
-      Server.threads(1)               // number of threads for event loop
+      Server.transport(Auto)          // (Server.epoll, Server.kqueue, Server.uring, Server.auto)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+    // Configure thread count using CLI
+    val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
+
     // Create a new server
-    server.make
+    (server ++ Server.threads(nThreads)).make
       .use(_ =>
         // Waiting for the server to start
         console.putStrLn(s"Server started on port $PORT")

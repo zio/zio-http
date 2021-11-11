@@ -36,7 +36,6 @@ sealed trait Server[-R, +E] { self =>
 
 }
 
-import zhttp.service.server.Transport.Auto
 object Server {
   private[zhttp] final case class Settings[-R, +E](
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
@@ -73,8 +72,8 @@ object Server {
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
 
-  def transport(trans: Transport): UServer = Server.TransportConfig(trans)
-  def threads(threads: Int): UServer       = Server.Threads(threads)
+  def transport(transport: Transport): UServer = Server.TransportConfig(transport)
+  def threads(threads: Int): UServer           = Server.Threads(threads)
 
   /**
    * Launches the app on the provided port.
@@ -103,12 +102,12 @@ object Server {
   ): ZManaged[R, Throwable, Unit] = {
     val settings = server.settings()
     for {
-      channel        <- ZManaged.fromEffect(Transport.channelInitializer(settings.transport))
-      eventLoopGroup <- Transport.eventLoopGroup(settings.transport, settings.threads)
+      channelFactory <- ZManaged.fromEffect(settings.transport.channelInitializer)
+      eventLoopGroup <- settings.transport.eventLoopGroup(settings.threads)
       zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
       init            = ServerChannelInitializer(zExec, settings)
       serverBootstrap = new ServerBootstrap()
-        .channelFactory(channel)
+        .channelFactory(channelFactory)
         .group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.address))
 
