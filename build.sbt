@@ -101,12 +101,11 @@ lazy val zhttpTest = (project in file("./zio-http-test"))
 lazy val example = (project in file("./example"))
   .enablePlugins(SbtTwirl)
   .settings(stdSettings("example"))
-  .settings(
-    libraryDependencies := libraryDependencies.value.map {
-      case module if module.name == "twirl-api" =>
-        module.cross(CrossVersion.for3Use2_13)
-      case module => module
-    })
+  .settings(libraryDependencies := libraryDependencies.value.map {
+    case module if module.name == "twirl-api" =>
+      module.cross(CrossVersion.for3Use2_13)
+    case module                               => module
+  })
   .settings(publishSetting(false))
   .settings(
     fork                      := true,

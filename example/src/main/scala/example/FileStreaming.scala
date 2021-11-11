@@ -1,7 +1,9 @@
-import zhttp.http._
-import zhttp.service._
-import zio._
-import zio.stream._
+package example
+
+import zhttp.http.{HttpApp, HttpData, Method, Response, _}
+import zhttp.service.Server
+import zio.stream.ZStream
+import zio.{App, ExitCode, URIO}
 
 import java.nio.file.Paths
 

@@ -1,8 +1,10 @@
-import zhttp.http._
+package example
+
+import zhttp.http.{HttpApp, Method, Response, _}
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromKeystore}
 import zhttp.service.{EventLoopGroup, Server}
-import zio._
+import zio.{App, ExitCode, URIO}
 
 object HttpsHelloWorld extends App {
 

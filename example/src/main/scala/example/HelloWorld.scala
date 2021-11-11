@@ -1,7 +1,9 @@
+package example
+
 import zhttp.http._
 import zhttp.service.Server
-import zio._
-import zio.stream._
+import zio.stream.ZStream
+import zio.{App, ExitCode, URIO}
 
 object HelloWorld extends App {
 

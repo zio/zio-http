@@ -1,7 +1,9 @@
+package example
+
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import zhttp.http._
 import zhttp.service.Server
-import zio._
+import zio.{App, ExitCode, URIO}
 
 import java.time.Clock
 
