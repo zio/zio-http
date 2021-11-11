@@ -22,7 +22,7 @@ object HelloWorldAdvanced extends App {
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
       Server.app(fooBar +++ app) ++   // Setup the Http app
       Server.transport(Auto) ++       // (Server.epoll, Server.kqueue, Server.uring, Server.auto)
-      Server.numThreads(1)            // number of threads for event loop
+      Server.threads(1)               // number of threads for event loop
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     // Create a new server
