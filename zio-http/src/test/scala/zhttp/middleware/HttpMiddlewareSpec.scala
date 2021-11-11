@@ -21,6 +21,10 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
   def condM(flg: Boolean) = (_: Any, _: Any, _: Any) => UIO(flg)
   def cond(flg: Boolean)  = (_: Any, _: Any, _: Any) => flg
 
+  val basicHS    = Header.basicHttpAuthorization("user", "resu")
+  val basicHF    = Header.basicHttpAuthorization("user", "user")
+  val basicAuthM = HttpMiddleware.basicAuth((u, p) => p.reverse == u)
+
   def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response[R, E]] = {
     for {
       fib <- app { Request(url = URL(!! / "health")) }.fork
@@ -66,12 +70,12 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
         } +
           testM("add headers twice") {
             val middleware = addHeader("KeyA", "ValueA") ++ addHeader("KeyB", "ValueB")
-            val program    = run(app @@ middleware).map(_.headers)
+            val program    = run(app @@ middleware).map(_.getHeaders)
             assertM(program)(equalTo(List(Header("KeyA", "ValueA"), Header("KeyB", "ValueB"))))
           } +
           testM("add and remove header") {
             val middleware = addHeader("KeyA", "ValueA") ++ removeHeader("KeyA")
-            val program    = run(app @@ middleware).map(_.headers)
+            val program    = run(app @@ middleware).map(_.getHeaders)
             assertM(program)(equalTo(Nil))
           }
       } +
@@ -115,6 +119,22 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
             val app = HttpApp.ok @@ when(cond(false))(midA) getHeader "X-Custom"
             assertM(app(Request()))(isNone)
           }
+      } +
+      suite("Authentication middleware") {
+        suite("basicAuth") {
+          testM("HttpApp is accepted if the basic authentication succeeds") {
+            val app = (HttpApp.ok @@ basicAuthM).getStatus
+            assertM(app(Request().addHeaders(List(basicHS))))(equalTo(Status.OK))
+          } +
+            testM("Uses forbidden app if the basic authentication fails") {
+              val app = (HttpApp.ok @@ basicAuthM).getStatus
+              assertM(app(Request().addHeaders(List(basicHF))))(equalTo(Status.FORBIDDEN))
+            } +
+            testM("Responses sould have WWW-Authentication header if Basic Auth failed") {
+              val app = HttpApp.ok @@ basicAuthM getHeader "WWW-AUTHENTICATE"
+              assertM(app(Request().addHeaders(List(basicHF))))(isSome)
+            }
+        }
       }
 
   }

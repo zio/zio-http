@@ -31,7 +31,7 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
 
   def getApp(state: Ref[ServerState])(p: Int): Server[Any, Throwable] = {
     val app: HttpApp[Any, Throwable] = HttpApp.collectM { case req @ _ -> !! / path =>
-      state.update(updateState(_, req.headers, path)) *> ZIO.succeed(Response.ok)
+      state.update(updateState(_, req.getHeaders, path)) *> ZIO.succeed(Response.ok)
     }
     Server.port(p) ++    // Setup port
       Server.app(app) ++ // Setup the Http app

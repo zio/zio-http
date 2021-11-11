@@ -12,7 +12,7 @@ object HelloWorldTwirl extends zio.App {
     val (a, b)              = pathParams.params
     val response: UResponse = Response.text(advanced.html.index(a, b).toString())
     response
-      .copy(headers = List(Header.custom("content-type", "text/html")))
+      .copy(getHeaders = List(Header.custom("content-type", "text/html")))
   }
 
   val h1: HttpApp[Any, Nothing] = HttpApp.collect {
