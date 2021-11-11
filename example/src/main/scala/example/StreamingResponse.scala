@@ -1,7 +1,9 @@
+package example
+
 import zhttp.http._
 import zhttp.service.Server
-import zio._
 import zio.stream.ZStream
+import zio.{App, Chunk, ExitCode, URIO}
 
 /**
  * Example to encode content using a ZStream

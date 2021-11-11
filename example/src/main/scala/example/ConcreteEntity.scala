@@ -1,6 +1,8 @@
-import zhttp.http._
+package example
+
+import zhttp.http.{Http, HttpApp, Request, Response}
 import zhttp.service.Server
-import zio._
+import zio.{App, ExitCode, URIO}
 
 /**
  * Example to build app on concrete entity

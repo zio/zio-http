@@ -1,4 +1,6 @@
-import zhttp.endpoint.{*, _}
+package example
+
+import zhttp.endpoint._
 import zhttp.http.Method.GET
 import zhttp.http._
 import zhttp.nav.Navigation

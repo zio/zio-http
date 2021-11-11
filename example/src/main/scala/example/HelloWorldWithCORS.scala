@@ -1,7 +1,9 @@
-import zhttp.http._
+package example
+
 import zhttp.http.middleware.HttpMiddleware.cors
+import zhttp.http.{CORSConfig, HttpApp, Method, Response, _}
 import zhttp.service.Server
-import zio._
+import zio.{App, ExitCode, URIO}
 
 object HelloWorldWithCORS extends App {
 

@@ -1,9 +1,11 @@
-import zhttp.http._
-import zhttp.service._
-import zhttp.socket._
-import zio._
+package example
+
+import zhttp.http.{HttpApp, Method, Response, _}
+import zhttp.service.Server
+import zhttp.socket.{Socket, WebSocketFrame}
 import zio.duration._
 import zio.stream.ZStream
+import zio.{App, ExitCode, Schedule, URIO}
 
 object WebSocketEcho extends App {
   private val socket =

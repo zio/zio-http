@@ -1,7 +1,9 @@
+package example
+
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware.basicAuth
 import zhttp.service.Server
-import zio._
+import zio.{App, ExitCode, URIO}
 
 object Authentication extends App {
 
