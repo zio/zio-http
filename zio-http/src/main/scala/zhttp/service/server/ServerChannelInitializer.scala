@@ -15,7 +15,7 @@ final case class ServerChannelInitializer[R](zExec: HttpRuntime[R], settings: Se
     extends ChannelInitializer[Channel] {
   override def initChannel(channel: Channel): Unit = {
 
-    val sslctx              = if (settings.sslOption == null) null else settings.sslOption.sslContext
+    val sslctx = if (settings.sslOption == null) null else settings.sslOption.sslContext
     if (sslctx != null) {
       channel
         .pipeline()
@@ -25,6 +25,7 @@ final case class ServerChannelInitializer[R](zExec: HttpRuntime[R], settings: Se
         )
       ()
     }
+
     val ch: ChannelPipeline = channel
       .pipeline()
       .addLast(HTTP_SERVER_CODEC, new HttpServerCodec())               // TODO: See if server codec is really required
