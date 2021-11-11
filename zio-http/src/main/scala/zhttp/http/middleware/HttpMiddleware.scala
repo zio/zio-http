@@ -174,7 +174,7 @@ object HttpMiddleware {
     )
 
   /**
-   * creates a middleware for basic authentication
+   * Creates a middleware for basic authentication
    */
   def basicAuth[R, E](f: (String, String) => Boolean): HttpMiddleware[R, E] =
     auth(
@@ -188,7 +188,7 @@ object HttpMiddleware {
     )
 
   /**
-   * creates a middleware for basic authentication that simply checks if the credentials are same as the ones given
+   * Creates a middleware for basic authentication that checks if the credentials are same as the ones given
    */
   def basicAuth[R, E](u: String, p: String): HttpMiddleware[R, E] =
     basicAuth((user, password) => (user == u) && (password == p))
