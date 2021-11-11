@@ -3,7 +3,10 @@ package zhttp.http.middleware
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.util.AsciiString
 import io.netty.util.AsciiString.toLowerCase
+import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
+import pdi.jwt.algorithms.JwtHmacAlgorithm
 import zhttp.http.CORS.DefaultCORSConfig
+import zhttp.http.HeaderExtension.BasicSchemeName
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware.RequestP
 import zio.clock.Clock
@@ -158,6 +161,57 @@ object HttpMiddleware {
    */
   def fromMiddlewareFunction[R, E](f: RequestP[HttpMiddleware[R, E]]): HttpMiddleware[R, E] =
     fromMiddlewareFunctionM((method, url, headers) => UIO(f(method, url, headers)))
+
+  /**
+   * Creates an authentication middleware that authenticate requests as per the given condition
+   */
+  def authenticate[R,E](
+   f: List[Header]=> ZIO[R,E,Boolean],
+   headers: List[Header] = List.empty
+   ): HttpMiddleware[R,E] = ifThenElseM((_,_,h)=>f(h))(
+    HttpMiddleware.identity,
+    HttpMiddleware.fromApp(HttpApp.response(HttpError.Forbidden().toResponse.addHeaders(headers))))
+
+  /**
+   * creates a middleware for basic authentication
+   */
+  def basicAuth[R, E](f: (String, String) => ZIO[R, E, Boolean]): HttpMiddleware[R, E] = authenticate(
+    { h =>
+      HeadersHolder(h).getBasicAuthorizationCredentials match {
+        case Some((username, password)) => f(username, password)
+        case None                       => ZIO.succeed(false)
+      }
+    },
+    List(Header(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName)),
+  )
+
+  final case class HeadersHolder(headers: List[Header]) extends HeaderExtension[HeadersHolder] { self =>
+    override def addHeaders(headers: List[Header]): HeadersHolder =
+      HeadersHolder(self.headers ++ headers)
+
+    override def removeHeaders(headers: List[String]): HeadersHolder =
+      HeadersHolder(self.headers.filterNot(h => headers.contains(h.name)))
+  }
+
+  /**
+   * creates a middleware that check the content of X-ACCESS-TOKEN header and try to decode a JwtClaim
+   */
+  def jwt[R,E](
+    secretKey: String,
+    tokenHeaderName: String= "X-ACCESS-TOKEN",
+    f:JwtClaim => UIO[Boolean] = _ => ZIO.succeed(true),
+    algo: Seq[JwtHmacAlgorithm] = Seq(JwtAlgorithm.HS512),
+    headers: List[Header]=List.empty
+  ): HttpMiddleware[Any, Nothing] =
+    authenticate(
+      { h =>
+        HeadersHolder(h)
+          .getHeader(tokenHeaderName)
+          .flatMap(header => Jwt.decode(header.value.toString, secretKey, algo).toOption)
+          .fold(ZIO.succeed(false))(f)
+      },
+      headers,
+    )
 
   /**
    * Add log status, method, url and time taken from req to res
