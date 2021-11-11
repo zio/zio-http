@@ -11,7 +11,7 @@ object Authentication extends App {
   }
 
   // Composing all the HttpApps together
-  val app: UHttpApp = user @@ basicAuth("username", "password")
+  val app: UHttpApp = user @@ basicAuth("admin", "admin")
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

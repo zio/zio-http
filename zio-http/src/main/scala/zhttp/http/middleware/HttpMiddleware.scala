@@ -188,15 +188,7 @@ object HttpMiddleware {
     )
 
   def basicAuth[R, E](u: String, p: String): HttpMiddleware[R, E] =
-    auth(
-      { headers =>
-        HeaderExtension(headers).getBasicAuthorizationCredentials match {
-          case Some((username, password)) => (username == u) && (password == p)
-          case None                       => false
-        }
-      },
-      List(Header(HttpHeaderNames.WWW_AUTHENTICATE, HeaderExtension.BasicSchemeName)),
-    )
+    basicAuth((user, password) => (user == u) && (password == p))
 
   /**
    * Add log status, method, url and time taken from req to res
