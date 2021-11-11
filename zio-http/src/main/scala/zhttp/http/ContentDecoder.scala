@@ -41,10 +41,10 @@ object ContentDecoder {
   }
 
   val backPressure: ContentDecoder[Any, Nothing, (Method, URL, List[Header], Chunk[Byte]), Queue[Chunk[Byte]]] =
-    ContentDecoder.collect(BackPressure[Chunk[Byte]]()) { case (msg, state, _) =>
+    ContentDecoder.collect(BackPressure[Chunk[Byte]]()) { case ((_, _, _, msg), state, _) =>
       for {
         queue <- state.queue.fold(Queue.bounded[Chunk[Byte]](1))(UIO(_))
-        _     <- queue.offer(msg._4)
+        _     <- queue.offer(msg)
       } yield (if (state.isFirst) Option(queue) else None, state.withQueue(queue).withFirst(false))
     }
 
