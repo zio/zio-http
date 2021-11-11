@@ -1,7 +1,9 @@
-import zhttp.http._
+package example
+
+import zhttp.http.{HttpApp, Method, Response, _}
 import zhttp.service.Server
-import zio._
 import zio.duration._
+import zio.{App, ExitCode, UIO, URIO, ZIO}
 
 object ThreadSafety extends App {
 

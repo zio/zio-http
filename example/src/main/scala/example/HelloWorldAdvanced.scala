@@ -1,6 +1,8 @@
-import zhttp.http._
-import zhttp.service._
+package example
+
+import zhttp.http.{HttpApp, Method, Response, _}
 import zhttp.service.server.ServerChannelFactory
+import zhttp.service.{EventLoopGroup, Server}
 import zio._
 
 import scala.util.Try
