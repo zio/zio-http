@@ -23,7 +23,6 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
   private var isFirst: Boolean                                          = true
   private var decoderState: Any                                         = _
   private var jReq: HttpRequest                                         = _
-  private var flag: Boolean                                             = true
 
   override def channelRegistered(ctx: ChannelHandlerContext): Unit = {
     ctx.channel().config().setAutoRead(false)
@@ -211,9 +210,9 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
       }
     }
 
-    def checkExpectHeader(): Unit = if (jReq.headers().contains(HttpHeaderNames.EXPECT) && flag) {
+    def checkExpectHeader(): Unit = if (jReq.headers().contains(HttpHeaderNames.EXPECT)) {
       ctx.write(new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, Status.CONTINUE.asJava, Unpooled.EMPTY_BUFFER))
-      flag = false
+      ()
     }
 
     msg match {
