@@ -10,9 +10,10 @@ import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zio.{Task, ZManaged}
 
 /**
- * Support for various transport types. NIO Transport - Works on any Platform / OS that has Java support Native Epoll
- * Transport - Works on Linux only and depending on the used Kernel / GLIBC version various features are available
- * Native Kqueue Transport - Works on any BSD in theory, but tested mainly on MacOS.
+ * Support for various transport types.
+ *   - NIO Transport - Works on any Platform / OS that has Java support Native
+ *   - Epoll Transport - Works on Linux only
+ *   - Native Kqueue Transport - Works on any BSD but mainly on MacOS.
  */
 sealed trait Transport
 object Transport        {
