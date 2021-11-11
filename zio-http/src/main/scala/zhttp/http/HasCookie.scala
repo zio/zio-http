@@ -17,7 +17,7 @@ object HasCookie {
 
     override def decode(a: Request): List[Cookie] =
       headers(a).flatMap { header =>
-        Cookie.decodeMultiple(header) match {
+        Cookie.decodeRequestCookie(header) match {
           case Left(_)     => Nil
           case Right(list) => list
         }
@@ -29,6 +29,6 @@ object HasCookie {
       a.getHeaderValues(HttpHeaderNames.SET_COOKIE)
 
     override def decode(a: Response[Any, Nothing]): List[Cookie] =
-      headers(a).map(Cookie.decode).collect { case Right(cookie) => cookie }
+      headers(a).map(Cookie.decodeResponseCookie).collect { case Right(cookie) => cookie }
   }
 }

@@ -140,10 +140,9 @@ object Cookie {
   case class Update(f: Cookie => Cookie)
 
   /**
-   * Decodes a string into a cookie
+   * Decodes from Set-Cookie header value inside of Response into a cookie
    */
-  def decode(headerValue: String): Either[Throwable, Cookie] = {
-
+  def decodeResponseCookie(headerValue: String): Either[Throwable, Cookie] = {
     val cookieWithoutMeta = headerValue.split(";").map(_.trim)
     val (first, other)    = (cookieWithoutMeta.head, cookieWithoutMeta.tail)
     val (name, content)   = splitNameContent(first)
@@ -178,6 +177,21 @@ object Cookie {
     cookie
   }
 
+  /**
+   * Decodes from `Cookie` header value inside of Request into a cookie
+   */
+  def decodeRequestCookie(headerValue: String): Either[Throwable, List[Cookie]] = {
+    val cookies: Array[String]  = headerValue.split(";").map(_.trim)
+    val x: List[Option[Cookie]] = cookies.toList.map(a => {
+      val (name, content) = splitNameContent(a)
+      if (name.trim == "" && content.isEmpty) None
+      else Some(Cookie(name, content.getOrElse("")))
+    })
+    if (x.contains(None))
+      Left(new IllegalArgumentException("Cookie can't be parsed"))
+    else Right(x.map(_.get))
+  }
+
   private def parseDate(v: String): Either[String, Instant] =
     Try(Instant.parse(v)) match {
       case Success(r) => Right(r)
@@ -190,22 +204,6 @@ object Cookie {
       case Array(v1, v2) => (v1, Some(v2))
       case _             => ("", None)
     }
-
-  /**
-   * Decodes a string with multiple cookies into a list of cookie
-   */
-
-  def decodeMultiple(headerValue: String): Either[Throwable, List[Cookie]] = {
-    val cookies: Array[String]  = headerValue.split(";").map(_.trim)
-    val x: List[Option[Cookie]] = cookies.toList.map(a => {
-      val (name, content) = splitNameContent(a)
-      if (name.trim == "" && content.isEmpty) None
-      else Some(Cookie(name, content.getOrElse("")))
-    })
-    if (x.contains(None))
-      Left(new IllegalArgumentException("Cookie can't be parsed"))
-    else Right(x.map(_.get))
-  }
 
   /**
    * Updates maxAge in cookie
