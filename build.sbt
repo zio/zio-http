@@ -79,7 +79,7 @@ lazy val zhttp = (project in file("./zio-http"))
           new URL("https://github.com/amitksingh1490"),
         ),
       ),
-    libraryDependencies ++= Seq(`jwt-core`, `zio`, `zio-streams`, netty, `scala-compact-collection`, `netty-incubator`),
+    libraryDependencies ++= Seq(`zio`, `zio-streams`, netty, `scala-compact-collection`, `netty-incubator`),
   )
 
 // Project Benchmarks
