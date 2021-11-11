@@ -54,11 +54,11 @@ sealed trait SocketApp[-R, +E] { self =>
     self match {
       case open: Open[_, _]     =>
         open match {
-          case WithSocket(s)      => WithSocket(s.provide(r))
+          case WithSocket(s@_)      => ???
           case WithEffect(effect) => WithEffect(effect(_).provide(r))
         }
       case Concat(a, b)         => Concat(a.provide(r), b.provide(r))
-      case OnMessage(onMessage) => OnMessage(onMessage.provide(r))
+      case OnMessage(onMessage@_) => ???
       case OnError(onError)     => OnError(onError(_).provide(r))
       case OnClose(onClose)     => OnClose(onClose(_).provide(r))
       case OnTimeout(onTimeout) => OnTimeout(onTimeout.provide(r))
