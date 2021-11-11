@@ -7,14 +7,13 @@ import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.http._
-import zhttp.service.Server.Settings
 import zhttp.service.server.WebSocketUpgrade
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
-final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: HttpRuntime[R], settings: Settings[R, E])
+final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: HttpRuntime[R])
     extends ChannelInboundHandlerAdapter
     with WebSocketUpgrade[R] { self =>
 
@@ -211,12 +210,6 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
       }
     }
 
-    def handleExpectationFailed(): Unit =
-      if (jReq.headers().contains(HttpHeaderNames.EXPECT) && !settings.acceptContinue)
-        ctx.writeAndFlush(
-          new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, Status.EXPECTATION_FAILED.asJava, Unpooled.EMPTY_BUFFER),
-        ): Unit
-
     msg match {
       case jRequest: HttpRequest =>
         // TODO: Unnecessary requirement
@@ -239,7 +232,6 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
                     _ <- UIO {
                       self.decoder = decoder.asInstanceOf[ContentDecoder[Any, Throwable, Chunk[Byte], B]]
                       self.completePromise = p.asInstanceOf[Promise[Throwable, Any]]
-                      handleExpectationFailed()
                       ctx.read(): Unit
                     }
                     b <- p.await

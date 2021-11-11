@@ -1,10 +1,9 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues, HttpHeaders, HttpMethod, HttpResponse}
+import io.netty.handler.codec.http.{HttpMethod, HttpResponse}
 import zhttp.experiment.internal.{HttpAppClient, HttpMessageAssertions}
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.service.EventLoopGroup
-import zhttp.service.Server.Settings
 import zio.duration._
 import zio.stream.ZStream
 import zio.test.Assertion.{equalTo, isLeft, isNone}
@@ -18,8 +17,6 @@ import zio.{Chunk, UIO, ZIO}
 object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   private val env                        = EventLoopGroup.auto(1)
   private val Ok: Response[Any, Nothing] = Response()
-  private val expectHeader: HttpHeaders  =
-    Header.disassemble(List(Header.custom(HttpHeaderNames.EXPECT.toString, HttpHeaderValues.CONTINUE)))
 
   def spec =
     suite("HttpHttpApp")(
@@ -31,7 +28,6 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       IllegalMessageSpec,
       ContentDecoderSpec,
       RemoteAddressSpec,
-      StatusContinueResponseSpec,
     ).provideCustomLayer(env) @@ timeout(10 seconds)
 
   /**
@@ -229,40 +225,5 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       val addr = HttpApp.fromHttp(Http.succeed(Ok)).getRequest().map(_.remoteAddress)
       assertM(addr)(isNone)
     }
-  }
-
-  def StatusContinueResponseSpec = suite("StatusContinueSpec") {
-    val app: Http[Any, Throwable, Request, Response[Any, Nothing]] = Http.collectM[Request] { case req =>
-      req.decodeContent(ContentDecoder.text).as(Ok)
-    }
-    testM("status is 100 Continue") {
-      val res = HttpApp
-        .fromHttp(app)
-        .getResponse(
-          method = HttpMethod.POST,
-          header = expectHeader,
-          settings = Settings(acceptContinue = true),
-        )
-      assertM(res)(isResponse(responseStatus(100)))
-    } +
-      testM("status is 200 Ok") {
-        val res = HttpApp
-          .fromHttp(app)
-          .getResponseWithAcceptContinue(
-            method = HttpMethod.POST,
-            header = expectHeader,
-            settings = Settings(acceptContinue = true),
-          )
-        assertM(res)(isResponse(responseStatus(200)))
-      } +
-      testM("status is 417 Expectation Failed") {
-        val res = HttpApp
-          .fromHttp(app)
-          .getResponse(
-            method = HttpMethod.POST,
-            header = expectHeader,
-          )
-        assertM(res)(isResponse(responseStatus(417)))
-      }
   }
 }

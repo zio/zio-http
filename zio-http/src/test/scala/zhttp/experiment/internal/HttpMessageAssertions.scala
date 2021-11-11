@@ -3,7 +3,6 @@ package zhttp.experiment.internal
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.EventLoopGroup
-import zhttp.service.Server.Settings
 import zio.stream.ZStream
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
@@ -29,25 +28,10 @@ trait HttpMessageAssertions {
       method: HttpMethod = HttpMethod.GET,
       header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
       content: Iterable[String] = List("A", "B", "C", "D"),
-      settings: Settings[R, Throwable] = Settings(),
     ): ZIO[R with EventLoopGroup, Throwable, HttpResponse] = for {
-      proxy <- HttpAppClient.deploy(app, settings)
+      proxy <- HttpAppClient.deploy(app)
       _     <- proxy.request(url, method, header)
       _     <- proxy.end(content)
-      res   <- proxy.receive
-    } yield res.asInstanceOf[HttpResponse]
-
-    def getResponseWithAcceptContinue(
-      url: String = "/",
-      method: HttpMethod = HttpMethod.GET,
-      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
-      content: Iterable[String] = List("A", "B", "C", "D"),
-      settings: Settings[R, Throwable] = Settings(acceptContinue = true),
-    ): ZIO[R with EventLoopGroup, Throwable, HttpResponse] = for {
-      proxy <- HttpAppClient.deploy(app, settings)
-      _     <- proxy.request(url, method, header)
-      _     <- proxy.end(content)
-      _     <- proxy.receive
       res   <- proxy.receive
     } yield res.asInstanceOf[HttpResponse]
 
