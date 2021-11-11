@@ -160,6 +160,40 @@ object HttpMiddleware {
     fromMiddlewareFunctionM((method, url, headers) => UIO(f(method, url, headers)))
 
   /**
+   * Creates a new middleware that always sets the response status to the provided value
+   */
+  def status(status: Status): HttpMiddleware[Any, Nothing] = HttpMiddleware.patch((_, _) => Patch.setStatus(status))
+
+  /**
+   * Creates an authentication middleware that only allows authenticated requests to be passed on to the app.
+   */
+  def auth(verify: List[Header] => Boolean, responseHeaders: List[Header] = Nil): HttpMiddleware[Any, Nothing] =
+    ifThenElse((_, _, h) => verify(h))(
+      HttpMiddleware.identity,
+      HttpMiddleware.status(Status.FORBIDDEN) ++ HttpMiddleware.addHeaders(responseHeaders),
+    )
+
+  /**
+   * Creates a middleware for basic authentication
+   */
+  def basicAuth[R, E](f: (String, String) => Boolean): HttpMiddleware[R, E] =
+    auth(
+      { headers =>
+        HeaderExtension(headers).getBasicAuthorizationCredentials match {
+          case Some((username, password)) => f(username, password)
+          case None                       => false
+        }
+      },
+      List(Header(HttpHeaderNames.WWW_AUTHENTICATE, HeaderExtension.BasicSchemeName)),
+    )
+
+  /**
+   * Creates a middleware for basic authentication that checks if the credentials are same as the ones given
+   */
+  def basicAuth[R, E](u: String, p: String): HttpMiddleware[R, E] =
+    basicAuth((user, password) => (user == u) && (password == p))
+
+  /**
    * Add log status, method, url and time taken from req to res
    */
   def debug: HttpMiddleware[Console with Clock, IOException] =
@@ -204,10 +238,16 @@ object HttpMiddleware {
     HttpMiddleware.identity.race(HttpMiddleware.fromApp(HttpApp.status(Status.REQUEST_TIMEOUT).delayAfter(duration)))
 
   /**
-   * Adds the provided header and value
+   * Adds the provided header and value to the response
    */
   def addHeader(name: String, value: String): HttpMiddleware[Any, Nothing] =
     patch((_, _) => Patch.addHeaders(List(Header(name, value))))
+
+  /**
+   * Adds the provided list of headers to the response
+   */
+  def addHeaders(headers: List[Header]): HttpMiddleware[Any, Nothing] =
+    patch((_, _) => Patch.addHeaders(headers))
 
   /**
    * Removes the header by name
@@ -333,9 +373,9 @@ object HttpMiddleware {
       case TransformM(reqF, resF) =>
         HttpApp.fromOptionFunction { req =>
           for {
-            s     <- reqF(req.method, req.url, req.headers)
+            s     <- reqF(req.method, req.url, req.getHeaders)
             res   <- app(req)
-            patch <- resF(res.status, res.headers, s)
+            patch <- resF(res.status, res.getHeaders, s)
           } yield patch(res)
         }
 
@@ -344,7 +384,7 @@ object HttpMiddleware {
       case FromFunctionM(reqF) =>
         HttpApp.fromOptionFunction { req =>
           for {
-            output <- reqF(req.method, req.url, req.headers)
+            output <- reqF(req.method, req.url, req.getHeaders)
             res    <- output(app)(req)
           } yield res
         }
