@@ -1,6 +1,5 @@
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import zhttp.http._
-import zhttp.http.middleware.HttpMiddleware._
 import zhttp.service.Server
 import zio._
 
@@ -32,7 +31,7 @@ object Authentication extends App {
   }
 
   // Composing all the HttpApps together
-  val app: UHttpApp = login +++ user @@ jwt(SECRET_KEY)
+  val app: UHttpApp = login +++ user
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

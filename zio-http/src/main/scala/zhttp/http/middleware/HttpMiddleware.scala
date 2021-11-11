@@ -3,10 +3,7 @@ package zhttp.http.middleware
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.util.AsciiString
 import io.netty.util.AsciiString.toLowerCase
-import pdi.jwt.algorithms.JwtHmacAlgorithm
-import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import zhttp.http.CORS.DefaultCORSConfig
-import zhttp.http.HeaderExtension.BasicSchemeName
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware.RequestP
 import zio.clock.Clock
@@ -163,55 +160,31 @@ object HttpMiddleware {
     fromMiddlewareFunctionM((method, url, headers) => UIO(f(method, url, headers)))
 
   /**
-   * Creates an authentication middleware that authenticate requests as per the given condition
+   * Creates a new middleware that always sets the response status to the provided value
    */
-  def authenticate[R, E](
-    f: List[Header] => ZIO[R, E, Boolean],
-    headers: List[Header] = List.empty,
-  ): HttpMiddleware[R, E] = ifThenElseM((_, _, h) => f(h))(
-    HttpMiddleware.identity,
-    HttpMiddleware.fromApp(HttpApp.response(HttpError.Forbidden().toResponse.addHeaders(headers))),
-  )
+  def status(status: Status): HttpMiddleware[Any, Nothing] = HttpMiddleware.patch((_, _) => Patch.setStatus(status))
+
+  /**
+   * Creates an authentication middleware that only allows authenticated requests to be passed on to the app.
+   */
+  def auth(verify: List[Header] => Boolean, responseHeaders: List[Header] = Nil): HttpMiddleware[Any, Nothing] =
+    ifThenElse((_, _, h) => verify(h))(
+      HttpMiddleware.identity,
+      HttpMiddleware.status(Status.FORBIDDEN) ++ HttpMiddleware.addHeaders(responseHeaders),
+    )
 
   /**
    * creates a middleware for basic authentication
    */
-  def basicAuth[R, E](f: (String, String) => UIO[Boolean]): HttpMiddleware[R, E] = authenticate(
-    { h =>
-      HeadersHolder(h).getBasicAuthorizationCredentials match {
-        case Some((username, password)) => f(username, password)
-        case None                       => ZIO.succeed(false)
-      }
-    },
-    List(Header(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName)),
-  )
-
-  final case class HeadersHolder(headers: List[Header]) extends HeaderExtension[HeadersHolder] { self =>
-    override def addHeaders(headers: List[Header]): HeadersHolder =
-      HeadersHolder(self.headers ++ headers)
-
-    override def removeHeaders(headers: List[String]): HeadersHolder =
-      HeadersHolder(self.headers.filterNot(h => headers.contains(h.name)))
-  }
-
-  /**
-   * creates a middleware that check the content of X-ACCESS-TOKEN header and try to decode a JwtClaim
-   */
-  def jwt[R, E](
-    secretKey: String,
-    tokenHeaderName: String = "X-ACCESS-TOKEN",
-    f: JwtClaim => UIO[Boolean] = _ => ZIO.succeed(true),
-    algo: Seq[JwtHmacAlgorithm] = Seq(JwtAlgorithm.HS512),
-    headers: List[Header] = List.empty,
-  ): HttpMiddleware[Any, Nothing] =
-    authenticate(
-      { h =>
-        HeadersHolder(h)
-          .getHeader(tokenHeaderName)
-          .flatMap(header => Jwt.decode(header.value.toString, secretKey, algo).toOption)
-          .fold(ZIO.succeed(false))(f)
+  def basicAuth[R, E](f: (String, String) => Boolean): HttpMiddleware[R, E] =
+    auth(
+      { headers =>
+        HeaderExtension(headers).getBasicAuthorizationCredentials match {
+          case Some((username, password)) => f(username, password)
+          case None                       => false
+        }
       },
-      headers,
+      List(Header(HttpHeaderNames.WWW_AUTHENTICATE, HeaderExtension.BasicSchemeName)),
     )
 
   /**
@@ -259,10 +232,16 @@ object HttpMiddleware {
     HttpMiddleware.identity.race(HttpMiddleware.fromApp(HttpApp.status(Status.REQUEST_TIMEOUT).delayAfter(duration)))
 
   /**
-   * Adds the provided header and value
+   * Adds the provided header and value to the response
    */
   def addHeader(name: String, value: String): HttpMiddleware[Any, Nothing] =
     patch((_, _) => Patch.addHeaders(List(Header(name, value))))
+
+  /**
+   * Adds the provided list of headers to the response
+   */
+  def addHeaders(headers: List[Header]): HttpMiddleware[Any, Nothing] =
+    patch((_, _) => Patch.addHeaders(headers))
 
   /**
    * Removes the header by name
