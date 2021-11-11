@@ -69,6 +69,20 @@ object HttpGen {
     ),
   )
 
+  val method: Gen[Any, Method] = Gen.fromIterable(
+    List(
+      Method.OPTIONS,
+      Method.GET,
+      Method.HEAD,
+      Method.POST,
+      Method.PUT,
+      Method.PATCH,
+      Method.DELETE,
+      Method.TRACE,
+      Method.CONNECT,
+    ),
+  )
+
   def httpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData[Any, Nothing]] =
     for {
       list <- gen
@@ -122,15 +136,6 @@ object HttpGen {
     maxAge   <- Gen.option(Gen.anyLong)
     sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
   } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite)
-
-  def reqCookies: Gen[Random with Sized, (List[Cookie], String)] = {
-    for {
-      name         <- Gen.anyString
-      content      <- Gen.anyString
-      cookieList   <- Gen.listOfN(3)(Gen.const(Cookie(name, content)))
-      cookieString <- Gen.const(cookieList.map(x => s"${x.name}=${x.content}").mkString(";"))
-    } yield (cookieList, cookieString)
-  }
 
   def path: Gen[Random with Sized, Path] = {
     for {

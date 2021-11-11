@@ -22,6 +22,8 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
 
   final def addHeader(header: Header): A = addHeaders(List(header))
 
+  final def addHeader(name: CharSequence, value: CharSequence): A = addHeader(Header(name, value))
+
   final def removeHeader(name: String): A = removeHeaders(List(name))
 
   final def setContentLength(value: Long): A =
