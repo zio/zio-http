@@ -1,9 +1,9 @@
 package example
 
 import zhttp.http.{HttpApp, Method, Response, _}
-import zhttp.service.server.ServerChannelFactory
+import zhttp.service.Server
+import zhttp.service.server.Auto
 import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromKeystore}
-import zhttp.service.{EventLoopGroup, Server}
 import zio.{App, ExitCode, URIO}
 
 object HttpsHelloWorld extends App {
@@ -23,11 +23,13 @@ object HttpsHelloWorld extends App {
   val sslctx = ctxFromKeystore(getClass.getResourceAsStream("mysslstore.jks"), "password", "password")
 
   private val server =
-    Server.port(8090) ++ Server.app(app) ++ Server.ssl(ServerSSLOptions(sslctx))
+    Server.port(8090) ++
+      Server.app(app) ++
+      Server.ssl(ServerSSLOptions(sslctx)) ++
+      Server.transport(Auto) ++
+      Server.threads(1)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    server.make.useForever
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(0))
-      .exitCode
+    server.make.useForever.exitCode
   }
 }
