@@ -211,14 +211,11 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
       }
     }
 
-    def addContinueStatus(): Unit = if (jReq.headers().contains(HttpHeaderNames.EXPECT) && settings.statusContinue)
-      ctx.writeAndFlush(
-        new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, Status.CONTINUE.asJava, Unpooled.EMPTY_BUFFER),
-      ): Unit
-    else if (jReq.headers().contains(HttpHeaderNames.EXPECT) && !settings.statusContinue)
-      ctx.writeAndFlush(
-        new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, Status.EXPECTATION_FAILED.asJava, Unpooled.EMPTY_BUFFER),
-      ): Unit
+    def handleExpectationFailed(): Unit =
+      if (jReq.headers().contains(HttpHeaderNames.EXPECT) && !settings.acceptContinue)
+        ctx.writeAndFlush(
+          new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, Status.EXPECTATION_FAILED.asJava, Unpooled.EMPTY_BUFFER),
+        ): Unit
 
     msg match {
       case jRequest: HttpRequest =>
@@ -242,7 +239,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
                     _ <- UIO {
                       self.decoder = decoder.asInstanceOf[ContentDecoder[Any, Throwable, Chunk[Byte], B]]
                       self.completePromise = p.asInstanceOf[Promise[Throwable, Any]]
-                      addContinueStatus()
+                      handleExpectationFailed()
                       ctx.read(): Unit
                     }
                     b <- p.await

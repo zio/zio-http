@@ -24,7 +24,7 @@ sealed trait Server[-R, +E] { self =>
     case Ssl(sslOption)       => s.copy(sslOption = sslOption)
     case App(app)             => s.copy(app = app)
     case Address(address)     => s.copy(address = address)
-    case StatusContinue       => s.copy(statusContinue = true)
+    case StatusContinue       => s.copy(acceptContinue = true)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
@@ -42,7 +42,7 @@ object Server {
     sslOption: ServerSSLOptions = null,
     app: HttpApp[R, E] = HttpApp.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
-    statusContinue: Boolean = false,
+    acceptContinue: Boolean = false,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -63,7 +63,7 @@ object Server {
   def bind(inetSocketAddress: InetSocketAddress): UServer = Server.Address(inetSocketAddress)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
-  def statusContinue: UServer                                                        = Server.StatusContinue
+  def acceptContinue: UServer                                                        = Server.StatusContinue
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)

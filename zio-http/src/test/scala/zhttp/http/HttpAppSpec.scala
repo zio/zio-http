@@ -4,6 +4,7 @@ import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues, HttpHeade
 import zhttp.experiment.internal.{HttpAppClient, HttpMessageAssertions}
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.service.EventLoopGroup
+import zhttp.service.Server.Settings
 import zio.duration._
 import zio.stream.ZStream
 import zio.test.Assertion.{equalTo, isLeft, isNone}
@@ -237,18 +238,20 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
     testM("status is 100 Continue") {
       val res = HttpApp
         .fromHttp(app)
-        .getResponseWithContinueStatus(
+        .getResponse(
           method = HttpMethod.POST,
           header = expectHeader,
+          settings = Settings(acceptContinue = true),
         )
       assertM(res)(isResponse(responseStatus(100)))
     } +
       testM("status is 200 Ok") {
         val res = HttpApp
           .fromHttp(app)
-          .getResponseAfterContinueReceived(
+          .getResponseWithAcceptContinue(
             method = HttpMethod.POST,
             header = expectHeader,
+            settings = Settings(acceptContinue = true),
           )
         assertM(res)(isResponse(responseStatus(200)))
       } +

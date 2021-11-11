@@ -29,35 +29,25 @@ trait HttpMessageAssertions {
       method: HttpMethod = HttpMethod.GET,
       header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
       content: Iterable[String] = List("A", "B", "C", "D"),
+      settings: Settings[R, Throwable] = Settings(),
     ): ZIO[R with EventLoopGroup, Throwable, HttpResponse] = for {
-      proxy <- HttpAppClient.deploy(app)
+      proxy <- HttpAppClient.deploy(app, settings)
       _     <- proxy.request(url, method, header)
       _     <- proxy.end(content)
       res   <- proxy.receive
     } yield res.asInstanceOf[HttpResponse]
 
-    def getResponseAfterContinueReceived(
+    def getResponseWithAcceptContinue(
       url: String = "/",
       method: HttpMethod = HttpMethod.GET,
       header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
       content: Iterable[String] = List("A", "B", "C", "D"),
+      settings: Settings[R, Throwable] = Settings(acceptContinue = true),
     ): ZIO[R with EventLoopGroup, Throwable, HttpResponse] = for {
-      proxy <- HttpAppClient.deploy(app, Settings(statusContinue = true))
+      proxy <- HttpAppClient.deploy(app, settings)
       _     <- proxy.request(url, method, header)
       _     <- proxy.end(content)
       _     <- proxy.receive
-      res   <- proxy.receive
-    } yield res.asInstanceOf[HttpResponse]
-
-    def getResponseWithContinueStatus(
-      url: String = "/",
-      method: HttpMethod = HttpMethod.GET,
-      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
-      content: Iterable[String] = List("A", "B", "C", "D"),
-    ): ZIO[R with EventLoopGroup, Throwable, HttpResponse] = for {
-      proxy <- HttpAppClient.deploy(app, Settings(statusContinue = true))
-      _     <- proxy.request(url, method, header)
-      _     <- proxy.end(content)
       res   <- proxy.receive
     } yield res.asInstanceOf[HttpResponse]
 

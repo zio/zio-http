@@ -212,6 +212,10 @@ object HttpAppClient {
       proxy    <- UIO {
 
         val channel = ProxyChannel(inbound, outbound, ec, grtm, thread)
+        if (settings.acceptContinue)
+          channel
+            .pipeline()
+            .addLast(new HttpServerExpectContinueHandler)
         channel.pipeline().addLast(app.compile(zExec, settings))
         HttpAppClient(outbound, channel)
       }.on(ec)
