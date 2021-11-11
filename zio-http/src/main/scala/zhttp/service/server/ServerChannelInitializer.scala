@@ -1,7 +1,7 @@
 package zhttp.service.server
 
 import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel.{Channel, ChannelInitializer}
+import io.netty.channel.{Channel, ChannelInitializer, ChannelPipeline}
 import io.netty.handler.codec.http.{HttpServerCodec, HttpServerExpectContinueHandler, HttpServerKeepAliveHandler}
 import io.netty.handler.flow.FlowControlHandler
 import zhttp.service.Server.Settings
@@ -15,7 +15,7 @@ final case class ServerChannelInitializer[R](zExec: HttpRuntime[R], settings: Se
     extends ChannelInitializer[Channel] {
   override def initChannel(channel: Channel): Unit = {
 
-    val sslctx = if (settings.sslOption == null) null else settings.sslOption.sslContext
+    val sslctx              = if (settings.sslOption == null) null else settings.sslOption.sslContext
     if (sslctx != null) {
       channel
         .pipeline()
@@ -25,7 +25,7 @@ final case class ServerChannelInitializer[R](zExec: HttpRuntime[R], settings: Se
         )
       ()
     }
-    val ch     = channel
+    val ch: ChannelPipeline = channel
       .pipeline()
       .addLast(HTTP_SERVER_CODEC, new HttpServerCodec())               // TODO: See if server codec is really required
       .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler) // TODO: Make keep-alive configurable
