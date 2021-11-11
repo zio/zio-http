@@ -187,6 +187,9 @@ object HttpMiddleware {
       List(Header(HttpHeaderNames.WWW_AUTHENTICATE, HeaderExtension.BasicSchemeName)),
     )
 
+  /**
+   * creates a middleware for basic authentication that simply checks if the credentials are same as the ones given
+   */
   def basicAuth[R, E](u: String, p: String): HttpMiddleware[R, E] =
     basicAuth((user, password) => (user == u) && (password == p))
 
