@@ -13,7 +13,7 @@ import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
-final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: HttpRuntime[R])
+final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: HttpRuntime[R], statusContinue: Boolean)
     extends ChannelInboundHandlerAdapter
     with WebSocketUpgrade[R] { self =>
 
@@ -210,8 +210,15 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
       }
     }
 
-    def checkExpectHeader(): Unit = if (jReq.headers().contains(HttpHeaderNames.EXPECT)) {
-      ctx.write(new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, Status.CONTINUE.asJava, Unpooled.EMPTY_BUFFER))
+    def checkExpectHeader(): Unit = if (jReq.headers().contains(HttpHeaderNames.EXPECT) && statusContinue) {
+      ctx.writeAndFlush(
+        new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, Status.CONTINUE.asJava, Unpooled.EMPTY_BUFFER),
+      )
+      ()
+    } else if (jReq.headers().contains(HttpHeaderNames.EXPECT) && !statusContinue) {
+      ctx.writeAndFlush(
+        new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, Status.EXPECTATION_FAILED.asJava, Unpooled.EMPTY_BUFFER),
+      )
       ()
     }
 
