@@ -52,7 +52,7 @@ object Server {
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
   private final case class Address(address: InetSocketAddress)                        extends UServer
   private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
-  private final case object StatusContinue                                            extends UServer
+  private case object StatusContinue                                                  extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
