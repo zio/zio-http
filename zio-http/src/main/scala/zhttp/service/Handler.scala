@@ -199,7 +199,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
                 isLast,
                 self.request.method,
                 self.request.url,
-                self.request.headers,
+                self.request.getHeaders,
               )
             _                <- publish match {
               case Some(out) => self.completePromise.succeed(out)
