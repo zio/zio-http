@@ -8,7 +8,12 @@ import zio.test._
 object ContentDecoderSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
   val content = HttpGen.nonEmptyHttpData(Gen.const(List("A", "B", "C", "D")))
-  val reqMeta = HttpGen.reqMeta
+  val reqMeta = for {
+    method <- Gen.fromIterable(List(Method.GET, Method.PUT, Method.POST, Method.PATCH, Method.DELETE))
+    path   <- HttpGen.path
+    header <- Gen.listOf(HttpGen.header)
+
+  } yield (method, URL(path), header)
 
   def spec = suite("ContentDecoder") {
     testM("text") {

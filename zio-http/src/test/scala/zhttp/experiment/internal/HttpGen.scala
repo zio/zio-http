@@ -83,13 +83,6 @@ object HttpGen {
     ),
   )
 
-  val reqMeta = for {
-    method <- Gen.fromIterable(List(Method.GET, Method.PUT, Method.POST, Method.PATCH, Method.DELETE))
-    path   <- path
-    header <- header
-
-  } yield (method, URL(path), List(header))
-
   def httpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData[Any, Nothing]] =
     for {
       list <- gen
