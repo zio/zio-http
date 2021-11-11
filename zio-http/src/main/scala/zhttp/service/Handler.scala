@@ -1,6 +1,6 @@
 package zhttp.service
 
-import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
@@ -17,13 +17,13 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
     extends ChannelInboundHandlerAdapter
     with WebSocketUpgrade[R] { self =>
 
-  private val cBody: ByteBuf = Unpooled.compositeBuffer()
-  private var decoder: ContentDecoder[Any, Throwable, (Method, URL, List[Header], Chunk[Byte]), Any] = _
-  private var completePromise: Promise[Throwable, Any]                                               = _
-  private var isFirst: Boolean                                                                       = true
-  private var decoderState: Any                                                                      = _
-  private var jReq: HttpRequest                                                                      = _
-  private var request: Request                                                                       = _
+  private val cBody: ByteBuf                                            = Unpooled.compositeBuffer()
+  private var decoder: ContentDecoder[Any, Throwable, Chunk[Byte], Any] = _
+  private var completePromise: Promise[Throwable, Any]                  = _
+  private var isFirst: Boolean                                          = true
+  private var decoderState: Any                                         = _
+  private var jReq: HttpRequest                                         = _
+  private var request: Request                                          = _
 
   override def channelRegistered(ctx: ChannelHandlerContext): Unit = {
     ctx.channel().config().setAutoRead(false)
@@ -169,7 +169,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
      */
     def decodeContent(
       content: ByteBuf,
-      decoder: ContentDecoder[Any, Throwable, (Method, URL, List[Header], Chunk[Byte]), Any],
+      decoder: ContentDecoder[Any, Throwable, Chunk[Byte], Any],
       isLast: Boolean,
     ): Unit = {
       decoder match {
@@ -190,13 +190,16 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
 
           unsafeRunZIO(for {
             (publish, state) <- step
-              .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, (Method, URL, List[Header], Chunk[Byte]), Any]]
+              .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], Any]]
               .next(
-                // content.array() can fail in case of no backing byte array
+                // content.array() fails with post request with body
                 // Link: https://livebook.manning.com/book/netty-in-action/chapter-5/54
-                (self.request.method, self.request.url, self.request.headers, Chunk.fromArray(content.array())),
+                Chunk.fromArray(ByteBufUtil.getBytes(content)),
                 nState,
                 isLast,
+                self.request.method,
+                self.request.url,
+                self.request.headers,
               )
             _                <- publish match {
               case Some(out) => self.completePromise.succeed(out)
@@ -220,7 +223,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
         self.jReq = jRequest
         self.request = new Request {
           override def decodeContent[R0, B](
-            decoder: ContentDecoder[R0, Throwable, (Method, URL, List[Header], Chunk[Byte]), B],
+            decoder: ContentDecoder[R0, Throwable, Chunk[Byte], B],
           ): ZIO[R0, Throwable, B] =
             ZIO.effectSuspendTotal {
               if (self.decoder != null)
@@ -230,7 +233,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
                   p <- Promise.make[Throwable, B]
                   _ <- UIO {
                     self.decoder = decoder
-                      .asInstanceOf[ContentDecoder[Any, Throwable, (Method, URL, List[Header], Chunk[Byte]), B]]
+                      .asInstanceOf[ContentDecoder[Any, Throwable, Chunk[Byte], B]]
                     self.completePromise = p.asInstanceOf[Promise[Throwable, Any]]
                     ctx.read(): Unit
                   }

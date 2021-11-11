@@ -16,7 +16,7 @@ trait Request extends HeaderExtension[Request] { self =>
   def path: Path = url.path
 
   def decodeContent[R, B](
-    decoder: ContentDecoder[R, Throwable, (Method, URL, List[Header], Chunk[Byte]), B],
+    decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
   ): ZIO[R, Throwable, B]
 
   def remoteAddress: Option[InetAddress]
@@ -36,7 +36,7 @@ trait Request extends HeaderExtension[Request] { self =>
         self.remoteAddress
 
       override def decodeContent[R, B](
-        decoder: ContentDecoder[R, Throwable, (Method, URL, List[Header], Chunk[Byte]), B],
+        decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
       ): ZIO[R, Throwable, B] =
         self.decodeContent(decoder)
     }
@@ -70,9 +70,9 @@ object Request {
       override def getHeaders: List[Header]           = h
       override def remoteAddress: Option[InetAddress] = ra
       override def decodeContent[R, B](
-        decoder: ContentDecoder[R, Throwable, (Method, URL, List[Header], Chunk[Byte]), B],
+        decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
       ): ZIO[R, Throwable, B] =
-        decoder.decode((method, url, headers), data)
+        decoder.decode(method, url, headers, data)
     }
   }
 
@@ -100,7 +100,7 @@ object Request {
     override def getHeaders: List[Header]           = req.getHeaders
     override def remoteAddress: Option[InetAddress] = req.remoteAddress
     override def decodeContent[R, B](
-      decoder: ContentDecoder[R, Throwable, (Method, URL, List[Header], Chunk[Byte]), B],
+      decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
     ): ZIO[R, Throwable, B] =
       req.decodeContent(decoder)
   }

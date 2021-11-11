@@ -17,12 +17,14 @@ object ContentDecoderSpec extends DefaultRunnableSpec with HttpMessageAssertions
 
   def spec = suite("ContentDecoder") {
     testM("text") {
-      checkAllM(reqMeta, content) { (m, c) => assertM(ContentDecoder.text.decode(m, c))(equalTo("ABCD")) }
+      checkAllM(reqMeta, content) { (m, c) =>
+        assertM(ContentDecoder.text.decode(m._1, m._2, m._3, c))(equalTo("ABCD"))
+      }
     } +
       testM("collectAll") {
         checkAllM(reqMeta, content) { (m, c) =>
-          val sampleStepDecoder = ContentDecoder.collectAll[(Method, URL, List[Header], Chunk[Byte])]
-          assertM(sampleStepDecoder.decode(m, c).map(_.flatMap(_._4)).map(ch => new String(ch.toArray)))(
+          val sampleStepDecoder = ContentDecoder.collectAll[Chunk[Byte]]
+          assertM(sampleStepDecoder.decode(m._1, m._2, m._3, c).map(_.flatten).map(ch => new String(ch.toArray)))(
             equalTo("ABCD"),
           )
         }
