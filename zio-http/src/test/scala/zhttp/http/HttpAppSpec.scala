@@ -232,9 +232,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
     testM("status is 100 Continue") {
       val res = HttpApp
         .fromHttp(Http.collectM[Request] { case req =>
-          req.decodeContent(ContentDecoder.text).map { content =>
-            Response(data = HttpData.fromText(content))
-          }
+          req.decodeContent(ContentDecoder.text).as(Ok)
         })
         .getResponseWithContinueStatus(
           method = HttpMethod.POST,
@@ -245,9 +243,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       testM("status is 200 Ok") {
         val res = HttpApp
           .fromHttp(Http.collectM[Request] { case req =>
-            req.decodeContent(ContentDecoder.text).map { content =>
-              Response(data = HttpData.fromText(content))
-            }
+            req.decodeContent(ContentDecoder.text).as(Ok)
           })
           .getResponseAfterContinueReceived(
             method = HttpMethod.POST,
@@ -258,9 +254,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       testM("status is 417 Expectation Failed") {
         val res = HttpApp
           .fromHttp(Http.collectM[Request] { case req =>
-            req.decodeContent(ContentDecoder.text).map { content =>
-              Response(data = HttpData.fromText(content))
-            }
+            req.decodeContent(ContentDecoder.text).as(Ok)
           })
           .getResponse(
             method = HttpMethod.POST,
