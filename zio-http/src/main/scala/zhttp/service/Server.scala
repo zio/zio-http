@@ -25,7 +25,7 @@ sealed trait Server[-R, +E] { self =>
     case App(app)             => s.copy(app = app)
     case Address(address)     => s.copy(address = address)
     case Transport(transport) => s.copy(transport = transport)
-    case NThreads(nThreads)   => s.copy(nThreads = nThreads)
+    case NumThreads(nThreads) => s.copy(nThreads = nThreads)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R, Throwable, Unit] =
@@ -57,7 +57,7 @@ object Server {
   private final case class Address(address: InetSocketAddress)                        extends UServer
   private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
   private final case class Transport(transport: TransportType)                        extends UServer
-  private final case class NThreads(nThreads: Int)                                    extends UServer
+  private final case class NumThreads(nThreads: Int)                                  extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -74,7 +74,7 @@ object Server {
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
 
   def transport(transportType: TransportType): UServer = Server.Transport(transportType)
-  def nThreads(nThreads: Int): UServer                 = Server.NThreads(nThreads)
+  def numThreads(nThreads: Int): UServer               = Server.NumThreads(nThreads)
 
   /**
    * Launches the app on the provided port.
