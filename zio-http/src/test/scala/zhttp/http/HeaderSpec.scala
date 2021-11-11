@@ -14,11 +14,7 @@ object HeaderSpec extends DefaultRunnableSpec {
   val customHeaders: List[Header]     = List(customAcceptJsonHeader, customContentJsonHeader)
 
   final case class HeadersHolder(headers: List[Header]) extends HeaderExtension[HeadersHolder] { self =>
-    override def addHeaders(headers: List[Header]): HeadersHolder =
-      HeadersHolder(self.headers ++ headers)
-
-    override def removeHeaders(headers: List[String]): HeadersHolder =
-      HeadersHolder(self.headers.filterNot(h => headers.contains(h.name)))
+    override def updateHeaders(f: List[Header] => List[Header]): HeadersHolder = self.copy(headers = f(self.headers))
   }
 
   def spec = suite("Header")(

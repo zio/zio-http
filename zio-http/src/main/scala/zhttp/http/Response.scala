@@ -27,22 +27,8 @@ case class Response[-R, +E] private (
     self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
 
   /**
-   * Removes headers by name from the response
+   * Extracts the length of the content specified in the response data.
    */
-  override def removeHeaders(headers: List[String]): Response[R, E] =
-    self.copy(headers = self.headers.filterNot(h => headers.contains(h.name)))
-
-  /**
-   * Adds headers to response
-   */
-  override def addHeaders(headers: List[Header]): Response[R, E] =
-    self.copy(headers = self.headers ++ headers)
-
-  /**
-   * Gets cookies from the response headers
-   */
-  def cookies: List[Cookie] = getCookieFromHeader(HttpHeaderNames.SET_COOKIE)
-
   def getContentLength: Option[Long] = self.data.size
 
   /**
@@ -54,6 +40,12 @@ case class Response[-R, +E] private (
       case None        => setChunkedEncoding
     }
   }
+
+  /**
+   * Updates the headers using the provided function
+   */
+  final override def updateHeaders(f: List[Header] => List[Header]): Response[R, E] =
+    self.copy(headers = f(self.headers))
 }
 
 object Response {
