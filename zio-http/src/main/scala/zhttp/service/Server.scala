@@ -103,9 +103,9 @@ object Server {
   ): ZManaged[R, Throwable, Unit] = {
     val settings = server.settings()
     for {
-      channelEventLoopGroupTuple <- Transport.make(settings.transport, settings.threads)
-      (channel, eventLoopGroup) = channelEventLoopGroupTuple
-      zExec <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
+      channel        <- ZManaged.fromEffect(Transport.channelInitializer(settings.transport))
+      eventLoopGroup <- Transport.eventLoopGroup(settings.transport, settings.threads)
+      zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
       init            = ServerChannelInitializer(zExec, settings)
       serverBootstrap = new ServerBootstrap()
         .channelFactory(channel)

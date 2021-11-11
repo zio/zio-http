@@ -1,5 +1,6 @@
 package zhttp.service.server
 
+import io.netty.channel
 import io.netty.channel.epoll.{Epoll, EpollServerSocketChannel}
 import io.netty.channel.kqueue.{KQueue, KQueueServerSocketChannel}
 import io.netty.channel.socket.nio.NioServerSocketChannel
@@ -8,6 +9,11 @@ import io.netty.incubator.channel.uring.IOUringServerSocketChannel
 import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zio.{Task, ZManaged}
 
+/**
+ * Support for various transport types. NIO Transport - Works on any Platform / OS that has Java support Native Epoll
+ * Transport - Works on Linux only and depending on the used Kernel / GLIBC version various features are available
+ * Native Kqueue Transport - Works on any BSD in theory, but tested mainly on MacOS.
+ */
 sealed trait Transport
 object Transport        {
   case object Nio    extends Transport
@@ -16,15 +22,24 @@ object Transport        {
   case object URing  extends Transport
   case object Auto   extends Transport
 
-  import zhttp.service.server.TransportFactory._
+  def eventLoopGroup(transport: Transport, threads: Int): ZManaged[Any, Nothing, channel.EventLoopGroup] =
+    transport match {
+      case Nio    => EventLoopGroup.Live.nio(threads)
+      case Epoll  => EventLoopGroup.Live.epoll(threads)
+      case KQueue => EventLoopGroup.Live.kQueue(threads)
+      case URing  => EventLoopGroup.Live.uring(threads)
+      case Auto   => EventLoopGroup.Live.auto(threads)
+    }
 
-  def make(transType: Transport, nThreads: Int = 0) = transType match {
-    case Nio    => ZManaged.fromEffect(nio).zip(EventLoopGroup.Live.nio(nThreads))
-    case Epoll  => ZManaged.fromEffect(epoll).zip(EventLoopGroup.Live.epoll(nThreads))
-    case KQueue => ZManaged.fromEffect(kQueue).zip(EventLoopGroup.Live.kQueue(nThreads))
-    case URing  => ZManaged.fromEffect(uring).zip(EventLoopGroup.Live.uring(nThreads))
-    case Auto   => ZManaged.fromEffect(auto).zip(EventLoopGroup.Live.auto(nThreads))
-  }
+  import zhttp.service.server.TransportFactory._
+  def channelInitializer(transport: Transport): Task[JChannelFactory[ServerChannel]] =
+    transport match {
+      case Nio    => nio
+      case Epoll  => epoll
+      case KQueue => kQueue
+      case URing  => uring
+      case Auto   => auto
+    }
 }
 object TransportFactory {
   def nio: Task[JChannelFactory[ServerChannel]]    = ChannelFactory.make(() => new NioServerSocketChannel())
