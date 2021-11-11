@@ -98,19 +98,19 @@ object HttpMiddleware {
   def identity: HttpMiddleware[Any, Nothing] = Identity
 
   /**
-   * Apply a middleware depending upon an effectful condition
+   * Applies the middleware only if the condition function evaluates to true
    */
   def when[R, E](cond: RequestP[Boolean])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     ifThenElse(cond)(middleware, HttpMiddleware.identity)
 
   /**
-   * Apply a middleware depending upon an effectful condition
+   * Applies the middleware only if the condition function effectfully evaluates to true
    */
   def whenM[R, E](cond: RequestP[ZIO[R, E, Boolean]])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     ifThenElseM(cond)(middleware, HttpMiddleware.identity)
 
   /**
-   * Apply one of the 2 middlewares depending on the condition
+   * Logical operator to decide which middleware to select based on the predicate.
    */
   def ifThenElseM[R, E](
     cond: RequestP[ZIO[R, E, Boolean]],
@@ -123,7 +123,7 @@ object HttpMiddleware {
     )
 
   /**
-   * Apply one of the 2 middlewares depending on a effectful condition
+   * Logical operator to decide which middleware to select based on the predicate.
    */
   def ifThenElse[R, E](
     cond: RequestP[Boolean],
