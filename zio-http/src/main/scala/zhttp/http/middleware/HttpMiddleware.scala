@@ -165,12 +165,13 @@ object HttpMiddleware {
   /**
    * Creates an authentication middleware that authenticate requests as per the given condition
    */
-  def authenticate[R,E](
-   f: List[Header]=> ZIO[R,E,Boolean],
-   headers: List[Header] = List.empty
-   ): HttpMiddleware[R,E] = ifThenElseM((_,_,h)=>f(h))(
+  def authenticate[R, E](
+    f: List[Header] => ZIO[R, E, Boolean],
+    headers: List[Header] = List.empty,
+  ): HttpMiddleware[R, E] = ifThenElseM((_, _, h) => f(h))(
     HttpMiddleware.identity,
-    HttpMiddleware.fromApp(HttpApp.response(HttpError.Forbidden().toResponse.addHeaders(headers))))
+    HttpMiddleware.fromApp(HttpApp.response(HttpError.Forbidden().toResponse.addHeaders(headers))),
+  )
 
   /**
    * creates a middleware for basic authentication
@@ -196,12 +197,12 @@ object HttpMiddleware {
   /**
    * creates a middleware that check the content of X-ACCESS-TOKEN header and try to decode a JwtClaim
    */
-  def jwt[R,E](
+  def jwt[R, E](
     secretKey: String,
-    tokenHeaderName: String= "X-ACCESS-TOKEN",
-    f:JwtClaim => UIO[Boolean] = _ => ZIO.succeed(true),
+    tokenHeaderName: String = "X-ACCESS-TOKEN",
+    f: JwtClaim => UIO[Boolean] = _ => ZIO.succeed(true),
     algo: Seq[JwtHmacAlgorithm] = Seq(JwtAlgorithm.HS512),
-    headers: List[Header]=List.empty
+    headers: List[Header] = List.empty,
   ): HttpMiddleware[Any, Nothing] =
     authenticate(
       { h =>

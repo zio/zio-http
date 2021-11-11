@@ -1,7 +1,9 @@
 package zhttp.middleware
 
+import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware
+import zhttp.http.middleware.HttpMiddleware.{basicAuth, jwt}
 import zhttp.internal.HttpAppTestExtensions
 import zio.clock.Clock
 import zio.duration._
@@ -20,6 +22,21 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
 
   def condM(flg: Boolean) = (_: Any, _: Any, _: Any) => UIO(flg)
   def cond(flg: Boolean)  = (_: Any, _: Any, _: Any) => flg
+
+  val basicHS = Header.basicHttpAuthorization("user", "resu")
+  val basicHF = Header.basicHttpAuthorization("user", "WrongPassword")
+
+  val jwtHS = Header.custom(
+    "X-ACCESS-TOKEN",
+    Jwt.encode(JwtClaim { s"""{"user": "someusername"}""" }, "secretKey", JwtAlgorithm.HS512),
+  )
+  val jwtHF = Header.custom(
+    "X-ACCESS-TOKEN",
+    Jwt.encode(JwtClaim { s"""{"user": "someusername"}""" }, "WrongSecretKey", JwtAlgorithm.HS512),
+  )
+
+  val basicAuthM = basicAuth((u, p) => UIO(p.reverse == u))
+  val jwtAuthM   = jwt("secretKey")
 
   def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response[R, E]] = {
     for {
@@ -114,6 +131,32 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
           testM("if the condition is false don't apply the middleware") {
             val app = HttpApp.ok @@ when(cond(false))(midA) getHeader "X-Custom"
             assertM(app(Request()))(isNone)
+          }
+      } +
+      suite("Authentication middleware") {
+        suite("basicAuth") {
+          testM("HttpApp is accepted if the basic authentication succeeds") {
+            val app = (HttpApp.ok @@ basicAuthM).getStatus
+            assertM(app(Request().addHeaders(List(basicHS))))(equalTo(Status.OK))
+          } +
+            testM("Uses forbidden app if the basic authentication fails") {
+              val app = (HttpApp.ok @@ basicAuthM).getStatus
+              assertM(app(Request().addHeaders(List(basicHF))))(equalTo(Status.FORBIDDEN))
+            } +
+            testM("Responses sould have WWW-Authentication header if Basic Auth failed") {
+              val app = HttpApp.ok @@ basicAuthM getHeader "WWW-AUTHENTICATE"
+              assertM(app(Request().addHeaders(List(basicHF))))(isSome)
+            }
+        } +
+          suite("jwt") {
+            testM("HttpApp is accepted if request has a valid JwtClain") {
+              val app = (HttpApp.ok @@ jwtAuthM).getStatus
+              assertM(app(Request().addHeaders(List(jwtHS))))(equalTo(Status.OK))
+            } +
+              testM("Uses forbidden app if the request has a invalid JwtClaim") {
+                val app = (HttpApp.ok @@ jwtAuthM).getStatus
+                assertM(app(Request().addHeaders(List(jwtHF))))(equalTo(Status.FORBIDDEN))
+              }
           }
       }
 
