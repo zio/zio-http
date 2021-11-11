@@ -176,7 +176,7 @@ object HttpMiddleware {
   /**
    * creates a middleware for basic authentication
    */
-  def basicAuth[R, E](f: (String, String) => ZIO[R, E, Boolean]): HttpMiddleware[R, E] = authenticate(
+  def basicAuth[R, E](f: (String, String) => UIO[Boolean]): HttpMiddleware[R, E] = authenticate(
     { h =>
       HeadersHolder(h).getBasicAuthorizationCredentials match {
         case Some((username, password)) => f(username, password)

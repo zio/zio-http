@@ -35,7 +35,7 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
     Jwt.encode(JwtClaim { s"""{"user": "someusername"}""" }, "WrongSecretKey", JwtAlgorithm.HS512),
   )
 
-  val basicAuthM = basicAuth((u, p) => ZIO.succeed(p.reverse == u))
+  val basicAuthM = basicAuth((u, p) => UIO(p.reverse == u))
   val jwtAuthM   = jwt("secretKey")
 
   def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response[R, E]] = {
