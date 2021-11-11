@@ -3,6 +3,7 @@ package zhttp.experiment.internal
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.EventLoopGroup
+import zhttp.service.Server.Settings
 import zio.stream.ZStream
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
@@ -30,6 +31,31 @@ trait HttpMessageAssertions {
       content: Iterable[String] = List("A", "B", "C", "D"),
     ): ZIO[R with EventLoopGroup, Throwable, HttpResponse] = for {
       proxy <- HttpAppClient.deploy(app)
+      _     <- proxy.request(url, method, header)
+      _     <- proxy.end(content)
+      res   <- proxy.receive
+    } yield res.asInstanceOf[HttpResponse]
+
+    def getResponseAfterContinueReceived(
+      url: String = "/",
+      method: HttpMethod = HttpMethod.GET,
+      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+      content: Iterable[String] = List("A", "B", "C", "D"),
+    ): ZIO[R with EventLoopGroup, Throwable, HttpResponse] = for {
+      proxy <- HttpAppClient.deploy(app, Settings(statusContinue = true))
+      _     <- proxy.request(url, method, header)
+      _     <- proxy.end(content)
+      _     <- proxy.receive
+      res   <- proxy.receive
+    } yield res.asInstanceOf[HttpResponse]
+
+    def getResponseWithContinueStatus(
+      url: String = "/",
+      method: HttpMethod = HttpMethod.GET,
+      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+      content: Iterable[String] = List("A", "B", "C", "D"),
+    ): ZIO[R with EventLoopGroup, Throwable, HttpResponse] = for {
+      proxy <- HttpAppClient.deploy(app, Settings(statusContinue = true))
       _     <- proxy.request(url, method, header)
       _     <- proxy.end(content)
       res   <- proxy.receive

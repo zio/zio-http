@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.{HttpMethod, HttpResponse}
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues, HttpMethod, HttpResponse}
 import zhttp.experiment.internal.{HttpAppClient, HttpMessageAssertions}
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.service.EventLoopGroup
@@ -28,6 +28,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       IllegalMessageSpec,
       ContentDecoderSpec,
       RemoteAddressSpec,
+      StatusContinueResponseSpec,
     ).provideCustomLayer(env) @@ timeout(10 seconds)
 
   /**
@@ -225,5 +226,47 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       val addr = HttpApp.fromHttp(Http.succeed(Ok)).getRequest().map(_.remoteAddress)
       assertM(addr)(isNone)
     }
+  }
+
+  def StatusContinueResponseSpec = suite("StatusContinueSpec") {
+    testM("status is 100 Continue") {
+      val res = HttpApp
+        .fromHttp(Http.collectM[Request] { case req =>
+          req.decodeContent(ContentDecoder.text).map { content =>
+            Response(data = HttpData.fromText(content))
+          }
+        })
+        .getResponseWithContinueStatus(
+          method = HttpMethod.POST,
+          header = Header.disassemble(List(Header.custom(HttpHeaderNames.EXPECT.toString, HttpHeaderValues.CONTINUE))),
+        )
+      assertM(res)(isResponse(responseStatus(100)))
+    } +
+      testM("status is 200 Ok") {
+        val res = HttpApp
+          .fromHttp(Http.collectM[Request] { case req =>
+            req.decodeContent(ContentDecoder.text).map { content =>
+              Response(data = HttpData.fromText(content))
+            }
+          })
+          .getResponseAfterContinueReceived(
+            method = HttpMethod.POST,
+            header = Header.disassemble(List(Header.custom(HttpHeaderNames.EXPECT.toString, HttpHeaderValues.CONTINUE))),
+          )
+        assertM(res)(isResponse(responseStatus(200)))
+      } +
+      testM("status is 417 Expectation Failed") {
+        val res = HttpApp
+          .fromHttp(Http.collectM[Request] { case req =>
+            req.decodeContent(ContentDecoder.text).map { content =>
+              Response(data = HttpData.fromText(content))
+            }
+          })
+          .getResponse(
+            method = HttpMethod.POST,
+            header = Header.disassemble(List(Header.custom(HttpHeaderNames.EXPECT.toString, HttpHeaderValues.CONTINUE))),
+          )
+        assertM(res)(isResponse(responseStatus(417)))
+      }
   }
 }
