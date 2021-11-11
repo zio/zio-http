@@ -8,17 +8,17 @@ import io.netty.incubator.channel.uring.IOUringServerSocketChannel
 import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zio.{Task, ZManaged}
 
-sealed trait TransportType
-object TransportType    {
-  case object Nio    extends TransportType
-  case object Epoll  extends TransportType
-  case object KQueue extends TransportType
-  case object URing  extends TransportType
-  case object Auto   extends TransportType
+sealed trait Transport
+object Transport        {
+  case object Nio    extends Transport
+  case object Epoll  extends Transport
+  case object KQueue extends Transport
+  case object URing  extends Transport
+  case object Auto   extends Transport
 
   import zhttp.service.server.TransportFactory._
 
-  def make(transType: TransportType, nThreads: Int = 0) = transType match {
+  def make(transType: Transport, nThreads: Int = 0) = transType match {
     case Nio    => ZManaged.fromEffect(nio).zip(EventLoopGroup.Live.nio(nThreads))
     case Epoll  => ZManaged.fromEffect(epoll).zip(EventLoopGroup.Live.epoll(nThreads))
     case KQueue => ZManaged.fromEffect(kQueue).zip(EventLoopGroup.Live.kQueue(nThreads))

@@ -1,6 +1,6 @@
 import zhttp.http._
 import zhttp.service._
-import zhttp.service.server.TransportType.Auto
+import zhttp.service.server.Transport.Auto
 import zio._
 
 object HelloWorldAdvanced extends App {

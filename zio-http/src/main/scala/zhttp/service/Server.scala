@@ -24,7 +24,7 @@ sealed trait Server[-R, +E] { self =>
     case Ssl(sslOption)       => s.copy(sslOption = sslOption)
     case App(app)             => s.copy(app = app)
     case Address(address)     => s.copy(address = address)
-    case Transport(transport) => s.copy(transport = transport)
+    case Trans(transport)     => s.copy(transport = transport)
     case NumThreads(nThreads) => s.copy(nThreads = nThreads)
   }
 
@@ -36,7 +36,7 @@ sealed trait Server[-R, +E] { self =>
 
 }
 
-import zhttp.service.server.TransportType.Auto
+import zhttp.service.server.Transport.Auto
 object Server {
   private[zhttp] final case class Settings[-R, +E](
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
@@ -45,7 +45,7 @@ object Server {
     sslOption: ServerSSLOptions = null,
     app: HttpApp[R, E] = HttpApp.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
-    transport: TransportType = Auto,
+    transport: Transport = Auto,
     nThreads: Int = 0,
   )
 
@@ -56,7 +56,7 @@ object Server {
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
   private final case class Address(address: InetSocketAddress)                        extends UServer
   private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
-  private final case class Transport(transport: TransportType)                        extends UServer
+  private final case class Trans(transport: Transport)                                extends UServer
   private final case class NumThreads(nThreads: Int)                                  extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
@@ -73,8 +73,8 @@ object Server {
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
 
-  def transport(transportType: TransportType): UServer = Server.Transport(transportType)
-  def numThreads(nThreads: Int): UServer               = Server.NumThreads(nThreads)
+  def transport(trans: Transport): UServer = Server.Trans(trans)
+  def numThreads(nThreads: Int): UServer   = Server.NumThreads(nThreads)
 
   /**
    * Launches the app on the provided port.
@@ -103,7 +103,7 @@ object Server {
   ): ZManaged[R, Throwable, Unit] = {
     val settings = server.settings()
     for {
-      channelEventLoopGroupTuple <- TransportType.make(settings.transport, settings.nThreads)
+      channelEventLoopGroupTuple <- Transport.make(settings.transport, settings.nThreads)
       (channel, eventLoopGroup) = channelEventLoopGroupTuple
       zExec <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
       init            = ServerChannelInitializer(zExec, settings)
