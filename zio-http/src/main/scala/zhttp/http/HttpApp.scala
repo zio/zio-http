@@ -170,6 +170,12 @@ object HttpApp {
     HttpApp(Http.fromFunction[Request](f(_).asHttp).flatten)
 
   /**
+   * Creates a Http app from a function from Request to ZIO[R,E,HttpApp[R,E]]
+   */
+  def fromFunctionM[R, E, B](f: Request => ZIO[R, E, HttpApp[R, E]]): HttpApp[R, E] =
+    HttpApp(Http.fromFunctionM[Request](f(_).map(_.asHttp)).flatten)
+
+  /**
    * Creates a Http app from a partial function from Request to HttpApp
    */
   def fromOptionFunction[R, E, A, B](f: Request => ZIO[R, Option[E], Response[R, E]]): HttpApp[R, E] =

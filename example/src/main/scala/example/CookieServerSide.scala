@@ -1,8 +1,10 @@
+package example
+
 import zhttp.http.Cookie.{httpOnly, maxAge, path, secure}
-import zhttp.http._
-import zhttp.service._
-import zio._
+import zhttp.http.{Cookie, HttpApp, Method, Response, _}
+import zhttp.service.Server
 import zio.duration.durationInt
+import zio.{App, ExitCode, URIO}
 
 /**
  * Example to make app using cookies

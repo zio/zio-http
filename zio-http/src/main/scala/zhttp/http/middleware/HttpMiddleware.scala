@@ -98,6 +98,39 @@ object HttpMiddleware {
   def identity: HttpMiddleware[Any, Nothing] = Identity
 
   /**
+   * Applies the middleware only if the condition function evaluates to true
+   */
+  def when[R, E](cond: RequestP[Boolean])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    ifThenElse(cond)(middleware, HttpMiddleware.identity)
+
+  /**
+   * Applies the middleware only if the condition function effectfully evaluates to true
+   */
+  def whenM[R, E](cond: RequestP[ZIO[R, E, Boolean]])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    ifThenElseM(cond)(middleware, HttpMiddleware.identity)
+
+  /**
+   * Logical operator to decide which middleware to select based on the predicate.
+   */
+  def ifThenElseM[R, E](
+    cond: RequestP[ZIO[R, E, Boolean]],
+  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    HttpMiddleware.FromFunctionM((method, url, headers) =>
+      cond(method, url, headers).mapError(Option(_)).map {
+        case true  => left
+        case false => right
+      },
+    )
+
+  /**
+   * Logical operator to decide which middleware to select based on the predicate.
+   */
+  def ifThenElse[R, E](
+    cond: RequestP[Boolean],
+  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    HttpMiddleware.FromFunctionM((method, url, headers) => UIO(if (cond(method, url, headers)) left else right))
+
+  /**
    * Creates a new middleware using transformation functions
    */
   def make[S](req: (Method, URL, List[Header]) => S): PartiallyAppliedMake[S] = PartiallyAppliedMake(req)

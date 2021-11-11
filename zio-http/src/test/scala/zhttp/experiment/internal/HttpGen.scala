@@ -69,6 +69,20 @@ object HttpGen {
     ),
   )
 
+  val method: Gen[Any, Method] = Gen.fromIterable(
+    List(
+      Method.OPTIONS,
+      Method.GET,
+      Method.HEAD,
+      Method.POST,
+      Method.PUT,
+      Method.PATCH,
+      Method.DELETE,
+      Method.TRACE,
+      Method.CONNECT,
+    ),
+  )
+
   def httpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData[Any, Nothing]] =
     for {
       list <- gen

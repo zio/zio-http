@@ -1,5 +1,7 @@
-import zhttp.http._
-import zhttp.service._
+package example
+
+import zhttp.http.{HttpApp, Method, Response, _}
+import zhttp.service.{Server}
 import zhttp.service.server.Transport.Auto
 import zio._
 

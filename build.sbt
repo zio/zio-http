@@ -1,4 +1,3 @@
-import sbt.enablePlugins
 import Dependencies._
 import BuildHelper.{Scala213, publishSetting, stdSettings}
 
@@ -21,7 +20,8 @@ ThisBuild / githubWorkflowAddedJobs     :=
       steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
       cond = Option("${{ github.base_ref == 'main' }}"),
     ),
-  )
+  ) ++ WorkflowHelper.Scoverage(54, 66)
+
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
 ThisBuild / githubWorkflowPublish       :=
@@ -100,12 +100,19 @@ lazy val zhttpTest = (project in file("./zio-http-test"))
   .settings(publishSetting(true))
 
 lazy val example = (project in file("./example"))
+  .enablePlugins(SbtTwirl)
   .settings(stdSettings("example"))
+  .settings(libraryDependencies := libraryDependencies.value.map {
+    case module if module.name == "twirl-api" =>
+      module.cross(CrossVersion.for3Use2_13)
+    case module                               => module
+  })
   .settings(publishSetting(false))
   .settings(
     fork                      := true,
     Compile / run / mainClass := Option("HelloWorld"),
     libraryDependencies ++= Seq(`jwt-core`),
+    TwirlKeys.templateImports := Seq(),
   )
   .dependsOn(zhttp)
 

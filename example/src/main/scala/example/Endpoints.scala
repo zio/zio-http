@@ -1,8 +1,10 @@
+package example
+
 import zhttp.endpoint._
 import zhttp.http.Method.GET
-import zhttp.http._
+import zhttp.http.{HttpApp, Response}
 import zhttp.service.Server
-import zio._
+import zio.{App, ExitCode, URIO}
 
 object Endpoints extends App {
   def h1 = GET / "a" / *[Int] / "b" / *[Boolean] to { a =>

@@ -1,11 +1,13 @@
-import zhttp.http._
-import zhttp.http.middleware.HttpMiddleware._
+package example
+
+import zhttp.http.middleware.HttpMiddleware.{addHeader, debug, patchM, timeout}
 import zhttp.http.middleware.{HttpMiddleware, Patch}
+import zhttp.http.{Header, HttpApp, Method, Response, _}
 import zhttp.service.Server
-import zio._
 import zio.clock.{Clock, currentTime}
 import zio.console.Console
-import zio.duration.durationInt
+import zio.duration._
+import zio.{App, ExitCode, URIO, ZIO}
 
 import java.io.IOException
 import java.util.concurrent.TimeUnit
