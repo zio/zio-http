@@ -92,14 +92,11 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
             assertM(res)(isResponse(responseStatus(200)))
           },
         ),
-      testM("Empty response") {
+      testM("content-length header is set") {
         val res = HttpApp.fromHttp(Http.succeed(Ok)).getResponse
         assertM(res)(isResponse(responseHeader("content-length", "0")))
-      } + testM("Non Empty response") {
-        val res = HttpApp.fromHttp(Http.succeed(Response(data = HttpData.fromText("hi")))).getResponse
-        assertM(res)(isResponse(responseHeader("content-length", "2")))
       } +
-        testM("Stream response") {
+        testM("transfer-encoding header is set") {
           val res = HttpApp
             .fromHttp(
               Http.succeed(
