@@ -97,7 +97,9 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         assertM(res)(isResponse(responseHeader("content-length", "0")))
       } +
         testM("transfer-encoding header is set") {
-          val res = HttpApp.response(Response(data = HttpData.fromStream(ZStream.fromIterable(List(1))), headers = List())).getResponse
+          val res = HttpApp
+            .response(Response(data = HttpData.fromStream(ZStream.fromIterable(List(1))), headers = List()))
+            .getResponse
           assertM(res)(isResponse {
             responseHeader("transfer-encoding", "chunked")
           })
