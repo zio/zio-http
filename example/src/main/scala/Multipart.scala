@@ -1,17 +1,18 @@
-import zhttp.experiment.multipart.ChunkedData
-import zhttp.http.{ContentDecoder, Http, HttpApp, HttpData, Request, Response}
+import zhttp.experiment.multipart.{BodyEnd, ChunkedData}
+import zhttp.http._
 import zhttp.service.Server
-import zio.{App, ExitCode, URIO}
 import zio.stream.{UStream, ZStream}
+import zio.{App, ExitCode, URIO}
 
 object Multipart extends App {
   def app: HttpApp[Any, Throwable] = HttpApp.fromHttp {
     Http.collectM[Request] { case req =>
-      req.decodeContent(ContentDecoder.multipartDecoder("")).map { content =>
+      req.decodeContent(ContentDecoder.multipartDecoder(req)).map { content =>
         Response(data =
           HttpData.fromStream(
             ZStream
               .fromQueue(content)
+              .takeUntil(_ == BodyEnd)
               .filter(_.isInstanceOf[ChunkedData])
               .asInstanceOf[UStream[ChunkedData]]
               .map(_.chunkedData)

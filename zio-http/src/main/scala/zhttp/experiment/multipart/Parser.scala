@@ -1,7 +1,8 @@
 package zhttp.experiment.multipart
 
-import io.netty.util.CharsetUtil
+import zhttp.http.Request
 import zio.Chunk
+
 import java.nio.charset.StandardCharsets
 
 sealed trait State
@@ -32,17 +33,26 @@ case object Constants {
   val dashDashBytesN: Chunk[Byte]  = Chunk.fromArray(Array[Byte]('-', '-'))
 }
 
-class Parser(boundary: String) {
+class Parser(request: Request) {
   import zhttp.experiment.multipart.Constants._
-  val boundaryBytes: Chunk[Byte] = Chunk.fromArray(boundary.getBytes(CharsetUtil.UTF_8))
-  val startByte: Chunk[Byte]     = dashDashBytesN ++ boundaryBytes
-  val delimiter: Chunk[Byte]     = startByte
-  var state: State               = NotStarted
-  var matchIndex: Int            = 0 // matching index of boundary and double dash
-  var CRLFIndex: Int             = 0
-  var tempData: Chunk[Byte]      = Chunk.empty
-  var partChunk: Chunk[Byte]     = Chunk.empty
-
+  var delimiter: Option[Chunk[Byte]]                        = None
+  var state: State                                          = NotStarted
+  var matchIndex: Int                                       = 0 // matching index of boundary and double dash
+  var CRLFIndex: Int                                        = 0
+  var tempData: Chunk[Byte]                                 = Chunk.empty
+  var partChunk: Chunk[Byte]                                = Chunk.empty
+  private def getBoundary(request: Request): Option[String] = request.headers.filter(_.name == "Content-Type") match {
+    case ::(head, _) =>
+      head.value.toString.split(";").toList.filter(_.contains("boundary=")) match {
+        case ::(head, _) =>
+          head.split("=").toList match {
+            case ::(_, next) => Some(next.head)
+            case Nil         => throw new IllegalArgumentException("Invalid Request")
+          }
+        case Nil         => throw new IllegalArgumentException("Invalid Request")
+      }
+    case Nil         => throw new IllegalArgumentException("Invalid Request")
+  }
   private def parsePartHeader(input: Chunk[Byte]): MetaInfo = {
     val headerString = new String(input.toArray, StandardCharsets.UTF_8)
     headerString
@@ -96,20 +106,24 @@ class Parser(boundary: String) {
   }
 
   def getMessages(input: Chunk[Byte], startIndex: Int = 0, outChunk: Chunk[Message] = Chunk.empty): Chunk[Message] = {
+    if (delimiter.isEmpty) {
+      delimiter = getBoundary(request).map(boundary => Chunk.fromArray(boundary.getBytes()))
+    }
+    val delimiterRaw = delimiter.getOrElse(throw new IllegalArgumentException("Invalid Request"))
     state match {
       case NotStarted   =>
         var i            = startIndex
         var outChunkTemp = outChunk
         // Look for starting Boundary
         while (i < input.length && state == NotStarted) {
-          if (input.byte(i) == delimiter.byte(matchIndex)) {
+          if (input.byte(i) == delimiterRaw.byte(matchIndex)) {
             i = i + 1
             matchIndex = matchIndex + 1
             tempData = tempData ++ Chunk(input.byte(i))
-            if (matchIndex == delimiter.length) { // match complete
-              state = PartHeader                  // start getting part header data
+            if (matchIndex == delimiterRaw.length) { // match complete
+              state = PartHeader                     // start getting part header data
               matchIndex = 0
-              tempData = Chunk.empty              // discard boundary bytes
+              tempData = Chunk.empty                 // discard boundary bytes
             }
           } else {
             throw new IllegalArgumentException("Invalid Request")
@@ -154,7 +168,7 @@ class Parser(boundary: String) {
         var outChunkTemp = outChunk
         // Look until boundary delimiter
         while (i < input.length && state == PartData) {
-          if (delimiter.byte(matchIndex) == input.byte(i)) {
+          if (delimiterRaw.byte(matchIndex) == input.byte(i)) {
             matchIndex = matchIndex + 1
             tempData = tempData ++ Chunk(input.byte(i))
           } else {
@@ -162,14 +176,14 @@ class Parser(boundary: String) {
             partChunk = partChunk ++ tempData
             tempData = Chunk.empty
             // do look behind check
-            if (delimiter.byte(matchIndex) == input.byte(i)) {
+            if (delimiterRaw.byte(matchIndex) == input.byte(i)) {
               matchIndex = 1
               tempData = Chunk(input.byte(i))
             } else {
               partChunk = partChunk.appended(input.byte(i))
             }
           }
-          if (matchIndex == delimiter.length) {
+          if (matchIndex == delimiterRaw.length) {
             outChunkTemp = outChunkTemp ++ Chunk(ChunkedData(partChunk))
             partChunk = Chunk.empty
             matchIndex = 0

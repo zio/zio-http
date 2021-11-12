@@ -49,11 +49,11 @@ object ContentDecoder {
         _     <- queue.offer(msg)
       } yield (if (state.isFirst) Option(queue) else None, state.withAcc(queue).withFirst(false))
     }
-  def multipartDecoder(boundary: String): ContentDecoder[Any, Throwable, Chunk[Byte], Queue[Message]] =
+  def multipartDecoder(request: Request): ContentDecoder[Any, Throwable, Chunk[Byte], Queue[Message]] =
     ContentDecoder.collect(BackPressure[(Parser, Queue[Message])]()) { case (msg, state, _) =>
       for {
         (parser, queue) <- state.acc.fold {
-          Queue.bounded[Message](1).map(q => ((new Parser(boundary), q)))
+          Queue.bounded[Message](1).map(q => ((new Parser(request), q)))
         }(UIO(_))
         messages        <- Task(parser.getMessages(msg))
         _               <- ZIO.foreach_(messages)(queue.offer)
