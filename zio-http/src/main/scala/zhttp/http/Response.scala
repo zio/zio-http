@@ -32,26 +32,12 @@ case class Response[-R, +E] private (
   def getContentLength: Option[Long] = self.data.size
 
   /**
-   * Adds to the existing 'Transfer-Encoding' header a new value separated by comma or sets a given value if the header
-   * is not set
-   */
-  def setTransferEncoding(value: String): Response[R, E] =
-    getHeaderValue(Header.transferEncodingChunked.name) match {
-      case Some(current) if !current.contains(value) =>
-        self
-          .removeHeader(Header.transferEncodingChunked.name.toString())
-          .addHeader(Header(Header.transferEncodingChunked.name, s"$current, $value"))
-      case _                                         =>
-        self.addHeader(Header(Header.transferEncodingChunked.name, value))
-    }
-
-  /**
    * Automatically detects the size of the content and sets it
    */
   def setPayloadHeaders: Response[R, E] = {
     getContentLength match {
       case Some(value) => setContentLength(value)
-      case None        => setTransferEncoding(HttpHeaderValues.CHUNKED.toString)
+      case None        => setChunkedEncoding
     }
   }
 
@@ -75,8 +61,16 @@ object Response {
       resp.getHeader(HttpHeaderNames.TRANSFER_ENCODING).exists(_.value.toString.contains(HttpHeaderValues.CHUNKED)) ||
         resp.getHeader(HttpHeaderNames.CONTENT_LENGTH).isDefined
 
-    if (hasHeaders) resp
-    else resp.setPayloadHeaders
+    val newHeaders = if (data.isChunked) {
+      headers ++ List(Header(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED.toString))
+    } else {
+      data.size match {
+        case Some(value) => headers ++ List(Header(HttpHeaderNames.CONTENT_LENGTH, value.toString))
+        case None        => headers
+      }
+    }
+
+    Response(status, newHeaders, data, HttpAttribute.empty)
   }
 
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
