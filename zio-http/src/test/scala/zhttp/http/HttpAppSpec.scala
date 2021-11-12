@@ -1,8 +1,8 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{HttpMethod, HttpResponse}
-import zhttp.experiment.internal.{HttpAppClient, HttpMessageAssertions}
 import zhttp.http.HttpApp.InvalidMessage
+import zhttp.internal.{HttpAppClient, HttpMessageAssertions}
 import zhttp.service.EventLoopGroup
 import zio.duration._
 import zio.stream.ZStream

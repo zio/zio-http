@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zhttp.experiment.internal.{HttpGen, HttpMessageAssertions}
+import zhttp.internal.{HttpGen, HttpMessageAssertions}
 import zio.Chunk
 import zio.test.Assertion.equalTo
 import zio.test._

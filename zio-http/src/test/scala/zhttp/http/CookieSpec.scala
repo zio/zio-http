@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zhttp.experiment.internal.HttpGen
+import zhttp.internal.HttpGen
 import zio.test.Assertion.{equalTo, isRight}
 import zio.test._
 

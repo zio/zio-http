@@ -1,11 +1,11 @@
-package zhttp.experiment.internal
+package zhttp.internal
 
 import io.netty.buffer.Unpooled
 import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.handler.codec.http._
 import io.netty.util.CharsetUtil
-import zhttp.experiment.internal.HttpAppClient.{MessageQueue, ProxyChannel}
 import zhttp.http.HttpApp
+import zhttp.internal.HttpAppClient.{MessageQueue, ProxyChannel}
 import zhttp.service.{EventLoopGroup, HttpRuntime}
 import zio._
 import zio.internal.Executor

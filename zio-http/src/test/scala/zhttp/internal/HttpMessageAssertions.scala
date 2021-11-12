@@ -1,4 +1,4 @@
-package zhttp.experiment.internal
+package zhttp.internal
 
 import io.netty.handler.codec.http._
 import zhttp.http._
