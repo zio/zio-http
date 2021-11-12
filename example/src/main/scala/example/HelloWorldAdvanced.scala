@@ -2,7 +2,7 @@ package example
 
 import zhttp.http.{HttpApp, Method, Response, _}
 import zhttp.service.Server
-import zhttp.service.server.Auto
+import zhttp.service.server.Transport
 import zio._
 
 import scala.util.Try
@@ -22,10 +22,11 @@ object HelloWorldAdvanced extends App {
   }
 
   private val server =
-    Server.port(PORT) ++              // Setup port
-      Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
-      Server.app(fooBar +++ app) ++   // Setup the Http app
-      Server.transport(Auto)          // (Server.epoll, Server.kqueue, Server.uring, Server.auto)
+    Server.port(PORT) ++                  // Setup port
+      Server.paranoidLeakDetection ++     // Paranoid leak detection (affects performance)
+      Server.app(fooBar +++ app) ++       // Setup the Http app
+      Server.transport(Transport.Auto) ++ // (Server.epoll, Server.kqueue, Server.uring, Server.auto)
+      Server.nio // ONLY if we are overriding earlier transport settings (nio/epoll/kQueue/uring/auto) last one takes precedence
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     // Configure thread count using CLI

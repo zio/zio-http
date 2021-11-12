@@ -4,8 +4,8 @@ import io.netty.handler.ssl.SslContext
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.server.Auto
 import zhttp.service.server.ServerSSLHandler.ServerSSLOptions
+import zhttp.service.server.Transport
 import zio.test.DefaultRunnableSpec
 import zio.{Chunk, ZIO, ZManaged}
 
@@ -18,7 +18,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
       .make(
         Server.port(port) ++ // Setup port
           Server.app(app) ++ // Setup the Http app
-          Server.transport(Auto),
+          Server.transport(Transport.Auto),
       )
       .orDie
 
@@ -29,7 +29,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
       .make(
         Server.port(p) ++    // Setup port
           Server.app(app) ++ // Setup the Http app
-          Server.transport(Auto),
+          Server.transport(Transport.Auto),
       )
       .orDie
 
@@ -41,7 +41,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
       .make(
         Server.port(port) ++ // Setup port
           Server.app(app) ++ // Setup the Http app
-          Server.transport(Auto) ++
+          Server.transport(Transport.Auto) ++
           Server.ssl(ServerSSLOptions(sslContext)),
       )
       .orDie
@@ -54,7 +54,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
       .make(
         Server.port(p) ++    // Setup port
           Server.app(app) ++ // Setup the Http app
-          Server.transport(Auto) ++
+          Server.transport(Transport.Auto) ++
           Server.ssl(ServerSSLOptions(sslContext)),
       )
       .orDie

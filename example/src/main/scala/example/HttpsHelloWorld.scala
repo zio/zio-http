@@ -2,8 +2,8 @@ package example
 
 import zhttp.http.{HttpApp, Method, Response, _}
 import zhttp.service.Server
-import zhttp.service.server.Auto
 import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromKeystore}
+import zhttp.service.server.Transport
 import zio.{App, ExitCode, URIO}
 
 object HttpsHelloWorld extends App {
@@ -26,7 +26,7 @@ object HttpsHelloWorld extends App {
     Server.port(8090) ++
       Server.app(app) ++
       Server.ssl(ServerSSLOptions(sslctx)) ++
-      Server.transport(Auto) ++
+      Server.transport(Transport.Auto) ++
       Server.threads(1)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {

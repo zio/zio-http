@@ -26,6 +26,7 @@ sealed trait Server[-R, +E] { self =>
     case Address(address)           => s.copy(address = address)
     case TransportConfig(transport) => s.copy(transport = transport)
     case Threads(threads)           => s.copy(threads = threads)
+    case AcceptContinue             => s.copy(acceptContinue = true)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R, Throwable, Unit] =
@@ -33,7 +34,6 @@ sealed trait Server[-R, +E] { self =>
 
   def start(implicit ev: E <:< Throwable): ZIO[R, Throwable, Nothing] =
     make.useForever
-
 }
 
 object Server {
@@ -44,8 +44,9 @@ object Server {
     sslOption: ServerSSLOptions = null,
     app: HttpApp[R, E] = HttpApp.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
-    transport: Transport = Auto,
+    transport: Transport = Transport.Auto,
     threads: Int = 0,
+    acceptContinue: Boolean = false,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -57,6 +58,7 @@ object Server {
   private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
   private final case class TransportConfig(transport: Transport)                      extends UServer
   private final case class Threads(threads: Int)                                      extends UServer
+  private case object AcceptContinue                                                  extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -67,6 +69,7 @@ object Server {
   def bind(inetSocketAddress: InetSocketAddress): UServer = Server.Address(inetSocketAddress)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
+  def acceptContinue: UServer                                                        = Server.AcceptContinue
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
@@ -74,6 +77,12 @@ object Server {
 
   def transport(transport: Transport): UServer = Server.TransportConfig(transport)
   def threads(threads: Int): UServer           = Server.Threads(threads)
+
+  def nio: UServer    = Server.TransportConfig(Transport.Nio)
+  def epoll: UServer  = Server.TransportConfig(Transport.Epoll)
+  def kQueue: UServer = Server.TransportConfig(Transport.KQueue)
+  def uring: UServer  = Server.TransportConfig(Transport.URing)
+  def auto: UServer   = Server.TransportConfig(Transport.Auto)
 
   /**
    * Launches the app on the provided port.
