@@ -23,7 +23,6 @@ project/target/
 target/
 .scala_dependencies
 .worksheet
-*.js
 node_modules/
 *.tsbuildinfo
 .bsp/
