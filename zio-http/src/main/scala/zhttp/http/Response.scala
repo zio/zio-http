@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
@@ -55,17 +55,7 @@ object Response {
     headers: List[Header] = Nil,
     data: HttpData[R, E] = HttpData.Empty,
   ): Response[R, E] = {
-
-    val newHeaders = if (data.isChunked) {
-      headers ++ List(Header(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED.toString))
-    } else {
-      data.size match {
-        case Some(value) => headers ++ List(Header(HttpHeaderNames.CONTENT_LENGTH, value.toString))
-        case None        => headers
-      }
-    }
-
-    Response(status, newHeaders, data, HttpAttribute.empty)
+    Response(status, headers, data, HttpAttribute.empty)
   }
 
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")

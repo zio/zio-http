@@ -1,6 +1,5 @@
 package zhttp.middleware
 
-import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware
 import zhttp.internal.HttpAppTestExtensions
@@ -74,14 +73,14 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
             val program    = run(app @@ middleware).map(_.getHeaders)
             assertM(program)(
               equalTo(
-                List(Header(HttpHeaderNames.CONTENT_LENGTH, "0"), Header("KeyA", "ValueA"), Header("KeyB", "ValueB")),
+                List(Header("KeyA", "ValueA"), Header("KeyB", "ValueB")),
               ),
             )
           } +
           testM("add and remove header") {
             val middleware = addHeader("KeyA", "ValueA") ++ removeHeader("KeyA")
             val program    = run(app @@ middleware).map(_.getHeaders)
-            assertM(program)(equalTo(List(Header(HttpHeaderNames.CONTENT_LENGTH, "0"))))
+            assertM(program)(equalTo(Nil))
           }
       } +
       suite("ifThenElseM") {
