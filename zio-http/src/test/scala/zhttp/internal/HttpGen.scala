@@ -1,4 +1,4 @@
-package zhttp.experiment.internal
+package zhttp.internal
 
 import io.netty.buffer.Unpooled
 import zhttp.http._
