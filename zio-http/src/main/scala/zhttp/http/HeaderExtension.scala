@@ -9,6 +9,7 @@ import zhttp.http.HeaderExtension.{BasicSchemeName, BearerSchemeName}
 
 import java.nio.charset.Charset
 import scala.util.control.NonFatal
+import scala.util.{Failure, Success, Try}
 
 private[zhttp] trait HeaderExtension[+A] { self: A =>
   def getHeaders: List[Header]
@@ -60,8 +61,13 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
   final def getContentType: Option[String] =
     getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
 
-  final def getContentLength: Option[String] =
-    getHeaderValue(HttpHeaderNames.CONTENT_LENGTH)
+  final def getContentLength: Option[Long] =
+    getHeaderValue(HttpHeaderNames.CONTENT_LENGTH).flatMap(a =>
+      Try(a.toLong) match {
+        case Failure(_)     => None
+        case Success(value) => Some(value)
+      },
+    )
 
   private def checkContentType(value: AsciiString): Boolean =
     getContentType
@@ -152,5 +158,6 @@ object HeaderExtension {
     override def updateHeaders(f: List[Header] => List[Header]): Only = Only(f(getHeaders))
   }
 
+  def empty: HeaderExtension[Only]                        = Only(Nil)
   def apply(headers: List[Header]): HeaderExtension[Only] = Only(headers)
 }

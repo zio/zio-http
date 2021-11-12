@@ -16,7 +16,7 @@ object HelloWorld extends App {
   def h2 = HttpApp.collectM { case req @ Method.POST -> !! / "bar" =>
     req.decodeContent(ContentDecoder.backPressure).map { content =>
       req.getContentLength match {
-        case Some(value) => Response(data = HttpData.fromStream(ZStream.fromChunkQueue(content).take(value.toLong)))
+        case Some(value) => Response(data = HttpData.fromStream(ZStream.fromChunkQueue(content).take(value)))
         case None        => Response.fromHttpError(HttpError.LengthRequired())
       }
     }
