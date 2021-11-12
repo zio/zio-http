@@ -25,6 +25,7 @@ sealed trait Server[-R, +E] { self =>
     case App(app)             => s.copy(app = app)
     case Address(address)     => s.copy(address = address)
     case AcceptContinue       => s.copy(acceptContinue = true)
+    case Http2                => s.copy(http2 = true)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
@@ -43,6 +44,7 @@ object Server {
     app: HttpApp[R, E] = HttpApp.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
     acceptContinue: Boolean = false,
+    http2: Boolean = false,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -53,6 +55,7 @@ object Server {
   private final case class Address(address: InetSocketAddress)                        extends UServer
   private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
   private case object AcceptContinue                                                  extends UServer
+  private case object Http2                                                           extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -64,6 +67,7 @@ object Server {
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   def acceptContinue: UServer                                                        = Server.AcceptContinue
+  def http2: UServer                                                                 = Server.Http2
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
