@@ -77,7 +77,7 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) {
   /**
    * Patches the response produced by the app
    */
-  def patch(patch: Patch): HttpApp[R, E] = HttpApp(self.asHttp.map(response => patch(response)))
+  def patch(patch: Patch): HttpApp[R, E] = HttpApp(self.asHttp.map(patch(_)))
 
   /**
    * Adds the provided headers to the response of the app
