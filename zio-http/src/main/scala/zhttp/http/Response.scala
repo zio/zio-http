@@ -29,13 +29,13 @@ case class Response[-R, +E] private (
   /**
    * Extracts the length of the content specified in the response data.
    */
-  def getContentLength: Option[Long] = self.data.size
+  def getHttpDataSize: Option[Long] = self.data.size
 
   /**
    * Automatically detects the size of the content and sets it
    */
   def setPayloadHeaders: Response[R, E] = {
-    getContentLength match {
+    getHttpDataSize match {
       case Some(value) => setContentLength(value)
       case None        => setChunkedEncoding
     }

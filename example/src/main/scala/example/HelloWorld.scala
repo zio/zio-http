@@ -1,6 +1,5 @@
 package example
 
-import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.service.Server
 import zio.stream.ZStream
@@ -16,7 +15,7 @@ object HelloWorld extends App {
 
   def h2 = HttpApp.collectM { case req @ Method.POST -> !! / "bar" =>
     req.decodeContent(ContentDecoder.backPressure).map { content =>
-      req.getHeaderValue(HttpHeaderNames.CONTENT_LENGTH) match {
+      req.getContentLength match {
         case Some(value) => Response(data = HttpData.fromStream(ZStream.fromChunkQueue(content).take(value.toLong)))
         case None        => Response.fromHttpError(HttpError.LengthRequired())
       }

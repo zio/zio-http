@@ -60,6 +60,9 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
   final def getContentType: Option[String] =
     getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
 
+  final def getContentLength: Option[String] =
+    getHeaderValue(HttpHeaderNames.CONTENT_LENGTH)
+
   private def checkContentType(value: AsciiString): Boolean =
     getContentType
       .exists(v => value.contentEquals(v))
