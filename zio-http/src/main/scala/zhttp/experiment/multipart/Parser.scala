@@ -109,7 +109,7 @@ class Parser(request: Request) {
     if (delimiter.isEmpty) {
       delimiter = getBoundary(request).map(boundary => Chunk.fromArray(boundary.getBytes()))
     }
-    val delimiterRaw = delimiter.getOrElse(throw new IllegalArgumentException("Invalid Request"))
+    val delimiterRaw = dashDashBytesN ++ delimiter.getOrElse(throw new IllegalArgumentException("Invalid Request"))
     state match {
       case NotStarted   =>
         var i            = startIndex

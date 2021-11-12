@@ -1,12 +1,10 @@
 package zhttp.experiment.multipart
 
-import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 
 import zhttp.experiment.multipart.Util.getBytes
-import zhttp.http.Method.POST
-import zhttp.http.{ContentDecoder, Header, Method, Request, URL}
-import zio.{Chunk, ZIO}
+import zhttp.http.{Header, Request}
+import zio.Chunk
 import zio.test.Assertion._
 import zio.test.{DefaultRunnableSpec, _}
 
@@ -18,12 +16,16 @@ object Util {
     .flatten
 }
 object ParserTest extends DefaultRunnableSpec {
-  val boundary                    = "_5PHqf8_Pl1FCzBuT5o_mVZg36k67UYI"
   def makeHttpString(str: String) =
     augmentString(str).flatMap {
       case '\n' => "\r\n"
       case c    => c.toString
     }
+  val request                     = Request(headers =
+    List(
+      Header("Content-Type", "multipart/form-data; boundary=_5PHqf8_Pl1FCzBuT5o_mVZg36k67UYI"),
+    ),
+  )
   def spec                        = suite("Multipart Parser")(
     suite("Boundary")(
       test("Should parse boundary and header") {
@@ -31,7 +33,7 @@ object ParserTest extends DefaultRunnableSpec {
                        |Content-Disposition: form-data; name="upload"; filename="integration.txt"
                      """.stripMargin
         val processedData1 = makeHttpString(data1)
-        val parser         = new Parser(boundary)
+        val parser         = new Parser(request)
         val output1        = parser.getMessages(Chunk.fromArray(processedData1.getBytes()))
         val data2          = """|
                        |Content-Type: application/octet-stream
@@ -63,7 +65,7 @@ object ParserTest extends DefaultRunnableSpec {
                       |catch me if you can!
                       |--_5PHqf8_Pl1FCzBuT5o_mVZg36k67UYI--""".stripMargin
         val processedData = makeHttpString(data)
-        val parser        = new Parser(boundary)
+        val parser        = new Parser(request)
         val outputBytes   = getBytes(
           parser
             .getMessages(Chunk.fromArray(processedData.getBytes())),
@@ -82,7 +84,7 @@ object ParserTest extends DefaultRunnableSpec {
                       |this is a test
                      """.stripMargin
         val processedData  = makeHttpString(data)
-        val parser         = new Parser(boundary)
+        val parser         = new Parser(request)
         val output         = new String(
           getBytes(parser.getMessages(Chunk.fromArray(processedData.getBytes()))).toArray,
           StandardCharsets.UTF_8,
