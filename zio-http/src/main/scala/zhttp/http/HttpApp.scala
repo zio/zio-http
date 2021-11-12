@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.channel._
-import zhttp.http.middleware.HttpMiddleware
+import zhttp.http.middleware.{HttpMiddleware, Patch}
 import zhttp.service.{Handler, HttpRuntime}
 import zio._
 import zio.clock.Clock
@@ -72,6 +72,31 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
    */
   def race[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
     HttpApp(self.asHttp race other.asHttp)
+
+  /**
+   * Patches the response produced by the app
+   */
+  def patch(patch: Patch): HttpApp[R, E] = HttpApp(self.asHttp.map(response => patch(response)))
+
+  /**
+   * Adds the provided headers to the response of the app
+   */
+  def addHeaders(headers: List[Header]): HttpApp[R, E] = self.patch(Patch.addHeaders(headers))
+
+  /**
+   * Adds the provided headers to the response of the app
+   */
+  def addHeader(header: Header): HttpApp[R, E] = self.patch(Patch.addHeader(header))
+
+  /**
+   * Adds the provided header to the response of the app
+   */
+  def addHeader(name: String, value: String): HttpApp[R, E] = self.patch(Patch.addHeader(name, value))
+
+  /**
+   * Sets the status in the response produced by the app
+   */
+  def setStatus(status: Status): HttpApp[R, E] = self.patch(Patch.setStatus(status))
 }
 
 object HttpApp {
