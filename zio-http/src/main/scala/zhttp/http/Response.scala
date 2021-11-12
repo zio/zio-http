@@ -55,11 +55,6 @@ object Response {
     headers: List[Header] = Nil,
     data: HttpData[R, E] = HttpData.Empty,
   ): Response[R, E] = {
-    val resp       = Response(status, headers, data, HttpAttribute.empty)
-    // Since these headers are mutual exclusive, check for the presence of at least one of them
-    val hasHeaders =
-      resp.getHeader(HttpHeaderNames.TRANSFER_ENCODING).exists(_.value.toString.contains(HttpHeaderValues.CHUNKED)) ||
-        resp.getHeader(HttpHeaderNames.CONTENT_LENGTH).isDefined
 
     val newHeaders = if (data.isChunked) {
       headers ++ List(Header(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED.toString))
