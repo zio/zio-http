@@ -4,10 +4,10 @@ import io.netty.buffer.{ByteBufUtil, Unpooled}
 import zio.{Chunk, Queue, Task, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
-  def decode(method: Method, url: URL, headers: List[Header], data: HttpData[Any, Throwable])(implicit
+  def decode(data: HttpData[Any, Throwable], method: Method, url: URL, headers: List[Header])(implicit
     ev: Chunk[Byte] <:< A,
   ): ZIO[R, Throwable, B] =
-    ContentDecoder.decode(method, url, headers, self.asInstanceOf[ContentDecoder[R, Throwable, Chunk[Byte], B]], data)
+    ContentDecoder.decode(self.asInstanceOf[ContentDecoder[R, Throwable, Chunk[Byte], B]], data, method, url, headers)
 }
 
 object ContentDecoder {
@@ -57,11 +57,11 @@ object ContentDecoder {
   }
 
   private def decode[R, B](
+    decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+    data: HttpData[Any, Throwable],
     method: Method,
     url: URL,
     headers: List[Header],
-    decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
-    data: HttpData[Any, Throwable],
   ): ZIO[R, Throwable, B] =
     data match {
       case HttpData.Empty                => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)

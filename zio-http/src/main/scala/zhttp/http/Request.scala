@@ -72,7 +72,7 @@ object Request {
       override def decodeContent[R, B](
         decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
       ): ZIO[R, Throwable, B] =
-        decoder.decode(method, url, headers, data)
+        decoder.decode(data, method, url, headers)
     }
   }
 
