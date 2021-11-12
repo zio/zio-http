@@ -7,7 +7,8 @@ import zio._
 import zio.clock.Clock
 import zio.duration.Duration
 
-case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =>
+case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) {
+  self =>
   def orElse[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
     HttpApp(self.asHttp orElse other.asHttp)
 
@@ -97,6 +98,30 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
    * Sets the status in the response produced by the app
    */
   def setStatus(status: Status): HttpApp[R, E] = self.patch(Patch.setStatus(status))
+
+  /**
+   * Modifies the outgoing response from the app
+   */
+  def modifyResponse[R1 <: R, E1 >: E](f: Response[R, E] => Response[R1, E1]): HttpApp[R1, E1] =
+    HttpApp(asHttp.map(f))
+
+  /**
+   * Modifies the outgoing response from the app effectfully
+   */
+  def modifyResponseM[R1 <: R, E1 >: E](f: Response[R, E] => ZIO[R1, E1, Response[R1, E1]]): HttpApp[R1, E1] =
+    HttpApp(asHttp.mapM(f))
+
+  /**
+   * Modifies the incoming request to the app
+   */
+  def modifyRequest(f: Request => Request): HttpApp[R, E] =
+    HttpApp(asHttp.contramap(f))
+
+  /**
+   * Modifies the incoming request to the app effectfully
+   */
+  def modifyRequestM[R1 <: R, E1 >: E](f: Request => ZIO[R1, E1, Request]): HttpApp[R1, E1] =
+    HttpApp(asHttp.contramapM(f))
 }
 
 object HttpApp {
