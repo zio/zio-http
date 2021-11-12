@@ -1,6 +1,6 @@
 package zhttp.service
 
-import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
@@ -193,7 +193,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
               .next(
                 // content.array() can fail in case of no backing byte array
                 // Link: https://livebook.manning.com/book/netty-in-action/chapter-5/54
-                Chunk.fromArray(content.array()),
+                Chunk.fromArray(ByteBufUtil.getBytes(content)),
                 nState,
                 isLast,
               )

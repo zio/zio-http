@@ -1,5 +1,6 @@
 package example
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.service.Server
 import zio.stream.ZStream
@@ -7,18 +8,17 @@ import zio.{App, ExitCode, URIO}
 
 object HelloWorld extends App {
 
-  def h1 = HttpApp.fromHttp {
-    Http.collectM[Request] { case req =>
-      req.decodeContent(ContentDecoder.text).map { content =>
-        Response(data = HttpData.fromText(content))
-      }
+  def h1 = HttpApp.collectM { case req @ Method.POST -> !! / "foo" =>
+    req.decodeContent(ContentDecoder.text).map { content =>
+      Response(data = HttpData.fromText(content))
     }
   }
 
-  def h2 = HttpApp.fromHttp {
-    Http.collectM[Request] { case req =>
-      req.decodeContent(ContentDecoder.backPressure).map { content =>
-        Response(data = HttpData.fromStream(ZStream.fromChunkQueue(content)))
+  def h2 = HttpApp.collectM { case req @ Method.POST -> !! / "bar" =>
+    req.decodeContent(ContentDecoder.backPressure).map { content =>
+      req.getHeaderValue(HttpHeaderNames.CONTENT_LENGTH) match {
+        case Some(value) => Response(data = HttpData.fromStream(ZStream.fromChunkQueue(content).take(value.toLong)))
+        case None        => Response.fromHttpError(HttpError.LengthRequired())
       }
     }
   }
