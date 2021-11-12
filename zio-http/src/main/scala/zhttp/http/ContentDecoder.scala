@@ -56,7 +56,7 @@ object ContentDecoder {
           Queue.bounded[Message](1).map(q => ((new Parser(request), q)))
         }(UIO(_))
         messages        <- Task(parser.getMessages(msg))
-        _               <- ZIO.foreach_(messages)(queue.offer)
+        _               <- ZIO.foreach_(messages)(queue.offer).forkDaemon
       } yield (
         if (state.isFirst) Option(queue) else None,
         state.withAcc((parser, queue)).withFirst(false),

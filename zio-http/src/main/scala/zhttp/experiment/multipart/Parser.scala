@@ -73,9 +73,9 @@ class Parser(request: Request) {
             directiveData
               .foldLeft(PartContentDisposition("", None))((acc, value) => {
                 if (value._1.toLowerCase == "name") {
-                  acc.copy(name = value._2)
+                  acc.copy(name = value._2.replace("\"", ""))
                 } else if (value._1.toLowerCase == "filename") {
-                  acc.copy(filename = Some(value._2))
+                  acc.copy(filename = Some(value._2.replace("\"", "")))
                 } else {
                   acc
                 }
@@ -109,21 +109,22 @@ class Parser(request: Request) {
     if (delimiter.isEmpty) {
       delimiter = getBoundary(request).map(boundary => Chunk.fromArray(boundary.getBytes()))
     }
-    val delimiterRaw = dashDashBytesN ++ delimiter.getOrElse(throw new IllegalArgumentException("Invalid Request"))
+    val startDelimiterRaw = dashDashBytesN ++ delimiter.getOrElse(throw new IllegalArgumentException("Invalid Request"))
+    val delimiterRaw      = CRLFBytes ++ startDelimiterRaw
     state match {
       case NotStarted   =>
         var i            = startIndex
         var outChunkTemp = outChunk
         // Look for starting Boundary
         while (i < input.length && state == NotStarted) {
-          if (input.byte(i) == delimiterRaw.byte(matchIndex)) {
+          if (input.byte(i) == startDelimiterRaw.byte(matchIndex)) {
             i = i + 1
             matchIndex = matchIndex + 1
             tempData = tempData ++ Chunk(input.byte(i))
-            if (matchIndex == delimiterRaw.length) { // match complete
-              state = PartHeader                     // start getting part header data
+            if (matchIndex == startDelimiterRaw.length) { // match complete
+              state = PartHeader                          // start getting part header data
               matchIndex = 0
-              tempData = Chunk.empty                 // discard boundary bytes
+              tempData = Chunk.empty                      // discard boundary bytes
             }
           } else {
             throw new IllegalArgumentException("Invalid Request")

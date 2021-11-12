@@ -1,13 +1,12 @@
 package zhttp.experiment.multipart
 
-import java.nio.charset.StandardCharsets
-
 import zhttp.experiment.multipart.Util.getBytes
 import zhttp.http.{Header, Request}
 import zio.Chunk
 import zio.test.Assertion._
 import zio.test.{DefaultRunnableSpec, _}
 
+import java.nio.charset.StandardCharsets
 object Util {
   def getBytes(input: Chunk[Message]): Chunk[Byte] = input
     .filter(_.isInstanceOf[ChunkedData])
@@ -81,8 +80,7 @@ object ParserTest extends DefaultRunnableSpec {
                       |Content-Type: application/octet-stream
                       |Content-Transfer-Encoding: binary
                       |
-                      |this is a test
-                     """.stripMargin
+                      |this is a test""".stripMargin
         val processedData  = makeHttpString(data)
         val parser         = new Parser(request)
         val output         = new String(
@@ -105,7 +103,7 @@ object ParserTest extends DefaultRunnableSpec {
           )
 
         assert(output)(equalTo("this is a test")) && assert(output2)(
-          equalTo("here's another test\r\ncatch me if you can!\r\n\r\nbar"),
+          equalTo("here's another test\r\ncatch me if you can!\r\nbar"),
         )
       },
     ),
