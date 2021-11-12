@@ -74,7 +74,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.6]
+        scala: [3.1.0]
         java: [adopt@1.8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -149,6 +149,29 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: release-drafter/release-drafter@v5
+
+  update_docs:
+    name: Publish Documentation
+    if: ${{ github.ref == 'refs/heads/main' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.4]
+        java: [adopt@1.8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-node@v2
+
+      - env:
+          GIT_PASS: ${{secrets.ACTIONS_PAT}}
+          GIT_USER: ${{secrets.GIT_USER}}
+        run: |
+          cd ./docs/website
+          npm install
+          git config --global user.name "${{secrets.GIT_USER}}"
+          npm run deploy
 
   unsafeRunScoverage:
     name: Unsafe Scoverage
