@@ -13,9 +13,9 @@ object Multipart extends App {
             ZStream
               .fromQueue(content)
               .takeUntil(_ == BodyEnd)
-              .filter(_.isInstanceOf[ChunkedData])
-              .asInstanceOf[UStream[ChunkedData]]
-              .map(_.chunkedData)
+              .collect { case ChunkedData(chunkedData) =>
+                chunkedData
+              }
               .mapChunks(_.flatten),
           ),
         )
