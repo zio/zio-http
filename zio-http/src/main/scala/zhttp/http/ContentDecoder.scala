@@ -4,16 +4,20 @@ import io.netty.buffer.{ByteBufUtil, Unpooled}
 import zio.{Chunk, Queue, Task, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
-  def decode(data: HttpData[Any, Throwable])(implicit ev: Chunk[Byte] <:< A): ZIO[R, Throwable, B] =
-    ContentDecoder.decode(self.asInstanceOf[ContentDecoder[R, Throwable, Chunk[Byte], B]], data)
+  def decode(data: HttpData[Any, Throwable], method: Method, url: URL, headers: List[Header])(implicit
+    ev: Chunk[Byte] <:< A,
+  ): ZIO[R, Throwable, B] =
+    ContentDecoder.decode(self.asInstanceOf[ContentDecoder[R, Throwable, Chunk[Byte], B]], data, method, url, headers)
 }
 
 object ContentDecoder {
 
   case object Text extends ContentDecoder[Any, Nothing, Any, String]
 
-  case class Step[R, E, S, A, B](state: S, next: (A, S, Boolean) => ZIO[R, E, (Option[B], S)])
-      extends ContentDecoder[R, E, A, B]
+  case class Step[R, E, S, A, B](
+    state: S,
+    next: (A, S, Boolean, Method, URL, List[Header]) => ZIO[R, E, (Option[B], S)],
+  ) extends ContentDecoder[R, E, A, B]
 
   private[zhttp] case class BackPressure[B](queue: Option[Queue[B]] = None, isFirst: Boolean = true) {
     self =>
@@ -26,16 +30,18 @@ object ContentDecoder {
   def collect[S, A]: PartiallyAppliedCollect[S, A] = new PartiallyAppliedCollect(())
 
   final class PartiallyAppliedCollect[S, A](val unit: Unit) extends AnyVal {
-    def apply[R, E, B](s: S)(f: (A, S, Boolean) => ZIO[R, E, (Option[B], S)]): ContentDecoder[R, E, A, B] = Step(s, f)
+    def apply[R, E, B](s: S)(
+      f: (A, S, Boolean, Method, URL, List[Header]) => ZIO[R, E, (Option[B], S)],
+    ): ContentDecoder[R, E, A, B] = Step(s, f)
   }
 
   def collectAll[A]: ContentDecoder[Any, Nothing, A, Chunk[A]] = ContentDecoder.collect[Chunk[A], A](Chunk.empty) {
-    case (a, chunk, true)  => UIO((Option(chunk :+ a), chunk))
-    case (a, chunk, false) => UIO((None, chunk :+ a))
+    case (a, chunk, true, _, _, _)  => UIO((Option(chunk :+ a), chunk))
+    case (a, chunk, false, _, _, _) => UIO((None, chunk :+ a))
   }
 
   val backPressure: ContentDecoder[Any, Nothing, Chunk[Byte], Queue[Chunk[Byte]]] =
-    ContentDecoder.collect(BackPressure[Chunk[Byte]]()) { case (msg, state, _) =>
+    ContentDecoder.collect(BackPressure[Chunk[Byte]]()) { case (msg, state, _, _, _, _) =>
       for {
         queue <- state.queue.fold(Queue.bounded[Chunk[Byte]](1))(UIO(_))
         _     <- queue.offer(msg)
@@ -53,6 +59,9 @@ object ContentDecoder {
   private def decode[R, B](
     decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
     data: HttpData[Any, Throwable],
+    method: Method,
+    url: URL,
+    headers: List[Header],
   ): ZIO[R, Throwable, B] =
     data match {
       case HttpData.Empty                => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
@@ -62,7 +71,7 @@ object ContentDecoder {
           case step: ContentDecoder.Step[_, _, _, _, _] =>
             step
               .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
-              .next(Chunk.fromArray(data.getBytes(charset)), step.state, true)
+              .next(Chunk.fromArray(data.getBytes(charset)), step.state, true, method, url, headers)
               .map(a => a._1)
               .flatMap(contentFromOption)
         }
@@ -80,7 +89,7 @@ object ContentDecoder {
               .flatMap(
                 step
                   .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
-                  .next(_, step.state, true)
+                  .next(_, step.state, true, method, url, headers)
                   .map(a => a._1)
                   .flatMap(contentFromOption),
               )
@@ -91,7 +100,7 @@ object ContentDecoder {
           case step: ContentDecoder.Step[_, _, _, _, _] =>
             step
               .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
-              .next(data, step.state, true)
+              .next(data, step.state, true, method, url, headers)
               .map(a => a._1)
               .flatMap(contentFromOption)
         }
@@ -101,7 +110,7 @@ object ContentDecoder {
           case step: ContentDecoder.Step[_, _, _, _, _] =>
             step
               .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
-              .next(Chunk.fromArray(ByteBufUtil.getBytes(data)), step.state, true)
+              .next(Chunk.fromArray(ByteBufUtil.getBytes(data)), step.state, true, method, url, headers)
               .map(a => a._1)
               .flatMap(contentFromOption)
         }

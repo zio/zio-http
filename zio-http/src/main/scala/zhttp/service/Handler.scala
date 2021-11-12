@@ -23,6 +23,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
   private var isFirst: Boolean                                          = true
   private var decoderState: Any                                         = _
   private var jReq: HttpRequest                                         = _
+  private var request: Request                                          = _
 
   override def channelRegistered(ctx: ChannelHandlerContext): Unit = {
     ctx.channel().config().setAutoRead(false)
@@ -191,11 +192,14 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
             (publish, state) <- step
               .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], Any]]
               .next(
-                // content.array() can fail in case of no backing byte array
+                // content.array() fails with post request with body
                 // Link: https://livebook.manning.com/book/netty-in-action/chapter-5/54
                 Chunk.fromArray(ByteBufUtil.getBytes(content)),
                 nState,
                 isLast,
+                self.request.method,
+                self.request.url,
+                self.request.getHeaders,
               )
             _                <- publish match {
               case Some(out) => self.completePromise.succeed(out)
@@ -217,37 +221,39 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
         // The explicit call here is added to make unit tests work properly
         ctx.channel().config().setAutoRead(false)
         self.jReq = jRequest
+        self.request = new Request {
+          override def decodeContent[R0, B](
+            decoder: ContentDecoder[R0, Throwable, Chunk[Byte], B],
+          ): ZIO[R0, Throwable, B] =
+            ZIO.effectSuspendTotal {
+              if (self.decoder != null)
+                ZIO.fail(ContentDecoder.Error.ContentDecodedOnce)
+              else
+                for {
+                  p <- Promise.make[Throwable, B]
+                  _ <- UIO {
+                    self.decoder = decoder
+                      .asInstanceOf[ContentDecoder[Any, Throwable, Chunk[Byte], B]]
+                    self.completePromise = p.asInstanceOf[Promise[Throwable, Any]]
+                    ctx.read(): Unit
+                  }
+                  b <- p.await
+                } yield b
+            }
+
+          override def method: Method                     = Method.fromHttpMethod(jRequest.method())
+          override def url: URL                           = URL.fromString(jRequest.uri()).getOrElse(null)
+          override def getHeaders: List[Header]           = Header.make(jRequest.headers())
+          override def remoteAddress: Option[InetAddress] = {
+            ctx.channel().remoteAddress() match {
+              case m: InetSocketAddress => Some(m.getAddress())
+              case _                    => None
+            }
+          }
+        }
         unsafeRun(
           app.asHttp.asInstanceOf[Http[R, Throwable, Request, Response[R, Throwable]]],
-          new Request {
-            override def decodeContent[R0, B](
-              decoder: ContentDecoder[R0, Throwable, Chunk[Byte], B],
-            ): ZIO[R0, Throwable, B] =
-              ZIO.effectSuspendTotal {
-                if (self.decoder != null)
-                  ZIO.fail(ContentDecoder.Error.ContentDecodedOnce)
-                else
-                  for {
-                    p <- Promise.make[Throwable, B]
-                    _ <- UIO {
-                      self.decoder = decoder.asInstanceOf[ContentDecoder[Any, Throwable, Chunk[Byte], B]]
-                      self.completePromise = p.asInstanceOf[Promise[Throwable, Any]]
-                      ctx.read(): Unit
-                    }
-                    b <- p.await
-                  } yield b
-              }
-
-            override def method: Method                     = Method.fromHttpMethod(jRequest.method())
-            override def url: URL                           = URL.fromString(jRequest.uri()).getOrElse(null)
-            override def getHeaders: List[Header]           = Header.make(jRequest.headers())
-            override def remoteAddress: Option[InetAddress] = {
-              ctx.channel().remoteAddress() match {
-                case m: InetSocketAddress => Some(m.getAddress())
-                case _                    => None
-              }
-            }
-          },
+          self.request,
         )
 
       case msg: LastHttpContent =>

@@ -143,4 +143,6 @@ object HttpGen {
       p <- Gen.const(Path(l))
     } yield p
   }
+
+  def urlGen: Gen[Random with Sized, URL] = path.map(URL(_))
 }
