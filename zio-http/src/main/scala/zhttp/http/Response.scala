@@ -54,9 +54,8 @@ object Response {
     status: Status = Status.OK,
     headers: List[Header] = Nil,
     data: HttpData[R, E] = HttpData.Empty,
-  ): Response[R, E] = {
+  ): Response[R, E] =
     Response(status, headers, data, HttpAttribute.empty)
-  }
 
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
   def http[R, E](

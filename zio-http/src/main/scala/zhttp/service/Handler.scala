@@ -273,18 +273,17 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
   }
 
   private def decodeResponse(res: Response[_, _]): HttpResponse = {
+    val nettyHeaders = Header.disassemble(res.getHeaders)
     new DefaultHttpResponse(
       HttpVersion.HTTP_1_1,
       res.status.asJava,
-      Header.disassemble(
-        if (res.data.isChunked) Header.transferEncodingChunked :: res.getHeaders
-        else {
-          res.data.size match {
-            case Some(value) => Header.contentLength(value) :: res.getHeaders
-            case None        => res.getHeaders
-          }
-        },
-      ),
+      if (res.data.isChunked) nettyHeaders.add(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
+      else {
+        res.data.size match {
+          case Some(value) => nettyHeaders.add(HttpHeaderNames.CONTENT_LENGTH, value.toString)
+          case None        => nettyHeaders
+        }
+      },
     )
   }
 
