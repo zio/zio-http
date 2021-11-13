@@ -128,7 +128,7 @@ lazy val example = (project in file("./example"))
   .settings(publishSetting(false))
   .settings(
     fork                      := true,
-    Compile / run / mainClass := Option("HelloWorld"),
+    Compile / run / mainClass := Option("example.HelloWorld"),
     libraryDependencies ++= Seq(`jwt-core`),
     TwirlKeys.templateImports := Seq(),
   )
