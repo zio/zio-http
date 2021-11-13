@@ -6,6 +6,7 @@ import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
 
 import java.io.{PrintWriter, StringWriter}
+import java.nio.charset.Charset
 
 case class Response[-R, +E] private (
   status: Status,
@@ -80,9 +81,9 @@ object Response {
 
   def ok: UResponse = Response(Status.OK)
 
-  def text(text: String): UResponse =
+  def text(text: String, charset: Charset = HTTP_CHARSET): UResponse =
     Response(
-      data = HttpData.fromChunk(Chunk.fromArray(text.getBytes(HTTP_CHARSET))),
+      data = HttpData.fromText(text, charset),
       headers = List(Header.contentTypeTextPlain),
     )
 

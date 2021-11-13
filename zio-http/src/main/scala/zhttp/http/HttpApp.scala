@@ -7,6 +7,8 @@ import zio._
 import zio.clock.Clock
 import zio.duration.Duration
 
+import java.nio.charset.Charset
+
 case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) {
   self =>
   def orElse[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
@@ -171,7 +173,9 @@ object HttpApp {
   /**
    * Creates an Http app which always responds with the same plain text.
    */
-  def text(str: String): HttpApp[Any, Nothing] = HttpApp(Http.succeed(Response.text(str)))
+  def text(str: String, charset: Charset = HTTP_CHARSET): HttpApp[Any, Nothing] = HttpApp(
+    Http.succeed(Response.text(str, charset)),
+  )
 
   /**
    * Creates an Http app which always responds with the same value.
