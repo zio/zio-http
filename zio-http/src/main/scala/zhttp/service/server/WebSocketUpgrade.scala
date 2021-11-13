@@ -16,13 +16,13 @@ trait WebSocketUpgrade[R] { self: ChannelHandler =>
 
   private var app: SocketApp[R, Throwable] = _
 
-  def canSwitchProtocol(res: Response[R, Throwable]): Boolean = res.attribute.exit.socketApp.nonEmpty
+  def canSwitchProtocol(res: Response[R, Throwable]): Boolean = res.attribute.socketApp.nonEmpty
 
   /**
    * Checks if the response requires to switch protocol to websocket. Returns true if it can, otherwise returns false
    */
   def initializeSwitch(ctx: ChannelHandlerContext, res: Response[R, Throwable]): Unit = {
-    val app = res.attribute.exit.socketApp
+    val app = res.attribute.socketApp
     if (res.status == Status.SWITCHING_PROTOCOLS && app.nonEmpty) {
       self.app = app
       ctx.channel().config().setAutoRead(true): Unit
