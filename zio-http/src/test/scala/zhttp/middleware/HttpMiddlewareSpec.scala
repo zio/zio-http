@@ -5,7 +5,7 @@ import zhttp.http.middleware.HttpMiddleware
 import zhttp.internal.HttpAppTestExtensions
 import zio.clock.Clock
 import zio.duration._
-import zio.test.Assertion.{equalTo, isNone, isSome}
+import zio.test.Assertion.{contains, equalTo, isNone, isSome}
 import zio.test.environment.{TestClock, TestConsole}
 import zio.test.{DefaultRunnableSpec, assertM}
 import zio.{UIO, ZIO, console}
@@ -70,13 +70,13 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
         } +
           testM("add headers twice") {
             val middleware = addHeader("KeyA", "ValueA") ++ addHeader("KeyB", "ValueB")
-            val program    = run(app @@ middleware).map(_.getHeaders)
-            assertM(program)(equalTo(List(Header("KeyA", "ValueA"), Header("KeyB", "ValueB"))))
+            val headers    = (HttpApp.ok @@ middleware).getHeaderValues
+            assertM(headers(Request()))(contains("ValueA") && contains("ValueB"))
           } +
           testM("add and remove header") {
             val middleware = addHeader("KeyA", "ValueA") ++ removeHeader("KeyA")
-            val program    = run(app @@ middleware).map(_.getHeaders)
-            assertM(program)(equalTo(Nil))
+            val program    = (HttpApp.ok @@ middleware) getHeader "KeyA"
+            assertM(program(Request()))(isNone)
           }
       } +
       suite("ifThenElseM") {
