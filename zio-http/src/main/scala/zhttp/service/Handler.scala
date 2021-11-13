@@ -13,8 +13,11 @@ import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
-final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: HttpRuntime[R])
-    extends ChannelInboundHandlerAdapter
+final case class Handler[R] private[zhttp] (
+  app: HttpApp[R, Throwable],
+  runtime: HttpRuntime[R],
+  settings: Server.Settings[R, Throwable],
+) extends ChannelInboundHandlerAdapter
     with WebSocketUpgrade[R] { self =>
 
   private val cBody: ByteBuf                                            = Unpooled.compositeBuffer()
@@ -24,11 +27,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
   private var decoderState: Any                                         = _
   private var jReq: HttpRequest                                         = _
   private var request: Request                                          = _
-
-  override def channelRegistered(ctx: ChannelHandlerContext): Unit = {
-    ctx.channel().config().setAutoRead(false)
-    ctx.read(): Unit
-  }
+  private var canFlush: Boolean                                         = false
 
   override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
     val void = ctx.voidPromise()
@@ -37,7 +36,8 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
      * Writes ByteBuf data to the Channel
      */
     def unsafeWriteLastContent[A](data: ByteBuf): Unit = {
-      ctx.writeAndFlush(new DefaultLastHttpContent(data), void): Unit
+      ctx.write(new DefaultLastHttpContent(data), void)
+      (self.canFlush = true): Unit
     }
 
     /**
@@ -263,6 +263,15 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
           decodeContent(msg.content(), decoder, true)
         }
 
+        if (self.canFlush) {
+          ctx.flush(): Unit
+        }
+
+        // TODO: add unit tests
+        // Channels are reused when keep-alive header is set.
+        // So auto-read needs to be set to true once the first request is processed.
+        ctx.channel().config().setAutoRead(true): Unit
+
       case msg: HttpContent =>
         if (decoder != null) {
           decodeContent(msg.content(), decoder, false)
@@ -273,7 +282,20 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
   }
 
   private def decodeResponse(res: Response[_, _]): HttpResponse = {
-    new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, Header.disassemble(res.getHeaders))
+    // Create Netty Headers
+    val headers = Header.disassemble(res.getHeaders)
+
+    val contentLength = res.data.unsafeSize
+
+    // TODO: add unit test
+    // Set content length header
+    if (contentLength >= 0) headers.add(HttpHeaderNames.CONTENT_LENGTH, contentLength.toString)
+
+    // TODO: add unit test
+    // Adds keep-alive header if the setting is true
+    if (settings.keepAlive) headers.add(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
+
+    new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, headers)
   }
 
   private val notFoundResponse =
@@ -289,5 +311,4 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
     response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.length)
     response
   }
-
 }

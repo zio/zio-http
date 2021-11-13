@@ -1,31 +1,15 @@
 package example
 
 import zhttp.http._
-import zhttp.service.Server
-import zio.stream.ZStream
+import zhttp.service.{EventLoopGroup, Server}
+import zhttp.service.server.ServerChannelFactory
 import zio.{App, ExitCode, URIO}
 
 object HelloWorld extends App {
 
-  def h1 = HttpApp.fromHttp {
-    Http.collectM[Request] { case req =>
-      req.decodeContent(ContentDecoder.text).map { content =>
-        Response(data = HttpData.fromText(content))
-      }
-    }
-  }
-
-  def h2 = HttpApp.fromHttp {
-    Http.collectM[Request] { case req =>
-      req.decodeContent(ContentDecoder.backPressure).map { content =>
-        Response(data = HttpData.fromStream(ZStream.fromChunkQueue(content)))
-      }
-    }
-  }
-
-  def app: HttpApp[Any, Throwable] = h1 +++ h2
+  def server = Server.app(HttpApp.ok) ++ Server.port(8090) ++ Server.keepAlive ++ Server.disableLeakDetection
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+    server.make.useForever.provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto()).exitCode
 }
