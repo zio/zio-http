@@ -19,7 +19,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   private val Ok: Response[Any, Nothing] = Response()
 
   def spec =
-    suite("HttpHttpApp")(
+    suite("HttpApp")(
       EmptySpec,
       OkSpec,
       FailSpec,
@@ -94,7 +94,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         ),
       testM("headers are empty") {
         val res = HttpApp.fromHttp(Http.succeed(Ok)).getResponse
-        assertM(res)(isResponse(noHeader))
+        assertM(res)(isResponse(hasHeader("Content-Length", "0")))
       } +
         testM("headers are set") {
           val res = HttpApp.fromHttp(Http.succeed(Response(headers = List(Header.custom("key", "value"))))).getResponse
@@ -123,7 +123,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         } +
           testM("headers are empty") {
             val res = HttpApp.empty.getResponse
-            assertM(res)(isResponse(noHeader))
+            assertM(res)(isResponse(hasHeader("Content-Length", "0")))
           } +
           testM("version is 1.1") {
             val res = HttpApp.empty.getResponse

@@ -139,7 +139,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
         testM("empty Http") {
           val app = HttpApp.fromHttp(Http.empty)
           assertM(app.getResponse())(isResponse {
-            responseStatus(404) && version("HTTP/1.1") && noHeader
+            responseStatus(404) && version("HTTP/1.1") && hasHeader("Content-Length", "0")
           })
         } +
         testM("Http.empty") {
