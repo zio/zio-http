@@ -2,7 +2,7 @@ package zhttp.internal
 
 import io.netty.handler.codec.http._
 import zhttp.http._
-import zhttp.service.EventLoopGroup
+import zhttp.service.{EventLoopGroup, Server}
 import zio.stream.ZStream
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
@@ -130,7 +130,7 @@ trait HttpMessageAssertions {
   def hasBody(data: String, charset: Charset = Charset.defaultCharset()): Assertion[HttpContent] =
     Assertion.assertion("body")(param(data))(_.content().toString(charset).contains(data))
 
-  def hasHeader(name: String, value: String, ignoreCase: Boolean = true): Assertion[HttpResponse] =
+  def hasHeader(name: CharSequence, value: CharSequence, ignoreCase: Boolean = true): Assertion[HttpResponse] =
     Assertion.assertion("header")(param(s"$name: $value"))(_.headers().contains(name, value, ignoreCase))
 
   def hasHeader(value: Header): Assertion[HttpResponse] =
@@ -286,8 +286,9 @@ trait HttpMessageAssertions {
       method: HttpMethod = HttpMethod.GET,
       header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
       content: Iterable[String] = List("A", "B", "C", "D"),
+      config: Server.Config[Any, Nothing] = Server.Config(),
     ): ZIO[R with EventLoopGroup, Throwable, HttpResponse] = for {
-      proxy <- HttpAppClient.deploy(app)
+      proxy <- HttpAppClient.deploy(app, config)
       _     <- proxy.request(url, method, header)
       _     <- proxy.end(content)
       res   <- proxy.receive

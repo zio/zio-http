@@ -2,11 +2,11 @@ package zhttp.http
 
 import io.netty.handler.codec.http.LastHttpContent
 import zhttp.internal.{HttpGen, HttpMessageAssertions}
-import zhttp.service.EventLoopGroup
+import zhttp.service.{EventLoopGroup, Server}
 import zio.duration._
-import zio.test.Assertion.{anything, equalTo, isSubtype}
+import zio.test.Assertion._
 import zio.test.TestAspect.timeout
-import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAllM}
+import zio.test.{assertM, checkAllM, DefaultRunnableSpec, Gen}
 import zio.{UIO, ZIO}
 
 object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertions {
@@ -145,6 +145,26 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
         testM("Http.empty") {
           val app = HttpApp.fromHttp(Http.empty)
           assertM(app.getResponse)(isSubtype[LastHttpContent](anything))
+        } +
+        suite("response caching") {
+          testM("cache updated") {
+            val response = Response.ok
+            val app      = HttpApp
+              .response(response)
+              .getResponse(config = Server.Config(cacheResponse = true))
+              .map(jRes => response.jResponseCache == jRes)
+
+            assertM(app)(isTrue)
+          } +
+            testM("cache not updated") {
+              val response = Response.ok
+              val app      = HttpApp
+                .response(response)
+                .getResponse(config = Server.Config(cacheResponse = false))
+                .as(response.jResponseCache)
+
+              assertM(app)(isNull)
+            }
         }
     }.provideCustomLayer(env) @@ timeout(10 seconds)
 }
