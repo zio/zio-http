@@ -19,12 +19,20 @@ sealed trait HttpData[-R, +E] { self =>
   /**
    * Returns the size of HttpData if available
    */
-  def size: Option[Long] = self match {
-    case HttpData.Empty           => Option(0L)
-    case HttpData.Text(text, _)   => Option(text.length.toLong)
-    case HttpData.Binary(data)    => Option(data.size.toLong)
-    case HttpData.BinaryN(data)   => Option(data.readableBytes().toLong)
-    case HttpData.BinaryStream(_) => None
+  def size: Option[Long] = {
+    val s = self.unsafeSize
+    if (s < 0) None else Some(s)
+  }
+
+  /**
+   * Returns the size of HttpData if available and -1 if not
+   */
+  private[zhttp] def unsafeSize: Long = self match {
+    case HttpData.Empty           => 0L
+    case HttpData.Text(text, _)   => text.length.toLong
+    case HttpData.Binary(data)    => data.size.toLong
+    case HttpData.BinaryN(data)   => data.readableBytes().toLong
+    case HttpData.BinaryStream(_) => -1L
   }
 
   /**
