@@ -9,10 +9,10 @@ import java.io.{PrintWriter, StringWriter}
 import java.nio.charset.Charset
 
 final case class Response[-R, +E] private (
-  status: Status = Status.OK,
-  private val headers: List[Header] = Nil,
-  data: HttpData[R, E] = HttpData.empty,
-  attribute: Response.Attribute[R, E] = Response.Attribute.empty,
+  status: Status,
+  private val headers: List[Header],
+  data: HttpData[R, E],
+  attribute: Response.Attribute[R, E],
 ) extends HeaderExtension[Response[R, E]] { self =>
 
   /**
@@ -48,6 +48,20 @@ final case class Response[-R, +E] private (
 }
 
 object Response {
+
+  def apply[R, E](
+    status: Status = Status.OK,
+    headers: List[Header] = Nil,
+    data: HttpData[R, E] = HttpData.Empty,
+  ): Response[R, E] = {
+    val size      = data.unsafeSize
+    val isChunked = data.isChunked
+
+    val contentLength    = if (size >= 0) Header.contentLength(size) :: Nil else Nil
+    val transferEncoding = if (isChunked) Header.transferEncodingChunked :: Nil else Nil
+
+    Response(status, headers ++ transferEncoding ++ contentLength, data, Attribute.empty)
+  }
 
   def fromHttpError(error: HttpError): UResponse = {
     error match {
