@@ -6,7 +6,7 @@ import io.netty.handler.codec.http._
 import io.netty.util.CharsetUtil
 import zhttp.http.HttpApp
 import zhttp.internal.HttpAppClient.{MessageQueue, ProxyChannel}
-import zhttp.service.{EventLoopGroup, HttpRuntime}
+import zhttp.service.{EventLoopGroup, HttpRuntime, Server}
 import zio._
 import zio.internal.Executor
 import zio.stm.TQueue
@@ -208,7 +208,7 @@ object HttpAppClient {
       proxy    <- UIO {
 
         val channel = ProxyChannel(inbound, outbound, ec, grtm, thread)
-        channel.pipeline().addLast(app.compile(zExec))
+        channel.pipeline().addLast(app.compile(zExec, Server.Config()))
         HttpAppClient(outbound, channel)
       }.on(ec)
     } yield proxy

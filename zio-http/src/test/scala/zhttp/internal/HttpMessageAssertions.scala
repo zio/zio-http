@@ -6,7 +6,7 @@ import zhttp.service.EventLoopGroup
 import zio.stream.ZStream
 import zio.test.Assertion.anything
 import zio.test.AssertionM.Render.param
-import zio.test.{Assertion, TestResult, assertM}
+import zio.test.{assertM, Assertion, TestResult}
 import zio.{Chunk, Promise, Task, ZIO}
 
 import java.nio.charset.Charset
@@ -175,10 +175,10 @@ trait HttpMessageAssertions {
   def hasBody(data: String, charset: Charset = Charset.defaultCharset()): Assertion[HttpContent] =
     Assertion.assertion("body")(param(data))(_.content().toString(charset).contains(data))
 
-  def responseHeader(name: String, value: String, ignoreCase: Boolean = true): Assertion[HttpResponse] =
+  def hasHeader(name: String, value: String, ignoreCase: Boolean = true): Assertion[HttpResponse] =
     Assertion.assertion("header")(param(s"$name: $value"))(_.headers().contains(name, value, ignoreCase))
 
-  def responseHeader(value: Header): Assertion[HttpResponse] =
+  def hasHeader(value: Header): Assertion[HttpResponse] =
     Assertion.assertion("header")(param(s"${value.name}: ${value.value}"))(
       _.headers().contains(value.name, value.value, true),
     )

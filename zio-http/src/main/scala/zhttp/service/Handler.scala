@@ -16,7 +16,7 @@ import java.net.{InetAddress, InetSocketAddress}
 final case class Handler[R] private[zhttp] (
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
-  settings: Server.Settings[R, Throwable],
+  config: Server.Config[R, Throwable],
 ) extends ChannelInboundHandlerAdapter
     with WebSocketUpgrade[R] { self =>
 
@@ -293,7 +293,7 @@ final case class Handler[R] private[zhttp] (
 
     // TODO: add unit test
     // Adds keep-alive header if the setting is true
-    if (settings.keepAlive) headers.add(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
+    if (config.keepAlive) headers.add(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
 
     new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, headers)
   }
