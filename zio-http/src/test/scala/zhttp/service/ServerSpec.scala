@@ -3,7 +3,9 @@ package zhttp.service
 import zhttp.http._
 import zhttp.service.server._
 import zio.ZIO
+import zio.duration.durationInt
 import zio.test.Assertion.equalTo
+import zio.test.TestAspect.timeout
 import zio.test.assertM
 
 object ServerSpec extends HttpRunnableSpec(8087) {
@@ -41,5 +43,5 @@ object ServerSpec extends HttpRunnableSpec(8087) {
         ),
       )
       .useNow,
-  ).provideCustomLayer(env)
+  ).provideCustomLayer(env) @@ timeout(10 seconds)
 }
