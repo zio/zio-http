@@ -34,7 +34,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
           val app = HttpApp.collect { case _ => Response(status, List(header), content) }
           assertM(app.getResponse(content = data))(isResponse {
             responseStatus(status.asJava.code()) &&
-            responseHeader(header) &&
+            hasHeader(header) &&
             version("HTTP/1.1")
           })
         }
@@ -44,7 +44,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
             val app = HttpApp.collectM { case _ => UIO(Response(status, List(header), content)) }
             assertM(app.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
-              responseHeader(header) &&
+              hasHeader(header) &&
               version("HTTP/1.1")
             })
           }
@@ -54,7 +54,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
             val app = HttpApp.fromEffectFunction(_ => UIO(Response(status, List(header), content)))
             assertM(app.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
-              responseHeader(header) &&
+              hasHeader(header) &&
               version("HTTP/1.1")
             })
           }
@@ -70,7 +70,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
             val app = HttpApp.responseM(UIO(Response(status, List(header), content)))
             assertM(app.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
-              responseHeader(header) &&
+              hasHeader(header) &&
               version("HTTP/1.1")
             })
           }
@@ -86,7 +86,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
             val app = HttpApp.response(Response(status, List(header), content))
             assertM(app.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
-              responseHeader(header) &&
+              hasHeader(header) &&
               version("HTTP/1.1")
             })
           }
@@ -109,7 +109,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
               HttpApp.fromFunction(_ => HttpApp.response(Response(status, List(header), content)))
             assertM(app.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
-              responseHeader(header) &&
+              hasHeader(header) &&
               version("HTTP/1.1")
             })
           }

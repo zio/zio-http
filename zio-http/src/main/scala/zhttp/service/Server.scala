@@ -16,7 +16,7 @@ sealed trait Server[-R, +E] { self =>
   def ++[R1 <: R, E1 >: E](other: Server[R1, E1]): Server[R1, E1] =
     Concat(self, other)
 
-  private def settings[R1 <: R, E1 >: E](s: Settings[R1, E1] = Settings()): Settings[R1, E1] = self match {
+  private def settings[R1 <: R, E1 >: E](s: Config[R1, E1] = Config()): Config[R1, E1] = self match {
     case Concat(self, other)  => other.settings(self.settings(s))
     case LeakDetection(level) => s.copy(leakDetectionLevel = level)
     case MaxRequestSize(size) => s.copy(maxRequestSize = size)
@@ -36,7 +36,7 @@ sealed trait Server[-R, +E] { self =>
 }
 
 object Server {
-  private[zhttp] final case class Settings[-R, +E](
+  private[zhttp] final case class Config[-R, +E](
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
 

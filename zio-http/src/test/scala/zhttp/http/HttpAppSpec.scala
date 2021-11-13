@@ -98,7 +98,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       } +
         testM("headers are set") {
           val res = HttpApp.fromHttp(Http.succeed(Response(headers = List(Header.custom("key", "value"))))).getResponse
-          assertM(res)(isResponse(responseHeader("key", "value")))
+          assertM(res)(isResponse(hasHeader("key", "value")))
         } +
         testM("version is 1.1") {
           val res = HttpApp.fromHttp(Http.succeed(Ok)).getResponse
