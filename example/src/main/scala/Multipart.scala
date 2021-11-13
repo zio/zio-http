@@ -1,7 +1,7 @@
 import zhttp.experiment.multipart.{BodyEnd, ChunkedData}
 import zhttp.http._
 import zhttp.service.Server
-import zio.stream.{UStream, ZStream}
+import zio.stream.ZStream
 import zio.{App, ExitCode, URIO}
 
 object Multipart extends App {

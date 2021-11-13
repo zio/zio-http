@@ -4,6 +4,7 @@ import zhttp.http.Request
 import zio.Chunk
 
 import java.nio.charset.StandardCharsets
+import scala.annotation.tailrec
 
 sealed trait State
 case object NotStarted   extends State
@@ -12,7 +13,7 @@ case object PartData     extends State
 case object PartComplete extends State
 case object End          extends State
 
-sealed trait PartMeta //todo:  Match the nomenclature with netty
+sealed trait PartMeta
 case class PartContentDisposition(name: String, filename: Option[String]) extends PartMeta
 case class PartContentType(ContentType: String, charset: Option[String])  extends PartMeta
 case class PartContentTransferEncoding(encoding: String)                  extends PartMeta
@@ -33,27 +34,37 @@ case object Constants {
   val dashDashBytesN: Chunk[Byte]  = Chunk.fromArray(Array[Byte]('-', '-'))
 }
 
-class Parser(request: Request) {
+case class ParserState(
+  delimiter: Chunk[Byte],
+  state: State = NotStarted,
+  matchIndex: Int = 0,
+  CRLFIndex: Int = 0,
+  tempData: Chunk[Byte] = Chunk.empty,
+  partChunk: Chunk[Byte] = Chunk.empty,
+  startIndex: Int = 0,
+  outChunk: Chunk[Message] = Chunk.empty,
+)
+
+object Parser {
   import zhttp.experiment.multipart.Constants._
-  var delimiter: Option[Chunk[Byte]]                        = None
-  var state: State                                          = NotStarted
-  var matchIndex: Int                                       = 0 // matching index of boundary and double dash
-  var CRLFIndex: Int                                        = 0
-  var tempData: Chunk[Byte]                                 = Chunk.empty
-  var partChunk: Chunk[Byte]                                = Chunk.empty
-  private def getBoundary(request: Request): Option[String] = request.headers.filter(_.name == "Content-Type") match {
-    case ::(head, _) =>
-      head.value.toString.split(";").toList.filter(_.contains("boundary=")) match {
-        case ::(head, _) =>
-          head.split("=").toList match {
-            case ::(_, next) => Some(next.head)
-            case Nil         => throw new IllegalArgumentException("Invalid Request")
-          }
-        case Nil         => throw new IllegalArgumentException("Invalid Request")
-      }
-    case Nil         => throw new IllegalArgumentException("Invalid Request")
-  }
-  private def parsePartHeader(input: Chunk[Byte]): MetaInfo = {
+  def getBoundary(request: Request): Either[Throwable, String] =
+    request.headers.filter(_.name == "Content-Type") match {
+      case ::(head, _) =>
+        head.value.toString.split(";").toList.filter(_.contains("boundary=")) match {
+          case ::(head, _) =>
+            head.split("=").toList match {
+              case ::(_, next) =>
+                next match {
+                  case ::(head, _) => Right(head)
+                  case Nil         => Left(new Error("Invalid Request"))
+                }
+              case Nil         => Left(new Error("Invalid Request"))
+            }
+          case Nil         => Left(new Error("Invalid Request"))
+        }
+      case Nil         => Left(new Error("Invalid Request"))
+    }
+  private def parsePartHeader(input: Chunk[Byte]): MetaInfo    = {
     val headerString = new String(input.toArray, StandardCharsets.UTF_8)
     headerString
       .split(CRLF)
@@ -65,7 +76,7 @@ class Parser(request: Request) {
           .map(s => {
             s.split("=").map(_.trim) match {
               case Array(v1, v2) => (v1, v2)
-              case _             => throw new IllegalArgumentException("Invalid Request")
+              case _             => ("", "")
             }
           })
         if (metaInfoType == "Content-Disposition") {
@@ -105,16 +116,22 @@ class Parser(request: Request) {
       })
   }
 
-  def getMessages(input: Chunk[Byte], startIndex: Int = 0, outChunk: Chunk[Message] = Chunk.empty): Chunk[Message] = {
-    if (delimiter.isEmpty) {
-      delimiter = getBoundary(request).map(boundary => Chunk.fromArray(boundary.getBytes()))
-    }
-    val startDelimiterRaw = dashDashBytesN ++ delimiter.getOrElse(throw new IllegalArgumentException("Invalid Request"))
+  @tailrec
+  def getMessages(
+    input: Chunk[Byte],
+    parserState: ParserState,
+  ): Either[String, (Chunk[Message], ParserState)] = {
+
+    val startDelimiterRaw = dashDashBytesN ++ parserState.delimiter
     val delimiterRaw      = CRLFBytes ++ startDelimiterRaw
+    var state             = parserState.state
+    var matchIndex        = parserState.matchIndex
+    var CRLFIndex         = parserState.CRLFIndex
+    var tempData          = parserState.tempData
+    var partChunk         = parserState.partChunk
     state match {
       case NotStarted   =>
-        var i            = startIndex
-        var outChunkTemp = outChunk
+        var i = parserState.startIndex
         // Look for starting Boundary
         while (i < input.length && state == NotStarted) {
           if (input.byte(i) == startDelimiterRaw.byte(matchIndex)) {
@@ -127,16 +144,34 @@ class Parser(request: Request) {
               tempData = Chunk.empty                      // discard boundary bytes
             }
           } else {
-            throw new IllegalArgumentException("Invalid Request")
+            return Left("Invalid Request")
           }
         }
         if (i < input.length && state != NotStarted) { // more data is there in input
-          outChunkTemp = getMessages(input, i, outChunk)
+          getMessages(
+            input,
+            ParserState(
+              parserState.delimiter,
+              state,
+              matchIndex,
+              CRLFIndex,
+              tempData,
+              partChunk,
+              i,
+              parserState.outChunk,
+            ),
+          )
+        } else {
+          Right(
+            (
+              parserState.outChunk,
+              ParserState(parserState.delimiter, state, matchIndex, CRLFIndex, tempData, partChunk),
+            ),
+          )
         }
-        outChunkTemp
       case PartHeader   =>
-        var i            = startIndex
-        var outChunkTemp = outChunk
+        var i            = parserState.startIndex
+        var outChunkTemp = parserState.outChunk
         // Look until double CRLF
         while (i < input.length && state == PartHeader) {
           if (doubleCRLFBytes.byte(matchIndex) == input.byte(i)) {
@@ -154,19 +189,23 @@ class Parser(request: Request) {
           i = i + 1
           if (matchIndex == doubleCRLFBytes.length) {
             matchIndex = 0
-            val metaInfo = parsePartHeader(tempData)
+            val metaInfo = parsePartHeader(tempData) // return Either
             outChunkTemp = outChunkTemp ++ Chunk(metaInfo)
             tempData = Chunk.empty
             state = PartData
           }
         }
         if (i < input.length && state != PartHeader) {
-          outChunkTemp = getMessages(input, i, outChunkTemp)
+          getMessages(
+            input,
+            ParserState(parserState.delimiter, state, matchIndex, CRLFIndex, tempData, partChunk, i, outChunkTemp),
+          )
+        } else {
+          Right((outChunkTemp, ParserState(parserState.delimiter, state, matchIndex, CRLFIndex, tempData, partChunk)))
         }
-        outChunkTemp
       case PartData     =>
-        var i            = startIndex
-        var outChunkTemp = outChunk
+        var i            = parserState.startIndex
+        var outChunkTemp = parserState.outChunk
         // Look until boundary delimiter
         while (i < input.length && state == PartData) {
           if (delimiterRaw.byte(matchIndex) == input.byte(i)) {
@@ -198,12 +237,16 @@ class Parser(request: Request) {
           partChunk = Chunk.empty
         }
         if (i < input.length && state != PartData) {
-          outChunkTemp = getMessages(input, i, outChunkTemp)
+          getMessages(
+            input,
+            ParserState(parserState.delimiter, state, matchIndex, CRLFIndex, tempData, partChunk, i, outChunkTemp),
+          )
+        } else {
+          Right((outChunkTemp, ParserState(parserState.delimiter, state, matchIndex, CRLFIndex, tempData, partChunk)))
         }
-        outChunkTemp
       case PartComplete =>
-        var i               = startIndex
-        var outputChunkTemp = outChunk
+        var i               = parserState.startIndex
+        var outputChunkTemp = parserState.outChunk
         while (i < input.length && state == PartComplete) {
           if (dashDashBytesN.byte(matchIndex) == input.byte(i)) {
             matchIndex = matchIndex + 1
@@ -216,7 +259,7 @@ class Parser(request: Request) {
             CRLFIndex = 0
           }
           if (matchIndex == 0 && CRLFIndex == 0) {
-            throw new IllegalArgumentException("Invalid Request")
+            return Left("Invalid Request")
           }
           if (CRLFIndex == CRLFBytes.length) {
             CRLFIndex = 0
@@ -231,10 +274,28 @@ class Parser(request: Request) {
           i = i + 1
         }
         if (i < input.length && state == PartHeader) {
-          outputChunkTemp = getMessages(input, i - 1, outputChunkTemp)
+          getMessages(
+            input,
+            ParserState(
+              parserState.delimiter,
+              state,
+              matchIndex,
+              CRLFIndex,
+              tempData,
+              partChunk,
+              i - 1,
+              outputChunkTemp,
+            ),
+          )
+        } else {
+          Right(
+            (outputChunkTemp, ParserState(parserState.delimiter, state, matchIndex, CRLFIndex, tempData, partChunk)),
+          )
         }
-        outputChunkTemp
-      case End          => outChunk
+      case End          =>
+        Right(
+          (parserState.outChunk, ParserState(parserState.delimiter, state, matchIndex, CRLFIndex, tempData, partChunk)),
+        )
     }
   }
 

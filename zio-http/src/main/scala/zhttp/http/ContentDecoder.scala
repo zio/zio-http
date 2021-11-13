@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBufUtil, Unpooled}
-import zhttp.experiment.multipart.{Message, Parser}
+import zhttp.experiment.multipart.{Message, Parser, ParserState}
 import zio.{Chunk, Queue, Task, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
@@ -50,17 +50,23 @@ object ContentDecoder {
       } yield (if (state.isFirst) Option(queue) else None, state.withAcc(queue).withFirst(false))
     }
   def multipartDecoder(request: Request): ContentDecoder[Any, Throwable, Chunk[Byte], Queue[Message]] =
-    ContentDecoder.collect(BackPressure[(Parser, Queue[Message])]()) { case (msg, state, _) =>
-      for {
-        (parser, queue) <- state.acc.fold {
-          Queue.bounded[Message](1).map(q => ((new Parser(request), q)))
+    ContentDecoder.collect(BackPressure[(ParserState, Queue[Message])]()) { case (msg, state, _) =>
+      (for {
+        (parserState, queue) <- state.acc.fold {
+          Queue
+            .bounded[Message](1)
+            .flatMap(q =>
+              ZIO.fromEither(
+                Parser.getBoundary(request).map(boundary => (ParserState(Chunk.fromArray(boundary.getBytes())), q)),
+              ),
+            )
         }(UIO(_))
-        messages        <- Task(parser.getMessages(msg))
-        _               <- ZIO.foreach_(messages)(queue.offer).forkDaemon
+        messages             <- ZIO.fromEither(Parser.getMessages(msg, parserState)).orElseFail(Error.InvalidRequest)
+        _                    <- ZIO.foreach_(messages._1)(queue.offer).forkDaemon
       } yield (
         if (state.isFirst) Option(queue) else None,
-        state.withAcc((parser, queue)).withFirst(false),
-      )
+        state.withAcc((messages._2, queue)).withFirst(false),
+      ))
     }
 
   sealed trait Error extends Throwable with Product { self =>
@@ -68,6 +74,7 @@ object ContentDecoder {
       self match {
         case Error.ContentDecodedOnce => "Content has already been decoded once."
         case Error.DecodeEmptyContent => "Can not decode empty content"
+        case Error.InvalidRequest     => "Invalid Request"
       }
   }
 
@@ -140,5 +147,6 @@ object ContentDecoder {
   object Error {
     case object ContentDecodedOnce extends Error
     case object DecodeEmptyContent extends Error
+    case object InvalidRequest     extends Error
   }
 }
