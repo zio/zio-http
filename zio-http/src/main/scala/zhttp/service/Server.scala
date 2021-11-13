@@ -25,6 +25,7 @@ sealed trait Server[-R, +E] { self =>
     case App(app)             => s.copy(app = app)
     case Address(address)     => s.copy(address = address)
     case AcceptContinue       => s.copy(acceptContinue = true)
+    case KeepAlive            => s.copy(keepAlive = true)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
@@ -38,11 +39,16 @@ object Server {
   private[zhttp] final case class Settings[-R, +E](
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
+
+    // TODO: add error handler
     error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
     sslOption: ServerSSLOptions = null,
+
+    // TODO: move app out of settings
     app: HttpApp[R, E] = HttpApp.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
     acceptContinue: Boolean = false,
+    keepAlive: Boolean = false,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -52,6 +58,7 @@ object Server {
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
   private final case class Address(address: InetSocketAddress)                        extends UServer
   private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
+  private final case object KeepAlive                                                 extends Server[Any, Nothing]
   private case object AcceptContinue                                                  extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
@@ -68,6 +75,7 @@ object Server {
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
+  val keepAlive: UServer             = KeepAlive
 
   /**
    * Launches the app on the provided port.
