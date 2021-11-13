@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.HttpHeaderNames
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
@@ -41,6 +41,10 @@ final case class Response[-R, +E] private (
   override def updateHeaders(f: List[Header] => List[Header]): Response[R, E] =
     self.copy(headers = f(self.getHeaders))
 
+  /**
+   * Caches the response creation if set to true
+   */
+  private[zhttp] var jResponseCache: HttpResponse = null
 }
 
 object Response {

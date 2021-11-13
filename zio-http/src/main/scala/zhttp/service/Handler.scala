@@ -27,7 +27,6 @@ final case class Handler[R] private[zhttp] (
   private var decoderState: Any                                         = _
   private var jReq: HttpRequest                                         = _
   private var request: Request                                          = _
-  private var canFlush: Boolean                                         = false
 
   override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
     val void = ctx.voidPromise()
@@ -36,8 +35,7 @@ final case class Handler[R] private[zhttp] (
      * Writes ByteBuf data to the Channel
      */
     def unsafeWriteLastContent[A](data: ByteBuf): Unit = {
-      ctx.write(new DefaultLastHttpContent(data), void)
-      (self.canFlush = true): Unit
+      ctx.writeAndFlush(new DefaultLastHttpContent(data), void): Unit
     }
 
     /**
@@ -263,10 +261,6 @@ final case class Handler[R] private[zhttp] (
           decodeContent(msg.content(), decoder, true)
         }
 
-        if (self.canFlush) {
-          ctx.flush(): Unit
-        }
-
         // TODO: add unit tests
         // Channels are reused when keep-alive header is set.
         // So auto-read needs to be set to true once the first request is processed.
@@ -282,20 +276,28 @@ final case class Handler[R] private[zhttp] (
   }
 
   private def decodeResponse(res: Response[_, _]): HttpResponse = {
-    // Create Netty Headers
-    val headers = Header.disassemble(res.getHeaders)
+    if (config.cacheResponse) {
+      decodeResponseCached(res)
+    } else {
+      decodeResponseFresh(res)
+    }
+  }
 
-    val contentLength = res.data.unsafeSize
+  private def decodeResponseFresh(res: Response[_, _]): HttpResponse = {
+    val jHeaders = Header.disassemble(res.getHeaders)
+    new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
 
-    // TODO: add unit test
-    // Set content length header
-    if (contentLength >= 0) headers.add(HttpHeaderNames.CONTENT_LENGTH, contentLength.toString)
+  }
 
-    // TODO: add unit test
-    // Adds keep-alive header if the setting is true
-    if (config.keepAlive) headers.add(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
+  private def decodeResponseCached(res: Response[_, _]): HttpResponse = {
+    val cachedResponse = res.jResponseCache
+    if (cachedResponse != null) cachedResponse
+    else {
+      val jRes = decodeResponseFresh(res)
+      res.jResponseCache = jRes
 
-    new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, headers)
+      jRes
+    }
   }
 
   private val notFoundResponse =

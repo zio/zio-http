@@ -187,7 +187,10 @@ object HttpAppClient {
     }
   }
 
-  def deploy[R](app: HttpApp[R, Throwable]): ZIO[R with EventLoopGroup, Nothing, HttpAppClient] = {
+  def deploy[R](
+    app: HttpApp[R, Throwable],
+    cnf: Server.Config[R, Throwable] = Server.Config(),
+  ): ZIO[R with EventLoopGroup, Nothing, HttpAppClient] = {
     for {
       // Create a promise that resolves with the thread that is allowed for the execution
       // It is later used to guarantee that all the execution happens on the same thread.
@@ -208,7 +211,7 @@ object HttpAppClient {
       proxy    <- UIO {
 
         val channel = ProxyChannel(inbound, outbound, ec, grtm, thread)
-        channel.pipeline().addLast(app.compile(zExec, Server.Config()))
+        channel.pipeline().addLast(app.compile(zExec, cnf))
         HttpAppClient(outbound, channel)
       }.on(ec)
     } yield proxy
