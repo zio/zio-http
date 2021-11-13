@@ -300,8 +300,11 @@ final case class Handler[R] private[zhttp] (
     }
   }
 
-  private val notFoundResponse =
-    new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
+  private val notFoundResponse: HttpResponse = {
+    val response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
+    response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0)
+    response
+  }
 
   private def serverErrorResponse(cause: Throwable): HttpResponse = {
     val content  = cause.toString
