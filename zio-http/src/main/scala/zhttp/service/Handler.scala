@@ -100,9 +100,9 @@ final case class Handler[R] private[zhttp] (
                       case HttpData.Text(data, charset) =>
                         UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset)))
 
-                      case HttpData.BinaryN(data) => UIO(unsafeWriteLastContent(data))
+                      case HttpData.BinaryByteBuf(data) => UIO(unsafeWriteLastContent(data))
 
-                      case HttpData.Binary(data) =>
+                      case HttpData.BinaryChunk(data) =>
                         UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray)))
 
                       case HttpData.BinaryStream(stream) =>
@@ -126,10 +126,10 @@ final case class Handler[R] private[zhttp] (
               case HttpData.Text(data, charset) =>
                 unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset))
 
-              case HttpData.BinaryN(data) =>
+              case HttpData.BinaryByteBuf(data) =>
                 unsafeWriteLastContent(data)
 
-              case HttpData.Binary(data) =>
+              case HttpData.BinaryChunk(data) =>
                 unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray))
 
               case HttpData.BinaryStream(stream) =>
@@ -277,7 +277,7 @@ final case class Handler[R] private[zhttp] (
   }
 
   private def decodeResponse(res: Response[_, _]): HttpResponse = {
-    val jRes = if (config.cacheResponse) decodeResponseCached(res) else decodeResponseFresh(res)
+    val jRes = if (config.memoize) decodeResponseCached(res) else decodeResponseFresh(res)
     if (config.serverTime) serverTime.update(jRes) else jRes
   }
 

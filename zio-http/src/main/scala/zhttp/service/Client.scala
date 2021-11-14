@@ -150,8 +150,8 @@ object Client {
 
     def getBodyAsString: Option[String] = content match {
       case HttpData.Text(text, _) => Some(text)
-      case HttpData.Binary(data)  => Some((new String(data.toArray, HTTP_CHARSET)))
-      case HttpData.BinaryN(data) => Some(data.toString(HTTP_CHARSET))
+      case HttpData.BinaryChunk(data)  => Some((new String(data.toArray, HTTP_CHARSET)))
+      case HttpData.BinaryByteBuf(data) => Some(data.toString(HTTP_CHARSET))
       case _                      => Option.empty
     }
 

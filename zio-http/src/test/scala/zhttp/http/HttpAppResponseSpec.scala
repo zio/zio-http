@@ -151,7 +151,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
             val response = Response.ok
             val app      = HttpApp
               .response(response)
-              .getResponse(config = Server.Config(cacheResponse = true))
+              .getResponse(config = Server.Config(memoize = true))
               .map(jRes => response.cache == jRes)
 
             assertM(app)(isTrue)
@@ -160,7 +160,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
               val response = Response.ok
               val app      = HttpApp
                 .response(response)
-                .getResponse(config = Server.Config(cacheResponse = false))
+                .getResponse(config = Server.Config(memoize = false))
                 .as(response.cache)
 
               assertM(app)(isNull)
