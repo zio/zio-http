@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.HttpMethod
-import zhttp.experiment.internal.HttpMessageAssertions
+import zhttp.internal.HttpMessageAssertions
 import zhttp.service.EventLoopGroup
 import zio.test._
 

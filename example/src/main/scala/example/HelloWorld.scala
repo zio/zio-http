@@ -1,31 +1,16 @@
-package example
-
 import zhttp.http._
 import zhttp.service.Server
-import zio.stream.ZStream
-import zio.{App, ExitCode, URIO}
+import zio._
 
 object HelloWorld extends App {
 
-  def h1 = HttpApp.fromHttp {
-    Http.collectM[Request] { case req =>
-      req.decodeContent(ContentDecoder.text).map { content =>
-        Response(data = HttpData.fromText(content))
-      }
-    }
+  // Create HTTP route
+  val app: HttpApp[Any, Nothing] = HttpApp.collect {
+    case Method.GET -> !! / "text" => Response.text("Hello World!")
+    case Method.GET -> !! / "json" => Response.jsonString("""{"greetings": "Hello World!"}""")
   }
-
-  def h2 = HttpApp.fromHttp {
-    Http.collectM[Request] { case req =>
-      req.decodeContent(ContentDecoder.backPressure).map { content =>
-        Response(data = HttpData.fromStream(ZStream.fromChunkQueue(content)))
-      }
-    }
-  }
-
-  def app: HttpApp[Any, Throwable] = h1 +++ h2
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+    Server.start(8090, app.silent).exitCode
 }

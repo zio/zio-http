@@ -1,4 +1,4 @@
-package zhttp.experiment.internal
+package zhttp.internal
 
 import io.netty.buffer.Unpooled
 import zhttp.http._
@@ -143,4 +143,6 @@ object HttpGen {
       p <- Gen.const(Path(l))
     } yield p
   }
+
+  def urlGen: Gen[Random with Sized, URL] = path.map(URL(_))
 }

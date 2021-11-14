@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.LastHttpContent
-import zhttp.experiment.internal.{HttpGen, HttpMessageAssertions}
+import zhttp.internal.{HttpGen, HttpMessageAssertions}
 import zhttp.service.EventLoopGroup
 import zio.duration._
 import zio.test.Assertion.{anything, equalTo, isSubtype}

@@ -15,7 +15,9 @@ trait Request extends HeaderExtension[Request] { self =>
 
   def path: Path = url.path
 
-  def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B]
+  def decodeContent[R, B](
+    decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+  ): ZIO[R, Throwable, B]
 
   def remoteAddress: Option[InetAddress]
 
@@ -33,7 +35,9 @@ trait Request extends HeaderExtension[Request] { self =>
       override def remoteAddress: Option[InetAddress] =
         self.remoteAddress
 
-      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
+      override def decodeContent[R, B](
+        decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+      ): ZIO[R, Throwable, B] =
         self.decodeContent(decoder)
     }
   }
@@ -61,12 +65,14 @@ object Request {
     val h  = headers
     val ra = remoteAddress
     new Request {
-      override def method: Method                                                                                   = m
-      override def url: URL                                                                                         = u
-      override def getHeaders: List[Header]                                                                         = h
-      override def remoteAddress: Option[InetAddress]                                                               = ra
-      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
-        decoder.decode(data)
+      override def method: Method                     = m
+      override def url: URL                           = u
+      override def getHeaders: List[Header]           = h
+      override def remoteAddress: Option[InetAddress] = ra
+      override def decodeContent[R, B](
+        decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+      ): ZIO[R, Throwable, B] =
+        decoder.decode(data, method, url, headers)
     }
   }
 
@@ -93,7 +99,9 @@ object Request {
     override def url: URL                           = req.url
     override def getHeaders: List[Header]           = req.getHeaders
     override def remoteAddress: Option[InetAddress] = req.remoteAddress
-    override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
+    override def decodeContent[R, B](
+      decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+    ): ZIO[R, Throwable, B] =
       req.decodeContent(decoder)
   }
 

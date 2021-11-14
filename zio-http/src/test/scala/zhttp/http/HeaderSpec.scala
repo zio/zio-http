@@ -1,9 +1,10 @@
 package zhttp.http
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Header._
 import zhttp.http.HeaderExtension.BearerSchemeName
 import zio.test.Assertion._
-import zio.test.{DefaultRunnableSpec, assert}
+import zio.test.{DefaultRunnableSpec, Gen, assert, check}
 
 object HeaderSpec extends DefaultRunnableSpec {
 
@@ -233,6 +234,24 @@ object HeaderSpec extends DefaultRunnableSpec {
             val found        = headerHolder.getBearerToken
             assert(found)(isNone)
           },
-      ),
+      ) +
+      suite("getContentLength") {
+        testM("should get content-length") {
+          check(Gen.anyLong) { c =>
+            val found = HeaderExtension(List(Header.contentLength(c))).getContentLength
+            assert(found)(isSome(equalTo(c)))
+          }
+        } +
+          test("should not return content-length value if it doesn't exist") {
+            val found = HeaderExtension.empty.getContentType
+            assert(found)(isNone)
+          } +
+          testM("should get content-length") {
+            check(Gen.anyChar) { c =>
+              val found = HeaderExtension(List(Header(HttpHeaderNames.CONTENT_LENGTH, c.toString))).getContentLength
+              assert(found)(isNone)
+            }
+          }
+      },
   )
 }

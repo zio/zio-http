@@ -27,21 +27,6 @@ case class Response[-R, +E] private (
     self.copy(getHeaders = self.getHeaders ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
 
   /**
-   * Extracts the length of the content specified in the response data.
-   */
-  def getContentLength: Option[Long] = self.data.size
-
-  /**
-   * Automatically detects the size of the content and sets it
-   */
-  def setPayloadHeaders: Response[R, E] = {
-    getContentLength match {
-      case Some(value) => setContentLength(value)
-      case None        => setChunkedEncoding
-    }
-  }
-
-  /**
    * Updates the headers using the provided function
    */
   final override def updateHeaders(f: List[Header] => List[Header]): Response[R, E] =
