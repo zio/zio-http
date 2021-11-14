@@ -12,7 +12,7 @@ import zio.{App, ExitCode, URIO}
 object Multipart extends App {
   def app: HttpApp[Any, Throwable] = HttpApp.fromHttp {
     Http.collectM[Request] { case req =>
-      req.decodeContent(ContentDecoder.multipartDecoder(req)).map { content =>
+      req.decodeContent(ContentDecoder.multipartDecoder).map { content =>
         Response(data =
           HttpData.fromStream(
             ZStream

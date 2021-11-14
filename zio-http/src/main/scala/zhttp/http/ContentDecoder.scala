@@ -42,22 +42,22 @@ object ContentDecoder {
     case (a, chunk, false, _, _, _) => UIO((None, chunk :+ a))
   }
 
-  val backPressure: ContentDecoder[Any, Nothing, Chunk[Byte], Queue[Chunk[Byte]]]                     =
+  val backPressure: ContentDecoder[Any, Nothing, Chunk[Byte], Queue[Chunk[Byte]]]   =
     ContentDecoder.collect(BackPressure[Queue[Chunk[Byte]]]()) { case (msg, state, _, _, _, _) =>
       for {
         queue <- state.acc.fold(Queue.bounded[Chunk[Byte]](1))(UIO(_))
         _     <- queue.offer(msg)
       } yield (if (state.isFirst) Option(queue) else None, state.withAcc(queue).withFirst(false))
     }
-  def multipartDecoder(request: Request): ContentDecoder[Any, Throwable, Chunk[Byte], Queue[Message]] =
-    ContentDecoder.collect(BackPressure[(ParserState, Queue[Message])]()) { case (msg, state, _) =>
+  def multipartDecoder: ContentDecoder[Any, Throwable, Chunk[Byte], Queue[Message]] =
+    ContentDecoder.collect(BackPressure[(ParserState, Queue[Message])]()) { case (msg, state, _, _, _, headers) =>
       (for {
         (parserState, queue) <- state.acc.fold {
           Queue
             .bounded[Message](1)
             .flatMap(q =>
               ZIO.fromEither(
-                Parser.getBoundary(request).map(boundary => (ParserState(Chunk.fromArray(boundary.getBytes())), q)),
+                Parser.getBoundary(headers).map(boundary => (ParserState(Chunk.fromArray(boundary.getBytes())), q)),
               ),
             )
         }(UIO(_))

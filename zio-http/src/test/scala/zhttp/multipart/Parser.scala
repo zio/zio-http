@@ -1,9 +1,9 @@
 package zhttp.experiment.multipart
 
-import zhttp.http.{Header, Request}
+import zhttp.http.Header
 import zio.test.Assertion.equalTo
-import zio.{Chunk, UIO, ZIO}
 import zio.test.{DefaultRunnableSpec, assertM}
+import zio.{Chunk, UIO, ZIO}
 
 object ParserTest extends DefaultRunnableSpec {
   def makeHttpString(str: String): String =
@@ -11,15 +11,11 @@ object ParserTest extends DefaultRunnableSpec {
       case '\n' => "\r\n"
       case c    => c.toString
     }
-  val request: Request                    = Request(headers =
-    List(
-      Header("Content-Type", "multipart/form-data; boundary=_5PHqf8_Pl1FCzBuT5o_mVZg36k67UYI"),
-    ),
-  )
-  def spec                                = suite("Multipart Parser")(
+  val headers = List(Header("Content-Type", "multipart/form-data; boundary=_5PHqf8_Pl1FCzBuT5o_mVZg36k67UYI"))
+  def spec    = suite("Multipart Parser")(
     suite("Request Parsing")(
       testM("Should extract boundary from request") {
-        assertM(ZIO.fromEither(Parser.getBoundary(request)))(equalTo("_5PHqf8_Pl1FCzBuT5o_mVZg36k67UYI"))
+        assertM(ZIO.fromEither(Parser.getBoundary(headers)))(equalTo("_5PHqf8_Pl1FCzBuT5o_mVZg36k67UYI"))
       },
       testM("Should store partial header data to parserState") {
         val data          =

@@ -1,6 +1,6 @@
 package zhttp.experiment.multipart
 
-import zhttp.http.Request
+import zhttp.http.Header
 import zio.Chunk
 
 import java.nio.charset.StandardCharsets
@@ -47,8 +47,8 @@ case class ParserState(
 
 object Parser {
   import zhttp.experiment.multipart.Constants._
-  def getBoundary(request: Request): Either[Throwable, String] =
-    request.headers.filter(_.name == "Content-Type") match {
+  def getBoundary(headers: List[Header]): Either[Throwable, String] =
+    headers.filter(_.name == "Content-Type") match {
       case ::(head, _) =>
         head.value.toString.split(";").toList.filter(_.contains("boundary=")) match {
           case ::(head, _) =>
@@ -64,7 +64,7 @@ object Parser {
         }
       case Nil         => Left(new Error("Invalid Request"))
     }
-  private def parsePartHeader(input: Chunk[Byte]): MetaInfo    = {
+  private def parsePartHeader(input: Chunk[Byte]): MetaInfo         = {
     val headerString = new String(input.toArray, StandardCharsets.UTF_8)
     headerString
       .split(CRLF)
