@@ -2,6 +2,7 @@ package zhttp.http
 
 import io.netty.channel._
 import zhttp.http.middleware.{HttpMiddleware, Patch}
+import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
 import zio.clock.Clock
@@ -40,10 +41,14 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) {
   def catchAll[R1 <: R, E1](f: E => HttpApp[R1, E1])(implicit ev: CanFail[E]): HttpApp[R1, E1] =
     HttpApp(self.asHttp.catchAll(f(_).asHttp).asInstanceOf[Http[R1, E1, Request, Response[R1, E1]]])
 
-  private[zhttp] def compile[R1 <: R, E1 >: E](zExec: HttpRuntime[R1], settings: Server.Config[R1, Throwable])(implicit
+  private[zhttp] def compile[R1 <: R, E1 >: E](
+    zExec: HttpRuntime[R1],
+    settings: Server.Config[R1, Throwable],
+    serverTime: ServerTimeGenerator,
+  )(implicit
     evE: E1 <:< Throwable,
   ): ChannelHandler =
-    Handler[R1](self.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings)
+    Handler[R1](self.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, serverTime)
 
   /**
    * Executes the HttpApp and produces a Response

@@ -7,7 +7,7 @@ import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.http._
-import zhttp.service.server.WebSocketUpgrade
+import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
 
@@ -17,6 +17,7 @@ final case class Handler[R] private[zhttp] (
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
+  serverTime: ServerTimeGenerator,
 ) extends ChannelInboundHandlerAdapter
     with WebSocketUpgrade[R] { self =>
 
@@ -276,11 +277,8 @@ final case class Handler[R] private[zhttp] (
   }
 
   private def decodeResponse(res: Response[_, _]): HttpResponse = {
-    if (config.cacheResponse) {
-      decodeResponseCached(res)
-    } else {
-      decodeResponseFresh(res)
-    }
+    val jRes = if (config.cacheResponse) decodeResponseCached(res) else decodeResponseFresh(res)
+    if (config.serverTime) serverTime.update(jRes) else jRes
   }
 
   private def decodeResponseFresh(res: Response[_, _]): HttpResponse = {
