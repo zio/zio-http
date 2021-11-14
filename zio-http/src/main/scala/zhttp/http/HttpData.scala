@@ -62,7 +62,7 @@ object HttpData {
   /**
    * Helper to create HttpData from ByteBuf
    */
-  private[zhttp] def fromByteBuf(byteBuf: ByteBuf): HttpData[Any, Nothing] = HttpData.BinaryN(byteBuf)
+  def fromByteBuf(byteBuf: ByteBuf): HttpData[Any, Nothing] = HttpData.BinaryN(byteBuf)
 
   /**
    * Helper to create HttpData from Stream of Chunks
