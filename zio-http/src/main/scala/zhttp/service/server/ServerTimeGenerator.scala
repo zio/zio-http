@@ -1,19 +1,27 @@
 package zhttp.service.server
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaders, HttpResponse}
+import io.netty.util.concurrent.FastThreadLocal
 
-import java.time.format.DateTimeFormatter
-import java.time.{Instant, ZoneOffset}
+import java.text.SimpleDateFormat
+import java.util.Date
 
 case class ServerTimeGenerator() {
-  private var last: Instant = Instant.now()
-  private val formatter     = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC)
+  private val iTime = System.currentTimeMillis()
+
+  private val last: FastThreadLocal[Long] = new FastThreadLocal[Long] {
+    override def initialValue(): Long = iTime
+  }
+
+  private val formatter = new SimpleDateFormat("E, dd MMM yyyy HH:mm:ss z")
 
   def update(headers: HttpHeaders): Boolean = {
-    val now = Instant.now()
-    if (now.toEpochMilli - last.toEpochMilli >= 1000) {
-      last = now
-      headers.set(HttpHeaderNames.DATE, formatter.format(now))
+
+    val now = System.currentTimeMillis()
+
+    if (now - last.get() >= 1000) {
+      last.set(now)
+      headers.set(HttpHeaderNames.DATE, formatter.format(new Date(now)))
       true
     } else false
   }
