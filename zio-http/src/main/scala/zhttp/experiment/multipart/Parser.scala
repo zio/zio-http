@@ -2,7 +2,6 @@ package zhttp.experiment.multipart
 
 import io.netty.util.CharsetUtil
 import zio.Chunk
-
 import java.nio.charset.StandardCharsets
 
 sealed trait State
@@ -26,23 +25,28 @@ final case class MetaInfo(
 final case class ChunkedData(chunkedData: Chunk[Byte]) extends Message
 case object BodyEnd                                    extends Message
 
-class Parser(boundary: String) {
-  val boundaryBytes: Chunk[Byte]   = Chunk.fromArray(boundary.getBytes(CharsetUtil.UTF_8))
+case object Constants {
+  val CRLF                         = "\r\n"
   val CRLFBytes: Chunk[Byte]       = Chunk.fromArray(Array[Byte]('\r', '\n'))
   val doubleCRLFBytes: Chunk[Byte] = Chunk.fromArray(Array[Byte]('\r', '\n', '\r', '\n'))
   val dashDashBytesN: Chunk[Byte]  = Chunk.fromArray(Array[Byte]('-', '-'))
-  val startByte: Chunk[Byte]       = dashDashBytesN ++ boundaryBytes
-  val delimiter: Chunk[Byte]       = startByte
-  var state: State                 = NotStarted
-  var matchIndex: Int              = 0 // matching index of boundary and double dash
-  var CRLFIndex: Int               = 0
-  var tempData: Chunk[Byte]        = Chunk.empty
-  var partChunk: Chunk[Byte]       = Chunk.empty
+}
+
+class Parser(boundary: String) {
+  import zhttp.experiment.multipart.Constants._
+  val boundaryBytes: Chunk[Byte] = Chunk.fromArray(boundary.getBytes(CharsetUtil.UTF_8))
+  val startByte: Chunk[Byte]     = dashDashBytesN ++ boundaryBytes
+  val delimiter: Chunk[Byte]     = startByte
+  var state: State               = NotStarted
+  var matchIndex: Int            = 0 // matching index of boundary and double dash
+  var CRLFIndex: Int             = 0
+  var tempData: Chunk[Byte]      = Chunk.empty
+  var partChunk: Chunk[Byte]     = Chunk.empty
 
   private def parsePartHeader(input: Chunk[Byte]): MetaInfo = {
     val headerString = new String(input.toArray, StandardCharsets.UTF_8)
     headerString
-      .split("\r\n")
+      .split(CRLF)
       .foldLeft(MetaInfo(PartContentDisposition("", None), None, None))((metaInfo, aHeader) => {
         val subPart       = aHeader.split(";").map(_.trim())
         val subPartHeader = subPart.head.split(":")
