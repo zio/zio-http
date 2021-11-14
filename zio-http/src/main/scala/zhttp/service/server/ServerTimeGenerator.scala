@@ -7,7 +7,7 @@ import java.time.{Instant, ZoneOffset}
 
 case class ServerTimeGenerator() {
   private var last: Instant = Instant.now()
-  private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC)
+  private val formatter     = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC)
 
   def update(headers: HttpHeaders): Boolean = {
     val now = Instant.now()

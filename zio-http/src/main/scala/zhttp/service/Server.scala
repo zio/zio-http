@@ -82,7 +82,7 @@ object Server {
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
   val keepAlive: UServer             = KeepAlive
-  val memoize: UServer         = CacheResponse
+  val memoize: UServer               = CacheResponse
   val serverTime: UServer            = ServerTime
 
   /**
