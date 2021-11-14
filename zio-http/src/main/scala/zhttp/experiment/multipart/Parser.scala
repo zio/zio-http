@@ -29,13 +29,19 @@ final case class ChunkedData(chunkedData: Chunk[Byte]) extends Message
 case object BodyEnd                                    extends Message
 case object Empty                                      extends Message
 
+sealed trait Part
+object Part                    {
+  case object Empty                                          extends Part
+  case class File(name: String, data: UStream[Message])      extends Part
+  case class Attribute(name: String, data: UStream[Message]) extends Part
+}
 class Parser(boundary: String) {
   val boundaryBytes: Chunk[Byte]   = Chunk.fromArray(boundary.getBytes(CharsetUtil.UTF_8))
   val CRLFBytes: Chunk[Byte]       = Chunk.fromArray(Array[Byte]('\r', '\n'))
   val doubleCRLFBytes: Chunk[Byte] = Chunk.fromArray(Array[Byte]('\r', '\n', '\r', '\n'))
   val dashDashBytesN: Chunk[Byte]  = Chunk.fromArray(Array[Byte]('-', '-'))
   val startByte: Chunk[Byte]       = dashDashBytesN ++ boundaryBytes
-  val delimiter: Chunk[Byte]       = CRLFBytes ++ startByte
+  val delimiter: Chunk[Byte]       = startByte
   var state: State                 = NotStarted
   var matchIndex: Int              = 0 // matching index of boundary and double dash
   var CRLFIndex: Int               = 0
@@ -44,21 +50,24 @@ class Parser(boundary: String) {
   def getMessages(input: Chunk[Byte], startIndex: Int = 0, outChunk: Chunk[Message] = Chunk.empty): Chunk[Message] = {
     state match {
       case NotStarted   => {
+        println(new String(delimiter.toArray))
         var i            = startIndex
         var outChunkTemp = outChunk
         // Look for starting Boundary
         while (i < input.length && state == NotStarted) {
+          println(new String(Chunk(input.byte(i)).toArray))
           if (input.byte(i) == delimiter.byte(matchIndex)) {
             i = i + 1
             matchIndex = matchIndex + 1
             tempData = tempData ++ Chunk(input.byte(i))
+            println("tempData" + new String(tempData.toArray))
             if (matchIndex == delimiter.length) { // match complete
               state = PartHeader                  // start getting part header data
               matchIndex = 0
               tempData = Chunk.empty              // discard boundary bytes
             }
           } else {
-            println("invalid input")
+            println("invalid input not started")
             i = input.length // Invalid input. Break the loop
           }
         }
@@ -68,6 +77,7 @@ class Parser(boundary: String) {
         outChunkTemp
       }
       case PartHeader   => {
+        println("part Header")
         var i            = startIndex
         var outChunkTemp = outChunk
         // Look until double CRLF
@@ -148,6 +158,7 @@ class Parser(boundary: String) {
         outChunkTemp
       }
       case PartData     => {
+        println("part data")
         var i            = startIndex
         var outChunkTemp = outChunk
         // Look until boundary delimiter
@@ -187,6 +198,7 @@ class Parser(boundary: String) {
         outChunkTemp
       }
       case PartComplete => {
+        println("partComplete")
         var i               = startIndex
         var outputChunkTemp = outChunk
         while (i < input.length && state == PartComplete) {
@@ -201,7 +213,7 @@ class Parser(boundary: String) {
             CRLFIndex = 0
           }
           if (matchIndex == 0 && CRLFIndex == 0) {
-            println("invalid input")
+            println("invalid input partcomplete")
           }
           if (CRLFIndex == CRLFBytes.length) {
             CRLFIndex = 0
@@ -228,4 +240,51 @@ class Parser(boundary: String) {
 
   def byteStreamToMessageStream(input: UStream[Chunk[Byte]]): ZStream[Any, Nothing, Message] =
     input.transduce(byteToMessageTransducer)
+
+  def getParts(input: UStream[Message]): UStream[Part]            = {
+    input
+      .takeUntil(_ == BodyEnd)
+      .map {
+        case m @ MetaInfo(contentDisposition, _, _) =>
+          contentDisposition.filename match {
+            case Some(_) =>
+              println("meta info")
+              println(m)
+              Part.File(
+                contentDisposition.name,
+                input
+                  .dropWhile(_ != m)
+                  .takeUntil(_ != Boundary),
+              )
+            case None    =>
+              ???
+            /*println("here 2")
+              Part.Attribute(
+                contentDisposition.name,
+                input
+                  .dropUntil(_ != m)
+                  .takeUntil(_ == BodyEnd)
+                  .map {
+                    case ChunkedData(chunkedData) => chunkedData
+                    case _                        => Chunk.empty
+                  }
+                  .mapChunks(_.flatten),
+              )*/
+          }
+        case _                                      => Part.Empty
+      }
+      .filter(_ != Part.Empty)
+  }
+  def decodeMultipart(input: UStream[Chunk[Byte]]): UStream[Part] = getParts(byteStreamToMessageStream(input))
+
+}
+object Testing {
+  def getBytes(input: UStream[Message]): UStream[Chunk[Byte]] = input.map {
+    case Boundary           => Chunk.empty
+    case MetaInfo(_, _, _)  => Chunk.empty
+    case ChunkedData(bytes) => bytes
+    case BodyEnd            => Chunk.empty
+    case Empty              => Chunk.empty
+  }
+
 }
