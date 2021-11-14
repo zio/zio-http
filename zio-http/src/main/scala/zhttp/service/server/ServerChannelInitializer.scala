@@ -20,7 +20,7 @@ final case class ServerChannelInitializer[R](zExec: HttpRuntime[R], cfg: Config[
     // SSL
     // Add SSL Handler if CTX is available
     val sslctx = if (cfg.sslOption == null) null else cfg.sslOption.sslContext
-    if (sslctx != null) pipeline.addFirst(SSL_HANDLER, new OptionalSSLHandler(sslctx, cfg.sslOption.httpBehaviour))
+    if (sslctx != null) pipeline.addFirst(SSL_HANDLER, new OptionalSSLHandler(sslctx, cfg.sslOption.httpBehaviour, cfg))
 
     // ServerCodec
     // Always add ServerCodec
