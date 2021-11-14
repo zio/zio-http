@@ -31,9 +31,9 @@ case object Empty                                      extends Message
 
 sealed trait Part
 object Part                    {
-  case object Empty                                          extends Part
-  case class File(name: String, data: UStream[Message])      extends Part
-  case class Attribute(name: String, data: UStream[Message]) extends Part
+  case object Empty                                       extends Part
+  case class File(name: String, data: UStream[Byte])      extends Part
+  case class Attribute(name: String, data: UStream[Byte]) extends Part
 }
 class Parser(boundary: String) {
   val boundaryBytes: Chunk[Byte]   = Chunk.fromArray(boundary.getBytes(CharsetUtil.UTF_8))
@@ -237,13 +237,29 @@ class Parser(boundary: String) {
   }
   private val byteToMessageTransducer: ZTransducer[Any, Nothing, Chunk[Byte], Message]                             =
     ZTransducer.fromFunction[Chunk[Byte], Chunk[Message]](a => getMessages(a)).mapChunks(_.flatten)
-
-  def byteStreamToMessageStream(input: UStream[Chunk[Byte]]): ZStream[Any, Nothing, Message] =
+  def byteStreamToMessageStream(input: UStream[Chunk[Byte]]): ZStream[Any, Nothing, Message]                       =
     input.transduce(byteToMessageTransducer)
 
-  def getParts(input: UStream[Message]): UStream[Part]            = {
-    input
-      .takeUntil(_ == BodyEnd)
+  def getParts(input: UStream[Message]): ZStream[Any, Nothing, Option[(MetaInfo, Message)]] = {
+    val output: ZStream[Any, Nothing, Option[(MetaInfo, Message)]] =
+      input
+        .takeUntil(_ == BodyEnd)
+        .scan(Option.empty[(MetaInfo, Message)])((s, o) =>
+          o match {
+            case Boundary              => None
+            case m @ MetaInfo(_, _, _) => Some((m, m))
+            case c @ ChunkedData(_)    =>
+              s match {
+                case Some(value) => Some((value._1, c))
+                case None        => None
+              }
+            case BodyEnd               => None
+            case Empty                 => None
+          },
+        )
+        .filterNot(_.isEmpty)
+    output
+    /*takeUntil(_ == BodyEnd)
       .map {
         case m @ MetaInfo(contentDisposition, _, _) =>
           contentDisposition.filename match {
@@ -273,9 +289,11 @@ class Parser(boundary: String) {
           }
         case _                                      => Part.Empty
       }
-      .filter(_ != Part.Empty)
+      .filter(_ != Part.Empty)*/
   }
-  def decodeMultipart(input: UStream[Chunk[Byte]]): UStream[Part] = getParts(byteStreamToMessageStream(input))
+  def decodeMultipart(input: UStream[Chunk[Byte]]): UStream[Option[(MetaInfo, Message)]]    = getParts(
+    byteStreamToMessageStream(input),
+  )
 
 }
 object Testing {

@@ -1,6 +1,8 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBufUtil, Unpooled}
+import zhttp.experiment.multipart.{Message, MetaInfo, Parser, Part}
+import zio.stream.{UStream, ZStream}
 import zio.{Chunk, Queue, Task, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
@@ -19,10 +21,11 @@ object ContentDecoder {
     next: (A, S, Boolean, Method, URL, List[Header]) => ZIO[R, E, (Option[B], S)],
   ) extends ContentDecoder[R, E, A, B]
 
-  private[zhttp] case class BackPressure[B](queue: Option[Queue[B]] = None, isFirst: Boolean = true) {
+  private[zhttp] case class BackPressure[B](acc: Option[B] = None, isFirst: Boolean = true) {
     self =>
-    def withQueue(queue: Queue[B]): BackPressure[B] = if (self.queue.isEmpty) self.copy(queue = Option(queue)) else self
-    def withFirst(cond: Boolean): BackPressure[B]   = if (cond == isFirst) self else self.copy(isFirst = cond)
+    def withAcc(acc: B): BackPressure[B]          =
+      if (self.acc.isEmpty) self.copy(acc = Option(acc)) else self
+    def withFirst(cond: Boolean): BackPressure[B] = if (cond == isFirst) self else self.copy(isFirst = cond)
   }
 
   val text: ContentDecoder[Any, Nothing, Any, String] = Text
@@ -41,12 +44,35 @@ object ContentDecoder {
   }
 
   val backPressure: ContentDecoder[Any, Nothing, Chunk[Byte], Queue[Chunk[Byte]]] =
-    ContentDecoder.collect(BackPressure[Chunk[Byte]]()) { case (msg, state, _, _, _, _) =>
+    ContentDecoder.collect(BackPressure[Queue[Chunk[Byte]]]()) { case (msg, state, _, _, _, _) =>
       for {
-        queue <- state.queue.fold(Queue.bounded[Chunk[Byte]](1))(UIO(_))
+        queue <- state.acc.fold(Queue.bounded[Chunk[Byte]](1))(UIO(_))
         _     <- queue.offer(msg)
-      } yield (if (state.isFirst) Option(queue) else None, state.withQueue(queue).withFirst(false))
+      } yield (if (state.isFirst) Option(queue) else None, state.withAcc(queue).withFirst(false))
     }
+  def multipartDecoder(
+    boundary: String,
+  ): ContentDecoder[Any, Nothing, Chunk[Byte], Multipart] = // todo:  make this not take any args
+    ContentDecoder.collect(BackPressure[(UStream[Option[(MetaInfo, Message)]], Queue[Chunk[Byte]])]()) {
+      case (msg, state, _) =>
+        (for {
+          (stream, queue) <- state.acc.fold {
+            val q = Queue.bounded[Chunk[Byte]](1)
+            q.map(z => ((new Parser(boundary).decodeMultipart(ZStream.fromQueue(z)), z)))
+          }(UIO(_))
+          _               <- queue.offer(msg)
+        } yield (
+          if (state.isFirst) Option(Multipart(stream)) else None,
+          state.withAcc((stream, queue)).withFirst(false),
+        )).orDie // fixme: find from where error is coming
+    }
+
+  case class Multipart(output: UStream[Option[(MetaInfo, Message)]]) {
+    def getFile(name: String): Option[Part.File]   = ???
+    def getAttribute(name: String): Option[String] = ???
+    def getAllFiles: UStream[Part.File]            = ???
+    def getAll: UStream[Part]                      = ???
+  }
 
   sealed trait Error extends Throwable with Product { self =>
     override def getMessage(): String =
