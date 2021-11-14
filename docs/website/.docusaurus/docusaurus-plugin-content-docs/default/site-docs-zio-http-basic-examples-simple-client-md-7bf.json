@@ -1,0 +1,23 @@
+{
+  "unversionedId": "zio-http-basic-examples/simple-client",
+  "id": "zio-http-basic-examples/simple-client",
+  "isDocsHomePage": false,
+  "title": "Simple HTTP Client",
+  "description": "",
+  "source": "@site/docs/zio-http-basic-examples/simple-client.md",
+  "sourceDirName": "zio-http-basic-examples",
+  "slug": "/zio-http-basic-examples/simple-client",
+  "permalink": "/zio-http/docs/zio-http-basic-examples/simple-client",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "HTTPS Server",
+    "permalink": "/zio-http/docs/zio-http-basic-examples/https-server"
+  },
+  "next": {
+    "title": "Simple Websocket Server",
+    "permalink": "/zio-http/docs/zio-http-basic-examples/web-socket"
+  }
+}

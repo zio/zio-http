@@ -1,0 +1,23 @@
+{
+  "unversionedId": "advanced-examples/hello-world-advanced",
+  "id": "advanced-examples/hello-world-advanced",
+  "isDocsHomePage": false,
+  "title": "Advanced Server",
+  "description": "",
+  "source": "@site/docs/advanced-examples/hello-world-advanced.md",
+  "sourceDirName": "advanced-examples",
+  "slug": "/advanced-examples/hello-world-advanced",
+  "permalink": "/zio-http/docs/advanced-examples/hello-world-advanced",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "CORS Handling",
+    "permalink": "/zio-http/docs/advanced-examples/cors"
+  },
+  "next": {
+    "title": "Sticky Threads",
+    "permalink": "/zio-http/docs/advanced-examples/sticky-threads"
+  }
+}

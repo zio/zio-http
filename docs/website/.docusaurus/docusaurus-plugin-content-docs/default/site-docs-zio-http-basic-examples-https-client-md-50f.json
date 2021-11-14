@@ -1,0 +1,23 @@
+{
+  "unversionedId": "zio-http-basic-examples/https-client",
+  "id": "zio-http-basic-examples/https-client",
+  "isDocsHomePage": false,
+  "title": "HTTPS Cient",
+  "description": "",
+  "source": "@site/docs/zio-http-basic-examples/https-client.md",
+  "sourceDirName": "zio-http-basic-examples",
+  "slug": "/zio-http-basic-examples/https-client",
+  "permalink": "/zio-http/docs/zio-http-basic-examples/https-client",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Simple Server",
+    "permalink": "/zio-http/docs/zio-http-basic-examples/hello-world"
+  },
+  "next": {
+    "title": "HTTPS Server",
+    "permalink": "/zio-http/docs/zio-http-basic-examples/https-server"
+  }
+}

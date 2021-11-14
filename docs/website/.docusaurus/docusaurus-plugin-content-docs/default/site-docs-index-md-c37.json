@@ -1,0 +1,22 @@
+{
+  "unversionedId": "index",
+  "id": "index",
+  "isDocsHomePage": false,
+  "title": "Getting Started",
+  "description": "Http",
+  "source": "@site/docs/index.md",
+  "sourceDirName": ".",
+  "slug": "/index",
+  "permalink": "/zio-http/docs/index",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1
+  },
+  "sidebar": "tutorialSidebar",
+  "next": {
+    "title": "Simple Server",
+    "permalink": "/zio-http/docs/zio-http-basic-examples/hello-world"
+  }
+}

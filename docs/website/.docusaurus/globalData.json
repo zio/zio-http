@@ -1,0 +1,88 @@
+{
+  "docusaurus-plugin-content-docs": {
+    "default": {
+      "path": "/zio-http/docs",
+      "versions": [
+        {
+          "name": "current",
+          "label": "Next",
+          "isLast": true,
+          "path": "/zio-http/docs",
+          "mainDocId": "index",
+          "docs": [
+            {
+              "id": "advanced-examples/authentication",
+              "path": "/zio-http/docs/advanced-examples/authentication",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "advanced-examples/concrete-entity",
+              "path": "/zio-http/docs/advanced-examples/concrete-entity",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "advanced-examples/cors",
+              "path": "/zio-http/docs/advanced-examples/cors",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "advanced-examples/hello-world-advanced",
+              "path": "/zio-http/docs/advanced-examples/hello-world-advanced",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "advanced-examples/sticky-threads",
+              "path": "/zio-http/docs/advanced-examples/sticky-threads",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "advanced-examples/stream-file",
+              "path": "/zio-http/docs/advanced-examples/stream-file",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "advanced-examples/stream-response",
+              "path": "/zio-http/docs/advanced-examples/stream-response",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "advanced-examples/web-socket-advanced",
+              "path": "/zio-http/docs/advanced-examples/web-socket-advanced",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "index",
+              "path": "/zio-http/docs/index",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "zio-http-basic-examples/hello-world",
+              "path": "/zio-http/docs/zio-http-basic-examples/hello-world",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "zio-http-basic-examples/https-client",
+              "path": "/zio-http/docs/zio-http-basic-examples/https-client",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "zio-http-basic-examples/https-server",
+              "path": "/zio-http/docs/zio-http-basic-examples/https-server",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "zio-http-basic-examples/simple-client",
+              "path": "/zio-http/docs/zio-http-basic-examples/simple-client",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "zio-http-basic-examples/web-socket",
+              "path": "/zio-http/docs/zio-http-basic-examples/web-socket",
+              "sidebar": "tutorialSidebar"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

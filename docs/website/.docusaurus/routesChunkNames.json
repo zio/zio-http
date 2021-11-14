@@ -1,0 +1,92 @@
+{
+  "/zio-http/-eab": {
+    "component": "component---site-src-pages-index-jsc-4-f-f99",
+    "config": "config---zio-http-5-e-9-851"
+  },
+  "/zio-http/__docusaurus/debug-2e5": {
+    "component": "component---theme-debug-config-23-a-2ff"
+  },
+  "/zio-http/__docusaurus/debug/config-0ad": {
+    "component": "component---theme-debug-config-23-a-2ff"
+  },
+  "/zio-http/__docusaurus/debug/content-78a": {
+    "component": "component---theme-debug-contentba-8-ce7",
+    "allContent": "allContent---zio-http-docusaurus-debug-content-246-47b"
+  },
+  "/zio-http/__docusaurus/debug/globalData-47c": {
+    "component": "component---theme-debug-global-dataede-0fa"
+  },
+  "/zio-http/__docusaurus/debug/metadata-ed5": {
+    "component": "component---theme-debug-site-metadata-68-e-3d4"
+  },
+  "/zio-http/__docusaurus/debug/registry-5af": {
+    "component": "component---theme-debug-registry-679-501"
+  },
+  "/zio-http/__docusaurus/debug/routes-057": {
+    "component": "component---theme-debug-routes-946-699"
+  },
+  "/zio-http/blog/archive-4bf": {
+    "component": "component---theme-blog-archive-page-9-e-4-1d8",
+    "archive": "archive---zio-http-blog-archivee-51-d96"
+  },
+  "/zio-http/docs-9d7": {
+    "component": "component---theme-doc-page-1-be-9be",
+    "versionMetadata": "versionMetadata---zio-http-docs-935-f37"
+  },
+  "/zio-http/docs/advanced-examples/authentication-d1e": {
+    "component": "component---theme-doc-item-178-a40",
+    "content": "content---zio-http-docs-advanced-examples-authentication-15-f-468"
+  },
+  "/zio-http/docs/advanced-examples/concrete-entity-15e": {
+    "component": "component---theme-doc-item-178-a40",
+    "content": "content---zio-http-docs-advanced-examples-concrete-entity-4-d-6-702"
+  },
+  "/zio-http/docs/advanced-examples/cors-86d": {
+    "component": "component---theme-doc-item-178-a40",
+    "content": "content---zio-http-docs-advanced-examples-cors-14-b-9fe"
+  },
+  "/zio-http/docs/advanced-examples/hello-world-advanced-65d": {
+    "component": "component---theme-doc-item-178-a40",
+    "content": "content---zio-http-docs-advanced-examples-hello-world-advanced-4-be-34c"
+  },
+  "/zio-http/docs/advanced-examples/sticky-threads-421": {
+    "component": "component---theme-doc-item-178-a40",
+    "content": "content---zio-http-docs-advanced-examples-sticky-threads-446-81f"
+  },
+  "/zio-http/docs/advanced-examples/stream-file-b7b": {
+    "component": "component---theme-doc-item-178-a40",
+    "content": "content---zio-http-docs-advanced-examples-stream-file-49-a-b87"
+  },
+  "/zio-http/docs/advanced-examples/stream-response-0c0": {
+    "component": "component---theme-doc-item-178-a40",
+    "content": "content---zio-http-docs-advanced-examples-stream-response-4-a-3-f65"
+  },
+  "/zio-http/docs/advanced-examples/web-socket-advanced-555": {
+    "component": "component---theme-doc-item-178-a40",
+    "content": "content---zio-http-docs-advanced-examples-web-socket-advanced-62-a-b6d"
+  },
+  "/zio-http/docs/index-187": {
+    "component": "component---theme-doc-item-178-a40",
+    "content": "content---zio-http-docs-indexc-37-7b1"
+  },
+  "/zio-http/docs/zio-http-basic-examples/hello-world-a58": {
+    "component": "component---theme-doc-item-178-a40",
+    "content": "content---zio-http-docs-zio-http-basic-examples-hello-worldb-32-bb3"
+  },
+  "/zio-http/docs/zio-http-basic-examples/https-client-8d2": {
+    "component": "component---theme-doc-item-178-a40",
+    "content": "content---zio-http-docs-zio-http-basic-examples-https-client-50-f-788"
+  },
+  "/zio-http/docs/zio-http-basic-examples/https-server-cae": {
+    "component": "component---theme-doc-item-178-a40",
+    "content": "content---zio-http-docs-zio-http-basic-examples-https-server-2-c-4-ded"
+  },
+  "/zio-http/docs/zio-http-basic-examples/simple-client-727": {
+    "component": "component---theme-doc-item-178-a40",
+    "content": "content---zio-http-docs-zio-http-basic-examples-simple-client-7-bf-aa8"
+  },
+  "/zio-http/docs/zio-http-basic-examples/web-socket-54a": {
+    "component": "component---theme-doc-item-178-a40",
+    "content": "content---zio-http-docs-zio-http-basic-examples-web-socketcfe-cf5"
+  }
+}

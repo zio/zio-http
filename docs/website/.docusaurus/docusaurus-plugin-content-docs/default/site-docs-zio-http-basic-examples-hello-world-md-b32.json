@@ -1,0 +1,23 @@
+{
+  "unversionedId": "zio-http-basic-examples/hello-world",
+  "id": "zio-http-basic-examples/hello-world",
+  "isDocsHomePage": false,
+  "title": "Simple Server",
+  "description": "",
+  "source": "@site/docs/zio-http-basic-examples/hello-world.md",
+  "sourceDirName": "zio-http-basic-examples",
+  "slug": "/zio-http-basic-examples/hello-world",
+  "permalink": "/zio-http/docs/zio-http-basic-examples/hello-world",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Getting Started",
+    "permalink": "/zio-http/docs/index"
+  },
+  "next": {
+    "title": "HTTPS Cient",
+    "permalink": "/zio-http/docs/zio-http-basic-examples/https-client"
+  }
+}

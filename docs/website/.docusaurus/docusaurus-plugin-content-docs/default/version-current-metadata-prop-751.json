@@ -1,0 +1,99 @@
+{
+  "pluginId": "default",
+  "version": "current",
+  "label": "Next",
+  "banner": null,
+  "badge": false,
+  "className": "docs-version-current",
+  "isLast": true,
+  "docsSidebars": {
+    "tutorialSidebar": [
+      {
+        "type": "link",
+        "label": "Getting Started",
+        "href": "/zio-http/docs/index"
+      },
+      {
+        "type": "category",
+        "label": "Basic Examples",
+        "collapsible": true,
+        "collapsed": true,
+        "items": [
+          {
+            "type": "link",
+            "label": "Simple Server",
+            "href": "/zio-http/docs/zio-http-basic-examples/hello-world"
+          },
+          {
+            "type": "link",
+            "label": "HTTPS Cient",
+            "href": "/zio-http/docs/zio-http-basic-examples/https-client"
+          },
+          {
+            "type": "link",
+            "label": "HTTPS Server",
+            "href": "/zio-http/docs/zio-http-basic-examples/https-server"
+          },
+          {
+            "type": "link",
+            "label": "Simple HTTP Client",
+            "href": "/zio-http/docs/zio-http-basic-examples/simple-client"
+          },
+          {
+            "type": "link",
+            "label": "Simple Websocket Server",
+            "href": "/zio-http/docs/zio-http-basic-examples/web-socket"
+          }
+        ]
+      },
+      {
+        "type": "category",
+        "label": "Advanced Examples",
+        "collapsible": true,
+        "collapsed": true,
+        "items": [
+          {
+            "type": "link",
+            "label": "Authentication",
+            "href": "/zio-http/docs/advanced-examples/authentication"
+          },
+          {
+            "type": "link",
+            "label": "Concrete Enity",
+            "href": "/zio-http/docs/advanced-examples/concrete-entity"
+          },
+          {
+            "type": "link",
+            "label": "CORS Handling",
+            "href": "/zio-http/docs/advanced-examples/cors"
+          },
+          {
+            "type": "link",
+            "label": "Advanced Server",
+            "href": "/zio-http/docs/advanced-examples/hello-world-advanced"
+          },
+          {
+            "type": "link",
+            "label": "Sticky Threads",
+            "href": "/zio-http/docs/advanced-examples/sticky-threads"
+          },
+          {
+            "type": "link",
+            "label": "Streaming File",
+            "href": "/zio-http/docs/advanced-examples/stream-file"
+          },
+          {
+            "type": "link",
+            "label": "Streaming Response",
+            "href": "/zio-http/docs/advanced-examples/stream-response"
+          },
+          {
+            "type": "link",
+            "label": "Web Socket Server",
+            "href": "/zio-http/docs/advanced-examples/web-socket-advanced"
+          }
+        ]
+      }
+    ]
+  }
+}

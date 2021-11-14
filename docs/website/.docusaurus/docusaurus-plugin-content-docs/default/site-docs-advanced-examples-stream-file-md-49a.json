@@ -1,0 +1,23 @@
+{
+  "unversionedId": "advanced-examples/stream-file",
+  "id": "advanced-examples/stream-file",
+  "isDocsHomePage": false,
+  "title": "Streaming File",
+  "description": "",
+  "source": "@site/docs/advanced-examples/stream-file.md",
+  "sourceDirName": "advanced-examples",
+  "slug": "/advanced-examples/stream-file",
+  "permalink": "/zio-http/docs/advanced-examples/stream-file",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Sticky Threads",
+    "permalink": "/zio-http/docs/advanced-examples/sticky-threads"
+  },
+  "next": {
+    "title": "Streaming Response",
+    "permalink": "/zio-http/docs/advanced-examples/stream-response"
+  }
+}

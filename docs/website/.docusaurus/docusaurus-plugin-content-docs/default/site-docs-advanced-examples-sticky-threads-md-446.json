@@ -1,0 +1,23 @@
+{
+  "unversionedId": "advanced-examples/sticky-threads",
+  "id": "advanced-examples/sticky-threads",
+  "isDocsHomePage": false,
+  "title": "Sticky Threads",
+  "description": "",
+  "source": "@site/docs/advanced-examples/sticky-threads.md",
+  "sourceDirName": "advanced-examples",
+  "slug": "/advanced-examples/sticky-threads",
+  "permalink": "/zio-http/docs/advanced-examples/sticky-threads",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Advanced Server",
+    "permalink": "/zio-http/docs/advanced-examples/hello-world-advanced"
+  },
+  "next": {
+    "title": "Streaming File",
+    "permalink": "/zio-http/docs/advanced-examples/stream-file"
+  }
+}

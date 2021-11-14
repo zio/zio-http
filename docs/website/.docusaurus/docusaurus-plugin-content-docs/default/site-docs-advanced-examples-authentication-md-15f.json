@@ -1,0 +1,23 @@
+{
+  "unversionedId": "advanced-examples/authentication",
+  "id": "advanced-examples/authentication",
+  "isDocsHomePage": false,
+  "title": "Authentication",
+  "description": "",
+  "source": "@site/docs/advanced-examples/authentication.md",
+  "sourceDirName": "advanced-examples",
+  "slug": "/advanced-examples/authentication",
+  "permalink": "/zio-http/docs/advanced-examples/authentication",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Simple Websocket Server",
+    "permalink": "/zio-http/docs/zio-http-basic-examples/web-socket"
+  },
+  "next": {
+    "title": "Concrete Enity",
+    "permalink": "/zio-http/docs/advanced-examples/concrete-entity"
+  }
+}

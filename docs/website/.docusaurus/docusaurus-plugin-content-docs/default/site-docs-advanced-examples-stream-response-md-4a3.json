@@ -1,0 +1,23 @@
+{
+  "unversionedId": "advanced-examples/stream-response",
+  "id": "advanced-examples/stream-response",
+  "isDocsHomePage": false,
+  "title": "Streaming Response",
+  "description": "",
+  "source": "@site/docs/advanced-examples/stream-response.md",
+  "sourceDirName": "advanced-examples",
+  "slug": "/advanced-examples/stream-response",
+  "permalink": "/zio-http/docs/advanced-examples/stream-response",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Streaming File",
+    "permalink": "/zio-http/docs/advanced-examples/stream-file"
+  },
+  "next": {
+    "title": "Web Socket Server",
+    "permalink": "/zio-http/docs/advanced-examples/web-socket-advanced"
+  }
+}

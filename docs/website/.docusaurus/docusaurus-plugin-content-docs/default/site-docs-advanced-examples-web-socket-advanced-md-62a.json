@@ -1,0 +1,19 @@
+{
+  "unversionedId": "advanced-examples/web-socket-advanced",
+  "id": "advanced-examples/web-socket-advanced",
+  "isDocsHomePage": false,
+  "title": "Web Socket Server",
+  "description": "",
+  "source": "@site/docs/advanced-examples/web-socket-advanced.md",
+  "sourceDirName": "advanced-examples",
+  "slug": "/advanced-examples/web-socket-advanced",
+  "permalink": "/zio-http/docs/advanced-examples/web-socket-advanced",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Streaming Response",
+    "permalink": "/zio-http/docs/advanced-examples/stream-response"
+  }
+}

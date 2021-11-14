@@ -1,0 +1,23 @@
+{
+  "unversionedId": "advanced-examples/cors",
+  "id": "advanced-examples/cors",
+  "isDocsHomePage": false,
+  "title": "CORS Handling",
+  "description": "",
+  "source": "@site/docs/advanced-examples/cors.md",
+  "sourceDirName": "advanced-examples",
+  "slug": "/advanced-examples/cors",
+  "permalink": "/zio-http/docs/advanced-examples/cors",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Concrete Enity",
+    "permalink": "/zio-http/docs/advanced-examples/concrete-entity"
+  },
+  "next": {
+    "title": "Advanced Server",
+    "permalink": "/zio-http/docs/advanced-examples/hello-world-advanced"
+  }
+}

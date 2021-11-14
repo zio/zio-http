@@ -1,0 +1,23 @@
+{
+  "unversionedId": "advanced-examples/concrete-entity",
+  "id": "advanced-examples/concrete-entity",
+  "isDocsHomePage": false,
+  "title": "Concrete Enity",
+  "description": "",
+  "source": "@site/docs/advanced-examples/concrete-entity.md",
+  "sourceDirName": "advanced-examples",
+  "slug": "/advanced-examples/concrete-entity",
+  "permalink": "/zio-http/docs/advanced-examples/concrete-entity",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Authentication",
+    "permalink": "/zio-http/docs/advanced-examples/authentication"
+  },
+  "next": {
+    "title": "CORS Handling",
+    "permalink": "/zio-http/docs/advanced-examples/cors"
+  }
+}

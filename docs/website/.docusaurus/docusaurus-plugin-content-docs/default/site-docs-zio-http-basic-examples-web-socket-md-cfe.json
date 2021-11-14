@@ -1,0 +1,23 @@
+{
+  "unversionedId": "zio-http-basic-examples/web-socket",
+  "id": "zio-http-basic-examples/web-socket",
+  "isDocsHomePage": false,
+  "title": "Simple Websocket Server",
+  "description": "",
+  "source": "@site/docs/zio-http-basic-examples/web-socket.md",
+  "sourceDirName": "zio-http-basic-examples",
+  "slug": "/zio-http-basic-examples/web-socket",
+  "permalink": "/zio-http/docs/zio-http-basic-examples/web-socket",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Simple HTTP Client",
+    "permalink": "/zio-http/docs/zio-http-basic-examples/simple-client"
+  },
+  "next": {
+    "title": "Authentication",
+    "permalink": "/zio-http/docs/advanced-examples/authentication"
+  }
+}
