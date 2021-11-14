@@ -1,8 +1,7 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBufUtil, Unpooled}
-import zhttp.experiment.multipart.{Message, MetaInfo, Parser, Part}
-import zio.stream.{UStream, ZStream}
+import zhttp.experiment.multipart.{Message, Parser}
 import zio.{Chunk, Queue, Task, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
@@ -43,36 +42,26 @@ object ContentDecoder {
     case (a, chunk, false, _, _, _) => UIO((None, chunk :+ a))
   }
 
-  val backPressure: ContentDecoder[Any, Nothing, Chunk[Byte], Queue[Chunk[Byte]]] =
+  val backPressure: ContentDecoder[Any, Nothing, Chunk[Byte], Queue[Chunk[Byte]]]                     =
     ContentDecoder.collect(BackPressure[Queue[Chunk[Byte]]]()) { case (msg, state, _, _, _, _) =>
       for {
         queue <- state.acc.fold(Queue.bounded[Chunk[Byte]](1))(UIO(_))
         _     <- queue.offer(msg)
       } yield (if (state.isFirst) Option(queue) else None, state.withAcc(queue).withFirst(false))
     }
-  def multipartDecoder(
-    boundary: String,
-  ): ContentDecoder[Any, Nothing, Chunk[Byte], Multipart] = // todo:  make this not take any args
-    ContentDecoder.collect(BackPressure[(UStream[Option[(MetaInfo, Message)]], Queue[Chunk[Byte]])]()) {
-      case (msg, state, _) =>
-        (for {
-          (stream, queue) <- state.acc.fold {
-            val q = Queue.bounded[Chunk[Byte]](1)
-            q.map(z => ((new Parser(boundary).decodeMultipart(ZStream.fromQueue(z)), z)))
-          }(UIO(_))
-          _               <- queue.offer(msg)
-        } yield (
-          if (state.isFirst) Option(Multipart(stream)) else None,
-          state.withAcc((stream, queue)).withFirst(false),
-        )).orDie // fixme: find from where error is coming
+  def multipartDecoder(boundary: String): ContentDecoder[Any, Throwable, Chunk[Byte], Queue[Message]] =
+    ContentDecoder.collect(BackPressure[(Parser, Queue[Message])]()) { case (msg, state, _) =>
+      for {
+        (parser, queue) <- state.acc.fold {
+          Queue.bounded[Message](1).map(q => ((new Parser(boundary), q)))
+        }(UIO(_))
+        messages        <- Task(parser.getMessages(msg))
+        _               <- ZIO.foreach_(messages)(queue.offer)
+      } yield (
+        if (state.isFirst) Option(queue) else None,
+        state.withAcc((parser, queue)).withFirst(false),
+      )
     }
-
-  case class Multipart(output: UStream[Option[(MetaInfo, Message)]]) {
-    def getFile(name: String): Option[Part.File]   = ???
-    def getAttribute(name: String): Option[String] = ???
-    def getAllFiles: UStream[Part.File]            = ???
-    def getAll: UStream[Part]                      = ???
-  }
 
   sealed trait Error extends Throwable with Product { self =>
     override def getMessage(): String =
