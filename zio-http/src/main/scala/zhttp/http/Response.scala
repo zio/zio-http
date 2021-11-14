@@ -44,7 +44,7 @@ final case class Response[-R, +E] private (
   /**
    * Caches the response creation if set to true
    */
-  private[zhttp] var jResponseCache: HttpResponse = null
+  private[zhttp] var cache: HttpResponse = null
 }
 
 object Response {

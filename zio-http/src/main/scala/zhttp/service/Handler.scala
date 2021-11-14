@@ -288,11 +288,11 @@ final case class Handler[R] private[zhttp] (
   }
 
   private def decodeResponseCached(res: Response[_, _]): HttpResponse = {
-    val cachedResponse = res.jResponseCache
+    val cachedResponse = res.cache
     if (cachedResponse != null) cachedResponse
     else {
       val jRes = decodeResponseFresh(res)
-      res.jResponseCache = jRes
+      res.cache = jRes
 
       jRes
     }
