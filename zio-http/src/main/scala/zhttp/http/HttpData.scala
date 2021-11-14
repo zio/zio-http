@@ -28,11 +28,11 @@ sealed trait HttpData[-R, +E] { self =>
    * Returns the size of HttpData if available and -1 if not
    */
   private[zhttp] def unsafeSize: Long = self match {
-    case HttpData.Empty           => 0L
-    case HttpData.Text(text, _)   => text.length.toLong
-    case HttpData.Binary(data)    => data.size.toLong
-    case HttpData.BinaryN(data)   => data.readableBytes().toLong
-    case HttpData.BinaryStream(_) => -1L
+    case HttpData.Empty               => 0L
+    case HttpData.Text(text, _)       => text.length.toLong
+    case HttpData.BinaryChunk(data)   => data.size.toLong
+    case HttpData.BinaryByteBuf(data) => data.readableBytes().toLong
+    case HttpData.BinaryStream(_)     => -1L
   }
 
   /**
@@ -55,14 +55,14 @@ sealed trait HttpData[-R, +E] { self =>
 object HttpData {
   private[zhttp] case object Empty                                                extends HttpData[Any, Nothing]
   private[zhttp] final case class Text(text: String, charset: Charset)            extends HttpData[Any, Nothing]
-  private[zhttp] final case class Binary(data: Chunk[Byte])                       extends HttpData[Any, Nothing]
-  private[zhttp] final case class BinaryN(data: ByteBuf)                          extends HttpData[Any, Nothing]
+  private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                  extends HttpData[Any, Nothing]
+  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                    extends HttpData[Any, Nothing]
   private[zhttp] final case class BinaryStream[R, E](stream: ZStream[R, E, Byte]) extends HttpData[R, E]
 
   /**
    * Helper to create HttpData from ByteBuf
    */
-  def fromByteBuf(byteBuf: ByteBuf): HttpData[Any, Nothing] = HttpData.BinaryN(byteBuf)
+  def fromByteBuf(byteBuf: ByteBuf): HttpData[Any, Nothing] = HttpData.BinaryByteBuf(byteBuf)
 
   /**
    * Helper to create HttpData from Stream of Chunks
@@ -82,5 +82,5 @@ object HttpData {
   /**
    * Helper to create HttpData from chunk of bytes
    */
-  def fromChunk(data: Chunk[Byte]): HttpData[Any, Nothing] = Binary(data)
+  def fromChunk(data: Chunk[Byte]): HttpData[Any, Nothing] = BinaryChunk(data)
 }

@@ -94,7 +94,7 @@ object ContentDecoder {
                   .flatMap(contentFromOption),
               )
         }
-      case HttpData.Binary(data)         =>
+      case HttpData.BinaryChunk(data)         =>
         decoder match {
           case Text                                     => UIO((new String(data.toArray, HTTP_CHARSET)).asInstanceOf[B])
           case step: ContentDecoder.Step[_, _, _, _, _] =>
@@ -104,7 +104,7 @@ object ContentDecoder {
               .map(a => a._1)
               .flatMap(contentFromOption)
         }
-      case HttpData.BinaryN(data)        =>
+      case HttpData.BinaryByteBuf(data)        =>
         decoder match {
           case Text                                     => UIO(data.toString(HTTP_CHARSET).asInstanceOf[B])
           case step: ContentDecoder.Step[_, _, _, _, _] =>
