@@ -10,7 +10,7 @@ import java.nio.charset.Charset
 
 final case class Response[-R, +E] private (
   status: Status,
-  private val headers: List[Header],
+  headers: List[Header],
   data: HttpData[R, E],
   attribute: Response.Attribute[R, E],
 ) extends HeaderExtension[Response[R, E]] { self =>

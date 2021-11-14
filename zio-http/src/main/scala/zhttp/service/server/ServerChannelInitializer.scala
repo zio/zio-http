@@ -10,8 +10,11 @@ import zhttp.service._
  * Initializes the netty channel with default handlers
  */
 @Sharable
-final case class ServerChannelInitializer[R](zExec: HttpRuntime[R], cfg: Config[R, Throwable])
-    extends ChannelInitializer[Channel] {
+final case class ServerChannelInitializer[R](
+  zExec: HttpRuntime[R],
+  cfg: Config[R, Throwable],
+  serverTime: ServerTimeGenerator,
+) extends ChannelInitializer[Channel] {
   override def initChannel(channel: Channel): Unit = {
     // !! IMPORTANT !!
     // Order of handlers are critical to make this work
@@ -36,7 +39,7 @@ final case class ServerChannelInitializer[R](zExec: HttpRuntime[R], cfg: Config[
 
     // RequestHandler
     // Always add ZIO Http Request Handler
-    pipeline.addLast(HTTP_REQUEST_HANDLER, cfg.app.compile(zExec, cfg))
+    pipeline.addLast(HTTP_REQUEST_HANDLER, cfg.app.compile(zExec, cfg, serverTime))
 
     ()
   }

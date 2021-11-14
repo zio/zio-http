@@ -27,6 +27,7 @@ sealed trait Server[-R, +E] { self =>
     case AcceptContinue       => s.copy(acceptContinue = true)
     case KeepAlive            => s.copy(keepAlive = true)
     case CacheResponse        => s.copy(cacheResponse = true)
+    case ServerTime           => s.copy(serverTime = true)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
@@ -51,6 +52,7 @@ object Server {
     acceptContinue: Boolean = false,
     keepAlive: Boolean = false,
     cacheResponse: Boolean = false,
+    serverTime: Boolean = false,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -63,6 +65,7 @@ object Server {
   private case object KeepAlive                                                       extends Server[Any, Nothing]
   private case object AcceptContinue                                                  extends UServer
   private case object CacheResponse                                                   extends UServer
+  private case object ServerTime                                                      extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -79,7 +82,8 @@ object Server {
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
   val keepAlive: UServer             = KeepAlive
-  val cacheResponse: UServer         = CacheResponse
+  val memoize: UServer         = CacheResponse
+  val serverTime: UServer            = ServerTime
 
   /**
    * Launches the app on the provided port.
@@ -114,7 +118,7 @@ object Server {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
       zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
-      init            = ServerChannelInitializer(zExec, settings)
+      init            = ServerChannelInitializer(zExec, settings, ServerTimeGenerator.make)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.address))
 
