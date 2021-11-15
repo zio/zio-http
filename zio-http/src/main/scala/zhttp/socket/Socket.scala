@@ -1,7 +1,7 @@
 package zhttp.socket
 
 import zio.stream.ZStream
-import zio.{Cause, ZIO}
+import zio.{Cause, NeedsEnv, ZIO}
 
 sealed trait Socket[-R, +E, -A, +B] { self =>
   import Socket._
@@ -16,9 +16,16 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
     case FOrElse(sa, sb)             => sa(a) <> sb(a)
     case FMerge(sa, sb)              => sa(a) merge sb(a)
     case Succeed(a)                  => ZStream.succeed(a)
+    case Provide(m, r)               => m(a).asInstanceOf[ZStream[R, E, B]].provide(r.asInstanceOf[R])
   }
 
   private[zhttp] def execute(a: A): ZStream[R, E, B] = self(a)
+
+  /**
+   * Provides the socket with its required environment, which eliminates its dependency on R. This operation assumes
+   * that your socket requires an environment.
+   */
+  def provide(r: R)(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = Provide(self, r)
 
   def map[C](bc: B => C): Socket[R, E, A, C] = Socket.FMap(self, bc)
 
@@ -52,6 +59,7 @@ object Socket {
       extends Socket[R, E1, A, B]
 
   private final case class FMerge[R, E, A, B](a: Socket[R, E, A, B], b: Socket[R, E, A, B]) extends Socket[R, E, A, B]
+  private final case class Provide[R, E, A, B](m: Socket[R, E, A, B], r: R)                 extends Socket[Any, E, A, B]
 
   def collect[A]: MkCollect[A] = new MkCollect[A](())
 
