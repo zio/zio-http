@@ -16,7 +16,7 @@ sealed trait Server[-R, +E] { self =>
   def ++[R1 <: R, E1 >: E](other: Server[R1, E1]): Server[R1, E1] =
     Concat(self, other)
 
-  private def settings[R1 <: R, E1 >: E](s: Settings[R1, E1] = Settings()): Settings[R1, E1] = self match {
+  private def settings[R1 <: R, E1 >: E](s: Config[R1, E1] = Config()): Config[R1, E1] = self match {
     case Concat(self, other)        => other.settings(self.settings(s))
     case LeakDetection(level)       => s.copy(leakDetectionLevel = level)
     case MaxRequestSize(size)       => s.copy(maxRequestSize = size)
@@ -27,6 +27,7 @@ sealed trait Server[-R, +E] { self =>
     case TransportConfig(transport) => s.copy(transport = transport)
     case Threads(threads)           => s.copy(threads = threads)
     case AcceptContinue             => s.copy(acceptContinue = true)
+    case KeepAlive                  => s.copy(keepAlive = true)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R, Throwable, Unit] =
@@ -37,16 +38,19 @@ sealed trait Server[-R, +E] { self =>
 }
 
 object Server {
-  private[zhttp] final case class Settings[-R, +E](
+  private[zhttp] final case class Config[-R, +E](
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
+    // TODO: add error handler
     error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
     sslOption: ServerSSLOptions = null,
+    // TODO: move app out of settings
     app: HttpApp[R, E] = HttpApp.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
     transport: Transport = Transport.Auto,
     threads: Int = 0,
     acceptContinue: Boolean = false,
+    keepAlive: Boolean = false,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -59,6 +63,7 @@ object Server {
   private final case class TransportConfig(transport: Transport)                      extends UServer
   private final case class Threads(threads: Int)                                      extends UServer
   private case object AcceptContinue                                                  extends UServer
+  private case object KeepAlive                                                       extends Server[Any, Nothing]
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -74,6 +79,7 @@ object Server {
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
+  val keepAlive: UServer             = KeepAlive
 
   def transport(transport: Transport): UServer = Server.TransportConfig(transport)
   def threads(threads: Int): UServer           = Server.Threads(threads)
@@ -114,7 +120,7 @@ object Server {
       channelFactory <- ZManaged.fromEffect(settings.transport.channelInitializer)
       eventLoopGroup <- settings.transport.eventLoopGroup(settings.threads)
       zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
-      init            = ServerChannelInitializer(zExec, settings)
+      init            = ServerChannelInitializer(zExec, settings, ServerTimeGenerator.make)
       serverBootstrap = new ServerBootstrap()
         .channelFactory(channelFactory)
         .group(eventLoopGroup)

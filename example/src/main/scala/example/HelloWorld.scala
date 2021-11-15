@@ -1,7 +1,8 @@
+package example
+
 import zhttp.http._
 import zhttp.service.Server
 import zio._
-
 object HelloWorld extends App {
 
   // Create HTTP route

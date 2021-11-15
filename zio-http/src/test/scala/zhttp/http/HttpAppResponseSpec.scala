@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.LastHttpContent
 import zhttp.internal.{HttpGen, HttpMessageAssertions}
 import zhttp.service.EventLoopGroup
 import zio.duration._
-import zio.test.Assertion.{anything, equalTo, isSubtype}
+import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAllM}
 import zio.{UIO, ZIO}
@@ -34,7 +34,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
           val app = HttpApp.collect { case _ => Response(status, List(header), content) }
           assertM(app.getResponse(content = data))(isResponse {
             responseStatus(status.asJava.code()) &&
-            responseHeader(header) &&
+            hasHeader(header) &&
             version("HTTP/1.1")
           })
         }
@@ -44,7 +44,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
             val app = HttpApp.collectM { case _ => UIO(Response(status, List(header), content)) }
             assertM(app.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
-              responseHeader(header) &&
+              hasHeader(header) &&
               version("HTTP/1.1")
             })
           }
@@ -54,7 +54,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
             val app = HttpApp.fromEffectFunction(_ => UIO(Response(status, List(header), content)))
             assertM(app.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
-              responseHeader(header) &&
+              hasHeader(header) &&
               version("HTTP/1.1")
             })
           }
@@ -70,7 +70,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
             val app = HttpApp.responseM(UIO(Response(status, List(header), content)))
             assertM(app.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
-              responseHeader(header) &&
+              hasHeader(header) &&
               version("HTTP/1.1")
             })
           }
@@ -86,7 +86,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
             val app = HttpApp.response(Response(status, List(header), content))
             assertM(app.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
-              responseHeader(header) &&
+              hasHeader(header) &&
               version("HTTP/1.1")
             })
           }
@@ -109,7 +109,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
               HttpApp.fromFunction(_ => HttpApp.response(Response(status, List(header), content)))
             assertM(app.getResponse(content = data))(isResponse {
               responseStatus(status.asJava.code()) &&
-              responseHeader(header) &&
+              hasHeader(header) &&
               version("HTTP/1.1")
             })
           }
@@ -139,12 +139,26 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
         testM("empty Http") {
           val app = HttpApp.fromHttp(Http.empty)
           assertM(app.getResponse())(isResponse {
-            responseStatus(404) && version("HTTP/1.1") && noHeader
+            responseStatus(404) && version("HTTP/1.1") && hasHeader("Content-Length", "0")
           })
         } +
         testM("Http.empty") {
           val app = HttpApp.fromHttp(Http.empty)
           assertM(app.getResponse)(isSubtype[LastHttpContent](anything))
+        } +
+        suite("response caching") {
+          testM("cache updated") {
+            val response = Response.ok.memoize
+            val app      = HttpApp.response(response).getResponse().map(jRes => response.cache == jRes)
+
+            assertM(app)(isTrue)
+          } +
+            testM("cache not updated") {
+              val response = Response.ok
+              val app      = HttpApp.response(response).getResponse().as(response.cache)
+
+              assertM(app)(isNull)
+            }
         }
     }.provideCustomLayer(env) @@ timeout(10 seconds)
 }

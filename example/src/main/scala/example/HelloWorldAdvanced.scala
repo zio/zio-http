@@ -1,6 +1,6 @@
 package example
 
-import zhttp.http.{HttpApp, Method, Response, _}
+import zhttp.http._
 import zhttp.service.Server
 import zhttp.service.server.Transport
 import zio._
@@ -17,7 +17,7 @@ object HelloWorldAdvanced extends App {
   }
 
   private val app = HttpApp.collectM {
-    case Method.GET -> !! / "random" => random.nextString(10).map(Response.text)
+    case Method.GET -> !! / "random" => random.nextString(10).map(Response.text(_))
     case Method.GET -> !! / "utc"    => clock.currentDateTime.map(s => Response.text(s.toString))
   }
 

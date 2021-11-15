@@ -6,7 +6,8 @@ import io.netty.handler.codec.http._
 import io.netty.util.CharsetUtil
 import zhttp.http.HttpApp
 import zhttp.internal.HttpAppClient.{MessageQueue, ProxyChannel}
-import zhttp.service.{EventLoopGroup, HttpRuntime}
+import zhttp.service.server.ServerTimeGenerator
+import zhttp.service.{EventLoopGroup, HttpRuntime, Server}
 import zio._
 import zio.internal.Executor
 import zio.stm.TQueue
@@ -187,7 +188,10 @@ object HttpAppClient {
     }
   }
 
-  def deploy[R](app: HttpApp[R, Throwable]): ZIO[R with EventLoopGroup, Nothing, HttpAppClient] = {
+  def deploy[R](
+    app: HttpApp[R, Throwable],
+    cnf: Server.Config[R, Throwable] = Server.Config(),
+  ): ZIO[R with EventLoopGroup, Nothing, HttpAppClient] = {
     for {
       // Create a promise that resolves with the thread that is allowed for the execution
       // It is later used to guarantee that all the execution happens on the same thread.
@@ -208,7 +212,7 @@ object HttpAppClient {
       proxy    <- UIO {
 
         val channel = ProxyChannel(inbound, outbound, ec, grtm, thread)
-        channel.pipeline().addLast(app.compile(zExec))
+        channel.pipeline().addLast(app.compile(zExec, cnf, ServerTimeGenerator.make))
         HttpAppClient(outbound, channel)
       }.on(ec)
     } yield proxy

@@ -7,14 +7,18 @@ import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.http._
-import zhttp.service.server.WebSocketUpgrade
+import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
-final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: HttpRuntime[R])
-    extends ChannelInboundHandlerAdapter
+final case class Handler[R] private[zhttp] (
+  app: HttpApp[R, Throwable],
+  runtime: HttpRuntime[R],
+  config: Server.Config[R, Throwable],
+  serverTime: ServerTimeGenerator,
+) extends ChannelInboundHandlerAdapter
     with WebSocketUpgrade[R] { self =>
 
   private val cBody: ByteBuf                                            = Unpooled.compositeBuffer()
@@ -24,11 +28,6 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
   private var decoderState: Any                                         = _
   private var jReq: HttpRequest                                         = _
   private var request: Request                                          = _
-
-  override def channelRegistered(ctx: ChannelHandlerContext): Unit = {
-    ctx.channel().config().setAutoRead(false)
-    ctx.read(): Unit
-  }
 
   override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
     val void = ctx.voidPromise()
@@ -98,13 +97,13 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
                       case HttpData.Empty =>
                         UIO(unsafeWriteAndFlushLastEmptyContent())
 
-                      case HttpData.Text(data, charset) =>
-                        UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset)))
+                      case data @ HttpData.Text(_, _) =>
+                        UIO(unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize)))
 
-                      case HttpData.BinaryN(data) => UIO(unsafeWriteLastContent(data))
+                      case HttpData.BinaryByteBuf(data) => UIO(unsafeWriteLastContent(data))
 
-                      case HttpData.Binary(data) =>
-                        UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray)))
+                      case data @ HttpData.BinaryChunk(_) =>
+                        UIO(unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize)))
 
                       case HttpData.BinaryStream(stream) =>
                         writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
@@ -124,14 +123,14 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
               case HttpData.Empty =>
                 unsafeWriteAndFlushLastEmptyContent()
 
-              case HttpData.Text(data, charset) =>
-                unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset))
+              case data @ HttpData.Text(_, _) =>
+                unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
 
-              case HttpData.BinaryN(data) =>
+              case HttpData.BinaryByteBuf(data) =>
                 unsafeWriteLastContent(data)
 
-              case HttpData.Binary(data) =>
-                unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray))
+              case data @ HttpData.BinaryChunk(_) =>
+                unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
 
               case HttpData.BinaryStream(stream) =>
                 unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
@@ -263,6 +262,11 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
           decodeContent(msg.content(), decoder, true)
         }
 
+        // TODO: add unit tests
+        // Channels are reused when keep-alive header is set.
+        // So auto-read needs to be set to true once the first request is processed.
+        ctx.channel().config().setAutoRead(true): Unit
+
       case msg: HttpContent =>
         if (decoder != null) {
           decodeContent(msg.content(), decoder, false)
@@ -273,11 +277,31 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
   }
 
   private def decodeResponse(res: Response[_, _]): HttpResponse = {
-    new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, Header.disassemble(res.getHeaders))
+    if (res.attribute.memoize) decodeResponseCached(res) else decodeResponseFresh(res)
   }
 
-  private val notFoundResponse =
-    new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
+  private def decodeResponseFresh(res: Response[_, _]): HttpResponse = {
+    val jHeaders = Header.disassemble(res.getHeaders)
+    if (res.attribute.serverTime) jHeaders.set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
+    new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
+  }
+
+  private def decodeResponseCached(res: Response[_, _]): HttpResponse = {
+    val cachedResponse = res.cache
+    // Update cache if it doesn't exist OR has become stale
+    // TODO: add unit tests for server-time
+    if (cachedResponse == null || (res.attribute.serverTime && serverTime.canUpdate())) {
+      val jRes = decodeResponseFresh(res)
+      res.cache = jRes
+      jRes
+    } else cachedResponse
+  }
+
+  private val notFoundResponse: HttpResponse = {
+    val response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
+    response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0)
+    response
+  }
 
   private def serverErrorResponse(cause: Throwable): HttpResponse = {
     val content  = cause.toString
@@ -289,5 +313,4 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
     response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.length)
     response
   }
-
 }
