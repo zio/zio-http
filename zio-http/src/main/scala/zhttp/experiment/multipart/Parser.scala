@@ -220,7 +220,7 @@ object Parser {
               matchIndex = 1
               tempData = Chunk(input.byte(i))
             } else {
-              partChunk = partChunk.appended(input.byte(i))
+              partChunk = partChunk ++ Chunk(input.byte(i))
             }
           }
           if (matchIndex == delimiterRaw.length) {
