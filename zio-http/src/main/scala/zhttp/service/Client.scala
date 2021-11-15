@@ -149,10 +149,10 @@ object Client {
     val url: URL       = endpoint._2
 
     def getBodyAsString: Option[String] = content match {
-      case HttpData.Text(text, _) => Some(text)
-      case HttpData.BinaryChunk(data)  => Some((new String(data.toArray, HTTP_CHARSET)))
+      case HttpData.Text(text, _)       => Some(text)
+      case HttpData.BinaryChunk(data)   => Some((new String(data.toArray, HTTP_CHARSET)))
       case HttpData.BinaryByteBuf(data) => Some(data.toString(HTTP_CHARSET))
-      case _                      => Option.empty
+      case _                            => Option.empty
     }
 
     def remoteAddress: Option[InetAddress] = {
