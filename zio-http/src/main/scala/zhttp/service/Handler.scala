@@ -97,13 +97,13 @@ final case class Handler[R] private[zhttp] (
                       case HttpData.Empty =>
                         UIO(unsafeWriteAndFlushLastEmptyContent())
 
-                      case HttpData.Text(data, charset) =>
-                        UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset)))
+                      case data @ HttpData.Text(_, _) =>
+                        UIO(unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize)))
 
                       case HttpData.BinaryByteBuf(data) => UIO(unsafeWriteLastContent(data))
 
-                      case HttpData.BinaryChunk(data) =>
-                        UIO(unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray)))
+                      case data @ HttpData.BinaryChunk(_) =>
+                        UIO(unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize)))
 
                       case HttpData.BinaryStream(stream) =>
                         writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
@@ -123,14 +123,14 @@ final case class Handler[R] private[zhttp] (
               case HttpData.Empty =>
                 unsafeWriteAndFlushLastEmptyContent()
 
-              case HttpData.Text(data, charset) =>
-                unsafeWriteLastContent(Unpooled.copiedBuffer(data, charset))
+              case data @ HttpData.Text(_, _) =>
+                unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
 
               case HttpData.BinaryByteBuf(data) =>
                 unsafeWriteLastContent(data)
 
-              case HttpData.BinaryChunk(data) =>
-                unsafeWriteLastContent(Unpooled.copiedBuffer(data.toArray))
+              case data @ HttpData.BinaryChunk(_) =>
+                unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
 
               case HttpData.BinaryStream(stream) =>
                 unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
