@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.server.ServerSSLHandler.ctxFromKeystore
+import zhttp.service.server.ServerSSLHandler.{ctxFromKeystore}
 import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo
@@ -13,7 +13,7 @@ import zio.test.assertM
 import javax.net.ssl.SSLHandshakeException
 
 object SSLSpec extends HttpRunnableSpec(8073) {
-  val env = EventLoopGroup.auto() ++ ChannelFactory.auto // ++ ServerChannelFactory.auto
+  val env = EventLoopGroup.auto() ++ ChannelFactory.auto
 
   /**
    * a custom keystore and a certificate from it
@@ -30,52 +30,40 @@ object SSLSpec extends HttpRunnableSpec(8073) {
   val clientssl1 = SslContextBuilder.forClient().trustManager(servercert).build()
   val clientssl2 = SslContextBuilder.forClient().trustManager(ssc2).build()
 
-  val app = serveWithPortWithSSL(
+  val app = serveWithSSL (
     HttpApp.collectM[Any, Nothing] { case Method.GET -> !! / "success" =>
       ZIO.succeed(Response.ok)
     },
-    serverssl,
-  ) _
+    serverssl
+  )
 
   override def spec = suite("SSL")(
-    testM("succeed when client has the server certificate") {
-      val p = 28073
-      app(p).use { _ =>
-        val actual = Client
-          .request(s"https://localhost:$p/success", ClientSSLOptions.CustomSSL(clientssl1))
-          .map(_.status)
-        assertM(actual)(equalTo(Status.OK))
-      }
-    },
-    testM("fail with SSLHandshakeException when client doesn't have the server certificate") {
-      val p = 28074
-      app(p).use { _ =>
-        val actual = Client
-          .request(s"https://localhost:$p/success", ClientSSLOptions.CustomSSL(clientssl2))
-          .map(_.status)
-          .catchSome(_.getCause match {
-            case _: SSLHandshakeException => ZIO.succeed("SSLHandshakeException")
-          })
-        assertM(actual)(equalTo("SSLHandshakeException"))
-      }
-    } @@ timeout(5 second) @@ flaky,
-    testM("succeed when client has default SSL") {
-      val p = 28075
-      app(p).use { _ =>
-        val actual = Client
-          .request(s"https://localhost:$p/success", ClientSSLOptions.DefaultSSL)
-          .map(_.status)
-        assertM(actual)(equalTo(Status.OK))
-      }
-    },
-    testM("Https Redirect when client makes http request") {
-      val p = 28076
-      app(p).use { _ =>
-        val actual = Client
-          .request(s"http://localhost:$p/success", ClientSSLOptions.CustomSSL(clientssl1))
-          .map(_.status)
-        assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
-      }
-    },
-  ).provideCustomLayer(env) @@ flaky @@ timeout(5 second)
+          testM("succeed when client has the server certificate") {
+            val actual = Client
+              .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientssl1))
+              .map(_.status)
+            assertM(actual)(equalTo(Status.OK))
+          } +
+            testM("fail with SSLHandshakeException when client doesn't have the server certificate") {
+              val actual = Client
+                .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientssl2))
+                .map(_.status)
+                .catchSome(_.getCause match {
+                  case _: SSLHandshakeException => ZIO.succeed("SSLHandshakeException")
+                })
+              assertM(actual)(equalTo("SSLHandshakeException"))
+            } @@ timeout(5 second) @@ flaky +
+            testM("succeed when client has default SSL") {
+              val actual = Client
+                .request("https://localhost:8073/success", ClientSSLOptions.DefaultSSL)
+                .map(_.status)
+              assertM(actual)(equalTo(Status.OK))
+            } +
+            testM("Https Redirect when client makes http request") {
+              val actual = Client
+                .request("http://localhost:8073/success", ClientSSLOptions.CustomSSL(clientssl1))
+                .map(_.status)
+              assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
+            },
+  ).provideCustomLayerShared(env ++ (app.toLayer.orDie)) @@ flaky @@ timeout(5 second)
 }
