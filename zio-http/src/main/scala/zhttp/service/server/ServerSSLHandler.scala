@@ -1,14 +1,10 @@
 package zhttp.service.server
 
 import io.netty.handler.codec.http2.Http2SecurityUtil
-import io.netty.handler.ssl.ApplicationProtocolConfig.{
-  Protocol,
-  SelectedListenerFailureBehavior,
-  SelectorFailureBehavior,
-}
+import io.netty.handler.ssl.ApplicationProtocolConfig.{Protocol, SelectedListenerFailureBehavior, SelectorFailureBehavior}
 import io.netty.handler.ssl._
 
-import java.io.{File, InputStream}
+import java.io.InputStream
 import java.security.KeyStore
 import javax.net.ssl.KeyManagerFactory
 
@@ -41,7 +37,7 @@ object ServerSSLHandler {
       .sslProvider(SslProvider.JDK)
   }
 
-  def ctxFromCert(certFile: File, keyFile: File): SslContextBuilder = {
+  def ctxFromCert(certFile: InputStream, keyFile: InputStream): SslContextBuilder = {
     SslContextBuilder
       .forServer(certFile, keyFile)
       .sslProvider(SslProvider.JDK)
