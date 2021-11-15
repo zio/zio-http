@@ -55,7 +55,7 @@ sealed trait SocketApp[-R, +E] { self =>
       case open: Open[_, _]     =>
         open match {
           case WithSocket(s@_)      => ???
-          case WithEffect(effect) => WithEffect(effect(_).provide(r))
+          case WithEffect(effect) => ???
         }
       case Concat(a, b)         => Concat(a.provide(r), b.provide(r))
       case OnMessage(onMessage@_) => ???
