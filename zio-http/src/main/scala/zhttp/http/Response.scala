@@ -145,9 +145,14 @@ object Response {
    * Attribute holds meta data for the backend
    */
 
-  final case class Attribute[-R, +E](socketApp: SocketApp[R, E] = SocketApp.empty, memoization: Boolean = false) {
+  final case class Attribute[-R, +E](
+    socketApp: SocketApp[R, E] = SocketApp.empty,
+    memoization: Boolean = false,
+    serverTime: Boolean = false,
+  ) {
     self =>
-    def withMemoization: Attribute[R, E]                                           = self.copy()
+    def withMemoization: Attribute[R, E]                                           = self.copy(memoization = true)
+    def withServerTime: Attribute[R, E]                                            = self.copy(serverTime = true)
     def withSocketApp[R1 <: R, E1 >: E](app: SocketApp[R1, E1]): Attribute[R1, E1] = self.copy(socketApp = app)
   }
 
