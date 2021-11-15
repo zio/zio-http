@@ -26,8 +26,6 @@ sealed trait Server[-R, +E] { self =>
     case Address(address)     => s.copy(address = address)
     case AcceptContinue       => s.copy(acceptContinue = true)
     case KeepAlive            => s.copy(keepAlive = true)
-    case CacheResponse        => s.copy(memoize = true)
-    case ServerTime           => s.copy(serverTime = true)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
@@ -51,8 +49,6 @@ object Server {
     address: InetSocketAddress = new InetSocketAddress(8080),
     acceptContinue: Boolean = false,
     keepAlive: Boolean = false,
-    memoize: Boolean = false,
-    serverTime: Boolean = false,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -64,8 +60,6 @@ object Server {
   private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
   private case object KeepAlive                                                       extends Server[Any, Nothing]
   private case object AcceptContinue                                                  extends UServer
-  private case object CacheResponse                                                   extends UServer
-  private case object ServerTime                                                      extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -82,8 +76,6 @@ object Server {
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
   val keepAlive: UServer             = KeepAlive
-  val memoize: UServer               = CacheResponse
-  val serverTime: UServer            = ServerTime
 
   /**
    * Launches the app on the provided port.

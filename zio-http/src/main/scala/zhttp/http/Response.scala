@@ -12,7 +12,7 @@ final case class Response[-R, +E] private (
   status: Status,
   headers: List[Header],
   data: HttpData[R, E],
-  attribute: Response.Attribute[R, E],
+  private[zhttp] val attribute: Response.Attribute[R, E],
 ) extends HeaderExtension[Response[R, E]] { self =>
 
   /**
@@ -24,7 +24,8 @@ final case class Response[-R, +E] private (
   override def getHeaders: List[Header] = headers
 
   /**
-   * Memoization of response. NOTE: This may not necessarily improve performance and can potentially cause memory leaks.
+   * Caches the encoded response as buffer. This is a "best effort" cache and doesn't always guarantee performance
+   * gains. It can potentially also cause memory leaks or degrade performance for some use-cases.
    */
   def memoize: Response[R, E] = self.copy(attribute = self.attribute.withMemoization)
 
@@ -45,6 +46,11 @@ final case class Response[-R, +E] private (
    */
   override def updateHeaders(f: List[Header] => List[Header]): Response[R, E] =
     self.copy(headers = f(self.getHeaders))
+
+  /**
+   * A more efficient way to append server-time to the response headers.
+   */
+  def withServerTime: Response[R, E] = self.copy(attribute = self.attribute.withServerTime)
 
   /**
    * Caches the response creation if set to true
@@ -147,11 +153,11 @@ object Response {
 
   final case class Attribute[-R, +E](
     socketApp: SocketApp[R, E] = SocketApp.empty,
-    memoization: Boolean = false,
+    memoize: Boolean = false,
     serverTime: Boolean = false,
   ) {
     self =>
-    def withMemoization: Attribute[R, E]                                           = self.copy(memoization = true)
+    def withMemoization: Attribute[R, E]                                           = self.copy(memoize = true)
     def withServerTime: Attribute[R, E]                                            = self.copy(serverTime = true)
     def withSocketApp[R1 <: R, E1 >: E](app: SocketApp[R1, E1]): Attribute[R1, E1] = self.copy(socketApp = app)
   }
