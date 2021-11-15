@@ -42,6 +42,10 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
   ): ChannelHandler =
     Handler(self, zExec)
 
+  private [zhttp] def compileToHttp2[R1 <: R](zExec: HttpRuntime[R1])(implicit
+     evE: E <:< Throwable,
+  ): ChannelHandler = ???
+
   /**
    * Executes the HttpApp and produces a Response
    */
