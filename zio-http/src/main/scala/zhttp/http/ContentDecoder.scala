@@ -54,7 +54,7 @@ object ContentDecoder {
       (for {
         (parserState, queue) <- state.acc.fold {
           Queue
-            .bounded[Message](1)
+            .bounded[Message](3) // Max 3 message can come at any time. (MetaInfo, ChunkedData, BodyEnd)
             .flatMap(q =>
               ZIO.fromEither(
                 Parser.getBoundary(headers).map(boundary => (ParserState(Chunk.fromArray(boundary.getBytes())), q)),
@@ -62,7 +62,7 @@ object ContentDecoder {
             )
         }(UIO(_))
         messages             <- ZIO.fromEither(Parser.getMessages(msg, parserState)).orElseFail(Error.InvalidRequest)
-        _                    <- ZIO.foreach_(messages._1)(queue.offer).forkDaemon
+        _                    <- ZIO.foreach_(messages._1)(queue.offer)
       } yield (
         if (state.isFirst) Option(queue) else None,
         state.withAcc((messages._2, queue)).withFirst(false),
