@@ -57,29 +57,32 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
     suite("Client Content-Length auto assign") {
       testM("get request without content") {
         val path = "getWithoutContent"
-        val eff  = for {
-          state  <- ZIO.access[HasServerState](_.get)
-          actual <- status(!! / path) *> getLengthForPath(state, path)
-        } yield actual
+        val eff: ZIO[EventLoopGroup with ChannelFactory with HasServerState, Throwable, Option[Int]] =
+          for {
+            state  <- ZIO.access[HasServerState](_.get)
+            actual <- status(!! / path) *> getLengthForPath(state, path)
+          } yield actual
         assertM(eff)(isNone)
       } +
         testM("post request with nonempty content") {
           val path    = "postWithNonemptyContent"
           val content = "content"
-          val eff     = for {
-            state  <- ZIO.access[HasServerState](_.get)
-            actual <- request(!! / path, Method.POST, content) *> getLengthForPath(state, path)
-          } yield actual
+          val eff: ZIO[EventLoopGroup with ChannelFactory with HasServerState, Throwable, Option[Int]] =
+            for {
+              state  <- ZIO.access[HasServerState](_.get)
+              actual <- request(!! / path, Method.POST, content) *> getLengthForPath(state, path)
+            } yield actual
           assertM(eff)(isSome(isPositive[Int]))
         } +
         testM("post request with nonempty content and set content-length") {
           val path    = "postWithNonemptyContentAndSetContentLength"
           val content = "content"
           val headers = List(Header.custom(contentLengthName, "dummy"))
-          val eff     = for {
-            state  <- ZIO.access[HasServerState](_.get)
-            actual <- request(!! / path, Method.POST, content, headers) *> getLengthForPath(state, path)
-          } yield actual
+          val eff: ZIO[EventLoopGroup with ChannelFactory with HasServerState, Throwable, Option[Int]] =
+            for {
+              state  <- ZIO.access[HasServerState](_.get)
+              actual <- request(!! / path, Method.POST, content, headers) *> getLengthForPath(state, path)
+            } yield actual
           assertM(eff)(isSome(isPositive[Int]))
         }
     }.provideCustomLayerShared(env ++ serverAppStateLayer)
