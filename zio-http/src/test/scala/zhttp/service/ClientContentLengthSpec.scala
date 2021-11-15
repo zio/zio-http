@@ -9,7 +9,9 @@ import scala.util.Try
 
 object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
 
-  type ServerState = Map[String, Int]
+  type ServerState    = Map[String, Int]
+  type ServerStateRef = Ref[ServerState]
+  type HasServerState = Has[ServerStateRef]
 
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto
 
@@ -44,12 +46,19 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
       _     <- getApp(state)
     } yield state
 
+  /*
+    Issue encountered with scala 3 Has[Ref] requires initialization of layer
+    before use within provide.
+    https://github.com/zio/zio/issues/4802
+   */
+  val serverAppStateLayer = serverAppState.toLayer.orDie
+
   override def spec =
     suite("Client Content-Length auto assign") {
       testM("get request without content") {
         val path = "getWithoutContent"
         val eff  = for {
-          state  <- ZIO.access[Has[Ref[ServerState]]](_.get)
+          state  <- ZIO.access[HasServerState](_.get)
           actual <- status(!! / path) *> getLengthForPath(state, path)
         } yield actual
         assertM(eff)(isNone)
@@ -58,7 +67,7 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
           val path    = "postWithNonemptyContent"
           val content = "content"
           val eff     = for {
-            state  <- ZIO.access[Has[Ref[ServerState]]](_.get)
+            state  <- ZIO.access[HasServerState](_.get)
             actual <- request(!! / path, Method.POST, content) *> getLengthForPath(state, path)
           } yield actual
           assertM(eff)(isSome(isPositive[Int]))
@@ -68,10 +77,10 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
           val content = "content"
           val headers = List(Header.custom(contentLengthName, "dummy"))
           val eff     = for {
-            state  <- ZIO.access[Has[Ref[ServerState]]](_.get)
+            state  <- ZIO.access[HasServerState](_.get)
             actual <- request(!! / path, Method.POST, content, headers) *> getLengthForPath(state, path)
           } yield actual
           assertM(eff)(isSome(isPositive[Int]))
         }
-    }.provideCustomLayerShared(env ++ (serverAppState.toLayer.orDie))
+    }.provideCustomLayerShared(env ++ serverAppStateLayer)
 }
