@@ -1,26 +1,32 @@
 package zhttp.service.server
 
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaders, HttpResponse}
-
 import java.text.SimpleDateFormat
 import java.util.Date
 
-case class ServerTimeGenerator() {
-  private val formatter = new SimpleDateFormat("E, dd MMM yyyy HH:mm:ss z")
+private[zhttp] final class ServerTimeGenerator(minDuration: Long) {
+  private val formatter          = new SimpleDateFormat("E, dd MMM yyyy HH:mm:ss z")
+  private var last: Long         = System.currentTimeMillis()
+  private var lastString: String = formatter.format(new Date(last))
 
-  def update(headers: HttpHeaders): Boolean = {
-    headers.set(HttpHeaderNames.DATE, formatter.format(new Date()))
-    true
+  def get: String = lastString
+
+  def refreshAndGet(): String = {
+    canUpdate()
+    get
   }
 
-  def update(response: HttpResponse): HttpResponse = {
-    update(response.headers())
-    response
+  def canUpdate(): Boolean = {
+    val now = System.currentTimeMillis()
+    if (now - last >= minDuration) {
+      last = now
+      lastString = formatter.format(new Date(last))
+      true
+    } else {
+      false
+    }
   }
 }
 
 object ServerTimeGenerator {
-  def make: ServerTimeGenerator = {
-    new ServerTimeGenerator()
-  }
+  def make: ServerTimeGenerator = new ServerTimeGenerator(1000) // Update time every 1 second
 }

@@ -277,25 +277,24 @@ final case class Handler[R] private[zhttp] (
   }
 
   private def decodeResponse(res: Response[_, _]): HttpResponse = {
-    val jRes = if (config.memoize) decodeResponseCached(res) else decodeResponseFresh(res)
-    if (config.serverTime) serverTime.update(jRes) else jRes
+    if (res.attribute.memoize) decodeResponseCached(res) else decodeResponseFresh(res)
   }
 
   private def decodeResponseFresh(res: Response[_, _]): HttpResponse = {
     val jHeaders = Header.disassemble(res.getHeaders)
+    if (res.attribute.serverTime) jHeaders.set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
     new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
-
   }
 
   private def decodeResponseCached(res: Response[_, _]): HttpResponse = {
     val cachedResponse = res.cache
-    if (cachedResponse != null) cachedResponse
-    else {
+    // Update cache if it doesn't exist OR has become stale
+    // TODO: add unit tests for server-time
+    if (cachedResponse == null || (res.attribute.serverTime && serverTime.canUpdate())) {
       val jRes = decodeResponseFresh(res)
       res.cache = jRes
-
       jRes
-    }
+    } else cachedResponse
   }
 
   private val notFoundResponse: HttpResponse = {

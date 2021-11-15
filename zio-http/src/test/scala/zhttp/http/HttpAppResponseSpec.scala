@@ -2,7 +2,7 @@ package zhttp.http
 
 import io.netty.handler.codec.http.LastHttpContent
 import zhttp.internal.{HttpGen, HttpMessageAssertions}
-import zhttp.service.{EventLoopGroup, Server}
+import zhttp.service.EventLoopGroup
 import zio.duration._
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
@@ -148,20 +148,14 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
         } +
         suite("response caching") {
           testM("cache updated") {
-            val response = Response.ok
-            val app      = HttpApp
-              .response(response)
-              .getResponse(config = Server.Config(memoize = true))
-              .map(jRes => response.cache == jRes)
+            val response = Response.ok.memoize
+            val app      = HttpApp.response(response).getResponse().map(jRes => response.cache == jRes)
 
             assertM(app)(isTrue)
           } +
             testM("cache not updated") {
               val response = Response.ok
-              val app      = HttpApp
-                .response(response)
-                .getResponse(config = Server.Config(memoize = false))
-                .as(response.cache)
+              val app      = HttpApp.response(response).getResponse().as(response.cache)
 
               assertM(app)(isNull)
             }
