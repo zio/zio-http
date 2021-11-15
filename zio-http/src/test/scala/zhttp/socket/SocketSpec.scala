@@ -13,14 +13,15 @@ object SocketSpec extends DefaultRunnableSpec {
 
   def OperationsSpec = suite("Operations Spec") {
     testM("fromStream provide") {
-      val environment = ZStream.environment[WebSocketFrame]
+      val text        = "Cat ipsum dolor sit amet"
+      val environment = ZStream.environment[String]
       val socket      = Socket
         .fromStream(environment)
-        .provide(WebSocketFrame.text("Foo"))
-        .execute(WebSocketFrame.text("Bar"))
+        .provide(text)
+        .execute("")
 
       assertM(socket.runCollect) {
-        equalTo(Chunk(WebSocketFrame.text("Foo")))
+        equalTo(Chunk(text))
       }
     } + testM("fromFunction provide") {
       val environmentFunction = (_: Any) => ZStream.environment[WebSocketFrame]
