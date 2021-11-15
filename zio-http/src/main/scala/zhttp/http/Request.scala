@@ -1,6 +1,5 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.HttpHeaderNames
 import zio.{Chunk, ZIO}
 
 import java.net.InetAddress
@@ -12,26 +11,17 @@ trait Request extends HeaderExtension[Request] { self =>
 
   def url: URL
 
-  def headers: List[Header]
+  def getHeaders: List[Header]
 
   def path: Path = url.path
 
-  def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B]
+  def decodeContent[R, B](
+    decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+  ): ZIO[R, Throwable, B]
 
   def remoteAddress: Option[InetAddress]
 
-  override def addHeaders(headers: List[Header]): Request =
-    self.copy(headers = self.headers ++ headers)
-
-  override def removeHeaders(headers: List[String]): Request =
-    self.copy(headers = self.headers.filterNot(h => headers.contains(h)))
-
-  /**
-   * Get cookies from request
-   */
-  def cookies: List[Cookie] = getCookieFromHeader(HttpHeaderNames.COOKIE)
-
-  def copy(method: Method = self.method, url: URL = self.url, headers: List[Header] = self.headers): Request = {
+  def copy(method: Method = self.method, url: URL = self.url, headers: List[Header] = self.getHeaders): Request = {
     val m = method
     val u = url
     val h = headers
@@ -40,15 +30,22 @@ trait Request extends HeaderExtension[Request] { self =>
 
       override def url: URL = u
 
-      override def headers: List[Header] = h
+      override def getHeaders: List[Header] = h
 
       override def remoteAddress: Option[InetAddress] =
         self.remoteAddress
 
-      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
+      override def decodeContent[R, B](
+        decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+      ): ZIO[R, Throwable, B] =
         self.decodeContent(decoder)
     }
   }
+
+  /**
+   * Updates the headers using the provided function
+   */
+  final override def updateHeaders(f: List[Header] => List[Header]): Request = self.copy(headers = f(self.getHeaders))
 }
 
 object Request {
@@ -68,12 +65,14 @@ object Request {
     val h  = headers
     val ra = remoteAddress
     new Request {
-      override def method: Method                                                                                   = m
-      override def url: URL                                                                                         = u
-      override def headers: List[Header]                                                                            = h
-      override def remoteAddress: Option[InetAddress]                                                               = ra
-      override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
-        decoder.decode(data)
+      override def method: Method                     = m
+      override def url: URL                           = u
+      override def getHeaders: List[Header]           = h
+      override def remoteAddress: Option[InetAddress] = ra
+      override def decodeContent[R, B](
+        decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+      ): ZIO[R, Throwable, B] =
+        decoder.decode(data, method, url, headers)
     }
   }
 
@@ -98,9 +97,11 @@ object Request {
   final class ParameterizedRequest[A](req: Request, val params: A) extends Request {
     override def method: Method                     = req.method
     override def url: URL                           = req.url
-    override def headers: List[Header]              = req.headers
+    override def getHeaders: List[Header]           = req.getHeaders
     override def remoteAddress: Option[InetAddress] = req.remoteAddress
-    override def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B] =
+    override def decodeContent[R, B](
+      decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+    ): ZIO[R, Throwable, B] =
       req.decodeContent(decoder)
   }
 

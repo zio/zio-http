@@ -9,7 +9,7 @@ import java.io.{PrintWriter, StringWriter}
 
 case class Response[-R, +E] private (
   status: Status,
-  headers: List[Header],
+  getHeaders: List[Header],
   data: HttpData[R, E],
   private[zhttp] val attribute: HttpAttribute[R, E],
 ) extends HeaderExtension[Response[R, E]] { self =>
@@ -24,26 +24,7 @@ case class Response[-R, +E] private (
    * Adds cookies in the response headers
    */
   def addCookie(cookie: Cookie): Response[R, E] =
-    self.copy(headers = self.headers ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
-
-  /**
-   * Removes headers by name from the response
-   */
-  override def removeHeaders(headers: List[String]): Response[R, E] =
-    self.copy(headers = self.headers.filterNot(h => headers.contains(h.name)))
-
-  /**
-   * Adds headers to response
-   */
-  override def addHeaders(headers: List[Header]): Response[R, E] =
-    self.copy(headers = self.headers ++ headers)
-
-  /**
-   * Gets cookies from the response headers
-   */
-  def cookies: List[Cookie] = getCookieFromHeader(HttpHeaderNames.SET_COOKIE)
-
-  def getContentLength: Option[Long] = self.data.size
+    self.copy(getHeaders = self.getHeaders ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
 
   /**
    * Adds to the existing 'Transfer-Encoding' header a new value separated by comma or sets a given value if the header
@@ -53,21 +34,17 @@ case class Response[-R, +E] private (
     getHeaderValue(Header.transferEncodingChunked.name) match {
       case Some(current) if !current.contains(value) =>
         self
-          .removeHeader(Header.transferEncodingChunked.name.toString())
+          .removeHeaders(List(Header.transferEncodingChunked.name.toString()))
           .addHeader(Header(Header.transferEncodingChunked.name, s"$current, $value"))
       case _                                         =>
         self.addHeader(Header(Header.transferEncodingChunked.name, value))
     }
 
   /**
-   * Automatically detects the size of the content and sets it
+   * Updates the headers using the provided function
    */
-  def setPayloadHeaders: Response[R, E] = {
-    getContentLength match {
-      case Some(value) => setContentLength(value)
-      case None        => setTransferEncoding(HttpHeaderValues.CHUNKED.toString)
-    }
-  }
+  final override def updateHeaders(f: List[Header] => List[Header]): Response[R, E] =
+    self.copy(getHeaders = f(self.getHeaders))
 }
 
 object Response {
@@ -83,8 +60,13 @@ object Response {
       resp.getHeader(HttpHeaderNames.TRANSFER_ENCODING).exists(_.value.toString.contains(HttpHeaderValues.CHUNKED)) ||
         resp.getHeader(HttpHeaderNames.CONTENT_LENGTH).isDefined
 
-    if (hasHeaders) resp
-    else resp.setPayloadHeaders
+    if (hasHeaders)
+      resp
+    else
+      data.size match {
+        case Some(size) => resp.setContentLength(size)
+        case None       => resp.setTransferEncoding(HttpHeaderValues.CHUNKED.toString)
+      }
   }
 
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")

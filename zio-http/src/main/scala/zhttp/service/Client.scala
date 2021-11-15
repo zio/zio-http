@@ -141,7 +141,7 @@ object Client {
 
   final case class ClientParams(
     endpoint: Endpoint,
-    headers: List[Header] = List.empty,
+    getHeaders: List[Header] = List.empty,
     content: HttpData[Any, Nothing] = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
   ) extends HeaderExtension[ClientParams] { self =>
@@ -162,11 +162,11 @@ object Client {
         None
     }
 
-    override def addHeaders(headers: List[Header]): ClientParams =
-      self.copy(headers = self.headers ++ headers)
-
-    override def removeHeaders(headers: List[String]): ClientParams =
-      self.copy(headers = self.headers.filterNot(h => headers.contains(h)))
+    /**
+     * Updates the headers using the provided function
+     */
+    override def updateHeaders(f: List[Header] => List[Header]): ClientParams =
+      self.copy(getHeaders = f(self.getHeaders))
   }
 
   final case class ClientResponse(status: Status, headers: List[Header], content: Chunk[Byte])

@@ -1,5 +1,9 @@
 package zhttp.http.middleware
 
+import io.netty.handler.codec.http.HttpHeaderNames
+import io.netty.util.AsciiString
+import io.netty.util.AsciiString.toLowerCase
+import zhttp.http.CORS.DefaultCORSConfig
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware.RequestP
 import zio.clock.Clock
@@ -94,6 +98,39 @@ object HttpMiddleware {
   def identity: HttpMiddleware[Any, Nothing] = Identity
 
   /**
+   * Applies the middleware only if the condition function evaluates to true
+   */
+  def when[R, E](cond: RequestP[Boolean])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    ifThenElse(cond)(middleware, HttpMiddleware.identity)
+
+  /**
+   * Applies the middleware only if the condition function effectfully evaluates to true
+   */
+  def whenM[R, E](cond: RequestP[ZIO[R, E, Boolean]])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    ifThenElseM(cond)(middleware, HttpMiddleware.identity)
+
+  /**
+   * Logical operator to decide which middleware to select based on the predicate.
+   */
+  def ifThenElseM[R, E](
+    cond: RequestP[ZIO[R, E, Boolean]],
+  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    HttpMiddleware.FromFunctionM((method, url, headers) =>
+      cond(method, url, headers).mapError(Option(_)).map {
+        case true  => left
+        case false => right
+      },
+    )
+
+  /**
+   * Logical operator to decide which middleware to select based on the predicate.
+   */
+  def ifThenElse[R, E](
+    cond: RequestP[Boolean],
+  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    HttpMiddleware.FromFunctionM((method, url, headers) => UIO(if (cond(method, url, headers)) left else right))
+
+  /**
    * Creates a new middleware using transformation functions
    */
   def make[S](req: (Method, URL, List[Header]) => S): PartiallyAppliedMake[S] = PartiallyAppliedMake(req)
@@ -121,6 +158,40 @@ object HttpMiddleware {
    */
   def fromMiddlewareFunction[R, E](f: RequestP[HttpMiddleware[R, E]]): HttpMiddleware[R, E] =
     fromMiddlewareFunctionM((method, url, headers) => UIO(f(method, url, headers)))
+
+  /**
+   * Creates a new middleware that always sets the response status to the provided value
+   */
+  def status(status: Status): HttpMiddleware[Any, Nothing] = HttpMiddleware.patch((_, _) => Patch.setStatus(status))
+
+  /**
+   * Creates an authentication middleware that only allows authenticated requests to be passed on to the app.
+   */
+  def auth(verify: List[Header] => Boolean, responseHeaders: List[Header] = Nil): HttpMiddleware[Any, Nothing] =
+    ifThenElse((_, _, h) => verify(h))(
+      HttpMiddleware.identity,
+      HttpMiddleware.status(Status.FORBIDDEN) ++ HttpMiddleware.addHeaders(responseHeaders),
+    )
+
+  /**
+   * Creates a middleware for basic authentication
+   */
+  def basicAuth[R, E](f: (String, String) => Boolean): HttpMiddleware[R, E] =
+    auth(
+      { headers =>
+        HeaderExtension(headers).getBasicAuthorizationCredentials match {
+          case Some((username, password)) => f(username, password)
+          case None                       => false
+        }
+      },
+      List(Header(HttpHeaderNames.WWW_AUTHENTICATE, HeaderExtension.BasicSchemeName)),
+    )
+
+  /**
+   * Creates a middleware for basic authentication that checks if the credentials are same as the ones given
+   */
+  def basicAuth[R, E](u: String, p: String): HttpMiddleware[R, E] =
+    basicAuth((user, password) => (user == u) && (password == p))
 
   /**
    * Add log status, method, url and time taken from req to res
@@ -167,16 +238,130 @@ object HttpMiddleware {
     HttpMiddleware.identity.race(HttpMiddleware.fromApp(HttpApp.status(Status.REQUEST_TIMEOUT).delayAfter(duration)))
 
   /**
-   * Adds the provided header and value
+   * Adds the provided header and value to the response
    */
   def addHeader(name: String, value: String): HttpMiddleware[Any, Nothing] =
     patch((_, _) => Patch.addHeaders(List(Header(name, value))))
+
+  /**
+   * Adds the provided list of headers to the response
+   */
+  def addHeaders(headers: List[Header]): HttpMiddleware[Any, Nothing] =
+    patch((_, _) => Patch.addHeaders(headers))
 
   /**
    * Removes the header by name
    */
   def removeHeader(name: String): HttpMiddleware[Any, Nothing] =
     patch((_, _) => Patch.removeHeaders(List(name)))
+
+  /**
+   * Creates a middleware for Cross-Origin Resource Sharing (CORS).
+   * @see
+   *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+   */
+  def cors[R, E](config: CORSConfig = DefaultCORSConfig): HttpMiddleware[R, E] = {
+    def equalsIgnoreCase(a: Char, b: Char)                                 = a == b || toLowerCase(a) == toLowerCase(b)
+    def contentEqualsIgnoreCase(a: CharSequence, b: CharSequence): Boolean = {
+      if (a == b)
+        true
+      else if (a.length() != b.length())
+        false
+      else if (a.isInstanceOf[AsciiString]) {
+        a.asInstanceOf[AsciiString].contentEqualsIgnoreCase(b)
+      } else if (b.isInstanceOf[AsciiString]) {
+        b.asInstanceOf[AsciiString].contentEqualsIgnoreCase(a)
+      } else {
+        (0 until a.length()).forall(i => equalsIgnoreCase(a.charAt(i), b.charAt(i)))
+      }
+    }
+    def getHeader(headers: List[Header], headerName: CharSequence): Option[Header]      =
+      headers.find(h => contentEqualsIgnoreCase(h.name, headerName))
+    def allowCORS(origin: Header, acrm: Method): Boolean                                =
+      (config.anyOrigin, config.anyMethod, origin.value.toString, acrm) match {
+        case (true, true, _, _)           => true
+        case (true, false, _, acrm)       =>
+          config.allowedMethods.exists(_.contains(acrm))
+        case (false, true, origin, _)     => config.allowedOrigins(origin)
+        case (false, false, origin, acrm) =>
+          config.allowedMethods.exists(_.contains(acrm)) &&
+            config.allowedOrigins(origin)
+      }
+    def corsHeaders(origin: Header, method: Method, isPreflight: Boolean): List[Header] = {
+      (method match {
+        case _ if isPreflight =>
+          config.allowedHeaders.fold(List.empty[Header])((h: Set[String]) => {
+            List(
+              Header.custom(
+                HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS.toString(),
+                h.mkString(","),
+              ),
+            )
+          })
+        case _                =>
+          config.exposedHeaders.fold(List.empty[Header])(h => {
+            List(
+              Header.custom(
+                HttpHeaderNames.ACCESS_CONTROL_EXPOSE_HEADERS.toString(),
+                h.mkString(","),
+              ),
+            )
+          })
+      }) ++
+        List(
+          Header.custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN.toString(), origin.value),
+          Header.custom(
+            HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS.toString(),
+            config.allowedMethods.fold(method.toString())(m => m.map(m => m.toString()).mkString(",")),
+          ),
+        ) ++
+        (if (config.allowCredentials)
+           List(
+             Header
+               .custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS.toString(), config.allowCredentials.toString),
+           )
+         else List.empty[Header])
+    }
+
+    val existingRoutesWithHeaders = HttpMiddleware.make((method, _, headers) => {
+      (
+        method,
+        getHeader(headers, HttpHeaderNames.ORIGIN),
+      ) match {
+        case (_, Some(origin)) if allowCORS(origin, method) => (Some(origin), method)
+        case _                                              => (None, method)
+      }
+    })((_, _, s) => {
+      s match {
+        case (Some(origin), method) =>
+          Patch.addHeaders(corsHeaders(origin, method, isPreflight = false))
+        case _                      => Patch.empty
+      }
+    })
+
+    val optionsHeaders = fromMiddlewareFunction { case (method, _, headers) =>
+      (
+        method,
+        getHeader(headers, HttpHeaderNames.ORIGIN),
+        getHeader(headers, HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
+      ) match {
+        case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm.value.toString)) =>
+          fromApp(
+            HttpApp.fromHttp(
+              Http.succeed(
+                Response(
+                  Status.NO_CONTENT,
+                  headers = corsHeaders(origin, Method.fromString(acrm.value.toString), isPreflight = true),
+                ),
+              ),
+            ),
+          )
+        case _ => identity
+      }
+    }
+
+    existingRoutesWithHeaders orElse optionsHeaders
+  }
 
   /**
    * Applies the middleware on an HttpApp
@@ -188,9 +373,9 @@ object HttpMiddleware {
       case TransformM(reqF, resF) =>
         HttpApp.fromOptionFunction { req =>
           for {
-            s     <- reqF(req.method, req.url, req.headers)
+            s     <- reqF(req.method, req.url, req.getHeaders)
             res   <- app(req)
-            patch <- resF(res.status, res.headers, s)
+            patch <- resF(res.status, res.getHeaders, s)
           } yield patch(res)
         }
 
@@ -199,7 +384,7 @@ object HttpMiddleware {
       case FromFunctionM(reqF) =>
         HttpApp.fromOptionFunction { req =>
           for {
-            output <- reqF(req.method, req.url, req.headers)
+            output <- reqF(req.method, req.url, req.getHeaders)
             res    <- output(app)(req)
           } yield res
         }

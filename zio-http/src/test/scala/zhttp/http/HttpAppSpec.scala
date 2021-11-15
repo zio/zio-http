@@ -1,8 +1,8 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{HttpMethod, HttpResponse}
-import zhttp.experiment.internal.{HttpAppClient, HttpMessageAssertions}
 import zhttp.http.HttpApp.InvalidMessage
+import zhttp.internal.{HttpAppClient, HttpMessageAssertions}
 import zhttp.service.EventLoopGroup
 import zio.duration._
 import zio.stream.ZStream
@@ -248,7 +248,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       testM("custom") {
         val content = HttpApp
           .fromHttp(Http.collect[Request] { case _ => Ok })
-          .getRequestContent(ContentDecoder.collect(Chunk[Byte]()) { case (a, b, isLast) =>
+          .getRequestContent(ContentDecoder.collect(Chunk[Byte]()) { case (a, b, isLast, _, _, _) =>
             ZIO((if (isLast) Option(b ++ a) else None, b ++ a))
           })
           .map(chunk => new String(chunk.toArray))

@@ -16,12 +16,31 @@ sealed trait HttpData[-R, +E] { self =>
       case m                           => m.asInstanceOf[HttpData[Any, E]]
     }
 
+  /**
+   * Returns the size of HttpData if available
+   */
   def size: Option[Long] = self match {
     case HttpData.Empty           => Option(0L)
     case HttpData.Text(text, _)   => Option(text.length.toLong)
     case HttpData.Binary(data)    => Option(data.size.toLong)
     case HttpData.BinaryN(data)   => Option(data.readableBytes().toLong)
     case HttpData.BinaryStream(_) => None
+  }
+
+  /**
+   * Returns true if HttpData is empty
+   */
+  def isEmpty: Boolean = self match {
+    case HttpData.Empty => true
+    case _              => false
+  }
+
+  /**
+   * Returns true if HttpData is a stream
+   */
+  def isChunked: Boolean = self match {
+    case HttpData.BinaryStream(_) => true
+    case _                        => false
   }
 }
 

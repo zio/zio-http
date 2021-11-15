@@ -2,9 +2,9 @@ import sbt._
 
 object Dependencies {
   val JwtCoreVersion                = "9.0.2"
-  val NettyVersion                  = "4.1.69.Final"
-  val NettyIncubatorVersion         = "0.0.9.Final"
-  val ScalaCompactCollectionVersion = "2.5.0"
+  val NettyVersion                  = "4.1.70.Final"
+  val NettyIncubatorVersion         = "0.0.10.Final"
+  val ScalaCompactCollectionVersion = "2.6.0"
   val ZioVersion                    = "1.0.12"
 
   val `scala-compact-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompactCollectionVersion

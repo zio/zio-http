@@ -1,13 +1,14 @@
 package zhttp.http
 
 import io.netty.channel._
-import zhttp.http.middleware.HttpMiddleware
+import zhttp.http.middleware.{HttpMiddleware, Patch}
 import zhttp.service.{Handler, HttpRuntime}
 import zio._
 import zio.clock.Clock
 import zio.duration.Duration
 
-case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =>
+case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) {
+  self =>
   def orElse[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
     HttpApp(self.asHttp orElse other.asHttp)
 
@@ -72,6 +73,55 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) { self =
    */
   def race[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
     HttpApp(self.asHttp race other.asHttp)
+
+  /**
+   * Patches the response produced by the app
+   */
+  def patch(patch: Patch): HttpApp[R, E] = HttpApp(self.asHttp.map(patch(_)))
+
+  /**
+   * Adds the provided headers to the response of the app
+   */
+  def addHeaders(headers: List[Header]): HttpApp[R, E] = self.patch(Patch.addHeaders(headers))
+
+  /**
+   * Adds the provided headers to the response of the app
+   */
+  def addHeader(header: Header): HttpApp[R, E] = self.patch(Patch.addHeader(header))
+
+  /**
+   * Adds the provided header to the response of the app
+   */
+  def addHeader(name: String, value: String): HttpApp[R, E] = self.patch(Patch.addHeader(name, value))
+
+  /**
+   * Sets the status in the response produced by the app
+   */
+  def setStatus(status: Status): HttpApp[R, E] = self.patch(Patch.setStatus(status))
+
+  /**
+   * Modifies the outgoing response from the app
+   */
+  def modifyResponse[R1 <: R, E1 >: E](f: Response[R, E] => Response[R1, E1]): HttpApp[R1, E1] =
+    HttpApp(asHttp.map(f))
+
+  /**
+   * Modifies the outgoing response from the app effectfully
+   */
+  def modifyResponseM[R1 <: R, E1 >: E](f: Response[R, E] => ZIO[R1, E1, Response[R1, E1]]): HttpApp[R1, E1] =
+    HttpApp(asHttp.mapM(f))
+
+  /**
+   * Modifies the incoming request to the app
+   */
+  def modifyRequest(f: Request => Request): HttpApp[R, E] =
+    HttpApp(asHttp.contramap(f))
+
+  /**
+   * Modifies the incoming request to the app effectfully
+   */
+  def modifyRequestM[R1 <: R, E1 >: E](f: Request => ZIO[R1, E1, Request]): HttpApp[R1, E1] =
+    HttpApp(asHttp.contramapM(f))
 }
 
 object HttpApp {
@@ -168,6 +218,12 @@ object HttpApp {
    */
   def fromFunction[R, E, B](f: Request => HttpApp[R, E]): HttpApp[R, E] =
     HttpApp(Http.fromFunction[Request](f(_).asHttp).flatten)
+
+  /**
+   * Creates a Http app from a function from Request to ZIO[R,E,HttpApp[R,E]]
+   */
+  def fromFunctionM[R, E, B](f: Request => ZIO[R, E, HttpApp[R, E]]): HttpApp[R, E] =
+    HttpApp(Http.fromFunctionM[Request](f(_).map(_.asHttp)).flatten)
 
   /**
    * Creates a Http app from a partial function from Request to HttpApp
