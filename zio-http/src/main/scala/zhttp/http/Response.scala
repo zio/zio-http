@@ -24,6 +24,11 @@ final case class Response[-R, +E] private (
   override def getHeaders: List[Header] = headers
 
   /**
+   * Memoization of response. NOTE: This may not necessarily improve performance and can potentially cause memory leaks.
+   */
+  def memoize: Response[R, E] = self.copy(attribute = self.attribute.withMemoization)
+
+  /**
    * Sets the response attributes
    */
   def setAttribute[R1 <: R, E1 >: E](attribute: Response.Attribute[R1, E1]): Response[R1, E1] =
@@ -140,9 +145,9 @@ object Response {
    * Attribute holds meta data for the backend
    */
 
-  final case class Attribute[-R, +E](socketApp: SocketApp[R, E] = SocketApp.empty) {
+  final case class Attribute[-R, +E](socketApp: SocketApp[R, E] = SocketApp.empty, memoization: Boolean = false) {
     self =>
-
+    def withMemoization: Attribute[R, E]                                           = self.copy()
     def withSocketApp[R1 <: R, E1 >: E](app: SocketApp[R1, E1]): Attribute[R1, E1] = self.copy(socketApp = app)
   }
 
