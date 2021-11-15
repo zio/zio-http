@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.server.ServerSSLHandler.{ctxFromKeystore}
+import zhttp.service.server.ServerSSLHandler.ctxFromKeystore
 import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo
@@ -30,40 +30,40 @@ object SSLSpec extends HttpRunnableSpec(8073) {
   val clientssl1 = SslContextBuilder.forClient().trustManager(servercert).build()
   val clientssl2 = SslContextBuilder.forClient().trustManager(ssc2).build()
 
-  val app = serveWithSSL (
+  val app = serveWithSSL(
     HttpApp.collectM[Any, Nothing] { case Method.GET -> !! / "success" =>
       ZIO.succeed(Response.ok)
     },
-    serverssl
+    serverssl,
   )
 
   override def spec = suite("SSL")(
-          testM("succeed when client has the server certificate") {
-            val actual = Client
-              .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientssl1))
-              .map(_.status)
-            assertM(actual)(equalTo(Status.OK))
-          } +
-            testM("fail with SSLHandshakeException when client doesn't have the server certificate") {
-              val actual = Client
-                .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientssl2))
-                .map(_.status)
-                .catchSome(_.getCause match {
-                  case _: SSLHandshakeException => ZIO.succeed("SSLHandshakeException")
-                })
-              assertM(actual)(equalTo("SSLHandshakeException"))
-            } @@ timeout(5 second) @@ flaky +
-            testM("succeed when client has default SSL") {
-              val actual = Client
-                .request("https://localhost:8073/success", ClientSSLOptions.DefaultSSL)
-                .map(_.status)
-              assertM(actual)(equalTo(Status.OK))
-            } +
-            testM("Https Redirect when client makes http request") {
-              val actual = Client
-                .request("http://localhost:8073/success", ClientSSLOptions.CustomSSL(clientssl1))
-                .map(_.status)
-              assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
-            },
+    testM("succeed when client has the server certificate") {
+      val actual = Client
+        .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientssl1))
+        .map(_.status)
+      assertM(actual)(equalTo(Status.OK))
+    } +
+      testM("fail with SSLHandshakeException when client doesn't have the server certificate") {
+        val actual = Client
+          .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientssl2))
+          .map(_.status)
+          .catchSome(_.getCause match {
+            case _: SSLHandshakeException => ZIO.succeed("SSLHandshakeException")
+          })
+        assertM(actual)(equalTo("SSLHandshakeException"))
+      } @@ timeout(5 second) @@ flaky +
+      testM("succeed when client has default SSL") {
+        val actual = Client
+          .request("https://localhost:8073/success", ClientSSLOptions.DefaultSSL)
+          .map(_.status)
+        assertM(actual)(equalTo(Status.OK))
+      } +
+      testM("Https Redirect when client makes http request") {
+        val actual = Client
+          .request("http://localhost:8073/success", ClientSSLOptions.CustomSSL(clientssl1))
+          .map(_.status)
+        assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
+      },
   ).provideCustomLayerShared(env ++ (app.toLayer.orDie)) @@ flaky @@ timeout(5 second)
 }
