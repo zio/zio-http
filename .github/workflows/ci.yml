@@ -213,6 +213,8 @@ jobs:
         scala: [2.13.4]
         java: [adopt@1.8]
     runs-on: ${{ matrix.os }}
+    env:
+      GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
     steps:
       - name: Checkout current branch (fast)
         uses: actions/checkout@v2
@@ -222,9 +224,13 @@ jobs:
           repository: amitksingh1490/FrameworkBenchmarks
           path: FrameworkBenchMarks
 
-      - run: |
-          pwd
-          ls ./
-          cat ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.Scala
+      - id: result
+        run: |
           cd ./FrameworkBenchMarks
-          ./tfb  --test zio-http
+          sed 's/---COMMIT_SHA---/$GITHUB_SHA/g' frameworks/Scala/zio-http/build.sbt
+          cat frameworks/Scala/zio-http/build.sbt
+          echo ::set-output name=result::$(./tfb  --test zio-http | grep -B 1 -A 17 "Concurrency: 256 for plaintext" | grep Requests/sec)
+
+      - uses: unsplash/comment-on-pr@v1.3.0
+        with:
+          msg: ${{steps.result.outputs.result}}
