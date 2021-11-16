@@ -10,8 +10,9 @@ import zhttp.http._
 import zhttp.service.server.WebSocketUpgrade
 import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
-
 import java.net.{InetAddress, InetSocketAddress}
+
+import io.netty.util.ReferenceCountUtil
 
 final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: HttpRuntime[R])
     extends ChannelInboundHandlerAdapter
@@ -201,6 +202,7 @@ final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: Http
                 self.request.url,
                 self.request.getHeaders,
               )
+            _                <- UIO(ReferenceCountUtil.release(content))
             _                <- publish match {
               case Some(out) => self.completePromise.succeed(out)
               case None      => ZIO.unit
