@@ -204,3 +204,25 @@ jobs:
       - name: Push Codecov
         id: push_codecov
         run: 'bash <(curl -s https://codecov.io/bash)'
+
+  runBenchMarks:
+    name: Benchmarks
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.4]
+        java: [adopt@1.8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout current branch (fast)
+        uses: actions/checkout@v2
+
+      - uses: actions/checkout@v2
+        with:
+          repository: 'https://github.com/amitksingh1490/FrameworkBenchmarks.git'
+          path: FrameworkBenchMarks
+
+      - run: |
+          pwd
+          cp ./example/src/main/scala/example/HelloWorld.scala ./../FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.Scala
+          cat ./../FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.Scala
