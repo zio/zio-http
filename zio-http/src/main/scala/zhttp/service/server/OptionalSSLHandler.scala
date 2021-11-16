@@ -38,7 +38,6 @@ class OptionalSSLHandler[R](
             .channel()
             .pipeline()
             .addLast(HTTP_ON_HTTPS_HANDLER, new HttpOnHttpsHandler(settings.sslOption.httpBehaviour))
-          ()
           if (settings.acceptContinue)
             context
               .channel()
