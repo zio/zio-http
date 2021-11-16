@@ -14,11 +14,11 @@ object TransportSpec extends HttpRunnableSpec(9091) {
     ZIO.succeed(Response.ok)
   }
 
-  val appWithAuto = serve(http)
-  val appWithEpoll  = serve(http, 9092, Transport.Epoll)
+  val appWithAuto  = serve(http)
+  val appWithEpoll = serve(http, 9092, Transport.Epoll)
 
-  val appWithAutoLayer = appWithAuto.toLayer
-  val appWithEpollLayer  = appWithEpoll.toLayer
+  val appWithAutoLayer  = appWithAuto.toLayer
+  val appWithEpollLayer = appWithEpoll.toLayer
 
   override def spec = suite("Server")(
     suite("Transport With Auto")(
