@@ -15,6 +15,11 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
   ): ZManaged[R, Throwable, Unit] =
     Server.make(Server.app(app) ++ Server.port(port)).orDie
 
+  def serve1[R](
+    app: HttpApp[R, Throwable],
+  ): ZManaged[R, Throwable, Unit] =
+    Server.make(Server.app(app) ++ Server.port(port))
+
   def serveWithSSL[R](
     app: HttpApp[R, Throwable],
     sslContext: SslContext,

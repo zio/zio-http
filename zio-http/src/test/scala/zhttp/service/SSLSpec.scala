@@ -8,7 +8,7 @@ import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{flaky, timeout}
-import zio.test.assertM
+import zio.test.{TestFailure, assertM}
 
 import javax.net.ssl.SSLHandshakeException
 
@@ -36,6 +36,8 @@ object SSLSpec extends HttpRunnableSpec(8073) {
     },
     serverssl,
   )
+
+  val appLayer = app.toLayer
 
   override def spec = suite("SSL")(
     testM("succeed when client has the server certificate") {
@@ -65,5 +67,6 @@ object SSLSpec extends HttpRunnableSpec(8073) {
           .map(_.status)
         assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
       },
-  ).provideCustomLayerShared(env ++ (app.toLayer.orDie)) @@ flaky @@ timeout(5 second)
+  ).provideCustomLayerShared(env ++ appLayer)
+    .mapError(TestFailure.fail) @@ flaky @@ timeout(5 second)
 }

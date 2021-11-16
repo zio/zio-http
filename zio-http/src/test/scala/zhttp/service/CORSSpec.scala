@@ -5,7 +5,7 @@ import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware.cors
 import zio.ZManaged
 import zio.test.Assertion._
-import zio.test.assertM
+import zio.test.{TestFailure, assertM}
 
 object CORSSpec extends HttpRunnableSpec(8089) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto
@@ -15,6 +15,7 @@ object CORSSpec extends HttpRunnableSpec(8089) {
       Response.ok
     } @@ cors()
   }
+  val appLayer                            = app.toLayer
 
   override def spec = suite("CORS")(
     testM("OPTIONS request headers") {
@@ -76,5 +77,6 @@ object CORSSpec extends HttpRunnableSpec(8089) {
           ),
         )
       },
-  ).provideCustomLayerShared(env ++ (app.toLayer.orDie))
+  ).provideCustomLayerShared(env ++ appLayer)
+    .mapError(TestFailure.fail)
 }

@@ -2,7 +2,7 @@ package zhttp.service
 
 import zhttp.http._
 import zio.test.Assertion.{isNone, isPositive, isSome}
-import zio.test.assertM
+import zio.test.{TestFailure, assertM}
 import zio.{Has, Ref, UIO, ZIO, ZRef}
 
 import scala.util.Try
@@ -51,7 +51,7 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
     before use within provide.
     https://github.com/zio/zio/issues/4802
    */
-  val serverAppStateLayer = serverAppState.toLayer.orDie
+  val serverAppStateLayer = serverAppState.toLayer
 
   override def spec =
     suite("Client Content-Length auto assign") {
@@ -86,4 +86,6 @@ object ClientContentLengthSpec extends HttpRunnableSpec(8083) {
           assertM(eff)(isSome(isPositive[Int]))
         }
     }.provideCustomLayerShared(env ++ serverAppStateLayer)
+      .mapError(TestFailure.fail)
+
 }

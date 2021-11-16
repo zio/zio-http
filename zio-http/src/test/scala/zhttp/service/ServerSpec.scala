@@ -3,7 +3,7 @@ package zhttp.service
 import zhttp.http._
 import zio.ZIO
 import zio.test.Assertion.equalTo
-import zio.test.assertM
+import zio.test.{TestFailure, assertM}
 
 object ServerSpec extends HttpRunnableSpec(8087) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto
@@ -17,6 +17,7 @@ object ServerSpec extends HttpRunnableSpec(8087) {
     }
   }
 
+  val appLayer      = app.toLayer
   override def spec = suite("Server")(
     testM("200 response") {
       val actual = status(!! / "success")
@@ -34,5 +35,6 @@ object ServerSpec extends HttpRunnableSpec(8087) {
         val actual = status(!! / "get%2Fsuccess")
         assertM(actual)(equalTo(Status.OK))
       },
-  ).provideCustomLayerShared(env ++ (app.toLayer.orDie))
+  ).provideCustomLayerShared(env ++ appLayer)
+    .mapError(TestFailure.fail)
 }
