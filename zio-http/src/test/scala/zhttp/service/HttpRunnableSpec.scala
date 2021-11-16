@@ -5,6 +5,8 @@ import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.server.ServerSSLHandler.ServerSSLOptions
+import zhttp.service.server.Transport
+import zhttp.service.server.Transport.Auto
 import zio.test.DefaultRunnableSpec
 import zio.{Chunk, ZIO, ZManaged}
 
@@ -12,13 +14,10 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
 
   def serve[R](
     app: HttpApp[R, Throwable],
+    thePort: Int = port,
+    transport: Transport = Auto,
   ): ZManaged[R, Throwable, Unit] =
-    Server.make(Server.app(app) ++ Server.port(port)).orDie
-
-  def serve1[R](
-    app: HttpApp[R, Throwable],
-  ): ZManaged[R, Throwable, Unit] =
-    Server.make(Server.app(app) ++ Server.port(port))
+    Server.make(Server.app(app) ++ Server.port(thePort) ++ Server.transport(transport))
 
   def serveWithSSL[R](
     app: HttpApp[R, Throwable],
