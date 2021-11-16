@@ -6,6 +6,7 @@ import zhttp.http.HttpApp
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
 import zio.{ZManaged, _}
+
 import java.net.{InetAddress, InetSocketAddress}
 
 sealed trait Server[-R, +E] { self =>
@@ -106,7 +107,7 @@ object Server {
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
       zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
       httpHandler     = settings.app.compile(zExec)
-      http2Handler    = Http2ServerRequestHandler(zExec,settings)
+      http2Handler    = Http2ServerRequestHandler(zExec, settings)
       init            = ServerChannelInitializer(zExec, settings, httpHandler, http2Handler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.address))

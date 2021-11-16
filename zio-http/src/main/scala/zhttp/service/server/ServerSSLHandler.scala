@@ -1,7 +1,11 @@
 package zhttp.service.server
 
 import io.netty.handler.codec.http2.Http2SecurityUtil
-import io.netty.handler.ssl.ApplicationProtocolConfig.{Protocol, SelectedListenerFailureBehavior, SelectorFailureBehavior}
+import io.netty.handler.ssl.ApplicationProtocolConfig.{
+  Protocol,
+  SelectedListenerFailureBehavior,
+  SelectorFailureBehavior,
+}
 import io.netty.handler.ssl._
 
 import java.io.InputStream

@@ -4,7 +4,7 @@ import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.unix.Errors.NativeIoException
 import io.netty.channel.{ChannelDuplexHandler, ChannelHandlerContext}
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponseStatus}
+import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http2._
 import zhttp.http.Status.{INTERNAL_SERVER_ERROR, NOT_FOUND, UPGRADE_REQUIRED}
 import zhttp.http._
@@ -17,7 +17,7 @@ import java.time.format.DateTimeFormatter
 import scala.collection.mutable.Map
 
 @Sharable
-final case class Http2ServerRequestHandler[R]  private[zhttp] (
+final case class Http2ServerRequestHandler[R] private[zhttp] (
   runtime: HttpRuntime[R],
   settings: Settings[R, Throwable],
 ) extends ChannelDuplexHandler
@@ -116,7 +116,14 @@ final case class Http2ServerRequestHandler[R]  private[zhttp] (
           case HExit.Empty        => unsafeWriteAndFlushEmptyResponse(ctx, headers.stream())
           case HExit.Success(res) =>
             if (self.canSwitchProtocol(res)) {
-              unsafeWriteAnyResponse(Response(UPGRADE_REQUIRED,data = HttpData.fromText("Websockets are not supported over HTTP/2. Make HTTP/1.1 connection.")), ctx, headers.stream())
+              unsafeWriteAnyResponse(
+                Response(
+                  UPGRADE_REQUIRED,
+                  data = HttpData.fromText("Websockets are not supported over HTTP/2. Make HTTP/1.1 connection."),
+                ),
+                ctx,
+                headers.stream(),
+              )
             } else {
               unsafeWriteAnyResponse(res, ctx, headers.stream())
             }
@@ -129,7 +136,17 @@ final case class Http2ServerRequestHandler[R]  private[zhttp] (
                 },
                 res =>
                   if (self.canSwitchProtocol(res))
-                    UIO(unsafeWriteAnyResponse(Response(UPGRADE_REQUIRED,data = HttpData.fromText("Websockets are not supported over HTTP/2. Make HTTP/1.1 connection.")), ctx, headers.stream()))
+                    UIO(
+                      unsafeWriteAnyResponse(
+                        Response(
+                          UPGRADE_REQUIRED,
+                          data =
+                            HttpData.fromText("Websockets are not supported over HTTP/2. Make HTTP/1.1 connection."),
+                        ),
+                        ctx,
+                        headers.stream(),
+                      ),
+                    )
                   else {
                     for {
                       _ <- UIO(unsafeWriteAnyResponse(res, ctx, headers.stream()))
