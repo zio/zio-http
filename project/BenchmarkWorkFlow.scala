@@ -6,6 +6,7 @@ object BenchmarkWorkFlow {
       WorkflowJob(
         id = "runBenchMarks",
         name = "Benchmarks",
+        env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
         steps = List(
           WorkflowStep.Checkout,
           WorkflowStep.Use(
@@ -17,11 +18,14 @@ object BenchmarkWorkFlow {
           ),
           WorkflowStep.Run(
             commands = List(
-              "pwd",
-              "ls ./",
-              "cat ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.Scala",
               "cd ./FrameworkBenchMarks",
-              "./tfb  --test zio-http",
+              "./tfb  --test zio-http > result.txt",
+            ),
+          ),
+          WorkflowStep.Use(
+            UseRef.Public("unsplash", "comment-on-pr", "v1.3.0"),
+            Map(
+              "msg" -> "${{grep -B 17 -A 1 \"Concurrency: 256 for plaintext\" result.txt}}",
             ),
           ),
         ),
