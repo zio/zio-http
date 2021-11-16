@@ -4,9 +4,9 @@ import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.unix.Errors.NativeIoException
 import io.netty.channel.{ChannelDuplexHandler, ChannelHandlerContext}
-import io.netty.handler.codec.http.HttpHeaderNames
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponseStatus}
 import io.netty.handler.codec.http2._
-import zhttp.http.Status.{INTERNAL_SERVER_ERROR, NOT_FOUND}
+import zhttp.http.Status.{INTERNAL_SERVER_ERROR, NOT_FOUND, UPGRADE_REQUIRED}
 import zhttp.http._
 import zhttp.service.Server.Settings
 import zhttp.service._
@@ -116,7 +116,7 @@ final case class Http2ServerRequestHandler[R]  private[zhttp] (
           case HExit.Empty        => unsafeWriteAndFlushEmptyResponse(ctx, headers.stream())
           case HExit.Success(res) =>
             if (self.canSwitchProtocol(res)) {
-              self.initializeSwitch(ctx, res)
+              unsafeWriteAnyResponse(Response(UPGRADE_REQUIRED,data = HttpData.fromText("Websockets are not supported over HTTP/2. Make HTTP/1.1 connection.")), ctx, headers.stream())
             } else {
               unsafeWriteAnyResponse(res, ctx, headers.stream())
             }
@@ -128,7 +128,8 @@ final case class Http2ServerRequestHandler[R]  private[zhttp] (
                   case None        => UIO(unsafeWriteAndFlushEmptyResponse(ctx, headers.stream()))
                 },
                 res =>
-                  if (self.canSwitchProtocol(res)) UIO(self.initializeSwitch(ctx, res))
+                  if (self.canSwitchProtocol(res))
+                    UIO(unsafeWriteAnyResponse(Response(UPGRADE_REQUIRED,data = HttpData.fromText("Websockets are not supported over HTTP/2. Make HTTP/1.1 connection.")), ctx, headers.stream()))
                   else {
                     for {
                       _ <- UIO(unsafeWriteAnyResponse(res, ctx, headers.stream()))
@@ -150,7 +151,7 @@ final case class Http2ServerRequestHandler[R]  private[zhttp] (
     ctx: ChannelHandlerContext,
     stream: Http2FrameStream,
   ): Unit = {
-    val headers = new DefaultHttp2Headers().status(INTERNAL_SERVER_ERROR.toString)
+    val headers = new DefaultHttp2Headers().status(INTERNAL_SERVER_ERROR.asJava.codeAsText())
     headers
       .set(HttpHeaderNames.SERVER, "ZIO-Http")
       .set(HttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
@@ -171,7 +172,7 @@ final case class Http2ServerRequestHandler[R]  private[zhttp] (
    * Writes not found error response to the Channel
    */
   def unsafeWriteAndFlushEmptyResponse(ctx: ChannelHandlerContext, stream: Http2FrameStream): Unit = {
-    val headers = new DefaultHttp2Headers().status(NOT_FOUND.toString)
+    val headers = new DefaultHttp2Headers().status(NOT_FOUND.asJava.codeAsText())
     headers
       .set(HttpHeaderNames.SERVER, "ZIO-Http")
       .set(HttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
@@ -189,7 +190,7 @@ final case class Http2ServerRequestHandler[R]  private[zhttp] (
     ctx: ChannelHandlerContext,
     stream: Http2FrameStream,
   ): Unit = {
-    val headers = new DefaultHttp2Headers().status(res.status.toString)
+    val headers = new DefaultHttp2Headers().status(res.status.asJava.codeAsText())
     headers
       .set(HttpHeaderNames.SERVER, "ZIO-Http")
       .set(HttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")

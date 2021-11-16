@@ -1,6 +1,6 @@
 package example
 
-import zhttp.http.{HttpApp, Method, Response, _}
+import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.{EventLoopGroup, Server}
@@ -20,10 +20,10 @@ object HttpsHelloWorld extends App {
    * Alternatively you can create the keystore and certificate using the following link
    * https://medium.com/@maanadev/netty-with-https-tls-9bf699e07f01
    */
-  val sslctx = ctxFromCert(getClass.getResourceAsStream("server.crt"), getClass.getResourceAsStream("server.key"))
+  val sslctx = ctxFromCert(getClass().getClassLoader().getResourceAsStream("server.crt"),getClass().getClassLoader().getResourceAsStream("server.key") )
 
   private val server =
-    Server.port(8090) ++ Server.app(app) ++ Server.ssl(ServerSSLOptions(sslctx))
+    Server.port(8090) ++ Server.app(app) ++ Server.ssl(ServerSSLOptions(sslctx, SSLHttpBehaviour.Accept)) ++ Server.http2
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     server.make.useForever

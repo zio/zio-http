@@ -1,6 +1,7 @@
 package zhttp.service
 
 import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
@@ -13,6 +14,7 @@ import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
+@Sharable
 final case class Handler[R, E] private[zhttp] (app: HttpApp[R, E], runtime: HttpRuntime[R])
     extends ChannelInboundHandlerAdapter
     with WebSocketUpgrade[R] { self =>
