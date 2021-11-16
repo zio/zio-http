@@ -11,15 +11,17 @@ object BenchmarkWorkFlow {
           WorkflowStep.Use(
             UseRef.Public("actions", "checkout", s"v2"),
             Map(
-              "repository" -> "https://github.com/amitksingh1490/FrameworkBenchmarks.git",
+              "repository" -> "amitksingh1490/FrameworkBenchmarks",
               "path"       -> "FrameworkBenchMarks",
             ),
           ),
           WorkflowStep.Run(
             commands = List(
               "pwd",
-              "cp ./example/src/main/scala/example/HelloWorld.scala ./../FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.Scala",
-              "cat ./../FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.Scala",
+              "ls ./",
+              "cat ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.Scala",
+              "cd ./FrameworkBenchMarks",
+              "./tfb  --test zio-http",
             ),
           ),
         ),
