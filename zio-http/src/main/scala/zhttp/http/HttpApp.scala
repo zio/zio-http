@@ -130,10 +130,6 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) extends 
   def modifyRequestM[R1 <: R, E1 >: E](f: Request => ZIO[R1, E1, Request]): HttpApp[R1, E1] =
     HttpApp(asHttp.contramapM(f))
 
-  def getStatus                     = asHttp.getStatus
-  def getBody                       = asHttp.getBody
-  def getHeaders                    = asHttp.getHeaders
-  def getHeader(name: CharSequence) = asHttp.getHeader(name)
 }
 
 object HttpApp {
@@ -244,4 +240,27 @@ object HttpApp {
    */
   def fromOptionFunction[R, E, A, B](f: Request => ZIO[R, Option[E], Response[R, E]]): HttpApp[R, E] =
     HttpApp(Http.fromPartialFunction(f))
+
+  implicit class HttpAppSyntax[R, E](app: HttpApp[R, E]) {
+
+    /**
+     * Returns a HTTP which takes Request and will return Option[Header] in the response
+     */
+    def getHeader(name: String): Http[R, E, Request, Option[Header]] = app.asHttp.getHeader(name)
+
+    /**
+     * Returns a HTTP which takes Request and will return List[Header] in the response
+     */
+    def getHeaders: Http[R, E, Request, List[Header]] = app.asHttp.getHeaders
+
+    /**
+     * Returns a HTTP which takes Request and will return HttpData
+     */
+    def getBodyContent = app.asHttp.getBody
+
+    /**
+     * Returns a HTTP which takes Request and will return Status
+     */
+    def getStatus: Http[R, E, Request, Status] = app.asHttp.getStatus
+  }
 }
