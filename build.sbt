@@ -1,8 +1,8 @@
+import BuildHelper.{Scala213, publishSetting, stdSettings}
 import Dependencies._
-import BuildHelper.{publishSetting, stdSettings, Scala213}
 
-import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.FiniteDuration
 
 val releaseDrafterVersion = "5"
 
@@ -67,17 +67,15 @@ ThisBuild / githubWorkflowBuildPreamble :=
     scalas = List(Scala213),
   ).steps
 
-// Test Configuration
-ThisBuild / libraryDependencies ++= Seq(`zio-test`, `zio-test-sbt`)
-ThisBuild / testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
-
 // Projects
 
 // Project zio-http
 lazy val zhttp = (project in file("./zio-http"))
+  .configs(IntegrationTest)
   .settings(stdSettings("zhttp"))
   .settings(publishSetting(true))
   .settings(
+    Defaults.itSettings,
     ThisBuild / homepage   := Some(url("https://github.com/dream11/zio-http")),
     ThisBuild / scmInfo    :=
       Some(
@@ -98,7 +96,16 @@ lazy val zhttp = (project in file("./zio-http"))
           new URL("https://github.com/amitksingh1490"),
         ),
       ),
-    libraryDependencies ++= Seq(`zio`, `zio-streams`, netty, `scala-compact-collection`, `netty-incubator`),
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= Seq(
+      `zio`,
+      `zio-streams`,
+      netty,
+      `scala-compact-collection`,
+      `netty-incubator`,
+      `zio-test`     % "it, test",
+      `zio-test-sbt` % "it, test",
+    ),
   )
 
 // Project Benchmarks

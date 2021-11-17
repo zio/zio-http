@@ -12,8 +12,8 @@ object Dependencies {
   val `jwt-core`                 = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
   val zio                        = "dev.zio"                %% "zio"                     % ZioVersion
   val `zio-streams`              = "dev.zio"                %% "zio-streams"             % ZioVersion
-  val `zio-test`                 = "dev.zio"                %% "zio-test"                % ZioVersion % "test"
-  val `zio-test-sbt`             = "dev.zio"                %% "zio-test-sbt"            % ZioVersion % "test"
+  val `zio-test`                 = "dev.zio"                %% "zio-test"                % ZioVersion
+  val `zio-test-sbt`             = "dev.zio"                %% "zio-test-sbt"            % ZioVersion
   val `netty-incubator`          =
     "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % NettyIncubatorVersion classifier "linux-x86_64"
 }
