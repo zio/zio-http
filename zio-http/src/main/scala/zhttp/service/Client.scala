@@ -1,7 +1,12 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
+import io.netty.channel.{
+  Channel,
+  ChannelFactory => JChannelFactory,
+  ChannelHandlerContext,
+  EventLoopGroup => JEventLoopGroup,
+}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpVersion}
 import zhttp.http.URL.Location
 import zhttp.http._
@@ -50,7 +55,7 @@ final case class Client(zx: HttpRuntime[Any], cf: JChannelFactory[Channel], el: 
   def request(
     request: Client.ClientParams,
     sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-    enableHttp2: Boolean = true,
+    enableHttp2: Boolean,
   ): Task[Client.ClientResponse] =
     for {
       promise <- Promise.make[Throwable, FullHttpResponse]
@@ -73,74 +78,84 @@ object Client {
 
   def request(
     url: String,
+    http2: Boolean,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
     url <- ZIO.fromEither(URL.fromString(url))
-    res <- request(Method.GET -> url)
+    res <- request(Method.GET -> url, http2)
   } yield res
 
   def request(
     url: String,
     sslOptions: ClientSSLOptions,
+    http2: Boolean,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
     url <- ZIO.fromEither(URL.fromString(url))
-    res <- request(Method.GET -> url, sslOptions)
+    res <- request(Method.GET -> url, sslOptions, http2)
   } yield res
 
   def request(
     url: String,
     headers: List[Header],
+    http2: Boolean = false,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
       url <- ZIO.fromEither(URL.fromString(url))
-      res <- request(Method.GET -> url, headers, sslOptions)
+      res <- request(Method.GET -> url, headers, sslOptions, http2)
     } yield res
 
   def request(
     url: String,
     headers: List[Header],
     content: HttpData[Any, Nothing],
+    http2: Boolean,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
       url <- ZIO.fromEither(URL.fromString(url))
-      res <- request(Method.GET -> url, headers, content)
+      res <- request(Method.GET -> url, headers, content, http2)
     } yield res
 
   def request(
     endpoint: Endpoint,
+    http2: Boolean,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(endpoint))
+    request(ClientParams(endpoint), http2)
 
   def request(
     endpoint: Endpoint,
     sslOptions: ClientSSLOptions,
+    http2: Boolean,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(endpoint), sslOptions)
+    request(ClientParams(endpoint), sslOptions, http2)
 
   def request(
     endpoint: Endpoint,
     headers: List[Header],
     sslOptions: ClientSSLOptions,
+    http2: Boolean,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(endpoint, headers), sslOptions)
+    request(ClientParams(endpoint, headers), sslOptions, http2)
 
   def request(
     endpoint: Endpoint,
     headers: List[Header],
     content: HttpData[Any, Nothing],
+    http2: Boolean,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(endpoint, headers, content))
+    request(ClientParams(endpoint, headers, content), http2)
 
   def request(
     req: ClientParams,
+    http2: Boolean,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    make.flatMap(_.request(req))
+    make.flatMap(_.request(req, enableHttp2 = http2))
 
   def request(
     req: ClientParams,
     sslOptions: ClientSSLOptions,
+    http2: Boolean,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    make.flatMap(_.request(req, sslOptions))
+    make.flatMap(_.request(req, sslOptions, http2))
 
   final case class ClientParams(
     endpoint: Endpoint,
