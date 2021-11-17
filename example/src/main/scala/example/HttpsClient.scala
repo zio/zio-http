@@ -26,7 +26,7 @@ object HttpsClient extends App {
   trustManagerFactory.init(trustStore)
 
   val sslOption: ClientSSLOptions =
-    ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
+    ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory))
 
   val program = for {
     res <- Client.request(url, headers, sslOption)

@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromKeystore}
+import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
@@ -17,19 +17,16 @@ object SSLSpec extends HttpRunnableSpec(8073) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
   /**
-   * a custom keystore and a certificate from it
-   */
-  val keystore   = getClass().getClassLoader().getResourceAsStream("keystore.jks")
-  val servercert = getClass().getClassLoader().getResourceAsStream("cert.crt.pem")
-
-  /**
    * a second certificate
    */
   val ssc2 = getClass().getClassLoader().getResourceAsStream("ss2.crt.pem")
 
-  val serverssl  = ctxFromKeystore(keystore, "password", "password")
-  val clientssl1 = SslContextBuilder.forClient().trustManager(servercert).build()
-  val clientssl2 = SslContextBuilder.forClient().trustManager(ssc2).build()
+  val serverssl  = ctxFromCert(
+    getClass().getClassLoader().getResourceAsStream("server.crt"),
+    getClass().getClassLoader().getResourceAsStream("server.key"),
+  )
+  val clientssl1 = SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("server.crt"))
+  val clientssl2 = SslContextBuilder.forClient().trustManager(ssc2)
 
   val app = HttpApp.collectM[Any, Nothing] { case Method.GET -> !! / "success" =>
     ZIO.succeed(Response.ok)

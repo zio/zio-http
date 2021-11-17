@@ -1,18 +1,13 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel,
-  ChannelFactory => JChannelFactory,
-  ChannelHandlerContext,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel, ChannelHandlerContext, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpVersion}
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
+import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, Http2ClientResponseHandler, HttpClientResponseHandler}
 import zio.{Chunk, Promise, Task, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -24,35 +19,38 @@ final case class Client(zx: HttpRuntime[Any], cf: JChannelFactory[Channel], el: 
     jReq: FullHttpRequest,
     promise: Promise[Throwable, FullHttpResponse],
     sslOption: ClientSSLOptions,
+    enableHttp2: Boolean,
   ): Task[Unit] =
     ChannelFuture.unit {
-      val read   = ClientHttpChannelReader(jReq, promise)
-      val hand   = ClientInboundHandler(zx, read)
-      val host   = req.url.host
-      val port   = req.url.port.getOrElse(80) match {
-        case -1   => 80
-        case port => port
-      }
-      val scheme = req.url.kind match {
+      val scheme    = req.url.kind match {
         case Location.Relative               => ""
         case Location.Absolute(scheme, _, _) => scheme.asString
       }
-      val init   = ClientChannelInitializer(hand, scheme, sslOption)
-
-      val jboo = new Bootstrap().channelFactory(cf).group(el).handler(init)
+      val read      = ClientHttpChannelReader(jReq, promise)
+      val httpHand  = HttpClientResponseHandler(zx, read)
+      val host      = req.url.host
+      val port      = req.url.port.getOrElse(80) match {
+        case -1   => 80
+        case port => port
+      }
+      val http2Hand = Http2ClientResponseHandler(zx)
+      val ini       = ClientChannelInitializer(sslOption, httpHand, http2Hand, scheme, enableHttp2, jReq)
+      //since the first request is send automatically, placing in the response handler map under 1
+      if (enableHttp2) http2Hand.put(1, promise)
+      val jboo      = new Bootstrap().channelFactory(cf).group(el).handler(ini)
       if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
-
       jboo.connect()
     }
 
   def request(
     request: Client.ClientParams,
     sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+    enableHttp2: Boolean = true,
   ): Task[Client.ClientResponse] =
     for {
       promise <- Promise.make[Throwable, FullHttpResponse]
-      jReq = encodeClientParams(HttpVersion.HTTP_1_1, request)
-      _    <- asyncRequest(request, jReq, promise, sslOption).catchAll(cause => promise.fail(cause)).fork
+      jReq = encodeClientParams(HttpVersion.HTTP_1_1, request, enableHttp2)
+      _    <- asyncRequest(request, jReq, promise, sslOption, enableHttp2).catchAll(cause => promise.fail(cause)).fork
       jRes <- promise.await
       res  <- ZIO.fromEither(decodeJResponse(jRes))
     } yield res
