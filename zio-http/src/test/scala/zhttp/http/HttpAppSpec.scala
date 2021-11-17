@@ -8,7 +8,7 @@ import zio.duration._
 import zio.stream.ZStream
 import zio.test.Assertion.{equalTo, isLeft, isNone}
 import zio.test.TestAspect.{nonFlaky, timeout}
-import zio.test.{assertM, DefaultRunnableSpec}
+import zio.test.{DefaultRunnableSpec, assertM}
 import zio.{Chunk, UIO, ZIO}
 
 /**
