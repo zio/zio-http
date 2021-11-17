@@ -1,7 +1,13 @@
 package zhttp.service
 
 import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames, HttpHeaderValues, HttpVersion}
+import io.netty.handler.codec.http.{
+  DefaultFullHttpRequest,
+  FullHttpRequest,
+  HttpHeaderNames,
+  HttpHeaderValues,
+  HttpVersion,
+}
 import io.netty.handler.codec.http2.HttpConversionUtil
 import zhttp.http.URL.Location
 import zhttp.http.{HTTP_CHARSET, Header, Path}
@@ -10,8 +16,12 @@ trait EncodeClientParams {
   /**
    * Converts client params to JFullHttpRequest
    */
-  def encodeClientParams(jVersion: HttpVersion, req: Client.ClientParams, enableHttp2: Boolean = false,
-                         streamId: Int = 1): FullHttpRequest = {
+  def encodeClientParams(
+    jVersion: HttpVersion,
+    req: Client.ClientParams,
+    enableHttp2: Boolean = false,
+    streamId: Int = 1,
+  ): FullHttpRequest = {
     val method      = req.method.asHttpMethod
     val uri         = req.url.path match {
       case Path.End => "/"

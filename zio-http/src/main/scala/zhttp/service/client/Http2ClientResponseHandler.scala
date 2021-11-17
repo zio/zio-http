@@ -3,7 +3,7 @@ package zhttp.service.client
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http2.HttpConversionUtil
-import zhttp.service.{HttpRuntime}
+import zhttp.service.HttpRuntime
 import zio.Promise
 
 import scala.collection.mutable.Map
@@ -11,8 +11,7 @@ import scala.collection.mutable.Map
 /**
  * Process {@link FullHttpResponse} translated from HTTP/2 frames
  */
-case class Http2ClientResponseHandler(zExec: HttpRuntime[Any])
-  extends SimpleChannelInboundHandler[FullHttpResponse] {
+case class Http2ClientResponseHandler(zExec: HttpRuntime[Any]) extends SimpleChannelInboundHandler[FullHttpResponse] {
   val streamIdMap: Map[Int, FP] = Map.empty[Int, FP]
   class FP(promise: Promise[Throwable, FullHttpResponse]) {
     def getPromise(): Promise[Throwable, FullHttpResponse] = promise

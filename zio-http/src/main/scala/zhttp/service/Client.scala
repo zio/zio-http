@@ -1,13 +1,18 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{Channel, ChannelHandlerContext, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpVersion}
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, Http2ClientResponseHandler, HttpClientResponseHandler}
+import zhttp.service.client.{
+  ClientChannelInitializer,
+  ClientHttpChannelReader,
+  Http2ClientResponseHandler,
+  HttpClientResponseHandler,
+}
 import zio.{Chunk, Promise, Task, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -35,7 +40,7 @@ final case class Client(zx: HttpRuntime[Any], cf: JChannelFactory[Channel], el: 
       }
       val http2Hand = Http2ClientResponseHandler(zx)
       val ini       = ClientChannelInitializer(sslOption, httpHand, http2Hand, scheme, enableHttp2, jReq)
-      //since the first request is send automatically, placing in the response handler map under 1
+      // since the first request is send automatically, placing in the response handler map under 1
       if (enableHttp2) http2Hand.put(1, promise)
       val jboo      = new Bootstrap().channelFactory(cf).group(el).handler(ini)
       if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))

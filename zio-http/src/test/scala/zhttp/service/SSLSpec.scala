@@ -25,7 +25,8 @@ object SSLSpec extends HttpRunnableSpec(8073) {
     getClass().getClassLoader().getResourceAsStream("server.crt"),
     getClass().getClassLoader().getResourceAsStream("server.key"),
   )
-  val clientssl1 = SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("server.crt"))
+  val clientssl1 =
+    SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("server.crt"))
   val clientssl2 = SslContextBuilder.forClient().trustManager(ssc2)
 
   val app = HttpApp.collectM[Any, Nothing] { case Method.GET -> !! / "success" =>

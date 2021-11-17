@@ -16,7 +16,8 @@ object Http2Spec extends HttpRunnableSpec(8023) {
     getClass().getClassLoader().getResourceAsStream("server.crt"),
     getClass().getClassLoader().getResourceAsStream("server.key"),
   )
-  val clientssl1 = SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("server.crt"))
+  val clientssl1 =
+    SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("server.crt"))
 
   val app = HttpApp.collectM[Any, Nothing] { case Method.GET -> !! / "success" =>
     ZIO.succeed(Response.ok)

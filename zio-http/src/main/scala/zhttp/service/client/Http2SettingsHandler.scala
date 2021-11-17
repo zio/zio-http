@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
  * Reads the first {@link Http2Settings} object and notifies a {@link ChannelPromise}
  */
 case class Http2SettingsHandler(promise: ChannelPromise, jReq: FullHttpRequest, scheme: String)
-  extends SimpleChannelInboundHandler[Http2Settings] {
+    extends SimpleChannelInboundHandler[Http2Settings] {
 
   /**
    * Wait for this handler to be added after the upgrade to HTTP/2, and for initial preface handshake to complete.

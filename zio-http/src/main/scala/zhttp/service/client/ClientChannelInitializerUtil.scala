@@ -12,15 +12,15 @@ case object ClientChannelInitializerUtil {
    * Configure the pipeline for TLS NPN negotiation to HTTP/2.
    */
   def configureSsl(
-                    ch: Channel,
-                    settingsHandler: Http2SettingsHandler,
-                    connectionHandler: HttpToHttp2ConnectionHandler,
-                    sslOption: ClientSSLOptions,
-                    httpResponseHandler: ChannelHandler,
-                    http2ResponseHandler: Http2ClientResponseHandler,
-                    enableHttp2: Boolean,
-                    jReq: FullHttpRequest,
-                  ): Unit = {
+    ch: Channel,
+    settingsHandler: Http2SettingsHandler,
+    connectionHandler: HttpToHttp2ConnectionHandler,
+    sslOption: ClientSSLOptions,
+    httpResponseHandler: ChannelHandler,
+    http2ResponseHandler: Http2ClientResponseHandler,
+    enableHttp2: Boolean,
+    jReq: FullHttpRequest,
+  ): Unit = {
     val pipeline = ch.pipeline
     if (enableHttp2) {
       pipeline.addFirst(SSL_HANDLER, ClientSSLHandler.ssl(sslOption, enableHttp2).newHandler(ch.alloc))
@@ -51,14 +51,14 @@ case object ClientChannelInitializerUtil {
    * Configure the pipeline for a cleartext upgrade from HTTP to HTTP/2.
    */
   def configureClearText(
-                          ch: Channel,
-                          settingsHandler: Http2SettingsHandler,
-                          connectionHandler: HttpToHttp2ConnectionHandler,
-                          httpResponseHandler: ChannelHandler,
-                          http2ResponseHandler: Http2ClientResponseHandler,
-                          enableHttp2: Boolean,
-                          jReq: FullHttpRequest,
-                        ): Unit = {
+    ch: Channel,
+    settingsHandler: Http2SettingsHandler,
+    connectionHandler: HttpToHttp2ConnectionHandler,
+    httpResponseHandler: ChannelHandler,
+    http2ResponseHandler: Http2ClientResponseHandler,
+    enableHttp2: Boolean,
+    jReq: FullHttpRequest,
+  ): Unit = {
     val sourceCodec    = new HttpClientCodec
     val upgradeCodec   = new Http2ClientUpgradeCodec(connectionHandler)
     val upgradeHandler = new HttpClientUpgradeHandler(sourceCodec, upgradeCodec, 65536)
@@ -85,10 +85,10 @@ case object ClientChannelInitializerUtil {
    * A handler that triggers the cleartext upgrade to HTTP/2 by sending an initial HTTP request.
    */
   final private class UpgradeRequestHandler(
-                                             settingsHandler: Http2SettingsHandler,
-                                             http2ResponseHandler: Http2ClientResponseHandler,
-                                             jReq: FullHttpRequest,
-                                           ) extends ChannelInboundHandlerAdapter {
+    settingsHandler: Http2SettingsHandler,
+    http2ResponseHandler: Http2ClientResponseHandler,
+    jReq: FullHttpRequest,
+  ) extends ChannelInboundHandlerAdapter {
     @throws[Exception]
     override def channelActive(ctx: ChannelHandlerContext): Unit = {
       ctx.writeAndFlush(jReq)
