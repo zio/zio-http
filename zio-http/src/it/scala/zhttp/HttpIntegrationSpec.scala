@@ -6,7 +6,7 @@ import zio.test.Assertion._
 import zio.test._
 
 object HttpIntegrationSpec {
-  def testSuite(addr: String, port: Int) = suite("HttpSpec") {
+  def testSuite(implicit addr: String, port: Int) = suite("HttpSpec") {
     testM("200 ok on /") {
       val response = Client.request(s"http://${addr}:${port}")
 

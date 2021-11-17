@@ -12,6 +12,6 @@ object IntegrationSpec extends IntegrationRunnableSpec(80) {
   }
 
   def spec = suite("IntegrationSpec") {
-    HttpIntegrationSpec.testSuite(addr, port)
+    HttpIntegrationSpec.testSuite
   } provideCustomLayer env
 }
