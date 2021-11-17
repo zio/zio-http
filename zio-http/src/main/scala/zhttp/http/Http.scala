@@ -314,6 +314,27 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   def race[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
     Http.fromPartialFunction(a => self(a) raceFirst other(a))
+
+  /**
+   * Modify the response to return only response status
+   */
+  def getStatus[R1 <: R, E1 >: E](implicit evA: Request <:< A, evB: B <:< Response[R1, E1])  = self.map(_.status)
+
+  /**
+   * Modify the response to return only response body
+   */
+  def getBody[R1 <: R, E1 >: E](implicit evA: Request <:< A, evB: B <:< Response[R1, E1])    = self.map(_.data)
+
+  /**
+   * Modify the response to return list of headers
+   */
+  def getHeaders[R1 <: R, E1 >: E](implicit evA: Request <:< A, evB: B <:< Response[R1, E1]) = self.map(_.headers)
+
+  /**
+   * Modify the response to return Option[Header]
+   */
+  def getHeader[R1 <: R, E1 >: E](headerName: CharSequence)(implicit evA: Request <:< A, evB: B <:< Response[R1, E1]) =
+    self.map(_.getHeader(headerName))
 }
 
 object Http {
