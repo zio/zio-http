@@ -55,9 +55,11 @@ object EncodeClientParamsSpec extends DefaultRunnableSpec with EncodeClientParam
             )
 
           check(queryParamsGen) { queryParams =>
-            val queryString                     = queryParamsAsString(queryParams)
+            val queryString                                 = queryParamsAsString(queryParams)
             val requestWithQueryParams: Client.ClientParams =
-              Client.ClientParams(Method.GET -> URL(Path("/"), Location.Absolute(Scheme.HTTP, "localhost", 8000), queryParams))
+              Client.ClientParams(
+                Method.GET -> URL(Path("/"), Location.Absolute(Scheme.HTTP, "localhost", 8000), queryParams),
+              )
 
             val encoded = encodeClientParams(jVersion = HttpVersion.HTTP_1_1, req = requestWithQueryParams)
             assert(encoded.uri())(equalTo(s"/?$queryString"))
