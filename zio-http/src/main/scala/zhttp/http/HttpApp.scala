@@ -10,7 +10,7 @@ import zio.duration.Duration
 
 import java.nio.charset.Charset
 
-case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) extends AnyVal {
+case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) {
   self =>
   def orElse[R1 <: R, E1 >: E](other: HttpApp[R1, E1]): HttpApp[R1, E1] =
     HttpApp(self.asHttp orElse other.asHttp)
@@ -129,7 +129,6 @@ case class HttpApp[-R, +E](asHttp: Http[R, E, Request, Response[R, E]]) extends 
    */
   def modifyRequestM[R1 <: R, E1 >: E](f: Request => ZIO[R1, E1, Request]): HttpApp[R1, E1] =
     HttpApp(asHttp.contramapM(f))
-
 }
 
 object HttpApp {

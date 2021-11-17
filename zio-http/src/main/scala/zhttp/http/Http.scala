@@ -318,12 +318,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Modify the response to return only response status
    */
-  def getStatus[R1 <: R, E1 >: E](implicit evA: Request <:< A, evB: B <:< Response[R1, E1])  = self.map(_.status)
+  def getStatus[R1 <: R, E1 >: E](implicit evA: Request <:< A, evB: B <:< Response[R1, E1]) = self.map(_.status)
 
   /**
    * Modify the response to return only response body
    */
-  def getBody[R1 <: R, E1 >: E](implicit evA: Request <:< A, evB: B <:< Response[R1, E1])    = self.map(_.data)
+  def getBody[R1 <: R, E1 >: E](implicit evA: Request <:< A, evB: B <:< Response[R1, E1]) = self.map(_.data)
 
   /**
    * Modify the response to return list of headers
