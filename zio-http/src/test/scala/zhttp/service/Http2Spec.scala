@@ -38,7 +38,7 @@ object Http2Spec extends HttpRunnableSpec(8023) {
               "secure http2 request should succeed on a secure server which has http2 support and accept insecure requests",
             ) {
               val actual = Client
-                .request("https://localhost:8023/success", ClientSSLOptions.CustomSSL(clientssl1))
+                .request("https://localhost:8023/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
               assertM(actual)(equalTo(Status.OK))
             },
@@ -46,7 +46,7 @@ object Http2Spec extends HttpRunnableSpec(8023) {
               "insecure http2 request should succeed on a secure server which have http2 support and accept insecure requests",
             ) {
               val actual = Client
-                .request("http://localhost:8023/success", ClientSSLOptions.CustomSSL(clientssl1))
+                .request("http://localhost:8023/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
               assertM(actual)(equalTo(Status.OK))
             },
@@ -63,7 +63,7 @@ object Http2Spec extends HttpRunnableSpec(8023) {
               "secure http2 request should succeed on a secure server which doesn't have http2 support and accept insecure requests",
             ) {
               val actual = Client
-                .request("https://localhost:8024/success", ClientSSLOptions.CustomSSL(clientssl1))
+                .request("https://localhost:8024/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
               assertM(actual)(equalTo(Status.OK))
             },
@@ -71,7 +71,7 @@ object Http2Spec extends HttpRunnableSpec(8023) {
               "insecure http2 request should succeed on a secure server which doesn't have http2 support and accept insecure requests",
             ) {
               val actual = Client
-                .request("http://localhost:8024/success", ClientSSLOptions.CustomSSL(clientssl1))
+                .request("http://localhost:8024/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
               assertM(actual)(equalTo(Status.OK))
             },
@@ -91,7 +91,7 @@ object Http2Spec extends HttpRunnableSpec(8023) {
               "insecure http2 request should be redirected on a secure server which have http2 support and redirects insecure requests",
             ) {
               val actual = Client
-                .request("http://localhost:8025/success", ClientSSLOptions.CustomSSL(clientssl1))
+                .request("http://localhost:8025/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
               assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
             },
@@ -110,7 +110,7 @@ object Http2Spec extends HttpRunnableSpec(8023) {
               "insecure http2 request should be redirected on a secure server which doesn't have http2 support and redirects insecure requests",
             ) {
               val actual = Client
-                .request("http://localhost:8026/success", ClientSSLOptions.CustomSSL(clientssl1))
+                .request("http://localhost:8026/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
               assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
             },
@@ -130,7 +130,7 @@ object Http2Spec extends HttpRunnableSpec(8023) {
               "insecure http2 request should be failed on a secure server which have http2 support and fails insecure requests",
             ) {
               val actual = Client
-                .request("http://localhost:8027/success", ClientSSLOptions.CustomSSL(clientssl1))
+                .request("http://localhost:8027/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
               assertM(actual)(equalTo(Status.NOT_ACCEPTABLE))
             },
@@ -147,7 +147,7 @@ object Http2Spec extends HttpRunnableSpec(8023) {
               "insecure http2 request should be failed on a secure server which doesn't have http2 support and fails insecure requests",
             ) {
               val actual = Client
-                .request("http://localhost:8028/success", ClientSSLOptions.CustomSSL(clientssl1))
+                .request("http://localhost:8028/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
               assertM(actual)(equalTo(Status.NOT_ACCEPTABLE))
             },
@@ -161,7 +161,7 @@ object Http2Spec extends HttpRunnableSpec(8023) {
           List(
             testM("secure http2 request should fail on an  insecure server which has http2 support") {
               val actual = Client
-                .request("https://localhost:8029/success", ClientSSLOptions.CustomSSL(clientssl1))
+                .request("https://localhost:8029/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
                 .catchSome(_.getCause match {
                   case _: NotSslRecordException => ZIO.succeed("SSLHandshakeException")
@@ -170,7 +170,7 @@ object Http2Spec extends HttpRunnableSpec(8023) {
             },
             testM("insecure http2 request should succeed on an insecure server which have http2 support") {
               val actual = Client
-                .request("http://localhost:8029/success", ClientSSLOptions.CustomSSL(clientssl1))
+                .request("http://localhost:8029/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
               assertM(actual)(equalTo(Status.OK))
             },
@@ -185,7 +185,7 @@ object Http2Spec extends HttpRunnableSpec(8023) {
           List(
             testM("secure http2 request fail succeed on an insecure server which doesn't have http2 support") {
               val actual = Client
-                .request("https://localhost:8030/success", ClientSSLOptions.CustomSSL(clientssl1))
+                .request("https://localhost:8030/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
                 .catchSome(_.getCause match {
                   case _: NotSslRecordException => ZIO.succeed("SSLHandshakeException")
@@ -194,7 +194,7 @@ object Http2Spec extends HttpRunnableSpec(8023) {
             },
             testM("insecure http2 request should succeed on an insecure server which doesn't have http2 support") {
               val actual = Client
-                .request("http://localhost:8030/success", ClientSSLOptions.CustomSSL(clientssl1))
+                .request("http://localhost:8030/success", ClientSSLOptions.CustomSSL(clientssl1), true)
                 .map(_.status)
               assertM(actual)(equalTo(Status.OK))
             },

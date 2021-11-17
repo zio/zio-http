@@ -20,6 +20,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
     Client.request(
       Method.GET -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
       ClientSSLOptions.DefaultSSL,
+      false,
     )
 
   def headers(
@@ -40,6 +41,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
     Client.request(
       Client.ClientParams(method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
       ClientSSLOptions.DefaultSSL,
+      false,
     )
   }
 }
