@@ -1,7 +1,6 @@
 package zhttp.http
 
 import io.netty.channel.ChannelHandler
-import zhttp.http.IsHttpApp.{IsRequest, IsResponse}
 import zhttp.http.middleware.{HttpMiddleware, Patch}
 import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{Handler, HttpRuntime, Server}
@@ -17,12 +16,6 @@ import scala.annotation.unused
 sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
   import Http._
-
-  /**
-   * Attaches the provided middleware to the HttpApp
-   */
-  final def @@[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1])(implicit ev: IsHttpApp[R1, E1, A, B]): HttpApp[R1, E1] =
-    self.middleware(mid)
 
   /**
    * Alias for flatmap
@@ -61,24 +54,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.zipRight(other)
 
   /**
-   * Adds the provided headers to the response of the app
-   */
-  final def addHeader(header: Header)(implicit evB: IsResponse[R, E, B]): Http[R, E, A, Response[R, E]] =
-    self.patch(Patch.addHeader(header))
-
-  /**
-   * Adds the provided header to the response of the app
-   */
-  final def addHeader(name: String, value: String)(implicit evB: IsResponse[R, E, B]): Http[R, E, A, Response[R, E]] =
-    self.patch(Patch.addHeader(name, value))
-
-  /**
-   * Adds the provided headers to the response of the app
-   */
-  final def addHeaders(headers: List[Header])(implicit evB: IsResponse[R, E, B]): Http[R, E, A, Response[R, E]] =
-    self.patch(Patch.addHeaders(headers))
-
-  /**
    * Named alias for `>>>`
    */
   final def andThen[R1 <: R, E1 >: E, B1 >: B, C](other: Http[R1, E1, B1, C]): Http[R1, E1, A, C] =
@@ -94,9 +69,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def as[C](c: C): Http[R, E, A, C] =
     self *> Http.succeed(c)
-
-  final def asApp[R1 <: R, E1 >: E, A1 <: A, B1 >: B](implicit ev: IsHttpApp[R1, E1, A1, B1]): HttpApp[R, E] =
-    self.asInstanceOf[HttpApp[R, E]]
 
   /**
    * Catches all the exceptions that the http app can fail with
@@ -170,7 +142,9 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def flatten[R1 <: R, E1 >: E, A1 <: A, B1](implicit
     ev: B <:< Http[R1, E1, A1, B1],
-  ): Http[R1, E1, A1, B1] = self.flatMap(scala.Predef.identity(_))
+  ): Http[R1, E1, A1, B1] = {
+    self.flatMap(scala.Predef.identity(_))
+  }
 
   /**
    * Folds over the http app by taking in two functions one for success and one for failure respectively.
@@ -198,30 +172,10 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self >>> Http.fromEffectFunction(bFc)
 
   /**
-   * Attaches the provided middleware to the HttpApp
-   */
-  final def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B](mid: HttpMiddleware[R1, E1])(implicit
-    ev: IsHttpApp[R1, E1, A1, B1],
-  ): HttpApp[R1, E1] =
-    mid(self.asApp)
-
-  /**
    * Named alias for `<>`
    */
   final def orElse[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
     self.catchAll(_ => other)
-
-  /**
-   * Patches the response produced by the app
-   */
-  final def patch(patch: Patch)(implicit evB: IsResponse[R, E, B]): Http[R, E, A, Response[R, E]] =
-    self.withResponse.map(patch(_))
-
-  final def withResponse(implicit ev: IsResponse[R, E, B]): Http[R, E, A, Response[R, E]] =
-    self.asInstanceOf[Http[R, E, A, Response[R, E]]]
-
-  final def withRequest(implicit ev: IsRequest[A]): Http[R, E, Request, B] =
-    self.asInstanceOf[Http[R, E, Request, B]]
 
   /**
    * Provides the environment to Http.
@@ -264,14 +218,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def race[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
     Http.fromPartialFunction(a => self(a) raceFirst other(a))
-
-  /**
-   * Sets the status in the response produced by the app
-   */
-  final def setStatus[R1 <: R, E1 >: E, B1 >: B](status: Status)(implicit
-    evB: IsResponse[R1, E1, B1],
-  ): Http[R, E, A, Response[R, E]] =
-    self.patch(Patch.setStatus(status))
 
   /**
    * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
@@ -335,9 +281,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def tapM[R1 <: R, E1 >: E](f: B => ZIO[R1, E1, Any]): Http[R1, E1, A, B] =
     self.tap(v => Http.fromEffect(f(v)))
 
-  final def toApp[R1 <: R, E1 >: E](implicit evA: Request <:< A, evB: B <:< Response[R1, E1]): HttpApp[R1, E1] =
-    self.asInstanceOf[Http[R, E, Request, Response[R, E]]]
-
   /**
    * Unwraps an Http that returns a ZIO of Http
    */
@@ -355,13 +298,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def zipRight[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
     self.flatMap(_ => other)
-
-  final private[zhttp] def compile[R1 <: R, E1 >: E <: Throwable](
-    zExec: HttpRuntime[R1],
-    settings: Server.Config[R1, E1],
-    serverTime: ServerTimeGenerator,
-  )(implicit evApp: IsHttpApp[R1, E1, A, B]): ChannelHandler =
-    Handler[R1, E1](self.asInstanceOf[HttpApp[R1, E1]], zExec, settings, serverTime)
 
   /**
    * Evaluates the app and returns an HExit that can be resolved further
@@ -463,6 +399,60 @@ object Http {
    * Creates an Http that always returns the same response and never fails.
    */
   def succeed[B](b: B): Http[Any, Nothing, Any, B] = Http.Succeed(b)
+
+  implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends AnyVal { self =>
+
+    /**
+     * Attaches the provided middleware to the HttpApp
+     */
+    def @@[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = middleware(mid)
+
+    /**
+     * Adds the provided headers to the response of the app
+     */
+    def addHeader(header: Header): HttpApp[R, E] = patch(Patch.addHeader(header))
+
+    /**
+     * Adds the provided header to the response of the app
+     */
+    def addHeader(name: String, value: String): HttpApp[R, E] = patch(Patch.addHeader(name, value))
+
+    /**
+     * Adds the provided headers to the response of the app
+     */
+    def addHeaders(headers: List[Header]): HttpApp[R, E] = patch(Patch.addHeaders(headers))
+
+    /**
+     * Attaches the provided middleware to the HttpApp
+     */
+    def middleware[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = mid(http)
+
+    /**
+     * Patches the response produced by the app
+     */
+    def patch(patch: Patch): HttpApp[R, E] = http.map(patch(_))
+
+    /**
+     * Sets the status in the response produced by the app
+     */
+    def setStatus(status: Status): HttpApp[R, E] = patch(Patch.setStatus(status))
+
+    /**
+     * Converts a failing Http app into a non-failing one by handling the failure and converting it to a result if
+     * possible.
+     */
+    def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1]]): HttpApp[R1, E1] =
+      http.catchAll(e => Http.succeed(s.silent(e)))
+
+    private[zhttp] def compile[R1 <: R, E1 >: E](
+      zExec: HttpRuntime[R1],
+      settings: Server.Config[R1, Throwable],
+      serverTime: ServerTimeGenerator,
+    )(implicit
+      evE: E1 <:< Throwable,
+    ): ChannelHandler =
+      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, serverTime)
+  }
 
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {
