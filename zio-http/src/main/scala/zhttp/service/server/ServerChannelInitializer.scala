@@ -3,6 +3,7 @@ package zhttp.service.server
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{Channel, ChannelInitializer}
 import io.netty.handler.codec.http.{HttpServerCodec, HttpServerExpectContinueHandler, HttpServerKeepAliveHandler}
+import zhttp.http.Http.HttpAppSyntax
 import zhttp.service.Server.Config
 import zhttp.service._
 

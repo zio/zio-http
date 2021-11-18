@@ -13,7 +13,7 @@ import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
-private[zhttp] final case class Handler[R, E <: Throwable](
+private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],

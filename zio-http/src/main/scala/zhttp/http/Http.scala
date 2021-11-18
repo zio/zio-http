@@ -444,12 +444,12 @@ object Http {
     def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1]]): HttpApp[R1, E1] =
       http.catchAll(e => Http.succeed(s.silent(e)))
 
-    private[zhttp] def compile[R1 <: R, E1 >: E](
+    private[zhttp] def compile[R1 <: R](
       zExec: HttpRuntime[R1],
       settings: Server.Config[R1, Throwable],
       serverTime: ServerTimeGenerator,
     )(implicit
-      evE: E1 <:< Throwable,
+      evE: E <:< Throwable,
     ): ChannelHandler =
       Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, serverTime)
   }
