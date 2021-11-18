@@ -203,8 +203,8 @@ object HttpMiddleware {
         Patch.updateHeaders(resHeaders =>
           resHeaders
             .filter(h => contentEqualsIgnoreCase(h.name, HttpHeaderNames.SET_COOKIE))
-            .map { x: Header =>
-              val cookie: Cookie = decodeResponseCookie(x.value.toString) match {
+            .map { header =>
+              val cookie: Cookie = decodeResponseCookie(header.value.toString) match {
                 case Left(_)      => throw new Exception("cannot decode cookies")
                 case Right(value) =>
                   value.sign(secret) match {
