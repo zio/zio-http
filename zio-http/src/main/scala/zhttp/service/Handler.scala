@@ -13,7 +13,7 @@ import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
-private[zhttp] final case class Handler[R] private[zhttp] (
+private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
@@ -60,7 +60,7 @@ private[zhttp] final case class Handler[R] private[zhttp] (
             }
           }
         }
-        unsafeRun(app.asHttp, self.request)
+        unsafeRun(app, self.request)
 
       case msg: LastHttpContent =>
         if (self.isInitialized) {

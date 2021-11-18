@@ -23,7 +23,6 @@ object ConcreteEntity extends App {
     user
       .contramap[Request](req => CreateUser(req.path.toString))   // Http[Any, Nothing, Request, UserCreated]
       .map(userCreated => Response.text(userCreated.id.toString)) // Http[Any, Nothing, Request, Response]
-      .toApp
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

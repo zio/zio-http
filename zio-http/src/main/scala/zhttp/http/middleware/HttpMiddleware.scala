@@ -347,7 +347,7 @@ object HttpMiddleware {
       ) match {
         case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm.value.toString)) =>
           fromApp(
-            HttpApp.fromHttp(
+            (
               Http.succeed(
                 Response(
                   Status.NO_CONTENT,
