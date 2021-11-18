@@ -1,5 +1,7 @@
 package zhttp.middleware
 
+import io.netty.handler.codec.http.HttpHeaderNames
+import zhttp.http.Cookie.httpOnly
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware
 import zhttp.internal.HttpAppTestExtensions
@@ -11,8 +13,13 @@ import zio.test.{DefaultRunnableSpec, assertM}
 import zio.{UIO, ZIO, console}
 
 object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
+  val cookie = Cookie("key", "value") @@ httpOnly
+
   val app: HttpApp[Any with Clock, Nothing] = HttpApp.collectM { case Method.GET -> !! / "health" =>
     UIO(Response.ok).delay(1 second)
+  }
+  val app2: HttpApp[Any, Nothing]           = HttpApp.collect { case Method.GET -> !! / "health" =>
+    Response.ok.addCookie(cookie)
   }
 
   val midA = HttpMiddleware.addHeader("X-Custom", "A")
@@ -24,6 +31,7 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
   val basicHS    = Header.basicHttpAuthorization("user", "resu")
   val basicHF    = Header.basicHttpAuthorization("user", "user")
   val basicAuthM = HttpMiddleware.basicAuth((u, p) => p.reverse == u)
+  val cookieRes  = Header.custom(HttpHeaderNames.SET_COOKIE.toString, "key=value;httpOnly")
 
   def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response[R, E]] = {
     for {
@@ -134,6 +142,19 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
               val app = HttpApp.ok @@ basicAuthM getHeader "WWW-AUTHENTICATE"
               assertM(app(Request().addHeaders(List(basicHF))))(isSome)
             }
+        }
+      } +
+      suite("signCookie") {
+        testM("should sign cookies") {
+          val app =
+            HttpApp.ok.addHeader(cookieRes) @@ signCookies("secret") getHeader "set-cookie"
+          assertM(app(Request()))(
+            isSome(
+              equalTo(
+                "key=value.fm67q+j8zQjFXnLi22ckhgRC5qaQ9srgU3/Fli94OOWmtuo68xcm5LkXbcODb9taM/B48j6kws3eZ0MYDIeWTA==; HttpOnly",
+              ),
+            ),
+          )
         }
       }
 

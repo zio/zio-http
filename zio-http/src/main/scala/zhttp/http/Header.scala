@@ -17,7 +17,7 @@ object Header {
    */
   def disassemble(headers: List[Header]): HttpHeaders =
     headers.foldLeft[HttpHeaders](new DefaultHttpHeaders()) { case (headers, entry) =>
-      headers.set(entry.name, entry.value)
+      headers.add(entry.name, entry.value)
     }
 
   def make(headers: HttpHeaders): List[Header] =

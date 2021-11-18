@@ -2,8 +2,9 @@ package zhttp.http.middleware
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.util.AsciiString
-import io.netty.util.AsciiString.toLowerCase
+import io.netty.util.AsciiString.{contentEqualsIgnoreCase, toLowerCase}
 import zhttp.http.CORS.DefaultCORSConfig
+import zhttp.http.Cookie.decodeResponseCookie
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware.RequestP
 import zio.clock.Clock
@@ -192,6 +193,29 @@ object HttpMiddleware {
    */
   def basicAuth[R, E](u: String, p: String): HttpMiddleware[R, E] =
     basicAuth((user, password) => (user == u) && (password == p))
+
+  /**
+   * Creates a middleware for signing cookies
+   */
+  def signCookies[R, E](secret: String): HttpMiddleware[R, E] =
+    HttpMiddleware
+      .make((_, _, _) => ()) { case (_, _, _) =>
+        Patch.updateHeaders(resHeaders =>
+          resHeaders
+            .filter(h => contentEqualsIgnoreCase(h.name, HttpHeaderNames.SET_COOKIE))
+            .map { x: Header =>
+              val cookie: Cookie = decodeResponseCookie(x.value.toString) match {
+                case Left(_)      => throw new Exception("cannot decode cookies")
+                case Right(value) =>
+                  value.sign(secret) match {
+                    case Some(value) => value
+                    case None        => throw new Exception("cannot sign cookies")
+                  }
+              }
+              Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)
+            },
+        )
+      }
 
   /**
    * Add log status, method, url and time taken from req to res

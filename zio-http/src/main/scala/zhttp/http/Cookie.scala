@@ -2,7 +2,11 @@ package zhttp.http
 
 import zio.duration._
 
+import java.security.MessageDigest
 import java.time.Instant
+import java.util.Base64.getEncoder
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 import scala.util.{Failure, Success, Try}
 
 final case class Cookie(
@@ -125,6 +129,29 @@ final case class Cookie(
     cookie.flatten.mkString("; ")
   }
 
+  def sign(secret: String): Option[Cookie] = {
+    try {
+      val sha256    = Mac.getInstance("HmacSHA256")
+      val secretKey = new SecretKeySpec(secret.getBytes(), "RSA")
+      sha256.init(secretKey)
+      val signed    = sha256.doFinal(self.content.getBytes())
+      val mda       = MessageDigest.getInstance("SHA-512")
+      val content   = self.content + '.' + getEncoder.encodeToString(mda.digest(signed))
+      Some(self.withContent(content))
+    } catch {
+      case _: Exception => None
+    }
+
+  }
+
+  def unSign(secret: String): Option[Cookie] = {
+    val str             = self.content.slice(0, content.lastIndexOf('.'))
+    val encryptedCookie = self.withContent(str).sign(secret).map(_.content)
+    encryptedCookie match {
+      case Some(value) => if (value == self.content) Some(self.withContent(str)) else None
+      case None        => None
+    }
+  }
 }
 
 object Cookie {

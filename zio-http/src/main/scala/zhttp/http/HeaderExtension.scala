@@ -148,6 +148,8 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
     getHeaderValue(name).nonEmpty
 
   final def getCookies(implicit ev: HasCookie[A]): List[Cookie] = ev.decode(self)
+
+  final def getSignedCookies(secret: String)(implicit ev: HasCookie[A]): List[Cookie] = ev.unSign(self, secret)
 }
 
 object HeaderExtension {
