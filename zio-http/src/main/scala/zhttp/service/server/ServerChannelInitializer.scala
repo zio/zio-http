@@ -8,6 +8,7 @@ import io.netty.handler.codec.http.{
   HttpServerExpectContinueHandler,
   HttpServerKeepAliveHandler,
 }
+import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.flow.FlowControlHandler
 import zhttp.service.Server.Config
 import zhttp.service._
@@ -51,6 +52,10 @@ final case class ServerChannelInitializer[R](
     // Required because HttpObjectDecoder fires an HttpRequest that is immediately followed by a LastHttpContent event.
     // For reference: https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html
     if (cfg.flowControl) pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
+
+    // FlushConsolidationHandler
+    // Always add FlushConsolidationHandler, optimises the flush calls
+    pipeline.addLast(HTTP_SERVER_FLUSH_CONSOLIDATION, new FlushConsolidationHandler)
 
     // RequestHandler
     // Always add ZIO Http Request Handler
