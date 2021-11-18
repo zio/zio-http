@@ -8,13 +8,13 @@ import zio.{App, ExitCode, URIO}
 object BackPressure extends App {
 
   def h1 = HttpApp.collectM { case req @ Method.POST -> !! / "foo" =>
-    req.decodeContent(ContentDecoder.text).map { content =>
+    req.getBody(ContentDecoder.text).map { content =>
       Response(data = HttpData.fromText(content))
     }
   }
 
   def h2 = HttpApp.collectM { case req @ Method.POST -> !! / "bar" =>
-    req.decodeContent(ContentDecoder.backPressure).map { content =>
+    req.getBody(ContentDecoder.backPressure).map { content =>
       req.getContentLength match {
         case Some(value) => Response(data = HttpData.fromStream(ZStream.fromChunkQueue(content).take(value)))
         case None        => Response.fromHttpError(HttpError.LengthRequired())
