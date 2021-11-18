@@ -12,6 +12,7 @@ import zio._
 import zio.internal.Executor
 import zio.stm.TQueue
 import zio.stream.ZStream
+import zhttp.http.Http.HttpAppSyntax
 
 import scala.concurrent.ExecutionContext
 
