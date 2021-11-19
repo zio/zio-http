@@ -116,34 +116,34 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
         } +
         testM("content") {
           checkAllM(nonEmptyContent) { case (data, content, status, header) =>
-            val app = HttpApp.fromHttp(Http.succeed(Response(status, List(header), content)))
+            val app = Http.succeed(Response(status, List(header), content))
             assertM(app.getContent(content = data))(equalTo(data.mkString("")))
           }
         } +
         testM("failing Http") {
-          val app = HttpApp.fromHttp(Http.fail(new Error("SERVER ERROR")))
+          val app = Http.fail(new Error("SERVER ERROR"))
           assertM(app.getResponse())(isResponse {
             responseStatus(500) && version("HTTP/1.1")
           })
         } +
         testM("server-error") {
-          val app = HttpApp.fromHttp(Http.collectM { case _ => ZIO.fail(new Error("SERVER ERROR")) })
+          val app = Http.collectM[Request] { case _ => ZIO.fail(new Error("SERVER ERROR")) }
           assertM(app.getResponse())(isResponse {
             responseStatus(500) && version("HTTP/1.1")
           })
         } +
         testM("response is LastHttpContent") {
-          val app = HttpApp.fromHttp(Http.collectM { case _ => ZIO.fail(new Error("SERVER ERROR")) })
+          val app = Http.collectM[Request] { case _ => ZIO.fail(new Error("SERVER ERROR")) }
           assertM(app.getResponse)(isSubtype[LastHttpContent](anything))
         } +
         testM("empty Http") {
-          val app = HttpApp.fromHttp(Http.empty)
+          val app = Http.empty
           assertM(app.getResponse())(isResponse {
             responseStatus(404) && version("HTTP/1.1") && hasHeader("Content-Length", "0")
           })
         } +
         testM("Http.empty") {
-          val app = HttpApp.fromHttp(Http.empty)
+          val app = Http.empty
           assertM(app.getResponse)(isSubtype[LastHttpContent](anything))
         } +
         suite("response caching") {

@@ -4,6 +4,7 @@ import io.netty.buffer.Unpooled
 import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.handler.codec.http._
 import io.netty.util.CharsetUtil
+import zhttp.http.Http.HttpAppSyntax
 import zhttp.http.HttpApp
 import zhttp.internal.HttpAppClient.{MessageQueue, ProxyChannel}
 import zhttp.service.server.ServerTimeGenerator

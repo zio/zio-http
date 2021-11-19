@@ -41,7 +41,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
       ) +
       suite("toApp")(
         testM("should convert to HttpApp") {
-          val res = Http.succeed(Response.text("Hello")).toApp.getResponse
+          val res = Http.succeed(Response.text("Hello")).getResponse
           assertM(res)(isResponse(responseStatus(200)))
         }.provideCustomLayer(EventLoopGroup.auto(1)),
       ) +

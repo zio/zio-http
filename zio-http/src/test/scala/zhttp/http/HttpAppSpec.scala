@@ -36,21 +36,20 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   def RequestSpec = {
     suite("succeed(Request)")(
       testM("status is 200") {
-        val res = HttpApp.fromHttp(Http.collect[Request] { case _ => Ok }).getResponse
+        val res = Http.collect[Request] { case _ => Ok }.getResponse
         assertM(res)(isResponse(responseStatus(200)))
       } +
         testM("status is 500") {
-          val res: ZIO[Any with EventLoopGroup, Throwable, HttpResponse] = HttpApp
-            .fromHttp(Http.fromEffect(ZIO.fail(new Error("SERVER ERROR"))))
-            .getResponse
+          val res: ZIO[Any with EventLoopGroup, Throwable, HttpResponse] =
+            (Http.fromEffect(ZIO.fail(new Error("SERVER ERROR")))).getResponse
           assertM(res)(isResponse(responseStatus(500)))
         } +
         testM("status is 404") {
-          val res = HttpApp.fromHttp(Http.empty.contramap[Request](i => i)).getResponse
+          val res = (Http.empty.contramap[Request](i => i)).getResponse
           assertM(res)(isResponse(responseStatus(404)))
         } +
         testM("status is 200 in collectM") {
-          val res = HttpApp.fromHttp(Http.collectM[Request] { case _ => UIO(Ok) }).getResponse
+          val res = Http.collectM[Request] { case _ => UIO(Ok) }.getResponse
           assertM(res)(isResponse(responseStatus(200)))
         },
     )
@@ -82,30 +81,30 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   def OkSpec = {
     suite("succeed(ok)")(
       testM("status is 200") {
-        val res = HttpApp.fromHttp(Http.succeed(Ok)).getResponse
+        val res = (Http.succeed(Ok)).getResponse
         assertM(res)(isResponse(responseStatus(200)))
       } +
         suite("POST")(
           testM("status is 200") {
             val content = List("A", "B", "C")
-            val res     = HttpApp.fromHttp(Http.succeed(Ok)).getResponse(method = HttpMethod.POST, content = content)
+            val res     = (Http.succeed(Ok)).getResponse(method = HttpMethod.POST, content = content)
             assertM(res)(isResponse(responseStatus(200)))
           },
         ),
       testM("headers are empty") {
-        val res = HttpApp.fromHttp(Http.succeed(Ok)).getResponse
+        val res = (Http.succeed(Ok)).getResponse
         assertM(res)(isResponse(hasHeader("Content-Length", "0")))
       } +
         testM("headers are set") {
-          val res = HttpApp.fromHttp(Http.succeed(Response(headers = List(Header.custom("key", "value"))))).getResponse
+          val res = (Http.succeed(Response(headers = List(Header.custom("key", "value"))))).getResponse
           assertM(res)(isResponse(hasHeader("key", "value")))
         } +
         testM("version is 1.1") {
-          val res = HttpApp.fromHttp(Http.succeed(Ok)).getResponse
+          val res = (Http.succeed(Ok)).getResponse
           assertM(res)(isResponse(version("HTTP/1.1")))
         } +
         testM("version is 1.1") {
-          val res = HttpApp.fromHttp(Http.succeed(Ok)).getResponse
+          val res = (Http.succeed(Ok)).getResponse
           assertM(res)(isResponse(version("HTTP/1.1")))
         },
     )
@@ -169,11 +168,11 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
     suite("StreamingResponse") {
       testM("status is 200") {
-        val res = HttpApp.fromHttp(Http.collect[Request] { case _ => streamingResponse }).getResponse
+        val res = Http.collect[Request] { case _ => streamingResponse }.getResponse
         assertM(res)(isResponse(responseStatus(200)))
       } +
         testM("content is 'ABCD'") {
-          val content = HttpApp.fromHttp(Http.collect[Request] { case _ => streamingResponse }).getContent
+          val content = Http.collect[Request] { case _ => streamingResponse }.getContent
           assertM(content)(equalTo("ABCD"))
         } @@ nonFlaky
     }
@@ -191,27 +190,27 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
   def ContentDecoderSpec = suite("ContentDecoder")(
     testM("status is 200") {
-      val res = HttpApp.fromHttp(Http.collect[Request] { case _ => Ok }).getResponse
+      val res = Http.collect[Request] { case _ => Ok }.getResponse
       assertM(res)(isResponse(responseStatus(200)))
     } +
       testM("text") {
-        val content = HttpApp
-          .fromHttp(Http.collect[Request] { case _ => Ok })
+        val content = Http
+          .collect[Request] { case _ => Ok }
           .getRequestContent(ContentDecoder.text)
 
         assertM(content)(equalTo("ABCD"))
       } +
       testM("text (twice)") {
-        val content = HttpApp
-          .fromHttp(Http.collectM[Request] { case req => req.decodeContent(ContentDecoder.text).as(Ok) })
+        val content = Http
+          .collectM[Request] { case req => req.decodeContent(ContentDecoder.text).as(Ok) }
           .getRequestContent(ContentDecoder.text)
           .either
 
         assertM(content)(isLeft(equalTo(ContentDecoder.Error.ContentDecodedOnce)))
       } +
       testM("custom") {
-        val content = HttpApp
-          .fromHttp(Http.collect[Request] { case _ => Ok })
+        val content = Http
+          .collect[Request] { case _ => Ok }
           .getRequestContent(ContentDecoder.collect(Chunk[Byte]()) { case (a, b, isLast, _, _, _) =>
             ZIO((if (isLast) Option(b ++ a) else None, b ++ a))
           })
@@ -222,7 +221,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
 
   def RemoteAddressSpec = suite("RemoteAddressSpec") {
     testM("remoteAddress") {
-      val addr = HttpApp.fromHttp(Http.succeed(Ok)).getRequest().map(_.remoteAddress)
+      val addr = (Http.succeed(Ok)).getRequest().map(_.remoteAddress)
       assertM(addr)(isNone)
     }
   }
