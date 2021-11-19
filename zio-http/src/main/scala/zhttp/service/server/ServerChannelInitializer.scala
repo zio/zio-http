@@ -54,8 +54,8 @@ final case class ServerChannelInitializer[R](
     if (cfg.flowControl) pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
 
     // FlushConsolidationHandler
-    // Always add FlushConsolidationHandler, optimises the flush calls
-    pipeline.addLast(HTTP_SERVER_FLUSH_CONSOLIDATION, new FlushConsolidationHandler)
+    // Add FlushConsolidationHandler, optimises the flush calls
+    if (cfg.consolidateFlush) pipeline.addLast(HTTP_SERVER_FLUSH_CONSOLIDATION, new FlushConsolidationHandler)
 
     // RequestHandler
     // Always add ZIO Http Request Handler
