@@ -1,4 +1,4 @@
-package zhttp.core
+package zhttp.util
 
 import java.io.{PrintWriter, StringWriter}
 
