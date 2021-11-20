@@ -1,7 +1,7 @@
 package zhttp.http
 
 import zhttp.internal.HttpGen
-import zio.test.Assertion.{equalTo, isRight}
+import zio.test.Assertion.{equalTo, isSome}
 import zio.test._
 
 object CookieSpec extends DefaultRunnableSpec {
@@ -10,8 +10,8 @@ object CookieSpec extends DefaultRunnableSpec {
       testM("encode/decode cookies with ZIO Test Gen") {
         checkAll(HttpGen.cookies) { cookie =>
           val cookieString = cookie.encode
-          assert(Cookie.decodeResponseCookie(cookieString))(isRight(equalTo(cookie))) &&
-          assert(Cookie.decodeResponseCookie(cookieString).map(_.encode))(isRight(equalTo(cookieString)))
+          assert(Cookie.decodeResponseCookie(cookieString))(isSome(equalTo(cookie))) &&
+          assert(Cookie.decodeResponseCookie(cookieString).map(_.encode))(isSome(equalTo(cookieString)))
         }
       }
     } +
@@ -23,7 +23,7 @@ object CookieSpec extends DefaultRunnableSpec {
             cookieList   <- Gen.listOf(Gen.const(Cookie(name, content)))
             cookieString <- Gen.const(cookieList.map(x => s"${x.name}=${x.content}").mkString(";"))
           } yield (cookieList, cookieString)) { case (cookies, message) =>
-            assert(Cookie.decodeRequestCookie(message))(isRight(equalTo(cookies)))
+            assert(Cookie.decodeRequestCookie(message))(isSome(equalTo(cookies)))
           }
         }
       }

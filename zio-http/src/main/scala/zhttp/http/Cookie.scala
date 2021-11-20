@@ -3,7 +3,7 @@ package zhttp.http
 import zio.duration._
 
 import java.time.Instant
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 final case class Cookie(
   name: String,
@@ -142,24 +142,22 @@ object Cookie {
   /**
    * Decodes from Set-Cookie header value inside of Response into a cookie
    */
-  def decodeResponseCookie(headerValue: String): Either[Throwable, Cookie] = {
+  def decodeResponseCookie(headerValue: String): Option[Cookie] = {
     val cookieWithoutMeta = headerValue.split(";").map(_.trim)
     val (first, other)    = (cookieWithoutMeta.head, cookieWithoutMeta.tail)
     val (name, content)   = splitNameContent(first)
     var cookie            =
-      if (name.trim == "" && content.isEmpty) Left(new IllegalArgumentException("Cookie can't be parsed"))
-      else Right(Cookie(name, content.getOrElse("")))
+      if (name.trim == "" && content.isEmpty) Option.empty[Cookie]
+      else Some(Cookie(name, content.getOrElse("")))
 
     other.map(splitNameContent).map(t => (t._1.toLowerCase, t._2)).foreach {
       case ("expires", Some(v))  =>
-        parseDate(v) match {
-          case Left(_)      => cookie = Left(new IllegalArgumentException("expiry date cannot be parsed"))
-          case Right(value) => cookie = cookie.map(_.withExpiry(value))
+        cookie = cookie.zip(parseDate(v)).map { case (c, e) =>
+          c.withExpiry(e)
         }
       case ("max-age", Some(v))  =>
-        Try(v.toLong) match {
-          case Success(age) => cookie = cookie.map(x => x.withMaxAge(age))
-          case Failure(_)   => cookie = Left(new IllegalArgumentException("max-age cannot be parsed"))
+        cookie = cookie.zip(Try(v.toLong).toOption).map { case (c, a) =>
+          c.withMaxAge(a)
         }
       case ("domain", v)         => cookie = cookie.map(_.withDomain(v.getOrElse("")))
       case ("path", v)           => cookie = cookie.map(_.withPath(Path(v.getOrElse(""))))
@@ -180,23 +178,21 @@ object Cookie {
   /**
    * Decodes from `Cookie` header value inside of Request into a cookie
    */
-  def decodeRequestCookie(headerValue: String): Either[Throwable, List[Cookie]] = {
+  def decodeRequestCookie(headerValue: String): Option[List[Cookie]] = {
     val cookies: Array[String]  = headerValue.split(";").map(_.trim)
     val x: List[Option[Cookie]] = cookies.toList.map(a => {
       val (name, content) = splitNameContent(a)
       if (name.trim == "" && content.isEmpty) None
       else Some(Cookie(name, content.getOrElse("")))
     })
+
     if (x.contains(None))
-      Left(new IllegalArgumentException("Cookie can't be parsed"))
-    else Right(x.map(_.get))
+      None
+    else Some(x.map(_.get))
   }
 
-  private def parseDate(v: String): Either[String, Instant] =
-    Try(Instant.parse(v)) match {
-      case Success(r) => Right(r)
-      case Failure(e) => Left(s"Invalid http date: $v (${e.getMessage})")
-    }
+  private def parseDate(v: String): Option[Instant] =
+    Try(Instant.parse(v)).toOption
 
   private def splitNameContent(kv: String): (String, Option[String]) =
     kv.split("=", 2).map(_.trim) match {
