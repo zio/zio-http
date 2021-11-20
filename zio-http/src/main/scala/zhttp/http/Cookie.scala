@@ -146,33 +146,27 @@ object Cookie {
     val cookieWithoutMeta = headerValue.split(";").map(_.trim)
     val (first, other)    = (cookieWithoutMeta.head, cookieWithoutMeta.tail)
     val (name, content)   = splitNameContent(first)
-    var cookie            =
+
+    val cookie =
       if (name.trim == "" && content.isEmpty) Option.empty[Cookie]
       else Some(Cookie(name, content.getOrElse("")))
 
-    other.map(splitNameContent).map(t => (t._1.toLowerCase, t._2)).foreach {
-      case ("expires", Some(v))  =>
-        cookie = cookie.zip(parseDate(v)).map { case (c, e) =>
-          c.withExpiry(e)
-        }
-      case ("max-age", Some(v))  =>
-        cookie = cookie.zip(Try(v.toLong).toOption).map { case (c, a) =>
-          c.withMaxAge(a)
-        }
-      case ("domain", v)         => cookie = cookie.map(_.withDomain(v.getOrElse("")))
-      case ("path", v)           => cookie = cookie.map(_.withPath(Path(v.getOrElse(""))))
-      case ("secure", _)         => cookie = cookie.map(_.withSecure)
-      case ("httponly", _)       => cookie = cookie.map(_.withHttpOnly)
-      case ("samesite", Some(v)) =>
+    other.map(splitNameContent).map(t => (t._1.toLowerCase, t._2)).foldLeft(cookie) {
+      case (Some(c), ("expires", Some(v)))  => parseDate(v).map(c.withExpiry(_))
+      case (Some(c), ("max-age", Some(v)))  => Try(v.toLong).toOption.map(c.withMaxAge(_))
+      case (Some(c), ("domain", v))         => Some(c.withDomain(v.getOrElse("")))
+      case (Some(c), ("path", v))           => Some(c.withPath(Path(v.getOrElse(""))))
+      case (Some(c), ("secure", _))         => Some(c.withSecure)
+      case (Some(c), ("httponly", _))       => Some(c.withHttpOnly)
+      case (Some(c), ("samesite", Some(v))) =>
         v.trim.toLowerCase match {
-          case "lax"    => cookie = cookie.map(_.withSameSite(SameSite.Lax))
-          case "strict" => cookie = cookie.map(_.withSameSite(SameSite.Strict))
-          case "none"   => cookie = cookie.map(_.withSameSite(SameSite.None))
-          case _        => None
+          case "lax"    => Some(c.withSameSite(SameSite.Lax))
+          case "strict" => Some(c.withSameSite(SameSite.Strict))
+          case "none"   => Some(c.withSameSite(SameSite.None))
+          case _        => Some(c)
         }
-      case (_, _)                => cookie
+      case (c, _)                           => c
     }
-    cookie
   }
 
   /**
