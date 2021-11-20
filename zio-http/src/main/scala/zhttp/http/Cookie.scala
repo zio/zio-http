@@ -78,6 +78,13 @@ final case class Cookie(
   def withSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
 
   /**
+   * Adds secret in the cookie
+   */
+  def withSign(s: String): Cookie = {
+    copy(content = sign(s))
+  }
+
+  /**
    * Resets secure flag in the cookie
    */
   def withoutSecure: Cookie = copy(isSecure = false)
@@ -129,28 +136,23 @@ final case class Cookie(
     cookie.flatten.mkString("; ")
   }
 
-  def sign(secret: String): Option[Cookie] = {
+  private def sign(secret: String): String = {
     try {
       val sha256    = Mac.getInstance("HmacSHA256")
       val secretKey = new SecretKeySpec(secret.getBytes(), "RSA")
       sha256.init(secretKey)
       val signed    = sha256.doFinal(self.content.getBytes())
       val mda       = MessageDigest.getInstance("SHA-512")
-      val content   = self.content + '.' + getEncoder.encodeToString(mda.digest(signed))
-      Some(self.withContent(content))
+      self.content + '.' + getEncoder.encodeToString(mda.digest(signed))
     } catch {
-      case _: Exception => None
+      case _: Exception => self.content
     }
-
   }
 
   def unSign(secret: String): Option[Cookie] = {
     val str             = self.content.slice(0, content.lastIndexOf('.'))
-    val encryptedCookie = self.withContent(str).sign(secret).map(_.content)
-    encryptedCookie match {
-      case Some(value) => if (value == self.content) Some(self.withContent(str)) else None
-      case None        => None
-    }
+    val encryptedCookie = self.withContent(str).sign(secret)
+    if (encryptedCookie == self.content) Some(self.withContent(str)) else None
   }
 }
 
