@@ -5,22 +5,6 @@ import zio.{Chunk, ZIO}
 import java.net.InetAddress
 
 trait Request extends HeaderExtension[Request] { self =>
-  def isPreflight: Boolean = method == Method.OPTIONS
-
-  def method: Method
-
-  def url: URL
-
-  def getHeaders: List[Header]
-
-  def path: Path = url.path
-
-  def decodeContent[R, B](
-    decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
-  ): ZIO[R, Throwable, B]
-
-  def remoteAddress: Option[InetAddress]
-
   def copy(method: Method = self.method, url: URL = self.url, headers: List[Header] = self.getHeaders): Request = {
     val m = method
     val u = url
@@ -35,12 +19,52 @@ trait Request extends HeaderExtension[Request] { self =>
       override def remoteAddress: Option[InetAddress] =
         self.remoteAddress
 
-      override def decodeContent[R, B](
+      override def getBody[R, B](
         decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
       ): ZIO[R, Throwable, B] =
-        self.decodeContent(decoder)
+        self.getBody(decoder)
     }
   }
+
+  /**
+   * Decodes the content of the request using the provided ContentDecoder
+   */
+  def getBody[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B]
+
+  /**
+   * Decodes the content of request as string
+   */
+  def getBodyAsString: ZIO[Any, Throwable, String] = getBody(ContentDecoder.text)
+
+  /**
+   * Gets all the headers in the Request
+   */
+  def getHeaders: List[Header]
+
+  /**
+   * Checks is the request is a pre-flight request or not
+   */
+  def isPreflight: Boolean = method == Method.OPTIONS
+
+  /**
+   * Gets the request's method
+   */
+  def method: Method
+
+  /**
+   * Gets the request's path
+   */
+  def path: Path = url.path
+
+  /**
+   * Gets the remote address if available
+   */
+  def remoteAddress: Option[InetAddress]
+
+  /**
+   * Gets the complete url
+   */
+  def url: URL
 
   /**
    * Updates the headers using the provided function
@@ -69,7 +93,7 @@ object Request {
       override def url: URL                           = u
       override def getHeaders: List[Header]           = h
       override def remoteAddress: Option[InetAddress] = ra
-      override def decodeContent[R, B](
+      override def getBody[R, B](
         decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
       ): ZIO[R, Throwable, B] =
         decoder.decode(data, method, url, headers)
@@ -95,14 +119,18 @@ object Request {
    * Lift request to TypedRequest with option to extract params
    */
   final class ParameterizedRequest[A](req: Request, val params: A) extends Request {
-    override def method: Method                     = req.method
-    override def url: URL                           = req.url
-    override def getHeaders: List[Header]           = req.getHeaders
-    override def remoteAddress: Option[InetAddress] = req.remoteAddress
-    override def decodeContent[R, B](
+    override def getBody[R, B](
       decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
     ): ZIO[R, Throwable, B] =
-      req.decodeContent(decoder)
+      req.getBody(decoder)
+
+    override def getHeaders: List[Header] = req.getHeaders
+
+    override def method: Method = req.method
+
+    override def remoteAddress: Option[InetAddress] = req.remoteAddress
+
+    override def url: URL = req.url
   }
 
   object ParameterizedRequest {

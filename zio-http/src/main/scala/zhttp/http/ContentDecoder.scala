@@ -12,35 +12,7 @@ sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
 
 object ContentDecoder {
 
-  case object Text extends ContentDecoder[Any, Nothing, Any, String]
-
-  case class Step[R, E, S, A, B](
-    state: S,
-    next: (A, S, Boolean, Method, URL, List[Header]) => ZIO[R, E, (Option[B], S)],
-  ) extends ContentDecoder[R, E, A, B]
-
-  private[zhttp] case class BackPressure[B](queue: Option[Queue[B]] = None, isFirst: Boolean = true) {
-    self =>
-    def withQueue(queue: Queue[B]): BackPressure[B] = if (self.queue.isEmpty) self.copy(queue = Option(queue)) else self
-    def withFirst(cond: Boolean): BackPressure[B]   = if (cond == isFirst) self else self.copy(isFirst = cond)
-  }
-
-  val text: ContentDecoder[Any, Nothing, Any, String] = Text
-
-  def collect[S, A]: PartiallyAppliedCollect[S, A] = new PartiallyAppliedCollect(())
-
-  final class PartiallyAppliedCollect[S, A](val unit: Unit) extends AnyVal {
-    def apply[R, E, B](s: S)(
-      f: (A, S, Boolean, Method, URL, List[Header]) => ZIO[R, E, (Option[B], S)],
-    ): ContentDecoder[R, E, A, B] = Step(s, f)
-  }
-
-  def collectAll[A]: ContentDecoder[Any, Nothing, A, Chunk[A]] = ContentDecoder.collect[Chunk[A], A](Chunk.empty) {
-    case (a, chunk, true, _, _, _)  => UIO((Option(chunk :+ a), chunk))
-    case (a, chunk, false, _, _, _) => UIO((None, chunk :+ a))
-  }
-
-  val backPressure: ContentDecoder[Any, Nothing, Chunk[Byte], Queue[Chunk[Byte]]] =
+  def backPressure: ContentDecoder[Any, Nothing, Chunk[Byte], Queue[Chunk[Byte]]] =
     ContentDecoder.collect(BackPressure[Chunk[Byte]]()) { case (msg, state, _, _, _, _) =>
       for {
         queue <- state.queue.fold(Queue.bounded[Chunk[Byte]](1))(UIO(_))
@@ -48,12 +20,20 @@ object ContentDecoder {
       } yield (if (state.isFirst) Option(queue) else None, state.withQueue(queue).withFirst(false))
     }
 
-  sealed trait Error extends Throwable with Product { self =>
-    override def getMessage(): String =
-      self match {
-        case Error.ContentDecodedOnce => "Content has already been decoded once."
-        case Error.DecodeEmptyContent => "Can not decode empty content"
-      }
+  def collect[S, A]: PartiallyAppliedCollect[S, A] = new PartiallyAppliedCollect(())
+
+  def collectAll[A]: ContentDecoder[Any, Nothing, A, Chunk[A]] = ContentDecoder.collect[Chunk[A], A](Chunk.empty) {
+    case (a, chunk, true, _, _, _)  => UIO((Option(chunk :+ a), chunk))
+    case (a, chunk, false, _, _, _) => UIO((None, chunk :+ a))
+  }
+
+  def text: ContentDecoder[Any, Nothing, Any, String] = Text
+
+  private def contentFromOption[B](a: Option[B]): Task[B] = {
+    a match {
+      case Some(value) => ZIO(value)
+      case None        => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
+    }
   }
 
   private def decode[R, B](
@@ -115,15 +95,37 @@ object ContentDecoder {
               .flatMap(contentFromOption)
         }
     }
-  private def contentFromOption[B](a: Option[B]): Task[B] = {
-    a match {
-      case Some(value) => ZIO(value)
-      case None        => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
-    }
+
+  sealed trait Error extends Throwable with Product { self =>
+    override def getMessage(): String =
+      self match {
+        case Error.ContentDecodedOnce => "Content has already been decoded once."
+        case Error.DecodeEmptyContent => "Can not decode empty content"
+      }
+  }
+
+  final class PartiallyAppliedCollect[S, A](val unit: Unit) extends AnyVal {
+    def apply[R, E, B](s: S)(
+      f: (A, S, Boolean, Method, URL, List[Header]) => ZIO[R, E, (Option[B], S)],
+    ): ContentDecoder[R, E, A, B] = Step(s, f)
+  }
+
+  private[zhttp] final case class Step[R, E, S, A, B](
+    state: S,
+    next: (A, S, Boolean, Method, URL, List[Header]) => ZIO[R, E, (Option[B], S)],
+  ) extends ContentDecoder[R, E, A, B]
+
+  private[zhttp] case class BackPressure[B](queue: Option[Queue[B]] = None, isFirst: Boolean = true) {
+    self =>
+    def withFirst(cond: Boolean): BackPressure[B] = if (cond == isFirst) self else self.copy(isFirst = cond)
+
+    def withQueue(queue: Queue[B]): BackPressure[B] = if (self.queue.isEmpty) self.copy(queue = Option(queue)) else self
   }
 
   object Error {
     case object ContentDecodedOnce extends Error
     case object DecodeEmptyContent extends Error
   }
+
+  private[zhttp] case object Text extends ContentDecoder[Any, Nothing, Any, String]
 }
