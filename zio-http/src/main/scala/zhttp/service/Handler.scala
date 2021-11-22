@@ -1,6 +1,7 @@
 package zhttp.service
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
+import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
@@ -13,6 +14,7 @@ import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
+@Sharable
 private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
@@ -285,6 +287,7 @@ private[zhttp] final case class Handler[R](
 
   /**
    * Writes ByteBuf data to the Channel
+
    */
   private def unsafeWriteLastContent[A](data: ByteBuf)(implicit ctx: ChannelHandlerContext): Unit = {
     ctx.writeAndFlush(new DefaultLastHttpContent(data), ctx.voidPromise()): Unit

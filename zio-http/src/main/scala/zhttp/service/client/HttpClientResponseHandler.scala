@@ -7,7 +7,7 @@ import zhttp.service.HttpRuntime
 /**
  * Handles HTTP response
  */
-final case class ClientInboundHandler[R](
+final case class HttpClientResponseHandler[R](
   zExec: HttpRuntime[R],
   reader: ClientHttpChannelReader[Throwable, FullHttpResponse],
 ) extends SimpleChannelInboundHandler[FullHttpResponse](false) {
