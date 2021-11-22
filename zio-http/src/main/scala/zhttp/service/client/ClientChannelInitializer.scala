@@ -3,7 +3,6 @@ package zhttp.service.client
 import io.netty.channel._
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http2._
-import io.netty.handler.logging.LogLevel.INFO
 import zhttp.service.client.ClientChannelInitializerUtil._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 
@@ -30,8 +29,6 @@ case class ClientChannelInitializer(
     ()
   }
 
-  private val logger = new Http2FrameLogger(INFO, classOf[ClientChannelInitializer])
-
   @throws[Exception]
   override def initChannel(ch: Channel): Unit = {
     val connection        = new DefaultHttp2Connection(false)
@@ -45,7 +42,6 @@ case class ClientChannelInitializer(
             .build(),
         ),
       )
-      .frameLogger(logger)
       .connection(connection)
       .build()
     val settingsHandler   = Http2SettingsHandler(ch.newPromise, jReq, scheme)

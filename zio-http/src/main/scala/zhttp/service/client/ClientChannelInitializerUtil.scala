@@ -76,7 +76,7 @@ case object ClientChannelInitializerUtil {
       ch.pipeline
         .addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
         .addLast(HTTP_RESPONSE_HANDLER, httpResponseHandler)
-      ch.pipeline.addLast(new UserEventLogger)
+//      ch.pipeline.addLast(new UserEventLogger)
       ()
     }
   }
@@ -99,15 +99,15 @@ case object ClientChannelInitializerUtil {
     }
   }
 
-  /**
-   * Class that logs any User Events triggered on this channel.
-   */
-  private class UserEventLogger extends ChannelInboundHandlerAdapter {
-    @throws[Exception]
-    override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit = {
-      System.out.println("User Event Triggered: " + evt)
-      ctx.fireUserEventTriggered(evt)
-      ()
-    }
-  }
+//  /**
+//   * Class that logs any User Events triggered on this channel.
+//   */
+//  private class UserEventLogger extends ChannelInboundHandlerAdapter {
+//    @throws[Exception]
+//    override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit = {
+//      System.out.println("User Event Triggered: " + evt)
+//      ctx.fireUserEventTriggered(evt)
+//      ()
+//    }
+//  }
 }
