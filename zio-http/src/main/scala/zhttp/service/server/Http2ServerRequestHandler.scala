@@ -111,7 +111,7 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
     decodeHttp2Header(headers, ctx, dataL) match {
       case Left(err)   => unsafeWriteAndFlushErrorResponse(err.getCause, ctx, headers.stream())
       case Right(jReq) => {
-        settings.app.asHttp.execute(jReq).evaluate match {
+        settings.app.execute(jReq).evaluate match {
           case HExit.Failure(e)   => unsafeWriteAndFlushErrorResponse(e, ctx, headers.stream())
           case HExit.Empty        => unsafeWriteAndFlushEmptyResponse(ctx, headers.stream())
           case HExit.Success(res) =>
@@ -214,8 +214,8 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
     val length  = res.data match {
       case HttpData.Empty           => 0
       case HttpData.Text(text, _)   => text.length
-      case HttpData.Binary(data)    => data.length
-      case HttpData.BinaryN(data)   => data.toString(HTTP_CHARSET).length
+      case HttpData.BinaryChunk(data)    => data.length
+      case HttpData.BinaryByteBuf(data)   => data.toString(HTTP_CHARSET).length
       case HttpData.BinaryStream(_) => -1
     }
     if (length >= 0) headers.setInt(HttpHeaderNames.CONTENT_LENGTH, length)
@@ -234,13 +234,13 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
         )
         ctx.write(new DefaultHttp2DataFrame(true).stream(stream))
         ()
-      case HttpData.Binary(data)        =>
+      case HttpData.BinaryChunk(data)        =>
         ctx.writeAndFlush(
           new DefaultHttp2DataFrame(JUnpooled.copiedBuffer(data.toArray)).stream(stream),
         )
         ctx.write(new DefaultHttp2DataFrame(true).stream(stream))
         ()
-      case HttpData.BinaryN(data)       =>
+      case HttpData.BinaryByteBuf(data)       =>
         ctx.writeAndFlush(
           new DefaultHttp2DataFrame(JUnpooled.copiedBuffer(data)).stream(stream),
         )
