@@ -1,11 +1,12 @@
 package zhttp
 
 import zhttp.http._
-import zhttp.http.middleware.HttpMiddleware.basicAuth
 import zhttp.service._
 import zhttp.service.server._
 import zio._
+import zio.duration.durationInt
 import zio.test.Assertion.equalTo
+import zio.test.TestAspect.{ignore, timeout}
 import zio.test._
 
 object IntegrationSpec extends DefaultRunnableSpec {
@@ -14,21 +15,12 @@ object IntegrationSpec extends DefaultRunnableSpec {
   val baseAddr = s"http://${addr}:${port}"
   def env      = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
-  def api = HttpApp.collect {
-    case Method.GET -> !!          => Response.ok
-    case Method.POST -> !!         => Response.status(Status.CREATED)
-    case Method.GET -> !! / "boom" => Response.status(Status.INTERNAL_SERVER_ERROR)
-  }
-
-  def basicAuthApi = HttpApp.collect { case Method.GET -> !! / "auth" =>
-    Response.ok
-  } @@ basicAuth("root", "changeme")
-
   def spec = suite("IntegrationSpec")(
-    HttpSpec,
-  ).provideCustomLayer(env)
+    ApiSpec,
+    ContentDecoderSpec,
+  ).provideCustomLayer(env) @@ timeout(10 seconds)
 
-  def HttpSpec = suite("HttpStatusSpec") {
+  def ApiSpec = suite("ApiSpec") {
     testM("200 ok on /") {
       val response = Client.request(baseAddr)
 
@@ -42,13 +34,6 @@ object IntegrationSpec extends DefaultRunnableSpec {
 
         assertM(response.map(_.status))(equalTo(Status.CREATED))
       } +
-      testM("403 forbidden ok on /auth") {
-        val response = Client.request(s"${baseAddr}/auth")
-
-        assertM(response.map(_.status)) {
-          equalTo(Status.FORBIDDEN)
-        }
-      } +
       testM("500 internal server error on /boom") {
         val response = Client.request(s"${baseAddr}/boom")
 
@@ -56,5 +41,23 @@ object IntegrationSpec extends DefaultRunnableSpec {
       }
   }
 
-  Runtime.default.unsafeRun(Server.start(port, (api +++ basicAuthApi)).forkDaemon)
+  def AuthSpec = suite("AuthSpec") {
+    testM("403 forbidden ok on /auth") {
+      val response = Client.request(s"${baseAddr}/auth")
+
+      assertM(response.map(_.status)) {
+        equalTo(Status.FORBIDDEN)
+      }
+    }
+  }
+
+  def ContentDecoderSpec = suite("ContentDecoderSpec") {
+    testM("ContentDecoder text identity") {
+      val response = Client.request(s"${baseAddr}/contentdecoder/text")
+
+      assertM(response.map(_.status))(equalTo(Status.OK))
+    } @@ ignore
+  }
+
+  Runtime.default.unsafeRun(Server.start(port, AllApis()).forkDaemon)
 }
