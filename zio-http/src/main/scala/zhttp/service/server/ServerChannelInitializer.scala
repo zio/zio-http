@@ -2,7 +2,7 @@ package zhttp.service.server
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer}
-import zhttp.service.Server.Settings
+import zhttp.service.Server.Config
 import zhttp.service._
 import zhttp.service.server.ServerChannelInitializerUtil.configureClearText
 
@@ -12,7 +12,7 @@ import zhttp.service.server.ServerChannelInitializerUtil.configureClearText
 @Sharable
 final case class ServerChannelInitializer[R](
                                               zExec: HttpRuntime[R],
-                                              settings: Settings[R, Throwable],
+                                              settings: Config[R, Throwable],
                                               httpHandler: ChannelHandler,
                                               http2Handler: ChannelHandler,
                                             ) extends ChannelInitializer[Channel] {

@@ -8,7 +8,7 @@ import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http2._
 import zhttp.http.Status.{INTERNAL_SERVER_ERROR, NOT_FOUND, UPGRADE_REQUIRED}
 import zhttp.http._
-import zhttp.service.Server.Settings
+import zhttp.service.Server.Config
 import zhttp.service._
 import zio.{Chunk, UIO, ZIO}
 
@@ -19,7 +19,7 @@ import scala.collection.mutable.Map
 @Sharable
 final case class Http2ServerRequestHandler[R] private[zhttp] (
                                                                runtime: HttpRuntime[R],
-                                                               settings: Settings[R, Throwable],
+                                                               settings: Config[R, Throwable],
                                                              ) extends ChannelDuplexHandler
   with HttpMessageCodec
   with WebSocketUpgrade[R] { self =>

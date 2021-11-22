@@ -6,12 +6,12 @@ import io.netty.handler.codec.ByteToMessageDecoder
 import io.netty.handler.codec.http.{HttpServerKeepAliveHandler => JHttpServerKeepAliveHandler}
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.ssl.SslHandler
-import zhttp.service.Server.Settings
+import zhttp.service.Server.Config
 import zhttp.service._
 
 import java.util
 
-case class EncryptedMessageFilter[R](httpH: ChannelHandler, settings: Settings[R, Throwable])
+case class EncryptedMessageFilter[R](httpH: ChannelHandler, settings: Config[R, Throwable])
   extends ByteToMessageDecoder {
   override def decode(context: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
     if (SslHandler.isEncrypted(in)) {

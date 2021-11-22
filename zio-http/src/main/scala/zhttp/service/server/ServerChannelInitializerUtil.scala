@@ -11,7 +11,7 @@ import io.netty.handler.codec.http.{
 import io.netty.handler.codec.http2.{Http2CodecUtil, Http2FrameCodecBuilder, Http2ServerUpgradeCodec}
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.util.{AsciiString => JAsciiString}
-import zhttp.service.Server.Settings
+import zhttp.service.Server.Config
 import zhttp.service._
 
 case object ServerChannelInitializerUtil {
@@ -30,7 +30,7 @@ case object ServerChannelInitializerUtil {
                              httpH: ChannelHandler,
                              http2H: ChannelHandler,
                              c: Channel,
-                             settings: Settings[R, Throwable],
+                             settings: Config[R, Throwable],
                            ) = {
     if (settings.http2) {
       val p           = c.pipeline

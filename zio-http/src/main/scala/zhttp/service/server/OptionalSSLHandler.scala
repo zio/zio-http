@@ -5,7 +5,7 @@ import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
 import io.netty.handler.codec.ByteToMessageDecoder
 import io.netty.handler.codec.http.{HttpServerCodec, HttpServerExpectContinueHandler}
 import io.netty.handler.ssl.{SslContext, SslHandler}
-import zhttp.service.Server.Settings
+import zhttp.service.Server.Config
 import zhttp.service._
 import zhttp.service.server.ServerChannelInitializerUtil.configureClearText
 import zhttp.service.server.ServerSSLHandler.SSLHttpBehaviour
@@ -16,7 +16,7 @@ class OptionalSSLHandler[R](
                              httpH: ChannelHandler,
                              http2H: ChannelHandler,
                              sslContext: SslContext,
-                             settings: Settings[R, Throwable],
+                             settings: Config[R, Throwable],
                            ) extends ByteToMessageDecoder {
   override def decode(context: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
     if (in.readableBytes < 5)

@@ -4,12 +4,12 @@ import io.netty.handler.codec.http.{HttpServerCodec, HttpServerExpectContinueHan
 import io.netty.handler.codec.http2.Http2FrameCodecBuilder
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.ssl.{ApplicationProtocolNames, ApplicationProtocolNegotiationHandler}
-import zhttp.service.Server.Settings
+import zhttp.service.Server.Config
 import zhttp.service._
 final case class Http2OrHttpServerHandler[R](
                                               httpH: ChannelHandler,
                                               http2H: ChannelHandler,
-                                              settings: Settings[R, Throwable],
+                                              settings: Config[R, Throwable],
                                             ) extends ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
   @throws[Exception]
   override protected def configurePipeline(ctx: JChannelHandlerContext, protocol: String): Unit = {
