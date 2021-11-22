@@ -18,11 +18,11 @@ import scala.collection.mutable.Map
 
 @Sharable
 final case class Http2ServerRequestHandler[R] private[zhttp] (
-                                                               runtime: HttpRuntime[R],
-                                                               settings: Config[R, Throwable],
-                                                             ) extends ChannelDuplexHandler
-  with HttpMessageCodec
-  with WebSocketUpgrade[R] { self =>
+  runtime: HttpRuntime[R],
+  settings: Config[R, Throwable],
+) extends ChannelDuplexHandler
+    with HttpMessageCodec
+    with WebSocketUpgrade[R] { self =>
   val hedaerMap: Map[Int, Http2HeadersFrame]         = Map.empty[Int, Http2HeadersFrame]
   val dataMap: Map[Int, List[DefaultHttp2DataFrame]] = Map.empty[Int, List[DefaultHttp2DataFrame]]
 
@@ -104,10 +104,10 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
 
   @throws[Exception]
   private def onEndStream(
-                           ctx: ChannelHandlerContext,
-                           headers: Http2HeadersFrame,
-                           dataL: List[DefaultHttp2DataFrame] = null,
-                         ): Unit = {
+    ctx: ChannelHandlerContext,
+    headers: Http2HeadersFrame,
+    dataL: List[DefaultHttp2DataFrame] = null,
+  ): Unit = {
     decodeHttp2Header(headers, ctx, dataL) match {
       case Left(err)   => unsafeWriteAndFlushErrorResponse(err.getCause, ctx, headers.stream())
       case Right(jReq) => {
@@ -164,10 +164,10 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
    * Writes error response to the Channel
    */
   private def unsafeWriteAndFlushErrorResponse(
-                                                cause: Throwable,
-                                                ctx: ChannelHandlerContext,
-                                                stream: Http2FrameStream,
-                                              ): Unit = {
+    cause: Throwable,
+    ctx: ChannelHandlerContext,
+    stream: Http2FrameStream,
+  ): Unit = {
     val headers = new DefaultHttp2Headers().status(INTERNAL_SERVER_ERROR.asJava.codeAsText())
     headers
       .set(HttpHeaderNames.SERVER, "ZIO-Http")
@@ -203,20 +203,20 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
    * Writes any response to the Channel
    */
   def unsafeWriteAnyResponse[A](
-                                 res: Response[R, Throwable],
-                                 ctx: ChannelHandlerContext,
-                                 stream: Http2FrameStream,
-                               ): Unit = {
+    res: Response[R, Throwable],
+    ctx: ChannelHandlerContext,
+    stream: Http2FrameStream,
+  ): Unit = {
     val headers = new DefaultHttp2Headers().status(res.status.asJava.codeAsText())
     headers
       .set(HttpHeaderNames.SERVER, "ZIO-Http")
       .set(HttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
     val length  = res.data match {
-      case HttpData.Empty           => 0
-      case HttpData.Text(text, _)   => text.length
-      case HttpData.BinaryChunk(data)    => data.length
-      case HttpData.BinaryByteBuf(data)   => data.toString(HTTP_CHARSET).length
-      case HttpData.BinaryStream(_) => -1
+      case HttpData.Empty               => 0
+      case HttpData.Text(text, _)       => text.length
+      case HttpData.BinaryChunk(data)   => data.length
+      case HttpData.BinaryByteBuf(data) => data.toString(HTTP_CHARSET).length
+      case HttpData.BinaryStream(_)     => -1
     }
     if (length >= 0) headers.setInt(HttpHeaderNames.CONTENT_LENGTH, length)
 
@@ -234,13 +234,13 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
         )
         ctx.write(new DefaultHttp2DataFrame(true).stream(stream))
         ()
-      case HttpData.BinaryChunk(data)        =>
+      case HttpData.BinaryChunk(data)   =>
         ctx.writeAndFlush(
           new DefaultHttp2DataFrame(JUnpooled.copiedBuffer(data.toArray)).stream(stream),
         )
         ctx.write(new DefaultHttp2DataFrame(true).stream(stream))
         ()
-      case HttpData.BinaryByteBuf(data)       =>
+      case HttpData.BinaryByteBuf(data) =>
         ctx.writeAndFlush(
           new DefaultHttp2DataFrame(JUnpooled.copiedBuffer(data)).stream(stream),
         )

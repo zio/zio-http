@@ -29,7 +29,7 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory))
   override def spec               = suite("Https Client request")(
     testM("respond Ok") {
-      val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics",false)
+      val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", false)
       assertM(actual)(anything)
     } +
       testM("respond Ok with sslOption") {
@@ -41,7 +41,7 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
           .request(
             "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
             sslOption,
-            false
+            false,
           )
           .map(_.status)
         assertM(actual)(equalTo(Status.BAD_REQUEST))
@@ -51,7 +51,7 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
           .request(
             "https://untrusted-root.badssl.com/",
             sslOption,
-            false
+            false,
           )
           .run
         assertM(actual)(fails(isSubtype[DecoderException](anything)))

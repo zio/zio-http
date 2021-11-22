@@ -13,11 +13,11 @@ import zhttp.service.server.ServerSSLHandler.SSLHttpBehaviour
 import java.util
 
 class OptionalSSLHandler[R](
-                             httpH: ChannelHandler,
-                             http2H: ChannelHandler,
-                             sslContext: SslContext,
-                             settings: Config[R, Throwable],
-                           ) extends ByteToMessageDecoder {
+  httpH: ChannelHandler,
+  http2H: ChannelHandler,
+  sslContext: SslContext,
+  settings: Config[R, Throwable],
+) extends ByteToMessageDecoder {
   override def decode(context: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
     if (in.readableBytes < 5)
       ()

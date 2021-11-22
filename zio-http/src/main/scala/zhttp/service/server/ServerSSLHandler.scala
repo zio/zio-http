@@ -15,9 +15,9 @@ import javax.net.ssl.KeyManagerFactory
 object ServerSSLHandler {
 
   case class ServerSSLOptions(
-                               sslContext: SslContextBuilder,
-                               httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect,
-                             )
+    sslContext: SslContextBuilder,
+    httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect,
+  )
 
   sealed trait SSLHttpBehaviour
 
@@ -28,10 +28,10 @@ object ServerSSLHandler {
   }
 
   def ctxFromKeystore(
-                       keyStoreInputStream: InputStream,
-                       keyStorePassword: String,
-                       certPassword: String,
-                     ): SslContextBuilder = {
+    keyStoreInputStream: InputStream,
+    keyStorePassword: String,
+    certPassword: String,
+  ): SslContextBuilder = {
     val keyStore: KeyStore = KeyStore.getInstance("JKS")
     keyStore.load(keyStoreInputStream, keyStorePassword.toCharArray)
     val kmf                = KeyManagerFactory.getInstance("SunX509")

@@ -11,11 +11,11 @@ import zhttp.service.server.ServerChannelInitializerUtil.configureClearText
  */
 @Sharable
 final case class ServerChannelInitializer[R](
-                                              zExec: HttpRuntime[R],
-                                              settings: Config[R, Throwable],
-                                              httpHandler: ChannelHandler,
-                                              http2Handler: ChannelHandler,
-                                            ) extends ChannelInitializer[Channel] {
+  zExec: HttpRuntime[R],
+  settings: Config[R, Throwable],
+  httpHandler: ChannelHandler,
+  http2Handler: ChannelHandler,
+) extends ChannelInitializer[Channel] {
   override def initChannel(channel: Channel): Unit = {
 
     val sslctx = ServerSSLHandler.build(settings.sslOption, settings.http2)

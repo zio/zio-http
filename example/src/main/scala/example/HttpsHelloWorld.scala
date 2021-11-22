@@ -12,6 +12,7 @@ object HttpsHelloWorld extends App {
     case Method.GET -> !! / "text" => Response.text("Hello World!")
     case Method.GET -> !! / "json" => Response.jsonString("""{"greetings": "Hello World!"}""")
   }
+
   /**
    * sslcontext can be created using SslContexBuilder. In this example an inbuilt API using keystore is used. For
    * testing this example using curl, setup the certificate named "localhost.cert" from resources for the OS.

@@ -7,13 +7,13 @@ import io.netty.handler.ssl.{ApplicationProtocolNames, ApplicationProtocolNegoti
 import zhttp.service._
 
 final case class Http2OrHttpClientHandler(
-                                           ch: Channel,
-                                           connectionHandler: HttpToHttp2ConnectionHandler,
-                                           settingsHandler: Http2SettingsHandler,
-                                           httpResponseHandler: ChannelHandler,
-                                           http2ResponseHandler: Http2ClientResponseHandler,
-                                           jReq: FullHttpRequest,
-                                         ) extends ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
+  ch: Channel,
+  connectionHandler: HttpToHttp2ConnectionHandler,
+  settingsHandler: Http2SettingsHandler,
+  httpResponseHandler: ChannelHandler,
+  http2ResponseHandler: Http2ClientResponseHandler,
+  jReq: FullHttpRequest,
+) extends ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
   override protected def configurePipeline(ctx: ChannelHandlerContext, protocol: String): Unit = {
 
     val pipeline = ch.pipeline

@@ -9,6 +9,7 @@ import zio.duration.durationInt
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{flaky, timeout}
 import zio.test.assertM
+
 import javax.net.ssl.SSLHandshakeException
 object SSLSpec extends HttpRunnableSpec(8073) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
@@ -26,7 +27,7 @@ object SSLSpec extends HttpRunnableSpec(8073) {
     SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("server.crt"))
   val clientssl2 = SslContextBuilder.forClient().trustManager(ssc2)
 
-  val app = HttpApp.collectM[Any, Nothing] { case Method.GET -> !! / "success" =>
+  val app           = HttpApp.collectM[Any, Nothing] { case Method.GET -> !! / "success" =>
     ZIO.succeed(Response.ok)
   }
   override def spec = suiteM("SSL")(

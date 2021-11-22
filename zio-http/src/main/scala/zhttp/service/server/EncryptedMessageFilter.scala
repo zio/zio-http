@@ -12,7 +12,7 @@ import zhttp.service._
 import java.util
 
 case class EncryptedMessageFilter[R](httpH: ChannelHandler, settings: Config[R, Throwable])
-  extends ByteToMessageDecoder {
+    extends ByteToMessageDecoder {
   override def decode(context: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
     if (SslHandler.isEncrypted(in)) {
       context.channel().pipeline().remove(SERVER_CLEAR_TEXT_HTTP2_HANDLER)

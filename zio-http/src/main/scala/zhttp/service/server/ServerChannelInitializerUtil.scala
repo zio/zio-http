@@ -27,11 +27,11 @@ case object ServerChannelInitializerUtil {
   }
 
   def configureClearText[R](
-                             httpH: ChannelHandler,
-                             http2H: ChannelHandler,
-                             c: Channel,
-                             settings: Config[R, Throwable],
-                           ) = {
+    httpH: ChannelHandler,
+    http2H: ChannelHandler,
+    c: Channel,
+    settings: Config[R, Throwable],
+  ) = {
     if (settings.http2) {
       val p           = c.pipeline
       val sourceCodec = new HttpServerCodec

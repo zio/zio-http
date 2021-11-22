@@ -287,7 +287,6 @@ private[zhttp] final case class Handler[R](
 
   /**
    * Writes ByteBuf data to the Channel
-
    */
   private def unsafeWriteLastContent[A](data: ByteBuf)(implicit ctx: ChannelHandlerContext): Unit = {
     ctx.writeAndFlush(new DefaultLastHttpContent(data), ctx.voidPromise()): Unit

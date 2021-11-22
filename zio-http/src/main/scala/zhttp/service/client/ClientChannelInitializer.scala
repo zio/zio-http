@@ -14,14 +14,14 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
  */
 
 case class ClientChannelInitializer(
-                                     sslOption: ClientSSLOptions,
-                                     httpResponseHandler: ChannelHandler,
-                                     http2ResponseHandler: Http2ClientResponseHandler,
-                                     scheme: String,
-                                     enableHttp2: Boolean,
-                                     jReq: FullHttpRequest,
-                                     maxContentLength: Int = Int.MaxValue,
-                                   ) extends ChannelInitializer[Channel] {
+  sslOption: ClientSSLOptions,
+  httpResponseHandler: ChannelHandler,
+  http2ResponseHandler: Http2ClientResponseHandler,
+  scheme: String,
+  enableHttp2: Boolean,
+  jReq: FullHttpRequest,
+  maxContentLength: Int = Int.MaxValue,
+) extends ChannelInitializer[Channel] {
   private val latch = new CountDownLatch(1)
 
   @throws[Exception]

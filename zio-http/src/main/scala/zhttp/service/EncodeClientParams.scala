@@ -17,11 +17,11 @@ trait EncodeClientParams {
    * Converts client params to JFullHttpRequest
    */
   def encodeClientParams(
-                          jVersion: HttpVersion,
-                          req: Client.ClientParams,
-                          enableHttp2: Boolean = false,
-                          streamId: Int = 1,
-                        ): FullHttpRequest = {
+    jVersion: HttpVersion,
+    req: Client.ClientParams,
+    enableHttp2: Boolean = false,
+    streamId: Int = 1,
+  ): FullHttpRequest = {
     val method      = req.method.asHttpMethod
     val uri         = req.url.path match {
       case Path.End => "/"

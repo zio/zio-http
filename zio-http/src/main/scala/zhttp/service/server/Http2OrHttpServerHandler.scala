@@ -7,10 +7,10 @@ import io.netty.handler.ssl.{ApplicationProtocolNames, ApplicationProtocolNegoti
 import zhttp.service.Server.Config
 import zhttp.service._
 final case class Http2OrHttpServerHandler[R](
-                                              httpH: ChannelHandler,
-                                              http2H: ChannelHandler,
-                                              settings: Config[R, Throwable],
-                                            ) extends ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
+  httpH: ChannelHandler,
+  http2H: ChannelHandler,
+  settings: Config[R, Throwable],
+) extends ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
   @throws[Exception]
   override protected def configurePipeline(ctx: JChannelHandlerContext, protocol: String): Unit = {
     if (ApplicationProtocolNames.HTTP_2 == protocol) {
