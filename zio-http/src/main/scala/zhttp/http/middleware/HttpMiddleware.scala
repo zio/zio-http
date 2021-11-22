@@ -170,7 +170,7 @@ object HttpMiddleware {
   def auth(verify: List[Header] => Boolean, responseHeaders: List[Header] = Nil): HttpMiddleware[Any, Nothing] =
     ifThenElse((_, _, h) => verify(h))(
       HttpMiddleware.identity,
-      HttpMiddleware.status(Status.FORBIDDEN) ++ HttpMiddleware.addHeaders(responseHeaders),
+      HttpMiddleware.fromApp(HttpApp.forbidden("not authenticated")) ++ HttpMiddleware.addHeaders(responseHeaders),
     )
 
   /**
