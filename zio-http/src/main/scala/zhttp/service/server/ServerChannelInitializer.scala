@@ -3,6 +3,7 @@ package zhttp.service.server
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{Channel, ChannelInitializer}
 import io.netty.handler.codec.http.{HttpServerCodec, HttpServerExpectContinueHandler, HttpServerKeepAliveHandler}
+import io.netty.handler.flow.FlowControlHandler
 import zhttp.http.Http.HttpAppSyntax
 import zhttp.service.Server.Config
 import zhttp.service._
@@ -37,6 +38,11 @@ final case class ServerChannelInitializer[R](
     // KeepAliveHandler
     // Add Keep-Alive handler is settings is true
     if (cfg.keepAlive) pipeline.addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
+
+    // FlowControlHandler
+    // Required because HttpObjectDecoder fires an HttpRequest that is immediately followed by a LastHttpContent event.
+    // For reference: https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html
+    if (cfg.flowControl) pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
 
     // RequestHandler
     // Always add ZIO Http Request Handler
