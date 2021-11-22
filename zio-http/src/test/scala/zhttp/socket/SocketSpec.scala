@@ -45,6 +45,16 @@ object SocketSpec extends DefaultRunnableSpec {
       assertM(socket.runCollect) {
         equalTo(Chunk(WebSocketFrame.ping))
       }
+    } + testM("ordered provide") {
+      val socket = Socket.collect[Int] { case _ =>
+        ZStream.environment[Int]
+      }
+
+      val socketA: Socket[Int, Nothing, Int, Int] = socket.provide(12)
+      val socketB: Socket[Int, Nothing, Int, Int] = socketA.provide(1)
+      val socketC: Socket[Any, Nothing, Int, Int] = socketB.provide(42)
+
+      assertM(socketC.execute(1000).runCollect)(equalTo(Chunk(12)))
     }
   }
 }
