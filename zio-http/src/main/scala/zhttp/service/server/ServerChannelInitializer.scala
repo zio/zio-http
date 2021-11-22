@@ -42,7 +42,7 @@ final case class ServerChannelInitializer[R](
     // FlowControlHandler
     // Required because HttpObjectDecoder fires an HttpRequest that is immediately followed by a LastHttpContent event.
     // For reference: https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html
-    pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
+    if (cfg.flowControl) pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
 
     // RequestHandler
     // Always add ZIO Http Request Handler
