@@ -59,7 +59,7 @@ object IntegrationSpec extends DefaultRunnableSpec {
     testM("ContentDecoder text identity") {
       val response = Client.request(s"${baseAddr}/contentdecoder/text")
       assertM(response.map(_.status))(equalTo(Status.OK))
-    } @@ ignore
+    }
   }
 
   Runtime.default.unsafeRun(server.make.useForever.provideSomeLayer(env ++ zio.clock.Clock.live).forkDaemon)
