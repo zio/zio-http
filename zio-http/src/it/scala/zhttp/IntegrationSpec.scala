@@ -5,7 +5,6 @@ import zhttp.service._
 import zhttp.service.server._
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect._
 import zio.test._
 
 object IntegrationSpec extends DefaultRunnableSpec {
