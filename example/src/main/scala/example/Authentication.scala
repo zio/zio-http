@@ -1,3 +1,5 @@
+package example
+
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import zhttp.http.{Method, _}
 import zhttp.service.Server

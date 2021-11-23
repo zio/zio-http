@@ -1,3 +1,5 @@
+package example
+
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http.{Header, HttpData}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions

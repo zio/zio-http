@@ -1,3 +1,5 @@
+package example
+
 import zhttp.http._
 import zhttp.service._
 import zio._
