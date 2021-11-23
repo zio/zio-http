@@ -1,5 +1,6 @@
 package zhttp.http
 
+import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.http.Response.HttpResponse
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 

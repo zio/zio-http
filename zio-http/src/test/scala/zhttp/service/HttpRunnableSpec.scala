@@ -9,14 +9,14 @@ import zio.{Has, ZIO, ZManaged}
 abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
 
   def serve[R <: Has[_]](
-    app: RHttpApp[R],
+    app: HttpApp[R, Throwable],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
     Server.make(Server.app(app) ++ Server.port(port)).orDie
 
   def status(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, Status] =
     requestPath(path).map(_.status)
 
-  def requestPath(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] =
+  def requestPath(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] =
     Client.request(
       Method.GET -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
       ClientSSLOptions.DefaultSSL,
@@ -35,10 +35,10 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec {
     method: Method,
     content: String,
     headers: List[Header] = Nil,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, UHttpResponse] = {
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] = {
     val data = HttpData.fromText(content)
     Client.request(
-      Request(method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
+      Client.ClientParams(method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
       ClientSSLOptions.DefaultSSL,
     )
   }

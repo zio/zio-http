@@ -4,15 +4,15 @@ sealed abstract class HttpError(val status: Status, val message: String) extends
   def toResponse: UResponse = Response.fromHttpError(self)
 }
 
-abstract class HTTPErrorWithCause(status: Status, msg: String) extends HttpError(status, msg) {
-  def cause: Option[Throwable]
-  cause.foreach(initCause)
-}
-
 object HttpError {
   def unapply(err: Throwable): Option[(Status, String)] = err match {
     case err: HttpError => Option((err.status, err.getMessage))
     case _              => None
+  }
+
+  abstract class HTTPErrorWithCause(status: Status, msg: String) extends HttpError(status, msg) {
+    def cause: Option[Throwable]
+    cause.foreach(initCause)
   }
 
   final case class BadRequest(msg: String = "Bad Request") extends HttpError(Status.BAD_REQUEST, msg)
