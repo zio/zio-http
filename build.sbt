@@ -1,8 +1,7 @@
-import java.util.concurrent.TimeUnit
 import BuildHelper.{Scala213, publishSetting, stdSettings}
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
-import sbt.enablePlugins
 
 // ZIO Version
 val zioVersion            = "1.0.12"
@@ -69,21 +68,15 @@ ThisBuild / githubWorkflowBuildPreamble :=
     scalas = List(Scala213),
   ).steps
 
-// Test Configuration
-ThisBuild / libraryDependencies ++=
-  Seq(
-    "dev.zio" %% "zio-test"     % zioVersion % "test",
-    "dev.zio" %% "zio-test-sbt" % zioVersion % "test",
-  )
-ThisBuild / testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
-
 // Projects
 
 // Project zio-http
 lazy val zhttp = (project in file("./zio-http"))
+  .configs(IntegrationTest)
   .settings(stdSettings("zhttp"))
   .settings(publishSetting(true))
   .settings(
+    Defaults.itSettings,
     ThisBuild / homepage   := Some(url("https://github.com/dream11/zio-http")),
     ThisBuild / scmInfo    :=
       Some(
@@ -104,13 +97,16 @@ lazy val zhttp = (project in file("./zio-http"))
           new URL("https://github.com/amitksingh1490"),
         ),
       ),
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++=
       Seq(
-        "dev.zio"                %% "zio"                     % zioVersion,
-        "dev.zio"                %% "zio-streams"             % zioVersion,
-        "io.netty.incubator"      % "netty-incubator-transport-native-io_uring" % "0.0.8.Final" classifier "linux-x86_64",
-        "io.netty"                % "netty-all"               % "4.1.69.Final",
+        "dev.zio"           %% "zio"                                       % zioVersion,
+        "dev.zio"           %% "zio-streams"                               % zioVersion,
+        "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % "0.0.8.Final" classifier "linux-x86_64",
+        "io.netty"           % "netty-all"                                 % "4.1.69.Final",
         "org.scala-lang.modules" %% "scala-collection-compat" % "2.5.0",
+        "dev.zio"                %% "zio-test"                % zioVersion % "it, test",
+        "dev.zio"                %% "zio-test-sbt"            % zioVersion % "it, test",
       ),
   )
 
