@@ -12,7 +12,6 @@ import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
-import scala.annotation.unused
 
 private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
@@ -151,7 +150,6 @@ private[zhttp] final case class Handler[R](
     if (res.attribute.memoize) decodeResponseCached(res) else decodeResponseFresh(res)
   }
 
-  @unused
   private def decodeResponse(res: Response[_, _], data: ByteBuf): HttpResponse = {
     if (res.attribute.memoize) decodeResponseCached(res, data) else decodeResponseFresh(res, data)
   }
@@ -161,21 +159,18 @@ private[zhttp] final case class Handler[R](
     // Update cache if it doesn't exist OR has become stale
     // TODO: add unit tests for server-time
     if (cachedResponse == null || (res.attribute.serverTime && serverTime.canUpdate())) {
-      val jRes = decodeResponseFresh(res)
-      res.cache = jRes
-      jRes
+      res.cache = decodeResponseFresh(res)
+      res.cache
     } else cachedResponse
   }
 
-  @unused
   private def decodeResponseCached(res: Response[_, _], data: ByteBuf): HttpResponse = {
     val cachedResponse = res.cache
     // Update cache if it doesn't exist OR has become stale
     // TODO: add unit tests for server-time
     if (cachedResponse == null || (res.attribute.serverTime && serverTime.canUpdate())) {
-      val jRes = decodeResponseFresh(res, data)
-      res.cache = jRes
-      jRes
+      res.cache = decodeResponseFresh(res, data)
+      res.cache
     } else cachedResponse
   }
 
@@ -185,7 +180,6 @@ private[zhttp] final case class Handler[R](
     new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
   }
 
-  @unused
   private def decodeResponseFresh(res: Response[_, _], data: ByteBuf): HttpResponse = {
     val jHeaders        = Header.disassemble(res.getHeaders)
     val trailingHeaders = new DefaultHttpHeaders(false)
@@ -248,8 +242,6 @@ private[zhttp] final case class Handler[R](
         if (self.canSwitchProtocol(res)) {
           self.initializeSwitch(ctx, res)
         } else {
-          // unsafeWriteAnyResponse(res)
-
           res.data match {
             case HttpData.Empty =>
               unsafeWriteFullResponse(res, Unpooled.EMPTY_BUFFER)
@@ -306,7 +298,6 @@ private[zhttp] final case class Handler[R](
   /**
    * Writes full response to the Channel
    */
-  @unused
   private def unsafeWriteFullResponse[A](res: Response[R, Throwable], data: ByteBuf)(implicit
     ctx: ChannelHandlerContext,
   ): Unit = {
