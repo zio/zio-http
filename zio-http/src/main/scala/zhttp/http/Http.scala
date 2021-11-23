@@ -1,219 +1,243 @@
 package zhttp.http
 
-import zio.{CanFail, ZIO}
+import io.netty.channel.ChannelHandler
+import zhttp.service.server.{ServerRequestHandler, ServerTimeGenerator}
+import zhttp.service.{Server, UnsafeChannelExecutor}
+import zio._
+import zio.clock.Clock
+import zio.duration.Duration
 
 import scala.annotation.unused
 
 /**
  * A functional domain to model Http apps using ZIO and that can work over any kind of request and response types.
  */
-sealed trait Http[-R, +E, -A, +B] { self =>
+sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
   import Http._
 
   /**
-   * Runs self but if it fails, runs other, ignoring the result from self.
+   * Alias for flatmap
    */
-  def <>[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    self orElse other
-
-  /**
-   * Named alias for `<>`
-   */
-  def orElse[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    self.catchAll(_ => other)
-
-  /**
-   * Combines two Http into one.
-   */
-  def +++[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    self defaultWith other
-
-  /**
-   * Named alias for `+++`
-   */
-  def defaultWith[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    self.foldM(Http.fail, Http.succeed, other)
+  final def >>=[R1 <: R, E1 >: E, A1 <: A, C1](f: B => Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
+    self.flatMap(f)
 
   /**
    * Pipes the output of one app into the other
    */
-  def >>>[R1 <: R, E1 >: E, B1 >: B, C](other: Http[R1, E1, B1, C]): Http[R1, E1, A, C] =
+  final def >>>[R1 <: R, E1 >: E, B1 >: B, C](other: Http[R1, E1, B1, C]): Http[R1, E1, A, C] =
     self andThen other
 
   /**
-   * Named alias for `>>>`
+   * Runs self but if it fails, runs other, ignoring the result from self.
    */
-  def andThen[R1 <: R, E1 >: E, B1 >: B, C](other: Http[R1, E1, B1, C]): Http[R1, E1, A, C] =
-    Http.Chain(self, other)
+  final def <>[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    self orElse other
 
   /**
    * Composes one Http app with another.
    */
-  def <<<[R1 <: R, E1 >: E, A1 <: A, X](other: Http[R1, E1, X, A1]): Http[R1, E1, X, B] =
+  final def <<<[R1 <: R, E1 >: E, A1 <: A, X](other: Http[R1, E1, X, A1]): Http[R1, E1, X, B] =
     self compose other
 
   /**
-   * Named alias for `<<<`
+   * Combines two Http into one.
    */
-  def compose[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, C1, A1]): Http[R1, E1, C1, B] =
-    other andThen self
-
-  /**
-   * Alias for flatmap
-   */
-  def >>=[R1 <: R, E1 >: E, A1 <: A, C1](f: B => Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
-    self.flatMap(f)
+  final def +++[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    self defaultWith other
 
   /**
    * Alias for zipRight
    */
-  def *>[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
+  final def *>[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
     self.zipRight(other)
 
   /**
-   * Combines the two apps and returns the result of the one on the right
+   * Named alias for `>>>`
    */
-  def zipRight[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
-    self.flatMap(_ => other)
+  final def andThen[R1 <: R, E1 >: E, B1 >: B, C](other: Http[R1, E1, B1, C]): Http[R1, E1, A, C] =
+    Http.Chain(self, other)
 
   /**
-   * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
+   * Consumes the input and executes the Http.
    */
-  def silent[E1 >: E, B1 >: B](implicit s: CanBeSilenced[E1, B1]): Http[R, Nothing, A, B1] =
-    self.catchAll(e => Http.succeed(s.silent(e)))
+  final def apply(a: A): ZIO[R, Option[E], B] = execute(a).evaluate.asEffect
+
+  /**
+   * Makes the app resolve with a constant value
+   */
+  final def as[C](c: C): Http[R, E, A, C] =
+    self *> Http.succeed(c)
+
+  /**
+   * Catches all the exceptions that the http app can fail with
+   */
+  final def catchAll[R1 <: R, E1, A1 <: A, B1 >: B](f: E => Http[R1, E1, A1, B1])(implicit
+                                                                                  @unused ev: CanFail[E],
+  ): Http[R1, E1, A1, B1] =
+    self.foldM(f, Http.succeed, Http.empty)
 
   /**
    * Collects some of the results of the http and converts it to another type.
    */
-  def collect[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](pf: PartialFunction[B1, C]): Http[R1, E1, A1, C] =
+  final def collect[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](pf: PartialFunction[B1, C]): Http[R1, E1, A1, C] =
     self >>> Http.collect(pf)
 
   /**
    * Collects some of the results of the http and effectfully converts it to another type.
    */
-  def collectM[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](pf: PartialFunction[B1, ZIO[R1, E1, C]]): Http[R1, E1, A1, C] =
+  final def collectM[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](
+                                                             pf: PartialFunction[B1, ZIO[R1, E1, C]],
+                                                           ): Http[R1, E1, A1, C] =
     self >>> Http.collectM(pf)
 
   /**
-   * Transforms the output of the http app
+   * Named alias for `<<<`
    */
-  def map[C](bc: B => C): Http[R, E, A, C] = self.flatMap(b => Http.succeed(bc(b)))
-
-  /**
-   * Transforms the failure of the http app
-   */
-  def mapError[E1](ee: E => E1): Http[R, E1, A, B] = self.foldM(e => Http.fail(ee(e)), Http.succeed, Http.empty)
+  final def compose[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, C1, A1]): Http[R1, E1, C1, B] =
+    other andThen self
 
   /**
    * Transforms the input of the http before passing it on to the current Http
    */
-  def contramap[X](xa: X => A): Http[R, E, X, B] = Http.identity[X].map(xa) >>> self
+  final def contraFlatMap[X]: MkContraFlatMap[R, E, A, B, X] = MkContraFlatMap[R, E, A, B, X](self)
 
   /**
    * Transforms the input of the http before passing it on to the current Http
    */
-  def contraFlatMap[X]: MkContraFlatMap[R, E, A, B, X] = MkContraFlatMap[R, E, A, B, X](self)
-
-  /**
-   * Transforms the output of the http effectfully
-   */
-  def mapM[R1 <: R, E1 >: E, C](bFc: B => ZIO[R1, E1, C]): Http[R1, E1, A, C] =
-    self >>> Http.fromEffectFunction(bFc)
+  final def contramap[X](xa: X => A): Http[R, E, X, B] = Http.identity[X].map(xa) >>> self
 
   /**
    * Transforms the input of the http before giving it effectfully
    */
-  def contramapM[R1 <: R, E1 >: E, X](xa: X => ZIO[R1, E1, A]): Http[R1, E1, X, B] =
+  final def contramapM[R1 <: R, E1 >: E, X](xa: X => ZIO[R1, E1, A]): Http[R1, E1, X, B] =
     Http.fromEffectFunction[X](xa) >>> self
 
   /**
-   * Flattens an Http app of an Http app
+   * Named alias for `+++`
    */
-  def flatten[R1 <: R, E1 >: E, A1 <: A, B1](implicit
-    ev: B <:< Http[R1, E1, A1, B1],
-  ): Http[R1, E1, A1, B1] = {
-    self.flatMap(scala.Predef.identity(_))
-  }
+  final def defaultWith[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    self.foldM(Http.fail, Http.succeed, other)
 
   /**
-   * Widens the type of the output
+   * Delays production of output B for the specified duration of time
    */
-  def widen[B1](implicit ev: B <:< B1): Http[R, E, A, B1] =
-    self.asInstanceOf[Http[R, E, A, B1]]
+  final def delayAfter(duration: Duration): Http[R with Clock, E, A, B] = self.mapM(b => UIO(b).delay(duration))
 
   /**
-   * Makes the app resolve with a constant value
+   * Delays consumption of input A for the specified duration of time
    */
-  def as[C](c: C): Http[R, E, A, C] =
-    self *> Http.succeed(c)
+  final def delayBefore(duration: Duration): Http[R with Clock, E, A, B] = self.contramapM(a => UIO(a).delay(duration))
 
   /**
    * Creates a new Http app from another
    */
-  def flatMap[R1 <: R, E1 >: E, A1 <: A, C1](f: B => Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] = {
+  final def flatMap[R1 <: R, E1 >: E, A1 <: A, C1](f: B => Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] = {
     self.foldM(Http.fail, f, Http.empty)
   }
 
   /**
-   * Catches all the exceptions that the http app can fail with
+   * Flattens an Http app of an Http app
    */
-  def catchAll[R1 <: R, E1, A1 <: A, B1 >: B](f: E => Http[R1, E1, A1, B1])(implicit
-    @unused ev: CanFail[E],
-  ): Http[R1, E1, A1, B1] =
-    self.foldM(f, Http.succeed, Http.empty)
+  final def flatten[R1 <: R, E1 >: E, A1 <: A, B1](implicit
+                                                   ev: B <:< Http[R1, E1, A1, B1],
+                                                  ): Http[R1, E1, A1, B1] = {
+    self.flatMap(scala.Predef.identity(_))
+  }
 
   /**
    * Folds over the http app by taking in two functions one for success and one for failure respectively.
    */
-  def foldM[R1 <: R, A1 <: A, E1, B1](
-    ee: E => Http[R1, E1, A1, B1],
-    bb: B => Http[R1, E1, A1, B1],
-    dd: Http[R1, E1, A1, B1],
-  ): Http[R1, E1, A1, B1] = Http.FoldM(self, ee, bb, dd)
+  final def foldM[R1 <: R, A1 <: A, E1, B1](
+                                             ee: E => Http[R1, E1, A1, B1],
+                                             bb: B => Http[R1, E1, A1, B1],
+                                             dd: Http[R1, E1, A1, B1],
+                                           ): Http[R1, E1, A1, B1] = Http.FoldM(self, ee, bb, dd)
 
   /**
-   * Unwraps an Http that returns a ZIO of Http
+   * Transforms the output of the http app
    */
-  def unwrap[R1 <: R, E1 >: E, C](implicit ev: B <:< ZIO[R1, E1, C]): Http[R1, E1, A, C] =
-    self.flatMap(Http.fromEffect(_))
+  final def map[C](bc: B => C): Http[R, E, A, C] = self.flatMap(b => Http.succeed(bc(b)))
+
+  /**
+   * Transforms the failure of the http app
+   */
+  final def mapError[E1](ee: E => E1): Http[R, E1, A, B] = self.foldM(e => Http.fail(ee(e)), Http.succeed, Http.empty)
+
+  /**
+   * Transforms the output of the http effectfully
+   */
+  final def mapM[R1 <: R, E1 >: E, C](bFc: B => ZIO[R1, E1, C]): Http[R1, E1, A, C] =
+    self >>> Http.fromEffectFunction(bFc)
+
+  /**
+   * Named alias for `<>`
+   */
+  final def orElse[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    self.catchAll(_ => other)
+
+  /**
+   * Provides the environment to Http.
+   */
+  final def provide(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provide(r))
+
+  /**
+   * Provide part of the environment to HTTP that is not part of ZEnv
+   */
+  final def provideCustomLayer[E1 >: E, R1 <: Has[_]](
+                                                       layer: ZLayer[ZEnv, E1, R1],
+                                                     )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): Http[ZEnv, E1, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provideCustomLayer(layer.mapError(Option(_))))
+
+  /**
+   * Provides layer to Http.
+   */
+  final def provideLayer[E1 >: E, R0, R1](
+                                           layer: ZLayer[R0, E1, R1],
+                                         )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R]): Http[R0, E1, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provideLayer(layer.mapError(Option(_))))
+
+  /**
+   * Provides some of the environment to Http.
+   */
+  final def provideSome[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provideSome(r))
+
+  /**
+   * Provides some of the environment to Http leaving the remainder `R0`.
+   */
+  final def provideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E](
+                                                                   layer: ZLayer[R0, E1, R1],
+                                                                 )(implicit ev: R0 with R1 <:< R, tagged: Tag[R1]): Http[R0, E1, A, B] =
+    Http.fromPartialFunction[A](a => self(a).provideSomeLayer(layer.mapError(Option(_))))
+
+  /**
+   * Performs a race between two apps
+   */
+  final def race[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    Http.fromPartialFunction(a => self(a) raceFirst other(a))
+
+  /**
+   * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
+   */
+  final def silent[E1 >: E, B1 >: B](implicit s: CanBeSilenced[E1, B1]): Http[R, Nothing, A, B1] =
+    self.catchAll(e => Http.succeed(s.silent(e)))
 
   /**
    * Returns an Http that peeks at the success of this Http.
    */
-  def tap[R1 <: R, E1 >: E, A1 <: A](f: B => Http[R1, E1, Any, Any]): Http[R1, E1, A, B] =
+  final def tap[R1 <: R, E1 >: E, A1 <: A](f: B => Http[R1, E1, Any, Any]): Http[R1, E1, A, B] =
     self.flatMap(v => f(v).as(v))
-
-  /**
-   * Returns an Http that effectfully peeks at the success of this Http.
-   */
-  def tapM[R1 <: R, E1 >: E](f: B => ZIO[R1, E1, Any]): Http[R1, E1, A, B] =
-    self.tap(v => Http.fromEffect(f(v)))
-
-  /**
-   * Returns an Http that peeks at the failure of this Http.
-   */
-  def tapError[R1 <: R, E1 >: E](f: E => Http[R1, E1, Any, Any]): Http[R1, E1, A, B] =
-    self.foldM(
-      e => f(e) *> Http.fail(e),
-      Http.succeed,
-      Http.empty,
-    )
-
-  /**
-   * Returns an Http that effectfully peeks at the failure of this Http.
-   */
-  def tapErrorM[R1 <: R, E1 >: E](f: E => ZIO[R1, E1, Any]): Http[R1, E1, A, B] =
-    self.tapError(e => Http.fromEffect(f(e)))
 
   /**
    * Returns an Http that peeks at the success, failed or empty value of this Http.
    */
-  def tapAll[R1 <: R, E1 >: E](
-    f: E => Http[R1, E1, Any, Any],
-    g: B => Http[R1, E1, Any, Any],
-    h: Http[R1, E1, Any, Any],
-  ): Http[R1, E1, A, B] =
+  final def tapAll[R1 <: R, E1 >: E](
+                                      f: E => Http[R1, E1, Any, Any],
+                                      g: B => Http[R1, E1, Any, Any],
+                                      h: Http[R1, E1, Any, Any],
+                                    ): Http[R1, E1, A, B] =
     self.foldM(
       e => f(e) *> Http.fail(e),
       x => g(x) *> Http.succeed(x),
@@ -223,11 +247,11 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Returns an Http that effectfully peeks at the success, failed or empty value of this Http.
    */
-  def tapAllM[R1 <: R, E1 >: E](
-    f: E => ZIO[R1, E1, Any],
-    g: B => ZIO[R1, E1, Any],
-    h: ZIO[R1, E1, Any],
-  ): Http[R1, E1, A, B] =
+  final def tapAllM[R1 <: R, E1 >: E](
+                                       f: E => ZIO[R1, E1, Any],
+                                       g: B => ZIO[R1, E1, Any],
+                                       h: ZIO[R1, E1, Any],
+                                     ): Http[R1, E1, A, B] =
     tapAll(
       e => Http.fromEffect(f(e)),
       x => Http.fromEffect(g(x)),
@@ -235,7 +259,47 @@ sealed trait Http[-R, +E, -A, +B] { self =>
     )
 
   /**
-   * Evaluates the app and returns an HttpResult that can be resolved further
+   * Returns an Http that peeks at the failure of this Http.
+   */
+  final def tapError[R1 <: R, E1 >: E](f: E => Http[R1, E1, Any, Any]): Http[R1, E1, A, B] =
+    self.foldM(
+      e => f(e) *> Http.fail(e),
+      Http.succeed,
+      Http.empty,
+    )
+
+  /**
+   * Returns an Http that effectfully peeks at the failure of this Http.
+   */
+  final def tapErrorM[R1 <: R, E1 >: E](f: E => ZIO[R1, E1, Any]): Http[R1, E1, A, B] =
+    self.tapError(e => Http.fromEffect(f(e)))
+
+  /**
+   * Returns an Http that effectfully peeks at the success of this Http.
+   */
+  final def tapM[R1 <: R, E1 >: E](f: B => ZIO[R1, E1, Any]): Http[R1, E1, A, B] =
+    self.tap(v => Http.fromEffect(f(v)))
+
+  /**
+   * Unwraps an Http that returns a ZIO of Http
+   */
+  final def unwrap[R1 <: R, E1 >: E, C](implicit ev: B <:< ZIO[R1, E1, C]): Http[R1, E1, A, C] =
+    self.flatMap(Http.fromEffect(_))
+
+  /**
+   * Widens the type of the output
+   */
+  final def widen[B1](implicit ev: B <:< B1): Http[R, E, A, B1] =
+    self.asInstanceOf[Http[R, E, A, B1]]
+
+  /**
+   * Combines the two apps and returns the result of the one on the right
+   */
+  final def zipRight[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
+    self.flatMap(_ => other)
+
+  /**
+   * Evaluates the app and returns an HExit that can be resolved further
    */
   final private[zhttp] def execute(a: A): HttpResult[R, E, B] = {
     self match {
@@ -255,20 +319,103 @@ sealed trait Http[-R, +E, -A, +B] { self =>
 }
 
 object Http {
-  private case object Empty                                                     extends Http[Any, Nothing, Any, Nothing]
-  private case object Identity                                                  extends Http[Any, Nothing, Any, Nothing]
-  private final case class Succeed[B](b: B)                                     extends Http[Any, Nothing, Any, B]
-  private final case class Fail[E](e: E)                                        extends Http[Any, E, Any, Nothing]
-  private final case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B]) extends Http[R, E, A, B]
-  private final case class Collect[R, E, A, B](ab: PartialFunction[A, B])       extends Http[R, E, A, B]
-  private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C])
-      extends Http[R, E, A, C]
-  private final case class FoldM[R, E, EE, A, B, BB](
-    self: Http[R, E, A, B],
-    ee: E => Http[R, EE, A, BB],
-    bb: B => Http[R, EE, A, BB],
-    dd: Http[R, EE, A, BB],
-  ) extends Http[R, EE, A, BB]
+
+  /**
+   * Creates an HTTP app which accepts a request and produces response.
+   */
+  def collect[A]: Http.MakeCollect[A] = Http.MakeCollect(())
+
+  /**
+   * Creates an HTTP app which accepts a request and produces response effectfully.
+   */
+  def collectM[A]: Http.MakeCollectM[A] = Http.MakeCollectM(())
+
+  /**
+   * Combines multiple Http apps into one
+   */
+  def combine[R, E, A, B](i: Iterable[Http[R, E, A, B]]): Http[R, E, A, B] =
+    i.reduce(_.defaultWith(_))
+
+  /**
+   * Creates an empty Http value
+   */
+  def empty: Http[Any, Nothing, Any, Nothing] = Http.Empty
+
+  /**
+   * Creates an Http that always fails
+   */
+  def fail[E](e: E): Http[Any, E, Any, Nothing] = Http.Fail(e)
+
+  /**
+   * Flattens an Http app of an Http app
+   */
+  def flatten[R, E, A, B](http: Http[R, E, A, Http[R, E, A, B]]): Http[R, E, A, B] =
+    http.flatten
+
+  /**
+   * Flattens an Http app of an that returns an effectful response
+   */
+  def flattenM[R, E, A, B](http: Http[R, E, A, ZIO[R, E, B]]): Http[R, E, A, B] =
+    http.flatMap(Http.fromEffect)
+
+  /**
+   * Converts a ZIO to an Http type
+   */
+  def fromEffect[R, E, B](effect: ZIO[R, E, B]): Http[R, E, Any, B] = Http.fromEffectFunction(_ => effect)
+
+  /**
+   * Creates an Http app from a function that returns a ZIO
+   */
+  def fromEffectFunction[A]: Http.MakeFromEffectFunction[A] = Http.MakeFromEffectFunction(())
+
+  /**
+   * Creates a Http from a pure function
+   */
+  def fromFunction[A]: FromFunction[A] = new FromFunction[A](())
+
+  /**
+   * Creates a Http from an effectful pure function
+   */
+  def fromFunctionM[A]: FromFunctionM[A] = new FromFunctionM[A](())
+
+  /**
+   * Creates an `Http` from a function that takes a value of type `A` and returns with a `ZIO[R, Option[E], B]`. The
+   * returned effect can fail with a `None` to signal "not found" to the backend.
+   */
+  def fromPartialFunction[A]: FromPartialFunction[A] = new FromPartialFunction(())
+
+  /**
+   * Creates a pass thru Http instances
+   */
+  def identity[A]: Http[Any, Nothing, A, A] = Http.Identity
+
+  /**
+   * Creates an Http that delegates to other Https.
+   */
+  def route[A]: Http.MakeRoute[A] = Http.MakeRoute(())
+
+  /**
+   * Creates an Http that always returns the same response and never fails.
+   */
+  def succeed[B](b: B): Http[Any, Nothing, Any, B] = Http.Succeed(b)
+
+  implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends AnyVal { self =>
+    /**
+     * Converts a failing Http app into a non-failing one by handling the failure and converting it to a result if
+     * possible.
+     */
+    def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1]]): HttpApp[R1, E1] =
+      http.catchAll(e => Http.succeed(s.silent(e)))
+
+    private[zhttp] def compile[R1 <: R](
+                                         zExec: UnsafeChannelExecutor[R1],
+                                         settings: Server.Config[R1, Throwable],
+                                         serverTime: ServerTimeGenerator,
+                                       )(implicit
+                                         evE: E <:< Throwable,
+                                       ): ChannelHandler =
+      ServerRequestHandler(zExec, settings, serverTime)
+  }
 
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {
@@ -294,75 +441,44 @@ object Http {
       Http.identity[X].flatMap(xa) >>> self
   }
 
-  /**
-   * Creates an Http that always returns the same response and never fails.
-   */
-  def succeed[B](b: B): Http[Any, Nothing, Any, B] = Http.Succeed(b)
+  final class FromPartialFunction[A](val unit: Unit) extends AnyVal {
+    def apply[R, E, B](f: A => ZIO[R, Option[E], B]): Http[R, E, A, B] = Http
+      .collectM[A] { case a =>
+        f(a).map(Http.succeed(_)).catchAll {
+          case Some(error) => UIO(Http.fail(error))
+          case None        => UIO(Http.empty)
+        }
+      }
+      .flatten
+  }
 
-  /**
-   * Creates an Http app from a function that returns a ZIO
-   */
-  def fromEffectFunction[A]: Http.MakeFromEffectFunction[A] = Http.MakeFromEffectFunction(())
-
-  /**
-   * Converts a ZIO to an Http type
-   */
-  def fromEffect[R, E, B](effect: ZIO[R, E, B]): Http[R, E, Any, B] = Http.fromEffectFunction(_ => effect)
-
-  /**
-   * Creates an Http that always fails
-   */
-  def fail[E](e: E): Http[Any, E, Any, Nothing] = Http.Fail(e)
-
-  /**
-   * Creates a pass thru Http instances
-   */
-  def identity[A]: Http[Any, Nothing, A, A] = Http.Identity
-
-  /**
-   * Creates an HTTP app which accepts a request and produces response.
-   */
-  def collect[A]: Http.MakeCollect[A] = Http.MakeCollect(())
-
-  /**
-   * Creates an HTTP app which accepts a request and produces response effectfully.
-   */
-  def collectM[A]: Http.MakeCollectM[A] = Http.MakeCollectM(())
-
-  /**
-   * Flattens an Http app of an Http app
-   */
-  def flatten[R, E, A, B](http: Http[R, E, A, Http[R, E, A, B]]): Http[R, E, A, B] =
-    http.flatten
-
-  /**
-   * Flattens an Http app of an that returns an effectful response
-   */
-  def flattenM[R, E, A, B](http: Http[R, E, A, ZIO[R, E, B]]): Http[R, E, A, B] =
-    http.flatMap(Http.fromEffect)
-
-  /**
-   * Combines multiple Http apps into one
-   */
-  def combine[R, E, A, B](i: Iterable[Http[R, E, A, B]]): Http[R, E, A, B] =
-    i.reduce(_.defaultWith(_))
-
-  /**
-   * Creates an empty Http value
-   */
-  def empty: Http[Any, Nothing, Any, Nothing] = Http.Empty
-
-  /**
-   * Creates a Http from a pure function
-   */
-  def fromFunction[A]: MkTotal[A] = new MkTotal[A](())
-
-  /**
-   * Creates an Http that delegates to other Https.
-   */
-  def route[A]: Http.MakeRoute[A] = Http.MakeRoute(())
-
-  final class MkTotal[A](val unit: Unit) extends AnyVal {
+  final class FromFunction[A](val unit: Unit) extends AnyVal {
     def apply[B](f: A => B): Http[Any, Nothing, A, B] = Http.identity[A].map(f)
   }
+
+  final class FromFunctionM[A](val unit: Unit) extends AnyVal {
+    def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = Http.identity[A].mapM(f)
+  }
+
+  private final case class Succeed[B](b: B) extends Http[Any, Nothing, Any, B]
+
+  private final case class Fail[E](e: E) extends Http[Any, E, Any, Nothing]
+
+  private final case class FromEffectFunction[R, E, A, B](f: A => ZIO[R, E, B]) extends Http[R, E, A, B]
+
+  private final case class Collect[R, E, A, B](ab: PartialFunction[A, B]) extends Http[R, E, A, B]
+
+  private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C])
+    extends Http[R, E, A, C]
+
+  private final case class FoldM[R, E, EE, A, B, BB](
+                                                      self: Http[R, E, A, B],
+                                                      ee: E => Http[R, EE, A, BB],
+                                                      bb: B => Http[R, EE, A, BB],
+                                                      dd: Http[R, EE, A, BB],
+                                                    ) extends Http[R, EE, A, BB]
+
+  private case object Empty extends Http[Any, Nothing, Any, Nothing]
+
+  private case object Identity extends Http[Any, Nothing, Any, Nothing]
 }
