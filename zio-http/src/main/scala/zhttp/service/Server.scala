@@ -128,7 +128,7 @@ object Server {
     server: Server[R, Throwable],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] = {
     val settings = server.settings()
-    val time = ServerTimeGenerator.make
+    val time     = ServerTimeGenerator.make
     for {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
