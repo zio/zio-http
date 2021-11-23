@@ -128,12 +128,13 @@ object Server {
     server: Server[R, Throwable],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] = {
     val settings = server.settings()
+    val time = ServerTimeGenerator.make
     for {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
       zExec          <- UnsafeChannelExecutor.make[R](eventLoopGroup).toManaged_
-      httpH           = ServerRequestHandler(zExec, settings)
-      init            = ServerChannelInitializer(httpH, settings, ServerTimeGenerator.make)
+      httpH           = ServerRequestHandler(zExec, settings, time)
+      init            = ServerChannelInitializer(httpH, settings, time)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.address))
 
