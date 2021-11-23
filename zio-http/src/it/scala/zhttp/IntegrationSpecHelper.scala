@@ -7,9 +7,9 @@ import zio.Chunk
 
 object IntegrationSpecHelper {
   val addr     = "localhost"
-  val port     = 80
+  val port     = 8090
   val baseAddr = s"http://${addr}:${port}"
-  val server   = Server.port(80) ++ Server.app(AllApis())
+  val server   = Server.port(port) ++ Server.app(AllApis())
   def env      = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto ++ zio.clock.Clock.live
 
   implicit class StringToChunk(val string: String) extends AnyVal {

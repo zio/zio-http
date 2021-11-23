@@ -14,7 +14,7 @@ lazy val root = (project in file("."))
   .aggregate(zhttp, zhttpBenchmarks, zhttpTest, example)
 
 // CI Configuration
-ThisBuild / githubWorkflowAddedJobs     :=
+ThisBuild / githubWorkflowAddedJobs      :=
   Seq(
     WorkflowJob(
       id = "update_release_draft",
@@ -43,7 +43,7 @@ ThisBuild / githubWorkflowAddedJobs     :=
   )
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
-ThisBuild / githubWorkflowPublish       :=
+ThisBuild / githubWorkflowPublish        :=
   Seq(
     WorkflowStep.Sbt(
       List("ci-release"),
@@ -58,7 +58,7 @@ ThisBuild / githubWorkflowPublish       :=
   )
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
-ThisBuild / githubWorkflowBuildPreamble :=
+ThisBuild / githubWorkflowBuildPreamble  :=
   WorkflowJob(
     "fmtCheck",
     "Format",
@@ -67,6 +67,14 @@ ThisBuild / githubWorkflowBuildPreamble :=
     ),
     scalas = List(Scala213),
   ).steps
+
+ThisBuild / githubWorkflowBuildPostamble := Seq(
+  WorkflowStep.Run(
+    List("sbt ++2.13.6 it:test"),
+    Some("run_integration_test"),
+    Some("Run Integration Test"),
+  ),
+)
 
 // Projects
 

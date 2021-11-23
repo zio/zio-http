@@ -58,6 +58,10 @@ jobs:
       - name: Build project
         run: sbt ++${{ matrix.scala }} test
 
+      - name: Run Integration Test
+        id: run_integration_test
+        run: 'sbt ++2.13.6 it:test'
+
       - name: Compress target directories
         run: tar cf targets.tar target zio-http-test/target zio-http/target zio-http-benchmarks/target example/target project/target
 

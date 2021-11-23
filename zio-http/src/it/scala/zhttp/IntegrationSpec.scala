@@ -18,30 +18,18 @@ object IntegrationSpec extends DefaultRunnableSpec {
   ).provideCustomLayer(env) @@ timeout(10 seconds)
 
   def ApiSpec = suite("ApiSpec") {
-    testM("100 continue on /continue") {
-      val zResponse = Client.request(s"${baseAddr}/continue", List(Header("Expect", "100-continue")))
-      assertM(zResponse)(
+    testM("200 ok on /") {
+      val zResponse = Client.request(baseAddr)
+      assertM(zResponse.map(_.headerRemoved("date")))(
         equalTo(
           HttpResponse(
-            Status.CONTINUE,
-            List(Header("content-length", "0")),
+            Status.OK,
+            List(Header.custom("server", "ZIO-Http"), Header.custom("content-length", "0")),
             CompleteData(Chunk.empty),
           ),
         ),
       )
     } +
-      testM("200 ok on /") {
-        val zResponse = Client.request(baseAddr)
-        assertM(zResponse.map(_.headerRemoved("date")))(
-          equalTo(
-            HttpResponse(
-              Status.OK,
-              List(Header("server", "ZIO-Http"), Header("content-length", "0")),
-              CompleteData(Chunk.empty),
-            ),
-          ),
-        )
-      } +
       testM("201 created on /post") {
         val url       = URL(Path.apply(), URL.Location.Absolute(Scheme.HTTP, addr, port))
         val zResponse = Client.request((Method.POST, url))
@@ -49,7 +37,7 @@ object IntegrationSpec extends DefaultRunnableSpec {
           equalTo(
             HttpResponse(
               Status.CREATED,
-              List(Header("server", "ZIO-Http"), Header("content-length", "0")),
+              List(Header.custom("server", "ZIO-Http"), Header.custom("content-length", "0")),
               CompleteData(Chunk.empty),
             ),
           ),
@@ -61,7 +49,7 @@ object IntegrationSpec extends DefaultRunnableSpec {
           equalTo(
             HttpResponse(
               Status.BAD_REQUEST,
-              List(Header("connection", "close"), Header("content-length", "50")),
+              List(Header.custom("connection", "close"), Header.custom("content-length", "50")),
               CompleteData("not a WebSocket handshake request: missing upgrade".toChunk),
             ),
           ),

@@ -3,6 +3,7 @@ package zhttp
 import zhttp.http._
 import zhttp.socket.{Socket, WebSocketFrame}
 import zio.ZIO
+import zio.clock.Clock
 import zio.duration.durationInt
 import zio.stream.ZStream
 
@@ -11,7 +12,7 @@ object AllApis {
     ZStream.succeed(WebSocketFrame.pong)
   }
 
-  def api = HttpApp.collect {
+  def api = HttpApp.collect[Any, Nothing] {
     case Method.GET -> !!                   => Response.ok
     case Method.POST -> !!                  => Response.status(Status.CREATED)
     case Method.GET -> !! / "continue"      => Response.ok
@@ -19,7 +20,7 @@ object AllApis {
     case Method.GET -> !! / "subscriptions" => Response.socket(socket)
   }
 
-  def apiM = HttpApp.collectM { case Method.GET -> !! / "timeout" =>
+  def apiM = HttpApp.collectM[Clock, Nothing] { case Method.GET -> !! / "timeout" =>
     ZIO.sleep(100 seconds).as(Response.ok)
   }
 
