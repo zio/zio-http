@@ -365,16 +365,23 @@ object HttpMiddleware {
   }
 
   /**
-   * Determine the content type of the response from the request path and add it as a response header. Commonly used
-   * mime types are included by default. Additional mime types can be registered by adding them in a mime.types file in
-   * your applications META-INF folder.
+   * Determine the content type of the response from the request path and add it as a response header if the request
+   * path starts with prefix. Commonly used mime types are included by default. Additional mime types can be registered
+   * by adding them in a mime.types file in your applications META-INF folder.
    */
-  def smartContentType[R, E]: HttpMiddleware[R, E] = {
+  def smartContentType[R, E](prefix: Path): HttpMiddleware[R, E] = {
     val mimeTypes = new MimetypesFileTypeMap()
-    HttpMiddleware.make((_, url, _) => {
-      val contentType = mimeTypes.getContentType(url.path.asString)
-      Patch.addHeader(Header.custom("Content-Type", contentType))
-    })((_, _, S) => S)
+    HttpMiddleware.make((_, url, _) =>
+      if (url.path.startsWith(prefix)) {
+        Some(mimeTypes.getContentType(url.path.asString))
+      } else {
+        None
+      },
+    ) {
+      case (_, _, Some(contentType)) =>
+        Patch.addHeader(Header(HttpHeaderNames.CONTENT_TYPE, contentType))
+      case _                         => Patch.empty
+    }
   }
 
   /**

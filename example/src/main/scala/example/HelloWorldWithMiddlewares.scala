@@ -1,6 +1,5 @@
 package example
 
-import zhttp.endpoint._
 import zhttp.http.Middleware.{addHeader, debug, patchM, smartContentType, timeout}
 import zhttp.http._
 import zhttp.service.Server
@@ -14,15 +13,14 @@ import java.util.concurrent.TimeUnit
 
 object HelloWorldWithMiddlewares extends App {
 
-  // The content type header will be added based on the extension of the requested file by smartContentType
-  val static = Method.GET / "static" / *[String] to { req => Response.text(req.params) }
-
   val app: HttpApp[Clock, Nothing] = Http.collectM[Request] {
     // this will return result instantly
-    case Method.GET -> !! / "text"         => ZIO.succeed(Response.text("Hello World!"))
+    case Method.GET -> !! / "text"                 => ZIO.succeed(Response.text("Hello World!"))
     // this will return result after 5 seconds, so with 3 seconds timeout it will fail
-    case Method.GET -> !! / "long-running" => ZIO.succeed(Response.text("Hello World!")).delay(5 seconds)
-  } +++ static
+    case Method.GET -> !! / "long-running"         => ZIO.succeed(Response.text("Hello World!")).delay(5 seconds)
+    // The content type header will be added based on the extension of the requested file by smartContentType
+    case Method.GET -> !! / "static" / "test.json" => ZIO.succeed(Response.text("""{"hello":"world"}"""))
+  }
 
   val serverTime: Middleware[Clock, Nothing] = patchM((_, _) =>
     for {
@@ -41,7 +39,7 @@ object HelloWorldWithMiddlewares extends App {
       // add dynamic header
       serverTime ++
       // return content type based on url
-      smartContentType
+      smartContentType(!! / "static")
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

@@ -9,7 +9,7 @@ object Dependencies {
   val sttpVersion                   = "3.3.18"
   val `scala-compact-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompactCollectionVersion
   val netty                      = "io.netty"                % "netty-all"               % NettyVersion
-  val jaf                        = "jakarta.activation"      % "jakarta.activation-api"  % "1.2.2"
+  val jaf                        = "com.sun.activation"      % "jakarta.activation"      % "2.0.0"
   val `jwt-core`                 = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
   val sttp              = "com.softwaremill.sttp.client3" %% "core"                          % sttpVersion % "test"
   val sttpzio           = "com.softwaremill.sttp.client3" %% "async-http-client-backend-zio" % sttpVersion % "test"
