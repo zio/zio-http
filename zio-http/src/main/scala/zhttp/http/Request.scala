@@ -20,8 +20,7 @@ trait Request extends HeaderExtension[Request] { self =>
 
       override def url: URL = u
 
-      override def getHeaders: List[Header] = h
-
+      override def getHeaders: List[Header]     = h
       override def data: HttpData[Any, Nothing] = d
 
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
