@@ -132,7 +132,9 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
             } +
             testM("Response should have forbidden as content if the basic authentication fails") {
               val app = (HttpApp.ok @@ basicAuthM).getContent
-              assertM(app(Request().addHeaders(List(basicHF))))(equalTo(Response.fromHttpError(HttpError.Forbidden()).data))
+              assertM(app(Request().addHeaders(List(basicHF))))(
+                equalTo(Response.fromHttpError(HttpError.Forbidden()).data),
+              )
             } +
             testM("Responses should have WWW-Authentication header if Basic Auth failed") {
               val app = HttpApp.ok @@ basicAuthM getHeader "WWW-AUTHENTICATE"

@@ -16,7 +16,7 @@ trait HttpAppTestExtensions {
     def getStatus: Http[R, E, Request, Status] =
       app.map(res => res.status)
 
-    def getContent: Http[R, E, Request, HttpData[R,E]] =
+    def getContent: Http[R, E, Request, HttpData[R, E]] =
       app.map(res => res.data)
   }
 }
