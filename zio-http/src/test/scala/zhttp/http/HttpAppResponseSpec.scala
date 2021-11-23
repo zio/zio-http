@@ -12,9 +12,16 @@ import zio.{UIO, ZIO}
 object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertions {
   private val env = EventLoopGroup.auto(1)
 
-  private val nonEmptyContent = for {
+  private val nonEmptyStreamContent = for {
     data    <- Gen.listOf(Gen.alphaNumericString)
-    content <- HttpGen.nonEmptyHttpData(Gen.const(data))
+    content <- HttpGen.nonEmptyStreamHttpData(Gen.const(data))
+    header  <- HttpGen.header
+    status  <- HttpGen.status
+  } yield (data, content, status, header)
+
+  private val nonStreamContent = for {
+    data    <- Gen.listOf(Gen.alphaNumericString)
+    content <- HttpGen.nonStreamData(Gen.const(data))
     header  <- HttpGen.header
     status  <- HttpGen.status
   } yield (data, content, status, header)
@@ -78,7 +85,7 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
         testM("text") {
           checkAllM(everything) { case (data, _, _, _) =>
             val app = HttpApp.text(data.mkString(""))
-            assertM(app.getContent)(equalTo(data.mkString("")))
+            assertM(app.getFullResponseContent)(equalTo(data.mkString("")))
           }
         } +
         testM("response") {
@@ -114,8 +121,14 @@ object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertion
             })
           }
         } +
-        testM("content") {
-          checkAllM(nonEmptyContent) { case (data, content, status, header) =>
+        testM("non streaming content") {
+          checkAllM(nonStreamContent) { case (data, content, status, header) =>
+            val app = Http.succeed(Response(status, List(header), content))
+            assertM(app.getFullResponseContent(content = data))(equalTo(data.mkString("")))
+          }
+        } +
+        testM("streaming content") {
+          checkAllM(nonEmptyStreamContent) { case (data, content, status, header) =>
             val app = Http.succeed(Response(status, List(header), content))
             assertM(app.getContent(content = data))(equalTo(data.mkString("")))
           }

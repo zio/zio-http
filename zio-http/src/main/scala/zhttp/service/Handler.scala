@@ -12,6 +12,7 @@ import zio.stream.ZStream
 import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
+import scala.annotation.unused
 
 private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
@@ -150,6 +151,11 @@ private[zhttp] final case class Handler[R](
     if (res.attribute.memoize) decodeResponseCached(res) else decodeResponseFresh(res)
   }
 
+  @unused
+  private def decodeResponse(res: Response[_, _], data: ByteBuf): HttpResponse = {
+    if (res.attribute.memoize) decodeResponseCached(res, data) else decodeResponseFresh(res, data)
+  }
+
   private def decodeResponseCached(res: Response[_, _]): HttpResponse = {
     val cachedResponse = res.cache
     // Update cache if it doesn't exist OR has become stale
@@ -161,10 +167,30 @@ private[zhttp] final case class Handler[R](
     } else cachedResponse
   }
 
+  @unused
+  private def decodeResponseCached(res: Response[_, _], data: ByteBuf): HttpResponse = {
+    val cachedResponse = res.cache
+    // Update cache if it doesn't exist OR has become stale
+    // TODO: add unit tests for server-time
+    if (cachedResponse == null || (res.attribute.serverTime && serverTime.canUpdate())) {
+      val jRes = decodeResponseFresh(res, data)
+      res.cache = jRes
+      jRes
+    } else cachedResponse
+  }
+
   private def decodeResponseFresh(res: Response[_, _]): HttpResponse = {
     val jHeaders = Header.disassemble(res.getHeaders)
     if (res.attribute.serverTime) jHeaders.set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
     new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
+  }
+
+  @unused
+  private def decodeResponseFresh(res: Response[_, _], data: ByteBuf): HttpResponse = {
+    val jHeaders = Header.disassemble(res.getHeaders)
+    val trailingHeaders = new DefaultHttpHeaders(false)
+    if (res.attribute.serverTime) jHeaders.set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
+    new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, data, jHeaders, trailingHeaders)
   }
 
   private def serverErrorResponse(cause: Throwable): HttpResponse = {
@@ -197,20 +223,20 @@ private[zhttp] final case class Handler[R](
               if (self.canSwitchProtocol(res)) UIO(self.initializeSwitch(ctx, res))
               else {
                 for {
-                  _ <- UIO(unsafeWriteAnyResponse(res))
                   _ <- res.data match {
                     case HttpData.Empty =>
-                      UIO(unsafeWriteAndFlushLastEmptyContent())
+                      UIO(unsafeWriteFullResponse(res, Unpooled.EMPTY_BUFFER))
 
                     case data @ HttpData.Text(_, _) =>
-                      UIO(unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize)))
+                      UIO(unsafeWriteFullResponse(res, data.encodeAndCache(res.attribute.memoize)))
 
-                    case HttpData.BinaryByteBuf(data) => UIO(unsafeWriteLastContent(data))
+                    case HttpData.BinaryByteBuf(data) => UIO(unsafeWriteFullResponse(res, data))
 
                     case data @ HttpData.BinaryChunk(_) =>
-                      UIO(unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize)))
+                      UIO(unsafeWriteFullResponse(res, data.encodeAndCache(res.attribute.memoize)))
 
                     case HttpData.BinaryStream(stream) =>
+                      UIO(unsafeWriteAnyResponse(res)) *>
                       writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
                   }
                 } yield ()
@@ -222,22 +248,23 @@ private[zhttp] final case class Handler[R](
         if (self.canSwitchProtocol(res)) {
           self.initializeSwitch(ctx, res)
         } else {
-          unsafeWriteAnyResponse(res)
+         // unsafeWriteAnyResponse(res)
 
           res.data match {
             case HttpData.Empty =>
-              unsafeWriteAndFlushLastEmptyContent()
+              unsafeWriteFullResponse(res, Unpooled.EMPTY_BUFFER)
 
             case data @ HttpData.Text(_, _) =>
-              unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+              unsafeWriteFullResponse(res, data.encodeAndCache(res.attribute.memoize))
 
             case HttpData.BinaryByteBuf(data) =>
-              unsafeWriteLastContent(data)
+              unsafeWriteFullResponse(res, data)
 
             case data @ HttpData.BinaryChunk(_) =>
-              unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+              unsafeWriteFullResponse(res, data.encodeAndCache(res.attribute.memoize))
 
             case HttpData.BinaryStream(stream) =>
+              unsafeWriteAnyResponse(res)
               unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
           }
         }
@@ -270,13 +297,6 @@ private[zhttp] final case class Handler[R](
   }
 
   /**
-   * Writes last empty content to the Channel
-   */
-  private def unsafeWriteAndFlushLastEmptyContent()(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, ctx.voidPromise()): Unit
-  }
-
-  /**
    * Writes any response to the Channel
    */
   private def unsafeWriteAnyResponse[A](res: Response[R, Throwable])(implicit ctx: ChannelHandlerContext): Unit = {
@@ -284,10 +304,11 @@ private[zhttp] final case class Handler[R](
   }
 
   /**
-   * Writes ByteBuf data to the Channel
+   * Writes full response to the Channel
    */
-  private def unsafeWriteLastContent[A](data: ByteBuf)(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(new DefaultLastHttpContent(data), ctx.voidPromise()): Unit
+  @unused
+  private def unsafeWriteFullResponse[A](res: Response[R, Throwable], data: ByteBuf)(implicit ctx: ChannelHandlerContext): Unit = {
+    ctx.writeAndFlush(decodeResponse(res, data), ctx.voidPromise()): Unit
   }
 
   /**

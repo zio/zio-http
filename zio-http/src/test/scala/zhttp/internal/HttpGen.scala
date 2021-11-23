@@ -98,6 +98,18 @@ object HttpGen {
         )
     } yield cnt
 
+  def nonStreamData[R](gen: Gen[R, List[String]]): Gen[R, HttpData[Any, Nothing]] = for {
+    list <- gen
+    cnt  <- Gen
+      .fromIterable(
+        List(
+          HttpData.fromText(list.mkString("")),
+          HttpData.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
+          HttpData.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
+        ),
+      )
+  } yield cnt
+
   def nonEmptyHttpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData[Any, Nothing]] =
     for {
       list <- gen
@@ -108,6 +120,17 @@ object HttpGen {
             HttpData.fromText(list.mkString("")),
             HttpData.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
             HttpData.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
+          ),
+        )
+    } yield cnt
+
+  def nonEmptyStreamHttpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData[Any, Nothing]] =
+    for {
+      list <- gen
+      cnt  <- Gen
+        .fromIterable(
+          List(
+            HttpData.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
           ),
         )
     } yield cnt

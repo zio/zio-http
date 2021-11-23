@@ -281,6 +281,20 @@ trait HttpMessageAssertions {
 
     def getResponse: ZIO[R with EventLoopGroup, Throwable, HttpResponse] = getResponse()
 
+    def getFullResponseContent: ZIO[R with EventLoopGroup, Throwable, String] =
+      getResponse().map(_.asInstanceOf[FullHttpResponse].content().toString(HTTP_CHARSET))
+
+    def getFullResponseContent(
+      url: String = "/",
+      method: HttpMethod = HttpMethod.GET,
+      header: HttpHeaders = EmptyHttpHeaders.INSTANCE,
+      content: Iterable[String] = List("A", "B", "C", "D"),
+      config: Server.Config[Any, Nothing] = Server.Config(),
+    ): ZIO[R with EventLoopGroup, Throwable, String] =
+      getResponse(url, method, header, content, config).map(
+        _.asInstanceOf[FullHttpResponse].content().toString(HTTP_CHARSET),
+      )
+
     def getResponse(
       url: String = "/",
       method: HttpMethod = HttpMethod.GET,
