@@ -1,4 +1,5 @@
 import sbtghactions.GenerativePlugin.autoImport.{UseRef, WorkflowJob, WorkflowStep}
+import org.eclipse.jgit.lib.IndexDiff.WorkingTreeIteratorFactory
 
 object BenchmarkWorkFlow {
   def apply(): Seq[WorkflowJob] = Seq(
@@ -26,7 +27,7 @@ object BenchmarkWorkFlow {
         WorkflowStep.Run(
           id = Some("result"),
           commands = List(
-            "cd ./../FrameworkBenchMarks",
+            "cd ./FrameworkBenchMarks",
             """sed -i "s/---COMMIT_SHA---/${GITHUB_SHA}/g" frameworks/Scala/zio-http/build.sbt""",
             "./tfb  --test zio-http | tee result",
             """RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")""",
@@ -41,6 +42,11 @@ object BenchmarkWorkFlow {
             "msg" -> "## \uD83D\uDE80\uD83D\uDE80\uD83D\uDE80 Benchmark Results \n **${{steps.result.outputs.concurrency_result}}** \n **${{steps.result.outputs.request_result}}**",
             "check_for_duplicate_msg" -> "false",
           ),
+        ),
+        WorkflowStep.Run(
+          id = Some("clean_up"),
+          name = Some("Clean up"),
+          commands = List("sudo rm -rf *"),
         ),
       ),
     ),
