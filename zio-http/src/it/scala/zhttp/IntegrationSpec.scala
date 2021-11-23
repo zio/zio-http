@@ -56,8 +56,21 @@ object IntegrationSpec extends DefaultRunnableSpec {
 
   def ContentDecoderSpec = suite("ContentDecoderSpec") {
     testM("ContentDecoder text identity") {
-      val response = Client.request(s"${baseAddr}/contentdecoder/text")
-      assertM(response.map(_.status))(equalTo(Status.OK))
+      val response =
+        Client.request(
+          url = s"${baseAddr}/contentdecoder/text",
+          headers = Nil,
+          content = HttpData.fromText("This is a string"),
+        )
+      assertM(response)(
+        equalTo(
+          Client.ClientResponse(
+            Status.OK,
+            List(Header("content-length", "16")),
+            Chunk.fromArray("This is a string".getBytes()),
+          ),
+        ),
+      )
     }
   }
 
