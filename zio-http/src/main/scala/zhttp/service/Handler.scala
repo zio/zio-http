@@ -187,7 +187,7 @@ private[zhttp] final case class Handler[R](
 
   @unused
   private def decodeResponseFresh(res: Response[_, _], data: ByteBuf): HttpResponse = {
-    val jHeaders = Header.disassemble(res.getHeaders)
+    val jHeaders        = Header.disassemble(res.getHeaders)
     val trailingHeaders = new DefaultHttpHeaders(false)
     if (res.attribute.serverTime) jHeaders.set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
     new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, data, jHeaders, trailingHeaders)
@@ -237,7 +237,7 @@ private[zhttp] final case class Handler[R](
 
                     case HttpData.BinaryStream(stream) =>
                       UIO(unsafeWriteAnyResponse(res)) *>
-                      writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
+                        writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
                   }
                 } yield ()
               },
@@ -248,7 +248,7 @@ private[zhttp] final case class Handler[R](
         if (self.canSwitchProtocol(res)) {
           self.initializeSwitch(ctx, res)
         } else {
-         // unsafeWriteAnyResponse(res)
+          // unsafeWriteAnyResponse(res)
 
           res.data match {
             case HttpData.Empty =>
@@ -307,7 +307,9 @@ private[zhttp] final case class Handler[R](
    * Writes full response to the Channel
    */
   @unused
-  private def unsafeWriteFullResponse[A](res: Response[R, Throwable], data: ByteBuf)(implicit ctx: ChannelHandlerContext): Unit = {
+  private def unsafeWriteFullResponse[A](res: Response[R, Throwable], data: ByteBuf)(implicit
+    ctx: ChannelHandlerContext,
+  ): Unit = {
     ctx.writeAndFlush(decodeResponse(res, data), ctx.voidPromise()): Unit
   }
 
