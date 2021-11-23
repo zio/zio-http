@@ -26,7 +26,9 @@ object BenchmarkWorkFlow {
         WorkflowStep.Run(
           id = Some("result"),
           commands = List(
-            "cd ./../FrameworkBenchMarks",
+            "ls",
+            "pwd",
+            "cd ./FrameworkBenchMarks",
             """sed -i "s/---COMMIT_SHA---/${GITHUB_SHA}/g" frameworks/Scala/zio-http/build.sbt""",
             "./tfb  --test zio-http | tee result",
             """RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")""",
