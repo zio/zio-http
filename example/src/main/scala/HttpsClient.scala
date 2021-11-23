@@ -1,5 +1,7 @@
+package example
+
 import io.netty.handler.ssl.SslContextBuilder
-import zhttp.http.Header
+import zhttp.http.{HTTP_CHARSET, Header}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
@@ -13,7 +15,7 @@ object HttpsClient extends App {
   val url     = "https://sports.api.decathlon.com/groups/water-aerobics"
   val headers = List(Header.host("sports.api.decathlon.com"))
 
-  //Configuring Truststore for https(optional)
+  // Configuring Truststore for https(optional)
   val trustStore: KeyStore                     = KeyStore.getInstance("JKS")
   val trustStorePath: InputStream              = getClass.getResourceAsStream("truststore.jks")
   val trustStorePassword: String               = "changeit"
@@ -29,7 +31,7 @@ object HttpsClient extends App {
   val program = for {
     res <- Client.request(url, headers, sslOption)
     _   <- console.putStrLn {
-      res.getContentAsString.getOrElse("<chunked>")
+      new String(res.content.toArray, HTTP_CHARSET)
     }
   } yield ()
 

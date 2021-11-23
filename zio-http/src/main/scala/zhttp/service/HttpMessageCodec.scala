@@ -1,3 +1,3 @@
 package zhttp.service
 
-trait HttpMessageCodec extends DecodeJRequest with DecodeJResponse with EncodeRequest with EncodeResponse {}
+trait HttpMessageCodec extends DecodeJRequest with DecodeJResponse with EncodeClientParams with EncodeResponse {}

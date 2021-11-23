@@ -1,4 +1,6 @@
-import zhttp.http.Header
+package example
+
+import zhttp.http.{HTTP_CHARSET, Header}
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
 
@@ -10,7 +12,7 @@ object SimpleClient extends App {
   val program = for {
     res <- Client.request(url, headers)
     _   <- console.putStrLn {
-      res.getContentAsString.getOrElse("<chunked>")
+      new String(res.content.toArray, HTTP_CHARSET)
     }
   } yield ()
 

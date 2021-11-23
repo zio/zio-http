@@ -107,4 +107,6 @@ object URL {
       decoded <- Option(uri.getFragment)
     } yield Fragment(raw, decoded)
   }
+
+  def root: URL = URL(!!)
 }
