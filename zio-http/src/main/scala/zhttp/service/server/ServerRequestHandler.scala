@@ -17,6 +17,7 @@ import zio.Exit
 final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
   settings: Config[R, Throwable],
+  serverTime: ServerTimeGenerator
 ) extends SimpleChannelInboundHandler[FullHttpRequest](AUTO_RELEASE_REQUEST)
     with HttpMessageCodec {
 
