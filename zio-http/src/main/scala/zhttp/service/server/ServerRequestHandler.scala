@@ -6,7 +6,7 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import io.netty.handler.codec.http.{FullHttpRequest, LastHttpContent}
 import zhttp.http._
-import zhttp.service.Server.Settings
+import zhttp.service.Server.Config
 import zhttp.service._
 import zio.Exit
 
@@ -16,7 +16,7 @@ import zio.Exit
 @Sharable
 final case class ServerRequestHandler[R](
   zExec: UnsafeChannelExecutor[R],
-  settings: Settings[R, Throwable],
+  settings: Config[R, Throwable],
 ) extends SimpleChannelInboundHandler[FullHttpRequest](AUTO_RELEASE_REQUEST)
     with HttpMessageCodec {
 
@@ -36,7 +36,7 @@ final case class ServerRequestHandler[R](
     decodeJRequest(jReq, ctx) match {
       case Left(err)  => cb(err.toResponse)
       case Right(req) =>
-        settings.http.execute(req).evaluate match {
+        settings.app.execute(req).evaluate match {
           case HttpResult.Empty      => cb(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))))
           case HttpResult.Success(a) => cb(a)
           case HttpResult.Failure(e) => cb(SilentResponse[Throwable].silent(e))

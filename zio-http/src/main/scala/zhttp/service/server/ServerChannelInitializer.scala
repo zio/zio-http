@@ -2,40 +2,59 @@ package zhttp.service.server
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer}
-import io.netty.handler.codec.http.{HttpObjectAggregator, HttpServerCodec, HttpServerKeepAliveHandler}
-import zhttp.service.Server.Settings
-import zhttp.service.{
-  HTTP_KEEPALIVE_HANDLER,
-  HTTP_REQUEST_HANDLER,
-  OBJECT_AGGREGATOR,
-  SERVER_CODEC_HANDLER,
-  SSL_HANDLER,
+import io.netty.handler.codec.http.{
+  HttpObjectAggregator,
+  HttpServerCodec,
+  HttpServerExpectContinueHandler,
+  HttpServerKeepAliveHandler,
 }
+import io.netty.handler.flow.FlowControlHandler
+import zhttp.service.Server.Config
+import zhttp.service._
 
 /**
  * Initializes the netty channel with default handlers
  */
 @Sharable
-final case class ServerChannelInitializer[R](httpH: ChannelHandler, settings: Settings[R, Throwable])
-    extends ChannelInitializer[Channel] {
+final case class ServerChannelInitializer[R](
+  httpH: ChannelHandler,
+  cfg: Config[R, Throwable],
+  serverTime: ServerTimeGenerator,
+) extends ChannelInitializer[Channel] {
   override def initChannel(channel: Channel): Unit = {
+    // !! IMPORTANT !!
+    // Order of handlers are critical to make this work
+    val pipeline = channel.pipeline()
 
-    val sslctx = if (settings.sslOption == null) null else settings.sslOption.sslContext
-    if (sslctx != null) {
-      channel
-        .pipeline()
-        .addFirst(
-          SSL_HANDLER,
-          new OptionalSSLHandler(sslctx, settings.sslOption.httpBehaviour),
-        )
-      ()
-    }
-    channel
-      .pipeline()
-      .addLast(SERVER_CODEC_HANDLER, new HttpServerCodec)
-      .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
-      .addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(settings.maxRequestSize))
-      .addLast(HTTP_REQUEST_HANDLER, httpH)
+    // SSL
+    // Add SSL Handler if CTX is available
+    val sslctx = if (cfg.sslOption == null) null else cfg.sslOption.sslContext
+    if (sslctx != null) pipeline.addFirst(SSL_HANDLER, new OptionalSSLHandler(sslctx, cfg.sslOption.httpBehaviour, cfg))
+
+    // ServerCodec
+    // Always add ServerCodec
+    pipeline.addLast(HTTP_SERVER_CODEC, new HttpServerCodec()) // TODO: See if server codec is really required
+
+    // ExpectContinueHandler
+    // Add expect continue handler is settings is true
+    if (cfg.acceptContinue) pipeline.addLast(HTTP_SERVER_EXPECT_CONTINUE, new HttpServerExpectContinueHandler())
+
+    // KeepAliveHandler
+    // Add Keep-Alive handler is settings is true
+    if (cfg.keepAlive) pipeline.addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
+
+    // FlowControlHandler
+    // Required because HttpObjectDecoder fires an HttpRequest that is immediately followed by a LastHttpContent event.
+    // For reference: https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html
+    if (cfg.flowControl) pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
+
+    //HttpObjectAggregator
+    if (cfg.objectAggregator) pipeline.addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
+
+    // RequestHandler
+    // Always add ZIO Http Request Handler
+    pipeline.addLast(HTTP_REQUEST_HANDLER, httpH)
+
     ()
   }
 

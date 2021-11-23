@@ -29,6 +29,11 @@ object HttpApp {
     Http.collectM[Request](pf)
 
   /**
+   * Creates an Http app which always responds with empty data.
+   */
+  def empty: HttpApp[Any, Nothing] = Http.empty
+
+  /**
    * Creates an HTTP app which always responds with the same plain text.
    */
   def text(str: String): HttpApp[Any, Nothing] = Http.succeed(Response.text(str))
