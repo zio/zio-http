@@ -4,7 +4,7 @@ import io.netty.channel.ChannelHandlerContext
 
 import java.net.{InetAddress, InetSocketAddress}
 
-final case class Request(method: Method, url: URL, headers: List[Header], data: HttpData[Any, Nothing], private val channelContext: ChannelHandlerContext = null) extends HeaderExtension[Request] { self =>
+final case class Request(method: Method= Method.GET, url: URL= URL.root, headers: List[Header]= List.empty, data: HttpData[Any, Nothing] = HttpData.empty, private val channelContext: ChannelHandlerContext = null) extends HeaderExtension[Request] { self =>
 
   /**
    * Decodes the content of the request using the provided ContentDecoder
