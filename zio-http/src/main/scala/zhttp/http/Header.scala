@@ -4,11 +4,11 @@ import io.netty.buffer.Unpooled
 import io.netty.handler.codec.base64.Base64
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaderValues, HttpHeaders}
 import io.netty.util.CharsetUtil
-import zhttp.http.HeadersHelpers.BasicSchemeName
+import zhttp.http.HeaderExtension.BasicSchemeName
 
 import scala.jdk.CollectionConverters._
 
-final case class Header private[Header] (name: CharSequence, value: CharSequence)
+final case class Header(name: CharSequence, value: CharSequence)
 
 object Header {
 
