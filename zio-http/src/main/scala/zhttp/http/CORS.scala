@@ -74,21 +74,19 @@ object CORS {
           case (Method.OPTIONS, Some(origin), Some(acrm))
               if allowCORS(origin, Method.fromString(acrm.value.toString())) =>
             Http.succeed(
-              Response.http(
+              Response(
                 Status.NO_CONTENT,
                 headers = corsHeaders(origin, Method.fromString(acrm.value.toString()), isPreflight = true),
               ),
             )
           case (_, Some(origin), _) if allowCORS(origin, req.method) =>
             httpApp >>>
-              Http.fromFunction[Response[R, E]](r =>
-                r match {
-                  case r: Response.HttpResponse[R, E] =>
-                    r.copy(headers = r.headers ++ corsHeaders(origin, req.method))
-                  case x                              =>
-                    x
-                },
-              )
+              Http.fromFunction[Response[R, E]] {
+                case r: Response[R, E] =>
+                  r.copy(headers = r.headers ++ corsHeaders(origin, req.method))
+                case x                 =>
+                  x
+              }
           case _                                                     => httpApp
         }
       })

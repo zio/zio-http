@@ -3,7 +3,6 @@ package zhttp.service.server
 import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import io.netty.handler.codec.http.{FullHttpRequest, LastHttpContent}
 import zhttp.http._
 import zhttp.service.Server.Config
@@ -19,7 +18,8 @@ final case class ServerRequestHandler[R](
   settings: Config[R, Throwable],
   serverTime: ServerTimeGenerator,
 ) extends SimpleChannelInboundHandler[FullHttpRequest](AUTO_RELEASE_REQUEST)
-    with HttpMessageCodec {
+    with HttpMessageCodec
+    with WebSocketUpgrade[R] {
 
   self =>
 
@@ -61,10 +61,13 @@ final case class ServerRequestHandler[R](
    * Unsafe channel reader for HttpRequest
    */
   override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
-    executeAsync(ctx, jReq) {
-      case res @ Response.HttpResponse(_, _, content) =>
-        ctx.write(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
-        releaseOrIgnore(jReq)
+    executeAsync(ctx, jReq) { case res @ Response(_, _, content, _) =>
+      ctx.write(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
+      releaseOrIgnore(jReq)
+      if (self.canSwitchProtocol(res)) {
+        self.initializeSwitch(ctx, res)
+        self.switchProtocol(ctx, jReq)
+      } else {
         content match {
           case HttpData.Text(text, charset) =>
             ctx.write(Unpooled.copiedBuffer(text, charset), ctx.channel().voidPromise())
@@ -83,18 +86,9 @@ final case class ServerRequestHandler[R](
               } yield ()
             }
           case HttpData.Empty               => ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-
         }
         ()
-
-      case res @ Response.SocketResponse(_) =>
-        ctx
-          .channel()
-          .pipeline()
-          .addLast(new WebSocketServerProtocolHandler(res.socket.config.protocol.javaConfig))
-          .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(zExec, res.socket.config))
-        ctx.channel().eventLoop().submit(() => ctx.fireChannelRead(jReq))
-        ()
+      }
     }
   }
 

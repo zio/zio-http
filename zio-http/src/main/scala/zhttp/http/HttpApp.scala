@@ -46,7 +46,7 @@ object HttpApp {
   /**
    * Creates an HTTP app which always responds with the same status code and empty data.
    */
-  def empty(code: Status): HttpApp[Any, Nothing] = Http.succeed(Response.http(code))
+  def empty(code: Status): HttpApp[Any, Nothing] = Http.succeed(Response(code))
 
   /**
    * Creates an HTTP app which always fails with the same error type.

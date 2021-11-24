@@ -10,7 +10,7 @@ sealed trait SocketApp[-R, +E] { self =>
   import SocketApp._
   def ++[R1 <: R, E1 >: E](other: SocketApp[R1, E1]): SocketApp[R1, E1] = SocketApp.Concat(self, other)
 
-  def asResponse: Response[R, E] = Response.SocketResponse(self)
+  def asResponse: Response[R, E] = Response.socket(self)
 
   def config: SocketApp.SocketConfig[R, E] = {
     def loop(config: SocketApp[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] =
@@ -48,7 +48,12 @@ sealed trait SocketApp[-R, +E] { self =>
 
     loop(self, SocketConfig[R, E]())
   }
+  def isEmpty: Boolean                     = self match {
+    case Empty => true
+    case _     => false
+  }
 
+  def nonEmpty: Boolean = !isEmpty
 }
 
 object SocketApp {

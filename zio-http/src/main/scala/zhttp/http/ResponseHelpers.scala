@@ -1,10 +1,9 @@
 package zhttp.http
 
-import zhttp.http.HttpError.HTTPErrorWithCause
-import zhttp.http.Response.HttpResponse
-import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
-
 import java.io.{PrintWriter, StringWriter}
+
+import zhttp.http.HttpError.HTTPErrorWithCause
+import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 
 private[zhttp] trait ResponseHelpers {
   private val defaultStatus  = Status.OK
@@ -19,8 +18,8 @@ private[zhttp] trait ResponseHelpers {
     status: Status = defaultStatus,
     headers: List[Header] = defaultHeaders,
     content: HttpData[R, E] = HttpData.empty,
-  ): Response.HttpResponse[R, E] =
-    HttpResponse(status, headers, content)
+  ): Response[R, E] =
+    Response(status, headers, content)
 
   /**
    * Creates a new WebSocket Response
@@ -68,10 +67,10 @@ private[zhttp] trait ResponseHelpers {
 
   def status(status: Status): UResponse = http(status)
 
-  def temporaryRedirect(location: String): HttpResponse[Any, Nothing] =
-    HttpResponse(Status.TEMPORARY_REDIRECT, List(Header.location(location)), content = HttpData.empty)
+  def temporaryRedirect(location: String): Response[Any, Nothing] =
+    Response(Status.TEMPORARY_REDIRECT, List(Header.location(location)), data = HttpData.empty)
 
-  def permanentRedirect(location: String): HttpResponse[Any, Nothing] =
-    HttpResponse(Status.PERMANENT_REDIRECT, List(Header.location(location)), content = HttpData.empty)
+  def permanentRedirect(location: String): Response[Any, Nothing] =
+    Response(Status.PERMANENT_REDIRECT, List(Header.location(location)), data = HttpData.empty)
 
 }

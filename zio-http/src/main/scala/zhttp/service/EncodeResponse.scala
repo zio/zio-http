@@ -13,7 +13,7 @@ trait EncodeResponse {
   /**
    * Encode the [[zhttp.http.UHttpResponse]] to [io.netty.handler.codec.http.FullHttpResponse]
    */
-  def encodeResponse[R, E](jVersion: HttpVersion, res: Response.HttpResponse[R, E]): DefaultHttpResponse = {
+  def encodeResponse[R, E](jVersion: HttpVersion, res: Response[R, E]): DefaultHttpResponse = {
     val jHttpHeaders =
       res.headers.foldLeft[HttpHeaders](new DefaultHttpHeaders()) { (jh, hh) =>
         jh.add(hh.name, hh.value)
@@ -21,7 +21,7 @@ trait EncodeResponse {
     jHttpHeaders.set(HttpHeaderNames.SERVER, SERVER_NAME)
     jHttpHeaders.set(HttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
     val jStatus      = res.status.toJHttpStatus
-    res.content match {
+    res.data match {
       case HttpData.Text(text, _)       => jHttpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, text.length)
       case HttpData.BinaryChunk(data)   => jHttpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, data.length)
       case HttpData.BinaryByteBuf(data) =>
