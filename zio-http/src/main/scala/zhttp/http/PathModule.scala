@@ -1,5 +1,7 @@
 package zhttp.http
 
+import scala.annotation.tailrec
+
 private[zhttp] trait PathModule { module =>
   sealed trait Path { self =>
     def asString: String
@@ -8,6 +10,30 @@ private[zhttp] trait PathModule { module =>
     def append(name: String): Path = if (name.isEmpty) self else Path.Cons(name, self)
     def toList: List[String]
     def reverse: Path              = Path(toList.reverse)
+    def last: Option[String]       = self match {
+      case Path.End           => None
+      case Path.Cons(name, _) => Option(name)
+    }
+    def initial: Path              = self match {
+      case Path.End           => self
+      case Path.Cons(_, path) => path
+    }
+    def isEnd: Boolean             = self match {
+      case Path.End        => true
+      case Path.Cons(_, _) => false
+    }
+    override def toString: String  = this.asString
+
+    @tailrec
+    final def startsWith(other: Path): Boolean = {
+      if (self == other) true
+      else
+        (self, other) match {
+          case (/(p1, _), p2) => p1.startsWith(p2)
+          case _              => false
+
+        }
+    }
   }
 
   object Path {
