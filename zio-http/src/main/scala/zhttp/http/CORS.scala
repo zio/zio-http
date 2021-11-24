@@ -84,7 +84,6 @@ object CORS {
               Http.fromFunction[Response[R, E]] {
                 case r: Response[R, E] =>
                   r.copy(headers = r.headers ++ corsHeaders(origin, req.method))
-                case null => null
               }
           case _                                                     => httpApp
         }
