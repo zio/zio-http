@@ -262,14 +262,15 @@ trait HttpMessageAssertions {
 
     def getRequestContent[R1 <: R, A](
       content: List[String] = List("A", "B", "C", "D"),
-    ): ZIO[R1 with EventLoopGroup, Throwable, HttpData[Any,Nothing]] =
+    ): ZIO[R1 with EventLoopGroup, Throwable, HttpData[Any, Nothing]] =
       for {
-        p    <- Promise.make[Throwable, HttpData[Any,Nothing]]
+        p    <- Promise.make[Throwable, HttpData[Any, Nothing]]
         c    <- HttpAppClient.deploy {
           Http.fromPartialFunction[Request] { req =>
             for {
               res <- app(req)
-              _   <- req.getBody
+              httpData = req.getBody
+              _ <- p.succeed(httpData)
             } yield res
           }
         }

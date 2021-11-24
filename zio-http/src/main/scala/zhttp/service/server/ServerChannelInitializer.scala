@@ -2,7 +2,12 @@ package zhttp.service.server
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{Channel, ChannelInitializer}
-import io.netty.handler.codec.http.{HttpServerCodec, HttpServerExpectContinueHandler, HttpServerKeepAliveHandler}
+import io.netty.handler.codec.http.{
+  HttpObjectAggregator,
+  HttpServerCodec,
+  HttpServerExpectContinueHandler,
+  HttpServerKeepAliveHandler,
+}
 import io.netty.handler.flow.FlowControlHandler
 import zhttp.http.Http.HttpAppSyntax
 import zhttp.service.Server.Config
@@ -43,6 +48,8 @@ final case class ServerChannelInitializer[R](
     // Required because HttpObjectDecoder fires an HttpRequest that is immediately followed by a LastHttpContent event.
     // For reference: https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html
     if (cfg.flowControl) pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
+
+    pipeline.addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
 
     // RequestHandler
     // Always add ZIO Http Request Handler

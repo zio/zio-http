@@ -4,22 +4,28 @@ import io.netty.channel.ChannelHandlerContext
 
 import java.net.{InetAddress, InetSocketAddress}
 
-final case class Request(method: Method= Method.GET, url: URL= URL.root, headers: List[Header]= List.empty, data: HttpData[Any, Nothing] = HttpData.empty, private val channelContext: ChannelHandlerContext = null) extends HeaderExtension[Request] { self =>
+final case class Request(
+  method: Method = Method.GET,
+  url: URL = URL.root,
+  headers: List[Header] = List.empty,
+  data: HttpData[Any, Nothing] = HttpData.empty,
+  private val channelContext: ChannelHandlerContext = null,
+) extends HeaderExtension[Request] { self =>
 
   /**
    * Decodes the content of the request using the provided ContentDecoder
    */
-  def getBody: HttpData[Any,Nothing] = data
+  def getBody: HttpData[Any, Nothing] = data
 
   /**
    * Decodes the content of request as string
    */
   def getBodyAsString: Option[String] = data match {
-    case HttpData.Text(text, _) => Option(text)
-    case HttpData.BinaryChunk(data) => Option(new String(data.toArray, getCharset.getOrElse(HTTP_CHARSET)))
+    case HttpData.Text(text, _)       => Option(text)
+    case HttpData.BinaryChunk(data)   => Option(new String(data.toArray, getCharset.getOrElse(HTTP_CHARSET)))
     case HttpData.BinaryByteBuf(data) => Option(data.toString(getCharset.getOrElse(HTTP_CHARSET)))
-    case HttpData.BinaryStream(_) =>None
-    case HttpData.Empty => None
+    case HttpData.BinaryStream(_)     => None
+    case HttpData.Empty               => None
   }
 
   /**
@@ -36,7 +42,6 @@ final case class Request(method: Method= Method.GET, url: URL= URL.root, headers
    * Gets the request's path
    */
   def path: Path = url.path
-
 
   /**
    * Updates the headers using the provided function
@@ -56,20 +61,19 @@ final case class Request(method: Method= Method.GET, url: URL= URL.root, headers
 
 object Request {
 
-
   /**
    * Lift request to TypedRequest with option to extract params
    */
   final class ParameterizedRequest[A](req: Request, val params: A) {
-     def getBody[R, B]: HttpData[Any,Nothing] = req.getBody
+    def getBody[R, B]: HttpData[Any, Nothing] = req.getBody
 
-     def getHeaders: List[Header] = req.getHeaders
+    def getHeaders: List[Header] = req.getHeaders
 
-     def method: Method = req.method
+    def method: Method = req.method
 
-     def remoteAddress: Option[InetAddress] = req.remoteAddress
+    def remoteAddress: Option[InetAddress] = req.remoteAddress
 
-     def url: URL = req.url
+    def url: URL = req.url
   }
 
   object ParameterizedRequest {

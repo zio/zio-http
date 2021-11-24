@@ -16,17 +16,18 @@ private[zhttp] final case class Handler[R](
   config: Server.Config[R, Throwable],
   serverTime: ServerTimeGenerator,
 ) extends SimpleChannelInboundHandler[FullHttpRequest](AUTO_RELEASE_REQUEST)
-    with WebSocketUpgrade[R] with HttpMessageCodec { self =>
+    with WebSocketUpgrade[R]
+    with HttpMessageCodec { self =>
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpRequest): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
     decodeJRequest(msg, ctx) match {
-      case Left(err) => unsafeWriteAndFlushErrorResponse(err)
+      case Left(err)  => unsafeWriteAndFlushErrorResponse(err)
       case Right(req) => unsafeRun(app, req)
     }
   }
 
-  private val notFoundResponse: HttpResponse                            = {
+  private val notFoundResponse: HttpResponse = {
     val response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
     response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0)
     response
