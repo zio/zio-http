@@ -112,11 +112,6 @@ object HttpGen {
         )
     } yield cnt
 
-  def header: Gen[Random with Sized, Header] = for {
-    key   <- Gen.alphaNumericStringBounded(1, 4)
-    value <- Gen.alphaNumericStringBounded(1, 4)
-  } yield Header(key, value)
-
   def cookies: Gen[Random with Sized, Cookie] = for {
     name     <- Gen.anyString
     content  <- Gen.anyString
