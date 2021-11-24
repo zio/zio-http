@@ -8,8 +8,8 @@ import io.netty.handler.codec.http.{
   HttpServerExpectContinueHandler,
   HttpServerKeepAliveHandler,
 }
-import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.flow.FlowControlHandler
+import io.netty.handler.flush.FlushConsolidationHandler
 import zhttp.service.Server.Config
 import zhttp.service._
 
