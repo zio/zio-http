@@ -1,64 +1,63 @@
 package zhttp
 
-import zhttp.http.HttpData.CompleteData
-import zhttp.http.Response.HttpResponse
+import zhttp.http.Status._
 import zhttp.http._
+import zhttp.internal.{AllApis, IntegrationTestAssertions, IntegrationTestExtensions}
 import zhttp.service._
-import zio._
+import zhttp.service.server.ServerChannelFactory
 import zio.duration._
-import zio.test.Assertion._
-import zio.test.TestAspect.timeout
+import zio._
+import zio.test.TestAspect._
 import zio.test._
 
-object IntegrationSpec extends DefaultRunnableSpec {
-  import IntegrationSpecHelper._
+object IntegrationSpec
+    extends DefaultRunnableSpec
+    with AllApis
+    with IntegrationTestExtensions
+    with IntegrationTestAssertions {
+  def server = Server.port(port) ++ Server.app(app)
+  def env    = EventLoopGroup
+    .auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto ++ zio.clock.Clock.live ++ zio.blocking.Blocking.live
 
   def spec = suite("IntegrationSpec")(
-    ApiSpec,
-  ).provideCustomLayer(env) @@ timeout(10 seconds)
+    StatusCodeSpec,
+  ).provideCustomLayer(env) @@ timeout(30 seconds)
 
-  def ApiSpec = suite("ApiSpec") {
-    testM("200 ok on /") {
-      val zResponse = Client.request(baseAddr)
-      assertM(zResponse.map(_.headerRemoved("date")))(
-        equalTo(
-          HttpResponse(
-            Status.OK,
-            List(Header.custom("server", "ZIO-Http"), Header.custom("content-length", "0")),
-            CompleteData(Chunk.empty),
-          ),
-        ),
-      )
+  def StatusCodeSpec = suite("StatusCodeSpec") {
+    testM("200 ok on /[GET]") {
+      val zResponse = Client.request((Method.GET, "/".url))
+      assertM(zResponse.getStatus)(status(OK))
     } +
-      testM("201 created on /post") {
-        val url       = URL(Path.apply(), URL.Location.Absolute(Scheme.HTTP, addr, port))
-        val zResponse = Client.request((Method.POST, url))
-        assertM(zResponse.map(_.headerRemoved("date")))(
-          equalTo(
-            HttpResponse(
-              Status.CREATED,
-              List(Header.custom("server", "ZIO-Http"), Header.custom("content-length", "0")),
-              CompleteData(Chunk.empty),
-            ),
-          ),
-        )
+      testM("201 created on /[POST]") {
+        val zResponse = Client.request((Method.POST, "/".url))
+        assertM(zResponse.getStatus)(status(CREATED))
+      } +
+      testM("204 no content ok on /[PUT]") {
+        val zResponse = Client.request((Method.PUT, "/".url))
+        assertM(zResponse.getStatus)(status(NO_CONTENT))
+      } +
+      testM("204 no content ok on /[DELETE]") {
+        val zResponse = Client.request((Method.DELETE, "/".url))
+        assertM(zResponse.getStatus)(status(NO_CONTENT))
+      } +
+      testM("404 on a random route") {
+        checkM(Gen.int(1, 2).flatMap(Gen.stringN(_)(Gen.alphaNumericChar))) { randomUrl =>
+          val zResponse = Client.request((Method.GET, randomUrl.url))
+          assertM(zResponse.getStatus)(status(NOT_FOUND))
+        }
       } +
       testM("400 bad request on /subscriptions without the connection upgrade header") {
-        val zResponse = Client.request(s"${baseAddr}/subscriptions")
-        assertM(zResponse)(
-          equalTo(
-            HttpResponse(
-              Status.BAD_REQUEST,
-              List(Header.custom("connection", "close"), Header.custom("content-length", "50")),
-              CompleteData("not a WebSocket handshake request: missing upgrade".toChunk),
-            ),
-          ),
-        )
+        val zResponse = Client.request((Method.GET, "/subscriptions".url))
+        assertM(zResponse.getStatus)(status(BAD_REQUEST))
       } +
       testM("500 internal server error on /boom") {
-        val zResponse = Client.request(s"${baseAddr}/boom")
-        assertM(zResponse.map(_.status))(equalTo(Status.INTERNAL_SERVER_ERROR))
-      }
+        val zResponse = Client.request((Method.GET, "/boom".url))
+        assertM(zResponse.getStatus)(status(INTERNAL_SERVER_ERROR))
+      } +
+      testM("200 ok on Stream file") {
+        val zResponse = Client.request((Method.GET, "/stream/file".url))
+        assertM(zResponse.getStatus)(status(OK))
+      } @@ ignore
   }
 
   Runtime.default.unsafeRun(server.make.useForever.provideSomeLayer(env).forkDaemon)
