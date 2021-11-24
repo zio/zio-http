@@ -217,6 +217,10 @@ jobs:
     env:
       GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
     steps:
+      - name: Clean up
+        id: clean_up
+        run: sudo rm -rf *
+
       - uses: actions/checkout@v2
         with:
           path: zio-http
@@ -243,7 +247,3 @@ jobs:
              **${{steps.result.outputs.concurrency_result}}** 
              **${{steps.result.outputs.request_result}}**
           check_for_duplicate_msg: false
-
-      - name: Clean up
-        id: clean_up
-        run: sudo rm -rf *
