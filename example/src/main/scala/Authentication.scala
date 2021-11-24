@@ -27,13 +27,12 @@ object Authentication extends App {
   // Takes in a Failing HttpApp and a Succeed HttpApp which are called based on Authentication success or failure
   // For each request tries to read the `X-ACCESS-TOKEN` header
   // Validates JWT Claim
-  def authenticate[R, E](fail: HttpApp[R, E], success: JwtClaim => HttpApp[R, E]): HttpApp[R, E] = Http.flatten {
+  def authenticate[R, E](fail: HttpApp[R, E], success: JwtClaim => HttpApp[R, E]): HttpApp[R, E] =
     HttpApp.fromFunction {
       _.getHeader("X-ACCESS-TOKEN")
         .flatMap(header => jwtDecode(header.value.toString))
         .fold[HttpApp[R, E]](fail)(success)
     }
-  }
 
   // Http app that requires a JWT claim
   def user(claim: JwtClaim): UHttpApp = Http.collect {
