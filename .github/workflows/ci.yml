@@ -204,3 +204,46 @@ jobs:
       - name: Push Codecov
         id: push_codecov
         run: 'bash <(curl -s https://codecov.io/bash)'
+
+  runBenchMarks:
+    name: Benchmarks
+    if: ${{ github.event_name == 'push'}}
+    strategy:
+      matrix:
+        os: [centos]
+        scala: [2.13.4]
+        java: [adopt@1.8]
+    runs-on: [ "${{ matrix.os }}", zio-http ]
+    env:
+      GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+
+      - uses: actions/checkout@v2
+        with:
+          repository: dream11/FrameworkBenchmarks
+          path: FrameworkBenchMarks
+
+      - id: result
+        run: |
+          cd ./FrameworkBenchMarks
+          sed -i "s/---COMMIT_SHA---/${GITHUB_SHA}/g" frameworks/Scala/zio-http/build.sbt
+          ./tfb  --test zio-http | tee result
+          RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")
+          RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+")
+          echo ::set-output name=request_result::$(echo $RESULT_REQUEST)
+          echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)
+
+      - uses: unsplash/comment-on-pr@v1.3.0
+        with:
+          msg: |
+            ## 🚀🚀🚀 Benchmark Results 
+             **${{steps.result.outputs.concurrency_result}}** 
+             **${{steps.result.outputs.request_result}}**
+          check_for_duplicate_msg: false
+
+      - name: Clean up
+        id: clean_up
+        run: sudo rm -rf *
