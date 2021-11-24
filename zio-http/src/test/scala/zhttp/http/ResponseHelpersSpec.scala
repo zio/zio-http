@@ -3,7 +3,7 @@ package zhttp.http
 import zio.test.Assertion._
 import zio.test.{assert, _}
 
-object ResponseHelpersSpec {
+object ResponseHelpersSpec extends DefaultRunnableSpec {
   val redirectSpec = {
     val location = "www.google.com"
     suite("redirectSpec")(
@@ -18,7 +18,7 @@ object ResponseHelpersSpec {
           assert(x.getHeaders)(contains(Header.location(location)))
         } +
         test("Permanent redirect should produce a response with a PERMANENT_REDIRECT") {
-          val x = Response.redirect(location)
+          val x = Response.redirect(location, true)
           assert(x.status)(equalTo(Status.PERMANENT_REDIRECT))
         } +
         test("Permanent redirect should produce a response with a location") {
