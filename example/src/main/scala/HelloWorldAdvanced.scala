@@ -15,7 +15,7 @@ object HelloWorldAdvanced extends App {
   }
 
   private val app = HttpApp.collectM {
-    case Method.GET -> !! / "random" => random.nextString(10).map(Response.text)
+    case Method.GET -> !! / "random" => random.nextString(10).map(a => Response.text(a))
     case Method.GET -> !! / "utc"    => clock.currentDateTime.map(s => Response.text(s.toString))
   }
 

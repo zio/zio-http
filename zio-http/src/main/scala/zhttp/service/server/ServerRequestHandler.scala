@@ -65,6 +65,7 @@ final case class ServerRequestHandler[R](
       ctx.write(encodeResponse(jReq.protocolVersion(), res), ctx.channel().voidPromise())
       releaseOrIgnore(jReq)
       if (self.canSwitchProtocol(res)) {
+        println("switching protocol")
         self.initializeSwitch(ctx, res)
         self.switchProtocol(ctx, jReq)
       } else {

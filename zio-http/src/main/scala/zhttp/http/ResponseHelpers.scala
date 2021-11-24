@@ -1,9 +1,9 @@
 package zhttp.http
 
-import java.io.{PrintWriter, StringWriter}
-
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
+
+import java.io.{PrintWriter, StringWriter}
 
 private[zhttp] trait ResponseHelpers {
   private val defaultStatus  = Status.OK

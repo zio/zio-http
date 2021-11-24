@@ -1,12 +1,12 @@
 package zhttp.http
 
-import java.io.{PrintWriter, StringWriter}
-import java.nio.charset.Charset
-
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
+
+import java.io.{PrintWriter, StringWriter}
+import java.nio.charset.Charset
 
 final case class Response[-R, +E] private (
   status: Status,
