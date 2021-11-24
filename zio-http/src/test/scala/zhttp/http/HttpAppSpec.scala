@@ -26,7 +26,6 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       RequestSpec,
       EchoStreamingResponseSpec,
       IllegalMessageSpec,
-      ContentDecoderSpec,
       RemoteAddressSpec,
     ).provideCustomLayer(env) @@ timeout(10 seconds)
 
@@ -186,37 +185,6 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       val program = HttpAppClient.deploy(HttpApp.empty).flatMap(_.write("ILLEGAL_MESSAGE").either)
       assertM(program)(isLeft(equalTo(InvalidMessage("ILLEGAL_MESSAGE"))))
     },
-  )
-
-  def ContentDecoderSpec = suite("ContentDecoder")(
-    testM("status is 200") {
-      val res = Http.collect[Request] { case _ => Ok }.getResponse
-      assertM(res)(isResponse(responseStatus(200)))
-    } +
-      testM("text") {
-        val content = Http
-          .collect[Request] { case _ => Ok }
-          .getRequestContent(ContentDecoder.text)
-
-        assertM(content)(equalTo("ABCD"))
-      } +
-      testM("text (twice)") {
-        val content = Http
-          .collectM[Request] { case req => req.getBody(ContentDecoder.text).as(Ok) }
-          .getRequestContent(ContentDecoder.text)
-          .either
-
-        assertM(content)(isLeft(equalTo(ContentDecoder.Error.ContentDecodedOnce)))
-      } +
-      testM("custom") {
-        val content = Http
-          .collect[Request] { case _ => Ok }
-          .getRequestContent(ContentDecoder.collect(Chunk[Byte]()) { case (a, b, isLast, _, _, _) =>
-            ZIO((if (isLast) Option(b ++ a) else None, b ++ a))
-          })
-          .map(chunk => new String(chunk.toArray))
-        assertM(content)(equalTo("ABCD"))
-      },
   )
 
   def RemoteAddressSpec = suite("RemoteAddressSpec") {
