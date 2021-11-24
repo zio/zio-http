@@ -22,8 +22,11 @@ final case class Request(
     getHeaderValue(HttpHeaderNames.CONTENT_TYPE).map(HttpUtil.getCharset(_, HTTP_CHARSET))
 
   def getBodyAsString: Option[String] = content match {
-    case HttpData.CompleteData(data) => Option(new String(data.toArray, getCharset.getOrElse(HTTP_CHARSET)))
-    case _                           => Option.empty
+    case HttpData.Text(text, _)       => Option(text)
+    case HttpData.BinaryChunk(data)   => Option(new String(data.toArray, getCharset.getOrElse(HTTP_CHARSET)))
+    case HttpData.BinaryByteBuf(data) => Option(data.toString(getCharset.getOrElse(HTTP_CHARSET)))
+    case HttpData.BinaryStream(_)     => Option.empty
+    case HttpData.Empty               => Option.empty
   }
 
   def remoteAddress: Option[InetAddress] = {
