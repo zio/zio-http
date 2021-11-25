@@ -45,15 +45,4 @@ trait WebSocketUpgrade[R] { self: ChannelHandler =>
       .remove(self)
     ctx.channel().eventLoop().submit(() => ctx.fireChannelRead(jReq)): Unit
   }
-
-//  private def toFull(jReq: HttpRequest): FullHttpRequest = {
-//    new DefaultFullHttpRequest(
-//      jReq.protocolVersion(),
-//      jReq.method(),
-//      jReq.uri(),
-//      Unpooled.EMPTY_BUFFER,
-//      jReq.headers(),
-//      EmptyHttpHeaders.INSTANCE,
-//    )
-//  }
 }

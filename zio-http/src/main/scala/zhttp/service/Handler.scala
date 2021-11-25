@@ -1,6 +1,6 @@
 package zhttp.service
 
-import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
@@ -8,7 +8,9 @@ import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
 import zio.stream.ZStream
-import zio.{UIO, ZIO}
+import zio.{Chunk, UIO, ZIO}
+
+import java.net.InetSocketAddress
 
 private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
@@ -21,7 +23,18 @@ private[zhttp] final case class Handler[R](
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpRequest): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
-    decodeJRequest(msg, ctx) match {
+    (for {
+      url <- URL.fromString(msg.uri())
+      method        = Method.fromHttpMethod(msg.method())
+      headers       = Header.make(msg.headers())
+      data          = Chunk.fromArray(ByteBufUtil.getBytes(msg.content()))
+      remoteAddress = {
+        if (ctx != null && ctx.channel().remoteAddress().isInstanceOf[InetSocketAddress])
+          Some(ctx.channel().remoteAddress().asInstanceOf[InetSocketAddress].getAddress)
+        else
+          None
+      }
+    } yield Request(method, url, headers, remoteAddress, data)) match {
       case Left(err)  => unsafeWriteAndFlushErrorResponse(err)
       case Right(req) => unsafeRun(app, req, msg)
     }

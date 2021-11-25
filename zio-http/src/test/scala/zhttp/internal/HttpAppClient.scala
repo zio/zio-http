@@ -123,23 +123,23 @@ object HttpAppClient {
     @volatile
     private var pendingRead: Boolean = false
 
-//    /**
-//     * Asserts if the function has been called within the same thread.
-//     */
-//    def assertThread(name: String): Unit = {
-//      val cThread = Thread.currentThread()
-//      assert(
-//        cThread == allowedThread,
-//        s"'${name}' was called from ${cThread.getName()}. Expected thread was: ${allowedThread.getName()}",
-//      )
-//    }
+    /**
+     * Asserts if the function has been called within the same thread.
+     */
+    def assertThread(name: String): Unit = {
+      val cThread = Thread.currentThread()
+      assert(
+        cThread == allowedThread,
+        s"'${name}' was called from ${cThread.getName()}. Expected thread was: ${allowedThread.getName()}",
+      )
+    }
 
     /**
      * Schedules a `writeInbound` operation on the channel using the provided group. This is done to make sure that all
      * the execution of HttpApp happens in the same thread.
      */
     def writeM(msg: => AnyRef): Task[Unit] = Task {
-//      assertThread("writeM")
+      assertThread("writeM")
 
       val autoRead = self.config().isAutoRead
 
@@ -167,7 +167,7 @@ object HttpAppClient {
      * HttpApp.
      */
     override def handleOutboundMessage(msg: AnyRef): Unit = {
-//      assertThread("handleOutboundMessage")
+      assertThread("handleOutboundMessage")
       rtm
         .unsafeRunAsync(outbound.offer(msg.asInstanceOf[HttpObject])) {
           case Exit.Failure(cause) => System.err.println(cause.prettyPrint)
@@ -179,7 +179,7 @@ object HttpAppClient {
      * Called whenever `ctx.read()` is called from withing the HttpApp
      */
     override def doBeginRead(): Unit = {
-//      assertThread("doBeginRead")
+      assertThread("doBeginRead")
       val msg = self.readInbound[HttpObject]()
       if (msg == null) {
         self.pendingRead = true
@@ -206,7 +206,7 @@ object HttpAppClient {
       // `rtm.unsafeRunAsync_` needs to execute in a single threaded env only.
       // Otherwise, it is possible to have messages being inserted out of order.
       grtm = rtm.withExecutor(Executor.fromExecutionContext(2048)(ec))
-      zExec    <- HttpRuntime.default[R]()
+      zExec    <- HttpRuntime.dedicated[R](group)
       outbound <- MessageQueue.default[HttpObject]
       inbound  <- MessageQueue.default[HttpObject]
       _        <- ZIO.effectSuspendTotal(threadRef.succeed(Thread.currentThread())).on(ec)
