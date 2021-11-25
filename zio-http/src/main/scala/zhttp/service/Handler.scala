@@ -23,7 +23,7 @@ private[zhttp] final case class Handler[R](
     implicit val iCtx: ChannelHandlerContext = ctx
     decodeJRequest(msg, ctx) match {
       case Left(err)  => unsafeWriteAndFlushErrorResponse(err)
-      case Right(req) => unsafeRun(app, req)
+      case Right(req) => unsafeRun(app, req, msg)
     }
   }
 
@@ -71,6 +71,7 @@ private[zhttp] final case class Handler[R](
   private def unsafeRun[A](
     http: Http[R, Throwable, A, Response[R, Throwable]],
     a: A,
+    msg: FullHttpRequest,
   )(implicit ctx: ChannelHandlerContext): Unit = {
     http.execute(a).evaluate match {
       case HExit.Effect(resM) =>
@@ -81,7 +82,8 @@ private[zhttp] final case class Handler[R](
               case None        => UIO(unsafeWriteAndFlushEmptyResponse())
             },
             res =>
-              if (self.canSwitchProtocol(res)) UIO(self.initializeSwitch(ctx, res))
+              if (self.canSwitchProtocol(res))
+                UIO(self.initializeSwitch(ctx, res)) *> UIO(self.switchProtocol(ctx, msg))
               else {
                 for {
                   _ <- UIO(unsafeWriteAnyResponse(res))
@@ -108,6 +110,7 @@ private[zhttp] final case class Handler[R](
       case HExit.Success(res) =>
         if (self.canSwitchProtocol(res)) {
           self.initializeSwitch(ctx, res)
+          self.switchProtocol(ctx, msg)
         } else {
           unsafeWriteAnyResponse(res)
 

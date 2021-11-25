@@ -1,6 +1,5 @@
 package zhttp.service.server
 
-import io.netty.buffer.Unpooled
 import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
@@ -37,24 +36,24 @@ trait WebSocketUpgrade[R] { self: ChannelHandler =>
   /**
    * Switches the protocol to websocket
    */
-  def switchProtocol(ctx: ChannelHandlerContext, jReq: HttpRequest): Unit = {
+  def switchProtocol(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
     ctx
       .channel()
       .pipeline()
       .addLast(new WebSocketServerProtocolHandler(app.config.protocol.javaConfig))
       .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(runtime, app.config))
       .remove(self)
-    ctx.channel().eventLoop().submit(() => ctx.fireChannelRead(toFull(jReq))): Unit
+    ctx.channel().eventLoop().submit(() => ctx.fireChannelRead(jReq)): Unit
   }
 
-  private def toFull(jReq: HttpRequest): FullHttpRequest = {
-    new DefaultFullHttpRequest(
-      jReq.protocolVersion(),
-      jReq.method(),
-      jReq.uri(),
-      Unpooled.EMPTY_BUFFER,
-      jReq.headers(),
-      EmptyHttpHeaders.INSTANCE,
-    )
-  }
+//  private def toFull(jReq: HttpRequest): FullHttpRequest = {
+//    new DefaultFullHttpRequest(
+//      jReq.protocolVersion(),
+//      jReq.method(),
+//      jReq.uri(),
+//      Unpooled.EMPTY_BUFFER,
+//      jReq.headers(),
+//      EmptyHttpHeaders.INSTANCE,
+//    )
+//  }
 }
