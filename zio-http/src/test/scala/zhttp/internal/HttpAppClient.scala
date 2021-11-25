@@ -166,7 +166,7 @@ object HttpAppClient {
      * HttpApp.
      */
     override def handleOutboundMessage(msg: AnyRef): Unit = {
-//      assertThread("handleOutboundMessage")
+      assertThread("handleOutboundMessage")
       rtm
         .unsafeRunAsync(outbound.offer(msg.asInstanceOf[HttpObject])) {
           case Exit.Failure(cause) => System.err.println(cause.prettyPrint)
@@ -182,7 +182,6 @@ object HttpAppClient {
     self.readInbound[HttpObject]()
       ()
     }
-
   }
 
   def deploy[R](
@@ -201,7 +200,7 @@ object HttpAppClient {
       // `rtm.unsafeRunAsync_` needs to execute in a single threaded env only.
       // Otherwise, it is possible to have messages being inserted out of order.
       grtm = rtm.withExecutor(Executor.fromExecutionContext(2048)(ec))
-      zExec    <- HttpRuntime.default[R]()
+      zExec    <- HttpRuntime.dedicated[R](group)
       outbound <- MessageQueue.default[HttpObject]
       inbound  <- MessageQueue.default[HttpObject]
       _        <- ZIO.effectSuspendTotal(threadRef.succeed(Thread.currentThread())).on(ec)
