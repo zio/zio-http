@@ -81,9 +81,9 @@ private[zhttp] final case class Handler[R](
   /**
    * Executes http apps
    */
-  private def unsafeRun[A](
-    http: Http[R, Throwable, A, Response[R, Throwable]],
-    a: A,
+  private def unsafeRun(
+    http: Http[R, Throwable, Request, Response[R, Throwable]],
+    a: Request,
     msg: FullHttpRequest,
   )(implicit ctx: ChannelHandlerContext): Unit = {
     http.execute(a).evaluate match {
