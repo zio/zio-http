@@ -1,12 +1,11 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{HttpMethod, HttpResponse}
-import zhttp.http.HttpApp.InvalidMessage
-import zhttp.internal.{HttpAppClient, HttpMessageAssertions}
+import zhttp.internal.HttpMessageAssertions
 import zhttp.service.EventLoopGroup
 import zio.duration._
 import zio.stream.ZStream
-import zio.test.Assertion.{equalTo, isLeft, isNone}
+import zio.test.Assertion.{equalTo, isNone}
 import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test.{DefaultRunnableSpec, assertM}
 import zio.{Chunk, UIO, ZIO}
@@ -25,7 +24,6 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       FailSpec,
       RequestSpec,
       EchoStreamingResponseSpec,
-      IllegalMessageSpec,
       RemoteAddressSpec,
     ).provideCustomLayer(env) @@ timeout(10 seconds)
 
@@ -176,16 +174,6 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         } @@ nonFlaky
     }
   }
-
-  /**
-   * Captures scenarios when an invalid message is sent to the HttpApp.
-   */
-  def IllegalMessageSpec = suite("IllegalMessage")(
-    testM("throws exception") {
-      val program = HttpAppClient.deploy(HttpApp.empty).flatMap(_.write("ILLEGAL_MESSAGE").either)
-      assertM(program)(isLeft(equalTo(InvalidMessage("ILLEGAL_MESSAGE"))))
-    },
-  )
 
   def RemoteAddressSpec = suite("RemoteAddressSpec") {
     testM("remoteAddress") {

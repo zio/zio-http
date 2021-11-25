@@ -170,7 +170,7 @@ object HttpAppClient {
       rtm
         .unsafeRunAsync(outbound.offer(msg.asInstanceOf[HttpObject])) {
           case Exit.Failure(cause) => System.err.println(cause.prettyPrint)
-          case _ => ()
+          case _                   => ()
         }
     }
 
@@ -179,7 +179,7 @@ object HttpAppClient {
      */
     override def doBeginRead(): Unit = {
 //            assertThread("doBeginRead")
-    self.readInbound[HttpObject]()
+      self.readInbound[HttpObject]()
       ()
     }
   }
