@@ -8,7 +8,7 @@ import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
 import zio.stream.ZStream
-import zio.{Chunk, UIO, ZIO}
+import zio.{UIO, ZIO}
 
 private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
@@ -100,7 +100,7 @@ private[zhttp] final case class Handler[R](
                       UIO(unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize)))
 
                     case HttpData.BinaryStream(stream) =>
-                      writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
+                      writeStreamContent(stream)
                   }
                 } yield ()
               },
@@ -128,7 +128,7 @@ private[zhttp] final case class Handler[R](
               unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
 
             case HttpData.BinaryStream(stream) =>
-              unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
+              unsafeRunZIO(writeStreamContent(stream))
           }
         }
 
@@ -183,23 +183,11 @@ private[zhttp] final case class Handler[R](
   /**
    * Writes Binary Stream data to the Channel
    */
-  private def writeStreamContent[A](stream: ZStream[R, Throwable, ByteBuf])(implicit ctx: ChannelHandlerContext) = {
-    stream.process.map { pull =>
-      def loop: ZIO[R, Throwable, Unit] = pull
-        .foldM(
-          {
-            case None        => UIO(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, ctx.voidPromise())).unit
-            case Some(error) => ZIO.fail(error)
-          },
-          chunks =>
-            for {
-              _ <- ZIO.foreach_(chunks)(buf => UIO(ctx.write(new DefaultHttpContent(buf), ctx.voidPromise())))
-              _ <- UIO(ctx.flush())
-              _ <- loop
-            } yield (),
-        )
-
-      loop
-    }.useNow.flatten
+  private def writeStreamContent[A](stream: ZStream[R, Throwable, Byte])(implicit ctx: ChannelHandlerContext) = {
+    for {
+      _ <- stream.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(Unpooled.copiedBuffer(c.toArray))))
+      _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
+    } yield ()
   }
+
 }
