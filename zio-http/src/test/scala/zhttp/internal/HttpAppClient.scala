@@ -29,7 +29,9 @@ case class HttpAppClient(outbound: MessageQueue[HttpObject], channel: ProxyChann
     headers: HttpHeaders = EmptyHttpHeaders.INSTANCE,
     version: HttpVersion = HttpVersion.HTTP_1_1,
   ): Task[Unit] = {
-    channel.writeM(new DefaultHttpRequest(version, method, url, headers))
+    val httpRequest = new DefaultFullHttpRequest(version, method, url)
+    httpRequest.headers().add(headers)
+    channel.writeM(httpRequest)
   }
 
   def writeText(text: String, isLast: Boolean = false): Task[Unit] = {
@@ -39,7 +41,8 @@ case class HttpAppClient(outbound: MessageQueue[HttpObject], channel: ProxyChann
       channel.writeM(new DefaultHttpContent(Unpooled.copiedBuffer(text.getBytes(CharsetUtil.UTF_8))))
   }
 
-  def data(iter: String*): Task[Unit] = data(iter)
+  def data(iter: String*): Task[Unit] =
+    data(iter)
 
   def data(iter: Iterable[String]): Task[Unit] = {
     ZIO.foreach(iter)(writeText(_)).as(())
@@ -120,36 +123,32 @@ object HttpAppClient {
     rtm: zio.Runtime[Any],
     allowedThread: Thread,
   ) extends EmbeddedChannel() { self =>
-    @volatile
-    private var pendingRead: Boolean = false
 
-//    /**
-//     * Asserts if the function has been called within the same thread.
-//     */
-//    def assertThread(name: String): Unit = {
-//      val cThread = Thread.currentThread()
-//      assert(
-//        cThread == allowedThread,
-//        s"'${name}' was called from ${cThread.getName()}. Expected thread was: ${allowedThread.getName()}",
-//      )
-//    }
+    /**
+     * Asserts if the function has been called within the same thread.
+     */
+    def assertThread(name: String): Unit = {
+      val cThread = Thread.currentThread()
+      assert(
+        cThread == allowedThread,
+        s"'${name}' was called from ${cThread.getName()}. Expected thread was: ${allowedThread.getName()}",
+      )
+    }
 
     /**
      * Schedules a `writeInbound` operation on the channel using the provided group. This is done to make sure that all
      * the execution of HttpApp happens in the same thread.
      */
     def writeM(msg: => AnyRef): Task[Unit] = Task {
-//      assertThread("writeM")
+      //      assertThread("writeM")
 
       val autoRead = self.config().isAutoRead
-
-      if (autoRead || pendingRead) {
+      if (autoRead) {
 
         // Calls to `writeInbound()` internally triggers `fireChannelRead()`
         // Which can call `ctx.read()` within the channel handler.
         // `ctx.read` can set the pendingRead flag to true, which should be carried forwarded.
         // So `pendingRead` should be set to false before `writeInbound` is called.
-        self.pendingRead = false
 
         // Triggers `fireChannelRead` on the channel handler.
         self.writeInbound(msg): Unit
@@ -167,11 +166,11 @@ object HttpAppClient {
      * HttpApp.
      */
     override def handleOutboundMessage(msg: AnyRef): Unit = {
-//      assertThread("handleOutboundMessage")
+      assertThread("handleOutboundMessage")
       rtm
         .unsafeRunAsync(outbound.offer(msg.asInstanceOf[HttpObject])) {
           case Exit.Failure(cause) => System.err.println(cause.prettyPrint)
-          case _                   => ()
+          case _ => ()
         }
     }
 
@@ -179,15 +178,11 @@ object HttpAppClient {
      * Called whenever `ctx.read()` is called from withing the HttpApp
      */
     override def doBeginRead(): Unit = {
-//      assertThread("doBeginRead")
-      val msg = self.readInbound[HttpObject]()
-      if (msg == null) {
-        self.pendingRead = true
-      } else {
-        self.writeInbound(msg): Unit
-        self.pendingRead = false
-      }
+            assertThread("doBeginRead")
+    self.readInbound[HttpObject]()
+      ()
     }
+
   }
 
   def deploy[R](
