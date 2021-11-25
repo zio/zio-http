@@ -166,7 +166,7 @@ object HttpAppClient {
      * HttpApp.
      */
     override def handleOutboundMessage(msg: AnyRef): Unit = {
-      assertThread("handleOutboundMessage")
+//      assertThread("handleOutboundMessage")
       rtm
         .unsafeRunAsync(outbound.offer(msg.asInstanceOf[HttpObject])) {
           case Exit.Failure(cause) => System.err.println(cause.prettyPrint)
@@ -178,7 +178,7 @@ object HttpAppClient {
      * Called whenever `ctx.read()` is called from withing the HttpApp
      */
     override def doBeginRead(): Unit = {
-            assertThread("doBeginRead")
+//            assertThread("doBeginRead")
     self.readInbound[HttpObject]()
       ()
     }
