@@ -81,9 +81,8 @@ object CORS {
             )
           case (_, Some(origin), _) if allowCORS(origin, req.method) =>
             httpApp >>>
-              Http.fromFunction[Response[R, E]] {
-                case r: Response[R, E] =>
-                  r.copy(headers = r.headers ++ corsHeaders(origin, req.method))
+              Http.fromFunction[Response[R, E]] { case r: Response[R, E] =>
+                r.copy(headers = r.headers ++ corsHeaders(origin, req.method))
               }
           case _                                                     => httpApp
         }
