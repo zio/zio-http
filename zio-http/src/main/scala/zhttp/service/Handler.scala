@@ -18,8 +18,7 @@ private[zhttp] final case class Handler[R](
   config: Server.Config[R, Throwable],
   serverTime: ServerTimeGenerator,
 ) extends SimpleChannelInboundHandler[FullHttpRequest](AUTO_RELEASE_REQUEST)
-    with WebSocketUpgrade[R]
-    with HttpMessageCodec { self =>
+    with WebSocketUpgrade[R]{ self =>
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpRequest): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx

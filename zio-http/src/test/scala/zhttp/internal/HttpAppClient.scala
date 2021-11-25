@@ -120,7 +120,6 @@ object HttpAppClient {
     rtm: zio.Runtime[Any],
     allowedThread: Thread,
   ) extends EmbeddedChannel() { self =>
-    @volatile
     private var pendingRead: Boolean = false
 
     /**
