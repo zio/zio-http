@@ -197,7 +197,9 @@ private[zhttp] final case class Handler[R](
    */
   private def writeStreamContent[A](stream: ZStream[R, Throwable, Byte])(implicit ctx: ChannelHandlerContext) = {
     for {
-      _ <- stream.foreachChunk(c => ChannelFuture.unit(ctx.writeAndFlush(Unpooled.copiedBuffer(c.toArray))))
+      _ <- stream.foreachChunk(c =>
+        ChannelFuture.unit((ctx.writeAndFlush(new DefaultHttpContent(Unpooled.copiedBuffer(c.toArray))))),
+      )
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
   }
