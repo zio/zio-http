@@ -91,6 +91,6 @@ object BuildHelper extends ScalaSettings {
     incOptions ~= (_.withLogRecompileOnMacro(false)),
     autoAPIMappings                        := true,
     ThisBuild / javaOptions                := Seq("-Dio.netty.leakDetectionLevel=paranoid"),
-    ThisBuild / fork / test                := true,
+    ThisBuild / fork                       := true,
   )
 }
