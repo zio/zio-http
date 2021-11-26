@@ -113,7 +113,7 @@ object Server {
     for {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
-      zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
+      zExec          <- HttpRuntime.default[R].toManaged_
       init            = ServerChannelInitializer(zExec, settings, ServerTimeGenerator.make)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.address))
