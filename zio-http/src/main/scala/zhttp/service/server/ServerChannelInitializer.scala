@@ -49,6 +49,7 @@ final case class ServerChannelInitializer[R](
     // For reference: https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html
     if (cfg.flowControl) pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
 
+    // Object Aggregator aggregates httpRequest Objects into FullHttpRequest. It also sets a content-length header for every request
     pipeline.addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
 
     // RequestHandler

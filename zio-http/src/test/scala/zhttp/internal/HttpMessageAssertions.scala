@@ -262,7 +262,7 @@ trait HttpMessageAssertions {
 
     def getRequestContent[R1 <: R, A](
       content: List[String] = List("A", "B", "C", "D"),
-    ): ZIO[R1 with EventLoopGroup, Throwable, Chunk[Byte]] =
+    ): ZIO[R1 with EventLoopGroup, Throwable, String] =
       for {
         p    <- Promise.make[Throwable, Chunk[Byte]]
         c    <- HttpAppClient.deploy {
@@ -275,7 +275,7 @@ trait HttpMessageAssertions {
         }
         _    <- c.request()
         _    <- c.end(content)
-        data <- p.await
+        data <- p.await.map(cb => new String(cb.toArray, HTTP_CHARSET))
       } yield data
 
     def getResponse: ZIO[R with EventLoopGroup, Throwable, HttpResponse] = getResponse()
