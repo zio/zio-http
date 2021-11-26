@@ -270,7 +270,7 @@ trait HttpMessageAssertions {
           Http.fromPartialFunction[Request] { req =>
             for {
               res <- app(req)
-              _   <- req.getBody(decoder).to(p)
+              _   <- req.decodeBodyContent(decoder).to(p)
             } yield res
           }
         }

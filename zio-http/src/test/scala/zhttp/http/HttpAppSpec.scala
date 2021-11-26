@@ -202,7 +202,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       } +
       testM("text (twice)") {
         val content = Http
-          .collectM[Request] { case req => req.getBody(ContentDecoder.text).as(Ok) }
+          .collectM[Request] { case req => req.decodeBodyContent(ContentDecoder.text).as(Ok) }
           .getRequestContent(ContentDecoder.text)
           .either
 

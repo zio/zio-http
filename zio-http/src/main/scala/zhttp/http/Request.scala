@@ -19,22 +19,22 @@ trait Request extends HeaderExtension[Request] { self =>
       override def remoteAddress: Option[InetAddress] =
         self.remoteAddress
 
-      override def getBody[R, B](
+      override def decodeBodyContent[R, B](
         decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
       ): ZIO[R, Throwable, B] =
-        self.getBody(decoder)
+        self.decodeBodyContent(decoder)
     }
   }
 
   /**
    * Decodes the content of the request using the provided ContentDecoder
    */
-  def getBody[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B]
+  def decodeBodyContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B]
 
   /**
    * Decodes the content of request as string
    */
-  def getBodyAsString: ZIO[Any, Throwable, String] = getBody(ContentDecoder.text)
+  def getBodyAsString: ZIO[Any, Throwable, String] = decodeBodyContent(ContentDecoder.text)
 
   /**
    * Gets all the headers in the Request
@@ -93,7 +93,7 @@ object Request {
       override def url: URL                           = u
       override def getHeaders: List[Header]           = h
       override def remoteAddress: Option[InetAddress] = ra
-      override def getBody[R, B](
+      override def decodeBodyContent[R, B](
         decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
       ): ZIO[R, Throwable, B] =
         decoder.decode(data, method, url, headers)
@@ -119,10 +119,10 @@ object Request {
    * Lift request to TypedRequest with option to extract params
    */
   final class ParameterizedRequest[A](req: Request, val params: A) extends Request {
-    override def getBody[R, B](
+    override def decodeBodyContent[R, B](
       decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
     ): ZIO[R, Throwable, B] =
-      req.getBody(decoder)
+      req.decodeBodyContent(decoder)
 
     override def getHeaders: List[Header] = req.getHeaders
 

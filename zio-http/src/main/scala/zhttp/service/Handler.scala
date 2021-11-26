@@ -31,7 +31,7 @@ private[zhttp] final case class Handler[R](
         ctx.channel().config().setAutoRead(false)
         self.jReq = jRequest
         self.request = new Request {
-          override def getBody[R0, B](
+          override def decodeBodyContent[R0, B](
             decoder: ContentDecoder[R0, Throwable, Chunk[Byte], B],
           ): ZIO[R0, Throwable, B] =
             ZIO.effectSuspendTotal {
