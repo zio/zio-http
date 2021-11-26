@@ -1,14 +1,14 @@
 package zhttp.internal
 
 import zhttp.http._
+import zio.console.Console
+import zio.{Ref, UIO, ZIO, ZLayer}
 
 import java.util.UUID
-import zio.{Ref, UIO, ZIO, ZLayer}
-import zio.console.Console
 
 object AppCollection {
 
-  def add(app: HttpApp[HttpEnv, Throwable]): ZIO[HttpAppCollection, Nothing, String] =
+  def deploy(app: HttpApp[HttpEnv, Throwable]): ZIO[HttpAppCollection, Nothing, String] =
     ZIO.accessM[HttpAppCollection](_.get.add(app))
 
   def app: HttpApp[HttpEnv, Throwable] = Http

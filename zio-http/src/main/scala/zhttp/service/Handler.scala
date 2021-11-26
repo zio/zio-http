@@ -17,7 +17,7 @@ private[zhttp] final case class Handler[R](
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
   serverTime: ServerTimeGenerator,
-) extends SimpleChannelInboundHandler[FullHttpRequest](AUTO_RELEASE_REQUEST)
+) extends SimpleChannelInboundHandler[FullHttpRequest](true)
     with WebSocketUpgrade[R] { self =>
 
   override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
@@ -67,6 +67,13 @@ private[zhttp] final case class Handler[R](
     new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
   }
 
+  /**
+   * Releases the FullHttpRequest safely.
+   */
+  private def releaseRequest(jReq: FullHttpRequest): Unit = {
+    jReq.release(jReq.refCnt()): Unit
+  }
+
   private def serverErrorResponse(cause: Throwable): HttpResponse = {
     val content  = cause.toString
     val response = new DefaultFullHttpResponse(
@@ -98,10 +105,13 @@ private[zhttp] final case class Handler[R](
               if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
               else {
                 for {
-                  _ <- UIO(unsafeWriteAnyResponse(res))
+                  _ <- UIO { unsafeWriteAnyResponse(res) }
                   _ <- res.data match {
                     case HttpData.Empty =>
-                      UIO(unsafeWriteAndFlushLastEmptyContent())
+                      UIO {
+                        unsafeWriteAndFlushLastEmptyContent()
+                        releaseRequest(jReq)
+                      }
 
                     case data @ HttpData.Text(_, _) =>
                       UIO(unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize)))
@@ -124,6 +134,7 @@ private[zhttp] final case class Handler[R](
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
           unsafeWriteAnyResponse(res)
+          releaseRequest(jReq)
 
           res.data match {
             case HttpData.Empty =>
@@ -160,35 +171,35 @@ private[zhttp] final case class Handler[R](
    * Writes not found error response to the Channel
    */
   private def unsafeWriteAndFlushEmptyResponse()(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(notFoundResponse, ctx.voidPromise()): Unit
+    ctx.writeAndFlush(notFoundResponse): Unit
   }
 
   /**
    * Writes error response to the Channel
    */
   private def unsafeWriteAndFlushErrorResponse(cause: Throwable)(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(serverErrorResponse(cause), ctx.voidPromise()): Unit
+    ctx.writeAndFlush(serverErrorResponse(cause)): Unit
   }
 
   /**
    * Writes last empty content to the Channel
    */
   private def unsafeWriteAndFlushLastEmptyContent()(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, ctx.voidPromise()): Unit
+    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
   }
 
   /**
    * Writes any response to the Channel
    */
   private def unsafeWriteAnyResponse[A](res: Response[R, Throwable])(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.write(decodeResponse(res), ctx.voidPromise()): Unit
+    ctx.write(decodeResponse(res)): Unit
   }
 
   /**
    * Writes ByteBuf data to the Channel
    */
   private def unsafeWriteLastContent[A](data: ByteBuf)(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(new DefaultLastHttpContent(data), ctx.voidPromise()): Unit
+    ctx.writeAndFlush(new DefaultLastHttpContent(data)): Unit
   }
 
   /**

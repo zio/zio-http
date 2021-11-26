@@ -90,6 +90,6 @@ object HttpRuntime {
   def dedicated[R](group: JEventLoopGroup): URIO[R, HttpRuntime[R]] =
     Strategy.dedicated(group).map(runtime => new HttpRuntime[R](runtime))
 
-   def default[R]: URIO[R, HttpRuntime[R]] =
+  def default[R]: URIO[R, HttpRuntime[R]] =
     Strategy.default().map(runtime => new HttpRuntime[R](runtime))
 }
