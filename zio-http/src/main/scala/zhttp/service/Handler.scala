@@ -17,7 +17,7 @@ private[zhttp] final case class Handler[R](
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
   serverTime: ServerTimeGenerator,
-) extends SimpleChannelInboundHandler[FullHttpRequest](true)
+) extends SimpleChannelInboundHandler[FullHttpRequest](false)
     with WebSocketUpgrade[R] { self =>
 
   override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
@@ -157,6 +157,7 @@ private[zhttp] final case class Handler[R](
       case HExit.Failure(e) => unsafeWriteAndFlushErrorResponse(e)
       case HExit.Empty      => unsafeWriteAndFlushEmptyResponse()
     }
+    releaseRequest(jReq)
   }
 
   /**
@@ -210,12 +211,12 @@ private[zhttp] final case class Handler[R](
       def loop: ZIO[R, Throwable, Unit] = pull
         .foldM(
           {
-            case None        => UIO(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, ctx.voidPromise())).unit
+            case None        => UIO(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)).unit
             case Some(error) => ZIO.fail(error)
           },
           chunks =>
             for {
-              _ <- ZIO.foreach_(chunks)(buf => UIO(ctx.write(new DefaultHttpContent(buf), ctx.voidPromise())))
+              _ <- ZIO.foreach_(chunks)(buf => UIO(ctx.write(new DefaultHttpContent(buf))))
               _ <- UIO(ctx.flush())
               _ <- loop
             } yield (),

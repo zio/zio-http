@@ -6,7 +6,7 @@ import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test.assertM
 
 object ServerSpec extends HttpRunnableSpec(8088) {
@@ -43,12 +43,16 @@ object ServerSpec extends HttpRunnableSpec(8088) {
     testM("status is 200") {
       val status = HttpApp.ok.requestStatus()
       assertM(status)(equalTo(Status.OK))
-    }
+    } @@ nonFlaky +
+      testM("status is 404") {
+        val status = HttpApp.empty.requestStatus()
+        assertM(status)(equalTo(Status.NOT_FOUND))
+      }
   }
 
   override def spec = {
     suiteM("Server")(app.as(List(dynamicAppSpec, staticAppSpec)).useNow).provideCustomLayerShared(env) @@ timeout(
-      Int.MaxValue seconds,
+      10 seconds,
     )
   }
 }

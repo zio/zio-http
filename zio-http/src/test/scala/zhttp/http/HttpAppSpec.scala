@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.{HttpMethod, HttpResponse}
+import io.netty.handler.codec.http.HttpMethod
 import zhttp.http.HttpApp.InvalidMessage
 import zhttp.internal.{HttpAppClient, HttpMessageAssertions}
 import zhttp.service.EventLoopGroup
@@ -8,7 +8,7 @@ import zio.duration._
 import zio.stream.ZStream
 import zio.test.Assertion.{equalTo, isLeft, isNone}
 import zio.test.TestAspect.{nonFlaky, timeout}
-import zio.test.{DefaultRunnableSpec, assertM}
+import zio.test.{assertM, DefaultRunnableSpec}
 import zio.{Chunk, UIO, ZIO}
 
 /**
@@ -39,12 +39,11 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
         assertM(res)(isResponse(responseStatus(200)))
       } +
         testM("status is 500") {
-          val res: ZIO[Any with EventLoopGroup, Throwable, HttpResponse] =
-            (Http.fromEffect(ZIO.fail(new Error("SERVER ERROR")))).getResponse
+          val res = Http.fromEffect(ZIO.fail(new Error("SERVER ERROR"))).getResponse
           assertM(res)(isResponse(responseStatus(500)))
         } +
         testM("status is 404") {
-          val res = (Http.empty.contramap[Request](i => i)).getResponse
+          val res = Http.empty.contramap[Request](i => i).getResponse
           assertM(res)(isResponse(responseStatus(404)))
         } +
         testM("status is 200 in collectM") {

@@ -16,6 +16,7 @@ trait DecodeJResponse {
     val status  = Status.fromHttpResponseStatus(jRes.status())
     val headers = Header.parse(jRes.headers())
     val content = Chunk.fromArray(ByteBufUtil.getBytes(jRes.content()))
+    jRes.release(jRes.refCnt())
     Client.ClientResponse(status, headers, content)
   }.toEither
 }
