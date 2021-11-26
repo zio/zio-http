@@ -77,7 +77,21 @@ object ServerSpec extends HttpRunnableSpec(8088) {
           } +
           testM("header is set") {
             val res = app.request().map(_.getHeaderValue("Content-Length"))
-            assertM(res)(isSome(equalTo("29")))
+            assertM(res)(isSome(anything))
+          }
+      } +
+      suite("echo content") {
+        val app = HttpApp.collectM { case req =>
+          req.getBodyAsString.map(text => Response.text(text))
+        }
+
+        testM("status is 200") {
+          val res = app.requestStatus()
+          assertM(res)(equalTo(Status.OK))
+        } +
+          testM("body is ok") {
+            val res = app.requestBodyAsString(content = "ABC")
+            assertM(res)(equalTo("ABC"))
           }
       }
   }

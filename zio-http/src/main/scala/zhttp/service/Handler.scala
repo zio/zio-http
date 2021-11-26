@@ -5,6 +5,7 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
+import zhttp.core.Util
 import zhttp.http._
 import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
 import zio.stream.ZStream
@@ -77,7 +78,7 @@ private[zhttp] final case class Handler[R](
   }
 
   private def serverErrorResponse(cause: Throwable): HttpResponse = {
-    val content  = cause.toString
+    val content  = Util.prettyPrintHtml(cause)
     val response = new DefaultFullHttpResponse(
       HTTP_1_1,
       INTERNAL_SERVER_ERROR,
@@ -100,8 +101,16 @@ private[zhttp] final case class Handler[R](
         unsafeRunZIO {
           resM.foldM(
             {
-              case Some(cause) => UIO(unsafeWriteAndFlushErrorResponse(cause))
-              case None        => UIO(unsafeWriteAndFlushEmptyResponse())
+              case Some(cause) =>
+                UIO {
+                  unsafeWriteAndFlushErrorResponse(cause)
+                  releaseRequest(jReq)
+                }
+              case None        =>
+                UIO {
+                  unsafeWriteAndFlushEmptyResponse()
+                  releaseRequest(jReq)
+                }
             },
             res =>
               if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
@@ -112,20 +121,27 @@ private[zhttp] final case class Handler[R](
                     case HttpData.Empty =>
                       UIO {
                         unsafeWriteAndFlushLastEmptyContent()
-                        releaseRequest(jReq)
                       }
 
                     case data @ HttpData.Text(_, _) =>
-                      UIO(unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize)))
+                      UIO {
+                        unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+                      }
 
-                    case HttpData.BinaryByteBuf(data) => UIO(unsafeWriteLastContent(data))
+                    case HttpData.BinaryByteBuf(data) =>
+                      UIO {
+                        unsafeWriteLastContent(data)
+                      }
 
                     case data @ HttpData.BinaryChunk(_) =>
-                      UIO(unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize)))
+                      UIO {
+                        unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+                      }
 
                     case HttpData.BinaryStream(stream) =>
                       writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
                   }
+                  _ <- Task(releaseRequest(jReq))
                 } yield ()
               },
           )
@@ -136,30 +152,40 @@ private[zhttp] final case class Handler[R](
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
           unsafeWriteAnyResponse(res)
-          releaseRequest(jReq)
 
           res.data match {
             case HttpData.Empty =>
               unsafeWriteAndFlushLastEmptyContent()
+              releaseRequest(jReq)
 
             case data @ HttpData.Text(_, _) =>
               unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+              releaseRequest(jReq)
 
             case HttpData.BinaryByteBuf(data) =>
               unsafeWriteLastContent(data)
+              releaseRequest(jReq)
 
             case data @ HttpData.BinaryChunk(_) =>
               unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+              releaseRequest(jReq)
 
             case HttpData.BinaryStream(stream) =>
-              unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
+              unsafeRunZIO(
+                writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))) *>
+                  Task(releaseRequest(jReq)),
+              )
           }
         }
 
-      case HExit.Failure(e) => unsafeWriteAndFlushErrorResponse(e)
-      case HExit.Empty      => unsafeWriteAndFlushEmptyResponse()
+      case HExit.Failure(e) =>
+        unsafeWriteAndFlushErrorResponse(e)
+        releaseRequest(jReq)
+      case HExit.Empty      =>
+        unsafeWriteAndFlushEmptyResponse()
+        releaseRequest(jReq)
     }
-    releaseRequest(jReq)
+
   }
 
   /**

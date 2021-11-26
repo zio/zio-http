@@ -6,7 +6,7 @@ import zhttp.internal.AppCollection.HttpEnv
 import zhttp.internal.{AppCollection, HttpAppCollection}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.DefaultRunnableSpec
-import zio.{Chunk, Has, ZIO, ZManaged}
+import zio.{Has, ZIO, ZManaged}
 
 abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
   def serve[R <: Has[_]](
@@ -37,7 +37,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
     content: String = "",
     headers: List[Header] = Nil,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] = {
-    val data = HttpData.fromChunk(Chunk.fromArray(content.getBytes(HTTP_CHARSET)))
+    val data = HttpData.fromText(content)
     Client.request(
       Client.ClientParams(method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
       ClientSSLOptions.DefaultSSL,
