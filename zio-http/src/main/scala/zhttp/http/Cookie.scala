@@ -147,25 +147,46 @@ object Cookie {
     val (first, other)    = (cookieWithoutMeta.head, cookieWithoutMeta.tail)
     val (name, content)   = splitNameContent(first)
 
-    val cookie =
-      if (name.trim == "" && content.isEmpty) Option.empty[Cookie]
-      else Some(Cookie(name, content.getOrElse("")))
+    if (name.trim != "" || content.isDefined) {
+      var expires: Option[Instant]          = None
+      var maxAge: Option[Long]              = None
+      var domain: Option[String]            = None
+      var path: Option[Path]                = None
+      var secure: Boolean                   = false
+      var httpOnly: Boolean                 = false
+      var sameSite: Option[Cookie.SameSite] = None
 
-    other.map(splitNameContent).map(t => (t._1.toLowerCase, t._2)).foldLeft(cookie) {
-      case (Some(c), ("expires", Some(v)))  => parseDate(v).map(c.withExpiry(_))
-      case (Some(c), ("max-age", Some(v)))  => Try(v.toLong).toOption.map(c.withMaxAge(_))
-      case (Some(c), ("domain", v))         => Some(c.withDomain(v.getOrElse("")))
-      case (Some(c), ("path", v))           => Some(c.withPath(Path(v.getOrElse(""))))
-      case (Some(c), ("secure", _))         => Some(c.withSecure)
-      case (Some(c), ("httponly", _))       => Some(c.withHttpOnly)
-      case (Some(c), ("samesite", Some(v))) =>
-        v.trim.toLowerCase match {
-          case "lax"    => Some(c.withSameSite(SameSite.Lax))
-          case "strict" => Some(c.withSameSite(SameSite.Strict))
-          case "none"   => Some(c.withSameSite(SameSite.None))
-          case _        => Some(c)
-        }
-      case (c, _)                           => c
+      other.map(splitNameContent).map(n => (n._1.toLowerCase, n._2)).foreach {
+        case ("expires", Some(v))  => expires = parseDate(v)
+        case ("max-age", Some(v))  => maxAge = Try(v.toLong).toOption
+        case ("domain", v)         => domain = v
+        case ("path", v)           => path = v.map(Path(_))
+        case ("secure", _)         => secure = true
+        case ("httponly", _)       => httpOnly = true
+        case ("samesite", Some(v)) =>
+          v.trim.toLowerCase match {
+            case "lax"    => sameSite = Some(SameSite.Lax)
+            case "strict" => sameSite = Some(SameSite.Strict)
+            case "none"   => sameSite = Some(SameSite.None)
+            case _        => ()
+          }
+        case (_, _)                => ()
+      }
+      Some(
+        Cookie(
+          name = name,
+          content = content.getOrElse(""),
+          expires = expires,
+          maxAge = maxAge,
+          domain = domain,
+          path = path,
+          isSecure = secure,
+          isHttpOnly = httpOnly,
+          sameSite = sameSite,
+        ),
+      )
+    } else {
+      None
     }
   }
 
