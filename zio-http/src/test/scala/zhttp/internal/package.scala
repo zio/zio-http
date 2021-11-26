@@ -1,5 +1,7 @@
 package zhttp
 
+import zio.Has
+
 package object internal {
-  type HttpAppCollection = AppCollection.Service
+  type HttpAppCollection = Has[AppCollection.Service]
 }

@@ -3,52 +3,53 @@ package zhttp.internal
 import zhttp.http._
 
 import java.util.UUID
-import zio.{Has, Ref, UIO, ZIO, ZLayer}
+import zio.{console, Ref, UIO, ZIO, ZLayer}
+import zio.console.Console
 
 object AppCollection {
 
-  trait Service {
+  sealed trait Service {
     def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id]
     def get(id: Id): UIO[Option[HttpApp[HttpEnv, Throwable]]]
   }
 
-  type Id          = UUID
-  type HttpEnv     = HttpAppCollection
+  type Id          = String
+  type HttpEnv     = HttpAppCollection with Console
   type HttpAppTest = HttpApp[HttpEnv, Throwable]
 
-  case class Live(ref: Ref[Map[Id, HttpApp[HttpEnv, Throwable]]]) extends Service {
+  final class Live(ref: Ref[Map[Id, HttpApp[HttpEnv, Throwable]]]) extends Service {
     def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id]        = for {
-      id <- UIO(UUID.randomUUID())
+      id <- UIO(UUID.randomUUID().toString)
       _  <- ref.update(map => map + (id -> app))
     } yield id
     def get(id: Id): UIO[Option[HttpApp[HttpEnv, Throwable]]] = ref.get.map(_.get(id))
   }
 
-  def live: ZLayer[Any, Nothing, Has[Service]] = Ref
+  def live: ZLayer[Any, Nothing, HttpAppCollection] = Ref
     .make(Map.empty[Id, HttpApp[HttpEnv, Throwable]])
-    .map(ref => Live(ref))
+    .map(ref => new Live(ref))
     .toLayer
 
-  def add(app: HttpApp[HttpEnv, Throwable]): ZIO[HttpAppCollection, Nothing, Id] =
-    ZIO.accessM[HttpAppCollection](_.add(app))
+  def add(app: HttpApp[HttpEnv, Throwable]): ZIO[HttpAppCollection, Nothing, String] =
+    ZIO.accessM[HttpAppCollection](_.get.add(app))
 
   def get(id: Id): ZIO[HttpAppCollection, Nothing, Option[HttpApp[HttpEnv, Throwable]]] =
-    ZIO.accessM[HttpAppCollection](_.get(id))
+    ZIO.accessM[HttpAppCollection](_.get.get(id))
 
-  def app: HttpApp[HttpEnv, Throwable] = Http.fromPartialFunction[Request] {
-    case req @ _ -> uuid(id) /: path /: !! =>
+  val APP_ID = "X-APP_ID"
+
+  def app: HttpApp[HttpEnv, Throwable] = Http
+    .fromPartialFunction[Request] { case req =>
       for {
-        app <- get(id)
-        url <- URL.fromString(path) match {
-          case Left(_)      => ZIO.fail(Option(new Throwable(s"Invalid sub-path: ${path}")))
-          case Right(value) => UIO(value)
+        id  <- req.getHeaderValue(APP_ID) match {
+          case Some(id) => UIO(id)
+          case None     => ZIO.fail(None)
         }
+        app <- get(id)
         res <- app match {
-          case Some(app) => app(req.copy(url = url))
-          case None      => ZIO.fail(Option(new Throwable(s"Invalid app id ${id}")))
+          case Some(app) => app(req)
+          case None      => ZIO.fail(None)
         }
       } yield res
-
-    case _ => ZIO.fail(None)
-  }
+    }
 }
