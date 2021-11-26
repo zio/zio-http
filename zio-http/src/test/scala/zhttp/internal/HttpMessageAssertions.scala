@@ -260,17 +260,16 @@ trait HttpMessageAssertions {
         data <- p.await
       } yield data
 
-    def getRequestContent[R1 <: R, A](
-      decoder: ContentDecoder[R1, Throwable, Chunk[Byte], A],
+    def getRequestContent[R1 <: R](
       content: List[String] = List("A", "B", "C", "D"),
-    ): ZIO[R1 with EventLoopGroup, Throwable, A] =
+    ): ZIO[R1 with EventLoopGroup, Throwable, String] =
       for {
-        p    <- Promise.make[Throwable, A]
+        p    <- Promise.make[Throwable, String]
         c    <- HttpAppClient.deploy {
           Http.fromPartialFunction[Request] { req =>
             for {
               res <- app(req)
-              _   <- req.decodeBodyContent(decoder).to(p)
+              _   <- req.getBodyAsString.to(p)
             } yield res
           }
         }
