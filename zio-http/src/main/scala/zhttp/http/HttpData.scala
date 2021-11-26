@@ -2,7 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.{ByteBuf, Unpooled}
 import zio.stream.ZStream
-import zio.{Chunk, NeedsEnv, Task}
+import zio.{Chunk, NeedsEnv, UIO, ZIO}
 
 import java.nio.charset.Charset
 
@@ -52,7 +52,16 @@ sealed trait HttpData[-R, +E] { self =>
     case HttpData.BinaryStream(_)     => -1L
   }
 
-  def toByteBuf: Task[ByteBuf] = ???
+  def toByteBuf: ZIO[R, E, ByteBuf] = self match {
+    case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
+    case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
+    case HttpData.BinaryByteBuf(data)  => UIO(data)
+    case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
+    case HttpData.BinaryStream(stream) =>
+      stream
+        .mapChunks(chunks => Chunk(Unpooled.copiedBuffer(chunks.toArray)))
+        .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
+  }
 }
 
 object HttpData {
