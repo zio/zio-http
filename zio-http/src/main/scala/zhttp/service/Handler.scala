@@ -20,19 +20,16 @@ private[zhttp] final case class Handler[R](
 ) extends SimpleChannelInboundHandler[FullHttpRequest](AUTO_RELEASE_REQUEST)
     with WebSocketUpgrade[R] { self =>
 
-  override def channelRead0(ctx: ChannelHandlerContext, jRequest: FullHttpRequest): Unit = {
+  override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
-    // TODO: Unnecessary requirement
-    // `autoRead` is set when the channel is registered in the event loop.
-    // The explicit call here is added to make unit tests work properly
-    ctx.channel().config().setAutoRead(false)
     unsafeRun(
+      jReq,
       app,
       new Request {
-        override def method: Method                                 = Method.fromHttpMethod(jRequest.method())
-        override def url: URL                                       = URL.fromString(jRequest.uri()).getOrElse(null)
-        override def getHeaders: List[Header]                       = Header.make(jRequest.headers())
-        override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jRequest.content())
+        override def method: Method                                 = Method.fromHttpMethod(jReq.method())
+        override def url: URL                                       = URL.fromString(jReq.uri()).getOrElse(null)
+        override def getHeaders: List[Header]                       = Header.make(jReq.headers())
+        override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
         override def remoteAddress: Option[InetAddress]             = {
           ctx.channel().remoteAddress() match {
             case m: InetSocketAddress => Some(m.getAddress())
@@ -85,6 +82,7 @@ private[zhttp] final case class Handler[R](
    * Executes http apps
    */
   private def unsafeRun[A](
+    jReq: FullHttpRequest,
     http: Http[R, Throwable, A, Response[R, Throwable]],
     a: A,
   )(implicit ctx: ChannelHandlerContext): Unit = {
@@ -97,7 +95,7 @@ private[zhttp] final case class Handler[R](
               case None        => UIO(unsafeWriteAndFlushEmptyResponse())
             },
             res =>
-              if (self.canSwitchProtocol(res)) UIO(self.initializeSwitch(ctx, res))
+              if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
               else {
                 for {
                   _ <- UIO(unsafeWriteAnyResponse(res))
@@ -122,8 +120,8 @@ private[zhttp] final case class Handler[R](
         }
 
       case HExit.Success(res) =>
-        if (self.canSwitchProtocol(res)) {
-          self.initializeSwitch(ctx, res)
+        if (self.isWebSocket(res)) {
+          self.upgradeToWebSocket(ctx, jReq, res)
         } else {
           unsafeWriteAnyResponse(res)
 
