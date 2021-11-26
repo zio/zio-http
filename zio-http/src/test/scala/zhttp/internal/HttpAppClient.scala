@@ -140,7 +140,7 @@ object HttpAppClient {
      * the execution of HttpApp happens in the same thread.
      */
     def writeM(msg: => AnyRef): Task[Unit] = Task {
-      //      assertThread("writeM")
+      assertThread("writeM")
 
       val autoRead = self.config().isAutoRead
       if (autoRead) {
@@ -178,7 +178,7 @@ object HttpAppClient {
      * Called whenever `ctx.read()` is called from withing the HttpApp
      */
     override def doBeginRead(): Unit = {
-//            assertThread("doBeginRead")
+      assertThread("doBeginRead")
       self.readInbound[HttpObject]()
       ()
     }
