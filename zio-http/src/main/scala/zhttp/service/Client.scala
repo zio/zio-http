@@ -3,8 +3,8 @@ package zhttp.service
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{
   Channel,
-  ChannelFactory => JChannelFactory,
   ChannelHandlerContext,
+  ChannelFactory => JChannelFactory,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpVersion}
@@ -65,7 +65,7 @@ object Client {
   def make: ZIO[EventLoopGroup with ChannelFactory, Nothing, Client] = for {
     cf <- ZIO.access[ChannelFactory](_.get)
     el <- ZIO.access[EventLoopGroup](_.get)
-    zx <- HttpRuntime.default[Any]()
+    zx <- HttpRuntime.default[Any]
   } yield service.Client(zx, cf, el)
 
   def request(
