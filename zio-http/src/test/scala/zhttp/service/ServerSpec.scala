@@ -5,12 +5,12 @@ import zhttp.internal.AppCollection
 import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
-import zio.test.Assertion.{containsString, equalTo}
+import zio.test.Assertion._
 import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test.assertM
 
 object ServerSpec extends HttpRunnableSpec(8088) {
-  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto ++ AppCollection.live
+  val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
 
   val staticApp = HttpApp.collectM {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
@@ -40,29 +40,51 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   }
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
-    testM("status is 200") {
-      val status = HttpApp.ok.requestStatus()
-      assertM(status)(equalTo(Status.OK))
-    } @@ nonFlaky +
-      testM("status is 404") {
-        val status = HttpApp.empty.requestStatus()
-        assertM(status)(equalTo(Status.NOT_FOUND))
+    suite("success") {
+      testM("status is 200") {
+        val status = HttpApp.ok.requestStatus()
+        assertM(status)(equalTo(Status.OK))
+      } +
+        testM("status is 200") {
+          val res = HttpApp.text("ABC").requestStatus()
+          assertM(res)(equalTo(Status.OK))
+        } +
+        testM("content is set") {
+          val res = HttpApp.text("ABC").requestBodyAsString()
+          assertM(res)(containsString("ABC"))
+        }
+    } +
+      suite("not found") {
+        val app = HttpApp.empty
+        testM("status is 404") {
+          val res = app.requestStatus()
+          assertM(res)(equalTo(Status.NOT_FOUND))
+        } +
+          testM("header is set") {
+            val res = app.request().map(_.getHeaderValue("Content-Length"))
+            assertM(res)(isSome(equalTo("0")))
+          }
       } +
       suite("error") {
+        val app = HttpApp.fail(new Error("SERVER_ERROR"))
         testM("status is 500") {
-          val status = HttpApp.fail(new Error("SERVER_ERROR")).requestStatus()
-          assertM(status)(equalTo(Status.INTERNAL_SERVER_ERROR))
+          val res = app.requestStatus()
+          assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
         } +
           testM("content is set") {
-            val status = HttpApp.fail(new Error("SERVER_ERROR")).requestBodyAsString()
-            assertM(status)(containsString("SERVER_ERROR"))
+            val res = app.requestBodyAsString()
+            assertM(res)(containsString("SERVER_ERROR"))
+          } +
+          testM("header is set") {
+            val res = app.request().map(_.getHeaderValue("Content-Length"))
+            assertM(res)(isSome(equalTo("29")))
           }
       }
   }
 
   override def spec = {
-    suiteM("Server")(app.as(List(dynamicAppSpec, staticAppSpec)).useNow).provideCustomLayerShared(env) @@ timeout(
-      10 seconds,
-    )
+    suiteM("Server") {
+      app.as(List(staticAppSpec @@ nonFlaky, dynamicAppSpec @@ nonFlaky)).useNow
+    }.provideCustomLayerShared(env) @@ timeout(10 seconds)
   }
 }
