@@ -1,5 +1,4 @@
 import sbtghactions.GenerativePlugin.autoImport.{UseRef, WorkflowJob, WorkflowStep}
-import org.eclipse.jgit.lib.IndexDiff.WorkingTreeIteratorFactory
 
 object BenchmarkWorkFlow {
   def apply(): Seq[WorkflowJob] = Seq(
@@ -11,6 +10,11 @@ object BenchmarkWorkFlow {
       cond = Some("${{ github.event_name == 'push'}}"),
       env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
       steps = List(
+        WorkflowStep.Run(
+          id = Some("clean_up"),
+          name = Some("Clean up"),
+          commands = List("sudo rm -rf *"),
+        ),
         WorkflowStep.Use(
           UseRef.Public("actions", "checkout", s"v2"),
           Map(
@@ -42,11 +46,6 @@ object BenchmarkWorkFlow {
             "msg" -> "## \uD83D\uDE80\uD83D\uDE80\uD83D\uDE80 Benchmark Results \n **${{steps.result.outputs.concurrency_result}}** \n **${{steps.result.outputs.request_result}}**",
             "check_for_duplicate_msg" -> "false",
           ),
-        ),
-        WorkflowStep.Run(
-          id = Some("clean_up"),
-          name = Some("Clean up"),
-          commands = List("sudo rm -rf *"),
         ),
       ),
     ),
