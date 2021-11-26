@@ -20,28 +20,24 @@ object ServerSpec extends HttpRunnableSpec(8087) {
     }
   }
 
-  override def spec = suiteM("Server")(
-    app
-      .as(
-        List(
-          testM("200 response") {
-            val actual = status(!! / "success")
-            assertM(actual)(equalTo(Status.OK))
-          } +
-            testM("500 response") {
-              val actual = status(!! / "failure")
-              assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
-            } +
-            testM("404 response") {
-              val actual = status(!! / "random")
-              assertM(actual)(equalTo(Status.NOT_FOUND))
-            } +
-            testM("200 response with encoded path") {
-              val actual = status(!! / "get%2Fsuccess")
-              assertM(actual)(equalTo(Status.OK))
-            },
-        ),
-      )
-      .useNow,
-  ).provideCustomLayer(env) @@ timeout(10 seconds)
+  def serverSpec = testM("200 response") {
+    val actual = status(!! / "success")
+    assertM(actual)(equalTo(Status.OK))
+  } +
+    testM("500 response") {
+      val actual = status(!! / "failure")
+      assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
+    } +
+    testM("404 response") {
+      val actual = status(!! / "random")
+      assertM(actual)(equalTo(Status.NOT_FOUND))
+    } +
+    testM("200 response with encoded path") {
+      val actual = status(!! / "get%2Fsuccess")
+      assertM(actual)(equalTo(Status.OK))
+    }
+
+  override def spec = {
+    suiteM("Server")(app.as(List(serverSpec)).useNow).provideCustomLayer(env) @@ timeout(10 seconds)
+  }
 }
