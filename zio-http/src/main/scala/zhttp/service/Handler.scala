@@ -71,7 +71,9 @@ private[zhttp] final case class Handler[R](
    * Releases the FullHttpRequest safely.
    */
   private def releaseRequest(jReq: FullHttpRequest): Unit = {
-    jReq.release(jReq.refCnt()): Unit
+    if (jReq.refCnt() > 0) {
+      jReq.release(jReq.refCnt()): Unit
+    }
   }
 
   private def serverErrorResponse(cause: Throwable): HttpResponse = {

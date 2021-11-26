@@ -1,19 +1,24 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
-import io.netty.handler.codec.http.{FullHttpRequest, HttpVersion}
+import io.netty.channel.{
+  Channel,
+  ChannelFactory => JChannelFactory,
+  ChannelHandlerContext,
+  EventLoopGroup => JEventLoopGroup,
+}
+import io.netty.handler.codec.http.HttpVersion
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service
-import zhttp.service.Client.ClientResponse
+import zhttp.service.Client.{ClientParams, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
+import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler}
 import zio.{Chunk, Promise, Task, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
-final case class Client(zx: HttpRuntime[Any], cf: JChannelFactory[Channel], el: JEventLoopGroup)
+final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
   def request(
     request: Client.ClientParams,
@@ -21,20 +26,18 @@ final case class Client(zx: HttpRuntime[Any], cf: JChannelFactory[Channel], el: 
   ): Task[Client.ClientResponse] =
     for {
       promise <- Promise.make[Throwable, Client.ClientResponse]
-      jReq = encodeClientParams(HttpVersion.HTTP_1_1, request)
-      _   <- asyncRequest(request, jReq, promise, sslOption).catchAll(cause => promise.fail(cause)).forkDaemon
-      res <- promise.await
+      _       <- Task(asyncRequest(request, promise, sslOption)).catchAll(cause => promise.fail(cause))
+      res     <- promise.await
     } yield res
 
   private def asyncRequest(
-    req: Client.ClientParams,
-    jReq: FullHttpRequest,
+    req: ClientParams,
     promise: Promise[Throwable, ClientResponse],
     sslOption: ClientSSLOptions,
-  ): Task[Unit] =
-    ChannelFuture.unit {
-      val read   = ClientHttpChannelReader(jReq, promise)
-      val hand   = ClientInboundHandler(zx, read)
+  ): Unit = {
+    val jReq = encodeClientParams(HttpVersion.HTTP_1_1, req)
+    try {
+      val hand   = ClientInboundHandler(rtm, jReq, promise)
       val host   = req.url.host
       val port   = req.url.port.getOrElse(80) match {
         case -1   => 80
@@ -49,8 +52,14 @@ final case class Client(zx: HttpRuntime[Any], cf: JChannelFactory[Channel], el: 
       val jboo = new Bootstrap().channelFactory(cf).group(el).handler(init)
       if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
 
-      jboo.connect()
+      jboo.connect(): Unit
+    } catch {
+      case _: Throwable =>
+        if (jReq.refCnt() > 0) {
+          jReq.release(jReq.refCnt()): Unit
+        }
     }
+  }
 
 }
 
@@ -142,7 +151,7 @@ object Client {
   ) extends HeaderExtension[ClientParams] { self =>
     def getBodyAsString: Option[String] = content match {
       case HttpData.Text(text, _)       => Some(text)
-      case HttpData.BinaryChunk(data)   => Some((new String(data.toArray, HTTP_CHARSET)))
+      case HttpData.BinaryChunk(data)   => Some(new String(data.toArray, HTTP_CHARSET))
       case HttpData.BinaryByteBuf(data) => Some(data.toString(HTTP_CHARSET))
       case _                            => Option.empty
     }
