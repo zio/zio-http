@@ -2,10 +2,11 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
-import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpVersion}
+import io.netty.handler.codec.http.{FullHttpRequest, HttpVersion}
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service
+import zhttp.service.Client.ClientResponse
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientChannelInitializer, ClientHttpChannelReader, ClientInboundHandler}
 import zio.{Chunk, Promise, Task, ZIO}
@@ -14,10 +15,21 @@ import java.net.{InetAddress, InetSocketAddress}
 
 final case class Client(zx: HttpRuntime[Any], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
+  def request(
+    request: Client.ClientParams,
+    sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+  ): Task[Client.ClientResponse] =
+    for {
+      promise <- Promise.make[Throwable, Client.ClientResponse]
+      jReq = encodeClientParams(HttpVersion.HTTP_1_1, request)
+      _   <- asyncRequest(request, jReq, promise, sslOption).catchAll(cause => promise.fail(cause)).forkDaemon
+      res <- promise.await
+    } yield res
+
   private def asyncRequest(
     req: Client.ClientParams,
     jReq: FullHttpRequest,
-    promise: Promise[Throwable, FullHttpResponse],
+    promise: Promise[Throwable, ClientResponse],
     sslOption: ClientSSLOptions,
   ): Task[Unit] =
     ChannelFuture.unit {
@@ -40,23 +52,9 @@ final case class Client(zx: HttpRuntime[Any], cf: JChannelFactory[Channel], el: 
       jboo.connect()
     }
 
-  def request(
-    request: Client.ClientParams,
-    sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): Task[Client.ClientResponse] =
-    for {
-      promise <- Promise.make[Throwable, FullHttpResponse]
-      jReq = encodeClientParams(HttpVersion.HTTP_1_1, request)
-      _    <- asyncRequest(request, jReq, promise, sslOption).catchAll(cause => promise.fail(cause)).fork
-      jRes <- promise.await
-      res  <- ZIO.fromEither(decodeJResponse(jRes))
-    } yield res
-
 }
 
 object Client {
-  type Endpoint = (Method, URL)
-
   def make: ZIO[EventLoopGroup with ChannelFactory, Nothing, Client] = for {
     cf <- ZIO.access[ChannelFactory](_.get)
     el <- ZIO.access[EventLoopGroup](_.get)
@@ -134,15 +132,14 @@ object Client {
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     make.flatMap(_.request(req, sslOptions))
 
+  type Endpoint = (Method, URL)
+
   final case class ClientParams(
     endpoint: Endpoint,
     getHeaders: List[Header] = List.empty,
     content: HttpData[Any, Nothing] = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
   ) extends HeaderExtension[ClientParams] { self =>
-    val method: Method = endpoint._1
-    val url: URL       = endpoint._2
-
     def getBodyAsString: Option[String] = content match {
       case HttpData.Text(text, _)       => Some(text)
       case HttpData.BinaryChunk(data)   => Some((new String(data.toArray, HTTP_CHARSET)))
@@ -162,7 +159,17 @@ object Client {
      */
     override def updateHeaders(f: List[Header] => List[Header]): ClientParams =
       self.copy(getHeaders = f(self.getHeaders))
+
+    val method: Method = endpoint._1
+    val url: URL       = endpoint._2
   }
 
   final case class ClientResponse(status: Status, headers: List[Header], content: Chunk[Byte])
+      extends HeaderExtension[ClientResponse] { self =>
+    def getBodyAsString: Task[String] = Task(new String(content.toArray, getCharset.getOrElse(HTTP_CHARSET)))
+
+    override def getHeaders: List[Header] = headers
+
+    override def updateHeaders(f: List[Header] => List[Header]): ClientResponse = self.copy(headers = f(headers))
+  }
 }
