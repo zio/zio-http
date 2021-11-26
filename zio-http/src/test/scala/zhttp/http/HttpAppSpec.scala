@@ -7,8 +7,8 @@ import zhttp.service.EventLoopGroup
 import zio.duration._
 import zio.stream.ZStream
 import zio.test.Assertion.{equalTo, isLeft, isNone}
-import zio.test.TestAspect.{nonFlaky, timeout}
-import zio.test.{assertM, DefaultRunnableSpec}
+import zio.test.TestAspect.{ignore, nonFlaky, timeout}
+import zio.test.{DefaultRunnableSpec, assertM}
 import zio.{Chunk, UIO, ZIO}
 
 /**
@@ -27,7 +27,7 @@ object HttpAppSpec extends DefaultRunnableSpec with HttpMessageAssertions {
       EchoStreamingResponseSpec,
       IllegalMessageSpec,
       RemoteAddressSpec,
-    ).provideCustomLayer(env) @@ timeout(10 seconds)
+    ).provideCustomLayer(env) @@ timeout(10 seconds) @@ ignore
 
   /**
    * Spec for asserting Request fields and behavior

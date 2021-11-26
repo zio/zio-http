@@ -5,7 +5,7 @@ import zhttp.internal.AppCollection
 import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
-import zio.test.Assertion.equalTo
+import zio.test.Assertion.{containsString, equalTo}
 import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test.assertM
 
@@ -47,6 +47,16 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       testM("status is 404") {
         val status = HttpApp.empty.requestStatus()
         assertM(status)(equalTo(Status.NOT_FOUND))
+      } +
+      suite("error") {
+        testM("status is 500") {
+          val status = HttpApp.fail(new Error("SERVER_ERROR")).requestStatus()
+          assertM(status)(equalTo(Status.INTERNAL_SERVER_ERROR))
+        } +
+          testM("content is set") {
+            val status = HttpApp.fail(new Error("SERVER_ERROR")).requestBodyAsString()
+            assertM(status)(containsString("SERVER_ERROR"))
+          }
       }
   }
 
