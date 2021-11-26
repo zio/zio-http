@@ -1,6 +1,6 @@
 package zhttp.service
 
-import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
+import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
@@ -8,7 +8,7 @@ import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
 import zio.stream.ZStream
-import zio.{Chunk, UIO, ZIO}
+import zio.{UIO, ZIO}
 
 import java.net.InetSocketAddress
 
@@ -26,7 +26,7 @@ private[zhttp] final case class Handler[R](
       url <- URL.fromString(msg.uri())
       method        = Method.fromHttpMethod(msg.method())
       headers       = Header.make(msg.headers())
-      data          = Chunk.fromArray(ByteBufUtil.getBytes(msg.content()))
+      data          = HttpData.fromByteBuf(msg.content())
       remoteAddress = {
         if (ctx != null && ctx.channel().remoteAddress().isInstanceOf[InetSocketAddress])
           Some(ctx.channel().remoteAddress().asInstanceOf[InetSocketAddress].getAddress)
