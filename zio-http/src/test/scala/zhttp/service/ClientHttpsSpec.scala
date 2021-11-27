@@ -4,8 +4,9 @@ import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http.Status
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zio.duration.durationInt
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
-import zio.test.TestAspect.flaky
+import zio.test.TestAspect.{flaky, timeout}
 import zio.test.assertM
 
 import java.io._
@@ -27,7 +28,7 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
 
   val sslOption: ClientSSLOptions =
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
-  override def spec               = suite("Https Client request")(
+  override def spec               = suite("Https Client request") {
     testM("respond Ok") {
       val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
       assertM(actual)(anything)
@@ -53,6 +54,6 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
           )
           .run
         assertM(actual)(fails(isSubtype[DecoderException](anything)))
-      } @@ flaky,
-  ).provideCustomLayer(env)
+      } @@ flaky
+  }.provideCustomLayer(env) @@ timeout(30 seconds)
 }
