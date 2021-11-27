@@ -43,7 +43,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
       ClientSSLOptions.DefaultSSL,
     )
   }
-
+  
   implicit class RunnableHttpAppSyntax(app: HttpApp[HttpEnv, Throwable]) {
     def deploy: ZIO[HttpAppCollection, Nothing, String] = AppCollection.deploy(app)
     def request(
@@ -71,5 +71,13 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
       headers: List[Header] = Nil,
     ): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, String] =
       request(path, method, content, headers).flatMap(_.getBodyAsString)
+
+    def requestHeaderValueByName(
+      path: Path = !!,
+      method: Method = Method.GET,
+      content: String = "",
+      headers: List[Header] = Nil,
+    )(name: CharSequence): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Option[String]] =
+      request(path, method, content, headers).map(_.getHeaderValue(name))
   }
 }
