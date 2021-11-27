@@ -7,7 +7,7 @@ import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.{anything, containsString, equalTo, isSome}
 import zio.test.TestAspect._
-import zio.test.{Gen, assertM, checkAllM}
+import zio.test.{assertM, checkAllM, Gen}
 
 object ServerSpec extends HttpRunnableSpec(8088) {
 
@@ -117,7 +117,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   }
 
   def requestSpec = suite("RequestSpec") {
-    val app = HttpApp.collect(req => Response.text(req.getContentLength.getOrElse(-1).toString))
+    val app = HttpApp.collect { case req => Response.text(req.getContentLength.getOrElse(-1).toString) }
     testM("has content-length") {
       checkAllM(Gen.alphaNumericString) { string =>
         val res = app.requestBodyAsString(content = string)
