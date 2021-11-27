@@ -112,7 +112,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         }
       } +
       testM("file-streaming") {
-        val path = getClass.getResource("/TestFile.txt").getPath
+        val path = getClass.getResource("/TestFile").getPath
         val res  = HttpApp.data(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
         assertM(res)(containsString("foo"))
       }
