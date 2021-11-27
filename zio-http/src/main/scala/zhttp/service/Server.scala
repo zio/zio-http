@@ -50,7 +50,7 @@ object Server {
     address: InetSocketAddress = new InetSocketAddress(8080),
     acceptContinue: Boolean = false,
     keepAlive: Boolean = false,
-    flowControl: Boolean = true,
+    flowControl: Boolean = false,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -114,7 +114,8 @@ object Server {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
       zExec          <- HttpRuntime.default[R].toManaged_
-      init            = ServerChannelInitializer(zExec, settings, ServerTimeGenerator.make)
+      reqHandler      = settings.app.compile(zExec, settings, ServerTimeGenerator.make)
+      init            = ServerChannelInitializer(zExec, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.address))
 

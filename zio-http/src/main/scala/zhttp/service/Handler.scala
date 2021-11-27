@@ -2,6 +2,7 @@ package zhttp.service
 
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.channel.ChannelHandler.Sharable
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
@@ -13,6 +14,7 @@ import zio.{Chunk, Task, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
+@Sharable
 private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
@@ -22,6 +24,7 @@ private[zhttp] final case class Handler[R](
     with WebSocketUpgrade[R] { self =>
 
   override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
+    jReq.touch("server.Handler-channelRead0")
     implicit val iCtx: ChannelHandlerContext = ctx
     unsafeRun(
       jReq,
@@ -41,7 +44,7 @@ private[zhttp] final case class Handler[R](
     )
   }
 
-  private val notFoundResponse: HttpResponse = {
+  private def notFoundResponse: HttpResponse = {
     val response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
     response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0)
     response

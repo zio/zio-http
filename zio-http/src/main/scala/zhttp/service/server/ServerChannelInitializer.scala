@@ -1,7 +1,7 @@
 package zhttp.service.server
 
 import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel.{Channel, ChannelInitializer}
+import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer}
 import io.netty.handler.codec.http.{
   HttpObjectAggregator,
   HttpServerCodec,
@@ -9,7 +9,6 @@ import io.netty.handler.codec.http.{
   HttpServerKeepAliveHandler,
 }
 import io.netty.handler.flow.FlowControlHandler
-import zhttp.http.Http.HttpAppSyntax
 import zhttp.service.Server.Config
 import zhttp.service._
 
@@ -20,7 +19,7 @@ import zhttp.service._
 final case class ServerChannelInitializer[R](
   zExec: HttpRuntime[R],
   cfg: Config[R, Throwable],
-  serverTime: ServerTimeGenerator,
+  reqHandler: ChannelHandler,
 ) extends ChannelInitializer[Channel] {
   override def initChannel(channel: Channel): Unit = {
     // !! IMPORTANT !!
@@ -55,7 +54,7 @@ final case class ServerChannelInitializer[R](
 
     // RequestHandler
     // Always add ZIO Http Request Handler
-    pipeline.addLast(HTTP_REQUEST_HANDLER, cfg.app.compile(zExec, cfg, serverTime))
+    pipeline.addLast(HTTP_REQUEST_HANDLER, reqHandler)
 
     ()
   }
