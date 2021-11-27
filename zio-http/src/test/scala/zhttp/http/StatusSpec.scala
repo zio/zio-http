@@ -1,10 +1,10 @@
 package zhttp.http
 
-import zhttp.internal.{HttpGen, HttpMessageAssertions}
+import zhttp.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
 
-object StatusSpec extends DefaultRunnableSpec with HttpMessageAssertions {
+object StatusSpec extends DefaultRunnableSpec {
   private val statusGen = HttpGen.status
 
   def spec = suite("Status")(
