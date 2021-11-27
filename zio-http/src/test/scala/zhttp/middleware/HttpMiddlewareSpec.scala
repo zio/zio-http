@@ -2,28 +2,37 @@ package zhttp.middleware
 
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware
+import zhttp.http.middleware.HttpMiddleware.cors
 import zhttp.internal.HttpAppTestExtensions
 import zio.clock.Clock
 import zio.duration._
-import zio.test.Assertion.{contains, equalTo, isNone, isSome}
+import zio.test.Assertion._
 import zio.test.environment.{TestClock, TestConsole}
-import zio.test.{DefaultRunnableSpec, assertM}
+import zio.test.{DefaultRunnableSpec, assert, assertM}
 import zio.{UIO, ZIO, console}
 
 object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
-  val app: HttpApp[Any with Clock, Nothing] = HttpApp.collectM { case Method.GET -> !! / "health" =>
-    UIO(Response.ok).delay(1 second)
-  }
-
-  val midA = HttpMiddleware.addHeader("X-Custom", "A")
-  val midB = HttpMiddleware.addHeader("X-Custom", "B")
+  def cond(flg: Boolean) = (_: Any, _: Any, _: Any) => flg
 
   def condM(flg: Boolean) = (_: Any, _: Any, _: Any) => UIO(flg)
-  def cond(flg: Boolean)  = (_: Any, _: Any, _: Any) => flg
 
-  val basicHS    = Header.basicHttpAuthorization("user", "resu")
-  val basicHF    = Header.basicHttpAuthorization("user", "user")
-  val basicAuthM = HttpMiddleware.basicAuth((u, p) => p.reverse == u)
+  def corsSpec = suite("cors") {
+    testM("options request") {
+      val app     = HttpApp.collect { case Method.GET -> !! / "success" => Response.ok } @@ cors()
+      val headers = List(Header.accessControlRequestMethod(Method.GET), Header.origin("test-env"))
+      val res     = app(Request(headers = headers)).map(_.headers)
+      assertM(res)(
+        hasSubset(
+          List(
+            Header.accessControlAllowCredentials(true),
+            Header.accessControlAllowMethods(Method.GET),
+            Header.accessControlAllowOrigin("test-env"),
+            Header.accessControlAllowHeaders(CORS.DefaultCORSConfig.allowedHeaders.getOrElse(Set.empty).mkString(", ")),
+          ),
+        ),
+      )
+    }
+  }
 
   def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response[R, E]] = {
     for {
@@ -135,7 +144,58 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
               assertM(app(Request().addHeaders(List(basicHF))))(isSome)
             }
         }
-      }
+      } +
+      suite("cors") {
+        // FIXME:The test should ideally pass with `HttpApp.ok` also
+        val app = HttpApp.collect { case Method.GET -> !! / "success" => Response.ok } @@ cors()
+        testM("OPTIONS request") {
+          val request = Request(
+            method = Method.OPTIONS,
+            url = URL(!! / "success"),
+            headers = List(Header.accessControlRequestMethod(Method.GET), Header.origin("test-env")),
+          )
 
+          val expected = List(
+            Header.accessControlAllowCredentials(true),
+            Header.accessControlAllowMethods(Method.GET),
+            Header.accessControlAllowOrigin("test-env"),
+            Header.accessControlAllowHeaders(CORS.DefaultCORSConfig.allowedHeaders.getOrElse(Set.empty).mkString(",")),
+          )
+
+          for {
+            res <- app(request)
+          } yield assert(res.headers.map(_.toTuple))(hasSubset(expected.map(_.toTuple))) &&
+            assert(res.status)(equalTo(Status.NO_CONTENT))
+        } +
+          testM("GET request") {
+            val request =
+              Request(
+                method = Method.GET,
+                url = URL(!! / "success"),
+                headers = List(Header.accessControlRequestMethod(Method.GET), Header.origin("test-env")),
+              )
+
+            val expected = List(
+              Header.accessControlExposeHeaders("*"),
+              Header.accessControlAllowOrigin("test-env"),
+              Header.accessControlAllowMethods(Method.GET),
+              Header.accessControlAllowCredentials(true),
+            )
+
+            for {
+              res <- app(request)
+            } yield assert(res.headers.map(_.toTuple))(hasSubset(expected.map(_.toTuple)))
+          }
+      }
   }
+
+  private val app: HttpApp[Any with Clock, Nothing] = HttpApp.collectM { case Method.GET -> !! / "health" =>
+    UIO(Response.ok).delay(1 second)
+  }
+
+  private val midA       = HttpMiddleware.addHeader("X-Custom", "A")
+  private val midB       = HttpMiddleware.addHeader("X-Custom", "B")
+  private val basicHS    = Header.basicHttpAuthorization("user", "resu")
+  private val basicHF    = Header.basicHttpAuthorization("user", "user")
+  private val basicAuthM = HttpMiddleware.basicAuth((u, p) => p.reverse == u)
 }
