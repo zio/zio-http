@@ -143,51 +143,61 @@ object Cookie {
    * Decodes from Set-Cookie header value inside of Response into a cookie
    */
   def decodeResponseCookie(headerValue: String): Option[Cookie] = {
-    val cookieWithoutMeta = headerValue.split(";").map(_.trim)
-    val (first, other)    = (cookieWithoutMeta.head, cookieWithoutMeta.tail)
-    val (name, content)   = splitNameContent(first)
+    var name: String              = null
+    var content: String           = null
+    var expires: Instant          = null
+    var maxAge: Option[Long]      = None
+    var domain: String            = null
+    var path: Path                = null
+    var secure: Boolean           = false
+    var httpOnly: Boolean         = false
+    var sameSite: Cookie.SameSite = null
 
-    if (name.trim != "" || content.isDefined) {
-      var expires: Option[Instant]          = None
-      var maxAge: Option[Long]              = None
-      var domain: Option[String]            = None
-      var path: Option[Path]                = None
-      var secure: Boolean                   = false
-      var httpOnly: Boolean                 = false
-      var sameSite: Option[Cookie.SameSite] = None
+    var prev = 0
+    var i    = headerValue.indexOf(';')
+    do {
+      i = headerValue.indexOf(';', prev)
+      val c       = if (i < 0) headerValue.substring(prev) else headerValue.substring(prev, i)
+      val (n, ct) = splitNameContent(c)
 
-      other.map(splitNameContent).map(n => (n._1.toLowerCase, n._2)).foreach {
-        case ("expires", Some(v))  => expires = parseDate(v)
-        case ("max-age", Some(v))  => maxAge = Try(v.toLong).toOption
-        case ("domain", v)         => domain = v
-        case ("path", v)           => path = v.map(Path(_))
-        case ("secure", _)         => secure = true
-        case ("httponly", _)       => httpOnly = true
-        case ("samesite", Some(v)) =>
+      (n.toLowerCase, ct) match {
+        case ("expires", v)                => expires = parseDate(v).getOrElse(null)
+        case ("max-age", v)                => maxAge = Try(v.toLong).toOption
+        case ("domain", v)                 => domain = v
+        case ("path", v)                   => path = if (!v.isEmpty) Path(v) else null
+        case ("secure", _)                 => secure = true
+        case ("httponly", _)               => httpOnly = true
+        case ("samesite", v)               =>
           v.trim.toLowerCase match {
-            case "lax"    => sameSite = Some(SameSite.Lax)
-            case "strict" => sameSite = Some(SameSite.Strict)
-            case "none"   => sameSite = Some(SameSite.None)
+            case "lax"    => sameSite = SameSite.Lax
+            case "strict" => sameSite = SameSite.Strict
+            case "none"   => sameSite = SameSite.None
             case _        => ()
           }
-        case (_, _)                => ()
+        case (_, aContent) if name == null =>
+          name = n
+          content = aContent
+        case (_, _)                        => ()
       }
+      prev = i + 1
+    } while (i >= 0)
+
+    if (!name.isBlank || !content.isBlank)
       Some(
         Cookie(
           name = name,
-          content = content.getOrElse(""),
-          expires = expires,
+          content = content,
+          expires = Option(expires),
           maxAge = maxAge,
-          domain = domain,
-          path = path,
+          domain = Option(domain),
+          path = Option(path),
           isSecure = secure,
           isHttpOnly = httpOnly,
-          sameSite = sameSite,
+          sameSite = Option(sameSite),
         ),
       )
-    } else {
+    else
       None
-    }
   }
 
   /**
@@ -197,8 +207,8 @@ object Cookie {
     val cookies: Array[String]  = headerValue.split(";").map(_.trim)
     val x: List[Option[Cookie]] = cookies.toList.map(a => {
       val (name, content) = splitNameContent(a)
-      if (name.trim == "" && content.isEmpty) None
-      else Some(Cookie(name, content.getOrElse("")))
+      if (name == "" && content.isEmpty) None
+      else Some(Cookie(name, content))
     })
 
     if (x.contains(None))
@@ -206,15 +216,19 @@ object Cookie {
     else Some(x.map(_.get))
   }
 
-  private def parseDate(v: String): Option[Instant] =
-    Try(Instant.parse(v)).toOption
+  @inline
+  private def parseDate(v: String): Try[Instant] =
+    Try(Instant.parse(v))
 
-  private def splitNameContent(kv: String): (String, Option[String]) =
-    kv.split("=", 2).map(_.trim) match {
-      case Array(v1)     => (v1, None)
-      case Array(v1, v2) => (v1, Some(v2))
-      case _             => ("", None)
+  @inline
+  private def splitNameContent(str: String): (String, String) = {
+    val i = str.indexOf('=')
+    if (i >= 0) {
+      (str.substring(0, i).trim, str.substring(i + 1).trim)
+    } else {
+      (str.trim, null)
     }
+  }
 
   /**
    * Updates maxAge in cookie
