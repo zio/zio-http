@@ -1,11 +1,9 @@
 package zhttp.http
 
-import io.netty.buffer.Unpooled
-import io.netty.handler.codec.base64.Base64
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaderValues, HttpHeaders}
-import io.netty.util.CharsetUtil
 import zhttp.http.HeaderExtension.BasicSchemeName
 
+import java.util.Base64
 import scala.jdk.CollectionConverters._
 
 final case class Header(name: CharSequence, value: CharSequence)
@@ -51,9 +49,8 @@ object Header {
 
   def basicHttpAuthorization(username: String, password: String): Header = {
     val authString    = String.format("%s:%s", username, password)
-    val authCB        = Unpooled.wrappedBuffer(authString.getBytes(CharsetUtil.UTF_8))
-    val encodedAuthCB = Base64.encode(authCB)
-    val value         = String.format("%s %s", BasicSchemeName, encodedAuthCB.toString(CharsetUtil.UTF_8))
+    val encodedAuthCB = new String(Base64.getEncoder.encode(authString.getBytes(HTTP_CHARSET)), HTTP_CHARSET)
+    val value         = String.format("%s %s", BasicSchemeName, encodedAuthCB)
     Header(HttpHeaderNames.AUTHORIZATION, value)
   }
 
