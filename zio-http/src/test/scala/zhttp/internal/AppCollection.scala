@@ -1,6 +1,7 @@
 package zhttp.internal
 
 import zhttp.http._
+import zio.blocking.Blocking
 import zio.console.Console
 import zio.{Ref, UIO, ZIO, ZLayer}
 
@@ -35,7 +36,7 @@ object AppCollection {
     .toLayer
 
   type Id          = String
-  type HttpEnv     = HttpAppCollection with Console
+  type HttpEnv     = HttpAppCollection with Console with Blocking
   type HttpAppTest = HttpApp[HttpEnv, Throwable]
   val APP_ID = "X-APP_ID"
 

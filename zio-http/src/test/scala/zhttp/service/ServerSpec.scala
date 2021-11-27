@@ -5,9 +5,12 @@ import zhttp.internal.{AppCollection, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
+import zio.stream.ZStream
 import zio.test.Assertion.{anything, containsString, equalTo, isSome}
 import zio.test.TestAspect._
 import zio.test.{Gen, assertM, checkAllM}
+
+import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec(8088) {
 
@@ -107,6 +110,11 @@ object ServerSpec extends HttpRunnableSpec(8088) {
           val res = HttpApp.ok.addHeader(header).requestHeaderValueByName()(header.name)
           assertM(res)(isSome(equalTo(header.value)))
         }
+      } +
+      testM("file-streaming") {
+        val path = getClass.getResource("/TestFile.txt").getPath
+        val res  = HttpApp.data(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
+        assertM(res)(containsString("foo"))
       }
   }
 
