@@ -2,6 +2,7 @@ package zhttp.service
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.util.ResourceLeakDetector
+import zhttp.http.Http._
 import zhttp.http.HttpApp
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
@@ -50,7 +51,7 @@ object Server {
     address: InetSocketAddress = new InetSocketAddress(8080),
     acceptContinue: Boolean = false,
     keepAlive: Boolean = false,
-    flowControl: Boolean = true,
+    flowControl: Boolean = false,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -113,8 +114,9 @@ object Server {
     for {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
-      zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
-      init            = ServerChannelInitializer(zExec, settings, ServerTimeGenerator.make)
+      zExec          <- HttpRuntime.default[R].toManaged_
+      reqHandler      = settings.app.compile(zExec, settings, ServerTimeGenerator.make)
+      init            = ServerChannelInitializer(zExec, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.address))
 

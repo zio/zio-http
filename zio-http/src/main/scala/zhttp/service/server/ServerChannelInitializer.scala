@@ -1,10 +1,14 @@
 package zhttp.service.server
 
 import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel.{Channel, ChannelInitializer}
-import io.netty.handler.codec.http.{HttpServerCodec, HttpServerExpectContinueHandler, HttpServerKeepAliveHandler}
+import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer}
+import io.netty.handler.codec.http.{
+  HttpObjectAggregator,
+  HttpServerCodec,
+  HttpServerExpectContinueHandler,
+  HttpServerKeepAliveHandler,
+}
 import io.netty.handler.flow.FlowControlHandler
-import zhttp.http.Http.HttpAppSyntax
 import zhttp.service.Server.Config
 import zhttp.service._
 
@@ -15,7 +19,7 @@ import zhttp.service._
 final case class ServerChannelInitializer[R](
   zExec: HttpRuntime[R],
   cfg: Config[R, Throwable],
-  serverTime: ServerTimeGenerator,
+  reqHandler: ChannelHandler,
 ) extends ChannelInitializer[Channel] {
   override def initChannel(channel: Channel): Unit = {
     // !! IMPORTANT !!
@@ -30,6 +34,10 @@ final case class ServerChannelInitializer[R](
     // ServerCodec
     // Always add ServerCodec
     pipeline.addLast(HTTP_SERVER_CODEC, new HttpServerCodec()) // TODO: See if server codec is really required
+
+    // ObjectAggregator
+    // Always add ObjectAggregator
+    pipeline.addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
 
     // ExpectContinueHandler
     // Add expect continue handler is settings is true
@@ -46,7 +54,7 @@ final case class ServerChannelInitializer[R](
 
     // RequestHandler
     // Always add ZIO Http Request Handler
-    pipeline.addLast(HTTP_REQUEST_HANDLER, cfg.app.compile(zExec, cfg, serverTime))
+    pipeline.addLast(HTTP_REQUEST_HANDLER, reqHandler)
 
     ()
   }

@@ -24,6 +24,11 @@ object HttpApp {
     Http.collectM(pf)
 
   /**
+   * Creates an Http app which always responds the provided data and a 200 status code
+   */
+  def data[R, E](data: HttpData[R, E]): HttpApp[R, E] = response(Response(data = data))
+
+  /**
    * Creates an Http app which always responds with empty data.
    */
   def empty: HttpApp[Any, Nothing] = Http.empty

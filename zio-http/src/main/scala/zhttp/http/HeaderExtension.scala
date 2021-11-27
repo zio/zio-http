@@ -1,13 +1,12 @@
 package zhttp.http
 
-import io.netty.buffer.Unpooled
-import io.netty.handler.codec.base64.Base64
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues, HttpUtil}
+import io.netty.util.AsciiString
 import io.netty.util.AsciiString.toLowerCase
-import io.netty.util.{AsciiString, CharsetUtil}
 import zhttp.http.HeaderExtension.{BasicSchemeName, BearerSchemeName}
 
 import java.nio.charset.Charset
+import java.util.Base64
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
@@ -92,10 +91,8 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
     getHeaderValue(HttpHeaderNames.AUTHORIZATION)
 
   private def decodeHttpBasic(encoded: String): Option[(String, String)] = {
-    val authChannelBuffer        = Unpooled.wrappedBuffer(encoded.getBytes(CharsetUtil.UTF_8))
-    val decodedAuthChannelBuffer = Base64.decode(authChannelBuffer)
-    val decoded                  = decodedAuthChannelBuffer.toString(CharsetUtil.UTF_8)
-    val colonIndex               = decoded.indexOf(":")
+    val decoded    = new String(Base64.getDecoder.decode(encoded))
+    val colonIndex = decoded.indexOf(":")
     if (colonIndex == -1)
       None
     else {
