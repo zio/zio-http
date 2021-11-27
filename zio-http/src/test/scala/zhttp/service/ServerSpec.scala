@@ -7,7 +7,7 @@ import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.{anything, containsString, equalTo, isSome}
 import zio.test.TestAspect._
-import zio.test.{assertM, checkAllM, Gen}
+import zio.test.{Gen, assertM, checkAllM}
 
 object ServerSpec extends HttpRunnableSpec(8088) {
 

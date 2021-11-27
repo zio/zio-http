@@ -43,7 +43,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
       ClientSSLOptions.DefaultSSL,
     )
   }
-  
+
   implicit class RunnableHttpAppSyntax(app: HttpApp[HttpEnv, Throwable]) {
     def deploy: ZIO[HttpAppCollection, Nothing, String] = AppCollection.deploy(app)
     def request(

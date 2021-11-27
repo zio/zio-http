@@ -6,7 +6,7 @@ import zhttp.service.EventLoopGroup
 import zio.duration._
 import zio.test.Assertion._
 import zio.test.TestAspect.{ignore, timeout}
-import zio.test.{assertM, checkAllM, DefaultRunnableSpec, Gen}
+import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAllM}
 import zio.{UIO, ZIO}
 
 object HttpAppResponseSpec extends DefaultRunnableSpec with HttpMessageAssertions {

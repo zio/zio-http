@@ -1,8 +1,8 @@
 package zhttp.service
 
 import io.netty.buffer.{ByteBuf, Unpooled}
-import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.channel.ChannelHandler.Sharable
+import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
