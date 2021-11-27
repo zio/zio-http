@@ -117,7 +117,9 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   }
 
   def requestSpec = suite("RequestSpec") {
-    val app = HttpApp.collect { case req => Response.text(req.getContentLength.getOrElse(-1).toString) }
+    val app: HttpApp[Any, Nothing] = HttpApp.collect { case req =>
+      Response.text(req.getContentLength.getOrElse(-1).toString)
+    }
     testM("has content-length") {
       checkAllM(Gen.alphaNumericString) { string =>
         val res = app.requestBodyAsString(content = string)
