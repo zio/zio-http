@@ -3,6 +3,7 @@ package zhttp.service
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http.Status
+import zhttp.internal.HttpRunnableSpec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.duration.durationInt
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}

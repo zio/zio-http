@@ -3,6 +3,7 @@ package zhttp.service
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware.cors
+import zhttp.internal.HttpRunnableSpec
 import zhttp.service.server._
 import zio.ZManaged
 import zio.test.Assertion._

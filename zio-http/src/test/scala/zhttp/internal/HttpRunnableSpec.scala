@@ -1,13 +1,18 @@
-package zhttp.service
+package zhttp.internal
 
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.AppCollection.HttpEnv
-import zhttp.internal.{AppCollection, HttpAppCollection}
+import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.DefaultRunnableSpec
 import zio.{Has, ZIO, ZManaged}
 
+/**
+ * Should be used only when e2e tests needs to be written which is typically for logic that is part of the netty based
+ * backend. For most of the other use cases directly running the HttpApp should suffice. HttpRunnableSpec spins of an
+ * actual Http server and makes requests.
+ */
 abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
   def serve[R <: Has[_]](
     app: HttpApp[R, Throwable],
@@ -15,13 +20,12 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
     Server.make(Server.app(app) ++ Server.port(port) ++ Server.paranoidLeakDetection).orDie
 
   def status(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, Status] =
-    requestPath(path).map(_.status)
-
-  def requestPath(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] =
-    Client.request(
-      Method.GET -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
-      ClientSSLOptions.DefaultSSL,
-    )
+    Client
+      .request(
+        Method.GET -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
+        ClientSSLOptions.DefaultSSL,
+      )
+      .map(_.status)
 
   def headers(
     path: Path,
