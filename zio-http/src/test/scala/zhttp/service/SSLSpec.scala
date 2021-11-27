@@ -4,7 +4,7 @@ import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http._
 import zhttp.internal.HttpRunnableSpec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.server.ServerSSLHandler.{ctxFromKeystore, ServerSSLOptions}
+import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromKeystore}
 import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
