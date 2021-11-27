@@ -1,28 +1,33 @@
 package zhttp.http
 
-import zhttp.internal.HttpMessageAssertions
-import zhttp.service.EventLoopGroup
+import zhttp.internal.{HttpGen, HttpMessageAssertions}
 import zio.test.Assertion._
 import zio.test._
 
 object StatusSpec extends DefaultRunnableSpec with HttpMessageAssertions {
-  private val env = EventLoopGroup.auto(1)
+  private val statusGen = HttpGen.status
 
   def spec = suite("Status")(
     toAppSpec,
     toResponseSpec,
-  ).provideCustomLayer(env)
+  )
 
   def toResponseSpec =
     suite("toResponse")(
-      test("ok")(assert(Status.OK.toResponse.status)(equalTo(Status.OK))),
+      testM("status") {
+        checkAll(statusGen) { case status =>
+          assert(status.toResponse.status)(equalTo(status))
+        }
+      },
     )
 
   def toAppSpec = {
     suite("toApp")(
-      testM("ok") {
-        val res = Status.OK.toApp.getResponse
-        assertM(res)(isResponse(responseStatus(200)))
+      testM("status") {
+        checkAllM(statusGen) { case status =>
+          val res = status.toApp(Request())
+          assertM(res.map(_.status))(equalTo(status))
+        }
       },
     )
   }
