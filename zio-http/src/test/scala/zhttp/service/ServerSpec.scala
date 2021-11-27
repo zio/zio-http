@@ -112,8 +112,18 @@ object ServerSpec extends HttpRunnableSpec(8088) {
 
   override def spec = {
     suiteM("Server") {
-      app.as(List(staticAppSpec, dynamicAppSpec, responseSpec)).useNow
+      app.as(List(staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds)
+  }
+
+  def requestSpec = suite("RequestSpec") {
+    val app = HttpApp.collect(req => Response.text(req.getContentLength.getOrElse(-1).toString))
+    testM("has content-length") {
+      checkAllM(Gen.alphaNumericString) { string =>
+        val res = app.requestBodyAsString(content = string)
+        assertM(res)(equalTo(string.length.toString))
+      }
+    }
   }
 
   def staticAppSpec = suite("StaticAppSpec") {
