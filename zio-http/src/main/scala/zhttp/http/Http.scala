@@ -124,12 +124,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Delays production of output B for the specified duration of time
    */
-  final def delayAfter(duration: Duration): Http[R with Clock, E, A, B] = self.mapM(b => UIO(b).delay(duration))
+  final def delay(duration: Duration): Http[R with Clock, E, A, B] = self.delayAfter(duration)
 
   /**
    * Delays production of output B for the specified duration of time
    */
-  final def delay(duration: Duration): Http[R with Clock, E, A, B] = self.delayAfter(duration)
+  final def delayAfter(duration: Duration): Http[R with Clock, E, A, B] = self.mapM(b => UIO(b).delay(duration))
 
   /**
    * Delays consumption of input A for the specified duration of time
@@ -462,6 +462,11 @@ object Http {
   def text(str: String, charset: Charset = HTTP_CHARSET): HttpApp[Any, Nothing] =
     Http.succeed(Response.text(str, charset))
 
+  /**
+   * Creates an Http app that responds with a 408 status code after the provided time duration
+   */
+  def timeout(duration: Duration): HttpApp[Clock, Nothing] = Http.status(Status.REQUEST_TIMEOUT).delay(duration)
+
   implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends AnyVal { self =>
 
     /**
@@ -495,11 +500,6 @@ object Http {
     def patch(patch: Patch): HttpApp[R, E] = http.map(patch(_))
 
     /**
-     * Sets the status in the response produced by the app
-     */
-    def setStatus(status: Status): HttpApp[R, E] = patch(Patch.setStatus(status))
-
-    /**
      * Overwrites the method in the incoming request
      */
     def setMethod(method: Method): HttpApp[R, E] = http.contramap[Request](_.setMethod(method))
@@ -508,6 +508,11 @@ object Http {
      * Overwrites the path in the incoming request
      */
     def setPath(path: Path): HttpApp[R, E] = http.contramap[Request](_.setPath(path))
+
+    /**
+     * Sets the status in the response produced by the app
+     */
+    def setStatus(status: Status): HttpApp[R, E] = patch(Patch.setStatus(status))
 
     /**
      * Overwrites the url in the incoming request
