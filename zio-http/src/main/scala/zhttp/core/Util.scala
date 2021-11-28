@@ -6,7 +6,7 @@ object Util {
   def prettyPrint(throwable: Throwable): String = {
     val sw = new StringWriter
     throwable.printStackTrace(new PrintWriter(sw))
-    s"${throwable.toString}:\n${sw.toString}"
+    s"${sw.toString}"
   }
 
   def prettyPrintHtml(throwable: Throwable): String = {
