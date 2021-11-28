@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaderValues, HttpHeaders}
+import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaders, HttpHeaderValues}
 import zhttp.http.HeaderExtension.BasicSchemeName
 
 import java.util.Base64
@@ -70,6 +70,8 @@ object Header {
 
   def parse(headers: HttpHeaders): List[Header] =
     headers.entries().asScala.toList.map(entry => Header(entry.getKey, entry.getValue))
+
+  def setCookie(cookie: Cookie): Header = Header(HttpHeaderNames.SET_COOKIE, cookie.encode)
 
   def userAgent(name: String): Header = Header(HttpHeaderNames.USER_AGENT, name)
 
