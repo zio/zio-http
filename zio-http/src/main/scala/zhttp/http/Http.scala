@@ -495,6 +495,21 @@ object Http {
     def setStatus(status: Status): HttpApp[R, E] = patch(Patch.setStatus(status))
 
     /**
+     * Overwrites the method in the incoming request
+     */
+    def setMethod(method: Method): HttpApp[R, E] = http.contramap[Request](_.setMethod(method))
+
+    /**
+     * Overwrites the path in the incoming request
+     */
+    def setPath(path: Path): HttpApp[R, E] = http.contramap[Request](_.setPath(path))
+
+    /**
+     * Overwrites the url in the incoming request
+     */
+    def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.setUrl(url))
+
+    /**
      * Converts a failing Http app into a non-failing one by handling the failure and converting it to a result if
      * possible.
      */
