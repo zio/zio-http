@@ -134,6 +134,19 @@ lazy val example = (project in file("./example"))
   )
   .dependsOn(zhttp)
 
+// Demo project
+lazy val functionalScala = (project in file("./functional-scala"))
+  .settings(stdSettings("functional-scala"))
+  .settings(publishSetting(false))
+  .settings(
+    fork                      := true,
+    Compile / run / mainClass := Option("fs2020.HelloWorld"),
+  )
+  .dependsOn(zhttp)
+  .settings(
+    libraryDependencies ++= Seq(zio, `zio-streams`, `zio-test`, `zio-test-sbt`),
+  )
+
 addCommandAlias("fmt", "scalafmt; test:scalafmt; sFix;")
 addCommandAlias("fmtCheck", "scalafmtCheck; test:scalafmtCheck; sFixCheck")
 addCommandAlias("sFix", "scalafix OrganizeImports; test:scalafix OrganizeImports")
