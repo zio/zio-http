@@ -8,6 +8,7 @@ import zio._
 import zio.clock.Clock
 import zio.duration.Duration
 
+import java.nio.charset.Charset
 import scala.annotation.unused
 
 /**
@@ -322,6 +323,11 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 object Http {
 
   /**
+   * Creates an HTTP app which always responds with a 400 status code.
+   */
+  def badRequest(msg: String): HttpApp[Any, Nothing] = HttpApp.error(HttpError.BadRequest(msg))
+
+  /**
    * Creates an HTTP app which accepts a request and produces response.
    */
   def collect[A]: Http.MakeCollect[A] = Http.MakeCollect(())
@@ -338,9 +344,24 @@ object Http {
     i.reduce(_.defaultWith(_))
 
   /**
+   * Creates an Http app which always responds the provided data and a 200 status code
+   */
+  def data[R, E](data: HttpData[R, E]): HttpApp[R, E] = response(Response(data = data))
+
+  /**
    * Creates an empty Http value
    */
   def empty: Http[Any, Nothing, Any, Nothing] = Http.Empty
+
+  /**
+   * Creates an HTTP app with HttpError.
+   */
+  def error(cause: HttpError): HttpApp[Any, Nothing] = HttpApp.response(Response.fromHttpError(cause))
+
+  /**
+   * Creates an Http app that responds with 500 status code
+   */
+  def error(msg: String): HttpApp[Any, Nothing] = HttpApp.error(HttpError.InternalServerError(msg))
 
   /**
    * Creates an Http that always fails
@@ -358,6 +379,11 @@ object Http {
    */
   def flattenM[R, E, A, B](http: Http[R, E, A, ZIO[R, E, B]]): Http[R, E, A, B] =
     http.flatMap(Http.fromEffect)
+
+  /**
+   * Creates an Http app that responds with 403 - Forbidden status code
+   */
+  def forbidden(msg: String): HttpApp[Any, Nothing] = HttpApp.error(HttpError.Forbidden(msg))
 
   /**
    * Converts a ZIO to an Http type
@@ -391,14 +417,45 @@ object Http {
   def identity[A]: Http[Any, Nothing, A, A] = Http.Identity
 
   /**
+   * Creates an Http app that fails with a NotFound exception.
+   */
+  def notFound: HttpApp[Any, Nothing] = HttpApp.fromFunction(req => HttpApp.error(HttpError.NotFound(req.url.path)))
+
+  /**
+   * Creates an HTTP app which always responds with a 200 status code.
+   */
+  def ok: HttpApp[Any, Nothing] = status(Status.OK)
+
+  /**
+   * Creates an Http app which always responds with the same value.
+   */
+  def response[R, E](response: Response[R, E]): HttpApp[R, E] = Http.succeed(response)
+
+  /**
+   * Converts a ZIO to an Http app type
+   */
+  def responseM[R, E](res: ZIO[R, E, Response[R, E]]): HttpApp[R, E] = Http.fromEffect(res)
+
+  /**
    * Creates an Http that delegates to other Https.
    */
   def route[A]: Http.MakeRoute[A] = Http.MakeRoute(())
 
   /**
+   * Creates an HTTP app which always responds with the same status code and empty data.
+   */
+  def status(code: Status): HttpApp[Any, Nothing] = Http.succeed(Response(code))
+
+  /**
    * Creates an Http that always returns the same response and never fails.
    */
   def succeed[B](b: B): Http[Any, Nothing, Any, B] = Http.Succeed(b)
+
+  /**
+   * Creates an Http app which always responds with the same plain text.
+   */
+  def text(str: String, charset: Charset = HTTP_CHARSET): HttpApp[Any, Nothing] =
+    Http.succeed(Response.text(str, charset))
 
   implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends AnyVal { self =>
 
