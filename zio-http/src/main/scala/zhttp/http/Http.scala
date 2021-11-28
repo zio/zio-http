@@ -467,6 +467,11 @@ object Http {
    */
   def timeout(duration: Duration): HttpApp[Clock, Nothing] = Http.status(Status.REQUEST_TIMEOUT).delay(duration)
 
+  /**
+   * Creates an HTTP app which always responds with a 413 status code.
+   */
+  def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.REQUEST_ENTITY_TOO_LARGE)
+
   implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends AnyVal { self =>
 
     /**
