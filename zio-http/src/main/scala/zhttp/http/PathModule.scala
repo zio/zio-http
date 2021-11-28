@@ -36,6 +36,7 @@ private[zhttp] trait PathModule { module =>
     }
 
     final def drop(n: Int): Path = Path(self.toList.drop(n))
+    final def take(n: Int): Path = Path(self.toList.take(n))
   }
 
   object Path {

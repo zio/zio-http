@@ -122,6 +122,10 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
         test("drop") {
           assert(!! / "a" / "b" / "c" drop 1)(equalTo(!! / "b" / "c")) &&
           assert(!! drop 1)(equalTo(!!))
+        } +
+        test("take") {
+          assert(!! / "a" / "b" / "c" take 1)(equalTo(!! / "a")) &&
+          assert(!! take 1)(equalTo(!!))
         },
     )
 }
