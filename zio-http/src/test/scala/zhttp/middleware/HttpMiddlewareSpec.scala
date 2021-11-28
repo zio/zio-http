@@ -1,8 +1,7 @@
 package zhttp.middleware
 
+import zhttp.http.HttpMiddleware.cors
 import zhttp.http._
-import zhttp.http.middleware.HttpMiddleware
-import zhttp.http.middleware.HttpMiddleware.cors
 import zhttp.internal.HttpAppTestExtensions
 import zio.clock.Clock
 import zio.duration._

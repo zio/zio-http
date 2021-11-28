@@ -1,16 +1,15 @@
-package zhttp.http.middleware
+package zhttp.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.util.AsciiString
 import io.netty.util.AsciiString.toLowerCase
 import zhttp.http.CORS.DefaultCORSConfig
-import zhttp.http._
-import zhttp.http.middleware.HttpMiddleware.RequestP
 import zhttp.http.HeaderExtension.Only
+import zhttp.http.HttpMiddleware.RequestP
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
-import zio.{clock, console, UIO, ZIO}
+import zio.{UIO, ZIO, clock, console}
 
 import java.io.IOException
 

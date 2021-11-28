@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaders, HttpHeaderValues}
+import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaderValues, HttpHeaders}
 import zhttp.http.HeaderExtension.BasicSchemeName
 
 import java.util.Base64

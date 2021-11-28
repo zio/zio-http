@@ -1,7 +1,6 @@
 package zhttp.http
 
 import io.netty.channel.ChannelHandler
-import zhttp.http.middleware.{HttpMiddleware, Patch}
 import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
