@@ -37,7 +37,11 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
           } +
             test("Path()") {
               val path = Path().asString
-              assert(path)(equalTo(""))
+              assert(path)(equalTo("/"))
+            } +
+            test("!!") {
+              val path = !!.asString
+              assert(path)(equalTo("/"))
             },
         ) +
         suite("PathSyntax /")(
