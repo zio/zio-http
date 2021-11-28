@@ -168,5 +168,5 @@ object ServerSpec extends HttpRunnableSpec(8088) {
     case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
   }
 
-  private val app = serve { staticApp +++ AppCollection.app }
+  private val app = serve { staticApp ++ AppCollection.app }
 }

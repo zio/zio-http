@@ -50,7 +50,7 @@ object Authentication extends App {
   }
 
   // Composing all the HttpApps together
-  val app: UHttpApp = login +++ authenticate(HttpApp.forbidden("Not allowed!"), user)
+  val app: UHttpApp = login ++ authenticate(HttpApp.forbidden("Not allowed!"), user)
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
