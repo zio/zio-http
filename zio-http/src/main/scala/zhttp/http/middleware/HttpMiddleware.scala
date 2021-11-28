@@ -58,10 +58,21 @@ sealed trait HttpMiddleware[-R, +E] { self =>
 object HttpMiddleware {
 
   /**
+   * Sets cookie in response headers
+   */
+  def addCookie(cookie: Cookie): HttpMiddleware[Any, Nothing] = HttpMiddleware.addHeader(Header.setCookie(cookie))
+
+  /**
    * Adds the provided header and value to the response
    */
   def addHeader(name: String, value: String): HttpMiddleware[Any, Nothing] =
     patch((_, _) => Patch.addHeaders(List(Header(name, value))))
+
+  /**
+   * Adds the provided header to the response
+   */
+  def addHeader(header: Header): HttpMiddleware[Any, Nothing] =
+    patch((_, _) => Patch.addHeaders(List(header)))
 
   /**
    * Adds the provided list of headers to the response
@@ -427,5 +438,4 @@ object HttpMiddleware {
       extends HttpMiddleware[R, E]
 
   private case object Identity extends HttpMiddleware[Any, Nothing]
-
 }
