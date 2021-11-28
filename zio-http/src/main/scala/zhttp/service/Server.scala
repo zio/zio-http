@@ -89,7 +89,9 @@ object Server {
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    (Server.bind(port) ++ Server.app(http)).make.useForever
+    (Server.bind(port) ++ Server.app(http)).make
+      .zipLeft(ZManaged.succeed(println(s"Server started on port: ${port}")))
+      .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def start[R <: Has[_]](

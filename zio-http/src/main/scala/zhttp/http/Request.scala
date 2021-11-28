@@ -24,7 +24,7 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Decodes the content of request as string
    */
-  def getBodyAsString: ZIO[Any, Throwable, String] =
+  def getBodyAsString: Task[String] =
     getBodyAsByteBuf.flatMap(buf => Task(buf.toString(getCharset.getOrElse(HTTP_CHARSET))))
 
   /**
