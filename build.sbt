@@ -140,7 +140,7 @@ lazy val functionalScala = (project in file("./functional-scala"))
   .settings(publishSetting(false))
   .settings(
     fork                      := true,
-    Compile / run / mainClass := Option("fs2020.HelloWorld"),
+    Compile / run / mainClass := Option("fs2020.FS2020"),
   )
   .dependsOn(zhttp)
   .settings(
