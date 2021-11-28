@@ -127,6 +127,11 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def delayAfter(duration: Duration): Http[R with Clock, E, A, B] = self.mapM(b => UIO(b).delay(duration))
 
   /**
+   * Delays production of output B for the specified duration of time
+   */
+  final def delay(duration: Duration): Http[R with Clock, E, A, B] = self.delayAfter(duration)
+
+  /**
    * Delays consumption of input A for the specified duration of time
    */
   final def delayBefore(duration: Duration): Http[R with Clock, E, A, B] = self.contramapM(a => UIO(a).delay(duration))
