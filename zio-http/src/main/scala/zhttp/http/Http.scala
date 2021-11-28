@@ -476,7 +476,7 @@ object Http {
     /**
      * Attaches the provided middleware to the HttpApp
      */
-    def @@[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = middleware(mid)
+    def @@[R1 <: R, E1 >: E](mid: Middleware[R1, E1]): HttpApp[R1, E1] = middleware(mid)
 
     /**
      * Adds the provided headers to the response of the app
@@ -496,7 +496,7 @@ object Http {
     /**
      * Attaches the provided middleware to the HttpApp
      */
-    def middleware[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = mid(http)
+    def middleware[R1 <: R, E1 >: E](mid: Middleware[R1, E1]): HttpApp[R1, E1] = mid(http)
 
     /**
      * Patches the response produced by the app
