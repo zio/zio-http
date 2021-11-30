@@ -458,8 +458,8 @@ object Http {
   /**
    * Creates an Http app which always responds with the same plain text.
    */
-  def text(str: String, charset: Charset = HTTP_CHARSET): HttpApp[Any, Nothing] =
-    Http.succeed(Response.text(str, charset))
+  def text(str: String, charset: Charset = HTTP_CHARSET, newLine: Boolean = true): HttpApp[Any, Nothing] =
+    Http.succeed(Response.text(str, charset, newLine))
 
   /**
    * Creates an Http app that responds with a 408 status code after the provided time duration
