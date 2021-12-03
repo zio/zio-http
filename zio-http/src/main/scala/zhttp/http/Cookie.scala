@@ -182,7 +182,7 @@ object Cookie {
       prev = i + 1
     }
 
-    if (name != "" || content != "")
+    if (!name.isEmpty || !content.isEmpty)
       Some(
         Cookie(
           name = name,
