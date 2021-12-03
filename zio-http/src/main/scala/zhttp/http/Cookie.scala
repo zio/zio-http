@@ -154,10 +154,10 @@ object Cookie {
     var sameSite: Cookie.SameSite = null
 
     var prev = 0
-    var i    = headerValue.indexOf(';')
-    do {
+    var i    = 0
+    while (i >= 0) {
       i = headerValue.indexOf(';', prev)
-      val c       = if (i < 0) headerValue.substring(prev) else headerValue.substring(prev, i)
+      val c       = if (i <= 0) headerValue.substring(prev) else headerValue.substring(prev, i)
       val (n, ct) = splitNameContent(c)
 
       (n.toLowerCase, ct) match {
@@ -180,7 +180,7 @@ object Cookie {
         case (_, _)                        => ()
       }
       prev = i + 1
-    } while (i >= 0)
+    }
 
     if (!name.isBlank || !content.isBlank)
       Some(
