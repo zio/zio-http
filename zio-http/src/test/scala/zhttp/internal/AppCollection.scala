@@ -13,7 +13,7 @@ object AppCollection {
     ZIO.accessM[HttpAppCollection](_.get.add(app))
 
   def app: HttpApp[HttpEnv, Throwable] = Http
-    .fromPartialFunction[Request] { case req =>
+    .fromOptionFunction[Request] { case req =>
       for {
         id  <- req.getHeaderValue(APP_ID) match {
           case Some(id) => UIO(id)

@@ -1,6 +1,6 @@
 package example
 
-import zhttp.http.{HttpApp, HttpData, Method, Response, _}
+import zhttp.http.{HttpData, Method, Response, _}
 import zhttp.service.Server
 import zio.stream.ZStream
 import zio.{App, ExitCode, URIO}
@@ -14,7 +14,7 @@ object FileStreaming extends App {
   }
 
   // Create HTTP route
-  val app = HttpApp.collect {
+  val app = Http.collect[Request] {
     case Method.GET -> !! / "health" => Response.ok
     case Method.GET -> !! / "file"   => Response(data = content)
   }

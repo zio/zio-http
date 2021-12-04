@@ -17,7 +17,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
   def corsSpec = suite("cors") {
     testM("options request") {
-      val app     = HttpApp.collect { case Method.GET -> !! / "success" => Response.ok } @@ cors()
+      val app     = Http.collect[Request] { case Method.GET -> !! / "success" => Response.ok } @@ cors()
       val headers = List(Header.accessControlRequestMethod(Method.GET), Header.origin("test-env"))
       val res     = app(Request(headers = headers)).map(_.headers)
       assertM(res)(
@@ -88,75 +88,75 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
         } +
           testM("add headers twice") {
             val middleware = addHeader("KeyA", "ValueA") ++ addHeader("KeyB", "ValueB")
-            val headers    = (HttpApp.ok @@ middleware).getHeaderValues
+            val headers    = (Http.ok @@ middleware).getHeaderValues
             assertM(headers(Request()))(contains("ValueA") && contains("ValueB"))
           } +
           testM("add and remove header") {
             val middleware = addHeader("KeyA", "ValueA") ++ removeHeader("KeyA")
-            val program    = (HttpApp.ok @@ middleware) getHeader "KeyA"
+            val program    = (Http.ok @@ middleware) getHeader "KeyA"
             assertM(program(Request()))(isNone)
           }
       } +
       suite("ifThenElseM") {
         testM("if the condition is true take first") {
-          val app = (HttpApp.ok @@ ifThenElseM(condM(true))(midA, midB)) getHeader "X-Custom"
+          val app = (Http.ok @@ ifThenElseM(condM(true))(midA, midB)) getHeader "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
         } +
           testM("if the condition is false take 2nd") {
             val app =
-              (HttpApp.ok @@ ifThenElseM(condM(false))(midA, midB)) getHeader "X-Custom"
+              (Http.ok @@ ifThenElseM(condM(false))(midA, midB)) getHeader "X-Custom"
             assertM(app(Request()))(isSome(equalTo("B")))
           }
       } +
       suite("ifThenElse") {
         testM("if the condition is true take first") {
-          val app = HttpApp.ok @@ ifThenElse(cond(true))(midA, midB) getHeader "X-Custom"
+          val app = Http.ok @@ ifThenElse(cond(true))(midA, midB) getHeader "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
         } +
           testM("if the condition is false take 2nd") {
-            val app = HttpApp.ok @@ ifThenElse(cond(false))(midA, midB) getHeader "X-Custom"
+            val app = Http.ok @@ ifThenElse(cond(false))(midA, midB) getHeader "X-Custom"
             assertM(app(Request()))(isSome(equalTo("B")))
           }
       } +
       suite("whenM") {
         testM("if the condition is true apply middleware") {
-          val app = (HttpApp.ok @@ whenM(condM(true))(midA)) getHeader "X-Custom"
+          val app = (Http.ok @@ whenM(condM(true))(midA)) getHeader "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
         } +
           testM("if the condition is false don't apply any middleware") {
-            val app = (HttpApp.ok @@ whenM(condM(false))(midA)) getHeader "X-Custom"
+            val app = (Http.ok @@ whenM(condM(false))(midA)) getHeader "X-Custom"
             assertM(app(Request()))(isNone)
           }
       } +
       suite("when") {
         testM("if the condition is true apple middleware") {
-          val app = HttpApp.ok @@ when(cond(true))(midA) getHeader "X-Custom"
+          val app = Http.ok @@ when(cond(true))(midA) getHeader "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
         } +
           testM("if the condition is false don't apply the middleware") {
-            val app = HttpApp.ok @@ when(cond(false))(midA) getHeader "X-Custom"
+            val app = Http.ok @@ when(cond(false))(midA) getHeader "X-Custom"
             assertM(app(Request()))(isNone)
           }
       } +
       suite("Authentication middleware") {
         suite("basicAuth") {
           testM("HttpApp is accepted if the basic authentication succeeds") {
-            val app = (HttpApp.ok @@ basicAuthM).getStatus
+            val app = (Http.ok @@ basicAuthM).getStatus
             assertM(app(Request().addHeaders(List(basicHS))))(equalTo(Status.OK))
           } +
             testM("Uses forbidden app if the basic authentication fails") {
-              val app = (HttpApp.ok @@ basicAuthM).getStatus
+              val app = (Http.ok @@ basicAuthM).getStatus
               assertM(app(Request().addHeaders(List(basicHF))))(equalTo(Status.FORBIDDEN))
             } +
             testM("Responses sould have WWW-Authentication header if Basic Auth failed") {
-              val app = HttpApp.ok @@ basicAuthM getHeader "WWW-AUTHENTICATE"
+              val app = Http.ok @@ basicAuthM getHeader "WWW-AUTHENTICATE"
               assertM(app(Request().addHeaders(List(basicHF))))(isSome)
             }
         }
       } +
       suite("cors") {
-        // FIXME:The test should ideally pass with `HttpApp.ok` also
-        val app = HttpApp.collect { case Method.GET -> !! / "success" => Response.ok } @@ cors()
+        // FIXME:The test should ideally pass with `Http.ok` also
+        val app = Http.collect[Request] { case Method.GET -> !! / "success" => Response.ok } @@ cors()
         testM("OPTIONS request") {
           val request = Request(
             method = Method.OPTIONS,
@@ -198,7 +198,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       }
   }
 
-  private val app: HttpApp[Any with Clock, Nothing] = HttpApp.collectM { case Method.GET -> !! / "health" =>
+  private val app: HttpApp[Any with Clock, Nothing] = Http.collectM[Request] { case Method.GET -> !! / "health" =>
     UIO(Response.ok).delay(1 second)
   }
 

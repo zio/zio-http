@@ -7,7 +7,7 @@ sealed trait Status extends Product with Serializable { self =>
   /**
    * Returns an HttpApp[Any, Nothing] that responses with this http status code.
    */
-  def toApp: UHttpApp = HttpApp.status(self)
+  def toApp: UHttpApp = Http.status(self)
 
   /**
    * Returns a Response[Any, Nothing] with empty data and no headers.

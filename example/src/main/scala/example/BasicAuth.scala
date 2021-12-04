@@ -8,7 +8,7 @@ import zio.{App, ExitCode, URIO}
 object BasicAuth extends App {
 
   // Http app that requires a JWT claim
-  val user: UHttpApp = HttpApp.collect { case Method.GET -> !! / "user" / name / "greet" =>
+  val user: UHttpApp = Http.collect[Request] { case Method.GET -> !! / "user" / name / "greet" =>
     Response.text(s"Welcome to the ZIO party! ${name}")
   }
 

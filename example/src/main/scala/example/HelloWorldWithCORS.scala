@@ -13,7 +13,7 @@ object HelloWorldWithCORS extends App {
 
   // Create HTTP route with CORS enabled
   val app: HttpApp[Any, Nothing] =
-    HttpApp.collect {
+    Http.collect[Request] {
       case Method.GET -> !! / "text" => Response.text("Hello World!")
       case Method.GET -> !! / "json" => Response.jsonString("""{"greetings": "Hello World!"}""")
     } @@ cors(config)

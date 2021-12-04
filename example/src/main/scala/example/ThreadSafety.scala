@@ -1,6 +1,6 @@
 package example
 
-import zhttp.http.{HttpApp, Method, Response, _}
+import zhttp.http.{Method, Response, _}
 import zhttp.service.Server
 import zio.duration._
 import zio.{App, ExitCode, UIO, URIO, ZIO}
@@ -10,7 +10,7 @@ object ThreadSafety extends App {
   def printThread(tag: String) =
     UIO(println(s"${tag.padTo(6, ' ')}: ${Thread.currentThread().getName}"))
 
-  val app = HttpApp.collectM { case Method.GET -> !! / "text" =>
+  val app = Http.collectM[Request] { case Method.GET -> !! / "text" =>
     for {
       _  <- printThread("Start")
       f1 <- ZIO.sleep(1 second).zipLeft(printThread("First")).fork

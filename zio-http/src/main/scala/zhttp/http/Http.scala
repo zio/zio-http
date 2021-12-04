@@ -186,7 +186,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Provides the environment to Http.
    */
   final def provide(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
-    Http.fromPartialFunction[A](a => self(a).provide(r))
+    Http.fromOptionFunction[A](a => self(a).provide(r))
 
   /**
    * Provide part of the environment to HTTP that is not part of ZEnv
@@ -194,7 +194,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def provideCustomLayer[E1 >: E, R1 <: Has[_]](
     layer: ZLayer[ZEnv, E1, R1],
   )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): Http[ZEnv, E1, A, B] =
-    Http.fromPartialFunction[A](a => self(a).provideCustomLayer(layer.mapError(Option(_))))
+    Http.fromOptionFunction[A](a => self(a).provideCustomLayer(layer.mapError(Option(_))))
 
   /**
    * Provides layer to Http.
@@ -202,13 +202,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def provideLayer[E1 >: E, R0, R1](
     layer: ZLayer[R0, E1, R1],
   )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R]): Http[R0, E1, A, B] =
-    Http.fromPartialFunction[A](a => self(a).provideLayer(layer.mapError(Option(_))))
+    Http.fromOptionFunction[A](a => self(a).provideLayer(layer.mapError(Option(_))))
 
   /**
    * Provides some of the environment to Http.
    */
   final def provideSome[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
-    Http.fromPartialFunction[A](a => self(a).provideSome(r))
+    Http.fromOptionFunction[A](a => self(a).provideSome(r))
 
   /**
    * Provides some of the environment to Http leaving the remainder `R0`.
@@ -216,13 +216,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def provideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E](
     layer: ZLayer[R0, E1, R1],
   )(implicit ev: R0 with R1 <:< R, tagged: Tag[R1]): Http[R0, E1, A, B] =
-    Http.fromPartialFunction[A](a => self(a).provideSomeLayer(layer.mapError(Option(_))))
+    Http.fromOptionFunction[A](a => self(a).provideSomeLayer(layer.mapError(Option(_))))
 
   /**
    * Performs a race between two apps
    */
   final def race[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    Http.fromPartialFunction(a => self(a) raceFirst other(a))
+    Http.fromOptionFunction(a => self(a) raceFirst other(a))
 
   /**
    * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
@@ -329,7 +329,7 @@ object Http {
   /**
    * Creates an HTTP app which always responds with a 400 status code.
    */
-  def badRequest(msg: String): HttpApp[Any, Nothing] = HttpApp.error(HttpError.BadRequest(msg))
+  def badRequest(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.BadRequest(msg))
 
   /**
    * Creates an HTTP app which accepts a request and produces response.
@@ -360,12 +360,12 @@ object Http {
   /**
    * Creates an HTTP app with HttpError.
    */
-  def error(cause: HttpError): HttpApp[Any, Nothing] = HttpApp.response(Response.fromHttpError(cause))
+  def error(cause: HttpError): HttpApp[Any, Nothing] = Http.response(Response.fromHttpError(cause))
 
   /**
    * Creates an Http app that responds with 500 status code
    */
-  def error(msg: String): HttpApp[Any, Nothing] = HttpApp.error(HttpError.InternalServerError(msg))
+  def error(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.InternalServerError(msg))
 
   /**
    * Creates an Http that always fails
@@ -387,7 +387,7 @@ object Http {
   /**
    * Creates an Http app that responds with 403 - Forbidden status code
    */
-  def forbidden(msg: String): HttpApp[Any, Nothing] = HttpApp.error(HttpError.Forbidden(msg))
+  def forbidden(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.Forbidden(msg))
 
   /**
    * Converts a ZIO to an Http type
@@ -413,7 +413,7 @@ object Http {
    * Creates an `Http` from a function that takes a value of type `A` and returns with a `ZIO[R, Option[E], B]`. The
    * returned effect can fail with a `None` to signal "not found" to the backend.
    */
-  def fromPartialFunction[A]: FromPartialFunction[A] = new FromPartialFunction(())
+  def fromOptionFunction[A]: FromOptionFunction[A] = new FromOptionFunction(())
 
   /**
    * Creates a pass thru Http instances
@@ -423,7 +423,8 @@ object Http {
   /**
    * Creates an Http app that fails with a NotFound exception.
    */
-  def notFound: HttpApp[Any, Nothing] = HttpApp.fromFunction(req => HttpApp.error(HttpError.NotFound(req.url.path)))
+  def notFound: HttpApp[Any, Nothing] =
+    Http.fromFunction[Request](req => Http.error(HttpError.NotFound(req.url.path))).flatten
 
   /**
    * Creates an HTTP app which always responds with a 200 status code.
@@ -564,7 +565,7 @@ object Http {
       Http.identity[X].flatMap(xa) >>> self
   }
 
-  final class FromPartialFunction[A](val unit: Unit) extends AnyVal {
+  final class FromOptionFunction[A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](f: A => ZIO[R, Option[E], B]): Http[R, E, A, B] = Http
       .collectM[A] { case a =>
         f(a).map(Http.succeed(_)).catchAll {

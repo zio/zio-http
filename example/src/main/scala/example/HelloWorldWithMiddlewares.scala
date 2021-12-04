@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
 
 object HelloWorldWithMiddlewares extends App {
 
-  val app: HttpApp[Clock, Nothing] = HttpApp.collectM {
+  val app: HttpApp[Clock, Nothing] = Http.collectM[Request] {
     // this will return result instantly
     case Method.GET -> !! / "text"         => ZIO.succeed(Response.text("Hello World!"))
     // this will return result after 5 seconds, so with 3 seconds timeout it will fail

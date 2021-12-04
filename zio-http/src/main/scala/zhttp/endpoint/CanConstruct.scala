@@ -1,6 +1,6 @@
 package zhttp.endpoint
 
-import zhttp.http.{HttpApp, HttpError, Request, Response}
+import zhttp.http.{Http, HttpApp, HttpError, Request, Response}
 import zio.{UIO, ZIO}
 
 /**
@@ -23,7 +23,7 @@ object CanConstruct {
     override type EOut = E
 
     override def make(route: Endpoint[A], f: Request.ParameterizedRequest[A] => Response[R, E]): HttpApp[R, E] =
-      HttpApp.collect { case req =>
+      Http.collect[Request] { case req =>
         route.extract(req) match {
           case Some(value) => f(Request.ParameterizedRequest(req, value))
           case None        => Response.fromHttpError(HttpError.NotFound(req.url.path))
@@ -40,7 +40,7 @@ object CanConstruct {
         route: Endpoint[A],
         f: Request.ParameterizedRequest[A] => ZIO[R, E, Response[R, E]],
       ): HttpApp[R, E] =
-        HttpApp.collectM { case req =>
+        Http.collectM[Request] { case req =>
           route.extract(req) match {
             case Some(value) => f(Request.ParameterizedRequest(req, value))
             case None        => UIO(Response.fromHttpError(HttpError.NotFound(req.url.path)))

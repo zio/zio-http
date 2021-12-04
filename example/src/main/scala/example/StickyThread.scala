@@ -1,6 +1,6 @@
 package example
 
-import zhttp.http.{HttpApp, Method, Response, _}
+import zhttp.http.{Method, Response, _}
 import zhttp.service.Server
 import zio.duration._
 import zio.{App, ExitCode, UIO, URIO, ZIO}
@@ -26,7 +26,7 @@ object StickyThread extends App {
   /**
    * The expected behaviour is that all the `printThread` output different fiber ids with the same thread name.
    */
-  val app = HttpApp.collectM { case Method.GET -> !! / "text" =>
+  val app = Http.collectM[Request] { case Method.GET -> !! / "text" =>
     for {
 
       _  <- printThread("Start")
