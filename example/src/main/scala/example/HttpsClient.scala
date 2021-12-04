@@ -29,10 +29,9 @@ object HttpsClient extends App {
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
 
   val program = for {
-    res <- Client.request(url, headers, sslOption)
-    _   <- console.putStrLn {
-      res.content.map(_.toChar).mkString
-    }
+    res  <- Client.request(url, headers, sslOption)
+    data <- res.getBodyAsString
+    _    <- console.putStrLn { data }
   } yield ()
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = program.exitCode.provideCustomLayer(env)
