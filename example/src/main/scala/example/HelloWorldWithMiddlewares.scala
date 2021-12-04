@@ -1,8 +1,7 @@
 package example
 
-import zhttp.http.middleware.Middleware.{addHeader, debug, patchM, timeout}
-import zhttp.http.middleware.{Middleware, Patch}
-import zhttp.http.{Header, HttpApp, Method, Response, _}
+import zhttp.http.Middleware.{addHeader, debug, patchM, timeout}
+import zhttp.http.{Header, HttpApp, Method, Patch, Response, _}
 import zhttp.service.Server
 import zio.clock.{Clock, currentTime}
 import zio.console.Console

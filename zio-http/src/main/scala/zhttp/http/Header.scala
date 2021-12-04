@@ -71,9 +71,12 @@ object Header {
   def parse(headers: HttpHeaders): List[Header] =
     headers.entries().asScala.toList.map(entry => Header(entry.getKey, entry.getValue))
 
+  def setCookie(cookie: Cookie): Header = Header(HttpHeaderNames.SET_COOKIE, cookie.encode)
+
   def userAgent(name: String): Header = Header(HttpHeaderNames.USER_AGENT, name)
 
-  // Helper utils to create Header instances
+  val connectionKeepAlive: Header       = Header(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
+  val connectionClose: Header           = Header(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE)
   val acceptJson: Header                = Header(HttpHeaderNames.ACCEPT, HttpHeaderValues.APPLICATION_JSON)
   val acceptXhtmlXml: Header            = Header(HttpHeaderNames.ACCEPT, HttpHeaderValues.APPLICATION_XHTML)
   val acceptXml: Header                 = Header(HttpHeaderNames.ACCEPT, HttpHeaderValues.APPLICATION_XML)
