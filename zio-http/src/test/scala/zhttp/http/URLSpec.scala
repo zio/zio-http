@@ -51,11 +51,16 @@ object URLSpec extends DefaultRunnableSpec {
 
     suite("asString")(
       testM("using gen") {
-        checkAll(HttpGen.url) { case expected =>
-          val actual = URL.fromString(expected.asString)
-          assert(actual)(isRight(equalTo(expected)))
+        checkAll(HttpGen.url) { case url =>
+          val source  = url.asString
+          val decoded = URL.fromString(source).map(_.asString)
+          assert(decoded)(isRight(equalTo(source)))
         }
       } +
+        test("empty") {
+          val actual = URL.fromString("/").map(_.asString)
+          assert(actual)(isRight(equalTo("/")))
+        } +
         test("relative with pathname only") {
           roundtrip("/users")
         } +
