@@ -17,28 +17,19 @@ import java.io.IOException
  * Middlewares for HttpApp.
  */
 sealed trait Middleware[-R, +E] { self =>
-  def apply[R1 <: R, E1 >: E](app: HttpApp[R1, E1]): HttpApp[R1, E1] = Middleware.execute(self, app)
+  def <>[R1 <: R, E1](other: Middleware[R1, E1]): Middleware[R1, E1] =
+    self orElse other
 
   def ++[R1 <: R, E1 >: E](other: Middleware[R1, E1]): Middleware[R1, E1] =
     self combine other
 
-  def combine[R1 <: R, E1 >: E](other: Middleware[R1, E1]): Middleware[R1, E1] =
-    Middleware.Combine(self, other)
-
-  def race[R1 <: R, E1 >: E](other: Middleware[R1, E1]): Middleware[R1, E1] =
-    Middleware.Race(self, other)
+  def apply[R1 <: R, E1 >: E](app: HttpApp[R1, E1]): HttpApp[R1, E1] = Middleware.execute(self, app)
 
   def as[R1 <: R, E1 >: E](app: HttpApp[R1, E1]): Middleware[R1, E1] =
     Middleware.Constant(app)
 
-  def when(f: RequestP[Boolean]): Middleware[R, E] =
-    modify((m, u, h) => if (f(m, u, h)) self else Middleware.identity)
-
-  def <>[R1 <: R, E1](other: Middleware[R1, E1]): Middleware[R1, E1] =
-    self orElse other
-
-  def orElse[R1 <: R, E1](other: Middleware[R1, E1]): Middleware[R1, E1] =
-    Middleware.OrElse(self, other)
+  def combine[R1 <: R, E1 >: E](other: Middleware[R1, E1]): Middleware[R1, E1] =
+    Middleware.Combine(self, other)
 
   def delay(duration: Duration): Middleware[R with Clock, E] = {
     self.modifyM((_, _, _) => UIO(self).delay(duration))
@@ -50,116 +41,30 @@ sealed trait Middleware[-R, +E] { self =>
   def modifyM[R1 <: R, E1 >: E](f: RequestP[ZIO[R1, Option[E1], Middleware[R1, E1]]]): Middleware[R1, E1] =
     Middleware.fromMiddlewareFunctionM((m, u, h) => f(m, u, h))
 
+  def orElse[R1 <: R, E1](other: Middleware[R1, E1]): Middleware[R1, E1] =
+    Middleware.OrElse(self, other)
+
+  def race[R1 <: R, E1 >: E](other: Middleware[R1, E1]): Middleware[R1, E1] =
+    Middleware.Race(self, other)
+
+  def when(f: RequestP[Boolean]): Middleware[R, E] =
+    modify((m, u, h) => if (f(m, u, h)) self else Middleware.identity)
+
 }
 
 object Middleware {
 
-  type RequestP[+A] = (Method, URL, List[Header]) => A
-
-  private case object Identity extends Middleware[Any, Nothing]
-
-  private final case class TransformM[R, E, S](
-    req: (Method, URL, List[Header]) => ZIO[R, Option[E], S],
-    res: (Status, List[Header], S) => ZIO[R, Option[E], Patch],
-  ) extends Middleware[R, E]
-
-  private final case class Combine[R, E](self: Middleware[R, E], other: Middleware[R, E]) extends Middleware[R, E]
-
-  private final case class FromFunctionM[R, E](
-    f: (Method, URL, List[Header]) => ZIO[R, Option[E], Middleware[R, E]],
-  ) extends Middleware[R, E]
-
-  private final case class Race[R, E](self: Middleware[R, E], other: Middleware[R, E]) extends Middleware[R, E]
-
-  private final case class Constant[R, E](app: HttpApp[R, E]) extends Middleware[R, E]
-
-  private final case class OrElse[R, E](self: Middleware[R, Any], other: Middleware[R, E]) extends Middleware[R, E]
-
-  final case class PartiallyAppliedMake[S](req: (Method, URL, List[Header]) => S) extends AnyVal {
-    def apply(res: (Status, List[Header], S) => Patch): Middleware[Any, Nothing] =
-      TransformM[Any, Nothing, S](
-        (method, url, headers) => UIO(req(method, url, headers)),
-        (status, headers, state) => UIO(res(status, headers, state)),
-      )
-  }
-
-  final case class PartiallyAppliedMakeM[R, E, S](req: (Method, URL, List[Header]) => ZIO[R, Option[E], S])
-      extends AnyVal {
-    def apply[R1 <: R, E1 >: E](res: (Status, List[Header], S) => ZIO[R1, Option[E1], Patch]): Middleware[R1, E1] =
-      TransformM(req, res)
-  }
+  /**
+   * Adds the provided header and value to the response
+   */
+  def addHeader(name: String, value: String): Middleware[Any, Nothing] =
+    patch((_, _) => Patch.addHeaders(List(Header(name, value))))
 
   /**
-   * An empty middleware that doesn't do anything
+   * Adds the provided list of headers to the response
    */
-  def identity: Middleware[Any, Nothing] = Identity
-
-  /**
-   * Applies the middleware only if the condition function evaluates to true
-   */
-  def when[R, E](cond: RequestP[Boolean])(middleware: Middleware[R, E]): Middleware[R, E] =
-    ifThenElse(cond)(middleware, Middleware.identity)
-
-  /**
-   * Applies the middleware only if the condition function effectfully evaluates to true
-   */
-  def whenM[R, E](cond: RequestP[ZIO[R, E, Boolean]])(middleware: Middleware[R, E]): Middleware[R, E] =
-    ifThenElseM(cond)(middleware, Middleware.identity)
-
-  /**
-   * Logical operator to decide which middleware to select based on the predicate.
-   */
-  def ifThenElseM[R, E](
-    cond: RequestP[ZIO[R, E, Boolean]],
-  )(left: Middleware[R, E], right: Middleware[R, E]): Middleware[R, E] =
-    Middleware.FromFunctionM((method, url, headers) =>
-      cond(method, url, headers).mapError(Option(_)).map {
-        case true  => left
-        case false => right
-      },
-    )
-
-  /**
-   * Logical operator to decide which middleware to select based on the predicate.
-   */
-  def ifThenElse[R, E](
-    cond: RequestP[Boolean],
-  )(left: Middleware[R, E], right: Middleware[R, E]): Middleware[R, E] =
-    Middleware.FromFunctionM((method, url, headers) => UIO(if (cond(method, url, headers)) left else right))
-
-  /**
-   * Creates a new middleware using transformation functions
-   */
-  def make[S](req: (Method, URL, List[Header]) => S): PartiallyAppliedMake[S] = PartiallyAppliedMake(req)
-
-  /**
-   * Creates a new middleware using effectful transformation functions
-   */
-  def makeM[R, E, S](req: (Method, URL, List[Header]) => ZIO[R, Option[E], S]): PartiallyAppliedMakeM[R, E, S] =
-    PartiallyAppliedMakeM(req)
-
-  /**
-   * Creates a new constants middleware that always executes the app provided, independent of where the middleware is
-   * applied
-   */
-  def fromApp[R, E](app: HttpApp[R, E]): Middleware[R, E] = Middleware.Constant(app)
-
-  /**
-   * Creates a new middleware using a function from request parameters to a ZIO of HttpMiddleware
-   */
-  def fromMiddlewareFunctionM[R, E](f: RequestP[ZIO[R, Option[E], Middleware[R, E]]]): Middleware[R, E] =
-    Middleware.FromFunctionM(f)
-
-  /**
-   * Creates a new middleware using a function from request parameters to a HttpMiddleware
-   */
-  def fromMiddlewareFunction[R, E](f: RequestP[Middleware[R, E]]): Middleware[R, E] =
-    fromMiddlewareFunctionM((method, url, headers) => UIO(f(method, url, headers)))
-
-  /**
-   * Creates a new middleware that always sets the response status to the provided value
-   */
-  def status(status: Status): Middleware[Any, Nothing] = Middleware.patch((_, _) => Patch.setStatus(status))
+  def addHeaders(headers: List[Header]): Middleware[Any, Nothing] =
+    patch((_, _) => Patch.addHeaders(headers))
 
   /**
    * Creates an authentication middleware that only allows authenticated requests to be passed on to the app.
@@ -189,68 +94,6 @@ object Middleware {
    */
   def basicAuth[R, E](u: String, p: String): Middleware[R, E] =
     basicAuth((user, password) => (user == u) && (password == p))
-
-  /**
-   * Add log status, method, url and time taken from req to res
-   */
-  def debug: Middleware[Console with Clock, IOException] =
-    Middleware.makeM((method, url, _) => zio.clock.nanoTime.map(start => (method, url, start))) {
-      case (status, _, (method, url, start)) =>
-        for {
-          end <- clock.nanoTime
-          _   <- console
-            .putStrLn(s"${status.asJava.code()} ${method} ${url.asString} ${(end - start) / 1000000}ms")
-            .mapError(Option(_))
-        } yield Patch.empty
-    }
-
-  /**
-   * Runs the effect after the response is produced
-   */
-  def runAfter[R, E](effect: ZIO[R, E, Any]): Middleware[R, E] =
-    patchM((_, _) => effect.mapBoth(Option(_), _ => Patch.empty))
-
-  /**
-   * Runs the effect before the request is passed on to the HttpApp on which the middleware is applied.
-   */
-  def runBefore[R, E](effect: ZIO[R, E, Any]): Middleware[R, E] =
-    Middleware.makeM((_, _, _) => effect.mapError(Option(_)).unit)((_, _, _) => UIO(Patch.empty))
-
-  /**
-   * Creates a middleware that produces a Patch for the Response effectfully.
-   */
-  def patchM[R, E](f: (Status, List[Header]) => ZIO[R, Option[E], Patch]): Middleware[R, E] =
-    Middleware.makeM((_, _, _) => ZIO.unit)((status, headers, _) => f(status, headers))
-
-  /**
-   * Creates a middleware that produces a Patch for the Response
-   */
-  def patch[R, E](f: (Status, List[Header]) => Patch): Middleware[R, E] =
-    Middleware.make((_, _, _) => ())((status, headers, _) => f(status, headers))
-
-  /**
-   * Times out the application with a 408 status code.
-   */
-  def timeout(duration: Duration): Middleware[Clock, Nothing] =
-    Middleware.identity.race(Middleware.fromApp(HttpApp.status(Status.REQUEST_TIMEOUT).delayAfter(duration)))
-
-  /**
-   * Adds the provided header and value to the response
-   */
-  def addHeader(name: String, value: String): Middleware[Any, Nothing] =
-    patch((_, _) => Patch.addHeaders(List(Header(name, value))))
-
-  /**
-   * Adds the provided list of headers to the response
-   */
-  def addHeaders(headers: List[Header]): Middleware[Any, Nothing] =
-    patch((_, _) => Patch.addHeaders(headers))
-
-  /**
-   * Removes the header by name
-   */
-  def removeHeader(name: String): Middleware[Any, Nothing] =
-    patch((_, _) => Patch.removeHeaders(List(name)))
 
   /**
    * Creates a middleware for Cross-Origin Resource Sharing (CORS).
@@ -361,6 +204,130 @@ object Middleware {
   }
 
   /**
+   * Add log status, method, url and time taken from req to res
+   */
+  def debug: Middleware[Console with Clock, IOException] =
+    Middleware.makeM((method, url, _) => zio.clock.nanoTime.map(start => (method, url, start))) {
+      case (status, _, (method, url, start)) =>
+        for {
+          end <- clock.nanoTime
+          _   <- console
+            .putStrLn(s"${status.asJava.code()} ${method} ${url.asString} ${(end - start) / 1000000}ms")
+            .mapError(Option(_))
+        } yield Patch.empty
+    }
+
+  /**
+   * Creates a new constants middleware that always executes the app provided, independent of where the middleware is
+   * applied
+   */
+  def fromApp[R, E](app: HttpApp[R, E]): Middleware[R, E] = Middleware.Constant(app)
+
+  /**
+   * Creates a new middleware using a function from request parameters to a HttpMiddleware
+   */
+  def fromMiddlewareFunction[R, E](f: RequestP[Middleware[R, E]]): Middleware[R, E] =
+    fromMiddlewareFunctionM((method, url, headers) => UIO(f(method, url, headers)))
+
+  /**
+   * Creates a new middleware using a function from request parameters to a ZIO of HttpMiddleware
+   */
+  def fromMiddlewareFunctionM[R, E](f: RequestP[ZIO[R, Option[E], Middleware[R, E]]]): Middleware[R, E] =
+    Middleware.FromFunctionM(f)
+
+  /**
+   * An empty middleware that doesn't do anything
+   */
+  def identity: Middleware[Any, Nothing] = Identity
+
+  /**
+   * Logical operator to decide which middleware to select based on the predicate.
+   */
+  def ifThenElse[R, E](
+    cond: RequestP[Boolean],
+  )(left: Middleware[R, E], right: Middleware[R, E]): Middleware[R, E] =
+    Middleware.FromFunctionM((method, url, headers) => UIO(if (cond(method, url, headers)) left else right))
+
+  /**
+   * Logical operator to decide which middleware to select based on the predicate.
+   */
+  def ifThenElseM[R, E](
+    cond: RequestP[ZIO[R, E, Boolean]],
+  )(left: Middleware[R, E], right: Middleware[R, E]): Middleware[R, E] =
+    Middleware.FromFunctionM((method, url, headers) =>
+      cond(method, url, headers).mapError(Option(_)).map {
+        case true  => left
+        case false => right
+      },
+    )
+
+  /**
+   * Creates a new middleware using transformation functions
+   */
+  def make[S](req: (Method, URL, List[Header]) => S): PartiallyAppliedMake[S] = PartiallyAppliedMake(req)
+
+  /**
+   * Creates a new middleware using effectful transformation functions
+   */
+  def makeM[R, E, S](req: (Method, URL, List[Header]) => ZIO[R, Option[E], S]): PartiallyAppliedMakeM[R, E, S] =
+    PartiallyAppliedMakeM(req)
+
+  /**
+   * Creates a middleware that produces a Patch for the Response
+   */
+  def patch[R, E](f: (Status, List[Header]) => Patch): Middleware[R, E] =
+    Middleware.make((_, _, _) => ())((status, headers, _) => f(status, headers))
+
+  /**
+   * Creates a middleware that produces a Patch for the Response effectfully.
+   */
+  def patchM[R, E](f: (Status, List[Header]) => ZIO[R, Option[E], Patch]): Middleware[R, E] =
+    Middleware.makeM((_, _, _) => ZIO.unit)((status, headers, _) => f(status, headers))
+
+  /**
+   * Removes the header by name
+   */
+  def removeHeader(name: String): Middleware[Any, Nothing] =
+    patch((_, _) => Patch.removeHeaders(List(name)))
+
+  /**
+   * Runs the effect after the response is produced
+   */
+  def runAfter[R, E](effect: ZIO[R, E, Any]): Middleware[R, E] =
+    patchM((_, _) => effect.mapBoth(Option(_), _ => Patch.empty))
+
+  /**
+   * Runs the effect before the request is passed on to the HttpApp on which the middleware is applied.
+   */
+  def runBefore[R, E](effect: ZIO[R, E, Any]): Middleware[R, E] =
+    Middleware.makeM((_, _, _) => effect.mapError(Option(_)).unit)((_, _, _) => UIO(Patch.empty))
+
+  /**
+   * Creates a new middleware that always sets the response status to the provided value
+   */
+  def status(status: Status): Middleware[Any, Nothing] = Middleware.patch((_, _) => Patch.setStatus(status))
+
+  /**
+   * Times out the application with a 408 status code.
+   */
+  def timeout(duration: Duration): Middleware[Clock, Nothing] =
+    Middleware.identity.race(Middleware.fromApp(HttpApp.status(Status.REQUEST_TIMEOUT).delayAfter(duration)))
+
+  /**
+   * Applies the middleware only if the condition function evaluates to true
+   */
+  def when[R, E](cond: RequestP[Boolean])(middleware: Middleware[R, E]): Middleware[R, E] =
+    ifThenElse(cond)(middleware, Middleware.identity)
+
+  /**
+   * Applies the middleware only if the condition function effectfully evaluates to true
+   */
+  def whenM[R, E](cond: RequestP[ZIO[R, E, Boolean]])(middleware: Middleware[R, E]): Middleware[R, E] =
+    ifThenElseM(cond)(middleware, Middleware.identity)
+
+  type RequestP[+A] = (Method, URL, List[Header]) => A
+
+  /**
    * Applies the middleware on an HttpApp
    */
   private[zhttp] def execute[R, E](mid: Middleware[R, E], app: HttpApp[R, E]): HttpApp[R, E] =
@@ -398,5 +365,38 @@ object Middleware {
           (self(app)(req) orElse other(app)(req)).asInstanceOf[ZIO[R, Option[E], Response[R, E]]]
         }
     }
+
+  final case class PartiallyAppliedMake[S](req: (Method, URL, List[Header]) => S) extends AnyVal {
+    def apply(res: (Status, List[Header], S) => Patch): Middleware[Any, Nothing] =
+      TransformM[Any, Nothing, S](
+        (method, url, headers) => UIO(req(method, url, headers)),
+        (status, headers, state) => UIO(res(status, headers, state)),
+      )
+  }
+
+  final case class PartiallyAppliedMakeM[R, E, S](req: (Method, URL, List[Header]) => ZIO[R, Option[E], S])
+      extends AnyVal {
+    def apply[R1 <: R, E1 >: E](res: (Status, List[Header], S) => ZIO[R1, Option[E1], Patch]): Middleware[R1, E1] =
+      TransformM(req, res)
+  }
+
+  private final case class TransformM[R, E, S](
+    req: (Method, URL, List[Header]) => ZIO[R, Option[E], S],
+    res: (Status, List[Header], S) => ZIO[R, Option[E], Patch],
+  ) extends Middleware[R, E]
+
+  private final case class Combine[R, E](self: Middleware[R, E], other: Middleware[R, E]) extends Middleware[R, E]
+
+  private final case class FromFunctionM[R, E](
+    f: (Method, URL, List[Header]) => ZIO[R, Option[E], Middleware[R, E]],
+  ) extends Middleware[R, E]
+
+  private final case class Race[R, E](self: Middleware[R, E], other: Middleware[R, E]) extends Middleware[R, E]
+
+  private final case class Constant[R, E](app: HttpApp[R, E]) extends Middleware[R, E]
+
+  private final case class OrElse[R, E](self: Middleware[R, Any], other: Middleware[R, E]) extends Middleware[R, E]
+
+  private case object Identity extends Middleware[Any, Nothing]
 
 }
