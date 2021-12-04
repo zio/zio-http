@@ -146,10 +146,11 @@ object Client {
   final case class ClientParams(
     endpoint: Endpoint,
     getHeaders: List[Header] = List.empty,
-    content: HttpData[Any, Nothing] = HttpData.empty,
+    data: HttpData[Any, Nothing] = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
   ) extends HeaderExtension[ClientParams] { self =>
-    def getBodyAsString: Option[String] = content match {
+
+    def getBodyAsString: Option[String] = data match {
       case HttpData.Text(text, _)       => Some(text)
       case HttpData.BinaryChunk(data)   => Some(new String(data.toArray, HTTP_CHARSET))
       case HttpData.BinaryByteBuf(data) => Some(data.toString(HTTP_CHARSET))
