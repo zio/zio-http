@@ -74,31 +74,31 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         test("should resolve first") {
           val a      = Http.collect[Int] { case 1 => "A" }
           val b      = Http.collect[Int] { case 2 => "B" }
-          val actual = (a +++ b).execute(1).evaluate
+          val actual = (a ++ b).execute(1).evaluate
           assert(actual)(isSuccess(equalTo("A")))
         } +
           test("should resolve second") {
             val a      = Http.empty
             val b      = Http.succeed("A")
-            val actual = (a +++ b).execute(()).evaluate
+            val actual = (a ++ b).execute(()).evaluate
             assert(actual)(isSuccess(equalTo("A")))
           } +
           test("should resolve second") {
             val a      = Http.collect[Int] { case 1 => "A" }
             val b      = Http.collect[Int] { case 2 => "B" }
-            val actual = (a +++ b).execute(2).evaluate
+            val actual = (a ++ b).execute(2).evaluate
             assert(actual)(isSuccess(equalTo("B")))
           } +
           test("should not resolve") {
             val a      = Http.collect[Int] { case 1 => "A" }
             val b      = Http.collect[Int] { case 2 => "B" }
-            val actual = (a +++ b).execute(3).evaluate
+            val actual = (a ++ b).execute(3).evaluate
             assert(actual)(isEmpty)
           } +
           test("should be stack-safe") {
             val i      = 100000
             val a      = Http.collect[Int] { case i => i + 1 }
-            val app    = (0 until i).foldLeft(a)((i, _) => i +++ a)
+            val app    = (0 until i).foldLeft(a)((i, _) => i ++ a)
             val actual = app.execute(0).evaluate
             assert(actual)(isSuccess(equalTo(1)))
           },
@@ -129,7 +129,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           test("should resolve second effect") {
             val a      = Http.empty.flatten
             val b      = Http.succeed("B")
-            val actual = (a +++ b).execute(2).evaluate
+            val actual = (a ++ b).execute(2).evaluate
             assert(actual)(isSuccess(equalTo("B")))
           },
       ) +

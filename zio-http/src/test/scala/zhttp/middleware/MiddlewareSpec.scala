@@ -1,8 +1,8 @@
 package zhttp.middleware
 
 import zhttp.http._
-import zhttp.http.middleware.HttpMiddleware
-import zhttp.http.middleware.HttpMiddleware.cors
+import zhttp.http.middleware.Middleware
+import zhttp.http.middleware.Middleware.cors
 import zhttp.internal.HttpAppTestExtensions
 import zio.clock.Clock
 import zio.duration._
@@ -11,7 +11,7 @@ import zio.test.environment.{TestClock, TestConsole}
 import zio.test.{DefaultRunnableSpec, assert, assertM}
 import zio.{UIO, ZIO, console}
 
-object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
+object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   def cond(flg: Boolean) = (_: Any, _: Any, _: Any) => flg
 
   def condM(flg: Boolean) = (_: Any, _: Any, _: Any) => UIO(flg)
@@ -43,7 +43,7 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
   }
 
   def spec = suite("HttpMiddleware") {
-    import HttpMiddleware._
+    import Middleware._
 
     suite("debug") {
       testM("log status method url and time") {
@@ -193,9 +193,9 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
     UIO(Response.ok).delay(1 second)
   }
 
-  private val midA       = HttpMiddleware.addHeader("X-Custom", "A")
-  private val midB       = HttpMiddleware.addHeader("X-Custom", "B")
+  private val midA       = Middleware.addHeader("X-Custom", "A")
+  private val midB       = Middleware.addHeader("X-Custom", "B")
   private val basicHS    = Header.basicHttpAuthorization("user", "resu")
   private val basicHF    = Header.basicHttpAuthorization("user", "user")
-  private val basicAuthM = HttpMiddleware.basicAuth((u, p) => p.reverse == u)
+  private val basicAuthM = Middleware.basicAuth((u, p) => p.reverse == u)
 }

@@ -15,7 +15,7 @@ object Endpoints extends App {
     Response.text(a.params.toString)
   }
 
-  def app: HttpApp[Any, Throwable] = h1 +++ h2
+  def app: HttpApp[Any, Throwable] = h1 ++ h2
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
