@@ -138,9 +138,9 @@ object Response {
   /**
    * Creates a response with content-type set to plain/text
    */
-  def text(text: String, charset: Charset = HTTP_CHARSET, newLine: Boolean = true): UResponse =
+  def text(text: String, charset: Charset = HTTP_CHARSET): UResponse =
     Response(
-      data = HttpData.fromText(if (newLine) text + "\n" else text, charset),
+      data = HttpData.fromText(text, charset),
       headers = List(Header.contentTypeTextPlain),
     )
 
