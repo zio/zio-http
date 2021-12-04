@@ -1,8 +1,7 @@
 package zhttp.middleware
 
+import zhttp.http.Middleware.cors
 import zhttp.http._
-import zhttp.http.middleware.Middleware
-import zhttp.http.middleware.Middleware.cors
 import zhttp.internal.HttpAppTestExtensions
 import zio.clock.Clock
 import zio.duration._
@@ -49,8 +48,18 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       testM("log status method url and time") {
         val program = run(app @@ debug) *> TestConsole.output
         assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
-      }
+      } +
+        testM("log 404 status method url and time") {
+          val program = run(Http.empty @@ debug.withEmpty) *> TestConsole.output
+          assertM(program)(equalTo(Vector("404 GET /health 0ms\n")))
+        }
     } +
+      suite("withEmpty") {
+        testM("log 404 status method url and time") {
+          val program = run(Http.empty @@ debug.withEmpty) *> TestConsole.output
+          assertM(program)(equalTo(Vector("404 GET /health 0ms\n")))
+        }
+      } +
       suite("when") {
         testM("condition is true") {
           val program = run(app @@ debug.when((_, _, _) => true)) *> TestConsole.output

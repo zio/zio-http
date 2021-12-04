@@ -1,6 +1,6 @@
 package example
 
-import zhttp.http.middleware.Middleware.cors
+import zhttp.http.Middleware.cors
 import zhttp.http.{CORSConfig, HttpApp, Method, Response, _}
 import zhttp.service.Server
 import zio.{App, ExitCode, URIO}

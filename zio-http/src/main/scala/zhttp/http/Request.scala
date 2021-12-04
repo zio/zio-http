@@ -19,18 +19,16 @@ trait Request extends HeaderExtension[Request] { self =>
     }
   }
 
-  private[zhttp] def getBodyAsByteBuf: Task[ByteBuf]
-
-  /**
-   * Decodes the content of request as string
-   */
-  def getBodyAsString: ZIO[Any, Throwable, String] =
-    getBodyAsByteBuf.flatMap(buf => Task(buf.toString(getCharset.getOrElse(HTTP_CHARSET))))
-
   /**
    * Decodes the content of request as a Chunk of Bytes
    */
   def getBody: Task[Chunk[Byte]] = getBodyAsByteBuf.flatMap(buf => Task(Chunk.fromArray(buf.array())))
+
+  /**
+   * Decodes the content of request as string
+   */
+  def getBodyAsString: Task[String] =
+    getBodyAsByteBuf.flatMap(buf => Task(buf.toString(getCharset.getOrElse(HTTP_CHARSET))))
 
   /**
    * Gets all the headers in the Request
@@ -58,6 +56,21 @@ trait Request extends HeaderExtension[Request] { self =>
   def remoteAddress: Option[InetAddress]
 
   /**
+   * Overwrites the method in the request
+   */
+  def setMethod(method: Method): Request = self.copy(method = method)
+
+  /**
+   * Overwrites the path in the request
+   */
+  def setPath(path: Path): Request = self.copy(url = self.url.copy(path = path))
+
+  /**
+   * Overwrites the url in the request
+   */
+  def setUrl(url: URL): Request = self.copy(url = url)
+
+  /**
    * Gets the complete url
    */
   def url: URL
@@ -66,6 +79,8 @@ trait Request extends HeaderExtension[Request] { self =>
    * Updates the headers using the provided function
    */
   final override def updateHeaders(f: List[Header] => List[Header]): Request = self.copy(headers = f(self.getHeaders))
+
+  private[zhttp] def getBodyAsByteBuf: Task[ByteBuf]
 }
 
 object Request {

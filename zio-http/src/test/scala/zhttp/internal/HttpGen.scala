@@ -144,5 +144,20 @@ object HttpGen {
     } yield p
   }
 
-  def urlGen: Gen[Random with Sized, URL] = path.map(URL(_))
+  def location: Gen[Random with Sized, URL.Location] = {
+    def genRelative = Gen.const(URL.Location.Relative)
+    def genAbsolute = for {
+      scheme <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS))
+      host   <- Gen.alphaNumericString
+      port   <- Gen.int(0, Int.MaxValue)
+    } yield URL.Location.Absolute(scheme, host, port)
+
+    Gen.fromIterable(List(genRelative, genAbsolute)).flatten
+  }
+
+  def url: Gen[Random with Sized, URL] = for {
+    path        <- HttpGen.path
+    kind        <- HttpGen.location
+    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
+  } yield URL(path, kind, queryParams)
 }

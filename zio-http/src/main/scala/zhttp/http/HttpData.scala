@@ -41,6 +41,14 @@ sealed trait HttpData[-R, +E] { self =>
     if (s < 0) None else Some(s)
   }
 
+  def toByteBuf: ZIO[R, E, ByteBuf] = self match {
+    case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
+    case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
+    case HttpData.BinaryByteBuf(data)  => UIO(data)
+    case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
+    case HttpData.BinaryStream(stream) => stream.fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
+  }
+
   /**
    * Returns the size of HttpData if available and -1 if not
    */
@@ -50,17 +58,6 @@ sealed trait HttpData[-R, +E] { self =>
     case HttpData.BinaryChunk(data)   => data.size.toLong
     case HttpData.BinaryByteBuf(data) => data.readableBytes().toLong
     case HttpData.BinaryStream(_)     => -1L
-  }
-
-  def toByteBuf: ZIO[R, E, ByteBuf] = self match {
-    case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
-    case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
-    case HttpData.BinaryByteBuf(data)  => UIO(data)
-    case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
-    case HttpData.BinaryStream(stream) =>
-      stream
-        .mapChunks(chunks => Chunk(Unpooled.copiedBuffer(chunks.toArray)))
-        .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
   }
 }
 
@@ -82,9 +79,16 @@ object HttpData {
   def fromChunk(data: Chunk[Byte]): HttpData[Any, Nothing] = BinaryChunk(data)
 
   /**
-   * Helper to create HttpData from Stream of Chunks
+   * Helper to create HttpData from Stream of bytes
    */
-  def fromStream[R, E](stream: ZStream[R, E, Byte]): HttpData[R, E] = HttpData.BinaryStream(stream)
+  def fromStream[R, E](stream: ZStream[R, E, Byte]): HttpData[R, E] =
+    HttpData.BinaryStream(stream.mapChunks(chunks => Chunk(Unpooled.copiedBuffer(chunks.toArray))))
+
+  /**
+   * Helper to create HttpData from Stream of string
+   */
+  def fromStream[R, E](stream: ZStream[R, E, String], charset: Charset = HTTP_CHARSET): HttpData[R, E] =
+    HttpData.BinaryStream(stream.map(str => Unpooled.copiedBuffer(str, charset)))
 
   /**
    * Helper to create HttpData from String
@@ -115,6 +119,6 @@ object HttpData {
   private[zhttp] final case class Text(text: String, charset: Charset) extends HttpData[Any, Nothing] with Cached
   private[zhttp] final case class BinaryChunk(data: Chunk[Byte])       extends HttpData[Any, Nothing] with Cached
   private[zhttp] final case class BinaryByteBuf(data: ByteBuf)         extends HttpData[Any, Nothing]
-  private[zhttp] final case class BinaryStream[R, E](stream: ZStream[R, E, Byte]) extends HttpData[R, E]
-  private[zhttp] case object Empty                                                extends HttpData[Any, Nothing]
+  private[zhttp] final case class BinaryStream[R, E](stream: ZStream[R, E, ByteBuf]) extends HttpData[R, E]
+  private[zhttp] case object Empty                                                   extends HttpData[Any, Nothing]
 }
