@@ -14,7 +14,7 @@ import zio.{UIO, ZIO, clock, console}
 import java.io.IOException
 
 /**
- * Middlewares for HttpApp.
+ * Middlewares for Http.
  */
 sealed trait Middleware[-R, +E] { self =>
   final def <>[R1 <: R, E1](other: Middleware[R1, E1]): Middleware[R1, E1] =
@@ -343,7 +343,7 @@ object Middleware {
    * Times out the application with a 408 status code.
    */
   def timeout(duration: Duration): Middleware[Clock, Nothing] =
-    Middleware.identity.race(Middleware.fromApp(HttpApp.status(Status.REQUEST_TIMEOUT).delayAfter(duration)))
+    Middleware.identity.race(Middleware.fromApp(Http.status(Status.REQUEST_TIMEOUT).delayAfter(duration)))
 
   /**
    * Applies the middleware only if the condition function evaluates to true
@@ -382,7 +382,7 @@ object Middleware {
         execute(mid, app, flag.copy(withEmpty = status))
 
       case TransformM(reqF, resF) =>
-        HttpApp.fromOptionFunction { req =>
+        Http.fromOptionFunction { req =>
           for {
             s     <- reqF(req.method, req.url, req.getHeaders)
             res   <-
@@ -395,7 +395,7 @@ object Middleware {
       case Combine(self, other) => other.execute(self.execute(app, flag), flag)
 
       case FromFunctionM(reqF) =>
-        HttpApp.fromOptionFunction { req =>
+        Http.fromOptionFunction { req =>
           for {
             output <- reqF(req.method, req.url, req.getHeaders)
             res    <- output.execute(app, flag)(req)
@@ -403,14 +403,14 @@ object Middleware {
         }
 
       case Race(self, other) =>
-        HttpApp.fromOptionFunction { req =>
+        Http.fromOptionFunction { req =>
           self.execute(app, flag)(req) raceFirst other.execute(app, flag)(req)
         }
 
       case Constant(self) => self
 
       case OrElse(self, other) =>
-        HttpApp.fromOptionFunction { req =>
+        Http.fromOptionFunction { req =>
           (self.execute(app, flag)(req) orElse other.execute(app, flag)(req))
             .asInstanceOf[ZIO[R, Option[E], Response[R, E]]]
         }

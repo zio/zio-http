@@ -17,20 +17,20 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
       testM("status is 200") {
-        val status = HttpApp.ok.requestStatus()
+        val status = Http.ok.requestStatus()
         assertM(status)(equalTo(Status.OK))
       } +
         testM("status is 200") {
-          val res = HttpApp.text("ABC").requestStatus()
+          val res = Http.text("ABC").requestStatus()
           assertM(res)(equalTo(Status.OK))
         } +
         testM("content is set") {
-          val res = HttpApp.text("ABC").requestBodyAsString()
+          val res = Http.text("ABC").requestBodyAsString()
           assertM(res)(containsString("ABC"))
         }
     } +
       suite("not found") {
-        val app = HttpApp.empty
+        val app = Http.empty
         testM("status is 404") {
           val res = app.requestStatus()
           assertM(res)(equalTo(Status.NOT_FOUND))
@@ -41,7 +41,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
           }
       } +
       suite("error") {
-        val app = HttpApp.fail(new Error("SERVER_ERROR"))
+        val app = Http.fail(new Error("SERVER_ERROR"))
         testM("status is 500") {
           val res = app.requestStatus()
           assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
@@ -56,7 +56,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
           }
       } +
       suite("echo content") {
-        val app = HttpApp.collectM { case req =>
+        val app = Http.collectM[Request] { case req =>
           req.getBodyAsString.map(text => Response.text(text))
         }
 
@@ -78,13 +78,13 @@ object ServerSpec extends HttpRunnableSpec(8088) {
           }
       } +
       suite("headers") {
-        val app = HttpApp.ok.addHeader("Foo", "Bar")
+        val app = Http.ok.addHeader("Foo", "Bar")
         testM("headers are set") {
           val res = app.request().map(_.getHeaderValue("Foo"))
           assertM(res)(isSome(equalTo("Bar")))
         }
       } + suite("response") {
-        val app = HttpApp.response(Response(status = Status.OK, data = HttpData.fromText("abc")))
+        val app = Http.response(Response(status = Status.OK, data = HttpData.fromText("abc")))
         testM("body is set") {
           val res = app.requestBodyAsString()
           assertM(res)(equalTo("abc"))
@@ -95,25 +95,25 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   def responseSpec = suite("ResponseSpec") {
     testM("data") {
       checkAllM(nonEmptyContent) { case (string, data) =>
-        val res = HttpApp.data(data).requestBodyAsString()
+        val res = Http.data(data).requestBodyAsString()
         assertM(res)(equalTo(string))
       }
     } +
       testM("status") {
         checkAllM(HttpGen.status) { case (status) =>
-          val res = HttpApp.status(status).requestStatus()
+          val res = Http.status(status).requestStatus()
           assertM(res)(equalTo(status))
         }
       } +
       testM("header") {
         checkAllM(HttpGen.header) { case (header) =>
-          val res = HttpApp.ok.addHeader(header).requestHeaderValueByName()(header.name)
+          val res = Http.ok.addHeader(header).requestHeaderValueByName()(header.name)
           assertM(res)(isSome(equalTo(header.value)))
         }
       } +
       testM("file-streaming") {
         val path = getClass.getResource("/TestFile").getPath
-        val res  = HttpApp.data(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
+        val res  = Http.data(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
         assertM(res)(containsString("foo"))
       }
   }
@@ -125,7 +125,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   }
 
   def requestSpec = suite("RequestSpec") {
-    val app: HttpApp[Any, Nothing] = HttpApp.collect { case req =>
+    val app: HttpApp[Any, Nothing] = Http.collect[Request] { case req =>
       Response.text(req.getContentLength.getOrElse(-1).toString)
     }
     testM("has content-length") {
@@ -162,7 +162,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
 
   private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
 
-  private val staticApp = HttpApp.collectM {
+  private val staticApp = Http.collectM[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
     case Method.GET -> !! / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
     case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)

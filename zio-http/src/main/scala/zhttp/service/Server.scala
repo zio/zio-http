@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.Http._
-import zhttp.http.HttpApp
+import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
 import zio.{ZManaged, _}
@@ -47,7 +47,7 @@ object Server {
     sslOption: ServerSSLOptions = null,
 
     // TODO: move app out of settings
-    app: HttpApp[R, E] = HttpApp.empty,
+    app: HttpApp[R, E] = Http.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
     acceptContinue: Boolean = false,
     keepAlive: Boolean = false,
