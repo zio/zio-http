@@ -9,6 +9,14 @@ import zio.stream.ZStream
 import zio.test.{Gen, Sized}
 
 object HttpGen {
+  def clientParams[R](dataGen: Gen[R, HttpData[Any, Nothing]]): Gen[Random with Sized with R, ClientParams] =
+    for {
+      method  <- HttpGen.method
+      url     <- HttpGen.url
+      headers <- Gen.listOf(HttpGen.header)
+      data    <- dataGen
+    } yield ClientParams(method -> url, headers, data)
+
   def cookies: Gen[Random with Sized, Cookie] = for {
     name     <- Gen.anyString
     content  <- Gen.anyString
@@ -93,13 +101,6 @@ object HttpGen {
     headers <- Gen.listOf(HttpGen.header)
     data    <- HttpGen.httpData(Gen.listOf(Gen.alphaNumericString))
   } yield Request(method, url, headers, None, data)
-
-  def clientParams: Gen[Random with Sized, ClientParams] = for {
-    method  <- HttpGen.method
-    url     <- HttpGen.url
-    headers <- Gen.listOf(HttpGen.header)
-    data    <- HttpGen.httpData(Gen.listOf(Gen.alphaNumericString))
-  } yield ClientParams(method -> url, headers, data)
 
   def response[R](gContent: Gen[R, List[String]]): Gen[Random with Sized with R, Response[Any, Nothing]] = {
     for {
