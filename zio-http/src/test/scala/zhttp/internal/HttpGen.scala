@@ -53,7 +53,7 @@ object HttpGen {
     def genRelative = Gen.const(URL.Location.Relative)
     def genAbsolute = for {
       scheme <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS))
-      host   <- Gen.alphaNumericString
+      host   <- Gen.alphaNumericStringBounded(1, 5)
       port   <- Gen.int(0, Int.MaxValue)
     } yield URL.Location.Absolute(scheme, host, port)
 

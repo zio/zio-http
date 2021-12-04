@@ -87,7 +87,7 @@ object URL {
     def path: String = {
       val encoder = new QueryStringEncoder(s"${url.path.asString}${url.fragment.fold("")(f => "#" + f.raw)}")
       url.queryParams.foreach { case (key, values) =>
-        values.foreach { value => encoder.addParam(key, value) }
+        if (key != "") values.foreach { value => encoder.addParam(key, value) }
       }
       encoder.toString
     }
