@@ -12,12 +12,12 @@ object HelloWorldAdvanced extends App {
   // Set a port
   private val PORT = 8090
 
-  private val fooBar: HttpApp[Any, Nothing] = HttpApp.collect {
+  private val fooBar: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !! / "foo" => Response.text("bar")
     case Method.GET -> !! / "bar" => Response.text("foo")
   }
 
-  private val app = HttpApp.collectM {
+  private val app = Http.collectM[Request] {
     case Method.GET -> !! / "random" => random.nextString(10).map(Response.text)
     case Method.GET -> !! / "utc"    => clock.currentDateTime.map(s => Response.text(s.toString))
   }
