@@ -138,7 +138,7 @@ lazy val example = (project in file("./example"))
   .settings(
     fork                      := true,
     Compile / run / mainClass := Option("example.HelloWorld"),
-    libraryDependencies ++= Seq(`jwt-core`),
+    libraryDependencies ++= Seq(`jwt-core`, `zio-kafka`),
     TwirlKeys.templateImports := Seq(),
   )
   .dependsOn(zhttp)

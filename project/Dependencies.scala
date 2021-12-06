@@ -6,6 +6,7 @@ object Dependencies {
   val NettyIncubatorVersion         = "0.0.10.Final"
   val ScalaCompactCollectionVersion = "2.6.0"
   val ZioVersion                    = "1.0.12"
+  val ZioKafkaVersion               = "0.17.1"
 
   val `scala-compact-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompactCollectionVersion
   val netty                      = "io.netty"                % "netty-all"               % NettyVersion
@@ -14,6 +15,8 @@ object Dependencies {
   val `zio-streams`              = "dev.zio"                %% "zio-streams"             % ZioVersion
   val `zio-test`                 = "dev.zio"                %% "zio-test"                % ZioVersion % "test"
   val `zio-test-sbt`             = "dev.zio"                %% "zio-test-sbt"            % ZioVersion % "test"
-  val `netty-incubator`          =
+  val `zio-kafka`                = "dev.zio"                %% "zio-kafka"               % ZioKafkaVersion
+
+  val `netty-incubator` =
     "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % NettyIncubatorVersion classifier "linux-x86_64"
 }
