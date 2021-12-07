@@ -35,7 +35,7 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el:
     promise: Promise[Throwable, ClientResponse],
     sslOption: ClientSSLOptions,
   ): Unit = {
-    val jReq = encodeClientParams(HttpVersion.HTTP_1_1, req)
+    val jReq = encodeClientParams(req.httpVersion, req)
     try {
       val hand   = ClientInboundHandler(rtm, jReq, promise)
       val host   = req.url.host
@@ -148,6 +148,7 @@ object Client {
     getHeaders: List[Header] = List.empty,
     content: HttpData[Any, Nothing] = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
+    httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
   ) extends HeaderExtension[ClientParams] { self =>
     def getBodyAsString: Option[String] = content match {
       case HttpData.Text(text, _)       => Some(text)

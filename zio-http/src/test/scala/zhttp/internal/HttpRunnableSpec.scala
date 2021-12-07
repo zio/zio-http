@@ -1,5 +1,6 @@
 package zhttp.internal
 
+import io.netty.handler.codec.http.HttpVersion
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.AppCollection.HttpEnv
@@ -40,10 +41,17 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
     method: Method = Method.GET,
     content: String = "",
     headers: List[Header] = Nil,
+    httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] = {
     val data = HttpData.fromText(content)
     Client.request(
-      Client.ClientParams(method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
+      Client.ClientParams(
+        method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
+        headers,
+        data,
+        null,
+        httpVersion,
+      ),
       ClientSSLOptions.DefaultSSL,
     )
   }
@@ -55,9 +63,10 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
       method: Method = Method.GET,
       content: String = "",
       headers: List[Header] = Nil,
+      httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
     ): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Client.ClientResponse] = for {
       id       <- deploy
-      response <- self.request(path, method, content, Header(AppCollection.APP_ID, id) :: headers)
+      response <- self.request(path, method, content, Header(AppCollection.APP_ID, id) :: headers, httpVersion)
     } yield response
 
     def requestStatus(

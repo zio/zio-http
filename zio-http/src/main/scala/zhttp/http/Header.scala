@@ -87,4 +87,5 @@ object Header {
   val transferEncodingChunked: Header   = Header(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
   val contentTypeFormUrlEncoded: Header =
     Header(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED)
+  val connectionClose: Header           = Header(HttpHeaderNames.CONNECTION.toString, HttpHeaderValues.CLOSE.toString)
 }
