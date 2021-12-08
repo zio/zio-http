@@ -42,14 +42,15 @@ object ServerConfigSpec extends HttpRunnableSpec(8088) {
     } // +
   }
 
+  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
+
+  val keepAliveServerConf         = Server.keepAlive
+  private val appKeepAliveEnabled = configurableServe(AppCollection.app, keepAliveServerConf)
+
   override def spec = {
     suiteM("ServerConfig KeepAlive Enabled Server") {
       appKeepAliveEnabled.as(List(keepAliveSpec)).useNow
     }.provideCustomLayerShared(env)
   }
 
-  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
-
-  val keepAliveServerConf         = Server.keepAlive
-  private val appKeepAliveEnabled = configurableServe(AppCollection.app, keepAliveServerConf)
 }
