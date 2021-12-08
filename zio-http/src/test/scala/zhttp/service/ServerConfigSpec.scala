@@ -1,13 +1,13 @@
 package zhttp.service
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues, HttpVersion}
-import zhttp.http._
+import zhttp.http.{!!, Header, HttpApp, Method}
 import zhttp.internal.{AppCollection, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.assertM
 
-object ServerConfigSpecExperimental extends HttpRunnableSpec(8088) {
+object ServerConfigSpec extends HttpRunnableSpec(8088) {
 
   /*
     From github discussion (Keep Alive Test case 2, Scenario 1)
