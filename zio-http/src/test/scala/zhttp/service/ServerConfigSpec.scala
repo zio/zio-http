@@ -49,12 +49,6 @@ object ServerConfigSpecExperimental extends HttpRunnableSpec(8088) {
 
   private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
 
-  private val appKeepAliveEnabled = Server
-    .make(
-      Server.app(AppCollection.app) ++
-        Server.port(8088) ++
-        Server.paranoidLeakDetection ++
-        Server.keepAlive,
-    )
-    .orDie
+  val keepAliveServerConf         = Server.keepAlive
+  private val appKeepAliveEnabled = configurableServe(AppCollection.app, keepAliveServerConf)
 }

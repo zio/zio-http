@@ -20,6 +20,15 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
     Server.make(Server.app(app) ++ Server.port(port) ++ Server.paranoidLeakDetection).orDie
 
+  def configurableServe[R <: Has[_]](
+    app: HttpApp[R, Throwable],
+    serverConf: Server[R, Throwable],
+  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] = {
+    val defaultConf: Server[R, Throwable] =
+      Server.app(app) ++ Server.port(port) ++ Server.paranoidLeakDetection
+    Server.make(defaultConf ++ serverConf).orDie
+  }
+
   def status(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, Status] =
     Client
       .request(
