@@ -1,11 +1,11 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
+import zhttp.core.Util
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
 
-import java.io.{PrintWriter, StringWriter}
 import java.nio.charset.Charset
 
 final case class Response[-R, +E] private (
@@ -80,12 +80,9 @@ object Response {
         Response(
           error.status,
           Nil,
-          HttpData.fromChunk(cause.cause match {
-            case Some(throwable) =>
-              val sw = new StringWriter
-              throwable.printStackTrace(new PrintWriter(sw))
-              Chunk.fromArray(s"${cause.message}:\n${sw.toString}".getBytes(HTTP_CHARSET))
-            case None            => Chunk.fromArray(s"${cause.message}".getBytes(HTTP_CHARSET))
+          HttpData.fromText(cause.cause match {
+            case Some(throwable) => Util.prettyPrintHtml(throwable)
+            case None            => cause.message
           }),
         )
       case _ => Response(error.status, Nil, HttpData.fromChunk(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))

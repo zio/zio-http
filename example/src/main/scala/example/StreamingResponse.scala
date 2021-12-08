@@ -13,7 +13,7 @@ object StreamingResponse extends App {
   val message = Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET))
 
   // Use `Http.collect` to match on route
-  val app: HttpApp[Any, Nothing] = HttpApp.collect {
+  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
 
     // Simple (non-stream) based route
     case Method.GET -> !! / "health" => Response.ok

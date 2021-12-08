@@ -1,13 +1,13 @@
 package zhttp.http
 
 import io.netty.channel.ChannelHandler
-import zhttp.http.middleware.{HttpMiddleware, Patch}
 import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
 import zio.clock.Clock
 import zio.duration.Duration
 
+import java.nio.charset.Charset
 import scala.annotation.unused
 
 /**
@@ -44,7 +44,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Combines two Http into one.
    */
-  final def +++[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+  final def ++[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
     self defaultWith other
 
   /**
@@ -123,6 +123,11 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Delays production of output B for the specified duration of time
    */
+  final def delay(duration: Duration): Http[R with Clock, E, A, B] = self.delayAfter(duration)
+
+  /**
+   * Delays production of output B for the specified duration of time
+   */
   final def delayAfter(duration: Duration): Http[R with Clock, E, A, B] = self.mapM(b => UIO(b).delay(duration))
 
   /**
@@ -181,7 +186,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Provides the environment to Http.
    */
   final def provide(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
-    Http.fromPartialFunction[A](a => self(a).provide(r))
+    Http.fromOptionFunction[A](a => self(a).provide(r))
 
   /**
    * Provide part of the environment to HTTP that is not part of ZEnv
@@ -189,7 +194,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def provideCustomLayer[E1 >: E, R1 <: Has[_]](
     layer: ZLayer[ZEnv, E1, R1],
   )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): Http[ZEnv, E1, A, B] =
-    Http.fromPartialFunction[A](a => self(a).provideCustomLayer(layer.mapError(Option(_))))
+    Http.fromOptionFunction[A](a => self(a).provideCustomLayer(layer.mapError(Option(_))))
 
   /**
    * Provides layer to Http.
@@ -197,13 +202,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def provideLayer[E1 >: E, R0, R1](
     layer: ZLayer[R0, E1, R1],
   )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R]): Http[R0, E1, A, B] =
-    Http.fromPartialFunction[A](a => self(a).provideLayer(layer.mapError(Option(_))))
+    Http.fromOptionFunction[A](a => self(a).provideLayer(layer.mapError(Option(_))))
 
   /**
    * Provides some of the environment to Http.
    */
   final def provideSome[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
-    Http.fromPartialFunction[A](a => self(a).provideSome(r))
+    Http.fromOptionFunction[A](a => self(a).provideSome(r))
 
   /**
    * Provides some of the environment to Http leaving the remainder `R0`.
@@ -211,13 +216,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def provideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E](
     layer: ZLayer[R0, E1, R1],
   )(implicit ev: R0 with R1 <:< R, tagged: Tag[R1]): Http[R0, E1, A, B] =
-    Http.fromPartialFunction[A](a => self(a).provideSomeLayer(layer.mapError(Option(_))))
+    Http.fromOptionFunction[A](a => self(a).provideSomeLayer(layer.mapError(Option(_))))
 
   /**
    * Performs a race between two apps
    */
   final def race[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    Http.fromPartialFunction(a => self(a) raceFirst other(a))
+    Http.fromOptionFunction(a => self(a) raceFirst other(a))
 
   /**
    * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
@@ -322,6 +327,11 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 object Http {
 
   /**
+   * Creates an HTTP app which always responds with a 400 status code.
+   */
+  def badRequest(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.BadRequest(msg))
+
+  /**
    * Creates an HTTP app which accepts a request and produces response.
    */
   def collect[A]: Http.MakeCollect[A] = Http.MakeCollect(())
@@ -338,9 +348,24 @@ object Http {
     i.reduce(_.defaultWith(_))
 
   /**
+   * Creates an Http app which always responds the provided data and a 200 status code
+   */
+  def data[R, E](data: HttpData[R, E]): HttpApp[R, E] = response(Response(data = data))
+
+  /**
    * Creates an empty Http value
    */
   def empty: Http[Any, Nothing, Any, Nothing] = Http.Empty
+
+  /**
+   * Creates an HTTP app with HttpError.
+   */
+  def error(cause: HttpError): HttpApp[Any, Nothing] = Http.response(Response.fromHttpError(cause))
+
+  /**
+   * Creates an Http app that responds with 500 status code
+   */
+  def error(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.InternalServerError(msg))
 
   /**
    * Creates an Http that always fails
@@ -358,6 +383,11 @@ object Http {
    */
   def flattenM[R, E, A, B](http: Http[R, E, A, ZIO[R, E, B]]): Http[R, E, A, B] =
     http.flatMap(Http.fromEffect)
+
+  /**
+   * Creates an Http app that responds with 403 - Forbidden status code
+   */
+  def forbidden(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.Forbidden(msg))
 
   /**
    * Converts a ZIO to an Http type
@@ -383,7 +413,7 @@ object Http {
    * Creates an `Http` from a function that takes a value of type `A` and returns with a `ZIO[R, Option[E], B]`. The
    * returned effect can fail with a `None` to signal "not found" to the backend.
    */
-  def fromPartialFunction[A]: FromPartialFunction[A] = new FromPartialFunction(())
+  def fromOptionFunction[A]: FromOptionFunction[A] = new FromOptionFunction(())
 
   /**
    * Creates a pass thru Http instances
@@ -391,21 +421,63 @@ object Http {
   def identity[A]: Http[Any, Nothing, A, A] = Http.Identity
 
   /**
+   * Creates an Http app that fails with a NotFound exception.
+   */
+  def notFound: HttpApp[Any, Nothing] =
+    Http.fromFunction[Request](req => Http.error(HttpError.NotFound(req.url.path))).flatten
+
+  /**
+   * Creates an HTTP app which always responds with a 200 status code.
+   */
+  def ok: HttpApp[Any, Nothing] = status(Status.OK)
+
+  /**
+   * Creates an Http app which always responds with the same value.
+   */
+  def response[R, E](response: Response[R, E]): HttpApp[R, E] = Http.succeed(response)
+
+  /**
+   * Converts a ZIO to an Http app type
+   */
+  def responseM[R, E](res: ZIO[R, E, Response[R, E]]): HttpApp[R, E] = Http.fromEffect(res)
+
+  /**
    * Creates an Http that delegates to other Https.
    */
   def route[A]: Http.MakeRoute[A] = Http.MakeRoute(())
+
+  /**
+   * Creates an HTTP app which always responds with the same status code and empty data.
+   */
+  def status(code: Status): HttpApp[Any, Nothing] = Http.succeed(Response(code))
 
   /**
    * Creates an Http that always returns the same response and never fails.
    */
   def succeed[B](b: B): Http[Any, Nothing, Any, B] = Http.Succeed(b)
 
+  /**
+   * Creates an Http app which always responds with the same plain text.
+   */
+  def text(str: String, charset: Charset = HTTP_CHARSET): HttpApp[Any, Nothing] =
+    Http.succeed(Response.text(str, charset))
+
+  /**
+   * Creates an Http app that responds with a 408 status code after the provided time duration
+   */
+  def timeout(duration: Duration): HttpApp[Clock, Nothing] = Http.status(Status.REQUEST_TIMEOUT).delay(duration)
+
+  /**
+   * Creates an HTTP app which always responds with a 413 status code.
+   */
+  def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.REQUEST_ENTITY_TOO_LARGE)
+
   implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends AnyVal { self =>
 
     /**
      * Attaches the provided middleware to the HttpApp
      */
-    def @@[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = middleware(mid)
+    def @@[R1 <: R, E1 >: E](mid: Middleware[R1, E1]): HttpApp[R1, E1] = middleware(mid)
 
     /**
      * Adds the provided headers to the response of the app
@@ -425,7 +497,7 @@ object Http {
     /**
      * Attaches the provided middleware to the HttpApp
      */
-    def middleware[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = mid(http)
+    def middleware[R1 <: R, E1 >: E](mid: Middleware[R1, E1]): HttpApp[R1, E1] = mid(http)
 
     /**
      * Patches the response produced by the app
@@ -433,9 +505,24 @@ object Http {
     def patch(patch: Patch): HttpApp[R, E] = http.map(patch(_))
 
     /**
+     * Overwrites the method in the incoming request
+     */
+    def setMethod(method: Method): HttpApp[R, E] = http.contramap[Request](_.setMethod(method))
+
+    /**
+     * Overwrites the path in the incoming request
+     */
+    def setPath(path: Path): HttpApp[R, E] = http.contramap[Request](_.setPath(path))
+
+    /**
      * Sets the status in the response produced by the app
      */
     def setStatus(status: Status): HttpApp[R, E] = patch(Patch.setStatus(status))
+
+    /**
+     * Overwrites the url in the incoming request
+     */
+    def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.setUrl(url))
 
     /**
      * Converts a failing Http app into a non-failing one by handling the failure and converting it to a result if
@@ -478,7 +565,7 @@ object Http {
       Http.identity[X].flatMap(xa) >>> self
   }
 
-  final class FromPartialFunction[A](val unit: Unit) extends AnyVal {
+  final class FromOptionFunction[A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](f: A => ZIO[R, Option[E], B]): Http[R, E, A, B] = Http
       .collectM[A] { case a =>
         f(a).map(Http.succeed(_)).catchAll {

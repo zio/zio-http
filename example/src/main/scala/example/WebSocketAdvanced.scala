@@ -1,6 +1,6 @@
 package example
 
-import zhttp.http.{HttpApp, Method, Response, _}
+import zhttp.http._
 import zhttp.service.Server
 import zhttp.socket.{Socket, SocketApp, SocketDecoder, SocketProtocol, WebSocketFrame}
 import zio.duration._
@@ -38,9 +38,9 @@ object WebSocketAdvanced extends App {
       SocketApp.protocol(protocol)
 
   private val app =
-    HttpApp.collect {
+    Http.collect[Request] {
       case Method.GET -> !! / "greet" / name  => Response.text(s"Greetings ${name}!")
-      case Method.GET -> !! / "subscriptions" => socketApp
+      case Method.GET -> !! / "subscriptions" => Response.socket(socketApp)
     }
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

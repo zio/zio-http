@@ -1,70 +1,45 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.HttpVersion
-import zhttp.http.URL.Location
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpVersion}
+import zhttp.internal.HttpGen
 import zhttp.service.{Client, EncodeClientParams}
+import zio.random.Random
 import zio.test.Assertion._
 import zio.test._
 
 object EncodeClientParamsSpec extends DefaultRunnableSpec with EncodeClientParams {
 
-  private def queryParamsAsString(params: Map[String, List[String]]) = params.flatMap { case (k, v) =>
-    v.map(iv => k ++ "=" ++ iv)
-  }.mkString("&")
-
-  def spec = suite("EncodeClientParams")(
-    suite("encodeClientParams")(
-      test("should encode properly the request") {
-        val request: Client.ClientParams =
-          Client.ClientParams(Method.GET -> URL(Path("/"), Location.Absolute(Scheme.HTTP, "localhost", 8000)))
-
-        val encoded = encodeClientParams(jVersion = HttpVersion.HTTP_1_1, req = request)
-        assert(encoded.uri())(equalTo("/"))
-      } +
-        testM("should encode a request with query parameters") {
-          val queryParamsGen =
-            Gen.mapOfBounded(1, 5)(
-              Gen.alphaNumericStringBounded(1, 5),
-              Gen.listOfBounded(1, 5)(Gen.alphaNumericStringBounded(1, 5)),
-            )
-          val uriGen         =
-            Gen.zipN(Gen.alphaNumericStringBounded(1, 5), Gen.const("/"), Gen.alphaNumericStringBounded(1, 5))(
-              _ ++ _ ++ _,
-            )
-
-          check(queryParamsGen, uriGen) { (queryParams, uri) =>
-            val queryString                                 = queryParamsAsString(queryParams)
-            val requestWithQueryParams: Client.ClientParams =
-              Client.ClientParams(
-                Method.GET -> URL(
-                  Path(s"/$uri"),
-                  Location.Absolute(Scheme.HTTP, "localhost", 8000),
-                  queryParams,
-                ),
-              )
-
-            val encoded = encodeClientParams(jVersion = HttpVersion.HTTP_1_1, req = requestWithQueryParams)
-            assert(encoded.uri())(equalTo(s"/$uri?$queryString"))
-          }
-        } +
-        testM("should encode a request with query parameters and root url") {
-          val queryParamsGen =
-            Gen.mapOfBounded(1, 5)(
-              Gen.alphaNumericStringBounded(1, 5),
-              Gen.listOfBounded(1, 5)(Gen.alphaNumericStringBounded(1, 5)),
-            )
-
-          check(queryParamsGen) { queryParams =>
-            val queryString                                 = queryParamsAsString(queryParams)
-            val requestWithQueryParams: Client.ClientParams =
-              Client.ClientParams(
-                Method.GET -> URL(Path("/"), Location.Absolute(Scheme.HTTP, "localhost", 8000), queryParams),
-              )
-
-            val encoded = encodeClientParams(jVersion = HttpVersion.HTTP_1_1, req = requestWithQueryParams)
-            assert(encoded.uri())(equalTo(s"/?$queryString"))
-          }
-        },
+  val anyClientParam: Gen[Random with Sized, Client.ClientParams] = HttpGen.clientParams(
+    HttpGen.httpData(
+      Gen.listOf(Gen.alphaNumericString),
     ),
   )
+
+  val clientParamWithFiniteData: Gen[Random with Sized, Client.ClientParams] = HttpGen.clientParams(
+    for {
+      content <- Gen.alphaNumericString
+      data    <- Gen.fromIterable(List(HttpData.fromText(content)))
+    } yield data,
+  )
+
+  def spec = suite("EncodeClientParams") {
+    testM("method") {
+      check(anyClientParam) { params =>
+        val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
+        assert(req.method())(equalTo(params.method.asHttpMethod))
+      }
+    } +
+      testM("uri") {
+        check(anyClientParam) { params =>
+          val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
+          assert(req.uri())(equalTo(params.url.asString))
+        }
+      } +
+      testM("content-length") {
+        check(clientParamWithFiniteData) { params =>
+          val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
+          assert(req.headers().getInt(HttpHeaderNames.CONTENT_LENGTH).toLong)(equalTo(params.data.unsafeSize))
+        }
+      }
+  }
 }

@@ -3,6 +3,20 @@ package zhttp.http
 import io.netty.handler.codec.http.HttpResponseStatus
 
 sealed trait Status extends Product with Serializable { self =>
+
+  /**
+   * Returns an HttpApp[Any, Nothing] that responses with this http status code.
+   */
+  def toApp: UHttpApp = Http.status(self)
+
+  /**
+   * Returns a Response[Any, Nothing] with empty data and no headers.
+   */
+  def toResponse: UResponse = Response(self)
+
+  /**
+   * Returns self as io.netty.handler.codec.http.HttpResponseStatus.
+   */
   def asJava: HttpResponseStatus = self match {
     case Status.CONTINUE                        => HttpResponseStatus.CONTINUE                        // 100
     case Status.SWITCHING_PROTOCOLS             => HttpResponseStatus.SWITCHING_PROTOCOLS             // 101

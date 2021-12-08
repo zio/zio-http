@@ -1,149 +1,53 @@
 package zhttp.service
 
-import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
-import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
+import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.channel.ChannelHandler.Sharable
+import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
-import zhttp.http.HttpApp.InvalidMessage
+import zhttp.core.Util
 import zhttp.http._
 import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
 import zio.stream.ZStream
-import zio.{Chunk, Promise, UIO, ZIO}
+import zio.{Task, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
+@Sharable
 private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
   serverTime: ServerTimeGenerator,
-) extends ChannelInboundHandlerAdapter
+) extends SimpleChannelInboundHandler[FullHttpRequest](false)
     with WebSocketUpgrade[R] { self =>
 
-  override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit = {
+  override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
+    jReq.touch("server.Handler-channelRead0")
     implicit val iCtx: ChannelHandlerContext = ctx
-    msg match {
-      case jRequest: HttpRequest =>
-        // TODO: Unnecessary requirement
-        // `autoRead` is set when the channel is registered in the event loop.
-        // The explicit call here is added to make unit tests work properly
-        ctx.channel().config().setAutoRead(false)
-        self.jReq = jRequest
-        self.request = new Request {
-          override def getBody[R0, B](
-            decoder: ContentDecoder[R0, Throwable, Chunk[Byte], B],
-          ): ZIO[R0, Throwable, B] =
-            ZIO.effectSuspendTotal {
-              if (self.decoder != null)
-                ZIO.fail(ContentDecoder.Error.ContentDecodedOnce)
-              else
-                for {
-                  p <- Promise.make[Throwable, B]
-                  _ <- UIO {
-                    self.decoder = decoder
-                      .asInstanceOf[ContentDecoder[Any, Throwable, Chunk[Byte], B]]
-                    self.completePromise = p.asInstanceOf[Promise[Throwable, Any]]
-                    ctx.read(): Unit
-                  }
-                  b <- p.await
-                } yield b
-            }
-
-          override def method: Method                     = Method.fromHttpMethod(jRequest.method())
-          override def url: URL                           = URL.fromString(jRequest.uri()).getOrElse(null)
-          override def getHeaders: List[Header]           = Header.make(jRequest.headers())
-          override def remoteAddress: Option[InetAddress] = {
-            ctx.channel().remoteAddress() match {
-              case m: InetSocketAddress => Some(m.getAddress())
-              case _                    => None
-            }
+    unsafeRun(
+      jReq,
+      app,
+      new Request {
+        override def method: Method                                 = Method.fromHttpMethod(jReq.method())
+        override def url: URL                                       = URL.fromString(jReq.uri()).getOrElse(null)
+        override def getHeaders: List[Header]                       = Header.make(jReq.headers())
+        override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
+        override def remoteAddress: Option[InetAddress]             = {
+          ctx.channel().remoteAddress() match {
+            case m: InetSocketAddress => Some(m.getAddress())
+            case _                    => None
           }
         }
-        unsafeRun(app, self.request)
-
-      case msg: LastHttpContent =>
-        if (self.isInitialized) {
-          self.switchProtocol(ctx, jReq)
-        } else if (decoder != null) {
-          decodeContent(msg.content(), decoder, true)
-        }
-
-        // TODO: add unit tests
-        // Channels are reused when keep-alive header is set.
-        // So auto-read needs to be set to true once the first request is processed.
-        ctx.channel().config().setAutoRead(true): Unit
-
-      case msg: HttpContent =>
-        if (decoder != null) {
-          decodeContent(msg.content(), decoder, false)
-        }
-
-      case msg => ctx.fireExceptionCaught(InvalidMessage(msg)): Unit
-    }
+      },
+    )
   }
 
-  private val cBody: ByteBuf                                            = Unpooled.compositeBuffer()
-  private val notFoundResponse: HttpResponse                            = {
+  private def notFoundResponse: HttpResponse = {
     val response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
     response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0)
     response
-  }
-  private var decoder: ContentDecoder[Any, Throwable, Chunk[Byte], Any] = _
-  private var completePromise: Promise[Throwable, Any]                  = _
-  private var isFirst: Boolean                                          = true
-  private var decoderState: Any                                         = _
-  private var jReq: HttpRequest                                         = _
-  private var request: Request                                          = _
-
-  /**
-   * Decodes content and executes according to the ContentDecoder provided
-   */
-  private def decodeContent(
-    content: ByteBuf,
-    decoder: ContentDecoder[Any, Throwable, Chunk[Byte], Any],
-    isLast: Boolean,
-  )(implicit ctx: ChannelHandlerContext): Unit = {
-    decoder match {
-      case ContentDecoder.Text =>
-        cBody.writeBytes(content)
-        if (isLast) {
-          unsafeRunZIO(self.completePromise.succeed(cBody.toString(HTTP_CHARSET)))
-        } else {
-          ctx.read(): Unit
-        }
-
-      case step: ContentDecoder.Step[_, _, _, _, _] =>
-        if (self.isFirst) {
-          self.decoderState = step.state
-          self.isFirst = false
-        }
-        val nState = self.decoderState
-
-        unsafeRunZIO(for {
-          (publish, state) <- step
-            .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], Any]]
-            .next(
-              // content.array() fails with post request with body
-              // Link: https://livebook.manning.com/book/netty-in-action/chapter-5/54
-              Chunk.fromArray(ByteBufUtil.getBytes(content)),
-              nState,
-              isLast,
-              self.request.method,
-              self.request.url,
-              self.request.getHeaders,
-            )
-          _                <- publish match {
-            case Some(out) => self.completePromise.succeed(out)
-            case None      => ZIO.unit
-          }
-          _                <- UIO {
-            self.decoderState = state
-            if (!isLast) ctx.read(): Unit
-          }
-        } yield ())
-
-    }
   }
 
   private def decodeResponse(res: Response[_, _]): HttpResponse = {
@@ -167,8 +71,17 @@ private[zhttp] final case class Handler[R](
     new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
   }
 
+  /**
+   * Releases the FullHttpRequest safely.
+   */
+  private def releaseRequest(jReq: FullHttpRequest): Unit = {
+    if (jReq.refCnt() > 0) {
+      jReq.release(jReq.refCnt()): Unit
+    }
+  }
+
   private def serverErrorResponse(cause: Throwable): HttpResponse = {
-    val content  = cause.toString
+    val content  = Util.prettyPrintHtml(cause)
     val response = new DefaultFullHttpResponse(
       HTTP_1_1,
       INTERNAL_SERVER_ERROR,
@@ -182,6 +95,7 @@ private[zhttp] final case class Handler[R](
    * Executes http apps
    */
   private def unsafeRun[A](
+    jReq: FullHttpRequest,
     http: Http[R, Throwable, A, Response[R, Throwable]],
     a: A,
   )(implicit ctx: ChannelHandlerContext): Unit = {
@@ -190,61 +104,90 @@ private[zhttp] final case class Handler[R](
         unsafeRunZIO {
           resM.foldM(
             {
-              case Some(cause) => UIO(unsafeWriteAndFlushErrorResponse(cause))
-              case None        => UIO(unsafeWriteAndFlushEmptyResponse())
+              case Some(cause) =>
+                UIO {
+                  unsafeWriteAndFlushErrorResponse(cause)
+                  releaseRequest(jReq)
+                }
+              case None        =>
+                UIO {
+                  unsafeWriteAndFlushEmptyResponse()
+                  releaseRequest(jReq)
+                }
             },
             res =>
-              if (self.canSwitchProtocol(res)) UIO(self.initializeSwitch(ctx, res))
+              if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
               else {
                 for {
-                  _ <- UIO(unsafeWriteAnyResponse(res))
+                  _ <- UIO { unsafeWriteAnyResponse(res) }
                   _ <- res.data match {
                     case HttpData.Empty =>
-                      UIO(unsafeWriteAndFlushLastEmptyContent())
+                      UIO {
+                        unsafeWriteAndFlushLastEmptyContent()
+                      }
 
                     case data @ HttpData.Text(_, _) =>
-                      UIO(unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize)))
+                      UIO {
+                        unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+                      }
 
-                    case HttpData.BinaryByteBuf(data) => UIO(unsafeWriteLastContent(data))
+                    case HttpData.BinaryByteBuf(data) =>
+                      UIO {
+                        unsafeWriteLastContent(data)
+                      }
 
                     case data @ HttpData.BinaryChunk(_) =>
-                      UIO(unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize)))
+                      UIO {
+                        unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+                      }
 
                     case HttpData.BinaryStream(stream) =>
-                      writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray))))
+                      writeStreamContent(stream)
                   }
+                  _ <- Task(releaseRequest(jReq))
                 } yield ()
               },
           )
         }
 
       case HExit.Success(res) =>
-        if (self.canSwitchProtocol(res)) {
-          self.initializeSwitch(ctx, res)
+        if (self.isWebSocket(res)) {
+          self.upgradeToWebSocket(ctx, jReq, res)
         } else {
           unsafeWriteAnyResponse(res)
 
           res.data match {
             case HttpData.Empty =>
               unsafeWriteAndFlushLastEmptyContent()
+              releaseRequest(jReq)
 
             case data @ HttpData.Text(_, _) =>
               unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+              releaseRequest(jReq)
 
             case HttpData.BinaryByteBuf(data) =>
               unsafeWriteLastContent(data)
+              releaseRequest(jReq)
 
             case data @ HttpData.BinaryChunk(_) =>
               unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+              releaseRequest(jReq)
 
             case HttpData.BinaryStream(stream) =>
-              unsafeRunZIO(writeStreamContent(stream.mapChunks(a => Chunk(Unpooled.copiedBuffer(a.toArray)))))
+              unsafeRunZIO(
+                writeStreamContent(stream) *> Task(releaseRequest(jReq)),
+              )
           }
         }
 
-      case HExit.Failure(e) => unsafeWriteAndFlushErrorResponse(e)
-      case HExit.Empty      => unsafeWriteAndFlushEmptyResponse()
+      case HExit.Failure(e) =>
+        unsafeWriteAndFlushErrorResponse(e)
+        releaseRequest(jReq)
+      case HExit.Empty      =>
+        unsafeWriteAndFlushEmptyResponse()
+        releaseRequest(jReq)
     }
+
   }
 
   /**
@@ -259,57 +202,46 @@ private[zhttp] final case class Handler[R](
    * Writes not found error response to the Channel
    */
   private def unsafeWriteAndFlushEmptyResponse()(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(notFoundResponse, ctx.voidPromise()): Unit
+    ctx.writeAndFlush(notFoundResponse): Unit
   }
 
   /**
    * Writes error response to the Channel
    */
   private def unsafeWriteAndFlushErrorResponse(cause: Throwable)(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(serverErrorResponse(cause), ctx.voidPromise()): Unit
+    ctx.writeAndFlush(serverErrorResponse(cause)): Unit
   }
 
   /**
    * Writes last empty content to the Channel
    */
   private def unsafeWriteAndFlushLastEmptyContent()(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, ctx.voidPromise()): Unit
+    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
   }
 
   /**
    * Writes any response to the Channel
    */
   private def unsafeWriteAnyResponse[A](res: Response[R, Throwable])(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.write(decodeResponse(res), ctx.voidPromise()): Unit
+    ctx.write(decodeResponse(res)): Unit
   }
 
   /**
    * Writes ByteBuf data to the Channel
    */
   private def unsafeWriteLastContent[A](data: ByteBuf)(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(new DefaultLastHttpContent(data), ctx.voidPromise()): Unit
+    ctx.writeAndFlush(new DefaultLastHttpContent(data)): Unit
   }
 
   /**
    * Writes Binary Stream data to the Channel
    */
-  private def writeStreamContent[A](stream: ZStream[R, Throwable, ByteBuf])(implicit ctx: ChannelHandlerContext) = {
-    stream.process.map { pull =>
-      def loop: ZIO[R, Throwable, Unit] = pull
-        .foldM(
-          {
-            case None        => UIO(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, ctx.voidPromise())).unit
-            case Some(error) => ZIO.fail(error)
-          },
-          chunks =>
-            for {
-              _ <- ZIO.foreach_(chunks)(buf => UIO(ctx.write(new DefaultHttpContent(buf), ctx.voidPromise())))
-              _ <- UIO(ctx.flush())
-              _ <- loop
-            } yield (),
-        )
-
-      loop
-    }.useNow.flatten
+  private def writeStreamContent[A](
+    stream: ZStream[R, Throwable, ByteBuf],
+  )(implicit ctx: ChannelHandlerContext): ZIO[R, Throwable, Unit] = {
+    for {
+      _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
+      _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
+    } yield ()
   }
 }

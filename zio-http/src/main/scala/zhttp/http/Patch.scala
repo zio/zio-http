@@ -1,6 +1,4 @@
-package zhttp.http.middleware
-
-import zhttp.http.{Header, Response, Status}
+package zhttp.http
 
 import scala.annotation.tailrec
 

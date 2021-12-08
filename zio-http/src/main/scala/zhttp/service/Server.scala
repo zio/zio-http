@@ -2,7 +2,8 @@ package zhttp.service
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.util.ResourceLeakDetector
-import zhttp.http.HttpApp
+import zhttp.http.Http._
+import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
 import zio.{ZManaged, _}
@@ -46,11 +47,11 @@ object Server {
     sslOption: ServerSSLOptions = null,
 
     // TODO: move app out of settings
-    app: HttpApp[R, E] = HttpApp.empty,
+    app: HttpApp[R, E] = Http.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
     acceptContinue: Boolean = false,
     keepAlive: Boolean = false,
-    flowControl: Boolean = true,
+    flowControl: Boolean = false,
   )
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
@@ -88,7 +89,9 @@ object Server {
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    (Server.bind(port) ++ Server.app(http)).make.useForever
+    (Server.bind(port) ++ Server.app(http)).make
+      .zipLeft(ZManaged.succeed(println(s"Server started on port: ${port}")))
+      .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def start[R <: Has[_]](
@@ -113,8 +116,9 @@ object Server {
     for {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
-      zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
-      init            = ServerChannelInitializer(zExec, settings, ServerTimeGenerator.make)
+      zExec          <- HttpRuntime.default[R].toManaged_
+      reqHandler      = settings.app.compile(zExec, settings, ServerTimeGenerator.make)
+      init            = ServerChannelInitializer(zExec, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.address))
 

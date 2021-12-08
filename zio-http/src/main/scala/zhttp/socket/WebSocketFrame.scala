@@ -1,7 +1,7 @@
 package zhttp.socket
 
+import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}
-import zhttp.core.ByteBuf
 
 sealed trait WebSocketFrame extends Product with Serializable { self =>
   final def toWebSocketFrame: JWebSocketFrame = WebSocketFrame.toJFrame(self)
@@ -63,13 +63,13 @@ object WebSocketFrame {
       case _: PongWebSocketFrame         =>
         Option(Pong)
       case m: BinaryWebSocketFrame       =>
-        Option(Binary(ByteBuf(m.content()), m.isFinalFragment))
+        Option(Binary((m.content()), m.isFinalFragment))
       case m: TextWebSocketFrame         =>
         Option(Text(m.text(), m.isFinalFragment))
       case m: CloseWebSocketFrame        =>
         Option(Close(m.statusCode(), Option(m.reasonText())))
       case m: ContinuationWebSocketFrame =>
-        Option(Continuation(ByteBuf(m.content()), m.isFinalFragment))
+        Option(Continuation((m.content()), m.isFinalFragment))
 
       case _ => None
     }
@@ -77,7 +77,7 @@ object WebSocketFrame {
   def toJFrame(frame: WebSocketFrame): JWebSocketFrame =
     frame match {
       case b: Binary                 =>
-        new BinaryWebSocketFrame(b.isFinal, 0, b.buffer.asJava)
+        new BinaryWebSocketFrame(b.isFinal, 0, b.buffer)
       case t: Text                   =>
         new TextWebSocketFrame(t.isFinal, 0, t.text)
       case Close(status, Some(text)) =>
@@ -89,6 +89,6 @@ object WebSocketFrame {
       case Pong                      =>
         new PongWebSocketFrame()
       case c: Continuation           =>
-        new ContinuationWebSocketFrame(c.isFinal, 0, c.buffer.asJava)
+        new ContinuationWebSocketFrame(c.isFinal, 0, c.buffer)
     }
 }
