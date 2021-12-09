@@ -93,7 +93,7 @@ object Middleware {
   def auth(verify: List[Header] => Boolean, responseHeaders: List[Header] = Nil): Middleware[Any, Nothing] =
     ifThenElse((_, _, h) => verify(h))(
       Middleware.identity,
-      Middleware.status(Status.FORBIDDEN) ++ Middleware.addHeaders(responseHeaders),
+      Middleware.Constant(Http.status(Status.FORBIDDEN).addHeaders(responseHeaders)),
     )
 
   /**
