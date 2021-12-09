@@ -17,7 +17,7 @@ object HttpsClient extends App {
 
   // Configuring Truststore for https(optional)
   val trustStore: KeyStore                     = KeyStore.getInstance("JKS")
-  val trustStorePath: InputStream              = getClass.getResourceAsStream("truststore.jks")
+  val trustStorePath: InputStream              = getClass.getClassLoader.getResourceAsStream("truststore.jks")
   val trustStorePassword: String               = "changeit"
   val trustManagerFactory: TrustManagerFactory =
     TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
