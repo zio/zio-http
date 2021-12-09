@@ -7,7 +7,7 @@ object BenchmarkWorkFlow {
       id = "runBenchMarks",
       name = "Benchmarks",
       oses = List("centos"),
-      cond = Some("${{ github.event_name == 'push'}}"),
+      cond = Some("${{ github.event_name == 'pull_request'}}"),
       env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
       steps = List(
         WorkflowStep.Run(
@@ -32,7 +32,8 @@ object BenchmarkWorkFlow {
           id = Some("result"),
           commands = List(
             "cd ./FrameworkBenchMarks",
-            """sed -i "s/---COMMIT_SHA---/${GITHUB_SHA}/g" frameworks/Scala/zio-http/build.sbt""",
+            "echo ${{github.event.pull_request.head.sha}}",
+            """sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt""",
             "./tfb  --test zio-http | tee result",
             """RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")""",
             """RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+")""",
@@ -41,8 +42,8 @@ object BenchmarkWorkFlow {
           ),
         ),
         WorkflowStep.Use(
-          UseRef.Public("unsplash", "comment-on-pr", "v1.3.0"),
-          Map(
+          ref = UseRef.Public("unsplash", "comment-on-pr", "v1.3.0"),
+          params = Map(
             "msg" -> "## \uD83D\uDE80\uD83D\uDE80\uD83D\uDE80 Benchmark Results \n **${{steps.result.outputs.concurrency_result}}** \n **${{steps.result.outputs.request_result}}**",
             "check_for_duplicate_msg" -> "false",
           ),

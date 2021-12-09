@@ -12,6 +12,12 @@ lazy val root = (project in file("."))
   .aggregate(zhttp, zhttpBenchmarks, zhttpTest, example)
 
 // CI Configuration
+ThisBuild / githubWorkflowPREventTypes  := Seq(
+  PREventType.Opened,
+  PREventType.Synchronize,
+  PREventType.Reopened,
+  PREventType.Edited,
+)
 ThisBuild / githubWorkflowAddedJobs     :=
   Seq(
     WorkflowJob(

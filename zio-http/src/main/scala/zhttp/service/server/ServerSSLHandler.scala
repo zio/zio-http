@@ -13,7 +13,7 @@ import io.netty.handler.ssl.{
   SslProvider,
 }
 
-import java.io.{File, InputStream}
+import java.io.InputStream
 import java.security.KeyStore
 import javax.net.ssl.KeyManagerFactory
 
@@ -56,9 +56,9 @@ object ServerSSLHandler {
       .build()
   }
 
-  def ctxFromCert(certFile: File, keyFile: File): SslContext = {
+  def ctxFromCert(certInputStream: InputStream, keyInputStream: InputStream): SslContext = {
     SslContextBuilder
-      .forServer(certFile, keyFile)
+      .forServer(certInputStream, keyInputStream)
       .sslProvider(SslProvider.JDK)
       .applicationProtocolConfig(
         new ApplicationProtocolConfig(
