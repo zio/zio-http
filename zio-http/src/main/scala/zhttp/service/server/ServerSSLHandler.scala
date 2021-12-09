@@ -56,9 +56,9 @@ object ServerSSLHandler {
       .build()
   }
 
-  def ctxFromCert(certFile: InputStream, keyFile: InputStream): SslContext = {
+  def ctxFromCert(certInputStream: InputStream, keyInputStream: InputStream): SslContext = {
     SslContextBuilder
-      .forServer(certFile, keyFile)
+      .forServer(certInputStream, keyInputStream)
       .sslProvider(SslProvider.JDK)
       .applicationProtocolConfig(
         new ApplicationProtocolConfig(
