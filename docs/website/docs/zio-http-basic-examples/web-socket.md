@@ -20,7 +20,7 @@ object WebSocketEcho extends App {
     }
 
   private val app =
-    HttpApp.collect {
+    Http.collect[Request] {
       case Method.GET -> !! / "greet" / name  => Response.text(s"Greetings {$name}!")
       case Method.GET -> !! / "subscriptions" => Response.socket(socket)
     }

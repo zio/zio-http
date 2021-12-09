@@ -3,9 +3,11 @@ package zhttp.service
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http.Status
+import zhttp.internal.HttpRunnableSpec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zio.duration.durationInt
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
-import zio.test.TestAspect.flaky
+import zio.test.TestAspect.{flaky, ignore, timeout}
 import zio.test.assertM
 
 import java.io._
@@ -27,32 +29,32 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
 
   val sslOption: ClientSSLOptions =
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
-  override def spec               = suite("Https Client request")(
+  override def spec               = suite("Https Client request") {
     testM("respond Ok") {
       val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
       assertM(actual)(anything)
-    },
-    testM("respond Ok with sslOption") {
-      val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", sslOption)
-      assertM(actual)(anything)
-    },
-    testM("should respond as Bad Request") {
-      val actual = Client
-        .request(
-          "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
-          sslOption,
-        )
-        .map(_.status)
-      assertM(actual)(equalTo(Status.BAD_REQUEST))
-    },
-    testM("should throw DecoderException for handshake failure") {
-      val actual = Client
-        .request(
-          "https://untrusted-root.badssl.com/",
-          sslOption,
-        )
-        .run
-      assertM(actual)(fails(isSubtype[DecoderException](anything)))
-    } @@ flaky,
-  ).provideCustomLayer(env)
+    } +
+      testM("respond Ok with sslOption") {
+        val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", sslOption)
+        assertM(actual)(anything)
+      } +
+      testM("should respond as Bad Request") {
+        val actual = Client
+          .request(
+            "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
+            sslOption,
+          )
+          .map(_.status)
+        assertM(actual)(equalTo(Status.BAD_REQUEST))
+      } +
+      testM("should throw DecoderException for handshake failure") {
+        val actual = Client
+          .request(
+            "https://untrusted-root.badssl.com/",
+            sslOption,
+          )
+          .run
+        assertM(actual)(fails(isSubtype[DecoderException](anything)))
+      } @@ flaky @@ ignore
+  }.provideCustomLayer(env) @@ timeout(30 seconds)
 }

@@ -1,23 +1,39 @@
 package zhttp.service.client
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.FullHttpResponse
-import zhttp.service.UnsafeChannelExecutor
+import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
+import zhttp.service.Client.ClientResponse
+import zhttp.service.{DecodeJResponse, HttpRuntime}
+import zio.Promise
 
 /**
  * Handles HTTP response
  */
 final case class ClientInboundHandler[R](
-  zExec: UnsafeChannelExecutor[R],
-  reader: ClientHttpChannelReader[Throwable, FullHttpResponse],
-) extends SimpleChannelInboundHandler[FullHttpResponse](false) {
+  zExec: HttpRuntime[R],
+  jReq: FullHttpRequest,
+  promise: Promise[Throwable, ClientResponse],
+) extends SimpleChannelInboundHandler[FullHttpResponse](false)
+    with DecodeJResponse {
 
-  override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit =
-    zExec.unsafeExecute_(ctx)(reader.onChannelRead(msg))
+  override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
+    val clientResponse = decodeJResponse(msg)
+    zExec.unsafeRun(ctx)(promise.succeed(clientResponse))
+  }
 
-  override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit =
-    zExec.unsafeExecute_(ctx)(reader.onExceptionCaught(error))
+  override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
+    super.exceptionCaught(ctx, error)
+    releaseRequest()
+  }
 
-  override def channelActive(ctx: ChannelHandlerContext): Unit =
-    zExec.unsafeExecute_(ctx)(reader.onActive(ctx))
+  override def channelActive(ctx: ChannelHandlerContext): Unit = {
+    ctx.writeAndFlush(jReq): Unit
+    releaseRequest()
+  }
+
+  private def releaseRequest(): Unit = {
+    if (jReq.refCnt() > 0) {
+      jReq.release(jReq.refCnt()): Unit
+    }
+  }
 }

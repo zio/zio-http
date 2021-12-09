@@ -1,6 +1,6 @@
 package zhttp.socket
 
-import zhttp.http.Response
+import zhttp.http._
 import zio._
 import zio.stream.ZStream
 
@@ -10,7 +10,7 @@ sealed trait SocketApp[-R, +E] { self =>
   import SocketApp._
   def ++[R1 <: R, E1 >: E](other: SocketApp[R1, E1]): SocketApp[R1, E1] = SocketApp.Concat(self, other)
 
-  def asResponse: Response[R, E] = Response.SocketResponse(self)
+  def asResponse: Response[R, E] = Response.socket(self)
 
   def config: SocketApp.SocketConfig[R, E] = {
     def loop(config: SocketApp[R, E], s: SocketConfig[R, E]): SocketConfig[R, E] =
@@ -49,6 +49,12 @@ sealed trait SocketApp[-R, +E] { self =>
     loop(self, SocketConfig[R, E]())
   }
 
+  def isEmpty: Boolean = self match {
+    case Empty => true
+    case _     => false
+  }
+
+  def nonEmpty: Boolean = !isEmpty
 }
 
 object SocketApp {
@@ -138,6 +144,11 @@ object SocketApp {
    * Creates a new empty socket handler
    */
   def empty: SocketApp[Any, Nothing] = Empty
+
+  /**
+   * Echos the message back to the client
+   */
+  def echo: SocketApp[Any, Nothing] = SocketApp.message(Socket.collect { case msg => ZStream.succeed(msg) })
 
   // TODO: rename to HandlerConfig
   final case class SocketConfig[-R, +E](

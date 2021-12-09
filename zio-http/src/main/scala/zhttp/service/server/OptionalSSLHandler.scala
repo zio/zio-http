@@ -9,24 +9,25 @@ import zhttp.service.server.ServerSSLHandler.SSLHttpBehaviour
 
 import java.util
 
-class OptionalSSLHandler(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour) extends ByteToMessageDecoder {
+class OptionalSSLHandler(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour, cfg: Server.Config[_, _])
+    extends ByteToMessageDecoder {
   override def decode(context: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
+    val pipeline = context.channel().pipeline()
     if (in.readableBytes < 5)
       ()
     else if (SslHandler.isEncrypted(in)) {
-      context.pipeline().replace(this, SSL_HANDLER, sslContext.newHandler(context.alloc()))
+      pipeline.replace(this, SSL_HANDLER, sslContext.newHandler(context.alloc()))
       ()
     } else {
       httpBehaviour match {
         case SSLHttpBehaviour.Accept =>
-          context.channel().pipeline().remove(this)
+          pipeline.remove(this)
           ()
         case _                       =>
-          context.channel().pipeline().remove(HTTP_REQUEST_HANDLER)
-          context.channel().pipeline().remove(OBJECT_AGGREGATOR)
-          context.channel().pipeline().remove(HTTP_KEEPALIVE_HANDLER)
-          context.channel().pipeline().remove(this)
-          context.channel().pipeline().addLast(new HttpOnHttpsHandler(httpBehaviour))
+          pipeline.remove(HTTP_REQUEST_HANDLER)
+          if (cfg.keepAlive) pipeline.remove(HTTP_KEEPALIVE_HANDLER)
+          pipeline.remove(this)
+          pipeline.addLast(new HttpOnHttpsHandler(httpBehaviour))
           ()
       }
     }

@@ -23,7 +23,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.12.15, 2.13.6, 3.1.0]
+        scala: [2.12.15, 2.13.7, 3.1.0]
         java: [adopt@1.8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -50,7 +50,7 @@ jobs:
           key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
 
       - name: Check formatting
-        run: sbt ++2.13.6 fmtCheck
+        run: sbt ++2.13.7 fmtCheck
 
       - name: Check that workflows are up to date
         run: sbt ++${{ matrix.scala }} githubWorkflowCheck
@@ -74,7 +74,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.6]
+        scala: [2.13.7]
         java: [adopt@1.8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -110,12 +110,12 @@ jobs:
           tar xf targets.tar
           rm targets.tar
 
-      - name: Download target directories (2.13.6)
+      - name: Download target directories (2.13.7)
         uses: actions/download-artifact@v2
         with:
-          name: target-${{ matrix.os }}-2.13.6-${{ matrix.java }}
+          name: target-${{ matrix.os }}-2.13.7-${{ matrix.java }}
 
-      - name: Inflate target directories (2.13.6)
+      - name: Inflate target directories (2.13.7)
         run: |
           tar xf targets.tar
           rm targets.tar
@@ -172,3 +172,78 @@ jobs:
           npm install
           git config --global user.name "${{secrets.GIT_USER}}"
           npm run deploy
+
+  unsafeRunScoverage:
+    name: Unsafe Scoverage
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.4]
+        java: [adopt@1.8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout current branch (full)
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Add Scoverage
+        id: add_plugin
+        run: sed -i -e '$aaddSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.9.1")' project/plugins.sbt
+
+      - name: Update Build Definition
+        id: update_build_definition
+        run: |
+
+          sed -i -e 's+(project in file("./zio-http"))+(project in file("./zio-http")).settings(coverageEnabled:=true,coverageFailOnMinimum:=true,coverageMinimumStmtTotal:=50.0,coverageMinimumBranchTotal:=60.0)+g' build.sbt
+
+      - name: Run Coverage
+        id: run_coverage
+        run: sbt ++${{ matrix.scala }} coverage 'project zhttp;test' coverageReport
+
+      - name: Push Codecov
+        id: push_codecov
+        run: 'bash <(curl -s https://codecov.io/bash)'
+
+  runBenchMarks:
+    name: Benchmarks
+    if: ${{ github.event_name == 'push'}}
+    strategy:
+      matrix:
+        os: [centos]
+        scala: [2.13.4]
+        java: [adopt@1.8]
+    runs-on: [ "${{ matrix.os }}", zio-http ]
+    env:
+      GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+    steps:
+      - name: Clean up
+        id: clean_up
+        run: sudo rm -rf *
+
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+
+      - uses: actions/checkout@v2
+        with:
+          repository: dream11/FrameworkBenchmarks
+          path: FrameworkBenchMarks
+
+      - id: result
+        run: |
+          cd ./FrameworkBenchMarks
+          sed -i "s/---COMMIT_SHA---/${GITHUB_SHA}/g" frameworks/Scala/zio-http/build.sbt
+          ./tfb  --test zio-http | tee result
+          RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")
+          RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+")
+          echo ::set-output name=request_result::$(echo $RESULT_REQUEST)
+          echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)
+
+      - uses: unsplash/comment-on-pr@v1.3.0
+        with:
+          msg: |
+            ## 🚀🚀🚀 Benchmark Results 
+             **${{steps.result.outputs.concurrency_result}}** 
+             **${{steps.result.outputs.request_result}}**
+          check_for_duplicate_msg: false

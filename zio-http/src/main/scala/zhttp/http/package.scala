@@ -5,16 +5,14 @@ import zio.ZIO
 
 import java.nio.charset.Charset
 
-package object http extends PathModule with RequestSyntax with HttpAppSyntax with RouteDecoderModule {
-  type UHttp[-A, +B]      = Http[Any, Nothing, A, B]
+package object http extends PathModule with RequestSyntax with RouteDecoderModule {
   type HttpApp[-R, +E]    = Http[R, E, Request, Response[R, E]]
   type UHttpApp           = HttpApp[Any, Nothing]
   type RHttpApp[-R]       = HttpApp[R, Throwable]
-  type Endpoint           = (Method, URL)
-  type Route              = (Method, Path)
+  type UHttp[-A, +B]      = Http[Any, Nothing, A, B]
   type SilentResponse[-E] = CanBeSilenced[E, UResponse]
   type UResponse          = Response[Any, Nothing]
-  type UHttpResponse      = Response.HttpResponse[Any, Nothing]
+  type UHttpResponse      = Response[Any, Nothing]
   type ResponseM[-R, +E]  = ZIO[R, E, Response[R, E]]
 
   object SilentResponse {

@@ -1,11 +1,11 @@
+import sbt.Keys._
 import sbt._
-import Keys._
 import scalafix.sbt.ScalafixPlugin.autoImport._
 import xerial.sbt.Sonatype.autoImport._
 
 object BuildHelper extends ScalaSettings {
   val Scala212   = "2.12.15"
-  val Scala213   = "2.13.6"
+  val Scala213   = "2.13.7"
   val ScalaDotty = "3.1.0"
 
   private val stdOptions = Seq(
@@ -30,7 +30,6 @@ object BuildHelper extends ScalaSettings {
     "-Yrangepos",
     "-Xlint:_,-missing-interpolator,-type-parameter-shadow",
     "-Ywarn-numeric-widen",
-    "-Ywarn-value-discard",
     "-Ywarn-macros:after",
   )
 
@@ -52,7 +51,11 @@ object BuildHelper extends ScalaSettings {
       case Some((2, 12)) =>
         Seq("-Ywarn-unused:params,-implicits") ++ std2xOptions
       case Some((2, 13)) =>
-        Seq("-Ywarn-unused:params,-implicits", "-Ywarn-macros:after") ++ std2xOptions ++ tpoleCatSettings ++
+        Seq(
+          "-Ywarn-unused:params,-implicits",
+          "-Ywarn-macros:after",
+          "-Ywarn-value-discard",
+        ) ++ std2xOptions ++ tpoleCatSettings ++
           optimizerOptions(optimize)
       case _             => Seq.empty
     }
@@ -77,7 +80,7 @@ object BuildHelper extends ScalaSettings {
     ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, ScalaDotty),
     ThisBuild / scalaVersion       := Scala213,
     scalacOptions                  := stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
-    semanticdbVersion              := scalafixSemanticdb.revision, // use Scalafix compatible version
+    semanticdbVersion := scalafixSemanticdb.withRevision("4.4.30").revision, // use Scalafix compatible version
     ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
     ThisBuild / scalafixDependencies ++=
       List(
@@ -87,5 +90,7 @@ object BuildHelper extends ScalaSettings {
     Test / parallelExecution               := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
     autoAPIMappings                        := true,
+    ThisBuild / javaOptions                := Seq("-Dio.netty.leakDetectionLevel=paranoid"),
+    ThisBuild / fork                       := true,
   )
 }
