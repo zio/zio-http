@@ -68,7 +68,7 @@ ThisBuild / githubWorkflowBuildPreamble :=
     "fmtCheck",
     "Format",
     List(
-      WorkflowStep.Run(List(s"sbt ++${Scala213} clean fmtCheck"), name = Some("Check formatting")),
+      WorkflowStep.Run(List(s"sbt ++${Scala213} fmtCheck"), name = Some("Check formatting")),
     ),
     scalas = List(Scala213),
   ).steps
