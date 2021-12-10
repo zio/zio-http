@@ -62,7 +62,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Consumes the input and executes the Http.
    */
-  final def apply(a: A): ZIO[R, Option[E], B] = execute(a).evaluate.asEffect
+  final def apply(a: A): ZIO[R, Option[E], B] = execute(a).toEffect
 
   /**
    * Makes the app resolve with a constant value
@@ -306,22 +306,23 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
   /**
    * Evaluates the app and returns an HExit that can be resolved further
+   *
+   * NOTE: `execute` is not a stack-safe method for performance reasons. Unlike ZIO, there is no reason why the execute
+   * should be stack safe. The performance improves quite significantly if no additional heap allocations are required
+   * this way.
    */
-  final private[zhttp] def execute(a: A): HExit[R, E, B] = {
+  final private[zhttp] def execute(a: A): HExit[R, E, B] =
     self match {
-      case Empty                   => HExit.empty
-      case Identity                => HExit.succeed(a.asInstanceOf[B])
+      case Http.Empty              => HExit.empty
+      case Http.Identity           => HExit.succeed(a.asInstanceOf[B])
       case Succeed(b)              => HExit.succeed(b)
       case Fail(e)                 => HExit.fail(e)
       case FromEffectFunction(f)   => HExit.effect(f(a))
       case Collect(pf)             => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
-      case Chain(self, other)      => HExit.suspend(self.execute(a) >>= (other.execute(_)))
+      case Chain(self, other)      => self.execute(a).flatMap(b => other.execute(b))
       case FoldM(self, ee, bb, dd) =>
-        HExit.suspend {
-          self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
-        }
+        self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
     }
-  }
 }
 
 object Http {
