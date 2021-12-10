@@ -222,7 +222,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Performs a race between two apps
    */
   final def race[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    Http.fromOptionFunction(a => self(a) raceFirst other(a))
+    Http.Race(self, other)
 
   /**
    * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
@@ -313,13 +313,21 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final private[zhttp] def execute(a: A): HExit[R, E, B] =
     self match {
-      case Http.Empty              => HExit.empty
-      case Http.Identity           => HExit.succeed(a.asInstanceOf[B])
-      case Succeed(b)              => HExit.succeed(b)
-      case Fail(e)                 => HExit.fail(e)
-      case FromEffectFunction(f)   => HExit.effect(f(a))
-      case Collect(pf)             => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
-      case Chain(self, other)      => self.execute(a).flatMap(b => other.execute(b))
+      case Http.Empty            => HExit.empty
+      case Http.Identity         => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)            => HExit.succeed(b)
+      case Fail(e)               => HExit.fail(e)
+      case FromEffectFunction(f) => HExit.effect(f(a))
+      case Collect(pf)           => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
+      case Chain(self, other)    => self.execute(a).flatMap(b => other.execute(b))
+      case Race(self, other)     =>
+        (self.execute(a), other.execute(a)) match {
+          case (HExit.Effect(self), HExit.Effect(other)) =>
+            Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
+          case (HExit.Effect(_), other)                  => other
+          case (self, _)                                 => self
+        }
+
       case FoldM(self, ee, bb, dd) =>
         self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
     }
@@ -586,6 +594,8 @@ object Http {
   }
 
   private final case class Succeed[B](b: B) extends Http[Any, Nothing, Any, B]
+
+  private final case class Race[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B]) extends Http[R, E, A, B]
 
   private final case class Fail[E](e: E) extends Http[Any, E, Any, Nothing]
 
