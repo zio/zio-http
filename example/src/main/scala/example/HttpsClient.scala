@@ -17,7 +17,7 @@ object HttpsClient extends App {
 
   // Configuring Truststore for https(optional)
   val trustStore: KeyStore                     = KeyStore.getInstance("JKS")
-  val trustStorePath: InputStream              = getClass.getResourceAsStream("truststore.jks")
+  val trustStorePath: InputStream              = getClass.getClassLoader.getResourceAsStream("truststore.jks")
   val trustStorePassword: String               = "changeit"
   val trustManagerFactory: TrustManagerFactory =
     TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
@@ -29,10 +29,9 @@ object HttpsClient extends App {
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
 
   val program = for {
-    res <- Client.request(url, headers, sslOption)
-    _   <- console.putStrLn {
-      res.content.map(_.toChar).mkString
-    }
+    res  <- Client.request(url, headers, sslOption)
+    data <- res.getBodyAsString
+    _    <- console.putStrLn { data }
   } yield ()
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = program.exitCode.provideCustomLayer(env)

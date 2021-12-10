@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.Http._
-import zhttp.http.HttpApp
+import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
 import zio.{ZManaged, _}
@@ -47,7 +47,7 @@ object Server {
     sslOption: ServerSSLOptions = null,
 
     // TODO: move app out of settings
-    app: HttpApp[R, E] = HttpApp.empty,
+    app: HttpApp[R, E] = Http.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
     acceptContinue: Boolean = false,
     keepAlive: Boolean = false,
@@ -89,7 +89,9 @@ object Server {
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    (Server.bind(port) ++ Server.app(http)).make.useForever
+    (Server.bind(port) ++ Server.app(http)).make
+      .zipLeft(ZManaged.succeed(println(s"Server started on port: ${port}")))
+      .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def start[R <: Has[_]](

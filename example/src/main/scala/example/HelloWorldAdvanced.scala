@@ -11,12 +11,12 @@ object HelloWorldAdvanced extends App {
   // Set a port
   private val PORT = 8090
 
-  private val fooBar: HttpApp[Any, Nothing] = HttpApp.collect {
+  private val fooBar: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !! / "foo" => Response.text("bar")
     case Method.GET -> !! / "bar" => Response.text("foo")
   }
 
-  private val app = HttpApp.collectM {
+  private val app = Http.collectM[Request] {
     case Method.GET -> !! / "random" => random.nextString(10).map(Response.text(_))
     case Method.GET -> !! / "utc"    => clock.currentDateTime.map(s => Response.text(s.toString))
   }
@@ -24,7 +24,7 @@ object HelloWorldAdvanced extends App {
   private val server =
     Server.port(PORT) ++              // Setup port
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
-      Server.app(fooBar +++ app)      // Setup the Http app
+      Server.app(fooBar ++ app)       // Setup the Http app
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     // Configure thread count using CLI

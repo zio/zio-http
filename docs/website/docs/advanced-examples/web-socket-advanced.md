@@ -38,7 +38,7 @@ object WebSocketAdvanced extends App {
       SocketApp.protocol(protocol)
 
   private val app =
-    HttpApp.collect {
+    Http.collect[Request] {
       case Method.GET -> !! / "greet" / name  => Response.text(s"Greetings ${name}!")
       case Method.GET -> !! / "subscriptions" => socketApp
     }

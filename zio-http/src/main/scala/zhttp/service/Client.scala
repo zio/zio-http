@@ -1,6 +1,7 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
+import io.netty.buffer.ByteBuf
 import io.netty.channel.{
   Channel,
   ChannelFactory => JChannelFactory,
@@ -14,7 +15,7 @@ import zhttp.service
 import zhttp.service.Client.{ClientParams, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler}
-import zio.{Chunk, Promise, Task, ZIO}
+import zio.{Promise, Task, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -146,11 +147,12 @@ object Client {
   final case class ClientParams(
     endpoint: Endpoint,
     getHeaders: List[Header] = List.empty,
-    content: HttpData[Any, Nothing] = HttpData.empty,
+    data: HttpData[Any, Nothing] = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
     httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
   ) extends HeaderExtension[ClientParams] { self =>
-    def getBodyAsString: Option[String] = content match {
+
+    def getBodyAsString: Option[String] = data match {
       case HttpData.Text(text, _)       => Some(text)
       case HttpData.BinaryChunk(data)   => Some(new String(data.toArray, HTTP_CHARSET))
       case HttpData.BinaryByteBuf(data) => Some(data.toString(HTTP_CHARSET))
@@ -174,9 +176,9 @@ object Client {
     val url: URL       = endpoint._2
   }
 
-  final case class ClientResponse(status: Status, headers: List[Header], content: Chunk[Byte])
+  final case class ClientResponse(status: Status, headers: List[Header], private val buffer: ByteBuf)
       extends HeaderExtension[ClientResponse] { self =>
-    def getBodyAsString: Task[String] = Task(new String(content.toArray, getCharset.getOrElse(HTTP_CHARSET)))
+    def getBodyAsString: Task[String] = Task(buffer.toString(self.getCharset))
 
     override def getHeaders: List[Header] = headers
 

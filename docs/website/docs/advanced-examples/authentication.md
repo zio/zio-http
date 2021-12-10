@@ -33,7 +33,7 @@ object Authentication extends App {
   // Validates JWT Claim
   def authenticate[R, E](fail: HttpApp[R, E], success: JwtClaim => HttpApp[R, E]): HttpApp[R, E] = 
     Http.flatten {
-        HttpApp.fromFunction {
+        Http.fromFunction[Request] {
         _.getHeader("X-ACCESS-TOKEN")
             .flatMap(header => jwtDecode(header.value.toString))
             .fold[HttpApp[R, E]](fail)(success)
@@ -56,7 +56,7 @@ object Authentication extends App {
   }
 
   // Composing all the HttpApps together
-  val app: UHttpApp = login +++ authenticate(HttpApp.forbidden("Not allowed!"), user)
+  val app: UHttpApp = login +++ authenticate(Http.forbidden("Not allowed!"), user)
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
