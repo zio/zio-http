@@ -7,7 +7,7 @@ import zio.duration.durationInt
 import zio.stream.ZStream
 import zio.test.Assertion.{anything, containsString, equalTo, isSome}
 import zio.test.TestAspect._
-import zio.test.{Gen, assertM, checkAllM}
+import zio.test._
 import zio.{UIO, ZIO}
 
 import java.nio.file.Paths
@@ -155,10 +155,10 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       } +
       testM("Multiple 200 response") {
         val data = Gen.listOfN(5)(Gen.fromEffect(status(!! / "success").orElse(UIO(Status.INTERNAL_SERVER_ERROR))))
-        checkAllM(data) { case data =>
-          assertM(ZIO.foreach(data)(x => ZIO(x)).map(x => !x.forall(_ == Status.OK)))(equalTo(false))
+        checkAll(data) { case data =>
+          assertTrue(data.forall(_ == Status.OK))
         }
-      } @@ timeout(10 seconds)
+      }
   }
 
   private val nonEmptyContent = for {
