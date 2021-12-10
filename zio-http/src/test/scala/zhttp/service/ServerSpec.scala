@@ -3,12 +3,12 @@ package zhttp.service
 import zhttp.http._
 import zhttp.internal.{AppCollection, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
-import zio.ZIO
 import zio.duration.durationInt
 import zio.stream.ZStream
 import zio.test.Assertion.{anything, containsString, equalTo, isSome}
 import zio.test.TestAspect._
 import zio.test.{Gen, assertM, checkAllM}
+import zio.{UIO, ZIO}
 
 import java.nio.file.Paths
 
@@ -152,7 +152,13 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       testM("200 response with encoded path") {
         val actual = status(!! / "get%2Fsuccess")
         assertM(actual)(equalTo(Status.OK))
-      }
+      } +
+      testM("Multiple 200 response") {
+        val data = Gen.listOfN(5)(Gen.fromEffect(status(!! / "success").orElse(UIO(Status.INTERNAL_SERVER_ERROR))))
+        checkAllM(data) { case data =>
+          assertM(ZIO.foreach(data)(x => ZIO(x)).map(x => !x.forall(_ == Status.OK)))(equalTo(false))
+        }
+      } @@ timeout(10 seconds)
   }
 
   private val nonEmptyContent = for {
