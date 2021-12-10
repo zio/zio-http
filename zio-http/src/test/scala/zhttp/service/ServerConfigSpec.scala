@@ -1,7 +1,7 @@
 package zhttp.service
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues, HttpVersion}
-import zhttp.http.{!!, Header, HttpApp, Method}
+import zhttp.http.{!!, Header, Http, Method}
 import zhttp.internal.{AppCollection, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.test.Assertion.{equalTo, isNone, isSome}
@@ -17,7 +17,7 @@ object ServerConfigSpec extends HttpRunnableSpec(8088) {
   def keepAliveSpec = suite("KeepAlive Test cases") {
     suite("Connection: close request header test with Server KeepAlive ENABLED") {
       val connectionCloseHeader = Header(HttpHeaderNames.CONNECTION.toString, HttpHeaderValues.CLOSE.toString)
-      val app1                  = HttpApp.empty
+      val app1                  = Http.empty
       testM(
         "Http 1.1 WITHOUT 'Connection: close' in the request header SHOULD respond WITHOUT 'Connection: close' in the response header, indicating re-use",
       ) {
