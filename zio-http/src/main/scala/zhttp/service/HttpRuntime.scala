@@ -1,7 +1,7 @@
 package zhttp.service
 
 import io.netty.channel.{ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
-import io.netty.util.concurrent.EventExecutor
+import io.netty.util.concurrent.{EventExecutor, Future}
 import zio.internal.Executor
 import zio.{Exit, Runtime, URIO, ZIO}
 
@@ -20,8 +20,8 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
     rtm
       .unsafeRunAsync(for {
         fiber <- program.fork
-        _     <- ZIO.effectTotal {
-          ctx.channel().closeFuture.addListener((_: AnyRef) => rtm.unsafeRunAsync_(fiber.interrupt): Unit)
+        _     <- ZIO.effect {
+          ctx.channel().closeFuture.addListener((_: Future[_ <: Void]) => rtm.unsafeRunAsync_(fiber.interrupt): Unit)
         }
         _     <- fiber.join
       } yield ()) {
