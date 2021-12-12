@@ -39,7 +39,7 @@ object ServerConfigSpec extends HttpRunnableSpec(8088) {
             app1.request(path, Method.GET, "", headers, HttpVersion.HTTP_1_0).map(_.getHeaderValue("Connection"))
           assertM(res)(isSome(equalTo("close")))
         }
-    } // +
+    }
   }
 
   private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live

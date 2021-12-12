@@ -55,11 +55,10 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
     val data = HttpData.fromText(content)
     Client.request(
       Client.ClientParams(
-        method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
-        headers,
-        data,
-        null,
-        httpVersion,
+        endpoint = method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
+        getHeaders = headers,
+        data = data,
+        httpVersion = httpVersion,
       ),
       ClientSSLOptions.DefaultSSL,
     )
