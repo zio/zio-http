@@ -66,8 +66,7 @@ Changelog will be based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0
   * Security in case of vulnerabilities
     
 ## An Example of a Changelog
-
-# Changelog
+The example below shows a sample structure of a Changelog being built on top of the previous change logs (current changes on top followed by descending dates)     
 
 ## Unreleased (Can refer to added / fixed / changed etc of a current release candidate)
 
