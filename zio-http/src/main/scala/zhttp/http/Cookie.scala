@@ -153,36 +153,61 @@ object Cookie {
     var httpOnly: Boolean         = false
     var sameSite: Cookie.SameSite = null
 
-    var prev = 0
-    var i    = 0
-    while (i >= 0) {
-      i = headerValue.indexOf(';', prev)
-      val c       = if (i <= 0) headerValue.substring(prev) else headerValue.substring(prev, i)
-      val (n, ct) = splitNameContent(c)
+    val headerLength = headerValue.length
 
-      (n.toLowerCase, ct) match {
-        case ("expires", v)                => expires = parseDate(v).getOrElse(null)
-        case ("max-age", v)                => maxAge = Try(v.toLong).toOption
-        case ("domain", v)                 => domain = v
-        case ("path", v)                   => path = if (!v.isEmpty) Path(v) else null
-        case ("secure", _)                 => secure = true
-        case ("httponly", _)               => httpOnly = true
-        case ("samesite", v)               =>
-          v.trim.toLowerCase match {
+    // iterate over all cookie fields (until next semicolon)
+    var curr = 0
+    var next = 0
+
+    while (next >= 0 && curr < headerLength) {
+      next = headerValue.indexOf(';', curr)
+      if (next < 0) {
+        next = headerLength
+      }
+
+      // skip whitespaces one by one to avoid trim allocations
+      if (headerValue.charAt(curr) == ' ') {
+        curr = curr + 1
+      } else {
+        // decode name and content first
+        if (name == null) {
+          val splitIndex = headerValue.indexOf('=', curr)
+          if (splitIndex >= 0 && splitIndex < next) {
+            name = headerValue.substring(0, splitIndex)
+            content = headerValue.substring(splitIndex + 1, next)
+          } else {
+            name = headerValue.substring(0, next)
+          }
+        } else if (headerValue.regionMatches(true, curr, "expires=", 0, 8)) {
+          expires = parseDate(headerValue.substring(curr + 8, next)).getOrElse(null)
+        } else if (headerValue.regionMatches(true, curr, "max-age=", 0, 8)) {
+          maxAge = Try(headerValue.substring(curr + 8, next).toLong).toOption
+        } else if (headerValue.regionMatches(true, curr, "domain=", 0, 7)) {
+          domain = headerValue.substring(curr + 7, next)
+        } else if (headerValue.regionMatches(true, curr, "path=", 0, 5)) {
+          val v = headerValue.substring(curr + 5, next)
+          if (!v.isEmpty) {
+            path = Path(v)
+          }
+        } else if (headerValue.regionMatches(true, curr, "secure", 0, 6)) {
+          secure = true
+        } else if (headerValue.regionMatches(true, curr, "httponly", 0, 8)) {
+          httpOnly = true
+        } else if (headerValue.regionMatches(true, curr, "samesite=", 0, 9)) {
+          val v = headerValue.substring(curr + 9, next).toLowerCase
+          v match {
             case "lax"    => sameSite = SameSite.Lax
             case "strict" => sameSite = SameSite.Strict
             case "none"   => sameSite = SameSite.None
             case _        => ()
           }
-        case (_, aContent) if name == null =>
-          name = n
-          content = aContent
-        case (_, _)                        => ()
+        }
+
+        curr = next + 1
       }
-      prev = i + 1
     }
 
-    if (!name.isEmpty || !content.isEmpty)
+    if ((name != null && !name.isEmpty) || (content != null && !content.isEmpty))
       Some(
         Cookie(
           name = name,
