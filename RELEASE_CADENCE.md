@@ -20,14 +20,13 @@
 
 ### Release Process
 * We will target releases every second Wednesday. This will give us time to find some major bugs and do a patch release if required in the next 2-3 days
-* From release/next we will cut a branch following this pattern
+* From main we will cut a branch following this pattern
 ``` 
 v<major>.<minor+1>.0-RC<+1>
 Example:  v1.1.0-RC1   (if previous release was v1.0.x)
 ```
 * All our PRs meant for this release (including mainly stability and bug fixes) are based on this branch. (Remember no new features are included in this branch)
-* The captain will use this vX.Y.Z-RC branch to create a small PR to the main branch and update the CHANGELOG.md on the release day and update the version where required.
-* Make sure documentation/examples are updated by authors.
+* Making sure documentation/examples are updated by authors.
 
 ### A Release Example
 | **Release**    | **Date**         |
