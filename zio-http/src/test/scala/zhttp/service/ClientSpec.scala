@@ -10,7 +10,7 @@ object ClientSpec extends HttpRunnableSpec(8082) {
   override def spec = suite("Client")(
     testM("respond Ok") {
       val actual = Client.request("http://api.github.com/users/zio/repos", ClientSSLOptions.DefaultSSL)
-      assertM(actual)(anything)
+      assertM(actual.useNow)(anything)
     },
   ).provideCustomLayer(env)
 }

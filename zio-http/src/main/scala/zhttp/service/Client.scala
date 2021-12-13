@@ -4,8 +4,8 @@ import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.ByteBuf
 import io.netty.channel.{
   Channel,
-  ChannelFactory => JChannelFactory,
   ChannelHandlerContext,
+  ChannelFactory => JChannelFactory,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http.HttpVersion
@@ -15,7 +15,7 @@ import zhttp.service
 import zhttp.service.Client.{ClientParams, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler}
-import zio.{Promise, Task, ZIO}
+import zio.{Promise, Task, TaskManaged, ZIO, ZManaged}
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -24,16 +24,16 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el:
   def request(
     request: Client.ClientParams,
     sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): Task[Client.ClientResponse] =
-    for {
-      promise <- Promise.make[Throwable, Client.ClientResponse]
+  ): TaskManaged[Client.ClientResponse] =
+    (for {
+      promise <- Promise.make[Throwable, TaskManaged[Client.ClientResponse]]
       _       <- Task(asyncRequest(request, promise, sslOption)).catchAll(cause => promise.fail(cause))
       res     <- promise.await
-    } yield res
+    } yield res).toManaged_.flatten
 
   private def asyncRequest(
     req: ClientParams,
-    promise: Promise[Throwable, ClientResponse],
+    promise: Promise[Throwable, TaskManaged[ClientResponse]],
     sslOption: ClientSSLOptions,
   ): Unit = {
     val jReq = encodeClientParams(HttpVersion.HTTP_1_1, req)
@@ -73,16 +73,16 @@ object Client {
 
   def request(
     url: String,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
-    url <- ZIO.fromEither(URL.fromString(url))
+  ): ZManaged[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
+    url <- ZIO.fromEither(URL.fromString(url)).toManaged_
     res <- request(Method.GET -> url)
   } yield res
 
   def request(
     url: String,
     sslOptions: ClientSSLOptions,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
-    url <- ZIO.fromEither(URL.fromString(url))
+  ): ZManaged[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
+    url <- ZIO.fromEither(URL.fromString(url)).toManaged_
     res <- request(Method.GET -> url, sslOptions)
   } yield res
 
@@ -90,9 +90,9 @@ object Client {
     url: String,
     headers: List[Header],
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+  ): ZManaged[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
-      url <- ZIO.fromEither(URL.fromString(url))
+      url <- ZIO.fromEither(URL.fromString(url)).toManaged_
       res <- request(Method.GET -> url, headers, sslOptions)
     } yield res
 
@@ -100,47 +100,47 @@ object Client {
     url: String,
     headers: List[Header],
     content: HttpData[Any, Nothing],
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+  ): ZManaged[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
-      url <- ZIO.fromEither(URL.fromString(url))
+      url <- ZIO.fromEither(URL.fromString(url)).toManaged_
       res <- request(Method.GET -> url, headers, content)
     } yield res
 
   def request(
     endpoint: Endpoint,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+  ): ZManaged[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint))
 
   def request(
     endpoint: Endpoint,
     sslOptions: ClientSSLOptions,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+  ): ZManaged[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint), sslOptions)
 
   def request(
     endpoint: Endpoint,
     headers: List[Header],
     sslOptions: ClientSSLOptions,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+  ): ZManaged[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint, headers), sslOptions)
 
   def request(
     endpoint: Endpoint,
     headers: List[Header],
     content: HttpData[Any, Nothing],
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+  ): ZManaged[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint, headers, content))
 
   def request(
     req: ClientParams,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    make.flatMap(_.request(req))
+  ): ZManaged[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+    make.toManaged_.flatMap(_.request(req))
 
   def request(
     req: ClientParams,
     sslOptions: ClientSSLOptions,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    make.flatMap(_.request(req, sslOptions))
+  ): ZManaged[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+    make.toManaged_.flatMap(_.request(req, sslOptions))
 
   type Endpoint = (Method, URL)
 
@@ -182,5 +182,10 @@ object Client {
     override def getHeaders: List[Header] = headers
 
     override def updateHeaders(f: List[Header] => List[Header]): ClientResponse = self.copy(headers = f(headers))
+
+    def close(): Task[Unit] = Task.effect {
+      if (buffer.refCnt() > 0) buffer.release(buffer.refCnt())
+      ()
+    }
   }
 }

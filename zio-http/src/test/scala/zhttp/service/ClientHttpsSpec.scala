@@ -32,11 +32,11 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
   override def spec               = suite("Https Client request") {
     testM("respond Ok") {
       val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
-      assertM(actual)(anything)
+      assertM(actual.useNow)(anything)
     } +
       testM("respond Ok with sslOption") {
         val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", sslOption)
-        assertM(actual)(anything)
+        assertM(actual.useNow)(anything)
       } +
       testM("should respond as Bad Request") {
         val actual = Client
@@ -45,7 +45,7 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
             sslOption,
           )
           .map(_.status)
-        assertM(actual)(equalTo(Status.BAD_REQUEST))
+        assertM(actual.useNow)(equalTo(Status.BAD_REQUEST))
       } +
       testM("should throw DecoderException for handshake failure") {
         val actual = Client
@@ -54,7 +54,7 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
             sslOption,
           )
           .run
-        assertM(actual)(fails(isSubtype[DecoderException](anything)))
+        assertM(actual.useNow)(fails(isSubtype[DecoderException](anything)))
       } @@ flaky @@ ignore
   }.provideCustomLayer(env) @@ timeout(30 seconds)
 }

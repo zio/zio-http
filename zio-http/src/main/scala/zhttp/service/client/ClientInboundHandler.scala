@@ -4,7 +4,7 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
 import zhttp.service.Client.ClientResponse
 import zhttp.service.{DecodeJResponse, HttpRuntime}
-import zio.Promise
+import zio.{Promise, TaskManaged}
 
 /**
  * Handles HTTP response
@@ -12,7 +12,7 @@ import zio.Promise
 final case class ClientInboundHandler[R](
   zExec: HttpRuntime[R],
   jReq: FullHttpRequest,
-  promise: Promise[Throwable, ClientResponse],
+  promise: Promise[Throwable, TaskManaged[ClientResponse]],
 ) extends SimpleChannelInboundHandler[FullHttpResponse](false)
     with DecodeJResponse {
 

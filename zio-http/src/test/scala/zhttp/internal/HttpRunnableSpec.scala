@@ -6,7 +6,7 @@ import zhttp.internal.AppCollection.HttpEnv
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.DefaultRunnableSpec
-import zio.{Has, ZIO, ZManaged}
+import zio.{Has, Task, ZIO, ZManaged}
 
 /**
  * Should be used only when e2e tests needs to be written which is typically for logic that is part of the netty based
@@ -19,7 +19,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
     Server.make(Server.app(app) ++ Server.port(port) ++ Server.advancedLeakDetection).orDie
 
-  def status(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, Status] =
+  def status(path: Path): ZManaged[EventLoopGroup with ChannelFactory, Throwable, Status] =
     Client
       .request(
         Method.GET -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
@@ -32,7 +32,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
     method: Method,
     content: String,
     headers: (CharSequence, CharSequence)*,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, List[Header]] =
+  ): ZManaged[EventLoopGroup with ChannelFactory, Throwable, List[Header]] =
     request(path, method, content, headers.map(h => Header.custom(h._1.toString(), h._2)).toList).map(_.headers)
 
   def request(
@@ -40,7 +40,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
     method: Method = Method.GET,
     content: String = "",
     headers: List[Header] = Nil,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] = {
+  ): ZManaged[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] = {
     val data = HttpData.fromText(content)
     Client.request(
       Client.ClientParams(method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
@@ -55,8 +55,8 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
       method: Method = Method.GET,
       content: String = "",
       headers: List[Header] = Nil,
-    ): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Client.ClientResponse] = for {
-      id       <- deploy
+    ): ZManaged[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Client.ClientResponse] = for {
+      id       <- deploy.toManaged_
       response <- self.request(path, method, content, Header(AppCollection.APP_ID, id) :: headers)
     } yield response
 
@@ -65,7 +65,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
       method: Method = Method.GET,
       content: String = "",
       headers: List[Header] = Nil,
-    ): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Status] =
+    ): ZManaged[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Status] =
       request(path, method, content, headers).map(_.status)
 
     def requestBodyAsString(
@@ -74,7 +74,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
       content: String = "",
       headers: List[Header] = Nil,
     ): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, String] =
-      request(path, method, content, headers).flatMap(_.getBodyAsString)
+      request(path, method, content, headers).use(_.getBodyAsString)
 
     def requestHeaderValueByName(
       path: Path = !!,
@@ -82,6 +82,6 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
       content: String = "",
       headers: List[Header] = Nil,
     )(name: CharSequence): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Option[String]] =
-      request(path, method, content, headers).map(_.getHeaderValue(name))
+      request(path, method, content, headers).use(res => Task(res.getHeaderValue(name)))
   }
 }

@@ -18,11 +18,11 @@ object ServerSpec extends HttpRunnableSpec(8088) {
     suite("success") {
       testM("status is 200") {
         val status = Http.ok.requestStatus()
-        assertM(status)(equalTo(Status.OK))
+        assertM(status.useNow)(equalTo(Status.OK))
       } +
         testM("status is 200") {
           val res = Http.text("ABC").requestStatus()
-          assertM(res)(equalTo(Status.OK))
+          assertM(res.useNow)(equalTo(Status.OK))
         } +
         testM("content is set") {
           val res = Http.text("ABC").requestBodyAsString()
@@ -33,18 +33,18 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val app = Http.empty
         testM("status is 404") {
           val res = app.requestStatus()
-          assertM(res)(equalTo(Status.NOT_FOUND))
+          assertM(res.useNow)(equalTo(Status.NOT_FOUND))
         } +
           testM("header is set") {
             val res = app.request().map(_.getHeaderValue("Content-Length"))
-            assertM(res)(isSome(equalTo("0")))
+            assertM(res.useNow)(isSome(equalTo("0")))
           }
       } +
       suite("error") {
         val app = Http.fail(new Error("SERVER_ERROR"))
         testM("status is 500") {
           val res = app.requestStatus()
-          assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+          assertM(res.useNow)(equalTo(Status.INTERNAL_SERVER_ERROR))
         } +
           testM("content is set") {
             val res = app.requestBodyAsString()
@@ -52,7 +52,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
           } +
           testM("header is set") {
             val res = app.request().map(_.getHeaderValue("Content-Length"))
-            assertM(res)(isSome(anything))
+            assertM(res.useNow)(isSome(anything))
           }
       } +
       suite("echo content") {
@@ -62,7 +62,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
 
         testM("status is 200") {
           val res = app.requestStatus()
-          assertM(res)(equalTo(Status.OK))
+          assertM(res.useNow)(equalTo(Status.OK))
         } +
           testM("body is ok") {
             val res = app.requestBodyAsString(content = "ABC")
@@ -81,7 +81,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val app = Http.ok.addHeader("Foo", "Bar")
         testM("headers are set") {
           val res = app.request().map(_.getHeaderValue("Foo"))
-          assertM(res)(isSome(equalTo("Bar")))
+          assertM(res.useNow)(isSome(equalTo("Bar")))
         }
       } + suite("response") {
         val app = Http.response(Response(status = Status.OK, data = HttpData.fromText("abc")))
@@ -102,7 +102,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       testM("status") {
         checkAllM(HttpGen.status) { case (status) =>
           val res = Http.status(status).requestStatus()
-          assertM(res)(equalTo(status))
+          assertM(res.useNow)(equalTo(status))
         }
       } +
       testM("header") {
@@ -139,22 +139,23 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   def staticAppSpec = suite("StaticAppSpec") {
     testM("200 response") {
       val actual = status(!! / "success")
-      assertM(actual)(equalTo(Status.OK))
+      assertM(actual.useNow)(equalTo(Status.OK))
     } +
       testM("500 response") {
         val actual = status(!! / "failure")
-        assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
+        assertM(actual.useNow)(equalTo(Status.INTERNAL_SERVER_ERROR))
       } +
       testM("404 response") {
         val actual = status(!! / "random")
-        assertM(actual)(equalTo(Status.NOT_FOUND))
+        assertM(actual.useNow)(equalTo(Status.NOT_FOUND))
       } +
       testM("200 response with encoded path") {
         val actual = status(!! / "get%2Fsuccess")
-        assertM(actual)(equalTo(Status.OK))
+        assertM(actual.useNow)(equalTo(Status.OK))
       } +
       testM("Multiple 200 response") {
-        val data = Gen.listOfN(5)(Gen.fromEffect(status(!! / "success").orElse(UIO(Status.INTERNAL_SERVER_ERROR))))
+        val data =
+          Gen.listOfN(5)(Gen.fromEffect(status(!! / "success").useNow.orElse(UIO(Status.INTERNAL_SERVER_ERROR))))
         checkAll(data) { case data =>
           assertTrue(data.forall(_ == Status.OK))
         }
