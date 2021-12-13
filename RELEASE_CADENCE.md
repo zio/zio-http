@@ -51,7 +51,7 @@
 # Backward compatibility
 We will not support backward compatibility till major stable release
 
-# Change Log templates (WIP - example will be added)
+# Change Log templates 
 ### Guiding principle
 
 Changelog will be based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
@@ -64,4 +64,41 @@ Changelog will be based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0
   * Removed for now removed features.
   * Fixed for any bug fixes.
   * Security in case of vulnerabilities
+    
+## An Example of a Changelog
+
+# Changelog
+
+## Unreleased (Can refer to added / fixed / changed etc of a current release candidate)
+
+### Added
+
+- [#393](https://github.com/dream11/zio-http/pull/393) finalFragment flag for WebSocketFrame 
+- [#485](https://github.com/dream11/zio-http/pull/485) ifThenElse method in HttpMiddleware
+- [#277](https://github.com/dream11/zio-http/pull/277) Cookie Support
+
+### Fixed
+
+- [#387](https://github.com/dream11/zio-http/pull/387) HttpApp write response only once
+- [#323](https://github.com/dream11/zio-http/pull/323) Route matching with encoded paths
+- [#314](https://github.com/dream11/zio-http/pull/314) Added timeout and flaky in test
+
+### Changed
+
+- [#541](https://github.com/dream11/zio-http/pull/541) Use Option instead of Either in Cookies
+- [#577](https://github.com/dream11/zio-http/pull/577) Add toApp, toResponse methods to status
+
+## [1.0.0] - 2021-12-22 (<link to the previous release if any>) 
+
+### Fixed
+
+- [#387](https://github.com/dream11/zio-http/pull/387) HttpApp write response only once
+- [#323](https://github.com/dream11/zio-http/pull/323) Route matching with encoded paths
+- [#314](https://github.com/dream11/zio-http/pull/314) Added timeout and flaky in test
+
+### Changed
+
+- [#541](https://github.com/dream11/zio-http/pull/541) Use Option instead of Either in Cookies
+- [#577](https://github.com/dream11/zio-http/pull/577) Add toApp, toResponse methods to status
+    
 
