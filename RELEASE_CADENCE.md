@@ -87,7 +87,7 @@ The example below shows a sample structure of a Changelog being built on top of 
 - [#541](https://github.com/dream11/zio-http/pull/541) Use Option instead of Either in Cookies
 - [#577](https://github.com/dream11/zio-http/pull/577) Add toApp, toResponse methods to status
 
-## [1.0.0] - 2021-12-22 (<link to the previous release if any>) 
+## [1.0.0] - 2021-12-22 (link to the previous release if any) 
 
 ### Fixed
 
