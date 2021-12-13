@@ -67,7 +67,7 @@ Changelog will be based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0
     
 ## An Example of a Changelog
 The example below shows a sample structure of a Changelog being built on top of the previous change logs (current changes on top followed by descending dates)     
-
+```
 ## Unreleased (Can refer to added / fixed / changed etc of a current release candidate)
 
 ### Added
@@ -99,5 +99,5 @@ The example below shows a sample structure of a Changelog being built on top of 
 
 - [#541](https://github.com/dream11/zio-http/pull/541) Use Option instead of Either in Cookies
 - [#577](https://github.com/dream11/zio-http/pull/577) Add toApp, toResponse methods to status
-    
+```
 
