@@ -7,8 +7,8 @@
 
 - [Versioning](#versioning)
 - [Change log Templates](#change-log-templates)
-- [Guiding Principle](#guiding-principle)
-- [Example of a Changelog](#example-of-a-changelog)
+  - [Guiding Principle](#guiding-principle)
+  - [Example of a Changelog](#example-of-a-changelog)
 
 # Pre-Release cycles
 
