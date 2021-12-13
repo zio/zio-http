@@ -2,7 +2,7 @@
 name: Improve maintenance
 about: Suggest an improvement to code base management
 title: ''
-labels: ''
+labels: chore
 assignees: ''
 
 ---
