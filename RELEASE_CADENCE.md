@@ -30,9 +30,9 @@
 ### A Release Example
 | **Release**    | **Date**         |
 | ----------- | ----------- |
-| 0.1.0-rc      | Wed Dec 8, 2021       |
-| 0.1   | Wed Dec 23, 2021        |
-| 0.1.1 (Major bug was found in 0.1)| Fri Dec 24, 2021|
+| 1.0.0.0-RC1       | Wed Dec 8, 2021       |
+| 1.0   | Wed Dec 23, 2021        |
+| 1.0.1 (Major bug was found in 1.0)| Fri Dec 24, 2021|
 
 * The above table is a rough example. In reality the dates may change due to holidays, availability of resources etc.
 * The patch fixes (0.1.1) are very important and the triage may take more than 2-3 days depending on the complexity of the bug.
