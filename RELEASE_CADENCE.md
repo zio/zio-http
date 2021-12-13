@@ -57,7 +57,7 @@ We will not support backward compatibility till major stable release
 Changelog will be based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 * There should be single changelog for one version
 * Similar types of changes should be grouped together.
-* Every changelog should have following types (with github links to commit ids for each change)
+* Every changelog should have following types (with github links to pull requests for each change)
   * Added for new features.
   * Changed for changes in existing functionality.
   * Deprecated for soon-to-be removed features.
