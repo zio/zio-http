@@ -3,7 +3,7 @@ package zhttp.http
 import zio._
 import zio.duration.durationInt
 import zio.test.Assertion._
-import zio.test.TestAspect.{ignore, sequential, timeout}
+import zio.test.TestAspect.{ignore, timeout}
 import zio.test._
 
 object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
@@ -244,5 +244,5 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             } yield assert(res)(equalTo(1))
           },
       ),
-  ) @@ timeout(10 seconds) @@ sequential
+  ) @@ timeout(10 seconds)
 }
