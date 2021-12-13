@@ -31,7 +31,7 @@
 | **Release**    | **Date**         |
 | ----------- | ----------- |
 | 1.0.0.0-RC1       | Wed Dec 8, 2021       |
-| 1.0   | Wed Dec 23, 2021        |
+| 1.0.0   | Wed Dec 23, 2021        |
 | 1.0.1 (Major bug was found in 1.0)| Fri Dec 24, 2021|
 
 * The above table is a rough example. In reality the dates may change due to holidays, availability of resources etc.
