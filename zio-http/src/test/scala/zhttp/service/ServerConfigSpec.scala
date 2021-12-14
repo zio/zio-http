@@ -19,20 +19,20 @@ object ServerConfigSpec extends HttpRunnableSpec(8088) {
       val connectionCloseHeader = Header(HttpHeaderNames.CONNECTION.toString, HttpHeaderValues.CLOSE.toString)
       val app1                  = Http.empty
       testM(
-        "Http 1.1 WITHOUT 'Connection: close' in the request header SHOULD respond WITHOUT 'Connection: close' in the response header, indicating re-use",
+        "Http 1.1  WITHOUT 'Connection: close' Request => Response WITHOUT 'Connection: close' => re-use",
       ) {
         val res = app1.request().map(_.getHeaderValue("Connection"))
         assertM(res)(isNone)
       } +
         testM(
-          "Http 1.1 WITH 'Connection: close' in the request header SHOULD respond WITH 'Connection: close' in the response header, indicating NO re-use",
+          "Http 1.1 WITH 'Connection: close' Request => Response WITH 'Connection: close' => NO re-use",
         ) {
           val path    = !!
           val headers = List(connectionCloseHeader)
           val res     = app1.request(path, Method.GET, "", headers).map(_.getHeaderValue("Connection"))
           assertM(res)(isSome(equalTo("close")))
         } +
-        testM("For Http 1.0 any request SHOULD respond with 'connection: close' response header indicating no re-use") {
+        testM("Http 1.0 Request => Response WITH 'connection: close' => NO re-use") {
           val path    = !!
           val headers = List()
           val res     =
