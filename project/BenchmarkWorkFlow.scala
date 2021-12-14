@@ -10,7 +10,6 @@ object BenchmarkWorkFlow {
       cond = Some("${{ github.event_name == 'pull_request'}}"),
       steps = List(
         WorkflowStep.Run(
-          env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
           id = Some("clean_up"),
           name = Some("Clean up"),
           commands = List("sudo rm -rf *"),
@@ -26,38 +25,29 @@ object BenchmarkWorkFlow {
           Map(
             "repository" -> "dream11/FrameworkBenchmarks",
             "path"       -> "FrameworkBenchMarks",
+            "ref"        -> "jar-poc",
           ),
         ),
         WorkflowStep.Run(
-          env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
           id = Some("result"),
           commands = List(
+            "cp ./zio-http/example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala",
             "cd ./zio-http",
-            "pwd",
             "sbt zhttp/assembly",
             "ls ./zio-http/target/scala-2.13",
-            "mv ./zio-http/target/scala-2.13/zhttp-1.0.0.0.jar ./../FrameworkBenchMarks",
+            "cp ./zio-http/target/scala-2.13/zhttp-1.0.0.0.jar ./../FrameworkBenchMarks/frameworks/Scala/zio-http/zhttp-1.0.0.0.jar",
             "cd ./../FrameworkBenchMarks",
-            "echo ${{github.event.pull_request.head.sha}}",
-            "echo ${{github.base_ref}}",
-            """sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt""",
+            "echo Running Benchmarks",
             "./tfb  --test zio-http | tee result",
             """RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")""",
             """RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+")""",
             """echo ::set-output name=request_result::$(echo $RESULT_REQUEST)""",
             """echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)""",
-          ),
-        ),
-        WorkflowStep.Use(
-          ref = UseRef.Public("peter-evans", "commit-comment", "v1"),
-          params = Map(
-            "sha"  -> "${{github.event.pull_request.head.sha}}",
-            "body" ->
-              """
-                |**\uD83D\uDE80 Performance Benchmark:**
-                |
-                |${{steps.result.outputs.concurrency_result}}
-                |${{steps.result.outputs.request_result}}""".stripMargin,
+            "mkdir -p ./pr",
+            "echo ${{ github.event.number }} > ./pr/NR",
+            "echo ${{github.event.pull_request.head.sha}} > ./pr/SHA",
+            "echo $RESULT_REQUEST > ./pr/Result",
+            "echo $RESULT_CONCURRENCY ./pr/Concurrency",
           ),
         ),
       ),
