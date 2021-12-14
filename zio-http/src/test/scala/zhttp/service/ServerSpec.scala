@@ -3,12 +3,12 @@ package zhttp.service
 import zhttp.http._
 import zhttp.internal.{AppCollection, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
+import zio.ZIO
 import zio.duration.durationInt
 import zio.stream.ZStream
 import zio.test.Assertion.{anything, containsString, equalTo, isSome}
 import zio.test.TestAspect._
 import zio.test._
-import zio.{UIO, ZIO}
 
 import java.nio.file.Paths
 
@@ -154,10 +154,10 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         assertM(actual)(equalTo(Status.OK))
       } +
       testM("Multiple 200 response") {
-        val data = Gen.listOfN(5)(Gen.fromEffect(status(!! / "success").orElse(UIO(Status.INTERNAL_SERVER_ERROR))))
-        checkAll(data) { case data =>
-          assertTrue(data.forall(_ == Status.OK))
-        }
+        for {
+          data <- status(!! / "success").repeatN(1024)
+        } yield assertTrue(data == Status.OK)
+
       }
   }
 
