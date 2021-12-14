@@ -13,7 +13,12 @@ trait DecodeJResponse {
     val status  = Status.fromHttpResponseStatus(jRes.status())
     val headers = Header.parse(jRes.headers())
     val content =
-      Unpooled.buffer(jRes.content().readableBytes(), jRes.content().capacity()).writeBytes(jRes.content())
+      if (jRes.content().readableBytes() == 0) {
+        Unpooled.EMPTY_BUFFER
+      } else {
+        Unpooled.buffer(jRes.content().readableBytes(), jRes.content().capacity()).writeBytes(jRes.content())
+      }
+    jRes.release(jRes.refCnt())
     Client.ClientResponse(status, headers, content)
   }
 }
