@@ -25,6 +25,7 @@ categories:
     labels:
       - 'docs'
       - 'chore'
+      - 'maintenance'
       - 'style'
       - 'build'
       - 'chores'
@@ -49,13 +50,15 @@ template: |
 
   $CHANGES
 autolabeler:
-  - label: 'chore'
+  - label: 'maintenance'
     files:
       - '*.yml'
       - '*.conf'
       - '*.sbt'
     branch:
-      - '/chore\/.+/'    
+      - '/chore\/.+/'
+      - '/refactor\/.+/'
+      - '/maintenance\/.+/'
   - label: 'bug'
     branch:
       - '/fix\/.+/'
@@ -70,5 +73,5 @@ autolabeler:
       - '*.md'
       - '*.txt'
     branch:
-      - '/doc\/.+/'    
+      - '/doc\/.+/'
       - '/docs\/.+/'    
