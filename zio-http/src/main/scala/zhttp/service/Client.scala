@@ -1,11 +1,10 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.buffer.ByteBuf
 import io.netty.channel.{
   Channel,
-  ChannelFactory => JChannelFactory,
   ChannelHandlerContext,
+  ChannelFactory => JChannelFactory,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http.HttpVersion
@@ -175,12 +174,26 @@ object Client {
     val url: URL       = endpoint._2
   }
 
-  final case class ClientResponse(status: Status, headers: List[Header], private val buffer: ByteBuf)
-      extends HeaderExtension[ClientResponse] { self =>
-    def getBodyAsString: Task[String] = Task(buffer.toString(self.getCharset))
+  sealed trait Content {
+    type T
+    def getContent: T
+  }
 
+  final case class StringContent(content: String) extends Content {
+    override type T = String
+
+    override def getContent: String = content
+  }
+
+  final case class ClientResponse(status: Status, headers: List[Header], private val content: Content)
+      extends HeaderExtension[ClientResponse] { self =>
+
+    def getBodyAsString: Task[String]     = content match {
+      case StringContent(content) => Task(content)
+    }
     override def getHeaders: List[Header] = headers
 
     override def updateHeaders(f: List[Header] => List[Header]): ClientResponse = self.copy(headers = f(headers))
+
   }
 }
