@@ -4,8 +4,8 @@ import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.ByteBuf
 import io.netty.channel.{
   Channel,
-  ChannelFactory => JChannelFactory,
   ChannelHandlerContext,
+  ChannelFactory => JChannelFactory,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http.HttpVersion
@@ -15,7 +15,7 @@ import zhttp.service
 import zhttp.service.Client.{ClientParams, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler}
-import zio.{Promise, Task, ZIO}
+import zio.{Chunk, Promise, Task, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -175,12 +175,12 @@ object Client {
     val url: URL       = endpoint._2
   }
 
-  final case class ClientResponse(status: Status, headers: List[Header], private val content: ByteBuf)
+  final case class ClientResponse(status: Status, headers: List[Header], private val unsafeByteBuf: ByteBuf)
       extends HeaderExtension[ClientResponse] { self =>
 
-    def getBodyAsString: Task[String] = Task(content.toString(self.getCharset))
+    def getBodyAsString: Task[String] = Task(unsafeByteBuf.toString(self.getCharset))
 
-    def getRawBody: Task[ByteBuf] = Task(content)
+    def getRawBody: Task[Chunk[Byte]] = Task(Chunk.fromArray(unsafeByteBuf.array()))
 
     override def getHeaders: List[Header] = headers
 

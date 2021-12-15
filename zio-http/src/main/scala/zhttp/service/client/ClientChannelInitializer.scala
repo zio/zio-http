@@ -3,7 +3,7 @@ package zhttp.service.client
 import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer, ChannelPipeline}
 import io.netty.handler.codec.http.{HttpClientCodec, HttpObjectAggregator}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.content.handlers.ClientInboundContentHandler
+import zhttp.service.client.content.handlers.ClientResponseHandler
 
 final case class ClientChannelInitializer[R](
   channelHandler: ChannelHandler,
@@ -15,7 +15,7 @@ final case class ClientChannelInitializer[R](
       .pipeline()
       .addLast(new HttpClientCodec)
       .addLast(new HttpObjectAggregator(Int.MaxValue))
-      .addLast(new ClientInboundContentHandler())
+      .addLast(new ClientResponseHandler())
       .addLast(channelHandler)
 
     if (scheme == "https") {
