@@ -15,7 +15,7 @@ final case class ClientChannelInitializer[R](
       .pipeline()
       .addLast(new HttpClientCodec)
       .addLast(new HttpObjectAggregator(Int.MaxValue))
-      .addLast(DynamicContentHandler())
+      .addLast(new DynamicContentHandler())
       .addLast(channelHandler)
 
     if (scheme == "https") {
