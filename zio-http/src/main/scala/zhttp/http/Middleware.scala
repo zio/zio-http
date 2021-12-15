@@ -113,6 +113,11 @@ object Middleware {
   def basicAuth(u: String, p: String): Middleware[Any, Nothing] =
     basicAuth { case (user, password) => (user == u) && (password == p) }
 
+  def addCookie(cookie: Cookie): HttpMiddleware[Any, Nothing]       =
+    HttpMiddleware.addHeader(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)
+  def addCookieM(cookie: UIO[Cookie]): HttpMiddleware[Any, Nothing] =
+    patchM((_, _) => cookie.map(c => Patch.addHeader(HttpHeaderNames.SET_COOKIE.toString, c.encode)))
+
   /**
    * Creates a middleware for Cross-Origin Resource Sharing (CORS).
    * @see
