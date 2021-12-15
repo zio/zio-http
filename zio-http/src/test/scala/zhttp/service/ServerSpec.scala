@@ -5,7 +5,7 @@ import zhttp.internal.{AppCollection, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.duration.durationInt
 import zio.stream.ZStream
-import zio.test.Assertion.{anything, containsString, equalTo, hasSameElements, isEmpty, isSome}
+import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 import zio.{Chunk, ZIO}
