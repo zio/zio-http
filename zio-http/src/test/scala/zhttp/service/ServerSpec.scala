@@ -5,7 +5,7 @@ import zhttp.internal.{AppCollection, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.duration.durationInt
 import zio.stream.ZStream
-import zio.test.Assertion.{anything, containsString, equalTo, hasSameElements, isSome}
+import zio.test.Assertion.{anything, containsString, equalTo, hasSameElements, isEmpty, isSome}
 import zio.test.TestAspect._
 import zio.test._
 import zio.{Chunk, ZIO}
@@ -80,6 +80,10 @@ object ServerSpec extends HttpRunnableSpec(8088) {
           testM("empty string") {
             val res = app.requestBodyAsString(content = "")
             assertM(res)(equalTo(""))
+          } +
+          testM("empty raw body") {
+            val res = app.requestRawBody(content = "")
+            assertM(res)(isEmpty)
           } +
           testM("one char") {
             val res = app.requestBodyAsString(content = "1")
