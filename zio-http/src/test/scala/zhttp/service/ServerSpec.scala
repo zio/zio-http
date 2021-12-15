@@ -1,16 +1,20 @@
 package zhttp.service
 
+import java.nio.file.Paths
+
+import sttp.client.asynchttpclient.zio.{AsyncHttpClientZioBackend, SttpClient}
+import sttp.client.{UriContext, basicRequest}
+import sttp.model.ws.{WebSocketFrame => FWebSocketFrame}
 import zhttp.http._
 import zhttp.internal.{AppCollection, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
+import zhttp.socket.{Socket, SocketApp, SocketProtocol, WebSocketFrame}
 import zio.ZIO
 import zio.duration.durationInt
 import zio.stream.ZStream
-import zio.test.Assertion.{anything, containsString, equalTo, isSome}
+import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-
-import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec(8088) {
 
@@ -121,7 +125,10 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   override def spec = {
     suiteM("Server") {
       app.as(List(staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
-    }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ sequential
+    }.provideCustomLayerShared(AsyncHttpClientZioBackend.layer() ++ env).mapError {
+      case a: TestFailure.Assertion => a
+      case o                        => TestFailure.fail(o)
+    } @@ timeout(30 seconds) @@ sequential
   }
 
   def requestSpec = suite("RequestSpec") {
@@ -157,8 +164,15 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         for {
           data <- status(!! / "success").repeatN(1024)
         } yield assertTrue(data == Status.OK)
-
-      }
+      } +
+      testM("Multiple Websocket Requests") {
+        for {
+          res <- SttpClient.openWebsocket(basicRequest.get(uri"ws://localhost:8088/subscriptions")).repeatN(1024)
+          ws = res.result
+          _    <- ws.send(FWebSocketFrame.text("FOO"))
+          text <- ws.receiveText()
+        } yield assert(text)(isRight(equalTo("BAR")))
+      } @@ nonFlaky(1024)
   }
 
   private val nonEmptyContent = for {
@@ -166,13 +180,23 @@ object ServerSpec extends HttpRunnableSpec(8088) {
     content <- HttpGen.nonEmptyHttpData(Gen.const(data))
   } yield (data.mkString(""), content)
 
-  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
+  private val env = EventLoopGroup
+    .nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
 
   private val staticApp = Http.collectM[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
     case Method.GET -> !! / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
     case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
   }
+  private val socket    =
+    Socket.collect[WebSocketFrame] { case WebSocketFrame.Text("FOO") =>
+      ZStream.succeed(WebSocketFrame.text("BAR"))
+    }
 
-  private val app = serve { staticApp ++ AppCollection.app }
+  private val socketApp = SocketApp.message(socket) ++ SocketApp.protocol(SocketProtocol.handshakeTimeout(100 millis))
+  private val webSocketApp = Http.collect[Request] { case Method.GET -> !! / "subscriptions" =>
+    Response.socket(socketApp)
+  }
+
+  private val app = serve { staticApp ++ webSocketApp ++ AppCollection.app }
 }
