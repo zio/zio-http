@@ -6,7 +6,7 @@ import io.netty.handler.codec.http.FullHttpResponse
 import zhttp.http.{Header, Status}
 import zhttp.service.Client
 
-final class DynamicContentHandler() extends SimpleChannelInboundHandler[FullHttpResponse](true) {
+final class ClientInboundContentHandler() extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     val status   = Status.fromHttpResponseStatus(msg.status())
