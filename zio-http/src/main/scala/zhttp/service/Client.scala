@@ -4,8 +4,8 @@ import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.ByteBuf
 import io.netty.channel.{
   Channel,
-  ChannelHandlerContext,
   ChannelFactory => JChannelFactory,
+  ChannelHandlerContext,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http.HttpVersion

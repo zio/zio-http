@@ -6,7 +6,7 @@ import zhttp.internal.AppCollection.HttpEnv
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.DefaultRunnableSpec
-import zio.{Has, ZIO, ZManaged}
+import zio.{Chunk, Has, ZIO, ZManaged}
 
 /**
  * Should be used only when e2e tests needs to be written which is typically for logic that is part of the netty based
@@ -83,5 +83,13 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
       headers: List[Header] = Nil,
     )(name: CharSequence): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Option[String]] =
       request(path, method, content, headers).map(_.getHeaderValue(name))
+
+    def requestRawBody(
+      path: Path = !!,
+      method: Method = Method.GET,
+      content: String = "",
+      headers: List[Header] = Nil,
+    ): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Chunk[Byte]] =
+      request(path, method, content, headers).flatMap(_.getRawBody)
   }
 }
