@@ -89,6 +89,17 @@ object ServerSpec extends HttpRunnableSpec(8088) {
           val res = app.requestBodyAsString()
           assertM(res)(equalTo("abc"))
         }
+      } + suite("Echo With getBody") {
+        val app = Http.collectM[Request] { case req @ Method.POST -> !! / "echoRequestBody" =>
+          for {
+            chunk <- req.getBody
+          } yield Response.text(chunk.map(_.toChar).mkString(""))
+        }
+        testM("POST Echo request body back") {
+          val bodyMsg = "Hello World!"
+          val res     = app.request(!! / "echoRequestBody", Method.POST, bodyMsg).flatMap(_.getBodyAsString)
+          assertM(res)(equalTo(bodyMsg))
+        }
       }
   }
 
@@ -157,11 +168,6 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         for {
           data <- status(!! / "success").repeatN(1024)
         } yield assertTrue(data == Status.OK)
-      } +
-      testM("POST Echo request body back") {
-        val bodyMsg = "Hello World!"
-        val res     = request(!! / "echoRequestBody", Method.POST, bodyMsg).flatMap(_.getBodyAsString)
-        assertM(res)(equalTo(bodyMsg))
       }
   }
 
@@ -173,13 +179,9 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
 
   private val staticApp = Http.collectM[Request] {
-    case Method.GET -> !! / "success"                => ZIO.succeed(Response.ok)
-    case Method.GET -> !! / "failure"                => ZIO.fail(new RuntimeException("FAILURE"))
-    case Method.GET -> !! / "get%2Fsuccess"          => ZIO.succeed(Response.ok)
-    case req @ Method.POST -> !! / "echoRequestBody" =>
-      for {
-        chunk <- req.getBody
-      } yield Response.text(chunk.map(_.toChar).mkString(""))
+    case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
+    case Method.GET -> !! / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
+    case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
   }
 
   private val app = serve { staticApp ++ AppCollection.app }
