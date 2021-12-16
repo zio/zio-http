@@ -6,13 +6,13 @@ import zio.{Cause, NeedsEnv, ZIO}
 sealed trait Socket[-R, +E, -A, +B] { self =>
   import Socket._
   def apply(a: A): ZStream[R, E, B] = self match {
-    case End                         => ZStream.halt(Cause.empty)
+    case End                         => ZStream.failCause(Cause.empty)
     case FromStreamingFunction(func) => func(a)
     case FromStream(s)               => s
     case FMap(m, bc)                 => m(a).map(bc)
-    case FMapM(m, bc)                => m(a).mapM(bc)
+    case FMapM(m, bc)                => m(a).mapZIO(bc)
     case FCMap(m, xa)                => m(xa(a))
-    case FCMapM(m, xa)               => ZStream.fromEffect(xa(a)).flatMap(a => m(a))
+    case FCMapM(m, xa)               => ZStream.fromZIO(xa(a)).flatMap(a => m(a))
     case FOrElse(sa, sb)             => sa(a) <> sb(a)
     case FMerge(sa, sb)              => sa(a) merge sb(a)
     case Succeed(a)                  => ZStream.succeed(a)
@@ -67,7 +67,7 @@ object Socket {
 
   def fromStream[R, E, B](stream: ZStream[R, E, B]): Socket[R, E, Any, B] = FromStream(stream)
 
-  def end: ZStream[Any, Nothing, Nothing] = ZStream.halt(Cause.empty)
+  def end: ZStream[Any, Nothing, Nothing] = ZStream.failCause(Cause.empty)
 
   def fromFunction[A]: MkFromFunction[A] = new MkFromFunction[A](())
 

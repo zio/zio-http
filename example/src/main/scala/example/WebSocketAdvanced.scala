@@ -3,11 +3,10 @@ package example
 import zhttp.http._
 import zhttp.service.Server
 import zhttp.socket.{Socket, SocketApp, SocketDecoder, SocketProtocol, WebSocketFrame}
-import zio.duration._
+import zio._
 import zio.stream.ZStream
-import zio.{App, ExitCode, Schedule, URIO, console}
 
-object WebSocketAdvanced extends App {
+object WebSocketAdvanced extends ZIOAppDefault {
   // Message Handlers
   private val open = Socket.succeed(WebSocketFrame.text("Greetings!"))
 
@@ -30,9 +29,9 @@ object WebSocketAdvanced extends App {
   private val socketApp =
     SocketApp.open(open) ++                   // Called after the request is successfully upgraded to websocket
       SocketApp.message(echo merge fooBar) ++ // Called after each message being received on the channel
-      SocketApp.close(_ => console.putStrLn("Closed!").ignore) ++ // Called after the connection is closed
+      SocketApp.close(_ => Console.printLine("Closed!").ignore) ++ // Called after the connection is closed
       SocketApp.error(_ =>
-        console.putStrLn("Error!").ignore,
+        Console.printLine("Error!").ignore,
       ) ++ // Called whenever there is an error on the socket channel
       SocketApp.decoder(decoder) ++
       SocketApp.protocol(protocol)
@@ -43,6 +42,6 @@ object WebSocketAdvanced extends App {
       case Method.GET -> !! / "subscriptions" => Response.socket(socketApp)
     }
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+  override val run =
+    Server.start(8090, app)
 }

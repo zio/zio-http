@@ -5,9 +5,9 @@ import zhttp.http.Method.GET
 import zhttp.http._
 import zhttp.nav.Navigation
 import zhttp.service.Server
-import zio.{ExitCode, URIO}
+import zio._
 
-object HelloWorldTwirl extends zio.App {
+object HelloWorldTwirl extends ZIOAppDefault {
   def h2: HttpApp[Any, Nothing] = GET / "a" / *[Int] / "b" / *[Boolean] to { pathParams =>
     val (a, b)              = pathParams.params
     val response: UResponse = Response.text(advanced.html.index(a, b).toString())
@@ -40,6 +40,6 @@ object HelloWorldTwirl extends zio.App {
 
   def app: HttpApp[Any, Throwable] = h1 ++ h2
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+  val run =
+    Server.start(8090, app)
 }

@@ -2,9 +2,9 @@ package example
 
 import zhttp.http.Header
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
-import zio.{App, ExitCode, URIO, console}
+import zio._
 
-object SimpleClient extends App {
+object SimpleClient extends ZIOAppDefault {
   val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
   val url     = "http://sports.api.decathlon.com/groups/water-aerobics"
   val headers = List(Header.host("sports.api.decathlon.com"))
@@ -12,9 +12,10 @@ object SimpleClient extends App {
   val program = for {
     res  <- Client.request(url, headers)
     data <- res.getBodyAsString
-    _    <- console.putStrLn { data }
+    _    <- Console.printLine(data)
   } yield ()
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = program.exitCode.provideCustomLayer(env)
+  override val run =
+    program.provideCustom(env)
 
 }

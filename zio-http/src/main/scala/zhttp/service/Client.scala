@@ -66,8 +66,8 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el:
 
 object Client {
   def make: ZIO[EventLoopGroup with ChannelFactory, Nothing, Client] = for {
-    cf <- ZIO.access[ChannelFactory](_.get)
-    el <- ZIO.access[EventLoopGroup](_.get)
+    cf <- ZIO.service[ChannelFactory]
+    el <- ZIO.service[EventLoopGroup]
     zx <- HttpRuntime.default[Any]
   } yield service.Client(zx, cf, el)
 

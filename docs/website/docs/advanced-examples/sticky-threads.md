@@ -13,7 +13,7 @@ import zio.duration._
  * on the same thread. This level of thread stickiness improves the performance 
  * characteristics of the server dramatically.
  */
-object StickyThread extends App {
+object StickyThread extends ZIOAppDefault {
 
   /**
    * A simple utility function that prints the fiber with the current thread.
@@ -41,8 +41,8 @@ object StickyThread extends App {
   }
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app.silent).exitCode
+  val run =
+    Server.start(8090, app.silent)
 }
 
 ```

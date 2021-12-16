@@ -120,7 +120,7 @@ object Request {
   ): ZIO[R, Nothing, Request] =
     for {
       r <- ZIO.environment[R]
-      c = content.provide(r)
+      c = content.provideEnvironment(r)
     } yield Request(method, url, headers, remoteAddress, c)
 
   /**

@@ -7,7 +7,7 @@ import zio._
 /**
  * Example to build app on concrete entity
  */
-object ConcreteEntity extends App {
+object ConcreteEntity extends ZIOAppDefault {
   //Request
   case class CreateUser(name: String)
 
@@ -26,8 +26,8 @@ object ConcreteEntity extends App {
         //Http[Any, Nothing, Request, Response]
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+  val run =
+    Server.start(8090, app)
 }
 
 ```

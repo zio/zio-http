@@ -5,7 +5,7 @@ object Dependencies {
   val NettyVersion                  = "4.1.72.Final"
   val NettyIncubatorVersion         = "0.0.11.Final"
   val ScalaCompactCollectionVersion = "2.6.0"
-  val ZioVersion                    = "1.0.13"
+  val ZioVersion                    = "2.0.0-RC1"
 
   val `scala-compact-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompactCollectionVersion
   val netty                      = "io.netty"                % "netty-all"               % NettyVersion

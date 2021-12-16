@@ -7,7 +7,7 @@ import zio._
 
 import scala.util.Try
 
-object HelloWorldAdvanced extends App {
+object HelloWorldAdvanced extends ZIOAppDefault {
   // Set a port
   private val PORT = 8090
 
@@ -17,8 +17,8 @@ object HelloWorldAdvanced extends App {
   }
 
   private val app = Http.collectM[Request] {
-    case Method.GET -> !! / "random" => random.nextString(10).map(Response.text(_))
-    case Method.GET -> !! / "utc"    => clock.currentDateTime.map(s => Response.text(s.toString))
+    case Method.GET -> !! / "random" => Random.nextString(10).map(Response.text(_))
+    case Method.GET -> !! / "utc"    => Clock.currentDateTime.map(s => Response.text(s.toString))
   }
 
   private val server =
@@ -26,20 +26,20 @@ object HelloWorldAdvanced extends App {
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
       Server.app(fooBar ++ app)       // Setup the Http app
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    // Configure thread count using CLI
-    val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
+  val run =
+    ZIOAppArgs.getArgs.flatMap { args =>
+      // Configure thread count using CLI
+      val nThreads = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
-    // Create a new server
-    server.make
-      .use(_ =>
-        // Waiting for the server to start
-        console.putStrLn(s"Server started on port $PORT")
+      // Create a new server
+      server.make
+        .use(_ =>
+          // Waiting for the server to start
+          Console.printLine(s"Server started on port $PORT")
 
-        // Ensures the server doesn't die after printing
-          *> ZIO.never,
-      )
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
-      .exitCode
-  }
+          // Ensures the server doesn't die after printing
+            *> ZIO.never,
+        )
+        .provideCustom(ServerChannelFactory.auto, EventLoopGroup.auto(nThreads))
+    }
 }

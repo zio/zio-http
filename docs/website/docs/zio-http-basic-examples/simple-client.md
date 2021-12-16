@@ -4,7 +4,7 @@ import zhttp.http.{Header, HttpData}
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
 
-object SimpleClient extends App {
+object SimpleClient extends ZIOAppDefault {
   val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
   val url     = "http://sports.api.decathlon.com/groups/water-aerobics"
   val headers = List(Header.host("sports.api.decathlon.com"))
@@ -20,8 +20,8 @@ object SimpleClient extends App {
     }
   } yield ()
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = 
-    program.exitCode.provideCustomLayer(env)
+  override val run = 
+    program.provide(env)
 
 }
 ```

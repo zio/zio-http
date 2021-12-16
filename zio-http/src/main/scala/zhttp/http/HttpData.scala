@@ -1,8 +1,8 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, Unpooled}
+import zio._
 import zio.stream.ZStream
-import zio.{Chunk, NeedsEnv, UIO, ZIO}
 
 import java.nio.charset.Charset
 
@@ -27,9 +27,9 @@ sealed trait HttpData[-R, +E] { self =>
     case _              => false
   }
 
-  def provide[R1 <: R](env: R)(implicit ev: NeedsEnv[R]): HttpData[Any, E] =
+  def provideEnvironment[R1 <: R](env: ZEnvironment[R])(implicit ev: NeedsEnv[R]): HttpData[Any, E] =
     self match {
-      case HttpData.BinaryStream(data) => HttpData.BinaryStream(data.provide(env))
+      case HttpData.BinaryStream(data) => HttpData.BinaryStream(data.provideEnvironment(env))
       case m                           => m.asInstanceOf[HttpData[Any, E]]
     }
 
@@ -46,7 +46,7 @@ sealed trait HttpData[-R, +E] { self =>
     case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
     case HttpData.BinaryByteBuf(data)  => UIO(data)
     case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
-    case HttpData.BinaryStream(stream) => stream.fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
+    case HttpData.BinaryStream(stream) => stream.runFold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
   }
 
   /**

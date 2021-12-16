@@ -3,11 +3,11 @@ package example
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import zhttp.http._
 import zhttp.service.Server
-import zio.{App, ExitCode, URIO}
+import zio._
 
 import java.time.Clock
 
-object Authentication extends App {
+object Authentication extends ZIOAppDefault {
   // Secret Authentication key
   val SECRET_KEY = "secretKey"
 
@@ -55,6 +55,6 @@ object Authentication extends App {
   val app: UHttpApp = login ++ authenticate(Http.forbidden("Not allowed!"), user)
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+  override val run =
+    Server.start(8090, app)
 }

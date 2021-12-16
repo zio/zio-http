@@ -85,7 +85,7 @@ object Server {
   /**
    * Launches the app on the provided port.
    */
-  def start[R <: Has[_]](
+  def start[R](
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
@@ -94,7 +94,7 @@ object Server {
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
-  def start[R <: Has[_]](
+  def start[R](
     address: InetAddress,
     port: Int,
     http: HttpApp[R, Throwable],
@@ -102,7 +102,7 @@ object Server {
     (Server.app(http) ++ Server.bind(address, port)).make.useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
-  def start[R <: Has[_]](
+  def start[R](
     socketAddress: InetSocketAddress,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
@@ -114,9 +114,9 @@ object Server {
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] = {
     val settings = server.settings()
     for {
-      channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
-      eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
-      zExec          <- HttpRuntime.default[R].toManaged_
+      channelFactory <- ZManaged.service[ServerChannelFactory]
+      eventLoopGroup <- ZManaged.service[EventLoopGroup]
+      zExec          <- HttpRuntime.default[R].toManaged
       reqHandler      = settings.app.compile(zExec, settings, ServerTimeGenerator.make)
       init            = ServerChannelInitializer(zExec, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)

@@ -1,10 +1,9 @@
 package zhttp.http
 
-import zio.UIO
-import zio.duration._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
+import zio.{UIO, durationInt}
 
 object HExitSpec extends DefaultRunnableSpec with HExitAssertion {
   def spec: ZSpec[Environment, Failure] = {

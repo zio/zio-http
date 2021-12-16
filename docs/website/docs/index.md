@@ -80,7 +80,7 @@ object Spec extends DefaultRunnableSpec {
   }
   
   def spec = suite("http") (
-    testM("should be ok") {
+    test("should be ok") {
       val req         = ???
       val expectedRes = resp => resp.status.toJHttpStatus.code() == Status.OK
       assertM(app(req))(expectedRes) // an apply method is added via `zhttp.test` package
@@ -126,11 +126,11 @@ import zhttp.http._
 import zhttp.service.Server
 import zio._
 
-object HelloWorld extends App {
+object HelloWorld extends ZIOAppDefault {
   val app = Http.ok
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+  val run =
+    Server.start(8090, app)
 }
 ```
 

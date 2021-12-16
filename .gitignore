@@ -4,6 +4,8 @@
 *.ipr
 *.iws
 .idea
+.bloop/
+.metals/
 out
 .cache/
 .history/
@@ -28,3 +30,6 @@ node_modules/
 .bsp/
 .DS_Store
 web/.DS_Store
+
+.vscode
+project/metals.sbt

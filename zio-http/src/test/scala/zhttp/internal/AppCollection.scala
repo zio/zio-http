@@ -1,16 +1,21 @@
 package zhttp.internal
 
 import zhttp.http._
-import zio.blocking.Blocking
-import zio.console.Console
-import zio.{Ref, UIO, ZIO, ZLayer}
+import zio.{Console, Ref, UIO, ZIO, ZLayer}
 
 import java.util.UUID
 
+sealed trait AppCollection {
+  import AppCollection._
+
+  def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id]
+  def get(id: Id): UIO[Option[HttpApp[HttpEnv, Throwable]]]
+}
+
 object AppCollection {
 
-  def deploy(app: HttpApp[HttpEnv, Throwable]): ZIO[HttpAppCollection, Nothing, String] =
-    ZIO.accessM[HttpAppCollection](_.get.add(app))
+  def deploy(app: HttpApp[HttpEnv, Throwable]): ZIO[AppCollection, Nothing, String] =
+    ZIO.environmentWithZIO[AppCollection](_.get.add(app))
 
   def app: HttpApp[HttpEnv, Throwable] = Http
     .fromOptionFunction[Request] { case req =>
@@ -27,25 +32,20 @@ object AppCollection {
       } yield res
     }
 
-  def get(id: Id): ZIO[HttpAppCollection, Nothing, Option[HttpApp[HttpEnv, Throwable]]] =
-    ZIO.accessM[HttpAppCollection](_.get.get(id))
+  def get(id: Id): ZIO[AppCollection, Nothing, Option[HttpApp[HttpEnv, Throwable]]] =
+    ZIO.environmentWithZIO[AppCollection](_.get.get(id))
 
-  def live: ZLayer[Any, Nothing, HttpAppCollection] = Ref
+  def live: ZLayer[Any, Nothing, AppCollection] = Ref
     .make(Map.empty[Id, HttpApp[HttpEnv, Throwable]])
     .map(ref => new Live(ref))
     .toLayer
 
   type Id          = String
-  type HttpEnv     = HttpAppCollection with Console with Blocking
+  type HttpEnv     = AppCollection with Console
   type HttpAppTest = HttpApp[HttpEnv, Throwable]
   val APP_ID = "X-APP_ID"
 
-  sealed trait Service {
-    def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id]
-    def get(id: Id): UIO[Option[HttpApp[HttpEnv, Throwable]]]
-  }
-
-  final class Live(ref: Ref[Map[Id, HttpApp[HttpEnv, Throwable]]]) extends Service {
+  final class Live(ref: Ref[Map[Id, HttpApp[HttpEnv, Throwable]]]) extends AppCollection {
     def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id]        = for {
       id <- UIO(UUID.randomUUID().toString)
       _  <- ref.update(map => map + (id -> app))

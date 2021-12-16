@@ -2,15 +2,15 @@ package example
 
 import zhttp.http.{HttpData, Method, Response, _}
 import zhttp.service.Server
+import zio._
 import zio.stream.ZStream
-import zio.{App, ExitCode, URIO}
 
 import java.nio.file.Paths
 
-object FileStreaming extends App {
+object FileStreaming extends ZIOAppDefault {
   // Read the file as ZStream
   val content = HttpData.fromStream {
-    ZStream.fromFile(Paths.get("README.md"))
+    ZStream.fromPath(Paths.get("README.md"))
   }
 
   // Create HTTP route
@@ -20,6 +20,6 @@ object FileStreaming extends App {
   }
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app.silent).exitCode
+  val run =
+    Server.start(8090, app.silent)
 }
