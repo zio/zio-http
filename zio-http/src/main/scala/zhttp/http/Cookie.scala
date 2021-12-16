@@ -216,6 +216,7 @@ object Cookie {
       if (name.trim == "" && content.isEmpty) None
       else Some(Cookie(name, content.getOrElse("")))
     })
+
     if (x.contains(None))
       Left(new IllegalArgumentException("Cookie can't be parsed"))
     else Right(x.map(_.get))

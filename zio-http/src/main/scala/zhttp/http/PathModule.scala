@@ -3,26 +3,46 @@ package zhttp.http
 import scala.annotation.tailrec
 
 private[zhttp] trait PathModule { module =>
+  val !! = Path.End
+  @deprecated("Use `!!` operator instead.", "23-Aug-2021")
+  val Root = !!
+
   sealed trait Path { self =>
-    def asString: String
-    def /(name: String): Path      = Path(self.toList :+ name)
-    def /:(name: String): Path     = append(name)
-    def append(name: String): Path = if (name.isEmpty) self else Path.Cons(name, self)
-    def toList: List[String]
-    def reverse: Path              = Path(toList.reverse)
-    def last: Option[String]       = self match {
-      case Path.End           => None
-      case Path.Cons(name, _) => Option(name)
+    final def /(name: String): Path = Path(self.toList :+ name)
+
+    final def /:(name: String): Path = append(name)
+
+    final def append(name: String): Path = if (name.isEmpty) self else Path.Cons(name, self)
+
+    final def asString: String = {
+      def loop(self: Path): String = {
+        self match {
+          case Path.End              => ""
+          case Path.Cons(name, path) => s"/${name}${loop(path)}"
+        }
+      }
+      val result                   = loop(self)
+      if (result.isEmpty) "/" else result
     }
-    def initial: Path              = self match {
+
+    final def drop(n: Int): Path = Path(self.toList.drop(n))
+
+    final def initial: Path = self match {
       case Path.End           => self
       case Path.Cons(_, path) => path
     }
-    def isEnd: Boolean             = self match {
+
+    final def isEnd: Boolean = self match {
       case Path.End        => true
       case Path.Cons(_, _) => false
     }
-    override def toString: String  = this.asString
+
+    final def last: Option[String] = self match {
+      case Path.End           => None
+      case Path.Cons(name, _) => Option(name)
+    }
+
+    final def reverse: Path = Path(toList.reverse)
 
     @tailrec
     final def startsWith(other: Path): Boolean = {
@@ -34,24 +54,30 @@ private[zhttp] trait PathModule { module =>
 
         }
     }
+
+    final def take(n: Int): Path = Path(self.toList.take(n))
+
+    def toList: List[String]
+
+    final override def toString: String = this.asString
   }
 
   object Path {
-    def apply(): Path                               = End
-    def apply(string: String): Path                 = if (string.trim.isEmpty) End else Path(string.split("/").toList)
-    def apply(seqString: String*): Path             = Path(seqString.toList)
-    def apply(list: List[String]): Path             = list.foldRight[Path](End)((s, a) => a.append(s))
-    def unapplySeq(arg: Path): Option[List[String]] = Option(arg.toList)
-    def empty: Path                                 = End
+    def apply(): Path                   = End
+    def apply(string: String): Path     = if (string.trim.isEmpty) End else Path(string.split("/").toList)
+    def apply(seqString: String*): Path = Path(seqString.toList)
+    def apply(list: List[String]): Path = list.foldRight[Path](End)((s, a) => a.append(s))
 
-    case object End extends Path {
-      override def asString: String     = ""
-      override def toList: List[String] = Nil
-    }
+    def empty: Path = End
+
+    def unapplySeq(arg: Path): Option[List[String]] = Option(arg.toList)
 
     case class Cons(name: String, path: Path) extends Path {
-      override def asString: String     = s"/${name}${path.asString}"
       override def toList: List[String] = name :: path.toList
+    }
+
+    case object End extends Path {
+      override def toList: List[String] = Nil
     }
   }
 
@@ -71,10 +97,5 @@ private[zhttp] trait PathModule { module =>
       }
     }
   }
-
-  val !! = Path.End
-
-  @deprecated("Use `!!` operator instead.", "23-Aug-2021")
-  val Root = !!
 
 }

@@ -1,8 +1,10 @@
+import bloop.config.Config
 import Dependencies._
 import BuildHelper.{publishSetting, stdSettings, Scala213}
 
 import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
+import sbtghactions.JavaSpec.Distribution
 
 val releaseDrafterVersion = "5"
 
@@ -12,6 +14,13 @@ lazy val root = (project in file("."))
   .aggregate(zhttp, zhttpBenchmarks, zhttpTest, example)
 
 // CI Configuration
+ThisBuild / githubWorkflowJavaVersions  := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
+ThisBuild / githubWorkflowPREventTypes  := Seq(
+  PREventType.Opened,
+  PREventType.Synchronize,
+  PREventType.Reopened,
+  PREventType.Edited,
+)
 ThisBuild / githubWorkflowAddedJobs     :=
   Seq(
     WorkflowJob(
@@ -38,7 +47,7 @@ ThisBuild / githubWorkflowAddedJobs     :=
       ),
       cond = Option("${{ github.ref == 'refs/heads/main' }}"),
     ),
-  ) ++ WorkflowHelper.Scoverage(54, 66)
+  ) ++ ScoverageWorkFlow(50, 60) ++ BenchmarkWorkFlow()
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
@@ -128,7 +137,7 @@ lazy val example = (project in file("./example"))
   .settings(publishSetting(false))
   .settings(
     fork                      := true,
-    Compile / run / mainClass := Option("HelloWorld"),
+    Compile / run / mainClass := Option("example.HelloWorld"),
     libraryDependencies ++= Seq(`jwt-core`),
     TwirlKeys.templateImports := Seq(),
   )

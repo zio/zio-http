@@ -12,10 +12,10 @@ object HelloWorldTwirl extends zio.App {
     val (a, b)              = pathParams.params
     val response: UResponse = Response.text(advanced.html.index(a, b).toString())
     response
-      .copy(getHeaders = List(Header.custom("content-type", "text/html")))
+      .copy(headers = List(Header.custom("content-type", "text/html")))
   }
 
-  val h1: HttpApp[Any, Nothing] = HttpApp.collect {
+  val h1: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !!         =>
       Response.text(html.index("John Doe").toString()).addHeader(Header.contentTypeHtml)
     case Method.GET -> !! / "nav" => {
@@ -38,7 +38,7 @@ object HelloWorldTwirl extends zio.App {
     }
   }
 
-  def app: HttpApp[Any, Throwable] = h1 +++ h2
+  def app: HttpApp[Any, Throwable] = h1 ++ h2
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     Server.start(8090, app).exitCode

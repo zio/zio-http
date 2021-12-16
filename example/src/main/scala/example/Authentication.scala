@@ -30,27 +30,29 @@ object Authentication extends App {
   // For each request tries to read the `X-ACCESS-TOKEN` header
   // Validates JWT Claim
   def authenticate[R, E](fail: HttpApp[R, E], success: JwtClaim => HttpApp[R, E]): HttpApp[R, E] =
-    HttpApp.fromFunction {
-      _.getHeader("X-ACCESS-TOKEN")
-        .flatMap(header => jwtDecode(header.value.toString))
-        .fold[HttpApp[R, E]](fail)(success)
-    }
+    Http
+      .fromFunction[Request] {
+        _.getHeader("X-ACCESS-TOKEN")
+          .flatMap(header => jwtDecode(header.value.toString))
+          .fold[HttpApp[R, E]](fail)(success)
+      }
+      .flatten
 
   // Http app that requires a JWT claim
-  def user(claim: JwtClaim): UHttpApp = HttpApp.collect {
+  def user(claim: JwtClaim): UHttpApp = Http.collect[Request] {
     case Method.GET -> !! / "user" / name / "greet" => Response.text(s"Welcome to the ZIO party! ${name}")
     case Method.GET -> !! / "user" / "expiration"   => Response.text(s"Expires in: ${claim.expiration.getOrElse(-1L)}")
   }
 
   // App that let's the user login
   // Login is successful only if the password is the reverse of the username
-  def login: UHttpApp = HttpApp.collect { case Method.GET -> !! / "login" / username / password =>
+  def login: UHttpApp = Http.collect[Request] { case Method.GET -> !! / "login" / username / password =>
     if (password.reverse == username) Response.text(jwtEncode(username))
     else Response.fromHttpError(HttpError.Unauthorized("Invalid username of password\n"))
   }
 
   // Composing all the HttpApps together
-  val app: UHttpApp = login +++ authenticate(HttpApp.forbidden("Not allowed!"), user)
+  val app: UHttpApp = login ++ authenticate(Http.forbidden("Not allowed!"), user)
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

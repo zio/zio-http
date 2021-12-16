@@ -9,8 +9,8 @@ import java.util.UUID
  *
  * ```scala
  * Http.collect[Request] {
- *   case GET -> !! / "user" / int(id) => Response.text("User id requested: ${id}")
- *   case GET -> !! / "user" / name    => Response.text("User name requested: ${name}")
+ *   case GET -> !! / "user" / int(id) => Response.text("User id requested: \${id}")
+ *   case GET -> !! / "user" / name    => Response.text("User name requested: \${name}")
  * }
  * ```
  *

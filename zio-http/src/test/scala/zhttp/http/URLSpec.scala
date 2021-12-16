@@ -1,6 +1,7 @@
 package zhttp.http
 
 import zhttp.http.URL.Fragment
+import zhttp.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
 
@@ -49,9 +50,20 @@ object URLSpec extends DefaultRunnableSpec {
       assert(URL.fromString(url).map(_.asString))(isRight(equalTo(url)))
 
     suite("asString")(
-      test("relative with pathname only") {
-        roundtrip("/users")
+      testM("using gen") {
+        checkAll(HttpGen.url) { case url =>
+          val source  = url.asString
+          val decoded = URL.fromString(source).map(_.asString)
+          assert(decoded)(isRight(equalTo(source)))
+        }
       } +
+        test("empty") {
+          val actual = URL.fromString("/").map(_.asString)
+          assert(actual)(isRight(equalTo("/")))
+        } +
+        test("relative with pathname only") {
+          roundtrip("/users")
+        } +
         test("relative with query string") {
           roundtrip("/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21")
         } +
