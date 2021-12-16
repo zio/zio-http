@@ -6,8 +6,7 @@ import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zhttp.service.server._
-import zio.ZIO
-import zio.duration.durationInt
+import zio._
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{DefaultRunnableSpec, assertM}
@@ -28,33 +27,33 @@ object SSLSpec extends DefaultRunnableSpec {
     ZIO.succeed(Response.ok)
   }
 
-  override def spec = suiteM("SSL")(
+  override def spec = suite("SSL")(
     Server
       .make(Server.app(app) ++ Server.port(8073) ++ Server.ssl(ServerSSLOptions(serverSSL)))
       .orDie
       .as(
         List(
-          testM("succeed when client has the server certificate") {
+          test("succeed when client has the server certificate") {
             val actual = Client
               .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL1))
               .map(_.status)
             assertM(actual)(equalTo(Status.OK))
           } +
-            testM("fail with DecoderException when client doesn't have the server certificate") {
+            test("fail with DecoderException when client doesn't have the server certificate") {
               val actual = Client
                 .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL2))
-                .catchSome(_ match {
-                  case _: DecoderException => ZIO.succeed("DecoderException")
-                })
+                .catchSome { case _: DecoderException =>
+                  ZIO.succeed("DecoderException")
+                }
               assertM(actual)(equalTo("DecoderException"))
             } +
-            testM("succeed when client has default SSL") {
+            test("succeed when client has default SSL") {
               val actual = Client
                 .request("https://localhost:8073/success", ClientSSLOptions.DefaultSSL)
                 .map(_.status)
               assertM(actual)(equalTo(Status.OK))
             } +
-            testM("Https Redirect when client makes http request") {
+            test("Https Redirect when client makes http request") {
               val actual = Client
                 .request("http://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL1))
                 .map(_.status)

@@ -4,7 +4,6 @@ import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
-import zio.test.environment.TestClock
 
 object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
   def spec = suite("Http")(
@@ -232,19 +231,19 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           },
       ) +
       suite("race") {
-        testM("left wins") {
+        test("left wins") {
           val http = Http.succeed(1) race Http.succeed(2)
           assertM(http(()))(equalTo(1))
         } +
-          testM("sync right wins") {
+          test("sync right wins") {
             val http = Http.fromEffect(UIO(1)) race Http.succeed(2)
             assertM(http(()))(equalTo(2))
           } +
-          testM("sync left wins") {
+          test("sync left wins") {
             val http = Http.succeed(1) race Http.fromEffect(UIO(2))
             assertM(http(()))(equalTo(1))
           } +
-          testM("async fast wins") {
+          test("async fast wins") {
             val http    = Http.succeed(1).delay(1 second) race Http.succeed(2).delay(2 second)
             val program = http(()) <& TestClock.adjust(5 second)
             assertM(program)(equalTo(1))

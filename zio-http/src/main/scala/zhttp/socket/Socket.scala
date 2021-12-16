@@ -2,7 +2,7 @@ package zhttp.socket
 
 import zhttp.http.Response
 import zio.stream.ZStream
-import zio.{Cause, NeedsEnv, ZIO}
+import zio.{Cause, NeedsEnv, ZEnvironment, ZIO}
 
 sealed trait Socket[-R, +E, -A, +B] { self =>
   import Socket._
@@ -20,7 +20,7 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
     case FOrElse(sa, sb)             => sa(a) <> sb(a)
     case FMerge(sa, sb)              => sa(a) merge sb(a)
     case Succeed(a)                  => ZStream.succeed(a)
-    case Provide(s, r)               => s(a).asInstanceOf[ZStream[R, E, B]].provide(r.asInstanceOf[R])
+    case Provide(s, r) => s(a).asInstanceOf[ZStream[R, E, B]].provideEnvironment(r.asInstanceOf[ZEnvironment[R]])
   }
 
   def contramap[Z](za: Z => A): Socket[R, E, Z, B] = Socket.FCMap(self, za)
