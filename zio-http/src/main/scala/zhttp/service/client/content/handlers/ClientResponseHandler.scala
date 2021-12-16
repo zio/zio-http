@@ -6,6 +6,9 @@ import io.netty.handler.codec.http.FullHttpResponse
 import zhttp.http.{Header, Status}
 import zhttp.service.Client
 
+/**
+ * Transforms a Netty FullHttpResponse into a zio-http specific ClientResponse.
+ */
 final class ClientResponseHandler() extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {

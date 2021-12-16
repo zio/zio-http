@@ -84,12 +84,12 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
     )(name: CharSequence): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Option[String]] =
       request(path, method, content, headers).map(_.getHeaderValue(name))
 
-    def requestRawBody(
+    def requestBody(
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
       headers: List[Header] = Nil,
     ): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Chunk[Byte]] =
-      request(path, method, content, headers).flatMap(_.getRawBody)
+      request(path, method, content, headers).flatMap(_.getBody)
   }
 }

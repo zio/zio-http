@@ -180,7 +180,7 @@ object Client {
 
     def getBodyAsString: Task[String] = Task(unsafeByteBuf.toString(self.getCharset))
 
-    def getRawBody: Task[Chunk[Byte]] = Task(Chunk.fromArray(ByteBufUtil.getBytes(unsafeByteBuf)))
+    def getBody: Task[Chunk[Byte]] = Task(Chunk.fromArray(ByteBufUtil.getBytes(unsafeByteBuf)))
 
     override def getHeaders: List[Header] = headers
 

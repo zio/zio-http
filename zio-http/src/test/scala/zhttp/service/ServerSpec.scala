@@ -27,10 +27,6 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         testM("content is set") {
           val res = Http.text("ABC").requestBodyAsString()
           assertM(res)(containsString("ABC"))
-        } +
-        testM("content is set - check raw body") {
-          val res = Http.text("ABC").requestRawBody()
-          assertM(res)(hasSameElements(Chunk(65.toByte, 66.toByte, 67.toByte)))
         }
     } +
       suite("not found") {
@@ -54,11 +50,6 @@ object ServerSpec extends HttpRunnableSpec(8088) {
             val res = app.requestBodyAsString()
             assertM(res)(containsString("SERVER_ERROR"))
           } +
-          testM("content is set - check raw body") {
-            val res     = app.requestRawBody()
-            val content = res.map(_.toList.map(_.toChar).mkString)
-            assertM(content)(containsString("SERVER_ERROR"))
-          } +
           testM("header is set") {
             val res = app.request().map(_.getHeaderValue("Content-Length"))
             assertM(res)(isSome(anything))
@@ -80,10 +71,6 @@ object ServerSpec extends HttpRunnableSpec(8088) {
           testM("empty string") {
             val res = app.requestBodyAsString(content = "")
             assertM(res)(equalTo(""))
-          } +
-          testM("empty raw body") {
-            val res = app.requestRawBody(content = "")
-            assertM(res)(isEmpty)
           } +
           testM("one char") {
             val res = app.requestBodyAsString(content = "1")
@@ -128,6 +115,18 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val path = getClass.getResource("/TestFile").getPath
         val res  = Http.data(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
         assertM(res)(containsString("foo"))
+      }
+  } + suite("getBody") {
+    testM("non empty content") {
+      checkAllM(nonEmptyContent) { case (string, data) =>
+        val res     = Http.data(data).requestBody()
+        val content = res.map(_.toList.map(_.toChar).mkString)
+        assertM(content)(equalTo(string))
+      }
+    } +
+      testM("empty content") {
+        val res = Http.data(HttpData.empty).requestBody()
+        assertM(res)(isEmpty)
       }
   }
 
