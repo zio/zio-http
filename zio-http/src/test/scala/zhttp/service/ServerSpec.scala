@@ -179,7 +179,9 @@ object ServerSpec extends HttpRunnableSpec(8088) {
     case Method.GET -> !! / "failure"                => ZIO.fail(new RuntimeException("FAILURE"))
     case Method.GET -> !! / "get%2Fsuccess"          => ZIO.succeed(Response.ok)
     case req @ Method.POST -> !! / "echoRequestBody" =>
-      req.getBody.flatMap(chunk => ZIO.succeed(Response.text(chunk.map(_.toChar).mkString(""))))
+      for {
+        chunk <- req.getBody
+      } yield Response.text(chunk.map(_.toChar).mkString(""))
   }
 
   private val app = serve { staticApp ++ AppCollection.app }
