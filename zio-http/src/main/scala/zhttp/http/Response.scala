@@ -97,7 +97,7 @@ object Response {
    */
   def html(data: String): UResponse =
     Response(
-      data = HttpData.fromChunk(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
+      data = HttpData.fromText(data),
       headers = List(Header.contentTypeHtml),
     )
 
