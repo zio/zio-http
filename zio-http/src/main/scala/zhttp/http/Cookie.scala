@@ -1,13 +1,12 @@
 package zhttp.http
 
+import zio.duration._
+
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.Base64.getEncoder
-
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
-import zio.duration._
-
 import scala.util.Try
 
 final case class Cookie(

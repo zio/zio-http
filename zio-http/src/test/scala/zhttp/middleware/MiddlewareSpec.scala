@@ -2,7 +2,7 @@ package zhttp.middleware
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Middleware.cors
-import zhttp.http.{Header, _}
+import zhttp.http._
 import zhttp.internal.HttpAppTestExtensions
 import zio.clock.Clock
 import zio.duration._

@@ -148,7 +148,8 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
       Some((username, password))
     }
   }
-  private def equalsIgnoreCase(a: Char, b: Char)                         = a == b || toLowerCase(a) == toLowerCase(b)
+
+  private def equalsIgnoreCase(a: Char, b: Char) = a == b || toLowerCase(a) == toLowerCase(b)
 }
 
 object HeaderExtension {
