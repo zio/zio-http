@@ -16,12 +16,14 @@ import zio.test.assertM
 object SSLSpec extends HttpRunnableSpec(8073) {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
-  val serverSSL = ctxFromCert(
+  val serverSSL  = ctxFromCert(
     getClass().getClassLoader().getResourceAsStream("server.crt"),
     getClass().getClassLoader().getResourceAsStream("server.key"),
   )
-  val clientSSL1 = SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("server.crt")).build()
-  val clientSSL2 = SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("ss2.crt.pem")).build()
+  val clientSSL1 =
+    SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("server.crt")).build()
+  val clientSSL2 =
+    SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("ss2.crt.pem")).build()
 
   val app: HttpApp[Any, Nothing] = Http.collectM[Request] { case Method.GET -> !! / "success" =>
     ZIO.succeed(Response.ok)
@@ -58,7 +60,7 @@ object SSLSpec extends HttpRunnableSpec(8073) {
                 .request("http://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL1))
                 .map(_.status)
               assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
-            } ,
+            },
         ),
       )
       .useNow,
