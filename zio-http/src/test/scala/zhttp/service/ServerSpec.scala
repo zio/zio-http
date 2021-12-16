@@ -1,6 +1,6 @@
 package zhttp.service
 
-import sttp.client3.asynchttpclient.zio._
+import sttp.client3.asynchttpclient.zio.{AsyncHttpClientZioBackend, send}
 import sttp.client3.{UriContext, asWebSocketUnsafe, basicRequest}
 import sttp.model.StatusCode
 import zhttp.http._
@@ -125,10 +125,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   override def spec = {
     suiteM("Server") {
       app.as(List(staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
-    }.provideCustomLayerShared(AsyncHttpClientZioBackend.layer() ++ env).mapError {
-      case a: TestFailure.Assertion => a
-      case o                        => TestFailure.fail(o)
-    } @@ timeout(30 seconds) @@ sequential
+    }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ sequential
   }
 
   def requestSpec = suite("RequestSpec") {
@@ -168,10 +165,10 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       testM("Multiple Websocket Requests") {
         val p = (for {
           res <- send(basicRequest.get(uri"ws://localhost:8088/subscriptions").response(asWebSocketUnsafe))
-        } yield res.code).repeatN(4096)
+        } yield res.code).repeatN(1024)
         assertM(p)(equalTo(StatusCode(101)))
 
-      }
+      }.provideCustomLayer(AsyncHttpClientZioBackend.layer().orDie)
   }
 
   private val nonEmptyContent = for {
@@ -193,7 +190,9 @@ object ServerSpec extends HttpRunnableSpec(8088) {
     }
 
   private val socketApp = SocketApp.message(socket) ++ SocketApp.protocol(SocketProtocol.handshakeTimeout(100 millis))
-  private val webSocketApp = Http.fromEffect(ZIO(Response.socket(socketApp)))
+  private val webSocketApp = Http.collectM[Request] { case Method.GET -> !! / "subscriptions" =>
+    ZIO(Response.socket(socketApp))
+  }
 
   private val app = serve { staticApp ++ webSocketApp ++ AppCollection.app }
 }

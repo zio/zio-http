@@ -77,7 +77,7 @@ ThisBuild / githubWorkflowBuildPreamble :=
   ).steps
 
 // Test Configuration
-ThisBuild / libraryDependencies ++= Seq(`zio-test`, `zio-test-sbt`)
+ThisBuild / libraryDependencies ++= Seq(`zio-test`, `zio-test-sbt`, sttp, sttpzio)
 ThisBuild / testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 
 // Projects
@@ -113,8 +113,6 @@ lazy val zhttp = (project in file("./zio-http"))
       netty,
       `scala-compact-collection`,
       `netty-incubator`,
-      sttp,
-      sttpzio,
     ),
   )
 
