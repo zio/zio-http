@@ -133,7 +133,13 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val res = app.requestBodyAsString(content = string)
         assertM(res)(equalTo(string.length.toString))
       }
-    }
+    } +
+      testM("POST Echo request body back") {
+        val path    = !! / "echoRequestBody"
+        val bodyMsg = "Hello World!"
+        val res     = request(path, Method.POST, bodyMsg).flatMap(_.getBodyAsString)
+        assertM(res)(equalTo(bodyMsg))
+      }
   }
 
   def staticAppSpec = suite("StaticAppSpec") {
@@ -169,9 +175,11 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
 
   private val staticApp = Http.collectM[Request] {
-    case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
-    case Method.GET -> !! / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
-    case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
+    case Method.GET -> !! / "success"                => ZIO.succeed(Response.ok)
+    case Method.GET -> !! / "failure"                => ZIO.fail(new RuntimeException("FAILURE"))
+    case Method.GET -> !! / "get%2Fsuccess"          => ZIO.succeed(Response.ok)
+    case req @ Method.POST -> !! / "echoRequestBody" =>
+      req.getBody.flatMap(chunk => ZIO.succeed(Response.text(chunk.map(_.toChar).mkString(""))))
   }
 
   private val app = serve { staticApp ++ AppCollection.app }

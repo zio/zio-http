@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.buffer.ByteBuf
+import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import zio.{Chunk, Task, ZIO}
 
 import java.net.InetAddress
@@ -22,7 +22,11 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Decodes the content of request as a Chunk of Bytes
    */
-  def getBody: Task[Chunk[Byte]] = getBodyAsByteBuf.flatMap(buf => Task(Chunk.fromArray(buf.array())))
+  def getBody: Task[Chunk[Byte]] = getBodyAsByteBuf.flatMap(buf =>
+    Task(
+      Chunk.fromArray(ByteBufUtil.getBytes(buf)),
+    ),
+  )
 
   /**
    * Decodes the content of request as string
