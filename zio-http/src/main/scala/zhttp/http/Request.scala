@@ -6,7 +6,7 @@ import zio.{Chunk, Task, ZIO}
 import java.net.InetAddress
 
 trait Request extends HeaderExtension[Request] { self =>
-  def copy(method: Method = self.method, url: URL = self.url, headers: List[Header] = self.getHeaders): Request = {
+  def copy(method: Method = self.method, url: URL = self.url, headers: List[Header] = self.getHeaders, body: HttpData[Any,Throwable] = HttpData.empty): Request = {
     val m = method
     val u = url
     val h = headers
@@ -15,7 +15,11 @@ trait Request extends HeaderExtension[Request] { self =>
       override def url: URL                           = u
       override def getHeaders: List[Header]           = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
-      override private[zhttp] def getBodyAsByteBuf    = self.getBodyAsByteBuf
+      override private[zhttp] def getBodyAsByteBuf    = body match {
+        case HttpData.Empty => self.getBodyAsByteBuf
+        case _ => body.toByteBuf
+      }
+
     }
   }
 
@@ -75,6 +79,10 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   def url: URL
 
+  /**
+   * Overwrites the method in the request
+   */
+  def setBody(body: HttpData[Any, Throwable]): Request = self.copy(body = body)
   /**
    * Updates the headers using the provided function
    */
