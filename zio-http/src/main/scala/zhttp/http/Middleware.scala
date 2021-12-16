@@ -127,7 +127,7 @@ object Middleware {
             .filter(h => contentEqualsIgnoreCase(h.name, HttpHeaderNames.SET_COOKIE))
             .map(_.value.toString)
             .map(Cookie.decodeResponseCookie)
-            .collect { case Right(cookie) =>
+            .collect { case Some(cookie) =>
               Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.withSign(secret).encode)
             },
         )

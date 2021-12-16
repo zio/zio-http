@@ -16,14 +16,13 @@ object HasCookie {
     override def headers(a: Request): List[String] =
       a.getHeaderValues(HttpHeaderNames.COOKIE)
 
-    override def decode(a: Request): List[Cookie]                 = {
+    override def decode(a: Request): List[Cookie]                 =
       headers(a).flatMap { header =>
         Cookie.decodeRequestCookie(header) match {
-          case Left(_)     => Nil
-          case Right(list) => list
+          case None       => Nil
+          case Some(list) => list
         }
       }
-    }
     override def unSign(a: Request, secret: String): List[Cookie] = {
       decode(a).map(cookie =>
         cookie.unSign(secret) match {
@@ -39,7 +38,7 @@ object HasCookie {
       a.getHeaderValues(HttpHeaderNames.SET_COOKIE)
 
     override def decode(a: Response[Any, Nothing]): List[Cookie] =
-      headers(a).map(Cookie.decodeResponseCookie).collect { case Right(cookie) => cookie }
+      headers(a).map(Cookie.decodeResponseCookie).collect { case Some(cookie) => cookie }
 
     override def unSign(a: Response[Any, Nothing], secret: String): List[Cookie] =
       decode(a).map(cookie =>

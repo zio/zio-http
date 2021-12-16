@@ -38,6 +38,5 @@ object Patch {
   def addHeader(name: String, value: String): Patch         = AddHeaders(List(Header(name, value)))
   def removeHeaders(headers: List[String]): Patch           = RemoveHeaders(headers)
   def updateHeaders(f: List[Header] => List[Header]): Patch = UpdateHeaders(f)
-
-  def setStatus(status: Status): Patch = SetStatus(status)
+  def setStatus(status: Status): Patch                      = SetStatus(status)
 }
