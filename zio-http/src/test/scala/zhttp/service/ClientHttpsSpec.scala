@@ -3,18 +3,17 @@ package zhttp.service
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http.Status
-import zhttp.internal.HttpRunnableSpec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.duration.durationInt
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.timeout
-import zio.test.assertM
+import zio.test.{DefaultRunnableSpec, assertM}
 
 import java.io._
 import java.security.KeyStore
 import javax.net.ssl.TrustManagerFactory
 
-object ClientHttpsSpec extends HttpRunnableSpec(8082) {
+object ClientHttpsSpec extends DefaultRunnableSpec {
 
   val env                         = ChannelFactory.auto ++ EventLoopGroup.auto()
   val trustStore: KeyStore        = KeyStore.getInstance("JKS")

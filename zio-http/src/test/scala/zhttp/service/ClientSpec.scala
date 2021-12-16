@@ -1,11 +1,10 @@
 package zhttp.service
 
-import zhttp.internal.HttpRunnableSpec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.Assertion.anything
-import zio.test.assertM
+import zio.test.{DefaultRunnableSpec, assertM}
 
-object ClientSpec extends HttpRunnableSpec(8082) {
+object ClientSpec extends DefaultRunnableSpec {
   val env           = ChannelFactory.auto ++ EventLoopGroup.auto()
   override def spec = suite("Client")(
     testM("respond Ok") {

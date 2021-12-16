@@ -13,13 +13,14 @@ import zio.{Has, ZIO, ZManaged}
  * backend. For most of the other use cases directly running the HttpApp should suffice. HttpRunnableSpec spins of an
  * actual Http server and makes requests.
  */
-abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
+abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
+  type Port = Int
   def serve[R <: Has[_]](
     app: HttpApp[R, Throwable],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Int] =
-    Server.make(Server.app(app) ++ Server.port(port) ++ Server.paranoidLeakDetection).orDie
+    Server.make(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection).orDie
 
-  def status(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, Status] =
+  def status(path: Path)(implicit port: Port): ZIO[EventLoopGroup with ChannelFactory, Throwable, Status] =
     Client
       .request(
         Method.GET -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
@@ -32,7 +33,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
     method: Method,
     content: String,
     headers: (CharSequence, CharSequence)*,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, List[Header]] =
+  )(implicit port: Port): ZIO[EventLoopGroup with ChannelFactory, Throwable, List[Header]] =
     request(path, method, content, headers.map(h => Header.custom(h._1.toString(), h._2)).toList).map(_.headers)
 
   def request(
@@ -40,7 +41,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
     method: Method = Method.GET,
     content: String = "",
     headers: List[Header] = Nil,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] = {
+  )(implicit port: Port): ZIO[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] = {
     val data = HttpData.fromText(content)
     Client.request(
       Client.ClientParams(method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
@@ -55,6 +56,8 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
       method: Method = Method.GET,
       content: String = "",
       headers: List[Header] = Nil,
+    )(implicit
+      port: Port,
     ): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Client.ClientResponse] = for {
       id       <- deploy
       response <- self.request(path, method, content, Header(AppCollection.APP_ID, id) :: headers)
@@ -65,7 +68,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
       method: Method = Method.GET,
       content: String = "",
       headers: List[Header] = Nil,
-    ): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Status] =
+    )(implicit port: Port): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Status] =
       request(path, method, content, headers).map(_.status)
 
     def requestBodyAsString(
@@ -73,7 +76,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
       method: Method = Method.GET,
       content: String = "",
       headers: List[Header] = Nil,
-    ): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, String] =
+    )(implicit port: Port): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, String] =
       request(path, method, content, headers).flatMap(_.getBodyAsString)
 
     def requestHeaderValueByName(
@@ -81,7 +84,9 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
       method: Method = Method.GET,
       content: String = "",
       headers: List[Header] = Nil,
-    )(name: CharSequence): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Option[String]] =
+    )(name: CharSequence)(implicit
+      port: Port,
+    ): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Option[String]] =
       request(path, method, content, headers).map(_.getHeaderValue(name))
   }
 }
