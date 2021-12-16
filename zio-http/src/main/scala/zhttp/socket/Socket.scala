@@ -25,7 +25,7 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
    * Provides the socket with its required environment, which eliminates its dependency on R. This operation assumes
    * that your socket requires an environment.
    */
-  def provide(r: ZEnvironment[R])(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = Provide(self, r)
+  def provideEnvironment(r: ZEnvironment[R])(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = Provide(self, r)
 
   def map[C](bc: B => C): Socket[R, E, A, C] = Socket.FMap(self, bc)
 
