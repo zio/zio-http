@@ -3,7 +3,7 @@ package zhttp.http
 import zio._
 import zio.duration.durationInt
 import zio.test.Assertion._
-import zio.test.TestAspect.{ignore, timeout}
+import zio.test.TestAspect.timeout
 import zio.test._
 import zio.test.environment.TestClock
 
@@ -14,13 +14,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         val app    = Http.succeed(1).flatMap(i => Http.succeed(i + 1))
         val actual = app.execute(0)
         assert(actual)(isSuccess(equalTo(2)))
-      } +
-        test("should be stack-safe") {
-          val i      = 100000
-          val app    = (0 until i).foldLeft(Http.identity[Int])((i, _) => i.flatMap(c => Http.succeed(c + 1)))
-          val actual = app.execute(0)
-          assert(actual)(isSuccess(equalTo(i)))
-        } @@ ignore,
+      },
     ) +
       suite("orElse")(
         test("should succeed") {
@@ -95,14 +89,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             val b      = Http.collect[Int] { case 2 => "B" }
             val actual = (a ++ b).execute(3)
             assert(actual)(isEmpty)
-          } +
-          test("should be stack-safe") {
-            val i      = 100000
-            val a      = Http.collect[Int] { case i => i + 1 }
-            val app    = (0 until i).foldLeft(a)((i, _) => i ++ a)
-            val actual = app.execute(0)
-            assert(actual)(isSuccess(equalTo(1)))
-          } @@ ignore,
+          },
       ) +
       suite("asEffect")(
         testM("should resolve") {
