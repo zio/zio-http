@@ -133,12 +133,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val res = app.requestBodyAsString(content = string)
         assertM(res)(equalTo(string.length.toString))
       }
-    } +
-      testM("POST Echo request body back") {
-        val bodyMsg = "Hello World!"
-        val res     = request(!! / "echoRequestBody", Method.POST, bodyMsg).flatMap(_.getBodyAsString)
-        assertM(res)(equalTo(bodyMsg))
-      }
+    }
   }
 
   def staticAppSpec = suite("StaticAppSpec") {
@@ -162,7 +157,11 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         for {
           data <- status(!! / "success").repeatN(1024)
         } yield assertTrue(data == Status.OK)
-
+      } +
+      testM("POST Echo request body back") {
+        val bodyMsg = "Hello World!"
+        val res     = request(!! / "echoRequestBody", Method.POST, bodyMsg).flatMap(_.getBodyAsString)
+        assertM(res)(equalTo(bodyMsg))
       }
   }
 
