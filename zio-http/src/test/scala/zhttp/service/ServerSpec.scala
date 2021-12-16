@@ -3,12 +3,12 @@ package zhttp.service
 import zhttp.http._
 import zhttp.internal.{AppCollection, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
+import zio.ZIO
 import zio.duration.durationInt
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-import zio.{Chunk, ZIO}
 
 import java.nio.file.Paths
 
