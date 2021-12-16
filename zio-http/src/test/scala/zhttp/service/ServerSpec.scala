@@ -180,7 +180,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   } yield (data.mkString(""), content)
 
   private val env = EventLoopGroup
-    .nio(10) ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
+    .nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
 
   private val staticApp = Http.collectM[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
@@ -193,9 +193,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
     }
 
   private val socketApp = SocketApp.message(socket) ++ SocketApp.protocol(SocketProtocol.handshakeTimeout(100 millis))
-  private val webSocketApp = Http.collectM[Request] { case Method.GET -> !! / "subscriptions" =>
-    ZIO(Response.socket(socketApp))
-  }
+  private val webSocketApp = Http.fromEffect(ZIO(Response.socket(socketApp)))
 
   private val app = serve { staticApp ++ webSocketApp ++ AppCollection.app }
 }
