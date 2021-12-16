@@ -116,18 +116,6 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val res  = Http.data(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
         assertM(res)(containsString("foo"))
       }
-  } + suite("getBody") {
-    testM("non empty content") {
-      checkAllM(nonEmptyContent) { case (string, data) =>
-        val res     = Http.data(data).requestBody()
-        val content = res.map(_.toList.map(_.toChar).mkString)
-        assertM(content)(equalTo(string))
-      }
-    } +
-      testM("empty content") {
-        val res = Http.data(HttpData.empty).requestBody()
-        assertM(res)(isEmpty)
-      }
   }
 
   override def spec = {
