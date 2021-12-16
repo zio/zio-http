@@ -3,10 +3,9 @@ package zhttp.internal
 import io.netty.buffer.Unpooled
 import zhttp.http._
 import zhttp.service.Client.ClientParams
-import zio.random.Random
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
-import zio.{Chunk, ZIO}
+import zio._
 
 import java.io.File
 
@@ -29,14 +28,14 @@ object HttpGen {
   }
 
   def cookies: Gen[Random with Sized, Cookie] = for {
-    name     <- Gen.anyString
-    content  <- Gen.anyString
-    expires  <- Gen.option(Gen.anyInstant)
-    domain   <- Gen.option(Gen.anyString)
+    name     <- Gen.string
+    content  <- Gen.string
+    expires  <- Gen.option(Gen.instant)
+    domain   <- Gen.option(Gen.string)
     path     <- Gen.option(path)
     secure   <- Gen.boolean
     httpOnly <- Gen.boolean
-    maxAge   <- Gen.option(Gen.anyLong)
+    maxAge   <- Gen.option(Gen.long)
     sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
   } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite)
 

@@ -4,7 +4,7 @@ import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http.Status
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zio.duration.durationInt
+import zio.durationInt
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{DefaultRunnableSpec, assertM}
@@ -29,15 +29,15 @@ object ClientHttpsSpec extends DefaultRunnableSpec {
   val sslOption: ClientSSLOptions =
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
   override def spec               = suite("Https Client request") {
-    testM("respond Ok") {
+    test("respond Ok") {
       val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
       assertM(actual)(anything)
     } +
-      testM("respond Ok with sslOption") {
+      test("respond Ok with sslOption") {
         val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", sslOption)
         assertM(actual)(anything)
       } +
-      testM("should respond as Bad Request") {
+      test("should respond as Bad Request") {
         val actual = Client
           .request(
             "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
@@ -46,13 +46,13 @@ object ClientHttpsSpec extends DefaultRunnableSpec {
           .map(_.status)
         assertM(actual)(equalTo(Status.BAD_REQUEST))
       } +
-      testM("should throw DecoderException for handshake failure") {
+      test("should throw DecoderException for handshake failure") {
         val actual = Client
           .request(
             "https://untrusted-root.badssl.com/",
             sslOption,
           )
-          .run
+          .exit
         assertM(actual)(fails(isSubtype[DecoderException](anything)))
       }
   }.provideCustomLayer(env) @@ timeout(30 seconds) @@ ignore

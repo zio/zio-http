@@ -10,13 +10,13 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
     self orElse other
 
   def apply(a: A): ZStream[R, E, B] = self match {
-    case End                         => ZStream.halt(Cause.empty)
+    case End                         => ZStream.failCause(Cause.empty)
     case FromStreamingFunction(func) => func(a)
     case FromStream(s)               => s
     case FMap(m, bc)                 => m(a).map(bc)
-    case FMapZIO(m, bc)              => m(a).mapM(bc)
+    case FMapZIO(m, bc)              => m(a).mapZIO(bc)
     case FCMap(m, xa)                => m(xa(a))
-    case FCMapZIO(m, xa)             => ZStream.fromEffect(xa(a)).flatMap(a => m(a))
+    case FCMapZIO(m, xa)             => ZStream.fromZIO(xa(a)).flatMap(a => m(a))
     case FOrElse(sa, sb)             => sa(a) <> sb(a)
     case FMerge(sa, sb)              => sa(a) merge sb(a)
     case Succeed(a)                  => ZStream.succeed(a)
@@ -59,7 +59,7 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
 object Socket {
   def collect[A]: MkCollect[A] = new MkCollect[A](())
 
-  def end: ZStream[Any, Nothing, Nothing] = ZStream.halt(Cause.empty)
+  def end: ZStream[Any, Nothing, Nothing] = ZStream.failCause(Cause.empty)
 
   def fromFunction[A]: MkFromFunction[A] = new MkFromFunction[A](())
 

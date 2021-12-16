@@ -3,9 +3,9 @@ package example
 import zhttp.http.Middleware.basicAuth
 import zhttp.http._
 import zhttp.service.Server
-import zio.{App, ExitCode, URIO}
+import zio._
 
-object BasicAuth extends App {
+object BasicAuth extends ZIOAppDefault {
 
   // Http app that requires a JWT claim
   val user: UHttpApp = Http.collect[Request] { case Method.GET -> !! / "user" / name / "greet" =>
@@ -16,6 +16,6 @@ object BasicAuth extends App {
   val app: UHttpApp = user @@ basicAuth("admin", "admin")
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+  val run =
+    Server.start(8090, app)
 }

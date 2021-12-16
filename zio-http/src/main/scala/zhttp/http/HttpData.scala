@@ -1,9 +1,8 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, Unpooled}
-import zio.blocking.Blocking.Service.live.effectBlocking
+import zio._
 import zio.stream.ZStream
-import zio.{Chunk, Task, UIO}
 
 import java.nio.charset.Charset
 import java.nio.file.Files
@@ -40,7 +39,7 @@ sealed trait HttpData { self =>
           .asInstanceOf[ZStream[Any, Throwable, ByteBuf]]
           .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
       case HttpData.File(file)           =>
-        effectBlocking {
+        ZIO.attemptBlocking {
           val fileContent = Files.readAllBytes(file.toPath)
           Unpooled.copiedBuffer(fileContent)
         }

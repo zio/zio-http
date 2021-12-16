@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.duration._
+import zio._
 
 import java.time.Instant
 import scala.util.Try

@@ -7,7 +7,7 @@ import zio.stream._
 
 import java.nio.file.Paths
 
-object FileStreaming extends App {
+object FileStreaming extends ZIOAppDefault {
   // Read the file as ZStream
   val content = HttpData.fromStream {
     ZStream.fromFile(Paths.get("README.md"))
@@ -20,8 +20,8 @@ object FileStreaming extends App {
   }
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app.silent).exitCode
+  val run =
+    Server.start(8090, app.silent)
 }
 
 ```

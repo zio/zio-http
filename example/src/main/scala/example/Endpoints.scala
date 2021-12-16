@@ -6,7 +6,7 @@ import zhttp.http.Response
 import zhttp.service.Server
 import zio.{App, ExitCode, UIO, URIO}
 
-object Endpoints extends App {
+object Endpoints extends ZIOAppDefault {
   def h1 = GET / "a" / *[Int] / "b" / *[Boolean] to { a =>
     Response.text(a.params.toString)
   }
@@ -20,6 +20,6 @@ object Endpoints extends App {
   }
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  val run =
     Server.start(8091, (h3 ++ h2 ++ h1).silent).exitCode
 }

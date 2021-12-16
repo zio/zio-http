@@ -4,10 +4,7 @@ import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.CORS.DefaultCORSConfig
 import zhttp.http.Headers.BasicSchemeName
 import zhttp.http.Middleware.{Flag, RequestP}
-import zio.clock.Clock
-import zio.console.Console
-import zio.duration.Duration
-import zio.{UIO, ZIO, clock, console}
+import zio._
 
 import java.io.IOException
 import java.util.UUID
@@ -227,12 +224,12 @@ object Middleware {
    * Add log status, method, url and time taken from req to res
    */
   def debug: Middleware[Console with Clock, IOException] =
-    Middleware.makeZIO((method, url, _) => zio.clock.nanoTime.map(start => (method, url, start))) {
+    Middleware.makeZIO((method, url, _) => Clock.nanoTime.map(start => (method, url, start))) {
       case (status, _, (method, url, start)) =>
         for {
-          end <- clock.nanoTime
-          _   <- console
-            .putStrLn(s"${status.asJava.code()} ${method} ${url.asString} ${(end - start) / 1000000}ms")
+          end <- Clock.nanoTime
+          _   <- Console
+            .printLine(s"${status.asJava.code()} ${method} ${url.asString} ${(end - start) / 1000000}ms")
             .mapError(Option(_))
         } yield Patch.empty
     }

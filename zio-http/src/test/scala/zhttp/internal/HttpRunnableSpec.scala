@@ -11,7 +11,7 @@ import zhttp.internal.HttpRunnableSpec.HttpIO
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.DefaultRunnableSpec
-import zio.{Chunk, Has, Task, ZIO, ZManaged}
+import zio._
 
 /**
  * Should be used only when e2e tests needs to be written which is typically for logic that is part of the netty based
@@ -19,7 +19,7 @@ import zio.{Chunk, Has, Task, ZIO, ZManaged}
  * actual Http server and makes requests.
  */
 abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
-  def serve[R <: Has[_]](
+  def serve[R](
     app: HttpApp[R, Throwable],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
     for {
