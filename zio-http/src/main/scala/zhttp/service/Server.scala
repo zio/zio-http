@@ -121,8 +121,8 @@ object Server {
       reqHandler      = settings.app.compile(zExec, settings, ServerTimeGenerator.make)
       init            = ServerChannelInitializer(zExec, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
-      channel <- ZManaged.effect(serverBootstrap.childHandler(init).bind(settings.address))
-      _       <- ChannelFuture.asManaged(channel)
+      channel         = serverBootstrap.childHandler(init).bind(settings.address)
+      _ <- ChannelFuture.asManaged(channel)
     } yield {
       ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
       channel.channel().localAddress().asInstanceOf[InetSocketAddress].getPort
