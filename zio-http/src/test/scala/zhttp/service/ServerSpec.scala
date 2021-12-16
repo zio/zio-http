@@ -1,16 +1,12 @@
 package zhttp.service
 
-import sttp.client3.asynchttpclient.zio.{AsyncHttpClientZioBackend, send}
-import sttp.client3.{UriContext, asWebSocketUnsafe, basicRequest}
-import sttp.model.StatusCode
 import zhttp.http._
 import zhttp.internal.{AppCollection, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
-import zhttp.socket.{Socket, SocketApp, SocketProtocol, WebSocketFrame}
 import zio.ZIO
 import zio.duration.durationInt
 import zio.stream.ZStream
-import zio.test.Assertion._
+import zio.test.Assertion.{anything, containsString, equalTo, isSome}
 import zio.test.TestAspect._
 import zio.test._
 
@@ -161,14 +157,8 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         for {
           data <- status(!! / "success").repeatN(1024)
         } yield assertTrue(data == Status.OK)
-      } +
-      testM("Multiple Websocket Requests") {
-        val p = (for {
-          res <- send(basicRequest.get(uri"ws://localhost:8088/subscriptions").response(asWebSocketUnsafe))
-        } yield res.code).repeatN(1024)
-        assertM(p)(equalTo(StatusCode(101)))
 
-      }.provideCustomLayer(AsyncHttpClientZioBackend.layer().orDie)
+      }
   }
 
   private val nonEmptyContent = for {
@@ -176,23 +166,13 @@ object ServerSpec extends HttpRunnableSpec(8088) {
     content <- HttpGen.nonEmptyHttpData(Gen.const(data))
   } yield (data.mkString(""), content)
 
-  private val env = EventLoopGroup
-    .nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
+  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
 
   private val staticApp = Http.collectM[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
     case Method.GET -> !! / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
     case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
   }
-  private val socket    =
-    Socket.collect[WebSocketFrame] { case WebSocketFrame.Text("FOO") =>
-      ZStream.succeed(WebSocketFrame.text("BAR"))
-    }
 
-  private val socketApp = SocketApp.message(socket) ++ SocketApp.protocol(SocketProtocol.handshakeTimeout(100 millis))
-  private val webSocketApp = Http.collectM[Request] { case Method.GET -> !! / "subscriptions" =>
-    ZIO(Response.socket(socketApp))
-  }
-
-  private val app = serve { staticApp ++ webSocketApp ++ AppCollection.app }
+  private val app = serve { staticApp ++ AppCollection.app }
 }

@@ -1,5 +1,7 @@
 package zhttp.internal
 
+import sttp.client3.asynchttpclient.zio.{SttpClient, send}
+import sttp.client3.{UriContext, asWebSocketUnsafe, basicRequest}
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.AppCollection.HttpEnv
@@ -26,6 +28,13 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
         ClientSSLOptions.DefaultSSL,
       )
       .map(_.status)
+
+  def websocketStatus(path: Path): ZIO[SttpClient, Throwable, Status] = {
+    // todo: uri should be created by using URL().asString but currently support for ws Scheme is missing
+    send(basicRequest.get(uri"ws://localhost:$port/$path").response(asWebSocketUnsafe)).map(x =>
+      if (x.code.code == 101) Status.SWITCHING_PROTOCOLS else Status.INTERNAL_SERVER_ERROR,
+    )
+  }
 
   def headers(
     path: Path,
