@@ -1,7 +1,7 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.buffer.ByteBuf
+import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.{
   Channel,
   ChannelFactory => JChannelFactory,
@@ -180,7 +180,7 @@ object Client {
 
     def getBodyAsString: Task[String] = Task(unsafeByteBuf.toString(self.getCharset))
 
-    def getRawBody: Task[Chunk[Byte]] = Task(Chunk.fromArray(unsafeByteBuf.array()))
+    def getRawBody: Task[Chunk[Byte]] = Task(Chunk.fromArray(ByteBufUtil.getBytes(unsafeByteBuf)))
 
     override def getHeaders: List[Header] = headers
 
