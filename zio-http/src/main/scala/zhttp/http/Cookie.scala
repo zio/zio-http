@@ -128,6 +128,17 @@ final case class Cookie(
 }
 
 object Cookie {
+  private val fieldExpires  = "expires="
+  private val fieldMaxAge   = "max-age="
+  private val fieldDomain   = "domain="
+  private val fieldPath     = "path="
+  private val fieldSecure   = "secure"
+  private val fieldHttpOnly = "httponly"
+  private val fieldSameSite = "samesite="
+
+  private val sameSiteLax    = "lax"
+  private val sameSiteStrict = "strict"
+  private val sameSiteNone   = "none"
 
   sealed trait SameSite {
     def asString: String
@@ -178,28 +189,30 @@ object Cookie {
           } else {
             name = headerValue.substring(0, next)
           }
-        } else if (headerValue.regionMatches(true, curr, "expires=", 0, 8)) {
-          expires = parseDate(headerValue.substring(curr + 8, next)).getOrElse(null)
-        } else if (headerValue.regionMatches(true, curr, "max-age=", 0, 8)) {
+        } else if (headerValue.regionMatches(true, curr, fieldExpires, 0, fieldExpires.length)) {
+          expires =
+            try { Instant.parse(headerValue.substring(curr + 8, next)) }
+            catch { case _: Throwable => null }
+        } else if (headerValue.regionMatches(true, curr, fieldMaxAge, 0, fieldMaxAge.length)) {
           maxAge = Try(headerValue.substring(curr + 8, next).toLong).toOption
-        } else if (headerValue.regionMatches(true, curr, "domain=", 0, 7)) {
+        } else if (headerValue.regionMatches(true, curr, fieldDomain, 0, fieldDomain.length)) {
           domain = headerValue.substring(curr + 7, next)
-        } else if (headerValue.regionMatches(true, curr, "path=", 0, 5)) {
+        } else if (headerValue.regionMatches(true, curr, fieldPath, 0, fieldPath.length)) {
           val v = headerValue.substring(curr + 5, next)
           if (!v.isEmpty) {
             path = Path(v)
           }
-        } else if (headerValue.regionMatches(true, curr, "secure", 0, 6)) {
+        } else if (headerValue.regionMatches(true, curr, fieldSecure, 0, fieldSecure.length)) {
           secure = true
-        } else if (headerValue.regionMatches(true, curr, "httponly", 0, 8)) {
+        } else if (headerValue.regionMatches(true, curr, fieldHttpOnly, 0, fieldHttpOnly.length)) {
           httpOnly = true
-        } else if (headerValue.regionMatches(true, curr, "samesite=", 0, 9)) {
-          val v = headerValue.substring(curr + 9, next).toLowerCase
-          v match {
-            case "lax"    => sameSite = SameSite.Lax
-            case "strict" => sameSite = SameSite.Strict
-            case "none"   => sameSite = SameSite.None
-            case _        => ()
+        } else if (headerValue.regionMatches(true, curr, fieldSameSite, 0, fieldSameSite.length)) {
+          if (headerValue.regionMatches(true, curr + 9, sameSiteLax, 0, sameSiteLax.length)) {
+            sameSite = SameSite.Lax
+          } else if (headerValue.regionMatches(true, curr + 9, sameSiteStrict, 0, sameSiteStrict.length)) {
+            sameSite = SameSite.Strict
+          } else if (headerValue.regionMatches(true, curr + 9, sameSiteNone, 0, sameSiteNone.length)) {
+            sameSite = SameSite.None
           }
         }
 
@@ -240,10 +253,6 @@ object Cookie {
       None
     else Some(x.map(_.get))
   }
-
-  @inline
-  private def parseDate(v: String): Try[Instant] =
-    Try(Instant.parse(v))
 
   @inline
   private def splitNameContent(str: String): (String, String) = {
