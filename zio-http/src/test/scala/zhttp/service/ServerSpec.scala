@@ -135,9 +135,8 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       }
     } +
       testM("POST Echo request body back") {
-        val path    = !! / "echoRequestBody"
         val bodyMsg = "Hello World!"
-        val res     = request(path, Method.POST, bodyMsg).flatMap(_.getBodyAsString)
+        val res     = request(!! / "echoRequestBody", Method.POST, bodyMsg).flatMap(_.getBodyAsString)
         assertM(res)(equalTo(bodyMsg))
       }
   }
