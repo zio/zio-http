@@ -7,7 +7,7 @@ import zhttp.internal.HttpRunnableSpec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.duration.durationInt
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
-import zio.test.TestAspect.{flaky, ignore, timeout}
+import zio.test.TestAspect.timeout
 import zio.test.assertM
 
 import java.io._
@@ -55,6 +55,6 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
           )
           .run
         assertM(actual)(fails(isSubtype[DecoderException](anything)))
-      } @@ flaky @@ ignore
+      }
   }.provideCustomLayer(env) @@ timeout(30 seconds)
 }
