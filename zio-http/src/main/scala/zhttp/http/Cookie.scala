@@ -153,7 +153,10 @@ object Cookie {
   /**
    * Decodes from Set-Cookie header value inside of Response into a cookie
    */
-  def decodeResponseCookie(headerValue: String): Option[Cookie] = {
+  def decodeResponseCookie(headerValue: String): Option[Cookie] =
+    Option(unsafeDecodeResponseCookie(headerValue))
+
+  private[http] def unsafeDecodeResponseCookie(headerValue: String): Cookie = {
     var name: String              = null
     var content: String           = null
     var expires: Instant          = null
@@ -221,21 +224,19 @@ object Cookie {
     }
 
     if ((name != null && !name.isEmpty) || (content != null && !content.isEmpty))
-      Some(
-        Cookie(
-          name = name,
-          content = content,
-          expires = Option(expires),
-          maxAge = maxAge,
-          domain = Option(domain),
-          path = Option(path),
-          isSecure = secure,
-          isHttpOnly = httpOnly,
-          sameSite = Option(sameSite),
-        ),
+      Cookie(
+        name = name,
+        content = content,
+        expires = Option(expires),
+        maxAge = maxAge,
+        domain = Option(domain),
+        path = Option(path),
+        isSecure = secure,
+        isHttpOnly = httpOnly,
+        sameSite = Option(sameSite),
       )
     else
-      None
+      null
   }
 
   /**
