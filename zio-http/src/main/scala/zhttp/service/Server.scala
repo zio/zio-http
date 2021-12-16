@@ -30,7 +30,7 @@ sealed trait Server[-R, +E] { self =>
     case FlowControl          => s.copy(flowControl = false)
   }
 
-  def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
+  def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Int] =
     Server.make(self.asInstanceOf[Server[R, Throwable]])
 
   def start(implicit ev: E <:< Throwable): ZIO[R with EventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
@@ -88,11 +88,12 @@ object Server {
   def start[R <: Has[_]](
     port: Int,
     http: HttpApp[R, Throwable],
-  ): ZIO[R, Throwable, Nothing] =
+  ): ZIO[R, Throwable, Nothing] = {
     (Server.bind(port) ++ Server.app(http)).make
-      .zipLeft(ZManaged.succeed(println(s"Server started on port: ${port}")))
+      .flatMap(port => ZManaged.succeed(println(s"Server started on port: ${port}")))
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
+  }
 
   def start[R <: Has[_]](
     address: InetAddress,
@@ -111,7 +112,7 @@ object Server {
 
   def make[R](
     server: Server[R, Throwable],
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] = {
+  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Int] = {
     val settings = server.settings()
     for {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
@@ -120,10 +121,11 @@ object Server {
       reqHandler      = settings.app.compile(zExec, settings, ServerTimeGenerator.make)
       init            = ServerChannelInitializer(zExec, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
-      _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.address))
-
+      channel <- ZManaged.effect(serverBootstrap.childHandler(init).bind(settings.address))
+      _       <- ChannelFuture.asManaged(channel)
     } yield {
       ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
+      channel.channel().localAddress().asInstanceOf[InetSocketAddress].getPort
     }
   }
 }

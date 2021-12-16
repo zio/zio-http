@@ -16,7 +16,7 @@ import zio.{Has, ZIO, ZManaged}
 abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
   def serve[R <: Has[_]](
     app: HttpApp[R, Throwable],
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
+  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Int] =
     Server.make(Server.app(app) ++ Server.port(port) ++ Server.paranoidLeakDetection).orDie
 
   def status(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, Status] =
