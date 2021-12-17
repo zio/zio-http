@@ -8,7 +8,7 @@ import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zhttp.service.server._
 import zio._
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{ignore, timeout}
+import zio.test.TestAspect._
 import zio.test.{DefaultRunnableSpec, assertM}
 
 object SSLSpec extends DefaultRunnableSpec {
@@ -27,7 +27,7 @@ object SSLSpec extends DefaultRunnableSpec {
     ZIO.succeed(Response.ok)
   }
 
-  override def spec = suite("SSL")(
+  val serverLayer: ZLayer[EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
     Server
       .make(Server.app(app) ++ Server.port(8073) ++ Server.ssl(ServerSSLOptions(serverSSL)))
       .orDie
