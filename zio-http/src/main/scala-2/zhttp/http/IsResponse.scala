@@ -11,7 +11,6 @@ sealed trait IsResponse[-R, +E, -B] extends (B => Response[R, E]) with Serializa
   implicit override def apply(B: B): Response[R, E] = B.asInstanceOf[Response[R, E]]
 }
 
-object IsResponse {
-  implicit def isResponse[R, E, B](implicit ev: B <:< Response[R, E]): IsResponse[R, E, B] =
-    new IsResponse[R, E, B] {}
+object IsResponse extends IsResponse[Any, Nothing, Any] {
+  implicit def isResponse[R, E, B](implicit ev: B <:< Response[R, E]): IsResponse[R, E, B] = IsResponse
 }
