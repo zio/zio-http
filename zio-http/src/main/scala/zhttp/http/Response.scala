@@ -89,6 +89,15 @@ object Response {
     }
   }
 
+  /**
+   * Creates a response with content-type set to text/html
+   */
+  def html(data: String): UResponse =
+    Response(
+      data = HttpData.fromText(data),
+      headers = List(Header.contentTypeHtml),
+    )
+
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
   def http[R, E](
     status: Status = Status.OK,
