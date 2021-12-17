@@ -6,6 +6,7 @@
 .idea
 .bloop/
 .metals/
+null
 out
 .cache/
 .history/
