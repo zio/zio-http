@@ -22,7 +22,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def @@[R1 <: R, E1 >: E](
     mid: Middleware[R1, E1],
-  )(implicit ev0: B <:< Response[R1, E1], ev1: Request <:< A): HttpApp[R1, E1] = middleware(mid)
+  )(implicit ev0: IsResponse[R1, E1, B], ev1: IsRequest[A]): HttpApp[R1, E1] = middleware(mid)
 
   /**
    * Alias for flatmap
@@ -64,7 +64,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Adds the provided headers to the response of the app
    */
   final def addHeader[R1 <: R, E1 >: E](header: Header)(implicit
-    ev: B <:< Response[R1, E1],
+    ev: IsResponse[R1, E1, B],
   ): Http[R1, E1, A, Response[R1, E1]] =
     patch[R1, E1](Patch.addHeader(header))
 
@@ -72,7 +72,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Adds the provided header to the response of the app
    */
   final def addHeader[R1 <: R, E1 >: E](name: String, value: String)(implicit
-    ev: B <:< Response[R1, E1],
+    ev: IsResponse[R1, E1, B],
   ): Http[R1, E1, A, Response[R1, E1]] =
     patch[R1, E1](Patch.addHeader(name, value))
 
@@ -80,7 +80,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Adds the provided headers to the response of the app
    */
   final def addHeaders[R1 <: R, E1 >: E](headers: List[Header])(implicit
-    ev: B <:< Response[R1, E1],
+    ev: IsResponse[R1, E1, B],
   ): Http[R1, E1, A, Response[R1, E1]] =
     patch[R1, E1](Patch.addHeaders(headers))
 
@@ -212,7 +212,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def middleware[R1 <: R, E1 >: E](
     mid: Middleware[R1, E1],
-  )(implicit ev0: B <:< Response[R1, E1], ev1: Request <:< A): HttpApp[R1, E1] = mid(self.asInstanceOf[HttpApp[R1, E1]])
+  )(implicit ev0: IsResponse[R1, E1, B], ev1: IsRequest[A]): HttpApp[R1, E1] = mid(self.asInstanceOf[HttpApp[R1, E1]])
 
   /**
    * Named alias for `<>`
@@ -224,7 +224,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Patches the response produced by the app
    */
   final def patch[R1 <: R, E1 >: E](patch: Patch)(implicit
-    ev: B <:< Response[R1, E1],
+    ev: IsResponse[R1, E1, B],
   ): Http[R1, E1, A, Response[R1, E1]] =
     self.map(patch(_))
 
@@ -273,27 +273,27 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Overwrites the method in the incoming request
    */
-  final def setMethod(method: Method)(implicit ev: Request <:< A): Http[R, E, Request, B] =
+  final def setMethod(method: Method)(implicit ev: IsRequest[A]): Http[R, E, Request, B] =
     self.contramap[Request](_.setMethod(method))
 
   /**
    * Overwrites the path in the incoming request
    */
-  final def setPath(path: Path)(implicit ev: Request <:< A): Http[R, E, Request, B] =
-    self.contramap[Request](_.setPath(path))
+  final def setPath(path: Path)(implicit ev: IsRequest[A]): Http[R, E, Request, B] =
+    self.contramap[Request](a => a.setPath(path))
 
   /**
    * Sets the status in the response produced by the app
    */
   final def setStatus[R1 <: R, E1 >: E](status: Status)(implicit
-    ev: B <:< Response[R1, E1],
+    ev: IsResponse[R1, E1, B],
   ): Http[R1, E1, A, Response[R1, E1]] =
     patch[R1, E1](Patch.setStatus(status))
 
   /**
    * Overwrites the url in the incoming request
    */
-  final def setUrl(url: URL)(implicit ev: Request <:< A): Http[R, E, Request, B] =
+  final def setUrl(url: URL)(implicit ev: IsRequest[A]): Http[R, E, Request, B] =
     self.contramap[Request](_.setUrl(url))
 
   /**
@@ -382,8 +382,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     serverTime: ServerTimeGenerator,
   )(implicit
     evE: E <:< Throwable,
-    ev0: B <:< Response[R1, Throwable],
-    ev1: Request <:< A,
+    evA: IsRequest[A],
+    evB: IsResponse[R1, Throwable, B],
   ): ChannelHandler =
     Handler(self.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, serverTime)
 

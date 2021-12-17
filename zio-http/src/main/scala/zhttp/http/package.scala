@@ -15,10 +15,6 @@ package object http extends PathModule with RequestSyntax with RouteDecoderModul
   type UHttpResponse      = Response[Any, Nothing]
   type ResponseM[-R, +E]  = ZIO[R, E, Response[R, E]]
 
-  object SilentResponse {
-    def apply[E: SilentResponse]: SilentResponse[E] = implicitly[SilentResponse[E]]
-  }
-
   /**
    * Default HTTP Charset
    */
