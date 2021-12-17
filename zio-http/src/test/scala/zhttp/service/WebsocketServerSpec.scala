@@ -2,36 +2,33 @@ package zhttp.service
 
 import sttp.client3.asynchttpclient.zio.AsyncHttpClientZioBackend
 import zhttp.http._
-import zhttp.internal.HttpRunnableSpec
+import zhttp.internal.{AppCollection, HttpRunnableSpec}
 import zhttp.service.server._
-import zhttp.socket.{Socket, SocketApp, SocketProtocol, WebSocketFrame}
+import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio._
 import zio.duration._
-import zio.stream.ZStream
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
 import zio.test._
 
 object WebsocketServerSpec extends HttpRunnableSpec(8011) {
-  def spec = suiteM("Server") {
+
+  override def spec = suiteM("Server") {
     app.as(List(websocketSpec)).useNow
-  }.provideCustomLayer(env) @@ timeout(30 seconds)
+  }.provideCustomLayerShared(env) @@ timeout(30 seconds)
 
   def websocketSpec = suite("Websocket Server") {
-    testM("Multiple websocket upgrades") {
-      assertM(websocketStatus(!! / "subscription").repeatN(1024))(equalTo(Status.SWITCHING_PROTOCOLS))
+    suite("connections") {
+      testM("Multiple websocket upgrades") {
+        val socketApp = SocketApp.message(Socket.succeed(WebSocketFrame.text("BAR")))
+        val app       = Http.fromEffect(ZIO(Response.socket(socketApp)))
+        assertM(app.websocketStatusCode(!! / "subscriptions").repeatN(1024))(equalTo(101))
+      }
     }
   }
 
   private val env =
-    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ AsyncHttpClientZioBackend.layer().orDie
+    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ AsyncHttpClientZioBackend.layer().orDie ++ AppCollection.live
 
-  private val socket    =
-    Socket.collect[WebSocketFrame] { case WebSocketFrame.Text("FOO") =>
-      ZStream.succeed(WebSocketFrame.text("BAR"))
-    }
-  private val socketApp = SocketApp.message(socket) ++ SocketApp.protocol(SocketProtocol.handshakeTimeout(100 millis))
-  private val websocketApp = Http.fromEffect(ZIO(Response.socket(socketApp)))
-
-  private val app = serve { websocketApp }
+  private val app = serve { AppCollection.app }
 }
