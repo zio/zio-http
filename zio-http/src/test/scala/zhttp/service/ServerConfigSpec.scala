@@ -9,11 +9,6 @@ import zio.test.assertM
 
 object ServerConfigSpec extends HttpRunnableSpec(8088) {
 
-  /*
-    From github discussion (Keep Alive Test case 2, Scenario 1)
-
-      https://github.com/dream11/zio-http/discussions/592
-   */
   def keepAliveSpec = suite("KeepAlive Test cases") {
     suite("Connection: close request header test with Server KeepAlive ENABLED") {
       val connectionCloseHeader = Header(HttpHeaderNames.CONNECTION.toString, HttpHeaderValues.CLOSE.toString)
