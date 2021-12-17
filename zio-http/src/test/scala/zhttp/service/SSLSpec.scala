@@ -9,7 +9,7 @@ import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zhttp.service.server._
 import zio._
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect.{flaky, timeout}
 import zio.test.assertM
 
 object SSLSpec extends HttpRunnableSpec(8073) {
@@ -59,9 +59,9 @@ object SSLSpec extends HttpRunnableSpec(8073) {
                 .request("http://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL1))
                 .map(_.status)
               assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
-            },
+            } @@ flaky,
         ),
       )
       .useNow,
-  ).provideCustomLayer(env) @@ timeout(5 second)
+  ).provideCustomLayerShared(env) @@ timeout(120 seconds)
 }
