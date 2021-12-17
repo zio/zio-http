@@ -1,13 +1,14 @@
 package zhttp.http
 
 import scala.annotation.implicitNotFound
+import scala.language.implicitConversions
 
 @implicitNotFound(
   "This operation is only allowed if the output is a type of Response. " +
     "However your Http instance produces the type ${B}, on which this operation can not be applied.",
 )
 sealed trait IsResponse[-R, +E, -B] extends (B => Response[R, E]) with Serializable {
-  override def apply(B: B): Response[R, E] = B.asInstanceOf[Response[R, E]]
+  implicit override def apply(B: B): Response[R, E] = B.asInstanceOf[Response[R, E]]
 }
 
 object IsResponse {
