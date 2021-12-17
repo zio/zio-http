@@ -8,7 +8,7 @@ import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.durationInt
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.timeout
-import zio.test.assertM
+import zio.test.{TestAspect, assertM}
 
 import java.io._
 import java.security.KeyStore
@@ -29,11 +29,21 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
 
   val sslOption: ClientSSLOptions =
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
-  override def spec               = suite("Https Client request") {
-    test("respond Ok") {
-      val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
-      assertM(actual)(anything)
+
+  override def spec = suite("Https Client request") {
+    test("should throw DecoderException for handshake failure") {
+      val actual = Client
+        .request(
+          "https://untrusted-root.badssl.com/",
+          sslOption,
+        )
+        .exit
+      assertM(actual)(fails(isSubtype[DecoderException](anything)))
     } +
+      test("respond Ok") {
+        val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
+        assertM(actual)(anything)
+      } +
       test("respond Ok with sslOption") {
         val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", sslOption)
         assertM(actual)(anything)
@@ -46,15 +56,6 @@ object ClientHttpsSpec extends HttpRunnableSpec(8082) {
           )
           .map(_.status)
         assertM(actual)(equalTo(Status.BAD_REQUEST))
-      } +
-      test("should throw DecoderException for handshake failure") {
-        val actual = Client
-          .request(
-            "https://untrusted-root.badssl.com/",
-            sslOption,
-          )
-          .exit
-        assertM(actual)(fails(isSubtype[DecoderException](anything)))
       }
-  }.provideCustomLayer(env) @@ timeout(30 seconds)
+  }.provideCustomLayerShared(env) @@ TestAspect.sequential @@ timeout(30 seconds)
 }
