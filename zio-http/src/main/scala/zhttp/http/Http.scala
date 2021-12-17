@@ -18,6 +18,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   import Http._
 
   /**
+   * Attaches the provided middleware to the HttpApp
+   */
+  final def @@[R1 <: R, E1 >: E](
+    mid: Middleware[R1, E1],
+  )(implicit ev0: B <:< Response[R1, E1], ev1: Request <:< A): HttpApp[R1, E1] = middleware(mid)
+
+  /**
    * Alias for flatmap
    */
   final def >>=[R1 <: R, E1 >: E, A1 <: A, C1](f: B => Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
@@ -52,6 +59,30 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def *>[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
     self.zipRight(other)
+
+  /**
+   * Adds the provided headers to the response of the app
+   */
+  final def addHeader[R1 <: R, E1 >: E](header: Header)(implicit
+    ev: B <:< Response[R1, E1],
+  ): Http[R1, E1, A, Response[R1, E1]] =
+    patch[R1, E1](Patch.addHeader(header))
+
+  /**
+   * Adds the provided header to the response of the app
+   */
+  final def addHeader[R1 <: R, E1 >: E](name: String, value: String)(implicit
+    ev: B <:< Response[R1, E1],
+  ): Http[R1, E1, A, Response[R1, E1]] =
+    patch[R1, E1](Patch.addHeader(name, value))
+
+  /**
+   * Adds the provided headers to the response of the app
+   */
+  final def addHeaders[R1 <: R, E1 >: E](headers: List[Header])(implicit
+    ev: B <:< Response[R1, E1],
+  ): Http[R1, E1, A, Response[R1, E1]] =
+    patch[R1, E1](Patch.addHeaders(headers))
 
   /**
    * Named alias for `>>>`
@@ -177,10 +208,25 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self >>> Http.fromEffectFunction(bFc)
 
   /**
+   * Attaches the provided middleware to the HttpApp
+   */
+  final def middleware[R1 <: R, E1 >: E](
+    mid: Middleware[R1, E1],
+  )(implicit ev0: B <:< Response[R1, E1], ev1: Request <:< A): HttpApp[R1, E1] = mid(self.asInstanceOf[HttpApp[R1, E1]])
+
+  /**
    * Named alias for `<>`
    */
   final def orElse[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
     self.catchAll(_ => other)
+
+  /**
+   * Patches the response produced by the app
+   */
+  final def patch[R1 <: R, E1 >: E](patch: Patch)(implicit
+    ev: B <:< Response[R1, E1],
+  ): Http[R1, E1, A, Response[R1, E1]] =
+    self.map(patch(_))
 
   /**
    * Provides the environment to Http.
@@ -223,6 +269,32 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def race[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
     Http.Race(self, other)
+
+  /**
+   * Overwrites the method in the incoming request
+   */
+  final def setMethod(method: Method)(implicit ev: Request <:< A): Http[R, E, Request, B] =
+    self.contramap[Request](_.setMethod(method))
+
+  /**
+   * Overwrites the path in the incoming request
+   */
+  final def setPath(path: Path)(implicit ev: Request <:< A): Http[R, E, Request, B] =
+    self.contramap[Request](_.setPath(path))
+
+  /**
+   * Sets the status in the response produced by the app
+   */
+  final def setStatus[R1 <: R, E1 >: E](status: Status)(implicit
+    ev: B <:< Response[R1, E1],
+  ): Http[R1, E1, A, Response[R1, E1]] =
+    patch[R1, E1](Patch.setStatus(status))
+
+  /**
+   * Overwrites the url in the incoming request
+   */
+  final def setUrl(url: URL)(implicit ev: Request <:< A): Http[R, E, Request, B] =
+    self.contramap[Request](_.setUrl(url))
 
   /**
    * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
@@ -303,6 +375,17 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def zipRight[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
     self.flatMap(_ => other)
+
+  final private[zhttp] def compile[R1 <: R](
+    zExec: HttpRuntime[R1],
+    settings: Server.Config[R1, Throwable],
+    serverTime: ServerTimeGenerator,
+  )(implicit
+    evE: E <:< Throwable,
+    ev0: B <:< Response[R1, Throwable],
+    ev1: Request <:< A,
+  ): ChannelHandler =
+    Handler(self.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, serverTime)
 
   /**
    * Evaluates the app and returns an HExit that can be resolved further
@@ -480,75 +563,6 @@ object Http {
    * Creates an HTTP app which always responds with a 413 status code.
    */
   def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.REQUEST_ENTITY_TOO_LARGE)
-
-  implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends AnyVal { self =>
-
-    /**
-     * Attaches the provided middleware to the HttpApp
-     */
-    def @@[R1 <: R, E1 >: E](mid: Middleware[R1, E1]): HttpApp[R1, E1] = middleware(mid)
-
-    /**
-     * Adds the provided headers to the response of the app
-     */
-    def addHeader(header: Header): HttpApp[R, E] = patch(Patch.addHeader(header))
-
-    /**
-     * Adds the provided header to the response of the app
-     */
-    def addHeader(name: String, value: String): HttpApp[R, E] = patch(Patch.addHeader(name, value))
-
-    /**
-     * Adds the provided headers to the response of the app
-     */
-    def addHeaders(headers: List[Header]): HttpApp[R, E] = patch(Patch.addHeaders(headers))
-
-    /**
-     * Attaches the provided middleware to the HttpApp
-     */
-    def middleware[R1 <: R, E1 >: E](mid: Middleware[R1, E1]): HttpApp[R1, E1] = mid(http)
-
-    /**
-     * Patches the response produced by the app
-     */
-    def patch(patch: Patch): HttpApp[R, E] = http.map(patch(_))
-
-    /**
-     * Overwrites the method in the incoming request
-     */
-    def setMethod(method: Method): HttpApp[R, E] = http.contramap[Request](_.setMethod(method))
-
-    /**
-     * Overwrites the path in the incoming request
-     */
-    def setPath(path: Path): HttpApp[R, E] = http.contramap[Request](_.setPath(path))
-
-    /**
-     * Sets the status in the response produced by the app
-     */
-    def setStatus(status: Status): HttpApp[R, E] = patch(Patch.setStatus(status))
-
-    /**
-     * Overwrites the url in the incoming request
-     */
-    def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.setUrl(url))
-
-    /**
-     * Converts a failing Http app into a non-failing one by handling the failure and converting it to a result if
-     * possible.
-     */
-    def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1]]): HttpApp[R1, E1] =
-      http.catchAll(e => Http.succeed(s.silent(e)))
-
-    private[zhttp] def compile[R1 <: R](
-      zExec: HttpRuntime[R1],
-      settings: Server.Config[R1, Throwable],
-      serverTime: ServerTimeGenerator,
-    )(implicit
-      evE: E <:< Throwable,
-    ): ChannelHandler =
-      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, serverTime)
-  }
 
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {
