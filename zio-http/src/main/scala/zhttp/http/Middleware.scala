@@ -1,6 +1,8 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
+import io.netty.util.AsciiString
+import io.netty.util.AsciiString.toLowerCase
 import zhttp.http.CORS.DefaultCORSConfig
 import zhttp.http.Headers.BasicSchemeName
 import zhttp.http.Middleware.{Flag, RequestP}
@@ -117,6 +119,44 @@ object Middleware {
     HttpMiddleware.addHeader(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)
   def addCookieM(cookie: UIO[Cookie]): HttpMiddleware[Any, Nothing] =
     patchM((_, _) => cookie.map(c => Patch.addHeader(HttpHeaderNames.SET_COOKIE.toString, c.encode)))
+  private def equalsIgnoreCase(a: Char, b: Char)                    = a == b || toLowerCase(a) == toLowerCase(b)
+  private def contentEqualsIgnoreCase(a: CharSequence, b: CharSequence): Boolean = {
+    if (a == b)
+      true
+    else if (a.length() != b.length())
+      false
+    else if (a.isInstanceOf[AsciiString]) {
+      a.asInstanceOf[AsciiString].contentEqualsIgnoreCase(b)
+    } else if (b.isInstanceOf[AsciiString]) {
+      b.asInstanceOf[AsciiString].contentEqualsIgnoreCase(a)
+    } else {
+      (0 until a.length()).forall(i => equalsIgnoreCase(a.charAt(i), b.charAt(i)))
+    }
+  }
+
+  /**
+   * Creates a middleware to validate CSRF token from header and cookie
+   */
+  def csrf(headerName: String, cookieName: String) = {
+    def getCSRFCookieValue(headers: List[Header], cookieName: String): Option[String] =
+      headers
+        .find(p => contentEqualsIgnoreCase(p.name, HttpHeaderNames.COOKIE))
+        .flatMap(a => Cookie.decodeRequestCookie(a.value.toString))
+        .flatMap(cookies => cookies.find(_.name == cookieName))
+        .map(_.content)
+    def getCSRFHeaderValue(headers: List[Header], headerName: String): Option[String] = headers
+      .find(p => contentEqualsIgnoreCase(p.name, headerName))
+      .map(_.value.toString)
+    Middleware.make((_, _, headers) =>
+      (getCSRFHeaderValue(headers, headerName), getCSRFCookieValue(headers, cookieName)) match {
+        case (Some(headerValue), Some(cookieValue)) =>
+          if (headerValue == cookieValue)
+            true
+          else false
+        case _                                      => false
+      },
+    )((_, _, verified) => if (verified) Patch.empty else Patch.setStatus(Status.FORBIDDEN))
+  }
 
   /**
    * Creates a middleware for Cross-Origin Resource Sharing (CORS).

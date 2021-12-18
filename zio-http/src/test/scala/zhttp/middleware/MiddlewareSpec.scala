@@ -1,5 +1,6 @@
 package zhttp.middleware
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.internal.HttpAppTestExtensions
 import zio.clock.Clock
@@ -165,6 +166,55 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             for {
               res <- app(request)
             } yield assert(res.getHeadersAsList)(hasSubset(expected))
+          }
+      } +
+      suite("addCookie middleware") {
+        testM("should add set-cookie header") {
+          val app = Http.ok @@ addCookie(Cookie("test", "testValue"))
+          assertM(app(Request()).map(res => {
+            res.headers.filter(h => h.name == HttpHeaderNames.SET_COOKIE)
+          }))(
+            equalTo(List(Header(HttpHeaderNames.SET_COOKIE, "test=testValue"))),
+          )
+        } +
+          testM("should add set cookie header with value produced by effect") {
+            val app = Http.ok @@ addCookieM(UIO(Cookie("test", "testValue")))
+            assertM(app(Request()).map(res => {
+              println(res.headers)
+              res.headers.filter(h => h.name == HttpHeaderNames.SET_COOKIE)
+            }))(
+              equalTo(List(Header(HttpHeaderNames.SET_COOKIE, "test=testValue"))),
+            )
+          }
+      } +
+      suite("CSRF middleware") {
+        testM("should give forbidden if token is not present in header") {
+          val app = Http.ok @@ csrf("x-token", "token")
+          assertM(
+            app(Request(headers = List(Header(HttpHeaderNames.COOKIE, Cookie("token", "secret").encode)))).map(res =>
+              res.status,
+            ),
+          )(equalTo(Status.FORBIDDEN))
+        } +
+          testM("should give forbidden if token is present in header but doesn't match with token cookie") {
+            val app = Http.ok @@ csrf("x-token", "token")
+            assertM(
+              app(
+                Request(headers =
+                  List(Header(HttpHeaderNames.COOKIE, Cookie("token", "secret").encode), Header("x-token", "secret1")),
+                ),
+              ).map(res => res.status),
+            )(equalTo(Status.FORBIDDEN))
+          } +
+          testM("should give OK if token present in header matches token present in cookie") {
+            val app = Http.ok @@ csrf("x-token", "token")
+            assertM(
+              app(
+                Request(headers =
+                  List(Header(HttpHeaderNames.COOKIE, Cookie("token", "secret").encode), Header("x-token", "secret")),
+                ),
+              ).map(res => res.status),
+            )(equalTo(Status.OK))
           }
       }
   }
