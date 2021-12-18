@@ -133,7 +133,12 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val res = app.requestBodyAsString(content = string)
         assertM(res)(equalTo(string.length.toString))
       }
-    }
+    }+
+      testM("Request.setBody ") {
+        val app1= Http.collect[Request] { case req => req.setBody(HttpData.empty); Response.ok}
+        val res = app1.requestStatus()
+        assertM(res)(equalTo(Status.OK))
+      }
   }
 
   def staticAppSpec = suite("StaticAppSpec") {
