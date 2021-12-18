@@ -188,33 +188,20 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           }
       } +
       suite("CSRF middleware") {
+        val app          = Http.ok @@ csrf("x-token", "token")
+        val cookieHeader = Header(HttpHeaderNames.COOKIE, Cookie("token", "secret").encode)
         testM("should give forbidden if token is not present in header") {
-          val app = Http.ok @@ csrf("x-token", "token")
-          assertM(
-            app(Request(headers = List(Header(HttpHeaderNames.COOKIE, Cookie("token", "secret").encode)))).map(res =>
-              res.status,
-            ),
-          )(equalTo(Status.FORBIDDEN))
+          assertM(app(Request(headers = List(cookieHeader))).map(res => res.status))(equalTo(Status.FORBIDDEN))
         } +
           testM("should give forbidden if token is present in header but doesn't match with token cookie") {
-            val app = Http.ok @@ csrf("x-token", "token")
-            assertM(
-              app(
-                Request(headers =
-                  List(Header(HttpHeaderNames.COOKIE, Cookie("token", "secret").encode), Header("x-token", "secret1")),
-                ),
-              ).map(res => res.status),
-            )(equalTo(Status.FORBIDDEN))
+            assertM(app(Request(headers = List(cookieHeader, Header("x-token", "secret1")))).map(res => res.status))(
+              equalTo(Status.FORBIDDEN),
+            )
           } +
           testM("should give OK if token present in header matches token present in cookie") {
-            val app = Http.ok @@ csrf("x-token", "token")
-            assertM(
-              app(
-                Request(headers =
-                  List(Header(HttpHeaderNames.COOKIE, Cookie("token", "secret").encode), Header("x-token", "secret")),
-                ),
-              ).map(res => res.status),
-            )(equalTo(Status.OK))
+            assertM(app(Request(headers = List(cookieHeader, Header("x-token", "secret")))).map(res => res.status))(
+              equalTo(Status.OK),
+            )
           }
       }
   }
