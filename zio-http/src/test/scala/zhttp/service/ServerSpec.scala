@@ -14,7 +14,7 @@ import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec {
 
-  def dynamicAppSpec(implicit port: Port) = suite("DynamicAppSpec") {
+  def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
       testM("status is 200") {
         val status = Http.ok.requestStatus()
@@ -92,7 +92,7 @@ object ServerSpec extends HttpRunnableSpec {
       }
   }
 
-  def responseSpec(implicit port: Port) = suite("ResponseSpec") {
+  def responseSpec = suite("ResponseSpec") {
     testM("data") {
       checkAllM(nonEmptyContent) { case (string, data) =>
         val res = Http.data(data).requestBodyAsString()
@@ -120,11 +120,11 @@ object ServerSpec extends HttpRunnableSpec {
 
   override def spec = {
     suiteM("Server") {
-      app.map(implicit port => List(staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
+      app.as(List(staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ sequential
   }
 
-  def requestSpec(implicit port: Port) = suite("RequestSpec") {
+  def requestSpec = suite("RequestSpec") {
     val app: HttpApp[Any, Nothing] = Http.collect[Request] { case req =>
       Response.text(req.getContentLength.getOrElse(-1).toString)
     }
@@ -136,7 +136,7 @@ object ServerSpec extends HttpRunnableSpec {
     }
   }
 
-  def staticAppSpec(implicit port: Port) = suite("StaticAppSpec") {
+  def staticAppSpec = suite("StaticAppSpec") {
     testM("200 response") {
       val actual = status(!! / "success")
       assertM(actual)(equalTo(Status.OK))
