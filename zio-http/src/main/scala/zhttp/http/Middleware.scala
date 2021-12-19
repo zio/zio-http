@@ -3,14 +3,14 @@ package zhttp.http
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.CORS.DefaultCORSConfig
 import zhttp.http.Headers.BasicSchemeName
+import zhttp.http.HeaderUtils.contentEqualsIgnoreCase
 import zhttp.http.Middleware.{Flag, RequestP}
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
 import zio.{UIO, ZIO, clock, console}
-import java.io.IOException
 
-import zhttp.http.HeaderUtils.contentEqualsIgnoreCase
+import java.io.IOException
 
 /**
  * Middlewares for Http.
@@ -114,7 +114,7 @@ object Middleware {
   def basicAuth(u: String, p: String): Middleware[Any, Nothing] =
     basicAuth { case (user, password) => (user == u) && (password == p) }
 
-  def addCookieM(cookie: UIO[Cookie]): HttpMiddleware[Any, Nothing] =
+  def addCookieM(cookie: UIO[Cookie]): Middleware[Any, Nothing] =
     patchM((_, _) => cookie.map(c => Patch.addHeader(HttpHeaderNames.SET_COOKIE.toString, c.encode)))
 
   /**
