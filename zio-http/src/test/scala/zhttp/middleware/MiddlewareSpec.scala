@@ -111,15 +111,15 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
         suite("basicAuth") {
           testM("HttpApp is accepted if the basic authentication succeeds") {
             val app = (Http.ok @@ basicAuthM).getStatus
-            assertM(app(Request().addHeader(basicHS)))(equalTo(Status.OK))
+            assertM(app(Request().addHeaders(basicHS)))(equalTo(Status.OK))
           } +
             testM("Uses forbidden app if the basic authentication fails") {
               val app = (Http.ok @@ basicAuthM).getStatus
-              assertM(app(Request().addHeader(basicHF)))(equalTo(Status.FORBIDDEN))
+              assertM(app(Request().addHeaders(basicHF)))(equalTo(Status.FORBIDDEN))
             } +
             testM("Responses should have WWW-Authentication header if Basic Auth failed") {
               val app = Http.ok @@ basicAuthM getHeader "WWW-AUTHENTICATE"
-              assertM(app(Request().addHeader(basicHF)))(isSome)
+              assertM(app(Request().addHeaders(basicHF)))(isSome)
             }
         }
       } +
@@ -130,17 +130,17 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           val request = Request(
             method = Method.OPTIONS,
             url = URL(!! / "success"),
-            headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
+            headers = Headers.makeAccessControlRequestMethod(Method.GET) ++ Headers.makeOrigin("test-env"),
           )
 
-          val expected = (
-            Headers.accessControlAllowCredentials(true) ++
-              Headers.accessControlAllowMethods(Method.GET) ++
-              Headers.accessControlAllowOrigin("test-env") ++
-              Headers.accessControlAllowHeaders(
-                CORS.DefaultCORSConfig.allowedHeaders.getOrElse(Set.empty).mkString(","),
-              )
-          ).getHeadersAsList
+          val expected = Headers
+            .makeAccessControlAllowCredentials(true)
+            .withAccessControlAllowMethods(Method.GET)
+            .withAccessControlAllowOrigin("test-env")
+            .withAccessControlAllowHeaders(
+              CORS.DefaultCORSConfig.allowedHeaders.getOrElse(Set.empty).mkString(","),
+            )
+            .getHeadersAsList
 
           for {
             res <- app(request)
@@ -152,15 +152,15 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
               Request(
                 method = Method.GET,
                 url = URL(!! / "success"),
-                headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
+                headers = Headers.makeAccessControlRequestMethod(Method.GET) ++ Headers.makeOrigin("test-env"),
               )
 
-            val expected = (
-              Headers.accessControlExposeHeaders("*") ++
-                Headers.accessControlAllowOrigin("test-env") ++
-                Headers.accessControlAllowMethods(Method.GET) ++
-                Headers.accessControlAllowCredentials(true)
-            ).getHeadersAsList
+            val expected = Headers
+              .makeAccessControlExposeHeaders("*")
+              .withAccessControlAllowOrigin("test-env")
+              .withAccessControlAllowMethods(Method.GET)
+              .withAccessControlAllowCredentials(true)
+              .getHeadersAsList
 
             for {
               res <- app(request)
@@ -174,8 +174,8 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   }
   private val midA                                  = Middleware.addHeader("X-Custom", "A")
   private val midB                                  = Middleware.addHeader("X-Custom", "B")
-  private val basicHS                               = Headers.basicHttpAuthorization("user", "resu")
-  private val basicHF                               = Headers.basicHttpAuthorization("user", "user")
+  private val basicHS                               = Headers.makeBasicAuthorizationHeader("user", "resu")
+  private val basicHF                               = Headers.makeBasicAuthorizationHeader("user", "user")
   private val basicAuthM                            = Middleware.basicAuth { case (u, p) => p.toString.reverse == u }
 
   private def cond(flg: Boolean) = (_: Any, _: Any, _: Any) => flg

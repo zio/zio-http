@@ -2,6 +2,7 @@ package zhttp.http
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
 import zhttp.core.Util
+import zhttp.http.Headers.Types._
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
@@ -68,10 +69,14 @@ object Response {
     val size      = data.unsafeSize
     val isChunked = data.isChunked
 
-    val contentLength    = if (size >= 0) Headers.contentLength(size) else Headers.empty
-    val transferEncoding = if (isChunked) Headers.transferEncodingChunked else Headers.empty
-
-    Response(status, headers ++ transferEncoding ++ contentLength, data, Attribute.empty)
+    Response(
+      status,
+      headers ++
+        Headers(H.`content-length` -> size.toString).when(size >= 0) ++
+        Headers(H.`transfer-encoding` -> `chunked`).when(isChunked),
+      data,
+      Attribute.empty,
+    )
   }
 
   def fromHttpError(error: HttpError): UResponse = {
@@ -96,7 +101,7 @@ object Response {
   def html(data: String): UResponse =
     Response(
       data = HttpData.fromText(data),
-      headers = Headers.contentTypeHtml,
+      headers = Headers(H.`content-type` -> `text/html`),
     )
 
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
@@ -112,7 +117,7 @@ object Response {
   def jsonString(data: String): UResponse =
     Response(
       data = HttpData.fromChunk(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
-      headers = Headers.contentTypeJson,
+      headers = Headers(H.`content-length`, `application/json`),
     )
 
   /**
@@ -125,7 +130,7 @@ object Response {
    */
   def redirect(location: String, isPermanent: Boolean = false): Response[Any, Nothing] = {
     val status = if (isPermanent) Status.PERMANENT_REDIRECT else Status.TEMPORARY_REDIRECT
-    Response(status, Headers.location(location))
+    Response(status, Headers.makeLocation(location))
   }
 
   /**
@@ -146,12 +151,12 @@ object Response {
   def status(status: Status): UResponse = Response(status)
 
   /**
-   * Creates a response with content-type set to plain/text
+   * Creates a response with content-type set to text/plain
    */
   def text(text: String, charset: Charset = HTTP_CHARSET): UResponse =
     Response(
       data = HttpData.fromText(text, charset),
-      headers = Headers.contentTypeTextPlain,
+      headers = Headers(H.`content-type` -> `text/plain`),
     )
 
   /**

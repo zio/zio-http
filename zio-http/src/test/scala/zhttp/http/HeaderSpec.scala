@@ -2,12 +2,13 @@ package zhttp.http
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import zhttp.http.HeaderExtension.BearerSchemeName
-import zhttp.http.Headers._
+import zhttp.http.Headers.Types._
 import zio.test.Assertion._
-import zio.test.{assert, check, DefaultRunnableSpec, Gen}
+import zio.test.{DefaultRunnableSpec, Gen, assert, check}
 
 object HeaderSpec extends DefaultRunnableSpec {
-  def spec = suite("Header")(
+
+  def spec = suite("Header") {
     suite("getHeader")(
       test("should not return header that doesn't exist in list") {
         val actual = predefinedHeaders.getHeader("dummyHeaderName")
@@ -53,7 +54,7 @@ object HeaderSpec extends DefaultRunnableSpec {
       suite("getAuthorizationHeader")(
         test("should return authorization value") {
           val authorizationValue = "dummyValue"
-          val actual             = createAuthorizationHeader(authorizationValue).getAuthorization
+          val actual             = Headers.makeAuthorization(authorizationValue).getAuthorization
           assert(actual)(isSome(equalTo(authorizationValue)))
         } +
           test("should not return authorization value if it doesn't exist") {
@@ -107,6 +108,7 @@ object HeaderSpec extends DefaultRunnableSpec {
       ) +
       suite("isXhtmlXmlContentType")(
         test("should return true if content-type is application/xhtml+xml") {
+
           val actual = contentTypeXhtmlXml.hasXhtmlXmlContentType
           assert(actual)(isTrue)
         } +
@@ -135,41 +137,41 @@ object HeaderSpec extends DefaultRunnableSpec {
       ) +
       suite("getBasicAuthorizationCredentials")(
         test("should decode proper basic http authorization header") {
-          val actual = Headers.authorization("Basic dXNlcjpwYXNzd29yZCAxMQ==").getBasicAuthorizationCredentials
+          val actual = Headers.makeAuthorization("Basic dXNlcjpwYXNzd29yZCAxMQ==").getBasicAuthorizationCredentials
           assert(actual)(isSome(equalTo(("user", "password 11"))))
         } +
           test("should decode basic http authorization header with empty name and password") {
-            val actual = Headers.authorization("Basic Og==").getBasicAuthorizationCredentials
+            val actual = Headers.makeAuthorization("Basic Og==").getBasicAuthorizationCredentials
             assert(actual)(isSome(equalTo(("", ""))))
           } +
           test("should not decode improper base64") {
-            val actual = Headers.authorization("Basic Og=").getBasicAuthorizationCredentials
+            val actual = Headers.makeAuthorization("Basic Og=").getBasicAuthorizationCredentials
             assert(actual)(isNone)
           } +
           test("should not decode only basic") {
-            val actual = Headers.authorization("Basic").getBasicAuthorizationCredentials
+            val actual = Headers.makeAuthorization("Basic").getBasicAuthorizationCredentials
             assert(actual)(isNone)
           } +
           test("should not decode basic contained header value") {
-            val actual = Headers.authorization("wrongBasic Og==").getBasicAuthorizationCredentials
+            val actual = Headers.makeAuthorization("wrongBasic Og==").getBasicAuthorizationCredentials
             assert(actual)(isNone)
           } +
           test("should get credentials for nonbasic schema") {
-            val actual = Headers.authorization("DummySchema Og==").getBasicAuthorizationCredentials
+            val actual = Headers.makeAuthorization("DummySchema Og==").getBasicAuthorizationCredentials
             assert(actual)(isNone)
           } +
           test("should decode header from Header.basicHttpAuthorization") {
             val username = "username"
             val password = "password"
-            val actual   = Headers.basicHttpAuthorization(username, password).getBasicAuthorizationCredentials
+            val actual   = Headers.makeBasicAuthorizationHeader(username, password).getBasicAuthorizationCredentials
             assert(actual)(isSome(equalTo((username, password))))
           } +
           test("should decode value from Header.basicHttpAuthorization") {
             val username = "username"
             val password = "password"
             val actual   = Headers
-              .basicHttpAuthorization(username, password)
-              .getHeaderValue(HttpHeaderNames.AUTHORIZATION)
+              .makeBasicAuthorizationHeader(username, password)
+              .getHeaderValue(H.`authorization`)
             val expected = "Basic dXNlcm5hbWU6cGFzc3dvcmQ="
             assert(actual)(isSome(equalTo(expected)))
           },
@@ -177,26 +179,26 @@ object HeaderSpec extends DefaultRunnableSpec {
       suite("getBearerToken")(
         test("should get bearer token") {
           val token  = "token"
-          val actual = Headers.authorization(String.format("%s %s", BearerSchemeName, token)).getBearerToken
+          val actual = Headers.makeAuthorization(String.format("%s %s", BearerSchemeName, token)).getBearerToken
           assert(actual)(isSome(equalTo(token)))
         } +
           test("should get empty bearer token") {
-            val actual = Headers.authorization(String.format("%s %s", BearerSchemeName, "")).getBearerToken
+            val actual = Headers.makeAuthorization(String.format("%s %s", BearerSchemeName, "")).getBearerToken
             assert(actual)(isSome(equalTo("")))
           } +
           test("should not get bearer token for nonbearer schema") {
-            val actual = Headers.authorization("DummySchema token").getBearerToken
+            val actual = Headers.makeAuthorization("DummySchema token").getBearerToken
             assert(actual)(isNone)
           } +
           test("should not get bearer token for bearer contained header") {
-            val actual = Headers.authorization("wrongBearer token").getBearerToken
+            val actual = Headers.makeAuthorization("wrongBearer token").getBearerToken
             assert(actual)(isNone)
           },
       ) +
       suite("getContentLength") {
         testM("should get content-length") {
           check(Gen.anyLong) { c =>
-            val actual = Headers.contentLength(c).getContentLength
+            val actual = Headers.makeContentLength(c).getContentLength
             assert(actual)(isSome(equalTo(c)))
           }
         } +
@@ -210,20 +212,21 @@ object HeaderSpec extends DefaultRunnableSpec {
               assert(actual)(isNone)
             }
           }
-      },
-  )
+      }
+  }
 
-  private def customAcceptJsonHeader = ("accept", "application/json")
-
-  private def customContentJsonHeader = ("content-type", "application/json")
-
-  private def customHeaders: Headers = Headers(customContentJsonHeader) ++ Headers(customAcceptJsonHeader)
-
-  import HeaderName._
-  import HeaderValue._
+  private val contentTypeXhtmlXml       = Headers(H.`content-type`, `application/xhtml+xml`)
+  private val contentTypeTextPlain      = Headers(H.`content-type`, `text/plain`)
+  private val contentTypeXml            = Headers(H.`content-type`, `application/xml`)
+  private val contentTypeJson           = Headers(H.`content-type`, `application/json`)
+  private val acceptJson                = Headers(H.`accept`, `application/json`)
+  private val contentTypeFormUrlEncoded = Headers(H.`content-type`, `application/x-www-form-urlencoded`)
+  private def customAcceptJsonHeader    = ("accept", "application/json")
+  private def customContentJsonHeader   = ("content-type", "application/json")
+  private def customHeaders: Headers    = Headers(customContentJsonHeader) ++ Headers(customAcceptJsonHeader)
 
   private def predefinedHeaders: Headers = Headers {
-    `accept`       -> `application/json`
-    `content-type` -> `application/json`
+    H.`accept`       -> `application/json`
+    H.`content-type` -> `application/json`
   }
 }
