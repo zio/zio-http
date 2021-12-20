@@ -12,11 +12,18 @@ import scala.jdk.CollectionConverters._
 
 final case class Headers(toList: List[(CharSequence, CharSequence)]) extends HeaderExtension[Headers] {
   self =>
-  def ++(other: Headers): Headers = Headers(self.toList ++ other.toList)
+  def ++(other: Headers): Headers = self.combine(other)
+
+  def combine(other: Headers): Headers = Headers(self.toList ++ other.toList)
+
+  def combineIf(cond: Boolean)(other: Headers): Headers = if (cond) Headers(self.toList ++ other.toList) else self
 
   override def getHeaders: Headers = self
 
   override def updateHeaders(f: Headers => Headers): Headers = f(self)
+
+  def when(cond: Boolean): Headers = if (cond) self else Headers.empty
+
 }
 
 object Headers {
@@ -67,6 +74,8 @@ object Headers {
 
   def host(name: String): Headers = Headers(HttpHeaderNames.HOST, name)
 
+  def ifThenElse(cond: Boolean)(onTrue: => Headers, onFalse: => Headers): Headers = if (cond) onTrue else onFalse
+
   def location(value: String): Headers = Headers(HttpHeaderNames.LOCATION, value)
 
   def make(headers: HttpHeaders): Headers = Headers {
@@ -88,6 +97,8 @@ object Headers {
   def setCookie(cookie: Cookie): Headers = Headers(HttpHeaderNames.SET_COOKIE, cookie.encode)
 
   def userAgent(name: String): Headers = Headers(HttpHeaderNames.USER_AGENT, name)
+
+  def when(cond: Boolean)(headers: => Headers): Headers = if (cond) headers else Headers.empty
 
   val empty: Headers                     = Headers(Nil)
   val connectionKeepAlive: Headers       = Headers(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
