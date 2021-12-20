@@ -76,7 +76,8 @@ object BuildHelper extends ScalaSettings {
     )
     if (publishArtifacts) publishSettings else publishSettings ++ skipSettings
   }
-  def stdSettings(prjName: String)              = Seq(
+
+  def stdSettings(prjName: String) = Seq(
     name                           := s"$prjName",
     ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, ScalaDotty),
     ThisBuild / scalaVersion       := Scala213,
@@ -93,5 +94,27 @@ object BuildHelper extends ScalaSettings {
     autoAPIMappings                        := true,
     ThisBuild / javaOptions                := Seq("-Dio.netty.leakDetectionLevel=paranoid"),
     ThisBuild / fork                       := true,
+  )
+
+  def meta = Seq(
+    ThisBuild / homepage   := Some(url("https://github.com/dream11/zio-http")),
+    ThisBuild / scmInfo    :=
+      Some(
+        ScmInfo(url("https://github.com/dream11/zio-http"), "scm:git@github.com:dream11/zio-http.git"),
+      ),
+    ThisBuild / developers := List(
+      Developer(
+        "tusharmath",
+        "Tushar Mathur",
+        "tushar@dream11.com",
+        new URL("https://github.com/tusharmath"),
+      ),
+      Developer(
+        "amitksingh1490",
+        "Amit Kumar Singh",
+        "amit.singh@dream11.com",
+        new URL("https://github.com/amitksingh1490"),
+      ),
+    ),
   )
 }
