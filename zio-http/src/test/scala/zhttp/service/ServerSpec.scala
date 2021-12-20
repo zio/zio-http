@@ -98,7 +98,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val res = Http.data(data).requestBodyAsString()
         assertM(res)(equalTo(string))
       }
-    } @@ ignore +
+    } +
       testM("status") {
         checkAllM(HttpGen.status) { case (status) =>
           val res = Http.status(status).requestStatus()
@@ -114,7 +114,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       testM("file-streaming") {
         val path = getClass.getResource("/TestFile").getPath
         val res  = Http.data(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
-        assertM(res)(containsString("foo"))
+        assertM(res)(containsString("foo\nbar"))
       }
   }
 

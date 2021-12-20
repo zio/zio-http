@@ -1,12 +1,12 @@
 package zhttp.service
 
-import io.netty.buffer.ByteBuf
+import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
-import zio.stream.ZStream
+
 import zio.{Task, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -21,7 +21,6 @@ private[zhttp] final case class Handler[R](
     with WebSocketUpgrade[R] { self =>
 
   override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
-    jReq.touch("server.Handler-channelRead0")
     implicit val iCtx: ChannelHandlerContext = ctx
     unsafeRun(
       jReq,
@@ -100,10 +99,8 @@ private[zhttp] final case class Handler[R](
                         unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
                       }
 
-                    case HttpData.BinaryStream(stream) =>
-                      UIO {
-                        unsafeWriteStreamContent(stream)
-                      }
+                    case HttpData.BinaryStream(_) =>
+                      UIO.unit
                   }
                   _ <- Task(releaseRequest(jReq))
                 } yield ()
@@ -134,8 +131,7 @@ private[zhttp] final case class Handler[R](
               unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
               releaseRequest(jReq)
 
-            case HttpData.BinaryStream(stream) =>
-              unsafeWriteStreamContent(stream)
+            case HttpData.BinaryStream(_) =>
               releaseRequest(jReq)
           }
         }
@@ -193,17 +189,7 @@ private[zhttp] final case class Handler[R](
    * Writes ByteBuf data to the Channel
    */
   private def unsafeWriteLastContent[A](data: ByteBuf)(implicit ctx: ChannelHandlerContext): Unit = {
-    val response = Response(status = Status.OK, data = HttpData.BinaryByteBuf(data))
-    ctx.fireChannelRead(Right(response)): Unit
-  }
-
-  /**
-   * Writes Stream data to the Channel
-   */
-  private def unsafeWriteStreamContent[A](
-    stream: ZStream[R, Throwable, ByteBuf],
-  )(implicit ctx: ChannelHandlerContext): Unit = {
-    val response = HttpData.fromStream(stream)
+    val response = Response(status = Status.OK, data = HttpData.BinaryByteBuf(Unpooled.copiedBuffer(data)))
     ctx.fireChannelRead(Right(response)): Unit
   }
 
