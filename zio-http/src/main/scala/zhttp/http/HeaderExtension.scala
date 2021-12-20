@@ -21,7 +21,7 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
   final def getAuthorization: Option[String] =
     getHeaderValue(HttpHeaderNames.AUTHORIZATION)
 
-  final def getBasicAuthorizationCredentials: Option[(String, String)] = {
+  final def getBasicAuthorizationCredentials: Option[Header] = {
     getAuthorization
       .flatMap(v => {
         val indexOfBasic = v.indexOf(BasicSchemeName)
@@ -68,7 +68,7 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
 
   final def getCookiesRaw(implicit ev: HasCookie[A]): List[CharSequence] = ev.headers(self)
 
-  final def getHeader(headerName: CharSequence): Option[(String, String)] =
+  final def getHeader(headerName: CharSequence): Option[Header] =
     getHeaders.toList
       .find(h => contentEqualsIgnoreCase(h._1, headerName))
       .map { case (name, value) => (name.toString, value.toString) }
@@ -81,7 +81,7 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
 
   def getHeaders: Headers
 
-  final def getHeadersAsList: List[(CharSequence, CharSequence)] = self.getHeaders.toList
+  final def getHeadersAsList: List[Header] = self.getHeaders.toList
 
   final def hasHeader(name: CharSequence, value: CharSequence): Boolean =
     getHeaderValue(name) match {
@@ -138,7 +138,7 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
     }
   }
 
-  private def decodeHttpBasic(encoded: String): Option[(String, String)] = {
+  private def decodeHttpBasic(encoded: String): Option[Header] = {
     val decoded    = new String(Base64.getDecoder.decode(encoded))
     val colonIndex = decoded.indexOf(":")
     if (colonIndex == -1)

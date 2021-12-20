@@ -30,10 +30,10 @@ object Patch {
   final case class SetStatus(status: Status)            extends Patch
   final case class Combine(left: Patch, right: Patch)   extends Patch
 
-  def empty: Patch                                            = Empty
-  def addHeader(headers: Headers): Patch                      = AddHeaders(headers)
-  def addHeader(headers: (CharSequence, CharSequence)): Patch = AddHeaders(Headers(headers))
-  def addHeader(name: String, value: String): Patch           = AddHeaders(Headers(name, value))
-  def removeHeaders(headers: List[String]): Patch             = RemoveHeaders(headers)
-  def setStatus(status: Status): Patch                        = SetStatus(status)
+  def empty: Patch                                  = Empty
+  def addHeader(headers: Headers): Patch            = AddHeaders(headers)
+  def addHeader(headers: Header): Patch             = AddHeaders(Headers(headers))
+  def addHeader(name: String, value: String): Patch = AddHeaders(Headers(name, value))
+  def removeHeaders(headers: List[String]): Patch   = RemoveHeaders(headers)
+  def setStatus(status: Status): Patch              = SetStatus(status)
 }

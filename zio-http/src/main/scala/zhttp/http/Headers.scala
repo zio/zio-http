@@ -10,7 +10,7 @@ import scala.jdk.CollectionConverters._
  * TODO: use Chunk instead of List TODO: use Tuple2 instead of Header
  */
 
-final case class Headers(toList: List[(CharSequence, CharSequence)]) extends HeaderExtension[Headers] {
+final case class Headers(toList: List[Header]) extends HeaderExtension[Headers] {
   self =>
   def ++(other: Headers): Headers = self.combine(other)
 
@@ -54,7 +54,7 @@ object Headers {
 
   def apply(name: CharSequence, value: CharSequence): Headers = Headers(List((name, value)))
 
-  def apply(tuple: (CharSequence, CharSequence)): Headers = Headers(tuple._1, tuple._2)
+  def apply(tuple: Header): Headers = Headers(tuple._1, tuple._2)
 
   def authorization(value: String): Headers = Headers(HttpHeaderNames.AUTHORIZATION, value)
 

@@ -1,8 +1,6 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
-import io.netty.util.AsciiString
-import io.netty.util.AsciiString.toLowerCase
 import zhttp.http.CORS.DefaultCORSConfig
 import zhttp.http.Middleware.{Flag, RequestP}
 import zio.clock.Clock
@@ -98,11 +96,11 @@ object Middleware {
   /**
    * Creates a middleware for basic authentication
    */
-  def basicAuth[R, E](f: (String, String) => Boolean): Middleware[R, E] =
+  def basicAuth(f: Header => Boolean): Middleware[Any, Nothing] =
     auth(
       _.getBasicAuthorizationCredentials match {
-        case Some((username, password)) => f(username, password)
-        case None                       => false
+        case Some(header) => f(header)
+        case None         => false
       },
       Headers(HttpHeaderNames.WWW_AUTHENTICATE, HeaderExtension.BasicSchemeName),
     )
@@ -110,8 +108,8 @@ object Middleware {
   /**
    * Creates a middleware for basic authentication that checks if the credentials are same as the ones given
    */
-  def basicAuth[R, E](u: String, p: String): Middleware[R, E] =
-    basicAuth((user, password) => (user == u) && (password == p))
+  def basicAuth(u: String, p: String): Middleware[Any, Nothing] =
+    basicAuth { case (user, password) => (user == u) && (password == p) }
 
   /**
    * Creates a middleware for Cross-Origin Resource Sharing (CORS).
@@ -119,25 +117,7 @@ object Middleware {
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
    */
   def cors[R, E](config: CORSConfig = DefaultCORSConfig): Middleware[R, E] = {
-    def equalsIgnoreCase(a: Char, b: Char)                                 = a == b || toLowerCase(a) == toLowerCase(b)
-    def contentEqualsIgnoreCase(a: CharSequence, b: CharSequence): Boolean = {
-      if (a == b)
-        true
-      else if (a.length() != b.length())
-        false
-      else if (a.isInstanceOf[AsciiString]) {
-        a.asInstanceOf[AsciiString].contentEqualsIgnoreCase(b)
-      } else if (b.isInstanceOf[AsciiString]) {
-        b.asInstanceOf[AsciiString].contentEqualsIgnoreCase(a)
-      } else {
-        (0 until a.length()).forall(i => equalsIgnoreCase(a.charAt(i), b.charAt(i)))
-      }
-    }
-
-    def getHeader(headers: Headers, headerName: CharSequence): Option[(CharSequence, CharSequence)] =
-      headers.toList.find(h => contentEqualsIgnoreCase(h._1, headerName))
-
-    def allowCORS(origin: (CharSequence, CharSequence), acrm: Method): Boolean                           =
+    def allowCORS(origin: Header, acrm: Method): Boolean                           =
       (config.anyOrigin, config.anyMethod, origin._2.toString, acrm) match {
         case (true, true, _, _)           => true
         case (true, false, _, acrm)       =>
@@ -147,7 +127,7 @@ object Middleware {
           config.allowedMethods.exists(_.contains(acrm)) &&
             config.allowedOrigins(origin)
       }
-    def corsHeaders(origin: (CharSequence, CharSequence), method: Method, isPreflight: Boolean): Headers = {
+    def corsHeaders(origin: Header, method: Method, isPreflight: Boolean): Headers = {
       Headers.ifThenElse(isPreflight)(
         onTrue = config.allowedHeaders.fold(Headers.empty) { h =>
           Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS.toString(), h.mkString(","))
@@ -169,7 +149,7 @@ object Middleware {
     val existingRoutesWithHeaders = Middleware.make((method, _, headers) => {
       (
         method,
-        getHeader(headers, HttpHeaderNames.ORIGIN),
+        headers.getHeader(HttpHeaderNames.ORIGIN),
       ) match {
         case (_, Some(origin)) if allowCORS(origin, method) => (Some(origin), method)
         case _                                              => (None, method)
@@ -185,8 +165,8 @@ object Middleware {
     val optionsHeaders = fromMiddlewareFunction { case (method, _, headers) =>
       (
         method,
-        getHeader(headers, HttpHeaderNames.ORIGIN),
-        getHeader(headers, HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
+        headers.getHeader(HttpHeaderNames.ORIGIN),
+        headers.getHeader(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
       ) match {
         case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm._2.toString)) =>
           fromApp(
