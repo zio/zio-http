@@ -3,8 +3,8 @@ package zhttp.http.headers
 import io.netty.handler.codec.http.HttpUtil
 import io.netty.util.AsciiString
 import io.netty.util.AsciiString.toLowerCase
-import zhttp.http._
 import zhttp.http.Headers.{BasicSchemeName, BearerSchemeName}
+import zhttp.http._
 
 import java.nio.charset.Charset
 import java.util.Base64
@@ -136,10 +136,7 @@ private[zhttp] trait HeaderExtension[+A] extends WithHeader[A] with HeaderGetter
 
   private def equalsIgnoreCase(a: Char, b: Char) = a == b || toLowerCase(a) == toLowerCase(b)
 
-  private[zhttp] final def getHeadersAsList: List[(String, String)] =
-    self.getHeaders.toList.map { case (name, value) =>
-      (name.toString, value.toString)
-    }
+  private[zhttp] final def getHeadersAsList: List[(String, String)] = self.getHeaders.toList
 }
 
 object HeaderExtension {}

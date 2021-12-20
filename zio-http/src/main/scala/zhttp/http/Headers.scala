@@ -1,14 +1,10 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
-import zhttp.http.headers.{HeaderMakers, HeaderExtension, HeaderNames, HeaderValues}
+import zhttp.http.headers.{HeaderExtension, HeaderMakers, HeaderNames, HeaderValues}
 import zio.Chunk
 
 import scala.jdk.CollectionConverters._
-
-/**
- * TODO: use Chunk instead of List TODO: use Tuple2 instead of Header
- */
 
 final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers] {
   self =>
@@ -21,14 +17,14 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
 
   override def getHeaders: Headers = self
 
-  def toList: List[Header] = toChunk.toList
+  def toList: List[(String, String)] = toChunk.map { case (name, value) => (name.toString, value.toString) }.toList
 
   override def updateHeaders(f: Headers => Headers): Headers = f(self)
 
   def when(cond: Boolean): Headers = if (cond) self else Headers.empty
 
   /**
-   * Converts a Headers to [io.netty.handler.codec.http.HttpHeaders
+   * Converts a Headers to [io.netty.handler.codec.http.HttpHeaders]
    */
   private[zhttp] def encode: HttpHeaders =
     self.toList.foldLeft[HttpHeaders](new DefaultHttpHeaders()) { case (headers, entry) =>
@@ -56,7 +52,9 @@ object Headers extends HeaderMakers {
 
   def when(cond: Boolean)(headers: => Headers): Headers = if (cond) headers else Headers.empty
 
-  val empty: Headers = Headers(Nil)
+  val empty: Headers   = Headers(Nil)
+  val BasicSchemeName  = "Basic"
+  val BearerSchemeName = "Bearer"
 
   private[zhttp] def decode(headers: HttpHeaders): Headers =
     Headers(headers.entries().asScala.toList.map(entry => (entry.getKey, entry.getValue)))
@@ -64,7 +62,4 @@ object Headers extends HeaderMakers {
   object Types extends HeaderValues {
     object H extends HeaderNames
   }
-
-  val BasicSchemeName  = "Basic"
-  val BearerSchemeName = "Bearer"
 }

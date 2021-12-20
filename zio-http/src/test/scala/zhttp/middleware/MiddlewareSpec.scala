@@ -140,7 +140,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             .withAccessControlAllowHeaders(
               CORS.DefaultCORSConfig.allowedHeaders.getOrElse(Set.empty).mkString(","),
             )
-            .getHeadersAsList
+            .toList
 
           for {
             res <- app(request)
@@ -160,7 +160,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
               .withAccessControlAllowOrigin("test-env")
               .withAccessControlAllowMethods(Method.GET)
               .withAccessControlAllowCredentials(true)
-              .getHeadersAsList
+              .toList
 
             for {
               res <- app(request)

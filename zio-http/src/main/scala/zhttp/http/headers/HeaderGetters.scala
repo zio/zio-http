@@ -15,7 +15,14 @@ trait HeaderGetters[+A] { self: HeaderExtension[A] =>
 
   final def getAcceptRanges: Option[CharSequence] = getHeaderValue(`accept-ranges`)
 
-  final def getAccessControlAllowCredentials: Option[CharSequence] = getHeaderValue(`access-control-allow-credentials`)
+  final def getAccessControlAllowCredentials: Option[Boolean] = getHeaderValue(
+    `access-control-allow-credentials`,
+  ) match {
+    case Some(string) =>
+      try Some(string.toBoolean)
+      catch { case _: Throwable => None }
+    case None         => None
+  }
 
   final def getAccessControlAllowHeaders: Option[CharSequence] = getHeaderValue(`access-control-allow-headers`)
 
