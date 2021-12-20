@@ -14,8 +14,6 @@ import scala.jdk.CollectionConverters._
 final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers] {
   self =>
 
-  def toList: List[Header] = toChunk.toList
-
   def ++(other: Headers): Headers = self.combine(other)
 
   def combine(other: Headers): Headers = Headers(self.toChunk ++ other.toChunk)
@@ -24,12 +22,14 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
 
   override def getHeaders: Headers = self
 
+  def toList: List[Header] = toChunk.toList
+
   override def updateHeaders(f: Headers => Headers): Headers = f(self)
 
   def when(cond: Boolean): Headers = if (cond) self else Headers.empty
 
   /**
-   * Converts a Headers to [io.netty.handler.codec.http.HttpHeaders]
+   * Converts a Headers to [io.netty.handler.codec.http.HttpHeaders
    */
   private[zhttp] def encode: HttpHeaders =
     self.toList.foldLeft[HttpHeaders](new DefaultHttpHeaders()) { case (headers, entry) =>
@@ -56,9 +56,11 @@ object Headers {
   def accessControlRequestMethod(method: Method): Headers =
     Headers(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD, method.asHttpMethod.name())
 
-  def apply(name: CharSequence, value: CharSequence): Headers = Headers(List((name, value)))
+  def apply(name: CharSequence, value: CharSequence): Headers = Headers(Chunk((name, value)))
 
-  def apply(tuple: Header*): Headers = Headers(tuple.toList)
+  def apply(tuples: Header*): Headers = Headers(Chunk.fromIterable(tuples))
+
+  def apply(iter: Iterable[Header]): Headers = Headers(Chunk.fromIterable(iter))
 
   def authorization(value: String): Headers = Headers(HttpHeaderNames.AUTHORIZATION, value)
 
@@ -89,9 +91,6 @@ object Headers {
 
   def origin(str: String): Headers = Headers(HttpHeaderNames.ORIGIN, str)
 
-  private[zhttp] def decode(headers: HttpHeaders): Headers =
-    Headers(headers.entries().asScala.toList.map(entry => (entry.getKey, entry.getValue)))
-
   def setCookie(cookie: Cookie): Headers = Headers(HttpHeaderNames.SET_COOKIE, cookie.encode)
 
   def userAgent(name: String): Headers = Headers(HttpHeaderNames.USER_AGENT, name)
@@ -114,4 +113,7 @@ object Headers {
   val transferEncodingChunked: Headers   = Headers(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
   val contentTypeFormUrlEncoded: Headers =
     Headers(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED)
+
+  private[zhttp] def decode(headers: HttpHeaders): Headers =
+    Headers(headers.entries().asScala.toList.map(entry => (entry.getKey, entry.getValue)))
 }
