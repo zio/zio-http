@@ -1,7 +1,7 @@
 package example
 
 import zhttp.http.Middleware.{addHeader, debug, patchM, timeout}
-import zhttp.http.{Header, HttpApp, Method, Patch, Response, _}
+import zhttp.http._
 import zhttp.service.Server
 import zio.clock.{Clock, currentTime}
 import zio.console.Console
@@ -23,7 +23,7 @@ object HelloWorldWithMiddlewares extends App {
   val serverTime: Middleware[Clock, Nothing] = patchM((_, _) =>
     for {
       currentMilliseconds <- currentTime(TimeUnit.MILLISECONDS)
-      withHeader = Patch.addHeaders(List(Header("X-Time", currentMilliseconds.toString)))
+      withHeader = Patch.addHeader("X-Time", currentMilliseconds.toString)
     } yield withHeader,
   )
 

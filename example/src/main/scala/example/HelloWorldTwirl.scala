@@ -12,12 +12,12 @@ object HelloWorldTwirl extends zio.App {
     val (a, b)              = pathParams.params
     val response: UResponse = Response.text(advanced.html.index(a, b).toString())
     response
-      .copy(headers = List(Header.custom("content-type", "text/html")))
+      .copy(headers = Headers("content-type", "text/html"))
   }
 
   val h1: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !!         =>
-      Response.text(html.index("John Doe").toString()).addHeader(Header.contentTypeHtml)
+      Response.text(html.index("John Doe").toString()).addHeader(Headers.contentTypeHtml)
     case Method.GET -> !! / "nav" => {
       val nav = Seq(
         Navigation("link-1", "http://google.com", Some("bi-alarm-fill")),
@@ -34,7 +34,7 @@ object HelloWorldTwirl extends zio.App {
           ),
         ),
       )
-      Response.text(advanced.html.template(1, false, nav).toString()).addHeader(Header.contentTypeHtml)
+      Response.text(advanced.html.template(1, false, nav).toString()).addHeader(Headers.contentTypeHtml)
     }
   }
 

@@ -33,7 +33,7 @@ object Authentication extends App {
     Http
       .fromFunction[Request] {
         _.getHeader("X-ACCESS-TOKEN")
-          .flatMap(header => jwtDecode(header.value.toString))
+          .flatMap(header => jwtDecode(header._2.toString))
           .fold[HttpApp[R, E]](fail)(success)
       }
       .flatten

@@ -22,7 +22,7 @@ object StreamingResponse extends App {
     case Method.GET -> !! / "stream" =>
       Response(
         status = Status.OK,
-        headers = List(Header.contentLength(message.length.toLong)),
+        headers = Headers.contentLength(message.length.toLong),
         data = HttpData.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
       )
 
