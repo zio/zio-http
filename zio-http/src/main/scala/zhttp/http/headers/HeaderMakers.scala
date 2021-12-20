@@ -1,9 +1,9 @@
 package zhttp.http.headers
 
-import zhttp.http.Headers.Types.H
-import zhttp.http.{Cookie, Headers, HTTP_CHARSET, Method}
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Headers.BasicSchemeName
+import zhttp.http.Headers.Types.H
+import zhttp.http.{Cookie, HTTP_CHARSET, Headers, Method}
 
 import java.util.Base64
 
