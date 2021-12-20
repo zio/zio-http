@@ -18,15 +18,15 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   def corsSpec = suite("cors") {
     testM("options request") {
       val app     = Http.collect[Request] { case Method.GET -> !! / "success" => Response.ok } @@ cors()
-      val headers = List(Header.accessControlRequestMethod(Method.GET), Header.origin("test-env"))
-      val res     = app(Request(headers = headers)).map(_.headers)
+      val headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env")
+      val res     = app(Request(headers = headers)).map(_.getHeadersAsList)
       assertM(res)(
         hasSubset(
           List(
-            Header.accessControlAllowCredentials(true),
-            Header.accessControlAllowMethods(Method.GET),
-            Header.accessControlAllowOrigin("test-env"),
-            Header.accessControlAllowHeaders(CORS.DefaultCORSConfig.allowedHeaders.getOrElse(Set.empty).mkString(", ")),
+            Headers.accessControlAllowCredentials(true),
+            Headers.accessControlAllowMethods(Method.GET),
+            Headers.accessControlAllowOrigin("test-env"),
+            Headers.accessControlAllowHeaders(CORS.DefaultCORSConfig.allowedHeaders.getOrElse(Set.empty).mkString(", ")),
           ),
         ),
       )
@@ -142,15 +142,15 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
         suite("basicAuth") {
           testM("HttpApp is accepted if the basic authentication succeeds") {
             val app = (Http.ok @@ basicAuthM).getStatus
-            assertM(app(Request().addHeaders(List(basicHS))))(equalTo(Status.OK))
+            assertM(app(Request().addHeader(basicHS)))(equalTo(Status.OK))
           } +
             testM("Uses forbidden app if the basic authentication fails") {
               val app = (Http.ok @@ basicAuthM).getStatus
-              assertM(app(Request().addHeaders(List(basicHF))))(equalTo(Status.FORBIDDEN))
+              assertM(app(Request().addHeader(basicHF)))(equalTo(Status.FORBIDDEN))
             } +
             testM("Responses sould have WWW-Authentication header if Basic Auth failed") {
               val app = Http.ok @@ basicAuthM getHeader "WWW-AUTHENTICATE"
-              assertM(app(Request().addHeaders(List(basicHF))))(isSome)
+              assertM(app(Request().addHeader(basicHF)))(isSome)
             }
         }
       } +
@@ -161,19 +161,19 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           val request = Request(
             method = Method.OPTIONS,
             url = URL(!! / "success"),
-            headers = List(Header.accessControlRequestMethod(Method.GET), Header.origin("test-env")),
+            headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
           )
 
           val expected = List(
-            Header.accessControlAllowCredentials(true),
-            Header.accessControlAllowMethods(Method.GET),
-            Header.accessControlAllowOrigin("test-env"),
-            Header.accessControlAllowHeaders(CORS.DefaultCORSConfig.allowedHeaders.getOrElse(Set.empty).mkString(",")),
+            Headers.accessControlAllowCredentials(true),
+            Headers.accessControlAllowMethods(Method.GET),
+            Headers.accessControlAllowOrigin("test-env"),
+            Headers.accessControlAllowHeaders(CORS.DefaultCORSConfig.allowedHeaders.getOrElse(Set.empty).mkString(",")),
           )
 
           for {
             res <- app(request)
-          } yield assert(res.headers.map(_.toTuple))(hasSubset(expected.map(_.toTuple))) &&
+          } yield assert(res.getHeadersAsList)(hasSubset(expected)) &&
             assert(res.status)(equalTo(Status.NO_CONTENT))
         } +
           testM("GET request") {
@@ -181,19 +181,19 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
               Request(
                 method = Method.GET,
                 url = URL(!! / "success"),
-                headers = List(Header.accessControlRequestMethod(Method.GET), Header.origin("test-env")),
+                headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
               )
 
             val expected = List(
-              Header.accessControlExposeHeaders("*"),
-              Header.accessControlAllowOrigin("test-env"),
-              Header.accessControlAllowMethods(Method.GET),
-              Header.accessControlAllowCredentials(true),
+              Headers.accessControlExposeHeaders("*"),
+              Headers.accessControlAllowOrigin("test-env"),
+              Headers.accessControlAllowMethods(Method.GET),
+              Headers.accessControlAllowCredentials(true),
             )
 
             for {
               res <- app(request)
-            } yield assert(res.headers.map(_.toTuple))(hasSubset(expected.map(_.toTuple)))
+            } yield assert(res.getHeadersAsList)(hasSubset(expected))
           }
       }
   }
@@ -204,7 +204,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
   private val midA       = Middleware.addHeader("X-Custom", "A")
   private val midB       = Middleware.addHeader("X-Custom", "B")
-  private val basicHS    = Header.basicHttpAuthorization("user", "resu")
-  private val basicHF    = Header.basicHttpAuthorization("user", "user")
+  private val basicHS    = Headers.basicHttpAuthorization("user", "resu")
+  private val basicHF    = Headers.basicHttpAuthorization("user", "user")
   private val basicAuthM = Middleware.basicAuth((u, p) => p.reverse == u)
 }

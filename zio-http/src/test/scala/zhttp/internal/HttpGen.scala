@@ -13,7 +13,7 @@ object HttpGen {
     for {
       method  <- HttpGen.method
       url     <- HttpGen.url
-      headers <- Gen.listOf(HttpGen.header)
+      headers <- Gen.listOf(HttpGen.header).map(Headers(_))
       data    <- dataGen
     } yield ClientParams(method -> url, headers, data)
 
@@ -29,10 +29,10 @@ object HttpGen {
     sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
   } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite)
 
-  def header: Gen[Random with Sized, Header] = for {
+  def header: Gen[Random with Sized, (CharSequence, CharSequence)] = for {
     key   <- Gen.alphaNumericStringBounded(1, 4)
     value <- Gen.alphaNumericStringBounded(1, 4)
-  } yield Header(key, value)
+  } yield (key, value)
 
   def httpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData[Any, Nothing]] =
     for {
@@ -98,14 +98,14 @@ object HttpGen {
   def request: Gen[Random with Sized, Request] = for {
     method  <- HttpGen.method
     url     <- HttpGen.url
-    headers <- Gen.listOf(HttpGen.header)
+    headers <- Gen.listOf(HttpGen.header).map(Headers(_))
     data    <- HttpGen.httpData(Gen.listOf(Gen.alphaNumericString))
   } yield Request(method, url, headers, None, data)
 
   def response[R](gContent: Gen[R, List[String]]): Gen[Random with Sized with R, Response[Any, Nothing]] = {
     for {
       content <- HttpGen.httpData(gContent)
-      headers <- HttpGen.header.map(List(_))
+      headers <- HttpGen.header.map(Headers(_))
       status  <- HttpGen.status
     } yield Response(status, headers, content)
   }
