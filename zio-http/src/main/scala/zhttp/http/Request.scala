@@ -15,15 +15,13 @@ trait Request extends HeaderExtension[Request] { self =>
     val m = method
     val u = url
     val h = headers
+    val b = body
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
       override def getHeaders: List[Header]           = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
-      override private[zhttp] def getBodyAsByteBuf    = body match {
-        case HttpData.Empty => self.getBodyAsByteBuf
-        case _              => body.toByteBuf
-      }
+      override private[zhttp] def getBodyAsByteBuf    = b.toByteBuf
 
     }
   }
