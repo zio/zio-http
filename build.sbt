@@ -85,13 +85,15 @@ lazy val zhttp = (project in file("./zio-http"))
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= Seq(
+      sttp,
+      netty,
       `zio`,
       `zio-streams`,
       `zio-test`,
       `zio-test-sbt`,
-      netty,
-      `scala-compact-collection`,
+      `sttp-zio`,
       `netty-incubator`,
+      `scala-compact-collection`,
     ),
   )
 
@@ -130,4 +132,4 @@ lazy val example = (project in file("./example"))
   .dependsOn(zhttp)
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
-Global / watchAntiEntropy     := FiniteDuration(2000, TimeUnit.MILLISECONDS)
+Global / watchAntiEntropy := FiniteDuration(2000, TimeUnit.MILLISECONDS)
