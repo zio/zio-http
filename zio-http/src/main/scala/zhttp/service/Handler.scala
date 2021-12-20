@@ -32,7 +32,7 @@ private[zhttp] final case class Handler[R](
       new Request {
         override def method: Method                                 = Method.fromHttpMethod(jReq.method())
         override def url: URL                                       = URL.fromString(jReq.uri()).getOrElse(null)
-        override def getHeaders: List[Header]                       = Header.make(jReq.headers())
+        override def getHeaders: Headers                            = Headers.make(jReq.headers())
         override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
         override def remoteAddress: Option[InetAddress]             = {
           ctx.channel().remoteAddress() match {
@@ -42,12 +42,6 @@ private[zhttp] final case class Handler[R](
         }
       },
     )
-  }
-
-  private def notFoundResponse: HttpResponse = {
-    val response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
-    response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0)
-    response
   }
 
   private def decodeResponse(res: Response[_, _]): HttpResponse = {
@@ -66,9 +60,15 @@ private[zhttp] final case class Handler[R](
   }
 
   private def decodeResponseFresh(res: Response[_, _]): HttpResponse = {
-    val jHeaders = Header.disassemble(res.getHeaders)
+    val jHeaders = res.getHeaders.encode
     if (res.attribute.serverTime) jHeaders.set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
     new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
+  }
+
+  private def notFoundResponse: HttpResponse = {
+    val response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
+    response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0)
+    response
   }
 
   /**
