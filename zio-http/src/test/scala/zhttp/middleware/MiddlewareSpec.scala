@@ -17,19 +17,17 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
   def corsSpec = suite("cors") {
     testM("options request") {
-      val app     = Http.collect[Request] { case Method.GET -> !! / "success" => Response.ok } @@ cors()
-      val headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env")
-      val res     = app(Request(headers = headers)).map(_.getHeadersAsList)
-      assertM(res)(
-        hasSubset(
-          List(
-            Headers.accessControlAllowCredentials(true),
-            Headers.accessControlAllowMethods(Method.GET),
-            Headers.accessControlAllowOrigin("test-env"),
-            Headers.accessControlAllowHeaders(CORS.DefaultCORSConfig.allowedHeaders.getOrElse(Set.empty).mkString(", ")),
-          ),
-        ),
-      )
+      val app      = Http.collect[Request] { case Method.GET -> !! / "success" => Response.ok } @@ cors()
+      val headers  = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env")
+      val res      = app(Request(headers = headers)).map(_.getHeadersAsList)
+      val expected = (
+        Headers.accessControlAllowCredentials(true) ++
+          Headers.accessControlAllowMethods(Method.GET) ++
+          Headers.accessControlAllowOrigin("test-env") ++
+          Headers.accessControlAllowHeaders(CORS.DefaultCORSConfig.allowedHeaders.getOrElse(Set.empty).mkString(", "))
+      ).getHeadersAsList
+
+      assertM(res)(hasSubset(expected))
     }
   }
 
@@ -164,12 +162,14 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
           )
 
-          val expected = List(
-            Headers.accessControlAllowCredentials(true),
-            Headers.accessControlAllowMethods(Method.GET),
-            Headers.accessControlAllowOrigin("test-env"),
-            Headers.accessControlAllowHeaders(CORS.DefaultCORSConfig.allowedHeaders.getOrElse(Set.empty).mkString(",")),
-          )
+          val expected = (
+            Headers.accessControlAllowCredentials(true) ++
+              Headers.accessControlAllowMethods(Method.GET) ++
+              Headers.accessControlAllowOrigin("test-env") ++
+              Headers.accessControlAllowHeaders(
+                CORS.DefaultCORSConfig.allowedHeaders.getOrElse(Set.empty).mkString(","),
+              )
+          ).getHeadersAsList
 
           for {
             res <- app(request)
@@ -184,12 +184,12 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
                 headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
               )
 
-            val expected = List(
-              Headers.accessControlExposeHeaders("*"),
-              Headers.accessControlAllowOrigin("test-env"),
-              Headers.accessControlAllowMethods(Method.GET),
-              Headers.accessControlAllowCredentials(true),
-            )
+            val expected = (
+              Headers.accessControlExposeHeaders("*") ++
+                Headers.accessControlAllowOrigin("test-env") ++
+                Headers.accessControlAllowMethods(Method.GET) ++
+                Headers.accessControlAllowCredentials(true)
+            ).getHeadersAsList
 
             for {
               res <- app(request)

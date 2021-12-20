@@ -81,8 +81,6 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
 
   def getHeaders: Headers
 
-  final def getHeadersAsList: List[Header] = self.getHeaders.toList
-
   final def hasHeader(name: CharSequence, value: CharSequence): Boolean =
     getHeaderValue(name) match {
       case Some(v1) => v1 == value
@@ -155,6 +153,11 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
   }
 
   private def equalsIgnoreCase(a: Char, b: Char) = a == b || toLowerCase(a) == toLowerCase(b)
+
+  private[zhttp] final def getHeadersAsList: List[(String, String)] =
+    self.getHeaders.toList.map { case (name, value) =>
+      (name.toString, value.toString)
+    }
 }
 
 object HeaderExtension {
