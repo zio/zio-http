@@ -54,7 +54,7 @@ object Headers {
 
   def apply(name: CharSequence, value: CharSequence): Headers = Headers(List((name, value)))
 
-  def apply(tuple: Header): Headers = Headers(tuple._1, tuple._2)
+  def apply(tuple: Header*): Headers = Headers(tuple.toList)
 
   def authorization(value: String): Headers = Headers(HttpHeaderNames.AUTHORIZATION, value)
 
