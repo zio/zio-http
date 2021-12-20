@@ -1,7 +1,7 @@
 package zhttp.internal
 
-import sttp.client3.asynchttpclient.zio.{send, SttpClient}
-import sttp.client3.{asWebSocketUnsafe, basicRequest, UriContext, Response => SResponse}
+import sttp.client3.asynchttpclient.zio.{SttpClient, send}
+import sttp.client3.{Response => SResponse, UriContext, asWebSocketUnsafe, basicRequest}
 import sttp.model.{Header => SHeader}
 import sttp.ws.WebSocket
 import zhttp.http.URL.Location
