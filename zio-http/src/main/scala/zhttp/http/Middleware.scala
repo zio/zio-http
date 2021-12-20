@@ -67,30 +67,30 @@ object Middleware {
   /**
    * Sets cookie in response headers
    */
-  def addCookie(cookie: Cookie): Middleware[Any, Nothing] = Middleware.addHeader(Header.setCookie(cookie))
+  def addCookie(cookie: Cookie): Middleware[Any, Nothing] = Middleware.addHeader(Headers.setCookie(cookie))
 
   /**
    * Adds the provided header and value to the response
    */
   def addHeader(name: String, value: String): Middleware[Any, Nothing] =
-    patch((_, _) => Patch.addHeaders(List(Header(name, value))))
+    patch((_, _) => Patch.addHeader(name, value))
 
   /**
    * Adds the provided header to the response
    */
-  def addHeader(header: Header): Middleware[Any, Nothing] =
-    patch((_, _) => Patch.addHeaders(List(header)))
+  def addHeader(header: Headers): Middleware[Any, Nothing] =
+    patch((_, _) => Patch.addHeader(header))
 
   /**
    * Adds the provided list of headers to the response
    */
-  def addHeaders(headers: List[Header]): Middleware[Any, Nothing] =
-    patch((_, _) => Patch.addHeaders(headers))
+  def addHeaders(headers: Headers): Middleware[Any, Nothing] =
+    patch((_, _) => Patch.addHeader(headers))
 
   /**
    * Creates an authentication middleware that only allows authenticated requests to be passed on to the app.
    */
-  def auth(verify: List[Header] => Boolean, responseHeaders: List[Header] = Nil): Middleware[Any, Nothing] =
+  def auth(verify: Headers => Boolean, responseHeaders: Headers = Headers.empty): Middleware[Any, Nothing] =
     ifThenElse((_, _, h) => verify(h))(
       Middleware.identity,
       Middleware.Constant(Http.status(Status.FORBIDDEN).addHeaders(responseHeaders)),
@@ -107,7 +107,7 @@ object Middleware {
           case None                       => false
         }
       },
-      List(Header(HttpHeaderNames.WWW_AUTHENTICATE, HeaderExtension.BasicSchemeName)),
+      Headers(HttpHeaderNames.WWW_AUTHENTICATE, HeaderExtension.BasicSchemeName),
     )
 
   /**
@@ -136,10 +136,12 @@ object Middleware {
         (0 until a.length()).forall(i => equalsIgnoreCase(a.charAt(i), b.charAt(i)))
       }
     }
-    def getHeader(headers: List[Header], headerName: CharSequence): Option[Header]      =
-      headers.find(h => contentEqualsIgnoreCase(h.name, headerName))
-    def allowCORS(origin: Header, acrm: Method): Boolean                                =
-      (config.anyOrigin, config.anyMethod, origin.value.toString, acrm) match {
+
+    def getHeader(headers: Headers, headerName: CharSequence): Option[(CharSequence, CharSequence)] =
+      headers.toList.find(h => contentEqualsIgnoreCase(h._1, headerName))
+
+    def allowCORS(origin: (CharSequence, CharSequence), acrm: Method): Boolean                           =
+      (config.anyOrigin, config.anyMethod, origin._2.toString, acrm) match {
         case (true, true, _, _)           => true
         case (true, false, _, acrm)       =>
           config.allowedMethods.exists(_.contains(acrm))
@@ -148,40 +150,23 @@ object Middleware {
           config.allowedMethods.exists(_.contains(acrm)) &&
             config.allowedOrigins(origin)
       }
-    def corsHeaders(origin: Header, method: Method, isPreflight: Boolean): List[Header] = {
-      (method match {
-        case _ if isPreflight =>
-          config.allowedHeaders.fold(List.empty[Header])((h: Set[String]) => {
-            List(
-              Header.custom(
-                HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS.toString(),
-                h.mkString(","),
-              ),
-            )
-          })
-        case _                =>
-          config.exposedHeaders.fold(List.empty[Header])(h => {
-            List(
-              Header.custom(
-                HttpHeaderNames.ACCESS_CONTROL_EXPOSE_HEADERS.toString(),
-                h.mkString(","),
-              ),
-            )
-          })
-      }) ++
-        List(
-          Header.custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN.toString(), origin.value),
-          Header.custom(
-            HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS.toString(),
-            config.allowedMethods.fold(method.toString())(m => m.map(m => m.toString()).mkString(",")),
-          ),
+    def corsHeaders(origin: (CharSequence, CharSequence), method: Method, isPreflight: Boolean): Headers = {
+      Headers.ifThenElse(isPreflight)(
+        onTrue = config.allowedHeaders.fold(Headers.empty) { h =>
+          Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS.toString(), h.mkString(","))
+        },
+        onFalse = config.exposedHeaders.fold(Headers.empty) { h =>
+          Headers(HttpHeaderNames.ACCESS_CONTROL_EXPOSE_HEADERS.toString(), h.mkString(","))
+        },
+      ) ++
+        Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN.toString(), origin._2) ++
+        Headers(
+          HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS.toString(),
+          config.allowedMethods.fold(method.toString())(m => m.map(m => m.toString()).mkString(",")),
         ) ++
-        (if (config.allowCredentials)
-           List(
-             Header
-               .custom(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS.toString(), config.allowCredentials.toString),
-           )
-         else List.empty[Header])
+        Headers.when(config.allowCredentials) {
+          Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS, config.allowCredentials.toString)
+        }
     }
 
     val existingRoutesWithHeaders = Middleware.make((method, _, headers) => {
@@ -195,7 +180,7 @@ object Middleware {
     })((_, _, s) => {
       s match {
         case (Some(origin), method) =>
-          Patch.addHeaders(corsHeaders(origin, method, isPreflight = false))
+          Patch.addHeader(corsHeaders(origin, method, isPreflight = false))
         case _                      => Patch.empty
       }
     })
@@ -206,13 +191,13 @@ object Middleware {
         getHeader(headers, HttpHeaderNames.ORIGIN),
         getHeader(headers, HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
       ) match {
-        case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm.value.toString)) =>
+        case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm._2.toString)) =>
           fromApp(
             (
               Http.succeed(
                 Response(
                   Status.NO_CONTENT,
-                  headers = corsHeaders(origin, Method.fromString(acrm.value.toString), isPreflight = true),
+                  headers = corsHeaders(origin, Method.fromString(acrm._2.toString), isPreflight = true),
                 ),
               ),
             ),
@@ -296,24 +281,24 @@ object Middleware {
   /**
    * Creates a new middleware using transformation functions
    */
-  def make[S](req: (Method, URL, List[Header]) => S): PartiallyAppliedMake[S] = PartiallyAppliedMake(req)
+  def make[S](req: (Method, URL, Headers) => S): PartiallyAppliedMake[S] = PartiallyAppliedMake(req)
 
   /**
    * Creates a new middleware using effectful transformation functions
    */
-  def makeM[R, E, S](req: (Method, URL, List[Header]) => ZIO[R, Option[E], S]): PartiallyAppliedMakeM[R, E, S] =
+  def makeM[R, E, S](req: (Method, URL, Headers) => ZIO[R, Option[E], S]): PartiallyAppliedMakeM[R, E, S] =
     PartiallyAppliedMakeM(req)
 
   /**
    * Creates a middleware that produces a Patch for the Response
    */
-  def patch[R, E](f: (Status, List[Header]) => Patch): Middleware[R, E] =
+  def patch[R, E](f: (Status, Headers) => Patch): Middleware[R, E] =
     Middleware.make((_, _, _) => ())((status, headers, _) => f(status, headers))
 
   /**
    * Creates a middleware that produces a Patch for the Response effectfully.
    */
-  def patchM[R, E](f: (Status, List[Header]) => ZIO[R, Option[E], Patch]): Middleware[R, E] =
+  def patchM[R, E](f: (Status, Headers) => ZIO[R, Option[E], Patch]): Middleware[R, E] =
     Middleware.makeM((_, _, _) => ZIO.unit)((status, headers, _) => f(status, headers))
 
   /**
@@ -369,7 +354,7 @@ object Middleware {
   def whenM[R, E](cond: RequestP[ZIO[R, E, Boolean]])(middleware: Middleware[R, E]): Middleware[R, E] =
     ifThenElseM(cond)(middleware, Middleware.identity)
 
-  type RequestP[+A] = (Method, URL, List[Header]) => A
+  type RequestP[+A] = (Method, URL, Headers) => A
 
   /**
    * Applies the middleware on an HttpApp
@@ -418,31 +403,30 @@ object Middleware {
 
   final case class Flag(withEmpty: Boolean = false)
 
-  final case class PartiallyAppliedMake[S](req: (Method, URL, List[Header]) => S) extends AnyVal {
-    def apply(res: (Status, List[Header], S) => Patch): Middleware[Any, Nothing] =
+  final case class PartiallyAppliedMake[S](req: (Method, URL, Headers) => S) extends AnyVal {
+    def apply(res: (Status, Headers, S) => Patch): Middleware[Any, Nothing] =
       TransformM[Any, Nothing, S](
         (method, url, headers) => UIO(req(method, url, headers)),
         (status, headers, state) => UIO(res(status, headers, state)),
       )
   }
 
-  final case class PartiallyAppliedMakeM[R, E, S](req: (Method, URL, List[Header]) => ZIO[R, Option[E], S])
-      extends AnyVal {
-    def apply[R1 <: R, E1 >: E](res: (Status, List[Header], S) => ZIO[R1, Option[E1], Patch]): Middleware[R1, E1] =
+  final case class PartiallyAppliedMakeM[R, E, S](req: (Method, URL, Headers) => ZIO[R, Option[E], S]) extends AnyVal {
+    def apply[R1 <: R, E1 >: E](res: (Status, Headers, S) => ZIO[R1, Option[E1], Patch]): Middleware[R1, E1] =
       TransformM(req, res)
   }
 
   private final case class EmptyFlag[R, E](mid: Middleware[R, E], status: Boolean) extends Middleware[R, E]
 
   private final case class TransformM[R, E, S](
-    req: (Method, URL, List[Header]) => ZIO[R, Option[E], S],
-    res: (Status, List[Header], S) => ZIO[R, Option[E], Patch],
+    req: (Method, URL, Headers) => ZIO[R, Option[E], S],
+    res: (Status, Headers, S) => ZIO[R, Option[E], Patch],
   ) extends Middleware[R, E]
 
   private final case class Combine[R, E](self: Middleware[R, E], other: Middleware[R, E]) extends Middleware[R, E]
 
   private final case class FromFunctionM[R, E](
-    f: (Method, URL, List[Header]) => ZIO[R, Option[E], Middleware[R, E]],
+    f: (Method, URL, Headers) => ZIO[R, Option[E], Middleware[R, E]],
   ) extends Middleware[R, E]
 
   private final case class Race[R, E](self: Middleware[R, E], other: Middleware[R, E]) extends Middleware[R, E]
