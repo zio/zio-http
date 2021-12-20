@@ -1,7 +1,8 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaderValues, HttpHeaders}
+import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaders, HttpHeaderValues}
 import zhttp.http.HeaderExtension.BasicSchemeName
+import zio.Chunk
 
 import java.util.Base64
 import scala.jdk.CollectionConverters._
@@ -10,13 +11,16 @@ import scala.jdk.CollectionConverters._
  * TODO: use Chunk instead of List TODO: use Tuple2 instead of Header
  */
 
-final case class Headers(toList: List[Header]) extends HeaderExtension[Headers] {
+final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers] {
   self =>
+
+  def toList: List[Header] = toChunk.toList
+
   def ++(other: Headers): Headers = self.combine(other)
 
-  def combine(other: Headers): Headers = Headers(self.toList ++ other.toList)
+  def combine(other: Headers): Headers = Headers(self.toChunk ++ other.toChunk)
 
-  def combineIf(cond: Boolean)(other: Headers): Headers = if (cond) Headers(self.toList ++ other.toList) else self
+  def combineIf(cond: Boolean)(other: Headers): Headers = if (cond) Headers(self.toChunk ++ other.toChunk) else self
 
   override def getHeaders: Headers = self
 
