@@ -170,35 +170,34 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       } +
       suite("addCookie middleware") {
         testM("should add set-cookie header") {
-          val app = Http.ok @@ addCookie(Cookie("test", "testValue"))
-          assertM(app(Request()).map(res => {
-            res.headers.filter(h => h.name == HttpHeaderNames.SET_COOKIE)
-          }))(
-            equalTo(List(Header(HttpHeaderNames.SET_COOKIE, "test=testValue"))),
+          val app: Http[Any, Nothing, Request, Option[String]] =
+            (Http.ok @@ addCookie(Cookie("test", "testValue"))).getHeader("set-cookie")
+          assertM(app(Request()))(
+            equalTo(Some("test=testValue")),
           )
         } +
           testM("should add set cookie header with value produced by effect") {
-            val app = Http.ok @@ addCookieM(UIO(Cookie("test", "testValue")))
-            assertM(app(Request()).map(res => {
-              res.headers.filter(h => h.name == HttpHeaderNames.SET_COOKIE)
-            }))(
-              equalTo(List(Header(HttpHeaderNames.SET_COOKIE, "test=testValue"))),
+            val app = (Http.ok @@ addCookieM(UIO(Cookie("test", "testValue")))).getHeader("set-cookie")
+            assertM(app(Request()))(
+              equalTo(Some("test=testValue")),
             )
           }
       } +
       suite("CSRF middleware") {
-        val app          = Http.ok @@ csrf("x-token", "token")
+        val app          = (Http.ok @@ csrf("x-token", "token")).getStatus
         val cookieHeader = Header(HttpHeaderNames.COOKIE, Cookie("token", "secret").encode)
         testM("should give forbidden if token is not present in header") {
-          assertM(app(Request(headers = List(cookieHeader))).map(res => res.status))(equalTo(Status.FORBIDDEN))
+          assertM(app(Request(headers = List(cookieHeader))))(equalTo(Status.FORBIDDEN))
         } +
           testM("should give forbidden if token is present in header but doesn't match with token cookie") {
-            assertM(app(Request(headers = List(cookieHeader, Header("x-token", "secret1")))).map(res => res.status))(
+            assertM(
+              app(Request(headers = List(cookieHeader, Header("x-token", "secret1")))),
+            )(
               equalTo(Status.FORBIDDEN),
             )
           } +
           testM("should give OK if token present in header matches token present in cookie") {
-            assertM(app(Request(headers = List(cookieHeader, Header("x-token", "secret")))).map(res => res.status))(
+            assertM(app(Request(headers = List(cookieHeader, Header("x-token", "secret")))))(
               equalTo(Status.OK),
             )
           }
