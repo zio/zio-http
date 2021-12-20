@@ -1,6 +1,5 @@
 package zhttp.middleware
 
-import zhttp.http.Middleware.cors
 import zhttp.http._
 import zhttp.internal.HttpAppTestExtensions
 import zio.clock.Clock
@@ -11,34 +10,6 @@ import zio.test.{DefaultRunnableSpec, assert, assertM}
 import zio.{UIO, ZIO, console}
 
 object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
-  def cond(flg: Boolean) = (_: Any, _: Any, _: Any) => flg
-
-  def condM(flg: Boolean) = (_: Any, _: Any, _: Any) => UIO(flg)
-
-  def corsSpec = suite("cors") {
-    testM("options request") {
-      val app      = Http.collect[Request] { case Method.GET -> !! / "success" => Response.ok } @@ cors()
-      val headers  = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env")
-      val res      = app(Request(headers = headers)).map(_.getHeadersAsList)
-      val expected = (
-        Headers.accessControlAllowCredentials(true) ++
-          Headers.accessControlAllowMethods(Method.GET) ++
-          Headers.accessControlAllowOrigin("test-env") ++
-          Headers.accessControlAllowHeaders(CORS.DefaultCORSConfig.allowedHeaders.getOrElse(Set.empty).mkString(", "))
-      ).getHeadersAsList
-
-      assertM(res)(hasSubset(expected))
-    }
-  }
-
-  def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response[R, E]] = {
-    for {
-      fib <- app { Request(url = URL(!! / "health")) }.fork
-      _   <- TestClock.adjust(10 seconds)
-      res <- fib.join
-    } yield res
-  }
-
   def spec = suite("HttpMiddleware") {
     import Middleware._
 
@@ -146,7 +117,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
               val app = (Http.ok @@ basicAuthM).getStatus
               assertM(app(Request().addHeader(basicHF)))(equalTo(Status.FORBIDDEN))
             } +
-            testM("Responses sould have WWW-Authentication header if Basic Auth failed") {
+            testM("Responses should have WWW-Authentication header if Basic Auth failed") {
               val app = Http.ok @@ basicAuthM getHeader "WWW-AUTHENTICATE"
               assertM(app(Request().addHeader(basicHF)))(isSome)
             }
@@ -201,10 +172,21 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   private val app: HttpApp[Any with Clock, Nothing] = Http.collectM[Request] { case Method.GET -> !! / "health" =>
     UIO(Response.ok).delay(1 second)
   }
+  private val midA                                  = Middleware.addHeader("X-Custom", "A")
+  private val midB                                  = Middleware.addHeader("X-Custom", "B")
+  private val basicHS                               = Headers.basicHttpAuthorization("user", "resu")
+  private val basicHF                               = Headers.basicHttpAuthorization("user", "user")
+  private val basicAuthM                            = Middleware.basicAuth { case (u, p) => p.toString.reverse == u }
 
-  private val midA       = Middleware.addHeader("X-Custom", "A")
-  private val midB       = Middleware.addHeader("X-Custom", "B")
-  private val basicHS    = Headers.basicHttpAuthorization("user", "resu")
-  private val basicHF    = Headers.basicHttpAuthorization("user", "user")
-  private val basicAuthM = Middleware.basicAuth { case (u, p) => p.toString.reverse == u }
+  private def cond(flg: Boolean) = (_: Any, _: Any, _: Any) => flg
+
+  private def condM(flg: Boolean) = (_: Any, _: Any, _: Any) => UIO(flg)
+
+  private def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response[R, E]] = {
+    for {
+      fib <- app { Request(url = URL(!! / "health")) }.fork
+      _   <- TestClock.adjust(10 seconds)
+      res <- fib.join
+    } yield res
+  }
 }
