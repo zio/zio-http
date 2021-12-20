@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import zhttp.http.HeaderExtension.BearerSchemeName
 import zhttp.http.Headers._
 import zio.test.Assertion._
-import zio.test.{DefaultRunnableSpec, Gen, assert, check}
+import zio.test.{assert, check, DefaultRunnableSpec, Gen}
 
 object HeaderSpec extends DefaultRunnableSpec {
   def spec = suite("Header")(
@@ -61,75 +61,75 @@ object HeaderSpec extends DefaultRunnableSpec {
             assert(actual)(isNone)
           },
       ) +
-      suite("isJsonContentType")(
+      suite("hasJsonContentType")(
         test("should return true if content-type is application/json") {
-          val actual = contentTypeJson.isJsonContentType
+          val actual = contentTypeJson.hasJsonContentType
           assert(actual)(isTrue)
         } +
           test("should return false if content-type is not application/json") {
-            val actual = contentTypeXml.isJsonContentType
+            val actual = contentTypeXml.hasJsonContentType
             assert(actual)(isFalse)
           } +
           test("should return false if content-type doesn't exist") {
             val headers = acceptJson
-            val actual  = headers.isJsonContentType
+            val actual  = headers.hasJsonContentType
             assert(actual)(isFalse)
           },
       ) +
       suite("isPlainTextContentType")(
         test("should return true if content-type is text/plain") {
-          val actual = contentTypeTextPlain.isTextPlainContentType
+          val actual = contentTypeTextPlain.hasTextPlainContentType
           assert(actual)(isTrue)
         } +
           test("should return false if content-type is not text/plain") {
-            val actual = contentTypeXml.isTextPlainContentType
+            val actual = contentTypeXml.hasTextPlainContentType
             assert(actual)(isFalse)
           } +
           test("should return false if content-type doesn't exist") {
-            val actual = acceptJson.isTextPlainContentType
+            val actual = acceptJson.hasTextPlainContentType
             assert(actual)(isFalse)
           },
       ) +
       suite("isXmlContentType")(
         test("should return true if content-type is application/xml") {
-          val actual = contentTypeXml.isXmlContentType
+          val actual = contentTypeXml.hasXmlContentType
           assert(actual)(isTrue)
         } +
           test("should return false if content-type is not application/xml") {
-            val actual = contentTypeTextPlain.isXmlContentType
+            val actual = contentTypeTextPlain.hasXmlContentType
             assert(actual)(isFalse)
           } +
           test("should return false if content-type doesn't exist") {
             val headers = acceptJson
-            val actual  = headers.isXmlContentType
+            val actual  = headers.hasXmlContentType
             assert(actual)(isFalse)
           },
       ) +
       suite("isXhtmlXmlContentType")(
         test("should return true if content-type is application/xhtml+xml") {
-          val actual = contentTypeXhtmlXml.isXhtmlXmlContentType
+          val actual = contentTypeXhtmlXml.hasXhtmlXmlContentType
           assert(actual)(isTrue)
         } +
           test("should return false if content-type is not application/xhtml+xml") {
-            val actual = contentTypeTextPlain.isXhtmlXmlContentType
+            val actual = contentTypeTextPlain.hasXhtmlXmlContentType
             assert(actual)(isFalse)
           } +
           test("should return false if content-type doesn't exist") {
-            val actual = acceptJson.isXhtmlXmlContentType
+            val actual = acceptJson.hasXhtmlXmlContentType
             assert(actual)(isFalse)
           },
       ) +
       suite("isFormUrlencodedContentType")(
         test("should return true if content-type is application/x-www-form-urlencoded") {
-          val actual = contentTypeFormUrlEncoded.isFormUrlencodedContentType
+          val actual = contentTypeFormUrlEncoded.hasFormUrlencodedContentType
           assert(actual)(isTrue)
         } +
           test("should return false if content-type is not application/x-www-form-urlencoded") {
-            val actual = contentTypeTextPlain.isFormUrlencodedContentType
+            val actual = contentTypeTextPlain.hasFormUrlencodedContentType
             assert(actual)(isFalse)
           } +
           test("should return false if content-type doesn't exist") {
-            val actual = acceptJson.isFormUrlencodedContentType
+            val actual = acceptJson.hasFormUrlencodedContentType
             assert(actual)(isFalse)
           },
       ) +
@@ -219,5 +219,11 @@ object HeaderSpec extends DefaultRunnableSpec {
 
   private def customHeaders: Headers = Headers(customContentJsonHeader) ++ Headers(customAcceptJsonHeader)
 
-  private def predefinedHeaders: Headers = acceptJson ++ contentTypeJson
+  import HeaderName._
+  import HeaderValue._
+
+  private def predefinedHeaders: Headers = Headers {
+    `accept`       -> `application/json`
+    `content-type` -> `application/json`
+  }
 }
