@@ -10,7 +10,7 @@ import java.nio.charset.Charset
 
 final case class Response[-R, +E] private (
   status: Status,
-  headers: List[Header],
+  headers: Headers,
   data: HttpData[R, E],
   private[zhttp] val attribute: Response.Attribute[R, E],
 ) extends HeaderExtension[Response[R, E]] { self =>
@@ -19,9 +19,9 @@ final case class Response[-R, +E] private (
    * Adds cookies in the response headers
    */
   def addCookie(cookie: Cookie): Response[R, E] =
-    self.copy(headers = self.getHeaders ++ List(Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.encode)))
+    self.copy(headers = self.getHeaders ++ Headers(HttpHeaderNames.SET_COOKIE.toString, cookie.encode))
 
-  override def getHeaders: List[Header] = headers
+  override def getHeaders: Headers = headers
 
   /**
    * Caches the encoded response as buffer. This is a "best effort" cache and doesn't always guarantee performance
@@ -44,7 +44,7 @@ final case class Response[-R, +E] private (
   /**
    * Updates the headers using the provided function
    */
-  override def updateHeaders(f: List[Header] => List[Header]): Response[R, E] =
+  override def updateHeaders(f: Headers => Headers): Response[R, E] =
     self.copy(headers = f(self.getHeaders))
 
   /**
@@ -62,14 +62,14 @@ object Response {
 
   def apply[R, E](
     status: Status = Status.OK,
-    headers: List[Header] = Nil,
+    headers: Headers = Headers.empty,
     data: HttpData[R, E] = HttpData.Empty,
   ): Response[R, E] = {
     val size      = data.unsafeSize
     val isChunked = data.isChunked
 
-    val contentLength    = if (size >= 0) Header.contentLength(size) :: Nil else Nil
-    val transferEncoding = if (isChunked) Header.transferEncodingChunked :: Nil else Nil
+    val contentLength    = if (size >= 0) Headers.contentLength(size) else Headers.empty
+    val transferEncoding = if (isChunked) Headers.transferEncodingChunked else Headers.empty
 
     Response(status, headers ++ transferEncoding ++ contentLength, data, Attribute.empty)
   }
@@ -79,13 +79,14 @@ object Response {
       case cause: HTTPErrorWithCause =>
         Response(
           error.status,
-          Nil,
+          Headers.empty,
           HttpData.fromText(cause.cause match {
             case Some(throwable) => Util.prettyPrintHtml(throwable)
             case None            => cause.message
           }),
         )
-      case _ => Response(error.status, Nil, HttpData.fromChunk(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
+      case _                         =>
+        Response(error.status, Headers.empty, HttpData.fromChunk(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
     }
   }
 
@@ -95,13 +96,13 @@ object Response {
   def html(data: String): UResponse =
     Response(
       data = HttpData.fromText(data),
-      headers = List(Header.contentTypeHtml),
+      headers = Headers.contentTypeHtml,
     )
 
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
   def http[R, E](
     status: Status = Status.OK,
-    headers: List[Header] = Nil,
+    headers: Headers = Headers.empty,
     data: HttpData[R, E] = HttpData.empty,
   ): Response[R, E] = Response(status, headers, data)
 
@@ -111,7 +112,7 @@ object Response {
   def jsonString(data: String): UResponse =
     Response(
       data = HttpData.fromChunk(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
-      headers = List(Header.contentTypeJson),
+      headers = Headers.contentTypeJson,
     )
 
   /**
@@ -124,14 +125,14 @@ object Response {
    */
   def redirect(location: String, isPermanent: Boolean = false): Response[Any, Nothing] = {
     val status = if (isPermanent) Status.PERMANENT_REDIRECT else Status.TEMPORARY_REDIRECT
-    Response(status, List(Header.location(location)))
+    Response(status, Headers.location(location))
   }
 
   /**
    * Creates a socket response using an app
    */
   def socket[R, E](app: SocketApp[R, E]): Response[R, E] =
-    Response(Status.SWITCHING_PROTOCOLS, Nil, HttpData.empty, Attribute(socketApp = app))
+    Response(Status.SWITCHING_PROTOCOLS, Headers.empty, HttpData.empty, Attribute(socketApp = app))
 
   /**
    * Creates a new WebSocket Response
@@ -150,7 +151,7 @@ object Response {
   def text(text: String, charset: Charset = HTTP_CHARSET): UResponse =
     Response(
       data = HttpData.fromText(text, charset),
-      headers = List(Header.contentTypeTextPlain),
+      headers = Headers.contentTypeTextPlain,
     )
 
   /**
