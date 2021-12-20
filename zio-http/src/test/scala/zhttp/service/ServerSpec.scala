@@ -98,7 +98,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val res = Http.data(data).requestBodyAsString()
         assertM(res)(equalTo(string))
       }
-    } +
+    } @@ ignore +
       testM("status") {
         checkAllM(HttpGen.status) { case (status) =>
           val res = Http.status(status).requestStatus()

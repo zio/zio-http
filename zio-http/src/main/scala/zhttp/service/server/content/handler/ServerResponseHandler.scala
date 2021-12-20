@@ -27,37 +27,44 @@ import zio.stream.ZStream
  */
 @Sharable
 private[zhttp] case class ServerResponseHandler[R](runtime: HttpRuntime[R], serverTime: ServerTimeGenerator)
-    extends SimpleChannelInboundHandler[Either[Throwable, Response[R, Throwable]]](true) {
+    extends SimpleChannelInboundHandler[Either[Throwable, Response[R, Throwable]]](false) {
   override def channelRead0(ctx: ChannelHandlerContext, response: Either[Throwable, Response[R, Throwable]]): Unit = {
+    try {
+      response match {
+        case Left(err)               =>
+          ctx.writeAndFlush(serverErrorResponse(err))
+        case Right(internalResponse) =>
+          internalResponse.status match {
+            case Status.NOT_FOUND =>
+              ctx.writeAndFlush(notFoundResponse)
+//            case Status.NO_CONTENT =>
+//              ctx.writeAndFlush(
+//                LastHttpContent.EMPTY_LAST_CONTENT,
+//              )
+            case Status.OK        =>
+              internalResponse.data match {
+                case HttpData.Empty                => ctx.writeAndFlush(decodeResponse(internalResponse))
+                case HttpData.Text(_, _)           =>
+                  ctx.write(decodeResponse(internalResponse))
+                case HttpData.BinaryByteBuf(data)  =>
+                  ctx.writeAndFlush(new DefaultLastHttpContent(data))
+                case HttpData.BinaryStream(stream) =>
+                  runtime.unsafeRun(ctx) {
+                    writeStreamContent(stream)(ctx)
+                  }
 
-    response match {
-      case Left(err)               =>
-        ctx.writeAndFlush(serverErrorResponse(err))
-      case Right(internalResponse) =>
-        internalResponse.status match {
-          case Status.NOT_FOUND  =>
-            ctx.writeAndFlush(notFoundResponse)
-          case Status.NO_CONTENT =>
-            ctx.writeAndFlush(
-              LastHttpContent.EMPTY_LAST_CONTENT,
-            )
-          case Status.OK         =>
-            internalResponse.data match {
-              case HttpData.BinaryStream(stream) =>
-                runtime.unsafeRun(ctx) {
-                  writeStreamContent(stream)(ctx)
-                }
-              case HttpData.Empty                => ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-              case HttpData.BinaryByteBuf(data)  =>
-                ctx.writeAndFlush(new DefaultLastHttpContent(data.touch()))
-              case data @ HttpData.Text(_, _)    =>
-                ctx.write(new DefaultLastHttpContent(data.encodeAndCache(false)))
-              case _                             => ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-            }
+                case HttpData.BinaryChunk(data) =>
+                  ctx.writeAndFlush(data)
 
-          case _ =>
-            ctx.writeAndFlush(decodeResponse(internalResponse))
-        }
+                case _ => ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+              }
+
+            case _ =>
+              ctx.writeAndFlush(decodeResponse(internalResponse))
+          }
+      }
+    } catch {
+      case err: Throwable => println(err)
     }
 
     ()
@@ -109,13 +116,9 @@ private[zhttp] case class ServerResponseHandler[R](runtime: HttpRuntime[R], serv
     stream: ZStream[R, Throwable, ByteBuf],
   )(implicit ctx: ChannelHandlerContext): ZIO[R, Throwable, Unit] = {
     for {
-      _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
+      _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c))).tap(i => ZIO(println(i)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
   }
 
-}
-
-object ServerResponseHandler {
-  final case class ZHttpResponse[R](response: Either[Throwable, Response[R, Throwable]])
 }

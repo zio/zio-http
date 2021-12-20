@@ -40,7 +40,7 @@ sealed trait Server[-R, +E] { self =>
 
 object Server {
   private[zhttp] final case class Config[-R, +E](
-    leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
+    leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.PARANOID,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
 
     // TODO: add error handler
