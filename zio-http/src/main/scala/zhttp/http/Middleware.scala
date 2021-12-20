@@ -4,7 +4,6 @@ import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.util.AsciiString
 import io.netty.util.AsciiString.toLowerCase
 import zhttp.http.CORS.DefaultCORSConfig
-import zhttp.http.HeaderExtension.Only
 import zhttp.http.Middleware.{Flag, RequestP}
 import zio.clock.Clock
 import zio.console.Console
@@ -101,11 +100,9 @@ object Middleware {
    */
   def basicAuth[R, E](f: (String, String) => Boolean): Middleware[R, E] =
     auth(
-      { headers =>
-        HeaderExtension(headers).getBasicAuthorizationCredentials match {
-          case Some((username, password)) => f(username, password)
-          case None                       => false
-        }
+      _.getBasicAuthorizationCredentials match {
+        case Some((username, password)) => f(username, password)
+        case None                       => false
       },
       Headers(HttpHeaderNames.WWW_AUTHENTICATE, HeaderExtension.BasicSchemeName),
     )
@@ -249,10 +246,8 @@ object Middleware {
   /**
    * Logical operator to decide which middleware to select based on the header
    */
-  def ifHeader[R, E](
-    cond: HeaderExtension[Only] => Boolean,
-  )(left: Middleware[R, E], right: Middleware[R, E]): Middleware[R, E] =
-    ifThenElse((_, _, headers) => cond(HeaderExtension(headers)))(left, right)
+  def ifHeader[R, E](cond: Headers => Boolean)(left: Middleware[R, E], right: Middleware[R, E]): Middleware[R, E] =
+    ifThenElse((_, _, headers) => cond(headers))(left, right)
 
   /**
    * Logical operator to decide which middleware to select based on the predicate.
@@ -339,14 +334,14 @@ object Middleware {
   /**
    * Applies the middleware only when the condition for the headers are true
    */
-  def whenHeader[R, E](cond: HeaderExtension[Only] => Boolean, other: Middleware[R, E]): Middleware[R, E] =
-    when((_, _, headers) => cond(HeaderExtension(headers)))(other)
+  def whenHeader[R, E](cond: Headers => Boolean, other: Middleware[R, E]): Middleware[R, E] =
+    when((_, _, headers) => cond(headers))(other)
 
   /**
    * Switches control to the app only when the condition for the headers are true
    */
-  def whenHeader[R, E](cond: HeaderExtension[Only] => Boolean, other: HttpApp[R, E]): Middleware[R, E] =
-    when((_, _, headers) => cond(HeaderExtension(headers)))(Middleware.fromApp(other))
+  def whenHeader[R, E](cond: Headers => Boolean, other: HttpApp[R, E]): Middleware[R, E] =
+    when((_, _, headers) => cond(headers))(Middleware.fromApp(other))
 
   /**
    * Applies the middleware only if the condition function effectfully evaluates to true

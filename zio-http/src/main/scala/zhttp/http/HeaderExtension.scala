@@ -158,15 +158,6 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
 }
 
 object HeaderExtension {
-  def apply(headers: Headers): HeaderExtension[Only] = Only(headers)
-
-  def empty: HeaderExtension[Only] = Only(Headers.empty)
-
   val BasicSchemeName  = "Basic"
   val BearerSchemeName = "Bearer"
-
-  // TODO: deprecate and use Headers
-  case class Only(getHeaders: Headers) extends HeaderExtension[Only] {
-    override def updateHeaders(f: Headers => Headers): Only = Only(f(getHeaders))
-  }
 }
