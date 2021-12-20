@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import zhttp.http.HeaderExtension.BearerSchemeName
 import zhttp.http.Headers._
 import zio.test.Assertion._
-import zio.test.{DefaultRunnableSpec, Gen, assert, check}
+import zio.test.{assert, check, DefaultRunnableSpec, Gen}
 
 object HeaderSpec extends DefaultRunnableSpec {
   def spec = suite("Header")(
@@ -213,8 +213,11 @@ object HeaderSpec extends DefaultRunnableSpec {
       },
   )
 
-  private val predefinedHeaders: Headers = acceptJson ++ contentTypeJson
-  private val customHeaders: Headers     = Headers(customAcceptJsonHeader) ++ Headers(customAcceptJsonHeader)
-  private def customAcceptJsonHeader     = ("accept", "application/json")
-  private def customContentJsonHeader    = ("content-type", "application/json")
+  private def customAcceptJsonHeader = ("accept", "application/json")
+
+  private def customContentJsonHeader = ("content-type", "application/json")
+
+  private def customHeaders: Headers = Headers(customContentJsonHeader) ++ Headers(customAcceptJsonHeader)
+
+  private def predefinedHeaders: Headers = acceptJson ++ contentTypeJson
 }
