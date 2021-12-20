@@ -2,7 +2,7 @@ package zhttp.http
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaderValues, HttpHeaders}
 import zhttp.http.HeaderExtension.BasicSchemeName
-import zhttp.http.Headers.Names.H
+import zhttp.http.Headers.Types.H
 import zio.Chunk
 
 import java.util.Base64
@@ -227,7 +227,7 @@ object Headers {
   private[zhttp] def decode(headers: HttpHeaders): Headers =
     Headers(headers.entries().asScala.toList.map(entry => (entry.getKey, entry.getValue)))
 
-  object Names {
+  object Types {
     val `application/json`: CharSequence                  = HttpHeaderValues.APPLICATION_JSON
     val `application/x-www-form-urlencoded`: CharSequence = HttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED
     val `application/octet-stream`: CharSequence          = HttpHeaderValues.APPLICATION_OCTET_STREAM
