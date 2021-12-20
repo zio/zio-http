@@ -1,10 +1,10 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
-import zhttp.http.HeaderExtension.BearerSchemeName
+import zhttp.http.Headers.BearerSchemeName
 import zhttp.http.Headers.Types._
 import zio.test.Assertion._
-import zio.test.{DefaultRunnableSpec, Gen, assert, check}
+import zio.test.{assert, check, DefaultRunnableSpec, Gen}
 
 object HeaderSpec extends DefaultRunnableSpec {
 

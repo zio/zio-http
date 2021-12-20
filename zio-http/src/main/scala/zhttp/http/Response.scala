@@ -4,6 +4,7 @@ import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
 import zhttp.core.Util
 import zhttp.http.Headers.Types._
 import zhttp.http.HttpError.HTTPErrorWithCause
+import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
 

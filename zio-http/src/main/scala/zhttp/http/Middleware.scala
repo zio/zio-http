@@ -2,11 +2,12 @@ package zhttp.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.CORS.DefaultCORSConfig
+import zhttp.http.Headers.BasicSchemeName
 import zhttp.http.Middleware.{Flag, RequestP}
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
-import zio.{UIO, ZIO, clock, console}
+import zio.{clock, console, UIO, ZIO}
 
 import java.io.IOException
 
@@ -103,7 +104,7 @@ object Middleware {
         case Some(header) => f(header)
         case None         => false
       },
-      Headers(HttpHeaderNames.WWW_AUTHENTICATE, HeaderExtension.BasicSchemeName),
+      Headers(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName),
     )
 
   /**

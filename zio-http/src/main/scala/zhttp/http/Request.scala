@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
+import zhttp.http.headers.HeaderExtension
 import zio.{Chunk, Task, ZIO}
 
 import java.net.InetAddress
