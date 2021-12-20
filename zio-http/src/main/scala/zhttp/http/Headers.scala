@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaders, HttpHeaderValues}
+import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaderValues, HttpHeaders}
 import zhttp.http.HeaderExtension.BasicSchemeName
 
 import java.util.Base64
@@ -24,6 +24,13 @@ final case class Headers(toList: List[(CharSequence, CharSequence)]) extends Hea
 
   def when(cond: Boolean): Headers = if (cond) self else Headers.empty
 
+  /**
+   * Converts a Headers to [io.netty.handler.codec.http.HttpHeaders]
+   */
+  private[zhttp] def encode: HttpHeaders =
+    self.toList.foldLeft[HttpHeaders](new DefaultHttpHeaders()) { case (headers, entry) =>
+      headers.set(entry._1, entry._2)
+    }
 }
 
 object Headers {
@@ -62,16 +69,6 @@ object Headers {
 
   def createAuthorizationHeader(value: String): Headers = Headers(HttpHeaderNames.AUTHORIZATION, value)
 
-  /**
-   * Converts a Headers to [io.netty.handler.codec.http.HttpHeaders]
-   *
-   * TODO: move up as a method, make package private, rename to encode
-   */
-  def disassemble(headers: Headers): HttpHeaders =
-    headers.toList.foldLeft[HttpHeaders](new DefaultHttpHeaders()) { case (headers, entry) =>
-      headers.set(entry._1, entry._2)
-    }
-
   def host(name: String): Headers = Headers(HttpHeaderNames.HOST, name)
 
   def ifThenElse(cond: Boolean)(onTrue: => Headers, onFalse: => Headers): Headers = if (cond) onTrue else onFalse
@@ -88,10 +85,7 @@ object Headers {
 
   def origin(str: String): Headers = Headers(HttpHeaderNames.ORIGIN, str)
 
-  /**
-   * TODO: rename to decode
-   */
-  def parse(headers: HttpHeaders): Headers =
+  private[zhttp] def decode(headers: HttpHeaders): Headers =
     Headers(headers.entries().asScala.toList.map(entry => (entry.getKey, entry.getValue)))
 
   def setCookie(cookie: Cookie): Headers = Headers(HttpHeaderNames.SET_COOKIE, cookie.encode)

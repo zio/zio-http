@@ -11,38 +11,41 @@ import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 private[zhttp] trait HeaderExtension[+A] { self: A =>
-  final def addHeader(header: Header): A = addHeaders(List(header))
 
-  final def addHeader(name: CharSequence, value: CharSequence): A = addHeader(Header(name, value))
+  final def addHeader(header: Headers): A = addHeaders(header)
 
-  final def addHeaders(headers: List[Header]): A = updateHeaders(list => list ++ headers)
+  final def addHeader(name: CharSequence, value: CharSequence): A = addHeader(Headers(name, value))
+
+  final def addHeaders(headers: Headers): A = updateHeaders(list => list ++ headers)
 
   final def getAuthorization: Option[String] =
     getHeaderValue(HttpHeaderNames.AUTHORIZATION)
 
   final def getBasicAuthorizationCredentials: Option[(String, String)] = {
-    getAuthorization.flatMap(v => {
-      val indexOfBasic = v.indexOf(BasicSchemeName)
-      if (indexOfBasic != 0 || v.length == BasicSchemeName.length)
-        None
-      else {
-        try {
-          val encoded = v.substring(BasicSchemeName.length + 1)
-          decodeHttpBasic(encoded)
-        } catch {
-          case NonFatal(_) => None
+    getAuthorization
+      .flatMap(v => {
+        val indexOfBasic = v.indexOf(BasicSchemeName)
+        if (indexOfBasic != 0 || v.length == BasicSchemeName.length)
+          None
+        else {
+          try {
+            val encoded = v.substring(BasicSchemeName.length + 1)
+            decodeHttpBasic(encoded)
+          } catch {
+            case NonFatal(_) => None
+          }
         }
-      }
-    })
+      })
   }
 
-  final def getBearerToken: Option[String] = getAuthorization.flatMap(v => {
-    val indexOfBearer = v.indexOf(BearerSchemeName)
-    if (indexOfBearer != 0 || v.length == BearerSchemeName.length)
-      None
-    else
-      Some(v.substring(BearerSchemeName.length + 1))
-  })
+  final def getBearerToken: Option[String] = getAuthorization
+    .flatMap(v => {
+      val indexOfBearer = v.indexOf(BearerSchemeName)
+      if (indexOfBearer != 0 || v.length == BearerSchemeName.length)
+        None
+      else
+        Some(v.substring(BearerSchemeName.length + 1))
+    })
 
   final def getCharset: Charset =
     getHeaderValue(HttpHeaderNames.CONTENT_TYPE) match {
@@ -65,16 +68,20 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
 
   final def getCookiesRaw(implicit ev: HasCookie[A]): List[CharSequence] = ev.headers(self)
 
-  final def getHeader(headerName: CharSequence): Option[Header] =
-    getHeaders.find(h => contentEqualsIgnoreCase(h.name, headerName))
+  final def getHeader(headerName: CharSequence): Option[(String, String)] =
+    getHeaders.toList
+      .find(h => contentEqualsIgnoreCase(h._1, headerName))
+      .map { case (name, value) => (name.toString, value.toString) }
 
   final def getHeaderValue(headerName: CharSequence): Option[String] =
-    getHeader(headerName).map(_.value.toString)
+    getHeader(headerName).map(_._2.toString)
 
   final def getHeaderValues(headerName: CharSequence): List[String] =
-    getHeaders.filter(h => contentEqualsIgnoreCase(h.name, headerName)).map(_.value.toString)
+    getHeaders.toList.collect { case h if contentEqualsIgnoreCase(h._1, headerName) => h._2.toString }
 
-  def getHeaders: List[Header]
+  def getHeaders: Headers
+
+  final def getHeadersAsList: List[(CharSequence, CharSequence)] = self.getHeaders.toList
 
   final def hasHeader(name: CharSequence, value: CharSequence): Boolean =
     getHeaderValue(name) match {
@@ -103,15 +110,15 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
   final def removeHeader(name: String): A = removeHeaders(List(name))
 
   final def removeHeaders(headers: List[String]): A =
-    updateHeaders(orig => orig.filterNot(h => headers.contains(h.name)))
+    updateHeaders(orig => Headers(orig.toList.filterNot(h => headers.contains(h._1))))
 
   final def setChunkedEncoding: A =
-    addHeader(Header(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED))
+    addHeader(Headers(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED))
 
   final def setContentLength(value: Long): A =
-    addHeader(Header(HttpHeaderNames.CONTENT_LENGTH, value.toString))
+    addHeader(Headers(HttpHeaderNames.CONTENT_LENGTH, value.toString))
 
-  def updateHeaders(f: List[Header] => List[Header]): A
+  def updateHeaders(f: Headers => Headers): A
 
   private def checkContentType(value: AsciiString): Boolean =
     getContentType
@@ -151,14 +158,15 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
 }
 
 object HeaderExtension {
-  def apply(headers: List[Header]): HeaderExtension[Only] = Only(headers)
+  def apply(headers: Headers): HeaderExtension[Only] = Only(headers)
 
-  def empty: HeaderExtension[Only] = Only(Nil)
+  def empty: HeaderExtension[Only] = Only(Headers.empty)
 
   val BasicSchemeName  = "Basic"
   val BearerSchemeName = "Bearer"
 
-  case class Only(getHeaders: List[Header]) extends HeaderExtension[Only] {
-    override def updateHeaders(f: List[Header] => List[Header]): Only = Only(f(getHeaders))
+  // TODO: deprecate and use Headers
+  case class Only(getHeaders: Headers) extends HeaderExtension[Only] {
+    override def updateHeaders(f: Headers => Headers): Only = Only(f(getHeaders))
   }
 }
