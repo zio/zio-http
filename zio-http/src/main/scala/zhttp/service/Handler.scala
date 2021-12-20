@@ -203,7 +203,7 @@ private[zhttp] final case class Handler[R](
   private def unsafeWriteStreamContent[A](
     stream: ZStream[R, Throwable, ByteBuf],
   )(implicit ctx: ChannelHandlerContext): Unit = {
-    val response = Response(status = Status.OK, data = HttpData.BinaryStream(stream))
+    val response = HttpData.fromStream(stream)
     ctx.fireChannelRead(Right(response)): Unit
   }
 
