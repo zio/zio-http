@@ -216,7 +216,7 @@ object HeaderSpec extends DefaultRunnableSpec {
   }
 
   private val contentTypeXhtmlXml       = Headers(Name.ContentType, Value.ApplicationXhtml)
-  private val contentTypeTextPlain      = Headers(Name.ContentType, Value.ApplicationJson)
+  private val contentTypeTextPlain      = Headers(Name.ContentType, Value.TextPlain)
   private val contentTypeXml            = Headers(Name.ContentType, Value.ApplicationXml)
   private val contentTypeJson           = Headers(Name.ContentType, Value.ApplicationJson)
   private val acceptJson                = Headers(Name.Accept, Value.ApplicationJson)
