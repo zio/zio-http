@@ -1,9 +1,22 @@
 package zhttp.http.headers
 
-import zhttp.http.{Cookie, Headers, Method}
+import zhttp.http.{Cookie, Header, Headers, Method}
 import zio.duration.Duration
 
-trait WithHeader[+A] { self: HeaderExtension[A] with A =>
+trait HeaderModifier[+A] { self =>
+  final def addHeader(header: Header): A = addHeaders(Headers(header))
+
+  final def addHeader(name: CharSequence, value: CharSequence): A = addHeaders(Headers(name, value))
+
+  final def addHeaders(headers: Headers): A = updateHeaders(_ ++ headers)
+
+  final def removeHeader(name: String): A = removeHeaders(List(name))
+
+  final def removeHeaders(headers: List[String]): A =
+    updateHeaders(orig => Headers(orig.toList.filterNot(h => headers.contains(h._1))))
+
+  def updateHeaders(f: Headers => Headers): A
+
   final def withAccept(value: CharSequence): A =
     addHeaders(Headers.accept(value))
 

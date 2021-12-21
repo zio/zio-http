@@ -1,9 +1,16 @@
 package zhttp.http.headers
 
-import zhttp.http.Cookie
+import io.netty.handler.codec.http.HttpUtil
+import io.netty.util.AsciiString.contentEqualsIgnoreCase
 import zhttp.http.Headers.Literals.Name
+import zhttp.http.Headers.{BasicSchemeName, BearerSchemeName}
+import zhttp.http.{Cookie, HTTP_CHARSET, Header, Headers}
 
-trait HeaderGetters[+A] { self: HeaderExtension[A] with A =>
+import java.nio.charset.Charset
+import java.util.Base64
+import scala.util.control.NonFatal
+
+trait HeaderGetters { self =>
 
   final def getAccept: Option[CharSequence] =
     getHeaderValue(Name.Accept)
@@ -61,8 +68,42 @@ trait HeaderGetters[+A] { self: HeaderExtension[A] with A =>
   final def getAuthorization: Option[CharSequence] =
     getHeaderValue(Name.Authorization)
 
+  final def getBasicAuthorizationCredentials: Option[Header] = {
+    getAuthorization
+      .map(_.toString)
+      .flatMap(v => {
+        val indexOfBasic = v.indexOf(BasicSchemeName)
+        if (indexOfBasic != 0 || v.length == BasicSchemeName.length)
+          None
+        else {
+          try {
+            val encoded = v.substring(BasicSchemeName.length + 1)
+            decodeHttpBasic(encoded)
+          } catch {
+            case NonFatal(_) => None
+          }
+        }
+      })
+  }
+
+  final def getBearerToken: Option[String] = getAuthorization
+    .map(_.toString)
+    .flatMap(v => {
+      val indexOfBearer = v.indexOf(BearerSchemeName)
+      if (indexOfBearer != 0 || v.length == BearerSchemeName.length)
+        None
+      else
+        Some(v.substring(BearerSchemeName.length + 1))
+    })
+
   final def getCacheControl: Option[CharSequence] =
     getHeaderValue(Name.CacheControl)
+
+  final def getCharset: Charset =
+    getHeaderValue(Name.ContentType) match {
+      case Some(value) => HttpUtil.getCharset(value, HTTP_CHARSET)
+      case None        => HTTP_CHARSET
+    }
 
   final def getConnection: Option[CharSequence] =
     getHeaderValue(Name.Connection)
@@ -135,6 +176,20 @@ trait HeaderGetters[+A] { self: HeaderExtension[A] with A =>
 
   final def getFrom: Option[CharSequence] =
     getHeaderValue(Name.From)
+
+  final def getHeader(headerName: CharSequence): Option[Header] =
+    getHeaders.toList
+      .find(h => contentEqualsIgnoreCase(h._1, headerName))
+
+  final def getHeaderValue(headerName: CharSequence): Option[String] =
+    getHeader(headerName).map(_._2.toString)
+
+  final def getHeaderValues(headerName: CharSequence): List[String] =
+    getHeaders.toList.collect { case h if contentEqualsIgnoreCase(h._1, headerName) => h._2.toString }
+
+  def getHeaders: Headers
+
+  final def getHeadersAsList: List[(String, String)] = self.getHeaders.toList
 
   final def getHost: Option[CharSequence] =
     getHeaderValue(Name.Host)
@@ -260,5 +315,21 @@ trait HeaderGetters[+A] { self: HeaderExtension[A] with A =>
 
   final def getXRequestedWith: Option[CharSequence] =
     getHeaderValue(Name.XRequestedWith)
+
+  private def decodeHttpBasic(encoded: String): Option[Header] = {
+    val decoded    = new String(Base64.getDecoder.decode(encoded))
+    val colonIndex = decoded.indexOf(":")
+    if (colonIndex == -1)
+      None
+    else {
+      val username = decoded.substring(0, colonIndex)
+      val password =
+        if (colonIndex == decoded.length - 1)
+          ""
+        else
+          decoded.substring(colonIndex + 1)
+      Some((username, password))
+    }
+  }
 
 }
