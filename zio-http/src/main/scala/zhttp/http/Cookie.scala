@@ -80,8 +80,8 @@ final case class Cookie(
   /**
    * Adds secret in the cookie
    */
-  def withSign(s: String): Cookie = {
-    copy(content = sign(s))
+  def withSign(key: String): Cookie = {
+    copy(content = sign(key))
   }
 
   /**
@@ -258,4 +258,9 @@ object Cookie {
    * Updates sameSite in cookie
    */
   def sameSite(sameSite: SameSite): Update = Update(_.withSameSite(sameSite))
+
+  /**
+   * Signs content in cookie
+   */
+  def sign(secret: String): Update = Update(_.withSign(secret))
 }
