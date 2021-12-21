@@ -10,7 +10,7 @@ trait Request extends HeaderExtension[Request] { self =>
     method: Method = self.method,
     url: URL = self.url,
     headers: List[Header] = self.getHeaders,
-    body: HttpData[Any, Throwable] = HttpData.empty,
+    body: Task[ByteBuf] = self.getBodyAsByteBuf,
   ): Request = {
     val m = method
     val u = url
@@ -21,7 +21,7 @@ trait Request extends HeaderExtension[Request] { self =>
       override def url: URL                           = u
       override def getHeaders: List[Header]           = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
-      override private[zhttp] def getBodyAsByteBuf    = b.toByteBuf
+      override private[zhttp] def getBodyAsByteBuf    = b
 
     }
   }
@@ -85,7 +85,7 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Overwrites the method in the request
    */
-  def setBody(body: HttpData[Any, Throwable]): Request = self.copy(body = body)
+  def setBody(body: HttpData[Any, Throwable]): Request = self.copy(body = body.toByteBuf)
 
   /**
    * Updates the headers using the provided function
