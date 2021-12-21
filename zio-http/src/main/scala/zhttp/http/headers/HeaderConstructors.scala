@@ -3,7 +3,7 @@ package zhttp.http.headers
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Headers.BasicSchemeName
 import zhttp.http.Headers.Literals.Name
-import zhttp.http.{Cookie, HTTP_CHARSET, Headers, Method}
+import zhttp.http.{Cookie, Headers, HTTP_CHARSET, Method}
 import zio.duration.Duration
 
 import java.util.Base64
@@ -71,7 +71,7 @@ trait HeaderConstructors {
     Headers(Name.CacheControl, value)
 
   final def cacheControlMaxAge(value: Duration): Headers =
-    Headers(Name.CacheControl, s"public, max-age=${value.toSeconds}")
+    Headers(Name.CacheControl, s"public, max-age=${value.getSeconds}")
 
   final def connection(value: CharSequence): Headers =
     Headers(Name.Connection, value)
