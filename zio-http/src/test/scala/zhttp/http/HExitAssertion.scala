@@ -28,6 +28,6 @@ private[zhttp] trait HExitAssertion {
     }
 
   private[zhttp] implicit class HExitSyntax[R, E, A](result: HExit[R, E, A]) {
-    def ===(assertion: Assertion[HExit[R, E, A]]): TestResult = assert(result.evaluate)(assertion)
+    def ===(assertion: Assertion[HExit[R, E, A]]): TestResult = assert(result)(assertion)
   }
 }

@@ -62,7 +62,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Consumes the input and executes the Http.
    */
-  final def apply(a: A): ZIO[R, Option[E], B] = execute(a).evaluate.asEffect
+  final def apply(a: A): ZIO[R, Option[E], B] = execute(a).toEffect
 
   /**
    * Makes the app resolve with a constant value
@@ -222,7 +222,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Performs a race between two apps
    */
   final def race[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    Http.fromOptionFunction(a => self(a) raceFirst other(a))
+    Http.Race(self, other)
 
   /**
    * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
@@ -306,22 +306,31 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
   /**
    * Evaluates the app and returns an HExit that can be resolved further
+   *
+   * NOTE: `execute` is not a stack-safe method for performance reasons. Unlike ZIO, there is no reason why the execute
+   * should be stack safe. The performance improves quite significantly if no additional heap allocations are required
+   * this way.
    */
-  final private[zhttp] def execute(a: A): HExit[R, E, B] = {
+  final private[zhttp] def execute(a: A): HExit[R, E, B] =
     self match {
-      case Empty                   => HExit.empty
-      case Identity                => HExit.succeed(a.asInstanceOf[B])
-      case Succeed(b)              => HExit.succeed(b)
-      case Fail(e)                 => HExit.fail(e)
-      case FromEffectFunction(f)   => HExit.effect(f(a))
-      case Collect(pf)             => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
-      case Chain(self, other)      => HExit.suspend(self.execute(a) >>= (other.execute(_)))
-      case FoldM(self, ee, bb, dd) =>
-        HExit.suspend {
-          self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
+      case Http.Empty            => HExit.empty
+      case Http.Identity         => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)            => HExit.succeed(b)
+      case Fail(e)               => HExit.fail(e)
+      case FromEffectFunction(f) => HExit.effect(f(a))
+      case Collect(pf)           => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
+      case Chain(self, other)    => self.execute(a).flatMap(b => other.execute(b))
+      case Race(self, other)     =>
+        (self.execute(a), other.execute(a)) match {
+          case (HExit.Effect(self), HExit.Effect(other)) =>
+            Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
+          case (HExit.Effect(_), other)                  => other
+          case (self, _)                                 => self
         }
+
+      case FoldM(self, ee, bb, dd) =>
+        self.execute(a).foldM(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
     }
-  }
 }
 
 object Http {
@@ -585,6 +594,8 @@ object Http {
   }
 
   private final case class Succeed[B](b: B) extends Http[Any, Nothing, Any, B]
+
+  private final case class Race[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B]) extends Http[R, E, A, B]
 
   private final case class Fail[E](e: E) extends Http[Any, E, Any, Nothing]
 

@@ -77,7 +77,7 @@ ThisBuild / githubWorkflowBuildPreamble :=
   ).steps
 
 // Test Configuration
-ThisBuild / libraryDependencies ++= Seq(`zio-test`, `zio-test-sbt`)
+ThisBuild / libraryDependencies ++= Seq(`zio-test`, `zio-test-sbt`, sttp, sttpzio)
 ThisBuild / testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 
 // Projects
@@ -143,10 +143,10 @@ lazy val example = (project in file("./example"))
   )
   .dependsOn(zhttp)
 
-addCommandAlias("fmt", "scalafmt; test:scalafmt; sFix;")
-addCommandAlias("fmtCheck", "scalafmtCheck; test:scalafmtCheck; sFixCheck")
-addCommandAlias("sFix", "scalafix OrganizeImports; test:scalafix OrganizeImports")
-addCommandAlias("sFixCheck", "scalafix --check OrganizeImports; test:scalafix --check OrganizeImports")
+addCommandAlias("fmt", "scalafmt; Test / scalafmt; sFix;")
+addCommandAlias("fmtCheck", "scalafmtCheck; Test / scalafmtCheck; sFixCheck")
+addCommandAlias("sFix", "scalafix OrganizeImports; Test / scalafix OrganizeImports")
+addCommandAlias("sFixCheck", "scalafix --check OrganizeImports; Test / scalafix --check OrganizeImports")
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 Global / watchAntiEntropy     := FiniteDuration(2000, TimeUnit.MILLISECONDS)

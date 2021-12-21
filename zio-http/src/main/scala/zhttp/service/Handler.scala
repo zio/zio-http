@@ -99,7 +99,7 @@ private[zhttp] final case class Handler[R](
     http: Http[R, Throwable, A, Response[R, Throwable]],
     a: A,
   )(implicit ctx: ChannelHandlerContext): Unit = {
-    http.execute(a).evaluate match {
+    http.execute(a) match {
       case HExit.Effect(resM) =>
         unsafeRunZIO {
           resM.foldM(
