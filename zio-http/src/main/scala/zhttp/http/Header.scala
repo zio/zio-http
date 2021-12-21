@@ -50,7 +50,7 @@ object Header {
   /**
    * Converts a List[Header] to [io.netty.handler.codec.http.HttpHeaders]
    */
-  def disassemble(headers: List[Header]): HttpHeaders =
+  def disassemble(headers: Iterable[Header]): HttpHeaders =
     headers.foldLeft[HttpHeaders](new DefaultHttpHeaders()) { case (headers, entry) =>
       headers.set(entry.name, entry.value)
     }

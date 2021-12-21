@@ -15,7 +15,7 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
 
   final def addHeader(name: CharSequence, value: CharSequence): A = addHeader(Header(name, value))
 
-  final def addHeaders(headers: List[Header]): A = updateHeaders(list => list ++ headers)
+  final def addHeaders(headers: Iterable[Header]): A = updateHeaders(list => list ++ headers)
 
   final def getAuthorization: Option[String] =
     getHeaderValue(HttpHeaderNames.AUTHORIZATION)
@@ -102,8 +102,8 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
 
   final def removeHeader(name: String): A = removeHeaders(List(name))
 
-  final def removeHeaders(headers: List[String]): A =
-    updateHeaders(orig => orig.filterNot(h => headers.contains(h.name)))
+  final def removeHeaders(headers: Iterable[String]): A =
+    updateHeaders(orig => orig.filterNot(h => headers.exists(_ contentEquals h.name)))
 
   final def setChunkedEncoding: A =
     addHeader(Header(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED))

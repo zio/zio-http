@@ -84,13 +84,13 @@ object Middleware {
   /**
    * Adds the provided list of headers to the response
    */
-  def addHeaders(headers: List[Header]): Middleware[Any, Nothing] =
+  def addHeaders(headers: Iterable[Header]): Middleware[Any, Nothing] =
     patch((_, _) => Patch.addHeaders(headers))
 
   /**
    * Creates an authentication middleware that only allows authenticated requests to be passed on to the app.
    */
-  def auth(verify: List[Header] => Boolean, responseHeaders: List[Header] = Nil): Middleware[Any, Nothing] =
+  def auth(verify: List[Header] => Boolean, responseHeaders: Iterable[Header] = Nil): Middleware[Any, Nothing] =
     ifThenElse((_, _, h) => verify(h))(
       Middleware.identity,
       Middleware.Constant(Http.status(Status.FORBIDDEN).addHeaders(responseHeaders)),
