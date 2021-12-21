@@ -1,6 +1,6 @@
 package zhttp.http.headers
 
-trait HeaderGetters[+A] { self: HeaderExtension[A] =>
+trait HeaderGetters[+A] { self: HeaderExtension[A] with A =>
   import zhttp.http.Headers.Types.H._
 
   final def getAccept: Option[CharSequence] = getHeaderValue(`accept`)

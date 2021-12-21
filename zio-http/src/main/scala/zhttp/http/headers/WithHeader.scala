@@ -2,7 +2,7 @@ package zhttp.http.headers
 
 import zhttp.http.{Cookie, Headers, Method}
 
-trait WithHeader[+A] { self: HeaderExtension[A] =>
+trait WithHeader[+A] { self: HeaderExtension[A] with A =>
   final def withAcceptCharset(value: CharSequence): A =
     addHeaders(Headers.makeAcceptCharset(value))
 
