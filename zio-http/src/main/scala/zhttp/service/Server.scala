@@ -118,8 +118,9 @@ object Server {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
       zExec          <- HttpRuntime.default[R].toManaged_
-      reqHandler         = settings.app.compile(zExec, settings, ServerTimeGenerator.make)
-      respContentHandler = ServerResponseHandler(zExec, ServerTimeGenerator.make)
+      serverTime         = ServerTimeGenerator.make
+      reqHandler         = settings.app.compile(zExec, settings, serverTime)
+      respContentHandler = ServerResponseHandler(zExec, serverTime)
       init               = ServerChannelInitializer(zExec, settings, reqHandler, respContentHandler)
       serverBootstrap    = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       _ <- ChannelFuture.asManaged(serverBootstrap.childHandler(init).bind(settings.address))

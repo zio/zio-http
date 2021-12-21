@@ -21,15 +21,21 @@ private[zhttp] final case class Handler[R](
 
   override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
+    val headers                              = Header.make(jReq.headers())
+    val content                              = Unpooled.copiedBuffer(jReq.content())
     unsafeRun(
       jReq,
       app,
       new Request {
-        override def method: Method                                 = Method.fromHttpMethod(jReq.method())
-        override def url: URL                                       = URL.fromString(jReq.uri()).getOrElse(null)
-        override def getHeaders: List[Header]                       = Header.make(jReq.headers())
-        override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
-        override def remoteAddress: Option[InetAddress]             = {
+        override def method: Method = Method.fromHttpMethod(jReq.method())
+
+        override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
+
+        override def getHeaders: List[Header] = headers
+
+        override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(content)
+
+        override def remoteAddress: Option[InetAddress] = {
           ctx.channel().remoteAddress() match {
             case m: InetSocketAddress => Some(m.getAddress())
             case _                    => None
@@ -37,6 +43,7 @@ private[zhttp] final case class Handler[R](
         }
       },
     )
+
   }
 
   /**
@@ -116,23 +123,20 @@ private[zhttp] final case class Handler[R](
           res.data match {
             case HttpData.Empty =>
               unsafeWriteAndFlushLastEmptyContent()
-              releaseRequest(jReq)
 
             case data @ HttpData.Text(_, _) =>
               unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
-              releaseRequest(jReq)
 
             case HttpData.BinaryByteBuf(data) =>
               unsafeWriteLastContent(data)
-              releaseRequest(jReq)
 
             case data @ HttpData.BinaryChunk(_) =>
               unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
-              releaseRequest(jReq)
 
             case HttpData.BinaryStream(_) =>
-              releaseRequest(jReq)
+              ()
           }
+          releaseRequest(jReq)
         }
 
       case HExit.Failure(e) =>

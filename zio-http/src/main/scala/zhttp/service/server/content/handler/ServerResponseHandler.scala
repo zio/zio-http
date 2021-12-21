@@ -56,6 +56,10 @@ private[zhttp] case class ServerResponseHandler[R](runtime: HttpRuntime[R], serv
 
   }
 
+  override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
+    ctx.writeAndFlush(serverErrorResponse(cause)): Unit
+  }
+
   private def notFoundResponse: HttpResponse = {
     val response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
     response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0)
@@ -101,7 +105,11 @@ private[zhttp] case class ServerResponseHandler[R](runtime: HttpRuntime[R], serv
     stream: ZStream[R, Throwable, ByteBuf],
   )(implicit ctx: ChannelHandlerContext): ZIO[R, Throwable, Unit] = {
     for {
-      _ <- stream.foreach(c => UIO(ctx.write(c)))
+      _ <- stream.foreach { c =>
+        val localCopy = Unpooled.copiedBuffer(c)
+        c.release(c.refCnt())
+        UIO(ctx.write(localCopy))
+      }
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
   }

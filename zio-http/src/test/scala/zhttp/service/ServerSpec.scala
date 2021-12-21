@@ -110,8 +110,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
           val res = Http.ok.addHeader(header).requestHeaderValueByName()(header.name)
           assertM(res)(isSome(equalTo(header.value)))
         }
-      } +
-      testM("file-streaming") {
+      } + testM("file-streaming") {
         val path = getClass.getResource("/TestFile").getPath
         val res  = Http.data(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
         assertM(res)(containsString("foo\nbar"))
@@ -120,7 +119,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
 
   override def spec = {
     suiteM("Server") {
-      app.as(List(staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
+      app.as(List(responseSpec /* staticAppSpec, dynamicAppSpec, responseSpec, requestSpec*/ )).useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ sequential
   }
 
