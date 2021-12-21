@@ -115,7 +115,7 @@ object Response {
   /**
    * Creates a response with content-type set to application/json
    */
-  def jsonString(data: String): UResponse =
+  def json(data: String): UResponse =
     Response(
       data = HttpData.fromChunk(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
       headers = Headers(Name.ContentLength, Value.ApplicationJson),
@@ -157,7 +157,7 @@ object Response {
   def text(text: String, charset: Charset = HTTP_CHARSET): UResponse =
     Response(
       data = HttpData.fromText(text, charset),
-      headers = Headers(Name.ContentType, Value.ApplicationJson),
+      headers = Headers(Name.ContentType, Value.TextPlain),
     )
 
   /**
