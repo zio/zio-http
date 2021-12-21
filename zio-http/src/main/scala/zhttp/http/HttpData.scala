@@ -54,7 +54,7 @@ sealed trait HttpData[-R, +E] { self =>
    */
   private[zhttp] def unsafeSize: Long = self match {
     case HttpData.Empty               => 0L
-    case HttpData.Text(text, charSet) => Unpooled.copiedBuffer(text, charSet).readableBytes().toLong
+    case HttpData.Text(text, charSet) => text.getBytes(charSet).size.toLong
     case HttpData.BinaryChunk(data)   => data.size.toLong
     case HttpData.BinaryByteBuf(data) => data.readableBytes().toLong
     case HttpData.BinaryStream(_)     => -1L
