@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
-import zhttp.http.headers.{HeaderExtension, HeaderMakers, HeaderNames, HeaderValues}
+import zhttp.http.headers.{HeaderConstructors, HeaderExtension, HeaderNames, HeaderValues}
 import zio.Chunk
 
 import scala.jdk.CollectionConverters._
@@ -32,7 +32,7 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
     }
 }
 
-object Headers extends HeaderMakers {
+object Headers extends HeaderConstructors {
 
   def apply(name: CharSequence, value: CharSequence): Headers = Headers(Chunk((name, value)))
 

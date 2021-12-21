@@ -8,7 +8,7 @@ import zio.duration.Duration
 
 import java.util.Base64
 
-trait HeaderMakers {
+trait HeaderConstructors {
   final def accept(value: CharSequence): Headers =
     Headers(Name.Accept, value)
 
