@@ -59,7 +59,8 @@ object Headers extends HeaderMakers {
   private[zhttp] def decode(headers: HttpHeaders): Headers =
     Headers(headers.entries().asScala.toList.map(entry => (entry.getKey, entry.getValue)))
 
-  object Types extends HeaderValues {
-    object H extends HeaderNames
+  object Literals {
+    object Name  extends HeaderNames
+    object Value extends HeaderValues
   }
 }

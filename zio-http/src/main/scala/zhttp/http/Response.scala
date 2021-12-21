@@ -2,7 +2,7 @@ package zhttp.http
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
 import zhttp.core.Util
-import zhttp.http.Headers.Types._
+import zhttp.http.Headers.Literals._
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
@@ -73,8 +73,8 @@ object Response {
     Response(
       status,
       headers ++
-        Headers(H.`content-length` -> size.toString).when(size >= 0) ++
-        Headers(H.`transfer-encoding` -> `chunked`).when(isChunked),
+        Headers(Name.ContentLength -> size.toString).when(size >= 0) ++
+        Headers(Name.TransferEncoding -> Value.Chunked).when(isChunked),
       data,
       Attribute.empty,
     )
@@ -102,7 +102,7 @@ object Response {
   def html(data: String): UResponse =
     Response(
       data = HttpData.fromText(data),
-      headers = Headers(H.`content-type` -> `text/html`),
+      headers = Headers(Name.ContentType, Value.TextHtml),
     )
 
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
@@ -118,7 +118,7 @@ object Response {
   def jsonString(data: String): UResponse =
     Response(
       data = HttpData.fromChunk(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
-      headers = Headers(H.`content-length`, `application/json`),
+      headers = Headers(Name.ContentLength, Value.ApplicationJson),
     )
 
   /**
@@ -131,7 +131,7 @@ object Response {
    */
   def redirect(location: String, isPermanent: Boolean = false): Response[Any, Nothing] = {
     val status = if (isPermanent) Status.PERMANENT_REDIRECT else Status.TEMPORARY_REDIRECT
-    Response(status, Headers.makeLocation(location))
+    Response(status, Headers.location(location))
   }
 
   /**
@@ -157,7 +157,7 @@ object Response {
   def text(text: String, charset: Charset = HTTP_CHARSET): UResponse =
     Response(
       data = HttpData.fromText(text, charset),
-      headers = Headers(H.`content-type` -> `text/plain`),
+      headers = Headers(Name.ContentType, Value.ApplicationJson),
     )
 
   /**

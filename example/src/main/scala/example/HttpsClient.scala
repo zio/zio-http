@@ -13,7 +13,7 @@ import javax.net.ssl.TrustManagerFactory
 object HttpsClient extends App {
   val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
   val url     = "https://sports.api.decathlon.com/groups/water-aerobics"
-  val headers = Headers.makeHost("sports.api.decathlon.com")
+  val headers = Headers.host("sports.api.decathlon.com")
 
   // Configuring Truststore for https(optional)
   val trustStore: KeyStore                     = KeyStore.getInstance("JKS")

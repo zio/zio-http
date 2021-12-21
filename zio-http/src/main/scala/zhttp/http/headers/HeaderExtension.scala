@@ -11,7 +11,7 @@ import java.util.Base64
 import scala.util.control.NonFatal
 
 private[zhttp] trait HeaderExtension[+A] extends WithHeader[A] with HeaderGetters[A] { self: A =>
-  import Headers.Types._
+  import Headers.Literals._
 
   final def addHeader(header: Header): A = addHeaders(Headers(header))
 
@@ -48,7 +48,7 @@ private[zhttp] trait HeaderExtension[+A] extends WithHeader[A] with HeaderGetter
     })
 
   final def getCharset: Charset =
-    getHeaderValue(H.`content-type`) match {
+    getHeaderValue(Name.ContentType) match {
       case Some(value) => HttpUtil.getCharset(value, HTTP_CHARSET)
       case None        => HTTP_CHARSET
     }
@@ -74,7 +74,7 @@ private[zhttp] trait HeaderExtension[+A] extends WithHeader[A] with HeaderGetter
     getContentType.exists(contentEqualsIgnoreCase(value, _))
 
   final def hasFormUrlencodedContentType: Boolean =
-    hasContentType(`application/x-www-form-urlencoded`)
+    hasContentType(Value.ApplicationXWWWFormUrlencoded)
 
   final def hasHeader(name: CharSequence, value: CharSequence): Boolean =
     getHeaderValue(name) match {
@@ -86,16 +86,16 @@ private[zhttp] trait HeaderExtension[+A] extends WithHeader[A] with HeaderGetter
     getHeaderValue(name).nonEmpty
 
   final def hasJsonContentType: Boolean =
-    hasContentType(`application/json`)
+    hasContentType(Value.ApplicationJson)
 
   final def hasTextPlainContentType: Boolean =
-    hasContentType(`text/plain`)
+    hasContentType(Value.TextPlain)
 
   final def hasXhtmlXmlContentType: Boolean =
-    hasContentType(`application/xhtml+xml`)
+    hasContentType(Value.ApplicationXhtml)
 
   final def hasXmlContentType: Boolean =
-    hasContentType(`application/xml`)
+    hasContentType(Value.ApplicationXml)
 
   final def removeHeader(name: String): A = removeHeaders(List(name))
 

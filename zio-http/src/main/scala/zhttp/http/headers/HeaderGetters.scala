@@ -1,180 +1,259 @@
 package zhttp.http.headers
 
+import zhttp.http.Headers.Literals.Name
+
 trait HeaderGetters[+A] { self: HeaderExtension[A] with A =>
-  import zhttp.http.Headers.Types.H._
 
-  final def getAccept: Option[CharSequence] = getHeaderValue(`accept`)
+  final def getAccept: Option[CharSequence] =
+    getHeaderValue(Name.Accept)
 
-  final def getAcceptCharset: Option[CharSequence] = getHeaderValue(`accept-charset`)
+  final def getAcceptCharset: Option[CharSequence] =
+    getHeaderValue(Name.AcceptCharset)
 
-  final def getAcceptEncoding: Option[CharSequence] = getHeaderValue(`accept-encoding`)
+  final def getAcceptEncoding: Option[CharSequence] =
+    getHeaderValue(Name.AcceptEncoding)
 
-  final def getAcceptLanguage: Option[CharSequence] = getHeaderValue(`accept-language`)
+  final def getAcceptLanguage: Option[CharSequence] =
+    getHeaderValue(Name.AcceptLanguage)
 
-  final def getAcceptPatch: Option[CharSequence] = getHeaderValue(`accept-patch`)
+  final def getAcceptPatch: Option[CharSequence] =
+    getHeaderValue(Name.AcceptPatch)
 
-  final def getAcceptRanges: Option[CharSequence] = getHeaderValue(`accept-ranges`)
+  final def getAcceptRanges: Option[CharSequence] =
+    getHeaderValue(Name.AcceptRanges)
 
-  final def getAccessControlAllowCredentials: Option[Boolean] = getHeaderValue(
-    `access-control-allow-credentials`,
-  ) match {
-    case Some(string) =>
-      try Some(string.toBoolean)
-      catch { case _: Throwable => None }
-    case None         => None
-  }
+  final def getAccessControlAllowCredentials: Option[Boolean] =
+    getHeaderValue(Name.AccessControlAllowCredentials) match {
+      case Some(string) =>
+        try Some(string.toBoolean)
+        catch { case _: Throwable => None }
+      case None         => None
+    }
 
-  final def getAccessControlAllowHeaders: Option[CharSequence] = getHeaderValue(`access-control-allow-headers`)
+  final def getAccessControlAllowHeaders: Option[CharSequence] =
+    getHeaderValue(Name.AccessControlAllowHeaders)
 
-  final def getAccessControlAllowMethods: Option[CharSequence] = getHeaderValue(`access-control-allow-methods`)
+  final def getAccessControlAllowMethods: Option[CharSequence] =
+    getHeaderValue(Name.AccessControlAllowMethods)
 
-  final def getAccessControlAllowOrigin: Option[CharSequence] = getHeaderValue(`access-control-allow-origin`)
+  final def getAccessControlAllowOrigin: Option[CharSequence] =
+    getHeaderValue(Name.AccessControlAllowOrigin)
 
-  final def getAccessControlExposeHeaders: Option[CharSequence] = getHeaderValue(`access-control-expose-headers`)
+  final def getAccessControlExposeHeaders: Option[CharSequence] =
+    getHeaderValue(Name.AccessControlExposeHeaders)
 
-  final def getAccessControlMaxAge: Option[CharSequence] = getHeaderValue(`access-control-max-age`)
+  final def getAccessControlMaxAge: Option[CharSequence] =
+    getHeaderValue(Name.AccessControlMaxAge)
 
-  final def getAccessControlRequestHeaders: Option[CharSequence] = getHeaderValue(`access-control-request-headers`)
+  final def getAccessControlRequestHeaders: Option[CharSequence] =
+    getHeaderValue(Name.AccessControlRequestHeaders)
 
-  final def getAccessControlRequestMethod: Option[CharSequence] = getHeaderValue(`access-control-request-method`)
+  final def getAccessControlRequestMethod: Option[CharSequence] =
+    getHeaderValue(Name.AccessControlRequestMethod)
 
-  final def getAge: Option[CharSequence] = getHeaderValue(`age`)
+  final def getAge: Option[CharSequence] =
+    getHeaderValue(Name.Age)
 
-  final def getAllow: Option[CharSequence] = getHeaderValue(`allow`)
+  final def getAllow: Option[CharSequence] =
+    getHeaderValue(Name.Allow)
 
-  final def getAuthorization: Option[CharSequence] = getHeaderValue(`authorization`)
+  final def getAuthorization: Option[CharSequence] =
+    getHeaderValue(Name.Authorization)
 
-  final def getCacheControl: Option[CharSequence] = getHeaderValue(`cache-control`)
+  final def getCacheControl: Option[CharSequence] =
+    getHeaderValue(Name.CacheControl)
 
-  final def getConnection: Option[CharSequence] = getHeaderValue(`connection`)
+  final def getConnection: Option[CharSequence] =
+    getHeaderValue(Name.Connection)
 
-  final def getContentBase: Option[CharSequence] = getHeaderValue(`content-base`)
+  final def getContentBase: Option[CharSequence] =
+    getHeaderValue(Name.ContentBase)
 
-  final def getContentDisposition: Option[CharSequence] = getHeaderValue(`content-disposition`)
+  final def getContentDisposition: Option[CharSequence] =
+    getHeaderValue(Name.ContentDisposition)
 
-  final def getContentEncoding: Option[CharSequence] = getHeaderValue(`content-encoding`)
+  final def getContentEncoding: Option[CharSequence] =
+    getHeaderValue(Name.ContentEncoding)
 
-  final def getContentLanguage: Option[CharSequence] = getHeaderValue(`content-language`)
+  final def getContentLanguage: Option[CharSequence] =
+    getHeaderValue(Name.ContentLanguage)
 
-  final def getContentLength: Option[Long] = getHeaderValue(`content-length`) match {
-    case Some(str) =>
-      try Some(str.toString.toLong)
-      catch {
-        case _: Throwable => None
-      }
-    case None      => None
-  }
+  final def getContentLength: Option[Long] =
+    getHeaderValue(Name.ContentLength) match {
+      case Some(str) =>
+        try Some(str.toString.toLong)
+        catch {
+          case _: Throwable => None
+        }
+      case None      => None
+    }
 
-  final def getContentLocation: Option[CharSequence] = getHeaderValue(`content-location`)
+  final def getContentLocation: Option[CharSequence] =
+    getHeaderValue(Name.ContentLocation)
 
-  final def getContentMd5: Option[CharSequence] = getHeaderValue(`content-md5`)
+  final def getContentMd5: Option[CharSequence] =
+    getHeaderValue(Name.ContentMd5)
 
-  final def getContentRange: Option[CharSequence] = getHeaderValue(`content-range`)
+  final def getContentRange: Option[CharSequence] =
+    getHeaderValue(Name.ContentRange)
 
-  final def getContentSecurityPolicy: Option[CharSequence] = getHeaderValue(`content-security-policy`)
+  final def getContentSecurityPolicy: Option[CharSequence] =
+    getHeaderValue(Name.ContentSecurityPolicy)
 
-  final def getContentTransferEncoding: Option[CharSequence] = getHeaderValue(`content-transfer-encoding`)
+  final def getContentTransferEncoding: Option[CharSequence] =
+    getHeaderValue(Name.ContentTransferEncoding)
 
-  final def getContentType: Option[CharSequence] = getHeaderValue(`content-type`)
+  final def getContentType: Option[CharSequence] =
+    getHeaderValue(Name.ContentType)
 
-  final def getCookie: Option[CharSequence] = getHeaderValue(`cookie`)
+  final def getCookie: Option[CharSequence] =
+    getHeaderValue(Name.Cookie)
 
-  final def getDate: Option[CharSequence] = getHeaderValue(`date`)
+  final def getDate: Option[CharSequence] =
+    getHeaderValue(Name.Date)
 
-  final def getDnt: Option[CharSequence] = getHeaderValue(`dnt`)
+  final def getDnt: Option[CharSequence] =
+    getHeaderValue(Name.Dnt)
 
-  final def getEtag: Option[CharSequence] = getHeaderValue(`etag`)
+  final def getEtag: Option[CharSequence] =
+    getHeaderValue(Name.Etag)
 
-  final def getExpect: Option[CharSequence] = getHeaderValue(`expect`)
+  final def getExpect: Option[CharSequence] =
+    getHeaderValue(Name.Expect)
 
-  final def getExpires: Option[CharSequence] = getHeaderValue(`expires`)
+  final def getExpires: Option[CharSequence] =
+    getHeaderValue(Name.Expires)
 
-  final def getFrom: Option[CharSequence] = getHeaderValue(`from`)
+  final def getFrom: Option[CharSequence] =
+    getHeaderValue(Name.From)
 
-  final def getHost: Option[CharSequence] = getHeaderValue(`host`)
+  final def getHost: Option[CharSequence] =
+    getHeaderValue(Name.Host)
 
-  final def getIfMatch: Option[CharSequence] = getHeaderValue(`if-match`)
+  final def getIfMatch: Option[CharSequence] =
+    getHeaderValue(Name.IfMatch)
 
-  final def getIfModifiedSince: Option[CharSequence] = getHeaderValue(`if-modified-since`)
+  final def getIfModifiedSince: Option[CharSequence] =
+    getHeaderValue(Name.IfModifiedSince)
 
-  final def getIfNoneMatch: Option[CharSequence] = getHeaderValue(`if-none-match`)
+  final def getIfNoneMatch: Option[CharSequence] =
+    getHeaderValue(Name.IfNoneMatch)
 
-  final def getIfRange: Option[CharSequence] = getHeaderValue(`if-range`)
+  final def getIfRange: Option[CharSequence] =
+    getHeaderValue(Name.IfRange)
 
-  final def getIfUnmodifiedSince: Option[CharSequence] = getHeaderValue(`if-unmodified-since`)
+  final def getIfUnmodifiedSince: Option[CharSequence] =
+    getHeaderValue(Name.IfUnmodifiedSince)
 
-  final def getLastModified: Option[CharSequence] = getHeaderValue(`last-modified`)
+  final def getLastModified: Option[CharSequence] =
+    getHeaderValue(Name.LastModified)
 
-  final def getLocation: Option[CharSequence] = getHeaderValue(`location`)
+  final def getLocation: Option[CharSequence] =
+    getHeaderValue(Name.Location)
 
-  final def getMaxForwards: Option[CharSequence] = getHeaderValue(`max-forwards`)
+  final def getMaxForwards: Option[CharSequence] =
+    getHeaderValue(Name.MaxForwards)
 
-  final def getOrigin: Option[CharSequence] = getHeaderValue(`origin`)
+  final def getOrigin: Option[CharSequence] =
+    getHeaderValue(Name.Origin)
 
-  final def getPragma: Option[CharSequence] = getHeaderValue(`pragma`)
+  final def getPragma: Option[CharSequence] =
+    getHeaderValue(Name.Pragma)
 
-  final def getProxyAuthenticate: Option[CharSequence] = getHeaderValue(`proxy-authenticate`)
+  final def getProxyAuthenticate: Option[CharSequence] =
+    getHeaderValue(Name.ProxyAuthenticate)
 
-  final def getProxyAuthorization: Option[CharSequence] = getHeaderValue(`proxy-authorization`)
+  final def getProxyAuthorization: Option[CharSequence] =
+    getHeaderValue(Name.ProxyAuthorization)
 
-  final def getRange: Option[CharSequence] = getHeaderValue(`range`)
+  final def getRange: Option[CharSequence] =
+    getHeaderValue(Name.Range)
 
-  final def getReferer: Option[CharSequence] = getHeaderValue(`referer`)
+  final def getReferer: Option[CharSequence] =
+    getHeaderValue(Name.Referer)
 
-  final def getRetryAfter: Option[CharSequence] = getHeaderValue(`retry-after`)
+  final def getRetryAfter: Option[CharSequence] =
+    getHeaderValue(Name.RetryAfter)
 
-  final def getSecWebsocketAccept: Option[CharSequence] = getHeaderValue(`sec-websocket-accept`)
+  final def getSecWebsocketAccept: Option[CharSequence] =
+    getHeaderValue(Name.SecWebSocketAccept)
 
-  final def getSecWebsocketExtensions: Option[CharSequence] = getHeaderValue(`sec-websocket-extensions`)
+  final def getSecWebsocketExtensions: Option[CharSequence] =
+    getHeaderValue(Name.SecWebSocketExtensions)
 
-  final def getSecWebsocketKey: Option[CharSequence] = getHeaderValue(`sec-websocket-key`)
+  final def getSecWebsocketKey: Option[CharSequence] =
+    getHeaderValue(Name.SecWebSocketKey)
 
-  final def getSecWebsocketKey1: Option[CharSequence] = getHeaderValue(`sec-websocket-key1`)
+  final def getSecWebsocketKey1: Option[CharSequence] =
+    getHeaderValue(Name.SecWebSocketKey1)
 
-  final def getSecWebsocketKey2: Option[CharSequence] = getHeaderValue(`sec-websocket-key2`)
+  final def getSecWebsocketKey2: Option[CharSequence] =
+    getHeaderValue(Name.SecWebSocketKey2)
 
-  final def getSecWebsocketLocation: Option[CharSequence] = getHeaderValue(`sec-websocket-location`)
+  final def getSecWebsocketLocation: Option[CharSequence] =
+    getHeaderValue(Name.SecWebSocketLocation)
 
-  final def getSecWebsocketOrigin: Option[CharSequence] = getHeaderValue(`sec-websocket-origin`)
+  final def getSecWebsocketOrigin: Option[CharSequence] =
+    getHeaderValue(Name.SecWebSocketOrigin)
 
-  final def getSecWebsocketProtocol: Option[CharSequence] = getHeaderValue(`sec-websocket-protocol`)
+  final def getSecWebsocketProtocol: Option[CharSequence] =
+    getHeaderValue(Name.SecWebSocketProtocol)
 
-  final def getSecWebsocketVersion: Option[CharSequence] = getHeaderValue(`sec-websocket-version`)
+  final def getSecWebsocketVersion: Option[CharSequence] =
+    getHeaderValue(Name.SecWebSocketVersion)
 
-  final def getServer: Option[CharSequence] = getHeaderValue(`server`)
+  final def getServer: Option[CharSequence] =
+    getHeaderValue(Name.Server)
 
-  final def getSetCookie: Option[CharSequence] = getHeaderValue(`set-cookie`)
+  final def getSetCookie: Option[CharSequence] =
+    getHeaderValue(Name.SetCookie)
 
-  final def getSetCookie2: Option[CharSequence] = getHeaderValue(`set-cookie2`)
+  final def getSetCookie2: Option[CharSequence] =
+    getHeaderValue(Name.SetCookie2)
 
-  final def getTe: Option[CharSequence] = getHeaderValue(`te`)
+  final def getTe: Option[CharSequence] =
+    getHeaderValue(Name.Te)
 
-  final def getTrailer: Option[CharSequence] = getHeaderValue(`trailer`)
+  final def getTrailer: Option[CharSequence] =
+    getHeaderValue(Name.Trailer)
 
-  final def getTransferEncoding: Option[CharSequence] = getHeaderValue(`transfer-encoding`)
+  final def getTransferEncoding: Option[CharSequence] =
+    getHeaderValue(Name.TransferEncoding)
 
-  final def getUpgrade: Option[CharSequence] = getHeaderValue(`upgrade`)
+  final def getUpgrade: Option[CharSequence] =
+    getHeaderValue(Name.Upgrade)
 
-  final def getUpgradeInsecureRequests: Option[CharSequence] = getHeaderValue(`upgrade-insecure-requests`)
+  final def getUpgradeInsecureRequests: Option[CharSequence] =
+    getHeaderValue(Name.UpgradeInsecureRequests)
 
-  final def getUserAgent: Option[CharSequence] = getHeaderValue(`user-agent`)
+  final def getUserAgent: Option[CharSequence] =
+    getHeaderValue(Name.UserAgent)
 
-  final def getVary: Option[CharSequence] = getHeaderValue(`vary`)
+  final def getVary: Option[CharSequence] =
+    getHeaderValue(Name.Vary)
 
-  final def getVia: Option[CharSequence] = getHeaderValue(`via`)
+  final def getVia: Option[CharSequence] =
+    getHeaderValue(Name.Via)
 
-  final def getWarning: Option[CharSequence] = getHeaderValue(`warning`)
+  final def getWarning: Option[CharSequence] =
+    getHeaderValue(Name.Warning)
 
-  final def getWebsocketLocation: Option[CharSequence] = getHeaderValue(`websocket-location`)
+  final def getWebsocketLocation: Option[CharSequence] =
+    getHeaderValue(Name.WebSocketLocation)
 
-  final def getWebsocketOrigin: Option[CharSequence] = getHeaderValue(`websocket-origin`)
+  final def getWebsocketOrigin: Option[CharSequence] =
+    getHeaderValue(Name.WebSocketOrigin)
 
-  final def getWebsocketProtocol: Option[CharSequence] = getHeaderValue(`websocket-protocol`)
+  final def getWebsocketProtocol: Option[CharSequence] =
+    getHeaderValue(Name.WebSocketProtocol)
 
-  final def getWwwAuthenticate: Option[CharSequence] = getHeaderValue(`www-authenticate`)
+  final def getWwwAuthenticate: Option[CharSequence] =
+    getHeaderValue(Name.WwwAuthenticate)
 
-  final def getXFrameOptions: Option[CharSequence] = getHeaderValue(`x-frame-options`)
+  final def getXFrameOptions: Option[CharSequence] =
+    getHeaderValue(Name.XFrameOptions)
 
-  final def getXRequestedWith: Option[CharSequence] = getHeaderValue(`x-requested-with`)
+  final def getXRequestedWith: Option[CharSequence] =
+    getHeaderValue(Name.XRequestedWith)
 
 }

@@ -1,239 +1,243 @@
 package zhttp.http.headers
 
 import zhttp.http.{Cookie, Headers, Method}
+import zio.duration.Duration
 
 trait WithHeader[+A] { self: HeaderExtension[A] with A =>
+  final def withAccept(value: CharSequence): A =
+    addHeaders(Headers.accept(value))
+
   final def withAcceptCharset(value: CharSequence): A =
-    addHeaders(Headers.makeAcceptCharset(value))
+    addHeaders(Headers.acceptCharset(value))
 
   final def withAcceptEncoding(value: CharSequence): A =
-    addHeaders(Headers.makeAcceptEncoding(value))
-
-  final def withAccept(value: CharSequence): A =
-    addHeaders(Headers.makeAccept(value))
+    addHeaders(Headers.acceptEncoding(value))
 
   final def withAcceptLanguage(value: CharSequence): A =
-    addHeaders(Headers.makeAcceptLanguage(value))
+    addHeaders(Headers.acceptLanguage(value))
 
   final def withAcceptPatch(value: CharSequence): A =
-    addHeaders(Headers.makeAcceptPatch(value))
+    addHeaders(Headers.acceptPatch(value))
 
   final def withAcceptRanges(value: CharSequence): A =
-    addHeaders(Headers.makeAcceptRanges(value))
+    addHeaders(Headers.acceptRanges(value))
 
   final def withAccessControlAllowCredentials(value: Boolean): A =
-    addHeaders(Headers.makeAccessControlAllowCredentials(value))
+    addHeaders(Headers.accessControlAllowCredentials(value))
 
   final def withAccessControlAllowHeaders(value: CharSequence): A =
-    addHeaders(Headers.makeAccessControlAllowHeaders(value))
+    addHeaders(Headers.accessControlAllowHeaders(value))
 
   final def withAccessControlAllowMethods(value: Method*): A =
-    addHeaders(Headers.makeAccessControlAllowMethods(value: _*))
+    addHeaders(Headers.accessControlAllowMethods(value: _*))
 
   final def withAccessControlAllowOrigin(value: CharSequence): A =
-    addHeaders(Headers.makeAccessControlAllowOrigin(value))
+    addHeaders(Headers.accessControlAllowOrigin(value))
 
   final def withAccessControlExposeHeaders(value: CharSequence): A =
-    addHeaders(Headers.makeAccessControlExposeHeaders(value))
+    addHeaders(Headers.accessControlExposeHeaders(value))
 
   final def withAccessControlMaxAge(value: CharSequence): A =
-    addHeaders(Headers.makeAccessControlMaxAge(value))
+    addHeaders(Headers.accessControlMaxAge(value))
 
   final def withAccessControlRequestHeaders(value: CharSequence): A =
-    addHeaders(Headers.makeAccessControlRequestHeaders(value))
+    addHeaders(Headers.accessControlRequestHeaders(value))
 
   final def withAccessControlRequestMethod(value: Method): A =
-    addHeaders(Headers.makeAccessControlRequestMethod(value))
+    addHeaders(Headers.accessControlRequestMethod(value))
 
   final def withAge(value: CharSequence): A =
-    addHeaders(Headers.makeAge(value))
+    addHeaders(Headers.age(value))
 
   final def withAllow(value: CharSequence): A =
-    addHeaders(Headers.makeAllow(value))
+    addHeaders(Headers.allow(value))
 
   final def withAuthorization(value: CharSequence): A =
-    addHeaders(Headers.makeAuthorization(value))
+    addHeaders(Headers.authorization(value))
 
   final def withBasicAuthorization(username: String, password: String): A =
-    addHeaders(Headers.makeBasicAuthorizationHeader(username, password))
+    addHeaders(Headers.basicAuthorizationHeader(username, password))
 
   final def withCacheControl(value: CharSequence): A =
-    addHeaders(Headers.makeCacheControl(value))
+    addHeaders(Headers.cacheControl(value))
+
+  final def withCacheControlMaxAge(value: Duration): A =
+    addHeaders(Headers.cacheControlMaxAge(value))
 
   final def withConnection(value: CharSequence): A =
-    addHeaders(Headers.makeConnection(value))
+    addHeaders(Headers.connection(value))
 
   final def withContentBase(value: CharSequence): A =
-    addHeaders(Headers.makeContentBase(value))
+    addHeaders(Headers.contentBase(value))
 
   final def withContentDisposition(value: CharSequence): A =
-    addHeaders(Headers.makeContentDisposition(value))
+    addHeaders(Headers.contentDisposition(value))
 
   final def withContentEncoding(value: CharSequence): A =
-    addHeaders(Headers.makeContentEncoding(value))
+    addHeaders(Headers.contentEncoding(value))
 
   final def withContentLanguage(value: CharSequence): A =
-    addHeaders(Headers.makeContentLanguage(value))
+    addHeaders(Headers.contentLanguage(value))
 
   final def withContentLength(value: Long): A =
-    addHeaders(Headers.makeContentLength(value))
+    addHeaders(Headers.contentLength(value))
 
   final def withContentLocation(value: CharSequence): A =
-    addHeaders(Headers.makeContentLocation(value))
+    addHeaders(Headers.contentLocation(value))
 
   final def withContentMd5(value: CharSequence): A =
-    addHeaders(Headers.makeContentMd5(value))
+    addHeaders(Headers.contentMd5(value))
 
   final def withContentRange(value: CharSequence): A =
-    addHeaders(Headers.makeContentRange(value))
+    addHeaders(Headers.contentRange(value))
 
   final def withContentSecurityPolicy(value: CharSequence): A =
-    addHeaders(Headers.makeContentSecurityPolicy(value))
+    addHeaders(Headers.contentSecurityPolicy(value))
 
   final def withContentTransferEncoding(value: CharSequence): A =
-    addHeaders(Headers.makeContentTransferEncoding(value))
+    addHeaders(Headers.contentTransferEncoding(value))
 
   final def withContentType(value: CharSequence): A =
-    addHeaders(Headers.makeContentType(value))
+    addHeaders(Headers.contentType(value))
 
   final def withCookie(value: CharSequence): A =
-    addHeaders(Headers.makeCookie(value))
+    addHeaders(Headers.cookie(value))
 
   final def withDate(value: CharSequence): A =
-    addHeaders(Headers.makeDate(value))
+    addHeaders(Headers.date(value))
 
   final def withDnt(value: CharSequence): A =
-    addHeaders(Headers.makeDnt(value))
+    addHeaders(Headers.dnt(value))
 
   final def withEtag(value: CharSequence): A =
-    addHeaders(Headers.makeEtag(value))
+    addHeaders(Headers.etag(value))
 
   final def withExpect(value: CharSequence): A =
-    addHeaders(Headers.makeExpect(value))
+    addHeaders(Headers.expect(value))
 
   final def withExpires(value: CharSequence): A =
-    addHeaders(Headers.makeExpires(value))
+    addHeaders(Headers.expires(value))
 
   final def withFrom(value: CharSequence): A =
-    addHeaders(Headers.makeFrom(value))
+    addHeaders(Headers.from(value))
 
   final def withHost(value: CharSequence): A =
-    addHeaders(Headers.makeHost(value))
+    addHeaders(Headers.host(value))
 
   final def withIfMatch(value: CharSequence): A =
-    addHeaders(Headers.makeIfMatch(value))
+    addHeaders(Headers.ifMatch(value))
 
   final def withIfModifiedSince(value: CharSequence): A =
-    addHeaders(Headers.makeIfModifiedSince(value))
+    addHeaders(Headers.ifModifiedSince(value))
 
   final def withIfNoneMatch(value: CharSequence): A =
-    addHeaders(Headers.makeIfNoneMatch(value))
+    addHeaders(Headers.ifNoneMatch(value))
 
   final def withIfRange(value: CharSequence): A =
-    addHeaders(Headers.makeIfRange(value))
+    addHeaders(Headers.ifRange(value))
 
   final def withIfUnmodifiedSince(value: CharSequence): A =
-    addHeaders(Headers.makeIfUnmodifiedSince(value))
+    addHeaders(Headers.ifUnmodifiedSince(value))
 
   final def withLastModified(value: CharSequence): A =
-    addHeaders(Headers.makeLastModified(value))
+    addHeaders(Headers.lastModified(value))
 
   final def withLocation(value: CharSequence): A =
-    addHeaders(Headers.makeLocation(value))
+    addHeaders(Headers.location(value))
 
   final def withMaxForwards(value: CharSequence): A =
-    addHeaders(Headers.makeMaxForwards(value))
+    addHeaders(Headers.maxForwards(value))
 
   final def withOrigin(value: CharSequence): A =
-    addHeaders(Headers.makeOrigin(value))
+    addHeaders(Headers.origin(value))
 
   final def withPragma(value: CharSequence): A =
-    addHeaders(Headers.makePragma(value))
+    addHeaders(Headers.pragma(value))
 
   final def withProxyAuthenticate(value: CharSequence): A =
-    addHeaders(Headers.makeProxyAuthenticate(value))
+    addHeaders(Headers.proxyAuthenticate(value))
 
   final def withProxyAuthorization(value: CharSequence): A =
-    addHeaders(Headers.makeProxyAuthorization(value))
+    addHeaders(Headers.proxyAuthorization(value))
 
   final def withRange(value: CharSequence): A =
-    addHeaders(Headers.makeRange(value))
+    addHeaders(Headers.range(value))
 
   final def withReferer(value: CharSequence): A =
-    addHeaders(Headers.makeReferer(value))
+    addHeaders(Headers.referer(value))
 
   final def withRetryAfter(value: CharSequence): A =
-    addHeaders(Headers.makeRetryAfter(value))
+    addHeaders(Headers.retryAfter(value))
 
   final def withSecWebSocketAccept(value: CharSequence): A =
-    addHeaders(Headers.makeSecWebSocketAccept(value))
+    addHeaders(Headers.secWebSocketAccept(value))
 
   final def withSecWebSocketExtensions(value: CharSequence): A =
-    addHeaders(Headers.makeSecWebSocketExtensions(value))
+    addHeaders(Headers.secWebSocketExtensions(value))
 
   final def withSecWebSocketKey(value: CharSequence): A =
-    addHeaders(Headers.makeSecWebSocketKey(value))
+    addHeaders(Headers.secWebSocketKey(value))
 
   final def withSecWebSocketLocation(value: CharSequence): A =
-    addHeaders(Headers.makeSecWebSocketLocation(value))
+    addHeaders(Headers.secWebSocketLocation(value))
 
   final def withSecWebSocketOrigin(value: CharSequence): A =
-    addHeaders(Headers.makeSecWebSocketOrigin(value))
+    addHeaders(Headers.secWebSocketOrigin(value))
 
   final def withSecWebSocketProtocol(value: CharSequence): A =
-    addHeaders(Headers.makeSecWebSocketProtocol(value))
+    addHeaders(Headers.secWebSocketProtocol(value))
 
   final def withSecWebSocketVersion(value: CharSequence): A =
-    addHeaders(Headers.makeSecWebSocketVersion(value))
+    addHeaders(Headers.secWebSocketVersion(value))
 
   final def withServer(value: CharSequence): A =
-    addHeaders(Headers.makeServer(value))
+    addHeaders(Headers.server(value))
 
   final def withSetCookie(value: Cookie): A =
-    addHeaders(Headers.makeSetCookie(value))
+    addHeaders(Headers.setCookie(value))
 
   final def withTe(value: CharSequence): A =
-    addHeaders(Headers.makeTe(value))
+    addHeaders(Headers.te(value))
 
   final def withTrailer(value: CharSequence): A =
-    addHeaders(Headers.makeTrailer(value))
+    addHeaders(Headers.trailer(value))
 
   final def withTransferEncoding(value: CharSequence): A =
-    addHeaders(Headers.makeTransferEncoding(value))
+    addHeaders(Headers.transferEncoding(value))
 
   final def withUpgrade(value: CharSequence): A =
-    addHeaders(Headers.makeUpgrade(value))
+    addHeaders(Headers.upgrade(value))
 
   final def withUpgradeInsecureRequests(value: CharSequence): A =
-    addHeaders(Headers.makeUpgradeInsecureRequests(value))
+    addHeaders(Headers.upgradeInsecureRequests(value))
 
   final def withUserAgent(value: CharSequence): A =
-    addHeaders(Headers.makeUserAgent(value))
+    addHeaders(Headers.userAgent(value))
 
   final def withVary(value: CharSequence): A =
-    addHeaders(Headers.makeVary(value))
+    addHeaders(Headers.vary(value))
 
   final def withVia(value: CharSequence): A =
-    addHeaders(Headers.makeVia(value))
+    addHeaders(Headers.via(value))
 
   final def withWarning(value: CharSequence): A =
-    addHeaders(Headers.makeWarning(value))
+    addHeaders(Headers.warning(value))
 
   final def withWebSocketLocation(value: CharSequence): A =
-    addHeaders(Headers.makeWebSocketLocation(value))
+    addHeaders(Headers.webSocketLocation(value))
 
   final def withWebSocketOrigin(value: CharSequence): A =
-    addHeaders(Headers.makeWebSocketOrigin(value))
+    addHeaders(Headers.webSocketOrigin(value))
 
   final def withWebSocketProtocol(value: CharSequence): A =
-    addHeaders(Headers.makeWebSocketProtocol(value))
+    addHeaders(Headers.webSocketProtocol(value))
 
   final def withWwwAuthenticate(value: CharSequence): A =
-    addHeaders(Headers.makeWwwAuthenticate(value))
+    addHeaders(Headers.wwwAuthenticate(value))
 
   final def withXFrameOptions(value: CharSequence): A =
-    addHeaders(Headers.makeXFrameOptions(value))
+    addHeaders(Headers.xFrameOptions(value))
 
   final def withXRequestedWith(value: CharSequence): A =
-    addHeaders(Headers.makeXRequestedWith(value))
+    addHeaders(Headers.xRequestedWith(value))
 }

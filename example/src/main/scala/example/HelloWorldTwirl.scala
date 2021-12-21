@@ -1,7 +1,7 @@
 package example
 
 import zhttp.endpoint._
-import zhttp.http.Headers.Types._
+import zhttp.http.Headers.Literals._
 import zhttp.http.Method.GET
 import zhttp.http._
 import zhttp.nav.Navigation
@@ -15,7 +15,7 @@ object HelloWorldTwirl extends zio.App {
     val (a, b)              = pathParams.params
     val response: UResponse = Response.text(advanced.html.index(a, b).toString())
     response
-      .copy(headers = Headers(H.`content-type`, `text/html`))
+      .copy(headers = Headers(Name.ContentType, Value.TextHtml))
   }
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
@@ -23,7 +23,7 @@ object HelloWorldTwirl extends zio.App {
 
   val h1: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !!         =>
-      Response.text(html.index("John Doe").toString()).addHeader(H.`content-type`, `text/html`)
+      Response.text(html.index("John Doe").toString()).addHeader(Name.ContentType, Value.TextHtml)
     case Method.GET -> !! / "nav" => {
       val nav = Seq(
         Navigation("link-1", "http://google.com", Some("bi-alarm-fill")),
@@ -40,7 +40,7 @@ object HelloWorldTwirl extends zio.App {
           ),
         ),
       )
-      Response.text(advanced.html.template(1, false, nav).toString()).addHeader(H.`content-type`, `text/html`)
+      Response.text(advanced.html.template(1, false, nav).toString()).addHeader(Name.ContentType, Value.TextHtml)
     }
   }
 }

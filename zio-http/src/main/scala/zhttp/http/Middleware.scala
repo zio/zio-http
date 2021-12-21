@@ -66,7 +66,7 @@ object Middleware {
    * Sets cookie in response headers
    */
   def addCookie(cookie: Cookie): Middleware[Any, Nothing] =
-    Middleware.addHeader(Headers.makeSetCookie(cookie))
+    Middleware.addHeader(Headers.setCookie(cookie))
 
   /**
    * Adds the provided header and value to the response
