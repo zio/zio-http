@@ -2,7 +2,7 @@ package zhttp.service
 
 import zhttp.http._
 import zhttp.internal.{AppCollection, HttpRunnableSpec}
-import zhttp.service.server.ServerChannelFactory
+import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.{anything, containsString, isEmpty, isNonEmpty}
