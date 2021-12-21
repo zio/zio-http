@@ -177,7 +177,7 @@ private[zhttp] final case class Handler[R](
    * Writes last empty content to the Channel
    */
   private def unsafeWriteAndFlushLastEmptyContent()(implicit ctx: ChannelHandlerContext): Unit = {
-    val response = Response(Status.NO_CONTENT)
+    val response = Response(Status.OK)
     ctx.fireChannelRead(Right(response)): Unit
   }
 
