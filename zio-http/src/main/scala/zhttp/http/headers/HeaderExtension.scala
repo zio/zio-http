@@ -53,10 +53,6 @@ private[zhttp] trait HeaderExtension[+A] extends WithHeader[A] with HeaderGetter
       case None        => HTTP_CHARSET
     }
 
-  final def getCookies(implicit ev: HasCookie[A]): List[Cookie] = ev.decode(self)
-
-  final def getCookiesRaw(implicit ev: HasCookie[A]): List[CharSequence] = ev.headers(self)
-
   final def getHeader(headerName: CharSequence): Option[Header] =
     getHeaders.toList
       .find(h => contentEqualsIgnoreCase(h._1, headerName))

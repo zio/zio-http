@@ -1,5 +1,6 @@
 package zhttp.http.headers
 
+import zhttp.http.Cookie
 import zhttp.http.Headers.Literals.Name
 
 trait HeaderGetters[+A] { self: HeaderExtension[A] with A =>
@@ -109,6 +110,14 @@ trait HeaderGetters[+A] { self: HeaderExtension[A] with A =>
   final def getCookie: Option[CharSequence] =
     getHeaderValue(Name.Cookie)
 
+  final def getCookiesDecoded: List[Cookie] =
+    getHeaderValues(Name.Cookie).flatMap { header =>
+      Cookie.decodeRequestCookie(header) match {
+        case None       => Nil
+        case Some(list) => list
+      }
+    }
+
   final def getDate: Option[CharSequence] =
     getHeaderValue(Name.Date)
 
@@ -175,31 +184,25 @@ trait HeaderGetters[+A] { self: HeaderExtension[A] with A =>
   final def getRetryAfter: Option[CharSequence] =
     getHeaderValue(Name.RetryAfter)
 
-  final def getSecWebsocketAccept: Option[CharSequence] =
+  final def getSecWebSocketAccept: Option[CharSequence] =
     getHeaderValue(Name.SecWebSocketAccept)
 
-  final def getSecWebsocketExtensions: Option[CharSequence] =
+  final def getSecWebSocketExtensions: Option[CharSequence] =
     getHeaderValue(Name.SecWebSocketExtensions)
 
-  final def getSecWebsocketKey: Option[CharSequence] =
+  final def getSecWebSocketKey: Option[CharSequence] =
     getHeaderValue(Name.SecWebSocketKey)
 
-  final def getSecWebsocketKey1: Option[CharSequence] =
-    getHeaderValue(Name.SecWebSocketKey1)
-
-  final def getSecWebsocketKey2: Option[CharSequence] =
-    getHeaderValue(Name.SecWebSocketKey2)
-
-  final def getSecWebsocketLocation: Option[CharSequence] =
+  final def getSecWebSocketLocation: Option[CharSequence] =
     getHeaderValue(Name.SecWebSocketLocation)
 
-  final def getSecWebsocketOrigin: Option[CharSequence] =
+  final def getSecWebSocketOrigin: Option[CharSequence] =
     getHeaderValue(Name.SecWebSocketOrigin)
 
-  final def getSecWebsocketProtocol: Option[CharSequence] =
+  final def getSecWebSocketProtocol: Option[CharSequence] =
     getHeaderValue(Name.SecWebSocketProtocol)
 
-  final def getSecWebsocketVersion: Option[CharSequence] =
+  final def getSecWebSocketVersion: Option[CharSequence] =
     getHeaderValue(Name.SecWebSocketVersion)
 
   final def getServer: Option[CharSequence] =
@@ -208,8 +211,10 @@ trait HeaderGetters[+A] { self: HeaderExtension[A] with A =>
   final def getSetCookie: Option[CharSequence] =
     getHeaderValue(Name.SetCookie)
 
-  final def getSetCookie2: Option[CharSequence] =
-    getHeaderValue(Name.SetCookie2)
+  final def getSetCookiesDecoded: List[Cookie] =
+    getHeaderValues(Name.Cookie)
+      .map(Cookie.decodeResponseCookie)
+      .collect { case Some(cookie) => cookie }
 
   final def getTe: Option[CharSequence] =
     getHeaderValue(Name.Te)
@@ -238,13 +243,13 @@ trait HeaderGetters[+A] { self: HeaderExtension[A] with A =>
   final def getWarning: Option[CharSequence] =
     getHeaderValue(Name.Warning)
 
-  final def getWebsocketLocation: Option[CharSequence] =
+  final def getWebSocketLocation: Option[CharSequence] =
     getHeaderValue(Name.WebSocketLocation)
 
-  final def getWebsocketOrigin: Option[CharSequence] =
+  final def getWebSocketOrigin: Option[CharSequence] =
     getHeaderValue(Name.WebSocketOrigin)
 
-  final def getWebsocketProtocol: Option[CharSequence] =
+  final def getWebSocketProtocol: Option[CharSequence] =
     getHeaderValue(Name.WebSocketProtocol)
 
   final def getWwwAuthenticate: Option[CharSequence] =

@@ -56,8 +56,6 @@ trait HeaderNames {
   final val Range: CharSequence                         = HttpHeaderNames.RANGE
   final val Referer: CharSequence                       = HttpHeaderNames.REFERER
   final val RetryAfter: CharSequence                    = HttpHeaderNames.RETRY_AFTER
-  final val SecWebSocketKey1: CharSequence              = HttpHeaderNames.SEC_WEBSOCKET_KEY1
-  final val SecWebSocketKey2: CharSequence              = HttpHeaderNames.SEC_WEBSOCKET_KEY2
   final val SecWebSocketLocation: CharSequence          = HttpHeaderNames.SEC_WEBSOCKET_LOCATION
   final val SecWebSocketOrigin: CharSequence            = HttpHeaderNames.SEC_WEBSOCKET_ORIGIN
   final val SecWebSocketProtocol: CharSequence          = HttpHeaderNames.SEC_WEBSOCKET_PROTOCOL
@@ -67,7 +65,6 @@ trait HeaderNames {
   final val SecWebSocketExtensions: CharSequence        = HttpHeaderNames.SEC_WEBSOCKET_EXTENSIONS
   final val Server: CharSequence                        = HttpHeaderNames.SERVER
   final val SetCookie: CharSequence                     = HttpHeaderNames.SET_COOKIE
-  final val SetCookie2: CharSequence                    = HttpHeaderNames.SET_COOKIE2
   final val Te: CharSequence                            = HttpHeaderNames.TE
   final val Trailer: CharSequence                       = HttpHeaderNames.TRAILER
   final val TransferEncoding: CharSequence              = HttpHeaderNames.TRANSFER_ENCODING

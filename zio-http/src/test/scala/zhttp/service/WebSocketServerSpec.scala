@@ -11,13 +11,13 @@ import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
 import zio.test._
 
-object WebsocketServerSpec extends HttpRunnableSpec(8011) {
+object WebSocketServerSpec extends HttpRunnableSpec(8011) {
 
   override def spec = suiteM("Server") {
     app.as(List(websocketSpec)).useNow
   }.provideCustomLayerShared(env) @@ timeout(30 seconds)
 
-  def websocketSpec = suite("Websocket Server") {
+  def websocketSpec = suite("WebSocket Server") {
     suite("connections") {
       testM("Multiple websocket upgrades") {
         val socketApp = SocketApp.message(Socket.succeed(WebSocketFrame.text("BAR")))
