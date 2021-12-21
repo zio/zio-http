@@ -1,12 +1,16 @@
 package zhttp.internal
 
+import sttp.client3.asynchttpclient.zio.{SttpClient, send}
+import sttp.client3.{Response => SResponse, UriContext, asWebSocketUnsafe, basicRequest}
+import sttp.model.{Header => SHeader}
+import sttp.ws.WebSocket
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.AppCollection.HttpEnv
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.DefaultRunnableSpec
-import zio.{Has, ZIO, ZManaged}
+import zio.{Has, Task, ZIO, ZManaged}
 
 /**
  * Should be used only when e2e tests needs to be written which is typically for logic that is part of the netty based
@@ -26,6 +30,16 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
         ClientSSLOptions.DefaultSSL,
       )
       .map(_.status)
+
+  def websocketRequest(
+    path: Path = !!,
+    headers: List[Header] = Nil,
+  ): ZIO[SttpClient, Throwable, SResponse[Either[String, WebSocket[Task]]]] = {
+    // todo: uri should be created by using URL().asString but currently support for ws Scheme is missing
+    val url                       = s"ws://localhost:$port${path.asString}"
+    val headerConv: List[SHeader] = headers.map(h => SHeader(h.name.toString(), h.value.toString()))
+    send(basicRequest.get(uri"$url").copy(headers = headerConv).response(asWebSocketUnsafe))
+  }
 
   def headers(
     path: Path,
@@ -50,6 +64,14 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
 
   implicit class RunnableHttpAppSyntax(app: HttpApp[HttpEnv, Throwable]) {
     def deploy: ZIO[HttpAppCollection, Nothing, String] = AppCollection.deploy(app)
+
+    def websocketStatusCode(
+      path: Path = !!,
+      headers: List[Header] = Nil,
+    ): ZIO[SttpClient with HttpAppCollection, Throwable, Int] = for {
+      id  <- deploy
+      res <- self.websocketRequest(path, Header(AppCollection.APP_ID, id) :: headers)
+    } yield res.code.code
     def request(
       path: Path = !!,
       method: Method = Method.GET,
