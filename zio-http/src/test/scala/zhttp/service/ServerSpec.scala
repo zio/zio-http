@@ -115,6 +115,11 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val path = getClass.getResource("/TestFile").getPath
         val res  = Http.data(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
         assertM(res)(containsString("foo"))
+      } +
+      testM("Response Content length for Unicode Charset bytes") {
+        val app           = Http.collectM[Request] { case _ => zio.ZIO.succeed(Response.text("åäö")) }
+        val contentLength = app.request().map(_.getContentLength)
+        assertM(contentLength)(isSome(equalTo("åäö".getBytes("UTF-8").size.toLong)))
       }
   }
 
