@@ -243,7 +243,7 @@ object Cookie {
    * Decodes from `Cookie` header value inside of Request into a cookie
    */
   def decodeRequestCookie(headerValue: String): Option[List[Cookie]] = {
-    val cookies: Array[String]  = headerValue.split(";").map(_.trim)
+    val cookies: Array[String]  = headerValue.split(';').map(_.trim)
     val x: List[Option[Cookie]] = cookies.toList.map(a => {
       val (name, content) = splitNameContent(a)
       if (name == "" && content.isEmpty) None
