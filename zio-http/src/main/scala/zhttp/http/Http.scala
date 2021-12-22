@@ -491,6 +491,11 @@ object Http {
     /**
      * Adds the provided headers to the response of the app
      */
+    def addHeader(header: Headers): HttpApp[R, E] = patch(Patch.addHeader(header))
+
+    /**
+     * Adds the provided headers to the response of the app
+     */
     def addHeader(header: Header): HttpApp[R, E] = patch(Patch.addHeader(header))
 
     /**
@@ -501,7 +506,7 @@ object Http {
     /**
      * Adds the provided headers to the response of the app
      */
-    def addHeaders(headers: List[Header]): HttpApp[R, E] = patch(Patch.addHeaders(headers))
+    def addHeaders(headers: Headers): HttpApp[R, E] = patch(Patch.addHeader(headers))
 
     /**
      * Attaches the provided middleware to the HttpApp
