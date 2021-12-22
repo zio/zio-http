@@ -11,6 +11,7 @@ import io.netty.channel.{
 import io.netty.handler.codec.http.HttpVersion
 import zhttp.http.URL.Location
 import zhttp.http._
+import zhttp.http.headers.HeaderExtension
 import zhttp.service
 import zhttp.service.Client.{ClientParams, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
@@ -88,7 +89,7 @@ object Client {
 
   def request(
     url: String,
-    headers: List[Header],
+    headers: Headers,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
@@ -98,7 +99,7 @@ object Client {
 
   def request(
     url: String,
-    headers: List[Header],
+    headers: Headers,
     content: HttpData[Any, Nothing],
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
@@ -119,14 +120,14 @@ object Client {
 
   def request(
     endpoint: Endpoint,
-    headers: List[Header],
+    headers: Headers,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint, headers), sslOptions)
 
   def request(
     endpoint: Endpoint,
-    headers: List[Header],
+    headers: Headers,
     content: HttpData[Any, Nothing],
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(endpoint, headers, content))
@@ -146,7 +147,7 @@ object Client {
 
   final case class ClientParams(
     endpoint: Endpoint,
-    getHeaders: List[Header] = List.empty,
+    getHeaders: Headers = Headers.empty,
     data: HttpData[Any, Nothing] = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
   ) extends HeaderExtension[ClientParams] { self =>
@@ -168,19 +169,19 @@ object Client {
     /**
      * Updates the headers using the provided function
      */
-    override def updateHeaders(f: List[Header] => List[Header]): ClientParams =
+    override def updateHeaders(f: Headers => Headers): ClientParams =
       self.copy(getHeaders = f(self.getHeaders))
 
     val method: Method = endpoint._1
     val url: URL       = endpoint._2
   }
 
-  final case class ClientResponse(status: Status, headers: List[Header], private val buffer: ByteBuf)
+  final case class ClientResponse(status: Status, headers: Headers, private val buffer: ByteBuf)
       extends HeaderExtension[ClientResponse] { self =>
     def getBodyAsString: Task[String] = Task(buffer.toString(self.getCharset))
 
-    override def getHeaders: List[Header] = headers
+    override def getHeaders: Headers = headers
 
-    override def updateHeaders(f: List[Header] => List[Header]): ClientResponse = self.copy(headers = f(headers))
+    override def updateHeaders(f: Headers => Headers): ClientResponse = self.copy(headers = f(headers))
   }
 }

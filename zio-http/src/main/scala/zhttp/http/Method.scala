@@ -3,22 +3,11 @@ package zhttp.http
 import io.netty.handler.codec.http.HttpMethod
 
 sealed trait Method { self =>
-  lazy val asHttpMethod: HttpMethod = Method.asHttpMethod(self)
   override def toString(): String   = Method.asHttpMethod(self).name()
+  lazy val asHttpMethod: HttpMethod = Method.asHttpMethod(self)
 }
 
 object Method {
-  object OPTIONS                        extends Method
-  object GET                            extends Method
-  object HEAD                           extends Method
-  object POST                           extends Method
-  object PUT                            extends Method
-  object PATCH                          extends Method
-  object DELETE                         extends Method
-  object TRACE                          extends Method
-  object CONNECT                        extends Method
-  final case class CUSTOM(name: String) extends Method
-
   def fromHttpMethod(method: HttpMethod): Method =
     method match {
       case HttpMethod.OPTIONS => OPTIONS
@@ -59,5 +48,17 @@ object Method {
     case CONNECT      => HttpMethod.CONNECT
     case CUSTOM(name) => new HttpMethod(name)
   }
+
+  final case class CUSTOM(name: String) extends Method
+
+  object OPTIONS extends Method
+  object GET     extends Method
+  object HEAD    extends Method
+  object POST    extends Method
+  object PUT     extends Method
+  object PATCH   extends Method
+  object DELETE  extends Method
+  object TRACE   extends Method
+  object CONNECT extends Method
 
 }

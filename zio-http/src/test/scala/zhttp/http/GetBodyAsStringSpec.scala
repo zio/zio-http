@@ -20,7 +20,7 @@ object GetBodyAsStringSpec extends DefaultRunnableSpec {
         val encoded = Client
           .ClientParams(
             endpoint = Method.GET -> URL(Path("/")),
-            getHeaders = List(Header.custom(HttpHeaderNames.CONTENT_TYPE.toString, s"text/html; charset=$charset")),
+            getHeaders = Headers(HttpHeaderNames.CONTENT_TYPE.toString, s"text/html; charset=$charset"),
             data = HttpData.BinaryChunk(Chunk.fromArray("abc".getBytes())),
           )
           .getBodyAsString
