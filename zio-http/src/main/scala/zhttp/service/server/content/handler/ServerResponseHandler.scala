@@ -7,7 +7,7 @@ import io.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http._
 import zhttp.core.Util
-import zhttp.http.{HTTP_CHARSET, Header, HttpData, Response, Status}
+import zhttp.http.{HTTP_CHARSET, HttpData, Response, Status}
 import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{ChannelFuture, HttpRuntime}
 import zio.stream.ZStream
@@ -82,7 +82,7 @@ private[zhttp] case class ServerResponseHandler[R](runtime: HttpRuntime[R], serv
   }
 
   private def decodeResponseFresh(res: Response[_, _]): HttpResponse = {
-    val jHeaders = Header.disassemble(res.getHeaders)
+    val jHeaders = res.getHeaders.encode
     if (res.attribute.serverTime) jHeaders.set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
     new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
   }
