@@ -246,7 +246,7 @@ object Cookie {
     val cookies: Array[String]  = headerValue.split(';').map(_.trim)
     val x: List[Option[Cookie]] = cookies.toList.map(a => {
       val (name, content) = splitNameContent(a)
-      if (name == "" && content.isEmpty) None
+      if (name.isEmpty && content.isEmpty) None
       else Some(Cookie(name, content))
     })
 
