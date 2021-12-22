@@ -131,12 +131,8 @@ final case class Cookie(
    * Converts cookie into a string
    */
   def encode: String = {
-    val c: Cookie = secret match {
-      case Some(value) => self.withSecret(value)
-      case None        => self
-    }
-    val cookie    = List(
-      Some(s"$name=${c.content}"),
+    val cookie = List(
+      Some(s"$name=${content}"),
       expires.map(e => s"Expires=$e"),
       maxAge.map(a => s"Max-Age=${a.toString}"),
       domain.map(d => s"Domain=$d"),
@@ -164,9 +160,9 @@ final case class Cookie(
   def unSign(secret: String): Option[Cookie] = {
     val str             = self.content.slice(0, content.lastIndexOf('.'))
     val encryptedCookie = self.withContent(str).sign(secret)
-    if (encryptedCookie == self.content) {
+    if (encryptedCookie == self.content)
       Some(self.withSecret(secret).withContent(str))
-    } else None
+    else None
   }
 }
 

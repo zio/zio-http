@@ -30,9 +30,11 @@ object CookieSpec extends DefaultRunnableSpec {
       suite("sign/unsign cookies") {
         testM("should sign/unsign cookies with same secret") {
           checkAll(HttpGen.cookies) { case (cookie, secret) =>
-            val cookieString = cookie.encode
+            val cookieString = cookie.withSecret(secret.getOrElse("")).encode
             assert(Cookie.decodeResponseSignedCookie(cookieString, secret))(isSome(equalTo(cookie))) &&
-            assert(Cookie.decodeResponseSignedCookie(cookieString, secret).map(_.encode))(
+            assert(
+              Cookie.decodeResponseSignedCookie(cookieString, secret).map(_.withSecret(secret.getOrElse("")).encode),
+            )(
               isSome(equalTo(cookieString)),
             )
           }
