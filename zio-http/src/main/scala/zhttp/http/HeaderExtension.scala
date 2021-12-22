@@ -65,7 +65,8 @@ private[zhttp] trait HeaderExtension[+A] { self: A =>
 
   final def getCookiesRaw(implicit ev: HasCookie[A]): List[CharSequence] = ev.headers(self)
 
-  final def getSignedCookies(secret: String)(implicit ev: HasCookie[A]): List[Cookie] = ev.unSign(self, secret)
+  final def getSignedCookies(secret: String)(implicit ev: HasCookie[A]): List[Cookie] =
+    ev.decodeSignedCookie(self, secret)
 
   final def getHeader(headerName: CharSequence): Option[Header] =
     getHeaders.find(h => contentEqualsIgnoreCase(h.name, headerName))

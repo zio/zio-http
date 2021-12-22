@@ -9,8 +9,8 @@ object CookieSpec extends DefaultRunnableSpec {
     suite("response cookies") {
       testM("encode/decode cookies with ZIO Test Gen") {
         checkAll(HttpGen.cookies) { case (cookie, _) =>
-          val cookieString = cookie.encode
-          assert(Cookie.decodeResponseCookie(cookieString))(isSome(equalTo(cookie))) &&
+          val cookieString = cookie.withoutSecret.encode
+          assert(Cookie.decodeResponseCookie(cookieString))(isSome(equalTo(cookie.withoutSecret))) &&
           assert(Cookie.decodeResponseCookie(cookieString).map(_.encode))(isSome(equalTo(cookieString)))
         }
       }
@@ -30,14 +30,17 @@ object CookieSpec extends DefaultRunnableSpec {
       suite("sign/unsign cookies") {
         testM("should sign/unsign cookies with same secret") {
           checkAll(HttpGen.cookies) { case (cookie, secret) =>
-            val cookieSigned = cookie.withSign(secret).unSign(secret)
-            assert(cookieSigned)(isSome(equalTo(cookie)))
+            val cookieString = cookie.encode
+            assert(Cookie.decodeResponseSignedCookie(cookieString, secret))(isSome(equalTo(cookie))) &&
+            assert(Cookie.decodeResponseSignedCookie(cookieString, secret).map(_.encode))(
+              isSome(equalTo(cookieString)),
+            )
           }
         } +
           testM("should not unsign cookies with different secret") {
-            checkAll(HttpGen.cookies) { case (cookie, secret) =>
-              val cookieSigned = cookie.withSign(secret).unSign("sec")
-              assert(cookieSigned)(isNone)
+            checkAll(HttpGen.cookies) { case (cookie, _) =>
+              val cookieSigned = cookie.encode
+              assert(Cookie.decodeResponseSignedCookie(cookieSigned, Some("a")))(isNone)
             }
           }
       }

@@ -19,6 +19,7 @@ final case class Cookie(
   isHttpOnly: Boolean = false,
   maxAge: Option[Long] = None,
   sameSite: Option[Cookie.SameSite] = None,
+  secret: Option[String] = None,
 ) { self =>
 
   /**
@@ -80,8 +81,15 @@ final case class Cookie(
   /**
    * Adds secret in the cookie
    */
-  def withSign(key: String): Cookie = {
-    copy(content = sign(key))
+  def withSecret(key: String): Cookie = {
+    copy(secret = Some(key), content = sign(key))
+  }
+
+  /**
+   * Removes secret from the cookie
+   */
+  def withoutSecret: Cookie = {
+    copy(secret = None)
   }
 
   /**
@@ -123,8 +131,12 @@ final case class Cookie(
    * Converts cookie into a string
    */
   def encode: String = {
-    val cookie = List(
-      Some(s"$name=$content"),
+    val c: Cookie = secret match {
+      case Some(value) => self.withSecret(value)
+      case None        => self
+    }
+    val cookie    = List(
+      Some(s"$name=${c.content}"),
       expires.map(e => s"Expires=$e"),
       maxAge.map(a => s"Max-Age=${a.toString}"),
       domain.map(d => s"Domain=$d"),
@@ -136,7 +148,7 @@ final case class Cookie(
     cookie.flatten.mkString("; ")
   }
 
-  private def sign(secret: String): String = {
+  def sign(secret: String): String = {
     try {
       val sha256    = Mac.getInstance("HmacSHA256")
       val secretKey = new SecretKeySpec(secret.getBytes(), "RSA")
@@ -152,7 +164,9 @@ final case class Cookie(
   def unSign(secret: String): Option[Cookie] = {
     val str             = self.content.slice(0, content.lastIndexOf('.'))
     val encryptedCookie = self.withContent(str).sign(secret)
-    if (encryptedCookie == self.content) Some(self.withContent(str)) else None
+    if (encryptedCookie == self.content) {
+      Some(self.withSecret(secret).withContent(str))
+    } else None
   }
 }
 
@@ -171,18 +185,28 @@ object Cookie {
   /**
    * Decodes from Set-Cookie header value inside of Response into a cookie
    */
+  def decodeResponseSignedCookie(headerValue: String, secret: Option[String]): Option[Cookie] = {
+    val decodedCookie = decodeResponseCookie(headerValue)
+    secret match {
+      case Some(value) => decodedCookie.flatMap(_.unSign(value))
+      case None        => decodedCookie
+    }
+  }
+
+  /**
+   * Decodes from Set-Cookie header value inside of Response into a cookie
+   */
   def decodeResponseCookie(headerValue: String): Option[Cookie] = {
     val cookieWithoutMeta = headerValue.split(";").map(_.trim)
     val (first, other)    = (cookieWithoutMeta.head, cookieWithoutMeta.tail)
     val (name, content)   = splitNameContent(first)
-
-    val cookie =
+    val cookie            =
       if (name.trim == "" && content.isEmpty) Option.empty[Cookie]
       else Some(Cookie(name, content.getOrElse("")))
 
     other.map(splitNameContent).map(t => (t._1.toLowerCase, t._2)).foldLeft(cookie) {
-      case (Some(c), ("expires", Some(v)))  => parseDate(v).map(c.withExpiry(_))
-      case (Some(c), ("max-age", Some(v)))  => Try(v.toLong).toOption.map(c.withMaxAge(_))
+      case (Some(c), ("expires", Some(v)))  => parseDate(v).map(c.withExpiry)
+      case (Some(c), ("max-age", Some(v)))  => Try(v.toLong).toOption.map(c.withMaxAge)
       case (Some(c), ("domain", v))         => Some(c.withDomain(v.getOrElse("")))
       case (Some(c), ("path", v))           => Some(c.withPath(Path(v.getOrElse(""))))
       case (Some(c), ("secure", _))         => Some(c.withSecure)
@@ -262,5 +286,5 @@ object Cookie {
   /**
    * Signs content in cookie
    */
-  def sign(secret: String): Update = Update(_.withSign(secret))
+  def sign(secret: String): Update = Update(_.withSecret(secret))
 }

@@ -12,10 +12,10 @@ import zio.{App, ExitCode, URIO}
 object SignCookies extends App {
 
   // Setting cookies with an expiry of 5 days
-  private val cookie = Cookie("key", "value") @@ maxAge(5 days)
+  private val cookie = Cookie("key", "hello") @@ maxAge(5 days)
 
   private val app = Http.collect[Request] { case Method.GET -> !! / "cookie" =>
-    Response.ok.addCookie(cookie @@ path(!! / "cookie") @@ httpOnly @@ sign("secret"))
+    Response.ok.addCookie(cookie @@ path(!! / "cookie") @@ httpOnly @@ sign("tobiiscool"))
   }
 
   // Run it like any simple app

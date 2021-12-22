@@ -8,7 +8,7 @@ import io.netty.handler.codec.http.HttpHeaderNames
 sealed trait HasCookie[-A] {
   def headers(a: A): List[String]
   def decode(a: A): List[Cookie]
-  def unSign(a: A, secret: String): List[Cookie]
+  def decodeSignedCookie(a: A, secret: String): List[Cookie]
 }
 
 object HasCookie {
@@ -24,14 +24,11 @@ object HasCookie {
         }
       }
 
-    override def unSign(a: Request, secret: String): List[Cookie] = {
-      decode(a).map(cookie =>
-        cookie.unSign(secret) match {
-          case Some(value) => value
-          case None        => cookie
-        },
-      )
-    }
+    override def decodeSignedCookie(a: Request, secret: String): List[Cookie] =
+      headers(a).map(headerValue => Cookie.decodeResponseSignedCookie(headerValue, Some(secret))).collect {
+        case Some(cookie) => cookie
+      }
+
   }
 
   implicit object ResponseCookie extends HasCookie[Response[Any, Nothing]] {
@@ -41,12 +38,9 @@ object HasCookie {
     override def decode(a: Response[Any, Nothing]): List[Cookie] =
       headers(a).map(Cookie.decodeResponseCookie).collect { case Some(cookie) => cookie }
 
-    override def unSign(a: Response[Any, Nothing], secret: String): List[Cookie] =
-      decode(a).map(cookie =>
-        cookie.unSign(secret) match {
-          case Some(value) => value
-          case None        => cookie
-        },
-      )
+    override def decodeSignedCookie(a: Response[Any, Nothing], secret: String): List[Cookie] =
+      headers(a).map(headerValue => Cookie.decodeResponseSignedCookie(headerValue, Some(secret))).collect {
+        case Some(cookie) => cookie
+      }
   }
 }

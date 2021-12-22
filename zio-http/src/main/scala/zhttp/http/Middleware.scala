@@ -128,7 +128,7 @@ object Middleware {
             .map(_.value.toString)
             .map(Cookie.decodeResponseCookie)
             .collect { case Some(cookie) =>
-              Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.withSign(secret).encode)
+              Header.custom(HttpHeaderNames.SET_COOKIE.toString, cookie.withSecret(secret).encode)
             },
         )
       }
