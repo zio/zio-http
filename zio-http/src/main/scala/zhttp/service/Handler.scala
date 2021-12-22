@@ -21,7 +21,7 @@ private[zhttp] final case class Handler[R](
 
   override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
-    val headers                              = Header.make(jReq.headers())
+    val headers                              = Headers.make(jReq.headers())
     val content                              = Unpooled.copiedBuffer(jReq.content())
     unsafeRun(
       jReq,
@@ -31,7 +31,7 @@ private[zhttp] final case class Handler[R](
 
         override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
 
-        override def getHeaders: List[Header] = headers
+        override def getHeaders: Headers = headers
 
         override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(content)
 
@@ -43,7 +43,6 @@ private[zhttp] final case class Handler[R](
         }
       },
     )
-
   }
 
   /**

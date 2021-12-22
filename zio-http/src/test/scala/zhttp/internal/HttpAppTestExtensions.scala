@@ -7,11 +7,11 @@ trait HttpAppTestExtensions {
     def getHeader(name: String): Http[R, E, Request, Option[String]] =
       app.map(res => res.getHeaderValue(name))
 
-    def getHeaders: Http[R, E, Request, List[Header]] =
+    def getHeaders: Http[R, E, Request, Headers] =
       app.map(res => res.getHeaders)
 
     def getHeaderValues: Http[R, E, Request, List[String]] =
-      app.map(res => res.getHeaders.map(_.value.toString))
+      app.map(res => res.getHeaders.toList.map(_._2.toString))
 
     def getStatus: Http[R, E, Request, Status] =
       app.map(res => res.status)
