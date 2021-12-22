@@ -45,9 +45,9 @@ object ClientSpec extends HttpRunnableSpec(8082) {
       },
   ).provideCustomLayer(env) @@ flaky @@ timeout(5 second)
 
-  val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
+  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
 
-  val clientApp: HttpApp[Any, Nothing] = Http.collectM[Request] {
+  private val clientApp: HttpApp[Any, Nothing] = Http.collectM[Request] {
     case Method.GET -> !! / "users" / "zio" / "repos" =>
       ZIO.succeed(Response.ok)
 
