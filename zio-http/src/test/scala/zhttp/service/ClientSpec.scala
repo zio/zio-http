@@ -28,7 +28,7 @@ object ClientSpec extends HttpRunnableSpec(8082) {
         assertM(responseContent)(isNonEmpty)
       } +
       testM("POST request expect non empty response content") {
-        val headers         = List(Header.userAgent("zio-http test"))
+        val headers         = Headers.userAgent("zio-http test")
         val response        = request(!! / "users" / "zio", method = Method.POST, headers = headers, content = "test")
         val responseContent = response.flatMap(_.getBody)
         assertM(responseContent)(isNonEmpty)
