@@ -233,11 +233,11 @@ jobs:
         scala: [2.13.6]
         java: [temurin@11]
     runs-on: [ "${{ matrix.os }}", zio-http ]
-    env:
-      GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
     steps:
       - name: Clean up
         id: clean_up
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: sudo rm -rf *
 
       - uses: actions/checkout@v2
@@ -250,6 +250,8 @@ jobs:
           path: FrameworkBenchMarks
 
       - id: result
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
           cp ./zio-http/example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
           cd ./FrameworkBenchMarks
@@ -261,10 +263,10 @@ jobs:
           echo ::set-output name=request_result::$(echo $RESULT_REQUEST)
           echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)
 
-      - uses: unsplash/comment-on-pr@v1.3.0
+      - uses: peter-evans/commit-comment@v1
         with:
-          msg: |
-            ## 🚀🚀🚀 Benchmark Results 
-             **${{steps.result.outputs.concurrency_result}}** 
-             **${{steps.result.outputs.request_result}}**
-          check_for_duplicate_msg: false
+          sha: ${{github.event.pull_request.head.sha}}
+          body: |
+            <details>
+            <summary>🚀 <b>Benchmark</b></summary> 
+             <b>${{steps.result.outputs.concurrency_result}}</b> <br/> <b>${{steps.result.outputs.request_result}}</b> </details>
