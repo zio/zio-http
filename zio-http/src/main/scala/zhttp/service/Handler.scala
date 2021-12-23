@@ -126,23 +126,19 @@ private[zhttp] final case class Handler[R](
                         unsafeWriteAndFlushLastEmptyContent()
                       }
 
-                    case data @ HttpData.Text(_, _) =>
-                      UIO {
-                        unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
-                      }
-
                     case HttpData.BinaryByteBuf(data) =>
                       UIO {
                         unsafeWriteLastContent(data)
                       }
 
-                    case data @ HttpData.BinaryChunk(_) =>
-                      UIO {
-                        unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
-                      }
-
                     case HttpData.BinaryStream(stream) =>
                       writeStreamContent(stream)
+
+                    case _ =>
+                      UIO {
+                        unsafeWriteAndFlushLastEmptyContent()
+                      }
+
                   }
                   _ <- Task(releaseRequest(jReq))
                 } yield ()
@@ -161,22 +157,19 @@ private[zhttp] final case class Handler[R](
               unsafeWriteAndFlushLastEmptyContent()
               releaseRequest(jReq)
 
-            case data @ HttpData.Text(_, _) =>
-              unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
-              releaseRequest(jReq)
-
             case HttpData.BinaryByteBuf(data) =>
               unsafeWriteLastContent(data)
-              releaseRequest(jReq)
-
-            case data @ HttpData.BinaryChunk(_) =>
-              unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
               releaseRequest(jReq)
 
             case HttpData.BinaryStream(stream) =>
               unsafeRunZIO(
                 writeStreamContent(stream) *> Task(releaseRequest(jReq)),
               )
+
+            case _ =>
+              unsafeWriteAndFlushLastEmptyContent()
+              releaseRequest(jReq)
+
           }
         }
 
