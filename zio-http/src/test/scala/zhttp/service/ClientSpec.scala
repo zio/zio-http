@@ -1,16 +1,16 @@
 package zhttp.service
 
 import zhttp.http._
-import zhttp.internal.{AppCollection, HttpRunnableSpec}
+import zhttp.internal.{AppCollection, AppPort, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.duration.durationInt
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
-object ClientSpec extends HttpRunnableSpec(8082) {
+object ClientSpec extends HttpRunnableSpec {
 
-  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
+  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live ++ AppPort.live
 
   def clientSpec = suite("ClientSpec") {
     testM("respond Ok") {
