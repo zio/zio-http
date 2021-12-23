@@ -126,7 +126,7 @@ private[zhttp] final case class Handler[R](
                         unsafeWriteAndFlushLastEmptyContent()
                       }
 
-                    case HttpData.BinaryByteBuf(data) =>
+                    case HttpData.Complete(data) =>
                       UIO {
                         unsafeWriteLastContent(data)
                       }
@@ -157,7 +157,7 @@ private[zhttp] final case class Handler[R](
               unsafeWriteAndFlushLastEmptyContent()
               releaseRequest(jReq)
 
-            case HttpData.BinaryByteBuf(data) =>
+            case HttpData.Complete(data) =>
               unsafeWriteLastContent(data)
               releaseRequest(jReq)
 

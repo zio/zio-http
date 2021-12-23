@@ -117,9 +117,11 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         assertM(res)(containsString("foo"))
       } +
       testM("Response Content length for Unicode Charset bytes") {
-        val app           = Http.text("åäö")
-        val contentLength = app.request().map(_.getContentLength)
-        assertM(contentLength)(isSome(equalTo("åäö".getBytes("UTF-8").size.toLong)))
+        checkM(Gen.anyString) { str =>
+          val app           = Http.text(str)
+          val contentLength = app.request().map(_.getContentLength)
+          assertM(contentLength)(isSome(equalTo(str.getBytes("UTF-8").size.toLong)))
+        }
       }
   }
 

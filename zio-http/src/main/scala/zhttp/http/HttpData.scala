@@ -44,7 +44,7 @@ sealed trait HttpData[-R, +E] { self =>
   def toByteBuf: ZIO[R, E, ByteBuf] = self match {
     case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
     case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
-    case HttpData.BinaryByteBuf(data)  => UIO(data)
+    case HttpData.Complete(data)       => UIO(data)
     case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
     case HttpData.BinaryStream(stream) => stream.fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
   }
@@ -54,10 +54,10 @@ sealed trait HttpData[-R, +E] { self =>
    */
   private[zhttp] def unsafeSize: Long = self match {
     case HttpData.Empty               => 0L
-    case HttpData.Text(text, charSet) => text.getBytes(charSet).size.toLong
-    case HttpData.BinaryChunk(data)   => data.size.toLong
-    case HttpData.BinaryByteBuf(data) => data.readableBytes().toLong
+    case HttpData.Complete(data)      => data.readableBytes().toLong
     case HttpData.BinaryStream(_)     => -1L
+    case HttpData.Text(text, charset) => text.getBytes(charset).size.toLong
+    case _                            => -1L
   }
 }
 
@@ -71,7 +71,7 @@ object HttpData {
   /**
    * Helper to create HttpData from ByteBuf
    */
-  def fromByteBuf(byteBuf: ByteBuf): HttpData[Any, Nothing] = HttpData.BinaryByteBuf(byteBuf)
+  def fromByteBuf(byteBuf: ByteBuf): HttpData[Any, Nothing] = HttpData.Complete(byteBuf)
 
   /**
    * Helper to create HttpData from chunk of bytes
@@ -118,7 +118,7 @@ object HttpData {
 
   private[zhttp] final case class Text(text: String, charset: Charset) extends HttpData[Any, Nothing] with Cached
   private[zhttp] final case class BinaryChunk(data: Chunk[Byte])       extends HttpData[Any, Nothing] with Cached
-  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)         extends HttpData[Any, Nothing]
+  private[zhttp] final case class Complete(data: ByteBuf)              extends HttpData[Any, Nothing]
   private[zhttp] final case class BinaryStream[R, E](stream: ZStream[R, E, ByteBuf]) extends HttpData[R, E]
   private[zhttp] case object Empty                                                   extends HttpData[Any, Nothing]
 }
