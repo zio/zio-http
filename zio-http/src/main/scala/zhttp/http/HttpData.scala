@@ -90,6 +90,9 @@ object HttpData {
   def fromStream[R, E](stream: ZStream[R, E, String], charset: Charset = HTTP_CHARSET): HttpData[R, E] =
     HttpData.BinaryStream(stream.map(str => Unpooled.copiedBuffer(str, charset)))
 
+  def fromByteBufStream[R, E](stream: ZStream[R, E, ByteBuf]): HttpData[R, E] =
+    HttpData.BinaryStream(stream)
+
   /**
    * Helper to create HttpData from String
    */

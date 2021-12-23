@@ -6,6 +6,7 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
+import zio.stream.ZStream
 import zio.{Task, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -104,8 +105,10 @@ private[zhttp] final case class Handler[R](
                         unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
                       }
 
-                    case HttpData.BinaryStream(_) =>
-                      UIO.unit
+                    case HttpData.BinaryStream(data) =>
+                      UIO {
+                        unsafeWriteStreamContent(data)
+                      }
                   }
                   _ <- Task(releaseRequest(jReq))
                 } yield ()
@@ -132,8 +135,9 @@ private[zhttp] final case class Handler[R](
             case data @ HttpData.BinaryChunk(_) =>
               unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
 
-            case HttpData.BinaryStream(_) =>
-              ()
+            case HttpData.BinaryStream(stream) =>
+              unsafeWriteStreamContent(stream)
+
           }
           releaseRequest(jReq)
         }
@@ -192,6 +196,13 @@ private[zhttp] final case class Handler[R](
    */
   private def unsafeWriteLastContent[A](data: ByteBuf)(implicit ctx: ChannelHandlerContext): Unit = {
     val response = Response(status = Status.OK, data = HttpData.BinaryByteBuf(Unpooled.copiedBuffer(data)))
+    ctx.fireChannelRead(Right(response)): Unit
+  }
+
+  private def unsafeWriteStreamContent[A](
+    stream: ZStream[R, Throwable, ByteBuf],
+  )(implicit ctx: ChannelHandlerContext): Unit = {
+    val response = Response(status = Status.OK, data = HttpData.fromByteBufStream(stream))
     ctx.fireChannelRead(Right(response)): Unit
   }
 
