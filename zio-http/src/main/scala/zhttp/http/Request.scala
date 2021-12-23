@@ -80,7 +80,7 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Updates the headers using the provided function
    */
-  final override def updateHeaders(f: Headers => Headers): Request = self.copy(headers = f(self.getHeaders))
+  final override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.getHeaders))
 
   private[zhttp] def getBodyAsByteBuf: Task[ByteBuf]
 }

@@ -46,8 +46,8 @@ final case class Response[-R, +E] private (
   /**
    * Updates the headers using the provided function
    */
-  override def updateHeaders(f: Headers => Headers): Response[R, E] =
-    self.copy(headers = f(self.getHeaders))
+  override def updateHeaders(update: Headers => Headers): Response[R, E] =
+    self.copy(headers = update(self.getHeaders))
 
   /**
    * A more efficient way to append server-time to the response headers.

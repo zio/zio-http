@@ -2,6 +2,10 @@ package zhttp.http.headers
 
 import io.netty.handler.codec.http.HttpHeaderValues
 
+/**
+ * List of commonly use HeaderValues. They are provided to reduce bugs caused by typos and also to improve performance.
+ * `HeaderValues` arent encoded everytime one needs to send them over the wire.
+ */
 trait HeaderValues {
   final val ApplicationJson: CharSequence               = HttpHeaderValues.APPLICATION_JSON
   final val ApplicationXWWWFormUrlencoded: CharSequence = HttpHeaderValues.APPLICATION_X_WWW_FORM_URLENCODED
