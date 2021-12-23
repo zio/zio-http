@@ -1,16 +1,47 @@
 package zhttp.service
 
-import zhttp.internal.HttpRunnableSpec
-import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zio.test.Assertion.anything
-import zio.test.assertM
+import zhttp.http._
+import zhttp.internal.{AppCollection, HttpRunnableSpec}
+import zhttp.service.server._
+import zio.duration.durationInt
+import zio.test.Assertion._
+import zio.test.TestAspect._
+import zio.test._
 
 object ClientSpec extends HttpRunnableSpec(8082) {
-  val env           = ChannelFactory.auto ++ EventLoopGroup.auto()
-  override def spec = suite("Client")(
+
+  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
+
+  def clientSpec = suite("ClientSpec") {
     testM("respond Ok") {
-      val actual = Client.request("http://api.github.com/users/zio/repos", ClientSSLOptions.DefaultSSL)
-      assertM(actual)(anything)
-    },
-  ).provideCustomLayer(env)
+      val app = Http.ok.requestStatus()
+      assertM(app)(equalTo(Status.OK))
+    } +
+      testM("non empty content") {
+        val app             = Http.text("abc")
+        val responseContent = app.requestBody()
+        assertM(responseContent)(isNonEmpty)
+      } +
+      testM("echo POST request content") {
+        val app = Http.collectM[Request] { case req => req.getBodyAsString.map(Response.text(_)) }
+        val res = app.requestBodyAsString(method = Method.POST, content = "ZIO user")
+        assertM(res)(equalTo("ZIO user"))
+      } +
+      testM("empty content") {
+        val app             = Http.empty
+        val responseContent = app.requestBody()
+        assertM(responseContent)(isEmpty)
+      } +
+      testM("text content") {
+        val app             = Http.text("zio user does not exist")
+        val responseContent = app.requestBodyAsString()
+        assertM(responseContent)(containsString("user"))
+      }
+  }
+
+  override def spec = {
+    suiteM("Client") {
+      serve(AppCollection.app).as(List(clientSpec)).useNow
+    }.provideCustomLayerShared(env) @@ timeout(5 seconds) @@ sequential
+  }
 }
