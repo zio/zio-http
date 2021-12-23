@@ -50,10 +50,9 @@ object BenchmarkWorkFlow {
             "body" ->
               """
                 |**\uD83D\uDE80 Performance Benchmark:**
-                ||Test |  Concurrency | Requests/Sec |
-                || :- | -: | -: |
-                ||**Plain Text** | ${{steps.result.outputs.concurrency_result}} | ${{steps.result.outputs.request_result}} |
-                |""".stripMargin,
+                |
+                |${{steps.result.outputs.concurrency_result}}
+                |${{steps.result.outputs.request_result}}""".stripMargin,
           ),
         ),
       ),

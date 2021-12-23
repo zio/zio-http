@@ -269,7 +269,6 @@ jobs:
           body: |
 
             **🚀 Performance Benchmark:**
-            |Test |  Concurrency | Requests/Sec |
-            | :- | -: | -: |
-            |**Plain Text** | ${{steps.result.outputs.concurrency_result}} | ${{steps.result.outputs.request_result}} |
-            
+
+            ${{steps.result.outputs.concurrency_result}}
+            ${{steps.result.outputs.request_result}}
