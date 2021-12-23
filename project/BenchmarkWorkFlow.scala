@@ -31,6 +31,7 @@ object BenchmarkWorkFlow {
         WorkflowStep.Run(
           id = Some("result"),
           commands = List(
+            "cp ./zio-http/example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala",
             "cd ./FrameworkBenchMarks",
             "echo ${{github.event.pull_request.head.sha}}",
             """sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt""",
