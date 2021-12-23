@@ -18,7 +18,8 @@ object EncodeClientParamsSpec extends DefaultRunnableSpec with EncodeClientParam
   val clientParamWithFiniteData: Gen[Random with Sized, Client.ClientParams] = HttpGen.clientParams(
     for {
       content <- Gen.alphaNumericString
-      data    <- Gen.fromIterable(List(HttpData.fromText(content)))
+      byteBuf <- Gen.fromEffect(HttpData.fromText(content).toByteBuf)
+      data    <- Gen.fromIterable(List(HttpData.fromByteBuf(byteBuf)))
     } yield data,
   )
 
