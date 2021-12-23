@@ -3,15 +3,12 @@ package zhttp.service
 import zhttp.http._
 import zhttp.internal.{AppCollection, HttpRunnableSpec}
 import zhttp.service.server._
-import zio.Task
 import zio.duration.durationInt
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
 object ClientSpec extends HttpRunnableSpec(8082) {
-
-  private val ClientUserAgentValue = "ZIO HTTP Client"
 
   override def spec = {
     suiteM("Client") {
@@ -29,21 +26,14 @@ object ClientSpec extends HttpRunnableSpec(8082) {
         assertM(responseContent)(isNonEmpty)
       } +
       testM(
-        "POST request expect non empty response content from a server that requires a mandatory user agent header.",
+        "POST request expect non empty response content from a server.",
       ) {
-        val app = Http.text("test data") ++ Http.collectM[Request] { case req =>
-          val userAgentHeader       = req.getHeaderValue(Headers.Literals.Name.UserAgent)
-          val isExpectedHeaderValue = userAgentHeader.contains(ClientUserAgentValue)
-          if (isExpectedHeaderValue) req.getBodyAsString.map(text => Response.text(text))
-          else
-            Task.succeed(Response.status(Status.FORBIDDEN))
+        val res = Http
+          .text("ZIO user")
+          .setMethod(Method.POST)
+          .requestBodyAsString()
 
-        }
-
-        val userAgentHeader = Headers.userAgent(ClientUserAgentValue)
-        val response        = app.setMethod(Method.POST).addHeader(userAgentHeader)
-        val responseContent = response.requestBody()
-        assertM(responseContent)(isNonEmpty)
+        assertM(res)(equalTo("ZIO user"))
       } +
       testM("empty content") {
         val app             = Http.empty
