@@ -105,7 +105,7 @@ private[zhttp] case class ServerResponseHandler[R](runtime: HttpRuntime[R], serv
     stream: ZStream[R, Throwable, ByteBuf],
   )(implicit ctx: ChannelHandlerContext): ZIO[R, Throwable, Unit] = {
     for {
-      _ <- stream.foreach(c => UIO(ctx.write(c)))
+      _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
   }
