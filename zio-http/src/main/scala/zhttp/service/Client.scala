@@ -169,8 +169,8 @@ object Client {
     /**
      * Updates the headers using the provided function
      */
-    override def updateHeaders(f: Headers => Headers): ClientParams =
-      self.copy(getHeaders = f(self.getHeaders))
+    override def updateHeaders(update: Headers => Headers): ClientParams =
+      self.copy(getHeaders = update(self.getHeaders))
 
     val method: Method = endpoint._1
     val url: URL       = endpoint._2
@@ -182,6 +182,6 @@ object Client {
 
     override def getHeaders: Headers = headers
 
-    override def updateHeaders(f: Headers => Headers): ClientResponse = self.copy(headers = f(headers))
+    override def updateHeaders(update: Headers => Headers): ClientResponse = self.copy(headers = update(headers))
   }
 }
