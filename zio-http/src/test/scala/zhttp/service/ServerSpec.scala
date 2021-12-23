@@ -106,9 +106,9 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         }
       } +
       testM("header") {
-        checkAllM(HttpGen.header) { case (header) =>
-          val res = Http.ok.addHeader(header).requestHeaderValueByName()(header.name)
-          assertM(res)(isSome(equalTo(header.value)))
+        checkAllM(HttpGen.header) { case header @ (name, value) =>
+          val res = Http.ok.addHeader(header).requestHeaderValueByName()(name)
+          assertM(res)(isSome(equalTo(value)))
         }
       } +
       testM("file-streaming") {

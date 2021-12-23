@@ -2,7 +2,7 @@ package zhttp.service
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames, HttpVersion}
-import zhttp.http.{HTTP_CHARSET, Header}
+import zhttp.http.HTTP_CHARSET
 trait EncodeClientParams {
 
   /**
@@ -15,7 +15,7 @@ trait EncodeClientParams {
       case Some(text) => Unpooled.copiedBuffer(text, HTTP_CHARSET)
       case None       => Unpooled.EMPTY_BUFFER
     }
-    val headers     = Header.disassemble(req.getHeaders)
+    val headers     = req.getHeaders.encode
     val writerIndex = content.writerIndex()
     if (writerIndex != 0) {
       headers.set(HttpHeaderNames.CONTENT_LENGTH, writerIndex.toString())

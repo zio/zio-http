@@ -1,7 +1,7 @@
 package example
 
 import io.netty.handler.ssl.SslContextBuilder
-import zhttp.http.Header
+import zhttp.http.Headers
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio.{App, ExitCode, URIO, console}
@@ -13,7 +13,7 @@ import javax.net.ssl.TrustManagerFactory
 object HttpsClient extends App {
   val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
   val url     = "https://sports.api.decathlon.com/groups/water-aerobics"
-  val headers = List(Header.host("sports.api.decathlon.com"))
+  val headers = Headers.host("sports.api.decathlon.com")
 
   // Configuring Truststore for https(optional)
   val trustStore: KeyStore                     = KeyStore.getInstance("JKS")

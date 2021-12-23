@@ -19,6 +19,8 @@ package object http extends PathModule with RequestSyntax with RouteDecoderModul
     def apply[E: SilentResponse]: SilentResponse[E] = implicitly[SilentResponse[E]]
   }
 
+  type Header = (CharSequence, CharSequence)
+
   /**
    * Default HTTP Charset
    */
