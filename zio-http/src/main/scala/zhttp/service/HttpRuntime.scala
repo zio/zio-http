@@ -33,6 +33,21 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
           ctx.close()
       }
   }
+
+  def unsafeRunUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
+    val rtm = strategy.getRuntime(ctx)
+    rtm
+      .unsafeRunAsyncWith(program) {
+        case Exit.Success(_)     => ()
+        case Exit.Failure(cause) =>
+          cause.failureOption match {
+            case None    => ()
+            case Some(_) => System.err.println(cause.prettyPrint)
+          }
+          ctx.close()
+      }
+  }
+
 }
 
 object HttpRuntime {

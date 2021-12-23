@@ -8,7 +8,7 @@ import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zhttp.service.server._
 import zio._
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{flaky, sequential, timeout}
+import zio.test.TestAspect.{nonFlaky, sequential, timeout}
 import zio.test.{DefaultRunnableSpec, assertM}
 
 object SSLSpec extends DefaultRunnableSpec {
@@ -39,7 +39,7 @@ object SSLSpec extends DefaultRunnableSpec {
         .request("http://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL1))
         .map(_.status)
       assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
-    } @@ timeout(5.seconds) @@ flaky +
+    } @@ timeout(5.seconds) @@ nonFlaky +
       test("succeed when client has the server certificate") {
         val actual = Client
           .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL1))
@@ -53,7 +53,7 @@ object SSLSpec extends DefaultRunnableSpec {
             ZIO.succeed("DecoderException")
           }
         assertM(actual)(equalTo("DecoderException"))
-      } @@ timeout(5.seconds) @@ flaky +
+      } @@ timeout(5.seconds) +
       test("succeed when client has default SSL") {
         val actual = Client
           .request("https://localhost:8073/success", ClientSSLOptions.DefaultSSL)
