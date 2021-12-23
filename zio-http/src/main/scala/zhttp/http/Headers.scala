@@ -21,6 +21,8 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
 
   override def updateHeaders(f: Headers => Headers): Headers = f(self)
 
+  def filter(f: Header => Boolean): Headers = Headers(self.toChunk.filter(f(_)))
+
   def when(cond: Boolean): Headers = if (cond) self else Headers.empty
 
   /**

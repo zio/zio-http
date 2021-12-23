@@ -67,12 +67,12 @@ object Response {
     headers: Headers = Headers.empty,
     data: HttpData[R, E] = HttpData.Empty,
   ): Response[R, E] = {
-    val size      = data.unsafeSize
-    val isChunked = data.isChunked
-
+    val size         = data.unsafeSize
+    val isChunked    = data.isChunked
+    val smartHeaders = if (isChunked) headers.filter(h => h._1 != Name.ContentLength) else headers
     Response(
       status,
-      headers ++
+      smartHeaders ++
         Headers(Name.ContentLength -> size.toString).when(size >= 0) ++
         Headers(Name.TransferEncoding -> Value.Chunked).when(isChunked),
       data,
