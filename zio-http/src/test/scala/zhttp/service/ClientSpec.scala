@@ -10,29 +10,21 @@ import zio.test._
 
 object ClientSpec extends HttpRunnableSpec(8082) {
 
-  override def spec = {
-    suiteM("Client") {
-      serve(AppCollection.app).as(List(clientSpec)).useNow
-    }.provideCustomLayerShared(env) @@ timeout(5 seconds) @@ sequential
-  }
-  def clientSpec    = suite("ClientSpec") {
+  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
+
+  def clientSpec = suite("ClientSpec") {
     testM("respond Ok") {
-      val app = Http.ok.requestBodyAsString()
-      assertM(app)(anything)
+      val app = Http.ok.requestStatus()
+      assertM(app)(equalTo(Status.OK))
     } +
       testM("non empty content") {
         val app             = Http.text("abc")
         val responseContent = app.requestBody()
         assertM(responseContent)(isNonEmpty)
       } +
-      testM(
-        "POST request expect non empty response content from a server.",
-      ) {
-        val res = Http
-          .text("ZIO user")
-          .setMethod(Method.POST)
-          .requestBodyAsString()
-
+      testM("echo POST request content") {
+        val app = Http.collectM[Request] { case req => req.getBodyAsString.map(Response.text(_)) }
+        val res = app.requestBodyAsString(method = Method.POST, content = "ZIO user")
         assertM(res)(equalTo("ZIO user"))
       } +
       testM("empty content") {
@@ -45,8 +37,11 @@ object ClientSpec extends HttpRunnableSpec(8082) {
         val responseContent = app.requestBodyAsString()
         assertM(responseContent)(containsString("user"))
       }
-
   }
 
-  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
+  override def spec = {
+    suiteM("Client") {
+      serve(AppCollection.app).as(List(clientSpec)).useNow
+    }.provideCustomLayerShared(env) @@ timeout(5 seconds) @@ sequential
+  }
 }
