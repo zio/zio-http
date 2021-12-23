@@ -268,7 +268,8 @@ jobs:
           sha: ${{github.event.pull_request.head.sha}}
           body: |
 
-             **🚀 Performance Benchmark:**
-             ${{steps.result.outputs.concurrency_result}}</br>
-             ${{steps.result.outputs.request_result}}        
+            **🚀 Performance Benchmark:**
+            |Test |  Concurrency | Requests/Sec |
+            | :- | -: | -: |
+            |**Plain Text** | ${{steps.result.outputs.concurrency_result}} | ${{steps.result.outputs.request_result}} |
             

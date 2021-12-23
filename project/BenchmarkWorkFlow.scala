@@ -49,9 +49,10 @@ object BenchmarkWorkFlow {
             "sha"  -> "${{github.event.pull_request.head.sha}}",
             "body" ->
               """
-                | **\uD83D\uDE80 Performance Benchmark:**
-                | ${{steps.result.outputs.concurrency_result}}</br>
-                | ${{steps.result.outputs.request_result}}        
+                |**\uD83D\uDE80 Performance Benchmark:**
+                ||Test |  Concurrency | Requests/Sec |
+                || :- | -: | -: |
+                ||**Plain Text** | ${{steps.result.outputs.concurrency_result}} | ${{steps.result.outputs.request_result}} |
                 |""".stripMargin,
           ),
         ),
