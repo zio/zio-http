@@ -68,11 +68,11 @@ object Response {
     val isChunked = data.isChunked
 
     val byteBufData = data match {
-      case data @ HttpData.Text(_, _) => HttpData.fromByteBuf(data.encodeAndCache(false))
+      case data @ HttpData.Text(_, _)     => HttpData.fromByteBuf(data.encodeAndCache(false))
       case data @ HttpData.BinaryChunk(_) => HttpData.fromByteBuf(data.encodeAndCache(false))
-      case _ => data
+      case _                              => data
     }
-    val size      = byteBufData.unsafeSize
+    val size        = byteBufData.unsafeSize
 
     val contentLength    = if (size >= 0) Header.contentLength(size) :: Nil else Nil
     val transferEncoding = if (isChunked) Header.transferEncodingChunked :: Nil else Nil
