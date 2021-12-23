@@ -46,8 +46,13 @@ object BenchmarkWorkFlow {
         WorkflowStep.Use(
           ref = UseRef.Public("peter-evans", "commit-comment", "v1"),
           params = Map(
-            "sha" -> "${{github.event.pull_request.head.sha}}",
-            "body" -> "<details>\n<summary>\uD83D\uDE80 <b>Benchmark</b></summary> \n <b>${{steps.result.outputs.concurrency_result}}</b> <br/> <b>${{steps.result.outputs.request_result}}</b> </details>",
+            "sha"  -> "${{github.event.pull_request.head.sha}}",
+            "body" ->
+              """
+                | **\uD83D\uDE80 Performance Benchmark:**
+                | ${{steps.result.outputs.concurrency_result}}</br>
+                | ${{steps.result.outputs.request_result}}        
+                |""".stripMargin,
           ),
         ),
       ),
