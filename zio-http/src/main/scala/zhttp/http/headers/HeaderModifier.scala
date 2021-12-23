@@ -5,7 +5,7 @@ import zio.duration.Duration
 
 /**
  * Maintains a list of operators that modify the current Headers. Once modified, a new instance of the same type is
- * returned. So or eg: `request.addHeader("A", "B")` should return a new `Request` and similarly `headers.add("A", "B")`
+ * returned. For eg: `request.addHeader("A", "B")` should return a new `Request` and similarly `headers.add("A", "B")`
  * should return a new `Headers` instance.
  *
  * NOTE: Add methods here that modify the current headers and returns an instance of the same type.
