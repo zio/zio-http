@@ -83,11 +83,10 @@ private[zhttp] final case class Handler[R](
               if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
               else {
                 for {
-                  _ <- UIO { unsafeWriteAnyResponse(res) }
                   _ <- res.data match {
                     case HttpData.Empty =>
                       UIO {
-                        unsafeWriteAndFlushLastEmptyContent()
+                        unsafeWriteAndFlushLastEmptyContent(res)
                       }
 
                     case data @ HttpData.Text(_, _) =>
@@ -120,11 +119,10 @@ private[zhttp] final case class Handler[R](
         if (self.isWebSocket(res)) {
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
-          unsafeWriteAnyResponse(res)
 
           res.data match {
             case HttpData.Empty =>
-              unsafeWriteAndFlushLastEmptyContent()
+              unsafeWriteAndFlushLastEmptyContent(res)
 
             case data @ HttpData.Text(_, _) =>
               unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
@@ -179,17 +177,18 @@ private[zhttp] final case class Handler[R](
   /**
    * Writes last empty content to the Channel
    */
-  private def unsafeWriteAndFlushLastEmptyContent()(implicit ctx: ChannelHandlerContext): Unit = {
-    val response = Response(Status.OK)
+  private def unsafeWriteAndFlushLastEmptyContent(
+    response: Response[R, Throwable],
+  )(implicit ctx: ChannelHandlerContext): Unit = {
     ctx.fireChannelRead(Right(response)): Unit
   }
 
   /**
    * Writes any response to the Channel
    */
-  private def unsafeWriteAnyResponse[A](res: Response[R, Throwable])(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.fireChannelRead(Right(res)): Unit
-  }
+//  private def unsafeWriteAnyResponse[A](res: Response[R, Throwable])(implicit ctx: ChannelHandlerContext): Unit = {
+//    ctx.fireChannelRead(Right(res)): Unit
+//  }
 
   /**
    * Writes ByteBuf data to the Channel
