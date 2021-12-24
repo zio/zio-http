@@ -91,22 +91,22 @@ private[zhttp] final case class Handler[R](
 
                     case data @ HttpData.Text(_, _) =>
                       UIO {
-                        unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+                        unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize), res.headers, res.status)
                       }
 
                     case HttpData.BinaryByteBuf(data) =>
                       UIO {
-                        unsafeWriteLastContent(data)
+                        unsafeWriteLastContent(data, res.headers, res.status)
                       }
 
                     case data @ HttpData.BinaryChunk(_) =>
                       UIO {
-                        unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+                        unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize), res.headers, res.status)
                       }
 
                     case HttpData.BinaryStream(data) =>
                       UIO {
-                        unsafeWriteStreamContent(data)
+                        unsafeWriteStreamContent(data, res.headers, res.status)
                       }
                   }
                   _ <- Task(releaseRequest(jReq))
@@ -125,16 +125,16 @@ private[zhttp] final case class Handler[R](
               unsafeWriteAndFlushLastEmptyContent(res)
 
             case data @ HttpData.Text(_, _) =>
-              unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+              unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize), res.headers, res.status)
 
             case HttpData.BinaryByteBuf(data) =>
-              unsafeWriteLastContent(data)
+              unsafeWriteLastContent(data, res.headers, res.status)
 
             case data @ HttpData.BinaryChunk(_) =>
-              unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+              unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize), res.headers, res.status)
 
             case HttpData.BinaryStream(stream) =>
-              unsafeWriteStreamContent(stream)
+              unsafeWriteStreamContent(stream, res.headers, res.status)
 
           }
           releaseRequest(jReq)
@@ -184,24 +184,22 @@ private[zhttp] final case class Handler[R](
   }
 
   /**
-   * Writes any response to the Channel
-   */
-//  private def unsafeWriteAnyResponse[A](res: Response[R, Throwable])(implicit ctx: ChannelHandlerContext): Unit = {
-//    ctx.fireChannelRead(Right(res)): Unit
-//  }
-
-  /**
    * Writes ByteBuf data to the Channel
    */
-  private def unsafeWriteLastContent[A](data: ByteBuf)(implicit ctx: ChannelHandlerContext): Unit = {
-    val response = Response(status = Status.OK, data = HttpData.BinaryByteBuf(Unpooled.copiedBuffer(data)))
+  private def unsafeWriteLastContent[A](data: ByteBuf, headers: Headers, status: Status)(implicit
+    ctx: ChannelHandlerContext,
+  ): Unit = {
+    val response =
+      Response(status = status, headers = headers, data = HttpData.BinaryByteBuf(Unpooled.copiedBuffer(data)))
     ctx.fireChannelRead(Right(response)): Unit
   }
 
   private def unsafeWriteStreamContent[A](
     stream: ZStream[R, Throwable, ByteBuf],
+    headers: Headers,
+    status: Status,
   )(implicit ctx: ChannelHandlerContext): Unit = {
-    val response = Response(status = Status.OK, data = HttpData.fromByteBufStream(stream))
+    val response = Response(status = status, headers = headers, data = HttpData.fromByteBufStream(stream))
     ctx.fireChannelRead(Right(response)): Unit
   }
 
