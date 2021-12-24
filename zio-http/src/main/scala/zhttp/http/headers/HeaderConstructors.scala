@@ -8,6 +8,11 @@ import zio.duration.Duration
 
 import java.util.Base64
 
+/**
+ * Contains a list of helpful methods that can create `Headers`.
+ *
+ * NOTE: Add methods here if it provides an alternative succinct way to create `Headers`.
+ */
 trait HeaderConstructors {
   final def accept(value: CharSequence): Headers =
     Headers(Name.Accept, value)

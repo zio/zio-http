@@ -6,7 +6,7 @@ import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
 import zio.stream.ZStream
-import zio.test.Assertion.{anything, containsString, equalTo, isSome}
+import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
