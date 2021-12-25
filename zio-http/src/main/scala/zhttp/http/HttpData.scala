@@ -53,10 +53,11 @@ sealed trait HttpData[-R, +E] { self =>
    * Returns the size of HttpData if available and -1 if not
    */
   private[zhttp] def unsafeSize: Long = self match {
-    case HttpData.Empty           => 0L
-    case HttpData.Complete(data)  => data.readableBytes().toLong
-    case HttpData.BinaryStream(_) => -1L
-    case _                        => -1L
+    case HttpData.Empty               => 0L
+    case HttpData.Text(text, charset) => text.getBytes(charset).size.toLong
+    case HttpData.BinaryChunk(data)   => data.size.toLong
+    case HttpData.Complete(data)      => data.readableBytes().toLong
+    case HttpData.BinaryStream(_)     => -1L
   }
 }
 

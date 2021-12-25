@@ -46,8 +46,8 @@ final case class Response[-R, +E] private (
   /**
    * Updates the headers using the provided function
    */
-  override def updateHeaders(f: Headers => Headers): Response[R, E] =
-    self.copy(headers = f(self.getHeaders))
+  override def updateHeaders(update: Headers => Headers): Response[R, E] =
+    self.copy(headers = update(self.getHeaders))
 
   /**
    * A more efficient way to append server-time to the response headers.
@@ -67,21 +67,15 @@ object Response {
     headers: Headers = Headers.empty,
     data: HttpData[R, E] = HttpData.Empty,
   ): Response[R, E] = {
+    val size      = data.unsafeSize
     val isChunked = data.isChunked
-
-    val byteBufData = data match {
-      case data @ HttpData.Text(_, _)     => HttpData.fromByteBuf(data.encodeAndCache(false))
-      case data @ HttpData.BinaryChunk(_) => HttpData.fromByteBuf(data.encodeAndCache(false))
-      case _                              => data
-    }
-    val size        = byteBufData.unsafeSize
 
     Response(
       status,
       headers ++
         Headers(Name.ContentLength -> size.toString).when(size >= 0) ++
         Headers(Name.TransferEncoding -> Value.Chunked).when(isChunked),
-      byteBufData,
+      data,
       Attribute.empty,
     )
   }
