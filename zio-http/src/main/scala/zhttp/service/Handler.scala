@@ -137,10 +137,10 @@ private[zhttp] final case class Handler[R](
     if (self.isWebSocket(res)) {
       self.upgradeToWebSocket(ctx, jReq, res)
     } else {
-      val modifiedResponse = attachHeaders(res)
-      unsafeWriteAnyResponse(modifiedResponse)
+      val responseWithHeadersAndByteBuf = attachHeadersWithComputedBuf(res)
+      unsafeWriteAnyResponse(responseWithHeadersAndByteBuf)
 
-      modifiedResponse.data match {
+      responseWithHeadersAndByteBuf.data match {
         case HttpData.Empty =>
           unsafeWriteAndFlushLastEmptyContent()
 
@@ -169,7 +169,7 @@ private[zhttp] final case class Handler[R](
     releaseRequest(jReq)
   }
 
-  private def attachHeaders(res: Response[R, Throwable]): Response[R, Throwable] = {
+  private def attachHeadersWithComputedBuf(res: Response[R, Throwable]): Response[R, Throwable] = {
     val modifiedData = res.data match {
       case data @ HttpData.Text(_, _)     => HttpData.fromByteBuf(data.encodeAndCache(res.attribute.memoize))
       case data @ HttpData.BinaryChunk(_) => HttpData.fromByteBuf(data.encodeAndCache(res.attribute.memoize))
