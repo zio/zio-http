@@ -8,7 +8,6 @@ import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
 import zhttp.core.Util
 import zhttp.http.Headers.Literals.{Name, Value}
-import zhttp.http.Response.Attribute
 import zhttp.http._
 import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
 import zio.stream.ZStream
@@ -172,8 +171,8 @@ private[zhttp] final case class Handler[R](
 
   private def attachHeaders(res: Response[R, Throwable]): Response[R, Throwable] = {
     val modifiedData = res.data match {
-      case data @ HttpData.Text(_, _)     => HttpData.fromByteBuf(data.encodeAndCache(false))
-      case data @ HttpData.BinaryChunk(_) => HttpData.fromByteBuf(data.encodeAndCache(false))
+      case data @ HttpData.Text(_, _)     => HttpData.fromByteBuf(data.encodeAndCache(res.attribute.memoize))
+      case data @ HttpData.BinaryChunk(_) => HttpData.fromByteBuf(data.encodeAndCache(res.attribute.memoize))
       case _                              => res.data
     }
     val size         = modifiedData.unsafeSize
@@ -184,7 +183,7 @@ private[zhttp] final case class Handler[R](
         Headers(Name.ContentLength -> size.toString).when(size >= 0) ++
         Headers(Name.TransferEncoding -> Value.Chunked).when(isChunked),
       modifiedData,
-      Attribute.empty,
+      res.attribute,
     )
 
   }
