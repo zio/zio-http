@@ -7,6 +7,8 @@ import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
 import zhttp.core.Util
+import zhttp.http.Headers.Literals.{Name, Value}
+import zhttp.http.Response.Attribute
 import zhttp.http._
 import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
 import zio.stream.ZStream
@@ -136,9 +138,10 @@ private[zhttp] final case class Handler[R](
     if (self.isWebSocket(res)) {
       self.upgradeToWebSocket(ctx, jReq, res)
     } else {
-      unsafeWriteAnyResponse(res)
+      val modifiedResponse = attachHeaders(res)
+      unsafeWriteAnyResponse(modifiedResponse)
 
-      res.data match {
+      modifiedResponse.data match {
         case HttpData.Empty =>
           unsafeWriteAndFlushLastEmptyContent()
 
@@ -165,6 +168,25 @@ private[zhttp] final case class Handler[R](
   ) = {
     err.fold(unsafeWriteAndFlushEmptyResponse())(unsafeWriteAndFlushErrorResponse)
     releaseRequest(jReq)
+  }
+
+  private def attachHeaders(res: Response[R, Throwable]): Response[R, Throwable] = {
+    val modifiedData = res.data match {
+      case data @ HttpData.Text(_, _)     => HttpData.fromByteBuf(data.encodeAndCache(false))
+      case data @ HttpData.BinaryChunk(_) => HttpData.fromByteBuf(data.encodeAndCache(false))
+      case _                              => res.data
+    }
+    val size         = modifiedData.unsafeSize
+    val isChunked    = modifiedData.isChunked
+    Response(
+      res.status,
+      res.headers ++
+        Headers(Name.ContentLength -> size.toString).when(size >= 0) ++
+        Headers(Name.TransferEncoding -> Value.Chunked).when(isChunked),
+      modifiedData,
+      Attribute.empty,
+    )
+
   }
 
   /**
