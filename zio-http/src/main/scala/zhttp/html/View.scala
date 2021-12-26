@@ -26,5 +26,5 @@ object View {
 
   private[zhttp] final case class Multiple(children: Seq[Dom]) extends View
 
-  private[zhttp] final case object Empty extends View
+  private[zhttp] case object Empty extends View
 }
