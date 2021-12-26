@@ -1,6 +1,8 @@
 package zhttp.html
 
-object Attributes {
+import zhttp.html.Attributes.PartialAttribute
+
+trait Attributes {
   final def acceptAttr: PartialAttribute[String] = PartialAttribute("accept")
 
   final def acceptCharsetAttr: PartialAttribute[String] = PartialAttribute("accept-charset")
@@ -82,6 +84,8 @@ object Attributes {
   final def hiddenAttr: PartialAttribute[String] = PartialAttribute("hidden")
 
   final def highAttr: PartialAttribute[String] = PartialAttribute("high")
+
+  final def href: PartialAttribute[String] = PartialAttribute("href")
 
   final def hrefAttr: PartialAttribute[String] = PartialAttribute("href")
 
@@ -337,8 +341,11 @@ object Attributes {
 
   final def wrapAttr: PartialAttribute[String] = PartialAttribute("wrap")
 
+}
+
+object Attributes {
   case class PartialAttribute[A](name: String) {
-    def :=(value: A)(implicit ev: IsAttributeValue[A]): View    = Dom.attr(name, ev(value))
-    def apply(value: A)(implicit ev: IsAttributeValue[A]): View = Dom.attr(name, ev(value))
+    def :=(value: A)(implicit ev: IsAttributeValue[A]): Html    = Dom.attr(name, ev(value))
+    def apply(value: A)(implicit ev: IsAttributeValue[A]): Html = Dom.attr(name, ev(value))
   }
 }
