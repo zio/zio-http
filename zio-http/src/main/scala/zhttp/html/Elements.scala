@@ -1,6 +1,5 @@
 package zhttp.html
 
-import zhttp.html.View.Element
 
 object Elements {
   final def a: PartialElement = PartialElement("a")
