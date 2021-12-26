@@ -1,13 +1,11 @@
 package zhttp.html
 
-import zhttp.html.Attributes.css
-import zhttp.html.Elements._
 import zio.test.Assertion.equalTo
 import zio.test._
 
-case object ViewSpec extends DefaultRunnableSpec {
+case object HtmlSpec extends DefaultRunnableSpec {
   def spec = {
-    suite("ViewSpec") {
+    suite("HtmlSpec")(
       test("tags") {
         val view     = html(head(), body(div()))
         val expected = """<html><head/><body><div/></body></html>"""
@@ -46,7 +44,7 @@ case object ViewSpec extends DefaultRunnableSpec {
           val view     = div("Hello!", css := "container" :: Nil)
           val expected = """<div class="container">Hello!</div>"""
           assert(view.encode)(equalTo(expected.stripMargin))
-        }
-    }
+        },
+    )
   }
 }

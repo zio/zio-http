@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.channel.ChannelHandler
+import zhttp.html.Html
 import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
@@ -335,6 +336,80 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
 object Http {
 
+  implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends AnyVal { self =>
+
+    /**
+     * Attaches the provided middleware to the HttpApp
+     */
+    def @@[R1 <: R, E1 >: E](mid: Middleware[R1, E1]): HttpApp[R1, E1] = middleware(mid)
+
+    /**
+     * Adds the provided headers to the response of the app
+     */
+    def addHeader(header: Headers): HttpApp[R, E] = patch(Patch.addHeader(header))
+
+    /**
+     * Adds the provided headers to the response of the app
+     */
+    def addHeader(header: Header): HttpApp[R, E] = patch(Patch.addHeader(header))
+
+    /**
+     * Adds the provided header to the response of the app
+     */
+    def addHeader(name: String, value: String): HttpApp[R, E] = patch(Patch.addHeader(name, value))
+
+    /**
+     * Adds the provided headers to the response of the app
+     */
+    def addHeaders(headers: Headers): HttpApp[R, E] = patch(Patch.addHeader(headers))
+
+    /**
+     * Attaches the provided middleware to the HttpApp
+     */
+    def middleware[R1 <: R, E1 >: E](mid: Middleware[R1, E1]): HttpApp[R1, E1] = mid(http)
+
+    /**
+     * Patches the response produced by the app
+     */
+    def patch(patch: Patch): HttpApp[R, E] = http.map(patch(_))
+
+    /**
+     * Overwrites the method in the incoming request
+     */
+    def setMethod(method: Method): HttpApp[R, E] = http.contramap[Request](_.setMethod(method))
+
+    /**
+     * Overwrites the path in the incoming request
+     */
+    def setPath(path: Path): HttpApp[R, E] = http.contramap[Request](_.setPath(path))
+
+    /**
+     * Sets the status in the response produced by the app
+     */
+    def setStatus(status: Status): HttpApp[R, E] = patch(Patch.setStatus(status))
+
+    /**
+     * Overwrites the url in the incoming request
+     */
+    def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.setUrl(url))
+
+    /**
+     * Converts a failing Http app into a non-failing one by handling the failure and converting it to a result if
+     * possible.
+     */
+    def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1]]): HttpApp[R1, E1] =
+      http.catchAll(e => Http.succeed(s.silent(e)))
+
+    private[zhttp] def compile[R1 <: R](
+      zExec: HttpRuntime[R1],
+      settings: Server.Config[R1, Throwable],
+      serverTime: ServerTimeGenerator,
+    )(implicit
+      evE: E <:< Throwable,
+    ): ChannelHandler =
+      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, serverTime)
+  }
+
   /**
    * Creates an HTTP app which always responds with a 400 status code.
    */
@@ -425,6 +500,11 @@ object Http {
   def fromOptionFunction[A]: FromOptionFunction[A] = new FromOptionFunction(())
 
   /**
+   * Creates an HTTP app which always responds with the provided Html page.
+   */
+  def html(view: Html): HttpApp[Any, Nothing] = Http.response(Response.html(view))
+
+  /**
    * Creates a pass thru Http instances
    */
   def identity[A]: Http[Any, Nothing, A, A] = Http.Identity
@@ -480,80 +560,6 @@ object Http {
    * Creates an HTTP app which always responds with a 413 status code.
    */
   def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.REQUEST_ENTITY_TOO_LARGE)
-
-  implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends AnyVal { self =>
-
-    /**
-     * Attaches the provided middleware to the HttpApp
-     */
-    def @@[R1 <: R, E1 >: E](mid: Middleware[R1, E1]): HttpApp[R1, E1] = middleware(mid)
-
-    /**
-     * Adds the provided headers to the response of the app
-     */
-    def addHeader(header: Headers): HttpApp[R, E] = patch(Patch.addHeader(header))
-
-    /**
-     * Adds the provided headers to the response of the app
-     */
-    def addHeader(header: Header): HttpApp[R, E] = patch(Patch.addHeader(header))
-
-    /**
-     * Adds the provided header to the response of the app
-     */
-    def addHeader(name: String, value: String): HttpApp[R, E] = patch(Patch.addHeader(name, value))
-
-    /**
-     * Adds the provided headers to the response of the app
-     */
-    def addHeaders(headers: Headers): HttpApp[R, E] = patch(Patch.addHeader(headers))
-
-    /**
-     * Attaches the provided middleware to the HttpApp
-     */
-    def middleware[R1 <: R, E1 >: E](mid: Middleware[R1, E1]): HttpApp[R1, E1] = mid(http)
-
-    /**
-     * Patches the response produced by the app
-     */
-    def patch(patch: Patch): HttpApp[R, E] = http.map(patch(_))
-
-    /**
-     * Overwrites the method in the incoming request
-     */
-    def setMethod(method: Method): HttpApp[R, E] = http.contramap[Request](_.setMethod(method))
-
-    /**
-     * Overwrites the path in the incoming request
-     */
-    def setPath(path: Path): HttpApp[R, E] = http.contramap[Request](_.setPath(path))
-
-    /**
-     * Sets the status in the response produced by the app
-     */
-    def setStatus(status: Status): HttpApp[R, E] = patch(Patch.setStatus(status))
-
-    /**
-     * Overwrites the url in the incoming request
-     */
-    def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.setUrl(url))
-
-    /**
-     * Converts a failing Http app into a non-failing one by handling the failure and converting it to a result if
-     * possible.
-     */
-    def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1]]): HttpApp[R1, E1] =
-      http.catchAll(e => Http.succeed(s.silent(e)))
-
-    private[zhttp] def compile[R1 <: R](
-      zExec: HttpRuntime[R1],
-      settings: Server.Config[R1, Throwable],
-      serverTime: ServerTimeGenerator,
-    )(implicit
-      evE: E <:< Throwable,
-    ): ChannelHandler =
-      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, serverTime)
-  }
 
   // Ctor Help
   final case class MakeCollectM[A](unit: Unit) extends AnyVal {
