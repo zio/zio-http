@@ -65,6 +65,20 @@ object DomSpec extends DefaultRunnableSpec {
         assert(dom.encode)(
           equalTo("""<a href="https://www.zio-http.com">zio-http</a>"""),
         )
+      } +
+      suite("doctype") {
+        test("empty5") {
+          val dom = Dom.element("html")
+          assert(dom.encode)(equalTo("""<!DOCTYPE html><html/>"""))
+        } +
+          test("with children") {
+            val dom = Dom.element("html", Dom.element("head"))
+            assert(dom.encode)(equalTo("""<!DOCTYPE html><html><head/></html>"""))
+          } +
+          test("with children and text") {
+            val dom = Dom.element("html", Dom.element("head"), Dom.text("abc"))
+            assert(dom.encode)(equalTo("""<!DOCTYPE html><html><head/>abc</html>"""))
+          }
       }
   }
 }

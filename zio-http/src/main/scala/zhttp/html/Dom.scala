@@ -6,6 +6,8 @@ package zhttp.html
 sealed trait Dom { self =>
   def encode: String = self match {
     case Dom.Element(name, children) =>
+      val doctype = if (name == "html") "<!DOCTYPE html>" else ""
+
       val attributes = children.collect { case self: Dom.Attribute => self.encode }
 
       val elements = children.collect {
@@ -13,10 +15,10 @@ sealed trait Dom { self =>
         case self: Dom.Text    => self.encode
       }
 
-      if (elements.isEmpty && attributes.isEmpty) s"<$name/>"
-      else if (elements.isEmpty) s"<$name ${attributes.mkString(" ")}/>"
-      else if (attributes.isEmpty) s"<$name>${elements.mkString("")}</$name>"
-      else s"<$name ${attributes.mkString(" ")}>${elements.mkString}</$name>"
+      if (elements.isEmpty && attributes.isEmpty) s"$doctype<$name/>"
+      else if (elements.isEmpty) s"$doctype<$name ${attributes.mkString(" ")}/>"
+      else if (attributes.isEmpty) s"$doctype<$name>${elements.mkString("")}</$name>"
+      else s"$doctype<$name ${attributes.mkString(" ")}>${elements.mkString}</$name>"
 
     case Dom.Text(data)             => data
     case Dom.Attribute(name, value) => s"""$name="$value""""
