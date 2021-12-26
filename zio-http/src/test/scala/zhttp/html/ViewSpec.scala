@@ -5,64 +5,64 @@ import zhttp.html.Elements._
 import zio.test.Assertion.equalTo
 import zio.test._
 
-case object DomSpec extends DefaultRunnableSpec {
+case object ViewSpec extends DefaultRunnableSpec {
   def spec = {
-    suite("DomSpec") {
+    suite("ViewSpec") {
       test("empty") {
-        val dom = Dom.empty
+        val dom = View.empty
         assert(dom.encode)(equalTo(""))
       } +
         test("text") {
-          val dom = Dom.text("abc")
+          val dom = View.text("abc")
           assert(dom.encode)(equalTo("abc"))
         } +
         test("element") {
-          val dom = Dom.element("div")
+          val dom = View.element("div")
           assert(dom.encode)(equalTo("<div/>"))
         } +
         suite("element with children") {
           test("element with children") {
-            val dom = Dom.element("div", Dom.element("div"))
+            val dom = View.element("div", View.element("div"))
             assert(dom.encode)(equalTo("<div><div/></div>"))
           } +
             test("element with multiple children") {
-              val dom = Dom.element("div", Dom.element("div"), Dom.element("div"), Dom.element("div"))
+              val dom = View.element("div", View.element("div"), View.element("div"), View.element("div"))
               assert(dom.encode)(equalTo("<div><div/><div/><div/></div>"))
             } +
             test("element with nested children") {
-              val dom = Dom.element("div", Dom.element("div", Dom.element("div", Dom.element("div"))))
+              val dom = View.element("div", View.element("div", View.element("div", View.element("div"))))
               assert(dom.encode)(equalTo("<div><div><div><div/></div></div></div>"))
             } +
             test("element with text") {
-              val dom = Dom.element("div", Dom.text("abc"))
+              val dom = View.element("div", View.text("abc"))
               assert(dom.encode)(equalTo("<div>abc</div>"))
             }
         } +
         suite("Attribute") {
           test("constant") {
-            val dom = Dom.attribute("href", "https://www.zio-http.com")
+            val dom = View.attribute("href", "https://www.zio-http.com")
             assert(dom.encode)(equalTo("""href="https://www.zio-http.com""""))
           }
         } +
         suite("element with attributes") {
           test("constant") {
-            val dom = Dom.element("a", Dom.attribute("href", "https://www.zio-http.com"))
+            val dom = View.element("a", View.attribute("href", "https://www.zio-http.com"))
             assert(dom.encode)(equalTo("""<a href="https://www.zio-http.com"/>"""))
           } +
             test("multiple constant") {
-              val dom = Dom.element(
+              val dom = View.element(
                 "a",
-                Dom.attribute("href", "https://www.zio-http.com"),
-                Dom.attribute("title", "click me!"),
+                View.attribute("href", "https://www.zio-http.com"),
+                View.attribute("title", "click me!"),
               )
               assert(dom.encode)(equalTo("""<a href="https://www.zio-http.com" title="click me!"/>"""))
             }
         } +
         test("element with attribute & children") {
-          val dom = Dom.element(
+          val dom = View.element(
             "a",
-            Dom.attribute("href", "https://www.zio-http.com"),
-            Dom.text("zio-http"),
+            View.attribute("href", "https://www.zio-http.com"),
+            View.text("zio-http"),
           )
 
           assert(dom.encode)(
@@ -72,7 +72,7 @@ case object DomSpec extends DefaultRunnableSpec {
     } + suite("SyntaxSpec") {
       test("tags") {
         val view     = html(head(), body(div()))
-        val expected = """<html><head/><body><div></div></body></html>"""
+        val expected = """<html><head/><body><div/></body></html>"""
         assert(view.encode)(equalTo(expected.stripMargin))
       } +
         test("tags with attributes") {

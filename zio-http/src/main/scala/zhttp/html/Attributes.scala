@@ -338,7 +338,7 @@ object Attributes {
   final def wrapAttr: PartialAttribute[String] = PartialAttribute("wrap")
 
   case class PartialAttribute[A](name: String) {
-    def :=(value: A)(implicit ev: IsAttributeValue[A]): Dom    = Dom.attribute(name, ev(value))
-    def apply(value: A)(implicit ev: IsAttributeValue[A]): Dom = Dom.attribute(name, ev(value))
+    def :=(value: A)(implicit ev: IsAttributeValue[A]): View    = View.attribute(name, ev(value))
+    def apply(value: A)(implicit ev: IsAttributeValue[A]): View = View.attribute(name, ev(value))
   }
 }
