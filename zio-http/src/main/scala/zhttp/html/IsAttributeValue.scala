@@ -2,6 +2,9 @@ package zhttp.html
 
 import scala.language.implicitConversions
 
+/**
+ * Checks if the value A can be represented as a valid html attribute.
+ */
 sealed trait IsAttributeValue[-A] {
   implicit def apply(a: A): String
 }

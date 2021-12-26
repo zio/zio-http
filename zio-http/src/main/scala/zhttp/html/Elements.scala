@@ -1,6 +1,5 @@
 package zhttp.html
 
-
 object Elements {
   final def a: PartialElement = PartialElement("a")
 
@@ -247,8 +246,12 @@ object Elements {
   final def wbr: PartialElement = PartialElement("wbr")
 
   case class PartialElement(name: String) {
-    def apply(children: View*): Element =
-      Element.elementSeq(name, children)
+    def apply(children: View*): Dom = Dom.element(
+      name,
+      children.collect {
+        case View.Single(element)    => Seq(element)
+        case View.Multiple(children) => children
+      }.flatten: _*,
+    )
   }
-
 }
