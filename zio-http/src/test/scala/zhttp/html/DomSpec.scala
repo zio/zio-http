@@ -1,6 +1,7 @@
 package zhttp.html
 
-import zhttp.html.Dom.Attribute
+import zhttp.html.Attributes.css
+import zhttp.html.Elements._
 import zio.test.Assertion.equalTo
 import zio.test._
 
@@ -39,43 +40,74 @@ case object DomSpec extends DefaultRunnableSpec {
         } +
         suite("Attribute") {
           test("constant") {
-            val dom = Attribute("href", "https://www.zio-http.com")
+            val dom = Dom.attribute("href", "https://www.zio-http.com")
             assert(dom.encode)(equalTo("""href="https://www.zio-http.com""""))
-          } +
-            test("collection") {
-              val dom = Attribute("style", "color" -> "red", "height" -> "1024px")
-              assert(dom.encode)(equalTo("""style="color:red;height:1024px""""))
-            }
+          }
         } +
         suite("element with attributes") {
           test("constant") {
-            val dom = Dom.element("a", Attribute("href", "https://www.zio-http.com"))
+            val dom = Dom.element("a", Dom.attribute("href", "https://www.zio-http.com"))
             assert(dom.encode)(equalTo("""<a href="https://www.zio-http.com"/>"""))
           } +
             test("multiple constant") {
               val dom = Dom.element(
                 "a",
-                Attribute("href", "https://www.zio-http.com"),
-                Attribute("title", "click me!"),
+                Dom.attribute("href", "https://www.zio-http.com"),
+                Dom.attribute("title", "click me!"),
               )
               assert(dom.encode)(equalTo("""<a href="https://www.zio-http.com" title="click me!"/>"""))
-            } +
-            test("collection") {
-              val dom = Dom.element("a", Attribute("style", "color" -> "red", "height" -> "1024px"))
-              assert(dom.encode)(equalTo("""<a style="color:red;height:1024px"/>"""))
             }
         } +
         test("element with attribute & children") {
           val dom = Dom.element(
             "a",
-            Attribute("style", "color" -> "red", "height" -> "1024px"),
-            Attribute("href", "https://www.zio-http.com"),
+            Dom.attribute("href", "https://www.zio-http.com"),
             Dom.text("zio-http"),
           )
 
           assert(dom.encode)(
-            equalTo("""<a style="color:red;height:1024px" href="https://www.zio-http.com">zio-http</a>"""),
+            equalTo("""<a href="https://www.zio-http.com">zio-http</a>"""),
           )
+        }
+    } + suite("SyntaxSpec") {
+      test("tags") {
+        val view     = html(head(), body(div()))
+        val expected = """<html><head/><body><div></div></body></html>"""
+        assert(view.encode)(equalTo(expected.stripMargin))
+      } +
+        test("tags with attributes") {
+          val view     = html(body(div(css := "container" :: Nil, "Hello!")))
+          val expected = """<html><body><div class="container">Hello!</div></body></html>"""
+          assert(view.encode)(equalTo(expected.stripMargin))
+        } +
+        test("tags with children") {
+          val view     = html(body(div(css := "container" :: Nil, "Hello!", span("World!"))))
+          val expected =
+            """<html><body><div class="container">Hello!<span>World!</span></div></body></html>"""
+          assert(view.encode)(equalTo(expected.stripMargin))
+        } +
+        test("tags with attributes and children") {
+          val view     = html(body(div(css := "container" :: Nil, "Hello!", span("World!"))))
+          val expected =
+            """<html><body><div class="container">Hello!<span>World!</span></div></body></html>"""
+          assert(view.encode)(equalTo(expected.stripMargin))
+        } +
+        test("tags with attributes and children") {
+          val view     = html(body(div(css := "container" :: Nil, "Hello!", span("World!"))))
+          val expected =
+            """<html><body><div class="container">Hello!<span>World!</span></div></body></html>"""
+          assert(view.encode)(equalTo(expected.stripMargin))
+        } +
+        test("tags with attributes and children") {
+          val view     = html(body(div(css := "container" :: Nil, "Hello!", span("World!"))))
+          val expected =
+            """<html><body><div class="container">Hello!<span>World!</span></div></body></html>"""
+          assert(view.encode)(equalTo(expected.stripMargin))
+        } +
+        test("tags with attributes and children") {
+          val view     = div("Hello!", css := "container" :: Nil)
+          val expected = """<div class="container">Hello!</div>"""
+          assert(view.encode)(equalTo(expected.stripMargin))
         }
     }
   }
