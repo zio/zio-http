@@ -10,7 +10,7 @@ import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect.{ignore, timeout}
 import zio.test.assertM
 
 object SSLSpec extends HttpRunnableSpec(8073) {
@@ -64,5 +64,5 @@ object SSLSpec extends HttpRunnableSpec(8073) {
         ),
       )
       .useNow,
-  ).provideCustomLayer(env) @@ timeout(5 second)
+  ).provideCustomLayer(env) @@ timeout(5 second) @@ ignore
 }
