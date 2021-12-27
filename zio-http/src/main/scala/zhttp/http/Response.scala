@@ -11,11 +11,11 @@ import zio.Chunk
 import java.nio.charset.Charset
 
 final case class Response[-R, +E] private (
-  status: Status,
-  headers: Headers,
-  data: HttpData[R, E],
-  private[zhttp] val attribute: Response.Attribute[R, E],
-) extends HeaderExtension[Response[R, E]] { self =>
+                                            status: Status,
+                                            headers: Headers,
+                                            data: HttpData[R, E],
+                                            private[zhttp] val attribute: Response.Attribute[R, E],
+                                          ) extends HeaderExtension[Response[R, E]] { self =>
 
   /**
    * Adds cookies in the response headers
@@ -63,13 +63,18 @@ final case class Response[-R, +E] private (
 object Response {
 
   def apply[R, E](
-    status: Status = Status.OK,
-    headers: Headers = Headers.empty,
-    data: HttpData[R, E] = HttpData.Empty,
-  ): Response[R, E] = {
+                   status: Status = Status.OK,
+                   headers: Headers = Headers.empty,
+                   data: HttpData[R, E] = HttpData.Empty,
+                 ): Response[R, E] = {
+//    val size      = data.unsafeSize
+    val isChunked = data.isChunked
+
     Response(
       status,
-      headers,
+      headers ++
+//        Headers(Name.ContentLength -> size.toString).when(size >= 0) ++
+        Headers(Name.TransferEncoding -> Value.Chunked).when(isChunked),
       data,
       Attribute.empty,
     )
@@ -102,10 +107,10 @@ object Response {
 
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
   def http[R, E](
-    status: Status = Status.OK,
-    headers: Headers = Headers.empty,
-    data: HttpData[R, E] = HttpData.empty,
-  ): Response[R, E] = Response(status, headers, data)
+                  status: Status = Status.OK,
+                  headers: Headers = Headers.empty,
+                  data: HttpData[R, E] = HttpData.empty,
+                ): Response[R, E] = Response(status, headers, data)
 
   /**
    * Creates a response with content-type set to application/json
@@ -160,10 +165,10 @@ object Response {
    */
 
   final case class Attribute[-R, +E](
-    socketApp: SocketApp[R, E] = SocketApp.empty,
-    memoize: Boolean = false,
-    serverTime: Boolean = false,
-  ) {
+                                      socketApp: SocketApp[R, E] = SocketApp.empty,
+                                      memoize: Boolean = false,
+                                      serverTime: Boolean = false,
+                                    ) {
     self =>
     def withMemoization: Attribute[R, E]                                           = self.copy(memoize = true)
     def withServerTime: Attribute[R, E]                                            = self.copy(serverTime = true)

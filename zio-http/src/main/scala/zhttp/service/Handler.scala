@@ -7,7 +7,7 @@ import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
 import zhttp.core.Util
-import zhttp.http.Headers.Literals.{Name, Value}
+import zhttp.http.Headers.Literals.Name
 import zhttp.http._
 import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
 import zio.stream.ZStream
@@ -17,12 +17,12 @@ import java.net.{InetAddress, InetSocketAddress}
 
 @Sharable
 private[zhttp] final case class Handler[R](
-  app: HttpApp[R, Throwable],
-  runtime: HttpRuntime[R],
-  config: Server.Config[R, Throwable],
-  serverTime: ServerTimeGenerator,
-) extends SimpleChannelInboundHandler[FullHttpRequest](false)
-    with WebSocketUpgrade[R] { self =>
+                                            app: HttpApp[R, Throwable],
+                                            runtime: HttpRuntime[R],
+                                            config: Server.Config[R, Throwable],
+                                            serverTime: ServerTimeGenerator,
+                                          ) extends SimpleChannelInboundHandler[FullHttpRequest](false)
+  with WebSocketUpgrade[R] { self =>
 
   override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
     jReq.touch("server.Handler-channelRead0")
@@ -96,10 +96,10 @@ private[zhttp] final case class Handler[R](
    * Executes http apps
    */
   private def unsafeRun[A](
-    jReq: FullHttpRequest,
-    http: Http[R, Throwable, A, Response[R, Throwable]],
-    a: A,
-  )(implicit ctx: ChannelHandlerContext): Unit = {
+                            jReq: FullHttpRequest,
+                            http: Http[R, Throwable, A, Response[R, Throwable]],
+                            a: A,
+                          )(implicit ctx: ChannelHandlerContext): Unit = {
     http.execute(a) match {
       case HExit.Effect(resM) =>
         unsafeRunZIO {
@@ -107,84 +107,107 @@ private[zhttp] final case class Handler[R](
             {
               case Some(cause) =>
                 UIO {
-                  processErrorResponse(jReq, Some(cause))
+                  unsafeWriteAndFlushErrorResponse(cause)
+                  releaseRequest(jReq)
                 }
               case None        =>
                 UIO {
-                  processErrorResponse(jReq, None)
+                  unsafeWriteAndFlushEmptyResponse()
+                  releaseRequest(jReq)
                 }
             },
             res =>
-              UIO {
-                processResponse(jReq, res)
+              if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
+              else {
+                for {
+                  _ <- res.data match {
+                    case HttpData.Empty =>
+                      UIO {
+                        val size = res.data.unsafeSize
+                        unsafeWriteAnyResponse(res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)))
+                        unsafeWriteAndFlushLastEmptyContent()
+                      }
+
+                    case data @ HttpData.Text(_, _) =>
+                      UIO {
+                        val byteBuf = data.encodeAndCache(res.attribute.memoize)
+                        val size = byteBuf.readableBytes().toLong
+                        unsafeWriteAnyResponse(res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)))
+                        unsafeWriteLastContent(byteBuf)
+                      }
+
+                    case HttpData.BinaryByteBuf(data) =>
+                      UIO {
+                        val size = res.data.unsafeSize
+                        unsafeWriteAnyResponse(res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)))
+                        unsafeWriteLastContent(data)
+                      }
+
+                    case data @ HttpData.BinaryChunk(_) =>
+                      UIO {
+                        val byteBuf = data.encodeAndCache(res.attribute.memoize)
+                        val size = byteBuf.readableBytes().toLong
+                        unsafeWriteAnyResponse(res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)))
+                        unsafeWriteLastContent(byteBuf)
+                      }
+
+                    case HttpData.BinaryStream(stream) =>
+                      val size = res.data.unsafeSize
+                      unsafeWriteAnyResponse(res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)))
+                      writeStreamContent(stream)
+                  }
+                  _ <- Task(releaseRequest(jReq))
+                } yield ()
               },
           )
         }
 
       case HExit.Success(res) =>
-        processResponse(jReq, res)
-      case HExit.Failure(e)   =>
-        processErrorResponse(jReq, Some(e))
-      case HExit.Empty        =>
-        processErrorResponse(jReq, None)
+        if (self.isWebSocket(res)) {
+          self.upgradeToWebSocket(ctx, jReq, res)
+        } else {
+          res.data match {
+            case HttpData.Empty =>
+              val size = res.data.unsafeSize
+              unsafeWriteAnyResponse(res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)))
+              unsafeWriteAndFlushLastEmptyContent()
+              releaseRequest(jReq)
+
+            case data @ HttpData.Text(_, _) =>
+              val byteBuf = data.encodeAndCache(res.attribute.memoize)
+              val size = byteBuf.readableBytes().toLong
+              unsafeWriteAnyResponse(res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)))
+              unsafeWriteLastContent(byteBuf)
+              releaseRequest(jReq)
+
+            case HttpData.BinaryByteBuf(data) =>
+              val size = res.data.unsafeSize
+              unsafeWriteAnyResponse(res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)))
+              unsafeWriteLastContent(data)
+              releaseRequest(jReq)
+
+            case data @ HttpData.BinaryChunk(_) =>
+              val byteBuf = data.encodeAndCache(res.attribute.memoize)
+              val size = byteBuf.readableBytes().toLong
+              unsafeWriteAnyResponse(res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)))
+              releaseRequest(jReq)
+
+            case HttpData.BinaryStream(stream) =>
+              val size = res.data.unsafeSize
+              unsafeWriteAnyResponse(res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)))
+              unsafeRunZIO(
+                writeStreamContent(stream) *> Task(releaseRequest(jReq)),
+              )
+          }
+        }
+
+      case HExit.Failure(e) =>
+        unsafeWriteAndFlushErrorResponse(e)
+        releaseRequest(jReq)
+      case HExit.Empty      =>
+        unsafeWriteAndFlushEmptyResponse()
+        releaseRequest(jReq)
     }
-
-  }
-
-  private def processResponse(jReq: FullHttpRequest, res: Response[R, Throwable])(implicit
-    ctx: ChannelHandlerContext,
-  ) = {
-    if (self.isWebSocket(res)) {
-      self.upgradeToWebSocket(ctx, jReq, res)
-    } else {
-      val responseWithHeadersAndByteBuf = attachHeadersWithComputedBuf(res)
-      unsafeWriteAnyResponse(responseWithHeadersAndByteBuf)
-
-      responseWithHeadersAndByteBuf.data match {
-        case HttpData.Empty =>
-          unsafeWriteAndFlushLastEmptyContent()
-
-        case data @ HttpData.Text(_, _) =>
-          unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
-
-        case HttpData.Complete(data) =>
-          unsafeWriteLastContent(data)
-
-        case data @ HttpData.BinaryChunk(_) =>
-          unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
-
-        case HttpData.BinaryStream(stream) =>
-          unsafeRunZIO(
-            writeStreamContent(stream),
-          )
-      }
-      releaseRequest(jReq)
-    }
-  }
-
-  private def processErrorResponse(jReq: FullHttpRequest, err: Option[Throwable])(implicit
-    ctx: ChannelHandlerContext,
-  ) = {
-    err.fold(unsafeWriteAndFlushEmptyResponse())(unsafeWriteAndFlushErrorResponse)
-    releaseRequest(jReq)
-  }
-
-  private def attachHeadersWithComputedBuf(res: Response[R, Throwable]): Response[R, Throwable] = {
-    val modifiedData = res.data match {
-      case data @ HttpData.Text(_, _)     => HttpData.fromByteBuf(data.encodeAndCache(res.attribute.memoize))
-      case data @ HttpData.BinaryChunk(_) => HttpData.fromByteBuf(data.encodeAndCache(res.attribute.memoize))
-      case _                              => res.data
-    }
-    val size         = modifiedData.unsafeSize
-    val isChunked    = modifiedData.isChunked
-    Response(
-      res.status,
-      res.headers ++
-        Headers(Name.ContentLength -> size.toString).when(size >= 0) ++
-        Headers(Name.TransferEncoding -> Value.Chunked).when(isChunked),
-      modifiedData,
-      res.attribute,
-    )
 
   }
 
@@ -235,8 +258,8 @@ private[zhttp] final case class Handler[R](
    * Writes Binary Stream data to the Channel
    */
   private def writeStreamContent[A](
-    stream: ZStream[R, Throwable, ByteBuf],
-  )(implicit ctx: ChannelHandlerContext): ZIO[R, Throwable, Unit] = {
+                                     stream: ZStream[R, Throwable, ByteBuf],
+                                   )(implicit ctx: ChannelHandlerContext): ZIO[R, Throwable, Unit] = {
     for {
       _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
