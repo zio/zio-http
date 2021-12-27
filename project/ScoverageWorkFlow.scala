@@ -7,7 +7,7 @@ object ScoverageWorkFlow {
 
   def apply(statementTotal: Double, branchTotal: Double): Seq[WorkflowJob] = {
     val coverageDirectivesSettings =
-      s"settings(coverageEnabled:=true,coverageFailOnMinimum:=true,coverageMinimumStmtTotal:=${statementTotal},coverageMinimumBranchTotal:=${branchTotal})"
+      s"settings(coverageEnabled:=true,coverageMinimumStmtTotal:=${statementTotal},coverageMinimumBranchTotal:=${branchTotal})"
     Seq(
       WorkflowJob(
         id = "unsafeRunScoverage",
