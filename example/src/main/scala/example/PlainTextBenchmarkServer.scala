@@ -22,7 +22,7 @@ object Main extends App {
   val server                     = Server.app(app) ++
     Server.port(8080) ++
     Server.keepAlive ++
-    Server.disableLeakDetection
+    Server.disableLeakDetection ++ Server.consolidateFlush
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     server.make.useForever.provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8)).exitCode
