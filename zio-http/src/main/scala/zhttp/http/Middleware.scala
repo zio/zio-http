@@ -124,16 +124,10 @@ object Middleware {
    * @see
    *   https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
    */
-  def csrf(headerName: String, cookieName: String): Middleware[Any, Nothing] = {
-    def getCSRFCookieValue(headers: Headers, cookieName: String): Option[String] =
-      headers.getCookiesDecoded.find(_.name == cookieName).map(_.content)
-    def getCSRFHeaderValue(headers: Headers, headerName: String): Option[String] = headers.getHeaderValue(headerName)
+  def csrf(tokenName: String = "x-csrf-token"): Middleware[Any, Nothing] = {
     ifThenElse((_, _, headers) => {
-      (getCSRFHeaderValue(headers, headerName), getCSRFCookieValue(headers, cookieName)) match {
-        case (Some(headerValue), Some(cookieValue)) =>
-          if (headerValue == cookieValue)
-            true
-          else false
+      (headers.getHeaderValue(tokenName), headers.getCookie(tokenName)) match {
+        case (Some(headerValue), Some(cookieValue)) => headerValue == cookieValue
         case _                                      => false
       }
     })(
