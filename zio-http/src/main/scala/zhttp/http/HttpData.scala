@@ -93,7 +93,7 @@ object HttpData {
   /**
    * Helper to create HttpData from String
    */
-  def fromText(text: String, charset: Charset = HTTP_CHARSET): HttpData[Any, Nothing] = Text(text, charset)
+  def fromString(text: String, charset: Charset = HTTP_CHARSET): HttpData[Any, Nothing] = Text(text, charset)
 
   private[zhttp] sealed trait Cached { self =>
     def encode: ByteBuf = self match {

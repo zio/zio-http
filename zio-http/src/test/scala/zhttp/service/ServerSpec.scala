@@ -98,7 +98,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
           assertM(res)(isSome(equalTo("Bar")))
         }
       } + suite("response") {
-        val app = Http.response(Response(status = Status.OK, data = HttpData.fromText("abc")))
+        val app = Http.response(Response(status = Status.OK, data = HttpData.fromString("abc")))
         testM("body is set") {
           val res = app.requestBodyAsString()
           assertM(res)(equalTo("abc"))
