@@ -1,8 +1,8 @@
 import sbtghactions.GenerativePlugin.autoImport.{WorkflowJob, WorkflowStep}
-
+import BuildHelper.{ScoverageVersion, Scala213}
 object ScoverageWorkFlow {
   // TODO move plugins to plugins.sbt after scoverage's support for Scala 3
-  val scoveragePlugin        = """addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.9.1")"""
+  val scoveragePlugin        = s"""addSbtPlugin("org.scoverage" % "sbt-scoverage" % "${ScoverageVersion}")"""
   val coverageDirectivesBase = """(project in file("./zio-http"))"""
 
   def apply(statementTotal: Double, branchTotal: Double): Seq[WorkflowJob] = {
@@ -27,7 +27,7 @@ object ScoverageWorkFlow {
             name = Some("Update Build Definition"),
           ),
           WorkflowStep.Run(
-            commands = List("sbt ++${{ matrix.scala }} coverage 'project zhttp;test' coverageReport"),
+            commands = List(s"sbt ++${Scala213} coverage 'project zhttp;test' coverageReport"),
             id = Some("run_coverage"),
             name = Some("Run Coverage"),
           ),
