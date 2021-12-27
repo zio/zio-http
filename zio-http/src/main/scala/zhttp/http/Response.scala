@@ -2,6 +2,7 @@ package zhttp.http
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
 import zhttp.core.Util
+import zhttp.html.Html
 import zhttp.http.Headers.Literals._
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.http.headers.HeaderExtension
@@ -94,9 +95,9 @@ object Response {
   /**
    * Creates a response with content-type set to text/html
    */
-  def html(data: String): UResponse =
+  def html(data: Html): UResponse =
     Response(
-      data = HttpData.fromText(data),
+      data = HttpData.fromText(data.encode),
       headers = Headers(Name.ContentType, Value.TextHtml),
     )
 

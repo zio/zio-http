@@ -4,9 +4,10 @@ import scalafix.sbt.ScalafixPlugin.autoImport._
 import xerial.sbt.Sonatype.autoImport._
 
 object BuildHelper extends ScalaSettings {
-  val Scala212   = "2.12.15"
-  val Scala213   = "2.13.7"
-  val ScalaDotty = "3.1.0"
+  val Scala212         = "2.12.15"
+  val Scala213         = "2.13.7"
+  val ScalaDotty       = "3.1.0"
+  val ScoverageVersion = "1.9.2"
 
   private val stdOptions = Seq(
     "-deprecation",
