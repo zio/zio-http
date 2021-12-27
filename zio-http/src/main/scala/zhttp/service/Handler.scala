@@ -7,7 +7,7 @@ import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
 import zhttp.core.Util
-import zhttp.http.Headers.Literals.Name
+import zhttp.http.Headers.Literals.{Name, Value}
 import zhttp.http._
 import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
 import zio.stream.ZStream
@@ -125,7 +125,11 @@ private[zhttp] final case class Handler[R](
                       UIO {
                         val size = res.data.unsafeSize
                         unsafeWriteAnyResponse(
-                          res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)),
+                          res.updateHeaders(
+                            _ ++
+                              Headers(Name.ContentLength -> size.toString).when(size >= 0)
+                              ++ Headers(Name.TransferEncoding -> Value.Chunked).when(res.data.isChunked),
+                          ),
                         )
                         unsafeWriteAndFlushLastEmptyContent()
                       }
@@ -135,7 +139,11 @@ private[zhttp] final case class Handler[R](
                         val byteBuf = data.encodeAndCache(res.attribute.memoize)
                         val size    = byteBuf.readableBytes().toLong
                         unsafeWriteAnyResponse(
-                          res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)),
+                          res.updateHeaders(
+                            _ ++
+                              Headers(Name.ContentLength -> size.toString).when(size >= 0)
+                              ++ Headers(Name.TransferEncoding -> Value.Chunked).when(res.data.isChunked),
+                          ),
                         )
                         unsafeWriteLastContent(byteBuf)
                       }
@@ -144,7 +152,11 @@ private[zhttp] final case class Handler[R](
                       UIO {
                         val size = res.data.unsafeSize
                         unsafeWriteAnyResponse(
-                          res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)),
+                          res.updateHeaders(
+                            _ ++
+                              Headers(Name.ContentLength -> size.toString).when(size >= 0)
+                              ++ Headers(Name.TransferEncoding -> Value.Chunked).when(res.data.isChunked),
+                          ),
                         )
                         unsafeWriteLastContent(data)
                       }
@@ -154,7 +166,11 @@ private[zhttp] final case class Handler[R](
                         val byteBuf = data.encodeAndCache(res.attribute.memoize)
                         val size    = byteBuf.readableBytes().toLong
                         unsafeWriteAnyResponse(
-                          res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)),
+                          res.updateHeaders(
+                            _ ++
+                              Headers(Name.ContentLength -> size.toString).when(size >= 0)
+                              ++ Headers(Name.TransferEncoding -> Value.Chunked).when(res.data.isChunked),
+                          ),
                         )
                         unsafeWriteLastContent(byteBuf)
                       }
@@ -162,7 +178,11 @@ private[zhttp] final case class Handler[R](
                     case HttpData.BinaryStream(stream) =>
                       val size = res.data.unsafeSize
                       unsafeWriteAnyResponse(
-                        res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)),
+                        res.updateHeaders(
+                          _ ++
+                            Headers(Name.ContentLength -> size.toString).when(size >= 0)
+                            ++ Headers(Name.TransferEncoding -> Value.Chunked).when(res.data.isChunked),
+                        ),
                       )
                       writeStreamContent(stream)
                   }
@@ -180,7 +200,11 @@ private[zhttp] final case class Handler[R](
             case HttpData.Empty =>
               val size = res.data.unsafeSize
               unsafeWriteAnyResponse(
-                res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)),
+                res.updateHeaders(
+                  _ ++
+                    Headers(Name.ContentLength -> size.toString).when(size >= 0)
+                    ++ Headers(Name.TransferEncoding -> Value.Chunked).when(res.data.isChunked),
+                ),
               )
               unsafeWriteAndFlushLastEmptyContent()
               releaseRequest(jReq)
@@ -189,7 +213,11 @@ private[zhttp] final case class Handler[R](
               val byteBuf = data.encodeAndCache(res.attribute.memoize)
               val size    = byteBuf.readableBytes().toLong
               unsafeWriteAnyResponse(
-                res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)),
+                res.updateHeaders(
+                  _ ++
+                    Headers(Name.ContentLength -> size.toString).when(size >= 0)
+                    ++ Headers(Name.TransferEncoding -> Value.Chunked).when(res.data.isChunked),
+                ),
               )
               unsafeWriteLastContent(byteBuf)
               releaseRequest(jReq)
@@ -197,7 +225,11 @@ private[zhttp] final case class Handler[R](
             case HttpData.BinaryByteBuf(data) =>
               val size = res.data.unsafeSize
               unsafeWriteAnyResponse(
-                res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)),
+                res.updateHeaders(
+                  _ ++
+                    Headers(Name.ContentLength -> size.toString).when(size >= 0)
+                    ++ Headers(Name.TransferEncoding -> Value.Chunked).when(res.data.isChunked),
+                ),
               )
               unsafeWriteLastContent(data)
               releaseRequest(jReq)
@@ -206,14 +238,22 @@ private[zhttp] final case class Handler[R](
               val byteBuf = data.encodeAndCache(res.attribute.memoize)
               val size    = byteBuf.readableBytes().toLong
               unsafeWriteAnyResponse(
-                res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)),
+                res.updateHeaders(
+                  _ ++
+                    Headers(Name.ContentLength -> size.toString).when(size >= 0)
+                    ++ Headers(Name.TransferEncoding -> Value.Chunked).when(res.data.isChunked),
+                ),
               )
               releaseRequest(jReq)
 
             case HttpData.BinaryStream(stream) =>
               val size = res.data.unsafeSize
               unsafeWriteAnyResponse(
-                res.updateHeaders(_ ++ Headers(Name.ContentLength -> size.toString).when(size >= 0)),
+                res.updateHeaders(
+                  _ ++
+                    Headers(Name.ContentLength -> size.toString).when(size >= 0)
+                    ++ Headers(Name.TransferEncoding -> Value.Chunked).when(res.data.isChunked),
+                ),
               )
               unsafeRunZIO(
                 writeStreamContent(stream) *> Task(releaseRequest(jReq)),
