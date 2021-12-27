@@ -137,7 +137,7 @@ object HttpData {
   private[zhttp] final case class BinaryChunk(data: Chunk[Byte])       extends HttpData[Any, Nothing] with Cached
   private[zhttp] final case class BinaryByteBuf(data: ByteBuf)         extends HttpData[Any, Nothing]
   private[zhttp] final case class BinaryStream[R, E](stream: ZStream[R, E, ByteBuf]) extends HttpData[R, E]
-  private[zhttp] final case class File(path: java.nio.file.Path) extends HttpData[Any, Nothing]
-  private[zhttp] case object Empty extends HttpData[Any, Nothing]
+  private[zhttp] final case class File(path: java.nio.file.Path)                     extends HttpData[Any, Nothing]
+  private[zhttp] case object Empty                                                   extends HttpData[Any, Nothing]
 
 }
