@@ -185,7 +185,7 @@ private[zhttp] final case class Handler[R](
   private def unsafeWriteLastContent[A](data: ByteBuf, response: Response[R, Throwable])(implicit
     ctx: ChannelHandlerContext,
   ): Unit = {
-    ctx.fireChannelRead(response.copy(data = HttpData.BinaryByteBuf(Unpooled.copiedBuffer(data)))): Unit
+    ctx.fireChannelRead(response.copy(data = HttpData.BinaryByteBuf(data))): Unit
   }
 
   private def unsafeWriteStreamContent[A](
