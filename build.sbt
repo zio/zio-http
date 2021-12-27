@@ -1,8 +1,10 @@
-import BuildHelper.{Scala213, publishSetting, stdSettings}
+import bloop.config.Config
 import Dependencies._
+import BuildHelper.{publishSetting, stdSettings, Scala213}
 
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
+import java.util.concurrent.TimeUnit
+import sbtghactions.JavaSpec.Distribution
 
 val releaseDrafterVersion = "5"
 
