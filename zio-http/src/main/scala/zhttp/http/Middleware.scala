@@ -3,7 +3,6 @@ package zhttp.http
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.CORS.DefaultCORSConfig
 import zhttp.http.Headers.BasicSchemeName
-import zhttp.http.HeaderUtils.contentEqualsIgnoreCase
 import zhttp.http.Middleware.{Flag, RequestP}
 import zio.clock.Clock
 import zio.console.Console
@@ -124,15 +123,9 @@ object Middleware {
    *   https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
    */
   def csrf(headerName: String, cookieName: String) = {
-    def getCSRFCookieValue(headers: List[Header], cookieName: String): Option[String] =
-      headers
-        .find(p => contentEqualsIgnoreCase(p.name, HttpHeaderNames.COOKIE))
-        .flatMap(a => Cookie.decodeRequestCookie(a.value.toString))
-        .flatMap(cookies => cookies.find(_.name == cookieName))
-        .map(_.content)
-    def getCSRFHeaderValue(headers: List[Header], headerName: String): Option[String] = headers
-      .find(p => contentEqualsIgnoreCase(p.name, headerName))
-      .map(_.value.toString)
+    def getCSRFCookieValue(headers: Headers, cookieName: String): Option[String] =
+      headers.getCookiesDecoded.find(_.name == cookieName).map(_.content)
+    def getCSRFHeaderValue(headers: Headers, headerName: String): Option[String] = headers.getHeaderValue(headerName)
     Middleware.make((_, _, headers) =>
       (getCSRFHeaderValue(headers, headerName), getCSRFCookieValue(headers, cookieName)) match {
         case (Some(headerValue), Some(cookieValue)) =>

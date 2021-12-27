@@ -171,13 +171,14 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       suite("addCookie middleware") {
         testM("should add set-cookie header") {
           val app: Http[Any, Nothing, Request, Option[String]] =
-            (Http.ok @@ addCookie(Cookie("test", "testValue"))).getHeader("set-cookie")
+            (Http.ok @@ addCookie(Cookie("test", "testValue"))).getHeader(HttpHeaderNames.SET_COOKIE.toString)
           assertM(app(Request()))(
             equalTo(Some("test=testValue")),
           )
         } +
           testM("should add set cookie header with value produced by effect") {
-            val app = (Http.ok @@ addCookieM(UIO(Cookie("test", "testValue")))).getHeader("set-cookie")
+            val app =
+              (Http.ok @@ addCookieM(UIO(Cookie("test", "testValue")))).getHeader(HttpHeaderNames.SET_COOKIE.toString)
             assertM(app(Request()))(
               equalTo(Some("test=testValue")),
             )
@@ -185,19 +186,19 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       } +
       suite("CSRF middleware") {
         val app          = (Http.ok @@ csrf("x-token", "token")).getStatus
-        val cookieHeader = Header(HttpHeaderNames.COOKIE, Cookie("token", "secret").encode)
+        val cookieHeader = Headers.cookie(Cookie("token", "secret"))
         testM("should give forbidden if token is not present in header") {
-          assertM(app(Request(headers = List(cookieHeader))))(equalTo(Status.FORBIDDEN))
+          assertM(app(Request(headers = cookieHeader)))(equalTo(Status.FORBIDDEN))
         } +
           testM("should give forbidden if token is present in header but doesn't match with token cookie") {
             assertM(
-              app(Request(headers = List(cookieHeader, Header("x-token", "secret1")))),
+              app(Request(headers = cookieHeader ++ Headers("x-token", "secret1"))),
             )(
               equalTo(Status.FORBIDDEN),
             )
           } +
           testM("should give OK if token present in header matches token present in cookie") {
-            assertM(app(Request(headers = List(cookieHeader, Header("x-token", "secret")))))(
+            assertM(app(Request(headers = cookieHeader ++ Headers("x-token", "secret"))))(
               equalTo(Status.OK),
             )
           }
