@@ -1,7 +1,7 @@
 package zhttp.internal
 
 import sttp.client3.asynchttpclient.zio.{SttpClient, send}
-import sttp.client3.{UriContext, asWebSocketUnsafe, basicRequest, Response => SResponse}
+import sttp.client3.{Response => SResponse, UriContext, asWebSocketUnsafe, basicRequest}
 import sttp.model.{Header => SHeader}
 import sttp.ws.WebSocket
 import zhttp.http.URL.Location
@@ -23,8 +23,8 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     app: HttpApp[R, Throwable],
   ): ZManaged[AppPort with R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
     for {
-      serverStart <- Server.make(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection).orDie
-      _           <- ZIO.accessM[AppPort](_.get.set(serverStart().port)).toManaged_
+      serverSettings <- Server.make(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection).orDie
+      _              <- ZIO.accessM[AppPort](_.get.set(serverSettings.port)).toManaged_
     } yield ()
 
   def request(

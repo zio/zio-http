@@ -33,7 +33,7 @@ sealed trait Server[-R, +E] { self =>
 
   def make(implicit
     ev: E <:< Throwable,
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, ServerStart] =
+  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, ServerStart.Config] =
     Server.make(self.asInstanceOf[Server[R, Throwable]])
 
   def start(implicit ev: E <:< Throwable): ZIO[R with EventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
@@ -94,15 +94,7 @@ object Server {
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] = {
     (Server.bind(port) ++ Server.app(http)).make
-      .flatMap(serverStart =>
-        ZManaged.succeed {
-          println(
-            s"""Server started with config
-               |${serverStart()}
-               |""".stripMargin,
-          )
-        },
-      )
+      .flatMap(settings => ZManaged.succeed(println(s"Server started on port: ${settings.port}")))
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
   }
@@ -124,7 +116,7 @@ object Server {
 
   def make[R](
     server: Server[R, Throwable],
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, ServerStart] = {
+  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, ServerStart.Config] = {
     val settings = server.settings()
     for {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
@@ -133,13 +125,13 @@ object Server {
       reqHandler      = settings.app.compile(zExec, settings, ServerTimeGenerator.make)
       init            = ServerChannelInitializer(zExec, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
-      chf  <- ZManaged.effect(serverBootstrap.childHandler(init).bind(settings.address))
-      _    <- ChannelFuture.asManaged(chf)
-      port <- ZManaged.effect(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
-      serverStartConfig    <- ZManaged.effectTotal(ServerStart.port(port) ++ ServerStart.leakDetection(settings.leakDetectionLevel))
+      chf            <- ZManaged.effect(serverBootstrap.childHandler(init).bind(settings.address))
+      _              <- ChannelFuture.asManaged(chf)
+      port           <- ZManaged.effect(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
+      serverSettings <- ZManaged.effectTotal(ServerStart.port(port))
     } yield {
       ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
-      serverStartConfig
+      serverSettings()
     }
   }
 }
