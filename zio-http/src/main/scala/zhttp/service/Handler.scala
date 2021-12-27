@@ -248,7 +248,9 @@ private[zhttp] final case class Handler[R](
     stream: ZStream[R, Throwable, ByteBuf],
   )(implicit ctx: ChannelHandlerContext): ZIO[R, Throwable, Unit] = {
     for {
-      _ <- UIO(ctx.channel().pipeline().addBefore(HTTP_REQUEST_HANDLER, "chunkedHandler", new ChunkedWriteHandler()))
+      _ <- UIO(
+        ctx.channel().pipeline().addBefore(HTTP_REQUEST_HANDLER, CHUNKED_WRITE_HANDLER, new ChunkedWriteHandler()),
+      )
       _ <- stream.foreach(c => UIO(ctx.write(new ChunkedStream(new ByteBufInputStream(c), 1024))))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()

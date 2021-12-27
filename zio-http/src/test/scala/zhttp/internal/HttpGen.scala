@@ -49,24 +49,6 @@ object HttpGen {
         )
     } yield cnt
 
-  def streamHttpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData[Any, Nothing]] =
-    gen.map(list =>
-      HttpData.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
-    )
-
-  def nonStreamHttpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData[Any, Nothing]] =
-    for {
-      list <- gen
-      cnt  <- Gen
-        .fromIterable(
-          List(
-            HttpData.fromText(list.mkString("")),
-            HttpData.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
-            HttpData.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
-          ),
-        )
-    } yield cnt
-
   def location: Gen[Random with Sized, URL.Location] = {
     def genRelative = Gen.const(URL.Location.Relative)
     def genAbsolute = for {

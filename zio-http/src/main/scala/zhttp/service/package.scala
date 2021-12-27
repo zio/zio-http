@@ -16,6 +16,7 @@ package object service {
   private[service] val HTTP_SERVER_CODEC               = "HTTP_SERVER_CODEC"
   private[service] val HTTP_SERVER_EXPECT_CONTINUE     = "HTTP_SERVER_EXPECT_CONTINUE"
   private[service] val HTTP_SERVER_FLUSH_CONSOLIDATION = "HTTP_SERVER_FLUSH_CONSOLIDATION"
+  private[service] val CHUNKED_WRITE_HANDLER           = "CHUNKED_WRITE_HANDLER"
 
   type ChannelFactory       = Has[JChannelFactory[Channel]]
   type EventLoopGroup       = Has[JEventLoopGroup]
