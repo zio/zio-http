@@ -29,6 +29,7 @@ sealed trait Server[-R, +E] { self =>
     case AcceptContinue       => s.copy(acceptContinue = true)
     case KeepAlive            => s.copy(keepAlive = true)
     case FlowControl          => s.copy(flowControl = false)
+    case ConsolidateFlush     => s.copy(consolidateFlush = true)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
@@ -52,6 +53,7 @@ object Server {
     address: InetSocketAddress = new InetSocketAddress(8080),
     acceptContinue: Boolean = false,
     keepAlive: Boolean = false,
+    consolidateFlush: Boolean = false,
     flowControl: Boolean = false,
   )
 
@@ -63,6 +65,7 @@ object Server {
   private final case class Address(address: InetSocketAddress)                        extends UServer
   private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
   private case object KeepAlive                                                       extends Server[Any, Nothing]
+  private case object ConsolidateFlush                                                extends Server[Any, Nothing]
   private case object AcceptContinue                                                  extends UServer
   private case object FlowControl                                                     extends UServer
 
@@ -82,6 +85,7 @@ object Server {
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
   val keepAlive: UServer             = KeepAlive
+  val consolidateFlush: UServer      = ConsolidateFlush
 
   /**
    * Launches the app on the provided port.
