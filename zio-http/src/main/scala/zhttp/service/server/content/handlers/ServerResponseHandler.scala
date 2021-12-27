@@ -5,20 +5,11 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
-import io.netty.handler.codec.http.{
-  DefaultFullHttpResponse,
-  DefaultHttpResponse,
-  DefaultLastHttpContent,
-  HttpHeaderNames,
-  HttpResponse,
-  HttpResponseStatus,
-  HttpVersion,
-  LastHttpContent,
-}
+import io.netty.handler.codec.http._
 import zhttp.core.Util
 import zhttp.http.{HTTP_CHARSET, HttpData, Response, Status}
-import zhttp.service.{ChannelFuture, HttpRuntime}
 import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
+import zhttp.service.{ChannelFuture, HttpRuntime}
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
 
