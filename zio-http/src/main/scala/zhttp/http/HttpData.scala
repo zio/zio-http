@@ -4,12 +4,16 @@ import io.netty.buffer.{ByteBuf, Unpooled}
 import zio.stream.ZStream
 import zio.{Chunk, NeedsEnv, UIO, ZIO}
 
+import java.io.{File, RandomAccessFile}
+import java.nio.channels.FileChannel
 import java.nio.charset.Charset
+import java.nio.{ByteBuffer, file => jfile}
 
 /**
  * Holds HttpData that needs to be written on the HttpChannel
  */
-sealed trait HttpData[-R, +E] { self =>
+sealed trait HttpData[-R, +E] {
+  self =>
 
   /**
    * Returns true if HttpData is a stream
@@ -47,6 +51,17 @@ sealed trait HttpData[-R, +E] { self =>
     case HttpData.BinaryByteBuf(data)  => UIO(data)
     case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
     case HttpData.BinaryStream(stream) => stream.fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
+    case HttpData.File(path)           =>
+      UIO {
+        val aFile: RandomAccessFile = new RandomAccessFile(path.toString, "r")
+        val inChannel: FileChannel  = aFile.getChannel
+        val fileSize: Long          = inChannel.size
+        val buffer: ByteBuffer      = ByteBuffer.allocate(fileSize.toInt)
+        inChannel.read(buffer)
+        inChannel.close()
+        aFile.close()
+        Unpooled.wrappedBuffer(buffer.flip)
+      }
   }
 
   /**
@@ -58,6 +73,7 @@ sealed trait HttpData[-R, +E] { self =>
     case HttpData.BinaryChunk(data)   => data.size.toLong
     case HttpData.BinaryByteBuf(data) => data.readableBytes().toLong
     case HttpData.BinaryStream(_)     => -1L
+    case HttpData.File(path)          => new RandomAccessFile(new File(path.toString), "r").length()
   }
 }
 
@@ -95,7 +111,10 @@ object HttpData {
    */
   def fromString(text: String, charset: Charset = HTTP_CHARSET): HttpData[Any, Nothing] = Text(text, charset)
 
-  private[zhttp] sealed trait Cached { self =>
+  def fromFile(path: jfile.Path): HttpData[Any, Nothing] = File(path)
+
+  private[zhttp] sealed trait Cached {
+    self =>
     def encode: ByteBuf = self match {
       case Text(text, charset) => Unpooled.copiedBuffer(text, charset)
       case BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
@@ -117,8 +136,15 @@ object HttpData {
   }
 
   private[zhttp] final case class Text(text: String, charset: Charset) extends HttpData[Any, Nothing] with Cached
-  private[zhttp] final case class BinaryChunk(data: Chunk[Byte])       extends HttpData[Any, Nothing] with Cached
-  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)         extends HttpData[Any, Nothing]
+
+  private[zhttp] final case class BinaryChunk(data: Chunk[Byte]) extends HttpData[Any, Nothing] with Cached
+
+  private[zhttp] final case class BinaryByteBuf(data: ByteBuf) extends HttpData[Any, Nothing]
+
   private[zhttp] final case class BinaryStream[R, E](stream: ZStream[R, E, ByteBuf]) extends HttpData[R, E]
-  private[zhttp] case object Empty                                                   extends HttpData[Any, Nothing]
+
+  private[zhttp] final case class File(path: java.nio.file.Path) extends HttpData[Any, Nothing]
+
+  private[zhttp] case object Empty extends HttpData[Any, Nothing]
+
 }

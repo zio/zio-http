@@ -10,6 +10,7 @@ import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.Chunk
 
 import java.nio.charset.Charset
+import java.nio.file.Files
 
 final case class Response[-R, +E] private (
   status: Status,
@@ -23,6 +24,16 @@ final case class Response[-R, +E] private (
    */
   def addCookie(cookie: Cookie): Response[R, E] =
     self.copy(headers = self.getHeaders ++ Headers(HttpHeaderNames.SET_COOKIE.toString, cookie.encode))
+
+  def setMimeType: Response[R, E] = {
+    self.data match {
+      case HttpData.File(path) =>
+        self.copy(headers =
+          self.getHeaders ++ Headers(HttpHeaderNames.CONTENT_TYPE.toString, Files.probeContentType(path)),
+        )
+      case _                   => self
+    }
+  }
 
   override def getHeaders: Headers = headers
 

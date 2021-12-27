@@ -7,6 +7,7 @@ object Dependencies {
   val ScalaCompactCollectionVersion = "2.6.0"
   val ZioVersion                    = "1.0.13"
   val sttpVersion                   = "3.3.18"
+  val javaxActivationVersion        = "1.1.1"
   val `scala-compact-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompactCollectionVersion
   val netty                      = "io.netty"                % "netty-all"               % NettyVersion
   val `jwt-core`                 = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion

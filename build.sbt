@@ -1,10 +1,8 @@
-import bloop.config.Config
+import BuildHelper.{Scala213, publishSetting, stdSettings}
 import Dependencies._
-import BuildHelper.{publishSetting, stdSettings, Scala213}
 
-import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
-import sbtghactions.JavaSpec.Distribution
+import scala.concurrent.duration.FiniteDuration
 
 val releaseDrafterVersion = "5"
 
@@ -137,7 +135,7 @@ lazy val example = (project in file("./example"))
   .settings(publishSetting(false))
   .settings(
     fork                      := true,
-    Compile / run / mainClass := Option("example.HelloWorld"),
+    Compile / run / mainClass := Option("example.FileStreaming"),
     libraryDependencies ++= Seq(`jwt-core`),
     TwirlKeys.templateImports := Seq(),
   )
