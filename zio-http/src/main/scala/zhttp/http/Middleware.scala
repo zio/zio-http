@@ -113,8 +113,8 @@ object Middleware {
   def basicAuth(u: String, p: String): Middleware[Any, Nothing] =
     basicAuth { case (user, password) => (user == u) && (password == p) }
 
-  def addCookieM(cookie: UIO[Cookie]): Middleware[Any, Nothing] =
-    patchM((_, _) => cookie.map(c => Patch.addHeader(HttpHeaderNames.SET_COOKIE.toString, c.encode)))
+  def addCookieM[R, E](cookie: ZIO[R, E, Cookie]): Middleware[R, E] =
+    patchM((_, _) => cookie.mapBoth(Option(_), c => Patch.addHeader(HttpHeaderNames.SET_COOKIE.toString, c.encode)))
 
   /**
    * CSRF middleware : To prevent Cross-site request forgery attacks. This middleware is modeled after the double submit
@@ -122,7 +122,7 @@ object Middleware {
    * @see
    *   https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
    */
-  def csrf(headerName: String, cookieName: String) = {
+  def csrf(headerName: String, cookieName: String): Middleware[Any, Nothing] = {
     def getCSRFCookieValue(headers: Headers, cookieName: String): Option[String] =
       headers.getCookiesDecoded.find(_.name == cookieName).map(_.content)
     def getCSRFHeaderValue(headers: Headers, headerName: String): Option[String] = headers.getHeaderValue(headerName)
