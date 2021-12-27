@@ -1,5 +1,6 @@
 package zhttp.service
 
+import zhttp.html._
 import zhttp.http._
 import zhttp.internal.{AppCollection, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
@@ -115,6 +116,10 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val path = getClass.getResource("/TestFile").getPath
         val res  = Http.data(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
         assertM(res)(containsString("foo"))
+      } +
+      testM("html") {
+        val res = Http.html(html(body(div(id := "foo", "bar")))).requestBodyAsString()
+        assertM(res)(equalTo("""<!DOCTYPE html><html><body><div id="foo">bar</div></body></html>"""))
       }
   }
 
