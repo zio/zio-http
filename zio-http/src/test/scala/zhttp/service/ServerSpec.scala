@@ -115,7 +115,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val path = getClass.getResource("/TestFile").getPath
         val res  = Http.data(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
         assertM(res)(containsString("foo"))
-      }
+      } @@ ignore
   }
 
   override def spec = {

@@ -12,14 +12,6 @@ import java.nio.charset.Charset
 sealed trait HttpData[-R, +E] { self =>
 
   /**
-   * Returns true if HttpData is a stream
-   */
-  def isChunked: Boolean = self match {
-    case HttpData.BinaryStream(_) => true
-    case _                        => false
-  }
-
-  /**
    * Returns true if HttpData is empty
    */
   def isEmpty: Boolean = self match {
