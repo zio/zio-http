@@ -21,13 +21,17 @@ object ServerSpec extends HttpRunnableSpec {
     data    <- Gen.listOf(Gen.alphaNumericString)
     content <- HttpGen.nonEmptyHttpData(Gen.const(data))
   } yield (data.mkString(""), content)
-  private val env       = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live ++ AppPort.live
+
+  private val env =
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live ++ AppPort.live
+
   private val staticApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
     case Method.GET -> !! / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
     case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
   }
-  private val app       = serve { staticApp ++ AppCollection.app }
+
+  private val app = serve { staticApp ++ AppCollection.app }
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {

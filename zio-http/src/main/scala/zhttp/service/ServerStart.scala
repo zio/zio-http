@@ -22,7 +22,7 @@ object ServerStart {
   )
 
   private final case class Port(p: Int)                                  extends ServerStart
-  private case object Empty                                        extends ServerStart
+  private case object Empty                                              extends ServerStart
   private final case class Concat(self: ServerStart, other: ServerStart) extends ServerStart
 
   def empty: ServerStart = Empty
