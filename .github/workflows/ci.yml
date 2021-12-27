@@ -208,7 +208,7 @@ jobs:
 
       - name: Add Scoverage
         id: add_plugin
-        run: sed -i -e '$aaddSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.9.1")' project/plugins.sbt
+        run: sed -i -e '$aaddSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.9.2")' project/plugins.sbt
 
       - name: Update Build Definition
         id: update_build_definition
@@ -218,7 +218,7 @@ jobs:
 
       - name: Run Coverage
         id: run_coverage
-        run: sbt ++${{ matrix.scala }} coverage 'project zhttp;test' coverageReport
+        run: sbt ++2.13.7 coverage 'project zhttp;test' coverageReport
 
       - name: Push Codecov
         id: push_codecov
