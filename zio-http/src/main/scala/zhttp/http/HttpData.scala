@@ -98,7 +98,7 @@ object HttpData {
   private[zhttp] sealed trait Cached { self =>
     def encode: ByteBuf = self match {
       case Text(text, charset) => Unpooled.copiedBuffer(text, charset)
-      case BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
+      case BinaryChunk(data)   => Unpooled.wrappedBuffer(data.toArray)
     }
 
     // TODO: Add Unit Tests

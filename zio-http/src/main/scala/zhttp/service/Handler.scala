@@ -56,10 +56,12 @@ private[zhttp] final case class Handler[R](
               case Some(cause) =>
                 UIO {
                   ctx.fireExceptionCaught(cause)
-                } *> UIO(releaseRequest(jReq))
+                  releaseRequest(jReq)
+                }
               case None        =>
                 UIO {
-                  ctx.fireChannelRead(Response.ok) // TODO: it should be response empty
+                  ctx.fireChannelRead(Response.status(Status.NOT_FOUND))
+                  releaseRequest(jReq)
                 }
             },
             res =>
@@ -69,6 +71,7 @@ private[zhttp] final case class Handler[R](
                   _ <- UIO {
                     ctx.fireChannelRead(res)
                   }
+                  _ <- Task(releaseRequest(jReq))
                 } yield ()
               },
           )
@@ -77,13 +80,15 @@ private[zhttp] final case class Handler[R](
         if (self.isWebSocket(res)) {
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
-          ctx.fireChannelRead(res): Unit
+          ctx.fireChannelRead(res)
         }
+        releaseRequest(jReq)
       case HExit.Failure(cause) =>
         ctx.fireExceptionCaught(cause)
         releaseRequest(jReq)
       case HExit.Empty          =>
-        ctx.fireChannelRead(Response.ok): Unit // TODO: it should be response empty
+        ctx.fireChannelRead(Response.status(Status.NOT_FOUND))
+        releaseRequest(jReq)
     }
 
   }
