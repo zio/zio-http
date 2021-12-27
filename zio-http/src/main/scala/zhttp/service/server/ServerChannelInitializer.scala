@@ -54,7 +54,7 @@ final case class ServerChannelInitializer[R](
     if (cfg.flowControl) pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
 
     // FlushConsolidationHandler
-    // Add FlushConsolidationHandler, optimises the flush calls
+    // Flushing content is done in batches. Can potentially improve performance.
     if (cfg.consolidateFlush) pipeline.addLast(HTTP_SERVER_FLUSH_CONSOLIDATION, new FlushConsolidationHandler)
 
     // RequestHandler
