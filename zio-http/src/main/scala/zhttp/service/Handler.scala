@@ -21,8 +21,6 @@ private[zhttp] final case class Handler[R](
 
   override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
-    val headers                              = Headers.make(jReq.headers())
-    val content                              = Unpooled.copiedBuffer(jReq.content())
     unsafeRun(
       jReq,
       app,
@@ -31,9 +29,9 @@ private[zhttp] final case class Handler[R](
 
         override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
 
-        override def getHeaders: Headers = headers
+        override def getHeaders: Headers = Headers.make(jReq.headers())
 
-        override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(content)
+        override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(Unpooled.copiedBuffer(jReq.content()))
 
         override def remoteAddress: Option[InetAddress] = {
           ctx.channel().remoteAddress() match {
@@ -162,15 +160,14 @@ private[zhttp] final case class Handler[R](
    */
   private def unsafeWriteAndFlushEmptyResponse()(implicit ctx: ChannelHandlerContext): Unit = {
     val response = Response(Status.NOT_FOUND)
-    ctx.fireChannelRead(Right(response)): Unit
+    ctx.fireChannelRead(response): Unit
   }
 
   /**
    * Writes error response to the Channel
    */
   private def unsafeWriteAndFlushErrorResponse(cause: Throwable)(implicit ctx: ChannelHandlerContext): Unit = {
-    val response = Left(cause)
-    ctx.fireChannelRead(response): Unit
+    ctx.fireExceptionCaught(cause): Unit
   }
 
   /**
@@ -179,7 +176,7 @@ private[zhttp] final case class Handler[R](
   private def unsafeWriteAndFlushLastEmptyContent(
     response: Response[R, Throwable],
   )(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.fireChannelRead(Right(response)): Unit
+    ctx.fireChannelRead(response): Unit
   }
 
   /**
@@ -188,13 +185,13 @@ private[zhttp] final case class Handler[R](
   private def unsafeWriteLastContent[A](data: ByteBuf, response: Response[R, Throwable])(implicit
     ctx: ChannelHandlerContext,
   ): Unit = {
-    ctx.fireChannelRead(Right(response.copy(data = HttpData.BinaryByteBuf(Unpooled.copiedBuffer(data))))): Unit
+    ctx.fireChannelRead(response.copy(data = HttpData.BinaryByteBuf(Unpooled.copiedBuffer(data)))): Unit
   }
 
   private def unsafeWriteStreamContent[A](
     response: Response[R, Throwable],
   )(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.fireChannelRead(Right(response)): Unit
+    ctx.fireChannelRead(response): Unit
   }
 
 }

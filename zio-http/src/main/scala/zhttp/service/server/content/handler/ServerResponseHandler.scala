@@ -18,42 +18,36 @@ import zio.{UIO, ZIO}
  */
 @Sharable
 private[zhttp] case class ServerResponseHandler[R](runtime: HttpRuntime[R], serverTime: ServerTimeGenerator)
-    extends SimpleChannelInboundHandler[Either[Throwable, Response[R, Throwable]]](false) {
-  override def channelRead0(ctx: ChannelHandlerContext, response: Either[Throwable, Response[R, Throwable]]): Unit = {
+    extends SimpleChannelInboundHandler[Response[R, Throwable]](false) {
+  override def channelRead0(ctx: ChannelHandlerContext, response: Response[R, Throwable]): Unit = {
     try {
-      response match {
-        case Left(err)               =>
-          ctx.writeAndFlush(serverErrorResponse(err))
-        case Right(internalResponse) =>
-          internalResponse.status match {
-            case Status.NOT_FOUND =>
-              ctx.writeAndFlush(notFoundResponse)
-            case Status.OK        =>
-              ctx.write(decodeResponse(internalResponse))
-              internalResponse.data match {
-                case HttpData.Empty                =>
-                  ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-                case HttpData.Text(data, charSet)  =>
-                  ctx.writeAndFlush(new DefaultLastHttpContent(Unpooled.copiedBuffer(data, charSet)))
-                case HttpData.BinaryByteBuf(data)  =>
-                  ctx.writeAndFlush(new DefaultLastHttpContent(data))
-                case HttpData.BinaryStream(stream) =>
-                  runtime.unsafeRun(ctx) {
-                    writeStreamContent(stream)(ctx)
-                  }
-                case HttpData.BinaryChunk(data)    =>
-                  ctx.write(data)
+      response.status match {
+        case Status.NOT_FOUND =>
+          ctx.writeAndFlush(notFoundResponse)
+        case Status.OK        =>
+          ctx.write(decodeResponse(response))
+          response.data match {
+            case HttpData.Empty                =>
+              ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+            case HttpData.Text(data, charSet)  =>
+              ctx.writeAndFlush(new DefaultLastHttpContent(Unpooled.copiedBuffer(data, charSet)))
+            case HttpData.BinaryByteBuf(data)  =>
+              ctx.writeAndFlush(new DefaultLastHttpContent(data))
+            case HttpData.BinaryStream(stream) =>
+              runtime.unsafeRun(ctx) {
+                writeStreamContent(stream)(ctx)
               }
-
-            case _ =>
-              ctx.writeAndFlush(decodeResponse(internalResponse))
+            case HttpData.BinaryChunk(data)    =>
+              ctx.write(data)
           }
+
+        case _ =>
+          ctx.writeAndFlush(decodeResponse(response))
       }
     } catch {
       case err: Throwable => ctx.writeAndFlush(serverErrorResponse(err))
     }
     ()
-
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
