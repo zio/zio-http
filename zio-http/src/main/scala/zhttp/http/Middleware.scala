@@ -126,15 +126,18 @@ object Middleware {
     def getCSRFCookieValue(headers: Headers, cookieName: String): Option[String] =
       headers.getCookiesDecoded.find(_.name == cookieName).map(_.content)
     def getCSRFHeaderValue(headers: Headers, headerName: String): Option[String] = headers.getHeaderValue(headerName)
-    Middleware.make((_, _, headers) =>
+    ifThenElse((_, _, headers) => {
       (getCSRFHeaderValue(headers, headerName), getCSRFCookieValue(headers, cookieName)) match {
         case (Some(headerValue), Some(cookieValue)) =>
           if (headerValue == cookieValue)
             true
           else false
         case _                                      => false
-      },
-    )((_, _, verified) => if (verified) Patch.empty else Patch.setStatus(Status.FORBIDDEN))
+      }
+    })(
+      Middleware.identity,
+      Middleware.Constant(Http.status(Status.FORBIDDEN)),
+    )
   }
 
   /**
