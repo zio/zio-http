@@ -185,8 +185,8 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           }
       } +
       suite("CSRF middleware") {
-        val app          = (Http.ok @@ csrf("x-token", "token")).getStatus
-        val cookieHeader = Headers.cookie(Cookie("token", "secret"))
+        val app: Http[Any, Nothing, Request, Status] = (Http.ok @@ csrf("x-token", "token")).getStatus
+        val cookieHeader                             = Headers.cookie(Cookie("token", "secret"))
         testM("should give forbidden if token is not present in header") {
           assertM(app(Request(headers = cookieHeader)))(equalTo(Status.FORBIDDEN))
         } +
@@ -200,6 +200,14 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           testM("should give OK if token present in header matches token present in cookie") {
             assertM(app(Request(headers = cookieHeader ++ Headers("x-token", "secret"))))(
               equalTo(Status.OK),
+            )
+          } +
+          testM("should give empty body if token is present in header but doesn't match with token cookie") {
+            val app = Http.text("hello") @@ csrf("x-token", "token")
+            assertM(
+              app(Request(headers = cookieHeader ++ Headers("x-token", "secret1"))).map(_.data),
+            )(
+              equalTo(HttpData.empty),
             )
           }
       }
