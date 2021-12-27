@@ -1,9 +1,9 @@
 package zhttp.service.client
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
+import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.service.Client.ClientResponse
-import zhttp.service.{DecodeJResponse, HttpRuntime}
+import zhttp.service.HttpRuntime
 import zio.Promise
 
 /**
@@ -13,11 +13,9 @@ final case class ClientInboundHandler[R](
   zExec: HttpRuntime[R],
   jReq: FullHttpRequest,
   promise: Promise[Throwable, ClientResponse],
-) extends SimpleChannelInboundHandler[FullHttpResponse](false)
-    with DecodeJResponse {
+) extends SimpleChannelInboundHandler[ClientResponse](false) {
 
-  override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
-    val clientResponse = decodeJResponse(msg)
+  override def channelRead0(ctx: ChannelHandlerContext, clientResponse: ClientResponse): Unit = {
     zExec.unsafeRun(ctx)(promise.succeed(clientResponse))
   }
 

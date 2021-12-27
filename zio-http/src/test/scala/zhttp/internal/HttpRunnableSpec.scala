@@ -10,7 +10,7 @@ import zhttp.internal.AppCollection.HttpEnv
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.DefaultRunnableSpec
-import zio.{Has, Task, ZIO, ZManaged}
+import zio.{Chunk, Has, Task, ZIO, ZManaged}
 
 /**
  * Should be used only when e2e tests needs to be written which is typically for logic that is part of the netty based
@@ -98,5 +98,13 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
       id  <- deploy
       res <- self.webSocketRequest(path, Headers(AppCollection.APP_ID, id) ++ headers)
     } yield res.code.code
+
+    def requestBody(
+      path: Path = !!,
+      method: Method = Method.GET,
+      content: String = "",
+      headers: Headers = Headers.empty,
+    ): ZIO[EventLoopGroup with ChannelFactory with HttpAppCollection, Throwable, Chunk[Byte]] =
+      request(path, method, content, headers).flatMap(_.getBody)
   }
 }
