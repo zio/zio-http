@@ -10,7 +10,7 @@ import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{ignore, timeout}
+import zio.test.TestAspect.{nonFlaky, sequential, timeout}
 import zio.test.assertM
 
 object SSLSpec extends HttpRunnableSpec(8073) {
@@ -40,7 +40,7 @@ object SSLSpec extends HttpRunnableSpec(8073) {
               .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL1))
               .map(_.status)
             assertM(actual)(equalTo(Status.OK))
-          } +
+          } @@ nonFlaky +
             testM("fail with DecoderException when client doesn't have the server certificate") {
               val actual = Client
                 .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL2))
@@ -48,21 +48,21 @@ object SSLSpec extends HttpRunnableSpec(8073) {
                   case _: DecoderException => ZIO.succeed("DecoderException")
                 })
               assertM(actual)(equalTo("DecoderException"))
-            } +
+            } @@ nonFlaky +
             testM("succeed when client has default SSL") {
               val actual = Client
                 .request("https://localhost:8073/success", ClientSSLOptions.DefaultSSL)
                 .map(_.status)
               assertM(actual)(equalTo(Status.OK))
-            } +
+            } @@ nonFlaky +
             testM("Https Redirect when client makes http request") {
               val actual = Client
                 .request("http://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL1))
                 .map(_.status)
               assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
-            },
+            } @@ nonFlaky,
         ),
       )
       .useNow,
-  ).provideCustomLayer(env) @@ timeout(5 second) @@ ignore
+  ).provideCustomLayer(env) @@ timeout(30 second) @@ sequential
 }
