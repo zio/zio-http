@@ -63,7 +63,6 @@ object HttpGen {
             HttpData.fromText(list.mkString("")),
             HttpData.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
             HttpData.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
-            HttpData.empty,
           ),
         )
     } yield cnt
