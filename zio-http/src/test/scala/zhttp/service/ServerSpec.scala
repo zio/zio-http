@@ -1,6 +1,7 @@
 package zhttp.service
 
 import zhttp.html._
+import zhttp.http.Headers.Literals
 import zhttp.http._
 import zhttp.internal.{AppCollection, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
@@ -14,6 +15,18 @@ import zio.test._
 import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec(8088) {
+
+  private val nonEmptyContent = for {
+    data    <- Gen.listOf(Gen.alphaNumericString)
+    content <- HttpGen.nonEmptyHttpData(Gen.const(data))
+  } yield (data.mkString(""), content)
+  private val env       = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
+  private val staticApp = Http.collectM[Request] {
+    case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
+    case Method.GET -> !! / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
+    case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
+  }
+  private val app       = serve { staticApp ++ AppCollection.app }
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -93,6 +106,23 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       }
   }
 
+  def requestSpec = suite("RequestSpec") {
+    val app: HttpApp[Any, Nothing] = Http.collect[Request] { case req =>
+      Response.text(req.getContentLength.getOrElse(-1).toString)
+    }
+    testM("has content-length") {
+      checkAllM(Gen.alphaNumericString) { string =>
+        val res = app.requestBodyAsString(content = string)
+        assertM(res)(equalTo(string.length.toString))
+      }
+    } +
+      testM("POST Request.getBody") {
+        val app = Http.collectM[Request] { case req => req.getBody.as(Response.ok) }
+        val res = app.requestStatus(!!, Method.POST, "some text")
+        assertM(res)(equalTo(Status.OK))
+      }
+  }
+
   def responseSpec = suite("ResponseSpec") {
     testM("data") {
       checkAllM(nonEmptyContent) { case (string, data) =>
@@ -117,9 +147,16 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val res  = Http.data(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
         assertM(res)(containsString("foo"))
       } +
-      testM("html") {
-        val res = Http.html(html(body(div(id := "foo", "bar")))).requestBodyAsString()
-        assertM(res)(equalTo("""<!DOCTYPE html><html><body><div id="foo">bar</div></body></html>"""))
+      suite("html") {
+        testM("body") {
+          val res = Http.html(html(body(div(id := "foo", "bar")))).requestBodyAsString()
+          assertM(res)(equalTo("""<!DOCTYPE html><html><body><div id="foo">bar</div></body></html>"""))
+        } +
+          testM("content-type") {
+            val app = Http.html(html(body(div(id := "foo", "bar"))))
+            val res = app.requestHeaderValueByName()(Literals.Name.ContentType)
+            assertM(res)(isSome(equalTo(Literals.Value.TextHtml.toString)))
+          }
       }
   }
 
@@ -127,24 +164,6 @@ object ServerSpec extends HttpRunnableSpec(8088) {
     suiteM("Server") {
       app.as(List(staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ sequential
-  }
-
-  def requestSpec = suite("RequestSpec") {
-    val app: HttpApp[Any, Nothing] = Http.collect[Request] { case req =>
-      Response.text(req.getContentLength.getOrElse(-1).toString)
-    }
-    testM("has content-length") {
-      checkAllM(Gen.alphaNumericString) { string =>
-        val res = app.requestBodyAsString(content = string)
-        assertM(res)(equalTo(string.length.toString))
-      }
-    } +
-      testM("POST Request.getBody") {
-        val app = Http.collectM[Request] { case req => req.getBody.as(Response.ok) }
-        val res = app.requestStatus(!!, Method.POST, "some text")
-        assertM(res)(equalTo(Status.OK))
-      }
-
   }
 
   def staticAppSpec = suite("StaticAppSpec") {
@@ -170,19 +189,4 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         } yield assertTrue(data == Status.OK)
       }
   }
-
-  private val nonEmptyContent = for {
-    data    <- Gen.listOf(Gen.alphaNumericString)
-    content <- HttpGen.nonEmptyHttpData(Gen.const(data))
-  } yield (data.mkString(""), content)
-
-  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
-
-  private val staticApp = Http.collectM[Request] {
-    case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
-    case Method.GET -> !! / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
-    case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
-  }
-
-  private val app = serve { staticApp ++ AppCollection.app }
 }

@@ -93,7 +93,7 @@ trait Attributes {
 
   final def httpEquivAttr: PartialAttribute[String] = PartialAttribute("http-equiv")
 
-  final def id: PartialAttribute[String]     = PartialAttribute("id")
+  final def id: PartialAttribute[String] = PartialAttribute("id")
 
   final def idAttr: PartialAttribute[String] = PartialAttribute("id")
 
