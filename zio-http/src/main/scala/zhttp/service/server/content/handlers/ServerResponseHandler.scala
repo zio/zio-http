@@ -24,20 +24,24 @@ private[zhttp] case class ServerResponseHandler[R](runtime: HttpRuntime[R], serv
         case Status.NOT_FOUND =>
           ctx.writeAndFlush(notFoundResponse)
         case Status.OK        =>
-          ctx.write(decodeResponse(response))
           response.data match {
             case HttpData.Empty                 =>
-              ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+              ctx.writeAndFlush(encodeToFullHttpResponseFresh(response, Unpooled.EMPTY_BUFFER))
             case data @ HttpData.Text(_, _)     =>
-              ctx.writeAndFlush(data.encodeAndCache(response.attribute.memoize))
+              ctx.writeAndFlush(
+                encodeToFullHttpResponseFresh(response, data.encodeAndCache(response.attribute.memoize)),
+              )
             case HttpData.BinaryByteBuf(data)   =>
-              ctx.writeAndFlush(new DefaultLastHttpContent(data))
+              ctx.writeAndFlush(encodeToFullHttpResponseFresh(response, data))
             case HttpData.BinaryStream(stream)  =>
+              ctx.write(decodeResponse(response))
               runtime.unsafeRun(ctx) {
                 writeStreamContent(stream)(ctx)
               }
             case data @ HttpData.BinaryChunk(_) =>
-              ctx.writeAndFlush(data.encodeAndCache(response.attribute.memoize))
+              ctx.writeAndFlush(
+                encodeToFullHttpResponseFresh(response, data.encodeAndCache(response.attribute.memoize)),
+              )
           }
 
         case _ =>
@@ -103,6 +107,12 @@ private[zhttp] case class ServerResponseHandler[R](runtime: HttpRuntime[R], serv
       _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
+  }
+
+  private def encodeToFullHttpResponseFresh(res: Response[_, _], content: ByteBuf): FullHttpResponse = {
+    val jHeaders = res.getHeaders.encode
+    if (res.attribute.serverTime) jHeaders.set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
+    new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, content, jHeaders, EmptyHttpHeaders.INSTANCE)
   }
 
 }
