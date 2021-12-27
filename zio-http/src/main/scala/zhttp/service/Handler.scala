@@ -1,12 +1,14 @@
 package zhttp.service
 
-import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.buffer.{ByteBuf, ByteBufInputStream, Unpooled}
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.HttpResponseStatus._
 import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
+import io.netty.handler.stream.{ChunkedStream, ChunkedWriteHandler}
 import zhttp.core.Util
+import zhttp.http.Headers.Literals.{Name, Value}
 import zhttp.http._
 import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
 import zio.stream.ZStream
@@ -22,7 +24,6 @@ private[zhttp] final case class Handler[R](
   serverTime: ServerTimeGenerator,
 ) extends SimpleChannelInboundHandler[FullHttpRequest](false)
     with WebSocketUpgrade[R] { self =>
-
   override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
     jReq.touch("server.Handler-channelRead0")
     implicit val iCtx: ChannelHandlerContext = ctx
@@ -119,30 +120,34 @@ private[zhttp] final case class Handler[R](
               if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
               else {
                 for {
-                  _ <- UIO { unsafeWriteAnyResponse(res) }
                   _ <- res.data match {
                     case HttpData.Empty =>
-                      UIO {
-                        unsafeWriteAndFlushLastEmptyContent()
-                      }
+                      UIO { unsafeWriteAnyResponse(res) } *>
+                        UIO {
+                          unsafeWriteAndFlushLastEmptyContent()
+                        }
 
                     case data @ HttpData.Text(_, _) =>
-                      UIO {
-                        unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
-                      }
+                      UIO { unsafeWriteAnyResponse(res) } *>
+                        UIO {
+                          unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+                        }
 
                     case HttpData.BinaryByteBuf(data) =>
-                      UIO {
-                        unsafeWriteLastContent(data)
-                      }
+                      UIO { unsafeWriteAnyResponse(res) } *>
+                        UIO {
+                          unsafeWriteLastContent(data)
+                        }
 
                     case data @ HttpData.BinaryChunk(_) =>
-                      UIO {
-                        unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
-                      }
+                      UIO { unsafeWriteAnyResponse(res) } *>
+                        UIO {
+                          unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
+                        }
 
                     case HttpData.BinaryStream(stream) =>
-                      writeStreamContent(stream)
+                      UIO { unsafeWriteAnyResponse(res.addHeader(Name.TransferEncoding, Value.Chunked)) } *>
+                        writeStreamContent(stream)
                   }
                   _ <- Task(releaseRequest(jReq))
                 } yield ()
@@ -154,26 +159,29 @@ private[zhttp] final case class Handler[R](
         if (self.isWebSocket(res)) {
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
-          unsafeWriteAnyResponse(res)
-
           res.data match {
             case HttpData.Empty =>
+              unsafeWriteAnyResponse(res)
               unsafeWriteAndFlushLastEmptyContent()
               releaseRequest(jReq)
 
             case data @ HttpData.Text(_, _) =>
+              unsafeWriteAnyResponse(res)
               unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
               releaseRequest(jReq)
 
             case HttpData.BinaryByteBuf(data) =>
+              unsafeWriteAnyResponse(res)
               unsafeWriteLastContent(data)
               releaseRequest(jReq)
 
             case data @ HttpData.BinaryChunk(_) =>
+              unsafeWriteAnyResponse(res)
               unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
               releaseRequest(jReq)
 
             case HttpData.BinaryStream(stream) =>
+              unsafeWriteAnyResponse(res.addHeader(Name.TransferEncoding, Value.Chunked))
               unsafeRunZIO(
                 writeStreamContent(stream) *> Task(releaseRequest(jReq)),
               )
@@ -240,7 +248,8 @@ private[zhttp] final case class Handler[R](
     stream: ZStream[R, Throwable, ByteBuf],
   )(implicit ctx: ChannelHandlerContext): ZIO[R, Throwable, Unit] = {
     for {
-      _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
+      _ <- UIO(ctx.channel().pipeline().addBefore(HTTP_REQUEST_HANDLER, "chunkedHandler", new ChunkedWriteHandler()))
+      _ <- stream.foreach(c => UIO(ctx.write(new ChunkedStream(new ByteBufInputStream(c), 1024))))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
   }
