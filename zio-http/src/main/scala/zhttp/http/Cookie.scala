@@ -154,7 +154,7 @@ object Cookie {
    * Decodes from Set-Cookie header value inside of Response into a cookie
    */
   def decodeResponseCookie(headerValue: String): Option[Cookie] =
-    Option(unsafeDecodeResponseCookie(headerValue))
+    Try(unsafeDecodeResponseCookie(headerValue)).toOption
 
   private[http] def unsafeDecodeResponseCookie(headerValue: String): Cookie = {
     var name: String              = null
@@ -193,11 +193,9 @@ object Cookie {
             name = headerValue.substring(0, next)
           }
         } else if (headerValue.regionMatches(true, curr, fieldExpires, 0, fieldExpires.length)) {
-          expires =
-            try { Instant.parse(headerValue.substring(curr + 8, next)) }
-            catch { case _: Throwable => null }
+          expires = Instant.parse(headerValue.substring(curr + 8, next))
         } else if (headerValue.regionMatches(true, curr, fieldMaxAge, 0, fieldMaxAge.length)) {
-          maxAge = Try(headerValue.substring(curr + 8, next).toLong).toOption
+          maxAge = Some(headerValue.substring(curr + 8, next).toLong)
         } else if (headerValue.regionMatches(true, curr, fieldDomain, 0, fieldDomain.length)) {
           domain = headerValue.substring(curr + 7, next)
         } else if (headerValue.regionMatches(true, curr, fieldPath, 0, fieldPath.length)) {
