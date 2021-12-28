@@ -133,7 +133,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
     } +
       testM("data from file") {
         val file = new File(getClass.getResource("/TestFile.txt").getPath)
-        val res     = Http.data(HttpData.fromFile(f)).requestBodyAsString()
+        val res     = Http.fromFile(file).requestBodyAsString()
         assertM(res)(equalTo("abc\nfoo"))
       } +
       testM("status") {
