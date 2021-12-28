@@ -1,9 +1,9 @@
 package zhttp.internal
 
 import zhttp.http._
+import zio._
 import zio.blocking.Blocking
 import zio.console.Console
-import zio.{Ref, UIO, ZIO, ZLayer}
 
 import java.util.UUID
 
@@ -30,9 +30,13 @@ object AppCollection {
   def get(id: Id): ZIO[HttpAppCollection, Nothing, Option[HttpApp[HttpEnv, Throwable]]] =
     ZIO.accessM[HttpAppCollection](_.get.get(id))
 
+  def setPort(n: Int): ZIO[HttpAppCollection, Nothing, Boolean] = ZIO.accessM[HttpAppCollection](_.get.setPort(n))
+  def getPort: ZIO[HttpAppCollection, Nothing, Int]             = ZIO.accessM[HttpAppCollection](_.get.getPort)
+
   def live: ZLayer[Any, Nothing, HttpAppCollection] = Ref
     .make(Map.empty[Id, HttpApp[HttpEnv, Throwable]])
-    .map(ref => new Live(ref))
+    .zip(Promise.make[Nothing, Int])
+    .map(a => new Live(a._1, a._2))
     .toLayer
 
   type Id          = String
@@ -43,13 +47,17 @@ object AppCollection {
   sealed trait Service {
     def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id]
     def get(id: Id): UIO[Option[HttpApp[HttpEnv, Throwable]]]
+    def setPort(n: Int): UIO[Boolean]
+    def getPort: IO[Nothing, Int]
   }
 
-  final class Live(ref: Ref[Map[Id, HttpApp[HttpEnv, Throwable]]]) extends Service {
+  final class Live(ref: Ref[Map[Id, HttpApp[HttpEnv, Throwable]]], pr: Promise[Nothing, Int]) extends Service {
     def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id]        = for {
       id <- UIO(UUID.randomUUID().toString)
       _  <- ref.update(map => map + (id -> app))
     } yield id
     def get(id: Id): UIO[Option[HttpApp[HttpEnv, Throwable]]] = ref.get.map(_.get(id))
+    def setPort(n: Int): UIO[Boolean]                         = pr.complete(ZIO(n).orDie)
+    def getPort: IO[Nothing, Int]                             = pr.await
   }
 }

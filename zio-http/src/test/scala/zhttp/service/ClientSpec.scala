@@ -1,7 +1,7 @@
 package zhttp.service
 
 import zhttp.http._
-import zhttp.internal.{AppCollection, AppPort, HttpRunnableSpec}
+import zhttp.internal.{AppCollection, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.duration.durationInt
 import zio.test.Assertion._
@@ -11,7 +11,7 @@ import zio.test._
 object ClientSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live ++ AppPort.live
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
 
   def clientSpec = suite("ClientSpec") {
     testM("respond Ok") {
