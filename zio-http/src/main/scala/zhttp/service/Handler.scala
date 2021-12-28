@@ -1,15 +1,12 @@
 package zhttp.service
 
-import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.HttpResponseStatus._
-import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
-import zhttp.core.Util
 import zhttp.http._
+import zhttp.service.server.content.handlers.ResponseToHttpResponseHandler
 import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
-import zio.stream.ZStream
 import zio.{Task, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -21,7 +18,7 @@ private[zhttp] final case class Handler[R](
   config: Server.Config[R, Throwable],
   serverTime: ServerTimeGenerator,
 ) extends SimpleChannelInboundHandler[FullHttpRequest](false)
-    with WebSocketUpgrade[R] { self =>
+    with ResponseToHttpResponseHandler[R] with WebSocketUpgrade[R] { self =>
 
   override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
     jReq.touch("server.Handler-channelRead0")
@@ -44,33 +41,6 @@ private[zhttp] final case class Handler[R](
     )
   }
 
-  private def decodeResponse(res: Response[_, _]): HttpResponse = {
-    if (res.attribute.memoize) decodeResponseCached(res) else decodeResponseFresh(res)
-  }
-
-  private def decodeResponseCached(res: Response[_, _]): HttpResponse = {
-    val cachedResponse = res.cache
-    // Update cache if it doesn't exist OR has become stale
-    // TODO: add unit tests for server-time
-    if (cachedResponse == null || (res.attribute.serverTime && serverTime.canUpdate())) {
-      val jRes = decodeResponseFresh(res)
-      res.cache = jRes
-      jRes
-    } else cachedResponse
-  }
-
-  private def decodeResponseFresh(res: Response[_, _]): HttpResponse = {
-    val jHeaders = res.getHeaders.encode
-    if (res.attribute.serverTime) jHeaders.set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
-    new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
-  }
-
-  private def notFoundResponse: HttpResponse = {
-    val response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
-    response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0)
-    response
-  }
-
   /**
    * Releases the FullHttpRequest safely.
    */
@@ -78,17 +48,6 @@ private[zhttp] final case class Handler[R](
     if (jReq.refCnt() > 0) {
       jReq.release(jReq.refCnt()): Unit
     }
-  }
-
-  private def serverErrorResponse(cause: Throwable): HttpResponse = {
-    val content  = Util.prettyPrintHtml(cause)
-    val response = new DefaultFullHttpResponse(
-      HTTP_1_1,
-      INTERNAL_SERVER_ERROR,
-      Unpooled.copiedBuffer(content, HTTP_CHARSET),
-    )
-    response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.length)
-    response
   }
 
   /**
@@ -197,51 +156,4 @@ private[zhttp] final case class Handler[R](
     runtime.unsafeRun(ctx) {
       program
     }
-
-  /**
-   * Writes not found error response to the Channel
-   */
-  private def unsafeWriteAndFlushEmptyResponse()(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(notFoundResponse): Unit
-  }
-
-  /**
-   * Writes error response to the Channel
-   */
-  private def unsafeWriteAndFlushErrorResponse(cause: Throwable)(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(serverErrorResponse(cause)): Unit
-  }
-
-  /**
-   * Writes last empty content to the Channel
-   */
-  private def unsafeWriteAndFlushLastEmptyContent()(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
-  }
-
-  /**
-   * Writes any response to the Channel
-   */
-  private def unsafeWriteAnyResponse[A](res: Response[R, Throwable])(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.write(decodeResponse(res)): Unit
-  }
-
-  /**
-   * Writes ByteBuf data to the Channel
-   */
-  private def unsafeWriteLastContent[A](data: ByteBuf)(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(new DefaultLastHttpContent(data)): Unit
-  }
-
-  /**
-   * Writes Binary Stream data to the Channel
-   */
-  private def writeStreamContent[A](
-    stream: ZStream[R, Throwable, ByteBuf],
-  )(implicit ctx: ChannelHandlerContext): ZIO[R, Throwable, Unit] = {
-    for {
-      _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
-      _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
-    } yield ()
-  }
 }
