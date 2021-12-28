@@ -67,19 +67,8 @@ object Response {
     status: Status = Status.OK,
     headers: Headers = Headers.empty,
     data: HttpData[R, E] = HttpData.Empty,
-  ): Response[R, E] = {
-    val size      = data.unsafeSize
-    val isChunked = data.isChunked
-
-    Response(
-      status,
-      headers ++
-        Headers(Name.ContentLength -> size.toString).when(size >= 0) ++
-        Headers(Name.TransferEncoding -> Value.Chunked).when(isChunked),
-      data,
-      Attribute.empty,
-    )
-  }
+  ): Response[R, E] =
+    Response(status, headers, data, Attribute.empty)
 
   def fromHttpError(error: HttpError): UResponse = {
     error match {

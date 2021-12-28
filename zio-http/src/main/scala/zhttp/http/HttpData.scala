@@ -33,31 +33,12 @@ sealed trait HttpData[-R, +E] { self =>
       case m                           => m.asInstanceOf[HttpData[Any, E]]
     }
 
-  /**
-   * Returns the size of HttpData if available
-   */
-  def size: Option[Long] = {
-    val s = self.unsafeSize
-    if (s < 0) None else Some(s)
-  }
-
   def toByteBuf: ZIO[R, E, ByteBuf] = self match {
     case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
     case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
     case HttpData.BinaryByteBuf(data)  => UIO(data)
     case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
     case HttpData.BinaryStream(stream) => stream.fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
-  }
-
-  /**
-   * Returns the size of HttpData if available and -1 if not
-   */
-  private[zhttp] def unsafeSize: Long = self match {
-    case HttpData.Empty               => 0L
-    case HttpData.Text(text, _)       => text.length.toLong
-    case HttpData.BinaryChunk(data)   => data.size.toLong
-    case HttpData.BinaryByteBuf(data) => data.readableBytes().toLong
-    case HttpData.BinaryStream(_)     => -1L
   }
 }
 
