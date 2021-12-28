@@ -57,11 +57,7 @@ private[zhttp] final case class Handler[R](
         jResponse match {
 
           // Duplicate the response without allocating much memory
-          case response: FullHttpResponse =>
-            // TODO: use response.retainedDuplicate()
-
-            response.content().resetReaderIndex()
-            response.retain()
+          case response: FullHttpResponse => response.retainedDuplicate()
           case response                   => response
         }
 
