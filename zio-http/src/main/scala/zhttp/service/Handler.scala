@@ -49,16 +49,26 @@ private[zhttp] final case class Handler[R](
    * response. It will also set the server time if requested by the client.
    */
   private def encodeResponse(res: Response[_, _]): HttpResponse = {
+
     val jResponse = res.attribute.encoded match {
+
+      // Check if the encoded response exists and/or was modified.
       case Some((oRes, jResponse)) if oRes == res =>
         jResponse match {
-          case response: FullHttpResponse => response.retainedDuplicate()
+
+          // Duplicate the response without allocating much memory
+          case response: FullHttpResponse =>
+            // TODO: use response.retainedDuplicate()
+
+            response.content().resetReaderIndex()
+            response.retain()
           case response                   => response
         }
 
       case _ => res.unsafeEncode()
     }
 
+    // Identify if the server time should be set and update if required.
     if (res.attribute.serverTime) jResponse.headers().set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
     jResponse
   }
