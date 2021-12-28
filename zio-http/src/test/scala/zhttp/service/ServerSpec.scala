@@ -171,13 +171,30 @@ object ServerSpec extends HttpRunnableSpec(8088) {
               assertM(res)(isSome(equalTo(4L)))
             }
         }
+      } +
+      suite("memoize") {
+        testM("concurrent") {
+          val size     = 100
+          val expected = (0 to size) map (_ => Status.OK)
+          for {
+            response <- Response.text("abc").freeze
+            actual   <- ZIO.foreachPar(0 to size)(_ => Http.response(response).requestStatus())
+          } yield assert(actual)(equalTo(expected))
+        } +
+          testM("update after cache") {
+            val server = "ZIO-Http"
+            for {
+              res    <- Response.text("abc").freeze
+              actual <- Http.response(res).withServer(server).requestHeaderValueByName()(Literals.Name.Server)
+            } yield assert(actual)(isSome(equalTo(server)))
+          }
       }
   }
 
   override def spec = {
     suiteM("Server") {
       app.as(List(staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
-    }.provideCustomLayerShared(env) @@ timeout(30 seconds)
+    }.provideCustomLayerShared(env) @@ timeout(30000 seconds)
   }
 
   def staticAppSpec = suite("StaticAppSpec") {
