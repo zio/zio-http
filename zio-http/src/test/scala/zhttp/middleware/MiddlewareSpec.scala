@@ -166,6 +166,25 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
               res <- app(request)
             } yield assert(res.getHeadersAsList)(hasSubset(expected))
           }
+      } +
+      suite("smartContentType middleware") {
+        def smartContentTypeApp(app: HttpApp[Any, Nothing]) =
+          (app @@ smartContentType(!! / "static")).getHeader("Content-Type")
+
+        val app = smartContentTypeApp(Http.ok)
+        testM("set content type header based on request path extension") {
+          assertM(app(Request(url = URL(!! / "static" / "test.json"))))(isSome(equalTo("application/json")))
+        } +
+          testM("set content type header to application/octet-stream if the extension is not known") {
+            assertM(app(Request(url = URL(!! / "static" / "test.abcd"))))(isSome(equalTo("application/octet-stream")))
+          } +
+          testM("not set the content type header for routes that don't match the prefix") {
+            assertM(app(Request(url = URL(!! / "test.json"))))(isNone)
+          } +
+          testM("not overwrite the content type header if it is already set in the response") {
+            val app = smartContentTypeApp(Http.response(Response(Status.OK, Headers.contentType("text/plain"))))
+            assertM(app(Request(url = URL(!! / "static" / "test.json"))))(isSome(equalTo("text/plain")))
+          }
       }
   }
 

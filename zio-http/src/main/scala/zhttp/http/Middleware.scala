@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
+import jakarta.activation.MimetypesFileTypeMap
 import zhttp.http.CORS.DefaultCORSConfig
 import zhttp.http.Headers.BasicSchemeName
 import zhttp.http.Middleware.{Flag, RequestP}
@@ -295,6 +296,26 @@ object Middleware {
    */
   def runBefore[R, E](effect: ZIO[R, E, Any]): Middleware[R, E] =
     Middleware.makeM((_, _, _) => effect.mapError(Option(_)).unit)((_, _, _) => UIO(Patch.empty))
+
+  /**
+   * Determine the content type of the response from the request path and add it as a response header if the request
+   * path starts with prefix. Commonly used mime types are included by default. Additional mime types can be registered
+   * by adding them in a mime.types file in your applications META-INF folder.
+   */
+  def smartContentType[R, E](prefix: Path): Middleware[R, E] = {
+    val mimeTypes = new MimetypesFileTypeMap()
+    Middleware.make((_, url, _) =>
+      if (url.path.startsWith(prefix)) {
+        Some(mimeTypes.getContentType(url.path.asString))
+      } else {
+        None
+      },
+    ) {
+      case (_, _, Some(contentType)) =>
+        Patch.addHeader(HttpHeaderNames.CONTENT_TYPE -> contentType)
+      case _                         => Patch.empty
+    }
+  }
 
   /**
    * Creates a new middleware that always sets the response status to the provided value
