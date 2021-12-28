@@ -76,7 +76,7 @@ object Client {
     url: String,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
     url <- ZIO.fromEither(URL.fromString(url))
-    res <- request(Method.GET -> url)
+    res <- request(Method.GET, url)
   } yield res
 
   def request(
@@ -84,7 +84,7 @@ object Client {
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
     url <- ZIO.fromEither(URL.fromString(url))
-    res <- request(Method.GET -> url, sslOptions)
+    res <- request(Method.GET, url, sslOptions)
   } yield res
 
   def request(
@@ -94,7 +94,7 @@ object Client {
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
       url <- ZIO.fromEither(URL.fromString(url))
-      res <- request(Method.GET -> url, headers, sslOptions)
+      res <- request(Method.GET, url, headers, sslOptions)
     } yield res
 
   def request(
@@ -104,33 +104,37 @@ object Client {
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
       url <- ZIO.fromEither(URL.fromString(url))
-      res <- request(Method.GET -> url, headers, content)
+      res <- request(Method.GET, url, headers, content)
     } yield res
 
   def request(
-    endpoint: Endpoint,
+    method: Method,
+    url: URL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(endpoint))
+    request(ClientParams(method, url))
 
   def request(
-    endpoint: Endpoint,
+    method: Method,
+    url: URL,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(endpoint), sslOptions)
+    request(ClientParams(method, url), sslOptions)
 
   def request(
-    endpoint: Endpoint,
+    method: Method,
+    url: URL,
     headers: Headers,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(endpoint, headers), sslOptions)
+    request(ClientParams(method, url, headers), sslOptions)
 
   def request(
-    endpoint: Endpoint,
+    method: Method,
+    url: URL,
     headers: Headers,
     content: HttpData[Any, Nothing],
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(endpoint, headers, content))
+    request(ClientParams(method, url, headers, content))
 
   def request(
     req: ClientParams,
@@ -143,10 +147,9 @@ object Client {
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     make.flatMap(_.request(req, sslOptions))
 
-  type Endpoint = (Method, URL)
-
   final case class ClientParams(
-    endpoint: Endpoint,
+    method: Method,
+    url: URL,
     getHeaders: Headers = Headers.empty,
     data: HttpData[Any, Nothing] = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
@@ -171,9 +174,6 @@ object Client {
      */
     override def updateHeaders(update: Headers => Headers): ClientParams =
       self.copy(getHeaders = update(self.getHeaders))
-
-    val method: Method = endpoint._1
-    val url: URL       = endpoint._2
   }
 
   final case class ClientResponse(status: Status, headers: Headers, private val buffer: ByteBuf)

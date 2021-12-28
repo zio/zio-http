@@ -26,7 +26,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] = {
     val data = HttpData.fromString(content)
     Client.request(
-      Client.ClientParams(method -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
+      Client.ClientParams(method, URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
       ClientSSLOptions.DefaultSSL,
     )
   }
@@ -39,7 +39,8 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
   def status(path: Path): ZIO[EventLoopGroup with ChannelFactory, Throwable, Status] =
     Client
       .request(
-        Method.GET -> URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
+        Method.GET,
+        URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
         ClientSSLOptions.DefaultSSL,
       )
       .map(_.status)
