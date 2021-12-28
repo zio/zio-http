@@ -59,7 +59,7 @@ object Server {
   /**
    * Holds server bootstrap information.
    */
-  private[zhttp] final case class Start(port: Int = 0)
+  final case class Start(port: Int = 0)
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
   private final case class LeakDetection(level: LeakDetectionLevel)                   extends UServer

@@ -33,11 +33,12 @@ object AppCollection {
   def setPort(n: Int): ZIO[HttpAppCollection, Nothing, Boolean] = ZIO.accessM[HttpAppCollection](_.get.setPort(n))
   def getPort: ZIO[HttpAppCollection, Nothing, Int]             = ZIO.accessM[HttpAppCollection](_.get.getPort)
 
-  def live: ZLayer[Any, Nothing, HttpAppCollection] = Ref
-    .make(Map.empty[Id, HttpApp[HttpEnv, Throwable]])
-    .zip(Promise.make[Nothing, Int])
-    .map(a => new Live(a._1, a._2))
-    .toLayer
+  def live: ZLayer[Any, Nothing, HttpAppCollection] = {
+    for {
+      ref <- Ref.make(Map.empty[Id, HttpApp[HttpEnv, Throwable]])
+      pr  <- Promise.make[Nothing, Int]
+    } yield new Live(ref, pr)
+  }.toLayer
 
   type Id          = String
   type HttpEnv     = HttpAppCollection with Console with Blocking
