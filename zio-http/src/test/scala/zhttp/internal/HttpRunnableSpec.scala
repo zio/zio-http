@@ -52,7 +52,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
   ): HttpIO[SttpClient, SResponse[Either[String, WebSocket[Task]]]] = {
     // todo: uri should be created by using URL().asString but currently support for ws Scheme is missing
     val url                       = s"ws://localhost:$port${path.asString}"
-    val headerConv: List[SHeader] = headers.toList.map(h => SHeader(h._1.toString(), h._2.toString()))
+    val headerConv: List[SHeader] = headers.toList.map(h => SHeader(h._1, h._2))
     send(basicRequest.get(uri"$url").copy(headers = headerConv).response(asWebSocketUnsafe))
   }
 
