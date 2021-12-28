@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.HttpUtil
 import io.netty.util.AsciiString.contentEqualsIgnoreCase
 import zhttp.http.Headers.Literals.Name
 import zhttp.http.Headers.{BasicSchemeName, BearerSchemeName}
-import zhttp.http.{Cookie, HTTP_CHARSET, Header}
+import zhttp.http.{Cookie, HTTP_CHARSET, Header, Headers}
 
 import java.nio.charset.Charset
 import java.util.Base64
@@ -15,7 +15,7 @@ import scala.util.control.NonFatal
  *
  * NOTE: Add methods here if it performs some kind of processing on the header and returns the result.
  */
-trait HeaderGetters[+A] { self: HeaderExtension[A] with A =>
+trait HeaderGetters[+A] { self =>
 
   final def getAccept: Option[CharSequence] =
     getHeaderValue(Name.Accept)
@@ -191,6 +191,11 @@ trait HeaderGetters[+A] { self: HeaderExtension[A] with A =>
 
   final def getHeaderValues(headerName: CharSequence): List[String] =
     getHeaders.toList.collect { case h if contentEqualsIgnoreCase(h._1, headerName) => h._2.toString }
+
+  /**
+   * Returns the Headers object on the current type A
+   */
+  def getHeaders: Headers
 
   final def getHeadersAsList: List[(String, String)] = self.getHeaders.toList
 

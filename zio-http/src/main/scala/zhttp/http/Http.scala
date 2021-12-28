@@ -2,6 +2,7 @@ package zhttp.http
 
 import io.netty.channel.ChannelHandler
 import zhttp.html.Html
+import zhttp.http.headers.HeaderModifier
 import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
@@ -336,32 +337,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
 object Http {
 
-  implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends AnyVal { self =>
+  implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends HeaderModifier[HttpApp[R, E]] {
+    self =>
 
     /**
      * Attaches the provided middleware to the HttpApp
      */
     def @@[R1 <: R, E1 >: E](mid: Middleware[R1, E1]): HttpApp[R1, E1] = middleware(mid)
-
-    /**
-     * Adds the provided headers to the response of the app
-     */
-    def addHeader(header: Headers): HttpApp[R, E] = patch(Patch.addHeader(header))
-
-    /**
-     * Adds the provided headers to the response of the app
-     */
-    def addHeader(header: Header): HttpApp[R, E] = patch(Patch.addHeader(header))
-
-    /**
-     * Adds the provided header to the response of the app
-     */
-    def addHeader(name: CharSequence, value: CharSequence): HttpApp[R, E] = patch(Patch.addHeader(name, value))
-
-    /**
-     * Adds the provided headers to the response of the app
-     */
-    def addHeaders(headers: Headers): HttpApp[R, E] = patch(Patch.addHeader(headers))
 
     /**
      * Attaches the provided middleware to the HttpApp
@@ -399,6 +381,11 @@ object Http {
      */
     def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1]]): HttpApp[R1, E1] =
       http.catchAll(e => Http.succeed(s.silent(e)))
+
+    /**
+     * Updates the response headers using the provided function
+     */
+    override def updateHeaders(update: Headers => Headers): HttpApp[R, E] = http.map(_.updateHeaders(update))
 
     private[zhttp] def compile[R1 <: R](
       zExec: HttpRuntime[R1],
