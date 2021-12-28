@@ -52,7 +52,8 @@ private[zhttp] final case class Handler[R](
 
     val jResponse = res.attribute.encoded match {
 
-      case Some((_, jResponse)) =>
+      // Check if the encoded response exists and/or was modified.
+      case Some((oRes, jResponse)) if oRes eq res =>
         jResponse match {
 
           // Duplicate the response without allocating much memory
