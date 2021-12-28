@@ -27,7 +27,11 @@ final case class Response[-R, +E] private (
     self.copy(headers = self.getHeaders ++ Headers(HttpHeaderNames.SET_COOKIE.toString, cookie.encode))
 
   /**
-   * Encodes the response into a `HttpResponse` which can be reused any number of times by the server.
+   * A micro-optimizations that ignores all further modifications to the response and encodes the current version into a
+   * Netty response. The netty response is cached and reused for subsequent requests. This allows the server to reduce
+   * memory utilization under load by not having to encode the response for each request. In case the response is
+   * modified the server will detect the changes and encode the response again, however it will turn out to be counter
+   * productive.
    */
   def freeze: UIO[Response[R, E]] =
     UIO(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
@@ -59,8 +63,8 @@ final case class Response[-R, +E] private (
 
   /**
    * Encodes the Response into a Netty HttpResponse. Sets default headers such as `content-length`. For performance
-   * reasons, it is possible that it uses a FullHttpResponse if the complete data is available in the response.
-   * Otherwise, it would create a DefaultHttpResponse without any content-length.
+   * reasons, it is possible that it uses a FullHttpResponse if the complete data is available. Otherwise, it would
+   * create a DefaultHttpResponse without any content.
    */
   private[zhttp] def unsafeEncode(): HttpResponse = {
     import io.netty.handler.codec.http._
