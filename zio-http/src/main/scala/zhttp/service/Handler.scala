@@ -3,8 +3,6 @@ package zhttp.service
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.HttpResponseStatus._
-import io.netty.handler.codec.http.HttpVersion._
 import io.netty.handler.codec.http._
 import zhttp.core.Util
 import zhttp.http._
@@ -23,7 +21,9 @@ private[zhttp] final case class Handler[R](
 ) extends SimpleChannelInboundHandler[FullHttpRequest](false)
     with WebSocketUpgrade[R] { self =>
 
-  override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
+  type Ctx = ChannelHandlerContext
+
+  override def channelRead0(ctx: Ctx, jReq: FullHttpRequest): Unit = {
     jReq.touch("server.Handler-channelRead0")
     implicit val iCtx: ChannelHandlerContext = ctx
     unsafeRun(
@@ -44,52 +44,23 @@ private[zhttp] final case class Handler[R](
     )
   }
 
-  private def decodeResponse(res: Response[_, _]): HttpResponse = {
-    if (res.attribute.memoize) decodeResponseCached(res) else encodeResponseFresh(res)
-  }
-
-  private def decodeResponseCached(res: Response[_, _]): HttpResponse = {
-    val cachedResponse = res.cache
-    // Update cache if it doesn't exist OR has become stale
-    // TODO: add unit tests for server-time
-    if (cachedResponse == null || (res.attribute.serverTime && serverTime.canUpdate())) {
-      val jRes = encodeResponseFresh(res)
-      res.cache = jRes
-      jRes
-    } else cachedResponse
-  }
-
   /**
-   * Encodes the Response into a Netty HttpResponse. Sets default headers such as `content-length`. For performance
-   * reasons, it is possible that it uses a FullHttpResponse if the complete data is available in the response.
-   * Otherwise, it would create a DefaultHttpResponse without any content-length.
+   * Checks if an encoded version of the response exists, uses it if it does. Otherwise, it will return a fresh
+   * response. It will also set the server time if requested by the client.
    */
-  private def encodeResponseFresh(res: Response[_, _]): HttpResponse = {
-    val jHeaders = res.getHeaders.encode
-    if (res.attribute.serverTime) jHeaders.set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
-    val jContent = res.data match {
-      case HttpData.Text(text, charset) => Unpooled.copiedBuffer(text, charset)
-      case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
-      case HttpData.BinaryByteBuf(data) => data
-      case HttpData.BinaryStream(_)     => null
-      case HttpData.Empty               => Unpooled.EMPTY_BUFFER
+  private def encodeResponse(res: Response[_, _]): HttpResponse = {
+    val jResponse = res.attribute.encoded match {
+      case Some((oRes, jResponse)) if oRes == res =>
+        jResponse match {
+          case response: FullHttpResponse => response.retainedDuplicate()
+          case response                   => response
+        }
+
+      case _ => res.unsafeEncode()
     }
 
-    val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
-    if (jContent == null) {
-      // TODO: Unit test for this
-      // Client can't handle chunked responses and currently treats them as a FullHttpResponse.
-      // Due to this client limitations it is not possible to write a unit-test for this.
-      // Alternative would be to use sttp client for this use-case.
-
-      if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
-      new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
-    } else {
-      val jResponse = new DefaultFullHttpResponse(HTTP_1_1, res.status.asJava, jContent, false)
-      if (!hasContentLength) jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, jContent.readableBytes())
-      jResponse.headers().add(jHeaders)
-      jResponse
-    }
+    if (res.attribute.serverTime) jResponse.headers().set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
+    jResponse
   }
 
   private def notFoundResponse: HttpResponse = {
@@ -110,8 +81,8 @@ private[zhttp] final case class Handler[R](
   private def serverErrorResponse(cause: Throwable): HttpResponse = {
     val content  = Util.prettyPrintHtml(cause)
     val response = new DefaultFullHttpResponse(
-      HTTP_1_1,
-      INTERNAL_SERVER_ERROR,
+      HttpVersion.HTTP_1_1,
+      HttpResponseStatus.INTERNAL_SERVER_ERROR,
       Unpooled.copiedBuffer(content, HTTP_CHARSET),
     )
     response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.length)
@@ -125,7 +96,7 @@ private[zhttp] final case class Handler[R](
     jReq: FullHttpRequest,
     http: Http[R, Throwable, A, Response[R, Throwable]],
     a: A,
-  )(implicit ctx: ChannelHandlerContext): Unit = {
+  )(implicit ctx: Ctx): Unit = {
     http.execute(a) match {
       case HExit.Effect(resM) =>
         unsafeRunZIO {
@@ -181,32 +152,30 @@ private[zhttp] final case class Handler[R](
   /**
    * Executes program
    */
-  private def unsafeRunZIO(program: ZIO[R, Throwable, Any])(implicit ctx: ChannelHandlerContext): Unit =
+  private def unsafeRunZIO(program: ZIO[R, Throwable, Any])(implicit ctx: Ctx): Unit =
     runtime.unsafeRun(ctx) {
       program
     }
 
   /**
+   * Writes any response to the Channel
+   */
+  private def unsafeWriteAndFlushAnyResponse[A](res: Response[R, Throwable])(implicit ctx: Ctx): Unit = {
+    ctx.writeAndFlush(encodeResponse(res)): Unit
+  }
+
+  /**
    * Writes not found error response to the Channel
    */
-  private def unsafeWriteAndFlushEmptyResponse()(implicit ctx: ChannelHandlerContext): Unit = {
+  private def unsafeWriteAndFlushEmptyResponse()(implicit ctx: Ctx): Unit = {
     ctx.writeAndFlush(notFoundResponse): Unit
   }
 
   /**
    * Writes error response to the Channel
    */
-  private def unsafeWriteAndFlushErrorResponse(cause: Throwable)(implicit ctx: ChannelHandlerContext): Unit = {
+  private def unsafeWriteAndFlushErrorResponse(cause: Throwable)(implicit ctx: Ctx): Unit = {
     ctx.writeAndFlush(serverErrorResponse(cause)): Unit
-  }
-
-  /**
-   * Writes any response to the Channel
-   */
-  private def unsafeWriteAndFlushAnyResponse[A](
-    res: Response[R, Throwable],
-  )(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(decodeResponse(res)): Unit
   }
 
   /**
@@ -214,7 +183,7 @@ private[zhttp] final case class Handler[R](
    */
   private def writeStreamContent[A](
     stream: ZStream[R, Throwable, ByteBuf],
-  )(implicit ctx: ChannelHandlerContext): ZIO[R, Throwable, Unit] = {
+  )(implicit ctx: Ctx): ZIO[R, Throwable, Unit] = {
     for {
       _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
