@@ -419,11 +419,6 @@ object Http {
     i.reduce(_.defaultWith(_))
 
   /**
-   * Creates an Http app which always responds the provided data and a 200 status code
-   */
-  def data[R, E](data: HttpData[R, E]): HttpApp[R, E] = response(Response(data = data))
-
-  /**
    * Creates an empty Http value
    */
   def empty: Http[Any, Nothing, Any, Nothing] = Http.Empty
@@ -459,6 +454,11 @@ object Http {
    * Creates an Http app that responds with 403 - Forbidden status code
    */
   def forbidden(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.Forbidden(msg))
+
+  /**
+   * Creates an Http app which always responds the provided data and a 200 status code
+   */
+  def fromData[R, E](data: HttpData[R, E]): HttpApp[R, E] = response(Response(data = data))
 
   /**
    * Converts a ZIO to an Http type
