@@ -3,7 +3,7 @@ package zhttp.http
 import scala.annotation.tailrec
 
 private[zhttp] trait PathModule { module =>
-  val !! = Path.End
+  val !!   = Path.End
   @deprecated("Use `!!` operator instead.", "23-Aug-2021")
   val Root = !!
 

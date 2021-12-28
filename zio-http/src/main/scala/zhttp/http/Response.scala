@@ -82,7 +82,7 @@ object Response {
         Response(
           error.status,
           Headers.empty,
-          HttpData.fromText(cause.cause match {
+          HttpData.fromString(cause.cause match {
             case Some(throwable) => Util.prettyPrintHtml(throwable)
             case None            => cause.message
           }),
@@ -97,7 +97,7 @@ object Response {
    */
   def html(data: Html): UResponse =
     Response(
-      data = HttpData.fromText(data.encode),
+      data = HttpData.fromString(data.encode),
       headers = Headers(Name.ContentType, Value.TextHtml),
     )
 
@@ -152,7 +152,7 @@ object Response {
    */
   def text(text: String, charset: Charset = HTTP_CHARSET): UResponse =
     Response(
-      data = HttpData.fromText(text, charset),
+      data = HttpData.fromString(text, charset),
       headers = Headers(Name.ContentType, Value.TextPlain),
     )
 

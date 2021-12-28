@@ -41,7 +41,7 @@ object HttpGen {
         .fromIterable(
           List(
             HttpData.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
-            HttpData.fromText(list.mkString("")),
+            HttpData.fromString(list.mkString("")),
             HttpData.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
             HttpData.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
             HttpData.empty,
@@ -81,7 +81,7 @@ object HttpGen {
         .fromIterable(
           List(
             HttpData.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
-            HttpData.fromText(list.mkString("")),
+            HttpData.fromString(list.mkString("")),
             HttpData.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
             HttpData.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
           ),
