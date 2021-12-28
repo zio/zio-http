@@ -12,6 +12,7 @@ import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
+import java.io.File
 import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec(8088) {
@@ -130,6 +131,11 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         assertM(res)(equalTo(string))
       }
     } +
+      testM("data from file") {
+        val f: File = new File(getClass.getResource("/TestFile.txt").getPath)
+        val res     = Http.data(HttpData.fromFile(f)).requestBodyAsString()
+        assertM(res)(equalTo("abc\nfoo"))
+      } +
       testM("status") {
         checkAllM(HttpGen.status) { case (status) =>
           val res = Http.status(status).requestStatus()
@@ -143,9 +149,9 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         }
       } +
       testM("file-streaming") {
-        val path = getClass.getResource("/TestFile").getPath
+        val path = getClass.getResource("/TestFile.txt").getPath
         val res  = Http.data(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
-        assertM(res)(containsString("foo"))
+        assertM(res)(containsString("abc"))
       } +
       suite("html") {
         testM("body") {

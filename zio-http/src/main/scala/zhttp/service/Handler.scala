@@ -14,7 +14,7 @@ import zio.{Task, UIO, ZIO}
 
 import java.io.File
 import java.net.{InetAddress, InetSocketAddress}
-import java.nio.file.Files
+import java.nio.file.{Files, Paths}
 
 @Sharable
 private[zhttp] final case class Handler[R](
@@ -23,8 +23,7 @@ private[zhttp] final case class Handler[R](
   config: Server.Config[R, Throwable],
   serverTime: ServerTimeGenerator,
 ) extends SimpleChannelInboundHandler[FullHttpRequest](false)
-    with WebSocketUpgrade[R] {
-  self =>
+    with WebSocketUpgrade[R] { self =>
 
   override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
     jReq.touch("server.Handler-channelRead0")
@@ -33,17 +32,13 @@ private[zhttp] final case class Handler[R](
       jReq,
       app,
       new Request {
-        override def method: Method = Method.fromHttpMethod(jReq.method())
-
-        override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
-
-        override def getHeaders: Headers = Headers.make(jReq.headers())
-
+        override def method: Method                                 = Method.fromHttpMethod(jReq.method())
+        override def url: URL                                       = URL.fromString(jReq.uri()).getOrElse(null)
+        override def getHeaders: Headers                            = Headers.make(jReq.headers())
         override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
-
-        override def remoteAddress: Option[InetAddress] = {
+        override def remoteAddress: Option[InetAddress]             = {
           ctx.channel().remoteAddress() match {
-            case m: InetSocketAddress => Some(m.getAddress())
+            case m: InetSocketAddress => Some(m.getAddress)
             case _                    => None
           }
         }
@@ -67,7 +62,7 @@ private[zhttp] final case class Handler[R](
   }
 
   private def decodeResponseFresh(res: Response[_, _]): HttpResponse = {
-    val jHeaders: HttpHeaders = res.getHeaders.encode
+    val jHeaders = res.getHeaders.encode
     if (res.attribute.serverTime) jHeaders.set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
 
     /**
@@ -76,7 +71,8 @@ private[zhttp] final case class Handler[R](
      * Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>
      */
     res.data match {
-      case HttpData.File(path) => jHeaders.set(HttpHeaderNames.CONTENT_TYPE.toString, Files.probeContentType(path))
+      case HttpData.File(file) =>
+        jHeaders.set(HttpHeaderNames.CONTENT_TYPE.toString, Files.probeContentType(Paths.get(file.toString)))
       case _                   =>
     }
     new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
@@ -137,6 +133,7 @@ private[zhttp] final case class Handler[R](
               else {
                 for {
                   _ <- UIO {
+                    // Write the initial line and the header.
                     unsafeWriteAnyResponse(res)
                   }
                   _ <- res.data match {
@@ -163,9 +160,9 @@ private[zhttp] final case class Handler[R](
                     case HttpData.BinaryStream(stream) =>
                       writeStreamContent(stream)
 
-                    case HttpData.File(filePath) =>
+                    case HttpData.File(file) =>
                       UIO {
-                        unsafeWriteFileContent(filePath)
+                        unsafeWriteFileContent(file)
                       }
                   }
                   _ <- Task(releaseRequest(jReq))
@@ -178,8 +175,8 @@ private[zhttp] final case class Handler[R](
         if (self.isWebSocket(res)) {
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
+          // Write the initial line and the header.
           unsafeWriteAnyResponse(res)
-
           res.data match {
             case HttpData.Empty =>
               unsafeWriteAndFlushLastEmptyContent()
@@ -202,8 +199,8 @@ private[zhttp] final case class Handler[R](
                 writeStreamContent(stream) *> Task(releaseRequest(jReq)),
               )
 
-            case HttpData.File(filePath) =>
-              unsafeWriteFileContent(filePath)
+            case HttpData.File(file) =>
+              unsafeWriteFileContent(file)
           }
         }
 
@@ -272,12 +269,17 @@ private[zhttp] final case class Handler[R](
     } yield ()
   }
 
-  private def unsafeWriteFileContent(path: java.nio.file.Path)(implicit ctx: ChannelHandlerContext) = {
+  /**
+   * Writes file content to the Channel. Does not use Chunked transfer encoding
+   */
+  private def unsafeWriteFileContent(file: File)(implicit ctx: ChannelHandlerContext): Unit = {
     import java.io.RandomAccessFile
-    val file       = new File(path.toString)
+
     val raf        = new RandomAccessFile(file, "r")
     val fileLength = raf.length()
+    // Write the content.
     ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
+    // Write the end marker.
     ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
   }
 }

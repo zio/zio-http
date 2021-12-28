@@ -6,30 +6,24 @@ import zio.stream.ZStream
 import zio.{App, ExitCode, URIO}
 
 import java.io.File
-import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Paths}
+import java.nio.file.Paths
 
 object FileStreaming extends App {
   // Read the file as ZStream
-  val content          = HttpData.fromStream {
+  val content = HttpData.fromStream {
     ZStream.fromFile(Paths.get("README.md"))
   }
-  val filePathAsString = File.createTempFile("example/blahFile", ".avi").getAbsolutePath
 
-  def testFile = {
-    val tempFileName = File.createTempFile("example/blahTextFile", ".txt").getAbsolutePath
-    Files.write(
-      Paths.get(tempFileName),
-      "This is a test file created only for testing.\n".getBytes(StandardCharsets.UTF_8),
-    )
-  }
+  // Read from file path directly
+  val videoFileContent = HttpData.fromFile(new File("src/main/resources/TestVideoFile.mp4"))
+  val textFileContent  = HttpData.fromFile(new File("src/main/resources/TestFile.txt"))
 
   // Create HTTP route
   val app = Http.collect[Request] {
-    case Method.GET -> !! / "health"   => Response.ok
-    case Method.GET -> !! / "file"     => Response(data = content)
-    case Method.GET -> !! / "withMime" => Response(data = HttpData.fromFile(Paths.get(filePathAsString)))
-    case Method.GET -> !! / "test"     => Response(data = HttpData.fromFile(testFile))
+    case Method.GET -> !! / "health" => Response.ok
+    case Method.GET -> !! / "file"   => Response(data = content)
+    case Method.GET -> !! / "video"  => Response(data = videoFileContent)
+    case Method.GET -> !! / "text"   => Response(data = textFileContent)
   }
 
   // Run it like any simple app
