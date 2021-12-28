@@ -9,7 +9,7 @@ import scala.util.Try
 
 object HelloWorldAdvanced extends App {
   // Set a port
-  private val PORT = 8090
+  private val PORT = 0
 
   private val fooBar: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !! / "foo" => Response.text("bar")
@@ -32,9 +32,9 @@ object HelloWorldAdvanced extends App {
 
     // Create a new server
     server.make
-      .use(_ =>
+      .use(bootstrap =>
         // Waiting for the server to start
-        console.putStrLn(s"Server started on port $PORT")
+        console.putStrLn(s"Server started on port ${bootstrap.port}")
 
         // Ensures the server doesn't die after printing
           *> ZIO.never,
