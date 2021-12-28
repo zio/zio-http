@@ -356,7 +356,7 @@ object Http {
     /**
      * Adds the provided header to the response of the app
      */
-    def addHeader(name: String, value: String): HttpApp[R, E] = patch(Patch.addHeader(name, value))
+    def addHeader(name: CharSequence, value: CharSequence): HttpApp[R, E] = patch(Patch.addHeader(name, value))
 
     /**
      * Adds the provided headers to the response of the app
