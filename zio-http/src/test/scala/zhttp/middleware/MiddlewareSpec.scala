@@ -117,6 +117,14 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
               val app = (Http.ok @@ basicAuthM).getStatus
               assertM(app(Request().addHeaders(basicHF)))(equalTo(Status.FORBIDDEN))
             } +
+            testM("Should not execute app if the basic authentication fails") {
+              var testVariable = 0
+              val app = (Http.text({
+                testVariable = 1
+                "hello"
+              }) @@ basicAuthM)
+              assertM(app(Request().addHeaders(basicHF)).as(testVariable))(equalTo(0))
+            } +
             testM("Responses should have WWW-Authentication header if Basic Auth failed") {
               val app = Http.ok @@ basicAuthM getHeader "WWW-AUTHENTICATE"
               assertM(app(Request().addHeaders(basicHF)))(isSome)
@@ -206,6 +214,18 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
               app(Request(headers = cookieHeader ++ Headers("x-token", "secret1"))).map(_.data),
             )(
               equalTo(HttpData.empty),
+            )
+          } +
+          testM("should not execute app if token is present in header but doesn't match with token cookie") {
+            var testVariable = 0
+            val app = Http.text({
+              testVariable = 1
+              "hello"
+            }) @@ csrf("x-token")
+            assertM(
+              app(Request(headers = cookieHeader ++ Headers("x-token", "secret1"))).as(testVariable),
+            )(
+              equalTo(0),
             )
           }
       }
