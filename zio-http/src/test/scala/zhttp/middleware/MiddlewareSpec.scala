@@ -119,9 +119,9 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             } +
             testM("Should not execute app if the basic authentication fails") {
               var testVariable = 0
-              val app = (Http.text({
+              val app = (Http.responseM(UIO{
                 testVariable = 1
-                "hello"
+                Response(data = HttpData.Text("hello", HTTP_CHARSET))
               }) @@ basicAuthM)
               assertM(app(Request().addHeaders(basicHF)).as(testVariable))(equalTo(0))
             } +
@@ -218,9 +218,9 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           } +
           testM("should not execute app if token is present in header but doesn't match with token cookie") {
             var testVariable = 0
-            val app = Http.text({
+            val app = Http.responseM(UIO{
               testVariable = 1
-              "hello"
+              Response(data = HttpData.Text("hello", HTTP_CHARSET))
             }) @@ csrf("x-token")
             assertM(
               app(Request(headers = cookieHeader ++ Headers("x-token", "secret1"))).as(testVariable),
