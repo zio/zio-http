@@ -78,6 +78,10 @@ private[zhttp] final case class Handler[R](
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
     if (jContent == null) {
       // TODO: Unit test for this
+      // Client can't handle chunked responses and currently treats them as a FullHttpResponse.
+      // Due to this client limitations it is not possible to write a unit-test for this.
+      // Alternative would be to use sttp client for this use-case.
+
       if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
       new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
     } else {

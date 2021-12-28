@@ -126,7 +126,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   def responseSpec = suite("ResponseSpec") {
     testM("data") {
       checkAllM(nonEmptyContent) { case (string, data) =>
-        val res = Http.data(data).requestBodyAsString()
+        val res = Http.fromData(data).requestBodyAsString()
         assertM(res)(equalTo(string))
       }
     } +
@@ -145,7 +145,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       testM("file-streaming") {
         val path = getClass.getResource("/TestFile").getPath
         val res  = Http
-          .data(HttpData.fromStream(ZStream.fromFile(Paths.get(path))))
+          .fromData(HttpData.fromStream(ZStream.fromFile(Paths.get(path))))
           .requestBodyAsString()
         assertM(res)(containsString("foo"))
       } +
@@ -170,24 +170,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
               val res = Http.text("1234567890").withContentLength(4L).requestContentLength()
               assertM(res)(isSome(equalTo(4L)))
             }
-        } +
-          suite("chunked") {
-            testM("file stream") {
-
-              val path = getClass.getResource("/TestFile").getPath
-              val data = HttpData.fromStream(ZStream.fromFile(Paths.get(path)))
-              val len  = Http.data(data).requestContentLength()
-              assertM(len)(isNone)
-
-              // TODO: The above test doesn't pass because of ObjectAggregator being added in the client pipeline.
-            } @@ ignore +
-              testM("already set") {
-                val path = getClass.getResource("/TestFile").getPath
-                val data = HttpData.fromStream(ZStream.fromFile(Paths.get(path)))
-                val len  = Http.data(data).withContentLength(2L).requestContentLength()
-                assertM(len)(isSome(equalTo(2L)))
-              }
-          }
+        }
       }
   }
 
