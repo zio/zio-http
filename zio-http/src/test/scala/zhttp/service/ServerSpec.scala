@@ -144,7 +144,9 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       } +
       testM("file-streaming") {
         val path = getClass.getResource("/TestFile").getPath
-        val res  = Http.data(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
+        val res  = Http
+          .data(HttpData.fromStream(ZStream.fromFile(Paths.get(path))))
+          .requestBodyAsString()
         assertM(res)(containsString("foo"))
       } +
       suite("html") {
@@ -157,13 +159,42 @@ object ServerSpec extends HttpRunnableSpec(8088) {
             val res = app.requestHeaderValueByName()(Literals.Name.ContentType)
             assertM(res)(isSome(equalTo(Literals.Value.TextHtml.toString)))
           }
+      } +
+      suite("content-length") {
+        suite("string") {
+          testM("unicode text") {
+            val res = Http.text("äöü").requestContentLength()
+            assertM(res)(isSome(equalTo(6L)))
+          } +
+            testM("already set") {
+              val res = Http.text("1234567890").withContentLength(4L).requestContentLength()
+              assertM(res)(isSome(equalTo(4L)))
+            }
+        } +
+          suite("chunked") {
+            testM("file stream") {
+
+              val path = getClass.getResource("/TestFile").getPath
+              val data = HttpData.fromStream(ZStream.fromFile(Paths.get(path)))
+              val len  = Http.data(data).requestContentLength()
+              assertM(len)(isNone)
+
+              // TODO: The above test doesn't pass because of ObjectAggregator being added in the client pipeline.
+            } @@ ignore +
+              testM("already set") {
+                val path = getClass.getResource("/TestFile").getPath
+                val data = HttpData.fromStream(ZStream.fromFile(Paths.get(path)))
+                val len  = Http.data(data).withContentLength(2L).requestContentLength()
+                assertM(len)(isSome(equalTo(2L)))
+              }
+          }
       }
   }
 
   override def spec = {
     suiteM("Server") {
       app.as(List(staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
-    }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ sequential
+    }.provideCustomLayerShared(env) @@ timeout(3000 seconds) @@ sequential
   }
 
   def staticAppSpec = suite("StaticAppSpec") {

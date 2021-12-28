@@ -45,7 +45,7 @@ private[zhttp] final case class Handler[R](
   }
 
   private def decodeResponse(res: Response[_, _]): HttpResponse = {
-    if (res.attribute.memoize) decodeResponseCached(res) else decodeResponseFresh(res)
+    if (res.attribute.memoize) decodeResponseCached(res) else encodeResponseFresh(res)
   }
 
   private def decodeResponseCached(res: Response[_, _]): HttpResponse = {
@@ -53,16 +53,39 @@ private[zhttp] final case class Handler[R](
     // Update cache if it doesn't exist OR has become stale
     // TODO: add unit tests for server-time
     if (cachedResponse == null || (res.attribute.serverTime && serverTime.canUpdate())) {
-      val jRes = decodeResponseFresh(res)
+      val jRes = encodeResponseFresh(res)
       res.cache = jRes
       jRes
     } else cachedResponse
   }
 
-  private def decodeResponseFresh(res: Response[_, _]): HttpResponse = {
+  /**
+   * Encodes the Response into a Netty HttpResponse. Sets default headers such as `content-length`. For performance
+   * reasons, it is possible that it uses a FullHttpResponse if the complete data is available in the response.
+   * Otherwise, it would create a DefaultHttpResponse without any content-length.
+   */
+  private def encodeResponseFresh(res: Response[_, _]): HttpResponse = {
     val jHeaders = res.getHeaders.encode
     if (res.attribute.serverTime) jHeaders.set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
-    new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
+    val jContent = res.data match {
+      case HttpData.Text(text, charset) => Unpooled.copiedBuffer(text, charset)
+      case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
+      case HttpData.BinaryByteBuf(data) => data
+      case HttpData.BinaryStream(_)     => null
+      case HttpData.Empty               => Unpooled.EMPTY_BUFFER
+    }
+
+    val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
+    if (jContent == null) {
+      // TODO: Unit test for this
+      if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
+      new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
+    } else {
+      val jResponse = new DefaultFullHttpResponse(HTTP_1_1, res.status.asJava, jContent, false)
+      if (!hasContentLength) jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, jContent.readableBytes())
+      jResponse.headers().add(jHeaders)
+      jResponse
+    }
   }
 
   private def notFoundResponse: HttpResponse = {
@@ -119,30 +142,10 @@ private[zhttp] final case class Handler[R](
               if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
               else {
                 for {
-                  _ <- UIO { unsafeWriteAnyResponse(res) }
+                  _ <- UIO { unsafeWriteAndFlushAnyResponse(res) }
                   _ <- res.data match {
-                    case HttpData.Empty =>
-                      UIO {
-                        unsafeWriteAndFlushLastEmptyContent()
-                      }
-
-                    case data @ HttpData.Text(_, _) =>
-                      UIO {
-                        unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
-                      }
-
-                    case HttpData.BinaryByteBuf(data) =>
-                      UIO {
-                        unsafeWriteLastContent(data)
-                      }
-
-                    case data @ HttpData.BinaryChunk(_) =>
-                      UIO {
-                        unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
-                      }
-
-                    case HttpData.BinaryStream(stream) =>
-                      writeStreamContent(stream)
+                    case HttpData.BinaryStream(stream) => writeStreamContent(stream)
+                    case _                             => UIO(ctx.flush())
                   }
                   _ <- Task(releaseRequest(jReq))
                 } yield ()
@@ -154,29 +157,10 @@ private[zhttp] final case class Handler[R](
         if (self.isWebSocket(res)) {
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
-          unsafeWriteAnyResponse(res)
-
+          unsafeWriteAndFlushAnyResponse(res)
           res.data match {
-            case HttpData.Empty =>
-              unsafeWriteAndFlushLastEmptyContent()
-              releaseRequest(jReq)
-
-            case data @ HttpData.Text(_, _) =>
-              unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
-              releaseRequest(jReq)
-
-            case HttpData.BinaryByteBuf(data) =>
-              unsafeWriteLastContent(data)
-              releaseRequest(jReq)
-
-            case data @ HttpData.BinaryChunk(_) =>
-              unsafeWriteLastContent(data.encodeAndCache(res.attribute.memoize))
-              releaseRequest(jReq)
-
-            case HttpData.BinaryStream(stream) =>
-              unsafeRunZIO(
-                writeStreamContent(stream) *> Task(releaseRequest(jReq)),
-              )
+            case HttpData.BinaryStream(stream) => unsafeRunZIO(writeStreamContent(stream) *> Task(releaseRequest(jReq)))
+            case _                             => releaseRequest(jReq)
           }
         }
 
@@ -213,24 +197,12 @@ private[zhttp] final case class Handler[R](
   }
 
   /**
-   * Writes last empty content to the Channel
-   */
-  private def unsafeWriteAndFlushLastEmptyContent()(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
-  }
-
-  /**
    * Writes any response to the Channel
    */
-  private def unsafeWriteAnyResponse[A](res: Response[R, Throwable])(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.write(decodeResponse(res)): Unit
-  }
-
-  /**
-   * Writes ByteBuf data to the Channel
-   */
-  private def unsafeWriteLastContent[A](data: ByteBuf)(implicit ctx: ChannelHandlerContext): Unit = {
-    ctx.writeAndFlush(new DefaultLastHttpContent(data)): Unit
+  private def unsafeWriteAndFlushAnyResponse[A](
+    res: Response[R, Throwable],
+  )(implicit ctx: ChannelHandlerContext): Unit = {
+    ctx.writeAndFlush(decodeResponse(res)): Unit
   }
 
   /**
