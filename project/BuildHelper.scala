@@ -1,3 +1,4 @@
+import play.twirl.sbt.Import.TwirlKeys
 import sbt.Keys._
 import sbt._
 import scalafix.sbt.ScalafixPlugin.autoImport._
@@ -94,6 +95,20 @@ object BuildHelper extends ScalaSettings {
     autoAPIMappings                        := true,
     ThisBuild / javaOptions                := Seq("-Dio.netty.leakDetectionLevel=paranoid"),
     ThisBuild / fork                       := true,
+  )
+
+  def twirlSettings = Seq(
+    TwirlKeys.templateImports := Seq(),
+    libraryDependencies       := libraryDependencies.value.map {
+      case module if module.name == "twirl-api" =>
+        module.cross(CrossVersion.for3Use2_13)
+      case module                               => module
+    },
+  )
+
+  def runSettings(className: String = "example.HelloWorld") = Seq(
+    fork                      := true,
+    Compile / run / mainClass := Option(className),
   )
 
   def meta = Seq(

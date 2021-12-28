@@ -1,8 +1,5 @@
-import BuildHelper.{Scala213, meta, publishSetting, stdSettings}
+import BuildHelper._
 import Dependencies._
-
-import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.FiniteDuration
 
 val releaseDrafterVersion = "5"
 
@@ -69,16 +66,17 @@ ThisBuild / githubWorkflowBuildPreamble :=
     scalas = List(Scala213),
   ).steps
 
-// Projects
-
-// Project Aggregate
 lazy val root = (project in file("."))
   .settings(stdSettings("root"))
   .settings(publishSetting(false))
-  .aggregate(zhttp, zhttpBenchmarks, zhttpTest, example)
+  .aggregate(
+    zhttp,
+    zhttpBenchmarks,
+    zhttpTest,
+    example,
+  )
 
-// Project zio-http
-lazy val zhttp = (project in file("./zio-http"))
+lazy val zhttp = (project in file("zio-http"))
   .settings(stdSettings("zhttp"))
   .settings(publishSetting(true))
   .settings(meta)
@@ -97,39 +95,23 @@ lazy val zhttp = (project in file("./zio-http"))
     ),
   )
 
-// Project Benchmarks
-lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
+lazy val zhttpBenchmarks = (project in file("zio-http-benchmarks"))
   .enablePlugins(JmhPlugin)
   .dependsOn(zhttp)
   .settings(stdSettings("zhttpBenchmarks"))
   .settings(publishSetting(false))
-  .settings(
-    libraryDependencies ++= Seq(zio),
-  )
+  .settings(libraryDependencies ++= Seq(zio))
 
-// Project Test
-lazy val zhttpTest = (project in file("./zio-http-test"))
+lazy val zhttpTest = (project in file("zio-http-test"))
   .dependsOn(zhttp)
   .settings(stdSettings("zhttp-test"))
   .settings(publishSetting(true))
 
-// Project Example
 lazy val example = (project in file("./example"))
   .enablePlugins(SbtTwirl)
   .settings(stdSettings("example"))
-  .settings(libraryDependencies := libraryDependencies.value.map {
-    case module if module.name == "twirl-api" =>
-      module.cross(CrossVersion.for3Use2_13)
-    case module                               => module
-  })
   .settings(publishSetting(false))
-  .settings(
-    fork                      := true,
-    Compile / run / mainClass := Option("example.HelloWorld"),
-    libraryDependencies ++= Seq(`jwt-core`),
-    TwirlKeys.templateImports := Seq(),
-  )
+  .settings(twirlSettings)
+  .settings(runSettings())
+  .settings(libraryDependencies ++= Seq(`jwt-core`))
   .dependsOn(zhttp)
-
-Global / onChangedBuildSource := ReloadOnSourceChanges
-Global / watchAntiEntropy := FiniteDuration(2000, TimeUnit.MILLISECONDS)
