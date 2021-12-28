@@ -20,7 +20,7 @@ private[zhttp] final case class Handler[R](
   serverTime: ServerTimeGenerator,
 ) extends SimpleChannelInboundHandler[FullHttpRequest](false)
     with ResponseToHttpResponseHandler[R]
-    with WebSocketUpgrade[R] { self =>
+    with WebSocketUpgrade[R] {
 
   override def channelRead0(ctx: ChannelHandlerContext, jReq: FullHttpRequest): Unit = {
     jReq.touch("server.Handler-channelRead0")

@@ -7,15 +7,17 @@ import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http._
 import zhttp.core.Util
 import zhttp.http._
-import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
+import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{ChannelFuture, HttpRuntime}
 import zio.stream.ZStream
 import zio.{Task, UIO, ZIO}
 
-trait ResponseToHttpResponseHandler[R] { self: WebSocketUpgrade[R] =>
+trait ResponseToHttpResponseHandler[R] {
 
   val serverTime: ServerTimeGenerator
   val runtime: HttpRuntime[R]
+  def isWebSocket(res: Response[R, Throwable]): Boolean
+  def upgradeToWebSocket(ctx: ChannelHandlerContext, jReq: FullHttpRequest, res: Response[R, Throwable]): Unit
 
   /**
    * Executes http apps
@@ -42,7 +44,7 @@ trait ResponseToHttpResponseHandler[R] { self: WebSocketUpgrade[R] =>
                 }
             },
             res =>
-              if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
+              if (isWebSocket(res)) UIO(upgradeToWebSocket(ctx, jReq, res))
               else {
                 for {
                   _ <- UIO { unsafeWriteAnyResponse(res) }
@@ -77,8 +79,8 @@ trait ResponseToHttpResponseHandler[R] { self: WebSocketUpgrade[R] =>
         }
 
       case HExit.Success(res) =>
-        if (self.isWebSocket(res)) {
-          self.upgradeToWebSocket(ctx, jReq, res)
+        if (isWebSocket(res)) {
+          upgradeToWebSocket(ctx, jReq, res)
         } else {
           unsafeWriteAnyResponse(res)
 
