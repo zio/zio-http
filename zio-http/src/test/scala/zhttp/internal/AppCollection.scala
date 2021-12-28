@@ -7,10 +7,10 @@ import zio.console.Console
 
 import java.util.UUID
 
-object AppCollection {
+object DynamicServer {
 
-  def deploy(app: HttpApp[HttpEnv, Throwable]): ZIO[HttpAppCollection, Nothing, String] =
-    ZIO.accessM[HttpAppCollection](_.get.add(app))
+  def deploy(app: HttpApp[HttpEnv, Throwable]): ZIO[DynamicServer, Nothing, String] =
+    ZIO.accessM[DynamicServer](_.get.add(app))
 
   def app: HttpApp[HttpEnv, Throwable] = Http
     .fromOptionFunction[Request] { case req =>
@@ -27,13 +27,13 @@ object AppCollection {
       } yield res
     }
 
-  def get(id: Id): ZIO[HttpAppCollection, Nothing, Option[HttpApp[HttpEnv, Throwable]]] =
-    ZIO.accessM[HttpAppCollection](_.get.get(id))
+  def get(id: Id): ZIO[DynamicServer, Nothing, Option[HttpApp[HttpEnv, Throwable]]] =
+    ZIO.accessM[DynamicServer](_.get.get(id))
 
-  def setPort(n: Int): ZIO[HttpAppCollection, Nothing, Boolean] = ZIO.accessM[HttpAppCollection](_.get.setPort(n))
-  def getPort: ZIO[HttpAppCollection, Nothing, Int]             = ZIO.accessM[HttpAppCollection](_.get.getPort)
+  def setPort(n: Int): ZIO[DynamicServer, Nothing, Boolean] = ZIO.accessM[DynamicServer](_.get.setPort(n))
+  def getPort: ZIO[DynamicServer, Nothing, Int]             = ZIO.accessM[DynamicServer](_.get.getPort)
 
-  def live: ZLayer[Any, Nothing, HttpAppCollection] = {
+  def live: ZLayer[Any, Nothing, DynamicServer] = {
     for {
       ref <- Ref.make(Map.empty[Id, HttpApp[HttpEnv, Throwable]])
       pr  <- Promise.make[Nothing, Int]
@@ -41,7 +41,7 @@ object AppCollection {
   }.toLayer
 
   type Id          = String
-  type HttpEnv     = HttpAppCollection with Console with Blocking
+  type HttpEnv     = DynamicServer with Console with Blocking
   type HttpAppTest = HttpApp[HttpEnv, Throwable]
   val APP_ID = "X-APP_ID"
 

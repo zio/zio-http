@@ -1,7 +1,7 @@
 package zhttp.service
 
 import zhttp.http._
-import zhttp.internal.{AppCollection, HttpRunnableSpec}
+import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.duration.durationInt
 import zio.test.Assertion._
@@ -11,7 +11,7 @@ import zio.test._
 object ClientSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
   def clientSpec = suite("ClientSpec") {
     testM("respond Ok") {
@@ -42,7 +42,7 @@ object ClientSpec extends HttpRunnableSpec {
 
   override def spec = {
     suiteM("Client") {
-      serve(AppCollection.app).as(List(clientSpec)).useNow
+      serve(DynamicServer.app).as(List(clientSpec)).useNow
     }.provideCustomLayerShared(env) @@ timeout(5 seconds) @@ sequential
   }
 }
