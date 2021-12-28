@@ -72,7 +72,7 @@ private[zhttp] final case class Handler[R](
      */
     res.data match {
       case HttpData.File(file) =>
-        jHeaders.set(HttpHeaderNames.CONTENT_TYPE.toString, Files.probeContentType(Paths.get(file.toString)))
+        jHeaders.set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(Paths.get(file.toString)))
       case _                   =>
     }
     new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
