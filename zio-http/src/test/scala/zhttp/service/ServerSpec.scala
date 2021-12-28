@@ -194,7 +194,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   override def spec = {
     suiteM("Server") {
       app.as(List(staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
-    }.provideCustomLayerShared(env) @@ timeout(30000 seconds)
+    }.provideCustomLayerShared(env) @@ timeout(30 seconds)
   }
 
   def staticAppSpec = suite("StaticAppSpec") {
