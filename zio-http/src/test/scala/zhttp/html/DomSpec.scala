@@ -44,7 +44,7 @@ object DomSpec extends DefaultRunnableSpec {
       suite("element with attributes") {
         test("constant") {
           val dom = Dom.element("a", Dom.attr("href", "https://www.zio-http.com"))
-          assert(dom.encode)(equalTo("""<a href="https://www.zio-http.com"/>"""))
+          assert(dom.encode)(equalTo("""<a href="https://www.zio-http.com"></a>"""))
         } +
           test("multiple constant") {
             val dom = Dom.element(
@@ -52,7 +52,7 @@ object DomSpec extends DefaultRunnableSpec {
               Dom.attr("href", "https://www.zio-http.com"),
               Dom.attr("title", "click me!"),
             )
-            assert(dom.encode)(equalTo("""<a href="https://www.zio-http.com" title="click me!"/>"""))
+            assert(dom.encode)(equalTo("""<a href="https://www.zio-http.com" title="click me!"></a>"""))
           }
       } +
       test("element with attribute & children") {

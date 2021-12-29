@@ -16,7 +16,8 @@ sealed trait Dom { self =>
       }
 
       if (elements.isEmpty && attributes.isEmpty) s"$doctype<$name/>"
-      else if (elements.isEmpty) s"$doctype<$name ${attributes.mkString(" ")}/>"
+      else if (elements.isEmpty && Element.selfClosingTags.contains(name))
+        s"$doctype<$name ${attributes.mkString(" ")}/>"
       else if (attributes.isEmpty) s"$doctype<$name>${elements.mkString("")}</$name>"
       else s"$doctype<$name ${attributes.mkString(" ")}>${elements.mkString}</$name>"
 
