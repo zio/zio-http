@@ -11,24 +11,26 @@ import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
 import zio.test._
 
-object WebsocketServerSpec extends HttpRunnableSpec(8011) {
+object WebSocketServerSpec extends HttpRunnableSpec(8011) {
 
   override def spec = suiteM("Server") {
     app.as(List(websocketSpec)).useNow
   }.provideCustomLayerShared(env) @@ timeout(30 seconds)
 
-  def websocketSpec = suite("Websocket Server") {
+  def websocketSpec = suite("WebSocket Server") {
     suite("connections") {
       testM("Multiple websocket upgrades") {
         val socketApp = SocketApp.message(Socket.succeed(WebSocketFrame.text("BAR")))
         val app       = Http.fromEffect(ZIO(Response.socket(socketApp)))
-        assertM(app.websocketStatusCode(!! / "subscriptions").repeatN(1024))(equalTo(101))
+        assertM(app.webSocketStatusCode(!! / "subscriptions").repeatN(1024))(equalTo(101))
       }
     }
   }
 
   private val env =
-    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ AsyncHttpClientZioBackend.layer().orDie ++ AppCollection.live
+    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ AsyncHttpClientZioBackend
+      .layer()
+      .orDie ++ AppCollection.live ++ ChannelFactory.nio
 
   private val app = serve { AppCollection.app }
 }

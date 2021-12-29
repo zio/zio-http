@@ -13,9 +13,9 @@ object HttpGen {
     for {
       method  <- HttpGen.method
       url     <- HttpGen.url
-      headers <- Gen.listOf(HttpGen.header)
+      headers <- Gen.listOf(HttpGen.header).map(Headers(_))
       data    <- dataGen
-    } yield ClientParams(method -> url, headers, data)
+    } yield ClientParams(method, url, headers, data)
 
   def cookies: Gen[Random with Sized, Cookie] = for {
     name     <- Gen.anyString
@@ -32,7 +32,7 @@ object HttpGen {
   def header: Gen[Random with Sized, Header] = for {
     key   <- Gen.alphaNumericStringBounded(1, 4)
     value <- Gen.alphaNumericStringBounded(1, 4)
-  } yield Header(key, value)
+  } yield (key, value)
 
   def httpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData[Any, Nothing]] =
     for {
@@ -41,7 +41,7 @@ object HttpGen {
         .fromIterable(
           List(
             HttpData.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
-            HttpData.fromText(list.mkString("")),
+            HttpData.fromString(list.mkString("")),
             HttpData.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
             HttpData.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
             HttpData.empty,
@@ -81,7 +81,7 @@ object HttpGen {
         .fromIterable(
           List(
             HttpData.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
-            HttpData.fromText(list.mkString("")),
+            HttpData.fromString(list.mkString("")),
             HttpData.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
             HttpData.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
           ),
@@ -98,14 +98,14 @@ object HttpGen {
   def request: Gen[Random with Sized, Request] = for {
     method  <- HttpGen.method
     url     <- HttpGen.url
-    headers <- Gen.listOf(HttpGen.header)
+    headers <- Gen.listOf(HttpGen.header).map(Headers(_))
     data    <- HttpGen.httpData(Gen.listOf(Gen.alphaNumericString))
   } yield Request(method, url, headers, None, data)
 
   def response[R](gContent: Gen[R, List[String]]): Gen[Random with Sized with R, Response[Any, Nothing]] = {
     for {
       content <- HttpGen.httpData(gContent)
-      headers <- HttpGen.header.map(List(_))
+      headers <- HttpGen.header.map(Headers(_))
       status  <- HttpGen.status
     } yield Response(status, headers, content)
   }

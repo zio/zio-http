@@ -8,9 +8,9 @@ object BenchmarkWorkFlow {
       name = "Benchmarks",
       oses = List("centos"),
       cond = Some("${{ github.event_name == 'pull_request'}}"),
-      env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
       steps = List(
         WorkflowStep.Run(
+          env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
           id = Some("clean_up"),
           name = Some("Clean up"),
           commands = List("sudo rm -rf *"),
@@ -29,8 +29,10 @@ object BenchmarkWorkFlow {
           ),
         ),
         WorkflowStep.Run(
+          env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
           id = Some("result"),
           commands = List(
+            "cp ./zio-http/example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala",
             "cd ./FrameworkBenchMarks",
             "echo ${{github.event.pull_request.head.sha}}",
             """sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt""",
@@ -42,10 +44,15 @@ object BenchmarkWorkFlow {
           ),
         ),
         WorkflowStep.Use(
-          ref = UseRef.Public("unsplash", "comment-on-pr", "v1.3.0"),
+          ref = UseRef.Public("peter-evans", "commit-comment", "v1"),
           params = Map(
-            "msg" -> "## \uD83D\uDE80\uD83D\uDE80\uD83D\uDE80 Benchmark Results \n **${{steps.result.outputs.concurrency_result}}** \n **${{steps.result.outputs.request_result}}**",
-            "check_for_duplicate_msg" -> "false",
+            "sha"  -> "${{github.event.pull_request.head.sha}}",
+            "body" ->
+              """
+                |**\uD83D\uDE80 Performance Benchmark:**
+                |
+                |${{steps.result.outputs.concurrency_result}}
+                |${{steps.result.outputs.request_result}}""".stripMargin,
           ),
         ),
       ),

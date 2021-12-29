@@ -208,17 +208,17 @@ jobs:
 
       - name: Add Scoverage
         id: add_plugin
-        run: sed -i -e '$aaddSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.9.1")' project/plugins.sbt
+        run: sed -i -e '$aaddSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.9.2")' project/plugins.sbt
 
       - name: Update Build Definition
         id: update_build_definition
         run: |
 
-          sed -i -e 's+(project in file("./zio-http"))+(project in file("./zio-http")).settings(coverageEnabled:=true,coverageFailOnMinimum:=true,coverageMinimumStmtTotal:=50.0,coverageMinimumBranchTotal:=60.0)+g' build.sbt
+          sed -i -e 's+(project in file("./zio-http"))+(project in file("./zio-http")).settings(coverageEnabled:=true,coverageMinimumStmtTotal:=50.0,coverageMinimumBranchTotal:=60.0)+g' build.sbt
 
       - name: Run Coverage
         id: run_coverage
-        run: sbt ++${{ matrix.scala }} coverage 'project zhttp;test' coverageReport
+        run: sbt ++2.13.7 coverage 'project zhttp;test' coverageReport
 
       - name: Push Codecov
         id: push_codecov
@@ -233,11 +233,11 @@ jobs:
         scala: [2.13.6]
         java: [temurin@11]
     runs-on: [ "${{ matrix.os }}", zio-http ]
-    env:
-      GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
     steps:
       - name: Clean up
         id: clean_up
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: sudo rm -rf *
 
       - uses: actions/checkout@v2
@@ -250,7 +250,10 @@ jobs:
           path: FrameworkBenchMarks
 
       - id: result
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
+          cp ./zio-http/example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
           cd ./FrameworkBenchMarks
           echo ${{github.event.pull_request.head.sha}}
           sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt
@@ -260,10 +263,12 @@ jobs:
           echo ::set-output name=request_result::$(echo $RESULT_REQUEST)
           echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)
 
-      - uses: unsplash/comment-on-pr@v1.3.0
+      - uses: peter-evans/commit-comment@v1
         with:
-          msg: |
-            ## 🚀🚀🚀 Benchmark Results 
-             **${{steps.result.outputs.concurrency_result}}** 
-             **${{steps.result.outputs.request_result}}**
-          check_for_duplicate_msg: false
+          sha: ${{github.event.pull_request.head.sha}}
+          body: |
+
+            **🚀 Performance Benchmark:**
+
+            ${{steps.result.outputs.concurrency_result}}
+            ${{steps.result.outputs.request_result}}
