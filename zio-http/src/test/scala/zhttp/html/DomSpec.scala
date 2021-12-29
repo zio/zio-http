@@ -77,7 +77,8 @@ object DomSpec extends DefaultRunnableSpec {
             val dom = Dom.element("html", Dom.element("head"), Dom.text("abc"))
             assertTrue(dom.encode == """<!DOCTYPE html><html><head></head>abc</html>""")
           }
-      } + suite("VoidElements") {
+      } +
+      suite("VoidElements") {
         testM("void") {
           checkAll(HttpGen.voidElement) { elem =>
             assertTrue(elem.encode == s"<${elem.name}/>")
