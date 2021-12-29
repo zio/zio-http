@@ -1,7 +1,6 @@
 package zhttp.internal
 
 import io.netty.buffer.Unpooled
-import zhttp.html.{Dom, Element}
 import zhttp.http._
 import zhttp.service.Client.ClientParams
 import zio.Chunk
@@ -10,8 +9,6 @@ import zio.stream.ZStream
 import zio.test.{Gen, Sized}
 
 object HttpGen {
-  private val toDomElement: String => Dom.Element = (s: String) => Dom.Element(s, Seq.empty)
-
   def clientParams[R](dataGen: Gen[R, HttpData[Any, Nothing]]): Gen[Random with Sized with R, ClientParams] =
     for {
       method  <- HttpGen.method
@@ -31,15 +28,6 @@ object HttpGen {
     maxAge   <- Gen.option(Gen.anyLong)
     sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
   } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite)
-
-  val notVoidElement: Gen[Random with Sized, Dom.Element] =
-    Gen.anyString
-      .filterNot(Element.voidElements.contains)
-      .map(toDomElement)
-
-  val voidElement: Gen[Any, Dom.Element] = Gen
-    .fromIterable(Element.voidElements)
-    .map(toDomElement)
 
   def header: Gen[Random with Sized, Header] = for {
     key   <- Gen.alphaNumericStringBounded(1, 4)
