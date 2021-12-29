@@ -5,7 +5,7 @@ package zhttp.html
  * @see
  *   <a href="https://html.spec.whatwg.org/multipage/syntax.html#void-elements">Void elements</a> only have a start tag;
  *   end tags must not be specified for void elements. A set of void elements that are supported at the time of writing
- *   this doc can be found here: [[Element.selfClosingTags]]
+ *   this doc can be found here: [[Element.voidElements]]
  */
 sealed trait Dom { self =>
   def encode: String = self match {
@@ -19,8 +19,8 @@ sealed trait Dom { self =>
         case self: Dom.Text    => self.encode
       }
 
-      if (elements.isEmpty && attributes.isEmpty && Element.selfClosingTags.contains(name)) s"$doctype<$name/>"
-      else if (elements.isEmpty && Element.selfClosingTags.contains(name))
+      if (elements.isEmpty && attributes.isEmpty && Element.voidElements.contains(name)) s"$doctype<$name/>"
+      else if (elements.isEmpty && Element.voidElements.contains(name))
         s"$doctype<$name ${attributes.mkString(" ")}/>"
       else if (attributes.isEmpty) s"$doctype<$name>${elements.mkString("")}</$name>"
       else s"$doctype<$name ${attributes.mkString(" ")}>${elements.mkString}</$name>"

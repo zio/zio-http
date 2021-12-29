@@ -250,7 +250,7 @@ trait Elements {
 }
 
 object Element {
-  val selfClosingTags: Set[String] =
+  val voidElements: Set[String] =
     Set(area, base, br, col, embed, hr, img, input, link, meta, param, source, track, wbr).map(_.name)
 
   case class PartialElement(name: String) {
