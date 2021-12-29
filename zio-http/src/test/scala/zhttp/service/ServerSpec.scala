@@ -122,6 +122,11 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val app = Http.collectM[Request] { case req => req.getBody.as(Response.ok) }
         val res = app.requestStatus(!!, Method.POST, "some text")
         assertM(res)(equalTo(Status.OK))
+      } +
+      testM("Bytebuf from file data") {
+        val file = new File(getClass.getResource("/TestFile.txt").getPath)
+        val res  = HttpData.fromFile(file).toByteBuf.map(_.toString(HTTP_CHARSET))
+        assertM(res)(equalTo("abc\nfoo"))
       }
   }
 
@@ -142,7 +147,11 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       testM("content type header on file response") {
         val file = new File(getClass.getResource("/TestFile.txt").getPath)
         val res  =
-          Http.fromData(HttpData.fromFile(file)).request().map(_.getHeaderValue(HttpHeaderNames.CONTENT_TYPE)).map(_.get)
+          Http
+            .fromData(HttpData.fromFile(file))
+            .request()
+            .map(_.getHeaderValue(HttpHeaderNames.CONTENT_TYPE))
+            .map(_.get)
         assertM(res)(equalTo("text/plain"))
       } +
       testM("status") {
@@ -207,7 +216,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   override def spec = {
     suiteM("Server") {
       app.as(List(staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
-    }.provideCustomLayerShared(env) @@ timeout(30 seconds)
+    }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ sequential
   }
 
   def staticAppSpec = suite("StaticAppSpec") {

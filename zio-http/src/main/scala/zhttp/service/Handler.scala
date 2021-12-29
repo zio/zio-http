@@ -16,12 +16,12 @@ import java.nio.file.Files
 
 @Sharable
 private[zhttp] final case class Handler[R](
-                                            app: HttpApp[R, Throwable],
-                                            runtime: HttpRuntime[R],
-                                            config: Server.Config[R, Throwable],
-                                            serverTime: ServerTimeGenerator,
-                                          ) extends SimpleChannelInboundHandler[FullHttpRequest](false)
-  with WebSocketUpgrade[R] {
+  app: HttpApp[R, Throwable],
+  runtime: HttpRuntime[R],
+  config: Server.Config[R, Throwable],
+  serverTime: ServerTimeGenerator,
+) extends SimpleChannelInboundHandler[FullHttpRequest](false)
+    with WebSocketUpgrade[R] {
   self =>
 
   type Ctx = ChannelHandlerContext
@@ -44,7 +44,7 @@ private[zhttp] final case class Handler[R](
         override def remoteAddress: Option[InetAddress] = {
           ctx.channel().remoteAddress() match {
             case m: InetSocketAddress => Some(m.getAddress)
-            case _ => None
+            case _                    => None
           }
         }
       },
@@ -64,9 +64,9 @@ private[zhttp] final case class Handler[R](
         jResponse match {
           // Duplicate the response without allocating much memory
           case response: FullHttpResponse => response.retainedDuplicate()
-          case response => response
+          case response                   => response
         }
-      case _ => res.unsafeEncode()
+      case _                                      => res.unsafeEncode()
     }
     // Identify if the server time should be set and update if required.
     if (res.attribute.serverTime) jResponse.headers().set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
@@ -75,8 +75,9 @@ private[zhttp] final case class Handler[R](
     // type, not the file extension, to determine how to process a URL.<a href="MSDN
     // Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>
     res.data match {
-      case HttpData.File(file) => jResponse.headers().set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(file.toPath))
-      case _ => ()
+      case HttpData.File(file) =>
+        jResponse.headers().set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(file.toPath))
+      case _                   => ()
     }
     jResponse
   }
@@ -97,7 +98,7 @@ private[zhttp] final case class Handler[R](
   }
 
   private def serverErrorResponse(cause: Throwable): HttpResponse = {
-    val content = Util.prettyPrintHtml(cause)
+    val content  = Util.prettyPrintHtml(cause)
     val response = new DefaultFullHttpResponse(
       HttpVersion.HTTP_1_1,
       HttpResponseStatus.INTERNAL_SERVER_ERROR,
@@ -111,10 +112,10 @@ private[zhttp] final case class Handler[R](
    * Executes http apps
    */
   private def unsafeRun[A](
-                            jReq: FullHttpRequest,
-                            http: Http[R, Throwable, A, Response[R, Throwable]],
-                            a: A,
-                          )(implicit ctx: Ctx): Unit = {
+    jReq: FullHttpRequest,
+    http: Http[R, Throwable, A, Response[R, Throwable]],
+    a: A,
+  )(implicit ctx: Ctx): Unit = {
     http.execute(a) match {
       case HExit.Effect(resM) =>
         unsafeRunZIO {
@@ -125,7 +126,7 @@ private[zhttp] final case class Handler[R](
                   unsafeWriteAndFlushErrorResponse(cause)
                   releaseRequest(jReq)
                 }
-              case None =>
+              case None        =>
                 UIO {
                   unsafeWriteAndFlushEmptyResponse()
                   releaseRequest(jReq)
@@ -141,11 +142,11 @@ private[zhttp] final case class Handler[R](
                   }
                   _ <- res.data match {
                     case HttpData.BinaryStream(stream) => writeStreamContent(stream)
-                    case HttpData.File(file) =>
+                    case HttpData.File(file)           =>
                       UIO {
                         unsafeWriteFileContent(file)
                       }
-                    case _ => UIO(ctx.flush())
+                    case _                             => UIO(ctx.flush())
                   }
                   _ <- Task(releaseRequest(jReq))
                 } yield ()
@@ -161,15 +162,15 @@ private[zhttp] final case class Handler[R](
           unsafeWriteAndFlushAnyResponse(res)
           res.data match {
             case HttpData.BinaryStream(stream) => unsafeRunZIO(writeStreamContent(stream) *> Task(releaseRequest(jReq)))
-            case HttpData.File(file) =>
+            case HttpData.File(file)           =>
               unsafeWriteFileContent(file)
-            case _ => releaseRequest(jReq)
+            case _                             => releaseRequest(jReq)
           }
         }
-      case HExit.Failure(e) =>
+      case HExit.Failure(e)   =>
         unsafeWriteAndFlushErrorResponse(e)
         releaseRequest(jReq)
-      case HExit.Empty =>
+      case HExit.Empty        =>
         unsafeWriteAndFlushEmptyResponse()
         releaseRequest(jReq)
     }
@@ -208,8 +209,8 @@ private[zhttp] final case class Handler[R](
    * Writes Binary Stream data to the Channel
    */
   private def writeStreamContent[A](
-                                     stream: ZStream[R, Throwable, ByteBuf],
-                                   )(implicit ctx: Ctx): ZIO[R, Throwable, Unit] = {
+    stream: ZStream[R, Throwable, ByteBuf],
+  )(implicit ctx: Ctx): ZIO[R, Throwable, Unit] = {
     for {
       _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
@@ -222,7 +223,7 @@ private[zhttp] final case class Handler[R](
   private def unsafeWriteFileContent(file: File)(implicit ctx: ChannelHandlerContext): Unit = {
     import java.io.RandomAccessFile
 
-    val raf = new RandomAccessFile(file, "r")
+    val raf        = new RandomAccessFile(file, "r")
     val fileLength = raf.length()
     // Write the content.
     ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))

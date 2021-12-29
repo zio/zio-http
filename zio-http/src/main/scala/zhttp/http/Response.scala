@@ -79,16 +79,16 @@ final case class Response[-R, +E] private (
       case HttpData.BinaryByteBuf(data) => data
       case HttpData.BinaryStream(_)     => null
       case HttpData.Empty               => Unpooled.EMPTY_BUFFER
-      case HttpData.File(file) =>
+      case HttpData.File(file)          =>
         // Transfers the content of file channel to ByteBuf
-          val aFile : RandomAccessFile = new RandomAccessFile(file.toString, "r")
-          val inChannel : FileChannel = aFile.getChannel
-          val fileSize : Long = inChannel.size
-          val buffer : ByteBuffer = ByteBuffer.allocate(fileSize.toInt)
-          inChannel.read(buffer)
-          inChannel.close()
-          aFile.close()
-          Unpooled.wrappedBuffer(buffer.flip)
+        val aFile: RandomAccessFile = new RandomAccessFile(file.toString, "r")
+        val inChannel: FileChannel  = aFile.getChannel
+        val fileSize: Long          = inChannel.size
+        val buffer: ByteBuffer      = ByteBuffer.allocate(fileSize.toInt)
+        inChannel.read(buffer)
+        inChannel.close()
+        aFile.close()
+        Unpooled.wrappedBuffer(buffer.flip)
     }
 
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
