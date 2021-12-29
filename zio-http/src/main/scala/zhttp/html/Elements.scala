@@ -250,8 +250,8 @@ trait Elements {
 }
 
 object Element {
-  val selfClosingTags =
-    List(area, base, br, col, embed, hr, img, input, link, meta, param, source, track, wbr).map(_.name)
+  val selfClosingTags: Set[String] =
+    Set(area, base, br, col, embed, hr, img, input, link, meta, param, source, track, wbr).map(_.name)
 
   case class PartialElement(name: String) {
     def apply(children: Html*): Dom = Dom.element(

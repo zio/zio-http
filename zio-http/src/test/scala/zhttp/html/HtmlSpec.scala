@@ -8,7 +8,7 @@ case object HtmlSpec extends DefaultRunnableSpec {
     suite("HtmlSpec")(
       test("tags") {
         val view     = html(head(), body(div()))
-        val expected = """<!DOCTYPE html><html><head/><body><div/></body></html>"""
+        val expected = """<!DOCTYPE html><html><head></head><body><div></div></body></html>"""
         assert(view.encode)(equalTo(expected.stripMargin))
       } +
         test("tags with attributes") {

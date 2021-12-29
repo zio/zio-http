@@ -15,20 +15,20 @@ object DomSpec extends DefaultRunnableSpec {
       } +
       test("element") {
         val dom = Dom.element("div")
-        assert(dom.encode)(equalTo("<div/>"))
+        assert(dom.encode)(equalTo("<div></div>"))
       } +
       suite("element with children") {
         test("element with children") {
           val dom = Dom.element("div", Dom.element("div"))
-          assert(dom.encode)(equalTo("<div><div/></div>"))
+          assert(dom.encode)(equalTo("<div><div></div></div>"))
         } +
           test("element with multiple children") {
             val dom = Dom.element("div", Dom.element("div"), Dom.element("div"), Dom.element("div"))
-            assert(dom.encode)(equalTo("<div><div/><div/><div/></div>"))
+            assert(dom.encode)(equalTo("<div><div></div><div></div><div></div></div>"))
           } +
           test("element with nested children") {
             val dom = Dom.element("div", Dom.element("div", Dom.element("div", Dom.element("div"))))
-            assert(dom.encode)(equalTo("<div><div><div><div/></div></div></div>"))
+            assert(dom.encode)(equalTo("<div><div><div><div></div></div></div></div>"))
           } +
           test("element with text") {
             val dom = Dom.element("div", Dom.text("abc"))
@@ -69,15 +69,15 @@ object DomSpec extends DefaultRunnableSpec {
       suite("doctype") {
         test("empty5") {
           val dom = Dom.element("html")
-          assert(dom.encode)(equalTo("""<!DOCTYPE html><html/>"""))
+          assert(dom.encode)(equalTo("""<!DOCTYPE html><html></html>"""))
         } +
           test("with children") {
             val dom = Dom.element("html", Dom.element("head"))
-            assert(dom.encode)(equalTo("""<!DOCTYPE html><html><head/></html>"""))
+            assert(dom.encode)(equalTo("""<!DOCTYPE html><html><head></head></html>"""))
           } +
           test("with children and text") {
             val dom = Dom.element("html", Dom.element("head"), Dom.text("abc"))
-            assert(dom.encode)(equalTo("""<!DOCTYPE html><html><head/>abc</html>"""))
+            assert(dom.encode)(equalTo("""<!DOCTYPE html><html><head></head>abc</html>"""))
           }
       }
   }

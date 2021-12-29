@@ -15,7 +15,7 @@ sealed trait Dom { self =>
         case self: Dom.Text    => self.encode
       }
 
-      if (elements.isEmpty && attributes.isEmpty) s"$doctype<$name/>"
+      if (elements.isEmpty && attributes.isEmpty && Element.selfClosingTags.contains(name)) s"$doctype<$name/>"
       else if (elements.isEmpty && Element.selfClosingTags.contains(name))
         s"$doctype<$name ${attributes.mkString(" ")}/>"
       else if (attributes.isEmpty) s"$doctype<$name>${elements.mkString("")}</$name>"
