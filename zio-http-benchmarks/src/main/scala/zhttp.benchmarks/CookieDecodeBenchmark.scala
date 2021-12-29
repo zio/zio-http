@@ -32,7 +32,7 @@ class CookieDecodeBenchmark {
 
   @Benchmark
   def benchmarkApp(): Unit = {
-    val _ = Cookie.decodeResponseCookie(cookieStr)
+    val _ = Cookie.unsafeDecodeResponseCookie(cookieStr)
     ()
   }
 }

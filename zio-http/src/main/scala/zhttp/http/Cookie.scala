@@ -156,7 +156,7 @@ object Cookie {
   def decodeResponseCookie(headerValue: String): Option[Cookie] =
     Try(unsafeDecodeResponseCookie(headerValue)).toOption
 
-  private[http] def unsafeDecodeResponseCookie(headerValue: String): Cookie = {
+  private[zhttp] def unsafeDecodeResponseCookie(headerValue: String): Cookie = {
     var name: String              = null
     var content: String           = null
     var expires: Instant          = null
