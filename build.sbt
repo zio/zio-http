@@ -4,13 +4,8 @@ import Dependencies._
 val releaseDrafterVersion = "5"
 
 // CI Configuration
-ThisBuild / githubWorkflowJavaVersions  := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
-ThisBuild / githubWorkflowPREventTypes  := Seq(
-  PREventType.Opened,
-  PREventType.Synchronize,
-  PREventType.Reopened,
-  PREventType.Edited,
-)
+ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
+
 ThisBuild / githubWorkflowAddedJobs     :=
   Seq(
     WorkflowJob(
@@ -37,7 +32,7 @@ ThisBuild / githubWorkflowAddedJobs     :=
       ),
       cond = Option("${{ github.ref == 'refs/heads/main' }}"),
     ),
-  ) ++ ScoverageWorkFlow(50, 60) ++ BenchmarkWorkFlow()
+  ) ++ ScoverageWorkFlow(50, 60)
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
