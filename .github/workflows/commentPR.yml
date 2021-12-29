@@ -3,7 +3,7 @@ name: Benchmark Comment
 on:
   pull_request_target:
     branches: [ '**' ]
-    types: [ opened, synchronize, reopened, edited ]
+    types: [ opened, synchronize, reopened ]
 
 jobs:
   runBenchMarks:
@@ -29,6 +29,7 @@ jobs:
         with:
           repository: dream11/FrameworkBenchmarks
           path: FrameworkBenchMarks
+          ref: jar-poc
 
       - id: result
         env:
@@ -46,11 +47,6 @@ jobs:
           RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+")
           echo ::set-output name=request_result::$(echo $RESULT_REQUEST)
           echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)
-          mkdir -p ./pr
-          echo ${{ github.event.number }} > ./pr/NR
-          echo ${{github.event.pull_request.head.sha}} > ./pr/SHA
-          echo $RESULT_REQUEST > ./pr/Result
-          echo $RESULT_CONCURRENCY ./pr/Concurrency
 
       - uses: peter-evans/commit-comment@v1
         with:
