@@ -33,31 +33,12 @@ sealed trait HttpData[-R, +E] { self =>
       case m                           => m.asInstanceOf[HttpData[Any, E]]
     }
 
-  /**
-   * Returns the size of HttpData if available
-   */
-  def size: Option[Long] = {
-    val s = self.unsafeSize
-    if (s < 0) None else Some(s)
-  }
-
   def toByteBuf: ZIO[R, E, ByteBuf] = self match {
     case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
     case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
     case HttpData.BinaryByteBuf(data)  => UIO(data)
     case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
     case HttpData.BinaryStream(stream) => stream.fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
-  }
-
-  /**
-   * Returns the size of HttpData if available and -1 if not
-   */
-  private[zhttp] def unsafeSize: Long = self match {
-    case HttpData.Empty               => 0L
-    case HttpData.Text(text, _)       => text.length.toLong
-    case HttpData.BinaryChunk(data)   => data.size.toLong
-    case HttpData.BinaryByteBuf(data) => data.readableBytes().toLong
-    case HttpData.BinaryStream(_)     => -1L
   }
 }
 
@@ -95,30 +76,9 @@ object HttpData {
    */
   def fromString(text: String, charset: Charset = HTTP_CHARSET): HttpData[Any, Nothing] = Text(text, charset)
 
-  private[zhttp] sealed trait Cached { self =>
-    def encode: ByteBuf = self match {
-      case Text(text, charset) => Unpooled.copiedBuffer(text, charset)
-      case BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
-    }
-
-    // TODO: Add Unit Tests
-    def encodeAndCache(cache: Boolean): ByteBuf = {
-      if (cache) {
-        if (self.cache == null) {
-          val buf = Unpooled.unreleasableBuffer(encode)
-          self.cache = buf
-          buf
-        } else self.cache
-      } else
-        encode
-    }
-
-    var cache: ByteBuf = null
-  }
-
-  private[zhttp] final case class Text(text: String, charset: Charset) extends HttpData[Any, Nothing] with Cached
-  private[zhttp] final case class BinaryChunk(data: Chunk[Byte])       extends HttpData[Any, Nothing] with Cached
-  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)         extends HttpData[Any, Nothing]
+  private[zhttp] final case class Text(text: String, charset: Charset)               extends HttpData[Any, Nothing]
+  private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                     extends HttpData[Any, Nothing]
+  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                       extends HttpData[Any, Nothing]
   private[zhttp] final case class BinaryStream[R, E](stream: ZStream[R, E, ByteBuf]) extends HttpData[R, E]
   private[zhttp] case object Empty                                                   extends HttpData[Any, Nothing]
 }
