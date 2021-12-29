@@ -1,6 +1,6 @@
 package zhttp.html
 
-import zhttp.internal.ElementGen
+import zhttp.internal.HttpGen
 import zio.test.{DefaultRunnableSpec, assertTrue, checkAll}
 
 object DomSpec extends DefaultRunnableSpec {
@@ -79,15 +79,15 @@ object DomSpec extends DefaultRunnableSpec {
           }
       } + suite("Void Elements") {
         testM("void") {
-          checkAll(ElementGen.void) { element =>
-            val dom = Dom.element(element)
-            assertTrue(dom.encode == s"<${element}/>")
+          checkAll(HttpGen.voidDom) { dom =>
+            val name = dom.asInstanceOf[Dom.Element].name
+            assertTrue(dom.encode == s"<${name}/>")
           }
         } + testM("not void") {
-          checkAll(ElementGen.notVoid) { element =>
-            val dom = Dom.element(element)
-            assertTrue(dom.encode == s"<${element}></${element}>") ||
-            assertTrue(dom.encode == s"<!DOCTYPE ${element}><${element}></${element}>")
+          checkAll(HttpGen.notVoidDom) { dom =>
+            val name = dom.asInstanceOf[Dom.Element].name
+            assertTrue(dom.encode == s"<${name}></${name}>") ||
+            assertTrue(dom.encode == s"<!DOCTYPE ${name}><${name}></${name}>")
           }
         }
       }
