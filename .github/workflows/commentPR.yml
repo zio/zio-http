@@ -1,0 +1,63 @@
+name: Benchmark Comment
+
+on:
+  pull_request_target:
+    branches: [ '**' ]
+    types: [ opened, synchronize, reopened, edited ]
+
+jobs:
+  runBenchMarks:
+    name: Benchmarks
+    strategy:
+      matrix:
+        os: [ centos ]
+        scala: [ 2.13.6 ]
+        java: [ temurin@11 ]
+    runs-on: [ "${{ matrix.os }}", zio-http ]
+    steps:
+      - name: Clean up
+        id: clean_up
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: sudo rm -rf *
+
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+
+      - uses: actions/checkout@v2
+        with:
+          repository: dream11/FrameworkBenchmarks
+          path: FrameworkBenchMarks
+
+      - id: result
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cp ./zio-http/example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
+          cd ./zio-http
+          sbt zhttp/assembly
+          ls ./zio-http/target/scala-2.13
+          cp ./zio-http/target/scala-2.13/zhttp-1.0.0.0.jar ./../FrameworkBenchMarks/frameworks/Scala/zio-http/zhttp-1.0.0.0.jar
+          cd ./../FrameworkBenchMarks
+          echo Running Benchmarks
+          ./tfb  --test zio-http | tee result
+          RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")
+          RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+")
+          echo ::set-output name=request_result::$(echo $RESULT_REQUEST)
+          echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)
+          mkdir -p ./pr
+          echo ${{ github.event.number }} > ./pr/NR
+          echo ${{github.event.pull_request.head.sha}} > ./pr/SHA
+          echo $RESULT_REQUEST > ./pr/Result
+          echo $RESULT_CONCURRENCY ./pr/Concurrency
+
+      - uses: peter-evans/commit-comment@v1
+        with:
+          sha: ${{github.event.pull_request.head.sha}}
+          body: |
+            
+            **🚀 Performance Benchmark:**
+            
+            ${{steps.result.outputs.concurrency_result}}
+            ${{steps.result.outputs.request_result}}
