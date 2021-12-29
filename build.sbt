@@ -1,17 +1,7 @@
-import bloop.config.Config
+import BuildHelper._
 import Dependencies._
-import BuildHelper.{publishSetting, stdSettings, Scala213}
-
-import scala.concurrent.duration.FiniteDuration
-import java.util.concurrent.TimeUnit
-import sbtghactions.JavaSpec.Distribution
 
 val releaseDrafterVersion = "5"
-
-lazy val root = (project in file("."))
-  .settings(stdSettings("root"))
-  .settings(publishSetting(false))
-  .aggregate(zhttp, zhttpBenchmarks, zhttpTest, example)
 
 // CI Configuration
 ThisBuild / githubWorkflowJavaVersions  := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
@@ -76,52 +66,43 @@ ThisBuild / githubWorkflowBuildPreamble :=
     scalas = List(Scala213),
   ).steps
 
-// Test Configuration
-ThisBuild / libraryDependencies ++= Seq(`zio-test`, `zio-test-sbt`, sttp, sttpzio)
-ThisBuild / testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
-
-// Projects
-
-// Project zio-http
-lazy val zhttp = (project in file("./zio-http"))
-  .settings(stdSettings("zhttp"))
-  .settings(publishSetting(true))
-  .settings(
-    ThisBuild / homepage   := Some(url("https://github.com/dream11/zio-http")),
-    ThisBuild / scmInfo    :=
-      Some(
-        ScmInfo(url("https://github.com/dream11/zio-http"), "scm:git@github.com:dream11/zio-http.git"),
-      ),
-    ThisBuild / developers :=
-      List(
-        Developer(
-          "tusharmath",
-          "Tushar Mathur",
-          "tushar@dream11.com",
-          new URL("https://github.com/tusharmath"),
-        ),
-        Developer(
-          "amitksingh1490",
-          "Amit Kumar Singh",
-          "amit.singh@dream11.com",
-          new URL("https://github.com/amitksingh1490"),
-        ),
-      ),
-    libraryDependencies ++= Seq(`zio`, `zio-streams`, netty, `scala-compact-collection`, `netty-incubator`),
+lazy val root = (project in file("."))
+  .settings(stdSettings("root"))
+  .settings(publishSetting(false))
+  .aggregate(
+    zhttp,
+    zhttpBenchmarks,
+    zhttpTest,
+    example,
   )
 
-// Project Benchmarks
-lazy val zhttpBenchmarks = (project in file("./zio-http-benchmarks"))
+lazy val zhttp = (project in file("zio-http"))
+  .settings(stdSettings("zhttp"))
+  .settings(publishSetting(true))
+  .settings(meta)
+  .settings(
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= Seq(
+      sttp,
+      netty,
+      `zio`,
+      `zio-streams`,
+      `zio-test`,
+      `zio-test-sbt`,
+      `sttp-zio`,
+      `netty-incubator`,
+      `scala-compact-collection`,
+    ),
+  )
+
+lazy val zhttpBenchmarks = (project in file("zio-http-benchmarks"))
   .enablePlugins(JmhPlugin)
   .dependsOn(zhttp)
   .settings(stdSettings("zhttpBenchmarks"))
   .settings(publishSetting(false))
-  .settings(
-    libraryDependencies ++= Seq(zio),
-  )
+  .settings(libraryDependencies ++= Seq(zio))
 
-// Testing Package
-lazy val zhttpTest = (project in file("./zio-http-test"))
+lazy val zhttpTest = (project in file("zio-http-test"))
   .dependsOn(zhttp)
   .settings(stdSettings("zhttp-test"))
   .settings(publishSetting(true))
@@ -129,24 +110,8 @@ lazy val zhttpTest = (project in file("./zio-http-test"))
 lazy val example = (project in file("./example"))
   .enablePlugins(SbtTwirl)
   .settings(stdSettings("example"))
-  .settings(libraryDependencies := libraryDependencies.value.map {
-    case module if module.name == "twirl-api" =>
-      module.cross(CrossVersion.for3Use2_13)
-    case module                               => module
-  })
   .settings(publishSetting(false))
-  .settings(
-    fork                      := true,
-    Compile / run / mainClass := Option("example.HelloWorld"),
-    libraryDependencies ++= Seq(`jwt-core`),
-    TwirlKeys.templateImports := Seq(),
-  )
+  .settings(twirlSettings)
+  .settings(runSettings())
+  .settings(libraryDependencies ++= Seq(`jwt-core`))
   .dependsOn(zhttp)
-
-addCommandAlias("fmt", "scalafmt; Test / scalafmt; sFix;")
-addCommandAlias("fmtCheck", "scalafmtCheck; Test / scalafmtCheck; sFixCheck")
-addCommandAlias("sFix", "scalafix OrganizeImports; Test / scalafix OrganizeImports")
-addCommandAlias("sFixCheck", "scalafix --check OrganizeImports; Test / scalafix --check OrganizeImports")
-
-Global / onChangedBuildSource := ReloadOnSourceChanges
-Global / watchAntiEntropy     := FiniteDuration(2000, TimeUnit.MILLISECONDS)
