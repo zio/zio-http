@@ -18,9 +18,13 @@ sealed trait Dom { self =>
         case self: Dom.Text    => self.encode
       }
 
-      if (elements.isEmpty && attributes.isEmpty && Element.voidElementNames.contains(name)) s"<$name/>"
-      else if (elements.isEmpty && Element.voidElementNames.contains(name)) s"<$name ${attributes.mkString(" ")}/>"
-      else if (attributes.isEmpty) s"<$name>${elements.mkString("")}</$name>"
+      val noElements   = elements.isEmpty
+      val noAttributes = attributes.isEmpty
+      val isVoid       = Element.isVoid(name)
+
+      if (noElements && noAttributes && isVoid) s"<$name/>"
+      else if (noElements && isVoid) s"<$name ${attributes.mkString(" ")}/>"
+      else if (noAttributes) s"<$name>${elements.mkString("")}</$name>"
       else s"<$name ${attributes.mkString(" ")}>${elements.mkString}</$name>"
 
     case Dom.Text(data)             => data
