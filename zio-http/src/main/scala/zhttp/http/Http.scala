@@ -390,7 +390,7 @@ object Http {
     private[zhttp] def compile[R1 <: R](
       zExec: HttpRuntime[R1],
       settings: Server.Config[R1, Throwable],
-      serverTime: ServerTimeGenerator,
+      serverTime: ServerTimeGenerator
     )(implicit
       evE: E <:< Throwable,
     ): ChannelHandler =

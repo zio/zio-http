@@ -42,9 +42,7 @@ object Server {
   private[zhttp] final case class Config[-R, +E](
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
-
-    // TODO: add error handler
-    error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
+    error: Option[Throwable => Unit] = None,
     sslOption: ServerSSLOptions = null,
 
     // TODO: move app out of settings
@@ -59,7 +57,7 @@ object Server {
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
   private final case class LeakDetection(level: LeakDetectionLevel)                   extends UServer
   private final case class MaxRequestSize(size: Int)                                  extends UServer
-  private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
+  private final case class Error[R](errorHandler: Throwable =>  Unit) extends Server[R, Nothing]
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
   private final case class Address(address: InetSocketAddress)                        extends UServer
   private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
@@ -75,7 +73,7 @@ object Server {
   def bind(hostname: String, port: Int): UServer          = Server.Address(new InetSocketAddress(hostname, port))
   def bind(inetAddress: InetAddress, port: Int): UServer  = Server.Address(new InetSocketAddress(inetAddress, port))
   def bind(inetSocketAddress: InetSocketAddress): UServer = Server.Address(inetSocketAddress)
-  def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
+  def error[R](errorHandler: Throwable => Unit): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   def acceptContinue: UServer                                                        = Server.AcceptContinue
   def disableFlowControl: UServer                                                    = Server.FlowControl
