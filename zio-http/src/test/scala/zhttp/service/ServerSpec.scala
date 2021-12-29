@@ -108,7 +108,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       }
   }
 
-  def requestSpec = suite("ToByteBufSpec") {
+  def requestSpec = suite("RequestSpec") {
     val app: HttpApp[Any, Nothing] = Http.collect[Request] { case req =>
       Response.text(req.getContentLength.getOrElse(-1).toString)
     }
@@ -122,11 +122,6 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val app = Http.collectM[Request] { case req => req.getBody.as(Response.ok) }
         val res = app.requestStatus(!!, Method.POST, "some text")
         assertM(res)(equalTo(Status.OK))
-      } +
-      testM("Bytebuf from file data") {
-        val file = new File(getClass.getResource("/TestFile.txt").getPath)
-        val res  = HttpData.fromFile(file).toByteBuf.map(_.toString(HTTP_CHARSET))
-        assertM(res)(equalTo("abc\nfoo"))
       }
   }
 
