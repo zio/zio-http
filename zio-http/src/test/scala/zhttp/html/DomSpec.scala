@@ -1,50 +1,54 @@
 package zhttp.html
 
-import zio.test.Assertion.equalTo
-import zio.test.{DefaultRunnableSpec, assert}
+import zio.random.Random
+import zio.test.{DefaultRunnableSpec, Gen, assertTrue, checkAll}
 
 object DomSpec extends DefaultRunnableSpec {
   def spec = suite("DomSpec") {
     test("empty") {
       val dom = Dom.empty
-      assert(dom.encode)(equalTo(""))
+      assertTrue(dom.encode == "")
     } +
       test("text") {
         val dom = Dom.text("abc")
-        assert(dom.encode)(equalTo("abc"))
+        assertTrue(dom.encode == "abc")
       } +
       test("element") {
         val dom = Dom.element("div")
-        assert(dom.encode)(equalTo("<div/>"))
+        assertTrue(dom.encode == "<div></div>")
       } +
       suite("element with children") {
         test("element with children") {
           val dom = Dom.element("div", Dom.element("div"))
-          assert(dom.encode)(equalTo("<div><div/></div>"))
+          assertTrue(dom.encode == "<div><div></div></div>")
         } +
           test("element with multiple children") {
             val dom = Dom.element("div", Dom.element("div"), Dom.element("div"), Dom.element("div"))
-            assert(dom.encode)(equalTo("<div><div/><div/><div/></div>"))
+            assertTrue(dom.encode == "<div><div></div><div></div><div></div></div>")
           } +
           test("element with nested children") {
             val dom = Dom.element("div", Dom.element("div", Dom.element("div", Dom.element("div"))))
-            assert(dom.encode)(equalTo("<div><div><div><div/></div></div></div>"))
+            assertTrue(dom.encode == "<div><div><div><div></div></div></div></div>")
           } +
           test("element with text") {
             val dom = Dom.element("div", Dom.text("abc"))
-            assert(dom.encode)(equalTo("<div>abc</div>"))
+            assertTrue(dom.encode == "<div>abc</div>")
+          } +
+          test("void element with children") {
+            val dom = Dom.element("br", Dom.text("Hello"))
+            assertTrue(dom.encode == "<br>Hello</br>")
           }
       } +
       suite("Attribute") {
         test("constant") {
           val dom = Dom.attr("href", "https://www.zio-http.com")
-          assert(dom.encode)(equalTo("""href="https://www.zio-http.com""""))
+          assertTrue(dom.encode == """href="https://www.zio-http.com"""")
         }
       } +
       suite("element with attributes") {
         test("constant") {
           val dom = Dom.element("a", Dom.attr("href", "https://www.zio-http.com"))
-          assert(dom.encode)(equalTo("""<a href="https://www.zio-http.com"/>"""))
+          assertTrue(dom.encode == """<a href="https://www.zio-http.com"></a>""")
         } +
           test("multiple constant") {
             val dom = Dom.element(
@@ -52,7 +56,7 @@ object DomSpec extends DefaultRunnableSpec {
               Dom.attr("href", "https://www.zio-http.com"),
               Dom.attr("title", "click me!"),
             )
-            assert(dom.encode)(equalTo("""<a href="https://www.zio-http.com" title="click me!"/>"""))
+            assertTrue(dom.encode == """<a href="https://www.zio-http.com" title="click me!"></a>""")
           }
       } +
       test("element with attribute & children") {
@@ -62,22 +66,24 @@ object DomSpec extends DefaultRunnableSpec {
           Dom.text("zio-http"),
         )
 
-        assert(dom.encode)(
-          equalTo("""<a href="https://www.zio-http.com">zio-http</a>"""),
-        )
+        assertTrue(dom.encode == """<a href="https://www.zio-http.com">zio-http</a>""")
       } +
-      suite("doctype") {
-        test("empty5") {
-          val dom = Dom.element("html")
-          assert(dom.encode)(equalTo("""<!DOCTYPE html><html/>"""))
+      suite("Self Closing") {
+        val voidTagGen: Gen[Any, String] = Gen.fromIterable(Element.voidElementNames)
+        val tagGen: Gen[Random, String]  =
+          Gen.stringBounded(1, 5)(Gen.alphaChar).filterNot(Element.voidElementNames.contains)
+
+        testM("void") {
+          checkAll(voidTagGen) { name =>
+            val dom = Dom.element(name)
+            assertTrue(dom.encode == s"<${name}/>")
+          }
         } +
-          test("with children") {
-            val dom = Dom.element("html", Dom.element("head"))
-            assert(dom.encode)(equalTo("""<!DOCTYPE html><html><head/></html>"""))
-          } +
-          test("with children and text") {
-            val dom = Dom.element("html", Dom.element("head"), Dom.text("abc"))
-            assert(dom.encode)(equalTo("""<!DOCTYPE html><html><head/>abc</html>"""))
+          testM("not void") {
+            checkAll(tagGen) { name =>
+              val dom = Dom.element(name)
+              assertTrue(dom.encode == s"<${name}></${name}>")
+            }
           }
       }
   }

@@ -2,12 +2,15 @@ package zhttp.html
 
 /**
  * Light weight DOM implementation that can be rendered as a html string.
+ *
+ * @see
+ *   <a href="https://html.spec.whatwg.org/multipage/syntax.html#void-elements">Void elements</a> only have a start tag;
+ *   end tags must not be specified for void elements. A set of void elements that are supported at the time of writing
+ *   this doc can be found here: [[Element.voidElementNames]]
  */
 sealed trait Dom { self =>
   def encode: String = self match {
     case Dom.Element(name, children) =>
-      val doctype = if (name == "html") "<!DOCTYPE html>" else ""
-
       val attributes = children.collect { case self: Dom.Attribute => self.encode }
 
       val elements = children.collect {
@@ -15,10 +18,14 @@ sealed trait Dom { self =>
         case self: Dom.Text    => self.encode
       }
 
-      if (elements.isEmpty && attributes.isEmpty) s"$doctype<$name/>"
-      else if (elements.isEmpty) s"$doctype<$name ${attributes.mkString(" ")}/>"
-      else if (attributes.isEmpty) s"$doctype<$name>${elements.mkString("")}</$name>"
-      else s"$doctype<$name ${attributes.mkString(" ")}>${elements.mkString}</$name>"
+      val noElements   = elements.isEmpty
+      val noAttributes = attributes.isEmpty
+      val isVoid       = Element.isVoid(name)
+
+      if (noElements && noAttributes && isVoid) s"<$name/>"
+      else if (noElements && isVoid) s"<$name ${attributes.mkString(" ")}/>"
+      else if (noAttributes) s"<$name>${elements.mkString("")}</$name>"
+      else s"<$name ${attributes.mkString(" ")}>${elements.mkString}</$name>"
 
     case Dom.Text(data)             => data
     case Dom.Attribute(name, value) => s"""$name="$value""""
