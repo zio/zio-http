@@ -1,3 +1,3 @@
-This file is for testing File streaming capabilities of the library.
-This is a text file.
-Its just blah.
+0123456789
+0123456789
+0123456789

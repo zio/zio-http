@@ -1,5 +1,6 @@
 package zhttp.service
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
 import zhttp.http.Headers.Literals
 import zhttp.http._
@@ -107,7 +108,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       }
   }
 
-  def requestSpec = suite("RequestSpec") {
+  def requestSpec = suite("ToByteBufSpec") {
     val app: HttpApp[Any, Nothing] = Http.collect[Request] { case req =>
       Response.text(req.getContentLength.getOrElse(-1).toString)
     }
@@ -132,9 +133,15 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       }
     } +
       testM("data from file") {
-        val f: File = new File(getClass.getResource("/TestFile.txt").getPath)
-        val res     = Http.data(HttpData.fromFile(f)).requestBodyAsString()
+        val file = new File(getClass.getResource("/TestFile.txt").getPath)
+        val res  = Http.data(HttpData.fromFile(file)).requestBodyAsString()
         assertM(res)(equalTo("abc\nfoo"))
+      } +
+      testM("content type header on file response") {
+        val file = new File(getClass.getResource("/TestFile.txt").getPath)
+        val res  =
+          Http.data(HttpData.fromFile(file)).request().map(_.getHeaderValue(HttpHeaderNames.CONTENT_TYPE)).map(_.get)
+        assertM(res)(equalTo("text/plain"))
       } +
       testM("status") {
         checkAllM(HttpGen.status) { case (status) =>

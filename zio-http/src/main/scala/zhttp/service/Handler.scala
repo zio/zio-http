@@ -14,7 +14,7 @@ import zio.{Task, UIO, ZIO}
 
 import java.io.File
 import java.net.{InetAddress, InetSocketAddress}
-import java.nio.file.{Files, Paths}
+import java.nio.file.Files
 
 @Sharable
 private[zhttp] final case class Handler[R](
@@ -72,8 +72,8 @@ private[zhttp] final case class Handler[R](
      */
     res.data match {
       case HttpData.File(file) =>
-        jHeaders.set(HttpHeaderNames.CONTENT_TYPE.toString, Files.probeContentType(Paths.get(file.toString)))
-      case _                   =>
+        jHeaders.set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(file.toPath))
+      case _                   => ()
     }
     new DefaultHttpResponse(HttpVersion.HTTP_1_1, res.status.asJava, jHeaders)
   }

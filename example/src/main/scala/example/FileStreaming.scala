@@ -14,7 +14,9 @@ object FileStreaming extends App {
     ZStream.fromFile(Paths.get("README.md"))
   }
 
-  // Read from file path directly
+  // Uses netty's capability to write file content to the Channel
+  // Content-type response headers are automatically identified and added
+  // Does not use Chunked transfer encoding
   val videoFileContent = HttpData.fromFile(new File("src/main/resources/TestVideoFile.mp4"))
   val textFileContent  = HttpData.fromFile(new File("src/main/resources/TestFile.txt"))
 

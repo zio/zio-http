@@ -1,17 +1,21 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, Unpooled}
+import zio.blocking.Blocking.Service.live.effectBlocking
 import zio.stream.ZStream
 import zio.{Chunk, NeedsEnv, UIO, ZIO}
 
-import java.io.FileInputStream
+import java.io.RandomAccessFile
+import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.charset.Charset
+import scala.language.implicitConversions
 
 /**
  * Holds HttpData that needs to be written on the HttpChannel
  */
-sealed trait HttpData[-R, +E] { self =>
+sealed trait HttpData[-R, +E] {
+  self =>
 
   /**
    * Returns true if HttpData is a stream
@@ -43,18 +47,30 @@ sealed trait HttpData[-R, +E] { self =>
     if (s < 0) None else Some(s)
   }
 
-  def toByteBuf: ZIO[R, E, ByteBuf] = self match {
-    case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
-    case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
-    case HttpData.BinaryByteBuf(data)  => UIO(data)
-    case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
-    case HttpData.BinaryStream(stream) => stream.fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
-    case HttpData.File(file)           =>
-      UIO {
-        val fileChannel: FileChannel = new FileInputStream(file).getChannel
-        val mappedByteBuffer         = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, file.length)
-        Unpooled.wrappedBuffer(mappedByteBuffer)
-      }
+  // Added for implicit conversion of `ZIO[R,E,ByteBuf]` to `ZIO[R, Throwable,Bytebuf]` in `toByteBuf`, may not be needed in scala3
+  implicit def convertZKT[F[-_, +_, +_], W, EA, EB, C](fa: F[W, EA, C])(implicit ev: EA <:< EB): F[W, EB, C] =
+    fa.asInstanceOf[F[W, EB, C]]
+
+  def toByteBuf(implicit ev: E <:< Throwable): ZIO[R, Throwable, ByteBuf] = {
+    self match {
+      case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
+      case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
+      case HttpData.BinaryByteBuf(data)  => UIO(data)
+      case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
+      case HttpData.BinaryStream(stream) => stream.fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
+      case HttpData.File(file)           =>
+        // Transfers the content of the file channel to ByteBuf
+        effectBlocking {
+          val aFile: RandomAccessFile = new RandomAccessFile(file.toString, "r")
+          val inChannel: FileChannel  = aFile.getChannel
+          val fileSize: Long          = inChannel.size
+          val buffer: ByteBuffer      = ByteBuffer.allocate(fileSize.toInt)
+          inChannel.read(buffer)
+          inChannel.close()
+          aFile.close()
+          Unpooled.wrappedBuffer(buffer.flip)
+        }
+    }
   }
 
   /**
