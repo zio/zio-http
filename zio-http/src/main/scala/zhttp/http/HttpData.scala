@@ -14,8 +14,7 @@ import scala.language.implicitConversions
 /**
  * Holds HttpData that needs to be written on the HttpChannel
  */
-sealed trait HttpData[-R, +E] {
-  self =>
+sealed trait HttpData[-R, +E] { self =>
 
   /**
    * Returns true if HttpData is a stream
@@ -49,7 +48,8 @@ sealed trait HttpData[-R, +E] {
       case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
       case HttpData.BinaryByteBuf(data)  => UIO(data)
       case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
-      case HttpData.BinaryStream(stream) => stream.fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
+      case HttpData.BinaryStream(stream) =>
+        stream.fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b)).asInstanceOf[ZIO[R, Throwable, ByteBuf]]
       case HttpData.File(file)           =>
         // Transfers the content of the file channel to ByteBuf
         effectBlocking {
