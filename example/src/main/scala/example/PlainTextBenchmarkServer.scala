@@ -4,7 +4,7 @@ import io.netty.util.AsciiString
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server}
-import zio.{App, ExitCode, URIO}
+import zio.{App, ExitCode, UIO, URIO}
 
 /**
  * This server is used to run plaintext benchmarks on CI.
@@ -33,7 +33,9 @@ object Main extends App {
   private def server(response: Response[Any, Nothing]) =
     Server.app(app(response)) ++
       Server.port(8080) ++
+      Server.error(_ => UIO.unit) ++
       Server.keepAlive ++
-      Server.disableLeakDetection ++ Server.consolidateFlush
+      Server.disableLeakDetection ++
+      Server.consolidateFlush
 
 }
