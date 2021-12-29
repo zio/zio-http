@@ -54,17 +54,17 @@ object Server {
     flowControl: Boolean = false,
   )
 
-  private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
-  private final case class LeakDetection(level: LeakDetectionLevel)                   extends UServer
-  private final case class MaxRequestSize(size: Int)                                  extends UServer
-  private final case class Error[R](errorHandler: Throwable =>  Unit) extends Server[R, Nothing]
-  private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
-  private final case class Address(address: InetSocketAddress)                        extends UServer
-  private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
-  private case object KeepAlive                                                       extends Server[Any, Nothing]
-  private case object ConsolidateFlush                                                extends Server[Any, Nothing]
-  private case object AcceptContinue                                                  extends UServer
-  private case object FlowControl                                                     extends UServer
+  private final case class Concat[R, E](self: Server[R, E], other: Server[R, E]) extends Server[R, E]
+  private final case class LeakDetection(level: LeakDetectionLevel)              extends UServer
+  private final case class MaxRequestSize(size: Int)                             extends UServer
+  private final case class Error[R](errorHandler: Throwable => Unit)             extends Server[R, Nothing]
+  private final case class Ssl(sslOptions: ServerSSLOptions)                     extends UServer
+  private final case class Address(address: InetSocketAddress)                   extends UServer
+  private final case class App[R, E](app: HttpApp[R, E])                         extends Server[R, E]
+  private case object KeepAlive                                                  extends Server[Any, Nothing]
+  private case object ConsolidateFlush                                           extends Server[Any, Nothing]
+  private case object AcceptContinue                                             extends UServer
+  private case object FlowControl                                                extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -74,15 +74,15 @@ object Server {
   def bind(inetAddress: InetAddress, port: Int): UServer  = Server.Address(new InetSocketAddress(inetAddress, port))
   def bind(inetSocketAddress: InetSocketAddress): UServer = Server.Address(inetSocketAddress)
   def error[R](errorHandler: Throwable => Unit): Server[R, Nothing] = Server.Error(errorHandler)
-  def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
-  def acceptContinue: UServer                                                        = Server.AcceptContinue
-  def disableFlowControl: UServer                                                    = Server.FlowControl
-  val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
-  val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
-  val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
-  val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
-  val keepAlive: UServer             = KeepAlive
-  val consolidateFlush: UServer      = ConsolidateFlush
+  def ssl(sslOptions: ServerSSLOptions): UServer                    = Server.Ssl(sslOptions)
+  def acceptContinue: UServer                                       = Server.AcceptContinue
+  def disableFlowControl: UServer                                   = Server.FlowControl
+  val disableLeakDetection: UServer                                 = LeakDetection(LeakDetectionLevel.DISABLED)
+  val simpleLeakDetection: UServer                                  = LeakDetection(LeakDetectionLevel.SIMPLE)
+  val advancedLeakDetection: UServer                                = LeakDetection(LeakDetectionLevel.ADVANCED)
+  val paranoidLeakDetection: UServer                                = LeakDetection(LeakDetectionLevel.PARANOID)
+  val keepAlive: UServer                                            = KeepAlive
+  val consolidateFlush: UServer                                     = ConsolidateFlush
 
   /**
    * Launches the app on the provided port.
