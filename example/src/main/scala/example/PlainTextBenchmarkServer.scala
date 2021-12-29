@@ -33,9 +33,9 @@ object Main extends App {
   private def server(response: Response[Any, Nothing]) =
     Server.app(app(response)) ++
       Server.port(8080) ++
+      Server.error(_ => UIO.unit) ++
       Server.keepAlive ++
       Server.disableLeakDetection ++
-      Server.consolidateFlush ++
-      Server.error(_ => UIO.unit)
+      Server.consolidateFlush
 
 }
