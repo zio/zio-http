@@ -71,7 +71,7 @@ final case class Response[-R, +E] private (
 
     val jHeaders = self.getHeaders.encode
     val jContent = self.data match {
-      case HttpData.Text(text, charset) => Unpooled.copiedBuffer(text, charset)
+      case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
       case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
       case HttpData.BinaryByteBuf(data) => data
       case HttpData.BinaryStream(_)     => null
