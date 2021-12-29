@@ -45,7 +45,7 @@ private[zhttp] final case class Handler[R](
   }
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
-    config.error.fold(())(f => runtime.unsafeRun(ctx)(f(cause)))
+    config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
   }
 
   /**

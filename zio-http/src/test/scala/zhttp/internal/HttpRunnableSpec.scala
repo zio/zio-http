@@ -38,7 +38,7 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
     Server
       .make(
-        Server.app(app) ++ Server.port(port) ++ Server.error(err => UIO(println(err))) ++ Server.paranoidLeakDetection,
+        Server.app(app) ++ Server.port(port) ++ Server.paranoidLeakDetection,
       )
       .orDie
 
