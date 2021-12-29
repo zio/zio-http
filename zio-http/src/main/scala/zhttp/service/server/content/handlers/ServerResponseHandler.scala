@@ -27,18 +27,11 @@ private[zhttp] case class ServerResponseHandler[R](
       case Status.OK        =>
         ctx.write(encodeResponse(response))
         response.data match {
-          case HttpData.Empty                 =>
-            ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-          case data @ HttpData.Text(_, _)     =>
-            ctx.writeAndFlush(data)
-          case HttpData.BinaryByteBuf(data)   =>
-            ctx.writeAndFlush(new DefaultLastHttpContent(data))
-          case HttpData.BinaryStream(stream)  =>
+          case HttpData.BinaryStream(stream) =>
             runtime.unsafeRun(ctx) {
               writeStreamContent(stream)(ctx)
             }
-          case data @ HttpData.BinaryChunk(_) =>
-            ctx.writeAndFlush(data)
+          case _                             => ctx.flush()
         }
 
       case _ =>
