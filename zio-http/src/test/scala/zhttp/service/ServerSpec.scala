@@ -134,12 +134,10 @@ object ServerSpec extends HttpRunnableSpec(8088) {
     } +
       testM("data from file") {
         val file = new File(getClass.getResource("/TestFile.txt").getPath)
-
-        val res = Http.fromData(HttpData.fromFile(file)).requestBodyAsString()
-
+        val res  = Http.fromData(HttpData.fromFile(file)).requestBodyAsString()
         assertM(res)(equalTo("abc\nfoo"))
       } +
-      testM("content type header on file response") {
+      testM("content-type header on file response") {
         val file = new File(getClass.getResource("/TestFile.txt").getPath)
         val res  =
           Http
