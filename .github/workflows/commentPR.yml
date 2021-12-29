@@ -1,0 +1,57 @@
+name: Comment on the pull request
+
+on:
+  workflow_run:
+    workflows: ["Benchmarks"]
+    types:
+      - completed
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    if: >
+      ${{ github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: 'Download artifact'
+        uses: actions/github-script@v5
+        with:
+          script: |
+            var artifacts = await github.actions.listWorkflowRunArtifacts({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: ${{github.event.workflow_run.id }},
+            });
+            var matchArtifact = artifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "pr"
+            })[0];
+            var download = await github.actions.downloadArtifact({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               artifact_id: matchArtifact.id,
+               archive_format: 'zip',
+            });
+            var fs = require('fs');
+            fs.writeFileSync('${{github.workspace}}/pr.zip', Buffer.from(download.data));
+      - run: unzip pr.zip
+      - name: 'Extract artifact'
+        id: "extract_result"
+        uses: actions/github-script@v5
+        with:
+          script: |
+            var fs = require('fs');
+            var issue_number = Number(fs.readFileSync('./NR'));
+            var Result = Number(fs.readFileSync('./Result'));
+            var Concurrency = Number(fs.readFileSync('./Concurrency'));
+            var SHA = Number(fs.readFileSync('./SHA'));
+            return {issue_number: issue_number, request_result: Result, concurrency_result: Concurrency, SHA: SHA}
+
+      - name: 'Comment on PR'
+        uses: peter-evans/commit-comment@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{${{steps.extract_result.outputs.result.SHA}}}}
+          body: |
+            <details>
+            <summary>🚀 <b>Benchmark</b></summary> 
+             <b>${{steps.extract_result.outputs.result.concurrency_result}}</b> <br/> <b>${{steps.extract_result.outputs.result.request_result}}</b> </details>
