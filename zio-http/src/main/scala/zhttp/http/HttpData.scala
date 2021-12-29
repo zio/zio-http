@@ -39,14 +39,6 @@ sealed trait HttpData[-R, +E] {
       case m                           => m.asInstanceOf[HttpData[Any, E]]
     }
 
-  /**
-   * Returns the size of HttpData if available
-   */
-  def size: Option[Long] = {
-    val s = self.unsafeSize
-    if (s < 0) None else Some(s)
-  }
-
   // Added for implicit conversion of `ZIO[R,E,ByteBuf]` to `ZIO[R, Throwable,Bytebuf]` in `toByteBuf`, may not be needed in scala3
   implicit def convertZKT[F[-_, +_, +_], W, EA, EB, C](fa: F[W, EA, C])(implicit ev: EA <:< EB): F[W, EB, C] =
     fa.asInstanceOf[F[W, EB, C]]
@@ -71,18 +63,6 @@ sealed trait HttpData[-R, +E] {
           Unpooled.wrappedBuffer(buffer.flip)
         }
     }
-  }
-
-  /**
-   * Returns the size of HttpData if available and -1 if not
-   */
-  private[zhttp] def unsafeSize: Long = self match {
-    case HttpData.Empty               => 0L
-    case HttpData.Text(text, _)       => text.length.toLong
-    case HttpData.BinaryChunk(data)   => data.size.toLong
-    case HttpData.BinaryByteBuf(data) => data.readableBytes().toLong
-    case HttpData.BinaryStream(_)     => -1L
-    case HttpData.File(file)          => file.length()
   }
 }
 
@@ -122,30 +102,9 @@ object HttpData {
 
   def fromFile(file: java.io.File): HttpData[Any, Nothing] = File(file)
 
-  private[zhttp] sealed trait Cached { self =>
-    def encode: ByteBuf = self match {
-      case Text(text, charset) => Unpooled.copiedBuffer(text, charset)
-      case BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
-    }
-
-    // TODO: Add Unit Tests
-    def encodeAndCache(cache: Boolean): ByteBuf = {
-      if (cache) {
-        if (self.cache == null) {
-          val buf = Unpooled.unreleasableBuffer(encode)
-          self.cache = buf
-          buf
-        } else self.cache
-      } else
-        encode
-    }
-
-    var cache: ByteBuf = null
-  }
-
-  private[zhttp] final case class Text(text: String, charset: Charset) extends HttpData[Any, Nothing] with Cached
-  private[zhttp] final case class BinaryChunk(data: Chunk[Byte])       extends HttpData[Any, Nothing] with Cached
-  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)         extends HttpData[Any, Nothing]
+  private[zhttp] final case class Text(text: String, charset: Charset)               extends HttpData[Any, Nothing]
+  private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                     extends HttpData[Any, Nothing]
+  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                       extends HttpData[Any, Nothing]
   private[zhttp] final case class BinaryStream[R, E](stream: ZStream[R, E, ByteBuf]) extends HttpData[R, E]
   private[zhttp] final case class File(file: java.io.File)                           extends HttpData[Any, Nothing]
   private[zhttp] case object Empty                                                   extends HttpData[Any, Nothing]

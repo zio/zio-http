@@ -128,21 +128,21 @@ object ServerSpec extends HttpRunnableSpec(8088) {
   def responseSpec = suite("ResponseSpec") {
     testM("data") {
       checkAllM(nonEmptyContent) { case (string, data) =>
-        val res = Http.data(data).requestBodyAsString()
+        val res = Http.fromData(data).requestBodyAsString()
         assertM(res)(equalTo(string))
       }
     } +
       testM("data from file") {
         val file = new File(getClass.getResource("/TestFile.txt").getPath)
 
-        val res = Http.data(HttpData.fromFile(file)).requestBodyAsString()
+        val res = Http.fromData(HttpData.fromFile(file)).requestBodyAsString()
 
         assertM(res)(equalTo("abc\nfoo"))
       } +
       testM("content type header on file response") {
         val file = new File(getClass.getResource("/TestFile.txt").getPath)
         val res  =
-          Http.data(HttpData.fromFile(file)).request().map(_.getHeaderValue(HttpHeaderNames.CONTENT_TYPE)).map(_.get)
+          Http.fromData(HttpData.fromFile(file)).request().map(_.getHeaderValue(HttpHeaderNames.CONTENT_TYPE)).map(_.get)
         assertM(res)(equalTo("text/plain"))
       } +
       testM("status") {
@@ -159,7 +159,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       } +
       testM("file-streaming") {
         val path = getClass.getResource("/TestFile.txt").getPath
-        val res  = Http.data(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
+        val res  = Http.fromData(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
         assertM(res)(containsString("abc"))
       } +
       suite("html") {
@@ -172,13 +172,42 @@ object ServerSpec extends HttpRunnableSpec(8088) {
             val res = app.requestHeaderValueByName()(Literals.Name.ContentType)
             assertM(res)(isSome(equalTo(Literals.Value.TextHtml.toString)))
           }
+      } +
+      suite("content-length") {
+        suite("string") {
+          testM("unicode text") {
+            val res = Http.text("äöü").requestContentLength()
+            assertM(res)(isSome(equalTo(6L)))
+          } +
+            testM("already set") {
+              val res = Http.text("1234567890").withContentLength(4L).requestContentLength()
+              assertM(res)(isSome(equalTo(4L)))
+            }
+        }
+      } +
+      suite("memoize") {
+        testM("concurrent") {
+          val size     = 100
+          val expected = (0 to size) map (_ => Status.OK)
+          for {
+            response <- Response.text("abc").freeze
+            actual   <- ZIO.foreachPar(0 to size)(_ => Http.response(response).requestStatus())
+          } yield assert(actual)(equalTo(expected))
+        } +
+          testM("update after cache") {
+            val server = "ZIO-Http"
+            for {
+              res    <- Response.text("abc").freeze
+              actual <- Http.response(res).withServer(server).requestHeaderValueByName()(Literals.Name.Server)
+            } yield assert(actual)(isSome(equalTo(server)))
+          }
       }
   }
 
   override def spec = {
     suiteM("Server") {
       app.as(List(staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
-    }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ sequential
+    }.provideCustomLayerShared(env) @@ timeout(30 seconds)
   }
 
   def staticAppSpec = suite("StaticAppSpec") {
