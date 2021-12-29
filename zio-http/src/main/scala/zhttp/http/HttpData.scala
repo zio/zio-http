@@ -49,7 +49,7 @@ sealed trait HttpData[-R, +E] { self =>
       case HttpData.BinaryByteBuf(data)  => UIO(data)
       case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
       case HttpData.BinaryStream(stream) =>
-        stream.fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b)).asInstanceOf[ZIO[R, Throwable, ByteBuf]]
+        stream.fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
       case HttpData.File(file)           =>
         // Transfers the content of the file channel to ByteBuf
         effectBlocking {
@@ -60,7 +60,7 @@ sealed trait HttpData[-R, +E] { self =>
           inChannel.read(buffer)
           inChannel.close()
           aFile.close()
-          Unpooled.wrappedBuffer(buffer.flip)
+          Unpooled.copiedBuffer(buffer.flip)
         }
     }
   }
@@ -100,6 +100,9 @@ object HttpData {
    */
   def fromString(text: String, charset: Charset = HTTP_CHARSET): HttpData[Any, Nothing] = Text(text, charset)
 
+  /**
+   * Helper to create HttpData from contents of a file
+   */
   def fromFile(file: java.io.File): HttpData[Any, Nothing] = File(file)
 
   private[zhttp] final case class Text(text: String, charset: Charset)               extends HttpData[Any, Nothing]
@@ -108,5 +111,4 @@ object HttpData {
   private[zhttp] final case class BinaryStream[R, E](stream: ZStream[R, E, ByteBuf]) extends HttpData[R, E]
   private[zhttp] final case class File(file: java.io.File)                           extends HttpData[Any, Nothing]
   private[zhttp] case object Empty                                                   extends HttpData[Any, Nothing]
-
 }
