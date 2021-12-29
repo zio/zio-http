@@ -10,8 +10,8 @@ import zhttp.internal.AppCollection.HttpEnv
 import zhttp.internal.HttpRunnableSpec.HttpIO
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zio._
 import zio.test.DefaultRunnableSpec
-import zio.{Chunk, Has, Task, ZIO, ZManaged}
 
 /**
  * Should be used only when e2e tests needs to be written which is typically for logic that is part of the netty based
@@ -37,7 +37,9 @@ abstract class HttpRunnableSpec(port: Int) extends DefaultRunnableSpec { self =>
     app: HttpApp[R, Throwable],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
     Server
-      .make(Server.app(app) ++ Server.port(port) ++ Server.error(err => println(err)) ++ Server.paranoidLeakDetection)
+      .make(
+        Server.app(app) ++ Server.port(port) ++ Server.error(err => UIO(println(err))) ++ Server.paranoidLeakDetection,
+      )
       .orDie
 
   def status(path: Path): HttpIO[Any, Status] =

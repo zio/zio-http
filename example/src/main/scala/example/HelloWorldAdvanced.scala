@@ -21,7 +21,7 @@ object HelloWorldAdvanced extends App {
     case Method.GET -> !! / "utc"    => clock.currentDateTime.map(s => Response.text(s.toString))
   }
 
-  private val errorHandler: Throwable => Unit = cause => println(cause)
+  private val errorHandler: Throwable => ZIO[Any, Nothing, Unit] = cause => UIO(println(cause))
 
   private val server =
     Server.port(PORT) ++              // Setup port
