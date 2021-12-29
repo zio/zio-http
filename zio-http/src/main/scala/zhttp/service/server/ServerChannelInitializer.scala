@@ -2,6 +2,11 @@ package zhttp.service.server
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer}
+import io.netty.handler.codec.http.HttpObjectDecoder.{
+  DEFAULT_MAX_CHUNK_SIZE,
+  DEFAULT_MAX_HEADER_SIZE,
+  DEFAULT_MAX_INITIAL_LINE_LENGTH,
+}
 import io.netty.handler.codec.http.{
   HttpObjectAggregator,
   HttpServerCodec,
@@ -34,7 +39,10 @@ final case class ServerChannelInitializer[R](
 
     // ServerCodec
     // Always add ServerCodec
-    pipeline.addLast(HTTP_SERVER_CODEC, new HttpServerCodec()) // TODO: See if server codec is really required
+    pipeline.addLast(
+      HTTP_SERVER_CODEC,
+      new HttpServerCodec(DEFAULT_MAX_INITIAL_LINE_LENGTH, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_CHUNK_SIZE, false),
+    ) // TODO: See if server codec is really required
 
     // ObjectAggregator
     // Always add ObjectAggregator
