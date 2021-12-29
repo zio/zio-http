@@ -126,7 +126,7 @@ object Response {
    */
   def html(data: Html): UResponse =
     Response(
-      data = HttpData.fromString(data.encode),
+      data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
       headers = Headers(Name.ContentType, Value.TextHtml),
     )
 

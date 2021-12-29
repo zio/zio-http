@@ -1,7 +1,7 @@
 package zhttp.html
 
-import zhttp.internal.HttpGen
-import zio.test.{DefaultRunnableSpec, assertTrue, checkAll}
+import zio.random.Random
+import zio.test.{DefaultRunnableSpec, Gen, assertTrue, checkAll}
 
 object DomSpec extends DefaultRunnableSpec {
   def spec = suite("DomSpec") {
@@ -33,6 +33,10 @@ object DomSpec extends DefaultRunnableSpec {
           test("element with text") {
             val dom = Dom.element("div", Dom.text("abc"))
             assertTrue(dom.encode == "<div>abc</div>")
+          } +
+          test("void element with children") {
+            val dom = Dom.element("br", Dom.text("Hello"))
+            assertTrue(dom.encode == "<br>Hello</br>")
           }
       } +
       suite("Attribute") {
@@ -64,30 +68,21 @@ object DomSpec extends DefaultRunnableSpec {
 
         assertTrue(dom.encode == """<a href="https://www.zio-http.com">zio-http</a>""")
       } +
-      suite("doctype") {
-        test("empty5") {
-          val dom = Dom.element("html")
-          assertTrue(dom.encode == """<!DOCTYPE html><html></html>""")
-        } +
-          test("with children") {
-            val dom = Dom.element("html", Dom.element("head"))
-            assertTrue(dom.encode == """<!DOCTYPE html><html><head></head></html>""")
-          } +
-          test("with children and text") {
-            val dom = Dom.element("html", Dom.element("head"), Dom.text("abc"))
-            assertTrue(dom.encode == """<!DOCTYPE html><html><head></head>abc</html>""")
-          }
-      } +
-      suite("VoidElements") {
+      suite("Self Closing") {
+        val voidTagGen: Gen[Any, String] = Gen.fromIterable(Element.voidElementNames)
+        val tagGen: Gen[Random, String]  =
+          Gen.stringBounded(1, 5)(Gen.alphaChar).filterNot(Element.voidElementNames.contains)
+
         testM("void") {
-          checkAll(HttpGen.voidElement) { elem =>
-            assertTrue(elem.encode == s"<${elem.name}/>")
+          checkAll(voidTagGen) { name =>
+            val dom = Dom.element(name)
+            assertTrue(dom.encode == s"<${name}/>")
           }
         } +
           testM("not void") {
-            checkAll(HttpGen.notVoidElement) { elem =>
-              assertTrue(elem.encode == s"<${elem.name}></${elem.name}>") ||
-              assertTrue(elem.encode == s"<!DOCTYPE ${elem.name}><${elem.name}></${elem.name}>")
+            checkAll(tagGen) { name =>
+              val dom = Dom.element(name)
+              assertTrue(dom.encode == s"<${name}></${name}>")
             }
           }
       }
