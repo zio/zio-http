@@ -77,19 +77,18 @@ object DomSpec extends DefaultRunnableSpec {
             val dom = Dom.element("html", Dom.element("head"), Dom.text("abc"))
             assertTrue(dom.encode == """<!DOCTYPE html><html><head></head>abc</html>""")
           }
-      } + suite("Void Elements") {
+      } + suite("VoidElements") {
         testM("void") {
-          checkAll(HttpGen.voidDom) { dom =>
-            val name = dom.asInstanceOf[Dom.Element].name
-            assertTrue(dom.encode == s"<${name}/>")
+          checkAll(HttpGen.voidElement) { elem =>
+            assertTrue(elem.encode == s"<${elem.name}/>")
           }
-        } + testM("not void") {
-          checkAll(HttpGen.notVoidDom) { dom =>
-            val name = dom.asInstanceOf[Dom.Element].name
-            assertTrue(dom.encode == s"<${name}></${name}>") ||
-            assertTrue(dom.encode == s"<!DOCTYPE ${name}><${name}></${name}>")
+        } +
+          testM("not void") {
+            checkAll(HttpGen.notVoidElement) { elem =>
+              assertTrue(elem.encode == s"<${elem.name}></${elem.name}>") ||
+              assertTrue(elem.encode == s"<!DOCTYPE ${elem.name}><${elem.name}></${elem.name}>")
+            }
           }
-        }
       }
   }
 }

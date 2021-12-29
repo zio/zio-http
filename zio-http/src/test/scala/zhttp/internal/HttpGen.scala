@@ -10,7 +10,7 @@ import zio.stream.ZStream
 import zio.test.{Gen, Sized}
 
 object HttpGen {
-  private def toDom(s: String): Dom = Dom.element(s)
+  private val toDomElement: String => Dom.Element = (s: String) => Dom.Element(s, Seq.empty)
 
   def clientParams[R](dataGen: Gen[R, HttpData[Any, Nothing]]): Gen[Random with Sized with R, ClientParams] =
     for {
@@ -32,14 +32,14 @@ object HttpGen {
     sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
   } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite)
 
-  val notVoidDom: Gen[Random with Sized, Dom] =
+  val notVoidElement: Gen[Random with Sized, Dom.Element] =
     Gen.anyString
       .filterNot(Element.voidElements.contains)
-      .map(toDom)
+      .map(toDomElement)
 
-  val voidDom: Gen[Any, Dom] = Gen
+  val voidElement: Gen[Any, Dom.Element] = Gen
     .fromIterable(Element.voidElements)
-    .map(toDom)
+    .map(toDomElement)
 
   def header: Gen[Random with Sized, Header] = for {
     key   <- Gen.alphaNumericStringBounded(1, 4)
