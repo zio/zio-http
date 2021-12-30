@@ -142,9 +142,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         val res  =
           Http
             .fromData(HttpData.fromFile(file))
-            .request()
-            .map(_.getHeaderValue(HttpHeaderNames.CONTENT_TYPE))
-            .map(_.get)
+            .requestHeaderValueByName(Headers.Literals.Name.CONTENT_TYPE)
         assertM(res)(equalTo("text/plain"))
       } +
       testM("status") {
