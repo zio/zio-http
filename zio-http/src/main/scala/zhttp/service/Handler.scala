@@ -10,6 +10,8 @@ import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
 import zio.stream.ZStream
 import zio.{Task, UIO, ZIO}
 
+import java.net.{InetAddress, InetSocketAddress}
+
 @Sharable
 private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
@@ -27,19 +29,18 @@ private[zhttp] final case class Handler[R](
     unsafeRun(
       jReq,
       app,
-      null,
-//      new Request {
-//        override def method: Method                                 = Method.fromHttpMethod(jReq.method())
-//        override def url: URL                                       = URL.fromString(jReq.uri()).getOrElse(null)
-//        override def getHeaders: Headers                            = Headers.make(jReq.headers())
-//        override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
-//        override def remoteAddress: Option[InetAddress]             = {
-//          ctx.channel().remoteAddress() match {
-//            case m: InetSocketAddress => Some(m.getAddress())
-//            case _                    => None
-//          }
-//        }
-//      },
+      new Request {
+        override def method: Method                                 = Method.fromHttpMethod(jReq.method())
+        override def url: URL                                       = URL.fromString(jReq.uri()).getOrElse(null)
+        override def getHeaders: Headers                            = Headers.make(jReq.headers())
+        override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
+        override def remoteAddress: Option[InetAddress]             = {
+          ctx.channel().remoteAddress() match {
+            case m: InetSocketAddress => Some(m.getAddress())
+            case _                    => None
+          }
+        }
+      },
     )
   }
 
