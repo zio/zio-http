@@ -9,7 +9,6 @@ import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.charset.Charset
-import scala.language.implicitConversions
 
 /**
  * Holds HttpData that needs to be written on the HttpChannel
