@@ -1,7 +1,6 @@
 package zhttp.service
 
 import zhttp.html._
-import zhttp.http.Headers.Literals
 import zhttp.http._
 import zhttp.internal.{AppCollection, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
@@ -156,8 +155,8 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         } +
           testM("content-type") {
             val app = Http.html(html(body(div(id := "foo", "bar"))))
-            val res = app.requestHeaderValueByName()(Literals.Name.ContentType)
-            assertM(res)(isSome(equalTo(Literals.Value.TextHtml.toString)))
+            val res = app.requestHeaderValueByName()(HeaderNames.contentType)
+            assertM(res)(isSome(equalTo(HeaderValues.textHtml.toString)))
           }
       } +
       suite("content-length") {
@@ -185,7 +184,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
             val server = "ZIO-Http"
             for {
               res    <- Response.text("abc").freeze
-              actual <- Http.response(res).withServer(server).requestHeaderValueByName()(Literals.Name.Server)
+              actual <- Http.response(res).withServer(server).requestHeaderValueByName()(HeaderNames.server)
             } yield assert(actual)(isSome(equalTo(server)))
           }
       }
