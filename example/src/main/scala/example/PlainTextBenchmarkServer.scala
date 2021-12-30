@@ -22,7 +22,7 @@ object Main extends App {
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     server(frozenResponse).make.useForever
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(16))
+      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(32))
       .exitCode
   }
 
