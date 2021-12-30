@@ -46,7 +46,7 @@ sealed trait HttpData[-R, +E] { self =>
       case HttpData.BinaryByteBuf(data)  => UIO(data)
       case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
       case HttpData.BinaryStream(stream) =>
-        stream.fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
+        stream.asInstanceOf[ZStream[R, Throwable, ByteBuf]].fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
       case HttpData.File(file)           =>
         // Transfers the content of the file channel to ByteBuf
         effectBlocking {
