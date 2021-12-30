@@ -39,8 +39,6 @@ sealed trait HttpData[-R, +E] { self =>
     }
 
   // Added for implicit conversion of `ZIO[R,E,ByteBuf]` to `ZIO[R, Throwable,Bytebuf]` in `toByteBuf`, may not be needed in scala3
-  implicit def convertZKT[F[-_, +_, +_], W, EA, EB, C](fa: F[W, EA, C])(implicit ev: EA <:< EB): F[W, EB, C] =
-    fa.asInstanceOf[F[W, EB, C]]
 
   def toByteBuf(implicit ev: E <:< Throwable): ZIO[R, Throwable, ByteBuf] = {
     self match {
