@@ -11,5 +11,5 @@ object HttpDataSpec extends DefaultRunnableSpec {
     val res  = HttpData.fromFile(file).toByteBuf.map(_.toString(HTTP_CHARSET))
     assertM(res)(equalTo("abc\nfoo"))
   })
-  override def spec: ZSpec[_root_.zio.test.environment.TestEnvironment, Any] = suite("HttpDataSpec")(suite1)
+  override def spec = suite("HttpDataSpec")(suite1)
 }
