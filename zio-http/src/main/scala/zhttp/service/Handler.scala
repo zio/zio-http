@@ -54,19 +54,20 @@ private[zhttp] final case class Handler[R](
    */
   private def encodeResponse(res: Response[_, _]): HttpResponse = {
 
-    val jResponse = res.attribute.encoded match {
+    val jResponse =
+      if (res.attribute.encoded.isEmpty) res.unsafeEncode()
+      else
+        res.attribute.encoded match {
+          // Check if the encoded response exists and/or was modified.
+          case Some((oRes, jResponse)) if oRes eq res =>
+            jResponse match {
 
-      // Check if the encoded response exists and/or was modified.
-      case Some((oRes, jResponse)) if oRes eq res =>
-        jResponse match {
-
-          // Duplicate the response without allocating much memory
-          case response: FullHttpResponse => response.retainedDuplicate()
-          case response                   => response
+              // Duplicate the response without allocating much memory
+              case response: FullHttpResponse => response.retainedDuplicate()
+              case response                   => response
+            }
+          case _                                      => res.unsafeEncode()
         }
-
-      case _ => res.unsafeEncode()
-    }
 
     // Identify if the server time should be set and update if required.
     if (res.attribute.serverTime) jResponse.headers().set(HttpHeaderNames.DATE, serverTime.refreshAndGet())

@@ -11,7 +11,7 @@ import zhttp.service.{HttpRuntime, WEB_SOCKET_HANDLER}
  */
 trait WebSocketUpgrade[R] { self: ChannelHandler =>
   final def isWebSocket(res: Response[R, Throwable]): Boolean =
-    res.status == Status.SWITCHING_PROTOCOLS && res.attribute.socketApp.nonEmpty
+    res.status.asJava.code() == Status.SWITCHING_PROTOCOLS.asJava.code() && res.attribute.socketApp.nonEmpty
 
   /**
    * Checks if the response requires to switch protocol to websocket. Returns true if it can, otherwise returns false
