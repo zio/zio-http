@@ -7,12 +7,7 @@ import io.netty.handler.codec.http.HttpObjectDecoder.{
   DEFAULT_MAX_HEADER_SIZE,
   DEFAULT_MAX_INITIAL_LINE_LENGTH,
 }
-import io.netty.handler.codec.http.{
-  HttpObjectAggregator,
-  HttpServerCodec,
-  HttpServerExpectContinueHandler,
-  HttpServerKeepAliveHandler,
-}
+import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
 import zhttp.service.Server.Config
@@ -35,14 +30,23 @@ final case class ServerChannelInitializer[R](
     // SSL
     // Add SSL Handler if CTX is available
     val sslctx = if (cfg.sslOption == null) null else cfg.sslOption.sslContext
-    if (sslctx != null) pipeline.addFirst(SSL_HANDLER, new OptionalSSLHandler(sslctx, cfg.sslOption.httpBehaviour, cfg))
+    if (sslctx != null)
+      pipeline
+        .addFirst(SSL_HANDLER, new OptionalSSLHandler(sslctx, cfg.sslOption.httpBehaviour, cfg))
 
-    // ServerCodec
-    // Always add ServerCodec
-    pipeline.addLast(
-      HTTP_SERVER_CODEC,
-      new HttpServerCodec(DEFAULT_MAX_INITIAL_LINE_LENGTH, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_CHUNK_SIZE, false),
-    ) // TODO: See if server codec is really required
+        // ServerCodec
+        // Always add ServerCodec
+        .addLast("encoder", new HttpResponseEncoder())
+        .addLast(
+          "decoder",
+          new HttpRequestDecoder(
+            DEFAULT_MAX_INITIAL_LINE_LENGTH,
+            DEFAULT_MAX_HEADER_SIZE,
+            DEFAULT_MAX_CHUNK_SIZE,
+            false,
+          ),
+        )
+    // TODO: See if server codec is really required
 
     // ObjectAggregator
     // Always add ObjectAggregator
