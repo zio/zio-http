@@ -31,7 +31,7 @@ object CanConstruct {
       }
   }
 
-  implicit def responseM[R, E, A]: Aux[R, E, A, ZIO[R, E, Response[R, E]]] =
+  implicit def responseZIO[R, E, A]: Aux[R, E, A, ZIO[R, E, Response[R, E]]] =
     new CanConstruct[A, ZIO[R, E, Response[R, E]]] {
       override type ROut = R
       override type EOut = E
@@ -40,7 +40,7 @@ object CanConstruct {
         route: Endpoint[A],
         f: Request.ParameterizedRequest[A] => ZIO[R, E, Response[R, E]],
       ): HttpApp[R, E] =
-        Http.collectM[Request] { case req =>
+        Http.collectZIO[Request] { case req =>
           route.extract(req) match {
             case Some(value) => f(Request.ParameterizedRequest(req, value))
             case None        => UIO(Response.fromHttpError(HttpError.NotFound(req.url.path)))

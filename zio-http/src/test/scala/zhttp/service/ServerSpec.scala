@@ -20,7 +20,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
     content <- HttpGen.nonEmptyHttpData(Gen.const(data))
   } yield (data.mkString(""), content)
   private val env       = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
-  private val staticApp = Http.collectM[Request] {
+  private val staticApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
     case Method.GET -> !! / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
     case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
@@ -69,7 +69,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
           }
       } +
       suite("echo content") {
-        val app = Http.collectM[Request] { case req =>
+        val app = Http.collectZIO[Request] { case req =>
           req.getBodyAsString.map(text => Response.text(text))
         }
 
@@ -116,7 +116,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       }
     } +
       testM("POST Request.getBody") {
-        val app = Http.collectM[Request] { case req => req.getBody.as(Response.ok) }
+        val app = Http.collectZIO[Request] { case req => req.getBody.as(Response.ok) }
         val res = app.requestStatus(!!, Method.POST, "some text")
         assertM(res)(equalTo(Status.OK))
       }
