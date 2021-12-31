@@ -76,7 +76,7 @@ object ServerSpec extends HttpRunnableSpec {
       } +
       suite("echo content") {
         val app = Http.collectZIO[Request] { case req =>
-          req.getBodyAsString.map(text => Response.text(text))
+          req.decodeContent(ContentDecoder.text).map(text => Response.text(text))
         }
 
         testM("status is 200") {
@@ -122,7 +122,11 @@ object ServerSpec extends HttpRunnableSpec {
       }
     } +
       testM("POST Request.getBody") {
-        val app = Http.collectZIO[Request] { case req => req.getBody.as(Response.ok) }
+        val app = Http.collectZIO[Request] { case req =>
+          req.decodeContent(ContentDecoder.text).map { content =>
+            Response.text(content)
+          }
+        }
         val res = app.requestStatus(!!, Method.POST, "some text")
         assertM(res)(equalTo(Status.OK))
       }
