@@ -9,9 +9,9 @@ import zio.test.environment.{TestClock, TestConsole}
 import zio.test.{DefaultRunnableSpec, assert, assertM}
 import zio.{UIO, ZIO, console}
 
-object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
+object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   def spec = suite("HttpMiddleware") {
-    import Middleware._
+    import HttpMiddleware._
 
     suite("debug") {
       testM("log status method url and time") {
@@ -172,11 +172,11 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   private val app: HttpApp[Any with Clock, Nothing] = Http.collectZIO[Request] { case Method.GET -> !! / "health" =>
     UIO(Response.ok).delay(1 second)
   }
-  private val midA                                  = Middleware.addHeader("X-Custom", "A")
-  private val midB                                  = Middleware.addHeader("X-Custom", "B")
+  private val midA                                  = HttpMiddleware.addHeader("X-Custom", "A")
+  private val midB                                  = HttpMiddleware.addHeader("X-Custom", "B")
   private val basicHS                               = Headers.basicAuthorizationHeader("user", "resu")
   private val basicHF                               = Headers.basicAuthorizationHeader("user", "user")
-  private val basicAuthM                            = Middleware.basicAuth { case (u, p) => p.toString.reverse == u }
+  private val basicAuthM = HttpMiddleware.basicAuth { case (u, p) => p.toString.reverse == u }
 
   private def cond(flg: Boolean) = (_: Any, _: Any, _: Any) => flg
 
