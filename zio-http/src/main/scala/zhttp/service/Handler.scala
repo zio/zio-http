@@ -34,7 +34,6 @@ private[zhttp] final case class Handler[R](
   private var isFirst                                                                     = true
   private val decoderState: AttributeKey[Any]                                             =
     AttributeKey.valueOf("decoderState")
-  val jRequest: AttributeKey[HttpRequest]                                                 = AttributeKey.valueOf("jReq")
   private val request: AttributeKey[Request] = AttributeKey.valueOf("request")
   private val cBody: AttributeKey[ByteBuf]   = AttributeKey.valueOf("cbody")
 
@@ -43,8 +42,6 @@ private[zhttp] final case class Handler[R](
     msg match {
       case jReq: HttpRequest    =>
         ctx.channel().config().setAutoRead(false)
-        ctx.channel().attr(jRequest).set(jReq)
-
         val newRequest = new Request {
           override def method: Method                                 = Method.fromHttpMethod(jReq.method())
           override def url: URL                                       = URL.fromString(jReq.uri()).getOrElse(null)
