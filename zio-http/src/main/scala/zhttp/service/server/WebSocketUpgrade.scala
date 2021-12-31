@@ -16,15 +16,16 @@ trait WebSocketUpgrade[R] { self: ChannelHandler =>
   /**
    * Checks if the response requires to switch protocol to websocket. Returns true if it can, otherwise returns false
    */
-  final def upgradeToWebSocket(ctx: ChannelHandlerContext, jReq: FullHttpRequest, res: Response[R, Throwable]): Unit = {
-    val app = res.attribute.socketApp
-
+  final def upgradeToWebSocket(ctx: ChannelHandlerContext, jReq: HttpRequest, res: Response[R, Throwable]): Unit = {
+    val app        = res.attribute.socketApp
+    val newRequest = new DefaultFullHttpRequest(jReq.protocolVersion(), jReq.method(), jReq.uri())
+    newRequest.headers().setAll(jReq.headers())
     ctx
       .channel()
       .pipeline()
       .addLast(new WebSocketServerProtocolHandler(app.config.protocol.javaConfig))
       .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(runtime, app.config))
-    ctx.channel().eventLoop().submit(() => ctx.fireChannelRead(jReq)): Unit
+    ctx.channel().eventLoop().submit(() => ctx.fireChannelRead(newRequest)): Unit
 
   }
 
