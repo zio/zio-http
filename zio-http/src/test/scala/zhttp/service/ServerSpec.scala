@@ -143,7 +143,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
           Http
             .fromData(HttpData.fromFile(file))
             .requestHeaderValueByName(Headers.Literals.Name.CONTENT_TYPE)
-        assertM(res)(equalTo("text/plain"))
+        assertM(res)(equalTo(Headers.Literals.Value.TextPlain))
       } +
       testM("status") {
         checkAllM(HttpGen.status) { case (status) =>
