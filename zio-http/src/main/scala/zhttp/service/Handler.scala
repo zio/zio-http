@@ -34,15 +34,15 @@ private[zhttp] final case class Handler[R](
   private var isFirst                                                                     = true
   private val decoderState: AttributeKey[Any]                                             =
     AttributeKey.valueOf("decoderState")
-  private val request: AttributeKey[Request] = AttributeKey.valueOf("request")
-  private val cBody: AttributeKey[ByteBuf]   = AttributeKey.valueOf("cbody")
+  private var request: Request                                                            = _
+  private val cBody: AttributeKey[ByteBuf] = AttributeKey.valueOf("cbody")
 
   override def channelRead0(ctx: Ctx, msg: Any): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
       case jReq: HttpRequest    =>
         ctx.channel().config().setAutoRead(false)
-        val newRequest = new Request {
+        self.request = new Request {
           override def method: Method                                 = Method.fromHttpMethod(jReq.method())
           override def url: URL                                       = URL.fromString(jReq.uri()).getOrElse(null)
           override def getHeaders: Headers                            = Headers.make(jReq.headers())
@@ -82,15 +82,18 @@ private[zhttp] final case class Handler[R](
             }
           }
         }
-        ctx.channel().attr(request).set(newRequest)
         unsafeRun(
           jReq,
           app,
-          newRequest,
+          self.request,
         )
       case msg: LastHttpContent =>
-        decodeContent(msg.content(), ctx.channel().attr(DECODER_KEY).get(), true)
-      case msg: HttpContent     => decodeContent(msg.content(), ctx.channel().attr(DECODER_KEY).get(), false)
+        if (ctx.channel().attr(DECODER_KEY).get() != null)
+          decodeContent(msg.content(), ctx.channel().attr(DECODER_KEY).get(), true)
+        ctx.channel().config().setAutoRead(true): Unit
+      case msg: HttpContent     =>
+        if (ctx.channel().attr(DECODER_KEY).get() != null)
+          decodeContent(msg.content(), ctx.channel().attr(DECODER_KEY).get(), false)
       case _                    => ???
     }
 
@@ -232,6 +235,7 @@ private[zhttp] final case class Handler[R](
    * Writes any response to the Channel
    */
   private def unsafeWriteAndFlushAnyResponse[A](res: Response[R, Throwable])(implicit ctx: Ctx): Unit = {
+    ctx.channel().config().setAutoRead(true)
     ctx.writeAndFlush(encodeResponse(res)): Unit
   }
 
@@ -239,6 +243,7 @@ private[zhttp] final case class Handler[R](
    * Writes not found error response to the Channel
    */
   private def unsafeWriteAndFlushEmptyResponse()(implicit ctx: Ctx): Unit = {
+    ctx.channel().config().setAutoRead(true)
     ctx.writeAndFlush(notFoundResponse): Unit
   }
 
@@ -246,6 +251,7 @@ private[zhttp] final case class Handler[R](
    * Writes error response to the Channel
    */
   private def unsafeWriteAndFlushErrorResponse(cause: Throwable)(implicit ctx: Ctx): Unit = {
+    ctx.channel().config().setAutoRead(true)
     ctx.writeAndFlush(serverErrorResponse(cause)): Unit
   }
 
@@ -288,9 +294,9 @@ private[zhttp] final case class Handler[R](
               Chunk.fromArray(ByteBufUtil.getBytes(content)),
               ctx.channel().attr(decoderState).get(),
               isLast,
-              ctx.channel().attr(request).get().method,
-              ctx.channel().attr(request).get().url,
-              ctx.channel().attr(request).get().getHeaders,
+              self.request.method,
+              self.request.url,
+              self.request.getHeaders,
             )
           _                <- publish match {
             case Some(out) => ctx.channel().attr(COMPLETE_PROMISE).get().succeed(out)
@@ -313,6 +319,7 @@ private[zhttp] final case class Handler[R](
   private def writeStreamContent[A](
     stream: ZStream[R, Throwable, ByteBuf],
   )(implicit ctx: Ctx): ZIO[R, Throwable, Unit] = {
+    ctx.channel().config().setAutoRead(true)
     for {
       _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
