@@ -3,7 +3,7 @@ package zhttp.http
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import zhttp.http.Headers.BearerSchemeName
 import zio.test.Assertion._
-import zio.test.{DefaultRunnableSpec, Gen, assert, check}
+import zio.test.{DefaultRunnableSpec, Gen, assert, assertTrue, check}
 
 object HeaderSpec extends DefaultRunnableSpec {
 
@@ -69,8 +69,7 @@ object HeaderSpec extends DefaultRunnableSpec {
       ) +
       suite("hasJsonContentType")(
         test("should return true if content-type is application/json") {
-          val actual = contentTypeJson.hasJsonContentType
-          assert(actual)(isTrue)
+          assertTrue(contentTypeJson.hasJsonContentType)
         } +
           test("should return false if content-type is not application/json") {
             val actual = contentTypeXml.hasJsonContentType
@@ -84,8 +83,7 @@ object HeaderSpec extends DefaultRunnableSpec {
       ) +
       suite("isPlainTextContentType")(
         test("should return true if content-type is text/plain") {
-          val actual = contentTypeTextPlain.hasTextPlainContentType
-          assert(actual)(isTrue)
+          assertTrue(contentTypeTextPlain.hasTextPlainContentType)
         } +
           test("should return false if content-type is not text/plain") {
             val actual = contentTypeXml.hasTextPlainContentType
@@ -98,8 +96,7 @@ object HeaderSpec extends DefaultRunnableSpec {
       ) +
       suite("isXmlContentType")(
         test("should return true if content-type is application/xml") {
-          val actual = contentTypeXml.hasXmlContentType
-          assert(actual)(isTrue)
+          assertTrue(contentTypeXml.hasXmlContentType)
         } +
           test("should return false if content-type is not application/xml") {
             val actual = contentTypeTextPlain.hasXmlContentType
@@ -113,9 +110,7 @@ object HeaderSpec extends DefaultRunnableSpec {
       ) +
       suite("isXhtmlXmlContentType")(
         test("should return true if content-type is application/xhtml+xml") {
-
-          val actual = contentTypeXhtmlXml.hasXhtmlXmlContentType
-          assert(actual)(isTrue)
+          assertTrue(contentTypeXhtmlXml.hasXhtmlXmlContentType)
         } +
           test("should return false if content-type is not application/xhtml+xml") {
             val actual = contentTypeTextPlain.hasXhtmlXmlContentType
@@ -128,8 +123,7 @@ object HeaderSpec extends DefaultRunnableSpec {
       ) +
       suite("isFormUrlencodedContentType")(
         test("should return true if content-type is application/x-www-form-urlencoded") {
-          val actual = contentTypeFormUrlEncoded.hasFormUrlencodedContentType
-          assert(actual)(isTrue)
+          assertTrue(contentTypeFormUrlEncoded.hasFormUrlencodedContentType)
         } +
           test("should return false if content-type is not application/x-www-form-urlencoded") {
             val actual = contentTypeTextPlain.hasFormUrlencodedContentType

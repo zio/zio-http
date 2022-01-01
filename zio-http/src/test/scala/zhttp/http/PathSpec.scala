@@ -108,10 +108,10 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
         ) +
         suite("startsWith")(
           test("isTrue") {
-            assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a")(isTrue) &&
-            assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b")(isTrue) &&
-            assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b" / "c")(isTrue) &&
-            assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b" / "c" / "d")(isTrue)
+            assertTrue(!! / "a" / "b" / "c" / "d" startsWith !! / "a") &&
+            assertTrue(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b") &&
+            assertTrue(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b" / "c") &&
+            assertTrue(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b" / "c" / "d")
           } +
             test("isFalse") {
               assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b" / "c" / "d" / "e")(isFalse) &&
