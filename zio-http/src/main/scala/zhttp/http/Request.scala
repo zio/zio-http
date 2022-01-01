@@ -1,12 +1,13 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
+import zhttp.http.HttpMessage.RequestMessage
 import zhttp.http.headers.HeaderExtension
 import zio.{Chunk, Task, ZIO}
 
 import java.net.InetAddress
 
-trait Request extends HeaderExtension[Request] { self =>
+trait Request extends HeaderExtension[Request] with RequestMessage { self =>
   def copy(method: Method = self.method, url: URL = self.url, headers: Headers = self.getHeaders): Request = {
     val m = method
     val u = url

@@ -6,6 +6,7 @@ import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
 import zhttp.core.Util
 import zhttp.html.Html
 import zhttp.http.HttpError.HTTPErrorWithCause
+import zhttp.http.HttpMessage.ResponseMessage
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.{Chunk, UIO}
@@ -17,7 +18,8 @@ final case class Response[-R, +E] private (
   headers: Headers,
   data: HttpData[R, E],
   private[zhttp] val attribute: Response.Attribute[R, E],
-) extends HeaderExtension[Response[R, E]] { self =>
+) extends HeaderExtension[Response[R, E]]
+    with ResponseMessage { self =>
 
   /**
    * Adds cookies in the response headers.
