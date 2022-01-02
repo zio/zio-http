@@ -9,12 +9,11 @@ import zio.test._
 
 object EncodeClientParamsSpec extends DefaultRunnableSpec with EncodeClientParams {
 
-  val anyClientParam: Gen[Random with Sized, Client.ClientParams]         = HttpGen.clientParams(
+  val anyClientParam: Gen[Random with Sized, Client.ClientParams] = HttpGen.clientParams(
     HttpGen.httpData(
       Gen.listOf(Gen.alphaNumericString),
     ),
   )
-  val clientParamForFileData: Gen[Random with Sized, Client.ClientParams] = HttpGen.clientParamsForFileHttpData()
 
   def clientParamWithFiniteData(size: Int): Gen[Random with Sized, Client.ClientParams] = HttpGen.clientParams(
     for {
@@ -31,7 +30,7 @@ object EncodeClientParamsSpec extends DefaultRunnableSpec with EncodeClientParam
       }
     } +
       testM("method on HttpData.File") {
-        check(clientParamForFileData) { params =>
+        check(HttpGen.clientParamsForFileHttpData()) { params =>
           val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
           assert(req.method())(equalTo(params.method.asHttpMethod))
         }
@@ -43,7 +42,7 @@ object EncodeClientParamsSpec extends DefaultRunnableSpec with EncodeClientParam
         }
       } +
       testM("uri on HttpData.File") {
-        check(clientParamForFileData) { params =>
+        check(HttpGen.clientParamsForFileHttpData()) { params =>
           val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
           assert(req.uri())(equalTo(params.url.asString))
         }
