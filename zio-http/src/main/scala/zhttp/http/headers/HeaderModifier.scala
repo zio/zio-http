@@ -23,6 +23,8 @@ trait HeaderModifier[+A] { self =>
   final def removeHeaders(headers: List[String]): A =
     updateHeaders(orig => Headers(orig.toList.filterNot(h => headers.contains(h._1))))
 
+  final def setHeaders(headers: Headers): A = self.updateHeaders(_ => headers)
+
   /**
    * Updates the current Headers with new one, using the provided update function passed.
    */
