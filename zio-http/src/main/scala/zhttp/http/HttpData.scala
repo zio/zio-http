@@ -54,10 +54,12 @@ sealed trait HttpData[-R, +E] { self =>
           val inChannel: FileChannel  = aFile.getChannel
           val fileSize: Long          = inChannel.size
           val buffer: ByteBuffer      = ByteBuffer.allocate(fileSize.toInt)
+          val arr                     = new Array[Byte](buffer.remaining)
+          buffer.flip.get(arr)
           inChannel.read(buffer)
           inChannel.close()
           aFile.close()
-          Unpooled.copiedBuffer(buffer.flip)
+          Unpooled.copiedBuffer(arr)
         }
     }
   }
