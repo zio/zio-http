@@ -12,7 +12,6 @@ import zio.{Task, UIO, ZIO}
 
 import java.io.File
 import java.net.{InetAddress, InetSocketAddress}
-import java.nio.file.Files
 
 @Sharable
 private[zhttp] final case class Handler[R](
@@ -63,22 +62,17 @@ private[zhttp] final case class Handler[R](
       case Some((oRes, jResponse)) if oRes eq res =>
         jResponse match {
           // Duplicate the response without allocating much memory
-          case response: FullHttpResponse => response.retainedDuplicate()
-          case response                   => response
+          case response: FullHttpResponse =>
+            response.retainedDuplicate()
+
+          case response =>
+            response
         }
-      case _                                      => res.unsafeEncode()
+
+      case _ => res.unsafeEncode()
     }
     // Identify if the server time should be set and update if required.
     if (res.attribute.serverTime) jResponse.headers().set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
-
-    // Set MIME type in the response headers. This is only relevant in case of File transfers as browsers use the MIME
-    // type, not the file extension, to determine how to process a URL.<a href="MSDN
-    // Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>
-    res.data match {
-      case HttpData.File(file) =>
-        jResponse.headers().set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(file.toPath))
-      case _                   => ()
-    }
     jResponse
   }
 

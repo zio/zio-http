@@ -3,10 +3,10 @@ package zhttp.internal
 import io.netty.buffer.Unpooled
 import zhttp.http._
 import zhttp.service.Client.ClientParams
-import zio.Chunk
 import zio.random.Random
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
+import zio.{Chunk, ZIO}
 
 import java.io.File
 
@@ -20,8 +20,8 @@ object HttpGen {
     } yield ClientParams(method, url, headers, data)
 
   def clientParamsForFileHttpData() = {
-    val file = new File(getClass.getResource("/TestFile.txt").getPath)
     for {
+      file    <- Gen.fromEffect(ZIO.succeed(new File(getClass.getResource("/TestFile.txt").getPath)))
       method  <- HttpGen.method
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))

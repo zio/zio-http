@@ -144,7 +144,7 @@ object ServerSpec extends HttpRunnableSpec(8088) {
             .fromData(HttpData.fromFile(file))
             .request()
             .map(_.getHeaderValue(HttpHeaderNames.CONTENT_TYPE))
-            .map(_.get)
+            .map(_.getOrElse("Content type header not found."))
         assertM(res)(equalTo("text/plain"))
       } +
       testM("status") {
