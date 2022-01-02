@@ -33,7 +33,7 @@ sealed trait Server[-R, +E] { self =>
 
   def make(implicit
     ev: E <:< Throwable,
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Bootstrap] =
+  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Start] =
     Server.make(self.asInstanceOf[Server[R, Throwable]])
 
   def start(implicit ev: E <:< Throwable): ZIO[R with EventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
@@ -59,7 +59,7 @@ object Server {
   /**
    * Holds server bootstrap information.
    */
-  final case class Bootstrap(port: Int = 0)
+  final case class Start(port: Int = 0)
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
   private final case class LeakDetection(level: LeakDetectionLevel)                   extends UServer
@@ -99,7 +99,7 @@ object Server {
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] = {
     (Server.bind(port) ++ Server.app(http)).make
-      .flatMap(bootstrap => ZManaged.succeed(println(s"Server started on port: ${bootstrap.port}")))
+      .flatMap(start => ZManaged.succeed(println(s"Server started on port: ${start.port}")))
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
   }
@@ -121,7 +121,7 @@ object Server {
 
   def make[R](
     server: Server[R, Throwable],
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Bootstrap] = {
+  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Start] = {
     val settings = server.settings()
     for {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
@@ -135,7 +135,7 @@ object Server {
       port <- ZManaged.effect(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield {
       ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
-      Bootstrap(port)
+      Start(port)
     }
   }
 }

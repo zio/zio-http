@@ -32,9 +32,9 @@ object HelloWorldAdvanced extends App {
 
     // Create a new server
     server.make
-      .use(bootstrap =>
+      .use(start =>
         // Waiting for the server to start
-        console.putStrLn(s"Server started on port ${bootstrap.port}")
+        console.putStrLn(s"Server started on port ${start.port}")
 
         // Ensures the server doesn't die after printing
           *> ZIO.never,
