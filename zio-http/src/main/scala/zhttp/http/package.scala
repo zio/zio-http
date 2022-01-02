@@ -14,15 +14,17 @@ package object http extends PathModule with RequestSyntax with RouteDecoderModul
   type UResponse          = Response[Any, Nothing]
   type UHttpResponse      = Response[Any, Nothing]
   type ResponseM[-R, +E]  = ZIO[R, E, Response[R, E]]
-
-  object SilentResponse {
-    def apply[E: SilentResponse]: SilentResponse[E] = implicitly[SilentResponse[E]]
-  }
-
-  type Header = (CharSequence, CharSequence)
+  type Header             = (CharSequence, CharSequence)
 
   /**
    * Default HTTP Charset
    */
   val HTTP_CHARSET: Charset = CharsetUtil.UTF_8
+
+  object SilentResponse {
+    def apply[E: SilentResponse]: SilentResponse[E] = implicitly[SilentResponse[E]]
+  }
+
+  object HeaderNames  extends headers.HeaderNames
+  object HeaderValues extends headers.HeaderValues
 }

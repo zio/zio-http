@@ -5,7 +5,6 @@ import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
 import zhttp.core.Util
 import zhttp.html.Html
-import zhttp.http.Headers.Literals._
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
@@ -138,8 +137,8 @@ object Response {
    */
   def html(data: Html): UResponse =
     Response(
-      data = HttpData.fromString(data.encode),
-      headers = Headers(Name.ContentType, Value.TextHtml),
+      data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
+      headers = Headers(HeaderNames.contentType, HeaderValues.textHtml),
     )
 
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
@@ -155,7 +154,7 @@ object Response {
   def json(data: String): UResponse =
     Response(
       data = HttpData.fromChunk(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
-      headers = Headers(Name.ContentLength, Value.ApplicationJson),
+      headers = Headers(HeaderNames.contentLength, HeaderValues.applicationJson),
     )
 
   /**
@@ -194,7 +193,7 @@ object Response {
   def text(text: String, charset: Charset = HTTP_CHARSET): UResponse =
     Response(
       data = HttpData.fromString(text, charset),
-      headers = Headers(Name.ContentType, Value.TextPlain),
+      headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
     )
 
   /**

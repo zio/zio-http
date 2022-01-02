@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
-import zhttp.http.headers.{HeaderConstructors, HeaderExtension, HeaderNames, HeaderValues}
+import zhttp.http.headers.{HeaderConstructors, HeaderExtension}
 import zio.Chunk
 
 import scala.jdk.CollectionConverters._
@@ -65,9 +65,4 @@ object Headers extends HeaderConstructors {
 
   private[zhttp] def decode(headers: HttpHeaders): Headers =
     Headers(headers.entries().asScala.toList.map(entry => (entry.getKey, entry.getValue)))
-
-  object Literals {
-    object Name  extends HeaderNames
-    object Value extends HeaderValues
-  }
 }
