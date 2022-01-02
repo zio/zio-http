@@ -7,7 +7,6 @@ import java.io.File
 
 object HttpDataSpec extends DefaultRunnableSpec {
   // TODO : Add tests for othe HttpData types
-
   override def spec: ZSpec[_root_.zio.test.environment.TestEnvironment, Any] =
     suite("HttpDataSpec")(suite("Test toByteBuf")(testM("HttpData.File") {
       val file = new File(getClass.getResource("/TestFile.txt").getPath)

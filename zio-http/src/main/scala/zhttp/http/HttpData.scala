@@ -9,7 +9,6 @@ import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.charset.Charset
-import scala.language.implicitConversions
 
 /**
  * Holds HttpData that needs to be written on the HttpChannel
@@ -39,8 +38,6 @@ sealed trait HttpData[-R, +E] { self =>
     }
 
   // Added for implicit conversion of `ZIO[R,E,ByteBuf]` to `ZIO[R, Throwable,Bytebuf]` in `toByteBuf`, may not be needed in scala3
-  implicit def convertZKT[F[-_, +_, +_], W, EA, EB, C](fa: F[W, EA, C])(implicit ev: EA <:< EB): F[W, EB, C] =
-    fa.asInstanceOf[F[W, EB, C]]
 
   def toByteBuf(implicit ev: E <:< Throwable): ZIO[R, Throwable, ByteBuf] = {
     self match {
@@ -49,7 +46,7 @@ sealed trait HttpData[-R, +E] { self =>
       case HttpData.BinaryByteBuf(data)  => UIO(data)
       case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
       case HttpData.BinaryStream(stream) =>
-        stream.fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
+        stream.asInstanceOf[ZStream[R, Throwable, ByteBuf]].fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
       case HttpData.File(file)           =>
         // Transfers the content of the file channel to ByteBuf
         effectBlocking {
