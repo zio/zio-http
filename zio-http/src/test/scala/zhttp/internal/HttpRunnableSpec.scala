@@ -1,7 +1,7 @@
 package zhttp.internal
 
 import sttp.client3.asynchttpclient.zio.{SttpClient, send}
-import sttp.client3.{Response => SResponse, UriContext, asWebSocketUnsafe, basicRequest}
+import sttp.client3.{UriContext, asWebSocketUnsafe, basicRequest, Response => SResponse}
 import sttp.model.{Header => SHeader}
 import sttp.ws.WebSocket
 import zhttp.http.URL.Location
@@ -37,18 +37,19 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       port <- DynamicServer.getPort
       data = HttpData.fromString(content)
       response <- Client.request(
-        Client.ClientParams(method,URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
+        Client.ClientParams(method, URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
         ClientSSLOptions.DefaultSSL,
       )
     } yield response
   }
 
-  def status(path: Path):HttpIO[Any, Status] = {
+  def status(path: Path): HttpIO[Any, Status] = {
     for {
       port   <- DynamicServer.getPort
       status <- Client
         .request(
-          Method.GET, URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
+          Method.GET,
+          URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
           ClientSSLOptions.DefaultSSL,
         )
         .map(_.status)
@@ -78,7 +79,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       headers: Headers = Headers.empty,
     ): HttpIO[Any, Client.ClientResponse] = for {
       id       <- deploy
-      response <- self.request(path, method, content, Headers(AppCollection.APP_ID, id) ++ headers)
+      response <- self.request(path, method, content, Headers(DynamicServer.APP_ID, id) ++ headers)
     } yield response
 
     def requestBodyAsString(
