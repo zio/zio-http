@@ -127,7 +127,7 @@ object Middleware {
         case (false, true, origin, _)     => config.allowedOrigins(origin)
         case (false, false, origin, acrm) =>
           config.allowedMethods.exists(_.contains(acrm)) &&
-            config.allowedOrigins(origin)
+          config.allowedOrigins(origin)
       }
     def corsHeaders(origin: Header, method: Method, isPreflight: Boolean): Headers = {
       Headers.ifThenElse(isPreflight)(
