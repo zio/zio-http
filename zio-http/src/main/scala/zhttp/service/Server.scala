@@ -57,7 +57,7 @@ object Server {
   )
 
   /**
-   * Holds server bootstrap information.
+   * Holds server start information.
    */
   final case class Start(port: Int = 0)
 

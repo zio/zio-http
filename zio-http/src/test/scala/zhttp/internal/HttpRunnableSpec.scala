@@ -64,7 +64,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     for {
       port <- DynamicServer.getPort
       url                       = s"ws://localhost:$port${path.asString}"
-      headerConv: List[SHeader] = headers.toList.map(h => SHeader(h._1.toString(), h._2.toString()))
+      headerConv: List[SHeader] = headers.toList.map(h => SHeader(h._1, h._2))
       res <- send(basicRequest.get(uri"$url").copy(headers = headerConv).response(asWebSocketUnsafe))
     } yield res
   }
