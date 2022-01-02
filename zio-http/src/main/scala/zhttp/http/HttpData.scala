@@ -37,9 +37,7 @@ sealed trait HttpData[-R, +E] { self =>
       case m                           => m.asInstanceOf[HttpData[Any, E]]
     }
 
-  // Added for implicit conversion of `ZIO[R,E,ByteBuf]` to `ZIO[R, Throwable,Bytebuf]` in `toByteBuf`, may not be needed in scala3
-
-  def toByteBuf(implicit ev: E <:< Throwable): ZIO[R, Throwable, ByteBuf] = {
+  def toByteBuf: ZIO[R, Throwable, ByteBuf] = {
     self match {
       case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
       case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
