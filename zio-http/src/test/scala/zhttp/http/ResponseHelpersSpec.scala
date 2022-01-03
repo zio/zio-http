@@ -8,7 +8,8 @@ object ResponseHelpersSpec extends DefaultRunnableSpec {
     suite("redirectSpec")(
       test("Temporary redirect should produce a response with a TEMPORARY_REDIRECT") {
         val x = Response.redirect(location)
-        assertTrue(x.status == Status.TEMPORARY_REDIRECT && x.getHeaderValue(HeaderNames.location).contains(location))
+        assertTrue(x.status == Status.TEMPORARY_REDIRECT) &&
+        assertTrue(x.getHeaderValue(HeaderNames.location).contains(location))
       } +
         test("Temporary redirect should produce a response with a location") {
           val x = Response.redirect(location)
