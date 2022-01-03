@@ -23,11 +23,12 @@ object CanConstruct {
     override type EOut = E
 
     override def make(route: Endpoint[A], f: Request.ParameterizedRequest[A] => Response[R, E]): HttpApp[R, E] =
-      Http.collect[Request] { case req =>
-        route.extract(req) match {
-          case Some(value) => f(Request.ParameterizedRequest(req, value))
-          case None        => Response.fromHttpError(HttpError.NotFound(req.url.path))
-        }
+      Http.collect[Request] {
+        case req if route.extract(req).isDefined =>
+          route.extract(req) match {
+            case Some(value) => f(Request.ParameterizedRequest(req, value))
+            case None        => Response.fromHttpError(HttpError.NotFound(req.url.path))
+          }
       }
   }
 
@@ -40,11 +41,12 @@ object CanConstruct {
         route: Endpoint[A],
         f: Request.ParameterizedRequest[A] => ZIO[R, E, Response[R, E]],
       ): HttpApp[R, E] =
-        Http.collectM[Request] { case req =>
-          route.extract(req) match {
-            case Some(value) => f(Request.ParameterizedRequest(req, value))
-            case None        => UIO(Response.fromHttpError(HttpError.NotFound(req.url.path)))
-          }
+        Http.collectM[Request] {
+          case req if route.extract(req).isDefined =>
+            route.extract(req) match {
+              case Some(value) => f(Request.ParameterizedRequest(req, value))
+              case None        => UIO(Response.fromHttpError(HttpError.NotFound(req.url.path)))
+            }
         }
     }
 }

@@ -4,7 +4,7 @@ import zhttp.http._
 import zio.test.Assertion._
 import zio.test.{DefaultRunnableSpec, assert}
 
-object EndpointSpec extends DefaultRunnableSpec {
+object EndpointSpec extends DefaultRunnableSpec with HExitAssertion {
   def spec = suite("Route") {
     test("match method") {
       val route   = Endpoint.fromMethod(Method.GET)
@@ -61,6 +61,12 @@ object EndpointSpec extends DefaultRunnableSpec {
         assert(route.extract(!! / "1" / "c"))(isSome(equalTo(1))) &&
         assert(route.extract(!! / "1"))(isNone) &&
         assert(route.extract(!! / "c"))(isNone)
+      } +
+      test("combining endpoints should resolve second") {
+        val a      = Method.GET / "a" / *[Int] to { _ => Response.ok }
+        val b      = Method.GET / "b" / *[Int] to { _ => Response.text("B") }
+        val actual = (a ++ b).execute(Request(Method.GET, URL(Path("/b/2")))).map(_.status)
+        assert(actual)(isSuccess(equalTo(Status.OK)))
       }
   }
 }
