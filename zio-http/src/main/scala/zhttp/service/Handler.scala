@@ -15,7 +15,7 @@ private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
-) extends SimpleChannelInboundHandler[Any](false)
+) extends SimpleChannelInboundHandler[Any](true)
     with WebSocketUpgrade[R] { self =>
 
   type Ctx = ChannelHandlerContext
