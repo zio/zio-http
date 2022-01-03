@@ -24,7 +24,6 @@ object ResponseHelpersSpec extends DefaultRunnableSpec {
         } +
         test("Json should set content type to ApplicationJson") {
           val x = Response.json("""{"message": "Hello"}""")
-          println(x.getHeadersAsList)
           assertTrue(x.getHeaderValue(HeaderNames.contentType).contains(HeaderValues.applicationJson.toString))
         },
     )
