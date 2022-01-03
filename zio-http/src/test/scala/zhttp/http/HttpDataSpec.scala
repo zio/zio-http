@@ -1,7 +1,7 @@
 package zhttp.http
 
 import zio.test.Assertion.equalTo
-import zio.test.{DefaultRunnableSpec, ZSpec, assertM}
+import zio.test.{DefaultRunnableSpec, assertM}
 
 import java.io.File
 

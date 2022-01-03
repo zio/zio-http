@@ -76,7 +76,7 @@ final case class Response[-R, +E] private (
       case HttpData.BinaryByteBuf(data) => data
       case HttpData.BinaryStream(_)     => null
       case HttpData.Empty               => Unpooled.EMPTY_BUFFER
-      case HttpData.File(_)             => 
+      case HttpData.File(file)          =>
         jHeaders.set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(file.toPath))
         null
     }
