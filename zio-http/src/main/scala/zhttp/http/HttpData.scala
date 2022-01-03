@@ -5,10 +5,8 @@ import zio.blocking.Blocking.Service.live.effectBlocking
 import zio.stream.ZStream
 import zio.{Chunk, NeedsEnv, UIO, ZIO}
 
-import java.io.RandomAccessFile
-import java.nio.ByteBuffer
-import java.nio.channels.FileChannel
 import java.nio.charset.Charset
+import java.nio.file.Files
 
 /**
  * Holds HttpData that needs to be written on the HttpChannel
@@ -48,18 +46,9 @@ sealed trait HttpData[-R, +E] { self =>
           .asInstanceOf[ZStream[R, Throwable, ByteBuf]]
           .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
       case HttpData.File(file)           =>
-        // Transfers the content of the file channel to ByteBuf
         effectBlocking {
-          val aFile: RandomAccessFile = new RandomAccessFile(file.toString, "r")
-          val inChannel: FileChannel  = aFile.getChannel
-          val fileSize: Long          = inChannel.size
-          val buffer: ByteBuffer      = ByteBuffer.allocate(fileSize.toInt)
-          val arr                     = new Array[Byte](buffer.remaining)
-          buffer.flip.get(arr)
-          inChannel.read(buffer)
-          inChannel.close()
-          aFile.close()
-          Unpooled.copiedBuffer(arr)
+          val fileContent = Files.readAllBytes(file.toPath)
+          Unpooled.copiedBuffer(fileContent)
         }
     }
   }
