@@ -42,7 +42,7 @@ object HelloWorld extends App {
     Server.start(8090, app).exitCode
 }
 ```
-###### Examples
+#### Examples
 
 You can checkout more examples in the [example](https://github.com/dream11/zio-http/tree/main/example/src/main/scala/example) project —
 
@@ -54,7 +54,7 @@ You can checkout more examples in the [example](https://github.com/dream11/zio-h
 - [File Streaming](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/example/FileStreaming.scala)
 - [Authentication](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/example/Authentication.scala)
 
-###### Steps to run an example
+#### Steps to run an example
 
 1. Edit the [RunSettings](https://github.com/dream11/zio-http/blob/main/project/BuildHelper.scala#L109) - modify `className` to the example you'd like to run.
 2. From sbt shell, run `~example/reStart`. You should see `Server started on port: 8090`.
