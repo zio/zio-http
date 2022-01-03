@@ -2,12 +2,12 @@ package zhttp.middleware
 
 import zhttp.http._
 import zhttp.internal.HttpAppTestExtensions
+import zio._
 import zio.clock.Clock
 import zio.duration._
 import zio.test.Assertion._
 import zio.test.environment.{TestClock, TestConsole}
 import zio.test.{DefaultRunnableSpec, assert, assertM}
-import zio.{UIO, ZIO, console}
 
 object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   def spec = suite("HttpMiddleware") {
@@ -167,50 +167,47 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             } yield assert(res.getHeadersAsList)(hasSubset(expected))
           }
       } +
-      suite("addCookie middleware") {
-        testM("should add set-cookie header") {
-          val app = (Http.ok @@ addCookie(Cookie("test", "testValue"))).getHeader("set-cookie")
+      suite("cookie") {
+        testM("addCookie") {
+          val cookie = Cookie("test", "testValue")
+          val app    = (Http.ok @@ addCookie(cookie)).getHeader("set-cookie")
           assertM(app(Request()))(
-            equalTo(Some(Cookie("test", "testValue").encode)),
+            equalTo(Some(cookie.encode)),
           )
         } +
-          testM("should add set cookie header with value produced by effect") {
-            val app =
-              (Http.ok @@ addCookieM(UIO(Cookie("test", "testValue")))).getHeader("set-cookie")
+          testM("addCookieM") {
+            val cookie = Cookie("test", "testValue")
+            val app    =
+              (Http.ok @@ addCookieM(UIO(cookie))).getHeader("set-cookie")
             assertM(app(Request()))(
-              equalTo(Some(Cookie("test", "testValue").encode)),
+              equalTo(Some(cookie.encode)),
             )
           }
       } +
-      suite("CSRF middleware") {
-        val app: Http[Any, Nothing, Request, Status] = (Http.ok @@ csrf("x-token")).getStatus
-        val cookieHeader                             = Headers.cookie(Cookie("x-token", "secret"))
-        testM("should give forbidden if token is not present in header") {
-          assertM(app(Request(headers = cookieHeader)))(equalTo(Status.FORBIDDEN))
+      suite("csrf") {
+        val app       = (Http.ok @@ csrf("x-token")).getStatus
+        val setCookie = Headers.cookie(Cookie("x-token", "secret"))
+        val xToken    = Headers("x-token", "secret1")
+        testM("x-token not present") {
+          assertM(app(Request(headers = setCookie)))(equalTo(Status.FORBIDDEN))
         } +
-          testM("should give forbidden if token is present in header but doesn't match with token cookie") {
-            assertM(app(Request(headers = cookieHeader ++ Headers("x-token", "secret1"))))(
+          testM("x-token mismatch") {
+            assertM(app(Request(headers = setCookie ++ xToken)))(
               equalTo(Status.FORBIDDEN),
             )
           } +
-          testM("should give OK if token present in header matches token present in cookie") {
-            assertM(app(Request(headers = cookieHeader ++ Headers("x-token", "secret"))))(
+          testM("x-token match") {
+            assertM(app(Request(headers = setCookie ++ Headers("x-token", "secret"))))(
               equalTo(Status.OK),
             )
           } +
-          testM("should give empty body if token is present in header but doesn't match with token cookie") {
-            val app = Http.text("hello") @@ csrf("x-token")
-            assertM(app(Request(headers = cookieHeader ++ Headers("x-token", "secret1"))).map(_.data))(
-              equalTo(HttpData.empty),
-            )
-          } +
-          testM("should not run app if token is present in header but doesn't match with token cookie") {
-            var count = 0
-            val app   = Http.ok.tapM(_ => UIO(count += 1)) @@ csrf("x-token")
-            assertM(
-              app(Request(headers = cookieHeader ++ Headers("x-token", "secret1")))
-                .as(count),
-            )(equalTo(0))
+          testM("app execution skipped") {
+            for {
+              r <- Ref.make(false)
+              app = Http.ok.tapM(_ => r.set(true)) @@ csrf("x-token")
+              _   <- app.execute(Request(headers = setCookie ++ xToken)).toEffect
+              res <- r.get
+            } yield assert(res)(equalTo(false))
           }
       }
   }
