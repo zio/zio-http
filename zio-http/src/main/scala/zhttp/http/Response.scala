@@ -151,7 +151,7 @@ object Response {
   def json(data: String): UResponse =
     Response(
       data = HttpData.fromChunk(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
-      headers = Headers(HeaderNames.contentLength, HeaderValues.applicationJson),
+      headers = Headers(HeaderNames.contentType, HeaderValues.applicationJson),
     )
 
   /**
