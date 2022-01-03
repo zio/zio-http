@@ -2,7 +2,11 @@ package zhttp.http
 
 import zio.duration._
 
+import java.security.MessageDigest
 import java.time.Instant
+import java.util.Base64.getEncoder
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 import scala.util.Try
 
 final case class Cookie(
@@ -15,6 +19,7 @@ final case class Cookie(
   isHttpOnly: Boolean = false,
   maxAge: Option[Long] = None,
   sameSite: Option[Cookie.SameSite] = None,
+  secret: Option[String] = None,
 ) { self =>
 
   /**
@@ -69,6 +74,16 @@ final case class Cookie(
   def withSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
 
   /**
+   * Adds secret in the cookie
+   */
+  def sign(secret: String): Cookie = copy(secret = Some(secret))
+
+  /**
+   * Removes secret in the cookie
+   */
+  def unSign: Cookie = copy(secret = None)
+
+  /**
    * Resets secure flag in the cookie
    */
   def withoutSecure: Cookie = copy(isSecure = false)
@@ -107,8 +122,13 @@ final case class Cookie(
    * Converts cookie into a string
    */
   def encode: String = {
+    val c = secret match {
+      case Some(sec) => sign(sec, content)
+      case None      => content
+    }
+
     val cookie = List(
-      Some(s"$name=$content"),
+      Some(s"$name=$c"),
       expires.map(e => s"Expires=$e"),
       maxAge.map(a => s"Max-Age=${a.toString}"),
       domain.map(d => s"Domain=$d"),
@@ -120,6 +140,34 @@ final case class Cookie(
     cookie.flatten.mkString("; ")
   }
 
+  /**
+   * Signs cookie content with a secret
+   */
+  private def sign(secret: String, content: String): String = {
+    try {
+      val sha256    = Mac.getInstance("HmacSHA256")
+      val secretKey = new SecretKeySpec(secret.getBytes(), "RSA")
+      sha256.init(secretKey)
+      val signed    = sha256.doFinal(content.getBytes())
+      val mda       = MessageDigest.getInstance("SHA-512")
+      content + '.' + getEncoder.encodeToString(mda.digest(signed))
+    } catch {
+      case _: Exception => content
+    }
+  }
+
+  /**
+   * Unsigns cookie content with a secret
+   */
+  private def unSign(secret: String): Option[Cookie] = {
+    val str             = self.content.slice(0, content.lastIndexOf('.'))
+    val unSignedCookie  = self.withContent(str)
+    val encryptedCookie = unSignedCookie.sign(secret, str)
+
+    if (encryptedCookie == self.content)
+      Some(unSignedCookie.sign(secret))
+    else None
+  }
 }
 
 object Cookie {
@@ -142,6 +190,14 @@ object Cookie {
     case object Lax    extends SameSite { def asString = "Lax"    }
     case object Strict extends SameSite { def asString = "Strict" }
     case object None   extends SameSite { def asString = "None"   }
+  }
+
+  def decodeResponseSignedCookie(headerValue: String, secret: String): Option[Cookie] = {
+    val decodedCookie = decodeResponseCookie(headerValue)
+    decodedCookie match {
+      case Some(cookie) => cookie.unSign(secret)
+      case None         => None
+    }
   }
 
   /**
