@@ -92,11 +92,6 @@ final case class Response[-R, +E] private (
       // type, not the file extension, to determine how to process a URL.<a href="MSDN
       // Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>
 
-      self.data match {
-        case HttpData.File(file) =>
-          jHeaders.set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(file.toPath))
-        case _                   => ()
-      }
       new DefaultHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jHeaders)
     } else {
       val jResponse = new DefaultFullHttpResponse(HTTP_1_1, self.status.asJava, jContent, false)
