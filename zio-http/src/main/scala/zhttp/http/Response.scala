@@ -11,6 +11,7 @@ import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio.{Chunk, UIO}
 
 import java.nio.charset.Charset
+import java.nio.file.Files
 
 final case class Response[-R, +E] private (
   status: Status,
@@ -75,16 +76,24 @@ final case class Response[-R, +E] private (
       case HttpData.BinaryByteBuf(data) => data
       case HttpData.BinaryStream(_)     => null
       case HttpData.Empty               => Unpooled.EMPTY_BUFFER
+      case HttpData.File(file)          =>
+        jHeaders.set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(file.toPath))
+        null
     }
 
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
     if (jContent == null) {
       // TODO: Unit test for this
       // Client can't handle chunked responses and currently treats them as a FullHttpResponse.
-      // Due to this client limitations it is not possible to write a unit-test for this.
+      // Due to this client limitation it is not possible to write a unit-test for this.
       // Alternative would be to use sttp client for this use-case.
 
       if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
+
+      // Set MIME type in the response headers. This is only relevant in case of File transfers as browsers use the MIME
+      // type, not the file extension, to determine how to process a URL.<a href="MSDN
+      // Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>
+
       new DefaultHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jHeaders)
     } else {
       val jResponse = new DefaultFullHttpResponse(HTTP_1_1, self.status.asJava, jContent, false)
@@ -193,8 +202,7 @@ object Response {
     memoize: Boolean = false,
     serverTime: Boolean = false,
     encoded: Option[(Response[R, E], HttpResponse)] = None,
-  ) {
-    self =>
+  ) { self =>
     def withEncodedResponse[R1 <: R, E1 >: E](jResponse: HttpResponse, response: Response[R1, E1]): Attribute[R1, E1] =
       self.copy(encoded = Some(response -> jResponse))
 

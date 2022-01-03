@@ -1,5 +1,6 @@
 package zhttp.service
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
 import zhttp.http._
 import zhttp.internal.{AppCollection, HttpGen, HttpRunnableSpec}
@@ -11,6 +12,7 @@ import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
+import java.io.File
 import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec(8088) {
@@ -129,6 +131,20 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         assertM(res)(equalTo(string))
       }
     } +
+      testM("data from file") {
+        val file = new File(getClass.getResource("/TestFile.txt").getPath)
+        val res  = Http.fromFile(file).requestBodyAsString()
+        assertM(res)(equalTo("abc\nfoo"))
+      } +
+      testM("content-type header on file response") {
+        val file = new File(getClass.getResource("/TestFile.txt").getPath)
+        val res  =
+          Http
+            .fromFile(file)
+            .requestHeaderValueByName()(HttpHeaderNames.CONTENT_TYPE)
+            .map(_.getOrElse("Content type header not found."))
+        assertM(res)(equalTo("text/plain"))
+      } +
       testM("status") {
         checkAllM(HttpGen.status) { case (status) =>
           val res = Http.status(status).requestStatus()
@@ -142,11 +158,9 @@ object ServerSpec extends HttpRunnableSpec(8088) {
         }
       } +
       testM("file-streaming") {
-        val path = getClass.getResource("/TestFile").getPath
-        val res  = Http
-          .fromData(HttpData.fromStream(ZStream.fromFile(Paths.get(path))))
-          .requestBodyAsString()
-        assertM(res)(containsString("foo"))
+        val path = getClass.getResource("/TestFile.txt").getPath
+        val res  = Http.fromData(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
+        assertM(res)(containsString("abc"))
       } +
       suite("html") {
         testM("body") {

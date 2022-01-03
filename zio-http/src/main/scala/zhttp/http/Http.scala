@@ -460,6 +460,11 @@ object Http {
    */
   def fromData[R, E](data: HttpData[R, E]): HttpApp[R, E] = response(Response(data = data))
 
+  /*
+   * Creates an Http app from the contents of a file
+   */
+  def fromFile(file: java.io.File): HttpApp[Any, Nothing] = response(Response(data = HttpData.fromFile(file)))
+
   /**
    * Converts a ZIO to an Http type
    */

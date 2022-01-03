@@ -60,7 +60,7 @@ object SSLSpec extends HttpRunnableSpec(8073) {
                 .request("http://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL1))
                 .map(_.status)
               assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
-            },
+            } @@ ignore,
         ),
       )
       .useNow,
