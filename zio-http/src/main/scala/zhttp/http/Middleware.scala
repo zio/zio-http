@@ -125,7 +125,7 @@ object Middleware {
   def csrf(tokenName: String = "x-csrf-token"): Middleware[Any, Nothing] = {
     whenHeader(
       headers => {
-        (headers.getHeaderValue(tokenName), headers.getCookie(tokenName)) match {
+        (headers.getHeaderValue(tokenName), headers.getCookieValue(tokenName)) match {
           case (Some(headerValue), Some(cookieValue)) => headerValue != cookieValue
           case _                                      => true
         }
