@@ -67,7 +67,7 @@ object EndpointSpec extends DefaultRunnableSpec with HExitAssertion {
         val a      = Method.GET / "a" / *[Int] to { _ => Response.ok }
         val b      = Method.GET / "b" / *[Int] to { _ => Response.ok }
         val actual = (a ++ b).execute(Request(Method.GET, URL(Path("/b/2")))).map(_.status)
-        assert(actual)(isSuccess(equalTo(Status.OK)))
+        assert(actual)(equalTo(HExit.succeed(Status.OK)))
       } +
       testM("combining endpoints should resolve second effect") {
         val a      = Method.GET / "a" / *[Int] to { _ => UIO(Response.ok) }
