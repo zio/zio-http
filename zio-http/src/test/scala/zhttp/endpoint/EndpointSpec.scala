@@ -1,6 +1,7 @@
 package zhttp.endpoint
 
 import zhttp.http._
+import zio.UIO
 import zio.test.Assertion._
 import zio.test.{DefaultRunnableSpec, assert, assertM}
 
@@ -69,8 +70,8 @@ object EndpointSpec extends DefaultRunnableSpec with HExitAssertion {
         assert(actual)(isSuccess(equalTo(Status.OK)))
       } +
       testM("combining endpoints should resolve second effect") {
-        val a      = Method.GET / "a" / *[Int] to { _ => zio.UIO(Response.ok) }
-        val b      = Method.GET / "b" / *[Int] to { _ => zio.UIO(Response.ok) }
+        val a      = Method.GET / "a" / *[Int] to { _ => UIO(Response.ok) }
+        val b      = Method.GET / "b" / *[Int] to { _ => UIO(Response.ok) }
         val actual = (a ++ b).execute(Request(Method.GET, URL(Path("/b/2")))).map(_.status)
         assertM(actual.toEffect)(equalTo(Status.OK))
       }
