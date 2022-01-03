@@ -19,7 +19,7 @@ private[zhttp] final case class Handler[R](
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
   serverTime: ServerTimeGenerator,
-) extends SimpleChannelInboundHandler[Any](false)
+) extends SimpleChannelInboundHandler[Any](true)
     with WebSocketUpgrade[R] {
   self =>
 
