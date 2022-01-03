@@ -42,8 +42,7 @@ private[zhttp] final case class Handler[R](
     msg match {
       case jReq: HttpRequest    =>
         ctx.channel().config().setAutoRead(false)
-        self.request = null.asInstanceOf[Request]
-        /*new Request {
+        self.request = new Request {
           override def method: Method                                 = Method.fromHttpMethod(jReq.method())
           override def url: URL                                       = URL.fromString(jReq.uri()).getOrElse(null)
           override def getHeaders: Headers                            = Headers.make(jReq.headers())
@@ -82,7 +81,7 @@ private[zhttp] final case class Handler[R](
               case _                    => None
             }
           }
-        }*/
+        }
         unsafeRun(
           jReq,
           app,
