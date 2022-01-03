@@ -223,7 +223,6 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
               ),
             ),
           )
-
         }
       }
   }
