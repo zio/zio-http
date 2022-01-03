@@ -210,6 +210,21 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
               res <- r.get
             } yield assert(res)(equalTo(false))
           }
+      } +
+      suite("signCookie") {
+        testM("should sign cookies") {
+          val cookieRes = Headers.setCookie(Cookie("key", "value").withHttpOnly)
+          val app       =
+            Http.ok.addHeaders(cookieRes) @@ signCookies("secret") getHeader "set-cookie"
+          assertM(app(Request()))(
+            isSome(
+              equalTo(
+                "key=value.fm67q+j8zQjFXnLi22ckhgRC5qaQ9srgU3/Fli94OOWmtuo68xcm5LkXbcODb9taM/B48j6kws3eZ0MYDIeWTA==; HttpOnly",
+              ),
+            ),
+          )
+
+        }
       }
   }
 

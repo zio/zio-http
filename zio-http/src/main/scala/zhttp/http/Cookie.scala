@@ -31,7 +31,10 @@ final case class Cookie(
   /**
    * Sets content in cookie
    */
-  def withContent(v: String): Cookie = copy(content = v)
+  def withContent(v: String): Cookie = self.secret match {
+    case Some(value) => copy(content = sign(value, v))
+    case None        => copy(content = v)
+  }
 
   /**
    * Sets expiry in cookie
@@ -74,7 +77,7 @@ final case class Cookie(
   def withSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
 
   /**
-   * Adds secret in the cookie
+   * Sets secret and signed-content in the cookie
    */
   def sign(secret: String): Cookie = copy(secret = Some(secret))
 
@@ -312,5 +315,4 @@ object Cookie {
       (str.trim, null)
     }
   }
-
 }

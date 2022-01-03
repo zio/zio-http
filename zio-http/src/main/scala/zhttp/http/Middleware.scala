@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
+import io.netty.util.AsciiString.contentEqualsIgnoreCase
 import zhttp.http.CORS.DefaultCORSConfig
 import zhttp.http.Headers.BasicSchemeName
 import zhttp.http.Middleware.{Flag, RequestP}
@@ -236,6 +237,22 @@ object Middleware {
             .mapError(Option(_))
         } yield Patch.empty
     }
+
+  /**
+   * Creates a middleware for signing cookies
+   */
+  def signCookies[R, E](secret: String): Middleware[R, E] =
+    patch((_, _) =>
+      Patch.updateHeaders(h => {
+        Headers(
+          h.toList.collect { case h if contentEqualsIgnoreCase(h._1, HeaderNames.setCookie) => h._2.toString }
+            .map(Cookie.decodeResponseCookie)
+            .collect { case Some(cookie) =>
+              (HeaderNames.setCookie, cookie.sign(secret).encode)
+            },
+        )
+      }),
+    )
 
   /**
    * Creates a new constants middleware that always executes the app provided, independent of where the middleware is
