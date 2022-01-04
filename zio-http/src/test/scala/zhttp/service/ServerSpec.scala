@@ -212,10 +212,21 @@ object ServerSpec extends HttpRunnableSpec {
       }
   }
 
-  override def spec = {
+  override def spec =
     suiteM("Server") {
-      app.as(List(staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
+      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds)
+
+  def serverStartSpec = suite("ServerStartSpec") {
+    testM("make") {
+      (Server.port(0) ++ Server.app(Http.ok)).make.use { start =>
+        val actual = Client
+          .request(s"http://localhost:${start.port}")
+          .map(_.status)
+
+        assertM(actual)(equalTo(Status.OK))
+      }
+    }
   }
 
   def staticAppSpec = suite("StaticAppSpec") {
