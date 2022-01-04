@@ -20,7 +20,7 @@ object WebSocketServerSpec extends HttpRunnableSpec(8011) {
   def websocketSpec = suite("WebSocket Server") {
     suite("connections") {
       testM("Multiple websocket upgrades") {
-        val socketApp = SocketApp.message(Socket.succeed(WebSocketFrame.text("BAR")))
+        val socketApp = SocketApp(Socket.succeed(WebSocketFrame.text("BAR")))
         val app       = Http.fromEffect(ZIO(Response.socket(socketApp)))
         assertM(app.webSocketStatusCode(!! / "subscriptions").repeatN(1024))(equalTo(101))
       }

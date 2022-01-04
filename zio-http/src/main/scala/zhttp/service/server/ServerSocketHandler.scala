@@ -7,7 +7,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.{
 }
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame}
 import zhttp.service.{ChannelFuture, HttpRuntime}
-import zhttp.socket.SocketApp.Open
+import zhttp.socket.SocketApp.Handle
 import zhttp.socket.{SocketApp, WebSocketFrame}
 import zio.stream.ZStream
 
@@ -16,7 +16,7 @@ import zio.stream.ZStream
  */
 final case class ServerSocketHandler[R](
   zExec: HttpRuntime[R],
-  ss: SocketApp.SocketConfig[R, Throwable],
+  ss: SocketApp[R, Throwable],
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
   /**
@@ -31,7 +31,7 @@ final case class ServerSocketHandler[R](
     )
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit =
-    ss.onMessage match {
+    ss.message match {
       case Some(v) =>
         WebSocketFrame.fromJFrame(msg) match {
           case Some(frame) => writeAndFlush(ctx, v(frame))
@@ -41,7 +41,7 @@ final case class ServerSocketHandler[R](
     }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, x: Throwable): Unit = {
-    ss.onError match {
+    ss.error match {
       case Some(v) => zExec.unsafeRun(ctx)(v(x).uninterruptible)
       case None    => ctx.fireExceptionCaught(x)
     }
@@ -49,7 +49,7 @@ final case class ServerSocketHandler[R](
   }
 
   override def channelUnregistered(ctx: ChannelHandlerContext): Unit = {
-    ss.onClose match {
+    ss.close match {
       case Some(v) => zExec.unsafeRun(ctx)(v(ctx.channel().remoteAddress()).uninterruptible)
       case None    => ctx.fireChannelUnregistered()
     }
@@ -60,16 +60,16 @@ final case class ServerSocketHandler[R](
 
     event match {
       case _: HandshakeComplete                                                             =>
-        ss.onOpen match {
+        ss.open match {
           case Some(v) =>
             v match {
-              case Open.WithEffect(f) => zExec.unsafeRun(ctx)(f(ctx.channel().remoteAddress()))
-              case Open.WithSocket(s) => writeAndFlush(ctx, s(ctx.channel().remoteAddress()))
+              case Handle.WithEffect(f) => zExec.unsafeRun(ctx)(f(ctx.channel().remoteAddress()))
+              case Handle.WithSocket(s) => writeAndFlush(ctx, s(ctx.channel().remoteAddress()))
             }
           case None    => ctx.fireUserEventTriggered(event)
         }
       case m: ServerHandshakeStateEvent if m == ServerHandshakeStateEvent.HANDSHAKE_TIMEOUT =>
-        ss.onTimeout match {
+        ss.timeout match {
           case Some(v) => zExec.unsafeRun(ctx)(v)
           case None    => ctx.fireUserEventTriggered(event)
         }

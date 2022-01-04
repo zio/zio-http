@@ -27,15 +27,25 @@ object WebSocketAdvanced extends App {
   private val decoder = SocketDecoder.allowExtensions
 
   // Combine all channel handlers together
-  private val socketApp =
-    SocketApp.open(open) ++                   // Called after the request is successfully upgraded to websocket
-      SocketApp.message(echo merge fooBar) ++ // Called after each message being received on the channel
-      SocketApp.close(_ => console.putStrLn("Closed!").ignore) ++ // Called after the connection is closed
-      SocketApp.error(_ =>
-        console.putStrLn("Error!").ignore,
-      ) ++ // Called whenever there is an error on the socket channel
-      SocketApp.decoder(decoder) ++
-      SocketApp.protocol(protocol)
+  private val socketApp = {
+
+    SocketApp(echo merge fooBar) // Called after each message being received on the channel
+
+      // Called after the request is successfully upgraded to websocket
+      .onOpen(open)
+
+      // Called after the connection is closed
+      .onClose(_ => console.putStrLn("Closed!").ignore)
+
+      // Called whenever there is an error on the socket channel
+      .onError(_ => console.putStrLn("Error!").ignore)
+
+      // Setup websocket decoder config
+      .withDecoder(decoder)
+
+      // Setup websocket protocol config
+      .withProtocol(protocol)
+  }
 
   private val app =
     Http.collect[Request] {
