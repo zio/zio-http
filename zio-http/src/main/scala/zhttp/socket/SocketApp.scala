@@ -28,7 +28,7 @@ final case class SocketApp[-R, +E](
    */
   def onClose[R1 <: R](close: Connection => ZIO[R1, Nothing, Any]): SocketApp[R1, E] =
     copy(close = self.close match {
-      case Some(value) => Some(connection => value(connection) *> close(connection))
+      case Some(value) => Some((connection: Connection) => value(connection) *> close(connection))
       case None        => Some(close)
     })
 
@@ -37,7 +37,7 @@ final case class SocketApp[-R, +E](
    */
   def onError[R1 <: R](error: Throwable => ZIO[R1, Nothing, Any]): SocketApp[R1, E] =
     copy(error = self.error match {
-      case Some(value) => Some(cause => value(cause) *> error(cause))
+      case Some(value) => Some((cause: Throwable) => value(cause) *> error(cause))
       case None        => Some(error)
     })
 
