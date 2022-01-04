@@ -3,10 +3,12 @@ package zhttp.internal
 import io.netty.buffer.Unpooled
 import zhttp.http._
 import zhttp.service.Client.ClientParams
-import zio.Chunk
 import zio.random.Random
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
+import zio.{Chunk, ZIO}
+
+import java.io.File
 
 object HttpGen {
   def clientParams[R](dataGen: Gen[R, HttpData[Any, Nothing]]): Gen[Random with Sized with R, ClientParams] =
@@ -16,6 +18,15 @@ object HttpGen {
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
       data    <- dataGen
     } yield ClientParams(method, url, headers, data)
+
+  def clientParamsForFileHttpData() = {
+    for {
+      file    <- Gen.fromEffect(ZIO.succeed(new File(getClass.getResource("/TestFile.txt").getPath)))
+      method  <- HttpGen.method
+      url     <- HttpGen.url
+      headers <- Gen.listOf(HttpGen.header).map(Headers(_))
+    } yield ClientParams(method, url, headers, HttpData.fromFile(file))
+  }
 
   def cookies: Gen[Random with Sized, Cookie] = for {
     name     <- Gen.anyString
@@ -51,6 +62,7 @@ object HttpGen {
 
   def location: Gen[Random with Sized, URL.Location] = {
     def genRelative = Gen.const(URL.Location.Relative)
+
     def genAbsolute = for {
       scheme <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS))
       host   <- Gen.alphaNumericStringBounded(1, 5)

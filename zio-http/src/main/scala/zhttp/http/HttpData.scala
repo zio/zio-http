@@ -1,10 +1,12 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, Unpooled}
+import zio.blocking.Blocking.Service.live.effectBlocking
 import zio.stream.ZStream
 import zio.{Chunk, NeedsEnv, UIO, ZIO}
 
 import java.nio.charset.Charset
+import java.nio.file.Files
 
 /**
  * Holds HttpData that needs to be written on the HttpChannel
@@ -33,12 +35,22 @@ sealed trait HttpData[-R, +E] { self =>
       case m                           => m.asInstanceOf[HttpData[Any, E]]
     }
 
-  def toByteBuf: ZIO[R, E, ByteBuf] = self match {
-    case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
-    case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
-    case HttpData.BinaryByteBuf(data)  => UIO(data)
-    case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
-    case HttpData.BinaryStream(stream) => stream.fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
+  def toByteBuf: ZIO[R, Throwable, ByteBuf] = {
+    self match {
+      case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
+      case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
+      case HttpData.BinaryByteBuf(data)  => UIO(data)
+      case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
+      case HttpData.BinaryStream(stream) =>
+        stream
+          .asInstanceOf[ZStream[R, Throwable, ByteBuf]]
+          .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
+      case HttpData.File(file)           =>
+        effectBlocking {
+          val fileContent = Files.readAllBytes(file.toPath)
+          Unpooled.copiedBuffer(fileContent)
+        }
+    }
   }
 }
 
@@ -76,9 +88,15 @@ object HttpData {
    */
   def fromString(text: String, charset: Charset = HTTP_CHARSET): HttpData[Any, Nothing] = Text(text, charset)
 
+  /**
+   * Helper to create HttpData from contents of a file
+   */
+  def fromFile(file: java.io.File): HttpData[Any, Nothing] = File(file)
+
   private[zhttp] final case class Text(text: String, charset: Charset)               extends HttpData[Any, Nothing]
   private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                     extends HttpData[Any, Nothing]
   private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                       extends HttpData[Any, Nothing]
   private[zhttp] final case class BinaryStream[R, E](stream: ZStream[R, E, ByteBuf]) extends HttpData[R, E]
+  private[zhttp] final case class File(file: java.io.File)                           extends HttpData[Any, Nothing]
   private[zhttp] case object Empty                                                   extends HttpData[Any, Nothing]
 }

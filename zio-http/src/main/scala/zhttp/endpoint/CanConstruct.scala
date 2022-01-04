@@ -33,7 +33,7 @@ object CanConstruct {
         .flatten
   }
 
-  implicit def responseM[R, E, A]: Aux[R, E, A, ZIO[R, E, Response[R, E]]] =
+  implicit def responseZIO[R, E, A]: Aux[R, E, A, ZIO[R, E, Response[R, E]]] =
     new CanConstruct[A, ZIO[R, E, Response[R, E]]] {
       override type ROut = R
       override type EOut = E
