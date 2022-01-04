@@ -118,13 +118,16 @@ object Middleware {
   def addCookieM[R, E](cookie: ZIO[R, E, Cookie]): Middleware[R, E] =
     patchM((_, _) => cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c))))
 
+  def csrfGenerate[R, E](tokenGen: ZIO[R, E, String], tokenName: String = "x-csrf-token"): Middleware[R, E] =
+    addCookieM(tokenGen.map(Cookie(tokenName, _)))
+
   /**
    * CSRF middleware : To prevent Cross-site request forgery attacks. This middleware is modeled after the double submit
    * cookie pattern.
    * @see
    *   https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
    */
-  def csrf(tokenName: String = "x-csrf-token"): Middleware[Any, Nothing] = {
+  def csrfValidate(tokenName: String = "x-csrf-token"): Middleware[Any, Nothing] = {
     whenHeader(
       headers => {
         (headers.getHeaderValue(tokenName), headers.getCookieValue(tokenName)) match {

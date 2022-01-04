@@ -185,7 +185,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           }
       } +
       suite("csrf") {
-        val app           = (Http.ok @@ csrf("x-token")).getStatus
+        val app           = (Http.ok @@ csrfValidate("x-token")).getStatus
         val setCookie     = Headers.cookie(Cookie("x-token", "secret"))
         val invalidXToken = Headers("x-token", "secret1")
         val validXToken   = Headers("x-token", "secret")
@@ -205,7 +205,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           testM("app execution skipped") {
             for {
               r <- Ref.make(false)
-              app = Http.ok.tapM(_ => r.set(true)) @@ csrf("x-token")
+              app = Http.ok.tapM(_ => r.set(true)) @@ csrfValidate("x-token")
               _   <- app(Request(headers = setCookie ++ invalidXToken))
               res <- r.get
             } yield assert(res)(equalTo(false))
