@@ -218,15 +218,17 @@ object ServerSpec extends HttpRunnableSpec {
     }.provideCustomLayerShared(env) @@ timeout(30 seconds)
 
   def serverStartSpec = suite("ServerStartSpec") {
-    testM("make") {
-      (Server.port(0) ++ Server.app(Http.ok)).make.use { start =>
-        val actual = Client
-          .request(s"http://localhost:${start.port}")
-          .map(_.status)
-
-        assertM(actual)(equalTo(Status.OK))
+    testM("make: port set") {
+      val port = 8088
+      (Server.port(port) ++ Server.app(Http.empty)).make.use { start =>
+        assertM(ZIO.effect(start.port))(equalTo(port))
       }
-    }
+    } +
+      testM("make: random port") {
+        (Server.port(0) ++ Server.app(Http.empty)).make.use { start =>
+          assertM(ZIO.effect(start.port))(not(equalTo(0)))
+        }
+      }
   }
 
   def staticAppSpec = suite("StaticAppSpec") {
