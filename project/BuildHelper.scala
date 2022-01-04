@@ -1,12 +1,14 @@
+import play.twirl.sbt.Import.TwirlKeys
 import sbt.Keys._
 import sbt._
 import scalafix.sbt.ScalafixPlugin.autoImport._
 import xerial.sbt.Sonatype.autoImport._
 
 object BuildHelper extends ScalaSettings {
-  val Scala212   = "2.12.15"
-  val Scala213   = "2.13.7"
-  val ScalaDotty = "3.1.0"
+  val Scala212         = "2.12.15"
+  val Scala213         = "2.13.7"
+  val ScalaDotty       = "3.1.0"
+  val ScoverageVersion = "1.9.2"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -75,7 +77,8 @@ object BuildHelper extends ScalaSettings {
     )
     if (publishArtifacts) publishSettings else publishSettings ++ skipSettings
   }
-  def stdSettings(prjName: String)              = Seq(
+
+  def stdSettings(prjName: String) = Seq(
     name                           := s"$prjName",
     ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, ScalaDotty),
     ThisBuild / scalaVersion       := Scala213,
@@ -92,5 +95,41 @@ object BuildHelper extends ScalaSettings {
     autoAPIMappings                        := true,
     ThisBuild / javaOptions                := Seq("-Dio.netty.leakDetectionLevel=paranoid"),
     ThisBuild / fork                       := true,
+  )
+
+  def twirlSettings = Seq(
+    TwirlKeys.templateImports := Seq(),
+    libraryDependencies       := libraryDependencies.value.map {
+      case module if module.name == "twirl-api" =>
+        module.cross(CrossVersion.for3Use2_13)
+      case module                               => module
+    },
+  )
+
+  def runSettings(className: String = "example.HelloWorld") = Seq(
+    fork                      := true,
+    Compile / run / mainClass := Option(className),
+  )
+
+  def meta = Seq(
+    ThisBuild / homepage   := Some(url("https://github.com/dream11/zio-http")),
+    ThisBuild / scmInfo    :=
+      Some(
+        ScmInfo(url("https://github.com/dream11/zio-http"), "scm:git@github.com:dream11/zio-http.git"),
+      ),
+    ThisBuild / developers := List(
+      Developer(
+        "tusharmath",
+        "Tushar Mathur",
+        "tushar@dream11.com",
+        new URL("https://github.com/tusharmath"),
+      ),
+      Developer(
+        "amitksingh1490",
+        "Amit Kumar Singh",
+        "amit.singh@dream11.com",
+        new URL("https://github.com/amitksingh1490"),
+      ),
+    ),
   )
 }

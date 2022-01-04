@@ -42,6 +42,7 @@ object HelloWorld extends App {
     Server.start(8090, app).exitCode
 }
 ```
+#### Examples
 
 You can checkout more examples in the [example](https://github.com/dream11/zio-http/tree/main/example/src/main/scala/example) project —
 
@@ -52,6 +53,12 @@ You can checkout more examples in the [example](https://github.com/dream11/zio-h
 - [Simple Client](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/example/SimpleClient.scala)
 - [File Streaming](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/example/FileStreaming.scala)
 - [Authentication](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/example/Authentication.scala)
+
+#### Steps to run an example
+
+1. Edit the [RunSettings](https://github.com/dream11/zio-http/blob/main/project/BuildHelper.scala#L109) - modify `className` to the example you'd like to run.
+2. From sbt shell, run `~example/reStart`. You should see `Server started on port: 8090`.
+3. Send curl request for defined `http Routes`, for eg : `curl -i "http://localhost:8090/text"` for `example.HelloWorld`.
 
 # Installation
 
@@ -70,3 +77,4 @@ libraryDependencies += "io.d11" %% "zhttp-test" % "[version]" % Test
 You can use the [sbt-revolver] plugin to start the server and run it in watch mode using `~ reStart` command on the SBT console.
 
 [sbt-revolver]: https://github.com/spray/sbt-revolver
+

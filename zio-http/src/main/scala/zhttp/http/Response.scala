@@ -1,14 +1,17 @@
 package zhttp.http
 
+import io.netty.buffer.Unpooled
+import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
 import zhttp.core.Util
-import zhttp.http.Headers.Literals._
+import zhttp.html.Html
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
-import zio.Chunk
+import zio.{Chunk, UIO}
 
 import java.nio.charset.Charset
+import java.nio.file.Files
 
 final case class Response[-R, +E] private (
   status: Status,
@@ -18,18 +21,22 @@ final case class Response[-R, +E] private (
 ) extends HeaderExtension[Response[R, E]] { self =>
 
   /**
-   * Adds cookies in the response headers
+   * Adds cookies in the response headers.
    */
   def addCookie(cookie: Cookie): Response[R, E] =
     self.copy(headers = self.getHeaders ++ Headers(HttpHeaderNames.SET_COOKIE.toString, cookie.encode))
 
-  override def getHeaders: Headers = headers
-
   /**
-   * Caches the encoded response as buffer. This is a "best effort" cache and doesn't always guarantee performance
-   * gains. It can potentially also cause memory leaks or degrade performance for some use-cases.
+   * A micro-optimizations that ignores all further modifications to the response and encodes the current version into a
+   * Netty response. The netty response is cached and reused for subsequent requests. This allows the server to reduce
+   * memory utilization under load by not having to encode the response for each request. In case the response is
+   * modified the server will detect the changes and encode the response again, however it will turn out to be counter
+   * productive.
    */
-  def memoize: Response[R, E] = self.copy(attribute = self.attribute.withMemoization)
+  def freeze: UIO[Response[R, E]] =
+    UIO(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
+
+  override def getHeaders: Headers = headers
 
   /**
    * Sets the response attributes
@@ -46,8 +53,8 @@ final case class Response[-R, +E] private (
   /**
    * Updates the headers using the provided function
    */
-  override def updateHeaders(f: Headers => Headers): Response[R, E] =
-    self.copy(headers = f(self.getHeaders))
+  override def updateHeaders(update: Headers => Headers): Response[R, E] =
+    self.copy(headers = update(self.getHeaders))
 
   /**
    * A more efficient way to append server-time to the response headers.
@@ -55,9 +62,46 @@ final case class Response[-R, +E] private (
   def withServerTime: Response[R, E] = self.copy(attribute = self.attribute.withServerTime)
 
   /**
-   * Caches the response creation if set to true
+   * Encodes the Response into a Netty HttpResponse. Sets default headers such as `content-length`. For performance
+   * reasons, it is possible that it uses a FullHttpResponse if the complete data is available. Otherwise, it would
+   * create a DefaultHttpResponse without any content.
    */
-  private[zhttp] var cache: HttpResponse = null
+  private[zhttp] def unsafeEncode(): HttpResponse = {
+    import io.netty.handler.codec.http._
+
+    val jHeaders = self.getHeaders.encode
+    val jContent = self.data match {
+      case HttpData.Text(text, charset) => Unpooled.copiedBuffer(text, charset)
+      case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
+      case HttpData.BinaryByteBuf(data) => data
+      case HttpData.BinaryStream(_)     => null
+      case HttpData.Empty               => Unpooled.EMPTY_BUFFER
+      case HttpData.File(file)          =>
+        jHeaders.set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(file.toPath))
+        null
+    }
+
+    val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
+    if (jContent == null) {
+      // TODO: Unit test for this
+      // Client can't handle chunked responses and currently treats them as a FullHttpResponse.
+      // Due to this client limitation it is not possible to write a unit-test for this.
+      // Alternative would be to use sttp client for this use-case.
+
+      if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
+
+      // Set MIME type in the response headers. This is only relevant in case of File transfers as browsers use the MIME
+      // type, not the file extension, to determine how to process a URL.<a href="MSDN
+      // Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>
+
+      new DefaultHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jHeaders)
+    } else {
+      val jResponse = new DefaultFullHttpResponse(HTTP_1_1, self.status.asJava, jContent, false)
+      if (!hasContentLength) jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, jContent.readableBytes())
+      jResponse.headers().add(jHeaders)
+      jResponse
+    }
+  }
 }
 
 object Response {
@@ -66,19 +110,8 @@ object Response {
     status: Status = Status.OK,
     headers: Headers = Headers.empty,
     data: HttpData[R, E] = HttpData.Empty,
-  ): Response[R, E] = {
-    val size      = data.unsafeSize
-    val isChunked = data.isChunked
-
-    Response(
-      status,
-      headers ++
-        Headers(Name.ContentLength -> size.toString).when(size >= 0) ++
-        Headers(Name.TransferEncoding -> Value.Chunked).when(isChunked),
-      data,
-      Attribute.empty,
-    )
-  }
+  ): Response[R, E] =
+    Response(status, headers, data, Attribute.empty)
 
   def fromHttpError(error: HttpError): UResponse = {
     error match {
@@ -86,7 +119,7 @@ object Response {
         Response(
           error.status,
           Headers.empty,
-          HttpData.fromText(cause.cause match {
+          HttpData.fromString(cause.cause match {
             case Some(throwable) => Util.prettyPrintHtml(throwable)
             case None            => cause.message
           }),
@@ -99,10 +132,10 @@ object Response {
   /**
    * Creates a response with content-type set to text/html
    */
-  def html(data: String): UResponse =
+  def html(data: Html): UResponse =
     Response(
-      data = HttpData.fromText(data),
-      headers = Headers(Name.ContentType, Value.TextHtml),
+      data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
+      headers = Headers(HeaderNames.contentType, HeaderValues.textHtml),
     )
 
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
@@ -118,7 +151,7 @@ object Response {
   def json(data: String): UResponse =
     Response(
       data = HttpData.fromChunk(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
-      headers = Headers(Name.ContentLength, Value.ApplicationJson),
+      headers = Headers(HeaderNames.contentType, HeaderValues.applicationJson),
     )
 
   /**
@@ -156,22 +189,27 @@ object Response {
    */
   def text(text: String, charset: Charset = HTTP_CHARSET): UResponse =
     Response(
-      data = HttpData.fromText(text, charset),
-      headers = Headers(Name.ContentType, Value.TextPlain),
+      data = HttpData.fromString(text, charset),
+      headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
     )
 
   /**
    * Attribute holds meta data for the backend
    */
 
-  final case class Attribute[-R, +E](
+  private[zhttp] final case class Attribute[-R, +E](
     socketApp: SocketApp[R, E] = SocketApp.empty,
     memoize: Boolean = false,
     serverTime: Boolean = false,
-  ) {
-    self =>
-    def withMemoization: Attribute[R, E]                                           = self.copy(memoize = true)
-    def withServerTime: Attribute[R, E]                                            = self.copy(serverTime = true)
+    encoded: Option[(Response[R, E], HttpResponse)] = None,
+  ) { self =>
+    def withEncodedResponse[R1 <: R, E1 >: E](jResponse: HttpResponse, response: Response[R1, E1]): Attribute[R1, E1] =
+      self.copy(encoded = Some(response -> jResponse))
+
+    def withMemoization: Attribute[R, E] = self.copy(memoize = true)
+
+    def withServerTime: Attribute[R, E] = self.copy(serverTime = true)
+
     def withSocketApp[R1 <: R, E1 >: E](app: SocketApp[R1, E1]): Attribute[R1, E1] = self.copy(socketApp = app)
   }
 

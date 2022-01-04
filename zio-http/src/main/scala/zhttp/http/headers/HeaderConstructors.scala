@@ -2,63 +2,67 @@ package zhttp.http.headers
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Headers.BasicSchemeName
-import zhttp.http.Headers.Literals.Name
-import zhttp.http.{Cookie, HTTP_CHARSET, Headers, Method}
+import zhttp.http.{Cookie, HTTP_CHARSET, HeaderNames, Headers, Method}
 import zio.duration.Duration
 
 import java.util.Base64
 
+/**
+ * Contains a list of helpful methods that can create `Headers`.
+ *
+ * NOTE: Add methods here if it provides an alternative succinct way to create `Headers`.
+ */
 trait HeaderConstructors {
   final def accept(value: CharSequence): Headers =
-    Headers(Name.Accept, value)
+    Headers(HeaderNames.accept, value)
 
   final def acceptCharset(value: CharSequence): Headers =
-    Headers(Name.AcceptCharset, value)
+    Headers(HeaderNames.acceptCharset, value)
 
   final def acceptEncoding(value: CharSequence): Headers =
-    Headers(Name.AcceptEncoding, value)
+    Headers(HeaderNames.acceptEncoding, value)
 
   final def acceptLanguage(value: CharSequence): Headers =
-    Headers(Name.AcceptLanguage, value)
+    Headers(HeaderNames.acceptLanguage, value)
 
   final def acceptPatch(value: CharSequence): Headers =
-    Headers(Name.AcceptPatch, value)
+    Headers(HeaderNames.acceptPatch, value)
 
   final def acceptRanges(value: CharSequence): Headers =
-    Headers(Name.AcceptRanges, value)
+    Headers(HeaderNames.acceptRanges, value)
 
   final def accessControlAllowCredentials(value: Boolean): Headers =
-    Headers(Name.AccessControlAllowCredentials, value.toString)
+    Headers(HeaderNames.accessControlAllowCredentials, value.toString)
 
   final def accessControlAllowHeaders(value: CharSequence): Headers =
-    Headers(Name.AccessControlAllowHeaders, value)
+    Headers(HeaderNames.accessControlAllowHeaders, value)
 
   final def accessControlAllowMethods(methods: Method*): Headers =
-    Headers(Name.AccessControlAllowMethods, methods.mkString(", "))
+    Headers(HeaderNames.accessControlAllowMethods, methods.mkString(", "))
 
   final def accessControlAllowOrigin(value: CharSequence): Headers =
-    Headers(Name.AccessControlAllowOrigin, value)
+    Headers(HeaderNames.accessControlAllowOrigin, value)
 
   final def accessControlExposeHeaders(value: CharSequence): Headers =
-    Headers(Name.AccessControlExposeHeaders, value)
+    Headers(HeaderNames.accessControlExposeHeaders, value)
 
   final def accessControlMaxAge(value: CharSequence): Headers =
-    Headers(Name.AccessControlMaxAge, value)
+    Headers(HeaderNames.accessControlMaxAge, value)
 
   final def accessControlRequestHeaders(value: CharSequence): Headers =
-    Headers(Name.AccessControlRequestHeaders, value)
+    Headers(HeaderNames.accessControlRequestHeaders, value)
 
   final def accessControlRequestMethod(method: Method): Headers =
-    Headers(Name.AccessControlRequestMethod, method.asHttpMethod.name())
+    Headers(HeaderNames.accessControlRequestMethod, method.asHttpMethod.name())
 
   final def age(value: CharSequence): Headers =
-    Headers(Name.Age, value)
+    Headers(HeaderNames.age, value)
 
   final def allow(value: CharSequence): Headers =
-    Headers(Name.Allow, value)
+    Headers(HeaderNames.allow, value)
 
   final def authorization(value: CharSequence): Headers =
-    Headers(Name.Authorization, value)
+    Headers(HeaderNames.authorization, value)
 
   final def basicAuthorizationHeader(username: String, password: String): Headers = {
     val authString    = String.format("%s:%s", username, password)
@@ -68,188 +72,188 @@ trait HeaderConstructors {
   }
 
   final def cacheControl(value: CharSequence): Headers =
-    Headers(Name.CacheControl, value)
+    Headers(HeaderNames.cacheControl, value)
 
   final def cacheControlMaxAge(value: Duration): Headers =
-    Headers(Name.CacheControl, s"public, max-age=${value.getSeconds}")
+    Headers(HeaderNames.cacheControl, s"public, max-age=${value.getSeconds}")
 
   final def connection(value: CharSequence): Headers =
-    Headers(Name.Connection, value)
+    Headers(HeaderNames.connection, value)
 
   final def contentBase(value: CharSequence): Headers =
-    Headers(Name.ContentBase, value)
+    Headers(HeaderNames.contentBase, value)
 
   final def contentDisposition(value: CharSequence): Headers =
-    Headers(Name.ContentDisposition, value)
+    Headers(HeaderNames.contentDisposition, value)
 
   final def contentEncoding(value: CharSequence): Headers =
-    Headers(Name.ContentEncoding, value)
+    Headers(HeaderNames.contentEncoding, value)
 
   final def contentLanguage(value: CharSequence): Headers =
-    Headers(Name.ContentLanguage, value)
+    Headers(HeaderNames.contentLanguage, value)
 
   final def contentLength(value: Long): Headers =
-    Headers(Name.ContentLength, value.toString)
+    Headers(HeaderNames.contentLength, value.toString)
 
   final def contentLocation(value: CharSequence): Headers =
-    Headers(Name.ContentLocation, value)
+    Headers(HeaderNames.contentLocation, value)
 
   final def contentMd5(value: CharSequence): Headers =
-    Headers(Name.ContentMd5, value)
+    Headers(HeaderNames.contentMd5, value)
 
   final def contentRange(value: CharSequence): Headers =
-    Headers(Name.ContentRange, value)
+    Headers(HeaderNames.contentRange, value)
 
   final def contentSecurityPolicy(value: CharSequence): Headers =
-    Headers(Name.ContentSecurityPolicy, value)
+    Headers(HeaderNames.contentSecurityPolicy, value)
 
   final def contentTransferEncoding(value: CharSequence): Headers =
-    Headers(Name.ContentTransferEncoding, value)
+    Headers(HeaderNames.contentTransferEncoding, value)
 
   final def contentType(value: CharSequence): Headers =
-    Headers(Name.ContentType, value)
+    Headers(HeaderNames.contentType, value)
 
   final def cookie(value: CharSequence): Headers =
-    Headers(Name.Cookie, value)
+    Headers(HeaderNames.cookie, value)
 
   final def cookie(value: Cookie): Headers =
-    Headers(Name.Cookie, value.encode)
+    Headers(HeaderNames.cookie, value.encode)
 
   final def date(value: CharSequence): Headers =
-    Headers(Name.Date, value)
+    Headers(HeaderNames.date, value)
 
   final def dnt(value: CharSequence): Headers =
-    Headers(Name.Dnt, value)
+    Headers(HeaderNames.dnt, value)
 
   final def etag(value: CharSequence): Headers =
-    Headers(Name.Etag, value)
+    Headers(HeaderNames.etag, value)
 
   final def expect(value: CharSequence): Headers =
-    Headers(Name.Expect, value)
+    Headers(HeaderNames.expect, value)
 
   final def expires(value: CharSequence): Headers =
-    Headers(Name.Expires, value)
+    Headers(HeaderNames.expires, value)
 
   final def from(value: CharSequence): Headers =
-    Headers(Name.From, value)
+    Headers(HeaderNames.from, value)
 
   final def host(value: CharSequence): Headers =
-    Headers(Name.Host, value)
+    Headers(HeaderNames.host, value)
 
   final def ifMatch(value: CharSequence): Headers =
-    Headers(Name.IfMatch, value)
+    Headers(HeaderNames.ifMatch, value)
 
   final def ifModifiedSince(value: CharSequence): Headers =
-    Headers(Name.IfModifiedSince, value)
+    Headers(HeaderNames.ifModifiedSince, value)
 
   final def ifNoneMatch(value: CharSequence): Headers =
-    Headers(Name.IfNoneMatch, value)
+    Headers(HeaderNames.ifNoneMatch, value)
 
   final def ifRange(value: CharSequence): Headers =
-    Headers(Name.IfRange, value)
+    Headers(HeaderNames.ifRange, value)
 
   final def ifUnmodifiedSince(value: CharSequence): Headers =
-    Headers(Name.IfUnmodifiedSince, value)
+    Headers(HeaderNames.ifUnmodifiedSince, value)
 
   final def lastModified(value: CharSequence): Headers =
-    Headers(Name.LastModified, value)
+    Headers(HeaderNames.lastModified, value)
 
   final def location(value: CharSequence): Headers =
-    Headers(Name.Location, value)
+    Headers(HeaderNames.location, value)
 
   final def maxForwards(value: CharSequence): Headers =
-    Headers(Name.MaxForwards, value)
+    Headers(HeaderNames.maxForwards, value)
 
   final def origin(value: CharSequence): Headers =
-    Headers(Name.Origin, value)
+    Headers(HeaderNames.origin, value)
 
   final def pragma(value: CharSequence): Headers =
-    Headers(Name.Pragma, value)
+    Headers(HeaderNames.pragma, value)
 
   final def proxyAuthenticate(value: CharSequence): Headers =
-    Headers(Name.ProxyAuthenticate, value)
+    Headers(HeaderNames.proxyAuthenticate, value)
 
   final def proxyAuthorization(value: CharSequence): Headers =
-    Headers(Name.ProxyAuthorization, value)
+    Headers(HeaderNames.proxyAuthorization, value)
 
   final def range(value: CharSequence): Headers =
-    Headers(Name.Range, value)
+    Headers(HeaderNames.range, value)
 
   final def referer(value: CharSequence): Headers =
-    Headers(Name.Referer, value)
+    Headers(HeaderNames.referer, value)
 
   final def retryAfter(value: CharSequence): Headers =
-    Headers(Name.RetryAfter, value)
+    Headers(HeaderNames.retryAfter, value)
 
   final def secWebSocketAccept(value: CharSequence): Headers =
-    Headers(Name.SecWebSocketAccept, value)
+    Headers(HeaderNames.secWebSocketAccept, value)
 
   final def secWebSocketExtensions(value: CharSequence): Headers =
-    Headers(Name.SecWebSocketExtensions, value)
+    Headers(HeaderNames.secWebSocketExtensions, value)
 
   final def secWebSocketKey(value: CharSequence): Headers =
-    Headers(Name.SecWebSocketKey, value)
+    Headers(HeaderNames.secWebSocketKey, value)
 
   final def secWebSocketLocation(value: CharSequence): Headers =
-    Headers(Name.SecWebSocketLocation, value)
+    Headers(HeaderNames.secWebSocketLocation, value)
 
   final def secWebSocketOrigin(value: CharSequence): Headers =
-    Headers(Name.SecWebSocketOrigin, value)
+    Headers(HeaderNames.secWebSocketOrigin, value)
 
   final def secWebSocketProtocol(value: CharSequence): Headers =
-    Headers(Name.SecWebSocketProtocol, value)
+    Headers(HeaderNames.secWebSocketProtocol, value)
 
   final def secWebSocketVersion(value: CharSequence): Headers =
-    Headers(Name.SecWebSocketVersion, value)
+    Headers(HeaderNames.secWebSocketVersion, value)
 
   final def server(value: CharSequence): Headers =
-    Headers(Name.Server, value)
+    Headers(HeaderNames.server, value)
 
   final def setCookie(value: Cookie): Headers =
-    Headers(Name.SetCookie, value.encode)
+    Headers(HeaderNames.setCookie, value.encode)
 
   final def te(value: CharSequence): Headers =
-    Headers(Name.Te, value)
+    Headers(HeaderNames.te, value)
 
   final def trailer(value: CharSequence): Headers =
-    Headers(Name.Trailer, value)
+    Headers(HeaderNames.trailer, value)
 
   final def transferEncoding(value: CharSequence): Headers =
-    Headers(Name.TransferEncoding, value)
+    Headers(HeaderNames.transferEncoding, value)
 
   final def upgrade(value: CharSequence): Headers =
-    Headers(Name.Upgrade, value)
+    Headers(HeaderNames.upgrade, value)
 
   final def upgradeInsecureRequests(value: CharSequence): Headers =
-    Headers(Name.UpgradeInsecureRequests, value)
+    Headers(HeaderNames.upgradeInsecureRequests, value)
 
   final def userAgent(value: CharSequence): Headers =
-    Headers(Name.UserAgent, value)
+    Headers(HeaderNames.userAgent, value)
 
   final def vary(value: CharSequence): Headers =
-    Headers(Name.Vary, value)
+    Headers(HeaderNames.vary, value)
 
   final def via(value: CharSequence): Headers =
-    Headers(Name.Via, value)
+    Headers(HeaderNames.via, value)
 
   final def warning(value: CharSequence): Headers =
-    Headers(Name.Warning, value)
+    Headers(HeaderNames.warning, value)
 
   final def webSocketLocation(value: CharSequence): Headers =
-    Headers(Name.WebSocketLocation, value)
+    Headers(HeaderNames.webSocketLocation, value)
 
   final def webSocketOrigin(value: CharSequence): Headers =
-    Headers(Name.WebSocketOrigin, value)
+    Headers(HeaderNames.webSocketOrigin, value)
 
   final def webSocketProtocol(value: CharSequence): Headers =
-    Headers(Name.WebSocketProtocol, value)
+    Headers(HeaderNames.webSocketProtocol, value)
 
   final def wwwAuthenticate(value: CharSequence): Headers =
-    Headers(Name.WwwAuthenticate, value)
+    Headers(HeaderNames.wwwAuthenticate, value)
 
   final def xFrameOptions(value: CharSequence): Headers =
-    Headers(Name.XFrameOptions, value)
+    Headers(HeaderNames.xFrameOptions, value)
 
   final def xRequestedWith(value: CharSequence): Headers =
-    Headers(Name.XRequestedWith, value)
+    Headers(HeaderNames.xRequestedWith, value)
 }

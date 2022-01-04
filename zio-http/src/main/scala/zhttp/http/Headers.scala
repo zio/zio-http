@@ -1,11 +1,18 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
-import zhttp.http.headers.{HeaderConstructors, HeaderExtension, HeaderNames, HeaderValues}
+import zhttp.http.headers.{HeaderConstructors, HeaderExtension}
 import zio.Chunk
 
 import scala.jdk.CollectionConverters._
 
+/**
+ * Represents an immutable collection of headers i.e. essentially a Chunk[(String, String)]. It extends HeaderExtensions
+ * and has a ton of powerful operators that can be used to add, remove and modify headers.
+ *
+ * NOTE: Generic operators that are not specific to `Headers` should not be defined here. A better place would be one of
+ * the traits extended by `HeaderExtension`.
+ */
 final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers] {
   self =>
 
@@ -19,7 +26,7 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
 
   def toList: List[(String, String)] = toChunk.map { case (name, value) => (name.toString, value.toString) }.toList
 
-  override def updateHeaders(f: Headers => Headers): Headers = f(self)
+  override def updateHeaders(update: Headers => Headers): Headers = update(self)
 
   def when(cond: Boolean): Headers = if (cond) self else Headers.empty
 
@@ -33,6 +40,10 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
 }
 
 object Headers extends HeaderConstructors {
+
+  val empty: Headers   = Headers(Nil)
+  val BasicSchemeName  = "Basic"
+  val BearerSchemeName = "Bearer"
 
   def apply(name: CharSequence, value: CharSequence): Headers = Headers(Chunk((name, value)))
 
@@ -52,15 +63,6 @@ object Headers extends HeaderConstructors {
 
   def when(cond: Boolean)(headers: => Headers): Headers = if (cond) headers else Headers.empty
 
-  val empty: Headers   = Headers(Nil)
-  val BasicSchemeName  = "Basic"
-  val BearerSchemeName = "Bearer"
-
   private[zhttp] def decode(headers: HttpHeaders): Headers =
     Headers(headers.entries().asScala.toList.map(entry => (entry.getKey, entry.getValue)))
-
-  object Literals {
-    object Name  extends HeaderNames
-    object Value extends HeaderValues
-  }
 }

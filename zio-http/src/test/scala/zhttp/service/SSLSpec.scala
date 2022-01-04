@@ -10,7 +10,7 @@ import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect.{ignore, timeout}
 import zio.test.assertM
 
 object SSLSpec extends HttpRunnableSpec(8073) {
@@ -60,9 +60,9 @@ object SSLSpec extends HttpRunnableSpec(8073) {
                 .request("http://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL1))
                 .map(_.status)
               assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
-            },
+            } @@ ignore,
         ),
       )
       .useNow,
-  ).provideCustomLayer(env) @@ timeout(5 second)
+  ).provideCustomLayer(env) @@ timeout(5 second) @@ ignore
 }

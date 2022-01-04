@@ -32,11 +32,11 @@ object Patch {
   final case class Combine(left: Patch, right: Patch)          extends Patch
   final case class WatchStatus(circuitBreaker: CircuitBreaker) extends Patch
 
-  def empty: Patch                                       = Empty
-  def addHeader(headers: Headers): Patch                 = AddHeaders(headers)
-  def addHeader(headers: Header): Patch                  = AddHeaders(Headers(headers))
-  def addHeader(name: String, value: String): Patch      = AddHeaders(Headers(name, value))
-  def removeHeaders(headers: List[String]): Patch        = RemoveHeaders(headers)
-  def setStatus(status: Status): Patch                   = SetStatus(status)
-  def watchStatus(circuitBreaker: CircuitBreaker): Patch = WatchStatus(circuitBreaker)
+  def empty: Patch                                              = Empty
+  def addHeader(headers: Headers): Patch                        = AddHeaders(headers)
+  def addHeader(headers: Header): Patch                         = AddHeaders(Headers(headers))
+  def addHeader(name: CharSequence, value: CharSequence): Patch = AddHeaders(Headers(name, value))
+  def removeHeaders(headers: List[String]): Patch               = RemoveHeaders(headers)
+  def setStatus(status: Status): Patch                          = SetStatus(status)
+  def watchStatus(circuitBreaker: CircuitBreaker): Patch        = WatchStatus(circuitBreaker)
 }

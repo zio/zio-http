@@ -97,12 +97,12 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
               res1 <- assertM(program408)(equalTo((Status.REQUEST_TIMEOUT, 0, Closed)))     // 1/1 (below minimum)
               res2 <- assertM(program408)(equalTo((Status.REQUEST_TIMEOUT, 100, Open)))     // 2/2
               res3 <- assertM(program200)(equalTo((Status.SERVICE_UNAVAILABLE, 100, Open))) // 2/2 (no count)
-              _ = Thread.sleep(300)                                                       // wait duration in OpenState
+              _ = Thread.sleep(300) // wait duration in OpenState
               res4 <- assertM(program408)(equalTo((Status.REQUEST_TIMEOUT, 0, HalfOpen))) // 1/1 (reset, below minimum)
               res5 <- assertM(program408)(equalTo((Status.REQUEST_TIMEOUT, 100, Open)))   // 2/2
-              _ = Thread.sleep(300)                                                       // wait duration in OpenState
-              res6 <- assertM(program200)(equalTo((Status.OK, 0, HalfOpen)))              // 0/1
-              res7 <- assertM(program200)(equalTo((Status.OK, 0, Closed)))                // 0/2
+              _ = Thread.sleep(300) // wait duration in OpenState
+              res6 <- assertM(program200)(equalTo((Status.OK, 0, HalfOpen))) // 0/1
+              res7 <- assertM(program200)(equalTo((Status.OK, 0, Closed)))   // 0/2
             } yield res1 && res2 && res3 && res4 && res5 && res6 && res7
           }
       } +
