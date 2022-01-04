@@ -8,7 +8,7 @@ import zio.stream.ZStream
 object HelloWorld extends App {
 
   // Create HTTP route
-  val app = Http.collectM[Request] { case req =>
+  val app = Http.collectZIO[Request] { case req =>
     req.decodeContent(ContentDecoder.backPressure).map { content =>
       Response(data = HttpData.fromStream(ZStream.fromChunkQueue(content)))
     }

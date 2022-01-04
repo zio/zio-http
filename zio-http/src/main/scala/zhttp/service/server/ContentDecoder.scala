@@ -95,6 +95,7 @@ object ContentDecoder {
               .map(a => a._1)
               .flatMap(contentFromOption)
         }
+      case HttpData.File(_)              => ???
     }
 
   sealed trait Error extends Throwable with Product { self =>
