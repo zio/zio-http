@@ -178,6 +178,16 @@ object ServerSpec extends HttpRunnableSpec {
         val res  = Http.fromStream(ZStream.fromFile(Paths.get(path))).requestBodyAsString()
         assertM(res)(equalTo("abc\nfoo"))
       } +
+      testM("response streaming leak") {
+        // This test is to log the memory leaks caused due to unreleased request content byteBuf.
+        // Todo: Make this test fail if memory leak is detected.
+        val res = Http
+          .fromData(HttpData.fromStream(ZStream.fail(new Error)))
+          .requestBodyAsString(content = "some random test string")
+          .repeatN(512)
+        assertM(res)(anything)
+
+      } +
       suite("html") {
         testM("body") {
           val res = Http.html(html(body(div(id := "foo", "bar")))).requestBodyAsString()
