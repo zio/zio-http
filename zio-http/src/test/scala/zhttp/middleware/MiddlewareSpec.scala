@@ -2,12 +2,12 @@ package zhttp.middleware
 
 import zhttp.http._
 import zhttp.internal.HttpAppTestExtensions
+import zio._
 import zio.clock.Clock
 import zio.duration._
 import zio.test.Assertion._
 import zio.test.environment.{TestClock, TestConsole}
 import zio.test.{DefaultRunnableSpec, assert, assertM}
-import zio.{UIO, ZIO, console}
 
 object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   def spec = suite("HttpMiddleware") {
@@ -165,6 +165,50 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             for {
               res <- app(request)
             } yield assert(res.getHeadersAsList)(hasSubset(expected))
+          }
+      } +
+      suite("cookie") {
+        testM("addCookie") {
+          val cookie = Cookie("test", "testValue")
+          val app    = (Http.ok @@ addCookie(cookie)).getHeader("set-cookie")
+          assertM(app(Request()))(
+            equalTo(Some(cookie.encode)),
+          )
+        } +
+          testM("addCookieM") {
+            val cookie = Cookie("test", "testValue")
+            val app    =
+              (Http.ok @@ addCookieM(UIO(cookie))).getHeader("set-cookie")
+            assertM(app(Request()))(
+              equalTo(Some(cookie.encode)),
+            )
+          }
+      } +
+      suite("csrf") {
+        val app           = (Http.ok @@ csrf("x-token")).getStatus
+        val setCookie     = Headers.cookie(Cookie("x-token", "secret"))
+        val invalidXToken = Headers("x-token", "secret1")
+        val validXToken   = Headers("x-token", "secret")
+        testM("x-token not present") {
+          assertM(app(Request(headers = setCookie)))(equalTo(Status.FORBIDDEN))
+        } +
+          testM("x-token mismatch") {
+            assertM(app(Request(headers = setCookie ++ invalidXToken)))(
+              equalTo(Status.FORBIDDEN),
+            )
+          } +
+          testM("x-token match") {
+            assertM(app(Request(headers = setCookie ++ validXToken)))(
+              equalTo(Status.OK),
+            )
+          } +
+          testM("app execution skipped") {
+            for {
+              r <- Ref.make(false)
+              app = Http.ok.tapM(_ => r.set(true)) @@ csrf("x-token")
+              _   <- app(Request(headers = setCookie ++ invalidXToken))
+              res <- r.get
+            } yield assert(res)(equalTo(false))
           }
       }
   }
