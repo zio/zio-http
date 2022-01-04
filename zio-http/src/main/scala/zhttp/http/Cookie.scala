@@ -18,11 +18,6 @@ final case class Cookie(
 ) { self =>
 
   /**
-   * Helper method to create cookies
-   */
-  def @@(update: Cookie.Update): Cookie = update.f(self)
-
-  /**
    * Creates a new cookie that can be used to clear the original cookie on the client.
    */
   def clear: Cookie =
@@ -148,7 +143,6 @@ object Cookie {
     case object Strict extends SameSite { def asString = "Strict" }
     case object None   extends SameSite { def asString = "None"   }
   }
-  case class Update(f: Cookie => Cookie)
 
   /**
    * Decodes from Set-Cookie header value inside of Response into a cookie
@@ -263,38 +257,4 @@ object Cookie {
     }
   }
 
-  /**
-   * Updates maxAge in cookie
-   */
-  def maxAge(maxAge: Duration): Update = Update(_.withMaxAge(maxAge))
-
-  /**
-   * Updates domain in cookie
-   */
-  def domain(domain: String): Update = Update(_.withDomain(domain))
-
-  /**
-   * Updates expiry in cookie
-   */
-  def expiry(expires: Instant): Update = Update(_.withExpiry(expires))
-
-  /**
-   * Updates path in cookie
-   */
-  def path(path: Path): Update = Update(_.withPath(path))
-
-  /**
-   * Updates secure in cookie
-   */
-  def secure: Update = Update(_.withSecure)
-
-  /**
-   * Updates httpOnly in cookie
-   */
-  def httpOnly: Update = Update(_.withHttpOnly)
-
-  /**
-   * Updates sameSite in cookie
-   */
-  def sameSite(sameSite: SameSite): Update = Update(_.withSameSite(sameSite))
 }
