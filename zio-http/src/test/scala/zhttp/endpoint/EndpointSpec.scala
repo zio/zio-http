@@ -1,9 +1,8 @@
 package zhttp.endpoint
 
 import zhttp.http._
-import zio.UIO
 import zio.test.Assertion._
-import zio.test.{DefaultRunnableSpec, assert, assertM}
+import zio.test.{DefaultRunnableSpec, assert}
 
 object EndpointSpec extends DefaultRunnableSpec with HExitAssertion {
   def spec = suite("Route") {
@@ -63,17 +62,16 @@ object EndpointSpec extends DefaultRunnableSpec with HExitAssertion {
         assert(route.extract(!! / "1"))(isNone) &&
         assert(route.extract(!! / "c"))(isNone)
       } +
-      test("combining endpoints should resolve second") {
+      test("Failure to find endpoint should return HExit.empty") {
         val a      = Method.GET / "a" / *[Int] to { _ => Response.ok }
-        val b      = Method.GET / "b" / *[Int] to { _ => Response.ok }
-        val actual = (a ++ b).execute(Request(Method.GET, URL(Path("/b/2")))).map(_.status)
-        assert(actual)(equalTo(HExit.succeed(Status.OK)))
-      } +
-      testM("combining endpoints should resolve second effect") {
-        val a      = Method.GET / "a" / *[Int] to { _ => UIO(Response.ok) }
-        val b      = Method.GET / "b" / *[Int] to { _ => UIO(Response.ok) }
-        val actual = (a ++ b).execute(Request(Method.GET, URL(Path("/b/2")))).map(_.status)
-        assertM(actual.toEffect)(equalTo(Status.OK))
-      }
+        val actual = a.execute(Request(Method.GET, URL(Path("/b/2"))))
+        assert(actual)(equalTo(HExit.empty))
+      } // +
+//      testM("Failure to find endpoint with effect should return HExit.empty") {
+//        val a      = Method.GET / "a" / *[Int] to { _ => zio.UIO(Response.ok) }
+//        val actual = a.execute(Request(Method.GET, URL(Path("/b/2")))).toEffect
+//        zio.test.assertM(actual)(equalTo(HExit.empty))
+//      }
+
   }
 }
