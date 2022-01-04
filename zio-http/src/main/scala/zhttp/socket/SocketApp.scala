@@ -3,8 +3,8 @@ package zhttp.socket
 import zhttp.http.Response
 import zhttp.socket.SocketApp.Handle.{WithEffect, WithSocket}
 import zhttp.socket.SocketApp.{Connection, Handle}
-import zio.ZIO
 import zio.stream.ZStream
+import zio.{NeedsEnv, ZIO}
 
 import java.net.SocketAddress
 
@@ -75,6 +75,18 @@ final case class SocketApp[-R, +E](
     })
 
   /**
+   * Provides the socket app with its required environment, which eliminates its dependency on `R`.
+   */
+  def provide(env: R)(implicit ev: NeedsEnv[R]): SocketApp[Any, E] =
+    self.copy(
+      timeout = self.timeout.map(_.provide(env)),
+      open = self.open.map(_.provide(env)),
+      message = self.message.map(_.provide(env)),
+      error = self.error.map(f => (t: Throwable) => f(t).provide(env)),
+      close = self.close.map(f => (c: Connection) => f(c).provide(env)),
+    )
+
+  /**
    * Frame decoder configuration
    */
   def withDecoder(decoder: SocketDecoder): SocketApp[R, E] =
@@ -108,6 +120,12 @@ object SocketApp {
         case (a, b)                           => a.sock merge b.sock
       }
     }
+
+    def provide(r: R)(implicit ev: NeedsEnv[R]): Handle[Any, E] =
+      self match {
+        case WithEffect(f) => WithEffect(c => f(c).provide(r))
+        case WithSocket(s) => WithSocket(s.provide(r))
+      }
 
     private def sock: Handle[R, E] = self match {
       case WithEffect(f)     => WithSocket(Socket.fromFunction(c => ZStream.fromEffect(f(c)) *> ZStream.empty))
