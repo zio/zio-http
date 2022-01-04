@@ -161,7 +161,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     ee: E => Http[R1, E1, A1, B1],
     bb: B => Http[R1, E1, A1, B1],
     dd: Http[R1, E1, A1, B1],
-  ): Http[R1, E1, A1, B1] = Http.FoldZIO(self, ee, bb, dd)
+  ): Http[R1, E1, A1, B1] = Http.FoldHttp(self, ee, bb, dd)
 
   /**
    * Transforms the output of the http app
@@ -332,8 +332,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
           case (self, _)                                 => self
         }
 
-      case FoldZIO(self, ee, bb, dd) =>
-        self.execute(a).foldZIO(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
+      case FoldHttp(self, ee, bb, dd) =>
+        self.execute(a).foldExit(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
     }
 }
 
@@ -613,7 +613,7 @@ object Http {
   private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C])
       extends Http[R, E, A, C]
 
-  private final case class FoldZIO[R, E, EE, A, B, BB](
+  private final case class FoldHttp[R, E, EE, A, B, BB](
     self: Http[R, E, A, B],
     ee: E => Http[R, EE, A, BB],
     bb: B => Http[R, EE, A, BB],
