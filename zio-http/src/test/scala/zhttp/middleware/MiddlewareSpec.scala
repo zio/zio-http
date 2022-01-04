@@ -185,19 +185,20 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           }
       } +
       suite("csrf") {
-        val app       = (Http.ok @@ csrf("x-token")).getStatus
-        val setCookie = Headers.cookie(Cookie("x-token", "secret"))
-        val xToken    = Headers("x-token", "secret1")
+        val app           = (Http.ok @@ csrf("x-token")).getStatus
+        val setCookie     = Headers.cookie(Cookie("x-token", "secret"))
+        val invalidXToken = Headers("x-token", "secret1")
+        val validXToken   = Headers("x-token", "secret")
         testM("x-token not present") {
           assertM(app(Request(headers = setCookie)))(equalTo(Status.FORBIDDEN))
         } +
           testM("x-token mismatch") {
-            assertM(app(Request(headers = setCookie ++ xToken)))(
+            assertM(app(Request(headers = setCookie ++ invalidXToken)))(
               equalTo(Status.FORBIDDEN),
             )
           } +
           testM("x-token match") {
-            assertM(app(Request(headers = setCookie ++ Headers("x-token", "secret"))))(
+            assertM(app(Request(headers = setCookie ++ validXToken)))(
               equalTo(Status.OK),
             )
           } +
@@ -205,7 +206,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             for {
               r <- Ref.make(false)
               app = Http.ok.tapM(_ => r.set(true)) @@ csrf("x-token")
-              _   <- app.execute(Request(headers = setCookie ++ xToken)).toEffect
+              _   <- app(Request(headers = setCookie ++ invalidXToken))
               res <- r.get
             } yield assert(res)(equalTo(false))
           }
