@@ -61,17 +61,17 @@ object EndpointSpec extends DefaultRunnableSpec with HExitAssertion {
         assert(route.extract(!! / "1" / "c"))(isSome(equalTo(1))) &&
         assert(route.extract(!! / "1"))(isNone) &&
         assert(route.extract(!! / "c"))(isNone)
-      } +
-      test("Failure to find endpoint should return HExit.empty") {
-        val a      = Method.GET / "a" / *[Int] to { _ => Response.ok }
+      }
+  } + suite("Request to Response ") {
+    test("Failure to find endpoint should return HExit.empty") {
+      val a      = Method.GET / "a" / *[Int] to { _ => Response.ok }
+      val actual = a.execute(Request(Method.GET, URL(Path("/b/2"))))
+      assert(actual)(isEmpty)
+    } +
+      test("Failure to find endpoint with effect should return HExit.empty") {
+        val a      = Method.GET / "a" / *[Int] to { _ => zio.UIO(Response.ok) }
         val actual = a.execute(Request(Method.GET, URL(Path("/b/2"))))
-        assert(actual)(equalTo(HExit.empty))
-      } // +
-//      testM("Failure to find endpoint with effect should return HExit.empty") {
-//        val a      = Method.GET / "a" / *[Int] to { _ => zio.UIO(Response.ok) }
-//        val actual = a.execute(Request(Method.GET, URL(Path("/b/2")))).toEffect
-//        zio.test.assertM(actual)(equalTo(HExit.empty))
-//      }
-
+        assert(actual)(isEmpty)
+      }
   }
 }

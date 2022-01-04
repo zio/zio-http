@@ -1,7 +1,7 @@
 package zhttp.endpoint
 
 import zhttp.http.{Http, HttpApp, Request, Response}
-import zio.{UIO, ZIO}
+import zio.ZIO
 
 /**
  * Constructors to make an HttpApp using an Endpoint
@@ -43,12 +43,10 @@ object CanConstruct {
         f: Request.ParameterizedRequest[A] => ZIO[R, E, Response[R, E]],
       ): HttpApp[R, E] = {
         Http
-          .collectM[Request] { req =>
+          .collect[Request] { case req =>
             route.extract(req) match {
-              case Some(value) =>
-                f(Request.ParameterizedRequest(req, value))
-                  .map(r => Http.succeed(r))
-              case None        => UIO(Response.ok).map(_ => Http.empty)
+              case Some(value) => Http.fromEffect(f(Request.ParameterizedRequest(req, value)))
+              case None        => Http.empty
             }
           }
           .flatten
