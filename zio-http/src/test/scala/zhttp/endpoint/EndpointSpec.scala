@@ -63,26 +63,27 @@ object EndpointSpec extends DefaultRunnableSpec with HExitAssertion {
         assert(route.extract(!! / "1"))(isNone) &&
         assert(route.extract(!! / "c"))(isNone)
       }
-  } + suite("To") {
-    test("endpoint doesn't match") {
-      val a      = Method.GET / "a" / *[Int] to { _ => Response.ok }
-      val actual = a.execute(Request(Method.GET, URL(Path("/b/2"))))
-      assert(actual)(isEmpty)
-    } +
-      test("endpoint with effect doesn't match") {
-        val a      = Method.GET / "a" / *[Int] to { _ => UIO(Response.ok) }
+  } +
+    suite("To") {
+      test("endpoint doesn't match") {
+        val a      = Method.GET / "a" / *[Int] to { _ => Response.ok }
         val actual = a.execute(Request(Method.GET, URL(Path("/b/2"))))
         assert(actual)(isEmpty)
       } +
-      test("endpoint matches") {
-        val a   = Method.GET / "a" / *[Int] to { _ => Response.ok }
-        val app = a.execute(Request(Method.GET, URL(Path("/a/2"))))
-        assert(app.map(_.status))(isSuccess(equalTo(Status.OK)))
-      } +
-      test("endpoint with effect matches") {
-        val a   = Method.GET / "a" / *[Int] to { _ => UIO(Response.ok) }
-        val app = a.execute(Request(Method.GET, URL(Path("/a/2"))))
-        zio.test.assert(app.map(_.status))(isEffect)
-      }
-  }
+        test("endpoint with effect doesn't match") {
+          val a      = Method.GET / "a" / *[Int] to { _ => UIO(Response.ok) }
+          val actual = a.execute(Request(Method.GET, URL(Path("/b/2"))))
+          assert(actual)(isEmpty)
+        } +
+        test("endpoint matches") {
+          val a   = Method.GET / "a" / *[Int] to { _ => Response.ok }
+          val app = a.execute(Request(Method.GET, URL(Path("/a/2"))))
+          assert(app.map(_.status))(isSuccess(equalTo(Status.OK)))
+        } +
+        test("endpoint with effect matches") {
+          val a   = Method.GET / "a" / *[Int] to { _ => UIO(Response.ok) }
+          val app = a.execute(Request(Method.GET, URL(Path("/a/2"))))
+          zio.test.assert(app)(isEffect)
+        }
+    }
 }
