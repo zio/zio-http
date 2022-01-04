@@ -24,13 +24,12 @@ object CanConstruct {
 
     override def make(route: Endpoint[A], f: Request.ParameterizedRequest[A] => Response[R, E]): HttpApp[R, E] =
       Http
-        .collect[Request] { case req =>
+        .collectHttp[Request] { case req =>
           route.extract(req) match {
             case Some(value) => Http.succeed(f(Request.ParameterizedRequest(req, value)))
             case None        => Http.empty
           }
         }
-        .flatten
   }
 
   implicit def responseZIO[R, E, A]: Aux[R, E, A, ZIO[R, E, Response[R, E]]] =
@@ -43,13 +42,12 @@ object CanConstruct {
         f: Request.ParameterizedRequest[A] => ZIO[R, E, Response[R, E]],
       ): HttpApp[R, E] = {
         Http
-          .collect[Request] { case req =>
+          .collectHttp[Request] { case req =>
             route.extract(req) match {
               case Some(value) => Http.fromEffect(f(Request.ParameterizedRequest(req, value)))
               case None        => Http.empty
             }
           }
-          .flatten
       }
     }
 }
