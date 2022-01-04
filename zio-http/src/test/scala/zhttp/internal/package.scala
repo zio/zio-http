@@ -3,5 +3,5 @@ package zhttp
 import zio.Has
 
 package object internal {
-  type ReusableServer = Has[ReusableServer.Service]
+  type DynamicServer = Has[DynamicServer.Service]
 }

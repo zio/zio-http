@@ -8,10 +8,10 @@ import zio.console.Console
 
 import java.util.UUID
 
-object ReusableServer {
+object DynamicServer {
 
-  def deploy(app: HttpApp[HttpEnv, Throwable]): ZIO[ReusableServer, Nothing, String] =
-    ZIO.accessM[ReusableServer](_.get.add(app))
+  def deploy(app: HttpApp[HttpEnv, Throwable]): ZIO[DynamicServer, Nothing, String] =
+    ZIO.accessM[DynamicServer](_.get.add(app))
 
   def app: HttpApp[HttpEnv, Throwable] = Http
     .fromOptionFunction[Request] { case req =>
@@ -28,14 +28,14 @@ object ReusableServer {
       } yield res
     }
 
-  def get(id: Id): ZIO[ReusableServer, Nothing, Option[HttpApp[HttpEnv, Throwable]]] =
-    ZIO.accessM[ReusableServer](_.get.get(id))
+  def get(id: Id): ZIO[DynamicServer, Nothing, Option[HttpApp[HttpEnv, Throwable]]] =
+    ZIO.accessM[DynamicServer](_.get.get(id))
 
-  def setStart(s: Start): ZIO[ReusableServer, Nothing, Boolean] = ZIO.accessM[ReusableServer](_.get.setStart(s))
-  def getStart: ZIO[ReusableServer, Nothing, Start]             = ZIO.accessM[ReusableServer](_.get.getStart)
-  def getPort: ZIO[ReusableServer, Nothing, Int]                = ZIO.accessM[ReusableServer](_.get.getPort)
+  def setStart(s: Start): ZIO[DynamicServer, Nothing, Boolean] = ZIO.accessM[DynamicServer](_.get.setStart(s))
+  def getStart: ZIO[DynamicServer, Nothing, Start]             = ZIO.accessM[DynamicServer](_.get.getStart)
+  def getPort: ZIO[DynamicServer, Nothing, Int]                = ZIO.accessM[DynamicServer](_.get.getPort)
 
-  def live: ZLayer[Any, Nothing, ReusableServer] = {
+  def live: ZLayer[Any, Nothing, DynamicServer] = {
     for {
       ref <- Ref.make(Map.empty[Id, HttpApp[HttpEnv, Throwable]])
       pr  <- Promise.make[Nothing, Start]
@@ -43,7 +43,7 @@ object ReusableServer {
   }.toLayer
 
   type Id          = String
-  type HttpEnv     = ReusableServer with Console with Blocking
+  type HttpEnv     = DynamicServer with Console with Blocking
   type HttpAppTest = HttpApp[HttpEnv, Throwable]
   val APP_ID = "X-APP_ID"
 
