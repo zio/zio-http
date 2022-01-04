@@ -308,6 +308,29 @@ object Middleware {
     Middleware.identity.race(Middleware.fromApp(Http.status(Status.REQUEST_TIMEOUT).delayAfter(duration)))
 
   /**
+   * Delays to bind behavior of the Middleware until HttpApp.apply
+   */
+  def lazyMiddleware[R, E](f: () => Middleware[R, E]): Middleware[R, E] = Lazy(f)
+
+  /**
+   * If failures reach the threshold, further calls return with the fallbackApp
+   */
+  def circuitBreaker[R, E](
+    threshold: Thresholds,
+    fallbackApp: HttpApp[R, E],
+  ): Middleware[R, E] = lazyMiddleware(() => {
+    import zhttp.http.CircuitBreaker._
+    val circuitBreaker = CircuitBreaker.instance(threshold)
+    circuitBreaker.checkCurrentState match {
+      case Disabled                                              => identity
+      case Closed                                                => patch((_, _) => Patch.watchStatus(circuitBreaker))
+      case ForcedOpen | Open                                     => Middleware.fromApp(fallbackApp)
+      case HalfOpen if circuitBreaker.withinPermittedCallCount() => patch((_, _) => Patch.watchStatus(circuitBreaker))
+      case HalfOpen                                              => Middleware.fromApp(fallbackApp)
+    }
+  })
+
+  /**
    * Applies the middleware only if the condition function evaluates to true
    */
   def when[R, E](cond: RequestP[Boolean])(middleware: Middleware[R, E]): Middleware[R, E] =
@@ -376,6 +399,12 @@ object Middleware {
           (self.execute(app, flag)(req) orElse other.execute(app, flag)(req))
             .asInstanceOf[ZIO[R, Option[E], Response[R, E]]]
         }
+
+      case Lazy(f) =>
+        Http.fromOptionFunction { req =>
+          f().execute(app, flag)(req)
+        }
+
     }
 
   final case class Flag(withEmpty: Boolean = false)
@@ -411,6 +440,8 @@ object Middleware {
   private final case class Constant[R, E](app: HttpApp[R, E]) extends Middleware[R, E]
 
   private final case class OrElse[R, E](self: Middleware[R, Any], other: Middleware[R, E]) extends Middleware[R, E]
+
+  private final case class Lazy[R, E](f: () => Middleware[R, E]) extends Middleware[R, E]
 
   private case object Identity extends Middleware[Any, Nothing]
 }

@@ -49,6 +49,63 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             assertM(program)(equalTo(Status.REQUEST_TIMEOUT))
           }
       } +
+      suite("Lazy") {
+        testM("basic usage") {
+          var bool      = true
+          def selectApp = () =>
+            if (bool) {
+              identity
+            } else {
+              fromApp(Http.status(Status.REQUEST_TIMEOUT))
+            }
+
+          val wrappedApp = app @@ lazyMiddleware(selectApp)
+          for {
+            res200 <- assertM(run(wrappedApp).map(_.status))(equalTo(Status.OK))
+            _ = { bool = false }
+            res408 <- assertM(run(wrappedApp).map(_.status))(equalTo(Status.REQUEST_TIMEOUT))
+          } yield res200 && res408
+
+        }
+      } +
+      suite("CircuitBreaker") {
+        val fallbackApp = Http.status(Status.SERVICE_UNAVAILABLE)
+        testM("basic usage") {
+          val thresholds = Thresholds("cb1")
+          val program    = run(app @@ circuitBreaker(thresholds, fallbackApp)).map(_.status)
+          assertM(program)(equalTo(Status.OK))
+        } +
+          testM("state transition: close -> open -> half_open -> open -> close") {
+            import CircuitBreaker._
+            val thresholds = Thresholds(
+              "cb2",
+              failureRateThreshold = 30,
+              permittedNumberOfCallsInHalfOpenState = 2,
+              slidingWindowSize = 3,
+              minimumNumberOfCalls = 2,
+              waitDurationInOpenState = 300,
+            )
+            val instance   = CircuitBreaker.instance(thresholds)
+            def run2[R, E](app1: HttpApp[R, E]): ZIO[TestClock with R, Option[E], (Status, Int, State)] =
+              run(app1 @@ circuitBreaker(thresholds, Http.status(Status.SERVICE_UNAVAILABLE)))
+                .map(s => (s.status, instance.errorRatio(), instance.checkCurrentState))
+
+            def program200 = run2(app)
+            def program408 = run2(Http.status(Status.REQUEST_TIMEOUT))
+
+            for {
+              res1 <- assertM(program408)(equalTo((Status.REQUEST_TIMEOUT, 0, Closed)))     // 1/1 (below minimum)
+              res2 <- assertM(program408)(equalTo((Status.REQUEST_TIMEOUT, 100, Open)))     // 2/2
+              res3 <- assertM(program200)(equalTo((Status.SERVICE_UNAVAILABLE, 100, Open))) // 2/2 (no count)
+              _ = Thread.sleep(300)                                                       // wait duration in OpenState
+              res4 <- assertM(program408)(equalTo((Status.REQUEST_TIMEOUT, 0, HalfOpen))) // 1/1 (reset, below minimum)
+              res5 <- assertM(program408)(equalTo((Status.REQUEST_TIMEOUT, 100, Open)))   // 2/2
+              _ = Thread.sleep(300)                                                       // wait duration in OpenState
+              res6 <- assertM(program200)(equalTo((Status.OK, 0, HalfOpen)))              // 0/1
+              res7 <- assertM(program200)(equalTo((Status.OK, 0, Closed)))                // 0/2
+            } yield res1 && res2 && res3 && res4 && res5 && res6 && res7
+          }
+      } +
       suite("combine") {
         testM("before and after") {
           val middleware = runBefore(console.putStrLn("A")) ++ runAfter(console.putStrLn("B"))
