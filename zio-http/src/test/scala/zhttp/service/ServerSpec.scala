@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
 import zhttp.http._
-import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zhttp.internal.{HttpGen, HttpRunnableSpec, ReusableServer}
 import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
@@ -23,7 +23,7 @@ object ServerSpec extends HttpRunnableSpec {
   } yield (data.mkString(""), content)
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ ReusableServer.live
 
   private val staticApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
@@ -31,7 +31,7 @@ object ServerSpec extends HttpRunnableSpec {
     case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
   }
 
-  private val app = serve { staticApp ++ DynamicServer.app }
+  private val app = serve { staticApp ++ ReusableServer.app }
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {

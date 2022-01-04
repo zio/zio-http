@@ -2,7 +2,7 @@ package zhttp.service
 
 import sttp.client3.asynchttpclient.zio.AsyncHttpClientZioBackend
 import zhttp.http._
-import zhttp.internal.{DynamicServer, HttpRunnableSpec}
+import zhttp.internal.{HttpRunnableSpec, ReusableServer}
 import zhttp.service.server._
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
 import zio._
@@ -30,7 +30,7 @@ object WebSocketServerSpec extends HttpRunnableSpec {
   private val env =
     EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ AsyncHttpClientZioBackend
       .layer()
-      .orDie ++ DynamicServer.live ++ ChannelFactory.nio
+      .orDie ++ ReusableServer.live ++ ChannelFactory.nio
 
-  private val app = serve { DynamicServer.app }
+  private val app = serve { ReusableServer.app }
 }
