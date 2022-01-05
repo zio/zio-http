@@ -27,6 +27,7 @@ final case class ServerSocketHandler[R](
     zExec.unsafeRun(ctx)(
       stream
         .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toWebSocketFrame)))
+        .catchAll(e => ZStream.succeed(exceptionCaught(ctx, e)))
         .runDrain,
     )
 
