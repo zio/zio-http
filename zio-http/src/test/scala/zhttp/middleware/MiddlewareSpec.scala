@@ -205,7 +205,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           testM("app execution skipped") {
             for {
               r <- Ref.make(false)
-              app = Http.ok.tapM(_ => r.set(true)) @@ csrfValidate("x-token")
+              app = Http.ok.tapZIO(_ => r.set(true)) @@ csrfValidate("x-token")
               _   <- app(Request(headers = setCookie ++ invalidXToken))
               res <- r.get
             } yield assert(res)(equalTo(false))

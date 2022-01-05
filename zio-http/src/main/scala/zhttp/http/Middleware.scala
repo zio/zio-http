@@ -8,6 +8,7 @@ import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
 import zio.{UIO, ZIO, clock, console}
+
 import java.io.IOException
 import java.util.UUID
 
@@ -116,7 +117,7 @@ object Middleware {
     basicAuth { case (user, password) => (user == u) && (password == p) }
 
   def addCookieM[R, E](cookie: ZIO[R, E, Cookie]): Middleware[R, E] =
-    patchM((_, _) => cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c))))
+    patchZIO((_, _) => cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c))))
 
   /**
    * CSRF middlewares : To prevent Cross-site request forgery attacks. This middleware is modeled after the double
