@@ -36,6 +36,104 @@ sealed trait Server[-R, +E] { self =>
 
   def start(implicit ev: E <:< Throwable): ZIO[R with EventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
     make.useForever
+
+  /**
+   * Launches the app with current settings: default EventLoopGroup (nThreads = 0) and ServerChannelFactory.auto.
+   */
+  def startDefault[R1 <: Has[_] with R](implicit ev: E <:< Throwable): ZIO[R1, Throwable, Nothing] =
+    start.provideSomeLayer[R1](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
+
+  /**
+   * Creates a new server with the maximum size of the request specified in bytes.
+   */
+  def withMaxRequestSize(size: Int): Server[R, E] = Concat(self, Server.MaxRequestSize(size))
+
+  /**
+   * Creates a new server listening on the provided port.
+   */
+  def withPort(port: Int): Server[R, E] = Concat(self, Server.Address(new InetSocketAddress(port)))
+
+  /**
+   * Creates a new server listening on the provided hostname and port.
+   */
+  def withBind(hostname: String, port: Int): Server[R, E] =
+    Concat(self, Server.Address(new InetSocketAddress(hostname, port)))
+
+  /**
+   * Creates a new server listening on the provided InetAddress and port.
+   */
+  def withBind(address: InetAddress, port: Int): Server[R, E] =
+    Concat(self, Server.Address(new InetSocketAddress(address, port)))
+
+  /**
+   * Creates a new server listening on the provided InetSocketAddress.
+   */
+  def withBind(inetSocketAddress: InetSocketAddress): Server[R, E] = Concat(self, Server.Address(inetSocketAddress))
+
+  /**
+   * Creates a new server with the errorHandler provided.
+   */
+  def withError[R1](errorHandler: Throwable => ZIO[R1, Nothing, Unit]): Server[R with R1, E] =
+    Concat(self, Server.Error(errorHandler))
+
+  /**
+   * Creates a new server with the following ssl options.
+   */
+  def withSsl(sslOptions: ServerSSLOptions): Server[R, E] = Concat(self, Server.Ssl(sslOptions))
+
+  /**
+   * Creates a new server using a HttpServerExpectContinueHandler to send a 100 HttpResponse if necessary.
+   */
+  def withAcceptContinue: Server[R, E] = Concat(self, Server.AcceptContinue)
+
+  /**
+   * Creates a new server using netty FlowControlHandler (@see <a
+   * href="https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html">FlowControlHandler</a>).
+   */
+  def withFlowControl: Server[R, E] = Concat(self, Server.FlowControl)
+
+  /**
+   * Creates a new server with leak detection disabled (@see <a
+   * href="https://netty.io/4.1/api/io/netty/util/ResourceLeakDetector.Level.html#DISABLED">Disabled Level</a>).
+   */
+  def withLeakDetectionDisabled: Server[R, E] = Concat(self, LeakDetection(LeakDetectionLevel.DISABLED))
+
+  /**
+   * Creates a new server with simple leak detection (@see <a
+   * href="https://netty.io/4.1/api/io/netty/util/ResourceLeakDetector.Level.html#SIMPLE">Simple Level</a>).
+   */
+  def withSimpleLeakDetection: Server[R, E] = Concat(self, LeakDetection(LeakDetectionLevel.SIMPLE))
+
+  /**
+   * Creates a new server with advanced leak detection (@see <a
+   * href="https://netty.io/4.1/api/io/netty/util/ResourceLeakDetector.Level.html#ADVANCED">Advanced Level</a>).
+   */
+  def withAdvancedLeakDetection: Server[R, E] = Concat(self, LeakDetection(LeakDetectionLevel.ADVANCED))
+
+  /**
+   * Creates a new server with paranoid leak detection (@see <a
+   * href="https://netty.io/4.1/api/io/netty/util/ResourceLeakDetector.Level.html#PARANOID">Paranoid Level</a>).
+   */
+  def withParanoidLeakDetection: Server[R, E] = Concat(self, LeakDetection(LeakDetectionLevel.PARANOID))
+
+  /**
+   * Creates a new server with the leak detection level provided (@see <a
+   * href="https://netty.io/4.1/api/io/netty/util/ResourceLeakDetector.Level.html">ResourceLeakDetector.Level</a>).
+   */
+  def withLeakDetection(level: LeakDetectionLevel): Server[R, E] = Concat(self, LeakDetection(level))
+
+  /**
+   * Creates a new server with netty's HttpServerKeepAliveHandler to close persistent connections when needed (@see <a
+   * href="https://netty.io/4.1/api/io/netty/handler/codec/http/HttpServerKeepAliveHandler.html">HttpServerKeepAliveHandler</a>).
+   */
+  def withKeepAlive: Server[R, E] = Concat(self, KeepAlive)
+
+  /**
+   * Creates a new server with FlushConsolidationHandler to control the flush operations in a more efficient way (@see
+   * <a
+   * href="https://netty.io/4.1/api/io/netty/handler/flush/FlushConsolidationHandler.html">FlushConsolidationHandler<a>).
+   */
+  def withConsolidateFlush: Server[R, E] = Concat(self, ConsolidateFlush)
 }
 
 object Server {
@@ -85,13 +183,20 @@ object Server {
   val consolidateFlush: UServer      = ConsolidateFlush
 
   /**
+   * Creates a server from a http app.
+   */
+  def apply[R, E](http: HttpApp[R, E]): Server[R, E] = Server.App(http)
+
+  /**
    * Launches the app on the provided port.
    */
   def start[R <: Has[_]](
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    (Server.bind(port) ++ Server.app(http)).make
+    (Server(http)
+      .withPort(port))
+      .make
       .zipLeft(ZManaged.succeed(println(s"Server started on port: ${port}")))
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
@@ -101,14 +206,20 @@ object Server {
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    (Server.app(http) ++ Server.bind(address, port)).make.useForever
+    (Server(http)
+      .withBind(address, port))
+      .make
+      .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def start[R <: Has[_]](
     socketAddress: InetSocketAddress,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    (Server.app(http) ++ Server.bind(socketAddress)).make.useForever
+    (Server(http)
+      .withBind(socketAddress))
+      .make
+      .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def make[R](
