@@ -162,7 +162,8 @@ trait HeaderGetters[+A] { self =>
         case Some(list) => list
       }
     }
-  final def getCookie(name: String): Option[String] = getCookiesDecoded.find(_.name == name).map(_.content)
+
+  final def getCookie(name: CharSequence): Option[CharSequence] = getCookiesDecoded.find(_.name == name).map(_.content)
 
   final def getDate: Option[CharSequence] =
     getHeaderValue(HeaderNames.date)

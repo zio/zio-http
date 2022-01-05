@@ -116,7 +116,7 @@ object Middleware {
     basicAuth { case (user, password) => (user == u) && (password == p) }
 
   def addCookieM[R, E](cookie: ZIO[R, E, Cookie]): Middleware[R, E] =
-    patchM((_, _) => cookie.mapBoth(Option(_), c => Patch.addHeader(HttpHeaderNames.SET_COOKIE.toString, c.encode)))
+    patchM((_, _) => cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c))))
 
   /**
    * CSRF middleware : To prevent Cross-site request forgery attacks. This middleware is modeled after the double submit
@@ -125,13 +125,13 @@ object Middleware {
    *   https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
    */
   def csrf(tokenName: String = "x-csrf-token"): Middleware[Any, Nothing] = {
-    ifThenElse((_, _, headers) => {
-      (headers.getHeaderValue(tokenName), headers.getCookie(tokenName)) match {
-        case (Some(headerValue), Some(cookieValue)) => headerValue == cookieValue
-        case _                                      => false
-      }
-    })(
-      Middleware.identity,
+    whenHeader(
+      headers => {
+        (headers.getHeaderValue(tokenName), headers.getCookie(tokenName)) match {
+          case (Some(headerValue), Some(cookieValue)) => headerValue != cookieValue
+          case _                                      => true
+        }
+      },
       Middleware.Constant(Http.status(Status.FORBIDDEN)),
     )
   }
