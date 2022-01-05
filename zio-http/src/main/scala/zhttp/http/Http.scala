@@ -463,7 +463,7 @@ object Http {
   /**
    * Creates an Http app which always responds the provided data and a 200 status code
    */
-  def fromData[R, E](data: HttpData) = response(Response(data = data))
+  def fromData(data: HttpData) = response(Response(data = data))
 
   /**
    * Converts a ZIO to an Http type
