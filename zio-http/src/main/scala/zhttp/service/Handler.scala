@@ -206,9 +206,9 @@ private[zhttp] final case class Handler[R](
   /**
    * Writes Binary Stream data to the Channel
    */
-  private def writeStreamContent[A](
-    stream: ZStream[R, Throwable, ByteBuf],
-  )(implicit ctx: Ctx): ZIO[R, Throwable, Unit] = {
+  private def writeStreamContent(
+    stream: ZStream[Any, Throwable, ByteBuf],
+  )(implicit ctx: Ctx): ZIO[Any, Throwable, Unit] = {
     for {
       _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))

@@ -16,7 +16,7 @@ import java.nio.file.Files
 final case class Response[-R, +E] private (
   status: Status,
   headers: Headers,
-  data: HttpData[R, E],
+  data: HttpData,
   private[zhttp] val attribute: Response.Attribute[R, E],
 ) extends HeaderExtension[Response[R, E]] { self =>
 
@@ -109,7 +109,7 @@ object Response {
   def apply[R, E](
     status: Status = Status.OK,
     headers: Headers = Headers.empty,
-    data: HttpData[R, E] = HttpData.Empty,
+    data: HttpData = HttpData.Empty,
   ): Response[R, E] =
     Response(status, headers, data, Attribute.empty)
 
@@ -142,7 +142,7 @@ object Response {
   def http[R, E](
     status: Status = Status.OK,
     headers: Headers = Headers.empty,
-    data: HttpData[R, E] = HttpData.empty,
+    data: HttpData = HttpData.empty,
   ): Response[R, E] = Response(status, headers, data)
 
   /**

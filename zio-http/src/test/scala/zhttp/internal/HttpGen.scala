@@ -11,7 +11,7 @@ import zio.{Chunk, ZIO}
 import java.io.File
 
 object HttpGen {
-  def clientParams[R](dataGen: Gen[R, HttpData[Any, Nothing]]): Gen[Random with Sized with R, ClientParams] =
+  def clientParams[R](dataGen: Gen[R, HttpData]) =
     for {
       method  <- HttpGen.method
       url     <- HttpGen.url
@@ -45,7 +45,7 @@ object HttpGen {
     value <- Gen.alphaNumericStringBounded(1, 4)
   } yield (key, value)
 
-  def httpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData[Any, Nothing]] =
+  def httpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData] =
     for {
       list <- gen
       cnt  <- Gen
@@ -86,7 +86,7 @@ object HttpGen {
     ),
   )
 
-  def nonEmptyHttpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData[Any, Nothing]] =
+  def nonEmptyHttpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData] =
     for {
       list <- gen
       cnt  <- Gen
