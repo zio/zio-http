@@ -3,9 +3,9 @@ package zhttp.endpoint
 import zhttp.http._
 import zio.UIO
 import zio.test.Assertion._
-import zio.test.{DefaultRunnableSpec, assert}
+import zio.test.{DefaultRunnableSpec, assert, assertM}
 
-object EndpointSpec extends DefaultRunnableSpec with HExitAssertion {
+object EndpointSpec extends DefaultRunnableSpec {
   def spec = suite("Route") {
     test("match method") {
       val route   = Endpoint.fromMethod(Method.GET)
@@ -65,25 +65,21 @@ object EndpointSpec extends DefaultRunnableSpec with HExitAssertion {
       }
   } +
     suite("To") {
-      test("endpoint doesn't match") {
-        val a      = Method.GET / "a" / *[Int] to { _ => Response.ok }
-        val actual = a.execute(Request(Method.GET, URL(Path("/b/2"))))
-        assert(actual)(isEmpty)
+      testM("endpoint doesn't match") {
+        val app = Method.GET / "a" / *[Int] to { _ => Response.ok }
+        assertM(app(Request(url = URL(Path("/b/2")))).flip)(isNone)
       } +
-        test("endpoint with effect doesn't match") {
-          val a      = Method.GET / "a" / *[Int] to { _ => UIO(Response.ok) }
-          val actual = a.execute(Request(Method.GET, URL(Path("/b/2"))))
-          assert(actual)(isEmpty)
+        testM("endpoint with effect doesn't match") {
+          val app = Method.GET / "a" / *[Int] to { _ => UIO(Response.ok) }
+          assertM(app(Request(url = URL(Path("/b/2")))).flip)(isNone)
         } +
-        test("endpoint matches") {
-          val a   = Method.GET / "a" / *[Int] to { _ => Response.ok }
-          val app = a.execute(Request(Method.GET, URL(Path("/a/2"))))
-          assert(app.map(_.status))(isSuccess(equalTo(Status.OK)))
+        testM("endpoint matches") {
+          val app = Method.GET / "a" / *[Int] to { _ => Response.ok }
+          assertM(app(Request(url = URL(Path("/a/2")))).map(_.status))(equalTo(Status.OK))
         } +
-        test("endpoint with effect matches") {
-          val a   = Method.GET / "a" / *[Int] to { _ => UIO(Response.ok) }
-          val app = a.execute(Request(Method.GET, URL(Path("/a/2"))))
-          zio.test.assert(app)(isEffect)
+        testM("endpoint with effect matches") {
+          val app = Method.GET / "a" / *[Int] to { _ => UIO(Response.ok) }
+          assertM(app(Request(url = URL(Path("/a/2")))).map(_.status))(equalTo(Status.OK))
         }
     }
 }
