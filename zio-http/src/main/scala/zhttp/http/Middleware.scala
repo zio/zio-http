@@ -7,9 +7,9 @@ import zhttp.http.Middleware.{Flag, RequestP}
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
-import zio.{UIO, ZIO, clock, console, random}
-
+import zio.{UIO, ZIO, clock, console}
 import java.io.IOException
+import java.util.UUID
 
 /**
  * Middlewares for Http.
@@ -130,8 +130,8 @@ object Middleware {
    */
 
   def csrfGenerate[R, E](
-    tokenGen: ZIO[R, Nothing, String] = random.nextUUID.map(_.toString),
     tokenName: String = "x-csrf-token",
+    tokenGen: ZIO[R, Nothing, String] = UIO(UUID.randomUUID.toString),
   ): Middleware[R, E] =
     addCookieM(tokenGen.map(Cookie(tokenName, _)))
 
