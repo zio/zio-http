@@ -12,6 +12,7 @@ import zio.{Task, UIO, ZIO}
 
 import java.io.File
 import java.net.{InetAddress, InetSocketAddress}
+import scala.util.Using
 
 @Sharable
 private[zhttp] final case class Handler[R](
@@ -134,17 +135,23 @@ private[zhttp] final case class Handler[R](
               if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
               else {
                 for {
-                  _ <- UIO {
-                    // Write the initial line and the header.
-                    unsafeWriteAndFlushAnyResponse(res)
-                  }
                   _ <- res.data match {
-                    case HttpData.BinaryStream(stream) => writeStreamContent(stream)
+                    case HttpData.BinaryStream(stream) =>
+                      UIO {
+                        // Write the initial line and the header.
+                        unsafeWriteAndFlushAnyResponse(res)
+                      } *>
+                        writeStreamContent(stream)
                     case HttpData.File(file)           =>
                       UIO {
-                        unsafeWriteFileContent(file)
+                        unsafeWriteFileContent(file, res)
                       }
-                    case _                             => UIO(ctx.flush())
+                    case _                             =>
+                      UIO {
+                        // Write the initial line and the header.
+                        unsafeWriteAndFlushAnyResponse(res)
+                        ctx.flush()
+                      }
                   }
                   _ <- Task(releaseRequest(jReq))
                 } yield ()
@@ -156,13 +163,18 @@ private[zhttp] final case class Handler[R](
         if (self.isWebSocket(res)) {
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
-          // Write the initial line and the header.
-          unsafeWriteAndFlushAnyResponse(res)
           res.data match {
-            case HttpData.BinaryStream(stream) => unsafeRunZIO(writeStreamContent(stream) *> Task(releaseRequest(jReq)))
+            case HttpData.BinaryStream(stream) =>
+              // Write the initial line and the header.
+              unsafeWriteAndFlushAnyResponse(res)
+              unsafeRunZIO(writeStreamContent(stream) *> Task(releaseRequest(jReq)))
             case HttpData.File(file)           =>
-              unsafeWriteFileContent(file)
-            case _                             => releaseRequest(jReq)
+              unsafeWriteFileContent(file, res)
+              releaseRequest(jReq)
+            case _                             =>
+              // Write the initial line and the header.
+              unsafeWriteAndFlushAnyResponse(res)
+              releaseRequest(jReq)
           }
         }
       case HExit.Failure(e)   =>
@@ -218,14 +230,18 @@ private[zhttp] final case class Handler[R](
   /**
    * Writes file content to the Channel. Does not use Chunked transfer encoding
    */
-  private def unsafeWriteFileContent(file: File)(implicit ctx: ChannelHandlerContext): Unit = {
+  private def unsafeWriteFileContent(file: File, res: Response[R, Throwable])(implicit
+    ctx: ChannelHandlerContext,
+  ): Unit = {
     import java.io.RandomAccessFile
-
-    val raf        = new RandomAccessFile(file, "r")
-    val fileLength = raf.length()
-    // Write the content.
-    ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
-    // Write the end marker.
-    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
+    Using(new RandomAccessFile(file, "r")) { raf =>
+      val fileLength = raf.length()
+      // Write the initial line and the header.
+      unsafeWriteAndFlushAnyResponse(res)
+      // Write the content.
+      ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
+      // Write the end marker.
+      ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+    }.fold(unsafeWriteAndFlushErrorResponse(_), _ => ())
   }
 }

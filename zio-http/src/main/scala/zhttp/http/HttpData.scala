@@ -47,6 +47,7 @@ sealed trait HttpData[-R, +E] { self =>
           .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
       case HttpData.File(file)           =>
         effectBlocking {
+          // The method ensures that the file is closed when all bytes have been read or an I/O error, or other runtime exception, is thrown.
           val fileContent = Files.readAllBytes(file.toPath)
           Unpooled.copiedBuffer(fileContent)
         }
