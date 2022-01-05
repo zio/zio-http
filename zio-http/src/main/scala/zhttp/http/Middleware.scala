@@ -7,7 +7,7 @@ import zhttp.http.Middleware.{Flag, RequestP}
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
-import zio.{UIO, ZIO, clock, console}
+import zio.{UIO, ZIO, clock, console, random}
 
 import java.io.IOException
 
@@ -118,15 +118,23 @@ object Middleware {
   def addCookieM[R, E](cookie: ZIO[R, E, Cookie]): Middleware[R, E] =
     patchM((_, _) => cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c))))
 
-  def csrfGenerate[R, E](tokenGen: ZIO[R, E, String], tokenName: String = "x-csrf-token"): Middleware[R, E] =
-    addCookieM(tokenGen.map(Cookie(tokenName, _)))
-
   /**
-   * CSRF middleware : To prevent Cross-site request forgery attacks. This middleware is modeled after the double submit
-   * cookie pattern.
+   * CSRF middlewares : To prevent Cross-site request forgery attacks. This middleware is modeled after the double
+   * submit cookie pattern.
+   * @method
+   *   csrfGenerate - Sets cookie with CSRF token
+   * @method
+   *   csrfValidate - Validate token value in request headers against value in cookies
    * @see
    *   https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
    */
+
+  def csrfGenerate[R, E](
+    tokenGen: ZIO[R, Nothing, String] = random.nextUUID.map(_.toString),
+    tokenName: String = "x-csrf-token",
+  ): Middleware[R, E] =
+    addCookieM(tokenGen.map(Cookie(tokenName, _)))
+
   def csrfValidate(tokenName: String = "x-csrf-token"): Middleware[Any, Nothing] = {
     whenHeader(
       headers => {
