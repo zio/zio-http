@@ -13,7 +13,6 @@ import zio.test.TestAspect._
 import zio.test._
 
 import java.io.File
-import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec(8088) {
 
@@ -157,10 +156,9 @@ object ServerSpec extends HttpRunnableSpec(8088) {
           assertM(res)(isSome(equalTo(value)))
         }
       } +
-      testM("file-streaming") {
-        val path = getClass.getResource("/TestFile.txt").getPath
-        val res  = Http.fromData(HttpData.fromStream(ZStream.fromFile(Paths.get(path)))).requestBodyAsString()
-        assertM(res)(containsString("abc"))
+      testM("streaming") {
+        val res = Http.fromStream(ZStream("a", "b", "c")).requestBodyAsString()
+        assertM(res)(equalTo("abc"))
       } +
       suite("html") {
         testM("body") {

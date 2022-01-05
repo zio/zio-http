@@ -8,6 +8,7 @@ import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
 import zio.clock.Clock
 import zio.duration.Duration
+import zio.stream.ZStream
 
 import java.nio.charset.Charset
 import scala.annotation.unused
@@ -462,12 +463,7 @@ object Http {
   /**
    * Creates an Http app which always responds the provided data and a 200 status code
    */
-  def fromData[R, E](data: HttpData[R, E]): HttpApp[R, E] = response(Response(data = data))
-
-  /*
-   * Creates an Http app from the contents of a file
-   */
-  def fromFile(file: java.io.File): HttpApp[Any, Nothing] = response(Response(data = HttpData.fromFile(file)))
+  def fromData[R, E](data: HttpData) = response(Response(data = data))
 
   /**
    * Converts a ZIO to an Http type
@@ -478,6 +474,11 @@ object Http {
    * Creates an Http app from a function that returns a ZIO
    */
   def fromEffectFunction[A]: Http.MakeFromEffectFunction[A] = Http.MakeFromEffectFunction(())
+
+  /*
+   * Creates an Http app from the contents of a file
+   */
+  def fromFile(file: java.io.File): HttpApp[Any, Nothing] = response(Response(data = HttpData.fromFile(file)))
 
   /**
    * Creates a Http from a pure function
@@ -494,6 +495,18 @@ object Http {
    * returned effect can fail with a `None` to signal "not found" to the backend.
    */
   def fromOptionFunction[A]: FromOptionFunction[A] = new FromOptionFunction(())
+
+  /**
+   * Creates a Http that always succeeds with a 200 status code and the provided ZStream as the body
+   */
+  def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = HTTP_CHARSET): HttpApp[R, Nothing] =
+    Http.fromEffect(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provide(r), charset)))).flatten
+
+  /**
+   * Creates a Http that always succeeds with a 200 status code and the provided ZStream as the body
+   */
+  def fromStream[R](stream: ZStream[R, Throwable, Byte]): HttpApp[R, Nothing] =
+    Http.fromEffect(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provide(r))))).flatten
 
   /**
    * Creates an HTTP app which always responds with the provided Html page.
