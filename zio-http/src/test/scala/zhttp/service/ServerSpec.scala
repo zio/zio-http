@@ -145,6 +145,15 @@ object ServerSpec extends HttpRunnableSpec(8088) {
             .map(_.getOrElse("Content type header not found."))
         assertM(res)(equalTo("text/plain"))
       } +
+      testM("content-length header on file response") {
+        val file = new File(getClass.getResource("/TestFile.txt").getPath)
+        val res  =
+          Http
+            .fromFile(file)
+            .requestHeaderValueByName()(HttpHeaderNames.CONTENT_LENGTH)
+            .map(_.getOrElse(-1))
+        assertM(res)(equalTo(32))
+      } +
       testM("status") {
         checkAllM(HttpGen.status) { case (status) =>
           val res = Http.status(status).requestStatus()
