@@ -154,6 +154,13 @@ object ServerSpec extends HttpRunnableSpec(8088) {
             .map(_.getOrElse(-1))
         assertM(res)(equalTo(32))
       } +
+      testM("Internal Server Error on non-existent file") {
+        val file = new File(getClass.getResource("/NonExistentFile.txt").getPath)
+        val res  = Http
+          .fromFile(file)
+          .requestStatus()
+        assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+      } +
       testM("status") {
         checkAllM(HttpGen.status) { case (status) =>
           val res = Http.status(status).requestStatus()
