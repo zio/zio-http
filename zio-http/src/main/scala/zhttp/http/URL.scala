@@ -50,8 +50,8 @@ object URL {
   private def fromAbsoluteURI(uri: URI): Option[URL] = {
 
     def portFromScheme(scheme: Scheme): Int = scheme match {
-      case Scheme.HTTP  => 80
-      case Scheme.HTTPS => 443
+      case Scheme.HTTP | Scheme.WS => 80
+      case Scheme.HTTPS            => 443
     }
 
     for {

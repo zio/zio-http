@@ -8,10 +8,12 @@ object Scheme       {
   def asString(self: Scheme): String = self match {
     case HTTP  => "http"
     case HTTPS => "https"
+    case WS    => "ws"
   }
 
   case object HTTP  extends Scheme
   case object HTTPS extends Scheme
+  case object WS    extends Scheme
 
   def fromJScheme(scheme: HttpScheme): Option[Scheme] =
     scheme match {
@@ -24,6 +26,7 @@ object Scheme       {
     scheme.toUpperCase match {
       case "HTTPS" => Option(HTTPS)
       case "HTTP"  => Option(HTTP)
+      case "WS"    => Option(WS)
       case _       => None
     }
 }

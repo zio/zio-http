@@ -4,23 +4,25 @@ import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.{
   Channel,
-  ChannelFactory => JChannelFactory,
   ChannelHandlerContext,
+  ChannelFactory => JChannelFactory,
   EventLoopGroup => JEventLoopGroup,
 }
-import io.netty.handler.codec.http.HttpVersion
+import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolConfig
+import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpVersion}
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.http.headers.HeaderExtension
 import zhttp.service
 import zhttp.service.Client.{ClientParams, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler}
-import zio.{Chunk, Promise, Task, ZIO}
+import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler, ClientSocketHandler}
+import zhttp.socket.{SocketApp, WebSocketFrame}
+import zio.{Chunk, Promise, Queue, Task, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
-final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el: JEventLoopGroup)
+final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
   def request(
     request: Client.ClientParams,
@@ -31,6 +33,15 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el:
       _       <- Task(asyncRequest(request, promise, sslOption)).catchAll(cause => promise.fail(cause))
       res     <- promise.await
     } yield res
+
+  def socket(
+    url: URL,
+    app: SocketApp[R],
+  ): ZIO[Any, Throwable, Queue[WebSocketFrame]] = for {
+    // TODO is queue even the right data structure to use here, if so don't think thhe capacity should be hard set
+    queue <- Queue.bounded[WebSocketFrame](100)
+    _     <- Task(asyncSocket(url, app, queue))
+  } yield queue
 
   private def asyncRequest(
     req: ClientParams,
@@ -63,13 +74,41 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el:
     }
   }
 
+  private def asyncSocket(
+    url: URL,
+    ss: SocketApp[R],
+    queue: Queue[WebSocketFrame],
+  ): Unit = {
+    val hand   = ClientSocketHandler(rtm, ss, queue)
+    val host   = url.host
+    val port   = url.port.fold(80)(identity)
+    val scheme = url.kind match {
+      case Location.Relative               => ""
+      case Location.Absolute(scheme, _, _) => scheme.asString
+    }
+
+    val c    =
+      Option(
+        WebSocketClientProtocolConfig
+          .newBuilder()
+          .customHeaders(new DefaultHttpHeaders())
+          .webSocketUri(url.asString)
+          .build(),
+      )
+    val init = ClientChannelInitializer(hand, scheme, ClientSSLOptions.DefaultSSL, c)
+    val jboo = new Bootstrap().channelFactory(cf).group(el).handler(init)
+    if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
+
+    jboo.connect(): Unit
+
+  }
 }
 
 object Client {
-  def make: ZIO[EventLoopGroup with ChannelFactory, Nothing, Client] = for {
+  def make[R]: ZIO[R with EventLoopGroup with ChannelFactory, Nothing, Client[R]] = for {
     cf <- ZIO.access[ChannelFactory](_.get)
     el <- ZIO.access[EventLoopGroup](_.get)
-    zx <- HttpRuntime.default[Any]
+    zx <- HttpRuntime.default[R]
   } yield service.Client(zx, cf, el)
 
   def request(
@@ -139,13 +178,19 @@ object Client {
   def request(
     req: ClientParams,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    make.flatMap(_.request(req))
+    make[Any].flatMap(_.request(req))
 
   def request(
     req: ClientParams,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    make.flatMap(_.request(req, sslOptions))
+    make[Any].flatMap(_.request(req, sslOptions))
+
+  def socket[R](
+    url: URL,
+    app: SocketApp[R],
+  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Queue[WebSocketFrame]] =
+    make[R].flatMap(_.socket(url, app))
 
   final case class ClientParams(
     method: Method,
@@ -153,7 +198,8 @@ object Client {
     getHeaders: Headers = Headers.empty,
     data: HttpData = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
-  ) extends HeaderExtension[ClientParams] { self =>
+  ) extends HeaderExtension[ClientParams] {
+    self =>
 
     def getBodyAsString: Option[String] = data match {
       case HttpData.Text(text, _)       => Some(text)
@@ -177,7 +223,8 @@ object Client {
   }
 
   final case class ClientResponse(status: Status, headers: Headers, private val buffer: ByteBuf)
-      extends HeaderExtension[ClientResponse] { self =>
+      extends HeaderExtension[ClientResponse] {
+    self =>
 
     def getBodyAsString: Task[String] = Task(buffer.toString(self.getCharset))
 
