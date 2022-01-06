@@ -532,7 +532,7 @@ object Http {
   /**
    * Creates an Http app which always responds with the same value.
    */
-  def response[R, E](response: Response): HttpApp[R, E] = Http.succeed(response)
+  def response(response: Response): HttpApp[Any, Nothing] = Http.succeed(response)
 
   /**
    * Converts a ZIO to an Http app type

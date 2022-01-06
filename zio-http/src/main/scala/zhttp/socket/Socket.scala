@@ -43,8 +43,14 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
    */
   def provide(r: R)(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = Provide(self, r)
 
+  /**
+   * Creates a response from the socket.
+   */
   def toResponse(implicit ev: IsWebSocket[R, E, A, B]): ZIO[R, Nothing, Response] = toSocketApp.toResponse
 
+  /**
+   * Creates a socket application from the socket.
+   */
   def toSocketApp(implicit ev: IsWebSocket[R, E, A, B]): SocketApp[R] = SocketApp(self)
 
   private[zhttp] def execute(a: A): ZStream[R, E, B] = self(a)

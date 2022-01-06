@@ -199,7 +199,7 @@ object ServerSpec extends HttpRunnableSpec {
           val expected = (0 to size) map (_ => Status.OK)
           for {
             response <- Response.text("abc").freeze
-            actual <- ZIO.foreachPar(0 to size)(_ => (Http.response(response): HttpApp[Any, Throwable]).requestStatus())
+            actual   <- ZIO.foreachPar(0 to size)(_ => Http.response(response).requestStatus())
           } yield assert(actual)(equalTo(expected))
         } +
           testM("update after cache") {
