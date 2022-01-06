@@ -66,14 +66,19 @@ ThisBuild / githubWorkflowBuildPreamble  :=
     scalas = List(Scala213),
   ).steps
 
-ThisBuild / githubWorkflowBuildPostamble := Seq(
-  WorkflowStep.Sbt(
-    id = Some("check_doc_generation"),
-    commands = List("doc"),
-    name = Some("Check doc generation"),
-    cond = Some("${{ github.event_name == 'pull_request' }}"),
-  ),
-)
+ThisBuild / githubWorkflowBuildPostamble :=
+  WorkflowJob(
+    "checkDocGeneration",
+    "Check doc generation",
+    List(
+      WorkflowStep.Run(
+        commands = List(s"sbt ++${Scala213} doc"),
+        name = Some("Check doc generation"),
+        cond = Some("${{ github.event_name == 'pull_request' }}"),
+      ),
+    ),
+    scalas = List(Scala213),
+  ).steps
 
 lazy val root = (project in file("."))
   .settings(stdSettings("root"))
