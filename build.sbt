@@ -4,14 +4,14 @@ import Dependencies._
 val releaseDrafterVersion = "5"
 
 // CI Configuration
-ThisBuild / githubWorkflowJavaVersions  := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
-ThisBuild / githubWorkflowPREventTypes  := Seq(
+ThisBuild / githubWorkflowJavaVersions   := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
+ThisBuild / githubWorkflowPREventTypes   := Seq(
   PREventType.Opened,
   PREventType.Synchronize,
   PREventType.Reopened,
   PREventType.Edited,
 )
-ThisBuild / githubWorkflowAddedJobs     :=
+ThisBuild / githubWorkflowAddedJobs      :=
   Seq(
     WorkflowJob(
       id = "update_release_draft",
@@ -41,7 +41,7 @@ ThisBuild / githubWorkflowAddedJobs     :=
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
-ThisBuild / githubWorkflowPublish       :=
+ThisBuild / githubWorkflowPublish        :=
   Seq(
     WorkflowStep.Sbt(
       List("ci-release"),
@@ -56,7 +56,7 @@ ThisBuild / githubWorkflowPublish       :=
   )
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
-ThisBuild / githubWorkflowBuildPreamble :=
+ThisBuild / githubWorkflowBuildPreamble  :=
   WorkflowJob(
     "fmtCheck",
     "Format",
@@ -65,6 +65,15 @@ ThisBuild / githubWorkflowBuildPreamble :=
     ),
     scalas = List(Scala213),
   ).steps
+
+ThisBuild / githubWorkflowBuildPostamble := Seq(
+  WorkflowStep.Sbt(
+    id = Some("check_doc_generation"),
+    commands = List("doc"),
+    name = Some("Check doc generation"),
+    cond = Some("${{ github.event_name == 'pull_request' }}"),
+  ),
+)
 
 lazy val root = (project in file("."))
   .settings(stdSettings("root"))
