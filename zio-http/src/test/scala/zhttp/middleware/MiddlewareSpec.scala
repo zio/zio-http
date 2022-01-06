@@ -226,7 +226,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
   private def condM(flg: Boolean) = (_: Any, _: Any, _: Any) => UIO(flg)
 
-  private def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response[R, E]] = {
+  private def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response] = {
     for {
       fib <- app { Request(url = URL(!! / "health")) }.fork
       _   <- TestClock.adjust(10 seconds)

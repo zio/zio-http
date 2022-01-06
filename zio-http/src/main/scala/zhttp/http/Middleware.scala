@@ -407,7 +407,7 @@ object Middleware {
       case OrElse(self, other) =>
         Http.fromOptionFunction { req =>
           (self.execute(app, flag)(req) orElse other.execute(app, flag)(req))
-            .asInstanceOf[ZIO[R, Option[E], Response[R, E]]]
+            .asInstanceOf[ZIO[R, Option[E], Response]]
         }
     }
 

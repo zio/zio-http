@@ -4,8 +4,7 @@ import sttp.client3.asynchttpclient.zio.AsyncHttpClientZioBackend
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
-import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
-import zio._
+import zhttp.socket.{Socket, WebSocketFrame}
 import zio.duration._
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
@@ -20,8 +19,8 @@ object WebSocketServerSpec extends HttpRunnableSpec {
   def websocketSpec = suite("WebSocket Server") {
     suite("connections") {
       testM("Multiple websocket upgrades") {
-        val socketApp = SocketApp(Socket.succeed(WebSocketFrame.text("BAR")))
-        val app       = Http.fromEffect(ZIO(Response.socket(socketApp)))
+        val response = Socket.succeed(WebSocketFrame.text("BAR")).toResponse
+        val app      = Http.fromEffect(response)
         assertM(app.webSocketStatusCode(!! / "subscriptions").repeatN(1024))(equalTo(101))
       }
     }
