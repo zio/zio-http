@@ -74,7 +74,7 @@ final case class Cookie(
   def withSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
 
   /**
-   * Adds secret in the cookie
+   * Signs the cookie at the time of encoding using the provided secret.
    */
   def sign(secret: String): Cookie = copy(secret = Some(secret))
 
@@ -123,7 +123,7 @@ final case class Cookie(
    */
   def encode: String = {
     val c = secret match {
-      case Some(sec) => sign(sec, content)
+      case Some(sec) => signContent(sec)
       case None      => content
     }
 
@@ -143,26 +143,26 @@ final case class Cookie(
   /**
    * Signs cookie content with a secret
    */
-  private def sign(secret: String, content: String): String = {
+  private def signContent(secret: String): String = {
     try {
       val sha256    = Mac.getInstance("HmacSHA256")
       val secretKey = new SecretKeySpec(secret.getBytes(), "RSA")
       sha256.init(secretKey)
-      val signed    = sha256.doFinal(content.getBytes())
+      val signed    = sha256.doFinal(self.content.getBytes())
       val mda       = MessageDigest.getInstance("SHA-512")
-      content + '.' + getEncoder.encodeToString(mda.digest(signed))
+      self.content + '.' + getEncoder.encodeToString(mda.digest(signed))
     } catch {
-      case _: Exception => content
+      case _: Exception => self.content
     }
   }
 
   /**
    * Unsigns cookie content with a secret
    */
-  private def unSign(secret: String): Option[Cookie] = {
+  private def unSignContent(secret: String): Option[Cookie] = {
     val str             = self.content.slice(0, content.lastIndexOf('.'))
     val unSignedCookie  = self.withContent(str)
-    val encryptedCookie = unSignedCookie.sign(secret, str)
+    val encryptedCookie = unSignedCookie.signContent(secret)
 
     if (encryptedCookie == self.content)
       Some(unSignedCookie.sign(secret))
@@ -195,7 +195,7 @@ object Cookie {
   def decodeResponseSignedCookie(headerValue: String, secret: String): Option[Cookie] = {
     val decodedCookie = decodeResponseCookie(headerValue)
     decodedCookie match {
-      case Some(cookie) => cookie.unSign(secret)
+      case Some(cookie) => cookie.unSignContent(secret)
       case None         => None
     }
   }
