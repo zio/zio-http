@@ -6,11 +6,11 @@ import scala.annotation.tailrec
  * Models the set of operations that one would want to apply on a Response.
  */
 sealed trait Patch { self =>
-  def ++(that: Patch): Patch                           = Patch.Combine(self, that)
-  def apply[R, E](res: Response[R, E]): Response[R, E] = {
+  def ++(that: Patch): Patch               = Patch.Combine(self, that)
+  def apply[R, E](res: Response): Response = {
 
     @tailrec
-    def loop[R1, E1](res: Response[R1, E1], patch: Patch): Response[R1, E1] =
+    def loop[R1, E1](res: Response, patch: Patch): Response =
       patch match {
         case Patch.Empty                  => res
         case Patch.AddHeaders(headers)    => res.addHeaders(headers)

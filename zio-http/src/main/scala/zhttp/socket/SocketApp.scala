@@ -19,11 +19,6 @@ final case class SocketApp[-R](
 ) { self =>
 
   /**
-   * Creates a new WebSocket Response
-   */
-  def asResponse: Response[R, Nothing] = Response.socket(self)
-
-  /**
    * Called when the websocket connection is closed successfully.
    */
   def onClose[R1 <: R](close: Connection => ZIO[R1, Nothing, Any]): SocketApp[R1] =
@@ -86,6 +81,11 @@ final case class SocketApp[-R](
       close = self.close.map(f => (c: Connection) => f(c).provide(env)),
     )
 
+  def toResponse: ZIO[R, Nothing, Response] =
+    ZIO.environment[R].flatMap { env =>
+      Response.fromSocketApp(self.provide(env))
+    }
+
   /**
    * Frame decoder configuration
    */
@@ -109,8 +109,8 @@ final case class SocketApp[-R](
 object SocketApp {
   type Connection = SocketAddress
 
-  def apply[R](socket: Socket[R, Throwable, WebSocketFrame, WebSocketFrame]): SocketApp[R] =
-    SocketApp(message = Some(socket))
+  def apply[R, E, A, B](socket: Socket[R, E, A, B])(implicit ev: IsWebSocket[R, E, A, B]): SocketApp[R] =
+    SocketApp(message = Some(ev(socket)))
 
   private[zhttp] sealed trait Handle[-R] { self =>
     def merge[R1 <: R](other: Handle[R1]): Handle[R1] = {

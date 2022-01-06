@@ -114,7 +114,7 @@ object HttpGen {
     data    <- HttpGen.httpData(Gen.listOf(Gen.alphaNumericString))
   } yield Request(method, url, headers, None, data)
 
-  def response[R](gContent: Gen[R, List[String]]): Gen[Random with Sized with R, Response[Any, Nothing]] = {
+  def response[R](gContent: Gen[R, List[String]]): Gen[Random with Sized with R, Response] = {
     for {
       content <- HttpGen.httpData(gContent)
       headers <- HttpGen.header.map(Headers(_))

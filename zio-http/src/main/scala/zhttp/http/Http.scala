@@ -382,7 +382,7 @@ object Http {
      * Converts a failing Http app into a non-failing one by handling the failure and converting it to a result if
      * possible.
      */
-    def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response[R1, E1]]): HttpApp[R1, E1] =
+    def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response]): HttpApp[R1, E1] =
       http.catchAll(e => Http.succeed(s.silent(e)))
 
     /**
@@ -463,7 +463,7 @@ object Http {
   /**
    * Creates an Http app which always responds the provided data and a 200 status code
    */
-  def fromData(data: HttpData) = response(Response(data = data))
+  def fromData(data: HttpData): HttpApp[Any, Nothing] = response(Response(data = data))
 
   /**
    * Converts a ZIO to an Http type
@@ -532,12 +532,12 @@ object Http {
   /**
    * Creates an Http app which always responds with the same value.
    */
-  def response[R, E](response: Response[R, E]): HttpApp[R, E] = Http.succeed(response)
+  def response[R, E](response: Response): HttpApp[R, E] = Http.succeed(response)
 
   /**
    * Converts a ZIO to an Http app type
    */
-  def responseZIO[R, E](res: ZIO[R, E, Response[R, E]]): HttpApp[R, E] = Http.fromEffect(res)
+  def responseZIO[R, E](res: ZIO[R, E, Response]): HttpApp[R, E] = Http.fromEffect(res)
 
   /**
    * Creates an Http that delegates to other Https.
