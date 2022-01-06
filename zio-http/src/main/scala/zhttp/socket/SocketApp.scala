@@ -81,6 +81,9 @@ final case class SocketApp[-R](
       close = self.close.map(f => (c: Connection) => f(c).provide(env)),
     )
 
+  /**
+   * Creates a new response from the socket app.
+   */
   def toResponse: ZIO[R, Nothing, Response] =
     ZIO.environment[R].flatMap { env =>
       Response.fromSocketApp(self.provide(env))
