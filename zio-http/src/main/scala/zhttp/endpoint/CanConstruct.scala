@@ -1,7 +1,7 @@
 package zhttp.endpoint
 
-import zhttp.http.{Http, HttpApp, HttpError, Request, Response}
-import zio.{UIO, ZIO}
+import zhttp.http.{Http, HttpApp, Request, Response}
+import zio.ZIO
 
 /**
  * Constructors to make an HttpApp using an Endpoint
@@ -23,12 +23,13 @@ object CanConstruct {
     override type EOut = E
 
     override def make(route: Endpoint[A], f: Request.ParameterizedRequest[A] => Response[R, E]): HttpApp[R, E] =
-      Http.collect[Request] { case req =>
-        route.extract(req) match {
-          case Some(value) => f(Request.ParameterizedRequest(req, value))
-          case None        => Response.fromHttpError(HttpError.NotFound(req.url.path))
+      Http
+        .collectHttp[Request] { case req =>
+          route.extract(req) match {
+            case Some(value) => Http.succeed(f(Request.ParameterizedRequest(req, value)))
+            case None        => Http.empty
+          }
         }
-      }
   }
 
   implicit def responseZIO[R, E, A]: Aux[R, E, A, ZIO[R, E, Response[R, E]]] =
@@ -39,12 +40,14 @@ object CanConstruct {
       override def make(
         route: Endpoint[A],
         f: Request.ParameterizedRequest[A] => ZIO[R, E, Response[R, E]],
-      ): HttpApp[R, E] =
-        Http.collectZIO[Request] { case req =>
-          route.extract(req) match {
-            case Some(value) => f(Request.ParameterizedRequest(req, value))
-            case None        => UIO(Response.fromHttpError(HttpError.NotFound(req.url.path)))
+      ): HttpApp[R, E] = {
+        Http
+          .collectHttp[Request] { case req =>
+            route.extract(req) match {
+              case Some(value) => Http.fromEffect(f(Request.ParameterizedRequest(req, value)))
+              case None        => Http.empty
+            }
           }
-        }
+      }
     }
 }
