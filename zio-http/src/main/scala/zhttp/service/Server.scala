@@ -56,7 +56,7 @@ sealed trait Server[-R, +E] { self =>
   /**
    * Creates a new server listening on the provided hostname and port.
    */
-  def withBind(hostname: String, port: Int): Server[R, E] =
+  def withBinding(hostname: String, port: Int): Server[R, E] =
     Concat(self, Server.Address(new InetSocketAddress(hostname, port)))
 
   /**
