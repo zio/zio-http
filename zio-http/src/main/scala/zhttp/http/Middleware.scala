@@ -245,11 +245,11 @@ object Middleware {
     patch((_, _) =>
       Patch.updateHeaders(h => {
         Headers(
-          h.toList.collect { case h if contentEqualsIgnoreCase(h._1, HeaderNames.setCookie) => h._2.toString }
-            .map(Cookie.decodeResponseCookie)
-            .collect { case Some(cookie) =>
-              (HeaderNames.setCookie, cookie.sign(secret).encode)
-            },
+          h.toList.collect {
+            case h if contentEqualsIgnoreCase(h._1, HeaderNames.setCookie) => {
+              (HeaderNames.setCookie, Cookie.decodeResponseCookie(h._2.toString).get.sign(secret).encode)
+            }
+          },
         )
       }),
     )
