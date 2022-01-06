@@ -170,13 +170,13 @@ object Response {
   /**
    * Creates a socket response using an app
    */
-  def socket[R, E](app: SocketApp[R, E]): Response[R, E] =
+  def socket[R, E](app: SocketApp[R]): Response[R, E] =
     Response(Status.SWITCHING_PROTOCOLS, Headers.empty, HttpData.empty, Attribute(socketApp = Option(app)))
 
   /**
    * Creates a new WebSocket Response
    */
-  def socket[R, E](ss: Socket[R, E, WebSocketFrame, WebSocketFrame]): Response[R, E] =
+  def socket[R](ss: Socket[R, Throwable, WebSocketFrame, WebSocketFrame]): Response[R, Nothing] =
     SocketApp(ss).asResponse
 
   /**
@@ -198,7 +198,7 @@ object Response {
    */
 
   private[zhttp] final case class Attribute[-R, +E](
-    socketApp: Option[SocketApp[R, E]] = None,
+    socketApp: Option[SocketApp[R]] = None,
     memoize: Boolean = false,
     serverTime: Boolean = false,
     encoded: Option[(Response[R, E], HttpResponse)] = None,
@@ -210,7 +210,7 @@ object Response {
 
     def withServerTime: Attribute[R, E] = self.copy(serverTime = true)
 
-    def withSocketApp[R1 <: R, E1 >: E](app: SocketApp[R1, E1]): Attribute[R1, E1] = self.copy(socketApp = Option(app))
+    def withSocketApp[R1 <: R](app: SocketApp[R1]): Attribute[R1, E] = self.copy(socketApp = Option(app))
   }
 
   object Attribute {
