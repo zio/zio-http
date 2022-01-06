@@ -122,10 +122,10 @@ object Middleware {
   /**
    * CSRF middlewares : To prevent Cross-site request forgery attacks. This middleware is modeled after the double
    * submit cookie pattern.
-   * @method
-   *   csrfGenerate - Sets cookie with CSRF token
-   * @method
-   *   csrfValidate - Validate token value in request headers against value in cookies
+   * @see
+   *   [[Middleware#csrfGenerate]] - Sets cookie with CSRF token
+   * @see
+   *   [[Middleware#csrfValidate]] - Validate token value in request headers against value in cookies
    * @see
    *   https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
    */
