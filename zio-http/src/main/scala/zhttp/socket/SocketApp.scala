@@ -8,10 +8,10 @@ import zio.{NeedsEnv, ZIO}
 
 import java.net.SocketAddress
 
-final case class SocketApp[-R, +E](
+final case class SocketApp[-R](
   timeout: Option[ZIO[R, Nothing, Any]] = None,
-  open: Option[Handle[R, E]] = None,
-  message: Option[Socket[R, E, WebSocketFrame, WebSocketFrame]] = None,
+  open: Option[Handle[R]] = None,
+  message: Option[Socket[R, Throwable, WebSocketFrame, WebSocketFrame]] = None,
   error: Option[Throwable => ZIO[R, Nothing, Any]] = None,
   close: Option[Connection => ZIO[R, Nothing, Any]] = None,
   decoder: SocketDecoder = SocketDecoder.default,
@@ -21,12 +21,12 @@ final case class SocketApp[-R, +E](
   /**
    * Creates a new WebSocket Response
    */
-  def asResponse: Response[R, E] = Response.socket(self)
+  def asResponse: Response[R, Nothing] = Response.socket(self)
 
   /**
    * Called when the websocket connection is closed successfully.
    */
-  def onClose[R1 <: R](close: Connection => ZIO[R1, Nothing, Any]): SocketApp[R1, E] =
+  def onClose[R1 <: R](close: Connection => ZIO[R1, Nothing, Any]): SocketApp[R1] =
     copy(close = self.close match {
       case Some(value) => Some((connection: Connection) => value(connection) *> close(connection))
       case None        => Some(close)
@@ -35,7 +35,7 @@ final case class SocketApp[-R, +E](
   /**
    * Called whenever there is an error on the channel after a successful upgrade to websocket.
    */
-  def onError[R1 <: R](error: Throwable => ZIO[R1, Nothing, Any]): SocketApp[R1, E] =
+  def onError[R1 <: R](error: Throwable => ZIO[R1, Nothing, Any]): SocketApp[R1] =
     copy(error = self.error match {
       case Some(value) => Some((cause: Throwable) => value(cause) *> error(cause))
       case None        => Some(error)
@@ -45,7 +45,7 @@ final case class SocketApp[-R, +E](
    * Called on every incoming WebSocketFrame. In case of a failure on the returned stream, the socket is forcefully
    * closed.
    */
-  def onMessage[R1 <: R, E1 >: E](message: Socket[R1, E1, WebSocketFrame, WebSocketFrame]): SocketApp[R1, E1] =
+  def onMessage[R1 <: R](message: Socket[R1, Throwable, WebSocketFrame, WebSocketFrame]): SocketApp[R1] =
     copy(message = self.message match {
       case Some(other) => Some(other merge message)
       case None        => Some(message)
@@ -55,20 +55,20 @@ final case class SocketApp[-R, +E](
    * Called when the connection is successfully upgraded to a websocket one. In case of a failure, the socket is
    * forcefully closed.
    */
-  def onOpen[R1 <: R, E1 >: E](open: Socket[R1, E1, Connection, WebSocketFrame]): SocketApp[R1, E1] =
+  def onOpen[R1 <: R](open: Socket[R1, Throwable, Connection, WebSocketFrame]): SocketApp[R1] =
     onOpen(Handle(open))
 
   /**
    * Called when the connection is successfully upgraded to a websocket one. In case of a failure, the socket is
    * forcefully closed.
    */
-  def onOpen[R1 <: R, E1 >: E](open: Connection => ZIO[R1, E1, Any]): SocketApp[R1, E1] =
+  def onOpen[R1 <: R](open: Connection => ZIO[R1, Throwable, Any]): SocketApp[R1] =
     onOpen(Handle(open))
 
   /**
    * Called when the websocket handshake gets timeout.
    */
-  def onTimeout[R1 <: R](timeout: ZIO[R1, Nothing, Any]): SocketApp[R1, E] =
+  def onTimeout[R1 <: R](timeout: ZIO[R1, Nothing, Any]): SocketApp[R1] =
     copy(timeout = self.timeout match {
       case Some(other) => Some(timeout *> other)
       case None        => Some(timeout)
@@ -77,7 +77,7 @@ final case class SocketApp[-R, +E](
   /**
    * Provides the socket app with its required environment, which eliminates its dependency on `R`.
    */
-  def provide(env: R)(implicit ev: NeedsEnv[R]): SocketApp[Any, E] =
+  def provide(env: R)(implicit ev: NeedsEnv[R]): SocketApp[Any] =
     self.copy(
       timeout = self.timeout.map(_.provide(env)),
       open = self.open.map(_.provide(env)),
@@ -89,31 +89,31 @@ final case class SocketApp[-R, +E](
   /**
    * Frame decoder configuration
    */
-  def withDecoder(decoder: SocketDecoder): SocketApp[R, E] =
+  def withDecoder(decoder: SocketDecoder): SocketApp[R] =
     copy(decoder = self.decoder ++ decoder)
 
   /**
    * Server side websocket configuration
    */
-  def withProtocol(protocol: SocketProtocol): SocketApp[R, E] =
+  def withProtocol(protocol: SocketProtocol): SocketApp[R] =
     copy(protocol = self.protocol ++ protocol)
 
   /**
    * Called when the connection is successfully upgraded to a websocket one. In case of a failure, the socket is
    * forcefully closed.
    */
-  private def onOpen[R1 <: R, E1 >: E](open: Handle[R1, E1]): SocketApp[R1, E1] =
+  private def onOpen[R1 <: R](open: Handle[R1]): SocketApp[R1] =
     copy(open = self.open.fold(Some(open))(other => Some(other merge open)))
 }
 
 object SocketApp {
   type Connection = SocketAddress
 
-  def apply[R, E](socket: Socket[R, E, WebSocketFrame, WebSocketFrame]): SocketApp[R, E] =
+  def apply[R](socket: Socket[R, Throwable, WebSocketFrame, WebSocketFrame]): SocketApp[R] =
     SocketApp(message = Some(socket))
 
-  private[zhttp] sealed trait Handle[-R, +E] { self =>
-    def merge[R1 <: R, E1 >: E](other: Handle[R1, E1]): Handle[R1, E1] = {
+  private[zhttp] sealed trait Handle[-R] { self =>
+    def merge[R1 <: R](other: Handle[R1]): Handle[R1] = {
       (self, other) match {
         case (WithSocket(s0), WithSocket(s1)) => WithSocket(s0 merge s1)
         case (WithEffect(f0), WithEffect(f1)) => WithEffect(c => f0(c) <&> f1(c))
@@ -121,25 +121,25 @@ object SocketApp {
       }
     }
 
-    def provide(r: R)(implicit ev: NeedsEnv[R]): Handle[Any, E] =
+    def provide(r: R)(implicit ev: NeedsEnv[R]): Handle[Any] =
       self match {
         case WithEffect(f) => WithEffect(c => f(c).provide(r))
         case WithSocket(s) => WithSocket(s.provide(r))
       }
 
-    private def sock: Handle[R, E] = self match {
+    private def sock: Handle[R] = self match {
       case WithEffect(f)     => WithSocket(Socket.fromFunction(c => ZStream.fromEffect(f(c)) *> ZStream.empty))
       case s @ WithSocket(_) => s
     }
   }
 
   private[zhttp] object Handle {
-    def apply[R, E](onOpen: Socket[R, E, Connection, WebSocketFrame]): Handle[R, E] = WithSocket(onOpen)
+    def apply[R](onOpen: Socket[R, Throwable, Connection, WebSocketFrame]): Handle[R] = WithSocket(onOpen)
 
-    def apply[R, E](onOpen: Connection => ZIO[R, E, Any]): Handle[R, E] = WithEffect(onOpen)
+    def apply[R](onOpen: Connection => ZIO[R, Throwable, Any]): Handle[R] = WithEffect(onOpen)
 
-    final case class WithEffect[R, E](f: Connection => ZIO[R, E, Any]) extends Handle[R, E]
+    final case class WithEffect[R](f: Connection => ZIO[R, Throwable, Any]) extends Handle[R]
 
-    final case class WithSocket[R, E](s: Socket[R, E, Connection, WebSocketFrame]) extends Handle[R, E]
+    final case class WithSocket[R](s: Socket[R, Throwable, Connection, WebSocketFrame]) extends Handle[R]
   }
 }

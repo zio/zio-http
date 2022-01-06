@@ -16,7 +16,7 @@ import zio.stream.ZStream
  */
 final case class ServerSocketHandler[R](
   zExec: HttpRuntime[R],
-  ss: SocketApp[R, Throwable],
+  ss: SocketApp[R],
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
   /**
