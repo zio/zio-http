@@ -18,17 +18,17 @@ sealed trait Server[-R, +E] { self =>
     Concat(self, other)
 
   private def settings[R1 <: R, E1 >: E](s: Config[R1, E1] = Config()): Config[R1, E1] = self match {
-    case Concat(self, other)  => other.settings(self.settings(s))
-    case LeakDetection(level) => s.copy(leakDetectionLevel = level)
-    case MaxRequestSize(size) => s.copy(maxRequestSize = size)
-    case Error(errorHandler)  => s.copy(error = Some(errorHandler))
-    case Ssl(sslOption)       => s.copy(sslOption = sslOption)
-    case App(app)             => s.copy(app = app)
-    case Address(address)     => s.copy(address = address)
-    case AcceptContinue       => s.copy(acceptContinue = true)
-    case KeepAlive            => s.copy(keepAlive = true)
-    case FlowControl          => s.copy(flowControl = false)
-    case ConsolidateFlush     => s.copy(consolidateFlush = true)
+    case Concat(self, other)       => other.settings(self.settings(s))
+    case LeakDetection(level)      => s.copy(leakDetectionLevel = level)
+    case MaxRequestSize(size)      => s.copy(maxRequestSize = size)
+    case Error(errorHandler)       => s.copy(error = Some(errorHandler))
+    case Ssl(sslOption)            => s.copy(sslOption = sslOption)
+    case App(app)                  => s.copy(app = app)
+    case Address(address)          => s.copy(address = address)
+    case AcceptContinue            => s.copy(acceptContinue = true)
+    case KeepAlive(enabled)        => s.copy(keepAlive = enabled)
+    case FlowControl(enabled)      => s.copy(flowControl = enabled)
+    case ConsolidateFlush(enabled) => s.copy(consolidateFlush = enabled)
   }
 
   def make(implicit ev: E <:< Throwable): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Unit] =
@@ -87,34 +87,10 @@ sealed trait Server[-R, +E] { self =>
   def withAcceptContinue: Server[R, E] = Concat(self, Server.AcceptContinue)
 
   /**
-   * Creates a new server using netty FlowControlHandler (@see <a
+   * Creates a new server using netty FlowControlHandler if enable (@see <a
    * href="https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html">FlowControlHandler</a>).
    */
-  def withFlowControl: Server[R, E] = Concat(self, Server.FlowControl)
-
-  /**
-   * Creates a new server with leak detection disabled (@see <a
-   * href="https://netty.io/4.1/api/io/netty/util/ResourceLeakDetector.Level.html#DISABLED">Disabled Level</a>).
-   */
-  def withLeakDetectionDisabled: Server[R, E] = Concat(self, LeakDetection(LeakDetectionLevel.DISABLED))
-
-  /**
-   * Creates a new server with simple leak detection (@see <a
-   * href="https://netty.io/4.1/api/io/netty/util/ResourceLeakDetector.Level.html#SIMPLE">Simple Level</a>).
-   */
-  def withSimpleLeakDetection: Server[R, E] = Concat(self, LeakDetection(LeakDetectionLevel.SIMPLE))
-
-  /**
-   * Creates a new server with advanced leak detection (@see <a
-   * href="https://netty.io/4.1/api/io/netty/util/ResourceLeakDetector.Level.html#ADVANCED">Advanced Level</a>).
-   */
-  def withAdvancedLeakDetection: Server[R, E] = Concat(self, LeakDetection(LeakDetectionLevel.ADVANCED))
-
-  /**
-   * Creates a new server with paranoid leak detection (@see <a
-   * href="https://netty.io/4.1/api/io/netty/util/ResourceLeakDetector.Level.html#PARANOID">Paranoid Level</a>).
-   */
-  def withParanoidLeakDetection: Server[R, E] = Concat(self, LeakDetection(LeakDetectionLevel.PARANOID))
+  def withFlowControl(enable: Boolean): Server[R, E] = Concat(self, Server.FlowControl(enable))
 
   /**
    * Creates a new server with the leak detection level provided (@see <a
@@ -123,17 +99,18 @@ sealed trait Server[-R, +E] { self =>
   def withLeakDetection(level: LeakDetectionLevel): Server[R, E] = Concat(self, LeakDetection(level))
 
   /**
-   * Creates a new server with netty's HttpServerKeepAliveHandler to close persistent connections when needed (@see <a
+   * Creates a new server with netty's HttpServerKeepAliveHandler to close persistent connections when enable is true
+   * (@see <a
    * href="https://netty.io/4.1/api/io/netty/handler/codec/http/HttpServerKeepAliveHandler.html">HttpServerKeepAliveHandler</a>).
    */
-  def withKeepAlive: Server[R, E] = Concat(self, KeepAlive)
+  def withKeepAlive(enable: Boolean): Server[R, E] = Concat(self, KeepAlive(enable))
 
   /**
-   * Creates a new server with FlushConsolidationHandler to control the flush operations in a more efficient way (@see
-   * <a
+   * Creates a new server with FlushConsolidationHandler to control the flush operations in a more efficient way if
+   * enabled (@see <a
    * href="https://netty.io/4.1/api/io/netty/handler/flush/FlushConsolidationHandler.html">FlushConsolidationHandler<a>).
    */
-  def withConsolidateFlush: Server[R, E] = Concat(self, ConsolidateFlush)
+  def withConsolidateFlush(enable: Boolean): Server[R, E] = Concat(self, ConsolidateFlush(enable))
 }
 
 object Server {
@@ -159,10 +136,10 @@ object Server {
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
   private final case class Address(address: InetSocketAddress)                        extends UServer
   private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
-  private case object KeepAlive                                                       extends Server[Any, Nothing]
-  private case object ConsolidateFlush                                                extends Server[Any, Nothing]
+  private final case class KeepAlive(enabled: Boolean)                                extends Server[Any, Nothing]
+  private final case class ConsolidateFlush(enabled: Boolean)                         extends Server[Any, Nothing]
   private case object AcceptContinue                                                  extends UServer
-  private case object FlowControl                                                     extends UServer
+  private final case class FlowControl(enabled: Boolean)                              extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -174,13 +151,13 @@ object Server {
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   def acceptContinue: UServer                                                        = Server.AcceptContinue
-  def disableFlowControl: UServer                                                    = Server.FlowControl
+  def disableFlowControl: UServer                                                    = Server.FlowControl(false)
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
-  val keepAlive: UServer             = KeepAlive
-  val consolidateFlush: UServer      = ConsolidateFlush
+  val keepAlive: UServer             = KeepAlive(true)
+  val consolidateFlush: UServer      = ConsolidateFlush(true)
 
   /**
    * Creates a server from a http app.
@@ -207,7 +184,7 @@ object Server {
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
     (Server(http)
-      .withBind(address, port))
+      .withBinding(address, port))
       .make
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
@@ -217,7 +194,7 @@ object Server {
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
     (Server(http)
-      .withBind(socketAddress))
+      .withBinding(socketAddress))
       .make
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
