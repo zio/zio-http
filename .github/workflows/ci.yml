@@ -68,6 +68,10 @@ jobs:
       - name: Build project
         run: sbt ++${{ matrix.scala }} test
 
+      - name: Check doc generation
+        if: ${{ github.event_name == 'pull_request' }}
+        run: sbt ++2.13.7 doc
+
       - name: Compress target directories
         run: tar cf targets.tar target zio-http-test/target zio-http/target zio-http-benchmarks/target example/target project/target
 
