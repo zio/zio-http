@@ -74,13 +74,12 @@ final case class Cookie(
   def withSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
 
   /**
-   * <<<<<<< HEAD Sets secret and signed-content in the cookie
+   * Adds secret in the cookie
    */
   def sign(secret: String): Cookie = copy(secret = Some(secret))
 
   /**
    * Removes secret in the cookie
-   * ======= Adds secret in the cookie >>>>>>> 1539635a (fix(cookie): sign cookie while encoding)
    */
   def unSign: Cookie = copy(secret = None)
 
