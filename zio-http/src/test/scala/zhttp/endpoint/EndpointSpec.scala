@@ -64,22 +64,22 @@ object EndpointSpec extends DefaultRunnableSpec {
         assert(route.extract(!! / "c"))(isNone)
       }
   } +
-    suite("To") {
+    suite("to") {
       testM("endpoint doesn't match") {
-        val app = Method.GET / "a" / *[Int] to { _ => Response.ok }
-        assertM(app(Request(url = URL(Path("/b/2")))).flip)(isNone)
+        val app = Method.GET / "a" to { _ => Response.ok }
+        assertM(app(Request(url = URL(!! / "b"))).flip)(isNone)
       } +
         testM("endpoint with effect doesn't match") {
-          val app = Method.GET / "a" / *[Int] to { _ => UIO(Response.ok) }
-          assertM(app(Request(url = URL(Path("/b/2")))).flip)(isNone)
+          val app = Method.GET / "a" to { _ => UIO(Response.ok) }
+          assertM(app(Request(url = URL(!! / "b"))).flip)(isNone)
         } +
         testM("endpoint matches") {
-          val app = Method.GET / "a" / *[Int] to { _ => Response.ok }
-          assertM(app(Request(url = URL(Path("/a/2")))).map(_.status))(equalTo(Status.OK))
+          val app = Method.GET / "a" to { _ => Response.ok }
+          assertM(app(Request(url = URL(!! / "a"))).map(_.status))(equalTo(Status.OK))
         } +
         testM("endpoint with effect matches") {
-          val app = Method.GET / "a" / *[Int] to { _ => UIO(Response.ok) }
-          assertM(app(Request(url = URL(Path("/a/2")))).map(_.status))(equalTo(Status.OK))
+          val app = Method.GET / "a" to { _ => UIO(Response.ok) }
+          assertM(app(Request(url = URL(!! / "a"))).map(_.status))(equalTo(Status.OK))
         }
     }
 }
