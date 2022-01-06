@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
 import zhttp.http._
-import zhttp.internal.{AppCollection, HttpGen, HttpRunnableSpec}
+import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
@@ -15,19 +15,23 @@ import zio.test._
 import java.io.File
 import java.nio.file.Paths
 
-object ServerSpec extends HttpRunnableSpec(8088) {
+object ServerSpec extends HttpRunnableSpec {
 
   private val nonEmptyContent = for {
     data    <- Gen.listOf(Gen.alphaNumericString)
     content <- HttpGen.nonEmptyHttpData(Gen.const(data))
   } yield (data.mkString(""), content)
-  private val env       = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
+
+  private val env =
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+
   private val staticApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
     case Method.GET -> !! / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
     case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
   }
-  private val app       = serve { staticApp ++ AppCollection.app }
+
+  private val app = serve { staticApp ++ DynamicServer.app }
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -208,10 +212,23 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       }
   }
 
-  override def spec = {
+  override def spec =
     suiteM("Server") {
-      app.as(List(staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
+      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds)
+
+  def serverStartSpec = suite("ServerStartSpec") {
+    testM("desired port") {
+      val port = 8088
+      (Server.port(port) ++ Server.app(Http.empty)).make.use { start =>
+        assertM(ZIO.effect(start.port))(equalTo(port))
+      }
+    } +
+      testM("available port") {
+        (Server.port(0) ++ Server.app(Http.empty)).make.use { start =>
+          assertM(ZIO.effect(start.port))(not(equalTo(0)))
+        }
+      }
   }
 
   def staticAppSpec = suite("StaticAppSpec") {
