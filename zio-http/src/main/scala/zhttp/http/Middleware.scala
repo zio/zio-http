@@ -43,6 +43,11 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] =
     Middleware.FlatMap(self, f)
 
+  def flatten[R1 <: R, E1 >: E, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0](implicit
+    ev: BOut <:< Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
+  ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] =
+    flatMap(identity(_))
+
   def map[BOut0](f: BOut => BOut0): Middleware[R, E, AIn, BIn, AOut, BOut0] =
     self.flatMap(b => Middleware.succeed(f(b)))
 
@@ -71,6 +76,8 @@ object Middleware {
   def fromHttp[R, E, A, B](http: Http[R, E, A, B]): Middleware[R, E, Nothing, Any, A, B] = Constant(http)
 
   def identity[A, B]: Middleware[Any, Nothing, A, B, A, B] = Identity
+
+  def ifThenElse[A]: PartialIfThenElse[A] = new PartialIfThenElse(())
 
   def intercept[A, B]: PartialIntercept[A, B] = new PartialIntercept[A, B](())
 
@@ -125,6 +132,16 @@ object Middleware {
   final class PartialCodec[AOut, BIn](val unit: Unit) extends AnyVal {
     def apply[AIn, BOut](decoder: AOut => AIn, encoder: BIn => BOut): Middleware[Any, Nothing, AIn, BIn, AOut, BOut] =
       Codec(a => UIO(decoder(a)), b => UIO(encoder(b)))
+  }
+
+  final class PartialIfThenElse[AOut](val unit: Unit) extends AnyVal {
+    def apply[R, E, AIn, BIn, BOut](cond: AOut => Boolean)(
+      isTrue: AOut => Middleware[R, E, AIn, BIn, AOut, BOut],
+      isFalse: AOut => Middleware[R, E, AIn, BIn, AOut, BOut],
+    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
+      Middleware
+        .fromHttp(Http.fromFunction[AOut] { a => if (cond(a)) isTrue(a) else isFalse(a) })
+        .flatten
   }
 
   final class PartialCodecZIO[AOut, BIn](val unit: Unit) extends AnyVal {

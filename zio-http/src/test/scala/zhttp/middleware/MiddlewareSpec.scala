@@ -61,6 +61,20 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
         val mid = Middleware.succeed('A').delay(2 second) race Middleware.succeed("B").delay(1 second)
         val app = Http.succeed(1) @@@ mid
         assertM(app(()) <& TestClock.adjust(3 second))(equalTo("B"))
+      } +
+      suite("ifThenElse") {
+        val mid = Middleware.ifThenElse[Int](_ > 5)(
+          isTrue = i => Middleware.succeed(i + 1),
+          isFalse = i => Middleware.succeed(i - 1),
+        )
+        testM("isTrue") {
+          val app = Http.identity[Int] @@@ mid
+          assertM(app(10))(equalTo(11))
+        } +
+          testM("isFalse") {
+            val app = Http.identity[Int] @@@ mid
+            assertM(app(1))(equalTo(0))
+          }
       }
   }
 }
