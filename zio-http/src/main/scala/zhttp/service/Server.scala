@@ -1,6 +1,8 @@
 package zhttp.service
 
 import io.netty.bootstrap.ServerBootstrap
+import io.netty.buffer.PooledByteBufAllocator
+import io.netty.channel.ChannelOption
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
@@ -30,6 +32,7 @@ sealed trait Server[-R, +E] { self =>
     case KeepAlive            => s.copy(keepAlive = true)
     case FlowControl          => s.copy(flowControl = false)
     case ConsolidateFlush     => s.copy(consolidateFlush = true)
+    case Allocator(allocator) => s.copy(allocator = allocator)
   }
 
   def make(implicit
@@ -55,12 +58,13 @@ object Server {
     keepAlive: Boolean = false,
     consolidateFlush: Boolean = false,
     flowControl: Boolean = false,
+    allocator: Option[PooledByteBufAllocator] = None,
   )
 
   /**
    * Holds server start information.
    */
-  final case class Start(port: Int = 0)
+  final case class Start(port: Int = 0, allocator: Option[PooledByteBufAllocator] = None)
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
   private final case class LeakDetection(level: LeakDetectionLevel)                   extends UServer
@@ -69,6 +73,7 @@ object Server {
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
   private final case class Address(address: InetSocketAddress)                        extends UServer
   private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
+  private final case class Allocator(allocator: Option[PooledByteBufAllocator])       extends UServer
   private case object KeepAlive                                                       extends Server[Any, Nothing]
   private case object ConsolidateFlush                                                extends Server[Any, Nothing]
   private case object AcceptContinue                                                  extends UServer
@@ -83,6 +88,7 @@ object Server {
   def bind(inetSocketAddress: InetSocketAddress): UServer = Server.Address(inetSocketAddress)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
+  def allocator(allocator: Option[PooledByteBufAllocator]): UServer                  = Allocator(allocator)
   def acceptContinue: UServer                                                        = Server.AcceptContinue
   def disableFlowControl: UServer                                                    = Server.FlowControl
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
@@ -132,12 +138,22 @@ object Server {
       respHandler     = ServerResponseHandler(zExec, settings, ServerTimeGenerator.make)
       init            = ServerChannelInitializer(zExec, settings, reqHandler, respHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
-      chf  <- ZManaged.effect(serverBootstrap.childHandler(init).bind(settings.address))
+      chf  <- settings.allocator match {
+        case Some(allocator) =>
+          ZManaged.effect(
+            serverBootstrap
+              .option(ChannelOption.ALLOCATOR, allocator)
+              .childOption(ChannelOption.ALLOCATOR, allocator)
+              .childHandler(init)
+              .bind(settings.address),
+          )
+        case None            => ZManaged.effect(serverBootstrap.childHandler(init).bind(settings.address))
+      }
       _    <- ChannelFuture.asManaged(chf)
       port <- ZManaged.effect(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield {
       ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
-      Start(port)
+      Start(port, settings.allocator)
     }
   }
 }

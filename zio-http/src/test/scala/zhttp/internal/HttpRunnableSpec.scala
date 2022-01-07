@@ -1,5 +1,6 @@
 package zhttp.internal
 
+import io.netty.buffer.PooledByteBufAllocator
 import sttp.client3.asynchttpclient.zio.{SttpClient, send}
 import sttp.client3.{Response => SResponse, UriContext, asWebSocketUnsafe, basicRequest}
 import sttp.model.{Header => SHeader}
@@ -10,8 +11,10 @@ import zhttp.internal.DynamicServer.HttpEnv
 import zhttp.internal.HttpRunnableSpec.HttpIO
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zio._
 import zio.test.DefaultRunnableSpec
-import zio.{Chunk, Has, Task, ZIO, ZManaged}
+
+import scala.jdk.CollectionConverters._
 
 /**
  * Should be used only when e2e tests needs to be written which is typically for logic that is part of the netty based
@@ -23,10 +26,31 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     app: HttpApp[R, Throwable],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
     for {
-      start <- Server.make(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection).orDie
+      start <- Server
+        .make(
+          Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection ++ Server.allocator(
+            Some(new PooledByteBufAllocator(true, 1, 1, 8192, 11, 0, 0, true)),
+          ),
+        )
+        .orDie
       _     <- DynamicServer.setStart(start).toManaged_
     } yield ()
-
+  def getActiveDirectBuffers(alloc: PooledByteBufAllocator): UIO[Long] = {
+    val metric = alloc.metric().directArenas().asScala.toList
+    for {
+      active <- Ref.make[Long](0L)
+      _      <- ZIO.foreach_(metric)(x => active.get.flatMap(a => active.set(x.numActiveAllocations() + a)))
+      res    <- active.get
+    } yield res
+  }
+  def getActiveHeapBuffers(alloc: PooledByteBufAllocator): UIO[Long]   = {
+    val metric = alloc.metric().heapArenas().asScala.toList
+    for {
+      active <- Ref.make[Long](0L)
+      _      <- ZIO.foreach_(metric)(x => active.get.flatMap(a => active.set(x.numActiveAllocations() + a)))
+      res    <- active.get
+    } yield res
+  }
   def request(
     path: Path = !!,
     method: Method = Method.GET,

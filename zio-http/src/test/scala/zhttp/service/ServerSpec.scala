@@ -3,6 +3,7 @@ package zhttp.service
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
 import zhttp.http._
+import zhttp.internal.DynamicServer.getStart
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.ZIO
@@ -178,15 +179,16 @@ object ServerSpec extends HttpRunnableSpec {
         val res  = Http.fromStream(ZStream.fromFile(Paths.get(path))).requestBodyAsString()
         assertM(res)(equalTo("abc\nfoo"))
       } +
-      testM("response streaming leak") {
-        // This test is to log the memory leaks caused due to unreleased request content byteBuf.
-        // Todo: Make this test fail if memory leak is detected.
-        val res = Http
-          .fromData(HttpData.fromStream(ZStream.fail(new Error)))
-          .requestBodyAsString(content = "some random test string")
-          .repeatN(512)
-        assertM(res)(anything)
+      testM("response streaming memory leak") {
+        for {
+          _     <- Http
+            .fromData(HttpData.fromStream(ZStream.fail(new Error)))
+            .requestBodyAsString(content = "test")
+          alloc <- getStart.map(_.allocator.get)
+          ah    <- getActiveHeapBuffers(alloc)
+          ad    <- getActiveDirectBuffers(alloc)
 
+        } yield assertTrue(ah + ad == 0L)
       } +
       suite("html") {
         testM("body") {
