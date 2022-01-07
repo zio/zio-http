@@ -9,66 +9,67 @@ import zio.{UIO, ZIO}
  * requests and responses and also transform them into more concrete domain entities.
  */
 sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
-  def <>[R1 <: R, E1, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0 >: BOut](
+  final def <>[R1 <: R, E1, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0 >: BOut](
     other: Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
   ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] = self orElse other
 
-  def <<<[R1 <: R, E1 >: E, A0 <: AOut, B0 >: BOut, A1, B1](
+  final def <<<[R1 <: R, E1 >: E, A0 <: AOut, B0 >: BOut, A1, B1](
     other: Middleware[R1, E1, A0, B0, A1, B1],
   ): Middleware[R1, E1, AIn, BIn, A1, B1] = self compose other
 
-  def ++[R1 <: R, E1 >: E, A0 >: AIn <: AOut, B0 >: BOut <: BIn](
+  final def ++[R1 <: R, E1 >: E, A0 >: AIn <: AOut, B0 >: BOut <: BIn](
     other: Middleware[R1, E1, A0, B0, A0, B0],
   ): Middleware[R1, E1, A0, B0, A0, B0] =
     self combine other
 
-  def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] = execute(http)
+  final def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] = execute(http)
 
-  def combine[R1 <: R, E1 >: E, A0 >: AIn <: AOut, B0 >: BOut <: BIn](
+  final def combine[R1 <: R, E1 >: E, A0 >: AIn <: AOut, B0 >: BOut <: BIn](
     other: Middleware[R1, E1, A0, B0, A0, B0],
   ): Middleware[R1, E1, A0, B0, A0, B0] =
     self compose other
 
-  def compose[R1 <: R, E1 >: E, A0 <: AOut, B0 >: BOut, A1, B1](
+  final def compose[R1 <: R, E1 >: E, A0 <: AOut, B0 >: BOut, A1, B1](
     other: Middleware[R1, E1, A0, B0, A1, B1],
   ): Middleware[R1, E1, AIn, BIn, A1, B1] = Middleware.Compose(self, other)
 
-  def delay(duration: Duration): Middleware[R with Clock, E, AIn, BIn, AOut, BOut] =
+  final def delay(duration: Duration): Middleware[R with Clock, E, AIn, BIn, AOut, BOut] =
     self.mapZIO(b => UIO(b).delay(duration))
 
-  def execute[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] = Middleware.execute(http, self)
-
-  def flatMap[R1 <: R, E1 >: E, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0](
+  final def flatMap[R1 <: R, E1 >: E, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0](
     f: BOut => Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
   ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] =
     Middleware.FlatMap(self, f)
 
-  def flatten[R1 <: R, E1 >: E, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0](implicit
+  final def flatten[R1 <: R, E1 >: E, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0](implicit
     ev: BOut <:< Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
   ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] =
     flatMap(identity(_))
 
-  def map[BOut0](f: BOut => BOut0): Middleware[R, E, AIn, BIn, AOut, BOut0] =
+  final def map[BOut0](f: BOut => BOut0): Middleware[R, E, AIn, BIn, AOut, BOut0] =
     self.flatMap(b => Middleware.succeed(f(b)))
 
-  def mapZIO[R1 <: R, E1 >: E, BOut0](f: BOut => ZIO[R1, E1, BOut0]): Middleware[R1, E1, AIn, BIn, AOut, BOut0] =
+  final def mapZIO[R1 <: R, E1 >: E, BOut0](f: BOut => ZIO[R1, E1, BOut0]): Middleware[R1, E1, AIn, BIn, AOut, BOut0] =
     self.flatMap(b => Middleware.fromHttp(Http.fromEffect(f(b))))
 
-  def orElse[R1 <: R, E1, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0 >: BOut](
+  final def orElse[R1 <: R, E1, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0 >: BOut](
     other: Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
   ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] =
     Middleware.OrElse(self, other)
 
-  def race[R1 <: R, E1 >: E, AIn1 >: AIn, BIn1 <: BIn, AOut1 <: AOut, BOut1 >: BOut](
+  final def race[R1 <: R, E1 >: E, AIn1 >: AIn, BIn1 <: BIn, AOut1 <: AOut, BOut1 >: BOut](
     other: Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1],
   ): Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1] =
     Middleware.Race(self, other)
 
-  def when[AOut0 <: AOut](cond: AOut0 => Boolean): Middleware[R, E, AIn, BIn, AOut0, BOut] =
+  final def when[AOut0 <: AOut](cond: AOut0 => Boolean): Middleware[R, E, AIn, BIn, AOut0, BOut] =
     Middleware.ifThenElse[AOut0](cond(_))(
       isTrue = _ => self,
       isFalse = _ => Middleware.identity,
     )
+
+  private[zhttp] final def execute[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] =
+    Middleware.execute(http, self)
 }
 
 object Middleware {
