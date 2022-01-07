@@ -7,23 +7,23 @@ import zhttp.core.Util
 import zhttp.html.Html
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.http.headers.HeaderExtension
-import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
-import zio.{Chunk, UIO}
+import zhttp.socket.{IsWebSocket, Socket, SocketApp}
+import zio.{Chunk, UIO, ZIO}
 
 import java.nio.charset.Charset
 import java.nio.file.Files
 
-final case class Response[-R, +E] private (
+final case class Response private (
   status: Status,
   headers: Headers,
   data: HttpData,
-  private[zhttp] val attribute: Response.Attribute[R, E],
-) extends HeaderExtension[Response[R, E]] { self =>
+  private[zhttp] val attribute: Response.Attribute,
+) extends HeaderExtension[Response] { self =>
 
   /**
    * Adds cookies in the response headers.
    */
-  def addCookie(cookie: Cookie): Response[R, E] =
+  def addCookie(cookie: Cookie): Response =
     self.copy(headers = self.getHeaders ++ Headers(HttpHeaderNames.SET_COOKIE.toString, cookie.encode))
 
   /**
@@ -33,7 +33,7 @@ final case class Response[-R, +E] private (
    * modified the server will detect the changes and encode the response again, however it will turn out to be counter
    * productive.
    */
-  def freeze: UIO[Response[R, E]] =
+  def freeze: UIO[Response] =
     UIO(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
 
   override def getHeaders: Headers = headers
@@ -41,25 +41,30 @@ final case class Response[-R, +E] private (
   /**
    * Sets the response attributes
    */
-  def setAttribute[R1 <: R, E1 >: E](attribute: Response.Attribute[R1, E1]): Response[R1, E1] =
+  def setAttribute(attribute: Response.Attribute): Response =
     self.copy(attribute = attribute)
 
   /**
    * Sets the status of the response
    */
-  def setStatus(status: Status): Response[R, E] =
+  def setStatus(status: Status): Response =
     self.copy(status = status)
 
   /**
    * Updates the headers using the provided function
    */
-  override def updateHeaders(update: Headers => Headers): Response[R, E] =
+  override def updateHeaders(update: Headers => Headers): Response =
     self.copy(headers = update(self.getHeaders))
 
   /**
    * A more efficient way to append server-time to the response headers.
    */
-  def withServerTime: Response[R, E] = self.copy(attribute = self.attribute.withServerTime)
+  def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
+
+  /**
+   * Wraps the current response into a ZIO
+   */
+  def wrapZIO: UIO[Response] = UIO(self)
 
   /**
    * Encodes the Response into a Netty HttpResponse. Sets default headers such as `content-length`. For performance
@@ -106,15 +111,14 @@ final case class Response[-R, +E] private (
 }
 
 object Response {
-
   def apply[R, E](
     status: Status = Status.OK,
     headers: Headers = Headers.empty,
     data: HttpData = HttpData.Empty,
-  ): Response[R, E] =
+  ): Response =
     Response(status, headers, data, Attribute.empty)
 
-  def fromHttpError(error: HttpError): UResponse = {
+  def fromHttpError(error: HttpError): Response = {
     error match {
       case cause: HTTPErrorWithCause =>
         Response(
@@ -131,9 +135,32 @@ object Response {
   }
 
   /**
+   * Creates a new response for the provided socket
+   */
+  def fromSocket[R, E, A, B](socket: Socket[R, E, A, B])(implicit
+    ev: IsWebSocket[R, E, A, B],
+  ): ZIO[R, Nothing, Response] =
+    fromSocketApp(socket.toSocketApp)
+
+  /**
+   * Creates a new response for the provided socket app
+   */
+  def fromSocketApp[R](app: SocketApp[R]): ZIO[R, Nothing, Response] = {
+    ZIO.environment[R].map { env =>
+      Response(
+        Status.SWITCHING_PROTOCOLS,
+        Headers.empty,
+        HttpData.empty,
+        Attribute(socketApp = Option(app.provide(env))),
+      )
+    }
+
+  }
+
+  /**
    * Creates a response with content-type set to text/html
    */
-  def html(data: Html): UResponse =
+  def html(data: Html): Response =
     Response(
       data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
       headers = Headers(HeaderNames.contentType, HeaderValues.textHtml),
@@ -144,12 +171,12 @@ object Response {
     status: Status = Status.OK,
     headers: Headers = Headers.empty,
     data: HttpData = HttpData.empty,
-  ): Response[R, E] = Response(status, headers, data)
+  ): Response = Response(status, headers, data)
 
   /**
    * Creates a response with content-type set to application/json
    */
-  def json(data: String): UResponse =
+  def json(data: String): Response =
     Response(
       data = HttpData.fromChunk(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
       headers = Headers(HeaderNames.contentType, HeaderValues.applicationJson),
@@ -158,37 +185,25 @@ object Response {
   /**
    * Creates an empty response with status 200
    */
-  def ok: UResponse = Response(Status.OK)
+  def ok: Response = Response(Status.OK)
 
   /**
    * Creates an empty response with status 301 or 302 depending on if it's permanent or not.
    */
-  def redirect(location: String, isPermanent: Boolean = false): Response[Any, Nothing] = {
+  def redirect(location: String, isPermanent: Boolean = false): Response = {
     val status = if (isPermanent) Status.PERMANENT_REDIRECT else Status.TEMPORARY_REDIRECT
     Response(status, Headers.location(location))
   }
 
   /**
-   * Creates a socket response using an app
-   */
-  def socket[R, E](app: SocketApp[R, E]): Response[R, E] =
-    Response(Status.SWITCHING_PROTOCOLS, Headers.empty, HttpData.empty, Attribute(socketApp = Option(app)))
-
-  /**
-   * Creates a new WebSocket Response
-   */
-  def socket[R, E](ss: Socket[R, E, WebSocketFrame, WebSocketFrame]): Response[R, E] =
-    SocketApp(ss).asResponse
-
-  /**
    * Creates an empty response with the provided Status
    */
-  def status(status: Status): UResponse = Response(status)
+  def status(status: Status): Response = Response(status)
 
   /**
    * Creates a response with content-type set to text/plain
    */
-  def text(text: String, charset: Charset = HTTP_CHARSET): UResponse =
+  def text(text: String, charset: Charset = HTTP_CHARSET): Response =
     Response(
       data = HttpData.fromString(text, charset),
       headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
@@ -198,20 +213,20 @@ object Response {
    * Attribute holds meta data for the backend
    */
 
-  private[zhttp] final case class Attribute[-R, +E](
-    socketApp: Option[SocketApp[R, E]] = None,
+  private[zhttp] final case class Attribute(
+    socketApp: Option[SocketApp[Any]] = None,
     memoize: Boolean = false,
     serverTime: Boolean = false,
-    encoded: Option[(Response[R, E], HttpResponse)] = None,
+    encoded: Option[(Response, HttpResponse)] = None,
   ) { self =>
-    def withEncodedResponse[R1 <: R, E1 >: E](jResponse: HttpResponse, response: Response[R1, E1]): Attribute[R1, E1] =
+    def withEncodedResponse(jResponse: HttpResponse, response: Response): Attribute =
       self.copy(encoded = Some(response -> jResponse))
 
-    def withMemoization: Attribute[R, E] = self.copy(memoize = true)
+    def withMemoization: Attribute = self.copy(memoize = true)
 
-    def withServerTime: Attribute[R, E] = self.copy(serverTime = true)
+    def withServerTime: Attribute = self.copy(serverTime = true)
 
-    def withSocketApp[R1 <: R, E1 >: E](app: SocketApp[R1, E1]): Attribute[R1, E1] = self.copy(socketApp = Option(app))
+    def withSocketApp(app: SocketApp[Any]): Attribute = self.copy(socketApp = Option(app))
   }
 
   object Attribute {
@@ -219,6 +234,6 @@ object Response {
     /**
      * Helper to create an empty HttpData
      */
-    def empty: Attribute[Any, Nothing] = Attribute()
+    def empty: Attribute = Attribute()
   }
 }

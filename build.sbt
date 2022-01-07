@@ -4,14 +4,14 @@ import Dependencies._
 val releaseDrafterVersion = "5"
 
 // CI Configuration
-ThisBuild / githubWorkflowJavaVersions  := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
-ThisBuild / githubWorkflowPREventTypes  := Seq(
+ThisBuild / githubWorkflowJavaVersions   := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
+ThisBuild / githubWorkflowPREventTypes   := Seq(
   PREventType.Opened,
   PREventType.Synchronize,
   PREventType.Reopened,
   PREventType.Edited,
 )
-ThisBuild / githubWorkflowAddedJobs     :=
+ThisBuild / githubWorkflowAddedJobs      :=
   Seq(
     WorkflowJob(
       id = "update_release_draft",
@@ -41,7 +41,7 @@ ThisBuild / githubWorkflowAddedJobs     :=
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
-ThisBuild / githubWorkflowPublish       :=
+ThisBuild / githubWorkflowPublish        :=
   Seq(
     WorkflowStep.Sbt(
       List("ci-release"),
@@ -56,12 +56,26 @@ ThisBuild / githubWorkflowPublish       :=
   )
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
-ThisBuild / githubWorkflowBuildPreamble :=
+ThisBuild / githubWorkflowBuildPreamble  :=
   WorkflowJob(
     "fmtCheck",
     "Format",
     List(
       WorkflowStep.Run(List(s"sbt ++${Scala213} fmtCheck"), name = Some("Check formatting")),
+    ),
+    scalas = List(Scala213),
+  ).steps
+
+ThisBuild / githubWorkflowBuildPostamble :=
+  WorkflowJob(
+    "checkDocGeneration",
+    "Check doc generation",
+    List(
+      WorkflowStep.Run(
+        commands = List(s"sbt ++${Scala213} doc"),
+        name = Some("Check doc generation"),
+        cond = Some("${{ github.event_name == 'pull_request' }}"),
+      ),
     ),
     scalas = List(Scala213),
   ).steps
@@ -108,10 +122,8 @@ lazy val zhttpTest = (project in file("zio-http-test"))
   .settings(publishSetting(true))
 
 lazy val example = (project in file("./example"))
-  .enablePlugins(SbtTwirl)
   .settings(stdSettings("example"))
   .settings(publishSetting(false))
-  .settings(twirlSettings)
   .settings(runSettings("example.FileStreaming"))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
   .dependsOn(zhttp)

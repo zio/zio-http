@@ -58,7 +58,7 @@ private[zhttp] final case class Handler[R](
    * Checks if an encoded version of the response exists, uses it if it does. Otherwise, it will return a fresh
    * response. It will also set the server time if requested by the client.
    */
-  private def encodeResponse(res: Response[_, _]): HttpResponse = {
+  private def encodeResponse(res: Response): HttpResponse = {
 
     val jResponse = res.attribute.encoded match {
 
@@ -111,7 +111,7 @@ private[zhttp] final case class Handler[R](
    */
   private def unsafeRun[A](
     jReq: FullHttpRequest,
-    http: Http[R, Throwable, A, Response[R, Throwable]],
+    http: Http[R, Throwable, A, Response],
     a: A,
   )(implicit ctx: Ctx): Unit = {
     http.execute(a) match {
@@ -197,7 +197,7 @@ private[zhttp] final case class Handler[R](
   /**
    * Writes any response to the Channel
    */
-  private def unsafeWriteAndFlushAnyResponse[A](res: Response[R, Throwable])(implicit ctx: Ctx): Unit = {
+  private def unsafeWriteAndFlushAnyResponse[A](res: Response)(implicit ctx: Ctx): Unit = {
     ctx.writeAndFlush(encodeResponse(res)): Unit
   }
 
@@ -230,7 +230,7 @@ private[zhttp] final case class Handler[R](
   /**
    * Writes file content to the Channel. Does not use Chunked transfer encoding
    */
-  private def unsafeWriteFileContent(file: File, res: Response[R, Throwable])(implicit
+  private def unsafeWriteFileContent(file: File, res: Response)(implicit
     ctx: ChannelHandlerContext,
   ): Unit = {
     import java.io.RandomAccessFile
