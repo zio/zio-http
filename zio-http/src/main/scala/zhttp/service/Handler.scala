@@ -134,17 +134,25 @@ private[zhttp] final case class Handler[R](
               if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
               else {
                 for {
-                  _ <- UIO {
-                    // Write the initial line and the header.
-                    unsafeWriteAndFlushAnyResponse(res)
-                  }
+//                  _ <- UIO {
+//                    // Write the initial line and the header.
+//                    unsafeWriteAndFlushAnyResponse(res)
+//                  }
                   _ <- res.data match {
-                    case HttpData.BinaryStream(stream) => writeStreamContent(stream)
+                    case HttpData.BinaryStream(stream) =>
+                      UIO {
+                        unsafeWriteAndFlushAnyResponse(res)
+                      } *>
+                        writeStreamContent(stream)
                     case HttpData.File(file)           =>
                       UIO {
-                        unsafeWriteFileContent(file)
+                        unsafeWriteFileContent(file, res)
                       }
-                    case _                             => UIO(ctx.flush())
+                    case _                             =>
+                      UIO {
+                        unsafeWriteAndFlushAnyResponse(res)
+                        ctx.flush()
+                      }
                   }
                   _ <- Task(releaseRequest(jReq))
                 } yield ()
@@ -157,12 +165,16 @@ private[zhttp] final case class Handler[R](
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
           // Write the initial line and the header.
-          unsafeWriteAndFlushAnyResponse(res)
+          // unsafeWriteAndFlushAnyResponse(res)
           res.data match {
-            case HttpData.BinaryStream(stream) => unsafeRunZIO(writeStreamContent(stream) *> Task(releaseRequest(jReq)))
+            case HttpData.BinaryStream(stream) =>
+              unsafeWriteAndFlushAnyResponse(res)
+              unsafeRunZIO(writeStreamContent(stream) *> Task(releaseRequest(jReq)))
             case HttpData.File(file)           =>
-              unsafeWriteFileContent(file)
-            case _                             => releaseRequest(jReq)
+              unsafeWriteFileContent(file, res)
+            case _                             =>
+              unsafeWriteAndFlushAnyResponse(res)
+              releaseRequest(jReq)
           }
         }
       case HExit.Failure(e)   =>
@@ -218,14 +230,20 @@ private[zhttp] final case class Handler[R](
   /**
    * Writes file content to the Channel. Does not use Chunked transfer encoding
    */
-  private def unsafeWriteFileContent(file: File)(implicit ctx: ChannelHandlerContext): Unit = {
+  private def unsafeWriteFileContent(file: File, res: Response[R, Throwable])(implicit
+    ctx: ChannelHandlerContext,
+  ): Unit = {
     import java.io.RandomAccessFile
-
-    val raf        = new RandomAccessFile(file, "r")
-    val fileLength = raf.length()
-    // Write the content.
-    ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
-    // Write the end marker.
-    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
+    try {
+      val raf        = new RandomAccessFile(file, "r")
+      val fileLength = raf.length()
+      unsafeWriteAndFlushAnyResponse(res)
+      // Write the content.
+      ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
+      // Write the end marker.
+      ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
+    } catch {
+      case e: Throwable => unsafeWriteAndFlushErrorResponse(e)
+    }
   }
 }

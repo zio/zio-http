@@ -28,6 +28,9 @@ object ServerSpec extends HttpRunnableSpec(8088) {
     case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
   }
   private val app       = serve { staticApp ++ AppCollection.app }
+  val file              = new File(getClass.getResource("/TestFile.txt").getPath)
+
+  private val fileApp = Http.fromFile(file)
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -132,18 +135,36 @@ object ServerSpec extends HttpRunnableSpec(8088) {
       }
     } +
       testM("data from file") {
-        val file = new File(getClass.getResource("/TestFile.txt").getPath)
-        val res  = Http.fromFile(file).requestBodyAsString()
+        val res = fileApp.requestBodyAsString()
         assertM(res)(equalTo("abc\nfoo"))
       } +
       testM("content-type header on file response") {
-        val file = new File(getClass.getResource("/TestFile.txt").getPath)
-        val res  =
+        val res = fileApp
+          .requestHeaderValueByName()(HttpHeaderNames.CONTENT_TYPE)
+          .map(_.getOrElse("Content type header not found."))
+        assertM(res)(equalTo("text/plain"))
+      } +
+      testM("content-length header on file response") {
+        val res =
           Http
             .fromFile(file)
-            .requestHeaderValueByName()(HttpHeaderNames.CONTENT_TYPE)
-            .map(_.getOrElse("Content type header not found."))
-        assertM(res)(equalTo("text/plain"))
+            .requestHeaderValueByName()(HttpHeaderNames.CONTENT_LENGTH)
+            .map(_.getOrElse(-1))
+        assertM(res)(equalTo("7"))
+      } +
+      testM("content-encoding header on file response") {
+        val res =
+          Http
+            .fromFile(file)
+            .requestHeaderValueByName()(HttpHeaderNames.CONTENT_ENCODING)
+        assertM(res)(equalTo(None))
+      } +
+      testM("error when file does not exist") {
+        val res =
+          Http
+            .fromFile(new File("NonExistentFile.txt"))
+            .requestStatus()
+        assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
       } +
       testM("status") {
         checkAllM(HttpGen.status) { case (status) =>

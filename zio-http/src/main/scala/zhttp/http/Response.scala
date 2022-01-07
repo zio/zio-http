@@ -78,6 +78,7 @@ final case class Response[-R, +E] private (
       case HttpData.Empty               => Unpooled.EMPTY_BUFFER
       case HttpData.File(file)          =>
         jHeaders.set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(file.toPath))
+        jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, file.length())
         null
     }
 
