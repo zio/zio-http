@@ -63,6 +63,12 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     other: Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1],
   ): Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1] =
     Middleware.Race(self, other)
+
+  def when[AOut0 <: AOut](cond: AOut0 => Boolean): Middleware[R, E, AIn, BIn, AOut0, BOut] =
+    ifThenElse[AOut0](cond(_))(
+      isTrue = _ => self,
+      isFalse = _ => Middleware.identity,
+    )
 }
 
 object Middleware {
