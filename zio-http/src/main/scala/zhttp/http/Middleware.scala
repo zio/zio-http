@@ -10,6 +10,7 @@ import zio.duration.Duration
 import zio.{UIO, ZIO, clock, console}
 
 import java.io.IOException
+import java.util.UUID
 
 /**
  * Middlewares for Http.
@@ -30,7 +31,7 @@ sealed trait Middleware[-R, +E] { self =>
     Middleware.Combine(self, other)
 
   final def delay(duration: Duration): Middleware[R with Clock, E] = {
-    self.modifyM((_, _, _) => UIO(self).delay(duration))
+    self.modifyZIO((_, _, _) => UIO(self).delay(duration))
   }
 
   final def execute[R1 <: R, E1 >: E](app: HttpApp[R1, E1], flags: Flag): HttpApp[R1, E1] =
@@ -39,10 +40,10 @@ sealed trait Middleware[-R, +E] { self =>
   final def modify[R1 <: R, E1 >: E](f: RequestP[Middleware[R1, E1]]): Middleware[R1, E1] =
     Middleware.fromMiddlewareFunction((m, u, h) => f(m, u, h))
 
-  final def modifyM[R1 <: R, E1 >: E](
+  final def modifyZIO[R1 <: R, E1 >: E](
     f: RequestP[ZIO[R1, Option[E1], Middleware[R1, E1]]],
   ): Middleware[R1, E1] =
-    Middleware.fromMiddlewareFunctionM((m, u, h) => f(m, u, h))
+    Middleware.fromMiddlewareFunctionZIO((m, u, h) => f(m, u, h))
 
   final def orElse[R1 <: R, E1](other: Middleware[R1, E1]): Middleware[R1, E1] =
     Middleware.OrElse(self, other)
@@ -61,6 +62,8 @@ sealed trait Middleware[-R, +E] { self =>
 }
 
 object Middleware {
+
+  type RequestP[+A] = (Method, URL, Headers) => A
 
   /**
    * Sets cookie in response headers
@@ -113,6 +116,38 @@ object Middleware {
   def basicAuth(u: String, p: String): Middleware[Any, Nothing] =
     basicAuth { case (user, password) => (user == u) && (password == p) }
 
+  def addCookieM[R, E](cookie: ZIO[R, E, Cookie]): Middleware[R, E] =
+    patchZIO((_, _) => cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c))))
+
+  /**
+   * CSRF middlewares : To prevent Cross-site request forgery attacks. This middleware is modeled after the double
+   * submit cookie pattern.
+   * @see
+   *   [[Middleware#csrfGenerate]] - Sets cookie with CSRF token
+   * @see
+   *   [[Middleware#csrfValidate]] - Validate token value in request headers against value in cookies
+   * @see
+   *   https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
+   */
+
+  def csrfGenerate[R, E](
+    tokenName: String = "x-csrf-token",
+    tokenGen: ZIO[R, Nothing, String] = UIO(UUID.randomUUID.toString),
+  ): Middleware[R, E] =
+    addCookieM(tokenGen.map(Cookie(tokenName, _)))
+
+  def csrfValidate(tokenName: String = "x-csrf-token"): Middleware[Any, Nothing] = {
+    whenHeader(
+      headers => {
+        (headers.getHeaderValue(tokenName), headers.getCookieValue(tokenName)) match {
+          case (Some(headerValue), Some(cookieValue)) => headerValue != cookieValue
+          case _                                      => true
+        }
+      },
+      Middleware.Constant(Http.status(Status.FORBIDDEN)),
+    )
+  }
+
   /**
    * Creates a middleware for Cross-Origin Resource Sharing (CORS).
    * @see
@@ -127,7 +162,7 @@ object Middleware {
         case (false, true, origin, _)     => config.allowedOrigins(origin)
         case (false, false, origin, acrm) =>
           config.allowedMethods.exists(_.contains(acrm)) &&
-            config.allowedOrigins(origin)
+          config.allowedOrigins(origin)
       }
     def corsHeaders(origin: Header, method: Method, isPreflight: Boolean): Headers = {
       Headers.ifThenElse(isPreflight)(
@@ -192,7 +227,7 @@ object Middleware {
    * Add log status, method, url and time taken from req to res
    */
   def debug: Middleware[Console with Clock, IOException] =
-    Middleware.makeM((method, url, _) => zio.clock.nanoTime.map(start => (method, url, start))) {
+    Middleware.makeZIO((method, url, _) => zio.clock.nanoTime.map(start => (method, url, start))) {
       case (status, _, (method, url, start)) =>
         for {
           end <- clock.nanoTime
@@ -212,13 +247,13 @@ object Middleware {
    * Creates a new middleware using a function from request parameters to a HttpMiddleware
    */
   def fromMiddlewareFunction[R, E](f: RequestP[Middleware[R, E]]): Middleware[R, E] =
-    fromMiddlewareFunctionM((method, url, headers) => UIO(f(method, url, headers)))
+    fromMiddlewareFunctionZIO((method, url, headers) => UIO(f(method, url, headers)))
 
   /**
    * Creates a new middleware using a function from request parameters to a ZIO of HttpMiddleware
    */
-  def fromMiddlewareFunctionM[R, E](f: RequestP[ZIO[R, Option[E], Middleware[R, E]]]): Middleware[R, E] =
-    Middleware.FromFunctionM(f)
+  def fromMiddlewareFunctionZIO[R, E](f: RequestP[ZIO[R, Option[E], Middleware[R, E]]]): Middleware[R, E] =
+    Middleware.FromFunctionZIO(f)
 
   /**
    * An empty middleware that doesn't do anything
@@ -237,15 +272,15 @@ object Middleware {
   def ifThenElse[R, E](
     cond: RequestP[Boolean],
   )(left: Middleware[R, E], right: Middleware[R, E]): Middleware[R, E] =
-    Middleware.FromFunctionM((method, url, headers) => UIO(if (cond(method, url, headers)) left else right))
+    Middleware.FromFunctionZIO((method, url, headers) => UIO(if (cond(method, url, headers)) left else right))
 
   /**
    * Logical operator to decide which middleware to select based on the predicate.
    */
-  def ifThenElseM[R, E](
+  def ifThenElseZIO[R, E](
     cond: RequestP[ZIO[R, E, Boolean]],
   )(left: Middleware[R, E], right: Middleware[R, E]): Middleware[R, E] =
-    Middleware.FromFunctionM((method, url, headers) =>
+    Middleware.FromFunctionZIO((method, url, headers) =>
       cond(method, url, headers).mapBoth(
         Option(_),
         {
@@ -263,8 +298,8 @@ object Middleware {
   /**
    * Creates a new middleware using effectful transformation functions
    */
-  def makeM[R, E, S](req: (Method, URL, Headers) => ZIO[R, Option[E], S]): PartiallyAppliedMakeM[R, E, S] =
-    PartiallyAppliedMakeM(req)
+  def makeZIO[R, E, S](req: (Method, URL, Headers) => ZIO[R, Option[E], S]): PartiallyAppliedMakeZIO[R, E, S] =
+    PartiallyAppliedMakeZIO(req)
 
   /**
    * Creates a middleware that produces a Patch for the Response
@@ -275,8 +310,8 @@ object Middleware {
   /**
    * Creates a middleware that produces a Patch for the Response effectfully.
    */
-  def patchM[R, E](f: (Status, Headers) => ZIO[R, Option[E], Patch]): Middleware[R, E] =
-    Middleware.makeM((_, _, _) => ZIO.unit)((status, headers, _) => f(status, headers))
+  def patchZIO[R, E](f: (Status, Headers) => ZIO[R, Option[E], Patch]): Middleware[R, E] =
+    Middleware.makeZIO((_, _, _) => ZIO.unit)((status, headers, _) => f(status, headers))
 
   /**
    * Removes the header by name
@@ -288,13 +323,13 @@ object Middleware {
    * Runs the effect after the response is produced
    */
   def runAfter[R, E](effect: ZIO[R, E, Any]): Middleware[R, E] =
-    patchM((_, _) => effect.mapBoth(Option(_), _ => Patch.empty))
+    patchZIO((_, _) => effect.mapBoth(Option(_), _ => Patch.empty))
 
   /**
    * Runs the effect before the request is passed on to the HttpApp on which the middleware is applied.
    */
   def runBefore[R, E](effect: ZIO[R, E, Any]): Middleware[R, E] =
-    Middleware.makeM((_, _, _) => effect.mapError(Option(_)).unit)((_, _, _) => UIO(Patch.empty))
+    Middleware.makeZIO((_, _, _) => effect.mapError(Option(_)).unit)((_, _, _) => UIO(Patch.empty))
 
   /**
    * Creates a new middleware that always sets the response status to the provided value
@@ -328,10 +363,8 @@ object Middleware {
   /**
    * Applies the middleware only if the condition function effectfully evaluates to true
    */
-  def whenM[R, E](cond: RequestP[ZIO[R, E, Boolean]])(middleware: Middleware[R, E]): Middleware[R, E] =
-    ifThenElseM(cond)(middleware, Middleware.identity)
-
-  type RequestP[+A] = (Method, URL, Headers) => A
+  def whenZIO[R, E](cond: RequestP[ZIO[R, E, Boolean]])(middleware: Middleware[R, E]): Middleware[R, E] =
+    ifThenElseZIO(cond)(middleware, Middleware.identity)
 
   /**
    * Applies the middleware on an HttpApp
@@ -343,7 +376,7 @@ object Middleware {
       case EmptyFlag(mid, status) =>
         execute(mid, app, flag.copy(withEmpty = status))
 
-      case TransformM(reqF, resF) =>
+      case TransformZIO(reqF, resF) =>
         Http.fromOptionFunction { req =>
           for {
             s     <- reqF(req.method, req.url, req.getHeaders)
@@ -356,7 +389,7 @@ object Middleware {
 
       case Combine(self, other) => other.execute(self.execute(app, flag), flag)
 
-      case FromFunctionM(reqF) =>
+      case FromFunctionZIO(reqF) =>
         Http.fromOptionFunction { req =>
           for {
             output <- reqF(req.method, req.url, req.getHeaders)
@@ -374,7 +407,7 @@ object Middleware {
       case OrElse(self, other) =>
         Http.fromOptionFunction { req =>
           (self.execute(app, flag)(req) orElse other.execute(app, flag)(req))
-            .asInstanceOf[ZIO[R, Option[E], Response[R, E]]]
+            .asInstanceOf[ZIO[R, Option[E], Response]]
         }
     }
 
@@ -382,27 +415,28 @@ object Middleware {
 
   final case class PartiallyAppliedMake[S](req: (Method, URL, Headers) => S) extends AnyVal {
     def apply(res: (Status, Headers, S) => Patch): Middleware[Any, Nothing] =
-      TransformM[Any, Nothing, S](
+      TransformZIO[Any, Nothing, S](
         (method, url, headers) => UIO(req(method, url, headers)),
         (status, headers, state) => UIO(res(status, headers, state)),
       )
   }
 
-  final case class PartiallyAppliedMakeM[R, E, S](req: (Method, URL, Headers) => ZIO[R, Option[E], S]) extends AnyVal {
+  final case class PartiallyAppliedMakeZIO[R, E, S](req: (Method, URL, Headers) => ZIO[R, Option[E], S])
+      extends AnyVal {
     def apply[R1 <: R, E1 >: E](res: (Status, Headers, S) => ZIO[R1, Option[E1], Patch]): Middleware[R1, E1] =
-      TransformM(req, res)
+      TransformZIO(req, res)
   }
 
   private final case class EmptyFlag[R, E](mid: Middleware[R, E], status: Boolean) extends Middleware[R, E]
 
-  private final case class TransformM[R, E, S](
+  private final case class TransformZIO[R, E, S](
     req: (Method, URL, Headers) => ZIO[R, Option[E], S],
     res: (Status, Headers, S) => ZIO[R, Option[E], Patch],
   ) extends Middleware[R, E]
 
   private final case class Combine[R, E](self: Middleware[R, E], other: Middleware[R, E]) extends Middleware[R, E]
 
-  private final case class FromFunctionM[R, E](
+  private final case class FromFunctionZIO[R, E](
     f: (Method, URL, Headers) => ZIO[R, Option[E], Middleware[R, E]],
   ) extends Middleware[R, E]
 

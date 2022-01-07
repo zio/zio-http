@@ -100,7 +100,7 @@ object Client {
   def request(
     url: String,
     headers: Headers,
-    content: HttpData[Any, Nothing],
+    content: HttpData,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
       url <- ZIO.fromEither(URL.fromString(url))
@@ -132,7 +132,7 @@ object Client {
     method: Method,
     url: URL,
     headers: Headers,
-    content: HttpData[Any, Nothing],
+    content: HttpData,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientParams(method, url, headers, content))
 
@@ -151,7 +151,7 @@ object Client {
     method: Method,
     url: URL,
     getHeaders: Headers = Headers.empty,
-    data: HttpData[Any, Nothing] = HttpData.empty,
+    data: HttpData = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
     httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
   ) extends HeaderExtension[ClientParams] { self =>

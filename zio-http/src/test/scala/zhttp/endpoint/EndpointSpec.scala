@@ -1,8 +1,9 @@
 package zhttp.endpoint
 
 import zhttp.http._
+import zio.UIO
 import zio.test.Assertion._
-import zio.test.{DefaultRunnableSpec, assert}
+import zio.test.{DefaultRunnableSpec, assert, assertM}
 
 object EndpointSpec extends DefaultRunnableSpec {
   def spec = suite("Route") {
@@ -62,5 +63,23 @@ object EndpointSpec extends DefaultRunnableSpec {
         assert(route.extract(!! / "1"))(isNone) &&
         assert(route.extract(!! / "c"))(isNone)
       }
-  }
+  } +
+    suite("to") {
+      testM("endpoint doesn't match") {
+        val app = Method.GET / "a" to { _ => Response.ok }
+        assertM(app(Request(url = URL(!! / "b"))).flip)(isNone)
+      } +
+        testM("endpoint with effect doesn't match") {
+          val app = Method.GET / "a" to { _ => UIO(Response.ok) }
+          assertM(app(Request(url = URL(!! / "b"))).flip)(isNone)
+        } +
+        testM("endpoint matches") {
+          val app = Method.GET / "a" to { _ => Response.ok }
+          assertM(app(Request(url = URL(!! / "a"))).map(_.status))(equalTo(Status.OK))
+        } +
+        testM("endpoint with effect matches") {
+          val app = Method.GET / "a" to { _ => UIO(Response.ok) }
+          assertM(app(Request(url = URL(!! / "a"))).map(_.status))(equalTo(Status.OK))
+        }
+    }
 }

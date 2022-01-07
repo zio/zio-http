@@ -2,7 +2,7 @@ package zhttp.service
 
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.core.Util
 import zhttp.http._
@@ -10,6 +10,7 @@ import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
 import zio.stream.ZStream
 import zio.{Task, UIO, ZIO}
 
+import java.io.File
 import java.net.{InetAddress, InetSocketAddress}
 
 @Sharable
@@ -19,7 +20,8 @@ private[zhttp] final case class Handler[R](
   config: Server.Config[R, Throwable],
   serverTime: ServerTimeGenerator,
 ) extends SimpleChannelInboundHandler[FullHttpRequest](false)
-    with WebSocketUpgrade[R] { self =>
+    with WebSocketUpgrade[R] {
+  self =>
 
   type Ctx = ChannelHandlerContext
 
@@ -30,13 +32,17 @@ private[zhttp] final case class Handler[R](
       jReq,
       app,
       new Request {
-        override def method: Method                                 = Method.fromHttpMethod(jReq.method())
-        override def url: URL                                       = URL.fromString(jReq.uri()).getOrElse(null)
-        override def getHeaders: Headers                            = Headers.make(jReq.headers())
+        override def method: Method = Method.fromHttpMethod(jReq.method())
+
+        override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
+
+        override def getHeaders: Headers = Headers.make(jReq.headers())
+
         override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
-        override def remoteAddress: Option[InetAddress]             = {
+
+        override def remoteAddress: Option[InetAddress] = {
           ctx.channel().remoteAddress() match {
-            case m: InetSocketAddress => Some(m.getAddress())
+            case m: InetSocketAddress => Some(m.getAddress)
             case _                    => None
           }
         }
@@ -44,26 +50,31 @@ private[zhttp] final case class Handler[R](
     )
   }
 
+  override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
+    config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
+  }
+
   /**
    * Checks if an encoded version of the response exists, uses it if it does. Otherwise, it will return a fresh
    * response. It will also set the server time if requested by the client.
    */
-  private def encodeResponse(res: Response[_, _]): HttpResponse = {
+  private def encodeResponse(res: Response): HttpResponse = {
 
     val jResponse = res.attribute.encoded match {
 
       // Check if the encoded response exists and/or was modified.
       case Some((oRes, jResponse)) if oRes eq res =>
         jResponse match {
-
           // Duplicate the response without allocating much memory
-          case response: FullHttpResponse => response.retainedDuplicate()
-          case response                   => response
+          case response: FullHttpResponse =>
+            response.retainedDuplicate()
+
+          case response =>
+            response
         }
 
       case _ => res.unsafeEncode()
     }
-
     // Identify if the server time should be set and update if required.
     if (res.attribute.serverTime) jResponse.headers().set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
     jResponse
@@ -100,7 +111,7 @@ private[zhttp] final case class Handler[R](
    */
   private def unsafeRun[A](
     jReq: FullHttpRequest,
-    http: Http[R, Throwable, A, Response[R, Throwable]],
+    http: Http[R, Throwable, A, Response],
     a: A,
   )(implicit ctx: Ctx): Unit = {
     http.execute(a) match {
@@ -123,9 +134,16 @@ private[zhttp] final case class Handler[R](
               if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
               else {
                 for {
-                  _ <- UIO { unsafeWriteAndFlushAnyResponse(res) }
+                  _ <- UIO {
+                    // Write the initial line and the header.
+                    unsafeWriteAndFlushAnyResponse(res)
+                  }
                   _ <- res.data match {
                     case HttpData.BinaryStream(stream) => writeStreamContent(stream)
+                    case HttpData.File(file)           =>
+                      UIO {
+                        unsafeWriteFileContent(file)
+                      }
                     case _                             => UIO(ctx.flush())
                   }
                   _ <- Task(releaseRequest(jReq))
@@ -138,21 +156,22 @@ private[zhttp] final case class Handler[R](
         if (self.isWebSocket(res)) {
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
+          // Write the initial line and the header.
           unsafeWriteAndFlushAnyResponse(res)
           res.data match {
             case HttpData.BinaryStream(stream) => unsafeRunZIO(writeStreamContent(stream) *> Task(releaseRequest(jReq)))
+            case HttpData.File(file)           =>
+              unsafeWriteFileContent(file)
             case _                             => releaseRequest(jReq)
           }
         }
-
-      case HExit.Failure(e) =>
+      case HExit.Failure(e)   =>
         unsafeWriteAndFlushErrorResponse(e)
         releaseRequest(jReq)
-      case HExit.Empty      =>
+      case HExit.Empty        =>
         unsafeWriteAndFlushEmptyResponse()
         releaseRequest(jReq)
     }
-
   }
 
   /**
@@ -166,7 +185,7 @@ private[zhttp] final case class Handler[R](
   /**
    * Writes any response to the Channel
    */
-  private def unsafeWriteAndFlushAnyResponse[A](res: Response[R, Throwable])(implicit ctx: Ctx): Unit = {
+  private def unsafeWriteAndFlushAnyResponse[A](res: Response)(implicit ctx: Ctx): Unit = {
     ctx.writeAndFlush(encodeResponse(res)): Unit
   }
 
@@ -187,12 +206,26 @@ private[zhttp] final case class Handler[R](
   /**
    * Writes Binary Stream data to the Channel
    */
-  private def writeStreamContent[A](
-    stream: ZStream[R, Throwable, ByteBuf],
-  )(implicit ctx: Ctx): ZIO[R, Throwable, Unit] = {
+  private def writeStreamContent(
+    stream: ZStream[Any, Throwable, ByteBuf],
+  )(implicit ctx: Ctx): ZIO[Any, Throwable, Unit] = {
     for {
       _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
+  }
+
+  /**
+   * Writes file content to the Channel. Does not use Chunked transfer encoding
+   */
+  private def unsafeWriteFileContent(file: File)(implicit ctx: ChannelHandlerContext): Unit = {
+    import java.io.RandomAccessFile
+
+    val raf        = new RandomAccessFile(file, "r")
+    val fileLength = raf.length()
+    // Write the content.
+    ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
+    // Write the end marker.
+    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
   }
 }

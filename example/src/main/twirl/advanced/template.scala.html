@@ -1,9 +1,0 @@
-@import zhttp.nav.Navigation
-@import play.twirl.api.TwirlFeatureImports.defining
-@(a: Int, b: Boolean, navItems: Seq[Navigation])
-@html.main(title = "Home") {
-    @defining(s"${a}-${b}") { combined =>
-        <h1>Navigation Demo @combined</h1>
-    }
-    @advanced.html.renderNav(navItems)
-}

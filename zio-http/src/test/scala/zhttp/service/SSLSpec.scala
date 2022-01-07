@@ -3,7 +3,6 @@ package zhttp.service
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http._
-import zhttp.internal.HttpRunnableSpec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zhttp.service.server._
@@ -11,9 +10,9 @@ import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
-import zio.test.assertM
+import zio.test.{DefaultRunnableSpec, assertM}
 
-object SSLSpec extends HttpRunnableSpec(8073) {
+object SSLSpec extends DefaultRunnableSpec {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
 
   val serverSSL  = ctxFromCert(
@@ -25,7 +24,7 @@ object SSLSpec extends HttpRunnableSpec(8073) {
   val clientSSL2 =
     SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("ss2.crt.pem")).build()
 
-  val app: HttpApp[Any, Nothing] = Http.collectM[Request] { case Method.GET -> !! / "success" =>
+  val app: HttpApp[Any, Nothing] = Http.collectZIO[Request] { case Method.GET -> !! / "success" =>
     ZIO.succeed(Response.ok)
   }
 
@@ -60,7 +59,7 @@ object SSLSpec extends HttpRunnableSpec(8073) {
                 .request("http://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL1))
                 .map(_.status)
               assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
-            },
+            } @@ ignore,
         ),
       )
       .useNow,

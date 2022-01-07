@@ -2,12 +2,12 @@ package zhttp.service
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues, HttpVersion}
 import zhttp.http.{!!, Headers, Http, Method}
-import zhttp.internal.{AppCollection, HttpRunnableSpec}
+import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.assertM
 
-object ServerConfigSpec extends HttpRunnableSpec(8088) {
+object ServerConfigSpec extends HttpRunnableSpec {
 
   def keepAliveSpec = suite("KeepAlive Test cases") {
     suite("Connection: close request header test with Server KeepAlive ENABLED") {
@@ -37,10 +37,14 @@ object ServerConfigSpec extends HttpRunnableSpec(8088) {
     }
   }
 
-  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ AppCollection.live
+  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
+  // uncomment below for testing with keep alive enabled explicitly
   val keepAliveServerConf         = Server.keepAlive
-  private val appKeepAliveEnabled = configurableServe(AppCollection.app, keepAliveServerConf)
+  private val appKeepAliveEnabled = configurableServe(DynamicServer.app, keepAliveServerConf)
+
+  // uncomment below for testing without enabling keep alive explicitly.
+  //private val appKeepAliveEnabled = serve(DynamicServer.app)
 
   override def spec = {
     suiteM("ServerConfig KeepAlive Enabled Server") {
