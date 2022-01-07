@@ -75,7 +75,7 @@ object Middleware {
 
   def fromHttp[R, E, A, B](http: Http[R, E, A, B]): Middleware[R, E, Nothing, Any, A, B] = Constant(http)
 
-  def identity[A, B]: Middleware[Any, Nothing, A, B, A, B] = Identity
+  def identity: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Identity
 
   def ifThenElse[A]: PartialIfThenElse[A] = new PartialIfThenElse(())
 
