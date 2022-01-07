@@ -3,65 +3,65 @@ package zhttp.endpoint
 import zhttp.http._
 import zio.UIO
 import zio.test.Assertion._
-import zio.test.{DefaultRunnableSpec, assert, assertM}
+import zio.test.{DefaultRunnableSpec, assertTrue, assertM}
 
 object EndpointSpec extends DefaultRunnableSpec {
   def spec = suite("Route") {
     test("match method") {
       val route   = Endpoint.fromMethod(Method.GET)
       val request = Request(Method.GET)
-      assert(route.extract(request))(isSome(equalTo(())))
+      assertTrue(route.extract(request).contains(()))
     }
     test("not match method") {
       val route   = Endpoint.fromMethod(Method.POST)
       val request = Request(Method.GET)
-      assert(route.extract(request))(isNone)
+      assertTrue(route.extract(request).isEmpty)
     } +
       test("match method and string") {
         val route   = Method.GET / "a"
         val request = Request(Method.GET, URL(Path("a")))
-        assert(route.extract(request))(isSome(equalTo(())))
+        assertTrue(route.extract(request).contains(()))
       } +
       test("match method and not string") {
         val route   = Method.GET / "a"
         val request = Request(Method.GET, URL(Path("b")))
-        assert(route.extract(request))(isNone)
+        assertTrue(route.extract(request).isEmpty)
       }
   } + suite("Path") {
     test("Route[Int]") {
       val route = Method.GET / *[Int]
-      assert(route.extract(!! / "1"))(isSome(equalTo(1))) && assert(route.extract(!! / "a"))(isNone)
+      assertTrue(route.extract(!! / "1").contains(1)) && assertTrue(route.extract(!! / "a").isEmpty)
     } +
       test("Route[String]") {
         val route = Method.GET / *[String]
-        assert(route.extract(!! / "a"))(isSome(equalTo("a")))
+        assertTrue(route.extract(!! / "a").contains("a"))
       } +
       test("Route[Boolean]") {
         val route = Method.GET / *[Boolean]
-        assert(route.extract(!! / "True"))(isSome(isTrue)) &&
-        assert(route.extract(!! / "False"))(isSome(isFalse)) &&
-        assert(route.extract(!! / "a"))(isNone) &&
-        assert(route.extract(!! / "1"))(isNone)
+        assertTrue(route.extract(!! / "True").contains(true)) &&
+        assertTrue(route.extract(!! / "False").contains(false)) &&
+        assertTrue(route.extract(!! / "a").isEmpty) &&
+        assertTrue(route.extract(!! / "1").isEmpty)
       } +
       test("Route[Int] / Route[Int]") {
         val route = Method.GET / *[Int] / *[Int]
-        assert(route.extract(!! / "1" / "2"))(isSome(equalTo((1, 2)))) &&
-        assert(route.extract(!! / "1" / "b"))(isNone) &&
-        assert(route.extract(!! / "b" / "1"))(isNone) &&
-        assert(route.extract(!! / "1"))(isNone) &&
-        assert(route.extract(!!))(isNone)
+        assertTrue(route.extract(!! / "1" / "2").contains((1,2))) &&
+        assertTrue(route.extract(!! / "1" / "b").isEmpty) &&
+        assertTrue(route.extract(!! / "b" / "1").isEmpty) &&
+        assertTrue(route.extract(!! / "1").isEmpty) &&
+        assertTrue(route.extract(!!).isEmpty)
       } +
       test("Route[Int] / c") {
         val route = Method.GET / *[Int] / "c"
-        assert(route.extract(!! / "1" / "c"))(isSome(equalTo(1))) &&
-        assert(route.extract(!! / "1"))(isNone) &&
-        assert(route.extract(!! / "c"))(isNone)
+        assertTrue(route.extract(!! / "1" / "c").contains(1)) &&
+        assertTrue(route.extract(!! / "1").isEmpty) &&
+        assertTrue(route.extract(!! / "c").isEmpty)
       } +
       test("Route[Int] / c") {
         val route = Method.GET / *[Int] / "c"
-        assert(route.extract(!! / "1" / "c"))(isSome(equalTo(1))) &&
-        assert(route.extract(!! / "1"))(isNone) &&
-        assert(route.extract(!! / "c"))(isNone)
+        assertTrue(route.extract(!! / "1" / "c").contains(1)) &&
+        assertTrue(route.extract(!! / "1").isEmpty) &&
+        assertTrue(route.extract(!! / "c").isEmpty)
       }
   } +
     suite("to") {

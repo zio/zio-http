@@ -2,11 +2,11 @@ package zhttp.http
 
 import zhttp.service.Client
 import zio.Chunk
-import zio.test.Assertion._
 import zio.test._
 
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets._
+import zio.test.Assertion.equalTo
 
 object GetBodyAsStringSpec extends DefaultRunnableSpec {
 
