@@ -65,7 +65,7 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     Middleware.Race(self, other)
 
   def when[AOut0 <: AOut](cond: AOut0 => Boolean): Middleware[R, E, AIn, BIn, AOut0, BOut] =
-    ifThenElse[AOut0](cond(_))(
+    Middleware.ifThenElse[AOut0](cond(_))(
       isTrue = _ => self,
       isFalse = _ => Middleware.identity,
     )
@@ -91,6 +91,10 @@ object Middleware {
 
   def interceptZIO[A, B]: PartialInterceptZIO[A, B] = new PartialInterceptZIO[A, B](())
 
+  def make[A]: PartialMake[A] = new PartialMake[A](())
+
+  def makeZIO[A]: PartialMakeZIO[A] = new PartialMakeZIO[A](())
+
   def succeed[B](b: B): Middleware[Any, Nothing, Nothing, Any, Any, B] = fromHttp(Http.succeed(b))
 
   private[zhttp] def execute[R, E, AIn, BIn, AOut, BOut](
@@ -100,7 +104,7 @@ object Middleware {
     self match {
       case Codec(decoder, encoder)       => http.contramapZIO(decoder(_)).mapZIO(encoder(_))
       case Identity                      => http.asInstanceOf[Http[R, E, AOut, BOut]]
-      case Constant(http)                => http.asInstanceOf[Http[R, E, AOut, BOut]]
+      case Constant(http)                => http
       case OrElse(self, other)           => self.execute(http).orElse(other.execute(http))
       case Fail(error)                   => Http.fail(error)
       case Compose(self, other)          => other.execute(self.execute(http))
@@ -115,6 +119,20 @@ object Middleware {
           } yield c.asInstanceOf[BOut]
         }
     }
+
+  final class PartialMake[AOut](val unit: Unit) extends AnyVal {
+    def apply[R, E, AIn, BIn, BOut](
+      f: AOut => Middleware[R, E, AIn, BIn, AOut, BOut],
+    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
+      Middleware.fromHttp(Http.fromFunction[AOut](aout => f(aout))).flatten
+  }
+
+  final class PartialMakeZIO[AOut](val unit: Unit) extends AnyVal {
+    def apply[R, E, AIn, BIn, BOut](
+      f: AOut => ZIO[R, E, Middleware[R, E, AIn, BIn, AOut, BOut]],
+    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
+      Middleware.fromHttp(Http.fromFunctionZIO[AOut](aout => f(aout))).flatten
+  }
 
   final case class Fail[E](error: E) extends Middleware[Any, E, Nothing, Any, Any, Nothing]
 
