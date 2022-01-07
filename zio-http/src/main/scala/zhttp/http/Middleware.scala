@@ -79,6 +79,8 @@ object Middleware {
 
   def ifThenElse[A]: PartialIfThenElse[A] = new PartialIfThenElse(())
 
+  def ifThenElseZIO[A]: PartialIfThenElseZIO[A] = new PartialIfThenElseZIO(())
+
   def intercept[A, B]: PartialIntercept[A, B] = new PartialIntercept[A, B](())
 
   def interceptZIO[A, B]: PartialInterceptZIO[A, B] = new PartialInterceptZIO[A, B](())
@@ -141,6 +143,16 @@ object Middleware {
     ): Middleware[R, E, AIn, BIn, AOut, BOut] =
       Middleware
         .fromHttp(Http.fromFunction[AOut] { a => if (cond(a)) isTrue(a) else isFalse(a) })
+        .flatten
+  }
+
+  final class PartialIfThenElseZIO[AOut](val unit: Unit) extends AnyVal {
+    def apply[R, E, AIn, BIn, BOut](cond: AOut => ZIO[R, E, Boolean])(
+      isTrue: AOut => Middleware[R, E, AIn, BIn, AOut, BOut],
+      isFalse: AOut => Middleware[R, E, AIn, BIn, AOut, BOut],
+    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
+      Middleware
+        .fromHttp(Http.fromFunctionZIO[AOut] { a => cond(a).map(b => if (b) isTrue(a) else isFalse(a)) })
         .flatten
   }
 
