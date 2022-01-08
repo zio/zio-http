@@ -14,6 +14,7 @@ package object http extends PathModule with RequestSyntax with RouteDecoderModul
   type ResponseZIO[-R, +E]    = ZIO[R, E, Response]
   type Header                 = (CharSequence, CharSequence)
   type HttpMiddleware[-R, +E] = Middleware[R, E, Request, Response, Request, Response]
+  type RequestP[+A]           = (Method, URL, Headers) => A
 
   /**
    * Default HTTP Charset

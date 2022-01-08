@@ -1,5 +1,6 @@
 package zhttp.middleware
 
+import zhttp.http.Middleware.{cors, timeout}
 import zhttp.http._
 import zhttp.internal.HttpAppTestExtensions
 import zio._

@@ -1,11 +1,9 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
-import zhttp.http.CORS.DefaultCORSConfig
 import zhttp.http.Headers.BasicSchemeName
 import zio.clock.Clock
 import zio.console.Console
-import zio.duration.Duration
 import zio.{UIO, ZIO, clock, console}
 
 import java.io.IOException
@@ -16,8 +14,6 @@ import java.util.UUID
  */
 
 object HttpMiddleware {
-
-  type RequestP[+A] = (Method, URL, Headers) => A
 
   /**
    * Sets cookie in response headers
@@ -48,7 +44,7 @@ object HttpMiddleware {
    */
   def auth(verify: Headers => Boolean, responseHeaders: Headers = Headers.empty): HttpMiddleware[Any, Nothing] =
     ifThenElse((_, _, h) => verify(h))(
-      HttpMiddleware.identity,
+      Middleware.identity,
       Middleware.fromHttp(Http.status(Status.FORBIDDEN).addHeaders(responseHeaders)),
     )
 
@@ -103,62 +99,6 @@ object HttpMiddleware {
   }
 
   /**
-   * Creates a middleware for Cross-Origin Resource Sharing (CORS).
-   * @see
-   *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
-   */
-  def cors[R, E](config: CORSConfig = DefaultCORSConfig): HttpMiddleware[R, E] = {
-    def allowCORS(origin: Header, acrm: Method): Boolean                           =
-      (config.anyOrigin, config.anyMethod, origin._2.toString, acrm) match {
-        case (true, true, _, _)           => true
-        case (true, false, _, acrm)       =>
-          config.allowedMethods.exists(_.contains(acrm))
-        case (false, true, origin, _)     => config.allowedOrigins(origin)
-        case (false, false, origin, acrm) =>
-          config.allowedMethods.exists(_.contains(acrm)) &&
-          config.allowedOrigins(origin)
-      }
-    def corsHeaders(origin: Header, method: Method, isPreflight: Boolean): Headers = {
-      Headers.ifThenElse(isPreflight)(
-        onTrue = config.allowedHeaders.fold(Headers.empty) { h =>
-          Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS.toString(), h.mkString(","))
-        },
-        onFalse = config.exposedHeaders.fold(Headers.empty) { h =>
-          Headers(HttpHeaderNames.ACCESS_CONTROL_EXPOSE_HEADERS.toString(), h.mkString(","))
-        },
-      ) ++
-        Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN.toString(), origin._2) ++
-        Headers(
-          HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS.toString(),
-          config.allowedMethods.fold(method.toString())(m => m.map(m => m.toString()).mkString(",")),
-        ) ++
-        Headers.when(config.allowCredentials) {
-          Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS, config.allowCredentials.toString)
-        }
-    }
-    HttpMiddleware.fromMiddlewareFunction((method, _, headers) => {
-      (
-        method,
-        headers.getHeader(HttpHeaderNames.ORIGIN),
-        headers.getHeader(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
-      ) match {
-        case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm._2.toString)) =>
-          fromApp(
-            Http.succeed(
-              Response(
-                Status.NO_CONTENT,
-                headers = corsHeaders(origin, Method.fromString(acrm._2.toString), isPreflight = true),
-              ),
-            ),
-          )
-        case (_, Some(origin), _) if allowCORS(origin, method)                                                    =>
-          HttpMiddleware.addHeader(corsHeaders(origin, method, isPreflight = false))
-        case _ => identity
-      }
-    })
-  }
-
-  /**
    * Add log status, method, url and time taken from req to res
    */
   def debug: HttpMiddleware[Console with Clock, IOException] =
@@ -171,29 +111,6 @@ object HttpMiddleware {
             .mapError(Option(_))
         } yield Patch.empty
     }
-
-  /**
-   * Creates a new constants middleware that always executes the app provided, independent of where the middleware is
-   * applied
-   */
-  def fromApp[R, E](app: HttpApp[R, E]): HttpMiddleware[R, E] = Middleware.fromHttp(app)
-
-  /**
-   * Creates a new middleware using a function from request parameters to a HttpMiddleware
-   */
-  def fromMiddlewareFunction[R, E](f: RequestP[HttpMiddleware[R, E]]): HttpMiddleware[R, E] =
-    fromMiddlewareFunctionZIO((method, url, headers) => UIO(f(method, url, headers)))
-
-  /**
-   * Creates a new middleware using a function from request parameters to a ZIO of HttpMiddleware
-   */
-  def fromMiddlewareFunctionZIO[R, E](f: RequestP[ZIO[R, E, HttpMiddleware[R, E]]]): HttpMiddleware[R, E] =
-    Middleware.makeZIO[Request](req => f(req.method, req.url, req.getHeaders))
-
-  /**
-   * An empty middleware that doesn't do anything
-   */
-  def identity: HttpMiddleware[Any, Nothing] = Middleware.Identity
 
   /**
    * Logical operator to decide which middleware to select based on the header
@@ -209,9 +126,7 @@ object HttpMiddleware {
   def ifThenElse[R, E](
     cond: RequestP[Boolean],
   )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    HttpMiddleware.fromMiddlewareFunctionZIO((method, url, headers) =>
-      UIO(if (cond(method, url, headers)) left else right),
-    )
+    Middleware.fromMiddlewareFunctionZIO((method, url, headers) => UIO(if (cond(method, url, headers)) left else right))
 
   /**
    * Logical operator to decide which middleware to select based on the predicate.
@@ -219,7 +134,7 @@ object HttpMiddleware {
   def ifThenElseZIO[R, E](
     cond: RequestP[ZIO[R, E, Boolean]],
   )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    HttpMiddleware.fromMiddlewareFunctionZIO((method, url, headers) =>
+    Middleware.fromMiddlewareFunctionZIO((method, url, headers) =>
       cond(method, url, headers).map {
         case true  => left
         case false => right
@@ -273,16 +188,10 @@ object HttpMiddleware {
   def status(status: Status): HttpMiddleware[Any, Nothing] = HttpMiddleware.patch((_, _) => Patch.setStatus(status))
 
   /**
-   * Times out the application with a 408 status code.
-   */
-  def timeout(duration: Duration): HttpMiddleware[Clock, Nothing] =
-    Middleware.identity.race(HttpMiddleware.fromApp(Http.status(Status.REQUEST_TIMEOUT).delayAfter(duration)))
-
-  /**
    * Applies the middleware only if the condition function evaluates to true
    */
   def when[R, E](cond: RequestP[Boolean])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    ifThenElse(cond)(middleware, HttpMiddleware.identity)
+    ifThenElse(cond)(middleware, Middleware.identity)
 
   /**
    * Applies the middleware only when the condition for the headers are true
@@ -294,13 +203,13 @@ object HttpMiddleware {
    * Switches control to the app only when the condition for the headers are true
    */
   def whenHeader[R, E](cond: Headers => Boolean, other: HttpApp[R, E]): HttpMiddleware[R, E] =
-    when((_, _, headers) => cond(headers))(HttpMiddleware.fromApp(other))
+    when((_, _, headers) => cond(headers))(Middleware.fromApp(other))
 
   /**
    * Applies the middleware only if the condition function effectfully evaluates to true
    */
   def whenZIO[R, E](cond: RequestP[ZIO[R, E, Boolean]])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    ifThenElseZIO(cond)(middleware, HttpMiddleware.identity)
+    ifThenElseZIO(cond)(middleware, Middleware.identity)
 
   /**
    * Applies the middleware on an HttpApp
