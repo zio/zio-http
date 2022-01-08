@@ -106,7 +106,10 @@ object Middleware {
       case Codec(decoder, encoder)       => http.contramapZIO(decoder(_)).mapZIO(encoder(_))
       case Identity                      => http.asInstanceOf[Http[R, E, AOut, BOut]]
       case Constant(http)                => http
-      case OrElse(self, other)           => self.execute(http).orElse(other.execute(http))
+      case OrElse(self, other)           =>
+        Http.fromOptionFunction { a =>
+          self.execute(http)(a) orElse other.execute(http)(a)
+        }
       case Fail(error)                   => Http.fail(error)
       case Compose(self, other)          => other.execute(self.execute(http))
       case FlatMap(self, f)              => self.execute(http).flatMap(f(_).execute(http))
