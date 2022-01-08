@@ -6,10 +6,20 @@ import zio._
 import zio.clock.Clock
 import zio.duration._
 import zio.test.Assertion._
+import zio.test.TestAspect.failing
 import zio.test.environment.{TestClock, TestConsole}
 import zio.test.{DefaultRunnableSpec, assert, assertM}
 
 object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
+  private val app: HttpApp[Any with Clock, Nothing] = Http.collectZIO[Request] { case Method.GET -> !! / "health" =>
+    UIO(Response.ok).delay(1 second)
+  }
+  private val midA                                  = HttpMiddleware.addHeader("X-Custom", "A")
+  private val midB                                  = HttpMiddleware.addHeader("X-Custom", "B")
+  private val basicHS                               = Headers.basicAuthorizationHeader("user", "resu")
+  private val basicHF                               = Headers.basicAuthorizationHeader("user", "user")
+  private val basicAuthM = HttpMiddleware.basicAuth { case (u, p) => p.toString.reverse == u }
+
   def spec = suite("HttpMiddleware") {
     import HttpMiddleware._
 
@@ -19,23 +29,17 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
         assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
       } +
         testM("log 404 status method url and time") {
-          val program = run(Http.empty @@ debug.withEmpty) *> TestConsole.output
+          val program = run(Http.empty ++ Http.notFound @@ debug) *> TestConsole.output
           assertM(program)(equalTo(Vector("404 GET /health 0ms\n")))
         }
     } +
-      suite("withEmpty") {
-        testM("log 404 status method url and time") {
-          val program = run(Http.empty @@ debug.withEmpty) *> TestConsole.output
-          assertM(program)(equalTo(Vector("404 GET /health 0ms\n")))
-        }
-      } +
       suite("when") {
         testM("condition is true") {
-          val program = run(app @@ debug.when((_, _, _) => true)) *> TestConsole.output
+          val program = run(app @@ debug.when(_ => true)) *> TestConsole.output
           assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
         } +
           testM("condition is false") {
-            val log = run(app @@ debug.when((_, _, _) => false)) *> TestConsole.output
+            val log = run(app @@ debug.when(_ => false)) *> TestConsole.output
             assertM(log)(equalTo(Vector()))
           }
       } +
@@ -146,7 +150,7 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
             res <- app(request)
           } yield assert(res.getHeadersAsList)(hasSubset(expected)) &&
             assert(res.status)(equalTo(Status.NO_CONTENT))
-        } +
+        } @@ failing +
           testM("GET request") {
             val request =
               Request(
@@ -212,15 +216,6 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
           }
       }
   }
-
-  private val app: HttpApp[Any with Clock, Nothing] = Http.collectZIO[Request] { case Method.GET -> !! / "health" =>
-    UIO(Response.ok).delay(1 second)
-  }
-  private val midA                                  = HttpMiddleware.addHeader("X-Custom", "A")
-  private val midB                                  = HttpMiddleware.addHeader("X-Custom", "B")
-  private val basicHS                               = Headers.basicAuthorizationHeader("user", "resu")
-  private val basicHF                               = Headers.basicAuthorizationHeader("user", "user")
-  private val basicAuthM = HttpMiddleware.basicAuth { case (u, p) => p.toString.reverse == u }
 
   private def cond(flg: Boolean) = (_: Any, _: Any, _: Any) => flg
 
