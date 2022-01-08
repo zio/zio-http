@@ -36,7 +36,7 @@ private[zhttp] sealed trait HExit[-R, +E, +A] { self =>
   def foldExit[R1 <: R, E1, B1](
     ee: E => HExit[R1, E1, B1],
     aa: A => HExit[R1, E1, B1],
-    dd: HExit[R1, E1, B1],
+    dd: => HExit[R1, E1, B1],
   ): HExit[R1, E1, B1] =
     self match {
       case HExit.Success(a)  => aa(a)
