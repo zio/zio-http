@@ -212,5 +212,5 @@ object Middleware {
     other: Middleware[R, E, AIn, BIn, AOut, BOut],
   ) extends Middleware[R, E, AIn, BIn, AOut, BOut]
 
-  final case object Identity extends Middleware[Any, Nothing, Nothing, Any, Any, Nothing]
+  case object Identity extends Middleware[Any, Nothing, Nothing, Any, Any, Nothing]
 }
