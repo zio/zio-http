@@ -84,9 +84,31 @@ object Middleware {
 
   def fromHttp[R, E, A, B](http: Http[R, E, A, B]): Middleware[R, E, Nothing, Any, A, B] = Constant(http)
 
+  /**
+   * Logical operator to decide which middleware to select based on the predicate.
+   */
   def ifThenElse[A]: PartialIfThenElse[A] = new PartialIfThenElse(())
 
+  /**
+   * Logical operator to decide which middleware to select based on the predicate.
+   */
+  def ifThenElse[R, E](
+    cond: RequestP[Boolean],
+  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    Middleware.ifThenElse[Request](req => cond(req.method, req.url, req.getHeaders))(_ => left, _ => right)
+
+  /**
+   * Logical operator to decide which middleware to select based on the predicate effect.
+   */
   def ifThenElseZIO[A]: PartialIfThenElseZIO[A] = new PartialIfThenElseZIO(())
+
+  /**
+   * Logical operator to decide which middleware to select based on the predicate.
+   */
+  def ifThenElseZIO[R, E](
+    cond: RequestP[ZIO[R, E, Boolean]],
+  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    Middleware.ifThenElseZIO[Request](req => cond(req.method, req.url, req.getHeaders))(_ => left, _ => right)
 
   def intercept[A, B]: PartialIntercept[A, B] = new PartialIntercept[A, B](())
 
@@ -97,6 +119,35 @@ object Middleware {
   def makeZIO[A]: PartialMakeZIO[A] = new PartialMakeZIO[A](())
 
   def succeed[B](b: B): Middleware[Any, Nothing, Nothing, Any, Any, B] = fromHttp(Http.succeed(b))
+
+  /**
+   * Logical operator to decide which middleware to select based on the header
+   */
+  def ifHeader[R, E](
+    cond: Headers => Boolean,
+  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    Middleware.ifThenElse[Request](req => cond(req.getHeaders))(_ => left, _ => right)
+
+  /**
+   * Applies the middleware only if the condition function evaluates to true
+   */
+  def when[R, E](cond: RequestP[Boolean])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    middleware.when[Request](req => cond(req.method, req.url, req.getHeaders))
+
+  /**
+   * Applies the middleware only if the condition function effectfully evaluates to true
+   */
+  def whenZIO[R, E](cond: RequestP[ZIO[R, E, Boolean]])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    Middleware.ifThenElseZIO[Request](req => cond(req.method, req.url, req.getHeaders))(
+      _ => middleware,
+      _ => Middleware.identity,
+    )
+
+  /**
+   * Applies the middleware only when the condition for the headers are true
+   */
+  def whenHeader[R, E](cond: Headers => Boolean, middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    middleware.when[Request](req => cond(req.getHeaders))
 
   /**
    * Creates a new constants middleware that always executes the app provided, independent of where the middleware is
@@ -114,7 +165,7 @@ object Middleware {
    * Creates a new middleware using a function from request parameters to a HttpMiddleware
    */
   def fromMiddlewareFunction[R, E](f: RequestP[HttpMiddleware[R, E]]): HttpMiddleware[R, E] =
-    Middleware.fromMiddlewareFunctionZIO((method, url, headers) => UIO(f(method, url, headers)))
+    Middleware.make(req => f(req.method, req.url, req.getHeaders))
 
   /**
    * Creates a new middleware using a function from request parameters to a ZIO of HttpMiddleware

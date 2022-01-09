@@ -43,9 +43,9 @@ object HttpMiddleware {
    * Creates an authentication middleware that only allows authenticated requests to be passed on to the app.
    */
   def auth(verify: Headers => Boolean, responseHeaders: Headers = Headers.empty): HttpMiddleware[Any, Nothing] =
-    ifThenElse((_, _, h) => verify(h))(
-      Middleware.identity,
-      Middleware.fromHttp(Http.status(Status.FORBIDDEN).addHeaders(responseHeaders)),
+    Middleware.ifThenElse[Request](req => verify(req.getHeaders))(
+      _ => Middleware.identity,
+      _ => Middleware.fromHttp(Http.status(Status.FORBIDDEN).addHeaders(responseHeaders)),
     )
 
   /**
@@ -87,7 +87,7 @@ object HttpMiddleware {
     addCookieM(tokenGen.map(Cookie(tokenName, _)))
 
   def csrfValidate(tokenName: String = "x-csrf-token"): HttpMiddleware[Any, Nothing] = {
-    whenHeader(
+    Middleware.whenHeader(
       headers => {
         (headers.getHeaderValue(tokenName), headers.getCookieValue(tokenName)) match {
           case (Some(headerValue), Some(cookieValue)) => headerValue != cookieValue
@@ -111,35 +111,6 @@ object HttpMiddleware {
             .mapError(Option(_))
         } yield Patch.empty
     }
-
-  /**
-   * Logical operator to decide which middleware to select based on the header
-   */
-  def ifHeader[R, E](
-    cond: Headers => Boolean,
-  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    ifThenElse((_, _, headers) => cond(headers))(left, right)
-
-  /**
-   * Logical operator to decide which middleware to select based on the predicate.
-   */
-  def ifThenElse[R, E](
-    cond: RequestP[Boolean],
-  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    Middleware.fromMiddlewareFunctionZIO((method, url, headers) => UIO(if (cond(method, url, headers)) left else right))
-
-  /**
-   * Logical operator to decide which middleware to select based on the predicate.
-   */
-  def ifThenElseZIO[R, E](
-    cond: RequestP[ZIO[R, E, Boolean]],
-  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    Middleware.fromMiddlewareFunctionZIO((method, url, headers) =>
-      cond(method, url, headers).map {
-        case true  => left
-        case false => right
-      },
-    )
 
   /**
    * Creates a new middleware using transformation functions
@@ -186,30 +157,6 @@ object HttpMiddleware {
    * Creates a new middleware that always sets the response status to the provided value
    */
   def status(status: Status): HttpMiddleware[Any, Nothing] = HttpMiddleware.patch((_, _) => Patch.setStatus(status))
-
-  /**
-   * Applies the middleware only if the condition function evaluates to true
-   */
-  def when[R, E](cond: RequestP[Boolean])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    ifThenElse(cond)(middleware, Middleware.identity)
-
-  /**
-   * Applies the middleware only when the condition for the headers are true
-   */
-  def whenHeader[R, E](cond: Headers => Boolean, other: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    when((_, _, headers) => cond(headers))(other)
-
-  /**
-   * Switches control to the app only when the condition for the headers are true
-   */
-  def whenHeader[R, E](cond: Headers => Boolean, other: HttpApp[R, E]): HttpMiddleware[R, E] =
-    when((_, _, headers) => cond(headers))(Middleware.fromApp(other))
-
-  /**
-   * Applies the middleware only if the condition function effectfully evaluates to true
-   */
-  def whenZIO[R, E](cond: RequestP[ZIO[R, E, Boolean]])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    ifThenElseZIO(cond)(middleware, Middleware.identity)
 
   /**
    * Applies the middleware on an HttpApp

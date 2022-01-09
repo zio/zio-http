@@ -1,6 +1,6 @@
 package zhttp.middleware
 
-import zhttp.http.Middleware.{cors, timeout}
+import zhttp.http.Middleware.{cors, ifThenElse, ifThenElseZIO, timeout, whenZIO}
 import zhttp.http._
 import zhttp.internal.HttpAppTestExtensions
 import zio._
@@ -70,7 +70,7 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
             assertM(program(Request()))(isNone)
           }
       } +
-      suite("ifThenElseM") {
+      suite("ifThenElseZIO") {
         testM("if the condition is true take first") {
           val app = (Http.ok @@ ifThenElseZIO(condM(true))(midA, midB)) getHeader "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
@@ -103,11 +103,11 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
       } +
       suite("when") {
         testM("if the condition is true apple middleware") {
-          val app = Http.ok @@ when(cond(true))(midA) getHeader "X-Custom"
+          val app = Http.ok @@ Middleware.when(cond(true))(midA) getHeader "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
         } +
           testM("if the condition is false don't apply the middleware") {
-            val app = Http.ok @@ when(cond(false))(midA) getHeader "X-Custom"
+            val app = Http.ok @@ Middleware.when(cond(false))(midA) getHeader "X-Custom"
             assertM(app(Request()))(isNone)
           }
       } +
