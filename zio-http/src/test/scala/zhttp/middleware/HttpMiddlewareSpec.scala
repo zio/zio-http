@@ -18,7 +18,7 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
   private val midB                                  = HttpMiddleware.addHeader("X-Custom", "B")
   private val basicHS                               = Headers.basicAuthorizationHeader("user", "resu")
   private val basicHF                               = Headers.basicAuthorizationHeader("user", "user")
-  private val basicAuthM = HttpMiddleware.basicAuth { case (u, p) => p.toString.reverse == u }
+  private val basicAuthM                            = Middleware.basicAuth { case (u, p) => p.toString.reverse == u }
 
   def spec = suite("HttpMiddleware") {
     import HttpMiddleware._
