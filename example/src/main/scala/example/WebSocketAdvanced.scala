@@ -2,10 +2,10 @@ package example
 
 import zhttp.http._
 import zhttp.service.Server
-import zhttp.socket.{Socket, SocketApp, SocketDecoder, SocketProtocol, WebSocketFrame}
+import zhttp.socket._
+import zio._
 import zio.duration._
 import zio.stream.ZStream
-import zio.{App, ExitCode, Schedule, URIO, console}
 
 object WebSocketAdvanced extends App {
   // Message Handlers
@@ -48,9 +48,9 @@ object WebSocketAdvanced extends App {
   }
 
   private val app =
-    Http.collect[Request] {
-      case Method.GET -> !! / "greet" / name  => Response.text(s"Greetings ${name}!")
-      case Method.GET -> !! / "subscriptions" => Response.socket(socketApp)
+    Http.collectZIO[Request] {
+      case Method.GET -> !! / "greet" / name  => Response.text(s"Greetings ${name}!").wrapZIO
+      case Method.GET -> !! / "subscriptions" => socketApp.toResponse
     }
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
