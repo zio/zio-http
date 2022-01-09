@@ -3,6 +3,7 @@ package zhttp.http
 import io.netty.channel.ChannelHandler
 import zhttp.html.Html
 import zhttp.http.headers.HeaderModifier
+import zhttp.http.middleware.Middleware
 import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
@@ -20,8 +21,10 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
   import Http._
 
-  // TODO: rename to @@
-  final def @@@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
+  /**
+   * Attaches the provided middleware to the Http app
+   */
+  final def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
     middleware: Middleware[R1, E1, A1, B1, A2, B2],
   ): Http[R1, E1, A2, B2] =
     middleware(self)
@@ -348,16 +351,6 @@ object Http {
 
   implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends HeaderModifier[HttpApp[R, E]] {
     self =>
-
-    /**
-     * Attaches the provided middleware to the HttpApp
-     */
-    def @@[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = middleware(mid)
-
-    /**
-     * Attaches the provided middleware to the HttpApp
-     */
-    def middleware[R1 <: R, E1 >: E](mid: HttpMiddleware[R1, E1]): HttpApp[R1, E1] = mid(http)
 
     /**
      * Patches the response produced by the app
