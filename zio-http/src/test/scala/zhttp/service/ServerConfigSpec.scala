@@ -44,7 +44,7 @@ object ServerConfigSpec extends HttpRunnableSpec {
   private val appKeepAliveEnabled = configurableServe(DynamicServer.app, keepAliveServerConf)
 
   // uncomment below for testing without enabling keep alive explicitly.
-  //private val appKeepAliveEnabled = serve(DynamicServer.app)
+  // private val appKeepAliveEnabled = serve(DynamicServer.app)
 
   override def spec = {
     suiteM("ServerConfig KeepAlive Enabled Server") {

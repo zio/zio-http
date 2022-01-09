@@ -2,7 +2,7 @@ package zhttp.internal
 
 import io.netty.handler.codec.http.HttpVersion
 import sttp.client3.asynchttpclient.zio.{SttpClient, send}
-import sttp.client3.{UriContext, asWebSocketUnsafe, basicRequest, Response => SResponse}
+import sttp.client3.{Response => SResponse, UriContext, asWebSocketUnsafe, basicRequest}
 import sttp.model.{Header => SHeader}
 import sttp.ws.WebSocket
 import zhttp.http.URL.Location
@@ -21,35 +21,42 @@ import zio.{Chunk, Has, Task, ZIO, ZManaged}
  */
 abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
   def serve[R <: Has[_]](
-                          app: HttpApp[R, Throwable],
-                        ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
+    app: HttpApp[R, Throwable],
+  ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
     for {
       start <- Server.make(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection).orDie
       _     <- DynamicServer.setStart(start).toManaged_
     } yield ()
 
   def configurableServe[R <: Has[_]](
-                          app: HttpApp[R, Throwable],
-                          serverConf: Server[R, Throwable],
-                        ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
+    app: HttpApp[R, Throwable],
+    serverConf: Server[R, Throwable],
+  ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
     for {
       defaultConf <- ZManaged.fromEffect(ZIO.succeed(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection))
-      start <- Server.make(defaultConf ++ serverConf).orDie
-      _     <- DynamicServer.setStart(start).toManaged_
+      start       <- Server.make(defaultConf ++ serverConf).orDie
+      _           <- DynamicServer.setStart(start).toManaged_
     } yield ()
 
   def request(
-               path: Path = !!,
-               method: Method = Method.GET,
-               content: String = "",
-               headers: Headers = Headers.empty,
-               httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
-             ): HttpIO[Any, Client.ClientResponse] = {
+    path: Path = !!,
+    method: Method = Method.GET,
+    content: String = "",
+    headers: Headers = Headers.empty,
+    httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
+  ): HttpIO[Any, Client.ClientResponse] = {
     for {
       port <- DynamicServer.getPort
       data = HttpData.fromString(content)
       response <- Client.request(
-        Client.ClientParams(method, URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data, null, httpVersion),
+        Client.ClientParams(
+          method,
+          URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
+          headers,
+          data,
+          null,
+          httpVersion,
+        ),
         ClientSSLOptions.DefaultSSL,
       )
     } yield response
@@ -69,9 +76,9 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
   }
 
   def webSocketRequest(
-                        path: Path = !!,
-                        headers: Headers = Headers.empty,
-                      ): HttpIO[SttpClient, SResponse[Either[String, WebSocket[Task]]]] = {
+    path: Path = !!,
+    headers: Headers = Headers.empty,
+  ): HttpIO[SttpClient, SResponse[Either[String, WebSocket[Task]]]] = {
     // todo: uri should be created by using URL().asString but currently support for ws Scheme is missing
     for {
       port <- DynamicServer.getPort
@@ -85,62 +92,62 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     def deploy: ZIO[DynamicServer, Nothing, String] = DynamicServer.deploy(app)
 
     def request(
-                 path: Path = !!,
-                 method: Method = Method.GET,
-                 content: String = "",
-                 headers: Headers = Headers.empty,
-                 httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
-               ): HttpIO[Any, Client.ClientResponse] = for {
+      path: Path = !!,
+      method: Method = Method.GET,
+      content: String = "",
+      headers: Headers = Headers.empty,
+      httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
+    ): HttpIO[Any, Client.ClientResponse] = for {
       id       <- deploy
       response <- self.request(path, method, content, Headers(DynamicServer.APP_ID, id) ++ headers, httpVersion)
     } yield response
 
     def requestBodyAsString(
-                             path: Path = !!,
-                             method: Method = Method.GET,
-                             content: String = "",
-                             headers: Headers = Headers.empty,
-                           ): HttpIO[Any, String] =
+      path: Path = !!,
+      method: Method = Method.GET,
+      content: String = "",
+      headers: Headers = Headers.empty,
+    ): HttpIO[Any, String] =
       request(path, method, content, headers).flatMap(_.getBodyAsString)
 
     def requestHeaderValueByName(
-                                  path: Path = !!,
-                                  method: Method = Method.GET,
-                                  content: String = "",
-                                  headers: Headers = Headers.empty,
-                                )(name: CharSequence): HttpIO[Any, Option[String]] =
+      path: Path = !!,
+      method: Method = Method.GET,
+      content: String = "",
+      headers: Headers = Headers.empty,
+    )(name: CharSequence): HttpIO[Any, Option[String]] =
       request(path, method, content, headers).map(_.getHeaderValue(name))
 
     def requestStatus(
-                       path: Path = !!,
-                       method: Method = Method.GET,
-                       content: String = "",
-                       headers: Headers = Headers.empty,
-                     ): HttpIO[Any, Status] =
+      path: Path = !!,
+      method: Method = Method.GET,
+      content: String = "",
+      headers: Headers = Headers.empty,
+    ): HttpIO[Any, Status] =
       request(path, method, content, headers).map(_.status)
 
     def webSocketStatusCode(
-                             path: Path = !!,
-                             headers: Headers = Headers.empty,
-                           ): HttpIO[SttpClient, Int] = for {
+      path: Path = !!,
+      headers: Headers = Headers.empty,
+    ): HttpIO[SttpClient, Int] = for {
       id  <- deploy
       res <- self.webSocketRequest(path, Headers(DynamicServer.APP_ID, id) ++ headers)
     } yield res.code.code
 
     def requestBody(
-                     path: Path = !!,
-                     method: Method = Method.GET,
-                     content: String = "",
-                     headers: Headers = Headers.empty,
-                   ): HttpIO[Any, Chunk[Byte]] =
+      path: Path = !!,
+      method: Method = Method.GET,
+      content: String = "",
+      headers: Headers = Headers.empty,
+    ): HttpIO[Any, Chunk[Byte]] =
       request(path, method, content, headers).flatMap(_.getBody)
 
     def requestContentLength(
-                              path: Path = !!,
-                              method: Method = Method.GET,
-                              content: String = "",
-                              headers: Headers = Headers.empty,
-                            ): HttpIO[Any, Option[Long]] =
+      path: Path = !!,
+      method: Method = Method.GET,
+      content: String = "",
+      headers: Headers = Headers.empty,
+    ): HttpIO[Any, Option[Long]] =
       request(path, method, content, headers).map(_.getContentLength)
   }
 }
