@@ -6,7 +6,6 @@ import zio._
 import zio.clock.Clock
 import zio.duration._
 import zio.test.Assertion._
-import zio.test.TestAspect.failing
 import zio.test.environment.{TestClock, TestConsole}
 import zio.test.{DefaultRunnableSpec, assert, assertM}
 
@@ -150,7 +149,7 @@ object HttpMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions
             res <- app(request)
           } yield assert(res.getHeadersAsList)(hasSubset(expected)) &&
             assert(res.status)(equalTo(Status.NO_CONTENT))
-        } @@ failing +
+        } +
           testM("GET request") {
             val request =
               Request(

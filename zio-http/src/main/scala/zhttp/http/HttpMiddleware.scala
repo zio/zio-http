@@ -77,9 +77,9 @@ object HttpMiddleware {
    * CSRF middlewares : To prevent Cross-site request forgery attacks. This middleware is modeled after the double
    * submit cookie pattern.
    * @see
-   *   [[Middleware#csrfGenerate]] - Sets cookie with CSRF token
+   *   [[HttpMiddleware#csrfGenerate]] - Sets cookie with CSRF token
    * @see
-   *   [[Middleware#csrfValidate]] - Validate token value in request headers against value in cookies
+   *   [[HttpMiddleware#csrfValidate]] - Validate token value in request headers against value in cookies
    * @see
    *   https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
    */
@@ -136,24 +136,7 @@ object HttpMiddleware {
           Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS, config.allowCredentials.toString)
         }
     }
-
-    val existingRoutesWithHeaders = HttpMiddleware.make((method, _, headers) => {
-      (
-        method,
-        headers.getHeader(HttpHeaderNames.ORIGIN),
-      ) match {
-        case (_, Some(origin)) if allowCORS(origin, method) => (Some(origin), method)
-        case _                                              => (None, method)
-      }
-    })((_, _, s) => {
-      s match {
-        case (Some(origin), method) =>
-          Patch.addHeader(corsHeaders(origin, method, isPreflight = false))
-        case _                      => Patch.empty
-      }
-    })
-
-    val optionsHeaders = fromMiddlewareFunction { case (method, _, headers) =>
+    HttpMiddleware.fromMiddlewareFunction((method, _, headers) => {
       (
         method,
         headers.getHeader(HttpHeaderNames.ORIGIN),
@@ -161,20 +144,18 @@ object HttpMiddleware {
       ) match {
         case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm._2.toString)) =>
           fromApp(
-            (
-              Http.succeed(
-                Response(
-                  Status.NO_CONTENT,
-                  headers = corsHeaders(origin, Method.fromString(acrm._2.toString), isPreflight = true),
-                ),
+            Http.succeed(
+              Response(
+                Status.NO_CONTENT,
+                headers = corsHeaders(origin, Method.fromString(acrm._2.toString), isPreflight = true),
               ),
             ),
           )
+        case (_, Some(origin), _) if allowCORS(origin, method)                                                    =>
+          HttpMiddleware.addHeader(corsHeaders(origin, method, isPreflight = false))
         case _ => identity
       }
-    }
-
-    existingRoutesWithHeaders orElse optionsHeaders
+    })
   }
 
   /**
