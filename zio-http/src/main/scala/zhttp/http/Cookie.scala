@@ -144,16 +144,12 @@ final case class Cookie(
    * Signs cookie content with a secret
    */
   private def signContent(secret: String): String = {
-    try {
-      val sha256    = Mac.getInstance("HmacSHA256")
-      val secretKey = new SecretKeySpec(secret.getBytes(), "RSA")
-      sha256.init(secretKey)
-      val signed    = sha256.doFinal(self.content.getBytes())
-      val mda       = MessageDigest.getInstance("SHA-512")
-      self.content + '.' + getEncoder.encodeToString(mda.digest(signed))
-    } catch {
-      case _: Exception => self.content
-    }
+    val sha256    = Mac.getInstance("HmacSHA256")
+    val secretKey = new SecretKeySpec(secret.getBytes(), "RSA")
+    sha256.init(secretKey)
+    val signed    = sha256.doFinal(self.content.getBytes())
+    val mda       = MessageDigest.getInstance("SHA-512")
+    self.content + '.' + getEncoder.encodeToString(mda.digest(signed))
   }
 
   /**
