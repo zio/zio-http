@@ -1,7 +1,7 @@
 package zhttp.http.middleware
 
+import zhttp.http.Middleware._
 import zhttp.http._
-import zhttp.http.middleware.Middleware._
 import zhttp.internal.HttpAppTestExtensions
 import zio._
 import zio.clock.Clock

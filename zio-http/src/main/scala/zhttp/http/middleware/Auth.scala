@@ -2,7 +2,7 @@ package zhttp.http.middleware
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Headers.BasicSchemeName
-import zhttp.http.{Header, Headers, Http, Request, Status}
+import zhttp.http._
 
 trait Auth {
 

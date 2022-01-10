@@ -1,8 +1,7 @@
 package example
 
-import zhttp.http._
-import zhttp.http.middleware.Middleware
-import zhttp.http.middleware.Middleware.codec
+import zhttp.http.Middleware.codec
+import zhttp.http.{Middleware, _}
 import zhttp.service.Server
 import zio._
 

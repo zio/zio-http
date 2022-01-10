@@ -1,10 +1,9 @@
-package zhttp.http.middleware
+package zhttp.http
 
-import zhttp.http.{HExitAssertion, Http}
 import zio.duration._
 import zio.test.Assertion.{equalTo, isLeft, isNone, isSome}
 import zio.test.environment.TestClock
-import zio.test.{DefaultRunnableSpec, _}
+import zio.test.{DefaultRunnableSpec, assert, assertM}
 import zio.{Ref, UIO}
 
 object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {

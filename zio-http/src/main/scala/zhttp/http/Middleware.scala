@@ -1,6 +1,6 @@
-package zhttp.http.middleware
+package zhttp.http
 
-import zhttp.http._
+import zhttp.http.middleware.MiddlewareExtensions
 import zio.clock.Clock
 import zio.duration.Duration
 import zio.{UIO, ZIO}

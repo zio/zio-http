@@ -3,7 +3,6 @@ package zhttp.http
 import io.netty.channel.ChannelHandler
 import zhttp.html.Html
 import zhttp.http.headers.HeaderModifier
-import zhttp.http.middleware.Middleware
 import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._

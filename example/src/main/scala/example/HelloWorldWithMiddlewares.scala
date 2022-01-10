@@ -1,8 +1,8 @@
 package example
 
+import zhttp.http.Middleware._
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware
-import zhttp.http.middleware.Middleware._
 import zhttp.service.Server
 import zio.clock.{Clock, currentTime}
 import zio.console.Console

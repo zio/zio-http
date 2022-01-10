@@ -1,7 +1,7 @@
 package zhttp.http.middleware
 
+import zhttp.http.Middleware.csrfValidate
 import zhttp.http._
-import zhttp.http.middleware.Middleware.csrfValidate
 import zhttp.internal.HttpAppTestExtensions
 import zio.Ref
 import zio.test.Assertion.equalTo

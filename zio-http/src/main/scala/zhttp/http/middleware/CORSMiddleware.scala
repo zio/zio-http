@@ -3,7 +3,6 @@ package zhttp.http.middleware
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.http.middleware.CORS.DefaultCORSConfig
-import zhttp.http.middleware.Middleware.fromApp
 
 trait CORSMiddleware {
 
@@ -48,7 +47,7 @@ trait CORSMiddleware {
         headers.getHeader(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
       ) match {
         case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm._2.toString)) =>
-          fromApp(
+          Middleware.fromApp(
             Http.succeed(
               Response(
                 Status.NO_CONTENT,

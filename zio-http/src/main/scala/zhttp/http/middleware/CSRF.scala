@@ -1,7 +1,6 @@
 package zhttp.http.middleware
 
-import zhttp.http.middleware.Middleware.addCookieM
-import zhttp.http.{Cookie, Http, Status}
+import zhttp.http._
 import zio.{UIO, ZIO}
 
 import java.util.UUID
@@ -23,7 +22,7 @@ trait CSRF {
     tokenName: String = "x-csrf-token",
     tokenGen: ZIO[R, Nothing, String] = UIO(UUID.randomUUID.toString),
   ): HttpMiddleware[R, E] =
-    addCookieM(tokenGen.map(Cookie(tokenName, _)))
+    Middleware.addCookieM(tokenGen.map(Cookie(tokenName, _)))
 
   def csrfValidate(tokenName: String = "x-csrf-token"): HttpMiddleware[Any, Nothing] = {
     Middleware.whenHeader(

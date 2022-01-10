@@ -1,7 +1,7 @@
 package zhttp.http.middleware
 
+import zhttp.http.Middleware.cors
 import zhttp.http._
-import zhttp.http.middleware.Middleware.cors
 import zhttp.internal.HttpAppTestExtensions
 import zio.test.Assertion.hasSubset
 import zio.test._
