@@ -9,6 +9,9 @@ import zio.{UIO, ZIO, clock, console}
 
 import java.io.IOException
 
+/**
+ * Middlewares on an HttpApp
+ */
 trait MiddlewareExtensions extends CORSMiddleware with CSRF with Auth {
 
   /**
@@ -169,10 +172,6 @@ trait MiddlewareExtensions extends CORSMiddleware with CSRF with Auth {
 }
 
 object MiddlewareExtensions {
-
-  /**
-   * Applies the middleware on an HttpApp
-   */
 
   final case class PartialResponseMake[S](req: (Method, URL, Headers) => S) extends AnyVal {
     def apply(res: (Status, Headers, S) => Patch): HttpMiddleware[Any, Nothing] = {
