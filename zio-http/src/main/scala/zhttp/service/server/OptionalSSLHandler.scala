@@ -25,7 +25,7 @@ class OptionalSSLHandler(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour
           ()
         case _                       =>
           pipeline.remove(HTTP_REQUEST_HANDLER)
-          if (cfg.keepAlive) pipeline.remove(HTTP_KEEPALIVE_HANDLER)
+          if (!cfg.disableKeepAlive) pipeline.remove(HTTP_KEEPALIVE_HANDLER)
           pipeline.remove(this)
           pipeline.addLast(new HttpOnHttpsHandler(httpBehaviour))
           ()
