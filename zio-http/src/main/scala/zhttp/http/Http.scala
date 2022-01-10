@@ -24,9 +24,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Attaches the provided middleware to the Http app
    */
   final def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
-    middleware: Middleware[R1, E1, A1, B1, A2, B2],
-  ): Http[R1, E1, A2, B2] =
-    middleware(self)
+    mid: Middleware[R1, E1, A1, B1, A2, B2],
+  ): Http[R1, E1, A2, B2] = mid(self)
 
   /**
    * Alias for flatmap
@@ -193,9 +192,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Named alias for @@
    */
   final def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
-    middleware: Middleware[R1, E1, A1, B1, A2, B2],
-  ): Http[R1, E1, A2, B2] =
-    middleware(self)
+    mid: Middleware[R1, E1, A1, B1, A2, B2],
+  ): Http[R1, E1, A2, B2] = mid(self)
 
   /**
    * Named alias for `<>`
