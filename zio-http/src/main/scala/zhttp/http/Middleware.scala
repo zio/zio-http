@@ -218,26 +218,16 @@ object Middleware extends MiddlewareExtensions {
       Middleware.fromHttp(Http.fromFunctionZIO[AOut](aout => f(aout))).flatten
   }
 
-  final case class Fail[E](error: E) extends Middleware[Any, E, Nothing, Any, Any, Nothing]
-
-  final case class OrElse[R, E0, E1, AIn, BIn, AOut, BOut](
-    self: Middleware[R, E0, AIn, BIn, AOut, BOut],
-    other: Middleware[R, E1, AIn, BIn, AOut, BOut],
-  ) extends Middleware[R, E1, AIn, BIn, AOut, BOut]
+  final class PartialIntercept[A, B](val unit: Unit) extends AnyVal {
+    def apply[S, BOut](incoming: A => S)(outgoing: (B, S) => BOut): Middleware[Any, Nothing, A, B, A, BOut] =
+      interceptZIO[A, B](a => UIO(incoming(a)))((b, s) => UIO(outgoing(b, s)))
+  }
 
   final class PartialInterceptZIO[A, B](val unit: Unit) extends AnyVal {
     def apply[R, E, S, BOut](incoming: A => ZIO[R, Option[E], S])(
       outgoing: (B, S) => ZIO[R, Option[E], BOut],
     ): Middleware[R, E, A, B, A, BOut] = Intercept(incoming, outgoing)
   }
-
-  final class PartialIntercept[A, B](val unit: Unit) extends AnyVal {
-    def apply[S, BOut](incoming: A => S)(outgoing: (B, S) => BOut): Middleware[Any, Nothing, A, B, A, BOut] =
-      interceptZIO[A, B](a => UIO(incoming(a)))((b, s) => UIO(outgoing(b, s)))
-  }
-
-  final case class Codec[R, E, AIn, BIn, AOut, BOut](decoder: AOut => ZIO[R, E, AIn], encoder: BIn => ZIO[R, E, BOut])
-      extends Middleware[R, E, AIn, BIn, AOut, BOut]
 
   final class PartialCodec[AOut, BIn](val unit: Unit) extends AnyVal {
     def apply[AIn, BOut](decoder: AOut => AIn, encoder: BIn => BOut): Middleware[Any, Nothing, AIn, BIn, AOut, BOut] =
@@ -272,28 +262,40 @@ object Middleware extends MiddlewareExtensions {
       Codec(decoder(_), encoder(_))
   }
 
-  final case class Constant[R, E, AOut, BOut](http: Http[R, E, AOut, BOut])
+  private final case class Fail[E](error: E) extends Middleware[Any, E, Nothing, Any, Any, Nothing]
+
+  private final case class OrElse[R, E0, E1, AIn, BIn, AOut, BOut](
+    self: Middleware[R, E0, AIn, BIn, AOut, BOut],
+    other: Middleware[R, E1, AIn, BIn, AOut, BOut],
+  ) extends Middleware[R, E1, AIn, BIn, AOut, BOut]
+
+  private final case class Codec[R, E, AIn, BIn, AOut, BOut](
+    decoder: AOut => ZIO[R, E, AIn],
+    encoder: BIn => ZIO[R, E, BOut],
+  ) extends Middleware[R, E, AIn, BIn, AOut, BOut]
+
+  private final case class Constant[R, E, AOut, BOut](http: Http[R, E, AOut, BOut])
       extends Middleware[R, E, Nothing, Any, AOut, BOut]
 
-  final case class Intercept[R, E, A, B, S, BOut](
+  private final case class Intercept[R, E, A, B, S, BOut](
     incoming: A => ZIO[R, Option[E], S],
     outgoing: (B, S) => ZIO[R, Option[E], BOut],
   ) extends Middleware[R, E, A, B, A, BOut]
 
-  final case class Compose[R, E, A0, B0, A1, B1, A2, B2](
+  private final case class Compose[R, E, A0, B0, A1, B1, A2, B2](
     self: Middleware[R, E, A0, B0, A1, B1],
     other: Middleware[R, E, A1, B1, A2, B2],
   ) extends Middleware[R, E, A0, B0, A2, B2]
 
-  final case class FlatMap[R, E, AIn, BIn, AOut, BOut0, BOut1](
+  private final case class FlatMap[R, E, AIn, BIn, AOut, BOut0, BOut1](
     self: Middleware[R, E, AIn, BIn, AOut, BOut0],
     f: BOut0 => Middleware[R, E, AIn, BIn, AOut, BOut1],
   ) extends Middleware[R, E, AIn, BIn, AOut, BOut1]
 
-  final case class Race[R, E, AIn, BIn, AOut, BOut](
+  private final case class Race[R, E, AIn, BIn, AOut, BOut](
     self: Middleware[R, E, AIn, BIn, AOut, BOut],
     other: Middleware[R, E, AIn, BIn, AOut, BOut],
   ) extends Middleware[R, E, AIn, BIn, AOut, BOut]
 
-  case object Identity extends Middleware[Any, Nothing, Nothing, Any, Any, Nothing]
+  private case object Identity extends Middleware[Any, Nothing, Nothing, Any, Any, Nothing]
 }
