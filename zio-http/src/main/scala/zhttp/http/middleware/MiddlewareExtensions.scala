@@ -12,7 +12,7 @@ import java.io.IOException
 /**
  * Middlewares on an HttpApp
  */
-trait MiddlewareExtensions extends CORSMiddleware with CSRF with AuthMiddlewares {
+trait MiddlewareExtensions extends CorsMiddlewares with CSRF with AuthMiddlewares {
 
   /**
    * Logical operator to decide which middleware to select based on the predicate.

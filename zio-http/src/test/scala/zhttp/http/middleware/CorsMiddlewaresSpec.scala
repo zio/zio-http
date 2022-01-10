@@ -6,8 +6,8 @@ import zhttp.internal.HttpAppTestExtensions
 import zio.test.Assertion.hasSubset
 import zio.test._
 
-object CORSMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
-  override def spec = suite("CORSMiddleware") {
+object CorsMiddlewaresSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
+  override def spec = suite("CorsMiddlewares") {
     // FIXME:The test should ideally pass with `Http.ok` also
     val app = Http.collect[Request] { case Method.GET -> !! / "success" => Response.ok } @@ cors()
     testM("OPTIONS request") {
