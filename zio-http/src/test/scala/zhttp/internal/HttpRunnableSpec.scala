@@ -28,16 +28,6 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       _     <- DynamicServer.setStart(start).toManaged_
     } yield ()
 
-  def configurableServe[R <: Has[_]](
-    app: HttpApp[R, Throwable],
-    serverConf: Server[R, Throwable],
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
-    for {
-      defaultConf <- ZManaged.fromEffect(ZIO.succeed(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection))
-      start       <- Server.make(defaultConf ++ serverConf).orDie
-      _           <- DynamicServer.setStart(start).toManaged_
-    } yield ()
-
   def request(
     path: Path = !!,
     method: Method = Method.GET,
