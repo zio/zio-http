@@ -104,7 +104,7 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     Middleware.Race(self, other)
 
   /**
-   * Times out the application with a None
+   * Times out if execution is not completed within specified duration, with a None output
    */
   final def timeout(duration: Duration): Middleware[R with Clock, E, AIn, BIn, AOut, Option[BOut]] =
     self.map(Some(_)) race Middleware.succeed(None).delay(duration)
@@ -183,7 +183,7 @@ object Middleware extends HttpMiddlewares {
   def succeed[B](b: B): Middleware[Any, Nothing, Nothing, Any, Any, B] = fromHttp(Http.succeed(b))
 
   /**
-   * Times out the application with a None
+   * Times out if execution is not completed within specified duration, with a None output
    */
   def timeout[B]: PartialTimeout[B] = new PartialTimeout[B](())
 
@@ -216,9 +216,9 @@ object Middleware extends HttpMiddlewares {
     }
 
   final class PartialTimeout[BOut](val unit: Unit) extends AnyVal {
-    def apply[R, E, AIn, BIn, AOut](
+    def apply[R](
       duration: Duration,
-    ): Middleware[R with Clock, E, AIn, AOut, BIn, Option[BOut]] = Middleware.identity.timeout(duration)
+    ): Middleware[R with Clock, Nothing, Nothing, Any, Any, Option[BOut]] = Middleware.identity.timeout(duration)
   }
   final class PartialMake[AOut](val unit: Unit)    extends AnyVal {
     def apply[R, E, AIn, BIn, BOut](
