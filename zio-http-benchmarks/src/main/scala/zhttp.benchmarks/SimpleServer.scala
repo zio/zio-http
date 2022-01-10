@@ -9,5 +9,3 @@ object SimpleServer extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     Server.start(7777, Http.ok.silent).exitCode
 }
-
-
