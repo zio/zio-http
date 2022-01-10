@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zhttp.http.middleware.MiddlewareExtensions
+import zhttp.http.middleware.HttpMiddlewares
 import zio.clock.Clock
 import zio.duration.Duration
 import zio.{UIO, ZIO}
@@ -119,7 +119,7 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     Middleware.execute(http, self)
 }
 
-object Middleware extends MiddlewareExtensions {
+object Middleware extends HttpMiddlewares {
 
   /**
    * Creates a middleware using specified encoder and decoder
