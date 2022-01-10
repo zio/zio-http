@@ -9,39 +9,31 @@ import zio.test.assertM
 
 object ServerConfigSpec extends HttpRunnableSpec {
 
+  val app                   = Http.empty
+  val connectionCloseHeader = Headers(HttpHeaderNames.CONNECTION.toString, HttpHeaderValues.CLOSE.toString)
+  val keepAliveHeader       = Headers(HttpHeaderNames.CONNECTION.toString, HttpHeaderValues.KEEP_ALIVE.toString)
+
   def keepAliveSpec = suite("KeepAlive") {
     suite("Connection: close header") {
-      val connectionCloseHeader = Headers(HttpHeaderNames.CONNECTION.toString, HttpHeaderValues.CLOSE.toString)
-      val app1                  = Http.empty
-      testM(
-        "Http 1.1 WITHOUT 'Connection: close'",
-      ) {
-        val res = app1.request().map(_.getHeaderValue("Connection"))
+      testM("Http 1.1 WITHOUT 'Connection: close'") {
+        val res = app.request().map(_.getHeaderValue("Connection"))
         assertM(res)(isNone)
       } +
-        testM(
-          "Http 1.1 WITH 'Connection: close'",
-        ) {
-          val path = !!
-          val res  = app1.request(path, Method.GET, "", connectionCloseHeader).map(_.getHeaderValue("Connection"))
+        testM("Http 1.1 WITH 'Connection: close'") {
+          val res = app.request(!!, Method.GET, "", connectionCloseHeader).map(_.getHeaderValue("Connection"))
           assertM(res)(isSome(equalTo("close")))
         }
     } +
       suite("Connection: keep-alive header") {
-        val keepAliveHeader = Headers(HttpHeaderNames.CONNECTION.toString, HttpHeaderValues.KEEP_ALIVE.toString)
-        val app1            = Http.empty
         testM("Http 1.0 WITHOUT 'connection: keep-alive'") {
-          val path = !!
-          val res  =
-            app1.request(path, Method.GET, "", Headers.empty, HttpVersion.HTTP_1_0).map(_.getHeaderValue("Connection"))
+          val res =
+            app.request(!!, Method.GET, "", Headers.empty, HttpVersion.HTTP_1_0).map(_.getHeaderValue("Connection"))
           assertM(res)(isSome(equalTo("close")))
         } +
           testM("Http 1.0 WITH 'connection: keep-alive'") {
-            val path = !!
-            val res  =
-              app1
-                .request(path, Method.GET, "", keepAliveHeader, HttpVersion.HTTP_1_0)
-                .map(_.getHeaderValue("Connection"))
+            val res = app
+              .request(!!, Method.GET, "", keepAliveHeader, HttpVersion.HTTP_1_0)
+              .map(_.getHeaderValue("Connection"))
             assertM(res)(isNone)
           }
       }
