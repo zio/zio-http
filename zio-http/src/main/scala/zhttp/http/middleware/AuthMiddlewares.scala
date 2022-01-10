@@ -9,7 +9,7 @@ trait AuthMiddlewares {
   /**
    * Creates an authentication middleware that only allows authenticated requests to be passed on to the app.
    */
-  def auth(verify: Headers => Boolean, responseHeaders: Headers = Headers.empty): HttpMiddleware[Any, Nothing] =
+  def CustomAuth(verify: Headers => Boolean, responseHeaders: Headers = Headers.empty): HttpMiddleware[Any, Nothing] =
     Middleware.ifThenElse[Request](req => verify(req.getHeaders))(
       _ => Middleware.identity,
       _ => Middleware.fromHttp(Http.status(Status.FORBIDDEN).addHeaders(responseHeaders)),
@@ -19,7 +19,7 @@ trait AuthMiddlewares {
    * Creates a middleware for basic authentication
    */
   def basicAuth(f: Header => Boolean): HttpMiddleware[Any, Nothing] =
-    auth(
+    CustomAuth(
       _.getBasicAuthorizationCredentials match {
         case Some(header) => f(header)
         case None         => false

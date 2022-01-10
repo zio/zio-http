@@ -144,7 +144,7 @@ trait HttpMiddlewares extends CorsMiddlewares with CsrfMiddlewares with AuthMidd
   /**
    * Creates a new middleware that always sets the response status to the provided value
    */
-  def status(status: Status): HttpMiddleware[Any, Nothing] = patch((_, _) => Patch.setStatus(status))
+  def setStatus(status: Status): HttpMiddleware[Any, Nothing] = patch((_, _) => Patch.setStatus(status))
 
   /**
    * Creates a new constants middleware that always executes the app provided, independent of where the middleware is
