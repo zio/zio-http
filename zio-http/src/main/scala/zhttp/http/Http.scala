@@ -190,6 +190,14 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self >>> Http.fromEffectFunction(bFc)
 
   /**
+   * Named alias for @@
+   */
+  final def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
+    middleware: Middleware[R1, E1, A1, B1, A2, B2],
+  ): Http[R1, E1, A2, B2] =
+    middleware(self)
+
+  /**
    * Named alias for `<>`
    */
   final def orElse[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
