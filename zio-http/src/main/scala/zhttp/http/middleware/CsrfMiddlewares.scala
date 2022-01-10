@@ -33,7 +33,7 @@ trait CsrfMiddlewares {
           case _                                      => true
         }
       },
-      Middleware.status(Status.FORBIDDEN),
+      Middleware.succeed(Response.status(Status.FORBIDDEN)),
     )
   }
 }
