@@ -12,9 +12,9 @@ trait CsrfMiddlewares {
    * submit cookie pattern.
    *
    * @see
-   *   [[CsrfMiddlewares#csrfGenerate]] - Sets cookie with CSRF token
+   *   [[#csrfGenerate]] - Sets cookie with CSRF token
    * @see
-   *   [[CsrfMiddlewares#csrfValidate]] - Validate token value in request headers against value in cookies
+   *   [[#csrfValidate]] - Validate token value in request headers against value in cookies
    * @see
    *   https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
    */
