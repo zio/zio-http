@@ -155,7 +155,7 @@ private[zhttp] trait HttpMiddlewares extends CorsMiddlewares with CsrfMiddleware
   /**
    * Times out the application with a 408 status code.
    */
-  def timeout(duration: Duration): HttpMiddleware[Clock, Nothing] =
+  def timeoutRequest(duration: Duration): HttpMiddleware[Clock, Nothing] =
     Middleware.identity.race(Middleware.fromApp(Http.status(Status.REQUEST_TIMEOUT).delayAfter(duration)))
 
   /**

@@ -32,7 +32,7 @@ object HelloWorldWithMiddlewares extends App {
     // print debug info about request and response
     debug ++
       // close connection if request takes more than 3 seconds
-      timeout(3 seconds) ++
+      timeoutRequest(3 seconds) ++
       // add static header
       addHeader("X-Environment", "Dev") ++
       // add dynamic header

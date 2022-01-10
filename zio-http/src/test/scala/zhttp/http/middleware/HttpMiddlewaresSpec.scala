@@ -44,11 +44,11 @@ object HttpMiddlewaresSpec extends DefaultRunnableSpec with HttpAppTestExtension
       } +
       suite("race") {
         testM("achieved") {
-          val program = run(app @@ timeout(5 seconds)).map(_.status)
+          val program = run(app @@ timeoutRequest(5 seconds)).map(_.status)
           assertM(program)(equalTo(Status.OK))
         } +
           testM("un-achieved") {
-            val program = run(app @@ timeout(500 millis)).map(_.status)
+            val program = run(app @@ timeoutRequest(500 millis)).map(_.status)
             assertM(program)(equalTo(Status.REQUEST_TIMEOUT))
           }
       } +

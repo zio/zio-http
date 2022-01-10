@@ -104,6 +104,12 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     Middleware.Race(self, other)
 
   /**
+   * Times out the application with a None
+   */
+  final def timeout(duration: Duration): Middleware[R with Clock, E, AIn, BIn, AOut, Option[BOut]] =
+    self.map(Some(_)) race Middleware.succeed(None).delay(duration)
+
+  /**
    * Applies Middleware based only if the condition function evaluates to true
    */
   final def when[AOut0 <: AOut](cond: AOut0 => Boolean): Middleware[R, E, AIn, BIn, AOut0, BOut] =
@@ -175,6 +181,12 @@ object Middleware extends HttpMiddlewares {
    * Creates a middleware which always succeed with specified value
    */
   def succeed[B](b: B): Middleware[Any, Nothing, Nothing, Any, Any, B] = fromHttp(Http.succeed(b))
+
+  /**
+   * Times out the application with a None
+   */
+  def timeout(duration: Duration): Middleware[Any with Clock, Nothing, Nothing, Any, Any, Option[Any]] =
+    Middleware.identity.timeout(duration)
 
   /**
    * An empty middleware that doesn't do anything
