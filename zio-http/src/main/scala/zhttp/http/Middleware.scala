@@ -26,7 +26,7 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   ): Middleware[R1, E1, AIn, BIn, A1, B1] = self compose other
 
   /**
-   * Combines two middleware into one.
+   * Combines two middleware that don't modify the input and output types.
    */
   final def ++[R1 <: R, E1 >: E, A0 >: AIn <: AOut, B0 >: BOut <: BIn](
     other: Middleware[R1, E1, A0, B0, A0, B0],

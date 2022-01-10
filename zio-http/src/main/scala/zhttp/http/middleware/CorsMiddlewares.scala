@@ -47,12 +47,10 @@ trait CorsMiddlewares {
         headers.getHeader(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
       ) match {
         case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm._2.toString)) =>
-          Middleware.fromApp(
-            Http.succeed(
-              Response(
-                Status.NO_CONTENT,
-                headers = corsHeaders(origin, Method.fromString(acrm._2.toString), isPreflight = true),
-              ),
+          Middleware.succeed(
+            Response(
+              Status.NO_CONTENT,
+              headers = corsHeaders(origin, Method.fromString(acrm._2.toString), isPreflight = true),
             ),
           )
         case (_, Some(origin), _) if allowCORS(origin, method)                                                    =>

@@ -33,7 +33,7 @@ trait CsrfMiddlewares {
           case _                                      => true
         }
       },
-      Middleware.fromHttp(Http.status(Status.FORBIDDEN)),
+      Middleware.status(Status.FORBIDDEN),
     )
   }
 }
