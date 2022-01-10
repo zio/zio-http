@@ -39,8 +39,14 @@ object BenchmarkWorkFlow {
             "./tfb  --test zio-http | tee result",
             """RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")""",
             """RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+")""",
+            "cd ../zio-http",
+            "./example/src/main/resources/benchmark_runner.sh",
+            """NUM_REQUESTS_CLIENT=$(grep -Eo -i "number of requests: *[0-9]+" client_benchmark.log)""",
+            """REQUESTS_PER_SECONDS_CLIENT=$(grep -Eoi "requests/sec: *[0-9]+" client_benchmark.log)""",
             """echo ::set-output name=request_result::$(echo $RESULT_REQUEST)""",
             """echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)""",
+            """echo ::set-output name=requests_per_seconds_client::$(echo $REQUESTS_PER_SECONDS_CLIENT)""",
+            """echo ::set-output name=num_requests_client::$(echo $NUM_REQUESTS_CLIENT)""",
           ),
         ),
         WorkflowStep.Use(
@@ -51,8 +57,14 @@ object BenchmarkWorkFlow {
               """
                 |**\uD83D\uDE80 Performance Benchmark:**
                 |
+                |## Server Benchmark
                 |${{steps.result.outputs.concurrency_result}}
-                |${{steps.result.outputs.request_result}}""".stripMargin,
+                |${{steps.result.outputs.request_result}}
+                |
+                |## Client Benchmark
+                |${{steps.result.outputs.num_requests_client}}
+                |${{steps.result.outputs.requests_per_seconds_client}}
+                |""".stripMargin,
           ),
         ),
       ),

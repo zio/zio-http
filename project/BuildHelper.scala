@@ -97,7 +97,7 @@ object BuildHelper extends ScalaSettings {
   )
 
   def runSettings(className: String = "example.HelloWorld") = Seq(
-    fork                      := true,
+    run / fork                := true,
     Compile / run / mainClass := Option(className),
   )
 

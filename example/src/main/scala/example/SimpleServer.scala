@@ -1,4 +1,4 @@
-package zhttp.benchmarks
+package example
 
 import zhttp.http._
 import zhttp.service.Server
