@@ -3,7 +3,7 @@ package zhttp.http.middleware
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Method
 
-final case class CORSConfig(
+final case class CorsConfig(
   anyOrigin: Boolean = false,
   anyMethod: Boolean = true,
   allowCredentials: Boolean = false,
@@ -16,5 +16,5 @@ final case class CORSConfig(
 )
 
 object CORS {
-  def DefaultCORSConfig = CORSConfig(anyOrigin = true, allowCredentials = true)
+  def DefaultCORSConfig = CorsConfig(anyOrigin = true, allowCredentials = true)
 }

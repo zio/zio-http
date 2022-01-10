@@ -2,15 +2,15 @@ package example
 
 import zhttp.http.Middleware.cors
 import zhttp.http._
-import zhttp.http.middleware.CORSConfig
+import zhttp.http.middleware.CorsConfig
 import zhttp.service.Server
 import zio.{App, ExitCode, URIO}
 
 object HelloWorldWithCORS extends App {
 
   // Create CORS configuration
-  val config: CORSConfig =
-    CORSConfig(allowedOrigins = _ == "dev", allowedMethods = Some(Set(Method.PUT, Method.DELETE)))
+  val config: CorsConfig =
+    CorsConfig(allowedOrigins = _ == "dev", allowedMethods = Some(Set(Method.PUT, Method.DELETE)))
 
   // Create HTTP route with CORS enabled
   val app: HttpApp[Any, Nothing] =
