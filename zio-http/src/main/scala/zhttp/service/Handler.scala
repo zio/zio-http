@@ -14,7 +14,7 @@ import java.net.{InetAddress, InetSocketAddress}
 private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
-  config: Server.Config[R, Throwable]
+  config: Server.Config[R, Throwable],
 ) extends SimpleChannelInboundHandler[FullHttpRequest](false)
     with WebSocketUpgrade[R] { self =>
 
@@ -53,6 +53,7 @@ private[zhttp] final case class Handler[R](
       jReq.release(jReq.refCnt()): Unit
     }
   }
+
   /**
    * Executes http apps
    */
