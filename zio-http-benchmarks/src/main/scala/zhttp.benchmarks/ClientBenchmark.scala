@@ -22,9 +22,6 @@ object ClientBenchmark extends App {
     _ = System.out.println("requests/sec =" + (n*1000/duration))
   } yield ())
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-
-    program()
-  }.provideCustomLayer(env).exitCode
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = program().provideCustomLayer(env).exitCode
 
 }
