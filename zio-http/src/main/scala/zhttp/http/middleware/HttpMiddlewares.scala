@@ -12,7 +12,7 @@ import java.io.IOException
 /**
  * Middlewares on an HttpApp
  */
-trait HttpMiddlewares extends CorsMiddlewares with CsrfMiddlewares with AuthMiddlewares {
+private[zhttp] trait HttpMiddlewares extends CorsMiddlewares with CsrfMiddlewares with AuthMiddlewares {
 
   /**
    * Logical operator to decide which middleware to select based on the predicate.

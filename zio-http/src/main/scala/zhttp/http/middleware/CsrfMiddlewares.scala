@@ -5,7 +5,7 @@ import zio.{UIO, ZIO}
 
 import java.util.UUID
 
-trait CsrfMiddlewares {
+private[zhttp] trait CsrfMiddlewares {
 
   /**
    * CSRF middlewares : To prevent Cross-site request forgery attacks. This middleware is modeled after the double

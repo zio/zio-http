@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.http.middleware.CORS.DefaultCORSConfig
 
-trait CorsMiddlewares {
+private[zhttp] trait CorsMiddlewares {
 
   /**
    * Creates a middleware for Cross-Origin Resource Sharing (CORS).
