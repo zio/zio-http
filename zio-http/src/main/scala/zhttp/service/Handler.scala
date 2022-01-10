@@ -5,7 +5,7 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
-import zhttp.service.server.WebSocketUpgrade
+import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
 import zio.{Task, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -15,6 +15,7 @@ private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
+  serverTime: ServerTimeGenerator,
 ) extends SimpleChannelInboundHandler[FullHttpRequest](false)
     with WebSocketUpgrade[R] { self =>
 
@@ -27,18 +28,26 @@ private[zhttp] final case class Handler[R](
       jReq,
       app,
       new Request {
-        override def method: Method                                 = Method.fromHttpMethod(jReq.method())
-        override def url: URL                                       = URL.fromString(jReq.uri()).getOrElse(null)
-        override def getHeaders: Headers                            = Headers.make(jReq.headers())
+        override def method: Method = Method.fromHttpMethod(jReq.method())
+
+        override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
+
+        override def getHeaders: Headers = Headers.make(jReq.headers())
+
         override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
-        override def remoteAddress: Option[InetAddress]             = {
+
+        override def remoteAddress: Option[InetAddress] = {
           ctx.channel().remoteAddress() match {
-            case m: InetSocketAddress => Some(m.getAddress())
+            case m: InetSocketAddress => Some(m.getAddress)
             case _                    => None
           }
         }
       },
     )
+  }
+
+  override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
+    config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
   }
 
   /**
@@ -49,13 +58,12 @@ private[zhttp] final case class Handler[R](
       jReq.release(jReq.refCnt()): Unit
     }
   }
-
   /**
    * Executes http apps
    */
   private def unsafeRun[A](
     jReq: FullHttpRequest,
-    http: Http[R, Throwable, A, Response[R, Throwable]],
+    http: Http[R, Throwable, A, Response],
     a: A,
   )(implicit ctx: Ctx): Unit = {
     http.execute(a) match {
@@ -112,5 +120,4 @@ private[zhttp] final case class Handler[R](
     runtime.unsafeRun(ctx) {
       program
     }
-
 }

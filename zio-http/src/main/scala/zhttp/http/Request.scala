@@ -2,11 +2,17 @@ package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import zhttp.http.headers.HeaderExtension
-import zio.{Chunk, Task, ZIO}
+import zio.{Chunk, Task, UIO}
 
 import java.net.InetAddress
 
 trait Request extends HeaderExtension[Request] { self =>
+
+  /**
+   * Updates the headers using the provided function
+   */
+  final override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.getHeaders))
+
   def copy(method: Method = self.method, url: URL = self.url, headers: Headers = self.getHeaders): Request = {
     val m = method
     val u = url
@@ -77,11 +83,6 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   def url: URL
 
-  /**
-   * Updates the headers using the provided function
-   */
-  final override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.getHeaders))
-
   private[zhttp] def getBodyAsByteBuf: Task[ByteBuf]
 }
 
@@ -95,7 +96,7 @@ object Request {
     url: URL = URL.root,
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress] = None,
-    data: HttpData[Any, Throwable] = HttpData.Empty,
+    data: HttpData = HttpData.Empty,
   ): Request = {
     val m  = method
     val u  = url
@@ -113,17 +114,14 @@ object Request {
   /**
    * Effectfully create a new Request object
    */
-  def make[R, E <: Throwable](
+  def make[E <: Throwable](
     method: Method = Method.GET,
     url: URL = URL.root,
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress],
-    content: HttpData[R, E] = HttpData.empty,
-  ): ZIO[R, Nothing, Request] =
-    for {
-      r <- ZIO.environment[R]
-      c = content.provide(r)
-    } yield Request(method, url, headers, remoteAddress, c)
+    content: HttpData = HttpData.empty,
+  ): UIO[Request] =
+    UIO(Request(method, url, headers, remoteAddress, content))
 
   /**
    * Lift request to TypedRequest with option to extract params
