@@ -74,12 +74,12 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
           } +
           testM("other middleware completes") {
             val mid = Middleware.succeed('A').delay(1 second)
-            val app = Http.succeed(1) @@ mid @@ Middleware.timeout(2 second)
+            val app = Http.succeed(1) @@ mid @@ Middleware.timeout[Char](2 second)
             assertM(app(()) <& TestClock.adjust(3 second))(equalTo(Some('A')))
           } +
           testM("timeout middleware timed out") {
             val mid = Middleware.succeed('A').delay(2 second)
-            val app = Http.succeed(1) @@ mid @@ Middleware.timeout(1 second)
+            val app = Http.succeed(1) @@ mid @@ Middleware.timeout[Char](1 second)
             assertM(app(()) <& TestClock.adjust(3 second))(isNone)
           }
       } +

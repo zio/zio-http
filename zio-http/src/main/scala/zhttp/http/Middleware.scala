@@ -185,8 +185,7 @@ object Middleware extends HttpMiddlewares {
   /**
    * Times out the application with a None
    */
-  def timeout(duration: Duration): Middleware[Any with Clock, Nothing, Nothing, Any, Any, Option[Any]] =
-    Middleware.identity.timeout(duration)
+  def timeout[B]: PartialTimeout[B] = new PartialTimeout[B](())
 
   /**
    * An empty middleware that doesn't do anything
@@ -216,7 +215,12 @@ object Middleware extends HttpMiddlewares {
         }
     }
 
-  final class PartialMake[AOut](val unit: Unit) extends AnyVal {
+  final class PartialTimeout[BOut](val unit: Unit) extends AnyVal {
+    def apply[R, E, AIn, BIn, AOut](
+      duration: Duration,
+    ): Middleware[R with Clock, E, AIn, AOut, BIn, Option[BOut]] = Middleware.identity.timeout(duration)
+  }
+  final class PartialMake[AOut](val unit: Unit)    extends AnyVal {
     def apply[R, E, AIn, BIn, BOut](
       f: AOut => Middleware[R, E, AIn, BIn, AOut, BOut],
     ): Middleware[R, E, AIn, BIn, AOut, BOut] =
