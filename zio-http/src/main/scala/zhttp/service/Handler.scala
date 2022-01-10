@@ -5,7 +5,7 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
-import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
+import zhttp.service.server.WebSocketUpgrade
 import zio.{Task, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -14,8 +14,7 @@ import java.net.{InetAddress, InetSocketAddress}
 private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
-  config: Server.Config[R, Throwable],
-  serverTime: ServerTimeGenerator,
+  config: Server.Config[R, Throwable]
 ) extends SimpleChannelInboundHandler[FullHttpRequest](false)
     with WebSocketUpgrade[R] { self =>
 
@@ -44,10 +43,6 @@ private[zhttp] final case class Handler[R](
         }
       },
     )
-  }
-
-  override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
-    config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
   }
 
   /**
