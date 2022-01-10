@@ -1,7 +1,7 @@
 package example
 
-import zhttp.http.HttpMiddleware.{csrfGenerate, csrfValidate}
 import zhttp.http._
+import zhttp.http.middleware.Middleware.{csrfGenerate, csrfValidate}
 import zhttp.service.Server
 import zio._
 

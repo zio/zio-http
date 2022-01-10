@@ -1,7 +1,7 @@
 package example
 
-import zhttp.http.HttpMiddleware.basicAuth
 import zhttp.http._
+import zhttp.http.middleware.Middleware.basicAuth
 import zhttp.service.Server
 import zio.{App, ExitCode, URIO}
 

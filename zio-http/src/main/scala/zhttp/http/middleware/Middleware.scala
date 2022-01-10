@@ -1,5 +1,6 @@
-package zhttp.http
+package zhttp.http.middleware
 
+import zhttp.http._
 import zio.clock.Clock
 import zio.duration.Duration
 import zio.{UIO, ZIO}
@@ -9,94 +10,176 @@ import zio.{UIO, ZIO}
  * requests and responses and also transform them into more concrete domain entities.
  */
 sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
+
+  /**
+   * Applies self but if it fails, applies other.
+   */
   final def <>[R1 <: R, E1, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0 >: BOut](
     other: Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
   ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] = self orElse other
 
+  /**
+   * Composes one middleware with another.
+   */
   final def <<<[R1 <: R, E1 >: E, A0 <: AOut, B0 >: BOut, A1, B1](
     other: Middleware[R1, E1, A0, B0, A1, B1],
   ): Middleware[R1, E1, AIn, BIn, A1, B1] = self compose other
 
+  /**
+   * Combines two middleware into one.
+   */
   final def ++[R1 <: R, E1 >: E, A0 >: AIn <: AOut, B0 >: BOut <: BIn](
     other: Middleware[R1, E1, A0, B0, A0, B0],
   ): Middleware[R1, E1, A0, B0, A0, B0] =
     self combine other
 
+  /**
+   * Applies middleware on Http and returns new Http.
+   */
   final def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] = execute(http)
 
+  /**
+   * Combines two middleware into one.
+   */
   final def combine[R1 <: R, E1 >: E, A0 >: AIn <: AOut, B0 >: BOut <: BIn](
     other: Middleware[R1, E1, A0, B0, A0, B0],
   ): Middleware[R1, E1, A0, B0, A0, B0] =
     self compose other
 
+  /**
+   * Composes one middleware with another.
+   */
   final def compose[R1 <: R, E1 >: E, A0 <: AOut, B0 >: BOut, A1, B1](
     other: Middleware[R1, E1, A0, B0, A1, B1],
   ): Middleware[R1, E1, AIn, BIn, A1, B1] = Middleware.Compose(self, other)
 
+  /**
+   * Delays the production of Http output for the specified duration
+   */
   final def delay(duration: Duration): Middleware[R with Clock, E, AIn, BIn, AOut, BOut] =
     self.mapZIO(b => UIO(b).delay(duration))
 
+  /**
+   * Creates a new Middleware from another
+   */
   final def flatMap[R1 <: R, E1 >: E, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0](
     f: BOut => Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
   ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] =
     Middleware.FlatMap(self, f)
 
+  /**
+   * Flattens an Middleware of an Middleware
+   */
   final def flatten[R1 <: R, E1 >: E, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0](implicit
     ev: BOut <:< Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
   ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] =
     flatMap(identity(_))
 
+  /**
+   * Transforms the output type of the current middleware.
+   */
   final def map[BOut0](f: BOut => BOut0): Middleware[R, E, AIn, BIn, AOut, BOut0] =
     self.flatMap(b => Middleware.succeed(f(b)))
 
+  /**
+   * Transforms the output type of the current middleware using effect function.
+   */
   final def mapZIO[R1 <: R, E1 >: E, BOut0](f: BOut => ZIO[R1, E1, BOut0]): Middleware[R1, E1, AIn, BIn, AOut, BOut0] =
     self.flatMap(b => Middleware.fromHttp(Http.fromEffect(f(b))))
 
+  /**
+   * Applies self but if it fails, applies other.
+   */
   final def orElse[R1 <: R, E1, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0 >: BOut](
     other: Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
   ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] =
     Middleware.OrElse(self, other)
 
+  /**
+   * Race between current and other, cancels other when execution of one completes
+   */
   final def race[R1 <: R, E1 >: E, AIn1 >: AIn, BIn1 <: BIn, AOut1 <: AOut, BOut1 >: BOut](
     other: Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1],
   ): Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1] =
     Middleware.Race(self, other)
 
+  /**
+   * Applies Middleware based only if the condition function evaluates to true
+   */
   final def when[AOut0 <: AOut](cond: AOut0 => Boolean): Middleware[R, E, AIn, BIn, AOut0, BOut] =
     Middleware.ifThenElse[AOut0](cond(_))(
       isTrue = _ => self,
       isFalse = _ => Middleware.identity,
     )
 
+  /**
+   * Applies Middleware and returns a transformed Http app
+   */
   private[zhttp] final def execute[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] =
     Middleware.execute(http, self)
 }
 
-object Middleware {
+object Middleware extends MiddlewareExtensions {
 
+  /**
+   * Creates a middleware using specified encoder and decoder
+   */
   def codec[A, B]: PartialCodec[A, B] = new PartialCodec[A, B](())
 
+  /**
+   * Creates a middleware using specified effectful encoder and decoder
+   */
   def codecZIO[A, B]: PartialCodecZIO[A, B] = new PartialCodecZIO[A, B](())
 
+  /**
+   * Creates a middleware which always fail with specified error
+   */
   def fail[E](e: E): Middleware[Any, E, Nothing, Any, Any, Nothing] = Fail(e)
 
+  /**
+   * Creates a middleware with specified http App
+   */
   def fromHttp[R, E, A, B](http: Http[R, E, A, B]): Middleware[R, E, Nothing, Any, A, B] = Constant(http)
 
-  def identity: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Identity
-
+  /**
+   * Logical operator to decide which middleware to select based on the predicate.
+   */
   def ifThenElse[A]: PartialIfThenElse[A] = new PartialIfThenElse(())
 
+  /**
+   * Logical operator to decide which middleware to select based on the predicate effect.
+   */
   def ifThenElseZIO[A]: PartialIfThenElseZIO[A] = new PartialIfThenElseZIO(())
 
+  /**
+   * Creates a new middleware using transformation functions
+   */
   def intercept[A, B]: PartialIntercept[A, B] = new PartialIntercept[A, B](())
 
+  /**
+   * Creates a new middleware using effectful transformation functions
+   */
   def interceptZIO[A, B]: PartialInterceptZIO[A, B] = new PartialInterceptZIO[A, B](())
 
+  /**
+   * Creates a middleware using specified function
+   */
   def make[A]: PartialMake[A] = new PartialMake[A](())
 
+  /**
+   * Creates a middleware using specified effect function
+   */
   def makeZIO[A]: PartialMakeZIO[A] = new PartialMakeZIO[A](())
 
+  /**
+   * Creates a middleware which always succeed with specified value
+   */
   def succeed[B](b: B): Middleware[Any, Nothing, Nothing, Any, Any, B] = fromHttp(Http.succeed(b))
+
+  /**
+   * An empty middleware that doesn't do anything
+   */
+  def identity: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Middleware.Identity
 
   private[zhttp] def execute[R, E, AIn, BIn, AOut, BOut](
     http: Http[R, E, AIn, BIn],
