@@ -17,7 +17,7 @@ trait HttpMiddlewares extends CorsMiddlewares with CsrfMiddlewares with AuthMidd
   /**
    * Logical operator to decide which middleware to select based on the predicate.
    */
-  def ifThenElse[R, E](
+  def ifRequestThenElse[R, E](
     cond: RequestP[Boolean],
   )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     Middleware.ifThenElse[Request](req => cond(req.method, req.url, req.getHeaders))(_ => left, _ => right)
@@ -25,7 +25,7 @@ trait HttpMiddlewares extends CorsMiddlewares with CsrfMiddlewares with AuthMidd
   /**
    * Logical operator to decide which middleware to select based on the predicate.
    */
-  def ifThenElseZIO[R, E](
+  def ifRequestThenElseZIO[R, E](
     cond: RequestP[ZIO[R, E, Boolean]],
   )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     Middleware.ifThenElseZIO[Request](req => cond(req.method, req.url, req.getHeaders))(_ => left, _ => right)
@@ -33,13 +33,13 @@ trait HttpMiddlewares extends CorsMiddlewares with CsrfMiddlewares with AuthMidd
   /**
    * Applies the middleware only if the condition function evaluates to true
    */
-  def when[R, E](cond: RequestP[Boolean])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  def whenRequest[R, E](cond: RequestP[Boolean])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     middleware.when[Request](req => cond(req.method, req.url, req.getHeaders))
 
   /**
    * Applies the middleware only if the condition function effectfully evaluates to true
    */
-  def whenZIO[R, E](cond: RequestP[ZIO[R, E, Boolean]])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  def whenRequestZIO[R, E](cond: RequestP[ZIO[R, E, Boolean]])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     Middleware.ifThenElseZIO[Request](req => cond(req.method, req.url, req.getHeaders))(
       _ => middleware,
       _ => Middleware.identity,
@@ -48,7 +48,7 @@ trait HttpMiddlewares extends CorsMiddlewares with CsrfMiddlewares with AuthMidd
   /**
    * Logical operator to decide which middleware to select based on the header
    */
-  def ifHeader[R, E](
+  def ifHeaderThenElse[R, E](
     cond: Headers => Boolean,
   )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     Middleware.ifThenElse[Request](req => cond(req.getHeaders))(_ => left, _ => right)

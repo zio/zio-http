@@ -69,44 +69,44 @@ object HttpMiddlewaresSpec extends DefaultRunnableSpec with HttpAppTestExtension
             assertM(program(Request()))(isNone)
           }
       } +
-      suite("ifThenElseZIO") {
+      suite("ifRequestThenElseZIO") {
         testM("if the condition is true take first") {
-          val app = (Http.ok @@ ifThenElseZIO(condM(true))(midA, midB)) getHeader "X-Custom"
+          val app = (Http.ok @@ ifRequestThenElseZIO(condM(true))(midA, midB)) getHeader "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
         } +
           testM("if the condition is false take 2nd") {
             val app =
-              (Http.ok @@ ifThenElseZIO(condM(false))(midA, midB)) getHeader "X-Custom"
+              (Http.ok @@ ifRequestThenElseZIO(condM(false))(midA, midB)) getHeader "X-Custom"
             assertM(app(Request()))(isSome(equalTo("B")))
           }
       } +
-      suite("ifThenElse") {
+      suite("ifRequestThenElse") {
         testM("if the condition is true take first") {
-          val app = Http.ok @@ ifThenElse(cond(true))(midA, midB) getHeader "X-Custom"
+          val app = Http.ok @@ ifRequestThenElse(cond(true))(midA, midB) getHeader "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
         } +
           testM("if the condition is false take 2nd") {
-            val app = Http.ok @@ ifThenElse(cond(false))(midA, midB) getHeader "X-Custom"
+            val app = Http.ok @@ ifRequestThenElse(cond(false))(midA, midB) getHeader "X-Custom"
             assertM(app(Request()))(isSome(equalTo("B")))
           }
       } +
-      suite("whenM") {
+      suite("whenRequestZIO") {
         testM("if the condition is true apply middleware") {
-          val app = (Http.ok @@ whenZIO(condM(true))(midA)) getHeader "X-Custom"
+          val app = (Http.ok @@ whenRequestZIO(condM(true))(midA)) getHeader "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
         } +
           testM("if the condition is false don't apply any middleware") {
-            val app = (Http.ok @@ whenZIO(condM(false))(midA)) getHeader "X-Custom"
+            val app = (Http.ok @@ whenRequestZIO(condM(false))(midA)) getHeader "X-Custom"
             assertM(app(Request()))(isNone)
           }
       } +
-      suite("when") {
+      suite("whenRequest") {
         testM("if the condition is true apple middleware") {
-          val app = Http.ok @@ Middleware.when(cond(true))(midA) getHeader "X-Custom"
+          val app = Http.ok @@ Middleware.whenRequest(cond(true))(midA) getHeader "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
         } +
           testM("if the condition is false don't apply the middleware") {
-            val app = Http.ok @@ Middleware.when(cond(false))(midA) getHeader "X-Custom"
+            val app = Http.ok @@ Middleware.whenRequest(cond(false))(midA) getHeader "X-Custom"
             assertM(app(Request()))(isNone)
           }
       } +
