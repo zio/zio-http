@@ -141,7 +141,7 @@ final case class Cookie(
   }
 
   /**
-   * Signs cookie content with a secret
+   * Signs cookie content with a secret and returns signature
    */
   private def signContent(secret: String): String = {
     val sha256    = Mac.getInstance("HmacSHA256")
@@ -153,17 +153,11 @@ final case class Cookie(
   }
 
   /**
-   * Unsigns cookie content with a secret
+   * Verifies signed-cookie's signature with a secret
    */
-  private def verify(content: String, secret: String): Cookie = {
-    val str             = content.slice(0, content.lastIndexOf('.'))
-    val unSignedCookie  = self.withContent(str)
-    val encryptedCookie = str + "." + unSignedCookie.signContent(secret)
+  private def verify(content: String, signature: String, secret: String): Boolean =
+    self.withContent(content).signContent(secret) == signature
 
-    if (encryptedCookie == content)
-      unSignedCookie.sign(secret)
-    else throw new Error("Incorrect secret key provided")
-  }
 }
 
 object Cookie {
@@ -191,7 +185,15 @@ object Cookie {
   def decodeResponseSignedCookie(headerValue: String, secret: String): Option[Cookie] = {
     val decodedCookie = decodeResponseCookie(headerValue)
     decodedCookie match {
-      case Some(cookie) => Option(cookie.verify(cookie.content, secret))
+      case Some(cookie) => {
+        val index     = cookie.content.lastIndexOf('.')
+        val signature = cookie.content.slice(index + 1, cookie.content.length)
+        val content   = cookie.content.slice(0, index)
+
+        if (cookie.verify(content, signature, secret))
+          Some(cookie.withContent(content).sign(secret))
+        else None
+      }
       case None         => None
     }
   }
