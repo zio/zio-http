@@ -123,7 +123,7 @@ object ServerSpec extends HttpRunnableSpec {
     } +
       testM("POST Request.getBody") {
         val app = Http.collectZIO[Request] { case req => req.getBody.as(Response.ok) }
-        val res = app.requestStatus(http11V, !!, Method.POST, "some text")
+        val res = app.requestStatus(http11, !!, Method.POST, "some text")
         assertM(res)(equalTo(Status.OK))
       }
   }
