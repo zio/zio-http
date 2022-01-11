@@ -30,8 +30,7 @@ private[zhttp] case class ServerResponseHandler[R](
         runtime.unsafeRun(ctx) {
           writeStreamContent(stream)
         }
-      case HttpData.File(file)           =>
-        unsafeWriteFileContent(file)
+      case HttpData.File(file)           => unsafeWriteFileContent(file)
       case _                             => ctx.flush()
     }
     ()
