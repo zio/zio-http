@@ -28,7 +28,7 @@ object HttpGen {
     } yield ClientParams(method, url, headers, HttpData.fromFile(file))
   }
 
-  def cookies: Gen[Random with Sized, (Cookie, Option[String])] = for {
+  def cookies: Gen[Random with Sized, Cookie] = for {
     name     <- Gen.anyString
     content  <- Gen.anyString
     expires  <- Gen.option(Gen.anyInstant)
@@ -39,7 +39,7 @@ object HttpGen {
     maxAge   <- Gen.option(Gen.anyLong)
     sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
     secret   <- Gen.option(Gen.anyString)
-  } yield (Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite, secret), secret)
+  } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite, secret)
 
   def header: Gen[Random with Sized, Header] = for {
     key   <- Gen.alphaNumericStringBounded(1, 4)
