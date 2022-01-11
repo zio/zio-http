@@ -6,6 +6,7 @@ object Dependencies {
   val NettyIncubatorVersion         = "0.0.11.Final"
   val ScalaCompactCollectionVersion = "2.6.0"
   val ZioVersion                    = "1.0.13"
+  val ZioJsonVersion                = "0.1.5"
   val SttpVersion                   = "3.3.18"
 
   val `jwt-core`                 = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
@@ -20,6 +21,7 @@ object Dependencies {
 
   val zio            = "dev.zio" %% "zio"          % ZioVersion
   val `zio-streams`  = "dev.zio" %% "zio-streams"  % ZioVersion
+  val `zio-json`     = "dev.zio" %% "zio-json"     % ZioJsonVersion
   val `zio-test`     = "dev.zio" %% "zio-test"     % ZioVersion % "test"
   val `zio-test-sbt` = "dev.zio" %% "zio-test-sbt" % ZioVersion % "test"
 }
