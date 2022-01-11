@@ -21,7 +21,6 @@ import zio.{Chunk, Has, Task, ZIO, ZManaged}
  * actual Http server and makes requests.
  */
 abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
-
   def serve[R <: Has[_]](
     app: HttpApp[R, Throwable],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
