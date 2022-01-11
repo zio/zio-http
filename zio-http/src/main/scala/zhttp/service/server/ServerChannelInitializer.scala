@@ -46,7 +46,7 @@ final case class ServerChannelInitializer[R](
 
     // KeepAliveHandler
     // Add Keep-Alive handler is settings is true
-    if (!cfg.disableKeepAlive) pipeline.addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
+    if (cfg.keepAlive) pipeline.addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
 
     // FlowControlHandler
     // Required because HttpObjectDecoder fires an HttpRequest that is immediately followed by a LastHttpContent event.

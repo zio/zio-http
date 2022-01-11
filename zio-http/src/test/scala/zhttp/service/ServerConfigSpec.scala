@@ -14,23 +14,23 @@ object ServerConfigSpec extends HttpRunnableSpec {
   val keepAliveHeader       = Headers(HttpHeaderNames.CONNECTION.toString, HttpHeaderValues.KEEP_ALIVE.toString)
 
   def keepAliveSpec = suite("KeepAlive") {
-    suite("Connection: close header") {
-      testM("Http 1.1 WITHOUT 'Connection: close'") {
+    suite("Http 1.1") {
+      testM("without connection close") {
         val res = app.request().map(_.getHeaderValue("Connection"))
         assertM(res)(isNone)
       } +
-        testM("Http 1.1 WITH 'Connection: close'") {
+        testM("with connection close") {
           val res = app.request(!!, Method.GET, "", connectionCloseHeader).map(_.getHeaderValue("Connection"))
           assertM(res)(isSome(equalTo("close")))
         }
     } +
-      suite("Connection: keep-alive header") {
-        testM("Http 1.0 WITHOUT 'connection: keep-alive'") {
+      suite("Http 1.0") {
+        testM("without keep-alive") {
           val res =
             app.request(!!, Method.GET, "", Headers.empty, HttpVersion.HTTP_1_0).map(_.getHeaderValue("Connection"))
           assertM(res)(isSome(equalTo("close")))
         } +
-          testM("Http 1.0 WITH 'connection: keep-alive'") {
+          testM("with keep-alive") {
             val res = app
               .request(!!, Method.GET, "", keepAliveHeader, HttpVersion.HTTP_1_0)
               .map(_.getHeaderValue("Connection"))

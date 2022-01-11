@@ -24,7 +24,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     app: HttpApp[R, Throwable],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
     for {
-      start <- Server.make(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection).orDie
+      start <- Server.make(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection ++ Server.keepAlive).orDie
       _     <- DynamicServer.setStart(start).toManaged_
     } yield ()
 
@@ -40,12 +40,11 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       data = HttpData.fromString(content)
       response <- Client.request(
         Client.ClientParams(
-          method,
-          URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
-          headers,
-          data,
-          null,
-          httpVersion,
+          method = method,
+          url = URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
+          getHeaders = headers,
+          data = data,
+          httpVersion = httpVersion,
         ),
         ClientSSLOptions.DefaultSSL,
       )
