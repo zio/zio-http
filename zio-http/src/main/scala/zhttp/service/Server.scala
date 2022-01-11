@@ -25,7 +25,7 @@ sealed trait Server[-R, +E] { self =>
     case Ssl(sslOption)            => s.copy(sslOption = sslOption)
     case App(app)                  => s.copy(app = app)
     case Address(address)          => s.copy(address = address)
-    case AcceptContinue            => s.copy(acceptContinue = true)
+    case AcceptContinue(enabled)   => s.copy(acceptContinue = enabled)
     case KeepAlive(enabled)        => s.copy(keepAlive = enabled)
     case FlowControl(enabled)      => s.copy(flowControl = enabled)
     case ConsolidateFlush(enabled) => s.copy(consolidateFlush = enabled)
@@ -86,7 +86,7 @@ sealed trait Server[-R, +E] { self =>
   /**
    * Creates a new server using a HttpServerExpectContinueHandler to send a 100 HttpResponse if necessary.
    */
-  def withAcceptContinue: Server[R, E] = Concat(self, Server.AcceptContinue)
+  def withAcceptContinue(enable: Boolean): Server[R, E] = Concat(self, Server.AcceptContinue(enable))
 
   /**
    * Creates a new server using netty FlowControlHandler if enable (@see <a
@@ -145,7 +145,7 @@ object Server {
   private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
   private final case class KeepAlive(enabled: Boolean)                                extends Server[Any, Nothing]
   private final case class ConsolidateFlush(enabled: Boolean)                         extends Server[Any, Nothing]
-  private case object AcceptContinue                                                  extends UServer
+  private final case class AcceptContinue(enabled: Boolean)                           extends UServer
   private final case class FlowControl(enabled: Boolean)                              extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
@@ -157,7 +157,7 @@ object Server {
   def bind(inetSocketAddress: InetSocketAddress): UServer = Server.Address(inetSocketAddress)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
-  def acceptContinue: UServer                                                        = Server.AcceptContinue
+  def acceptContinue: UServer                                                        = Server.AcceptContinue(true)
   def disableFlowControl: UServer                                                    = Server.FlowControl(false)
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
