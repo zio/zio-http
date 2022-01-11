@@ -20,19 +20,21 @@ object ServerConfigSpec extends HttpRunnableSpec {
         assertM(res)(isNone)
       } +
         testM("with connection close") {
-          val res = app.request(!!, Method.GET, "", connectionCloseHeader).map(_.getHeaderValue("Connection"))
+          val res = app
+            .request(defaultHttpVersion, !!, Method.GET, "", connectionCloseHeader)
+            .map(_.getHeaderValue("Connection"))
           assertM(res)(isSome(equalTo("close")))
         }
     } +
       suite("Http 1.0") {
         testM("without keep-alive") {
           val res =
-            app.request(!!, Method.GET, "", Headers.empty, HttpVersion.HTTP_1_0).map(_.getHeaderValue("Connection"))
+            app.request(HttpVersion.HTTP_1_0, !!, Method.GET, "", Headers.empty).map(_.getHeaderValue("Connection"))
           assertM(res)(isSome(equalTo("close")))
         } +
           testM("with keep-alive") {
             val res = app
-              .request(!!, Method.GET, "", keepAliveHeader, HttpVersion.HTTP_1_0)
+              .request(HttpVersion.HTTP_1_0, !!, Method.GET, "", keepAliveHeader)
               .map(_.getHeaderValue("Connection"))
             assertM(res)(isNone)
           }
