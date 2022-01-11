@@ -123,7 +123,7 @@ final case class Cookie(
    */
   def encode: String = {
     val c = secret match {
-      case Some(sec) => signContent(sec)
+      case Some(sec) => content + "." + signContent(sec)
       case None      => content
     }
 
@@ -149,20 +149,20 @@ final case class Cookie(
     sha256.init(secretKey)
     val signed    = sha256.doFinal(self.content.getBytes())
     val mda       = MessageDigest.getInstance("SHA-512")
-    self.content + '.' + getEncoder.encodeToString(mda.digest(signed))
+    getEncoder.encodeToString(mda.digest(signed))
   }
 
   /**
    * Unsigns cookie content with a secret
    */
-  private def unSignContent(secret: String): Option[Cookie] = {
-    val str             = self.content.slice(0, content.lastIndexOf('.'))
+  private def verify(content: String, secret: String): Cookie = {
+    val str             = content.slice(0, content.lastIndexOf('.'))
     val unSignedCookie  = self.withContent(str)
-    val encryptedCookie = unSignedCookie.signContent(secret)
+    val encryptedCookie = str + "." + unSignedCookie.signContent(secret)
 
-    if (encryptedCookie == self.content)
-      Some(unSignedCookie.sign(secret))
-    else None
+    if (encryptedCookie == content)
+      unSignedCookie.sign(secret)
+    else throw new Error("Incorrect secret key provided")
   }
 }
 
@@ -191,7 +191,7 @@ object Cookie {
   def decodeResponseSignedCookie(headerValue: String, secret: String): Option[Cookie] = {
     val decodedCookie = decodeResponseCookie(headerValue)
     decodedCookie match {
-      case Some(cookie) => cookie.unSignContent(secret)
+      case Some(cookie) => Option(cookie.verify(cookie.content, secret))
       case None         => None
     }
   }

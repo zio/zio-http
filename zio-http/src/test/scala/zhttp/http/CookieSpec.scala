@@ -1,7 +1,7 @@
 package zhttp.http
 
 import zhttp.internal.HttpGen
-import zio.test.Assertion.{equalTo, isNone, isSome}
+import zio.test.Assertion.{equalTo, isSome}
 import zio.test._
 
 object CookieSpec extends DefaultRunnableSpec {
@@ -26,13 +26,7 @@ object CookieSpec extends DefaultRunnableSpec {
             }
           }
         }
-      } +
-        testM("should not unsign cookies with different secret") {
-          checkAll(HttpGen.cookies) { case (cookie, _) =>
-            val cookieSigned = cookie.encode
-            assert(Cookie.decodeResponseSignedCookie(cookieSigned, "a"))(isNone)
-          }
-        }
+      }
     } +
       suite("request cookies") {
         testM("encode/decode multiple cookies with ZIO Test Gen") {
