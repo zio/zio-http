@@ -14,7 +14,7 @@ object SignCookies extends App {
   private val cookie = Cookie("key", "hello").withMaxAge(5 days)
 
   private val app = Http.collect[Request] { case Method.GET -> !! / "cookie" =>
-    Response.ok.addCookie(cookie.sign("secret").withContent("world"))
+    Response.ok.addCookie(cookie.sign("secret"))
   }
 
   // Run it like any simple app
