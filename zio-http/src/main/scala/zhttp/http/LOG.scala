@@ -7,7 +7,6 @@ final case class LogConfig(
   logResponseConfig: LogContentConfig,
 )
 final case class LogContentConfig(
-  logMethod: Boolean,
   logHeaders: Boolean,
   logBody: Boolean,
   filterHeaders: Headers => Headers,
@@ -19,7 +18,6 @@ object LOG {
 
   val DefaultLogContentConfig =
     LogContentConfig(
-      logMethod = true,
       logHeaders = true,
       logBody = false,
       filterHeaders = identity,

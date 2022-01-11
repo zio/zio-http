@@ -238,11 +238,17 @@ object Middleware {
         } yield Patch.empty
     }
 
+  sealed trait LogLevel
+  object LogLevel {
+    case object Error extends LogLevel
+    case object Info  extends LogLevel
+  }
+
   /**
    * Provides a logging middleware
    */
   def log[R, E](
-    logger: String => ZIO[R, E, Unit],
+    logger: (String, LogLevel) => ZIO[R, E, Unit],
     logConfig: LogConfig = DefaultLogConfig,
   ): Middleware[R with Clock, E] = {
 
