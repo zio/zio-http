@@ -233,8 +233,11 @@ object Middleware extends HttpMiddlewares {
   }
 
   final class PartialCodec[AOut, BIn](val unit: Unit) extends AnyVal {
-    def apply[AIn, BOut](decoder: AOut => AIn, encoder: BIn => BOut): Middleware[Any, Nothing, AIn, BIn, AOut, BOut] =
-      Codec(a => UIO(decoder(a)), b => UIO(encoder(b)))
+    def apply[E, AIn, BOut](
+      decoder: AOut => Either[E, AIn],
+      encoder: BIn => Either[E, BOut],
+    ): Middleware[Any, E, AIn, BIn, AOut, BOut] =
+      Codec(a => ZIO.fromEither(decoder(a)), b => ZIO.fromEither(encoder(b)))
   }
 
   final class PartialIfThenElse[AOut](val unit: Unit) extends AnyVal {
