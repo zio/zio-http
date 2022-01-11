@@ -1,6 +1,7 @@
 package zhttp.internal
 
 import io.netty.handler.codec.http.HttpVersion
+import io.netty.handler.codec.http.HttpVersion._
 import sttp.client3.asynchttpclient.zio.{SttpClient, send}
 import sttp.client3.{Response => SResponse, UriContext, asWebSocketUnsafe, basicRequest}
 import sttp.model.{Header => SHeader}
@@ -20,8 +21,6 @@ import zio.{Chunk, Has, Task, ZIO, ZManaged}
  * actual Http server and makes requests.
  */
 abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
-  val http10 = HttpVersion.HTTP_1_0
-  val http11 = HttpVersion.HTTP_1_1
 
   def serve[R <: Has[_]](
     app: HttpApp[R, Throwable],
@@ -32,7 +31,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     } yield ()
 
   def request(
-    httpVersion: HttpVersion = http11,
+    httpVersion: HttpVersion = HTTP_1_1,
     path: Path = !!,
     method: Method = Method.GET,
     content: String = "",
@@ -84,7 +83,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     def deploy: ZIO[DynamicServer, Nothing, String] = DynamicServer.deploy(app)
 
     def request(
-      httpVersion: HttpVersion = http11,
+      httpVersion: HttpVersion = HTTP_1_1,
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
@@ -95,7 +94,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     } yield response
 
     def requestBodyAsString(
-      httpVersion: HttpVersion = http11,
+      httpVersion: HttpVersion = HTTP_1_1,
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
@@ -104,7 +103,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       request(httpVersion, path, method, content, headers).flatMap(_.getBodyAsString)
 
     def requestHeaderValueByName(
-      httpVersion: HttpVersion = http11,
+      httpVersion: HttpVersion = HTTP_1_1,
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
@@ -113,7 +112,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       request(httpVersion, path, method, content, headers).map(_.getHeaderValue(name))
 
     def requestStatus(
-      httpVersion: HttpVersion = http11,
+      httpVersion: HttpVersion = HTTP_1_1,
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
@@ -130,7 +129,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     } yield res.code.code
 
     def requestBody(
-      httpVersion: HttpVersion = http11,
+      httpVersion: HttpVersion = HTTP_1_1,
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
@@ -139,7 +138,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       request(httpVersion, path, method, content, headers).flatMap(_.getBody)
 
     def requestContentLength(
-      httpVersion: HttpVersion = http11,
+      httpVersion: HttpVersion = HTTP_1_1,
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",

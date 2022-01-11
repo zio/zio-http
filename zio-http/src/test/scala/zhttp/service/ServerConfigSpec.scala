@@ -1,6 +1,6 @@
 package zhttp.service
 
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues, HttpVersion}
 import zhttp.http.{Headers, Http}
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
@@ -26,12 +26,14 @@ object ServerConfigSpec extends HttpRunnableSpec {
     } +
       suite("Http 1.0") {
         testM("without keep-alive") {
-          val res = app.requestHeaderValueByName(httpVersion = http10)(HttpHeaderNames.CONNECTION)
+          val res = app.requestHeaderValueByName(httpVersion = HttpVersion.HTTP_1_0)(HttpHeaderNames.CONNECTION)
           assertM(res)(isSome(equalTo("close")))
         } +
           testM("with keep-alive") {
             val res =
-              app.requestHeaderValueByName(httpVersion = http10, headers = keepAliveHeader)(HttpHeaderNames.CONNECTION)
+              app.requestHeaderValueByName(httpVersion = HttpVersion.HTTP_1_0, headers = keepAliveHeader)(
+                HttpHeaderNames.CONNECTION,
+              )
             assertM(res)(isNone)
           }
       }
