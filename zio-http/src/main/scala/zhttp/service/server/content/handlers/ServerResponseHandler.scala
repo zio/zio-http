@@ -52,11 +52,9 @@ private[zhttp] case class ServerResponseHandler[R](
       case Some((oRes, jResponse)) if oRes eq res =>
         jResponse match {
           // Duplicate the response without allocating much memory
-          case response: FullHttpResponse =>
-            response.retainedDuplicate()
+          case response: FullHttpResponse => response.retainedDuplicate()
 
-          case response =>
-            response
+          case response => response
         }
 
       case _ => res.unsafeEncode()
