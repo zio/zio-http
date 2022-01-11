@@ -1,11 +1,10 @@
 package zhttp.service.server.content.handlers
 
-import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
-import zhttp.core.Util
-import zhttp.http.{HTTP_CHARSET, HttpData, Response}
+import zhttp.http.{HttpData, Response}
 import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{ChannelFuture, HttpRuntime, Server}
 import zio.stream.ZStream
@@ -39,9 +38,6 @@ private[zhttp] case class ServerResponseHandler[R](
   }
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
-    if (ctx.channel().isWritable) {
-      ctx.writeAndFlush(serverErrorResponse(cause)): Unit
-    }
     config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
   }
 
@@ -69,17 +65,6 @@ private[zhttp] case class ServerResponseHandler[R](
     // Identify if the server time should be set and update if required.
     if (res.attribute.serverTime) jResponse.headers().set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
     jResponse
-  }
-
-  private def serverErrorResponse(cause: Throwable): HttpResponse = {
-    val content  = Util.prettyPrintHtml(cause)
-    val response = new DefaultFullHttpResponse(
-      HttpVersion.HTTP_1_1,
-      HttpResponseStatus.INTERNAL_SERVER_ERROR,
-      Unpooled.copiedBuffer(content, HTTP_CHARSET),
-    )
-    response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.length)
-    response
   }
 
   /**

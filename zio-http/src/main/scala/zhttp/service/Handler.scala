@@ -69,7 +69,7 @@ private[zhttp] final case class Handler[R](
             {
               case Some(cause) =>
                 UIO {
-                  ctx.fireExceptionCaught(cause)
+                  ctx.fireChannelRead(Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))))
                   releaseRequest(jReq)
                 }
               case None        =>
