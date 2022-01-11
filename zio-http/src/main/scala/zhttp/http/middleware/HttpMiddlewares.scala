@@ -132,12 +132,6 @@ private[zhttp] trait HttpMiddlewares extends CorsMiddlewares with CsrfMiddleware
     patch((_, _) => Patch.removeHeaders(List(name)))
 
   /**
-   * Runs the effect after the response is produced
-   */
-  def runAfter[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
-    patchZIO((_, _) => effect.mapBoth(Option(_), _ => Patch.empty))
-
-  /**
    * Runs the effect before the request is passed on to the HttpApp on which the middleware is applied.
    */
   def runBefore[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =

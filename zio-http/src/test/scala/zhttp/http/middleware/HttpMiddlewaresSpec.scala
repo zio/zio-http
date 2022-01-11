@@ -54,9 +54,9 @@ object HttpMiddlewaresSpec extends DefaultRunnableSpec with HttpAppTestExtension
       } +
       suite("combine") {
         testM("before and after") {
-          val middleware = runBefore(console.putStrLn("A")) ++ runAfter(console.putStrLn("B"))
+          val middleware = runBefore(console.putStrLn("A"))
           val program    = run(app @@ middleware) *> TestConsole.output
-          assertM(program)(equalTo(Vector("A\n", "B\n")))
+          assertM(program)(equalTo(Vector("A\n")))
         } +
           testM("add headers twice") {
             val middleware = addHeader("KeyA", "ValueA") ++ addHeader("KeyB", "ValueB")

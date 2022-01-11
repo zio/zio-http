@@ -2,9 +2,9 @@ package zhttp.http
 
 import zio.duration._
 import zio.test.Assertion.{equalTo, isLeft, isNone, isSome}
-import zio.test.environment.TestClock
+import zio.test.environment.{TestClock, TestConsole}
 import zio.test.{DefaultRunnableSpec, assert, assertM}
-import zio.{Ref, UIO}
+import zio.{Ref, UIO, console}
 
 object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
   def spec = suite("Middleware") {
@@ -55,6 +55,11 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
         val mid = increment.mapZIO(i => UIO(i + 1))
         val app = Http.identity[Int] @@ mid
         assertM(app(0))(equalTo(3))
+      } +
+      testM("runAfter") {
+        val mid = Middleware.succeed(1).runAfter(console.putStrLn("A"))
+        val app = Http.succeed(1) @@ mid
+        assertM(app(()) *> TestConsole.output)(equalTo(Vector("A\n")))
       } +
       testM("race") {
         val mid = Middleware.succeed('A').delay(2 second) race Middleware.succeed("B").delay(1 second)
