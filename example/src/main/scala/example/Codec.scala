@@ -1,6 +1,5 @@
 package example
 
-import zhttp.http.Middleware.codec
 import zhttp.http._
 import zhttp.service.Server
 import zio._
@@ -16,12 +15,10 @@ object Codec extends App {
 
   // Middleware to transform above http to HttpApp
 
-  val mid                        = codec[Request, UserCreated](
-    _ => CreateUser("John"),
-    user => Response.json(user.toJson),
-  )
+  val mid = Middleware.codec[Request, UserCreated](_ => CreateUser("John"), user => Response.json(user.toJson))
+
   // Create HTTP route
-  val app: HttpApp[Any, Nothing] = user @@ mid
+  val app = user @@ mid
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
