@@ -145,9 +145,9 @@ object HttpMiddlewaresSpec extends DefaultRunnableSpec with HttpAppTestExtension
       }
   }
 
-  private def cond(flg: Boolean) = (_: Any, _: Any, _: Any) => flg
+  private def cond(flg: Boolean) = (_: Any) => flg
 
-  private def condM(flg: Boolean) = (_: Any, _: Any, _: Any) => UIO(flg)
+  private def condM(flg: Boolean) = (_: Any) => UIO(flg)
 
   private def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response] = {
     for {
