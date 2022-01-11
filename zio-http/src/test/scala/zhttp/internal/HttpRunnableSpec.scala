@@ -37,19 +37,11 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     } yield ()
   def getActiveDirectBuffers(alloc: PooledByteBufAllocator): UIO[Long] = {
     val metric = alloc.metric().directArenas().asScala.toList
-    for {
-      active <- Ref.make[Long](0L)
-      _      <- ZIO.foreach_(metric)(x => active.get.flatMap(a => active.set(x.numActiveAllocations() + a)))
-      res    <- active.get
-    } yield res
+    ZIO.foreach(metric)(x => UIO(x.numActiveAllocations())).map { list => list.sum }
   }
   def getActiveHeapBuffers(alloc: PooledByteBufAllocator): UIO[Long]   = {
     val metric = alloc.metric().heapArenas().asScala.toList
-    for {
-      active <- Ref.make[Long](0L)
-      _      <- ZIO.foreach_(metric)(x => active.get.flatMap(a => active.set(x.numActiveAllocations() + a)))
-      res    <- active.get
-    } yield res
+    ZIO.foreach(metric)(x => UIO(x.numActiveAllocations())).map { list => list.sum }
   }
   def request(
     path: Path = !!,

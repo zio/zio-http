@@ -179,17 +179,6 @@ object ServerSpec extends HttpRunnableSpec {
         val res  = Http.fromStream(ZStream.fromFile(Paths.get(path))).requestBodyAsString()
         assertM(res)(equalTo("abc\nfoo"))
       } +
-      testM("response streaming memory leak") {
-        for {
-          _     <- Http
-            .fromData(HttpData.fromStream(ZStream.fail(new Error)))
-            .requestBodyAsString(content = "test")
-          alloc <- getStart.map(_.allocator.get)
-          ah    <- getActiveHeapBuffers(alloc)
-          ad    <- getActiveDirectBuffers(alloc)
-
-        } yield assertTrue(ah + ad == 0L)
-      } +
       suite("html") {
         testM("body") {
           val res = Http.html(html(body(div(id := "foo", "bar")))).requestBodyAsString()
@@ -232,9 +221,23 @@ object ServerSpec extends HttpRunnableSpec {
       }
   }
 
+  def memoryLeakSpec = suite("Memory Leak") {
+    testM("response streaming memory leak") {
+      for {
+        _     <- Http
+          .fromData(HttpData.fromStream(ZStream.fail(new Error)))
+          .requestBodyAsString(content = "test")
+        alloc <- getStart.map(_.allocator.get)
+        ah    <- getActiveHeapBuffers(alloc)
+        ad    <- getActiveDirectBuffers(alloc)
+
+      } yield assertTrue(ah + ad == 0L)
+    }
+  }
+
   override def spec =
     suiteM("Server") {
-      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
+      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, memoryLeakSpec)).useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds)
 
   def serverStartSpec = suite("ServerStartSpec") {
