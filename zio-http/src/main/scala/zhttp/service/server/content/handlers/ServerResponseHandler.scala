@@ -5,7 +5,7 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.core.Util
-import zhttp.http.{HTTP_CHARSET, HttpData, Response, Status}
+import zhttp.http.{HTTP_CHARSET, HttpData, Response}
 import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{ChannelFuture, HttpRuntime, Server}
 import zio.stream.ZStream
@@ -25,24 +25,15 @@ private[zhttp] case class ServerResponseHandler[R](
   override def channelRead0(ctx: Ctx, response: Response): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
 
-    response.status match {
-      case Status.NOT_FOUND =>
-        ctx.writeAndFlush(notFoundResponse)
-      case Status.OK        =>
-        ctx.write(encodeResponse(response))
-        response.data match {
-          case HttpData.BinaryStream(stream) =>
-            runtime.unsafeRun(ctx) {
-              writeStreamContent(stream)
-            }
-          case HttpData.File(file)           =>
-            unsafeWriteFileContent(file)
-
-          case _ => ctx.flush()
+    ctx.write(encodeResponse(response))
+    response.data match {
+      case HttpData.BinaryStream(stream) =>
+        runtime.unsafeRun(ctx) {
+          writeStreamContent(stream)
         }
-
-      case _ =>
-        ctx.writeAndFlush(encodeResponse(response))
+      case HttpData.File(file)           =>
+        unsafeWriteFileContent(file)
+      case _                             => ctx.flush()
     }
     ()
   }
@@ -78,12 +69,6 @@ private[zhttp] case class ServerResponseHandler[R](
     // Identify if the server time should be set and update if required.
     if (res.attribute.serverTime) jResponse.headers().set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
     jResponse
-  }
-
-  private def notFoundResponse: HttpResponse = {
-    val response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, false)
-    response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0)
-    response
   }
 
   private def serverErrorResponse(cause: Throwable): HttpResponse = {

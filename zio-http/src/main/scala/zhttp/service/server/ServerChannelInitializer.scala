@@ -62,7 +62,7 @@ final case class ServerChannelInitializer[R](
     // Always add ZIO Http Request Handler
     pipeline.addLast(HTTP_REQUEST_HANDLER, reqHandler)
 
-    // ServerResponseHandler - transforms intern Response in HttpResponse
+    // ServerResponseHandler - transforms Response to HttpResponse
     pipeline.addLast(HTTP_RESPONSE_HANDLER, respHandler)
 
     ()

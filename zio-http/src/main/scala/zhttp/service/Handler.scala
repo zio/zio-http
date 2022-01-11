@@ -100,7 +100,7 @@ private[zhttp] final case class Handler[R](
         }
 
       case HExit.Failure(e) =>
-        ctx.fireExceptionCaught(e)
+        ctx.fireChannelRead(e)
         releaseRequest(jReq)
       case HExit.Empty      =>
         ctx.fireChannelRead(Response.status(Status.NOT_FOUND))
