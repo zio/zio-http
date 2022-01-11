@@ -3,6 +3,7 @@ package zhttp.http
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.CORS.DefaultCORSConfig
 import zhttp.http.Headers.BasicSchemeName
+import zhttp.http.LOG.DefaultLogConfig
 import zhttp.http.Middleware.{Flag, RequestP}
 import zio.clock.Clock
 import zio.console.Console
@@ -236,6 +237,54 @@ object Middleware {
             .mapError(Option(_))
         } yield Patch.empty
     }
+
+  /**
+   * Provides a logging middleware
+   */
+  def log[R, E](
+    logger: String => ZIO[R, E, Unit],
+    logConfig: LogConfig = DefaultLogConfig,
+  ): Middleware[R with Clock, E] = {
+
+    def logRequest[R, E](
+      method: Method,
+      url: URL,
+      headers: Headers,
+      nanoTime: Long,
+      logConfig: LogConfig,
+    ): ZIO[R with Clock, Option[E], (Long, LogStep)] = {
+      ZIO.succeed {
+        (
+          nanoTime,
+          LogStep(
+            lines = List(
+              s"Url: ${url.toString}",
+              s"Method: ${method.toString()}",
+              ???,
+            ),
+          ),
+        )
+      }
+    }
+
+    def logResponse[R, E](
+      logger: String => ZIO[R, E, Unit],
+      status: Status,
+      logStep: LogStep,
+      startNanoTime: Long,
+      endNanoTime: Long,
+      logConfig: LogConfig,
+    ): ZIO[R with Clock, Option[E], Patch] = ???
+
+    Middleware.makeZIO((method, url, headers) =>
+      zio.clock.nanoTime.flatMap(start => logRequest(method, url, headers, start, logConfig)),
+    ) { case (status, _, (start, logStep)) =>
+      for {
+        end <- zio.clock.nanoTime
+        _   <- logResponse(logger, status, logStep, start, end, logConfig)
+      } yield Patch.empty
+    }
+  }
 
   /**
    * Creates a new constants middleware that always executes the app provided, independent of where the middleware is
