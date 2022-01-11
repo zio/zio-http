@@ -3,7 +3,7 @@ package zhttp.http.middleware
 import zhttp.http.headers.HeaderExtension
 import zhttp.http.{Headers, Method, Request, URL}
 
-case class MiddlewareRequest(
+final case class MiddlewareRequest(
   private val request: Request,
 ) extends HeaderExtension[MiddlewareRequest] {
   self =>

@@ -18,7 +18,7 @@ private[zhttp] trait HttpMiddlewares extends CorsMiddlewares with CsrfMiddleware
    * Logical operator to decide which middleware to select based on the predicate.
    */
   def ifRequestThenElse[R, E](
-    cond: RequestP[Boolean],
+    cond: MiddlewareRequest => Boolean,
   )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     Middleware.ifThenElse[Request](req => cond(MiddlewareRequest(req)))(_ => left, _ => right)
 
@@ -26,20 +26,22 @@ private[zhttp] trait HttpMiddlewares extends CorsMiddlewares with CsrfMiddleware
    * Logical operator to decide which middleware to select based on the predicate.
    */
   def ifRequestThenElseZIO[R, E](
-    cond: RequestP[ZIO[R, E, Boolean]],
+    cond: MiddlewareRequest => ZIO[R, E, Boolean],
   )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     Middleware.ifThenElseZIO[Request](req => cond(MiddlewareRequest(req)))(_ => left, _ => right)
 
   /**
    * Applies the middleware only if the condition function evaluates to true
    */
-  def whenRequest[R, E](cond: RequestP[Boolean])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  def whenRequest[R, E](cond: MiddlewareRequest => Boolean)(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     middleware.when[Request](req => cond(MiddlewareRequest(req)))
 
   /**
    * Applies the middleware only if the condition function effectfully evaluates to true
    */
-  def whenRequestZIO[R, E](cond: RequestP[ZIO[R, E, Boolean]])(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  def whenRequestZIO[R, E](
+    cond: MiddlewareRequest => ZIO[R, E, Boolean],
+  )(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     Middleware.ifThenElseZIO[Request](req => cond(MiddlewareRequest(req)))(
       _ => middleware,
       _ => Middleware.identity,
@@ -161,19 +163,19 @@ private[zhttp] trait HttpMiddlewares extends CorsMiddlewares with CsrfMiddleware
   /**
    * Creates a new middleware using a function from request parameters to a HttpMiddleware
    */
-  def fromMiddlewareFunction[R, E](f: RequestP[HttpMiddleware[R, E]]): HttpMiddleware[R, E] =
+  def fromMiddlewareFunction[R, E](f: MiddlewareRequest => HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     Middleware.make(req => f(MiddlewareRequest(req)))
 
   /**
    * Creates a new middleware using a function from request parameters to a ZIO of HttpMiddleware
    */
-  def fromMiddlewareFunctionZIO[R, E](f: RequestP[ZIO[R, E, HttpMiddleware[R, E]]]): HttpMiddleware[R, E] =
+  def fromMiddlewareFunctionZIO[R, E](f: MiddlewareRequest => ZIO[R, E, HttpMiddleware[R, E]]): HttpMiddleware[R, E] =
     Middleware.makeZIO(req => f(MiddlewareRequest(req)))
 }
 
 object HttpMiddlewares {
 
-  final case class PartialResponseMake[S](req: RequestP[S]) extends AnyVal {
+  final case class PartialResponseMake[S](req: MiddlewareRequest => S) extends AnyVal {
     def apply(res: (Status, Headers, S) => Patch): HttpMiddleware[Any, Nothing] = {
       Middleware.intercept[Request, Response](
         incoming = request => req(MiddlewareRequest(request)),
