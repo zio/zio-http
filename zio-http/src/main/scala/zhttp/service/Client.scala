@@ -37,7 +37,7 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el:
     promise: Promise[Throwable, ClientResponse],
     sslOption: ClientSSLOptions,
   ): Unit = {
-    val jReq = encodeClientParams(req.httpVersion, req)
+    val jReq = encodeClientParams(req)
     try {
       val hand   = ClientInboundHandler(rtm, jReq, promise)
       val host   = req.url.host

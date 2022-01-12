@@ -1,14 +1,14 @@
 package zhttp.service
 
 import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames, HttpVersion}
+import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames}
 import zhttp.http.HTTP_CHARSET
 trait EncodeClientParams {
 
   /**
    * Converts client params to JFullHttpRequest
    */
-  def encodeClientParams(jVersion: HttpVersion, req: Client.ClientParams): FullHttpRequest = {
+  def encodeClientParams(req: Client.ClientParams): FullHttpRequest = {
     val method      = req.method.asHttpMethod
     val uri         = req.url.asString
     val content     = req.getBodyAsString match {
@@ -21,7 +21,7 @@ trait EncodeClientParams {
       headers.set(HttpHeaderNames.CONTENT_LENGTH, writerIndex.toString())
     }
     // TODO: we should also add a default user-agent req header as some APIs might reject requests without it.
-    val jReq        = new DefaultFullHttpRequest(jVersion, method, uri, content)
+    val jReq        = new DefaultFullHttpRequest(req.httpVersion, method, uri, content)
     jReq.headers().set(headers)
 
     jReq
