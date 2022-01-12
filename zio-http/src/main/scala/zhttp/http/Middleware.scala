@@ -241,7 +241,7 @@ object Middleware {
   /**
    * Creates a middleware for signing cookies
    */
-  def signCookies[R, E](secret: String): Middleware[R, E] =
+  def signCookies(secret: String): Middleware[Any, Nothing] =
     patch((_, _) =>
       Patch.updateHeaders(h => {
         Headers(
