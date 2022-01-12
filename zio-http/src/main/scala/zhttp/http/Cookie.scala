@@ -176,35 +176,46 @@ object Cookie {
   sealed trait SameSite {
     def asString: String
   }
-  object SameSite       {
-    case object Lax    extends SameSite { def asString = "Lax"    }
-    case object Strict extends SameSite { def asString = "Strict" }
-    case object None   extends SameSite { def asString = "None"   }
-  }
 
-  def decodeResponseSignedCookie(headerValue: String, secret: String): Option[Cookie] = {
-    val decodedCookie = decodeResponseCookie(headerValue)
-    decodedCookie match {
-      case Some(cookie) => {
-        val index     = cookie.content.lastIndexOf('.')
-        val signature = cookie.content.slice(index + 1, cookie.content.length)
-        val content   = cookie.content.slice(0, index)
+  object SameSite {
 
-        if (cookie.verify(content, signature, secret))
-          Some(cookie.withContent(content).sign(secret))
-        else None
-      }
-      case None         => None
+    case object Lax extends SameSite {
+      def asString = "Lax"
     }
+
+    case object Strict extends SameSite {
+      def asString = "Strict"
+    }
+
+    case object None extends SameSite {
+      def asString = "None"
+    }
+
   }
+
+//  def decodeResponseSignedCookie(headerValue: String, secret: String): Option[Cookie] = {
+//    val decodedCookie = decodeResponseCookie(headerValue)
+//    decodedCookie match {
+//      case Some(cookie) => {
+//        val index     = cookie.content.lastIndexOf('.')
+//        val signature = cookie.content.slice(index + 1, cookie.content.length)
+//        val content   = cookie.content.slice(0, index)
+//
+//        if (cookie.verify(content, signature, secret))
+//          Some(cookie.withContent(content).sign(secret))
+//        else None
+//      }
+//      case None         => None
+//    }
+//  }
 
   /**
    * Decodes from Set-Cookie header value inside of Response into a cookie
    */
-  def decodeResponseCookie(headerValue: String): Option[Cookie] =
-    Try(unsafeDecodeResponseCookie(headerValue)).toOption
+  def decodeResponseCookie(headerValue: String, secret: Option[String] = None): Option[Cookie] =
+    Try(unsafeDecodeResponseCookie(headerValue, secret.orNull)).toOption
 
-  private[zhttp] def unsafeDecodeResponseCookie(headerValue: String): Cookie = {
+  private[zhttp] def unsafeDecodeResponseCookie(headerValue: String, secret: String = null): Cookie = {
     var name: String              = null
     var content: String           = null
     var expires: Instant          = null
@@ -268,21 +279,31 @@ object Cookie {
         curr = next + 1
       }
     }
+    val decodedCookie =
+      if ((name != null && !name.isEmpty) || (content != null && !content.isEmpty))
+        Cookie(
+          name = name,
+          content = content,
+          expires = Option(expires),
+          maxAge = maxAge,
+          domain = Option(domain),
+          path = Option(path),
+          isSecure = secure,
+          isHttpOnly = httpOnly,
+          sameSite = Option(sameSite),
+        )
+      else
+        null
 
-    if ((name != null && !name.isEmpty) || (content != null && !content.isEmpty))
-      Cookie(
-        name = name,
-        content = content,
-        expires = Option(expires),
-        maxAge = maxAge,
-        domain = Option(domain),
-        path = Option(path),
-        isSecure = secure,
-        isHttpOnly = httpOnly,
-        sameSite = Option(sameSite),
-      )
-    else
-      null
+    if (decodedCookie != null && secret != null) {
+      val index     = decodedCookie.content.lastIndexOf('.')
+      val signature = decodedCookie.content.slice(index + 1, decodedCookie.content.length)
+      val content   = decodedCookie.content.slice(0, index)
+
+      if (decodedCookie.verify(content, signature, secret))
+        decodedCookie.withContent(content).sign(secret)
+      else null
+    } else decodedCookie
   }
 
   /**

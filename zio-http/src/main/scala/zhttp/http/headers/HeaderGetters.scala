@@ -278,12 +278,12 @@ trait HeaderGetters[+A] { self =>
 
   final def getSetCookiesDecoded: List[Cookie] =
     getHeaderValues(HeaderNames.setCookie)
-      .map(Cookie.decodeResponseCookie)
+      .map(Cookie.decodeResponseCookie(_))
       .collect { case Some(cookie) => cookie }
 
   final def getSignedSetCookiesDecoded(secret: String): List[Cookie] =
     getHeaderValues(HeaderNames.setCookie)
-      .map(v => Cookie.decodeResponseSignedCookie(v, secret))
+      .map(v => Cookie.decodeResponseCookie(v, Some(secret)))
       .collect { case Some(cookie) => cookie }
 
   final def getTe: Option[CharSequence] =
