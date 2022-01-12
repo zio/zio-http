@@ -9,6 +9,7 @@ trait EncodeClientParams {
    * Converts client params to JFullHttpRequest
    */
   def encodeClientParams(req: Client.ClientParams): FullHttpRequest = {
+    val httpVersion = req.httpVersion
     val method      = req.method.asHttpMethod
     val uri         = req.url.asString
     val content     = req.getBodyAsString match {
@@ -21,7 +22,7 @@ trait EncodeClientParams {
       headers.set(HttpHeaderNames.CONTENT_LENGTH, writerIndex.toString())
     }
     // TODO: we should also add a default user-agent req header as some APIs might reject requests without it.
-    val jReq        = new DefaultFullHttpRequest(req.httpVersion, method, uri, content)
+    val jReq        = new DefaultFullHttpRequest(httpVersion, method, uri, content)
     jReq.headers().set(headers)
 
     jReq
