@@ -16,7 +16,9 @@ object SimpleServer extends App {
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    (Server.app(app) ++ Server.keepAlive ++ Server.port(7777)).make.useForever
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(0))
+    (Server.app(app) ++ Server.port(7777)).make
+      .flatMap(start => ZManaged.succeed(println(s"Server started on port: ${start.port}")))
+      .useForever
+      .provideSomeLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(0))
       .exitCode
 }
