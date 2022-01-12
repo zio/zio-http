@@ -6,8 +6,8 @@ import zhttp.service.{EventLoopGroup, Server}
 import zio._
 object SimpleServer extends App {
 
-  val app = Http.collectZIO[Request] {
-    case Method.GET -> !! / "get"       => ZIO(Response.ok)
+  val app : HttpApp[Any, Throwable] = Http.collectZIO[Request] {
+    case Method.GET -> !! / "get"       => Response.ok.wrapZIO
     case r @ Method.POST -> !! / "post" =>
       for {
         content <- r.getBodyAsString
