@@ -38,6 +38,16 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             assertM(log)(equalTo(Vector()))
           }
       } +
+      suite("whenZIO") {
+        testM("condition is true") {
+          val program = run(app @@ debug.whenZIO(_ => UIO(true))) *> TestConsole.output
+          assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
+        } +
+          testM("condition is false") {
+            val log = run(app @@ debug.whenZIO(_ => UIO(false))) *> TestConsole.output
+            assertM(log)(equalTo(Vector()))
+          }
+      } +
       suite("race") {
         testM("achieved") {
           val program = run(app @@ timeout(5 seconds)).map(_.status)
