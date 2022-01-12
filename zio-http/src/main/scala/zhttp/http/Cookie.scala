@@ -193,22 +193,6 @@ object Cookie {
 
   }
 
-//  def decodeResponseSignedCookie(headerValue: String, secret: String): Option[Cookie] = {
-//    val decodedCookie = decodeResponseCookie(headerValue)
-//    decodedCookie match {
-//      case Some(cookie) => {
-//        val index     = cookie.content.lastIndexOf('.')
-//        val signature = cookie.content.slice(index + 1, cookie.content.length)
-//        val content   = cookie.content.slice(0, index)
-//
-//        if (cookie.verify(content, signature, secret))
-//          Some(cookie.withContent(content).sign(secret))
-//        else None
-//      }
-//      case None         => None
-//    }
-//  }
-
   /**
    * Decodes from Set-Cookie header value inside of Response into a cookie
    */
