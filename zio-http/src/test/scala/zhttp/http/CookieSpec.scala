@@ -11,11 +11,7 @@ object CookieSpec extends DefaultRunnableSpec {
         checkAll(HttpGen.cookies) { cookie =>
           val cookieString = cookie.encode
           assert(Cookie.decodeResponseCookie(cookieString, cookie.secret))(isSome(equalTo(cookie))) &&
-          assert(
-            Cookie.decodeResponseCookie(cookieString, cookie.secret).map(_.encode),
-          )(
-            isSome(equalTo(cookieString)),
-          )
+          assert(Cookie.decodeResponseCookie(cookieString, cookie.secret).map(_.encode))(isSome(equalTo(cookieString)))
         }
       }
     } +
