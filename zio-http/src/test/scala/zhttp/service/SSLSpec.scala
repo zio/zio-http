@@ -8,7 +8,7 @@ import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zhttp.service.server._
 import zio._
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect._
+import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{DefaultRunnableSpec, assertM}
 
 object SSLSpec extends DefaultRunnableSpec {
@@ -27,7 +27,7 @@ object SSLSpec extends DefaultRunnableSpec {
     ZIO.succeed(Response.ok)
   }
 
-  val serverLayer: ZLayer[EventLoopGroup with ServerChannelFactory, Nothing, Unit] =
+  override def spec = suite("SSL")(
     Server
       .make(Server.app(app) ++ Server.port(8073) ++ Server.ssl(ServerSSLOptions(serverSSL)))
       .orDie
@@ -42,9 +42,9 @@ object SSLSpec extends DefaultRunnableSpec {
             test("fail with DecoderException when client doesn't have the server certificate") {
               val actual = Client
                 .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL2))
-                .catchSome { case _: DecoderException =>
-                  ZIO.succeed("DecoderException")
-                }
+                .catchSome(_ match {
+                  case _: DecoderException => ZIO.succeed("DecoderException")
+                })
               assertM(actual)(equalTo("DecoderException"))
             } +
             test("succeed when client has default SSL") {

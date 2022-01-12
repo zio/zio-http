@@ -4,7 +4,7 @@ import zhttp.endpoint._
 import zhttp.http.Method.GET
 import zhttp.http.Response
 import zhttp.service.Server
-import zio.{App, ExitCode, UIO, URIO}
+import zio._
 
 object Endpoints extends ZIOAppDefault {
   def h1 = GET / "a" / *[Int] / "b" / *[Boolean] to { a =>

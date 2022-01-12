@@ -125,16 +125,16 @@ object Server {
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Start] = {
     val settings = server.settings()
     for {
-      channelFactory <- ZManaged.service[ServerChannelFactory](_.get)
-      eventLoopGroup <- ZManaged.service[EventLoopGroup](_.get)
-      zExec          <- HttpRuntime.default[R].toManaged_
+      channelFactory <- ZManaged.service[ServerChannelFactory]
+      eventLoopGroup <- ZManaged.service[EventLoopGroup]
+      zExec          <- HttpRuntime.default[R].toManaged
       reqHandler      = settings.app.compile(zExec, settings)
       respHandler     = ServerResponseHandler(zExec, settings, ServerTimeGenerator.make)
       init            = ServerChannelInitializer(zExec, settings, reqHandler, respHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
-      chf  <- ZManaged.effect(serverBootstrap.childHandler(init).bind(settings.address))
+      chf  <- ZManaged.attempt(serverBootstrap.childHandler(init).bind(settings.address))
       _    <- ChannelFuture.asManaged(chf)
-      port <- ZManaged.effect(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
+      port <- ZManaged.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield {
       ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
       Start(port)

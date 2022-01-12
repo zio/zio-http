@@ -498,13 +498,19 @@ object Http {
    * Creates a Http that always succeeds with a 200 status code and the provided ZStream as the body
    */
   def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = HTTP_CHARSET): HttpApp[R, Nothing] =
-    Http.fromEffect(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provide(r), charset)))).flatten
+    Http
+      .fromEffect(
+        ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provideEnvironment(r), charset))),
+      )
+      .flatten
 
   /**
    * Creates a Http that always succeeds with a 200 status code and the provided ZStream as the body
    */
   def fromStream[R](stream: ZStream[R, Throwable, Byte]): HttpApp[R, Nothing] =
-    Http.fromEffect(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provide(r))))).flatten
+    Http
+      .fromEffect(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provideEnvironment(r)))))
+      .flatten
 
   /**
    * Creates an HTTP app which always responds with the provided Html page.

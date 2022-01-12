@@ -41,7 +41,7 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
    * Provides the socket with its required environment, which eliminates its dependency on R. This operation assumes
    * that your socket requires an environment.
    */
-  def provide(r: R)(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = Provide(self, r)
+  def provideEnvironment(r: ZEnvironment[R])(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = Provide(self, r)
 
   /**
    * Creates a response from the socket.
@@ -99,7 +99,7 @@ object Socket {
 
   private final case class FMerge[R, E, A, B](a: Socket[R, E, A, B], b: Socket[R, E, A, B]) extends Socket[R, E, A, B]
 
-  private final case class Provide[R, E, A, B](s: Socket[R, E, A, B], r: R) extends Socket[Any, E, A, B]
+  private final case class Provide[R, E, A, B](s: Socket[R, E, A, B], r: ZEnvironment[R]) extends Socket[Any, E, A, B]
 
   private case object End extends Socket[Any, Nothing, Any, Nothing]
 }

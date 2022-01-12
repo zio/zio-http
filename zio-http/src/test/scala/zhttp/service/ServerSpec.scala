@@ -16,21 +16,21 @@ import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec {
 
-  private val nonEmptyContent = for {
+  private def nonEmptyContent = for {
     data    <- Gen.listOf(Gen.alphaNumericString)
     content <- HttpGen.nonEmptyHttpData(Gen.const(data))
   } yield (data.mkString(""), content)
 
-  private val env =
+  private def env =
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
-  private val staticApp = Http.collectZIO[Request] {
+  private def staticApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
     case Method.GET -> !! / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
     case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
   }
 
-  private val app = serve { staticApp ++ DynamicServer.app }
+  private def app = serve { staticApp ++ DynamicServer.app }
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -114,13 +114,13 @@ object ServerSpec extends HttpRunnableSpec {
     val app: HttpApp[Any, Nothing] = Http.collect[Request] { case req =>
       Response.text(req.getContentLength.getOrElse(-1).toString)
     }
-    testM("has content-length") {
-      checkAllM(Gen.alphaNumericString) { string =>
+    test("has content-length") {
+      checkAll(Gen.alphaNumericString) { string =>
         val res = app.requestBodyAsString(content = string)
         assertM(res)(equalTo(string.length.toString))
       }
     } +
-      testM("POST Request.getBody") {
+      test("POST Request.getBody") {
         val app = Http.collectZIO[Request] { case req => req.getBody.as(Response.ok) }
         val res = app.requestStatus(!!, Method.POST, "some text")
         assertM(res)(equalTo(Status.OK))
@@ -129,7 +129,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   def responseSpec = suite("ResponseSpec") {
     test("data") {
-      checkAllM(nonEmptyContent) { case (string, data) =>
+      checkAll(nonEmptyContent) { case (string, data) =>
         val res = Http.fromData(data).requestBodyAsString()
         assertM(res)(equalTo(string))
       }
@@ -166,9 +166,9 @@ object ServerSpec extends HttpRunnableSpec {
       } +
       test("file-streaming") {
         val path = getClass.getResource("/TestFile.txt").getPath
-        val res  = Http.fromStream(ZStream.fromFile(Paths.get(path))).requestBodyAsString()
+        val res  = Http.fromStream(ZStream.fromPath(Paths.get(path))).requestBodyAsString()
         assertM(res)(equalTo("abc\nfoo"))
-      } +
+      } @@ TestAspect.unix +
       suite("html") {
         test("body") {
           val res = Http.html(html(body(div(id := "foo", "bar")))).requestBodyAsString()
@@ -220,12 +220,12 @@ object ServerSpec extends HttpRunnableSpec {
     test("desired port") {
       val port = 8088
       (Server.port(port) ++ Server.app(Http.empty)).make.use { start =>
-        assertM(ZIO.effect(start.port))(equalTo(port))
+        assertM(ZIO.attempt(start.port))(equalTo(port))
       }
     } +
       test("available port") {
         (Server.port(0) ++ Server.app(Http.empty)).make.use { start =>
-          assertM(ZIO.effect(start.port))(not(equalTo(0)))
+          assertM(ZIO.attempt(start.port))(not(equalTo(0)))
         }
       }
   }

@@ -150,7 +150,7 @@ object Response {
         Status.SWITCHING_PROTOCOLS,
         Headers.empty,
         HttpData.empty,
-        Attribute(socketApp = Option(app.provide(env))),
+        Attribute(socketApp = Option(app.provideEnvironment(env))),
       )
     }
 

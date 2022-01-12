@@ -3,15 +3,20 @@ package zhttp.internal
 import zhttp.http._
 import zhttp.service.Server.Start
 import zio._
-import zio.blocking.Blocking
-import zio.console.Console
 
 import java.util.UUID
 
-object DynamicServer {
+sealed trait DynamicServer {
+  def add(app: HttpApp[DynamicServer.HttpEnv, Throwable]): UIO[DynamicServer.Id]
+  def get(id: DynamicServer.Id): UIO[Option[HttpApp[DynamicServer.HttpEnv, Throwable]]]
+  def setStart(n: Start): UIO[Boolean]
+  def getStart: IO[Nothing, Start]
+  def getPort: ZIO[Any, Nothing, Int]
+}
+object DynamicServer       {
 
   def deploy(app: HttpApp[HttpEnv, Throwable]): ZIO[DynamicServer, Nothing, String] =
-    ZIO.accessM[DynamicServer](_.get.add(app))
+    ZIO.serviceWithZIO[DynamicServer](_.add(app))
 
   def app: HttpApp[HttpEnv, Throwable] = Http
     .fromOptionFunction[Request] { case req =>
@@ -29,11 +34,11 @@ object DynamicServer {
     }
 
   def get(id: Id): ZIO[DynamicServer, Nothing, Option[HttpApp[HttpEnv, Throwable]]] =
-    ZIO.accessM[DynamicServer](_.get.get(id))
+    ZIO.serviceWithZIO[DynamicServer](_.get(id))
 
-  def setStart(s: Start): ZIO[DynamicServer, Nothing, Boolean] = ZIO.accessM[DynamicServer](_.get.setStart(s))
-  def getStart: ZIO[DynamicServer, Nothing, Start]             = ZIO.accessM[DynamicServer](_.get.getStart)
-  def getPort: ZIO[DynamicServer, Nothing, Int]                = ZIO.accessM[DynamicServer](_.get.getPort)
+  def setStart(s: Start): ZIO[DynamicServer, Nothing, Boolean] = ZIO.serviceWithZIO[DynamicServer](_.setStart(s))
+  def getStart: ZIO[DynamicServer, Nothing, Start]             = ZIO.serviceWithZIO[DynamicServer](_.getStart)
+  def getPort: ZIO[DynamicServer, Nothing, Int]                = ZIO.serviceWithZIO[DynamicServer](_.getPort)
 
   def live: ZLayer[Any, Nothing, DynamicServer] = {
     for {
@@ -43,19 +48,11 @@ object DynamicServer {
   }.toLayer
 
   type Id          = String
-  type HttpEnv     = DynamicServer with Console with Blocking
+  type HttpEnv     = DynamicServer with Console
   type HttpAppTest = HttpApp[HttpEnv, Throwable]
   val APP_ID = "X-APP_ID"
 
-  sealed trait Service {
-    def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id]
-    def get(id: Id): UIO[Option[HttpApp[HttpEnv, Throwable]]]
-    def setStart(n: Start): UIO[Boolean]
-    def getStart: IO[Nothing, Start]
-    def getPort: ZIO[Any, Nothing, Int]
-  }
-
-  final class Live(ref: Ref[Map[Id, HttpApp[HttpEnv, Throwable]]], pr: Promise[Nothing, Start]) extends Service {
+  final class Live(ref: Ref[Map[Id, HttpApp[HttpEnv, Throwable]]], pr: Promise[Nothing, Start]) extends DynamicServer {
     def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id]        = for {
       id <- UIO(UUID.randomUUID().toString)
       _  <- ref.update(map => map + (id -> app))

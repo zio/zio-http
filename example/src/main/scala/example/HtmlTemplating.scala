@@ -4,7 +4,7 @@ import zhttp.http._
 import zhttp.service.Server
 import zio._
 
-object HtmlTemplating extends App {
+object HtmlTemplating extends ZIOAppDefault {
   // Importing everything from `zhttp.html`
   import zhttp.html._
 
@@ -47,6 +47,5 @@ object HtmlTemplating extends App {
     }
   }
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+  def run = Server.start(8090, app)
 }

@@ -3,7 +3,7 @@ package zhttp.service
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
-import zio.duration.durationInt
+import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._

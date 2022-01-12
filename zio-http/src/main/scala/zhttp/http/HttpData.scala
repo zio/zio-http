@@ -37,7 +37,7 @@ sealed trait HttpData { self =>
       case HttpData.BinaryStream(stream) =>
         stream
           .asInstanceOf[ZStream[Any, Throwable, ByteBuf]]
-          .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
+          .runFold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
       case HttpData.File(file)           =>
         ZIO.attemptBlocking {
           val fileContent = Files.readAllBytes(file.toPath)

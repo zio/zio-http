@@ -4,12 +4,12 @@ import io.netty.util.AsciiString
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server}
-import zio.{App, ExitCode, UIO, URIO}
+import zio._
 
 /**
  * This server is used to run plaintext benchmarks on CI.
  */
-object Main extends App {
+object Main extends ZIOAppDefault {
 
   private val message: String = "Hello, World!"
 
@@ -21,11 +21,10 @@ object Main extends App {
     .withServer(STATIC_SERVER_NAME)
     .freeze
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+  def run = {
     frozenResponse
       .flatMap(server(_).make.useForever)
       .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
-      .exitCode
   }
 
   private def app(response: Response) = Http.response(response)

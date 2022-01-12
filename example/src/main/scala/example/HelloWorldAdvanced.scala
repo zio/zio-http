@@ -26,7 +26,7 @@ object HelloWorldAdvanced extends ZIOAppDefault {
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
       Server.app(fooBar ++ app)       // Setup the Http app
 
-  val run = ZIOAppArgs.getArgs.flatMap { args => {
+  val run = ZIOAppArgs.getArgs.flatMap { args =>
     // Configure thread count using CLI
     val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
