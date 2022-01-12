@@ -14,7 +14,7 @@ function usage() {
 }
 
 function healthcheck() {
-    while [[ $(curl -sL -w "%{http_code}\\n" "http://localhost:${PORT}/" -o /dev/null) != "200" ]]; do
+    while [[ $(curl -sL -w "%{http_code}\\n" "http://localhost:${PORT}/get/" -o /dev/null) != "200" ]]; do
      sleep 2
     done
 }
