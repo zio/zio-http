@@ -45,7 +45,7 @@ object BenchmarkWorkFlow {
         ),
         WorkflowStep.Use(
           ref = UseRef.Public("peter-evans", "commit-comment", "v1"),
-          cond = Some("${{ !failure() }}"),
+          cond = Some("${{ always() }}"),
           params = Map(
             "sha"  -> "${{github.event.pull_request.head.sha}}",
             "body" ->
