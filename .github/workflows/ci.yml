@@ -267,7 +267,8 @@ jobs:
           echo ::set-output name=request_result::$(echo $RESULT_REQUEST) || true
           echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY) || true
 
-      - uses: peter-evans/commit-comment@v1
+      - if: ${{ !failure() }}
+        uses: peter-evans/commit-comment@v1
         with:
           sha: ${{github.event.pull_request.head.sha}}
           body: |
