@@ -25,6 +25,14 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     other: Middleware[R1, E1, A0, B0, A1, B1],
   ): Middleware[R1, E1, AIn, BIn, A1, B1] = self compose other
 
+  final def >>>[R1 <: R, E1 >: E, A1 >: AIn, B1 <: BIn, COut](
+    other: Middleware[R1, E1, A1, B1, BOut, COut],
+  ): Middleware[R1, E1, A1, B1, AOut, COut] = self andThen other
+
+  final def andThen[R1 <: R, E1 >: E, A1 >: AIn, B1 <: BIn, COut](
+    other: Middleware[R1, E1, A1, B1, BOut, COut],
+  ): Middleware[R1, E1, A1, B1, AOut, COut] = Middleware.Chain(self, other)
+
   /**
    * Combines two middleware that don't modify the input and output types.
    */
@@ -52,6 +60,11 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   final def compose[R1 <: R, E1 >: E, A0 <: AOut, B0 >: BOut, A1, B1](
     other: Middleware[R1, E1, A0, B0, A1, B1],
   ): Middleware[R1, E1, AIn, BIn, A1, B1] = Middleware.Compose(self, other)
+
+  final def contramapZIO[R1 <: R, E1 >: E, X](
+    f: X => ZIO[R1, E1, AOut],
+  ): Middleware[R1, E1, AIn, BIn, X, BOut] =
+    Middleware.fromHttp(Http.fromFunctionZIO(f)) andThen self
 
   /**
    * Delays the production of Http output for the specified duration
@@ -81,6 +94,9 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   final def map[BOut0](f: BOut => BOut0): Middleware[R, E, AIn, BIn, AOut, BOut0] =
     self.flatMap(b => Middleware.succeed(f(b)))
 
+  def contramap[X <: AOut, AOut0 <: AOut](f: X => AOut0): Middleware[R, E, AIn, BIn, X, BOut] =
+    self.flatMap(b => Middleware.fromHttp(Http.fromFunction(f).as(b)))
+
   /**
    * Transforms the output type of the current middleware using effect function.
    */
@@ -105,6 +121,9 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
 
   final def runAfter[R1 <: R, E1 >: E](effect: ZIO[R1, E1, Any]): Middleware[R1, E1, AIn, BIn, AOut, BOut] =
     self.mapZIO(bOut => effect.as(bOut))
+
+  final def runBefore[R1 <: R, E1 >: E](effect: ZIO[R1, E1, Any]): Middleware[R1, E1, AIn, BIn, AOut, BOut] =
+    self.contramapZIO(b => effect.as(b))
 
   /**
    * Applies Middleware based only if the condition function evaluates to true
@@ -189,12 +208,12 @@ object Middleware extends HttpMiddlewares {
     self: Middleware[R, E, AIn, BIn, AOut, BOut],
   ): Http[R, E, AOut, BOut] =
     self match {
-      case Codec(decoder, encoder)       => http.contramapZIO(decoder(_)).mapZIO(encoder(_))
       case Identity                      => http.asInstanceOf[Http[R, E, AOut, BOut]]
       case Constant(http)                => http
       case OrElse(self, other)           => self.execute(http).orElse(other.execute(http))
       case Fail(error)                   => Http.fail(error)
       case Compose(self, other)          => other.execute(self.execute(http))
+      case Chain(self, other)            => self.execute(http) >>> other.execute(http)
       case FlatMap(self, f)              => self.execute(http).flatMap(f(_).execute(http))
       case Race(self, other)             => self.execute(http) race other.execute(http)
       case Intercept(incoming, outgoing) =>
@@ -237,7 +256,9 @@ object Middleware extends HttpMiddlewares {
       decoder: AOut => Either[E, AIn],
       encoder: BIn => Either[E, BOut],
     ): Middleware[Any, E, AIn, BIn, AOut, BOut] =
-      Codec(a => ZIO.fromEither(decoder(a)), b => ZIO.fromEither(encoder(b)))
+      Middleware.identity
+        .mapZIO((b: BIn) => ZIO.fromEither(encoder(b)))
+        .contramapZIO[Any, E, AOut](a => ZIO.fromEither(decoder(a)))
   }
 
   final class PartialIfThenElse[AOut](val unit: Unit) extends AnyVal {
@@ -265,7 +286,7 @@ object Middleware extends HttpMiddlewares {
       decoder: AOut => ZIO[R, E, AIn],
       encoder: BIn => ZIO[R, E, BOut],
     ): Middleware[R, E, AIn, BIn, AOut, BOut] =
-      Codec(decoder(_), encoder(_))
+      Middleware.identity.mapZIO(encoder).contramapZIO(decoder)
   }
 
   private final case class Fail[E](error: E) extends Middleware[Any, E, Nothing, Any, Any, Nothing]
@@ -274,11 +295,6 @@ object Middleware extends HttpMiddlewares {
     self: Middleware[R, E0, AIn, BIn, AOut, BOut],
     other: Middleware[R, E1, AIn, BIn, AOut, BOut],
   ) extends Middleware[R, E1, AIn, BIn, AOut, BOut]
-
-  private final case class Codec[R, E, AIn, BIn, AOut, BOut](
-    decoder: AOut => ZIO[R, E, AIn],
-    encoder: BIn => ZIO[R, E, BOut],
-  ) extends Middleware[R, E, AIn, BIn, AOut, BOut]
 
   private final case class Constant[R, E, AOut, BOut](http: Http[R, E, AOut, BOut])
       extends Middleware[R, E, Nothing, Any, AOut, BOut]
@@ -302,6 +318,11 @@ object Middleware extends HttpMiddlewares {
     self: Middleware[R, E, AIn, BIn, AOut, BOut],
     other: Middleware[R, E, AIn, BIn, AOut, BOut],
   ) extends Middleware[R, E, AIn, BIn, AOut, BOut]
+
+  private final case class Chain[R, E, AIn, BIn, AOut, BOut, COut](
+    self: Middleware[R, E, AIn, BIn, AOut, BOut],
+    other: Middleware[R, E, AIn, BIn, BOut, COut],
+  ) extends Middleware[R, E, AIn, BIn, AOut, COut]
 
   private case object Identity extends Middleware[Any, Nothing, Nothing, Any, Any, Nothing]
 }

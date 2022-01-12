@@ -56,6 +56,16 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
         val app = Http.succeed(1) @@ mid
         assertM(app(()) *> TestConsole.output)(equalTo(Vector("A\n")))
       } +
+      testM("runBefore") {
+        val mid = Middleware.succeed(1).runBefore(console.putStrLn("A"))
+        val app = Http.succeed(1) @@ mid
+        assertM(app(()) *> TestConsole.output)(equalTo(Vector("A\n")))
+      } +
+      testM("runBefore and runAfter") {
+        val mid = Middleware.succeed(1).runAfter(console.putStrLn("B")).runBefore(console.putStrLn("A"))
+        val app = Http.succeed(1) @@ mid
+        assertM(app(()) *> TestConsole.output)(equalTo(Vector("A\n", "B\n")))
+      } +
       testM("race") {
         val mid = Middleware.succeed('A').delay(2 second) race Middleware.succeed("B").delay(1 second)
         val app = Http.succeed(1) @@ mid
