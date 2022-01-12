@@ -277,7 +277,7 @@ trait HeaderGetters[+A] { self =>
     getHeaderValue(HeaderNames.setCookie)
 
   final def getSetCookiesDecoded: List[Cookie] =
-    getHeaderValues(HeaderNames.cookie)
+    getHeaderValues(HeaderNames.setCookie)
       .map(Cookie.decodeResponseCookie)
       .collect { case Some(cookie) => cookie }
 
