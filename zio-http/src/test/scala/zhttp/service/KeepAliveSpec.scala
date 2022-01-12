@@ -7,11 +7,11 @@ import zhttp.service.server._
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.assertM
 
-object ServerConfigSpec extends HttpRunnableSpec {
+object KeepAliveSpec extends HttpRunnableSpec {
 
   val app                   = Http.empty
-  val connectionCloseHeader = Headers(HttpHeaderNames.CONNECTION.toString, HttpHeaderValues.CLOSE.toString)
-  val keepAliveHeader       = Headers(HttpHeaderNames.CONNECTION.toString, HttpHeaderValues.KEEP_ALIVE.toString)
+  val connectionCloseHeader = Headers(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE)
+  val keepAliveHeader       = Headers(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
 
   def keepAliveSpec = suite("KeepAlive") {
     suite("Http 1.1") {
