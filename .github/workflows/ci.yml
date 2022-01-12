@@ -230,7 +230,7 @@ jobs:
 
   runBenchMarks:
     name: Benchmarks
-    if: ${{ github.event_name == 'pull_request'}}
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
     strategy:
       matrix:
         os: [centos]

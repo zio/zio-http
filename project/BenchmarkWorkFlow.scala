@@ -7,7 +7,9 @@ object BenchmarkWorkFlow {
       id = "runBenchMarks",
       name = "Benchmarks",
       oses = List("centos"),
-      cond = Some("${{ github.event_name == 'pull_request'}}"),
+      cond = Some(
+        "${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}",
+      ),
       steps = List(
         WorkflowStep.Run(
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
