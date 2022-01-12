@@ -25,13 +25,12 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     other: Middleware[R1, E1, A0, B0, A1, B1],
   ): Middleware[R1, E1, AIn, BIn, A1, B1] = self compose other
 
+  /**
+   * Pipes the output of one middleware into the other
+   */
   final def >>>[R1 <: R, E1 >: E, A1 >: AIn, B1 <: BIn, COut](
     other: Middleware[R1, E1, A1, B1, BOut, COut],
   ): Middleware[R1, E1, A1, B1, AOut, COut] = self andThen other
-
-  final def andThen[R1 <: R, E1 >: E, A1 >: AIn, B1 <: BIn, COut](
-    other: Middleware[R1, E1, A1, B1, BOut, COut],
-  ): Middleware[R1, E1, A1, B1, AOut, COut] = Middleware.Chain(self, other)
 
   /**
    * Combines two middleware that don't modify the input and output types.
@@ -45,6 +44,13 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    * Applies middleware on Http and returns new Http.
    */
   final def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] = execute(http)
+
+  /**
+   * Pipes the output of one middleware into the other
+   */
+  final def andThen[R1 <: R, E1 >: E, A1 >: AIn, B1 <: BIn, COut](
+    other: Middleware[R1, E1, A1, B1, BOut, COut],
+  ): Middleware[R1, E1, A1, B1, AOut, COut] = Middleware.Chain(self, other)
 
   /**
    * Combines two middleware into one.
@@ -61,6 +67,15 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     other: Middleware[R1, E1, A0, B0, A1, B1],
   ): Middleware[R1, E1, AIn, BIn, A1, B1] = Middleware.Compose(self, other)
 
+  /**
+   * Transforms the outer input of the resulting Middleware using specified function
+   */
+  def contramap[X <: AOut, AOut0 <: AOut](f: X => AOut0): Middleware[R, E, AIn, BIn, X, BOut] =
+    self.flatMap(b => Middleware.fromHttp(Http.fromFunction(f).as(b)))
+
+  /**
+   * Transforms the outer input of the resulting Middleware using specified effectful function
+   */
   final def contramapZIO[R1 <: R, E1 >: E, X](
     f: X => ZIO[R1, E1, AOut],
   ): Middleware[R1, E1, AIn, BIn, X, BOut] =
@@ -93,9 +108,6 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    */
   final def map[BOut0](f: BOut => BOut0): Middleware[R, E, AIn, BIn, AOut, BOut0] =
     self.flatMap(b => Middleware.succeed(f(b)))
-
-  def contramap[X <: AOut, AOut0 <: AOut](f: X => AOut0): Middleware[R, E, AIn, BIn, X, BOut] =
-    self.flatMap(b => Middleware.fromHttp(Http.fromFunction(f).as(b)))
 
   /**
    * Transforms the output type of the current middleware using effect function.
@@ -256,9 +268,7 @@ object Middleware extends HttpMiddlewares {
       decoder: AOut => Either[E, AIn],
       encoder: BIn => Either[E, BOut],
     ): Middleware[Any, E, AIn, BIn, AOut, BOut] =
-      Middleware.identity
-        .mapZIO((b: BIn) => ZIO.fromEither(encoder(b)))
-        .contramapZIO[Any, E, AOut](a => ZIO.fromEither(decoder(a)))
+      Middleware.identity.mapZIO((b: BIn) => ZIO.fromEither(encoder(b))).contramapZIO(a => ZIO.fromEither(decoder(a)))
   }
 
   final class PartialIfThenElse[AOut](val unit: Unit) extends AnyVal {
@@ -304,6 +314,11 @@ object Middleware extends HttpMiddlewares {
     outgoing: (B, S) => ZIO[R, Option[E], BOut],
   ) extends Middleware[R, E, A, B, A, BOut]
 
+  private final case class Chain[R, E, A0, B0, A1, B1, B2](
+    self: Middleware[R, E, A0, B0, A1, B1],
+    other: Middleware[R, E, A0, B0, B1, B2],
+  ) extends Middleware[R, E, A0, B0, A1, B2]
+
   private final case class Compose[R, E, A0, B0, A1, B1, A2, B2](
     self: Middleware[R, E, A0, B0, A1, B1],
     other: Middleware[R, E, A1, B1, A2, B2],
@@ -318,11 +333,6 @@ object Middleware extends HttpMiddlewares {
     self: Middleware[R, E, AIn, BIn, AOut, BOut],
     other: Middleware[R, E, AIn, BIn, AOut, BOut],
   ) extends Middleware[R, E, AIn, BIn, AOut, BOut]
-
-  private final case class Chain[R, E, AIn, BIn, AOut, BOut, COut](
-    self: Middleware[R, E, AIn, BIn, AOut, BOut],
-    other: Middleware[R, E, AIn, BIn, BOut, COut],
-  ) extends Middleware[R, E, AIn, BIn, AOut, COut]
 
   private case object Identity extends Middleware[Any, Nothing, Nothing, Any, Any, Nothing]
 }
