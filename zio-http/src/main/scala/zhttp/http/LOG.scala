@@ -8,7 +8,6 @@ final case class LogConfig(
 )
 final case class LogContentConfig(
   logHeaders: Boolean,
-  logBody: Boolean,
   filterHeaders: Headers => Headers,
 )
 
@@ -19,7 +18,6 @@ object LOG {
   val DefaultLogContentConfig =
     LogContentConfig(
       logHeaders = true,
-      logBody = false,
       filterHeaders = identity,
     )
 
@@ -29,4 +27,10 @@ object LOG {
     logRequestConfig = DefaultLogContentConfig,
     logResponseConfig = DefaultLogContentConfig,
   )
+}
+
+sealed trait LogLevel
+object LogLevel {
+  case object Error extends LogLevel
+  case object Info  extends LogLevel
 }

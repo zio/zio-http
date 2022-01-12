@@ -5,6 +5,7 @@ import zhttp.http.CORS.DefaultCORSConfig
 import zhttp.http.Headers.BasicSchemeName
 import zhttp.http.LOG.DefaultLogConfig
 import zhttp.http.Middleware.{Flag, RequestP}
+import zhttp.service.server.ServerTimeGenerator
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
@@ -238,12 +239,6 @@ object Middleware {
         } yield Patch.empty
     }
 
-  sealed trait LogLevel
-  object LogLevel {
-    case object Error extends LogLevel
-    case object Info  extends LogLevel
-  }
-
   /**
    * Provides a logging middleware
    */
@@ -252,42 +247,72 @@ object Middleware {
     logConfig: LogConfig = DefaultLogConfig,
   ): Middleware[R with Clock, E] = {
 
-    def logRequest[R, E](
+    val serverTime = ServerTimeGenerator.make
+
+    def logRequest[R0, E0](
       method: Method,
       url: URL,
       headers: Headers,
       nanoTime: Long,
       logConfig: LogConfig,
-    ): ZIO[R with Clock, Option[E], (Long, LogStep)] = {
+    ): ZIO[R0 with Clock, Option[E0], (Long, LogStep)] = {
       ZIO.succeed {
         (
           nanoTime,
           LogStep(
             lines = List(
-              s"Url: ${url.toString}",
-              s"Method: ${method.toString()}",
-              ???,
-            ),
+              "Request: \n",
+              s"Url: ${url.asString}\n",
+              s"Method: ${method.toString()}\n",
+              "Headers: \n",
+            ) ++ (if (logConfig.logRequestConfig.logHeaders)
+                    stringifyHeaders(logHeaders(headers, logConfig.logRequestConfig.filterHeaders))
+                  else List.empty) ++
+              List("\n"),
           ),
         )
       }
     }
 
-    def logResponse[R, E](
-      logger: String => ZIO[R, E, Unit],
+    def logHeaders(headers: Headers, filter: Headers => Headers): Headers = headers.updateHeaders(filter)
+    def stringifyHeaders(headers: Headers): List[String]                  = headers.toList.map { case (name, value) =>
+      s"  $name = $value \n"
+    }
+
+    def logResponse[R0, E0](
+      logger: (String, LogLevel) => ZIO[R0, E0, Unit],
       status: Status,
+      responseHeaders: Headers,
       logStep: LogStep,
       startNanoTime: Long,
       endNanoTime: Long,
-      logConfig: LogConfig,
-    ): ZIO[R with Clock, Option[E], Patch] = ???
+    ): ZIO[R0 with Clock, Option[E0], Patch] = {
+      val duration = endNanoTime - startNanoTime
+      val logData  =
+        logStep.copy(lines =
+          logStep.lines ++ List(
+            "Response: \n",
+            s" Status: ${status.toString} \n",
+            s" Duration: ${duration / 1000}ms\n",
+            " Headers: \n",
+          ) ++ (if (logConfig.logResponseConfig.logHeaders)
+                  stringifyHeaders(logHeaders(responseHeaders, logConfig.logResponseConfig.filterHeaders))
+                else List.empty) ++
+            List("\n"),
+        )
+      if (status.asJava.code() > 499) {
+        logger(logData.lines.mkString(" "), LogLevel.Error).mapBoth(e => Some(e), _ => Patch.empty)
+      } else {
+        logger(logData.lines.mkString(" "), LogLevel.Info).mapBoth(e => Some(e), _ => Patch.empty)
+      }
+    }
 
     Middleware.makeZIO((method, url, headers) =>
-      zio.clock.nanoTime.flatMap(start => logRequest(method, url, headers, start, logConfig)),
-    ) { case (status, _, (start, logStep)) =>
+      ZIO.succeed(serverTime.getLong).flatMap(start => logRequest(method, url, headers, start, logConfig)),
+    ) { case (status, headers, (start, logStep)) =>
       for {
-        end <- zio.clock.nanoTime
-        _   <- logResponse(logger, status, logStep, start, end, logConfig)
+        end <- ZIO.succeed(serverTime.getLong)
+        _   <- logResponse(logger, status, headers, logStep, start, end)
       } yield Patch.empty
     }
   }

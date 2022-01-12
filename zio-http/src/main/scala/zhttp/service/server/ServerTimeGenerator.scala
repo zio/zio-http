@@ -10,6 +10,8 @@ private[zhttp] final class ServerTimeGenerator(minDuration: Long) {
 
   def get: String = lastString
 
+  def getLong: Long = last
+
   def refreshAndGet(): String = {
     canUpdate()
     get
