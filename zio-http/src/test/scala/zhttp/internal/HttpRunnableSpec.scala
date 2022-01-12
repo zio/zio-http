@@ -41,11 +41,11 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       data = HttpData.fromString(content)
       response <- Client.request(
         Client.ClientParams(
-          method = method,
-          url = URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
-          getHeaders = headers,
-          data = data,
-          httpVersion = httpVersion,
+          httpVersion,
+          method,
+          URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
+          headers,
+          data,
         ),
         ClientSSLOptions.DefaultSSL,
       )

@@ -111,14 +111,14 @@ object Client {
     method: Method,
     url: URL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(method, url))
+    request(ClientParams(method = method, url = url))
 
   def request(
     method: Method,
     url: URL,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(method, url), sslOptions)
+    request(ClientParams(method = method, url = url), sslOptions)
 
   def request(
     method: Method,
@@ -126,7 +126,7 @@ object Client {
     headers: Headers,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(method, url, headers), sslOptions)
+    request(ClientParams(method = method, url = url, getHeaders = headers), sslOptions)
 
   def request(
     method: Method,
@@ -134,7 +134,7 @@ object Client {
     headers: Headers,
     content: HttpData,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(method, url, headers, content))
+    request(ClientParams(method = method, url = url, getHeaders = headers, data = content))
 
   def request(
     req: ClientParams,
@@ -148,12 +148,12 @@ object Client {
     make.flatMap(_.request(req, sslOptions))
 
   final case class ClientParams(
+    httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
     method: Method,
     url: URL,
     getHeaders: Headers = Headers.empty,
     data: HttpData = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
-    httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
   ) extends HeaderExtension[ClientParams] { self =>
 
     def getBodyAsString: Option[String] = data match {
