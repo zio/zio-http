@@ -176,21 +176,10 @@ object Cookie {
   sealed trait SameSite {
     def asString: String
   }
-
-  object SameSite {
-
-    case object Lax extends SameSite {
-      def asString = "Lax"
-    }
-
-    case object Strict extends SameSite {
-      def asString = "Strict"
-    }
-
-    case object None extends SameSite {
-      def asString = "None"
-    }
-
+  object SameSite       {
+    case object Lax    extends SameSite { def asString = "Lax"    }
+    case object Strict extends SameSite { def asString = "Strict" }
+    case object None   extends SameSite { def asString = "None"   }
   }
 
   /**
