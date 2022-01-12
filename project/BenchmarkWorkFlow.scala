@@ -35,7 +35,6 @@ object BenchmarkWorkFlow {
             "echo ${{GITHUB_REF#refs/heads/}}",
             "cp ./zio-http/example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala",
             "cd ./FrameworkBenchMarks",
-            "echo ${{github.event.pull_request.head.sha}}",
             """sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt""",
             "./tfb  --test zio-http | tee result || true",
             """RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+") || true""",
