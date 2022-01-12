@@ -255,16 +255,6 @@ object Middleware {
         (HeaderNames.setCookie, Cookie.decodeResponseCookie(h._2.toString).get.sign(secret).encode)
     }
 
-//      h => {
-//      Headers(
-//        h.toList.collect {
-//          case h if contentEqualsIgnoreCase(h._1, HeaderNames.setCookie) => {
-//            (HeaderNames.setCookie, Cookie.decodeResponseCookie(h._2.toString).get.sign(secret).encode)
-//          }
-//        },
-//      )
-//    })
-
   /**
    * Creates a new constants middleware that always executes the app provided, independent of where the middleware is
    * applied
