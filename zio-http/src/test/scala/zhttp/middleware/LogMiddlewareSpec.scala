@@ -33,7 +33,7 @@ object LogMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions 
           val program = runFail(app @@ logger) *> TestConsole.output
           assertM(program.map(_.mkString))(
             containsString(
-              "Request: \n Url: /plaintext\n Method: GET\n Headers: \n \n Response: \n  Status: OK \n  Duration: 0ms\n  Headers: ",
+              "Request: \n Url: /fail\n Method: GET\n Headers: \n \n Response: \n  Status: INTERNAL_ERROR \n  Duration: 0ms\n  Headers: ",
             ),
           )
         }
