@@ -1,11 +1,22 @@
 package example
 
 import zhttp.http._
-import zhttp.service.Server
+import zhttp.service.server.ServerChannelFactory
+import zhttp.service.{EventLoopGroup, Server}
 import zio._
 object SimpleServer extends App {
 
+  val app = Http.collectZIO[Request] {
+    case Method.GET -> !! / "get"       => ZIO(Response.ok)
+    case r @ Method.POST -> !! / "post" =>
+      for {
+        content <- r.getBodyAsString
+      } yield Response.text(content)
+  }
+
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(7777, Http.ok.silent).exitCode
+    (Server.app(app) ++ Server.keepAlive ++ Server.port(7777)).make.useForever
+      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(0))
+      .exitCode
 }

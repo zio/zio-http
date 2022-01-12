@@ -41,12 +41,16 @@ object BenchmarkWorkFlow {
             """RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+")""",
             "cd ../zio-http",
             "./example/src/main/resources/benchmark_runner.sh",
-            """NUM_REQUESTS_CLIENT=$(grep -Eo -i "number of requests: *[0-9]+" client_benchmark.log)""",
-            """REQUESTS_PER_SECONDS_CLIENT=$(grep -Eoi "requests/sec: *[0-9]+" client_benchmark.log)""",
+            """NUM_GET_REQUESTS_CLIENT=$(grep -Eo -i "number of GET requests: *[0-9]+" client_benchmark.log)""",
+            """NUM_POST_REQUESTS_CLIENT=$(grep -Eo -i "number of POST requests: *[0-9]+" client_benchmark.log)""",
+            """GET_REQUESTS_PER_SECONDS_CLIENT=$(grep -Eoi "GET requests/sec: *[0-9]+" client_benchmark.log)""",
+            """POST_REQUESTS_PER_SECONDS_CLIENT=$(grep -Eoi "POST requests/sec: *[0-9]+" client_benchmark.log)""",
             """echo ::set-output name=request_result::$(echo $RESULT_REQUEST)""",
             """echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)""",
-            """echo ::set-output name=requests_per_seconds_client::$(echo $REQUESTS_PER_SECONDS_CLIENT)""",
-            """echo ::set-output name=num_requests_client::$(echo $NUM_REQUESTS_CLIENT)""",
+            """echo ::set-output name=get_requests_per_seconds_client::$(echo $GET_REQUESTS_PER_SECONDS_CLIENT)""",
+            """echo ::set-output name=num_get_requests_client::$(echo $NUM_GET_REQUESTS_CLIENT)""",
+            """echo ::set-output name=post_requests_per_seconds_client::$(echo $POST_REQUESTS_PER_SECONDS_CLIENT)""",
+            """echo ::set-output name=num_post_requests_client::$(echo $NUM_POST_REQUESTS_CLIENT)""",
           ),
         ),
         WorkflowStep.Use(
@@ -62,8 +66,10 @@ object BenchmarkWorkFlow {
                 |${{steps.result.outputs.request_result}}
                 |
                 |## Client Benchmark
-                |${{steps.result.outputs.num_requests_client}}
-                |${{steps.result.outputs.requests_per_seconds_client}}
+                |${{steps.result.outputs.num_get_requests_client}}
+                |${{steps.result.outputs.get_requests_per_seconds_client}}
+                |${{steps.result.outputs.num_post_requests_client}}
+                |${{steps.result.outputs.post_requests_per_seconds_client}}
                 |""".stripMargin,
           ),
         ),
