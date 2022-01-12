@@ -14,19 +14,20 @@ function usage() {
 }
 
 function healthcheck() {
-    while [[ $(curl -sL -w "%{http_code}\\n" "http://localhost:${PORT}/get/" -o /dev/null) != "200" ]]; do
+    c=0
+    while [[ $(curl -sL -w "%{http_code}\\n" "http://localhost:${PORT}/get/" -o /dev/null) != "200" && $c -lt 10 ]]; do
+      ((c=$c + 1));
      sleep 2
     done
 }
 
 function main() {
-    sbt "${SUB_PROJECT}/runMain ${SERVER_CLASS}" >/dev/null &
+    sbt "${SUB_PROJECT}/runMain ${SERVER_CLASS}" >server.log &
     SERVER=$!
-    
     healthcheck $PORT
-    
-    sbt "${SUB_PROJECT}/runMain ${CLIENT_CLASS}" >client_benchmark.log
-    
+    if [[ $(curl -sL -w "%{http_code}\\n" "http://localhost:${PORT}/get/" -o /dev/null) = "200" ]]; then
+        sbt "${SUB_PROJECT}/runMain ${CLIENT_CLASS}" >client_benchmark.log
+    fi
     lsof -t -i :${PORT} | xargs kill -9
 }
 
