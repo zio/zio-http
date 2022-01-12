@@ -1,6 +1,7 @@
 package zhttp.internal
 
 import io.netty.handler.codec.http.HttpVersion
+import io.netty.handler.codec.http.HttpVersion._
 import sttp.client3.asynchttpclient.zio.{SttpClient, send}
 import sttp.client3.{Response => SResponse, UriContext, asWebSocketUnsafe, basicRequest}
 import sttp.model.{Header => SHeader}
@@ -29,11 +30,11 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     } yield ()
 
   def request(
+    httpVersion: HttpVersion = HTTP_1_1,
     path: Path = !!,
     method: Method = Method.GET,
     content: String = "",
     headers: Headers = Headers.empty,
-    httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
   ): HttpIO[Any, Client.ClientResponse] = {
     for {
       port <- DynamicServer.getPort
@@ -81,39 +82,42 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     def deploy: ZIO[DynamicServer, Nothing, String] = DynamicServer.deploy(app)
 
     def request(
+      httpVersion: HttpVersion = HTTP_1_1,
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
       headers: Headers = Headers.empty,
-      httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
     ): HttpIO[Any, Client.ClientResponse] = for {
       id       <- deploy
-      response <- self.request(path, method, content, Headers(DynamicServer.APP_ID, id) ++ headers, httpVersion)
+      response <- self.request(httpVersion, path, method, content, Headers(DynamicServer.APP_ID, id) ++ headers)
     } yield response
 
     def requestBodyAsString(
+      httpVersion: HttpVersion = HTTP_1_1,
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
       headers: Headers = Headers.empty,
     ): HttpIO[Any, String] =
-      request(path, method, content, headers).flatMap(_.getBodyAsString)
+      request(httpVersion, path, method, content, headers).flatMap(_.getBodyAsString)
 
     def requestHeaderValueByName(
+      httpVersion: HttpVersion = HTTP_1_1,
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
       headers: Headers = Headers.empty,
     )(name: CharSequence): HttpIO[Any, Option[String]] =
-      request(path, method, content, headers).map(_.getHeaderValue(name))
+      request(httpVersion, path, method, content, headers).map(_.getHeaderValue(name))
 
     def requestStatus(
+      httpVersion: HttpVersion = HTTP_1_1,
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
       headers: Headers = Headers.empty,
     ): HttpIO[Any, Status] =
-      request(path, method, content, headers).map(_.status)
+      request(httpVersion, path, method, content, headers).map(_.status)
 
     def webSocketStatusCode(
       path: Path = !!,
@@ -124,20 +128,22 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     } yield res.code.code
 
     def requestBody(
+      httpVersion: HttpVersion = HTTP_1_1,
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
       headers: Headers = Headers.empty,
     ): HttpIO[Any, Chunk[Byte]] =
-      request(path, method, content, headers).flatMap(_.getBody)
+      request(httpVersion, path, method, content, headers).flatMap(_.getBody)
 
     def requestContentLength(
+      httpVersion: HttpVersion = HTTP_1_1,
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
       headers: Headers = Headers.empty,
     ): HttpIO[Any, Option[Long]] =
-      request(path, method, content, headers).map(_.getContentLength)
+      request(httpVersion, path, method, content, headers).map(_.getContentLength)
   }
 }
 

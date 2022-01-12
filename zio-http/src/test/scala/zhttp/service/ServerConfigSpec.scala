@@ -1,7 +1,7 @@
 package zhttp.service
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues, HttpVersion}
-import zhttp.http.{!!, Headers, Http, Method}
+import zhttp.http.{Headers, Http}
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.test.Assertion.{equalTo, isNone, isSome}
@@ -16,24 +16,24 @@ object ServerConfigSpec extends HttpRunnableSpec {
   def keepAliveSpec = suite("KeepAlive") {
     suite("Http 1.1") {
       testM("without connection close") {
-        val res = app.request().map(_.getHeaderValue("Connection"))
+        val res = app.requestHeaderValueByName()(HttpHeaderNames.CONNECTION)
         assertM(res)(isNone)
       } +
         testM("with connection close") {
-          val res = app.request(!!, Method.GET, "", connectionCloseHeader).map(_.getHeaderValue("Connection"))
+          val res = app.requestHeaderValueByName(headers = connectionCloseHeader)(HttpHeaderNames.CONNECTION)
           assertM(res)(isSome(equalTo("close")))
         }
     } +
       suite("Http 1.0") {
         testM("without keep-alive") {
-          val res =
-            app.request(!!, Method.GET, "", Headers.empty, HttpVersion.HTTP_1_0).map(_.getHeaderValue("Connection"))
+          val res = app.requestHeaderValueByName(httpVersion = HttpVersion.HTTP_1_0)(HttpHeaderNames.CONNECTION)
           assertM(res)(isSome(equalTo("close")))
         } +
           testM("with keep-alive") {
-            val res = app
-              .request(!!, Method.GET, "", keepAliveHeader, HttpVersion.HTTP_1_0)
-              .map(_.getHeaderValue("Connection"))
+            val res =
+              app.requestHeaderValueByName(httpVersion = HttpVersion.HTTP_1_0, headers = keepAliveHeader)(
+                HttpHeaderNames.CONNECTION,
+              )
             assertM(res)(isNone)
           }
       }
