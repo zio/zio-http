@@ -22,7 +22,7 @@ function healthcheck() {
 }
 
 function main() {
-    sbt "${SUB_PROJECT}/runMain ${SERVER_CLASS}" >server.log &
+    sbt "${SUB_PROJECT}/runMain ${SERVER_CLASS}" >/dev/null &
     SERVER=$!
     healthcheck $PORT
     if [[ $(curl -sL -w "%{http_code}\\n" "http://localhost:${PORT}/get/" -o /dev/null) = "200" ]]; then
