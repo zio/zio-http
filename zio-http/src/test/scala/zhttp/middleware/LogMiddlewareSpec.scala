@@ -44,7 +44,7 @@ object LogMiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions 
     case Method.GET -> !! / "plaintext" =>
       ZIO.succeed(Response.ok).delay(10 seconds)
     case Method.GET -> !! / "fail"      =>
-      ZIO.fail(new RuntimeException("Error")).delay(10 seconds)
+      ZIO.fail(new RuntimeException("Error"))
   }
 
   private def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response] = {
