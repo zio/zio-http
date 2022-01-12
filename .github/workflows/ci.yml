@@ -257,6 +257,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
+          echo ${{GITHUB_REF#refs/heads/}}
           cp ./zio-http/example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
           cd ./FrameworkBenchMarks
           echo ${{github.event.pull_request.head.sha}}
@@ -267,8 +268,7 @@ jobs:
           echo ::set-output name=request_result::$(echo $RESULT_REQUEST) || true
           echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY) || true
 
-      - if: ${{ always() }}
-        uses: peter-evans/commit-comment@v1
+      - uses: peter-evans/commit-comment@v1
         with:
           sha: ${{github.event.pull_request.head.sha}}
           body: |

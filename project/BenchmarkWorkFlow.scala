@@ -32,6 +32,7 @@ object BenchmarkWorkFlow {
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
           id = Some("result"),
           commands = List(
+            "echo ${{GITHUB_REF#refs/heads/}}",
             "cp ./zio-http/example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala",
             "cd ./FrameworkBenchMarks",
             "echo ${{github.event.pull_request.head.sha}}",
@@ -45,7 +46,6 @@ object BenchmarkWorkFlow {
         ),
         WorkflowStep.Use(
           ref = UseRef.Public("peter-evans", "commit-comment", "v1"),
-          cond = Some("${{ always() }}"),
           params = Map(
             "sha"  -> "${{github.event.pull_request.head.sha}}",
             "body" ->
