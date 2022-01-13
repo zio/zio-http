@@ -38,7 +38,7 @@ import zhttp.http._
 val a = Http.collect[Request] { case Method.GET -> Root / "a"  => Response.ok }
 val b = Http.collect[Request] { case Method.GET -> Root / "b"  => Response.ok }
 
-val app = a <> b
+val app = a ++ b
 ```
 
 Apps can be composed using the `<>` operator. The way it works is, if none of the routes match in `a` , or a `NotFound` error is thrown from `a`, and then the control is passed on to the `b` app.
