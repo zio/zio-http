@@ -2,7 +2,6 @@ package example
 import zhttp.http.{Headers, URL}
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
-import zio.console.putStrLn
 import zio.stream.ZStream
 import zio.{ExitCode, URIO, ZIO}
 
@@ -18,14 +17,15 @@ object WebSocketClient extends zio.App {
 
   private val ss = SocketApp(socket)
     .onOpen(open)
-    .onClose(con => putStrLn(s"Closing connection: ${con}").orDie)
-    .onError(con => putStrLn(s"Error: ${con}").orDie)
+    .onClose(_ => ZIO.unit)
+    .onError(thr => ZIO.die(thr))
+    .onTimeout(zio.console.putStrLn("Timed out").orDie)
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = ZIO
-    .fromEither(URL.fromString(url))
-    .flatMap(url => Client.socket(url = url, Headers.empty, app = ss))
-    .flatMap(queue => ZStream.fromQueue(queue).runCollect)
-    .flatMap(chunk => putStrLn(chunk.toList.toString))
-    .exitCode
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+    for {
+      url <- ZIO.fromEither(URL.fromString(url))
+      _   <- Client.socket(url, Headers.empty, ss)
+    } yield ()
+  }.exitCode
     .provideCustomLayer(env)
 }

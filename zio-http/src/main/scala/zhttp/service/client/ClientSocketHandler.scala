@@ -6,15 +6,15 @@ import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame
 import zhttp.service.{ChannelFuture, HttpRuntime}
 import zhttp.socket.SocketApp.Handle
 import zhttp.socket.{SocketApp, WebSocketFrame}
-import zio.Queue
 
-// TODO Remove duplication carried from ServerSocketHandler
-case class ClientSocketHandler[R](zExec: HttpRuntime[R], ss: SocketApp[R], queue: Queue[WebSocketFrame])
-    extends SimpleChannelInboundHandler[JWebSocketFrame] {
+final case class ClientSocketHandler[R](
+  zExec: HttpRuntime[R],
+  ss: SocketApp[R],
+) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
   override def channelUnregistered(ctx: ChannelHandlerContext): Unit = {
     ss.close match {
-      case Some(v) => zExec.unsafeRun(ctx)((v(ctx.channel().remoteAddress()) *> queue.shutdown).uninterruptible)
+      case Some(v) => zExec.unsafeRun(ctx)(v(ctx.channel().remoteAddress()).uninterruptible)
       case None    => ctx.fireChannelUnregistered()
     }
     ()
@@ -23,7 +23,7 @@ case class ClientSocketHandler[R](zExec: HttpRuntime[R], ss: SocketApp[R], queue
   override def userEventTriggered(ctx: ChannelHandlerContext, event: AnyRef): Unit = {
     import ClientHandshakeStateEvent._
 
-    event.asInstanceOf[ClientHandshakeStateEvent] match {
+    event match {
       case HANDSHAKE_COMPLETE =>
         ss.open match {
           case Some(v) =>
@@ -36,10 +36,14 @@ case class ClientSocketHandler[R](zExec: HttpRuntime[R], ss: SocketApp[R], queue
                     .runDrain,
                 )
             }
-          case None    =>
-            ctx.fireUserEventTriggered(event): Unit
+          case None    => ctx.fireUserEventTriggered(event): Unit
         }
-      case _                  => ()
+      case HANDSHAKE_TIMEOUT  =>
+        ss.timeout match {
+          case Some(v) => zExec.unsafeRun(ctx)(v)
+          case None    => ctx.fireUserEventTriggered(event): Unit
+        }
+      case _                  => ctx.fireUserEventTriggered(event): Unit
     }
   }
 
@@ -50,10 +54,9 @@ case class ClientSocketHandler[R](zExec: HttpRuntime[R], ss: SocketApp[R], queue
           case Some(frame) => {
             zExec
               .unsafeRun(ctx)(
-                queue.offer(frame) *>
-                  v(frame)
-                    .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toWebSocketFrame)))
-                    .runDrain,
+                v(frame)
+                  .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toWebSocketFrame)))
+                  .runDrain,
               )
 
           }
@@ -61,5 +64,13 @@ case class ClientSocketHandler[R](zExec: HttpRuntime[R], ss: SocketApp[R], queue
         }
       case None    => ()
     }
+  }
+
+  override def exceptionCaught(ctx: ChannelHandlerContext, x: Throwable): Unit = {
+    ss.error match {
+      case Some(v) => zExec.unsafeRun(ctx)(v(x).uninterruptible)
+      case None    => ctx.fireExceptionCaught(x)
+    }
+    ()
   }
 }

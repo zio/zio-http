@@ -4,8 +4,8 @@ import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.{
   Channel,
-  ChannelHandlerContext,
   ChannelFactory => JChannelFactory,
+  ChannelHandlerContext,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http.HttpVersion
@@ -17,8 +17,8 @@ import zhttp.service
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler, ClientSocketHandler}
-import zhttp.socket.{SocketApp, WebSocketFrame}
-import zio.{Chunk, Promise, Queue, Task, ZIO}
+import zhttp.socket.SocketApp
+import zio.{Chunk, Promise, Task, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -38,11 +38,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     url: URL,
     headers: Headers = Headers.empty,
     app: SocketApp[R],
-  ): ZIO[Any, Throwable, Queue[WebSocketFrame]] = for {
-    // TODO is queue even the right data structure to use here, if so don't think thhe capacity should be hard set
-    queue <- Queue.bounded[WebSocketFrame](100)
-    _     <- Task(asyncSocket(url, headers, app, queue))
-  } yield queue
+  ): Task[Unit] = Task(asyncSocket(url, headers, app))
 
   private def asyncRequest(
     req: ClientRequest,
@@ -79,9 +75,8 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     url: URL,
     headers: Headers,
     ss: SocketApp[R],
-    queue: Queue[WebSocketFrame],
   ): Unit = {
-    val hand   = ClientSocketHandler(rtm, ss, queue)
+    val hand   = ClientSocketHandler(rtm, ss)
     val host   = url.host
     val port   = url.port.fold(80)(identity)
     val scheme = url.kind match {
@@ -192,7 +187,7 @@ object Client {
     url: String,
     headers: Headers = Headers.empty,
     app: SocketApp[R],
-  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Queue[WebSocketFrame]] = for {
+  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Unit] = for {
     url      <- ZIO.fromEither(URL.fromString(url))
     response <- socket(url, headers, app)
   } yield response
@@ -201,7 +196,7 @@ object Client {
     url: URL,
     headers: Headers,
     app: SocketApp[R],
-  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Queue[WebSocketFrame]] =
+  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Unit] =
     make[R].flatMap(_.socket(url, headers, app))
 
   final case class ClientRequest(
