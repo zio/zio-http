@@ -14,7 +14,7 @@ object StatusSpec extends DefaultRunnableSpec {
 
   def toResponseSpec =
     suite("toResponse")(
-      testM("status") {
+      test("status") {
         checkAll(statusGen) { case status =>
           assert(status.toResponse.status)(equalTo(status))
         }
@@ -23,8 +23,8 @@ object StatusSpec extends DefaultRunnableSpec {
 
   def toAppSpec = {
     suite("toApp")(
-      testM("status") {
-        checkAllM(statusGen) { case status =>
+      test("status") {
+        checkAll(statusGen) { case status =>
           val res = status.toApp(Request())
           assertM(res.map(_.status))(equalTo(status))
         }

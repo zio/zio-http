@@ -2,7 +2,7 @@ package zhttp.socket
 
 import zhttp.http.Response
 import zio.stream.ZStream
-import zio.{Cause, NeedsEnv, ZIO}
+import zio.{Cause, NeedsEnv, ZEnvironment, ZIO}
 
 sealed trait Socket[-R, +E, -A, +B] { self =>
   import Socket._
@@ -10,17 +10,17 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
     self orElse other
 
   def apply(a: A): ZStream[R, E, B] = self match {
-    case End                         => ZStream.halt(Cause.empty)
+    case End                         => ZStream.failCause(Cause.empty)
     case FromStreamingFunction(func) => func(a)
     case FromStream(s)               => s
     case FMap(m, bc)                 => m(a).map(bc)
-    case FMapZIO(m, bc)              => m(a).mapM(bc)
+    case FMapZIO(m, bc)              => m(a).mapZIO(bc)
     case FCMap(m, xa)                => m(xa(a))
-    case FCMapZIO(m, xa)             => ZStream.fromEffect(xa(a)).flatMap(a => m(a))
+    case FCMapZIO(m, xa)             => ZStream.fromZIO(xa(a)).flatMap(a => m(a))
     case FOrElse(sa, sb)             => sa(a) <> sb(a)
     case FMerge(sa, sb)              => sa(a) merge sb(a)
     case Succeed(a)                  => ZStream.succeed(a)
-    case Provide(s, r)               => s(a).asInstanceOf[ZStream[R, E, B]].provide(r.asInstanceOf[R])
+    case Provide(s, r) => s(a).asInstanceOf[ZStream[R, E, B]].provideEnvironment(r.asInstanceOf[ZEnvironment[R]])
   }
 
   def contramap[Z](za: Z => A): Socket[R, E, Z, B] = Socket.FCMap(self, za)
@@ -41,7 +41,7 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
    * Provides the socket with its required environment, which eliminates its dependency on R. This operation assumes
    * that your socket requires an environment.
    */
-  def provide(r: R)(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = Provide(self, r)
+  def provideEnvironment(r: ZEnvironment[R])(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = Provide(self, r)
 
   /**
    * Creates a response from the socket.
@@ -59,7 +59,7 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
 object Socket {
   def collect[A]: MkCollect[A] = new MkCollect[A](())
 
-  def end: ZStream[Any, Nothing, Nothing] = ZStream.halt(Cause.empty)
+  def end: ZStream[Any, Nothing, Nothing] = ZStream.failCause(Cause.empty)
 
   def fromFunction[A]: MkFromFunction[A] = new MkFromFunction[A](())
 
@@ -99,7 +99,7 @@ object Socket {
 
   private final case class FMerge[R, E, A, B](a: Socket[R, E, A, B], b: Socket[R, E, A, B]) extends Socket[R, E, A, B]
 
-  private final case class Provide[R, E, A, B](s: Socket[R, E, A, B], r: R) extends Socket[Any, E, A, B]
+  private final case class Provide[R, E, A, B](s: Socket[R, E, A, B], r: ZEnvironment[R]) extends Socket[Any, E, A, B]
 
   private case object End extends Socket[Any, Nothing, Any, Nothing]
 }

@@ -26,7 +26,7 @@ final case class ServerSocketHandler[R](
   private def writeAndFlush(ctx: ChannelHandlerContext, stream: ZStream[R, Throwable, WebSocketFrame]): Unit =
     zExec.unsafeRun(ctx)(
       stream
-        .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toWebSocketFrame)))
+        .mapZIO(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toWebSocketFrame)))
         .runDrain,
     )
 

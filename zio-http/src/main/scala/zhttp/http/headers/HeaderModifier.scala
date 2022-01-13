@@ -1,7 +1,8 @@
 package zhttp.http.headers
 
 import zhttp.http.{Cookie, Header, Headers, Method}
-import zio.duration.Duration
+
+import java.time.Duration
 
 /**
  * Maintains a list of operators that modify the current Headers. Once modified, a new instance of the same type is

@@ -3,7 +3,8 @@ package example
 import zhttp.http._
 import zhttp.service.Server
 import zio._
-object HelloWorld extends App {
+
+object HelloWorld extends ZIOAppDefault {
 
   // Create HTTP route
   val app: HttpApp[Any, Nothing] = Http.collect[Request] {
@@ -12,6 +13,6 @@ object HelloWorld extends App {
   }
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app.silent).exitCode
+  override val run =
+    Server.start(8090, app.silent)
 }

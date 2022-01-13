@@ -15,7 +15,7 @@ final class ChannelFuture[A] private (jFuture: Future[A]) {
   def execute: Task[Option[A]] = {
     var handler: GenericFutureListener[Future[A]] = { _ => {} }
     ZIO
-      .effectAsync[Any, Throwable, Option[A]](cb => {
+      .async[Any, Throwable, Option[A]](cb => {
         handler = _ => {
           jFuture.cause() match {
             case null                     => cb(Task(Option(jFuture.get)))
@@ -29,7 +29,7 @@ final class ChannelFuture[A] private (jFuture: Future[A]) {
   }
 
   def toManaged: ZManaged[Any, Throwable, Option[A]] = {
-    execute.toManaged(_ => cancel(true))
+    execute.toManagedWith(_ => cancel(true))
   }
 
   // Cancels the future
@@ -41,5 +41,5 @@ object ChannelFuture {
 
   def unit[A](jFuture: => Future[A]): Task[Unit] = make(jFuture).flatMap(_.execute.unit)
 
-  def asManaged[A](jFuture: => Future[A]): TaskManaged[Unit] = make(jFuture).toManaged_.flatMap(_.toManaged.unit)
+  def asManaged[A](jFuture: => Future[A]): TaskManaged[Unit] = make(jFuture).toManaged.flatMap(_.toManaged.unit)
 }

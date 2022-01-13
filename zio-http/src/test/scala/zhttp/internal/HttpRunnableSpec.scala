@@ -1,17 +1,17 @@
 package zhttp.internal
 
-import sttp.client3.asynchttpclient.zio.{SttpClient, send}
-import sttp.client3.{Response => SResponse, UriContext, asWebSocketUnsafe, basicRequest}
-import sttp.model.{Header => SHeader}
-import sttp.ws.WebSocket
+// import sttp.client3.asynchttpclient.zio.{SttpClient, send}
+// import sttp.client3.{Response => SResponse, UriContext, asWebSocketUnsafe, basicRequest}
+// import sttp.model.{Header => SHeader}
+// import sttp.ws.WebSocket
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.DynamicServer.HttpEnv
 import zhttp.internal.HttpRunnableSpec.HttpIO
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zio._
 import zio.test.DefaultRunnableSpec
-import zio.{Chunk, Has, Task, ZIO, ZManaged}
 
 /**
  * Should be used only when e2e tests needs to be written which is typically for logic that is part of the netty based
@@ -19,12 +19,12 @@ import zio.{Chunk, Has, Task, ZIO, ZManaged}
  * actual Http server and makes requests.
  */
 abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
-  def serve[R <: Has[_]](
+  def serve[R](
     app: HttpApp[R, Throwable],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
     for {
       start <- Server.make(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection).orDie
-      _     <- DynamicServer.setStart(start).toManaged_
+      _     <- DynamicServer.setStart(start).toManaged
     } yield ()
 
   def request(
@@ -59,15 +59,18 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
   def webSocketRequest(
     path: Path = !!,
     headers: Headers = Headers.empty,
-  ): HttpIO[SttpClient, SResponse[Either[String, WebSocket[Task]]]] = {
-    // todo: uri should be created by using URL().asString but currently support for ws Scheme is missing
-    for {
-      port <- DynamicServer.getPort
-      url                       = s"ws://localhost:$port${path.asString}"
-      headerConv: List[SHeader] = headers.toList.map(h => SHeader(h._1, h._2))
-      res <- send(basicRequest.get(uri"$url").copy(headers = headerConv).response(asWebSocketUnsafe))
-    } yield res
-  }
+  ) = ???
+  // ): HttpIO[SttpClient, SResponse[Either[String, WebSocket[Task]]]] = {
+  //   import zhttp.Client
+
+  //   // todo: uri should be created by using URL().asString but currently support for ws Scheme is missing
+  //   for {
+  //     port <- DynamicServer.getPort
+  //     url                       = s"ws://localhost:$port${path.asString}"
+  //     headerConv: List[SHeader] = headers.toList.map(h => SHeader(h._1, h._2))
+  //     res <- send(basicRequest.get(uri"$url").copy(headers = headerConv).response(asWebSocketUnsafe))
+  //   } yield res
+  // }
 
   implicit class RunnableHttpAppSyntax(app: HttpApp[HttpEnv, Throwable]) {
     def deploy: ZIO[DynamicServer, Nothing, String] = DynamicServer.deploy(app)
@@ -109,10 +112,10 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     def webSocketStatusCode(
       path: Path = !!,
       headers: Headers = Headers.empty,
-    ): HttpIO[SttpClient, Int] = for {
+    ) = ??? /*: HttpIO[SttpClient, Int] = for {
       id  <- deploy
       res <- self.webSocketRequest(path, Headers(DynamicServer.APP_ID, id) ++ headers)
-    } yield res.code.code
+    } yield res.code.code*/
 
     def requestBody(
       path: Path = !!,

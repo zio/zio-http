@@ -2,8 +2,7 @@ package zhttp.service
 
 import io.netty.channel.{ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
 import io.netty.util.concurrent.{EventExecutor, Future}
-import zio.internal.Executor
-import zio.{Exit, Runtime, URIO, ZIO}
+import zio.{Executor, Exit, Runtime, URIO, ZIO}
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext => JExecutionContext}
@@ -18,10 +17,10 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
   def unsafeRun(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
     val rtm = strategy.getRuntime(ctx)
     rtm
-      .unsafeRunAsync(for {
+      .unsafeRunAsyncWith(for {
         fiber <- program.fork
-        _     <- ZIO.effect {
-          ctx.channel().closeFuture.addListener((_: Future[_ <: Void]) => rtm.unsafeRunAsync_(fiber.interrupt): Unit)
+        _     <- ZIO.attempt {
+          ctx.channel().closeFuture.addListener((_: Future[_ <: Void]) => rtm.unsafeRunAsync(fiber.interrupt): Unit)
         }
         _     <- fiber.join
       } yield ()) {
@@ -34,6 +33,21 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
           ctx.close()
       }
   }
+
+  def unsafeRunUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
+    val rtm = strategy.getRuntime(ctx)
+    rtm
+      .unsafeRunAsyncWith(program) {
+        case Exit.Success(_)     => ()
+        case Exit.Failure(cause) =>
+          cause.failureOption match {
+            case None    => ()
+            case Some(_) => System.err.println(cause.prettyPrint)
+          }
+          ctx.close()
+      }
+  }
+
 }
 
 object HttpRuntime {
@@ -48,8 +62,8 @@ object HttpRuntime {
     }
 
     case class Dedicated[R](runtime: Runtime[R], group: JEventLoopGroup) extends Strategy[R] {
-      private val localRuntime: Runtime[R] = runtime.withYieldOnStart(false).withExecutor {
-        Executor.fromExecutionContext(runtime.platform.executor.yieldOpCount) {
+      private val localRuntime: Runtime[R] = runtime.withExecutor {
+        Executor.fromExecutionContext(runtime.runtimeConfig.executor.yieldOpCount) {
           JExecutionContext.fromExecutor(group)
         }
       }
@@ -61,8 +75,8 @@ object HttpRuntime {
       private val localRuntime: mutable.Map[EventExecutor, Runtime[R]] = {
         val map = mutable.Map.empty[EventExecutor, Runtime[R]]
         for (exe <- group.asScala)
-          map += exe -> runtime.withYieldOnStart(false).withExecutor {
-            Executor.fromExecutionContext(runtime.platform.executor.yieldOpCount) {
+          map += exe -> runtime.withExecutor {
+            Executor.fromExecutionContext(runtime.runtimeConfig.executor.yieldOpCount) {
               JExecutionContext.fromExecutor(exe)
             }
           }

@@ -11,7 +11,7 @@ import java.io.InputStream
 import java.security.KeyStore
 import javax.net.ssl.TrustManagerFactory
 
-object HttpsClient extends App {
+object HttpsClient extends ZIOAppDefault {
   val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
   val url     = "https://sports.api.decathlon.com/groups/water-aerobics"
   val headers = List(Header.host("sports.api.decathlon.com"))
@@ -41,8 +41,8 @@ object HttpsClient extends App {
     }
   } yield ()
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] 
-    = program.exitCode.provideCustomLayer(env)
+  override val run =
+    program.provideCustom(env)
 
 }
 ```

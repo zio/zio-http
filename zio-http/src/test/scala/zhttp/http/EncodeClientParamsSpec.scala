@@ -3,7 +3,7 @@ package zhttp.http
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpVersion}
 import zhttp.internal.HttpGen
 import zhttp.service.{Client, EncodeClientParams}
-import zio.random.Random
+import zio.Random
 import zio.test.Assertion._
 import zio.test._
 
@@ -23,31 +23,31 @@ object EncodeClientParamsSpec extends DefaultRunnableSpec with EncodeClientParam
   )
 
   def spec = suite("EncodeClientParams") {
-    testM("method") {
+    test("method") {
       check(anyClientParam) { params =>
         val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
         assert(req.method())(equalTo(params.method.asHttpMethod))
       }
     } +
-      testM("method on HttpData.File") {
+      test("method on HttpData.File") {
         check(HttpGen.clientParamsForFileHttpData()) { params =>
           val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
           assert(req.method())(equalTo(params.method.asHttpMethod))
         }
       } +
-      testM("uri") {
+      test("uri") {
         check(anyClientParam) { params =>
           val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
           assert(req.uri())(equalTo(params.url.asString))
         }
       } +
-      testM("uri on HttpData.File") {
+      test("uri on HttpData.File") {
         check(HttpGen.clientParamsForFileHttpData()) { params =>
           val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
           assert(req.uri())(equalTo(params.url.asString))
         }
       } +
-      testM("content-length") {
+      test("content-length") {
         check(clientParamWithFiniteData(5)) { params =>
           val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
           assert(req.headers().getInt(HttpHeaderNames.CONTENT_LENGTH).toLong)(equalTo(5L))

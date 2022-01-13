@@ -1,11 +1,9 @@
 package zhttp.http
 
 import zio._
-import zio.duration.durationInt
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
-import zio.test.environment.TestClock
 
 object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
   def spec = suite("Http")(
@@ -92,12 +90,12 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           },
       ) +
       suite("asEffect")(
-        testM("should resolve") {
+        test("should resolve") {
           val a      = Http.collect[Int] { case 1 => "A" }
           val actual = a.execute(1).toEffect
           assertM(actual)(equalTo("A"))
         } +
-          testM("should complete") {
+          test("should complete") {
             val a      = Http.collect[Int] { case 1 => "A" }
             val actual = a.execute(2).toEffect.either
             assertM(actual)(isLeft(isNone))
@@ -137,7 +135,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           },
       ) +
       suite("tap")(
-        testM("taps the successs") {
+        test("taps the successs") {
           for {
             r <- Ref.make(0)
             app = Http.succeed(1).tap(v => Http.fromEffect(r.set(v)))
@@ -147,7 +145,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         },
       ) +
       suite("tapM")(
-        testM("taps the successs") {
+        test("taps the successs") {
           for {
             r <- Ref.make(0)
             app = Http.succeed(1).tapZIO(r.set)
@@ -157,7 +155,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         },
       ) +
       suite("tapError")(
-        testM("taps the error") {
+        test("taps the error") {
           for {
             r <- Ref.make(0)
             app = Http.fail(1).tapError(v => Http.fromEffect(r.set(v)))
@@ -167,7 +165,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         },
       ) +
       suite("tapErrorM")(
-        testM("taps the error") {
+        test("taps the error") {
           for {
             r <- Ref.make(0)
             app = Http.fail(1).tapErrorZIO(r.set)
@@ -177,7 +175,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         },
       ) +
       suite("tapAll")(
-        testM("taps the success") {
+        test("taps the success") {
           for {
             r <- Ref.make(0)
             app = (Http.succeed(1): Http[Any, Any, Any, Int])
@@ -186,7 +184,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             res <- r.get
           } yield assert(res)(equalTo(1))
         } +
-          testM("taps the failure") {
+          test("taps the failure") {
             for {
               r <- Ref.make(0)
               app = (Http.fail(1): Http[Any, Int, Any, Any])
@@ -195,7 +193,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
               res <- r.get
             } yield assert(res)(equalTo(1))
           } +
-          testM("taps the empty") {
+          test("taps the empty") {
             for {
               r <- Ref.make(0)
               app = (Http.empty: Http[Any, Any, Any, Any])
@@ -206,7 +204,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           },
       ) +
       suite("tapAllM")(
-        testM("taps the success") {
+        test("taps the success") {
           for {
             r <- Ref.make(0)
             app = (Http.succeed(1): Http[Any, Any, Any, Int]).tapAllZIO(_ => ZIO.unit, r.set, ZIO.unit)
@@ -214,7 +212,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             res <- r.get
           } yield assert(res)(equalTo(1))
         } +
-          testM("taps the failure") {
+          test("taps the failure") {
             for {
               r <- Ref.make(0)
               app = (Http.fail(1): Http[Any, Int, Any, Any]).tapAllZIO(r.set, _ => ZIO.unit, ZIO.unit)
@@ -222,7 +220,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
               res <- r.get
             } yield assert(res)(equalTo(1))
           } +
-          testM("taps the empty") {
+          test("taps the empty") {
             for {
               r <- Ref.make(0)
               app = (Http.empty: Http[Any, Any, Any, Any])
@@ -233,19 +231,19 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           },
       ) +
       suite("race") {
-        testM("left wins") {
+        test("left wins") {
           val http = Http.succeed(1) race Http.succeed(2)
           assertM(http(()))(equalTo(1))
         } +
-          testM("sync right wins") {
+          test("sync right wins") {
             val http = Http.fromEffect(UIO(1)) race Http.succeed(2)
             assertM(http(()))(equalTo(2))
           } +
-          testM("sync left wins") {
+          test("sync left wins") {
             val http = Http.succeed(1) race Http.fromEffect(UIO(2))
             assertM(http(()))(equalTo(1))
           } +
-          testM("async fast wins") {
+          test("async fast wins") {
             val http    = Http.succeed(1).delay(1 second) race Http.succeed(2).delay(2 second)
             val program = http(()) <& TestClock.adjust(5 second)
             assertM(program)(equalTo(1))

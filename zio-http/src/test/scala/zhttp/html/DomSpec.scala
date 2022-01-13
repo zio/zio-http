@@ -1,6 +1,6 @@
 package zhttp.html
 
-import zio.random.Random
+import zio.Random
 import zio.test.{DefaultRunnableSpec, Gen, assertTrue, checkAll}
 
 object DomSpec extends DefaultRunnableSpec {
@@ -73,13 +73,13 @@ object DomSpec extends DefaultRunnableSpec {
         val tagGen: Gen[Random, String]  =
           Gen.stringBounded(1, 5)(Gen.alphaChar).filterNot(Element.voidElementNames.contains)
 
-        testM("void") {
+        test("void") {
           checkAll(voidTagGen) { name =>
             val dom = Dom.element(name)
             assertTrue(dom.encode == s"<${name}/>")
           }
         } +
-          testM("not void") {
+          test("not void") {
             checkAll(tagGen) { name =>
               val dom = Dom.element(name)
               assertTrue(dom.encode == s"<${name}></${name}>")
