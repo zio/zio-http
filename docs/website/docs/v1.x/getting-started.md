@@ -54,6 +54,7 @@ val app = Http.collectZIO[Request] {
 
 ### Accessing the Request
 
+To access request use @ as it binds a matched pattern to a variable and can be used in creating response.  
 ```scala
 import zhttp.http._
 
@@ -89,6 +90,8 @@ object Spec extends DefaultRunnableSpec {
 
 ### Creating a socket app
 
+Let's build an app which can handle websocket connections as well. To make one, we need to create a socket app and then convert it to Response using `toResponse`.
+Socket app can be created by using `Socket` constructors. Here we are using `collect` which returns a stream with WebsSocketTextFrame "BAR" on receiving WebsSocketTextFrame "FOO".   
 ```scala
 import zhttp.socket._
 
@@ -106,6 +109,7 @@ private val socket = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text("
 
 ### Starting an Http App
 
+To Launch our app, we need to start server on some port. Let's see an example of a simple Http app that responds with empty content and a `200` status code is deployed on port `8090` using `Server.start`.
 ```scala
 import zhttp.http._
 import zhttp.service.Server
@@ -118,8 +122,8 @@ object HelloWorld extends App {
     Server.start(8090, app).exitCode
 }
 ```
+Server can be configured according to the leak detection level, request size, address etc. 
 
-A simple Http app that responds with empty content and a `200` status code is deployed on port `8090` using `Server.start`.
 
 ## Examples
 
