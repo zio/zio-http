@@ -56,22 +56,6 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     } yield status
   }
 
-  def webSocketRequest(
-    path: Path = !!,
-    headers: Headers = Headers.empty,
-  ) = ???
-  // ): HttpIO[SttpClient, SResponse[Either[String, WebSocket[Task]]]] = {
-  //   import zhttp.Client
-
-  //   // todo: uri should be created by using URL().asString but currently support for ws Scheme is missing
-  //   for {
-  //     port <- DynamicServer.getPort
-  //     url                       = s"ws://localhost:$port${path.asString}"
-  //     headerConv: List[SHeader] = headers.toList.map(h => SHeader(h._1, h._2))
-  //     res <- send(basicRequest.get(uri"$url").copy(headers = headerConv).response(asWebSocketUnsafe))
-  //   } yield res
-  // }
-
   implicit class RunnableHttpAppSyntax(app: HttpApp[HttpEnv, Throwable]) {
     def deploy: ZIO[DynamicServer, Nothing, String] = DynamicServer.deploy(app)
 
@@ -108,14 +92,6 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       headers: Headers = Headers.empty,
     ): HttpIO[Any, Status] =
       request(path, method, content, headers).map(_.status)
-
-    def webSocketStatusCode(
-      path: Path = !!,
-      headers: Headers = Headers.empty,
-    ) = ??? /*: HttpIO[SttpClient, Int] = for {
-      id  <- deploy
-      res <- self.webSocketRequest(path, Headers(DynamicServer.APP_ID, id) ++ headers)
-    } yield res.code.code*/
 
     def requestBody(
       path: Path = !!,
