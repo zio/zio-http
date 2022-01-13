@@ -56,7 +56,7 @@ private[zhttp] final case class Handler[R](
     http.execute(a) match {
       case HExit.Effect(resM) =>
         unsafeRunZIO {
-          resM.foldM(
+          resM.foldZIO(
             {
               case Some(cause) =>
                 UIO {

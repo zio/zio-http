@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.duration._
+import zio._
 
 import java.security.MessageDigest
 import java.time.Instant

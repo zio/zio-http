@@ -8,8 +8,8 @@ import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.socket.SocketApp
+import zio._
 import zio.test.DefaultRunnableSpec
-import zio.{Has, ZIO, ZManaged}
 
 /**
  * Should be used only when e2e tests needs to be written. Typically we would
@@ -83,12 +83,12 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       } yield response
   }
 
-  def serve[R <: Has[_]](
+  def serve[R](
     app: HttpApp[R, Throwable],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
     for {
       start <- Server.make(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection).orDie
-      _     <- DynamicServer.setStart(start).toManaged_
+      _     <- DynamicServer.setStart(start).toManaged
     } yield ()
 
   def status(

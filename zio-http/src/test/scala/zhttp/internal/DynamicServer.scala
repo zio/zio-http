@@ -3,12 +3,17 @@ package zhttp.internal
 import zhttp.http._
 import zhttp.service.Server.Start
 import zio._
-import zio.blocking.Blocking
-import zio.console.Console
 
 import java.util.UUID
 
-object DynamicServer {
+sealed trait DynamicServer {
+  def add(app: HttpApp[DynamicServer.HttpEnv, Throwable]): UIO[DynamicServer.Id]
+  def get(id: DynamicServer.Id): UIO[Option[HttpApp[DynamicServer.HttpEnv, Throwable]]]
+  def setStart(n: Start): UIO[Boolean]
+  def getStart: IO[Nothing, Start]
+  def getPort: ZIO[Any, Nothing, Int]
+}
+object DynamicServer       {
 
   type Id          = String
   type HttpEnv     = DynamicServer with Console with Blocking
@@ -37,7 +42,7 @@ object DynamicServer {
     ZIO.accessM[DynamicServer](_.get.add(app))
 
   def get(id: Id): ZIO[DynamicServer, Nothing, Option[HttpApp[HttpEnv, Throwable]]] =
-    ZIO.accessM[DynamicServer](_.get.get(id))
+    ZIO.serviceWithZIO[DynamicServer](_.get(id))
 
   def httpURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.HTTP)
 

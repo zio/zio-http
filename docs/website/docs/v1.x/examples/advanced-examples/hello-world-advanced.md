@@ -8,7 +8,7 @@ import zio._
 
 import scala.util.Try
 
-object HelloWorldAdvanced extends App {
+object HelloWorldAdvanced extends ZIOAppDefault {
   // Set a port
   private val PORT = 0
 
@@ -27,7 +27,7 @@ object HelloWorldAdvanced extends App {
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
       Server.app(fooBar ++ app)       // Setup the Http app
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+  override val run = {
     // Configure thread count using CLI
     val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
@@ -41,7 +41,6 @@ object HelloWorldAdvanced extends App {
           *> ZIO.never,
       )
       .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
-      .exitCode
   }
 }
 

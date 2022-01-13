@@ -50,7 +50,7 @@ object URLSpec extends DefaultRunnableSpec {
       assert(URL.fromString(url).map(_.encode))(isRight(equalTo(url)))
 
     suite("asString")(
-      testM("using gen") {
+      test("using gen") {
         checkAll(HttpGen.url) { case url =>
           val source  = url.encode
           val decoded = URL.fromString(source).map(_.encode)

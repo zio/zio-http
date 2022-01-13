@@ -1,7 +1,6 @@
 package zhttp
 
 import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup, ServerChannel}
-import zio.Has
 
 package object service {
   private[service] val AUTO_RELEASE_REQUEST               = false
@@ -21,8 +20,8 @@ package object service {
   private[service] val CLIENT_INBOUND_HANDLER             = "CLIENT_INBOUND_HANDLER"
   private[service] val WEB_SOCKET_CLIENT_PROTOCOL_HANDLER = "WEB_SOCKET_CLIENT_PROTOCOL_HANDLER"
 
-  type ChannelFactory       = Has[JChannelFactory[Channel]]
-  type EventLoopGroup       = Has[JEventLoopGroup]
-  type ServerChannelFactory = Has[JChannelFactory[ServerChannel]]
+  type ChannelFactory       = JChannelFactory[Channel]
+  type EventLoopGroup       = JEventLoopGroup
+  type ServerChannelFactory = JChannelFactory[ServerChannel]
   type UServer              = Server[Any, Nothing]
 }

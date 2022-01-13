@@ -6,8 +6,6 @@ import zhttp.html.Html
 import zhttp.http.headers.HeaderModifier
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
-import zio.clock.Clock
-import zio.duration.Duration
 import zio.stream.ZStream
 
 import java.nio.charset.Charset
@@ -241,13 +239,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Provides the environment to Http.
    */
-  final def provide(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
-    Http.fromOptionFunction[A](a => self(a).provide(r))
+  final def provideEnvironment(r: ZEnvironment[R])(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
+    Http.fromOptionFunction[A](a => self(a).provideEnvironment(r))
 
   /**
    * Provide part of the environment to HTTP that is not part of ZEnv
    */
-  final def provideCustomLayer[E1 >: E, R1 <: Has[_]](
+  final def provideCustomLayer[E1 >: E, R1](
     layer: ZLayer[ZEnv, E1, R1],
   )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): Http[ZEnv, E1, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideCustomLayer(layer.mapError(Option(_))))
@@ -255,21 +253,23 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Provides layer to Http.
    */
-  final def provideLayer[E1 >: E, R0, R1](
-    layer: ZLayer[R0, E1, R1],
-  )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R]): Http[R0, E1, A, B] =
+  final def provideLayer[E1 >: E, R0](
+    layer: ZLayer[R0, E1, R],
+  )(implicit ev2: NeedsEnv[R]): Http[R0, E1, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideLayer(layer.mapError(Option(_))))
 
   /**
    * Provides some of the environment to Http.
    */
-  final def provideSome[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
-    Http.fromOptionFunction[A](a => self(a).provideSome(r))
+  final def provideSomeEnvironment[R1](r: ZEnvironment[R1] => ZEnvironment[R])(implicit
+    ev: NeedsEnv[R],
+  ): Http[R1, E, A, B] =
+    Http.fromOptionFunction[A](a => self(a).provideSomeEnvironment(r))
 
   /**
    * Provides some of the environment to Http leaving the remainder `R0`.
    */
-  final def provideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E](
+  final def provideSomeLayer[R0, R1, E1 >: E](
     layer: ZLayer[R0, E1, R1],
   )(implicit ev: R0 with R1 <:< R, tagged: Tag[R1]): Http[R0, E1, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideSomeLayer(layer.mapError(Option(_))))
@@ -551,14 +551,20 @@ object Http {
    * ZStream as the body
    */
   def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = HTTP_CHARSET): HttpApp[R, Nothing] =
-    Http.fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provide(r), charset)))).flatten
+    Http
+      .fromZIO(
+        ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provideEnvironment(r), charset))),
+      )
+      .flatten
 
   /**
    * Creates a Http that always succeeds with a 200 status code and the provided
    * ZStream as the body
    */
   def fromStream[R](stream: ZStream[R, Throwable, Byte]): HttpApp[R, Nothing] =
-    Http.fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provide(r))))).flatten
+    Http
+      .fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provideEnvironment(r)))))
+      .flatten
 
   /**
    * Converts a ZIO to an Http type

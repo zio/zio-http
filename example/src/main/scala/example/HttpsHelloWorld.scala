@@ -4,9 +4,9 @@ import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.{EventLoopGroup, Server}
-import zio.{App, ExitCode, URIO}
+import zio._
 
-object HttpsHelloWorld extends App {
+object HttpsHelloWorld extends ZIOAppDefault {
   // Create HTTP route
   val app: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !! / "text" => Response.text("Hello World!")
@@ -31,9 +31,7 @@ object HttpsHelloWorld extends App {
       ServerSSLOptions(sslctx, SSLHttpBehaviour.Accept),
     )
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+  override val run =
     server.make.useForever
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(0))
-      .exitCode
-  }
+      .provide(ServerChannelFactory.auto, EventLoopGroup.auto(0))
 }

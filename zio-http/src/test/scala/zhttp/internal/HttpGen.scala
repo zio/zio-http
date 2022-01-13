@@ -5,17 +5,16 @@ import zhttp.http.Scheme.{HTTP, HTTPS, WS, WSS}
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service.Client.ClientRequest
-import zio.random.Random
+import zio._
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
-import zio.{Chunk, ZIO}
 
 import java.io.File
 
 object HttpGen {
   def clientParamsForFileHttpData(): Gen[Random with Sized, ClientRequest] = {
     for {
-      file    <- Gen.fromEffect(ZIO.succeed(new File(getClass.getResource("/TestFile.txt").getPath)))
+      file    <- Gen.fromZIO(ZIO.succeed(new File(getClass.getResource("/TestFile.txt").getPath)))
       method  <- HttpGen.method
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
@@ -37,14 +36,14 @@ object HttpGen {
     } yield ClientRequest(url, method, headers, data, version)
 
   def cookies: Gen[Random with Sized, Cookie] = for {
-    name     <- Gen.anyString
-    content  <- Gen.anyString
-    expires  <- Gen.option(Gen.anyInstant)
-    domain   <- Gen.option(Gen.anyString)
+    name     <- Gen.string
+    content  <- Gen.string
+    expires  <- Gen.option(Gen.instant)
+    domain   <- Gen.option(Gen.string)
     path     <- Gen.option(path)
     secure   <- Gen.boolean
     httpOnly <- Gen.boolean
-    maxAge   <- Gen.option(Gen.anyLong)
+    maxAge   <- Gen.option(Gen.long)
     sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
     secret   <- Gen.option(Gen.anyString)
   } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite, secret)

@@ -3,15 +3,12 @@ package example
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware
 import zhttp.service.Server
-import zio.clock.{Clock, currentTime}
-import zio.console.Console
-import zio.duration._
-import zio.{App, ExitCode, URIO, ZIO}
+import zio._
 
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-object HelloWorldWithMiddlewares extends App {
+object HelloWorldWithMiddlewares extends ZIOAppDefault {
 
   val app: HttpApp[Clock, Nothing] = Http.collectZIO[Request] {
     // this will return result instantly
@@ -22,7 +19,7 @@ object HelloWorldWithMiddlewares extends App {
 
   val serverTime: HttpMiddleware[Clock, Nothing] = Middleware.patchZIO(_ =>
     for {
-      currentMilliseconds <- currentTime(TimeUnit.MILLISECONDS)
+      currentMilliseconds <- Clock.currentTime(TimeUnit.MILLISECONDS)
       withHeader = Patch.addHeader("X-Time", currentMilliseconds.toString)
     } yield withHeader,
   )
@@ -38,6 +35,6 @@ object HelloWorldWithMiddlewares extends App {
       serverTime
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, (app @@ middlewares)).exitCode
+  override val run =
+    Server.start(8090, (app @@ middlewares))
 }

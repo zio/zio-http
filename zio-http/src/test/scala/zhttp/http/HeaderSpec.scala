@@ -201,8 +201,8 @@ object HeaderSpec extends DefaultRunnableSpec {
           },
       ) +
       suite("getContentLength") {
-        testM("should get content-length") {
-          check(Gen.anyLong) { c =>
+        test("should get content-length") {
+          check(Gen.long) { c =>
             val actual = Headers.contentLength(c).contentLength
             assert(actual)(isSome(equalTo(c)))
           }
@@ -211,8 +211,8 @@ object HeaderSpec extends DefaultRunnableSpec {
             val actual = Headers.empty.contentType
             assert(actual)(isNone)
           } +
-          testM("should get content-length") {
-            check(Gen.anyChar) { c =>
+          test("should get content-length") {
+            check(Gen.char) { c =>
               val actual = Headers(HttpHeaderNames.CONTENT_LENGTH, c.toString).contentLength
               assert(actual)(isNone)
             }

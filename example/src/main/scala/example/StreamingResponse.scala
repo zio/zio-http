@@ -2,23 +2,20 @@ package example
 
 import zhttp.http._
 import zhttp.service.Server
+import zio._
 import zio.stream.ZStream
-import zio.{App, Chunk, ExitCode, URIO}
 
 /**
  * Example to encode content using a ZStream
  */
-object StreamingResponse extends App {
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-
-    // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
-    Server.start(8090, app).exitCode
-  }
+object StreamingResponse extends ZIOAppDefault {
+  // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
+  def run = Server.start(8090, app)
 
   // Create a message as a Chunk[Byte]
-  val message                    = Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET))
+  def message                    = Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET))
   // Use `Http.collect` to match on route
-  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
+  def app: HttpApp[Any, Nothing] = Http.collect[Request] {
 
     // Simple (non-stream) based route
     case Method.GET -> !! / "health" => Response.ok

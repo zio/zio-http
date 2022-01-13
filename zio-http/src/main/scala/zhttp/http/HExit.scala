@@ -44,7 +44,7 @@ private[zhttp] sealed trait HExit[-R, +E, +A] { self =>
       case HExit.Failure(e)  => ee(e)
       case HExit.Effect(zio) =>
         Effect(
-          zio.foldM(
+          zio.foldZIO(
             {
               case Some(error) => ee(error).toZIO
               case None        => dd.toZIO

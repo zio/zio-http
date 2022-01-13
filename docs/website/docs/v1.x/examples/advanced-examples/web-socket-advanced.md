@@ -7,7 +7,7 @@ import zio._
 import zio.duration._
 import zio.stream.ZStream
 
-object WebSocketAdvanced extends App {
+object WebSocketAdvanced extends ZIOAppDefault {
   // Message Handlers
   private val open = Socket.succeed(WebSocketFrame.text("Greetings!"))
 
@@ -53,8 +53,8 @@ object WebSocketAdvanced extends App {
       case Method.GET -> !! / "subscriptions" => socketApp.toResponse
     }
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+  val run =
+    Server.start(8090, app)
 }
 
 ```

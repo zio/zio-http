@@ -15,47 +15,50 @@ object SocketSpec extends DefaultRunnableSpec {
   } @@ timeout(5 seconds)
 
   def operationsSpec = suite("OperationsSpec") {
-    testM("fromStream provide") {
+    test("fromStream provide") {
       val text        = "Cat ipsum dolor sit amet"
-      val environment = ZStream.environment[String]
+      val environment = ZStream.service[String]
       val socket      = Socket
         .fromStream(environment)
-        .provide(text)
+        .provideEnvironment(ZEnvironment(text))
         .execute("")
 
-      assertM(socket.runCollect)(equalTo(Chunk(text)))
-    } +
-      testM("fromFunction provide") {
-        val environmentFunction = (_: Any) => ZStream.environment[WebSocketFrame]
-        val socket              = Socket
-          .fromFunction(environmentFunction)
-          .provide(WebSocketFrame.text("Foo"))
-          .execute(WebSocketFrame.text("Bar"))
+      assertM(socket.runCollect) {
+        equalTo(Chunk(text))
+      }
+    } + test("fromFunction provide") {
+      val environmentFunction = (_: Any) => ZStream.service[WebSocketFrame]
+      val socket              = Socket
+        .fromFunction(environmentFunction)
+        .provideEnvironment(ZEnvironment(WebSocketFrame.text("Foo")))
+        .execute(WebSocketFrame.text("Bar"))
 
-        assertM(socket.runCollect)(equalTo(Chunk(WebSocketFrame.text("Foo"))))
-      } +
-      testM("collect provide") {
-        val environment = ZStream.environment[WebSocketFrame]
-        val socket      = Socket
-          .collect[WebSocketFrame] { case WebSocketFrame.Pong =>
-            environment
-          }
-          .provide(WebSocketFrame.ping)
-          .execute(WebSocketFrame.pong)
-
-        assertM(socket.runCollect)(equalTo(Chunk(WebSocketFrame.ping)))
-      } +
-      testM("ordered provide") {
-        val socket = Socket.collect[Int] { case _ =>
-          ZStream.environment[Int]
+      assertM(socket.runCollect) {
+        equalTo(Chunk(WebSocketFrame.text("Foo")))
+      }
+    } + test("collect provide") {
+      val environment = ZStream.service[WebSocketFrame]
+      val socket      = Socket
+        .collect[WebSocketFrame] { case WebSocketFrame.Pong =>
+          environment
         }
+        .provideEnvironment(ZEnvironment(WebSocketFrame.ping))
+        .execute(WebSocketFrame.pong)
 
-        val socketA: Socket[Int, Nothing, Int, Int] = socket.provide(12)
-        val socketB: Socket[Int, Nothing, Int, Int] = socketA.provide(1)
-        val socketC: Socket[Any, Nothing, Int, Int] = socketB.provide(42)
+      assertM(socket.runCollect) {
+        equalTo(Chunk(WebSocketFrame.ping))
+      }
+    } + test("ordered provide") {
+      val socket = Socket.collect[Int] { case _ =>
+        ZStream.service[Int]
+      }
 
-        assertM(socketC.execute(1000).runCollect)(equalTo(Chunk(12)))
-      } +
+      val socketA: Socket[Int, Nothing, Int, Int] = socket.provideEnvironment(ZEnvironment(12))
+      val socketB: Socket[Int, Nothing, Int, Int] = socketA.provideEnvironment(ZEnvironment(1))
+      val socketC: Socket[Any, Nothing, Int, Int] = socketB.provideEnvironment(ZEnvironment(42))
+
+      assertM(socketC.execute(1000).runCollect)(equalTo(Chunk(12)))
+    } +
       testM("echo") {
         assertM(Socket.echo(1).runCollect)(equalTo(Chunk(1)))
       } +

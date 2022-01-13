@@ -4,7 +4,7 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
 import zhttp.service.Client.ClientResponse
 import zhttp.service.HttpRuntime
-import zio.Promise
+import zio._
 
 /**
  * Handles HTTP response
@@ -36,7 +36,7 @@ final class ClientInboundHandler[R](
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    zExec.unsafeRun(ctx)(promise.fail(error))
+    zExec.unsafeRunUninterruptible(ctx)(promise.fail(error))
     releaseRequest()
   }
 
