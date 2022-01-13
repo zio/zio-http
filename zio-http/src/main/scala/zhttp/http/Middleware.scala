@@ -274,7 +274,7 @@ object Middleware {
       }
     }
 
-    def logHeaders(headers: Headers, filter: Headers => Headers): Headers = headers.updateHeaders(filter)
+    def logHeaders(headers: Headers, filter: Headers => Headers): Headers = filter(headers)
     def stringifyHeaders(headers: Headers): List[String]                  = headers.toList.map { case (name, value) =>
       s"  $name = $value \n"
     }
