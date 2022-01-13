@@ -96,7 +96,7 @@ object Middleware {
    * Modifies the provided list of headers to the updated list of headers
    */
   def modifyHeaders(f: PartialFunction[Header, Header]): Middleware[Any, Nothing] =
-    patch((_, _) => Patch.updateHeaders(h => Headers(h.toList.map(f(_)))))
+    patch((_, _) => Patch.updateHeaders(_.modify(f)))
 
   /**
    * Creates an authentication middleware that only allows authenticated requests to be passed on to the app.

@@ -276,14 +276,9 @@ trait HeaderGetters[+A] { self =>
   final def getSetCookie: Option[CharSequence] =
     getHeaderValue(HeaderNames.setCookie)
 
-  final def getSetCookiesDecoded: List[Cookie] =
+  final def getSetCookiesDecoded(secret: Option[String] = None): List[Cookie] =
     getHeaderValues(HeaderNames.setCookie)
-      .map(Cookie.decodeResponseCookie(_))
-      .collect { case Some(cookie) => cookie }
-
-  final def getSignedSetCookiesDecoded(secret: String): List[Cookie] =
-    getHeaderValues(HeaderNames.setCookie)
-      .map(v => Cookie.decodeResponseCookie(v, Some(secret)))
+      .map(Cookie.decodeResponseCookie(_, secret))
       .collect { case Some(cookie) => cookie }
 
   final def getTe: Option[CharSequence] =
