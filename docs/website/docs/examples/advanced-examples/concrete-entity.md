@@ -8,7 +8,7 @@ import zio._
  * Example to build app on concrete entity
  */
 object ConcreteEntity extends ZIOAppDefault {
-  //Request
+  // Request
   case class CreateUser(name: String)
 
   // Response

@@ -16,8 +16,8 @@ object SimpleClient extends ZIOAppDefault {
     _    <- console.putStrLn { data }
   } yield ()
 
-  override def run = 
-    program.provide(env)
+  override def run =
+    program.provideCustomLayer(env)
 
 }
 ```

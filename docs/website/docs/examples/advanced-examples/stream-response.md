@@ -10,8 +10,8 @@ import zio._
  * Example to encode content using a ZStream
  */
 object StreamingResponse extends ZIOAppDefault {
-  // Create a message as a Chunk[Byte]
-  val message = Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET))
+  // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
+  override def run = Server.start(8090, app.silent)
 
   // Create a message as a Chunk[Byte]
   val message                    = Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET))
@@ -30,9 +30,5 @@ object StreamingResponse extends ZIOAppDefault {
       )
 
   }
-
-  // Starting the server (for more advanced startup 
-  // configuration checkout `HelloWorldAdvanced`)
-  def run = Server.start(8090, app.silent)
 }
 ```
