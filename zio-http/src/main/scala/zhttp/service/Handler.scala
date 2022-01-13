@@ -106,6 +106,7 @@ private[zhttp] final case class Handler[R](
         ctx.fireChannelRead(Response.status(Status.NOT_FOUND))
         releaseRequest(jReq)
     }
+
   }
 
   /**

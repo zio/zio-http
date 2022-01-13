@@ -23,13 +23,11 @@ private[zhttp] case class ServerResponseHandler[R](
 
   override def channelRead0(ctx: Ctx, response: Response): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
-
     response.data match {
       case HttpData.BinaryStream(stream) =>
         ctx.write(encodeResponse(response))
         runtime.unsafeRun(ctx) { writeStreamContent(stream) }
-      case HttpData.File(file)           =>
-        unsafeWriteFileContent(file, response)
+      case HttpData.File(file)           => unsafeWriteFileContent(file, response)
       case _                             =>
         ctx.write(encodeResponse(response))
         ctx.flush()

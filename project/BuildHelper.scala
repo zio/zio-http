@@ -106,7 +106,7 @@ object BuildHelper extends ScalaSettings {
     ThisBuild / scmInfo    :=
       Some(
         ScmInfo(url("https://github.com/dream11/zio-http"), "scm:git@github.com:dream11/zio-http.git"),
-       ),
+      ),
     ThisBuild / developers := List(
       Developer(
         "tusharmath",
