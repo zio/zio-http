@@ -166,7 +166,7 @@ object ServerSpec extends HttpRunnableSpec {
           Http
             .fromFile(new File("NonExistentFile.txt"))
             .requestStatus()
-        assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+        assertM(res)(equalTo(Status.NOT_FOUND))
       } +
       testM("status") {
         checkAllM(HttpGen.status) { case (status) =>

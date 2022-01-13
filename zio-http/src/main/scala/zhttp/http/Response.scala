@@ -187,6 +187,8 @@ object Response {
    */
   def ok: Response = Response(Status.OK)
 
+  // TODO  Create a FAIL response and try to use that to create a Http.fail with Internal server error when file does not exist
+
   /**
    * Creates an empty response with status 301 or 302 depending on if it's permanent or not.
    */

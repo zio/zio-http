@@ -4,7 +4,7 @@ import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
-import zhttp.http.{HttpData, Response}
+import zhttp.http.{HttpData, Response, Status}
 import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{ChannelFuture, HttpRuntime, Server}
 import zio.stream.ZStream
@@ -24,11 +24,15 @@ private[zhttp] case class ServerResponseHandler[R](
   override def channelRead0(ctx: Ctx, response: Response): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
 
-    ctx.write(encodeResponse(response))
     response.data match {
-      case HttpData.BinaryStream(stream) => runtime.unsafeRun(ctx) { writeStreamContent(stream) }
-      case HttpData.File(file)           => unsafeWriteFileContent(file)
-      case _                             => ctx.flush()
+      case HttpData.BinaryStream(stream) =>
+        ctx.write(encodeResponse(response))
+        runtime.unsafeRun(ctx) { writeStreamContent(stream) }
+      case HttpData.File(file)           =>
+        unsafeWriteFileContent(file, response)
+      case _                             =>
+        ctx.write(encodeResponse(response))
+        ctx.flush()
     }
     ()
   }
@@ -76,13 +80,19 @@ private[zhttp] case class ServerResponseHandler[R](
   /**
    * Writes file content to the Channel. Does not use Chunked transfer encoding
    */
-  private def unsafeWriteFileContent(file: File)(implicit ctx: ChannelHandlerContext): Unit = {
+  private def unsafeWriteFileContent(file: File, response: Response)(implicit ctx: ChannelHandlerContext): Unit = {
     import java.io.RandomAccessFile
-    val raf        = new RandomAccessFile(file, "r")
-    val fileLength = raf.length()
-    // Write the content.
-    ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
-    // Write the end marker.
-    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
+    try {
+      val raf        = new RandomAccessFile(file, "r")
+      val fileLength = raf.length()
+      ctx.write(encodeResponse(response))
+      // Write the content.
+      ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
+      // Write the end marker.
+      ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
+    } catch {
+      case _: Throwable =>
+        ctx.writeAndFlush(encodeResponse(Response.status(Status.NOT_FOUND))): Unit
+    }
   }
 }

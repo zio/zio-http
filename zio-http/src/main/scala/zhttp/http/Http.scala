@@ -476,7 +476,9 @@ object Http {
   /*
    * Creates an Http app from the contents of a file
    */
-  def fromFile(file: java.io.File): HttpApp[Any, Nothing] = response(Response(data = HttpData.fromFile(file)))
+  def fromFile(file: java.io.File): Http[Any, Nothing, Request, Response] = response(
+    Response(data = HttpData.fromFile(file)),
+  )
 
   /**
    * Creates a Http from a pure function

@@ -17,6 +17,7 @@ object FileStreaming extends App {
     // Read the file as ZStream
     // Uses the blocking version of ZStream.fromFile
     case Method.GET -> !! / "blocking" => Http.fromStream(ZStream.fromFile(Paths.get("README.md")))
+    case Method.GET -> !! / "fails"    => Http.fromFile(new File(" nonexistentFilePath.md"))
 
     // Uses netty's capability to write file content to the Channel
     // Content-type response headers are automatically identified and added
