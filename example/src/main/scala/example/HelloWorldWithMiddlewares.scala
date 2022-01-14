@@ -1,6 +1,7 @@
 package example
 
-import zhttp.http.Middleware.{addHeader, debug, patchM, smartContentType, timeout}
+
+import zhttp.http.Middleware.{addHeader, debug, patchZIO, smartContentType, timeout}
 import zhttp.http._
 import zhttp.service.Server
 import zio.clock.{Clock, currentTime}
@@ -13,7 +14,7 @@ import java.util.concurrent.TimeUnit
 
 object HelloWorldWithMiddlewares extends App {
 
-  val app: HttpApp[Clock, Nothing] = Http.collectM[Request] {
+  val app: HttpApp[Clock, Nothing] = Http.collectZIO[Request] {
     // this will return result instantly
     case Method.GET -> !! / "text"                 => ZIO.succeed(Response.text("Hello World!"))
     // this will return result after 5 seconds, so with 3 seconds timeout it will fail
@@ -22,7 +23,7 @@ object HelloWorldWithMiddlewares extends App {
     case Method.GET -> !! / "static" / "test.json" => ZIO.succeed(Response.text("""{"hello":"world"}"""))
   }
 
-  val serverTime: Middleware[Clock, Nothing] = patchM((_, _) =>
+  val serverTime: Middleware[Clock, Nothing] = patchZIO((_, _) =>
     for {
       currentMilliseconds <- currentTime(TimeUnit.MILLISECONDS)
       withHeader = Patch.addHeader("X-Time", currentMilliseconds.toString)

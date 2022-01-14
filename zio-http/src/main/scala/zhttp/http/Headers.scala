@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
-import zhttp.http.headers.{HeaderConstructors, HeaderExtension, HeaderNames, HeaderValues}
+import zhttp.http.headers.{HeaderConstructors, HeaderExtension}
 import zio.Chunk
 
 import scala.jdk.CollectionConverters._
@@ -25,6 +25,8 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
   override def getHeaders: Headers = self
 
   def toList: List[(String, String)] = toChunk.map { case (name, value) => (name.toString, value.toString) }.toList
+
+  def modify(f: Header => Header): Headers = Headers(toChunk.map(f(_)))
 
   override def updateHeaders(update: Headers => Headers): Headers = update(self)
 
@@ -65,9 +67,4 @@ object Headers extends HeaderConstructors {
 
   private[zhttp] def decode(headers: HttpHeaders): Headers =
     Headers(headers.entries().asScala.toList.map(entry => (entry.getKey, entry.getValue)))
-
-  object Literals {
-    object Name  extends HeaderNames
-    object Value extends HeaderValues
-  }
 }

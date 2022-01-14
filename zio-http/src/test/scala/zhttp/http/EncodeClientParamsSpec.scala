@@ -15,9 +15,9 @@ object EncodeClientParamsSpec extends DefaultRunnableSpec with EncodeClientParam
     ),
   )
 
-  val clientParamWithFiniteData: Gen[Random with Sized, Client.ClientParams] = HttpGen.clientParams(
+  def clientParamWithFiniteData(size: Int): Gen[Random with Sized, Client.ClientParams] = HttpGen.clientParams(
     for {
-      content <- Gen.alphaNumericString
+      content <- Gen.alphaNumericStringBounded(size, size)
       data    <- Gen.fromIterable(List(HttpData.fromString(content)))
     } yield data,
   )
@@ -29,16 +29,28 @@ object EncodeClientParamsSpec extends DefaultRunnableSpec with EncodeClientParam
         assert(req.method())(equalTo(params.method.asHttpMethod))
       }
     } +
+      testM("method on HttpData.File") {
+        check(HttpGen.clientParamsForFileHttpData()) { params =>
+          val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
+          assert(req.method())(equalTo(params.method.asHttpMethod))
+        }
+      } +
       testM("uri") {
         check(anyClientParam) { params =>
           val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
           assert(req.uri())(equalTo(params.url.asString))
         }
       } +
-      testM("content-length") {
-        check(clientParamWithFiniteData) { params =>
+      testM("uri on HttpData.File") {
+        check(HttpGen.clientParamsForFileHttpData()) { params =>
           val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
-          assert(req.headers().getInt(HttpHeaderNames.CONTENT_LENGTH).toLong)(equalTo(params.data.unsafeSize))
+          assert(req.uri())(equalTo(params.url.asString))
+        }
+      } +
+      testM("content-length") {
+        check(clientParamWithFiniteData(5)) { params =>
+          val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
+          assert(req.headers().getInt(HttpHeaderNames.CONTENT_LENGTH).toLong)(equalTo(5L))
         }
       }
   }
