@@ -1,5 +1,6 @@
+import BuildHelper.{Scala213, ScoverageVersion}
 import sbtghactions.GenerativePlugin.autoImport.{WorkflowJob, WorkflowStep}
-import BuildHelper.{ScoverageVersion, Scala213}
+
 object ScoverageWorkFlow {
   // TODO move plugins to plugins.sbt after scoverage's support for Scala 3
   val scoveragePlugin        = s"""addSbtPlugin("org.scoverage" % "sbt-scoverage" % "${ScoverageVersion}")"""
@@ -12,6 +13,7 @@ object ScoverageWorkFlow {
       WorkflowJob(
         id = "unsafeRunScoverage",
         name = "Unsafe Scoverage",
+        scalas = List(Scala213),
         steps = List(
           WorkflowStep.CheckoutFull,
           WorkflowStep.Run(
