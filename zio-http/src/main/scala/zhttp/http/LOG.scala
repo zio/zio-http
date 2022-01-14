@@ -42,10 +42,10 @@ sealed trait LogFmt { self =>
 object LogFmt {
 
   final case class And(left: LogFmt, right: LogFmt)                                              extends LogFmt
-  final case object Status                                                                       extends LogFmt
-  final case object Method                                                                       extends LogFmt
-  final case object Url                                                                          extends LogFmt
-  final case object Duration                                                                     extends LogFmt
+  case object Status                                                                             extends LogFmt
+  case object Method                                                                             extends LogFmt
+  case object Url                                                                                extends LogFmt
+  case object Duration                                                                           extends LogFmt
   final case class Request(fmt: LogFmt)                                                          extends LogFmt
   final case class Response(fmt: LogFmt)                                                         extends LogFmt
   final case class Headers(filter: zhttp.http.Headers => zhttp.http.Headers, isRequest: Boolean) extends LogFmt
