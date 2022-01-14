@@ -37,7 +37,7 @@ object HttpGen {
     httpOnly <- Gen.boolean
     maxAge   <- Gen.option(Gen.long)
     sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
-    secret   <- Gen.option(Gen.anyString)
+    secret   <- Gen.option(Gen.string)
   } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite, secret)
 
   def header: Gen[Random with Sized, Header] = for {
