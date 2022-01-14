@@ -30,7 +30,7 @@ sealed trait Server[-R, +E] { self =>
     case KeepAlive               => s.copy(keepAlive = true)
     case FlowControl             => s.copy(flowControl = false)
     case ConsolidateFlush        => s.copy(consolidateFlush = true)
-    case DisableObjectAggregator => s.copy(disableObjectAggregator = true)
+    case DisableObjectAggregator => s.copy(disableObjectAggregator = false)
   }
 
   def make(implicit
@@ -86,10 +86,10 @@ object Server {
   def bind(inetSocketAddress: InetSocketAddress): UServer = Server.Address(inetSocketAddress)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
+  def acceptContinue: UServer                                                        = Server.AcceptContinue
 
-  val acceptContinue: UServer          = Server.AcceptContinue
   val disableFlowControl: UServer      = Server.FlowControl
-  val disableObjectAggregator: UServer = Server.FlowControl
+  val disableObjectAggregator: UServer = Server.DisableObjectAggregator
   val disableLeakDetection: UServer    = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer     = LeakDetection(LeakDetectionLevel.SIMPLE)
   val advancedLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.ADVANCED)
