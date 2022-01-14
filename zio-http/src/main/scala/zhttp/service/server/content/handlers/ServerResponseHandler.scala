@@ -17,24 +17,39 @@ private[zhttp] case class ServerResponseHandler[R](
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
   serverTime: ServerTimeGenerator,
-) extends SimpleChannelInboundHandler[Response](false) {
+) extends SimpleChannelInboundHandler[(Response, FullHttpRequest)](false) {
 
   type Ctx = ChannelHandlerContext
 
-  override def channelRead0(ctx: Ctx, response: Response): Unit = {
+  override def channelRead0(ctx: Ctx, msg: (Response, FullHttpRequest)): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
-
+    val response                             = msg._1
+    val jRequest                             = msg._2
     ctx.write(encodeResponse(response))
     response.data match {
-      case HttpData.BinaryStream(stream) => runtime.unsafeRun(ctx) { writeStreamContent(stream) }
-      case HttpData.File(file)           => unsafeWriteFileContent(file)
-      case _                             => ctx.flush()
+      case HttpData.BinaryStream(stream) =>
+        runtime.unsafeRun(ctx) { writeStreamContent(stream).ensuring(UIO(releaseRequest(jRequest))) }
+      case HttpData.File(file)           =>
+        unsafeWriteFileContent(file)
+        releaseRequest(jRequest)
+      case _                             =>
+        ctx.flush()
+        releaseRequest(jRequest)
     }
     ()
   }
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
     config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
+  }
+
+  /**
+   * Releases the FullHttpRequest safely.
+   */
+  private def releaseRequest(jReq: FullHttpRequest): Unit = {
+    if (jReq.refCnt() > 0) {
+      jReq.release(jReq.refCnt()): Unit
+    }
   }
 
   /**
