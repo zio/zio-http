@@ -253,7 +253,7 @@ object Middleware {
    */
   def log[R, E](
     logger: (String, LogLevel) => ZIO[R, E, Unit],
-    logConfig: LogConfig = DefaultLogConfig,
+    logFmt: LogFmt = DefaultLogConfig,
   ): Middleware[R with Clock, E] = {
 
     val serverTime = ServerTimeGenerator.make
@@ -262,30 +262,14 @@ object Middleware {
       method: Method,
       url: URL,
       headers: Headers,
-      nanoTime: Long,
-      logConfig: LogConfig,
+      startTime: Long,
     ): ZIO[R0 with Clock, Option[E0], (Long, LogStep)] = {
       ZIO.succeed {
         (
-          nanoTime,
-          LogStep(
-            lines = List(
-              "Request: \n",
-              s"Url: ${url.asString}\n",
-              s"Method: ${method.toString()}\n",
-              "Headers: \n",
-            ) ++ (if (logConfig.logRequestConfig.logHeaders)
-                    stringifyHeaders(logHeaders(headers, logConfig.logRequestConfig.filterHeaders))
-                  else List.empty) ++
-              List("\n"),
-          ),
+          startTime,
+          LogStep(Request(method = method, url = url, headers = headers)),
         )
       }
-    }
-
-    def logHeaders(headers: Headers, filter: Headers => Headers): Headers = filter(headers)
-    def stringifyHeaders(headers: Headers): List[String]                  = headers.toList.map { case (name, value) =>
-      s"  $name = $value \n"
     }
 
     def logResponse[R0, E0](
@@ -293,37 +277,29 @@ object Middleware {
       status: Status,
       responseHeaders: Headers,
       logStep: LogStep,
-      startNanoTime: Long,
-      endNanoTime: Long,
+      startTime: Long,
+      endTime: Long,
     ): ZIO[R0 with Clock, Option[E0], Patch] = {
-      val duration = endNanoTime - startNanoTime
-      val logData  =
-        logStep.copy(lines =
-          logStep.lines ++ List(
-            "Response: \n",
-            s" Status: ${status.toString} \n",
-            s" Duration: ${duration / 1000}ms\n",
-            " Headers: \n",
-          ) ++ (if (logConfig.logResponseConfig.logHeaders)
-                  stringifyHeaders(logHeaders(responseHeaders, logConfig.logResponseConfig.filterHeaders))
-                else List.empty) ++
-            List("\n"),
-        )
+      val logData =
+        logFmt.run(logStep.request, Response(status = status, headers = responseHeaders), startTime, endTime)
       if (status.asJava.code() > 499) {
-        logger(logData.lines.mkString(" "), LogLevel.Error).mapBoth(e => Some(e), _ => Patch.empty)
+        logger(logData, LogLevel.Error).mapBoth(e => Some(e), _ => Patch.empty)
       } else {
-        logger(logData.lines.mkString(" "), LogLevel.Info).mapBoth(e => Some(e), _ => Patch.empty)
+        logger(logData, LogLevel.Info).mapBoth(e => Some(e), _ => Patch.empty)
       }
     }
 
     Middleware.makeZIO((method, url, headers) =>
-      ZIO.succeed(serverTime.getLong).flatMap(start => logRequest(method, url, headers, start, logConfig)),
+      ZIO
+        .succeed(serverTime.getLong)
+        .flatMap(start => logRequest(method, url, headers, start)),
     ) { case (status, headers, (start, logStep)) =>
       for {
         end <- ZIO.succeed(serverTime.getLong)
         _   <- logResponse(logger, status, headers, logStep, start, end)
       } yield Patch.empty
     }
+
   }
 
   /**
