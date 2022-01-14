@@ -19,17 +19,18 @@ sealed trait Server[-R, +E] { self =>
     Concat(self, other)
 
   private def settings[R1 <: R, E1 >: E](s: Config[R1, E1] = Config()): Config[R1, E1] = self match {
-    case Concat(self, other)  => other.settings(self.settings(s))
-    case LeakDetection(level) => s.copy(leakDetectionLevel = level)
-    case MaxRequestSize(size) => s.copy(maxRequestSize = size)
-    case Error(errorHandler)  => s.copy(error = Some(errorHandler))
-    case Ssl(sslOption)       => s.copy(sslOption = sslOption)
-    case App(app)             => s.copy(app = app)
-    case Address(address)     => s.copy(address = address)
-    case AcceptContinue       => s.copy(acceptContinue = true)
-    case KeepAlive            => s.copy(keepAlive = true)
-    case FlowControl          => s.copy(flowControl = false)
-    case ConsolidateFlush     => s.copy(consolidateFlush = true)
+    case Concat(self, other)     => other.settings(self.settings(s))
+    case LeakDetection(level)    => s.copy(leakDetectionLevel = level)
+    case MaxRequestSize(size)    => s.copy(maxRequestSize = size)
+    case Error(errorHandler)     => s.copy(error = Some(errorHandler))
+    case Ssl(sslOption)          => s.copy(sslOption = sslOption)
+    case App(app)                => s.copy(app = app)
+    case Address(address)        => s.copy(address = address)
+    case AcceptContinue          => s.copy(acceptContinue = true)
+    case KeepAlive               => s.copy(keepAlive = true)
+    case FlowControl             => s.copy(flowControl = false)
+    case ConsolidateFlush        => s.copy(consolidateFlush = true)
+    case DisableObjectAggregator => s.copy(disableObjectAggregator = true)
   }
 
   def make(implicit
@@ -55,6 +56,7 @@ object Server {
     keepAlive: Boolean = false,
     consolidateFlush: Boolean = false,
     flowControl: Boolean = false,
+    disableObjectAggregator: Boolean = false,
   )
 
   /**
@@ -73,6 +75,7 @@ object Server {
   private case object ConsolidateFlush                                                extends Server[Any, Nothing]
   private case object AcceptContinue                                                  extends UServer
   private case object FlowControl                                                     extends UServer
+  private case object DisableObjectAggregator                                         extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -83,14 +86,16 @@ object Server {
   def bind(inetSocketAddress: InetSocketAddress): UServer = Server.Address(inetSocketAddress)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
-  def acceptContinue: UServer                                                        = Server.AcceptContinue
-  def disableFlowControl: UServer                                                    = Server.FlowControl
-  val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
-  val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
-  val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
-  val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
-  val keepAlive: UServer             = KeepAlive
-  val consolidateFlush: UServer      = ConsolidateFlush
+
+  val acceptContinue: UServer          = Server.AcceptContinue
+  val disableFlowControl: UServer      = Server.FlowControl
+  val disableObjectAggregator: UServer = Server.FlowControl
+  val disableLeakDetection: UServer    = LeakDetection(LeakDetectionLevel.DISABLED)
+  val simpleLeakDetection: UServer     = LeakDetection(LeakDetectionLevel.SIMPLE)
+  val advancedLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.ADVANCED)
+  val paranoidLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.PARANOID)
+  val keepAlive: UServer               = KeepAlive
+  val consolidateFlush: UServer        = ConsolidateFlush
 
   /**
    * Launches the app on the provided port.
