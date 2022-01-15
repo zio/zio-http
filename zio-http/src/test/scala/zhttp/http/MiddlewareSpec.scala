@@ -101,7 +101,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
           assertM(app(0))(equalTo("0Foo0FooBar"))
         } +
           testM("contramapZIO") {
-            val app = Http.identity[String] @@ mid.contramapZIO { i: Int => UIO(s"${i}Foo") }
+            val app = Http.identity[String] @@ mid.contramapZIO[Int] { i => UIO(s"${i}Foo") }
             assertM(app(0))(equalTo("0Foo0FooBar"))
           }
       }

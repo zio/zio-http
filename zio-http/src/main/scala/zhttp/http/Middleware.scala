@@ -64,12 +64,10 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     self andThen other
 
   final def contramap[AOut0](f: AOut0 => AOut): Middleware[R, E, AIn, BIn, AOut0, BOut] =
-    self.contramapZIO(a => UIO(f(a)))
+    self.contramapZIO[AOut0](a => UIO(f(a)))
 
-  final def contramapZIO[R1 <: R, E1 >: E, AOut0](
-    f: AOut0 => ZIO[R1, E1, AOut],
-  ): Middleware[R1, E1, AIn, BIn, AOut0, BOut] =
-    Middleware.ContraMapZIO(self, f)
+  final def contramapZIO[AOut0]: Middleware.PartialContraMapZIO[R, E, AIn, BIn, AOut, BOut, AOut0] =
+    new Middleware.PartialContraMapZIO(self)
 
   /**
    * Delays the production of Http output for the specified duration
@@ -282,6 +280,13 @@ object Middleware extends Web {
       encoder: BIn => ZIO[R, E, BOut],
     ): Middleware[R, E, AIn, BIn, AOut, BOut] =
       Codec(decoder(_), encoder(_))
+  }
+
+  final class PartialContraMapZIO[-R, +E, +AIn, -BIn, -AOut, +BOut, AOut0](
+    val self: Middleware[R, E, AIn, BIn, AOut, BOut],
+  ) extends AnyVal {
+    def apply[R1 <: R, E1 >: E](f: AOut0 => ZIO[R1, E1, AOut]): Middleware[R1, E1, AIn, BIn, AOut0, BOut] =
+      ContraMapZIO[R1, E1, AIn, BIn, AOut, BOut, AOut0](self, f)
   }
 
   private final case class Fail[E](error: E) extends Middleware[Any, E, Nothing, Any, Any, Nothing]
