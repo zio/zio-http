@@ -1,7 +1,7 @@
 package zhttp.http.middleware
 
 import zhttp.http._
-import zhttp.http.middleware.HttpMiddlewares._
+import zhttp.http.middleware.Web._
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
@@ -12,7 +12,7 @@ import java.io.IOException
 /**
  * Middlewares on an HttpApp
  */
-private[zhttp] trait HttpMiddlewares extends CorsMiddlewares with CsrfMiddlewares with AuthMiddlewares {
+private[zhttp] trait Web extends Cors with Csrf with Auth {
 
   /**
    * Logical operator to decide which middleware to select based on the predicate.
@@ -167,7 +167,7 @@ private[zhttp] trait HttpMiddlewares extends CorsMiddlewares with CsrfMiddleware
     Middleware.makeZIO(req => f(MiddlewareRequest(req)))
 }
 
-object HttpMiddlewares {
+object Web {
 
   final case class PartialResponseMake[S](req: MiddlewareRequest => S) extends AnyVal {
     def apply(res: (Status, Headers, S) => Patch): HttpMiddleware[Any, Nothing] = {

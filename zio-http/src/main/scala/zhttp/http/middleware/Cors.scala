@@ -2,9 +2,9 @@ package zhttp.http.middleware
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
-import zhttp.http.middleware.CorsMiddlewares.CorsConfig
+import zhttp.http.middleware.Cors.CorsConfig
 
-private[zhttp] trait CorsMiddlewares {
+private[zhttp] trait Cors {
 
   /**
    * Creates a middleware for Cross-Origin Resource Sharing (CORS).
@@ -61,7 +61,7 @@ private[zhttp] trait CorsMiddlewares {
   }
 }
 
-object CorsMiddlewares {
+object Cors {
   final case class CorsConfig(
     anyOrigin: Boolean = true,
     anyMethod: Boolean = true,

@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Headers.BasicSchemeName
 import zhttp.http._
 
-private[zhttp] trait AuthMiddlewares {
+private[zhttp] trait Auth {
 
   /**
    * Creates an authentication middleware that only allows authenticated requests to be passed on to the app.

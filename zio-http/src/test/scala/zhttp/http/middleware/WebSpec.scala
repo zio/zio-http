@@ -10,7 +10,7 @@ import zio.test.Assertion._
 import zio.test._
 import zio.test.environment.{TestClock, TestConsole}
 
-object HttpMiddlewaresSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
+object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   private val app: HttpApp[Any with Clock, Nothing] = Http.collectZIO[Request] { case Method.GET -> !! / "health" =>
     UIO(Response.ok).delay(1 second)
   }

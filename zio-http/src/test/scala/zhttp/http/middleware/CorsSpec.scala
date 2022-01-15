@@ -2,12 +2,12 @@ package zhttp.http.middleware
 
 import zhttp.http.Middleware.cors
 import zhttp.http._
-import zhttp.http.middleware.CorsMiddlewares.CorsConfig
+import zhttp.http.middleware.Cors.CorsConfig
 import zhttp.internal.HttpAppTestExtensions
 import zio.test.Assertion.hasSubset
 import zio.test._
 
-object CorsMiddlewaresSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
+object CorsSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   override def spec = suite("CorsMiddlewares") {
     // FIXME:The test should ideally pass with `Http.ok` also
     val app = Http.collect[Request] { case Method.GET -> !! / "success" => Response.ok } @@ cors()

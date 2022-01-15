@@ -2,7 +2,7 @@ package example
 
 import zhttp.http.Middleware.cors
 import zhttp.http._
-import zhttp.http.middleware.CorsMiddlewares.CorsConfig
+import zhttp.http.middleware.Cors.CorsConfig
 import zhttp.service.Server
 import zio.{App, ExitCode, URIO}
 
