@@ -20,7 +20,7 @@ object WebSocketServerSpec extends HttpRunnableSpec {
     suite("connections") {
       testM("Multiple websocket upgrades") {
         val response = Socket.succeed(WebSocketFrame.text("BAR")).toResponse
-        val app      = Http.fromEffect(response)
+        val app      = Http.fromZIO(response)
         assertM(app.webSocketStatusCode(!! / "subscriptions").repeatN(1024))(equalTo(101))
       }
     }
