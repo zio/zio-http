@@ -101,7 +101,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
       suite("contramap") {
         val mid = Middleware.intercept[String, String](a => a + "Bar")((b, s) => b + s)
         testM("contramap") {
-          val app = Http.identity[String] @@ mid.contramap { i: Int => s"${i}Foo" }
+          val app = Http.identity[String] @@ mid.contramap[Int] { i => s"${i}Foo" }
           assertM(app(0))(equalTo("0Foo0FooBar"))
         } +
           testM("contramapZIO") {
