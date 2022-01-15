@@ -127,6 +127,19 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   def setStatus(status: Status): HttpMiddleware[Any, Nothing] = patch((_, _) => Patch.setStatus(status))
 
   /**
+   * Creates a middleware for signing cookies
+   */
+  def signCookies(secret: String): HttpMiddleware[Any, Nothing] =
+    updateHeaders {
+      case h if h.getHeader(HeaderNames.setCookie).isDefined =>
+        Headers(
+          HeaderNames.setCookie,
+          Cookie.decodeResponseCookie(h.getHeader(HeaderNames.setCookie).get._2.toString).get.sign(secret).encode,
+        )
+      case h                                                 => h
+    }
+
+  /**
    * Creates a new constants middleware that always executes the app provided, independent of where the middleware is
    * applied
    */

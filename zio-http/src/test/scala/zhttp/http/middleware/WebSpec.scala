@@ -148,6 +148,17 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
               equalTo(Some(cookie.encode)),
             )
           }
+      } +
+      suite("signCookies") {
+        testM("should sign cookies") {
+          val cookie = Cookie("key", "value").withHttpOnly
+          val app    = Http.ok.withSetCookie(cookie) @@ signCookies("secret") getHeader "set-cookie"
+          assertM(app(Request()))(isSome(equalTo(cookie.sign("secret").encode)))
+        } +
+          testM("sign cookies no cookie header") {
+            val app = (Http.ok.addHeader("keyA", "ValueA") @@ signCookies("secret")).getHeaderValues
+            assertM(app(Request()))(contains("ValueA"))
+          }
       }
   }
 
