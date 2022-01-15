@@ -13,7 +13,7 @@ object HExitSpec extends DefaultRunnableSpec with HExitAssertion {
         empty === isEmpty &&
         succeed(1) === isSuccess(equalTo(1)) &&
         fail(1) === isFailure(equalTo(1)) &&
-        effect(UIO(1)) === isEffect
+        fromZIO(UIO(1)) === isEffect
       } +
         test("flatMapError") {
           succeed(0) *> fail(1) <> fail(2) === isFailure(equalTo(2)) &&
@@ -37,9 +37,9 @@ object HExitSpec extends DefaultRunnableSpec with HExitAssertion {
               empty <+> empty === isEmpty
             } +
             test("effect") {
-              effect(UIO(1)) <+> empty === isEffect &&
-              empty <+> effect(UIO(1)) === isEffect &&
-              empty *> effect(UIO(1)) *> effect(UIO(1)) === isEmpty
+              fromZIO(UIO(1)) <+> empty === isEffect &&
+              empty <+> fromZIO(UIO(1)) === isEffect &&
+              empty *> fromZIO(UIO(1)) *> fromZIO(UIO(1)) === isEmpty
             } +
             test("nested succeed") {
               empty <+> succeed(1) <+> succeed(2) === isSuccess(equalTo(1)) &&

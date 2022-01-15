@@ -57,21 +57,21 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
 }
 
 object Socket {
-  def collect[A]: MkCollect[A] = new MkCollect[A](())
+  def collect[A]: PartialCollect[A] = new PartialCollect[A](())
 
   def end: ZStream[Any, Nothing, Nothing] = ZStream.failCause(Cause.empty)
 
-  def fromFunction[A]: MkFromFunction[A] = new MkFromFunction[A](())
+  def fromFunction[A]: PartialFromFunction[A] = new PartialFromFunction[A](())
 
   def fromStream[R, E, B](stream: ZStream[R, E, B]): Socket[R, E, Any, B] = FromStream(stream)
 
   def succeed[A](a: A): Socket[Any, Nothing, Any, A] = Succeed(a)
 
-  final class MkFromFunction[A](val unit: Unit) extends AnyVal {
+  final class PartialFromFunction[A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](f: A => ZStream[R, E, B]): Socket[R, E, A, B] = FromStreamingFunction(f)
   }
 
-  final class MkCollect[A](val unit: Unit) extends AnyVal {
+  final class PartialCollect[A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, ZStream[R, E, B]]): Socket[R, E, A, B] = Socket.FromStreamingFunction {
       a =>
         if (pf.isDefinedAt(a)) pf(a) else ZStream.empty
