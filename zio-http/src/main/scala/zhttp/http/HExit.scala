@@ -45,10 +45,10 @@ private[zhttp] sealed trait HExit[-R, +E, +A] { self =>
         Effect(
           zio.foldM(
             {
-              case Some(error) => ee(error).toEffect
-              case None        => dd.toEffect
+              case Some(error) => ee(error).toZIO
+              case None        => dd.toZIO
             },
-            a => aa(a).toEffect,
+            a => aa(a).toZIO,
           ),
         )
       case HExit.Empty       => dd
@@ -59,7 +59,7 @@ private[zhttp] sealed trait HExit[-R, +E, +A] { self =>
   def orElse[R1 <: R, E1, A1 >: A](other: HExit[R1, E1, A1]): HExit[R1, E1, A1] =
     self.foldExit(_ => other, HExit.succeed, HExit.empty)
 
-  def toEffect: ZIO[R, Option[E], A] = self match {
+  def toZIO: ZIO[R, Option[E], A] = self match {
     case HExit.Success(a)  => ZIO.succeed(a)
     case HExit.Failure(e)  => ZIO.fail(Option(e))
     case HExit.Empty       => ZIO.fail(None)
@@ -68,11 +68,11 @@ private[zhttp] sealed trait HExit[-R, +E, +A] { self =>
 }
 
 object HExit {
-  def effect[R, E, A](z: ZIO[R, E, A]): HExit[R, E, A] = Effect(z.mapError(Option(_)))
-
   def empty: HExit[Any, Nothing, Nothing] = Empty
 
   def fail[E](e: E): HExit[Any, E, Nothing] = Failure(e)
+
+  def fromEffect[R, E, A](z: ZIO[R, E, A]): HExit[R, E, A] = Effect(z.mapError(Option(_)))
 
   def succeed[A](a: A): HExit[Any, Nothing, A] = Success(a)
 

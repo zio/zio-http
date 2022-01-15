@@ -103,7 +103,7 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    * Transforms the output type of the current middleware using effect function.
    */
   final def mapZIO[R1 <: R, E1 >: E, BOut0](f: BOut => ZIO[R1, E1, BOut0]): Middleware[R1, E1, AIn, BIn, AOut, BOut0] =
-    self.flatMap(b => Middleware.fromHttp(Http.fromEffect(f(b))))
+    self.flatMap(b => Middleware.fromHttp(Http.fromZIO(f(b))))
 
   /**
    * Applies self but if it fails, applies other.

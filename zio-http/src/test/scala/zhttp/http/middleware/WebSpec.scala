@@ -10,11 +10,11 @@ import zio.test._
 import zio.test.environment.{TestClock, TestConsole}
 
 object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
-  private val app = Http.collectZIO[Request] { case Method.GET -> !! / "health" =>
+  private val app  = Http.collectZIO[Request] { case Method.GET -> !! / "health" =>
     UIO(Response.ok).delay(1 second)
   }
-  private val midA                                  = Middleware.addHeader("X-Custom", "A")
-  private val midB                                  = Middleware.addHeader("X-Custom", "B")
+  private val midA = Middleware.addHeader("X-Custom", "A")
+  private val midB = Middleware.addHeader("X-Custom", "B")
 
   def spec = suite("HttpMiddleware") {
 
