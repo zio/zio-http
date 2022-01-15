@@ -56,12 +56,12 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   final def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] = execute(http)
 
   /**
-   * Makes the middleware resolve with a constant app
+   * Makes the middleware resolve with a constant Middleware
    */
-  final def as[R0, E0, A, B](
-    http: Http[R0, E0, A, B],
-  ): Middleware[R0, E0, AIn, BIn, A, B] =
-    Middleware.Constant(http)
+  final def as[BOut0](
+    other: BOut0,
+  ): Middleware[R, E, AIn, BIn, AOut, BOut0] =
+    self.map(_ => other)
 
   /**
    * Combines two middleware that operate on the same input and output types, into one.

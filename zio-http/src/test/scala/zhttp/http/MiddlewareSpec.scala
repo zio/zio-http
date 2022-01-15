@@ -20,7 +20,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
         assertM(app(()))(equalTo("OK"))
       } +
       testM("as") {
-        val mid = Middleware.fromHttp(Http.succeed("Not OK")).as(Http.succeed("OK"))
+        val mid = Middleware.fromHttp(Http.succeed("Not OK")).as("OK")
         val app = Http.succeed(1) @@ mid
         assertM(app(()))(equalTo("OK"))
       } +
