@@ -46,15 +46,6 @@ private[zhttp] final case class Handler[R](
   }
 
   /**
-   * Releases the FullHttpRequest safely.
-   */
-  private def releaseRequest(jReq: FullHttpRequest): Unit = {
-    if (jReq.refCnt() > 0) {
-      jReq.release(jReq.refCnt()): Unit
-    }
-  }
-
-  /**
    * Executes http apps
    */
   private def unsafeRun[A](
@@ -69,13 +60,13 @@ private[zhttp] final case class Handler[R](
             {
               case Some(cause) =>
                 UIO {
-                  ctx.fireChannelRead(Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))))
-                  releaseRequest(jReq)
+                  ctx.fireChannelRead(
+                    (Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))), jReq),
+                  )
                 }
               case None        =>
                 UIO {
-                  ctx.fireChannelRead(Response.status(Status.NOT_FOUND))
-                  releaseRequest(jReq)
+                  ctx.fireChannelRead((Response.status(Status.NOT_FOUND), jReq))
                 }
             },
             res =>
@@ -83,9 +74,8 @@ private[zhttp] final case class Handler[R](
               else {
                 for {
                   _ <- UIO {
-                    ctx.fireChannelRead(res)
+                    ctx.fireChannelRead((res, jReq))
                   }
-                  _ <- Task(releaseRequest(jReq))
                 } yield ()
               },
           )
@@ -95,16 +85,13 @@ private[zhttp] final case class Handler[R](
         if (self.isWebSocket(res)) {
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
-          ctx.fireChannelRead(res)
-          releaseRequest(jReq)
+          ctx.fireChannelRead((res, jReq)): Unit
         }
 
       case HExit.Failure(e) =>
-        ctx.fireChannelRead(e)
-        releaseRequest(jReq)
+        ctx.fireChannelRead((e, jReq)): Unit
       case HExit.Empty      =>
-        ctx.fireChannelRead(Response.status(Status.NOT_FOUND))
-        releaseRequest(jReq)
+        ctx.fireChannelRead((Response.status(Status.NOT_FOUND), jReq)): Unit
     }
 
   }
