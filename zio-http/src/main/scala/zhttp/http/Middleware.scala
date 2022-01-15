@@ -122,6 +122,9 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   final def runAfter[R1 <: R, E1 >: E](effect: ZIO[R1, E1, Any]): Middleware[R1, E1, AIn, BIn, AOut, BOut] =
     self.mapZIO(bOut => effect.as(bOut))
 
+  final def runBefore[R1 <: R, E1 >: E](effect: ZIO[R1, E1, Any]): Middleware[R1, E1, AIn, BIn, AOut, BOut] =
+    self.contramapZIO(b => effect.as(b))
+
   /**
    * Applies Middleware based only if the condition function evaluates to true
    */
