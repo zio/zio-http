@@ -2,6 +2,7 @@ package zhttp.http.middleware
 
 import zhttp.http.Middleware.cors
 import zhttp.http._
+import zhttp.http.middleware.CorsMiddlewares.CorsConfig
 import zhttp.internal.HttpAppTestExtensions
 import zio.test.Assertion.hasSubset
 import zio.test._
@@ -22,7 +23,7 @@ object CorsMiddlewaresSpec extends DefaultRunnableSpec with HttpAppTestExtension
         .withAccessControlAllowMethods(Method.GET)
         .withAccessControlAllowOrigin("test-env")
         .withAccessControlAllowHeaders(
-          CORS.DefaultCORSConfig.allowedHeaders.getOrElse(Set.empty).mkString(","),
+          CorsConfig().allowedHeaders.getOrElse(Set.empty).mkString(","),
         )
         .toList
 

@@ -2,7 +2,7 @@ package zhttp.http.middleware
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
-import zhttp.http.middleware.CORS.DefaultCORSConfig
+import zhttp.http.middleware.CorsMiddlewares.CorsConfig
 
 private[zhttp] trait CorsMiddlewares {
 
@@ -11,7 +11,7 @@ private[zhttp] trait CorsMiddlewares {
    * @see
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
    */
-  def cors[R, E](config: CorsConfig = DefaultCORSConfig): HttpMiddleware[R, E] = {
+  def cors[R, E](config: CorsConfig = CorsConfig()): HttpMiddleware[R, E] = {
     def allowCORS(origin: Header, acrm: Method): Boolean                           =
       (config.anyOrigin, config.anyMethod, origin._2.toString, acrm) match {
         case (true, true, _, _)           => true
@@ -59,4 +59,18 @@ private[zhttp] trait CorsMiddlewares {
       }
     })
   }
+}
+
+object CorsMiddlewares {
+  final case class CorsConfig(
+    anyOrigin: Boolean = true,
+    anyMethod: Boolean = true,
+    allowCredentials: Boolean = true,
+    allowedOrigins: String => Boolean = _ => false,
+    allowedMethods: Option[Set[Method]] = None,
+    allowedHeaders: Option[Set[String]] = Some(
+      Set(HttpHeaderNames.CONTENT_TYPE.toString, HttpHeaderNames.AUTHORIZATION.toString, "*"),
+    ),
+    exposedHeaders: Option[Set[String]] = Some(Set("*")),
+  )
 }
