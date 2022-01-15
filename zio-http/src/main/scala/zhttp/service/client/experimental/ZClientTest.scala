@@ -3,7 +3,7 @@ package zhttp.service.client.experimental
 //import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import zhttp.http.URL.Location
 import zhttp.http._
-import zio.{App, ExitCode, URIO}
+import zio.{App, ExitCode, URIO, ZIO}
 
 /**
  * Simple client usage
@@ -18,9 +18,9 @@ object ZClientTest extends App {
   val req = ReqParams(Method.GET, URL(!! / "foo", Location.Absolute(Scheme.HTTP, "localhost", PORT)), emptyHeaders, HttpData.empty)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    val resp = client
+    val resp: ZIO[Any, Throwable, Resp] = client
       .make(req)
       .use (_.run)
-      resp.exitCode
+    resp.exitCode
   }
 }
