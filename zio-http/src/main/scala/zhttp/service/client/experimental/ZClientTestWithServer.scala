@@ -42,10 +42,12 @@ object ZClientTestWithServer extends App {
 
   def triggerClientMultipleTimes(cl: ZClientImpl) = for {
     resp <- cl.run
-    _ <- ZIO.effect(println(s"GOT RESP: $resp"))
+    result1 <- resp.getBodyAsString
+    _ <- ZIO.effect(println(s"GOT RESP: ${result1}"))
     _ <- ZIO.effect(Thread.sleep(5000))
     resp <- cl.run
-    _ <- ZIO.effect(println(s"GOT ANOTHER RESP USING SAME CONNECTION $resp"))
+    result2 <- resp.getBodyAsString
+    _ <- ZIO.effect(println(s"GOT ANOTHER RESP USING SAME CONNECTION ${result2}"))
   } yield ()
 
 }
