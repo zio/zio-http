@@ -207,7 +207,6 @@ object Middleware extends Web {
     self: Middleware[R, E, AIn, BIn, AOut, BOut],
   ): Http[R, E, AOut, BOut] =
     self match {
-      case Codec(decoder, encoder)       => http.contramapZIO(decoder(_)).mapZIO(encoder(_))
       case Identity                      => http.asInstanceOf[Http[R, E, AOut, BOut]]
       case Constant(http)                => http
       case OrElse(self, other)           => self.execute(http).orElse(other.execute(http))
@@ -252,8 +251,11 @@ object Middleware extends Web {
   }
 
   final class PartialCodec[AOut, BIn](val unit: Unit) extends AnyVal {
-    def apply[AIn, BOut](decoder: AOut => AIn, encoder: BIn => BOut): Middleware[Any, Nothing, AIn, BIn, AOut, BOut] =
-      Codec(a => UIO(decoder(a)), b => UIO(encoder(b)))
+    def apply[E, AIn, BOut](
+      decoder: AOut => Either[E, AIn],
+      encoder: BIn => Either[E, BOut],
+    ): Middleware[Any, E, AIn, BIn, AOut, BOut] =
+      Middleware.identity.mapZIO((b: BIn) => ZIO.fromEither(encoder(b))).contramapZIO(a => ZIO.fromEither(decoder(a)))
   }
 
   final class PartialIfThenElse[AOut](val unit: Unit) extends AnyVal {
@@ -281,7 +283,7 @@ object Middleware extends Web {
       decoder: AOut => ZIO[R, E, AIn],
       encoder: BIn => ZIO[R, E, BOut],
     ): Middleware[R, E, AIn, BIn, AOut, BOut] =
-      Codec(decoder(_), encoder(_))
+      Middleware.identity.mapZIO(encoder).contramapZIO(decoder)
   }
 
   private final case class Fail[E](error: E) extends Middleware[Any, E, Nothing, Any, Any, Nothing]
@@ -290,11 +292,6 @@ object Middleware extends Web {
     self: Middleware[R, E0, AIn, BIn, AOut, BOut],
     other: Middleware[R, E1, AIn, BIn, AOut, BOut],
   ) extends Middleware[R, E1, AIn, BIn, AOut, BOut]
-
-  private final case class Codec[R, E, AIn, BIn, AOut, BOut](
-    decoder: AOut => ZIO[R, E, AIn],
-    encoder: BIn => ZIO[R, E, BOut],
-  ) extends Middleware[R, E, AIn, BIn, AOut, BOut]
 
   private final case class Constant[R, E, AOut, BOut](http: Http[R, E, AOut, BOut])
       extends Middleware[R, E, Nothing, Any, AOut, BOut]

@@ -1,25 +1,19 @@
 package zhttp.http
 
 import zio.duration._
-import zio.test.Assertion.{equalTo, isLeft, isNone, isSome}
+import zio.test.Assertion._
 import zio.test.environment.{TestClock, TestConsole}
 import zio.test.{DefaultRunnableSpec, assert, assertM}
 import zio.{Ref, UIO, console}
 
 object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
   def spec = suite("Middleware") {
-    val increment = Middleware.codec[Int, Int](decoder = _ + 1, encoder = _ + 1)
-
+    val increment = Middleware.codec[Int, Int](decoder = a => Right(a + 1), encoder = b => Right(b + 1))
     testM("empty") {
       val http = Http.empty
       val app  = Middleware.identity(http)
       assertM(app(()).either)(isLeft(isNone))
     } +
-      testM("codec") {
-        val mid = Middleware.codec[String, Int](decoder = _.toInt, encoder = _.toString)
-        val app = Http.identity[Int] @@ mid
-        assertM(app("1"))(equalTo("1"))
-      } +
       testM("constant") {
         val mid = Middleware.fromHttp(Http.succeed("OK"))
         val app = Http.succeed(1) @@ mid
@@ -103,6 +97,23 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
           testM("contramapZIO") {
             val app = Http.identity[String] @@ mid.contramapZIO { i: Int => UIO(s"${i}Foo") }
             assertM(app(0))(equalTo("0Foo0FooBar"))
+          }
+      } +
+      suite("codec") {
+        testM("codec success") {
+          val mid = Middleware.codec[String, Int](a => Right(a.toInt), b => Right(b.toString))
+          val app = Http.identity[Int] @@ mid
+          assertM(app("1"))(equalTo("1"))
+        } +
+          testM("decoder failure") {
+            val mid = Middleware.codec[String, Int](a => Left(a), b => Right(b.toString))
+            val app = Http.identity[Int] @@ mid
+            assertM(app("a").run)(fails(anything))
+          } +
+          testM("encoder failure") {
+            val mid = Middleware.codec[String, Int](a => Right(a.toInt), b => Left(b.toString))
+            val app = Http.identity[Int] @@ mid
+            assertM(app("1").run)(fails(anything))
           }
       }
   }
