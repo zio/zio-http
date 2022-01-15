@@ -72,7 +72,7 @@ object HExit {
 
   def fail[E](e: E): HExit[Any, E, Nothing] = Failure(e)
 
-  def fromEffect[R, E, A](z: ZIO[R, E, A]): HExit[R, E, A] = Effect(z.mapError(Option(_)))
+  def fromZIO[R, E, A](z: ZIO[R, E, A]): HExit[R, E, A] = Effect(z.mapError(Option(_)))
 
   def succeed[A](a: A): HExit[Any, Nothing, A] = Success(a)
 

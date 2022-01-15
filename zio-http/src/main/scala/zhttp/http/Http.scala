@@ -3,7 +3,6 @@ package zhttp.http
 import io.netty.channel.ChannelHandler
 import zhttp.html.Html
 import zhttp.http.headers.HeaderModifier
-import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
 import zio.clock.Clock
@@ -336,7 +335,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
       case Http.Identity      => HExit.succeed(a.asInstanceOf[B])
       case Succeed(b)         => HExit.succeed(b)
       case Fail(e)            => HExit.fail(e)
-      case FromFunctionZIO(f) => HExit.fromEffect(f(a))
+      case FromFunctionZIO(f) => HExit.fromZIO(f(a))
       case Collect(pf)        => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
       case Chain(self, other) => self.execute(a).flatMap(b => other.execute(b))
       case Race(self, other)  =>
@@ -397,11 +396,10 @@ object Http {
     private[zhttp] def compile[R1 <: R](
       zExec: HttpRuntime[R1],
       settings: Server.Config[R1, Throwable],
-      serverTime: ServerTimeGenerator,
     )(implicit
       evE: E <:< Throwable,
     ): ChannelHandler =
-      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, serverTime)
+      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings)
   }
 
   /**
