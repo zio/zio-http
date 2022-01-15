@@ -60,7 +60,7 @@ object HttpRuntime {
     case class Group[R](runtime: Runtime[R], group: JEventLoopGroup) extends Strategy[R] {
       private val localRuntime: mutable.Map[EventExecutor, Runtime[R]] = {
         val map = mutable.Map.empty[EventExecutor, Runtime[R]]
-        for (exe <- group.asScala)
+        for (exe <- group.next().asScala)
           map += exe -> runtime.withYieldOnStart(false).withExecutor {
             Executor.fromExecutionContext(runtime.platform.executor.yieldOpCount) {
               JExecutionContext.fromExecutor(exe)
