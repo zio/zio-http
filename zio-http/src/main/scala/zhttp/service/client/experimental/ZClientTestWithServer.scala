@@ -8,6 +8,9 @@ import zhttp.service.{EventLoopGroup, Server}
 import zhttp.service.server.ServerChannelFactory
 import zio.{App, ExitCode, URIO, ZIO}
 
+/**
+ * Self contained ZClient demo with server.
+ */
 object ZClientTestWithServer extends App {
 
   private val PORT = 8081

@@ -5,6 +5,9 @@ import zhttp.http.URL.Location
 import zhttp.http._
 import zio.{App, ExitCode, URIO}
 
+/**
+ * Simple client usage
+ */
 object ZClientTest extends App {
 
   private val PORT = 8081
@@ -20,25 +23,4 @@ object ZClientTest extends App {
       .use (_.run)
       resp.exitCode
   }
-
-  // The code below shows the re-use of connection for the same request and messages regarding connection idle
-//  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-//      client.make(req)
-//        .use { cl =>
-//          println(s"invoking client")
-//          (for {
-//            resp <- cl.run
-//            _ <- ZIO.effect(println(s"GOT RESP: $resp"))
-//            resp <- cl.run
-//            _ <- ZIO.effect(println(s"GOT ANOTHER RESP: $resp"))
-//            _ <- ZIO.effect(Thread.sleep(13000))
-//            resp <- cl.run
-//            //                    _ <- ZIO.effect(Thread.sleep(5000))
-//            _ <- ZIO.effect(println(s"GOT ANOTHER RESP: $resp"))
-//            resp <- cl.run
-//            //                    _ <- ZIO.effect(Thread.sleep(5000))
-//          } yield resp) *> ZIO.unit
-//        }
-//        .exitCode
-
 }
