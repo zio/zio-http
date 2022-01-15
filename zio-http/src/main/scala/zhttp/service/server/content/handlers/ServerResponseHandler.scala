@@ -25,7 +25,8 @@ private[zhttp] case class ServerResponseHandler[R](
     implicit val iCtx: ChannelHandlerContext = ctx
     val response                             = msg._1
     val jRequest                             = msg._2
-    ctx.write(encodeResponse(response))
+    val res                                  = encodeResponse(response, ctx)
+    ctx.write(res)
     response.data match {
       case HttpData.BinaryStream(stream) =>
         runtime.unsafeRun(ctx) { writeStreamContent(stream).ensuring(UIO(releaseRequest(jRequest))) }
@@ -35,6 +36,7 @@ private[zhttp] case class ServerResponseHandler[R](
       case _                             =>
         ctx.flush()
         releaseRequest(jRequest)
+
     }
     ()
   }
@@ -56,7 +58,7 @@ private[zhttp] case class ServerResponseHandler[R](
    * Checks if an encoded version of the response exists, uses it if it does. Otherwise, it will return a fresh
    * response. It will also set the server time if requested by the client.
    */
-  private def encodeResponse(res: Response): HttpResponse = {
+  private def encodeResponse(res: Response, ctx: Ctx): HttpResponse = {
 
     val jResponse = res.attribute.encoded match {
 
@@ -69,7 +71,7 @@ private[zhttp] case class ServerResponseHandler[R](
           case response => response
         }
 
-      case _ => res.unsafeEncode()
+      case _ => res.unsafeEncode(ctx)
     }
     // Identify if the server time should be set and update if required.
     if (res.attribute.serverTime) jResponse.headers().set(HttpHeaderNames.DATE, serverTime.refreshAndGet())

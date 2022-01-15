@@ -201,7 +201,7 @@ object ServerSpec extends HttpRunnableSpec {
               assertM(res)(isSome(equalTo(4L)))
             }
         }
-      } +
+      } /*+
       suite("memoize") {
         testM("concurrent") {
           val size     = 100
@@ -218,7 +218,7 @@ object ServerSpec extends HttpRunnableSpec {
               actual <- Http.response(res).withServer(server).requestHeaderValueByName()(HeaderNames.server)
             } yield assert(actual)(isSome(equalTo(server)))
           }
-      }
+      }*/
   }
 
   def memoryLeakSpec = suite("Memory Leak") {

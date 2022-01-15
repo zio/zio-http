@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.buffer.Unpooled
+import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
 import zhttp.core.Util
@@ -33,8 +33,8 @@ final case class Response private (
    * modified the server will detect the changes and encode the response again, however it will turn out to be counter
    * productive.
    */
-  def freeze: UIO[Response] =
-    UIO(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
+  /*def freeze: UIO[Response] =
+    UIO(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(ctx), self)))*/
 
   override def getHeaders: Headers = headers
 
@@ -71,23 +71,24 @@ final case class Response private (
    * reasons, it is possible that it uses a FullHttpResponse if the complete data is available. Otherwise, it would
    * create a DefaultHttpResponse without any content.
    */
-  private[zhttp] def unsafeEncode(): HttpResponse = {
+  private[zhttp] def unsafeEncode(ctx: ChannelHandlerContext): HttpResponse = {
     import io.netty.handler.codec.http._
 
     val jHeaders = self.getHeaders.encode
-    val jContent = self.data match {
-      case HttpData.Text(text, charset) => Unpooled.copiedBuffer(text, charset)
-      case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
-      case HttpData.BinaryByteBuf(data) => data
-      case HttpData.BinaryStream(_)     => null
-      case HttpData.Empty               => Unpooled.EMPTY_BUFFER
+    val jContent = ctx.alloc().directBuffer()
+    self.data match {
+      case HttpData.Text(text, charset) => jContent.writeCharSequence(text, charset)
+      case HttpData.BinaryChunk(data)   => jContent.writeBytes(data.toArray)
+      case HttpData.BinaryByteBuf(data) => jContent.writeBytes(data)
+      case HttpData.BinaryStream(_)     => jContent.writeZero(0)
+      case HttpData.Empty               => jContent.writeZero(0)
       case HttpData.File(file)          =>
         jHeaders.set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(file.toPath))
-        null
+        jContent.writeZero(0)
     }
 
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
-    if (jContent == null) {
+    if (jContent.readableBytes() == 0) {
       // TODO: Unit test for this
       // Client can't handle chunked responses and currently treats them as a FullHttpResponse.
       // Due to this client limitation it is not possible to write a unit-test for this.

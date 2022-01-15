@@ -1,5 +1,6 @@
 package example
 
+import io.netty.buffer.PooledByteBufAllocator
 import io.netty.util.AsciiString
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
@@ -19,7 +20,7 @@ object Main extends App {
     .text(message)
     .withServerTime
     .withServer(STATIC_SERVER_NAME)
-    .freeze
+    .wrapZIO
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     frozenResponse
@@ -36,6 +37,7 @@ object Main extends App {
       Server.error(_ => UIO.unit) ++
       Server.keepAlive ++
       Server.disableLeakDetection ++
-      Server.consolidateFlush
+      Server.consolidateFlush ++
+      Server.allocator(Some(PooledByteBufAllocator.DEFAULT))
 
 }
