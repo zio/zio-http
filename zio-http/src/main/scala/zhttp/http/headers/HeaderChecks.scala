@@ -18,7 +18,7 @@ trait HeaderChecks[+A] { self: HeaderExtension[A] with A =>
 
   final def hasHeader(name: CharSequence, value: CharSequence): Boolean =
     getHeaderValue(name) match {
-      case Some(v1) => v1 == value.toString
+      case Some(v1) => v1.contentEquals(value)
       case None     => false
     }
 
