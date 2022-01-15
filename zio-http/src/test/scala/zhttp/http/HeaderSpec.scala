@@ -61,6 +61,12 @@ object HeaderSpec extends DefaultRunnableSpec {
             assert(actual)(isNone)
           },
       ) +
+      suite("hasHeader")(
+        test("should return true if content-type is application/json") {
+          val actual = contentTypeJson.hasHeader(HeaderNames.contentType, HeaderValues.applicationJson)
+          assert(actual)(isTrue)
+        },
+      ) +
       suite("hasJsonContentType")(
         test("should return true if content-type is application/json") {
           val actual = contentTypeJson.hasJsonContentType
