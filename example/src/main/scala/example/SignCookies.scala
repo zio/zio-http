@@ -17,6 +17,5 @@ object SignCookies extends ZIOAppDefault {
   }
 
   // Run it like any simple app
-  val run =
-    Server.start(8090, app).exitCode
+  val run = Server.start(8090, app)
 }

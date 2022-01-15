@@ -1,14 +1,7 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.HttpHeaderNames
-import io.netty.util.AsciiString.contentEqualsIgnoreCase
-import zhttp.http.CORS.DefaultCORSConfig
-import zhttp.http.Headers.BasicSchemeName
-import zhttp.http.Middleware.{Flag, RequestP}
+import zhttp.http.middleware.Web
 import zio._
-
-import java.io.IOException
-import java.util.UUID
 
 /**
  * Middlewares are essentially transformations that one can apply on any Http to produce a new one. They can modify
