@@ -17,17 +17,33 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   private val midB = Middleware.addHeader("X-Custom", "B")
 
   def spec = suite("HttpMiddleware") {
-
-    suite("debug") {
-      testM("log status method url and time") {
-        val program = run(app @@ debug) *> TestConsole.output
-        assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
+    suite("headers suite") {
+      testM("addHeaders") {
+        val middleware = addHeaders(Headers("KeyA", "ValueA") ++ Headers("KeyB", "ValueB"))
+        val headers    = (Http.ok @@ middleware).getHeaderValues
+        assertM(headers(Request()))(contains("ValueA") && contains("ValueB"))
       } +
-        testM("log 404 status method url and time") {
-          val program = run(Http.empty ++ Http.notFound @@ debug) *> TestConsole.output
-          assertM(program)(equalTo(Vector("404 GET /health 0ms\n")))
+        testM("addHeader") {
+          val middleware = addHeader("KeyA", "ValueA")
+          val headers    = (Http.ok @@ middleware).getHeaderValues
+          assertM(headers(Request()))(contains("ValueA"))
+        } +
+        testM("removeHeader") {
+          val middleware = removeHeader("KeyA")
+          val headers = (Http.succeed(Response.ok.setHeaders(Headers("KeyA", "ValueA"))) @@ middleware) getHeader "KeyA"
+          assertM(headers(Request()))(isNone)
         }
     } +
+      suite("debug") {
+        testM("log status method url and time") {
+          val program = run(app @@ debug) *> TestConsole.output
+          assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
+        } +
+          testM("log 404 status method url and time") {
+            val program = run(Http.empty ++ Http.notFound @@ debug) *> TestConsole.output
+            assertM(program)(equalTo(Vector("404 GET /health 0ms\n")))
+          }
+      } +
       suite("when") {
         testM("condition is true") {
           val program = run(app @@ debug.when(_ => true)) *> TestConsole.output

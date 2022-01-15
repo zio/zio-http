@@ -59,9 +59,9 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    * Makes the middleware resolve with a constant Middleware
    */
   final def as[BOut0](
-    other: BOut0,
+    bout: BOut0,
   ): Middleware[R, E, AIn, BIn, AOut, BOut0] =
-    self.map(_ => other)
+    self.map(_ => bout)
 
   /**
    * Combines two middleware that operate on the same input and output types, into one.

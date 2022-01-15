@@ -1,6 +1,7 @@
 package zhttp.http.middleware
 
 import zhttp.http._
+import zhttp.http.headers.HeaderModifier
 import zhttp.http.middleware.Web._
 import zio.clock.Clock
 import zio.console.Console
@@ -12,7 +13,8 @@ import java.io.IOException
 /**
  * Middlewares on an HttpApp
  */
-private[zhttp] trait Web extends Cors with Csrf with Auth {
+private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[HttpMiddleware[Any, Nothing]] {
+  self =>
 
   /**
    * Logical operator to decide which middleware to select based on the predicate.
@@ -65,25 +67,13 @@ private[zhttp] trait Web extends Cors with Csrf with Auth {
    * Sets cookie in response headers
    */
   def addCookie(cookie: Cookie): HttpMiddleware[Any, Nothing] =
-    addHeader(Headers.setCookie(cookie))
+    self.addHeaders(Headers.setCookie(cookie))
 
   /**
-   * Adds the provided header and value to the response
+   * Updates the provided list of headers to the response
    */
-  def addHeader(name: String, value: String): HttpMiddleware[Any, Nothing] =
-    patch((_, _) => Patch.addHeader(name, value))
-
-  /**
-   * Adds the provided header to the response
-   */
-  def addHeader(header: Headers): HttpMiddleware[Any, Nothing] =
-    patch((_, _) => Patch.addHeader(header))
-
-  /**
-   * Adds the provided list of headers to the response
-   */
-  def addHeaders(headers: Headers): HttpMiddleware[Any, Nothing] =
-    patch((_, _) => Patch.addHeader(headers))
+  override def updateHeaders(update: Headers => Headers): HttpMiddleware[Any, Nothing] =
+    patch((_, _) => Patch.updateHeaders(update))
 
   def addCookieM[R, E](cookie: ZIO[R, E, Cookie]): HttpMiddleware[R, E] =
     patchZIO((_, _) => cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c))))
@@ -124,12 +114,6 @@ private[zhttp] trait Web extends Cors with Csrf with Auth {
    */
   def patchZIO[R, E](f: (Status, Headers) => ZIO[R, Option[E], Patch]): HttpMiddleware[R, E] =
     makeResponseZIO(_ => ZIO.unit)((status, headers, _) => f(status, headers))
-
-  /**
-   * Removes the header by name
-   */
-  def removeHeader(name: String): HttpMiddleware[Any, Nothing] =
-    patch((_, _) => Patch.removeHeaders(List(name)))
 
   /**
    * Runs the effect before the request is passed on to the HttpApp on which the middleware is applied.
