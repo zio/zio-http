@@ -8,8 +8,25 @@ import zio.{UIO, ZIO}
 /**
  * Middlewares are essentially transformations that one can apply on any Http to produce a new one. They can modify
  * requests and responses and also transform them into more concrete domain entities.
+ *
+ * You can think of middlewares as a functions —
+ *
+ * {{{
+ * type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E, AOut, BOut]
+ * }}}
+ *
+ * The `AIn` and `BIn` type params represent the type params of the input Http. The `AOut` and `BOut` type params
+ * represent the type params of the output Http.
  */
 sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
+
+  /**
+   * Creates a new middleware that passes the output Http of the current middleware as the input to the provided
+   * middleware.
+   */
+  final def >>>[R1 <: R, E1 >: E, AIn1 <: AOut, BIn1 >: BOut, AOut1, BOut1](
+    other: Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1],
+  ): Middleware[R1, E1, AIn, BIn, AOut1, BOut1] = self andThen other
 
   /**
    * Applies self but if it fails, applies other.
@@ -17,13 +34,6 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   final def <>[R1 <: R, E1, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0 >: BOut](
     other: Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
   ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] = self orElse other
-
-  /**
-   * Composes one middleware with another.
-   */
-  final def <<<[R1 <: R, E1 >: E, A0 <: AOut, B0 >: BOut, A1, B1](
-    other: Middleware[R1, E1, A0, B0, A1, B1],
-  ): Middleware[R1, E1, AIn, BIn, A1, B1] = self compose other
 
   /**
    * Combines two middleware that don't modify the input and output types.
@@ -34,24 +44,32 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     self combine other
 
   /**
+   * Composes one middleware with another.
+   */
+  final def andThen[R1 <: R, E1 >: E, AIn1 <: AOut, BIn1 >: BOut, AOut1, BOut1](
+    other: Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1],
+  ): Middleware[R1, E1, AIn, BIn, AOut1, BOut1] = Middleware.AndThen(self, other)
+
+  /**
    * Applies middleware on Http and returns new Http.
    */
   final def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] = execute(http)
 
   /**
-   * Combines two middleware into one.
+   * Combines two middleware that operate on the same input and output types, into one.
    */
   final def combine[R1 <: R, E1 >: E, A0 >: AIn <: AOut, B0 >: BOut <: BIn](
     other: Middleware[R1, E1, A0, B0, A0, B0],
   ): Middleware[R1, E1, A0, B0, A0, B0] =
-    self compose other
+    self andThen other
 
-  /**
-   * Composes one middleware with another.
-   */
-  final def compose[R1 <: R, E1 >: E, A0 <: AOut, B0 >: BOut, A1, B1](
-    other: Middleware[R1, E1, A0, B0, A1, B1],
-  ): Middleware[R1, E1, AIn, BIn, A1, B1] = Middleware.Compose(self, other)
+  final def contramap[AOut0](f: AOut0 => AOut): Middleware[R, E, AIn, BIn, AOut0, BOut] =
+    self.contramapZIO(a => UIO(f(a)))
+
+  final def contramapZIO[R1 <: R, E1 >: E, AOut0](
+    f: AOut0 => ZIO[R1, E1, AOut],
+  ): Middleware[R1, E1, AIn, BIn, AOut0, BOut] =
+    Middleware.ContraMapZIO(self, f)
 
   /**
    * Delays the production of Http output for the specified duration
@@ -145,6 +163,11 @@ object Middleware extends HttpMiddlewares {
   def fromHttp[R, E, A, B](http: Http[R, E, A, B]): Middleware[R, E, Nothing, Any, A, B] = Constant(http)
 
   /**
+   * An empty middleware that doesn't do anything
+   */
+  def identity: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Middleware.Identity
+
+  /**
    * Logical operator to decide which middleware to select based on the predicate.
    */
   def ifThenElse[A]: PartialIfThenElse[A] = new PartialIfThenElse(())
@@ -179,11 +202,6 @@ object Middleware extends HttpMiddlewares {
    */
   def succeed[B](b: B): Middleware[Any, Nothing, Nothing, Any, Any, B] = fromHttp(Http.succeed(b))
 
-  /**
-   * An empty middleware that doesn't do anything
-   */
-  def identity: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Middleware.Identity
-
   private[zhttp] def execute[R, E, AIn, BIn, AOut, BOut](
     http: Http[R, E, AIn, BIn],
     self: Middleware[R, E, AIn, BIn, AOut, BOut],
@@ -194,8 +212,9 @@ object Middleware extends HttpMiddlewares {
       case Constant(http)                => http
       case OrElse(self, other)           => self.execute(http).orElse(other.execute(http))
       case Fail(error)                   => Http.fail(error)
-      case Compose(self, other)          => other.execute(self.execute(http))
+      case AndThen(self, other)          => other.execute(self.execute(http))
       case FlatMap(self, f)              => self.execute(http).flatMap(f(_).execute(http))
+      case ContraMapZIO(self, f)         => self.execute(http).contramapZIO(a => f(a))
       case Race(self, other)             => self.execute(http) race other.execute(http)
       case Intercept(incoming, outgoing) =>
         Http.fromOptionFunction[AOut] { a =>
@@ -285,15 +304,20 @@ object Middleware extends HttpMiddlewares {
     outgoing: (B, S) => ZIO[R, Option[E], BOut],
   ) extends Middleware[R, E, A, B, A, BOut]
 
-  private final case class Compose[R, E, A0, B0, A1, B1, A2, B2](
+  private final case class AndThen[R, E, A0, B0, A1, B1, A2, B2](
     self: Middleware[R, E, A0, B0, A1, B1],
     other: Middleware[R, E, A1, B1, A2, B2],
   ) extends Middleware[R, E, A0, B0, A2, B2]
 
-  private final case class FlatMap[R, E, AIn, BIn, AOut, BOut0, BOut1](
+  private final case class FlatMap[R, E, AIn, BIn, AOut, BOut, BOut0](
     self: Middleware[R, E, AIn, BIn, AOut, BOut0],
-    f: BOut0 => Middleware[R, E, AIn, BIn, AOut, BOut1],
-  ) extends Middleware[R, E, AIn, BIn, AOut, BOut1]
+    f: BOut0 => Middleware[R, E, AIn, BIn, AOut, BOut],
+  ) extends Middleware[R, E, AIn, BIn, AOut, BOut]
+
+  private final case class ContraMapZIO[R, E, AIn, BIn, AOut, BOut, AOut0](
+    self: Middleware[R, E, AIn, BIn, AOut, BOut],
+    f: AOut0 => ZIO[R, E, AOut],
+  ) extends Middleware[R, E, AIn, BIn, AOut0, BOut]
 
   private final case class Race[R, E, AIn, BIn, AOut, BOut](
     self: Middleware[R, E, AIn, BIn, AOut, BOut],

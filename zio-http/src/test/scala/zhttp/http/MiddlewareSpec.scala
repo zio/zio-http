@@ -42,7 +42,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
       testM("combine") {
         val mid1 = increment
         val mid2 = increment
-        val mid  = mid1 compose mid2
+        val mid  = mid1 andThen mid2
         val app  = Http.identity[Int] @@ mid
         assertM(app(0))(equalTo(4))
       } +
@@ -92,6 +92,17 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
           testM("isFalse") {
             val app = Http.identity[Int] @@ mid
             assertM(app(1))(equalTo(0))
+          }
+      } +
+      suite("contramap") {
+        val mid = Middleware.intercept[String, String](a => a + "Bar")((b, s) => b + s)
+        testM("contramap") {
+          val app = Http.identity[String] @@ mid.contramap { i: Int => s"${i}Foo" }
+          assertM(app(0))(equalTo("0Foo0FooBar"))
+        } +
+          testM("contramapZIO") {
+            val app = Http.identity[String] @@ mid.contramapZIO { i: Int => UIO(s"${i}Foo") }
+            assertM(app(0))(equalTo("0Foo0FooBar"))
           }
       }
   }
