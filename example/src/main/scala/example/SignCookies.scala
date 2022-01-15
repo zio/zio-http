@@ -1,14 +1,13 @@
 package example
 
-import zhttp.http.{Cookie, Method, Response, _}
+import zhttp.http._
 import zhttp.service.Server
-import zio.duration.durationInt
-import zio.{App, ExitCode, URIO}
+import zio._
 
 /**
  * Example to make app using signed-cookies
  */
-object SignCookies extends App {
+object SignCookies extends ZIOAppDefault {
 
   // Setting cookies with an expiry of 5 days
   private val cookie = Cookie("key", "hello").withMaxAge(5 days)
@@ -18,6 +17,6 @@ object SignCookies extends App {
   }
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  val run =
     Server.start(8090, app).exitCode
 }

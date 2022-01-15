@@ -53,6 +53,15 @@ private[zhttp] case class ServerResponseHandler[R](
   }
 
   /**
+   * Releases the FullHttpRequest safely.
+   */
+  private def releaseRequest(jReq: FullHttpRequest): Unit = {
+    if (jReq.refCnt() > 0) {
+      jReq.release(jReq.refCnt()): Unit
+    }
+  }
+
+  /**
    * Checks if an encoded version of the response exists, uses it if it does.
    * Otherwise, it will return a fresh response. It will also set the server
    * time if requested by the client.
