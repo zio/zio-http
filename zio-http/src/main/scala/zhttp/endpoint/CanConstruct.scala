@@ -1,7 +1,7 @@
 package zhttp.endpoint
 
-import zhttp.http.{Http, HttpApp, HttpError, Request, Response}
-import zio.{UIO, ZIO}
+import zhttp.http.{Http, HttpApp, Request, Response}
+import zio.ZIO
 
 /**
  * Constructors to make an HttpApp using an Endpoint
@@ -18,33 +18,36 @@ object CanConstruct {
     type EOut = E
   }
 
-  implicit def response[R, E, A]: Aux[R, E, A, Response[R, E]] = new CanConstruct[A, Response[R, E]] {
-    override type ROut = R
-    override type EOut = E
+  implicit def response[A]: Aux[Any, Nothing, A, Response] = new CanConstruct[A, Response] {
+    override type ROut = Any
+    override type EOut = Nothing
 
-    override def make(route: Endpoint[A], f: Request.ParameterizedRequest[A] => Response[R, E]): HttpApp[R, E] =
-      Http.collect[Request] { case req =>
-        route.extract(req) match {
-          case Some(value) => f(Request.ParameterizedRequest(req, value))
-          case None        => Response.fromHttpError(HttpError.NotFound(req.url.path))
+    override def make(route: Endpoint[A], f: Request.ParameterizedRequest[A] => Response): HttpApp[Any, Nothing] =
+      Http
+        .collectHttp[Request] { case req =>
+          route.extract(req) match {
+            case Some(value) => Http.succeed(f(Request.ParameterizedRequest(req, value)))
+            case None        => Http.empty
+          }
         }
-      }
   }
 
-  implicit def responseM[R, E, A]: Aux[R, E, A, ZIO[R, E, Response[R, E]]] =
-    new CanConstruct[A, ZIO[R, E, Response[R, E]]] {
+  implicit def responseZIO[R, E, A]: Aux[R, E, A, ZIO[R, E, Response]] =
+    new CanConstruct[A, ZIO[R, E, Response]] {
       override type ROut = R
       override type EOut = E
 
       override def make(
         route: Endpoint[A],
-        f: Request.ParameterizedRequest[A] => ZIO[R, E, Response[R, E]],
-      ): HttpApp[R, E] =
-        Http.collectM[Request] { case req =>
-          route.extract(req) match {
-            case Some(value) => f(Request.ParameterizedRequest(req, value))
-            case None        => UIO(Response.fromHttpError(HttpError.NotFound(req.url.path)))
+        f: Request.ParameterizedRequest[A] => ZIO[R, E, Response],
+      ): HttpApp[R, E] = {
+        Http
+          .collectHttp[Request] { case req =>
+            route.extract(req) match {
+              case Some(value) => Http.fromZIO(f(Request.ParameterizedRequest(req, value)))
+              case None        => Http.empty
+            }
           }
-        }
+      }
     }
 }

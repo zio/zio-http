@@ -26,14 +26,15 @@ object Main extends App {
       .exitCode
   }
 
-  private def app(response: Response[Any, Nothing]) = Http.response(response)
+  private def app(response: Response) = Http.response(response)
 
-  private def server(response: Response[Any, Nothing]) =
+  private def server(response: Response) =
     Server.app(app(response)) ++
       Server.port(8080) ++
       Server.error(_ => UIO.unit) ++
       Server.keepAlive ++
       Server.disableLeakDetection ++
-      Server.consolidateFlush
+      Server.consolidateFlush ++
+      Server.maxRequestSize(0)
 
 }

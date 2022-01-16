@@ -1,4 +1,3 @@
-import play.twirl.sbt.Import.TwirlKeys
 import sbt.Keys._
 import sbt._
 import scalafix.sbt.ScalafixPlugin.autoImport._
@@ -6,9 +5,9 @@ import xerial.sbt.Sonatype.autoImport._
 
 object BuildHelper extends ScalaSettings {
   val Scala212         = "2.12.15"
-  val Scala213         = "2.13.7"
+  val Scala213         = "2.13.8"
   val ScalaDotty       = "3.1.0"
-  val ScoverageVersion = "1.9.2"
+  val ScoverageVersion = "1.9.3"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -83,7 +82,7 @@ object BuildHelper extends ScalaSettings {
     ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, ScalaDotty),
     ThisBuild / scalaVersion       := Scala213,
     scalacOptions                  := stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
-    semanticdbVersion := scalafixSemanticdb.withRevision("4.4.30").revision, // use Scalafix compatible version
+    semanticdbVersion              := scalafixSemanticdb.revision, // use Scalafix compatible version
     ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
     ThisBuild / scalafixDependencies ++=
       List(
@@ -95,15 +94,6 @@ object BuildHelper extends ScalaSettings {
     autoAPIMappings                        := true,
     ThisBuild / javaOptions                := Seq("-Dio.netty.leakDetectionLevel=paranoid"),
     ThisBuild / fork                       := true,
-  )
-
-  def twirlSettings = Seq(
-    TwirlKeys.templateImports := Seq(),
-    libraryDependencies       := libraryDependencies.value.map {
-      case module if module.name == "twirl-api" =>
-        module.cross(CrossVersion.for3Use2_13)
-      case module                               => module
-    },
   )
 
   def runSettings(className: String = "example.HelloWorld") = Seq(

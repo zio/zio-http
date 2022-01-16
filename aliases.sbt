@@ -6,10 +6,9 @@ addCommandAlias("sFixCheck", "scalafix --check OrganizeImports; Test / scalafix 
 onLoadMessage := {
   import scala.Console._
 
-  def header(text: String): String = s"${RED}$text${RESET}"
+  def header(text: String): String  = s"${RED}$text${RESET}"
   def item(text: String): String    = s"${GREEN}> ${CYAN}$text${RESET}"
   def subItem(text: String): String = s"  ${YELLOW}> ${CYAN}$text${RESET}"
-
 
   s"""|
       |${header(" ____  ___    ___          _  _   _____   _____   ___")}

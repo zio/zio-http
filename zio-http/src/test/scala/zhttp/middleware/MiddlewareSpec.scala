@@ -2,12 +2,12 @@ package zhttp.middleware
 
 import zhttp.http._
 import zhttp.internal.HttpAppTestExtensions
+import zio._
 import zio.clock.Clock
 import zio.duration._
 import zio.test.Assertion._
 import zio.test.environment.{TestClock, TestConsole}
 import zio.test.{DefaultRunnableSpec, assert, assertM}
-import zio.{UIO, ZIO, console}
 
 object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   def spec = suite("HttpMiddleware") {
@@ -68,12 +68,12 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       } +
       suite("ifThenElseM") {
         testM("if the condition is true take first") {
-          val app = (Http.ok @@ ifThenElseM(condM(true))(midA, midB)) getHeader "X-Custom"
+          val app = (Http.ok @@ ifThenElseZIO(condM(true))(midA, midB)) getHeader "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
         } +
           testM("if the condition is false take 2nd") {
             val app =
-              (Http.ok @@ ifThenElseM(condM(false))(midA, midB)) getHeader "X-Custom"
+              (Http.ok @@ ifThenElseZIO(condM(false))(midA, midB)) getHeader "X-Custom"
             assertM(app(Request()))(isSome(equalTo("B")))
           }
       } +
@@ -89,11 +89,11 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       } +
       suite("whenM") {
         testM("if the condition is true apply middleware") {
-          val app = (Http.ok @@ whenM(condM(true))(midA)) getHeader "X-Custom"
+          val app = (Http.ok @@ whenZIO(condM(true))(midA)) getHeader "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
         } +
           testM("if the condition is false don't apply any middleware") {
-            val app = (Http.ok @@ whenM(condM(false))(midA)) getHeader "X-Custom"
+            val app = (Http.ok @@ whenZIO(condM(false))(midA)) getHeader "X-Custom"
             assertM(app(Request()))(isNone)
           }
       } +
@@ -166,10 +166,61 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
               res <- app(request)
             } yield assert(res.getHeadersAsList)(hasSubset(expected))
           }
+      } +
+      suite("cookie") {
+        testM("addCookie") {
+          val cookie = Cookie("test", "testValue")
+          val app    = (Http.ok @@ addCookie(cookie)).getHeader("set-cookie")
+          assertM(app(Request()))(
+            equalTo(Some(cookie.encode)),
+          )
+        } +
+          testM("addCookieM") {
+            val cookie = Cookie("test", "testValue")
+            val app    =
+              (Http.ok @@ addCookieM(UIO(cookie))).getHeader("set-cookie")
+            assertM(app(Request()))(
+              equalTo(Some(cookie.encode)),
+            )
+          }
+      } +
+      suite("csrf") {
+        val app           = (Http.ok @@ csrfValidate("x-token")).getStatus
+        val setCookie     = Headers.cookie(Cookie("x-token", "secret"))
+        val invalidXToken = Headers("x-token", "secret1")
+        val validXToken   = Headers("x-token", "secret")
+        testM("x-token not present") {
+          assertM(app(Request(headers = setCookie)))(equalTo(Status.FORBIDDEN))
+        } +
+          testM("x-token mismatch") {
+            assertM(app(Request(headers = setCookie ++ invalidXToken)))(
+              equalTo(Status.FORBIDDEN),
+            )
+          } +
+          testM("x-token match") {
+            assertM(app(Request(headers = setCookie ++ validXToken)))(
+              equalTo(Status.OK),
+            )
+          } +
+          testM("app execution skipped") {
+            for {
+              r <- Ref.make(false)
+              app = Http.ok.tapZIO(_ => r.set(true)) @@ csrfValidate("x-token")
+              _   <- app(Request(headers = setCookie ++ invalidXToken))
+              res <- r.get
+            } yield assert(res)(equalTo(false))
+          }
+      } +
+      suite("signCookies") {
+        testM("should sign cookies") {
+          val cookie = Cookie("key", "value").withHttpOnly
+          val app    = Http.ok.withSetCookie(cookie) @@ signCookies("secret") getHeader "set-cookie"
+          assertM(app(Request()))(isSome(equalTo(cookie.sign("secret").encode)))
+        }
       }
   }
 
-  private val app: HttpApp[Any with Clock, Nothing] = Http.collectM[Request] { case Method.GET -> !! / "health" =>
+  private val app: HttpApp[Any with Clock, Nothing] = Http.collectZIO[Request] { case Method.GET -> !! / "health" =>
     UIO(Response.ok).delay(1 second)
   }
   private val midA                                  = Middleware.addHeader("X-Custom", "A")
@@ -182,7 +233,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
   private def condM(flg: Boolean) = (_: Any, _: Any, _: Any) => UIO(flg)
 
-  private def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response[R, E]] = {
+  private def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response] = {
     for {
       fib <- app { Request(url = URL(!! / "health")) }.fork
       _   <- TestClock.adjust(10 seconds)

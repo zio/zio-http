@@ -7,11 +7,11 @@ import zio.test._
 object CookieSpec extends DefaultRunnableSpec {
   def spec = suite("Cookies") {
     suite("response cookies") {
-      testM("encode/decode cookies with ZIO Test Gen") {
+      testM("encode/decode signed/unsigned cookies with secret") {
         checkAll(HttpGen.cookies) { cookie =>
           val cookieString = cookie.encode
-          assert(Cookie.decodeResponseCookie(cookieString))(isSome(equalTo(cookie))) &&
-          assert(Cookie.decodeResponseCookie(cookieString).map(_.encode))(isSome(equalTo(cookieString)))
+          assert(Cookie.decodeResponseCookie(cookieString, cookie.secret))(isSome(equalTo(cookie))) &&
+          assert(Cookie.decodeResponseCookie(cookieString, cookie.secret).map(_.encode))(isSome(equalTo(cookieString)))
         }
       }
     } +

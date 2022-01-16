@@ -2,7 +2,6 @@ package zhttp.http
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import zhttp.http.Headers.BearerSchemeName
-import zhttp.http.Headers.Literals._
 import zio.test.Assertion._
 import zio.test.{DefaultRunnableSpec, Gen, assert, check}
 
@@ -61,6 +60,12 @@ object HeaderSpec extends DefaultRunnableSpec {
             val actual = acceptJson.getContentType
             assert(actual)(isNone)
           },
+      ) +
+      suite("hasHeader")(
+        test("should return true if content-type is application/json") {
+          val actual = contentTypeJson.hasHeader(HeaderNames.contentType, HeaderValues.applicationJson)
+          assert(actual)(isTrue)
+        },
       ) +
       suite("hasJsonContentType")(
         test("should return true if content-type is application/json") {
@@ -171,7 +176,7 @@ object HeaderSpec extends DefaultRunnableSpec {
             val password = "password"
             val actual   = Headers
               .basicAuthorizationHeader(username, password)
-              .getHeaderValue(Name.Authorization)
+              .getHeaderValue(HeaderNames.authorization)
             val expected = "Basic dXNlcm5hbWU6cGFzc3dvcmQ="
             assert(actual)(isSome(equalTo(expected)))
           },
@@ -215,18 +220,19 @@ object HeaderSpec extends DefaultRunnableSpec {
       }
   }
 
-  private val contentTypeXhtmlXml       = Headers(Name.ContentType, Value.ApplicationXhtml)
-  private val contentTypeTextPlain      = Headers(Name.ContentType, Value.TextPlain)
-  private val contentTypeXml            = Headers(Name.ContentType, Value.ApplicationXml)
-  private val contentTypeJson           = Headers(Name.ContentType, Value.ApplicationJson)
-  private val acceptJson                = Headers(Name.Accept, Value.ApplicationJson)
-  private val contentTypeFormUrlEncoded = Headers(Name.ContentType, Value.ApplicationXWWWFormUrlencoded)
+  private val contentTypeXhtmlXml       = Headers(HeaderNames.contentType, HeaderValues.applicationXhtml)
+  private val contentTypeTextPlain      = Headers(HeaderNames.contentType, HeaderValues.textPlain)
+  private val contentTypeXml            = Headers(HeaderNames.contentType, HeaderValues.applicationXml)
+  private val contentTypeJson           = Headers(HeaderNames.contentType, HeaderValues.applicationJson)
+  private val acceptJson                = Headers(HeaderNames.accept, HeaderValues.applicationJson)
+  private val contentTypeFormUrlEncoded =
+    Headers(HeaderNames.contentType, HeaderValues.applicationXWWWFormUrlencoded)
   private def customAcceptJsonHeader    = ("accept", "application/json")
   private def customContentJsonHeader   = ("content-type", "application/json")
   private def customHeaders: Headers    = Headers(customContentJsonHeader) ++ Headers(customAcceptJsonHeader)
 
   private def predefinedHeaders: Headers = Headers {
-    Name.Accept      -> Value.ApplicationJson
-    Name.ContentType -> Value.ApplicationJson
+    HeaderNames.accept      -> HeaderValues.applicationJson
+    HeaderNames.contentType -> HeaderValues.applicationJson
   }
 }

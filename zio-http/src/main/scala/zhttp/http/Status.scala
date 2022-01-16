@@ -10,9 +10,9 @@ sealed trait Status extends Product with Serializable { self =>
   def toApp: UHttpApp = Http.status(self)
 
   /**
-   * Returns a Response[Any, Nothing] with empty data and no headers.
+   * Returns a Response with empty data and no headers.
    */
-  def toResponse: UResponse = Response(self)
+  def toResponse: Response = Response(self)
 
   /**
    * Returns self as io.netty.handler.codec.http.HttpResponseStatus.
