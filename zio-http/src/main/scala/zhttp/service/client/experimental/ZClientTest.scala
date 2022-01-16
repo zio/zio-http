@@ -18,9 +18,11 @@ object ZClientTest extends App {
   val req = ReqParams(Method.GET, URL(!! / "foo", Location.Absolute(Scheme.HTTP, "localhost", PORT)), emptyHeaders, HttpData.empty)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    val resp: ZIO[Any, Throwable, Resp] = client
+    val resp: ZIO[Any, Throwable, Resp] =
+      client
       .make(req)
       .use (_.run)
+
     resp.exitCode
   }
 }

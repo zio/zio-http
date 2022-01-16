@@ -30,7 +30,7 @@ trait ZClient[-R,+E] { self =>
 
   def make(req: ReqParams)(implicit
                            ev: E <:< Throwable,
-  ): ZManaged[R, Throwable, ZClientImpl] =
+  ): ZManaged[R, Throwable, DefaultZClient] =
     ZClient.make(self.asInstanceOf[ZClient[R, Throwable]], req)
 
 }
@@ -66,7 +66,7 @@ object ZClient {
   def make[R](
                zClient: ZClient[R, Throwable],
                req: ReqParams,
-             ): ZManaged[R, Throwable, ZClientImpl] = {
+             ): ZManaged[R, Throwable, DefaultZClient] = {
     val settings = zClient.settings()
     for {
       channelFactory <- ZManaged.fromEffect(settings.transport.clientChannel)
@@ -92,7 +92,23 @@ object ZClient {
       _ <- ZIO.effect(println(s"BOOTSTRAP DONE")).toManaged_
 
       chf = clientBootStrap.connect(settings.address)
-      clientImpl = ZClientImpl(jReq, promise,chf)
+      _ <- ZIO.effect (
+        chf.addListener(new ChannelFutureListener() {
+          override def operationComplete(future: ChannelFuture): Unit = {
+            val channel = future.channel()
+            println(s"CONNECTED USING CHH ID: ${channel.id()}")
+            if (!future.isSuccess()) {
+              println(s"error: ${future.cause().getMessage}")
+              future.cause().printStackTrace()
+            } else {
+              println(s"FUTURE SUCCESS")
+              println("sent  request");
+            }
+          }
+        }): Unit
+      ).toManaged_
+
+      clientImpl = DefaultZClient(jReq, promise,chf)
     } yield {
       clientImpl
     }
@@ -117,38 +133,25 @@ object ZClient {
   }
 
 }
-case class ZClientImpl(req: FullHttpRequest
-                       , promise: Promise[Throwable, Resp]
-                       , cf: ChannelFuture) extends HttpMessageCodec{
+case class DefaultZClient(req: FullHttpRequest
+                          , promise: Promise[Throwable, Resp]
+                          , cf: ChannelFuture) extends HttpMessageCodec{
   def run: Task[Resp] =
     for {
-      _       <- Task(asyncRequest()).catchAll(cause => promise.fail(cause))
+//      _       <- Task(asyncRequest()).catchAll(cause => promise.fail(cause))
       res     <- promise.await
     } yield res
 
-  private def asyncRequest(): Unit = {
-    try {
-      cf.addListener(new ChannelFutureListener() {
-        override def operationComplete(future: ChannelFuture): Unit = {
-          val channel = future.channel()
-          println(s"CONNECTED USING CHH ID: ${channel.id()}")
-          if (!future.isSuccess()) {
-            println(s"error: ${future.cause().getMessage}")
-            future.cause().printStackTrace()
-          } else {
-            println(s"FUTURE SUCCESS")
-            println("sent  request");
-          }
-        }
-      }): Unit
-      //        Thread.sleep(13000): Unit
-    } catch {
-      case _: Throwable =>
-        if (req.refCnt() > 0) {
-          req.release(req.refCnt()): Unit
-        }
-    }
-  }
+//  private def asyncRequest(): Unit = {
+////    try {
+////      //        Thread.sleep(13000): Unit
+////    } catch {
+////      case _: Throwable =>
+////        if (req.refCnt() > 0) {
+////          req.release(req.refCnt()): Unit
+////        }
+////    }
+//  }
 
 
 }

@@ -40,10 +40,11 @@ object ZClientTestWithServer extends App {
       .exitCode
   }
 
-  def triggerClientMultipleTimes(cl: ZClientImpl) = for {
+  def triggerClientMultipleTimes(cl: DefaultZClient) = for {
     resp <- cl.run
     result1 <- resp.getBodyAsString
-    _ <- ZIO.effect(println(s"GOT RESP: ${result1}"))
+    _ <- ZIO.effect(println(s"GOT RESP: ${result1} "))
+    _ <- ZIO.effect(println(s"NOW SLEEPING for 5000 ms"))
     _ <- ZIO.effect(Thread.sleep(5000))
     resp <- cl.run
     result2 <- resp.getBodyAsString
