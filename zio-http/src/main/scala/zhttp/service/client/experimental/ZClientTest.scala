@@ -17,12 +17,22 @@ object ZClientTest extends App {
   val emptyHeaders = Headers.empty
   val req = ReqParams(Method.GET, URL(!! / "foo", Location.Absolute(Scheme.HTTP, "localhost", PORT)), emptyHeaders, HttpData.empty)
 
+  /*
+    We can enhance it to use to more user friendly like
+    client
+     .fromRequest(req)
+     .use (_.status)
+
+    client
+     .fromURL(url)
+     .use (_.headers)
+   */
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     val resp: ZIO[Any, Throwable, Resp] =
       client
       .make(req)
       .use (_.run)
-      
+
     resp.exitCode
   }
 }
