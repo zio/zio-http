@@ -22,7 +22,7 @@ object ZClientTest extends App {
       client
       .make(req)
       .use (_.run)
-
+      
     resp.exitCode
   }
 }
