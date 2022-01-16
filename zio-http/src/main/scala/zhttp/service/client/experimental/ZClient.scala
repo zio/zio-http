@@ -3,17 +3,23 @@ package zhttp.service.client.experimental
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.channel.{ChannelFuture, ChannelFutureListener, ChannelHandlerContext}
-import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames, HttpHeaderValues, HttpVersion}
+import io.netty.handler.codec.http.{
+  DefaultFullHttpRequest,
+  FullHttpRequest,
+  HttpHeaderNames,
+  HttpHeaderValues,
+  HttpVersion,
+}
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.http.headers.HeaderExtension
-import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.HttpMessageCodec
+import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.{ZManaged, _}
 
 import java.net.{InetAddress, InetSocketAddress}
 
-trait ZClient[-R,+E] { self =>
+trait ZClient[-R, +E] { self =>
 
   import ZClient._
 
@@ -21,32 +27,32 @@ trait ZClient[-R,+E] { self =>
     Concat(self, other)
 
   private def settings(s: Config = Config()): Config = self match {
-    case Concat(self, other)  => other.settings(self.settings(s))
-    case Address(address)     => s.copy(address = address)
+    case Concat(self, other)        => other.settings(self.settings(s))
+    case Address(address)           => s.copy(address = address)
     case TransportConfig(transport) => s.copy(transport = transport)
     case Threads(threads)           => s.copy(threads = threads)
-    case _ => s.copy(threads = 2)
+    case _                          => s.copy(threads = 2)
   }
 
   def make(req: ReqParams)(implicit
-                           ev: E <:< Throwable,
+    ev: E <:< Throwable,
   ): ZManaged[R, Throwable, DefaultZClient] =
     ZClient.make(self.asInstanceOf[ZClient[R, Throwable]], req)
 
 }
 
 object ZClient {
-  type UClient = ZClient[Any,Nothing]
+  type UClient = ZClient[Any, Nothing]
   private[zhttp] final case class Config(
-                                          address: InetSocketAddress = new InetSocketAddress(8080),
-                                          transport: Transport = Transport.Auto,
-                                          threads: Int = 0,
-                                        )
+    address: InetSocketAddress = new InetSocketAddress(8080),
+    transport: Transport = Transport.Auto,
+    threads: Int = 0,
+  )
 
-  private final case class Concat[R, E](self: ZClient[R,E], other: ZClient[R,E])      extends ZClient[R, E]
-  private final case class Address(address: InetSocketAddress)                        extends UClient
-  private final case class TransportConfig(transport: Transport)                      extends UClient
-  private final case class Threads(threads: Int)                                      extends UClient
+  private final case class Concat[R, E](self: ZClient[R, E], other: ZClient[R, E]) extends ZClient[R, E]
+  private final case class Address(address: InetSocketAddress)                     extends UClient
+  private final case class TransportConfig(transport: Transport)                   extends UClient
+  private final case class Threads(threads: Int)                                   extends UClient
 
   def port(port: Int): UClient                            = ZClient.Address(new InetSocketAddress(port))
   def bind(port: Int): UClient                            = ZClient.Address(new InetSocketAddress(port))
@@ -64,9 +70,9 @@ object ZClient {
   def auto: UClient   = ZClient.TransportConfig(Transport.Auto)
 
   def make[R](
-               zClient: ZClient[R, Throwable],
-               req: ReqParams,
-             ): ZManaged[R, Throwable, DefaultZClient] = {
+    zClient: ZClient[R, Throwable],
+    req: ReqParams,
+  ): ZManaged[R, Throwable, DefaultZClient] = {
     val settings = zClient.settings()
     for {
       channelFactory <- ZManaged.fromEffect(settings.transport.clientChannel)
@@ -75,7 +81,7 @@ object ZClient {
 
       jReq = encodeClientParams(HttpVersion.HTTP_1_1, req)
       promise <- ZManaged.fromEffect(Promise.make[Throwable, Resp])
-      hand   = ZClientInboundHandler(zExec, jReq, promise)
+      hand = ZClientInboundHandler(zExec, jReq, promise)
       _ <- ZIO.effect(println(s"HANDLER INITIALIZED")).toManaged_
 
       scheme = req.url.kind match {
@@ -92,22 +98,24 @@ object ZClient {
       _ <- ZIO.effect(println(s"BOOTSTRAP DONE")).toManaged_
 
       chf = clientBootStrap.connect(settings.address)
-      _ <- ZIO.effect (
-        chf.addListener(new ChannelFutureListener() {
-          override def operationComplete(future: ChannelFuture): Unit = {
-            val channel = future.channel()
-            println(s"CONNECTED USING CHH ID: ${channel.id()}")
-            if (!future.isSuccess()) {
-              println(s"error: ${future.cause().getMessage}")
-              future.cause().printStackTrace()
-            } else {
-              println("sent  request");
+      _ <- ZIO
+        .effect(
+          chf.addListener(new ChannelFutureListener() {
+            override def operationComplete(future: ChannelFuture): Unit = {
+              val channel = future.channel()
+              println(s"CONNECTED USING CHH ID: ${channel.id()}")
+              if (!future.isSuccess()) {
+                println(s"error: ${future.cause().getMessage}")
+                future.cause().printStackTrace()
+              } else {
+                println("sent  request");
+              }
             }
-          }
-        }): Unit
-      ).toManaged_
+          }): Unit,
+        )
+        .toManaged_
 
-      clientImpl = DefaultZClient(jReq, promise,chf)
+      clientImpl = DefaultZClient(jReq, promise, chf)
     } yield {
       clientImpl
     }
@@ -132,13 +140,12 @@ object ZClient {
   }
 
 }
-case class DefaultZClient(req: FullHttpRequest
-                          , promise: Promise[Throwable, Resp]
-                          , cf: ChannelFuture) extends HttpMessageCodec{
+case class DefaultZClient(req: FullHttpRequest, promise: Promise[Throwable, Resp], cf: ChannelFuture)
+    extends HttpMessageCodec {
   def run: Task[Resp] =
     for {
 //      _       <- Task(asyncRequest()).catchAll(cause => promise.fail(cause))
-      res     <- promise.await
+      res <- promise.await
     } yield res
 
 //  private def asyncRequest(): Unit = {
@@ -152,16 +159,15 @@ case class DefaultZClient(req: FullHttpRequest
 ////    }
 //  }
 
-
 }
 
 final case class ReqParams(
-                            method: Method,
-                            url: URL,
-                            getHeaders: Headers = Headers.empty,
-                            data: HttpData = HttpData.empty,
-                            private val channelContext: ChannelHandlerContext = null,
-                          ) extends HeaderExtension[ReqParams] { self =>
+  method: Method,
+  url: URL,
+  getHeaders: Headers = Headers.empty,
+  data: HttpData = HttpData.empty,
+  private val channelContext: ChannelHandlerContext = null,
+) extends HeaderExtension[ReqParams] { self =>
 
   def getBodyAsString: Option[String] = data match {
     case HttpData.Text(text, _)       => Some(text)
@@ -185,7 +191,7 @@ final case class ReqParams(
 }
 
 final case class Resp(status: zhttp.http.Status, headers: Headers, private val buffer: ByteBuf)
-  extends HeaderExtension[Resp] { self =>
+    extends HeaderExtension[Resp] { self =>
 
   def getBodyAsString: Task[String] = Task(buffer.toString(self.getCharset))
 
@@ -196,4 +202,3 @@ final case class Resp(status: zhttp.http.Status, headers: Headers, private val b
   override def updateHeaders(update: Headers => Headers): Resp =
     self.copy(headers = update(headers))
 }
-

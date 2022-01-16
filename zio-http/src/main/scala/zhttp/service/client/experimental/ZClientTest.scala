@@ -12,10 +12,15 @@ object ZClientTest extends App {
 
   private val PORT = 8081
 
-  val client = ZClient.port(PORT) ++ ZClient.threads(2)
+  val client       = ZClient.port(PORT) ++ ZClient.threads(2)
 //  val keepAliveHeader = Headers(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
   val emptyHeaders = Headers.empty
-  val req = ReqParams(Method.GET, URL(!! / "foo", Location.Absolute(Scheme.HTTP, "localhost", PORT)), emptyHeaders, HttpData.empty)
+  val req          = ReqParams(
+    Method.GET,
+    URL(!! / "foo", Location.Absolute(Scheme.HTTP, "localhost", PORT)),
+    emptyHeaders,
+    HttpData.empty,
+  )
 
   /*
     We can enhance it to use to more user friendly like
@@ -30,8 +35,8 @@ object ZClientTest extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     val resp: ZIO[Any, Throwable, Resp] =
       client
-      .make(req)
-      .use (_.run)
+        .make(req)
+        .use(_.run)
 
     resp.exitCode
   }

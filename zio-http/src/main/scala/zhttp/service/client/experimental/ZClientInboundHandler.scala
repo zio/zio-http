@@ -3,7 +3,6 @@ package zhttp.service.client.experimental
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpRequest
-//import io.netty.handler.timeout.{IdleState, IdleStateEvent}
 import zhttp.service.HttpRuntime
 import zio.Promise
 
@@ -12,10 +11,10 @@ import zio.Promise
  */
 @Sharable
 final case class ZClientInboundHandler[R](
-                         zExec: HttpRuntime[R],
-                         jReq: FullHttpRequest,
-                         promise: Promise[Throwable, Resp],
-                       ) extends SimpleChannelInboundHandler[Resp](false) {
+  zExec: HttpRuntime[R],
+  jReq: FullHttpRequest,
+  promise: Promise[Throwable, Resp],
+) extends SimpleChannelInboundHandler[Resp](false) {
 
   override def channelRead0(ctx: ChannelHandlerContext, clientResponse: Resp): Unit = {
     println(s"CHANNEL READ CONTEX ID: ${ctx.channel().id()}")
@@ -41,5 +40,5 @@ final case class ZClientInboundHandler[R](
       jReq.release(jReq.refCnt()): Unit
     }
   }
-  
+
 }
