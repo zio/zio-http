@@ -101,7 +101,6 @@ object ZClient {
               println(s"error: ${future.cause().getMessage}")
               future.cause().printStackTrace()
             } else {
-              println(s"FUTURE SUCCESS")
               println("sent  request");
             }
           }

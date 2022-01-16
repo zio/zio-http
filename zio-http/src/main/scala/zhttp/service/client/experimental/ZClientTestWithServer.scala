@@ -29,15 +29,20 @@ object ZClientTestWithServer extends App {
     server.make
       .use { start =>
         println(s"Server started on port ${start.port}")
-        // Waiting for the server to start
-        val client = ZClient.port(start.port) ++ ZClient.threads(2)
-        //  val keepAliveHeader = Headers(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
-        val emptyHeaders = Headers.empty
-        val req = ReqParams(Method.GET, URL(!! / "foo", Location.Absolute(Scheme.HTTP, "localhost", start.port)), emptyHeaders, HttpData.empty)
-        client.make(req).use(triggerClientMultipleTimes) *> ZIO.never
+        clientTest(start.port) *> ZIO.never
       }
       .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(2))
       .exitCode
+  }
+
+  def clientTest(port: Int) = {
+    val client = ZClient.port(port) ++ ZClient.threads(2)
+    val emptyHeaders = Headers.empty
+    val req = ReqParams(Method.GET, URL(!! / "foo", Location.Absolute(Scheme.HTTP, "localhost", port)), emptyHeaders, HttpData.empty)
+
+    client
+      .make(req)
+      .use(triggerClientMultipleTimes)
   }
 
   def triggerClientMultipleTimes(cl: DefaultZClient) = for {
