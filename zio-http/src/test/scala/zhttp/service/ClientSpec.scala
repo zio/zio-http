@@ -45,7 +45,7 @@ object ClientSpec extends HttpRunnableSpec {
 
   def websocketClientSpec = suite("WebSocketClientSpec") {
     testM("foo bar baz") {
-      val app = Http.fromEffect {
+      val app = Http.fromZIO {
         Socket
           .collect[WebSocketFrame] {
             case WebSocketFrame.Text("FOO") => ZStream.succeed(WebSocketFrame.text("BAR"))
