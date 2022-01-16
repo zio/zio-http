@@ -41,17 +41,5 @@ final case class ZClientInboundHandler[R](
       jReq.release(jReq.refCnt()): Unit
     }
   }
-
-//  override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit = {
-//    println(s"USER EVENT TRIGERED ---- CLIENT INBOUND HANDLER")
-//    if (evt.isInstanceOf[IdleStateEvent]) {
-//      val e = evt.asInstanceOf[IdleStateEvent]
-//      if (e.state() == IdleState.READER_IDLE) {
-//        ctx.close(): Unit
-//      } else if (e.state() == IdleState.WRITER_IDLE) {
-//        ctx.writeAndFlush("new PingMessage()"): Unit
-//      }
-//    }
-//  }
-
+  
 }
