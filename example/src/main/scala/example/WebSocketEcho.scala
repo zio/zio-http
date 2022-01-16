@@ -11,7 +11,7 @@ object WebSocketEcho extends App {
   private val socket =
     Socket.collect[WebSocketFrame] {
       case WebSocketFrame.Text("FOO")  => ZStream.succeed(WebSocketFrame.text("BAR"))
-      case WebSocketFrame.Text("BAR")  => ZStream.succeed(WebSocketFrame.text("FOO"))
+      case WebSocketFrame.Text("BAZ")  => ZStream.succeed(WebSocketFrame.text("KILL"))
       case WebSocketFrame.Ping         => ZStream.succeed(WebSocketFrame.pong)
       case WebSocketFrame.Pong         => ZStream.succeed(WebSocketFrame.ping)
       case fr @ WebSocketFrame.Text(_) => ZStream.repeat(fr).schedule(Schedule.spaced(1 second)).take(10)
