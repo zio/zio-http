@@ -5,7 +5,7 @@ import zhttp.http.{HTTP_CHARSET, Headers, HttpData, Method, URL}
 import zio.{Chunk, Queue, Task, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
-  def decode(data: HttpData[Any, Throwable], method: Method, url: URL, headers: Headers)(implicit
+  def decode(data: HttpData, method: Method, url: URL, headers: Headers)(implicit
     ev: Chunk[Byte] <:< A,
   ): ZIO[R, Throwable, B] =
     ContentDecoder.decode(self.asInstanceOf[ContentDecoder[R, Throwable, Chunk[Byte], B]], data, method, url, headers)
@@ -39,7 +39,7 @@ object ContentDecoder {
 
   private def decode[R, B](
     decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
-    data: HttpData[Any, Throwable],
+    data: HttpData,
     method: Method,
     url: URL,
     headers: Headers,

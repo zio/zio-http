@@ -1,12 +1,12 @@
 package zhttp.service
 
-import io.netty.buffer.ByteBuf
+import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
-import zhttp.service.server.WebSocketUpgrade
-import zio.{Task, UIO, ZIO}
+import zhttp.service.server.{ContentDecoder, WebSocketUpgrade}
+import zio.{Chunk, Promise, Task, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -152,14 +152,15 @@ private[zhttp] final case class Handler[R](
     runtime.unsafeRun(ctx) {
       program
     }
+
   /**
    * Decodes content and executes according to the ContentDecoder provided
    */
   private def decodeContent(
-                             content: ByteBuf,
-                             decoder: ContentDecoder[Any, Throwable, Chunk[Byte], Any],
-                             isLast: Boolean,
-                           )(implicit ctx: ChannelHandlerContext): Unit = {
+    content: ByteBuf,
+    decoder: ContentDecoder[Any, Throwable, Chunk[Byte], Any],
+    isLast: Boolean,
+  )(implicit ctx: ChannelHandlerContext): Unit = {
     decoder match {
       case ContentDecoder.Text =>
         if (ctx.channel().attr(cBody).get() != null) {
@@ -206,4 +207,6 @@ private[zhttp] final case class Handler[R](
             }
           }
         } yield ())
+    }
+  }
 }
