@@ -37,10 +37,10 @@ import zhttp.http._
 val a = Http.collect[Request] { case Method.GET -> !! / "a"  => Response.ok }
 val b = Http.collect[Request] { case Method.GET -> !! / "b"  => Response.ok }
 
-val app = a <> b
+val app = a ++ b
 ```
 
-Apps can be composed using the `<>` operator. The way it works is, if none of the routes match in `a` , or a `NotFound` error is thrown from `a`, and then the control is passed on to the `b` app.
+Apps can be composed using the `++` operator. The way it works is, if none of the routes match in `a`, and then the control is passed on to the `b` app.
 
 ### ZIO Integration
 
@@ -81,11 +81,12 @@ object Spec extends DefaultRunnableSpec {
       testM("should be ok") {
         val app = Http.ok
         val req = Request()
-        assertM(app(req))(equalTo(Response.ok)) // an apply method is added via `zhttp.test` package
+        assertM(app(req))(equalTo(Response.ok))
       }
     )
 }
 ```
+When we call `app` with `request` it calls apply method of Http via `zhttp.test` package
 
 ## Socket
 
