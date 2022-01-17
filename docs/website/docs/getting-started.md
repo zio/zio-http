@@ -22,8 +22,8 @@ An application can be made using any of the available operators on `zhttp.Http`.
 import zhttp.http._
 
 val app = Http.collect[Request] {
-  case Method.GET -> Root / "fruits" / "a"  => Response.text("Apple")
-  case Method.GET -> Root / "fruits" / "b"  => Response.text("Banana")
+  case Method.GET -> !! / "fruits" / "a"  => Response.text("Apple")
+  case Method.GET -> !! / "fruits" / "b"  => Response.text("Banana")
 }
 ```
 
@@ -34,8 +34,8 @@ Pattern matching on route is supported by the framework
 ```scala
 import zhttp.http._
 
-val a = Http.collect[Request] { case Method.GET -> Root / "a"  => Response.ok }
-val b = Http.collect[Request] { case Method.GET -> Root / "b"  => Response.ok }
+val a = Http.collect[Request] { case Method.GET -> !! / "a"  => Response.ok }
+val b = Http.collect[Request] { case Method.GET -> !! / "b"  => Response.ok }
 
 val app = a <> b
 ```
@@ -45,24 +45,24 @@ Apps can be composed using the `<>` operator. The way it works is, if none of th
 ### ZIO Integration
 
 ```scala
-val app = Http.collectM[Request] {
-  case Method.GET -> Root / "hello" => ZIO.succeed(Response.text("Hello World"))
+val app = Http.collectZIO[Request] {
+  case Method.GET -> !! / "hello" => Response.text("Hello World").wrapZIO
 }
 ```
 
-`Http.collectM` allow routes to return a ZIO effect value.
+`Http.collectZIO` allow routes to return a ZIO effect value.
 
 ### Accessing the Request
 
 ```scala
 import zhttp.http._
 
-val app = Http.collect[Request] {
-  case req @ Method.GET -> Root / "fruits" / "a"  =>
-    Response.text("URL:" + req.url.path.asString + " Headers: " + r.headers)
-  case req @ Method.POST -> Root / "fruits" / "a" =>
-    Response.text(req.getBodyAsString.getOrElse("No body!"))
-}
+val app = Http.collectZIO[Request] {
+    case req @ Method.GET -> !! / "fruits" / "a"  =>
+      Response.text("URL:" + req.url.path.asString + " Headers: " + req.getHeaders).wrapZIO
+    case req @ Method.POST -> !! / "fruits" / "a" =>
+      req.getBodyAsString.map(Response.text(_))
+  }
 ```
 
 ### Testing
@@ -75,28 +75,14 @@ import zhttp.test._
 import zhttp.http._
 
 object Spec extends DefaultRunnableSpec {
-  val app = Http.collect[Request] {
-    case Method.GET -> Root / "text" => Response.text("Hello World!")
-  }
   
-  def spec = suite("http") (
-    testM("should be ok") {
-      val req         = ???
-      val expectedRes = resp => resp.status.toJHttpStatus.code() == Status.OK
-      assertM(app(req))(expectedRes) // an apply method is added via `zhttp.test` package
-    }
-  )
-}
-```
-
-```scala
-import zhttp.http._
-
-val app = Http.collect[Request] {
-  case req @ Method.GET -> Root / "fruits" / "a"  =>
-    Response.text("URL:" + req.url.path.asString + " Headers: " + r.headers)
-  case req @ Method.POST -> Root / "fruits" / "a" =>
-    Response.text(req.getBodyAsString.getOrElse("No body!"))
+  def spec = suite("http")(
+      testM("should be ok") {
+        val app = Http.ok
+        val req = Request()
+        assertM(app(req))(equalTo(Response.ok)) // an apply method is added via `zhttp.test` package
+      }
+    )
 }
 ```
 
@@ -107,14 +93,14 @@ val app = Http.collect[Request] {
 ```scala
 import zhttp.socket._
 
-private val socket = Socket.collect[WebSocketFrame] {
-  case WebSocketFrame.Text("FOO")  => ZStream.succeed(WebSocketFrame.text("BAR"))
-}
+private val socket = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text("FOO") =>
+    ZStream.succeed(WebSocketFrame.text("BAR"))
+  }
 
-private val app = Http.collect[Request] {
-  case Method.GET -> Root / "greet" / name  => Response.text(s"Greetings {$name}!")
-  case Method.GET -> Root / "ws" => Response.socket(socket)
-}
+  private val app = Http.collectZIO[Request] {
+    case Method.GET -> !! / "greet" / name => Response.text(s"Greetings {$name}!").wrapZIO
+    case Method.GET -> !! / "ws"           => socket.toResponse
+  }
 ```
 
 ## Server
@@ -145,6 +131,3 @@ A simple Http app that responds with empty content and a `200` status code is de
 - [Simple Client](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/SimpleClient.scala)
 - [File Streaming](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/FileStreaming.scala)
 - [Authentication](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/Authentication.scala)
-
-
-
