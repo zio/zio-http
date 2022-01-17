@@ -80,11 +80,12 @@ object Spec extends DefaultRunnableSpec {
       testM("should be ok") {
         val app = Http.ok
         val req = Request()
-        assertM(app(req))(equalTo(Response.ok)) // an apply method is added via `zhttp.test` package
+        assertM(app(req))(equalTo(Response.ok))
       }
     )
 }
 ```
+When we call `app` with `request` it calls apply method of Http via `zhttp.test` package
 
 ## Socket
 
