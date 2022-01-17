@@ -4,14 +4,14 @@ import Dependencies._
 val releaseDrafterVersion = "5"
 
 // CI Configuration
-ThisBuild / githubWorkflowJavaVersions   := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
-ThisBuild / githubWorkflowPREventTypes   := Seq(
+ThisBuild / githubWorkflowJavaVersions          := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
+ThisBuild / githubWorkflowPREventTypes          := Seq(
   PREventType.Opened,
   PREventType.Synchronize,
   PREventType.Reopened,
   PREventType.Edited,
 )
-ThisBuild / githubWorkflowAddedJobs      :=
+ThisBuild / githubWorkflowAddedJobs             :=
   Seq(
     WorkflowJob(
       id = "update_release_draft",
@@ -40,8 +40,12 @@ ThisBuild / githubWorkflowAddedJobs      :=
   ) ++ ScoverageWorkFlow(50, 60) ++ BenchmarkWorkFlow()
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
-ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
-ThisBuild / githubWorkflowPublish        :=
+ThisBuild / githubWorkflowPublishTargetBranches := Seq(
+  RefPredicate.Equals(Ref.Branch("main")),
+  RefPredicate.Equals(Ref.Branch("zio-series/2.x")),
+  RefPredicate.StartsWith(Ref.Tag("v")),
+)
+ThisBuild / githubWorkflowPublish               :=
   Seq(
     WorkflowStep.Sbt(
       List("ci-release"),
@@ -56,7 +60,7 @@ ThisBuild / githubWorkflowPublish        :=
   )
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
-ThisBuild / githubWorkflowBuildPreamble  :=
+ThisBuild / githubWorkflowBuildPreamble         :=
   WorkflowJob(
     "fmtCheck",
     "Format",
@@ -66,7 +70,7 @@ ThisBuild / githubWorkflowBuildPreamble  :=
     scalas = List(Scala213),
   ).steps
 
-ThisBuild / githubWorkflowBuildPostamble :=
+ThisBuild / githubWorkflowBuildPostamble        :=
   WorkflowJob(
     "checkDocGeneration",
     "Check doc generation",
