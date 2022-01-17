@@ -137,10 +137,7 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    * Applies Middleware based only if the condition function evaluates to true
    */
   final def when[AOut0 <: AOut](cond: AOut0 => Boolean): Middleware[R, E, AIn, BIn, AOut0, BOut] =
-    Middleware.ifThenElse[AOut0](cond(_))(
-      isTrue = _ => self,
-      isFalse = _ => Middleware.identity,
-    )
+    whenZIO(a => UIO(cond(a)))
 
   /**
    * Applies Middleware based only if the condition effectful function evaluates to true

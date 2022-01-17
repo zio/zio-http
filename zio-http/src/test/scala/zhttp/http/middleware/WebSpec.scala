@@ -148,7 +148,7 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           testM("addCookieM") {
             val cookie = Cookie("test", "testValue")
             val app    =
-              (Http.ok @@ addCookieM(UIO(cookie))).getHeader("set-cookie")
+              (Http.ok @@ addCookieZIO(UIO(cookie))).getHeader("set-cookie")
             assertM(app(Request()))(
               equalTo(Some(cookie.encode)),
             )

@@ -67,7 +67,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    * Sets cookie in response headers
    */
   def addCookie(cookie: Cookie): HttpMiddleware[Any, Nothing] =
-    self.addHeaders(Headers.setCookie(cookie))
+    self.withSetCookie(cookie)
 
   /**
    * Updates the provided list of headers to the response
@@ -75,7 +75,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   override def updateHeaders(update: Headers => Headers): HttpMiddleware[Any, Nothing] =
     Web.updateHeaders(update)
 
-  def addCookieM[R, E](cookie: ZIO[R, E, Cookie]): HttpMiddleware[R, E] =
+  def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie]): HttpMiddleware[R, E] =
     patchZIO((_, _) => cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c))))
 
   /**
@@ -191,5 +191,5 @@ object Web extends HeaderModifier[HttpMiddleware[Any, Nothing]] {
    * Updates the current Headers with new one, using the provided update function passed.
    */
   override def updateHeaders(update: Headers => Headers): HttpMiddleware[Any, Nothing] =
-    Middleware.intercept[Request, Response](req => MiddlewareRequest(req))((r, _) => r.updateHeaders(update))
+    Middleware.patch((_, _) => Patch.updateHeaders(update))
 }
