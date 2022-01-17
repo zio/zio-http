@@ -2,14 +2,8 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.{
-  Channel,
-  ChannelFactory => JChannelFactory,
-  ChannelHandlerContext,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.HttpVersion
-import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolConfig
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.http.headers.HeaderExtension
@@ -24,6 +18,10 @@ import java.net.{InetAddress, InetSocketAddress}
 
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
+
+  private def bootstrap[A](chInit: ClientChannelInitializer[A]) =
+    new Bootstrap().channelFactory(cf).group(el).handler(chInit)
+
   def request(
     request: Client.ClientRequest,
     sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
@@ -35,10 +33,9 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     } yield res
 
   def socket(
-    url: URL,
     headers: Headers = Headers.empty,
     app: SocketApp[R],
-  ): Task[Unit] = Task(asyncSocket(url, headers, app))
+  ): Task[Unit] = Task(asyncSocket(headers, app))
 
   private def asyncRequest(
     req: ClientRequest,
@@ -59,7 +56,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
       }
       val init   = ClientChannelInitializer(hand, scheme, sslOption)
 
-      val jboo = new Bootstrap().channelFactory(cf).group(el).handler(init)
+      val jboo = bootstrap(init)
       if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
 
       jboo.connect(): Unit
@@ -72,32 +69,38 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
   }
 
   private def asyncSocket(
-    url: URL,
     headers: Headers,
     ss: SocketApp[R],
   ): Unit = {
+    val config = Option(ss.protocol.clientConfig(headers))
     val hand   = ClientSocketHandler(rtm, ss)
-    val host   = url.host
-    val port   = url.port.fold(80)(identity)
-    val scheme = url.kind match {
-      case Location.Relative               => ""
-      case Location.Absolute(scheme, _, _) => scheme.asString
-    }
 
-    val c    =
-      Option(
-        WebSocketClientProtocolConfig
-          .newBuilder()
-          .customHeaders(headers.encode)
-          .webSocketUri(url.asString)
-          .build(),
-      )
-    val init = ClientChannelInitializer(hand, scheme, ClientSSLOptions.DefaultSSL, c)
+    val url = config
+      .flatMap(c => URL.fromString(c.webSocketUri().toString).toOption)
+
+    val host   = url.flatMap(_.host)
+    val port   = url.flatMap(_.port).fold(80) {
+      case -1   => 80
+      case port => port
+    }
+    val scheme = url
+      .map(_.kind match {
+        case Location.Relative               => ""
+        case Location.Absolute(scheme, _, _) => scheme.asString
+      })
+      .get
+
+    val init = ClientChannelInitializer(
+      hand,
+      scheme,
+      ClientSSLOptions.DefaultSSL,
+      config,
+    )
+
     val jboo = new Bootstrap().channelFactory(cf).group(el).handler(init)
     if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
 
     jboo.connect(): Unit
-
   }
 }
 
@@ -184,20 +187,10 @@ object Client {
     make[Any].flatMap(_.request(req, sslOptions))
 
   def socket[R](
-    url: String,
-    headers: Headers = Headers.empty,
-    app: SocketApp[R],
-  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Unit] = for {
-    url      <- ZIO.fromEither(URL.fromString(url))
-    response <- socket(url, headers, app)
-  } yield response
-
-  def socket[R](
-    url: URL,
     headers: Headers,
     app: SocketApp[R],
   ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Unit] =
-    make[R].flatMap(_.socket(url, headers, app))
+    make[R].flatMap(_.socket(headers, app))
 
   final case class ClientRequest(
     method: Method,

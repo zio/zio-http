@@ -1,6 +1,11 @@
 package zhttp.socket
 
-import io.netty.handler.codec.http.websocketx.{WebSocketCloseStatus, WebSocketServerProtocolConfig}
+import io.netty.handler.codec.http.websocketx.{
+  WebSocketClientProtocolConfig,
+  WebSocketCloseStatus,
+  WebSocketServerProtocolConfig,
+}
+import zhttp.http.Headers
 import zio.duration.Duration
 
 /**
@@ -9,7 +14,8 @@ import zio.duration.Duration
 sealed trait SocketProtocol { self =>
   import SocketProtocol._
   def ++(other: SocketProtocol): SocketProtocol = SocketProtocol.Concat(self, other)
-  def javaConfig: WebSocketServerProtocolConfig = {
+
+  def serverConfig: WebSocketServerProtocolConfig = {
     val b = WebSocketServerProtocolConfig.newBuilder().checkStartsWith(true).websocketPath("")
     def loop(protocol: SocketProtocol): Unit = {
       protocol match {
@@ -21,6 +27,30 @@ sealed trait SocketProtocol { self =>
         case SendCloseFrame(status)            => b.sendCloseFrame(status.asJava)
         case SendCloseFrameCode(code, reason)  => b.sendCloseFrame(new WebSocketCloseStatus(code, reason))
         case ForwardPongFrames                 => b.dropPongFrames(false)
+        case SocketUri(_)                      => b
+        case Concat(a, b)                      =>
+          loop(a)
+          loop(b)
+      }
+      ()
+    }
+    loop(self)
+    b.build()
+  }
+
+  def clientConfig(headers: Headers): WebSocketClientProtocolConfig = {
+    val b                                   = WebSocketClientProtocolConfig.newBuilder().customHeaders(headers.encode)
+    def loop(protocol: SocketProtocol): Any = {
+      protocol match {
+        case SubProtocol(name)                 => b.subprotocol(name)
+        case HandshakeTimeoutMillis(duration)  => b.handshakeTimeoutMillis(duration.toMillis)
+        case ForceCloseTimeoutMillis(duration) => b.forceCloseTimeoutMillis(duration.toMillis)
+        case SendCloseFrame(status)            => b.sendCloseFrame(status.asJava)
+        case SendCloseFrameCode(code, reason)  => b.sendCloseFrame(new WebSocketCloseStatus(code, reason))
+        case SocketUri(uri)                    => b.webSocketUri(uri)
+        case SocketProtocol.ForwardCloseFrames => b.handleCloseFrames(false)
+        case SocketProtocol.ForwardPongFrames  => b.dropPongFrames(false)
+        case SocketProtocol.Default            => ()
         case Concat(a, b)                      =>
           loop(a)
           loop(b)
@@ -36,11 +66,12 @@ object SocketProtocol {
   private final case class SubProtocol(name: String)                     extends SocketProtocol
   private final case class HandshakeTimeoutMillis(duration: Duration)    extends SocketProtocol
   private final case class ForceCloseTimeoutMillis(duration: Duration)   extends SocketProtocol
-  private case object ForwardCloseFrames                                 extends SocketProtocol
   private final case class SendCloseFrame(status: CloseStatus)           extends SocketProtocol
   private final case class SendCloseFrameCode(code: Int, reason: String) extends SocketProtocol
-  private case object ForwardPongFrames                                  extends SocketProtocol
   private final case class Concat(a: SocketProtocol, b: SocketProtocol)  extends SocketProtocol
+  private final case class SocketUri(uri: String)                        extends SocketProtocol
+  private case object ForwardCloseFrames                                 extends SocketProtocol
+  private case object ForwardPongFrames                                  extends SocketProtocol
   private case object Default                                            extends SocketProtocol
 
   /**
@@ -85,4 +116,9 @@ object SocketProtocol {
    * Creates an default decoder configuration.
    */
   def default: SocketProtocol = Default
+
+  /**
+   * Sets WebSocketURI
+   */
+  def uri(uri: String): SocketProtocol = SocketUri(uri)
 }

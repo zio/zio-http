@@ -51,15 +51,13 @@ final case class ClientSocketHandler[R](
     ss.message match {
       case Some(v) =>
         WebSocketFrame.fromJFrame(msg) match {
-          case Some(frame) => {
+          case Some(frame) =>
             zExec
               .unsafeRun(ctx)(
                 v(frame)
                   .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toWebSocketFrame)))
                   .runDrain,
               )
-
-          }
           case None        => ()
         }
       case None    => ()

@@ -3,6 +3,7 @@ package zhttp.service.client
 import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer, ChannelPipeline}
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolConfig, WebSocketClientProtocolHandler}
 import io.netty.handler.codec.http.{HttpClientCodec, HttpObjectAggregator}
+import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.content.handlers.ClientResponseHandler
 
@@ -15,14 +16,14 @@ final case class ClientChannelInitializer[R](
   override def initChannel(ch: Channel): Unit = {
     val p: ChannelPipeline = ch
       .pipeline()
-      .addLast("HTTP_CLIENT_CODEC", new HttpClientCodec)
-      .addLast("HTTP_OBJECT_AGGREGATOR", new HttpObjectAggregator(Int.MaxValue))
-      .addLast("CLIENT_RESPONSE_HANDLER", new ClientResponseHandler())
+      .addLast(HTTP_CLIENT_CODEC, new HttpClientCodec)
+      .addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
+      .addLast(HTTP_RESPONSE_HANDLER, new ClientResponseHandler())
 
     if (scheme == "ws") {
       config.map { c =>
-        p.addAfter("HTTP_OBJECT_AGGREGATOR", "WEBSOCKET_CLIENT_PROTOCOL", new WebSocketClientProtocolHandler(c))
-        p.addAfter("WEBSOCKET_CLIENT_PROTOCOL", "CLIENT_SOCKET_HANDLER", channelHandler)
+        p.addAfter(HTTP_OBJECT_AGGREGATOR, WEB_SOCKET_CLIENT_PROTOCOL_HANDLER, new WebSocketClientProtocolHandler(c))
+        p.addAfter(WEB_SOCKET_CLIENT_PROTOCOL_HANDLER, WEB_SOCKET_HANDLER, channelHandler)
       }
 
     } else {

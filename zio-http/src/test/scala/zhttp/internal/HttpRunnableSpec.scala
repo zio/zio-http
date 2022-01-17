@@ -10,7 +10,7 @@ import zhttp.internal.DynamicServer.HttpEnv
 import zhttp.internal.HttpRunnableSpec.HttpIO
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.socket.SocketApp
+import zhttp.socket.{SocketApp, SocketProtocol}
 import zio.test.DefaultRunnableSpec
 import zio.{Chunk, Has, Task, ZIO, ZManaged}
 
@@ -74,13 +74,10 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     path: Path = !!,
     headers: Headers = Headers.empty,
     app: SocketApp[R],
-  ): ZIO[R with EventLoopGroup with ChannelFactory with DynamicServer, Throwable, Unit] = {
-    // todo: uri should be created by using URL().asString but currently support for ws Scheme is missing
-    for {
-      port  <- DynamicServer.getPort
-      queue <- Client.socket(s"ws://localhost:$port${path.asString}", headers, app)
-    } yield queue
-  }
+  ): ZIO[R with EventLoopGroup with ChannelFactory with DynamicServer, Throwable, Unit] = for {
+    port <- DynamicServer.getPort
+    _    <- Client.socket(headers, app.withProtocol(SocketProtocol.uri(s"ws://localhost:${port}${path.asString}")))
+  } yield ()
 
   implicit class RunnableHttpAppSyntax(app: HttpApp[HttpEnv, Throwable]) {
     def deploy: ZIO[DynamicServer, Nothing, String] = DynamicServer.deploy(app)
