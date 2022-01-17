@@ -171,8 +171,10 @@ object ServerSpec extends HttpRunnableSpec {
       } +
       testM("echo streaming") {
         val res = Http
-          .collectHttp[Request] { case req =>
-            Http.fromStream(ZStream.fromEffect(req.getBody).flattenChunks)
+          .collectZIO[Request] { case req =>
+            req.decodeContent(ContentDecoder.text).map { content =>
+              Response.text(content)
+            }
           }
           .requestBodyAsString(content = "abc")
         assertM(res)(equalTo("abc"))
