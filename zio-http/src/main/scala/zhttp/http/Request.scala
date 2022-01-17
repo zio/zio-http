@@ -3,7 +3,7 @@ package zhttp.http
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import zhttp.http.headers.HeaderExtension
 import zhttp.service.server.ContentDecoder
-import zio.{Chunk, Task, UIO}
+import zio.{Chunk, Task, UIO, ZIO}
 
 import java.net.InetAddress
 
