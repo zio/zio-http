@@ -2,7 +2,7 @@ package zhttp.http.middleware
 
 import zhttp.http._
 import zhttp.http.headers.HeaderModifier
-import zhttp.http.middleware.Web._
+import zhttp.http.middleware.Web.{PartialResponseMake, PartialResponseMakeZIO}
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
@@ -73,7 +73,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    * Updates the provided list of headers to the response
    */
   override def updateHeaders(update: Headers => Headers): HttpMiddleware[Any, Nothing] =
-    patch((_, _) => Patch.updateHeaders(update))
+    Web.updateHeaders(update)
 
   def addCookieM[R, E](cookie: ZIO[R, E, Cookie]): HttpMiddleware[R, E] =
     patchZIO((_, _) => cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c))))
@@ -164,7 +164,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
     Middleware.makeZIO(req => f(MiddlewareRequest(req)))
 }
 
-object Web {
+object Web extends HeaderModifier[HttpMiddleware[Any, Nothing]] {
 
   final case class PartialResponseMake[S](req: MiddlewareRequest => S) extends AnyVal {
     def apply(res: (Status, Headers, S) => Patch): HttpMiddleware[Any, Nothing] = {
@@ -186,4 +186,10 @@ object Web {
           outgoing = (response, state) => res(response.status, response.getHeaders, state).map(patch => patch(response)),
         )
   }
+
+  /**
+   * Updates the current Headers with new one, using the provided update function passed.
+   */
+  override def updateHeaders(update: Headers => Headers): HttpMiddleware[Any, Nothing] =
+    Middleware.intercept[Request, Response](req => MiddlewareRequest(req))((r, _) => r.updateHeaders(update))
 }

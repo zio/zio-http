@@ -28,6 +28,11 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           val headers    = (Http.ok @@ middleware).getHeaderValues
           assertM(headers(Request()))(contains("ValueA"))
         } +
+        testM("updateHeaders") {
+          val middleware = updateHeaders(_ => Headers("KeyA", "ValueA"))
+          val headers    = (Http.ok @@ middleware).getHeaderValues
+          assertM(headers(Request()))(contains("ValueA"))
+        } +
         testM("removeHeader") {
           val middleware = removeHeader("KeyA")
           val headers = (Http.succeed(Response.ok.setHeaders(Headers("KeyA", "ValueA"))) @@ middleware) getHeader "KeyA"
