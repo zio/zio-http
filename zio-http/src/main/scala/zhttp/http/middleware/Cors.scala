@@ -40,7 +40,7 @@ private[zhttp] trait Cors {
           Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS, config.allowCredentials.toString)
         }
     }
-    Middleware.fromMiddlewareFunction(req => {
+    Middleware.collect[Request] { case req =>
       (
         req.method,
         req.getHeaders.getHeader(HttpHeaderNames.ORIGIN),
@@ -57,7 +57,7 @@ private[zhttp] trait Cors {
           Middleware.addHeaders(corsHeaders(origin, req.method, isPreflight = false))
         case _ => Middleware.identity
       }
-    })
+    }
   }
 }
 

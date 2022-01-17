@@ -1,6 +1,5 @@
 package example
 
-import zhttp.http.Middleware._
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware
 import zhttp.service.Server
@@ -21,7 +20,7 @@ object HelloWorldWithMiddlewares extends App {
     case Method.GET -> !! / "long-running" => ZIO.succeed(Response.text("Hello World!")).delay(5 seconds)
   }
 
-  val serverTime: HttpMiddleware[Clock, Nothing] = patchZIO((_, _) =>
+  val serverTime: HttpMiddleware[Clock, Nothing] = Middleware.patchZIO(_ =>
     for {
       currentMilliseconds <- currentTime(TimeUnit.MILLISECONDS)
       withHeader = Patch.addHeader("X-Time", currentMilliseconds.toString)
@@ -30,11 +29,11 @@ object HelloWorldWithMiddlewares extends App {
 
   val middlewares: HttpMiddleware[Console with Clock, IOException] =
     // print debug info about request and response
-    debug ++
+    Middleware.debug ++
       // close connection if request takes more than 3 seconds
-      timeout(3 seconds) ++
+      Middleware.timeout(3 seconds) ++
       // add static header
-      addHeader("X-Environment", "Dev") ++
+      Middleware.addHeader("X-Environment", "Dev") ++
       // add dynamic header
       serverTime
 

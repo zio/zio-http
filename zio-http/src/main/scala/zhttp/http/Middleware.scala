@@ -71,9 +71,15 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   ): Middleware[R1, E1, A0, B0, A0, B0] =
     self andThen other
 
+  /**
+   * Preprocesses the incoming value for the outgoing Http.
+   */
   final def contramap[AOut0](f: AOut0 => AOut): Middleware[R, E, AIn, BIn, AOut0, BOut] =
     self.contramapZIO[AOut0](a => UIO(f(a)))
 
+  /**
+   * Preprocesses the incoming value using a ZIO, for the outgoing Http.
+   */
   final def contramapZIO[AOut0]: Middleware.PartialContraMapZIO[R, E, AIn, BIn, AOut, BOut, AOut0] =
     new Middleware.PartialContraMapZIO(self)
 
@@ -92,7 +98,7 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     Middleware.FlatMap(self, f)
 
   /**
-   * Flattens an Middleware of an Middleware
+   * Flattens an Middleware of a Middleware
    */
   final def flatten[R1 <: R, E1 >: E, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0](implicit
     ev: BOut <:< Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
@@ -170,6 +176,16 @@ object Middleware extends Web {
   def codecZIO[A, B]: PartialCodecZIO[A, B] = new PartialCodecZIO[A, B](())
 
   /**
+   * Creates a middleware using specified function
+   */
+  def collect[A]: PartialCollect[A] = new PartialCollect[A](())
+
+  /**
+   * Creates a middleware using specified effect function
+   */
+  def collectZIO[A]: PartialCollectZIO[A] = new PartialCollectZIO[A](())
+
+  /**
    * Creates a middleware which always fail with specified error
    */
   def fail[E](e: E): Middleware[Any, E, Nothing, Any, Any, Nothing] = Fail(e)
@@ -205,16 +221,6 @@ object Middleware extends Web {
   def interceptZIO[A, B]: PartialInterceptZIO[A, B] = new PartialInterceptZIO[A, B](())
 
   /**
-   * Creates a middleware using specified function
-   */
-  def make[A]: PartialMake[A] = new PartialMake[A](())
-
-  /**
-   * Creates a middleware using specified effect function
-   */
-  def makeZIO[A]: PartialMakeZIO[A] = new PartialMakeZIO[A](())
-
-  /**
    * Creates a middleware which always succeed with specified value
    */
   def succeed[B](b: B): Middleware[Any, Nothing, Nothing, Any, Any, B] = fromHttp(Http.succeed(b))
@@ -242,18 +248,18 @@ object Middleware extends Web {
         }
     }
 
-  final class PartialMake[AOut](val unit: Unit) extends AnyVal {
+  final class PartialCollect[AOut](val unit: Unit) extends AnyVal {
     def apply[R, E, AIn, BIn, BOut](
-      f: AOut => Middleware[R, E, AIn, BIn, AOut, BOut],
+      f: PartialFunction[AOut, Middleware[R, E, AIn, BIn, AOut, BOut]],
     ): Middleware[R, E, AIn, BIn, AOut, BOut] =
-      Middleware.fromHttp(Http.fromFunction[AOut](aout => f(aout))).flatten
+      Middleware.fromHttp(Http.collect[AOut] { case aout if f.isDefinedAt(aout) => f(aout) }).flatten
   }
 
-  final class PartialMakeZIO[AOut](val unit: Unit) extends AnyVal {
+  final class PartialCollectZIO[AOut](val unit: Unit) extends AnyVal {
     def apply[R, E, AIn, BIn, BOut](
-      f: AOut => ZIO[R, E, Middleware[R, E, AIn, BIn, AOut, BOut]],
+      f: PartialFunction[AOut, ZIO[R, E, Middleware[R, E, AIn, BIn, AOut, BOut]]],
     ): Middleware[R, E, AIn, BIn, AOut, BOut] =
-      Middleware.fromHttp(Http.fromFunctionZIO[AOut](aout => f(aout))).flatten
+      Middleware.fromHttp(Http.collectZIO[AOut] { case aout if f.isDefinedAt(aout) => f(aout) }).flatten
   }
 
   final class PartialIntercept[A, B](val unit: Unit) extends AnyVal {
@@ -262,9 +268,17 @@ object Middleware extends Web {
   }
 
   final class PartialInterceptZIO[A, B](val unit: Unit) extends AnyVal {
-    def apply[R, E, S, BOut](incoming: A => ZIO[R, Option[E], S])(
-      outgoing: (B, S) => ZIO[R, Option[E], BOut],
-    ): Middleware[R, E, A, B, A, BOut] = Intercept(incoming, outgoing)
+    def apply[R, E, S, BOut](
+      incoming: A => ZIO[R, Option[E], S],
+    ): PartialInterceptOutgoingZIO[R, E, A, S, B] =
+      new PartialInterceptOutgoingZIO(incoming)
+  }
+
+  final class PartialInterceptOutgoingZIO[-R, +E, A, +S, B](val incoming: A => ZIO[R, Option[E], S]) extends AnyVal {
+    def apply[R1 <: R, E1 >: E, BOut](
+      outgoing: (B, S) => ZIO[R1, Option[E1], BOut],
+    ): Middleware[R1, E1, A, B, A, BOut] =
+      Intercept(incoming, outgoing)
   }
 
   final class PartialCodec[AOut, BIn](val unit: Unit) extends AnyVal {
