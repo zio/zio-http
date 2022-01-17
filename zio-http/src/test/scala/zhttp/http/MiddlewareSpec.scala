@@ -114,7 +114,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
             assertM(app(0))(equalTo("0Foo0FooBar"))
           }
       } +
-      suite("When") {
+      suite("when") {
         val mid = Middleware.succeed(0)
         testM("condition is true") {
           val app = Http.identity[Int] @@ mid.when[Int](_ => true)
@@ -125,7 +125,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
             assertM(app(1))(equalTo(1))
           }
       } +
-      suite("WhenZIO") {
+      suite("whenZIO") {
         val mid = Middleware.succeed(0)
         testM("condition is true") {
           val app = Http.identity[Int] @@ mid.whenZIO[Any, Nothing, Int](_ => UIO(true))
