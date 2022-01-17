@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.channel.ChannelHandler
+import zhttp.core.Util.listFiles
 import zhttp.html.Html
 import zhttp.http.headers.HeaderModifier
 import zhttp.service.{Handler, HttpRuntime, Server}
@@ -9,6 +10,7 @@ import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
 
+import java.io.FileNotFoundException
 import java.nio.charset.Charset
 import scala.annotation.unused
 
@@ -510,6 +512,26 @@ object Http {
    * Creates an HTTP app which always responds with the provided Html page.
    */
   def html(view: Html): HttpApp[Any, Nothing] = Http.response(Response.html(view))
+
+  def staticServerFromPath(path: java.nio.file.Path): HttpApp[Any, Nothing] = {
+    val res: ZIO[Any, Throwable, Response] =
+      if (path.toFile.isDirectory)
+        ZIO.succeed(Response(data = HttpData.fromString(listFiles(path))))
+      else
+        for {
+          data <- HttpData.fromFileZIO(path.toFile)
+          res  <- ZIO.succeed(Response(data = data))
+        } yield res
+
+    responseZIO(res).catchAll {
+      case a: SecurityException     =>
+        Http.error(HttpError.Forbidden(a.getMessage))
+      case _: FileNotFoundException =>
+        Http.error(HttpError.FileNotFound)
+      case e                        =>
+        Http.error(e.getMessage)
+    }
+  }
 
   /**
    * Creates a pass thru Http instances

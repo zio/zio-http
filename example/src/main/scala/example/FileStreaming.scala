@@ -23,6 +23,8 @@ object FileStreaming extends App {
     // Does not use Chunked transfer encoding
     case Method.GET -> !! / "video" => Http.fromFile(new File("src/main/resources/TestVideoFile.mp4"))
     case Method.GET -> !! / "text"  => Http.fromFile(new File("src/main/resources/TestFile.txt"))
+    case Method.GET -> !! / "fail"  => Http.staticServerFromPath(Paths.get("src/main/resources/NonExistent.txt"))
+    case Method.GET -> !! / "list"  => Http.staticServerFromPath(Paths.get("src/main/resources"))
   }
 
   // Run it like any simple app

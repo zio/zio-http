@@ -10,7 +10,7 @@ import zhttp.service.{ChannelFuture, HttpRuntime, Server}
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
 
-import java.io.File
+import java.io.RandomAccessFile
 
 @Sharable
 private[zhttp] case class ServerResponseHandler[R](
@@ -26,8 +26,11 @@ private[zhttp] case class ServerResponseHandler[R](
 
     ctx.write(encodeResponse(response))
     response.data match {
-      case HttpData.BinaryStream(stream) => runtime.unsafeRun(ctx) { writeStreamContent(stream) }
-      case HttpData.File(file)           => unsafeWriteFileContent(file)
+      case HttpData.BinaryStream(stream) =>
+        runtime.unsafeRun(ctx) {
+          writeStreamContent(stream)
+        }
+      case HttpData.File(raf, _)         => unsafeWriteFileContent2(raf)
       case _                             => ctx.flush()
     }
     ()
@@ -76,10 +79,8 @@ private[zhttp] case class ServerResponseHandler[R](
   /**
    * Writes file content to the Channel. Does not use Chunked transfer encoding
    */
-  private def unsafeWriteFileContent(file: File)(implicit ctx: ChannelHandlerContext): Unit = {
-    import java.io.RandomAccessFile
 
-    val raf        = new RandomAccessFile(file, "r")
+  private def unsafeWriteFileContent2(raf: RandomAccessFile)(implicit ctx: ChannelHandlerContext): Unit = {
     val fileLength = raf.length()
     // Write the content.
     ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))

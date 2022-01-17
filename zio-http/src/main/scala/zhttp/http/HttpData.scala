@@ -5,8 +5,8 @@ import zio.blocking.Blocking.Service.live.effectBlocking
 import zio.stream.ZStream
 import zio.{Chunk, Task, UIO}
 
+import java.io.{BufferedInputStream, FileInputStream, RandomAccessFile}
 import java.nio.charset.Charset
-import java.nio.file.Files
 
 /**
  * Holds HttpData that needs to be written on the HttpChannel
@@ -39,10 +39,11 @@ sealed trait HttpData { self =>
         stream
           .asInstanceOf[ZStream[Any, Throwable, ByteBuf]]
           .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
-      case HttpData.File(file)           =>
+      case HttpData.File(raf, _)         =>
         effectBlocking {
-          val fileContent = Files.readAllBytes(file.toPath)
-          Unpooled.copiedBuffer(fileContent)
+          val fis = new FileInputStream(raf.getFD)
+          val bis = new BufferedInputStream(fis)
+          Unpooled.copiedBuffer(bis.readAllBytes())
         }
     }
   }
@@ -85,12 +86,20 @@ object HttpData {
   /**
    * Helper to create HttpData from contents of a file
    */
-  def fromFile(file: java.io.File): HttpData = File(file)
+  def fromFile(file: java.io.File): HttpData = {
+    val raf = new RandomAccessFile(file, "r")
+    File(raf, file.toPath)
+  }
+
+  def fromFileZIO(file: java.io.File): Task[HttpData] = Task {
+    val raf = new RandomAccessFile(file, "r")
+    File(raf, file.toPath)
+  }
 
   private[zhttp] final case class Text(text: String, charset: Charset)                   extends HttpData
   private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                         extends HttpData
   private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                           extends HttpData
   private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf]) extends HttpData
-  private[zhttp] final case class File(file: java.io.File)                               extends HttpData
+  private[zhttp] final case class File(raf: RandomAccessFile, path: java.nio.file.Path)  extends HttpData
   private[zhttp] case object Empty                                                       extends HttpData
 }

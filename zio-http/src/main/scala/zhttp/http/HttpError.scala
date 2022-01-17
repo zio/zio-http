@@ -26,6 +26,8 @@ object HttpError {
   final case class NotFound(path: Path)
       extends HttpError(Status.NOT_FOUND, s"""The requested URI "${path.asString}" was not found on this server\n""")
 
+  object FileNotFound extends HttpError(Status.NOT_FOUND, "The filepath requested was not found on this server")
+
   final case class MethodNotAllowed(msg: String = "Method Not Allowed")
       extends HttpError(Status.METHOD_NOT_ALLOWED, msg)
 
