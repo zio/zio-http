@@ -4,15 +4,16 @@ import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames, HttpVersion}
 import zhttp.http.HTTP_CHARSET
 trait EncodeClientParams {
+
   /**
    * Converts client params to JFullHttpRequest
    */
   def encodeClientParams(jVersion: HttpVersion, req: Client.ClientParams): FullHttpRequest = {
-    val method          = req.method.asHttpMethod
+    val method     = req.method.asHttpMethod
     val reqHeaders = req.getHeaders
-    val url             = req.url
-    val uri             = url.asString
-    val content         = req.getBodyAsString match {
+    val url        = req.url
+    val uri        = url.asString
+    val content    = req.getBodyAsString match {
       case Some(text) => Unpooled.copiedBuffer(text, HTTP_CHARSET)
       case None       => Unpooled.EMPTY_BUFFER
     }
