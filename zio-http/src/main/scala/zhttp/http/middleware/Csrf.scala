@@ -8,23 +8,28 @@ import java.util.UUID
 private[zhttp] trait Csrf {
 
   /**
-   * CSRF middlewares : To prevent Cross-site request forgery attacks. This middleware is modeled after the double
-   * submit cookie pattern.
+   * Generates a new CSRF token that can be validated using the csrfValidate middleware.
    *
-   * @see
-   *   [[#csrfGenerate]] - Sets cookie with CSRF token
-   * @see
-   *   [[#csrfValidate]] - Validate token value in request headers against value in cookies
-   * @see
-   *   https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
+   * CSRF middlewares: To prevent Cross-site request forgery attacks. This middleware is modeled after the double submit
+   * cookie pattern. Used in conjunction with [[#csrfValidate]] middleware.
+   *
+   * https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
    */
-
-  def csrfGenerate[R, E](
+  final def csrfGenerate[R, E](
     tokenName: String = "x-csrf-token",
     tokenGen: ZIO[R, Nothing, String] = UIO(UUID.randomUUID.toString),
   ): HttpMiddleware[R, E] =
     Middleware.addCookieZIO(tokenGen.map(Cookie(tokenName, _)))
 
+  /**
+   * Validates the CSRF token appearing in the request headers. Typically the token should be set using the
+   * `csrfGenerate` middleware.
+   *
+   * CSRF middlewares : To prevent Cross-site request forgery attacks. This middleware is modeled after the double
+   * submit cookie pattern. Used in conjunction with [[#csrfGenerate]] middleware
+   *
+   * https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
+   */
   def csrfValidate(tokenName: String = "x-csrf-token"): HttpMiddleware[Any, Nothing] = {
     Middleware.whenHeader(
       headers => {

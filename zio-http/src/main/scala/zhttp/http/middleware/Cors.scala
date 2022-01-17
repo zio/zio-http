@@ -11,7 +11,7 @@ private[zhttp] trait Cors {
    * @see
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
    */
-  def cors[R, E](config: CorsConfig = CorsConfig()): HttpMiddleware[R, E] = {
+  final def cors[R, E](config: CorsConfig = CorsConfig()): HttpMiddleware[R, E] = {
     def allowCORS(origin: Header, acrm: Method): Boolean                           =
       (config.anyOrigin, config.anyMethod, origin._2.toString, acrm) match {
         case (true, true, _, _)           => true
