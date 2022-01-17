@@ -30,7 +30,7 @@ private[zhttp] final case class Handler[R](
   private val decoderState: AttributeKey[Any]                                             =
     AttributeKey.valueOf("decoderState")
   private var request: Request                                                            = _
-  private val cBody: AttributeKey[ByteBuf] = AttributeKey.valueOf("cbody")
+  private var cBody: ByteBuf                                                              = null
 
   override def channelRead0(ctx: Ctx, msg: Any): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
@@ -163,15 +163,16 @@ private[zhttp] final case class Handler[R](
   )(implicit ctx: ChannelHandlerContext): Unit = {
     decoder match {
       case ContentDecoder.Text =>
-        if (ctx.channel().attr(cBody).get() != null) {
-          ctx.channel().attr(cBody).get().writeBytes(content)
+        if (cBody != null) {
+          cBody.writeBytes(content)
         } else {
-          ctx.channel().attr(cBody).set(Unpooled.compositeBuffer().writeBytes(content))
+          cBody = Unpooled.compositeBuffer().writeBytes(content)
         }
-
         if (isLast) {
           unsafeRunZIO(
-            ctx.channel().attr(COMPLETE_PROMISE).get().succeed(ctx.channel().attr(cBody).get().toString(HTTP_CHARSET)),
+            ctx.channel().attr(COMPLETE_PROMISE).get().succeed(cBody.toString(HTTP_CHARSET)) <* UIO {
+              cBody = null
+            },
           )
         } else {
           ctx.read(): Unit
