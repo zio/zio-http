@@ -35,6 +35,5 @@ object Main extends App {
       Server.keepAlive ++
       Server.disableLeakDetection ++
       Server.consolidateFlush ++
-      Server.maxRequestSize(0)
-
+      Server.disableObjectAggregator
 }

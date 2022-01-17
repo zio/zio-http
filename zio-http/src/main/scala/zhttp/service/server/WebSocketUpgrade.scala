@@ -21,7 +21,7 @@ trait WebSocketUpgrade[R] { self: ChannelHandler =>
   /**
    * Checks if the response requires to switch protocol to websocket. Returns true if it can, otherwise returns false
    */
-  final def upgradeToWebSocket(ctx: ChannelHandlerContext, jReq: FullHttpRequest, res: Response): Unit = {
+  final def upgradeToWebSocket(ctx: ChannelHandlerContext, jReq: HttpRequest, res: Response): Unit = {
     val app = res.attribute.socketApp
 
     ctx

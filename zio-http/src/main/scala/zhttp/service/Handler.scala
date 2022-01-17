@@ -15,13 +15,13 @@ private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
-) extends SimpleChannelInboundHandler[FullHttpRequest](false)
+) extends SimpleChannelInboundHandler[HttpRequest](false)
     with WebSocketUpgrade[R] { self =>
 
   type Ctx = ChannelHandlerContext
 
-  override def channelRead0(ctx: Ctx, jReq: FullHttpRequest): Unit = {
-    jReq.touch("server.Handler-channelRead0")
+  override def channelRead0(ctx: Ctx, jReq: HttpRequest): Unit = {
+    //    jReq.touch("server.Handler-channelRead0")
     implicit val iCtx: ChannelHandlerContext = ctx
     unsafeRun(
       jReq,
@@ -33,7 +33,8 @@ private[zhttp] final case class Handler[R](
 
         override def getHeaders: Headers = Headers.make(jReq.headers())
 
-        override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
+        override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] =
+          Task(jReq.asInstanceOf[FullHttpRequest].content())
 
         override def remoteAddress: Option[InetAddress] = {
           ctx.channel().remoteAddress() match {
@@ -49,7 +50,7 @@ private[zhttp] final case class Handler[R](
    * Executes http apps
    */
   private def unsafeRun[A](
-    jReq: FullHttpRequest,
+    jReq: HttpRequest,
     http: Http[R, Throwable, A, Response],
     a: A,
   )(implicit ctx: Ctx): Unit = {

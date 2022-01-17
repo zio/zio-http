@@ -30,6 +30,7 @@ sealed trait Server[-R, +E] { self =>
     case KeepAlive(enabled)        => s.copy(keepAlive = enabled)
     case FlowControl(enabled)      => s.copy(flowControl = enabled)
     case ConsolidateFlush(enabled) => s.copy(consolidateFlush = enabled)
+    case ObjectAggregator          => s.copy(disableObjectAggregator = true)
   }
 
   def make(implicit
@@ -130,6 +131,7 @@ object Server {
     keepAlive: Boolean = false,
     consolidateFlush: Boolean = false,
     flowControl: Boolean = false,
+    disableObjectAggregator: Boolean = false,
   )
 
   /**
@@ -148,6 +150,7 @@ object Server {
   private final case class ConsolidateFlush(enabled: Boolean)                         extends Server[Any, Nothing]
   private final case class AcceptContinue(enabled: Boolean)                           extends UServer
   private final case class FlowControl(enabled: Boolean)                              extends UServer
+  private case object ObjectAggregator                                                extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -160,12 +163,13 @@ object Server {
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   def acceptContinue: UServer                                                        = Server.AcceptContinue(true)
   def disableFlowControl: UServer                                                    = Server.FlowControl(false)
-  val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
-  val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
-  val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
-  val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
-  val keepAlive: UServer             = KeepAlive(true)
-  val consolidateFlush: UServer      = ConsolidateFlush(true)
+  val disableLeakDetection: UServer    = LeakDetection(LeakDetectionLevel.DISABLED)
+  val simpleLeakDetection: UServer     = LeakDetection(LeakDetectionLevel.SIMPLE)
+  val advancedLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.ADVANCED)
+  val paranoidLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.PARANOID)
+  val keepAlive: UServer               = KeepAlive(true)
+  val consolidateFlush: UServer        = ConsolidateFlush(true)
+  val disableObjectAggregator: UServer = ObjectAggregator
 
   /**
    * Creates a server from a http app.

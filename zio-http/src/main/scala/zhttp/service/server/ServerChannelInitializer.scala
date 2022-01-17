@@ -52,7 +52,7 @@ final case class ServerChannelInitializer[R](
 
     // ObjectAggregator
     // Always add ObjectAggregator
-    pipeline.addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
+    if (!cfg.disableObjectAggregator) pipeline.addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
 
     // ExpectContinueHandler
     // Add expect continue handler is settings is true

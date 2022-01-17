@@ -17,11 +17,11 @@ private[zhttp] case class ServerResponseHandler[R](
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
   serverTime: ServerTimeGenerator,
-) extends SimpleChannelInboundHandler[(Response, FullHttpRequest)](false) {
+) extends SimpleChannelInboundHandler[(Response, HttpRequest)](false) {
 
   type Ctx = ChannelHandlerContext
 
-  override def channelRead0(ctx: Ctx, msg: (Response, FullHttpRequest)): Unit = {
+  override def channelRead0(ctx: Ctx, msg: (Response, HttpRequest)): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
     val response                             = msg._1
     val jRequest                             = msg._2
@@ -44,11 +44,12 @@ private[zhttp] case class ServerResponseHandler[R](
   }
 
   /**
-   * Releases the FullHttpRequest safely.
+   * Releases the HttpRequest safely.
    */
-  private def releaseRequest(jReq: FullHttpRequest): Unit = {
-    if (jReq.refCnt() > 0) {
-      jReq.release(jReq.refCnt()): Unit
+  private def releaseRequest(jReq: HttpRequest): Unit = {
+    val r = jReq.asInstanceOf[FullHttpRequest]
+    if (r.refCnt() > 0) {
+      r.release(r.refCnt()): Unit
     }
   }
 
