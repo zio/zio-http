@@ -9,8 +9,7 @@ import zio.test._
 
 object CorsSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   override def spec = suite("CorsMiddlewares") {
-    // FIXME:The test should ideally pass with `Http.ok` also
-    val app = Http.collect[Request] { case Method.GET -> !! / "success" => Response.ok } @@ cors()
+    val app = Http.ok @@ cors()
     testM("OPTIONS request") {
       val request = Request(
         method = Method.OPTIONS,
