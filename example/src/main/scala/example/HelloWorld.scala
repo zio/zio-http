@@ -11,8 +11,6 @@ object HelloWorld extends App {
     case Method.GET -> !! / "json" => Response.json("""{"greetings": "Hello World!"}""")
   }
 
-  val app2 = Http.text("s")
-
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     Server.start(8090, app.silent).exitCode
