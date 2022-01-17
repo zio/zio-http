@@ -1,7 +1,8 @@
 package zhttp.http.middleware
 
 import zhttp.http._
-import zhttp.http.middleware.Web._
+import zhttp.http.headers.HeaderModifier
+import zhttp.http.middleware.Web.{PartialResponseMake, PartialResponseMakeZIO}
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
@@ -12,7 +13,8 @@ import java.io.IOException
 /**
  * Middlewares on an HttpApp
  */
-private[zhttp] trait Web extends Cors with Csrf with Auth {
+private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[HttpMiddleware[Any, Nothing]] {
+  self =>
 
   /**
    * Logical operator to decide which middleware to select based on the predicate.
@@ -65,27 +67,15 @@ private[zhttp] trait Web extends Cors with Csrf with Auth {
    * Sets cookie in response headers
    */
   def addCookie(cookie: Cookie): HttpMiddleware[Any, Nothing] =
-    addHeader(Headers.setCookie(cookie))
+    self.withSetCookie(cookie)
 
   /**
-   * Adds the provided header and value to the response
+   * Updates the provided list of headers to the response
    */
-  def addHeader(name: String, value: String): HttpMiddleware[Any, Nothing] =
-    patch((_, _) => Patch.addHeader(name, value))
+  override def updateHeaders(update: Headers => Headers): HttpMiddleware[Any, Nothing] =
+    Web.updateHeaders(update)
 
-  /**
-   * Adds the provided header to the response
-   */
-  def addHeader(header: Headers): HttpMiddleware[Any, Nothing] =
-    patch((_, _) => Patch.addHeader(header))
-
-  /**
-   * Adds the provided list of headers to the response
-   */
-  def addHeaders(headers: Headers): HttpMiddleware[Any, Nothing] =
-    patch((_, _) => Patch.addHeader(headers))
-
-  def addCookieM[R, E](cookie: ZIO[R, E, Cookie]): HttpMiddleware[R, E] =
+  def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie]): HttpMiddleware[R, E] =
     patchZIO((_, _) => cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c))))
 
   /**
@@ -126,12 +116,6 @@ private[zhttp] trait Web extends Cors with Csrf with Auth {
     makeResponseZIO(_ => ZIO.unit)((status, headers, _) => f(status, headers))
 
   /**
-   * Removes the header by name
-   */
-  def removeHeader(name: String): HttpMiddleware[Any, Nothing] =
-    patch((_, _) => Patch.removeHeaders(List(name)))
-
-  /**
    * Runs the effect before the request is passed on to the HttpApp on which the middleware is applied.
    */
   def runBefore[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
@@ -141,6 +125,19 @@ private[zhttp] trait Web extends Cors with Csrf with Auth {
    * Creates a new middleware that always sets the response status to the provided value
    */
   def setStatus(status: Status): HttpMiddleware[Any, Nothing] = patch((_, _) => Patch.setStatus(status))
+
+  /**
+   * Creates a middleware for signing cookies
+   */
+  def signCookies(secret: String): HttpMiddleware[Any, Nothing] =
+    updateHeaders {
+      case h if h.getHeader(HeaderNames.setCookie).isDefined =>
+        Headers(
+          HeaderNames.setCookie,
+          Cookie.decodeResponseCookie(h.getHeader(HeaderNames.setCookie).get._2.toString).get.sign(secret).encode,
+        )
+      case h                                                 => h
+    }
 
   /**
    * Creates a new constants middleware that always executes the app provided, independent of where the middleware is
@@ -167,7 +164,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth {
     Middleware.makeZIO(req => f(MiddlewareRequest(req)))
 }
 
-object Web {
+object Web extends HeaderModifier[HttpMiddleware[Any, Nothing]] {
 
   final case class PartialResponseMake[S](req: MiddlewareRequest => S) extends AnyVal {
     def apply(res: (Status, Headers, S) => Patch): HttpMiddleware[Any, Nothing] = {
@@ -189,4 +186,10 @@ object Web {
           outgoing = (response, state) => res(response.status, response.getHeaders, state).map(patch => patch(response)),
         )
   }
+
+  /**
+   * Updates the current Headers with new one, using the provided update function passed.
+   */
+  override def updateHeaders(update: Headers => Headers): HttpMiddleware[Any, Nothing] =
+    Middleware.patch((_, _) => Patch.updateHeaders(update))
 }

@@ -54,7 +54,7 @@ private[zhttp] trait Cors {
             ),
           )
         case (_, Some(origin), _) if allowCORS(origin, req.method)                                                =>
-          Middleware.addHeader(corsHeaders(origin, req.method, isPreflight = false))
+          Middleware.addHeaders(corsHeaders(origin, req.method, isPreflight = false))
         case _ => Middleware.identity
       }
     })

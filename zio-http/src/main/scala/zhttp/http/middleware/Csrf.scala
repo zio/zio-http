@@ -23,7 +23,7 @@ private[zhttp] trait Csrf {
     tokenName: String = "x-csrf-token",
     tokenGen: ZIO[R, Nothing, String] = UIO(UUID.randomUUID.toString),
   ): HttpMiddleware[R, E] =
-    Middleware.addCookieM(tokenGen.map(Cookie(tokenName, _)))
+    Middleware.addCookieZIO(tokenGen.map(Cookie(tokenName, _)))
 
   def csrfValidate(tokenName: String = "x-csrf-token"): HttpMiddleware[Any, Nothing] = {
     Middleware.whenHeader(

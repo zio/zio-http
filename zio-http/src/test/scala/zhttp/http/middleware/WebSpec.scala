@@ -17,17 +17,38 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   private val midB = Middleware.addHeader("X-Custom", "B")
 
   def spec = suite("HttpMiddleware") {
-
-    suite("debug") {
-      testM("log status method url and time") {
-        val program = run(app @@ debug) *> TestConsole.output
-        assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
+    suite("headers suite") {
+      testM("addHeaders") {
+        val middleware = addHeaders(Headers("KeyA", "ValueA") ++ Headers("KeyB", "ValueB"))
+        val headers    = (Http.ok @@ middleware).getHeaderValues
+        assertM(headers(Request()))(contains("ValueA") && contains("ValueB"))
       } +
-        testM("log 404 status method url and time") {
-          val program = run(Http.empty ++ Http.notFound @@ debug) *> TestConsole.output
-          assertM(program)(equalTo(Vector("404 GET /health 0ms\n")))
+        testM("addHeader") {
+          val middleware = addHeader("KeyA", "ValueA")
+          val headers    = (Http.ok @@ middleware).getHeaderValues
+          assertM(headers(Request()))(contains("ValueA"))
+        } +
+        testM("updateHeaders") {
+          val middleware = updateHeaders(_ => Headers("KeyA", "ValueA"))
+          val headers    = (Http.ok @@ middleware).getHeaderValues
+          assertM(headers(Request()))(contains("ValueA"))
+        } +
+        testM("removeHeader") {
+          val middleware = removeHeader("KeyA")
+          val headers = (Http.succeed(Response.ok.setHeaders(Headers("KeyA", "ValueA"))) @@ middleware) getHeader "KeyA"
+          assertM(headers(Request()))(isNone)
         }
     } +
+      suite("debug") {
+        testM("log status method url and time") {
+          val program = run(app @@ debug) *> TestConsole.output
+          assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
+        } +
+          testM("log 404 status method url and time") {
+            val program = run(Http.empty ++ Http.notFound @@ debug) *> TestConsole.output
+            assertM(program)(equalTo(Vector("404 GET /health 0ms\n")))
+          }
+      } +
       suite("when") {
         testM("condition is true") {
           val program = run(app @@ debug.when(_ => true)) *> TestConsole.output
@@ -35,6 +56,16 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
         } +
           testM("condition is false") {
             val log = run(app @@ debug.when(_ => false)) *> TestConsole.output
+            assertM(log)(equalTo(Vector()))
+          }
+      } +
+      suite("whenZIO") {
+        testM("condition is true") {
+          val program = run(app @@ debug.whenZIO(_ => UIO(true))) *> TestConsole.output
+          assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
+        } +
+          testM("condition is false") {
+            val log = run(app @@ debug.whenZIO(_ => UIO(false))) *> TestConsole.output
             assertM(log)(equalTo(Vector()))
           }
       } +
@@ -117,10 +148,21 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           testM("addCookieM") {
             val cookie = Cookie("test", "testValue")
             val app    =
-              (Http.ok @@ addCookieM(UIO(cookie))).getHeader("set-cookie")
+              (Http.ok @@ addCookieZIO(UIO(cookie))).getHeader("set-cookie")
             assertM(app(Request()))(
               equalTo(Some(cookie.encode)),
             )
+          }
+      } +
+      suite("signCookies") {
+        testM("should sign cookies") {
+          val cookie = Cookie("key", "value").withHttpOnly
+          val app    = Http.ok.withSetCookie(cookie) @@ signCookies("secret") getHeader "set-cookie"
+          assertM(app(Request()))(isSome(equalTo(cookie.sign("secret").encode)))
+        } +
+          testM("sign cookies no cookie header") {
+            val app = (Http.ok.addHeader("keyA", "ValueA") @@ signCookies("secret")).getHeaderValues
+            assertM(app(Request()))(contains("ValueA"))
           }
       }
   }

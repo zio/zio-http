@@ -19,6 +19,11 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
         val app = Http.succeed(1) @@ mid
         assertM(app(()))(equalTo("OK"))
       } +
+      testM("as") {
+        val mid = Middleware.fromHttp(Http.succeed("Not OK")).as("OK")
+        val app = Http.succeed(1) @@ mid
+        assertM(app(()))(equalTo("OK"))
+      } +
       testM("interceptZIO") {
         for {
           ref <- Ref.make(0)
@@ -107,6 +112,28 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
           testM("contramapZIO") {
             val app = Http.identity[String] @@ mid.contramapZIO[Int] { i => UIO(s"${i}Foo") }
             assertM(app(0))(equalTo("0Foo0FooBar"))
+          }
+      } +
+      suite("when") {
+        val mid = Middleware.succeed(0)
+        testM("condition is true") {
+          val app = Http.identity[Int] @@ mid.when[Int](_ => true)
+          assertM(app(10))(equalTo(0))
+        } +
+          testM("condition is false") {
+            val app = Http.identity[Int] @@ mid.when[Int](_ => false)
+            assertM(app(1))(equalTo(1))
+          }
+      } +
+      suite("whenZIO") {
+        val mid = Middleware.succeed(0)
+        testM("condition is true") {
+          val app = Http.identity[Int] @@ mid.whenZIO[Any, Nothing, Int](_ => UIO(true))
+          assertM(app(10))(equalTo(0))
+        } +
+          testM("condition is false") {
+            val app = Http.identity[Int] @@ mid.whenZIO[Any, Nothing, Int](_ => UIO(false))
+            assertM(app(1))(equalTo(1))
           }
       } +
       suite("codec") {

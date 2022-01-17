@@ -56,6 +56,14 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   final def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] = execute(http)
 
   /**
+   * Makes the middleware resolve with a constant Middleware
+   */
+  final def as[BOut0](
+    bout: BOut0,
+  ): Middleware[R, E, AIn, BIn, AOut, BOut0] =
+    self.map(_ => bout)
+
+  /**
    * Combines two middleware that operate on the same input and output types, into one.
    */
   final def combine[R1 <: R, E1 >: E, A0 >: AIn <: AOut, B0 >: BOut <: BIn](
@@ -129,7 +137,15 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    * Applies Middleware based only if the condition function evaluates to true
    */
   final def when[AOut0 <: AOut](cond: AOut0 => Boolean): Middleware[R, E, AIn, BIn, AOut0, BOut] =
-    Middleware.ifThenElse[AOut0](cond(_))(
+    whenZIO(a => UIO(cond(a)))
+
+  /**
+   * Applies Middleware based only if the condition effectful function evaluates to true
+   */
+  final def whenZIO[R1 <: R, E1 >: E, AOut0 <: AOut](
+    cond: AOut0 => ZIO[R1, E1, Boolean],
+  ): Middleware[R1, E1, AIn, BIn, AOut0, BOut] =
+    Middleware.ifThenElseZIO[AOut0](cond(_))(
       isTrue = _ => self,
       isFalse = _ => Middleware.identity,
     )
