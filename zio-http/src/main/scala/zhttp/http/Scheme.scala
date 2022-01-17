@@ -26,4 +26,11 @@ object Scheme       {
       case "HTTP"  => Option(HTTP)
       case _       => None
     }
+
+  def fromString2(scheme: String): Scheme =
+    scheme.toUpperCase match {
+      case "HTTPS" => HTTPS
+      case "HTTP"  => HTTP
+      case _       => null
+    }
 }

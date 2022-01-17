@@ -9,21 +9,22 @@ import java.util.concurrent.TimeUnit
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class URLParserBenchmark {
+  private val MAX = 1000
 
   @Benchmark
   def benchmarkURLParser(): Unit  = {
-    val _ = URL.fromString("http://yourdomain.com/list/users")
+    (0 to MAX).foreach(_ => URL.fromString("http://yourdomain.com/list/users"))
     ()
   }
   @Benchmark
   def benchmarkURLParser2(): Unit = {
-    val _ = URL.fromString("http://yourdomain.com/list/users")
+    (0 to MAX).foreach(_ => URL.fromString("http://yourdomain.com/list/users"))
     ()
   }
 
   @Benchmark
   def benchmarkURLParser3(): Unit = {
-    val _ = URL.fromString("http://yourdomain.com/list/users")
+    (0 to MAX).foreach(_ => URL.fromString("http://yourdomain.com/list/users"))
     ()
   }
 
