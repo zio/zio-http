@@ -5,7 +5,7 @@ import zio.blocking.Blocking.Service.live.effectBlocking
 import zio.stream.ZStream
 import zio.{Chunk, Task, UIO}
 
-import java.io.{BufferedInputStream, FileInputStream, RandomAccessFile}
+import java.io.{FileInputStream, RandomAccessFile}
 import java.nio.charset.Charset
 
 /**
@@ -42,8 +42,9 @@ sealed trait HttpData { self =>
       case HttpData.File(raf, _)         =>
         effectBlocking {
           val fis = new FileInputStream(raf.getFD)
-          val bis = new BufferedInputStream(fis)
-          Unpooled.copiedBuffer(bis.readAllBytes())
+          val fileContent: Array[Byte] =  new Array[Byte](raf.length().toInt)
+          fis.read(fileContent)
+          Unpooled.copiedBuffer(fileContent)
         }
     }
   }

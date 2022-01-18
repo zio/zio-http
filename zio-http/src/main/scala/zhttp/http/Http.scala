@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.channel.ChannelHandler
-import zhttp.core.Util.listFiles
+import zhttp.core.Util.listFilesHtml
 import zhttp.html.Html
 import zhttp.http.headers.HeaderModifier
 import zhttp.service.{Handler, HttpRuntime, Server}
@@ -511,7 +511,7 @@ object Http {
   def staticServerFromPath(path: java.nio.file.Path): HttpApp[Any, Nothing] = {
     val res: ZIO[Any, Throwable, Response] =
       if (path.toFile.isDirectory)
-        ZIO.succeed(Response(data = HttpData.fromString(listFiles(path))))
+        ZIO.succeed(Response(data = HttpData.fromString(listFilesHtml(path))))
       else
         for {
           data <- HttpData.fromFileZIO(path.toFile)

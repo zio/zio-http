@@ -22,7 +22,7 @@ object Util {
        |""".stripMargin
   }
 
-  def listFiles(dirPath: java.nio.file.Path): String = {
+  def listFilesHtml(dirPath: java.nio.file.Path): String = {
     val buf = new StringBuilder()
       .append("<!DOCTYPE html>\r\n")
       .append("<html><head><meta charset='utf-8' /><title>")
