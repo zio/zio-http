@@ -270,7 +270,7 @@ object ServerSpec extends HttpRunnableSpec {
       }
   }
 
-  def validationAppSpec: Spec[Any with EventLoopGroup with ChannelFactory with DynamicServer with ServerChannelFactory, TestFailure[Throwable], TestSuccess] = suite("MyStaticAppSpec") {
+  def validationAppSpec = suite("ValidationAppSpec") {
     testM("200 response GET") {
       val actual = status(!! / "HExitSuccess")
       assertM(actual)(equalTo(Status.OK))
