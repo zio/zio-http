@@ -19,9 +19,11 @@ object Main extends App {
     .text(message)
     .withServerTime
     .withServer(STATIC_SERVER_NAME)
+    .freeze
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    server(frozenResponse).make.useForever
+    frozenResponse
+      .flatMap(server(_).make.useForever)
       .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
       .exitCode
   }
@@ -35,4 +37,5 @@ object Main extends App {
       Server.keepAlive ++
       Server.disableLeakDetection ++
       Server.consolidateFlush
+
 }
