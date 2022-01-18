@@ -25,7 +25,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     app: HttpApp[R, Throwable],
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
     for {
-      start <- Server.make(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection ++ Server.keepAlive).orDie
+      start <- Server.make(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection).orDie
       _     <- DynamicServer.setStart(start).toManaged_
     } yield ()
 
