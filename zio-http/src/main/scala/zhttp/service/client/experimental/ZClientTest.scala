@@ -12,7 +12,9 @@ object ZClientTest extends App {
 
   private val PORT = 8081
 
+  // pick port automatically.
   val client       = ZClient.port(PORT) ++ ZClient.threads(2)
+
 //  val keepAliveHeader = Headers(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
   val emptyHeaders = Headers.empty
   val req          = ReqParams(
@@ -35,7 +37,7 @@ object ZClientTest extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     val resp: ZIO[Any, Throwable, Resp] =
       client
-        .make(req)
+        .make(req)  // no need to be managed
         .use(_.run)
 
     resp.exitCode

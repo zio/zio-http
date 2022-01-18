@@ -49,12 +49,23 @@ object ZClientTestWithServer extends App {
       .use(triggerClientMultipleTimes)
   }
 
+  // multiple client shared resources
+  // different conn pool for diff host port
+  // pool should correspond to host / port combo
+  // have one client and
+  // optimizations in the background
+  // just one client serves all and sundry
+
+  // use cases like pipelining ... httpclient document
+
   def triggerClientMultipleTimes(cl: DefaultZClient) = for {
+//    resp    <- cl.run(r1)
     resp    <- cl.run
     result1 <- resp.getBodyAsString
     _       <- ZIO.effect(println(s"GOT RESP: ${result1} "))
     _       <- ZIO.effect(println(s"NOW SLEEPING for 5000 ms"))
     _       <- ZIO.effect(Thread.sleep(5000))
+//    resp    <- cl.run(r2)
     resp    <- cl.run
     result2 <- resp.getBodyAsString
     _       <- ZIO.effect(println(s"GOT ANOTHER RESP USING SAME CONNECTION ${result2}"))
