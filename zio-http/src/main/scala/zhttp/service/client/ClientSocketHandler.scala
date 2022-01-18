@@ -6,11 +6,25 @@ import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame
 import zhttp.service.{ChannelFuture, HttpRuntime}
 import zhttp.socket.SocketApp.Handle
 import zhttp.socket.{SocketApp, WebSocketFrame}
+import zio.stream.ZStream
 
+/**
+ * Creates a new websocket client handler
+ */
 final case class ClientSocketHandler[R](
   zExec: HttpRuntime[R],
   ss: SocketApp[R],
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
+
+  /**
+   * Unsafe write and flush for websocket frame
+   */
+  def writeAndFlush(ctx: ChannelHandlerContext, stream: ZStream[R, Throwable, WebSocketFrame]) =
+    zExec.unsafeRun(ctx)(
+      stream
+        .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toWebSocketFrame)))
+        .runDrain,
+    )
 
   override def channelUnregistered(ctx: ChannelHandlerContext): Unit = {
     ss.close match {
@@ -29,12 +43,7 @@ final case class ClientSocketHandler[R](
           case Some(v) =>
             v match {
               case Handle.WithEffect(f) => zExec.unsafeRun(ctx)(f(ctx.channel().remoteAddress()))
-              case Handle.WithSocket(s) =>
-                zExec.unsafeRun(ctx)(
-                  s(ctx.channel().remoteAddress())
-                    .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toWebSocketFrame)))
-                    .runDrain,
-                )
+              case Handle.WithSocket(s) => writeAndFlush(ctx, s(ctx.channel().remoteAddress()))
             }
           case None    => ctx.fireUserEventTriggered(event): Unit
         }
@@ -51,13 +60,7 @@ final case class ClientSocketHandler[R](
     ss.message match {
       case Some(v) =>
         WebSocketFrame.fromJFrame(msg) match {
-          case Some(frame) =>
-            zExec
-              .unsafeRun(ctx)(
-                v(frame)
-                  .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toWebSocketFrame)))
-                  .runDrain,
-              )
+          case Some(frame) => writeAndFlush(ctx, v(frame))
           case None        => ()
         }
       case None    => ()
