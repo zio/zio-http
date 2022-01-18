@@ -32,10 +32,8 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   private val validationApp: Http[Any, Nothing, Request, Response] = Http.collect[Request] {
-    case Method.GET -> !! / "HExitSuccess"  => Response.ok
-    case Method.POST -> !! / "HExitSuccess" => Response.ok
-    case Method.GET -> !! / "HExitFailure"  => Response.fromHttpError(HttpError.BadRequest())
-    case Method.POST -> !! / "HExitFailure" => Response.fromHttpError(HttpError.BadRequest())
+    case _ -> !! / "HExitSuccess" => Response.ok
+    case _ -> !! / "HExitFailure" => Response.fromHttpError(HttpError.BadRequest())
   }
 
   private val app = serve { validationApp ++ staticApp ++ DynamicServer.app }
@@ -271,29 +269,23 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   def validationAppSpec = suite("ValidationAppSpec") {
-    testM("200 response GET") {
-      val actual = status(!! / "HExitSuccess")
-      assertM(actual)(equalTo(Status.OK))
-    } +
-      testM("200 response POST") {
-        val actual = status(!! / "HExitSuccess", Method.POST)
+    testM("200 response") {
+      checkAllM(HttpGen.method) { method =>
+        val actual = status(!! / "HExitSuccess", method)
         assertM(actual)(equalTo(Status.OK))
+      }
+    } +
+      testM("400 response") {
+        checkAllM(HttpGen.method) { method =>
+          val actual = status(!! / "HExitFailure", method)
+          assertM(actual)(equalTo(Status.BAD_REQUEST))
+        }
       } +
-      testM("400 response GET") {
-        val actual = status(!! / "HExitFailure")
-        assertM(actual)(equalTo(Status.BAD_REQUEST))
-      } +
-      testM("400 response POST") {
-        val actual = status(!! / "HExitFailure", Method.POST)
-        assertM(actual)(equalTo(Status.BAD_REQUEST))
-      } +
-      testM("404 response GET") {
-        val actual = status(!! / "A")
-        assertM(actual)(equalTo(Status.NOT_FOUND))
-      } +
-      testM("404 response POST") {
-        val actual = status(!! / "A", Method.POST)
-        assertM(actual)(equalTo(Status.NOT_FOUND))
+      testM("404 response ") {
+        checkAllM(HttpGen.method) { method =>
+          val actual = status(!! / "A", method)
+          assertM(actual)(equalTo(Status.NOT_FOUND))
+        }
       }
 
   }
