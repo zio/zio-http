@@ -1,8 +1,8 @@
 package zhttp.service
 
 import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames, HttpHeaders, HttpVersion}
-import zhttp.http.{HTTP_CHARSET, Headers}
+import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames, HttpVersion}
+import zhttp.http.HTTP_CHARSET
 trait EncodeClientParams {
 
   /**

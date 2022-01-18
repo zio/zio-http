@@ -53,12 +53,17 @@ object EncodeClientParamsSpec extends DefaultRunnableSpec with EncodeClientParam
           assert(req.headers().getInt(HttpHeaderNames.CONTENT_LENGTH).toLong)(equalTo(5L))
         }
       } +
-      testM("host header from Absolute url") {
+      testM("host header") {
         check(anyClientParam) { params =>
-          val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
+          val req        = encodeClientParams(HttpVersion.HTTP_1_1, params)
+          val reqHeaders = req.headers()
+          val hostHeader = HttpHeaderNames.HOST
+
           params.url.host match {
-            case Some(value) => assert(req.headers().get(HttpHeaderNames.HOST))(equalTo(value))
-            case None        => assert(req.headers().contains(HttpHeaderNames.HOST))(isFalse)
+            case Some(value) =>
+              assert(reqHeaders.getAll(hostHeader).size)(equalTo(1)) &&
+              assert(reqHeaders.get(hostHeader))(equalTo(value))
+            case None => assert(reqHeaders.contains(hostHeader))(equalTo(params.getHeaders.hasHeader(hostHeader)))
           }
         }
       }
