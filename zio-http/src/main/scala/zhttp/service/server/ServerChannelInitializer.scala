@@ -36,15 +36,10 @@ final case class ServerChannelInitializer[R](
         .addFirst(SSL_HANDLER, new OptionalSSLHandler(sslctx, cfg.sslOption.httpBehaviour, cfg))
 
     // ServerCodec
-    // Always add ServerCodec
+    // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
     pipeline.addLast(
       "decoder",
-      new HttpRequestDecoder(
-        DEFAULT_MAX_INITIAL_LINE_LENGTH,
-        DEFAULT_MAX_HEADER_SIZE,
-        DEFAULT_MAX_CHUNK_SIZE,
-        false,
-      ),
+      new HttpRequestDecoder(DEFAULT_MAX_INITIAL_LINE_LENGTH, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_CHUNK_SIZE, false),
     )
     pipeline.addLast("encoder", new HttpResponseEncoder())
 
