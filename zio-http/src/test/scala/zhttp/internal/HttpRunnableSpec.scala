@@ -43,12 +43,12 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     } yield response
   }
 
-  def status(path: Path): HttpIO[Any, Status] = {
+  def status(path: Path, method: Method = Method.GET): HttpIO[Any, Status] = {
     for {
       port   <- DynamicServer.getPort
       status <- Client
         .request(
-          Method.GET,
+          method,
           URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
           ClientSSLOptions.DefaultSSL,
         )

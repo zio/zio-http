@@ -31,7 +31,14 @@ object ServerSpec extends HttpRunnableSpec {
     case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
   }
 
-  private val app = serve { staticApp ++ DynamicServer.app }
+  private val validationApp: Http[Any, Nothing, Request, Response] = Http.collect[Request] {
+    case Method.GET -> !! / "HExitSuccess"  => Response.ok
+    case Method.POST -> !! / "HExitSuccess" => Response.ok
+    case Method.GET -> !! / "HExitFailure"  => Response.fromHttpError(HttpError.BadRequest())
+    case Method.POST -> !! / "HExitFailure" => Response.fromHttpError(HttpError.BadRequest())
+  }
+
+  private val app = serve { validationApp ++ staticApp ++ DynamicServer.app }
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -222,7 +229,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   override def spec =
     suiteM("Server") {
-      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
+      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, validationAppSpec)).useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds)
 
   def serverStartSpec = suite("ServerStartSpec") {
@@ -261,5 +268,33 @@ object ServerSpec extends HttpRunnableSpec {
           data <- status(!! / "success").repeatN(1024)
         } yield assertTrue(data == Status.OK)
       }
+  }
+
+  def validationAppSpec: Spec[Any with EventLoopGroup with ChannelFactory with DynamicServer with ServerChannelFactory, TestFailure[Throwable], TestSuccess] = suite("MyStaticAppSpec") {
+    testM("200 response GET") {
+      val actual = status(!! / "HExitSuccess")
+      assertM(actual)(equalTo(Status.OK))
+    } +
+      testM("200 response POST") {
+        val actual = status(!! / "HExitSuccess", Method.POST)
+        assertM(actual)(equalTo(Status.OK))
+      } +
+      testM("400 response GET") {
+        val actual = status(!! / "HExitFailure")
+        assertM(actual)(equalTo(Status.BAD_REQUEST))
+      } +
+      testM("400 response POST") {
+        val actual = status(!! / "HExitFailure", Method.POST)
+        assertM(actual)(equalTo(Status.BAD_REQUEST))
+      } +
+      testM("404 response GET") {
+        val actual = status(!! / "A")
+        assertM(actual)(equalTo(Status.NOT_FOUND))
+      } +
+      testM("404 response POST") {
+        val actual = status(!! / "A", Method.POST)
+        assertM(actual)(equalTo(Status.NOT_FOUND))
+      }
+
   }
 }
