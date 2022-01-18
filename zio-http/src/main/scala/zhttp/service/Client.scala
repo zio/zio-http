@@ -102,7 +102,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
       config,
     )
 
-    val jboo = new Bootstrap().channelFactory(cf).group(el).handler(init)
+    val jboo = bootstrap(init)
     if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
 
     jboo.connect(): Unit
