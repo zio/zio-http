@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
+import io.netty.util.AsciiString.contentEqualsIgnoreCase
 import zhttp.http.CORS.DefaultCORSConfig
 import zhttp.http.Headers.BasicSchemeName
 import zhttp.http.Middleware.{Flag, RequestP}
@@ -45,6 +46,8 @@ sealed trait Middleware[-R, +E] { self =>
   ): Middleware[R1, E1] =
     Middleware.fromMiddlewareFunctionZIO((m, u, h) => f(m, u, h))
 
+  final def modifyHeaders(f: PartialFunction[Header, Header]): Middleware[R, E] = Middleware.modifyHeaders(f)
+
   final def orElse[R1 <: R, E1](other: Middleware[R1, E1]): Middleware[R1, E1] =
     Middleware.OrElse(self, other)
 
@@ -88,6 +91,12 @@ object Middleware {
    */
   def addHeaders(headers: Headers): Middleware[Any, Nothing] =
     patch((_, _) => Patch.addHeader(headers))
+
+  /**
+   * Modifies the provided list of headers to the updated list of headers
+   */
+  def modifyHeaders(f: PartialFunction[Header, Header]): Middleware[Any, Nothing] =
+    patch((_, _) => Patch.updateHeaders(_.modify(f)))
 
   /**
    * Creates an authentication middleware that only allows authenticated requests to be passed on to the app.
@@ -235,6 +244,15 @@ object Middleware {
             .putStrLn(s"${status.asJava.code()} ${method} ${url.asString} ${(end - start) / 1000000}ms")
             .mapError(Option(_))
         } yield Patch.empty
+    }
+
+  /**
+   * Creates a middleware for signing cookies
+   */
+  def signCookies(secret: String): Middleware[Any, Nothing] =
+    modifyHeaders {
+      case h if contentEqualsIgnoreCase(h._1, HeaderNames.setCookie) =>
+        (HeaderNames.setCookie, Cookie.decodeResponseCookie(h._2.toString).get.sign(secret).encode)
     }
 
   /**

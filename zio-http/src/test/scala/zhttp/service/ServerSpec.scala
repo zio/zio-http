@@ -165,6 +165,14 @@ object ServerSpec extends HttpRunnableSpec {
         val res = Http.fromStream(ZStream("a", "b", "c")).requestBodyAsString()
         assertM(res)(equalTo("abc"))
       } +
+      testM("echo streaming") {
+        val res = Http
+          .collectHttp[Request] { case req =>
+            Http.fromStream(ZStream.fromEffect(req.getBody).flattenChunks)
+          }
+          .requestBodyAsString(content = "abc")
+        assertM(res)(equalTo("abc"))
+      } +
       testM("file-streaming") {
         val path = getClass.getResource("/TestFile.txt").getPath
         val res  = Http.fromStream(ZStream.fromFile(Paths.get(path))).requestBodyAsString()

@@ -26,6 +26,8 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
 
   def toList: List[(String, String)] = toChunk.map { case (name, value) => (name.toString, value.toString) }.toList
 
+  def modify(f: Header => Header): Headers = Headers(toChunk.map(f(_)))
+
   override def updateHeaders(update: Headers => Headers): Headers = update(self)
 
   def when(cond: Boolean): Headers = if (cond) self else Headers.empty
