@@ -20,6 +20,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   import Http._
 
   /**
+   * Attaches the provided middleware to the Http app
+   */
+  final def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
+    mid: Middleware[R1, E1, A1, B1, A2, B2],
+  ): Http[R1, E1, A2, B2] = mid(self)
+
+  /**
    * Alias for flatmap
    */
   final def >>=[R1 <: R, E1 >: E, A1 <: A, C1](f: B => Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
@@ -179,6 +186,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def mapZIO[R1 <: R, E1 >: E, C](bFc: B => ZIO[R1, E1, C]): Http[R1, E1, A, C] =
     self >>> Http.fromFunctionZIO(bFc)
+
+  /**
+   * Named alias for @@
+   */
+  final def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
+    mid: Middleware[R1, E1, A1, B1, A2, B2],
+  ): Http[R1, E1, A2, B2] = mid(self)
 
   /**
    * Named alias for `<>`
@@ -341,16 +355,6 @@ object Http {
 
   implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends HeaderModifier[HttpApp[R, E]] {
     self =>
-
-    /**
-     * Attaches the provided middleware to the HttpApp
-     */
-    def @@[R1 <: R, E1 >: E](mid: Middleware[R1, E1]): HttpApp[R1, E1] = middleware(mid)
-
-    /**
-     * Attaches the provided middleware to the HttpApp
-     */
-    def middleware[R1 <: R, E1 >: E](mid: Middleware[R1, E1]): HttpApp[R1, E1] = mid(http)
 
     /**
      * Patches the response produced by the app
