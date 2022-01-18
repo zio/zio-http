@@ -6,13 +6,14 @@ import zio.ZIO
 import java.nio.charset.Charset
 
 package object http extends PathModule with RequestSyntax with RouteDecoderModule {
-  type HttpApp[-R, +E]     = Http[R, E, Request, Response]
-  type UHttpApp            = HttpApp[Any, Nothing]
-  type RHttpApp[-R]        = HttpApp[R, Throwable]
-  type UHttp[-A, +B]       = Http[Any, Nothing, A, B]
-  type SilentResponse[-E]  = CanBeSilenced[E, Response]
-  type ResponseZIO[-R, +E] = ZIO[R, E, Response]
-  type Header              = (CharSequence, CharSequence)
+  type HttpApp[-R, +E]                       = Http[R, E, Request, Response]
+  type UHttpApp                              = HttpApp[Any, Nothing]
+  type RHttpApp[-R]                          = HttpApp[R, Throwable]
+  type UHttp[-A, +B]                         = Http[Any, Nothing, A, B]
+  type SilentResponse[-E]                    = CanBeSilenced[E, Response]
+  type ResponseZIO[-R, +E]                   = ZIO[R, E, Response]
+  type Header                                = (CharSequence, CharSequence)
+  type UMiddleware[+AIn, -BIn, -AOut, +BOut] = Middleware[Any, Nothing, AIn, BIn, AOut, BOut]
 
   /**
    * Default HTTP Charset
