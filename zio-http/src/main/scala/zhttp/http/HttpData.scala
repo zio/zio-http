@@ -41,8 +41,8 @@ sealed trait HttpData { self =>
           .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
       case HttpData.File(raf, _)         =>
         effectBlocking {
-          val fis = new FileInputStream(raf.getFD)
-          val fileContent: Array[Byte] =  new Array[Byte](raf.length().toInt)
+          val fis                      = new FileInputStream(raf.getFD)
+          val fileContent: Array[Byte] = new Array[Byte](raf.length().toInt)
           fis.read(fileContent)
           Unpooled.copiedBuffer(fileContent)
         }
