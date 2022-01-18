@@ -28,8 +28,8 @@ object ScoverageWorkFlow {
             id = Some("update_build_definition"),
             name = Some("Update Build Definition"),
           ),
-          WorkflowStep.Run(
-            commands = List(s"sbt ++${Scala213} coverage 'project zhttp;test' coverageReport"),
+          WorkflowStep.Sbt(
+            commands = List(s"coverage; project zhttp; test; coverageReport"),
             id = Some("run_coverage"),
             name = Some("Run Coverage"),
           ),
