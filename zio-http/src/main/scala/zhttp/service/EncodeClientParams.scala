@@ -1,29 +1,28 @@
 package zhttp.service
 
 import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames, HttpVersion}
-import zhttp.http.HTTP_CHARSET
+import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames, HttpHeaders, HttpVersion}
+import zhttp.http.{HTTP_CHARSET, Headers}
 trait EncodeClientParams {
 
   /**
    * Converts client params to JFullHttpRequest
    */
   def encodeClientParams(jVersion: HttpVersion, req: Client.ClientParams): FullHttpRequest = {
-    val method     = req.method.asHttpMethod
-    val reqHeaders = req.getHeaders
-    val url        = req.url
-    val uri        = url.asString
-    val content    = req.getBodyAsString match {
+    val method  = req.method.asHttpMethod
+    val url     = req.url
+    val uri     = url.asString
+    val content = req.getBodyAsString match {
       case Some(text) => Unpooled.copiedBuffer(text, HTTP_CHARSET)
       case None       => Unpooled.EMPTY_BUFFER
     }
 
-    val reqHeadersWithHost = url.host match {
-      case Some(value) => reqHeaders.addHeader(HttpHeaderNames.HOST, value)
-      case None        => reqHeaders
-    }
+    val encodedReqHeaders = req.getHeaders.encode
 
-    val headers = reqHeadersWithHost.encode
+    val headers = url.host match {
+      case Some(value) => encodedReqHeaders.set(HttpHeaderNames.HOST, value)
+      case None        => encodedReqHeaders
+    }
 
     val writerIndex = content.writerIndex()
     if (writerIndex != 0) {
