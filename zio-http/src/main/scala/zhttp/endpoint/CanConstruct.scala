@@ -44,7 +44,7 @@ object CanConstruct {
         Http
           .collectHttp[Request] { case req =>
             route.extract(req) match {
-              case Some(value) => Http.fromEffect(f(Request.ParameterizedRequest(req, value)))
+              case Some(value) => Http.fromZIO(f(Request.ParameterizedRequest(req, value)))
               case None        => Http.empty
             }
           }
