@@ -6,7 +6,7 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.{ContentDecoder, WebSocketUpgrade}
-import zio.{Chunk, Promise, Task, UIO, ZIO}
+import zio.{Chunk, Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -41,10 +41,9 @@ private[zhttp] final case class Handler[R](
     msg match {
       case jReq: HttpRequest    =>
         val request = new Request {
-          override def method: Method                                 = Method.fromHttpMethod(jReq.method())
-          override def url: URL                                       = URL.fromString(jReq.uri()).getOrElse(null)
-          override def getHeaders: Headers                            = Headers.make(jReq.headers())
-          override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = ???
+          override def method: Method      = Method.fromHttpMethod(jReq.method())
+          override def url: URL            = URL.fromString(jReq.uri()).getOrElse(null)
+          override def getHeaders: Headers = Headers.make(jReq.headers())
 
           override def decodeContent[R0, B](
             decoder: ContentDecoder[R0, Throwable, ByteBuf, B],
