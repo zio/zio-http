@@ -25,13 +25,13 @@ trait Request extends HeaderExtension[Request] { self =>
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
       override private[zhttp] def getBodyAsByteBuf    = self.getBodyAsByteBuf
       override def decodeContent[R, B](
-        decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+        decoder: ContentDecoder[R, Throwable, ByteBuf, B],
       ): ZIO[R, Throwable, B] =
         self.decodeContent(decoder)
     }
   }
 
-  def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, Chunk[Byte], B]): ZIO[R, Throwable, B]
+  def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, ByteBuf, B]): ZIO[R, Throwable, B]
 
   /**
    * Decodes the content of request as a Chunk of Bytes
@@ -116,7 +116,7 @@ object Request {
       override def remoteAddress: Option[InetAddress]          = ra
       override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
       override def decodeContent[R, B](
-        decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+        decoder: ContentDecoder[R, Throwable, ByteBuf, B],
       ): ZIO[R, Throwable, B] =
         decoder.decode(data, method, url, headers)
     }
@@ -144,7 +144,7 @@ object Request {
     override def url: URL                                       = req.url
     override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = req.getBodyAsByteBuf
     override def decodeContent[R, B](
-      decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+      decoder: ContentDecoder[R, Throwable, ByteBuf, B],
     ): ZIO[R, Throwable, B] =
       req.decodeContent(decoder)
 
