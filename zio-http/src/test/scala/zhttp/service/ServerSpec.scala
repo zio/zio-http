@@ -42,41 +42,41 @@ object ServerSpec extends HttpRunnableSpec {
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
       testM("status is 200") {
-        val status = Http.ok.requestStatus()
+        val status = Http.ok.requestStatus.run()
         assertM(status)(equalTo(Status.OK))
       } +
         testM("status is 200") {
-          val res = Http.text("ABC").requestStatus()
+          val res = Http.text("ABC").requestStatus.run()
           assertM(res)(equalTo(Status.OK))
         } +
         testM("content is set") {
-          val res = Http.text("ABC").requestBodyAsString()
+          val res = Http.text("ABC").requestBodyAsString.run()
           assertM(res)(containsString("ABC"))
         }
     } +
       suite("not found") {
         val app = Http.empty
         testM("status is 404") {
-          val res = app.requestStatus()
+          val res = app.requestStatus.run()
           assertM(res)(equalTo(Status.NOT_FOUND))
         } +
           testM("header is set") {
-            val res = app.request().map(_.getHeaderValue("Content-Length"))
+            val res = app.requestHeaderValueByName("Content-Length").run()
             assertM(res)(isSome(equalTo("0")))
           }
       } +
       suite("error") {
         val app = Http.fail(new Error("SERVER_ERROR"))
         testM("status is 500") {
-          val res = app.requestStatus()
+          val res = app.requestStatus.run()
           assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
         } +
           testM("content is set") {
-            val res = app.requestBodyAsString()
+            val res = app.requestBodyAsString.run()
             assertM(res)(containsString("SERVER_ERROR"))
           } +
           testM("header is set") {
-            val res = app.request().map(_.getHeaderValue("Content-Length"))
+            val res = app.requestHeaderValueByName("Content-Length").run()
             assertM(res)(isSome(anything))
           }
       } +
@@ -86,32 +86,32 @@ object ServerSpec extends HttpRunnableSpec {
         }
 
         testM("status is 200") {
-          val res = app.requestStatus()
+          val res = app.requestStatus.run()
           assertM(res)(equalTo(Status.OK))
         } +
           testM("body is ok") {
-            val res = app.requestBodyAsString(content = "ABC")
+            val res = app.requestBodyAsString.run(content = "ABC")
             assertM(res)(equalTo("ABC"))
           } +
           testM("empty string") {
-            val res = app.requestBodyAsString(content = "")
+            val res = app.requestBodyAsString.run(content = "")
             assertM(res)(equalTo(""))
           } +
           testM("one char") {
-            val res = app.requestBodyAsString(content = "1")
+            val res = app.requestBodyAsString.run(content = "1")
             assertM(res)(equalTo("1"))
           }
       } +
       suite("headers") {
         val app = Http.ok.addHeader("Foo", "Bar")
         testM("headers are set") {
-          val res = app.request().map(_.getHeaderValue("Foo"))
+          val res = app.requestHeaderValueByName("Foo").run()
           assertM(res)(isSome(equalTo("Bar")))
         }
       } + suite("response") {
         val app = Http.response(Response(status = Status.OK, data = HttpData.fromString("abc")))
         testM("body is set") {
-          val res = app.requestBodyAsString()
+          val res = app.requestBodyAsString.run()
           assertM(res)(equalTo("abc"))
         }
       }
@@ -123,13 +123,13 @@ object ServerSpec extends HttpRunnableSpec {
     }
     testM("has content-length") {
       checkAllM(Gen.alphaNumericString) { string =>
-        val res = app.requestBodyAsString(content = string)
+        val res = app.requestBodyAsString.run(content = string)
         assertM(res)(equalTo(string.length.toString))
       }
     } +
       testM("POST Request.getBody") {
         val app = Http.collectZIO[Request] { case req => req.getBody.as(Response.ok) }
-        val res = app.requestStatus(!!, Method.POST, "some text")
+        val res = app.requestStatus.run(!!, Method.POST, "some text")
         assertM(res)(equalTo(Status.OK))
       }
   }
@@ -137,13 +137,13 @@ object ServerSpec extends HttpRunnableSpec {
   def responseSpec = suite("ResponseSpec") {
     testM("data") {
       checkAllM(nonEmptyContent) { case (string, data) =>
-        val res = Http.fromData(data).requestBodyAsString()
+        val res = Http.fromData(data).requestBodyAsString.run()
         assertM(res)(equalTo(string))
       }
     } +
       testM("data from file") {
         val file = new File(getClass.getResource("/TestFile.txt").getPath)
-        val res  = Http.fromFile(file).requestBodyAsString()
+        val res  = Http.fromFile(file).requestBodyAsString.run()
         assertM(res)(equalTo("abc\nfoo"))
       } +
       testM("content-type header on file response") {
@@ -151,24 +151,25 @@ object ServerSpec extends HttpRunnableSpec {
         val res  =
           Http
             .fromFile(file)
-            .requestHeaderValueByName()(HttpHeaderNames.CONTENT_TYPE)
+            .requestHeaderValueByName(HttpHeaderNames.CONTENT_TYPE)
+            .run()
             .map(_.getOrElse("Content type header not found."))
         assertM(res)(equalTo("text/plain"))
       } +
       testM("status") {
         checkAllM(HttpGen.status) { case (status) =>
-          val res = Http.status(status).requestStatus()
+          val res = Http.status(status).requestStatus.run()
           assertM(res)(equalTo(status))
         }
       } +
       testM("header") {
         checkAllM(HttpGen.header) { case header @ (name, value) =>
-          val res = Http.ok.addHeader(header).requestHeaderValueByName()(name)
+          val res = Http.ok.addHeader(header).requestHeaderValueByName(name).run()
           assertM(res)(isSome(equalTo(value)))
         }
       } +
       testM("text streaming") {
-        val res = Http.fromStream(ZStream("a", "b", "c")).requestBodyAsString()
+        val res = Http.fromStream(ZStream("a", "b", "c")).requestBodyAsString.run()
         assertM(res)(equalTo("abc"))
       } +
       testM("echo streaming") {
@@ -176,33 +177,34 @@ object ServerSpec extends HttpRunnableSpec {
           .collectHttp[Request] { case req =>
             Http.fromStream(ZStream.fromEffect(req.getBody).flattenChunks)
           }
-          .requestBodyAsString(content = "abc")
+          .requestBodyAsString
+          .run(content = "abc")
         assertM(res)(equalTo("abc"))
       } +
       testM("file-streaming") {
         val path = getClass.getResource("/TestFile.txt").getPath
-        val res  = Http.fromStream(ZStream.fromFile(Paths.get(path))).requestBodyAsString()
+        val res  = Http.fromStream(ZStream.fromFile(Paths.get(path))).requestBodyAsString.run()
         assertM(res)(equalTo("abc\nfoo"))
       } +
       suite("html") {
         testM("body") {
-          val res = Http.html(html(body(div(id := "foo", "bar")))).requestBodyAsString()
+          val res = Http.html(html(body(div(id := "foo", "bar")))).requestBodyAsString.run()
           assertM(res)(equalTo("""<!DOCTYPE html><html><body><div id="foo">bar</div></body></html>"""))
         } +
           testM("content-type") {
             val app = Http.html(html(body(div(id := "foo", "bar"))))
-            val res = app.requestHeaderValueByName()(HeaderNames.contentType)
+            val res = app.requestHeaderValueByName(HeaderNames.contentType).run()
             assertM(res)(isSome(equalTo(HeaderValues.textHtml.toString)))
           }
       } +
       suite("content-length") {
         suite("string") {
           testM("unicode text") {
-            val res = Http.text("äöü").requestContentLength()
+            val res = Http.text("äöü").requestContentLength.run()
             assertM(res)(isSome(equalTo(6L)))
           } +
             testM("already set") {
-              val res = Http.text("1234567890").withContentLength(4L).requestContentLength()
+              val res = Http.text("1234567890").withContentLength(4L).requestContentLength.run()
               assertM(res)(isSome(equalTo(4L)))
             }
         }
@@ -213,14 +215,14 @@ object ServerSpec extends HttpRunnableSpec {
           val expected = (0 to size) map (_ => Status.OK)
           for {
             response <- Response.text("abc").freeze
-            actual   <- ZIO.foreachPar(0 to size)(_ => Http.response(response).requestStatus())
+            actual   <- ZIO.foreachPar(0 to size)(_ => Http.response(response).requestStatus.run())
           } yield assert(actual)(equalTo(expected))
         } +
           testM("update after cache") {
             val server = "ZIO-Http"
             for {
               res    <- Response.text("abc").freeze
-              actual <- Http.response(res).withServer(server).requestHeaderValueByName()(HeaderNames.server)
+              actual <- Http.response(res).withServer(server).requestHeaderValueByName(HeaderNames.server).run()
             } yield assert(actual)(isSome(equalTo(server)))
           }
       }

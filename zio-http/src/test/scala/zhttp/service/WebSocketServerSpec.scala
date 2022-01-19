@@ -12,6 +12,12 @@ import zio.test._
 
 object WebSocketServerSpec extends HttpRunnableSpec {
 
+  private val env =
+    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ AsyncHttpClientZioBackend
+      .layer()
+      .orDie ++ DynamicServer.live ++ ChannelFactory.nio
+  private val app = serve { DynamicServer.app }
+
   override def spec = suiteM("Server") {
     app.as(List(websocketSpec)).useNow
   }.provideCustomLayerShared(env) @@ timeout(30 seconds)
@@ -21,15 +27,8 @@ object WebSocketServerSpec extends HttpRunnableSpec {
       testM("Multiple websocket upgrades") {
         val response = Socket.succeed(WebSocketFrame.text("BAR")).toResponse
         val app      = Http.fromZIO(response)
-        assertM(app.webSocketStatusCode(!! / "subscriptions").repeatN(1024))(equalTo(101))
+        assertM(app.requestWebSocketStatusCode.run(!! / "subscriptions").repeatN(1024))(equalTo(101))
       }
     }
   }
-
-  private val env =
-    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ AsyncHttpClientZioBackend
-      .layer()
-      .orDie ++ DynamicServer.live ++ ChannelFactory.nio
-
-  private val app = serve { DynamicServer.app }
 }
