@@ -1,9 +1,9 @@
 package zhttp.service
 
-import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
+import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.{HttpRequest, _}
+import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.{ContentDecoder, WebSocketUpgrade}
 import zio.{Chunk, Promise, Task, UIO, ZIO}
@@ -22,15 +22,15 @@ private[zhttp] final case class Handler[R](
 
   import io.netty.util.AttributeKey
 
-  private val DECODER_KEY: AttributeKey[ContentDecoder[Any, Throwable, Chunk[Byte], Any]] =
+  private val DECODER_KEY: AttributeKey[ContentDecoder[Any, Throwable, ByteBuf, Any]] =
     AttributeKey.valueOf("decoderKey")
-  private val COMPLETE_PROMISE: AttributeKey[Promise[Throwable, Any]]                     =
+  private val COMPLETE_PROMISE: AttributeKey[Promise[Throwable, Any]]                 =
     AttributeKey.valueOf("completePromise")
-  private val IS_FIRST: AttributeKey[Boolean] = AttributeKey.valueOf("isFirst")
-  private val decoderState: AttributeKey[Any] =
+  private val IS_FIRST: AttributeKey[Boolean]                                         = AttributeKey.valueOf("isFirst")
+  private val decoderState: AttributeKey[Any]                                         =
     AttributeKey.valueOf("decoderState")
-  private val REQUEST: AttributeKey[Request]  = AttributeKey.valueOf("request")
-  private val BODY: AttributeKey[ByteBuf]     = AttributeKey.valueOf("body")
+  private val REQUEST: AttributeKey[Request]                                          = AttributeKey.valueOf("request")
+  private val BODY: AttributeKey[ByteBuf]                                             = AttributeKey.valueOf("body")
 
   override def channelRead0(ctx: Ctx, msg: Any): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
@@ -61,7 +61,7 @@ private[zhttp] final case class Handler[R](
                     ctx
                       .channel()
                       .attr(DECODER_KEY)
-                      .setIfAbsent(decoder.asInstanceOf[ContentDecoder[Any, Throwable, Chunk[Byte], Any]])
+                      .setIfAbsent(decoder.asInstanceOf[ContentDecoder[Any, Throwable, ByteBuf, Any]])
                       .asInstanceOf[ContentDecoder[Any, Throwable, Chunk[Byte], B]]
                     ctx.channel().attr(COMPLETE_PROMISE).set(p.asInstanceOf[Promise[Throwable, Any]])
                     ctx.read(): Unit
@@ -159,7 +159,7 @@ private[zhttp] final case class Handler[R](
    */
   private def decodeContent(
     content: ByteBuf,
-    decoder: ContentDecoder[Any, Throwable, Chunk[Byte], Any],
+    decoder: ContentDecoder[Any, Throwable, ByteBuf, Any],
     isLast: Boolean,
   )(implicit ctx: ChannelHandlerContext): Unit = {
     decoder match {
@@ -191,11 +191,11 @@ private[zhttp] final case class Handler[R](
         val request = ctx.channel().attr(REQUEST).get()
         unsafeRunZIO(for {
           (publish, state) <- step
-            .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], Any]]
+            .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, ByteBuf, Any]]
             .next(
               // content.array() fails with post request with body
               // Link: https://livebook.manning.com/book/netty-in-action/chapter-5/54
-              Chunk.fromArray(ByteBufUtil.getBytes(content)),
+              content,
               ctx.channel().attr(decoderState).get(),
               isLast,
               request.method,

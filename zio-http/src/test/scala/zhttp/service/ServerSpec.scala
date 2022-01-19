@@ -33,31 +33,6 @@ object ServerSpec extends HttpRunnableSpec {
 
   private val app = serve { staticApp ++ DynamicServer.app }
 
-  def streamingAppSpec = suite("StreamingAppSpec") {
-    suite("echo content") {
-      val app = Http.collectZIO[Request] { case req =>
-        req.decodeContent(ContentDecoder.text).map(text => Response.text(text))
-      }
-
-      testM("status is 200") {
-        val res = app.requestStatus()
-        assertM(res)(equalTo(Status.OK))
-      } +
-        testM("body is ok") {
-          val res = app.requestBodyAsString(content = "ABC")
-          assertM(res)(equalTo("ABC"))
-        } +
-        testM("empty string") {
-          val res = app.requestBodyAsString(content = "")
-          assertM(res)(equalTo(""))
-        } +
-        testM("one char") {
-          val res = app.requestBodyAsString(content = "1")
-          assertM(res)(equalTo("1"))
-        }
-    }
-  }
-
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
       testM("status is 200") {
@@ -82,6 +57,28 @@ object ServerSpec extends HttpRunnableSpec {
           testM("header is set") {
             val res = app.request().map(_.getHeaderValue("Content-Length"))
             assertM(res)(isSome(equalTo("0")))
+          }
+      } +
+      suite("echo content") {
+        val app = Http.collectZIO[Request] { case req =>
+          req.decodeContent(ContentDecoder.text).map(text => Response.text(text))
+        }
+
+        testM("status is 200") {
+          val res = app.requestStatus()
+          assertM(res)(equalTo(Status.OK))
+        } +
+          testM("body is ok") {
+            val res = app.requestBodyAsString(content = "ABC")
+            assertM(res)(equalTo("ABC"))
+          } +
+          testM("empty string") {
+            val res = app.requestBodyAsString(content = "")
+            assertM(res)(equalTo(""))
+          } +
+          testM("one char") {
+            val res = app.requestBodyAsString(content = "1")
+            assertM(res)(equalTo("1"))
           }
       } +
       suite("error") {
@@ -231,7 +228,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   override def spec =
     suiteM("Server") {
-      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, streamingAppSpec)).useNow
+      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds)
 
   def serverStartSpec = suite("ServerStartSpec") {

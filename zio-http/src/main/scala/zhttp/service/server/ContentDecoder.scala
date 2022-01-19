@@ -2,7 +2,7 @@ package zhttp.service.server
 
 import io.netty.buffer.{ByteBuf, Unpooled}
 import zhttp.http.{HTTP_CHARSET, Headers, HttpData, Method, URL}
-import zio.{Queue, Task, UIO, ZIO}
+import zio.{Chunk, Queue, Task, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
   def decode(data: HttpData, method: Method, url: URL, headers: Headers)(implicit
@@ -23,11 +23,11 @@ object ContentDecoder {
 
   def collect[S, A]: PartiallyAppliedCollect[S, A] = new PartiallyAppliedCollect(())
 
-//  def collectAll[A]: ContentDecoder[Any, Nothing, A, ByteBuf] =
-//    ContentDecoder.collect[ByteBuf, A](Unpooled.EMPTY_BUFFER) {
-//      case (a, chunk, true, _, _, _)  => UIO((Option(chunk.writeBytes(a)), chunk))
-//      case (a, chunk, false, _, _, _) => UIO((None, chunk.writeBytes(a)))
-//    }
+  def collectAll[A]: ContentDecoder[Any, Nothing, A, Chunk[A]] =
+    ContentDecoder.collect[Chunk[A], A](Chunk.empty) {
+      case (a, chunk, true, _, _, _)  => UIO((Option(chunk :+ a), chunk))
+      case (a, chunk, false, _, _, _) => UIO((None, chunk :+ a))
+    }
 
   def text: ContentDecoder[Any, Nothing, Any, String] = Text
 
@@ -53,7 +53,7 @@ object ContentDecoder {
           case step: ContentDecoder.Step[_, _, _, _, _] =>
             step
               .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, ByteBuf, B]]
-              .next(Unpooled.copiedBuffer(data.getBytes(charset)), step.state, true, method, url, headers)
+              .next(Unpooled.wrappedBuffer(data.getBytes(charset)), step.state, true, method, url, headers)
               .map(a => a._1)
               .flatMap(contentFromOption)
         }
@@ -67,7 +67,7 @@ object ContentDecoder {
             stream
               .fold(Unpooled.compositeBuffer())((s, b) => s.writeBytes(b))
               .map(a => a.array().take(a.writerIndex()))
-              .map(a => Unpooled.copiedBuffer(a))
+              .map(a => Unpooled.wrappedBuffer(a))
               .flatMap(
                 step
                   .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, ByteBuf, B]]
@@ -82,7 +82,7 @@ object ContentDecoder {
           case step: ContentDecoder.Step[_, _, _, _, _] =>
             step
               .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, ByteBuf, B]]
-              .next(Unpooled.copiedBuffer(data.toArray), step.state, true, method, url, headers)
+              .next(Unpooled.wrappedBuffer(data.toArray), step.state, true, method, url, headers)
               .map(a => a._1)
               .flatMap(contentFromOption)
         }
