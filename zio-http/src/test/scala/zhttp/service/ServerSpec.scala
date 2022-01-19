@@ -246,24 +246,24 @@ object ServerSpec extends HttpRunnableSpec {
 
   def staticAppSpec = suite("StaticAppSpec") {
     testM("200 response") {
-      val actual = status(!! / "success")
+      val actual = status(path = !! / "success")
       assertM(actual)(equalTo(Status.OK))
     } +
       testM("500 response") {
-        val actual = status(!! / "failure")
+        val actual = status(path = !! / "failure")
         assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
       } +
       testM("404 response") {
-        val actual = status(!! / "random")
+        val actual = status(path = !! / "random")
         assertM(actual)(equalTo(Status.NOT_FOUND))
       } +
       testM("200 response with encoded path") {
-        val actual = status(!! / "get%2Fsuccess")
+        val actual = status(path = !! / "get%2Fsuccess")
         assertM(actual)(equalTo(Status.OK))
       } +
       testM("Multiple 200 response") {
         for {
-          data <- status(!! / "success").repeatN(1024)
+          data <- status(path = !! / "success").repeatN(1024)
         } yield assertTrue(data == Status.OK)
       }
   }
@@ -271,19 +271,19 @@ object ServerSpec extends HttpRunnableSpec {
   def validationAppSpec = suite("ValidationAppSpec") {
     testM("200 response") {
       checkAllM(HttpGen.method) { method =>
-        val actual = status(!! / "HExitSuccess", method)
+        val actual = status(method, !! / "HExitSuccess")
         assertM(actual)(equalTo(Status.OK))
       }
     } +
       testM("400 response") {
         checkAllM(HttpGen.method) { method =>
-          val actual = status(!! / "HExitFailure", method)
+          val actual = status(method, !! / "HExitFailure")
           assertM(actual)(equalTo(Status.BAD_REQUEST))
         }
       } +
       testM("404 response ") {
         checkAllM(HttpGen.method) { method =>
-          val actual = status(!! / "A", method)
+          val actual = status(method, !! / "A")
           assertM(actual)(equalTo(Status.NOT_FOUND))
         }
       }
