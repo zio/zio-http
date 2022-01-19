@@ -113,12 +113,12 @@ private[zhttp] final case class Handler[R](
               case Some(cause) =>
                 UIO {
                   ctx.fireChannelRead(
-                    (Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))), jReq),
+                    Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),
                   )
                 }
               case None        =>
                 UIO {
-                  ctx.fireChannelRead((Response.status(Status.NOT_FOUND), jReq))
+                  ctx.fireChannelRead(Response.status(Status.NOT_FOUND))
                 }
             },
             res =>
@@ -126,7 +126,7 @@ private[zhttp] final case class Handler[R](
               else {
                 for {
                   _ <- UIO {
-                    ctx.fireChannelRead((res, jReq))
+                    ctx.fireChannelRead(res)
                   }
                 } yield ()
               },
@@ -137,13 +137,13 @@ private[zhttp] final case class Handler[R](
         if (self.isWebSocket(res)) {
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
-          ctx.fireChannelRead((res, jReq)): Unit
+          ctx.fireChannelRead(res): Unit
         }
 
       case HExit.Failure(e) =>
-        ctx.fireChannelRead((e, jReq)): Unit
+        ctx.fireChannelRead(e): Unit
       case HExit.Empty      =>
-        ctx.fireChannelRead((Response.status(Status.NOT_FOUND), jReq)): Unit
+        ctx.fireChannelRead(Response.status(Status.NOT_FOUND)): Unit
     }
 
   }
