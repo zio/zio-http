@@ -365,7 +365,7 @@ object Http {
     def setMethod(method: Method): HttpApp[R, E] = http.contramap[Request](_.setMethod(method))
 
     /**
-     * Overwrites the root in the incoming request
+     * Overwrites the path in the incoming request
      */
     def setPath(path: Path): HttpApp[R, E] = http.contramap[Request](_.setPath(path))
 

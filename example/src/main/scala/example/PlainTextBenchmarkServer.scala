@@ -37,4 +37,5 @@ object Main extends App {
       Server.keepAlive ++
       Server.disableLeakDetection ++
       Server.consolidateFlush
+
 }
