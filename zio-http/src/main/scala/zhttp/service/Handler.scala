@@ -43,7 +43,7 @@ private[zhttp] final case class Handler[R](
         val request = new Request {
           override def method: Method                                 = Method.fromHttpMethod(jReq.method())
           override def url: URL                                       = URL.fromString(jReq.uri()).getOrElse(null)
-          override def headers: Headers                            = Headers.make(jReq.headers())
+          override def headers: Headers                               = Headers.make(jReq.headers())
           override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = ???
 
           override def decodeContent[R0, B](
@@ -113,12 +113,12 @@ private[zhttp] final case class Handler[R](
               case Some(cause) =>
                 UIO {
                   ctx.fireChannelRead(
-                    (Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))), jReq),
+                    Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),
                   )
                 }
               case None        =>
                 UIO {
-                  ctx.fireChannelRead((Response.status(Status.NOT_FOUND), jReq))
+                  ctx.fireChannelRead(Response.status(Status.NOT_FOUND))
                 }
             },
             res =>
@@ -126,7 +126,7 @@ private[zhttp] final case class Handler[R](
               else {
                 for {
                   _ <- UIO {
-                    ctx.fireChannelRead((res, jReq))
+                    ctx.fireChannelRead(res)
                   }
                 } yield ()
               },
@@ -137,13 +137,13 @@ private[zhttp] final case class Handler[R](
         if (self.isWebSocket(res)) {
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
-          ctx.fireChannelRead((res, jReq)): Unit
+          ctx.fireChannelRead(res): Unit
         }
 
       case HExit.Failure(e) =>
-        ctx.fireChannelRead((Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))), jReq)): Unit
+        ctx.fireChannelRead(Response.fromHttpError(HttpError.InternalServerError(cause = Some(e)))): Unit
       case HExit.Empty      =>
-        ctx.fireChannelRead((Response.status(Status.NOT_FOUND), jReq)): Unit
+        ctx.fireChannelRead(Response.status(Status.NOT_FOUND)): Unit
     }
 
   }
