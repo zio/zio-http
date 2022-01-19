@@ -12,7 +12,7 @@ import zhttp.internal.HttpRunnableSpec.HttpIO
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.DefaultRunnableSpec
-import zio.{Chunk, Has, Task, ZIO, ZManaged}
+import zio.{Has, Task, ZIO, ZManaged}
 
 /**
  * Should be used only when e2e tests needs to be written. Typically we would want to do that when we want to test the
@@ -70,13 +70,6 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
 
     } yield res
 
-    def request: HttpIO[Any, Client.ClientResponse]                               = deploy
-    def requestBody: HttpIO[Any, Chunk[Byte]]                                     = deploy.mapZIO(_.getBody)
-    def requestBodyAsString: HttpIO[Any, String]                                  = deploy.mapZIO(_.getBodyAsString)
-    def requestContentLength: HttpIO[Any, Option[Long]]                           = deploy.map(_.getContentLength)
-    def requestHeaderValueByName(name: CharSequence): HttpIO[Any, Option[String]] = deploy.map(_.getHeaderValue(name))
-    def requestStatus: HttpIO[Any, Status]                                        = deploy.map(_.status)
-    def requestWebSocketStatusCode: HttpIO[SttpClient, Int]                       = deployWebSocket.map(_.code.code)
   }
 
   def serve[R <: Has[_]](

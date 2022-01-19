@@ -27,7 +27,7 @@ object WebSocketServerSpec extends HttpRunnableSpec {
       testM("Multiple websocket upgrades") {
         val response = Socket.succeed(WebSocketFrame.text("BAR")).toResponse
         val app      = Http.fromZIO(response)
-        assertM(app.requestWebSocketStatusCode.run(!! / "subscriptions").repeatN(1024))(equalTo(101))
+        assertM(app.deployWebSocket.map(_.code.code).run(!! / "subscriptions").repeatN(1024))(equalTo(101))
       }
     }
   }
