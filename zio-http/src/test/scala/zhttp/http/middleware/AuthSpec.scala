@@ -12,15 +12,15 @@ object AuthSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
   def spec = suite("AuthSpec") {
     suite("basicAuth") {
-      testM("HttpApp is accepted if the basic authentication succeeds") {
+      test("HttpApp is accepted if the basic authentication succeeds") {
         val app = (Http.ok @@ basicAuthM).getStatus
         assertM(app(Request().addHeaders(basicHS)))(equalTo(Status.OK))
       } +
-        testM("Uses forbidden app if the basic authentication fails") {
+        test("Uses forbidden app if the basic authentication fails") {
           val app = (Http.ok @@ basicAuthM).getStatus
           assertM(app(Request().addHeaders(basicHF)))(equalTo(Status.FORBIDDEN))
         } +
-        testM("Responses should have WWW-Authentication header if Basic Auth failed") {
+        test("Responses should have WWW-Authentication header if Basic Auth failed") {
           val app = Http.ok @@ basicAuthM getHeader "WWW-AUTHENTICATE"
           assertM(app(Request().addHeaders(basicHF)))(isSome)
         }

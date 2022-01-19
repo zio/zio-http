@@ -492,7 +492,9 @@ object Http {
    * Creates a Http that always succeeds with a 200 status code and the provided ZStream as the body
    */
   def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = HTTP_CHARSET): HttpApp[R, Nothing] =
-    Http.fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provideEnvironment(r), charset)))).flatten
+    Http
+      .fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provideEnvironment(r), charset))))
+      .flatten
 
   /**
    * Creates a Http that always succeeds with a 200 status code and the provided ZStream as the body

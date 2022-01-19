@@ -43,7 +43,7 @@ sealed trait Server[-R, +E] { self =>
   /**
    * Launches the app with current settings: default EventLoopGroup (nThreads = 0) and ServerChannelFactory.auto.
    */
-  def startDefault[R1 <: Has[_] with R](implicit ev: E <:< Throwable): ZIO[R1, Throwable, Nothing] =
+  def startDefault[R1 <: R](implicit ev: E <:< Throwable): ZIO[R1, Throwable, Nothing] =
     start.provideSomeLayer[R1](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   /**
