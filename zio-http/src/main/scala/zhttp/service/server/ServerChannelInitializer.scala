@@ -8,6 +8,7 @@ import io.netty.handler.codec.http.HttpObjectDecoder.{
   DEFAULT_MAX_INITIAL_LINE_LENGTH,
 }
 import io.netty.handler.codec.http._
+import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
 import zhttp.service.Server.Config
 import zhttp.service._
@@ -46,7 +47,7 @@ final case class ServerChannelInitializer[R](
 
     // ObjectAggregator
     // Always add ObjectAggregator
-    // pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
+    pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
 
     // ExpectContinueHandler
     // Add expect continue handler is settings is true
