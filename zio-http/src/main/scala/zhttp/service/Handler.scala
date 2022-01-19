@@ -197,7 +197,7 @@ private[zhttp] final case class Handler[R](
             .next(
               // content.array() fails with post request with body
               // Link: https://livebook.manning.com/book/netty-in-action/chapter-5/54
-              content,
+              content.retain(),
               ctx.channel().attr(decoderState).get(),
               isLast,
               request.method,
