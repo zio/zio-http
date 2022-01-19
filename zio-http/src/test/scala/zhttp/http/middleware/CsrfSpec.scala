@@ -13,20 +13,20 @@ object CsrfSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
     val setCookie     = Headers.cookie(Cookie("x-token", "secret"))
     val invalidXToken = Headers("x-token", "secret1")
     val validXToken   = Headers("x-token", "secret")
-    testM("x-token not present") {
+    test("x-token not present") {
       assertM(app(Request(headers = setCookie)))(equalTo(Status.FORBIDDEN))
     } +
-      testM("x-token mismatch") {
+      test("x-token mismatch") {
         assertM(app(Request(headers = setCookie ++ invalidXToken)))(
           equalTo(Status.FORBIDDEN),
         )
       } +
-      testM("x-token match") {
+      test("x-token match") {
         assertM(app(Request(headers = setCookie ++ validXToken)))(
           equalTo(Status.OK),
         )
       } +
-      testM("app execution skipped") {
+      test("app execution skipped") {
         for {
           r <- Ref.make(false)
           app = Http.ok.tapZIO(_ => r.set(true)) @@ csrfValidate("x-token")

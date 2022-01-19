@@ -10,7 +10,7 @@ import zio.test._
 object CorsSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   override def spec = suite("CorsMiddlewares") {
     val app = Http.ok @@ cors()
-    testM("OPTIONS request") {
+    test("OPTIONS request") {
       val request = Request(
         method = Method.OPTIONS,
         url = URL(!! / "success"),
@@ -31,7 +31,7 @@ object CorsSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       } yield assert(res.headersAsList)(hasSubset(expected)) &&
         assertTrue(res.status == Status.NO_CONTENT)
     } +
-      testM("GET request") {
+      test("GET request") {
         val request =
           Request(
             method = Method.GET,

@@ -552,9 +552,7 @@ object Http {
    */
   def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = HTTP_CHARSET): HttpApp[R, Nothing] =
     Http
-      .fromZIO(
-        ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provideEnvironment(r), charset))),
-      )
+      .fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provideEnvironment(r), charset))))
       .flatten
 
   /**
@@ -562,9 +560,12 @@ object Http {
    * ZStream as the body
    */
   def fromStream[R](stream: ZStream[R, Throwable, Byte]): HttpApp[R, Nothing] =
-    Http
-      .fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provideEnvironment(r)))))
-      .flatten
+    Http.fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provideEnvironment(r))))).flatten
+
+  /**
+   * Converts a ZIO to an Http type
+   */
+  def fromZIO[R, E, B](effect: ZIO[R, E, B]): Http[R, E, Any, B] = Http.fromFunctionZIO(_ => effect)
 
   /**
    * Converts a ZIO to an Http type
