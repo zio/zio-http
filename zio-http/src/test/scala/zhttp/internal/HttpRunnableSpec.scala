@@ -37,7 +37,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       port <- DynamicServer.getPort
       data = HttpData.fromString(content)
       response <- Client.request(
-        Client.ClientParams(method, URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
+        Client.ClientRequest(method, URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
         ClientSSLOptions.DefaultSSL,
       )
     } yield response
