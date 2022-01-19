@@ -59,21 +59,6 @@ object ServerSpec extends HttpRunnableSpec {
             assertM(res)(isSome(equalTo("0")))
           }
       } +
-      suite("error") {
-        val app = Http.fail(new Error("SERVER_ERROR"))
-        testM("status is 500") {
-          val res = app.requestStatus()
-          assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
-        } +
-          testM("content is set") {
-            val res = app.requestBodyAsString()
-            assertM(res)(containsString("SERVER_ERROR"))
-          } +
-          testM("header is set") {
-            val res = app.request().map(_.getHeaderValue("Content-Length"))
-            assertM(res)(isSome(anything))
-          }
-      } +
       suite("echo content") {
         val app = Http.collectZIO[Request] { case req =>
           req.decodeContent(ContentDecoder.text).map(text => Response.text(text))
@@ -94,6 +79,21 @@ object ServerSpec extends HttpRunnableSpec {
           testM("one char") {
             val res = app.requestBodyAsString(content = "1")
             assertM(res)(equalTo("1"))
+          }
+      } +
+      suite("error") {
+        val app = Http.fail(new Error("SERVER_ERROR"))
+        testM("status is 500") {
+          val res = app.requestStatus()
+          assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+        } +
+          testM("content is set") {
+            val res = app.requestBodyAsString()
+            assertM(res)(containsString("SERVER_ERROR"))
+          } +
+          testM("header is set") {
+            val res = app.request().map(_.getHeaderValue("Content-Length"))
+            assertM(res)(isSome(anything))
           }
       } +
       suite("headers") {
