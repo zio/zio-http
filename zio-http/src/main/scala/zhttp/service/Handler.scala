@@ -44,7 +44,7 @@ private[zhttp] final case class Handler[R](
           override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = ???
 
           override def decodeContent[R0, B](
-            decoder: ContentDecoder[R0, Throwable, Chunk[Byte], B],
+            decoder: ContentDecoder[R0, Throwable, ByteBuf, B],
           ): ZIO[R0, Throwable, B] =
             ZIO.effectSuspendTotal {
               if (
