@@ -12,6 +12,7 @@ import zio.stream.ZStream
 
 import java.io.FileNotFoundException
 import java.nio.charset.Charset
+import java.nio.file.{Path => jPath, Paths}
 import scala.annotation.unused
 
 /**
@@ -319,21 +320,20 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final private[zhttp] def execute(a: A): HExit[R, E, B] =
     self match {
-      case Http.Empty         => HExit.empty
-      case Http.Identity      => HExit.succeed(a.asInstanceOf[B])
-      case Succeed(b)         => HExit.succeed(b)
-      case Fail(e)            => HExit.fail(e)
-      case FromFunctionZIO(f) => HExit.fromZIO(f(a))
-      case Collect(pf)        => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
-      case Chain(self, other) => self.execute(a).flatMap(b => other.execute(b))
-      case Race(self, other)  =>
+      case Http.Empty                 => HExit.empty
+      case Http.Identity              => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)                 => HExit.succeed(b)
+      case Fail(e)                    => HExit.fail(e)
+      case FromFunctionZIO(f)         => HExit.fromZIO(f(a))
+      case Collect(pf)                => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
+      case Chain(self, other)         => self.execute(a).flatMap(b => other.execute(b))
+      case Race(self, other)          =>
         (self.execute(a), other.execute(a)) match {
           case (HExit.Effect(self), HExit.Effect(other)) =>
             Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
           case (HExit.Effect(_), other)                  => other
           case (self, _)                                 => self
         }
-
       case FoldHttp(self, ee, bb, dd) =>
         self.execute(a).foldExit(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
     }
@@ -365,7 +365,7 @@ object Http {
     def setMethod(method: Method): HttpApp[R, E] = http.contramap[Request](_.setMethod(method))
 
     /**
-     * Overwrites the path in the incoming request
+     * Overwrites the root in the incoming request
      */
     def setPath(path: Path): HttpApp[R, E] = http.contramap[Request](_.setPath(path))
 
@@ -508,8 +508,20 @@ object Http {
    */
   def html(view: Html): HttpApp[Any, Nothing] = Http.response(Response.html(view))
 
-  def staticServerFromPath(path: java.nio.file.Path): HttpApp[Any, Nothing] = {
-    val res: ZIO[Any, Throwable, Response] =
+  /**
+   * Builds a static file server from the given root directory.
+   * @param root
+   *   directory to serve static files from
+   */
+  def serveFilesFrom(root: jPath): HttpApp[Any, Nothing] = {
+
+    def absPath(relPath: jPath) = {
+      Paths.get(root.toString + "/" + relPath.toString)
+    }
+
+    def res(relPath: jPath): ZIO[Any, Throwable, Response] = {
+      val path = absPath(relPath)
+
       if (path.toFile.isDirectory)
         ZIO.succeed(Response(data = HttpData.fromString(listFilesHtml(path))))
       else
@@ -517,14 +529,18 @@ object Http {
           data <- HttpData.fromFileZIO(path.toFile)
           res  <- ZIO.succeed(Response(data = data))
         } yield res
-
-    responseZIO(res).catchAll {
+    }
+    def response(relPath: jPath): HttpApp[Any, Nothing]    = responseZIO(res(relPath)).catchAll {
       case a: SecurityException     =>
         Http.error(HttpError.Forbidden(a.getMessage))
       case _: FileNotFoundException =>
-        Http.error(HttpError.FileNotFound)
+        Http.error(HttpError.NotFound(Path(relPath.toString)))
       case e                        =>
         Http.error(e.getMessage)
+    }
+
+    Http.collectHttp[Request] { case request =>
+      response(Paths.get(request.path.asString))
     }
   }
 

@@ -54,7 +54,7 @@ final case class Cookie(
   def withDomain(v: String): Cookie = copy(domain = Some(v))
 
   /**
-   * Sets path in cookie
+   * Sets root in cookie
    */
   def withPath(v: Path): Cookie = copy(path = Some(v))
 
@@ -104,7 +104,7 @@ final case class Cookie(
   def withoutDomain: Cookie = copy(domain = None)
 
   /**
-   * Removes path from the cookie
+   * Removes root from the cookie
    */
   def withoutPath: Cookie = copy(path = None)
 
@@ -164,7 +164,7 @@ object Cookie {
   private val fieldExpires  = "expires="
   private val fieldMaxAge   = "max-age="
   private val fieldDomain   = "domain="
-  private val fieldPath     = "path="
+  private val fieldPath     = "root="
   private val fieldSecure   = "secure"
   private val fieldHttpOnly = "httponly"
   private val fieldSameSite = "samesite="

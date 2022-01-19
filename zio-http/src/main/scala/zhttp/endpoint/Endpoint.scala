@@ -38,7 +38,7 @@ private[zhttp] object Endpoint {
   def fromMethod(method: Method): Endpoint[Unit] = Endpoint(method, ParameterList.Empty)
 
   /**
-   * Extracts the parameter list from the given path
+   * Extracts the parameter list from the given root
    */
   private[zhttp] def extract[A](path: Path, route: Endpoint[A]): Option[A] = route.params.extract(path)
 

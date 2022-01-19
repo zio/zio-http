@@ -68,7 +68,7 @@ import zhttp.http._
 
 val app = Http.collect[Request] {
   case req @ Method.GET -> Root / "fruits" / "a"  =>
-    Response.text("URL:" + req.url.path.asString + " Headers: " + r.headers)
+    Response.text("URL:" + req.url.root.asString + " Headers: " + r.headers)
   case req @ Method.POST -> Root / "fruits" / "a" =>
     Response.text(req.getBodyAsString.getOrElse("No body!"))
 }
@@ -103,7 +103,7 @@ import zhttp.http._
 
 val app = Http.collect[Request] {
   case req @ Method.GET -> Root / "fruits" / "a"  =>
-    Response.text("URL:" + req.url.path.asString + " Headers: " + r.headers)
+    Response.text("URL:" + req.url.root.asString + " Headers: " + r.headers)
   case req @ Method.POST -> Root / "fruits" / "a" =>
     Response.text(req.getBodyAsString.getOrElse("No body!"))
 }

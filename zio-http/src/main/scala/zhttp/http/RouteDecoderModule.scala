@@ -4,7 +4,7 @@ import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 
 /**
- * Instead of using just `String` as path params, using the RouteDecoderModule we can extract and converted params into
+ * Instead of using just `String` as root params, using the RouteDecoderModule we can extract and converted params into
  * a specific type also.
  *
  * ```scala

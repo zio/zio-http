@@ -20,7 +20,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
           test("empty")(assert(Path())(equalTo(!!))) +
             test("empty string")(assert(Path(""))(equalTo(!!))) +
             test("just /")(assert(Path("/"))(equalTo(!!))) +
-            test("prefixed path")(assert(Path("/A"))(equalTo(Path("A")))) +
+            test("prefixed root")(assert(Path("/A"))(equalTo(Path("A")))) +
             test("encoded paths")(assert(Path("/A/B%2FC"))(equalTo(Path("A", "B%2FC")))) +
             test("nested paths")(assert(Path("/A/B/C"))(equalTo(Path("A", "B", "C")))),
         ) +
@@ -49,15 +49,15 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
             val path = !! / "a" / "b" / "c"
             assert(path)(equalTo(Path("a", "b", "c")))
           } +
-            test("extract path / a / b / c") {
+            test("extract root / a / b / c") {
               val path = collect { case !! / "a" / b / c => (b, c) }
               assert(path(Path("a", "b", "c")))(isSome(equalTo(("b", "c"))))
             } +
-            test("extract path / a / b / c") {
+            test("extract root / a / b / c") {
               val path = collect { case !! / "a" / b => b }
               assert(path(Path("a", "b", "c")))(isNone)
             } +
-            test("extract path / a / b / c") {
+            test("extract root / a / b / c") {
               val path = collect { case !! / "a" / b => b }
               assert(path(Path("a", "b")))(isSome(equalTo("b")))
             },
@@ -68,7 +68,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
             assert(path)(equalTo(Path("a", "b", "c")))
           } +
             suite("default")(
-              test("extract path 'name' /: name") {
+              test("extract root 'name' /: name") {
                 val path = collect { case "name" /: name => name.asString }
                 assert(path(Path("name", "a", "b", "c")))(isSome(equalTo("/a/b/c")))
               } +
@@ -86,21 +86,21 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
                 },
             ) +
             suite("int()")(
-              test("extract path 'user' /: int(1)") {
+              test("extract root 'user' /: int(1)") {
                 val path = collect { case "user" /: int(age) /: !! => age }
                 assert(path(Path("user", "1")))(isSome(equalTo(1)))
               } +
-                test("extract path 'user' /: int(Xyz)") {
+                test("extract root 'user' /: int(Xyz)") {
                   val path = collect { case "user" /: int(age) /: !! => age }
                   assert(path(Path("user", "Xyz")))(isNone)
                 },
             ) +
             suite("boolean()")(
-              test("extract path 'user' /: boolean(true)") {
+              test("extract root 'user' /: boolean(true)") {
                 val path = collect { case "user" /: boolean(ok) /: !! => ok }
                 assert(path(Path("user", "True")))(isSome(isTrue))
               } +
-                test("extract path 'user' /: boolean(false)") {
+                test("extract root 'user' /: boolean(false)") {
                   val path = collect { case "user" /: boolean(ok) /: !! => ok }
                   assert(path(Path("user", "false")))(isSome(isFalse))
                 },

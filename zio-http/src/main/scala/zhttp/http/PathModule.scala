@@ -97,5 +97,4 @@ private[zhttp] trait PathModule { module =>
       }
     }
   }
-
 }

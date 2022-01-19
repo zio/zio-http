@@ -252,7 +252,7 @@ object ServerSpec extends HttpRunnableSpec {
         val actual = status(!! / "random")
         assertM(actual)(equalTo(Status.NOT_FOUND))
       } +
-      testM("200 response with encoded path") {
+      testM("200 response with encoded root") {
         val actual = status(!! / "get%2Fsuccess")
         assertM(actual)(equalTo(Status.OK))
       } +

@@ -54,7 +54,7 @@ trait Request extends HeaderExtension[Request] { self =>
   def method: Method
 
   /**
-   * Gets the request's path
+   * Gets the request's root
    */
   def path: Path = url.path
 
@@ -69,7 +69,7 @@ trait Request extends HeaderExtension[Request] { self =>
   def setMethod(method: Method): Request = self.copy(method = method)
 
   /**
-   * Overwrites the path in the request
+   * Overwrites the root in the request
    */
   def setPath(path: Path): Request = self.copy(url = self.url.copy(path = path))
 

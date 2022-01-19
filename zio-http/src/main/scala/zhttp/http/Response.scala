@@ -81,8 +81,9 @@ final case class Response private (
       case HttpData.BinaryByteBuf(data) => data
       case HttpData.BinaryStream(_)     => null
       case HttpData.Empty               => Unpooled.EMPTY_BUFFER
-      case HttpData.File(_, path)       =>
+      case HttpData.File(raf, path)     =>
         jHeaders.set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(path))
+        jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, raf.length())
         null
     }
 

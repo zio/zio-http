@@ -59,7 +59,7 @@ import zhttp.http._
 
 val app = Http.collectZIO[Request] {
     case req @ Method.GET -> !! / "fruits" / "a"  =>
-      Response.text("URL:" + req.url.path.asString + " Headers: " + req.getHeaders).wrapZIO
+      Response.text("URL:" + req.url.root.asString + " Headers: " + req.getHeaders).wrapZIO
     case req @ Method.POST -> !! / "fruits" / "a" =>
       req.getBodyAsString.map(Response.text(_))
   }
