@@ -32,11 +32,14 @@ private[zhttp] final case class Handler[R](
   private val REQUEST: AttributeKey[Request]                                          = AttributeKey.valueOf("request")
   private val BODY: AttributeKey[ByteBuf]                                             = AttributeKey.valueOf("body")
 
+  override def handlerAdded(ctx: Ctx): Unit           = {
+    ctx.channel().config().setAutoRead(false)
+    ctx.read(): Unit
+  }
   override def channelRead0(ctx: Ctx, msg: Any): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
       case jReq: HttpRequest    =>
-        ctx.channel().config().setAutoRead(false)
         val request = new Request {
           override def method: Method                                 = Method.fromHttpMethod(jReq.method())
           override def url: URL                                       = URL.fromString(jReq.uri()).getOrElse(null)
@@ -86,7 +89,6 @@ private[zhttp] final case class Handler[R](
       case msg: LastHttpContent =>
         if (ctx.channel().attr(DECODER_KEY).get() != null)
           decodeContent(msg.content(), ctx.channel().attr(DECODER_KEY).get(), true)
-        ctx.channel().config().setAutoRead(true): Unit
       case msg: HttpContent     =>
         if (ctx.channel().attr(DECODER_KEY).get() != null)
           decodeContent(msg.content(), ctx.channel().attr(DECODER_KEY).get(), false)
