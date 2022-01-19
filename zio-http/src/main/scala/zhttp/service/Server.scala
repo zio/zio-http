@@ -129,7 +129,7 @@ object Server {
     acceptContinue: Boolean = false,
     keepAlive: Boolean = false,
     consolidateFlush: Boolean = false,
-    flowControl: Boolean = false,
+    flowControl: Boolean = true,
   )
 
   /**
