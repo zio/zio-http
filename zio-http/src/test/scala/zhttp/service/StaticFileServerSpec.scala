@@ -14,8 +14,7 @@ import java.nio.file.Paths
 
 object StaticFileServerSpec extends HttpRunnableSpec {
 
-  private val staticApp  = Http.serveFilesFrom(Paths.get(getClass.getResource("/TestStatic/Folder2").getPath))
-  private val staticApp2 = Http.serveFilesFrom(Paths.get(getClass.getResource("/TestStatic").getPath))
+  private val staticApp = Http.serveFilesFrom(Paths.get(getClass.getResource("/TestStatic/Folder2").getPath))
 
   val app         = serve { staticApp }
   private val env =
@@ -31,16 +30,12 @@ object StaticFileServerSpec extends HttpRunnableSpec {
       assertM(res)(equalTo("This is a test file for testing Static File Server."))
     },
     testM("should have content-type header \"application/json\"") {
-      val res = staticApp.request(path = Path("/TestFile3.json")).map(_.getHeaderValue(HttpHeaderNames.CONTENT_TYPE))
-      assertM(res)(isSome(equalTo("application/json")))
+      val res = staticApp.request(path = Path("/TestFile3.mp4")).map(_.getHeaderValue(HttpHeaderNames.CONTENT_TYPE))
+      assertM(res)(isSome(equalTo("video/mp4")))
     },
     testM("should respond with \"Not Found\"") {
       val res = staticApp.requestBodyAsString(path = Path("/NonExistentFile.txt"))
       assertM(res)(equalTo("The requested URI \"/NonExistentFile.txt\" was not found on this server\n"))
-    },
-    testM("should respond with contents of TestFile2.txt") {
-      val res = staticApp2.requestBodyAsString(path = Path("/Folder2/TestFile2.txt"))
-      assertM(res)(equalTo("This is a test file for testing Static File Server."))
     },
   )
 

@@ -22,7 +22,7 @@ object FileStreaming extends App {
     // Content-type response headers are automatically identified and added
     // Adds content-length header and does not use Chunked transfer encoding
     case Method.GET -> !! / "video" => Http.fromFile(new File("src/main/resources/TestVideoFile.mp4"))
-    case Method.GET -> !! / "text"  => Http.fromFile(new File("src/main/resources/TestFile.txt"))
+    case Method.GET -> !! / "text"  => Http.fromFile(new File("src/main/resources/TestFile.txt.txt"))
   }
 
   // Run it like any simple app
