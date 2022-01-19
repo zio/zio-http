@@ -9,12 +9,14 @@ import io.netty.channel.{
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http.HttpVersion
+import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.http.headers.HeaderExtension
 import zhttp.service
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zhttp.service.client.content.handlers.{ClientResponseHandler, ClientSocketUpgradeHandler}
 import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler, ClientSocketHandler}
 import zhttp.socket.SocketApp
 import zio.{Chunk, Promise, Task, ZIO}
@@ -40,7 +42,11 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
   def socket(
     headers: Headers = Headers.empty,
     app: SocketApp[R],
-  ): Task[Unit] = Task(asyncSocket(headers, app))
+  ): ZIO[Any, Throwable, ClientResponse] = for {
+    pr  <- Promise.make[Throwable, ClientResponse]
+    _   <- Task(unsafeSocket(headers, app, pr))
+    res <- pr.await
+  } yield res
 
   private def asyncRequest(
     req: ClientRequest,
@@ -49,7 +55,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
   ): Unit = {
     val jReq = encodeClientParams(HttpVersion.HTTP_1_1, req)
     try {
-      val hand   = ClientInboundHandler(rtm, jReq, promise)
+      val hand   = List(new ClientResponseHandler(), ClientInboundHandler(rtm, jReq, promise))
       val host   = req.url.host
       val port   = req.url.port.getOrElse(80) match {
         case -1   => 80
@@ -73,15 +79,19 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     }
   }
 
-  private def asyncSocket(
+  private def unsafeSocket(
     headers: Headers,
     ss: SocketApp[R],
+    pr: Promise[Throwable, ClientResponse],
   ): Unit = {
-    val config = Option(ss.protocol.clientConfig(headers))
-    val hand   = ClientSocketHandler(rtm, ss)
+    val config   = ss.protocol.clientConfig(headers)
+    val handlers = List(
+      ClientSocketUpgradeHandler(rtm, pr),
+      new WebSocketClientProtocolHandler(config),
+      ClientSocketHandler(rtm, ss),
+    )
 
-    val url = config
-      .flatMap(c => URL.fromString(c.webSocketUri().toString).toOption)
+    val url = URL.fromString(config.webSocketUri().toString).toOption
 
     val host   = url.flatMap(_.host)
     val port   = url.flatMap(_.port).fold(80) {
@@ -96,10 +106,9 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
       .get
 
     val init = ClientChannelInitializer(
-      hand,
+      handlers,
       scheme,
       ClientSSLOptions.DefaultSSL,
-      config,
     )
 
     val jboo = bootstrap(init)
@@ -194,7 +203,7 @@ object Client {
   def socket[R](
     headers: Headers,
     app: SocketApp[R],
-  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Unit] =
+  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     make[R].flatMap(_.socket(headers, app))
 
   final case class ClientRequest(

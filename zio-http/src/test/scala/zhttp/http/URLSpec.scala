@@ -61,6 +61,9 @@ object URLSpec extends DefaultRunnableSpec {
           val actual = URL.fromString("/").map(_.asString)
           assert(actual)(isRight(equalTo("/")))
         } +
+        test("ws scheme") {
+          roundtrip("ws://yourdomain.com/subscriptions")
+        } +
         test("relative with pathname only") {
           roundtrip("/users")
         } +

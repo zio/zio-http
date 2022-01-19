@@ -60,7 +60,8 @@ final case class ClientSocketHandler[R](
     ss.message match {
       case Some(v) =>
         WebSocketFrame.fromJFrame(msg) match {
-          case Some(frame) => writeAndFlush(ctx, v(frame))
+          case Some(frame) =>
+            writeAndFlush(ctx, v(frame))
           case None        => ()
         }
       case None    => ()

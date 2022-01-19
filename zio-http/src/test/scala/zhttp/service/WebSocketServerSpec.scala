@@ -1,14 +1,15 @@
 package zhttp.service
 
-import sttp.client3.asynchttpclient.zio.AsyncHttpClientZioBackend
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
-import zhttp.socket.{Socket, WebSocketFrame}
+import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
+import zio.ZIO
 import zio.duration._
+import zio.stream.ZStream
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
-import zio.test._
+import zio.test.assertM
 
 object WebSocketServerSpec extends HttpRunnableSpec {
 
@@ -19,17 +20,30 @@ object WebSocketServerSpec extends HttpRunnableSpec {
   def websocketSpec = suite("WebSocket Server") {
     suite("connections") {
       testM("Multiple websocket upgrades") {
-        val response = Socket.succeed(WebSocketFrame.text("BAR")).toResponse
-        val app      = Http.fromZIO(response)
-        assertM(app.webSocketStatusCode(!! / "subscriptions").repeatN(1024))(equalTo(101))
+        val app = Http.fromZIO {
+          Socket
+            .collect[WebSocketFrame] { case frame => ZStream.succeed(frame) }
+            .toResponse
+        }
+
+        val client: SocketApp[Any] = Socket
+          .collect[WebSocketFrame] { case WebSocketFrame.Text(_) =>
+            ZStream.succeed(WebSocketFrame.close(1000))
+          }
+          .toSocketApp
+          .onOpen(Socket.succeed(WebSocketFrame.Text("FOO")))
+          .onClose(_ => ZIO.unit)
+          .onError(thr => ZIO.die(thr))
+
+        assertM(app.webSocketStatusCode(!! / "subscriptions", ss = client).repeatN(1024))(
+          equalTo(Status.SWITCHING_PROTOCOLS),
+        )
       }
     }
   }
 
   private val env =
-    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ AsyncHttpClientZioBackend
-      .layer()
-      .orDie ++ DynamicServer.live ++ ChannelFactory.nio
+    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ChannelFactory.nio
 
   private val app = serve { DynamicServer.app }
 }

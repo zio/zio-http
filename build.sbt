@@ -97,13 +97,11 @@ lazy val zhttp = (project in file("zio-http"))
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= Seq(
-      sttp,
       netty,
       `zio`,
       `zio-streams`,
       `zio-test`,
       `zio-test-sbt`,
-      `sttp-zio`,
       `netty-incubator`,
       `scala-compact-collection`,
     ),
