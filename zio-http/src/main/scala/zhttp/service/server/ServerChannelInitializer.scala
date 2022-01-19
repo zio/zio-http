@@ -8,6 +8,7 @@ import io.netty.handler.codec.http.HttpObjectDecoder.{
   DEFAULT_MAX_INITIAL_LINE_LENGTH,
 }
 import io.netty.handler.codec.http._
+import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
 import zhttp.service.Server.Config
 import zhttp.service._
@@ -59,7 +60,7 @@ final case class ServerChannelInitializer[R](
     // FlowControlHandler
     // Required because HttpObjectDecoder fires an HttpRequest that is immediately followed by a LastHttpContent event.
     // For reference: https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html
-    // pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
+    pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
 
     // FlushConsolidationHandler
     // Flushing content is done in batches. Can potentially improve performance.
