@@ -47,7 +47,7 @@ final case class ServerChannelInitializer[R](
 
     // ObjectAggregator
     // Always add ObjectAggregator
-    // pipeline.addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
+    pipeline.addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
 
     // ExpectContinueHandler
     // Add expect continue handler is settings is true
@@ -60,7 +60,7 @@ final case class ServerChannelInitializer[R](
     // FlowControlHandler
     // Required because HttpObjectDecoder fires an HttpRequest that is immediately followed by a LastHttpContent event.
     // For reference: https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html
-    pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
+    if (cfg.flowControl) pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
 
     // FlushConsolidationHandler
     // Flushing content is done in batches. Can potentially improve performance.
