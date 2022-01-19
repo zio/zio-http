@@ -101,6 +101,21 @@ object ServerSpec extends HttpRunnableSpec {
             assertM(res)(equalTo("1"))
           }
       } +
+      suite("error") {
+        val app = Http.fail(new Error("SERVER_ERROR"))
+        testM("status is 500") {
+          val res = app.requestStatus()
+          assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+        } +
+          testM("content is set") {
+            val res = app.requestBodyAsString()
+            assertM(res)(containsString("SERVER_ERROR"))
+          } +
+          testM("header is set") {
+            val res = app.request().map(_.getHeaderValue("Content-Length"))
+            assertM(res)(isSome(anything))
+          }
+      } +
       suite("headers") {
         val app = Http.ok.addHeader("Foo", "Bar")
         testM("headers are set") {
