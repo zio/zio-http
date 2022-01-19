@@ -1,32 +1,33 @@
 package zhttp.service.server
 
-import io.netty.buffer.{ByteBufUtil, Unpooled}
+import io.netty.buffer.{ByteBuf, Unpooled}
 import zhttp.http.{HTTP_CHARSET, Headers, HttpData, Method, URL}
 import zio.{Chunk, Queue, Task, UIO, ZIO}
 
 sealed trait ContentDecoder[-R, +E, -A, +B] { self =>
   def decode(data: HttpData, method: Method, url: URL, headers: Headers)(implicit
-    ev: Chunk[Byte] <:< A,
+    ev: ByteBuf <:< A,
   ): ZIO[R, Throwable, B] =
-    ContentDecoder.decode(self.asInstanceOf[ContentDecoder[R, Throwable, Chunk[Byte], B]], data, method, url, headers)
+    ContentDecoder.decode(self.asInstanceOf[ContentDecoder[R, Throwable, ByteBuf, B]], data, method, url, headers)
 }
 
 object ContentDecoder {
 
-  def backPressure: ContentDecoder[Any, Nothing, Chunk[Byte], Queue[Chunk[Byte]]] =
-    ContentDecoder.collect(BackPressure[Chunk[Byte]]()) { case (msg, state, _, _, _, _) =>
+  def backPressure: ContentDecoder[Any, Nothing, ByteBuf, Queue[ByteBuf]] =
+    ContentDecoder.collect(BackPressure[ByteBuf]()) { case (msg, state, _, _, _, _) =>
       for {
-        queue <- state.queue.fold(Queue.bounded[Chunk[Byte]](1))(UIO(_))
+        queue <- state.queue.fold(Queue.bounded[ByteBuf](1))(UIO(_))
         _     <- queue.offer(msg)
       } yield (if (state.isFirst) Option(queue) else None, state.withQueue(queue).withFirst(false))
     }
 
   def collect[S, A]: PartiallyAppliedCollect[S, A] = new PartiallyAppliedCollect(())
 
-  def collectAll[A]: ContentDecoder[Any, Nothing, A, Chunk[A]] = ContentDecoder.collect[Chunk[A], A](Chunk.empty) {
-    case (a, chunk, true, _, _, _)  => UIO((Option(chunk :+ a), chunk))
-    case (a, chunk, false, _, _, _) => UIO((None, chunk :+ a))
-  }
+  def collectAll[A]: ContentDecoder[Any, Nothing, A, Chunk[A]] =
+    ContentDecoder.collect[Chunk[A], A](Chunk.empty) {
+      case (a, chunk, true, _, _, _)  => UIO((Option(chunk :+ a), chunk))
+      case (a, chunk, false, _, _, _) => UIO((None, chunk :+ a))
+    }
 
   def text: ContentDecoder[Any, Nothing, Any, String] = Text
 
@@ -38,7 +39,7 @@ object ContentDecoder {
   }
 
   private def decode[R, B](
-    decoder: ContentDecoder[R, Throwable, Chunk[Byte], B],
+    decoder: ContentDecoder[R, Throwable, ByteBuf, B],
     data: HttpData,
     method: Method,
     url: URL,
@@ -51,8 +52,8 @@ object ContentDecoder {
           case Text                                     => UIO(data.asInstanceOf[B])
           case step: ContentDecoder.Step[_, _, _, _, _] =>
             step
-              .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
-              .next(Chunk.fromArray(data.getBytes(charset)), step.state, true, method, url, headers)
+              .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, ByteBuf, B]]
+              .next(Unpooled.wrappedBuffer(data.getBytes(charset)), step.state, true, method, url, headers)
               .map(a => a._1)
               .flatMap(contentFromOption)
         }
@@ -66,10 +67,10 @@ object ContentDecoder {
             stream
               .fold(Unpooled.compositeBuffer())((s, b) => s.writeBytes(b))
               .map(a => a.array().take(a.writerIndex()))
-              .map(Chunk.fromArray(_))
+              .map(a => Unpooled.wrappedBuffer(a))
               .flatMap(
                 step
-                  .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
+                  .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, ByteBuf, B]]
                   .next(_, step.state, true, method, url, headers)
                   .map(a => a._1)
                   .flatMap(contentFromOption),
@@ -80,8 +81,8 @@ object ContentDecoder {
           case Text                                     => UIO((new String(data.toArray, HTTP_CHARSET)).asInstanceOf[B])
           case step: ContentDecoder.Step[_, _, _, _, _] =>
             step
-              .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
-              .next(data, step.state, true, method, url, headers)
+              .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, ByteBuf, B]]
+              .next(Unpooled.wrappedBuffer(data.toArray), step.state, true, method, url, headers)
               .map(a => a._1)
               .flatMap(contentFromOption)
         }
@@ -90,8 +91,8 @@ object ContentDecoder {
           case Text                                     => UIO(data.toString(HTTP_CHARSET).asInstanceOf[B])
           case step: ContentDecoder.Step[_, _, _, _, _] =>
             step
-              .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, Chunk[Byte], B]]
-              .next(Chunk.fromArray(ByteBufUtil.getBytes(data)), step.state, true, method, url, headers)
+              .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, ByteBuf, B]]
+              .next(data, step.state, true, method, url, headers)
               .map(a => a._1)
               .flatMap(contentFromOption)
         }
