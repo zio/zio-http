@@ -66,8 +66,7 @@ object ContentDecoder {
           case step: ContentDecoder.Step[_, _, _, _, _] =>
             stream
               .fold(Unpooled.compositeBuffer())((s, b) => s.writeBytes(b))
-              .map(a => a.array().take(a.writerIndex()))
-              .map(a => Unpooled.wrappedBuffer(a))
+              .map(a => a.writerIndex(a.writerIndex()))
               .flatMap(
                 step
                   .asInstanceOf[ContentDecoder.Step[R, Throwable, Any, ByteBuf, B]]
