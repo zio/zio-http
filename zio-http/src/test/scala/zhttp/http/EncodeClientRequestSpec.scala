@@ -9,20 +9,20 @@ import zio.test._
 
 object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientParams {
 
-  val anyClientParam: Gen[Random with Sized, Client.ClientRequest] = HttpGen.clientParams(
+  val anyClientParam: Gen[Random with Sized, Client.ClientRequest] = HttpGen.clientRequest(
     HttpGen.httpData(
       Gen.listOf(Gen.alphaNumericString),
     ),
   )
 
-  val clientParamWithAbsoluteUrl = HttpGen.clientParams(
+  val clientParamWithAbsoluteUrl = HttpGen.clientRequest(
     dataGen = HttpGen.httpData(
       Gen.listOf(Gen.alphaNumericString),
     ),
     urlGen = HttpGen.genAbsoluteURL,
   )
 
-  def clientParamWithFiniteData(size: Int): Gen[Random with Sized, Client.ClientRequest] = HttpGen.clientParams(
+  def clientParamWithFiniteData(size: Int): Gen[Random with Sized, Client.ClientRequest] = HttpGen.clientRequest(
     for {
       content <- Gen.alphaNumericStringBounded(size, size)
       data    <- Gen.fromIterable(List(HttpData.fromString(content)))

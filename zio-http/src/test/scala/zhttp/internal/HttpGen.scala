@@ -12,7 +12,7 @@ import zio.{Chunk, ZIO}
 import java.io.File
 
 object HttpGen {
-  def clientParams[R](
+  def clientRequest[R](
     dataGen: Gen[R, HttpData],
     methodGen: Gen[R, Method] = HttpGen.method,
     urlGen: Gen[Random with Sized, URL] = HttpGen.url,
