@@ -130,6 +130,16 @@ object ServerSpec extends HttpRunnableSpec {
         val res                                          = app.requestStatus(!!, Method.POST, "some text")
         assertM(res)(equalTo(Status.OK))
       } +
+      testM("POST Request.getBody Too Large Content") {
+        val contentM                                     = Gen.stringN(4097)(Gen.anyChar).sample.runHead
+        val app: Http[Any, Throwable, Request, Response] = Http.collectZIO[Request] { case req =>
+          req.decodeContent(ContentDecoder.text).map { content =>
+            Response.text(content)
+          }
+        }
+        val res = contentM.flatMap(c => app.requestStatus(!!, Method.POST, c.map(_.value).getOrElse("")))
+        assertM(res)(equalTo(Status.REQUEST_ENTITY_TOO_LARGE))
+      } +
       testM("POST Request.getBody") {
         val app: Http[Any, Throwable, Request, Response] = Http.collectZIO[Request] { case req =>
           req.decodeContent(ContentDecoder.backPressure).map { content =>

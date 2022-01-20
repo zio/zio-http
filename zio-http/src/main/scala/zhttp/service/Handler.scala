@@ -72,8 +72,6 @@ private[zhttp] final case class Handler[R](
               case _                    => None
             }
           }
-
-          override def maxRequestSize: Int = config.maxRequestSize
         }
         ctx.channel().attr(REQUEST).set(request)
         unsafeRun(
@@ -161,22 +159,28 @@ private[zhttp] final case class Handler[R](
   )(implicit ctx: ChannelHandlerContext): Unit = {
     decoder match {
       case ContentDecoder.Text =>
-        val cBody = ctx.channel().hasAttr(BODY)
+        val cBody      = ctx.channel().hasAttr(BODY)
+        var isTooLarge = false
         if (cBody) {
           val cBody = ctx.channel().attr(BODY).get()
-          ctx.channel().attr(BODY).set(cBody)
+          ctx.channel().attr(BODY).set(cBody.writeBytes(content))
+          if (cBody.readableBytes() + content.readableBytes() > config.maxRequestSize) isTooLarge = true
         } else {
           ctx.channel().attr(BODY).set(Unpooled.compositeBuffer().writeBytes(content))
         }
-        if (isLast) {
-          val body = ctx.channel().attr(BODY).get()
-          unsafeRunZIO(
-            ctx.channel().attr(COMPLETE_PROMISE).get().succeed(body.toString(HTTP_CHARSET)) <* UIO {
-              ctx.channel().attr(BODY).set(null)
-            },
-          )
+        if (isTooLarge) {
+          ctx.fireChannelRead(Response.status(Status.REQUEST_ENTITY_TOO_LARGE)): Unit
         } else {
-          ctx.read(): Unit
+          if (isLast) {
+            val body = ctx.channel().attr(BODY).get()
+            unsafeRunZIO(
+              ctx.channel().attr(COMPLETE_PROMISE).get().succeed(body.toString(HTTP_CHARSET)) <* UIO {
+                ctx.channel().attr(BODY).set(null)
+              },
+            )
+          } else {
+            ctx.read(): Unit
+          }
         }
 
       case step: ContentDecoder.Step[_, _, _, _, _] =>

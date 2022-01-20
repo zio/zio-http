@@ -2,7 +2,6 @@ package zhttp.http
 
 import io.netty.buffer.ByteBuf
 import zhttp.http.headers.HeaderExtension
-import zhttp.service.Server
 import zhttp.service.server.ContentDecoder
 import zio.stream.ZStream
 import zio.{Task, UIO, ZIO}
@@ -10,8 +9,6 @@ import zio.{Task, UIO, ZIO}
 import java.net.InetAddress
 
 trait Request extends HeaderExtension[Request] { self =>
-
-  def maxRequestSize: Int
 
   /**
    * Updates the headers using the provided function
@@ -22,12 +19,10 @@ trait Request extends HeaderExtension[Request] { self =>
     method: Method = self.method,
     url: URL = self.url,
     headers: Headers = self.getHeaders,
-    maxRequestSize: Int = self.maxRequestSize,
   ): Request = {
-    val m   = method
-    val u   = url
-    val h   = headers
-    val mrs = maxRequestSize
+    val m = method
+    val u = url
+    val h = headers
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
@@ -37,8 +32,6 @@ trait Request extends HeaderExtension[Request] { self =>
         decoder: ContentDecoder[R, Throwable, ByteBuf, B],
       ): ZIO[R, Throwable, B] =
         self.decodeContent(decoder)
-
-      override def maxRequestSize: Int = mrs
     }
   }
 
@@ -116,13 +109,11 @@ object Request {
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress] = None,
     data: HttpData = HttpData.Empty,
-    maxRequestSize: Int = Server.defaultMaxRequestSize,
   ): Request = {
-    val m   = method
-    val u   = url
-    val h   = headers
-    val ra  = remoteAddress
-    val mrs = maxRequestSize
+    val m  = method
+    val u  = url
+    val h  = headers
+    val ra = remoteAddress
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
@@ -132,8 +123,6 @@ object Request {
         decoder: ContentDecoder[R, Throwable, ByteBuf, B],
       ): ZIO[R, Throwable, B] =
         decoder.decode(data, method, url, headers)
-
-      override def maxRequestSize: Int = mrs
     }
   }
 
@@ -146,9 +135,8 @@ object Request {
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress],
     content: HttpData = HttpData.empty,
-    maxRequestSize: Int,
   ): UIO[Request] =
-    UIO(Request(method, url, headers, remoteAddress, content, maxRequestSize))
+    UIO(Request(method, url, headers, remoteAddress, content))
 
   /**
    * Lift request to TypedRequest with option to extract params
@@ -162,8 +150,6 @@ object Request {
       decoder: ContentDecoder[R, Throwable, ByteBuf, B],
     ): ZIO[R, Throwable, B] =
       req.decodeContent(decoder)
-
-    override def maxRequestSize: Int = req.maxRequestSize
   }
 
   object ParameterizedRequest {
