@@ -1,8 +1,8 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
-import java.net.URI
 
+import java.net.URI
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, MapHasAsScala}
 import scala.util.Try
 
@@ -11,20 +11,78 @@ sealed trait URL2 { self =>
 }
 object URL2       {
   final case class FromString(string: String) extends URL2 { self =>
-    def apply: Either[HttpError.BadRequest, URL2] = {
-            def invalidURL = Left(HttpError.BadRequest(s"Invalid URL: $string"))
-            for {
-              url <- Try(new URI(string)).toEither match {
-                case Left(_)      => invalidURL
-                case Right(value) => Right(value)
-              }
-              url <- (if (url.isAbsolute) fromAbsoluteURI(url) else fromRelativeURI(url)) match {
-                case None        => invalidURL
-                case Some(value) => Right(value)
-              }
+    def fromString: Either[HttpError.BadRequest, URL2] = {
+      def invalidURL = Left(HttpError.BadRequest(s"Invalid URL: $string"))
+      for {
+        url <- Try(new URI(string)).toEither match {
+          case Left(_)      => invalidURL
+          case Right(value) => Right(value)
+        }
+        url <- (if (url.isAbsolute) fromAbsoluteURI(url) else fromRelativeURI(url)) match {
+          case None        => invalidURL
+          case Some(value) => Right(value)
+        }
 
-            } yield url
+      } yield url
     }
+    def fromString2: URL2                              = {
+      try {
+        val url = new URI(string)
+        if (url.isAbsolute) fromAbsoluteURI2(url) else fromRelativeURI2(url)
+      } catch { case _: Throwable => null }
+    }
+    def fromString3: URL2                              = {
+      try {
+        val url = new URI(string)
+        if (url.isAbsolute) fromAbsoluteURI(url).orNull else fromRelativeURI(url).orNull
+      } catch { case _: Throwable => null }
+    }
+
+    private def fromAbsoluteURI2(uri: URI): URL2 = {
+
+      def portFromScheme(scheme: Scheme): Int = scheme match {
+        case Scheme.HTTP  => 80
+        case Scheme.HTTPS => 443
+        case null         => -1
+      }
+
+      val scheme  = Scheme.fromString2(uri.getScheme)
+      val uriPort = uri.getPort
+      val port    = if (uriPort != -1) uriPort else portFromScheme(scheme)
+      val host    = uri.getHost
+
+      if (port != -1 && scheme != null && host != null)
+        URL2.Cons(
+          Path(uri.getRawPath),
+          URL2.Location.Absolute(scheme, host, port),
+          queryParams(uri.getRawQuery),
+          Fragment.fromURI(uri),
+        )
+      else null
+    }
+
+    private def fromRelativeURI2(uri: URI): URL2 =
+      URL2.Cons(Path(uri.getRawPath), Location.Relative, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
+
+    private def fromAbsoluteURI(uri: URI): Option[URL2] = {
+
+      def portFromScheme(scheme: Scheme): Int = scheme match {
+        case Scheme.HTTP  => 80
+        case Scheme.HTTPS => 443
+      }
+
+      for {
+        scheme <- Scheme.fromString(uri.getScheme)
+        host   <- Option(uri.getHost)
+        path   <- Option(uri.getRawPath)
+        port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
+        connection = URL2.Location.Absolute(scheme, host, port)
+      } yield URL2.Cons(Path(path), connection, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
+    }
+
+    private def fromRelativeURI(uri: URI): Option[URL2] = for {
+      path <- Option(uri.getRawPath)
+    } yield URL2.Cons(Path(path), Location.Relative, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
 
   }
   final case class Cons(
@@ -39,14 +97,14 @@ object URL2       {
       case URL2.Location.Relative      => None
       case abs: URL2.Location.Absolute => Option(abs.host)
     }
-    val port: Option[Int] = kind match {
+    val port: Option[Int]    = kind match {
       case URL2.Location.Relative      => None
       case abs: URL2.Location.Absolute => Option(abs.port)
     }
 
     private[zhttp] def relative: URL2 = self.kind match {
       case URL2.Location.Relative => self
-      case _                     => self.copy(kind = URL2.Location.Relative)
+      case _                      => self.copy(kind = URL2.Location.Relative)
     }
   }
 
@@ -88,71 +146,9 @@ object URL2       {
     }
   }
 
-  private def fromAbsoluteURI2(uri: URI): URL2 = {
-
-    def portFromScheme(scheme: Scheme): Int = scheme match {
-      case Scheme.HTTP  => 80
-      case Scheme.HTTPS => 443
-      case null         => -1
-    }
-
-    val scheme  = Scheme.fromString2(uri.getScheme)
-    val uriPort = uri.getPort
-    val port    = if (uriPort != -1) uriPort else portFromScheme(scheme)
-    val host    = uri.getHost
-
-    if (port != -1 && scheme != null && host != null)
-      URL2.Cons(
-        Path(uri.getRawPath),
-        URL2.Location.Absolute(scheme, host, port),
-        queryParams(uri.getRawQuery),
-        Fragment.fromURI(uri),
-      )
-    else null
-  }
-
-  private def fromRelativeURI2(uri: URI): URL2 =
-    URL2.Cons(Path(uri.getRawPath), Location.Relative, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
-
-  def fromString2(string: String): URL2 = {
-    try {
-      val url = new URI(string)
-      if (url.isAbsolute) fromAbsoluteURI2(url) else fromRelativeURI2(url)
-    } catch { case _: Throwable => null }
-  }
-
-  private def fromAbsoluteURI(uri: URI): Option[URL2] = {
-
-    def portFromScheme(scheme: Scheme): Int = scheme match {
-      case Scheme.HTTP  => 80
-      case Scheme.HTTPS => 443
-    }
-
-    for {
-      scheme <- Scheme.fromString(uri.getScheme)
-      host   <- Option(uri.getHost)
-      path   <- Option(uri.getRawPath)
-      port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
-      connection = URL2.Location.Absolute(scheme, host, port)
-    } yield URL2.Cons(Path(path), connection, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
-  }
-
-  private def fromRelativeURI(uri: URI): Option[URL2] = for {
-    path <- Option(uri.getRawPath)
-  } yield URL2.Cons(Path(path), Location.Relative, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
-
-  def fromString(string: String): URL2 = URL2.FromString(string)
-
-  /*
-Changes:
-1) wrapped in try catch and using fromAbsoluteURI(url).orNull
-   */
-  def fromString3(string: String): URL2 = {
-    try {
-      val url = new URI(string)
-      if (url.isAbsolute) fromAbsoluteURI(url).orNull else fromRelativeURI(url).orNull
-    } catch { case _: Throwable => null }
-  }
+  def fromString(string: String): Either[HttpError.BadRequest, URL2] = URL2.FromString(string).fromString
+  def fromString2(string: String): URL2                              = URL2.FromString(string).fromString2
+  def fromString3(string: String): URL2                              = URL2.FromString(string).fromString3
 
   case class Fragment private (raw: String, decoded: String)
   object Fragment {
@@ -161,6 +157,6 @@ Changes:
       decoded <- Option(uri.getFragment)
     } yield Fragment(raw, decoded)
   }
-  def root: Cons = URL2.Cons(!!)
+  def root: URL2 = URL2.Cons(!!)
 
 }

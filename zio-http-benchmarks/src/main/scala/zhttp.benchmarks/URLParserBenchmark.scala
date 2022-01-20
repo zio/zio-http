@@ -27,18 +27,18 @@ class URLParserBenchmark {
     (0 to MAX).foreach(_ => URL.fromString("http://yourdomain.com/list/users"))
     ()
   }
-//  @Benchmark
-//  def benchmarkURLParser2(): Unit = {
-//    (0 to MAX).foreach(_ => URL2.fromString2("http://yourdomain.com/list/users"))
-//
-//    ()
-//  }
-//
-//  @Benchmark
-//  def benchmarkURLParser3(): Unit = {
-//    (0 to MAX).foreach(_ => URL2.fromString3("http://yourdomain.com/list/users"))
-//
-//    ()
-//  }
+  @Benchmark
+  def benchmarkURL2Parser2(): Unit = {
+    (0 to MAX).foreach(_ => URL2.fromString2("http://yourdomain.com/list/users"))
+
+    ()
+  }
+
+  @Benchmark
+  def benchmarkURL2Parser3(): Unit = {
+    (0 to MAX).foreach(_ => URL2.fromString3("http://yourdomain.com/list/users"))
+
+    ()
+  }
 
 }
