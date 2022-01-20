@@ -1,17 +1,12 @@
 package zhttp.service.server
 
+import io.netty.handler.codec.http2.Http2SecurityUtil
 import io.netty.handler.ssl.ApplicationProtocolConfig.{
   Protocol,
   SelectedListenerFailureBehavior,
   SelectorFailureBehavior,
 }
-import io.netty.handler.ssl.{
-  ApplicationProtocolConfig,
-  ApplicationProtocolNames,
-  SslContext,
-  SslContextBuilder,
-  SslProvider,
-}
+import io.netty.handler.ssl._
 
 import java.io.InputStream
 import java.security.KeyStore
@@ -19,7 +14,38 @@ import javax.net.ssl.KeyManagerFactory
 
 object ServerSSLHandler {
 
-  case class ServerSSLOptions(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect)
+  case class ServerSSLOptions(
+    sslContextBuilder: SslContextBuilder,
+    httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect,
+  ) {
+    def build(enableHttp2: Boolean = false): SslContext = {
+      if (enableHttp2 == true) {
+        sslContextBuilder
+          .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
+          .applicationProtocolConfig(
+            new ApplicationProtocolConfig(
+              Protocol.ALPN,
+              SelectorFailureBehavior.NO_ADVERTISE,
+              SelectedListenerFailureBehavior.ACCEPT,
+              ApplicationProtocolNames.HTTP_2,
+              ApplicationProtocolNames.HTTP_1_1,
+            ),
+          )
+          .build()
+      } else {
+        sslContextBuilder
+          .applicationProtocolConfig(
+            new ApplicationProtocolConfig(
+              Protocol.ALPN,
+              SelectorFailureBehavior.NO_ADVERTISE,
+              SelectedListenerFailureBehavior.ACCEPT,
+              ApplicationProtocolNames.HTTP_1_1,
+            ),
+          )
+          .build()
+      }
+    }
+  }
 
   sealed trait SSLHttpBehaviour
 
@@ -37,7 +63,7 @@ object ServerSSLHandler {
     keyStoreInputStream: InputStream,
     keyStorePassword: String,
     certPassword: String,
-  ): SslContext = {
+  ): SslContextBuilder = {
     val keyStore: KeyStore = KeyStore.getInstance("JKS")
     keyStore.load(keyStoreInputStream, keyStorePassword.toCharArray)
     val kmf                = KeyManagerFactory.getInstance("SunX509")
@@ -45,29 +71,11 @@ object ServerSSLHandler {
     SslContextBuilder
       .forServer(kmf)
       .sslProvider(SslProvider.JDK)
-      .applicationProtocolConfig(
-        new ApplicationProtocolConfig(
-          Protocol.ALPN,
-          SelectorFailureBehavior.NO_ADVERTISE,
-          SelectedListenerFailureBehavior.ACCEPT,
-          ApplicationProtocolNames.HTTP_1_1,
-        ),
-      )
-      .build()
   }
 
-  def ctxFromCert(certInputStream: InputStream, keyInputStream: InputStream): SslContext = {
+  def ctxFromCert(certInputStream: InputStream, keyInputStream: InputStream): SslContextBuilder = {
     SslContextBuilder
       .forServer(certInputStream, keyInputStream)
       .sslProvider(SslProvider.JDK)
-      .applicationProtocolConfig(
-        new ApplicationProtocolConfig(
-          Protocol.ALPN,
-          SelectorFailureBehavior.NO_ADVERTISE,
-          SelectedListenerFailureBehavior.ACCEPT,
-          ApplicationProtocolNames.HTTP_1_1,
-        ),
-      )
-      .build()
   }
 }

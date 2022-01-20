@@ -31,8 +31,9 @@ final case class ServerChannelInitializer[R](
     // SSL
     // Add SSL Handler if CTX is available
     cfg.sslOption match {
-      case Some(sslOption) => pipeline.addFirst(SSL_HANDLER, new OptionalSSLHandler(sslOption.sslContext, sslOption.httpBehaviour, cfg))
-      case None => ???
+      case Some(sslOption) =>
+        pipeline.addFirst(SSL_HANDLER, new OptionalSSLHandler(sslOption.build(), sslOption.httpBehaviour, cfg))
+      case None            => ()
     }
 
     // ServerCodec
