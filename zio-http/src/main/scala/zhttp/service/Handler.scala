@@ -50,7 +50,7 @@ private[zhttp] final case class Handler[R](
             decoder: ContentDecoder[R0, Throwable, ByteBuf, B],
           ): ZIO[R0, Throwable, B] =
             ZIO.effectSuspendTotal {
-              if (ctx.channel().hasAttr(DECODER_KEY))
+              if (ctx.channel().attr(DECODER_KEY).get() != null)
                 ZIO.fail(ContentDecoder.Error.ContentDecodedOnce)
               else
                 for {
@@ -60,7 +60,6 @@ private[zhttp] final case class Handler[R](
                       .channel()
                       .attr(DECODER_KEY)
                       .setIfAbsent(decoder.asInstanceOf[ContentDecoder[Any, Throwable, ByteBuf, Any]])
-                      .asInstanceOf[ContentDecoder[Any, Throwable, ByteBuf, B]]
                     ctx.channel().attr(COMPLETE_PROMISE).set(p.asInstanceOf[Promise[Throwable, Any]])
                     ctx.read(): Unit
                   }
@@ -82,10 +81,10 @@ private[zhttp] final case class Handler[R](
           request,
         )
       case msg: LastHttpContent =>
-        if (ctx.channel().hasAttr(DECODER_KEY))
+        if (ctx.channel().attr(DECODER_KEY).get() != null)
           decodeContent(msg.content(), ctx.channel().attr(DECODER_KEY).get(), true)
       case msg: HttpContent     =>
-        if (ctx.channel().hasAttr(DECODER_KEY))
+        if (ctx.channel().attr(DECODER_KEY).get() != null)
           decodeContent(msg.content(), ctx.channel().attr(DECODER_KEY).get(), false)
       case _                    => ???
     }
