@@ -1,9 +1,10 @@
 package zhttp.http
 
-import io.netty.buffer.{ByteBuf, ByteBufUtil}
+import io.netty.buffer.ByteBuf
 import zhttp.http.headers.HeaderExtension
 import zhttp.service.server.ContentDecoder
-import zio.{Chunk, Task, UIO, ZIO}
+import zio.stream.ZStream
+import zio.{Task, UIO, ZIO}
 
 import java.net.InetAddress
 
@@ -14,7 +15,11 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   final override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.getHeaders))
 
-  def copy(method: Method = self.method, url: URL = self.url, headers: Headers = self.getHeaders): Request = {
+  def copy(
+    method: Method = self.method,
+    url: URL = self.url,
+    headers: Headers = self.getHeaders,
+  ): Request = {
     val m = method
     val u = url
     val h = headers
@@ -23,7 +28,6 @@ trait Request extends HeaderExtension[Request] { self =>
       override def url: URL                           = u
       override def getHeaders: Headers                = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
-      override private[zhttp] def getBodyAsByteBuf    = self.getBodyAsByteBuf
       override def decodeContent[R, B](
         decoder: ContentDecoder[R, Throwable, ByteBuf, B],
       ): ZIO[R, Throwable, B] =
@@ -36,14 +40,17 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Decodes the content of request as a Chunk of Bytes
    */
-  def getBody: Task[Chunk[Byte]] =
-    getBodyAsByteBuf.flatMap(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
+  def getBody[R]: ZStream[R, Throwable, ByteBuf] =
+    for {
+      raw    <- ZStream.fromEffect(decodeContent(ContentDecoder.backPressure))
+      stream <- ZStream.fromQueue(raw)
+    } yield stream
 
   /**
    * Decodes the content of request as string
    */
   def getBodyAsString: Task[String] =
-    getBodyAsByteBuf.flatMap(buf => Task(buf.toString(getCharset)))
+    decodeContent(ContentDecoder.text)
 
   /**
    * Gets all the headers in the Request
@@ -89,8 +96,6 @@ trait Request extends HeaderExtension[Request] { self =>
    * Gets the complete url
    */
   def url: URL
-
-  private[zhttp] def getBodyAsByteBuf: Task[ByteBuf]
 }
 
 object Request {
@@ -110,11 +115,10 @@ object Request {
     val h  = headers
     val ra = remoteAddress
     new Request {
-      override def method: Method                                 = m
-      override def url: URL                                       = u
-      override def getHeaders: Headers                            = h
-      override def remoteAddress: Option[InetAddress]             = ra
-      override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
+      override def method: Method                     = m
+      override def url: URL                           = u
+      override def getHeaders: Headers                = h
+      override def remoteAddress: Option[InetAddress] = ra
       override def decodeContent[R, B](
         decoder: ContentDecoder[R, Throwable, ByteBuf, B],
       ): ZIO[R, Throwable, B] =
@@ -138,16 +142,14 @@ object Request {
    * Lift request to TypedRequest with option to extract params
    */
   final class ParameterizedRequest[A](req: Request, val params: A) extends Request {
-    override def getHeaders: Headers                            = req.getHeaders
-    override def method: Method                                 = req.method
-    override def remoteAddress: Option[InetAddress]             = req.remoteAddress
-    override def url: URL                                       = req.url
-    override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = req.getBodyAsByteBuf
+    override def getHeaders: Headers                = req.getHeaders
+    override def method: Method                     = req.method
+    override def remoteAddress: Option[InetAddress] = req.remoteAddress
+    override def url: URL                           = req.url
     override def decodeContent[R, B](
       decoder: ContentDecoder[R, Throwable, ByteBuf, B],
     ): ZIO[R, Throwable, B] =
       req.decodeContent(decoder)
-
   }
 
   object ParameterizedRequest {

@@ -95,7 +95,7 @@ object ContentDecoder {
               .map(a => a._1)
               .flatMap(contentFromOption)
         }
-      case HttpData.File(_)              => ???
+      case _                             => ZIO.fail(ContentDecoder.Error.UnsupportedContent)
     }
 
   sealed trait Error extends Throwable with Product { self =>
@@ -103,6 +103,7 @@ object ContentDecoder {
       self match {
         case Error.ContentDecodedOnce => "Content has already been decoded once."
         case Error.DecodeEmptyContent => "Can not decode empty content"
+        case Error.UnsupportedContent => "Unsupported content"
       }
   }
 
@@ -127,6 +128,7 @@ object ContentDecoder {
   object Error {
     case object ContentDecodedOnce extends Error
     case object DecodeEmptyContent extends Error
+    case object UnsupportedContent extends Error
   }
 
   private[zhttp] case object Text extends ContentDecoder[Any, Nothing, Any, String]
