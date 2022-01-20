@@ -3,7 +3,7 @@ package zhttp.http
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
 
 import java.net.URI
-import scala.jdk.CollectionConverters.{CollectionHasAsScala, MapHasAsScala}
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 sealed trait URL2 { self =>
