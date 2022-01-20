@@ -192,7 +192,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
     mid: Middleware[R1, E1, A1, B1, A2, B2],
-  ): Http[R1, E1, A2, B2] = mid(self)
+  ): Http[R1, E1, A2, B2] = Http.RunMiddleware(self, mid)
 
   /**
    * Named alias for `<>`
@@ -348,6 +348,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
       case FoldHttp(self, ee, bb, dd) =>
         self.execute(a).foldExit(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
+
+      case RunMiddleware(app, mid) => mid(app).execute(a)
     }
 }
 
@@ -634,4 +636,9 @@ object Http {
   private case object Empty extends Http[Any, Nothing, Any, Nothing]
 
   private case object Identity extends Http[Any, Nothing, Any, Nothing]
+
+  private final case class RunMiddleware[R, E, A1, B1, A2, B2](
+    http: Http[R, E, A1, B1],
+    mid: Middleware[R, E, A1, B1, A2, B2],
+  ) extends Http[R, E, A2, B2]
 }
