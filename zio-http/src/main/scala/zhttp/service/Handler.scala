@@ -72,6 +72,8 @@ private[zhttp] final case class Handler[R](
               case _                    => None
             }
           }
+
+          override def maxRequestSize: Int = config.maxRequestSize
         }
         ctx.channel().attr(REQUEST).set(request)
         unsafeRun(
@@ -85,7 +87,7 @@ private[zhttp] final case class Handler[R](
       case msg: HttpContent     =>
         if (ctx.channel().attr(DECODER_KEY).get() != null)
           decodeContent(msg.content(), ctx.channel().attr(DECODER_KEY).get(), false)
-      case _                    => ???
+      case err                  => println(err)
     }
 
   }
