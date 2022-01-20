@@ -1,6 +1,7 @@
 package zhttp.internal
 
 import io.netty.buffer.Unpooled
+import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service.Client.ClientParams
 import zio.random.Random
@@ -11,11 +12,16 @@ import zio.{Chunk, ZIO}
 import java.io.File
 
 object HttpGen {
-  def clientParams[R](dataGen: Gen[R, HttpData]) =
+  def clientParams[R](
+    dataGen: Gen[R, HttpData],
+    methodGen: Gen[R, Method] = HttpGen.method,
+    urlGen: Gen[Random with Sized, URL] = HttpGen.url,
+    headerGen: Gen[Random with Sized, Header] = HttpGen.header,
+  ) =
     for {
-      method  <- HttpGen.method
-      url     <- HttpGen.url
-      headers <- Gen.listOf(HttpGen.header).map(Headers(_))
+      method  <- methodGen
+      url     <- urlGen
+      headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
     } yield ClientParams(method, url, headers, data)
 
@@ -61,16 +67,16 @@ object HttpGen {
         )
     } yield cnt
 
+  def genRelativeLocation: Gen[Any, Location.Relative.type] = Gen.const(URL.Location.Relative)
+
+  def genAbsoluteLocation: Gen[Random with Sized, Location.Absolute] = for {
+    scheme <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS))
+    host   <- Gen.alphaNumericStringBounded(1, 5)
+    port   <- Gen.int(0, Int.MaxValue)
+  } yield URL.Location.Absolute(scheme, host, port)
+
   def location: Gen[Random with Sized, URL.Location] = {
-    def genRelative = Gen.const(URL.Location.Relative)
-
-    def genAbsolute = for {
-      scheme <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS))
-      host   <- Gen.alphaNumericStringBounded(1, 5)
-      port   <- Gen.int(0, Int.MaxValue)
-    } yield URL.Location.Absolute(scheme, host, port)
-
-    Gen.fromIterable(List(genRelative, genAbsolute)).flatten
+    Gen.fromIterable(List(genRelativeLocation, genAbsoluteLocation)).flatten
   }
 
   def method: Gen[Any, Method] = Gen.fromIterable(
@@ -189,4 +195,11 @@ object HttpGen {
     kind        <- HttpGen.location
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
   } yield URL(path, kind, queryParams)
+
+  def genAbsoluteURL = for {
+    path        <- HttpGen.path
+    kind        <- HttpGen.genAbsoluteLocation
+    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
+  } yield URL(path, kind, queryParams)
+
 }
