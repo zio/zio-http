@@ -7,15 +7,15 @@ import zio.random.Random
 import zio.test.Assertion._
 import zio.test._
 
-object EncodeClientParamsSpec extends DefaultRunnableSpec with EncodeClientParams {
+object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientParams {
 
-  val anyClientParam: Gen[Random with Sized, Client.ClientParams] = HttpGen.clientParams(
+  val anyClientParam: Gen[Random with Sized, Client.ClientRequest] = HttpGen.clientParams(
     HttpGen.httpData(
       Gen.listOf(Gen.alphaNumericString),
     ),
   )
 
-  def clientParamWithFiniteData(size: Int): Gen[Random with Sized, Client.ClientParams] = HttpGen.clientParams(
+  def clientParamWithFiniteData(size: Int): Gen[Random with Sized, Client.ClientRequest] = HttpGen.clientParams(
     for {
       content <- Gen.alphaNumericStringBounded(size, size)
       data    <- Gen.fromIterable(List(HttpData.fromString(content)))
