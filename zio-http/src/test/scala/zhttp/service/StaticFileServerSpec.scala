@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http._
 import zhttp.internal.HttpRunnableSpec.HttpIO
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
-import zhttp.service.server.ServerChannelFactory
+import zhttp.service.server._
 import zio.duration.durationInt
 import zio.test.Assertion.{containsString, equalTo, isSome}
 import zio.test.TestAspect.timeout
