@@ -37,6 +37,10 @@ object StaticFileServerSpec extends HttpRunnableSpec {
       val res = staticApp.requestBodyAsString(path = Path("/NonExistentFile.txt"))
       assertM(res)(equalTo("The requested URI \"/NonExistentFile.txt\" was not found on this server\n"))
     },
+    testM("should respond with status 405") {
+      val res = staticApp.requestStatus(method = Method.POST, path = Path("/TextFile2.txt"))
+      assertM(res)(equalTo(Status.METHOD_NOT_ALLOWED))
+    },
   )
 
   override def spec: ZSpec[_root_.zio.test.environment.TestEnvironment, Any] = suiteM("StaticFileServer") {

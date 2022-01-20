@@ -406,6 +406,11 @@ object Http {
   def badRequest(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.BadRequest(msg))
 
   /**
+   * Creates an HTTP app which always responds with a 405 status code.
+   */
+  def methodNotAllowed(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.MethodNotAllowed(msg))
+
+  /**
    * Creates an HTTP app which accepts a request and produces response.
    */
   def collect[A]: Http.PartialCollect[A] = Http.PartialCollect(())
@@ -530,7 +535,7 @@ object Http {
           res  <- ZIO.succeed(Response(data = data))
         } yield res
     }
-    def response(relPath: jPath): HttpApp[Any, Nothing]    = responseZIO(res(relPath)).catchAll {
+    def httpApp(relPath: jPath): HttpApp[Any, Nothing]     = responseZIO(res(relPath)).catchAll {
       case a: SecurityException     =>
         Http.error(HttpError.Forbidden(a.getMessage))
       case _: FileNotFoundException =>
@@ -540,7 +545,10 @@ object Http {
     }
 
     Http.collectHttp[Request] { case request =>
-      response(Paths.get(request.path.asString))
+      if (request.method != Method.GET)
+        Http.methodNotAllowed(s"${request.method} is not allowed here. Please use `GET` instead.")
+      else
+        httpApp(Paths.get(request.path.asString))
     }
   }
 
