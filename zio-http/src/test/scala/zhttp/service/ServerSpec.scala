@@ -121,15 +121,27 @@ object ServerSpec extends HttpRunnableSpec {
         assertM(res)(equalTo(string.length.toString))
       }
     } +
-      testM("POST Request.getBody") {
-        val app = Http.collectZIO[Request] { case req =>
+      testM("POST Request.getBody status") {
+        val app: Http[Any, Throwable, Request, Response] = Http.collectZIO[Request] { case req =>
           req.decodeContent(ContentDecoder.text).map { content =>
             Response.text(content)
           }
         }
-        val res = app.requestStatus(!!, Method.POST, "some text")
+        val res                                          = app.requestStatus(!!, Method.POST, "some text")
         assertM(res)(equalTo(Status.OK))
+      } +
+      testM("POST Request.getBody") {
+        val app = Http
+          .collectZIO[Request] { case req =>
+            req.getBody.map { content =>
+              Response.text(content.toString(HTTP_CHARSET))
+            }.runHead
+          }
+          .map(_.getOrElse(Response.status(Status.INTERNAL_SERVER_ERROR)))
+        val res = app.requestBody(!!, Method.POST, "some text")
+        assertM(res.map(_.toList.map(_.toChar).mkString))(equalTo("some text"))
       }
+
   }
 
   def responseSpec = suite("ResponseSpec") {
