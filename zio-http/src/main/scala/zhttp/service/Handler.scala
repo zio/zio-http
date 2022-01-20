@@ -85,7 +85,7 @@ private[zhttp] final case class Handler[R](
       case msg: HttpContent     =>
         if (ctx.channel().attr(DECODER_KEY).get() != null)
           decodeContent(msg.content(), ctx.channel().attr(DECODER_KEY).get(), false)
-      case err                  => println(err)
+      case _                    => ctx.fireChannelRead(Response.status(Status.NOT_ACCEPTABLE)): Unit
     }
 
   }
