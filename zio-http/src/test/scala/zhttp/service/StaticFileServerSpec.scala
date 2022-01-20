@@ -29,9 +29,9 @@ object StaticFileServerSpec extends HttpRunnableSpec {
       val res = staticApp.requestBodyAsString(path = Path("/TestFile2.txt"))
       assertM(res)(equalTo("This is a test file for testing Static File Server."))
     },
-    testM("should have content-type header \"application/json\"") {
-      val res = staticApp.request(path = Path("/TestFile3.mp4")).map(_.getHeaderValue(HttpHeaderNames.CONTENT_TYPE))
-      assertM(res)(isSome(equalTo("video/mp4")))
+    testM("should have content-type header \"text/plain\"") {
+      val res = staticApp.request(path = Path("/TestFile2.txt")).map(_.getHeaderValue(HttpHeaderNames.CONTENT_TYPE))
+      assertM(res)(isSome(equalTo("text/plain")))
     },
     testM("should respond with \"Not Found\"") {
       val res = staticApp.requestBodyAsString(path = Path("/NonExistentFile.txt"))
