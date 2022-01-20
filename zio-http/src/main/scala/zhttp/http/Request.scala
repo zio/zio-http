@@ -1,9 +1,10 @@
 package zhttp.http
 
-import io.netty.buffer.{ByteBuf, ByteBufUtil}
+import io.netty.buffer.ByteBuf
 import zhttp.http.headers.HeaderExtension
 import zhttp.service.server.ContentDecoder
-import zio.{Chunk, Task, UIO, ZIO}
+import zio.stream.ZStream
+import zio.{Task, UIO, ZIO}
 
 import java.net.InetAddress
 
@@ -23,7 +24,6 @@ trait Request extends HeaderExtension[Request] { self =>
       override def url: URL                           = u
       override def headers: Headers                   = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
-      override private[zhttp] def getBodyAsByteBuf    = self.getBodyAsByteBuf
       override def decodeContent[R, B](
         decoder: ContentDecoder[R, Throwable, ByteBuf, B],
       ): ZIO[R, Throwable, B] =
@@ -138,16 +138,14 @@ object Request {
    * Lift request to TypedRequest with option to extract params
    */
   final class ParameterizedRequest[A](req: Request, val params: A) extends Request {
-    override def getHeaders: Headers                            = req.getHeaders
-    override def method: Method                                 = req.method
-    override def remoteAddress: Option[InetAddress]             = req.remoteAddress
-    override def url: URL                                       = req.url
-    override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = req.getBodyAsByteBuf
+    override def getHeaders: Headers                = req.getHeaders
+    override def method: Method                     = req.method
+    override def remoteAddress: Option[InetAddress] = req.remoteAddress
+    override def url: URL                           = req.url
     override def decodeContent[R, B](
       decoder: ContentDecoder[R, Throwable, ByteBuf, B],
     ): ZIO[R, Throwable, B] =
       req.decodeContent(decoder)
-
   }
 
   object ParameterizedRequest {
