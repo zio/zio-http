@@ -514,9 +514,7 @@ object Http {
   def html(view: Html): HttpApp[Any, Nothing] = Http.response(Response.html(view))
 
   /**
-   * Builds a static file server from the given root directory.
-   * @param root
-   *   directory to serve static files from
+   * Creates an HTTP app to serve static resource files from a local directory.
    */
   def serveFilesFrom(root: jPath): HttpApp[Any, Nothing] = {
 

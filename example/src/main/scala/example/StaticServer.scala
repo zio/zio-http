@@ -8,7 +8,7 @@ import java.nio.file.Paths
 
 object StaticServer extends zio.App {
 
-  // Create a static file server from root path
+  // A simple app to serve static resource files from a local directory.
   val app = Http.serveFilesFrom(Paths.get("src/main/resources/TestStatic"))
 
   // Run it like any simple app
