@@ -6,7 +6,7 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.{ContentDecoder, WebSocketUpgrade}
-import zio.{Chunk, Promise, UIO, ZIO}
+import zio.{Promise, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -49,12 +49,7 @@ private[zhttp] final case class Handler[R](
             decoder: ContentDecoder[R0, Throwable, ByteBuf, B],
           ): ZIO[R0, Throwable, B] =
             ZIO.effectSuspendTotal {
-              if (
-                ctx
-                  .channel()
-                  .attr(DECODER_KEY)
-                  .get() != null
-              )
+              if (ctx.channel().attr(DECODER_KEY).get() != null)
                 ZIO.fail(ContentDecoder.Error.ContentDecodedOnce)
               else
                 for {
@@ -64,7 +59,6 @@ private[zhttp] final case class Handler[R](
                       .channel()
                       .attr(DECODER_KEY)
                       .setIfAbsent(decoder.asInstanceOf[ContentDecoder[Any, Throwable, ByteBuf, Any]])
-                      .asInstanceOf[ContentDecoder[Any, Throwable, Chunk[Byte], B]]
                     ctx.channel().attr(COMPLETE_PROMISE).set(p.asInstanceOf[Promise[Throwable, Any]])
                     ctx.read(): Unit
                   }
@@ -196,7 +190,7 @@ private[zhttp] final case class Handler[R](
             .next(
               // content.array() fails with post request with body
               // Link: https://livebook.manning.com/book/netty-in-action/chapter-5/54
-              content,
+              content.retain(),
               ctx.channel().attr(decoderState).get(),
               isLast,
               request.method,
