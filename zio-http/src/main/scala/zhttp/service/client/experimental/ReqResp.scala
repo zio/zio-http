@@ -43,6 +43,13 @@ final case class ReqParams(
       None
   }
 
+  def remoteAddressAndPort: Option[InetSocketAddress] = {
+    if (channelContext != null && channelContext.channel().remoteAddress().isInstanceOf[InetSocketAddress])
+      Some(channelContext.channel().remoteAddress().asInstanceOf[InetSocketAddress])
+    else
+      None
+  }
+
   /**
    * Updates the headers using the provided function
    */

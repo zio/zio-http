@@ -9,10 +9,10 @@ import zio.{App, ExitCode, URIO, ZIO}
  */
 object ZClientTest extends App {
 
-  private val PORT = 8081
+  private val PORT = 55648
 
   // pick port automatically.
-  val client = ZClient.port(PORT) ++ ZClient.threads(2)
+  val client: ZClient[Any, Nothing] = ZClient.port(PORT) ++ ZClient.threads(2)
 
   //  val keepAliveHeader = Headers(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
   val emptyHeaders = Headers.empty
@@ -34,10 +34,12 @@ object ZClientTest extends App {
      .use (_.headers)
    */
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    val resp: ZIO[Any, Throwable, Resp] =
-      client
-        .make(req) // no need to be managed
-        .use(_.run)
+    val resp = for {
+      cl <- client.make
+      res <- cl.run(req)
+      _ <- ZIO.effect(println(s"RESSS: $res"))
+    } yield (res)
+
 
     resp.exitCode
   }

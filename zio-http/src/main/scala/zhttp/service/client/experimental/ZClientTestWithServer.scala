@@ -41,10 +41,11 @@ object ZClientTestWithServer extends App {
       emptyHeaders,
       HttpData.empty,
     )
+    for {
+      cl <- client.make
+      _ <- triggerClientMultipleTimes(cl,req)
+    } yield ()
 
-    client
-      .make(req)
-      .use(triggerClientMultipleTimes)
   }
 
   // multiple client shared resources
@@ -56,17 +57,17 @@ object ZClientTestWithServer extends App {
 
   // use cases like pipelining ... httpclient document
 
-  def triggerClientMultipleTimes(cl: DefaultZClient) = for {
+  def triggerClientMultipleTimes(cl: DefaultZClient, req: ReqParams) = for {
     //    resp    <- cl.run(r1)
-    resp <- cl.run
-    result1 <- resp.getBodyAsString
-    _ <- ZIO.effect(println(s"GOT RESP: ${result1} "))
-    _ <- ZIO.effect(println(s"NOW SLEEPING for 5000 ms"))
+    resp <- cl.run(req)
+    _ <- resp.getBodyAsString
+//    _ <- ZIO.effect(println(s"GOT RESP: ${result1} "))
+//    _ <- ZIO.effect(println(s"NOW SLEEPING for 5000 ms"))
     _ <- ZIO.effect(Thread.sleep(5000))
     //    resp    <- cl.run(r2)
-    resp <- cl.run
-    result2 <- resp.getBodyAsString
-    _ <- ZIO.effect(println(s"GOT ANOTHER RESP USING SAME CONNECTION ${result2}"))
+    resp <- cl.run(req)
+    _ <- resp.getBodyAsString
+//    _ <- ZIO.effect(println(s"GOT ANOTHER RESP USING SAME CONNECTION ${result2}"))
   } yield ()
 
 }
