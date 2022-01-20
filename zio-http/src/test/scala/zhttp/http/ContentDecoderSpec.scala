@@ -27,6 +27,19 @@ object ContentDecoderSpec extends DefaultRunnableSpec {
             equalTo("ABCD"),
           )
         }
+      } +
+      testM("backpressure") {
+        checkAllM(content, HttpGen.method, HttpGen.url, Gen.listOf(HttpGen.header)) { (c, m, u, h) =>
+          val sampleStepDecoder = ContentDecoder.backPressure
+          assertM(
+            sampleStepDecoder
+              .decode(c, m, u, Headers(h))
+              .flatMap(_.take)
+              .map(_.toString(HTTP_CHARSET)),
+          )(
+            equalTo("ABCD"),
+          )
+        }
       }
   }
 }
