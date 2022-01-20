@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
+import io.netty.handler.codec.http2.Http2Headers
 import zhttp.http.headers.{HeaderConstructors, HeaderExtension}
 import zio.Chunk
 
@@ -58,6 +59,14 @@ object Headers extends HeaderConstructors {
   def make(headers: HttpHeaders): Headers = Headers {
     headers
       .iteratorCharSequence()
+      .asScala
+      .map(h => (h.getKey, h.getValue))
+      .toList
+  }
+
+  def fromHttp2Headers(headers: Http2Headers): Headers = Headers {
+    headers
+      .iterator()
       .asScala
       .map(h => (h.getKey, h.getValue))
       .toList
