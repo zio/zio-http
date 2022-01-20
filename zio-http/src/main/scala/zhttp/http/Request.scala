@@ -36,7 +36,10 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Decodes the content of request as a Chunk of Bytes
    */
-  def getBody[R]: ZStream[R, Throwable, ByteBuf] = ???
+  def getBody[R]: ZStream[R, Throwable, ByteBuf] = for {
+    raw    <- ZStream.fromEffect(decodeContent(ContentDecoder.collectAll[ByteBuf]))
+    stream <- ZStream.fromChunk(raw)
+  } yield stream
 
   /**
    * Decodes the content of request as string
