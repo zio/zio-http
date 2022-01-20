@@ -30,10 +30,10 @@ final case class ServerChannelInitializer[R](
 
     // SSL
     // Add SSL Handler if CTX is available
-    val sslctx = if (cfg.sslOption == null) null else cfg.sslOption.sslContext
-    if (sslctx != null)
-      pipeline
-        .addFirst(SSL_HANDLER, new OptionalSSLHandler(sslctx, cfg.sslOption.httpBehaviour, cfg))
+    cfg.sslOption match {
+      case Some(sslOption) => pipeline.addFirst(SSL_HANDLER, new OptionalSSLHandler(sslOption.sslContext, sslOption.httpBehaviour, cfg))
+      case None => ???
+    }
 
     // ServerCodec
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.

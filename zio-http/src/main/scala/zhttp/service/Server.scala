@@ -23,7 +23,7 @@ sealed trait Server[-R, +E] { self =>
     case LeakDetection(level)      => s.copy(leakDetectionLevel = level)
     case MaxRequestSize(size)      => s.copy(maxRequestSize = size)
     case Error(errorHandler)       => s.copy(error = Some(errorHandler))
-    case Ssl(sslOption)            => s.copy(sslOption = sslOption)
+    case Ssl(sslOption)            => s.copy(sslOption = Some(sslOption))
     case App(app)                  => s.copy(app = app)
     case Address(address)          => s.copy(address = address)
     case AcceptContinue(enabled)   => s.copy(acceptContinue = enabled)
@@ -121,7 +121,7 @@ object Server {
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
     error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
-    sslOption: ServerSSLOptions = null,
+    sslOption: Option[ServerSSLOptions] = None,
 
     // TODO: move app out of settings
     app: HttpApp[R, E] = Http.empty,
