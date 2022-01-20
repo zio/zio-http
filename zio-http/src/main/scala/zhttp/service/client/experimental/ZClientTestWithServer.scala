@@ -1,7 +1,5 @@
 package zhttp.service.client.experimental
 
-//import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
-
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
@@ -21,8 +19,8 @@ object ZClientTestWithServer extends App {
   }
 
   private val server =
-    Server.port(PORT) ++                     // Setup port
-      Server.paranoidLeakDetection ++        // Paranoid leak detection (affects performance)
+    Server.port(PORT) ++ // Setup port
+      Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
       Server.app(fooBar) ++ Server.keepAlive // Setup the Http app
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
@@ -35,9 +33,9 @@ object ZClientTestWithServer extends App {
   }
 
   def clientTest(port: Int) = {
-    val client       = ZClient.port(port) ++ ZClient.threads(2)
+    val client = ZClient.port(port) ++ ZClient.threads(2)
     val emptyHeaders = Headers.empty
-    val req          = ReqParams(
+    val req = ReqParams(
       Method.GET,
       URL(!! / "foo", Location.Absolute(Scheme.HTTP, "localhost", port)),
       emptyHeaders,
@@ -59,16 +57,16 @@ object ZClientTestWithServer extends App {
   // use cases like pipelining ... httpclient document
 
   def triggerClientMultipleTimes(cl: DefaultZClient) = for {
-//    resp    <- cl.run(r1)
-    resp    <- cl.run
+    //    resp    <- cl.run(r1)
+    resp <- cl.run
     result1 <- resp.getBodyAsString
-    _       <- ZIO.effect(println(s"GOT RESP: ${result1} "))
-    _       <- ZIO.effect(println(s"NOW SLEEPING for 5000 ms"))
-    _       <- ZIO.effect(Thread.sleep(5000))
-//    resp    <- cl.run(r2)
-    resp    <- cl.run
+    _ <- ZIO.effect(println(s"GOT RESP: ${result1} "))
+    _ <- ZIO.effect(println(s"NOW SLEEPING for 5000 ms"))
+    _ <- ZIO.effect(Thread.sleep(5000))
+    //    resp    <- cl.run(r2)
+    resp <- cl.run
     result2 <- resp.getBodyAsString
-    _       <- ZIO.effect(println(s"GOT ANOTHER RESP USING SAME CONNECTION ${result2}"))
+    _ <- ZIO.effect(println(s"GOT ANOTHER RESP USING SAME CONNECTION ${result2}"))
   } yield ()
 
 }

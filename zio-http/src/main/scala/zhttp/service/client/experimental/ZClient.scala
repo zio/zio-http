@@ -1,20 +1,14 @@
 package zhttp.service.client.experimental
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
-import io.netty.channel.{ChannelFuture, ChannelFutureListener, ChannelHandlerContext}
-import io.netty.handler.codec.http.{
-  DefaultFullHttpRequest,
-  FullHttpRequest,
-  HttpHeaderNames,
-  HttpHeaderValues,
-  HttpVersion,
-}
+import io.netty.buffer.{Unpooled}
+import io.netty.channel.{ChannelFuture, ChannelFutureListener}
+import io.netty.handler.codec.http._
 import zhttp.http.URL.Location
 import zhttp.http._
-import zhttp.http.headers.HeaderExtension
 import zhttp.service.HttpMessageCodec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zhttp.service.client.experimental.{ReqParams, Resp, Transport, ZClientChannelInitializer, ZClientInboundHandler}
 import zio.{ZManaged, _}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -70,8 +64,8 @@ object ZClient {
   def auto: UClient   = ZClient.TransportConfig(Transport.Auto)
 
   def make[R](
-    zClient: ZClient[R, Throwable],
-    req: ReqParams,
+               zClient: ZClient[R, Throwable],
+               req: ReqParams,
   ): ZManaged[R, Throwable, DefaultZClient] = {
     val settings = zClient.settings()
     for {
@@ -161,44 +155,4 @@ case class DefaultZClient(req: FullHttpRequest, promise: Promise[Throwable, Resp
 
 }
 
-final case class ReqParams(
-  method: Method,
-  url: URL,
-  getHeaders: Headers = Headers.empty,
-  data: HttpData = HttpData.empty,
-  private val channelContext: ChannelHandlerContext = null,
-) extends HeaderExtension[ReqParams] { self =>
 
-  def getBodyAsString: Option[String] = data match {
-    case HttpData.Text(text, _)       => Some(text)
-    case HttpData.BinaryChunk(data)   => Some(new String(data.toArray, HTTP_CHARSET))
-    case HttpData.BinaryByteBuf(data) => Some(data.toString(HTTP_CHARSET))
-    case _                            => Option.empty
-  }
-
-  def remoteAddress: Option[InetAddress] = {
-    if (channelContext != null && channelContext.channel().remoteAddress().isInstanceOf[InetSocketAddress])
-      Some(channelContext.channel().remoteAddress().asInstanceOf[InetSocketAddress].getAddress)
-    else
-      None
-  }
-
-  /**
-   * Updates the headers using the provided function
-   */
-  override def updateHeaders(update: Headers => Headers): ReqParams =
-    self.copy(getHeaders = update(self.getHeaders))
-}
-
-final case class Resp(status: zhttp.http.Status, headers: Headers, private val buffer: ByteBuf)
-    extends HeaderExtension[Resp] { self =>
-
-  def getBodyAsString: Task[String] = Task(buffer.toString(self.getCharset))
-
-  def getBody: Task[Chunk[Byte]] = Task(Chunk.fromArray(ByteBufUtil.getBytes(buffer)))
-
-  override def getHeaders: Headers = headers
-
-  override def updateHeaders(update: Headers => Headers): Resp =
-    self.copy(headers = update(headers))
-}
