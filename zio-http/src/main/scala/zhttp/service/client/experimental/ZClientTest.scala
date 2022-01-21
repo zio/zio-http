@@ -2,16 +2,15 @@ package zhttp.service.client.experimental
 
 import zhttp.http.URL.Location
 import zhttp.http._
-import zio.{App, ExitCode, URIO, ZIO}
+import zio.{App, ExitCode, URIO}
 
 /**
  * Simple client usage
  */
 object ZClientTest extends App {
 
-  private val PORT = 55648
+  private val PORT = 8082
 
-  // pick port automatically.
   val client: ZClient[Any, Nothing] = ZClient.port(PORT) ++ ZClient.threads(2)
 
   //  val keepAliveHeader = Headers(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
@@ -34,13 +33,13 @@ object ZClientTest extends App {
      .use (_.headers)
    */
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    val resp = for {
+    val prog = for {
       cl <- client.make
       res <- cl.run(req)
-      _ <- ZIO.effect(println(s"RESSS: $res"))
-    } yield (res)
-
-
-    resp.exitCode
+      body <- res.getBodyAsString
+      _ <- zio.console.putStrLn(body)
+    } yield ()
+    prog.exitCode
   }
+
 }

@@ -22,7 +22,7 @@ final case class Resp(status: zhttp.http.Status, headers: Headers, private val b
 }
 
 final case class ReqParams(
-                            method: Method,
+                            method: Method = Method.GET,
                             url: URL,
                             getHeaders: Headers = Headers.empty,
                             data: HttpData = HttpData.empty,

@@ -43,6 +43,7 @@ object ZClientTestWithServer extends App {
     )
     for {
       cl <- client.make
+//      res1 <- cl.run("")
       _ <- triggerClientMultipleTimes(cl,req)
     } yield ()
 
@@ -61,12 +62,39 @@ object ZClientTestWithServer extends App {
     //    resp    <- cl.run(r1)
     resp <- cl.run(req)
     _ <- resp.getBodyAsString
-//    _ <- ZIO.effect(println(s"GOT RESP: ${result1} "))
-//    _ <- ZIO.effect(println(s"NOW SLEEPING for 5000 ms"))
-    _ <- ZIO.effect(Thread.sleep(5000))
-    //    resp    <- cl.run(r2)
-    resp <- cl.run(req)
-    _ <- resp.getBodyAsString
+////    _ <- ZIO.effect(println(s"GOT RESP: ${result1} "))
+////    _ <- ZIO.effect(println(s"NOW SLEEPING for 5000 ms"))
+//    _ <- ZIO.effect(Thread.sleep(5000))
+//    //    resp    <- cl.run(r2)
+//    resp <- cl.run(req)
+//    r1 <- resp.getBodyAsString
+//    _ <- ZIO.effect(println(s"R!!!: $r1"))
+
+//    req2 = ReqParams(
+//      Method.GET,
+//      URL(!! / "foo", Location.Absolute(Scheme.HTTP, "localhost", 8082)),
+//      Headers.empty,
+//      HttpData.empty,
+//    )
+
+    req2 = ReqParams(
+      Method.GET,
+//      URL(!! , Location.Absolute(Scheme.HTTP, "localhost", 8082)),
+//      Headers.empty,
+
+      URL(!! , Location.Absolute(Scheme.HTTP, "www.google.com", 80)),
+      Headers.host("www.google.com"),
+      HttpData.empty,
+    )
+
+    //    resp <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
+    resp <- cl.run(req2)
+    r2 <- ZIO.effect(resp.status)
+    _ <- ZIO.effect(println(s"R!!!: $r2"))
+//    _ <- ZIO.effect(Thread.sleep(2000))
+//    resp <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
+//    _ <- resp.getBodyAsString
+
 //    _ <- ZIO.effect(println(s"GOT ANOTHER RESP USING SAME CONNECTION ${result2}"))
   } yield ()
 

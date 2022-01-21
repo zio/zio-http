@@ -94,24 +94,20 @@ case class DefaultZClient(boo: Bootstrap
     extends HttpMessageCodec {
   def run(req: ReqParams): Task[Resp] =
     for {
-//      mp <- connRef.get
-      host   <- Task(req.url.host)
-      port   <- Task(req.url.port.getOrElse(80) match {
-        case -1   => 80
-        case port => port
-      })
-      inetSockAddress = new InetSocketAddress(host.fold("")(_.toString),port)
-
-//      conn = mp.getOrElse(inetSockAddress, connRef.updateAndGet(inetSockAddress))
       jReq <- Task(encodeClientParams(HttpVersion.HTTP_1_1, req))
 //      _       <- Task(asyncRequest()).catchAll(cause => promise.fail(cause))
-//      res <- promise.await
-//      pro <- buildChannel[Any](jReq,"http")
-      _ <- ZIO.effect(println(s"fetching con for $inetSockAddress"))
       pro <- fetchConnection(jReq,req)
-      _ <- ZIO.effect(println(s"Now promise. await for $inetSockAddress"))
+      _ <- ZIO.effect(println(s"Now promise. await for $req"))
       res <- pro.await
     } yield res
+
+  def run(str: String): Task[Resp] ={
+    for {
+      url <- ZIO.fromEither(URL.fromString(str))
+      req = ReqParams(url = url)
+      res <- run(req)
+    } yield (res)
+  }
 
   def buildChannel[R](jReq: FullHttpRequest, scheme: String) = {
     for {
@@ -151,6 +147,7 @@ case class DefaultZClient(boo: Bootstrap
         case -1   => 80
         case port => port
       }
+      _ <- ZIO.effect(println(s"extracted HOST: $host extracted PORT: $port"))
       inetSockAddress <- host match {
         case Some(h) => Task.succeed(new InetSocketAddress (h, port))
         case _ => Task.fail(new Exception("error getting host"))
@@ -161,10 +158,7 @@ case class DefaultZClient(boo: Bootstrap
           Task.succeed(c)
         case _ =>
           println(s"CONN NOT FOUND CREATING NEW")
-          val c = buildChannel(jReq,"http")
-//          c.map(cc => mp.update(inetSockAddress,cc))
-//          println(s"mp: $mp")
-          c
+          buildChannel(jReq,"http")
       }
       _ <- connRef.update { m =>
         m +=(inetSockAddress -> conn)

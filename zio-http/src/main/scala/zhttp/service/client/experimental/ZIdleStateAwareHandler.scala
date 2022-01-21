@@ -6,7 +6,7 @@ import io.netty.handler.timeout.{IdleState, IdleStateEvent}
 class ZIdleStateAwareHandler extends ChannelDuplexHandler {
 
   override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit = {
-    println(s"USER EVENT TRIGERED  ---- IDLE STATE AWARE !!!!!")
+    println(s"USER EVENT TRIGERED  ---- IDLE STATE AWARE !!!!! ctx ID: ${ctx.channel().id()}")
     if (evt.isInstanceOf[IdleStateEvent]) {
       val e = evt.asInstanceOf[IdleStateEvent]
       println(s"e: ${e.state()}")
