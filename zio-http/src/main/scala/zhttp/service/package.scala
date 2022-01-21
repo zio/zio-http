@@ -20,6 +20,9 @@ package object service {
   private[service] val HTTP_SERVER_FLUSH_CONSOLIDATION_HANDLER = "HTTP_SERVER_FLUSH_CONSOLIDATION_HANDLER"
   private[service] val HTTP2_SERVER_CODEC_HANDLER              = "HTTP2_SERVER_CODEC_HANDLER"
   private[service] val HTTP2_REQUEST_HANDLER                   = "HTTP2_REQUEST_HANDLER"
+  private[service] val ENCRYPTION_FILTER_HANDLER               = "ENCRYPTION_FILTER_HANDLER"
+  private[service] val SERVER_CLEAR_TEXT_HTTP2_HANDLER         = "SERVER_CLEAR_TEXT_HTTP2_HANDLER"
+  private[service] val SERVER_CLEAR_TEXT_HTTP2_FALLBACK_HANDLER = "SERVER_CLEAR_TEXT_HTTP2_FALLBACK_HANDLER"
 
   type ChannelFactory       = Has[JChannelFactory[Channel]]
   type EventLoopGroup       = Has[JEventLoopGroup]

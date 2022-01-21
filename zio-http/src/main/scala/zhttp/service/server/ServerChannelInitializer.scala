@@ -2,15 +2,13 @@ package zhttp.service.server
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer}
-import io.netty.handler.codec.http.HttpObjectDecoder.{
-  DEFAULT_MAX_CHUNK_SIZE,
-  DEFAULT_MAX_HEADER_SIZE,
-  DEFAULT_MAX_INITIAL_LINE_LENGTH,
-}
+import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
+import io.netty.handler.codec.http.HttpServerUpgradeHandler.UpgradeCodecFactory
 import io.netty.handler.codec.http._
-import io.netty.handler.codec.http2.Http2FrameCodecBuilder
+import io.netty.handler.codec.http2.{Http2CodecUtil, Http2FrameCodecBuilder, Http2ServerUpgradeCodec}
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
+import io.netty.util.AsciiString
 import zhttp.service.Server.Config
 import zhttp.service._
 
@@ -93,9 +91,26 @@ final case class ServerChannelInitializer[R](
             .addLast(HTTP2_SERVER_CODEC_HANDLER, Http2FrameCodecBuilder.forServer().build())
 //            .addLast(HTTP2_REQUEST_HANDLER, ???)
           ()
-        case None            => // TODO: clear text http2 upgrade
+        case None            =>
+          val sourceCodec = new HttpServerCodec
+//          pipeline.addLast(ENCRYPTION_FILTER_HANDLER, EncryptedMessageFilter(httpH, settings))
+          pipeline.addLast(SERVER_CODEC_HANDLER, sourceCodec)
+          pipeline.addLast(SERVER_CLEAR_TEXT_HTTP2_HANDLER, new HttpServerUpgradeHandler(sourceCodec, upgradeCodecFactory(http2H)))
+//          pipeline.addLast(SERVER_CLEAR_TEXT_HTTP2_FALLBACK_HANDLER, ClearTextHttp2FallbackServerHandler(httpH, settings))
+          ()
       }
 
     }
   }
+
+  private def upgradeCodecFactory(http2H: ChannelHandler): UpgradeCodecFactory = {
+    new HttpServerUpgradeHandler.UpgradeCodecFactory() {
+      override def newUpgradeCodec(protocol: CharSequence): Http2ServerUpgradeCodec = {
+        if (AsciiString.contentEquals(Http2CodecUtil.HTTP_UPGRADE_PROTOCOL_NAME, protocol))
+          new Http2ServerUpgradeCodec(Http2FrameCodecBuilder.forServer.build, http2H)
+        else null
+      }
+    }
+  }
+
 }
