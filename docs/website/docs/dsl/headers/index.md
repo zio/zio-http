@@ -9,8 +9,21 @@ On the server-side, `ZIO-HTTP` is adding a collection of pre-defined headers to 
 
 There are multiple ways to attach headers to a response:
 - Using `addHeaders` helper on response.
+```scala
+val res = Response.ok.addHeader("X-MY-HEADER", "test")
+```
 - Through `Response` constructors.
+```scala
+val res = Response(
+       status = Status.OK,
+       // Setting response header 
+       headers = Headers.contentLength(0L),
+       data = HttpData.empty
+```
 - Using `Middlewares`.
+```scala
+val app = Http.ok @@ Middleware.addHeader("X-MY-HEADER", "test")
+```
 <details>
 <summary>Example below shows how the Headers could be added to a response by using `Response` constructors and how a custom header is added to `Response` through `addHeader` API call: </summary>
 <p>
