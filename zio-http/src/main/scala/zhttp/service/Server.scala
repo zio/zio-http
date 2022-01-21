@@ -30,6 +30,7 @@ sealed trait Server[-R, +E] { self =>
     case KeepAlive(enabled)        => s.copy(keepAlive = enabled)
     case FlowControl(enabled)      => s.copy(flowControl = enabled)
     case ConsolidateFlush(enabled) => s.copy(consolidateFlush = enabled)
+    case Http2                     => s.copy(http2 = true)
   }
 
   def make(implicit
@@ -130,6 +131,7 @@ object Server {
     keepAlive: Boolean = false,
     consolidateFlush: Boolean = false,
     flowControl: Boolean = false,
+    http2: Boolean = false,
   )
 
   /**
@@ -148,6 +150,7 @@ object Server {
   private final case class ConsolidateFlush(enabled: Boolean)                         extends Server[Any, Nothing]
   private final case class AcceptContinue(enabled: Boolean)                           extends UServer
   private final case class FlowControl(enabled: Boolean)                              extends UServer
+  private case object Http2                                                           extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -159,6 +162,7 @@ object Server {
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   def acceptContinue: UServer                                                        = Server.AcceptContinue(true)
+  def http2: UServer                                                                 = Server.Http2
   val disableFlowControl: UServer                                                    = Server.FlowControl(false)
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
