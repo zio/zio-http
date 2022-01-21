@@ -1,17 +1,97 @@
-# Headers API
+# Headers
 
-Headers API provides a ton of powerful operators that can be used to add, remove and modify headers. 
-Same Headers API could be used on both client, server and middleware.
+ZIO-Http provide support for all HTTP (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) ) headers and the library user's may define and use custom headers too.
 
-`zhttp.http.Headers`      - represents an immutable collection of headers i.e. essentially a `Chunk[(String, String)]`.
+## Server side
 
-`zhttp.http.HeaderNames`  - commonly used header names.
+### Attaching Headers to `Response`
+In the server side implementation, `zio-http` is adding a collection of pre-defined headers to any response, according to http specification, but on top of them, user's of the library
+may add other headers, including custom headers.
 
-`zhttp.http.HeaderValues` - commonly used header values
+There are multiple ways to attach headers to a response:
+- using `Response.addHeaders` API
+- through `Response` constructors
+- using `Middlewares`
 
-## Client API
+Example below shows how the Headers could be added to a response by using `Response` constructors and how a custom header is added to `Response` through `addHeader` API call:
 
-The following example shows how you can add headers on the client request and how to check presence of header in client response.
+```scala
+import zhttp.http._
+import zhttp.service.Server
+import zio.{App, Chunk, ExitCode, URIO}
+import zio.stream.ZStream
+
+object SimpleResponseDispatcher extends App {
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+
+    // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
+    Server.start(8090, app.silent).exitCode
+  }
+
+  // Create a message as a Chunk[Byte]
+  val message                    = Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET))
+  // Use `Http.collect` to match on route
+  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
+
+    // Simple (non-stream) based route
+    case Method.GET -> !! / "health" => Response.ok
+
+    // From Request(req), the headers are accessible.
+    case req @ Method.GET -> !! / "streamOrNot" =>
+      // Checking if client is able to handle streaming response
+      val acceptsStreaming: Boolean = req.hasHeader(HeaderNames.accept, HeaderValues.applicationOctetStream)
+      if (acceptsStreaming)
+        Response(
+          status = Status.OK,
+          // Setting response header 
+          headers = Headers.contentLength(message.length.toLong), // adding CONTENT-LENGTH header
+          data = HttpData.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
+        )
+      else { 
+        // Adding a custom header to Response
+        Response(status = Status.ACCEPTED, data = HttpData.fromChunk(message)).addHeader("X-MY-HEADER", "test")
+      }
+  }
+}
+
+```
+
+The following example shows how Headers could be added to `Response` in the `Middleware` implementation: 
+
+```scala
+
+  /**
+   * Creates an authentication middleware that only allows authenticated requests to be passed on to the app.
+   */
+  final def customAuth(
+    verify: Headers => Boolean,
+    responseHeaders: Headers = Headers.empty,
+  ): HttpMiddleware[Any, Nothing] =
+    Middleware.ifThenElse[Request](req => verify(req.getHeaders))(
+      _ => Middleware.identity,
+      _ => Middleware.fromHttp(Http.status(Status.FORBIDDEN).addHeaders(responseHeaders)),
+    )
+
+```
+
+More examples:
+- [BasicAuth](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/BasicAuth.scala)
+- [Authentication](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/Authentication.scala)
+
+### Reading Headers from `Request`
+
+Server side implementation provides API that allows to read `Request` headers. The example above shows how also how the request headers could be read.
+In the example, the `ACCEPT` request header is read/checked to see if the `octet-streaming` response is acceptable for the client.
+
+TBD: example
+
+## Client Side
+
+### Adding headers to `Request` 
+
+ZIO-http provides a simple way to add headers to a client `Request`. Fo example, in most of the cases a client request should provide the `Host` header. 
+The sample below shows how a header could be added into a client request:
+
 ```scala
 import zhttp.http.{HeaderNames, HeaderValues, Headers}
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
@@ -42,61 +122,21 @@ object SimpleClientJson extends App {
 }
 ```
 
-## Server API
+### Reading headers from `Response`
 
-The following example shows how to use Headers API on the server side. 
+TBD
 
-```scala
-import zhttp.http._
-import zhttp.service.Server
-import zio.{App, Chunk, ExitCode, URIO}
-import zio.stream.ZStream
 
-object SimpleResponseDispatcher extends App {
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+## Headers DSL
 
-    // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
-    Server.start(8090, app.silent).exitCode
-  }
+Headers DSL provides a ton of powerful operators that can be used to add, remove and modify headers.
+Same Headers API could be used on both client, server and middleware.
 
-  // Create a message as a Chunk[Byte]
-  val message                    = Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET))
-  // Use `Http.collect` to match on route
-  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
+`zhttp.http.Headers`      - represents an immutable collection of headers i.e. essentially a `Chunk[(String, String)]`.
 
-    // Simple (non-stream) based route
-    case Method.GET -> !! / "health" => Response.ok
+`zhttp.http.HeaderNames`  - commonly used header names.
 
-    // From Request(req), the headers are accessible.
-    case req @ Method.GET -> !! / "streamOrNot" =>
-      // Checking if client is able to handle streaming response
-      val acceptsStreaming: Boolean = req.hasHeader(HeaderNames.accept, HeaderValues.applicationOctetStream)
-      if (acceptsStreaming)
-        Response(
-          status = Status.OK,
-          // Setting response header
-          headers = Headers.contentLength(message.length.toLong),
-          data = HttpData.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
-        )
-      else Response(status = Status.ACCEPTED, data = HttpData.fromChunk(message))
-  }
-}
-
-```
-
-## Middleware API
-
-Middleware Service allows access of both Request and Response headers. It provides:
-
-`zhttp.http.Middleware.addHeader` - to add a custom header in response (for example, in case of basic authentication when you have to provide the  `WWW_AUTHENTICATE` header in case the authentication fail.)
-
-`zhttp.http.Middleware.addHeaders` - to add one or more headers in response.
-
-Example: 
-- [BasicAuth](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/BasicAuth.scala)
-- [Authentication](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/Authentication.scala)
-
-## More examples
+`zhttp.http.HeaderValues` - commonly used header values
 
 - Constructors:
 
