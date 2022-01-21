@@ -15,7 +15,7 @@ private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
-) extends SimpleChannelInboundHandler[Any](true)
+) extends SimpleChannelInboundHandler[HttpObject](true)
     with WebSocketUpgrade[R] { self =>
 
   type Ctx = ChannelHandlerContext
@@ -32,11 +32,11 @@ private[zhttp] final case class Handler[R](
   private val REQUEST: AttributeKey[Request]                                          = AttributeKey.valueOf("request")
   private val BODY: AttributeKey[ByteBuf]                                             = AttributeKey.valueOf("body")
 
-  override def handlerAdded(ctx: Ctx): Unit           = {
+  override def handlerAdded(ctx: Ctx): Unit                  = {
     ctx.channel().config().setAutoRead(false)
     ctx.read(): Unit
   }
-  override def channelRead0(ctx: Ctx, msg: Any): Unit = {
+  override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
       case jReq: HttpRequest    =>
