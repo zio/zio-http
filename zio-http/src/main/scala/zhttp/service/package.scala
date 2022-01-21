@@ -18,6 +18,8 @@ package object service {
   private[service] val HTTP_ON_HTTPS_HANDLER                   = "HTTP_ON_HTTPS_HANDLER"
   private[service] val HTTP_SERVER_EXPECT_CONTINUE_HANDLER     = "HTTP_SERVER_EXPECT_CONTINUE_HANDLER"
   private[service] val HTTP_SERVER_FLUSH_CONSOLIDATION_HANDLER = "HTTP_SERVER_FLUSH_CONSOLIDATION_HANDLER"
+  private[service] val HTTP2_SERVER_CODEC_HANDLER              = "HTTP2_SERVER_CODEC_HANDLER"
+  private[service] val HTTP2_REQUEST_HANDLER                   = "HTTP2_REQUEST_HANDLER"
 
   type ChannelFactory       = Has[JChannelFactory[Channel]]
   type EventLoopGroup       = Has[JEventLoopGroup]

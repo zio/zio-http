@@ -21,14 +21,30 @@ class OptionalSSLHandler(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour
     } else {
       httpBehaviour match {
         case SSLHttpBehaviour.Accept =>
-          pipeline.remove(this)
-          ()
+          if (cfg.http2) {
+            pipeline.remove(HTTP2_SERVER_CODEC_HANDLER)
+            pipeline.remove(HTTP2_REQUEST_HANDLER)
+            // TODO: clear text http2 upgrade
+            ()
+          } else {
+            pipeline.remove(this)
+            ()
+          }
         case _                       =>
-          pipeline.remove(HTTP_SERVER_REQUEST_HANDLER)
-          if (cfg.keepAlive) pipeline.remove(HTTP_KEEPALIVE_HANDLER)
-          pipeline.remove(this)
-          pipeline.addLast(new HttpOnHttpsHandler(httpBehaviour))
-          ()
+          if (cfg.http2) {
+            pipeline.remove(HTTP2_SERVER_CODEC_HANDLER)
+            pipeline.remove(HTTP2_REQUEST_HANDLER)
+            pipeline.remove(this)
+            pipeline.addLast(new HttpOnHttpsHandler(httpBehaviour))
+            // TODO:  make changes in httponhttps
+            ()
+          } else {
+            pipeline.remove(HTTP_SERVER_REQUEST_HANDLER)
+            pipeline.remove(this)
+            pipeline.addLast(new HttpOnHttpsHandler(httpBehaviour))
+            ()
+            // TODO: SEE IF THIS WORKS
+          }
       }
     }
   }

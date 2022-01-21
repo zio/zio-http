@@ -18,7 +18,7 @@ object ServerSSLHandler {
     sslContextBuilder: SslContextBuilder,
     httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect,
   ) {
-    def build(enableHttp2: Boolean = false): SslContext = {
+    def build(enableHttp2: Boolean): SslContext = {
       if (enableHttp2 == true) {
         sslContextBuilder
           .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
