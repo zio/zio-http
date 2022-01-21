@@ -57,7 +57,7 @@ const config = {
             items: [
               {
                 label: 'Documents',
-                to: '/docs/index',
+                to: '/docs/v1.x/index',
               },
             ],
           },
