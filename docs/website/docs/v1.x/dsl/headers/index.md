@@ -106,7 +106,7 @@ On the Server-side you can read Request headers as given below
 </p>
 </details>
 
-## Client-Side
+## Client-side
 
 ### Adding headers to `Request` 
 
