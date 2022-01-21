@@ -31,12 +31,13 @@ object ServerSpec extends HttpRunnableSpec {
     case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
   }
 
-  private val validationApp: Http[Any, Nothing, Request, Response] = Http.collect[Request] {
+  // Use this route to test anything that doesn't require ZIO related computations.
+  private val nonZIO = Http.collect[Request] {
     case _ -> !! / "HExitSuccess" => Response.ok
     case _ -> !! / "HExitFailure" => Response.fromHttpError(HttpError.BadRequest())
   }
 
-  private val app = serve { validationApp ++ staticApp ++ DynamicServer.app }
+  private val app = serve { nonZIO ++ staticApp ++ DynamicServer.app }
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -227,7 +228,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   override def spec =
     suiteM("Server") {
-      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, validationAppSpec)).useNow
+      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, nonZIOSpec)).useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds)
 
   def serverStartSpec = suite("ServerStartSpec") {
@@ -268,7 +269,7 @@ object ServerSpec extends HttpRunnableSpec {
       }
   }
 
-  def validationAppSpec = suite("ValidationAppSpec") {
+  def nonZIOSpec = suite("NonZIOSpec") {
     testM("200 response") {
       checkAllM(HttpGen.method) { method =>
         val actual = status(method, !! / "HExitSuccess")
