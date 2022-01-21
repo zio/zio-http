@@ -1,19 +1,19 @@
 # Headers
 
-ZIO-Http provide support for all HTTP (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) ) headers and the library user's may define and use custom headers too.
+ZIO HTTP provides support for all HTTP (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) ) headers and custom headers are supported too.
 
-## Server side
+## Server-side
 
 ### Attaching Headers to `Response`
-In the server side implementation, `zio-http` is adding a collection of pre-defined headers to any response, according to http specification, but on top of them, user's of the library
-may add other headers, including custom headers.
+On the server-side, `ZIO-HTTP` is adding a collection of pre-defined headers to any response, according to the HTTP specification, but on top of them, users of the library may add other headers, including custom headers.
 
 There are multiple ways to attach headers to a response:
-- using `Response.addHeaders` API
-- through `Response` constructors
-- using `Middlewares`
-
-Example below shows how the Headers could be added to a response by using `Response` constructors and how a custom header is added to `Response` through `addHeader` API call:
+- Using `addHeaders` helper on response.
+- Through `Response` constructors.
+- Using `Middlewares`.
+<details>
+<summary>Example below shows how the Headers could be added to a response by using `Response` constructors and how a custom header is added to `Response` through `addHeader` API call: </summary>
+<p>
 
 ```scala
 import zhttp.http._
@@ -77,20 +77,28 @@ The following example shows how Headers could be added to `Response` in the `Mid
 More examples:
 - [BasicAuth](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/BasicAuth.scala)
 - [Authentication](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/Authentication.scala)
+</p>
+</details>
 
 ### Reading Headers from `Request`
 
-Server side implementation provides API that allows to read `Request` headers. The example above shows how also how the request headers could be read.
-In the example, the `ACCEPT` request header is read/checked to see if the `octet-streaming` response is acceptable for the client.
+On the Server-side you can read Request headers. The example below shows how the request headers could be read. In the example, the ACCEPT request header is read/checked to see if the octet-streaming response is acceptable for the client.
 
-TBD: example
+```scala
+...
+ case req @ Method.GET -> !! / "streamOrNot" =>
+      // Checking if client is able to handle streaming response
+      val acceptsStreaming: Boolean = req.hasHeader(HeaderNames.accept, HeaderValues.applicationOctetStream)
+```
 
-## Client Side
+## Client-Side
 
 ### Adding headers to `Request` 
 
-ZIO-http provides a simple way to add headers to a client `Request`. Fo example, in most of the cases a client request should provide the `Host` header. 
-The sample below shows how a header could be added into a client request:
+ZIO-HTTP provides a simple way to add headers to a client `Request`. 
+<details>
+<summary>For example, in most cases, a client request should provide the Host header. The sample below shows how a header could be added to a client request:</summary>
+<p>
 
 ```scala
 import zhttp.http.{HeaderNames, HeaderValues, Headers}
@@ -121,16 +129,19 @@ object SimpleClientJson extends App {
 
 }
 ```
+</p>
+</details>
 
 ### Reading headers from `Response`
 
-TBD
+```scala
+val responseHeaders: Task[Headers] =  Client.request(url).map(_.headers)
+```
 
 
 ## Headers DSL
 
-Headers DSL provides a ton of powerful operators that can be used to add, remove and modify headers.
-Same Headers API could be used on both client, server and middleware.
+Headers DSL provides plenty of powerful operators that can be used to add, remove and modify headers. Same Headers API could be used on both client, server, and middleware.
 
 `zhttp.http.Headers`      - represents an immutable collection of headers i.e. essentially a `Chunk[(String, String)]`.
 
@@ -138,7 +149,7 @@ Same Headers API could be used on both client, server and middleware.
 
 `zhttp.http.HeaderValues` - commonly used header values
 
-- Constructors:
+- Constructors - provides predefined constructors for most frequent used headers.
 
 ```scala
 import zhttp.http._
@@ -150,7 +161,7 @@ val acceptHeader: Headers = Headers.accept(HeaderValues.applicationJson)
 val basicAuthHeader: Headers = Headers.basicAuthorizationHeader("username", "password")
 ```
 
-- Getters:
+- Getters - provides predefined getters for most frequent used headers.
 
 ```scala
 import zhttp.http._
@@ -165,7 +176,7 @@ val authorizationHeader: Headers                   = Headers.authorization("Bear
 val authorizationHeaderValue: Option[String]       = authorizationHeader.getBearerToken
 ```
 
-- Modifiers:
+- Modifiers - provides `builder-pattern` oriented operations for most frequent used headers.
 
 ```scala
 import zhttp.http._
@@ -181,7 +192,7 @@ val moreHeaders: Headers        = headers.withHost("zio-http.dream11.com")
 
 ```
 
-- Checks:
+- Checks - provides operators that check if the Headers meet the given constraints.
 
 ```scala
 import com.sun.net.httpserver.Headers
