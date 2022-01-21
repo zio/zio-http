@@ -123,9 +123,9 @@ val response = Client.request(url, headers)
 - The sample below shows how a header could be added to a client request:
 
     ```scala
-    import zhttp.http.{HeaderNames, HeaderValues, Headers}
-    import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
-    import zio.{App, ExitCode, URIO, console}
+    import zhttp.http._
+    import zhttp.service._
+    import zio._
     
     object SimpleClientJson extends App {
       val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
@@ -217,12 +217,8 @@ Headers DSL provides plenty of powerful operators that can be used to add, remov
 - Checks - Provides a list of operators that checks if the `Headers` meet the give constraints.
 
     ```scala
-    import com.sun.net.httpserver.Headers
-    
-    // check if Accept header is present
     val contentTypeHeader: Headers = Headers.contentType(HeaderValues.applicationJson)
-    val isHeaderPresent: Boolean   = contentTypeHeader.hasHeader(HeaderNames.contentType)
-    
+    val isHeaderPresent: Boolean   = contentTypeHeader.hasHeader(HeaderNames.contentType) 
     val isJsonContentType: Boolean = contentTypeHeader.hasJsonContentType
     
     
