@@ -171,6 +171,7 @@ Headers DSL provides plenty of powerful operators that can be used to add, remov
 
 `zhttp.http.HeaderValues` - commonly used header values
 
+`Headers` have following type of helpers
 - Constructors -  Provides a list of helpful methods that can create `Headers`.
 
     ```scala
