@@ -39,20 +39,20 @@ final case class ServerChannelInitializer[R](
     // ServerCodec
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
     pipeline.addLast(
-      "decoder",
+      SERVER_DECODER_HANDLER,
       new HttpRequestDecoder(DEFAULT_MAX_INITIAL_LINE_LENGTH, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_CHUNK_SIZE, false),
     )
-    pipeline.addLast("encoder", new HttpResponseEncoder())
+    pipeline.addLast(SERVER_ENCODER_HANDLER, new HttpResponseEncoder())
 
     // TODO: See if server codec is really required
 
     // ObjectAggregator
     // Always add ObjectAggregator
-    pipeline.addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
+    pipeline.addLast(SERVER_OBJECT_AGGREGATOR_HANDLER, new HttpObjectAggregator(cfg.maxRequestSize))
 
     // ExpectContinueHandler
     // Add expect continue handler is settings is true
-    if (cfg.acceptContinue) pipeline.addLast(HTTP_SERVER_EXPECT_CONTINUE, new HttpServerExpectContinueHandler())
+    if (cfg.acceptContinue) pipeline.addLast(HTTP_SERVER_EXPECT_CONTINUE_HANDLER, new HttpServerExpectContinueHandler())
 
     // KeepAliveHandler
     // Add Keep-Alive handler is settings is true
@@ -65,14 +65,14 @@ final case class ServerChannelInitializer[R](
 
     // FlushConsolidationHandler
     // Flushing content is done in batches. Can potentially improve performance.
-    if (cfg.consolidateFlush) pipeline.addLast(HTTP_SERVER_FLUSH_CONSOLIDATION, new FlushConsolidationHandler)
+    if (cfg.consolidateFlush) pipeline.addLast(HTTP_SERVER_FLUSH_CONSOLIDATION_HANDLER, new FlushConsolidationHandler)
 
     // RequestHandler
     // Always add ZIO Http Request Handler
-    pipeline.addLast(HTTP_REQUEST_HANDLER, reqHandler)
+    pipeline.addLast(HTTP_SERVER_REQUEST_HANDLER, reqHandler)
 
     // ServerResponseHandler - transforms Response to HttpResponse
-    pipeline.addLast(HTTP_RESPONSE_HANDLER, respHandler)
+    pipeline.addLast(HTTP_SERVER_RESPONSE_HANDLER, respHandler)
 
     ()
   }
