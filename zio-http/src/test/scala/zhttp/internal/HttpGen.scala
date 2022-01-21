@@ -2,7 +2,7 @@ package zhttp.internal
 
 import io.netty.buffer.Unpooled
 import zhttp.http._
-import zhttp.service.Client.ClientParams
+import zhttp.service.Client.ClientRequest
 import zio.random.Random
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
@@ -17,7 +17,7 @@ object HttpGen {
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
       data    <- dataGen
-    } yield ClientParams(method, url, headers, data)
+    } yield ClientRequest(method, url, headers, data)
 
   def clientParamsForFileHttpData() = {
     for {
@@ -25,7 +25,7 @@ object HttpGen {
       method  <- HttpGen.method
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
-    } yield ClientParams(method, url, headers, HttpData.fromFile(file))
+    } yield ClientRequest(method, url, headers, HttpData.fromFile(file))
   }
 
   def cookies: Gen[Random with Sized, Cookie] = for {
@@ -38,7 +38,8 @@ object HttpGen {
     httpOnly <- Gen.boolean
     maxAge   <- Gen.option(Gen.anyLong)
     sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
-  } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite)
+    secret   <- Gen.option(Gen.anyString)
+  } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite, secret)
 
   def header: Gen[Random with Sized, Header] = for {
     key   <- Gen.alphaNumericStringBounded(1, 4)

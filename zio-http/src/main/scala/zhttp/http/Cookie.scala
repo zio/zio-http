@@ -2,7 +2,11 @@ package zhttp.http
 
 import zio.duration._
 
+import java.security.MessageDigest
 import java.time.Instant
+import java.util.Base64.getEncoder
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 import scala.util.Try
 
 final case class Cookie(
@@ -15,6 +19,7 @@ final case class Cookie(
   isHttpOnly: Boolean = false,
   maxAge: Option[Long] = None,
   sameSite: Option[Cookie.SameSite] = None,
+  secret: Option[String] = None,
 ) { self =>
 
   /**
@@ -69,6 +74,16 @@ final case class Cookie(
   def withSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
 
   /**
+   * Signs the cookie at the time of encoding using the provided secret.
+   */
+  def sign(secret: String): Cookie = copy(secret = Some(secret))
+
+  /**
+   * Removes secret in the cookie
+   */
+  def unSign: Cookie = copy(secret = None)
+
+  /**
    * Resets secure flag in the cookie
    */
   def withoutSecure: Cookie = copy(isSecure = false)
@@ -107,8 +122,13 @@ final case class Cookie(
    * Converts cookie into a string
    */
   def encode: String = {
+    val c = secret match {
+      case Some(sec) => content + "." + signContent(sec)
+      case None      => content
+    }
+
     val cookie = List(
-      Some(s"$name=$content"),
+      Some(s"$name=$c"),
       expires.map(e => s"Expires=$e"),
       maxAge.map(a => s"Max-Age=${a.toString}"),
       domain.map(d => s"Domain=$d"),
@@ -119,6 +139,24 @@ final case class Cookie(
     )
     cookie.flatten.mkString("; ")
   }
+
+  /**
+   * Signs cookie content with a secret and returns signature
+   */
+  private def signContent(secret: String): String = {
+    val sha256    = Mac.getInstance("HmacSHA256")
+    val secretKey = new SecretKeySpec(secret.getBytes(), "RSA")
+    sha256.init(secretKey)
+    val signed    = sha256.doFinal(self.content.getBytes())
+    val mda       = MessageDigest.getInstance("SHA-512")
+    getEncoder.encodeToString(mda.digest(signed))
+  }
+
+  /**
+   * Verifies signed-cookie's signature with a secret
+   */
+  private def verify(content: String, signature: String, secret: String): Boolean =
+    self.withContent(content).signContent(secret) == signature
 
 }
 
@@ -147,10 +185,10 @@ object Cookie {
   /**
    * Decodes from Set-Cookie header value inside of Response into a cookie
    */
-  def decodeResponseCookie(headerValue: String): Option[Cookie] =
-    Try(unsafeDecodeResponseCookie(headerValue)).toOption
+  def decodeResponseCookie(headerValue: String, secret: Option[String] = None): Option[Cookie] =
+    Try(unsafeDecodeResponseCookie(headerValue, secret)).toOption
 
-  private[zhttp] def unsafeDecodeResponseCookie(headerValue: String): Cookie = {
+  private[zhttp] def unsafeDecodeResponseCookie(headerValue: String, secret: Option[String] = None): Cookie = {
     var name: String              = null
     var content: String           = null
     var expires: Instant          = null
@@ -214,21 +252,37 @@ object Cookie {
         curr = next + 1
       }
     }
+    val decodedCookie =
+      if ((name != null && !name.isEmpty) || (content != null && !content.isEmpty))
+        Cookie(
+          name = name,
+          content = content,
+          expires = Option(expires),
+          maxAge = maxAge,
+          domain = Option(domain),
+          path = Option(path),
+          isSecure = secure,
+          isHttpOnly = httpOnly,
+          sameSite = Option(sameSite),
+        )
+      else
+        null
 
-    if ((name != null && !name.isEmpty) || (content != null && !content.isEmpty))
-      Cookie(
-        name = name,
-        content = content,
-        expires = Option(expires),
-        maxAge = maxAge,
-        domain = Option(domain),
-        path = Option(path),
-        isSecure = secure,
-        isHttpOnly = httpOnly,
-        sameSite = Option(sameSite),
-      )
-    else
-      null
+    secret match {
+      case Some(s) => {
+        if (decodedCookie != null) {
+          val index     = decodedCookie.content.lastIndexOf('.')
+          val signature = decodedCookie.content.slice(index + 1, decodedCookie.content.length)
+          val content   = decodedCookie.content.slice(0, index)
+
+          if (decodedCookie.verify(content, signature, s))
+            decodedCookie.withContent(content).sign(s)
+          else null
+        } else decodedCookie
+      }
+      case None    => decodedCookie
+    }
+
   }
 
   /**

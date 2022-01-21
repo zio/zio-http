@@ -8,7 +8,7 @@ trait EncodeClientParams {
   /**
    * Converts client params to JFullHttpRequest
    */
-  def encodeClientParams(jVersion: HttpVersion, req: Client.ClientParams): FullHttpRequest = {
+  def encodeClientParams(jVersion: HttpVersion, req: Client.ClientRequest): FullHttpRequest = {
     val method      = req.method.asHttpMethod
     val uri         = req.url.asString
     val content     = req.getBodyAsString match {
