@@ -25,6 +25,16 @@ There are multiple ways to attach headers to a response:
     ```scala
     val app = Http.ok @@ Middleware.addHeader("content-length", "0")
     ```
+
+### Reading Headers from `Request`
+
+On the Server-side you can read Request headers as given below
+
+```scala
+ case req @ Method.GET -> !! / "streamOrNot" =>
+      req.getHeaders
+```
+
 <details>
 <summary><b>Detailed examples </b></summary>
 <p>
@@ -72,7 +82,7 @@ There are multiple ways to attach headers to a response:
     
     ```
 
-- The following example shows how Headers could be added to `Response` in the `Middleware` implementation: 
+- The following example shows how Headers could be added to `Response` in the `Middleware` implementation:
 
     ```scala
     
@@ -96,15 +106,6 @@ There are multiple ways to attach headers to a response:
 </p>
 </details>
 
-### Reading Headers from `Request`
-
-On the Server-side you can read Request headers as given below
-
-```scala
- case req @ Method.GET -> !! / "streamOrNot" =>
-      req.getHeaders
-```
-
 ## Client-Side
 
 ### Adding headers to `Request` 
@@ -114,6 +115,12 @@ ZIO-HTTP provides a simple way to add headers to a client `Request`.
 ```scala
 val headers = Headers.host("sports.api.decathlon.com").withAccept(HeaderValues.applicationJson)
 val response = Client.request(url, headers)
+```
+
+### Reading headers from `Response`
+
+```scala
+val responseHeaders: Task[Headers] =  Client.request(url).map(_.headers)
 ```
 
 <details>
@@ -153,13 +160,6 @@ val response = Client.request(url, headers)
     ```
 </p>
 </details>
-
-### Reading headers from `Response`
-
-```scala
-val responseHeaders: Task[Headers] =  Client.request(url).map(_.headers)
-```
-
 
 ## Headers DSL
 
