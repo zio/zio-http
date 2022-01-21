@@ -8,15 +8,23 @@ trait EncodeClientParams {
   /**
    * Converts client params to JFullHttpRequest
    */
-  def encodeClientParams(req: Client.ClientParams): FullHttpRequest = {
+  def encodeClientParams(req: Client.ClientRequest): FullHttpRequest = {
     val httpVersion = req.httpVersion
     val method      = req.method.asHttpMethod
-    val uri         = req.url.asString
+    val url         = req.url
+    val uri         = url.asString
     val content     = req.getBodyAsString match {
       case Some(text) => Unpooled.copiedBuffer(text, HTTP_CHARSET)
       case None       => Unpooled.EMPTY_BUFFER
     }
-    val headers     = req.getHeaders.encode
+
+    val encodedReqHeaders = req.getHeaders.encode
+
+    val headers = url.host match {
+      case Some(value) => encodedReqHeaders.set(HttpHeaderNames.HOST, value)
+      case None        => encodedReqHeaders
+    }
+
     val writerIndex = content.writerIndex()
     if (writerIndex != 0) {
       headers.set(HttpHeaderNames.CONTENT_LENGTH, writerIndex.toString())
