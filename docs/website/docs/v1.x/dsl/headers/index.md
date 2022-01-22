@@ -37,51 +37,50 @@ On the Server-side you can read Request headers as given below
 
 <details>
 <summary><b>Detailed examples </b></summary>
-<p>
+
 
 - Example below shows how the Headers could be added to a response by using `Response` constructors and how a custom header is added to `Response` through `addHeader`:
 
-    ```scala
-    import zhttp.http._
-    import zhttp.service.Server
-    import zio.{App, Chunk, ExitCode, URIO}
-    import zio.stream.ZStream
-    
-    object SimpleResponseDispatcher extends App {
-      override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    
-        // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
-        Server.start(8090, app.silent).exitCode
-      }
-    
-      // Create a message as a Chunk[Byte]
-      val message                    = Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET))
-      // Use `Http.collect` to match on route
-      val app: HttpApp[Any, Nothing] = Http.collect[Request] {
-    
-        // Simple (non-stream) based route
-        case Method.GET -> !! / "health" => Response.ok
-    
-        // From Request(req), the headers are accessible.
-        case req @ Method.GET -> !! / "streamOrNot" =>
-          // Checking if client is able to handle streaming response
-          val acceptsStreaming: Boolean = req.hasHeader(HeaderNames.accept, HeaderValues.applicationOctetStream)
-          if (acceptsStreaming)
-            Response(
-              status = Status.OK,
-              // Setting response header 
-              headers = Headers.contentLength(message.length.toLong), // adding CONTENT-LENGTH header
-              data = HttpData.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
-            )
-          else { 
-            // Adding a custom header to Response
-            Response(status = Status.ACCEPTED, data = HttpData.fromChunk(message)).addHeader("X-MY-HEADER", "test")
-          }
-      }
+  ```scala
+  import zhttp.http._
+  import zhttp.service.Server
+  import zio.{App, Chunk, ExitCode, URIO}
+  import zio.stream.ZStream
+  
+  object SimpleResponseDispatcher extends App {
+    override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+  
+      // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
+      Server.start(8090, app.silent).exitCode
     }
-    
-    ```
-
+  
+    // Create a message as a Chunk[Byte]
+    val message                    = Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET))
+    // Use `Http.collect` to match on route
+    val app: HttpApp[Any, Nothing] = Http.collect[Request] {
+  
+      // Simple (non-stream) based route
+      case Method.GET -> !! / "health" => Response.ok
+  
+      // From Request(req), the headers are accessible.
+      case req @ Method.GET -> !! / "streamOrNot" =>
+        // Checking if client is able to handle streaming response
+        val acceptsStreaming: Boolean = req.hasHeader(HeaderNames.accept, HeaderValues.applicationOctetStream)
+        if (acceptsStreaming)
+          Response(
+            status = Status.OK,
+            // Setting response header 
+            headers = Headers.contentLength(message.length.toLong), // adding CONTENT-LENGTH header
+            data = HttpData.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
+          )
+        else { 
+          // Adding a custom header to Response
+          Response(status = Status.ACCEPTED, data = HttpData.fromChunk(message)).addHeader("X-MY-HEADER", "test")
+        }
+    }
+  }
+  
+  ```
 - The following example shows how Headers could be added to `Response` in the `Middleware` implementation:
 
     ```scala
@@ -103,7 +102,7 @@ On the Server-side you can read Request headers as given below
 - More examples:
   - [BasicAuth](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/BasicAuth.scala)
   - [Authentication](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/Authentication.scala)
-</p>
+
 </details>
 
 ## Client-side
@@ -125,7 +124,6 @@ val responseHeaders: Task[Headers] =  Client.request(url).map(_.headers)
 
 <details>
 <summary><b>Detailed examples</b> </summary>
-<p>
 
 - The sample below shows how a header could be added to a client request:
 
@@ -158,7 +156,7 @@ val responseHeaders: Task[Headers] =  Client.request(url).map(_.headers)
     
     }
     ```
-</p>
+
 </details>
 
 ## Headers DSL
