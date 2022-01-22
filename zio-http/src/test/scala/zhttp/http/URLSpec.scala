@@ -64,6 +64,9 @@ object URLSpec extends DefaultRunnableSpec {
         test("ws scheme") {
           roundtrip("ws://yourdomain.com/subscriptions")
         } +
+        test("wss scheme") {
+          roundtrip("wss://yourdomain.com/subscriptions")
+        } +
         test("relative with pathname only") {
           roundtrip("/users")
         } +

@@ -18,9 +18,7 @@ final case class ClientChannelInitializer[R](
 
     handlers.map(h => p.addLast(h))
 
-    if (scheme == "https") {
-      p.addFirst(ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc))
-    }
+    if (scheme == "https" || scheme == "wss") p.addFirst(ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc))
     ()
   }
 }

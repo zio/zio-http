@@ -42,9 +42,10 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
   def socket(
     headers: Headers = Headers.empty,
     app: SocketApp[R],
+    sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[Any, Throwable, ClientResponse] = for {
     pr  <- Promise.make[Throwable, ClientResponse]
-    _   <- Task(unsafeSocket(headers, app, pr))
+    _   <- Task(unsafeSocket(headers, app, pr, sslOptions))
     res <- pr.await
   } yield res
 
@@ -83,6 +84,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     headers: Headers,
     ss: SocketApp[R],
     pr: Promise[Throwable, ClientResponse],
+    clientSSLOptions: ClientSSLOptions,
   ): Unit = {
     val config   = ss.protocol.clientConfig(headers)
     val handlers = List(
@@ -105,11 +107,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
       })
       .get
 
-    val init = ClientChannelInitializer(
-      handlers,
-      scheme,
-      ClientSSLOptions.DefaultSSL,
-    )
+    val init = ClientChannelInitializer(handlers, scheme, clientSSLOptions)
 
     val jboo = bootstrap(init)
     if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
@@ -203,8 +201,9 @@ object Client {
   def socket[R](
     headers: Headers,
     app: SocketApp[R],
+    sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    make[R].flatMap(_.socket(headers, app))
+    make[R].flatMap(_.socket(headers, app, sslOptions))
 
   final case class ClientRequest(
     method: Method,
