@@ -4,7 +4,7 @@ import io.netty.buffer.ByteBuf
 import zhttp.http.headers.HeaderExtension
 import zhttp.service.server.ContentDecoder
 import zio.stream.ZStream
-import zio.{Task, UIO, ZIO}
+import zio.{Task, UIO}
 
 import java.net.InetAddress
 
@@ -24,14 +24,14 @@ trait Request extends HeaderExtension[Request] { self =>
       override def url: URL                           = u
       override def headers: Headers                   = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
-      override def decodeContent[R, B](
-        decoder: ContentDecoder[R, Throwable, ByteBuf, B],
-      ): ZIO[R, Throwable, B] =
+      override def decodeContent[B](
+        decoder: ContentDecoder[ByteBuf, B],
+      ): Task[B] =
         self.decodeContent(decoder)
     }
   }
 
-  def decodeContent[R, B](decoder: ContentDecoder[R, Throwable, ByteBuf, B]): ZIO[R, Throwable, B]
+  def decodeContent[B](decoder: ContentDecoder[ByteBuf, B]): Task[B]
 
   /**
    * Decodes the content of request as a Chunk of Bytes
@@ -115,9 +115,9 @@ object Request {
       override def headers: Headers                            = h
       override def remoteAddress: Option[InetAddress]          = ra
       override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
-      override def decodeContent[R, B](
-        decoder: ContentDecoder[R, Throwable, ByteBuf, B],
-      ): ZIO[R, Throwable, B] =
+      override def decodeContent[B](
+        decoder: ContentDecoder[ByteBuf, B],
+      ): Task[B] =
         decoder.decode(data, method, url, headers)
     }
   }
@@ -142,9 +142,9 @@ object Request {
     override def method: Method                     = req.method
     override def remoteAddress: Option[InetAddress] = req.remoteAddress
     override def url: URL                           = req.url
-    override def decodeContent[R, B](
-      decoder: ContentDecoder[R, Throwable, ByteBuf, B],
-    ): ZIO[R, Throwable, B] =
+    override def decodeContent[B](
+      decoder: ContentDecoder[ByteBuf, B],
+    ): Task[B] =
       req.decodeContent(decoder)
   }
 
