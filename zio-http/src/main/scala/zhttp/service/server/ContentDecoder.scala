@@ -38,13 +38,13 @@ object ContentDecoder {
     }
   }
 
-  private def decode[R, B](
+  private def decode[B](
     decoder: ContentDecoder[ByteBuf, B],
     data: HttpData,
     method: Method,
     url: URL,
     headers: Headers,
-  ): ZIO[R, Throwable, B] =
+  ): Task[B] =
     data match {
       case HttpData.Empty                => ZIO.fail(ContentDecoder.Error.DecodeEmptyContent)
       case HttpData.Text(data, charset)  =>
