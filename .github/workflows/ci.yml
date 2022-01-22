@@ -230,7 +230,7 @@ jobs:
 
   runBenchMarks:
     name: Benchmarks
-    if: ${{ github.event_name == 'pull_request'}}
+    if: ${{ github.event_name == 'pull_request'}} && ${{ github.event.label.name != 'documentation' }}
     strategy:
       matrix:
         os: [centos]
