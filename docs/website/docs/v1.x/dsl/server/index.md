@@ -16,7 +16,7 @@ import zio._
     case Method.GET -> !! / "json" => Response.json("""{"greetings": "Hello World!"}""")
   }
 ```
-- As a convenience, zio provides an `App` trait with the main function of the application which returns `URIO[ZEnv, ExitCode]`. Directly use `Server.start` specifying port and mount the app to start the server
+- As a convenience, Zio provides an `App` trait with the main function of the application which returns `URIO[ZEnv, ExitCode]`. Directly use `Server.start` specifying a port and mount the app to start the server
 ```scala
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     Server.start(8090, app.silent).exitCode
@@ -54,7 +54,7 @@ import zio._
 ### Binding Server to a socket address
 One can bind server to Inet address in multiple ways, either by providing a port number or 
 - If no port is provided, the default port is 8080
-- If port is 0, it will use a dynamically selected port.
+- If specified port is 0, it will use a dynamically selected port.
 
 <details>
 <summary><b>A complete example </b></summary>
@@ -110,13 +110,14 @@ object HelloWorldAdvanced extends App {
 
 ## Server Configurations
 
-| **Configuration**    | **Purpose and usage**         |
-| ----------- | ----------- |
-| `Server.ssl(sslOptions)`       |        |
-| `Server.acceptContinue`   |        |
-| `Server.disableFlowControl` | |
-| `Server.disableLeakDetection` | |
-| `Server.simpleLeakDetection` | |
-| `Server.paranoidLeakDetection` | |
-| `Server.disableFlowControl` | |
-| `Server.consolidateFlush` | |
+| **Configuration**              | **Purpose and usage**          |
+| -----------                    | -----------                    |
+| `Server.app(httpApp)`                 | Mount routes. Refer to complete example above                               |
+| `Server.port(portNum)` or `Server.bind(portNum)`       | Bind server to the port, refer to examples above                               |
+| `Server.ssl(sslOptions)`       | Creates a new server with ssl options. [HttpsHelloWorld](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/example/HttpsHelloWorld.scala)                               |
+| `Server.acceptContinue`        | Sends a [100 CONTINUE](https://www.w3.org/Protocols/rfc2616/rfc2616-sec8.html#sec8.2.3)                              |
+| `Server.disableFlowControl`    | Refer [Netty FlowControlHandler](https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html)                               |
+| `Server.disableLeakDetection`  | Disable any leak detection Refer netty's [ResourceLeakDetector](https://netty.io/4.0/api/io/netty/util/ResourceLeakDetector.Level.html)                               |
+| `Server.simpleLeakDetection`   | Simplistic leak detection comes with small over head. Refer netty's [ResourceLeakDetector](https://netty.io/4.0/api/io/netty/util/ResourceLeakDetector.Level.html)                               |
+| `Server.paranoidLeakDetection` | Comes with highest possible overhead (for testing purposes only). Refer netty's [ResourceLeakDetector](https://netty.io/4.0/api/io/netty/util/ResourceLeakDetector.Level.html)                              |
+| `Server.consolidateFlush`      | Flushing content is done in batches. Can potentially improve performance.                               |
