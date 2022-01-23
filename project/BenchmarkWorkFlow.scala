@@ -9,7 +9,7 @@ object BenchmarkWorkFlow {
       name = "Benchmarks",
       oses = List("centos"),
       cond = Some(
-        "${{ github.event_name == 'pull_request'}} && contains(github.event.pull_request.labels.*.name, 'documentation')",
+        "${{ github.event_name == 'pull_request'}} && !contains(github.event.pull_request.labels.*.name, 'documentation')",
       ),
       scalas = List(Scala213),
       steps = List(
