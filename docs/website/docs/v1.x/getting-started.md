@@ -3,22 +3,26 @@ sidebar_position: 2
 ---
 
 # Getting Started
-
+ZIO HTTP is a powerful library that is used to build highly performant HTTP-based services and clients using functional scala and ZIO.
+The first step when using ZIO HTTP is creating an HTTP app.
 ## Http
+HTTP is a domain that models Http apps using ZIO and works over any request and response types. Http Domain provides a lot of ways to create HTTP apps, for example `text`, `html`, `fromFile`, `fromData`, `fromStream`, `fromEffect`. 
 
 ### Creating a "_Hello World_" app
+Creating an HTTP app using ZIO Http is as simple as this:
 
 ```scala
 import zhttp.http._
 
 val app = Http.text("Hello World!")
 ```
-
-An application can be made using any of the available operators on `zhttp.Http`. In the above program for any Http request, the response is always `"Hello World!"`.
+In the above snippet, for any HTTP request, the response is always `"Hello World!"`.
+An application can be made using any of the available operators on `zhttp.Http`.
 
 ### Routing
-
-```scala
+ For handling routes, Http Domain has a `collect` method that, accepts different requests and produces responses. Pattern matching on the route is supported by the framework
+The example below shows how to create routes:
+```scala,
 import zhttp.http._
 
 val app = Http.collect[Request] {
@@ -27,9 +31,9 @@ val app = Http.collect[Request] {
 }
 ```
 
-Pattern matching on route is supported by the framework
 
 ### Composition
+HTTP apps can be composed using the `++` operator. The way it works is if none of the routes matches in `a`, the control is passed on to the `b` app.
 
 ```scala
 import zhttp.http._
@@ -43,6 +47,7 @@ val app = a ++ b
 Apps can be composed using the `++` operator. The way it works is, if none of the routes match in `a` , then the control is passed on to the `b` app.
 
 ### ZIO Integration
+To return a ZIO effect value, you can create effectful HTTP apps using `collectZIO` and wrap response using `wrapZIO`.
 
 ```scala
 val app = Http.collectZIO[Request] {
@@ -50,11 +55,8 @@ val app = Http.collectZIO[Request] {
 }
 ```
 
-`Http.collectZIO` allow routes to return a ZIO effect value.
-
 ### Accessing the Request
-
-To access request use @ as it binds a matched pattern to a variable and can be used in creating response.  
+To access request in the response, use @ as it binds a matched pattern to a variable and can be used in creating a response.  
 ```scala
 import zhttp.http._
 
@@ -67,9 +69,13 @@ val app = Http.collectZIO[Request] {
 ```
 
 ### Testing
+<<<<<<< HEAD
 
 Since `Http` is a function of the form `A => ZIO[R, Option[E], B]` to test it you can simply call an `Http` like a function.
 
+=======
+ZIO HTTP provides a `zhttp-test` package for use in unit tests. You can utilize it as follows:
+>>>>>>> 25679348 (fix: getting started)
 ```scala
 import zio.test._
 import zhttp.http._
@@ -85,14 +91,15 @@ object Spec extends DefaultRunnableSpec {
     )
 }
 ```
-When we call `app` with `request` it calls apply method of Http via `zhttp.test` package
+When we call `app` with `request` it calls apply the method of HTTP via `zhttp.test` package
 
 ## Socket
-
+`Socket` is another functional domain in ZIO HTTP. It provides operators to create socket apps. 
+A socket app is an app that handles WebSocket connections.
 ### Creating a socket app
-
-Let's build an app which can handle websocket connections as well. To make one, we need to create a socket app and then convert it to Response using `toResponse`.
-Socket app can be created by using `Socket` constructors. Here we are using `collect` which returns a stream with WebsSocketTextFrame "BAR" on receiving WebsSocketTextFrame "FOO".   
+Socket app can be created by using `Socket` constructors. To create a socket app, you need to create a socket that accepts `WebSocketFrame` and produces `ZStream` of `WebSocketFrame`.
+Finally, we need to convert socketApp to `Response` using `toResponse`.   
+The below example shows a simple socket app, we are using `collect` which returns a stream with WebsSocketTextFrame "BAR" on receiving WebsSocketTextFrame "FOO".   
 ```scala
 import zhttp.socket._
 
@@ -107,10 +114,11 @@ private val socket = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text("
 ```
 
 ## Server
+As we have seen how to create HTTP apps, the only thing left is to run an  HTTP server and serve requests.
+ZIO HTTP provides a way to set configurations for your server. The server can be configured according to the leak detection level, request size, address etc. 
 
-### Starting an Http App
-
-To Launch our app, we need to start server on some port. Let's see an example of a simple Http app that responds with empty content and a `200` status code is deployed on port `8090` using `Server.start`.
+### Starting an HTTP App
+To Launch our app, we need to start th server on some port. The below example shows a simple Http app that responds with empty content and a `200` status code is deployed on port `8090` using `Server.start`.
 ```scala
 import zhttp.http._
 import zhttp.service.Server
@@ -123,8 +131,6 @@ object HelloWorld extends App {
     Server.start(8090, app).exitCode
 }
 ```
-Server can be configured according to the leak detection level, request size, address etc. 
-
 
 ## Examples
 
