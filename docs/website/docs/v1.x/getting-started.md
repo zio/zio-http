@@ -118,7 +118,7 @@ As we have seen how to create HTTP apps, the only thing left is to run an  HTTP 
 ZIO HTTP provides a way to set configurations for your server. The server can be configured according to the leak detection level, request size, address etc. 
 
 ### Starting an HTTP App
-To Launch our app, we need to start th server on some port. The below example shows a simple Http app that responds with empty content and a `200` status code is deployed on port `8090` using `Server.start`.
+To launch our app, we need to start the server on some port. The below example shows a simple HTTP app that responds with empty content and a `200` status code, deployed on port `8090` using `Server.start`.
 ```scala
 import zhttp.http._
 import zhttp.service.Server
