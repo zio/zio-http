@@ -8,10 +8,10 @@ import zio._
  * Example to build app on concrete entity
  */
 object ConcreteEntity extends App {
-  //Request
+  // Request
   case class CreateUser(name: String)
 
-  //Response
+  // Response
   case class UserCreated(id: Long)
 
   val user: Http[Any, Nothing, CreateUser, UserCreated] =
@@ -19,11 +19,10 @@ object ConcreteEntity extends App {
       UserCreated(2)
     }
 
-  val app: Http[Any, Nothing, Request, Response[Any, Nothing]] = user
-    .contramap[Request](req => CreateUser(req.endpoint._2.toString)) 
-        //Http[Any, Nothing, Request, UserCreated]
-    .map(userCreated => Response.text(userCreated.id.toString))
-        //Http[Any, Nothing, Request, Response]
+  val app: HttpApp[Any, Nothing] =
+    user
+      .contramap[Request](req => CreateUser(req.path.toString))   // Http[Any, Nothing, Request, UserCreated]
+      .map(userCreated => Response.text(userCreated.id.toString)) // Http[Any, Nothing, Request, Response]
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
