@@ -37,13 +37,6 @@ object ClientSpec extends HttpRunnableSpec {
         val app             = Http.text("zio user does not exist")
         val responseContent = app.requestBodyAsString()
         assertM(responseContent)(containsString("user"))
-      } +
-      testM("client req url") {
-        val app    = Http.collect[Request] { case req @ Method.GET -> !! / "foo" =>
-          Response.text(s"${req.url.asString}")
-        }
-        val actual = app.request(!! / "foo").flatMap(_.getBodyAsString)
-        assertM(actual)(equalTo("/foo"))
       }
   }
 
