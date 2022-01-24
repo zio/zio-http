@@ -1,8 +1,10 @@
 package zhttp.http.middleware
 
+import zhttp.http.LOG.DefaultLogConfig
 import zhttp.http._
 import zhttp.http.headers.HeaderModifier
 import zhttp.http.middleware.Web.{PartialInterceptPatch, PartialInterceptZIOPatch}
+import zhttp.service.server.ServerTimeGenerator
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
@@ -44,6 +46,53 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
             .mapError(Option(_))
         } yield Patch.empty
     }
+
+  /**
+   * Provides a logging middleware
+   */
+  def log[R, E](
+                 logger: (String, LogLevel) => ZIO[R, E, Unit],
+                 logFmt: LogFmt = DefaultLogConfig,
+               ): HttpMiddleware[R with Clock, E] = {
+
+    val serverTime = ServerTimeGenerator.make
+
+    def logRequest[R0, E0](
+                            logger: (String, LogLevel) => ZIO[R0, E0, Unit],
+                            request: Request,
+                            startTime: Long,
+                          ): ZIO[R0, E0, Long] = {
+      val logData:String = logFmt.run(request)
+      logger(logData, LogLevel.Info).as(startTime)
+    }
+
+    def logResponse[R0, E0](
+                             logger: (String, LogLevel) => ZIO[R0, E0, Unit],
+                             response: Response,
+                             startTime: Long,
+                             endTime: Long,
+                           ): ZIO[R0, Option[E0], Patch] = {
+      val logData =
+        logFmt.run(response, startTime, endTime)
+      if (response.status.asJava.code() > 499) {
+        logger(logData, LogLevel.Error).mapBoth(e => Some(e), _ => Patch.empty)
+      } else {
+        logger(logData, LogLevel.Info).mapBoth(e => Some(e), _ => Patch.empty)
+      }
+    }
+
+    interceptZIOPatch(req =>
+      ZIO
+        .succeed(serverTime.getLong)
+        .flatMap(start => logRequest(logger, req, start).mapError(e => Some(e))),
+    ) { case (response, start) =>
+      for {
+        end <- ZIO.succeed(serverTime.getLong)
+        _   <- logResponse(logger, response, start, end)
+      } yield Patch.empty
+    }
+
+  }
 
   /**
    * Logical operator to decide which middleware to select based on the header

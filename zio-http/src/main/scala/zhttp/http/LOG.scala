@@ -20,18 +20,31 @@ sealed trait LogFmt { self =>
 
   def combine(that: LogFmt): LogFmt = LogFmt.And(self, that)
 
-  def run(request: Request, response: Response, start: Long, end: Long): String = {
+  def run(response: Response, start: Long, end: Long): String = {
     def execute(logFmt: LogFmt): String =
       logFmt match {
         case LogFmt.And(left, right)           => execute(left) ++ execute(right)
-        case LogFmt.Status                     => s" Status: ${response.status}"
-        case LogFmt.Method                     => s"  Method: ${request.method}"
-        case LogFmt.Url                        => s" Url: ${request.url.asString}"
+        case LogFmt.Status                     => s" Status: ${response.status},"
         case LogFmt.Duration                   => s" Duration: ${(end - start) / 1000}ms"
-        case LogFmt.Request(fmt)               => s"\nRequest: " ++ execute(fmt)
-        case LogFmt.Response(fmt)              => s"\nResponse: " ++ execute(fmt)
-        case LogFmt.Headers(filter, isRequest) =>
-          s" Headers: ${LogFmt.stringifyHeaders(filter(if (isRequest) request.getHeaders else response.headers)).mkString("\n")}"
+        case LogFmt.Response(fmt)              => s" Response: " ++ execute(fmt)
+        case LogFmt.Headers(filter) =>
+          s" Headers: ${LogFmt.stringifyHeaders(filter(response.headers)).mkString}"
+        case _ => ""
+      }
+
+    execute(self)
+  }
+
+  def run(request: Request): String =  {
+    def execute(logFmt: LogFmt): String =
+      logFmt match {
+        case LogFmt.And(left, right)           => execute(left) ++ execute(right)
+        case LogFmt.Method                     => s" Method: ${request.method},"
+        case LogFmt.Url                        => s" Url: ${request.url.asString},"
+        case LogFmt.Request(fmt)               => s" Request: " ++ execute(fmt)
+        case LogFmt.Headers(filter) =>
+          s" Headers: ${LogFmt.stringifyHeaders(filter(request.getHeaders)).mkString}"
+        case _ => ""
       }
 
     execute(self)
@@ -48,7 +61,7 @@ object LogFmt {
   case object Duration                                                                           extends LogFmt
   final case class Request(fmt: LogFmt)                                                          extends LogFmt
   final case class Response(fmt: LogFmt)                                                         extends LogFmt
-  final case class Headers(filter: zhttp.http.Headers => zhttp.http.Headers, isRequest: Boolean) extends LogFmt
+  final case class Headers(filter: zhttp.http.Headers => zhttp.http.Headers) extends LogFmt
 
   def status: LogFmt                   = Status
   def method: LogFmt                   = Method
@@ -56,12 +69,12 @@ object LogFmt {
   def duration: LogFmt                 = Duration
   def request(logFmt: LogFmt): LogFmt  = Request(logFmt)
   def response(logFmt: LogFmt): LogFmt = Response(logFmt)
-  def headers(filter: zhttp.http.Headers => zhttp.http.Headers = identity, isRequest: Boolean = true): LogFmt =
-    Headers(filter, isRequest)
+  def headers(filter: zhttp.http.Headers => zhttp.http.Headers = identity): LogFmt =
+    Headers(filter)
 
-  def headers = Headers(identity, true)
+  def headers = Headers(identity)
 
   private def stringifyHeaders(headers: zhttp.http.Headers): List[String] = headers.toList.map { case (name, value) =>
-    s"  $name = $value \n"
+    s" $name = $value,"
   }
 }
