@@ -22,6 +22,10 @@ import zio.{Has, Task, ZIO, ZManaged}
 abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
 
   implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Client.ClientRequest, A]) {
+
+    /**
+     * Runs the deployed Http app by making a real http request to it. Request params can be passed on via this method.
+     */
     def run(
       path: Path = !!,
       method: Method = Method.GET,
@@ -42,6 +46,10 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
   }
 
   implicit class RunnableHttpClientAppSyntax(app: HttpApp[HttpEnv, Throwable]) {
+
+    /**
+     * Deploys the http application on the test server.
+     */
     def deploy: HttpIO[Any, Client.ClientResponse] =
       for {
         port     <- Http.fromZIO(DynamicServer.getPort)
@@ -55,6 +63,10 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
           )
         }
       } yield response
+
+    /**
+     * Deploys the websocket application on the test server.
+     */
 
     def deployWebSocket: HttpIO[SttpClient, client3.Response[Either[String, WebSocket[Task]]]] = for {
       id  <- Http.fromZIO(DynamicServer.deploy(app))
