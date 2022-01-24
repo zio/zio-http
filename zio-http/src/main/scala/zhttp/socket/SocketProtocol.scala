@@ -20,6 +20,7 @@ sealed trait SocketProtocol { self =>
     def loop(protocol: SocketProtocol): Unit = {
       protocol match {
         case Default                           => ()
+        case SocketUri(_)                      => ()
         case SubProtocol(name)                 => b.subprotocols(name)
         case HandshakeTimeoutMillis(duration)  => b.handshakeTimeoutMillis(duration.toMillis)
         case ForceCloseTimeoutMillis(duration) => b.forceCloseTimeoutMillis(duration.toMillis)
@@ -27,7 +28,6 @@ sealed trait SocketProtocol { self =>
         case SendCloseFrame(status)            => b.sendCloseFrame(status.asJava)
         case SendCloseFrameCode(code, reason)  => b.sendCloseFrame(new WebSocketCloseStatus(code, reason))
         case ForwardPongFrames                 => b.dropPongFrames(false)
-        case SocketUri(_)                      => b
         case Concat(a, b)                      =>
           loop(a)
           loop(b)
@@ -39,18 +39,18 @@ sealed trait SocketProtocol { self =>
   }
 
   def clientConfig(headers: Headers): WebSocketClientProtocolConfig = {
-    val b                                   = WebSocketClientProtocolConfig.newBuilder().customHeaders(headers.encode)
-    def loop(protocol: SocketProtocol): Any = {
+    val b                                    = WebSocketClientProtocolConfig.newBuilder().customHeaders(headers.encode)
+    def loop(protocol: SocketProtocol): Unit = {
       protocol match {
+        case Default                           => ()
+        case SocketUri(uri)                    => b.webSocketUri(uri)
         case SubProtocol(name)                 => b.subprotocol(name)
         case HandshakeTimeoutMillis(duration)  => b.handshakeTimeoutMillis(duration.toMillis)
         case ForceCloseTimeoutMillis(duration) => b.forceCloseTimeoutMillis(duration.toMillis)
+        case ForwardCloseFrames                => b.handleCloseFrames(false)
         case SendCloseFrame(status)            => b.sendCloseFrame(status.asJava)
         case SendCloseFrameCode(code, reason)  => b.sendCloseFrame(new WebSocketCloseStatus(code, reason))
-        case SocketUri(uri)                    => b.webSocketUri(uri)
-        case SocketProtocol.ForwardCloseFrames => b.handleCloseFrames(false)
-        case SocketProtocol.ForwardPongFrames  => b.dropPongFrames(false)
-        case SocketProtocol.Default            => ()
+        case ForwardPongFrames                 => b.dropPongFrames(false)
         case Concat(a, b)                      =>
           loop(a)
           loop(b)
@@ -60,6 +60,7 @@ sealed trait SocketProtocol { self =>
     loop(self)
     b.build()
   }
+
 }
 
 object SocketProtocol {
