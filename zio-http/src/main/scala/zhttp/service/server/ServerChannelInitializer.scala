@@ -2,7 +2,11 @@ package zhttp.service.server
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer}
-import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
+import io.netty.handler.codec.http.HttpObjectDecoder.{
+  DEFAULT_MAX_CHUNK_SIZE,
+  DEFAULT_MAX_HEADER_SIZE,
+  DEFAULT_MAX_INITIAL_LINE_LENGTH,
+}
 import io.netty.handler.codec.http.HttpServerUpgradeHandler.UpgradeCodecFactory
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http2.{Http2CodecUtil, Http2FrameCodecBuilder, Http2ServerUpgradeCodec}
@@ -21,6 +25,7 @@ final case class ServerChannelInitializer[R](
   cfg: Config[R, Throwable],
   reqHandler: ChannelHandler,
   respHandler: ChannelHandler,
+  http2H: ChannelHandler,
 ) extends ChannelInitializer[Channel] {
   override def initChannel(channel: Channel): Unit = {
     if (!cfg.http2) {
@@ -89,13 +94,16 @@ final case class ServerChannelInitializer[R](
           )
           pipeline
             .addLast(HTTP2_SERVER_CODEC_HANDLER, Http2FrameCodecBuilder.forServer().build())
-//            .addLast(HTTP2_REQUEST_HANDLER, ???)
+            .addLast(HTTP2_REQUEST_HANDLER, http2H)
           ()
         case None            =>
           val sourceCodec = new HttpServerCodec
 //          pipeline.addLast(ENCRYPTION_FILTER_HANDLER, EncryptedMessageFilter(httpH, settings))
           pipeline.addLast(SERVER_CODEC_HANDLER, sourceCodec)
-          pipeline.addLast(SERVER_CLEAR_TEXT_HTTP2_HANDLER, new HttpServerUpgradeHandler(sourceCodec, upgradeCodecFactory(http2H)))
+          pipeline.addLast(
+            SERVER_CLEAR_TEXT_HTTP2_HANDLER,
+            new HttpServerUpgradeHandler(sourceCodec, upgradeCodecFactory(http2H)),
+          )
 //          pipeline.addLast(SERVER_CLEAR_TEXT_HTTP2_FALLBACK_HANDLER, ClearTextHttp2FallbackServerHandler(httpH, settings))
           ()
       }

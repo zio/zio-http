@@ -14,10 +14,10 @@ trait DecodeJRequest {
    * Tries to decode the [[io.netty.handler.codec.http2.Http2HeadersFrame]] to [Request].
    */
   def decodeHttp2Header(
-                         hh: Http2HeadersFrame,
-                         ctx: ChannelHandlerContext,
-                         dataL: List[DefaultHttp2DataFrame] = null,
-                       ): Either[HttpError, Request] = for {
+    hh: Http2HeadersFrame,
+    ctx: ChannelHandlerContext,
+    dataL: List[DefaultHttp2DataFrame] = null,
+  ): Either[HttpError, Request] = for {
     url <- URL.fromString(hh.headers().path().toString)
     method        = Method.fromString(hh.headers().method().toString)
     headers       = Headers.fromHttp2Headers(hh.headers())

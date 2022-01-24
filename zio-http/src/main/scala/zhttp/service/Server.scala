@@ -222,7 +222,8 @@ object Server {
       zExec          <- HttpRuntime.default[R].toManaged_
       reqHandler      = settings.app.compile(zExec, settings)
       respHandler     = ServerResponseHandler(zExec, settings, ServerTimeGenerator.make)
-      init            = ServerChannelInitializer(zExec, settings, reqHandler, respHandler)
+      http2H          = Http2ServerRequestHandler(zExec, settings)
+      init            = ServerChannelInitializer(zExec, settings, reqHandler, respHandler, http2H)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       chf  <- ZManaged.effect(serverBootstrap.childHandler(init).bind(settings.address))
       _    <- ChannelFuture.asManaged(chf)
