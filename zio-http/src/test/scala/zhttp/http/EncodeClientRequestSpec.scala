@@ -1,8 +1,7 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.{FullHttpRequest, HttpHeaderNames, HttpVersion}
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpVersion}
 import zhttp.internal.HttpGen
-import zhttp.service.Client.ClientRequest
 import zhttp.service.{Client, EncodeClientParams}
 import zio.random.Random
 import zio.test.Assertion._
@@ -43,24 +42,19 @@ object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientPara
           assert(req.method())(equalTo(params.method.asHttpMethod))
         }
       } +
-      testM("uri") {
-        check(anyClientParam) { params =>
-          val req: FullHttpRequest = encodeClientParams(HttpVersion.HTTP_1_1, params)
-          assert(req.uri())(equalTo(params.url.relative.asString))
-        }
-      } +
-      test("uri as path") {
-        val actual = encodeClientParams(
-          HttpVersion.HTTP_1_1,
-          ClientRequest(Method.GET, URL(!! / "a" / "b", queryParams = Map("q" -> List("123")))),
-        ).uri()
-        assert(actual)(equalTo("/a/b?q=123"))
-      } +
-      testM("uri on HttpData.File") {
-        check(HttpGen.clientParamsForFileHttpData()) { params =>
-          val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
-          assert(req.uri())(equalTo(params.url.relative.asString))
-        }
+      suite("uri") {
+        testM("uri") {
+          check(anyClientParam) { params =>
+            val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
+            assert(req.uri())(equalTo(params.url.relative.asString))
+          }
+        } +
+          testM("uri on HttpData.File") {
+            check(HttpGen.clientParamsForFileHttpData()) { params =>
+              val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
+              assert(req.uri())(equalTo(params.url.relative.asString))
+            }
+          }
       } +
       testM("content-length") {
         check(clientParamWithFiniteData(5)) { params =>
