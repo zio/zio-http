@@ -36,14 +36,12 @@ class OptionalSSLHandler(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour
             pipeline.remove(HTTP2_REQUEST_HANDLER)
             pipeline.remove(this)
             pipeline.addLast(new HttpOnHttpsHandler(httpBehaviour))
-            // TODO:  make changes in httponhttps
             ()
           } else {
             pipeline.remove(HTTP_SERVER_REQUEST_HANDLER)
             pipeline.remove(this)
             pipeline.addLast(new HttpOnHttpsHandler(httpBehaviour))
             ()
-            // TODO: SEE IF THIS WORKS
           }
       }
     }

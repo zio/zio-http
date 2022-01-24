@@ -3,7 +3,7 @@ package zhttp.service.server
 import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.unix.Errors.NativeIoException
-import io.netty.channel.{ChannelDuplexHandler, ChannelHandlerContext}
+import io.netty.channel.{ChannelDuplexHandler, ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http2._
 import zhttp.http.Status.{INTERNAL_SERVER_ERROR, NOT_FOUND, UPGRADE_REQUIRED}
@@ -217,6 +217,7 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
       case HttpData.BinaryChunk(data)   => data.length
       case HttpData.BinaryByteBuf(data) => data.toString(HTTP_CHARSET).length
       case HttpData.BinaryStream(_)     => -1
+      case HttpData.File(_)             => 0
     }
     if (length >= 0) headers.setInt(HttpHeaderNames.CONTENT_LENGTH, length)
 
@@ -259,6 +260,17 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
             _ <- ChannelFuture.unit(ctx.writeAndFlush(new DefaultHttp2DataFrame(true).stream(stream)))
           } yield ()
         }
+      case HttpData.File(file)          =>
+        import java.io.RandomAccessFile
+
+        val raf        = new RandomAccessFile(file, "r")
+        val fileLength = raf.length()
+        // TODO: make sure this works
+        // Write the content.
+        ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
+        // Write the end marker.
+        ctx.write(new DefaultHttp2DataFrame(true).stream(stream))
+        ()
     }
 
   }

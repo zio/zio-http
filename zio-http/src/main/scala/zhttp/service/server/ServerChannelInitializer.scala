@@ -98,13 +98,16 @@ final case class ServerChannelInitializer[R](
           ()
         case None            =>
           val sourceCodec = new HttpServerCodec
-//          pipeline.addLast(ENCRYPTION_FILTER_HANDLER, EncryptedMessageFilter(httpH, settings))
+//          pipeline.addLast(ENCRYPTION_FILTER_HANDLER, EncryptedMessageFilter(reqHandler, respHandler, cfg))
           pipeline.addLast(SERVER_CODEC_HANDLER, sourceCodec)
           pipeline.addLast(
             SERVER_CLEAR_TEXT_HTTP2_HANDLER,
             new HttpServerUpgradeHandler(sourceCodec, upgradeCodecFactory(http2H)),
           )
-//          pipeline.addLast(SERVER_CLEAR_TEXT_HTTP2_FALLBACK_HANDLER, ClearTextHttp2FallbackServerHandler(httpH, settings))
+          pipeline.addLast(
+            SERVER_CLEAR_TEXT_HTTP2_FALLBACK_HANDLER,
+            ClearTextHttp2FallbackServerHandler(reqHandler, respHandler, cfg),
+          )
           ()
       }
 
