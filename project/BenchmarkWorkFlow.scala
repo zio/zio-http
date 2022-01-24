@@ -8,8 +8,8 @@ object BenchmarkWorkFlow {
       id = "runBenchMarks",
       name = "Benchmarks",
       oses = List("centos"),
-      cond = Some(
-        "${{ github.event_name == 'pull_request'}} && !contains(github.event.pull_request.labels.*.name, 'documentation')",
+      cond = Option(
+        "${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'documentation') }}",
       ),
       scalas = List(Scala213),
       steps = List(

@@ -10,7 +10,7 @@ name: Continuous Integration
 on:
   pull_request:
     branches: ['**']
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
   push:
     branches: ['**']
     tags: [v*]
@@ -230,7 +230,7 @@ jobs:
 
   runBenchMarks:
     name: Benchmarks
-    if: ${{ github.event_name == 'pull_request'}} && !contains(github.event.pull_request.labels.*.name, 'documentation')
+    if: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'documentation') }}
     strategy:
       matrix:
         os: [centos]

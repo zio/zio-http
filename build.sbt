@@ -9,7 +9,9 @@ ThisBuild / githubWorkflowPREventTypes   := Seq(
   PREventType.Opened,
   PREventType.Synchronize,
   PREventType.Reopened,
-  PREventType.Edited
+  PREventType.Edited,
+  PREventType.Labeled,
+  PREventType.Unlabeled
 )
 ThisBuild / githubWorkflowAddedJobs      :=
   Seq(
