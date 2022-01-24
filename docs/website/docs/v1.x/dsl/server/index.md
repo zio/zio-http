@@ -111,7 +111,8 @@ object HelloWorldAdvanced extends App {
 
 | **Configuration**              | **Purpose and usage**          |
 | -----------                    | -----------                    |
-| `Server.app(httpApp)`                 | Mount routes. Refer to complete example above                               |
+| `Server.app(httpApp)`          | Mount routes. Refer to complete example above                               |
+| `Server.maxRequestSize(8 * 1024)`          | handle max request size of 8 KB (default 4 KB)                               |
 | `Server.port(portNum)` or `Server.bind(portNum)`       | Bind server to the port, refer to examples above                               |
 | `Server.ssl(sslOptions)`       | Creates a new server with ssl options. [HttpsHelloWorld](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/example/HttpsHelloWorld.scala)                               |
 | `Server.acceptContinue`        | Sends a [100 CONTINUE](https://www.w3.org/Protocols/rfc2616/rfc2616-sec8.html#sec8.2.3)                              |
