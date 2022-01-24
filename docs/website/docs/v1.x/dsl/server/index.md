@@ -30,14 +30,13 @@ import zio._
     import zio._
     import scala.util.Try
     ```
-2. The Server can be built incrementally with a `++` each returning a new Server overriding any default configuration.
+2. The Server can be built incrementally with a `++` each returning a new Server overriding any default configuration. (More properties are given in the [Server Configurations](#server-configurations) section below.)
     ```scala
     private val server =
       Server.port(PORT) ++              // Setup port
         Server.maxRequestSize(8 * 1024) ++ // handle max request size of 8 KB (default 4 KB)
         Server.app(fooBar ++ app)       // Setup the Http app
     ```
-  More properties are given in the [Server Configurations](#server-configurations) section below.
 3. And then use ```Server.make``` to get a "managed" instance use it to run a server forever
     ```scala
     override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
