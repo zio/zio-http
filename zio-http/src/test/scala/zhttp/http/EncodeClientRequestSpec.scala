@@ -4,7 +4,6 @@ import io.netty.handler.codec.http.{FullHttpRequest, HttpHeaderNames, HttpVersio
 import zhttp.internal.HttpGen
 import zhttp.service.Client.ClientRequest
 import zhttp.service.{Client, EncodeClientParams}
-import zio.ZIO
 import zio.random.Random
 import zio.test.Assertion._
 import zio.test._
@@ -50,10 +49,12 @@ object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientPara
           assert(req.uri())(equalTo(params.url.relative.asString))
         }
       } +
-      testM("uri as path") {
-        val url    = ZIO.fromEither(URL.fromString("http://localhost:8090/a/b/c?q=123"))
-        val actual = url.map(a => encodeClientParams(HttpVersion.HTTP_1_1, ClientRequest(Method.GET, a)).uri())
-        assertM(actual)(equalTo("/a/b/c?q=123"))
+      test("uri as path") {
+        val actual = encodeClientParams(
+          HttpVersion.HTTP_1_1,
+          ClientRequest(Method.GET, URL(!! / "a" / "b", queryParams = Map("q" -> List("123")))),
+        ).uri()
+        assert(actual)(equalTo("/a/b?q=123"))
       } +
       testM("uri on HttpData.File") {
         check(HttpGen.clientParamsForFileHttpData()) { params =>
