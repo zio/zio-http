@@ -35,7 +35,7 @@ object WebSocketServerSpec extends HttpRunnableSpec {
           .onClose(_ => ZIO.unit)
           .onError(thr => ZIO.die(thr))
 
-        assertM(app.webSocketStatusCode(!! / "subscriptions", ss = client).repeatN(1024))(
+        assertM(app.webSocketStatusCode(!! / "subscriptions", ss = client).repeatN(2048))(
           equalTo(Status.SWITCHING_PROTOCOLS),
         )
       }

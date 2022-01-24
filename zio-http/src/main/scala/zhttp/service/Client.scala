@@ -9,22 +9,22 @@ import io.netty.channel.{
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http.HttpVersion
-import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.http.headers.HeaderExtension
 import zhttp.service
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.content.handlers.{ClientResponseHandler, ClientSocketUpgradeHandler}
-import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler, ClientSocketHandler}
+import zhttp.service.client.content.handlers.ClientResponseHandler
+import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler, SocketClient}
 import zhttp.socket.SocketApp
 import zio.{Chunk, Promise, Task, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
-    extends HttpMessageCodec {
+    extends SocketClient(rtm, cf, el)
+    with HttpMessageCodec {
 
   private def bootstrap[A](chInit: ClientChannelInitializer[A]) =
     new Bootstrap().channelFactory(cf).group(el).handler(chInit)
@@ -41,11 +41,11 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
 
   def socket(
     headers: Headers = Headers.empty,
-    app: SocketApp[R],
+    sa: SocketApp[R],
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[Any, Throwable, ClientResponse] = for {
     pr  <- Promise.make[Throwable, ClientResponse]
-    _   <- Task(unsafeSocket(headers, app, pr, sslOptions))
+    _   <- Task(unsafeSocket(headers, sa, pr, sslOptions))
     res <- pr.await
   } yield res
 
@@ -80,40 +80,6 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     }
   }
 
-  private def unsafeSocket(
-    headers: Headers,
-    ss: SocketApp[R],
-    pr: Promise[Throwable, ClientResponse],
-    clientSSLOptions: ClientSSLOptions,
-  ): Unit = {
-    val config   = ss.protocol.clientConfig(headers)
-    val handlers = List(
-      ClientSocketUpgradeHandler(rtm, pr),
-      new WebSocketClientProtocolHandler(config),
-      ClientSocketHandler(rtm, ss),
-    )
-
-    val url = URL.fromString(config.webSocketUri().toString).toOption
-
-    val host   = url.flatMap(_.host)
-    val port   = url.flatMap(_.port).fold(80) {
-      case -1   => 80
-      case port => port
-    }
-    val scheme = url
-      .map(_.kind match {
-        case Location.Relative               => ""
-        case Location.Absolute(scheme, _, _) => scheme.asString
-      })
-      .get
-
-    val init = ClientChannelInitializer(handlers, scheme, clientSSLOptions)
-
-    val jboo = bootstrap(init)
-    if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
-
-    jboo.connect(): Unit
-  }
 }
 
 object Client {
@@ -200,10 +166,10 @@ object Client {
 
   def socket[R](
     headers: Headers,
-    app: SocketApp[R],
+    sa: SocketApp[R],
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    make[R].flatMap(_.socket(headers, app, sslOptions))
+    make[R].flatMap(_.socket(headers, sa, sslOptions))
 
   final case class ClientRequest(
     method: Method,
