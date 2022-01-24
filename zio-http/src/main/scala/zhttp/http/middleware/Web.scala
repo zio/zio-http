@@ -51,27 +51,27 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    * Provides a logging middleware
    */
   def log[R, E](
-                 logger: (String, LogLevel) => ZIO[R, E, Unit],
-                 logFmt: LogFmt = DefaultLogConfig,
-               ): HttpMiddleware[R with Clock, E] = {
+    logger: (String, LogLevel) => ZIO[R, E, Unit],
+    logFmt: LogFmt = DefaultLogConfig,
+  ): HttpMiddleware[R with Clock, E] = {
 
     val serverTime = ServerTimeGenerator.make
 
     def logRequest[R0, E0](
-                            logger: (String, LogLevel) => ZIO[R0, E0, Unit],
-                            request: Request,
-                            startTime: Long,
-                          ): ZIO[R0, E0, Long] = {
-      val logData:String = logFmt.run(request)
+      logger: (String, LogLevel) => ZIO[R0, E0, Unit],
+      request: Request,
+      startTime: Long,
+    ): ZIO[R0, E0, Long] = {
+      val logData: String = logFmt.run(request)
       logger(logData, LogLevel.Info).as(startTime)
     }
 
     def logResponse[R0, E0](
-                             logger: (String, LogLevel) => ZIO[R0, E0, Unit],
-                             response: Response,
-                             startTime: Long,
-                             endTime: Long,
-                           ): ZIO[R0, Option[E0], Patch] = {
+      logger: (String, LogLevel) => ZIO[R0, E0, Unit],
+      response: Response,
+      startTime: Long,
+      endTime: Long,
+    ): ZIO[R0, Option[E0], Patch] = {
       val logData =
         logFmt.run(response, startTime, endTime)
       if (response.status.asJava.code() > 499) {
