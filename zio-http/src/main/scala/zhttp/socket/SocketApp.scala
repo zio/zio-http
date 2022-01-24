@@ -3,6 +3,7 @@ package zhttp.socket
 import zhttp.http.Response
 import zhttp.socket.SocketApp.Handle.{WithEffect, WithSocket}
 import zhttp.socket.SocketApp.{Connection, Handle}
+import zhttp.socket.SocketProtocol.Config
 import zio.stream.ZStream
 import zio.{NeedsEnv, ZIO}
 
@@ -15,7 +16,7 @@ final case class SocketApp[-R](
   error: Option[Throwable => ZIO[R, Nothing, Any]] = None,
   close: Option[Connection => ZIO[R, Nothing, Any]] = None,
   decoder: SocketDecoder = SocketDecoder.default,
-  protocol: SocketProtocol = SocketProtocol.default,
+  protocol: SocketProtocol[Config] = SocketProtocol.default,
 ) { self =>
 
   /**
@@ -98,7 +99,7 @@ final case class SocketApp[-R](
   /**
    * Server side websocket configuration
    */
-  def withProtocol(protocol: SocketProtocol): SocketApp[R] =
+  def withProtocol(protocol: SocketProtocol[Config]): SocketApp[R] =
     copy(protocol = self.protocol ++ protocol)
 
   /**

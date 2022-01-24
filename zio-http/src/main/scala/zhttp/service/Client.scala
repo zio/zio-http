@@ -26,9 +26,6 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     extends SocketClient(rtm, cf, el)
     with HttpMessageCodec {
 
-  private def bootstrap[A](chInit: ClientChannelInitializer[A]) =
-    new Bootstrap().channelFactory(cf).group(el).handler(chInit)
-
   def request(
     request: Client.ClientRequest,
     sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
@@ -68,7 +65,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
       }
       val init   = ClientChannelInitializer(hand, scheme, sslOption)
 
-      val jboo = bootstrap(init)
+      val jboo = new Bootstrap().channelFactory(cf).group(el).handler(init)
       if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
 
       jboo.connect(): Unit
@@ -165,8 +162,8 @@ object Client {
     make[Any].flatMap(_.request(req, sslOptions))
 
   def socket[R](
-    headers: Headers,
     sa: SocketApp[R],
+    headers: Headers = Headers.empty,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     make[R].flatMap(_.socket(headers, sa, sslOptions))

@@ -6,18 +6,21 @@ import io.netty.handler.codec.http.websocketx.{
   WebSocketServerProtocolConfig,
 }
 import zhttp.http.Headers
+import zhttp.socket.SocketProtocol.Config.{ClientConfig, ServerConfig}
 import zio.duration.Duration
 
 /**
  * Server side websocket configuration
  */
-sealed trait SocketProtocol { self =>
+sealed trait SocketProtocol[+A] { self =>
   import SocketProtocol._
-  def ++(other: SocketProtocol): SocketProtocol = SocketProtocol.Concat(self, other)
+  def narrow[A1]: SocketProtocol[A1] = self.asInstanceOf[SocketProtocol[A1]]
 
-  def serverConfig: WebSocketServerProtocolConfig = {
+  def ++[A1 >: A](other: SocketProtocol[A1]): SocketProtocol[A1] = SocketProtocol.Concat(self, other)
+
+  def serverConfig[A1 >: A](implicit ev: A1 =:= ServerConfig): WebSocketServerProtocolConfig = {
     val b = WebSocketServerProtocolConfig.newBuilder().checkStartsWith(true).websocketPath("")
-    def loop(protocol: SocketProtocol): Unit = {
+    def loop(protocol: SocketProtocol[A1]): Unit = {
       protocol match {
         case Default                           => ()
         case SocketUri(_)                      => ()
@@ -38,9 +41,9 @@ sealed trait SocketProtocol { self =>
     b.build()
   }
 
-  def clientConfig(headers: Headers): WebSocketClientProtocolConfig = {
-    val b                                    = WebSocketClientProtocolConfig.newBuilder().customHeaders(headers.encode)
-    def loop(protocol: SocketProtocol): Unit = {
+  def clientConfig[A1 >: A](headers: Headers)(implicit ev: A1 =:= ClientConfig): WebSocketClientProtocolConfig = {
+    val b = WebSocketClientProtocolConfig.newBuilder().customHeaders(headers.encode)
+    def loop(protocol: SocketProtocol[A1]): Unit = {
       protocol match {
         case Default                           => ()
         case SocketUri(uri)                    => b.webSocketUri(uri)
@@ -64,62 +67,68 @@ sealed trait SocketProtocol { self =>
 }
 
 object SocketProtocol {
-  private final case class SubProtocol(name: String)                     extends SocketProtocol
-  private final case class HandshakeTimeoutMillis(duration: Duration)    extends SocketProtocol
-  private final case class ForceCloseTimeoutMillis(duration: Duration)   extends SocketProtocol
-  private final case class SendCloseFrame(status: CloseStatus)           extends SocketProtocol
-  private final case class SendCloseFrameCode(code: Int, reason: String) extends SocketProtocol
-  private final case class Concat(a: SocketProtocol, b: SocketProtocol)  extends SocketProtocol
-  private final case class SocketUri(uri: String)                        extends SocketProtocol
-  private case object ForwardCloseFrames                                 extends SocketProtocol
-  private case object ForwardPongFrames                                  extends SocketProtocol
-  private case object Default                                            extends SocketProtocol
+  sealed trait Config
+  object Config {
+    sealed trait ServerConfig extends Config
+    sealed trait ClientConfig extends Config
+  }
+
+  private case object Default                                                     extends SocketProtocol[Config]
+  private case object ForwardPongFrames                                           extends SocketProtocol[Config]
+  private case object ForwardCloseFrames                                          extends SocketProtocol[Config]
+  private final case class SocketUri(uri: String)                                 extends SocketProtocol[ClientConfig]
+  private final case class SubProtocol(name: String)                              extends SocketProtocol[Config]
+  private final case class SendCloseFrame(status: CloseStatus)                    extends SocketProtocol[Config]
+  private final case class HandshakeTimeoutMillis(duration: Duration)             extends SocketProtocol[Config]
+  private final case class ForceCloseTimeoutMillis(duration: Duration)            extends SocketProtocol[Config]
+  private final case class SendCloseFrameCode(code: Int, reason: String)          extends SocketProtocol[Config]
+  private final case class Concat[+A](a: SocketProtocol[A], b: SocketProtocol[A]) extends SocketProtocol[A]
 
   /**
    * Used to specify the websocket sub-protocol
    */
-  def subProtocol(name: String): SocketProtocol = SubProtocol(name)
+  def subProtocol(name: String): SocketProtocol[Config] = SubProtocol(name)
 
   /**
    * Handshake timeout in mills
    */
-  def handshakeTimeout(duration: Duration): SocketProtocol =
+  def handshakeTimeout(duration: Duration): SocketProtocol[Config] =
     HandshakeTimeoutMillis(duration)
 
   /**
    * Close the connection if it was not closed by the client after timeout specified
    */
-  def forceCloseTimeout(duration: Duration): SocketProtocol =
+  def forceCloseTimeout(duration: Duration): SocketProtocol[Config] =
     ForceCloseTimeoutMillis(duration)
 
   /**
    * Close frames should be forwarded
    */
-  def forwardCloseFrames: SocketProtocol = ForwardCloseFrames
+  def forwardCloseFrames: SocketProtocol[Config] = ForwardCloseFrames
 
   /**
    * Close frame to send, when close frame was not send manually.
    */
-  def closeFrame(status: CloseStatus): SocketProtocol = SendCloseFrame(status)
+  def closeFrame(status: CloseStatus): SocketProtocol[Config] = SendCloseFrame(status)
 
   /**
    * Close frame to send, when close frame was not send manually.
    */
-  def closeFrame(code: Int, reason: String): SocketProtocol =
+  def closeFrame(code: Int, reason: String): SocketProtocol[Config] =
     SendCloseFrameCode(code, reason)
 
   /**
    * If pong frames should be forwarded
    */
-  def forwardPongFrames: SocketProtocol = ForwardPongFrames
+  def forwardPongFrames: SocketProtocol[Config] = ForwardPongFrames
 
   /**
    * Creates an default decoder configuration.
    */
-  def default: SocketProtocol = Default
+  def default: SocketProtocol[Config] = Default
 
   /**
    * Sets WebSocketURI
    */
-  def uri(uri: String): SocketProtocol = SocketUri(uri)
+  def uri(uri: String): SocketProtocol[Config] = SocketUri(uri)
 }

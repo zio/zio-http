@@ -19,20 +19,12 @@ final case class ClientSocketHandler[R](
   /**
    * Unsafe write and flush for websocket frame
    */
-  def writeAndFlush(ctx: ChannelHandlerContext, stream: ZStream[R, Throwable, WebSocketFrame]) =
+  private def writeAndFlush(ctx: ChannelHandlerContext, stream: ZStream[R, Throwable, WebSocketFrame]): Unit =
     zExec.unsafeRun(ctx)(
       stream
         .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toWebSocketFrame)))
         .runDrain,
     )
-
-  override def channelUnregistered(ctx: ChannelHandlerContext): Unit = {
-    ss.close match {
-      case Some(v) => zExec.unsafeRun(ctx)(v(ctx.channel().remoteAddress()).uninterruptible)
-      case None    => ctx.fireChannelUnregistered()
-    }
-    ()
-  }
 
   override def userEventTriggered(ctx: ChannelHandlerContext, event: AnyRef): Unit = {
     import ClientHandshakeStateEvent._
@@ -66,6 +58,14 @@ final case class ClientSocketHandler[R](
         }
       case None    => ()
     }
+  }
+
+  override def channelUnregistered(ctx: ChannelHandlerContext): Unit = {
+    ss.close match {
+      case Some(v) => zExec.unsafeRun(ctx)(v(ctx.channel().remoteAddress()).uninterruptible)
+      case None    => ctx.fireChannelUnregistered()
+    }
+    ()
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, x: Throwable): Unit = {

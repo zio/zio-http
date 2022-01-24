@@ -59,7 +59,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     app: SocketApp[R],
   ): ZIO[R with EventLoopGroup with ChannelFactory with DynamicServer, Throwable, Client.ClientResponse] = for {
     port     <- DynamicServer.getPort
-    response <- Client.socket(headers, app.withProtocol(SocketProtocol.uri(s"ws://localhost:${port}${path.asString}")))
+    response <- Client.socket(app.withProtocol(SocketProtocol.uri(s"ws://localhost:${port}${path.asString}")), headers)
   } yield response
 
   implicit class RunnableHttpAppSyntax(app: HttpApp[HttpEnv, Throwable]) {

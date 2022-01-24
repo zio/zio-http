@@ -9,6 +9,7 @@ import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.content.handlers.ClientSocketUpgradeHandler
 import zhttp.socket.SocketApp
+import zhttp.socket.SocketProtocol.Config.ClientConfig
 import zio._
 
 import java.net.InetSocketAddress
@@ -20,7 +21,7 @@ class SocketClient[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEv
     pr: Promise[Throwable, Client.ClientResponse],
     clientSSLOptions: ClientSSLOptions,
   ): Unit = {
-    val config   = ss.protocol.clientConfig(headers)
+    val config   = ss.protocol.narrow[ClientConfig].clientConfig(headers)
     val handlers = List(
       ClientSocketUpgradeHandler(rtm, pr),
       new WebSocketClientProtocolHandler(config),
