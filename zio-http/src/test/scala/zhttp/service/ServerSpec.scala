@@ -1,5 +1,6 @@
 package zhttp.service
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
@@ -145,11 +146,21 @@ object ServerSpec extends HttpRunnableSpec {
         val res  = Http.fromFile(file).requestBodyAsString()
         assertM(res)(equalTo("abc\nfoo"))
       } +
+      testM("content-type header on file response") {
+        val file = new File(getClass.getResource("/TestFile.txt").getPath)
+        val res  =
+          Http
+            .fromFile(file)
+            .requestHeaderValueByName()(HttpHeaderNames.CONTENT_TYPE)
+            .map(_.getOrElse("Content type header not found."))
+        assertM(res)(equalTo("text/plain"))
+      } +
       testM("status") {
         checkAllM(HttpGen.status) { case (status) =>
           val res = Http.status(status).requestStatus()
           assertM(res)(equalTo(status))
         }
+
       } +
       testM("header") {
         checkAllM(HttpGen.header) { case header @ (name, value) =>

@@ -481,7 +481,7 @@ object Http {
   /*
    * Creates an Http app from the contents of a file
    */
-  def fromFile(file: java.io.File): HttpApp[Any, Nothing] = response(Response(data = HttpData.fromFile(file)))
+  def fromFile(file: java.io.File): HttpApp[Any, Nothing] = response(Response(headers = Headers.contentType(Files.probeContentType(file.toPath)) ++ Headers.contentLength(file.length()), data = HttpData.fromFile(file)))
 
   /**
    * Creates a Http from a pure function
@@ -525,16 +525,13 @@ object Http {
    * Creates an HTTP app to serve static resource files from a local directory.
    */
   def fromPath(root: jPath): HttpApp[Any, Nothing] = {
-    def contentTypeHeader(file: java.io.File): Header   =
-      (HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(file.toPath))
-    def contentLengthHeader(file: java.io.File): Header = (HttpHeaderNames.CONTENT_LENGTH, file.length().toString)
 
     def responseHttp(file: File) = responseZIO {
       for {
         data <- Task(HttpData.fromFile(file))
-        res  <- ZIO.succeed(Response(data = data))
+        res  <- ZIO.succeed(Response(headers = Headers.contentLength(file.length()) ++ Headers.contentType(Files.probeContentType(file.toPath)),data = data))
       } yield res
-    } @@ updateHeaders(_.addHeaders(Headers(Chunk(contentTypeHeader(file), contentLengthHeader(file)))))
+    }
 
     Http.collectHttp[Request] { case request =>
       if (request.method != Method.GET)
