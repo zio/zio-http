@@ -2,10 +2,8 @@ package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.ChannelHandler
-import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.core.Util.listFilesHtml
 import zhttp.html.Html
-import zhttp.http.Middleware.updateHeaders
 import zhttp.http.headers.HeaderModifier
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
@@ -525,7 +523,12 @@ object Http {
   /*
    * Creates an Http app from the contents of a file
    */
-  def fromFile(file: java.io.File): HttpApp[Any, Nothing] = response(Response(headers = Headers.contentType(Files.probeContentType(file.toPath)) ++ Headers.contentLength(file.length()), data = HttpData.fromFile(file)))
+  def fromFile(file: java.io.File): HttpApp[Any, Nothing] = response(
+    Response(
+      headers = Headers.contentType(Files.probeContentType(file.toPath)) ++ Headers.contentLength(file.length()),
+      data = HttpData.fromFile(file),
+    ),
+  )
 
   /**
    * Creates a Http from a pure function
@@ -573,7 +576,12 @@ object Http {
     def responseHttp(file: File) = responseZIO {
       for {
         data <- Task(HttpData.fromFile(file))
-        res  <- ZIO.succeed(Response(headers = Headers.contentLength(file.length()) ++ Headers.contentType(Files.probeContentType(file.toPath)),data = data))
+        res  <- ZIO.succeed(
+          Response(
+            headers = Headers.contentLength(file.length()) ++ Headers.contentType(Files.probeContentType(file.toPath)),
+            data = data,
+          ),
+        )
       } yield res
     }
 
