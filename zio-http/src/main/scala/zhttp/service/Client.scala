@@ -2,12 +2,7 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.{
-  Channel,
-  ChannelFactory => JChannelFactory,
-  ChannelHandlerContext,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.HttpVersion
 import zhttp.http.URL.Location
 import zhttp.http._
@@ -179,9 +174,11 @@ object Client {
   final case class ClientResponse(status: Status, headers: Headers, private[zhttp] val buffer: ByteBuf)
       extends HeaderExtension[ClientResponse] { self =>
 
-    def getBodyAsString: Task[String] = Task(buffer.toString(self.getCharset))
-
     def getBody: Task[Chunk[Byte]] = Task(Chunk.fromArray(ByteBufUtil.getBytes(buffer)))
+
+    def getBodyAsByteBuf: Task[ByteBuf] = Task(buffer)
+
+    def getBodyAsString: Task[String] = Task(buffer.toString(self.getCharset))
 
     override def getHeaders: Headers = headers
 

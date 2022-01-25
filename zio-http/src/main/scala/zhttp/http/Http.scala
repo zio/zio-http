@@ -174,35 +174,36 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Extracts body
    */
-  final def getBody(implicit ev: HasBody[B], ee: E <:< Throwable): Http[R, Throwable, A, Chunk[Byte]] =
+  final def getBody(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, Chunk[Byte]] =
     self.getBodyAsByteBuf.mapZIO(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
 
   /**
    * Extracts body as a string
    */
-  final def getBodyAsString(implicit ev: HasBody[B], ee: E <:< Throwable): Http[R, Throwable, A, String] =
+  final def getBodyAsString(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, String] =
     self.getBodyAsByteBuf.mapZIO(bytes => Task(bytes.toString(HTTP_CHARSET)))
 
   /**
    * Extracts content-length from the response if available
    */
-  final def getContentLength(implicit ev: HasHeader[B]): Http[R, E, A, Option[Long]] = self.map(ev(_).getContentLength)
+  final def getContentLength(implicit eb: IsResponse[B]): Http[R, E, A, Option[Long]] =
+    getHeaders.map(_.getContentLength)
 
   /**
    * Extracts the value of the provided header name.
    */
-  final def getHeaderValue(name: CharSequence)(implicit ev: HasHeader[B]): Http[R, E, A, Option[CharSequence]] =
-    self.map(ev(_).getHeaderValue(name))
+  final def getHeaderValue(name: CharSequence)(implicit eb: IsResponse[B]): Http[R, E, A, Option[CharSequence]] =
+    getHeaders.map(_.getHeaderValue(name))
 
   /**
    * Extracts the `Headers` from the type `B` if possible
    */
-  final def getHeaders(implicit ev: HasHeader[B]): Http[R, E, A, Headers] = self.map(ev(_))
+  final def getHeaders(implicit eb: IsResponse[B]): Http[R, E, A, Headers] = self.map(eb.getHeaders)
 
   /**
    * Extracts `Status` from the type `B` is possible.
    */
-  final def getStatus(implicit ev: HasStatus[B]): Http[R, E, A, Status] = self.map(ev(_))
+  final def getStatus(implicit ev: IsResponse[B]): Http[R, E, A, Status] = self.map(ev.getStatus)
 
   /**
    * Transforms the output of the http app
@@ -390,10 +391,10 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Extracts body as a ByteBuf
    */
   private[zhttp] final def getBodyAsByteBuf(implicit
-    ev: HasBody[B],
+    eb: IsResponse[B],
     ee: E <:< Throwable,
   ): Http[R, Throwable, A, ByteBuf] =
-    self.widen[Throwable, B].mapZIO(ev(_))
+    self.widen[Throwable, B].mapZIO(eb.getBodyAsByteBuf)
 }
 
 object Http {
