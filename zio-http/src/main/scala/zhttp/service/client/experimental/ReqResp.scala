@@ -2,8 +2,8 @@ package zhttp.service.client.experimental
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.ChannelHandlerContext
-import zhttp.http.{HTTP_CHARSET, Headers, HttpData, Method, URL}
 import zhttp.http.headers.HeaderExtension
+import zhttp.http.{HTTP_CHARSET, Headers, HttpData, Method, URL}
 import zio.{Chunk, Task}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -22,11 +22,11 @@ final case class Resp(status: zhttp.http.Status, headers: Headers, private val b
 }
 
 final case class ReqParams(
-                            method: Method = Method.GET,
-                            url: URL,
-                            getHeaders: Headers = Headers.empty,
-                            data: HttpData = HttpData.empty,
-                            private val channelContext: ChannelHandlerContext = null,
+  method: Method = Method.GET,
+  url: URL,
+  getHeaders: Headers = Headers.empty,
+  data: HttpData = HttpData.empty,
+  private val channelContext: ChannelHandlerContext = null,
 ) extends HeaderExtension[ReqParams] { self =>
 
   def getBodyAsString: Option[String] = data match {
@@ -56,5 +56,3 @@ final case class ReqParams(
   override def updateHeaders(update: Headers => Headers): ReqParams =
     self.copy(getHeaders = update(self.getHeaders))
 }
-
-

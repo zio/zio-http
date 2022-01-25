@@ -53,7 +53,8 @@ object Transport        {
 
     override def clientChannel: Task[JChannelFactory[Channel]] = clientKQueue
 
-    override def eventLoopGroupTask(nThreads: Int): Task[channel.EventLoopGroup] = EventLoopGroupN.Live.kQueueTask(nThreads)
+    override def eventLoopGroupTask(nThreads: Int): Task[channel.EventLoopGroup] =
+      EventLoopGroupN.Live.kQueueTask(nThreads)
   }
   case object URing  extends Transport {
     override def eventLoopGroup(nThreads: Int): ZManaged[Any, Nothing, channel.EventLoopGroup] =

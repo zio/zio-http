@@ -15,7 +15,7 @@ object ZClientTest extends App {
 
   //  val keepAliveHeader = Headers(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
   val emptyHeaders = Headers.empty
-  val req = ReqParams(
+  val req          = ReqParams(
     Method.GET,
     URL(!! / "foo", Location.Absolute(Scheme.HTTP, "localhost", PORT)),
     emptyHeaders,
@@ -34,10 +34,10 @@ object ZClientTest extends App {
    */
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     val prog = for {
-      cl <- client.make
-      res <- cl.run(req)
+      cl   <- client.make
+      res  <- cl.run(req)
       body <- res.getBodyAsString
-      _ <- zio.console.putStrLn(body)
+      _    <- zio.console.putStrLn(body)
     } yield ()
     prog.exitCode
   }

@@ -84,7 +84,7 @@ object EventLoopGroupN {
       else nioTask(nThreads)
 
     def default: ZManaged[Any, Nothing, channel.EventLoopGroup] = make(UIO(new channel.DefaultEventLoopGroup()))
-    def defaultTask: Task[channel.EventLoopGroup] = Task(new channel.DefaultEventLoopGroup())
+    def defaultTask: Task[channel.EventLoopGroup]               = Task(new channel.DefaultEventLoopGroup())
   }
 
 }
