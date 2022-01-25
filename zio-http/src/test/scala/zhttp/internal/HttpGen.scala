@@ -1,6 +1,9 @@
 package zhttp.internal
 
 import io.netty.buffer.Unpooled
+import io.netty.handler.codec.http.HttpScheme
+import io.netty.handler.codec.http.websocketx.WebSocketScheme
+import zhttp.http.Scheme.{HTTP, HTTPS, WS, WSS}
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service.Client.ClientRequest
@@ -92,6 +95,10 @@ object HttpGen {
       Method.CONNECT,
     ),
   )
+
+  def scheme: Gen[Any, Scheme]                    = Gen.fromIterable(List(HTTP, HTTPS, WS, WSS))
+  def jHttpScheme: Gen[Any, HttpScheme]           = Gen.fromIterable(List(HttpScheme.HTTP, HttpScheme.HTTPS))
+  def jWebSocketScheme: Gen[Any, WebSocketScheme] = Gen.fromIterable(List(WebSocketScheme.WS, WebSocketScheme.WSS))
 
   def nonEmptyHttpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData] =
     for {
