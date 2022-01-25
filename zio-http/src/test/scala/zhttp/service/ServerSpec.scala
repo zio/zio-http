@@ -31,7 +31,13 @@ object ServerSpec extends HttpRunnableSpec {
     case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
   }
 
-  private val app = serve { staticApp ++ DynamicServer.app }
+  // Use this route to test anything that doesn't require ZIO related computations.
+  private val nonZIO = Http.collect[Request] {
+    case _ -> !! / "HExitSuccess" => Response.ok
+    case _ -> !! / "HExitFailure" => Response.fromHttpError(HttpError.BadRequest())
+  }
+
+  private val app = serve { nonZIO ++ staticApp ++ DynamicServer.app }
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -223,7 +229,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   override def spec =
     suiteM("Server") {
-      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec)).useNow
+      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, nonZIOSpec)).useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds)
 
   def serverStartSpec = suite("ServerStartSpec") {
@@ -242,25 +248,47 @@ object ServerSpec extends HttpRunnableSpec {
 
   def staticAppSpec = suite("StaticAppSpec") {
     testM("200 response") {
-      val actual = status(!! / "success")
+      val actual = status(path = !! / "success")
       assertM(actual)(equalTo(Status.OK))
     } +
       testM("500 response") {
-        val actual = status(!! / "failure")
+        val actual = status(path = !! / "failure")
         assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
       } +
       testM("404 response") {
-        val actual = status(!! / "random")
+        val actual = status(path = !! / "random")
         assertM(actual)(equalTo(Status.NOT_FOUND))
       } +
       testM("200 response with encoded path") {
-        val actual = status(!! / "get%2Fsuccess")
+        val actual = status(path = !! / "get%2Fsuccess")
         assertM(actual)(equalTo(Status.OK))
       } +
       testM("Multiple 200 response") {
         for {
-          data <- status(!! / "success").repeatN(1024)
+          data <- status(path = !! / "success").repeatN(1024)
         } yield assertTrue(data == Status.OK)
       }
+  }
+
+  def nonZIOSpec = suite("NonZIOSpec") {
+    testM("200 response") {
+      checkAllM(HttpGen.method) { method =>
+        val actual = status(method, !! / "HExitSuccess")
+        assertM(actual)(equalTo(Status.OK))
+      }
+    } +
+      testM("400 response") {
+        checkAllM(HttpGen.method) { method =>
+          val actual = status(method, !! / "HExitFailure")
+          assertM(actual)(equalTo(Status.BAD_REQUEST))
+        }
+      } +
+      testM("404 response ") {
+        checkAllM(HttpGen.method) { method =>
+          val actual = status(method, !! / "A")
+          assertM(actual)(equalTo(Status.NOT_FOUND))
+        }
+      }
+
   }
 }

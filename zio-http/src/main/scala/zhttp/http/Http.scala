@@ -23,6 +23,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   import Http._
 
   /**
+   * Attaches the provided middleware to the Http app
+   */
+  final def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
+    mid: Middleware[R1, E1, A1, B1, A2, B2],
+  ): Http[R1, E1, A2, B2] = mid(self)
+
+  /**
    * Alias for flatmap
    */
   final def >>=[R1 <: R, E1 >: E, A1 <: A, C1](f: B => Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
@@ -184,6 +191,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self >>> Http.fromFunctionZIO(bFc)
 
   /**
+   * Named alias for @@
+   */
+  final def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
+    mid: Middleware[R1, E1, A1, B1, A2, B2],
+  ): Http[R1, E1, A2, B2] = Http.RunMiddleware(self, mid)
+
+  /**
    * Named alias for `<>`
    */
   final def orElse[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
@@ -336,6 +350,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
         }
       case FoldHttp(self, ee, bb, dd) =>
         self.execute(a).foldExit(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
+
+      case RunMiddleware(app, mid) => mid(app).execute(a)
     }
 }
 
@@ -343,16 +359,6 @@ object Http {
 
   implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends HeaderModifier[HttpApp[R, E]] {
     self =>
-
-    /**
-     * Attaches the provided middleware to the HttpApp
-     */
-    def @@[R1 <: R, E1 >: E](mid: Middleware[R1, E1]): HttpApp[R1, E1] = middleware(mid)
-
-    /**
-     * Attaches the provided middleware to the HttpApp
-     */
-    def middleware[R1 <: R, E1 >: E](mid: Middleware[R1, E1]): HttpApp[R1, E1] = mid(http)
 
     /**
      * Patches the response produced by the app
@@ -668,4 +674,9 @@ object Http {
   private case object Empty extends Http[Any, Nothing, Any, Nothing]
 
   private case object Identity extends Http[Any, Nothing, Any, Nothing]
+
+  private final case class RunMiddleware[R, E, A1, B1, A2, B2](
+    http: Http[R, E, A1, B1],
+    mid: Middleware[R, E, A1, B1, A2, B2],
+  ) extends Http[R, E, A2, B2]
 }

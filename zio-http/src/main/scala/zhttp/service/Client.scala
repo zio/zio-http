@@ -13,7 +13,7 @@ import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.http.headers.HeaderExtension
 import zhttp.service
-import zhttp.service.Client.{ClientParams, ClientResponse}
+import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler}
 import zio.{Chunk, Promise, Task, ZIO}
@@ -23,7 +23,7 @@ import java.net.{InetAddress, InetSocketAddress}
 final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
   def request(
-    request: Client.ClientParams,
+    request: Client.ClientRequest,
     sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): Task[Client.ClientResponse] =
     for {
@@ -33,7 +33,7 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el:
     } yield res
 
   private def asyncRequest(
-    req: ClientParams,
+    req: ClientRequest,
     promise: Promise[Throwable, ClientResponse],
     sslOption: ClientSSLOptions,
   ): Unit = {
@@ -111,14 +111,14 @@ object Client {
     method: Method,
     url: URL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(method, url))
+    request(ClientRequest(method, url))
 
   def request(
     method: Method,
     url: URL,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(method, url), sslOptions)
+    request(ClientRequest(method, url), sslOptions)
 
   def request(
     method: Method,
@@ -126,7 +126,7 @@ object Client {
     headers: Headers,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(method, url, headers), sslOptions)
+    request(ClientRequest(method, url, headers), sslOptions)
 
   def request(
     method: Method,
@@ -134,26 +134,26 @@ object Client {
     headers: Headers,
     content: HttpData,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientParams(method, url, headers, content))
+    request(ClientRequest(method, url, headers, content))
 
   def request(
-    req: ClientParams,
+    req: ClientRequest,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     make.flatMap(_.request(req))
 
   def request(
-    req: ClientParams,
+    req: ClientRequest,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     make.flatMap(_.request(req, sslOptions))
 
-  final case class ClientParams(
+  final case class ClientRequest(
     method: Method,
     url: URL,
     getHeaders: Headers = Headers.empty,
     data: HttpData = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
-  ) extends HeaderExtension[ClientParams] { self =>
+  ) extends HeaderExtension[ClientRequest] { self =>
 
     def getBodyAsString: Option[String] = data match {
       case HttpData.Text(text, _)       => Some(text)
@@ -172,7 +172,7 @@ object Client {
     /**
      * Updates the headers using the provided function
      */
-    override def updateHeaders(update: Headers => Headers): ClientParams =
+    override def updateHeaders(update: Headers => Headers): ClientRequest =
       self.copy(getHeaders = update(self.getHeaders))
   }
 

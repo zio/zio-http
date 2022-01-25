@@ -1,5 +1,7 @@
 package zhttp.core
 
+import zhttp.html._
+
 import java.io.{PrintWriter, StringWriter}
 
 object Util {
@@ -10,16 +12,13 @@ object Util {
   }
 
   def prettyPrintHtml(throwable: Throwable): String = {
-    s"""
-       |<html>
-       |  <head>
-       |  </head>
-       |  <body>
-       |   <h1>Internal Server Error</h1>
-       |   <pre>${prettyPrint(throwable).split("\n").map(str => s"<div>${str}</div>").mkString("")}</pre>
-       |  </body>
-       |</html>
-       |""".stripMargin
+    html(
+      head(),
+      body(
+        h1("Internal Server Error"),
+        pre(div(prettyPrint(throwable).split("\n").mkString("\n"))),
+      ),
+    ).encode
   }
 
   def listFilesHtml(dirPath: java.nio.file.Path): String = {
