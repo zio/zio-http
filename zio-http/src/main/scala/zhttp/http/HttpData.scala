@@ -5,7 +5,7 @@ import zio.blocking.Blocking.Service.live.effectBlocking
 import zio.stream.ZStream
 import zio.{Chunk, Task, UIO}
 
-import java.io.{FileInputStream, RandomAccessFile}
+import java.io.FileInputStream
 import java.nio.charset.Charset
 
 /**
@@ -31,15 +31,15 @@ sealed trait HttpData { self =>
 
   def toByteBuf: Task[ByteBuf] = {
     self match {
-      case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
-      case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
-      case HttpData.BinaryByteBuf(data)  => UIO(data)
-      case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
-      case HttpData.BinaryStream(stream) =>
+      case HttpData.Text(text, charset)   => UIO(Unpooled.copiedBuffer(text, charset))
+      case HttpData.BinaryChunk(data)     => UIO(Unpooled.copiedBuffer(data.toArray))
+      case HttpData.BinaryByteBuf(data)   => UIO(data)
+      case HttpData.Empty                 => UIO(Unpooled.EMPTY_BUFFER)
+      case HttpData.BinaryStream(stream)  =>
         stream
           .asInstanceOf[ZStream[Any, Throwable, ByteBuf]]
           .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
-      case HttpData.File(raf, _)         =>
+      case HttpData.RandomAccessFile(raf) =>
         effectBlocking {
           val fis                      = new FileInputStream(raf.getFD)
           val fileContent: Array[Byte] = new Array[Byte](raf.length().toInt)
@@ -88,14 +88,14 @@ object HttpData {
    * Helper to create HttpData from contents of a file
    */
   def fromFile(file: java.io.File): HttpData = {
-    val raf = new RandomAccessFile(file, "r")
-    File(raf, file.toPath)
+    val raf = new java.io.RandomAccessFile(file, "r")
+    RandomAccessFile(raf)
   }
 
   private[zhttp] final case class Text(text: String, charset: Charset)                   extends HttpData
   private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                         extends HttpData
   private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                           extends HttpData
   private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf]) extends HttpData
-  private[zhttp] final case class File(raf: RandomAccessFile, path: java.nio.file.Path)  extends HttpData
+  private[zhttp] final case class RandomAccessFile(raf: java.io.RandomAccessFile)        extends HttpData
   private[zhttp] case object Empty                                                       extends HttpData
 }

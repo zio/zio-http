@@ -11,7 +11,6 @@ import zhttp.socket.{IsWebSocket, Socket, SocketApp}
 import zio.{Chunk, UIO, ZIO}
 
 import java.nio.charset.Charset
-import java.nio.file.Files
 
 final case class Response private (
   status: Status,
@@ -74,17 +73,15 @@ final case class Response private (
   private[zhttp] def unsafeEncode(): HttpResponse = {
     import io.netty.handler.codec.http._
 
-    val jHeaders = self.getHeaders.encode
+    val jHeaders: HttpHeaders = self.getHeaders.encode
+
     val jContent = self.data match {
       case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
       case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
       case HttpData.BinaryByteBuf(data) => data
       case HttpData.BinaryStream(_)     => null
       case HttpData.Empty               => Unpooled.EMPTY_BUFFER
-      case HttpData.File(raf, path)     =>
-        jHeaders.set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(path))
-        jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, raf.length())
-        null
+      case HttpData.RandomAccessFile(_) => null
     }
 
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
@@ -96,7 +93,7 @@ final case class Response private (
 
       if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
 
-      // Set MIME type in the response headers. This is only relevant in case of File transfers as browsers use the MIME
+      // Set MIME type in the response headers. This is only relevant in case of RandomAccessFile transfers as browsers use the MIME
       // type, not the file extension, to determine how to process a URL.<a href="MSDN
       // Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>
 

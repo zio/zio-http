@@ -27,14 +27,14 @@ private[zhttp] case class ServerResponseHandler[R](
     val jRequest                             = msg._2
     ctx.write(encodeResponse(response))
     response.data match {
-      case HttpData.BinaryStream(stream) =>
+      case HttpData.BinaryStream(stream)  =>
         runtime.unsafeRun(ctx) {
           writeStreamContent(stream).ensuring(UIO(releaseRequest(jRequest)))
         }
-      case HttpData.File(raf, _)         =>
+      case HttpData.RandomAccessFile(raf) =>
         unsafeWriteFileContent(raf)
         releaseRequest(jRequest)
-      case _                             =>
+      case _                              =>
         ctx.flush()
         releaseRequest(jRequest)
     }

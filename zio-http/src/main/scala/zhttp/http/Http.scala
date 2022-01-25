@@ -1,8 +1,10 @@
 package zhttp.http
 
 import io.netty.channel.ChannelHandler
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.core.Util.listFilesHtml
 import zhttp.html.Html
+import zhttp.http.Middleware.updateHeaders
 import zhttp.http.headers.HeaderModifier
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
@@ -10,9 +12,9 @@ import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
 
-import java.io.FileNotFoundException
+import java.io.{File, FileNotFoundException}
 import java.nio.charset.Charset
-import java.nio.file.{Path => jPath, Paths}
+import java.nio.file.{Files, Path => jPath, Paths}
 import scala.annotation.unused
 
 /**
@@ -523,30 +525,34 @@ object Http {
    * Creates an HTTP app to serve static resource files from a local directory.
    */
   def fromPath(root: jPath): HttpApp[Any, Nothing] = {
+    def contentTypeHeader(file: java.io.File): Header   =
+      (HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(file.toPath))
+    def contentLengthHeader(file: java.io.File): Header = (HttpHeaderNames.CONTENT_LENGTH, file.length().toString)
+
+    def responseHttp(file: File) = responseZIO {
+      for {
+        data <- Task(HttpData.fromFile(file))
+        res  <- ZIO.succeed(Response(data = data))
+      } yield res
+    } @@ updateHeaders(_.addHeaders(Headers(Chunk(contentTypeHeader(file), contentLengthHeader(file)))))
 
     Http.collectHttp[Request] { case request =>
       if (request.method != Method.GET)
         Http.methodNotAllowed(s"${request.method} is not allowed here. Please use `GET` instead.")
-      else
-        responseZIO {
-          val path = Paths.get(root.toString + "/" + request.path.asString)
-
-          if (path.toFile.isDirectory)
-            ZIO.succeed(Response(data = HttpData.fromString(listFilesHtml(path))))
-          else
-            for {
-              data <- Task(HttpData.fromFile(path.toFile))
-              res  <- ZIO.succeed(Response(data = data))
-            } yield res
-
-        }.catchAll {
-          case a: SecurityException     =>
-            Http.error(HttpError.Forbidden(a.getMessage))
-          case _: FileNotFoundException =>
-            Http.error(HttpError.NotFound(Path(request.path.asString)))
-          case e                        =>
-            Http.error(e.getMessage)
-        }
+      else {
+        val file = Paths.get(root.toString + "/" + request.path.asString).toFile
+        if (file.isDirectory)
+          response(Response(data = HttpData.fromString(listFilesHtml(file.toPath))))
+        else
+          responseHttp(file)
+      }.catchAll {
+        case a: SecurityException     =>
+          Http.error(HttpError.Forbidden(a.getMessage))
+        case _: FileNotFoundException =>
+          Http.error(HttpError.NotFound(Path(request.path.asString)))
+        case e                        =>
+          Http.error(e.getMessage)
+      }
     }
   }
 

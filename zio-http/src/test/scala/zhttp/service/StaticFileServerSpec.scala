@@ -17,7 +17,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
   private val env =
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
-  def staticSpec1 = suite("Static File Server")(
+  def staticSpec1 = suite("Static RandomAccessFile Server")(
     testM("should list contents of root directory") {
       val app                      = Http.fromPath(Paths.get(getClass.getResource("/TestStatic/Folder2").getPath))
       val res: HttpIO[Any, String] = app.requestBodyAsString()
