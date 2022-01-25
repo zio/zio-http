@@ -176,7 +176,7 @@ object Client {
       self.copy(getHeaders = update(self.getHeaders))
   }
 
-  final case class ClientResponse(status: Status, headers: Headers, private val buffer: ByteBuf)
+  final case class ClientResponse(status: Status, headers: Headers, private[zhttp] val buffer: ByteBuf)
       extends HeaderExtension[ClientResponse] { self =>
 
     def getBodyAsString: Task[String] = Task(buffer.toString(self.getCharset))
