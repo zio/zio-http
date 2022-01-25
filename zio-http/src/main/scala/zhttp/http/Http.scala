@@ -516,32 +516,31 @@ object Http {
   /**
    * Creates an HTTP app to serve static resource files from a local directory.
    */
-  def serveFilesFrom(root: jPath): HttpApp[Any, Nothing] = {
-
-    def httpApp(relPath: jPath): HttpApp[Any, Nothing] = responseZIO {
-      val path = Paths.get(root.toString + "/" + relPath.toString)
-
-      if (path.toFile.isDirectory)
-        ZIO.succeed(Response(data = HttpData.fromString(listFilesHtml(path))))
-      else
-        for {
-          data <- Task(HttpData.fromFile(path.toFile))
-          res  <- ZIO.succeed(Response(data = data))
-        } yield res
-    }.catchAll {
-      case a: SecurityException     =>
-        Http.error(HttpError.Forbidden(a.getMessage))
-      case _: FileNotFoundException =>
-        Http.error(HttpError.NotFound(Path(relPath.toString)))
-      case e                        =>
-        Http.error(e.getMessage)
-    }
+  def fromPath(root: jPath): HttpApp[Any, Nothing] = {
 
     Http.collectHttp[Request] { case request =>
       if (request.method != Method.GET)
         Http.methodNotAllowed(s"${request.method} is not allowed here. Please use `GET` instead.")
       else
-        httpApp(Paths.get(request.path.asString))
+        responseZIO {
+          val path = Paths.get(root.toString + "/" + request.path.asString)
+
+          if (path.toFile.isDirectory)
+            ZIO.succeed(Response(data = HttpData.fromString(listFilesHtml(path))))
+          else
+            for {
+              data <- Task(HttpData.fromFile(path.toFile))
+              res  <- ZIO.succeed(Response(data = data))
+            } yield res
+
+        }.catchAll {
+          case a: SecurityException     =>
+            Http.error(HttpError.Forbidden(a.getMessage))
+          case _: FileNotFoundException =>
+            Http.error(HttpError.NotFound(Path(request.path.asString)))
+          case e                        =>
+            Http.error(e.getMessage)
+        }
     }
   }
 

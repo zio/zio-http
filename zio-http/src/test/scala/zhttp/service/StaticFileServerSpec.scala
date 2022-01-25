@@ -14,9 +14,10 @@ import java.nio.file.Paths
 
 object StaticFileServerSpec extends HttpRunnableSpec {
 
-  private val staticApp = Http.serveFilesFrom(Paths.get(getClass.getResource("/TestStatic/Folder2").getPath))
+  private val staticApp = Http.fromPath(Paths.get(getClass.getResource("/TestStatic/Folder2").getPath))
+  private val staticApp2 = Http.fromPath(Paths.get(getClass.getResource("").getPath + "/NonExistentDirectory"))
+  val app         = serve { staticApp ++ staticApp2 }
 
-  val app         = serve { staticApp }
   private val env =
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
@@ -41,6 +42,10 @@ object StaticFileServerSpec extends HttpRunnableSpec {
       val res = staticApp.requestStatus(method = Method.POST, path = Path("/TextFile2.txt"))
       assertM(res)(equalTo(Status.METHOD_NOT_ALLOWED))
     },
+    testM("should respond with \"Not Found\" is directory path does not exist") {
+      val res = staticApp2.requestBodyAsString()
+      assertM(res)(equalTo("The requested URI \"/\" was not found on this server\n"))
+    }
   )
 
   override def spec: ZSpec[_root_.zio.test.environment.TestEnvironment, Any] = suiteM("StaticFileServer") {
