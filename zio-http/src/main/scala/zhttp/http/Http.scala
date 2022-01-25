@@ -544,9 +544,9 @@ object Http {
           responseHttp(file)
       }.catchAll {
         case a: SecurityException     =>
-          Http.error(HttpError.Forbidden(a.getMessage))
+          Http.forbidden(a.getMessage)
         case _: FileNotFoundException =>
-          Http.error(HttpError.NotFound(Path(request.path.asString)))
+          Http.empty
         case e                        =>
           Http.error(e.getMessage)
       }
