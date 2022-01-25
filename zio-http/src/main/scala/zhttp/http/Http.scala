@@ -549,7 +549,7 @@ object Http {
         case a: SecurityException     =>
           Http.forbidden(a.getMessage)
         case _: FileNotFoundException =>
-          Http.error(HttpError.NotFound(Path(request.path.asString)))
+          Http.empty
         case e                        =>
           Http.error(e.getMessage)
       }
