@@ -8,7 +8,7 @@ import sttp.ws.WebSocket
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.DynamicServer.HttpEnv
-import zhttp.internal.HttpRunnableSpec.HttpIO
+import zhttp.internal.HttpRunnableSpec.HttpTestClient
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.DefaultRunnableSpec
@@ -24,7 +24,8 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
   implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Client.ClientRequest, A]) {
 
     /**
-     * Runs the deployed Http app by making a real http request to it. Request params can be passed on via this method.
+     * Runs the deployed Http app by making a real http request to it. The method allows us to configure individual
+     * constituents of a ClientRequest.
      */
     def run(
       path: Path = !!,
@@ -48,9 +49,12 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
   implicit class RunnableHttpClientAppSyntax(app: HttpApp[HttpEnv, Throwable]) {
 
     /**
-     * Deploys the http application on the test server.
+     * Deploys the http application on the test server and returns a Http of type
+     * {{{Http[R, E, ClientRequest, ClientResponse}}}. This allows us to assert using all the powerful operators that
+     * are available on `Http` while writing tests. It also allows us to simply pass a request in the end, to execute,
+     * and resolve it with a response, like a normal HttpApp.
      */
-    def deploy: HttpIO[Any, Client.ClientResponse] =
+    def deploy: HttpTestClient[Any, Client.ClientResponse] =
       for {
         port     <- Http.fromZIO(DynamicServer.getPort)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
@@ -67,8 +71,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     /**
      * Deploys the websocket application on the test server.
      */
-
-    def deployWebSocket: HttpIO[SttpClient, client3.Response[Either[String, WebSocket[Task]]]] = for {
+    def deployWebSocket: HttpTestClient[SttpClient, client3.Response[Either[String, WebSocket[Task]]]] = for {
       id  <- Http.fromZIO(DynamicServer.deploy(app))
       res <-
         Http.fromFunctionZIO[Client.ClientRequest](params =>
@@ -110,7 +113,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
 }
 
 object HttpRunnableSpec {
-  type HttpIO[-R, +A] =
+  type HttpTestClient[-R, +A] =
     Http[
       R with EventLoopGroup with ChannelFactory with DynamicServer with ServerChannelFactory,
       Throwable,
