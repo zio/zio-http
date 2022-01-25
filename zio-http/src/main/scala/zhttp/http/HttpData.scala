@@ -92,11 +92,6 @@ object HttpData {
     File(raf, file.toPath)
   }
 
-  def fromFileZIO(file: java.io.File): Task[HttpData] = Task {
-    val raf = new RandomAccessFile(file, "r")
-    File(raf, file.toPath)
-  }
-
   private[zhttp] final case class Text(text: String, charset: Charset)                   extends HttpData
   private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                         extends HttpData
   private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                           extends HttpData

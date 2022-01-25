@@ -12,7 +12,7 @@ import zio.stream.ZStream
 
 import java.io.FileNotFoundException
 import java.nio.charset.Charset
-import java.nio.file.{Path => JPath, Paths}
+import java.nio.file.{Path => jPath, Paths}
 import scala.annotation.unused
 
 /**
@@ -518,22 +518,17 @@ object Http {
    */
   def serveFilesFrom(root: jPath): HttpApp[Any, Nothing] = {
 
-    def absPath(relPath: jPath) = {
-      Paths.get(root.toString + "/" + relPath.toString)
-    }
-
-    def res(relPath: jPath): ZIO[Any, Throwable, Response] = {
-      val path = absPath(relPath)
+    def httpApp(relPath: jPath): HttpApp[Any, Nothing] = responseZIO {
+      val path = Paths.get(root.toString + "/" + relPath.toString)
 
       if (path.toFile.isDirectory)
         ZIO.succeed(Response(data = HttpData.fromString(listFilesHtml(path))))
       else
         for {
-          data <- HttpData.fromFileZIO(path.toFile)
+          data <- Task(HttpData.fromFile(path.toFile))
           res  <- ZIO.succeed(Response(data = data))
         } yield res
-    }
-    def httpApp(relPath: jPath): HttpApp[Any, Nothing]     = responseZIO(res(relPath)).catchAll {
+    }.catchAll {
       case a: SecurityException     =>
         Http.error(HttpError.Forbidden(a.getMessage))
       case _: FileNotFoundException =>
