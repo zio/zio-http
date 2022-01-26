@@ -4,20 +4,13 @@ import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.{EventLoopGroup, Server}
-import zhttp.socket.{Socket, WebSocketFrame}
-import zio.stream.ZStream
-import zio.{App, ExitCode, URIO, ZIO}
+import zio.{App, ExitCode, URIO}
 
 object HttpsHelloWorld extends App {
-  private val socket = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text(_) =>
-    ZStream.succeed(WebSocketFrame.text("Hello, World!"))
-  }
-
   // Create HTTP route
-  val app: HttpApp[Any, Nothing] = Http.collectZIO[Request] {
-    case Method.GET -> !! / "text"          => ZIO.succeed(Response.text("Hello World!"))
-    case Method.GET -> !! / "json"          => ZIO.succeed(Response.json("""{"greetings": "Hello World!"}"""))
-    case Method.GET -> !! / "subscriptions" => socket.toResponse
+  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
+    case Method.GET -> !! / "text" => Response.text("Hello World!")
+    case Method.GET -> !! / "json" => Response.json("""{"greetings": "Hello World!"}""")
   }
 
   /**
