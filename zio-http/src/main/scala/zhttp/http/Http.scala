@@ -11,7 +11,7 @@ import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
 
-import java.io.{File, FileNotFoundException}
+import java.io.FileNotFoundException
 import java.nio.charset.Charset
 import java.nio.file.{Files, Path => jPath, Paths}
 import scala.annotation.unused
@@ -573,35 +573,38 @@ object Http {
    */
   def fromPath(root: jPath): HttpApp[Any, Nothing] = {
 
-    def responseHttp(file: File) = responseZIO {
+    def responseHttp(request: Request) = responseZIO {
       for {
-        data <- Task(HttpData.fromFile(file))
-        res  <- ZIO.succeed(
-          Response(
-            headers = Headers.contentLength(file.length()) ++ Headers.contentType(Files.probeContentType(file.toPath)),
-            data = data,
-          ),
-        )
-      } yield res
+        file     <- ZIO.succeed(Paths.get(root.toString + "/" + request.path.asString).toFile)
+        response <-
+          if (file.isDirectory)
+            ZIO.succeed(Response(data = HttpData.fromString(listFilesHtml(file.toPath))))
+          else
+            for {
+              data <- Task(HttpData.fromFile(file))
+              res  <- ZIO.succeed(
+                Response(
+                  headers =
+                    Headers.contentLength(file.length()) ++ Headers.contentType(Files.probeContentType(file.toPath)),
+                  data = data,
+                ),
+              )
+            } yield res
+      } yield response
     }
 
     Http.collectHttp[Request] { case request =>
       if (request.method != Method.GET)
         Http.methodNotAllowed(s"${request.method} is not allowed here. Please use `GET` instead.")
-      else {
-        val file = Paths.get(root.toString + "/" + request.path.asString).toFile
-        if (file.isDirectory)
-          response(Response(data = HttpData.fromString(listFilesHtml(file.toPath))))
-        else
-          Http.fromFile(file)
-      }.catchAll {
-        case a: SecurityException     =>
-          Http.forbidden(a.getMessage)
-        case _: FileNotFoundException =>
-          Http.empty
-        case e                        =>
-          Http.error(e.getMessage)
-      }
+      else
+        responseHttp(request).catchAll {
+          case _: SecurityException     =>
+            Http.forbidden("Operation not allowed")
+          case _: FileNotFoundException =>
+            Http.empty
+          case _                        =>
+            Http.error("An unknown error has occurred.")
+        }
     }
   }
 

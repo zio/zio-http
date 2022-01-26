@@ -32,7 +32,7 @@ private[zhttp] case class ServerResponseHandler[R](
           writeStreamContent(stream).ensuring(UIO(releaseRequest(jRequest)))
         }
       case HttpData.RandomAccessFile(raf) =>
-        unsafeWriteFileContent(raf)
+        unsafeWriteFileContent(raf())
         releaseRequest(jRequest)
       case _                              =>
         ctx.flush()
