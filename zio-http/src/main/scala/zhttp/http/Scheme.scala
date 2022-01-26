@@ -2,24 +2,34 @@ package zhttp.http
 
 import io.netty.handler.codec.http.HttpScheme
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
+import zhttp.http.Scheme.{HTTP, HTTPS, WS, WSS}
 
 sealed trait Scheme { self =>
-  def encode: String = Scheme.asString(self)
+  def encode: String =
+    self match {
+      case HTTP  => "http"
+      case HTTPS => "https"
+      case WS    => "ws"
+      case WSS   => "wss"
+    }
+
+  def toJHttpScheme: Option[HttpScheme] =
+    self match {
+      case HTTP  => Option(HttpScheme.HTTP)
+      case HTTPS => Option(HttpScheme.HTTPS)
+      case _     => None
+    }
+
+  def toWebSocketScheme: Option[WebSocketScheme] =
+    self match {
+      case WS  => Option(WebSocketScheme.WS)
+      case WSS => Option(WebSocketScheme.WSS)
+      case _   => None
+    }
 }
 object Scheme       {
-  case object HTTP  extends Scheme
-  case object HTTPS extends Scheme
-  case object WS    extends Scheme
-  case object WSS   extends Scheme
 
-  def asString(self: Scheme): String = self match {
-    case HTTP  => "http"
-    case HTTPS => "https"
-    case WS    => "ws"
-    case WSS   => "wss"
-  }
-
-  def fromString(scheme: String): Option[Scheme] =
+  def decode(scheme: String): Option[Scheme] =
     scheme.toUpperCase match {
       case "HTTPS" => Option(HTTPS)
       case "HTTP"  => Option(HTTP)
@@ -28,27 +38,23 @@ object Scheme       {
       case _       => None
     }
 
-  def fromJHttpScheme(scheme: HttpScheme): Option[Scheme] = scheme match {
+  def fromJScheme(scheme: HttpScheme): Option[Scheme] = scheme match {
     case HttpScheme.HTTPS => Option(HTTPS)
     case HttpScheme.HTTP  => Option(HTTP)
     case _                => None
   }
 
-  def asJHttpScheme(scheme: Scheme): Option[HttpScheme] = scheme match {
-    case HTTP  => Option(HttpScheme.HTTP)
-    case HTTPS => Option(HttpScheme.HTTPS)
-    case _     => None
-  }
-
-  def fromJWebSocketScheme(scheme: WebSocketScheme): Option[Scheme] = scheme match {
+  def fromJScheme(scheme: WebSocketScheme): Option[Scheme] = scheme match {
     case WebSocketScheme.WSS => Option(WSS)
     case WebSocketScheme.WS  => Option(WS)
     case _                   => None
   }
 
-  def asJWebSocketScheme(scheme: Scheme): Option[WebSocketScheme] = scheme match {
-    case WS  => Option(WebSocketScheme.WS)
-    case WSS => Option(WebSocketScheme.WSS)
-    case _   => None
-  }
+  case object HTTP extends Scheme
+
+  case object HTTPS extends Scheme
+
+  case object WS extends Scheme
+
+  case object WSS extends Scheme
 }

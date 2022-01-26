@@ -55,7 +55,7 @@ object URL {
     }
 
     for {
-      scheme <- Scheme.fromString(uri.getScheme)
+      scheme <- Scheme.decode(uri.getScheme)
       host   <- Option(uri.getHost)
       path   <- Option(uri.getRawPath)
       port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))

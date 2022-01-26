@@ -7,18 +7,18 @@ object SchemeSpec extends DefaultRunnableSpec {
   def schemeSpec = suite("SchemeSpec") {
     testM("string") {
       checkAll(HttpGen.scheme) { scheme =>
-        assertTrue(Scheme.fromString(Scheme.asString(scheme)).get == scheme)
+        assertTrue(Scheme.decode(scheme.encode).get == scheme)
       }
     } +
       testM("java http scheme") {
         checkAll(HttpGen.jHttpScheme) { jHttpScheme =>
-          assertTrue(Scheme.fromJHttpScheme(jHttpScheme).flatMap(Scheme.asJHttpScheme).get == jHttpScheme)
+          assertTrue(Scheme.fromJScheme(jHttpScheme).flatMap(_.toJHttpScheme).get == jHttpScheme)
         }
       } +
       testM("java websocket scheme") {
         checkAll(HttpGen.jWebSocketScheme) { jWebSocketScheme =>
           assertTrue(
-            Scheme.fromJWebSocketScheme(jWebSocketScheme).flatMap(Scheme.asJWebSocketScheme).get == jWebSocketScheme,
+            Scheme.fromJScheme(jWebSocketScheme).flatMap(_.toWebSocketScheme).get == jWebSocketScheme,
           )
         }
       }
