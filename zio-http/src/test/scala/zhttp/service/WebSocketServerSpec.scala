@@ -25,7 +25,7 @@ object WebSocketServerSpec extends HttpRunnableSpec {
       testM("Multiple websocket upgrades") {
 
         val app   = Socket.succeed(WebSocketFrame.text("BAR")).toHttp.deployWS
-        val codes = ZIO.foreach(0 to 1024) { _ =>
+        val codes = ZIO.foreach(1 to 1024) { _ =>
           for {
             code <- app(Socket.empty.toSocketApp)
               .map(_.status)
