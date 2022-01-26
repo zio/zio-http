@@ -3,104 +3,80 @@ package zhttp.internal
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.DynamicServer.HttpEnv
-import zhttp.internal.HttpRunnableSpec.HttpIO
+import zhttp.internal.HttpRunnableSpec.HttpTestClient
+import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.socket.SocketApp
 import zio.test.DefaultRunnableSpec
-import zio.{Chunk, Has, ZIO, ZManaged}
+import zio.{Has, ZIO, ZManaged}
 
 /**
- * Should be used only when e2e tests needs to be written which is typically for logic that is part of the netty based
- * backend. For most of the other use cases directly running the HttpApp should suffice. HttpRunnableSpec spins of an
- * actual Http server and makes requests.
+ * Should be used only when e2e tests needs to be written. Typically we would want to do that when we want to test the
+ * logic that is part of the netty based backend. For most of the other use cases directly running the HttpApp should
+ * suffice. HttpRunnableSpec spins of an actual Http server and makes requests.
  */
 abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
-  implicit class RunnableHttpAppSyntax(app: HttpApp[HttpEnv, Throwable]) {
-    def deploy: ZIO[DynamicServer, Nothing, String] = DynamicServer.deploy(app)
 
-    def request(
+  implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Client.ClientRequest, A]) {
+
+    /**
+     * Runs the deployed Http app by making a real http request to it. The method allows us to configure individual
+     * constituents of a ClientRequest.
+     */
+    def run(
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
       headers: Headers = Headers.empty,
-    ): HttpIO[Any, Client.ClientResponse] = for {
-      id       <- deploy
-      response <- self.request(path, method, content, Headers(DynamicServer.APP_ID, id) ++ headers)
-    } yield response
-
-    def requestBody(
-      path: Path = !!,
-      method: Method = Method.GET,
-      content: String = "",
-      headers: Headers = Headers.empty,
-    ): HttpIO[Any, Chunk[Byte]] =
-      request(path, method, content, headers).flatMap(_.getBody)
-
-    def requestBodyAsString(
-      path: Path = !!,
-      method: Method = Method.GET,
-      content: String = "",
-      headers: Headers = Headers.empty,
-    ): HttpIO[Any, String] =
-      request(path, method, content, headers).flatMap(_.getBodyAsString)
-
-    def requestContentLength(
-      path: Path = !!,
-      method: Method = Method.GET,
-      content: String = "",
-      headers: Headers = Headers.empty,
-    ): HttpIO[Any, Option[Long]] =
-      request(path, method, content, headers).map(_.getContentLength)
-
-    def requestHeaderValueByName(
-      path: Path = !!,
-      method: Method = Method.GET,
-      content: String = "",
-      headers: Headers = Headers.empty,
-    )(name: CharSequence): HttpIO[Any, Option[String]] =
-      request(path, method, content, headers).map(_.getHeaderValue(name))
-
-    def requestStatus(
-      path: Path = !!,
-      method: Method = Method.GET,
-      content: String = "",
-      headers: Headers = Headers.empty,
-    ): HttpIO[Any, Status] =
-      request(path, method, content, headers).map(_.status)
-
-    def webSocketRequest[R](
-      path: Path = !!,
-      headers: Headers = Headers.empty,
-      ss: SocketApp[R],
-    ): HttpIO[R, Client.ClientResponse] = for {
-      id  <- deploy
-      res <- self.webSocketRequest(path, Headers(DynamicServer.APP_ID, id) ++ headers, ss)
-    } yield res
-
-    def webSocketStatusCode[R](
-      path: Path = !!,
-      headers: Headers = Headers.empty,
-      ss: SocketApp[R],
-    ): HttpIO[R, Status] = for {
-      res <- webSocketRequest(path, headers, ss)
-    } yield res.status
+    ): ZIO[R, Throwable, A] =
+      app(
+        Client.ClientRequest(
+          method,
+          URL(path, Location.Absolute(Scheme.HTTP, "localhost", 0)),
+          headers,
+          HttpData.fromString(content),
+        ),
+      ).catchAll {
+        case Some(value) => ZIO.fail(value)
+        case None        => ZIO.fail(new RuntimeException("No response"))
+      }
   }
 
-  def request(
-    path: Path = !!,
-    method: Method = Method.GET,
-    content: String = "",
-    headers: Headers = Headers.empty,
-  ): HttpIO[Any, Client.ClientResponse] = {
-    for {
-      port <- DynamicServer.getPort
-      data = HttpData.fromString(content)
-      response <- Client.request(
-        Client.ClientRequest(method, URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)), headers, data),
-        ClientSSLOptions.DefaultSSL,
-      )
-    } yield response
+  implicit class RunnableHttpClientAppSyntax(app: HttpApp[HttpEnv, Throwable]) {
+
+    /**
+     * Deploys the http application on the test server and returns a Http of type
+     * {{{Http[R, E, ClientRequest, ClientResponse}}}. This allows us to assert using all the powerful operators that
+     * are available on `Http` while writing tests. It also allows us to simply pass a request in the end, to execute,
+     * and resolve it with a response, like a normal HttpApp.
+     */
+    def deploy: HttpTestClient[Any, ClientRequest, ClientResponse] =
+      for {
+        port     <- Http.fromZIO(DynamicServer.getPort)
+        id       <- Http.fromZIO(DynamicServer.deploy(app))
+        response <- Http.fromFunctionZIO[Client.ClientRequest] { params =>
+          Client.request(
+            params
+              .addHeader(DynamicServer.APP_ID, id)
+              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+            ClientSSLOptions.DefaultSSL,
+          )
+        }
+      } yield response
+
+    def deployWS: HttpTestClient[Any, SocketApp[Any], ClientResponse] =
+      for {
+        id       <- Http.fromZIO(DynamicServer.deploy(app))
+        url      <- Http.fromZIO(DynamicServer.baseURL)
+        response <- Http.fromFunctionZIO[SocketApp[Any]] { app =>
+          Client.socket(
+            url = url,
+            headers = Headers(DynamicServer.APP_ID, id),
+            app = app,
+          )
+        }
+      } yield response
   }
 
   def serve[R <: Has[_]](
@@ -111,7 +87,10 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       _     <- DynamicServer.setStart(start).toManaged_
     } yield ()
 
-  def status(method: Method = Method.GET, path: Path): HttpIO[Any, Status] = {
+  def status(
+    method: Method = Method.GET,
+    path: Path,
+  ): ZIO[EventLoopGroup with ChannelFactory with DynamicServer, Throwable, Status] = {
     for {
       port   <- DynamicServer.getPort
       status <- Client
@@ -123,18 +102,14 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
         .map(_.status)
     } yield status
   }
-
-  def webSocketRequest[R](
-    path: Path = !!,
-    headers: Headers = Headers.empty,
-    app: SocketApp[R],
-  ): ZIO[R with EventLoopGroup with ChannelFactory with DynamicServer, Throwable, Client.ClientResponse] = for {
-    port     <- DynamicServer.getPort
-    response <- Client.socket(s"ws://localhost:${port}${path.asString}", app, headers)
-  } yield response
 }
 
 object HttpRunnableSpec {
-  type HttpIO[-R, +A] =
-    ZIO[R with EventLoopGroup with ChannelFactory with DynamicServer with ServerChannelFactory, Throwable, A]
+  type HttpTestClient[-R, -A, +B] =
+    Http[
+      R with EventLoopGroup with ChannelFactory with DynamicServer with ServerChannelFactory,
+      Throwable,
+      A,
+      B,
+    ]
 }

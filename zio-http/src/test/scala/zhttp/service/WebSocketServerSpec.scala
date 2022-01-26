@@ -3,15 +3,18 @@ package zhttp.service
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
-import zhttp.socket.{Socket, SocketApp, WebSocketFrame}
+import zhttp.socket.{Socket, WebSocketFrame}
 import zio.ZIO
 import zio.duration._
-import zio.stream.ZStream
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
-import zio.test.assertM
+import zio.test._
 
 object WebSocketServerSpec extends HttpRunnableSpec {
+
+  private val env =
+    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ChannelFactory.nio
+  private val app = serve { DynamicServer.app }
 
   override def spec = suiteM("Server") {
     app.as(List(websocketSpec)).useNow
@@ -20,30 +23,22 @@ object WebSocketServerSpec extends HttpRunnableSpec {
   def websocketSpec = suite("WebSocket Server") {
     suite("connections") {
       testM("Multiple websocket upgrades") {
-        val app = Http.fromZIO {
-          Socket
-            .collect[WebSocketFrame] { case frame => ZStream.succeed(frame) }
-            .toResponse
+
+        val app   = Socket.succeed(WebSocketFrame.text("BAR")).toHttp.deployWS
+        val codes = ZIO.foreach(0 to 1024) { _ =>
+          for {
+            code <- app(Socket.empty.toSocketApp)
+              .map(_.status)
+              .catchAll {
+                case None        => ZIO.fail(new Error("No status code"))
+                case Some(error) => ZIO.fail(error)
+              }
+          } yield code == Status.SWITCHING_PROTOCOLS
         }
 
-        val client: SocketApp[Any] = Socket
-          .collect[WebSocketFrame] { case WebSocketFrame.Text(_) =>
-            ZStream.succeed(WebSocketFrame.close(1000))
-          }
-          .toSocketApp
-          .onOpen(Socket.succeed(WebSocketFrame.Text("FOO")))
-          .onClose(_ => ZIO.unit)
-          .onError(thr => ZIO.die(thr))
-
-        assertM(app.webSocketStatusCode(!! / "subscriptions", ss = client).repeatN(2048))(
-          equalTo(Status.SWITCHING_PROTOCOLS),
-        )
+        val allTrue = codes.map(_.count(identity))
+        assertM(allTrue)(equalTo(1024))
       }
     }
   }
-
-  private val env =
-    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ChannelFactory.nio
-
-  private val app = serve { DynamicServer.app }
 }

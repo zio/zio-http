@@ -159,11 +159,11 @@ object Client {
 
   def socket[R](
     url: String,
-    sa: SocketApp[R],
+    app: SocketApp[R],
     headers: Headers = Headers.empty,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    make[R].flatMap(_.socket(url, headers, sa, sslOptions))
+    make[R].flatMap(_.socket(url, headers, app, sslOptions))
 
   final case class ClientRequest(
     method: Method,
@@ -195,13 +195,15 @@ object Client {
       self.copy(getHeaders = update(self.getHeaders))
   }
 
-  final case class ClientResponse(status: Status, headers: Headers, private val buffer: ByteBuf)
+  final case class ClientResponse(status: Status, headers: Headers, private[zhttp] val buffer: ByteBuf)
       extends HeaderExtension[ClientResponse] {
     self =>
 
-    def getBodyAsString: Task[String] = Task(buffer.toString(self.getCharset))
-
     def getBody: Task[Chunk[Byte]] = Task(Chunk.fromArray(ByteBufUtil.getBytes(buffer)))
+
+    def getBodyAsByteBuf: Task[ByteBuf] = Task(buffer)
+
+    def getBodyAsString: Task[String] = Task(buffer.toString(self.getCharset))
 
     override def getHeaders: Headers = headers
 
