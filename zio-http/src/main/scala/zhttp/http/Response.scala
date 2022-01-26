@@ -62,6 +62,11 @@ final case class Response private (
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
 
   /**
+   * Wraps the current response as a Http
+   */
+  def wrapHttp: Http[Any, Nothing, Any, Response] = Http.succeed(self)
+
+  /**
    * Wraps the current response into a ZIO
    */
   def wrapZIO: UIO[Response] = UIO(self)
