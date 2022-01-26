@@ -1,6 +1,7 @@
 package zhttp.socket
 
 import zhttp.http.Response
+import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zhttp.socket.SocketApp.Handle.{WithEffect, WithSocket}
 import zhttp.socket.SocketApp.{Connection, Handle}
 import zio.stream.ZStream
@@ -17,6 +18,12 @@ final case class SocketApp[-R](
   decoder: SocketDecoder = SocketDecoder.default,
   protocol: SocketProtocol = SocketProtocol.default,
 ) { self =>
+
+  /**
+   * Creates a socket connection on the provided URL. Typically used to connect as a client.
+   */
+  def connect(url: String): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] =
+    Client.socket(url, self)
 
   /**
    * Called when the websocket connection is closed successfully.
