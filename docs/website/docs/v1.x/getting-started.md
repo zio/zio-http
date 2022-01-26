@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # Getting Started
 
-ZIO HTTP is a powerful library that is used to build highly performant HTTP-based services and clients using functional scala and ZIO.
+ZIO HTTP is a powerful library that is used to build highly performant HTTP-based services and clients using functional scala and ZIO and uses Netty as its core.
 The first step when using ZIO HTTP is creating an HTTP app. 
 ZIO HTTP has some powerful functional domains which help in creating, modifying, composing apps easily.
 Let's start with the HTTP domain.
@@ -50,7 +50,7 @@ You can create typed routes as well. The below example shows how to accept count
 
 ### Composition
 
-HTTP app can be composed using the `++` operator. The way it works is if none of the routes matches in `a`, the control passes on to the `b` app.
+HTTP app can be composed using the `++` operator. The way it works is if none of the routes matches in `a` or there is any error in `a`, the control passes on to the `b` app.
 
 ```scala
 import zhttp.http._
@@ -65,7 +65,7 @@ Apps can be composed using the `++` operator. The way it works is, if none of th
 
 ### ZIO Integration
 
-To return a ZIO effect value, you can create effectful HTTP apps using `collectZIO` and wrap `Response` in ZIO using `wrapZIO`.
+For creating effectful apps, you can use `collectZIO` and wrap `Response` using `wrapZIO` to produce ZIO effect value.
 
 ```scala
 val app = Http.collectZIO[Request] {
@@ -75,7 +75,7 @@ val app = Http.collectZIO[Request] {
 
 ### Accessing the Request
 
-To access request in the response, use @ as it binds a matched pattern to a variable and can be used in creating a response.  
+To access request in the response, use `@` as it binds a matched pattern to a variable and can be used while creating a response.  
 ```scala
 import zhttp.http._
 
