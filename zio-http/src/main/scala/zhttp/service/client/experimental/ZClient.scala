@@ -110,7 +110,7 @@ object ZClient {
     for {
       channelFactory <- settings.transport.clientChannel
       eventLoopGroup <- settings.transport.eventLoopGroupTask(settings.threads)
-//      zExec <- zhttp.service.HttpRuntime.default[Any]
+      zExec <- zhttp.service.HttpRuntime.default[Any]
 
       clientBootStrap = new Bootstrap()
         .channelFactory(channelFactory)
@@ -121,7 +121,7 @@ object ZClient {
         mutable.Map.empty[InetSocketAddress, Promise[Throwable, Resp]],
       )
 
-      clientImpl = DefaultZClient(clientBootStrap, settings, connRef)
+      clientImpl = DefaultZClient(clientBootStrap, settings, connRef, zExec)
     } yield {
       clientImpl
     }
@@ -131,6 +131,7 @@ case class DefaultZClient(
   boo: Bootstrap,
   settings: Config,
   connRef: zio.Ref[mutable.Map[InetSocketAddress, Promise[Throwable, Resp]]],
+  zExec: zhttp.service.HttpRuntime[Any]
 ) extends HttpMessageCodec {
   def run(req: ReqParams): Task[Resp] =
     for {
@@ -152,7 +153,6 @@ case class DefaultZClient(
   def buildChannel[R](jReq: FullHttpRequest, scheme: String, inetSocketAddress: InetSocketAddress) = {
     for {
       promise <- Promise.make[Throwable, Resp]
-      zExec   <- zhttp.service.HttpRuntime.default[R]
       hand = ZClientInboundHandler(zExec, jReq, promise)
       _ <- ZIO.effect(println(s"HANDLER INITIALIZED"))
 

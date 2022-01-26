@@ -71,22 +71,6 @@ object ZClientTestWithServer extends App {
     r2 <- resp2.getBodyAsString
     _ <- ZIO.effect(println(s"GOT second response : $r2"))
 
-//    req2 = ReqParams(
-//      Method.GET,
-//      URL(!! / "foo", Location.Absolute(Scheme.HTTP, "localhost", 8082)),
-//      Headers.empty,
-//      HttpData.empty,
-//    )
-
-//    req2 = ReqParams(
-//      Method.GET,
-////      URL(!! , Location.Absolute(Scheme.HTTP, "localhost", 8082)),
-////      Headers.empty,
-//
-//      URL(!!, Location.Absolute(Scheme.HTTP, "www.google.com", 80)),
-//      Headers.host("www.google.com"),
-//      HttpData.empty,
-//    )
 //
 //    //    resp <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
 //    resp <- cl.run(req2)
