@@ -63,7 +63,7 @@ object Socket {
   /**
    * Simply echos the incoming message back
    */
-  def echo[A] = Socket.collect[A] { case a => ZStream.succeed(a) }
+  def echo[A]: Socket[Any, Nothing, A, A] = Socket.collect[A] { case a => ZStream.succeed(a) }
 
   def end: ZStream[Any, Nothing, Nothing] = ZStream.halt(Cause.empty)
 
