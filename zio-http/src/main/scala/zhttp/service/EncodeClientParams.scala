@@ -14,7 +14,7 @@ trait EncodeClientParams {
 
     // As per the spec, the path should contain only the relative path.
     // Host and port information should be in the headers.
-    val path = url.relative.asString
+    val path = url.relative.encode
 
     val content = req.getBodyAsString match {
       case Some(text) => Unpooled.copiedBuffer(text, HTTP_CHARSET)
