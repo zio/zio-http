@@ -154,10 +154,10 @@ object HelloWorld extends App {
 
 ## Examples
 
-- [Simple Server](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/HelloWorld.scala)
-- [Advanced Server](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/HelloWorldAdvanced.scala)
-- [WebSocket Server](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/SocketEchoServer.scala)
-- [Streaming Response](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/StreamingResponse.scala)
-- [Simple Client](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/SimpleClient.scala)
-- [File Streaming](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/FileStreaming.scala)
-- [Authentication](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/Authentication.scala)
+- [Simple Server](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/hello-world)
+- [Advanced Server](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/hello-world-advanced)
+- [WebSocket Server](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/web-socket)
+- [Streaming Response](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/stream-response)
+- [Simple Client](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/simple-client)
+- [File Streaming](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/stream-file)
+- [Authentication](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/authentication)
