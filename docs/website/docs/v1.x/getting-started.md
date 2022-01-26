@@ -47,7 +47,7 @@ You can create typed routes as well. The below example shows how to accept count
 
 ### Composition
 
-HTTP app can be composed using the `++` operator. The way it works is if none of the routes matches in `a`, the control is passed to the `b` app.
+Apps can be composed using the `++` operator. The way it works is, if none of the routes match in `a`, then the control is passed on to the `b` app.
 
 ```scala
 import zhttp.http._
@@ -57,8 +57,6 @@ val b = Http.collect[Request] { case Method.GET -> !! / "b"  => Response.ok }
 
 val app = a ++ b
 ```
-
-Apps can be composed using the `++` operator. The way it works is, if none of the routes match in `a` , then the control is passed on to the `b` app.
 
 ### ZIO Integration
 
