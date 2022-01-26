@@ -4,27 +4,24 @@ sidebar_position: 2
 
 # Getting Started
 
-ZIO HTTP is a powerful library that is used to build highly performant HTTP-based services and clients using functional scala and ZIO and uses Netty as its core.
+**ZIO HTTP** is a powerful library that is used to build highly performant HTTP-based services and clients using functional scala and ZIO and uses [Netty](https://netty.io/) as its core.
+ZIO HTTP has powerful functional domains which help in creating, modifying, composing apps easily. Let's start with the HTTP domain.
 The first step when using ZIO HTTP is creating an HTTP app. 
-ZIO HTTP has some powerful functional domains which help in creating, modifying, composing apps easily.
-Let's start with the HTTP domain.
 
 ## Http
 
-HTTP is a domain that models Http apps using ZIO and works over any request and response types. 
-Http Domain provides a lot of ways to create HTTP apps, for example `Http.text`, `Http.html`, `Http.fromFile`, `Http.fromData`, `Http.fromStream`, `Http.fromEffect`. 
+`Http` is a domain that models HTTP apps using ZIO and works over any request and response types. `Http` Domain provides different constructors to create HTTP apps, `Http.text`, `Http.html`, `Http.fromFile`, `Http.fromData`, `Http.fromStream`, `Http.fromEffect`.  
 
 ### Creating a "_Hello World_" app
 
-Creating an HTTP app using ZIO Http is as simple as this:
+Creating an HTTP app using ZIO Http is as simple as given below, this app will always respond with "Hello World!"
 
 ```scala
 import zhttp.http._
 
 val app = Http.text("Hello World!")
 ```
-In the above snippet, for any HTTP request, the response is always `"Hello World!"`.
-An application can be made using any of the available operators on `zhttp.Http`.
+An app can be made using any of the available constructors on `zhttp.Http`.
 
 ### Routing
 
@@ -50,7 +47,7 @@ You can create typed routes as well. The below example shows how to accept count
 
 ### Composition
 
-HTTP app can be composed using the `++` operator. The way it works is if none of the routes matches in `a` or there is any error in `a`, the control passes on to the `b` app.
+HTTP app can be composed using the `++` operator. The way it works is if none of the routes matches in `a` or there is an error `a`, the control is passed to the `b` app.
 
 ```scala
 import zhttp.http._
@@ -75,7 +72,8 @@ val app = Http.collectZIO[Request] {
 
 ### Accessing the Request
 
-To access request in the response, use `@` as it binds a matched pattern to a variable and can be used while creating a response.  
+To access the request use `@` as it binds a matched pattern to a variable and can be used while creating a response.
+
 ```scala
 import zhttp.http._
 
@@ -106,11 +104,11 @@ object Spec extends DefaultRunnableSpec {
     )
 }
 ```
-When we call `app` with `request` it calls apply the method of HTTP via `zhttp.test` package
+When we call the `app` with the `request` it calls the apply method of `Http` via `zhttp.test` package
 
 ## Socket
 
-`Socket` is another functional domain in ZIO HTTP. It provides operators to create socket apps. 
+`Socket` is functional domain in ZIO HTTP. It provides constructors to create socket apps. 
 A socket app is an app that handles WebSocket connections.
 
 ### Creating a socket app
@@ -139,7 +137,7 @@ ZIO HTTP provides a way to set configurations for your server. The server can be
 
 ### Starting an HTTP App
 
-To launch our app, we need to start the server on some port. The below example shows a simple HTTP app that responds with empty content and a `200` status code, deployed on port `8090` using `Server.start`.
+To launch our app, we need to start the server on a port. The below example shows a simple HTTP app that responds with empty content and a `200` status code, deployed on port `8090` using `Server.start`.
 
 ```scala
 import zhttp.http._
