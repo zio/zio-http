@@ -37,10 +37,10 @@ import zhttp.http._
 val a = Http.collect[Request] { case Method.GET -> !! / "a"  => Response.ok }
 val b = Http.collect[Request] { case Method.GET -> !! / "b"  => Response.ok }
 
-val app = a <> b
+val app = a ++ b
 ```
 
-Apps can be composed using the `<>` operator. The way it works is, if none of the routes match in `a` , or a `NotFound` error is thrown from `a`, and then the control is passed on to the `b` app.
+Apps can be composed using the `++` operator. The way it works is, if none of the routes match in `a` , then the control is passed on to the `b` app.
 
 ### ZIO Integration
 
@@ -67,15 +67,14 @@ val app = Http.collectZIO[Request] {
 
 ### Testing
 
-zhttp provides a `zhttp-test` package for use in unit tests. You can utilize it as follows:
+Since `Http` is a function of the form `A => ZIO[R, Option[E], B]` to test it you can simply call an `Http` like a function.
 
 ```scala
 import zio.test._
-import zhttp.test._
 import zhttp.http._
 
 object Spec extends DefaultRunnableSpec {
-  
+
   def spec = suite("http")(
       testM("should be ok") {
         val app = Http.ok
