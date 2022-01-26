@@ -96,6 +96,6 @@ object HttpData {
   private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                         extends HttpData
   private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                           extends HttpData
   private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf]) extends HttpData
-  private[zhttp] final case class RandomAccessFile(raf: java.io.RandomAccessFile)        extends HttpData
+  private[zhttp] final case class RandomAccessFile(unsafeGet: () => java.io.RandomAccessFile)        extends HttpData
   private[zhttp] case object Empty                                                       extends HttpData
 }
