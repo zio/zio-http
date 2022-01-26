@@ -1,6 +1,6 @@
 package zhttp.socket
 
-import zhttp.http.Response
+import zhttp.http.{Http, Response}
 import zio.stream.ZStream
 import zio.{Cause, NeedsEnv, ZIO}
 
@@ -43,6 +43,11 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
    * that your socket requires an environment.
    */
   def provide(r: R)(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = Provide(self, r)
+
+  /**
+   * Converts the Socket into an Http
+   */
+  def toHttp(implicit ev: IsWebSocket[R, E, A, B]): Http[R, E, Any, Response] = Http.fromZIO(toResponse)
 
   /**
    * Creates a response from the socket.
