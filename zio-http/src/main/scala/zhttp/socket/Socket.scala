@@ -57,7 +57,13 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
 }
 
 object Socket {
+
   def collect[A]: PartialCollect[A] = new PartialCollect[A](())
+
+  /**
+   * Simply echos the incoming message back
+   */
+  def echo[A] = Socket.collect[A] { case a => ZStream.succeed(a) }
 
   def end: ZStream[Any, Nothing, Nothing] = ZStream.halt(Cause.empty)
 
