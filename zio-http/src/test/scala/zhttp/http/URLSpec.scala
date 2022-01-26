@@ -47,18 +47,18 @@ object URLSpec extends DefaultRunnableSpec {
   val asStringSpec = {
 
     def roundtrip(url: String) =
-      assert(URL.fromString(url).map(_.asString))(isRight(equalTo(url)))
+      assert(URL.fromString(url).map(_.encode))(isRight(equalTo(url)))
 
     suite("asString")(
       testM("using gen") {
         checkAll(HttpGen.url) { case url =>
-          val source  = url.asString
-          val decoded = URL.fromString(source).map(_.asString)
+          val source  = url.encode
+          val decoded = URL.fromString(source).map(_.encode)
           assert(decoded)(isRight(equalTo(source)))
         }
       } +
         test("empty") {
-          val actual = URL.fromString("/").map(_.asString)
+          val actual = URL.fromString("/").map(_.encode)
           assert(actual)(isRight(equalTo("/")))
         } +
         test("ws scheme") {

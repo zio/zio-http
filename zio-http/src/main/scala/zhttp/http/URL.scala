@@ -28,7 +28,7 @@ final case class URL(
     case _                     => self.copy(kind = URL.Location.Relative)
   }
 
-  def asString: String = URL.asString(self)
+  def encode: String = URL.asString(self)
 }
 object URL {
   sealed trait Location
