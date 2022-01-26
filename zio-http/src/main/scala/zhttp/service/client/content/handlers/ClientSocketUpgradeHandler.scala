@@ -13,7 +13,7 @@ final case class ClientSocketUpgradeHandler[R](
   pr: Promise[Throwable, ClientResponse],
 ) extends SimpleChannelInboundHandler[FullHttpResponse] {
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
-    msg.touch()
+    msg.touch("handlers.ClientSocketUpgradeHandler-channelRead0")
     val response = ClientResponse(
       Status.fromHttpResponseStatus(msg.status()),
       Headers.decode(msg.headers()),
