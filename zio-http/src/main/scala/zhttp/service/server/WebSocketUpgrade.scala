@@ -5,7 +5,6 @@ import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import zhttp.http.{Response, Status}
 import zhttp.service.{HttpRuntime, WEB_SOCKET_HANDLER}
-import zhttp.socket.SocketProtocol.Config.ServerConfig
 
 /**
  * Module to switch protocol to websockets
@@ -24,7 +23,7 @@ trait WebSocketUpgrade[R] { self: ChannelHandler =>
       .channel()
       .pipeline()
       .addLast(
-        new WebSocketServerProtocolHandler(app.get.protocol.narrow[ServerConfig].serverConfig),
+        new WebSocketServerProtocolHandler(app.get.protocol.toServerConfig.build()),
       )
       .addLast(WEB_SOCKET_HANDLER, ServerSocketHandler(runtime, app.get))
     ctx.channel().eventLoop().submit(() => ctx.fireChannelRead(jReq)): Unit
