@@ -593,7 +593,7 @@ object Http {
         if (file.isDirectory)
           response(Response(data = HttpData.fromString(listFilesHtml(file.toPath))))
         else
-          responseHttp(file)
+          Http.fromFile(file)
       }.catchAll {
         case a: SecurityException     =>
           Http.forbidden(a.getMessage)
