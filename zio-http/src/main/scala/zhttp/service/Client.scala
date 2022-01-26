@@ -62,7 +62,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
       }
       val scheme = req.url.kind match {
         case Location.Relative               => ""
-        case Location.Absolute(scheme, _, _) => scheme.asString
+        case Location.Absolute(scheme, _, _) => scheme.encode
       }
       val init   = ClientChannelInitializer(hand, scheme, sslOption)
 

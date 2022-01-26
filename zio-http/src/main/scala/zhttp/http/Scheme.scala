@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.HttpScheme
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 
 sealed trait Scheme { self =>
-  def asString: String = Scheme.asString(self)
+  def encode: String = Scheme.asString(self)
 }
 object Scheme       {
   case object HTTP  extends Scheme

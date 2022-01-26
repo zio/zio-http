@@ -95,8 +95,8 @@ object URL {
     url.kind match {
       case Location.Relative                     => path
       case Location.Absolute(scheme, host, port) =>
-        if (port == 80 || port == 443) s"${scheme.asString}://$host$path"
-        else s"${scheme.asString}://$host:$port$path"
+        if (port == 80 || port == 443) s"${scheme.encode}://$host$path"
+        else s"${scheme.encode}://$host:$port$path"
     }
   }
 
