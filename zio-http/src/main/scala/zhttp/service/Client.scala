@@ -4,8 +4,8 @@ import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.{
   Channel,
-  ChannelFactory => JChannelFactory,
   ChannelHandlerContext,
+  ChannelFactory => JChannelFactory,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http.HttpVersion
@@ -37,12 +37,13 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     } yield res
 
   def socket(
+    url: String,
     headers: Headers = Headers.empty,
     sa: SocketApp[R],
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[Any, Throwable, ClientResponse] = for {
     pr  <- Promise.make[Throwable, ClientResponse]
-    _   <- Task(unsafeSocket(headers, sa, pr, sslOptions))
+    _   <- Task(unsafeSocket(url, headers, sa, pr, sslOptions))
     res <- pr.await
   } yield res
 
@@ -162,11 +163,12 @@ object Client {
     make[Any].flatMap(_.request(req, sslOptions))
 
   def socket[R](
+    url: String,
     sa: SocketApp[R],
     headers: Headers = Headers.empty,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    make[R].flatMap(_.socket(headers, sa, sslOptions))
+    make[R].flatMap(_.socket(url, headers, sa, sslOptions))
 
   final case class ClientRequest(
     method: Method,
