@@ -28,7 +28,7 @@ An app can be made using any of the available constructors on `zhttp.Http`.
  For handling routes, Http Domain has a `collect` method that, accepts different requests and produces responses. Pattern matching on the route is supported by the framework
 The example below shows how to create routes:
 
-```scala,
+```scala
 import zhttp.http._
 
 val app = Http.collect[Request] {
@@ -37,7 +37,7 @@ val app = Http.collect[Request] {
 }
 ```
 You can create typed routes as well. The below example shows how to accept count as `Int` only.
- ```scala,
+ ```scala
  import zhttp.http._
  
  val app = Http.collect[Request] {
@@ -47,7 +47,7 @@ You can create typed routes as well. The below example shows how to accept count
 
 ### Composition
 
-HTTP app can be composed using the `++` operator. The way it works is if none of the routes matches in `a` or there is an error `a`, the control is passed to the `b` app.
+HTTP app can be composed using the `++` operator. The way it works is if none of the routes matches in `a`, the control is passed to the `b` app.
 
 ```scala
 import zhttp.http._
