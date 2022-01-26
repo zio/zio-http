@@ -7,6 +7,7 @@ import zhttp.http._
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.content.handlers.ClientSocketUpgradeHandler
+import zhttp.service.server.SocketAppHandler
 import zhttp.socket.SocketApp
 import zio._
 
@@ -25,7 +26,7 @@ class SocketClient[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEv
     val handlers = List(
       ClientSocketUpgradeHandler(rtm, pr),
       new WebSocketClientProtocolHandler(config.build()),
-      ClientSocketHandler(rtm, ss),
+      new SocketAppHandler(rtm, ss),
     )
 
     val host = url.getHost
