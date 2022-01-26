@@ -21,7 +21,9 @@ object ContentTypeSpec extends HttpRunnableSpec {
       val res  =
         Http
           .fromFile(file)
-          .requestHeaderValueByName()(HttpHeaderNames.CONTENT_TYPE)
+          .deploy
+          .getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
+          .run()
           .map(_.getOrElse("Content type header not found."))
       assertM(res)(equalTo("video/mp4"))
     } +
@@ -30,7 +32,9 @@ object ContentTypeSpec extends HttpRunnableSpec {
         val res  =
           Http
             .fromFile(file)
-            .requestHeaderValueByName()(HttpHeaderNames.CONTENT_TYPE)
+            .deploy
+            .getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
+            .run()
             .map(_.getOrElse("Content type header not found."))
         assertM(res)(equalTo("application/javascript"))
       } +
@@ -39,7 +43,9 @@ object ContentTypeSpec extends HttpRunnableSpec {
         val res  =
           Http
             .fromFile(file)
-            .requestHeaderValueByName()(HttpHeaderNames.CONTENT_TYPE)
+            .deploy
+            .getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
+            .run()
             .map(_.getOrElse("Content type header not found."))
         assertM(res)(equalTo("Content type header not found."))
       } +
@@ -48,7 +54,9 @@ object ContentTypeSpec extends HttpRunnableSpec {
         val res  =
           Http
             .fromFile(file)
-            .requestHeaderValueByName()(HttpHeaderNames.CONTENT_TYPE)
+            .deploy
+            .getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
+            .run()
             .map(_.getOrElse("Content type header not found."))
         assertM(res)(equalTo("text/css"))
       } +
@@ -57,7 +65,9 @@ object ContentTypeSpec extends HttpRunnableSpec {
         val res  =
           Http
             .fromFile(file)
-            .requestHeaderValueByName()(HttpHeaderNames.CONTENT_TYPE)
+            .deploy
+            .getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
+            .run()
             .map(_.getOrElse("Content type header not found."))
         assertM(res)(equalTo("audio/mpeg"))
       } +
@@ -66,7 +76,9 @@ object ContentTypeSpec extends HttpRunnableSpec {
         val res  =
           Http
             .fromFile(file)
-            .requestHeaderValueByName()(HttpHeaderNames.CONTENT_TYPE)
+            .deploy
+            .getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
+            .run()
             .map(_.getOrElse("Content type header not found."))
         assertM(res)(equalTo("Content type header not found."))
       }
