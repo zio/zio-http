@@ -21,6 +21,7 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
     case FMerge(sa, sb)              => sa(a) merge sb(a)
     case Succeed(a)                  => ZStream.succeed(a)
     case Provide(s, r)               => s(a).asInstanceOf[ZStream[R, E, B]].provide(r.asInstanceOf[R])
+    case Empty                       => ZStream.empty
   }
 
   def contramap[Z](za: Z => A): Socket[R, E, Z, B] = Socket.FCMap(self, za)
@@ -65,6 +66,11 @@ object Socket {
    */
   def echo[A]: Socket[Any, Nothing, A, A] = Socket.collect[A] { case a => ZStream.succeed(a) }
 
+  /**
+   * Creates a socket that doesn't do anything.
+   */
+  def empty: Socket[Any, Nothing, Any, Nothing] = Socket.Empty
+
   def end: ZStream[Any, Nothing, Nothing] = ZStream.halt(Cause.empty)
 
   def fromFunction[A]: PartialFromFunction[A] = new PartialFromFunction[A](())
@@ -108,4 +114,6 @@ object Socket {
   private final case class Provide[R, E, A, B](s: Socket[R, E, A, B], r: R) extends Socket[Any, E, A, B]
 
   private case object End extends Socket[Any, Nothing, Any, Nothing]
+
+  private case object Empty extends Socket[Any, Nothing, Any, Nothing]
 }
