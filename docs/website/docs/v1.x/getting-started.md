@@ -88,13 +88,9 @@ val app = Http.collectZIO[Request] {
 ```
 
 ### Testing
-<<<<<<< HEAD
 
 Since `Http` is a function of the form `A => ZIO[R, Option[E], B]` to test it you can simply call an `Http` like a function.
 
-=======
-ZIO HTTP provides a `zhttp-test` package for use in unit tests. You can utilize it as follows:
->>>>>>> 25679348 (fix: getting started)
 ```scala
 import zio.test._
 import zhttp.http._
