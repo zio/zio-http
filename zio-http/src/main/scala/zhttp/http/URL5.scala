@@ -1,36 +1,38 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
+import zhttp.http.Scheme.asString
+import zhttp.http.URL5._
 
 import java.net.URI
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
-sealed trait URL4 { self =>
+sealed trait URL5 { self =>
 
   def getHost: Option[String] = self match {
-    case a: URL4.Decode => a.toCons.get.getHost
-    case b: URL4.Cons   => b.host
+    case a: Decode => a.toCons.get.getHost
+    case b: Cons   => b.host
   }
   def getPort: Option[Int]    = self match {
-    case a: URL4.Decode => a.toCons.get.getPort
-    case b: URL4.Cons   => b.port
+    case a: Decode => a.toCons.get.getPort
+    case b: Cons   => b.port
   }
 
-  def toCons: Option[URL4] = self match {
-    case a: URL4.Decode => a.apply.toOption
-    case b: URL4.Cons   => Some(b)
+  def toCons: Option[URL5] = self match {
+    case a: Decode => a.decode.toOption
+    case b: Cons   => Some(b)
   }
 
-  def setPath(path: Path): URL4                                    = URL4.Cons(path = path)
-  def setHost(host: String): URL4                                  = URL4.Cons(host = Some(host))
-  def setPort(port: Int): URL4                                     = URL4.Cons(port = Some(port))
-  def setScheme(scheme: Scheme): URL4                              = URL4.Cons(scheme = Some(scheme))
-  def setQueryParams(queryParams: Map[String, List[String]]): URL4 = URL4.Cons(queryParams = queryParams)
+  def setPath(path: Path): URL5                                    = URL5.Cons(path = path)
+  def setHost(host: String): URL5                                  = URL5.Cons(host = Some(host))
+  def setPort(port: Int): URL5                                     = URL5.Cons(port = Some(port))
+  def setScheme(scheme: Scheme): URL5                              = URL5.Cons(scheme = Some(scheme))
+  def setQueryParams(queryParams: Map[String, List[String]]): URL5 = URL5.Cons(queryParams = queryParams)
 
   def encode: String = self match {
-    case URL4.Decode(string) => string
-    case u: URL4.Cons        => {
+    case Decode(string) => string
+    case u: Cons        => {
       def path: String = {
         val encoder = new QueryStringEncoder(s"${u.path.asString}${u.fragment.fold("")(f => "#" + f.raw)}")
         u.queryParams.foreach { case (key, values) =>
@@ -38,37 +40,38 @@ sealed trait URL4 { self =>
         }
         encoder.toString
       }
-      val a            = URL4.Decode(s"$path")
+      val a            = URL5.Decode(s"$path")
       if (u.scheme.isDefined && u.port.isDefined && u.host.isDefined) {
         if (u.port.get == 80 || u.port.get == 443)
-          a.copy(s"${u.scheme.get.encode}://${u.host}$path")
-        else a.copy(s"${u.scheme.get.encode}://${u.host.get}:${u.port.get}$path")
+          a.copy(s"${asString(u.scheme.get)}://${u.host}$path")
+        else a.copy(s"${asString(u.scheme.get)}://${u.host.get}:${u.port.get}$path")
       }
       a.encode
     }
   }
 
 }
-object URL4 {
+object URL5 {
 
-  def apply(path: Path): URL4 = URL4.Cons(path = path)
+  def apply(path: Path): URL5                                = Cons(path = path)
+  def apply(str: String): Either[HttpError.BadRequest, URL5] = Decode(string = str).decode
 
-  final case class Decode(string: String) extends URL4 {
+  final case class Decode(string: String) extends URL5 {
     self =>
-    def apply: Either[HttpError.BadRequest, URL4] = {
+    def decode: Either[HttpError.BadRequest, URL5] = {
       Try(unsafeDecode).toEither match {
         case Left(_)      => Left(HttpError.BadRequest(s"Invalid URL: $string"))
         case Right(value) => Right(value)
       }
     }
-    def unsafeDecode: URL4                        = {
+    def unsafeDecode: URL5                         = {
       try {
         val url = new URI(string)
         if (url.isAbsolute) unsafeFromAbsoluteURI2(url) else unsafeFromRelativeURI2(url)
       } catch { case _: Throwable => null }
     }
 
-    private def unsafeFromAbsoluteURI2(uri: URI): URL4 = {
+    private def unsafeFromAbsoluteURI2(uri: URI): URL5 = {
 
       def portFromScheme(scheme: Scheme): Int = scheme match {
         case Scheme.HTTP  => 80
@@ -82,19 +85,19 @@ object URL4 {
       val host    = uri.getHost
 
       if (port != -1 && scheme != null && host != null)
-        URL4.Cons(
+        Cons(
           Path(uri.getRawPath),
           Some(host),
           Some(scheme),
           Some(port),
           queryParams(uri.getRawQuery),
-          URL4.Fragment.fromURI(uri),
+          Fragment.fromURI(uri),
         )
       else null
     }
 
-    private def unsafeFromRelativeURI2(uri: URI): URL4 =
-      URL4.Cons(Path(uri.getRawPath), queryParams = queryParams(uri.getRawQuery), fragment = URL4.Fragment.fromURI(uri))
+    private def unsafeFromRelativeURI2(uri: URI): URL5 =
+      Cons(Path(uri.getRawPath), queryParams = queryParams(uri.getRawQuery), fragment = Fragment.fromURI(uri))
   }
   final case class Cons(
     path: Path = !!,
@@ -103,7 +106,7 @@ object URL4 {
     port: Option[Int] = None,
     queryParams: Map[String, List[String]] = Map.empty,
     fragment: Option[Fragment] = None,
-  ) extends URL4
+  ) extends URL5
 
   sealed trait Location
   object Location {
@@ -119,7 +122,7 @@ object URL4 {
     } yield Fragment(raw, decoded)
   }
 
-  private def queryParams(query: String)                         = {
+  private def queryParams(query: String) = {
     if (query == null || query.isEmpty) {
       Map.empty[String, List[String]]
     } else {
@@ -128,14 +131,17 @@ object URL4 {
       params.asScala.view.map { case (k, v) => (k, v.asScala.toList) }.toMap
     }
   }
-  def decode(string: String): Either[HttpError.BadRequest, URL4] = URL4.Decode(string).apply
-  def unsafeDecode(string: String): URL4                         = URL4.Decode(string)
 
-  def root: URL4 = URL4.Cons(!!)
+  def unsafeDecode(string: String): URL5 = Decode(string)
 
-  val url = URL4(!! / "root")
+  def root: URL5 = Cons(!!)
+
+  val url1 = URL5(!! / "root")
     .setHost("www.zio-http.com")
     .setQueryParams(Map("A" -> List("B")))
     .setPort(8090)
     .setScheme(Scheme.HTTP)
+
+  val url2: Option[URL5] = URL5("www.zio-http.com/a").toOption
+
 }
