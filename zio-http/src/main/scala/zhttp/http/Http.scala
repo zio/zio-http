@@ -102,6 +102,11 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   ): Http[R1, E1, A1, C] =
     self >>> Http.collectZIO(pf)
 
+  final def collectManaged[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](
+    pf: PartialFunction[B1, ZManaged[R1, E1, C]],
+  ): Http[R1, E1, A1, C] =
+    self >>> Http.collectManaged(pf)
+
   /**
    * Named alias for `<<<`
    */
@@ -466,6 +471,11 @@ object Http {
   def collectZIO[A]: Http.PartialCollectZIO[A] = Http.PartialCollectZIO(())
 
   /**
+   * Creates an Http app which acceepts a request and produces response from a managed resource
+   */
+  def collectManaged[A]: Http.PartialCollectManaged[A] = Http.PartialCollectManaged(())
+
+  /**
    * Combines multiple Http apps into one
    */
   def combine[R, E, A, B](i: Iterable[Http[R, E, A, B]]): Http[R, E, A, B] =
@@ -617,6 +627,11 @@ object Http {
   final case class PartialCollectZIO[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, ZIO[R, E, B]]): Http[R, E, A, B] =
       Http.collect[A] { case a if pf.isDefinedAt(a) => Http.fromZIO(pf(a)) }.flatten
+  }
+
+  final case class PartialCollectManaged[A](unit: Unit) extends AnyVal {
+    def apply[R, E, B](pf: PartialFunction[A, ZManaged[R, E, B]]): Http[R, E, A, B] =
+      Http.collect[A] { case a if pf.isDefinedAt(a) => Http.fromZIO(pf(a).useNow) }.flatten
   }
 
   final case class PartialCollect[A](unit: Unit) extends AnyVal {
