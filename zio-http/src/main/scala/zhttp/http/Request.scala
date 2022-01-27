@@ -1,12 +1,14 @@
 package zhttp.http
 
-import io.netty.buffer.ByteBuf
+import io.netty.buffer.{ByteBuf, Unpooled}
 import zhttp.http.headers.HeaderExtension
-import zhttp.service.server.ContentDecoder
+import zhttp.service.server.content.handlers.UnsafeRequestHandler.{UnsafeChannel, UnsafeContent}
 import zio.stream.ZStream
-import zio.{Task, UIO}
+import zio.{Task, UIO, ZIO}
 
 import java.net.InetAddress
+import scala.annotation.unused
+import scala.concurrent.Promise
 
 trait Request extends HeaderExtension[Request] { self =>
 
@@ -24,26 +26,45 @@ trait Request extends HeaderExtension[Request] { self =>
       override def url: URL                           = u
       override def headers: Headers                   = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
-      override def decodeContent[B](
-        decoder: ContentDecoder[ByteBuf, B],
-      ): Task[B] =
-        self.decodeContent(decoder)
+      override def unsafeBody(
+        msg: (
+          UnsafeChannel,
+          UnsafeContent,
+        ) => Unit,
+      ): Unit = ???
     }
   }
 
-  def decodeContent[B](decoder: ContentDecoder[ByteBuf, B]): Task[B]
+  def unsafeBody(msg: (UnsafeChannel, UnsafeContent) => Unit): Unit
 
   /**
    * Decodes the content of request as a Chunk of Bytes
    */
-  def body: Task[Chunk[Byte]] =
-    bodyAsByteBuf.flatMap(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
+  def body[R]: ZStream[R, Throwable, ByteBuf] = ???
+//    for {
+//      raw    <- ZStream.fromEffect(???)
+//      stream <- ZStream.fromQueue(raw)
+//    } yield stream
 
   /**
    * Decodes the content of request as string
    */
-  def bodyAsString: Task[String] =
-    bodyAsByteBuf.flatMap(buf => Task(buf.toString(charset)))
+  def bodyAsString: Task[String] = {
+//    val p = scala.concurrent.Promise[String]()
+//    (for {
+//      buffer <- UIO(Unpooled.compositeBuffer())
+//      _      <- UIO(unsafeBody((ch, msg) => {
+//        buffer.writeBytes(msg.content.content()): Unit
+//        if (msg.isLast) {
+//          p.trySuccess(buffer.toString(HTTP_CHARSET)): Unit
+//        } else {
+//          ch.read()
+//        }
+//      }))
+//      r      <- Promise (p)
+//    } yield r).map { b => println("test" + b); b }
+    ???
+  }
 
   /**
    * Gets all the headers in the Request
@@ -103,7 +124,7 @@ object Request {
     url: URL = URL.root,
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress] = None,
-    data: HttpData = HttpData.Empty,
+    @unused data: HttpData = HttpData.Empty,
   ): Request = {
     val m  = method
     val u  = url
@@ -115,10 +136,12 @@ object Request {
       override def headers: Headers                            = h
       override def remoteAddress: Option[InetAddress]          = ra
       override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
-      override def decodeContent[B](
-        decoder: ContentDecoder[ByteBuf, B],
-      ): Task[B] =
-        decoder.decode(data, method, url, headers)
+      override def unsafeBody(
+        msg: (
+          UnsafeChannel,
+          UnsafeContent,
+        ) => Unit,
+      ): Unit = ()
     }
   }
 
@@ -142,10 +165,12 @@ object Request {
     override def method: Method                     = req.method
     override def remoteAddress: Option[InetAddress] = req.remoteAddress
     override def url: URL                           = req.url
-    override def decodeContent[B](
-      decoder: ContentDecoder[ByteBuf, B],
-    ): Task[B] =
-      req.decodeContent(decoder)
+    override def unsafeBody(
+      msg: (
+        UnsafeChannel,
+        UnsafeContent,
+      ) => Unit,
+    ): Unit = ???
   }
 
   object ParameterizedRequest {

@@ -1,12 +1,12 @@
 package zhttp.service
 
-import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
-import zhttp.service.server.{ContentDecoder, WebSocketUpgrade}
-import zio.{Promise, Task, UIO, ZIO}
+import zhttp.service.server.WebSocketUpgrade
+import zhttp.service.server.content.handlers.UnsafeRequestHandler.{UnsafeChannel, UnsafeContent}
+import zio.{UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -15,28 +15,17 @@ private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
-) extends SimpleChannelInboundHandler[HttpObject](true)
+) extends SimpleChannelInboundHandler[Any](false)
     with WebSocketUpgrade[R] { self =>
 
   type Ctx = ChannelHandlerContext
 
-  import io.netty.util.AttributeKey
-
-  private val DECODER_KEY: AttributeKey[ContentDecoder[ByteBuf, Any]] =
-    AttributeKey.valueOf("decoderKey")
-  private val COMPLETE_PROMISE: AttributeKey[Promise[Throwable, Any]] =
-    AttributeKey.valueOf("completePromise")
-  private val IS_FIRST: AttributeKey[Boolean]                         = AttributeKey.valueOf("isFirst")
-  private val decoderState: AttributeKey[Any]                         =
-    AttributeKey.valueOf("decoderState")
-  private val REQUEST: AttributeKey[Request]                          = AttributeKey.valueOf("request")
-  private val BODY: AttributeKey[ByteBuf]                             = AttributeKey.valueOf("body")
-
-  override def handlerAdded(ctx: Ctx): Unit                  = {
-    ctx.channel().config().setAutoRead(false)
+  override def handlerAdded(ctx: Ctx): Unit = {
+    ctx.channel().config().setAutoRead(false): Unit
     ctx.read(): Unit
   }
-  override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
+
+  override def channelRead0(ctx: Ctx, msg: Any): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
       case jReq: HttpRequest    =>
@@ -45,47 +34,34 @@ private[zhttp] final case class Handler[R](
           override def url: URL         = URL.fromString(jReq.uri()).getOrElse(null)
           override def headers: Headers = Headers.make(jReq.headers())
 
-          override def decodeContent[B](
-            decoder: ContentDecoder[ByteBuf, B],
-          ): Task[B] =
-            ZIO.effectSuspendTotal {
-              if (ctx.channel().attr(DECODER_KEY).get() != null)
-                ZIO.fail(ContentDecoder.Error.ContentDecodedOnce)
-              else
-                for {
-                  p <- Promise.make[Throwable, B]
-                  _ <- UIO {
-                    ctx
-                      .channel()
-                      .attr(DECODER_KEY)
-                      .setIfAbsent(decoder.asInstanceOf[ContentDecoder[ByteBuf, Any]])
-                    ctx.channel().attr(COMPLETE_PROMISE).set(p.asInstanceOf[Promise[Throwable, Any]])
-                    ctx.read(): Unit
-                  }
-                  b <- p.await
-                } yield b
-            }
-
           override def remoteAddress: Option[InetAddress] = {
             ctx.channel().remoteAddress() match {
               case m: InetSocketAddress => Some(m.getAddress)
               case _                    => None
             }
           }
+          override def unsafeBody(
+            callback: (
+              UnsafeChannel,
+              UnsafeContent,
+            ) => Unit,
+          ): Unit = ctx.pipeline().addAfter(HTTP_REQUEST_HANDLER, "CONTENT_HANDLER", RequestBodyHandler(callback)): Unit
+
         }
-        ctx.channel().attr(REQUEST).set(request)
+
         unsafeRun(
           jReq,
           app,
           request,
         )
       case msg: LastHttpContent =>
-        if (ctx.channel().attr(DECODER_KEY).get() != null)
-          decodeContent(msg.content(), ctx.channel().attr(DECODER_KEY).get(), true)
-      case msg: HttpContent     =>
-        if (ctx.channel().attr(DECODER_KEY).get() != null)
-          decodeContent(msg.content(), ctx.channel().attr(DECODER_KEY).get(), false)
-      case _                    => ctx.fireChannelRead(Response.status(Status.NOT_ACCEPTABLE)): Unit
+        ctx.fireChannelRead(msg): Unit
+
+      case msg: HttpContent =>
+        ctx.fireChannelRead(msg): Unit
+        ctx.read(): Unit
+
+      case _ => ctx.fireChannelRead(Response.status(Status.NOT_ACCEPTABLE)): Unit
     }
 
   }
@@ -149,71 +125,4 @@ private[zhttp] final case class Handler[R](
       program
     }
 
-  /**
-   * Decodes content and executes according to the ContentDecoder provided
-   */
-  private def decodeContent(
-    content: ByteBuf,
-    decoder: ContentDecoder[ByteBuf, Any],
-    isLast: Boolean,
-  )(implicit ctx: ChannelHandlerContext): Unit = {
-    decoder match {
-      case ContentDecoder.Text =>
-        val cBody      = ctx.channel().hasAttr(BODY)
-        var isTooLarge = false
-        if (cBody) {
-          val cBody = ctx.channel().attr(BODY).get()
-          ctx.channel().attr(BODY).set(cBody.writeBytes(content))
-          if (cBody.readableBytes() + content.readableBytes() > config.maxRequestSize) isTooLarge = true
-        } else {
-          ctx.channel().attr(BODY).set(Unpooled.compositeBuffer().writeBytes(content))
-        }
-        if (isTooLarge) {
-          ctx.fireChannelRead(Response.status(Status.REQUEST_ENTITY_TOO_LARGE)): Unit
-        } else {
-          if (isLast) {
-            val body = ctx.channel().attr(BODY).get()
-            unsafeRunZIO(
-              ctx.channel().attr(COMPLETE_PROMISE).get().succeed(body.toString(HTTP_CHARSET)) <* UIO {
-                ctx.channel().attr(BODY).set(null)
-              },
-            )
-          } else {
-            ctx.read(): Unit
-          }
-        }
-
-      case step: ContentDecoder.Step[_, _, _] =>
-        if (!ctx.channel().hasAttr(IS_FIRST)) {
-          ctx.channel().attr(decoderState).set(step.state)
-          ctx.channel().attr(IS_FIRST).set(false)
-        }
-
-        val request = ctx.channel().attr(REQUEST).get()
-        unsafeRunZIO(for {
-          (publish, state) <- step
-            .asInstanceOf[ContentDecoder.Step[Any, ByteBuf, Any]]
-            .next(
-              // content.array() fails with post request with body
-              // Link: https://livebook.manning.com/book/netty-in-action/chapter-5/54
-              content.retain(),
-              ctx.channel().attr(decoderState).get(),
-              isLast,
-              request.method,
-              request.url,
-              request.getHeaders,
-            )
-          _                <- publish match {
-            case Some(out) => ctx.channel().attr(COMPLETE_PROMISE).get().succeed(out)
-            case None      => ZIO.unit
-          }
-          _                <- UIO {
-            ctx.channel().attr(decoderState).set(state)
-            if (!isLast) {
-              ctx.read()
-            }
-          }
-        } yield ())
-    }
-  }
 }
