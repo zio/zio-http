@@ -21,7 +21,7 @@ import zio.{Has, Task, ZIO, ZManaged}
  */
 abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
 
-  implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Client.ClientRequest, A]) {
+  implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Request, A]) {
 
     /**
      * Runs the deployed Http app by making a real http request to it. The method allows us to configure individual
@@ -34,11 +34,12 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       headers: Headers = Headers.empty,
     ): ZIO[R, Throwable, A] =
       app(
-        Client.ClientRequest(
+        Request(
           method,
           URL(path, Location.Absolute(Scheme.HTTP, "localhost", 0)),
           headers,
           HttpData.fromString(content),
+          None,
         ),
       ).catchAll {
         case Some(value) => ZIO.fail(value)
@@ -58,7 +59,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       for {
         port     <- Http.fromZIO(DynamicServer.getPort)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
-        response <- Http.fromFunctionZIO[Client.ClientRequest] { params =>
+        response <- Http.fromFunctionZIO[Request] { params =>
           Client.request(
             params
               .addHeader(DynamicServer.APP_ID, id)
@@ -74,7 +75,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     def deployWebSocket: HttpTestClient[SttpClient, client3.Response[Either[String, WebSocket[Task]]]] = for {
       id  <- Http.fromZIO(DynamicServer.deploy(app))
       res <-
-        Http.fromFunctionZIO[Client.ClientRequest](params =>
+        Http.fromFunctionZIO[Request](params =>
           for {
             port <- DynamicServer.getPort
             url        = s"ws://localhost:$port${params.url.path.asString}"
@@ -117,7 +118,7 @@ object HttpRunnableSpec {
     Http[
       R with EventLoopGroup with ChannelFactory with DynamicServer with ServerChannelFactory,
       Throwable,
-      Client.ClientRequest,
+      Request,
       A,
     ]
 }
