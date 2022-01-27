@@ -46,13 +46,13 @@ object EncodeRequestSpec extends DefaultRunnableSpec with EncodeClientParams {
         testM("uri") {
           checkM(anyClientParam) { params =>
             val uri = encodeClientParams(HttpVersion.HTTP_1_1, params).map(_.uri())
-            assertM(uri)(equalTo(params.url.relative.asString))
+            assertM(uri)(equalTo(params.url.relative.encode))
           }
         } +
           testM("uri on HttpData.File") {
             checkM(HttpGen.clientParamsForFileHttpData()) { params =>
               val uri = encodeClientParams(HttpVersion.HTTP_1_1, params).map(_.uri())
-              assertM(uri)(equalTo(params.url.relative.asString))
+              assertM(uri)(equalTo(params.url.relative.encode))
             }
           }
       } +
