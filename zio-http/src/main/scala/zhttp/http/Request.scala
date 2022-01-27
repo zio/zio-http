@@ -95,8 +95,8 @@ object Request {
     method: Method = Method.GET,
     url: URL = URL.root,
     headers: Headers = Headers.empty,
-    remoteAddress: Option[InetAddress] = None,
     data: HttpData = HttpData.Empty,
+    remoteAddress: Option[InetAddress] = None,
   ): Request = {
     val hostHeaders = (url.host, url.port) match {
       case (Some(name), None)           => Headers.host(name)
@@ -127,7 +127,7 @@ object Request {
     remoteAddress: Option[InetAddress],
     content: HttpData = HttpData.empty,
   ): UIO[Request] =
-    UIO(Request(method, url, headers, remoteAddress, content))
+    UIO(Request(method, url, headers, content, remoteAddress))
 
   /**
    * Lift request to TypedRequest with option to extract params

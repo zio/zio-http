@@ -6,7 +6,6 @@ import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import zhttp.http.Scheme.{HTTP, HTTPS, WS, WSS}
 import zhttp.http.URL.Location
 import zhttp.http._
-import zhttp.service.Client.ClientRequest
 import zio.random.Random
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
@@ -26,7 +25,7 @@ object HttpGen {
       url     <- urlGen
       headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
-    } yield ClientRequest(method, url, headers, data)
+    } yield Request(method, url, headers, data, None)
 
   def clientParamsForFileHttpData() = {
     for {
@@ -34,7 +33,7 @@ object HttpGen {
       method  <- HttpGen.method
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
-    } yield ClientRequest(method, url, headers, HttpData.fromFile(file))
+    } yield Request(method, url, headers, HttpData.fromFile(file), None)
   }
 
   def cookies: Gen[Random with Sized, Cookie] = for {
@@ -126,7 +125,7 @@ object HttpGen {
     url     <- HttpGen.url
     headers <- Gen.listOf(HttpGen.header).map(Headers(_))
     data    <- HttpGen.httpData(Gen.listOf(Gen.alphaNumericString))
-  } yield Request(method, url, headers, None, data)
+  } yield Request(method, url, headers, data, None)
 
   def response[R](gContent: Gen[R, List[String]]): Gen[Random with Sized with R, Response] = {
     for {

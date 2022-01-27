@@ -4,7 +4,7 @@ import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.DynamicServer.HttpEnv
 import zhttp.internal.HttpRunnableSpec.HttpTestClient
-import zhttp.service.Client.{ClientRequest, ClientResponse}
+import zhttp.service.Client.ClientResponse
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.socket.SocketApp
@@ -18,11 +18,11 @@ import zio.{Has, ZIO, ZManaged}
  */
 abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
 
-  implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Client.ClientRequest, A]) {
+  implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Request, A]) {
 
     /**
      * Runs the deployed Http app by making a real http request to it. The method allows us to configure individual
-     * constituents of a ClientRequest.
+     * constituents of a Request.
      */
     def run(
       path: Path = !!,
@@ -31,11 +31,12 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       headers: Headers = Headers.empty,
     ): ZIO[R, Throwable, A] =
       app(
-        Client.ClientRequest(
+        Request(
           method,
           URL(path, Location.Absolute(Scheme.HTTP, "localhost", 0)),
           headers,
           HttpData.fromString(content),
+          None,
         ),
       ).catchAll {
         case Some(value) => ZIO.fail(value)
@@ -47,15 +48,15 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
 
     /**
      * Deploys the http application on the test server and returns a Http of type
-     * {{{Http[R, E, ClientRequest, ClientResponse}}}. This allows us to assert using all the powerful operators that
-     * are available on `Http` while writing tests. It also allows us to simply pass a request in the end, to execute,
-     * and resolve it with a response, like a normal HttpApp.
+     * {{{Http[R, E, Request, ClientResponse}}}. This allows us to assert using all the powerful operators that are
+     * available on `Http` while writing tests. It also allows us to simply pass a request in the end, to execute, and
+     * resolve it with a response, like a normal HttpApp.
      */
-    def deploy: HttpTestClient[Any, ClientRequest, ClientResponse] =
+    def deploy: HttpTestClient[Any, Request, ClientResponse] =
       for {
         port     <- Http.fromZIO(DynamicServer.getPort)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
-        response <- Http.fromFunctionZIO[Client.ClientRequest] { params =>
+        response <- Http.fromFunctionZIO[Request] { params =>
           Client.request(
             params
               .addHeader(DynamicServer.APP_ID, id)
