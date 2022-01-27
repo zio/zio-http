@@ -2,6 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import zhttp.http.headers.HeaderExtension
+import zhttp.socket.SocketApp
 import zio.{Chunk, Task, UIO}
 
 import java.net.InetAddress
@@ -23,6 +24,7 @@ trait Request extends HeaderExtension[Request] { self =>
       override def getHeaders: Headers                = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
       override private[zhttp] def getBodyAsByteBuf    = self.getBodyAsByteBuf
+      override def attribute: Request.Attribute       = self.attribute
     }
   }
 
@@ -83,6 +85,8 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   def url: URL
 
+  private[zhttp] def attribute: Request.Attribute
+
   private[zhttp] def getBodyAsByteBuf: Task[ByteBuf]
 }
 
@@ -97,6 +101,7 @@ object Request {
     headers: Headers = Headers.empty,
     data: HttpData = HttpData.Empty,
     remoteAddress: Option[InetAddress] = None,
+    attribute: Attribute = Attribute.empty,
   ): Request = {
     val hostHeaders = (url.host, url.port) match {
       case (Some(name), None)           => Headers.host(name)
@@ -108,12 +113,14 @@ object Request {
     val u           = url
     val h           = headers ++ hostHeaders
     val ra          = remoteAddress
+    val attr        = attribute
     new Request {
       override def method: Method                                 = m
       override def url: URL                                       = u
       override def getHeaders: Headers                            = h
       override def remoteAddress: Option[InetAddress]             = ra
       override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
+      override def attribute: Attribute                           = attr
     }
   }
 
@@ -137,10 +144,17 @@ object Request {
     override def method: Method                                 = req.method
     override def remoteAddress: Option[InetAddress]             = req.remoteAddress
     override def url: URL                                       = req.url
+    override private[zhttp] def attribute                       = req.attribute
     override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = req.getBodyAsByteBuf
   }
 
+  private[zhttp] case class Attribute(socketApp: Option[SocketApp[Any]] = None) {}
+
   object ParameterizedRequest {
     def apply[A](req: Request, params: A): ParameterizedRequest[A] = new ParameterizedRequest(req, params)
+  }
+
+  object Attribute {
+    val empty: Attribute = Attribute()
   }
 }
