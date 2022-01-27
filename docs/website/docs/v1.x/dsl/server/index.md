@@ -33,7 +33,7 @@ This section describes, ZIO HTTP Server and different configurations you can pro
         ).provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(2))
         .exitCode
     ```
-   **Note**`ServerChannelFactory.auto ++ EventLoopGroup.auto(num Threads)` is supplied as an external dependency to choose netty transport type. One can leave it as `auto` to let the application handle it for you. 
+   **Tip :** `ServerChannelFactory.auto ++ EventLoopGroup.auto(num Threads)` is supplied as an external dependency to choose netty transport type. One can leave it as `auto` to let the application handle it for you. 
    Also in `EventLoopGroup.auto(numThreads)` you can choose number of threads based on number of available processors. 
 
 ### Binding Server to a socket address
