@@ -17,9 +17,9 @@ object CookieSpec extends DefaultRunnableSpec {
       suite("request cookies") {
         testM("encode/decode multiple cookies with ZIO Test Gen") {
           checkAll(for {
-            name <- Gen.anyString
-            content <- Gen.anyString
-            cookieList <- Gen.listOf(Gen.const(Cookie(name, content)))
+            name         <- Gen.anyString
+            content      <- Gen.anyString
+            cookieList   <- Gen.listOf(Gen.const(Cookie(name, content)))
             cookieString <- Gen.const(cookieList.map(x => s"${x.name}=${x.content}").mkString(";"))
           } yield (cookieList, cookieString)) { case (cookies, message) =>
             assertTrue(Cookie.decodeRequestCookie(message).contains(cookies))
