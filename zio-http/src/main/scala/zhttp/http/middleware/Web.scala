@@ -40,7 +40,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
         for {
           end <- clock.nanoTime
           _   <- console
-            .putStrLn(s"${response.status.asJava.code()} ${method} ${url.asString} ${(end - start) / 1000000}ms")
+            .putStrLn(s"${response.status.asJava.code()} ${method} ${url.encode} ${(end - start) / 1000000}ms")
             .mapError(Option(_))
         } yield Patch.empty
     }

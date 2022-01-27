@@ -1,5 +1,6 @@
 package zhttp.http
 
+import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.ChannelHandler
 import zhttp.html.Html
 import zhttp.http.headers.HeaderModifier
@@ -171,6 +172,40 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   ): Http[R1, E1, A1, B1] = Http.FoldHttp(self, ee, bb, dd)
 
   /**
+   * Extracts body
+   */
+  final def getBody(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, Chunk[Byte]] =
+    self.getBodyAsByteBuf.mapZIO(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
+
+  /**
+   * Extracts body as a string
+   */
+  final def getBodyAsString(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, String] =
+    self.getBodyAsByteBuf.mapZIO(bytes => Task(bytes.toString(HTTP_CHARSET)))
+
+  /**
+   * Extracts content-length from the response if available
+   */
+  final def getContentLength(implicit eb: IsResponse[B]): Http[R, E, A, Option[Long]] =
+    getHeaders.map(_.getContentLength)
+
+  /**
+   * Extracts the value of the provided header name.
+   */
+  final def getHeaderValue(name: CharSequence)(implicit eb: IsResponse[B]): Http[R, E, A, Option[CharSequence]] =
+    getHeaders.map(_.getHeaderValue(name))
+
+  /**
+   * Extracts the `Headers` from the type `B` if possible
+   */
+  final def getHeaders(implicit eb: IsResponse[B]): Http[R, E, A, Headers] = self.map(eb.getHeaders)
+
+  /**
+   * Extracts `Status` from the type `B` is possible.
+   */
+  final def getStatus(implicit ev: IsResponse[B]): Http[R, E, A, Status] = self.map(ev.getStatus)
+
+  /**
    * Transforms the output of the http app
    */
   final def map[C](bc: B => C): Http[R, E, A, C] = self.flatMap(b => Http.succeed(bc(b)))
@@ -313,8 +348,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Widens the type of the output
    */
-  final def widen[B1](implicit ev: B <:< B1): Http[R, E, A, B1] =
-    self.asInstanceOf[Http[R, E, A, B1]]
+  final def widen[E1, B1](implicit e: E <:< E1, b: B <:< B1): Http[R, E1, A, B1] =
+    self.asInstanceOf[Http[R, E1, A, B1]]
 
   /**
    * Combines the two apps and returns the result of the one on the right
@@ -351,6 +386,15 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
       case RunMiddleware(app, mid) => mid(app).execute(a)
     }
+
+  /**
+   * Extracts body as a ByteBuf
+   */
+  private[zhttp] final def getBodyAsByteBuf(implicit
+    eb: IsResponse[B],
+    ee: E <:< Throwable,
+  ): Http[R, Throwable, A, ByteBuf] =
+    self.widen[Throwable, B].mapZIO(eb.getBodyAsByteBuf)
 }
 
 object Http {
@@ -633,12 +677,12 @@ object Http {
     dd: Http[R, EE, A, BB],
   ) extends Http[R, EE, A, BB]
 
-  private case object Empty extends Http[Any, Nothing, Any, Nothing]
-
-  private case object Identity extends Http[Any, Nothing, Any, Nothing]
-
   private final case class RunMiddleware[R, E, A1, B1, A2, B2](
     http: Http[R, E, A1, B1],
     mid: Middleware[R, E, A1, B1, A2, B2],
   ) extends Http[R, E, A2, B2]
+
+  private case object Empty extends Http[Any, Nothing, Any, Nothing]
+
+  private case object Identity extends Http[Any, Nothing, Any, Nothing]
 }

@@ -47,7 +47,7 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el:
       }
       val scheme = req.url.kind match {
         case Location.Relative               => ""
-        case Location.Absolute(scheme, _, _) => scheme.asString
+        case Location.Absolute(scheme, _, _) => scheme.encode
       }
       val init   = ClientChannelInitializer(hand, scheme, sslOption)
 
@@ -176,12 +176,14 @@ object Client {
       self.copy(getHeaders = update(self.getHeaders))
   }
 
-  final case class ClientResponse(status: Status, headers: Headers, private val buffer: ByteBuf)
+  final case class ClientResponse(status: Status, headers: Headers, private[zhttp] val buffer: ByteBuf)
       extends HeaderExtension[ClientResponse] { self =>
 
-    def getBodyAsString: Task[String] = Task(buffer.toString(self.getCharset))
-
     def getBody: Task[Chunk[Byte]] = Task(Chunk.fromArray(ByteBufUtil.getBytes(buffer)))
+
+    def getBodyAsByteBuf: Task[ByteBuf] = Task(buffer)
+
+    def getBodyAsString: Task[String] = Task(buffer.toString(self.getCharset))
 
     override def getHeaders: Headers = headers
 

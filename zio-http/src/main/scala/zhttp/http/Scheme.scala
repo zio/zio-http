@@ -2,7 +2,7 @@ package zhttp.http
 
 import io.netty.handler.codec.http.HttpScheme
 sealed trait Scheme { self =>
-  def asString: String = Scheme.asString(self)
+  def encode: String = Scheme.asString(self)
 }
 object Scheme       {
   def asString(self: Scheme): String = self match {
