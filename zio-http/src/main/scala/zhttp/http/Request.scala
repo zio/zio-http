@@ -98,10 +98,16 @@ object Request {
     remoteAddress: Option[InetAddress] = None,
     data: HttpData = HttpData.Empty,
   ): Request = {
-    val m  = method
-    val u  = url
-    val h  = headers
-    val ra = remoteAddress
+    val hostHeaders = (url.host, url.port) match {
+      case (Some(name), None)           => Headers.host(name)
+      case (Some(name), Some(80 | 443)) => Headers.host(name)
+      case (Some(name), Some(port))     => Headers.host(s"${name}:${port}")
+      case _                            => Headers.empty
+    }
+    val m           = method
+    val u           = url
+    val h           = headers ++ hostHeaders
+    val ra          = remoteAddress
     new Request {
       override def method: Method                                 = m
       override def url: URL                                       = u
