@@ -1,4 +1,4 @@
-package zhttp.service.server
+package zhttp.service
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler.ClientHandshakeStateEvent
@@ -7,7 +7,6 @@ import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.{
   ServerHandshakeStateEvent,
 }
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame}
-import zhttp.service.{ChannelFuture, HttpRuntime}
 import zhttp.socket.SocketApp.Handle
 import zhttp.socket.{SocketApp, WebSocketFrame}
 import zio.stream.ZStream

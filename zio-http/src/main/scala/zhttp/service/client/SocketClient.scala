@@ -4,10 +4,9 @@ import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
-import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.content.handlers.ClientSocketUpgradeHandler
-import zhttp.service.server.SocketAppHandler
+import zhttp.service.{SocketAppHandler, _}
 import zhttp.socket.SocketApp
 import zio._
 
