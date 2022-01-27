@@ -104,15 +104,15 @@ object ServerSpec extends HttpRunnableSpec {
       suite("error") {
         val app = Http.fail(new Error("SERVER_ERROR"))
         testM("status is 500") {
-          val res = app.requestStatus()
+          val res = app.deploy.getStatus.run()
           assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
         } +
           testM("content is set") {
-            val res = app.requestBodyAsString()
+            val res = app.deploy.getBodyAsString.run()
             assertM(res)(containsString("SERVER_ERROR"))
           } +
           testM("header is set") {
-            val res = app.request().map(_.getHeaderValue("Content-Length"))
+            val res = app.deploy.getHeaders.run().map(_.getHeaderValue("Content-Length"))
             assertM(res)(isSome(anything))
           }
       } +
@@ -157,7 +157,7 @@ object ServerSpec extends HttpRunnableSpec {
             Response.text(content)
           }
         }
-        val res = contentM.flatMap(c => app.requestStatus(!!, Method.POST, c.map(_.value).getOrElse("")))
+        val res = contentM.flatMap(c => app.deploy.getStatus.run(!!, Method.POST, c.map(_.value).getOrElse("")))
         assertM(res)(equalTo(Status.REQUEST_ENTITY_TOO_LARGE))
       } +
       testM("POST Request.getBody") {
@@ -166,8 +166,8 @@ object ServerSpec extends HttpRunnableSpec {
             Response(data = HttpData.fromStreamByteBuf(ZStream.fromQueue(content)))
           }
         }
-        val res                                          = app.requestBody(!!, Method.POST, "some text")
-        assertM(res.map(_.toList.map(_.toChar).mkString))(equalTo("some text"))
+        val res                                          = app.deploy.getBody.run(!!, Method.POST, "some text")
+        assertM(res.map(_.toList.mkString))(equalTo("some text"))
       } @@ ignore
 
   }
