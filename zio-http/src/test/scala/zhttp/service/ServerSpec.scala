@@ -151,22 +151,22 @@ object ServerSpec extends HttpRunnableSpec {
       testM("POST Request.getBody Too Large Content") {
         val contentM                                     = Gen.stringN(4097)(Gen.anyChar).sample.runHead
         val app: Http[Any, Throwable, Request, Response] = Http.collectZIO[Request] { case req =>
-          req.decodeContent(ContentDecoder.text).map { content =>
+          req.getBodyAsString.map { content =>
             Response.text(content)
           }
         }
         val res = contentM.flatMap(c => app.deploy.getStatus.run(!!, Method.POST, c.map(_.value).getOrElse("")))
         assertM(res)(equalTo(Status.REQUEST_ENTITY_TOO_LARGE))
-      } +
-      testM("POST Request.getBody") {
-        val app: Http[Any, Throwable, Request, Response] = Http.collectZIO[Request] { case req =>
-          req.decodeContent(ContentDecoder.backPressure).map { content =>
-            Response(data = HttpData.fromStreamByteBuf(ZStream.fromQueue(content)))
-          }
-        }
-        val res                                          = app.deploy.getBody.run(!!, Method.POST, "some text")
-        assertM(res.map(_.toList.mkString))(equalTo("some text"))
-      } @@ ignore
+      }
+//      testM("POST Request.getBody") {
+//        val app: Http[Any, Throwable, Request, Response] = Http.collectZIO[Request] { case req =>
+//          req.getBodyAsString.map { content =>
+//            Response(data = HttpData.fromStreamByteBuf(ZStream.fromQueue(content)))
+//          }
+//        }
+//        val res                                          = app.deploy.getBody.run(!!, Method.POST, "some text")
+//        assertM(res.map(_.toList.mkString))(equalTo("some text"))
+//      } @@ ignore
 
   }
 

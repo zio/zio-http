@@ -2,15 +2,14 @@ package example
 
 import zhttp.http._
 import zhttp.service.Server
-import zhttp.service.server.ContentDecoder
 import zio._
-import zio.stream.ZStream
 object HelloWorld extends App {
 
   // Create HTTP route
   val app = Http.collectZIO[Request] { case req =>
-    req.decodeContent(ContentDecoder.backPressure).map { content =>
-      Response(data = HttpData.fromStreamByteBuf(ZStream.fromQueue(content)))
+    req.getBodyAsString.map { content =>
+      Response.text(content)
+    // Response(data = HttpData.fromStreamByteBuf(ZStream.fromQueue(content)))
     }
   }
 
