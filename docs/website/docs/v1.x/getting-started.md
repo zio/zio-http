@@ -47,15 +47,29 @@ You can create typed routes as well. The below example shows how to accept count
 
 ### Composition
 
-Apps can be composed using the `++` operator. The way it works is, if none of the routes match in `a`, then the control is passed on to the `b` app.
+Apps can be composed using operators in `Http`:
+
+- Using the `++` operator. The way it works is, if none of the routes match in `a`, then the control is passed on to the `b` app.
+
+```scala
+ import zhttp.http._
+ 
+ val a = Http.collect[Request] { case Method.GET -> !! / "a"  => Response.ok }
+ val b = Http.collect[Request] { case Method.GET -> !! / "b"  => Response.ok }
+ 
+ val app = a ++ b
+ ```
+
+
+- Using the `<>` operator. The way it works is, if `a` fails, then the control is passed on to the `b` app.
 
 ```scala
 import zhttp.http._
 
-val a = Http.collect[Request] { case Method.GET -> !! / "a"  => Response.ok }
-val b = Http.collect[Request] { case Method.GET -> !! / "b"  => Response.ok }
+val a = Http.fail(new Error("SERVER_ERROR"))
+val b = Http.text("OK")
 
-val app = a ++ b
+val app = a <> b
 ```
 
 ### ZIO Integration
