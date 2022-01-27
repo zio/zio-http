@@ -114,6 +114,11 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             val actual = a.execute(1)
             assert(actual)(isEffect)
           } +
+          test("should resolve managed") {
+            val a      = Http.collectManaged[Int] { case 1 => ZManaged.succeed("A") }
+            val actual = a.execute(1)
+            assert(actual)(isEffect)
+          } +
           test("should resolve second effect") {
             val a      = Http.empty.flatten
             val b      = Http.succeed("B")
