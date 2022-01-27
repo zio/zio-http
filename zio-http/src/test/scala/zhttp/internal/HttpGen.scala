@@ -14,27 +14,30 @@ import zio.{Chunk, ZIO}
 import java.io.File
 
 object HttpGen {
+  def alphaNumericHttpData: Gen[Random with Sized, HttpData] =
+    HttpGen.httpData(Gen.listOf(Gen.alphaNumericString))
+
+  def clientParamsForFileHttpData: Gen[Random with Sized, Request] = {
+    for {
+      file    <- Gen.fromEffect(ZIO.succeed(new File(getClass.getResource("/TestFile.txt").getPath)))
+      method  <- HttpGen.method
+      url     <- HttpGen.url
+      headers <- Gen.listOf(HttpGen.header).map(Headers(_))
+    } yield Request(method, url, headers, HttpData.fromFile(file))
+  }
+
   def clientRequest[R](
     dataGen: Gen[R, HttpData],
     methodGen: Gen[R, Method] = HttpGen.method,
     urlGen: Gen[Random with Sized, URL] = HttpGen.url,
     headerGen: Gen[Random with Sized, Header] = HttpGen.header,
-  ) =
+  ): Gen[R with Random with Sized, Request] =
     for {
       method  <- methodGen
       url     <- urlGen
       headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
     } yield Request(method, url, headers, data, None)
-
-  def clientParamsForFileHttpData() = {
-    for {
-      file    <- Gen.fromEffect(ZIO.succeed(new File(getClass.getResource("/TestFile.txt").getPath)))
-      method  <- HttpGen.method
-      url     <- HttpGen.url
-      headers <- Gen.listOf(HttpGen.header).map(Headers(_))
-    } yield Request(method, url, headers, HttpData.fromFile(file), None)
-  }
 
   def cookies: Gen[Random with Sized, Cookie] = for {
     name     <- Gen.anyString
@@ -48,6 +51,20 @@ object HttpGen {
     sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
     secret   <- Gen.option(Gen.anyString)
   } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite, secret)
+
+  def genAbsoluteLocation: Gen[Random with Sized, Location.Absolute] = for {
+    scheme <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS))
+    host   <- Gen.alphaNumericStringBounded(1, 5)
+    port   <- Gen.int(0, Int.MaxValue)
+  } yield URL.Location.Absolute(scheme, host, port)
+
+  def genAbsoluteURL: Gen[Random with Sized, URL] = for {
+    path        <- HttpGen.path
+    kind        <- HttpGen.genAbsoluteLocation
+    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
+  } yield URL(path, kind, queryParams)
+
+  def genRelativeLocation: Gen[Any, Location.Relative.type] = Gen.const(URL.Location.Relative)
 
   def header: Gen[Random with Sized, Header] = for {
     key   <- Gen.alphaNumericStringBounded(1, 4)
@@ -69,13 +86,9 @@ object HttpGen {
         )
     } yield cnt
 
-  def genRelativeLocation: Gen[Any, Location.Relative.type] = Gen.const(URL.Location.Relative)
+  def jHttpScheme: Gen[Any, HttpScheme] = Gen.fromIterable(List(HttpScheme.HTTP, HttpScheme.HTTPS))
 
-  def genAbsoluteLocation: Gen[Random with Sized, Location.Absolute] = for {
-    scheme <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS))
-    host   <- Gen.alphaNumericStringBounded(1, 5)
-    port   <- Gen.int(0, Int.MaxValue)
-  } yield URL.Location.Absolute(scheme, host, port)
+  def jWebSocketScheme: Gen[Any, WebSocketScheme] = Gen.fromIterable(List(WebSocketScheme.WS, WebSocketScheme.WSS))
 
   def location: Gen[Random with Sized, URL.Location] = {
     Gen.fromIterable(List(genRelativeLocation, genAbsoluteLocation)).flatten
@@ -94,10 +107,6 @@ object HttpGen {
       Method.CONNECT,
     ),
   )
-
-  def scheme: Gen[Any, Scheme]                    = Gen.fromIterable(List(HTTP, HTTPS, WS, WSS))
-  def jHttpScheme: Gen[Any, HttpScheme]           = Gen.fromIterable(List(HttpScheme.HTTP, HttpScheme.HTTPS))
-  def jWebSocketScheme: Gen[Any, WebSocketScheme] = Gen.fromIterable(List(WebSocketScheme.WS, WebSocketScheme.WSS))
 
   def nonEmptyHttpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData] =
     for {
@@ -134,6 +143,8 @@ object HttpGen {
       status  <- HttpGen.status
     } yield Response(status, headers, content)
   }
+
+  def scheme: Gen[Any, Scheme] = Gen.fromIterable(List(HTTP, HTTPS, WS, WSS))
 
   def status: Gen[Any, Status] = Gen.fromIterable(
     List(
@@ -199,12 +210,6 @@ object HttpGen {
   def url: Gen[Random with Sized, URL] = for {
     path        <- HttpGen.path
     kind        <- HttpGen.location
-    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
-  } yield URL(path, kind, queryParams)
-
-  def genAbsoluteURL = for {
-    path        <- HttpGen.path
-    kind        <- HttpGen.genAbsoluteLocation
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
   } yield URL(path, kind, queryParams)
 
