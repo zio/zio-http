@@ -63,6 +63,9 @@ object SocketSpec extends DefaultRunnableSpec {
       } +
       testM("echo") {
         assertM(Socket.echo(1).runCollect)(equalTo(Chunk(1)))
+      } +
+      testM("empty") {
+        assertM(Socket.empty(()).runCollect)(isEmpty)
       }
   }
 }
