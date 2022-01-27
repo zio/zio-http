@@ -33,8 +33,8 @@ sealed trait URL3 { self =>
         case _                      => b.copy(kind = URL3.Location.Relative)
       }
   }
-  def toCons: Option[URL3] = self match {
-    case a @ URL3.FromString(_) => a.fromString.toOption
+  def toCons: Option[URL3]          = self match {
+    case a @ URL3.FromString(_)    => a.fromString.toOption
     case b @ URL3.Cons(_, _, _, _) => Some(b)
   }
 
@@ -66,12 +66,12 @@ object URL3 {
         case Right(value) => Right(value)
       }
     }
-        def unsafeFromString: URL3                         = {
-          try {
-            val url = new URI(string)
-            if (url.isAbsolute) unsafeFromAbsoluteURI2(url) else unsafeFromRelativeURI2(url)
-          } catch { case _: Throwable => null }
-        }
+    def unsafeFromString: URL3                         = {
+      try {
+        val url = new URI(string)
+        if (url.isAbsolute) unsafeFromAbsoluteURI2(url) else unsafeFromRelativeURI2(url)
+      } catch { case _: Throwable => null }
+    }
 
     private def unsafeFromAbsoluteURI2(uri: URI): URL3 = {
 
@@ -101,11 +101,11 @@ object URL3 {
 
   }
   final case class Cons(
-                         path: Path,
-                         kind: URL3.Location = URL3.Location.Relative,
-                         queryParams: Map[String, List[String]] = Map.empty,
-                         fragment: Option[Fragment] = None,
-                       ) extends URL3
+    path: Path,
+    kind: URL3.Location = URL3.Location.Relative,
+    queryParams: Map[String, List[String]] = Map.empty,
+    fragment: Option[Fragment] = None,
+  ) extends URL3
 
   sealed trait Location
   object Location {
