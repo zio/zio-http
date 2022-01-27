@@ -180,9 +180,9 @@ object Response {
   /**
    * Creates a response with content-type set to application/json
    */
-  def json(data: String): Response =
+  def json(data: CharSequence): Response =
     Response(
-      data = HttpData.fromChunk(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
+      data = HttpData.fromString(data.toString),
       headers = Headers(HeaderNames.contentType, HeaderValues.applicationJson),
     )
 
