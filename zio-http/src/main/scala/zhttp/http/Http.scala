@@ -471,7 +471,7 @@ object Http {
   def collectZIO[A]: Http.PartialCollectZIO[A] = Http.PartialCollectZIO(())
 
   /**
-   * Creates an Http app which acceepts a request and produces response from a managed resource
+   * Creates an Http app which accepts a request and produces response from a managed resource
    */
   def collectManaged[A]: Http.PartialCollectManaged[A] = Http.PartialCollectManaged(())
 
