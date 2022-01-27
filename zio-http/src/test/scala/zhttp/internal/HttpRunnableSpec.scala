@@ -12,7 +12,7 @@ import zhttp.socket.SocketApp
 import zio.test.DefaultRunnableSpec
 import zio.{Has, UIO, ZIO, ZManaged}
 
-import scala.jdk.CollectionConverters.CollectionHasAsScala
+import scala.jdk.CollectionConverters._
 
 /**
  * Should be used only when e2e tests needs to be written. Typically we would
