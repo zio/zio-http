@@ -1,28 +1,14 @@
-# Running HTTP Server and serving requests
+# ZIO HTTP Server
 
-This section describes, how to build an HttpApp, a collection of "routes", and then how it is bound to a "port" to serve HTTP requests. 
+This section describes, ZIO HTTP Server and different configurations you can provide while creating the Server 
 
-## Building and running a simple Server
-- First, the usual imports
-```scala
-import zhttp.http._
-import zhttp.service.Server
-import zio._
-```
-- Build an HttpApp with a set of routes
-```scala
-  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
-    case Method.GET -> !! / "text" => Response.text("Hello World!")
-    case Method.GET -> !! / "json" => Response.json("""{"greetings": "Hello World!"}""")
-  }
-```
-- As a convenience, Zio provides an `App` trait with the main function of the application which returns `URIO[ZEnv, ExitCode]`. Directly use `Server.start` specifying a port and mount the app to start the server
+## Start a ZIO HTTP Server with default configurations
 ```scala
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     Server.start(8090, app.silent).exitCode
 ```
-## Building and running a Server in "forever" mode, with custom configurations.
-1. Imports required by the advanced server. 
+## Start a ZIO HTTP Server with custom configurations.
+1. Imports required by the customised server. 
     ```scala
     import zhttp.http._
     import zhttp.service.server.ServerChannelFactory
