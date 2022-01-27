@@ -9,18 +9,17 @@ import scala.util.Try
 sealed trait URL4 { self =>
 
   def getHost: Option[String] = self match {
-    case a: URL4.FromString => a.toCons.get.getHost
-    case b: URL4.Cons       => b.host
+    case a: URL4.Decode => a.toCons.get.getHost
+    case b: URL4.Cons   => b.host
   }
   def getPort: Option[Int]    = self match {
-    case a: URL4.FromString => a.toCons.get.getPort
-    case b: URL4.Cons       => b.port
-
+    case a: URL4.Decode => a.toCons.get.getPort
+    case b: URL4.Cons   => b.port
   }
 
   def toCons: Option[URL4] = self match {
-    case a: URL4.FromString => a.apply.toOption
-    case b: URL4.Cons       => Some(b)
+    case a: URL4.Decode => a.apply.toOption
+    case b: URL4.Cons   => Some(b)
   }
 
   def setPath(path: Path): URL4                                    = URL4.Cons(path = path)
@@ -30,8 +29,8 @@ sealed trait URL4 { self =>
   def setQueryParams(queryParams: Map[String, List[String]]): URL4 = URL4.Cons(queryParams = queryParams)
 
   def encode: String = self match {
-    case URL4.FromString(string) => string
-    case u: URL4.Cons            => {
+    case URL4.Decode(string) => string
+    case u: URL4.Cons        => {
       def path: String = {
         val encoder = new QueryStringEncoder(s"${u.path.asString}${u.fragment.fold("")(f => "#" + f.raw)}")
         u.queryParams.foreach { case (key, values) =>
@@ -39,11 +38,11 @@ sealed trait URL4 { self =>
         }
         encoder.toString
       }
-      val a            = URL4.FromString(s"$path")
+      val a            = URL4.Decode(s"$path")
       if (u.scheme.isDefined && u.port.isDefined && u.host.isDefined) {
         if (u.port.get == 80 || u.port.get == 443)
-          a.copy(s"${u.scheme.get.asString}://${u.host}$path")
-        else a.copy(s"${u.scheme.get.asString}://${u.host.get}:${u.port.get}$path")
+          a.copy(s"${u.scheme.get.encode}://${u.host}$path")
+        else a.copy(s"${u.scheme.get.encode}://${u.host.get}:${u.port.get}$path")
       }
       a.encode
     }
@@ -53,15 +52,15 @@ sealed trait URL4 { self =>
 object URL4 {
 
   def apply(path: Path): URL4 = URL4.Cons(path = path)
-  final case class FromString(string: String) extends URL4 {
+  final case class Decode(string: String) extends URL4 {
     self =>
     def apply: Either[HttpError.BadRequest, URL4] = {
-      Try(unsafeFromString).toEither match {
+      Try(unsafeDecode).toEither match {
         case Left(_)      => Left(HttpError.BadRequest(s"Invalid URL: $string"))
         case Right(value) => Right(value)
       }
     }
-    def unsafeFromString: URL4                    = {
+    def unsafeDecode: URL4                        = {
       try {
         val url = new URI(string)
         if (url.isAbsolute) unsafeFromAbsoluteURI2(url) else unsafeFromRelativeURI2(url)
@@ -103,27 +102,13 @@ object URL4 {
     port: Option[Int] = None,
     queryParams: Map[String, List[String]] = Map.empty,
     fragment: Option[Fragment] = None,
-  ) extends URL4 {
-    self =>
-  }
+  ) extends URL4
 
-  private def queryParams(query: String) = {
-    if (query == null || query.isEmpty) {
-      Map.empty[String, List[String]]
-    } else {
-      val decoder = new QueryStringDecoder(query, false)
-      val params  = decoder.parameters()
-      params.asScala.view.map { case (k, v) => (k, v.asScala.toList) }.toMap
-    }
-  }
   sealed trait Location
   object Location {
     case object Relative                                               extends Location
     final case class Absolute(scheme: Scheme, host: String, port: Int) extends Location
   }
-
-  def decode(string: String): Either[HttpError.BadRequest, URL4] = URL4.FromString(string).apply
-  def unsafeDecode(string: String): URL4                         = URL4.FromString(string)
 
   case class Fragment private (raw: String, decoded: String)
   object Fragment {
@@ -132,6 +117,19 @@ object URL4 {
       decoded <- Option(uri.getFragment)
     } yield Fragment(raw, decoded)
   }
+
+  private def queryParams(query: String)                         = {
+    if (query == null || query.isEmpty) {
+      Map.empty[String, List[String]]
+    } else {
+      val decoder = new QueryStringDecoder(query, false)
+      val params  = decoder.parameters()
+      params.asScala.view.map { case (k, v) => (k, v.asScala.toList) }.toMap
+    }
+  }
+  def decode(string: String): Either[HttpError.BadRequest, URL4] = URL4.Decode(string).apply
+  def unsafeDecode(string: String): URL4                         = URL4.Decode(string)
+
   def root: URL4 = URL4.Cons(!!)
 
   val url = URL4(!! / "root")
