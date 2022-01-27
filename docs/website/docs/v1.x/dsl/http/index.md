@@ -1,6 +1,6 @@
-# HTTP Domain
+# Http Domain
 
-`Http` is a functional domain that models Http apps using ZIO. It can work over any kind of input and output types.
+`Http` is a functional domain that models HTTP applications using ZIO. It can work over any kind of input and output types.
 
 A `Http[-R, +E, -A, +B]` models a function from `A` to `ZIO[R, Option[E], B]`. Whereas `HttpApp[-R, +E]` is a function
 from `Request` to `ZIO[R, Option[E], Response]`. ZIO HTTP server works on `HttpApp[R, E]`.
@@ -9,11 +9,11 @@ from `Request` to `ZIO[R, Option[E], Response]`. ZIO HTTP server works on `HttpA
 
 ## HTTP Constructors
 
-These are some constructors to make `HTTP` applications.
+These are some constructors to make HTTP applications.
 
 ### Http.ok
 
-Creates an HTTP app that always responds with a 200 status code.
+Creates an HTTP application that always responds with a 200 status code.
 
 ```scala
   val app = Http.ok
@@ -21,7 +21,7 @@ Creates an HTTP app that always responds with a 200 status code.
 
 ### Http.fail()
 
-Creates an `HTTP` app that always fails with the given error.
+Creates an HTTP application that always fails with the given error.
 
 ```scala
   val app = Http.fail(new Error("Error_Message"))
@@ -29,7 +29,7 @@ Creates an `HTTP` app that always fails with the given error.
 
 ### Http.succeed ()
 
-Creates an `HTTP` that always returns the same response and never fails.
+Creates an HTTP application that always returns the same response and never fails.
 
 ```scala
   val app = Http.succeed(1)
@@ -37,14 +37,14 @@ Creates an `HTTP` that always returns the same response and never fails.
 
 ### Http.text ()
 
-Creates an `HTTP` app that always responds with the same plain text.
+Creates an HTTP application that always responds with the same plain text.
 
 ```scala
   val app = Http.text("Text Response")
 ```
 
-Apart from these, you can also create an `HTTP` application from total and partial functions. These are some
-constructors to create `HTTP` applications from total as well as partial functions.
+Apart from these, you can also create an HTTP application from total and partial functions. These are some
+constructors to create HTTP applications from total as well as partial functions.
 
 ### Http.collect ()
 
@@ -88,16 +88,16 @@ i.e `f: A => ZIO[R, E, B]`.
 
 Apart from these constructors, many constructors are special cases of the constructors explained above. Some of them
 directly create an `HttpApp[R,E]` were as others create normal `Http[R,E,A,B]`. Kindly check out the examples for more
-Http applications.
+HTTP applications.
 
 ## Http Operators
 
-`HTTP` operators are used to transforming one or more `HTTP` applications to create a new `HTTP` application. Here are a
+`Http` operators are used to transforming one or more HTTP applications to create a new HTTP application. Here are a
 few handy operators.
 
 ### map ()
 
-Transforms the output of the `HTTP` app. Map takes a function `f: B=>C` to convert a `Http[R,E,A,B]` to `Http[R,E,A,C]`
+Transforms the output of the HTTP application. Map takes a function `f: B=>C` to convert a `Http[R,E,A,B]` to `Http[R,E,A,C]`
 
 ```scala
   val app1 = Http.succeed("text")
@@ -116,7 +116,7 @@ val app2 = app1.map(s => Http.succeed(s + " text2"))
 
 ### foldHttp ()
 
-Folds over the `HTTP` app by taking in two functions one for failure and one for success respectively.
+Folds over the HTTP application by taking in two functions one for failure and one for success respectively.
 
 ```scala
   val app1 = Http.succeed("text1")
@@ -126,7 +126,7 @@ val app3 = app1.foldHttp(e => Http.fail(e), s => Http.succeed(s), app2)
 
 ### defaultWith ()
 
-Combines two `HTTP` applications into one.
+Combines two HTTP applications into one.
 
 ```scala
   val app1: HttpApp[Any, Nothing] = Http.collect[Request] {
@@ -140,7 +140,7 @@ val app = app1 ++ app2
 
 ### andThen ()
 
-Pipes the output of one `HTTP` app into the other.
+Pipes the output of one HTTP application into the other.
 
 ```scala
   val app1 = Http.fromFunction[Int](a => a + 1)
@@ -150,7 +150,7 @@ val app = app1.andThen(app2)
 
 ### execute ()
 
-Execute is a special method of `HTTP` that valuates the app and returns an `HExit` that can be resolved further.
+Execute is a special method in `Http` domain that valuates the HTTP application and returns an `HExit` that can be resolved further.
 
 ```scala
   val app = Http.fromFunction[Int](a => a + 1)
@@ -161,7 +161,7 @@ Apart from these, there are many more operators that let you transform an Http i
 
 ## HttpAppSyntax
 
-If the app is of type `Http[R, E, Request, Response]` i.e `HttpApp[R,E]`, there are some special operators available for
+If the application is of type `Http[R, E, Request, Response]` i.e `HttpApp[R,E]`, there are some special operators available for
 them. Here are few handy `HttpApp` operators.
 
 ### middleware ()
@@ -185,7 +185,7 @@ val app = app1 setMethod (Method.POST)
 
 ### patch ()
 
-Patches the response produced by the app using a `Patch`.
+Patches the response produced by the HTTP application using a `Patch`.
 
 ```scala
   val app1: HttpApp[Any, Nothing] = Http.collect[Request] {
