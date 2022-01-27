@@ -28,7 +28,7 @@ An app can be made using any of the available constructors on `zhttp.Http`.
  For handling routes, Http Domain has a `collect` method that, accepts different requests and produces responses. Pattern matching on the route is supported by the framework
 The example below shows how to create routes:
 
-```scala,
+```scala
 import zhttp.http._
 
 val app = Http.collect[Request] {
@@ -37,7 +37,7 @@ val app = Http.collect[Request] {
 }
 ```
 You can create typed routes as well. The below example shows how to accept count as `Int` only.
- ```scala,
+ ```scala
  import zhttp.http._
  
  val app = Http.collect[Request] {
@@ -47,18 +47,30 @@ You can create typed routes as well. The below example shows how to accept count
 
 ### Composition
 
-HTTP app can be composed using the `++` operator. The way it works is if none of the routes matches in `a` or there is an error `a`, the control is passed to the `b` app.
+Apps can be composed using operators in `Http`:
+
+- Using the `++` operator. The way it works is, if none of the routes match in `a`, then the control is passed on to the `b` app.
+
+```scala
+ import zhttp.http._
+ 
+ val a = Http.collect[Request] { case Method.GET -> !! / "a"  => Response.ok }
+ val b = Http.collect[Request] { case Method.GET -> !! / "b"  => Response.ok }
+ 
+ val app = a ++ b
+ ```
+
+
+- Using the `<>` operator. The way it works is, if `a` fails, then the control is passed on to the `b` app.
 
 ```scala
 import zhttp.http._
 
-val a = Http.collect[Request] { case Method.GET -> !! / "a"  => Response.ok }
-val b = Http.collect[Request] { case Method.GET -> !! / "b"  => Response.ok }
+val a = Http.fail(new Error("SERVER_ERROR"))
+val b = Http.text("OK")
 
-val app = a ++ b
+val app = a <> b
 ```
-
-Apps can be composed using the `++` operator. The way it works is, if none of the routes match in `a` , then the control is passed on to the `b` app.
 
 ### ZIO Integration
 
@@ -154,10 +166,10 @@ object HelloWorld extends App {
 
 ## Examples
 
-- [Simple Server](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/HelloWorld.scala)
-- [Advanced Server](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/HelloWorldAdvanced.scala)
-- [WebSocket Server](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/SocketEchoServer.scala)
-- [Streaming Response](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/StreamingResponse.scala)
-- [Simple Client](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/SimpleClient.scala)
-- [File Streaming](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/FileStreaming.scala)
-- [Authentication](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/Authentication.scala)
+- [Simple Server](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/hello-world)
+- [Advanced Server](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/hello-world-advanced)
+- [WebSocket Server](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/web-socket)
+- [Streaming Response](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/stream-response)
+- [Simple Client](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/simple-client)
+- [File Streaming](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/stream-file)
+- [Authentication](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/authentication)
