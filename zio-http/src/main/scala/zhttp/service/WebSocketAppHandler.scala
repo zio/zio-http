@@ -14,7 +14,7 @@ import zio.stream.ZStream
 /**
  * A generic SocketApp handler that can be used on both - the client and the server.
  */
-final class SocketAppHandler[R](
+final class WebSocketAppHandler[R](
   zExec: HttpRuntime[R],
   app: SocketApp[R],
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
