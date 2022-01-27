@@ -2,38 +2,42 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup}
-import io.netty.handler.codec.http.{FullHttpRequest, HttpVersion}
+import io.netty.channel.{
+  Channel,
+  ChannelFactory => JChannelFactory,
+  ChannelHandlerContext,
+  EventLoopGroup => JEventLoopGroup,
+}
+import io.netty.handler.codec.http.HttpVersion
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.http.headers.HeaderExtension
 import zhttp.service
-import zhttp.service.Client.ClientResponse
+import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler}
 import zio.{Chunk, Promise, Task, ZIO}
 
-import java.net.InetSocketAddress
+import java.net.{InetAddress, InetSocketAddress}
 
 final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
   def request(
-    request: Request,
+    request: Client.ClientRequest,
     sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): Task[Client.ClientResponse] =
     for {
       promise <- Promise.make[Throwable, Client.ClientResponse]
-      jReq    <- encodeClientParams(HttpVersion.HTTP_1_1, request)
-      _       <- Task(asyncRequest(request, jReq, promise, sslOption)).catchAll(cause => promise.fail(cause))
+      _       <- Task(asyncRequest(request, promise, sslOption)).catchAll(cause => promise.fail(cause))
       res     <- promise.await
     } yield res
 
   private def asyncRequest(
-    req: Request,
-    jReq: FullHttpRequest,
+    req: ClientRequest,
     promise: Promise[Throwable, ClientResponse],
     sslOption: ClientSSLOptions,
   ): Unit = {
+    val jReq = encodeClientParams(HttpVersion.HTTP_1_1, req)
     try {
       val hand   = ClientInboundHandler(rtm, jReq, promise)
       val host   = req.url.host
@@ -107,14 +111,14 @@ object Client {
     method: Method,
     url: URL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(Request(method, url))
+    request(ClientRequest(method, url))
 
   def request(
     method: Method,
     url: URL,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(Request(method, url), sslOptions)
+    request(ClientRequest(method, url), sslOptions)
 
   def request(
     method: Method,
@@ -122,7 +126,7 @@ object Client {
     headers: Headers,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(Request(method, url, headers), sslOptions)
+    request(ClientRequest(method, url, headers), sslOptions)
 
   def request(
     method: Method,
@@ -130,18 +134,47 @@ object Client {
     headers: Headers,
     content: HttpData,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(Request(method, url, headers, content, None))
+    request(ClientRequest(method, url, headers, content))
 
   def request(
-    req: Request,
+    req: ClientRequest,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     make.flatMap(_.request(req))
 
   def request(
-    req: Request,
+    req: ClientRequest,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     make.flatMap(_.request(req, sslOptions))
+
+  final case class ClientRequest(
+    method: Method,
+    url: URL,
+    getHeaders: Headers = Headers.empty,
+    data: HttpData = HttpData.empty,
+    private val channelContext: ChannelHandlerContext = null,
+  ) extends HeaderExtension[ClientRequest] { self =>
+
+    def getBodyAsString: Option[String] = data match {
+      case HttpData.Text(text, _)       => Some(text)
+      case HttpData.BinaryChunk(data)   => Some(new String(data.toArray, HTTP_CHARSET))
+      case HttpData.BinaryByteBuf(data) => Some(data.toString(HTTP_CHARSET))
+      case _                            => Option.empty
+    }
+
+    def remoteAddress: Option[InetAddress] = {
+      if (channelContext != null && channelContext.channel().remoteAddress().isInstanceOf[InetSocketAddress])
+        Some(channelContext.channel().remoteAddress().asInstanceOf[InetSocketAddress].getAddress)
+      else
+        None
+    }
+
+    /**
+     * Updates the headers using the provided function
+     */
+    override def updateHeaders(update: Headers => Headers): ClientRequest =
+      self.copy(getHeaders = update(self.getHeaders))
+  }
 
   final case class ClientResponse(status: Status, headers: Headers, private[zhttp] val buffer: ByteBuf)
       extends HeaderExtension[ClientResponse] { self =>

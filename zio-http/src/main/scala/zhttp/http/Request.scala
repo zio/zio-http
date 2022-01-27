@@ -95,8 +95,8 @@ object Request {
     method: Method = Method.GET,
     url: URL = URL.root,
     headers: Headers = Headers.empty,
-    data: HttpData = HttpData.Empty,
     remoteAddress: Option[InetAddress] = None,
+    data: HttpData = HttpData.Empty,
   ): Request = {
     val m  = method
     val u  = url
@@ -121,7 +121,7 @@ object Request {
     remoteAddress: Option[InetAddress],
     content: HttpData = HttpData.empty,
   ): UIO[Request] =
-    UIO(Request(method, url, headers, content, remoteAddress))
+    UIO(Request(method, url, headers, remoteAddress, content))
 
   /**
    * Lift request to TypedRequest with option to extract params
