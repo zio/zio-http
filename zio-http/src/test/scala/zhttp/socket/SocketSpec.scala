@@ -1,5 +1,6 @@
 package zhttp.socket
 
+import zhttp.http.Status
 import zio._
 import zio.duration.durationInt
 import zio.stream.ZStream
@@ -22,9 +23,7 @@ object SocketSpec extends DefaultRunnableSpec {
         .provide(text)
         .execute("")
 
-      assertM(socket.runCollect) {
-        equalTo(Chunk(text))
-      }
+      assertM(socket.runCollect)(equalTo(Chunk(text)))
     } +
       testM("fromFunction provide") {
         val environmentFunction = (_: Any) => ZStream.environment[WebSocketFrame]
@@ -33,9 +32,7 @@ object SocketSpec extends DefaultRunnableSpec {
           .provide(WebSocketFrame.text("Foo"))
           .execute(WebSocketFrame.text("Bar"))
 
-        assertM(socket.runCollect) {
-          equalTo(Chunk(WebSocketFrame.text("Foo")))
-        }
+        assertM(socket.runCollect)(equalTo(Chunk(WebSocketFrame.text("Foo"))))
       } +
       testM("collect provide") {
         val environment = ZStream.environment[WebSocketFrame]
@@ -46,9 +43,7 @@ object SocketSpec extends DefaultRunnableSpec {
           .provide(WebSocketFrame.ping)
           .execute(WebSocketFrame.pong)
 
-        assertM(socket.runCollect) {
-          equalTo(Chunk(WebSocketFrame.ping))
-        }
+        assertM(socket.runCollect)(equalTo(Chunk(WebSocketFrame.ping)))
       } +
       testM("ordered provide") {
         val socket = Socket.collect[Int] { case _ =>
@@ -66,6 +61,13 @@ object SocketSpec extends DefaultRunnableSpec {
       } +
       testM("empty") {
         assertM(Socket.empty(()).runCollect)(isEmpty)
+      } +
+      testM("toHttp") {
+        for {
+          actual <- Socket.succeed(WebSocketFrame.ping).toHttp.execute(()).toZIO
+        } yield {
+          assertTrue(actual.status == Status.SWITCHING_PROTOCOLS)
+        }
       }
   }
 }
