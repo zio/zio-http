@@ -9,7 +9,7 @@ import zio.Promise
 /**
  * Handles HTTP response
  */
-final case class ClientInboundHandler[R](
+final class ClientInboundHandler[R](
   zExec: HttpRuntime[R],
   jReq: FullHttpRequest,
   promise: Promise[Throwable, ClientResponse],
