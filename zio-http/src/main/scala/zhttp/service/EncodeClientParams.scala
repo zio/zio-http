@@ -17,11 +17,6 @@ trait EncodeClientParams {
       // Host and port information should be in the headers.
       val path = url.relative.encode
 
-      //    val content = req.getBodyAsString match {
-      //      case Some(text) => Unpooled.copiedBuffer(text, HTTP_CHARSET)
-      //      case None       => Unpooled.EMPTY_BUFFER
-      //    }
-
       val encodedReqHeaders = req.getHeaders.encode
 
       val headers = url.host match {
