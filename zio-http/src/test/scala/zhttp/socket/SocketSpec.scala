@@ -13,7 +13,7 @@ object SocketSpec extends DefaultRunnableSpec {
     operationsSpec
   } @@ timeout(5 seconds)
 
-  def operationsSpec = suite("Operations Spec") {
+  def operationsSpec = suite("OperationsSpec") {
     testM("fromStream provide") {
       val text        = "Cat ipsum dolor sit amet"
       val environment = ZStream.environment[String]
@@ -62,9 +62,7 @@ object SocketSpec extends DefaultRunnableSpec {
         assertM(socketC.execute(1000).runCollect)(equalTo(Chunk(12)))
       } +
       testM("echo") {
-        val stream = Socket.echo(WebSocketFrame.text("FOO"))
-
-        assertM(stream.runCollect)(equalTo(Chunk(WebSocketFrame.text("FOO"))))
+        assertM(Socket.echo(1).runCollect)(equalTo(Chunk(1)))
       }
   }
 }
