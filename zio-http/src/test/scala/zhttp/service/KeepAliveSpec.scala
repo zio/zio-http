@@ -1,7 +1,7 @@
 package zhttp.service
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues, HttpVersion}
-import zhttp.http.{Headers, Http}
+import zhttp.http.{HeaderNames, Headers, Http}
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.test.Assertion.{equalTo, isNone, isSome}
@@ -9,31 +9,30 @@ import zio.test.assertM
 
 object KeepAliveSpec extends HttpRunnableSpec {
 
-  val app                   = Http.empty
+  val app                   = Http.ok
   val connectionCloseHeader = Headers(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE)
   val keepAliveHeader       = Headers(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
 
   def keepAliveSpec = suite("KeepAlive") {
     suite("Http 1.1") {
       testM("without connection close") {
-        val res = app.requestHeaderValueByName()(HttpHeaderNames.CONNECTION)
+        val res = app.deploy.getHeaderValue(HeaderNames.connection).run()
         assertM(res)(isNone)
       } +
         testM("with connection close") {
-          val res = app.requestHeaderValueByName(headers = connectionCloseHeader)(HttpHeaderNames.CONNECTION)
+          val res = app.deploy.getHeaderValue(HeaderNames.connection).run(headers = connectionCloseHeader)
           assertM(res)(isSome(equalTo("close")))
         }
     } +
       suite("Http 1.0") {
         testM("without keep-alive") {
-          val res = app.requestHeaderValueByName(httpVersion = HttpVersion.HTTP_1_0)(HttpHeaderNames.CONNECTION)
+          val res = app.deploy.getHeaderValue(HeaderNames.connection).run(httpVersion = HttpVersion.HTTP_1_0)
           assertM(res)(isSome(equalTo("close")))
         } +
           testM("with keep-alive") {
-            val res =
-              app.requestHeaderValueByName(httpVersion = HttpVersion.HTTP_1_0, headers = keepAliveHeader)(
-                HttpHeaderNames.CONNECTION,
-              )
+            val res = app.deploy
+              .getHeaderValue(HeaderNames.connection)
+              .run(httpVersion = HttpVersion.HTTP_1_0, headers = keepAliveHeader)
             assertM(res)(isNone)
           }
       }
