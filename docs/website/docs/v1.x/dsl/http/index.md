@@ -118,6 +118,14 @@ function `f: B => Http[R1, E1, A1, C1]`. `>>=` is an alias for flatMap.
 val app2 = app1.map(s => Http.succeed(s + " text2"))
 ```
 
+### middleware
+
+Attaches the provided middleware to the HTTP application. `@@` is as alias for middleware.
+
+```scala
+  val app = Http.ok @@ Middleware.status(Status.ACCEPTED)
+```
+
 ### foldHttp
 
 Folds over the HTTP application by taking in two functions, one for failure and one for success respectively, and one
@@ -128,6 +136,10 @@ more HTTP application.
 val app2 = Http.succeed("text2")
 val app3 = app1.foldHttp(e => Http.fail(e), s => Http.succeed(s), app2)
 ```
+
+## Http Combinators
+
+`Http` combinators are special operators that combine several HTTP applications into one. These are few handy combinators.
 
 ### defaultWith
 
@@ -154,20 +166,23 @@ val app = Http.fail(1) <> Http.succeed(2)
 
 ### andThen
 
-Pipes the output of one HTTP application into the other. `>>>` is an alias for `andThen`.
+Runs the first HTTP application and pipes the output into the other. `>>>` is an alias for andThen.
 
 ```scala
-  val app1 = Http.fromFunction[Int](a => a + 1)
+val app1 = Http.fromFunction[Int](a => a + 1)
 val app2 = Http.fromFunction[Int](b => b * 2)
-val app = app1.andThen(app2)
+val app = app1 >>> (app2)
 ```
 
-### middleware
+### compose
 
-Attaches the provided middleware to the HTTP application. `@@` is as alias for middleware.
+Compose is similar to andThen. It runs the second HTTP application and pipes the output to the first HTTP
+application. `<<<` is the alias for compose.
 
 ```scala
-  val app = Http.ok @@ Middleware.status(Status.ACCEPTED)
+val app1 = Http.fromFunction[Int](a => a + 1)
+val app2 = Http.fromFunction[Int](b => b * 2)
+val app = app1 <<< (app2)
 ```
 
 Apart from these, there are many more operators that let you transform an Http in specific ways.

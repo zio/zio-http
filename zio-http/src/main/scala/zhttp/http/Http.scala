@@ -700,7 +700,4 @@ object Http {
   private case object Empty extends Http[Any, Nothing, Any, Nothing]
 
   private case object Identity extends Http[Any, Nothing, Any, Nothing]
-  val app1 =Http.fail(1)
-  val app2 =Http.succeed(2)
-  val app = app1 ++ app2
 }
