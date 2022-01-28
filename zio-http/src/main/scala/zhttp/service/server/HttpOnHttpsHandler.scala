@@ -2,7 +2,7 @@ package zhttp.service.server
 
 import io.netty.channel.{ChannelFutureListener, ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{DefaultHttpResponse, HttpMessage, HttpResponseStatus, HttpVersion}
-import zhttp.service.server.ServerSSLHandler.SSLHttpBehaviour
+import zhttp.service.server.ServerSSLBuilder.SSLHttpBehaviour
 
 class HttpOnHttpsHandler(httpBehaviour: SSLHttpBehaviour) extends SimpleChannelInboundHandler[HttpMessage] {
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpMessage): Unit = {

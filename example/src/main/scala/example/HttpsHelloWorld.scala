@@ -2,7 +2,7 @@ package example
 
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.server.ServerSSLHandler._
+import zhttp.service.server.ServerSSLBuilder._
 import zhttp.service.{EventLoopGroup, Server}
 import zio.{App, ExitCode, URIO}
 
@@ -27,7 +27,7 @@ object HttpsHelloWorld extends App {
   private val server =
     Server.port(8090) ++ Server.app(app) ++ Server.ssl(
       ServerSSLOptions(sslctx, SSLHttpBehaviour.Accept),
-    )
+    ) ++ Server.http2
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     server.make.useForever
