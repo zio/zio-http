@@ -69,7 +69,7 @@ final case class Response private (
   /**
    * Wraps the current response into a ZIO
    */
-  def wrapZIO: UIO[Response] = UIO(self)
+  def toZIO: UIO[Response] = UIO(self)
 
   /**
    * Extracts the body as ByteBuf
