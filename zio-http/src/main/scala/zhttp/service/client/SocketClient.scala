@@ -4,9 +4,9 @@ import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
+import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.content.handlers.ClientSocketUpgradeHandler
-import zhttp.service.{SocketAppHandler, _}
 import zhttp.socket.SocketApp
 import zio._
 
@@ -21,11 +21,11 @@ class SocketClient[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEv
     clientSSLOptions: ClientSSLOptions,
   ): Unit = {
     val url      = new URI(uri)
-    val config   = ss.protocol.toClientConfig(headers).webSocketUri(uri)
+    val config   = ss.protocol.clientBuilder.customHeaders(headers.encode).webSocketUri(uri)
     val handlers = List(
       ClientSocketUpgradeHandler(rtm, pr),
       new WebSocketClientProtocolHandler(config.build()),
-      new SocketAppHandler(rtm, ss),
+      new WebSocketAppHandler(rtm, ss),
     )
 
     val host = url.getHost

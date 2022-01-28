@@ -35,8 +35,6 @@ private[zhttp] final case class Handler[R](
 
         override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
 
-        override private[zhttp] def attribute = Request.Attribute.empty
-
         override def remoteAddress: Option[InetAddress] = {
           ctx.channel().remoteAddress() match {
             case m: InetSocketAddress => Some(m.getAddress)
