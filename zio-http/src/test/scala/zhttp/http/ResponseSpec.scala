@@ -36,6 +36,11 @@ object ResponseSpec extends DefaultRunnableSpec {
           val http = Response.ok.toHttp
           assertM(http(()))(equalTo(Response.ok))
         },
+      ) +
+      suite("toZIO")(
+        testM("should convert response to ZIO") {
+          assertM(Response.ok.toZIO)(equalTo(Response.ok))
+        },
       ),
   )
 }
