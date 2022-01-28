@@ -22,6 +22,7 @@ final case class ServerChannelInitializer[R](
   cfg: Config[R, Throwable],
   reqHandler: ChannelHandler,
   respHandler: ChannelHandler,
+  http2Handler: ChannelHandler,
 ) extends ChannelInitializer[Channel] {
   override def initChannel(channel: Channel): Unit = {
     // !! IMPORTANT !!
