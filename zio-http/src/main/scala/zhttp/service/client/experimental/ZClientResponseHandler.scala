@@ -11,6 +11,7 @@ import zhttp.http.{Headers, Status}
 final class ZClientResponseHandler() extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
+    println(s"ZClientResponseHandler ZClientResponseHandler ZClientResponseHandler ZClientResponseHandler ZClientResponseHandler: \n $msg")
     val status   = Status.fromHttpResponseStatus(msg.status())
     val headers  = Headers.decode(msg.headers())
     val content  = Unpooled.copiedBuffer(msg.content())

@@ -17,7 +17,7 @@ final case class ZClientInboundHandler[R](
 ) extends SimpleChannelInboundHandler[Resp](false) {
 
   override def channelRead0(ctx: ChannelHandlerContext, clientResponse: Resp): Unit = {
-    println(s"CHANNEL READ CONTEX ID: ${ctx.channel().id()}")
+    println(s"SimpleChannelInboundHandler SimpleChannelInboundHandler CHANNEL READ CONTEX ID: ${ctx.channel().id()}")
 //    println(s"ZClientInboundHandler : CTX: $ctx === channelRead : $clientResponse")
     zExec.unsafeRun(ctx)(promise.succeed(clientResponse))
   }
