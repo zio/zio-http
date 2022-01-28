@@ -207,25 +207,42 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
     ctx: ChannelHandlerContext,
     stream: Http2FrameStream,
   ): Unit = {
+
     val headers = new DefaultHttp2Headers().status(res.status.asJava.codeAsText())
+
+    res.headers.toList.foreach(l => headers.set(l._1, l._2))
+
     headers
       .set(HttpHeaderNames.SERVER, "ZIO-Http")
       .set(HttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
-    val length  = res.data match {
+    val length = res.data match {
       case HttpData.Empty               => 0
       case HttpData.Text(text, _)       => text.length
       case HttpData.BinaryChunk(data)   => data.length
       case HttpData.BinaryByteBuf(data) => data.toString(HTTP_CHARSET).length
       case HttpData.BinaryStream(_)     => -1
-      case HttpData.File(_)             => 0
+      case HttpData.File(_)             => -1
       // TODO: file!
     }
     if (length >= 0) headers.setInt(HttpHeaderNames.CONTENT_LENGTH, length)
+    res.data match {
+      case HttpData.File(_) =>
+        ctx.write(
+          new DefaultHttp2HeadersFrame(
+            new DefaultHttp2Headers().status(Status.UNSUPPORTED_MEDIA_TYPE.asJava.codeAsText()),
+          ).stream(stream),
+        )
+        ctx.write(
+          new DefaultHttp2DataFrame(JUnpooled.copiedBuffer("Files are not supported over HTTP2", HTTP_CHARSET))
+            .stream(stream),
+        )
+      case _                =>
+        ctx.write(
+          new DefaultHttp2HeadersFrame(headers).stream(stream),
+          ctx.channel().voidPromise(),
+        )
+    }
 
-    ctx.write(
-      new DefaultHttp2HeadersFrame(headers).stream(stream),
-      ctx.channel().voidPromise(),
-    )
     res.data match {
       case HttpData.Empty               =>
         ctx.writeAndFlush(new DefaultHttp2DataFrame(true).stream(stream))
