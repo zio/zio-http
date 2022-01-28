@@ -31,9 +31,9 @@ object ResponseSpec extends DefaultRunnableSpec {
           assertTrue(x.getHeaderValue(HeaderNames.contentType).contains(HeaderValues.applicationJson.toString))
         },
       ) +
-      suite("wrapHttp")(
-        testM("should wrap response in Http") {
-          val http = Response.ok.wrapHttp
+      suite("toHttp")(
+        testM("should convert response to Http") {
+          val http = Response.ok.toHttp
           assertM(http(()))(equalTo(Response.ok))
         },
       ),
