@@ -1,6 +1,6 @@
 package example
 
-import zhttp.http.{Cookie, Method, Response, _}
+import zhttp.http.{CookieImpl, Method, Response, _}
 import zhttp.service.Server
 import zio.duration.durationInt
 import zio.{App, ExitCode, URIO}
@@ -11,7 +11,7 @@ import zio.{App, ExitCode, URIO}
 object CookieServerSide extends App {
 
   // Setting cookies with an expiry of 5 days
-  private val cookie = Cookie("key", "value").withMaxAge(5 days)
+  private val cookie = CookieImpl("key", "value").withMaxAge(5 days)
   val res            = Response.ok.addCookie(cookie)
 
   private val app = Http.collect[Request] {
