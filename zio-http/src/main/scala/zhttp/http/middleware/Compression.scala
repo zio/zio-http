@@ -28,12 +28,12 @@ private[zhttp] trait Compression {
     Middleware.collect[Request] { case req =>
       req.getHeaders.getAcceptEncoding match {
         case Some(header) =>
-          val clientAcceptedEncoding  = parseAcceptEncodingHeaders(header).map(_._1.toString())
-          val compressionNames        = compressions.map(_.name.toString())
+          val clientAcceptedEncoding  = parseAcceptEncodingHeaders(header).map(_._1)
+          val compressionNames        = compressions.map(_.name)
           // the client accepted encoding are sorted, we want to get the extension of the first
           // encoding that is supported by both the client and the server
           val commonSupportedEncoding = clientAcceptedEncoding.collect {
-            case encoding if compressionNames.contains(encoding) => compressions.find(_.name.toString() == encoding)
+            case encoding if compressionNames.contains(encoding) => compressions.find(_.name == encoding)
           }.flatten
 
           // we currently take the first common header, but we would need to try all of them, in order
@@ -55,11 +55,11 @@ private[zhttp] trait Compression {
 }
 
 trait CompressionFormat {
-  def name: CharSequence
+  def name: String
   def extension: String
 }
 
 object CompressionFormat {
-  final case class Gzip(name: CharSequence = HeaderValues.gzip, extension: String = ".gz") extends CompressionFormat
-  final case class Brotli(name: CharSequence = HeaderValues.br, extension: String = ".br") extends CompressionFormat
+  final case class Gzip(name: String = HeaderValues.gzip.toString, extension: String = ".gz") extends CompressionFormat
+  final case class Brotli(name: String = HeaderValues.br.toString, extension: String = ".br") extends CompressionFormat
 }
