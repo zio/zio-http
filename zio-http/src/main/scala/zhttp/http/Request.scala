@@ -2,6 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.{ByteBuf, Unpooled}
 import zhttp.http.headers.HeaderExtension
+import zhttp.service.HTTP_CONTENT_HANDLER
 import zhttp.service.server.content.handlers.UnsafeRequestHandler.{UnsafeChannel, UnsafeContent}
 import zio.stream.ZStream
 import zio.{Task, UIO, ZIO}
@@ -55,7 +56,7 @@ trait Request extends HeaderExtension[Request] { self =>
         self.unsafeBody((ch, msg) => {
           buffer.writeBytes(msg.content.content())
           if (msg.isLast) {
-            ch.ctx.pipeline().remove("CONTENT_HANDLER")
+            ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)
             cb(UIO(buffer.toString(HTTP_CHARSET)))
           } else {
             ch.read()
