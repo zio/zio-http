@@ -57,9 +57,7 @@ private[zhttp] final case class Handler[R](
                   .pipeline()
                   .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, RequestBodyHandler(callback, config)): Unit
               }
-
             }
-
           }
 
           unsafeRun(

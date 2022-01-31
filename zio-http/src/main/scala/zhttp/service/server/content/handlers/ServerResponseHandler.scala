@@ -24,7 +24,6 @@ private[zhttp] case class ServerResponseHandler[R](
   override def channelRead0(ctx: Ctx, msg: Response): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
     ctx.write(encodeResponse(msg))
-    ctx.read()
     msg.data match {
       case HttpData.BinaryStream(stream) =>
         runtime.unsafeRun(ctx) { writeStreamContent(stream) }
