@@ -8,13 +8,16 @@ import zhttp.service.server.content.handlers.UnsafeRequestHandler.{UnsafeChannel
 final case class RequestBodyHandler[R](
   msgCallback: (UnsafeChannel, UnsafeContent) => Unit,
   config: Server.Config[R, Throwable],
-) extends SimpleChannelInboundHandler[Any](true) {
+) extends SimpleChannelInboundHandler[Any](false) {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Any): Unit = {
-    if (msg.isInstanceOf[HttpContent])
-      msgCallback(UnsafeChannel(ctx), UnsafeContent(msg.asInstanceOf[HttpContent], config.maxRequestSize))
-    else
-      ctx.fireChannelRead(msg): Unit
+    msg match {
+      case httpContent: HttpContent =>
+        msgCallback(UnsafeChannel(ctx), UnsafeContent(httpContent, config.maxRequestSize))
+      case _                        =>
+        ctx.fireChannelRead(msg): Unit
+        ctx.read(): Unit
+    }
   }
 
   override def handlerAdded(ctx: ChannelHandlerContext): Unit = {

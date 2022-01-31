@@ -50,14 +50,12 @@ trait Request extends HeaderExtension[Request] { self =>
     ZStream
       .effectAsync[Any, Throwable, ByteBuf](cb =>
         self.unsafeBody((ch, msg) => {
+          cb(IO.succeed(Chunk(msg.content.content())))
           if (msg.isLast) {
-            cb(IO.succeed(Chunk(msg.content.content().retain())))
             ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)
             cb(IO.fail(None))
           } else {
-            cb(IO.succeed(Chunk(msg.content.content().retain())))
             ch.read()
-            ()
           }
 
         }),
@@ -75,7 +73,6 @@ trait Request extends HeaderExtension[Request] { self =>
             ch.ctx.fireChannelRead(Response.status(Status.REQUEST_ENTITY_TOO_LARGE)): Unit
           } else {
             buffer.writeBytes(msg.content.content())
-
             if (msg.isLast) {
               ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)
               cb(UIO(buffer.toString(HTTP_CHARSET)))
@@ -84,6 +81,7 @@ trait Request extends HeaderExtension[Request] { self =>
               ()
             }
           }
+          msg.content.release(msg.content.refCnt()): Unit
         }),
       )
     } yield body

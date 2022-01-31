@@ -67,12 +67,16 @@ private[zhttp] final case class Handler[R](
           )
         }
       case msg: LastHttpContent =>
-        ctx.fireChannelRead(msg): Unit
-        ctx.read(): Unit
+        if (ctx.pipeline().get(HTTP_CONTENT_HANDLER) != null) {
+          ctx.fireChannelRead(msg): Unit
+        } else {
+          ctx.read(): Unit // Read the next request
+        }
 
       case msg: HttpContent =>
-        ctx.fireChannelRead(msg): Unit
-        ctx.read(): Unit
+        if (ctx.pipeline().get(HTTP_CONTENT_HANDLER) != null) {
+          ctx.fireChannelRead(msg): Unit
+        }
 
       case _ => ctx.fireChannelRead(Response.status(Status.NOT_ACCEPTABLE)): Unit
     }
