@@ -56,6 +56,7 @@ private[zhttp] final case class Handler[R](
         )
       case msg: LastHttpContent =>
         ctx.fireChannelRead(msg): Unit
+        ctx.read(): Unit
 
       case msg: HttpContent =>
         ctx.fireChannelRead(msg): Unit

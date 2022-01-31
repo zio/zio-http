@@ -6,7 +6,7 @@ import zhttp.service.server.content.handlers.UnsafeRequestHandler.{UnsafeChannel
 
 @Sharable
 final case class RequestBodyHandler(msgCallback: (UnsafeChannel, UnsafeContent) => Unit)
-    extends SimpleChannelInboundHandler[Any](false) {
+    extends SimpleChannelInboundHandler[Any](true) {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Any): Unit = {
 
@@ -16,7 +16,7 @@ final case class RequestBodyHandler(msgCallback: (UnsafeChannel, UnsafeContent) 
       ctx.fireChannelRead(msg): Unit
   }
 
-  override def channelRegistered(ctx: ChannelHandlerContext): Unit = {
+  override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
     ctx.channel().config().setAutoRead(false)
     ctx.read(): Unit
   }
