@@ -4,8 +4,8 @@ import io.netty.buffer.{ByteBuf, Unpooled}
 import zhttp.http.headers.HeaderExtension
 import zhttp.service.HTTP_CONTENT_HANDLER
 import zhttp.service.server.content.handlers.UnsafeRequestHandler.{UnsafeChannel, UnsafeContent}
+import zio._
 import zio.stream.ZStream
-import zio.{Chunk, IO, Queue, Task, UIO, ZIO}
 
 import java.net.InetAddress
 import scala.annotation.unused
@@ -50,15 +50,16 @@ trait Request extends HeaderExtension[Request] { self =>
     ZStream
       .effectAsync[Any, Throwable, ByteBuf](cb =>
         self.unsafeBody((ch, msg) => {
-
           if (msg.isLast) {
-            // ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)
-            //  cb(IO.fail(None))
+            cb(IO.succeed(Chunk(msg.content.content().retain())))
+            ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)
+            cb(IO.fail(None))
           } else {
+            cb(IO.succeed(Chunk(msg.content.content().retain())))
             ch.read()
             ()
           }
-          cb(IO.succeed(Chunk(msg.content.content())))
+
         }),
       )
 

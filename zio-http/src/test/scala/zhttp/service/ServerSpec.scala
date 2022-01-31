@@ -163,8 +163,8 @@ object ServerSpec extends HttpRunnableSpec {
           Response(data = HttpData.fromStreamByteBuf(req.getBodyAsStream)).wrapZIO
         }
         val res                                          = app.deploy.getBody.run(!!, Method.POST, "some text")
-        assertM(res.map(_.toList.mkString))(equalTo("some text"))
-      } @@ ignore
+        assertM(res.map(_.toList.map(_.toChar).mkString))(equalTo("some text"))
+      }
 
   }
 

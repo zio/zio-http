@@ -11,7 +11,6 @@ final case class RequestBodyHandler[R](
 ) extends SimpleChannelInboundHandler[Any](true) {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Any): Unit = {
-
     if (msg.isInstanceOf[HttpContent])
       msgCallback(UnsafeChannel(ctx), UnsafeContent(msg.asInstanceOf[HttpContent], config.maxRequestSize))
     else
