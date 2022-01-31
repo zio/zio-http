@@ -19,10 +19,10 @@ final case class ZClientInboundHandler[R](
 
   override def channelRead0(ctx: ChannelHandlerContext, clientResponse: Resp): Unit = {
     println(s"SimpleChannelInboundHandler SimpleChannelInboundHandler CHANNEL READ CONTEX ID: ${ctx.channel().id()}")
+    val prom = connectionManager.currentExecRef(ctx.channel())
     zExec.unsafeRun(ctx) {
-      println(s"GETTING CLIENT RESPONSE: $clientResponse")
-      val prom = connectionManager.currentExecRef(ctx.channel())
-      println(s"FOUND PROMISE: $prom")
+//      println(s"GETTING CLIENT RESPONSE: $clientResponse")
+//      println(s"FOUND PROMISE: $prom")
       prom.succeed(clientResponse)
     }
   }
@@ -38,7 +38,8 @@ final case class ZClientInboundHandler[R](
 //    println(s" FIRING REQUEST : ${reqRef(ctx.channel())}")
 //    ctx.writeAndFlush(jReq): Unit
     ctx.flush()
-    releaseRequest()
+//    releaseRequest()
+    ()
   }
 
   private def releaseRequest(): Unit = {

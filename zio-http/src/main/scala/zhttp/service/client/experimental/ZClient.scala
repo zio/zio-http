@@ -137,8 +137,9 @@ case class DefaultZClient(
       _       <- Task(println(s"got channel  $channel $req"))
       prom    <- zio.Promise.make[Throwable, Resp]
       _       <- ZIO.effect(connectionManager.currentExecRef += (channel -> prom))
+      _       <- ZIO.effect { println(s"\n  ---- ${channel.remoteAddress()} \n ${channel.metadata().hasDisconnect} ${channel.metadata().defaultMaxMessagesPerRead()} \n ${channel.isOpen} ${channel.isActive} ${channel.isWritable} ${channel.isRegistered}  ---\n") }
       _       <- ZIO.effect { channel.writeAndFlush(jReq) }
-      _       <- ZIO.effect { println(s" ---- ${channel.eventLoop()} ${channel.remoteAddress()} ---") }
+//      _       <- ZIO.effect { println(s" ---- ${channel.eventLoop()} ${channel.remoteAddress()} ---") }
 //      _       <- ZIO.effect(println(s"EXEC PROMISE REF SIZE: ${connectionManager.currentExecRef}"))
       resp    <- prom.await
       _       <- ZIO.effect(println(s" RESP NOWWWWW: $resp"))
