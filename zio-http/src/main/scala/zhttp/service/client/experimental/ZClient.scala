@@ -152,7 +152,7 @@ case class DefaultZClient(
 
   def encodeClientParams(jVersion: HttpVersion, req: ReqParams): FullHttpRequest = {
     val method      = req.method.asHttpMethod
-    val uri         = req.url.asString
+    val uri         = req.url.encode
     val content     = req.getBodyAsString match {
       case Some(text) => Unpooled.copiedBuffer(text, HTTP_CHARSET)
       case None       => Unpooled.EMPTY_BUFFER

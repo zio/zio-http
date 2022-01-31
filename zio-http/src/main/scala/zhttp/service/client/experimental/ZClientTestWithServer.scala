@@ -86,6 +86,12 @@ object ZClientTestWithServer extends App {
     _     <- ZIO.effect(println(s"GOT RESPONSE NUMBER 2 : $r2"))
 
     _ = f(1, "foo")
+
+    resp4 <- cl.run("http://www.google.com")
+    //    resp3 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
+    r4    <- resp4.getBodyAsString
+    _     <- ZIO.effect(println(s"GOT RESPONSE NUMBER 4 : $r4"))
+
     //    req3 = ReqParams(
 //               Method.GET,
 //               URL(!! / "random" , Location.Absolute(Scheme.HTTP, "localhost", 8082)),

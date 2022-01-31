@@ -55,12 +55,14 @@ case class ZConnectionManager(
 
   def buildChannel[R](jReq: FullHttpRequest, scheme: String, inetSocketAddress: InetSocketAddress): Task[Channel] = {
     for {
-      init <- ZIO.effect(ZClientChannelInitializer(
-        ZClientInboundHandler(zExec, this),
-        scheme,
-        ClientSSLOptions.DefaultSSL,
-      ))
-      _ <- ZIO.effect(println(s"for ${jReq.uri()} CONNECTING to ${inetSocketAddress}"))
+      init <- ZIO.effect(
+        ZClientChannelInitializer(
+          ZClientInboundHandler(zExec, this),
+          scheme,
+          ClientSSLOptions.DefaultSSL,
+        ),
+      )
+      _    <- ZIO.effect(println(s"for ${jReq.uri()} CONNECTING to ${inetSocketAddress}"))
       (h, p) = (inetSocketAddress.toString.split("/")(0), inetSocketAddress.toString.split(":")(1))
       _ <- ZIO.effect(println(s"for ${jReq.uri()} CONNECTING to ${(h, p)}"))
       chf = boo.handler(init).connect(h, p.toInt)
