@@ -117,7 +117,7 @@ object ZClient {
       connRef <- zio.Ref.make(
         mutable.Map.empty[InetSocketAddress, Channel],
       )
-      execPromiseRef = mutable.Map.empty[Channel, zio.Promise[Throwable, Resp]]
+      execPromiseRef = mutable.Map.empty[Channel, (zio.Promise[Throwable, Resp], FullHttpRequest)]
       connManager    = ZConnectionManager(connRef, execPromiseRef, clientBootStrap, zExec)
       clientImpl     = DefaultZClient(settings, connManager)
     } yield {
@@ -134,13 +134,10 @@ case class DefaultZClient(
     for {
       jReq    <- Task(encodeClientParams(HttpVersion.HTTP_1_1, req))
       channel <- connectionManager.fetchConnection(jReq)
-      _       <- Task(println(s"got channel  $channel $req"))
+      _       <- Task(println(s"got channel  $channel "))
       prom    <- zio.Promise.make[Throwable, Resp]
-      _       <- ZIO.effect(connectionManager.currentExecRef += (channel -> prom))
-      _       <- ZIO.effect { println(s"\n  ---- ${channel.remoteAddress()} \n ${channel.metadata().hasDisconnect} ${channel.metadata().defaultMaxMessagesPerRead()} \n ${channel.isOpen} ${channel.isActive} ${channel.isWritable} ${channel.isRegistered}  ---\n") }
-      _       <- ZIO.effect { channel.writeAndFlush(jReq) }
-//      _       <- ZIO.effect { println(s" ---- ${channel.eventLoop()} ${channel.remoteAddress()} ---") }
-//      _       <- ZIO.effect(println(s"EXEC PROMISE REF SIZE: ${connectionManager.currentExecRef}"))
+      _       <- ZIO.effect(connectionManager.currentExecRef += (channel -> (prom, jReq)))
+      _       <- ZIO.effect { channel.pipeline().fireChannelActive() }
       resp    <- prom.await
       _       <- ZIO.effect(println(s" RESP NOWWWWW: $resp"))
     } yield resp

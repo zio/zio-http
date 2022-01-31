@@ -13,7 +13,7 @@ import zhttp.service.HttpRuntime
 @Sharable
 final case class ZClientInboundHandler[R](
   zExec: HttpRuntime[R],
-  jReq: FullHttpRequest,
+//  jReq: FullHttpRequest,
   connectionManager: ZConnectionManager,
 ) extends SimpleChannelInboundHandler[Resp](false) {
 
@@ -23,26 +23,28 @@ final case class ZClientInboundHandler[R](
     zExec.unsafeRun(ctx) {
 //      println(s"GETTING CLIENT RESPONSE: $clientResponse")
 //      println(s"FOUND PROMISE: $prom")
-      prom.succeed(clientResponse)
+      prom._1.succeed(clientResponse)
     }
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
 //    println(s"ZClientInboundHandler ERROR response: $error")
+    val prom = connectionManager.currentExecRef(ctx.channel())
     zExec.unsafeRun(ctx)(zio.Task.fail(error))
-    releaseRequest()
+    releaseRequest(prom._2)
   }
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     println(s"CHANNEL ACTIVE CONTEXT ID: ${ctx.channel().id()}")
 //    println(s" FIRING REQUEST : ${reqRef(ctx.channel())}")
-//    ctx.writeAndFlush(jReq): Unit
-    ctx.flush()
+    val prom = connectionManager.currentExecRef(ctx.channel())
+    ctx.writeAndFlush(prom._2): Unit
+//    ctx.flush()
 //    releaseRequest()
     ()
   }
 
-  private def releaseRequest(): Unit = {
+  private def releaseRequest(jReq: FullHttpRequest): Unit = {
     if (jReq.refCnt() > 0) {
       jReq.release(jReq.refCnt()): Unit
     }

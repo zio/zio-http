@@ -12,7 +12,8 @@ import scala.collection.mutable
 
 case class ZConnectionManager(
   connRef: Ref[mutable.Map[InetSocketAddress, Channel]],
-  currentExecRef: mutable.Map[Channel, Promise[Throwable, Resp]] = mutable.Map.empty[Channel, Promise[Throwable, Resp]],
+  currentExecRef: mutable.Map[Channel, (Promise[Throwable, Resp], FullHttpRequest)] =
+    mutable.Map.empty[Channel, (Promise[Throwable, Resp], FullHttpRequest)],
   boo: Bootstrap,
   zExec: zhttp.service.HttpRuntime[Any],
 ) {
@@ -54,15 +55,11 @@ case class ZConnectionManager(
 
   def buildChannel[R](jReq: FullHttpRequest, scheme: String, inetSocketAddress: InetSocketAddress): Task[Channel] = {
     for {
-      //      promise <- Promise.make[Throwable, Resp]
-      _ <- ZIO.effect(println(s""))
-
-      init = ZClientChannelInitializer(
-        ZClientInboundHandler(zExec, jReq, this),
+      init <- ZIO.effect(ZClientChannelInitializer(
+        ZClientInboundHandler(zExec, this),
         scheme,
         ClientSSLOptions.DefaultSSL,
-      )
-
+      ))
       _ <- ZIO.effect(println(s"for ${jReq.uri()} CONNECTING to ${inetSocketAddress}"))
       (h, p) = (inetSocketAddress.toString.split("/")(0), inetSocketAddress.toString.split(":")(1))
       _ <- ZIO.effect(println(s"for ${jReq.uri()} CONNECTING to ${(h, p)}"))

@@ -73,15 +73,17 @@ object ZClientTestWithServer extends App {
 //    r2    <- resp2.getBodyAsString
 //    _     <- ZIO.effect(println(s"GOT RESPONSE NUMBER 2 : $r2"))
 
+    _ <- ZIO.effect { println(s"\n ======= EXECUTING THIRD REQ ======== ms \n") }
+
     resp3 <- cl.run("http://www.google.com")
-//    resp2 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
+//    resp3 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
     r3    <- resp3.getBodyAsString
     _     <- ZIO.effect(println(s"GOT RESPONSE NUMBER 3 : $r3"))
 
-//        resp2 <- cl.run(f(2, "bar"))
-//        //    resp2 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
-//        r2    <- resp2.getBodyAsString
-//        _     <- ZIO.effect(println(s"GOT RESPONSE NUMBER 2 : $r2"))
+    resp2 <- cl.run(f(2, "bar"))
+    //    resp2 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
+    r2    <- resp2.getBodyAsString
+    _     <- ZIO.effect(println(s"GOT RESPONSE NUMBER 2 : $r2"))
 
     _ = f(1, "foo")
     //    req3 = ReqParams(
