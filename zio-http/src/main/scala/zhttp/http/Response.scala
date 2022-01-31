@@ -62,11 +62,6 @@ final case class Response private (
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
 
   /**
-   * Wraps the current response as a Http
-   */
-  def toHttp: Http[Any, Nothing, Any, Response] = Http.succeed(self)
-
-  /**
    * Wraps the current response into a ZIO
    */
   def wrapZIO: UIO[Response] = UIO(self)
@@ -86,7 +81,7 @@ final case class Response private (
 
     val jHeaders = self.getHeaders.encode
     val jContent = self.data match {
-      case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text, charset)
+      case HttpData.Text(text, charset) => Unpooled.copiedBuffer(text, charset)
       case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
       case HttpData.BinaryByteBuf(data) => data
       case HttpData.BinaryStream(_)     => null
