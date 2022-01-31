@@ -21,7 +21,7 @@ object GetBodyAsStringSpec extends DefaultRunnableSpec {
           .ClientRequest(
             Method.GET,
             URL(Path("/")),
-            getHeaders = Headers(HttpHeaderNames.CONTENT_TYPE.toString, s"text/html; charset=$charset"),
+            headers = Headers(HttpHeaderNames.CONTENT_TYPE.toString, s"text/html; charset=$charset"),
             data = HttpData.BinaryChunk(Chunk.fromArray("abc".getBytes())),
           )
           .getBodyAsString
