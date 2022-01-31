@@ -1,23 +1,21 @@
 # Request
+ 
+## Server-side
 
 `Request` is designed in **ZIO HTTP** in the simplest way possible to make HTTP calls.
  It supports all HTTP request methods (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) ) and headers along with custom methods and headers.
  
- ## Creating a Request
+## Creating a Request
+
 `Request` can be created with `method`, `url`, `headers`, `remoteAddress` and `data`.
 
 The below snippet creates a request with default params, `method` as `Method.GET`, `url` as `URL.root`, `headers` as `Headers.empty`, `data` as `HttpData.Empty`, `remoteAddress` as `None`
 ```scala
 val request: Request = Request()
 ```
- ## Creating a Request Effectfully
- You can create request effectfully using `make` constructor in `Request`.
- 
- The below snippet creates an effectful request with default params, method as `Method.GET`, url as `URL.root`, headers as `Headers.empty`, data as `HttpData.Empty`, remoteAddress as `None`
-```scala
-  val request: UIO[Request] = Request.make(remoteAddress = None)
-```
+
 ## Using Request in creating HTTP apps
+
 You can create an HTTP app which accepts a request of type `Request` and produces response of type `Response`:
  ```scala
  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
@@ -27,6 +25,7 @@ You can create an HTTP app which accepts a request of type `Request` and produce
 ```
 
 ## Accessing the Request
+
 - `getBody` to access the content of request as a Chunk of Bytes
 ```scala
   val app = Http.collectZIO[Request] { case req => req.getBody.as(Response.ok) }
@@ -54,5 +53,34 @@ val app = Http.collect[Request] { case req => Response.text(req.method.toString(
 - `url` to access the complete url
 ```scala
   val app = Http.collect[Request] { case req => Response.text(req.url.toString())}
+```
+
+## Client Side
+`ClientRequest` is designed to create requests for `Client`.
+
+## Creating a ClientRequest
+
+`ClientRequest` can be created with `method`, `url`, `getHeaders` and `data`.
+
+The below snippet shows how to create `ClientRequest` using default params
+```scala
+val request = Client.ClientRequest(Method.GET, URL(!!))
+```
+## Accessing the ClientRequest
+
+- `getBodyAsString` to access the content of request as `Option[String]`
+```scala
+  val request = Client.ClientRequest(Method.GET, URL(!!))
+  val content: Option[String] = request.getBodyAsString
+```
+- `remoteAddress` to access the remoteAddress of request as `Option[InetAddress]`
+```scala
+  val request = Client.ClientRequest(Method.GET, URL(!!))
+  val address: Option[InetAddress] = request.remoteAddress
+```
+- `updateHeaders` to update headers of request
+```scala
+  val request = Client.ClientRequest(Method.GET, URL(!!))
+  val updatedRequest = request.updateHeaders(_.addHeader("name", "value"))
 ```
 
