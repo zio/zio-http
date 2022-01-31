@@ -56,8 +56,8 @@ for the partial function, the application will return a `None` type error.
 
 ```scala
   val app: HttpApp[Any, Nothing] = Http.collect[Request] {
-  case Method.GET -> !! / "text" => Response.text("Hello World!")
-  case Method.GET -> !! / "json" => Response.ok
+    case Method.GET -> !! / "text" => Response.text("Hello World!")
+    case Method.GET -> !! / "json" => Response.ok
   }
 ```
 
@@ -68,7 +68,7 @@ i.e `PartialFunction[A, ZIO[R, E, B]`. This constructor is used when the output 
 
 ```scala
   val app: HttpApp[Any, Nothing] = Http.collect[Request] {
-  case Method.GET -> !! / "text" => ZIO[Response.ok]
+    case Method.GET -> !! / "text" => ZIO[Response.ok]
   }
 ```
 
@@ -148,10 +148,10 @@ the second HTTP application will be evaluated.
 
 ```scala
   val app1: HttpApp[Any, Nothing] = Http.collect[Request] {
-  case Method.GET -> !! / "text" => Response.text("Hello World!")
+    case Method.GET -> !! / "text" => Response.text("Hello World!")
   }
   val app2: HttpApp[Any, Nothing] = Http.collect[Request] {
-  case Method.GET -> !! / "json" => Response.ok
+    case Method.GET -> !! / "json" => Response.ok
   }
   val app = app1 ++ app2
 ```
@@ -198,7 +198,7 @@ Overwrites the method in the incoming request to the `HttpApp`
 
 ```scala
   val app1: HttpApp[Any, Nothing] = Http.collect[Request] {
-  case Method.GET -> !! / "text" => Response.text("Hello World!")
+    case Method.GET -> !! / "text" => Response.text("Hello World!")
   }
   val app = app1 setMethod (Method.POST)
 ```
@@ -209,7 +209,18 @@ Patches the response produced by the HTTP application using a `Patch`.
 
 ```scala
   val app1: HttpApp[Any, Nothing] = Http.collect[Request] {
-  case Method.GET -> !! / "text" => Response.text("Hello World!")
+    case Method.GET -> !! / "text" => Response.text("Hello World!")
   }
   val app = app1.patch(Patch.setStatus(Status.ACCEPTED))
+```
+
+### getBodyAsString
+
+`getBodyAsString` extract the body of response as a string and make it the output type.
+
+```scala
+  val app1: HttpApp[Any, Nothing] = Http.collect[Request] {
+    case Method.GET -> !! / "text" => Response.text("Hello World!")
+  }
+  val app: Http[Any, Throwable, Request, String] = app1.getBodyAsString
 ```
