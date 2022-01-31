@@ -69,8 +69,6 @@ private[zhttp] final case class Handler[R](
       case msg: LastHttpContent =>
         if (ctx.pipeline().get(HTTP_CONTENT_HANDLER) != null) {
           ctx.fireChannelRead(msg): Unit
-        } else {
-          ctx.read(): Unit // Read the next request
         }
 
       case msg: HttpContent =>

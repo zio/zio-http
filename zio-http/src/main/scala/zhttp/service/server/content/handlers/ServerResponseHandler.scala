@@ -26,11 +26,13 @@ private[zhttp] case class ServerResponseHandler[R](
     ctx.write(encodeResponse(msg))
     msg.data match {
       case HttpData.BinaryStream(stream) =>
-        runtime.unsafeRun(ctx) { writeStreamContent(stream) }
+        runtime.unsafeRun(ctx) { writeStreamContent(stream).ensuring(UIO(ctx.read())) }
       case HttpData.File(file)           =>
         unsafeWriteFileContent(file)
+        ctx.read()
       case _                             =>
         ctx.flush()
+        ctx.read() // read next request
     }
     ()
   }
