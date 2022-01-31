@@ -2,14 +2,13 @@ package zhttp.service.client.experimental
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.Unpooled
-import io.netty.channel.{ChannelFuture, ChannelFutureListener}
+import io.netty.channel.Channel
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.HttpMessageCodec
-import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.experimental.ZClient.Config
 import zio.duration.Duration
-import zio.{Promise, Task, ZIO}
+import zio.{Task, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 import scala.collection.mutable
@@ -110,37 +109,40 @@ object ZClient {
     for {
       channelFactory <- settings.transport.clientChannel
       eventLoopGroup <- settings.transport.eventLoopGroupTask(settings.threads)
-      zExec <- zhttp.service.HttpRuntime.default[Any]
+      zExec          <- zhttp.service.HttpRuntime.default[Any]
 
       clientBootStrap = new Bootstrap()
         .channelFactory(channelFactory)
         .group(eventLoopGroup)
-
-      _       <- ZIO.effect(println(s"BOOTSTRAP DONE"))
       connRef <- zio.Ref.make(
-        mutable.Map.empty[InetSocketAddress, Promise[Throwable, Resp]],
+        mutable.Map.empty[InetSocketAddress, Channel],
       )
-
-      clientImpl = DefaultZClient(clientBootStrap, settings, connRef, zExec)
+      execPromiseRef = mutable.Map.empty[Channel, zio.Promise[Throwable, Resp]]
+      connManager    = ZConnectionManager(connRef, execPromiseRef, clientBootStrap, zExec)
+      clientImpl     = DefaultZClient(settings, connManager)
     } yield {
       clientImpl
     }
   }
 }
+
 case class DefaultZClient(
-  boo: Bootstrap,
   settings: Config,
-  connRef: zio.Ref[mutable.Map[InetSocketAddress, Promise[Throwable, Resp]]],
-  zExec: zhttp.service.HttpRuntime[Any]
+  connectionManager: ZConnectionManager,
 ) extends HttpMessageCodec {
   def run(req: ReqParams): Task[Resp] =
     for {
-      jReq <- Task(encodeClientParams(HttpVersion.HTTP_1_1, req))
-//      _       <- Task(asyncRequest()).catchAll(cause => promise.fail(cause))
-      pro  <- fetchConnection(jReq)
-      _    <- ZIO.effect(println(s"Now promise. await for $req"))
-      res  <- pro.await
-    } yield res
+      jReq    <- Task(encodeClientParams(HttpVersion.HTTP_1_1, req))
+      channel <- connectionManager.fetchConnection(jReq)
+      _       <- Task(println(s"got channel  $channel $req"))
+      prom    <- zio.Promise.make[Throwable, Resp]
+      _       <- ZIO.effect(connectionManager.currentExecRef += (channel -> prom))
+      _       <- ZIO.effect { channel.writeAndFlush(jReq) }
+      _       <- ZIO.effect { println(s" ---- ${channel.eventLoop()} ${channel.remoteAddress()} ---") }
+//      _       <- ZIO.effect(println(s"EXEC PROMISE REF SIZE: ${connectionManager.currentExecRef}"))
+      resp    <- prom.await
+      _       <- ZIO.effect(println(s" RESP NOWWWWW: $resp"))
+    } yield resp
 
   def run(str: String): Task[Resp] = {
     for {
@@ -148,70 +150,6 @@ case class DefaultZClient(
       req = ReqParams(url = url)
       res <- run(req)
     } yield res
-  }
-
-  def buildChannel[R](jReq: FullHttpRequest, scheme: String, inetSocketAddress: InetSocketAddress) = {
-    for {
-      promise <- Promise.make[Throwable, Resp]
-      hand = ZClientInboundHandler(zExec, jReq, promise)
-      _ <- ZIO.effect(println(s"HANDLER INITIALIZED"))
-
-      init = ZClientChannelInitializer(hand, scheme, ClientSSLOptions.DefaultSSL)
-
-      _ <- ZIO.effect(println(s"for ${jReq.uri()} CONNECTING to ${inetSocketAddress}"))
-      (h,p) = (inetSocketAddress.toString.split("/")(0),inetSocketAddress.toString.split(":")(1))
-      _ <- ZIO.effect(println(s"for ${jReq.uri()} CONNECTING to ${(h,p)}"))
-//      chf = boo.handler(init).connect(inetSocketAddress)
-      chf = boo.handler(init).connect(h,p.toInt)
-      _ <- ZIO
-        .effect(
-          chf.addListener(new ChannelFutureListener() {
-            override def operationComplete(future: ChannelFuture): Unit = {
-              val channel = future.channel()
-              println(s"CONNECTED USING CHH ID: ${channel.id()}")
-              if (!future.isSuccess()) {
-                println(s"error: ${future.cause().getMessage}")
-                future.cause().printStackTrace()
-              } else {
-                println("sent request");
-              }
-            }
-          }): Unit,
-        )
-
-    } yield promise
-  }
-
-  def fetchConnection(jReq: FullHttpRequest): Task[Promise[Throwable, Resp]] = {
-    for {
-      mp <- connRef.get
-      _  <- ZIO.effect(println(s"CONNECTION MAP : $mp"))
-      url <- ZIO.fromEither(URL.fromString(jReq.uri()))
-      host = url.host
-      port = url.port.getOrElse(80) match {
-        case -1   => 80
-        case port => port
-      }
-      _ <- ZIO.effect(println(s"extracted HOST: $host extracted PORT: $port"))
-      inetSockAddress <- host match {
-        case Some(h) => Task.succeed(new InetSocketAddress(h, port))
-        case _       => Task.fail(new Exception("error getting host"))
-      }
-      conn            <- mp.get(inetSockAddress) match {
-        case Some(c) =>
-          println(s"CONN FOUND REUSING IT: $c")
-          Task.succeed(c)
-        case _       =>
-          println(s"CONN NOT FOUND CREATING NEW")
-          buildChannel(jReq, "http", inetSockAddress)
-      }
-      _               <- connRef.update { m =>
-        m += (inetSockAddress -> conn)
-        println(s"NEW M: $m")
-        m
-      }
-    } yield conn
-
   }
 
   def encodeClientParams(jVersion: HttpVersion, req: ReqParams): FullHttpRequest = {

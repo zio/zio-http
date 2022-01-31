@@ -14,8 +14,8 @@ object ZClientTestWithServer extends App {
   private val PORT = 8081
 
   private val fooBar: HttpApp[Any, Nothing] = Http.collect[Request] {
-    case Method.GET -> !! / "foo" => Response.text("bar")
-    case Method.GET -> !! / "bar" => Response.text("foo")
+    case Method.GET -> !! / "foo" / int(id) => Response.text("bar ----- " + id)
+    case Method.GET -> !! / "bar" / int(id) => Response.text("foo foo foo foo foo foo foo foo foo  " + id)
   }
 
   private val server =
@@ -33,11 +33,11 @@ object ZClientTestWithServer extends App {
   }
 
   def clientTest(port: Int) = {
-    val client       = ZClient.port(port) ++ ZClient.threads(2)
-    val emptyHeaders = Headers.empty
-    val req          = ReqParams(
+    val client                                   = ZClient.port(port) ++ ZClient.threads(2)
+    val emptyHeaders                             = Headers.empty
+    def req(i: Int, fooOrBar: String): ReqParams = ReqParams(
       Method.GET,
-      URL(!! / "foo", Location.Absolute(Scheme.HTTP, "localhost", port)),
+      URL(!! / fooOrBar / i.toString, Location.Absolute(Scheme.HTTP, "localhost", port)),
       emptyHeaders,
       HttpData.empty,
     )
@@ -58,18 +58,36 @@ object ZClientTestWithServer extends App {
 
   // use cases like pipelining ... httpclient document
 
-  def triggerClientMultipleTimes(cl: DefaultZClient, req: ReqParams) = for {
+  def triggerClientMultipleTimes(cl: DefaultZClient, f: (Int, String) => ReqParams) = for {
     //    resp    <- cl.run(r1)
-    resp <- cl.run(req)
-    rval    <- resp.getBodyAsString
-    _    <- ZIO.effect(println(s"GOT FIRST RESP: $rval"))
-    _ <- ZIO.effect(println(s"======= NOW SLEEPING for 3000 ======== ms"))
-    _ <- ZIO.effect(Thread.sleep(5000))
-//    //    resp    <- cl.run(r2)
-    resp2 <- cl.run("http://www.google.com")
-//    resp2 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
-    r2 <- resp2.getBodyAsString
-    _ <- ZIO.effect(println(s"GOT second response : $r2"))
+    resp <- cl.run(f(1, "foo"))
+    rval <- resp.getBodyAsString
+    _    <- ZIO.effect(println(s"GOT RESPONSE NUMBER 1: $rval"))
+    _    <- ZIO.effect {
+      println(s"\n ======= NOW SLEEPING for 3000 ======== ms \n")
+//      Thread.sleep(5000)
+    }
+
+    resp2 <- cl.run(f(2, "bar"))
+    //    resp2 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
+    r2    <- resp2.getBodyAsString
+    _     <- ZIO.effect(println(s"GOT RESPONSE NUMBER 2 : $r2"))
+
+//    resp3 <- cl.run("http://www.google.com")
+////    resp2 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
+//    r3    <- resp3.getBodyAsString
+//    _     <- ZIO.effect(println(s"GOT RESPONSE NUMBER 3 : $r3"))
+
+    //    req3 = ReqParams(
+//               Method.GET,
+//               URL(!! / "random" , Location.Absolute(Scheme.HTTP, "localhost", 8082)),
+//                Headers.empty,
+//               HttpData.empty,
+//               )
+//
+//    resp3 <- cl.run(req3)
+//    r3 <- resp3.getBodyAsString
+//    _ <- ZIO.effect(println(s"GOT RESPONSE NUMBER 3 : $r3"))
 
 //
 //    //    resp <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")

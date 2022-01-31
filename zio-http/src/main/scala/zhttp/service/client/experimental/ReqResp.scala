@@ -1,6 +1,6 @@
 package zhttp.service.client.experimental
 
-import io.netty.buffer.{ByteBuf, ByteBufUtil}
+import io.netty.buffer.{ByteBuf, ByteBufAllocator, ByteBufUtil}
 import io.netty.channel.ChannelHandlerContext
 import zhttp.http.headers.HeaderExtension
 import zhttp.http.{HTTP_CHARSET, Headers, HttpData, Method, URL}
@@ -8,6 +8,9 @@ import zio.{Chunk, Task}
 
 import java.net.{InetAddress, InetSocketAddress}
 
+object Resp                       {
+  def empty = Resp(zhttp.http.Status.NOT_FOUND, Headers.empty, ByteBufUtil.writeUtf8(ByteBufAllocator.DEFAULT, ""))
+}
 final case class Resp(status: zhttp.http.Status, headers: Headers, private val buffer: ByteBuf)
     extends HeaderExtension[Resp] { self =>
 
@@ -19,6 +22,7 @@ final case class Resp(status: zhttp.http.Status, headers: Headers, private val b
 
   override def updateHeaders(update: Headers => Headers): Resp =
     self.copy(headers = update(headers))
+
 }
 
 final case class ReqParams(

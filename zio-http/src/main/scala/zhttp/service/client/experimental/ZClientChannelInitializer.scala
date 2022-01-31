@@ -17,14 +17,12 @@ final case class ZClientChannelInitializer[R](
     val p: ChannelPipeline = ch
       .pipeline()
       .addLast(new HttpClientCodec)
-      .addLast("idleStateHandler", new io.netty.handler.timeout.IdleStateHandler(0, 0, 6))
-      .addLast("myHandler", new ZIdleStateAwareHandler)
+//      .addLast("idleStateHandler", new io.netty.handler.timeout.IdleStateHandler(0, 0, 6))
+//      .addLast("myHandler", new ZIdleStateAwareHandler)
       .addLast(new HttpObjectAggregator(Int.MaxValue))
 //      .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
       .addLast(new ZClientResponseHandler())
       .addLast(channelHandler)
-
-//    ch.pipeline().channel()
     if (scheme == "https") {
       p.addFirst(ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc))
     }
