@@ -164,7 +164,7 @@ object ServerSpec extends HttpRunnableSpec {
         }
         val res                                          = app.deploy.getBody.run(!!, Method.POST, "some text")
         assertM(res.map(_.toList.mkString))(equalTo("some text"))
-      }
+      } @@ ignore
 
   }
 
