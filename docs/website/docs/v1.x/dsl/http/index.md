@@ -58,7 +58,7 @@ for the partial function, the application will return a `None` type error.
   val app: HttpApp[Any, Nothing] = Http.collect[Request] {
   case Method.GET -> !! / "text" => Response.text("Hello World!")
   case Method.GET -> !! / "json" => Response.ok
-}
+  }
 ```
 
 ### Http.collectZIO
@@ -69,7 +69,7 @@ i.e `PartialFunction[A, ZIO[R, E, B]`. This constructor is used when the output 
 ```scala
   val app: HttpApp[Any, Nothing] = Http.collect[Request] {
   case Method.GET -> !! / "text" => ZIO[Response.ok]
-}
+  }
 ```
 
 ### Http.fromFunction
@@ -105,7 +105,7 @@ to `Http[R,E,A,C]`
 
 ```scala
   val app1 = Http.succeed("text")
-val app2 = app1.map(s => s.length())
+  val app2 = app1.map(s => s.length())
 ```
 
 ### flatMap
@@ -115,7 +115,7 @@ function `f: B => Http[R1, E1, A1, C1]`. `>>=` is an alias for flatMap.
 
 ```scala
   val app1 = Http.succeed("text1")
-val app2 = app1.map(s => Http.succeed(s + " text2"))
+  val app2 = app1.map(s => Http.succeed(s + " text2"))
 ```
 
 ### middleware
@@ -133,8 +133,8 @@ more HTTP application.
 
 ```scala
   val app1 = Http.succeed("text1")
-val app2 = Http.succeed("text2")
-val app3 = app1.foldHttp(e => Http.fail(e), s => Http.succeed(s), app2)
+  val app2 = Http.succeed("text2")
+  val app3 = app1.foldHttp(e => Http.fail(e), s => Http.succeed(s), app2)
 ```
 
 ## Http Combinators
@@ -149,11 +149,11 @@ the second HTTP application will be evaluated.
 ```scala
   val app1: HttpApp[Any, Nothing] = Http.collect[Request] {
   case Method.GET -> !! / "text" => Response.text("Hello World!")
-}
-val app2: HttpApp[Any, Nothing] = Http.collect[Request] {
+  }
+  val app2: HttpApp[Any, Nothing] = Http.collect[Request] {
   case Method.GET -> !! / "json" => Response.ok
-}
-val app = app1 ++ app2
+  }
+  val app = app1 ++ app2
 ```
 
 ### orElse
@@ -161,7 +161,7 @@ val app = app1 ++ app2
 Runs the first HTTP application but if it fails, runs other, ignoring the result from self. `<>` is an alias for orElse.
 
 ```scala
-val app = Http.fail(1) <> Http.succeed(2)
+  val app = Http.fail(1) <> Http.succeed(2)
 ```
 
 ### andThen
@@ -169,9 +169,9 @@ val app = Http.fail(1) <> Http.succeed(2)
 Runs the first HTTP application and pipes the output into the other. `>>>` is an alias for andThen.
 
 ```scala
-val app1 = Http.fromFunction[Int](a => a + 1)
-val app2 = Http.fromFunction[Int](b => b * 2)
-val app = app1 >>> (app2)
+  val app1 = Http.fromFunction[Int](a => a + 1)
+  val app2 = Http.fromFunction[Int](b => b * 2)
+  val app = app1 >>> (app2)
 ```
 
 ### compose
@@ -180,9 +180,9 @@ Compose is similar to andThen. It runs the second HTTP application and pipes the
 application. `<<<` is the alias for compose.
 
 ```scala
-val app1 = Http.fromFunction[Int](a => a + 1)
-val app2 = Http.fromFunction[Int](b => b * 2)
-val app = app1 <<< (app2)
+  val app1 = Http.fromFunction[Int](a => a + 1)
+  val app2 = Http.fromFunction[Int](b => b * 2)
+  val app = app1 <<< (app2)
 ```
 
 Apart from these, there are many more operators that let you transform an Http in specific ways.
@@ -199,8 +199,8 @@ Overwrites the method in the incoming request to the `HttpApp`
 ```scala
   val app1: HttpApp[Any, Nothing] = Http.collect[Request] {
   case Method.GET -> !! / "text" => Response.text("Hello World!")
-}
-val app = app1 setMethod (Method.POST)
+  }
+  val app = app1 setMethod (Method.POST)
 ```
 
 ### patch
@@ -210,6 +210,6 @@ Patches the response produced by the HTTP application using a `Patch`.
 ```scala
   val app1: HttpApp[Any, Nothing] = Http.collect[Request] {
   case Method.GET -> !! / "text" => Response.text("Hello World!")
-}
-val app = app1.patch(Patch.setStatus(Status.ACCEPTED))
+  }
+  val app = app1.patch(Patch.setStatus(Status.ACCEPTED))
 ```
