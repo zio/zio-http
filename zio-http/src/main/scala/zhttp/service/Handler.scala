@@ -46,8 +46,10 @@ private[zhttp] final case class Handler[R](
               UnsafeContent,
             ) => Unit,
           ): Unit = {
-            if (ctx.pipeline().get("CONTENT_HANDLER") == null) {
-              ctx.pipeline().addAfter(HTTP_REQUEST_HANDLER, "CONTENT_HANDLER", RequestBodyHandler(callback)): Unit
+            if (ctx.pipeline().get(HTTP_CONTENT_HANDLER) == null) {
+              ctx
+                .pipeline()
+                .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, RequestBodyHandler(callback, config)): Unit
             }
 
           }

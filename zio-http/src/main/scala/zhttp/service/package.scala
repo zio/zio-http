@@ -9,6 +9,7 @@ package object service {
   private[service] val HTTP_OBJECT_AGGREGATOR             = "HTTP_OBJECT_AGGREGATOR"
   private[service] val HTTP_REQUEST_HANDLER               = "HTTP_REQUEST"
   private[service] val HTTP_RESPONSE_HANDLER              = "HTTP_RESPONSE"
+  private[zhttp] val HTTP_CONTENT_HANDLER                 = "HTTP_CONTENT_HANDLER"
   private[service] val HTTP_KEEPALIVE_HANDLER             = "HTTP_KEEPALIVE"
   private[service] val FLOW_CONTROL_HANDLER               = "FLOW_CONTROL_HANDLER"
   private[service] val WEB_SOCKET_HANDLER                 = "WEB_SOCKET_HANDLER"
