@@ -70,7 +70,7 @@ trait Request extends HeaderExtension[Request] { self =>
       buffer <- UIO(Unpooled.compositeBuffer())
       body   <- ZIO.effectAsync[Any, Throwable, String](cb =>
         self.unsafeBody((ch, msg) => {
-          if (buffer.readableBytes() + msg.content.content().readableBytes() > msg.limit) {
+          if (msg.content.content().readableBytes() > msg.limit) {
             ch.ctx.fireChannelRead(Response.status(Status.REQUEST_ENTITY_TOO_LARGE)): Unit
           } else {
             buffer.writeBytes(msg.content.content())
