@@ -80,14 +80,14 @@ object HttpData {
   /**
    * Helper to create HttpData from String
    */
-  def fromString(text: String, charset: Charset = HTTP_CHARSET): HttpData = Text(text, charset)
+  def fromString(text: CharSequence, charset: Charset = HTTP_CHARSET): HttpData = Text(text, charset)
 
   /**
    * Helper to create HttpData from contents of a file
    */
   def fromFile(file: java.io.File): HttpData = File(file)
 
-  private[zhttp] final case class Text(text: String, charset: Charset)                   extends HttpData
+  private[zhttp] final case class Text(text: CharSequence, charset: Charset)             extends HttpData
   private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                         extends HttpData
   private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                           extends HttpData
   private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf]) extends HttpData
