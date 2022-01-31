@@ -25,7 +25,7 @@ class SocketClient[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEv
     val handlers = List(
       ClientSocketUpgradeHandler(rtm, pr),
       new WebSocketClientProtocolHandler(config.build()),
-      new SocketAppHandler(rtm, ss),
+      new WebSocketAppHandler(rtm, ss),
     )
 
     val host = url.getHost

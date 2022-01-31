@@ -50,7 +50,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     sslOption: ClientSSLOptions,
   ): Unit = {
     try {
-      val hand   = List(new ClientResponseHandler(), ClientInboundHandler(rtm, jReq, promise))
+      val hand   = List(new ClientResponseHandler(), new ClientInboundHandler(rtm, jReq, promise))
       val host   = req.url.host
       val port   = req.url.port.getOrElse(80) match {
         case -1   => 80
