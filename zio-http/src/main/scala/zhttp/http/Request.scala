@@ -74,8 +74,8 @@ trait Request extends HeaderExtension[Request] { self =>
           } else {
             buffer.writeBytes(msg.content.content())
             if (msg.isLast) {
-              ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)
-              cb(UIO(buffer.toString(HTTP_CHARSET)))
+              cb(UIO(buffer.toString(HTTP_CHARSET)) <* UIO(ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)))
+
             } else {
               ch.read()
               ()
