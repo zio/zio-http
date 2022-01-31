@@ -55,7 +55,8 @@ trait Request extends HeaderExtension[Request] { self =>
         self.unsafeBody((ch, msg) => {
           buffer.writeBytes(msg.content.content())
           if (msg.isLast) {
-            cb(UIO(buffer.toString(HTTP_CHARSET)).zipLeft(UIO(println("done"))))
+            ch.ctx.pipeline().remove("CONTENT_HANDLER")
+            cb(UIO(buffer.toString(HTTP_CHARSET)))
           } else {
             ch.read()
             ()
