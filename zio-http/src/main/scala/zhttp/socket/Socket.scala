@@ -1,6 +1,6 @@
 package zhttp.socket
 
-import zhttp.http.Response
+import zhttp.http.{Http, Response}
 import zio.stream.ZStream
 import zio.{Cause, NeedsEnv, ZIO}
 
@@ -21,6 +21,7 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
     case FMerge(sa, sb)              => sa(a) merge sb(a)
     case Succeed(a)                  => ZStream.succeed(a)
     case Provide(s, r)               => s(a).asInstanceOf[ZStream[R, E, B]].provide(r.asInstanceOf[R])
+    case Empty                       => ZStream.empty
   }
 
   def contramap[Z](za: Z => A): Socket[R, E, Z, B] = Socket.FCMap(self, za)
@@ -44,6 +45,11 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
   def provide(r: R)(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = Provide(self, r)
 
   /**
+   * Converts the Socket into an Http
+   */
+  def toHttp(implicit ev: IsWebSocket[R, E, A, B]): Http[R, E, Any, Response] = Http.fromZIO(toResponse)
+
+  /**
    * Creates a response from the socket.
    */
   def toResponse(implicit ev: IsWebSocket[R, E, A, B]): ZIO[R, Nothing, Response] = toSocketApp.toResponse
@@ -57,21 +63,32 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
 }
 
 object Socket {
-  def collect[A]: MkCollect[A] = new MkCollect[A](())
+
+  def collect[A]: PartialCollect[A] = new PartialCollect[A](())
+
+  /**
+   * Simply echos the incoming message back
+   */
+  def echo[A]: Socket[Any, Nothing, A, A] = Socket.collect[A] { case a => ZStream.succeed(a) }
+
+  /**
+   * Creates a socket that doesn't do anything.
+   */
+  def empty: Socket[Any, Nothing, Any, Nothing] = Socket.Empty
 
   def end: ZStream[Any, Nothing, Nothing] = ZStream.halt(Cause.empty)
 
-  def fromFunction[A]: MkFromFunction[A] = new MkFromFunction[A](())
+  def fromFunction[A]: PartialFromFunction[A] = new PartialFromFunction[A](())
 
   def fromStream[R, E, B](stream: ZStream[R, E, B]): Socket[R, E, Any, B] = FromStream(stream)
 
   def succeed[A](a: A): Socket[Any, Nothing, Any, A] = Succeed(a)
 
-  final class MkFromFunction[A](val unit: Unit) extends AnyVal {
+  final class PartialFromFunction[A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](f: A => ZStream[R, E, B]): Socket[R, E, A, B] = FromStreamingFunction(f)
   }
 
-  final class MkCollect[A](val unit: Unit) extends AnyVal {
+  final class PartialCollect[A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, ZStream[R, E, B]]): Socket[R, E, A, B] = Socket.FromStreamingFunction {
       a =>
         if (pf.isDefinedAt(a)) pf(a) else ZStream.empty
@@ -102,4 +119,6 @@ object Socket {
   private final case class Provide[R, E, A, B](s: Socket[R, E, A, B], r: R) extends Socket[Any, E, A, B]
 
   private case object End extends Socket[Any, Nothing, Any, Nothing]
+
+  private case object Empty extends Socket[Any, Nothing, Any, Nothing]
 }
