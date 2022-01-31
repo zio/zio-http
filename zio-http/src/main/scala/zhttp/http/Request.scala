@@ -5,7 +5,7 @@ import zhttp.http.headers.HeaderExtension
 import zhttp.service.HTTP_CONTENT_HANDLER
 import zhttp.service.server.content.handlers.UnsafeRequestHandler.{UnsafeChannel, UnsafeContent}
 import zio.stream.ZStream
-import zio.{Task, UIO, ZIO}
+import zio.{Chunk, IO, Queue, Task, UIO, ZIO}
 
 import java.net.InetAddress
 import scala.annotation.unused
@@ -45,6 +45,22 @@ trait Request extends HeaderExtension[Request] { self =>
 //      raw    <- ZStream.fromEffect(???)
 //      stream <- ZStream.fromQueue(raw)
 //    } yield stream
+
+  def getBodyAsStream: ZStream[Any, Throwable, ByteBuf] =
+    ZStream
+      .effectAsync[Any, Throwable, ByteBuf](cb =>
+        self.unsafeBody((ch, msg) => {
+
+          if (msg.isLast) {
+            // ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)
+            //  cb(IO.fail(None))
+          } else {
+            ch.read()
+            ()
+          }
+          cb(IO.succeed(Chunk(msg.content.content())))
+        }),
+      )
 
   /**
    * Decodes the content of request as string

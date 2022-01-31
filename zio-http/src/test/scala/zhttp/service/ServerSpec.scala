@@ -89,7 +89,7 @@ object ServerSpec extends HttpRunnableSpec {
           assertM(res)(equalTo(Status.OK))
         } +
           testM("body is ok") {
-            val res = app.deploy.bodyAsString.run(content = "ABC")
+            val res = app.deploy.bodyAsString.run(content = "ABC", method = Method.POST)
             assertM(res)(equalTo("ABC"))
           } +
           testM("empty string") {
@@ -104,15 +104,15 @@ object ServerSpec extends HttpRunnableSpec {
       suite("error") {
         val app = Http.fail(new Error("SERVER_ERROR"))
         testM("status is 500") {
-          val res = app.deploy.getStatus.run()
+          val res = app.deploy.status.run()
           assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
         } +
           testM("content is set") {
-            val res = app.deploy.getBodyAsString.run()
+            val res = app.deploy.bodyAsString.run()
             assertM(res)(containsString("SERVER_ERROR"))
           } +
           testM("header is set") {
-            val res = app.deploy.getHeaders.run().map(_.getHeaderValue("Content-Length"))
+            val res = app.deploy.headers.run().map(_.getHeaderValue("Content-Length"))
             assertM(res)(isSome(anything))
           }
       } +
@@ -151,22 +151,20 @@ object ServerSpec extends HttpRunnableSpec {
       testM("POST Request.getBody Too Large Content") {
         val contentM                                     = Gen.stringN(4097)(Gen.anyChar).sample.runHead
         val app: Http[Any, Throwable, Request, Response] = Http.collectZIO[Request] { case req =>
-          req.getBodyAsString.map { content =>
+          req.bodyAsString.map { content =>
             Response.text(content)
           }
         }
-        val res = contentM.flatMap(c => app.deploy.getStatus.run(!!, Method.POST, c.map(_.value).getOrElse("")))
+        val res = contentM.flatMap(c => app.deploy.status.run(!!, Method.POST, c.map(_.value).getOrElse("")))
         assertM(res)(equalTo(Status.REQUEST_ENTITY_TOO_LARGE))
-      } @@ ignore
-//      testM("POST Request.getBody") {
-//        val app: Http[Any, Throwable, Request, Response] = Http.collectZIO[Request] { case req =>
-//          req.getBodyAsString.map { content =>
-//            Response(data = HttpData.fromStreamByteBuf(ZStream.fromQueue(content)))
-//          }
-//        }
-//        val res                                          = app.deploy.getBody.run(!!, Method.POST, "some text")
-//        assertM(res.map(_.toList.mkString))(equalTo("some text"))
-//      } @@ ignore
+      } +
+      testM("POST Request.getBodyAsStream") {
+        val app: Http[Any, Throwable, Request, Response] = Http.collectZIO[Request] { case req =>
+          Response(data = HttpData.fromStreamByteBuf(req.getBodyAsStream)).wrapZIO
+        }
+        val res                                          = app.deploy.getBody.run(!!, Method.POST, "some text")
+        assertM(res.map(_.toList.mkString))(equalTo("some text"))
+      }
 
   }
 
