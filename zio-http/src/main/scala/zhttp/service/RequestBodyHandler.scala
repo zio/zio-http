@@ -13,6 +13,7 @@ final case class RequestBodyHandler[R](
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: Any): Unit = {
 
+    println("RBODY: " + msg)
     if (msg.isInstanceOf[HttpContent]) {
       val httpContent = msg.asInstanceOf[HttpContent]
       if (httpContent.content().readableBytes() > config.maxRequestSize)

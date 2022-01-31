@@ -27,6 +27,7 @@ private[zhttp] final case class Handler[R](
 
   override def channelRead0(ctx: Ctx, msg: Any): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
+    println(msg)
     msg match {
       case jReq: HttpRequest    =>
         val request = new Request {
