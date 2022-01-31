@@ -13,22 +13,16 @@ import zhttp.service.HttpRuntime
 @Sharable
 final case class ZClientInboundHandler[R](
   zExec: HttpRuntime[R],
-//  jReq: FullHttpRequest,
   connectionManager: ZConnectionManager,
 ) extends SimpleChannelInboundHandler[Resp](false) {
 
   override def channelRead0(ctx: ChannelHandlerContext, clientResponse: Resp): Unit = {
     println(s"SimpleChannelInboundHandler SimpleChannelInboundHandler CHANNEL READ CONTEX ID: ${ctx.channel().id()}")
     val prom = connectionManager.currentExecRef(ctx.channel())
-    zExec.unsafeRun(ctx) {
-//      println(s"GETTING CLIENT RESPONSE: $clientResponse")
-//      println(s"FOUND PROMISE: $prom")
-      prom._1.succeed(clientResponse)
-    }
+    zExec.unsafeRun(ctx) { prom._1.succeed(clientResponse) }
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-//    println(s"ZClientInboundHandler ERROR response: $error")
     val prom = connectionManager.currentExecRef(ctx.channel())
     zExec.unsafeRun(ctx)(zio.Task.fail(error))
     releaseRequest(prom._2)
@@ -36,11 +30,10 @@ final case class ZClientInboundHandler[R](
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     println(s"CHANNEL ACTIVE CONTEXT ID: ${ctx.channel().id()}")
-//    println(s" FIRING REQUEST : ${reqRef(ctx.channel())}")
     val prom = connectionManager.currentExecRef(ctx.channel())
-    ctx.writeAndFlush(prom._2): Unit
-//    ctx.flush()
-//    releaseRequest()
+    val jReq = prom._2
+    ctx.writeAndFlush(jReq): Unit
+    releaseRequest(jReq)
     ()
   }
 
