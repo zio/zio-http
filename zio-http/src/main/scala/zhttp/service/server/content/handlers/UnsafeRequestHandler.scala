@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 
 object UnsafeRequestHandler {
 
-  final case class UnsafeContent(content: HttpContent) extends AnyVal {
+  final case class UnsafeContent(content: HttpContent, limit: Int) {
     def isLast: Boolean = content.isInstanceOf[LastHttpContent]
   }
 

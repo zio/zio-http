@@ -27,41 +27,47 @@ private[zhttp] final case class Handler[R](
 
   override def channelRead0(ctx: Ctx, msg: Any): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
-    println(msg)
     msg match {
       case jReq: HttpRequest    =>
-        val request = new Request {
-          override def method: Method   = Method.fromHttpMethod(jReq.method())
-          override def url: URL         = URL.fromString(jReq.uri()).getOrElse(null)
-          override def headers: Headers = Headers.make(jReq.headers())
+        val hasLargeContent =
+          Headers.make(jReq.headers()).contentLength.exists(_ > config.maxRequestSize)
+        if (hasLargeContent)
+          ctx.fireChannelRead(Response.status(Status.REQUEST_ENTITY_TOO_LARGE)): Unit
+        else {
 
-          override def remoteAddress: Option[InetAddress] = {
-            ctx.channel().remoteAddress() match {
-              case m: InetSocketAddress => Some(m.getAddress)
-              case _                    => None
+          val request = new Request {
+            override def method: Method   = Method.fromHttpMethod(jReq.method())
+            override def url: URL         = URL.fromString(jReq.uri()).getOrElse(null)
+            override def headers: Headers = Headers.make(jReq.headers())
+
+            override def remoteAddress: Option[InetAddress] = {
+              ctx.channel().remoteAddress() match {
+                case m: InetSocketAddress => Some(m.getAddress)
+                case _                    => None
+              }
             }
-          }
-          override def unsafeBody(
-            callback: (
-              UnsafeChannel,
-              UnsafeContent,
-            ) => Unit,
-          ): Unit = {
-            if (ctx.pipeline().get(HTTP_CONTENT_HANDLER) == null) {
-              ctx
-                .pipeline()
-                .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, RequestBodyHandler(callback, config)): Unit
+            override def unsafeBody(
+              callback: (
+                UnsafeChannel,
+                UnsafeContent,
+              ) => Unit,
+            ): Unit = {
+              if (ctx.pipeline().get(HTTP_CONTENT_HANDLER) == null) {
+                ctx
+                  .pipeline()
+                  .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, RequestBodyHandler(callback, config)): Unit
+              }
+
             }
 
           }
 
+          unsafeRun(
+            jReq,
+            app,
+            request,
+          )
         }
-
-        unsafeRun(
-          jReq,
-          app,
-          request,
-        )
       case msg: LastHttpContent =>
         ctx.fireChannelRead(msg): Unit
         ctx.read(): Unit

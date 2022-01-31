@@ -70,13 +70,18 @@ trait Request extends HeaderExtension[Request] { self =>
       buffer <- UIO(Unpooled.compositeBuffer())
       body   <- ZIO.effectAsync[Any, Throwable, String](cb =>
         self.unsafeBody((ch, msg) => {
-          buffer.writeBytes(msg.content.content())
-          if (msg.isLast) {
-            ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)
-            cb(UIO(buffer.toString(HTTP_CHARSET)))
+          if (buffer.readableBytes() + msg.content.content().readableBytes() > msg.limit) {
+            ch.ctx.fireChannelRead(Response.status(Status.REQUEST_ENTITY_TOO_LARGE)): Unit
           } else {
-            ch.read()
-            ()
+            buffer.writeBytes(msg.content.content())
+
+            if (msg.isLast) {
+              ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)
+              cb(UIO(buffer.toString(HTTP_CHARSET)))
+            } else {
+              ch.read()
+              ()
+            }
           }
         }),
       )
