@@ -168,6 +168,19 @@ case class DefaultZClient(
     jReq
   }
 
+//  def encodeClientParams(req: Request): FullHttpRequest = {
+//    val jVersion = HttpVersion.HTTP_1_1
+//    val method      = req.method.asHttpMethod
+//    val uri         = req.url.encode
+//    val content     = req.getBodyAsString
+////    val headers     = req.getHeaders.encode.set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
+//    content.flatMap(c => )
+//    val jReq        = new DefaultFullHttpRequest(jVersion, method, uri, content)
+////    jReq.headers().set(headers)
+//
+//    jReq
+//  }
+
 //  private def asyncRequest(): Unit = {
 ////    try {
 ////      //        Thread.sleep(13000): Unit

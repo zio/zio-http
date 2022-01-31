@@ -63,17 +63,6 @@ object ZClientTestWithServer extends App {
     resp <- cl.run(f(1, "foo"))
     rval <- resp.getBodyAsString
     _    <- ZIO.effect(println(s"GOT RESPONSE NUMBER 1: $rval"))
-    _    <- ZIO.effect {
-      println(s"\n ======= NOW SLEEPING for 3000 ======== ms \n")
-//      Thread.sleep(5000)
-    }
-//
-//    resp2 <- cl.run(f(2, "bar"))
-//    //    resp2 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
-//    r2    <- resp2.getBodyAsString
-//    _     <- ZIO.effect(println(s"GOT RESPONSE NUMBER 2 : $r2"))
-
-    _ <- ZIO.effect { println(s"\n ======= EXECUTING THIRD REQ ======== ms \n") }
 
     resp3 <- cl.run("http://www.google.com")
 //    resp3 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
@@ -81,38 +70,13 @@ object ZClientTestWithServer extends App {
     _     <- ZIO.effect(println(s"GOT RESPONSE NUMBER 3 : $r3"))
 
     resp2 <- cl.run(f(2, "bar"))
-    //    resp2 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
     r2    <- resp2.getBodyAsString
     _     <- ZIO.effect(println(s"GOT RESPONSE NUMBER 2 : $r2"))
-
-    _ = f(1, "foo")
 
     resp4 <- cl.run("http://www.google.com")
     //    resp3 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
     r4    <- resp4.getBodyAsString
     _     <- ZIO.effect(println(s"GOT RESPONSE NUMBER 4 : $r4"))
-
-    //    req3 = ReqParams(
-//               Method.GET,
-//               URL(!! / "random" , Location.Absolute(Scheme.HTTP, "localhost", 8082)),
-//                Headers.empty,
-//               HttpData.empty,
-//               )
-//
-//    resp3 <- cl.run(req3)
-//    r3 <- resp3.getBodyAsString
-//    _ <- ZIO.effect(println(s"GOT RESPONSE NUMBER 3 : $r3"))
-
-//
-//    //    resp <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
-//    resp <- cl.run(req2)
-//    r2   <- ZIO.effect(resp.status)
-//    _    <- ZIO.effect(println(s"R!!!: $r2"))
-//    _ <- ZIO.effect(Thread.sleep(2000))
-//    resp <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
-//    _ <- resp.getBodyAsString
-
-//    _ <- ZIO.effect(println(s"GOT ANOTHER RESP USING SAME CONNECTION ${result2}"))
   } yield ()
 
 }
