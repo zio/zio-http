@@ -157,7 +157,7 @@ object ServerSpec extends HttpRunnableSpec {
         }
         val res = contentM.flatMap(c => app.deploy.getStatus.run(!!, Method.POST, c.map(_.value).getOrElse("")))
         assertM(res)(equalTo(Status.REQUEST_ENTITY_TOO_LARGE))
-      }
+      } @@ ignore
 //      testM("POST Request.getBody") {
 //        val app: Http[Any, Throwable, Request, Response] = Http.collectZIO[Request] { case req =>
 //          req.getBodyAsString.map { content =>

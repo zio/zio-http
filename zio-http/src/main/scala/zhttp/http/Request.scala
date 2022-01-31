@@ -8,7 +8,6 @@ import zio.{Task, UIO, ZIO}
 
 import java.net.InetAddress
 import scala.annotation.unused
-import scala.concurrent.Promise
 
 trait Request extends HeaderExtension[Request] { self =>
 
@@ -31,7 +30,7 @@ trait Request extends HeaderExtension[Request] { self =>
           UnsafeChannel,
           UnsafeContent,
         ) => Unit,
-      ): Unit = ???
+      ): Unit = self.unsafeBody(msg)
     }
   }
 
@@ -50,20 +49,20 @@ trait Request extends HeaderExtension[Request] { self =>
    * Decodes the content of request as string
    */
   def bodyAsString: Task[String] = {
-//    val p = scala.concurrent.Promise[String]()
-//    (for {
-//      buffer <- UIO(Unpooled.compositeBuffer())
-//      _      <- UIO(unsafeBody((ch, msg) => {
-//        buffer.writeBytes(msg.content.content()): Unit
-//        if (msg.isLast) {
-//          p.trySuccess(buffer.toString(HTTP_CHARSET)): Unit
-//        } else {
-//          ch.read()
-//        }
-//      }))
-//      r      <- Promise (p)
-//    } yield r).map { b => println("test" + b); b }
-    ???
+    for {
+      buffer <- UIO(Unpooled.compositeBuffer())
+      body   <- ZIO.effectAsync[Any, Throwable, String](cb =>
+        self.unsafeBody((ch, msg) => {
+          buffer.writeBytes(msg.content.content())
+          if (msg.isLast) {
+            cb(UIO(buffer.toString(HTTP_CHARSET)).zipLeft(UIO(println("done"))))
+          } else {
+            ch.read()
+            ()
+          }
+        }),
+      )
+    } yield body
 
   }
 
@@ -171,7 +170,7 @@ object Request {
         UnsafeChannel,
         UnsafeContent,
       ) => Unit,
-    ): Unit = ???
+    ): Unit = req.unsafeBody(msg)
   }
 
   object ParameterizedRequest {
