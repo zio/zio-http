@@ -6,11 +6,9 @@ import zio._
 object HelloWorld extends App {
 
   // Create HTTP route
-  val app = Http.collectZIO[Request] { case req =>
-    req.getBodyAsString.map { content =>
-      Response.text(content)
-    // Response(data = HttpData.fromStreamByteBuf(ZStream.fromQueue(content)))
-    }
+  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
+    case Method.GET -> !! / "text" => Response.text("Hello World!")
+    case Method.GET -> !! / "json" => Response.json("""{"greetings": "Hello World!"}""")
   }
 
   // Run it like any simple app

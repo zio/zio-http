@@ -209,8 +209,8 @@ object ServerSpec extends HttpRunnableSpec {
       } +
       testM("echo streaming") {
         val res = Http
-          .collectHttp[Request] { case req =>
-            Http.fromStream(ZStream.fromEffect(req.body).flattenChunks)
+          .collectZIO[Request] { case req =>
+            Response(data = HttpData.fromStreamByteBuf(req.getBodyAsStream)).wrapZIO
           }
           .deploy
           .bodyAsString
