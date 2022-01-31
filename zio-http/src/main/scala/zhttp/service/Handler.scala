@@ -40,32 +40,32 @@ private[zhttp] final case class Handler[R](
             override def url: URL         = URL.fromString(jReq.uri()).getOrElse(null)
             override def headers: Headers = Headers.make(jReq.headers())
 
-            override def remoteAddress: Option[InetAddress] = {
-              ctx.channel().remoteAddress() match {
-                case m: InetSocketAddress => Some(m.getAddress)
-                case _                    => None
-              }
-            }
-            override def unsafeBody(
-              callback: (
-                UnsafeChannel,
-                UnsafeContent,
-              ) => Unit,
-            ): Unit = {
-              if (ctx.pipeline().get(HTTP_CONTENT_HANDLER) == null) {
-                ctx
-                  .pipeline()
-                  .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, RequestBodyHandler(callback, config)): Unit
-              }
+          override def remoteAddress: Option[InetAddress] = {
+            ctx.channel().remoteAddress() match {
+              case m: InetSocketAddress => Some(m.getAddress)
+              case _                    => None
             }
           }
 
-          unsafeRun(
-            jReq,
-            app,
-            request,
-          )
+          override def unsafeBody(
+            callback: (
+              UnsafeChannel,
+              UnsafeContent,
+            ) => Unit,
+          ): Unit = {
+            if (ctx.pipeline().get(HTTP_CONTENT_HANDLER) == null) {
+              ctx
+                .pipeline()
+                .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, RequestBodyHandler(callback, config)): Unit
+            }
+          }
         }
+        unsafeRun(
+          jReq,
+          app,
+          request,
+        )
+
       case msg: LastHttpContent =>
         if (ctx.pipeline().get(HTTP_CONTENT_HANDLER) != null) {
           ctx.fireChannelRead(msg): Unit
