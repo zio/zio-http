@@ -24,34 +24,60 @@ private[zhttp] trait Compression {
     }
   }
 
-  def serveCompressed(compressions: Set[CompressionFormat]) = {
+  private def secondImpl(middlewares: List[HttpMiddleware[Any, Nothing]]): HttpMiddleware[Any, Nothing] = {
+    middlewares
+      .foldLeft[HttpMiddleware[Any, Any]](Middleware.fail(())) { case (acc, middleware) =>
+        acc.orElse(middleware.flatMap {
+          case response if response.status == Status.NOT_FOUND => acc
+          case response                                        => Middleware.succeed(response)
+        })
+      }
+      .orElse(Middleware.identity)
+  }
+
+  // recursive implementation, might be more readable
+  // not tailec (even if that should not be an issue here, because it would require the client to send a huge amount of header to break)
+  private def firstImpl(middlewares: List[HttpMiddleware[Any, Nothing]]): HttpMiddleware[Any, Nothing] = {
+    middlewares match {
+      case head :: next =>
+        head.flatMap {
+          case response if response.status == Status.NOT_FOUND => firstImpl(next)
+          case response                                        => Middleware.succeed(response)
+        }
+      case Nil          => Middleware.identity
+    }
+  }
+
+  def serveCompressed(compressions: Set[CompressionFormat]): HttpMiddleware[Any, Nothing] = {
     Middleware.collect[Request] { case req =>
       req.getHeaders.getAcceptEncoding match {
         case Some(header) =>
-          val clientAcceptedEncoding  = parseAcceptEncodingHeaders(header).map(_._1)
-          val compressionNames        = compressions.map(_.name)
+          val clientAcceptedEncoding = parseAcceptEncodingHeaders(header).map(_._1)
+          val compressionNames       = compressions.map(_.name)
+
           // the client accepted encoding are sorted, we want to get the extension of the first
           // encoding that is supported by both the client and the server
           val commonSupportedEncoding = clientAcceptedEncoding.collect {
             case encoding if compressionNames.contains(encoding) => compressions.find(_.name == encoding)
           }.flatten
 
-          // we currently take the first common header, but we would need to try all of them, in order
-          commonSupportedEncoding.headOption match {
-            case Some(compression) =>
-              Middleware.identity
-                .contramap[Request] { req =>
-                  val path = req.url.path.toString() + compression.extension
-                  req.copy(url = req.url.copy(path = Path(path)))
-                }
-                .andThen(Middleware.addHeaders(Headers.contentEncoding(compression.name))) <> Middleware.identity
-            case None              => Middleware.identity
-          }
+          val middlewares: List[HttpMiddleware[Any, Nothing]] =
+            commonSupportedEncoding.map(buildMiddlewareForCompression)
+          // firstImpl(middlewares)
+          secondImpl(middlewares)
         case None         => Middleware.identity
       }
     }
   }
 
+  private def buildMiddlewareForCompression(compression: CompressionFormat): HttpMiddleware[Any, Nothing] = {
+    Middleware.identity
+      .contramap[Request] { req =>
+        val path = req.url.path.toString() + compression.extension
+        req.copy(url = req.url.copy(path = Path(path)))
+      }
+      .andThen(Middleware.addHeaders(Headers.contentEncoding(compression.name)))
+  }
 }
 
 trait CompressionFormat {

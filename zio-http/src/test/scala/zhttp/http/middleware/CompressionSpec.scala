@@ -5,11 +5,26 @@ import zhttp.http.Middleware.parseAcceptEncodingHeaders
 import zhttp.http._
 import zhttp.http.middleware.CompressionFormat
 import zhttp.internal.HttpAppTestExtensions
-import zio.test.Assertion.{equalTo, isNone, isSome}
+import zio.test.Assertion.{equalTo, isNone, isSome, isTrue}
 import zio.test._
+import io.netty.buffer.ByteBuf
 
 object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
+  private def checkHeader(assert: Assertion[Option[String]]) =
+    Assertion.hasField("header", (response: Response) => response.headers.getContentEncoding.map(_.toString()), assert)
+
+  private val noEncodingheader = checkHeader(isNone)
+  private val hasGzipHeader    = checkHeader(isSome(equalTo("gzip")))
+  private val hasBrHeader      = checkHeader(isSome(equalTo("br")))
+
+  private def hasBody(expected: String) =
+    Assertion.hasField[ByteBuf, String]("body", (body: ByteBuf) => body.toString(HTTP_CHARSET), equalTo(expected))
+
   override def spec = suite("CompressionMiddlewares") {
+    val originalReq = Request(
+      method = Method.GET,
+      url = URL(!! / "file.js"),
+    )
     suite("parse accept encoding header") {
       test("Extract encoding from a single value") {
         assert(parseAcceptEncodingHeaders(HeaderValues.gzip))(
@@ -46,39 +61,30 @@ object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       suite("no GZIP server support") {
         val app = Http.collectHttp[Request] { case req => Http.text(req.path.toString()) }
         testM("Request with GZIP support") {
-          val request = Request(
-            method = Method.GET,
-            url = URL(!! / "file.js"),
-            headers = Headers.acceptEncoding(HeaderValues.gzip),
-          )
-
+          val request  = originalReq.copy(headers = Headers.acceptEncoding(HeaderValues.gzip))
           val expected = "/file.js"
 
           for {
             res  <- app(request)
             body <- res.getBodyAsByteBuf
-          } yield assert(body.toString(HTTP_CHARSET))(equalTo(expected)) &&
-            assert(res.headers.getContentEncoding)(isNone)
+          } yield assert(body)(hasBody(expected)) &&
+            assert(res)(noEncodingheader)
 
         } + testM("Fall back to uncompressed assets") {
           val app = Http.collectHttp[Request] {
-            case req if req.path.toString.endsWith(".js")   => Http.text(req.path.toString())
-            case req if req.path.toString.endsWith(".gzip") => Http.notFound
+            case req if req.path.toString.endsWith(".js") => Http.text(req.path.toString())
+            case req if req.path.toString.endsWith(".gz") => Http.notFound
           } @@ serveCompressed(CompressionFormat.Gzip())
 
-          val request = Request(
-            method = Method.GET,
-            url = URL(!! / "file.js"),
-            headers = Headers.acceptEncoding(HeaderValues.gzip),
-          )
-
+          val request  = originalReq
+            .copy(headers = Headers.acceptEncoding(HeaderValues.gzip))
           val expected = "/file.js"
 
           for {
             res  <- app(request)
             body <- res.getBodyAsByteBuf
-          } yield assert(body.toString(HTTP_CHARSET))(equalTo(expected)) &&
-            assert(res.headers.getContentEncoding)(isNone)
+          } yield assert(res)(noEncodingheader) &&
+            assert(body)(hasBody(expected))
         }
       } +
       suite("GZIP server support") {
@@ -86,64 +92,86 @@ object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
         val app  = echo @@ serveCompressed(CompressionFormat.Gzip())
 
         testM("Request without GZIP support") {
-          val request = Request(
-            method = Method.GET,
-            url = URL(!! / "file.js"),
-          )
-
+          val request  = originalReq
           val expected = "/file.js"
 
           for {
             res  <- app(request)
             body <- res.getBodyAsByteBuf
-          } yield assert(body.toString(HTTP_CHARSET))(equalTo(expected)) &&
+          } yield assert(body)(hasBody(expected)) &&
             assert(res.headers.getContentEncoding)(isNone)
         } +
           testM("Request with GZIP support") {
-            val request = Request(
-              method = Method.GET,
-              url = URL(!! / "file.js"),
-              headers = Headers.acceptEncoding(HeaderValues.gzip),
-            )
-
+            val request  = originalReq.copy(headers = Headers.acceptEncoding(HeaderValues.gzip))
             val expected = "/file.js.gz"
 
             for {
               res  <- app(request)
               body <- res.getBodyAsByteBuf
-            } yield assert(body.toString(HTTP_CHARSET))(equalTo(expected)) &&
-              assert(res.headers.getContentEncoding)(isSome(equalTo("gzip")))
+            } yield assert(body)(hasBody(expected)) &&
+              assert(res)(hasGzipHeader)
           } +
           testM("Request with GZIP and BR support") {
-            val request = Request(
-              method = Method.GET,
-              url = URL(!! / "file.js"),
-              headers = Headers.acceptEncoding(s"${HeaderValues.gzip}, ${HeaderValues.br}"),
-            )
-
+            val request  =
+              originalReq.copy(headers = Headers.acceptEncoding(s"${HeaderValues.gzip}, ${HeaderValues.br}"))
             val expected = "/file.js.gz"
 
             for {
               res  <- app(request)
               body <- res.getBodyAsByteBuf
-            } yield assert(body.toString(HTTP_CHARSET))(equalTo(expected)) &&
-              assert(res.headers.getContentEncoding)(isSome(equalTo("gzip")))
+            } yield assert(body)(hasBody(expected)) &&
+              assert(res)(hasGzipHeader)
           } +
           testM("Request with BR support") {
-            val request = Request(
-              method = Method.GET,
-              url = URL(!! / "file.js"),
-              headers = Headers.acceptEncoding(HeaderValues.br),
-            )
-
+            val request  = originalReq.copy(headers = Headers.acceptEncoding(HeaderValues.br))
             val expected = "/file.js"
 
             for {
               res  <- app(request)
               body <- res.getBodyAsByteBuf
-            } yield assert(body.toString(HTTP_CHARSET))(equalTo(expected)) &&
-              assert(res.headers.getContentEncoding)(isNone)
+            } yield assert(body)(hasBody(expected)) &&
+              assert(res)(noEncodingheader)
+          }
+      } +
+      suite("GZIP + BR server support") {
+        testM("Try BR before GZ") {
+          // we want to check that the br endpoint was called once
+          var called = false
+
+          val app = Http.collectHttp[Request] {
+            case req if req.path.toString.endsWith(".gz") => Http.text(req.path.toString())
+            case req if req.path.toString.endsWith(".br") =>
+              called = true
+              Http.notFound
+          } @@ serveCompressed(Set[CompressionFormat](CompressionFormat.Brotli(), CompressionFormat.Gzip()))
+
+          val request = originalReq
+            .copy(headers = Headers.acceptEncoding(s"${HeaderValues.gzip};q=0.4, ${HeaderValues.br};q=0.5"))
+
+          val expected = "/file.js.gz"
+
+          for {
+            res  <- app(request)
+            body <- res.getBodyAsByteBuf
+          } yield assert(res)(hasGzipHeader) &&
+            assert(body)(hasBody(expected)) && assert(called)(isTrue)
+        } +
+          testM("Return BR if available") {
+            val app = Http.collectHttp[Request] {
+              case req if req.path.toString.endsWith(".br") => Http.text(req.path.toString())
+            } @@ serveCompressed(Set[CompressionFormat](CompressionFormat.Brotli(), CompressionFormat.Gzip()))
+
+            val request = originalReq
+              .copy(headers = Headers.acceptEncoding(s"${HeaderValues.gzip};q=0.4, ${HeaderValues.br};q=0.5"))
+
+            val expected = "/file.js.br"
+
+            for {
+              res  <- app(request)
+              body <- res.getBodyAsByteBuf
+            } yield assert(res)(hasBrHeader) && assert(body)(hasBody(expected))
           }
       }
+
   }
 }
