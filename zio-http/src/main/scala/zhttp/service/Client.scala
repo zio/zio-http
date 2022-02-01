@@ -2,29 +2,23 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.{
-  Channel,
-  ChannelHandlerContext,
-  ChannelFactory => JChannelFactory,
-  EventLoopGroup => JEventLoopGroup,
-}
-import io.netty.handler.codec.http.HttpVersion
-import zhttp.http.URL.Location
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelHandlerContext, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
+import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
+import io.netty.handler.codec.http.{FullHttpRequest, HttpClientCodec, HttpObjectAggregator, HttpVersion}
 import zhttp.http._
 import zhttp.http.headers.HeaderExtension
 import zhttp.service
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.content.handlers.ClientResponseHandler
-import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler, SocketClient}
-import zhttp.socket.SocketApp
+import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
+import zhttp.socket.{Socket, SocketApp}
 import zio.{Chunk, Promise, Task, ZIO}
 
-import java.net.{InetAddress, InetSocketAddress}
+import java.net.{InetAddress, InetSocketAddress, URI}
 
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
-    extends SocketClient(rtm, cf, el)
-    with HttpMessageCodec {
+    extends HttpMessageCodec {
 
   def request(
     request: Client.ClientRequest,
@@ -32,52 +26,100 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
   ): Task[Client.ClientResponse] =
     for {
       promise <- Promise.make[Throwable, Client.ClientResponse]
-      _       <- Task(asyncRequest(request, promise, sslOption)).catchAll(cause => promise.fail(cause))
+      jReq    <- encodeClientParams(HttpVersion.HTTP_1_1, request)
+      _       <- Task(unsafeRequest(request, jReq, promise, sslOption)).catchAll(cause => promise.fail(cause))
       res     <- promise.await
     } yield res
 
   def socket(
     url: String,
     headers: Headers = Headers.empty,
-    sa: SocketApp[R],
+    socketApp: SocketApp[R],
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[Any, Throwable, ClientResponse] = for {
-    pr  <- Promise.make[Throwable, ClientResponse]
-    _   <- Task(unsafeSocket(url, headers, sa, pr, sslOptions))
-    res <- pr.await
+  ): ZIO[R, Throwable, ClientResponse] = for {
+    env <- ZIO.environment[R]
+    res <- request(
+      ClientRequest(url, Method.GET, headers, attribute = Client.Attribute(socketApp = Some(socketApp.provide(env)))),
+      sslOptions,
+    )
   } yield res
 
-  private def asyncRequest(
-    req: ClientRequest,
+  private def unsafeRequest(
+    request: ClientRequest,
+    jReq: FullHttpRequest,
     promise: Promise[Throwable, ClientResponse],
     sslOption: ClientSSLOptions,
   ): Unit = {
-    val jReq = encodeClientParams(HttpVersion.HTTP_1_1, req)
+
+    // TODO: Remove `println`
+    println("JRequest: " + jReq.uri())
+    println("Request: " + request.url)
     try {
-      val hand   = List(new ClientResponseHandler(), new ClientInboundHandler(rtm, jReq, promise))
-      val host   = req.url.host
-      val port   = req.url.port.getOrElse(80) match {
-        case -1   => 80
-        case port => port
-      }
-      val scheme = req.url.kind match {
-        case Location.Relative               => ""
-        case Location.Absolute(scheme, _, _) => scheme.encode
-      }
-      val init   = ClientChannelInitializer(hand, scheme, sslOption)
+      val url  = new URI(jReq.uri())
+      val host = if (url.getHost == null) jReq.headers().get(HeaderNames.host) else url.getHost
 
-      val jboo = new Bootstrap().channelFactory(cf).group(el).handler(init)
-      if (host.isDefined) jboo.remoteAddress(new InetSocketAddress(host.get, port))
+      assert(host != null, "Host name is required")
+      println("Host: " + host)
 
-      jboo.connect(): Unit
+      val port   = if (url.getPort < 0) 80 else url.getPort
+      println("Port: " + port)
+      val scheme = url.getScheme
+
+      val isWebSocket = scheme == "ws" || scheme == "wss"
+      val isSSL       = scheme == "https" || scheme == "wss"
+
+      println("Connecting to " + host + ":" + port)
+      val initializer = new ChannelInitializer[Channel]() {
+        override def initChannel(ch: Channel): Unit = {
+          println("Initializing channel")
+
+          val pipeline = ch.pipeline()
+
+          // If a https or wss request is made we need to add the ssl handler at the starting of the pipeline.
+          if (isSSL) pipeline.addLast("SSLHandler", ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc))
+
+          // Adding default client channel handlers
+          pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec)
+
+          // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
+          // This is also required to make WebSocketHandlers work
+          pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
+
+          // Response handler is added to convert Netty responses to our own responses
+          pipeline.addLast("ZHttpClientResponseHandler", new ClientResponseHandler())
+
+          // Add WebSocketHandlers if it's a `ws` or `wss` request
+          if (isWebSocket) {
+            println("Adding WebSocketHandler")
+            val headers = request.getHeaders.encode
+            val app     = request.attribute.socketApp.getOrElse(Socket.empty.toSocketApp)
+            val config  = app.protocol.clientBuilder.customHeaders(headers).build()
+
+            // Handles the heavy lifting required to
+            pipeline.addLast("ZHttpWebSocketClientProtocolHandler", new WebSocketClientProtocolHandler(config))
+            pipeline.addLast("ZHttpWebSocketAppHandler", new WebSocketAppHandler(rtm, app))
+          } else {
+            pipeline.addLast("ZHttpClientInboundHandler", new ClientInboundHandler(rtm, jReq, promise))
+          }
+
+          ()
+        }
+      }
+
+      val jBoo = new Bootstrap().channelFactory(cf).group(el).handler(initializer)
+
+      jBoo.remoteAddress(new InetSocketAddress(host, port))
+
+      // TODO: handle connection failures
+      jBoo.connect(): Unit
     } catch {
-      case _: Throwable =>
+      case err: Throwable =>
         if (jReq.refCnt() > 0) {
           jReq.release(jReq.refCnt()): Unit
         }
+        throw err
     }
   }
-
 }
 
 object Client {
@@ -89,78 +131,12 @@ object Client {
 
   def request(
     url: String,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
-    url <- ZIO.fromEither(URL.fromString(url))
-    res <- request(Method.GET, url)
-  } yield res
-
-  def request(
-    url: String,
-    sslOptions: ClientSSLOptions,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
-    url <- ZIO.fromEither(URL.fromString(url))
-    res <- request(Method.GET, url, sslOptions)
-  } yield res
-
-  def request(
-    url: String,
-    headers: Headers,
-    sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+    method: Method = Method.GET,
+    headers: Headers = Headers.empty,
+    content: HttpData = HttpData.empty,
+    ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    for {
-      url <- ZIO.fromEither(URL.fromString(url))
-      res <- request(Method.GET, url, headers, sslOptions)
-    } yield res
-
-  def request(
-    url: String,
-    headers: Headers,
-    content: HttpData,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    for {
-      url <- ZIO.fromEither(URL.fromString(url))
-      res <- request(Method.GET, url, headers, content)
-    } yield res
-
-  def request(
-    method: Method,
-    url: URL,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientRequest(method, url))
-
-  def request(
-    method: Method,
-    url: URL,
-    sslOptions: ClientSSLOptions,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientRequest(method, url), sslOptions)
-
-  def request(
-    method: Method,
-    url: URL,
-    headers: Headers,
-    sslOptions: ClientSSLOptions,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientRequest(method, url, headers), sslOptions)
-
-  def request(
-    method: Method,
-    url: URL,
-    headers: Headers,
-    content: HttpData,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientRequest(method, url, headers, content))
-
-  def request(
-    req: ClientRequest,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    make[Any].flatMap(_.request(req))
-
-  def request(
-    req: ClientRequest,
-    sslOptions: ClientSSLOptions,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    make[Any].flatMap(_.request(req, sslOptions))
+    make[Any].flatMap(_.request(ClientRequest(url, method, headers, content), ssl))
 
   def socket[R](
     url: String,
@@ -171,22 +147,16 @@ object Client {
     make[R].flatMap(_.socket(url, headers, app, sslOptions))
 
   final case class ClientRequest(
-    method: Method,
-    url: URL,
-    headers: Headers = Headers.empty,
+    url: String,
+    method: Method = Method.GET,
+    getHeaders: Headers = Headers.empty,
     data: HttpData = HttpData.empty,
+    private[zhttp] val attribute: Attribute = Attribute.empty,
     private val channelContext: ChannelHandlerContext = null,
   ) extends HeaderExtension[ClientRequest] {
     self =>
 
-    def getBodyAsString: Option[String] = data match {
-      case HttpData.Text(text, _)       => Some(text)
-      case HttpData.BinaryChunk(data)   => Some(new String(data.toArray, HTTP_CHARSET))
-      case HttpData.BinaryByteBuf(data) => Some(data.toString(HTTP_CHARSET))
-      case _                            => Option.empty
-    }
-
-    def getHeaders: Headers = headers
+    def getBodyAsString: Task[String] = getBodyAsByteBuf.map(_.toString(getHeaders.getCharset))
 
     def remoteAddress: Option[InetAddress] = {
       if (channelContext != null && channelContext.channel().remoteAddress().isInstanceOf[InetSocketAddress])
@@ -199,7 +169,9 @@ object Client {
      * Updates the headers using the provided function
      */
     override def updateHeaders(update: Headers => Headers): ClientRequest =
-      self.copy(headers = update(self.getHeaders))
+      self.copy(getHeaders = update(self.getHeaders))
+
+    private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
   }
 
   final case class ClientResponse(status: Status, headers: Headers, private[zhttp] val buffer: ByteBuf)
@@ -215,5 +187,10 @@ object Client {
     override def getHeaders: Headers = headers
 
     override def updateHeaders(update: Headers => Headers): ClientResponse = self.copy(headers = update(headers))
+  }
+
+  case class Attribute(socketApp: Option[SocketApp[Any]] = None) {}
+  object Attribute                                               {
+    def empty: Attribute = Attribute()
   }
 }
