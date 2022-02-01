@@ -18,7 +18,7 @@ object WebSocketServerSpec extends HttpRunnableSpec {
 
   override def spec = suiteM("Server") {
     app.as(List(websocketSpec)).useNow
-  }.provideCustomLayerShared(env) @@ timeout(30 seconds)
+  }.provideCustomLayerShared(env) @@ timeout(10 seconds)
 
   def websocketSpec = suite("WebSocket Server") {
     suite("connections") {
