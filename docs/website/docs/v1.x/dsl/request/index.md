@@ -7,7 +7,8 @@
  
 ## Creating a Request
 
-`Request` can be created with `method`, `url`, `headers`, `remoteAddress` and `data`.
+`Request` can be created with `method`, `url`, `headers`, `remoteAddress` and `data`. 
+Creating requests using `Request` is useful while writing unit tests.
 
 The below snippet creates a request with default params, `method` as `Method.GET`, `url` as `URL.root`, `headers` as `Headers.empty`, `data` as `HttpData.Empty`, `remoteAddress` as `None`
 ```scala
@@ -55,32 +56,18 @@ val app = Http.collect[Request] { case req => Response.text(req.method.toString(
   val app = Http.collect[Request] { case req => Response.text(req.url.toString())}
 ```
 
-## Client Side
-`ClientRequest` is designed to create requests for `Client`.
+### Creating and reading a Request with query params
 
-## Creating a ClientRequest
+Query params can be added in the request using `url` in `Request`, `URL` stores query params as `Map[String, List[String]]`.
 
-`ClientRequest` can be created with `method`, `url`, `getHeaders` and `data`.
-
-The below snippet shows how to create `ClientRequest` using default params
+The below snippet creates a request with query params: `?q=a&q=b&q=c` 
 ```scala
-val request = Client.ClientRequest(Method.GET, URL(!!))
-```
-## Accessing the ClientRequest
-
-- `getBodyAsString` to access the content of request as `Option[String]`
-```scala
-  val request = Client.ClientRequest(Method.GET, URL(!!))
-  val content: Option[String] = request.getBodyAsString
-```
-- `remoteAddress` to access the remoteAddress of request as `Option[InetAddress]`
-```scala
-  val request = Client.ClientRequest(Method.GET, URL(!!))
-  val address: Option[InetAddress] = request.remoteAddress
-```
-- `updateHeaders` to update headers of request
-```scala
-  val request = Client.ClientRequest(Method.GET, URL(!!))
-  val updatedRequest = request.updateHeaders(_.addHeader("name", "value"))
+      val request: Request = Request(url = URL(!!, queryParams = Map("q" -> List("a","b","c"))))
 ```
 
+`url.queryParams` can be used to read query params from the request
+
+The below snippet shows how to read query params from request
+```scala
+  val app = Http.collect[Request] { case req => Response.text(req.url.queryParams.mkString(""))}
+```
