@@ -150,7 +150,7 @@ object Client {
   final case class ClientRequest(
     method: Method,
     url: URL,
-    getHeaders: Headers = Headers.empty,
+    headers: Headers = Headers.empty,
     data: HttpData = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
   ) extends HeaderExtension[ClientRequest] { self =>
@@ -161,6 +161,8 @@ object Client {
       case HttpData.BinaryByteBuf(data) => Some(data.toString(HTTP_CHARSET))
       case _                            => Option.empty
     }
+
+    def getHeaders: Headers = headers
 
     def remoteAddress: Option[InetAddress] = {
       if (channelContext != null && channelContext.channel().remoteAddress().isInstanceOf[InetSocketAddress])
@@ -173,7 +175,7 @@ object Client {
      * Updates the headers using the provided function
      */
     override def updateHeaders(update: Headers => Headers): ClientRequest =
-      self.copy(getHeaders = update(self.getHeaders))
+      self.copy(headers = update(self.getHeaders))
   }
 
   final case class ClientResponse(status: Status, headers: Headers, private[zhttp] val buffer: ByteBuf)
