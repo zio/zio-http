@@ -1,9 +1,10 @@
 package example
 
+import zhttp.http.Middleware.serveCompressed
 import zhttp.http._
 import zhttp.http.middleware.CompressionFormat
-import zhttp.http.Middleware.serveCompressed
 import zio.{App, ExitCode, URIO}
+
 import java.io.File
 
 object CompressedAssets extends App {
