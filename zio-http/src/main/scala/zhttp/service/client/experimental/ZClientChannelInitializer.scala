@@ -12,7 +12,7 @@ final case class ZClientChannelInitializer[R](
 ) extends ChannelInitializer[Channel]() {
   var fixedCh: Channel                        = null
   override def initChannel(ch: Channel): Unit = {
-    println(s"INIT CHANNEL")
+//    println(s"INIT CHANNEL")
 
     val p: ChannelPipeline = ch
       .pipeline()

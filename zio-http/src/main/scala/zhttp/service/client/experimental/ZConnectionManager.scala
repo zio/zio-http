@@ -20,7 +20,7 @@ case class ZConnectionManager(
   def fetchConnection(jReq: FullHttpRequest): Task[Channel] = {
     for {
       mp  <- connRef.get
-      _   <- ZIO.effect(println(s"CONNECTION MAP : $mp"))
+//      _   <- ZIO.effect(println(s"CONNECTION MAP : $mp"))
       url <- ZIO.fromEither(URL.fromString(jReq.uri()))
       host = url.host
       port = url.port.getOrElse(80) match {
@@ -33,27 +33,27 @@ case class ZConnectionManager(
       }
       conn <- mp.get(inetSockAddress) match {
         case Some(c) =>
-          println(s"CONN FOUND REUSING IT: $c  is writable: ${c.isWritable} is active: ${c.isActive}")
+          println(s"REUSING CONNECTION for $inetSockAddress")
           if (c.isWritable)
             Task.succeed(c)
           else
-            buildChannel(jReq, "http", inetSockAddress)
+            buildChannel("http", inetSockAddress)
 
         case _ =>
-          println(s"CONN NOT FOUND CREATING NEW")
-          buildChannel(jReq, "http", inetSockAddress)
+//          println(s"CONN NOT FOUND CREATING NEW")
+          buildChannel("http", inetSockAddress)
       }
       _ <- connRef.update { m =>
         m += (inetSockAddress -> conn)
-        println(s"NEW M: $m")
-        println(s"CHANNEL MAP SIZE: ${m.size}")
+//        println(s"NEW M: $m")
+//        println(s"ACTIVE CONNECTIONS: ${m.size}")
         m
       }
     } yield conn
 
   }
 
-  def buildChannel[R](jReq: FullHttpRequest, scheme: String, inetSocketAddress: InetSocketAddress): Task[Channel] = {
+  def buildChannel[R](scheme: String, inetSocketAddress: InetSocketAddress): Task[Channel] = {
     for {
       init <- ZIO.effect(
         ZClientChannelInitializer(
@@ -62,21 +62,21 @@ case class ZConnectionManager(
           ClientSSLOptions.DefaultSSL,
         ),
       )
-      _    <- ZIO.effect(println(s"for ${jReq.uri()} CONNECTING to ${inetSocketAddress}"))
+//      _    <- ZIO.effect(println(s"for ${jReq.uri()} CONNECTING to ${inetSocketAddress}"))
       (h, p) = (inetSocketAddress.toString.split("/")(0), inetSocketAddress.toString.split(":")(1))
-      _ <- ZIO.effect(println(s"for ${jReq.uri()} CONNECTING to ${(h, p)}"))
+//      _ <- ZIO.effect(println(s"for ${jReq.uri()} CONNECTING to ${(h, p)}"))
       chf = boo.handler(init).connect(h, p.toInt)
       _ <- ZIO
         .effect(
           chf.addListener(new ChannelFutureListener() {
             override def operationComplete(future: ChannelFuture): Unit = {
-              val channel = future.channel()
-              println(s"CONNECTED USING CHH ID: ${channel.id()}")
+//              val channel = future.channel()
+//              println(s"CONNECTED USING CHH ID: ${channel.id()}")
               if (!future.isSuccess()) {
                 println(s"error: ${future.cause().getMessage}")
                 future.cause().printStackTrace()
               } else {
-                println("FUTURE SUCCESS");
+//                println("FUTURE SUCCESS");
               }
             }
           }): Unit,
@@ -84,6 +84,9 @@ case class ZConnectionManager(
     } yield chf.channel()
   }
 
+  def getActiveConnections: Task[Int] = for {
+    mp  <- connRef.get
+  } yield (mp.size)
 }
 
 object ZConnectionManager {}

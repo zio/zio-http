@@ -17,7 +17,7 @@ final case class ZClientInboundHandler[R](
 ) extends SimpleChannelInboundHandler[Resp](false) {
 
   override def channelRead0(ctx: ChannelHandlerContext, clientResponse: Resp): Unit = {
-    println(s"SimpleChannelInboundHandler SimpleChannelInboundHandler CHANNEL READ CONTEX ID: ${ctx.channel().id()}")
+//    println(s"SimpleChannelInboundHandler SimpleChannelInboundHandler CHANNEL READ CONTEXT ID: ${ctx.channel().id()}")
     val prom = connectionManager.currentExecRef(ctx.channel())
     zExec.unsafeRun(ctx) { prom._1.succeed(clientResponse) }
   }
@@ -29,7 +29,7 @@ final case class ZClientInboundHandler[R](
   }
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
-    println(s"CHANNEL ACTIVE CONTEXT ID: ${ctx.channel().id()}")
+//    println(s"CHANNEL ACTIVE CONTEXT ID: ${ctx.channel().id()}")
     val prom = connectionManager.currentExecRef(ctx.channel())
     val jReq = prom._2
     ctx.writeAndFlush(jReq): Unit

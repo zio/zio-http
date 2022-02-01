@@ -1,6 +1,5 @@
 package zhttp.service.client.experimental
 
-import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server}
@@ -26,7 +25,7 @@ object ZClientTestWithServer extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     server.make.use { start =>
       println(s"Server started on port ${start.port}")
-      clientTest(start.port) *> ZIO.never
+      clientTest(start.port) //*> ZIO.never
     }
       .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(2))
       .exitCode
@@ -34,17 +33,9 @@ object ZClientTestWithServer extends App {
 
   def clientTest(port: Int) = {
     val client                                   = ZClient.port(port) ++ ZClient.threads(2)
-    val emptyHeaders                             = Headers.empty
-    def req(i: Int, fooOrBar: String): ReqParams = ReqParams(
-      Method.GET,
-      URL(!! / fooOrBar / i.toString, Location.Absolute(Scheme.HTTP, "localhost", port)),
-      emptyHeaders,
-      HttpData.empty,
-    )
     for {
       cl <- client.make
-//      res1 <- cl.run("")
-      _  <- triggerClientMultipleTimes(cl, req)
+      _  <- triggerClientMultipleTimes(cl)
     } yield ()
 
   }
@@ -58,25 +49,31 @@ object ZClientTestWithServer extends App {
 
   // use cases like pipelining ... httpclient document
 
-  def triggerClientMultipleTimes(cl: DefaultZClient, f: (Int, String) => ReqParams) = for {
-    //    resp    <- cl.run(r1)
-    resp <- cl.run(f(1, "foo"))
-    rval <- resp.getBodyAsString
-    _    <- ZIO.effect(println(s"GOT RESPONSE NUMBER 1: $rval"))
+  import zhttp.http._
 
-    resp3 <- cl.run("http://www.google.com")
+  def triggerClientMultipleTimes(cl: DefaultZClient) = for {
+    req1 <- ZIO.effect("http://localhost:8081/foo/1")
+    resp <- cl.run(req1)
+    rval <- resp.getBodyAsString
+    _    <- ZIO.effect(println(s"Response Content from $req1 ${rval.length} "))
+
+    req3 <- ZIO.effect("http://www.google.com")
+    resp3 <- cl.run(req3)
 //    resp3 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
     r3    <- resp3.getBodyAsString
-    _     <- ZIO.effect(println(s"GOT RESPONSE NUMBER 3 : $r3"))
+    _     <- ZIO.effect(println(s"Response Content from $req3  ${r3.length}"))
 
-    resp2 <- cl.run(f(2, "bar"))
+    req2 <- ZIO.effect("http://localhost:8081/bar/2")
+    resp2 <- cl.run(req2)
     r2    <- resp2.getBodyAsString
-    _     <- ZIO.effect(println(s"GOT RESPONSE NUMBER 2 : $r2"))
+    _     <- ZIO.effect(println(s"Response Content  ${r2.length}"))
 
     resp4 <- cl.run("http://www.google.com")
-    //    resp3 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
     r4    <- resp4.getBodyAsString
-    _     <- ZIO.effect(println(s"GOT RESPONSE NUMBER 4 : $r4"))
+    _     <- ZIO.effect(println(s"Response Content  : ${r4.length}"))
+
+    activeCon <- cl.connectionManager.getActiveConnections
+    _ <- ZIO.effect(println(s"Number of active connections for four requests: $activeCon \n\n connections map ${cl.connectionManager.connRef}"))
   } yield ()
 
 }

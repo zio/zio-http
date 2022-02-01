@@ -134,12 +134,20 @@ case class DefaultZClient(
     for {
       jReq    <- Task(encodeClientParams(HttpVersion.HTTP_1_1, req))
       channel <- connectionManager.fetchConnection(jReq)
-      _       <- Task(println(s"got channel  $channel "))
       prom    <- zio.Promise.make[Throwable, Resp]
       _       <- ZIO.effect(connectionManager.currentExecRef += (channel -> (prom, jReq)))
       _       <- ZIO.effect { channel.pipeline().fireChannelActive() }
       resp    <- prom.await
-      _       <- ZIO.effect(println(s" RESP NOWWWWW: $resp"))
+    } yield resp
+
+  def run(req: Request): Task[Resp] =
+    for {
+      jReq    <- encodeClientParams(req)
+      channel <- connectionManager.fetchConnection(jReq)
+      prom    <- zio.Promise.make[Throwable, Resp]
+      _       <- ZIO.effect(connectionManager.currentExecRef += (channel -> (prom, jReq)))
+      _       <- ZIO.effect { channel.pipeline().fireChannelActive() }
+      resp    <- prom.await
     } yield resp
 
   def run(str: String): Task[Resp] = {
@@ -168,18 +176,15 @@ case class DefaultZClient(
     jReq
   }
 
-//  def encodeClientParams(req: Request): FullHttpRequest = {
-//    val jVersion = HttpVersion.HTTP_1_1
-//    val method      = req.method.asHttpMethod
-//    val uri         = req.url.encode
-//    val content     = req.getBodyAsString
-////    val headers     = req.getHeaders.encode.set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
-//    content.flatMap(c => )
-//    val jReq        = new DefaultFullHttpRequest(jVersion, method, uri, content)
-////    jReq.headers().set(headers)
-//
-//    jReq
-//  }
+  def encodeClientParams(req: Request): Task[FullHttpRequest] = {
+    val jVersion = HttpVersion.HTTP_1_1
+    val method      = req.method.asHttpMethod
+    val uri         = req.url.encode
+    for {
+      reqContent <- req.getBodyAsString
+      content = Unpooled.copiedBuffer(reqContent,HTTP_CHARSET)
+    } yield (new DefaultFullHttpRequest(jVersion, method, uri, content))
+  }
 
 //  private def asyncRequest(): Unit = {
 ////    try {
