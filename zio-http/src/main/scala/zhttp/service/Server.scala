@@ -136,7 +136,8 @@ sealed trait Server[-R, +E] { self =>
    * Creates a new server with the provided allocator. which is used to allocate
    * the buffers for the incoming and outgoing data.
    */
-  def withAllocator(allocator: PooledByteBufAllocator): Server[R, E] = Concat(self, Allocator(Some(allocator)))
+  private[zhttp] def withAllocator(allocator: PooledByteBufAllocator): Server[R, E] =
+    Concat(self, Allocator(Some(allocator)))
 }
 
 object Server {

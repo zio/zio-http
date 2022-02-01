@@ -100,11 +100,11 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       _     <- DynamicServer.setStart(start).toManaged_
     } yield ()
 
-  def getActiveDirectBuffers(alloc: PooledByteBufAllocator): UIO[Long] = {
+  def getActiveDirectBuffers(alloc: PooledByteBufAllocator): UIO[Long] = ZIO.effectSuspendTotal {
     val metric = alloc.metric().directArenas().asScala.toList
     ZIO.foreach(metric)(x => UIO(x.numActiveAllocations())).map { list => list.sum }
   }
-  def getActiveHeapBuffers(alloc: PooledByteBufAllocator): UIO[Long]   = {
+  def getActiveHeapBuffers(alloc: PooledByteBufAllocator): UIO[Long]   = ZIO.effectSuspendTotal {
     val metric = alloc.metric().heapArenas().asScala.toList
     ZIO.foreach(metric)(x => UIO(x.numActiveAllocations())).map { list => list.sum }
   }
