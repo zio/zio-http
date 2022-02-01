@@ -40,14 +40,10 @@ case class ZConnectionManager(
             buildChannel("http", inetSockAddress)
 
         case _ =>
-//          println(s"CONN NOT FOUND CREATING NEW")
           buildChannel("http", inetSockAddress)
       }
       _ <- connRef.update { m =>
         m += (inetSockAddress -> conn)
-//        println(s"NEW M: $m")
-//        println(s"ACTIVE CONNECTIONS: ${m.size}")
-        m
       }
     } yield conn
 
