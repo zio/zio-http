@@ -20,21 +20,21 @@ object HttpGen {
     methodGen: Gen[R, Method] = HttpGen.method,
     urlGen: Gen[Random with Sized, URL] = HttpGen.url,
     headerGen: Gen[Random with Sized, Header] = HttpGen.header,
-  ) =
+  ): Gen[R with Random with Sized, ClientRequest] =
     for {
       method  <- methodGen
       url     <- urlGen
       headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
-    } yield ClientRequest(url.relative.encode, method, headers, data)
+    } yield ClientRequest(url, method, headers, data)
 
-  def clientParamsForFileHttpData() = {
+  def clientParamsForFileHttpData(): Gen[Random with Sized, ClientRequest] = {
     for {
       file    <- Gen.fromEffect(ZIO.succeed(new File(getClass.getResource("/TestFile.txt").getPath)))
       method  <- HttpGen.method
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
-    } yield ClientRequest(url.relative.encode, method, headers, HttpData.fromFile(file))
+    } yield ClientRequest(url, method, headers, HttpData.fromFile(file))
   }
 
   def cookies: Gen[Random with Sized, Cookie] = for {

@@ -31,7 +31,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     ): ZIO[R, Throwable, A] =
       app(
         Client.ClientRequest(
-          path.encode,
+          URL(path), // url set here is overridden later via `deploy` method
           method,
           headers,
           HttpData.fromString(content),

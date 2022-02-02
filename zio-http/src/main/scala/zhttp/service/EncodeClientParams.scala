@@ -9,16 +9,26 @@ trait EncodeClientParams {
    */
   def encodeClientParams(jVersion: HttpVersion, req: Client.ClientRequest): Task[FullHttpRequest] =
     req.getBodyAsByteBuf.map { content =>
-      val method  = req.method.asHttpMethod
-      val url     = req.url
-      val headers = req.getHeaders.encode
+      val method = req.method.asHttpMethod
+
+      // As per the spec, the path should contain only the relative path.
+      // Host and port information should be in the headers.
+      val path = req.url.relative.encode
+
+      val encodedReqHeaders = req.getHeaders.encode
+
+      val headers = req.url.host match {
+        case Some(value) => encodedReqHeaders.set(HttpHeaderNames.HOST, value)
+        case None        => encodedReqHeaders
+      }
 
       val writerIndex = content.writerIndex()
       if (writerIndex != 0) {
-        headers.set(HttpHeaderNames.CONTENT_LENGTH, writerIndex.toString())
+        headers.set(HttpHeaderNames.CONTENT_LENGTH, writerIndex.toString)
       }
+
       // TODO: we should also add a default user-agent req header as some APIs might reject requests without it.
-      val jReq        = new DefaultFullHttpRequest(jVersion, method, url, content)
+      val jReq = new DefaultFullHttpRequest(jVersion, method, path, content)
       jReq.headers().set(headers)
 
       jReq
