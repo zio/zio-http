@@ -21,6 +21,13 @@ final case class URL(
     case abs: URL.Location.Absolute => Option(abs.host)
   }
 
+  def isAbsolute: Boolean = self.kind match {
+    case Location.Absolute(_, _ , _) => true
+    case Location.Relative => false
+  }
+
+  def isRelative: Boolean = !isAbsolute
+
   def port: Option[Int] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.port)
