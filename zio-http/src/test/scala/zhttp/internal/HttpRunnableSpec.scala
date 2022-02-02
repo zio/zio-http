@@ -1,5 +1,6 @@
 package zhttp.internal
 
+import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.DynamicServer.HttpEnv
 import zhttp.internal.HttpRunnableSpec.HttpTestClient
@@ -56,9 +57,9 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         response <- Http.fromFunctionZIO[Client.ClientRequest] { params =>
           Client.request(
-            s"http://localhost:${port}${params.url.relative.encode}",
-            headers = params.getHeaders.addHeader(DynamicServer.APP_ID, id),
-            ssl = ClientSSLOptions.DefaultSSL,
+            params
+              .addHeader(DynamicServer.APP_ID, id)
+              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
           )
         }
       } yield response

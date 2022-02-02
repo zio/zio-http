@@ -2,13 +2,7 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.{
-  Channel,
-  ChannelFactory => JChannelFactory,
-  ChannelHandlerContext,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelHandlerContext, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.codec.http.{FullHttpRequest, HttpClientCodec, HttpObjectAggregator, HttpVersion}
 import zhttp.http._
@@ -26,14 +20,11 @@ import java.net.{InetAddress, InetSocketAddress, URI}
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
 
-  def request(
-    request: Client.ClientRequest,
-    sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): Task[Client.ClientResponse] =
+  def request(request: Client.ClientRequest): Task[Client.ClientResponse] =
     for {
       promise <- Promise.make[Throwable, Client.ClientResponse]
       jReq    <- encodeClientParams(HttpVersion.HTTP_1_1, request)
-      _       <- Task(unsafeRequest(request, jReq, promise, sslOption)).catchAll(cause => promise.fail(cause))
+      _       <- Task(unsafeRequest(request, jReq, promise)).catchAll(cause => promise.fail(cause))
       res     <- promise.await
     } yield res
 
@@ -45,41 +36,38 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
   ): ZIO[R, Throwable, ClientResponse] = for {
     env <- ZIO.environment[R]
     res <- request(
-      ClientRequest(url, Method.GET, headers, attribute = Client.Attribute(socketApp = Some(socketApp.provide(env)))),
-      sslOptions,
+      ClientRequest(
+        url,
+        Method.GET,
+        headers,
+        attribute = Client.Attribute(socketApp = Some(socketApp.provide(env)), ssl = Some(sslOptions)),
+      ),
     )
   } yield res
 
   private def unsafeRequest(
-    request: ClientRequest,
+    req: ClientRequest,
     jReq: FullHttpRequest,
     promise: Promise[Throwable, ClientResponse],
-    sslOption: ClientSSLOptions,
   ): Unit = {
 
-    // TODO: Remove `println`
-    println("JRequest: " + jReq.uri())
-    println("Request: " + request.url)
     try {
-      val url  = new URI(jReq.uri())
-      val host = if (url.getHost == null) jReq.headers().get(HeaderNames.host) else url.getHost
+      val uri  = new URI(jReq.uri())
+      val host = if (uri.getHost == null) jReq.headers().get(HeaderNames.host) else uri.getHost
 
       assert(host != null, "Host name is required")
-      println("Host: " + host)
 
-      val port   = if (url.getPort < 0) 80 else url.getPort
-      println("Port: " + port)
-      val scheme = url.getScheme
+      val port   = req.url.port.getOrElse(80)
+      val scheme = uri.getScheme
 
       val isWebSocket = scheme == "ws" || scheme == "wss"
       val isSSL       = scheme == "https" || scheme == "wss"
 
-      println("Connecting to " + host + ":" + port)
       val initializer = new ChannelInitializer[Channel]() {
         override def initChannel(ch: Channel): Unit = {
-          println("Initializing channel")
 
-          val pipeline = ch.pipeline()
+          val pipeline                    = ch.pipeline()
+          val sslOption: ClientSSLOptions = req.attribute.ssl.getOrElse(ClientSSLOptions.DefaultSSL)
 
           // If a https or wss request is made we need to add the ssl handler at the starting of the pipeline.
           if (isSSL) pipeline.addLast("SSLHandler", ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc))
@@ -96,9 +84,8 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
 
           // Add WebSocketHandlers if it's a `ws` or `wss` request
           if (isWebSocket) {
-            println("Adding WebSocketHandler")
-            val headers = request.getHeaders.encode
-            val app     = request.attribute.socketApp.getOrElse(Socket.empty.toSocketApp)
+            val headers = req.getHeaders.encode
+            val app     = req.attribute.socketApp.getOrElse(Socket.empty.toSocketApp)
             val config  = app.protocol.clientBuilder.customHeaders(headers).build()
 
             // Handles the heavy lifting required to
@@ -143,9 +130,16 @@ object Client {
     ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
-      clt <- make[Any]
       uri <- ZIO.fromEither(URL.fromString(url))
-      res <- clt.request(ClientRequest(uri, method, headers, content), ssl)
+      res <- request(ClientRequest(uri, method, headers, content, attribute = Attribute(ssl = Some(ssl))))
+    } yield res
+
+  def request(
+    request: ClientRequest,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+    for {
+      clt <- make[Any]
+      res <- clt.request(request)
     } yield res
 
   def socket[R](
@@ -165,7 +159,7 @@ object Client {
     url: URL,
     method: Method = Method.GET,
     getHeaders: Headers = Headers.empty,
-    data: HttpData = HttpData.empty,
+    private[zhttp] val data: HttpData = HttpData.empty,
     private[zhttp] val attribute: Attribute = Attribute.empty,
     private val channelContext: ChannelHandlerContext = null,
   ) extends HeaderExtension[ClientRequest] {
@@ -204,8 +198,11 @@ object Client {
     override def updateHeaders(update: Headers => Headers): ClientResponse = self.copy(headers = update(headers))
   }
 
-  case class Attribute(socketApp: Option[SocketApp[Any]] = None) {}
-  object Attribute                                               {
+  case class Attribute(socketApp: Option[SocketApp[Any]] = None, ssl: Option[ClientSSLOptions] = None) { self =>
+    def withSSL(ssl: ClientSSLOptions): Attribute           = self.copy(ssl = Some(ssl))
+    def withSocketApp(socketApp: SocketApp[Any]): Attribute = self.copy(socketApp = Some(socketApp))
+  }
+  object Attribute                                                                                     {
     def empty: Attribute = Attribute()
   }
 }
