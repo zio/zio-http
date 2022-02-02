@@ -4,9 +4,10 @@ import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.channel.{
   Channel,
-  ChannelFactory => JChannelFactory,
   ChannelHandlerContext,
   ChannelInitializer,
+  ChannelFactory => JChannelFactory,
+  ChannelFuture => JChannelFuture,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http._
@@ -29,7 +30,9 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     for {
       promise <- Promise.make[Throwable, Client.ClientResponse]
       jReq    <- encode(HttpVersion.HTTP_1_1, request)
-      _       <- Task(unsafeRequest(request, jReq, promise)).catchAll(cause => promise.fail(cause))
+      _       <- ChannelFuture
+        .unit(unsafeRequest(request, jReq, promise))
+        .catchAll(cause => promise.fail(cause))
       res     <- promise.await
     } yield res
 
@@ -57,7 +60,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     req: ClientRequest,
     jReq: FullHttpRequest,
     promise: Promise[Throwable, ClientResponse],
-  ): Unit = {
+  ): JChannelFuture = {
 
     try {
       val uri  = new URI(jReq.uri())
@@ -110,8 +113,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
 
       jBoo.remoteAddress(new InetSocketAddress(host, port))
 
-      // TODO: handle connection failures
-      jBoo.connect(): Unit
+      jBoo.connect()
     } catch {
       case err: Throwable =>
         if (jReq.refCnt() > 0) {
@@ -124,8 +126,8 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
 
 object Client {
   def make[R]: ZIO[R with EventLoopGroup with ChannelFactory, Nothing, Client[R]] = for {
-    cf <- ZIO.access[ChannelFactory](_.get)
-    el <- ZIO.access[EventLoopGroup](_.get)
+    cf <- ZIO.service[JChannelFactory[Channel]]
+    el <- ZIO.service[JEventLoopGroup]
     zx <- HttpRuntime.default[R]
   } yield service.Client(zx, cf, el)
 
