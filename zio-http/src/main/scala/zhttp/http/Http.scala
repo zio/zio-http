@@ -94,6 +94,11 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def collect[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](pf: PartialFunction[B1, C]): Http[R1, E1, A1, C] =
     self >>> Http.collect(pf)
 
+  final def collectManaged[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](
+    pf: PartialFunction[B1, ZManaged[R1, E1, C]],
+  ): Http[R1, E1, A1, C] =
+    self >>> Http.collectManaged(pf)
+
   /**
    * Collects some of the results of the http and effectfully converts it to another type.
    */
@@ -101,11 +106,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     pf: PartialFunction[B1, ZIO[R1, E1, C]],
   ): Http[R1, E1, A1, C] =
     self >>> Http.collectZIO(pf)
-
-  final def collectManaged[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](
-    pf: PartialFunction[B1, ZManaged[R1, E1, C]],
-  ): Http[R1, E1, A1, C] =
-    self >>> Http.collectManaged(pf)
 
   /**
    * Named alias for `<<<`
@@ -454,6 +454,11 @@ object Http {
   }
 
   /**
+   * Equivalent to `Http.succeed`
+   */
+  def apply[B](b: B): Http[Any, Nothing, Any, B] = Http.succeed(b)
+
+  /**
    * Creates an HTTP app which always responds with a 400 status code.
    */
   def badRequest(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.BadRequest(msg))
@@ -466,14 +471,14 @@ object Http {
   def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
 
   /**
-   * Creates an HTTP app which accepts a request and produces response effectfully.
-   */
-  def collectZIO[A]: Http.PartialCollectZIO[A] = Http.PartialCollectZIO(())
-
-  /**
    * Creates an Http app which accepts a request and produces response from a managed resource
    */
   def collectManaged[A]: Http.PartialCollectManaged[A] = Http.PartialCollectManaged(())
+
+  /**
+   * Creates an HTTP app which accepts a request and produces response effectfully.
+   */
+  def collectZIO[A]: Http.PartialCollectZIO[A] = Http.PartialCollectZIO(())
 
   /**
    * Combines multiple Http apps into one
