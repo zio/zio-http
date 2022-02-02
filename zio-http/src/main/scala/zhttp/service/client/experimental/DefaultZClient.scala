@@ -17,7 +17,11 @@ case class DefaultZClient(
       jReq    <- Task(encodeClientParams(HttpVersion.HTTP_1_1, req))
       channel <- connectionManager.fetchConnection(jReq)
       prom    <- zio.Promise.make[Throwable, Resp]
-      _       <- ZIO.effect(connectionManager.currentExecRef += (channel -> (prom, jReq)))
+      _       <- ZIO.effect(
+        connectionManager
+          .zConnectionState
+          .currentAllocatedChannels += (channel -> ConnectionRuntime(prom, jReq))
+      )
       _       <- ZIO.effect { channel.pipeline().fireChannelActive() }
       resp    <- prom.await
     } yield resp
@@ -27,7 +31,11 @@ case class DefaultZClient(
       jReq    <- encodeClientParams(req)
       channel <- connectionManager.fetchConnection(jReq)
       prom    <- zio.Promise.make[Throwable, Resp]
-      _       <- ZIO.effect(connectionManager.currentExecRef += (channel -> (prom, jReq)))
+      _       <- ZIO.effect(
+        connectionManager
+          .zConnectionState
+          .currentAllocatedChannels += (channel -> ConnectionRuntime(prom, jReq))
+      )
       _       <- ZIO.effect { channel.pipeline().fireChannelActive() }
       resp    <- prom.await
     } yield resp

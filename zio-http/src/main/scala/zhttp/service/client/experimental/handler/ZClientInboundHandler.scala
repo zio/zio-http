@@ -4,7 +4,7 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.service.HttpRuntime
-import zhttp.service.client.experimental.{Resp, ZConnectionManager}
+import zhttp.service.client.experimental.{Resp, ZConnectionState}
 
 /**
  * Handles HTTP response
@@ -12,27 +12,27 @@ import zhttp.service.client.experimental.{Resp, ZConnectionManager}
 @Sharable
 final case class ZClientInboundHandler[R](
                                            zExec: HttpRuntime[R],
-                                           connectionManager: ZConnectionManager,
+                                           zConnectionState: ZConnectionState
                                          ) extends SimpleChannelInboundHandler[Resp](false) {
 
   override def channelRead0(ctx: ChannelHandlerContext, clientResponse: Resp): Unit = {
     //    println(s"SimpleChannelInboundHandler SimpleChannelInboundHandler CHANNEL READ CONTEXT ID: ${ctx.channel().id()}")
-    val prom = connectionManager.currentExecRef(ctx.channel())
+    val connectionRuntime = zConnectionState.currentAllocatedChannels(ctx.channel())
     zExec.unsafeRun(ctx) {
-      prom._1.succeed(clientResponse)
+      connectionRuntime.callback.succeed(clientResponse)
     }
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    val prom = connectionManager.currentExecRef(ctx.channel())
+    val connectionRuntime = zConnectionState.currentAllocatedChannels(ctx.channel())
     zExec.unsafeRun(ctx)(zio.Task.fail(error))
-    releaseRequest(prom._2)
+    releaseRequest(connectionRuntime.currReq)
   }
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     //    println(s"CHANNEL ACTIVE CONTEXT ID: ${ctx.channel().id()}")
-    val prom = connectionManager.currentExecRef(ctx.channel())
-    val jReq = prom._2
+    val connectionRuntime = zConnectionState.currentAllocatedChannels(ctx.channel())
+    val jReq = connectionRuntime.currReq
     ctx.writeAndFlush(jReq): Unit
     releaseRequest(jReq)
     ()

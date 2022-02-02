@@ -2,13 +2,12 @@ package zhttp.service.client.experimental
 
 import io.netty.bootstrap.Bootstrap
 import zhttp.service.client.experimental.transport.Transport
-
 import io.netty.channel.Channel
-import io.netty.handler.codec.http._
+import zhttp.service.client.experimental.ZConnectionState.ReqKey
+
 import zio.duration.Duration
 import zio.{Task}
 
-import java.net.{InetAddress, InetSocketAddress}
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 
@@ -21,7 +20,6 @@ trait ZClient[-R, +E] { self =>
 
   private def settings(s: Config = Config()): Config = self match {
     case Concat(self, other)                        => other.settings(self.settings(s))
-    case Address(address)                           => s.copy(address = address)
     case TransportConfig(transport)                 => s.copy(transport = transport)
     case Threads(threads)                           => s.copy(threads = threads)
     case ResponseHeaderTimeout(rht)                 => s.copy(responseHeaderTimeout = rht)
@@ -46,7 +44,6 @@ trait ZClient[-R, +E] { self =>
 object ZClient {
   type UClient = ZClient[Any, Nothing]
   private[zhttp] final case class Config(
-    address: InetSocketAddress = new InetSocketAddress(8080),
     transport: Transport = Transport.Auto,
     threads: Int = 0,
     responseHeaderTimeout: Duration =
@@ -64,7 +61,6 @@ object ZClient {
   )
 
   private final case class Concat[R, E](self: ZClient[R, E], other: ZClient[R, E]) extends ZClient[R, E]
-  private final case class Address(address: InetSocketAddress)                     extends UClient
   private final case class TransportConfig(transport: Transport)                   extends UClient
   private final case class Threads(threads: Int)                                   extends UClient
   private final case class ResponseHeaderTimeout(rht: Duration)                    extends UClient
@@ -76,12 +72,6 @@ object ZClient {
   private final case class MaxWaitQueueLimit(mwql: Int)                            extends UClient
   private final case class MaxConnectionsPerRequestKey(maxConnPerReq: Int)         extends UClient
 //  private final case class SSLContext(ssl: ClientSSLOptions)                                   extends UClient
-
-  def port(port: Int): UClient                            = ZClient.Address(new InetSocketAddress(port))
-  def bind(port: Int): UClient                            = ZClient.Address(new InetSocketAddress(port))
-  def bind(hostname: String, port: Int): UClient          = ZClient.Address(new InetSocketAddress(hostname, port))
-  def bind(inetAddress: InetAddress, port: Int): UClient  = ZClient.Address(new InetSocketAddress(inetAddress, port))
-  def bind(inetSocketAddress: InetSocketAddress): UClient = ZClient.Address(inetSocketAddress)
 
   def transport(transport: Transport): UClient = ZClient.TransportConfig(transport)
   def threads(threads: Int): UClient           = ZClient.Threads(threads)
@@ -113,10 +103,10 @@ object ZClient {
         .channelFactory(channelFactory)
         .group(eventLoopGroup)
       connRef <- zio.Ref.make(
-        mutable.Map.empty[InetSocketAddress, Channel],
+        mutable.Map.empty[ReqKey, Channel],
       )
-      execPromiseRef = mutable.Map.empty[Channel, (zio.Promise[Throwable, Resp], FullHttpRequest)]
-      connManager    = ZConnectionManager(connRef, execPromiseRef, clientBootStrap, zExec)
+      timeouts = Timeouts(settings.connectionTimeout,settings.idleTimeout, settings.requestTimeout)
+      connManager    = ZConnectionManager(connRef, ZConnectionState(), timeouts, clientBootStrap, zExec)
       clientImpl     = DefaultZClient(settings, connManager)
     } yield {
       clientImpl

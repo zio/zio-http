@@ -5,8 +5,9 @@ import io.netty.channel.{Channel, ChannelFuture, ChannelFutureListener}
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.http.URL
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zhttp.service.client.experimental.ZConnectionState.ReqKey
 import zhttp.service.client.experimental.handler.{ZClientChannelInitializer, ZClientInboundHandler}
-import zio.{Promise, Ref, Task, ZIO}
+import zio.{Ref, Task, ZIO}
 
 import java.net.InetSocketAddress
 import scala.collection.mutable
@@ -18,9 +19,9 @@ import scala.collection.mutable
     - Data structures like (idleQueue, waitingRequestQueue etc)
  */
 case class ZConnectionManager(
-  connRef: Ref[mutable.Map[InetSocketAddress, Channel]],
-  currentExecRef: mutable.Map[Channel, (Promise[Throwable, Resp], FullHttpRequest)] =
-    mutable.Map.empty[Channel, (Promise[Throwable, Resp], FullHttpRequest)],
+  connRef: Ref[mutable.Map[ReqKey, Channel]],
+  zConnectionState: ZConnectionState,
+  timeouts: Timeouts,
   boo: Bootstrap,
   zExec: zhttp.service.HttpRuntime[Any],
 ) {
@@ -48,7 +49,16 @@ case class ZConnectionManager(
     } yield conn
   }
 
-  private def getUriAuthority(jReq: FullHttpRequest) = for {
+  /**
+   * TBD: uri Authority examples to be handled like
+   * examples                                   Valid authority
+   * -  http://www.xyz.com/path                 www.xyz.com
+   * -  http://host:8080/path                   host:8080
+   * -  http://user:pass@host:8080/path         user:pass@host:8080
+   * @param jReq
+   * @return
+   */
+  private def getUriAuthority(jReq: FullHttpRequest): Task[ReqKey] = for {
     url <- ZIO.fromEither(URL.fromString(jReq.uri()))
     host = url.host
     port = url.port.getOrElse(80) match {
@@ -61,16 +71,16 @@ case class ZConnectionManager(
     }
   } yield (inetSockAddress)
 
-  def buildChannel[R](scheme: String, inetSocketAddress: InetSocketAddress): Task[Channel] = {
+  def buildChannel[R](scheme: String, reqKey: ReqKey): Task[Channel] = {
     for {
       init <- ZIO.effect(
         ZClientChannelInitializer(
-          ZClientInboundHandler(zExec, this),
+          ZClientInboundHandler(zExec, zConnectionState),
           scheme,
           ClientSSLOptions.DefaultSSL,
         ),
       )
-      (h, p) = (inetSocketAddress.toString.split("/")(0), inetSocketAddress.toString.split(":")(1))
+      (h, p) = (reqKey.toString.split("/")(0), reqKey.toString.split(":")(1))
 //      _ <- ZIO.effect(println(s"for ${jReq.uri()} CONNECTING to ${(h, p)}"))
       chf = boo.handler(init).connect(h, p.toInt)
       // optional can be removed if not really utilised.

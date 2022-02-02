@@ -11,7 +11,7 @@ object ZClientTest extends App {
 
   private val PORT = 8082
 
-  val client: ZClient[Any, Nothing] = ZClient.port(PORT) ++ ZClient.threads(2)
+  val client: ZClient[Any, Nothing] = ZClient.threads(2)
 
   //  val keepAliveHeader = Headers(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
   val emptyHeaders = Headers.empty
