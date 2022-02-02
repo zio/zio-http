@@ -13,6 +13,22 @@ sealed trait Scheme { self =>
       case WSS   => "wss"
     }
 
+  def isHttp: Boolean = !isWebSocket
+
+  def isWebSocket: Boolean = self match {
+    case Scheme.HTTP  => false
+    case Scheme.HTTPS => false
+    case Scheme.WS    => true
+    case Scheme.WSS   => true
+  }
+
+  def isSecure: Boolean = self match {
+    case Scheme.HTTP  => false
+    case Scheme.HTTPS => true
+    case Scheme.WS    => false
+    case Scheme.WSS   => true
+  }
+
   def toJHttpScheme: Option[HttpScheme] =
     self match {
       case HTTP  => Option(HttpScheme.HTTP)
