@@ -32,7 +32,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     } yield res
 
   def socket(
-    url: String,
+    url: URL,
     headers: Headers = Headers.empty,
     socketApp: SocketApp[R],
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
@@ -136,18 +136,27 @@ object Client {
     content: HttpData = HttpData.empty,
     ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    make[Any].flatMap(_.request(ClientRequest(url, method, headers, content), ssl))
+    for {
+      clt <- make[Any]
+      uri <- ZIO.fromEither(URL.fromString(url))
+      res <- clt.request(ClientRequest(uri, method, headers, content), ssl)
+    } yield res
 
   def socket[R](
     url: String,
     app: SocketApp[R],
     headers: Headers = Headers.empty,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    make[R].flatMap(_.socket(url, headers, app, sslOptions))
+  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = {
+    for {
+      clt <- make[R]
+      uri <- ZIO.fromEither(URL.fromString(url))
+      res <- clt.socket(uri, headers, app, sslOptions)
+    } yield res
+  }
 
   final case class ClientRequest(
-    url: String,
+    url: URL,
     method: Method = Method.GET,
     getHeaders: Headers = Headers.empty,
     data: HttpData = HttpData.empty,
