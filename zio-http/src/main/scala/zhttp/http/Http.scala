@@ -378,7 +378,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
       case Fail(e)            => HExit.fail(e)
       case FromFunctionZIO(f) => HExit.fromZIO(f(b(a)))
       case Collect(pf)        => if (pf.isDefinedAt(b(a))) HExit.succeed(pf(b(a))) else HExit.empty
-      case Chain(self, other) => self.execute(a, b).flatMap(c => other.execute(c.asInstanceOf[X], b))
+      case Chain(self, other) =>
+        self.execute(a, b).flatMap(c => other.asInstanceOf[Http[R, E, A, B]].execute(c.asInstanceOf[X], b))
       case Race(self, other)  =>
         (self.execute(a, b), other.execute(a, b)) match {
           case (HExit.Effect(self), HExit.Effect(other)) =>
