@@ -29,7 +29,9 @@ package url {
 
   class UrlInterpolator(val sc: StringContext) {
 
-    def urls(args: Any*): URL = macro Impl.urlValidate
+    def urls(args: Any*): URL = url(sc.s(args))
+
+    def url(args: Any*): URL = macro Impl.urlValidate
 
   }
 
@@ -75,7 +77,7 @@ package url {
             .map { p => c.Expr[URL](q"$p") }
             .getOrElse(c.abort(c.enclosingPosition, "bad URL."))
 
-        case _ => c.abort(c.enclosingPosition, "URL")
+        case err => c.abort(c.enclosingPosition, s"$err")
       }
 
     }

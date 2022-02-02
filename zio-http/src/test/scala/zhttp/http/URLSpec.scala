@@ -30,9 +30,26 @@ object URLSpec extends DefaultRunnableSpec {
           ),
         )
       } +
-      test("Should Handle query string") {
+      test("Should properly handle url interpolator") {
+        val scheme     = "http"
         val probe: URL =
-          urls"http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21"
+          url"$scheme://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21"
+        assert(
+          probe,
+        )(
+          equalTo(
+            URL
+              .fromString(
+                "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21",
+              )
+              .toOption
+              .get,
+          ),
+        )
+      } +
+      test("Should properly handle url interpolator with string interpolator") {
+        val probe: URL =
+          url"http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21"
         assert(
           probe,
         )(
