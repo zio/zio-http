@@ -14,6 +14,7 @@ final case class URL(
   queryParams: Map[String, List[String]] = Map.empty,
   fragment: Option[Fragment] = None,
 ) { self =>
+
   def encode: String = URL.encode(self)
 
   def host: Option[String] = kind match {
@@ -38,12 +39,51 @@ final case class URL(
     case Location.Relative               => None
   }
 
+  def setHost(host: String): URL = {
+    val location = kind match {
+      case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, host, URL.portFromScheme(Scheme.HTTP))
+      case abs: URL.Location.Absolute => abs.copy(host = host)
+    }
+    copy(kind = location)
+  }
+
+  def setPath(path: Path): URL =
+    copy(path = path)
+
+  def setPath(path: String): URL = copy(path = Path(path))
+
+  def setPort(port: Int): URL = {
+    val location = kind match {
+      case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, "", port)
+      case abs: URL.Location.Absolute => abs.copy(port = port)
+    }
+
+    copy(kind = location)
+  }
+
+  def setQueryParams(queryParams: Map[String, List[String]]): URL =
+    copy(queryParams = queryParams)
+
+  def setQueryParams(query: String): URL =
+    copy(queryParams = URL.queryParams(query))
+
+  def setScheme(scheme: Scheme): URL = {
+    val location = kind match {
+      case URL.Location.Relative      => URL.Location.Absolute(scheme, "", URL.portFromScheme(scheme))
+      case abs: URL.Location.Absolute => abs.copy(scheme = scheme)
+    }
+
+    copy(kind = location)
+  }
+
   private[zhttp] def relative: URL = self.kind match {
     case URL.Location.Relative => self
     case _                     => self.copy(kind = URL.Location.Relative)
   }
 }
 object URL {
+  def empty: URL = URL(!!)
+
   def encode(url: URL): String = {
 
     def path: String = {
@@ -80,12 +120,6 @@ object URL {
   def root: URL = URL(!!)
 
   private def fromAbsoluteURI(uri: URI): Option[URL] = {
-
-    def portFromScheme(scheme: Scheme): Int = scheme match {
-      case Scheme.HTTP | Scheme.WS   => 80
-      case Scheme.HTTPS | Scheme.WSS => 443
-    }
-
     for {
       scheme <- Scheme.decode(uri.getScheme)
       host   <- Option(uri.getHost)
@@ -98,6 +132,11 @@ object URL {
   private def fromRelativeURI(uri: URI): Option[URL] = for {
     path <- Option(uri.getRawPath)
   } yield URL(Path(path), Location.Relative, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
+
+  private def portFromScheme(scheme: Scheme): Int = scheme match {
+    case Scheme.HTTP | Scheme.WS   => 80
+    case Scheme.HTTPS | Scheme.WSS => 443
+  }
 
   private def queryParams(query: String) = {
     if (query == null || query.isEmpty) {
