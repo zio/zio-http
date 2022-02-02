@@ -3,7 +3,6 @@ package zhttp.http.middleware
 import io.netty.buffer.ByteBuf
 import zhttp.http.Middleware.{parseAcceptEncodingHeaders, serveCompressed}
 import zhttp.http._
-import zhttp.http.middleware.CompressionFormat
 import zhttp.internal.HttpAppTestExtensions
 import zio.test.Assertion.{equalTo, isNone, isSome, isTrue}
 import zio.test._
