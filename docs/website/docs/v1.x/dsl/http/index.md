@@ -144,7 +144,7 @@ given HTTP application will be executed with the original input.
 val b = Http.succeed("text2")
 val app = a.foldHttp(e => Http.fail(e), s => Http.succeed(s), b)
 ```
-
+## Error Handling
 There are a number of ways in which error handling can be done in `Http` domain. These are few constructors to do so.
 
 ### catchAll
@@ -219,7 +219,29 @@ val b = Http.fromFunction[Int](b => b * 2)
 val app = a <<< (b)
 ```
 
-Apart from these, there are many more operators that let you transform an Http in specific ways.
+Apart from these, there are many more operators that let you transform an HTTP application in specific ways.
+
+## Providing environments
+There are many operators to provide the HTTP application with its required environment. 
+### provideCustomLayer
+Provides the HTTP application with the part of the environment that is not part of the ZEnv, leaving an effect that only depends on the ZEnv.
+```scala
+  val a = Http.collectZIO[String] {
+    case "case 1"    => clock.currentDateTime
+  }
+  val app1= a.provideCustomLayer(Clock.live)
+```
+## Attaching Middleware
+
+Middlewares are essentially transformations that one can apply on any Http to produce a new one.
+### middleware
+
+Attaches the provided middleware to the HTTP application. `@@` is an alias for middleware.
+```scala
+  val app = Http.succeed(1) @@ Middleware.fail(2)
+```
+
+## Unit testing
 
 # HttpApp
 
