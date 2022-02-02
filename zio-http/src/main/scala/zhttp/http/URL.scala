@@ -51,7 +51,7 @@ object URL {
   }
 
   def fromString(string: String): Either[IOException, URL] = {
-    def invalidURL = Left(new MalformedURLException(s"Invalid URL: $string"))
+    def invalidURL = Left(new MalformedURLException(s"""Invalid URL: "$string""""))
     for {
       url <- Try(new URI(string)).toEither match {
         case Left(_)      => invalidURL

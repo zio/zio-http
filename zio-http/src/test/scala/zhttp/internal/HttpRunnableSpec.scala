@@ -56,7 +56,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         response <- Http.fromFunctionZIO[Client.ClientRequest] { params =>
           Client.request(
-            s"http://localhost:${port}${params.url}",
+            s"http://localhost:${port}${params.url.relative.encode}",
             headers = params.getHeaders.addHeader(DynamicServer.APP_ID, id),
             ssl = ClientSSLOptions.DefaultSSL,
           )
