@@ -39,9 +39,9 @@ for the partial function, the application will return a `None` type error.
 
 ```scala
   val app: Http[Any, Nothing, String, String] = Http.collect[String] {
-    case "case 1" => "response 1" 
-    case "case 2" => "response 2"
-  }
+  case "case 1" => "response 1"
+  case "case 2" => "response 2"
+}
 ```
 
 ### Http.collectZIO
@@ -51,8 +51,8 @@ i.e `PartialFunction[A, ZIO[R, E, B]`. This constructor is used when the output 
 
 ```scala
   val app: Http[Any, Nothing, String, String] = Http.collectZIO[String] {
-    case "case 1" => ZIO.succeed("response 1")
-  }
+  case "case 1" => ZIO.succeed("response 1")
+}
 ```
 
 ### Http.fromFunction
@@ -83,20 +83,35 @@ handy operators.
 ### map
 
 Transforms the output of the HTTP application. Map takes a function `f: B=>C` to convert a `Http[R,E,A,B]`
-to `Http[R,E,A,C]`
+to `Http[R,E,A,C]`.
 
 ```scala
   val a = Http.succeed("text")
   val app = a.map(s => s.length())
 ```
+### mapZIO
+Transforms the output of the HTTP application effectfully. Map takes a function `B => ZIO[R1, E1, C]` to convert a `Http[R,E,A,B]`
+to `Http[R,E,A,C]`.
+
+```scala
+  val a = Http.succeed("text")
+  val app = a.mapZIO(s => ZIO.succeed(s.length()))
+```
 
 ### contramap
 
-Transforms the input of the HTTP application before passing it on using a function `xa: X => A`.
+Transforms the input of the HTTP application before passing it on to the HTTP application using a function `xa: X => A`.
 
 ```scala
   val a = Http.fromFunction[String](s => s + ' ' + s)
   val app = a.contramap[Int](_.toString)
+```
+### contramapZIO
+Transforms the input of the HTTP application effectfully before passing it on to the HTTP application using a function `xa: X => ZIO[R1, E1, A]`
+
+```scala
+  val a = Http.fromFunction[String](s => s + ' ' + s)
+  val app = a.contramapZIO[Any, Any,Int](a=>ZIO.succeed(a.toString))
 ```
 
 ### flatMap
@@ -106,7 +121,7 @@ function `f: B => Http[R1, E1, A1, C1]`. `>>=` is an alias for flatMap.
 
 ```scala
   val a = Http.succeed("text1")
-  val app = a.map(s => Http.succeed(s + " text2"))
+val app = a.map(s => Http.succeed(s + " text2"))
 ```
 
 ### middleware
@@ -120,14 +135,14 @@ Attaches the provided middleware to the HTTP application. `@@` is an alias for m
 ### foldHttp
 
 Folds over the HTTP application by taking in two functions, one for failure and one for success respectively, and one
-more HTTP application. If the application fails with `Some[E]` the first function will be executed with `E`, if the 
-application succeed with B, the second function will be executed with `B`and if the application fails with `None` the 
-given HTTP application will be executed with the original input. 
+more HTTP application. If the application fails with `Some[E]` the first function will be executed with `E`, if the
+application succeed with B, the second function will be executed with `B`and if the application fails with `None` the
+given HTTP application will be executed with the original input.
 
 ```scala
   val a = Http.succeed("text1")
-  val b = Http.succeed("text2")
-  val app = a.foldHttp(e => Http.fail(e), s => Http.succeed(s), b)
+val b = Http.succeed("text2")
+val app = a.foldHttp(e => Http.fail(e), s => Http.succeed(s), b)
 ```
 
 There are a number of ways in which error handling can be done in `Http` domain. These are few constructors to do so.
@@ -138,7 +153,7 @@ Collects all errors in case of a failure and pipes it to a function `f: E => Htt
 
 ```scala
   val a = Http.fail(new Throwable("Error_Message"))
-  val app = a.catchAll(e => Http.succeed(Option(e)))
+val app = a.catchAll(e => Http.succeed(Option(e)))
 ```
 
 ### mapError
@@ -147,7 +162,7 @@ Transforms the failure of an HTTP application using a function `ee: E => E1`.
 
 ```scala
   val a = Http.fail(new Throwable("Error_Message"))
-  val app = a.mapError(e => Option(e))
+val app = a.mapError(e => Option(e))
 ```
 
 ## Http Combinators
@@ -163,14 +178,14 @@ application won't be evaluated.
 
 ```scala
   val a: Http[Any, Nothing, String, String] = Http.collect[String] {
-    case "case 1" => "response 1"
-    case "case 2" => "response 2"
-  }
-  val b: Http[Any, Nothing, String, String] = Http.collect[String] {
-    case "case 1" => "response 1"
-    case "case 2" => "response 2"
-  }
-  val app = a ++ b
+  case "case 1" => "response 1"
+  case "case 2" => "response 2"
+}
+val b: Http[Any, Nothing, String, String] = Http.collect[String] {
+  case "case 1" => "response 1"
+  case "case 2" => "response 2"
+}
+val app = a ++ b
 ```
 
 ### orElse
@@ -189,8 +204,8 @@ Runs the first HTTP application and pipes the output into the other. `>>>` is an
 
 ```scala
   val a = Http.fromFunction[Int](a => a + 1)
-  val b = Http.fromFunction[Int](b => b * 2)
-  val app = a >>> (b)
+val b = Http.fromFunction[Int](b => b * 2)
+val app = a >>> (b)
 ```
 
 ### compose
@@ -200,8 +215,8 @@ application. `<<<` is the alias for compose.
 
 ```scala
   val a = Http.fromFunction[Int](a => a + 1)
-  val b = Http.fromFunction[Int](b => b * 2)
-  val app = a <<< (b)
+val b = Http.fromFunction[Int](b => b * 2)
+val app = a <<< (b)
 ```
 
 Apart from these, there are many more operators that let you transform an Http in specific ways.
@@ -265,9 +280,9 @@ Overwrites the method in the incoming request to the `HttpApp`
 
 ```scala
   val a: HttpApp[Any, Nothing] = Http.collect[Request] {
-    case Method.GET -> !! / "text" => Response.text("Hello World!")
-  }
-  val app = a setMethod (Method.POST)
+  case Method.GET -> !! / "text" => Response.text("Hello World!")
+}
+val app = a setMethod (Method.POST)
 ```
 
 ### patch
@@ -276,9 +291,9 @@ Patches the response produced by the HTTP application using a `Patch`.
 
 ```scala
   val a: HttpApp[Any, Nothing] = Http.collect[Request] {
-    case Method.GET -> !! / "text" => Response.text("Hello World!")
-  }
-  val app = a.patch(Patch.setStatus(Status.ACCEPTED))
+  case Method.GET -> !! / "text" => Response.text("Hello World!")
+}
+val app = a.patch(Patch.setStatus(Status.ACCEPTED))
 ```
 
 ### getBodyAsString
@@ -287,9 +302,9 @@ Patches the response produced by the HTTP application using a `Patch`.
 
 ```scala
   val a: HttpApp[Any, Nothing] = Http.collect[Request] {
-    case Method.GET -> !! / "text" => Response.text("Hello World!")
-  }
-  val app: Http[Any, Throwable, Request, String] = a.getBodyAsString
+  case Method.GET -> !! / "text" => Response.text("Hello World!")
+}
+val app: Http[Any, Throwable, Request, String] = a.getBodyAsString
 ```
 
 ## Converting an `Http` to `HttpApp`
@@ -299,7 +314,7 @@ like `map`,`contramap`, etc.
 
 ```scala
   val a: Http[Any, Nothing, String, String] = Http.fromFunction[String] {
-    case "GET" => "Ok"
-  }
-  val app: HttpApp[Any, Nothing] = a.contramap[Request](r => r.method.toString()).map[Response](s => Response.text(s))
+  case "GET" => "Ok"
+}
+val app: HttpApp[Any, Nothing] = a.contramap[Request](r => r.method.toString()).map[Response](s => Response.text(s))
 ```
