@@ -2,11 +2,8 @@ package zhttp.service
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler.ClientHandshakeStateEvent
-import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.{
-  HandshakeComplete,
-  ServerHandshakeStateEvent,
-}
-import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame}
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.ServerHandshakeStateEvent
+import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import zhttp.socket.SocketApp.Handle
 import zhttp.socket.{SocketApp, WebSocketFrame}
 import zio.stream.ZStream
@@ -48,7 +45,7 @@ final class WebSocketAppHandler[R](
   override def userEventTriggered(ctx: ChannelHandlerContext, event: AnyRef): Unit = {
 
     event match {
-      case _: HandshakeComplete | ClientHandshakeStateEvent.HANDSHAKE_COMPLETE                       =>
+      case _: WebSocketServerProtocolHandler.HandshakeComplete | ClientHandshakeStateEvent.HANDSHAKE_COMPLETE =>
         app.open match {
           case Some(v) =>
             v match {
