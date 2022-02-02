@@ -29,6 +29,43 @@ final case class URL(
   }
 
   def encode: String = URL.asString(self)
+
+  def setPath(path: Path) =
+    copy(path = path)
+
+  def setPath(path: String) = copy(path = Path(path))
+
+  def setHost(host: String) = {
+    val location = kind match {
+      case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, host, URL.portFromScheme(Scheme.HTTP))
+      case abs: URL.Location.Absolute => abs.copy(host = host)
+    }
+    copy(kind = location)
+  }
+
+  def setQueryParams(queryParams: Map[String, List[String]]) =
+    copy(queryParams = queryParams)
+
+  def setQueryParams(query: String) =
+    copy(queryParams = URL.queryParams(query))
+
+  def setPort(port: Int) = {
+    val location = kind match {
+      case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, "", port)
+      case abs: URL.Location.Absolute => abs.copy(port = port)
+    }
+
+    copy(kind = location)
+  }
+
+  def setScheme(scheme: Scheme) = {
+    val location = kind match {
+      case URL.Location.Relative      => URL.Location.Absolute(scheme, "", URL.portFromScheme(scheme))
+      case abs: URL.Location.Absolute => abs.copy(scheme = scheme)
+    }
+
+    copy(kind = location)
+  }
 }
 object URL {
   sealed trait Location
@@ -47,13 +84,12 @@ object URL {
     }
   }
 
+  private def portFromScheme(scheme: Scheme): Int = scheme match {
+    case Scheme.HTTP  => 80
+    case Scheme.HTTPS => 443
+  }
+
   private def fromAbsoluteURI(uri: URI): Option[URL] = {
-
-    def portFromScheme(scheme: Scheme): Int = scheme match {
-      case Scheme.HTTP  => 80
-      case Scheme.HTTPS => 443
-    }
-
     for {
       scheme <- Scheme.fromString(uri.getScheme)
       host   <- Option(uri.getHost)
@@ -66,6 +102,8 @@ object URL {
   private def fromRelativeURI(uri: URI): Option[URL] = for {
     path <- Option(uri.getRawPath)
   } yield URL(Path(path), Location.Relative, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
+
+  def empty: URL = root
 
   def fromString(string: String): Either[HttpError, URL] = {
     def invalidURL = Left(HttpError.BadRequest(s"Invalid URL: $string"))
