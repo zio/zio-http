@@ -2,12 +2,9 @@ package zhttp.service.client.experimental
 
 import io.netty.bootstrap.Bootstrap
 import zhttp.service.client.experimental.transport.Transport
-//import io.netty.buffer.Unpooled
+
 import io.netty.channel.Channel
 import io.netty.handler.codec.http._
-//import zhttp.http._
-//import zhttp.service.HttpMessageCodec
-//import zhttp.service.client.experimental.ZClient.Config
 import zio.duration.Duration
 import zio.{Task}
 
@@ -126,76 +123,3 @@ object ZClient {
     }
   }
 }
-
-//case class DefaultZClient(
-//  settings: Config,
-//  connectionManager: ZConnectionManager,
-//) extends HttpMessageCodec {
-//  def run(req: ReqParams): Task[Resp] =
-//    for {
-//      jReq    <- Task(encodeClientParams(HttpVersion.HTTP_1_1, req))
-//      channel <- connectionManager.fetchConnection(jReq)
-//      prom    <- zio.Promise.make[Throwable, Resp]
-//      _       <- ZIO.effect(connectionManager.currentExecRef += (channel -> (prom, jReq)))
-//      _       <- ZIO.effect { channel.pipeline().fireChannelActive() }
-//      resp    <- prom.await
-//    } yield resp
-//
-//  def run(req: Request): Task[Resp] =
-//    for {
-//      jReq    <- encodeClientParams(req)
-//      channel <- connectionManager.fetchConnection(jReq)
-//      prom    <- zio.Promise.make[Throwable, Resp]
-//      _       <- ZIO.effect(connectionManager.currentExecRef += (channel -> (prom, jReq)))
-//      _       <- ZIO.effect { channel.pipeline().fireChannelActive() }
-//      resp    <- prom.await
-//    } yield resp
-//
-//  def run(str: String): Task[Resp] = {
-//    for {
-//      url <- ZIO.fromEither(URL.fromString(str))
-//      req = ReqParams(url = url)
-//      res <- run(req)
-//    } yield res
-//  }
-//
-//  def encodeClientParams(jVersion: HttpVersion, req: ReqParams): FullHttpRequest = {
-//    val method      = req.method.asHttpMethod
-//    val uri         = req.url.encode
-//    val content     = req.getBodyAsString match {
-//      case Some(text) => Unpooled.copiedBuffer(text, HTTP_CHARSET)
-//      case None       => Unpooled.EMPTY_BUFFER
-//    }
-//    val headers     = req.getHeaders.encode.set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
-//    val writerIndex = content.writerIndex()
-//    if (writerIndex != 0) {
-//      headers.set(HttpHeaderNames.CONTENT_LENGTH, writerIndex.toString())
-//    }
-//    val jReq        = new DefaultFullHttpRequest(jVersion, method, uri, content)
-//    jReq.headers().set(headers)
-//
-//    jReq
-//  }
-//
-//  def encodeClientParams(req: Request): Task[FullHttpRequest] = {
-//    val jVersion = HttpVersion.HTTP_1_1
-//    val method      = req.method.asHttpMethod
-//    val uri         = req.url.encode
-//    for {
-//      reqContent <- req.getBodyAsString
-//      content = Unpooled.copiedBuffer(reqContent,HTTP_CHARSET)
-//    } yield (new DefaultFullHttpRequest(jVersion, method, uri, content))
-//  }
-//
-////  private def asyncRequest(): Unit = {
-//////    try {
-//////      //        Thread.sleep(13000): Unit
-//////    } catch {
-//////      case _: Throwable =>
-//////        if (req.refCnt() > 0) {
-//////          req.release(req.refCnt()): Unit
-//////        }
-//////    }
-////  }
-//
-//}
