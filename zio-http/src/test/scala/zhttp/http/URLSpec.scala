@@ -31,21 +31,19 @@ object URLSpec extends DefaultRunnableSpec {
         )
       } +
       test("Should Handle query string") {
-        val temp =
-          URL.fromString("http:yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21")
-        println(temp)
-
+        val probe: URL =
+          urls"http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21"
         assert(
-          url"http:yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21",
+          probe,
         )(
           equalTo(
-//            URL
-//              .fromString(
-            "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21",
+            URL
+              .fromString(
+                "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21",
+              )
+              .toOption
+              .get,
           ),
-//              .toOption
-//              .get,
-//          ),
         )
       },
     test("Should handle uri fragment") {
