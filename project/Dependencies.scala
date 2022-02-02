@@ -1,3 +1,4 @@
+import sbt.Keys.scalaVersion
 import sbt._
 
 object Dependencies {
@@ -22,4 +23,6 @@ object Dependencies {
   val `zio-streams`  = "dev.zio" %% "zio-streams"  % ZioVersion
   val `zio-test`     = "dev.zio" %% "zio-test"     % ZioVersion % "test"
   val `zio-test-sbt` = "dev.zio" %% "zio-test-sbt" % ZioVersion % "test"
+
+  val macroLib = "org.scala-lang" % "scala-reflect" % "2.13.8"
 }

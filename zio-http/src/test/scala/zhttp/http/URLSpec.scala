@@ -1,6 +1,7 @@
 package zhttp.http
 
 import zhttp.http.URL.Fragment
+import zhttp.http.url._
 import zhttp.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
@@ -27,6 +28,24 @@ object URLSpec extends DefaultRunnableSpec {
           isRight(
             equalTo(Map("user_id" -> List("1", "2"), "order" -> List("ASC"), "text" -> List("zio-http is awesome!"))),
           ),
+        )
+      } +
+      test("Should Handle query string") {
+        val temp =
+          URL.fromString("http:yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21")
+        println(temp)
+
+        assert(
+          url"http:yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21",
+        )(
+          equalTo(
+//            URL
+//              .fromString(
+            "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21",
+          ),
+//              .toOption
+//              .get,
+//          ),
         )
       },
     test("Should handle uri fragment") {

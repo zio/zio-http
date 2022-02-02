@@ -106,6 +106,7 @@ lazy val zhttp = (project in file("zio-http"))
       `sttp-zio`,
       `netty-incubator`,
       `scala-compact-collection`,
+      macroLib,
     ),
   )
 
