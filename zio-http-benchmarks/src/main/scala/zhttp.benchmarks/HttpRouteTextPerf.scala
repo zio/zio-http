@@ -13,11 +13,13 @@ class HttpRouteTextPerf {
 
   private val runtime = Runtime.default
 
-  private val res          = Response.text("HELLO WORLD")
-  private val app          = Http.succeed(res)
-  private val req: Request = Request(Method.GET, URL(!!))
-  private val httpProgram  = ZIO.foreach_(0 to 1000) { _ => app.execute(req).toZIO }
-  private val UIOProgram   = ZIO.foreach_(0 to 1000) { _ => UIO(res) }
+  private val res                         = Response.text("HELLO WORLD")
+  private val app                         = Http.succeed(res)
+  private val req: Request                = Request(Method.GET, URL(!!))
+  private val convert: Request => Request = a => a
+
+  private val httpProgram = ZIO.foreach_(0 to 1000) { _ => app.execute(req, convert).toZIO }
+  private val UIOProgram  = ZIO.foreach_(0 to 1000) { _ => UIO(res) }
 
   @Benchmark
   def benchmarkHttpProgram(): Unit = {

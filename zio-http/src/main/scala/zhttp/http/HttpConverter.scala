@@ -1,15 +1,16 @@
 package zhttp.http
 
-import java.net.InetAddress
-
 import io.netty.buffer.ByteBuf
 import io.netty.handler.codec.http.FullHttpRequest
 import zio.Task
 
+import java.net.InetAddress
+
 trait HttpConverter[-X, +A] {
   def convert(request: X): A
 }
-object HttpConverter        {
+
+object HttpConverter {
   implicit object JReqToRequest extends HttpConverter[FullHttpRequest, Request] {
     override def convert(jReq: FullHttpRequest): Request = {
       new Request {
@@ -25,4 +26,5 @@ object HttpConverter        {
       }
     }
   }
+
 }

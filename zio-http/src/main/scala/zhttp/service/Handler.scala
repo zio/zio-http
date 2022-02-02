@@ -26,19 +26,21 @@ private[zhttp] final case class Handler[R](
     unsafeRun(
       jReq,
       app,
-      new Request {
-        override def method: Method = Method.fromHttpMethod(jReq.method())
+      jReq => {
+        new Request {
+          override def method: Method = Method.fromHttpMethod(jReq.method())
 
-        override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
+          override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
 
-        override def getHeaders: Headers = Headers.make(jReq.headers())
+          override def getHeaders: Headers = Headers.make(jReq.headers())
 
-        override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
+          override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
 
-        override def remoteAddress: Option[InetAddress] = {
-          ctx.channel().remoteAddress() match {
-            case m: InetSocketAddress => Some(m.getAddress)
-            case _                    => None
+          override def remoteAddress: Option[InetAddress] = {
+            ctx.channel().remoteAddress() match {
+              case m: InetSocketAddress => Some(m.getAddress)
+              case _                    => None
+            }
           }
         }
       },
@@ -51,9 +53,9 @@ private[zhttp] final case class Handler[R](
   private def unsafeRun[A](
     jReq: FullHttpRequest,
     http: Http[R, Throwable, A, Response],
-    a: A,
+    convert: => ((FullHttpRequest) => A),
   )(implicit ctx: Ctx): Unit = {
-    http.execute(a) match {
+    http.execute(jReq, convert) match {
       case HExit.Effect(resM) =>
         unsafeRunZIO {
           resM.foldM(
