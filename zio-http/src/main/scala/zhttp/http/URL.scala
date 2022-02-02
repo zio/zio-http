@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
-import zhttp.http.URL.Fragment
+import zhttp.http.URL.{Fragment, Location}
 
 import java.net.URI
 import scala.jdk.CollectionConverters._
@@ -13,17 +13,24 @@ final case class URL(
   queryParams: Map[String, List[String]] = Map.empty,
   fragment: Option[Fragment] = None,
 ) { self =>
-  val host: Option[String] = kind match {
+  def encode: String = URL.encode(self)
+
+  def host: Option[String] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.host)
   }
 
-  val port: Option[Int] = kind match {
+  def isAbsolute: Boolean = self.kind match {
+    case Location.Absolute(_, _, _) => true
+    case Location.Relative          => false
+  }
+
+  def isRelative: Boolean = !isAbsolute
+
+  def port: Option[Int] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.port)
   }
-
-  def encode: String = URL.asString(self)
 
   def setHost(host: String): URL = {
     val location = kind match {
@@ -68,7 +75,9 @@ final case class URL(
   }
 }
 object URL {
-  def asString(url: URL): String = {
+  def empty: URL = root
+
+  def encode(url: URL): String = {
 
     def path: String = {
       val encoder = new QueryStringEncoder(s"${url.path.encode}${url.fragment.fold("")(f => "#" + f.raw)}")
@@ -85,8 +94,6 @@ object URL {
         else s"${scheme.encode}://$host:$port$path"
     }
   }
-
-  def empty: URL = root
 
   def fromString(string: String): Either[HttpError, URL] = {
     def invalidURL = Left(HttpError.BadRequest(s"Invalid URL: $string"))
