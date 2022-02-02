@@ -30,17 +30,20 @@ object DynamicServer {
       } yield res
     }
 
+  def baseURL(scheme: Scheme): ZIO[DynamicServer, Nothing, String] =
+    getPort.map(port => s"${scheme.encode}://localhost:$port")
+
   def deploy(app: HttpApp[HttpEnv, Throwable]): ZIO[DynamicServer, Nothing, String] =
     ZIO.accessM[DynamicServer](_.get.add(app))
 
   def get(id: Id): ZIO[DynamicServer, Nothing, Option[HttpApp[HttpEnv, Throwable]]] =
     ZIO.accessM[DynamicServer](_.get.get(id))
 
-  def baseURL: ZIO[DynamicServer, Nothing, String] = getPort.map(port => s"http://localhost:$port")
-
   def getPort: ZIO[DynamicServer, Nothing, Int] = ZIO.accessM[DynamicServer](_.get.getPort)
 
   def getStart: ZIO[DynamicServer, Nothing, Start] = ZIO.accessM[DynamicServer](_.get.getStart)
+
+  def httpURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.HTTP)
 
   def live: ZLayer[Any, Nothing, DynamicServer] = {
     for {
@@ -50,6 +53,8 @@ object DynamicServer {
   }.toLayer
 
   def setStart(s: Start): ZIO[DynamicServer, Nothing, Boolean] = ZIO.accessM[DynamicServer](_.get.setStart(s))
+
+  def wsURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.WS)
 
   sealed trait Service {
     def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id]

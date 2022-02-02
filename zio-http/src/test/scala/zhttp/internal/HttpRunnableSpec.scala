@@ -67,7 +67,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     def deployWS: HttpTestClient[Any, SocketApp[Any], ClientResponse] =
       for {
         id       <- Http.fromZIO(DynamicServer.deploy(app))
-        url      <- Http.fromZIO(DynamicServer.baseURL)
+        url      <- Http.fromZIO(DynamicServer.wsURL)
         response <- Http.fromFunctionZIO[SocketApp[Any]] { app =>
           Client.socket(
             url = url,
