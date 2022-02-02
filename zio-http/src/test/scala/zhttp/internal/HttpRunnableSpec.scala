@@ -88,17 +88,37 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
 
   def serve[R <: Has[_]](
     app: HttpApp[R, Throwable],
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
+  ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] = {
+    val preferDirect          = true  // prefer direct memory allocation
+    val nHeapArena            = 1     // number of heap arenas to be allocated
+    val nDirectArena          = 1     // number of direct arenas to be allocated
+    val pageSize              = 8192  // buffer page size
+    val maxOrder              = 11    // maximum order
+    val smallCacheSize        = 0     // small cache size
+    val normalCacheSize       = 0     // normal cache size
+    val useCacheForAllThreads = false // use or not cache for all threads
     for {
       start <- Server
         .make(
           Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection ++ Server.allocator(
-            Some(new PooledByteBufAllocator(true, 1, 1, 8192, 11, 0, 0, true)),
+            Some(
+              new PooledByteBufAllocator(
+                preferDirect,
+                nHeapArena,
+                nDirectArena,
+                pageSize,
+                maxOrder,
+                smallCacheSize,
+                normalCacheSize,
+                useCacheForAllThreads,
+              ),
+            ),
           ),
         )
         .orDie
       _     <- DynamicServer.setStart(start).toManaged_
     } yield ()
+  }
 
   def getActiveDirectBuffers(alloc: PooledByteBufAllocator): UIO[Long] = ZIO.effectSuspendTotal {
     val metric = alloc.metric().directArenas().asScala.toList
