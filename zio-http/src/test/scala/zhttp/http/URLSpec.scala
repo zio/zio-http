@@ -108,14 +108,7 @@ object URLSpec extends DefaultRunnableSpec {
         .setScheme(Scheme.HTTPS)
         .setQueryParams("?type=builder&query=provided")
 
-      val constructedUrl =
-        URL(
-          Path("/list"),
-          URL.Location.Absolute(Scheme.HTTPS, "www.yourdomain.com", 8080),
-          Map("type" -> List("builder"), "query" -> List("provided")),
-        )
-
-      assert(builderUrl)(equalTo(constructedUrl))
+      assert(builderUrl.encode)(equalTo("https://www.yourdomain.com:8080/list?type=builder&query=provided"))
     },
     test("returns relative URL if port, host, and scheme are not set") {
       val builderUrl = URL.empty
@@ -124,10 +117,7 @@ object URLSpec extends DefaultRunnableSpec {
           Map("type" -> List("builder"), "query" -> List("provided")),
         )
 
-      val constructedUrl =
-        URL(Path("/list"), URL.Location.Relative, Map("type" -> List("builder"), "query" -> List("provided")))
-
-      assert(builderUrl)(equalTo(constructedUrl))
+      assert(builderUrl.encode)(equalTo("/list?type=builder&query=provided"))
     },
   )
 
