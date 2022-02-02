@@ -28,7 +28,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
   def request(request: Client.ClientRequest): Task[Client.ClientResponse] =
     for {
       promise <- Promise.make[Throwable, Client.ClientResponse]
-      jReq    <- encodeClientParams(HttpVersion.HTTP_1_1, request)
+      jReq    <- encode(HttpVersion.HTTP_1_1, request)
       _       <- Task(unsafeRequest(request, jReq, promise)).catchAll(cause => promise.fail(cause))
       res     <- promise.await
     } yield res

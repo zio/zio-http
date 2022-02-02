@@ -22,8 +22,8 @@ final case class URL(
   }
 
   def isAbsolute: Boolean = self.kind match {
-    case Location.Absolute(_, _ , _) => true
-    case Location.Relative => false
+    case Location.Absolute(_, _, _) => true
+    case Location.Relative          => false
   }
 
   def isRelative: Boolean = !isAbsolute
