@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler.ClientHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.ServerHandshakeStateEvent
-import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler, WebSocketFrame => JWebSocketFrame}
+import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
 import zhttp.socket.SocketApp.Handle
 import zhttp.socket.{SocketApp, WebSocketFrame}
 import zio.stream.ZStream
@@ -54,7 +54,7 @@ final class WebSocketAppHandler[R](
             }
           case None    => ctx.fireUserEventTriggered(event)
         }
-      case ServerHandshakeStateEvent.HANDSHAKE_TIMEOUT | ClientHandshakeStateEvent.HANDSHAKE_TIMEOUT =>
+      case ServerHandshakeStateEvent.HANDSHAKE_TIMEOUT | ClientHandshakeStateEvent.HANDSHAKE_TIMEOUT          =>
         app.timeout match {
           case Some(v) => zExec.unsafeRun(ctx)(v)
           case None    => ctx.fireUserEventTriggered(event)

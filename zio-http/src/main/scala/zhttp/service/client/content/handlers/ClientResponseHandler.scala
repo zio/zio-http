@@ -8,6 +8,7 @@ import zhttp.service.Client
 
 /**
  * Transforms a Netty FullHttpResponse into a zio-http specific ClientResponse.
+ * // TODO Do we even need this anymore?
  */
 final class ClientResponseHandler() extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 

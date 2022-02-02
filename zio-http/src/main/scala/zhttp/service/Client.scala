@@ -1,22 +1,21 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.buffer.{ByteBuf, ByteBufUtil}
+import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.channel.{
   Channel,
+  ChannelFactory => JChannelFactory,
   ChannelHandlerContext,
   ChannelInitializer,
-  ChannelFactory => JChannelFactory,
   EventLoopGroup => JEventLoopGroup,
 }
+import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
-import io.netty.handler.codec.http.{FullHttpRequest, HttpClientCodec, HttpObjectAggregator, HttpVersion}
 import zhttp.http._
 import zhttp.http.headers.HeaderExtension
 import zhttp.service
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.content.handlers.ClientResponseHandler
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.{Socket, SocketApp}
 import zio.{Chunk, Promise, Task, ZIO}
@@ -51,6 +50,9 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     )
   } yield res
 
+  /**
+   * It handles both - Websocket and HTTP requests.
+   */
   private def unsafeRequest(
     req: ClientRequest,
     jReq: FullHttpRequest,
@@ -63,8 +65,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
 
       assert(host != null, "Host name is required")
 
-      val port   = req.url.port.getOrElse(80)
-      val scheme = uri.getScheme
+      val port = req.url.port.getOrElse(80)
 
       val isWebSocket = req.url.scheme.exists(_.isWebSocket)
       val isSSL       = req.url.scheme.exists(_.isSecure)
@@ -85,22 +86,22 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
           // This is also required to make WebSocketHandlers work
           pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
 
-          // Response handler is added to convert Netty responses to our own responses
-          pipeline.addLast("ZHttpClientResponseHandler", new ClientResponseHandler())
+          // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
+          pipeline.addLast("ZHttpClientInboundHandler", new ClientInboundHandler(rtm, jReq, promise, isWebSocket))
 
           // Add WebSocketHandlers if it's a `ws` or `wss` request
           if (isWebSocket) {
             val headers = req.getHeaders.encode
             val app     = req.attribute.socketApp.getOrElse(Socket.empty.toSocketApp)
-            val config  = app.protocol.clientBuilder.customHeaders(headers).build()
+            val config  = app.protocol.clientBuilder
+              .customHeaders(headers)
+              .webSocketUri(req.url.encode)
+              .build()
 
-            // Handles the heavy lifting required to
-            pipeline.addLast("ZHttpWebSocketClientProtocolHandler", new WebSocketClientProtocolHandler(config))
-            pipeline.addLast("ZHttpWebSocketAppHandler", new WebSocketAppHandler(rtm, app))
-          } else {
-            pipeline.addLast("ZHttpClientInboundHandler", new ClientInboundHandler(rtm, jReq, promise))
+            // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
+            pipeline.addLast(WEB_SOCKET_CLIENT_PROTOCOL_HANDLER, new WebSocketClientProtocolHandler(config))
+            pipeline.addLast(WEB_SOCKET_HANDLER, new WebSocketAppHandler(rtm, app))
           }
-
           ()
         }
       }
@@ -208,7 +209,17 @@ object Client {
     def withSSL(ssl: ClientSSLOptions): Attribute           = self.copy(ssl = Some(ssl))
     def withSocketApp(socketApp: SocketApp[Any]): Attribute = self.copy(socketApp = Some(socketApp))
   }
-  object Attribute                                                                                     {
+
+  object ClientResponse {
+    private[zhttp] def unsafeFromJResponse(jRes: FullHttpResponse): ClientResponse = {
+      val status  = Status.fromHttpResponseStatus(jRes.status())
+      val headers = Headers.decode(jRes.headers())
+      val content = Unpooled.copiedBuffer(jRes.content())
+      Client.ClientResponse(status, headers, content)
+    }
+  }
+
+  object Attribute {
     def empty: Attribute = Attribute()
   }
 }
