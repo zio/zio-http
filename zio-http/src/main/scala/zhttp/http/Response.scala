@@ -64,7 +64,7 @@ final case class Response private (
   /**
    * Wraps the current response as a Http
    */
-  def wrapHttp: Http[Any, Nothing, Any, Response] = Http.succeed(self)
+  def toHttp: Http[Any, Nothing, Any, Response] = Http.succeed(self)
 
   /**
    * Wraps the current response into a ZIO

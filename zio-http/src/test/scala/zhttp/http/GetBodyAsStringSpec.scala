@@ -21,7 +21,7 @@ object GetBodyAsStringSpec extends DefaultRunnableSpec {
           val request = Client
             .ClientRequest(
               URL(!!),
-              getHeaders = Headers.contentType(s"text/html; charset=$charset"),
+              headers = Headers.contentType(s"text/html; charset=$charset"),
               data = HttpData.BinaryChunk(Chunk.fromArray("abc".getBytes(charset))),
             )
 

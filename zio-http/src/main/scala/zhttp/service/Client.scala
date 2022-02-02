@@ -165,7 +165,7 @@ object Client {
   final case class ClientRequest(
     url: URL,
     method: Method = Method.GET,
-    getHeaders: Headers = Headers.empty,
+    headers: Headers = Headers.empty,
     private[zhttp] val data: HttpData = HttpData.empty,
     private[zhttp] val attribute: Attribute = Attribute.empty,
     private val channelContext: ChannelHandlerContext = null,
@@ -173,6 +173,8 @@ object Client {
     self =>
 
     def getBodyAsString: Task[String] = getBodyAsByteBuf.map(_.toString(getHeaders.getCharset))
+
+    def getHeaders: Headers = headers
 
     def remoteAddress: Option[InetAddress] = {
       if (channelContext != null && channelContext.channel().remoteAddress().isInstanceOf[InetSocketAddress])
@@ -185,7 +187,7 @@ object Client {
      * Updates the headers using the provided function
      */
     override def updateHeaders(update: Headers => Headers): ClientRequest =
-      self.copy(getHeaders = update(self.getHeaders))
+      self.copy(headers = update(self.getHeaders))
 
     private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
   }
