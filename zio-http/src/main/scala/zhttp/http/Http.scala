@@ -72,7 +72,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Consumes the input and executes the Http.
    */
-  final def apply(a: A): ZIO[R, Option[E], B] = execute(a, (_: A) => a).toZIO
+  final def apply(a: A): ZIO[R, Option[E], B] = execute(a, (b: A) => b).toZIO
 
   /**
    * Makes the app resolve with a constant value
