@@ -1,5 +1,7 @@
 package zhttp.http
 
+import java.nio.charset.Charset
+
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.ChannelHandler
 import zhttp.html.Html
@@ -10,7 +12,6 @@ import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
 
-import java.nio.charset.Charset
 import scala.annotation.unused
 
 /**
@@ -72,7 +73,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Consumes the input and executes the Http.
    */
-  final def apply(a: A): ZIO[R, Option[E], B] = execute(a, (b: A) => b).toZIO
+  final def apply(a: A): ZIO[R, Option[E], B] = execute2(a).toZIO
 
   /**
    * Makes the app resolve with a constant value
@@ -369,6 +370,30 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * should be stack safe. The performance improves quite significantly if no additional heap allocations are required
    * this way.
    */
+
+  final private[zhttp] def execute2[X](a: X)(implicit ev: HttpConverter[X, A]): HExit[R, E, B] = {
+    self match {
+      case Http.Empty         => HExit.empty
+      case Http.Identity      => HExit.succeed(ev.convert(a).asInstanceOf[B])
+      case Succeed(b)         => HExit.succeed(b)
+      case Fail(e)            => HExit.fail(e)
+      case FromFunctionZIO(f) => HExit.fromZIO(f(ev.convert(a)))
+      case Collect(pf)        => if (pf.isDefinedAt(ev.convert(a))) HExit.succeed(pf(ev.convert(a))) else HExit.empty
+      case Chain(self, other) => self.execute2(a).flatMap(b => other.asInstanceOf[Http[R,E,A,B]].execute2(b.asInstanceOf[X]))
+      case Race(self, other)  =>
+        (self.execute2(a), other.execute2(a)) match {
+          case (HExit.Effect(self), HExit.Effect(other)) =>
+            Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute2(a)
+          case (HExit.Effect(_), other)                  => other
+          case (self, _)                                 => self
+        }
+
+      case FoldHttp(self, ee, bb, dd) =>
+        self.execute2(a).foldExit(ee(_).execute2(a), bb(_).execute2(a), dd.execute2(a))
+
+      case RunMiddleware(app, mid) => mid(app).execute2(a)
+    }
+  }
 
   final private[zhttp] def execute[X](a: X, b: => (X => A)): HExit[R, E, B] = {
     self match {

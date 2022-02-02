@@ -10,6 +10,7 @@ trait HttpConverter[-X, +A] {
   def convert(request: X): A
 }
 
+
 object HttpConverter {
   implicit object JReqToRequest extends HttpConverter[FullHttpRequest, Request] {
     override def convert(jReq: FullHttpRequest): Request = {
@@ -26,5 +27,6 @@ object HttpConverter {
       }
     }
   }
+
 
 }
