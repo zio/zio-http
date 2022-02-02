@@ -6,9 +6,7 @@ import zhttp.internal.HttpGen
 import zio.test._
 
 object SchemeSpec extends DefaultRunnableSpec {
-  override def spec = schemeSpec
-
-  def schemeSpec = suite("SchemeSpec") {
+  override def spec = suite("SchemeSpec") {
     testM("string") {
       checkAll(HttpGen.scheme) { scheme =>
         assertTrue(Scheme.decode(scheme.encode).get == scheme)
@@ -28,7 +26,8 @@ object SchemeSpec extends DefaultRunnableSpec {
       }
   }
 
-  def jHttpScheme: Gen[Any, HttpScheme] = Gen.fromIterable(List(HttpScheme.HTTP, HttpScheme.HTTPS))
+  private def jHttpScheme: Gen[Any, HttpScheme] = Gen.fromIterable(List(HttpScheme.HTTP, HttpScheme.HTTPS))
 
-  def jWebSocketScheme: Gen[Any, WebSocketScheme] = Gen.fromIterable(List(WebSocketScheme.WS, WebSocketScheme.WSS))
+  private def jWebSocketScheme: Gen[Any, WebSocketScheme] =
+    Gen.fromIterable(List(WebSocketScheme.WS, WebSocketScheme.WSS))
 }
