@@ -1,14 +1,11 @@
 package zhttp.service
 
-import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.WebSocketUpgrade
-import zio.{Task, UIO, ZIO}
-
-import java.net.{InetAddress, InetSocketAddress}
+import zio.{UIO, ZIO}
 
 @Sharable
 private[zhttp] final case class Handler[R](
@@ -25,25 +22,7 @@ private[zhttp] final case class Handler[R](
     implicit val iCtx: ChannelHandlerContext = ctx
     unsafeRun(
       jReq,
-      app,
-      jReq => {
-        new Request {
-          override def method: Method = Method.fromHttpMethod(jReq.method())
-
-          override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
-
-          override def getHeaders: Headers = Headers.make(jReq.headers())
-
-          override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
-
-          override def remoteAddress: Option[InetAddress] = {
-            ctx.channel().remoteAddress() match {
-              case m: InetSocketAddress => Some(m.getAddress)
-              case _                    => None
-            }
-          }
-        }
-      },
+      app
     )
   }
 
@@ -53,9 +32,8 @@ private[zhttp] final case class Handler[R](
   private def unsafeRun[A](
     jReq: FullHttpRequest,
     http: Http[R, Throwable, A, Response],
-    convert: => ((FullHttpRequest) => A),
   )(implicit ctx: Ctx): Unit = {
-    http.execute(jReq, convert) match {
+    http.execute(jReq) match {
       case HExit.Effect(resM) =>
         unsafeRunZIO {
           resM.foldM(

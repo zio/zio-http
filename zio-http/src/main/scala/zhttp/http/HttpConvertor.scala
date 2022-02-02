@@ -6,13 +6,13 @@ import zio.Task
 
 import java.net.InetAddress
 
-trait HttpConverter[-X, +A] {
+trait HttpConvertor[-X, +A] {
   def convert(request: X): A
 }
 
 
-object HttpConverter {
-  implicit object JReqToRequest extends HttpConverter[FullHttpRequest, Request] {
+object HttpConvertor {
+  implicit object JReqToRequest extends HttpConvertor[FullHttpRequest, Request] {
     override def convert(jReq: FullHttpRequest): Request = {
       new Request {
         override def method: Method = Method.fromHttpMethod(jReq.method())
@@ -27,6 +27,12 @@ object HttpConverter {
       }
     }
   }
+  // not implicit
+  private val empty: HttpConvertor[Any, Nothing] = new HttpConvertor[Any, Nothing] {
+    override def convert(a: Any): Nothing = a.asInstanceOf[Nothing]
+  }
+
+  implicit def identity[A]: HttpConvertor[A, A] = empty // Create empty once for performance.
 
 
 }
