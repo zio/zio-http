@@ -1,13 +1,13 @@
-package zhttp.service.client.experimental
+package zhttp.service.client.experimental.transport
 
 import io.netty.channel
 import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.channel.epoll.{EpollServerSocketChannel, EpollSocketChannel}
 import io.netty.channel.kqueue.{KQueueServerSocketChannel, KQueueSocketChannel}
 import io.netty.channel.socket.nio.{NioServerSocketChannel, NioSocketChannel}
-import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ServerChannel, kqueue}
+import io.netty.channel.{Channel, ServerChannel, kqueue, ChannelFactory => JChannelFactory}
 import io.netty.incubator.channel.uring.{IOUringServerSocketChannel, IOUringSocketChannel}
-import zhttp.service.{ChannelFactory, EventLoopGroupN}
+import zhttp.service.ChannelFactory
 import zio.{Task, ZManaged}
 
 /**

@@ -1,9 +1,10 @@
-package zhttp.service.client.experimental
+package zhttp.service.client.experimental.handler
 
 import io.netty.buffer.Unpooled
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpResponse
 import zhttp.http.{Headers, Status}
+import zhttp.service.client.experimental.Resp
 
 /**
  * Transforms a Netty FullHttpResponse into a zio-http specific ClientResponse.

@@ -1,10 +1,11 @@
-package zhttp.service
+package zhttp.service.client.experimental.transport
 
 import io.netty.channel
 import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup}
 import io.netty.channel.kqueue.{KQueue, KQueueEventLoopGroup}
 import io.netty.incubator.channel.uring.IOUringEventLoopGroup
-import zio._
+import zhttp.service.{ChannelFuture, EventLoopGroup}
+import zio.{Task, UIO, ZLayer, ZManaged}
 
 import java.util.concurrent.Executor
 
@@ -84,7 +85,8 @@ object EventLoopGroupN {
       else nioTask(nThreads)
 
     def default: ZManaged[Any, Nothing, channel.EventLoopGroup] = make(UIO(new channel.DefaultEventLoopGroup()))
-    def defaultTask: Task[channel.EventLoopGroup]               = Task(new channel.DefaultEventLoopGroup())
+
+    def defaultTask: Task[channel.EventLoopGroup] = Task(new channel.DefaultEventLoopGroup())
   }
 
 }

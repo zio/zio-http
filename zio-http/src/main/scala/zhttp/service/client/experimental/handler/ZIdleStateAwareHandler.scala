@@ -1,4 +1,4 @@
-package zhttp.service.client.experimental
+package zhttp.service.client.experimental.handler
 
 import io.netty.channel.{ChannelDuplexHandler, ChannelHandlerContext}
 import io.netty.handler.timeout.{IdleState, IdleStateEvent}

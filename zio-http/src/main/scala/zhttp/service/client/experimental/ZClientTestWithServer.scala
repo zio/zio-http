@@ -46,8 +46,8 @@ object ZClientTestWithServer extends App {
   def triggerClientSequential(cl: DefaultZClient) = for {
     req1 <- ZIO.effect("http://localhost:8081/foo/1")
     resp <- cl.run(req1)
-    rval <- resp.getBodyAsString
-    _    <- ZIO.effect(println(s"Response Content from $req1 ${rval.length} "))
+    r1 <- resp.getBodyAsString
+    _    <- ZIO.effect(println(s"Response Content from $req1 ${r1.length} "))
 
     req3 <- ZIO.effect("http://www.google.com")
     resp3 <- cl.run(req3)
@@ -64,8 +64,8 @@ object ZClientTestWithServer extends App {
     r4    <- resp4.getBodyAsString
     _     <- ZIO.effect(println(s"Response Content  : ${r4.length}"))
 
-    activeCon <- cl.connectionManager.getActiveConnections
-    _ <- ZIO.effect(println(s"Number of active connections for four requests: $activeCon \n\n connections map ${cl.connectionManager.connRef}"))
+    currActiveConn <- cl.connectionManager.getActiveConnections
+    _ <- ZIO.effect(println(s"Number of active connections for four requests: $currActiveConn \n\n connections map ${cl.connectionManager.connRef}"))
   } yield ()
 
   // multiple client shared resources
