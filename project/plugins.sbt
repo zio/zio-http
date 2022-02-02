@@ -1,4 +1,4 @@
-addSbtPlugin("ch.epfl.scala"      % "sbt-bloop"          % "1.4.12")
+addSbtPlugin("ch.epfl.scala"      % "sbt-bloop"          % "7d2bf0af+20171218-1522")
 addSbtPlugin("ch.epfl.scala"      % "sbt-scalafix"       % "0.9.34")
 addSbtPlugin("org.scalameta"      % "sbt-scalafmt"       % "2.4.6")
 addSbtPlugin("pl.project13.scala" % "sbt-jmh"            % "0.4.3")
