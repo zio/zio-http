@@ -257,7 +257,7 @@ object ServerSpec extends HttpRunnableSpec {
             actual      <- ZIO.foreachPar(0 to size)(_ => Http.response(response).deploy.status.run())
             allocations <- activeAllocations
           } yield (assert(actual)(equalTo(expected))) && assert((0L, 1L))(equalTo(allocations))
-        } +
+        } @@ flaky +
           testM("update after cache") {
             val server = "ZIO-Http"
             for {
@@ -265,7 +265,7 @@ object ServerSpec extends HttpRunnableSpec {
               actual      <- Http.response(res).withServer(server).deploy.headerValue(HeaderNames.server).run()
               allocations <- activeAllocations
             } yield assert(actual)(isSome(equalTo(server))) && assert((0L, 1L))(equalTo(allocations))
-          }
+          } @@ flaky
       }
   }
 
