@@ -27,10 +27,7 @@ object Scheme       {
       case _       => None
     }
 
-  def fromString2(scheme: String): Scheme =
-    scheme.toUpperCase match {
-      case "HTTPS" => HTTPS
-      case "HTTP"  => HTTP
-      case _       => null
-    }
+  def fromString2(scheme: String): Scheme = {
+    if (scheme.length == 5) HTTPS else HTTP
+  }
 }

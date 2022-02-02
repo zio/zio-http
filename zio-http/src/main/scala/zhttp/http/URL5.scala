@@ -30,7 +30,7 @@ sealed trait URL5 { self =>
   def setScheme(scheme: Scheme): URL5                              = URL5.Cons(scheme = Some(scheme))
   def setQueryParams(queryParams: Map[String, List[String]]): URL5 = URL5.Cons(queryParams = queryParams)
 
-  def encode: String = self match {
+  def encode: String                             = self match {
     case Raw(string) => string
     case u: Cons     => {
       def path: String = {
@@ -49,12 +49,18 @@ sealed trait URL5 { self =>
       a.encode
     }
   }
+  def decode: Either[HttpError.BadRequest, URL5] = self match {
+    case Raw(string) => URL5.decode(string)
+    case a: Cons     => Right(a)
+  }
 
 }
 object URL5 {
 
-  def apply(path: Path): URL5                                   = Cons(path = path)
-  def apply(string: String): Either[HttpError.BadRequest, URL5] = Try(unsafeDecode(string)).toEither match {
+  def apply(path: Path): URL5     = Cons(path)
+  def apply(string: String): URL5 = Raw(string)
+
+  def decode(string: String): Either[HttpError.BadRequest, URL5] = Try(unsafeDecode(string)).toEither match {
     case Left(_)      => Left(HttpError.BadRequest(s"Invalid URL: $string"))
     case Right(value) => Right(value)
   }
@@ -137,6 +143,9 @@ object URL5 {
     .setPort(8090)
     .setScheme(Scheme.HTTP)
 
-  val url2: Option[URL5] = URL5("www.zio-http.com/a").toOption
+  val url2: URL5                               = URL5("www.zio-http.com/a")
+  val url4: Either[HttpError.BadRequest, URL5] = url2.decode
+
+  val url3: Either[HttpError.BadRequest, URL5] = URL5.decode("www.zio-http.com/a")
 
 }
