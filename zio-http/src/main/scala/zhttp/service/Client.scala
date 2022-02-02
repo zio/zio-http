@@ -2,7 +2,13 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelHandlerContext, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
+import io.netty.channel.{
+  Channel,
+  ChannelHandlerContext,
+  ChannelInitializer,
+  ChannelFactory => JChannelFactory,
+  EventLoopGroup => JEventLoopGroup,
+}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.codec.http.{FullHttpRequest, HttpClientCodec, HttpObjectAggregator, HttpVersion}
 import zhttp.http._
@@ -60,8 +66,8 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
       val port   = req.url.port.getOrElse(80)
       val scheme = uri.getScheme
 
-      val isWebSocket = scheme == "ws" || scheme == "wss"
-      val isSSL       = scheme == "https" || scheme == "wss"
+      val isWebSocket = req.url.scheme.exists(_.isWebSocket)
+      val isSSL       = req.url.scheme.exists(_.isSecure)
 
       val initializer = new ChannelInitializer[Channel]() {
         override def initChannel(ch: Channel): Unit = {
