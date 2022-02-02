@@ -1,6 +1,6 @@
 package zhttp.service
 
-import zhttp.http._
+import zhttp.http.Status
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zhttp.socket.{Socket, WebSocketFrame}
@@ -23,21 +23,12 @@ object WebSocketServerSpec extends HttpRunnableSpec {
   def websocketSpec = suite("WebSocket Server") {
     suite("connections") {
       testM("Multiple websocket upgrades") {
-
         val app   = Socket.succeed(WebSocketFrame.text("BAR")).toHttp.deployWS
-        val codes = ZIO.foreach(1 to 1024) { _ =>
-          for {
-            code <- app(Socket.empty.toSocketApp)
-              .map(_.status)
-              .catchAll {
-                case None        => ZIO.fail(new Error("No status code"))
-                case Some(error) => ZIO.fail(error)
-              }
-          } yield code == Status.SWITCHING_PROTOCOLS
-        }
+        val codes = ZIO
+          .foreach(1 to 1024)(_ => app(Socket.empty.toSocketApp).map(_.status))
+          .map(r => r.count(_ == Status.SWITCHING_PROTOCOLS))
 
-        val allTrue = codes.map(_.count(identity))
-        assertM(allTrue)(equalTo(1024))
+        assertM(codes)(equalTo(1024))
       }
     }
   }
