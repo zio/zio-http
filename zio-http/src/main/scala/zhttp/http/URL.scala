@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
-import zhttp.http.URL.Fragment
+import zhttp.http.URL.{Fragment, Location}
 
 import java.io.IOException
 import java.net.{MalformedURLException, URI}
@@ -14,17 +14,22 @@ final case class URL(
   queryParams: Map[String, List[String]] = Map.empty,
   fragment: Option[Fragment] = None,
 ) { self =>
-  val host: Option[String] = kind match {
+  def encode: String = URL.encode(self)
+
+  def host: Option[String] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.host)
   }
 
-  val port: Option[Int] = kind match {
+  def port: Option[Int] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.port)
   }
 
-  def encode: String = URL.encode(self)
+  def scheme: Option[Scheme] = kind match {
+    case Location.Absolute(scheme, _, _) => Some(scheme)
+    case Location.Relative               => None
+  }
 
   private[zhttp] def relative: URL = self.kind match {
     case URL.Location.Relative => self
