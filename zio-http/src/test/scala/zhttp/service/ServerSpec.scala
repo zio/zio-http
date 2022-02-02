@@ -35,14 +35,11 @@ object ServerSpec extends HttpRunnableSpec {
     case _ -> !! / "HExitFailure" => HExit.fail(new RuntimeException("FAILURE"))
   }
 
-  private val activeAllocations: ZIO[DynamicServer, Nothing, Assert] = for {
+  private val activeAllocations: ZIO[DynamicServer, Nothing, (Long, Long)] = for {
     alloc <- DynamicServer.getStart.map(_.allocator.get)
     ah    <- getActiveHeapBuffers(alloc)
     ad    <- getActiveDirectBuffers(alloc)
-  } yield {
-    Console.println(s"Active heap buffers: $ah, Active direct buffers: $ad")
-    assertTrue(ah + ad == 0L)
-  }
+  } yield (ah, ad)
 
   private val app = serve { nonZIO ++ staticApp ++ DynamicServer.app }.ensuringFirst(activeAllocations)
 
@@ -256,16 +253,18 @@ object ServerSpec extends HttpRunnableSpec {
           val size     = 100
           val expected = (0 to size) map (_ => Status.OK)
           for {
-            response <- Response.text("abc").freeze
-            actual   <- ZIO.foreachPar(0 to size)(_ => Http.response(response).deploy.status.run())
-          } yield assert(actual)(equalTo(expected))
+            response    <- Response.text("abc").freeze
+            actual      <- ZIO.foreachPar(0 to size)(_ => Http.response(response).deploy.status.run())
+            allocations <- activeAllocations
+          } yield (assert(actual)(equalTo(expected))) && assert((0L, 1L))(equalTo(allocations))
         } +
           testM("update after cache") {
             val server = "ZIO-Http"
             for {
-              res    <- Response.text("abc").freeze
-              actual <- Http.response(res).withServer(server).deploy.headerValue(HeaderNames.server).run()
-            } yield assert(actual)(isSome(equalTo(server)))
+              res         <- Response.text("abc").freeze
+              actual      <- Http.response(res).withServer(server).deploy.headerValue(HeaderNames.server).run()
+              allocations <- activeAllocations
+            } yield assert(actual)(isSome(equalTo(server))) && assert((0L, 1L))(equalTo(allocations))
           }
       }
   }
