@@ -68,15 +68,4 @@ object ZClientTestWithServer extends App {
     _ <- ZIO.effect(println(s"Number of active connections for four requests: $currActiveConn \n\n connections map ${cl.connectionManager.connRef}"))
   } yield ()
 
-  // multiple client shared resources
-  // different conn pool for diff host port
-  // pool should correspond to host / port combo
-  // have one client and
-  // optimizations in the background
-  // just one client serves all and sundry
-
-  // use cases like pipelining ... httpclient document
-
-  import zhttp.http._
-
 }
