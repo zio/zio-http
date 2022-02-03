@@ -1,10 +1,9 @@
 package zhttp.http
 
-import java.net.URI
-
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
 import zhttp.http.URL5._
 
+import java.net.URI
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
@@ -25,13 +24,13 @@ sealed trait URL5 { self =>
   }
 
   def setPath(path: Path): URL5                                    = URL5.Cons(path = path)
-  def setPath(path: String): URL5 = URL5.Cons(path = Path(path))
+  def setPath(path: String): URL5                                  = URL5.Cons(path = Path(path))
   def setHost(host: String): URL5                                  = URL5.Cons(host = Some(host))
   def setPort(port: Int): URL5                                     = URL5.Cons(port = Some(port))
   def setScheme(scheme: Scheme): URL5                              = URL5.Cons(scheme = Some(scheme))
   def setQueryParams(queryParams: Map[String, List[String]]): URL5 = URL5.Cons(queryParams = queryParams)
-  def setQueryParams(query: String): URL5 = URL5.Cons(queryParams = URL5.queryParams(query))
-  def encode: String                             = URL5.asString(self)
+  def setQueryParams(query: String): URL5                          = URL5.Cons(queryParams = URL5.queryParams(query))
+  def encode: String                                               = URL5.asString(self)
 
 }
 object URL5 {
@@ -39,7 +38,7 @@ object URL5 {
   def apply(path: Path): URL5     = Cons(path)
   def apply(string: String): URL5 = Raw(string)
 
-  def asString(url: URL5): String =  url match {
+  def asString(url: URL5): String = url match {
     case Raw(string) => string
     case u: Cons     => {
       def path: String = {
@@ -134,7 +133,7 @@ object URL5 {
     }
   }
 
-  def root: URL5 = Cons(!!)
+  def root: URL5  = Cons(!!)
   def empty: URL5 = root
 
   val url1 = URL5(!! / "root")

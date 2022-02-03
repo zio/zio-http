@@ -12,7 +12,7 @@ class URLParserBenchmark {
   private val MAX = 1000
 
   @Benchmark
-  def benchmarkURLParser(): Unit   = {
+  def benchmarkURLParser(): Unit  = {
     (0 to MAX).foreach(_ => URL5("http://yourdomain.com/list/users"))
     ()
   }
