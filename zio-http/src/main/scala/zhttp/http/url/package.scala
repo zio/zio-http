@@ -41,6 +41,7 @@ package url {
       import c.universe._
 
       println("ARGS: " + args.map(_.tree).mkString("\n"))
+      println("SC: " + c.prefix.toString())
 
       @annotation.nowarn
       implicit val liftableScheme: Liftable[Scheme] = Liftable[Scheme] { p =>
@@ -80,7 +81,7 @@ package url {
             .map { p => c.Expr[URL](q"$p") }
             .getOrElse(c.abort(c.enclosingPosition, "bad URL."))
 
-        case err => c.abort(c.enclosingPosition, s"$err")
+        case err => c.abort(c.enclosingPosition, s"Error: $err")
       }
 
     }
