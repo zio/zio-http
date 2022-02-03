@@ -1,7 +1,5 @@
 package zhttp.http
 
-import java.nio.charset.Charset
-
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.ChannelHandler
 import zhttp.html.Html
@@ -12,6 +10,7 @@ import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
 
+import java.nio.charset.Charset
 import scala.annotation.unused
 
 /**
