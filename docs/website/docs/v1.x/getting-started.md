@@ -74,11 +74,11 @@ val app = a <> b
 
 ### ZIO Integration
 
-For creating effectful apps, you can use `collectZIO` and wrap `Response` using `wrapZIO` to produce ZIO effect value.
+For creating effectful apps, you can use `collectZIO` and wrap `Response` with `UIO` to produce ZIO effect value.
 
 ```scala
 val app = Http.collectZIO[Request] {
-  case Method.GET -> !! / "hello" => Response.text("Hello World").wrapZIO
+  case Method.GET -> !! / "hello" => UIO(Response.text("Hello World"))
 }
 ```
 
@@ -91,7 +91,7 @@ import zhttp.http._
 
 val app = Http.collectZIO[Request] {
     case req @ Method.GET -> !! / "fruits" / "a"  =>
-      Response.text("URL:" + req.url.path.asString + " Headers: " + req.getHeaders).wrapZIO
+      UIO(Response.text("URL:" + req.url.path.asString + " Headers: " + req.getHeaders))
     case req @ Method.POST -> !! / "fruits" / "a" =>
       req.getBodyAsString.map(Response.text(_))
   }
@@ -137,7 +137,7 @@ private val socket = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text("
   }
 
   private val app = Http.collectZIO[Request] {
-    case Method.GET -> !! / "greet" / name => Response.text(s"Greetings {$name}!").wrapZIO
+    case Method.GET -> !! / "greet" / name => UIO(Response.text(s"Greetings {$name}!"))
     case Method.GET -> !! / "ws"           => socket.toResponse
   }
 ```
