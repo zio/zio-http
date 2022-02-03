@@ -1,3 +1,0 @@
-# Config
-
-Work in progress

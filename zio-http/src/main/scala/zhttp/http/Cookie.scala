@@ -132,7 +132,7 @@ final case class Cookie(
       expires.map(e => s"Expires=$e"),
       maxAge.map(a => s"Max-Age=${a.toString}"),
       domain.map(d => s"Domain=$d"),
-      path.map(p => s"Path=${p.asString}"),
+      path.map(p => s"Path=${p.encode}"),
       if (isSecure) Some("Secure") else None,
       if (isHttpOnly) Some("HttpOnly") else None,
       sameSite.map(s => s"SameSite=${s.asString}"),

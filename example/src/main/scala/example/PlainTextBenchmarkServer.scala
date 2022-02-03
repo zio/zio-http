@@ -35,6 +35,7 @@ object Main extends App {
       Server.port(8080) ++
       Server.error(_ => UIO.unit) ++
       Server.disableLeakDetection ++
-      Server.consolidateFlush
+      Server.consolidateFlush ++
+      Server.disableFlowControl
 
 }

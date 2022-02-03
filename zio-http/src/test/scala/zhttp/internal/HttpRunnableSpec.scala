@@ -81,7 +81,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
         Http.fromFunctionZIO[Client.ClientRequest](params =>
           for {
             port <- DynamicServer.getPort
-            url        = s"ws://localhost:$port${params.url.path.asString}"
+            url        = s"ws://localhost:$port${params.url.path.encode}"
             headerConv = params.addHeader(DynamicServer.APP_ID, id).getHeaders.toList.map(h => SHeader(h._1, h._2))
             res <- send(basicRequest.get(uri"$url").copy(headers = headerConv).response(asWebSocketUnsafe))
           } yield res,
