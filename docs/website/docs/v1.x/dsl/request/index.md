@@ -1,7 +1,5 @@
 # Request
  
-## Server-side
-
 **ZIO HTTP** `Request` is designed in the simplest way possible to, decode HTTP `Request` into a ZIO HTTP request.
  It supports all HTTP request methods (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) ) and headers along with custom methods and headers.
  
@@ -22,7 +20,7 @@ val request: Request = Request()
 ```scala
 Method.GET -> !! / "text"
 ```
-### `Method`
+### Method
  `Method` represents HTTP methods like POST, GET, PUT, PATCH, and DELETE.
 You can create existing HTTP methods such as `Method.GET`, `Method.POST` etc or create a custom one.
  
@@ -47,7 +45,7 @@ According to the request path, it will respond with the corresponding response:
 
 #### Matching path on the basis of Type
 
-The below snippet will match paths like `/fruits/3/apples` but not `/fruits/a/apples`
+The below snippet will match path like `/fruits/3/apples` but not `/fruits/a/apples`
 
 ```scala
 val app: HttpApp[Any, Nothing] = Method.GET / "fruits" / *[Int] / "apples" to { a =>
