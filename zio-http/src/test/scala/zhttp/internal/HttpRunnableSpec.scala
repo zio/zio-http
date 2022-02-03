@@ -10,9 +10,7 @@ import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.socket.SocketApp
 import zio.test.DefaultRunnableSpec
-import zio.{Has, UIO, ZIO, ZManaged}
-
-import scala.jdk.CollectionConverters._
+import zio.{Has, ZIO, ZManaged}
 
 /**
  * Should be used only when e2e tests needs to be written. Typically we would
@@ -101,17 +99,15 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       start <- Server
         .make(
           Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection ++ Server.allocator(
-            Some(
-              new PooledByteBufAllocator(
-                preferDirect,
-                nHeapArena,
-                nDirectArena,
-                pageSize,
-                maxOrder,
-                smallCacheSize,
-                normalCacheSize,
-                useCacheForAllThreads,
-              ),
+            new PooledByteBufAllocator(
+              preferDirect,
+              nHeapArena,
+              nDirectArena,
+              pageSize,
+              maxOrder,
+              smallCacheSize,
+              normalCacheSize,
+              useCacheForAllThreads,
             ),
           ),
         )
@@ -120,14 +116,6 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     } yield ()
   }
 
-  def getActiveDirectBuffers(alloc: PooledByteBufAllocator): UIO[Long] = ZIO.effectSuspendTotal {
-    val metric = alloc.metric().directArenas().asScala.toList
-    ZIO.foreach(metric)(x => UIO(x.numActiveAllocations())).map { list => list.sum }
-  }
-  def getActiveHeapBuffers(alloc: PooledByteBufAllocator): UIO[Long]   = ZIO.effectSuspendTotal {
-    val metric = alloc.metric().heapArenas().asScala.toList
-    ZIO.foreach(metric)(x => UIO(x.numActiveAllocations())).map { list => list.sum }
-  }
   def status(
     method: Method = Method.GET,
     path: Path,

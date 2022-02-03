@@ -11,6 +11,7 @@ import zhttp.service.server._
 import zio.{ZManaged, _}
 
 import java.net.{InetAddress, InetSocketAddress}
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 sealed trait Server[-R, +E] { self =>
 
@@ -137,7 +138,7 @@ sealed trait Server[-R, +E] { self =>
    * the buffers for the incoming and outgoing data.
    */
   private[zhttp] def withAllocator(allocator: PooledByteBufAllocator): Server[R, E] =
-    Concat(self, Allocator(Some(allocator)))
+    Concat(self, Allocator(allocator))
 }
 
 object Server {
@@ -153,6 +154,7 @@ object Server {
     acceptContinue: Boolean = false,
     keepAlive: Boolean = true,
     consolidateFlush: Boolean = false,
+    allocator: PooledByteBufAllocator = PooledByteBufAllocator.DEFAULT,
     flowControl: Boolean = true,
     channelInitializer: ChannelPipeline => Unit = null,
     allocator: Option[PooledByteBufAllocator] = None,
@@ -161,7 +163,25 @@ object Server {
   /**
    * Holds server start information.
    */
-  final case class Start(port: Int = 0, allocator: Option[PooledByteBufAllocator] = None)
+  final class Start(
+    val port: Int = 0,
+    private val allocator: PooledByteBufAllocator,
+  ) {
+    def getActiveDirectBuffers: UIO[Long] = ZIO.effectSuspendTotal {
+      val metric = allocator.metric().directArenas().asScala.toList
+      ZIO.foreach(metric)(x => UIO(x.numActiveAllocations())).map { list => list.sum }
+    }
+    def getActiveHeapBuffers: UIO[Long]   = ZIO.effectSuspendTotal {
+      val metric = allocator.metric().heapArenas().asScala.toList
+      ZIO.foreach(metric)(x => UIO(x.numActiveAllocations())).map { list => list.sum }
+    }
+  }
+
+  object Start {
+    def apply(port: Int): Start = new Start(port, PooledByteBufAllocator.DEFAULT)
+    def apply(port: Int, allocator: PooledByteBufAllocator = PooledByteBufAllocator.DEFAULT): Start =
+      new Start(port, allocator)
+  }
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
   private final case class LeakDetection(level: LeakDetectionLevel)                   extends UServer
@@ -175,7 +195,7 @@ object Server {
   private final case class AcceptContinue(enabled: Boolean)                           extends UServer
   private final case class FlowControl(enabled: Boolean)                              extends UServer
   private final case class UnsafeChannelPipeline(init: ChannelPipeline => Unit)       extends UServer
-  private final case class Allocator(allocator: Option[PooledByteBufAllocator])       extends UServer
+  private final case class Allocator(allocator: PooledByteBufAllocator)               extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -187,7 +207,7 @@ object Server {
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   def acceptContinue: UServer                                                        = Server.AcceptContinue(true)
-  def allocator(allocator: Option[PooledByteBufAllocator]): UServer                  = Allocator(allocator)
+  def allocator(allocator: PooledByteBufAllocator): UServer                          = Allocator(allocator)
   val disableFlowControl: UServer                                                    = Server.FlowControl(false)
   val disableLeakDetection: UServer                              = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer                               = LeakDetection(LeakDetectionLevel.SIMPLE)
@@ -249,17 +269,14 @@ object Server {
       reqHandler      = settings.app.compile(zExec, settings, ServerTime.make)
       init            = ServerChannelInitializer(zExec, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
-      chf  <- settings.allocator match {
-        case Some(allocator) =>
-          ZManaged.effect(
-            serverBootstrap
-              .option(ChannelOption.ALLOCATOR, allocator)
-              .childOption(ChannelOption.ALLOCATOR, allocator)
-              .childHandler(init)
-              .bind(settings.address),
-          )
-        case None            => ZManaged.effect(serverBootstrap.childHandler(init).bind(settings.address))
-      }
+      chf  <-
+        ZManaged.effect(
+          serverBootstrap
+            .option(ChannelOption.ALLOCATOR, settings.allocator)
+            .childOption(ChannelOption.ALLOCATOR, settings.allocator)
+            .childHandler(init)
+            .bind(settings.address),
+        )
       _    <- ChannelFuture.asManaged(chf)
       port <- ZManaged.effect(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield {
