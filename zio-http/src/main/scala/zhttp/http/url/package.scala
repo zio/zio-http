@@ -4,22 +4,6 @@ import scala.reflect.macros.blackbox.Context
 
 package object url {
 
-//  implicit class UrlWrapper(val sc: StringContext) extends AnyVal {
-//    def urls(subs: Any*): URL = {
-//      val pit = sc.parts.iterator
-//      val sit = subs.iterator
-//      val sb  = new java.lang.StringBuilder(pit.next())
-//      while (sit.hasNext) {
-//        sb.append(sit.next().toString)
-//        sb.append(pit.next())
-//      }
-//      URL.fromString(sb.toString) match {
-//        case Left(err)    => throw new IllegalArgumentException(err.message)
-//        case Right(value) => value
-//      }
-//    }
-//
-//  }
   import scala.language.implicitConversions
   implicit def urlInterpolator(sc: StringContext): UrlInterpolator = new url.UrlInterpolator(sc)
 
@@ -28,8 +12,6 @@ package url {
   import zhttp.http.URL.{Fragment, Location}
 
   class UrlInterpolator(val sc: StringContext) {
-
-    def urls(args: Any*): URL = url(sc.s(args))
 
     def url(args: Any*): URL = macro Impl.urlValidate
 
@@ -77,8 +59,8 @@ package url {
             .fromString(const)
             .map { p => c.Expr[URL](q"$p") }
             .getOrElse(c.abort(c.enclosingPosition, "bad URL."))
-
-        case err => c.abort(c.enclosingPosition, s"Error: $err")
+        case _                                                                   =>
+          c.abort(c.enclosingPosition, s"If you have to construct a dynamic URL, than use URL.fromString() instead.")
       }
 
     }
