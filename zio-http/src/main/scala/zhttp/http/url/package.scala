@@ -29,7 +29,7 @@ package url {
 
   class UrlInterpolator(val sc: StringContext) {
 
-    def urls(args: Any*): URL = url(sc.s(args))
+    // def urls(args: Any*): URL = url(sc.s(args))
 
     def url(args: Any*): URL = macro Impl.urlValidate
 
@@ -37,8 +37,10 @@ package url {
 
   object Impl {
 
-    def urlValidate(c: Context)(@annotation.nowarn args: c.Expr[Any]*): c.Expr[URL] = {
+    def urlValidate(c: Context)(args: c.Expr[Any]*): c.Expr[URL] = {
       import c.universe._
+
+      println("ARGS: " + args.map(_.tree).mkString("\n"))
 
       @annotation.nowarn
       implicit val liftableScheme: Liftable[Scheme] = Liftable[Scheme] { p =>
@@ -71,6 +73,7 @@ package url {
       }
 
       c.prefix.tree match {
+
         case Apply(_, List(Apply(_, List(_ @Literal(Constant(const: String)))))) =>
           URL
             .fromString(const)

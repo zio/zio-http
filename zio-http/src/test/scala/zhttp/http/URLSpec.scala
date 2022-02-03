@@ -47,35 +47,36 @@ object URLSpec extends DefaultRunnableSpec {
           ),
         )
       } +
-      test("Should properly handle url interpolator with string interpolator") {
-        val probe: URL =
-          url"http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21"
+//      } +
+//      test("Should properly handle url interpolator with string interpolator") {
+//        val probe: URL =
+//          url"http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21"
+//        assert(
+//          probe,
+//        )(
+//          equalTo(
+//            URL
+//              .fromString(
+//                "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21",
+//              )
+//              .toOption
+//              .get,
+//          ),
+//        )
+//      },
+      test("Should handle uri fragment") {
         assert(
-          probe,
+          URL
+            .fromString(
+              "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21#the%20hash",
+            )
+            .map(_.fragment),
         )(
-          equalTo(
-            URL
-              .fromString(
-                "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21",
-              )
-              .toOption
-              .get,
+          isRight(
+            isSome(equalTo(Fragment("the%20hash", "the hash"))),
           ),
         )
       },
-    test("Should handle uri fragment") {
-      assert(
-        URL
-          .fromString(
-            "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21#the%20hash",
-          )
-          .map(_.fragment),
-      )(
-        isRight(
-          isSome(equalTo(Fragment("the%20hash", "the hash"))),
-        ),
-      )
-    },
   )
 
   val asStringSpec = {
