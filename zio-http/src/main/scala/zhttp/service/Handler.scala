@@ -53,10 +53,13 @@ private[zhttp] final case class Handler[R](
               UnsafeContent,
             ) => Unit,
           ): Unit = {
-            if (ctx.pipeline().get(HTTP_CONTENT_HANDLER) == null) {
+            val httpcontenthandler = ctx.pipeline().get(HTTP_CONTENT_HANDLER)
+            if (httpcontenthandler == null) {
               ctx
                 .pipeline()
-                .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, RequestBodyHandler(callback, config)): Unit
+                .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback, config)): Unit
+            } else {
+              httpcontenthandler.asInstanceOf[RequestBodyHandler[R]].callback = callback
             }
           }
         }

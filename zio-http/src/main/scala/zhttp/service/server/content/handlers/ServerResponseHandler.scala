@@ -27,7 +27,7 @@ private[zhttp] case class ServerResponseHandler[R](
     msg.data match {
       case HttpData.BinaryStream(stream) =>
         runtime.unsafeRun(ctx) {
-          writeStreamContent(stream) *>
+          writeStreamContent(stream) ensuring
             UIO(ctx.read()) // read next request
         }
       case HttpData.File(file)           =>

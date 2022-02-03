@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import zhttp.http.headers.HeaderExtension
 import zhttp.service.HTTP_CONTENT_HANDLER
 import zhttp.service.server.content.handlers.UnsafeRequestHandler.{UnsafeChannel, UnsafeContent}
@@ -35,16 +35,21 @@ trait Request extends HeaderExtension[Request] { self =>
     }
   }
 
-  def unsafeBody(msg: (UnsafeChannel, UnsafeContent) => Unit): Unit
+  private[zhttp] def unsafeBody(msg: (UnsafeChannel, UnsafeContent) => Unit): Unit
 
-  /**
-   * Decodes the content of request as a Chunk of Bytes
-   */
-  def body[R]: ZStream[R, Throwable, ByteBuf] = ???
-//    for {
-//      raw    <- ZStream.fromEffect(???)
-//      stream <- ZStream.fromQueue(raw)
-//    } yield stream
+  def getBodyChunk: ZIO[Any, Option[Throwable], Chunk[Byte]] =
+    ZIO
+      .effectAsync[Any, Option[Throwable], ByteBuf](cb =>
+        self.unsafeBody((ch, msg) => {
+          cb(IO.succeed(msg.content.content()))
+          if (msg.isLast) {
+            cb(IO.fail(None))
+          } else {
+            ch.read()
+          }
+        }),
+      )
+      .map(data => Chunk.fromArray(ByteBufUtil.getBytes(data)))
 
   def getBodyAsStream: ZStream[Any, Throwable, ByteBuf] =
     ZStream
@@ -57,7 +62,6 @@ trait Request extends HeaderExtension[Request] { self =>
           } else {
             ch.read()
           }
-
         }),
       )
 
