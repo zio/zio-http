@@ -162,6 +162,13 @@ object Client {
       case _                            => Option.empty
     }
 
+    def getBodyAsCharSequence: Option[CharSequence] = data match {
+      case HttpData.Text(text, _)       => Some(text)
+      case HttpData.BinaryChunk(data)   => Some(new String(data.toArray, HTTP_CHARSET))
+      case HttpData.BinaryByteBuf(data) => Some(data.toString(HTTP_CHARSET))
+      case _                            => Option.empty
+    }
+
     def getHeaders: Headers = headers
 
     def remoteAddress: Option[InetAddress] = {

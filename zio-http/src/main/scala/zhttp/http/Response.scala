@@ -182,7 +182,7 @@ object Response {
    */
   def json(data: CharSequence): Response =
     Response(
-      data = HttpData.fromString(data.toString),
+      data = HttpData.fromCharSequence(data),
       headers = Headers(HeaderNames.contentType, HeaderValues.applicationJson),
     )
 
@@ -207,9 +207,9 @@ object Response {
   /**
    * Creates a response with content-type set to text/plain
    */
-  def text(text: String, charset: Charset = HTTP_CHARSET): Response =
+  def text(text: CharSequence, charset: Charset = HTTP_CHARSET): Response =
     Response(
-      data = HttpData.fromString(text, charset),
+      data = HttpData.fromCharSequence(text, charset),
       headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
     )
 

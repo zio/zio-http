@@ -78,9 +78,14 @@ object HttpData {
     HttpData.BinaryStream(stream.map(str => Unpooled.copiedBuffer(str, charset)))
 
   /**
+   * Helper to create HttpData from a CharSequence
+   */
+  def fromCharSequence(text: CharSequence, charset: Charset = HTTP_CHARSET): HttpData = Text(text, charset)
+
+  /**
    * Helper to create HttpData from String
    */
-  def fromString(text: CharSequence, charset: Charset = HTTP_CHARSET): HttpData = Text(text, charset)
+  def fromString(text: String, charset: Charset = HTTP_CHARSET): HttpData = Text(text, charset)
 
   /**
    * Helper to create HttpData from contents of a file
