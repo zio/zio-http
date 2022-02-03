@@ -4,16 +4,17 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.service.HttpRuntime
-import zhttp.service.client.experimental.{Resp, ZConnectionState}
+import zhttp.service.client.experimental.Resp
+import zhttp.service.client.experimental.model.ZConnectionState
 
 /**
  * Handles HTTP response
  */
 @Sharable
 final case class ZClientInboundHandler[R](
-                                           zExec: HttpRuntime[R],
-                                           zConnectionState: ZConnectionState
-                                         ) extends SimpleChannelInboundHandler[Resp](false) {
+  zExec: HttpRuntime[R],
+  zConnectionState: ZConnectionState,
+) extends SimpleChannelInboundHandler[Resp](false) {
 
   override def channelRead0(ctx: ChannelHandlerContext, clientResponse: Resp): Unit = {
     //    println(s"SimpleChannelInboundHandler SimpleChannelInboundHandler CHANNEL READ CONTEXT ID: ${ctx.channel().id()}")
@@ -32,7 +33,7 @@ final case class ZClientInboundHandler[R](
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     //    println(s"CHANNEL ACTIVE CONTEXT ID: ${ctx.channel().id()}")
     val connectionRuntime = zConnectionState.currentAllocatedChannels(ctx.channel())
-    val jReq = connectionRuntime.currReq
+    val jReq              = connectionRuntime.currReq
     ctx.writeAndFlush(jReq): Unit
     releaseRequest(jReq)
     ()

@@ -22,11 +22,9 @@ object ZClientTestWithServer extends App {
     Server.port(PORT) ++                     // Setup port
       Server.app(fooBar) ++ Server.keepAlive // Setup the Http app
 
-  implicit val e = new Exception("")
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    server
-      .make
-      .use (_ => clientTest)
+    server.make
+      .use(_ => clientTest)
       .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(2))
       .exitCode
   }
@@ -38,8 +36,8 @@ object ZClientTestWithServer extends App {
         ZClient.threads(2) ++
           ZClient.maxConnectionsPerRequestKey(10) ++
           ZClient.maxTotalConnections(20)
-        ).make
-      _  <- triggerClientSequential(client)
+      ).make
+      _      <- triggerClientSequential(client)
     } yield ()
   }
 
@@ -47,16 +45,16 @@ object ZClientTestWithServer extends App {
   def triggerClientSequential(cl: DefaultZClient) = for {
     req1 <- ZIO.effect("http://localhost:8081/foo/1")
     resp <- cl.run(req1)
-    r1 <- resp.getBodyAsString
+    r1   <- resp.getBodyAsString
     _    <- ZIO.effect(println(s"Response Content from $req1 ${r1.length} "))
 
-    req3 <- ZIO.effect("http://www.google.com")
+    req3  <- ZIO.effect("http://www.google.com")
     resp3 <- cl.run(req3)
     //    resp3 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
     r3    <- resp3.getBodyAsString
     _     <- ZIO.effect(println(s"Response Content from $req3  ${r3.length}"))
 
-    req2 <- ZIO.effect("http://localhost:8081/bar/2")
+    req2  <- ZIO.effect("http://localhost:8081/bar/2")
     resp2 <- cl.run(req2)
     r2    <- resp2.getBodyAsString
     _     <- ZIO.effect(println(s"Response Content  ${r2.length}"))
@@ -66,7 +64,11 @@ object ZClientTestWithServer extends App {
     _     <- ZIO.effect(println(s"Response Content  : ${r4.length}"))
 
     currActiveConn <- cl.connectionManager.getActiveConnections
-    _ <- ZIO.effect(println(s"Number of active connections for four requests: $currActiveConn \n\n connections map ${cl.connectionManager.connRef}"))
+    _              <- ZIO.effect(
+      println(
+        s"Number of active connections for four requests: $currActiveConn \n\n connections map ${cl.connectionManager.connRef}",
+      ),
+    )
   } yield ()
 
 }

@@ -1,12 +1,12 @@
 package zhttp.service.client.experimental
 
 import io.netty.bootstrap.Bootstrap
-import zhttp.service.client.experimental.transport.Transport
 import io.netty.channel.Channel
-import zhttp.service.client.experimental.ZConnectionState.ReqKey
-
+import zhttp.service.client.experimental.model.ZConnectionState.ReqKey
+import zhttp.service.client.experimental.model.{Timeouts, ZConnectionState}
+import zhttp.service.client.experimental.transport.Transport
+import zio.Task
 import zio.duration.Duration
-import zio.{Task}
 
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
@@ -105,9 +105,9 @@ object ZClient {
       connRef <- zio.Ref.make(
         mutable.Map.empty[ReqKey, Channel],
       )
-      timeouts = Timeouts(settings.connectionTimeout,settings.idleTimeout, settings.requestTimeout)
-      connManager    = ZConnectionManager(connRef, ZConnectionState(), timeouts, clientBootStrap, zExec)
-      clientImpl     = DefaultZClient(settings, connManager)
+      timeouts    = Timeouts(settings.connectionTimeout, settings.idleTimeout, settings.requestTimeout)
+      connManager = ZConnectionManager(connRef, ZConnectionState(), timeouts, clientBootStrap, zExec)
+      clientImpl  = DefaultZClient(settings, connManager)
     } yield {
       clientImpl
     }

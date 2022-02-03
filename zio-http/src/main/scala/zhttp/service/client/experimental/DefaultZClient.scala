@@ -1,26 +1,31 @@
 package zhttp.service.client.experimental
 
 import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames, HttpHeaderValues, HttpVersion}
+import io.netty.handler.codec.http.{
+  DefaultFullHttpRequest,
+  FullHttpRequest,
+  HttpHeaderNames,
+  HttpHeaderValues,
+  HttpVersion,
+}
 import zhttp.http.{HTTP_CHARSET, Request, Response, URL}
 import zhttp.service.HttpMessageCodec
 import zhttp.service.client.experimental.ZClient.Config
-import zio.{Task, ZIO}
+import zhttp.service.client.experimental.model.ConnectionRuntime
 import zio.stream.ZStream
+import zio.{Task, ZIO}
 
 case class DefaultZClient(
-                           settings: Config,
-                           connectionManager: ZConnectionManager,
-                         ) extends HttpMessageCodec {
+  settings: Config,
+  connectionManager: ZConnectionManager,
+) extends HttpMessageCodec {
   def run(req: ReqParams): Task[Resp] =
     for {
       jReq    <- Task(encodeClientParams(HttpVersion.HTTP_1_1, req))
       channel <- connectionManager.fetchConnection(jReq)
       prom    <- zio.Promise.make[Throwable, Resp]
       _       <- ZIO.effect(
-        connectionManager
-          .zConnectionState
-          .currentAllocatedChannels += (channel -> ConnectionRuntime(prom, jReq))
+        connectionManager.zConnectionState.currentAllocatedChannels += (channel -> ConnectionRuntime(prom, jReq)),
       )
       _       <- ZIO.effect { channel.pipeline().fireChannelActive() }
       resp    <- prom.await
@@ -32,9 +37,7 @@ case class DefaultZClient(
       channel <- connectionManager.fetchConnection(jReq)
       prom    <- zio.Promise.make[Throwable, Resp]
       _       <- ZIO.effect(
-        connectionManager
-          .zConnectionState
-          .currentAllocatedChannels += (channel -> ConnectionRuntime(prom, jReq))
+        connectionManager.zConnectionState.currentAllocatedChannels += (channel -> model.ConnectionRuntime(prom, jReq)),
       )
       _       <- ZIO.effect { channel.pipeline().fireChannelActive() }
       resp    <- prom.await
@@ -68,11 +71,11 @@ case class DefaultZClient(
 
   def encodeClientParams(req: Request): Task[FullHttpRequest] = {
     val jVersion = HttpVersion.HTTP_1_1
-    val method      = req.method.asHttpMethod
-    val uri         = req.url.encode
+    val method   = req.method.asHttpMethod
+    val uri      = req.url.encode
     for {
       reqContent <- req.getBodyAsString
-      content = Unpooled.copiedBuffer(reqContent,HTTP_CHARSET)
+      content = Unpooled.copiedBuffer(reqContent, HTTP_CHARSET)
     } yield (new DefaultFullHttpRequest(jVersion, method, uri, content))
   }
 
@@ -87,8 +90,6 @@ case class DefaultZClient(
    * Submits a GET request to the specified URI and decodes the response on success. On failure, the status code is
    * returned. The underlying HTTP connection is closed at the completion of the decoding.
    */
-
-
 
   //  /**
   // * Submits a request and decodes the response, regardless of the status code.
@@ -112,8 +113,7 @@ case class DefaultZClient(
   // ****************** APIs below need more clarity *********************
 
   /**
-   * Submits a request and decodes the response on success
-   * use zio json decoder to get custom type
+   * Submits a request and decodes the response on success use zio json decoder to get custom type
    */
   //    def decodedResponse[A](req: Task[Request])(implicit decoder: JsonDecoder[A]): Task[A] =
   //      ???
@@ -124,10 +124,8 @@ case class DefaultZClient(
    * @param req
    *   The request to submit
    * @param f
-   *   A callback for the response to req.
-   *   The underlying HTTP connection is maintained by internal connection manager
-   *   and kept alive or terminated based on configurations.
-   *   In case of connection getting terminated attempt to read
+   *   A callback for the response to req. The underlying HTTP connection is maintained by internal connection manager
+   *   and kept alive or terminated based on configurations. In case of connection getting terminated attempt to read
    *   the response will result in error.
    * @return
    *   The result of applying f to the response to req
@@ -140,10 +138,8 @@ case class DefaultZClient(
    * @param req
    *   An effect (???) of the request to submit
    * @param f
-   *   A callback for the response to req.
-   *   The underlying HTTP connection is maintained by internal connection manager
-   *   and kept alive or terminated based on configurations.
-   *   In case of connection getting terminated attempt to read
+   *   A callback for the response to req. The underlying HTTP connection is maintained by internal connection manager
+   *   and kept alive or terminated based on configurations. In case of connection getting terminated attempt to read
    *   the response will result in error.
    * @return
    *   The result of applying f to the response to req
@@ -182,4 +178,3 @@ case class DefaultZClient(
   //    Uri.fromString(s).fold(_ => ..., uri => run(uri)(f))
 
 }
-

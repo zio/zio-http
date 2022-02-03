@@ -6,10 +6,10 @@ import zhttp.service.client.ClientSSLHandler
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 
 final case class ZClientChannelInitializer[R](
-                                               channelHandler: ChannelHandler,
-                                               scheme: String,
-                                               sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-                                             ) extends ChannelInitializer[Channel]() {
+  channelHandler: ChannelHandler,
+  scheme: String,
+  sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+) extends ChannelInitializer[Channel]() {
   var fixedCh: Channel = null
 
   override def initChannel(ch: Channel): Unit = {

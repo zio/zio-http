@@ -5,8 +5,9 @@ import io.netty.channel.{Channel, ChannelFuture, ChannelFutureListener}
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.http.URL
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.experimental.ZConnectionState.ReqKey
 import zhttp.service.client.experimental.handler.{ZClientChannelInitializer, ZClientInboundHandler}
+import zhttp.service.client.experimental.model.ZConnectionState.ReqKey
+import zhttp.service.client.experimental.model.{Timeouts, ZConnectionState}
 import zio.{Ref, Task, ZIO}
 
 import java.net.InetSocketAddress
@@ -28,11 +29,11 @@ case class ZConnectionManager(
 
   def fetchConnection(jReq: FullHttpRequest): Task[Channel] = {
     for {
-      mp  <- connRef.get
+      mp           <- connRef.get
       uriAuthority <- getUriAuthority(jReq)
       // if already key exists for existing connections re-use it
       // else build a new connection (channel)
-      conn <- mp.get(uriAuthority) match {
+      conn         <- mp.get(uriAuthority) match {
         case Some(c) =>
           println(s"REUSING CONNECTION for $uriAuthority")
           // To be tested to check if the channel is currently busy
@@ -40,21 +41,20 @@ case class ZConnectionManager(
             Task.succeed(c)
           else
             buildChannel("http", uriAuthority)
-        case _ =>
+        case _       =>
           buildChannel("http", uriAuthority)
       }
-      _ <- connRef.update { m =>
+      _            <- connRef.update { m =>
         m += (uriAuthority -> conn)
       }
     } yield conn
   }
 
   /**
-   * TBD: uri Authority examples to be handled like
-   * examples                                   Valid authority
-   * -  http://www.xyz.com/path                 www.xyz.com
-   * -  http://host:8080/path                   host:8080
-   * -  http://user:pass@host:8080/path         user:pass@host:8080
+   * TBD: uri Authority examples to be handled like examples Valid authority
+   *   - http://www.xyz.com/path www.xyz.com
+   *   - http://host:8080/path host:8080
+   *   - http://user:pass@host:8080/path user:pass@host:8080
    * @param jReq
    * @return
    */
@@ -69,7 +69,7 @@ case class ZConnectionManager(
       case Some(h) => Task.succeed(new InetSocketAddress(h, port))
       case _       => Task.fail(new Exception("error getting host"))
     }
-  } yield (inetSockAddress)
+  } yield inetSockAddress
 
   def buildChannel[R](scheme: String, reqKey: ReqKey): Task[Channel] = {
     for {
@@ -82,7 +82,7 @@ case class ZConnectionManager(
       )
       (h, p) = (reqKey.toString.split("/")(0), reqKey.toString.split(":")(1))
 //      _ <- ZIO.effect(println(s"for ${jReq.uri()} CONNECTING to ${(h, p)}"))
-      chf = boo.handler(init).connect(h, p.toInt)
+      chf    = boo.handler(init).connect(h, p.toInt)
       // optional can be removed if not really utilised.
       _ <- attachHandler(chf)
     } yield chf.channel()
@@ -104,11 +104,7 @@ case class ZConnectionManager(
       )
   }
 
-  def getActiveConnections: Task[Int] = for {
-    mp  <- connRef.get
-  } yield (mp.size)
-
-  // release request ???
+  def getActiveConnections: Task[Int] = connRef.get.map(_.size)
 }
 
 object ZConnectionManager {}
