@@ -15,6 +15,9 @@ The below snippet creates a request with default params, `method` as `Method.GET
 val request: Request = Request()
 ```
 
+## Matching and Extracting Requests
+
+
 ## Using Request in creating HTTP apps
 
 You can create an HTTP app which accepts an input of type `Request` and produces output of type `Response`:
