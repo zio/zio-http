@@ -1,14 +1,8 @@
 package zhttp.service.client.experimental
 
 import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http.{
-  DefaultFullHttpRequest,
-  FullHttpRequest,
-  HttpHeaderNames,
-  HttpHeaderValues,
-  HttpVersion,
-}
-import zhttp.http.{HTTP_CHARSET, Request, Response, URL}
+import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames, HttpHeaderValues, HttpVersion}
+import zhttp.http.{HTTP_CHARSET, Request, Response, Status, URL}
 import zhttp.service.HttpMessageCodec
 import zhttp.service.client.experimental.ZClient.Config
 import zhttp.service.client.experimental.model.ConnectionRuntime
@@ -84,7 +78,7 @@ case class DefaultZClient(
    * @param uri
    *   The URI to GET
    */
-  def run(url: zhttp.http.URL): Task[Response] = ???
+  def run(url: URL): Task[Response] = ???
 
   /**
    * Submits a GET request to the specified URI and decodes the response on success. On failure, the status code is
@@ -100,7 +94,7 @@ case class DefaultZClient(
   //    req.flatMap(fetchAs(_)(d))
 
   /** Submits a request and returns the response status */
-  def status(req: Request): Task[zhttp.http.Status] = ???
+  def status(req: Request): Task[Status] = ???
 
   //  /** Submits a request and returns the response status */
   //  def status(req: F[Request[F]]): F[Status] =
