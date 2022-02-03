@@ -17,16 +17,43 @@ val request: Request = Request()
 
 ## Matching and Extracting Requests
 
+`Request` can be extracted into an HTTP Method and Path via the -> object. On the left side is the `Method`, and on the right side, the `Path`.
 
-## Using Request in creating HTTP apps
+```scala
+Method.GET -> !! / "text"
+```
+### `Method`
+ `Method` represents HTTP methods like POST, GET, PUT, PATCH, and DELETE.
+You can create existing HTTP methods such as `Method.GET`, `Method.POST` etc or create a custom one.
+ 
 
-You can create an HTTP app which accepts an input of type `Request` and produces output of type `Response`:
+### Path
+ `Path` can be created using
+  - `!!` which represents the root
+  - `/` which represents the path delimiter and starts the extraction from the left-hand side of the expression
+  - `/:` which represents the path delimiter and starts the extraction from the right-hand side of the expression and can match paths partially 
+
+The below snippet creates an `HttpApp` that accepts an input of type `Request` and output of type `Response` with two paths.
+According to the request path, it will respond with the corresponding response:
+- if the request has path `/name` it will match the first route.
+- if the request has path `/name/joe` it will match the second route as `/:` matches the path partially as well.  
+
  ```scala
  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
-    case Method.GET -> !! / "text" => Response.text("Hello World!")
-    case Method.GET -> !! / "json" => Response.json("""{"greetings": "Hello World!"}""")
+    case Method.GET -> !! / a => Response.text(s"$a")
+    case Method.GET -> !! /: rest => Response.text(s"$rest")
   }
 ```
+
+#### Matching path on the basis of Type
+
+The below snippet will match paths like `/fruits/3/apples` but not `/fruits/a/apples`
+
+```scala
+val app: HttpApp[Any, Nothing] = Method.GET / "fruits" / *[Int] / "apples" to { a =>
+    Response.text(s"apples: ${a.params.toString}")
+  }
+``` 
 
 ## Accessing the Request
 
