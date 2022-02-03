@@ -1,10 +1,10 @@
 package zhttp.http
 
+import java.net.URI
+
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
-import zhttp.http.Scheme.asString
 import zhttp.http.URL5._
 
-import java.net.URI
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
@@ -25,12 +25,21 @@ sealed trait URL5 { self =>
   }
 
   def setPath(path: Path): URL5                                    = URL5.Cons(path = path)
+  def setPath(path: String): URL5 = URL5.Cons(path = Path(path))
   def setHost(host: String): URL5                                  = URL5.Cons(host = Some(host))
   def setPort(port: Int): URL5                                     = URL5.Cons(port = Some(port))
   def setScheme(scheme: Scheme): URL5                              = URL5.Cons(scheme = Some(scheme))
   def setQueryParams(queryParams: Map[String, List[String]]): URL5 = URL5.Cons(queryParams = queryParams)
+  def setQueryParams(query: String): URL5 = URL5.Cons(queryParams = URL5.queryParams(query))
+  def encode: String                             = URL5.asString(self)
 
-  def encode: String                             = self match {
+}
+object URL5 {
+
+  def apply(path: Path): URL5     = Cons(path)
+  def apply(string: String): URL5 = Raw(string)
+
+  def asString(url: URL5): String =  url match {
     case Raw(string) => string
     case u: Cons     => {
       def path: String = {
@@ -43,22 +52,12 @@ sealed trait URL5 { self =>
       val a            = URL5.Raw(s"$path")
       if (u.scheme.isDefined && u.port.isDefined && u.host.isDefined) {
         if (u.port.get == 80 || u.port.get == 443)
-          a.copy(s"${asString(u.scheme.get)}://${u.host}$path")
-        else a.copy(s"${asString(u.scheme.get)}://${u.host.get}:${u.port.get}$path")
+          a.copy(s"${u.scheme.get.encode}://${u.host}$path")
+        else a.copy(s"${u.scheme.get.encode}://${u.host.get}:${u.port.get}$path")
       }
       a.encode
     }
   }
-  def decode: Either[HttpError.BadRequest, URL5] = self match {
-    case Raw(string) => URL5.decode(string)
-    case a: Cons     => Right(a)
-  }
-
-}
-object URL5 {
-
-  def apply(path: Path): URL5     = Cons(path)
-  def apply(string: String): URL5 = Raw(string)
 
   def decode(string: String): Either[HttpError.BadRequest, URL5] = Try(unsafeDecode(string)).toEither match {
     case Left(_)      => Left(HttpError.BadRequest(s"Invalid URL: $string"))
@@ -136,6 +135,7 @@ object URL5 {
   }
 
   def root: URL5 = Cons(!!)
+  def empty: URL5 = root
 
   val url1 = URL5(!! / "root")
     .setHost("www.zio-http.com")
@@ -144,8 +144,6 @@ object URL5 {
     .setScheme(Scheme.HTTP)
 
   val url2: URL5                               = URL5("www.zio-http.com/a")
-  val url4: Either[HttpError.BadRequest, URL5] = url2.decode
-
   val url3: Either[HttpError.BadRequest, URL5] = URL5.decode("www.zio-http.com/a")
 
 }
