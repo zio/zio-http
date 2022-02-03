@@ -3,12 +3,16 @@ package example
 import zhttp.http._
 import zhttp.service.Server
 import zio._
+import zio.stream.ZStream
 object HelloWorld extends App {
 
   // Create HTTP route
-  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
-    case Method.GET -> !! / "text" => Response.text("Hello World!")
-    case Method.GET -> !! / "json" => Response.json("""{"greetings": "Hello World!"}""")
+  val app = Http.collect[Request] { case req =>
+    Response(data =
+      HttpData.fromStream(
+        ZStream.repeatEffectChunkOption(req.getBodyChunk),
+      ),
+    )
   }
 
   // Run it like any simple app

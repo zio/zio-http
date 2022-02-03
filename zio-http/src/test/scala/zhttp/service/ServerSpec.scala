@@ -143,7 +143,7 @@ object ServerSpec extends HttpRunnableSpec {
     } +
       testM("POST Request.getBody status") {
         val app: Http[Any, Throwable, Request, Response] = Http.collectZIO[Request] { case req =>
-          req.body.as(Response.ok)
+          req.bodyAsString.as(Response.ok)
         }
         val res = app.deploy.status.run(path = !!, method = Method.POST, content = "some text")
         assertM(res)(equalTo(Status.OK))
@@ -156,16 +156,18 @@ object ServerSpec extends HttpRunnableSpec {
               Response.text(content)
             }
           }
-          assertM(app.deploy.getStatus.run(!!, Method.POST, c))(equalTo(Status.REQUEST_ENTITY_TOO_LARGE))
+          assertM(app.deploy.getStatus.run(path = !!, method = Method.POST, content = c))(
+            equalTo(Status.REQUEST_ENTITY_TOO_LARGE),
+          )
         }
         val res      = contentM.flatMap(c => app.deploy.status.run(!!, Method.POST, c.map(_.value).getOrElse("")))
         assertM(res)(equalTo(Status.REQUEST_ENTITY_TOO_LARGE))
       } +
       testM("POST Request.getBodyAsStream") {
-        val app: Http[Any, Throwable, Request, Response] = Http.collectZIO[Request] { case req =>
-          Response(data = HttpData.fromStreamByteBuf(req.getBodyAsStream)).wrapZIO
+        val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
+          Response(data = HttpData.fromStreamByteBuf(req.getBodyAsStream))
         }
-        val res                                          = app.deploy.getBody.run(!!, Method.POST, "some text")
+        val res = app.deploy.getBody.run(path = !!, method = Method.POST, content = "some text")
         assertM(res.map(_.toList.map(_.toChar).mkString))(equalTo("some text"))
       }
 
@@ -212,8 +214,8 @@ object ServerSpec extends HttpRunnableSpec {
       } +
       testM("echo streaming") {
         val res = Http
-          .collectZIO[Request] { case req =>
-            Response(data = HttpData.fromStreamByteBuf(req.getBodyAsStream)).wrapZIO
+          .collect[Request] { case req =>
+            Response(data = HttpData.fromStreamByteBuf(req.getBodyAsStream))
           }
           .deploy
           .bodyAsString

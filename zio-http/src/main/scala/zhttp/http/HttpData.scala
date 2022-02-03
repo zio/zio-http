@@ -69,7 +69,7 @@ object HttpData {
    * Helper to create HttpData from Stream of bytes
    */
   def fromStream(stream: ZStream[Any, Throwable, Byte]): HttpData =
-    HttpData.BinaryStream(stream.mapChunks(chunks => Chunk(Unpooled.copiedBuffer(chunks.toArray))))
+    HttpData.BinaryStream(stream.mapChunks(chunks => Chunk(Unpooled.wrappedBuffer(chunks.toArray))))
 
   /**
    * Helper to create HttpData from Stream of string
