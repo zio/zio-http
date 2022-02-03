@@ -2,7 +2,7 @@
  
 ## Server-side
 
-`Request` is designed in **ZIO HTTP** in the simplest way possible to make HTTP calls.
+**ZIO HTTP** `Request` is designed in the simplest way possible to, decode HTTP `Request` into a ZIO HTTP request.
  It supports all HTTP request methods (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) ) and headers along with custom methods and headers.
  
 ## Creating a Request
@@ -17,7 +17,7 @@ val request: Request = Request()
 
 ## Using Request in creating HTTP apps
 
-You can create an HTTP app which accepts a request of type `Request` and produces response of type `Response`:
+You can create an HTTP app which accepts an input of type `Request` and produces output of type `Response`:
  ```scala
  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !! / "text" => Response.text("Hello World!")
