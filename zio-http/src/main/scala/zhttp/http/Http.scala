@@ -371,38 +371,44 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * this way.
    */
 
-
   final private[zhttp] def execute[X](a: X)(implicit ev: HttpConvertor[X, A]): HExit[R, E, B] = {
     self match {
-      case Http.Empty => HExit.empty
-      case Http.Identity => HExit.succeed((ev.convert(a) match {
-        case Left(value) => value
-        case Right(value) => value
-      }).asInstanceOf[B])
-      case Succeed(b) => HExit.succeed(b)
-      case Fail(e) => HExit.fail(e)
-      case FromFunctionZIO(f) => HExit.fromZIO(f(ev.convert(a) match {
-        case Left(value) => value.asInstanceOf[A]
-        case Right(value) => value
-      }))
-      case Collect(pf) => if (pf.isDefinedAt(ev.convert(a) match {
-        case Left(value) => value.asInstanceOf[A]
-        case Right(value) => value
-      })) HExit.succeed(pf(ev.convert(a) match {
-        case Left(value) => value.asInstanceOf[A]
-        case Right(value) => value
-      })) else HExit.empty
-      case Chain(self, other) => self.execute(a).flatMap(b => other.asInstanceOf[Http[R, E, A, B]].execute(b.asInstanceOf[X]))
-      case Race(self, other) =>
+      case Http.Empty                 => HExit.empty
+      case Http.Identity              =>
+        HExit.succeed((ev.convert(a) match {
+          case Left(value)  => value
+          case Right(value) => value
+        }).asInstanceOf[B])
+      case Succeed(b)                 => HExit.succeed(b)
+      case Fail(e)                    => HExit.fail(e)
+      case FromFunctionZIO(f)         =>
+        HExit.fromZIO(f(ev.convert(a) match {
+          case Left(value)  => value.asInstanceOf[A]
+          case Right(value) => value
+        }))
+      case Collect(pf)                =>
+        if (
+          pf.isDefinedAt(ev.convert(a) match {
+            case Left(value)  => value.asInstanceOf[A]
+            case Right(value) => value
+          })
+        ) HExit.succeed(pf(ev.convert(a) match {
+          case Left(value)  => value.asInstanceOf[A]
+          case Right(value) => value
+        }))
+        else HExit.empty
+      case Chain(self, other)         =>
+        self.execute(a).flatMap(b => other.asInstanceOf[Http[R, E, A, B]].execute(b.asInstanceOf[X]))
+      case Race(self, other)          =>
         (self.execute(a), other.execute(a)) match {
           case (HExit.Effect(self), HExit.Effect(other)) =>
             Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
-          case (HExit.Effect(_), other) => other
-          case (self, _) => self
+          case (HExit.Effect(_), other)                  => other
+          case (self, _)                                 => self
         }
       case FoldHttp(self, ee, bb, dd) =>
         self.execute(a).foldExit(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
-      case RunMiddleware(app, mid) => mid(app).execute(a)
+      case RunMiddleware(app, mid)    => mid(app).execute(a)
     }
   }
 

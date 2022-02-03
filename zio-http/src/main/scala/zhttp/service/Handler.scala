@@ -22,7 +22,7 @@ private[zhttp] final case class Handler[R](
     implicit val iCtx: ChannelHandlerContext = ctx
     unsafeRun(
       jReq,
-      app
+      app,
     )
   }
 
@@ -32,7 +32,7 @@ private[zhttp] final case class Handler[R](
   private def unsafeRun[A](
     jReq: FullHttpRequest,
     http: Http[R, Throwable, A, Response],
-  )(implicit ctx: Ctx, ev2 : HttpConvertor[FullHttpRequest, A]): Unit = {
+  )(implicit ctx: Ctx, ev2: HttpConvertor[FullHttpRequest, A]): Unit = {
     http.execute(jReq) match {
       case HExit.Effect(resM) =>
         unsafeRunZIO {
