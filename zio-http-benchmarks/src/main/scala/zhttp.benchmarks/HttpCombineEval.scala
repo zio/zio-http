@@ -9,9 +9,9 @@ import java.util.concurrent.TimeUnit
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class HttpCombineEval {
-  private val MAX                 = 1000
-  private val app                 = Http.collect[Int] { case 0 => 1 }
-  private val spec                = (0 to MAX).foldLeft(app)((a, _) => a ++ app)
+  private val MAX  = 1000
+  private val app  = Http.collect[Int] { case 0 => 1 }
+  private val spec = (0 to MAX).foldLeft(app)((a, _) => a ++ app)
 
   @Benchmark
   def benchmarkNotFound(): Unit = {
