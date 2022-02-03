@@ -12,11 +12,10 @@ class HttpCollectEval {
   private val MAX                 = 1000000
   private val app                 = Http.collect[Int] { case 0 => 1 }
   private val base: Int => Int    = _ => 1
-  private val convert: Int => Int = a => a
 
   @Benchmark
   def benchmarkApp(): Unit = {
-    (0 to MAX).foreach(_ => app.execute(0, convert))
+    (0 to MAX).foreach(_ => app.execute(0))
     ()
   }
 

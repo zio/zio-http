@@ -23,13 +23,13 @@ object HttpConvertor {
 
         override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
 
-        override def remoteAddress: Option[InetAddress] = ???
+        override def remoteAddress: Option[InetAddress] = None
       }
     }
   }
   // not implicit
   private val empty: HttpConvertor[Any, Nothing] = new HttpConvertor[Any, Nothing] {
-    override def convert(a: Any): Nothing = a.asInstanceOf[Nothing]
+    override def convert(a: Any): Nothing = a.asInstanceOf
   }
 
   implicit def identity[A]: HttpConvertor[A, A] = empty // Create empty once for performance.
