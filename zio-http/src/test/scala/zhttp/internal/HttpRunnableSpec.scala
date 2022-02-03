@@ -1,5 +1,7 @@
 package zhttp.internal
 
+import io.netty.handler.codec.http.HttpVersion
+import io.netty.handler.codec.http.HttpVersion._
 import sttp.client3
 import sttp.client3.asynchttpclient.zio.{SttpClient, send}
 import sttp.client3.{UriContext, asWebSocketUnsafe, basicRequest}
@@ -28,6 +30,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
      * constituents of a ClientRequest.
      */
     def run(
+      httpVersion: HttpVersion = HTTP_1_1,
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
@@ -35,6 +38,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     ): ZIO[R, Throwable, A] =
       app(
         Client.ClientRequest(
+          httpVersion,
           method,
           URL(path, Location.Absolute(Scheme.HTTP, "localhost", 0)),
           headers,

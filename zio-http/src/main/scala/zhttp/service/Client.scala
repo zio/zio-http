@@ -37,7 +37,7 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el:
     promise: Promise[Throwable, ClientResponse],
     sslOption: ClientSSLOptions,
   ): Unit = {
-    val jReq = encodeClientParams(HttpVersion.HTTP_1_1, req)
+    val jReq = encodeClientParams(req)
     try {
       val hand   = ClientInboundHandler(rtm, jReq, promise)
       val host   = req.url.host
@@ -111,14 +111,14 @@ object Client {
     method: Method,
     url: URL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientRequest(method, url))
+    request(ClientRequest(method = method, url = url))
 
   def request(
     method: Method,
     url: URL,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientRequest(method, url), sslOptions)
+    request(ClientRequest(method = method, url = url), sslOptions)
 
   def request(
     method: Method,
@@ -126,7 +126,7 @@ object Client {
     headers: Headers,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientRequest(method, url, headers), sslOptions)
+    request(ClientRequest(method = method, url = url, headers = headers), sslOptions)
 
   def request(
     method: Method,
@@ -134,7 +134,7 @@ object Client {
     headers: Headers,
     content: HttpData,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(ClientRequest(method, url, headers, content))
+    request(ClientRequest(method = method, url = url, headers = headers, data = content))
 
   def request(
     req: ClientRequest,
@@ -148,6 +148,7 @@ object Client {
     make.flatMap(_.request(req, sslOptions))
 
   final case class ClientRequest(
+    httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
     method: Method,
     url: URL,
     headers: Headers = Headers.empty,
