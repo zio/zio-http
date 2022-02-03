@@ -33,7 +33,7 @@ object ResponseSpec extends DefaultRunnableSpec {
       ) +
       suite("toHttp")(
         testM("should convert response to Http") {
-          val http = Response.ok.toHttp
+          val http = Http(Response.ok)
           assertM(http(()))(equalTo(Response.ok))
         },
       ),
