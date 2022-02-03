@@ -10,6 +10,7 @@ import zio.{App, ExitCode, URIO, ZIO}
  */
 object ZClientTestWithServer extends App {
 
+  // Creating a test server
   private val PORT = 8081
 
   private val fooBar: HttpApp[Any, Nothing] = Http.collect[Request] {
@@ -30,6 +31,7 @@ object ZClientTestWithServer extends App {
       .exitCode
   }
 
+  // Client Test code
   def clientTest = {
     for {
       client <- (
@@ -39,7 +41,6 @@ object ZClientTestWithServer extends App {
         ).make
       _  <- triggerClientSequential(client)
     } yield ()
-
   }
 
   // sequential execution test
