@@ -8,6 +8,7 @@ import zio.Promise
 import zio.duration.Duration
 
 import java.net.InetSocketAddress
+import java.time.Instant
 import scala.collection.mutable
 
 //
@@ -19,14 +20,14 @@ case class Timeouts(
   requestTimeout: Duration = Duration.Infinity,
 )
 
-case class RequestWaiting(req: FullHttpRequest)
+case class PendingRequest(req: FullHttpRequest, requestedTime: Instant)
 
 // TBD: Choose which data structures or a group of data structures to be made thread safe
 case class ZConnectionState(
   currentAllocatedChannels: mutable.Map[Channel, ConnectionRuntime] = emptyConnectionRuntime,
   currentAllocatedRequests: mutable.Map[ReqKey, Int] = mutable.Map.empty[ReqKey, Int],
   idleConnectionsMap: mutable.Map[ReqKey, mutable.Queue[ConnectionRuntime]] = emptyIdleConnectionMap,
-  waitingRequestQueue: mutable.Queue[RequestWaiting] = mutable.Queue.empty[RequestWaiting],
+  waitingRequestQueue: mutable.Queue[PendingRequest] = mutable.Queue.empty[PendingRequest],
 ) {
   // TBD thready safety and appropriate namespace
   var currMaxTotalConnections: Int     = 0
