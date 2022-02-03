@@ -32,7 +32,7 @@ sealed trait URL4 { self =>
     case URL4.Decode(string) => string
     case u: URL4.Cons        => {
       def path: String = {
-        val encoder = new QueryStringEncoder(s"${u.path.asString}${u.fragment.fold("")(f => "#" + f.raw)}")
+        val encoder = new QueryStringEncoder(s"${u.path.encode}${u.fragment.fold("")(f => "#" + f.raw)}")
         u.queryParams.foreach { case (key, values) =>
           if (key != "") values.foreach { value => encoder.addParam(key, value) }
         }

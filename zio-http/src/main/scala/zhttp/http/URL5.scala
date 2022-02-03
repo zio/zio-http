@@ -34,7 +34,7 @@ sealed trait URL5 { self =>
     case Raw(string) => string
     case u: Cons     => {
       def path: String = {
-        val encoder = new QueryStringEncoder(s"${u.path.asString}${u.fragment.fold("")(f => "#" + f.raw)}")
+        val encoder = new QueryStringEncoder(s"${u.path.encode}${u.fragment.fold("")(f => "#" + f.raw)}")
         u.queryParams.foreach { case (key, values) =>
           if (key != "") values.foreach { value => encoder.addParam(key, value) }
         }
