@@ -371,14 +371,27 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * this way.
    */
 
+
   final private[zhttp] def execute[X](a: X)(implicit ev: HttpConvertor[X, A]): HExit[R, E, B] = {
     self match {
       case Http.Empty => HExit.empty
-      case Http.Identity => HExit.succeed(ev.convert(a).asInstanceOf[B])
+      case Http.Identity => HExit.succeed((ev.convert(a) match {
+        case Left(value) => value
+        case Right(value) => value
+      }).asInstanceOf[B])
       case Succeed(b) => HExit.succeed(b)
       case Fail(e) => HExit.fail(e)
-      case FromFunctionZIO(f) => HExit.fromZIO(f(ev.convert(a)))
-      case Collect(pf) => if (pf.isDefinedAt(ev.convert(a))) HExit.succeed(pf(ev.convert(a))) else HExit.empty
+      case FromFunctionZIO(f) => HExit.fromZIO(f(ev.convert(a) match {
+        case Left(value) => value.asInstanceOf[A]
+        case Right(value) => value
+      }))
+      case Collect(pf) => if (pf.isDefinedAt(ev.convert(a) match {
+        case Left(value) => value.asInstanceOf[A]
+        case Right(value) => value
+      })) HExit.succeed(pf(ev.convert(a) match {
+        case Left(value) => value.asInstanceOf[A]
+        case Right(value) => value
+      })) else HExit.empty
       case Chain(self, other) => self.execute(a).flatMap(b => other.asInstanceOf[Http[R, E, A, B]].execute(b.asInstanceOf[X]))
       case Race(self, other) =>
         (self.execute(a), other.execute(a)) match {
