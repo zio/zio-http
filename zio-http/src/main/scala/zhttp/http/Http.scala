@@ -19,6 +19,7 @@ import scala.annotation.unused
 sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
   import Http._
+  type Ctx = ChannelHandlerContext
 
   /**
    * Attaches the provided middleware to the Http app
@@ -369,20 +370,15 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * should be stack safe. The performance improves quite significantly if no additional heap allocations are required
    * this way.
    */
-  type Ctx = ChannelHandlerContext
 
-  final private[zhttp] def execute[X](a: X, ctx: Ctx = null)(implicit ev: HttpConvertor[X, A]): HExit[R, E, B] = {
+  final private[zhttp] def execute[X](a: X, ctx: Ctx = null)(implicit ev: HttpConvertor[X, A]): HExit[R, E, B] =
     self match {
-      case Http.Empty                 => HExit.empty
-      case Http.Identity              =>
-        HExit.succeed(ev.convert(a, ctx).asInstanceOf[B])
-      case Succeed(b)                 => HExit.succeed(b)
-      case Fail(e)                    => HExit.fail(e)
-      case FromFunctionZIO(f)         =>
-        HExit.fromZIO(f(ev.convert(a, ctx)))
-      case Collect(pf)                =>
-        if (pf.isDefinedAt(ev.convert(a, ctx))) HExit.succeed(pf(ev.convert(a, ctx)))
-        else HExit.empty
+      case Http.Empty         => HExit.empty
+      case Http.Identity      => HExit.succeed(ev.convert(a, ctx).asInstanceOf[B])
+      case Succeed(b)         => HExit.succeed(b)
+      case Fail(e)            => HExit.fail(e)
+      case FromFunctionZIO(f) => HExit.fromZIO(f(ev.convert(a, ctx)))
+      case Collect(pf) => if (pf.isDefinedAt(ev.convert(a, ctx))) HExit.succeed(pf(ev.convert(a, ctx))) else HExit.empty
       case Chain(self, other)         =>
         self.execute(a, ctx).flatMap(b => other.asInstanceOf[Http[R, E, A, B]].execute(b.asInstanceOf[X], ctx))
       case Race(self, other)          =>
@@ -396,7 +392,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
         self.execute(a, ctx).foldExit(ee(_).execute(a, ctx), bb(_).execute(a, ctx), dd.execute(a, ctx))
       case RunMiddleware(app, mid)    => mid(app).execute(a, ctx)
     }
-  }
 
   /**
    * Extracts body as a ByteBuf
