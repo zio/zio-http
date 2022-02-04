@@ -20,7 +20,7 @@ object SchemeSpec extends DefaultRunnableSpec {
       testM("java websocket scheme") {
         checkAll(jWebSocketScheme) { jWebSocketScheme =>
           assertTrue(
-            Scheme.fromJScheme(jWebSocketScheme).flatMap(_.toWebSocketScheme).get == jWebSocketScheme,
+            Scheme.fromJScheme(jWebSocketScheme).flatMap(_.toJWebSocketScheme).get == jWebSocketScheme,
           )
         }
       }

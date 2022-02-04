@@ -32,7 +32,7 @@ sealed trait Scheme { self =>
     case _     => None
   }
 
-  def toWebSocketScheme: Option[WebSocketScheme] = self match {
+  def toJWebSocketScheme: Option[WebSocketScheme] = self match {
     case WS  => Option(WebSocketScheme.WS)
     case WSS => Option(WebSocketScheme.WSS)
     case _   => None
