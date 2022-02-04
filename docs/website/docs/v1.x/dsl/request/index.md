@@ -34,28 +34,18 @@ You can create existing HTTP methods such as `Method.GET`, `Method.POST` etc or 
 The below snippet creates an `HttpApp` that accepts an input of type `Request` and output of type `Response` with two paths.
 According to the request path, it will respond with the corresponding response:
 - if the request has path `/name` it will match the first route.
-- if the request has path `/name/joe` it will match the second route as `/:` matches the path partially as well.  
+- if the request has path `/name/joe/wilson` it will match the second route as `/:` matches the path partially as well.  
 
  ```scala
  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !! / a => Response.text(s"$a")
-    case Method.GET -> !! /: rest => Response.text(s"$rest")
+    case Method.GET -> !! / a /: rest => Response.text(s"$rest")
   }
 ```
 
-#### Matching path on the basis of Type
-
-The below snippet will match path like `/fruits/3/apples` but not `/fruits/a/apples`
-
-```scala
-val app: HttpApp[Any, Nothing] = Method.GET / "fruits" / *[Int] / "apples" to { a =>
-    Response.text(s"apples: ${a.params.toString}")
-  }
-``` 
-
 ## Accessing the Request
 
-- `getBody` to access the content of request as a Chunk of Bytes
+- `getBody` to access the content of request as a Chunk[Byte]
 ```scala
   val app = Http.collectZIO[Request] { case req => req.getBody.as(Response.ok) }
 ``` 
