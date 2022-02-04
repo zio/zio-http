@@ -99,6 +99,28 @@ object URLSpec extends DefaultRunnableSpec {
     },
   )
 
+  val builderSpec = suite("builder")(
+    test("creates a URL with all attributes set") {
+      val builderUrl = URL.empty
+        .setHost("www.yourdomain.com")
+        .setPath("/list")
+        .setPort(8080)
+        .setScheme(Scheme.HTTPS)
+        .setQueryParams("?type=builder&query=provided")
+
+      assert(builderUrl.encode)(equalTo("https://www.yourdomain.com:8080/list?type=builder&query=provided"))
+    },
+    test("returns relative URL if port, host, and scheme are not set") {
+      val builderUrl = URL.empty
+        .setPath(Path("/list"))
+        .setQueryParams(
+          Map("type" -> List("builder"), "query" -> List("provided")),
+        )
+
+      assert(builderUrl.encode)(equalTo("/list?type=builder&query=provided"))
+    },
+  )
+
   def spec =
-    suite("URL")(fromStringSpec, asStringSpec, relativeSpec)
+    suite("URL")(fromStringSpec, asStringSpec, relativeSpec, builderSpec)
 }

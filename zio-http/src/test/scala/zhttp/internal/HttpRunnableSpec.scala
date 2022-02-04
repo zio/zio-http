@@ -1,5 +1,7 @@
 package zhttp.internal
 
+import io.netty.handler.codec.http.HttpVersion
+import io.netty.handler.codec.http.HttpVersion._
 import sttp.client3
 import sttp.client3.asynchttpclient.zio.{SttpClient, send}
 import sttp.client3.{UriContext, asWebSocketUnsafe, basicRequest}
@@ -28,6 +30,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
      * constituents of a ClientRequest.
      */
     def run(
+      httpVersion: HttpVersion = HTTP_1_1,
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
@@ -35,6 +38,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     ): ZIO[R, Throwable, A] =
       app(
         Client.ClientRequest(
+          httpVersion,
           method,
           URL(path, Location.Absolute(Scheme.HTTP, "localhost", 0)),
           headers,
@@ -77,7 +81,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
         Http.fromFunctionZIO[Client.ClientRequest](params =>
           for {
             port <- DynamicServer.getPort
-            url        = s"ws://localhost:$port${params.url.path.asString}"
+            url        = s"ws://localhost:$port${params.url.path.encode}"
             headerConv = params.addHeader(DynamicServer.APP_ID, id).getHeaders.toList.map(h => SHeader(h._1, h._2))
             res <- send(basicRequest.get(uri"$url").copy(headers = headerConv).response(asWebSocketUnsafe))
           } yield res,

@@ -128,7 +128,7 @@ object ServerSpec extends HttpRunnableSpec {
     } +
       testM("POST Request.getBody") {
         val app = Http.collectZIO[Request] { case req => req.getBody.as(Response.ok) }
-        val res = app.deploy.getStatus.run(!!, Method.POST, "some text")
+        val res = app.deploy.getStatus.run(path = !!, method = Method.POST, content = "some text")
         assertM(res)(equalTo(Status.OK))
       }
   }
