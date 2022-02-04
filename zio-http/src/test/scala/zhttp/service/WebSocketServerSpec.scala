@@ -1,10 +1,10 @@
 package zhttp.service
 
-import sttp.client3.asynchttpclient.zio.AsyncHttpClientZioBackend
-import zhttp.http._
+import zhttp.http.Status
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zhttp.socket.{Socket, WebSocketFrame}
+import zio.ZIO
 import zio.duration._
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
@@ -13,21 +13,22 @@ import zio.test._
 object WebSocketServerSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ AsyncHttpClientZioBackend
-      .layer()
-      .orDie ++ DynamicServer.live ++ ChannelFactory.nio
+    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ChannelFactory.nio
   private val app = serve { DynamicServer.app }
 
   override def spec = suiteM("Server") {
     app.as(List(websocketSpec)).useNow
-  }.provideCustomLayerShared(env) @@ timeout(30 seconds)
+  }.provideCustomLayerShared(env) @@ timeout(10 seconds)
 
   def websocketSpec = suite("WebSocket Server") {
     suite("connections") {
       testM("Multiple websocket upgrades") {
-        val response = Socket.succeed(WebSocketFrame.text("BAR")).toResponse
-        val app      = Http.fromZIO(response)
-        assertM(app.deployWebSocket.map(_.code.code).run(path = !! / "subscriptions").repeatN(1024))(equalTo(101))
+        val app   = Socket.succeed(WebSocketFrame.text("BAR")).toHttp.deployWS
+        val codes = ZIO
+          .foreach(1 to 1024)(_ => app(Socket.empty.toSocketApp).map(_.status))
+          .map(_.count(_ == Status.SWITCHING_PROTOCOLS))
+
+        assertM(codes)(equalTo(1024))
       }
     }
   }

@@ -15,9 +15,6 @@ object Dependencies {
   val `netty-incubator` =
     "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % NettyIncubatorVersion classifier "linux-x86_64"
 
-  val sttp       = "com.softwaremill.sttp.client3" %% "core"                          % SttpVersion % "test"
-  val `sttp-zio` = "com.softwaremill.sttp.client3" %% "async-http-client-backend-zio" % SttpVersion % "test"
-
   val zio            = "dev.zio" %% "zio"          % ZioVersion
   val `zio-streams`  = "dev.zio" %% "zio-streams"  % ZioVersion
   val `zio-test`     = "dev.zio" %% "zio-test"     % ZioVersion % "test"

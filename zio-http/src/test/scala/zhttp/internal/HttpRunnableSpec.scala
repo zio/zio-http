@@ -1,20 +1,16 @@
 package zhttp.internal
 
 import io.netty.handler.codec.http.HttpVersion
-import io.netty.handler.codec.http.HttpVersion._
-import sttp.client3
-import sttp.client3.asynchttpclient.zio.{SttpClient, send}
-import sttp.client3.{UriContext, asWebSocketUnsafe, basicRequest}
-import sttp.model.{Header => SHeader}
-import sttp.ws.WebSocket
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.DynamicServer.HttpEnv
 import zhttp.internal.HttpRunnableSpec.HttpTestClient
+import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zhttp.socket.SocketApp
 import zio.test.DefaultRunnableSpec
-import zio.{Has, Task, ZIO, ZManaged}
+import zio.{Has, ZIO, ZManaged}
 
 /**
  * Should be used only when e2e tests needs to be written. Typically we would want to do that when we want to test the
@@ -30,19 +26,19 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
      * constituents of a ClientRequest.
      */
     def run(
-      httpVersion: HttpVersion = HTTP_1_1,
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
       headers: Headers = Headers.empty,
+      version: HttpVersion = HttpVersion.HTTP_1_1,
     ): ZIO[R, Throwable, A] =
       app(
         Client.ClientRequest(
-          httpVersion,
-          method,
-          URL(path, Location.Absolute(Scheme.HTTP, "localhost", 0)),
-          headers,
-          HttpData.fromString(content),
+          url = URL(path), // url set here is overridden later via `deploy` method
+          method = method,
+          headers = headers,
+          data = HttpData.fromString(content),
+          version = version,
         ),
       ).catchAll {
         case Some(value) => ZIO.fail(value)
@@ -58,7 +54,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
      * are available on `Http` while writing tests. It also allows us to simply pass a request in the end, to execute,
      * and resolve it with a response, like a normal HttpApp.
      */
-    def deploy: HttpTestClient[Any, Client.ClientResponse] =
+    def deploy: HttpTestClient[Any, ClientRequest, ClientResponse] =
       for {
         port     <- Http.fromZIO(DynamicServer.getPort)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
@@ -67,28 +63,22 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
             params
               .addHeader(DynamicServer.APP_ID, id)
               .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
-            ClientSSLOptions.DefaultSSL,
           )
         }
       } yield response
 
-    /**
-     * Deploys the websocket application on the test server.
-     */
-    def deployWebSocket: HttpTestClient[SttpClient, client3.Response[Either[String, WebSocket[Task]]]] = for {
-      id  <- Http.fromZIO(DynamicServer.deploy(app))
-      res <-
-        Http.fromFunctionZIO[Client.ClientRequest](params =>
-          for {
-            port <- DynamicServer.getPort
-            url        = s"ws://localhost:$port${params.url.path.encode}"
-            headerConv = params.addHeader(DynamicServer.APP_ID, id).getHeaders.toList.map(h => SHeader(h._1, h._2))
-            res <- send(basicRequest.get(uri"$url").copy(headers = headerConv).response(asWebSocketUnsafe))
-          } yield res,
-        )
-
-    } yield res
-
+    def deployWS: HttpTestClient[Any, SocketApp[Any], ClientResponse] =
+      for {
+        id       <- Http.fromZIO(DynamicServer.deploy(app))
+        url      <- Http.fromZIO(DynamicServer.wsURL)
+        response <- Http.fromFunctionZIO[SocketApp[Any]] { app =>
+          Client.socket(
+            url = url,
+            headers = Headers(DynamicServer.APP_ID, id),
+            app = app,
+          )
+        }
+      } yield response
   }
 
   def serve[R <: Has[_]](
@@ -107,9 +97,9 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       port   <- DynamicServer.getPort
       status <- Client
         .request(
+          "http://localhost:%d/%s".format(port, path),
           method,
-          URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
-          ClientSSLOptions.DefaultSSL,
+          ssl = ClientSSLOptions.DefaultSSL,
         )
         .map(_.status)
     } yield status
@@ -117,11 +107,11 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
 }
 
 object HttpRunnableSpec {
-  type HttpTestClient[-R, +A] =
+  type HttpTestClient[-R, -A, +B] =
     Http[
       R with EventLoopGroup with ChannelFactory with DynamicServer with ServerChannelFactory,
       Throwable,
-      Client.ClientRequest,
       A,
+      B,
     ]
 }
