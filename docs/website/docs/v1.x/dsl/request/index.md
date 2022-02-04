@@ -1,6 +1,6 @@
 # Request
  
-**ZIO HTTP** `Request` is designed in the simplest way possible to, decode HTTP `Request` into a ZIO HTTP request.
+**ZIO HTTP** `Request` is designed in the simplest way possible to decode HTTP Request into a ZIO HTTP request.
  It supports all HTTP request methods (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) ) and headers along with custom methods and headers.
  
 ## Creating a Request
@@ -15,7 +15,7 @@ val request: Request = Request()
 
 ## Matching and Extracting Requests
 
-`Request` can be extracted into an HTTP Method and Path via the -> object. On the left side is the `Method`, and on the right side, the `Path`.
+`Request` can be extracted into an HTTP Method and Path via the ->. On the left side is the `Method`, and on the right side, the `Path`.
 
 ```scala
 Method.GET -> !! / "text"
@@ -37,10 +37,10 @@ According to the request path, it will respond with the corresponding response:
 - if the request has path `/name/joe/wilson` it will match the second route as `/:` matches the path partially as well.  
 
  ```scala
- val app: HttpApp[Any, Nothing] = Http.collect[Request] {
-    case Method.GET -> !! / a => Response.text(s"$a")
-    case Method.GET -> !! / a /: rest => Response.text(s"$rest")
-  }
+  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
+     case Method.GET -> !! / a => Response.text(s"$a")
+     case Method.GET -> "name" /: a => Response.text(s"$a")
+   }
 ```
 
 ## Accessing the Request
