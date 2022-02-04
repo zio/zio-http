@@ -80,7 +80,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
           val sslOption: ClientSSLOptions = req.attribute.ssl.getOrElse(ClientSSLOptions.DefaultSSL)
 
           // If a https or wss request is made we need to add the ssl handler at the starting of the pipeline.
-          if (isSSL) pipeline.addLast("SSLHandler", ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc))
+          if (isSSL) pipeline.addLast(SSL_HANDLER, ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc))
 
           // Adding default client channel handlers
           pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec)
@@ -90,7 +90,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
           pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
 
           // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
-          pipeline.addLast("ZHttpClientInboundHandler", new ClientInboundHandler(rtm, jReq, promise, isWebSocket))
+          pipeline.addLast(CLIENT_INBOUND_HANDLER, new ClientInboundHandler(rtm, jReq, promise, isWebSocket))
 
           // Add WebSocketHandlers if it's a `ws` or `wss` request
           if (isWebSocket) {
