@@ -148,6 +148,19 @@ object ServerSpec extends HttpRunnableSpec {
         val res = app.deploy.status.run(path = !!, method = Method.POST, content = "some text")
         assertM(res)(equalTo(Status.OK))
       } +
+      testM("POST Request.getBodyChunk") {
+        val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
+          val body = ZStream
+            .repeatEffect(req.getBodyChunk)
+            .takeUntil(_._1)
+            .map(_._2)
+            .flattenChunks
+          Response(data = HttpData.fromStream(body))
+        }
+        checkAllM(Gen.alphaNumericString) { c =>
+          assertM(app.deploy.getBodyAsString.run(path = !!, method = Method.POST, content = c))(equalTo(c))
+        }
+      } +
       testM("POST Request.getBody Too Large Content") {
         val contentM = Gen.alphaNumericStringBounded(4097, 10000)
         checkAllM(contentM) { c =>
@@ -167,8 +180,11 @@ object ServerSpec extends HttpRunnableSpec {
         val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
           Response(data = HttpData.fromStreamByteBuf(req.getBodyAsStream))
         }
-        val res = app.deploy.getBody.run(path = !!, method = Method.POST, content = "some text")
-        assertM(res.map(_.toList.map(_.toChar).mkString))(equalTo("some text"))
+        checkAllM(Gen.alphaNumericString) { c =>
+          val res = app.deploy.getBodyAsString.run(path = !!, method = Method.POST, content = c)
+          assertM(res)(equalTo(c))
+        }
+
       }
 
   }

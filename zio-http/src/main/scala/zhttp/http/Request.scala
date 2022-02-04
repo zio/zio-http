@@ -8,7 +8,6 @@ import zio._
 import zio.stream.ZStream
 
 import java.net.InetAddress
-import scala.annotation.unused
 
 trait Request extends HeaderExtension[Request] { self =>
 
@@ -26,7 +25,8 @@ trait Request extends HeaderExtension[Request] { self =>
       override def url: URL                           = u
       override def headers: Headers                   = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
-      override def unsafeBody(
+      override def getBody                            = self.getBody
+      private[zhttp] override def unsafeBody(
         msg: (
           UnsafeChannel,
           UnsafeContent,
@@ -37,19 +37,42 @@ trait Request extends HeaderExtension[Request] { self =>
 
   private[zhttp] def unsafeBody(msg: (UnsafeChannel, UnsafeContent) => Unit): Unit
 
-  def getBodyChunk: ZIO[Any, Option[Throwable], Chunk[Byte]] =
-    ZIO
-      .effectAsync[Any, Option[Throwable], ByteBuf](cb =>
-        self.unsafeBody((ch, msg) => {
-          cb(IO.succeed(msg.content.content()))
+  def getBody: Task[ByteBuf] = for {
+    buffer <- UIO(Unpooled.compositeBuffer())
+    body   <- ZIO.effectAsync[Any, Throwable, ByteBuf](cb =>
+      self.unsafeBody((ch, msg) => {
+        if (buffer.readableBytes() + msg.content.content().readableBytes() > msg.limit) {
+          ch.ctx.fireChannelRead(Response.status(Status.REQUEST_ENTITY_TOO_LARGE)): Unit
+        } else {
+          buffer.writeBytes(msg.content.content())
           if (msg.isLast) {
-            cb(IO.fail(None))
+            cb(UIO(buffer) ensuring UIO(ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)))
+
           } else {
             ch.read()
+            ()
+          }
+        }
+        msg.content.release(msg.content.refCnt()): Unit
+      }),
+    )
+  } yield body
+
+  def getBodyChunk: ZIO[Any, Throwable, (Boolean, Chunk[Byte])] =
+    ZIO
+      .effectAsync[Any, Throwable, (Boolean, Chunk[Byte])](cb =>
+        self.unsafeBody((ch, msg) => {
+          cb(
+            IO.succeed((msg.isLast, Chunk.fromArray(ByteBufUtil.getBytes(msg.content.content()))))
+              .ensuring(UIO(msg.content.release(msg.content.refCnt()))),
+          )
+          if (msg.isLast) {
+            ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER): Unit
+          } else {
+            ch.read(): Unit
           }
         }),
       )
-      .map(data => Chunk.fromArray(ByteBufUtil.getBytes(data)))
 
   def getBodyAsStream: ZStream[Any, Throwable, ByteBuf] =
     ZStream
@@ -68,29 +91,7 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Decodes the content of request as string
    */
-  def bodyAsString: Task[String] = {
-    for {
-      buffer <- UIO(Unpooled.compositeBuffer())
-      body   <- ZIO.effectAsync[Any, Throwable, String](cb =>
-        self.unsafeBody((ch, msg) => {
-          if (buffer.readableBytes() + msg.content.content().readableBytes() > msg.limit) {
-            ch.ctx.fireChannelRead(Response.status(Status.REQUEST_ENTITY_TOO_LARGE)): Unit
-          } else {
-            buffer.writeBytes(msg.content.content())
-            if (msg.isLast) {
-              cb(UIO(buffer.toString(HTTP_CHARSET)) ensuring UIO(ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)))
-
-            } else {
-              ch.read()
-              ()
-            }
-          }
-          msg.content.release(msg.content.refCnt()): Unit
-        }),
-      )
-    } yield body
-
-  }
+  def bodyAsString: Task[String] = self.getBody.map(_.toString(HTTP_CHARSET))
 
   /**
    * Gets all the headers in the Request
@@ -150,7 +151,7 @@ object Request {
     url: URL = URL.root,
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress] = None,
-    @unused data: HttpData = HttpData.Empty,
+    data: HttpData = HttpData.Empty,
   ): Request = {
     val m  = method
     val u  = url
@@ -162,7 +163,8 @@ object Request {
       override def headers: Headers                            = h
       override def remoteAddress: Option[InetAddress]          = ra
       override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
-      override def unsafeBody(
+      override def getBody: Task[ByteBuf]                      = data.toByteBuf
+      private[zhttp] override def unsafeBody(
         msg: (
           UnsafeChannel,
           UnsafeContent,
@@ -191,7 +193,7 @@ object Request {
     override def method: Method                     = req.method
     override def remoteAddress: Option[InetAddress] = req.remoteAddress
     override def url: URL                           = req.url
-    override def unsafeBody(
+    private[zhttp] override def unsafeBody(
       msg: (
         UnsafeChannel,
         UnsafeContent,
