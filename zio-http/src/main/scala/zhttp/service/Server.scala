@@ -127,9 +127,9 @@ object Server {
     app: HttpApp[R, E] = Http.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
     acceptContinue: Boolean = false,
-    keepAlive: Boolean = false,
+    keepAlive: Boolean = true,
     consolidateFlush: Boolean = false,
-    flowControl: Boolean = false,
+    flowControl: Boolean = true,
   )
 
   /**
@@ -164,7 +164,7 @@ object Server {
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
-  val keepAlive: UServer             = KeepAlive(true)
+  val disableKeepAlive: UServer      = Server.KeepAlive(false)
   val consolidateFlush: UServer      = ConsolidateFlush(true)
 
   /**
@@ -215,7 +215,7 @@ object Server {
     for {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
-      zExec          <- HttpRuntime.default[R].toManaged_
+      zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
       reqHandler      = settings.app.compile(zExec, settings)
       respHandler     = ServerResponseHandler(zExec, settings, ServerTimeGenerator.make)
       init            = ServerChannelInitializer(zExec, settings, reqHandler, respHandler)

@@ -1,9 +1,9 @@
 package zhttp.service
 
 import io.netty.channel.{ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
-import io.netty.util.concurrent.{EventExecutor, Future}
+import io.netty.util.concurrent.{EventExecutor, Future, GenericFutureListener}
+import zio._
 import zio.internal.Executor
-import zio.{Exit, Runtime, URIO, ZIO}
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext => JExecutionContext}
@@ -14,16 +14,23 @@ import scala.jdk.CollectionConverters._
  * cancel the execution when the channel closes.
  */
 final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
-
   def unsafeRun(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
+
     val rtm = strategy.getRuntime(ctx)
+
+    // Close the connection if the program fails
+    // When connection closes, interrupt the program
+
     rtm
       .unsafeRunAsync(for {
         fiber <- program.fork
-        _     <- ZIO.effect {
-          ctx.channel().closeFuture.addListener((_: Future[_ <: Void]) => rtm.unsafeRunAsync_(fiber.interrupt): Unit)
+        close <- UIO {
+          val close = closeListener(rtm, fiber)
+          ctx.channel().closeFuture.addListener(close)
+          close
         }
         _     <- fiber.join
+        _     <- UIO(ctx.channel().closeFuture().removeListener(close))
       } yield ()) {
         case Exit.Success(_)     => ()
         case Exit.Failure(cause) =>
@@ -31,17 +38,38 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
             case None    => ()
             case Some(_) => System.err.println(cause.prettyPrint)
           }
-          ctx.close()
+          if (ctx.channel().isOpen) ctx.close()
       }
   }
+
+  private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
+    (_: Future[_ >: Void]) => rtm.unsafeRunAsync_(fiber.interrupt): Unit
 }
 
 object HttpRuntime {
+  def dedicated[R](group: JEventLoopGroup): URIO[R, HttpRuntime[R]] =
+    Strategy.dedicated(group).map(runtime => new HttpRuntime[R](runtime))
+
+  def default[R]: URIO[R, HttpRuntime[R]] =
+    Strategy.default().map(runtime => new HttpRuntime[R](runtime))
+
+  def sticky[R](group: JEventLoopGroup): URIO[R, HttpRuntime[R]] =
+    Strategy.sticky(group).map(runtime => new HttpRuntime[R](runtime))
+
   sealed trait Strategy[R] {
     def getRuntime(ctx: ChannelHandlerContext): Runtime[R]
   }
 
   object Strategy {
+
+    def dedicated[R](group: JEventLoopGroup): ZIO[R, Nothing, Strategy[R]] =
+      ZIO.runtime[R].map(runtime => Dedicated(runtime, group))
+
+    def default[R](): ZIO[R, Nothing, Strategy[R]] =
+      ZIO.runtime[R].map(runtime => Default(runtime))
+
+    def sticky[R](group: JEventLoopGroup): ZIO[R, Nothing, Strategy[R]] =
+      ZIO.runtime[R].map(runtime => Group(runtime, group))
 
     case class Default[R](runtime: Runtime[R]) extends Strategy[R] {
       override def getRuntime(ctx: ChannelHandlerContext): Runtime[R] = runtime
@@ -73,23 +101,5 @@ object HttpRuntime {
       override def getRuntime(ctx: ChannelHandlerContext): Runtime[R] =
         localRuntime.getOrElse(ctx.executor(), runtime)
     }
-
-    def sticky[R](group: JEventLoopGroup): ZIO[R, Nothing, Strategy[R]] =
-      ZIO.runtime[R].map(runtime => Group(runtime, group))
-
-    def default[R](): ZIO[R, Nothing, Strategy[R]] =
-      ZIO.runtime[R].map(runtime => Default(runtime))
-
-    def dedicated[R](group: JEventLoopGroup): ZIO[R, Nothing, Strategy[R]] =
-      ZIO.runtime[R].map(runtime => Dedicated(runtime, group))
   }
-
-  def sticky[R](group: JEventLoopGroup): URIO[R, HttpRuntime[R]] =
-    Strategy.sticky(group).map(runtime => new HttpRuntime[R](runtime))
-
-  def dedicated[R](group: JEventLoopGroup): URIO[R, HttpRuntime[R]] =
-    Strategy.dedicated(group).map(runtime => new HttpRuntime[R](runtime))
-
-  def default[R]: URIO[R, HttpRuntime[R]] =
-    Strategy.default().map(runtime => new HttpRuntime[R](runtime))
 }

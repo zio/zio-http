@@ -1,5 +1,6 @@
 package zhttp.http
 
+import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.ChannelHandler
 import zhttp.html.Html
 import zhttp.http.headers.HeaderModifier
@@ -93,6 +94,11 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def collect[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](pf: PartialFunction[B1, C]): Http[R1, E1, A1, C] =
     self >>> Http.collect(pf)
 
+  final def collectManaged[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](
+    pf: PartialFunction[B1, ZManaged[R1, E1, C]],
+  ): Http[R1, E1, A1, C] =
+    self >>> Http.collectManaged(pf)
+
   /**
    * Collects some of the results of the http and effectfully converts it to another type.
    */
@@ -169,6 +175,40 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     bb: B => Http[R1, E1, A1, B1],
     dd: Http[R1, E1, A1, B1],
   ): Http[R1, E1, A1, B1] = Http.FoldHttp(self, ee, bb, dd)
+
+  /**
+   * Extracts body
+   */
+  final def getBody(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, Chunk[Byte]] =
+    self.getBodyAsByteBuf.mapZIO(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
+
+  /**
+   * Extracts body as a string
+   */
+  final def getBodyAsString(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, String] =
+    self.getBodyAsByteBuf.mapZIO(bytes => Task(bytes.toString(HTTP_CHARSET)))
+
+  /**
+   * Extracts content-length from the response if available
+   */
+  final def getContentLength(implicit eb: IsResponse[B]): Http[R, E, A, Option[Long]] =
+    getHeaders.map(_.getContentLength)
+
+  /**
+   * Extracts the value of the provided header name.
+   */
+  final def getHeaderValue(name: CharSequence)(implicit eb: IsResponse[B]): Http[R, E, A, Option[CharSequence]] =
+    getHeaders.map(_.getHeaderValue(name))
+
+  /**
+   * Extracts the `Headers` from the type `B` if possible
+   */
+  final def getHeaders(implicit eb: IsResponse[B]): Http[R, E, A, Headers] = self.map(eb.getHeaders)
+
+  /**
+   * Extracts `Status` from the type `B` is possible.
+   */
+  final def getStatus(implicit ev: IsResponse[B]): Http[R, E, A, Status] = self.map(ev.getStatus)
 
   /**
    * Transforms the output of the http app
@@ -313,8 +353,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Widens the type of the output
    */
-  final def widen[B1](implicit ev: B <:< B1): Http[R, E, A, B1] =
-    self.asInstanceOf[Http[R, E, A, B1]]
+  final def widen[E1, B1](implicit e: E <:< E1, b: B <:< B1): Http[R, E1, A, B1] =
+    self.asInstanceOf[Http[R, E1, A, B1]]
 
   /**
    * Combines the two apps and returns the result of the one on the right
@@ -351,6 +391,15 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
       case RunMiddleware(app, mid) => mid(app).execute(a)
     }
+
+  /**
+   * Extracts body as a ByteBuf
+   */
+  private[zhttp] final def getBodyAsByteBuf(implicit
+    eb: IsResponse[B],
+    ee: E <:< Throwable,
+  ): Http[R, Throwable, A, ByteBuf] =
+    self.widen[Throwable, B].mapZIO(eb.getBodyAsByteBuf)
 }
 
 object Http {
@@ -405,6 +454,11 @@ object Http {
   }
 
   /**
+   * Equivalent to `Http.succeed`
+   */
+  def apply[B](b: B): Http[Any, Nothing, Any, B] = Http.succeed(b)
+
+  /**
    * Creates an HTTP app which always responds with a 400 status code.
    */
   def badRequest(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.BadRequest(msg))
@@ -415,6 +469,11 @@ object Http {
   def collect[A]: Http.PartialCollect[A] = Http.PartialCollect(())
 
   def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
+
+  /**
+   * Creates an Http app which accepts a request and produces response from a managed resource
+   */
+  def collectManaged[A]: Http.PartialCollectManaged[A] = Http.PartialCollectManaged(())
 
   /**
    * Creates an HTTP app which accepts a request and produces response effectfully.
@@ -575,6 +634,11 @@ object Http {
       Http.collect[A] { case a if pf.isDefinedAt(a) => Http.fromZIO(pf(a)) }.flatten
   }
 
+  final case class PartialCollectManaged[A](unit: Unit) extends AnyVal {
+    def apply[R, E, B](pf: PartialFunction[A, ZManaged[R, E, B]]): Http[R, E, A, B] =
+      Http.collect[A] { case a if pf.isDefinedAt(a) => Http.fromZIO(pf(a).useNow) }.flatten
+  }
+
   final case class PartialCollect[A](unit: Unit) extends AnyVal {
     def apply[B](pf: PartialFunction[A, B]): Http[Any, Nothing, A, B] = Collect(pf)
   }
@@ -633,12 +697,12 @@ object Http {
     dd: Http[R, EE, A, BB],
   ) extends Http[R, EE, A, BB]
 
-  private case object Empty extends Http[Any, Nothing, Any, Nothing]
-
-  private case object Identity extends Http[Any, Nothing, Any, Nothing]
-
   private final case class RunMiddleware[R, E, A1, B1, A2, B2](
     http: Http[R, E, A1, B1],
     mid: Middleware[R, E, A1, B1, A2, B2],
   ) extends Http[R, E, A2, B2]
+
+  private case object Empty extends Http[Any, Nothing, Any, Nothing]
+
+  private case object Identity extends Http[Any, Nothing, Any, Nothing]
 }

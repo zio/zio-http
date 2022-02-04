@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.buffer.Unpooled
+import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
 import zhttp.core.Util
@@ -8,7 +8,7 @@ import zhttp.html.Html
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
-import zio.{Chunk, UIO, ZIO}
+import zio.{Chunk, Task, UIO, ZIO}
 
 import java.nio.charset.Charset
 import java.nio.file.Files
@@ -62,9 +62,9 @@ final case class Response private (
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
 
   /**
-   * Wraps the current response into a ZIO
+   * Extracts the body as ByteBuf
    */
-  def wrapZIO: UIO[Response] = UIO(self)
+  private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = self.data.toByteBuf
 
   /**
    * Encodes the Response into a Netty HttpResponse. Sets default headers such as `content-length`. For performance

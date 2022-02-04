@@ -47,18 +47,18 @@ object URLSpec extends DefaultRunnableSpec {
   val asStringSpec = {
 
     def roundtrip(url: String) =
-      assert(URL.fromString(url).map(_.asString))(isRight(equalTo(url)))
+      assert(URL.fromString(url).map(_.encode))(isRight(equalTo(url)))
 
     suite("asString")(
       testM("using gen") {
         checkAll(HttpGen.url) { case url =>
-          val source  = url.asString
-          val decoded = URL.fromString(source).map(_.asString)
+          val source  = url.encode
+          val decoded = URL.fromString(source).map(_.encode)
           assert(decoded)(isRight(equalTo(source)))
         }
       } +
         test("empty") {
-          val actual = URL.fromString("/").map(_.asString)
+          val actual = URL.fromString("/").map(_.encode)
           assert(actual)(isRight(equalTo("/")))
         } +
         test("relative with pathname only") {
@@ -99,6 +99,28 @@ object URLSpec extends DefaultRunnableSpec {
     },
   )
 
+  val builderSpec = suite("builder")(
+    test("creates a URL with all attributes set") {
+      val builderUrl = URL.empty
+        .setHost("www.yourdomain.com")
+        .setPath("/list")
+        .setPort(8080)
+        .setScheme(Scheme.HTTPS)
+        .setQueryParams("?type=builder&query=provided")
+
+      assert(builderUrl.encode)(equalTo("https://www.yourdomain.com:8080/list?type=builder&query=provided"))
+    },
+    test("returns relative URL if port, host, and scheme are not set") {
+      val builderUrl = URL.empty
+        .setPath(Path("/list"))
+        .setQueryParams(
+          Map("type" -> List("builder"), "query" -> List("provided")),
+        )
+
+      assert(builderUrl.encode)(equalTo("/list?type=builder&query=provided"))
+    },
+  )
+
   def spec =
-    suite("URL")(fromStringSpec, asStringSpec, relativeSpec)
+    suite("URL")(fromStringSpec, asStringSpec, relativeSpec, builderSpec)
 }

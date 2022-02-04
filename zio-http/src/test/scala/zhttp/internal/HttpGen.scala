@@ -23,7 +23,7 @@ object HttpGen {
       url     <- urlGen
       headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
-    } yield ClientRequest(method, url, headers, data)
+    } yield ClientRequest(method = method, url = url, headers = headers, data = data)
 
   def clientParamsForFileHttpData() = {
     for {
@@ -31,7 +31,7 @@ object HttpGen {
       method  <- HttpGen.method
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
-    } yield ClientRequest(method, url, headers, HttpData.fromFile(file))
+    } yield ClientRequest(method = method, url = url, headers = headers, data = HttpData.fromFile(file))
   }
 
   def cookies: Gen[Random with Sized, Cookie] = for {
