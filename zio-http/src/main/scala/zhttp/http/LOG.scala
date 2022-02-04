@@ -1,11 +1,12 @@
 package zhttp.http
+import zio.Task
 
 final case class LogStep(request: Request)
 
 object LOG {
   import LogFmt._
 
-  val DefaultLogConfig = request(method ++ url ++ headers) ++ response(status ++ headers) ++ duration
+  val DefaultLogConfig = request(method ++ url ++ headers ++ body) ++ response(status ++ headers ++ body) ++ duration
 }
 
 sealed trait LogLevel
@@ -20,34 +21,57 @@ sealed trait LogFmt { self =>
 
   def combine(that: LogFmt): LogFmt = LogFmt.And(self, that)
 
-  def run(response: Response, start: Long, end: Long): String = {
-    def execute(logFmt: LogFmt): String =
-      logFmt match {
-        case LogFmt.And(left, right) => execute(left) ++ execute(right)
-        case LogFmt.Status           => s" Status: ${response.status},"
-        case LogFmt.Duration         => s" Duration: ${(end - start) / 1000}ms"
-        case LogFmt.Response(fmt)    => s" Response: " ++ execute(fmt)
-        case LogFmt.Headers(filter)  =>
-          s" Headers: ${LogFmt.stringifyHeaders(filter(response.headers)).mkString}"
-        case _                       => ""
-      }
+  def run(response: Response, start: Long, end: Long): Task[String] = execute(
+    false,
+    self,
+    method = None,
+    url = None,
+    response.headers,
+    response.getBodyAsByteBuf.map(_.toString(HTTP_CHARSET)),
+    Some(response.status),
+    Some((end - start)),
+  ).map(r => s"Response: $r")
 
-    execute(self)
+  def run(request: Request): Task[String] = {
+    execute(
+      true,
+      self,
+      Some(request.method),
+      Some(request.url),
+      request.getHeaders,
+      request.getBodyAsString,
+      status = None,
+      duration = None,
+    ).map(r => s"Request: $r")
   }
 
-  def run(request: Request): String = {
-    def execute(logFmt: LogFmt): String =
-      logFmt match {
-        case LogFmt.And(left, right) => execute(left) ++ execute(right)
-        case LogFmt.Method           => s" Method: ${request.method},"
-        case LogFmt.Url              => s" Url: ${request.url.asString},"
-        case LogFmt.Request(fmt)     => s" Request: " ++ execute(fmt)
-        case LogFmt.Headers(filter)  =>
-          s" Headers: ${LogFmt.stringifyHeaders(filter(request.getHeaders)).mkString}"
-        case _                       => ""
-      }
-
-    execute(self)
+  private def execute(
+    isRequest: Boolean,
+    logFmt: LogFmt,
+    method: Option[Method],
+    url: Option[URL],
+    headers: Headers,
+    body: Task[String],
+    status: Option[Status],
+    duration: Option[Long],
+  ): Task[String] = {
+    logFmt match {
+      case LogFmt.And(left, right)               =>
+        for {
+          left  <- execute(isRequest, left, method, url, headers, body, status, duration)
+          right <- execute(isRequest, right, method, url, headers, body, status, duration)
+        } yield left ++ right
+      case LogFmt.Method if method.isDefined     => Task.succeed(s" Method: ${method.get},")
+      case LogFmt.Url if url.isDefined           => Task.succeed(s" Url: ${url.get.path.toString},")
+      case LogFmt.Status if status.isDefined     => Task.succeed(s" Status: ${status.get},")
+      case LogFmt.Duration if duration.isDefined => Task.succeed(s" Duration: ${duration.get}ms")
+      case LogFmt.Body(limit)                    => body.map(b => s" Body: ${b.take(limit)}, ")
+      case LogFmt.Request(fmt) if isRequest   => execute(isRequest, fmt, method, url, headers, body, status, duration)
+      case LogFmt.Response(fmt) if !isRequest => execute(isRequest, fmt, method, url, headers, body, status, duration)
+      case LogFmt.Headers(filter)             =>
+        Task.succeed(s" Headers: ${LogFmt.stringifyHeaders(filter(headers)).mkString}")
+      case _                                  => Task.succeed("")
+    }
   }
 
 }
@@ -59,6 +83,7 @@ object LogFmt {
   case object Method                                                         extends LogFmt
   case object Url                                                            extends LogFmt
   case object Duration                                                       extends LogFmt
+  final case class Body(limit: Int)                                          extends LogFmt
   final case class Request(fmt: LogFmt)                                      extends LogFmt
   final case class Response(fmt: LogFmt)                                     extends LogFmt
   final case class Headers(filter: zhttp.http.Headers => zhttp.http.Headers) extends LogFmt
@@ -66,6 +91,8 @@ object LogFmt {
   def status: LogFmt                                                               = Status
   def method: LogFmt                                                               = Method
   def url: LogFmt                                                                  = Url
+  def body(limit: Int = 128)                                                       = Body(limit)
+  def body                                                                         = Body(128)
   def duration: LogFmt                                                             = Duration
   def request(logFmt: LogFmt): LogFmt                                              = Request(logFmt)
   def response(logFmt: LogFmt): LogFmt                                             = Response(logFmt)

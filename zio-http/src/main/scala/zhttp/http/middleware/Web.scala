@@ -4,7 +4,6 @@ import zhttp.http.LOG.DefaultLogConfig
 import zhttp.http._
 import zhttp.http.headers.HeaderModifier
 import zhttp.http.middleware.Web.{PartialInterceptPatch, PartialInterceptZIOPatch}
-import zhttp.service.server.ServerTimeGenerator
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
@@ -50,44 +49,49 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   /**
    * Provides a logging middleware
    */
-  def log[R, E](
-    logger: (String, LogLevel) => ZIO[R, E, Unit],
+  def log[R](
+    logger: (String, LogLevel) => ZIO[R, Throwable, Unit],
     logFmt: LogFmt = DefaultLogConfig,
-  ): HttpMiddleware[R with Clock, E] = {
+  ): HttpMiddleware[R with Clock, Throwable] = {
 
-    val serverTime = ServerTimeGenerator.make
-
-    def logRequest[R0, E0](
-      logger: (String, LogLevel) => ZIO[R0, E0, Unit],
+    def logRequest[R0](
+      logger: (String, LogLevel) => ZIO[R0, Throwable, Unit],
       request: Request,
       startTime: Long,
-    ): ZIO[R0, E0, Long] = {
-      val logData: String = logFmt.run(request)
-      logger(logData, LogLevel.Info).as(startTime)
+    ): ZIO[R0, Throwable, Long] = {
+      val logData = logFmt.run(request)
+      logData.flatMap { log =>
+        logger(log, LogLevel.Info).as(startTime)
+      }
+
     }
 
-    def logResponse[R0, E0](
-      logger: (String, LogLevel) => ZIO[R0, E0, Unit],
+    def logResponse[R0](
+      logger: (String, LogLevel) => ZIO[R0, Throwable, Unit],
       response: Response,
       startTime: Long,
       endTime: Long,
-    ): ZIO[R0, Option[E0], Patch] = {
+    ): ZIO[R0, Option[Throwable], Patch] = {
       val logData =
         logFmt.run(response, startTime, endTime)
       if (response.status.asJava.code() > 499) {
-        logger(logData, LogLevel.Error).mapBoth(e => Some(e), _ => Patch.empty)
+        logData.flatMap { log =>
+          logger(log, LogLevel.Error)
+        }.mapBoth(e => Some(e), _ => Patch.empty)
       } else {
-        logger(logData, LogLevel.Info).mapBoth(e => Some(e), _ => Patch.empty)
+        logData.flatMap { log =>
+          logger(log, LogLevel.Info)
+        }.mapBoth(e => Some(e), _ => Patch.empty)
       }
     }
 
     interceptZIOPatch(req =>
       ZIO
-        .succeed(serverTime.getLong)
+        .succeed(System.currentTimeMillis())
         .flatMap(start => logRequest(logger, req, start).mapError(e => Some(e))),
     ) { case (response, start) =>
       for {
-        end <- ZIO.succeed(serverTime.getLong)
+        end <- ZIO.succeed(System.currentTimeMillis())
         _   <- logResponse(logger, response, start, end)
       } yield Patch.empty
     }
