@@ -243,7 +243,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Provides the environment to Http.
    */
-  final def provide(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
+  final def provide(r: R)(implicit ev: NeedsEnv[R], ctx: Ctx): Http[Any, E, A, B] =
     Http.fromOptionFunction[A](a => self(a).provide(r))
 
   /**
@@ -251,7 +251,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def provideCustomLayer[E1 >: E, R1 <: Has[_]](
     layer: ZLayer[ZEnv, E1, R1],
-  )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): Http[ZEnv, E1, A, B] =
+  )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1], ctx: Ctx): Http[ZEnv, E1, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideCustomLayer(layer.mapError(Option(_))))
 
   /**
@@ -259,13 +259,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def provideLayer[E1 >: E, R0, R1](
     layer: ZLayer[R0, E1, R1],
-  )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R]): Http[R0, E1, A, B] =
+  )(implicit ev1: R1 <:< R, ev2: NeedsEnv[R], ctx: Ctx): Http[R0, E1, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideLayer(layer.mapError(Option(_))))
 
   /**
    * Provides some of the environment to Http.
    */
-  final def provideSome[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
+  final def provideSome[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R], ctx: Ctx): Http[R1, E, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideSome(r))
 
   /**
@@ -273,7 +273,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def provideSomeLayer[R0 <: Has[_], R1 <: Has[_], E1 >: E](
     layer: ZLayer[R0, E1, R1],
-  )(implicit ev: R0 with R1 <:< R, tagged: Tag[R1]): Http[R0, E1, A, B] =
+  )(implicit ev: R0 with R1 <:< R, tagged: Tag[R1], ctx: Ctx): Http[R0, E1, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideSomeLayer(layer.mapError(Option(_))))
 
   /**

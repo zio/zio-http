@@ -19,10 +19,10 @@ private[zhttp] final case class Handler[R](
 
   override def channelRead0(ctx: Ctx, jReq: FullHttpRequest): Unit = {
     jReq.touch("server.Handler-channelRead0")
+    implicit val iCtx: ChannelHandlerContext = ctx
     unsafeRun(
       jReq,
       app,
-      ctx,
     )
   }
 
@@ -32,11 +32,10 @@ private[zhttp] final case class Handler[R](
   private def unsafeRun[A](
     jReq: FullHttpRequest,
     http: Http[R, Throwable, A, Response],
-    ctx: Ctx,
-  )(implicit ev2: HttpConvertor[FullHttpRequest, A]): Unit = {
+  )(implicit ctx: Ctx, ev2: HttpConvertor[FullHttpRequest, A]): Unit = {
     http.execute(jReq, ctx) match {
       case HExit.Effect(resM) =>
-        unsafeRunZIO(
+        unsafeRunZIO {
           resM.foldM(
             {
               case Some(cause) =>
@@ -59,9 +58,8 @@ private[zhttp] final case class Handler[R](
                   }
                 } yield ()
               },
-          ),
-          ctx,
-        )
+          )
+        }
 
       case HExit.Success(res) =>
         if (self.isWebSocket(res)) {
@@ -81,7 +79,7 @@ private[zhttp] final case class Handler[R](
   /**
    * Executes program
    */
-  private def unsafeRunZIO(program: ZIO[R, Throwable, Any], ctx: Ctx): Unit =
+  private def unsafeRunZIO(program: ZIO[R, Throwable, Any])(implicit ctx: Ctx): Unit =
     runtime.unsafeRun(ctx) {
       program
     }

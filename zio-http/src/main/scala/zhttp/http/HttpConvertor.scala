@@ -10,7 +10,7 @@ import java.net.{InetAddress, InetSocketAddress}
 trait HttpConvertor[-X, +A] {
   type Ctx = ChannelHandlerContext
 
-  def convert(request: X, ctx: Ctx = null): A
+  def convert(request: X, ctx: Ctx): A
 }
 
 object HttpConvertor {
