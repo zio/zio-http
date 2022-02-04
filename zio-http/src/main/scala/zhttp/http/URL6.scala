@@ -10,15 +10,20 @@ import scala.util.Try
 
 sealed trait URL6 { self =>
 
-  def getHost: Option[String] = self match {
+  def getHost: Option[String]   = self match {
     case a: Unsafe   => a.toAbsolute.getHost
     case b: Absolute => b.host
     case r: Relative => r.toAbsolute.getHost
   }
-  def getPort: Option[Int]    = self match {
+  def getPort: Option[Int]      = self match {
     case a: Unsafe   => a.toAbsolute.getPort
     case b: Absolute => b.port
     case r: Relative => r.toAbsolute.getPort
+  }
+  def getScheme: Option[Scheme] = self match {
+    case a: Unsafe   => a.toAbsolute.getScheme
+    case b: Absolute => b.scheme
+    case r: Relative => r.toAbsolute.getScheme
   }
 
   def toAbsolute: URL6 = self match {
@@ -27,11 +32,14 @@ sealed trait URL6 { self =>
     case c: Relative => Absolute(relative = c)
   }
 
-  def setHost(host: String): URL6     = URL6.Absolute(Some(host), Some(HTTP), Some(80))
-  def setPort(port: Int): URL6        = URL6.Absolute(Some("localhost"), Some(HTTP), Some(port))
-  def setScheme(scheme: Scheme): URL6 = URL6.Absolute(Some("localhost"), Some(scheme), Some(80))
-  def setPath(path: Path): URL6       = URL6.Relative(path)
-  def setPath(path: String): URL6     = URL6.Relative(Path(path))
+  def setHost(host: String): URL6                                  =
+    URL6.Absolute(Some(host), Some(self.getScheme.getOrElse(HTTP)), Some(self.getPort.getOrElse(80)))
+  def setPort(port: Int): URL6                                     =
+    URL6.Absolute(Some(self.getHost.getOrElse("localhost")), Some(self.getScheme.getOrElse(HTTP)), Some(port))
+  def setScheme(scheme: Scheme): URL6                              =
+    URL6.Absolute(Some(self.getHost.getOrElse("localhost")), Some(scheme), Some(self.getPort.getOrElse(80)))
+  def setPath(path: Path): URL6                                    = URL6.Relative(path)
+  def setPath(path: String): URL6                                  = URL6.Relative(Path(path))
   def setQueryParams(queryParams: Map[String, List[String]]): URL6 = URL6.Relative(queryParams = queryParams)
   def setQueryParams(query: String): URL6 = URL6.Relative(queryParams = URL6.queryParams(query))
   def encode: String                      = URL6.asString(self)
@@ -42,36 +50,24 @@ object URL6 {
   def apply(path: Path): URL6     = Relative(path)
   def apply(string: String): URL6 = Unsafe(string)
 
-  def asString(url: URL6): String = url match {
+  def asString(url: URL6): String       = url match {
     case Unsafe(string) => string
     case u: Absolute    => {
-      def path: String = {
-        val encoder = new QueryStringEncoder(
-          s"${u.relative.path.encode}${u.relative.fragment.fold("")(f => "#" + f.raw)}",
-        )
-        u.relative.queryParams.foreach { case (key, values) =>
-          if (key != "") values.foreach { value => encoder.addParam(key, value) }
-        }
-        encoder.toString
-      }
-      val a            = URL6.Unsafe(s"$path")
+      val p: String = path(u.relative)
       if (u.scheme.isDefined && u.port.isDefined && u.host.isDefined) {
         if (u.port.get == 80 || u.port.get == 443)
-          a.copy(s"${u.scheme.get.encode}://${u.host}$path")
-        else a.copy(s"${u.scheme.get.encode}://${u.host.get}:${u.port.get}$path")
-      }
-      a.encode
+          s"${u.scheme.get.encode}://${u.host.get}$p"
+        else s"${u.scheme.get.encode}://${u.host.get}:${u.port.get}$p"
+      } else p
     }
-    case r: Relative    => {
-      def path: String = {
-        val encoder = new QueryStringEncoder(s"${r.path.encode}${r.fragment.fold("")(f => "#" + f.raw)}")
-        r.queryParams.foreach { case (key, values) =>
-          if (key != "") values.foreach { value => encoder.addParam(key, value) }
-        }
-        encoder.toString
-      }
-      s"$path"
+    case r: Relative    => path(r)
+  }
+  private def path(r: Relative): String = {
+    val encoder = new QueryStringEncoder(s"${r.path.encode}${r.fragment.fold("")(f => "#" + f.raw)}")
+    r.queryParams.foreach { case (key, values) =>
+      if (key != "") values.foreach { value => encoder.addParam(key, value) }
     }
+    encoder.toString
   }
 
   def decode(string: String): Either[HttpError.BadRequest, URL6] = Try(unsafeDecode(string)).toEither match {
@@ -148,7 +144,7 @@ object URL6 {
   def root: URL6  = Relative()
   def empty: URL6 = root
 
-  val url1 = URL6(!! / "root")
+  val url1 = URL6.empty
     .setHost("www.zio-http.com")
     .setQueryParams(Map("A" -> List("B")))
     .setPort(8090)
