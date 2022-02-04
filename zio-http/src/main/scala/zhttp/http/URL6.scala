@@ -11,25 +11,27 @@ import scala.util.Try
 sealed trait URL6 { self =>
 
   def getHost: Option[String]   = self match {
-    case a: Unsafe   => a.toAbsolute.getHost
     case b: Absolute => b.host
-    case r: Relative => r.toAbsolute.getHost
+    case r           => r.toAbsolute.getHost
   }
   def getPort: Option[Int]      = self match {
-    case a: Unsafe   => a.toAbsolute.getPort
     case b: Absolute => b.port
-    case r: Relative => r.toAbsolute.getPort
+    case r           => r.toAbsolute.getPort
   }
   def getScheme: Option[Scheme] = self match {
-    case a: Unsafe   => a.toAbsolute.getScheme
     case b: Absolute => b.scheme
-    case r: Relative => r.toAbsolute.getScheme
+    case r           => r.toAbsolute.getScheme
   }
 
   def toAbsolute: URL6 = self match {
-    case Unsafe(x)   => URL6.unsafeDecode(x)
+    case Unsafe(x)   => URL6.unsafeFromString(x)
     case b: Absolute => b
     case c: Relative => Absolute(relative = c)
+  }
+
+  def toUnsafe: URL6 = self match {
+    case u: Unsafe => u
+    case a         => URL6.Unsafe(URL6.asString(a))
   }
 
   def setHost(host: String): URL6                                  =
@@ -41,8 +43,9 @@ sealed trait URL6 { self =>
   def setPath(path: Path): URL6                                    = URL6.Relative(path)
   def setPath(path: String): URL6                                  = URL6.Relative(Path(path))
   def setQueryParams(queryParams: Map[String, List[String]]): URL6 = URL6.Relative(queryParams = queryParams)
-  def setQueryParams(query: String): URL6 = URL6.Relative(queryParams = URL6.queryParams(query))
-  def encode: String                      = URL6.asString(self)
+  def setQueryParams(query: String): URL6        = URL6.Relative(queryParams = URL6.queryParams(query))
+  def encode: String                             = URL6.asString(self)
+  def decode: Either[HttpError.BadRequest, URL6] = URL6.fromString(self.toUnsafe.encode)
 
 }
 object URL6 {
@@ -70,7 +73,7 @@ object URL6 {
     encoder.toString
   }
 
-  def decode(string: String): Either[HttpError.BadRequest, URL6] = Try(unsafeDecode(string)).toEither match {
+  def fromString(string: String): Either[HttpError.BadRequest, URL6] = Try(unsafeFromString(string)).toEither match {
     case Left(_)      => Left(HttpError.BadRequest(s"Invalid URL: $string"))
     case Right(value) => Right(value)
   }
@@ -89,14 +92,14 @@ object URL6 {
     fragment: Option[Fragment] = None,
   ) extends URL6
 
-  def unsafeDecode(string: String): URL6            = {
+  def unsafeFromString(string: String): URL6 =
     try {
       val url = new URI(string)
       if (url.isAbsolute) unsafeFromAbsoluteURI(url) else unsafeFromRelativeURI(url)
     } catch {
       case _: Throwable => null
     }
-  }
+
   private def unsafeFromAbsoluteURI(uri: URI): URL6 = {
 
     def portFromScheme(scheme: Scheme): Int = scheme match {
@@ -151,6 +154,6 @@ object URL6 {
     .setScheme(Scheme.HTTP)
 
   val url2: URL6                               = URL6("www.zio-http.com/a")
-  val url3: Either[HttpError.BadRequest, URL6] = URL6.decode("www.zio-http.com/a")
+  val url3: Either[HttpError.BadRequest, URL6] = URL6.fromString("www.zio-http.com/a")
 
 }
