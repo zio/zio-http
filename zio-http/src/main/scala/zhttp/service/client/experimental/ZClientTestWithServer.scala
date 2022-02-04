@@ -20,7 +20,7 @@ object ZClientTestWithServer extends App {
 
   private val server =
     Server.port(PORT) ++                     // Setup port
-      Server.app(fooBar) ++ Server.keepAlive // Setup the Http app
+      Server.app(fooBar)                     // Setup the Http app
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     server.make
