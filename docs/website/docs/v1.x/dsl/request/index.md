@@ -15,7 +15,7 @@ val request: Request = Request()
 
 ## Matching and Extracting Requests
 
-`Request` can be extracted into an HTTP Method and Path via the ->. On the left side is the `Method`, and on the right side, the `Path`.
+`Request` can be extracted into an HTTP Method and Path via `->`. On the left side is the `Method`, and on the right side, the `Path`.
 
 ```scala
 Method.GET -> !! / "text"
