@@ -74,7 +74,7 @@ val app = Http.collect[Request] { case req => Response.text(req.method.toString(
   val app = Http.collect[Request] { case req => Response.text(req.url.toString())}
 ```
 
-### Creating and reading a Request with query params
+## Creating and reading a Request with query params
 
 Query params can be added in the request using `url` in `Request`, `URL` stores query params as `Map[String, List[String]]`.
 
