@@ -5,7 +5,7 @@ import zhttp.service.Server
 import zhttp.socket.{Socket, WebSocketFrame}
 import zio.duration._
 import zio.stream.ZStream
-import zio.{App, ExitCode, Schedule, URIO}
+import zio.{App, ExitCode, Schedule, UIO, URIO}
 
 object WebSocketEcho extends App {
   private val socket =
@@ -19,7 +19,7 @@ object WebSocketEcho extends App {
 
   private val app =
     Http.collectZIO[Request] {
-      case Method.GET -> !! / "greet" / name  => Response.text(s"Greetings {$name}!").wrapZIO
+      case Method.GET -> !! / "greet" / name  => UIO(Response.text(s"Greetings {$name}!"))
       case Method.GET -> !! / "subscriptions" => socket.toResponse
     }
 

@@ -1,5 +1,6 @@
 package zhttp.internal
 
+import io.netty.handler.codec.http.HttpVersion
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.DynamicServer.HttpEnv
@@ -29,13 +30,15 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       method: Method = Method.GET,
       content: String = "",
       headers: Headers = Headers.empty,
+      version: HttpVersion = HttpVersion.HTTP_1_1,
     ): ZIO[R, Throwable, A] =
       app(
         Client.ClientRequest(
-          URL(path), // url set here is overridden later via `deploy` method
-          method,
-          headers,
-          HttpData.fromString(content),
+          url = URL(path), // url set here is overridden later via `deploy` method
+          method = method,
+          headers = headers,
+          data = HttpData.fromString(content),
+          version = version,
         ),
       ).catchAll {
         case Some(value) => ZIO.fail(value)

@@ -1,6 +1,6 @@
 package zhttp.service
 
-import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames, HttpVersion}
+import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames}
 import zio.Task
 
 trait EncodeClientRequest {
@@ -8,9 +8,10 @@ trait EncodeClientRequest {
   /**
    * Converts client params to JFullHttpRequest
    */
-  def encode(jVersion: HttpVersion, req: Client.ClientRequest): Task[FullHttpRequest] =
+  def encode(req: Client.ClientRequest): Task[FullHttpRequest] =
     req.getBodyAsByteBuf.map { content =>
-      val method = req.method.asHttpMethod
+      val method   = req.method.asHttpMethod
+      val jVersion = req.version
 
       // As per the spec, the path should contain only the relative path.
       // Host and port information should be in the headers.

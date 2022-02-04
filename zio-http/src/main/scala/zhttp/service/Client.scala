@@ -2,14 +2,7 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
-import io.netty.channel.{
-  Channel,
-  ChannelFactory => JChannelFactory,
-  ChannelFuture => JChannelFuture,
-  ChannelHandlerContext,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, ChannelHandlerContext, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
@@ -29,7 +22,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
   def request(request: Client.ClientRequest): Task[Client.ClientResponse] =
     for {
       promise <- Promise.make[Throwable, Client.ClientResponse]
-      jReq    <- encode(HttpVersion.HTTP_1_1, request)
+      jReq    <- encode(request)
       _       <- ChannelFuture
         .unit(unsafeRequest(request, jReq, promise))
         .catchAll(cause => promise.fail(cause))
@@ -169,6 +162,7 @@ object Client {
     method: Method = Method.GET,
     headers: Headers = Headers.empty,
     private[zhttp] val data: HttpData = HttpData.empty,
+    private[zhttp] val version: HttpVersion = HttpVersion.HTTP_1_1,
     private[zhttp] val attribute: Attribute = Attribute.empty,
     private val channelContext: ChannelHandlerContext = null,
   ) extends HeaderExtension[ClientRequest] {
