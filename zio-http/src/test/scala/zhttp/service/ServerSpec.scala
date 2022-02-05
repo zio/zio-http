@@ -112,7 +112,7 @@ object ServerSpec extends HttpRunnableSpec {
             assertM(res)(containsString("SERVER_ERROR"))
           } +
           testM("header is set") {
-            val res = app.deploy.headers.run().map(_.getHeaderValue("Content-Length"))
+            val res = app.deploy.headers.run().map(_.headerValue("Content-Length"))
             assertM(res)(isSome(anything))
           }
       } +
@@ -151,14 +151,14 @@ object ServerSpec extends HttpRunnableSpec {
       testM("POST Request.getBodyChunk") {
         val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
           val body = ZStream
-            .repeatEffect(req.getBodyChunk)
+            .repeatEffect(req.bodyChunk)
             .takeUntil(_._1)
             .map(_._2)
             .flattenChunks
           Response(data = HttpData.fromStream(body))
         }
         checkAllM(Gen.alphaNumericString) { c =>
-          assertM(app.deploy.getBodyAsString.run(path = !!, method = Method.POST, content = c))(equalTo(c))
+          assertM(app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = c))(equalTo(c))
         }
       } +
       testM("POST Request.getBody Too Large Content") {
@@ -169,19 +169,17 @@ object ServerSpec extends HttpRunnableSpec {
               Response.text(content)
             }
           }
-          assertM(app.deploy.getStatus.run(path = !!, method = Method.POST, content = c))(
+          assertM(app.deploy.status.run(path = !!, method = Method.POST, content = c))(
             equalTo(Status.REQUEST_ENTITY_TOO_LARGE),
           )
         }
-        val res      = contentM.flatMap(c => app.deploy.status.run(!!, Method.POST, c.map(_.value).getOrElse("")))
-        assertM(res)(equalTo(Status.REQUEST_ENTITY_TOO_LARGE))
       } +
       testM("POST Request.getBodyAsStream") {
         val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
-          Response(data = HttpData.fromStreamByteBuf(req.getBodyAsStream))
+          Response(data = HttpData.fromStreamByteBuf(req.bodyAsStream))
         }
         checkAllM(Gen.alphaNumericString) { c =>
-          val res = app.deploy.getBodyAsString.run(path = !!, method = Method.POST, content = c)
+          val res = app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = c)
           assertM(res)(equalTo(c))
         }
 
@@ -231,7 +229,7 @@ object ServerSpec extends HttpRunnableSpec {
       testM("echo streaming") {
         val res = Http
           .collect[Request] { case req =>
-            Response(data = HttpData.fromStreamByteBuf(req.getBodyAsStream))
+            Response(data = HttpData.fromStreamByteBuf(req.bodyAsStream))
           }
           .deploy
           .bodyAsString

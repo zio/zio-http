@@ -25,7 +25,7 @@ trait Request extends HeaderExtension[Request] { self =>
       override def url: URL                           = u
       override def headers: Headers                   = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
-      override def getBody                            = self.getBody
+      override def body                               = self.body
       private[zhttp] override def unsafeBody(
         msg: (
           UnsafeChannel,
@@ -37,7 +37,7 @@ trait Request extends HeaderExtension[Request] { self =>
 
   private[zhttp] def unsafeBody(msg: (UnsafeChannel, UnsafeContent) => Unit): Unit
 
-  def getBody: Task[ByteBuf] = for {
+  def body: Task[ByteBuf] = for {
     buffer <- UIO(Unpooled.compositeBuffer())
     body   <- ZIO.effectAsync[Any, Throwable, ByteBuf](cb =>
       self.unsafeBody((ch, msg) => {
@@ -58,7 +58,7 @@ trait Request extends HeaderExtension[Request] { self =>
     )
   } yield body
 
-  def getBodyChunk: ZIO[Any, Throwable, (Boolean, Chunk[Byte])] =
+  def bodyChunk: ZIO[Any, Throwable, (Boolean, Chunk[Byte])] =
     ZIO
       .effectAsync[Any, Throwable, (Boolean, Chunk[Byte])](cb =>
         self.unsafeBody((ch, msg) => {
@@ -74,7 +74,7 @@ trait Request extends HeaderExtension[Request] { self =>
         }),
       )
 
-  def getBodyAsStream: ZStream[Any, Throwable, ByteBuf] =
+  def bodyAsStream: ZStream[Any, Throwable, ByteBuf] =
     ZStream
       .effectAsync[Any, Throwable, ByteBuf](cb =>
         self.unsafeBody((ch, msg) => {
@@ -91,7 +91,7 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Decodes the content of request as string
    */
-  def bodyAsString: Task[String] = self.getBody.map(_.toString(HTTP_CHARSET))
+  def bodyAsString: Task[String] = self.body.map(_.toString(HTTP_CHARSET))
 
   /**
    * Gets all the headers in the Request
@@ -137,8 +137,6 @@ trait Request extends HeaderExtension[Request] { self =>
    * Gets the complete url
    */
   def url: URL
-
-  private[zhttp] def bodyAsByteBuf: Task[ByteBuf]
 }
 
 object Request {
@@ -158,12 +156,11 @@ object Request {
     val h  = headers
     val ra = remoteAddress
     new Request {
-      override def method: Method                              = m
-      override def url: URL                                    = u
-      override def headers: Headers                            = h
-      override def remoteAddress: Option[InetAddress]          = ra
-      override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
-      override def getBody: Task[ByteBuf]                      = data.toByteBuf
+      override def method: Method                     = m
+      override def url: URL                           = u
+      override def headers: Headers                   = h
+      override def remoteAddress: Option[InetAddress] = ra
+      override def body: Task[ByteBuf]                = data.toByteBuf
       private[zhttp] override def unsafeBody(
         msg: (
           UnsafeChannel,
@@ -189,7 +186,7 @@ object Request {
    * Lift request to TypedRequest with option to extract params
    */
   final class ParameterizedRequest[A](req: Request, val params: A) extends Request {
-    override def getHeaders: Headers                = req.getHeaders
+    override def headers: Headers                   = req.headers
     override def method: Method                     = req.method
     override def remoteAddress: Option[InetAddress] = req.remoteAddress
     override def url: URL                           = req.url
