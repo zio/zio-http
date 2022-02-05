@@ -11,19 +11,19 @@ import zhttp.http.HeaderValues
  */
 trait HeaderChecks[+A] { self: HeaderExtension[A] with A =>
   final def hasContentType(value: CharSequence): Boolean =
-    getContentType.exists(contentEqualsIgnoreCase(value, _))
+    contentType.exists(contentEqualsIgnoreCase(value, _))
 
   final def hasFormUrlencodedContentType: Boolean =
     hasContentType(HeaderValues.applicationXWWWFormUrlencoded)
 
   final def hasHeader(name: CharSequence, value: CharSequence): Boolean =
-    getHeaderValue(name) match {
+    headerValue(name) match {
       case Some(v1) => v1.contentEquals(value)
       case None     => false
     }
 
   final def hasHeader(name: CharSequence): Boolean =
-    getHeaderValue(name).nonEmpty
+    headerValue(name).nonEmpty
 
   final def hasJsonContentType: Boolean =
     hasContentType(HeaderValues.applicationJson)

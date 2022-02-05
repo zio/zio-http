@@ -56,7 +56,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
      */
     def deploy: HttpTestClient[Any, ClientRequest, ClientResponse] =
       for {
-        port     <- Http.fromZIO(DynamicServer.getPort)
+        port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         response <- Http.fromFunctionZIO[Client.ClientRequest] { params =>
           Client.request(
@@ -94,7 +94,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     path: Path,
   ): ZIO[EventLoopGroup with ChannelFactory with DynamicServer, Throwable, Status] = {
     for {
-      port   <- DynamicServer.getPort
+      port   <- DynamicServer.port
       status <- Client
         .request(
           "http://localhost:%d/%s".format(port, path),

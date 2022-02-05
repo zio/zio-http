@@ -51,7 +51,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   final def ifHeaderThenElse[R, E](
     cond: Headers => Boolean,
   )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    Middleware.ifThenElse[Request](req => cond(req.getHeaders))(_ => left, _ => right)
+    Middleware.ifThenElse[Request](req => cond(req.headers))(_ => left, _ => right)
 
   /**
    * Logical operator to decide which middleware to select based on the method.
@@ -122,12 +122,12 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    */
   final def signCookies(secret: String): HttpMiddleware[Any, Nothing] =
     updateHeaders {
-      case h if h.getHeader(HeaderNames.setCookie).isDefined =>
+      case h if h.header(HeaderNames.setCookie).isDefined =>
         Headers(
           HeaderNames.setCookie,
-          Cookie.decodeResponseCookie(h.getHeader(HeaderNames.setCookie).get._2.toString).get.sign(secret).encode,
+          Cookie.decodeResponseCookie(h.header(HeaderNames.setCookie).get._2.toString).get.sign(secret).encode,
         )
-      case h                                                 => h
+      case h                                              => h
     }
 
   /**
@@ -146,7 +146,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    * Applies the middleware only when the condition for the headers are true
    */
   final def whenHeader[R, E](cond: Headers => Boolean, middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    middleware.when[Request](req => cond(req.getHeaders))
+    middleware.when[Request](req => cond(req.headers))
 
   /**
    * Applies the middleware only if the condition function evaluates to true

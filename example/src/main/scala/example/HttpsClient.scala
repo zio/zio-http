@@ -30,7 +30,7 @@ object HttpsClient extends App {
 
   val program = for {
     res  <- Client.request(url, headers = headers, ssl = sslOption)
-    data <- res.getBodyAsString
+    data <- res.bodyAsString
     _    <- console.putStrLn { data }
   } yield ()
 

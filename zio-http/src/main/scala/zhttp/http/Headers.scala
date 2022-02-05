@@ -22,7 +22,7 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
 
   def combineIf(cond: Boolean)(other: Headers): Headers = if (cond) Headers(self.toChunk ++ other.toChunk) else self
 
-  override def getHeaders: Headers = self
+  override def headers: Headers = self
 
   def toList: List[(String, String)] = toChunk.map { case (name, value) => (name.toString, value.toString) }.toList
 
