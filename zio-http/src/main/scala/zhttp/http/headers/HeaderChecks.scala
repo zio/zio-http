@@ -4,10 +4,11 @@ import io.netty.util.AsciiString.contentEqualsIgnoreCase
 import zhttp.http.HeaderValues
 
 /**
- * Maintains a list of operators that checks if the Headers meet the give constraints.
+ * Maintains a list of operators that checks if the Headers meet the give
+ * constraints.
  *
- * NOTE: Add methods here, if it tests the Headers for something, and returns a true or false based on if the conditions
- * are met or not.
+ * NOTE: Add methods here, if it tests the Headers for something, and returns a
+ * true or false based on if the conditions are met or not.
  */
 trait HeaderChecks[+A] { self: HeaderExtension[A] with A =>
   final def hasContentType(value: CharSequence): Boolean =

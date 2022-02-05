@@ -14,7 +14,8 @@ import java.nio.charset.Charset
 import scala.annotation.unused
 
 /**
- * A functional domain to model Http apps using ZIO and that can work over any kind of request and response types.
+ * A functional domain to model Http apps using ZIO and that can work over any
+ * kind of request and response types.
  */
 sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
@@ -100,7 +101,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self >>> Http.collectManaged(pf)
 
   /**
-   * Collects some of the results of the http and effectfully converts it to another type.
+   * Collects some of the results of the http and effectfully converts it to
+   * another type.
    */
   final def collectZIO[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](
     pf: PartialFunction[B1, ZIO[R1, E1, C]],
@@ -168,7 +170,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   }
 
   /**
-   * Folds over the http app by taking in two functions one for success and one for failure respectively.
+   * Folds over the http app by taking in two functions one for success and one
+   * for failure respectively.
    */
   final def foldHttp[R1 <: R, A1 <: A, E1, B1](
     ee: E => Http[R1, E1, A1, B1],
@@ -283,7 +286,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     Http.Race(self, other)
 
   /**
-   * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
+   * Converts a failing Http into a non-failing one by handling the failure and
+   * converting it to a result if possible.
    */
   final def silent[E1 >: E, B1 >: B](implicit s: CanBeSilenced[E1, B1]): Http[R, Nothing, A, B1] =
     self.catchAll(e => Http.succeed(s.silent(e)))
@@ -295,7 +299,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.flatMap(v => f(v).as(v))
 
   /**
-   * Returns an Http that peeks at the success, failed or empty value of this Http.
+   * Returns an Http that peeks at the success, failed or empty value of this
+   * Http.
    */
   final def tapAll[R1 <: R, E1 >: E](
     f: E => Http[R1, E1, Any, Any],
@@ -309,7 +314,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     )
 
   /**
-   * Returns an Http that effectfully peeks at the success, failed or empty value of this Http.
+   * Returns an Http that effectfully peeks at the success, failed or empty
+   * value of this Http.
    */
   final def tapAllZIO[R1 <: R, E1 >: E](
     f: E => ZIO[R1, E1, Any],
@@ -365,9 +371,10 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Evaluates the app and returns an HExit that can be resolved further
    *
-   * NOTE: `execute` is not a stack-safe method for performance reasons. Unlike ZIO, there is no reason why the execute
-   * should be stack safe. The performance improves quite significantly if no additional heap allocations are required
-   * this way.
+   * NOTE: `execute` is not a stack-safe method for performance reasons. Unlike
+   * ZIO, there is no reason why the execute should be stack safe. The
+   * performance improves quite significantly if no additional heap allocations
+   * are required this way.
    */
   final private[zhttp] def execute(a: A): HExit[R, E, B] =
     self match {
@@ -433,8 +440,8 @@ object Http {
     def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.setUrl(url))
 
     /**
-     * Converts a failing Http app into a non-failing one by handling the failure and converting it to a result if
-     * possible.
+     * Converts a failing Http app into a non-failing one by handling the
+     * failure and converting it to a result if possible.
      */
     def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response]): HttpApp[R1, E1] =
       http.catchAll(e => Http.succeed(s.silent(e)))
@@ -471,12 +478,14 @@ object Http {
   def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
 
   /**
-   * Creates an Http app which accepts a request and produces response from a managed resource
+   * Creates an Http app which accepts a request and produces response from a
+   * managed resource
    */
   def collectManaged[A]: Http.PartialCollectManaged[A] = Http.PartialCollectManaged(())
 
   /**
-   * Creates an HTTP app which accepts a request and produces response effectfully.
+   * Creates an HTTP app which accepts a request and produces response
+   * effectfully.
    */
   def collectZIO[A]: Http.PartialCollectZIO[A] = Http.PartialCollectZIO(())
 
@@ -524,7 +533,8 @@ object Http {
   def forbidden(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.Forbidden(msg))
 
   /**
-   * Creates an Http app which always responds the provided data and a 200 status code
+   * Creates an Http app which always responds the provided data and a 200
+   * status code
    */
   def fromData(data: HttpData): HttpApp[Any, Nothing] = response(Response(data = data))
 
@@ -544,19 +554,22 @@ object Http {
   def fromFunctionZIO[A]: PartialFromFunctionZIO[A] = new PartialFromFunctionZIO[A](())
 
   /**
-   * Creates an `Http` from a function that takes a value of type `A` and returns with a `ZIO[R, Option[E], B]`. The
-   * returned effect can fail with a `None` to signal "not found" to the backend.
+   * Creates an `Http` from a function that takes a value of type `A` and
+   * returns with a `ZIO[R, Option[E], B]`. The returned effect can fail with a
+   * `None` to signal "not found" to the backend.
    */
   def fromOptionFunction[A]: PartialFromOptionFunction[A] = new PartialFromOptionFunction(())
 
   /**
-   * Creates a Http that always succeeds with a 200 status code and the provided ZStream as the body
+   * Creates a Http that always succeeds with a 200 status code and the provided
+   * ZStream as the body
    */
   def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = HTTP_CHARSET): HttpApp[R, Nothing] =
     Http.fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provide(r), charset)))).flatten
 
   /**
-   * Creates a Http that always succeeds with a 200 status code and the provided ZStream as the body
+   * Creates a Http that always succeeds with a 200 status code and the provided
+   * ZStream as the body
    */
   def fromStream[R](stream: ZStream[R, Throwable, Byte]): HttpApp[R, Nothing] =
     Http.fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provide(r))))).flatten
@@ -603,7 +616,8 @@ object Http {
   def route[A]: Http.PartialRoute[A] = Http.PartialRoute(())
 
   /**
-   * Creates an HTTP app which always responds with the same status code and empty data.
+   * Creates an HTTP app which always responds with the same status code and
+   * empty data.
    */
   def status(code: Status): HttpApp[Any, Nothing] = Http.succeed(Response(code))
 
@@ -619,7 +633,8 @@ object Http {
     Http.succeed(Response.text(str, charset))
 
   /**
-   * Creates an Http app that responds with a 408 status code after the provided time duration
+   * Creates an Http app that responds with a 408 status code after the provided
+   * time duration
    */
   def timeout(duration: Duration): HttpApp[Clock, Nothing] = Http.status(Status.REQUEST_TIMEOUT).delay(duration)
 

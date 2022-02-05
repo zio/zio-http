@@ -19,13 +19,15 @@ private[zhttp] trait Auth {
     )
 
   /**
-   * Creates a middleware for basic authentication that checks if the credentials are same as the ones given
+   * Creates a middleware for basic authentication that checks if the
+   * credentials are same as the ones given
    */
   final def basicAuth(u: String, p: String): HttpMiddleware[Any, Nothing] =
     basicAuth { case (user, password) => (user == u) && (password == p) }
 
   /**
-   * Creates an authentication middleware that only allows authenticated requests to be passed on to the app.
+   * Creates an authentication middleware that only allows authenticated
+   * requests to be passed on to the app.
    */
   final def customAuth(
     verify: Headers => Boolean,

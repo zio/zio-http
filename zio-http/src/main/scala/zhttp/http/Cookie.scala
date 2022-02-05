@@ -23,7 +23,8 @@ final case class Cookie(
 ) { self =>
 
   /**
-   * Creates a new cookie that can be used to clear the original cookie on the client.
+   * Creates a new cookie that can be used to clear the original cookie on the
+   * client.
    */
   def clear: Cookie =
     copy(content = "", expires = Some(Instant.ofEpochSecond(0)))

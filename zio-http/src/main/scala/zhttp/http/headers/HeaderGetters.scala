@@ -12,7 +12,8 @@ import scala.util.control.NonFatal
 /**
  * Maintains a list of operators that parse and extract data from the headers.
  *
- * NOTE: Add methods here if it performs some kind of processing on the header and returns the result.
+ * NOTE: Add methods here if it performs some kind of processing on the header
+ * and returns the result.
  */
 trait HeaderGetters[+A] { self =>
 

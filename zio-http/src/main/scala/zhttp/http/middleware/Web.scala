@@ -62,7 +62,8 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
     Middleware.ifThenElse[Request](req => cond(req.method))(_ => left, _ => right)
 
   /**
-   * Logical operator to decide which middleware to select based on the predicate.
+   * Logical operator to decide which middleware to select based on the
+   * predicate.
    */
   final def ifRequestThenElse[R, E](
     cond: Request => Boolean,
@@ -70,7 +71,8 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
     Middleware.ifThenElse[Request](cond)(_ => left, _ => right)
 
   /**
-   * Logical operator to decide which middleware to select based on the predicate.
+   * Logical operator to decide which middleware to select based on the
+   * predicate.
    */
   final def ifRequestThenElseZIO[R, E](
     cond: Request => ZIO[R, E, Boolean],
@@ -107,13 +109,15 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
     Middleware.interceptZIO[Request, Response](_ => ZIO.unit)((res, _) => effect.mapBoth(Option(_), _ => res))
 
   /**
-   * Runs the effect before the request is passed on to the HttpApp on which the middleware is applied.
+   * Runs the effect before the request is passed on to the HttpApp on which the
+   * middleware is applied.
    */
   final def runBefore[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
     Middleware.interceptZIOPatch(_ => effect.mapError(Option(_)).unit)((_, _) => UIO(Patch.empty))
 
   /**
-   * Creates a new middleware that always sets the response status to the provided value
+   * Creates a new middleware that always sets the response status to the
+   * provided value
    */
   final def setStatus(status: Status): HttpMiddleware[Any, Nothing] = patch(_ => Patch.setStatus(status))
 
@@ -157,7 +161,8 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
     middleware.when[Request](cond)
 
   /**
-   * Applies the middleware only if the condition function effectfully evaluates to true
+   * Applies the middleware only if the condition function effectfully evaluates
+   * to true
    */
   final def whenRequestZIO[R, E](
     cond: Request => ZIO[R, E, Boolean],
