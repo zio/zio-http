@@ -13,7 +13,7 @@ import zio.{UIO, ZIO}
  * You can think of middlewares as a functions —
  *
  * {{{
- * type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E, AOut, BOut]
+ *   type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E, AOut, BOut]
  * }}}
  *
  * The `AIn` and `BIn` type params represent the type params of the input Http.
@@ -50,12 +50,16 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    */
   final def andThen[R1 <: R, E1 >: E, AIn1 <: AOut, BIn1 >: BOut, AOut1, BOut1](
     other: Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1],
-  ): Middleware[R1, E1, AIn, BIn, AOut1, BOut1] = Middleware.AndThen(self, other)
+  ): Middleware[R1, E1, AIn, BIn, AOut1, BOut1] =
+    new Middleware[R1, E1, AIn, BIn, AOut1, BOut1] {
+      override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn, BIn]): Http[R2, E2, AOut1, BOut1] =
+        other(self(http))
+    }
 
   /**
    * Applies middleware on Http and returns new Http.
    */
-  final def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] = execute(http)
+  def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut]
 
   /**
    * Makes the middleware resolve with a constant Middleware
@@ -98,7 +102,10 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   final def flatMap[R1 <: R, E1 >: E, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0](
     f: BOut => Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
   ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] =
-    Middleware.FlatMap(self, f)
+    new Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] {
+      override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn0, BIn0]): Http[R2, E2, AOut0, BOut0] =
+        self(http).flatMap(f(_)(http))
+    }
 
   /**
    * Flattens an Middleware of a Middleware
@@ -126,7 +133,10 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   final def orElse[R1 <: R, E1, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0 >: BOut](
     other: Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
   ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] =
-    Middleware.OrElse(self, other)
+    new Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] {
+      override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn0, BIn0]): Http[R2, E2, AOut0, BOut0] =
+        self(http) <> other(http)
+    }
 
   /**
    * Race between current and other, cancels other when execution of one
@@ -135,7 +145,10 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   final def race[R1 <: R, E1 >: E, AIn1 >: AIn, BIn1 <: BIn, AOut1 <: AOut, BOut1 >: BOut](
     other: Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1],
   ): Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1] =
-    Middleware.Race(self, other)
+    new Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1] {
+      override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn1, BIn1]): Http[R2, E2, AOut1, BOut1] =
+        self(http) race other(http)
+    }
 
   final def runAfter[R1 <: R, E1 >: E](effect: ZIO[R1, E1, Any]): Middleware[R1, E1, AIn, BIn, AOut, BOut] =
     self.mapZIO(bOut => effect.as(bOut))
@@ -160,12 +173,6 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
       isTrue = _ => self,
       isFalse = _ => Middleware.identity,
     )
-
-  /**
-   * Applies Middleware and returns a transformed Http app
-   */
-  private[zhttp] final def execute[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] =
-    Middleware.execute(http, self)
 }
 
 object Middleware extends Web {
@@ -193,17 +200,28 @@ object Middleware extends Web {
   /**
    * Creates a middleware which always fail with specified error
    */
-  def fail[E](e: E): Middleware[Any, E, Nothing, Any, Any, Nothing] = Fail(e)
+  def fail[E](e: E): Middleware[Any, E, Nothing, Any, Any, Nothing] =
+    new Middleware[Any, E, Nothing, Any, Any, Nothing] {
+      override def apply[R1 <: Any, E1 >: E](http: Http[R1, E1, Nothing, Any]): Http[R1, E1, Any, Nothing] =
+        Http.fail(e)
+    }
 
   /**
    * Creates a middleware with specified http App
    */
-  def fromHttp[R, E, A, B](http: Http[R, E, A, B]): Middleware[R, E, Nothing, Any, A, B] = Constant(http)
+  def fromHttp[R, E, A, B](http: Http[R, E, A, B]): Middleware[R, E, Nothing, Any, A, B] =
+    new Middleware[R, E, Nothing, Any, A, B] {
+      override def apply[R1 <: R, E1 >: E](other: Http[R1, E1, Nothing, Any]): Http[R1, E1, A, B] = http
+    }
 
   /**
    * An empty middleware that doesn't do anything
    */
-  def identity: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Middleware.Identity
+  def identity: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] =
+    new Middleware[Any, Nothing, Nothing, Any, Any, Nothing] {
+      override def apply[R1 <: Any, E1 >: Nothing](http: Http[R1, E1, Nothing, Any]): Http[R1, E1, Any, Nothing] =
+        http.asInstanceOf[Http[R1, E1, Any, Nothing]]
+    }
 
   /**
    * Logical operator to decide which middleware to select based on the
@@ -231,29 +249,6 @@ object Middleware extends Web {
    * Creates a middleware which always succeed with specified value
    */
   def succeed[B](b: B): Middleware[Any, Nothing, Nothing, Any, Any, B] = fromHttp(Http.succeed(b))
-
-  private[zhttp] def execute[R, E, AIn, BIn, AOut, BOut](
-    http: Http[R, E, AIn, BIn],
-    self: Middleware[R, E, AIn, BIn, AOut, BOut],
-  ): Http[R, E, AOut, BOut] =
-    self match {
-      case Identity                      => http.asInstanceOf[Http[R, E, AOut, BOut]]
-      case Constant(http)                => http
-      case OrElse(self, other)           => self.execute(http).orElse(other.execute(http))
-      case Fail(error)                   => Http.fail(error)
-      case AndThen(self, other)          => other.execute(self.execute(http))
-      case FlatMap(self, f)              => self.execute(http).flatMap(f(_).execute(http))
-      case ContraMapZIO(self, f)         => self.execute(http).contramapZIO(a => f(a))
-      case Race(self, other)             => self.execute(http) race other.execute(http)
-      case Intercept(incoming, outgoing) =>
-        Http.fromOptionFunction[AOut] { a =>
-          for {
-            s <- incoming(a)
-            b <- http(a.asInstanceOf[AIn])
-            c <- outgoing(b, s)
-          } yield c.asInstanceOf[BOut]
-        }
-    }
 
   final class PartialCollect[AOut](val unit: Unit) extends AnyVal {
     def apply[R, E, AIn, BIn, BOut](
@@ -285,7 +280,16 @@ object Middleware extends Web {
     def apply[R1 <: R, E1 >: E, BOut](
       outgoing: (B, S) => ZIO[R1, Option[E1], BOut],
     ): Middleware[R1, E1, A, B, A, BOut] =
-      Intercept(incoming, outgoing)
+      new Middleware[R1, E1, A, B, A, BOut] {
+        override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, A, B]): Http[R2, E2, A, BOut] =
+          Http.fromOptionFunction[A] { a =>
+            for {
+              s <- incoming(a)
+              b <- http(a)
+              c <- outgoing(b, s)
+            } yield c
+          }
+      }
   }
 
   final class PartialCodec[AOut, BIn](val unit: Unit) extends AnyVal {
@@ -328,43 +332,9 @@ object Middleware extends Web {
     val self: Middleware[R, E, AIn, BIn, AOut, BOut],
   ) extends AnyVal {
     def apply[R1 <: R, E1 >: E](f: AOut0 => ZIO[R1, E1, AOut]): Middleware[R1, E1, AIn, BIn, AOut0, BOut] =
-      ContraMapZIO[R1, E1, AIn, BIn, AOut, BOut, AOut0](self, f)
+      new Middleware[R1, E1, AIn, BIn, AOut0, BOut] {
+        override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn, BIn]): Http[R2, E2, AOut0, BOut] =
+          self(http).contramapZIO(a => f(a))
+      }
   }
-
-  private final case class Fail[E](error: E) extends Middleware[Any, E, Nothing, Any, Any, Nothing]
-
-  private final case class OrElse[R, E0, E1, AIn, BIn, AOut, BOut](
-    self: Middleware[R, E0, AIn, BIn, AOut, BOut],
-    other: Middleware[R, E1, AIn, BIn, AOut, BOut],
-  ) extends Middleware[R, E1, AIn, BIn, AOut, BOut]
-
-  private final case class Constant[R, E, AOut, BOut](http: Http[R, E, AOut, BOut])
-      extends Middleware[R, E, Nothing, Any, AOut, BOut]
-
-  private final case class Intercept[R, E, A, B, S, BOut](
-    incoming: A => ZIO[R, Option[E], S],
-    outgoing: (B, S) => ZIO[R, Option[E], BOut],
-  ) extends Middleware[R, E, A, B, A, BOut]
-
-  private final case class AndThen[R, E, A0, B0, A1, B1, A2, B2](
-    self: Middleware[R, E, A0, B0, A1, B1],
-    other: Middleware[R, E, A1, B1, A2, B2],
-  ) extends Middleware[R, E, A0, B0, A2, B2]
-
-  private final case class FlatMap[R, E, AIn, BIn, AOut, BOut, BOut0](
-    self: Middleware[R, E, AIn, BIn, AOut, BOut0],
-    f: BOut0 => Middleware[R, E, AIn, BIn, AOut, BOut],
-  ) extends Middleware[R, E, AIn, BIn, AOut, BOut]
-
-  private final case class ContraMapZIO[R, E, AIn, BIn, AOut, BOut, AOut0](
-    self: Middleware[R, E, AIn, BIn, AOut, BOut],
-    f: AOut0 => ZIO[R, E, AOut],
-  ) extends Middleware[R, E, AIn, BIn, AOut0, BOut]
-
-  private final case class Race[R, E, AIn, BIn, AOut, BOut](
-    self: Middleware[R, E, AIn, BIn, AOut, BOut],
-    other: Middleware[R, E, AIn, BIn, AOut, BOut],
-  ) extends Middleware[R, E, AIn, BIn, AOut, BOut]
-
-  private case object Identity extends Middleware[Any, Nothing, Nothing, Any, Any, Nothing]
 }
