@@ -1,15 +1,15 @@
-package zhttp.service.client.experimental.handler
+package zhttp.service.client.content.handlers
 
 import io.netty.buffer.Unpooled
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpResponse
 import zhttp.http.{Headers, Status}
-import zhttp.service.client.experimental.Resp
+import zhttp.service.client.model.Resp
 
 /**
  * Transforms a Netty FullHttpResponse into a zio-http specific ClientResponse.
  */
-final class ZClientResponseHandler() extends SimpleChannelInboundHandler[FullHttpResponse](true) {
+final class NewClientResponseHandler() extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     val status   = Status.fromHttpResponseStatus(msg.status())

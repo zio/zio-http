@@ -1,9 +1,8 @@
-package zhttp.service.client.experimental.model
+package zhttp.service.client.model
 
 import io.netty.channel.Channel
 import io.netty.handler.codec.http.FullHttpRequest
-import zhttp.service.client.experimental.Resp
-import zhttp.service.client.experimental.model.ZConnectionState.{ReqKey, emptyConnectionRuntime, emptyIdleConnectionMap}
+import zhttp.service.client.model.ZConnectionState.{ReqKey, emptyConnectionRuntime, emptyIdleConnectionMap}
 import zio.Promise
 import zio.duration.Duration
 

@@ -1,13 +1,13 @@
-package zhttp.service.client.experimental
+package zhttp.service.client.transport
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{Channel, ChannelFuture, ChannelFutureListener}
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.http.URL
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.experimental.handler.{ZClientChannelInitializer, ZClientInboundHandler}
-import zhttp.service.client.experimental.model.ZConnectionState.ReqKey
-import zhttp.service.client.experimental.model.{Timeouts, ZConnectionState}
+import zhttp.service.client.content.handlers.{NewClientChannelInitializer, NewClientInboundHandler}
+import zhttp.service.client.model.ZConnectionState.ReqKey
+import zhttp.service.client.model.{Timeouts, ZConnectionState}
 import zio.{Ref, Task, ZIO}
 
 import java.net.InetSocketAddress
@@ -27,6 +27,13 @@ case class ZConnectionManager(
   zExec: zhttp.service.HttpRuntime[Any],
 ) {
 
+  /**
+   *   - core method for getting a connection for a request
+   *   - create new connection and increment allocated simultaneously (depending on limits)
+   *   - assign a new callback (may be like empty promise to connection)
+   * @param jReq
+   * @return
+   */
   def fetchConnection(jReq: FullHttpRequest): Task[Channel] = {
     for {
       mp           <- connRef.get
@@ -71,23 +78,33 @@ case class ZConnectionManager(
     }
   } yield inetSockAddress
 
+  /**
+   * build an underlying connection (channel for a given request key)
+   * @param scheme
+   * @param reqKey
+   * @tparam R
+   * @return
+   */
   def buildChannel[R](scheme: String, reqKey: ReqKey): Task[Channel] = {
     for {
       init <- ZIO.effect(
-        ZClientChannelInitializer(
-          ZClientInboundHandler(zExec, zConnectionState),
+        NewClientChannelInitializer(
+          NewClientInboundHandler(zExec, zConnectionState),
           scheme,
           ClientSSLOptions.DefaultSSL,
         ),
       )
       (h, p) = (reqKey.toString.split("/")(0), reqKey.toString.split(":")(1))
-//      _ <- ZIO.effect(println(s"for ${jReq.uri()} CONNECTING to ${(h, p)}"))
       chf    = boo.handler(init).connect(h, p.toInt)
       // optional can be removed if not really utilised.
       _ <- attachHandler(chf)
     } yield chf.channel()
   }
 
+  /*
+    mostly kept for debugging purposes
+    or if we need to do something during creation lifecycle.
+   */
   def attachHandler(chf: ChannelFuture) = {
     ZIO
       .effect(
@@ -104,7 +121,22 @@ case class ZConnectionManager(
       )
   }
 
+//  private def incrementConnection = ???
+//  private def decrementConnection = ???
+//  private def isConnectionExpired = ???
+//  private def isConnectionWithinLimits = ???
+//  private def addConnectionToIdleQ = ???
+//  private def addConnectionToWaitQ = ???
+//
+//  def releaseConnection = ???
+//  def shutdownConnectionManager = ???
+//
   def getActiveConnections: Task[Int] = connRef.get.map(_.size)
+//  def getActiveConnectionsForReqKey(reqKey: ReqKey): Task[Int] = connRef.get.map(_.size)
+//
+//  def getIdleConnections: Task[Int] = connRef.get.map(_.size)
+//  def getIdleConnectionsForReqKey(reqKey: ReqKey): Task[Int] = connRef.get.map(_.size)
+
 }
 
 object ZConnectionManager {}

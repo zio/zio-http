@@ -1,9 +1,9 @@
-package zhttp.service.client.experimental.handler
+package zhttp.service.client.content.handlers
 
 import io.netty.channel.{ChannelDuplexHandler, ChannelHandlerContext}
 import io.netty.handler.timeout.{IdleState, IdleStateEvent}
 
-class ZIdleStateAwareHandler extends ChannelDuplexHandler {
+class NewClientIdleConnectionHandler extends ChannelDuplexHandler {
 
   override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit = {
     println(s"USER EVENT TRIGERED  ---- IDLE STATE AWARE !!!!! ctx ID: ${ctx.channel().id()}")

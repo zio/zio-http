@@ -1,15 +1,16 @@
-package zhttp.service.client.experimental
+package zhttp.service.client
 
 import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames, HttpHeaderValues, HttpVersion}
-import zhttp.http.{HTTP_CHARSET, Request, Response, Status, URL}
+import io.netty.handler.codec.http._
+import zhttp.http._
+import zhttp.service.Client.Config
 import zhttp.service.HttpMessageCodec
-import zhttp.service.client.experimental.ZClient.Config
-import zhttp.service.client.experimental.model.ConnectionRuntime
+import zhttp.service.client.model.{ConnectionRuntime, ReqParams, Resp}
+import zhttp.service.client.transport.ZConnectionManager
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
-case class DefaultZClient(
+case class DefaultClient(
   settings: Config,
   connectionManager: ZConnectionManager,
 ) extends HttpMessageCodec {
@@ -18,9 +19,12 @@ case class DefaultZClient(
       jReq    <- Task(encodeClientParams(HttpVersion.HTTP_1_1, req))
       channel <- connectionManager.fetchConnection(jReq)
       prom    <- zio.Promise.make[Throwable, Resp]
+      // the part below can be moved to connection manager.
       _       <- ZIO.effect(
         connectionManager.zConnectionState.currentAllocatedChannels += (channel -> ConnectionRuntime(prom, jReq)),
       )
+      // trigger the channel, triggering inbound event propagation
+      // should be part of connection manager?
       _       <- ZIO.effect { channel.pipeline().fireChannelActive() }
       resp    <- prom.await
     } yield resp
@@ -31,7 +35,7 @@ case class DefaultZClient(
       channel <- connectionManager.fetchConnection(jReq)
       prom    <- zio.Promise.make[Throwable, Resp]
       _       <- ZIO.effect(
-        connectionManager.zConnectionState.currentAllocatedChannels += (channel -> model.ConnectionRuntime(prom, jReq)),
+        connectionManager.zConnectionState.currentAllocatedChannels += (channel -> ConnectionRuntime(prom, jReq)),
       )
       _       <- ZIO.effect { channel.pipeline().fireChannelActive() }
       resp    <- prom.await
@@ -141,9 +145,7 @@ case class DefaultZClient(
   //    def run[A](req: ZIO[?,?,Request])(f: Response => Task[A]): Task[A] = ???
 
   /**
-   * TBD
-   * Key API
-   *
+   * TBD Key API
    *
    * @param req
    * @return

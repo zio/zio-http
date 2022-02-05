@@ -1,9 +1,9 @@
-package zhttp.service.client.experimental
+package zhttp.service.client.model
 
 import io.netty.buffer.{ByteBuf, ByteBufAllocator, ByteBufUtil}
 import io.netty.channel.ChannelHandlerContext
+import zhttp.http._
 import zhttp.http.headers.HeaderExtension
-import zhttp.http.{HTTP_CHARSET, Headers, HttpData, Method, URL}
 import zio.{Chunk, Task}
 
 import java.net.{InetAddress, InetSocketAddress}

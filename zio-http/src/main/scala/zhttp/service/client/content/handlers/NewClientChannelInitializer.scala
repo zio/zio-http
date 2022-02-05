@@ -1,11 +1,11 @@
-package zhttp.service.client.experimental.handler
+package zhttp.service.client.content.handlers
 
 import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer, ChannelPipeline}
 import io.netty.handler.codec.http.{HttpClientCodec, HttpObjectAggregator}
 import zhttp.service.client.ClientSSLHandler
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 
-final case class ZClientChannelInitializer[R](
+final case class NewClientChannelInitializer[R](
   channelHandler: ChannelHandler,
   scheme: String,
   sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
@@ -22,7 +22,7 @@ final case class ZClientChannelInitializer[R](
       //      .addLast("myHandler", new ZIdleStateAwareHandler)
       .addLast(new HttpObjectAggregator(Int.MaxValue))
       //      .addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
-      .addLast(new ZClientResponseHandler())
+      .addLast(new NewClientResponseHandler())
       .addLast(channelHandler)
     if (scheme == "https") {
       p.addFirst(ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc))

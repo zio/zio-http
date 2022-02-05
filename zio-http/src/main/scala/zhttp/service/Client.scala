@@ -2,12 +2,7 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.{
-  Channel,
-  ChannelFactory => JChannelFactory,
-  ChannelHandlerContext,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.HttpVersion
 import zhttp.http.URL.Location
 import zhttp.http._
@@ -15,13 +10,48 @@ import zhttp.http.headers.HeaderExtension
 import zhttp.service
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler}
+import zhttp.service.client.model.ZConnectionState.ReqKey
+import zhttp.service.client.model.{Timeouts, ZConnectionState}
+import zhttp.service.client.transport.{Transport, ZConnectionManager}
+import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler, DefaultClient}
+import zio.duration.Duration
 import zio.{Chunk, Promise, Task, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
+import scala.collection.mutable
+import scala.concurrent.duration.DurationInt
 
-final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el: JEventLoopGroup)
-    extends HttpMessageCodec {
+trait Client { self =>
+
+  import Client._
+
+  def ++(other: Client): Client =
+    Concat(self, other)
+
+  private def settings(s: Config = Config()): Config = self match {
+    case Concat(self, other)                        => other.settings(self.settings(s))
+    case TransportConfig(transport)                 => s.copy(transport = transport)
+    case Threads(threads)                           => s.copy(threads = threads)
+    case ResponseHeaderTimeout(rht)                 => s.copy(responseHeaderTimeout = rht)
+    case IdleTimeout(idlt)                          => s.copy(idleTimeout = idlt)
+    case RequestTimeout(rqt)                        => s.copy(requestTimeout = rqt)
+    case ConnectionTimeout(connt)                   => s.copy(connectionTimeout = connt)
+    case UserAgent(ua)                              => s.copy(userAgent = ua)
+    case MaxTotalConnections(maxTotConn)            => s.copy(maxTotalConnections = maxTotConn)
+    case MaxWaitQueueLimit(mwql)                    => s.copy(maxWaitQueueLimit = mwql)
+    case MaxConnectionsPerRequestKey(maxConnPerReq) => s.copy(maxConnectionsPerRequestKey = maxConnPerReq)
+    // case _ To be deleted
+    case _                                          => s.copy(threads = 2)
+  }
+
+  def make: Task[DefaultClient] =
+    Client.make(self.asInstanceOf[Client])
+
+}
+@Deprecated
+final case class OldClient(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el: JEventLoopGroup)
+    extends Client
+    with HttpMessageCodec {
   def request(
     request: Client.ClientRequest,
     sslOption: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
@@ -66,11 +96,83 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el:
 }
 
 object Client {
-  def make: ZIO[EventLoopGroup with ChannelFactory, Nothing, Client] = for {
+
+  type UClient = Client
+  protected[zhttp] final case class Config(
+    transport: Transport = Transport.Auto,
+    threads: Int = 0,
+    responseHeaderTimeout: Duration =
+      Duration.Infinity, // duration between the submission of request and the completion of the response header
+    // Does not include time to read the response body
+    idleTimeout: Duration = Duration.fromScala(1.minute),
+    requestTimeout: Duration = Duration.fromScala(1.minute),      //
+    connectionTimeout: Duration = Duration.fromScala(10.seconds), //
+    userAgent: Option[String] = Some("Client"),                   //
+    maxTotalConnections: Int = 10,                                //
+    maxWaitQueueLimit: Int = 256,                                 //
+    maxConnectionsPerRequestKey: Int = 20,                        //
+    //    sslContext: ClientSSLOptions,      //
+
+  )
+
+  private final case class Concat[R, E](self: Client, other: Client)       extends Client
+  private final case class TransportConfig(transport: Transport)           extends UClient
+  private final case class Threads(threads: Int)                           extends UClient
+  private final case class ResponseHeaderTimeout(rht: Duration)            extends UClient
+  private final case class IdleTimeout(idlt: Duration)                     extends UClient
+  private final case class RequestTimeout(reqt: Duration)                  extends UClient
+  private final case class ConnectionTimeout(connt: Duration)              extends UClient
+  private final case class UserAgent(ua: Option[String])                   extends UClient
+  private final case class MaxTotalConnections(maxTotConn: Int)            extends UClient
+  private final case class MaxWaitQueueLimit(mwql: Int)                    extends UClient
+  private final case class MaxConnectionsPerRequestKey(maxConnPerReq: Int) extends UClient
+  //  private final case class SSLContext(ssl: ClientSSLOptions)                                   extends UClient
+
+  def transport(transport: Transport): UClient = Client.TransportConfig(transport)
+  def threads(threads: Int): UClient           = Client.Threads(threads)
+
+  def responseHeaderTimeout(rht: Duration): UClient               = Client.ResponseHeaderTimeout(rht)
+  def idleTimeout(idt: Duration): UClient                         = Client.IdleTimeout(idt)
+  def requestTimeout(rqt: Duration): UClient                      = Client.RequestTimeout(rqt)
+  def connectionTimeout(connT: Duration): UClient                 = Client.ConnectionTimeout(connT)
+  def userAgent(ua: Option[String]): UClient                      = Client.UserAgent(ua)
+  def maxTotalConnections(maxTotConn: Int): UClient               = Client.MaxTotalConnections(maxTotConn)
+  def maxWaitQueueLimit(maxWQLt: Int): UClient                    = Client.MaxWaitQueueLimit(maxWQLt)
+  def maxConnectionsPerRequestKey(maxConnPerReqKey: Int): UClient =
+    Client.MaxConnectionsPerRequestKey(maxConnPerReqKey)
+
+  def nio: UClient    = Client.TransportConfig(Transport.Nio)
+  def epoll: UClient  = Client.TransportConfig(Transport.Epoll)
+  def kQueue: UClient = Client.TransportConfig(Transport.KQueue)
+  def uring: UClient  = Client.TransportConfig(Transport.URing)
+  def auto: UClient   = Client.TransportConfig(Transport.Auto)
+
+  def make[R](client: Client): Task[DefaultClient] = {
+    val settings = client.settings()
+    for {
+      channelFactory <- settings.transport.clientChannel
+      eventLoopGroup <- settings.transport.eventLoopGroupTask(settings.threads)
+      zExec          <- zhttp.service.HttpRuntime.default[Any]
+
+      clientBootStrap = new Bootstrap()
+        .channelFactory(channelFactory)
+        .group(eventLoopGroup)
+      connRef <- zio.Ref.make(
+        mutable.Map.empty[ReqKey, Channel],
+      )
+      timeouts    = Timeouts(settings.connectionTimeout, settings.idleTimeout, settings.requestTimeout)
+      connManager = ZConnectionManager(connRef, ZConnectionState(), timeouts, clientBootStrap, zExec)
+      clientImpl  = DefaultClient(settings, connManager)
+    } yield {
+      clientImpl
+    }
+  }
+
+  def make: ZIO[EventLoopGroup with ChannelFactory, Nothing, OldClient] = for {
     cf <- ZIO.access[ChannelFactory](_.get)
     el <- ZIO.access[EventLoopGroup](_.get)
     zx <- HttpRuntime.default[Any]
-  } yield service.Client(zx, cf, el)
+  } yield service.OldClient(zx, cf, el)
 
   def request(
     url: String,
@@ -192,4 +294,5 @@ object Client {
 
     override def updateHeaders(update: Headers => Headers): ClientResponse = self.copy(headers = update(headers))
   }
+
 }

@@ -1,17 +1,16 @@
-package zhttp.service.client.experimental.handler
+package zhttp.service.client.content.handlers
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.service.HttpRuntime
-import zhttp.service.client.experimental.Resp
-import zhttp.service.client.experimental.model.ZConnectionState
+import zhttp.service.client.model.{Resp, ZConnectionState}
 
 /**
  * Handles HTTP response
  */
 @Sharable
-final case class ZClientInboundHandler[R](
+final case class NewClientInboundHandler[R](
   zExec: HttpRuntime[R],
   zConnectionState: ZConnectionState,
 ) extends SimpleChannelInboundHandler[Resp](false) {

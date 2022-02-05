@@ -1,14 +1,15 @@
-package zhttp.service.client.experimental
+package example
 
 import zhttp.http._
+import zhttp.service.client.DefaultClient
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{EventLoopGroup, Server}
+import zhttp.service.{Client, EventLoopGroup, Server}
 import zio.{App, ExitCode, URIO, ZIO}
 
 /**
  * Self contained ZClient demo with server.
  */
-object ZClientTestWithServer extends App {
+object NewClientTest extends App {
 
   // Creating a test server
   private val PORT = 8081
@@ -19,8 +20,8 @@ object ZClientTestWithServer extends App {
   }
 
   private val server =
-    Server.port(PORT) ++                     // Setup port
-      Server.app(fooBar)                     // Setup the Http app
+    Server.port(PORT) ++ // Setup port
+      Server.app(fooBar) // Setup the Http app
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     server.make
@@ -33,16 +34,16 @@ object ZClientTestWithServer extends App {
   def clientTest = {
     for {
       client <- (
-        ZClient.threads(2) ++
-          ZClient.maxConnectionsPerRequestKey(10) ++
-          ZClient.maxTotalConnections(20)
+        Client.threads(2) ++
+          Client.maxConnectionsPerRequestKey(10) ++
+          Client.maxTotalConnections(20)
       ).make
       _      <- triggerClientSequential(client)
     } yield ()
   }
 
   // sequential execution test
-  def triggerClientSequential(cl: DefaultZClient) = for {
+  def triggerClientSequential(cl: DefaultClient) = for {
     req1 <- ZIO.effect("http://localhost:8081/foo/1")
     resp <- cl.run(req1)
     r1   <- resp.getBodyAsString
