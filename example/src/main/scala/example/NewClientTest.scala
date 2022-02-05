@@ -3,7 +3,7 @@ package example
 import zhttp.http._
 import zhttp.service.client.DefaultClient
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{NewClient, EventLoopGroup, Server}
+import zhttp.service.{EventLoopGroup, NewClient, Server}
 import zio.{App, ExitCode, URIO, ZIO}
 
 /**

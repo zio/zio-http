@@ -4,16 +4,12 @@ import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.{Channel, ChannelHandlerContext}
 import io.netty.handler.codec.http.HttpVersion
-//import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.http.headers.HeaderExtension
-//import zhttp.service
-//import zhttp.service.Client.{ClientRequest, ClientResponse}
-//import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zhttp.service.client.DefaultClient
 import zhttp.service.client.model.ZConnectionState.ReqKey
 import zhttp.service.client.model.{Timeouts, ZConnectionState}
 import zhttp.service.client.transport.{Transport, ZConnectionManager}
-import zhttp.service.client.{DefaultClient}
 import zio.duration.Duration
 import zio.{Chunk, Task}
 
@@ -69,7 +65,7 @@ object NewClient {
 
   )
 
-  private final case class Concat[R, E](self: NewClient, other: NewClient)       extends NewClient
+  private final case class Concat[R, E](self: NewClient, other: NewClient) extends NewClient
   private final case class TransportConfig(transport: Transport)           extends UClient
   private final case class Threads(threads: Int)                           extends UClient
   private final case class ResponseHeaderTimeout(rht: Duration)            extends UClient
@@ -121,7 +117,6 @@ object NewClient {
       clientImpl
     }
   }
-
 
   final case class ClientRequest(
     httpVersion: HttpVersion = HttpVersion.HTTP_1_1,

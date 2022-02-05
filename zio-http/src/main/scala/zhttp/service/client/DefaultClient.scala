@@ -3,8 +3,8 @@ package zhttp.service.client
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http._
 import zhttp.http._
-import zhttp.service.NewClient.Config
 import zhttp.service.HttpMessageCodec
+import zhttp.service.NewClient.Config
 import zhttp.service.client.model.{ConnectionRuntime, ReqParams, Resp}
 import zhttp.service.client.transport.ZConnectionManager
 import zio.stream.ZStream
