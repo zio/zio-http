@@ -28,17 +28,11 @@ private[zhttp] final case class Handler[R](
   override def channelRead0(ctx: Ctx, msg: Any): Unit = {
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
-      case jReq: HttpRequest    =>
-        val hasLargeContent =
-          Headers.make(jReq.headers()).contentLength.exists(_ > config.maxRequestSize)
-        if (hasLargeContent)
-          ctx.fireChannelRead(Response.status(Status.REQUEST_ENTITY_TOO_LARGE)): Unit
-        else {
-
-          val request = new Request {
-            override def method: Method   = Method.fromHttpMethod(jReq.method())
-            override def url: URL         = URL.fromString(jReq.uri()).getOrElse(null)
-            override def headers: Headers = Headers.make(jReq.headers())
+      case jReq: HttpRequest =>
+        val request = new Request {
+          override def method: Method   = Method.fromHttpMethod(jReq.method())
+          override def url: URL         = URL.fromString(jReq.uri()).getOrElse(null)
+          override def headers: Headers = Headers.make(jReq.headers())
 
           override def remoteAddress: Option[InetAddress] = {
             ctx.channel().remoteAddress() match {
@@ -53,13 +47,13 @@ private[zhttp] final case class Handler[R](
               UnsafeContent,
             ) => Unit,
           ): Unit = {
-            val httpcontenthandler = ctx.pipeline().get(HTTP_CONTENT_HANDLER)
-            if (httpcontenthandler == null) {
+            val httpContentHandler = ctx.pipeline().get(HTTP_CONTENT_HANDLER)
+            if (httpContentHandler == null) {
               ctx
                 .pipeline()
                 .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback, config)): Unit
             } else {
-              httpcontenthandler.asInstanceOf[RequestBodyHandler[R]].callback = callback
+              httpContentHandler.asInstanceOf[RequestBodyHandler[R]].callback = callback
             }
           }
         }
