@@ -34,14 +34,14 @@ object ClientHttpsSpec extends DefaultRunnableSpec {
       assertM(actual)(anything)
     } +
       testM("respond Ok with sslOption") {
-        val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", sslOption)
+        val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", ssl = sslOption)
         assertM(actual)(anything)
       } +
       testM("should respond as Bad Request") {
         val actual = Client
           .request(
             "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
-            sslOption,
+            ssl = sslOption,
           )
           .map(_.status)
         assertM(actual)(equalTo(Status.BAD_REQUEST))
@@ -50,7 +50,7 @@ object ClientHttpsSpec extends DefaultRunnableSpec {
         val actual = Client
           .request(
             "https://untrusted-root.badssl.com/",
-            sslOption,
+            ssl = sslOption,
           )
           .run
         assertM(actual)(fails(isSubtype[DecoderException](anything)))

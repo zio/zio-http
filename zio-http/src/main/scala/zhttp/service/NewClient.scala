@@ -2,20 +2,20 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
+import io.netty.channel.{Channel, ChannelHandlerContext}
 import io.netty.handler.codec.http.HttpVersion
-import zhttp.http.URL.Location
+//import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.http.headers.HeaderExtension
-import zhttp.service
-import zhttp.service.Client.{ClientRequest, ClientResponse}
-import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+//import zhttp.service
+//import zhttp.service.Client.{ClientRequest, ClientResponse}
+//import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.model.ZConnectionState.ReqKey
 import zhttp.service.client.model.{Timeouts, ZConnectionState}
 import zhttp.service.client.transport.{Transport, ZConnectionManager}
-import zhttp.service.client.{ClientChannelInitializer, ClientInboundHandler, DefaultClient}
+import zhttp.service.client.{DefaultClient}
 import zio.duration.Duration
-import zio.{Chunk, Promise, Task, ZIO}
+import zio.{Chunk, Task}
 
 import java.net.{InetAddress, InetSocketAddress}
 import scala.collection.mutable

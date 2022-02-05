@@ -3,7 +3,8 @@ package zhttp.http
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
 import zhttp.http.URL.{Fragment, Location}
 
-import java.net.URI
+import java.io.IOException
+import java.net.{MalformedURLException, URI}
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
@@ -13,6 +14,7 @@ final case class URL(
   queryParams: Map[String, List[String]] = Map.empty,
   fragment: Option[Fragment] = None,
 ) { self =>
+
   def encode: String = URL.encode(self)
 
   def host: Option[String] = kind match {
@@ -32,6 +34,11 @@ final case class URL(
     case abs: URL.Location.Absolute => Option(abs.port)
   }
 
+  def scheme: Option[Scheme] = kind match {
+    case Location.Absolute(scheme, _, _) => Some(scheme)
+    case Location.Relative               => None
+  }
+
   def setHost(host: String): URL = {
     val location = kind match {
       case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, host, URL.portFromScheme(Scheme.HTTP))
@@ -40,10 +47,10 @@ final case class URL(
     copy(kind = location)
   }
 
-  def setPath(path: String): URL = copy(path = Path(path))
-
   def setPath(path: Path): URL =
     copy(path = path)
+
+  def setPath(path: String): URL = copy(path = Path(path))
 
   def setPort(port: Int): URL = {
     val location = kind match {
@@ -54,11 +61,11 @@ final case class URL(
     copy(kind = location)
   }
 
-  def setQueryParams(query: String): URL =
-    copy(queryParams = URL.queryParams(query))
-
   def setQueryParams(queryParams: Map[String, List[String]]): URL =
     copy(queryParams = queryParams)
+
+  def setQueryParams(query: String): URL =
+    copy(queryParams = URL.queryParams(query))
 
   def setScheme(scheme: Scheme): URL = {
     val location = kind match {
@@ -75,7 +82,7 @@ final case class URL(
   }
 }
 object URL {
-  def empty: URL = root
+  def empty: URL = URL(!!)
 
   def encode(url: URL): String = {
 
@@ -95,8 +102,8 @@ object URL {
     }
   }
 
-  def fromString(string: String): Either[HttpError, URL] = {
-    def invalidURL = Left(HttpError.BadRequest(s"Invalid URL: $string"))
+  def fromString(string: String): Either[IOException, URL] = {
+    def invalidURL = Left(new MalformedURLException(s"""Invalid URL: "$string""""))
     for {
       url <- Try(new URI(string)).toEither match {
         case Left(_)      => invalidURL
@@ -114,7 +121,7 @@ object URL {
 
   private def fromAbsoluteURI(uri: URI): Option[URL] = {
     for {
-      scheme <- Scheme.fromString(uri.getScheme)
+      scheme <- Scheme.decode(uri.getScheme)
       host   <- Option(uri.getHost)
       path   <- Option(uri.getRawPath)
       port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
@@ -127,8 +134,8 @@ object URL {
   } yield URL(Path(path), Location.Relative, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
 
   private def portFromScheme(scheme: Scheme): Int = scheme match {
-    case Scheme.HTTP  => 80
-    case Scheme.HTTPS => 443
+    case Scheme.HTTP | Scheme.WS   => 80
+    case Scheme.HTTPS | Scheme.WSS => 443
   }
 
   private def queryParams(query: String) = {

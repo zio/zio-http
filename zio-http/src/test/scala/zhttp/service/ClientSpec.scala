@@ -5,8 +5,10 @@ import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.duration.durationInt
 import zio.test.Assertion._
-import zio.test.TestAspect._
+import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
+
+import java.net.ConnectException
 
 object ClientSpec extends HttpRunnableSpec {
 
@@ -37,6 +39,10 @@ object ClientSpec extends HttpRunnableSpec {
         val app             = Http.text("zio user does not exist")
         val responseContent = app.deploy.getBodyAsString.run()
         assertM(responseContent)(containsString("user"))
+      } +
+      testM("handle connection failure") {
+        val res = Client.request("http://localhost:1").either
+        assertM(res)(isLeft(isSubtype[ConnectException](anything)))
       }
   }
 
