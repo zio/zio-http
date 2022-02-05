@@ -3,7 +3,7 @@ package zhttp.http.headers
 import io.netty.handler.codec.http.HttpUtil
 import io.netty.util.AsciiString.contentEqualsIgnoreCase
 import zhttp.http.Headers.{BasicSchemeName, BearerSchemeName}
-import zhttp.http.{Cookie, HTTP_CHARSET, Header, HeaderNames, Headers}
+import zhttp.http._
 
 import java.nio.charset.Charset
 import java.util.Base64
@@ -17,64 +17,64 @@ import scala.util.control.NonFatal
  */
 trait HeaderGetters[+A] { self =>
 
-  final def getAccept: Option[CharSequence] =
-    getHeaderValue(HeaderNames.accept)
+  final def accept: Option[CharSequence] =
+    headerValue(HeaderNames.accept)
 
-  final def getAcceptCharset: Option[CharSequence] =
-    getHeaderValue(HeaderNames.acceptCharset)
+  final def acceptCharset: Option[CharSequence] =
+    headerValue(HeaderNames.acceptCharset)
 
-  final def getAcceptEncoding: Option[CharSequence] =
-    getHeaderValue(HeaderNames.acceptEncoding)
+  final def acceptEncoding: Option[CharSequence] =
+    headerValue(HeaderNames.acceptEncoding)
 
-  final def getAcceptLanguage: Option[CharSequence] =
-    getHeaderValue(HeaderNames.acceptLanguage)
+  final def acceptLanguage: Option[CharSequence] =
+    headerValue(HeaderNames.acceptLanguage)
 
-  final def getAcceptPatch: Option[CharSequence] =
-    getHeaderValue(HeaderNames.acceptPatch)
+  final def acceptPatch: Option[CharSequence] =
+    headerValue(HeaderNames.acceptPatch)
 
-  final def getAcceptRanges: Option[CharSequence] =
-    getHeaderValue(HeaderNames.acceptRanges)
+  final def acceptRanges: Option[CharSequence] =
+    headerValue(HeaderNames.acceptRanges)
 
-  final def getAccessControlAllowCredentials: Option[Boolean] =
-    getHeaderValue(HeaderNames.accessControlAllowCredentials) match {
+  final def accessControlAllowCredentials: Option[Boolean] =
+    headerValue(HeaderNames.accessControlAllowCredentials) match {
       case Some(string) =>
         try Some(string.toBoolean)
         catch { case _: Throwable => None }
       case None         => None
     }
 
-  final def getAccessControlAllowHeaders: Option[CharSequence] =
-    getHeaderValue(HeaderNames.accessControlAllowHeaders)
+  final def accessControlAllowHeaders: Option[CharSequence] =
+    headerValue(HeaderNames.accessControlAllowHeaders)
 
-  final def getAccessControlAllowMethods: Option[CharSequence] =
-    getHeaderValue(HeaderNames.accessControlAllowMethods)
+  final def accessControlAllowMethods: Option[CharSequence] =
+    headerValue(HeaderNames.accessControlAllowMethods)
 
-  final def getAccessControlAllowOrigin: Option[CharSequence] =
-    getHeaderValue(HeaderNames.accessControlAllowOrigin)
+  final def accessControlAllowOrigin: Option[CharSequence] =
+    headerValue(HeaderNames.accessControlAllowOrigin)
 
-  final def getAccessControlExposeHeaders: Option[CharSequence] =
-    getHeaderValue(HeaderNames.accessControlExposeHeaders)
+  final def accessControlExposeHeaders: Option[CharSequence] =
+    headerValue(HeaderNames.accessControlExposeHeaders)
 
-  final def getAccessControlMaxAge: Option[CharSequence] =
-    getHeaderValue(HeaderNames.accessControlMaxAge)
+  final def accessControlMaxAge: Option[CharSequence] =
+    headerValue(HeaderNames.accessControlMaxAge)
 
-  final def getAccessControlRequestHeaders: Option[CharSequence] =
-    getHeaderValue(HeaderNames.accessControlRequestHeaders)
+  final def accessControlRequestHeaders: Option[CharSequence] =
+    headerValue(HeaderNames.accessControlRequestHeaders)
 
-  final def getAccessControlRequestMethod: Option[CharSequence] =
-    getHeaderValue(HeaderNames.accessControlRequestMethod)
+  final def accessControlRequestMethod: Option[CharSequence] =
+    headerValue(HeaderNames.accessControlRequestMethod)
 
-  final def getAge: Option[CharSequence] =
-    getHeaderValue(HeaderNames.age)
+  final def age: Option[CharSequence] =
+    headerValue(HeaderNames.age)
 
-  final def getAllow: Option[CharSequence] =
-    getHeaderValue(HeaderNames.allow)
+  final def allow: Option[CharSequence] =
+    headerValue(HeaderNames.allow)
 
-  final def getAuthorization: Option[CharSequence] =
-    getHeaderValue(HeaderNames.authorization)
+  final def authorization: Option[CharSequence] =
+    headerValue(HeaderNames.authorization)
 
-  final def getBasicAuthorizationCredentials: Option[Header] = {
-    getAuthorization
+  final def basicAuthorizationCredentials: Option[Header] = {
+    authorization
       .map(_.toString)
       .flatMap(v => {
         val indexOfBasic = v.indexOf(BasicSchemeName)
@@ -91,7 +91,7 @@ trait HeaderGetters[+A] { self =>
       })
   }
 
-  final def getBearerToken: Option[String] = getAuthorization
+  final def bearerToken: Option[String] = authorization
     .map(_.toString)
     .flatMap(v => {
       val indexOfBearer = v.indexOf(BearerSchemeName)
@@ -101,32 +101,32 @@ trait HeaderGetters[+A] { self =>
         Some(v.substring(BearerSchemeName.length + 1))
     })
 
-  final def getCacheControl: Option[CharSequence] =
-    getHeaderValue(HeaderNames.cacheControl)
+  final def cacheControl: Option[CharSequence] =
+    headerValue(HeaderNames.cacheControl)
 
-  final def getCharset: Charset =
-    getHeaderValue(HeaderNames.contentType) match {
+  final def charset: Charset =
+    headerValue(HeaderNames.contentType) match {
       case Some(value) => HttpUtil.getCharset(value, HTTP_CHARSET)
       case None        => HTTP_CHARSET
     }
 
-  final def getConnection: Option[CharSequence] =
-    getHeaderValue(HeaderNames.connection)
+  final def connection: Option[CharSequence] =
+    headerValue(HeaderNames.connection)
 
-  final def getContentBase: Option[CharSequence] =
-    getHeaderValue(HeaderNames.contentBase)
+  final def contentBase: Option[CharSequence] =
+    headerValue(HeaderNames.contentBase)
 
-  final def getContentDisposition: Option[CharSequence] =
-    getHeaderValue(HeaderNames.contentDisposition)
+  final def contentDisposition: Option[CharSequence] =
+    headerValue(HeaderNames.contentDisposition)
 
-  final def getContentEncoding: Option[CharSequence] =
-    getHeaderValue(HeaderNames.contentEncoding)
+  final def contentEncoding: Option[CharSequence] =
+    headerValue(HeaderNames.contentEncoding)
 
-  final def getContentLanguage: Option[CharSequence] =
-    getHeaderValue(HeaderNames.contentLanguage)
+  final def contentLanguage: Option[CharSequence] =
+    headerValue(HeaderNames.contentLanguage)
 
-  final def getContentLength: Option[Long] =
-    getHeaderValue(HeaderNames.contentLength) match {
+  final def contentLength: Option[Long] =
+    headerValue(HeaderNames.contentLength) match {
       case Some(str) =>
         try Some(str.toString.toLong)
         catch {
@@ -135,197 +135,197 @@ trait HeaderGetters[+A] { self =>
       case None      => None
     }
 
-  final def getContentLocation: Option[CharSequence] =
-    getHeaderValue(HeaderNames.contentLocation)
+  final def contentLocation: Option[CharSequence] =
+    headerValue(HeaderNames.contentLocation)
 
-  final def getContentMd5: Option[CharSequence] =
-    getHeaderValue(HeaderNames.contentMd5)
+  final def contentMd5: Option[CharSequence] =
+    headerValue(HeaderNames.contentMd5)
 
-  final def getContentRange: Option[CharSequence] =
-    getHeaderValue(HeaderNames.contentRange)
+  final def contentRange: Option[CharSequence] =
+    headerValue(HeaderNames.contentRange)
 
-  final def getContentSecurityPolicy: Option[CharSequence] =
-    getHeaderValue(HeaderNames.contentSecurityPolicy)
+  final def contentSecurityPolicy: Option[CharSequence] =
+    headerValue(HeaderNames.contentSecurityPolicy)
 
-  final def getContentTransferEncoding: Option[CharSequence] =
-    getHeaderValue(HeaderNames.contentTransferEncoding)
+  final def contentTransferEncoding: Option[CharSequence] =
+    headerValue(HeaderNames.contentTransferEncoding)
 
-  final def getContentType: Option[CharSequence] =
-    getHeaderValue(HeaderNames.contentType)
+  final def contentType: Option[CharSequence] =
+    headerValue(HeaderNames.contentType)
 
-  final def getCookie: Option[CharSequence] =
-    getHeaderValue(HeaderNames.cookie)
+  final def cookie: Option[CharSequence] =
+    headerValue(HeaderNames.cookie)
 
-  final def getCookiesDecoded: List[Cookie] =
-    getHeaderValues(HeaderNames.cookie).flatMap { header =>
+  final def cookieValue(name: CharSequence): Option[CharSequence] =
+    cookiesDecoded.find(_.name == name).map(_.content)
+
+  final def cookiesDecoded: List[Cookie] =
+    headerValues(HeaderNames.cookie).flatMap { header =>
       Cookie.decodeRequestCookie(header) match {
         case None       => Nil
         case Some(list) => list
       }
     }
 
-  final def getCookieValue(name: CharSequence): Option[CharSequence] =
-    getCookiesDecoded.find(_.name == name).map(_.content)
+  final def date: Option[CharSequence] =
+    headerValue(HeaderNames.date)
 
-  final def getDate: Option[CharSequence] =
-    getHeaderValue(HeaderNames.date)
+  final def dnt: Option[CharSequence] =
+    headerValue(HeaderNames.dnt)
 
-  final def getDnt: Option[CharSequence] =
-    getHeaderValue(HeaderNames.dnt)
+  final def etag: Option[CharSequence] =
+    headerValue(HeaderNames.etag)
 
-  final def getEtag: Option[CharSequence] =
-    getHeaderValue(HeaderNames.etag)
+  final def expect: Option[CharSequence] =
+    headerValue(HeaderNames.expect)
 
-  final def getExpect: Option[CharSequence] =
-    getHeaderValue(HeaderNames.expect)
+  final def expires: Option[CharSequence] =
+    headerValue(HeaderNames.expires)
 
-  final def getExpires: Option[CharSequence] =
-    getHeaderValue(HeaderNames.expires)
+  final def from: Option[CharSequence] =
+    headerValue(HeaderNames.from)
 
-  final def getFrom: Option[CharSequence] =
-    getHeaderValue(HeaderNames.from)
-
-  final def getHeader(headerName: CharSequence): Option[Header] =
-    getHeaders.toList
+  final def header(headerName: CharSequence): Option[Header] =
+    headers.toList
       .find(h => contentEqualsIgnoreCase(h._1, headerName))
 
-  final def getHeaderValue(headerName: CharSequence): Option[String] =
-    getHeader(headerName).map(_._2.toString)
+  final def headerValue(headerName: CharSequence): Option[String] =
+    header(headerName).map(_._2.toString)
 
-  final def getHeaderValues(headerName: CharSequence): List[String] =
-    getHeaders.toList.collect { case h if contentEqualsIgnoreCase(h._1, headerName) => h._2.toString }
+  final def headerValues(headerName: CharSequence): List[String] =
+    headers.toList.collect { case h if contentEqualsIgnoreCase(h._1, headerName) => h._2.toString }
 
   /**
    * Returns the Headers object on the current type A
    */
-  def getHeaders: Headers
+  def headers: Headers
 
-  final def getHeadersAsList: List[(String, String)] = self.getHeaders.toList
+  final def headersAsList: List[(String, String)] = self.headers.toList
 
-  final def getHost: Option[CharSequence] =
-    getHeaderValue(HeaderNames.host)
+  final def host: Option[CharSequence] =
+    headerValue(HeaderNames.host)
 
-  final def getIfMatch: Option[CharSequence] =
-    getHeaderValue(HeaderNames.ifMatch)
+  final def ifMatch: Option[CharSequence] =
+    headerValue(HeaderNames.ifMatch)
 
-  final def getIfModifiedSince: Option[CharSequence] =
-    getHeaderValue(HeaderNames.ifModifiedSince)
+  final def ifModifiedSince: Option[CharSequence] =
+    headerValue(HeaderNames.ifModifiedSince)
 
-  final def getIfNoneMatch: Option[CharSequence] =
-    getHeaderValue(HeaderNames.ifNoneMatch)
+  final def ifNoneMatch: Option[CharSequence] =
+    headerValue(HeaderNames.ifNoneMatch)
 
-  final def getIfRange: Option[CharSequence] =
-    getHeaderValue(HeaderNames.ifRange)
+  final def ifRange: Option[CharSequence] =
+    headerValue(HeaderNames.ifRange)
 
-  final def getIfUnmodifiedSince: Option[CharSequence] =
-    getHeaderValue(HeaderNames.ifUnmodifiedSince)
+  final def ifUnmodifiedSince: Option[CharSequence] =
+    headerValue(HeaderNames.ifUnmodifiedSince)
 
-  final def getLastModified: Option[CharSequence] =
-    getHeaderValue(HeaderNames.lastModified)
+  final def lastModified: Option[CharSequence] =
+    headerValue(HeaderNames.lastModified)
 
-  final def getLocation: Option[CharSequence] =
-    getHeaderValue(HeaderNames.location)
+  final def location: Option[CharSequence] =
+    headerValue(HeaderNames.location)
 
-  final def getMaxForwards: Option[CharSequence] =
-    getHeaderValue(HeaderNames.maxForwards)
+  final def maxForwards: Option[CharSequence] =
+    headerValue(HeaderNames.maxForwards)
 
-  final def getOrigin: Option[CharSequence] =
-    getHeaderValue(HeaderNames.origin)
+  final def origin: Option[CharSequence] =
+    headerValue(HeaderNames.origin)
 
-  final def getPragma: Option[CharSequence] =
-    getHeaderValue(HeaderNames.pragma)
+  final def pragma: Option[CharSequence] =
+    headerValue(HeaderNames.pragma)
 
-  final def getProxyAuthenticate: Option[CharSequence] =
-    getHeaderValue(HeaderNames.proxyAuthenticate)
+  final def proxyAuthenticate: Option[CharSequence] =
+    headerValue(HeaderNames.proxyAuthenticate)
 
-  final def getProxyAuthorization: Option[CharSequence] =
-    getHeaderValue(HeaderNames.proxyAuthorization)
+  final def proxyAuthorization: Option[CharSequence] =
+    headerValue(HeaderNames.proxyAuthorization)
 
-  final def getRange: Option[CharSequence] =
-    getHeaderValue(HeaderNames.range)
+  final def range: Option[CharSequence] =
+    headerValue(HeaderNames.range)
 
-  final def getReferer: Option[CharSequence] =
-    getHeaderValue(HeaderNames.referer)
+  final def referer: Option[CharSequence] =
+    headerValue(HeaderNames.referer)
 
-  final def getRetryAfter: Option[CharSequence] =
-    getHeaderValue(HeaderNames.retryAfter)
+  final def retryAfter: Option[CharSequence] =
+    headerValue(HeaderNames.retryAfter)
 
-  final def getSecWebSocketAccept: Option[CharSequence] =
-    getHeaderValue(HeaderNames.secWebSocketAccept)
+  final def secWebSocketAccept: Option[CharSequence] =
+    headerValue(HeaderNames.secWebSocketAccept)
 
-  final def getSecWebSocketExtensions: Option[CharSequence] =
-    getHeaderValue(HeaderNames.secWebSocketExtensions)
+  final def secWebSocketExtensions: Option[CharSequence] =
+    headerValue(HeaderNames.secWebSocketExtensions)
 
-  final def getSecWebSocketKey: Option[CharSequence] =
-    getHeaderValue(HeaderNames.secWebSocketKey)
+  final def secWebSocketKey: Option[CharSequence] =
+    headerValue(HeaderNames.secWebSocketKey)
 
-  final def getSecWebSocketLocation: Option[CharSequence] =
-    getHeaderValue(HeaderNames.secWebSocketLocation)
+  final def secWebSocketLocation: Option[CharSequence] =
+    headerValue(HeaderNames.secWebSocketLocation)
 
-  final def getSecWebSocketOrigin: Option[CharSequence] =
-    getHeaderValue(HeaderNames.secWebSocketOrigin)
+  final def secWebSocketOrigin: Option[CharSequence] =
+    headerValue(HeaderNames.secWebSocketOrigin)
 
-  final def getSecWebSocketProtocol: Option[CharSequence] =
-    getHeaderValue(HeaderNames.secWebSocketProtocol)
+  final def secWebSocketProtocol: Option[CharSequence] =
+    headerValue(HeaderNames.secWebSocketProtocol)
 
-  final def getSecWebSocketVersion: Option[CharSequence] =
-    getHeaderValue(HeaderNames.secWebSocketVersion)
+  final def secWebSocketVersion: Option[CharSequence] =
+    headerValue(HeaderNames.secWebSocketVersion)
 
-  final def getServer: Option[CharSequence] =
-    getHeaderValue(HeaderNames.server)
+  final def server: Option[CharSequence] =
+    headerValue(HeaderNames.server)
 
-  final def getSetCookie: Option[CharSequence] =
-    getHeaderValue(HeaderNames.setCookie)
+  final def setCookie: Option[CharSequence] =
+    headerValue(HeaderNames.setCookie)
 
-  final def getSetCookiesDecoded(secret: Option[String] = None): List[Cookie] =
-    getHeaderValues(HeaderNames.setCookie)
+  final def setCookiesDecoded(secret: Option[String] = None): List[Cookie] =
+    headerValues(HeaderNames.setCookie)
       .map(Cookie.decodeResponseCookie(_, secret))
       .collect { case Some(cookie) => cookie }
 
-  final def getTe: Option[CharSequence] =
-    getHeaderValue(HeaderNames.te)
+  final def te: Option[CharSequence] =
+    headerValue(HeaderNames.te)
 
-  final def getTrailer: Option[CharSequence] =
-    getHeaderValue(HeaderNames.trailer)
+  final def trailer: Option[CharSequence] =
+    headerValue(HeaderNames.trailer)
 
-  final def getTransferEncoding: Option[CharSequence] =
-    getHeaderValue(HeaderNames.transferEncoding)
+  final def transferEncoding: Option[CharSequence] =
+    headerValue(HeaderNames.transferEncoding)
 
-  final def getUpgrade: Option[CharSequence] =
-    getHeaderValue(HeaderNames.upgrade)
+  final def upgrade: Option[CharSequence] =
+    headerValue(HeaderNames.upgrade)
 
-  final def getUpgradeInsecureRequests: Option[CharSequence] =
-    getHeaderValue(HeaderNames.upgradeInsecureRequests)
+  final def upgradeInsecureRequests: Option[CharSequence] =
+    headerValue(HeaderNames.upgradeInsecureRequests)
 
-  final def getUserAgent: Option[CharSequence] =
-    getHeaderValue(HeaderNames.userAgent)
+  final def userAgent: Option[CharSequence] =
+    headerValue(HeaderNames.userAgent)
 
-  final def getVary: Option[CharSequence] =
-    getHeaderValue(HeaderNames.vary)
+  final def vary: Option[CharSequence] =
+    headerValue(HeaderNames.vary)
 
-  final def getVia: Option[CharSequence] =
-    getHeaderValue(HeaderNames.via)
+  final def via: Option[CharSequence] =
+    headerValue(HeaderNames.via)
 
-  final def getWarning: Option[CharSequence] =
-    getHeaderValue(HeaderNames.warning)
+  final def warning: Option[CharSequence] =
+    headerValue(HeaderNames.warning)
 
-  final def getWebSocketLocation: Option[CharSequence] =
-    getHeaderValue(HeaderNames.webSocketLocation)
+  final def webSocketLocation: Option[CharSequence] =
+    headerValue(HeaderNames.webSocketLocation)
 
-  final def getWebSocketOrigin: Option[CharSequence] =
-    getHeaderValue(HeaderNames.webSocketOrigin)
+  final def webSocketOrigin: Option[CharSequence] =
+    headerValue(HeaderNames.webSocketOrigin)
 
-  final def getWebSocketProtocol: Option[CharSequence] =
-    getHeaderValue(HeaderNames.webSocketProtocol)
+  final def webSocketProtocol: Option[CharSequence] =
+    headerValue(HeaderNames.webSocketProtocol)
 
-  final def getWwwAuthenticate: Option[CharSequence] =
-    getHeaderValue(HeaderNames.wwwAuthenticate)
+  final def wwwAuthenticate: Option[CharSequence] =
+    headerValue(HeaderNames.wwwAuthenticate)
 
-  final def getXFrameOptions: Option[CharSequence] =
-    getHeaderValue(HeaderNames.xFrameOptions)
+  final def xFrameOptions: Option[CharSequence] =
+    headerValue(HeaderNames.xFrameOptions)
 
-  final def getXRequestedWith: Option[CharSequence] =
-    getHeaderValue(HeaderNames.xRequestedWith)
+  final def xRequestedWith: Option[CharSequence] =
+    headerValue(HeaderNames.xRequestedWith)
 
   private def decodeHttpBasic(encoded: String): Option[Header] = {
     val decoded    = new String(Base64.getDecoder.decode(encoded))

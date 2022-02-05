@@ -94,7 +94,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
 
           // Add WebSocketHandlers if it's a `ws` or `wss` request
           if (isWebSocket) {
-            val headers = req.getHeaders.encode
+            val headers = req.headers.encode
             val app     = req.attribute.socketApp.getOrElse(Socket.empty.toSocketApp)
             val config  = app.protocol.clientBuilder
               .customHeaders(headers)
@@ -175,9 +175,7 @@ object Client {
   ) extends HeaderExtension[ClientRequest] {
     self =>
 
-    def getBodyAsString: Task[String] = getBodyAsByteBuf.map(_.toString(getHeaders.getCharset))
-
-    def getHeaders: Headers = headers
+    def bodyAsString: Task[String] = getBodyAsByteBuf.map(_.toString(headers.charset))
 
     def remoteAddress: Option[InetAddress] = {
       if (channelContext != null && channelContext.channel().remoteAddress().isInstanceOf[InetSocketAddress])
@@ -190,7 +188,7 @@ object Client {
      * Updates the headers using the provided function
      */
     override def updateHeaders(update: Headers => Headers): ClientRequest =
-      self.copy(headers = update(self.getHeaders))
+      self.copy(headers = update(self.headers))
 
     private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
   }
@@ -199,13 +197,11 @@ object Client {
       extends HeaderExtension[ClientResponse] {
     self =>
 
-    def getBody: Task[Chunk[Byte]] = Task(Chunk.fromArray(ByteBufUtil.getBytes(buffer)))
+    def body: Task[Chunk[Byte]] = Task(Chunk.fromArray(ByteBufUtil.getBytes(buffer)))
 
-    def getBodyAsByteBuf: Task[ByteBuf] = Task(buffer)
+    def bodyAsByteBuf: Task[ByteBuf] = Task(buffer)
 
-    def getBodyAsString: Task[String] = Task(buffer.toString(self.getCharset))
-
-    override def getHeaders: Headers = headers
+    def bodyAsString: Task[String] = Task(buffer.toString(self.charset))
 
     override def updateHeaders(update: Headers => Headers): ClientResponse = self.copy(headers = update(headers))
   }

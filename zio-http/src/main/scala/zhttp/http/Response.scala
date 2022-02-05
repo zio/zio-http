@@ -24,7 +24,7 @@ final case class Response private (
    * Adds cookies in the response headers.
    */
   def addCookie(cookie: Cookie): Response =
-    self.copy(headers = self.getHeaders ++ Headers(HttpHeaderNames.SET_COOKIE.toString, cookie.encode))
+    self.copy(headers = self.headers ++ Headers(HttpHeaderNames.SET_COOKIE.toString, cookie.encode))
 
   /**
    * A micro-optimizations that ignores all further modifications to the
@@ -37,8 +37,6 @@ final case class Response private (
    */
   def freeze: UIO[Response] =
     UIO(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
-
-  override def getHeaders: Headers = headers
 
   /**
    * Sets the response attributes
@@ -56,7 +54,7 @@ final case class Response private (
    * Updates the headers using the provided function
    */
   override def updateHeaders(update: Headers => Headers): Response =
-    self.copy(headers = update(self.getHeaders))
+    self.copy(headers = update(self.headers))
 
   /**
    * A more efficient way to append server-time to the response headers.
@@ -66,7 +64,7 @@ final case class Response private (
   /**
    * Extracts the body as ByteBuf
    */
-  private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = self.data.toByteBuf
+  private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = self.data.toByteBuf
 
   /**
    * Encodes the Response into a Netty HttpResponse. Sets default headers such
@@ -77,7 +75,7 @@ final case class Response private (
   private[zhttp] def unsafeEncode(): HttpResponse = {
     import io.netty.handler.codec.http._
 
-    val jHeaders = self.getHeaders.encode
+    val jHeaders = self.headers.encode
     val jContent = self.data match {
       case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
       case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)

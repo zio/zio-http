@@ -36,7 +36,7 @@ private[zhttp] trait Csrf {
   def csrfValidate(tokenName: String = "x-csrf-token"): HttpMiddleware[Any, Nothing] = {
     Middleware.whenHeader(
       headers => {
-        (headers.getHeaderValue(tokenName), headers.getCookieValue(tokenName)) match {
+        (headers.headerValue(tokenName), headers.cookieValue(tokenName)) match {
           case (Some(headerValue), Some(cookieValue)) => headerValue != cookieValue
           case _                                      => true
         }

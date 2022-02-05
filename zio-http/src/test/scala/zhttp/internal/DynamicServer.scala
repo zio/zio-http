@@ -18,7 +18,7 @@ object DynamicServer {
   def app: HttpApp[HttpEnv, Throwable] = Http
     .fromOptionFunction[Request] { case req =>
       for {
-        id  <- req.getHeaderValue(APP_ID) match {
+        id  <- req.headerValue(APP_ID) match {
           case Some(id) => UIO(id)
           case None     => ZIO.fail(None)
         }
@@ -31,17 +31,13 @@ object DynamicServer {
     }
 
   def baseURL(scheme: Scheme): ZIO[DynamicServer, Nothing, String] =
-    getPort.map(port => s"${scheme.encode}://localhost:$port")
+    port.map(port => s"${scheme.encode}://localhost:$port")
 
   def deploy(app: HttpApp[HttpEnv, Throwable]): ZIO[DynamicServer, Nothing, String] =
     ZIO.accessM[DynamicServer](_.get.add(app))
 
   def get(id: Id): ZIO[DynamicServer, Nothing, Option[HttpApp[HttpEnv, Throwable]]] =
     ZIO.accessM[DynamicServer](_.get.get(id))
-
-  def getPort: ZIO[DynamicServer, Nothing, Int] = ZIO.accessM[DynamicServer](_.get.getPort)
-
-  def getStart: ZIO[DynamicServer, Nothing, Start] = ZIO.accessM[DynamicServer](_.get.getStart)
 
   def httpURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.HTTP)
 
@@ -52,7 +48,11 @@ object DynamicServer {
     } yield new Live(ref, pr)
   }.toLayer
 
+  def port: ZIO[DynamicServer, Nothing, Int] = ZIO.accessM[DynamicServer](_.get.port)
+
   def setStart(s: Start): ZIO[DynamicServer, Nothing, Boolean] = ZIO.accessM[DynamicServer](_.get.setStart(s))
+
+  def start: ZIO[DynamicServer, Nothing, Start] = ZIO.accessM[DynamicServer](_.get.start)
 
   def wsURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.WS)
 
@@ -60,9 +60,9 @@ object DynamicServer {
     def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id]
     def get(id: Id): UIO[Option[HttpApp[HttpEnv, Throwable]]]
 
-    def getPort: ZIO[Any, Nothing, Int]
+    def port: ZIO[Any, Nothing, Int]
 
-    def getStart: IO[Nothing, Start]
+    def start: IO[Nothing, Start]
 
     def setStart(n: Start): UIO[Boolean]
   }
@@ -74,9 +74,9 @@ object DynamicServer {
     } yield id
     def get(id: Id): UIO[Option[HttpApp[HttpEnv, Throwable]]] = ref.get.map(_.get(id))
 
-    def getPort: ZIO[Any, Nothing, Int] = getStart.map(_.port)
+    def port: ZIO[Any, Nothing, Int] = start.map(_.port)
 
-    def getStart: IO[Nothing, Start] = pr.await
+    def start: IO[Nothing, Start] = pr.await
 
     def setStart(s: Start): UIO[Boolean] = pr.complete(ZIO(s).orDie)
   }

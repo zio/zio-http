@@ -20,22 +20,22 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
     suite("headers suite") {
       testM("addHeaders") {
         val middleware = addHeaders(Headers("KeyA", "ValueA") ++ Headers("KeyB", "ValueB"))
-        val headers    = (Http.ok @@ middleware).getHeaderValues
+        val headers    = (Http.ok @@ middleware).headerValues
         assertM(headers(Request()))(contains("ValueA") && contains("ValueB"))
       } +
         testM("addHeader") {
           val middleware = addHeader("KeyA", "ValueA")
-          val headers    = (Http.ok @@ middleware).getHeaderValues
+          val headers    = (Http.ok @@ middleware).headerValues
           assertM(headers(Request()))(contains("ValueA"))
         } +
         testM("updateHeaders") {
           val middleware = updateHeaders(_ => Headers("KeyA", "ValueA"))
-          val headers    = (Http.ok @@ middleware).getHeaderValues
+          val headers    = (Http.ok @@ middleware).headerValues
           assertM(headers(Request()))(contains("ValueA"))
         } +
         testM("removeHeader") {
           val middleware = removeHeader("KeyA")
-          val headers = (Http.succeed(Response.ok.setHeaders(Headers("KeyA", "ValueA"))) @@ middleware) getHeader "KeyA"
+          val headers    = (Http.succeed(Response.ok.setHeaders(Headers("KeyA", "ValueA"))) @@ middleware) header "KeyA"
           assertM(headers(Request()))(isNone)
         }
     } +
@@ -87,60 +87,60 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
         } +
           testM("add headers twice") {
             val middleware = addHeader("KeyA", "ValueA") ++ addHeader("KeyB", "ValueB")
-            val headers    = (Http.ok @@ middleware).getHeaderValues
+            val headers    = (Http.ok @@ middleware).headerValues
             assertM(headers(Request()))(contains("ValueA") && contains("ValueB"))
           } +
           testM("add and remove header") {
             val middleware = addHeader("KeyA", "ValueA") ++ removeHeader("KeyA")
-            val program    = (Http.ok @@ middleware) getHeader "KeyA"
+            val program    = (Http.ok @@ middleware) header "KeyA"
             assertM(program(Request()))(isNone)
           }
       } +
       suite("ifRequestThenElseZIO") {
         testM("if the condition is true take first") {
-          val app = (Http.ok @@ ifRequestThenElseZIO(condM(true))(midA, midB)) getHeader "X-Custom"
+          val app = (Http.ok @@ ifRequestThenElseZIO(condM(true))(midA, midB)) header "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
         } +
           testM("if the condition is false take 2nd") {
             val app =
-              (Http.ok @@ ifRequestThenElseZIO(condM(false))(midA, midB)) getHeader "X-Custom"
+              (Http.ok @@ ifRequestThenElseZIO(condM(false))(midA, midB)) header "X-Custom"
             assertM(app(Request()))(isSome(equalTo("B")))
           }
       } +
       suite("ifRequestThenElse") {
         testM("if the condition is true take first") {
-          val app = Http.ok @@ ifRequestThenElse(cond(true))(midA, midB) getHeader "X-Custom"
+          val app = Http.ok @@ ifRequestThenElse(cond(true))(midA, midB) header "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
         } +
           testM("if the condition is false take 2nd") {
-            val app = Http.ok @@ ifRequestThenElse(cond(false))(midA, midB) getHeader "X-Custom"
+            val app = Http.ok @@ ifRequestThenElse(cond(false))(midA, midB) header "X-Custom"
             assertM(app(Request()))(isSome(equalTo("B")))
           }
       } +
       suite("whenRequestZIO") {
         testM("if the condition is true apply middleware") {
-          val app = (Http.ok @@ whenRequestZIO(condM(true))(midA)) getHeader "X-Custom"
+          val app = (Http.ok @@ whenRequestZIO(condM(true))(midA)) header "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
         } +
           testM("if the condition is false don't apply any middleware") {
-            val app = (Http.ok @@ whenRequestZIO(condM(false))(midA)) getHeader "X-Custom"
+            val app = (Http.ok @@ whenRequestZIO(condM(false))(midA)) header "X-Custom"
             assertM(app(Request()))(isNone)
           }
       } +
       suite("whenRequest") {
         testM("if the condition is true apple middleware") {
-          val app = Http.ok @@ Middleware.whenRequest(cond(true))(midA) getHeader "X-Custom"
+          val app = Http.ok @@ Middleware.whenRequest(cond(true))(midA) header "X-Custom"
           assertM(app(Request()))(isSome(equalTo("A")))
         } +
           testM("if the condition is false don't apply the middleware") {
-            val app = Http.ok @@ Middleware.whenRequest(cond(false))(midA) getHeader "X-Custom"
+            val app = Http.ok @@ Middleware.whenRequest(cond(false))(midA) header "X-Custom"
             assertM(app(Request()))(isNone)
           }
       } +
       suite("cookie") {
         testM("addCookie") {
           val cookie = Cookie("test", "testValue")
-          val app    = (Http.ok @@ addCookie(cookie)).getHeader("set-cookie")
+          val app    = (Http.ok @@ addCookie(cookie)).header("set-cookie")
           assertM(app(Request()))(
             equalTo(Some(cookie.encode)),
           )
@@ -148,7 +148,7 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           testM("addCookieM") {
             val cookie = Cookie("test", "testValue")
             val app    =
-              (Http.ok @@ addCookieZIO(UIO(cookie))).getHeader("set-cookie")
+              (Http.ok @@ addCookieZIO(UIO(cookie))).header("set-cookie")
             assertM(app(Request()))(
               equalTo(Some(cookie.encode)),
             )
@@ -157,11 +157,11 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       suite("signCookies") {
         testM("should sign cookies") {
           val cookie = Cookie("key", "value").withHttpOnly
-          val app    = Http.ok.withSetCookie(cookie) @@ signCookies("secret") getHeader "set-cookie"
+          val app    = Http.ok.withSetCookie(cookie) @@ signCookies("secret") header "set-cookie"
           assertM(app(Request()))(isSome(equalTo(cookie.sign("secret").encode)))
         } +
           testM("sign cookies no cookie header") {
-            val app = (Http.ok.addHeader("keyA", "ValueA") @@ signCookies("secret")).getHeaderValues
+            val app = (Http.ok.addHeader("keyA", "ValueA") @@ signCookies("secret")).headerValues
             assertM(app(Request()))(contains("ValueA"))
           }
       }

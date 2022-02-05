@@ -17,7 +17,7 @@ import scala.jdk.CollectionConverters._
 final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
   def unsafeRun(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
 
-    val rtm = strategy.getRuntime(ctx)
+    val rtm = strategy.runtime(ctx)
 
     // Close the connection if the program fails
     // When connection closes, interrupt the program
@@ -58,7 +58,7 @@ object HttpRuntime {
     Strategy.sticky(group).map(runtime => new HttpRuntime[R](runtime))
 
   sealed trait Strategy[R] {
-    def getRuntime(ctx: ChannelHandlerContext): Runtime[R]
+    def runtime(ctx: ChannelHandlerContext): Runtime[R]
   }
 
   object Strategy {
@@ -73,7 +73,7 @@ object HttpRuntime {
       ZIO.runtime[R].map(runtime => Group(runtime, group))
 
     case class Default[R](runtime: Runtime[R]) extends Strategy[R] {
-      override def getRuntime(ctx: ChannelHandlerContext): Runtime[R] = runtime
+      override def runtime(ctx: ChannelHandlerContext): Runtime[R] = runtime
     }
 
     case class Dedicated[R](runtime: Runtime[R], group: JEventLoopGroup) extends Strategy[R] {
@@ -83,7 +83,7 @@ object HttpRuntime {
         }
       }
 
-      override def getRuntime(ctx: ChannelHandlerContext): Runtime[R] = localRuntime
+      override def runtime(ctx: ChannelHandlerContext): Runtime[R] = localRuntime
     }
 
     case class Group[R](runtime: Runtime[R], group: JEventLoopGroup) extends Strategy[R] {
@@ -99,7 +99,7 @@ object HttpRuntime {
         map
       }
 
-      override def getRuntime(ctx: ChannelHandlerContext): Runtime[R] =
+      override def runtime(ctx: ChannelHandlerContext): Runtime[R] =
         localRuntime.getOrElse(ctx.executor(), runtime)
     }
   }

@@ -11,7 +11,7 @@ private[zhttp] trait Auth {
    */
   final def basicAuth(f: Header => Boolean): HttpMiddleware[Any, Nothing] =
     customAuth(
-      _.getBasicAuthorizationCredentials match {
+      _.basicAuthorizationCredentials match {
         case Some(header) => f(header)
         case None         => false
       },
@@ -33,7 +33,7 @@ private[zhttp] trait Auth {
     verify: Headers => Boolean,
     responseHeaders: Headers = Headers.empty,
   ): HttpMiddleware[Any, Nothing] =
-    Middleware.ifThenElse[Request](req => verify(req.getHeaders))(
+    Middleware.ifThenElse[Request](req => verify(req.headers))(
       _ => Middleware.identity,
       _ => Middleware.fromHttp(Http.status(Status.FORBIDDEN).addHeaders(responseHeaders)),
     )
