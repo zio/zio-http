@@ -6,8 +6,9 @@ import zio.duration.Duration
 import zio.{UIO, ZIO}
 
 /**
- * Middlewares are essentially transformations that one can apply on any Http to produce a new one. They can modify
- * requests and responses and also transform them into more concrete domain entities.
+ * Middlewares are essentially transformations that one can apply on any Http to
+ * produce a new one. They can modify requests and responses and also transform
+ * them into more concrete domain entities.
  *
  * You can think of middlewares as a functions —
  *
@@ -15,14 +16,15 @@ import zio.{UIO, ZIO}
  * type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E, AOut, BOut]
  * }}}
  *
- * The `AIn` and `BIn` type params represent the type params of the input Http. The `AOut` and `BOut` type params
- * represent the type params of the output Http.
+ * The `AIn` and `BIn` type params represent the type params of the input Http.
+ * The `AOut` and `BOut` type params represent the type params of the output
+ * Http.
  */
 sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
 
   /**
-   * Creates a new middleware that passes the output Http of the current middleware as the input to the provided
-   * middleware.
+   * Creates a new middleware that passes the output Http of the current
+   * middleware as the input to the provided middleware.
    */
   final def >>>[R1 <: R, E1 >: E, AIn1 <: AOut, BIn1 >: BOut, AOut1, BOut1](
     other: Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1],
@@ -64,7 +66,8 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     self.map(_ => bout)
 
   /**
-   * Combines two middleware that operate on the same input and output types, into one.
+   * Combines two middleware that operate on the same input and output types,
+   * into one.
    */
   final def combine[R1 <: R, E1 >: E, A0 >: AIn <: AOut, B0 >: BOut <: BIn](
     other: Middleware[R1, E1, A0, B0, A0, B0],
@@ -126,7 +129,8 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     Middleware.OrElse(self, other)
 
   /**
-   * Race between current and other, cancels other when execution of one completes
+   * Race between current and other, cancels other when execution of one
+   * completes
    */
   final def race[R1 <: R, E1 >: E, AIn1 >: AIn, BIn1 <: BIn, AOut1 <: AOut, BOut1 >: BOut](
     other: Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1],
@@ -146,7 +150,8 @@ sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     whenZIO(a => UIO(cond(a)))
 
   /**
-   * Applies Middleware based only if the condition effectful function evaluates to true
+   * Applies Middleware based only if the condition effectful function evaluates
+   * to true
    */
   final def whenZIO[R1 <: R, E1 >: E, AOut0 <: AOut](
     cond: AOut0 => ZIO[R1, E1, Boolean],
@@ -201,12 +206,14 @@ object Middleware extends Web {
   def identity: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Middleware.Identity
 
   /**
-   * Logical operator to decide which middleware to select based on the predicate.
+   * Logical operator to decide which middleware to select based on the
+   * predicate.
    */
   def ifThenElse[A]: PartialIfThenElse[A] = new PartialIfThenElse(())
 
   /**
-   * Logical operator to decide which middleware to select based on the predicate effect.
+   * Logical operator to decide which middleware to select based on the
+   * predicate effect.
    */
   def ifThenElseZIO[A]: PartialIfThenElseZIO[A] = new PartialIfThenElseZIO(())
 

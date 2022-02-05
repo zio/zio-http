@@ -45,8 +45,9 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
     Socket.FOrElse(self, other)
 
   /**
-   * Provides the socket with its required environment, which eliminates its dependency on R. This operation assumes
-   * that your socket requires an environment.
+   * Provides the socket with its required environment, which eliminates its
+   * dependency on R. This operation assumes that your socket requires an
+   * environment.
    */
   def provide(r: R)(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = Provide(self, r)
 

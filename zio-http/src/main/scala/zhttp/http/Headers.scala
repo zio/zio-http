@@ -7,11 +7,13 @@ import zio.Chunk
 import scala.jdk.CollectionConverters._
 
 /**
- * Represents an immutable collection of headers i.e. essentially a Chunk[(String, String)]. It extends HeaderExtensions
- * and has a ton of powerful operators that can be used to add, remove and modify headers.
+ * Represents an immutable collection of headers i.e. essentially a
+ * Chunk[(String, String)]. It extends HeaderExtensions and has a ton of
+ * powerful operators that can be used to add, remove and modify headers.
  *
- * NOTE: Generic operators that are not specific to `Headers` should not be defined here. A better place would be one of
- * the traits extended by `HeaderExtension`.
+ * NOTE: Generic operators that are not specific to `Headers` should not be
+ * defined here. A better place would be one of the traits extended by
+ * `HeaderExtension`.
  */
 final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers] {
   self =>

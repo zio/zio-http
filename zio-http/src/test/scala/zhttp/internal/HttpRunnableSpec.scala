@@ -13,17 +13,19 @@ import zio.test.DefaultRunnableSpec
 import zio.{Has, ZIO, ZManaged}
 
 /**
- * Should be used only when e2e tests needs to be written. Typically we would want to do that when we want to test the
- * logic that is part of the netty based backend. For most of the other use cases directly running the HttpApp should
- * suffice. HttpRunnableSpec spins of an actual Http server and makes requests.
+ * Should be used only when e2e tests needs to be written. Typically we would
+ * want to do that when we want to test the logic that is part of the netty
+ * based backend. For most of the other use cases directly running the HttpApp
+ * should suffice. HttpRunnableSpec spins of an actual Http server and makes
+ * requests.
  */
 abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
 
   implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Client.ClientRequest, A]) {
 
     /**
-     * Runs the deployed Http app by making a real http request to it. The method allows us to configure individual
-     * constituents of a ClientRequest.
+     * Runs the deployed Http app by making a real http request to it. The
+     * method allows us to configure individual constituents of a ClientRequest.
      */
     def run(
       path: Path = !!,
@@ -49,10 +51,11 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
   implicit class RunnableHttpClientAppSyntax(app: HttpApp[HttpEnv, Throwable]) {
 
     /**
-     * Deploys the http application on the test server and returns a Http of type
-     * {{{Http[R, E, ClientRequest, ClientResponse}}}. This allows us to assert using all the powerful operators that
-     * are available on `Http` while writing tests. It also allows us to simply pass a request in the end, to execute,
-     * and resolve it with a response, like a normal HttpApp.
+     * Deploys the http application on the test server and returns a Http of
+     * type {{{Http[R, E, ClientRequest, ClientResponse}}}. This allows us to
+     * assert using all the powerful operators that are available on `Http`
+     * while writing tests. It also allows us to simply pass a request in the
+     * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
     def deploy: HttpTestClient[Any, ClientRequest, ClientResponse] =
       for {

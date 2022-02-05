@@ -80,7 +80,8 @@ object SocketProtocol {
   def default: SocketProtocol = Default
 
   /**
-   * Close the connection if it was not closed by the client after timeout specified
+   * Close the connection if it was not closed by the client after timeout
+   * specified
    */
   def forceCloseTimeout(duration: Duration): SocketProtocol =
     ForceCloseTimeoutMillis(duration)
