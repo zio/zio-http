@@ -1,7 +1,7 @@
 package zhttp.internal
 
 import io.netty.buffer.Unpooled
-import zhttp.http.URL.Location
+import zhttp.http.URL6.Relative
 import zhttp.http._
 import zhttp.service.Client.ClientRequest
 import zio.random.Random
@@ -15,7 +15,7 @@ object HttpGen {
   def clientRequest[R](
     dataGen: Gen[R, HttpData],
     methodGen: Gen[R, Method] = HttpGen.method,
-    urlGen: Gen[Random with Sized, URL] = HttpGen.url,
+    urlGen: Gen[Random with Sized, URL6] = HttpGen.url,
     headerGen: Gen[Random with Sized, Header] = HttpGen.header,
   ) =
     for {
@@ -67,17 +67,13 @@ object HttpGen {
         )
     } yield cnt
 
-  def genRelativeLocation: Gen[Any, Location.Relative.type] = Gen.const(URL.Location.Relative)
-
-  def genAbsoluteLocation: Gen[Random with Sized, Location.Absolute] = for {
-    scheme <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS))
-    host   <- Gen.alphaNumericStringBounded(1, 5)
-    port   <- Gen.int(0, Int.MaxValue)
-  } yield URL.Location.Absolute(scheme, host, port)
-
-  def location: Gen[Random with Sized, URL.Location] = {
-    Gen.fromIterable(List(genRelativeLocation, genAbsoluteLocation)).flatten
-  }
+  def url: Gen[Random with Sized, URL6] = for {
+    path        <- HttpGen.path
+    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
+    scheme      <- Gen.option(Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS)))
+    host        <- Gen.alphaNumericStringBounded(1, 5)
+    port        <- Gen.option(Gen.int(0, Int.MaxValue))
+  } yield URL6.Absolute(Some(host), scheme, port, relative = Relative(path, queryParams))
 
   def method: Gen[Any, Method] = Gen.fromIterable(
     List(
@@ -189,17 +185,5 @@ object HttpGen {
       Status.NETWORK_AUTHENTICATION_REQUIRED,
     ),
   )
-
-  def url: Gen[Random with Sized, URL] = for {
-    path        <- HttpGen.path
-    kind        <- HttpGen.location
-    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
-  } yield URL(path, kind, queryParams)
-
-  def genAbsoluteURL = for {
-    path        <- HttpGen.path
-    kind        <- HttpGen.genAbsoluteLocation
-    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
-  } yield URL(path, kind, queryParams)
 
 }

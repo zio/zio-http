@@ -430,7 +430,7 @@ object Http {
     /**
      * Overwrites the url in the incoming request
      */
-    def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.setUrl(url))
+    def setUrl(url: URL6): HttpApp[R, E] = http.contramap[Request](_.setUrl(url))
 
     /**
      * Converts a failing Http app into a non-failing one by handling the failure and converting it to a result if
@@ -580,7 +580,7 @@ object Http {
    * Creates an Http app that fails with a NotFound exception.
    */
   def notFound: HttpApp[Any, Nothing] =
-    Http.fromFunction[Request](req => Http.error(HttpError.NotFound(req.url.path))).flatten
+    Http.fromFunction[Request](req => Http.error(HttpError.NotFound(req.url.toAbsolute.relative.path))).flatten
 
   /**
    * Creates an HTTP app which always responds with a 200 status code.

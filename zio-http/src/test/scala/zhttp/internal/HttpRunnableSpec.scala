@@ -7,7 +7,7 @@ import sttp.client3.asynchttpclient.zio.{SttpClient, send}
 import sttp.client3.{UriContext, asWebSocketUnsafe, basicRequest}
 import sttp.model.{Header => SHeader}
 import sttp.ws.WebSocket
-import zhttp.http.URL.Location
+import zhttp.http.URL6.Relative
 import zhttp.http._
 import zhttp.internal.DynamicServer.HttpEnv
 import zhttp.internal.HttpRunnableSpec.HttpTestClient
@@ -40,7 +40,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
         Client.ClientRequest(
           httpVersion,
           method,
-          URL(path, Location.Absolute(Scheme.HTTP, "localhost", 0)),
+          URL6.Absolute(Some("localhost"), Some(Scheme.HTTP), Some(0), Relative(path)),
           headers,
           HttpData.fromString(content),
         ),
@@ -66,7 +66,14 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
           Client.request(
             params
               .addHeader(DynamicServer.APP_ID, id)
-              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+              .copy(url =
+                URL6.Absolute(
+                  Some("localhost"),
+                  Some(Scheme.HTTP),
+                  Some(port),
+                  relative = Relative(params.url.toAbsolute.relative.path),
+                ),
+              ),
             ClientSSLOptions.DefaultSSL,
           )
         }
@@ -81,7 +88,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
         Http.fromFunctionZIO[Client.ClientRequest](params =>
           for {
             port <- DynamicServer.getPort
-            url        = s"ws://localhost:$port${params.url.path.encode}"
+            url        = s"ws://localhost:$port${params.url.toAbsolute.relative.path.encode}"
             headerConv = params.addHeader(DynamicServer.APP_ID, id).getHeaders.toList.map(h => SHeader(h._1, h._2))
             res <- send(basicRequest.get(uri"$url").copy(headers = headerConv).response(asWebSocketUnsafe))
           } yield res,
@@ -108,7 +115,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       status <- Client
         .request(
           method,
-          URL(path, Location.Absolute(Scheme.HTTP, "localhost", port)),
+          URL6.Absolute(Some("localhost"), Some(Scheme.HTTP), Some(port), Relative(path)),
           ClientSSLOptions.DefaultSSL,
         )
         .map(_.status)

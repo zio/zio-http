@@ -9,7 +9,6 @@ import io.netty.channel.{
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http.HttpVersion
-import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.http.headers.HeaderExtension
 import zhttp.service
@@ -40,15 +39,12 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[Channel], el:
     val jReq = encodeClientParams(req)
     try {
       val hand   = ClientInboundHandler(rtm, jReq, promise)
-      val host   = req.url.host
-      val port   = req.url.port.getOrElse(80) match {
+      val host   = req.url.toAbsolute.host
+      val port   = req.url.toAbsolute.port.getOrElse(80) match {
         case -1   => 80
         case port => port
       }
-      val scheme = req.url.kind match {
-        case Location.Relative               => ""
-        case Location.Absolute(scheme, _, _) => scheme.encode
-      }
+      val scheme = req.url.toAbsolute.scheme.get.encode
       val init   = ClientChannelInitializer(hand, scheme, sslOption)
 
       val jboo = new Bootstrap().channelFactory(cf).group(el).handler(init)
@@ -74,55 +70,43 @@ object Client {
 
   def request(
     url: String,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
-    url <- ZIO.fromEither(URL.fromString(url))
-    res <- request(Method.GET, url)
-  } yield res
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = request(Method.GET, URL6(url))
 
   def request(
     url: String,
     sslOptions: ClientSSLOptions,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = for {
-    url <- ZIO.fromEither(URL.fromString(url))
-    res <- request(Method.GET, url, sslOptions)
-  } yield res
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = request(Method.GET, URL6(url), sslOptions)
 
   def request(
     url: String,
     headers: Headers,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    for {
-      url <- ZIO.fromEither(URL.fromString(url))
-      res <- request(Method.GET, url, headers, sslOptions)
-    } yield res
+    request(Method.GET, URL6(url), headers, sslOptions)
 
   def request(
     url: String,
     headers: Headers,
     content: HttpData,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    for {
-      url <- ZIO.fromEither(URL.fromString(url))
-      res <- request(Method.GET, url, headers, content)
-    } yield res
+    request(Method.GET, URL6(url), headers, content)
 
   def request(
     method: Method,
-    url: URL,
+    url: URL6,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientRequest(method = method, url = url))
 
   def request(
     method: Method,
-    url: URL,
+    url: URL6,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientRequest(method = method, url = url), sslOptions)
 
   def request(
     method: Method,
-    url: URL,
+    url: URL6,
     headers: Headers,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
@@ -130,7 +114,7 @@ object Client {
 
   def request(
     method: Method,
-    url: URL,
+    url: URL6,
     headers: Headers,
     content: HttpData,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
@@ -150,7 +134,7 @@ object Client {
   final case class ClientRequest(
     httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
     method: Method,
-    url: URL,
+    url: URL6,
     headers: Headers = Headers.empty,
     data: HttpData = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,

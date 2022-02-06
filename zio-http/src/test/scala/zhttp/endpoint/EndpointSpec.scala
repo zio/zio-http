@@ -19,12 +19,12 @@ object EndpointSpec extends DefaultRunnableSpec {
     } +
       test("match method and string") {
         val route   = Method.GET / "a"
-        val request = Request(Method.GET, URL(Path("a")))
+        val request = Request(Method.GET, URL6(Path("a")))
         assert(route.extract(request))(isSome(equalTo(())))
       } +
       test("match method and not string") {
         val route   = Method.GET / "a"
-        val request = Request(Method.GET, URL(Path("b")))
+        val request = Request(Method.GET, URL6(Path("b")))
         assert(route.extract(request))(isNone)
       }
   } + suite("Path") {
@@ -67,19 +67,19 @@ object EndpointSpec extends DefaultRunnableSpec {
     suite("to") {
       testM("endpoint doesn't match") {
         val app = Method.GET / "a" to { _ => Response.ok }
-        assertM(app(Request(url = URL(!! / "b"))).flip)(isNone)
+        assertM(app(Request(url = URL6(!! / "b"))).flip)(isNone)
       } +
         testM("endpoint with effect doesn't match") {
           val app = Method.GET / "a" to { _ => UIO(Response.ok) }
-          assertM(app(Request(url = URL(!! / "b"))).flip)(isNone)
+          assertM(app(Request(url = URL6(!! / "b"))).flip)(isNone)
         } +
         testM("endpoint matches") {
           val app = Method.GET / "a" to { _ => Response.ok }
-          assertM(app(Request(url = URL(!! / "a"))).map(_.status))(equalTo(Status.OK))
+          assertM(app(Request(url = URL6(!! / "a"))).map(_.status))(equalTo(Status.OK))
         } +
         testM("endpoint with effect matches") {
           val app = Method.GET / "a" to { _ => UIO(Response.ok) }
-          assertM(app(Request(url = URL(!! / "a"))).map(_.status))(equalTo(Status.OK))
+          assertM(app(Request(url = URL6(!! / "a"))).map(_.status))(equalTo(Status.OK))
         }
     }
 }

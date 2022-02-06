@@ -13,7 +13,7 @@ object CorsSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
     testM("OPTIONS request") {
       val request = Request(
         method = Method.OPTIONS,
-        url = URL(!! / "success"),
+        url = URL6(!! / "success"),
         headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
       )
 
@@ -35,7 +35,7 @@ object CorsSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
         val request =
           Request(
             method = Method.GET,
-            url = URL(!! / "success"),
+            url = URL6(!! / "success"),
             headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
           )
 

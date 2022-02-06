@@ -19,7 +19,7 @@ object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientPara
     dataGen = HttpGen.httpData(
       Gen.listOf(Gen.alphaNumericString),
     ),
-    urlGen = HttpGen.genAbsoluteURL,
+    urlGen = HttpGen.url,
   )
 
   def clientParamWithFiniteData(size: Int): Gen[Random with Sized, Client.ClientRequest] = HttpGen.clientRequest(
@@ -46,13 +46,13 @@ object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientPara
         testM("uri") {
           check(anyClientParam) { params =>
             val req = encodeClientParams(params)
-            assert(req.uri())(equalTo(params.url.relative.encode))
+            assert(req.uri())(equalTo(params.url.toAbsolute.relative.encode))
           }
         } +
           testM("uri on HttpData.File") {
             check(HttpGen.clientParamsForFileHttpData()) { params =>
               val req = encodeClientParams(params)
-              assert(req.uri())(equalTo(params.url.relative.encode))
+              assert(req.uri())(equalTo(params.url.toAbsolute.relative.encode))
             }
           }
       } +
@@ -66,7 +66,7 @@ object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientPara
         check(anyClientParam) { params =>
           val req        = encodeClientParams(params)
           val hostHeader = HttpHeaderNames.HOST
-          assert(Option(req.headers().get(hostHeader)))(equalTo(params.url.host))
+          assert(Option(req.headers().get(hostHeader)))(equalTo(params.url.toAbsolute.host))
         }
       } +
       testM("host header when absolute url") {
@@ -76,7 +76,7 @@ object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientPara
           val hostHeader = HttpHeaderNames.HOST
 
           assert(reqHeaders.getAll(hostHeader).size)(equalTo(1)) &&
-          assert(Option(reqHeaders.get(hostHeader)))(equalTo(params.url.host))
+          assert(Option(reqHeaders.get(hostHeader)))(equalTo(params.url.toAbsolute.host))
         }
       }
   }
