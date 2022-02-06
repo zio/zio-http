@@ -2,6 +2,7 @@ package zhttp.service.client.model
 
 import io.netty.channel.Channel
 import io.netty.handler.codec.http.FullHttpRequest
+import zhttp.service.Client.ClientResponse
 import zhttp.service.client.model.ZConnectionState.{ReqKey, emptyConnectionRuntime, emptyIdleConnectionMap}
 import zio.Promise
 import zio.duration.Duration
@@ -11,7 +12,7 @@ import java.time.Instant
 import scala.collection.mutable
 
 //
-case class ConnectionRuntime(callback: Promise[Throwable, Resp], currReq: FullHttpRequest)
+case class ConnectionRuntime(callback: Promise[Throwable, ClientResponse], currReq: FullHttpRequest)
 
 case class Timeouts(
   connectionTimeout: Duration = Duration.Infinity,

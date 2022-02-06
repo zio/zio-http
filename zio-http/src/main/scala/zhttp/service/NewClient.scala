@@ -1,7 +1,6 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.{Channel, ChannelHandlerContext}
 import io.netty.handler.codec.http.HttpVersion
 import zhttp.http._
@@ -9,9 +8,9 @@ import zhttp.http.headers.HeaderExtension
 import zhttp.service.client.DefaultClient
 import zhttp.service.client.model.ZConnectionState.ReqKey
 import zhttp.service.client.model.{Timeouts, ZConnectionState}
-import zhttp.service.client.transport.{Transport, ZConnectionManager}
+import zhttp.service.client.transport.{Transport, ClientConnectionManager}
 import zio.duration.Duration
-import zio.{Chunk, Task}
+import zio.{Task}
 
 import java.net.{InetAddress, InetSocketAddress}
 import scala.collection.mutable
@@ -111,7 +110,7 @@ object NewClient {
         mutable.Map.empty[ReqKey, Channel],
       )
       timeouts    = Timeouts(settings.connectionTimeout, settings.idleTimeout, settings.requestTimeout)
-      connManager = ZConnectionManager(connRef, ZConnectionState(), timeouts, clientBootStrap, zExec)
+      connManager = ClientConnectionManager(connRef, ZConnectionState(), timeouts, clientBootStrap, zExec)
       clientImpl  = DefaultClient(settings, connManager)
     } yield {
       clientImpl
@@ -149,19 +148,4 @@ object NewClient {
     override def updateHeaders(update: Headers => Headers): ClientRequest =
       self.copy(headers = update(self.getHeaders))
   }
-
-  final case class ClientResponse(status: Status, headers: Headers, private[zhttp] val buffer: ByteBuf)
-      extends HeaderExtension[ClientResponse] { self =>
-
-    def getBody: Task[Chunk[Byte]] = Task(Chunk.fromArray(ByteBufUtil.getBytes(buffer)))
-
-    def getBodyAsByteBuf: Task[ByteBuf] = Task(buffer)
-
-    def getBodyAsString: Task[String] = Task(buffer.toString(self.getCharset))
-
-    override def getHeaders: Headers = headers
-
-    override def updateHeaders(update: Headers => Headers): ClientResponse = self.copy(headers = update(headers))
-  }
-
 }

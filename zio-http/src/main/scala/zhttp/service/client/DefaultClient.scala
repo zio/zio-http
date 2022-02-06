@@ -1,24 +1,26 @@
 package zhttp.service.client
 
-import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http._
+import zhttp.http.Method.GET
 import zhttp.http._
+import zhttp.service.Client.{Attribute, ClientRequest, ClientResponse}
 import zhttp.service.HttpMessageCodec
 import zhttp.service.NewClient.Config
-import zhttp.service.client.model.{ConnectionRuntime, ReqParams, Resp}
-import zhttp.service.client.transport.ZConnectionManager
+import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zhttp.service.client.model.ConnectionRuntime
+import zhttp.service.client.transport.ClientConnectionManager
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
 case class DefaultClient(
-  settings: Config,
-  connectionManager: ZConnectionManager,
+                          settings: Config,
+                          connectionManager: ClientConnectionManager,
 ) extends HttpMessageCodec {
-  def run(req: ReqParams): Task[Resp] =
+
+  def run(req: ClientRequest): Task[ClientResponse] =
     for {
-      jReq    <- Task(encodeClientParams(HttpVersion.HTTP_1_1, req))
-      channel <- connectionManager.fetchConnection(jReq)
-      prom    <- zio.Promise.make[Throwable, Resp]
+      jReq    <- encode(req)
+      channel <- connectionManager.fetchConnection(jReq, req)
+      prom    <- zio.Promise.make[Throwable, ClientResponse]
       // the part below can be moved to connection manager.
       _       <- ZIO.effect(
         connectionManager.zConnectionState.currentAllocatedChannels += (channel -> ConnectionRuntime(prom, jReq)),
@@ -29,52 +31,13 @@ case class DefaultClient(
       resp    <- prom.await
     } yield resp
 
-  def run(req: Request): Task[Resp] =
-    for {
-      jReq    <- encodeClientParams(req)
-      channel <- connectionManager.fetchConnection(jReq)
-      prom    <- zio.Promise.make[Throwable, Resp]
-      _       <- ZIO.effect(
-        connectionManager.zConnectionState.currentAllocatedChannels += (channel -> ConnectionRuntime(prom, jReq)),
-      )
-      _       <- ZIO.effect { channel.pipeline().fireChannelActive() }
-      resp    <- prom.await
-    } yield resp
-
-  def run(str: String): Task[Resp] = {
+  def run(str: String, method: Method = GET, headers: Headers = Headers.empty, content: HttpData = HttpData.empty
+         , ssl: Option[ClientSSLOptions] = None): Task[ClientResponse] = {
     for {
       url <- ZIO.fromEither(URL.fromString(str))
-      req = ReqParams(url = url)
+      req = ClientRequest(url, method, headers, content, attribute = Attribute(ssl = ssl))
       res <- run(req)
     } yield res
-  }
-
-  def encodeClientParams(jVersion: HttpVersion, req: ReqParams): FullHttpRequest = {
-    val method      = req.method.asHttpMethod
-    val uri         = req.url.encode
-    val content     = req.getBodyAsString match {
-      case Some(text) => Unpooled.copiedBuffer(text, HTTP_CHARSET)
-      case None       => Unpooled.EMPTY_BUFFER
-    }
-    val headers     = req.getHeaders.encode.set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
-    val writerIndex = content.writerIndex()
-    if (writerIndex != 0) {
-      headers.set(HttpHeaderNames.CONTENT_LENGTH, writerIndex.toString())
-    }
-    val jReq        = new DefaultFullHttpRequest(jVersion, method, uri, content)
-    jReq.headers().set(headers)
-
-    jReq
-  }
-
-  def encodeClientParams(req: Request): Task[FullHttpRequest] = {
-    val jVersion = HttpVersion.HTTP_1_1
-    val method   = req.method.asHttpMethod
-    val uri      = req.url.encode
-    for {
-      reqContent <- req.getBodyAsString
-      content = Unpooled.copiedBuffer(reqContent, HTTP_CHARSET)
-    } yield (new DefaultFullHttpRequest(jVersion, method, uri, content))
   }
 
   /**
