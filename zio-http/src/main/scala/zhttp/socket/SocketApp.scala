@@ -1,6 +1,7 @@
 package zhttp.socket
 
 import zhttp.http.Response
+import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zhttp.socket.SocketApp.Handle.{WithEffect, WithSocket}
 import zhttp.socket.SocketApp.{Connection, Handle}
 import zio.stream.ZStream
@@ -19,6 +20,13 @@ final case class SocketApp[-R](
 ) { self =>
 
   /**
+   * Creates a socket connection on the provided URL. Typically used to connect
+   * as a client.
+   */
+  def connect(url: String): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] =
+    Client.socket(url, self)
+
+  /**
    * Called when the websocket connection is closed successfully.
    */
   def onClose[R1 <: R](close: Connection => ZIO[R1, Nothing, Any]): SocketApp[R1] =
@@ -28,7 +36,8 @@ final case class SocketApp[-R](
     })
 
   /**
-   * Called whenever there is an error on the channel after a successful upgrade to websocket.
+   * Called whenever there is an error on the channel after a successful upgrade
+   * to websocket.
    */
   def onError[R1 <: R](error: Throwable => ZIO[R1, Nothing, Any]): SocketApp[R1] =
     copy(error = self.error match {
@@ -37,8 +46,8 @@ final case class SocketApp[-R](
     })
 
   /**
-   * Called on every incoming WebSocketFrame. In case of a failure on the returned stream, the socket is forcefully
-   * closed.
+   * Called on every incoming WebSocketFrame. In case of a failure on the
+   * returned stream, the socket is forcefully closed.
    */
   def onMessage[R1 <: R](message: Socket[R1, Throwable, WebSocketFrame, WebSocketFrame]): SocketApp[R1] =
     copy(message = self.message match {
@@ -47,15 +56,15 @@ final case class SocketApp[-R](
     })
 
   /**
-   * Called when the connection is successfully upgraded to a websocket one. In case of a failure, the socket is
-   * forcefully closed.
+   * Called when the connection is successfully upgraded to a websocket one. In
+   * case of a failure, the socket is forcefully closed.
    */
   def onOpen[R1 <: R](open: Socket[R1, Throwable, Connection, WebSocketFrame]): SocketApp[R1] =
     onOpen(Handle(open))
 
   /**
-   * Called when the connection is successfully upgraded to a websocket one. In case of a failure, the socket is
-   * forcefully closed.
+   * Called when the connection is successfully upgraded to a websocket one. In
+   * case of a failure, the socket is forcefully closed.
    */
   def onOpen[R1 <: R](open: Connection => ZIO[R1, Throwable, Any]): SocketApp[R1] =
     onOpen(Handle(open))
@@ -70,7 +79,8 @@ final case class SocketApp[-R](
     })
 
   /**
-   * Provides the socket app with its required environment, which eliminates its dependency on `R`.
+   * Provides the socket app with its required environment, which eliminates its
+   * dependency on `R`.
    */
   def provide(env: R)(implicit ev: NeedsEnv[R]): SocketApp[Any] =
     self.copy(
@@ -102,8 +112,8 @@ final case class SocketApp[-R](
     copy(protocol = self.protocol ++ protocol)
 
   /**
-   * Called when the connection is successfully upgraded to a websocket one. In case of a failure, the socket is
-   * forcefully closed.
+   * Called when the connection is successfully upgraded to a websocket one. In
+   * case of a failure, the socket is forcefully closed.
    */
   private def onOpen[R1 <: R](open: Handle[R1]): SocketApp[R1] =
     copy(open = self.open.fold(Some(open))(other => Some(other merge open)))
