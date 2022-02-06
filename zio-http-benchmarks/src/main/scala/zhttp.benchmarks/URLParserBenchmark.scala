@@ -18,13 +18,13 @@ class URLParserBenchmark {
   }
   @Benchmark
   def benchmarkURLParser2(): Unit = {
-    (0 to MAX).foreach(_ => URL.fromString("http://yourdomain.com/list/users"))
+    (0 to MAX).foreach(_ => URLOld.fromString("http://yourdomain.com/list/users"))
     ()
   }
 
   @Benchmark
   def benchmarkURLParser3(): Unit = {
-    (0 to MAX).foreach(_ => URL.fromString("http://yourdomain.com/list/users"))
+    (0 to MAX).foreach(_ => URLOld.fromString("http://yourdomain.com/list/users"))
 
     ()
   }

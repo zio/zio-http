@@ -430,7 +430,7 @@ object Http {
     /**
      * Overwrites the url in the incoming request
      */
-    def setUrl(url: URL6): HttpApp[R, E] = http.contramap[Request](_.setUrl(url))
+    def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.setUrl(url))
 
     /**
      * Converts a failing Http app into a non-failing one by handling the failure and converting it to a result if

@@ -173,7 +173,7 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
   private def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response] = {
     for {
-      fib <- app { Request(url = URL6(!! / "health")) }.fork
+      fib <- app { Request(url = URL(!! / "health")) }.fork
       _   <- TestClock.adjust(10 seconds)
       res <- fib.join
     } yield res

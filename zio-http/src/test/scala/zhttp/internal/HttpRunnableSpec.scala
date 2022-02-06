@@ -7,7 +7,7 @@ import sttp.client3.asynchttpclient.zio.{SttpClient, send}
 import sttp.client3.{UriContext, asWebSocketUnsafe, basicRequest}
 import sttp.model.{Header => SHeader}
 import sttp.ws.WebSocket
-import zhttp.http.URL6.Relative
+import zhttp.http.URL.Relative
 import zhttp.http._
 import zhttp.internal.DynamicServer.HttpEnv
 import zhttp.internal.HttpRunnableSpec.HttpTestClient
@@ -40,7 +40,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
         Client.ClientRequest(
           httpVersion,
           method,
-          URL6.Absolute(Some("localhost"), Some(Scheme.HTTP), Some(0), Relative(path)),
+          URL.Absolute(Some("localhost"), Some(Scheme.HTTP), Some(0), Relative(path)),
           headers,
           HttpData.fromString(content),
         ),
@@ -67,7 +67,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
             params
               .addHeader(DynamicServer.APP_ID, id)
               .copy(url =
-                URL6.Absolute(
+                URL.Absolute(
                   Some("localhost"),
                   Some(Scheme.HTTP),
                   Some(port),
@@ -115,7 +115,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       status <- Client
         .request(
           method,
-          URL6.Absolute(Some("localhost"), Some(Scheme.HTTP), Some(port), Relative(path)),
+          URL.Absolute(Some("localhost"), Some(Scheme.HTTP), Some(port), Relative(path)),
           ClientSSLOptions.DefaultSSL,
         )
         .map(_.status)

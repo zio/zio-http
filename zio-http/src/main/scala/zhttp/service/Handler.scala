@@ -29,7 +29,7 @@ private[zhttp] final case class Handler[R](
       new Request {
         override def method: Method = Method.fromHttpMethod(jReq.method())
 
-        override def url: URL6 = URL6.unsafeFromString(jReq.uri())
+        override def url: URL = URL.unsafeFromString(jReq.uri())
 
         override def getHeaders: Headers = Headers.make(jReq.headers())
 

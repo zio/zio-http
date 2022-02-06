@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zhttp.http.URL6.Fragment
+import zhttp.http.URL.Fragment
 import zhttp.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
@@ -9,16 +9,16 @@ object URLSpec extends DefaultRunnableSpec {
 
   val fromStringSpec = suite("fromString")(
     test("Should Handle invalid url String with restricted chars") {
-      assert(URL6.fromString("http://mw1.google.com/$[level]/r$[y]_c$[x].jpg"))(isLeft)
+      assert(URL.fromString("http://mw1.google.com/$[level]/r$[y]_c$[x].jpg"))(isLeft)
     } +
       test("Should Handle empty query string") {
-        assert(URL6.fromString("http://yourdomain.com/list/users").map(_.toAbsolute.relative.queryParams))(
+        assert(URL.fromString("http://yourdomain.com/list/users").map(_.toAbsolute.relative.queryParams))(
           isRight(equalTo(Map.empty[String, List[String]])),
         )
       } +
       test("Should Handle query string") {
         assert(
-          URL6
+          URL
             .fromString(
               "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21",
             )
@@ -31,7 +31,7 @@ object URLSpec extends DefaultRunnableSpec {
       },
     test("Should handle uri fragment") {
       assert(
-        URL6
+        URL
           .fromString(
             "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21#the%20hash",
           )
@@ -47,18 +47,18 @@ object URLSpec extends DefaultRunnableSpec {
   val asStringSpec = {
 
     def roundtrip(url: String) =
-      assert(URL6.fromString(url).map(_.encode))(isRight(equalTo(url)))
+      assert(URL.fromString(url).map(_.encode))(isRight(equalTo(url)))
 
     suite("asString")(
       testM("using gen") {
         checkAll(HttpGen.url) { case url =>
           val source  = url.encode
-          val decoded = URL6.fromString(source).map(_.encode)
+          val decoded = URL.fromString(source).map(_.encode)
           assert(decoded)(isRight(equalTo(source)))
         }
       } +
         test("empty") {
-          val actual = URL6.fromString("/").map(_.encode)
+          val actual = URL.fromString("/").map(_.encode)
           assert(actual)(isRight(equalTo("/")))
         } +
         test("relative with pathname only") {
@@ -84,12 +84,12 @@ object URLSpec extends DefaultRunnableSpec {
 
   val relativeSpec = suite("relative")(
     test("converts an url to a relative url") {
-      val url = URL6
+      val url = URL
         .fromString("http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21")
         .map(_.toAbsolute.relative)
 
       val expected =
-        URL6.Relative(
+        URL.Relative(
           Path("/list/users"),
           Map("user_id" -> List("1", "2"), "order" -> List("ASC"), "text" -> List("zio-http is awesome!")),
         )
@@ -100,7 +100,7 @@ object URLSpec extends DefaultRunnableSpec {
 
   val builderSpec = suite("builder")(
     test("creates a URL with all attributes set") {
-      val builderUrl = URL6.empty
+      val builderUrl = URL.empty
         .setHost("www.yourdomain.com")
         .setPath("/list")
         .setPort(8080)
@@ -110,7 +110,7 @@ object URLSpec extends DefaultRunnableSpec {
       assert(builderUrl.encode)(equalTo("https://www.yourdomain.com:8080/list?type=builder&query=provided"))
     },
     test("returns relative URL if port, host, and scheme are not set") {
-      val builderUrl = URL6.empty
+      val builderUrl = URL.empty
         .setPath(Path("/list"))
         .setQueryParams(
           Map("type" -> List("builder"), "query" -> List("provided")),

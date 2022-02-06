@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import zhttp.http.URL6.Relative
+import zhttp.http.URL.Relative
 import zhttp.http.headers.HeaderExtension
 import zio.{Chunk, Task, UIO}
 
@@ -14,13 +14,13 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   final override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.getHeaders))
 
-  def copy(method: Method = self.method, url: URL6 = self.url, headers: Headers = self.getHeaders): Request = {
+  def copy(method: Method = self.method, url: URL = self.url, headers: Headers = self.getHeaders): Request = {
     val m = method
     val u = url
     val h = headers
     new Request {
       override def method: Method                     = m
-      override def url: URL6                          = u
+      override def url: URL                           = u
       override def getHeaders: Headers                = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
       override private[zhttp] def getBodyAsByteBuf    = self.getBodyAsByteBuf
@@ -77,12 +77,12 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Overwrites the url in the request
    */
-  def setUrl(url: URL6): Request = self.copy(url = url)
+  def setUrl(url: URL): Request = self.copy(url = url)
 
   /**
    * Gets the complete url
    */
-  def url: URL6
+  def url: URL
 
   private[zhttp] def getBodyAsByteBuf: Task[ByteBuf]
 }
@@ -94,7 +94,7 @@ object Request {
    */
   def apply(
     method: Method = Method.GET,
-    url: URL6 = URL6.root,
+    url: URL = URL.root,
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress] = None,
     data: HttpData = HttpData.Empty,
@@ -105,7 +105,7 @@ object Request {
     val ra = remoteAddress
     new Request {
       override def method: Method                                 = m
-      override def url: URL6                                      = u
+      override def url: URL                                       = u
       override def getHeaders: Headers                            = h
       override def remoteAddress: Option[InetAddress]             = ra
       override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
@@ -117,7 +117,7 @@ object Request {
    */
   def make[E <: Throwable](
     method: Method = Method.GET,
-    url: URL6 = URL6.root,
+    url: URL = URL.root,
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress],
     content: HttpData = HttpData.empty,
@@ -131,7 +131,7 @@ object Request {
     override def getHeaders: Headers                            = req.getHeaders
     override def method: Method                                 = req.method
     override def remoteAddress: Option[InetAddress]             = req.remoteAddress
-    override def url: URL6                                      = req.url
+    override def url: URL                                       = req.url
     override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = req.getBodyAsByteBuf
   }
 

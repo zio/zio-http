@@ -70,43 +70,43 @@ object Client {
 
   def request(
     url: String,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = request(Method.GET, URL6(url))
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = request(Method.GET, URL(url))
 
   def request(
     url: String,
     sslOptions: ClientSSLOptions,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = request(Method.GET, URL6(url), sslOptions)
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = request(Method.GET, URL(url), sslOptions)
 
   def request(
     url: String,
     headers: Headers,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(Method.GET, URL6(url), headers, sslOptions)
+    request(Method.GET, URL(url), headers, sslOptions)
 
   def request(
     url: String,
     headers: Headers,
     content: HttpData,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
-    request(Method.GET, URL6(url), headers, content)
+    request(Method.GET, URL(url), headers, content)
 
   def request(
     method: Method,
-    url: URL6,
+    url: URL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientRequest(method = method, url = url))
 
   def request(
     method: Method,
-    url: URL6,
+    url: URL,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     request(ClientRequest(method = method, url = url), sslOptions)
 
   def request(
     method: Method,
-    url: URL6,
+    url: URL,
     headers: Headers,
     sslOptions: ClientSSLOptions,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
@@ -114,7 +114,7 @@ object Client {
 
   def request(
     method: Method,
-    url: URL6,
+    url: URL,
     headers: Headers,
     content: HttpData,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
@@ -134,7 +134,7 @@ object Client {
   final case class ClientRequest(
     httpVersion: HttpVersion = HttpVersion.HTTP_1_1,
     method: Method,
-    url: URL6,
+    url: URL,
     headers: Headers = Headers.empty,
     data: HttpData = HttpData.empty,
     private val channelContext: ChannelHandlerContext = null,
