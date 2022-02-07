@@ -207,7 +207,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Extracts the value of ContentType header
    */
-  final def getContentType(implicit eb: IsResponse[B]): Http[R, E, A, Option[CharSequence]] = headerValue(
+  final def contentType(implicit eb: IsResponse[B]): Http[R, E, A, Option[CharSequence]] = headerValue(
     HttpHeaderNames.CONTENT_TYPE,
   )
 

@@ -20,7 +20,7 @@ object ContentTypeSpec extends HttpRunnableSpec {
       val res  = Http
         .fromFile(file)
         .deploy
-        .getContentType
+        .contentType
         .run()
 
       assertM(res)(isSome(equalTo("video/mp4")))
@@ -30,7 +30,7 @@ object ContentTypeSpec extends HttpRunnableSpec {
         val res  = Http
           .fromFile(file)
           .deploy
-          .getContentType
+          .contentType
           .run()
 
         assertM(res)(isSome(equalTo("application/javascript")))
@@ -40,7 +40,7 @@ object ContentTypeSpec extends HttpRunnableSpec {
         val res  = Http
           .fromFile(file)
           .deploy
-          .getContentType
+          .contentType
           .run()
 
         assertM(res)(isNone)
@@ -51,7 +51,7 @@ object ContentTypeSpec extends HttpRunnableSpec {
         val res  = Http
           .fromFile(file)
           .deploy
-          .getContentType
+          .contentType
           .run()
 
         assertM(res)(isSome(equalTo("text/css")))
@@ -61,7 +61,7 @@ object ContentTypeSpec extends HttpRunnableSpec {
         val res  = Http
           .fromFile(file)
           .deploy
-          .getContentType
+          .contentType
           .run()
 
         assertM(res)(isSome(equalTo("audio/mpeg")))
@@ -71,7 +71,7 @@ object ContentTypeSpec extends HttpRunnableSpec {
         val res  = Http
           .fromFile(file)
           .deploy
-          .getContentType
+          .contentType
           .run()
 
         assertM(res)(isNone)
