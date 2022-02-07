@@ -1,12 +1,11 @@
 package zhttp.service.client.content.handlers
 
 import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer, ChannelPipeline}
-//import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.codec.http.{HttpClientCodec, HttpObjectAggregator}
-import zhttp.service.{CLIENT_INBOUND_HANDLER, HTTP_CLIENT_CODEC, HTTP_OBJECT_AGGREGATOR, SSL_HANDLER}
 import zhttp.service.client.ClientSSLHandler
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.model.ClientConnectionState.ReqKey
+import zhttp.service.{CLIENT_INBOUND_HANDLER, HTTP_CLIENT_CODEC, HTTP_OBJECT_AGGREGATOR, SSL_HANDLER}
 //import zhttp.socket.Socket
 
 final case class NewClientChannelInitializer[R](
@@ -20,7 +19,11 @@ final case class NewClientChannelInitializer[R](
   override def initChannel(ch: Channel): Unit = {
     val pipeline: ChannelPipeline = ch.pipeline()
 
-    if (isSSL) pipeline.addLast(SSL_HANDLER, ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc, reqKey.getHostName, reqKey.getPort))
+    if (isSSL)
+      pipeline.addLast(
+        SSL_HANDLER,
+        ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc, reqKey.getHostName, reqKey.getPort),
+      )
 
     // Adding default client channel handlers
     pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec)

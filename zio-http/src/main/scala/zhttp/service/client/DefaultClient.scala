@@ -12,8 +12,8 @@ import zio.stream.ZStream
 import zio.{Task, ZIO}
 
 case class DefaultClient(
-                          settings: Config,
-                          connectionManager: ClientConnectionManager,
+  settings: Config,
+  connectionManager: ClientConnectionManager,
 ) extends HttpMessageCodec {
 
   def run(req: ClientRequest): Task[ClientResponse] =
@@ -31,8 +31,13 @@ case class DefaultClient(
       resp    <- prom.await
     } yield resp
 
-  def run(str: String, method: Method = GET, headers: Headers = Headers.empty, content: HttpData = HttpData.empty
-         , ssl: Option[ClientSSLOptions] = None): Task[ClientResponse] = {
+  def run(
+    str: String,
+    method: Method = GET,
+    headers: Headers = Headers.empty,
+    content: HttpData = HttpData.empty,
+    ssl: Option[ClientSSLOptions] = None,
+  ): Task[ClientResponse] = {
     for {
       url <- ZIO.fromEither(URL.fromString(str))
       req = ClientRequest(url, method, headers, content, attribute = Attribute(ssl = ssl))
@@ -48,8 +53,9 @@ case class DefaultClient(
   def run(url: URL): Task[Response] = ???
 
   /**
-   * Submits a GET request to the specified URI and decodes the response on success. On failure, the status code is
-   * returned. The underlying HTTP connection is closed at the completion of the decoding.
+   * Submits a GET request to the specified URI and decodes the response on
+   * success. On failure, the status code is returned. The underlying HTTP
+   * connection is closed at the completion of the decoding.
    */
 
   //  /**
@@ -67,14 +73,16 @@ case class DefaultClient(
   //  def status(req: F[Request[F]]): F[Status] =
 
   /**
-   * Submits a request and returns true if and only if the response status is successful
+   * Submits a request and returns true if and only if the response status is
+   * successful
    */
   def successful(req: Request): Task[Boolean] = ???
 
   // ****************** APIs below need more clarity *********************
 
   /**
-   * Submits a request and decodes the response on success use zio json decoder to get custom type
+   * Submits a request and decodes the response on success use zio json decoder
+   * to get custom type
    */
   //    def decodedResponse[A](req: Task[Request])(implicit decoder: JsonDecoder[A]): Task[A] =
   //      ???
@@ -85,9 +93,10 @@ case class DefaultClient(
    * @param req
    *   The request to submit
    * @param f
-   *   A callback for the response to req. The underlying HTTP connection is maintained by internal connection manager
-   *   and kept alive or terminated based on configurations. In case of connection getting terminated attempt to read
-   *   the response will result in error.
+   *   A callback for the response to req. The underlying HTTP connection is
+   *   maintained by internal connection manager and kept alive or terminated
+   *   based on configurations. In case of connection getting terminated attempt
+   *   to read the response will result in error.
    * @return
    *   The result of applying f to the response to req
    */
@@ -99,9 +108,10 @@ case class DefaultClient(
    * @param req
    *   An effect (???) of the request to submit
    * @param f
-   *   A callback for the response to req. The underlying HTTP connection is maintained by internal connection manager
-   *   and kept alive or terminated based on configurations. In case of connection getting terminated attempt to read
-   *   the response will result in error.
+   *   A callback for the response to req. The underlying HTTP connection is
+   *   maintained by internal connection manager and kept alive or terminated
+   *   based on configurations. In case of connection getting terminated attempt
+   *   to read the response will result in error.
    * @return
    *   The result of applying f to the response to req
    */

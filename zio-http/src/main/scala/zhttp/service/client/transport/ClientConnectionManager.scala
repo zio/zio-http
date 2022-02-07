@@ -3,12 +3,12 @@ package zhttp.service.client.transport
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{Channel, ChannelFuture, ChannelFutureListener}
 import io.netty.handler.codec.http.FullHttpRequest
-import zhttp.http.{HeaderNames}
+import zhttp.http.HeaderNames
 import zhttp.service.Client.ClientRequest
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.content.handlers.{NewClientChannelInitializer, NewClientInboundHandler}
 import zhttp.service.client.model.ClientConnectionState.ReqKey
-import zhttp.service.client.model.{Timeouts, ClientConnectionState}
+import zhttp.service.client.model.{ClientConnectionState, Timeouts}
 import zio.{Ref, Task, ZIO}
 
 import java.net.InetSocketAddress
@@ -21,16 +21,17 @@ import scala.collection.mutable
     - Data structures like (idleQueue, waitingRequestQueue etc)
  */
 case class ClientConnectionManager(
-                                    connRef: Ref[mutable.Map[ReqKey, Channel]],
-                                    zConnectionState: ClientConnectionState,
-                                    timeouts: Timeouts,
-                                    boo: Bootstrap,
-                                    zExec: zhttp.service.HttpRuntime[Any],
+  connRef: Ref[mutable.Map[ReqKey, Channel]],
+  zConnectionState: ClientConnectionState,
+  timeouts: Timeouts,
+  boo: Bootstrap,
+  zExec: zhttp.service.HttpRuntime[Any],
 ) {
 
   /**
    *   - core method for getting a connection for a request
-   *   - create new connection and increment allocated simultaneously (depending on limits)
+   *   - create new connection and increment allocated simultaneously (depending
+   *     on limits)
    *   - assign a new callback (may be like empty promise to connection)
    *
    * TBD: uri Authority examples to be handled like examples Valid authority
@@ -42,7 +43,7 @@ case class ClientConnectionManager(
    */
   def fetchConnection(jReq: FullHttpRequest, req: ClientRequest): Task[Channel] = {
     for {
-      mp           <- connRef.get
+      mp <- connRef.get
 //      uriAuthority <- getUriAuthority(jReq)
 
       uri  = new java.net.URI(jReq.uri())
@@ -50,7 +51,7 @@ case class ClientConnectionManager(
 
       _ <- Task(assert(host != null, "Host name is required"))
 
-      port = req.url.port.getOrElse(80)
+      port   = req.url.port.getOrElse(80)
       reqKey = new InetSocketAddress(host, port)
 
       isWebSocket = req.url.scheme.exists(_.isWebSocket)
@@ -58,7 +59,7 @@ case class ClientConnectionManager(
 
       // if already key exists for existing connections re-use it
       // else build a new connection (channel)
-      conn         <- mp.get(reqKey) match {
+      conn <- mp.get(reqKey) match {
         case Some(c) =>
           println(s"REUSING CONNECTION for $reqKey")
           // To be tested to check if the channel is currently busy
@@ -67,9 +68,9 @@ case class ClientConnectionManager(
           else
             buildChannel(reqKey, isWebSocket, isSSL)
         case _       =>
-          buildChannel(reqKey,isWebSocket,isSSL)
+          buildChannel(reqKey, isWebSocket, isSSL)
       }
-      _            <- connRef.update { m =>
+      _    <- connRef.update { m =>
         m += (reqKey -> conn)
       }
     } yield conn
@@ -82,12 +83,14 @@ case class ClientConnectionManager(
    * @tparam R
    * @return
    */
-  def buildChannel[R](reqKey: ReqKey,  isWebSocket: Boolean = false, isSSL: Boolean = false): Task[Channel] = {
+  def buildChannel[R](reqKey: ReqKey, isWebSocket: Boolean = false, isSSL: Boolean = false): Task[Channel] = {
     for {
       init <- ZIO.effect(
         NewClientChannelInitializer(
           NewClientInboundHandler(zExec, zConnectionState),
-          isWebSocket,isSSL, reqKey,
+          isWebSocket,
+          isSSL,
+          reqKey,
           ClientSSLOptions.DefaultSSL,
         ),
       )

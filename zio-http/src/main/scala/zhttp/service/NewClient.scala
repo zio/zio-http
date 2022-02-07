@@ -7,10 +7,10 @@ import zhttp.http._
 import zhttp.http.headers.HeaderExtension
 import zhttp.service.client.DefaultClient
 import zhttp.service.client.model.ClientConnectionState.ReqKey
-import zhttp.service.client.model.{Timeouts, ClientConnectionState}
-import zhttp.service.client.transport.{Transport, ClientConnectionManager}
+import zhttp.service.client.model.{ClientConnectionState, Timeouts}
+import zhttp.service.client.transport.{ClientConnectionManager, Transport}
+import zio.Task
 import zio.duration.Duration
-import zio.{Task}
 
 import java.net.{InetAddress, InetSocketAddress}
 import scala.collection.mutable

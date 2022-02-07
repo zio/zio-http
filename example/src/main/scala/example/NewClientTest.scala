@@ -46,22 +46,22 @@ object NewClientTest extends App {
   def triggerClientSequential(cl: DefaultClient) = for {
     req1 <- ZIO.effect("http://localhost:8081/foo/1")
     resp <- cl.run(req1)
-    r1   <- resp.getBodyAsString
+    r1   <- resp.bodyAsString
     _    <- ZIO.effect(println(s"Response Content from $req1 ${r1.length} "))
 
     req3  <- ZIO.effect("http://www.google.com")
     resp3 <- cl.run(req3)
     //    resp3 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
-    r3    <- resp3.getBodyAsString
+    r3    <- resp3.bodyAsString
     _     <- ZIO.effect(println(s"Response Content from $req3  ${r3.length}"))
 
     req2  <- ZIO.effect("http://localhost:8081/bar/2")
     resp2 <- cl.run(req2)
-    r2    <- resp2.getBodyAsString
+    r2    <- resp2.bodyAsString
     _     <- ZIO.effect(println(s"Response Content  ${r2.length}"))
 
     resp4 <- cl.run("http://www.google.com")
-    r4    <- resp4.getBodyAsString
+    r4    <- resp4.bodyAsString
     _     <- ZIO.effect(println(s"Response Content  : ${r4.length}"))
 
     currActiveConn <- cl.connectionManager.getActiveConnections
