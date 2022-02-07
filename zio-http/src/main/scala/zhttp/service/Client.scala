@@ -10,10 +10,10 @@ import zhttp.http.headers.HeaderExtension
 import zhttp.service
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.model.{ClientConnectionState, Timeouts}
+import zhttp.service.client.model.{ClientConnectionState, DefaultClient, Timeouts}
 import zhttp.service.client.model.ClientConnectionState.ReqKey
 import zhttp.service.client.transport.{ClientConnectionManager, Transport}
-import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler, DefaultClient}
+import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler, model}
 import zhttp.socket.{Socket, SocketApp}
 import zio.duration.Duration
 import zio.{Chunk, Promise, Task, ZIO}
@@ -288,7 +288,7 @@ object Client {
       )
       timeouts    = Timeouts(settings.connectionTimeout, settings.idleTimeout, settings.requestTimeout)
       connManager = ClientConnectionManager(connRef, ClientConnectionState(), timeouts, clientBootStrap, zExec)
-      clientImpl  = DefaultClient(settings, connManager)
+      clientImpl  = model.DefaultClient(settings, connManager)
     } yield {
       clientImpl
     }

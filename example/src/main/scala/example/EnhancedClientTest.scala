@@ -1,7 +1,7 @@
 package example
 
 import zhttp.http._
-import zhttp.service.client.DefaultClient
+import zhttp.service.client.model.DefaultClient
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{Client, EventLoopGroup, Server}
 import zio.{App, ExitCode, URIO, ZIO}
@@ -42,27 +42,24 @@ object EnhancedClientTest extends App {
     } yield ()
   }
 
+  val testUrl1 = "http://localhost:8081/foo/1"
+  val testUrl2 = "http://localhost:8081/bar/2"
+  val googleUrl = "http://www.google.com"
+
   // sequential execution test
   def triggerClientSequential(cl: DefaultClient) = for {
-    req1 <- ZIO.effect("http://localhost:8081/foo/1")
-    resp <- cl.run(req1)
-    r1   <- resp.bodyAsString
-    _    <- ZIO.effect(println(s"Response Content from $req1 ${r1.length} "))
+    resp <- cl.run(testUrl1).map(_.status)
+    _    <- ZIO.effect(println(s"Response Status from $testUrl1 ${resp} "))
 
-    req3  <- ZIO.effect("http://www.google.com")
-    resp3 <- cl.run(req3)
+    resp3 <- cl.run(googleUrl).map(_.status)
     //    resp3 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
-    r3    <- resp3.bodyAsString
-    _     <- ZIO.effect(println(s"Response Content from $req3  ${r3.length}"))
+    _     <- ZIO.effect(println(s"Response Status from $googleUrl  ${resp3}"))
 
-    req2  <- ZIO.effect("http://localhost:8081/bar/2")
-    resp2 <- cl.run(req2)
-    r2    <- resp2.bodyAsString
-    _     <- ZIO.effect(println(s"Response Content  ${r2.length}"))
+    resp2 <- cl.run(testUrl2).flatMap(_.bodyAsString)
+    _     <- ZIO.effect(println(s"Response Content  ${resp2.length}"))
 
-    resp4 <- cl.run("http://www.google.com")
-    r4    <- resp4.bodyAsString
-    _     <- ZIO.effect(println(s"Response Content  : ${r4.length}"))
+    resp4 <- cl.run(googleUrl).map(_.status)
+    _     <- ZIO.effect(println(s"Response Status  : ${resp4}"))
 
     currActiveConn <- cl.connectionManager.getActiveConnections
     _              <- ZIO.effect(
