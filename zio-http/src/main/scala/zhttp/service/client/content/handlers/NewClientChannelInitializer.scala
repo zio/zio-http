@@ -6,7 +6,7 @@ import io.netty.handler.codec.http.{HttpClientCodec, HttpObjectAggregator}
 import zhttp.service.{CLIENT_INBOUND_HANDLER, HTTP_CLIENT_CODEC, HTTP_OBJECT_AGGREGATOR, SSL_HANDLER}
 import zhttp.service.client.ClientSSLHandler
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.model.ZConnectionState.ReqKey
+import zhttp.service.client.model.ClientConnectionState.ReqKey
 //import zhttp.socket.Socket
 
 final case class NewClientChannelInitializer[R](

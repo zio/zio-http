@@ -3,7 +3,7 @@ package zhttp.service.client.model
 import io.netty.channel.Channel
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.service.Client.ClientResponse
-import zhttp.service.client.model.ZConnectionState.{ReqKey, emptyConnectionRuntime, emptyIdleConnectionMap}
+import zhttp.service.client.model.ClientConnectionState.{ReqKey, emptyConnectionRuntime, emptyIdleConnectionMap}
 import zio.Promise
 import zio.duration.Duration
 
@@ -23,7 +23,7 @@ case class Timeouts(
 case class PendingRequest(req: FullHttpRequest, requestedTime: Instant)
 
 // TBD: Choose which data structures or a group of data structures to be made thread safe
-case class ZConnectionState(
+case class ClientConnectionState(
   currentAllocatedChannels: mutable.Map[Channel, ConnectionRuntime] = emptyConnectionRuntime,
   currentAllocatedRequests: mutable.Map[ReqKey, Int] = mutable.Map.empty[ReqKey, Int],
   idleConnectionsMap: mutable.Map[ReqKey, mutable.Queue[ConnectionRuntime]] = emptyIdleConnectionMap,
@@ -36,7 +36,7 @@ case class ZConnectionState(
 
 }
 
-object ZConnectionState {
+object ClientConnectionState {
   type ReqKey = InetSocketAddress
   def emptyConnectionRuntime = mutable.Map.empty[Channel, ConnectionRuntime]
   def emptyIdleConnectionMap = mutable.Map.empty[ReqKey, mutable.Queue[ConnectionRuntime]]

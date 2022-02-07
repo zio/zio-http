@@ -6,8 +6,8 @@ import io.netty.handler.codec.http.HttpVersion
 import zhttp.http._
 import zhttp.http.headers.HeaderExtension
 import zhttp.service.client.DefaultClient
-import zhttp.service.client.model.ZConnectionState.ReqKey
-import zhttp.service.client.model.{Timeouts, ZConnectionState}
+import zhttp.service.client.model.ClientConnectionState.ReqKey
+import zhttp.service.client.model.{Timeouts, ClientConnectionState}
 import zhttp.service.client.transport.{Transport, ClientConnectionManager}
 import zio.duration.Duration
 import zio.{Task}
@@ -110,7 +110,7 @@ object NewClient {
         mutable.Map.empty[ReqKey, Channel],
       )
       timeouts    = Timeouts(settings.connectionTimeout, settings.idleTimeout, settings.requestTimeout)
-      connManager = ClientConnectionManager(connRef, ZConnectionState(), timeouts, clientBootStrap, zExec)
+      connManager = ClientConnectionManager(connRef, ClientConnectionState(), timeouts, clientBootStrap, zExec)
       clientImpl  = DefaultClient(settings, connManager)
     } yield {
       clientImpl

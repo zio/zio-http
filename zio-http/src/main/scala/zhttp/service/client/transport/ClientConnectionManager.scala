@@ -7,8 +7,8 @@ import zhttp.http.{HeaderNames}
 import zhttp.service.Client.ClientRequest
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.content.handlers.{NewClientChannelInitializer, NewClientInboundHandler}
-import zhttp.service.client.model.ZConnectionState.ReqKey
-import zhttp.service.client.model.{Timeouts, ZConnectionState}
+import zhttp.service.client.model.ClientConnectionState.ReqKey
+import zhttp.service.client.model.{Timeouts, ClientConnectionState}
 import zio.{Ref, Task, ZIO}
 
 import java.net.InetSocketAddress
@@ -21,11 +21,11 @@ import scala.collection.mutable
     - Data structures like (idleQueue, waitingRequestQueue etc)
  */
 case class ClientConnectionManager(
-  connRef: Ref[mutable.Map[ReqKey, Channel]],
-  zConnectionState: ZConnectionState,
-  timeouts: Timeouts,
-  boo: Bootstrap,
-  zExec: zhttp.service.HttpRuntime[Any],
+                                    connRef: Ref[mutable.Map[ReqKey, Channel]],
+                                    zConnectionState: ClientConnectionState,
+                                    timeouts: Timeouts,
+                                    boo: Bootstrap,
+                                    zExec: zhttp.service.HttpRuntime[Any],
 ) {
 
   /**

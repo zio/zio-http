@@ -5,15 +5,15 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.service.Client.ClientResponse
 import zhttp.service.HttpRuntime
-import zhttp.service.client.model.{ZConnectionState}
+import zhttp.service.client.model.{ClientConnectionState}
 
 /**
  * Handles HTTP response
  */
 @Sharable
 final case class NewClientInboundHandler[R](
-  zExec: HttpRuntime[R],
-  zConnectionState: ZConnectionState,
+                                             zExec: HttpRuntime[R],
+                                             zConnectionState: ClientConnectionState,
 ) extends SimpleChannelInboundHandler[ClientResponse](false) {
 
   override def channelRead0(ctx: ChannelHandlerContext, clientResponse: ClientResponse): Unit = {
