@@ -6,16 +6,18 @@ import zhttp.service.Client.{ClientRequest, ClientResponse, Config}
 import zhttp.service.HttpMessageCodec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.transport.ClientConnectionManager
+import zio.Task
 import zio.stream.ZStream
-import zio.{Task}
 
 case class DefaultClient(
   settings: Config,
   connectionManager: ClientConnectionManager,
 ) extends HttpMessageCodec {
 
+  // methods for compatiblity with existing client use
   def run(req: ClientRequest): Task[ClientResponse] = ???
 
+  // methods for compatiblity with existing client use
   def run(
     str: String,
     method: Method = GET,
@@ -25,38 +27,24 @@ case class DefaultClient(
   ): Task[ClientResponse] = ???
 
   /**
-   * Submits a GET request to the specified URI
+   * Submits a GET request to the specified zhttp URL
    *
-   * @param uri
+   * @param url
    *   The URI to GET
    */
   def run(url: URL): Task[Response] = ???
 
-  /**
-   * Submits a GET request to the specified URI and decodes the response on
-   * success. On failure, the status code is returned. The underlying HTTP
-   * connection is closed at the completion of the decoding.
-   */
-
-  //  /**
-  // * Submits a request and decodes the response, regardless of the status code.
-  // * The underlying HTTP connection is closed at the completion of the
-  // * decoding.
-  //    */
-  //  def fetchAs[A](req: F[Request[F]])(implicit d: EntityDecoder[F, A]): F[A] =
-  //    req.flatMap(fetchAs(_)(d))
-
   /** Submits a request and returns the response status */
   def status(req: Request): Task[Status] = ???
 
-  //  /** Submits a request and returns the response status */
-  //  def status(req: F[Request[F]]): F[Status] =
+  /** Submits a request with effect and returns the response status */
+  def status(req: Task[Request]): Task[Status] = ???
 
   /**
    * Submits a request and returns true if and only if the response status is
-   * successful
+   * successful, may be used for tests
    */
-  def successful(req: Request): Task[Boolean] = ???
+  def succeed(req: Request): Task[Boolean] = ???
 
   // ****************** APIs below need more clarity *********************
 
@@ -98,8 +86,7 @@ case class DefaultClient(
   //    def run[A](req: ZIO[?,?,Request])(f: Response => Task[A]): Task[A] = ???
 
   /**
-   * TBD Key API
-   *
+   * TBD or stream(req: Request): ZStream[Any,Throwable, ???]
    * @param req
    * @return
    */
@@ -115,18 +102,6 @@ case class DefaultClient(
    */
   def streaming[A](req: Request)(f: Response => ZStream[Any, Throwable, A]): ZStream[Any, Throwable, A] = ???
 
-  //  def runOr[A](req: Request)(onError: Response => Throwable)(implicit d: SomeEntityDecoder): A = ???
-
-  //  /** Submits a request and returns true if and only if the response status is
-  // * successful */
-  //  def success(req: UIO[Request]): Task[Boolean] =
-
-  //  /**
-  // * Submits a request and decodes the response on success.  On failure, the
-  // * status code is returned.  The underlying HTTP connection is closed at the
-  // * completion of the decoding.
-  //    */
-  //  def get[A](s: String)(f: Task[Response] => Task[A]): Task[A] =
-  //    Uri.fromString(s).fold(_ => ..., uri => run(uri)(f))
+  // more APIs to follow
 
 }

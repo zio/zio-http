@@ -5,10 +5,10 @@ import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel, EpollSocketChannel}
 import io.netty.channel.kqueue.{KQueueEventLoopGroup, KQueueServerSocketChannel, KQueueSocketChannel}
 import io.netty.channel.socket.nio.{NioServerSocketChannel, NioSocketChannel}
-import io.netty.channel.{Channel, ServerChannel, kqueue, ChannelFactory => JChannelFactory}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ServerChannel, kqueue}
 import io.netty.incubator.channel.uring.{IOUringEventLoopGroup, IOUringServerSocketChannel, IOUringSocketChannel}
 import zhttp.service.ChannelFactory
-import zio.{Task}
+import zio.Task
 
 /**
  * Support for various transport types.
@@ -24,7 +24,7 @@ sealed trait Transport  {
 }
 object Transport        {
   import TransportFactory._
-  case object Nio    extends Transport {
+  case object Nio extends Transport {
 
     override def channelInitializer: Task[JChannelFactory[ServerChannel]] = nio
 
@@ -62,7 +62,7 @@ object Transport        {
     override def eventLoopGroup(nThreads: Int): Task[channel.EventLoopGroup] =
       Task(new IOUringEventLoopGroup(nThreads))
   }
-  case object Auto   extends Transport {
+  case object Auto extends Transport {
     override def channelInitializer: Task[JChannelFactory[ServerChannel]] = auto
 
     override def clientChannel: Task[JChannelFactory[Channel]] = clientAuto
