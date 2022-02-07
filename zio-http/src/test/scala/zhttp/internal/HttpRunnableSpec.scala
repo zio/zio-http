@@ -1,6 +1,5 @@
 package zhttp.internal
 
-import io.netty.handler.codec.http.HttpVersion
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.DynamicServer.HttpEnv
@@ -32,7 +31,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       method: Method = Method.GET,
       content: String = "",
       headers: Headers = Headers.empty,
-      version: HttpVersion = HttpVersion.HTTP_1_1,
+      version: Version = Version.Http_1_1,
     ): ZIO[R, Throwable, A] =
       app(
         Client.ClientRequest(

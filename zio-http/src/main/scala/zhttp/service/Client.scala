@@ -2,14 +2,7 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
-import io.netty.channel.{
-  Channel,
-  ChannelFactory => JChannelFactory,
-  ChannelFuture => JChannelFuture,
-  ChannelHandlerContext,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, ChannelHandlerContext, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
@@ -169,7 +162,7 @@ object Client {
     method: Method = Method.GET,
     headers: Headers = Headers.empty,
     private[zhttp] val data: HttpData = HttpData.empty,
-    private[zhttp] val version: HttpVersion = HttpVersion.HTTP_1_1,
+    private[zhttp] val version: Version = Version.Http_1_1,
     private[zhttp] val attribute: Attribute = Attribute.empty,
     private val channelContext: ChannelHandlerContext = null,
   ) extends HeaderExtension[ClientRequest] {

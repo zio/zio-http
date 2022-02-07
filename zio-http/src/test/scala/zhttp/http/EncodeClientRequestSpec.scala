@@ -88,7 +88,7 @@ object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientRequ
       testM("http version") {
         checkM(anyClientParam) { params =>
           val req = encode(params).map(i => i.protocolVersion())
-          assertM(req)(equalTo(params.version))
+          assertM(req)(equalTo(params.version.toJava))
         }
       }
   }
