@@ -1,6 +1,6 @@
 package zhttp.http.middleware
 
-import zhttp.http.{HTTP_CHARSET, Headers, Method, Request, Response, Status, URL}
+import zhttp.http._
 import zio.Task
 
 final case class LogStep(request: Request)

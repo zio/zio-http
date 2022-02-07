@@ -2,7 +2,7 @@ package example
 
 import zhttp.http._
 import zhttp.service.Server
-import zio.{Clock, ExitCode, LogLevel, RuntimeConfigAspect, URIO, ZIO, ZIOAppDefault, durationInt}
+import zio._
 
 object HelloWorldWithLogging extends ZIOAppDefault {
   override def hook = slf4j
