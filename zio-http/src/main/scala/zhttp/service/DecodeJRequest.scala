@@ -12,8 +12,7 @@ import scala.annotation.tailrec
 trait DecodeJRequest {
 
   /**
-   * Tries to decode the [[io.netty.handler.codec.http2.Http2HeadersFrame]] to
-   * [Request].
+   * Tries to decode the Http2HeadersFrame to Request.
    */
   def decodeHttp2Header(
     hh: Http2HeadersFrame,

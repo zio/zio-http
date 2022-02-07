@@ -29,7 +29,7 @@ object HttpsHelloWorld extends App {
   private val server =
     Server.port(8090) ++ Server.app(app) ++ Server.ssl(
       ServerSSLOptions(sslctx, SSLHttpBehaviour.Accept),
-    )
+    ) ++ Server.http2
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     server.make.useForever
