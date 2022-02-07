@@ -4,7 +4,7 @@ import io.netty.bootstrap.ServerBootstrap
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
-import zhttp.service.server.ServerSSLHandler._
+import zhttp.service.server.ServerSSLBuilder._
 import zhttp.service.server._
 import zhttp.service.server.content.handlers.ServerResponseHandler
 import zio.{ZManaged, _}
