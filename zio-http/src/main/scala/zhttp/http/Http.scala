@@ -13,7 +13,7 @@ import zio.stream.ZStream
 
 import java.io.FileNotFoundException
 import java.nio.charset.Charset
-import java.nio.file.{Files, Path => jPath, Paths}
+import java.nio.file.{Files, Paths, Path => JPath}
 import scala.annotation.unused
 
 /**
@@ -548,10 +548,12 @@ object Http {
   /*
    * Creates an Http app from the contents of a file
    */
-  def fromFile(file: java.io.File): HttpApp[Any, Nothing] = response(
-    Response(
-      headers = Headers.contentType(Files.probeContentType(file.toPath)) ++ Headers.contentLength(file.length()),
-      data = HttpData.fromFile(file),
+  def fromFile(file: java.io.File): HttpApp[Any, Throwable] = responseZIO(
+    Task(
+      Response(
+        headers = Headers.contentType(Files.probeContentType(file.toPath)) ++ Headers.contentLength(file.length()),
+        data = HttpData.fromFile(file),
+      ),
     ),
   )
 
@@ -599,40 +601,24 @@ object Http {
   /**
    * Creates an HTTP app to serve static resource files from a local directory.
    */
-  def fromPath(root: jPath): HttpApp[Any, Nothing] = {
-
-    def responseHttp(request: Request) = responseZIO {
-      for {
-        file     <- ZIO.succeed(Paths.get(root.toString + "/" + request.path.asString).toFile)
-        response <-
-          if (file.isDirectory)
-            ZIO.succeed(Response(data = HttpData.fromString(listFilesHtml(file.toPath))))
-          else
-            for {
-              data <- Task(HttpData.fromFile(file))
-              res  <- ZIO.succeed(
-                Response(
-                  headers =
-                    Headers.contentLength(file.length()) ++ Headers.contentType(Files.probeContentType(file.toPath)),
-                  data = data,
-                ),
-              )
-            } yield res
-      } yield response
-    }
-
+  def fromPath(root: JPath): HttpApp[Any, Nothing] = {
     Http.collectHttp[Request] { case request =>
       if (request.method != Method.GET)
         Http.methodNotAllowed(s"${request.method} is not allowed here. Please use `GET` instead.")
-      else
-        responseHttp(request).catchAll {
-          case _: SecurityException     =>
-            Http.forbidden("Operation not allowed")
-          case _: FileNotFoundException =>
-            Http.empty
-          case _                        =>
-            Http.error("An unknown error has occurred.")
-        }
+      else {
+        val file = Paths.get(root.toString + "/" + request.path.encode).toFile
+        if (file.isDirectory)
+          response(Response(data = HttpData.fromString(listFilesHtml(file.toPath))))
+        else
+          Http.fromFile(file)
+      }.catchAll {
+        case _: SecurityException     =>
+          Http.forbidden("Operation not allowed")
+        case _: FileNotFoundException =>
+          Http.empty
+        case _                        =>
+          Http.error("An unknown error has occurred.")
+      }
     }
   }
 

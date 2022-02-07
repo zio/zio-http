@@ -8,8 +8,9 @@ import java.nio.file.Paths
 
 object StaticServer extends zio.App {
 
+  val dirPath = Paths.get("src/main/resources/TestStatic")
   // A simple app to serve static resource files from a local directory.
-  val app = Http.fromPath(Paths.get("src/main/resources/TestStatic"))
+  val app     = Http.fromPath(dirPath)
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

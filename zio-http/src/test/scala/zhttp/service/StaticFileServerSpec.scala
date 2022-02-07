@@ -19,14 +19,14 @@ object StaticFileServerSpec extends HttpRunnableSpec {
   def staticSpec1 = suite("Static RandomAccessFile Server")(
     testM("should list contents of root directory") {
       val res =
-        Http.fromPath(Paths.get(getClass.getResource("/TestStatic/Folder2").getPath)).deploy.getBodyAsString.run()
+        Http.fromPath(Paths.get(getClass.getResource("/TestStatic/Folder2").getPath)).deploy.bodyAsString.run()
       assertM(res)(containsString("<li><a href=\"TestFile2.txt\">TestFile2.txt</a></li>"))
     },
     testM("should show file contents") {
       val res = Http
         .fromPath(Paths.get(getClass.getResource("/TestStatic/Folder2").getPath))
         .deploy
-        .getBodyAsString
+        .bodyAsString
         .run(path = Path("/TestFile2.txt"))
       assertM(res)(equalTo("This is a test file for testing Static File Server."))
     },
@@ -34,7 +34,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
       val res = Http
         .fromPath(Paths.get(getClass.getResource("/TestStatic/Folder2").getPath))
         .deploy
-        .getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
+        .headerValue(HttpHeaderNames.CONTENT_TYPE)
         .run(path = Path("/TestFile2.txt"))
       assertM(res)(isSome(equalTo("text/plain")))
     },
@@ -42,7 +42,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
       val res = Http
         .fromPath(Paths.get(getClass.getResource("/TestStatic/Folder2").getPath))
         .deploy
-        .getBodyAsString
+        .bodyAsString
         .run(path = Path("/NonExistentFile.txt"))
       assertM(res)(equalTo(""))
     },
@@ -50,17 +50,17 @@ object StaticFileServerSpec extends HttpRunnableSpec {
       val res = Http
         .fromPath(Paths.get(getClass.getResource("/TestStatic/Folder2").getPath))
         .deploy
-        .getStatus
+        .status
         .run(method = Method.POST)
       assertM(res)(equalTo(Status.METHOD_NOT_ALLOWED))
     },
     testM("should respond with `empty` if directory path does not exist") {
       val res =
-        Http.fromPath(Paths.get(getClass.getResource("").getPath + "/NonExistentDir")).deploy.getBodyAsString.run()
+        Http.fromPath(Paths.get(getClass.getResource("").getPath + "/NonExistentDir")).deploy.bodyAsString.run()
       assertM(res)(equalTo(""))
     },
     testM("should respond with file contents if root path is a file") {
-      val res = Http.fromPath(Paths.get(getClass.getResource("/TestFile.txt").getPath)).deploy.getBodyAsString.run()
+      val res = Http.fromPath(Paths.get(getClass.getResource("/TestFile.txt").getPath)).deploy.bodyAsString.run()
       assertM(res)(equalTo("abc\nfoo"))
     },
   )
