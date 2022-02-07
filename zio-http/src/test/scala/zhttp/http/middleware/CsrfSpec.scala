@@ -9,7 +9,7 @@ import zio.test._
 
 object CsrfSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   override def spec = suite("CSRF Middlewares") {
-    val app           = (Http.ok @@ csrfValidate("x-token")).getStatus
+    val app           = (Http.ok @@ csrfValidate("x-token")).status
     val setCookie     = Headers.cookie(Cookie("x-token", "secret"))
     val invalidXToken = Headers("x-token", "secret1")
     val validXToken   = Headers("x-token", "secret")

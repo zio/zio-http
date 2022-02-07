@@ -3,8 +3,9 @@ package zhttp.http.headers
 import io.netty.handler.codec.http.HttpHeaderNames
 
 /**
- * List of commonly use HeaderNames. They are provided to reduce bugs caused by typos and also to improve performance.
- * `HeaderNames` arent encoded everytime one needs to send them over the wire.
+ * List of commonly use HeaderNames. They are provided to reduce bugs caused by
+ * typos and also to improve performance. `HeaderNames` arent encoded everytime
+ * one needs to send them over the wire.
  */
 trait HeaderNames {
   final val accept: CharSequence                        = HttpHeaderNames.ACCEPT

@@ -1,13 +1,13 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpVersion}
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.internal.HttpGen
-import zhttp.service.{Client, EncodeClientParams}
+import zhttp.service.{Client, EncodeClientRequest}
 import zio.random.Random
 import zio.test.Assertion._
 import zio.test._
 
-object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientParams {
+object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientRequest {
 
   val anyClientParam: Gen[Random with Sized, Client.ClientRequest] = HttpGen.clientRequest(
     HttpGen.httpData(
@@ -31,52 +31,64 @@ object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientPara
 
   def spec = suite("EncodeClientParams") {
     testM("method") {
-      check(anyClientParam) { params =>
-        val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
-        assert(req.method())(equalTo(params.method.asHttpMethod))
+      checkM(anyClientParam) { params =>
+        val req = encode(params).map(_.method())
+        assertM(req)(equalTo(params.method.asHttpMethod))
       }
     } +
       testM("method on HttpData.File") {
-        check(HttpGen.clientParamsForFileHttpData()) { params =>
-          val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
-          assert(req.method())(equalTo(params.method.asHttpMethod))
+        checkM(HttpGen.clientParamsForFileHttpData()) { params =>
+          val req = encode(params).map(_.method())
+          assertM(req)(equalTo(params.method.asHttpMethod))
         }
       } +
       suite("uri") {
         testM("uri") {
-          check(anyClientParam) { params =>
-            val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
-            assert(req.uri())(equalTo(params.url.relative.asString))
+          checkM(anyClientParam) { params =>
+            val req = encode(params).map(_.uri())
+            assertM(req)(equalTo(params.url.relative.encode))
           }
         } +
           testM("uri on HttpData.File") {
-            check(HttpGen.clientParamsForFileHttpData()) { params =>
-              val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
-              assert(req.uri())(equalTo(params.url.relative.asString))
+            checkM(HttpGen.clientParamsForFileHttpData()) { params =>
+              val req = encode(params).map(_.uri())
+              assertM(req)(equalTo(params.url.relative.encode))
             }
           }
       } +
       testM("content-length") {
-        check(clientParamWithFiniteData(5)) { params =>
-          val req = encodeClientParams(HttpVersion.HTTP_1_1, params)
-          assert(req.headers().getInt(HttpHeaderNames.CONTENT_LENGTH).toLong)(equalTo(5L))
+        checkM(clientParamWithFiniteData(5)) { params =>
+          val req = encode(params).map(
+            _.headers().getInt(HttpHeaderNames.CONTENT_LENGTH).toLong,
+          )
+          assertM(req)(equalTo(5L))
         }
       } +
       testM("host header") {
-        check(anyClientParam) { params =>
-          val req        = encodeClientParams(HttpVersion.HTTP_1_1, params)
-          val hostHeader = HttpHeaderNames.HOST
-          assert(Option(req.headers().get(hostHeader)))(equalTo(params.url.host))
+        checkM(anyClientParam) { params =>
+          val req =
+            encode(params).map(i => Option(i.headers().get(HttpHeaderNames.HOST)))
+          assertM(req)(equalTo(params.url.host))
         }
       } +
       testM("host header when absolute url") {
-        check(clientParamWithAbsoluteUrl) { params =>
-          val req        = encodeClientParams(HttpVersion.HTTP_1_1, params)
-          val reqHeaders = req.headers()
-          val hostHeader = HttpHeaderNames.HOST
-
-          assert(reqHeaders.getAll(hostHeader).size)(equalTo(1)) &&
-          assert(Option(reqHeaders.get(hostHeader)))(equalTo(params.url.host))
+        checkM(clientParamWithAbsoluteUrl) { params =>
+          val req = encode(params)
+            .map(i => Option(i.headers().get(HttpHeaderNames.HOST)))
+          assertM(req)(equalTo(params.url.host))
+        }
+      } +
+      testM("only one host header exists") {
+        checkM(clientParamWithAbsoluteUrl) { params =>
+          val req = encode(params)
+            .map(_.headers().getAll(HttpHeaderNames.HOST).size)
+          assertM(req)(equalTo(1))
+        }
+      } +
+      testM("http version") {
+        checkM(anyClientParam) { params =>
+          val req = encode(params).map(i => i.protocolVersion())
+          assertM(req)(equalTo(params.version))
         }
       }
   }

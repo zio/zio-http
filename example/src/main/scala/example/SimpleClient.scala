@@ -9,7 +9,7 @@ object SimpleClient extends App {
 
   val program = for {
     res  <- Client.request(url)
-    data <- res.getBodyAsString
+    data <- res.bodyAsString
     _    <- console.putStrLn { data }
   } yield ()
 
