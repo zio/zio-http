@@ -5,7 +5,7 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.ByteToMessageDecoder
 import io.netty.handler.ssl.{SslContext, SslHandler}
 import zhttp.service._
-import zhttp.service.server.ServerSSLHandler.SSLHttpBehaviour
+import zhttp.service.server.ServerSSLBuilder.SSLHttpBehaviour
 
 import java.util
 

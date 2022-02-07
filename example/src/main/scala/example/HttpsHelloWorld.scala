@@ -2,7 +2,7 @@ package example
 
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.server.ServerSSLHandler._
+import zhttp.service.server.ServerSSLBuilder._
 import zhttp.service.{EventLoopGroup, Server}
 import zio.{App, ExitCode, URIO}
 

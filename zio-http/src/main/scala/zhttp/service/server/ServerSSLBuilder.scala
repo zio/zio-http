@@ -17,7 +17,7 @@ import java.io.InputStream
 import java.security.KeyStore
 import javax.net.ssl.KeyManagerFactory
 
-object ServerSSLHandler {
+object ServerSSLBuilder {
 
   case class ServerSSLOptions(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour = SSLHttpBehaviour.Redirect)
 
