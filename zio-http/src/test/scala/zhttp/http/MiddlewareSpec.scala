@@ -58,9 +58,8 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
       testM("mapError") {
         val originalFailure = "original failure"
         val mappedFailure   = " plus mapped failure"
-        val http            = Middleware.fail(originalFailure)
 
-        val mid = http.mapError { _ + mappedFailure }
+        val mid = Middleware.fail(originalFailure).mapError { _ + mappedFailure }
 
         val app = Http.identity[Int] @@ mid
         assertM(app(0).run)(fails(equalTo(Some(originalFailure + mappedFailure))))
