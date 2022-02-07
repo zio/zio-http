@@ -34,7 +34,7 @@ import zhttp.service.Server
 
 object HelloWorld extends App {
   val app = Http.collect[Request] {
-    case Method.GET -> Root / "text" => Response.text("Hello World!")
+    case Method.GET -> !! / "text" => Response.text("Hello World!")
   }
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
