@@ -13,12 +13,12 @@ import zhttp.service.server.ServerSSLBuilder.SSLHttpBehaviour
 import java.util
 
 class OptionalServerSSLHandler(
-                                sslContext: SslContext,
-                                cfg: Config[_, Throwable],
-                                reqHandler: ChannelHandler,
-                                respHandler: ChannelHandler,
-                                http2Handler: ChannelHandler,
-                              ) extends ByteToMessageDecoder {
+  sslContext: SslContext,
+  cfg: Config[_, Throwable],
+  reqHandler: ChannelHandler,
+  respHandler: ChannelHandler,
+  http2Handler: ChannelHandler,
+) extends ByteToMessageDecoder {
   override def decode(context: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
     val pipeline = context.channel().pipeline()
     if (in.readableBytes < 5)

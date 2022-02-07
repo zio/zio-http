@@ -18,11 +18,11 @@ import scala.collection.mutable.Map
 
 @Sharable
 final case class Http2ServerRequestHandler[R] private[zhttp] (
-                                                               runtime: HttpRuntime[R],
-                                                               settings: Config[R, Throwable],
-                                                             ) extends ChannelDuplexHandler
-  with HttpMessageCodec
-  with WebSocketUpgrade[R] { self =>
+  runtime: HttpRuntime[R],
+  settings: Config[R, Throwable],
+) extends ChannelDuplexHandler
+    with HttpMessageCodec
+    with WebSocketUpgrade[R] { self =>
   val hedaerMap: Map[Int, Http2HeadersFrame]         = Map.empty[Int, Http2HeadersFrame]
   val dataMap: Map[Int, List[DefaultHttp2DataFrame]] = Map.empty[Int, List[DefaultHttp2DataFrame]]
 
@@ -104,10 +104,10 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
 
   @throws[Exception]
   private def onEndStream(
-                           ctx: ChannelHandlerContext,
-                           headers: Http2HeadersFrame,
-                           dataL: List[DefaultHttp2DataFrame] = null,
-                         ): Unit = {
+    ctx: ChannelHandlerContext,
+    headers: Http2HeadersFrame,
+    dataL: List[DefaultHttp2DataFrame] = null,
+  ): Unit = {
     decodeHttp2Header(headers, ctx, dataL) match {
       case Left(err)   => unsafeWriteAndFlushErrorResponse(err.getCause, ctx, headers.stream())
       case Right(jReq) => {
@@ -164,10 +164,10 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
    * Writes error response to the Channel
    */
   private def unsafeWriteAndFlushErrorResponse(
-                                                cause: Throwable,
-                                                ctx: ChannelHandlerContext,
-                                                stream: Http2FrameStream,
-                                              ): Unit = {
+    cause: Throwable,
+    ctx: ChannelHandlerContext,
+    stream: Http2FrameStream,
+  ): Unit = {
     val headers = new DefaultHttp2Headers().status(INTERNAL_SERVER_ERROR.asJava.codeAsText())
     headers
       .set(HttpHeaderNames.SERVER, "ZIO-Http")
@@ -203,10 +203,10 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
    * Writes any response to the Channel
    */
   def unsafeWriteAnyResponse[A](
-                                 res: Response,
-                                 ctx: ChannelHandlerContext,
-                                 stream: Http2FrameStream,
-                               ): Unit = {
+    res: Response,
+    ctx: ChannelHandlerContext,
+    stream: Http2FrameStream,
+  ): Unit = {
 
     val headers = new DefaultHttp2Headers().status(res.status.asJava.codeAsText())
 

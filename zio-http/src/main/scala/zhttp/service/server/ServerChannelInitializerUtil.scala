@@ -28,13 +28,13 @@ case object ServerChannelInitializerUtil {
   }
 
   def configureClearTextHttp2(
-                               reqHandler: ChannelHandler,
-                               resHandler: ChannelHandler,
-                               http2Handler: ChannelHandler,
-                               c: Channel,
-                               cfg: Config[_, Throwable],
-                               enableEncryptedMessageFilter: Boolean = false,
-                             ) = {
+    reqHandler: ChannelHandler,
+    resHandler: ChannelHandler,
+    http2Handler: ChannelHandler,
+    c: Channel,
+    cfg: Config[_, Throwable],
+    enableEncryptedMessageFilter: Boolean = false,
+  ) = {
     val p           = c.pipeline
     val sourceCodec = new HttpServerCodec
     if (enableEncryptedMessageFilter)
@@ -52,25 +52,25 @@ case object ServerChannelInitializerUtil {
   }
 
   def configureClearTextHttp1(
-                               cfg: Config[_, Throwable],
-                               reqHandler: ChannelHandler,
-                               respHandler: ChannelHandler,
-                               pipeline: ChannelPipeline,
-                             ) = {
+    cfg: Config[_, Throwable],
+    reqHandler: ChannelHandler,
+    respHandler: ChannelHandler,
+    pipeline: ChannelPipeline,
+  ) = {
 
     // ServerCodec
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
     pipeline.addLast(
-      "decoder",
+      SERVER_DECODER_HANDLER,
       new HttpRequestDecoder(DEFAULT_MAX_INITIAL_LINE_LENGTH, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_CHUNK_SIZE, false),
     )
-    pipeline.addLast("encoder", new HttpResponseEncoder())
+    pipeline.addLast(SERVER_ENCODER_HANDLER, new HttpResponseEncoder())
 
     // TODO: See if server codec is really required
 
     // ObjectAggregator
     // Always add ObjectAggregator
-    pipeline.addLast(OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
+    pipeline.addLast(SERVER_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
 
     // ExpectContinueHandler
     // Add expect continue handler is settings is true

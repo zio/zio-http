@@ -16,14 +16,14 @@ trait DecodeJRequest {
    * [Request].
    */
   def decodeHttp2Header(
-                         hh: Http2HeadersFrame,
-                         ctx: ChannelHandlerContext,
-                         dataL: List[DefaultHttp2DataFrame] = null,
-                       ): Either[IOException, Request] = for {
+    hh: Http2HeadersFrame,
+    ctx: ChannelHandlerContext,
+    dataL: List[DefaultHttp2DataFrame] = null,
+  ): Either[IOException, Request] = for {
     url <- URL.fromString(hh.headers().path().toString)
-    method = Method.fromString(hh.headers().method().toString)
-    headers = Headers.fromHttp2Headers(hh.headers())
-    data =
+    method        = Method.fromString(hh.headers().method().toString)
+    headers       = Headers.fromHttp2Headers(hh.headers())
+    data          =
       if (dataL == null) HttpData.empty
       else {
         @tailrec
@@ -42,7 +42,7 @@ trait DecodeJRequest {
     remoteAddress = {
       ctx.channel().remoteAddress() match {
         case m: InetSocketAddress => Some(m.getAddress())
-        case _ => None
+        case _                    => None
       }
     }
   } yield Request(method, url, headers, remoteAddress, data)

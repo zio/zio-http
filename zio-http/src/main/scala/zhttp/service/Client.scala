@@ -80,14 +80,15 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
           val sslOption: ClientSSLOptions = req.attribute.ssl.getOrElse(ClientSSLOptions.DefaultSSL)
 
           // If a https or wss request is made we need to add the ssl handler at the starting of the pipeline.
-          if (isSSL) pipeline.addLast(SSL_HANDLER, ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc, host, port))
+          if (isSSL)
+            pipeline.addLast(CLIENT_SSL_HANDLER, ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc, host, port))
 
           // Adding default client channel handlers
-          pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec)
+          pipeline.addLast(CLIENT_CODEC_HANDLER, new HttpClientCodec)
 
           // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
           // This is also required to make WebSocketHandlers work
-          pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
+          pipeline.addLast(CLIENT_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
 
           // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
           pipeline.addLast(CLIENT_INBOUND_HANDLER, new ClientInboundHandler(rtm, jReq, promise, isWebSocket))

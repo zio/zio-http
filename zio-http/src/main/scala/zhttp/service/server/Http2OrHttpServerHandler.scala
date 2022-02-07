@@ -6,11 +6,11 @@ import zhttp.service.Server.Config
 import zhttp.service._
 import zhttp.service.server.ServerChannelInitializerUtil.configureClearTextHttp1
 final case class Http2OrHttpServerHandler(
-                                           reqHandler: ChannelHandler,
-                                           respHandler: ChannelHandler,
-                                           http2Handler: ChannelHandler,
-                                           cfg: Config[_, Throwable],
-                                         ) extends ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
+  reqHandler: ChannelHandler,
+  respHandler: ChannelHandler,
+  http2Handler: ChannelHandler,
+  cfg: Config[_, Throwable],
+) extends ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
   @throws[Exception]
   override protected def configurePipeline(ctx: JChannelHandlerContext, protocol: String): Unit = {
     if (ApplicationProtocolNames.HTTP_2 == protocol) {
