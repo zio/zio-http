@@ -2,11 +2,11 @@ package zhttp.service.client.model
 
 import zhttp.http.Method.GET
 import zhttp.http._
-import zhttp.service.Client.{ClientRequest, ClientResponse, Config}
+import zhttp.service.Client.{Attribute, ClientRequest, ClientResponse, Config}
 import zhttp.service.HttpMessageCodec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.transport.ClientConnectionManager
-import zio.Task
+import zio.{Task, ZIO}
 import zio.stream.ZStream
 
 case class DefaultClient(
@@ -14,17 +14,29 @@ case class DefaultClient(
   connectionManager: ClientConnectionManager,
 ) extends HttpMessageCodec {
 
-  // methods for compatiblity with existing client use
-  def run(req: ClientRequest): Task[ClientResponse] = ???
+  // methods for compatibility with existing client use
+  def run(req: ClientRequest): Task[ClientResponse] = for {
+    jReq    <- encode(req)
+    channel <- connectionManager.fetchConnection(jReq, req)
+    prom    <- zio.Promise.make[Throwable, ClientResponse]
+    _       <- connectionManager.scheduleRequest(channel,ConnectionRuntime(prom, jReq))
+    resp    <- prom.await
+  } yield resp
 
-  // methods for compatiblity with existing client use
+  // methods for compatibility with existing client use
   def run(
     str: String,
     method: Method = GET,
     headers: Headers = Headers.empty,
     content: HttpData = HttpData.empty,
     ssl: Option[ClientSSLOptions] = None,
-  ): Task[ClientResponse] = ???
+  ): Task[ClientResponse] =
+    for {
+      url <- ZIO.fromEither(URL.fromString(str))
+      req = ClientRequest(url, method, headers, content, attribute = Attribute(ssl = ssl))
+      res <- run(req)
+    } yield res
+
 
   /**
    * Submits a GET request to the specified zhttp URL
