@@ -66,6 +66,11 @@ final case class ServerChannelInitializer[R](
     // Flushing content is done in batches. Can potentially improve performance.
     if (cfg.consolidateFlush) pipeline.addLast(HTTP_SERVER_FLUSH_CONSOLIDATION, new FlushConsolidationHandler)
 
+    // HttpContentCompressor
+    // Add HttpContentCompressor if setting is true
+    // TODO Add support for CompressionOptions
+    if (cfg.httpCompression) pipeline.addLast(HTTP_CONTENT_COMPRESSOR, new HttpContentCompressor())
+
     // RequestHandler
     // Always add ZIO Http Request Handler
     pipeline.addLast(HTTP_REQUEST_HANDLER, reqHandler)

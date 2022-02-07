@@ -30,6 +30,7 @@ sealed trait Server[-R, +E] { self =>
     case KeepAlive(enabled)        => s.copy(keepAlive = enabled)
     case FlowControl(enabled)      => s.copy(flowControl = enabled)
     case ConsolidateFlush(enabled) => s.copy(consolidateFlush = enabled)
+    case HttpCompression(enabled)  => s.copy(httpCompression = enabled)
   }
 
   def make(implicit
@@ -117,6 +118,11 @@ sealed trait Server[-R, +E] { self =>
    * href="https://netty.io/4.1/api/io/netty/handler/flush/FlushConsolidationHandler.html">FlushConsolidationHandler<a>).
    */
   def withConsolidateFlush(enable: Boolean): Server[R, E] = Concat(self, ConsolidateFlush(enable))
+
+  /**
+   * Creates a new server with HttpCompression
+   */
+  def withHttpCompression(enable: Boolean): Server[R, E] = Concat(self, HttpCompression(enable))
 }
 
 object Server {
@@ -133,6 +139,7 @@ object Server {
     keepAlive: Boolean = true,
     consolidateFlush: Boolean = false,
     flowControl: Boolean = true,
+    httpCompression: Boolean = false,
   )
 
   /**
@@ -151,6 +158,7 @@ object Server {
   private final case class ConsolidateFlush(enabled: Boolean)                         extends Server[Any, Nothing]
   private final case class AcceptContinue(enabled: Boolean)                           extends UServer
   private final case class FlowControl(enabled: Boolean)                              extends UServer
+  private final case class HttpCompression(enabled: Boolean)                          extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -169,6 +177,7 @@ object Server {
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
   val disableKeepAlive: UServer      = Server.KeepAlive(false)
   val consolidateFlush: UServer      = ConsolidateFlush(true)
+  val httpCompression: UServer       = HttpCompression(true)
 
   /**
    * Creates a server from a http app.
