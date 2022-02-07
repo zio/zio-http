@@ -2,34 +2,19 @@ package zhttp.service.client.model
 
 import zhttp.http.Method.GET
 import zhttp.http._
-import zhttp.service.Client.{Attribute, ClientRequest, ClientResponse, Config}
+import zhttp.service.Client.{ClientRequest, ClientResponse, Config}
 import zhttp.service.HttpMessageCodec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.transport.ClientConnectionManager
 import zio.stream.ZStream
-import zio.{Task, ZIO}
+import zio.{Task}
 
 case class DefaultClient(
   settings: Config,
   connectionManager: ClientConnectionManager,
 ) extends HttpMessageCodec {
 
-  def run(req: ClientRequest): Task[ClientResponse] =
-    for {
-      jReq    <- encode(req)
-      channel <- connectionManager.fetchConnection(jReq, req)
-      prom    <- zio.Promise.make[Throwable, ClientResponse]
-      // the part below can be moved to connection manager.
-      _       <- ZIO.effect(
-        connectionManager.connectionState.currentAllocatedChannels += (channel -> ConnectionRuntime(prom, jReq)),
-      )
-      // trigger the channel, triggering inbound event propagation
-      // should be part of connection manager?
-      _       <- ZIO.effect {
-        channel.pipeline().fireChannelActive()
-      }
-      resp    <- prom.await
-    } yield resp
+  def run(req: ClientRequest): Task[ClientResponse] = ???
 
   def run(
     str: String,
@@ -37,13 +22,7 @@ case class DefaultClient(
     headers: Headers = Headers.empty,
     content: HttpData = HttpData.empty,
     ssl: Option[ClientSSLOptions] = None,
-  ): Task[ClientResponse] = {
-    for {
-      url <- ZIO.fromEither(URL.fromString(str))
-      req = ClientRequest(url, method, headers, content, attribute = Attribute(ssl = ssl))
-      res <- run(req)
-    } yield res
-  }
+  ): Task[ClientResponse] = ???
 
   /**
    * Submits a GET request to the specified URI

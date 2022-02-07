@@ -2,13 +2,13 @@ package zhttp.service.client.transport
 
 import io.netty.channel
 import io.netty.channel.embedded.EmbeddedChannel
-import io.netty.channel.epoll.{EpollServerSocketChannel, EpollSocketChannel}
-import io.netty.channel.kqueue.{KQueueServerSocketChannel, KQueueSocketChannel}
+import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel, EpollSocketChannel}
+import io.netty.channel.kqueue.{KQueueEventLoopGroup, KQueueServerSocketChannel, KQueueSocketChannel}
 import io.netty.channel.socket.nio.{NioServerSocketChannel, NioSocketChannel}
-import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ServerChannel, kqueue}
-import io.netty.incubator.channel.uring.{IOUringServerSocketChannel, IOUringSocketChannel}
+import io.netty.channel.{Channel, ServerChannel, kqueue, ChannelFactory => JChannelFactory}
+import io.netty.incubator.channel.uring.{IOUringEventLoopGroup, IOUringServerSocketChannel, IOUringSocketChannel}
 import zhttp.service.ChannelFactory
-import zio.{Task, ZManaged}
+import zio.{Task}
 
 /**
  * Support for various transport types.
@@ -17,64 +17,62 @@ import zio.{Task, ZManaged}
  *   - Native Kqueue Transport - Works on any BSD but mainly on MacOS.
  */
 sealed trait Transport  {
-  def eventLoopGroup(nThreads: Int): ZManaged[Any, Nothing, channel.EventLoopGroup]
+//  def eventLoopGroup(nThreads: Int): ZManaged[Any, Nothing, channel.EventLoopGroup]
   def channelInitializer: Task[JChannelFactory[ServerChannel]]
   def clientChannel: Task[JChannelFactory[Channel]]
-  def eventLoopGroupTask(nThreads: Int): Task[channel.EventLoopGroup]
+  def eventLoopGroup(nThreads: Int): Task[channel.EventLoopGroup]
 }
 object Transport        {
   import TransportFactory._
   case object Nio    extends Transport {
-    override def eventLoopGroup(nThreads: Int): ZManaged[Any, Nothing, channel.EventLoopGroup] =
-      EventLoopGroupN.Live.nio(nThreads)
 
     override def channelInitializer: Task[JChannelFactory[ServerChannel]] = nio
 
     override def clientChannel: Task[JChannelFactory[Channel]] = clientNio
 
-    override def eventLoopGroupTask(nThreads: Int): Task[channel.EventLoopGroup] =
-      EventLoopGroupN.nioTask(nThreads)
+    override def eventLoopGroup(nThreads: Int): Task[channel.EventLoopGroup] =
+      Task(new channel.nio.NioEventLoopGroup(nThreads))
   }
   case object Epoll  extends Transport {
-    override def eventLoopGroup(nThreads: Int): ZManaged[Any, Nothing, channel.EventLoopGroup] =
-      EventLoopGroupN.Live.epoll(nThreads)
+    def isAvailable = io.netty.channel.epoll.Epoll.isAvailable
 
     override def channelInitializer: Task[JChannelFactory[ServerChannel]] = epoll
 
     override def clientChannel: Task[JChannelFactory[Channel]] = clientEpoll
 
-    override def eventLoopGroupTask(nThreads: Int): Task[channel.EventLoopGroup] = EventLoopGroupN.epollTask(nThreads)
+    override def eventLoopGroup(nThreads: Int): Task[channel.EventLoopGroup] =
+      Task(new EpollEventLoopGroup(nThreads))
   }
   case object KQueue extends Transport {
-    override def eventLoopGroup(nThreads: Int): ZManaged[Any, Nothing, channel.EventLoopGroup] =
-      EventLoopGroupN.Live.kQueue(nThreads)
+    def isAvailable = io.netty.channel.kqueue.KQueue.isAvailable
 
     override def channelInitializer: Task[JChannelFactory[ServerChannel]] = kQueue
 
     override def clientChannel: Task[JChannelFactory[Channel]] = clientKQueue
 
-    override def eventLoopGroupTask(nThreads: Int): Task[channel.EventLoopGroup] =
-      EventLoopGroupN.Live.kQueueTask(nThreads)
+    override def eventLoopGroup(nThreads: Int): Task[channel.EventLoopGroup] =
+      Task(new KQueueEventLoopGroup(nThreads))
   }
   case object URing  extends Transport {
-    override def eventLoopGroup(nThreads: Int): ZManaged[Any, Nothing, channel.EventLoopGroup] =
-      EventLoopGroupN.Live.uring(nThreads)
 
     override def channelInitializer: Task[JChannelFactory[ServerChannel]] = uring
 
     override def clientChannel: Task[JChannelFactory[Channel]] = clientUring
 
-    override def eventLoopGroupTask(nThreads: Int): Task[channel.EventLoopGroup] = EventLoopGroupN.uringTask(nThreads)
+    override def eventLoopGroup(nThreads: Int): Task[channel.EventLoopGroup] =
+      Task(new IOUringEventLoopGroup(nThreads))
   }
   case object Auto   extends Transport {
-    override def eventLoopGroup(nThreads: Int): ZManaged[Any, Nothing, channel.EventLoopGroup] =
-      EventLoopGroupN.Live.auto(nThreads)
-
     override def channelInitializer: Task[JChannelFactory[ServerChannel]] = auto
 
     override def clientChannel: Task[JChannelFactory[Channel]] = clientAuto
 
-    override def eventLoopGroupTask(nThreads: Int): Task[channel.EventLoopGroup] = EventLoopGroupN.autoTask(nThreads)
+    override def eventLoopGroup(nThreads: Int): Task[channel.EventLoopGroup] =
+      if (Epoll.isAvailable) Epoll.eventLoopGroup(nThreads)
+      else if (KQueue.isAvailable)
+        KQueue.eventLoopGroup(nThreads)
+      else Nio.eventLoopGroup(nThreads)
+
   }
 }
 object TransportFactory {

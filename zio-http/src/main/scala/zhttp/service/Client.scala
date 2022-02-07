@@ -284,7 +284,7 @@ object Client {
     val settings = client.settings()
     for {
       channelFactory <- settings.transport.clientChannel
-      eventLoopGroup <- settings.transport.eventLoopGroupTask(settings.threads)
+      eventLoopGroup <- settings.transport.eventLoopGroup(settings.threads)
       zExec          <- zhttp.service.HttpRuntime.default[Any]
 
       clientBootStrap = new Bootstrap()
