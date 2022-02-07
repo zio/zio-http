@@ -1,17 +1,13 @@
 package zhttp.service.client.transport
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{Channel, ChannelFuture, ChannelFutureListener}
+import io.netty.channel.{Channel}
 import io.netty.handler.codec.http.FullHttpRequest
-import zhttp.http.HeaderNames
 import zhttp.service.Client.ClientRequest
-import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.content.handlers.{NewClientChannelInitializer, NewClientInboundHandler}
 import zhttp.service.client.model.ClientConnectionState.ReqKey
 import zhttp.service.client.model.{ClientConnectionState, Timeouts}
-import zio.{Ref, Task, ZIO}
+import zio.{Ref, Task}
 
-import java.net.InetSocketAddress
 import scala.collection.mutable
 
 /*
@@ -22,7 +18,7 @@ import scala.collection.mutable
  */
 case class ClientConnectionManager(
   connRef: Ref[mutable.Map[ReqKey, Channel]],
-  zConnectionState: ClientConnectionState,
+  connectionState: ClientConnectionState,
   timeouts: Timeouts,
   boo: Bootstrap,
   zExec: zhttp.service.HttpRuntime[Any],
@@ -41,40 +37,7 @@ case class ClientConnectionManager(
    * @param jReq
    * @return
    */
-  def fetchConnection(jReq: FullHttpRequest, req: ClientRequest): Task[Channel] = {
-    for {
-      mp <- connRef.get
-//      uriAuthority <- getUriAuthority(jReq)
-
-      uri  = new java.net.URI(jReq.uri())
-      host = if (uri.getHost == null) jReq.headers().get(HeaderNames.host) else uri.getHost
-
-      _ <- Task(assert(host != null, "Host name is required"))
-
-      port   = req.url.port.getOrElse(80)
-      reqKey = new InetSocketAddress(host, port)
-
-      isWebSocket = req.url.scheme.exists(_.isWebSocket)
-      isSSL       = req.url.scheme.exists(_.isSecure)
-
-      // if already key exists for existing connections re-use it
-      // else build a new connection (channel)
-      conn <- mp.get(reqKey) match {
-        case Some(c) =>
-          println(s"REUSING CONNECTION for $reqKey")
-          // To be tested to check if the channel is currently busy
-          if (c.isWritable)
-            Task.succeed(c)
-          else
-            buildChannel(reqKey, isWebSocket, isSSL)
-        case _       =>
-          buildChannel(reqKey, isWebSocket, isSSL)
-      }
-      _    <- connRef.update { m =>
-        m += (reqKey -> conn)
-      }
-    } yield conn
-  }
+  def fetchConnection(jReq: FullHttpRequest, req: ClientRequest): Task[Channel] = ???
 
   /**
    * build an underlying connection (channel for a given request key)
@@ -83,43 +46,7 @@ case class ClientConnectionManager(
    * @tparam R
    * @return
    */
-  def buildChannel[R](reqKey: ReqKey, isWebSocket: Boolean = false, isSSL: Boolean = false): Task[Channel] = {
-    for {
-      init <- ZIO.effect(
-        NewClientChannelInitializer(
-          NewClientInboundHandler(zExec, zConnectionState),
-          isWebSocket,
-          isSSL,
-          reqKey,
-          ClientSSLOptions.DefaultSSL,
-        ),
-      )
-      (h, p) = (reqKey.getHostName, reqKey.getPort)
-      chf    = boo.handler(init).connect(h, p)
-      // optional can be removed if not really utilised.
-      _ <- attachHandler(chf)
-    } yield chf.channel()
-  }
-
-  /*
-    mostly kept for debugging purposes
-    or if we need to do something during creation lifecycle.
-   */
-  def attachHandler(chf: ChannelFuture) = {
-    ZIO
-      .effect(
-        chf.addListener(new ChannelFutureListener() {
-          override def operationComplete(future: ChannelFuture): Unit = {
-            if (!future.isSuccess()) {
-              println(s"error: ${future.cause().getMessage}")
-              future.cause().printStackTrace()
-            } else {
-              //                println("FUTURE SUCCESS");
-            }
-          }
-        }): Unit,
-      )
-  }
+  def buildChannel[R](reqKey: ReqKey, isWebSocket: Boolean = false, isSSL: Boolean = false): Task[Channel] = ???
 
 //  private def incrementConnection = ???
 //  private def decrementConnection = ???

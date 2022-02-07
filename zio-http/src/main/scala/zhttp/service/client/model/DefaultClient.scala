@@ -21,7 +21,7 @@ case class DefaultClient(
       prom <- zio.Promise.make[Throwable, ClientResponse]
       // the part below can be moved to connection manager.
       _ <- ZIO.effect(
-        connectionManager.zConnectionState.currentAllocatedChannels += (channel -> ConnectionRuntime(prom, jReq)),
+        connectionManager.connectionState.currentAllocatedChannels += (channel -> ConnectionRuntime(prom, jReq)),
       )
       // trigger the channel, triggering inbound event propagation
       // should be part of connection manager?
