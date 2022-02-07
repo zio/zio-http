@@ -33,7 +33,10 @@ final case class ServerChannelInitializer[R](
     val sslContextBuilder = if (cfg.sslOption == null) null else cfg.sslOption.sslContextBuilder
     if (sslContextBuilder != null)
       pipeline
-        .addFirst(SSL_HANDLER, new OptionalSSLHandler(sslContextBuilder.build(), cfg.sslOption.httpBehaviour, cfg))
+        .addFirst(
+          SSL_HANDLER,
+          new OptionalSSLHandler(ServerSSLBuilder.build(sslContextBuilder), cfg.sslOption.httpBehaviour, cfg),
+        )
 
     // ServerCodec
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
