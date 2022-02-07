@@ -2,6 +2,7 @@ package zhttp.http.middleware
 
 import zhttp.http._
 import zhttp.http.headers.HeaderModifier
+import zhttp.http.middleware.Log.DefaultLogConfig
 import zhttp.http.middleware.Web.{PartialInterceptPatch, PartialInterceptZIOPatch}
 import zio._
 
@@ -41,6 +42,55 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
             .mapError(Option(_))
         } yield Patch.empty
     }
+
+  /**
+   * Provides a logging middleware
+   */
+  def log[R](
+    logFmt: LogFmt = DefaultLogConfig,
+  ): HttpMiddleware[R with Clock, Throwable] = {
+
+    def logRequest[R0](
+      request: Request,
+      startTime: Long,
+    ): ZIO[R0, Throwable, Long] = {
+      val logData = logFmt.run(request)
+      logData.flatMap { log =>
+        ZIO.logInfo(log).as(startTime)
+      }
+
+    }
+
+    def logResponse[R0](
+      response: Response,
+      startTime: Long,
+      endTime: Long,
+    ): ZIO[R0, Option[Throwable], Patch] = {
+      val logData =
+        logFmt.run(response, startTime, endTime)
+      if (response.status.asJava.code() > 499) {
+        logData.flatMap { log =>
+          ZIO.logError(log)
+        }.mapBoth(e => Some(e), _ => Patch.empty)
+      } else {
+        logData.flatMap { log =>
+          ZIO.logInfo(log)
+        }.mapBoth(e => Some(e), _ => Patch.empty)
+      }
+    }
+
+    interceptZIOPatch(req =>
+      ZIO
+        .succeed(java.lang.System.currentTimeMillis())
+        .flatMap(start => logRequest(req, start).mapError(e => Some(e))),
+    ) { case (response, start) =>
+      for {
+        end <- ZIO.succeed(java.lang.System.currentTimeMillis())
+        _   <- logResponse(response, start, end)
+      } yield Patch.empty
+    }
+
+  }
 
   /**
    * Logical operator to decide which middleware to select based on the header
