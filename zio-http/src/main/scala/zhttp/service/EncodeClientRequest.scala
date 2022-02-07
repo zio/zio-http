@@ -10,8 +10,8 @@ trait EncodeClientRequest {
    */
   def encode(req: Client.ClientRequest): Task[FullHttpRequest] =
     req.getBodyAsByteBuf.map { content =>
-      val method   = req.method.asHttpMethod
-      val jVersion = req.version
+      val method   = req.method.toJava
+      val jVersion = req.version.toJava
 
       // As per the spec, the path should contain only the relative path.
       // Host and port information should be in the headers.

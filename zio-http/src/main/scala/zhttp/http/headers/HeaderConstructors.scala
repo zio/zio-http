@@ -54,7 +54,7 @@ trait HeaderConstructors {
     Headers(HeaderNames.accessControlRequestHeaders, value)
 
   final def accessControlRequestMethod(method: Method): Headers =
-    Headers(HeaderNames.accessControlRequestMethod, method.asHttpMethod.name())
+    Headers(HeaderNames.accessControlRequestMethod, method.toJava.name())
 
   final def age(value: CharSequence): Headers =
     Headers(HeaderNames.age, value)

@@ -3,8 +3,7 @@ package zhttp.http
 import io.netty.handler.codec.http.HttpMethod
 
 sealed trait Method { self =>
-  lazy val asHttpMethod: HttpMethod = Method.asHttpMethod(self)
-
+  lazy val toJava: HttpMethod     = Method.asHttpMethod(self)
   override def toString(): String = Method.asHttpMethod(self).name()
 }
 
