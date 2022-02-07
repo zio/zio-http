@@ -9,7 +9,8 @@ import zhttp.socket.{SocketApp, WebSocketFrame}
 import zio.stream.ZStream
 
 /**
- * A generic SocketApp handler that can be used on both - the client and the server.
+ * A generic SocketApp handler that can be used on both - the client and the
+ * server.
  */
 final class WebSocketAppHandler[R](
   zExec: HttpRuntime[R],

@@ -17,7 +17,7 @@ trait EncodeClientRequest {
       // Host and port information should be in the headers.
       val path = req.url.relative.encode
 
-      val encodedReqHeaders = req.getHeaders.encode
+      val encodedReqHeaders = req.headers.encode
 
       val headers = req.url.host match {
         case Some(value) => encodedReqHeaders.set(HttpHeaderNames.HOST, value)

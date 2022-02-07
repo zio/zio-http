@@ -41,8 +41,8 @@ object SocketDecoder {
   private case object Default                                         extends SocketDecoder
 
   /**
-   * Sets Maximum length of a frame's payload. Setting this to an appropriate value for you application helps check for
-   * denial of services attacks.
+   * Sets Maximum length of a frame's payload. Setting this to an appropriate
+   * value for you application helps check for denial of services attacks.
    */
   def maxFramePayloadLength(length: Int): SocketDecoder = MaxFramePayloadLength(length)
 
@@ -52,7 +52,8 @@ object SocketDecoder {
   def rejectMaskedFrames: SocketDecoder = RejectMaskedFrames
 
   /**
-   * When set to true, frames which are not masked properly according to the standard will still be accepted.
+   * When set to true, frames which are not masked properly according to the
+   * standard will still be accepted.
    */
   def allowMaskMismatch: SocketDecoder = AllowMaskMismatch
 
@@ -67,8 +68,9 @@ object SocketDecoder {
   def allowProtocolViolation: SocketDecoder = AllowProtocolViolation
 
   /**
-   * Allows you to avoid adding of Utf8FrameValidator to the pipeline on the WebSocketServerProtocolHandler creation.
-   * This is useful (less overhead) when you use only BinaryWebSocketFrame within your web socket connection.
+   * Allows you to avoid adding of Utf8FrameValidator to the pipeline on the
+   * WebSocketServerProtocolHandler creation. This is useful (less overhead)
+   * when you use only BinaryWebSocketFrame within your web socket connection.
    */
   def skipUTF8Validation: SocketDecoder = SkipUTF8Validation
 
