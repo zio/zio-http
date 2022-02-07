@@ -13,7 +13,7 @@ import zio.stream.ZStream
 
 import java.io.FileNotFoundException
 import java.nio.charset.Charset
-import java.nio.file.{Files, Paths, Path => JPath}
+import java.nio.file.{Files, Path => JPath, Paths}
 import scala.annotation.unused
 
 /**
