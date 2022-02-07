@@ -3,13 +3,13 @@ package example
 import zhttp.http._
 import zhttp.service.client.DefaultClient
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{EventLoopGroup, NewClient, Server}
+import zhttp.service.{Client, EventLoopGroup, Server}
 import zio.{App, ExitCode, URIO, ZIO}
 
 /**
- * Self contained NewClient demo with server.
+ * Self contained enhanced Client demo with server.
  */
-object NewClientTest extends App {
+object EnhancedClientTest extends App {
 
   // Creating a test server
   private val PORT = 8081
@@ -34,9 +34,9 @@ object NewClientTest extends App {
   def clientTest = {
     for {
       client <- (
-        NewClient.threads(2) ++
-          NewClient.maxConnectionsPerRequestKey(10) ++
-          NewClient.maxTotalConnections(20)
+        Client.threads(2) ++
+          Client.maxConnectionsPerRequestKey(10) ++
+          Client.maxTotalConnections(20)
       ).make
       _      <- triggerClientSequential(client)
     } yield ()

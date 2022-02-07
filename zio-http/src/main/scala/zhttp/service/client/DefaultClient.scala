@@ -4,7 +4,7 @@ import zhttp.http.Method.GET
 import zhttp.http._
 import zhttp.service.Client.{Attribute, ClientRequest, ClientResponse}
 import zhttp.service.HttpMessageCodec
-import zhttp.service.NewClient.Config
+import zhttp.service.Client.Config
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.model.ConnectionRuntime
 import zhttp.service.client.transport.ClientConnectionManager
