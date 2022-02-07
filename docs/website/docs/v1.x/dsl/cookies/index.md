@@ -1,7 +1,7 @@
 # Cookie
 
 **ZIO HTTP** `Cookie` is designed to use HTTP [cookies](https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies) easily.
-## Creating a Cookie
+## Create a Cookie
 
 `Cookie` can be created with params `name`, `content`, `expires`, `domain`, `path`, `isSecure`, `isHttpOnly`, `maxAge`, `sameSite` and `secret` according to HTTP [Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie)  
 
@@ -9,7 +9,7 @@ The below snippet creates a cookie `name` as `id` and `content` as `abc` with de
 ```scala
  val cookie: Cookie = Cookie("id", "abc")
 ```
-### Updating a Cookie
+### Update a Cookie
 
 - `withContent` updates the content of cookie
 ```scala
