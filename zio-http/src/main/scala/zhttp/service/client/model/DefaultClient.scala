@@ -10,34 +10,34 @@ import zio.stream.ZStream
 import zio.{Task, ZIO}
 
 case class DefaultClient(
-                          settings: Config,
-                          connectionManager: ClientConnectionManager,
-                        ) extends HttpMessageCodec {
+  settings: Config,
+  connectionManager: ClientConnectionManager,
+) extends HttpMessageCodec {
 
   def run(req: ClientRequest): Task[ClientResponse] =
     for {
-      jReq <- encode(req)
+      jReq    <- encode(req)
       channel <- connectionManager.fetchConnection(jReq, req)
-      prom <- zio.Promise.make[Throwable, ClientResponse]
+      prom    <- zio.Promise.make[Throwable, ClientResponse]
       // the part below can be moved to connection manager.
-      _ <- ZIO.effect(
+      _       <- ZIO.effect(
         connectionManager.connectionState.currentAllocatedChannels += (channel -> ConnectionRuntime(prom, jReq)),
       )
       // trigger the channel, triggering inbound event propagation
       // should be part of connection manager?
-      _ <- ZIO.effect {
+      _       <- ZIO.effect {
         channel.pipeline().fireChannelActive()
       }
-      resp <- prom.await
+      resp    <- prom.await
     } yield resp
 
   def run(
-           str: String,
-           method: Method = GET,
-           headers: Headers = Headers.empty,
-           content: HttpData = HttpData.empty,
-           ssl: Option[ClientSSLOptions] = None,
-         ): Task[ClientResponse] = {
+    str: String,
+    method: Method = GET,
+    headers: Headers = Headers.empty,
+    content: HttpData = HttpData.empty,
+    ssl: Option[ClientSSLOptions] = None,
+  ): Task[ClientResponse] = {
     for {
       url <- ZIO.fromEither(URL.fromString(str))
       req = ClientRequest(url, method, headers, content, attribute = Attribute(ssl = ssl))
@@ -49,7 +49,7 @@ case class DefaultClient(
    * Submits a GET request to the specified URI
    *
    * @param uri
-   * The URI to GET
+   *   The URI to GET
    */
   def run(url: URL): Task[Response] = ???
 
@@ -92,14 +92,14 @@ case class DefaultClient(
    * Submits a request, and provides a callback to process the response.
    *
    * @param req
-   * The request to submit
+   *   The request to submit
    * @param f
-   * A callback for the response to req. The underlying HTTP connection is
-   * maintained by internal connection manager and kept alive or terminated
-   * based on configurations. In case of connection getting terminated attempt
-   * to read the response will result in error.
+   *   A callback for the response to req. The underlying HTTP connection is
+   *   maintained by internal connection manager and kept alive or terminated
+   *   based on configurations. In case of connection getting terminated attempt
+   *   to read the response will result in error.
    * @return
-   * The result of applying f to the response to req
+   *   The result of applying f to the response to req
    */
   def run[A](req: Request)(f: Response => Task[A]): Task[A] = ???
 
@@ -107,14 +107,14 @@ case class DefaultClient(
    * Submits a request, and provides a callback to process the response.
    *
    * @param req
-   * An effect (???) of the request to submit
+   *   An effect (???) of the request to submit
    * @param f
-   * A callback for the response to req. The underlying HTTP connection is
-   * maintained by internal connection manager and kept alive or terminated
-   * based on configurations. In case of connection getting terminated attempt
-   * to read the response will result in error.
+   *   A callback for the response to req. The underlying HTTP connection is
+   *   maintained by internal connection manager and kept alive or terminated
+   *   based on configurations. In case of connection getting terminated attempt
+   *   to read the response will result in error.
    * @return
-   * The result of applying f to the response to req
+   *   The result of applying f to the response to req
    */
   //    def run[A](req: ZIO[?,?,Request])(f: Response => Task[A]): Task[A] = ???
 

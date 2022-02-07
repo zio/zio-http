@@ -1,7 +1,7 @@
 package zhttp.service.client.transport
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{Channel}
+import io.netty.channel.Channel
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.service.Client.ClientRequest
 import zhttp.service.client.model.ClientConnectionState.ReqKey

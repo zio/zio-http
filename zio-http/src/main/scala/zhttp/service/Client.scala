@@ -2,7 +2,7 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
-import io.netty.channel.{Channel, ChannelHandlerContext, ChannelInitializer, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, EventLoopGroup => JEventLoopGroup}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, ChannelHandlerContext, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
@@ -10,8 +10,8 @@ import zhttp.http.headers.HeaderExtension
 import zhttp.service
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.model.{ClientConnectionState, DefaultClient, Timeouts}
 import zhttp.service.client.model.ClientConnectionState.ReqKey
+import zhttp.service.client.model.{ClientConnectionState, DefaultClient, Timeouts}
 import zhttp.service.client.transport.{ClientConnectionManager, Transport}
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler, model}
 import zhttp.socket.{Socket, SocketApp}
@@ -225,23 +225,23 @@ object Client {
 
   type UClient = Client
   protected[zhttp] final case class Config(
-                                            transport: Transport = Transport.Auto,
-                                            threads: Int = 0,
-                                            responseHeaderTimeout: Duration =
-                                            Duration.Infinity, // duration between the submission of request and the completion of the response header
-                                            // Does not include time to read the response body
-                                            idleTimeout: Duration = Duration.fromScala(1.minute),
-                                            requestTimeout: Duration = Duration.fromScala(1.minute),      //
-                                            connectionTimeout: Duration = Duration.fromScala(10.seconds), //
-                                            userAgent: Option[String] = Some("Client"),                   //
-                                            maxTotalConnections: Int = 10,                                //
-                                            maxWaitQueueLimit: Int = 256,                                 //
-                                            maxConnectionsPerRequestKey: Int = 20,                        //
-                                            //    sslContext: ClientSSLOptions,      //
+    transport: Transport = Transport.Auto,
+    threads: Int = 0,
+    responseHeaderTimeout: Duration =
+      Duration.Infinity, // duration between the submission of request and the completion of the response header
+    // Does not include time to read the response body
+    idleTimeout: Duration = Duration.fromScala(1.minute),
+    requestTimeout: Duration = Duration.fromScala(1.minute),      //
+    connectionTimeout: Duration = Duration.fromScala(10.seconds), //
+    userAgent: Option[String] = Some("Client"),                   //
+    maxTotalConnections: Int = 10,                                //
+    maxWaitQueueLimit: Int = 256,                                 //
+    maxConnectionsPerRequestKey: Int = 20,                        //
+    //    sslContext: ClientSSLOptions,      //
 
-                                          )
+  )
 
-  private final case class Concat[R, E](self: Client, other: Client) extends Client
+  private final case class Concat[R, E](self: Client, other: Client)       extends Client
   private final case class TransportConfig(transport: Transport)           extends UClient
   private final case class Threads(threads: Int)                           extends UClient
   private final case class ResponseHeaderTimeout(rht: Duration)            extends UClient
@@ -322,4 +322,3 @@ trait Client { self =>
     Client.make(self.asInstanceOf[Client])
 
 }
-
