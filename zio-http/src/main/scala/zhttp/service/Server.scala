@@ -41,13 +41,15 @@ sealed trait Server[-R, +E] { self =>
     make.useForever
 
   /**
-   * Launches the app with current settings: default EventLoopGroup (nThreads = 0) and ServerChannelFactory.auto.
+   * Launches the app with current settings: default EventLoopGroup (nThreads =
+   * 0) and ServerChannelFactory.auto.
    */
   def startDefault[R1 <: Has[_] with R](implicit ev: E <:< Throwable): ZIO[R1, Throwable, Nothing] =
     start.provideSomeLayer[R1](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   /**
-   * Creates a new server with the maximum size of the request specified in bytes.
+   * Creates a new server with the maximum size of the request specified in
+   * bytes.
    */
   def withMaxRequestSize(size: Int): Server[R, E] = Concat(self, Server.MaxRequestSize(size))
 
@@ -85,7 +87,8 @@ sealed trait Server[-R, +E] { self =>
   def withSsl(sslOptions: ServerSSLOptions): Server[R, E] = Concat(self, Server.Ssl(sslOptions))
 
   /**
-   * Creates a new server using a HttpServerExpectContinueHandler to send a 100 HttpResponse if necessary.
+   * Creates a new server using a HttpServerExpectContinueHandler to send a 100
+   * HttpResponse if necessary.
    */
   def withAcceptContinue(enable: Boolean): Server[R, E] = Concat(self, Server.AcceptContinue(enable))
 
@@ -102,15 +105,15 @@ sealed trait Server[-R, +E] { self =>
   def withLeakDetection(level: LeakDetectionLevel): Server[R, E] = Concat(self, LeakDetection(level))
 
   /**
-   * Creates a new server with netty's HttpServerKeepAliveHandler to close persistent connections when enable is true
-   * (@see <a
+   * Creates a new server with netty's HttpServerKeepAliveHandler to close
+   * persistent connections when enable is true (@see <a
    * href="https://netty.io/4.1/api/io/netty/handler/codec/http/HttpServerKeepAliveHandler.html">HttpServerKeepAliveHandler</a>).
    */
   def withKeepAlive(enable: Boolean): Server[R, E] = Concat(self, KeepAlive(enable))
 
   /**
-   * Creates a new server with FlushConsolidationHandler to control the flush operations in a more efficient way if
-   * enabled (@see <a
+   * Creates a new server with FlushConsolidationHandler to control the flush
+   * operations in a more efficient way if enabled (@see <a
    * href="https://netty.io/4.1/api/io/netty/handler/flush/FlushConsolidationHandler.html">FlushConsolidationHandler<a>).
    */
   def withConsolidateFlush(enable: Boolean): Server[R, E] = Concat(self, ConsolidateFlush(enable))
@@ -127,9 +130,9 @@ object Server {
     app: HttpApp[R, E] = Http.empty,
     address: InetSocketAddress = new InetSocketAddress(8080),
     acceptContinue: Boolean = false,
-    keepAlive: Boolean = false,
+    keepAlive: Boolean = true,
     consolidateFlush: Boolean = false,
-    flowControl: Boolean = false,
+    flowControl: Boolean = true,
   )
 
   /**
@@ -164,7 +167,7 @@ object Server {
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
-  val keepAlive: UServer             = KeepAlive(true)
+  val disableKeepAlive: UServer      = Server.KeepAlive(false)
   val consolidateFlush: UServer      = ConsolidateFlush(true)
 
   /**
@@ -215,7 +218,7 @@ object Server {
     for {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
-      zExec          <- HttpRuntime.default[R].toManaged_
+      zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
       reqHandler      = settings.app.compile(zExec, settings)
       respHandler     = ServerResponseHandler(zExec, settings, ServerTimeGenerator.make)
       init            = ServerChannelInitializer(zExec, settings, reqHandler, respHandler)

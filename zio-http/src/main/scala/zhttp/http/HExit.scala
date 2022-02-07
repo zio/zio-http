@@ -4,8 +4,9 @@ import zhttp.http.HExit.Effect
 import zio.ZIO
 
 /**
- * Every `HttpApp` evaluates to an `HExit`. This domain is needed for improved performance. This ensures that a `ZIO`
- * effect is created only when it is required. `HExit.Effect` wraps a ZIO effect, otherwise `HExits` are evaluated
+ * Every `HttpApp` evaluates to an `HExit`. This domain is needed for improved
+ * performance. This ensures that a `ZIO` effect is created only when it is
+ * required. `HExit.Effect` wraps a ZIO effect, otherwise `HExits` are evaluated
  * without `ZIO`
  */
 private[zhttp] sealed trait HExit[-R, +E, +A] { self =>

@@ -8,9 +8,10 @@ import java.util.concurrent.CancellationException
 final class ChannelFuture[A] private (jFuture: Future[A]) {
 
   /**
-   * Resolves when the underlying future resolves and removes the handler (output: A) - if the future is resolved
-   * successfully (cause: None) - if the future fails with a CancellationException (cause: Throwable) - if the future
-   * fails with any other Exception
+   * Resolves when the underlying future resolves and removes the handler
+   * (output: A) - if the future is resolved successfully (cause: None) - if the
+   * future fails with a CancellationException (cause: Throwable) - if the
+   * future fails with any other Exception
    */
   def execute: Task[Option[A]] = {
     var handler: GenericFutureListener[Future[A]] = { _ => {} }

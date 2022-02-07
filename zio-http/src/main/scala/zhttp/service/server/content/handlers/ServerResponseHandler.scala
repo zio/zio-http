@@ -55,8 +55,9 @@ private[zhttp] case class ServerResponseHandler[R](
   }
 
   /**
-   * Checks if an encoded version of the response exists, uses it if it does. Otherwise, it will return a fresh
-   * response. It will also set the server time if requested by the client.
+   * Checks if an encoded version of the response exists, uses it if it does.
+   * Otherwise, it will return a fresh response. It will also set the server
+   * time if requested by the client.
    */
   private def encodeResponse(res: Response): HttpResponse = {
 

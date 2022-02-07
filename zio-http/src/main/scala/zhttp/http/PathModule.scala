@@ -8,13 +8,17 @@ private[zhttp] trait PathModule { module =>
   val Root = !!
 
   sealed trait Path { self =>
+    final override def toString: String = this.encode
+
     final def /(name: String): Path = Path(self.toList :+ name)
 
     final def /:(name: String): Path = append(name)
 
     final def append(name: String): Path = if (name.isEmpty) self else Path.Cons(name, self)
 
-    final def asString: String = {
+    final def drop(n: Int): Path = Path(self.toList.drop(n))
+
+    final def encode: String = {
       def loop(self: Path): String = {
         self match {
           case Path.End              => ""
@@ -24,8 +28,6 @@ private[zhttp] trait PathModule { module =>
       val result                   = loop(self)
       if (result.isEmpty) "/" else result
     }
-
-    final def drop(n: Int): Path = Path(self.toList.drop(n))
 
     final def initial: Path = self match {
       case Path.End           => self
@@ -58,8 +60,6 @@ private[zhttp] trait PathModule { module =>
     final def take(n: Int): Path = Path(self.toList.take(n))
 
     def toList: List[String]
-
-    final override def toString: String = this.asString
   }
 
   object Path {

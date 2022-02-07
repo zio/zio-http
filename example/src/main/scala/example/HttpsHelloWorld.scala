@@ -14,9 +14,11 @@ object HttpsHelloWorld extends App {
   }
 
   /**
-   * sslcontext can be created using SslContexBuilder. In this example an inbuilt API using keystore is used. For
-   * testing this example using curl, setup the certificate named "server.crt" from resources for the OS. Alternatively
-   * you can create the keystore and certificate using the following link
+   * sslcontext can be created using SslContexBuilder. In this example an
+   * inbuilt API using keystore is used. For testing this example using curl,
+   * setup the certificate named "server.crt" from resources for the OS.
+   * Alternatively you can create the keystore and certificate using the
+   * following link
    * https://medium.com/@maanadev/netty-with-https-tls-9bf699e07f01
    */
   val sslctx = ctxFromCert(

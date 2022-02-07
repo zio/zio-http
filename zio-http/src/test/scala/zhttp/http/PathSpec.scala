@@ -32,15 +32,15 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
         ) +
         suite("asString")(
           test("a, b, c") {
-            val path = Path("a", "b", "c").asString
+            val path = Path("a", "b", "c").encode
             assert(path)(equalTo("/a/b/c"))
           } +
             test("Path()") {
-              val path = Path().asString
+              val path = Path().encode
               assert(path)(equalTo("/"))
             } +
             test("!!") {
-              val path = !!.asString
+              val path = !!.encode
               assert(path)(equalTo("/"))
             },
         ) +
@@ -69,7 +69,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
           } +
             suite("default")(
               test("extract path 'name' /: name") {
-                val path = collect { case "name" /: name => name.asString }
+                val path = collect { case "name" /: name => name.encode }
                 assert(path(Path("name", "a", "b", "c")))(isSome(equalTo("/a/b/c")))
               } +
                 test("extract paths 'name' /: a /: b /: 'c' /: !!") {
