@@ -31,9 +31,9 @@ private[zhttp] final case class Handler[R](
 
         override def url: URL = URL.unsafeFromString(jReq.uri())
 
-        override def getHeaders: Headers = Headers.make(jReq.headers())
+        override def headers: Headers = Headers.make(jReq.headers())
 
-        override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
+        override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
 
         override def remoteAddress: Option[InetAddress] = {
           ctx.channel().remoteAddress() match {

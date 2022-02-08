@@ -1,6 +1,7 @@
 package zhttp.socket
 
 import zhttp.http.{Http, Response}
+import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio.stream.ZStream
 import zio.{Cause, NeedsEnv, ZIO}
 
@@ -24,6 +25,11 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
     case Empty                       => ZStream.empty
   }
 
+  def connect(url: String)(implicit
+    ev: IsWebSocket[R, E, A, B],
+  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] =
+    self.toSocketApp.connect(url)
+
   def contramap[Z](za: Z => A): Socket[R, E, Z, B] = Socket.FCMap(self, za)
 
   def contramapZIO[R1 <: R, E1 >: E, Z](za: Z => ZIO[R1, E1, A]): Socket[R1, E1, Z, B] = Socket.FCMapZIO(self, za)
@@ -39,8 +45,9 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
     Socket.FOrElse(self, other)
 
   /**
-   * Provides the socket with its required environment, which eliminates its dependency on R. This operation assumes
-   * that your socket requires an environment.
+   * Provides the socket with its required environment, which eliminates its
+   * dependency on R. This operation assumes that your socket requires an
+   * environment.
    */
   def provide(r: R)(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = Provide(self, r)
 

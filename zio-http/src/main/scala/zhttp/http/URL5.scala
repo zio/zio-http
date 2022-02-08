@@ -73,7 +73,7 @@ object URL5 {
     fragment: Option[Fragment] = None,
   ) extends URL5
 
-  def unsafeDecode(string: String): URL5            = {
+  def unsafeDecode(string: String): URL5 = {
     try {
       val url = new URI(string)
       if (url.isAbsolute) unsafeFromAbsoluteURI(url) else unsafeFromRelativeURI(url)
@@ -81,15 +81,14 @@ object URL5 {
       case _: Throwable => null
     }
   }
+
+  private def portFromScheme(scheme: Scheme): Int = scheme match {
+    case Scheme.HTTP | Scheme.WS   => 80
+    case Scheme.HTTPS | Scheme.WSS => 443
+  }
+
   private def unsafeFromAbsoluteURI(uri: URI): URL5 = {
-
-    def portFromScheme(scheme: Scheme): Int = scheme match {
-      case Scheme.HTTP  => 80
-      case Scheme.HTTPS => 443
-      case null         => -1
-    }
-
-    val scheme  = Scheme.fromString2(uri.getScheme)
+    val scheme  = Scheme.decode2(uri.getScheme)
     val uriPort = uri.getPort
     val port    = if (uriPort != -1) uriPort else portFromScheme(scheme)
     val host    = uri.getHost

@@ -22,6 +22,11 @@ sealed trait URL { self =>
     case b: Absolute => b.scheme
     case r           => r.toAbsolute.getScheme
   }
+  def getPath: Path             = self match {
+    case a: Unsafe                   => a.toAbsolute.relative.path
+    case Absolute(_, _, _, relative) => relative.path
+    case Relative(path, _, _)        => path
+  }
 
   def toAbsolute: Absolute = self match {
     case Unsafe(x)   => URL.unsafeFromString(x)
@@ -89,39 +94,35 @@ object URL {
     fragment: Option[Fragment] = None,
   ) extends URL
 
-  def unsafeFromString(string: String): Absolute =
-    try {
-      val url = new URI(string)
-      if (url.isAbsolute) unsafeFromAbsoluteURI(url) else unsafeFromRelativeURI(url)
-    } catch {
-      case _: Throwable => throw new Error("Invalid URL")
-    }
-
-  private def unsafeFromAbsoluteURI(uri: URI): Absolute = {
-
-    def portFromScheme(scheme: Scheme): Int = scheme match {
-      case Scheme.HTTP  => 80
-      case Scheme.HTTPS => 443
-      case null         => -1
-    }
-
-    val scheme  = Scheme.fromString2(uri.getScheme)
-    val uriPort = uri.getPort
-    val port    = if (uriPort != -1) uriPort else portFromScheme(scheme)
-    val host    = uri.getHost
-
-    if (port != -1 && scheme != null && host != null)
-      Absolute(
-        Some(host),
-        Some(scheme),
-        Some(port),
-        Relative(Path(uri.getRawPath), queryParams(uri.getRawQuery), Fragment.fromURI(uri)),
-      )
-    else throw new Error()
+  private def portFromScheme(scheme: Scheme): Int = scheme match {
+    case Scheme.HTTP | Scheme.WS   => 80
+    case Scheme.HTTPS | Scheme.WSS => 443
   }
 
-  private def unsafeFromRelativeURI(uri: URI): Absolute =
-    Absolute(relative = Relative(Path(uri.getRawPath), queryParams(uri.getRawQuery), Fragment.fromURI(uri)))
+  def unsafeFromString(string: String): Absolute          = {
+    try {
+      val url = new URI(string)
+      if (url.isAbsolute) fromAbsoluteURI(url).orNull else fromRelativeURI(url).orNull
+    } catch {
+      case _: Throwable => null
+    }
+  }
+  private def fromAbsoluteURI(uri: URI): Option[Absolute] = {
+    for {
+      scheme <- Scheme.decode(uri.getScheme)
+      path   <- Option(uri.getRawPath)
+      port = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
+    } yield Absolute(
+      Option(uri.getHost),
+      Scheme.decode(uri.getScheme),
+      Some(port),
+      Relative(Path(path), queryParams(uri.getRawQuery), Fragment.fromURI(uri)),
+    )
+  }
+
+  private def fromRelativeURI(uri: URI): Option[Absolute] = for {
+    path <- Option(uri.getRawPath)
+  } yield Absolute(relative = Relative(Path(path), queryParams(uri.getRawQuery), Fragment.fromURI(uri)))
 
   case class Fragment private (raw: String, decoded: String)
   object Fragment {

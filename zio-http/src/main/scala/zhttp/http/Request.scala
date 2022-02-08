@@ -12,37 +12,37 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Updates the headers using the provided function
    */
-  final override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.getHeaders))
+  final override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.headers))
 
-  def copy(method: Method = self.method, url: URL = self.url, headers: Headers = self.getHeaders): Request = {
+  def copy(method: Method = self.method, url: URL = self.url, headers: Headers = self.headers): Request = {
     val m = method
     val u = url
     val h = headers
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
-      override def getHeaders: Headers                = h
+      override def headers: Headers                   = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
-      override private[zhttp] def getBodyAsByteBuf    = self.getBodyAsByteBuf
+      override private[zhttp] def bodyAsByteBuf       = self.bodyAsByteBuf
     }
   }
 
   /**
    * Decodes the content of request as a Chunk of Bytes
    */
-  def getBody: Task[Chunk[Byte]] =
-    getBodyAsByteBuf.flatMap(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
+  def body: Task[Chunk[Byte]] =
+    bodyAsByteBuf.flatMap(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
 
   /**
    * Decodes the content of request as string
    */
-  def getBodyAsString: Task[String] =
-    getBodyAsByteBuf.flatMap(buf => Task(buf.toString(getCharset)))
+  def bodyAsString: Task[String] =
+    bodyAsByteBuf.flatMap(buf => Task(buf.toString(charset)))
 
   /**
    * Gets all the headers in the Request
    */
-  def getHeaders: Headers
+  def headers: Headers
 
   /**
    * Checks is the request is a pre-flight request or not
@@ -84,7 +84,7 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   def url: URL
 
-  private[zhttp] def getBodyAsByteBuf: Task[ByteBuf]
+  private[zhttp] def bodyAsByteBuf: Task[ByteBuf]
 }
 
 object Request {
@@ -104,11 +104,11 @@ object Request {
     val h  = headers
     val ra = remoteAddress
     new Request {
-      override def method: Method                                 = m
-      override def url: URL                                       = u
-      override def getHeaders: Headers                            = h
-      override def remoteAddress: Option[InetAddress]             = ra
-      override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
+      override def method: Method                              = m
+      override def url: URL                                    = u
+      override def headers: Headers                            = h
+      override def remoteAddress: Option[InetAddress]          = ra
+      override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
     }
   }
 
@@ -128,11 +128,11 @@ object Request {
    * Lift request to TypedRequest with option to extract params
    */
   final class ParameterizedRequest[A](req: Request, val params: A) extends Request {
-    override def getHeaders: Headers                            = req.getHeaders
-    override def method: Method                                 = req.method
-    override def remoteAddress: Option[InetAddress]             = req.remoteAddress
-    override def url: URL                                       = req.url
-    override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = req.getBodyAsByteBuf
+    override def headers: Headers                            = req.headers
+    override def method: Method                              = req.method
+    override def remoteAddress: Option[InetAddress]          = req.remoteAddress
+    override def url: URL                                    = req.url
+    override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = req.bodyAsByteBuf
   }
 
   object ParameterizedRequest {

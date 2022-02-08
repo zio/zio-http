@@ -1,7 +1,9 @@
 package zhttp.internal
 
 import io.netty.buffer.Unpooled
-import zhttp.http.URL.Relative
+import io.netty.handler.codec.http.HttpVersion
+import zhttp.http.Scheme.{HTTP, HTTPS, WS, WSS}
+import zhttp.http.URL._
 import zhttp.http._
 import zhttp.service.Client.ClientRequest
 import zio.random.Random
@@ -12,27 +14,28 @@ import zio.{Chunk, ZIO}
 import java.io.File
 
 object HttpGen {
-  def clientRequest[R](
-    dataGen: Gen[R, HttpData],
-    methodGen: Gen[R, Method] = HttpGen.method,
-    urlGen: Gen[Random with Sized, URL] = HttpGen.url,
-    headerGen: Gen[Random with Sized, Header] = HttpGen.header,
-  ) =
-    for {
-      method  <- methodGen
-      url     <- urlGen
-      headers <- Gen.listOf(headerGen).map(Headers(_))
-      data    <- dataGen
-    } yield ClientRequest(method = method, url = url, headers = headers, data = data)
-
-  def clientParamsForFileHttpData() = {
+  def clientParamsForFileHttpData(): Gen[Random with Sized, ClientRequest] = {
     for {
       file    <- Gen.fromEffect(ZIO.succeed(new File(getClass.getResource("/TestFile.txt").getPath)))
       method  <- HttpGen.method
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
-    } yield ClientRequest(method = method, url = url, headers = headers, data = HttpData.fromFile(file))
+    } yield ClientRequest(url, method, headers, HttpData.fromFile(file))
   }
+
+  def clientRequest[R](
+    dataGen: Gen[R, HttpData],
+    methodGen: Gen[R, Method] = HttpGen.method,
+    urlGen: Gen[Random with Sized, URL] = HttpGen.url,
+    headerGen: Gen[Random with Sized, Header] = HttpGen.header,
+  ): Gen[R with Random with Sized, ClientRequest] =
+    for {
+      method  <- methodGen
+      url     <- urlGen
+      headers <- Gen.listOf(headerGen).map(Headers(_))
+      data    <- dataGen
+      version <- Gen.fromIterable(List(HttpVersion.HTTP_1_0, HttpVersion.HTTP_1_1))
+    } yield ClientRequest(url, method, headers, data, version)
 
   def cookies: Gen[Random with Sized, Cookie] = for {
     name     <- Gen.anyString
@@ -124,6 +127,8 @@ object HttpGen {
       status  <- HttpGen.status
     } yield Response(status, headers, content)
   }
+
+  def scheme: Gen[Any, Scheme] = Gen.fromIterable(List(HTTP, HTTPS, WS, WSS))
 
   def status: Gen[Any, Status] = Gen.fromIterable(
     List(
