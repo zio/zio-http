@@ -2,7 +2,7 @@ package zhttp.http
 
 import java.util
 
-case class MediaType(
+final class MediaType private[zhttp](
   mainType: String,
   subType: String,
   compressible: Boolean = false,
