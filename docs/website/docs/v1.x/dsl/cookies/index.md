@@ -1,6 +1,7 @@
 # Cookie
 
-**ZIO HTTP** `Cookie` is designed to use HTTP [cookies](https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies) easily.
+**ZIO HTTP** has special support for Cookie headers using the `Cookie` Domain to add and invalidate cookies. Adding a cookie will generate the correct [Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie) headers
+
 ## Create a Cookie
 
 `Cookie` can be created with params `name`, `content`, `expires`, `domain`, `path`, `isSecure`, `isHttpOnly`, `maxAge`, `sameSite` and `secret` according to HTTP [Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie)  
