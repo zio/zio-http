@@ -15,7 +15,7 @@ trait EncodeClientRequest {
 
       // As per the spec, the path should contain only the relative path.
       // Host and port information should be in the headers.
-      val path = req.url.toAbsolute.relative.encode
+      val path = req.url.getRelative.encode
 
       val encodedReqHeaders = req.headers.encode
 

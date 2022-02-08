@@ -13,20 +13,27 @@ sealed trait URL { self =>
   def getHost: Option[String]   = self.toAbsolute.host
   def getPort: Option[Int]      = self.toAbsolute.port
   def getScheme: Option[Scheme] = self.toAbsolute.scheme
-  def getPath: Path             = self.toAbsolute.relative.path
+  def getRelative: Relative     = self.toAbsolute.relative
+  def getPath: Path             = getRelative.path
 
-  def setHost(host: String): URL     =
+  def setHost(host: String): URL =
     self.toAbsolute.copy(Some(host), Some(self.getScheme.getOrElse(HTTP)), Some(self.getPort.getOrElse(80)))
-  def setPort(port: Int): URL        =
+
+  def setPort(port: Int): URL =
     self.toAbsolute.copy(Some(self.getHost.getOrElse("localhost")), Some(self.getScheme.getOrElse(HTTP)), Some(port))
+
   def setScheme(scheme: Scheme): URL =
     self.toAbsolute.copy(Some(self.getHost.getOrElse("localhost")), Some(scheme), Some(self.getPort.getOrElse(80)))
-  def setPath(path: Path): URL       = self.toAbsolute.copy(relative = self.toAbsolute.relative.copy(path = path))
-  def setPath(path: String): URL     = self.toAbsolute.copy(relative = self.toAbsolute.relative.copy(path = Path(path)))
+
+  def setPath(path: Path): URL = self.toAbsolute.copy(relative = self.getRelative.copy(path = path))
+
+  def setPath(path: String): URL = self.toAbsolute.copy(relative = self.getRelative.copy(path = Path(path)))
+
   def setQueryParams(queryParams: Map[String, List[String]]): URL =
-    self.toAbsolute.copy(relative = self.toAbsolute.relative.copy(queryParams = queryParams))
-  def setQueryParams(query: String): URL                          =
-    self.toAbsolute.copy(relative = self.toAbsolute.relative.copy(queryParams = URL.queryParams(query)))
+    self.toAbsolute.copy(relative = self.getRelative.copy(queryParams = queryParams))
+
+  def setQueryParams(query: String): URL =
+    self.toAbsolute.copy(relative = self.getRelative.copy(queryParams = URL.queryParams(query)))
 
   def toAbsolute: Absolute = self match {
     case Unsafe(x)   => URL.unsafeFromString(x)
@@ -42,7 +49,7 @@ object URL {
   def apply(string: String): URL = Unsafe(string)
 
   def asString(url: URL): String        = {
-    val p: String = path(url.toAbsolute.relative)
+    val p: String = path(url.getRelative)
     url match {
       case u: Absolute =>
         if (u.scheme.isDefined && u.port.isDefined && u.host.isDefined) {
