@@ -21,5 +21,5 @@ object HelloWorldWithCORS extends App {
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app.silent).exitCode
+    Server.start(8090, app).exitCode
 }

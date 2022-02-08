@@ -36,27 +36,27 @@ object SSLSpec extends DefaultRunnableSpec {
         List(
           testM("succeed when client has the server certificate") {
             val actual = Client
-              .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL1))
+              .request("https://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
               .map(_.status)
             assertM(actual)(equalTo(Status.OK))
           } +
             testM("fail with DecoderException when client doesn't have the server certificate") {
               val actual = Client
-                .request("https://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL2))
-                .catchSome(_ match {
-                  case _: DecoderException => ZIO.succeed("DecoderException")
-                })
+                .request("https://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL2))
+                .catchSome { case _: DecoderException =>
+                  ZIO.succeed("DecoderException")
+                }
               assertM(actual)(equalTo("DecoderException"))
             } +
             testM("succeed when client has default SSL") {
               val actual = Client
-                .request("https://localhost:8073/success", ClientSSLOptions.DefaultSSL)
+                .request("https://localhost:8073/success", ssl = ClientSSLOptions.DefaultSSL)
                 .map(_.status)
               assertM(actual)(equalTo(Status.OK))
             } +
             testM("Https Redirect when client makes http request") {
               val actual = Client
-                .request("http://localhost:8073/success", ClientSSLOptions.CustomSSL(clientSSL1))
+                .request("http://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
                 .map(_.status)
               assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
             } @@ ignore,

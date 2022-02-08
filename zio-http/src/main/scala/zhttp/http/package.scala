@@ -10,7 +10,6 @@ package object http extends PathModule with RequestSyntax with RouteDecoderModul
   type UHttpApp                              = HttpApp[Any, Nothing]
   type RHttpApp[-R]                          = HttpApp[R, Throwable]
   type UHttp[-A, +B]                         = Http[Any, Nothing, A, B]
-  type SilentResponse[-E]                    = CanBeSilenced[E, Response]
   type ResponseZIO[-R, +E]                   = ZIO[R, E, Response]
   type Header                                = (CharSequence, CharSequence)
   type UMiddleware[+AIn, -BIn, -AOut, +BOut] = Middleware[Any, Nothing, AIn, BIn, AOut, BOut]
@@ -19,10 +18,6 @@ package object http extends PathModule with RequestSyntax with RouteDecoderModul
    * Default HTTP Charset
    */
   val HTTP_CHARSET: Charset = CharsetUtil.UTF_8
-
-  object SilentResponse {
-    def apply[E: SilentResponse]: SilentResponse[E] = implicitly[SilentResponse[E]]
-  }
 
   object HeaderNames  extends headers.HeaderNames
   object HeaderValues extends headers.HeaderValues

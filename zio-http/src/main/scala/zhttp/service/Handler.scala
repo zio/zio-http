@@ -31,9 +31,9 @@ private[zhttp] final case class Handler[R](
 
         override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
 
-        override def getHeaders: Headers = Headers.make(jReq.headers())
+        override def headers: Headers = Headers.make(jReq.headers())
 
-        override private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
+        override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
 
         override def remoteAddress: Option[InetAddress] = {
           ctx.channel().remoteAddress() match {
@@ -89,7 +89,7 @@ private[zhttp] final case class Handler[R](
         }
 
       case HExit.Failure(e) =>
-        ctx.fireChannelRead((e, jReq)): Unit
+        ctx.fireChannelRead((Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))), jReq)): Unit
       case HExit.Empty      =>
         ctx.fireChannelRead((Response.status(Status.NOT_FOUND), jReq)): Unit
     }
