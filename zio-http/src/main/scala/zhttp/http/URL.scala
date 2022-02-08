@@ -48,19 +48,15 @@ object URL {
   def apply(path: Path): URL     = Relative(path)
   def apply(string: String): URL = Unsafe(string)
 
-  def asString(url: URL): String        = {
+  def asString(url: URL): String = {
     val p: String = path(url.getRelative)
-    url match {
-      case u: Absolute =>
-        if (u.scheme.isDefined && u.port.isDefined && u.host.isDefined) {
-          if (u.port.get == 80 || u.port.get == 443)
-            s"${u.scheme.get.encode}://${u.host.get}$p"
-          else s"${u.scheme.get.encode}://${u.host.get}:${u.port.get}$p"
-        } else p
-      case _           => {
-        p
-      }
-    }
+    val absUrl    = url.toAbsolute
+    if (absUrl.scheme.isDefined && absUrl.port.isDefined && absUrl.host.isDefined) {
+      if (absUrl.port.get == 80 || absUrl.port.get == 443)
+        s"${absUrl.scheme.get.encode}://${absUrl.host.get}$p"
+      else s"${absUrl.scheme.get.encode}://${absUrl.host.get}:${absUrl.port.get}$p"
+    } else p
+
   }
   private def path(r: Relative): String = {
     val encoder = new QueryStringEncoder(s"${r.path.encode}${r.fragment.fold("")(f => "#" + f.raw)}")

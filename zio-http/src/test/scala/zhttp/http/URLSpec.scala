@@ -12,34 +12,26 @@ object URLSpec extends DefaultRunnableSpec {
       assert(URL.fromString("http://mw1.google.com/$[level]/r$[y]_c$[x].jpg"))(isLeft)
     } +
       test("Should Handle empty query string") {
-        assert(URL.fromString("http://yourdomain.com/list/users").map(_.getRelative.queryParams))(
-          isRight(equalTo(Map.empty[String, List[String]])),
+        assert(URL("http://yourdomain.com/list/users").getRelative.queryParams)(
+          equalTo(Map.empty[String, List[String]]),
         )
       } +
       test("Should Handle query string") {
         assert(
-          URL
-            .fromString(
-              "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21",
-            )
-            .map(_.getRelative.queryParams),
+          URL(
+            "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21",
+          ).getRelative.queryParams,
         )(
-          isRight(
-            equalTo(Map("user_id" -> List("1", "2"), "order" -> List("ASC"), "text" -> List("zio-http is awesome!"))),
-          ),
+          equalTo(Map("user_id" -> List("1", "2"), "order" -> List("ASC"), "text" -> List("zio-http is awesome!"))),
         )
       },
     test("Should handle uri fragment") {
       assert(
-        URL
-          .fromString(
-            "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21#the%20hash",
-          )
-          .map(_.getRelative.fragment),
+        URL(
+          "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21#the%20hash",
+        ).getRelative.fragment,
       )(
-        isRight(
-          isSome(equalTo(Fragment("the%20hash", "the hash"))),
-        ),
+        isSome(equalTo(Fragment("the%20hash", "the hash"))),
       )
     },
   )
@@ -47,19 +39,19 @@ object URLSpec extends DefaultRunnableSpec {
   val asStringSpec = {
 
     def roundtrip(url: String) =
-      assert(URL.fromString(url).map(_.encode))(isRight(equalTo(url)))
+      assert(URL(url).encode)(equalTo(url))
 
     suite("asString")(
       testM("using gen") {
         checkAll(HttpGen.url) { case url =>
           val source  = url.encode
-          val decoded = URL.fromString(source).map(_.encode)
-          assert(decoded)(isRight(equalTo(source)))
+          val decoded = URL(source).encode
+          assert(decoded)(equalTo(source))
         }
       } +
         test("empty") {
-          val actual = URL.fromString("/").map(_.encode)
-          assert(actual)(isRight(equalTo("/")))
+          val actual = URL("/").encode
+          assert(actual)(equalTo("/"))
         } +
         test("ws scheme") {
           roundtrip("ws://yourdomain.com/subscriptions")
@@ -90,9 +82,9 @@ object URLSpec extends DefaultRunnableSpec {
 
   val relativeSpec = suite("relative")(
     test("converts an url to a relative url") {
-      val url = URL
-        .fromString("http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21")
-        .map(_.getRelative)
+      val url = URL(
+        "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21",
+      ).getRelative
 
       val expected =
         URL.Relative(
@@ -100,7 +92,7 @@ object URLSpec extends DefaultRunnableSpec {
           Map("user_id" -> List("1", "2"), "order" -> List("ASC"), "text" -> List("zio-http is awesome!")),
         )
 
-      assert(url)(isRight(equalTo(expected)))
+      assert(url)(equalTo(expected))
     },
   )
 
