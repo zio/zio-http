@@ -42,38 +42,19 @@ case class ClientConnectionManager(
    * @return
    */
   def fetchConnection(jReq: FullHttpRequest, req: ClientRequest): Task[Channel] =     for {
-    mp <- connRef.get
-    //      uriAuthority <- getUriAuthority(jReq)
-
-    uri  = new java.net.URI(jReq.uri())
-    host = if (uri.getHost == null) jReq.headers().get(HeaderNames.host) else uri.getHost
-
-    _ <- Task(assert(host != null, "Host name is required"))
-
-    port   = req.url.port.getOrElse(80)
-    reqKey = new InetSocketAddress(host, port)
-
+    reqKey <- getRequestKey(jReq,req)
     isWebSocket = req.url.scheme.exists(_.isWebSocket)
     isSSL       = req.url.scheme.exists(_.isSecure)
+    channel <- getConnectionForRequestKey(reqKey, isWebSocket, isSSL)
+  } yield channel
 
-    // if already key exists for existing connections re-use it
-    // else build a new connection (channel)
-    conn <- mp.get(reqKey) match {
-      case Some(c) =>
-        println(s"REUSING CONNECTION for $reqKey")
-        // To be tested to check if the channel is currently busy
-        if (c.isWritable)
-          Task.succeed(c)
-        else
-          buildChannel(reqKey, isWebSocket, isSSL)
-      case _       =>
-        buildChannel(reqKey, isWebSocket, isSSL)
-    }
-    _    <- connRef.update { m =>
-      m += (reqKey -> conn)
-    }
-  } yield conn
-
+  def getRequestKey(jReq: FullHttpRequest, req: ClientRequest) = for {
+    uri  <- Task(new java.net.URI(jReq.uri()))
+    host = if (uri.getHost == null) jReq.headers().get(HeaderNames.host) else uri.getHost
+    _ <- Task(assert(host != null, "Host name is required"))
+    port   = req.url.port.getOrElse(80)
+    reqKey = new InetSocketAddress(host, port)
+  } yield reqKey
 
   /**
    * build an underlying connection (channel for a given request key)
@@ -119,12 +100,34 @@ case class ClientConnectionManager(
       )
   }
 
-  def scheduleRequest(channel: Channel, connectionRuntime: ConnectionRuntime) = Task{
+  def sendRequest(channel: Channel, connectionRuntime: ConnectionRuntime) = Task{
 //    incrementConnection
     this.connectionState.currentAllocatedChannels += (channel -> connectionRuntime)
     // trigger the channel, triggering inbound event propagation
     channel.pipeline().fireChannelActive()
   }.unit
+
+  def getConnectionForRequestKey(reqKey: ReqKey, isWebSocket: Boolean, isSSL: Boolean) = for {
+    mp <- connRef.get
+    // if already key exists for existing connections re-use it
+    // else build a new connection (channel)
+    channel <- mp.get(reqKey) match {
+      case Some(c) =>
+        println(s"REUSING CONNECTION for $reqKey")
+        // To be tested to check if the channel is currently busy
+        if (c.isWritable)
+          Task.succeed(c)
+        else
+          buildChannel(reqKey, isWebSocket, isSSL)
+      case _       =>
+        buildChannel(reqKey, isWebSocket, isSSL)
+    }
+    _    <- connRef.update { m =>
+      m += (reqKey -> channel)
+    }
+  } yield channel
+
+  def getActiveConnections: Task[Int] = connRef.get.map(_.size)
 
 //  private def incrementConnection: Unit = ???
 //  private def decrementConnection = ???
@@ -136,7 +139,7 @@ case class ClientConnectionManager(
 //  def releaseConnection = ???
 //  def shutdownConnectionManager = ???
 //
-  def getActiveConnections: Task[Int] = connRef.get.map(_.size)
+
 //  def getActiveConnectionsForReqKey(reqKey: ReqKey): Task[Int] = connRef.get.map(_.size)
 //
 //  def getIdleConnections: Task[Int] = connRef.get.map(_.size)

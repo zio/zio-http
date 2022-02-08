@@ -1,5 +1,6 @@
 package zhttp.service.client.model
 
+import io.netty.buffer.ByteBuf
 import zhttp.http.Method.GET
 import zhttp.http._
 import zhttp.service.Client.{Attribute, ClientRequest, ClientResponse, Config}
@@ -19,7 +20,7 @@ case class DefaultClient(
     jReq    <- encode(req)
     channel <- connectionManager.fetchConnection(jReq, req)
     prom    <- zio.Promise.make[Throwable, ClientResponse]
-    _       <- connectionManager.scheduleRequest(channel,ConnectionRuntime(prom, jReq))
+    _       <- connectionManager.sendRequest(channel,ConnectionRuntime(prom, jReq))
     resp    <- prom.await
   } yield resp
 
@@ -102,7 +103,7 @@ case class DefaultClient(
    * @param req
    * @return
    */
-  def stream(req: Request): ZStream[Any, Throwable, Response] = ???
+  def stream(req: Request): ZStream[Any, Throwable, ByteBuf] = ???
 
   /**
    * streaming with callback TBD
