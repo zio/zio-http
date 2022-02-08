@@ -9,7 +9,7 @@ import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.handler.{NewClientChannelInitializer, NewClientInboundHandler}
 import zhttp.service.client.model.ClientConnectionState.ReqKey
 import zhttp.service.client.model.{ClientConnectionState, ConnectionRuntime, Timeouts}
-import zio.{Ref, Task, ZIO}
+import zio.{Task, ZIO}
 
 import java.net.InetSocketAddress
 import scala.collection.mutable
@@ -21,7 +21,6 @@ import scala.collection.mutable
     - Data structures like (idleQueue, waitingRequestQueue etc)
  */
 case class ClientConnectionManager(
-  connRef: Ref[mutable.Map[ReqKey, Channel]], // Temp map for POC, to be removed
   connectionState: ClientConnectionState,
   timeouts: Timeouts,
   boo: Bootstrap,
@@ -53,7 +52,7 @@ case class ClientConnectionManager(
     host = if (uri.getHost == null) jReq.headers().get(HeaderNames.host) else uri.getHost
     _ <- Task(assert(host != null, "Host name is required"))
     port   = req.url.port.getOrElse(80)
-    reqKey = new InetSocketAddress(host, port)
+    reqKey = if (port == -1) new ReqKey(host,80) else new InetSocketAddress(host, port)
   } yield reqKey
 
   /**
@@ -67,7 +66,7 @@ case class ClientConnectionManager(
     for {
       init <- ZIO.effect(
         NewClientChannelInitializer(
-          NewClientInboundHandler(zExec, connectionState),
+          NewClientInboundHandler(zExec, this),
           isWebSocket,
           isSSL,
           reqKey,
@@ -75,10 +74,13 @@ case class ClientConnectionManager(
         ),
       )
       (h, p) = (reqKey.getHostName, reqKey.getPort)
+      prom    <- zio.Promise.make[Throwable, Channel]
       chf    = boo.handler(init).connect(h, p)
+      _ <- prom.succeed(chf.channel())
       // optional can be removed if not really utilised.
       _ <- attachHandler(chf)
-    } yield chf.channel()
+      c <- prom.await
+    } yield c
 
   /*
    mostly kept for debugging purposes
@@ -100,34 +102,27 @@ case class ClientConnectionManager(
       )
   }
 
-  def sendRequest(channel: Channel, connectionRuntime: ConnectionRuntime) = Task {
-//    incrementConnection
-    this.connectionState.currentAllocatedChannels += (channel -> connectionRuntime)
-    // trigger the channel, triggering inbound event propagation
-    channel.pipeline().fireChannelActive()
-  }.unit
+  def sendRequest(channel: Channel, connectionRuntime: ConnectionRuntime) = for {
+    _ <- connectionState.currentAllocatedChannels.update(m => m + (channel -> connectionRuntime))
+//    _ <- Task(channel.pipeline().fireChannelActive())
+  } yield ()
 
   def getConnectionForRequestKey(reqKey: ReqKey, isWebSocket: Boolean, isSSL: Boolean) = for {
-    mp      <- connRef.get // temporary map, to be replaced by ClientConnectionState
+    connQueue <- Task(if (!connectionState.idleConnectionsMap.isEmpty) connectionState.idleConnectionsMap(reqKey)
+    else mutable.Queue.empty[Channel])
     // if already key exists for existing connections re-use it
     // else build a new connection (channel)
-    channel <- mp.get(reqKey) match {
-      case Some(c) =>
-        println(s"REUSING CONNECTION for $reqKey")
-        // To be tested to check if the channel is currently busy
-        if (c.isWritable)
-          Task.succeed(c)
-        else
-          buildChannel(reqKey, isWebSocket, isSSL)
-      case _       =>
-        buildChannel(reqKey, isWebSocket, isSSL)
+    channel <- if (!connQueue.isEmpty) {
+      println(s"REUSING CONNECTION for $reqKey")
+      Task(connectionState.idleConnectionsMap(reqKey).dequeue())
     }
-    _       <- connRef.update { m =>
-      m += (reqKey -> channel)
+    else {
+      println(s"BUILDING NEW CONNECTION")
+      buildChannel(reqKey, isWebSocket, isSSL)
     }
   } yield channel
 
-  def getActiveConnections: Task[Int] = connRef.get.map(_.size)
+  def getActiveConnections: Task[Int] = Task(0)
 
 //  private def incrementConnection: Unit = ???
 //  private def decrementConnection = ???

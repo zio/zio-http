@@ -3,8 +3,8 @@ package zhttp.service.client.model
 import io.netty.channel.Channel
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.service.Client.ClientResponse
-import zhttp.service.client.model.ClientConnectionState.{ReqKey, emptyConnectionRuntime, emptyIdleConnectionMap}
-import zio.Promise
+import zhttp.service.client.model.ClientConnectionState.{ReqKey, emptyIdleConnectionMap}
+import zio.{Promise, Ref}
 import zio.duration.Duration
 
 import java.net.InetSocketAddress
@@ -12,7 +12,7 @@ import java.time.Instant
 import scala.collection.mutable
 
 //
-case class ConnectionRuntime(callback: Promise[Throwable, ClientResponse], currReq: FullHttpRequest)
+case class ConnectionRuntime(callback: Promise[Throwable, ClientResponse], currReq: FullHttpRequest, reqKey: ReqKey)
 
 case class Timeouts(
   connectionTimeout: Duration = Duration.Infinity,
@@ -24,9 +24,9 @@ case class PendingRequest(req: FullHttpRequest, requestedTime: Instant)
 
 // TBD: Choose which data structures or a group of data structures to be made thread safe
 case class ClientConnectionState(
-  currentAllocatedChannels: mutable.Map[Channel, ConnectionRuntime] = emptyConnectionRuntime,
-  currentAllocatedRequests: mutable.Map[ReqKey, Int] = mutable.Map.empty[ReqKey, Int],
-  idleConnectionsMap: mutable.Map[ReqKey, mutable.Queue[ConnectionRuntime]] = emptyIdleConnectionMap,
+  currentAllocatedChannels: Ref[Map[Channel, ConnectionRuntime]],
+  currentAllocatedRequests: Map[ReqKey, Int] = Map.empty[ReqKey, Int],
+  idleConnectionsMap: Map[ReqKey, mutable.Queue[Channel]] = emptyIdleConnectionMap,
   waitingRequestQueue: mutable.Queue[PendingRequest] = mutable.Queue.empty[PendingRequest],
 ) {
   // TBD thready safety and appropriate namespace
@@ -38,6 +38,5 @@ case class ClientConnectionState(
 
 object ClientConnectionState {
   type ReqKey = InetSocketAddress
-  def emptyConnectionRuntime = mutable.Map.empty[Channel, ConnectionRuntime]
-  def emptyIdleConnectionMap = mutable.Map.empty[ReqKey, mutable.Queue[ConnectionRuntime]]
+  def emptyIdleConnectionMap = Map.empty[ReqKey, mutable.Queue[Channel]]
 }

@@ -3,24 +3,26 @@ package zhttp.service.client.model
 import io.netty.buffer.ByteBuf
 import zhttp.http.Method.GET
 import zhttp.http._
-import zhttp.service.Client.{Attribute, ClientRequest, ClientResponse, Config}
-import zhttp.service.HttpMessageCodec
+import zhttp.service.Client.{Attribute, ClientRequest, ClientResponse}
+import zhttp.service.{ClientSettings, HttpMessageCodec}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.transport.ClientConnectionManager
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
 case class DefaultClient(
-  settings: Config,
-  connectionManager: ClientConnectionManager,
+                          settings: ClientSettings.Config,
+                          connectionManager: ClientConnectionManager,
 ) extends HttpMessageCodec {
 
   // methods for compatibility with existing client use
   def run(req: ClientRequest): Task[ClientResponse] = for {
     jReq    <- encode(req)
+    reqKey <- connectionManager.getRequestKey(jReq,req)
     channel <- connectionManager.fetchConnection(jReq, req)
     prom    <- zio.Promise.make[Throwable, ClientResponse]
-    _       <- connectionManager.sendRequest(channel, ConnectionRuntime(prom, jReq))
+    _       <- connectionManager
+                .sendRequest(channel, ConnectionRuntime(prom, jReq, reqKey))
     resp    <- prom.await
   } yield resp
 
