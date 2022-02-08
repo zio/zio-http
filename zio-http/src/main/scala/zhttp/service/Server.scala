@@ -6,7 +6,7 @@ import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLBuilder._
 import zhttp.service.server._
-import zhttp.service.server.content.handlers.ServerResponseHandler
+import zhttp.service.server.content.handlers.{Http2ServerResponseHandler, ServerResponseHandler}
 import zio.{ZManaged, _}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -225,8 +225,9 @@ object Server {
       zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
       reqHandler      = settings.app.compile(zExec, settings)
       respHandler     = ServerResponseHandler(zExec, settings, ServerTimeGenerator.make)
-      http2Handler    = Http2ServerRequestHandler(zExec, settings)
-      init            = ServerChannelInitializer(zExec, settings, reqHandler, respHandler, http2Handler)
+      http2ReqHandler = Http2ServerRequestHandler(zExec, settings)
+      http2ResHandler = Http2ServerResponseHandler(zExec, settings, ServerTimeGenerator.make)
+      init = ServerChannelInitializer(zExec, settings, reqHandler, respHandler, http2ReqHandler, http2ResHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       chf  <- ZManaged.effect(serverBootstrap.childHandler(init).bind(settings.address))
       _    <- ChannelFuture.asManaged(chf)
