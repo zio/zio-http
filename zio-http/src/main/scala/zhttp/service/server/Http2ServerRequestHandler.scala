@@ -1,25 +1,20 @@
 package zhttp.service.server
 
-import io.netty.buffer.{Unpooled => JUnpooled}
 import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel.unix.Errors.NativeIoException
 import io.netty.channel.{ChannelDuplexHandler, ChannelHandlerContext}
-import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http2._
-import zhttp.http.Status.{INTERNAL_SERVER_ERROR, NOT_FOUND, UPGRADE_REQUIRED}
+import zhttp.http.Status.{NOT_FOUND, UPGRADE_REQUIRED}
 import zhttp.http._
 import zhttp.service.Server.Config
 import zhttp.service._
-import zio.{Chunk, UIO, ZIO}
+import zio.{UIO, ZIO}
 
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 import scala.collection.mutable.Map
 
 @Sharable
 final case class Http2ServerRequestHandler[R] private[zhttp] (
-  runtime: HttpRuntime[R],
-  settings: Config[R, Throwable],
+                                                               runtime: HttpRuntime[R],
+                                                               config: Config[R, Throwable],
 ) extends ChannelDuplexHandler
     with HttpMessageCodec
     with WebSocketUpgrade[R] { self =>
@@ -28,21 +23,8 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
 
   @throws[Exception]
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    settings.error match {
-      case Some(v) => runtime.unsafeRun(ctx)(v(cause).uninterruptible)
-      case None    =>
-        if (ignoreException(cause)) {
-          if (ctx.channel.isActive) {
-            ctx.close
-            ()
-          }
-        } else ctx.fireExceptionCaught(cause)
-        ()
-    }
+    config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
   }
-
-  private def ignoreException(throwable: Throwable): Boolean =
-    throwable.isInstanceOf[NativeIoException]
 
   /**
    * Executes program
@@ -108,48 +90,46 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
     headers: Http2HeadersFrame,
     dataL: List[DefaultHttp2DataFrame] = null,
   ): Unit = {
+    val stream = headers.stream()
     decodeHttp2Header(headers, ctx, dataL) match {
-      case Left(err)   => unsafeWriteAndFlushErrorResponse(err.getCause, ctx, headers.stream())
+      case Left(cause)   => ctx.fireChannelRead((Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),stream))
       case Right(jReq) => {
-        settings.app.execute(jReq) match {
-          case HExit.Failure(e)   => unsafeWriteAndFlushErrorResponse(e, ctx, headers.stream())
-          case HExit.Empty        => unsafeWriteAndFlushEmptyResponse(ctx, headers.stream())
+        config.app.execute(jReq) match {
+          case HExit.Failure(e)   => ctx.fireChannelRead((Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))),stream))
+          case HExit.Empty        => ctx.fireChannelRead((Response.status(NOT_FOUND),stream))
           case HExit.Success(res) =>
             if (self.isWebSocket(res)) {
-              unsafeWriteAnyResponse(
-                Response(
+              ctx.fireChannelRead(
+                (Response(
                   UPGRADE_REQUIRED,
                   data = HttpData.fromString("Websockets are not supported over HTTP/2. Make HTTP/1.1 connection."),
                 ),
-                ctx,
-                headers.stream(),
+                stream,)
               )
             } else {
-              unsafeWriteAnyResponse(res, ctx, headers.stream())
+              ctx.fireChannelRead((res, stream))
             }
           case HExit.Effect(resM) =>
             unsafeRunZIO(
               resM.foldM(
                 {
-                  case Some(cause) => UIO(unsafeWriteAndFlushErrorResponse(cause, ctx, headers.stream()))
-                  case None        => UIO(unsafeWriteAndFlushEmptyResponse(ctx, headers.stream()))
+                  case Some(cause) => UIO(ctx.fireChannelRead((Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))), stream)))
+                  case None        => UIO(ctx.fireChannelRead((Response.status(NOT_FOUND),stream)))
                 },
                 res =>
                   if (self.isWebSocket(res))
                     UIO(
-                      unsafeWriteAnyResponse(
-                        Response(
+                      ctx.fireChannelRead(
+                        (Response(
                           UPGRADE_REQUIRED,
-                          data =
-                            HttpData.fromString("Websockets are not supported over HTTP/2. Make HTTP/1.1 connection."),
+                          data = HttpData.fromString("Websockets are not supported over HTTP/2. Make HTTP/1.1 connection."),
                         ),
-                        ctx,
-                        headers.stream(),
-                      ),
+                          stream,)
+                      )
                     )
                   else {
                     for {
-                      _ <- UIO(unsafeWriteAnyResponse(res, ctx, headers.stream()))
+                      _ <- UIO(ctx.fireChannelRead((res, stream)))
                     } yield ()
                   },
               ),
@@ -160,129 +140,5 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
     }
   }
 
-  /**
-   * Writes error response to the Channel
-   */
-  private def unsafeWriteAndFlushErrorResponse(
-    cause: Throwable,
-    ctx: ChannelHandlerContext,
-    stream: Http2FrameStream,
-  ): Unit = {
-    val headers = new DefaultHttp2Headers().status(INTERNAL_SERVER_ERROR.asJava.codeAsText())
-    headers
-      .set(HttpHeaderNames.SERVER, "ZIO-Http")
-      .set(HttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
-    val content = Chunk.fromArray(cause.toString.getBytes(HTTP_CHARSET))
-    headers.setInt(HttpHeaderNames.CONTENT_LENGTH, content.length)
-    ctx.write(
-      new DefaultHttp2HeadersFrame(headers).stream(stream),
-      ctx.channel().voidPromise(),
-    )
-    ctx.writeAndFlush(
-      new DefaultHttp2DataFrame(JUnpooled.copiedBuffer(content.toArray)).stream(stream),
-    )
-    ctx.write(new DefaultHttp2DataFrame(true).stream(stream))
-    ()
-  }
-
-  /**
-   * Writes not found error response to the Channel
-   */
-  def unsafeWriteAndFlushEmptyResponse(ctx: ChannelHandlerContext, stream: Http2FrameStream): Unit = {
-    val headers = new DefaultHttp2Headers().status(NOT_FOUND.asJava.codeAsText())
-    headers
-      .set(HttpHeaderNames.SERVER, "ZIO-Http")
-      .set(HttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
-      .setInt(HttpHeaderNames.CONTENT_LENGTH, 0)
-    ctx.write(new DefaultHttp2HeadersFrame(headers).stream(stream))
-    ctx.writeAndFlush(new DefaultHttp2DataFrame(true).stream(stream))
-    ()
-  }
-
-  /**
-   * Writes any response to the Channel
-   */
-  def unsafeWriteAnyResponse[A](
-    res: Response,
-    ctx: ChannelHandlerContext,
-    stream: Http2FrameStream,
-  ): Unit = {
-
-    val headers = new DefaultHttp2Headers().status(res.status.asJava.codeAsText())
-
-    res.headers.toList.foreach(l => headers.set(l._1, l._2))
-
-    headers
-      .set(HttpHeaderNames.SERVER, "ZIO-Http")
-      .set(HttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
-    val length = res.data match {
-      case HttpData.Empty               => 0
-      case HttpData.Text(text, _)       => text.length
-      case HttpData.BinaryChunk(data)   => data.length
-      case HttpData.BinaryByteBuf(data) => data.toString(HTTP_CHARSET).length
-      case HttpData.BinaryStream(_)     => -1
-      case HttpData.File(_)             => -1
-      // TODO: file!
-    }
-    if (length >= 0) headers.setInt(HttpHeaderNames.CONTENT_LENGTH, length)
-    res.data match {
-      case HttpData.File(_) =>
-        ctx.write(
-          new DefaultHttp2HeadersFrame(
-            new DefaultHttp2Headers().status(Status.UNSUPPORTED_MEDIA_TYPE.asJava.codeAsText()),
-          ).stream(stream),
-        )
-        ctx.write(
-          new DefaultHttp2DataFrame(JUnpooled.copiedBuffer("Files are not supported over HTTP2", HTTP_CHARSET))
-            .stream(stream),
-        )
-      case _                =>
-        ctx.write(
-          new DefaultHttp2HeadersFrame(headers).stream(stream),
-          ctx.channel().voidPromise(),
-        )
-    }
-
-    res.data match {
-      case HttpData.Empty               =>
-        ctx.writeAndFlush(new DefaultHttp2DataFrame(true).stream(stream))
-        ()
-      case HttpData.Text(text, charset) =>
-        ctx.writeAndFlush(
-          new DefaultHttp2DataFrame(JUnpooled.copiedBuffer(text, charset)).stream(stream),
-        )
-        ctx.write(new DefaultHttp2DataFrame(true).stream(stream))
-        ()
-      case HttpData.BinaryChunk(data)   =>
-        ctx.writeAndFlush(
-          new DefaultHttp2DataFrame(JUnpooled.copiedBuffer(data.toArray)).stream(stream),
-        )
-        ctx.write(new DefaultHttp2DataFrame(true).stream(stream))
-        ()
-      case HttpData.BinaryByteBuf(data) =>
-        ctx.writeAndFlush(
-          new DefaultHttp2DataFrame(JUnpooled.copiedBuffer(data)).stream(stream),
-        )
-        ctx.write(new DefaultHttp2DataFrame(true).stream(stream))
-        ()
-      case HttpData.BinaryStream(data)  =>
-        runtime.unsafeRun(ctx) {
-          for {
-            _ <- data.foreach(c =>
-              ChannelFuture.unit(
-                ctx.writeAndFlush(
-                  new DefaultHttp2DataFrame(JUnpooled.copiedBuffer(c)).stream(stream),
-                ),
-              ),
-            )
-            _ <- ChannelFuture.unit(ctx.writeAndFlush(new DefaultHttp2DataFrame(true).stream(stream)))
-          } yield ()
-        }
-      case HttpData.File(_)             =>
-        ctx.write(new DefaultHttp2DataFrame(true).stream(stream))
-        ()
-    }
-
-  }
 
 }
