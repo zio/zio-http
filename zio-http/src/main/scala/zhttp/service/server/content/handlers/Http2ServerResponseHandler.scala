@@ -2,23 +2,25 @@ package zhttp.service.server.content.handlers
 
 import io.netty.buffer.Unpooled
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.HttpHeaderNames
-import io.netty.handler.codec.http2.{DefaultHttp2DataFrame, DefaultHttp2Headers, DefaultHttp2HeadersFrame, Http2FrameStream}
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
+import io.netty.handler.codec.http2.{
+  DefaultHttp2DataFrame,
+  DefaultHttp2Headers,
+  DefaultHttp2HeadersFrame,
+  Http2FrameStream,
+}
 import zhttp.http.{HTTP_CHARSET, HttpData, Response, Status}
-import zhttp.service.{ChannelFuture, HttpRuntime}
 import zhttp.service.Server.Config
 import zhttp.service.server.ServerTimeGenerator
+import zhttp.service.{ChannelFuture, HttpRuntime}
 
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-
-private [zhttp] case class Http2ServerResponseHandler[R] (
+private[zhttp] case class Http2ServerResponseHandler[R](
   runtime: HttpRuntime[R],
   config: Config[R, Throwable],
   serverTime: ServerTimeGenerator,
-  ) extends SimpleChannelInboundHandler[(Response, Http2FrameStream)]{
+) extends SimpleChannelInboundHandler[(Response, Http2FrameStream)] {
   override def channelRead0(ctx: ChannelHandlerContext, msg: (Response, Http2FrameStream)): Unit = {
-    val res = msg._1
+    val res    = msg._1
     val stream = msg._2
     writeResponse(res, ctx, stream)
     writeData(res, ctx, stream)
@@ -28,7 +30,7 @@ private [zhttp] case class Http2ServerResponseHandler[R] (
     config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
   }
 
-  private def writeResponse(res: Response,ctx: ChannelHandlerContext, stream: Http2FrameStream): Unit = {
+  private def writeResponse(res: Response, ctx: ChannelHandlerContext, stream: Http2FrameStream): Unit = {
 
     val headers = new DefaultHttp2Headers().status(res.status.asJava.codeAsText())
 
@@ -36,7 +38,6 @@ private [zhttp] case class Http2ServerResponseHandler[R] (
 
     headers
       .set(HttpHeaderNames.SERVER, "ZIO-Http")
-      .set(HttpHeaderNames.DATE, s"${DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now)}")
     val length = res.data match {
       case HttpData.Empty               => 0
       case HttpData.Text(text, _)       => text.length
@@ -47,6 +48,8 @@ private [zhttp] case class Http2ServerResponseHandler[R] (
       // TODO: file!
     }
     if (length >= 0) headers.setInt(HttpHeaderNames.CONTENT_LENGTH, length)
+    if (res.attribute.serverTime) headers.set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
+    if (res.data.isChunked) headers.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
     res.data match {
       case HttpData.File(_) =>
         ctx.write(
@@ -68,7 +71,7 @@ private [zhttp] case class Http2ServerResponseHandler[R] (
     }
 
   }
-  private def writeData(res: Response,ctx: ChannelHandlerContext, stream: Http2FrameStream): Unit ={
+  private def writeData(res: Response, ctx: ChannelHandlerContext, stream: Http2FrameStream): Unit = {
     res.data match {
       case HttpData.Empty               =>
         ctx.writeAndFlush(new DefaultHttp2DataFrame(true).stream(stream))
