@@ -13,8 +13,8 @@ import scala.collection.mutable.Map
 
 @Sharable
 final case class Http2ServerRequestHandler[R] private[zhttp] (
-                                                               runtime: HttpRuntime[R],
-                                                               config: Config[R, Throwable],
+  runtime: HttpRuntime[R],
+  config: Config[R, Throwable],
 ) extends ChannelDuplexHandler
     with HttpMessageCodec
     with WebSocketUpgrade[R] { self =>
@@ -59,8 +59,11 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
         val header = hedaerMap.get(stream).get
         if (dataMap.contains(stream)) {
           onEndStream(ctx, header, dataMap.get(stream).get :+ data)
+          dataMap.remove(stream)
+          hedaerMap.remove(stream)
         } else {
           onEndStream(ctx, header, List(data))
+          hedaerMap.remove(stream)
         }
       } else {
         if (dataMap.contains(stream)) {
@@ -92,40 +95,52 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
   ): Unit = {
     val stream = headers.stream()
     decodeHttp2Header(headers, ctx, dataL) match {
-      case Left(cause)   => ctx.fireChannelRead((Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),stream))
+      case Left(cause) =>
+        ctx.fireChannelRead((Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))), stream)): Unit
       case Right(jReq) => {
         config.app.execute(jReq) match {
-          case HExit.Failure(e)   => ctx.fireChannelRead((Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))),stream))
-          case HExit.Empty        => ctx.fireChannelRead((Response.status(NOT_FOUND),stream))
+          case HExit.Failure(e)   =>
+            ctx.fireChannelRead((Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))), stream)): Unit
+          case HExit.Empty        => ctx.fireChannelRead((Response.status(NOT_FOUND), stream)): Unit
           case HExit.Success(res) =>
             if (self.isWebSocket(res)) {
               ctx.fireChannelRead(
-                (Response(
-                  UPGRADE_REQUIRED,
-                  data = HttpData.fromString("Websockets are not supported over HTTP/2. Make HTTP/1.1 connection."),
+                (
+                  Response(
+                    UPGRADE_REQUIRED,
+                    data = HttpData.fromString("Websockets are not supported over HTTP/2. Make HTTP/1.1 connection."),
+                  ),
+                  stream,
                 ),
-                stream,)
-              )
+              ): Unit
             } else {
-              ctx.fireChannelRead((res, stream))
+              ctx.fireChannelRead((res, stream)): Unit
             }
           case HExit.Effect(resM) =>
             unsafeRunZIO(
               resM.foldM(
                 {
-                  case Some(cause) => UIO(ctx.fireChannelRead((Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))), stream)))
-                  case None        => UIO(ctx.fireChannelRead((Response.status(NOT_FOUND),stream)))
+                  case Some(cause) =>
+                    UIO(
+                      ctx.fireChannelRead(
+                        (Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))), stream),
+                      ),
+                    )
+                  case None        => UIO(ctx.fireChannelRead((Response.status(NOT_FOUND), stream)))
                 },
                 res =>
                   if (self.isWebSocket(res))
                     UIO(
                       ctx.fireChannelRead(
-                        (Response(
-                          UPGRADE_REQUIRED,
-                          data = HttpData.fromString("Websockets are not supported over HTTP/2. Make HTTP/1.1 connection."),
+                        (
+                          Response(
+                            UPGRADE_REQUIRED,
+                            data =
+                              HttpData.fromString("Websockets are not supported over HTTP/2. Make HTTP/1.1 connection."),
+                          ),
+                          stream,
                         ),
-                          stream,)
-                      )
+                      ),
                     )
                   else {
                     for {
@@ -139,6 +154,4 @@ final case class Http2ServerRequestHandler[R] private[zhttp] (
       }
     }
   }
-
-
 }
