@@ -49,6 +49,5 @@ final case class NewClientChannelInitializer[R](
 //      pipeline.addLast(WEB_SOCKET_CLIENT_PROTOCOL_HANDLER, new WebSocketClientProtocolHandler(config))
 //      pipeline.addLast(WEB_SOCKET_HANDLER, new WebSocketAppHandler(rtm, app))
 //    }
-//    ()
   }
 }
