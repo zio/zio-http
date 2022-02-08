@@ -33,13 +33,13 @@ object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientRequ
     testM("method") {
       checkM(anyClientParam) { params =>
         val req = encode(params).map(_.method())
-        assertM(req)(equalTo(params.method.asHttpMethod))
+        assertM(req)(equalTo(params.method.toJava))
       }
     } +
       testM("method on HttpData.File") {
         checkM(HttpGen.clientParamsForFileHttpData()) { params =>
           val req = encode(params).map(_.method())
-          assertM(req)(equalTo(params.method.asHttpMethod))
+          assertM(req)(equalTo(params.method.toJava))
         }
       } +
       suite("uri") {
@@ -88,7 +88,7 @@ object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientRequ
       testM("http version") {
         checkM(anyClientParam) { params =>
           val req = encode(params).map(i => i.protocolVersion())
-          assertM(req)(equalTo(params.version))
+          assertM(req)(equalTo(params.version.toJava))
         }
       }
   }

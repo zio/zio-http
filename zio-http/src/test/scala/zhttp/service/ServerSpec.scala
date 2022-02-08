@@ -31,9 +31,9 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   // Use this route to test anything that doesn't require ZIO related computations.
-  private val nonZIO = Http.collect[Request] {
-    case _ -> !! / "HExitSuccess" => Response.ok
-    case _ -> !! / "HExitFailure" => Response.fromHttpError(HttpError.BadRequest())
+  private val nonZIO = Http.collectHttp[Request] {
+    case _ -> !! / "HExitSuccess" => Http.ok
+    case _ -> !! / "HExitFailure" => Http.fail(new RuntimeException("FAILURE"))
   }
 
   private val app = serve { nonZIO ++ staticApp ++ DynamicServer.app }
@@ -279,10 +279,10 @@ object ServerSpec extends HttpRunnableSpec {
         assertM(actual)(equalTo(Status.OK))
       }
     } +
-      testM("400 response") {
+      testM("500 response") {
         checkAllM(HttpGen.method) { method =>
           val actual = status(method, !! / "HExitFailure")
-          assertM(actual)(equalTo(Status.BAD_REQUEST))
+          assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
         }
       } +
       testM("404 response ") {
