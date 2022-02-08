@@ -68,8 +68,11 @@ final case class ServerChannelInitializer[R](
 
     // HttpContentCompressor
     // Add HttpContentCompressor if setting is true
-    if (cfg.httpCompression.nonEmpty)
-      pipeline.addLast(HTTP_CONTENT_COMPRESSOR, new HttpContentCompressor(cfg.httpCompression.map(_.toJava): _*))
+    if (cfg.httpCompression._2.nonEmpty)
+      pipeline.addLast(
+        HTTP_CONTENT_COMPRESSOR,
+        new HttpContentCompressor(cfg.httpCompression._1, cfg.httpCompression._2.map(_.toJava): _*),
+      )
 
     // RequestHandler
     // Always add ZIO Http Request Handler

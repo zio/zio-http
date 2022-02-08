@@ -23,7 +23,7 @@ object HelloWorldAdvanced extends App {
   }
 
   private val server = Server.port(PORT) ++
-    Server.httpCompression(IndexedSeq(CompressionOptions.deflate, CompressionOptions.gzip)) ++
+    Server.httpCompression(12, IndexedSeq(CompressionOptions.deflate(), CompressionOptions.gzip())) ++
     Server.app(fooBar ++ app)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
