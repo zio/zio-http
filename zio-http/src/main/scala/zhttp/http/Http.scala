@@ -281,13 +281,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     Http.Race(self, other)
 
   /**
-   * Converts a failing Http into a non-failing one by handling the failure and
-   * converting it to a result if possible.
-   */
-  final def silent[E1 >: E, B1 >: B](implicit s: CanBeSilenced[E1, B1]): Http[R, Nothing, A, B1] =
-    self.catchAll(e => Http.succeed(s.silent(e)))
-
-  /**
    * Extracts `Status` from the type `B` is possible.
    */
   final def status(implicit ev: IsResponse[B]): Http[R, E, A, Status] = self.map(ev.status)
@@ -438,13 +431,6 @@ object Http {
      * Overwrites the url in the incoming request
      */
     def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.setUrl(url))
-
-    /**
-     * Converts a failing Http app into a non-failing one by handling the
-     * failure and converting it to a result if possible.
-     */
-    def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response]): HttpApp[R1, E1] =
-      http.catchAll(e => Http.succeed(s.silent(e)))
 
     /**
      * Updates the response headers using the provided function
