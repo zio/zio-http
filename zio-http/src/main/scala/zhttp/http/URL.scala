@@ -10,29 +10,10 @@ import scala.util.Try
 
 sealed trait URL { self =>
 
-  def getHost: Option[String]   = self match {
-    case b: Absolute => b.host
-    case r           => r.toAbsolute.getHost
-  }
-  def getPort: Option[Int]      = self match {
-    case b: Absolute => b.port
-    case r           => r.toAbsolute.getPort
-  }
-  def getScheme: Option[Scheme] = self match {
-    case b: Absolute => b.scheme
-    case r           => r.toAbsolute.getScheme
-  }
-  def getPath: Path             = self match {
-    case a: Unsafe                   => a.toAbsolute.relative.path
-    case Absolute(_, _, _, relative) => relative.path
-    case Relative(path, _, _)        => path
-  }
-
-  def toAbsolute: Absolute = self match {
-    case Unsafe(x)   => URL.unsafeFromString(x)
-    case b: Absolute => b
-    case c: Relative => Absolute(relative = c)
-  }
+  def getHost: Option[String]   = self.toAbsolute.host
+  def getPort: Option[Int]      = self.toAbsolute.port
+  def getScheme: Option[Scheme] = self.toAbsolute.scheme
+  def getPath: Path             = self.toAbsolute.relative.path
 
   def setHost(host: String): URL     =
     self.toAbsolute.copy(Some(host), Some(self.getScheme.getOrElse(HTTP)), Some(self.getPort.getOrElse(80)))
@@ -46,7 +27,14 @@ sealed trait URL { self =>
     self.toAbsolute.copy(relative = self.toAbsolute.relative.copy(queryParams = queryParams))
   def setQueryParams(query: String): URL                          =
     self.toAbsolute.copy(relative = self.toAbsolute.relative.copy(queryParams = URL.queryParams(query)))
-  def encode: String                                              = URL.asString(self)
+
+  def toAbsolute: Absolute = self match {
+    case Unsafe(x)   => URL.unsafeFromString(x)
+    case b: Absolute => b
+    case c: Relative => Absolute(relative = c)
+  }
+
+  def encode: String = URL.asString(self)
 }
 object URL {
 
