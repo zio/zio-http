@@ -156,8 +156,7 @@ object Client {
   ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = {
     for {
       clt <- make[R]
-      uri <- ZIO.fromEither(URL.fromString(url))
-      res <- clt.socket(uri, headers, app, sslOptions)
+      res <- clt.socket(URL(url), headers, app, sslOptions)
     } yield res
   }
 
