@@ -29,34 +29,35 @@ private[zhttp] final case class Handler[R](
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
       case jReq: HttpRequest =>
-        val request = new Request {
-          override def method: Method   = Method.fromHttpMethod(jReq.method())
-          override def url: URL         = URL.fromString(jReq.uri()).getOrElse(null)
-          override def headers: Headers = Headers.make(jReq.headers())
-
-          override def remoteAddress: Option[InetAddress] = {
-            ctx.channel().remoteAddress() match {
-              case m: InetSocketAddress => Some(m.getAddress)
-              case _                    => None
-            }
-          }
-
-          override def unsafeBody(
-            callback: (
-              UnsafeChannel,
-              UnsafeContent,
-            ) => Unit,
-          ): Unit = {
-            val httpContentHandler = ctx.pipeline().get(HTTP_CONTENT_HANDLER)
-            if (httpContentHandler == null) {
-              ctx
-                .pipeline()
-                .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback, config)): Unit
-            } else {
-              httpContentHandler.asInstanceOf[RequestBodyHandler[R]].callback = callback
-            }
+        def unsafeBody(
+          callback: (
+            UnsafeChannel,
+            UnsafeContent,
+          ) => Unit,
+        ): Unit = {
+          val httpContentHandler = ctx.pipeline().get(HTTP_CONTENT_HANDLER)
+          if (httpContentHandler == null) {
+            ctx
+              .pipeline()
+              .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback, config)): Unit
+          } else {
+            httpContentHandler.asInstanceOf[RequestBodyHandler[R]].callback = callback
           }
         }
+        lazy val remoteAddress: Option[InetAddress] = {
+          ctx.channel().remoteAddress() match {
+            case m: InetSocketAddress => Some(m.getAddress)
+            case _                    => None
+          }
+        }
+        val request                                 = Request(
+          Method.fromHttpMethod(jReq.method()),
+          URL.fromString(jReq.uri()).getOrElse(null),
+          Headers.make(jReq.headers()),
+          remoteAddress,
+          data = HttpData.Incoming(unsafeBody),
+        )
+
         unsafeRun(
           jReq,
           app,

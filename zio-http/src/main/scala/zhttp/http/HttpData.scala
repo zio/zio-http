@@ -1,9 +1,12 @@
 package zhttp.http
 
-import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
+import zhttp.http.HttpData.Outgoing._
+import zhttp.service.HTTP_CONTENT_HANDLER
+import zhttp.service.server.content.handlers.UnsafeRequestHandler.{UnsafeChannel, UnsafeContent}
 import zio.blocking.Blocking.Service.live.effectBlocking
 import zio.stream.ZStream
-import zio.{Chunk, Task, UIO}
+import zio.{Chunk, IO, Task, UIO, ZIO}
 
 import java.nio.charset.Charset
 import java.nio.file.Files
@@ -13,36 +16,100 @@ import java.nio.file.Files
  */
 sealed trait HttpData { self =>
 
+  def asByteBuf: Task[ByteBuf] = self match {
+    case HttpData.Incoming(unsafeRun) =>
+      for {
+        buffer <- UIO(Unpooled.compositeBuffer())
+        body   <- ZIO.effectAsync[Any, Throwable, ByteBuf](cb =>
+          unsafeRun((ch, msg) => {
+            if (buffer.readableBytes() + msg.content.content().readableBytes() > msg.limit) {
+              ch.ctx.fireChannelRead(Response.status(Status.REQUEST_ENTITY_TOO_LARGE)): Unit
+            } else {
+              buffer.writeBytes(msg.content.content())
+              if (msg.isLast) {
+                cb(UIO(buffer) ensuring UIO(ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)))
+
+              } else {
+                ch.read()
+                ()
+              }
+            }
+            msg.content.release(msg.content.refCnt()): Unit
+          }),
+        )
+      } yield body
+    case outgoing: HttpData.Outgoing  => outgoing.toByteBuf
+  }
+
+  def asString: Task[String]     = asByteBuf.map(buf => buf.toString(HTTP_CHARSET))
+  def asBytes: Task[Chunk[Byte]] = asByteBuf.map(buf => Chunk.fromArray(ByteBufUtil.getBytes(buf)))
+  final def asByteChunk: IO[Option[Throwable], Chunk[Byte]] = self match {
+    case HttpData.Incoming(unsafeRun) =>
+      ZIO.effectAsync(cb =>
+        unsafeRun((ch, msg) => {
+          val chunk = Chunk.fromArray(ByteBufUtil.getBytes(msg.content.content()))
+          cb(UIO(chunk) ensuring UIO(msg.content.release(msg.content.refCnt())))
+          if (msg.isLast) {
+            ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER): Unit
+          } else {
+            ch.read()
+            ()
+          }
+        }),
+      )
+    case _: HttpData.Outgoing         => ???
+  }
+  def asStreamByteBuf: ZStream[Any, Throwable, ByteBuf]     = self match {
+    case HttpData.Incoming(unsafeRun) =>
+      ZStream
+        .effectAsync[Any, Throwable, ByteBuf](cb =>
+          unsafeRun((ch, msg) => {
+            cb(IO.succeed(Chunk(msg.content.content())))
+            if (msg.isLast) {
+              ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)
+              cb(IO.fail(None))
+            } else {
+              ch.read()
+            }
+          }),
+        )
+    case _: HttpData.Outgoing         => ???
+  }
+
   /**
    * Returns true if HttpData is a stream
    */
   def isChunked: Boolean = self match {
-    case HttpData.BinaryStream(_) => true
-    case _                        => false
+    case BinaryStream(_) => true
+    case _               => false
   }
 
   /**
    * Returns true if HttpData is empty
    */
   def isEmpty: Boolean = self match {
-    case HttpData.Empty => true
-    case _              => false
+    case Empty => true
+    case _     => false
   }
 
   def toByteBuf: Task[ByteBuf] = {
     self match {
-      case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
-      case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
-      case HttpData.BinaryByteBuf(data)  => UIO(data)
-      case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
-      case HttpData.BinaryStream(stream) =>
-        stream
-          .asInstanceOf[ZStream[Any, Throwable, ByteBuf]]
-          .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
-      case HttpData.File(file)           =>
-        effectBlocking {
-          val fileContent = Files.readAllBytes(file.toPath)
-          Unpooled.copiedBuffer(fileContent)
+      case HttpData.Incoming(_)        => ???
+      case outgoing: HttpData.Outgoing =>
+        outgoing match {
+          case Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
+          case BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
+          case BinaryByteBuf(data)  => UIO(data)
+          case Empty                => UIO(Unpooled.EMPTY_BUFFER)
+          case BinaryStream(stream) =>
+            stream
+              .asInstanceOf[ZStream[Any, Throwable, ByteBuf]]
+              .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
+          case File(file)           =>
+            effectBlocking {
+              val fileContent = Files.readAllBytes(file.toPath)
+              Unpooled.copiedBuffer(fileContent)
+            }
         }
     }
   }
@@ -58,7 +125,7 @@ object HttpData {
   /**
    * Helper to create HttpData from ByteBuf
    */
-  def fromByteBuf(byteBuf: ByteBuf): HttpData = HttpData.BinaryByteBuf(byteBuf)
+  def fromByteBuf(byteBuf: ByteBuf): HttpData = BinaryByteBuf(byteBuf)
 
   /**
    * Helper to create HttpData from chunk of bytes
@@ -69,16 +136,16 @@ object HttpData {
    * Helper to create HttpData from Stream of bytes
    */
   def fromStream(stream: ZStream[Any, Throwable, Byte]): HttpData =
-    HttpData.BinaryStream(stream.mapChunks(chunks => Chunk(Unpooled.wrappedBuffer(chunks.toArray))))
+    BinaryStream(stream.mapChunks(chunks => Chunk(Unpooled.wrappedBuffer(chunks.toArray))))
 
   /**
    * Helper to create HttpData from Stream of string
    */
   def fromStream(stream: ZStream[Any, Throwable, String], charset: Charset = HTTP_CHARSET): HttpData =
-    HttpData.BinaryStream(stream.map(str => Unpooled.copiedBuffer(str, charset)))
+    BinaryStream(stream.map(str => Unpooled.copiedBuffer(str, charset)))
 
   def fromStreamByteBuf(stream: ZStream[Any, Throwable, ByteBuf]): HttpData =
-    HttpData.BinaryStream(stream)
+    BinaryStream(stream)
 
   /**
    * Helper to create HttpData from String
@@ -90,10 +157,16 @@ object HttpData {
    */
   def fromFile(file: java.io.File): HttpData = File(file)
 
-  private[zhttp] final case class Text(text: String, charset: Charset)                   extends HttpData
-  private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                         extends HttpData
-  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                           extends HttpData
-  private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf]) extends HttpData
-  private[zhttp] final case class File(file: java.io.File)                               extends HttpData
-  private[zhttp] case object Empty                                                       extends HttpData
+  final case class Incoming(unsafeRun: ((UnsafeChannel, UnsafeContent) => Unit) => Unit) extends HttpData
+
+  sealed trait Outgoing extends HttpData
+  object Outgoing {
+    private[zhttp] final case class Text(text: String, charset: Charset)                   extends Outgoing
+    private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                         extends Outgoing
+    private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                           extends Outgoing
+    private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf]) extends Outgoing
+    private[zhttp] final case class File(file: java.io.File)                               extends Outgoing
+    private[zhttp] case object Empty                                                       extends Outgoing
+  }
+
 }

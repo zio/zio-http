@@ -4,6 +4,7 @@ import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
+import zhttp.http.HttpData.Outgoing
 import zhttp.http.{HttpData, Response}
 import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{ChannelFuture, HttpRuntime, Server}
@@ -25,17 +26,21 @@ private[zhttp] case class ServerResponseHandler[R](
     implicit val iCtx: ChannelHandlerContext = ctx
     ctx.write(encodeResponse(msg))
     msg.data match {
-      case HttpData.BinaryStream(stream) =>
-        runtime.unsafeRun(ctx) {
-          writeStreamContent(stream) ensuring
-            UIO(ctx.read()) // read next request
+      case HttpData.Incoming(_)        => ???
+      case outgoing: HttpData.Outgoing =>
+        outgoing match {
+          case Outgoing.BinaryStream(stream) =>
+            runtime.unsafeRun(ctx) {
+              writeStreamContent(stream) ensuring
+                UIO(ctx.read()) // read next request
+            }
+          case Outgoing.File(file)           =>
+            unsafeWriteFileContent(file)
+            ctx.read() // read next request
+          case _                             =>
+            ctx.flush()
+            ctx.read() // read next request
         }
-      case HttpData.File(file)           =>
-        unsafeWriteFileContent(file)
-        ctx.read() // read next request
-      case _                             =>
-        ctx.flush()
-        ctx.read() // read next request
     }
     ()
   }

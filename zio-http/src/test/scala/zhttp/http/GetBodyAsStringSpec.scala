@@ -22,7 +22,7 @@ object GetBodyAsStringSpec extends DefaultRunnableSpec {
             .ClientRequest(
               URL(!!),
               headers = Headers.contentType(s"text/html; charset=$charset"),
-              data = HttpData.BinaryChunk(Chunk.fromArray("abc".getBytes(charset))),
+              data = HttpData.fromChunk(Chunk.fromArray("abc".getBytes(charset))),
             )
 
           val encoded  = request.bodyAsString
@@ -31,7 +31,8 @@ object GetBodyAsStringSpec extends DefaultRunnableSpec {
         }
       } +
         testM("should map bytes to default utf-8 if no charset given") {
-          val request  = Client.ClientRequest(URL(!!), data = HttpData.BinaryChunk(Chunk.fromArray("abc".getBytes())))
+          val request  =
+            Client.ClientRequest(URL(!!), data = HttpData.fromChunk(Chunk.fromArray("abc".getBytes())))
           val encoded  = request.bodyAsString
           val expected = new String(Chunk.fromArray("abc".getBytes()).toArray, HTTP_CHARSET)
           assertM(encoded)(equalTo(expected))

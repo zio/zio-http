@@ -5,6 +5,7 @@ import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
 import zhttp.core.Util
 import zhttp.html.Html
+import zhttp.http.HttpData.Outgoing
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
@@ -76,18 +77,22 @@ final case class Response private (
 
     val jHeaders = self.headers.encode
     val jContent = self.data match {
-      case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
-      case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
-      case HttpData.BinaryByteBuf(data) => data
-      case HttpData.BinaryStream(_)     => null
-      case HttpData.Empty               => Unpooled.EMPTY_BUFFER
-      case HttpData.File(file)          =>
-        MediaType.probeContentType(file.toPath.toString) match {
-          case Some(cType) => jHeaders.set(HttpHeaderNames.CONTENT_TYPE, cType)
-          case None        => ()
+      case HttpData.Incoming(_) => ???
+      case outgoing: Outgoing   =>
+        outgoing match {
+          case Outgoing.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
+          case Outgoing.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
+          case Outgoing.BinaryByteBuf(data) => data
+          case Outgoing.BinaryStream(_)     => null
+          case Outgoing.Empty               => Unpooled.EMPTY_BUFFER
+          case Outgoing.File(file)          =>
+            MediaType.probeContentType(file.toPath.toString) match {
+              case Some(cType) => jHeaders.set(HttpHeaderNames.CONTENT_TYPE, cType)
+              case None        => ()
+            }
+            jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, file.length())
+            null
         }
-        jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, file.length())
-        null
     }
 
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
@@ -117,7 +122,7 @@ object Response {
   def apply[R, E](
     status: Status = Status.OK,
     headers: Headers = Headers.empty,
-    data: HttpData = HttpData.Empty,
+    data: HttpData = HttpData.empty,
   ): Response =
     Response(status, headers, data, Attribute.empty)
 

@@ -1,122 +1,40 @@
 package zhttp.http
 
-import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
+import io.netty.buffer.ByteBuf
 import zhttp.http.headers.HeaderExtension
-import zhttp.service.HTTP_CONTENT_HANDLER
-import zhttp.service.server.content.handlers.UnsafeRequestHandler.{UnsafeChannel, UnsafeContent}
 import zio._
 import zio.stream.ZStream
 
 import java.net.InetAddress
 
-trait Request extends HeaderExtension[Request] { self =>
+case class Request(
+  method: Method = Method.GET,
+  url: URL = URL.empty,
+  headers: Headers = Headers.empty,
+  remoteAddress: Option[InetAddress] = None,
+  data: HttpData = HttpData.Incoming(unsafeRun = _ => ()),
+) extends HeaderExtension[Request] { self =>
+
+  def bodyAsString: Task[String]                          = data.asString
+  def bodyAsBytes: Task[Chunk[Byte]]                      = data.asBytes
+  def bodyAsStream: ZStream[Any, Throwable, ByteBuf]      = data.asStreamByteBuf
+  def bodyAsByteBuf: Task[ByteBuf]                        = data.asByteBuf
+  def bodyAsByteChunk: IO[Option[Throwable], Chunk[Byte]] = data.asByteChunk
 
   /**
    * Updates the headers using the provided function
    */
   final override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.headers))
 
-  def copy(method: Method = self.method, url: URL = self.url, headers: Headers = self.headers): Request = {
-    val m = method
-    val u = url
-    val h = headers
-    new Request {
-      override def method: Method                     = m
-      override def url: URL                           = u
-      override def headers: Headers                   = h
-      override def remoteAddress: Option[InetAddress] = self.remoteAddress
-      override def body                               = self.body
-      private[zhttp] override def unsafeBody(
-        msg: (
-          UnsafeChannel,
-          UnsafeContent,
-        ) => Unit,
-      ): Unit = self.unsafeBody(msg)
-    }
-  }
-
-  private[zhttp] def unsafeBody(msg: (UnsafeChannel, UnsafeContent) => Unit): Unit
-
-  def body: Task[ByteBuf] = for {
-    buffer <- UIO(Unpooled.compositeBuffer())
-    body   <- ZIO.effectAsync[Any, Throwable, ByteBuf](cb =>
-      self.unsafeBody((ch, msg) => {
-        if (buffer.readableBytes() + msg.content.content().readableBytes() > msg.limit) {
-          ch.ctx.fireChannelRead(Response.status(Status.REQUEST_ENTITY_TOO_LARGE)): Unit
-        } else {
-          buffer.writeBytes(msg.content.content())
-          if (msg.isLast) {
-            cb(UIO(buffer) ensuring UIO(ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)))
-
-          } else {
-            ch.read()
-            ()
-          }
-        }
-        msg.content.release(msg.content.refCnt()): Unit
-      }),
-    )
-  } yield body
-
-  def bodyChunk: ZIO[Any, Throwable, (Boolean, Chunk[Byte])] =
-    ZIO
-      .effectAsync[Any, Throwable, (Boolean, Chunk[Byte])](cb =>
-        self.unsafeBody((ch, msg) => {
-          cb(
-            IO.succeed((msg.isLast, Chunk.fromArray(ByteBufUtil.getBytes(msg.content.content()))))
-              .ensuring(UIO(msg.content.release(msg.content.refCnt()))),
-          )
-          if (msg.isLast) {
-            ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER): Unit
-          } else {
-            ch.read(): Unit
-          }
-        }),
-      )
-
-  def bodyAsStream: ZStream[Any, Throwable, ByteBuf] =
-    ZStream
-      .effectAsync[Any, Throwable, ByteBuf](cb =>
-        self.unsafeBody((ch, msg) => {
-          cb(IO.succeed(Chunk(msg.content.content())))
-          if (msg.isLast) {
-            ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)
-            cb(IO.fail(None))
-          } else {
-            ch.read()
-          }
-        }),
-      )
-
-  /**
-   * Decodes the content of request as string
-   */
-  def bodyAsString: Task[String] = self.body.map(_.toString(HTTP_CHARSET))
-
-  /**
-   * Gets all the headers in the Request
-   */
-  def headers: Headers
-
   /**
    * Checks is the request is a pre-flight request or not
    */
-  def isPreflight: Boolean = method == Method.OPTIONS
-
-  /**
-   * Gets the request's method
-   */
-  def method: Method
+  def isPreflight: Boolean = self.method == Method.OPTIONS
 
   /**
    * Gets the request's path
    */
-  def path: Path = url.path
-
-  /**
-   * Gets the remote address if available
-   */
-  def remoteAddress: Option[InetAddress]
+  def path: Path = self.url.path
 
   /**
    * Overwrites the method in the request
@@ -132,43 +50,9 @@ trait Request extends HeaderExtension[Request] { self =>
    * Overwrites the url in the request
    */
   def setUrl(url: URL): Request = self.copy(url = url)
-
-  /**
-   * Gets the complete url
-   */
-  def url: URL
 }
 
 object Request {
-
-  /**
-   * Constructor for Request
-   */
-  def apply(
-    method: Method = Method.GET,
-    url: URL = URL.root,
-    headers: Headers = Headers.empty,
-    remoteAddress: Option[InetAddress] = None,
-    data: HttpData = HttpData.Empty,
-  ): Request = {
-    val m  = method
-    val u  = url
-    val h  = headers
-    val ra = remoteAddress
-    new Request {
-      override def method: Method                     = m
-      override def url: URL                           = u
-      override def headers: Headers                   = h
-      override def remoteAddress: Option[InetAddress] = ra
-      override def body: Task[ByteBuf]                = data.toByteBuf
-      private[zhttp] override def unsafeBody(
-        msg: (
-          UnsafeChannel,
-          UnsafeContent,
-        ) => Unit,
-      ): Unit = ()
-    }
-  }
 
   /**
    * Effectfully create a new Request object
@@ -185,17 +69,12 @@ object Request {
   /**
    * Lift request to TypedRequest with option to extract params
    */
-  final class ParameterizedRequest[A](req: Request, val params: A) extends Request {
-    override def headers: Headers                   = req.headers
-    override def method: Method                     = req.method
-    override def remoteAddress: Option[InetAddress] = req.remoteAddress
-    override def url: URL                           = req.url
-    private[zhttp] override def unsafeBody(
-      msg: (
-        UnsafeChannel,
-        UnsafeContent,
-      ) => Unit,
-    ): Unit = req.unsafeBody(msg)
+  final class ParameterizedRequest[A](req: Request, val params: A) {
+    def headers: Headers                   = req.headers
+    def method: Method                     = req.method
+    def remoteAddress: Option[InetAddress] = req.remoteAddress
+    def url: URL                           = req.url
+    def data: HttpData                     = req.data
   }
 
   object ParameterizedRequest {
