@@ -21,7 +21,7 @@ trait EncodeClientRequest {
 
       val headers = req.url.getHost match {
         case Some(value) if value != null => encodedReqHeaders.set(HttpHeaderNames.HOST, value)
-        case _        => encodedReqHeaders
+        case _                            => encodedReqHeaders
       }
 
       val writerIndex = content.writerIndex()
