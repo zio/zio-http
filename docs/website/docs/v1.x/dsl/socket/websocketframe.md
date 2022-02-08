@@ -4,7 +4,7 @@ sidebar_label: "WebSocketFrame"
 ---
 In the [WebSocket](https://datatracker.ietf.org/doc/html/rfc6455) protocol, communication happens using frames. ZIO
 HTTP's [WebSocketFrame](https://github.com/dream11/zio-http/blob/main/zio-http/src/main/scala/zhttp/socket/WebSocketFrame.scala)
-is its representation of those frames. The protocol defines the following types of frames:
+is its representation of those frames. The domain defines the following types of frames:
 
 * Text
 * Binary
