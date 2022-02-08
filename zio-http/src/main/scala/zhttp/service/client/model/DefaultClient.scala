@@ -7,8 +7,8 @@ import zhttp.service.Client.{Attribute, ClientRequest, ClientResponse, Config}
 import zhttp.service.HttpMessageCodec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.transport.ClientConnectionManager
-import zio.{Task, ZIO}
 import zio.stream.ZStream
+import zio.{Task, ZIO}
 
 case class DefaultClient(
   settings: Config,
@@ -20,7 +20,7 @@ case class DefaultClient(
     jReq    <- encode(req)
     channel <- connectionManager.fetchConnection(jReq, req)
     prom    <- zio.Promise.make[Throwable, ClientResponse]
-    _       <- connectionManager.sendRequest(channel,ConnectionRuntime(prom, jReq))
+    _       <- connectionManager.sendRequest(channel, ConnectionRuntime(prom, jReq))
     resp    <- prom.await
   } yield resp
 
@@ -37,7 +37,6 @@ case class DefaultClient(
       req = ClientRequest(url, method, headers, content, attribute = Attribute(ssl = ssl))
       res <- run(req)
     } yield res
-
 
   /**
    * Submits a GET request to the specified zhttp URL
