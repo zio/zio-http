@@ -1,7 +1,6 @@
 package zhttp.internal
 
 import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http.HttpVersion
 import zhttp.http.Scheme.{HTTP, HTTPS, WS, WSS}
 import zhttp.http.URL.Location
 import zhttp.http._
@@ -34,7 +33,7 @@ object HttpGen {
       url     <- urlGen
       headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
-      version <- Gen.fromIterable(List(HttpVersion.HTTP_1_0, HttpVersion.HTTP_1_1))
+      version <- Gen.fromIterable(List(Version.Http_1_0, Version.Http_1_1))
     } yield ClientRequest(url, method, headers, data, version)
 
   def cookies: Gen[Random with Sized, Cookie] = for {

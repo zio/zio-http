@@ -169,7 +169,7 @@ object Client {
     method: Method = Method.GET,
     headers: Headers = Headers.empty,
     private[zhttp] val data: HttpData = HttpData.empty,
-    private[zhttp] val version: HttpVersion = HttpVersion.HTTP_1_1,
+    private[zhttp] val version: Version = Version.Http_1_1,
     private[zhttp] val attribute: Attribute = Attribute.empty,
     private val channelContext: ChannelHandlerContext = null,
   ) extends HeaderExtension[ClientRequest] {
