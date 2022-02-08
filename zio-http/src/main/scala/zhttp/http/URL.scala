@@ -94,30 +94,34 @@ object URL {
     case Scheme.HTTPS | Scheme.WSS => 443
   }
 
-  def unsafeFromString(string: String): Absolute          = {
+  def unsafeFromString(string: String): Absolute        = {
     try {
       val url = new URI(string)
-      if (url.isAbsolute) fromAbsoluteURI(url).orNull else fromRelativeURI(url).orNull
+      if (url.isAbsolute) unsafeFromAbsoluteURI(url) else unsafeFromRelativeURI(url)
     } catch {
       case _: Throwable => null
     }
   }
-  private def fromAbsoluteURI(uri: URI): Option[Absolute] = {
-    for {
-      scheme <- Scheme.decode(uri.getScheme)
-      path   <- Option(uri.getRawPath)
-      port = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
-    } yield Absolute(
-      Option(uri.getHost),
-      Scheme.decode(uri.getScheme),
-      Some(port),
-      Relative(Path(path), queryParams(uri.getRawQuery), Fragment.fromURI(uri)),
-    )
+  private def unsafeFromAbsoluteURI(uri: URI): Absolute = {
+    val scheme  = Scheme.decode2(uri.getScheme)
+    val uriPort = uri.getPort
+    val port    = if (uriPort != -1) uriPort else portFromScheme(scheme)
+    val host    = uri.getHost
+
+    if (port != -1 && scheme != null && host != null)
+      Absolute(
+        Some(host),
+        Some(scheme),
+        Some(port),
+        Relative(Path(uri.getRawPath), queryParams(uri.getRawQuery), Fragment.fromURI(uri)),
+      )
+    else null
   }
 
-  private def fromRelativeURI(uri: URI): Option[Absolute] = for {
-    path <- Option(uri.getRawPath)
-  } yield Absolute(relative = Relative(Path(path), queryParams(uri.getRawQuery), Fragment.fromURI(uri)))
+  private def unsafeFromRelativeURI(uri: URI): Absolute =
+    Absolute(relative =
+      Relative(Path(uri.getRawPath), queryParams = queryParams(uri.getRawQuery), fragment = Fragment.fromURI(uri)),
+    )
 
   case class Fragment private (raw: String, decoded: String)
   object Fragment {
