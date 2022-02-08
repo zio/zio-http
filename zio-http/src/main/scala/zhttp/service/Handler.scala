@@ -89,7 +89,7 @@ private[zhttp] final case class Handler[R](
         }
 
       case HExit.Failure(e) =>
-        ctx.fireChannelRead((e, jReq)): Unit
+        ctx.fireChannelRead((Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))), jReq)): Unit
       case HExit.Empty      =>
         ctx.fireChannelRead((Response.status(Status.NOT_FOUND), jReq)): Unit
     }
