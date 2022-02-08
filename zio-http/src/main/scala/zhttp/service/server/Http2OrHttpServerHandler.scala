@@ -8,7 +8,8 @@ import zhttp.service.server.ServerChannelInitializerUtil.configureClearTextHttp1
 final case class Http2OrHttpServerHandler(
   reqHandler: ChannelHandler,
   respHandler: ChannelHandler,
-  http2Handler: ChannelHandler,
+  http2ReqHandler: ChannelHandler,
+  http2ResHandler: ChannelHandler,
   cfg: Config[_, Throwable],
 ) extends ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
   @throws[Exception]
@@ -16,7 +17,8 @@ final case class Http2OrHttpServerHandler(
     if (ApplicationProtocolNames.HTTP_2 == protocol) {
       ctx.pipeline
         .addLast(HTTP2_SERVER_CODEC_HANDLER, Http2FrameCodecBuilder.forServer().build())
-        .addLast(HTTP2_REQUEST_HANDLER, http2Handler)
+        .addLast(HTTP2_SERVER_REQUEST_HANDLER, http2ReqHandler)
+        .addLast(HTTP2_SERVER_RESPONSE_HANDLER, http2ResHandler)
       ()
     } else if (ApplicationProtocolNames.HTTP_1_1 == protocol) {
       configureClearTextHttp1(cfg, reqHandler, respHandler, ctx.pipeline())

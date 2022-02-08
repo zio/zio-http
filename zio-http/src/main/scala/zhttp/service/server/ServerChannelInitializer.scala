@@ -15,7 +15,8 @@ final case class ServerChannelInitializer[R](
   cfg: Config[R, Throwable],
   reqHandler: ChannelHandler,
   respHandler: ChannelHandler,
-  http2Handler: ChannelHandler,
+  http2ReqHandler: ChannelHandler,
+  http2ResHandler: ChannelHandler,
 ) extends ChannelInitializer[Channel] {
 
   val sslctx = if (cfg.sslOption == null) null else ServerSSLBuilder.build(cfg.sslOption.sslContextBuilder, cfg.http2)
@@ -32,7 +33,7 @@ final case class ServerChannelInitializer[R](
         pipeline
           .addFirst(
             SERVER_SSL_HANDLER,
-            new OptionalServerSSLHandler(sslctx, cfg, reqHandler, respHandler, http2Handler),
+            new OptionalServerSSLHandler(sslctx, cfg, reqHandler, respHandler, http2ReqHandler, http2ResHandler),
           )
       configureClearTextHttp1(cfg, reqHandler, respHandler, pipeline)
       ()
@@ -42,12 +43,15 @@ final case class ServerChannelInitializer[R](
           .pipeline()
           .addFirst(
             SERVER_SSL_HANDLER,
-            new OptionalServerSSLHandler(sslctx, cfg, reqHandler, respHandler, http2Handler),
+            new OptionalServerSSLHandler(sslctx, cfg, reqHandler, respHandler, http2ReqHandler, http2ResHandler),
           )
-          .addLast(HTTP2_OR_HTTP_SERVER_HANDLER, Http2OrHttpServerHandler(reqHandler, respHandler, http2Handler, cfg))
+          .addLast(
+            HTTP2_OR_HTTP_SERVER_HANDLER,
+            Http2OrHttpServerHandler(reqHandler, respHandler, http2ReqHandler, http2ResHandler, cfg),
+          )
         ()
       } else {
-        configureClearTextHttp2(reqHandler, respHandler, http2Handler, channel, cfg, true)
+        configureClearTextHttp2(reqHandler, respHandler, http2ReqHandler, http2ResHandler, channel, cfg, true)
       }
     }
   }

@@ -17,11 +17,14 @@ import zhttp.service._
 
 case object ServerChannelInitializerUtil {
 
-  private def upgradeCodecFactory(http2H: ChannelHandler): JUpgradeCodecFactory = {
+  private def upgradeCodecFactory(
+    http2ReqHandler: ChannelHandler,
+    http2ResHandler: ChannelHandler,
+  ): JUpgradeCodecFactory = {
     new HttpServerUpgradeHandler.UpgradeCodecFactory() {
       override def newUpgradeCodec(protocol: CharSequence): Http2ServerUpgradeCodec = {
         if (JAsciiString.contentEquals(Http2CodecUtil.HTTP_UPGRADE_PROTOCOL_NAME, protocol))
-          new Http2ServerUpgradeCodec(Http2FrameCodecBuilder.forServer.build, http2H)
+          new Http2ServerUpgradeCodec(Http2FrameCodecBuilder.forServer.build, http2ReqHandler, http2ResHandler)
         else null
       }
     }
@@ -30,7 +33,8 @@ case object ServerChannelInitializerUtil {
   def configureClearTextHttp2(
     reqHandler: ChannelHandler,
     resHandler: ChannelHandler,
-    http2Handler: ChannelHandler,
+    http2ReqHandler: ChannelHandler,
+    http2ResHandler: ChannelHandler,
     c: Channel,
     cfg: Config[_, Throwable],
     enableEncryptedMessageFilter: Boolean = false,
@@ -42,7 +46,7 @@ case object ServerChannelInitializerUtil {
     p.addLast(SERVER_CODEC_HANDLER, sourceCodec)
     p.addLast(
       SERVER_CLEAR_TEXT_HTTP2_HANDLER,
-      new HttpServerUpgradeHandler(sourceCodec, upgradeCodecFactory(http2Handler)),
+      new HttpServerUpgradeHandler(sourceCodec, upgradeCodecFactory(http2ReqHandler, http2ResHandler)),
     )
     p.addLast(
       SERVER_CLEAR_TEXT_HTTP2_FALLBACK_HANDLER,

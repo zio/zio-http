@@ -17,7 +17,8 @@ class OptionalServerSSLHandler(
   cfg: Config[_, Throwable],
   reqHandler: ChannelHandler,
   respHandler: ChannelHandler,
-  http2Handler: ChannelHandler,
+  http2ReqHandler: ChannelHandler,
+  http2ResHandler: ChannelHandler,
 ) extends ByteToMessageDecoder {
   override def decode(context: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
     val pipeline = context.channel().pipeline()
@@ -31,7 +32,7 @@ class OptionalServerSSLHandler(
         case SSLHttpBehaviour.Accept =>
           if (cfg.http2) {
             pipeline.remove(HTTP2_OR_HTTP_SERVER_HANDLER)
-            configureClearTextHttp2(reqHandler, respHandler, http2Handler, context.channel(), cfg)
+            configureClearTextHttp2(reqHandler, respHandler, http2ReqHandler, http2ResHandler, context.channel(), cfg)
             pipeline.remove(this)
             ()
           } else {
