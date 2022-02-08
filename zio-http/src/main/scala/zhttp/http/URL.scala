@@ -140,13 +140,4 @@ object URL {
   def root: URL  = Absolute(relative = Relative())
   def empty: URL = root
 
-  val url1 = URL.empty
-    .setHost("www.zio-http.com")
-    .setQueryParams(Map("A" -> List("B")))
-    .setPort(8090)
-    .setScheme(Scheme.HTTP)
-
-  val url2: URL                               = URL("www.zio-http.com/a")
-  val url3: Either[HttpError.BadRequest, URL] = URL.fromString("www.zio-http.com/a")
-
 }
