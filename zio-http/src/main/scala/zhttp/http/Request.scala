@@ -57,7 +57,7 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Gets the request's path
    */
-  def path: Path = url.toAbsolute.relative.path
+  def path: Path = url.getPath
 
   /**
    * Gets the remote address if available

@@ -593,7 +593,7 @@ object Http {
    * Creates an Http app that fails with a NotFound exception.
    */
   def notFound: HttpApp[Any, Nothing] =
-    Http.fromFunction[Request](req => Http.error(HttpError.NotFound(req.url.toAbsolute.relative.path))).flatten
+    Http.fromFunction[Request](req => Http.error(HttpError.NotFound(req.url.getPath))).flatten
 
   /**
    * Creates an HTTP app which always responds with a 200 status code.
