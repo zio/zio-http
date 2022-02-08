@@ -2,6 +2,7 @@ package example
 
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
+import zhttp.service.server.content.compression.CompressionOptions
 import zhttp.service.{EventLoopGroup, Server}
 import zio._
 
@@ -21,11 +22,9 @@ object HelloWorldAdvanced extends App {
     case Method.GET -> !! / "utc"    => clock.currentDateTime.map(s => Response.text(s.toString))
   }
 
-  private val server =
-    Server.port(PORT) ++              // Setup port
-      Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
-      Server.httpCompression ++       // HttpCompression
-      Server.app(fooBar ++ app)       // Setup the Http app
+  private val server = Server.port(PORT) ++
+    Server.httpCompression(IndexedSeq(CompressionOptions.deflate, CompressionOptions.gzip)) ++
+    Server.app(fooBar ++ app)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     // Configure thread count using CLI
