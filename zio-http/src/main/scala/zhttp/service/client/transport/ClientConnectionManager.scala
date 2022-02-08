@@ -21,7 +21,7 @@ import scala.collection.mutable
     - Data structures like (idleQueue, waitingRequestQueue etc)
  */
 case class ClientConnectionManager(
-  connRef: Ref[mutable.Map[ReqKey, Channel]],
+  connRef: Ref[mutable.Map[ReqKey, Channel]],       // Temp map for POC, to be removed
   connectionState: ClientConnectionState,
   timeouts: Timeouts,
   boo: Bootstrap,
@@ -108,7 +108,7 @@ case class ClientConnectionManager(
   }.unit
 
   def getConnectionForRequestKey(reqKey: ReqKey, isWebSocket: Boolean, isSSL: Boolean) = for {
-    mp <- connRef.get
+    mp <- connRef.get             // temporary map, to be replaced by ClientConnectionState
     // if already key exists for existing connections re-use it
     // else build a new connection (channel)
     channel <- mp.get(reqKey) match {
