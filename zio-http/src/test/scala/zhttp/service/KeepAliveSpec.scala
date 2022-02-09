@@ -4,7 +4,9 @@ import io.netty.handler.codec.http.HttpHeaderValues
 import zhttp.http.{HeaderNames, Headers, Http, Version}
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
+import zio._
 import zio.test.Assertion.{equalTo, isNone, isSome}
+import zio.test.TestAspect.timeout
 import zio.test.assertM
 
 object KeepAliveSpec extends HttpRunnableSpec {
@@ -43,7 +45,7 @@ object KeepAliveSpec extends HttpRunnableSpec {
   override def spec = {
     suite("ServerConfigSpec") {
       appKeepAliveEnabled.as(List(keepAliveSpec)).useNow
-    }.provideCustomLayerShared(env)
+    }.provideCustomLayerShared(env) @@ timeout(30.seconds)
   }
 
 }
