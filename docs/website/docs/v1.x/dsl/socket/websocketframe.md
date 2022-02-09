@@ -4,7 +4,7 @@ sidebar_label: "WebSocketFrame"
 ---
 In the [WebSocket](https://datatracker.ietf.org/doc/html/rfc6455) protocol, communication happens using frames. ZIO
 HTTP's [WebSocketFrame](https://github.com/dream11/zio-http/blob/main/zio-http/src/main/scala/zhttp/socket/WebSocketFrame.scala)
-is its representation of those frames. The domain defines the following types of frames:
+is the representation of those frames. The domain defines the following type of frames:
 
 * Text
 * Binary
@@ -15,7 +15,7 @@ is its representation of those frames. The domain defines the following types of
 
 ### Text
 
-Text models textual data in the WebSocket protocol. To create a Text frame, you can use the `text` constructor.
+To create a Text frame that models textual data in the WebSocket protocol, you can use the `text` constructor.
 
 ```scala
 val text = WebSocketFrame.text("Hello from ZIO-HTTP")
@@ -23,7 +23,7 @@ val text = WebSocketFrame.text("Hello from ZIO-HTTP")
 
 ### Binary
 
-Binary models raw binary data. To create a Binary frame, you can use the `binary` constructor.
+To create a Binary frame that models raw binary data, you can use the `binary` constructor.
 
 ```scala
 import io.netty.buffer.Unpooled.copiedBuffer
@@ -34,8 +34,8 @@ val binary = WebSocketFrame.binary(copiedBuffer("Hello from ZIO-HTTP", UTF_16))
 
 ### Continuation
 
-Continuation denotes that this message is a continuation fragment of the previous message. To create a Continuation
-frame, you can use the `continuation` constructor.
+To create a Continuation frame to model a continuation fragment of the previous message, you can use the `continuation`
+constructor.
 
 ```scala
 import io.netty.buffer.Unpooled.copiedBuffer
@@ -46,8 +46,11 @@ val continuation = WebSocketFrame.continuation(copiedBuffer("Hello from ZIO-HTTP
 
 ### Close
 
-Close models a situation where the connection needs to be closed. To create a Close frame, you can use the `close`
-constructor. The constructor needs two arguments: Status, and an optional reason.
+To create a Close frame for a situation where the connection needs to be closed, you can use the `close` constructor.
+The constructor requires two arguments:
+
+* Status
+* Optional reason.
 
 #### Constructing Close with just status
 
@@ -87,7 +90,7 @@ val ping = WebSocketFrame.ping
 ZIO HTTP envisions the WebSocketFrame as a [Sum](https://en.wikipedia.org/wiki/Tagged_union) type, which allows
 exhaustive pattern matching to be performed on it.
 
-The following is an example of how pattern matching can be done on the WebSocketFrame type:
+You can do pattern matching on the WebSocketFrame type in the following way:
 
 ```scala
 val frame: WebSocketFrame = ...
