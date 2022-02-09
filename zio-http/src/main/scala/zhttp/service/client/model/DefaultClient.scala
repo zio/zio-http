@@ -1,6 +1,7 @@
 package zhttp.service.client.model
 
 import io.netty.buffer.ByteBuf
+import io.netty.util.ReferenceCountUtil
 import zhttp.http.Method.GET
 import zhttp.http._
 import zhttp.service.Client.{Attribute, ClientRequest, ClientResponse}
@@ -25,9 +26,14 @@ case class DefaultClient(
     _       <- connectionManager
                 .sendRequest(channel, ConnectionRuntime(prom, jReq.retain(), reqKey))
     resp    <- prom.await
-    _ <- ZIO.effect {
-      if (jReq.refCnt() > 0) {jReq.release()}
+    activeConnections  <- connectionManager.getActiveConnections
+    _ <- ZIO.effect{
+      println(s"CURRENT ACTIVE CONNECTIONS: ${activeConnections}")
+      if (jReq.refCnt() > 0) ReferenceCountUtil.release(jReq)
     }
+//    _ <- ZIO.effect {
+//      if (jReq.refCnt() > 0) {jReq.release()}
+//    }
   } yield resp
 
   // methods for compatibility with existing client use

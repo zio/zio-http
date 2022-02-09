@@ -3,6 +3,7 @@ package zhttp.service.client.handler
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpResponse
+//import io.netty.util.ReferenceCountUtil
 //import io.netty.handler.codec.http.FullHttpRequest
 //import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.service.Client.ClientResponse
@@ -16,7 +17,7 @@ import zhttp.service.client.transport.ClientConnectionManager
 final case class NewClientInboundHandler[R](
   zExec: HttpRuntime[R],
   connectionManager: ClientConnectionManager
-) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
+) extends SimpleChannelInboundHandler[FullHttpResponse](false) {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     val r = for {
@@ -37,6 +38,10 @@ final case class NewClientInboundHandler[R](
     val r = for{
       currAlloc <- connectionManager.connectionState.currentAllocatedChannels.get
       currentRuntime = currAlloc(ctx.channel())
+//      _ <- zio.ZIO.effect {
+//        println(s"CURR ")
+//        if (currentRuntime.currReq.refCnt() > 0) ReferenceCountUtil.release(currentRuntime.currReq)
+//      }
 //      reqKey <- connectionManager.getRequestKey(currentRuntime.currReq)
 //      _ <- zio.Task.fail(error)
 //      _ <- zio.ZIO.effect(releaseRequest(currentRuntime.currReq))
