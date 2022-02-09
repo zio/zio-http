@@ -9,7 +9,7 @@ trait EncodeClientRequest {
    * Converts client params to JFullHttpRequest
    */
   def encode(req: Client.ClientRequest): Task[FullHttpRequest] =
-    req.getBodyAsByteBuf.map { content =>
+    req.bodyAsByteBuf.map { content =>
       val method   = req.method.toJava
       val jVersion = req.version.toJava
 
