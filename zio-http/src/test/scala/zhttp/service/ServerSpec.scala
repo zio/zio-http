@@ -280,7 +280,19 @@ object ServerSpec extends HttpRunnableSpec {
       }
     } +
       testM("500 response") {
-        checkAllM(HttpGen.method) { method =>
+        val methodGenWithoutHEAD: Gen[Any, Method] = Gen.fromIterable(
+          List(
+            Method.OPTIONS,
+            Method.GET,
+            Method.POST,
+            Method.PUT,
+            Method.PATCH,
+            Method.DELETE,
+            Method.TRACE,
+            Method.CONNECT,
+          ),
+        )
+        checkAllM(methodGenWithoutHEAD) { method =>
           val actual = status(method, !! / "HExitFailure")
           assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
         }
