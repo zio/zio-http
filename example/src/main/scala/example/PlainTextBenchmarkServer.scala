@@ -11,8 +11,10 @@ import zio.{App, ExitCode, UIO, URIO}
 object Main extends App {
 
   // Create HTTP route
-  val app: HttpApp[Any, Nothing] = Http.collect[Request] { case req @ Method.GET -> !! / "text" =>
-    Response.text(s"${req.url.host.orNull}")
+  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
+    case req @ Method.GET -> !! / "reqUrl" => Response.text(s"${req.url.host.orNull}")
+    case Method.GET -> !! / "resUrl" => Response.text(s"${URL.fromString("http://yourdomain.com/list/users").getOrElse(null)}")
+
   }
 
   private def server =
