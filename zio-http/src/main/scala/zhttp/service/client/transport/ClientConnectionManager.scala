@@ -78,51 +78,37 @@ case class ClientConnectionManager(
       chf    = boo.handler(init).connect(h, p)
       _ <- prom.succeed(chf.channel())
       // optional can be removed if not really utilised.
-      _ <- attachHandler(chf)
+//      _ <- attachHandler(chf)
       c <- prom.await
     } yield c
-
-  /*
-   mostly kept for debugging purposes
-   or if we need to do something during creation lifecycle.
-   */
-  def attachHandler(chf: ChannelFuture) = {
-    ZIO
-      .effect(
-        chf.addListener(new ChannelFutureListener() {
-          override def operationComplete(future: ChannelFuture): Unit = {
-            if (!future.isSuccess()) {
-              println(s"error: ${future.cause().getMessage}")
-              future.cause().printStackTrace()
-            } else {
-              //                println("FUTURE SUCCESS");
-            }
-          }
-        }): Unit,
-      )
-  }
-
+  
   def sendRequest(channel: Channel, connectionRuntime: ConnectionRuntime) = for {
     _ <- connectionState.currentAllocatedChannels.update(m => m + (channel -> connectionRuntime))
-//    _ <- Task(channel.pipeline().fireChannelActive())
+    _ <- Task(channel.pipeline().fireChannelActive())
   } yield ()
 
   def getConnectionForRequestKey(reqKey: ReqKey, isWebSocket: Boolean, isSSL: Boolean) = for {
-    connQueue <- Task(if (!connectionState.idleConnectionsMap.isEmpty) connectionState.idleConnectionsMap(reqKey)
-    else mutable.Queue.empty[Channel])
-    // if already key exists for existing connections re-use it
-    // else build a new connection (channel)
-    channel <- if (!connQueue.isEmpty) {
-      println(s"REUSING CONNECTION for $reqKey")
-      Task(connectionState.idleConnectionsMap(reqKey).dequeue())
-    }
-    else {
-      println(s"BUILDING NEW CONNECTION")
-      buildChannel(reqKey, isWebSocket, isSSL)
-    }
+    idleMap <- connectionState.idleConnectionsMap.get
+    _ <- Task(println(s"idleMap: $idleMap"))
+    idleQ = idleMap.get(reqKey).fold(mutable.Queue.empty[Channel])(q => q)
+    channel <- if (!idleQ.isEmpty) Task(idleQ.dequeue())
+      else {
+        println(s"IDLE Q EMPTY CONNECTION for $reqKey")
+        val ch = buildChannel(reqKey, isWebSocket, isSSL)
+        connectionState.idleConnectionsMap.update(_ => Map(reqKey -> idleQ))
+        ch
+      }
+    _ <- connectionState.idleConnectionsMap.set(Map(reqKey -> idleQ))
+    _ <- Task(println(s"IDLEQ: $idleQ"))
   } yield channel
 
-  def getActiveConnections: Task[Int] = Task(0)
+  def getActiveConnections: Task[Int] = for {
+    alloc <- connectionState.currentAllocatedChannels.get
+    _ <- ZIO.effect(println(s"alloc size: ${alloc.size}"))
+    idleMap <- connectionState.idleConnectionsMap.get
+    idle = idleMap.values.foldLeft(0){ (acc,q) => acc + q.size}
+    _ <- ZIO.effect(println(s"idle size: ${idle}"))
+  } yield (alloc.size + idle)
 
 //  private def incrementConnection: Unit = ???
 //  private def decrementConnection = ???

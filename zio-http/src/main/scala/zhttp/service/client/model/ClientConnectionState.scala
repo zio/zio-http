@@ -3,7 +3,7 @@ package zhttp.service.client.model
 import io.netty.channel.Channel
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.service.Client.ClientResponse
-import zhttp.service.client.model.ClientConnectionState.{ReqKey, emptyIdleConnectionMap}
+import zhttp.service.client.model.ClientConnectionState.{ReqKey}
 import zio.{Promise, Ref}
 import zio.duration.Duration
 
@@ -26,7 +26,7 @@ case class PendingRequest(req: FullHttpRequest, requestedTime: Instant)
 case class ClientConnectionState(
   currentAllocatedChannels: Ref[Map[Channel, ConnectionRuntime]],
   currentAllocatedRequests: Map[ReqKey, Int] = Map.empty[ReqKey, Int],
-  idleConnectionsMap: Map[ReqKey, mutable.Queue[Channel]] = emptyIdleConnectionMap,
+  idleConnectionsMap: Ref[Map[ReqKey, mutable.Queue[Channel]]],
   waitingRequestQueue: mutable.Queue[PendingRequest] = mutable.Queue.empty[PendingRequest],
 ) {
   // TBD thready safety and appropriate namespace

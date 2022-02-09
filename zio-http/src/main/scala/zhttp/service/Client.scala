@@ -10,6 +10,7 @@ import zhttp.http.headers.HeaderExtension
 import zhttp.service
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zhttp.service.client.model.ClientConnectionState.ReqKey
 import zhttp.service.client.model.{ClientConnectionState, DefaultClient, Timeouts}
 import zhttp.service.client.transport.ClientConnectionManager
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
@@ -17,6 +18,7 @@ import zhttp.socket.{Socket, SocketApp}
 import zio.{Chunk, Promise, Task, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress, URI}
+import scala.collection.mutable
 
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
   extends HttpMessageCodec {
@@ -231,7 +233,8 @@ object Client {
         .group(eventLoopGroup)
       timeouts    = Timeouts(settings.connectionTimeout, settings.idleTimeout, settings.requestTimeout)
       currAllocRef <- zio.Ref.make(Map.empty[Channel, zhttp.service.client.model.ConnectionRuntime])
-      connManager = ClientConnectionManager(ClientConnectionState(currAllocRef), timeouts, clientBootStrap, zExec)
+      idleConnRef <- zio.Ref.make(Map.empty[ReqKey, mutable.Queue[Channel]])
+      connManager = ClientConnectionManager(ClientConnectionState(currentAllocatedChannels = currAllocRef, idleConnectionsMap = idleConnRef), timeouts, clientBootStrap, zExec)
       clientImpl  = DefaultClient(settings, connManager)
     } yield {
       clientImpl
