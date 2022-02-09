@@ -5,7 +5,6 @@ import zhttp.service.Server
 import zhttp.socket.{Socket, WebSocketFrame}
 import zio._
 import zio.stream.ZStream
-import zio.{App, ExitCode, Schedule, UIO, URIO}
 
 object WebSocketEcho extends ZIOAppDefault {
   private val socket =

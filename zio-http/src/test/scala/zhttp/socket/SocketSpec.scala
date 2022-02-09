@@ -2,7 +2,6 @@ package zhttp.socket
 
 import zhttp.http.Status
 import zio._
-import zio.duration.durationInt
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
@@ -59,13 +58,13 @@ object SocketSpec extends DefaultRunnableSpec {
 
       assertM(socketC.execute(1000).runCollect)(equalTo(Chunk(12)))
     } +
-      testM("echo") {
+      test("echo") {
         assertM(Socket.echo(1).runCollect)(equalTo(Chunk(1)))
       } +
-      testM("empty") {
+      test("empty") {
         assertM(Socket.empty(()).runCollect)(isEmpty)
       } +
-      testM("toHttp") {
+      test("toHttp") {
         val http = Socket.succeed(WebSocketFrame.ping).toHttp
         assertM(http(()).map(_.status))(equalTo(Status.SWITCHING_PROTOCOLS))
       }

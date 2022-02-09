@@ -5,7 +5,7 @@ import zhttp.socket.{Socket, WebSocketFrame}
 import zio._
 import zio.stream.ZStream
 
-object WebSocketSimpleClient extends zio.App {
+object WebSocketSimpleClient extends ZIOAppDefault {
 
   // Setup client envs
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto
@@ -20,7 +20,6 @@ object WebSocketSimpleClient extends zio.App {
     .toSocketApp
     .connect(url)
 
-  override def run(args: List[String]): URIO[ZEnv, ExitCode] = {
-    app.exitCode.provideCustomLayer(env)
-  }
+  val run = app.exitCode.provideCustomLayer(env)
+
 }

@@ -568,11 +568,6 @@ object Http {
   def fromZIO[R, E, B](effect: ZIO[R, E, B]): Http[R, E, Any, B] = Http.fromFunctionZIO(_ => effect)
 
   /**
-   * Converts a ZIO to an Http type
-   */
-  def fromZIO[R, E, B](effect: ZIO[R, E, B]): Http[R, E, Any, B] = Http.fromFunctionZIO(_ => effect)
-
-  /**
    * Creates an HTTP app which always responds with the provided Html page.
    */
   def html(view: Html): HttpApp[Any, Nothing] = Http.response(Response.html(view))

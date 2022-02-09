@@ -171,22 +171,14 @@ object ServerSpec extends HttpRunnableSpec {
         val res = Http.fromStream(ZStream("a", "b", "c")).deploy.bodyAsString.run()
         assertM(res)(equalTo("abc"))
       } +
-      testM("echo streaming") {
+      test("echo streaming") {
         val res = Http
           .collectHttp[Request] { case req =>
-            Http.fromStream(ZStream.fromEffect(req.body).flattenChunks)
+            Http.fromStream(ZStream.fromZIO(req.body).flattenChunks)
           }
           .deploy
           .bodyAsString
           .run(content = "abc")
-        assertM(res)(equalTo("abc"))
-      } +
-      test("echo streaming") {
-        val res = Http
-          .collectHttp[Request] { case req =>
-            Http.fromStream(ZStream.fromZIO(req.getBody).flattenChunks)
-          }
-          .requestBodyAsString(content = "abc")
         assertM(res)(equalTo("abc"))
       } +
       test("file-streaming") {
@@ -251,7 +243,7 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   override def spec =
-    suiteM("Server") {
+    suite("Server") {
       app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, nonZIOSpec)).useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds)
 
@@ -280,20 +272,20 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   def nonZIOSpec = suite("NonZIOSpec") {
-    testM("200 response") {
-      checkAllM(HttpGen.method) { method =>
+    test("200 response") {
+      checkAll(HttpGen.method) { method =>
         val actual = status(method, !! / "HExitSuccess")
         assertM(actual)(equalTo(Status.OK))
       }
     } +
-      testM("500 response") {
-        checkAllM(HttpGen.method) { method =>
+      test("500 response") {
+        checkAll(HttpGen.method) { method =>
           val actual = status(method, !! / "HExitFailure")
           assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
         }
       } +
-      testM("404 response ") {
-        checkAllM(HttpGen.method) { method =>
+      test("404 response ") {
+        checkAll(HttpGen.method) { method =>
           val actual = status(method, !! / "A")
           assertM(actual)(equalTo(Status.NOT_FOUND))
         }

@@ -40,7 +40,7 @@ object ClientSpec extends HttpRunnableSpec {
         val responseContent = app.deploy.bodyAsString.run()
         assertM(responseContent)(containsString("user"))
       } +
-      testM("handle connection failure") {
+      test("handle connection failure") {
         val res = Client.request("http://localhost:1").either
         assertM(res)(isLeft(isSubtype[ConnectException](anything)))
       }

@@ -17,21 +17,21 @@ object KeepAliveSpec extends HttpRunnableSpec {
 
   def keepAliveSpec = suite("KeepAlive") {
     suite("Http 1.1") {
-      testM("without connection close") {
+      test("without connection close") {
         val res = app.deploy.headerValue(HeaderNames.connection).run()
         assertM(res)(isNone)
       } +
-        testM("with connection close") {
+        test("with connection close") {
           val res = app.deploy.headerValue(HeaderNames.connection).run(headers = connectionCloseHeader)
           assertM(res)(isSome(equalTo("close")))
         }
     } +
       suite("Http 1.0") {
-        testM("without keep-alive") {
+        test("without keep-alive") {
           val res = app.deploy.headerValue(HeaderNames.connection).run(version = Version.Http_1_0)
           assertM(res)(isSome(equalTo("close")))
         } +
-          testM("with keep-alive") {
+          test("with keep-alive") {
             val res = app.deploy
               .headerValue(HeaderNames.connection)
               .run(version = Version.Http_1_0, headers = keepAliveHeader)
@@ -41,7 +41,7 @@ object KeepAliveSpec extends HttpRunnableSpec {
   }
 
   override def spec = {
-    suiteM("ServerConfigSpec") {
+    suite("ServerConfigSpec") {
       appKeepAliveEnabled.as(List(keepAliveSpec)).useNow
     }.provideCustomLayerShared(env)
   }

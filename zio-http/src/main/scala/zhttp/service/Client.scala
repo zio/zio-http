@@ -48,7 +48,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
         url,
         Method.GET,
         headers,
-        attribute = Client.Attribute(socketApp = Some(socketApp.provide(env)), ssl = Some(sslOptions)),
+        attribute = Client.Attribute(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
       ),
     )
   } yield res
@@ -125,10 +125,10 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
 }
 
 object Client {
-  def make: ZIO[EventLoopGroup with ChannelFactory, Nothing, Client] = for {
-    cf <- ZIO.service[ChannelFactory]
-    el <- ZIO.service[EventLoopGroup]
-    zx <- HttpRuntime.default[Any]
+  def make[R]: ZIO[R with EventLoopGroup with ChannelFactory, Nothing, Client[R]] = for {
+    cf <- ZIO.service[JChannelFactory[Channel]]
+    el <- ZIO.service[JEventLoopGroup]
+    zx <- HttpRuntime.default[R]
   } yield service.Client(zx, cf, el)
 
   def request(

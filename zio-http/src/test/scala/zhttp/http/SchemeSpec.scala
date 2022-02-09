@@ -7,17 +7,17 @@ import zio.test._
 
 object SchemeSpec extends DefaultRunnableSpec {
   override def spec = suite("SchemeSpec") {
-    testM("string") {
+    test("string") {
       checkAll(HttpGen.scheme) { scheme =>
         assertTrue(Scheme.decode(scheme.encode).get == scheme)
       }
     } +
-      testM("java http scheme") {
+      test("java http scheme") {
         checkAll(jHttpScheme) { jHttpScheme =>
           assertTrue(Scheme.fromJScheme(jHttpScheme).flatMap(_.toJHttpScheme).get == jHttpScheme)
         }
       } +
-      testM("java websocket scheme") {
+      test("java websocket scheme") {
         checkAll(jWebSocketScheme) { jWebSocketScheme =>
           assertTrue(
             Scheme.fromJScheme(jWebSocketScheme).flatMap(_.toJWebSocketScheme).get == jWebSocketScheme,

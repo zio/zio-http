@@ -77,7 +77,7 @@ import zhttp.http._
 object Spec extends DefaultRunnableSpec {
   
   def spec = suite("http")(
-      testM("should be ok") {
+      test("should be ok") {
         val app = Http.ok
         val req = Request()
         assertM(app(req))(equalTo(Response.ok)) // an apply method is added via `zhttp.test` package

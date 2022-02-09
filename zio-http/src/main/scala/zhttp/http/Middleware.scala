@@ -1,10 +1,7 @@
 package zhttp.http
 
-import io.netty.util.AsciiString.contentEqualsIgnoreCase
 import zhttp.http.middleware.Web
-import zio.clock.Clock
-import zio.duration.Duration
-import zio.{UIO, ZIO}
+import zio._
 
 /**
  * Middlewares are essentially transformations that one can apply on any Http to
@@ -123,12 +120,6 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     self.flatMap(b => Middleware.succeed(f(b)))
 
   /**
-   * Modifies the provided list of headers to the updated list of headers
-   */
-  def modifyHeaders(f: PartialFunction[Header, Header]): Middleware[Any, Nothing] =
-    patch((_, _) => Patch.updateHeaders(_.modify(f)))
-
-  /**
    * Transforms the output type of the current middleware using effect function.
    */
   final def mapZIO[R1 <: R, E1 >: E, BOut0](f: BOut => ZIO[R1, E1, BOut0]): Middleware[R1, E1, AIn, BIn, AOut, BOut0] =
@@ -198,15 +189,6 @@ object Middleware extends Web {
    * Creates a middleware using specified function
    */
   def collect[A]: PartialCollect[A] = new PartialCollect[A](())
-
-  /**
-   * Creates a middleware for signing cookies
-   */
-  def signCookies(secret: String): Middleware[Any, Nothing] =
-    modifyHeaders {
-      case h if contentEqualsIgnoreCase(h._1, HeaderNames.setCookie) =>
-        (HeaderNames.setCookie, Cookie.decodeResponseCookie(h._2.toString).get.sign(secret).encode)
-    }
 
   /**
    * Creates a middleware using specified effect function

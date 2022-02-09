@@ -3,10 +3,7 @@ package zhttp.http.middleware
 import zhttp.http._
 import zhttp.http.headers.HeaderModifier
 import zhttp.http.middleware.Web.{PartialInterceptPatch, PartialInterceptZIOPatch}
-import zio.clock.Clock
-import zio.console.Console
-import zio.duration.Duration
-import zio.{UIO, ZIO, clock, console}
+import zio._
 
 import java.io.IOException
 
@@ -35,12 +32,12 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    * Add log status, method, url and time taken from req to res
    */
   final def debug: HttpMiddleware[Console with Clock, IOException] =
-    interceptZIOPatch(req => zio.clock.nanoTime.map(start => (req.method, req.url, start))) {
+    interceptZIOPatch(req => Clock.nanoTime.map(start => (req.method, req.url, start))) {
       case (response, (method, url, start)) =>
         for {
-          end <- clock.nanoTime
-          _   <- console
-            .putStrLn(s"${response.status.asJava.code()} ${method} ${url.encode} ${(end - start) / 1000000}ms")
+          end <- Clock.nanoTime
+          _   <- Console
+            .printLine(s"${response.status.asJava.code()} ${method} ${url.encode} ${(end - start) / 1000000}ms")
             .mapError(Option(_))
         } yield Patch.empty
     }
