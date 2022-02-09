@@ -91,15 +91,19 @@ case class ClientConnectionManager(
     idleMap <- connectionState.idleConnectionsMap.get
     _ <- Task(println(s"idleMap: $idleMap"))
     idleQ = idleMap.get(reqKey).fold(mutable.Queue.empty[Channel])(q => q)
-    channel <- if (!idleQ.isEmpty) Task(idleQ.dequeue())
+    channel <- if (!idleQ.isEmpty) {
+      println(s"IDLEQ not empty LETS REUSE ......$idleQ")
+      Task(idleQ.dequeue())
+    }
       else {
-        println(s"IDLE Q EMPTY CONNECTION for $reqKey")
+        println(s"IDLE Q $idleQ EMPTY CREATE NEW CONNECTION for $reqKey")
         val ch = buildChannel(reqKey, isWebSocket, isSSL)
         connectionState.idleConnectionsMap.update(_ => Map(reqKey -> idleQ))
+        println(s"after update ${connectionState.idleConnectionsMap}")
         ch
       }
     _ <- connectionState.idleConnectionsMap.set(Map(reqKey -> idleQ))
-    _ <- Task(println(s"IDLEQ: $idleQ"))
+    _ <- Task(println(s"IDLEQ: $idleQ AFTER SET ${connectionState.idleConnectionsMap}"))
   } yield channel
 
   def getActiveConnections: Task[Int] = for {
@@ -107,7 +111,7 @@ case class ClientConnectionManager(
     _ <- ZIO.effect(println(s"alloc size: ${alloc.size}"))
     idleMap <- connectionState.idleConnectionsMap.get
     idle = idleMap.values.foldLeft(0){ (acc,q) => acc + q.size}
-    _ <- ZIO.effect(println(s"idle size: ${idle}"))
+    _ <- ZIO.effect(println(s"idle size: $idleMap ${idle}"))
   } yield (alloc.size + idle)
 
 //  private def incrementConnection: Unit = ???

@@ -15,7 +15,7 @@ object NewClientSpec extends NewHttpRunnableSpec {
   private val env =
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
-  def clientSpec = suite("ClientSpec") {
+  def clientSpec = suite("NewClientSpec") {
     testM("respond Ok") {
       val app = Http.ok.deploy.status.run()
       assertM(app)(equalTo(Status.OK))

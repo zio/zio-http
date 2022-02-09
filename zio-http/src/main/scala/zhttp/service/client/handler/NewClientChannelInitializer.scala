@@ -32,7 +32,6 @@ final case class NewClientChannelInitializer[R](
     // This is also required to make WebSocketHandlers work
     pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
 
-    pipeline.addLast(new NewClientResponseHandler())
     // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
     pipeline.addLast(CLIENT_INBOUND_HANDLER, channelHandler): Unit
 
