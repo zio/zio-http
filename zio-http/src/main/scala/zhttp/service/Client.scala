@@ -175,7 +175,7 @@ object Client {
   ) extends HeaderExtension[ClientRequest] {
     self =>
 
-    def bodyAsString: Task[String] = getBodyAsByteBuf.map(_.toString(headers.charset))
+    def bodyAsString: Task[String] = bodyAsByteBuf.map(_.toString(headers.charset))
 
     def remoteAddress: Option[InetAddress] = {
       if (channelContext != null && channelContext.channel().remoteAddress().isInstanceOf[InetSocketAddress])
@@ -190,7 +190,7 @@ object Client {
     override def updateHeaders(update: Headers => Headers): ClientRequest =
       self.copy(headers = update(self.headers))
 
-    private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
+    private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
   }
 
   final case class ClientResponse(status: Status, headers: Headers, private[zhttp] val buffer: ByteBuf)
