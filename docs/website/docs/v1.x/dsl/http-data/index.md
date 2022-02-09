@@ -1,12 +1,24 @@
 # HttpData
-`HttpData` is a domain to model the content that needs to be written in HttpChannel. `HttpRequest` and `HttpResponse` store data or content as `ByteBuf`. `HttpData` helps you decode and encode this content into simpler, easier to use data types while creating a Request or Response for ZIO HTTP.
-## Creating an HttpData
-`HttpData` can be created using a lot of constructors.
-### Creating an empty HttpData
-HttpData.Empty is the default data in a ZIO HTTP Request and Response. To create an empty HttpData you can use Http.empty
+`HttpData` is a domain to model content for `Request`, `Response` and `ClientRequest`. ZIO HTTP uses Netty at it's core and Netty handles content as `ByteBuf`. `HttpData` helps you decode and encode this content into simpler, easier to use data types while creating a Request or Response.
+## Server-side usage of `HttpData`
+On the server-side, `ZIO-HTTP` models content in `Request` and `Response` as `HttpData` with `HttpData.Empty` as the default value.
+To add content while creating a `Response` you can use the `Response` constructor.
 ```scala
-  val emptyHttpData: HttpData = HttpData.empty
+  val res: Response = Response( data = HttpData.fromString("Some String"))
 ```
+To add content while creating a `Request` for unit tests, you can use the `Request` constructor.
+```scala
+  val req: Request = Request( data = HttpData.fromString("Some String"))
+```
+## Client-side usage of `HttpData`
+On the client-side, `ZIO-HTTP` models content in `ClientRequest` as `HttpData` with `HttpData.Empty` as the default value.
+To add content while making a request using ZIO HTTP you can use the `Client.request` method.
+```scala
+  val actual: ZIO[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] = 
+    Client.request("https://localhost:8073/success", content = HttpData.fromString("Some string"))
+```
+
+## Creating an HttpData
 ### Creating an HttpData from a `String`
 To create an `HttpData` that encodes a String you can use `HttpData.fromString`.
 ```scala
@@ -38,7 +50,7 @@ To create an `HttpData` that encodes a File you can use `HttpData.fromFile`.
   val fileHttpData: HttpData = HttpData.fromFile(new io.File(getClass.getResource("/fileName.txt").getPath))
 ```
 ## Converting `HttpData` to `ByteBuf`
-To convert an `HttpData` to `ButrBuf`  you can call the `toButeBuf` method on it, which returns a `Task[ByteBuf]`.
+To convert an `HttpData` to `ByteBuf`  you can call the `toButeBuf` method on it, which returns a `Task[ByteBuf]`.
 ```scala
   val textHttpData: HttpData = HttpData.fromString("any string", CharsetUtil.UTF_8)
   val textByteBuf: Task[ByteBuf] = textHttpData.toByteBuf
