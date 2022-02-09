@@ -48,18 +48,18 @@ object EnhancedClientTest extends App {
 
   // sequential execution test
   def triggerClientSequential(cl: DefaultClient) = for {
-//    resp <- cl.run(testUrl1).map(_.status)
-//    _    <- ZIO.effect(println(s"Response Status from $testUrl1 ${resp} \n ----- \n"))
+    resp <- cl.run(testUrl1).map(_.status)
+    _    <- ZIO.effect(println(s"Response Status from $testUrl1 ${resp} \n ----- \n"))
 
-    resp3 <- cl.run(googleUrl).map(_.status)
-    //    resp3 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
-    _     <- ZIO.effect(println(s"\n \n Response Status from $googleUrl  ${resp3} \n ----- \n"))
+//    resp3 <- cl.run(googleUrl).map(_.status)
+//    //    resp3 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
+//    _     <- ZIO.effect(println(s"\n \n Response Status from $googleUrl  ${resp3} \n ----- \n"))
 
-//    resp2 <- cl.run(testUrl2).flatMap(_.bodyAsString)
-//    _     <- ZIO.effect(println(s"Response Content  ${resp2.length} \n ----- \n"))
+    resp2 <- cl.run(testUrl2).flatMap(_.bodyAsString)
+    _     <- ZIO.effect(println(s"Response Content  ${resp2.length} \n ----- \n"))
 
-    resp4 <- cl.run(googleUrl).map(_.status)
-    _     <- ZIO.effect(println(s"Response Status AGAIN From $googleUrl : ${resp4} \n ----- \n"))
+//    resp4 <- cl.run(googleUrl).map(_.status)
+//    _     <- ZIO.effect(println(s"Response Status AGAIN From $googleUrl : ${resp4} \n ----- \n"))
 
     currActiveConn <- cl.connectionManager.getActiveConnections
     _              <- ZIO.effect(

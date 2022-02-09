@@ -19,11 +19,15 @@ case class DefaultClient(
   def run(req: ClientRequest): Task[ClientResponse] = for {
     jReq    <- encode(req)
     reqKey <- connectionManager.getRequestKey(jReq,req)
+    _ <- ZIO.effect(println(s"\n\n ===== JREQQQ  ===== \n\n"))
     channel <- connectionManager.fetchConnection(jReq, req)
     prom    <- zio.Promise.make[Throwable, ClientResponse]
     _       <- connectionManager
-                .sendRequest(channel, ConnectionRuntime(prom, jReq, reqKey))
+                .sendRequest(channel, ConnectionRuntime(prom, jReq.retain(), reqKey))
     resp    <- prom.await
+    _ <- ZIO.effect {
+      if (jReq.refCnt() > 0) {jReq.release()}
+    }
   } yield resp
 
   // methods for compatibility with existing client use

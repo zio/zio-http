@@ -16,7 +16,7 @@ import zhttp.service.client.transport.ClientConnectionManager
 final case class NewClientInboundHandler[R](
   zExec: HttpRuntime[R],
   connectionManager: ClientConnectionManager
-) extends SimpleChannelInboundHandler[FullHttpResponse](false) {
+) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     val r = for {
@@ -50,9 +50,12 @@ final case class NewClientInboundHandler[R](
       currAlloc <- connectionManager.connectionState.currentAllocatedChannels.get
       currentRuntime = currAlloc(ctx.channel())
       //      reqKey <- connectionManager.getRequestKey(currentRuntime.currReq)
-      _ <- zio.ZIO.effect(ctx.writeAndFlush(currentRuntime.currReq))
-//      _ <- zio.ZIO.effect(releaseRequest(currentRuntime.currReq))
+      _ <- zio.ZIO.effect {
+        ctx.writeAndFlush(currentRuntime.currReq)
+//        releaseRequest(currentRuntime.currReq)
+      }
     } yield ()
+//    zio.Runtime.default.unsafeRun(r)
     zExec.unsafeRun(ctx)(r)
 //    releaseRequest(jReq): Unit
   }
