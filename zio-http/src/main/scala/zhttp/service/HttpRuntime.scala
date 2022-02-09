@@ -52,7 +52,7 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
             case None    => ()
             case Some(_) => java.lang.System.err.println(cause.prettyPrint)
           }
-          ctx.close()
+          if (ctx.channel().isOpen) ctx.close()
       }
   }
 
