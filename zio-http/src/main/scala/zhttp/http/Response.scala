@@ -3,6 +3,7 @@ package zhttp.http
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
+import io.netty.util.AsciiString
 import zhttp.core.Util
 import zhttp.html.Html
 import zhttp.http.HttpError.HTTPErrorWithCause
@@ -77,6 +78,7 @@ final case class Response private (
 
     val jHeaders = self.headers.encode
     val jContent = self.data match {
+      case HttpData.Text(ascii: AsciiString, _) => Unpooled.wrappedBuffer(ascii.array())
       case HttpData.Text(text, charset) => Unpooled.copiedBuffer(text, charset)
       case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
       case HttpData.BinaryByteBuf(data) => data
