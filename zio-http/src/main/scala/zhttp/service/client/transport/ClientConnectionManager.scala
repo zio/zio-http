@@ -1,7 +1,7 @@
 package zhttp.service.client.transport
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{Channel, ChannelFuture, ChannelFutureListener}
+import io.netty.channel.{Channel}
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.http.HeaderNames
 import zhttp.service.Client.ClientRequest
@@ -81,7 +81,7 @@ case class ClientConnectionManager(
 //      _ <- attachHandler(chf)
       c <- prom.await
     } yield c
-  
+
   def sendRequest(channel: Channel, connectionRuntime: ConnectionRuntime) = for {
     _ <- connectionState.currentAllocatedChannels.update(m => m + (channel -> connectionRuntime))
     _ <- Task(channel.pipeline().fireChannelActive())
