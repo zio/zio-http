@@ -17,7 +17,7 @@ Before we dive in, make sure that you have the following on your computer:
 To use zio-http, add the following dependencies in your project:
 
 ```scala
-val ZHTTPVersion = "1.0.0.0-RC23"
+val ZHTTPVersion = "1.0.0.0-RC24"
 
 libraryDependencies ++= Seq(
   "io.d11" %% "zhttp" % ZHTTPVersion,
