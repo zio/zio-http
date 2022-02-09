@@ -21,7 +21,7 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
     case FOrElse(sa, sb)             => sa(a) <> sb(a)
     case FMerge(sa, sb)              => sa(a) merge sb(a)
     case Succeed(a)                  => ZStream.succeed(a)
-    case Provide(s, r)               => s(a).asInstanceOf[ZStream[R, E, B]].provide(r.asInstanceOf[R])
+    case ProvideEnvironment(s, r)    => s(a).asInstanceOf[ZStream[R, E, B]].provide(r.asInstanceOf[R])
     case Empty                       => ZStream.empty
   }
 
@@ -49,7 +49,7 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
    * dependency on R. This operation assumes that your socket requires an
    * environment.
    */
-  def provide(r: R)(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = Provide(self, r)
+  def provideEnvironment(r: R)(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = ProvideEnvironment(self, r)
 
   /**
    * Converts the Socket into an Http
@@ -123,7 +123,7 @@ object Socket {
 
   private final case class FMerge[R, E, A, B](a: Socket[R, E, A, B], b: Socket[R, E, A, B]) extends Socket[R, E, A, B]
 
-  private final case class Provide[R, E, A, B](s: Socket[R, E, A, B], r: R) extends Socket[Any, E, A, B]
+  private final case class ProvideEnvironment[R, E, A, B](s: Socket[R, E, A, B], r: R) extends Socket[Any, E, A, B]
 
   private case object End extends Socket[Any, Nothing, Any, Nothing]
 
