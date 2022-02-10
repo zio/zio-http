@@ -11,7 +11,6 @@ import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
-import java.io.File
 import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec {
@@ -116,6 +115,40 @@ object ServerSpec extends HttpRunnableSpec {
       }
   }
 
+  def nonZIOSpec = suite("NonZIOSpec") {
+    testM("200 response") {
+      checkAllM(HttpGen.method) { method =>
+        val actual = status(method, !! / "HExitSuccess")
+        assertM(actual)(equalTo(Status.OK))
+      }
+    } +
+      testM("500 response") {
+        val methodGenWithoutHEAD: Gen[Any, Method] = Gen.fromIterable(
+          List(
+            Method.OPTIONS,
+            Method.GET,
+            Method.POST,
+            Method.PUT,
+            Method.PATCH,
+            Method.DELETE,
+            Method.TRACE,
+            Method.CONNECT,
+          ),
+        )
+        checkAllM(methodGenWithoutHEAD) { method =>
+          val actual = status(method, !! / "HExitFailure")
+          assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
+        }
+      } +
+      testM("404 response ") {
+        checkAllM(HttpGen.method) { method =>
+          val actual = status(method, !! / "A")
+          assertM(actual)(equalTo(Status.NOT_FOUND))
+        }
+      }
+
+  }
+
   def requestSpec = suite("RequestSpec") {
     val app: HttpApp[Any, Nothing] = Http.collect[Request] { case req =>
       Response.text(req.contentLength.getOrElse(-1).toString)
@@ -141,15 +174,13 @@ object ServerSpec extends HttpRunnableSpec {
       }
     } +
       testM("data from file") {
-        val file = new File(getClass.getResource("/TestFile.txt").getPath)
-        val res  = Http.fromFile(file).deploy.bodyAsString.run()
+        val res = Http.fromResource("/TestFile.txt").deploy.bodyAsString.run()
         assertM(res)(equalTo("abc\nfoo"))
       } +
       testM("content-type header on file response") {
-        val file = new File(getClass.getResource("/TestFile2.mp4").getPath)
-        val res  =
+        val res =
           Http
-            .fromFile(file)
+            .fromResource("/TestFile2.mp4")
             .deploy
             .headerValue(HeaderNames.contentType)
             .run()
@@ -270,39 +301,5 @@ object ServerSpec extends HttpRunnableSpec {
           data <- status(path = !! / "success").repeatN(1024)
         } yield assertTrue(data == Status.OK)
       }
-  }
-
-  def nonZIOSpec = suite("NonZIOSpec") {
-    testM("200 response") {
-      checkAllM(HttpGen.method) { method =>
-        val actual = status(method, !! / "HExitSuccess")
-        assertM(actual)(equalTo(Status.OK))
-      }
-    } +
-      testM("500 response") {
-        val methodGenWithoutHEAD: Gen[Any, Method] = Gen.fromIterable(
-          List(
-            Method.OPTIONS,
-            Method.GET,
-            Method.POST,
-            Method.PUT,
-            Method.PATCH,
-            Method.DELETE,
-            Method.TRACE,
-            Method.CONNECT,
-          ),
-        )
-        checkAllM(methodGenWithoutHEAD) { method =>
-          val actual = status(method, !! / "HExitFailure")
-          assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
-        }
-      } +
-      testM("404 response ") {
-        checkAllM(HttpGen.method) { method =>
-          val actual = status(method, !! / "A")
-          assertM(actual)(equalTo(Status.NOT_FOUND))
-        }
-      }
-
   }
 }

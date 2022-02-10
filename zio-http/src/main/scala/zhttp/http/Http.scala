@@ -136,6 +136,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     headers.map(_.contentLength)
 
   /**
+   * Extracts the value of ContentType header
+   */
+  final def contentType(implicit eb: IsResponse[B]): Http[R, E, A, Option[CharSequence]] =
+    headerValue(HttpHeaderNames.CONTENT_TYPE)
+
+  /**
    * Transforms the input of the http before passing it on to the current Http
    */
   final def contraFlatMap[X]: PartialContraFlatMap[R, E, A, B, X] = PartialContraFlatMap[R, E, A, B, X](self)
@@ -206,13 +212,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     headers.map(_.headerValue(name))
 
   /**
-   * Extracts the value of ContentType header
-   */
-  final def contentType(implicit eb: IsResponse[B]): Http[R, E, A, Option[CharSequence]] = headerValue(
-    HttpHeaderNames.CONTENT_TYPE,
-  )
-
-  /**
    * Extracts the `Headers` from the type `B` if possible
    */
   final def headers(implicit eb: IsResponse[B]): Http[R, E, A, Headers] = self.map(eb.headers)
@@ -248,18 +247,18 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.catchAll(_ => other)
 
   /**
-   * Provides the environment to Http.
-   */
-  final def provideEnvironment(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
-    Http.fromOptionFunction[A](a => self(a).provide(r))
-
-  /**
    * Provide part of the environment to HTTP that is not part of ZEnv
    */
   final def provideCustomLayer[E1 >: E, R1 <: Has[_]](
     layer: ZLayer[ZEnv, E1, R1],
   )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): Http[ZEnv, E1, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideCustomLayer(layer.mapError(Option(_))))
+
+  /**
+   * Provides the environment to Http.
+   */
+  final def provideEnvironment(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
+    Http.fromOptionFunction[A](a => self(a).provide(r))
 
   /**
    * Provides layer to Http.
