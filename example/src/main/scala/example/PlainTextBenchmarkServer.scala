@@ -32,7 +32,7 @@ object Main extends App {
       .exitCode
   }
 
-  //Create an HttpApp
+  // Create an HttpApp
   private def app(response: Response) = Http.response(response)
 
   private def server(response: Response) =
