@@ -41,19 +41,18 @@ private[zhttp] final case class Handler[R](
             httpContentHandler.asInstanceOf[RequestBodyHandler[R]].callback = callback
           }
         }
-        lazy val remoteAddress: Option[InetAddress] = {
-          ctx.channel().remoteAddress() match {
-            case m: InetSocketAddress => Some(m.getAddress)
-            case _                    => None
+        val request = new Request {
+          override def data: HttpData                     = HttpData.Incoming(unsafeBody)
+          override def headers: Headers                   = Headers.make(jReq.headers())
+          override def method: Method                     = Method.fromHttpMethod(jReq.method())
+          override def remoteAddress: Option[InetAddress] = {
+            ctx.channel().remoteAddress() match {
+              case m: InetSocketAddress => Some(m.getAddress)
+              case _                    => None
+            }
           }
+          override def url: URL                           = URL.fromString(jReq.uri()).getOrElse(null)
         }
-        val request                                 = Request(
-          Method.fromHttpMethod(jReq.method()),
-          URL.fromString(jReq.uri()).getOrElse(null),
-          Headers.make(jReq.headers()),
-          remoteAddress,
-          data = HttpData.Incoming(unsafeBody),
-        )
 
         unsafeRun(
           jReq,
