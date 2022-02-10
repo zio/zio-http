@@ -28,7 +28,7 @@ object Main extends App {
       .exitCode
   }
 
-  private def app(response: Response) = Http.collect[Request] { case Method.GET -> !! / "plaintext" =>
+  private def app(response: Response) = Http.collect[Request] { case _ =>
     response
   }
 
