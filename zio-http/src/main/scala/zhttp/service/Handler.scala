@@ -30,10 +30,7 @@ private[zhttp] final case class Handler[R](
     msg match {
       case jReq: HttpRequest =>
         def unsafeBody(
-          callback: (
-            UnsafeChannel,
-            UnsafeContent,
-          ) => Unit,
+          callback: UnsafeChannel => UnsafeContent => Unit,
         ): Unit = {
           val httpContentHandler = ctx.pipeline().get(HTTP_CONTENT_HANDLER)
           if (httpContentHandler == null) {

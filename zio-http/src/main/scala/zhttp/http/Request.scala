@@ -15,11 +15,11 @@ case class Request(
   data: HttpData = HttpData.Incoming(unsafeRun = _ => ()),
 ) extends HeaderExtension[Request] { self =>
 
-  def bodyAsString: Task[String]                          = data.asString
-  def bodyAsBytes: Task[Chunk[Byte]]                      = data.asBytes
-  def bodyAsStream: ZStream[Any, Throwable, ByteBuf]      = data.asStreamByteBuf
-  def bodyAsByteBuf: Task[ByteBuf]                        = data.asByteBuf
-  def bodyAsByteChunk: IO[Option[Throwable], Chunk[Byte]] = data.asByteChunk
+  def bodyAsString: Task[String]                               = data.asString
+  def bodyAsBytes: Task[Chunk[Byte]]                           = data.asBytes
+  def bodyAsStream: ZStream[Any, Throwable, ByteBuf]           = data.asStreamByteBuf
+  def bodyAsByteBuf: Task[ByteBuf]                             = data.asByteBuf
+  def bodyAsByteChunk: UIO[IO[Option[Throwable], Chunk[Byte]]] = data.asByteChunk
 
   /**
    * Updates the headers using the provided function

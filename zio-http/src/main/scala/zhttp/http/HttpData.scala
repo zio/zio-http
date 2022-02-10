@@ -21,21 +21,23 @@ sealed trait HttpData { self =>
       for {
         buffer <- UIO(Unpooled.compositeBuffer())
         body   <- ZIO.effectAsync[Any, Throwable, ByteBuf](cb =>
-          unsafeRun((ch, msg) => {
-            if (buffer.readableBytes() + msg.content.content().readableBytes() > msg.limit) {
-              ch.ctx.fireChannelRead(Response.status(Status.REQUEST_ENTITY_TOO_LARGE)): Unit
-            } else {
-              buffer.writeBytes(msg.content.content())
-              if (msg.isLast) {
-                cb(UIO(buffer) ensuring UIO(ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)))
-
+          unsafeRun(ch =>
+            msg => {
+              if (buffer.readableBytes() + msg.content.content().readableBytes() > msg.limit) {
+                ch.ctx.fireChannelRead(Response.status(Status.REQUEST_ENTITY_TOO_LARGE)): Unit
               } else {
-                ch.read()
-                ()
+                buffer.writeBytes(msg.content.content())
+                if (msg.isLast) {
+                  cb(UIO(buffer) ensuring UIO(ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)))
+
+                } else {
+                  ch.read()
+                  ()
+                }
               }
-            }
-            msg.content.release(msg.content.refCnt()): Unit
-          }),
+              msg.content.release(msg.content.refCnt()): Unit
+            },
+          ),
         )
       } yield body
     case outgoing: HttpData.Outgoing  => outgoing.toByteBuf
@@ -43,35 +45,46 @@ sealed trait HttpData { self =>
 
   def asString: Task[String]     = asByteBuf.map(buf => buf.toString(HTTP_CHARSET))
   def asBytes: Task[Chunk[Byte]] = asByteBuf.map(buf => Chunk.fromArray(ByteBufUtil.getBytes(buf)))
-  final def asByteChunk: IO[Option[Throwable], Chunk[Byte]] = self match {
+  final def asByteChunk: UIO[IO[Option[Throwable], Chunk[Byte]]] = self match {
     case HttpData.Incoming(unsafeRun) =>
-      ZIO.effectAsync(cb =>
-        unsafeRun((ch, msg) => {
-          val chunk = Chunk.fromArray(ByteBufUtil.getBytes(msg.content.content()))
-          cb(UIO(chunk) ensuring UIO(msg.content.release(msg.content.refCnt())))
-          if (msg.isLast) {
-            ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER): Unit
-          } else {
-            ch.read()
-            ()
-          }
-        }),
-      )
+      UIO {
+        var isLastRead = false
+        ZIO.effectAsync(cb =>
+          if (isLastRead) {
+            cb(IO.fail(None))
+          } else
+            unsafeRun(ch =>
+              msg => {
+                val chunk = Chunk.fromArray(ByteBufUtil.getBytes(msg.content.content()))
+                cb(UIO(chunk) ensuring UIO(msg.content.release(msg.content.refCnt())))
+                if (msg.isLast) {
+                  isLastRead = true
+                  ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER): Unit
+                } else {
+                  ch.read()
+                  ()
+                }
+              },
+            ),
+        )
+      }
     case _: HttpData.Outgoing         => ???
   }
-  def asStreamByteBuf: ZStream[Any, Throwable, ByteBuf]     = self match {
+  def asStreamByteBuf: ZStream[Any, Throwable, ByteBuf]          = self match {
     case HttpData.Incoming(unsafeRun) =>
       ZStream
         .effectAsync[Any, Throwable, ByteBuf](cb =>
-          unsafeRun((ch, msg) => {
-            cb(IO.succeed(Chunk(msg.content.content())))
-            if (msg.isLast) {
-              ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)
-              cb(IO.fail(None))
-            } else {
-              ch.read()
-            }
-          }),
+          unsafeRun(ch =>
+            msg => {
+              cb(IO.succeed(Chunk(msg.content.content())))
+              if (msg.isLast) {
+                ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)
+                cb(IO.fail(None))
+              } else {
+                ch.read()
+              }
+            },
+          ),
         )
     case _: HttpData.Outgoing         => ???
   }
@@ -157,7 +170,7 @@ object HttpData {
    */
   def fromFile(file: java.io.File): HttpData = File(file)
 
-  final case class Incoming(unsafeRun: ((UnsafeChannel, UnsafeContent) => Unit) => Unit) extends HttpData
+  final case class Incoming(unsafeRun: (UnsafeChannel => UnsafeContent => Unit) => Unit) extends HttpData
 
   sealed trait Outgoing extends HttpData
   object Outgoing {
