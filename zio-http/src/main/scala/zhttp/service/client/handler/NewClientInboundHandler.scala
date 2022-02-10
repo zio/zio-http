@@ -2,7 +2,8 @@ package zhttp.service.client.handler
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.FullHttpResponse
+import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
+import zio.{Promise}
 //import io.netty.util.ReferenceCountUtil
 //import io.netty.handler.codec.http.FullHttpRequest
 //import io.netty.handler.codec.http.FullHttpRequest
@@ -16,59 +17,32 @@ import zhttp.service.client.transport.ClientConnectionManager
 @Sharable
 final case class NewClientInboundHandler[R](
   zExec: HttpRuntime[R],
-  connectionManager: ClientConnectionManager
-) extends SimpleChannelInboundHandler[FullHttpResponse](false) {
+  connectionManager: ClientConnectionManager,
+  jReq: FullHttpRequest,
+  promise: Promise[Throwable, ClientResponse],
+) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
-    val r = for {
-      currAlloc <- connectionManager.connectionState.currentAllocatedChannels.get
-      currentRuntime = currAlloc(ctx.channel())
-      reqKey = currentRuntime.reqKey
-      _ <- connectionManager.connectionState.currentAllocatedChannels.update(m => m - ctx.channel())
-      _ <- currentRuntime.callback.succeed(ClientResponse.unsafeFromJResponse(msg))
-      mp <- connectionManager.connectionState.idleConnectionsMap.get
-      q = mp(reqKey)
-      _ <- zio.Task(q.enqueue(ctx.channel()))
-      _ <- zio.Task(println(s"AFTER ENQUEUEING CHANNEL: $q"))
-    } yield ()
-    zExec.unsafeRun(ctx){r}
-  }
+    println(s"CHANNEL READ: $msg")
+    msg.touch("handlers.ClientInboundHandler-channelRead0")
 
-  override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    val r = for{
-      currAlloc <- connectionManager.connectionState.currentAllocatedChannels.get
-      currentRuntime = currAlloc(ctx.channel())
-//      _ <- zio.ZIO.effect {
-//        println(s"CURR ")
-//        if (currentRuntime.currReq.refCnt() > 0) ReferenceCountUtil.release(currentRuntime.currReq)
-//      }
-//      reqKey <- connectionManager.getRequestKey(currentRuntime.currReq)
-//      _ <- zio.Task.fail(error)
-//      _ <- zio.ZIO.effect(releaseRequest(currentRuntime.currReq))
-    } yield ()
-    zExec.unsafeRun(ctx)(r)
-//    releaseRequest(connectionRuntime.currReq): Unit
+    zExec.unsafeRun(ctx)(promise.succeed(ClientResponse.unsafeFromJResponse(msg)))
   }
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
-    val r = for{
-      currAlloc <- connectionManager.connectionState.currentAllocatedChannels.get
-      currentRuntime = currAlloc(ctx.channel())
-      //      reqKey <- connectionManager.getRequestKey(currentRuntime.currReq)
-      _ <- zio.ZIO.effect {
-        ctx.writeAndFlush(currentRuntime.currReq)
-//        releaseRequest(currentRuntime.currReq)
-      }
-    } yield ()
-//    zio.Runtime.default.unsafeRun(r)
-    zExec.unsafeRun(ctx)(r)
-//    releaseRequest(jReq): Unit
+    println(s"CHANNEL ACTIVE: ${ctx.channel()}")
+    ctx.writeAndFlush(jReq)
+    releaseRequest()
   }
 
-//  private def releaseRequest(jReq: io.netty.handler.codec.http.FullHttpRequest): Unit = {
-//    if (jReq.refCnt() > 0) {
-//      jReq.release(jReq.refCnt()): Unit
-//    }
-//  }
+  override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
+    zExec.unsafeRun(ctx)(promise.fail(error))
+    releaseRequest()
+  }
 
+  private def releaseRequest(): Unit = {
+    if (jReq.refCnt() > 0) {
+      jReq.release(jReq.refCnt()): Unit
+    }
+  }
 }

@@ -82,6 +82,18 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self *> Http.succeed(c)
 
   /**
+   * Extracts body
+   */
+  final def body(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, Chunk[Byte]] =
+    self.bodyAsByteBuf.mapZIO(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
+
+  /**
+   * Extracts body as a string
+   */
+  final def bodyAsString(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, String] =
+    self.bodyAsByteBuf.mapZIO(bytes => Task(bytes.toString(HTTP_CHARSET)))
+
+  /**
    * Catches all the exceptions that the http app can fail with
    */
   final def catchAll[R1 <: R, E1, A1 <: A, B1 >: B](f: E => Http[R1, E1, A1, B1])(implicit
@@ -114,6 +126,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def compose[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, C1, A1]): Http[R1, E1, C1, B] =
     other andThen self
+
+  /**
+   * Extracts content-length from the response if available
+   */
+  final def contentLength(implicit eb: IsResponse[B]): Http[R, E, A, Option[Long]] =
+    headers.map(_.contentLength)
 
   /**
    * Transforms the input of the http before passing it on to the current Http
@@ -180,24 +198,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   ): Http[R1, E1, A1, B1] = Http.FoldHttp(self, ee, bb, dd)
 
   /**
-   * Extracts body
-   */
-  final def body(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, Chunk[Byte]] =
-    self.bodyAsByteBuf.mapZIO(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
-
-  /**
-   * Extracts body as a string
-   */
-  final def bodyAsString(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, String] =
-    self.bodyAsByteBuf.mapZIO(bytes => Task(bytes.toString(HTTP_CHARSET)))
-
-  /**
-   * Extracts content-length from the response if available
-   */
-  final def contentLength(implicit eb: IsResponse[B]): Http[R, E, A, Option[Long]] =
-    headers.map(_.contentLength)
-
-  /**
    * Extracts the value of the provided header name.
    */
   final def headerValue(name: CharSequence)(implicit eb: IsResponse[B]): Http[R, E, A, Option[CharSequence]] =
@@ -207,11 +207,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Extracts the `Headers` from the type `B` if possible
    */
   final def headers(implicit eb: IsResponse[B]): Http[R, E, A, Headers] = self.map(eb.headers)
-
-  /**
-   * Extracts `Status` from the type `B` is possible.
-   */
-  final def status(implicit ev: IsResponse[B]): Http[R, E, A, Status] = self.map(ev.status)
 
   /**
    * Transforms the output of the http app
@@ -286,11 +281,9 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     Http.Race(self, other)
 
   /**
-   * Converts a failing Http into a non-failing one by handling the failure and
-   * converting it to a result if possible.
+   * Extracts `Status` from the type `B` is possible.
    */
-  final def silent[E1 >: E, B1 >: B](implicit s: CanBeSilenced[E1, B1]): Http[R, Nothing, A, B1] =
-    self.catchAll(e => Http.succeed(s.silent(e)))
+  final def status(implicit ev: IsResponse[B]): Http[R, E, A, Status] = self.map(ev.status)
 
   /**
    * Returns an Http that peeks at the success of this Http.
@@ -369,6 +362,15 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.flatMap(_ => other)
 
   /**
+   * Extracts body as a ByteBuf
+   */
+  private[zhttp] final def bodyAsByteBuf(implicit
+    eb: IsResponse[B],
+    ee: E <:< Throwable,
+  ): Http[R, Throwable, A, ByteBuf] =
+    self.widen[Throwable, B].mapZIO(eb.bodyAsByteBuf)
+
+  /**
    * Evaluates the app and returns an HExit that can be resolved further
    *
    * NOTE: `execute` is not a stack-safe method for performance reasons. Unlike
@@ -398,15 +400,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
       case RunMiddleware(app, mid) => mid(app).execute(a)
     }
-
-  /**
-   * Extracts body as a ByteBuf
-   */
-  private[zhttp] final def bodyAsByteBuf(implicit
-    eb: IsResponse[B],
-    ee: E <:< Throwable,
-  ): Http[R, Throwable, A, ByteBuf] =
-    self.widen[Throwable, B].mapZIO(eb.bodyAsByteBuf)
 }
 
 object Http {
@@ -438,13 +431,6 @@ object Http {
      * Overwrites the url in the incoming request
      */
     def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.setUrl(url))
-
-    /**
-     * Converts a failing Http app into a non-failing one by handling the
-     * failure and converting it to a result if possible.
-     */
-    def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response]): HttpApp[R1, E1] =
-      http.catchAll(e => Http.succeed(s.silent(e)))
 
     /**
      * Updates the response headers using the provided function

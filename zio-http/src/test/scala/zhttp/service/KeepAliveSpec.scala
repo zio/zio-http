@@ -1,7 +1,7 @@
 package zhttp.service
 
-import io.netty.handler.codec.http.{HttpHeaderValues, HttpVersion}
-import zhttp.http.{HeaderNames, Headers, Http}
+import io.netty.handler.codec.http.HttpHeaderValues
+import zhttp.http.{HeaderNames, Headers, Http, Version}
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.test.Assertion.{equalTo, isNone, isSome}
@@ -28,13 +28,13 @@ object KeepAliveSpec extends HttpRunnableSpec {
     } +
       suite("Http 1.0") {
         testM("without keep-alive") {
-          val res = app.deploy.headerValue(HeaderNames.connection).run(version = HttpVersion.HTTP_1_0)
+          val res = app.deploy.headerValue(HeaderNames.connection).run(version = Version.Http_1_0)
           assertM(res)(isSome(equalTo("close")))
         } +
           testM("with keep-alive") {
             val res = app.deploy
               .headerValue(HeaderNames.connection)
-              .run(version = HttpVersion.HTTP_1_0, headers = keepAliveHeader)
+              .run(version = Version.Http_1_0, headers = keepAliveHeader)
             assertM(res)(isNone)
           }
       }

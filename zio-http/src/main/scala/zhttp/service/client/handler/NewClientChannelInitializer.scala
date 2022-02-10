@@ -30,7 +30,7 @@ final case class NewClientChannelInitializer[R](
 
     // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
     // This is also required to make WebSocketHandlers work
-    pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
+    pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue)): Unit
 
     // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
     pipeline.addLast(CLIENT_INBOUND_HANDLER, channelHandler): Unit

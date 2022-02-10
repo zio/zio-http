@@ -1,15 +1,16 @@
 package zhttp.service.client.transport
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{Channel}
+import io.netty.channel.Channel
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.http.HeaderNames
-import zhttp.service.Client.ClientRequest
+import zhttp.service.CLIENT_INBOUND_HANDLER
+import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.handler.{NewClientChannelInitializer, NewClientInboundHandler}
 import zhttp.service.client.model.ClientConnectionState.ReqKey
 import zhttp.service.client.model.{ClientConnectionState, ConnectionRuntime, Timeouts}
-import zio.{Task, ZIO}
+import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
 import scala.collection.mutable
@@ -40,11 +41,12 @@ case class ClientConnectionManager(
    * @param jReq
    * @return
    */
-  def fetchConnection(jReq: FullHttpRequest, req: ClientRequest): Task[Channel] = for {
+  def fetchConnection(jReq: FullHttpRequest, req: ClientRequest, promise: Promise[Throwable, ClientResponse]): Task[Channel] = for {
     reqKey <- getRequestKey(jReq, req)
     isWebSocket = req.url.scheme.exists(_.isWebSocket)
     isSSL       = req.url.scheme.exists(_.isSecure)
-    channel <- getConnectionForRequestKey(reqKey, isWebSocket, isSSL)
+    channel <- getConnectionForRequestKey(jReq, promise, reqKey, isWebSocket, isSSL)
+//    _ <- ZIO.effect {channel.pipeline().addLast(CLIENT_INBOUND_HANDLER, NewClientInboundHandler(zExec, this,jReq,promise))}
   } yield channel
 
   def getRequestKey(jReq: FullHttpRequest, req: ClientRequest) = for {
@@ -62,11 +64,11 @@ case class ClientConnectionManager(
    * @tparam R
    * @return
    */
-  def buildChannel[R](reqKey: ReqKey, isWebSocket: Boolean = false, isSSL: Boolean = false): Task[Channel] =
+  def buildChannel[R](jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey: ReqKey, isWebSocket: Boolean = false, isSSL: Boolean = false): Task[Channel] =
     for {
       init <- ZIO.effect(
         NewClientChannelInitializer(
-          NewClientInboundHandler(zExec, this),
+          NewClientInboundHandler(zExec, this,jReq,promise),
           isWebSocket,
           isSSL,
           reqKey,
@@ -84,25 +86,29 @@ case class ClientConnectionManager(
 
   def sendRequest(channel: Channel, connectionRuntime: ConnectionRuntime) = for {
     _ <- connectionState.currentAllocatedChannels.update(m => m + (channel -> connectionRuntime))
-    _ <- Task(channel.pipeline().fireChannelActive())
+//    _ <- Task(channel.pipeline().fireChannelActive())
   } yield ()
 
-  def getConnectionForRequestKey(reqKey: ReqKey, isWebSocket: Boolean, isSSL: Boolean) = for {
+  def getConnectionForRequestKey(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey: ReqKey, isWebSocket: Boolean, isSSL: Boolean) = for {
     idleMap <- connectionState.idleConnectionsMap.get
     _ <- Task(println(s"idleMap: $idleMap"))
     idleQ = idleMap.get(reqKey).fold(mutable.Queue.empty[Channel])(q => q)
     channel <- if (!idleQ.isEmpty) {
       println(s"IDLEQ not empty LETS REUSE ......$idleQ")
-      Task(idleQ.dequeue())
+      val existingChannel = idleQ.dequeue()
+      val h = existingChannel.pipeline().get(CLIENT_INBOUND_HANDLER)
+      existingChannel.pipeline().remove(h).addLast().addLast(CLIENT_INBOUND_HANDLER, NewClientInboundHandler(zExec, this,jReq,promise))
+      Task(existingChannel)
     }
       else {
         println(s"IDLE Q $idleQ EMPTY CREATE NEW CONNECTION for $reqKey")
-        val ch = buildChannel(reqKey, isWebSocket, isSSL)
+        val ch = buildChannel(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey, isWebSocket, isSSL)
         connectionState.idleConnectionsMap.update(_ => Map(reqKey -> idleQ))
         println(s"after update ${connectionState.idleConnectionsMap}")
         ch
       }
     _ <- connectionState.idleConnectionsMap.set(Map(reqKey -> idleQ))
+//    _ <- Task{ channel.pipeline().addLast()}
     _ <- Task(println(s"IDLEQ: $idleQ AFTER SET ${connectionState.idleConnectionsMap}"))
   } yield channel
 

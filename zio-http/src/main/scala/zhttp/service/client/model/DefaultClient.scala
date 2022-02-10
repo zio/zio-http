@@ -21,8 +21,9 @@ case class DefaultClient(
     jReq    <- encode(req)
     reqKey <- connectionManager.getRequestKey(jReq,req)
     _ <- ZIO.effect(println(s"\n\n ===== JREQQQ  ===== \n\n"))
-    channel <- connectionManager.fetchConnection(jReq, req)
     prom    <- zio.Promise.make[Throwable, ClientResponse]
+    channel <- connectionManager.fetchConnection(jReq, req, prom)
+
     _       <- connectionManager
                 .sendRequest(channel, ConnectionRuntime(prom, jReq.retain(), reqKey))
     resp    <- prom.await

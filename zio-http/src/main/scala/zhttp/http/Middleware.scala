@@ -20,7 +20,7 @@ import zio.{UIO, ZIO}
  * The `AOut` and `BOut` type params represent the type params of the output
  * Http.
  */
-sealed trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
+trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
 
   /**
    * Creates a new middleware that passes the output Http of the current
