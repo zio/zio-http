@@ -21,7 +21,9 @@ object Main extends App {
     .withServer(STATIC_SERVER_NAME)
     .freeze
 
-  def app(res: Response) = Http.succeed(res).when((a: Request) => a.url.path == (!! / "plaintext"), res)
+  val path = "/plaintext"
+
+  def app(res: Response) = Http.succeed(res).when((a: Request) => a.url.path.toString.equals(path), res)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     frozenResponse

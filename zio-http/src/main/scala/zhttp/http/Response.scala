@@ -11,7 +11,6 @@ import zhttp.socket.{IsWebSocket, Socket, SocketApp}
 import zio.{Chunk, Task, UIO, ZIO}
 
 import java.nio.charset.Charset
-import java.nio.file.Files
 
 final case class Response private (
   status: Status,
@@ -43,6 +42,11 @@ final case class Response private (
    */
   def setAttribute(attribute: Response.Attribute): Response =
     self.copy(attribute = attribute)
+
+  /**
+   * Sets the MediaType of the response using the `Content-Type` header.
+   */
+  def setMediaType(mediaType: MediaType): Response = self.addHeader(HttpHeaderNames.CONTENT_TYPE, mediaType.fullType)
 
   /**
    * Sets the status of the response
@@ -83,7 +87,15 @@ final case class Response private (
       case HttpData.BinaryStream(_)     => null
       case HttpData.Empty               => Unpooled.EMPTY_BUFFER
       case HttpData.File(file)          =>
-        jHeaders.set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(file.toPath))
+        if (!jHeaders.contains(HttpHeaderNames.CONTENT_TYPE)) {
+
+          // TODO: content-type probing cache should be configurable at server level
+          MediaType.probeContentType(file.toPath.toString) match {
+            case Some(cType) => jHeaders.set(HttpHeaderNames.CONTENT_TYPE, cType)
+            case None        => ()
+          }
+        }
+        jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, file.length())
         null
     }
 
@@ -151,7 +163,7 @@ object Response {
         Status.SWITCHING_PROTOCOLS,
         Headers.empty,
         HttpData.empty,
-        Attribute(socketApp = Option(app.provide(env))),
+        Attribute(socketApp = Option(app.provideEnvironment(env))),
       )
     }
 

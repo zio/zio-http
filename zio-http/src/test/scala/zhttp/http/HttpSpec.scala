@@ -22,7 +22,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           val actual = app.execute(0)
           assert(actual)(isSuccess(equalTo(1)))
         } +
-          test("should execute http only when condition applies") {
+          test("should not execute http when condition doesn't apply") {
             val app    = Http.succeed(1).when((_: Any) => false, 1)
             val actual = app.execute(0)
             assert(actual)(isEmpty)
@@ -77,6 +77,41 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             assert(actual)(isEmpty)
           },
       ) +
+      suite("collectHExit")(
+        test("should succeed") {
+          val a      = Http.collectHExit[Int] { case 1 => HExit.succeed("OK") }
+          val actual = a.execute(1)
+          assert(actual)(isSuccess(equalTo("OK")))
+        } +
+          test("should fail") {
+            val a      = Http.collectHExit[Int] { case 1 => HExit.fail("OK") }
+            val actual = a.execute(1)
+            assert(actual)(isFailure(equalTo("OK")))
+          } +
+          test("should give empty if the inout is not defined") {
+            val a      = Http.collectHExit[Int] { case 1 => HExit.succeed("OK") }
+            val actual = a.execute(0)
+            assert(actual)(isEmpty)
+          },
+      ) +
+      suite("fromFunctionHExit")(
+        test("should succeed if the ") {
+          val a      = Http.fromFunctionHExit[Int] { a => HExit.succeed(a + 1) }
+          val actual = a.execute(1)
+          assert(actual)(isSuccess(equalTo(2)))
+        } +
+          test("should fail if the returned HExit is a failure") {
+            val a      = Http.fromFunctionHExit[Int] { a => HExit.fail(a + 1) }
+            val actual = a.execute(1)
+            assert(actual)(isFailure(equalTo(2)))
+          } +
+          test("should give empty if the returned HExit is empty") {
+            val a      = Http.fromFunctionHExit[Int] { _ => HExit.empty }
+            val actual = a.execute(0)
+            assert(actual)(isEmpty)
+          },
+      ) +
+
       suite("combine")(
         test("should resolve first") {
           val a      = Http.collect[Int] { case 1 => "A" }

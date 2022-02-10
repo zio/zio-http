@@ -2,6 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.ChannelHandler
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html.Html
 import zhttp.http.headers.HeaderModifier
 import zhttp.service.{Handler, HttpRuntime, Server}
@@ -10,6 +11,7 @@ import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
 
+import java.io.File
 import java.nio.charset.Charset
 import scala.annotation.unused
 
@@ -139,6 +141,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     headers.map(_.contentLength)
 
   /**
+   * Extracts the value of ContentType header
+   */
+  final def contentType(implicit eb: IsResponse[B]): Http[R, E, A, Option[CharSequence]] =
+    headerValue(HttpHeaderNames.CONTENT_TYPE)
+
+  /**
    * Transforms the input of the http before passing it on to the current Http
    */
   final def contraFlatMap[X]: PartialContraFlatMap[R, E, A, B, X] = PartialContraFlatMap[R, E, A, B, X](self)
@@ -244,18 +252,18 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.catchAll(_ => other)
 
   /**
-   * Provides the environment to Http.
-   */
-  final def provide(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
-    Http.fromOptionFunction[A](a => self(a).provide(r))
-
-  /**
    * Provide part of the environment to HTTP that is not part of ZEnv
    */
   final def provideCustomLayer[E1 >: E, R1 <: Has[_]](
     layer: ZLayer[ZEnv, E1, R1],
   )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): Http[ZEnv, E1, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideCustomLayer(layer.mapError(Option(_))))
+
+  /**
+   * Provides the environment to Http.
+   */
+  final def provideEnvironment(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
+    Http.fromOptionFunction[A](a => self(a).provide(r))
 
   /**
    * Provides layer to Http.
@@ -268,7 +276,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Provides some of the environment to Http.
    */
-  final def provideSome[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
+  final def provideSomeEnvironment[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideSome(r))
 
   /**
@@ -385,15 +393,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final private[zhttp] def execute(a: A): HExit[R, E, B] =
     self match {
-      case Http.Empty         => HExit.empty
-      case Http.Identity      => HExit.succeed(a.asInstanceOf[B])
-      case Succeed(b)         => HExit.succeed(b)
-      case When(f, b)         => if (f(a)) HExit.succeed(b) else HExit.empty
-      case Fail(e)            => HExit.fail(e)
-      case FromFunctionZIO(f) => HExit.fromZIO(f(a))
-      case Collect(pf)        => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
-      case Chain(self, other) => self.execute(a).flatMap(b => other.execute(b))
-      case Race(self, other)  =>
+      case Http.Empty           => HExit.empty
+      case Http.Identity        => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)           => HExit.succeed(b)
+      case Fail(e)              => HExit.fail(e)
+      case FromFunctionHExit(f) => f(a)
+      case Chain(self, other)   => self.execute(a).flatMap(b => other.execute(b))
+      case Race(self, other)    =>
         (self.execute(a), other.execute(a)) match {
           case (HExit.Effect(self), HExit.Effect(other)) =>
             Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
@@ -405,6 +411,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
         self.execute(a).foldExit(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
 
       case RunMiddleware(app, mid) => mid(app).execute(a)
+      case When(f, b)              => if (f(a)) HExit.succeed(b) else HExit.empty
     }
 }
 
@@ -467,7 +474,15 @@ object Http {
    */
   def collect[A]: Http.PartialCollect[A] = Http.PartialCollect(())
 
+  /**
+   * Create an HTTP app from a partial function from A to Http[R,E,A,B]
+   */
   def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
+
+  /**
+   * Create an HTTP app from a partial function from A to HExit[R,E,B]
+   */
+  def collectHExit[A]: Http.PartialCollectHExit[A] = Http.PartialCollectHExit(())
 
   /**
    * Creates an Http app which accepts a request and produces response from a
@@ -533,7 +548,13 @@ object Http {
   /*
    * Creates an Http app from the contents of a file
    */
-  def fromFile(file: java.io.File): HttpApp[Any, Nothing] = response(Response(data = HttpData.fromFile(file)))
+  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file))
+
+  /*
+   * Creates an Http app from the contents of a file which is produced from an effect
+   */
+  def fromFileZIO[R, E](fileZIO: ZIO[R, E, java.io.File]): HttpApp[R, E] =
+    Http.fromZIO(fileZIO.map(file => response(Response(data = HttpData.fromFile(file))))).flatten
 
   /**
    * Creates a Http from a pure function
@@ -546,11 +567,22 @@ object Http {
   def fromFunctionZIO[A]: PartialFromFunctionZIO[A] = new PartialFromFunctionZIO[A](())
 
   /**
+   * Creates a Http from an pure function from A to HExit[R,E,B]
+   */
+  def fromFunctionHExit[A]: PartialFromFunctionHExit[A] = new PartialFromFunctionHExit[A](())
+
+  /**
    * Creates an `Http` from a function that takes a value of type `A` and
    * returns with a `ZIO[R, Option[E], B]`. The returned effect can fail with a
    * `None` to signal "not found" to the backend.
    */
   def fromOptionFunction[A]: PartialFromOptionFunction[A] = new PartialFromOptionFunction(())
+
+  /**
+   * Creates an Http app from a resource path
+   */
+  def fromResource(path: String): HttpApp[Any, Throwable] =
+    Http.fromFile(new File(getClass.getResource(path).getPath))
 
   /**
    * Creates a Http that always succeeds with a 200 status code and the provided
@@ -649,12 +681,18 @@ object Http {
   }
 
   final case class PartialCollect[A](unit: Unit) extends AnyVal {
-    def apply[B](pf: PartialFunction[A, B]): Http[Any, Nothing, A, B] = Collect(pf)
+    def apply[B](pf: PartialFunction[A, B]): Http[Any, Nothing, A, B] =
+      FromFunctionHExit(a => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.Empty)
   }
 
   final case class PartialCollectHttp[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, Http[R, E, A, B]]): Http[R, E, A, B] =
       Http.collect[A](pf).flatten
+  }
+
+  final case class PartialCollectHExit[A](unit: Unit) extends AnyVal {
+    def apply[R, E, B](pf: PartialFunction[A, HExit[R, E, B]]): Http[R, E, A, B] =
+      FromFunctionHExit(a => if (pf.isDefinedAt(a)) pf(a) else HExit.empty)
   }
 
   final case class PartialRoute[A](unit: Unit) extends AnyVal {
@@ -683,7 +721,11 @@ object Http {
   }
 
   final class PartialFromFunctionZIO[A](val unit: Unit) extends AnyVal {
-    def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = FromFunctionZIO(f)
+    def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = FromFunctionHExit(a => HExit.fromZIO(f(a)))
+  }
+
+  final class PartialFromFunctionHExit[A](val unit: Unit) extends AnyVal {
+    def apply[R, E, B](f: A => HExit[R, E, B]): Http[R, E, A, B] = FromFunctionHExit(f)
   }
 
   private final case class When[R, E, A, B](f: A => Boolean, b: B) extends Http[R, E, A, B]
@@ -694,9 +736,7 @@ object Http {
 
   private final case class Fail[E](e: E) extends Http[Any, E, Any, Nothing]
 
-  private final case class FromFunctionZIO[R, E, A, B](f: A => ZIO[R, E, B]) extends Http[R, E, A, B]
-
-  private final case class Collect[R, E, A, B](ab: PartialFunction[A, B]) extends Http[R, E, A, B]
+  private final case class FromFunctionHExit[R, E, A, B](f: A => HExit[R, E, B]) extends Http[R, E, A, B]
 
   private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C])
       extends Http[R, E, A, C]
