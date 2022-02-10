@@ -36,13 +36,13 @@ object WebSocketServerSpec extends HttpRunnableSpec {
 
   def websocketFrameSpec = suite("WebSocketFrameSpec") {
     testM("binary") {
-      val socket: Socket[Any, Nothing, WebSocketFrame, WebSocketFrame] = Socket
-        .collect[WebSocketFrame] { case WebSocketFrame.Binary(buffer) =>
-          ZStream.succeed(WebSocketFrame.Binary(buffer))
-        }
-      val app                                                          = socket.toHttp.deployWS
+      val socket = Socket.collect[WebSocketFrame] { case WebSocketFrame.Binary(buffer) =>
+        ZStream.succeed(WebSocketFrame.Binary(buffer))
+      }
 
+      val app  = socket.toHttp.deployWS
       val open = Socket.succeed(WebSocketFrame.binary(Chunk.fromArray("Hello, World".getBytes)))
+
       assertM(app(socket.toSocketApp.onOpen(open)).map(_.status))(equalTo(Status.SWITCHING_PROTOCOLS))
     }
   }
