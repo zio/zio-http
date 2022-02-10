@@ -46,7 +46,7 @@ final case class Response private (
   /**
    * Sets the MediaType of the response using the `Content-Type` header.
    */
-  def setMediaType(mediaType: MediaType): Response = self.addHeader(HttpHeaderNames.CONTENT_TYPE, mediaType.toString)
+  def setMediaType(mediaType: MediaType): Response = self.addHeader(HttpHeaderNames.CONTENT_TYPE, mediaType.fullType)
 
   /**
    * Sets the status of the response
