@@ -21,18 +21,19 @@ object Main extends App {
     .withServer(STATIC_SERVER_NAME)
     .freeze
 
-  // Create HTTP route
-  val app: HttpApp[Any, Nothing] = Http.collectZIO[Request] { case Method.GET -> !! / "text" =>
-    frozenResponse
-  }
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    server.make.useForever
+    frozenResponse
+      .flatMap(server(_).make.useForever)
       .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
       .exitCode
   }
 
-  private def server =
-    Server.app(app) ++
+  private def app(response: Response) = Http.collect[Request] { case Method.GET -> !! / "plaintext" =>
+    response
+  }
+
+  private def server(response: Response) =
+    Server.app(app(response)) ++
       Server.port(8080) ++
       Server.error(_ => UIO.unit) ++
       Server.disableLeakDetection ++
