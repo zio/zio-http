@@ -76,6 +76,11 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def apply(a: A): ZIO[R, Option[E], B] = execute(a).toZIO
 
   /**
+   * Applies Http based only if the condition function evaluates to true
+   */
+  final def when[A2 <: A](f: A2 => Boolean): Http[R, E, A2, B] = Http.collectHttp[A2] { case a if f(a) => self }
+
+  /**
    * Makes the app resolve with a constant value
    */
   final def as[C](c: C): Http[R, E, A, C] =

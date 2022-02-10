@@ -21,15 +21,13 @@ object Main extends App {
     .withServer(STATIC_SERVER_NAME)
     .freeze
 
+  def app(res: Response) = Http.succeed(res).when((a: Request) => a.url.path == (!! / "plaintext"))
+
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     frozenResponse
       .flatMap(server(_).make.useForever)
       .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
       .exitCode
-  }
-
-  private def app(response: Response) = Http.collect[Request] { case _ =>
-    response
   }
 
   private def server(response: Response) =
