@@ -21,5 +21,5 @@ object Endpoints extends ZIOAppDefault {
 
   // Run it like any simple app
   val run =
-    Server.start(8091, (h3 ++ h2 ++ h1).silent).exitCode
+    Server.start(8091, (h3 ++ h2 ++ h1)).exitCode
 }

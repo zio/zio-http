@@ -1,17 +1,19 @@
 package zhttp.socket
 
+import zhttp.http.Status
 import zio._
 import zio.stream.ZStream
 import zio.test.Assertion._
+import zio.test.TestAspect.timeout
 import zio.test._
 
 object SocketSpec extends DefaultRunnableSpec {
 
   def spec = suite("SocketSpec") {
-    OperationsSpec
-  }
+    operationsSpec
+  } @@ timeout(5 seconds)
 
-  def OperationsSpec = suite("Operations Spec") {
+  def operationsSpec = suite("OperationsSpec") {
     test("fromStream provide") {
       val text        = "Cat ipsum dolor sit amet"
       val environment = ZStream.service[String]
@@ -55,6 +57,16 @@ object SocketSpec extends DefaultRunnableSpec {
       val socketC: Socket[Any, Nothing, Int, Int] = socketB.provideEnvironment(ZEnvironment(42))
 
       assertM(socketC.execute(1000).runCollect)(equalTo(Chunk(12)))
-    }
+    } +
+      test("echo") {
+        assertM(Socket.echo(1).runCollect)(equalTo(Chunk(1)))
+      } +
+      test("empty") {
+        assertM(Socket.empty(()).runCollect)(isEmpty)
+      } +
+      test("toHttp") {
+        val http = Socket.succeed(WebSocketFrame.ping).toHttp
+        assertM(http(()).map(_.status))(equalTo(Status.SWITCHING_PROTOCOLS))
+      }
   }
 }

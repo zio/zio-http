@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.buffer.Unpooled
+import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
 import zhttp.core.Util
@@ -8,7 +8,7 @@ import zhttp.html.Html
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
-import zio.{Chunk, UIO, ZIO}
+import zio.{Chunk, Task, UIO, ZIO}
 
 import java.nio.charset.Charset
 import java.nio.file.Files
@@ -24,19 +24,19 @@ final case class Response private (
    * Adds cookies in the response headers.
    */
   def addCookie(cookie: Cookie): Response =
-    self.copy(headers = self.getHeaders ++ Headers(HttpHeaderNames.SET_COOKIE.toString, cookie.encode))
+    self.copy(headers = self.headers ++ Headers(HttpHeaderNames.SET_COOKIE.toString, cookie.encode))
 
   /**
-   * A micro-optimizations that ignores all further modifications to the response and encodes the current version into a
-   * Netty response. The netty response is cached and reused for subsequent requests. This allows the server to reduce
-   * memory utilization under load by not having to encode the response for each request. In case the response is
-   * modified the server will detect the changes and encode the response again, however it will turn out to be counter
-   * productive.
+   * A micro-optimizations that ignores all further modifications to the
+   * response and encodes the current version into a Netty response. The netty
+   * response is cached and reused for subsequent requests. This allows the
+   * server to reduce memory utilization under load by not having to encode the
+   * response for each request. In case the response is modified the server will
+   * detect the changes and encode the response again, however it will turn out
+   * to be counter productive.
    */
   def freeze: UIO[Response] =
     UIO(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
-
-  override def getHeaders: Headers = headers
 
   /**
    * Sets the response attributes
@@ -54,7 +54,7 @@ final case class Response private (
    * Updates the headers using the provided function
    */
   override def updateHeaders(update: Headers => Headers): Response =
-    self.copy(headers = update(self.getHeaders))
+    self.copy(headers = update(self.headers))
 
   /**
    * A more efficient way to append server-time to the response headers.
@@ -62,19 +62,20 @@ final case class Response private (
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
 
   /**
-   * Wraps the current response into a ZIO
+   * Extracts the body as ByteBuf
    */
-  def wrapZIO: UIO[Response] = UIO(self)
+  private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = self.data.toByteBuf
 
   /**
-   * Encodes the Response into a Netty HttpResponse. Sets default headers such as `content-length`. For performance
-   * reasons, it is possible that it uses a FullHttpResponse if the complete data is available. Otherwise, it would
+   * Encodes the Response into a Netty HttpResponse. Sets default headers such
+   * as `content-length`. For performance reasons, it is possible that it uses a
+   * FullHttpResponse if the complete data is available. Otherwise, it would
    * create a DefaultHttpResponse without any content.
    */
   private[zhttp] def unsafeEncode(): HttpResponse = {
     import io.netty.handler.codec.http._
 
-    val jHeaders = self.getHeaders.encode
+    val jHeaders = self.headers.encode
     val jContent = self.data match {
       case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
       case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
@@ -187,7 +188,8 @@ object Response {
   def ok: Response = Response(Status.OK)
 
   /**
-   * Creates an empty response with status 301 or 302 depending on if it's permanent or not.
+   * Creates an empty response with status 301 or 302 depending on if it's
+   * permanent or not.
    */
   def redirect(location: String, isPermanent: Boolean = false): Response = {
     val status = if (isPermanent) Status.PERMANENT_REDIRECT else Status.TEMPORARY_REDIRECT

@@ -28,7 +28,7 @@ object CorsSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
       for {
         res <- app(request)
-      } yield assert(res.getHeadersAsList)(hasSubset(expected)) &&
+      } yield assert(res.headersAsList)(hasSubset(expected)) &&
         assertTrue(res.status == Status.NO_CONTENT)
     } +
       test("GET request") {
@@ -48,7 +48,7 @@ object CorsSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
         for {
           res <- app(request)
-        } yield assert(res.getHeadersAsList)(hasSubset(expected))
+        } yield assert(res.headersAsList)(hasSubset(expected))
       }
   }
 }

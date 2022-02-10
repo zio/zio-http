@@ -4,8 +4,10 @@ package zhttp.html
  * Light weight DOM implementation that can be rendered as a html string.
  *
  * @see
- *   <a href="https://html.spec.whatwg.org/multipage/syntax.html#void-elements">Void elements</a> only have a start tag;
- *   end tags must not be specified for void elements.
+ *   <a
+ *   href="https://html.spec.whatwg.org/multipage/syntax.html#void-elements">Void
+ *   elements</a> only have a start tag; end tags must not be specified for void
+ *   elements.
  */
 sealed trait Dom { self =>
   def encode: String = self match {

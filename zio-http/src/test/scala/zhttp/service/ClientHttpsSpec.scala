@@ -30,31 +30,31 @@ object ClientHttpsSpec extends DefaultRunnableSpec {
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
 
   override def spec = suite("Https Client request") {
-    test("should throw DecoderException for handshake failure") {
-      val actual = Client
-        .request(
-          "https://untrusted-root.badssl.com/",
-          sslOption,
-        )
-        .exit
-      assertM(actual)(fails(isSubtype[DecoderException](anything)))
+    test("respond Ok") {
+      val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
+      assertM(actual)(anything)
     } +
-      test("respond Ok") {
-        val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
-        assertM(actual)(anything)
-      } +
       test("respond Ok with sslOption") {
-        val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", sslOption)
+        val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", ssl = sslOption)
         assertM(actual)(anything)
       } +
       test("should respond as Bad Request") {
         val actual = Client
           .request(
             "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
-            sslOption,
+            ssl = sslOption,
           )
           .map(_.status)
         assertM(actual)(equalTo(Status.BAD_REQUEST))
+      } +
+      test("should throw DecoderException for handshake failure") {
+        val actual = Client
+          .request(
+            "https://untrusted-root.badssl.com/",
+            ssl = sslOption,
+          )
+          .exit
+        assertM(actual)(fails(isSubtype[DecoderException](anything)))
       }
   }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ ignore
 }

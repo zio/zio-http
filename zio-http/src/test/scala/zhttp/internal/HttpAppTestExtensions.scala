@@ -4,16 +4,16 @@ import zhttp.http._
 
 trait HttpAppTestExtensions {
   implicit class HttpAppSyntax[R, E](app: HttpApp[R, E]) {
-    def getHeader(name: String): Http[R, E, Request, Option[String]] =
-      app.map(res => res.getHeaderValue(name))
+    def header(name: String): Http[R, E, Request, Option[String]] =
+      app.map(res => res.headerValue(name))
 
-    def getHeaders: Http[R, E, Request, Headers] =
-      app.map(res => res.getHeaders)
+    def headerValues: Http[R, E, Request, List[String]] =
+      app.map(res => res.headers.toList.map(_._2.toString))
 
-    def getHeaderValues: Http[R, E, Request, List[String]] =
-      app.map(res => res.getHeaders.toList.map(_._2.toString))
+    def headers: Http[R, E, Request, Headers] =
+      app.map(res => res.headers)
 
-    def getStatus: Http[R, E, Request, Status] =
+    def status: Http[R, E, Request, Status] =
       app.map(res => res.status)
   }
 }

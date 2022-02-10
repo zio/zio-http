@@ -43,8 +43,8 @@ private[zhttp] trait Cors {
     Middleware.collect[Request] { case req =>
       (
         req.method,
-        req.getHeaders.getHeader(HttpHeaderNames.ORIGIN),
-        req.getHeaders.getHeader(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
+        req.headers.header(HttpHeaderNames.ORIGIN),
+        req.headers.header(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
       ) match {
         case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm._2.toString)) =>
           Middleware.succeed(

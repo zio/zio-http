@@ -18,7 +18,7 @@ object WebSocketEcho extends ZIOAppDefault {
 
   private val app =
     Http.collectZIO[Request] {
-      case Method.GET -> !! / "greet" / name  => Response.text(s"Greetings {$name}!").wrapZIO
+      case Method.GET -> !! / "greet" / name  => UIO(Response.text(s"Greetings {$name}!"))
       case Method.GET -> !! / "subscriptions" => socket.toResponse
     }
 

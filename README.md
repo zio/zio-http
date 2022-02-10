@@ -21,7 +21,6 @@ Check out the full documentation here: [Documentation]
 - [ZIO Http](#zio-http)
 - [Getting Started](#getting-started)
 - [Installation](#installation)
-- [Benchmarks](#benchmarks)
 - [Documentation](https://dream11.github.io/zio-http/)
 
 # Getting Started
@@ -35,7 +34,7 @@ import zhttp.service.Server
 
 object HelloWorld extends ZIOAppDefault {
   val app = Http.collect[Request] {
-    case Method.GET -> Root / "text" => Response.text("Hello World!")
+    case Method.GET -> !! / "text" => Response.text("Hello World!")
   }
 
   val run =
@@ -69,7 +68,7 @@ libraryDependencies += "io.d11" %% "zhttp"      % "[version]"
 libraryDependencies += "io.d11" %% "zhttp-test" % "[version]" % Test
 ```
 
-**NOTE:** Currently ZIO Http is compatible with `ZIO 1.x` only. The library will migrate to `ZIO 2.x` as soon as a stable release is published.
+**NOTE:** ZIO Http is compatible with `ZIO 1.x` and `ZIO 2.x`.
 
 
 # Watch Mode

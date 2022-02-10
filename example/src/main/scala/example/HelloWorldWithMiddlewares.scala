@@ -36,5 +36,5 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
 
   // Run it like any simple app
   override val run =
-    Server.start(8090, (app @@ middlewares).silent)
+    Server.start(8090, (app @@ middlewares))
 }

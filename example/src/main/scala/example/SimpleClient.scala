@@ -1,17 +1,15 @@
 package example
 
-import zhttp.http.Headers
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
 
 object SimpleClient extends ZIOAppDefault {
-  val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
-  val url     = "http://sports.api.decathlon.com/groups/water-aerobics"
-  val headers = Headers.host("sports.api.decathlon.com")
+  val env = ChannelFactory.auto ++ EventLoopGroup.auto()
+  val url = "http://sports.api.decathlon.com/groups/water-aerobics"
 
   val program = for {
-    res  <- Client.request(url, headers)
-    data <- res.getBodyAsString
+    res  <- Client.request(url)
+    data <- res.bodyAsString
     _    <- Console.printLine(data)
   } yield ()
 

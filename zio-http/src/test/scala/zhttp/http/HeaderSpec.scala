@@ -10,54 +10,54 @@ object HeaderSpec extends DefaultRunnableSpec {
   def spec = suite("Header") {
     suite("getHeader")(
       test("should not return header that doesn't exist in list") {
-        val actual = predefinedHeaders.getHeader("dummyHeaderName")
+        val actual = predefinedHeaders.header("dummyHeaderName")
         assert(actual)(isNone)
       } +
         test("should return header from predefined headers list by String") {
-          val actual = predefinedHeaders.getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
+          val actual = predefinedHeaders.headerValue(HttpHeaderNames.CONTENT_TYPE)
           assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
         } +
         test("should return header from predefined headers list by String of another case") {
-          val actual = predefinedHeaders.getHeaderValue("Content-Type")
+          val actual = predefinedHeaders.headerValue("Content-Type")
           assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
         } +
         test("should return header from predefined headers list by AsciiString") {
-          val actual = predefinedHeaders.getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
+          val actual = predefinedHeaders.headerValue(HttpHeaderNames.CONTENT_TYPE)
           assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
         } +
         test("should return header from custom headers list by String") {
-          val actual = customHeaders.getHeader(HttpHeaderNames.CONTENT_TYPE)
+          val actual = customHeaders.header(HttpHeaderNames.CONTENT_TYPE)
           assert(actual)(isSome(equalTo(customContentJsonHeader)))
         } +
         test("should return header from custom headers list by AsciiString") {
-          val actual = customHeaders.getHeader(HttpHeaderNames.CONTENT_TYPE)
+          val actual = customHeaders.header(HttpHeaderNames.CONTENT_TYPE)
           assert(actual)(isSome(equalTo(customContentJsonHeader)))
         },
     ) +
       suite("getHeaderValue") {
         test("should return header value") {
-          val actual = predefinedHeaders.getHeaderValue(HttpHeaderNames.CONTENT_TYPE)
+          val actual = predefinedHeaders.headerValue(HttpHeaderNames.CONTENT_TYPE)
           assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
         }
       } +
       suite("getContentType")(
         test("should return content-type value") {
-          val actual = predefinedHeaders.getContentType
+          val actual = predefinedHeaders.contentType
           assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
         } +
           test("should not return content-type value if it doesn't exist") {
-            val actual = acceptJson.getContentType
+            val actual = acceptJson.contentType
             assert(actual)(isNone)
           },
       ) +
       suite("getAuthorizationHeader")(
         test("should return authorization value") {
           val authorizationValue = "dummyValue"
-          val actual             = Headers.authorization(authorizationValue).getAuthorization
+          val actual             = Headers.authorization(authorizationValue).authorization
           assert(actual)(isSome(equalTo(authorizationValue)))
         } +
           test("should not return authorization value if it doesn't exist") {
-            val actual = acceptJson.getContentType
+            val actual = acceptJson.contentType
             assert(actual)(isNone)
           },
       ) +
@@ -142,33 +142,33 @@ object HeaderSpec extends DefaultRunnableSpec {
       ) +
       suite("getBasicAuthorizationCredentials")(
         test("should decode proper basic http authorization header") {
-          val actual = Headers.authorization("Basic dXNlcjpwYXNzd29yZCAxMQ==").getBasicAuthorizationCredentials
+          val actual = Headers.authorization("Basic dXNlcjpwYXNzd29yZCAxMQ==").basicAuthorizationCredentials
           assert(actual)(isSome(equalTo(("user", "password 11"))))
         } +
           test("should decode basic http authorization header with empty name and password") {
-            val actual = Headers.authorization("Basic Og==").getBasicAuthorizationCredentials
+            val actual = Headers.authorization("Basic Og==").basicAuthorizationCredentials
             assert(actual)(isSome(equalTo(("", ""))))
           } +
           test("should not decode improper base64") {
-            val actual = Headers.authorization("Basic Og=").getBasicAuthorizationCredentials
+            val actual = Headers.authorization("Basic Og=").basicAuthorizationCredentials
             assert(actual)(isNone)
           } +
           test("should not decode only basic") {
-            val actual = Headers.authorization("Basic").getBasicAuthorizationCredentials
+            val actual = Headers.authorization("Basic").basicAuthorizationCredentials
             assert(actual)(isNone)
           } +
           test("should not decode basic contained header value") {
-            val actual = Headers.authorization("wrongBasic Og==").getBasicAuthorizationCredentials
+            val actual = Headers.authorization("wrongBasic Og==").basicAuthorizationCredentials
             assert(actual)(isNone)
           } +
           test("should get credentials for nonbasic schema") {
-            val actual = Headers.authorization("DummySchema Og==").getBasicAuthorizationCredentials
+            val actual = Headers.authorization("DummySchema Og==").basicAuthorizationCredentials
             assert(actual)(isNone)
           } +
           test("should decode header from Header.basicHttpAuthorization") {
             val username = "username"
             val password = "password"
-            val actual   = Headers.basicAuthorizationHeader(username, password).getBasicAuthorizationCredentials
+            val actual   = Headers.basicAuthorizationHeader(username, password).basicAuthorizationCredentials
             assert(actual)(isSome(equalTo((username, password))))
           } +
           test("should decode value from Header.basicHttpAuthorization") {
@@ -176,7 +176,7 @@ object HeaderSpec extends DefaultRunnableSpec {
             val password = "password"
             val actual   = Headers
               .basicAuthorizationHeader(username, password)
-              .getHeaderValue(HeaderNames.authorization)
+              .headerValue(HeaderNames.authorization)
             val expected = "Basic dXNlcm5hbWU6cGFzc3dvcmQ="
             assert(actual)(isSome(equalTo(expected)))
           },
@@ -184,36 +184,36 @@ object HeaderSpec extends DefaultRunnableSpec {
       suite("getBearerToken")(
         test("should get bearer token") {
           val token  = "token"
-          val actual = Headers.authorization(String.format("%s %s", BearerSchemeName, token)).getBearerToken
+          val actual = Headers.authorization(String.format("%s %s", BearerSchemeName, token)).bearerToken
           assert(actual)(isSome(equalTo(token)))
         } +
           test("should get empty bearer token") {
-            val actual = Headers.authorization(String.format("%s %s", BearerSchemeName, "")).getBearerToken
+            val actual = Headers.authorization(String.format("%s %s", BearerSchemeName, "")).bearerToken
             assert(actual)(isSome(equalTo("")))
           } +
           test("should not get bearer token for nonbearer schema") {
-            val actual = Headers.authorization("DummySchema token").getBearerToken
+            val actual = Headers.authorization("DummySchema token").bearerToken
             assert(actual)(isNone)
           } +
           test("should not get bearer token for bearer contained header") {
-            val actual = Headers.authorization("wrongBearer token").getBearerToken
+            val actual = Headers.authorization("wrongBearer token").bearerToken
             assert(actual)(isNone)
           },
       ) +
       suite("getContentLength") {
         test("should get content-length") {
           check(Gen.long) { c =>
-            val actual = Headers.contentLength(c).getContentLength
+            val actual = Headers.contentLength(c).contentLength
             assert(actual)(isSome(equalTo(c)))
           }
         } +
           test("should not return content-length value if it doesn't exist") {
-            val actual = Headers.empty.getContentType
+            val actual = Headers.empty.contentType
             assert(actual)(isNone)
           } +
           test("should get content-length") {
             check(Gen.char) { c =>
-              val actual = Headers(HttpHeaderNames.CONTENT_LENGTH, c.toString).getContentLength
+              val actual = Headers(HttpHeaderNames.CONTENT_LENGTH, c.toString).contentLength
               assert(actual)(isNone)
             }
           }

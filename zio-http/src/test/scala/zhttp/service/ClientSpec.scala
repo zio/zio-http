@@ -5,8 +5,10 @@ import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zio._
 import zio.test.Assertion._
-import zio.test.TestAspect._
+import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
+
+import java.net.ConnectException
 
 object ClientSpec extends HttpRunnableSpec {
 
@@ -15,28 +17,32 @@ object ClientSpec extends HttpRunnableSpec {
 
   def clientSpec = suite("ClientSpec") {
     test("respond Ok") {
-      val app = Http.ok.requestStatus()
+      val app = Http.ok.deploy.status.run()
       assertM(app)(equalTo(Status.OK))
     } +
       test("non empty content") {
         val app             = Http.text("abc")
-        val responseContent = app.requestBody()
+        val responseContent = app.deploy.body.run()
         assertM(responseContent)(isNonEmpty)
       } +
       test("echo POST request content") {
-        val app = Http.collectZIO[Request] { case req => req.getBodyAsString.map(Response.text(_)) }
-        val res = app.requestBodyAsString(method = Method.POST, content = "ZIO user")
+        val app = Http.collectZIO[Request] { case req => req.bodyAsString.map(Response.text(_)) }
+        val res = app.deploy.bodyAsString.run(method = Method.POST, content = "ZIO user")
         assertM(res)(equalTo("ZIO user"))
       } +
       test("empty content") {
         val app             = Http.empty
-        val responseContent = app.requestBody()
+        val responseContent = app.deploy.body.run()
         assertM(responseContent)(isEmpty)
       } +
       test("text content") {
         val app             = Http.text("zio user does not exist")
-        val responseContent = app.requestBodyAsString()
+        val responseContent = app.deploy.bodyAsString.run()
         assertM(responseContent)(containsString("user"))
+      } +
+      test("handle connection failure") {
+        val res = Client.request("http://localhost:1").either
+        assertM(res)(isLeft(isSubtype[ConnectException](anything)))
       }
   }
 

@@ -2,7 +2,7 @@ package zhttp.http
 
 import zio._
 import zio.test.Assertion._
-import zio.test._
+import zio.test.{DefaultRunnableSpec, TestClock, TestConsole, assert, assertM}
 
 object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
   def spec = suite("Middleware") {
