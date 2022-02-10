@@ -23,7 +23,7 @@ object Main extends App {
 
   val path = "/plaintext"
 
-  def app(res: Response) = Http.succeed(res).when((a: Request) => a.url.path.toString.equals(path), res)
+  def app(res: Response) = Http.when((a: Request) => a.url.path.toString.equals(path), res)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     frozenResponse
