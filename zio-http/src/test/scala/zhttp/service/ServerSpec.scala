@@ -31,9 +31,9 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   // Use this route to test anything that doesn't require ZIO related computations.
-  private val nonZIO = Http.collectHttp[Request] {
-    case _ -> !! / "HExitSuccess" => Http.ok
-    case _ -> !! / "HExitFailure" => Http.fail(new RuntimeException("FAILURE"))
+  private val nonZIO = Http.collectHExit[Request] {
+    case _ -> !! / "HExitSuccess" => HExit.succeed(Response.ok)
+    case _ -> !! / "HExitFailure" => HExit.fail(new RuntimeException("FAILURE"))
   }
 
   private val app = serve { nonZIO ++ staticApp ++ DynamicServer.app }
@@ -146,7 +146,7 @@ object ServerSpec extends HttpRunnableSpec {
         assertM(res)(equalTo("abc\nfoo"))
       } +
       testM("content-type header on file response") {
-        val file = new File(getClass.getResource("/TestFile.txt").getPath)
+        val file = new File(getClass.getResource("/TestFile2.mp4").getPath)
         val res  =
           Http
             .fromFile(file)
@@ -154,7 +154,7 @@ object ServerSpec extends HttpRunnableSpec {
             .headerValue(HeaderNames.contentType)
             .run()
             .map(_.getOrElse("Content type header not found."))
-        assertM(res)(equalTo("text/plain"))
+        assertM(res)(equalTo("video/mp4"))
       } +
       testM("status") {
         checkAllM(HttpGen.status) { case status =>
@@ -280,7 +280,19 @@ object ServerSpec extends HttpRunnableSpec {
       }
     } +
       testM("500 response") {
-        checkAllM(HttpGen.method) { method =>
+        val methodGenWithoutHEAD: Gen[Any, Method] = Gen.fromIterable(
+          List(
+            Method.OPTIONS,
+            Method.GET,
+            Method.POST,
+            Method.PUT,
+            Method.PATCH,
+            Method.DELETE,
+            Method.TRACE,
+            Method.CONNECT,
+          ),
+        )
+        checkAllM(methodGenWithoutHEAD) { method =>
           val actual = status(method, !! / "HExitFailure")
           assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
         }

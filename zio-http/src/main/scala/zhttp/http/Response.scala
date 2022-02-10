@@ -11,7 +11,6 @@ import zhttp.socket.{IsWebSocket, Socket, SocketApp}
 import zio.{Chunk, Task, UIO, ZIO}
 
 import java.nio.charset.Charset
-import java.nio.file.Files
 
 final case class Response private (
   status: Status,
@@ -83,7 +82,11 @@ final case class Response private (
       case HttpData.BinaryStream(_)     => null
       case HttpData.Empty               => Unpooled.EMPTY_BUFFER
       case HttpData.File(file)          =>
-        jHeaders.set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(file.toPath))
+        MediaType.probeContentType(file.toPath.toString) match {
+          case Some(cType) => jHeaders.set(HttpHeaderNames.CONTENT_TYPE, cType)
+          case None        => ()
+        }
+        jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, file.length())
         null
     }
 
@@ -151,7 +154,7 @@ object Response {
         Status.SWITCHING_PROTOCOLS,
         Headers.empty,
         HttpData.empty,
-        Attribute(socketApp = Option(app.provide(env))),
+        Attribute(socketApp = Option(app.provideEnvironment(env))),
       )
     }
 
