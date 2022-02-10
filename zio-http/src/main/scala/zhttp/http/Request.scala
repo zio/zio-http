@@ -30,8 +30,9 @@ trait Request extends HeaderExtension[Request] { self =>
   def data: HttpData
   def bodyAsString: Task[String]                               = data.asString
   def bodyAsBytes: Task[Chunk[Byte]]                           = data.asBytes
-  def bodyAsStream: ZStream[Any, Throwable, ByteBuf]           = data.asStreamByteBuf
-  def bodyAsByteBuf: Task[ByteBuf]                             = data.asByteBuf
+  def bodyAsStream: ZStream[Any, Throwable, Byte]              = data.asStreamBytes
+  def bodyAsStreamString: ZStream[Any, Throwable, String]      = data.asStreamString
+  private[zhttp] def bodyAsByteBuf: Task[ByteBuf]              = data.asByteBuf
   def bodyAsByteChunk: UIO[IO[Option[Throwable], Chunk[Byte]]] = data.asByteChunk
 
   /**

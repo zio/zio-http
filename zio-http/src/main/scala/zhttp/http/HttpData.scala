@@ -45,7 +45,7 @@ sealed trait HttpData { self =>
 
   def asString: Task[String]     = asByteBuf.map(buf => buf.toString(HTTP_CHARSET))
   def asBytes: Task[Chunk[Byte]] = asByteBuf.map(buf => Chunk.fromArray(ByteBufUtil.getBytes(buf)))
-  final def asByteChunk: UIO[IO[Option[Throwable], Chunk[Byte]]] = self match {
+  final def asByteChunk: UIO[IO[Option[Throwable], Chunk[Byte]]]       = self match {
     case HttpData.Incoming(unsafeRun) =>
       UIO {
         var isLastRead = false
@@ -68,9 +68,22 @@ sealed trait HttpData { self =>
             ),
         )
       }
-    case _: HttpData.Outgoing         => ???
+    case outgoing: HttpData.Outgoing  =>
+      UIO {
+        var isLastRead = false
+        if (isLastRead) {
+          IO.fail(None)
+        } else {
+          isLastRead = true
+          outgoing.toByteBuf
+            .map(buf => Chunk.fromArray(ByteBufUtil.getBytes(buf)))
+            .ensuring(UIO { isLastRead = true })
+            .mapError(Some(_))
+        }
+
+      }
   }
-  def asStreamByteBuf: ZStream[Any, Throwable, ByteBuf]          = self match {
+  private[zhttp] def asStreamByteBuf: ZStream[Any, Throwable, ByteBuf] = self match {
     case HttpData.Incoming(unsafeRun) =>
       ZStream
         .effectAsync[Any, Throwable, ByteBuf](cb =>
@@ -86,8 +99,12 @@ sealed trait HttpData { self =>
             },
           ),
         )
-    case _: HttpData.Outgoing         => ???
+    case outgoing: HttpData.Outgoing  => ZStream.fromEffect(outgoing.toByteBuf)
   }
+
+  def asStreamString: ZStream[Any, Throwable, String] = asStreamByteBuf.map(buf => buf.toString(HTTP_CHARSET))
+  def asStreamBytes: ZStream[Any, Throwable, Byte]    =
+    asStreamByteBuf.map(buf => Chunk.fromArray(ByteBufUtil.getBytes(buf))).flattenChunks
 
   /**
    * Returns true if HttpData is a stream
@@ -156,9 +173,6 @@ object HttpData {
    */
   def fromStream(stream: ZStream[Any, Throwable, String], charset: Charset = HTTP_CHARSET): HttpData =
     BinaryStream(stream.map(str => Unpooled.copiedBuffer(str, charset)))
-
-  def fromStreamByteBuf(stream: ZStream[Any, Throwable, ByteBuf]): HttpData =
-    BinaryStream(stream)
 
   /**
    * Helper to create HttpData from String
