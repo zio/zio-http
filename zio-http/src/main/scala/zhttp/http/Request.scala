@@ -12,7 +12,7 @@ case class Request(
   url: URL = URL.empty,
   headers: Headers = Headers.empty,
   remoteAddress: Option[InetAddress] = None,
-  data: HttpData = HttpData.Incoming(unsafeRun = _ => ()),
+  data: HttpData = HttpData.empty,
 ) extends HeaderExtension[Request] { self =>
 
   def bodyAsString: Task[String]                               = data.asString
