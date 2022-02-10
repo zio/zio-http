@@ -544,6 +544,12 @@ object Http {
    */
   def fromFile(file: java.io.File): HttpApp[Any, Nothing] = response(Response(data = HttpData.fromFile(file)))
 
+  /*
+   * Creates an Http app from the contents of a file which is produced from an effect
+   */
+  def fromFileZIO[R, E](fileZIO: ZIO[R, E, java.io.File]): HttpApp[R, E] =
+    Http.fromZIO(fileZIO.map(file => response(Response(data = HttpData.fromFile(file))))).flatten
+
   /**
    * Creates a Http from a pure function
    */
