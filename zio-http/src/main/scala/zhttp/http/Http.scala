@@ -392,9 +392,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
       case Http.Identity        => HExit.succeed(a.asInstanceOf[B])
       case Succeed(b)           => HExit.succeed(b)
       case Fail(e)              => HExit.fail(e)
-      case FromFunctionZIO(f)   => HExit.fromZIO(f(a))
       case FromFunctionHExit(f) => f(a)
-      case Collect(pf)          => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
       case Chain(self, other)   => self.execute(a).flatMap(b => other.execute(b))
       case Race(self, other)    =>
         (self.execute(a), other.execute(a)) match {
@@ -663,7 +661,8 @@ object Http {
   }
 
   final case class PartialCollect[A](unit: Unit) extends AnyVal {
-    def apply[B](pf: PartialFunction[A, B]): Http[Any, Nothing, A, B] = Collect(pf)
+    def apply[B](pf: PartialFunction[A, B]): Http[Any, Nothing, A, B] =
+      FromFunctionHExit(a => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.Empty)
   }
 
   final case class PartialCollectHttp[A](unit: Unit) extends AnyVal {
@@ -702,7 +701,7 @@ object Http {
   }
 
   final class PartialFromFunctionZIO[A](val unit: Unit) extends AnyVal {
-    def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = FromFunctionZIO(f)
+    def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = FromFunctionHExit(a => HExit.fromZIO(f(a)))
   }
 
   final class PartialFromFunctionHExit[A](val unit: Unit) extends AnyVal {
@@ -715,11 +714,7 @@ object Http {
 
   private final case class Fail[E](e: E) extends Http[Any, E, Any, Nothing]
 
-  private final case class FromFunctionZIO[R, E, A, B](f: A => ZIO[R, E, B]) extends Http[R, E, A, B]
-
   private final case class FromFunctionHExit[R, E, A, B](f: A => HExit[R, E, B]) extends Http[R, E, A, B]
-
-  private final case class Collect[R, E, A, B](ab: PartialFunction[A, B]) extends Http[R, E, A, B]
 
   private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C])
       extends Http[R, E, A, C]
