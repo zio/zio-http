@@ -4,9 +4,6 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
 import zio.{Promise}
-//import io.netty.util.ReferenceCountUtil
-//import io.netty.handler.codec.http.FullHttpRequest
-//import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.service.Client.ClientResponse
 import zhttp.service.HttpRuntime
 import zhttp.service.client.transport.ClientConnectionManager
@@ -15,7 +12,7 @@ import zhttp.service.client.transport.ClientConnectionManager
  * Handles HTTP response
  */
 @Sharable
-final case class NewClientInboundHandler[R](
+final case class EnhancedClientInboundHandler[R](
   zExec: HttpRuntime[R],
   connectionManager: ClientConnectionManager,
   jReq: FullHttpRequest,
@@ -23,14 +20,14 @@ final case class NewClientInboundHandler[R](
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
-    println(s"CHANNEL READ: $msg")
+//    println(s"CHANNEL READ: $msg")
     msg.touch("handlers.ClientInboundHandler-channelRead0")
 
     zExec.unsafeRun(ctx)(promise.succeed(ClientResponse.unsafeFromJResponse(msg)))
   }
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
-    println(s"CHANNEL ACTIVE: ${ctx.channel()}")
+    println(s"CHANNEL ACTIVE: ${ctx.channel()} === ")
     ctx.writeAndFlush(jReq)
     releaseRequest()
   }

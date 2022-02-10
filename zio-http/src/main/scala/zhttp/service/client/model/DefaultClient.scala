@@ -1,7 +1,6 @@
 package zhttp.service.client.model
 
 import io.netty.buffer.ByteBuf
-import io.netty.util.ReferenceCountUtil
 import zhttp.http.Method.GET
 import zhttp.http._
 import zhttp.service.Client.{Attribute, ClientRequest, ClientResponse}
@@ -23,18 +22,15 @@ case class DefaultClient(
     _ <- ZIO.effect(println(s"\n\n ===== JREQQQ  ===== \n\n"))
     prom    <- zio.Promise.make[Throwable, ClientResponse]
     channel <- connectionManager.fetchConnection(jReq, req, prom)
-
-    _       <- connectionManager
-                .sendRequest(channel, ConnectionRuntime(prom, jReq.retain(), reqKey))
+//    _ <- Task{println(s"CURRENT STATE OF CHANNEL: ${channel.isWritable}")}
+//    _ <- Task {channel.pipeline().fireChannelActive()}
     resp    <- prom.await
+    _ <- connectionManager.addChannelToIdleQueue(reqKey,channel)
+
     activeConnections  <- connectionManager.getActiveConnections
     _ <- ZIO.effect{
       println(s"CURRENT ACTIVE CONNECTIONS: ${activeConnections}")
-      if (jReq.refCnt() > 0) ReferenceCountUtil.release(jReq)
     }
-//    _ <- ZIO.effect {
-//      if (jReq.refCnt() > 0) {jReq.release()}
-//    }
   } yield resp
 
   // methods for compatibility with existing client use

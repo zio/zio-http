@@ -8,7 +8,7 @@ import zhttp.service.client.model.ClientConnectionState.ReqKey
 import zhttp.service.{CLIENT_INBOUND_HANDLER, HTTP_CLIENT_CODEC, HTTP_OBJECT_AGGREGATOR, SSL_HANDLER}
 //import zhttp.socket.Socket
 
-final case class NewClientChannelInitializer[R](
+final case class EnhancedClientChannelInitializer[R](
   channelHandler: ChannelHandler,
   isWebSocket: Boolean,
   isSSL: Boolean,
