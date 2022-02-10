@@ -11,6 +11,7 @@ import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
 
+import java.io.File
 import java.nio.charset.Charset
 import scala.annotation.unused
 
@@ -565,6 +566,12 @@ object Http {
    * `None` to signal "not found" to the backend.
    */
   def fromOptionFunction[A]: PartialFromOptionFunction[A] = new PartialFromOptionFunction(())
+
+  /**
+   * Creates an Http app from a resource path
+   */
+  def fromResource(path: String): HttpApp[Any, Throwable] =
+    Http.fromFile(new File(getClass.getResource(path).getPath))
 
   /**
    * Creates a Http that always succeeds with a 200 status code and the provided
