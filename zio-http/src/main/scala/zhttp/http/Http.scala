@@ -241,7 +241,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Provides the environment to Http.
    */
-  final def provide(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
+  final def provideEnvironment(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
     Http.fromOptionFunction[A](a => self(a).provide(r))
 
   /**
@@ -263,7 +263,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Provides some of the environment to Http.
    */
-  final def provideSome[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
+  final def provideSomeEnvironment[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideSome(r))
 
   /**

@@ -48,7 +48,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
         url,
         Method.GET,
         headers,
-        attribute = Client.Attribute(socketApp = Some(socketApp.provide(env)), ssl = Some(sslOptions)),
+        attribute = Client.Attribute(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
       ),
     )
   } yield res
