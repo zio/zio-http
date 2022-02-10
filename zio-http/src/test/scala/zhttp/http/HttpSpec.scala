@@ -18,12 +18,12 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
     ) +
       suite("when")(
         test("should execute http only when condition applies") {
-          val app    = Http.succeed(1).when((_: Any) => true)
+          val app    = Http.succeed(1).when((_: Any) => true, 1)
           val actual = app.execute(0)
           assert(actual)(isSuccess(equalTo(1)))
         } +
           test("should execute http only when condition applies") {
-            val app    = Http.succeed(1).when((_: Any) => false)
+            val app    = Http.succeed(1).when((_: Any) => false, 1)
             val actual = app.execute(0)
             assert(actual)(isEmpty)
           },

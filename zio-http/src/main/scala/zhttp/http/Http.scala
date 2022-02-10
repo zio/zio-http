@@ -78,7 +78,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Applies Http based only if the condition function evaluates to true
    */
-  final def when[A2 <: A](f: A2 => Boolean): Http[R, E, A2, B] = Http.collectHttp[A2] { case a if f(a) => self }
+  final def when[A2 <: A, B1 >: B](f: A2 => Boolean, b: B1): Http[R, E, A2, B1] = Http.when(f, b)
 
   /**
    * Makes the app resolve with a constant value
@@ -388,6 +388,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
       case Http.Empty         => HExit.empty
       case Http.Identity      => HExit.succeed(a.asInstanceOf[B])
       case Succeed(b)         => HExit.succeed(b)
+      case When(f, b)         => if (f(a)) HExit.succeed(b) else HExit.empty
       case Fail(e)            => HExit.fail(e)
       case FromFunctionZIO(f) => HExit.fromZIO(f(a))
       case Collect(pf)        => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
@@ -617,6 +618,8 @@ object Http {
    */
   def succeed[B](b: B): Http[Any, Nothing, Any, B] = Http.Succeed(b)
 
+  def when[R, E, A, B](f: A => Boolean, b: B): Http[Any, Nothing, A, B] = Http.When(f, b)
+
   /**
    * Creates an Http app which always responds with the same plain text.
    */
@@ -682,6 +685,8 @@ object Http {
   final class PartialFromFunctionZIO[A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = FromFunctionZIO(f)
   }
+
+  private final case class When[R, E, A, B](f: A => Boolean, b: B) extends Http[R, E, A, B]
 
   private final case class Succeed[B](b: B) extends Http[Any, Nothing, Any, B]
 
