@@ -2,6 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.ChannelHandler
+import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html.Html
 import zhttp.http.headers.HeaderModifier
 import zhttp.service.{Handler, HttpRuntime, Server}
@@ -202,6 +203,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def headerValue(name: CharSequence)(implicit eb: IsResponse[B]): Http[R, E, A, Option[CharSequence]] =
     headers.map(_.headerValue(name))
+
+  /**
+   * Extracts the value of ContentType header
+   */
+  final def contentType(implicit eb: IsResponse[B]): Http[R, E, A, Option[CharSequence]] = headerValue(
+    HttpHeaderNames.CONTENT_TYPE,
+  )
 
   /**
    * Extracts the `Headers` from the type `B` if possible

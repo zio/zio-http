@@ -146,7 +146,7 @@ object ServerSpec extends HttpRunnableSpec {
         assertM(res)(equalTo("abc\nfoo"))
       } +
       testM("content-type header on file response") {
-        val file = new File(getClass.getResource("/TestFile.txt").getPath)
+        val file = new File(getClass.getResource("/TestFile2.mp4").getPath)
         val res  =
           Http
             .fromFile(file)
@@ -154,7 +154,7 @@ object ServerSpec extends HttpRunnableSpec {
             .headerValue(HeaderNames.contentType)
             .run()
             .map(_.getOrElse("Content type header not found."))
-        assertM(res)(equalTo("text/plain"))
+        assertM(res)(equalTo("video/mp4"))
       } +
       testM("status") {
         checkAllM(HttpGen.status) { case status =>
