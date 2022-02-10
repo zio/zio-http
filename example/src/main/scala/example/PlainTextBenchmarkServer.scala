@@ -26,17 +26,13 @@ object Main extends App {
     frozenResponse
   }
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    frozenResponse
-      .flatMap(server(_).make.useForever)
+    server.make.useForever
       .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
       .exitCode
   }
 
-  // Create an HttpApp
-  private def app(response: Response) = Http.response(response)
-
-  private def server(response: Response) =
-    Server.app(app(response)) ++
+  private def server =
+    Server.app(app) ++
       Server.port(8080) ++
       Server.error(_ => UIO.unit) ++
       Server.disableLeakDetection ++
