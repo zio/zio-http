@@ -87,11 +87,14 @@ final case class Response private (
       case HttpData.BinaryStream(_)     => null
       case HttpData.Empty               => Unpooled.EMPTY_BUFFER
       case HttpData.File(file)          =>
-        if (!jHeaders.contains(HttpHeaderNames.CONTENT_TYPE))
+        if (!jHeaders.contains(HttpHeaderNames.CONTENT_TYPE)) {
+
+          // TODO: content-type probing cache should be configurable at server level
           MediaType.probeContentType(file.toPath.toString) match {
             case Some(cType) => jHeaders.set(HttpHeaderNames.CONTENT_TYPE, cType)
             case None        => ()
           }
+        }
         jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, file.length())
         null
     }
