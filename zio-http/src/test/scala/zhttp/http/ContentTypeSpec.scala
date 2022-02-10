@@ -8,45 +8,36 @@ import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertM
 
-import java.io.File
-
 object ContentTypeSpec extends HttpRunnableSpec {
 
   val contentSpec = suite("Content type header on file response") {
     testM("mp4") {
-      val file = new File(getClass.getResource("/TestFile2.mp4").getPath)
-      val res  = Http.fromFile(file).deploy.contentType.run()
+      val res = Http.fromResource("/TestFile2.mp4").deploy.contentType.run()
       assertM(res)(isSome(equalTo("video/mp4")))
     } +
       testM("js") {
-        val file = new File(getClass.getResource("/TestFile3.js").getPath)
-        val res  = Http.fromFile(file).deploy.contentType.run()
+        val res = Http.fromResource("/TestFile3.js").deploy.contentType.run()
         assertM(res)(isSome(equalTo("application/javascript")))
       } +
       testM("no extension") {
-        val file = new File(getClass.getResource("/TestFile4").getPath)
-        val res  = Http.fromFile(file).deploy.contentType.run()
+        val res = Http.fromResource("/TestFile4").deploy.contentType.run()
         assertM(res)(isNone)
       } +
       testM("css") {
-        val file = new File(getClass.getResource("/TestFile5.css").getPath)
-        val res  = Http.fromFile(file).deploy.contentType.run()
+        val res = Http.fromResource("/TestFile5.css").deploy.contentType.run()
         assertM(res)(isSome(equalTo("text/css")))
       } +
       testM("mp3") {
-        val file = new File(getClass.getResource("/TestFile6.mp3").getPath)
-        val res  = Http.fromFile(file).deploy.contentType.run()
+        val res = Http.fromResource("/TestFile6.mp3").deploy.contentType.run()
         assertM(res)(isSome(equalTo("audio/mpeg")))
       } +
       testM("unidentified extension") {
-        val file = new File(getClass.getResource("/truststore.jks").getPath)
-        val res  = Http.fromFile(file).deploy.contentType.run()
+        val res = Http.fromResource("/truststore.jks").deploy.contentType.run()
         assertM(res)(isNone)
       } +
       testM("already set content-type") {
-        val file     = new File(getClass.getResource("/TestFile6.mp3").getPath)
         val expected = MediaType.application.`json`
-        val res      = Http.fromFile(file).map(_.setMediaType(expected)).deploy.contentType.run()
+        val res      = Http.fromResource("/TestFile6.mp3").map(_.setMediaType(expected)).deploy.contentType.run()
         assertM(res)(isSome(equalTo(expected.fullType)))
       }
   }
