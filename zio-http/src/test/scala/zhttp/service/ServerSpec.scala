@@ -36,9 +36,9 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   private val activeAllocations: ZIO[DynamicServer, Nothing, (Long, Long)] = for {
-    start <- DynamicServer.getStart
-    ah    <- start.getActiveHeapBuffers
-    ad    <- start.getActiveDirectBuffers
+    start <- DynamicServer.start
+    ah    <- start.activeHeapBuffers
+    ad    <- start.activeDirectBuffers
   } yield (ah, ad)
 
   private val app = serve { nonZIO ++ staticApp ++ DynamicServer.app }.ensuringFirst(activeAllocations)

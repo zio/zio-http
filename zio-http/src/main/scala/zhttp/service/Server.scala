@@ -157,7 +157,6 @@ object Server {
     allocator: PooledByteBufAllocator = PooledByteBufAllocator.DEFAULT,
     flowControl: Boolean = true,
     channelInitializer: ChannelPipeline => Unit = null,
-    allocator: Option[PooledByteBufAllocator] = None,
   )
 
   /**
@@ -167,11 +166,11 @@ object Server {
     val port: Int = 0,
     private val allocator: PooledByteBufAllocator,
   ) {
-    def getActiveDirectBuffers: UIO[Long] = ZIO.effectSuspendTotal {
+    def activeDirectBuffers: UIO[Long] = ZIO.effectSuspendTotal {
       val metric = allocator.metric().directArenas().asScala.toList
       ZIO.foreach(metric)(x => UIO(x.numActiveAllocations())).map { list => list.sum }
     }
-    def getActiveHeapBuffers: UIO[Long]   = ZIO.effectSuspendTotal {
+    def activeHeapBuffers: UIO[Long]   = ZIO.effectSuspendTotal {
       val metric = allocator.metric().heapArenas().asScala.toList
       ZIO.foreach(metric)(x => UIO(x.numActiveAllocations())).map { list => list.sum }
     }
