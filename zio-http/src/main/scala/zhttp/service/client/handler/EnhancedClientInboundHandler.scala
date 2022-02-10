@@ -33,6 +33,7 @@ final case class EnhancedClientInboundHandler[R](
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
+    println(s"EXCEPTION: $error")
     zExec.unsafeRun(ctx)(promise.fail(error))
     releaseRequest()
   }

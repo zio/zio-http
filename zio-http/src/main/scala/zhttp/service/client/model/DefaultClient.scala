@@ -22,9 +22,9 @@ case class DefaultClient(
     _ <- ZIO.effect(println(s"\n\n ===== JREQQQ  ===== \n\n"))
     prom    <- zio.Promise.make[Throwable, ClientResponse]
     channel <- connectionManager.fetchConnection(jReq, req, prom)
-//    _ <- Task{println(s"CURRENT STATE OF CHANNEL: ${channel.isWritable}")}
-//    _ <- Task {channel.pipeline().fireChannelActive()}
     resp    <- prom.await
+    done <- prom.isDone
+    _ <- ZIO.effect(println(s"PROM DONE for CHANNEL $channel ?: ${done} AND RESP: $resp"))
     _ <- connectionManager.addChannelToIdleQueue(reqKey,channel)
 
     activeConnections  <- connectionManager.getActiveConnections

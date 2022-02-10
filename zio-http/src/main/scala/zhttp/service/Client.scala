@@ -237,6 +237,7 @@ object Client {
       idleConnRef <- zio.Ref.make(Map.empty[ReqKey, mutable.Queue[Channel]])
       connManager = ClientConnectionManager(ClientConnectionState(currentAllocatedChannels = currAllocRef, idleConnectionsMap = idleConnRef), timeouts, clientBootStrap, zExec)
       clientImpl  = DefaultClient(settings, connManager)
+      _ <- zio.ZIO.effect(println(s"GOT CLIENT IMPL: $clientImpl"))
     } yield {
       clientImpl
     }

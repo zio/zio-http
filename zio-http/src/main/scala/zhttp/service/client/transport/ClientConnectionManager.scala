@@ -115,6 +115,7 @@ case class ClientConnectionManager(
         println(s"IDLE CHANNEL FOUND REUSING ......$ch")
         val h = ch.pipeline().get(CLIENT_INBOUND_HANDLER)
         ch.pipeline().remove(h).addLast().addLast(CLIENT_INBOUND_HANDLER, EnhancedClientInboundHandler(zExec, this,jReq,promise))
+        ch.pipeline().fireChannelActive()
         ch
       }
       case None =>

@@ -2,10 +2,13 @@ package zhttp.internal
 
 import zhttp.http.URL.Location
 import zhttp.http._
+import zhttp.internal.DynamicClient.DynamicClientEnv
 import zhttp.internal.DynamicServer.HttpEnv
-import zhttp.internal.HttpRunnableSpec.HttpTestClient
+//import zhttp.internal.HttpRunnableSpec.HttpTestClient
+import zhttp.internal.NewHttpRunnableSpec.NewHttpTestClient
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service._
+import zhttp.service.client.model.DefaultClient
 //import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 //import zhttp.socket.SocketApp
 import zio.test.DefaultRunnableSpec
@@ -19,6 +22,9 @@ import zio.{Has, ZIO, ZManaged}
  * requests.
  */
 abstract class NewHttpRunnableSpec extends DefaultRunnableSpec { self =>
+
+//  val dynamicClientLayer: ZLayer[zio.ZEnv, Nothing, PersonDbEnv] =
+//    PersonDb.live
 
   implicit class NewRunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Client.ClientRequest, A]) {
 
@@ -56,18 +62,19 @@ abstract class NewHttpRunnableSpec extends DefaultRunnableSpec { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy: HttpTestClient[Any, ClientRequest, ClientResponse] =
+    def deploy: NewHttpTestClient[Any, ClientRequest, ClientResponse] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
+        cl <- Http.fromZIO(DynamicClient.getClient)
         response <- Http.fromFunctionZIO[Client.ClientRequest] { params =>
-          Client.make(ClientSettings.maxTotalConnections(20)).flatMap(cl =>
+//          defaultClient.flatMap(cl =>
             cl.run(
               params
                 .addHeader(DynamicServer.APP_ID, id)
                 .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
             )
-          )
+//          )
         }
       } yield response
 
@@ -94,12 +101,13 @@ abstract class NewHttpRunnableSpec extends DefaultRunnableSpec { self =>
     } yield ()
 
   def status(
+            defaultClient: zio.Task[DefaultClient],
     method: Method = Method.GET,
     path: Path,
   ) = {
     for {
       port   <- DynamicServer.port
-      client <- Client.make(ClientSettings.maxTotalConnections(20))
+      client <- defaultClient
         status <- client.run(
           str = "http://localhost:%d/%s".format(port, path),
           method = method
@@ -108,5 +116,15 @@ abstract class NewHttpRunnableSpec extends DefaultRunnableSpec { self =>
     } yield status
   }
 }
+object NewHttpRunnableSpec {
+  type NewHttpTestClient[-R, -A, +B] =
+    Http[
+      R with DynamicClientEnv with EventLoopGroup with ChannelFactory with DynamicServer with ServerChannelFactory,
+      Throwable,
+      A,
+      B,
+    ]
+}
+
 
 

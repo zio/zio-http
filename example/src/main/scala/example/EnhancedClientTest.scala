@@ -39,6 +39,7 @@ object EnhancedClientTest extends App {
           ClientSettings.maxTotalConnections(20)
       ).make
       _      <- triggerClientSequential(client)
+//      _      <- triggerParallel(client)
     } yield ()
   }
 
@@ -48,25 +49,36 @@ object EnhancedClientTest extends App {
 
   // sequential execution test
   def triggerClientSequential(cl: DefaultClient) = for {
-//    resp <- cl.run(testUrl1).map(_.status)
-//    _    <- ZIO.effect(println(s"Response Status from $testUrl1 ${resp} \n ----- \n"))
+    resp <- cl.run(testUrl1).flatMap(_.bodyAsString)
+    _    <- ZIO.effect(println(s"Response Status from $testUrl1 ${resp.length} \n ----- \n"))
 
-    resp3 <- cl.run(googleUrl).map(_.status)
-    //    resp3 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
-    _     <- ZIO.effect(println(s"\n \n Response Status from $googleUrl  ${resp3} \n ----- \n"))
+//    resp3 <- cl.run(googleUrl).map(_.status)
+//    //    resp3 <- cl.run("http://sports.api.decathlon.com/groups/water-aerobics")
+//    _     <- ZIO.effect(println(s"\n \n Response Status from $googleUrl  ${resp3} \n ----- \n"))
 
-//    resp2 <- cl.run(testUrl2).flatMap(_.bodyAsString)
-//    _     <- ZIO.effect(println(s"Response Content  ${resp2.length} \n ----- \n"))
+    resp2 <- cl.run(testUrl2).flatMap(_.bodyAsString)
+    _     <- ZIO.effect(println(s"Response Content from $testUrl2 ${resp2.length} \n ----- \n"))
 
-    resp4 <- cl.run(googleUrl).map(_.status)
-    _     <- ZIO.effect(println(s"Response Status AGAIN From $googleUrl : ${resp4} \n ----- \n"))
+//    resp4 <- cl.run(googleUrl).map(_.status)
+//    _     <- ZIO.effect(println(s"Response Status AGAIN From $googleUrl : ${resp4} \n ----- \n"))
 
     currActiveConn <- cl.connectionManager.getActiveConnections
+    idleMap <- cl.connectionManager.connectionState.idleConnectionsMap.get
     _              <- ZIO.effect(
       println(
-        s"Number of active connections for four requests: $currActiveConn \n\n connections map ${cl.connectionManager.getActiveConnections}",
+        s"Number of active connections for four requests: $currActiveConn \n\n connections map ${idleMap}",
       ),
     )
   } yield ()
 
+  def triggerParallel(cl: DefaultClient) = for {
+//    p1 <- cl.run(testUrl1).flatMap(_.bodyAsString)
+//    p2 <- cl.run(testUrl2).flatMap(_.bodyAsString)
+    c <- zio.Task.foreachPar(Set(testUrl1,testUrl2))(v => cl.run(v).flatMap(_.bodyAsString))
+    _ <- ZIO.effect(println(s"\n\n RESULTS OF PARALLEL EXECUTION $c \n\n"))
+    _ <- ZIO.effect(println(s"\n\n ${Thread.sleep(3000)} \n\n"))
+    c <- zio.Task.foreachPar(Set(testUrl1))(v => cl.run(v).flatMap(_.bodyAsString))
+    currActiveConn <- cl.connectionManager.getActiveConnections
+    _ <- ZIO.effect(println(s"\n\n CURR ACTIVE CONN OF PARALLEL EXECUTION $currActiveConn \n\n"))
+  } yield (c)
 }
