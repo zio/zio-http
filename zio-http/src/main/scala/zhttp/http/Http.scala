@@ -388,14 +388,15 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final private[zhttp] def execute(a: A): HExit[R, E, B] =
     self match {
-      case Http.Empty         => HExit.empty
-      case Http.Identity      => HExit.succeed(a.asInstanceOf[B])
-      case Succeed(b)         => HExit.succeed(b)
-      case Fail(e)            => HExit.fail(e)
-      case FromFunctionZIO(f) => HExit.fromZIO(f(a))
-      case Collect(pf)        => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
-      case Chain(self, other) => self.execute(a).flatMap(b => other.execute(b))
-      case Race(self, other)  =>
+      case Http.Empty           => HExit.empty
+      case Http.Identity        => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)           => HExit.succeed(b)
+      case Fail(e)              => HExit.fail(e)
+      case FromFunctionZIO(f)   => HExit.fromZIO(f(a))
+      case FromFunctionHExit(f) => f(a)
+      case Collect(pf)          => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
+      case Chain(self, other)   => self.execute(a).flatMap(b => other.execute(b))
+      case Race(self, other)    =>
         (self.execute(a), other.execute(a)) match {
           case (HExit.Effect(self), HExit.Effect(other)) =>
             Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
@@ -469,7 +470,15 @@ object Http {
    */
   def collect[A]: Http.PartialCollect[A] = Http.PartialCollect(())
 
+  /**
+   * Create an HTTP app from a partial function from A to Http[R,E,A,B]
+   */
   def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
+
+  /**
+   * Create an HTTP app from a partial function from A to HExit[R,E,B]
+   */
+  def collectHExit[A]: Http.PartialCollectHExit[A] = Http.PartialCollectHExit(())
 
   /**
    * Creates an Http app which accepts a request and produces response from a
@@ -546,6 +555,11 @@ object Http {
    * Creates a Http from an effectful pure function
    */
   def fromFunctionZIO[A]: PartialFromFunctionZIO[A] = new PartialFromFunctionZIO[A](())
+
+  /**
+   * Creates a Http from an pure function from A to HExit[R,E,B]
+   */
+  def fromFunctionHExit[A]: PartialFromFunctionHExit[A] = new PartialFromFunctionHExit[A](())
 
   /**
    * Creates an `Http` from a function that takes a value of type `A` and
@@ -657,6 +671,11 @@ object Http {
       Http.collect[A](pf).flatten
   }
 
+  final case class PartialCollectHExit[A](unit: Unit) extends AnyVal {
+    def apply[R, E, B](pf: PartialFunction[A, HExit[R, E, B]]): Http[R, E, A, B] =
+      FromFunctionHExit(a => if (pf.isDefinedAt(a)) pf(a) else HExit.empty)
+  }
+
   final case class PartialRoute[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, Http[R, E, A, B]]): Http[R, E, A, B] =
       Http.collect[A] { case r if pf.isDefinedAt(r) => pf(r) }.flatten
@@ -686,6 +705,10 @@ object Http {
     def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = FromFunctionZIO(f)
   }
 
+  final class PartialFromFunctionHExit[A](val unit: Unit) extends AnyVal {
+    def apply[R, E, B](f: A => HExit[R, E, B]): Http[R, E, A, B] = FromFunctionHExit(f)
+  }
+
   private final case class Succeed[B](b: B) extends Http[Any, Nothing, Any, B]
 
   private final case class Race[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B]) extends Http[R, E, A, B]
@@ -693,6 +716,8 @@ object Http {
   private final case class Fail[E](e: E) extends Http[Any, E, Any, Nothing]
 
   private final case class FromFunctionZIO[R, E, A, B](f: A => ZIO[R, E, B]) extends Http[R, E, A, B]
+
+  private final case class FromFunctionHExit[R, E, A, B](f: A => HExit[R, E, B]) extends Http[R, E, A, B]
 
   private final case class Collect[R, E, A, B](ab: PartialFunction[A, B]) extends Http[R, E, A, B]
 

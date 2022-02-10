@@ -31,9 +31,9 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   // Use this route to test anything that doesn't require ZIO related computations.
-  private val nonZIO = Http.collectHttp[Request] {
-    case _ -> !! / "HExitSuccess" => Http.ok
-    case _ -> !! / "HExitFailure" => Http.fail(new RuntimeException("FAILURE"))
+  private val nonZIO = Http.collectHExit[Request] {
+    case _ -> !! / "HExitSuccess" => HExit.succeed(Response.ok)
+    case _ -> !! / "HExitFailure" => HExit.fail(new RuntimeException("FAILURE"))
   }
 
   private val app = serve { nonZIO ++ staticApp ++ DynamicServer.app }
