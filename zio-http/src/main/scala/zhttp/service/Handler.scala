@@ -1,12 +1,11 @@
 package zhttp.service
 
-import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.WebSocketUpgrade
-import zio.{Task, UIO, ZIO}
+import zio.{UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -22,26 +21,23 @@ private[zhttp] final case class Handler[R](
 
   override def channelRead0(ctx: Ctx, jReq: FullHttpRequest): Unit = {
     jReq.touch("server.Handler-channelRead0")
-    implicit val iCtx: ChannelHandlerContext = ctx
+    implicit val iCtx: ChannelHandlerContext    = ctx
+    lazy val remoteAddress: Option[InetAddress] = {
+      ctx.channel().remoteAddress() match {
+        case m: InetSocketAddress => Some(m.getAddress)
+        case _                    => None
+      }
+    }
     unsafeRun(
       jReq,
       app,
-      new Request {
-        override def method: Method = Method.fromHttpMethod(jReq.method())
-
-        override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
-
-        override def headers: Headers = Headers.make(jReq.headers())
-
-        override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
-
-        override def remoteAddress: Option[InetAddress] = {
-          ctx.channel().remoteAddress() match {
-            case m: InetSocketAddress => Some(m.getAddress)
-            case _                    => None
-          }
-        }
-      },
+      Request(
+        Method.fromHttpMethod(jReq.method()),
+        URL.fromString(jReq.uri()).getOrElse(null),
+        Headers.make(jReq.headers()),
+        remoteAddress,
+        data = if (jReq.content().readableBytes() > 0) HttpData.fromByteBuf(jReq.content()) else HttpData.Empty,
+      ),
     )
   }
 
