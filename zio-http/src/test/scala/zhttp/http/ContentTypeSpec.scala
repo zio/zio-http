@@ -42,6 +42,12 @@ object ContentTypeSpec extends HttpRunnableSpec {
         val file = new File(getClass.getResource("/truststore.jks").getPath)
         val res  = Http.fromFile(file).deploy.contentType.run()
         assertM(res)(isNone)
+      } +
+      testM("already set content-type") {
+        val file     = new File(getClass.getResource("/TestFile6.mp3").getPath)
+        val expected = MediaType.application.`json`
+        val res      = Http.fromFile(file).map(_.setMediaType(expected)).deploy.contentType.run()
+        assertM(res)(isSome(equalTo(expected.fullType)))
       }
   }
 

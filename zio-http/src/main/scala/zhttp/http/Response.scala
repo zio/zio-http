@@ -44,6 +44,11 @@ final case class Response private (
     self.copy(attribute = attribute)
 
   /**
+   * Sets the MediaType of the response using the `Content-Type` header.
+   */
+  def setMediaType(mediaType: MediaType): Response = self.addHeader(HttpHeaderNames.CONTENT_TYPE, mediaType.toString)
+
+  /**
    * Sets the status of the response
    */
   def setStatus(status: Status): Response =
@@ -82,10 +87,11 @@ final case class Response private (
       case HttpData.BinaryStream(_)     => null
       case HttpData.Empty               => Unpooled.EMPTY_BUFFER
       case HttpData.File(file)          =>
-        MediaType.probeContentType(file.toPath.toString) match {
-          case Some(cType) => jHeaders.set(HttpHeaderNames.CONTENT_TYPE, cType)
-          case None        => ()
-        }
+        if (!jHeaders.contains(HttpHeaderNames.CONTENT_TYPE))
+          MediaType.probeContentType(file.toPath.toString) match {
+            case Some(cType) => jHeaders.set(HttpHeaderNames.CONTENT_TYPE, cType)
+            case None        => ()
+          }
         jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, file.length())
         null
     }
