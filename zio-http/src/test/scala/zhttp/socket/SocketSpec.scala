@@ -20,7 +20,7 @@ object SocketSpec extends DefaultRunnableSpec {
       val environment = ZStream.environment[String]
       val socket      = Socket
         .fromStream(environment)
-        .provide(text)
+        .provideEnvironment(text)
         .execute("")
 
       assertM(socket.runCollect)(equalTo(Chunk(text)))
@@ -29,7 +29,7 @@ object SocketSpec extends DefaultRunnableSpec {
         val environmentFunction = (_: Any) => ZStream.environment[WebSocketFrame]
         val socket              = Socket
           .fromFunction(environmentFunction)
-          .provide(WebSocketFrame.text("Foo"))
+          .provideEnvironment(WebSocketFrame.text("Foo"))
           .execute(WebSocketFrame.text("Bar"))
 
         assertM(socket.runCollect)(equalTo(Chunk(WebSocketFrame.text("Foo"))))
@@ -40,7 +40,7 @@ object SocketSpec extends DefaultRunnableSpec {
           .collect[WebSocketFrame] { case WebSocketFrame.Pong =>
             environment
           }
-          .provide(WebSocketFrame.ping)
+          .provideEnvironment(WebSocketFrame.ping)
           .execute(WebSocketFrame.pong)
 
         assertM(socket.runCollect)(equalTo(Chunk(WebSocketFrame.ping)))
@@ -50,9 +50,9 @@ object SocketSpec extends DefaultRunnableSpec {
           ZStream.environment[Int]
         }
 
-        val socketA: Socket[Int, Nothing, Int, Int] = socket.provide(12)
-        val socketB: Socket[Int, Nothing, Int, Int] = socketA.provide(1)
-        val socketC: Socket[Any, Nothing, Int, Int] = socketB.provide(42)
+        val socketA: Socket[Int, Nothing, Int, Int] = socket.provideEnvironment(12)
+        val socketB: Socket[Int, Nothing, Int, Int] = socketA.provideEnvironment(1)
+        val socketC: Socket[Any, Nothing, Int, Int] = socketB.provideEnvironment(42)
 
         assertM(socketC.execute(1000).runCollect)(equalTo(Chunk(12)))
       } +

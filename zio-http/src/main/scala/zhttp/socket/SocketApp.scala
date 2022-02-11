@@ -82,11 +82,11 @@ final case class SocketApp[-R](
    * Provides the socket app with its required environment, which eliminates its
    * dependency on `R`.
    */
-  def provide(env: R)(implicit ev: NeedsEnv[R]): SocketApp[Any] =
+  def provideEnvironment(env: R)(implicit ev: NeedsEnv[R]): SocketApp[Any] =
     self.copy(
       timeout = self.timeout.map(_.provide(env)),
-      open = self.open.map(_.provide(env)),
-      message = self.message.map(_.provide(env)),
+      open = self.open.map(_.provideEnvironment(env)),
+      message = self.message.map(_.provideEnvironment(env)),
       error = self.error.map(f => (t: Throwable) => f(t).provide(env)),
       close = self.close.map(f => (c: Connection) => f(c).provide(env)),
     )
@@ -96,7 +96,7 @@ final case class SocketApp[-R](
    */
   def toResponse: ZIO[R, Nothing, Response] =
     ZIO.environment[R].flatMap { env =>
-      Response.fromSocketApp(self.provide(env))
+      Response.fromSocketApp(self.provideEnvironment(env))
     }
 
   /**
@@ -134,10 +134,10 @@ object SocketApp {
       }
     }
 
-    def provide(r: R)(implicit ev: NeedsEnv[R]): Handle[Any] =
+    def provideEnvironment(r: R)(implicit ev: NeedsEnv[R]): Handle[Any] =
       self match {
         case WithEffect(f) => WithEffect(c => f(c).provide(r))
-        case WithSocket(s) => WithSocket(s.provide(r))
+        case WithSocket(s) => WithSocket(s.provideEnvironment(r))
       }
 
     private def sock: Handle[R] = self match {

@@ -48,7 +48,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
         url,
         Method.GET,
         headers,
-        attribute = Client.Attribute(socketApp = Some(socketApp.provide(env)), ssl = Some(sslOptions)),
+        attribute = Client.Attribute(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
       ),
     )
   } yield res
@@ -169,13 +169,13 @@ object Client {
     method: Method = Method.GET,
     headers: Headers = Headers.empty,
     private[zhttp] val data: HttpData = HttpData.empty,
-    private[zhttp] val version: HttpVersion = HttpVersion.HTTP_1_1,
+    private[zhttp] val version: Version = Version.Http_1_1,
     private[zhttp] val attribute: Attribute = Attribute.empty,
     private val channelContext: ChannelHandlerContext = null,
   ) extends HeaderExtension[ClientRequest] {
     self =>
 
-    def bodyAsString: Task[String] = getBodyAsByteBuf.map(_.toString(headers.charset))
+    def bodyAsString: Task[String] = bodyAsByteBuf.map(_.toString(headers.charset))
 
     def remoteAddress: Option[InetAddress] = {
       if (channelContext != null && channelContext.channel().remoteAddress().isInstanceOf[InetSocketAddress])
@@ -190,7 +190,7 @@ object Client {
     override def updateHeaders(update: Headers => Headers): ClientRequest =
       self.copy(headers = update(self.headers))
 
-    private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
+    private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
   }
 
   final case class ClientResponse(status: Status, headers: Headers, private[zhttp] val buffer: ByteBuf)

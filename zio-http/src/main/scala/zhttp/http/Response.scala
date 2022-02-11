@@ -44,6 +44,11 @@ final case class Response private (
     self.copy(attribute = attribute)
 
   /**
+   * Sets the MediaType of the response using the `Content-Type` header.
+   */
+  def setMediaType(mediaType: MediaType): Response = self.addHeader(HttpHeaderNames.CONTENT_TYPE, mediaType.fullType)
+
+  /**
    * Sets the status of the response
    */
   def setStatus(status: Status): Response =
@@ -81,7 +86,20 @@ final case class Response private (
       case HttpData.BinaryByteBuf(data) => data
       case HttpData.BinaryStream(_)     => null
       case HttpData.Empty               => Unpooled.EMPTY_BUFFER
+
       case HttpData.RandomAccessFile(_) => null
+//      case HttpData.File(file)          =>
+//        if (!jHeaders.contains(HttpHeaderNames.CONTENT_TYPE)) {
+//
+//          // TODO: content-type probing cache should be configurable at server level
+//          MediaType.probeContentType(file.toPath.toString) match {
+//            case Some(cType) => jHeaders.set(HttpHeaderNames.CONTENT_TYPE, cType)
+//            case None        => ()
+//          }
+//        }
+//        jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, file.length())
+//        null
+
     }
 
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
@@ -148,7 +166,7 @@ object Response {
         Status.SWITCHING_PROTOCOLS,
         Headers.empty,
         HttpData.empty,
-        Attribute(socketApp = Option(app.provide(env))),
+        Attribute(socketApp = Option(app.provideEnvironment(env))),
       )
     }
 
