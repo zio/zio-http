@@ -80,7 +80,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Applies Http based only if the condition function evaluates to true
    */
-  final def when[R1 <: R, E1 >: E, A2 <: A, B1 >: B](f: A2 => Boolean): Http[R, E, A2, B] = Http.When(f, self)
+  final def when[A2 <: A, B1 >: B](f: A2 => Boolean): Http[R, E, A2, B] = Http.When(f, self)
 
   /**
    * Makes the app resolve with a constant value
@@ -444,6 +444,16 @@ object Http {
      * Overwrites the url in the incoming request
      */
     def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.setUrl(url))
+
+    /**
+     * Applies Http based on the path
+     */
+    def whenPath(p: Path): HttpApp[R, E] = http.when((a: Request) => a.url.path.equals(p))
+
+    /**
+     * Applies Http based on the path as string
+     */
+    def whenPath(p: String): HttpApp[R, E] = http.when((a: Request) => a.url.path.toString.equals(p))
 
     /**
      * Updates the response headers using the provided function

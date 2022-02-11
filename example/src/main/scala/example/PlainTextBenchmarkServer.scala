@@ -32,9 +32,9 @@ object Main extends App {
   val path2 = "/json"
 
   def app(res: Response, json: Response) =
-    Http.succeed(res).when((a: Request) => a.url.path.toString.equals(path1)) ++ Http
+    Http.succeed(res).whenPath(path1) ++ Http
       .succeed(json)
-      .when((a: Request) => a.url.path.toString.equals(path2))
+      .whenPath(path2)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     val s = for {
