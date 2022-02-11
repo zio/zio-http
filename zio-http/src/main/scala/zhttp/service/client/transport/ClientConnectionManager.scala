@@ -4,7 +4,7 @@ import io.netty.bootstrap.Bootstrap
 import io.netty.channel.Channel
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.http.HeaderNames
-import zhttp.service.CLIENT_INBOUND_HANDLER
+//import zhttp.service.CLIENT_INBOUND_HANDLER
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.handler.{EnhancedClientChannelInitializer, EnhancedClientInboundHandler}
@@ -113,8 +113,10 @@ case class ClientConnectionManager(
       case Some(ch) =>
       Task{
         println(s"IDLE CHANNEL FOUND REUSING ......$ch")
-        val h = ch.pipeline().get(CLIENT_INBOUND_HANDLER)
-        ch.pipeline().remove(h).addLast().addLast(CLIENT_INBOUND_HANDLER, EnhancedClientInboundHandler(zExec, this,jReq,promise))
+//        val h = ch.pipeline().get(zhttp.service.CLIENT_INBOUND_HANDLER)
+//        println(s"h: ${h.getClass}")
+//        ch.pipeline().remove(h).addLast(zhttp.service.CLIENT_INBOUND_HANDLER, EnhancedClientInboundHandler(zExec, this,jReq,promise))
+        ch.pipeline().addLast(zhttp.service.CLIENT_INBOUND_HANDLER, EnhancedClientInboundHandler(zExec, this,jReq,promise))
         ch.pipeline().fireChannelActive()
         ch
       }
