@@ -19,8 +19,8 @@ private[zhttp] trait PathModule { module =>
     final def encode: String = {
       def loop(self: Path): String = {
         self match {
-          case Path.End              => ""
-          case Path.Cons(name, path) => s"/${name}${loop(path)}"
+          case Path.End                 => ""
+          case Path.Cons(name, path, _) => s"/${name}${loop(path)}"
         }
       }
       val result                   = loop(self)
@@ -28,18 +28,18 @@ private[zhttp] trait PathModule { module =>
     }
 
     final def initial: Path = self match {
-      case Path.End           => self
-      case Path.Cons(_, path) => path
+      case Path.End              => self
+      case Path.Cons(_, path, _) => path
     }
 
     final def isEnd: Boolean = self match {
-      case Path.End        => true
-      case Path.Cons(_, _) => false
+      case Path.End           => true
+      case Path.Cons(_, _, _) => false
     }
 
     final def last: Option[String] = self match {
-      case Path.End           => None
-      case Path.Cons(name, _) => Option(name)
+      case Path.End              => None
+      case Path.Cons(name, _, _) => Option(name)
     }
 
     final def reverse: Path = Path(toList.reverse)
@@ -57,12 +57,23 @@ private[zhttp] trait PathModule { module =>
 
     final def take(n: Int): Path = Path(self.toList.take(n))
 
+    final def setTrail: Path = self match {
+      case b: Path.Cons => b.copy(trail = true)
+      case a @ Path.End => a
+    }
+
     def toList: List[String]
   }
 
   object Path {
     def apply(): Path                   = End
-    def apply(string: String): Path     = if (string.trim.isEmpty) End else Path(string.split("/").toList)
+    def apply(string: String): Path     = if (string.trim.isEmpty) End
+    else {
+      val path = Path(string.split("/").toList)
+      if (string.endsWith("/")) {
+        path.setTrail
+      } else path
+    }
     def apply(seqString: String*): Path = Path(seqString.toList)
     def apply(list: List[String]): Path = list.foldRight[Path](End)((s, a) => a.append(s))
 
@@ -70,7 +81,7 @@ private[zhttp] trait PathModule { module =>
 
     def unapplySeq(arg: Path): Option[List[String]] = Option(arg.toList)
 
-    case class Cons(name: String, path: Path) extends Path {
+    case class Cons(name: String, path: Path, trail: Boolean = false) extends Path {
       override def toList: List[String] = name :: path.toList
     }
 
@@ -82,8 +93,8 @@ private[zhttp] trait PathModule { module =>
   object /: {
     def unapply(path: Path): Option[(String, Path)] =
       path match {
-        case Path.End              => None
-        case Path.Cons(name, path) => Option(name -> path)
+        case Path.End                 => None
+        case Path.Cons(name, path, _) => Option(name -> path)
       }
   }
 

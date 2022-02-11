@@ -78,13 +78,22 @@ object URLSpec extends DefaultRunnableSpec {
         } +
         test("absolute with query string") {
           roundtrip("http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21")
+        } +
+        test("absolute with fragment") {
+          roundtrip("http://yourdomain.com/list/users#the%20hash")
+        } +
+        test("relative with fragment") {
+          roundtrip("/list/users#the%20hash")
+        } +
+        test("relative with trailing /") {
+          roundtrip("/list/users#the%20hash/")
+        } +
+        test("absolute with trailing /") {
+          roundtrip("http://yourdomain.com/list/users#the%20hash/")
+        } +
+        test("relative with trailing /") {
+          roundtrip("/")
         },
-      test("absolute with fragment") {
-        roundtrip("http://yourdomain.com/list/users#the%20hash")
-      },
-      test("relative with fragment") {
-        roundtrip("/list/users#the%20hash")
-      },
     )
   }
 
