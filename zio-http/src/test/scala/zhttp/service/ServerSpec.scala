@@ -4,6 +4,7 @@ import zhttp.html._
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
+import zhttp.service.server.content.compression.CompressionOptions
 import zio.ZIO
 import zio.duration.durationInt
 import zio.stream.ZStream
@@ -36,7 +37,10 @@ object ServerSpec extends HttpRunnableSpec {
     case _ -> !! / "HExitFailure" => Response.fromHttpError(HttpError.BadRequest())
   }
 
-  private val app = serve { nonZIO ++ staticApp ++ DynamicServer.app }
+  private val app = serve(
+    nonZIO ++ staticApp ++ DynamicServer.app,
+    Server.httpCompression(20, IndexedSeq(CompressionOptions.gzip(), CompressionOptions.deflate())),
+  )
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -226,6 +230,13 @@ object ServerSpec extends HttpRunnableSpec {
               actual <- Http.response(res).withServer(server).deploy.headerValue(HeaderNames.server).run()
             } yield assert(actual)(isSome(equalTo(server)))
           }
+      } +
+      suite("compression") {
+        // TODO could be made better with gen
+        testM("header") {
+          val res = Http.text("Hello, from ZIO-HTTP").deploy.run(headers = Headers.acceptEncoding("gzip, deflate"))
+          assertM(res.map(_.headers.toList))(contains(("content-encoding", "gzip")))
+        }
       }
   }
 

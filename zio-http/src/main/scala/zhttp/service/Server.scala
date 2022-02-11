@@ -119,6 +119,14 @@ sealed trait Server[-R, +E] { self =>
    * href="https://netty.io/4.1/api/io/netty/handler/flush/FlushConsolidationHandler.html">FlushConsolidationHandler<a>).
    */
   def withConsolidateFlush(enable: Boolean): Server[R, E] = Concat(self, ConsolidateFlush(enable))
+
+  /**
+   * Creates a new server with HttpContentCompressor that compresses the
+   * response in gzip or deflate encoding while respecting the "Accept-Encoding"
+   * header. If there is no matching encoding, no compression is done.
+   */
+  def withHttpCompression(contentSizeThreshold: Int, compressionOptions: IndexedSeq[CompressionOptions]): Server[R, E] =
+    Concat(self, HttpCompression(contentSizeThreshold, compressionOptions))
 }
 
 object Server {
