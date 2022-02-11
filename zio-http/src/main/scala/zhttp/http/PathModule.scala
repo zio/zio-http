@@ -59,7 +59,7 @@ private[zhttp] trait PathModule { module =>
 
     final def setTrail: Path = self match {
       case b: Path.Cons => b.copy(trail = true)
-      case a @ Path.End => a
+      case Path.End     => self
     }
 
     def toList: List[String]

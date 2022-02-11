@@ -86,10 +86,10 @@ object URLSpec extends DefaultRunnableSpec {
           roundtrip("/list/users#the%20hash")
         } +
         test("relative with trailing /") {
-          roundtrip("/list/users#the%20hash/")
+          roundtrip("/list/users/")
         } +
         test("absolute with trailing /") {
-          roundtrip("http://yourdomain.com/list/users#the%20hash/")
+          roundtrip("http://yourdomain.com/list/")
         } +
         test("relative with trailing /") {
           roundtrip("/")
