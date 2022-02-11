@@ -11,9 +11,10 @@ import zio._
 import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
+
 import java.io.{File, FileNotFoundException}
 import java.nio.charset.Charset
-import java.nio.file.{Paths, Path => JPath}
+import java.nio.file.{Path => JPath, Paths}
 import scala.annotation.unused
 
 /**
@@ -390,13 +391,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final private[zhttp] def execute(a: A): HExit[R, E, B] =
     self match {
 
-      case Http.Empty           => HExit.empty
-      case Http.Identity        => HExit.succeed(a.asInstanceOf[B])
-      case Succeed(b)           => HExit.succeed(b)
-      case Fail(e)              => HExit.fail(e)
-      case FromFunctionHExit(f) => f(a)
-      case Chain(self, other)   => self.execute(a).flatMap(b => other.execute(b))
-      case Race(self, other)    =>
+      case Http.Empty                 => HExit.empty
+      case Http.Identity              => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)                 => HExit.succeed(b)
+      case Fail(e)                    => HExit.fail(e)
+      case FromFunctionHExit(f)       => f(a)
+      case Chain(self, other)         => self.execute(a).flatMap(b => other.execute(b))
+      case Race(self, other)          =>
         (self.execute(a), other.execute(a)) match {
           case (HExit.Effect(self), HExit.Effect(other)) =>
             Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
@@ -549,22 +550,31 @@ object Http {
    * Creates an Http app from the contents of a file
    */
 
-//  def fromFile(file: java.io.File): HttpApp[Any, Throwable] = responseZIO(
-//    Task(
-//      Response(
-//        headers = Headers.contentType(Files.probeContentType(file.toPath)) ++ Headers.contentLength(file.length()),
-//        data = HttpData.fromFile(file),
-//      ),
-//    ),
-//  )
+  def fromFile(file: java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file))
 
-  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file))
+  def fromFileZIO[R](fileZIO: ZIO[R, Throwable, java.io.File]): HttpApp[R, Throwable] = {
+    val rZIO: ZIO[R, Throwable, Response] = for {
+      file     <- fileZIO
+      response <- Task(
+        MediaType.probeContentType(file.toPath.toString) match {
+          case Some(value) =>
+            Response(
+              headers = Headers.contentType(value) ++ Headers.contentLength(
+                file.length(),
+              ),
+              data = HttpData.fromFile(file),
+            )
+          case None        =>
+            Response(
+              headers = Headers.contentLength(file.length()),
+              data = HttpData.fromFile(file),
+            )
+        },
+      )
+    } yield response
 
-  /*
-   * Creates an Http app from the contents of a file which is produced from an effect
-   */
-  def fromFileZIO[R, E](fileZIO: ZIO[R, E, java.io.File]): HttpApp[R, E] =
-    Http.fromZIO(fileZIO.map(file => response(Response(data = HttpData.fromFile(file))))).flatten
+    responseZIO(rZIO)
+  }
 
   /**
    * Creates a Http from a pure function

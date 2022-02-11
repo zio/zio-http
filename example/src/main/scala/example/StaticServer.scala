@@ -14,7 +14,7 @@ object StaticServer extends zio.App {
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app.silent).exitCode
+    Server.start(8090, app).exitCode
 
   // The following requests to work
   // curl -i "http://localhost:8090/Dummy.txt"
