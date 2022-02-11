@@ -77,7 +77,7 @@ object EnhancedClientTest extends App {
 //    p2 <- cl.run(testUrl2).flatMap(_.bodyAsString).fork
 //    res <- (p1 zip p2).join
 
-        res <- zio.Task.foreachPar(Set(bbcUrl,googleUrl))(v => cl.run(v).flatMap(_.bodyAsString))
+        res <- zio.Task.foreachPar(Set(bbcUrl,googleUrl))(v => cl.run(v).flatMap(_.bodyAsString.map(_.length)))
 //    res <- zio.Task.foreachPar(Set(testUrl1,googleUrl))(v => cl.run(v).flatMap(_.bodyAsString))
 //    res <- zio.Task.foreachPar(Set(testUrl1,testUrl2)) {
 //      v => Thread.sleep(3000); cl.run(v).flatMap(_.bodyAsString)

@@ -7,28 +7,21 @@ import zio._
 
 object DynamicClient {
 
-  val singletonLive = new Live()
-
-  val client = {
-    Client.make(ClientSettings.maxTotalConnections(20))
-  }
-
   type DynamicClientEnv = Has[DynamicClient.Service]
 
+  val oneClient = Client.make(ClientSettings.maxTotalConnections(20))
   def getClient: ZIO[DynamicClientEnv, Throwable, DefaultClient] = {
     println(s"INVOKING GET CLIENT")
     ZIO.accessM[DynamicClientEnv](_.get.getClient)
   }
 
-  def live: ZLayer[Any, Nothing, DynamicClientEnv] = ZLayer.succeed{
-    singletonLive
+  val live: ZLayer[Any, Nothing, DynamicClientEnv] = ZLayer.succeed{
+    new Service {
+      override def getClient: Task[DefaultClient] = oneClient
+    }
   }
 
   sealed trait Service {
     def getClient: Task[DefaultClient]
-  }
-
-  final class Live extends Service {
-    def getClient = client
   }
 }

@@ -20,7 +20,8 @@ final case class EnhancedClientInboundHandler[R](
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
-    println(s"CHANNEL READ: ${ctx.channel()} == \n\n $msg")
+    val headers = msg.headers()
+    println(s"CHANNEL READ: ${ctx.channel()} == \n\n HEADERS FROM MSG: $headers ###  ${headers.get("content-length")} ### ${headers.get("Location")}")
     msg.touch("handlers.ClientInboundHandler-channelRead0")
     zExec.unsafeRun(ctx)(promise.succeed(ClientResponse.unsafeFromJResponse(msg)))
     ctx.pipeline().remove(ctx.name())
