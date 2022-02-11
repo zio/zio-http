@@ -28,16 +28,17 @@ final case class EnhancedClientInboundHandler[R](
     ()
   }
 
-  override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit = {
-    println(s"USER EVENT: ${ctx.channel()} === ${evt}")
-    ctx.writeAndFlush(evt)
-//    ctx.fireChannelActive()
+//  override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit = {
+//    println(s"USER EVENT: ${ctx.channel()} === ${evt}")
+//    ctx.writeAndFlush(evt.asInstanceOf[FullHttpRequest].retain())
+////    ctx.fireChannelActive()
 //    releaseRequest()
-    ()
-  }
+//    ()
+//  }
+
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     println(s"CHANNEL ACTIVE: ${ctx.channel()} === ${jReq.headers()}")
-    ctx.writeAndFlush(jReq)
+    ctx.writeAndFlush(jReq.retain())
     releaseRequest()
   }
 

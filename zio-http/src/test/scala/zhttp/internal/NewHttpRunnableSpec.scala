@@ -2,11 +2,10 @@ package zhttp.internal
 
 import zhttp.http.URL.Location
 import zhttp.http._
-import zhttp.internal.DynamicClient.DynamicClientEnv
 import zhttp.internal.DynamicServer.HttpEnv
-//import zhttp.internal.HttpRunnableSpec.HttpTestClient
 import zhttp.internal.NewHttpRunnableSpec.NewHttpTestClient
 import zhttp.service.Client.{ClientRequest, ClientResponse}
+import zhttp.service.ClientFactory.ClientEnv
 import zhttp.service._
 import zhttp.service.client.model.DefaultClient
 //import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
@@ -66,15 +65,14 @@ abstract class NewHttpRunnableSpec extends DefaultRunnableSpec { self =>
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
-        cl <- Http.fromZIO(DynamicClient.getClient)
+        cl <- Http.fromZIO(ZIO.service[DefaultClient])
+//        _ <- Http.fromZIO(ZIO.effect(println(s" GOT CLIENT : $cl")))
         response <- Http.fromFunctionZIO[Client.ClientRequest] { params =>
-//          defaultClient.flatMap(cl =>
             cl.run(
               params
                 .addHeader(DynamicServer.APP_ID, id)
                 .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
             )
-//          )
         }
       } yield response
 
@@ -119,7 +117,7 @@ abstract class NewHttpRunnableSpec extends DefaultRunnableSpec { self =>
 object NewHttpRunnableSpec {
   type NewHttpTestClient[-R, -A, +B] =
     Http[
-      R with DynamicClientEnv with EventLoopGroup with ChannelFactory with DynamicServer with ServerChannelFactory,
+      R with ClientEnv with EventLoopGroup with ChannelFactory with DynamicServer with ServerChannelFactory,
       Throwable,
       A,
       B,
