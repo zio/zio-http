@@ -101,8 +101,8 @@ object URL {
         else s"${scheme.encode}://$host:$port$path"
     }
     url.path match {
-      case Path.Cons(_, _, isTrailing) if isTrailing => s"$urlString/"
-      case _                                         => urlString
+      case Path.Cons(_, _, trailingSlash) if trailingSlash => s"$urlString/"
+      case _                                               => urlString
     }
   }
 

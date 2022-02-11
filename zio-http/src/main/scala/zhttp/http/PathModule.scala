@@ -57,8 +57,8 @@ private[zhttp] trait PathModule { module =>
 
     final def take(n: Int): Path = Path(self.toList.take(n))
 
-    final def setTrail: Path = self match {
-      case b: Path.Cons => b.copy(trail = true)
+    final def setTrailingSlash: Path = self match {
+      case b: Path.Cons => b.copy(trailingSlash = true)
       case Path.End     => self
     }
 
@@ -70,7 +70,7 @@ private[zhttp] trait PathModule { module =>
     def apply(string: String): Path     = if (string.trim.isEmpty) End
     else {
       val path = Path(string.split("/").toList)
-      if (string.endsWith("/")) path.setTrail else path
+      if (string.endsWith("/")) path.setTrailingSlash else path
     }
     def apply(seqString: String*): Path = Path(seqString.toList)
     def apply(list: List[String]): Path = list.foldRight[Path](End)((s, a) => a.append(s))
@@ -79,7 +79,7 @@ private[zhttp] trait PathModule { module =>
 
     def unapplySeq(arg: Path): Option[List[String]] = Option(arg.toList)
 
-    case class Cons(name: String, path: Path, trail: Boolean = false) extends Path {
+    case class Cons(name: String, path: Path, trailingSlash: Boolean = false) extends Path {
       override def toList: List[String] = name :: path.toList
     }
 
