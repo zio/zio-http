@@ -70,9 +70,7 @@ private[zhttp] trait PathModule { module =>
     def apply(string: String): Path     = if (string.trim.isEmpty) End
     else {
       val path = Path(string.split("/").toList)
-      if (string.endsWith("/")) {
-        path.setTrail
-      } else path
+      if (string.endsWith("/")) path.setTrail else path
     }
     def apply(seqString: String*): Path = Path(seqString.toList)
     def apply(list: List[String]): Path = list.foldRight[Path](End)((s, a) => a.append(s))

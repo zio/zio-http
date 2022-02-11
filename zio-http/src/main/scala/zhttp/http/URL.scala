@@ -104,28 +104,6 @@ object URL {
       case Path.Cons(_, _, isTrailing) if isTrailing => s"$urlString/"
       case _                                         => urlString
     }
-//=======
-//  def asString(url: URL): String        = {
-//    val relative: Relative = url.getRelative
-//    val p: String          = path(relative)
-//    val absUrl             = url.toAbsolute
-//    val urlString: String  = if (absUrl.scheme.isDefined && absUrl.port.isDefined && absUrl.host.isDefined) {
-//      if (absUrl.port.get == 80 || absUrl.port.get == 443)
-//        s"${absUrl.scheme.get.encode}://${absUrl.host.get}$p"
-//      else s"${absUrl.scheme.get.encode}://${absUrl.host.get}:${absUrl.port.get}$p"
-//    } else p
-//
-//    relative.path match {
-//      case Path.Cons(_, _, isTrailing) if isTrailing => s"$urlString/"
-//      case _                                         => urlString
-//    }
-//  }
-//  private def path(r: Relative): String = {
-//    val encoder = new QueryStringEncoder(s"${r.path.encode}${r.fragment.fold("")(f => "#" + f.raw)}")
-//    r.queryParams.foreach { case (key, values) =>
-//      if (key != "") values.foreach { value => encoder.addParam(key, value) }
-//>>>>>>> Stashed changes
-
   }
 
   def fromString(string: String): Either[IOException, URL] = {
