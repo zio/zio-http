@@ -13,6 +13,7 @@ object HttpsHelloWorld extends App {
     case Method.GET -> !! / "json" => Response.json("""{"greetings": "Hello World!"}""")
   }
 
+  val res: Response = Response.ok.updateHeaders(_ => Headers("key", "value"))
   /**
    * sslcontext can be created using SslContexBuilder. In this example an
    * inbuilt API using keystore is used. For testing this example using curl,
