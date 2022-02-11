@@ -3,7 +3,7 @@ package zhttp.http
 import io.netty.buffer.{ByteBuf, Unpooled}
 import zio.blocking.Blocking.Service.live.effectBlocking
 import zio.stream.ZStream
-import zio.{Chunk, Task, UIO}
+import zio.{Chunk, Task, UIO, ZIO}
 
 import java.nio.charset.Charset
 import java.nio.file.Files
@@ -31,18 +31,22 @@ sealed trait HttpData { self =>
 
   def toByteBuf: Task[ByteBuf] = {
     self match {
-      case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
-      case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
-      case HttpData.BinaryByteBuf(data)  => UIO(data)
-      case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
-      case HttpData.BinaryStream(stream) =>
-        stream
-          .asInstanceOf[ZStream[Any, Throwable, ByteBuf]]
-          .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
-      case HttpData.File(file)           =>
-        effectBlocking {
-          val fileContent = Files.readAllBytes(file.toPath)
-          Unpooled.copiedBuffer(fileContent)
+      case HttpData.Incoming(unsafeRun) => ZIO.effectTotal(unsafeRun())
+      case outgoing: HttpData.Outgoing  =>
+        outgoing match {
+          case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
+          case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
+          case HttpData.BinaryByteBuf(data)  => UIO(data)
+          case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
+          case HttpData.BinaryStream(stream) =>
+            stream
+              .asInstanceOf[ZStream[Any, Throwable, ByteBuf]]
+              .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
+          case HttpData.File(file)           =>
+            effectBlocking {
+              val fileContent = Files.readAllBytes(file.toPath)
+              Unpooled.copiedBuffer(fileContent)
+            }
         }
     }
   }
@@ -86,11 +90,12 @@ object HttpData {
    * Helper to create HttpData from contents of a file
    */
   def fromFile(file: java.io.File): HttpData = File(file)
-
-  private[zhttp] final case class Text(text: String, charset: Charset)                   extends HttpData
-  private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                         extends HttpData
-  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                           extends HttpData
-  private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf]) extends HttpData
-  private[zhttp] final case class File(file: java.io.File)                               extends HttpData
-  private[zhttp] case object Empty                                                       extends HttpData
+  private[zhttp] final case class Incoming(unsafeRun: () => ByteBuf)                     extends HttpData
+  private[zhttp] sealed trait Outgoing                                                   extends HttpData
+  private[zhttp] final case class Text(text: String, charset: Charset)                   extends Outgoing
+  private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                         extends Outgoing
+  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                           extends Outgoing
+  private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf]) extends Outgoing
+  private[zhttp] final case class File(file: java.io.File)                               extends Outgoing
+  private[zhttp] case object Empty                                                       extends Outgoing
 }

@@ -81,22 +81,26 @@ final case class Response private (
 
     val jHeaders = self.headers.encode
     val jContent = self.data match {
-      case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
-      case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
-      case HttpData.BinaryByteBuf(data) => data
-      case HttpData.BinaryStream(_)     => null
-      case HttpData.Empty               => Unpooled.EMPTY_BUFFER
-      case HttpData.File(file)          =>
-        if (!jHeaders.contains(HttpHeaderNames.CONTENT_TYPE)) {
+      case HttpData.Incoming(unsafeRun) => unsafeRun()
+      case outgoing: HttpData.Outgoing  =>
+        outgoing match {
+          case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
+          case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
+          case HttpData.BinaryByteBuf(data) => data
+          case HttpData.BinaryStream(_)     => null
+          case HttpData.Empty               => Unpooled.EMPTY_BUFFER
+          case HttpData.File(file)          =>
+            if (!jHeaders.contains(HttpHeaderNames.CONTENT_TYPE)) {
 
-          // TODO: content-type probing cache should be configurable at server level
-          MediaType.probeContentType(file.toPath.toString) match {
-            case Some(cType) => jHeaders.set(HttpHeaderNames.CONTENT_TYPE, cType)
-            case None        => ()
-          }
+              // TODO: content-type probing cache should be configurable at server level
+              MediaType.probeContentType(file.toPath.toString) match {
+                case Some(cType) => jHeaders.set(HttpHeaderNames.CONTENT_TYPE, cType)
+                case None        => ()
+              }
+            }
+            jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, file.length())
+            null
         }
-        jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, file.length())
-        null
     }
 
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)

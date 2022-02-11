@@ -39,7 +39,7 @@ private[zhttp] final case class Handler[R](
           }
         }
 
-        override def data: HttpData = HttpData.fromByteBuf(jReq.content())
+        override def data: HttpData = HttpData.Incoming(() => jReq.content())
       },
     )
   }
