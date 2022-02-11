@@ -4,7 +4,7 @@ import zhttp.service.client.model.DefaultClient
 import zio._
 
 /**
- * Simple wrapper over NioEventLoopGroup
+ * Simple wrapper for getting a Client as ZLayer
  */
 object ClientFactory {
   type ClientEnv       = Has[DefaultClient]

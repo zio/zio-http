@@ -43,7 +43,7 @@ object EnhancedClientSpec extends NewHttpRunnableSpec {
   override def spec = {
     suiteM("NewClient") {
       serve(DynamicServer.app).as(List(clientSpec)).useNow
-    }.provideCustomLayerShared(env) @@ zio.test.TestAspect.sequential
-//    }.provideCustomLayerShared(env) @@ sequential //@@ timeout(5 seconds)
+//    }.provideCustomLayerShared(env) @@ zio.test.TestAspect.sequential
+    }.provideCustomLayerShared(env) // @@ sequential //@@ timeout(5 seconds)
   }
 }
