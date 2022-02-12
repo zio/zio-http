@@ -24,7 +24,7 @@ final case class EnhancedClientInboundHandler[R](
 //        .get("content-length")} ### ${headers.get("Location")}")
     msg.touch("handlers.ClientInboundHandler-channelRead0")
     zExec.unsafeRun(ctx)(promise.succeed(ClientResponse.unsafeFromJResponse(msg)))
-    ctx.pipeline().remove(ctx.name())
+//    ctx.pipeline().remove(ctx.name())
     ()
   }
 

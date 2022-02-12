@@ -114,6 +114,12 @@ case class ClientConnectionManager(
               println(s"error: ${future.cause().getMessage}")
               future.cause().printStackTrace()
             } else {
+              if (
+                chf.channel().pipeline().get(zhttp.service.CLIENT_INBOUND_HANDLER) != null
+                || reusing
+              ) {
+                chf.channel().pipeline().remove(zhttp.service.CLIENT_INBOUND_HANDLER)
+              }
               chf
                 .channel()
                 .pipeline()
@@ -192,13 +198,14 @@ case class ClientConnectionManager(
     idleQueue = idleMap.get(reqKey)
     _ <- idleQueue.fold(
       connectionState.idleConnectionsMap.update(m => m + (reqKey -> mutable.Queue(channel))),
-    ) { q => connectionState.idleConnectionsMap.update {
-      m =>
+    ) { q =>
+      connectionState.idleConnectionsMap.update { m =>
         q.enqueue(channel)
         m + (reqKey -> q)
-    } }
+      }
+    }
 //    _ <- ZIO.effect(println(s"IDLE QUEUE for REQKEY: $reqKey AFTER ENQUEUEING ${connectionState.idleConnectionsMap}"))
-  } yield (idleMap)
+  } yield idleMap
 }
 
 object ClientConnectionManager {}
