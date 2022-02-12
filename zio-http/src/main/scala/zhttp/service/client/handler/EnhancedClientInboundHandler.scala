@@ -38,7 +38,7 @@ final case class EnhancedClientInboundHandler[R](
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     println(s"CHANNEL ACTIVE: ${ctx.channel()} === ${jReq.headers()}")
-    ctx.writeAndFlush(jReq.retain())
+    ctx.writeAndFlush(jReq)
     releaseRequest()
   }
 

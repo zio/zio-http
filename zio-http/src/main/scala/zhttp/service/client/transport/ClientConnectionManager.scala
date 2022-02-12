@@ -28,6 +28,7 @@ case class ClientConnectionManager(
   zExec: zhttp.service.HttpRuntime[Any],
 ) {
 
+  var reusing = false
   /**
    *   - core method for getting a connection for a request
    *   - create new connection and increment allocated simultaneously (depending
@@ -103,7 +104,8 @@ case class ClientConnectionManager(
             } else {
               chf.channel().pipeline()
                 .addLast(zhttp.service.CLIENT_INBOUND_HANDLER, EnhancedClientInboundHandler(zExec,jReq,promise)): Unit
-              chf.channel().pipeline().fireChannelActive()
+              if (reusing) chf.channel().pipeline().fireChannelActive()
+//              chf.channel().pipeline().fireChannelActive()
               ()
               //                println("FUTURE SUCCESS");
             }
@@ -120,6 +122,7 @@ case class ClientConnectionManager(
       case Some(ch) =>
       Task{
         println(s"IDLE CHANNEL FOUND REUSING ......$ch")
+        reusing = true
 //        val h = ch.pipeline().get(zhttp.service.CLIENT_INBOUND_HANDLER)
 //        println(s"h: ${h.getClass}")
 //        ch.pipeline().remove(h).addLast(zhttp.service.CLIENT_INBOUND_HANDLER, EnhancedClientInboundHandler(zExec, this,jReq,promise))
