@@ -1,11 +1,10 @@
 package zhttp.service.client.handler
 
-import io.netty.channel.{Channel, ChannelHandler, ChannelHandlerContext, ChannelInitializer, ChannelPipeline}
+import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer, ChannelPipeline}
 import io.netty.handler.codec.http.{HttpClientCodec, HttpObjectAggregator}
 import zhttp.service.client.ClientSSLHandler
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.model.ClientConnectionState.ReqKey
-//import zhttp.service.{CLIENT_INBOUND_HANDLER, HTTP_CLIENT_CODEC, HTTP_OBJECT_AGGREGATOR, SSL_HANDLER}
 import zhttp.service.{HTTP_CLIENT_CODEC, HTTP_OBJECT_AGGREGATOR, SSL_HANDLER}
 //import zhttp.socket.Socket
 
@@ -50,14 +49,4 @@ final case class EnhancedClientChannelInitializer[R](
 //      pipeline.addLast(WEB_SOCKET_HANDLER, new WebSocketAppHandler(rtm, app))
 //    }
   }
-
-  override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
-    println(s"HANDLER ADDED: ${ctx.channel()}")
-//    super.handlerAdded(ctx)
-  }
-
-  override def handlerRemoved(ctx: ChannelHandlerContext): Unit = {
-    println(s"HANDLER REMOOVED: ${ctx.channel()}")
-  }
-
 }

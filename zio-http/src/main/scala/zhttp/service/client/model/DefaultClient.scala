@@ -4,31 +4,31 @@ import io.netty.buffer.ByteBuf
 import zhttp.http.Method.GET
 import zhttp.http._
 import zhttp.service.Client.{Attribute, ClientRequest, ClientResponse}
-import zhttp.service.{ClientSettings, HttpMessageCodec}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.transport.ClientConnectionManager
+import zhttp.service.{ClientSettings, HttpMessageCodec}
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
 case class DefaultClient(
-                          settings: ClientSettings.Config,
-                          connectionManager: ClientConnectionManager,
+  settings: ClientSettings.Config,
+  connectionManager: ClientConnectionManager,
 ) extends HttpMessageCodec {
 
   // methods for compatibility with existing client use
   def run(req: ClientRequest): Task[ClientResponse] = for {
     jReq    <- encode(req)
-    reqKey <- connectionManager.getRequestKey(jReq,req)
-    _ <- ZIO.effect(println(s"\n\n ===== JREQQQ  ===== ${req} \n\n"))
+    reqKey  <- connectionManager.getRequestKey(jReq, req)
+//    _       <- ZIO.effect(println(s"\n\n ===== JREQQQ  ===== ${req} \n\n"))
     prom    <- zio.Promise.make[Throwable, ClientResponse]
     channel <- connectionManager.fetchConnection(jReq, req, prom)
     resp    <- prom.await
-    done <- prom.isDone
-    _ <- ZIO.effect(println(s"PROM DONE for CHANNEL $channel ?: ${done} AND RESP: $resp"))
-    _ <- connectionManager.addChannelToIdleQueue(reqKey,channel)
+    _       <- prom.isDone
+//    _       <- ZIO.effect(println(s"PROM DONE for CHANNEL $channel ?: ${done} AND RESP: $resp"))
+    _       <- connectionManager.addChannelToIdleQueue(reqKey, channel)
 
-    activeConnections  <- connectionManager.getActiveConnections
-    _ <- ZIO.effect{
+    activeConnections <- connectionManager.getActiveConnections
+    _                 <- ZIO.effect {
       println(s"CURRENT ACTIVE CONNECTIONS: ${activeConnections}")
     }
   } yield resp

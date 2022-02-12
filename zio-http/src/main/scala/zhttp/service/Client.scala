@@ -2,7 +2,7 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
-import io.netty.channel.{Channel, ChannelHandlerContext, ChannelInitializer, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, EventLoopGroup => JEventLoopGroup}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, ChannelHandlerContext, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
@@ -21,7 +21,7 @@ import java.net.{InetAddress, InetSocketAddress, URI}
 import scala.collection.mutable
 
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
-  extends HttpMessageCodec {
+    extends HttpMessageCodec {
 
   def request(request: Client.ClientRequest): Task[Client.ClientResponse] =
     for {
@@ -34,11 +34,11 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     } yield res
 
   def socket(
-              url: URL,
-              headers: Headers = Headers.empty,
-              socketApp: SocketApp[R],
-              sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-            ): ZIO[R, Throwable, ClientResponse] = for {
+    url: URL,
+    headers: Headers = Headers.empty,
+    socketApp: SocketApp[R],
+    sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+  ): ZIO[R, Throwable, ClientResponse] = for {
     env <- ZIO.environment[R]
     res <- request(
       ClientRequest(
@@ -54,10 +54,10 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
    * It handles both - Websocket and HTTP requests.
    */
   private def unsafeRequest(
-                             req: ClientRequest,
-                             jReq: FullHttpRequest,
-                             promise: Promise[Throwable, ClientResponse],
-                           ): JChannelFuture = {
+    req: ClientRequest,
+    jReq: FullHttpRequest,
+    promise: Promise[Throwable, ClientResponse],
+  ): JChannelFuture = {
 
     try {
       val uri  = new URI(jReq.uri())
@@ -129,31 +129,31 @@ object Client {
   } yield service.Client(zx, cf, el)
 
   def request(
-               url: String,
-               method: Method = Method.GET,
-               headers: Headers = Headers.empty,
-               content: HttpData = HttpData.empty,
-               ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-             ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+    url: String,
+    method: Method = Method.GET,
+    headers: Headers = Headers.empty,
+    content: HttpData = HttpData.empty,
+    ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- request(ClientRequest(uri, method, headers, content, attribute = Attribute(ssl = Some(ssl))))
     } yield res
 
   def request(
-               request: ClientRequest,
-             ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+    request: ClientRequest,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
     for {
       clt <- make[Any]
       res <- clt.request(request)
     } yield res
 
   def socket[R](
-                 url: String,
-                 app: SocketApp[R],
-                 headers: Headers = Headers.empty,
-                 sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-               ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = {
+    url: String,
+    app: SocketApp[R],
+    headers: Headers = Headers.empty,
+    sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = {
     for {
       clt <- make[R]
       uri <- ZIO.fromEither(URL.fromString(url))
@@ -162,14 +162,14 @@ object Client {
   }
 
   final case class ClientRequest(
-                                  url: URL,
-                                  method: Method = Method.GET,
-                                  headers: Headers = Headers.empty,
-                                  private[zhttp] val data: HttpData = HttpData.empty,
-                                  private[zhttp] val version: Version = Version.Http_1_1,
-                                  private[zhttp] val attribute: Attribute = Attribute.empty,
-                                  private val channelContext: ChannelHandlerContext = null,
-                                ) extends HeaderExtension[ClientRequest] {
+    url: URL,
+    method: Method = Method.GET,
+    headers: Headers = Headers.empty,
+    private[zhttp] val data: HttpData = HttpData.empty,
+    private[zhttp] val version: Version = Version.Http_1_1,
+    private[zhttp] val attribute: Attribute = Attribute.empty,
+    private val channelContext: ChannelHandlerContext = null,
+  ) extends HeaderExtension[ClientRequest] {
     self =>
 
     def bodyAsString: Task[String] = bodyAsByteBuf.map(_.toString(headers.charset))
@@ -191,7 +191,7 @@ object Client {
   }
 
   final case class ClientResponse(status: Status, headers: Headers, private[zhttp] val buffer: ByteBuf)
-    extends HeaderExtension[ClientResponse] {
+      extends HeaderExtension[ClientResponse] {
     self =>
 
     def body: Task[Chunk[Byte]] = Task(Chunk.fromArray(ByteBufUtil.getBytes(buffer)))
@@ -221,7 +221,6 @@ object Client {
     def empty: Attribute = Attribute()
   }
 
-
   def make[R](client: ClientSettings): Task[DefaultClient] = {
     val settings = client.settings()
     for {
@@ -232,12 +231,17 @@ object Client {
       clientBootStrap = new Bootstrap()
         .channelFactory(channelFactory)
         .group(eventLoopGroup)
-      timeouts    = Timeouts(settings.connectionTimeout, settings.idleTimeout, settings.requestTimeout)
+      timeouts        = Timeouts(settings.connectionTimeout, settings.idleTimeout, settings.requestTimeout)
       currAllocRef <- zio.Ref.make(Map.empty[Channel, zhttp.service.client.model.ConnectionRuntime])
-      idleConnRef <- zio.Ref.make(Map.empty[ReqKey, mutable.Queue[Channel]])
-      connManager = ClientConnectionManager(ClientConnectionState(currentAllocatedChannels = currAllocRef, idleConnectionsMap = idleConnRef), timeouts, clientBootStrap, zExec)
+      idleConnRef  <- zio.Ref.make(Map.empty[ReqKey, mutable.Queue[Channel]])
+      connManager = ClientConnectionManager(
+        ClientConnectionState(currentAllocatedChannels = currAllocRef, idleConnectionsMap = idleConnRef),
+        timeouts,
+        clientBootStrap,
+        zExec,
+      )
       clientImpl  = DefaultClient(settings, connManager)
-      _ <- zio.ZIO.effect(println(s"GOT CLIENT IMPL: $clientImpl"))
+//      _ <- zio.ZIO.effect(println(s"GOT CLIENT IMPL: $clientImpl"))
     } yield {
       clientImpl
     }

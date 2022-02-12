@@ -8,8 +8,6 @@ import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.ClientFactory.ClientEnv
 import zhttp.service._
 import zhttp.service.client.model.DefaultClient
-//import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-//import zhttp.socket.SocketApp
 import zio.test.DefaultRunnableSpec
 import zio.{Has, ZIO, ZManaged}
 
@@ -65,14 +63,14 @@ abstract class NewHttpRunnableSpec extends DefaultRunnableSpec { self =>
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
-        cl <- Http.fromZIO(ZIO.service[DefaultClient])
+        cl       <- Http.fromZIO(ZIO.service[DefaultClient])
 //        _ <- Http.fromZIO(ZIO.effect(println(s" GOT CLIENT : $cl")))
         response <- Http.fromFunctionZIO[Client.ClientRequest] { params =>
-            cl.run(
-              params
-                .addHeader(DynamicServer.APP_ID, id)
-                .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
-            )
+          cl.run(
+            params
+              .addHeader(DynamicServer.APP_ID, id)
+              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+          )
         }
       } yield response
 
@@ -99,16 +97,17 @@ abstract class NewHttpRunnableSpec extends DefaultRunnableSpec { self =>
     } yield ()
 
   def status(
-            defaultClient: zio.Task[DefaultClient],
+    defaultClient: zio.Task[DefaultClient],
     method: Method = Method.GET,
     path: Path,
   ) = {
     for {
       port   <- DynamicServer.port
       client <- defaultClient
-        status <- client.run(
+      status <- client
+        .run(
           str = "http://localhost:%d/%s".format(port, path),
-          method = method
+          method = method,
         )
         .map(_.status)
     } yield status
@@ -123,6 +122,3 @@ object NewHttpRunnableSpec {
       B,
     ]
 }
-
-
-

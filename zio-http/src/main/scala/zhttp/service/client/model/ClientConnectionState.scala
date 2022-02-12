@@ -3,9 +3,9 @@ package zhttp.service.client.model
 import io.netty.channel.Channel
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.service.Client.ClientResponse
-import zhttp.service.client.model.ClientConnectionState.{ReqKey}
-import zio.{Promise, Ref}
+import zhttp.service.client.model.ClientConnectionState.ReqKey
 import zio.duration.Duration
+import zio.{Promise, Ref}
 
 import java.net.InetSocketAddress
 import java.time.Instant

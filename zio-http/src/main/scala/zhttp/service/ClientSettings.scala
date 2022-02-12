@@ -33,36 +33,36 @@ trait ClientSettings { self =>
   def make: Task[DefaultClient] =
     Client.make(self.asInstanceOf[ClientSettings])
 }
-object ClientSettings{
+object ClientSettings {
   type UClient = ClientSettings
   protected[zhttp] final case class Config(
-                                            transport: Transport = Transport.Auto,
-                                            threads: Int = 0,
-                                            responseHeaderTimeout: Duration =
-                                            Duration.Infinity, // duration between the submission of request and the completion of the response header
-                                            // Does not include time to read the response body
-                                            idleTimeout: Duration = Duration.fromScala(1.minute),
-                                            requestTimeout: Duration = Duration.fromScala(1.minute),      //
-                                            connectionTimeout: Duration = Duration.fromScala(10.seconds), //
-                                            userAgent: Option[String] = Some("Client"),                   //
-                                            maxTotalConnections: Int = 10,                                //
-                                            maxWaitQueueLimit: Int = 256,                                 //
-                                            maxConnectionsPerRequestKey: Int = 20,                        //
-                                            //    sslContext: ClientSSLOptions,      //
+    transport: Transport = Transport.Auto,
+    threads: Int = 0,
+    responseHeaderTimeout: Duration =
+      Duration.Infinity, // duration between the submission of request and the completion of the response header
+    // Does not include time to read the response body
+    idleTimeout: Duration = Duration.fromScala(1.minute),
+    requestTimeout: Duration = Duration.fromScala(1.minute),      //
+    connectionTimeout: Duration = Duration.fromScala(10.seconds), //
+    userAgent: Option[String] = Some("Client"),                   //
+    maxTotalConnections: Int = 10,                                //
+    maxWaitQueueLimit: Int = 256,                                 //
+    maxConnectionsPerRequestKey: Int = 20,                        //
+    //    sslContext: ClientSSLOptions,      //
 
-                                          )
+  )
 
-  case class Concat[R, E](self: ClientSettings, other: ClientSettings)       extends ClientSettings
-  case class TransportConfig(transport: Transport)           extends UClient
-  case class Threads(threads: Int)                           extends UClient
-  case class ResponseHeaderTimeout(rht: Duration)            extends UClient
-  case class IdleTimeout(idlt: Duration)                     extends UClient
-  case class RequestTimeout(reqt: Duration)                  extends UClient
-  case class ConnectionTimeout(connt: Duration)              extends UClient
-  case class UserAgent(ua: Option[String])                   extends UClient
-  case class MaxTotalConnections(maxTotConn: Int)            extends UClient
-  case class MaxWaitQueueLimit(mwql: Int)                    extends UClient
-  case class MaxConnectionsPerRequestKey(maxConnPerReq: Int) extends UClient
+  case class Concat[R, E](self: ClientSettings, other: ClientSettings) extends ClientSettings
+  case class TransportConfig(transport: Transport)                     extends UClient
+  case class Threads(threads: Int)                                     extends UClient
+  case class ResponseHeaderTimeout(rht: Duration)                      extends UClient
+  case class IdleTimeout(idlt: Duration)                               extends UClient
+  case class RequestTimeout(reqt: Duration)                            extends UClient
+  case class ConnectionTimeout(connt: Duration)                        extends UClient
+  case class UserAgent(ua: Option[String])                             extends UClient
+  case class MaxTotalConnections(maxTotConn: Int)                      extends UClient
+  case class MaxWaitQueueLimit(mwql: Int)                              extends UClient
+  case class MaxConnectionsPerRequestKey(maxConnPerReq: Int)           extends UClient
 
 //  private final case class Concat[R, E](self: ClientSettings, other: ClientSettings)       extends ClientSettings
 //  private final case class TransportConfig(transport: Transport)           extends UClient
@@ -77,9 +77,8 @@ object ClientSettings{
 //  private final case class MaxConnectionsPerRequestKey(maxConnPerReq: Int) extends UClient
   //  private final case class SSLContext(ssl: ClientSSLOptions)                                   extends UClient
 
-
   def transport(transport: Transport) = ClientSettings.TransportConfig(transport)
-  def threads(threads: Int)          = ClientSettings.Threads(threads)
+  def threads(threads: Int)           = ClientSettings.Threads(threads)
 
   def responseHeaderTimeout(rht: Duration): UClient               = ClientSettings.ResponseHeaderTimeout(rht)
   def idleTimeout(idt: Duration): UClient                         = ClientSettings.IdleTimeout(idt)
@@ -97,6 +96,4 @@ object ClientSettings{
   def uring: UClient  = ClientSettings.TransportConfig(Transport.URing)
   def auto: UClient   = ClientSettings.TransportConfig(Transport.Auto)
 
-
 }
-

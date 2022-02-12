@@ -7,7 +7,7 @@ import zio._
  * Simple wrapper for getting a Client as ZLayer
  */
 object ClientFactory {
-  type ClientEnv       = Has[DefaultClient]
+  type ClientEnv = Has[DefaultClient]
   def client: ZLayer[Any, Nothing, ClientEnv] = ClientFactory.Live.defaultClient.toLayer
 
   object Live {

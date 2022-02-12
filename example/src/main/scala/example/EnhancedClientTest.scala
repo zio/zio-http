@@ -46,11 +46,11 @@ object EnhancedClientTest extends App {
   val testUrl1  = "http://localhost:8081/foo/1"
   val testUrl2  = "http://localhost:8081/bar/2"
   val googleUrl = "http://www.google.com"
-  val bbcUrl = "http://www.dream11.com"
+  val bbcUrl    = "http://www.dream11.com"
 
   def triggerParallel(cl: DefaultClient) = for {
-    p1 <- cl.run(testUrl1).flatMap(_.bodyAsString).fork
-    p2 <- cl.run(testUrl2).flatMap(_.bodyAsString).fork
+    p1  <- cl.run(testUrl1).flatMap(_.bodyAsString).fork
+    p2  <- cl.run(testUrl2).flatMap(_.bodyAsString).fork
     res <- (p1 zip p2).join
 
     //        res <- zio.Task.foreachPar(Set(bbcUrl,googleUrl))(v => cl.run(v).flatMap(_.bodyAsString.map(_.length)))
@@ -82,7 +82,7 @@ object EnhancedClientTest extends App {
 //    _     <- ZIO.effect(println(s"Response Status AGAIN From $googleUrl : ${resp4} \n ----- \n"))
 
     currActiveConn <- cl.connectionManager.getActiveConnections
-    idleMap <- cl.connectionManager.connectionState.idleConnectionsMap.get
+    idleMap        <- cl.connectionManager.connectionState.idleConnectionsMap.get
     _              <- ZIO.effect(
       println(
         s"Number of active connections for four requests: $currActiveConn \n\n connections map ${idleMap}",

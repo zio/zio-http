@@ -3,9 +3,7 @@ package zhttp.service
 import zhttp.http._
 import zhttp.internal.{DynamicServer, NewHttpRunnableSpec}
 import zhttp.service.server._
-//import zio.duration.durationInt
 import zio.test.Assertion._
-//import zio.test.TestAspect.{timeout}
 import zio.test._
 
 object EnhancedClientSpec extends NewHttpRunnableSpec {
@@ -14,20 +12,20 @@ object EnhancedClientSpec extends NewHttpRunnableSpec {
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ClientFactory.client
 
   def clientSpec = suite("NewClientSpec") {
-        testM("respond Ok") {
+    testM("respond Ok") {
       val app = Http.ok.deploy.status.run()
       assertM(app)(equalTo(Status.OK))
-    }  +
+    } +
       testM("non empty content") {
         val app             = Http.text("abc")
         val responseContent = app.deploy.body.run()
         assertM(responseContent)(isNonEmpty)
-      }   +
+      } +
       testM("echo POST request content") {
         val app = Http.collectZIO[Request] { case req => req.bodyAsString.map(Response.text(_)) }
         val res = app.deploy.bodyAsString.run(method = Method.POST, content = "ZIO user")
         assertM(res)(equalTo("ZIO user"))
-      }   +
+      } +
       testM("empty content") {
         val app             = Http.empty
         val responseContent = app.deploy.body.run()
