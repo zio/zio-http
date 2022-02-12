@@ -34,7 +34,7 @@ object EnhancedClientTest extends App {
   def clientTest = {
     for {
       client <- (
-        ClientSettings.threads(2) ++
+        ClientSettings.threads(8) ++
           ClientSettings.maxConnectionsPerRequestKey(10) ++
           ClientSettings.maxTotalConnections(20)
       ).make
@@ -47,6 +47,24 @@ object EnhancedClientTest extends App {
   val testUrl2  = "http://localhost:8081/bar/2"
   val googleUrl = "http://www.google.com"
   val bbcUrl = "http://www.dream11.com"
+
+  def triggerParallel(cl: DefaultClient) = for {
+    p1 <- cl.run(testUrl1).flatMap(_.bodyAsString).fork
+    p2 <- cl.run(testUrl2).flatMap(_.bodyAsString).fork
+    res <- (p1 zip p2).join
+
+    //        res <- zio.Task.foreachPar(Set(bbcUrl,googleUrl))(v => cl.run(v).flatMap(_.bodyAsString.map(_.length)))
+    //    res <- zio.Task.foreachPar(Set(testUrl1,googleUrl))(v => cl.run(v).flatMap(_.bodyAsString))
+    //    res <- zio.Task.foreachPar(Set(testUrl1,testUrl2)) {
+    //      v => Thread.sleep(3000); cl.run(v).flatMap(_.bodyAsString)
+    //    }
+    //    res <- zio.Task.foreachPar((1 to 2).toList)(_ => cl.run(googleUrl).flatMap(_.bodyAsString))
+    //    _ <- ZIO.effect(println(s"\n\n RESULTS OF PARALLEL EXECUTION $c \n\n"))
+
+    //    c <- zio.Task.foreachPar(List(testUrl1, testUrl2))(v => cl.run(v).flatMap(_.bodyAsString))
+    currActiveConn <- cl.connectionManager.getActiveConnections
+    _ <- ZIO.effect(println(s"\n\n PARALLEL EXECUTION \n RESPONSE: $res \n CURRENT CONNECTIONS $currActiveConn \n\n"))
+  } yield ()
 
   // sequential execution test
   def triggerClientSequential(cl: DefaultClient) = for {
@@ -72,21 +90,4 @@ object EnhancedClientTest extends App {
     )
   } yield ()
 
-  def triggerParallel(cl: DefaultClient) = for {
-//    p1 <- cl.run(testUrl1).flatMap(_.bodyAsString).fork
-//    p2 <- cl.run(testUrl2).flatMap(_.bodyAsString).fork
-//    res <- (p1 zip p2).join
-
-        res <- zio.Task.foreachPar(Set(bbcUrl,googleUrl))(v => cl.run(v).flatMap(_.bodyAsString.map(_.length)))
-//    res <- zio.Task.foreachPar(Set(testUrl1,googleUrl))(v => cl.run(v).flatMap(_.bodyAsString))
-//    res <- zio.Task.foreachPar(Set(testUrl1,testUrl2)) {
-//      v => Thread.sleep(3000); cl.run(v).flatMap(_.bodyAsString)
-//    }
-//    res <- zio.Task.foreachPar((1 to 2).toList)(_ => cl.run(googleUrl).flatMap(_.bodyAsString))
-//    _ <- ZIO.effect(println(s"\n\n RESULTS OF PARALLEL EXECUTION $c \n\n"))
-
-//    c <- zio.Task.foreachPar(List(testUrl1, testUrl2))(v => cl.run(v).flatMap(_.bodyAsString))
-    currActiveConn <- cl.connectionManager.getActiveConnections
-    _ <- ZIO.effect(println(s"\n\n PARALLEL EXECUTION \n RESPONSE: $res \n CURRENT CONNECTIONS $currActiveConn \n\n"))
-  } yield ()
 }

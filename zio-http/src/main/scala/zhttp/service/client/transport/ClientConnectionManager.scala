@@ -46,6 +46,7 @@ case class ClientConnectionManager(
     isWebSocket = req.url.scheme.exists(_.isWebSocket)
     isSSL       = req.url.scheme.exists(_.isSecure)
     channel <- getConnectionForRequestKey(jReq, promise, reqKey, isWebSocket, isSSL)
+    _ <- attachHandler(channel.newSucceededFuture(),jReq, promise)
 //    _ <- ZIO.effect {channel.pipeline().addLast(CLIENT_INBOUND_HANDLER, NewClientInboundHandler(zExec, this,jReq,promise))}
   } yield channel
 
@@ -68,7 +69,7 @@ case class ClientConnectionManager(
     for {
       init <- ZIO.effect(
         EnhancedClientChannelInitializer(
-          EnhancedClientInboundHandler(zExec, this,jReq,promise),
+          EnhancedClientInboundHandler(zExec,jReq,promise),
           isWebSocket,
           isSSL,
           reqKey,
@@ -80,7 +81,7 @@ case class ClientConnectionManager(
       chf    = boo.handler(init).connect(h, p)
       _ <- prom.succeed(chf.channel())
       // optional can be removed if not really utilised.
-      _ <- attachHandler(chf)
+//      _ <- attachHandler(chf)
       c <- prom.await
     } yield c
 
@@ -88,7 +89,9 @@ case class ClientConnectionManager(
    mostly kept for debugging purposes
    or if we need to do something during creation lifecycle.
    */
-  def attachHandler(chf: io.netty.channel.ChannelFuture) = {
+  def attachHandler(chf: io.netty.channel.ChannelFuture
+                   , jReq: FullHttpRequest
+                   , promise: Promise[Throwable,ClientResponse]) = {
     ZIO
       .effect(
         chf.addListener(new io.netty.channel.ChannelFutureListener() {
@@ -98,6 +101,10 @@ case class ClientConnectionManager(
               println(s"error: ${future.cause().getMessage}")
               future.cause().printStackTrace()
             } else {
+              chf.channel().pipeline()
+                .addLast(zhttp.service.CLIENT_INBOUND_HANDLER, EnhancedClientInboundHandler(zExec,jReq,promise)): Unit
+              chf.channel().pipeline().fireChannelActive()
+              ()
               //                println("FUTURE SUCCESS");
             }
           }
@@ -116,13 +123,18 @@ case class ClientConnectionManager(
 //        val h = ch.pipeline().get(zhttp.service.CLIENT_INBOUND_HANDLER)
 //        println(s"h: ${h.getClass}")
 //        ch.pipeline().remove(h).addLast(zhttp.service.CLIENT_INBOUND_HANDLER, EnhancedClientInboundHandler(zExec, this,jReq,promise))
-        ch.pipeline().addLast(zhttp.service.CLIENT_INBOUND_HANDLER, EnhancedClientInboundHandler(zExec, this,jReq,promise))
-        ch.pipeline().fireChannelActive()
+
+//        ch.pipeline().addLast(zhttp.service.CLIENT_INBOUND_HANDLER, EnhancedClientInboundHandler(zExec,jReq,promise))
+//        ch.pipeline().fireChannelActive()
         ch
       }
       case None =>
         val newChannel = buildChannel(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey, isWebSocket, isSSL)
         newChannel
+    }
+    _ <- Task{
+//      channel.pipeline().addLast(zhttp.service.CLIENT_INBOUND_HANDLER, EnhancedClientInboundHandler(zExec, jReq,promise))
+//      channel.pipeline().fireChannelActive()
     }
   } yield channel
 

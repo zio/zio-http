@@ -34,7 +34,7 @@ final case class EnhancedClientChannelInitializer[R](
     pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue)): Unit
 
     // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
-    pipeline.addLast(zhttp.service.CLIENT_INBOUND_HANDLER, channelHandler): Unit
+//    pipeline.addLast(zhttp.service.CLIENT_INBOUND_HANDLER, channelHandler): Unit
 
     // Add WebSocketHandlers if it's a `ws` or `wss` request
 //    if (isWebSocket) {

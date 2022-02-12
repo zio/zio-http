@@ -1,20 +1,20 @@
 package zhttp.service.client.handler
 
-import io.netty.channel.ChannelHandler.Sharable
+//import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
 import zio.Promise
 import zhttp.service.Client.ClientResponse
 import zhttp.service.HttpRuntime
-import zhttp.service.client.transport.ClientConnectionManager
+//import zhttp.service.client.transport.ClientConnectionManager
 
 /**
  * Handles HTTP response
  */
-@Sharable
+//@Sharable
 final case class EnhancedClientInboundHandler[R](
   zExec: HttpRuntime[R],
-  connectionManager: ClientConnectionManager,
+//  connectionManager: ClientConnectionManager,
   jReq: FullHttpRequest,
   promise: Promise[Throwable, ClientResponse],
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
