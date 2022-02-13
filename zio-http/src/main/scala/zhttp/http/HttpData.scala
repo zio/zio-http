@@ -88,8 +88,7 @@ object HttpData {
    * Helper to create HttpData from contents of a file
    */
   def fromFile(file: => java.io.File): HttpData = {
-    val raf = new java.io.RandomAccessFile(file, "r")
-    RandomAccessFile(() => raf)
+    RandomAccessFile(() => new java.io.RandomAccessFile(file, "r"))
   }
 
   private[zhttp] final case class Text(text: String, charset: Charset)                        extends HttpData
