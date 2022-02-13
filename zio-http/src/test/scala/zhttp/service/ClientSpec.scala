@@ -27,7 +27,7 @@ object ClientSpec extends HttpRunnableSpec {
       } +
       testM("echo POST request content") {
         val app = Http.collectZIO[Request] { case req => req.bodyAsString.map(Response.text(_)) }
-        val res = app.deploy.bodyAsString.run(method = Method.POST, content = "ZIO user")
+        val res = app.deploy.bodyAsString.run(method = Method.POST, content = HttpData.fromString("ZIO user"))
         assertM(res)(equalTo("ZIO user"))
       } +
       testM("empty content") {

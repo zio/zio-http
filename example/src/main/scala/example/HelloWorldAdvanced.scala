@@ -17,7 +17,8 @@ object HelloWorldAdvanced extends App {
   }
 
   private val app = Http.collectZIO[Request] {
-    case req @ Method.GET -> !! / "decompression" => req.bodyAsString.flatMap(body => UIO(Response.text(body)))
+    case req @ Method.GET -> !! / "decompression" =>
+      req.bodyAsString.map { (body: String) => Response.text(body) }
     case Method.GET -> !! / "random"              => random.nextString(10).map(Response.text(_))
     case Method.GET -> !! / "utc"                 => clock.currentDateTime.map(s => Response.text(s.toString))
   }

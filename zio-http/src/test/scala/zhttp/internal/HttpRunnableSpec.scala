@@ -29,7 +29,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     def run(
       path: Path = !!,
       method: Method = Method.GET,
-      content: String = "",
+      content: HttpData = HttpData.empty,
       headers: Headers = Headers.empty,
       version: Version = Version.Http_1_1,
     ): ZIO[R, Throwable, A] =
@@ -38,7 +38,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
           url = URL(path), // url set here is overridden later via `deploy` method
           method = method,
           headers = headers,
-          data = HttpData.fromString(content),
+          data = content,
           version = version,
         ),
       ).catchAll {

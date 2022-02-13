@@ -11,6 +11,7 @@ import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
+import java.io.File
 import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec {
@@ -88,15 +89,15 @@ object ServerSpec extends HttpRunnableSpec {
           assertM(res)(equalTo(Status.OK))
         } +
           testM("body is ok") {
-            val res = app.deploy.bodyAsString.run(content = "ABC")
+            val res = app.deploy.bodyAsString.run(content = HttpData.fromString("ABC"))
             assertM(res)(equalTo("ABC"))
           } +
           testM("empty string") {
-            val res = app.deploy.bodyAsString.run(content = "")
+            val res = app.deploy.bodyAsString.run(content = HttpData.fromString(""))
             assertM(res)(equalTo(""))
           } +
           testM("one char") {
-            val res = app.deploy.bodyAsString.run(content = "1")
+            val res = app.deploy.bodyAsString.run(content = HttpData.fromString("1"))
             assertM(res)(equalTo("1"))
           }
       } +
@@ -155,14 +156,26 @@ object ServerSpec extends HttpRunnableSpec {
     }
     testM("has content-length") {
       checkAllM(Gen.alphaNumericString) { string =>
-        val res = app.deploy.bodyAsString.run(content = string)
+        val res = app.deploy.bodyAsString.run(content = HttpData.fromString(string))
         assertM(res)(equalTo(string.length.toString))
       }
     } +
       testM("POST Request.getBody") {
         val app = Http.collectZIO[Request] { case req => req.body.as(Response.ok) }
-        val res = app.deploy.status.run(path = !!, method = Method.POST, content = "some text")
+        val res = app.deploy.status.run(path = !!, method = Method.POST, content = HttpData.fromString("some text"))
         assertM(res)(equalTo(Status.OK))
+      } + suite("decompression") {
+        // TODO should the data be picked up from a compressed file resource?
+        testM("gzip") {
+          val app = Http.collectZIO[Request] { case req =>
+            req.bodyAsString.map { (body: String) => Response.text(body) }
+          }
+          val res = app.deploy.run(
+            content = HttpData.fromFile(new File(getClass.getResource("/body.gz").getPath)),
+            headers = Headers.contentEncoding("gzip"),
+          )
+          assertM(res.map(_.status))(equalTo(Status.OK))
+        }
       }
   }
 
@@ -210,7 +223,7 @@ object ServerSpec extends HttpRunnableSpec {
           }
           .deploy
           .bodyAsString
-          .run(content = "abc")
+          .run(content = HttpData.fromString("abc"))
         assertM(res)(equalTo("abc"))
       } +
       testM("file-streaming") {
