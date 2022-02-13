@@ -6,7 +6,6 @@ import zhttp.service.client.ClientSSLHandler
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.model.ClientConnectionState.ReqKey
 import zhttp.service.{HTTP_CLIENT_CODEC, HTTP_OBJECT_AGGREGATOR, SSL_HANDLER}
-//import zhttp.socket.Socket
 
 final case class EnhancedClientChannelInitializer[R](
   channelHandler: ChannelHandler,
@@ -32,21 +31,6 @@ final case class EnhancedClientChannelInitializer[R](
     // This is also required to make WebSocketHandlers work
     pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue)): Unit
 
-    // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
-//    pipeline.addLast(zhttp.service.CLIENT_INBOUND_HANDLER, channelHandler): Unit
-
-    // Add WebSocketHandlers if it's a `ws` or `wss` request
-//    if (isWebSocket) {
-//      val headers = req.getHeaders.encode
-//      val app     = req.attribute.socketApp.getOrElse(Socket.empty.toSocketApp)
-//      val config  = app.protocol.clientBuilder
-//        .customHeaders(headers)
-//        .webSocketUri(req.url.encode)
-//        .build()
-//
-//      // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
-//      pipeline.addLast(WEB_SOCKET_CLIENT_PROTOCOL_HANDLER, new WebSocketClientProtocolHandler(config))
-//      pipeline.addLast(WEB_SOCKET_HANDLER, new WebSocketAppHandler(rtm, app))
-//    }
+    // TODO: Handle Websocket
   }
 }

@@ -19,17 +19,16 @@ case class DefaultClient(
   def run(req: ClientRequest): Task[ClientResponse] = for {
     jReq    <- encode(req)
     reqKey  <- connectionManager.getRequestKey(jReq, req)
-//    _       <- ZIO.effect(println(s"\n\n ===== JREQQQ  ===== ${req} \n\n"))
     prom    <- zio.Promise.make[Throwable, ClientResponse]
     channel <- connectionManager.fetchConnection(jReq, req, prom)
     resp    <- prom.await
-    _       <- prom.isDone
-//    _       <- ZIO.effect(println(s"PROM DONE for CHANNEL $channel ?: ${done} AND RESP: $resp"))
     _       <- connectionManager.addChannelToIdleQueue(reqKey, channel)
 
     activeConnections <- connectionManager.getActiveConnections
     _                 <- ZIO.effect {
-      println(s"CURRENT ACTIVE CONNECTIONS: ${activeConnections}")
+      println(
+        s"CURRENT ACTIVE CONNECTIONS: ${activeConnections} ${connectionManager.connectionState.idleConnectionsMap}",
+      )
     }
   } yield resp
 

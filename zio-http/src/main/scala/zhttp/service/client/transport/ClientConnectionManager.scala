@@ -34,11 +34,9 @@ case class ClientConnectionManager(
    *   - create new connection and increment allocated simultaneously (depending
    *     on limits)
    *   - assign a new callback (may be like empty promise to connection)
+   *     Connections are referenced based on RequestKey ```type ReqKey =
+   *     InetSocketAddress```
    *
-   * TBD: uri Authority examples to be handled like examples Valid authority
-   *   - http://www.xyz.com/path www.xyz.com
-   *   - http://host:8080/path host:8080
-   *   - http://user:pass@host:8080/path user:pass@host:8080
    * @param jReq
    * @return
    */
@@ -52,7 +50,6 @@ case class ClientConnectionManager(
     isSSL       = req.url.scheme.exists(_.isSecure)
     channel <- getConnectionForRequestKey(jReq, promise, reqKey, isWebSocket, isSSL)
     _       <- attachHandler(channel.newSucceededFuture(), jReq, promise)
-//    _ <- ZIO.effect {channel.pipeline().addLast(CLIENT_INBOUND_HANDLER, NewClientInboundHandler(zExec, this,jReq,promise))}
   } yield channel
 
   def getRequestKey(jReq: FullHttpRequest, req: ClientRequest) = for {
@@ -64,10 +61,53 @@ case class ClientConnectionManager(
   } yield reqKey
 
   /**
-   * build an underlying connection (channel for a given request key)
-   * @param scheme
+   * Get a connection
+   *   - If an idle connection already exists for given ReqKey (host:port) reuse
+   *     it
+   *   - If no idle connection found build a new one.
+   * @param jReq
+   * @param promise
    * @param reqKey
+   * @param isWebSocket
+   * @param isSSL
+   * @return
+   */
+  def getConnectionForRequestKey(
+    jReq: FullHttpRequest,
+    promise: Promise[Throwable, ClientResponse],
+    reqKey: ReqKey,
+    isWebSocket: Boolean,
+    isSSL: Boolean,
+  ) = for {
+    // check if idle connection exists for this reqKey
+    idleChannelOpt <- getIdleChannelFromQueue(reqKey)
+    // if it is None, it means no idle channel exists for this request key
+    channel        <- idleChannelOpt match {
+      case Some(ch) =>
+        Task {
+          println(s"IDLE CHANNEL FOUND REUSING ......$ch")
+          reusing = true
+          ch
+        }
+      case None     =>
+        buildChannel(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey, isWebSocket, isSSL)
+    }
+  } yield channel
+
+  /**
+   * build an underlying connection (channel for a given request key)
+   *
+   * @param jReq
+   *   FullHttpRequest
+   * @param promise
+   *   Empty promise used as a callback to retrieve response
+   * @param reqKey
+   *   InetSocketAddress used as a "key" in the state to reference connections
+   *   corresponding to this host:port
+   * @param isWebSocket
+   * @param isSSL
    * @tparam R
+   *   // Not sure if we need this.
    * @return
    */
   def buildChannel[R](
@@ -92,7 +132,6 @@ case class ClientConnectionManager(
       chf = boo.handler(init).connect(h, p)
       _ <- prom.succeed(chf.channel())
       // optional can be removed if not really utilised.
-//      _ <- attachHandler(chf)
       c <- prom.await
     } yield c
 
@@ -131,30 +170,6 @@ case class ClientConnectionManager(
         }): Unit,
       )
   }
-
-  def getConnectionForRequestKey(
-    jReq: FullHttpRequest,
-    promise: Promise[Throwable, ClientResponse],
-    reqKey: ReqKey,
-    isWebSocket: Boolean,
-    isSSL: Boolean,
-  ) = for {
-    idleChannelOpt <- getIdleChannelFromQueue(reqKey)
-//    _              <- Task(println(s"IDLE CHANNEL ???: $idleChannelOpt"))
-    // if it is None, it means no idle channel exists for this request key
-    channel        <- idleChannelOpt match {
-      case Some(ch) =>
-        Task {
-          println(s"IDLE CHANNEL FOUND REUSING ......$ch")
-          reusing = true
-          ch
-        }
-      case None     =>
-        val newChannel =
-          buildChannel(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey, isWebSocket, isSSL)
-        newChannel
-    }
-  } yield channel
 
   def getActiveConnections: Task[Int] = for {
     alloc   <- connectionState.currentAllocatedChannels.get
