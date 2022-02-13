@@ -14,7 +14,7 @@ import zio.stream.ZStream
 
 import java.io.{File, FileNotFoundException}
 import java.nio.charset.Charset
-import java.nio.file.{Path => JPath, Paths}
+import java.nio.file.{Paths, Path => JPath}
 import scala.annotation.unused
 
 /**
@@ -547,34 +547,25 @@ object Http {
   def fromData(data: HttpData): HttpApp[Any, Nothing] = response(Response(data = data))
 
   /*
-   * Creates an Http app from the contents of a file
+   * Creates an Http app from the contents of a file.
+   * The operator automatically also adds the content-length and content-type headers if possible.
    */
+  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file))
 
-  def fromFile(file: java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file))
+  /*
+   * Creates an Http app from the contents of a file which is produced from an effect.
+   * The operator automatically also adds the content-length and content-type headers if possible.
+   */
+  def fromFileZIO[R](fileZIO: ZIO[R, Throwable, java.io.File]): HttpApp[R, Throwable] =
+    responseZIO(
+      fileZIO.map { file =>
 
-  def fromFileZIO[R](fileZIO: ZIO[R, Throwable, java.io.File]): HttpApp[R, Throwable] = {
-    val rZIO: ZIO[R, Throwable, Response] = for {
-      file     <- fileZIO
-      response <- Task(
-        MediaType.probeContentType(file.toPath.toString) match {
-          case Some(value) =>
-            Response(
-              headers = Headers.contentType(value) ++ Headers.contentLength(
-                file.length(),
-              ),
-              data = HttpData.fromFile(file),
-            )
-          case None        =>
-            Response(
-              headers = Headers.contentLength(file.length()),
-              data = HttpData.fromFile(file),
-            )
-        },
-      )
-    } yield response
-
-    responseZIO(rZIO)
-  }
+        // TODO: `.length` can fail with `SecurityException`
+        val contentLength = Headers.contentLength(file.length())
+        val response      = Response(headers = contentLength, data = HttpData.fromFile(file))
+        MediaType.probe(file.toPath.toString).fold(response)(response.withMediaType)
+      },
+    )
 
   /**
    * Creates a Http from a pure function
@@ -631,12 +622,12 @@ object Http {
   /**
    * Creates an HTTP app to serve static resource files from a local directory.
    */
-  def fromPath(root: JPath): HttpApp[Any, Nothing] = {
+  def fromPath(dir: JPath): HttpApp[Any, Nothing] = {
     Http.collectHttp[Request] { case request =>
       if (request.method != Method.GET)
         Http.methodNotAllowed(s"${request.method} is not allowed here. Please use `GET` instead.")
       else {
-        val file = Paths.get(root.toString + "/" + request.path.encode).toFile
+        val file = Paths.get(dir.toString + "/" + request.path.encode).toFile
         if (file.isDirectory)
           response(Response(data = HttpData.fromString(listFilesHtml(file.toPath))))
         else
