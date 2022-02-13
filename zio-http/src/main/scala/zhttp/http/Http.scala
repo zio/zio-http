@@ -559,10 +559,16 @@ object Http {
   def fromFileZIO[R](fileZIO: ZIO[R, Throwable, java.io.File]): HttpApp[R, Throwable] =
     responseZIO(
       fileZIO.map { file =>
-
         // TODO: `.length` can fail with `SecurityException`
         val contentLength = Headers.contentLength(file.length())
         val response      = Response(headers = contentLength, data = HttpData.fromFile(file))
+
+        /**
+         * Set MIME type in the response headers. This is only relevant in case
+         * of RandomAccessFile transfers as browsers use the MIME type, not the
+         * file extension, to determine how to process a URL.
+         * {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
+         */
         MediaType.probe(file.toPath.toString).fold(response)(response.withMediaType)
       },
     )
@@ -627,7 +633,11 @@ object Http {
       if (request.method != Method.GET)
         Http.methodNotAllowed(s"${request.method} is not allowed here. Please use `GET` instead.")
       else {
+
+        // TODO: `.toFile` can fail with `UnsupportedOperationException`
         val file = Paths.get(dir.toString + "/" + request.path.encode).toFile
+
+        // TODO: `.isDirectory` can fail with `SecurityException`
         if (file.isDirectory)
           response(Response(data = HttpData.fromString(listFilesHtml(file.toPath))))
         else

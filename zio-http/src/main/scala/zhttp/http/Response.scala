@@ -81,20 +81,7 @@ final case class Response private (
       case HttpData.BinaryByteBuf(data) => data
       case HttpData.BinaryStream(_)     => null
       case HttpData.Empty               => Unpooled.EMPTY_BUFFER
-
       case HttpData.RandomAccessFile(_) => null
-//      case HttpData.File(file)          =>
-//        if (!jHeaders.contains(HttpHeaderNames.CONTENT_TYPE)) {
-//
-//          // TODO: content-type probing cache should be configurable at server level
-//          MediaType.probeContentType(file.toPath.toString) match {
-//            case Some(cType) => jHeaders.set(HttpHeaderNames.CONTENT_TYPE, cType)
-//            case None        => ()
-//          }
-//        }
-//        jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, file.length())
-//        null
-
     }
 
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
@@ -105,10 +92,6 @@ final case class Response private (
       // Alternative would be to use sttp client for this use-case.
 
       if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
-
-      // Set MIME type in the response headers. This is only relevant in case of RandomAccessFile transfers as browsers use the MIME
-      // type, not the file extension, to determine how to process a URL.<a href="MSDN
-      // Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>
 
       new DefaultHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jHeaders)
     } else {

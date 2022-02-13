@@ -21,6 +21,7 @@ object Util {
     ).encode
   }
 
+  // TODO: use Html templating engine
   def listFilesHtml(dirPath: java.nio.file.Path): String = {
     val buf = new StringBuilder()
       .append("<!DOCTYPE html>\r\n")
