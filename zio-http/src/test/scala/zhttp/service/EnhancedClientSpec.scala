@@ -3,7 +3,7 @@ package zhttp.service
 import zhttp.http._
 import zhttp.internal.{DynamicServer, NewHttpRunnableSpec}
 import zhttp.service.server._
-import zio.duration.durationInt
+//import zio.duration.durationInt
 import zio.test.Assertion._
 import zio.test._
 
@@ -43,6 +43,6 @@ object EnhancedClientSpec extends NewHttpRunnableSpec {
     suiteM("NewClient") {
       serve(DynamicServer.app).as(List(clientSpec)).useNow
 //    }.provideCustomLayerShared(env) @@ zio.test.TestAspect.sequential
-    }.provideCustomLayerShared(env) @@ zio.test.TestAspect.timeout(15 seconds) // @@ sequential //@@ timeout(5 seconds)
+    }.provideCustomLayerShared(env) // @@ zio.test.TestAspect.timeout(15 seconds) // @@ sequential //@@ timeout(5 seconds)
   }
 }

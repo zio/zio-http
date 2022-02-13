@@ -18,18 +18,19 @@ case class DefaultClient(
   // methods for compatibility with existing client use
   def run(req: ClientRequest): Task[ClientResponse] = for {
     jReq    <- encode(req)
-    reqKey  <- connectionManager.getRequestKey(jReq, req)
+    _  <- connectionManager.getRequestKey(jReq, req)
     prom    <- zio.Promise.make[Throwable, ClientResponse]
-    channel <- connectionManager.fetchConnection(jReq, req, prom)
+    _ <- connectionManager.fetchConnection(jReq, req, prom)
     resp    <- prom.await
-    _       <- connectionManager.addChannelToIdleQueue(reqKey, channel)
-
-    activeConnections <- connectionManager.getActiveConnections
-    _                 <- ZIO.effect {
-      println(
-        s"CURRENT ACTIVE CONNECTIONS: ${activeConnections} ${connectionManager.connectionState.idleConnectionsMap}",
-      )
-    }
+    _ <- prom.complete(Task(resp))
+//    _       <- connectionManager.addChannelToIdleQueue(reqKey, connection)
+    _       <- ZIO.effect(s"IS DONE ${prom.isDone}")
+//    activeConnections <- connectionManager.getActiveConnections
+//    _                 <- ZIO.effect {
+//      println(
+//        s"CURRENT ACTIVE CONNECTIONS: ${activeConnections} ${connectionManager.connectionState.idleConnectionsMap}",
+//      )
+//    }
   } yield resp
 
   // methods for compatibility with existing client use

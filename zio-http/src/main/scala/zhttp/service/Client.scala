@@ -2,14 +2,7 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
-import io.netty.channel.{
-  Channel,
-  ChannelFactory => JChannelFactory,
-  ChannelFuture => JChannelFuture,
-  ChannelHandlerContext,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel, ChannelHandlerContext, ChannelInitializer, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
@@ -18,7 +11,7 @@ import zhttp.service
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.model.ClientConnectionState.ReqKey
-import zhttp.service.client.model.{ClientConnectionState, DefaultClient, Timeouts}
+import zhttp.service.client.model.{ClientConnectionState, Connection, DefaultClient, Timeouts}
 import zhttp.service.client.transport.ClientConnectionManager
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.{Socket, SocketApp}
@@ -240,7 +233,7 @@ object Client {
         .group(eventLoopGroup)
       timeouts        = Timeouts(settings.connectionTimeout, settings.idleTimeout, settings.requestTimeout)
       currAllocRef <- zio.Ref.make(Map.empty[Channel, zhttp.service.client.model.ConnectionRuntime])
-      idleConnRef  <- zio.Ref.make(Map.empty[ReqKey, mutable.Queue[Channel]])
+      idleConnRef  <- zio.Ref.make(Map.empty[ReqKey, mutable.Queue[Connection]])
       connManager = ClientConnectionManager(
         ClientConnectionState(currentAllocatedChannels = currAllocRef, idleConnectionsMap = idleConnRef),
         timeouts,

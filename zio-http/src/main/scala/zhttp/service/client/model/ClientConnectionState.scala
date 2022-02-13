@@ -13,6 +13,7 @@ import scala.collection.mutable
 
 //
 case class ConnectionRuntime(callback: Promise[Throwable, ClientResponse], currReq: FullHttpRequest, reqKey: ReqKey)
+case class Connection(channel: Channel, isReuse: Boolean, isFree: Boolean )
 
 case class Timeouts(
   connectionTimeout: Duration = Duration.Infinity,
@@ -26,7 +27,7 @@ case class PendingRequest(req: FullHttpRequest, requestedTime: Instant)
 case class ClientConnectionState(
   currentAllocatedChannels: Ref[Map[Channel, ConnectionRuntime]],
   currentAllocatedRequests: Map[ReqKey, Int] = Map.empty[ReqKey, Int],
-  idleConnectionsMap: Ref[Map[ReqKey, mutable.Queue[Channel]]],
+  idleConnectionsMap: Ref[Map[ReqKey, mutable.Queue[Connection]]],
   waitingRequestQueue: mutable.Queue[PendingRequest] = mutable.Queue.empty[PendingRequest],
 ) {
   // TBD thready safety and appropriate namespace
@@ -38,5 +39,5 @@ case class ClientConnectionState(
 
 object ClientConnectionState {
   type ReqKey = InetSocketAddress
-  def emptyIdleConnectionMap = Map.empty[ReqKey, mutable.Queue[Channel]]
+  def emptyIdleConnectionMap = Map.empty[ReqKey, mutable.Queue[Connection]]
 }

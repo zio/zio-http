@@ -8,7 +8,8 @@ import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.handler.{EnhancedClientChannelInitializer, EnhancedClientInboundHandler}
 import zhttp.service.client.model.ClientConnectionState.ReqKey
-import zhttp.service.client.model.{ClientConnectionState, Timeouts}
+import zhttp.service.client.model.{ClientConnectionState, Connection, Timeouts}
+import zio.stm.TRef
 import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
@@ -26,9 +27,6 @@ case class ClientConnectionManager(
   boo: Bootstrap,
   zExec: zhttp.service.HttpRuntime[Any],
 ) {
-
-  var reusing = false
-
   /**
    *   - core method for getting a connection for a request
    *   - create new connection and increment allocated simultaneously (depending
@@ -44,13 +42,15 @@ case class ClientConnectionManager(
     jReq: FullHttpRequest,
     req: ClientRequest,
     promise: Promise[Throwable, ClientResponse],
-  ): Task[Channel] = for {
+  ): Task[Connection] = for {
     reqKey <- getRequestKey(jReq, req)
     isWebSocket = req.url.scheme.exists(_.isWebSocket)
     isSSL       = req.url.scheme.exists(_.isSecure)
-    channel <- getConnectionForRequestKey(jReq, promise, reqKey, isWebSocket, isSSL)
-    _       <- attachHandler(channel.newSucceededFuture(), jReq, promise)
-  } yield channel
+    connection <- {
+      getConnectionForRequestKey(jReq, promise, reqKey, isWebSocket, isSSL).flatten
+    }
+//    _       <- attachHandler(connection, jReq, promise)
+  } yield connection
 
   def getRequestKey(jReq: FullHttpRequest, req: ClientRequest) = for {
     uri <- Task(new java.net.URI(jReq.uri()))
@@ -78,21 +78,54 @@ case class ClientConnectionManager(
     reqKey: ReqKey,
     isWebSocket: Boolean,
     isSSL: Boolean,
-  ) = for {
+  ) = (for {
     // check if idle connection exists for this reqKey
     idleChannelOpt <- getIdleChannelFromQueue(reqKey)
+
+    value <- ( for {
+      tRef <- TRef.make(triggerConn(idleChannelOpt,jReq,promise,reqKey,isWebSocket,isSSL))
+      v <- tRef.get
+    } yield v).commit
     // if it is None, it means no idle channel exists for this request key
-    channel        <- idleChannelOpt match {
-      case Some(ch) =>
-        Task {
-          println(s"IDLE CHANNEL FOUND REUSING ......$ch")
-          reusing = true
-          ch
+//    connection        <- idleChannelOpt match {
+//      case Some(ch) =>
+////        Task {
+//          println(s"IDLE CHANNEL FOUND REUSING ......$ch")
+//          if (ch != null) Task{
+//            (ch.copy(isReuse = true))
+//          }
+//          else buildChannel(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey, isWebSocket, isSSL)
+//        //}
+//      case None     =>
+//        buildChannel(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey, isWebSocket, isSSL)
+//    }
+//    _       <- attachHandler(connection, jReq, promise)
+//    _       <- addChannelToIdleQueue(reqKey, connection)
+  } yield value)
+
+  def triggerConn(idleChannelOpt: Option[Connection],
+    jReq: FullHttpRequest,
+  promise: Promise[Throwable, ClientResponse],
+  reqKey: ReqKey,
+  isWebSocket: Boolean,
+  isSSL: Boolean,
+                 ) = for {
+        connection        <- idleChannelOpt match {
+          case Some(ch) =>
+    //        Task {
+              println(s"IDLE CHANNEL FOUND REUSING ......$ch")
+              if (ch != null && ch.isReuse) Task{
+                (ch.copy(isReuse = true, isFree = false))
+              }
+              else buildChannel(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey, isWebSocket, isSSL)
+            //}
+          case None     =>
+            buildChannel(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey, isWebSocket, isSSL)
         }
-      case None     =>
-        buildChannel(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey, isWebSocket, isSSL)
-    }
-  } yield channel
+        _       <- attachHandler(connection, jReq, promise)
+        _       <- addChannelToIdleQueue(reqKey, connection)
+
+  } yield connection
 
   /**
    * build an underlying connection (channel for a given request key)
@@ -116,7 +149,7 @@ case class ClientConnectionManager(
     reqKey: ReqKey,
     isWebSocket: Boolean = false,
     isSSL: Boolean = false,
-  ): Task[Channel] =
+  ): Task[Connection] =
     for {
       init <- ZIO.effect(
         EnhancedClientChannelInitializer(
@@ -133,20 +166,20 @@ case class ClientConnectionManager(
       _ <- prom.succeed(chf.channel())
       // optional can be removed if not really utilised.
       c <- prom.await
-    } yield c
+    } yield Connection(c,false, false)
 
   /*
    mostly kept for debugging purposes
    or if we need to do something during creation lifecycle.
    */
   def attachHandler(
-    chf: io.netty.channel.ChannelFuture,
-    jReq: FullHttpRequest,
-    promise: Promise[Throwable, ClientResponse],
+                     connection: Connection,
+                     jReq: FullHttpRequest,
+                     promise: Promise[Throwable, ClientResponse],
   ) = {
     ZIO
       .effect(
-        chf.addListener(new io.netty.channel.ChannelFutureListener() {
+        connection.channel.newSucceededFuture().addListener(new io.netty.channel.ChannelFutureListener() {
 
           override def operationComplete(future: io.netty.channel.ChannelFuture): Unit = {
             if (!future.isSuccess()) {
@@ -155,16 +188,17 @@ case class ClientConnectionManager(
             } else {
               if (
 //                chf.channel().pipeline().get(zhttp.service.CLIENT_INBOUND_HANDLER) != null
-                reusing
+                connection.isReuse
               ) {
-                if (chf.channel().pipeline().get(zhttp.service.CLIENT_INBOUND_HANDLER) != null)
-                  chf.channel().pipeline().remove(zhttp.service.CLIENT_INBOUND_HANDLER)
+                if (connection.channel.pipeline().get(zhttp.service.CLIENT_INBOUND_HANDLER) != null)
+                  connection.channel.pipeline().remove(zhttp.service.CLIENT_INBOUND_HANDLER)
               }
-              chf
-                .channel()
+//              val jr = if (connection.isReuse) jReq else jReq.retain()
+              connection.channel
                 .pipeline()
                 .addLast(zhttp.service.CLIENT_INBOUND_HANDLER, EnhancedClientInboundHandler(zExec, jReq, promise)): Unit
-              if (reusing) chf.channel().pipeline().fireChannelActive()
+              println(s"REUSING ?????? for ${connection.channel.id()} ---> ${connection.isReuse}")
+               connection.channel.pipeline().fireChannelActive()
               ()
             }
           }
@@ -203,7 +237,7 @@ case class ClientConnectionManager(
     _ <- Task {
       if (idleQOpt.isEmpty) {
 //        println(s"NO QUEUE EXISTS FOR REQ KEY : $reqKey ADDING AN EMPTY QUEUE $idleQOpt")
-        connectionState.idleConnectionsMap.update(_ => Map(reqKey -> mutable.Queue.empty[Channel]))
+        connectionState.idleConnectionsMap.update(_ => Map(reqKey -> mutable.Queue.empty[Connection]))
       }
     }
     chOpt = idleQOpt.flatMap{ q =>
@@ -211,14 +245,14 @@ case class ClientConnectionManager(
     }
   } yield chOpt
 
-  def addChannelToIdleQueue(reqKey: ReqKey, channel: Channel) = for {
+  def addChannelToIdleQueue(reqKey: ReqKey, connection: Connection) = for {
     idleMap <- connectionState.idleConnectionsMap.get
     idleQueue = idleMap.get(reqKey)
     _ <- idleQueue.fold(
-      connectionState.idleConnectionsMap.update(m => m + (reqKey -> mutable.Queue(channel))),
+      connectionState.idleConnectionsMap.update(m => m + (reqKey -> mutable.Queue.empty[Connection])),
     ) { q =>
       connectionState.idleConnectionsMap.update { m =>
-        q.enqueue(channel)
+        q.enqueue(connection.copy(isFree = true))
         m + (reqKey -> q)
       }
     }
