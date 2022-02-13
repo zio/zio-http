@@ -626,7 +626,10 @@ object Http {
   def html(view: Html): HttpApp[Any, Nothing] = Http.response(Response.html(view))
 
   /**
-   * Creates an HTTP app to serve static resource files from a local directory.
+   * Creates an HTTP that can gracefully serve anything that's on the provided
+   * path. If the path is that of a file, all requests will respond with the
+   * same file. If the path is that of a directory, the files will be served
+   * from that directory, essentially working as a static server.
    */
   def fromPath(dir: JPath): HttpApp[Any, Nothing] = {
     Http.collectHttp[Request] { case request =>

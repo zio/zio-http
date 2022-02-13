@@ -16,7 +16,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
   private val env =
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
-  def staticSpec1 = suite("Static RandomAccessFile Server")(
+  def staticSpec = suite("Static RandomAccessFile Server")(
     testM("should list contents of root directory") {
       val res =
         Http.fromPath(Paths.get(getClass.getResource("/TestStatic/Folder2").getPath)).deploy.bodyAsString.run()
@@ -66,6 +66,6 @@ object StaticFileServerSpec extends HttpRunnableSpec {
   )
 
   override def spec = suiteM("StaticFileServer") {
-    serve(DynamicServer.app).as(List(staticSpec1)).useNow
+    serve(DynamicServer.app).as(List(staticSpec)).useNow
   }.provideCustomLayerShared(env) @@ timeout(5 seconds)
 }
