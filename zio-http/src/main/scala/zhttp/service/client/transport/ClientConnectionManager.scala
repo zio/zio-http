@@ -154,10 +154,11 @@ case class ClientConnectionManager(
               future.cause().printStackTrace()
             } else {
               if (
-                chf.channel().pipeline().get(zhttp.service.CLIENT_INBOUND_HANDLER) != null
-                || reusing
+//                chf.channel().pipeline().get(zhttp.service.CLIENT_INBOUND_HANDLER) != null
+                reusing
               ) {
-                chf.channel().pipeline().remove(zhttp.service.CLIENT_INBOUND_HANDLER)
+                if (chf.channel().pipeline().get(zhttp.service.CLIENT_INBOUND_HANDLER) != null)
+                  chf.channel().pipeline().remove(zhttp.service.CLIENT_INBOUND_HANDLER)
               }
               chf
                 .channel()
@@ -204,9 +205,11 @@ case class ClientConnectionManager(
 //        println(s"NO QUEUE EXISTS FOR REQ KEY : $reqKey ADDING AN EMPTY QUEUE $idleQOpt")
         connectionState.idleConnectionsMap.update(_ => Map(reqKey -> mutable.Queue.empty[Channel]))
       }
-//      println(s"idleConnectionsMap: ${connectionState.idleConnectionsMap}")
     }
-  } yield idleQOpt.map(_.dequeue())
+    chOpt = idleQOpt.flatMap{ q =>
+      if (q.isEmpty) None else Some(q.dequeue())
+    }
+  } yield chOpt
 
   def addChannelToIdleQueue(reqKey: ReqKey, channel: Channel) = for {
     idleMap <- connectionState.idleConnectionsMap.get

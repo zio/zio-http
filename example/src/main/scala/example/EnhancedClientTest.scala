@@ -38,7 +38,7 @@ object EnhancedClientTest extends App {
           ClientSettings.maxConnectionsPerRequestKey(10) ++
           ClientSettings.maxTotalConnections(20)
       ).make
-//      _      <- triggerClientSequential(client)
+      _      <- triggerClientSequential(client)
       _      <- triggerParallel(client)
     } yield ()
   }
