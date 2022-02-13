@@ -18,17 +18,18 @@ sealed trait Server[-R, +E] { self =>
     Concat(self, other)
 
   private def settings[R1 <: R, E1 >: E](s: Config[R1, E1] = Config()): Config[R1, E1] = self match {
-    case Concat(self, other)       => other.settings(self.settings(s))
-    case LeakDetection(level)      => s.copy(leakDetectionLevel = level)
-    case MaxRequestSize(size)      => s.copy(maxRequestSize = size)
-    case Error(errorHandler)       => s.copy(error = Some(errorHandler))
-    case Ssl(sslOption)            => s.copy(sslOption = sslOption)
-    case App(app)                  => s.copy(app = app)
-    case Address(address)          => s.copy(address = address)
-    case AcceptContinue(enabled)   => s.copy(acceptContinue = enabled)
-    case KeepAlive(enabled)        => s.copy(keepAlive = enabled)
-    case FlowControl(enabled)      => s.copy(flowControl = enabled)
-    case ConsolidateFlush(enabled) => s.copy(consolidateFlush = enabled)
+    case Concat(self, other)                       => other.settings(self.settings(s))
+    case LeakDetection(level)                      => s.copy(leakDetectionLevel = level)
+    case MaxRequestSize(size)                      => s.copy(maxRequestSize = size)
+    case Error(errorHandler)                       => s.copy(error = Some(errorHandler))
+    case Ssl(sslOption)                            => s.copy(sslOption = sslOption)
+    case App(app)                                  => s.copy(app = app)
+    case Address(address)                          => s.copy(address = address)
+    case AcceptContinue(enabled)                   => s.copy(acceptContinue = enabled)
+    case KeepAlive(enabled)                        => s.copy(keepAlive = enabled)
+    case FlowControl(enabled)                      => s.copy(flowControl = enabled)
+    case ConsolidateFlush(enabled)                 => s.copy(consolidateFlush = enabled)
+    case HttpRequestDecompression(enabled, strict) => s.copy(httpRequestDecompression = (enabled, strict))
   }
 
   def make(implicit
@@ -116,6 +117,12 @@ sealed trait Server[-R, +E] { self =>
    * href="https://netty.io/4.1/api/io/netty/handler/flush/FlushConsolidationHandler.html">FlushConsolidationHandler<a>).
    */
   def withConsolidateFlush(enable: Boolean): Server[R, E] = Concat(self, ConsolidateFlush(enable))
+
+  /**
+   * Creates a new server with netty's HttpContentDecompressor
+   */
+  def withHttpRequestDecompressor(enabled: Boolean, strict: Boolean): Server[R, E] =
+    Concat(self, HttpRequestDecompression(enabled, strict))
 }
 
 object Server {
@@ -132,6 +139,7 @@ object Server {
     keepAlive: Boolean = true,
     consolidateFlush: Boolean = false,
     flowControl: Boolean = true,
+    httpRequestDecompression: (Boolean, Boolean) = null,
   )
 
   /**
@@ -139,17 +147,18 @@ object Server {
    */
   final case class Start(port: Int = 0)
 
-  private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
-  private final case class LeakDetection(level: LeakDetectionLevel)                   extends UServer
-  private final case class MaxRequestSize(size: Int)                                  extends UServer
-  private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
-  private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
-  private final case class Address(address: InetSocketAddress)                        extends UServer
-  private final case class App[R, E](app: HttpApp[R, E])                              extends Server[R, E]
-  private final case class KeepAlive(enabled: Boolean)                                extends Server[Any, Nothing]
-  private final case class ConsolidateFlush(enabled: Boolean)                         extends Server[Any, Nothing]
-  private final case class AcceptContinue(enabled: Boolean)                           extends UServer
-  private final case class FlowControl(enabled: Boolean)                              extends UServer
+  private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])       extends Server[R, E]
+  private final case class LeakDetection(level: LeakDetectionLevel)                    extends UServer
+  private final case class MaxRequestSize(size: Int)                                   extends UServer
+  private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit])  extends Server[R, Nothing]
+  private final case class Ssl(sslOptions: ServerSSLOptions)                           extends UServer
+  private final case class Address(address: InetSocketAddress)                         extends UServer
+  private final case class App[R, E](app: HttpApp[R, E])                               extends Server[R, E]
+  private final case class KeepAlive(enabled: Boolean)                                 extends Server[Any, Nothing]
+  private final case class ConsolidateFlush(enabled: Boolean)                          extends Server[Any, Nothing]
+  private final case class AcceptContinue(enabled: Boolean)                            extends UServer
+  private final case class FlowControl(enabled: Boolean)                               extends UServer
+  private final case class HttpRequestDecompression(enabled: Boolean, strict: Boolean) extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -161,6 +170,8 @@ object Server {
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   def acceptContinue: UServer                                                        = Server.AcceptContinue(true)
+  def httpRequestDecompression(strict: Boolean): UServer                             =
+    Server.HttpRequestDecompression(enabled = true, strict = strict)
   val disableFlowControl: UServer                                                    = Server.FlowControl(false)
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)

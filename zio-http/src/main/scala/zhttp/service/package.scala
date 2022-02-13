@@ -19,6 +19,7 @@ package object service {
   private[service] val HTTP_SERVER_EXPECT_CONTINUE        = "HTTP_SERVER_EXPECT_CONTINUE"
   private[service] val HTTP_SERVER_FLUSH_CONSOLIDATION    = "HTTP_SERVER_FLUSH_CONSOLIDATION"
   private[service] val CLIENT_INBOUND_HANDLER             = "CLIENT_INBOUND_HANDLER"
+  private[service] val HTTP_REQUEST_DECOMPRESSION         = "HTTP_REQUEST_DECOMPRESSION"
   private[service] val WEB_SOCKET_CLIENT_PROTOCOL_HANDLER = "WEB_SOCKET_CLIENT_PROTOCOL_HANDLER"
 
   type ChannelFactory       = Has[JChannelFactory[Channel]]
