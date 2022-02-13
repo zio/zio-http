@@ -35,7 +35,7 @@ object ServerSpec extends HttpRunnableSpec {
     case _ -> !! / "HExitFailure" => HExit.fail(new RuntimeException("FAILURE"))
   }
 
-  private val app = serve { nonZIO ++ staticApp ++ DynamicServer.app }
+  private val app = serve(nonZIO ++ staticApp ++ DynamicServer.app, Server.httpRequestDecompression(strict = true))
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
