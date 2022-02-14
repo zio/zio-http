@@ -36,7 +36,7 @@ object ServerSpec extends HttpRunnableSpec {
     case _ -> !! / "HExitFailure" => HExit.fail(new RuntimeException("FAILURE"))
   }
 
-  private val app = serve(nonZIO ++ staticApp ++ DynamicServer.app, Server.httpRequestDecompression(strict = true))
+  private val app = serve(nonZIO ++ staticApp ++ DynamicServer.app, Server.httpContentDecompression(strict = true))
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -166,13 +166,11 @@ object ServerSpec extends HttpRunnableSpec {
         assertM(res)(equalTo(Status.OK))
       } + suite("decompression") {
         // TODO should the data be picked up from a compressed file resource?
-        testM("gzip") {
-          val app = Http.collectZIO[Request] { case req =>
-            req.bodyAsString.map { (body: String) => Response.text(body) }
-          }
+        testM("gzip,deflate") {
+          val app = Http.collectZIO[Request] { case req => req.bodyAsString.as(Response.ok) }
           val res = app.deploy.run(
             content = HttpData.fromFile(new File(getClass.getResource("/body.gz").getPath)),
-            headers = Headers.contentEncoding("gzip"),
+            headers = Headers.contentEncoding(HeaderValues.gzipDeflate),
           )
           assertM(res.map(_.status))(equalTo(Status.OK))
         }

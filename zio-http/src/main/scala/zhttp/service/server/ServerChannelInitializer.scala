@@ -42,8 +42,8 @@ final case class ServerChannelInitializer[R](
       new HttpRequestDecoder(DEFAULT_MAX_INITIAL_LINE_LENGTH, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_CHUNK_SIZE, false),
     )
 
-    if (cfg.httpRequestDecompression != null)
-      pipeline.addLast(HTTP_REQUEST_DECOMPRESSION, new HttpContentDecompressor(cfg.httpRequestDecompression._2))
+    if (cfg.httpContentDecompression != null)
+      pipeline.addLast(HTTP_REQUEST_DECOMPRESSION, new HttpContentDecompressor(cfg.httpContentDecompression._2))
 
     pipeline.addLast("encoder", new HttpResponseEncoder())
 
