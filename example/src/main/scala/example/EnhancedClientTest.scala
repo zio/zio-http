@@ -40,10 +40,7 @@ object EnhancedClientTest extends App {
       ).make
       _      <- triggerClientSequential(client)
       _      <- triggerParallel(client)
-//      _      <- ZIO.effect(Thread.sleep(3000))
       _      <- triggerParallel(client)
-
-//      _      <- ZIO.effect(Thread.sleep(3000))
       _ <- triggerParallel(client)
 
     } yield ()
@@ -56,10 +53,6 @@ object EnhancedClientTest extends App {
   val decaUrl   = "http://sports.api.decathlon.com/groups/water-aerobics"
 
   def triggerParallel(cl: DefaultClient) = for {
-//    p1  <- cl.run(testUrl1).flatMap(_.bodyAsString).fork
-//    p2  <- cl.run(testUrl2).flatMap(_.bodyAsString).fork
-//    res <- (p1 zip p2).join
-
 //    res <- zio.Task.foreachPar((1 to 20).toList)(i => cl.run("http://localhost:8081/foo/" + i).flatMap(_.bodyAsString))
     res <- zio.Task.foreachPar(List(testUrl1, testUrl2, testUrl1, testUrl2))(url => cl.run(url).flatMap(_.bodyAsString))
     currActiveConn <- cl.connectionManager.getActiveConnections
