@@ -14,7 +14,7 @@ private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
-) extends SimpleChannelInboundHandler[FullHttpRequest](false)
+) extends SimpleChannelInboundHandler[FullHttpRequest]
     with WebSocketUpgrade[R] { self =>
 
   type Ctx = ChannelHandlerContext
@@ -23,7 +23,7 @@ private[zhttp] final case class Handler[R](
     jReq.touch("server.Handler-channelRead0")
     implicit val iCtx: ChannelHandlerContext = ctx
     unsafeRun(
-      jReq,
+      jReq.retain(),
       app,
       new Request {
         override def method: Method = Method.fromHttpMethod(jReq.method())
@@ -39,7 +39,7 @@ private[zhttp] final case class Handler[R](
           }
         }
 
-        override def data: HttpData = HttpData.fromByteBuf(jReq.content())
+        override def data: HttpData = HttpData.fromByteBuf(jReq.retain().content())
       },
     )
   }
@@ -60,21 +60,21 @@ private[zhttp] final case class Handler[R](
               case Some(cause) =>
                 UIO {
                   ctx.fireChannelRead(
-                    (Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))), jReq),
+                    Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),
                   )
-                }
+                } ensuring (UIO(jReq.release()))
               case None        =>
                 UIO {
-                  ctx.fireChannelRead((Response.status(Status.NOT_FOUND), jReq))
-                }
+                  ctx.fireChannelRead(Response.status(Status.NOT_FOUND))
+                } ensuring (UIO(jReq.release()))
             },
             res =>
               if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
               else {
                 for {
                   _ <- UIO {
-                    ctx.fireChannelRead((res, jReq))
-                  }
+                    ctx.fireChannelRead(res)
+                  }.ensuring(UIO(jReq.release()))
                 } yield ()
               },
           )
@@ -84,13 +84,13 @@ private[zhttp] final case class Handler[R](
         if (self.isWebSocket(res)) {
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
-          ctx.fireChannelRead((res, jReq)): Unit
+          ctx.fireChannelRead(res): Unit
         }
 
       case HExit.Failure(e) =>
-        ctx.fireChannelRead((Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))), jReq)): Unit
+        ctx.fireChannelRead(Response.fromHttpError(HttpError.InternalServerError(cause = Some(e)))): Unit
       case HExit.Empty      =>
-        ctx.fireChannelRead((Response.status(Status.NOT_FOUND), jReq)): Unit
+        ctx.fireChannelRead(Response.status(Status.NOT_FOUND)): Unit
     }
 
   }
