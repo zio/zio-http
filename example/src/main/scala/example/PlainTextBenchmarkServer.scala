@@ -28,8 +28,8 @@ object Main extends App {
     .withServer(STATIC_SERVER_NAME)
     .freeze
 
-  val path1 = "/plaintext"
-  val path2 = "/json"
+  val path1 = !! / "plaintext"
+  val path2 = !! / "json"
 
   def app(res: Response, json: Response) =
     Http.succeed(res).whenPath(path1) ++ Http
