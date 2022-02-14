@@ -448,12 +448,12 @@ object Http {
     /**
      * Applies Http based on the path
      */
-    def whenPath(p: Path): HttpApp[R, E] = http.when((a: Request) => a.url.path.equals(p))
+    def whenPath(p: Path): HttpApp[R, E] = http.when((a: Request) => a.path.equals(p))
 
     /**
      * Applies Http based on the path as string
      */
-    def whenPath(p: String): HttpApp[R, E] = http.when((a: Request) => a.url.path.toString.contentEquals(p))
+    def whenPath(p: String): HttpApp[R, E] = http.when((a: Request) => a.path.toString.contentEquals(p))
 
     /**
      * Updates the response headers using the provided function
