@@ -31,7 +31,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
           },
         ) +
         suite("asString")(
-          test("aslksj") {
+          test("a, b, c") {
             val path = Path("a", "b", "c").encode
             assert(path)(equalTo("/a/b/c"))
           } +
