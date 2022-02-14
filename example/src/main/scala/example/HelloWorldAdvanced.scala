@@ -9,7 +9,7 @@ import scala.util.Try
 
 object HelloWorldAdvanced extends App {
   // Set a port
-  private val PORT = 80
+  private val PORT = 0
 
   private val fooBar: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !! / "foo" => Response.text("bar")
@@ -17,17 +17,14 @@ object HelloWorldAdvanced extends App {
   }
 
   private val app = Http.collectZIO[Request] {
-    case req @ Method.GET -> !! / "decompression" =>
-      req.bodyAsString.map { (body: String) => Response.text(body) }
-    case Method.GET -> !! / "random"              => random.nextString(10).map(Response.text(_))
-    case Method.GET -> !! / "utc"                 => clock.currentDateTime.map(s => Response.text(s.toString))
+    case Method.GET -> !! / "random" => random.nextString(10).map(Response.text(_))
+    case Method.GET -> !! / "utc"    => clock.currentDateTime.map(s => Response.text(s.toString))
   }
 
   private val server =
-    Server.port(PORT) ++                                // Setup port
-      Server.paranoidLeakDetection ++                   // Paranoid leak detection (affects performance)
-      Server.httpRequestDecompression(strict = true) ++ // Set up http request decompression
-      Server.app(fooBar ++ app)                         // Setup the Http app
+    Server.port(PORT) ++              // Setup port
+      Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
+      Server.app(fooBar ++ app)       // Setup the Http app
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     // Configure thread count using CLI

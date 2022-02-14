@@ -29,7 +29,7 @@ sealed trait Server[-R, +E] { self =>
     case KeepAlive(enabled)                        => s.copy(keepAlive = enabled)
     case FlowControl(enabled)                      => s.copy(flowControl = enabled)
     case ConsolidateFlush(enabled)                 => s.copy(consolidateFlush = enabled)
-    case HttpRequestDecompression(enabled, strict) => s.copy(httpRequestDecompression = (enabled, strict))
+    case HttpContentDecompression(enabled, strict) => s.copy(httpContentDecompression = (enabled, strict))
   }
 
   def make(implicit
@@ -119,10 +119,12 @@ sealed trait Server[-R, +E] { self =>
   def withConsolidateFlush(enable: Boolean): Server[R, E] = Concat(self, ConsolidateFlush(enable))
 
   /**
-   * Creates a new server with netty's HttpContentDecompressor
+   * Creates a new server with netty's HttpContentDecompressor to decompress
+   * Http requests (@see <a href =
+   * "https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentDecompressor.html">HttpContentDecompressor</a>).
    */
-  def withHttpRequestDecompressor(enabled: Boolean, strict: Boolean): Server[R, E] =
-    Concat(self, HttpRequestDecompression(enabled, strict))
+  def withHttpContentDecompression(enabled: Boolean, strict: Boolean): Server[R, E] =
+    Concat(self, HttpContentDecompression(enabled, strict))
 }
 
 object Server {
@@ -139,7 +141,7 @@ object Server {
     keepAlive: Boolean = true,
     consolidateFlush: Boolean = false,
     flowControl: Boolean = true,
-    httpRequestDecompression: (Boolean, Boolean) = null,
+    httpContentDecompression: (Boolean, Boolean) = null,
   )
 
   /**
@@ -158,7 +160,7 @@ object Server {
   private final case class ConsolidateFlush(enabled: Boolean)                          extends Server[Any, Nothing]
   private final case class AcceptContinue(enabled: Boolean)                            extends UServer
   private final case class FlowControl(enabled: Boolean)                               extends UServer
-  private final case class HttpRequestDecompression(enabled: Boolean, strict: Boolean) extends UServer
+  private final case class HttpContentDecompression(enabled: Boolean, strict: Boolean) extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -170,8 +172,8 @@ object Server {
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   def acceptContinue: UServer                                                        = Server.AcceptContinue(true)
-  def httpRequestDecompression(strict: Boolean): UServer                             =
-    Server.HttpRequestDecompression(enabled = true, strict = strict)
+  def httpContentDecompression(strict: Boolean): UServer                             =
+    Server.HttpContentDecompression(enabled = true, strict = strict)
   val disableFlowControl: UServer                                                    = Server.FlowControl(false)
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
