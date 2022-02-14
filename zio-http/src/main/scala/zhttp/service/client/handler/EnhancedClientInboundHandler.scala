@@ -17,9 +17,8 @@ final case class EnhancedClientInboundHandler[R](
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
-    println(s"CHANNEL READ: ${ctx.channel().id()} msg: ${msg.content().readableBytes()}")
+    println(s"CHANNEL READ: ${ctx.channel().id()} ")
     zExec.unsafeRun(ctx)(promise.succeed(ClientResponse.unsafeFromJResponse(msg)))
-//    zExec.unsafeRun(ctx)(promise.complete(zio.Task(ClientResponse.unsafeFromJResponse(msg))))
     ()
   }
 

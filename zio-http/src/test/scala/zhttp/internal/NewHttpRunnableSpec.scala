@@ -97,13 +97,12 @@ abstract class NewHttpRunnableSpec extends DefaultRunnableSpec { self =>
     } yield ()
 
   def status(
-    defaultClient: zio.Task[DefaultClient],
     method: Method = Method.GET,
     path: Path,
   ) = {
     for {
       port   <- DynamicServer.port
-      client <- defaultClient
+      client       <- ZIO.service[DefaultClient]
       status <- client
         .run(
           str = "http://localhost:%d/%s".format(port, path),
