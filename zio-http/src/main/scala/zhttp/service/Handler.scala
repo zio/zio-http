@@ -31,6 +31,8 @@ private[zhttp] final case class Handler[R](
 
         override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
 
+        override def pathAsString: String = jReq.uri()
+
         override def headers: Headers = Headers.make(jReq.headers())
 
         override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())

@@ -13,13 +13,20 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   final override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.headers))
 
-  def copy(method: Method = self.method, url: URL = self.url, headers: Headers = self.headers): Request = {
+  def copy(
+    method: Method = self.method,
+    url: URL = self.url,
+    headers: Headers = self.headers,
+    path: String = self.pathAsString,
+  ): Request = {
     val m = method
     val u = url
     val h = headers
+    val p = path
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
+      override def pathAsString: String               = p
       override def headers: Headers                   = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
       override private[zhttp] def bodyAsByteBuf       = self.bodyAsByteBuf
@@ -57,6 +64,11 @@ trait Request extends HeaderExtension[Request] { self =>
    * Gets the request's path
    */
   def path: Path = url.path
+
+  /**
+   * Gets the request's path as string
+   */
+  def pathAsString: String
 
   /**
    * Gets the remote address if available
@@ -97,14 +109,17 @@ object Request {
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress] = None,
     data: HttpData = HttpData.Empty,
+    path: String = "/",
   ): Request = {
     val m  = method
     val u  = url
     val h  = headers
     val ra = remoteAddress
+    val p  = path
     new Request {
       override def method: Method                              = m
       override def url: URL                                    = u
+      override def pathAsString: String                        = p
       override def headers: Headers                            = h
       override def remoteAddress: Option[InetAddress]          = ra
       override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
@@ -120,8 +135,9 @@ object Request {
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress],
     content: HttpData = HttpData.empty,
+    path: String = "/",
   ): UIO[Request] =
-    UIO(Request(method, url, headers, remoteAddress, content))
+    UIO(Request(method, url, headers, remoteAddress, content, path))
 
   /**
    * Lift request to TypedRequest with option to extract params
@@ -130,6 +146,7 @@ object Request {
     override def headers: Headers                            = req.headers
     override def method: Method                              = req.method
     override def remoteAddress: Option[InetAddress]          = req.remoteAddress
+    override def pathAsString: String                        = req.pathAsString
     override def url: URL                                    = req.url
     override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = req.bodyAsByteBuf
   }
