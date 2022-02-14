@@ -80,7 +80,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Applies Http based only if the condition function evaluates to true
    */
-  final def when[A2 <: A, B1 >: B](f: A2 => Boolean): Http[R, E, A2, B] = Http.When(f, self)
+  final def when[A1 <: A](f: A1 => Boolean): Http[R, E, A1, B] =
+    Http.fromFunctionHExit[A1](a => if (f(a)) self.execute(a.asInstanceOf[A]) else HExit.empty)
 
   /**
    * Makes the app resolve with a constant value
@@ -411,7 +412,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
         self.execute(a).foldExit(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
 
       case RunMiddleware(app, mid) => mid(app).execute(a)
-      case When(f, other)          => if (f(a)) other.execute(a) else HExit.empty
     }
 }
 
@@ -735,8 +735,6 @@ object Http {
   final class PartialFromFunctionHExit[A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](f: A => HExit[R, E, B]): Http[R, E, A, B] = FromFunctionHExit(f)
   }
-
-  private final case class When[R, E, A, B](f: A => Boolean, other: Http[R, E, A, B]) extends Http[R, E, A, B]
 
   private final case class Succeed[B](b: B) extends Http[Any, Nothing, Any, B]
 
