@@ -27,6 +27,7 @@ case class ClientConnectionManager(
   boo: Bootstrap,
   zExec: zhttp.service.HttpRuntime[Any],
 ) {
+
   /**
    *   - core method for getting a connection for a request
    *   - create new connection and increment allocated simultaneously (depending
@@ -80,31 +81,33 @@ case class ClientConnectionManager(
   ) = for {
     // check if idle connection exists for this reqKey
     idleConnectionOpt <- getIdleChannelFromQueue(reqKey)
-    value <- ( for {
-      tRef <- TRef.make(triggerConn(idleConnectionOpt,jReq,promise,reqKey,isWebSocket,isSSL))
-      v <- tRef.get
+    value             <- (for {
+      tRef <- TRef.make(triggerConn(idleConnectionOpt, jReq, promise, reqKey, isWebSocket, isSSL))
+      v    <- tRef.get
     } yield v).commit
   } yield value
 
-  def triggerConn(idleChannelOpt: Option[Connection],
+  def triggerConn(
+    idleChannelOpt: Option[Connection],
     jReq: FullHttpRequest,
-  promise: Promise[Throwable, ClientResponse],
-  reqKey: ReqKey,
-  isWebSocket: Boolean,
-  isSSL: Boolean,
-                 ) = for {
-        connection        <- idleChannelOpt match {
-          case Some(ch) =>
-              println(s"IDLE CHANNEL FOUND REUSING ......$ch")
-              if (ch != null && ch.isReuse) Task{
-                (ch.copy(isReuse = true, isFree = false))
-              }
-              else buildChannel(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey, isWebSocket, isSSL)
-          case None     =>
-            buildChannel(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey, isWebSocket, isSSL)
+    promise: Promise[Throwable, ClientResponse],
+    reqKey: ReqKey,
+    isWebSocket: Boolean,
+    isSSL: Boolean,
+  ) = for {
+    connection <- idleChannelOpt match {
+      case Some(ch) =>
+        println(s"IDLE CHANNEL FOUND REUSING ......$ch")
+        if (ch != null && ch.isReuse) Task {
+          (ch.copy(isReuse = true, isFree = false))
         }
-        _       <- attachHandler(connection, jReq, promise)
-        _       <- addChannelToIdleQueue(reqKey, connection)
+        else
+          buildChannel(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey, isWebSocket, isSSL)
+      case None     =>
+        buildChannel(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey, isWebSocket, isSSL)
+    }
+    _          <- attachHandler(connection, jReq, promise)
+    _          <- addChannelToIdleQueue(reqKey, connection)
 
   } yield connection
 
@@ -147,38 +150,42 @@ case class ClientConnectionManager(
       _ <- prom.succeed(chf.channel())
       // optional can be removed if not really utilised.
       c <- prom.await
-    } yield Connection(c,false, false)
+    } yield Connection(c, false, false)
 
   /*
    mostly kept for debugging purposes
    or if we need to do something during creation lifecycle.
    */
   def attachHandler(
-                     connection: Connection,
-                     jReq: FullHttpRequest,
-                     promise: Promise[Throwable, ClientResponse],
+    connection: Connection,
+    jReq: FullHttpRequest,
+    promise: Promise[Throwable, ClientResponse],
   ) = {
     ZIO
       .effect(
-        connection.channel.newSucceededFuture().addListener(new io.netty.channel.ChannelFutureListener() {
+        connection.channel
+          .newSucceededFuture()
+          .addListener(new io.netty.channel.ChannelFutureListener() {
 
-          override def operationComplete(future: io.netty.channel.ChannelFuture): Unit = {
-            if (!future.isSuccess()) {
-              println(s"error: ${future.cause().getMessage}")
-              future.cause().printStackTrace()
-            } else {
-              if (connection.isReuse) {
-                if (future.channel.pipeline().get(zhttp.service.CLIENT_INBOUND_HANDLER) != null)
-                  future.channel().pipeline().remove(zhttp.service.CLIENT_INBOUND_HANDLER)
+            override def operationComplete(future: io.netty.channel.ChannelFuture): Unit = {
+              if (!future.isSuccess()) {
+                println(s"error: ${future.cause().getMessage}")
+                future.cause().printStackTrace()
+              } else {
+                if (connection.isReuse) {
+                  if (future.channel.pipeline().get(zhttp.service.CLIENT_INBOUND_HANDLER) != null)
+                    future.channel().pipeline().remove(zhttp.service.CLIENT_INBOUND_HANDLER)
+                }
+                future
+                  .channel()
+                  .pipeline()
+                  .addLast(
+                    zhttp.service.CLIENT_INBOUND_HANDLER,
+                    EnhancedClientInboundHandler(zExec, jReq, promise),
+                  ): Unit
               }
-              future.channel().pipeline()
-                .addLast(zhttp.service.CLIENT_INBOUND_HANDLER, EnhancedClientInboundHandler(zExec, jReq, promise)): Unit
-//              println(s"REUSING ?????? for ${connection.channel.id()} ---> ${connection.isReuse}")
-//              future.channel.pipeline().fireChannelActive()
-              ()
             }
-          }
-        }): Unit,
+          }): Unit,
       )
   }
 
@@ -200,7 +207,7 @@ case class ClientConnectionManager(
         connectionState.idleConnectionsMap.update(_ => Map(reqKey -> mutable.Queue.empty[Connection]))
       }
     }
-    chOpt = idleQOpt.flatMap{ q =>
+    chOpt = idleQOpt.flatMap { q =>
       if (q.isEmpty) None else Some(q.dequeue())
     }
   } yield chOpt

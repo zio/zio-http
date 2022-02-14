@@ -13,7 +13,7 @@ import scala.collection.mutable
 
 //
 case class ConnectionRuntime(callback: Promise[Throwable, ClientResponse], currReq: FullHttpRequest, reqKey: ReqKey)
-case class Connection(channel: Channel, isReuse: Boolean, isFree: Boolean )
+case class Connection(channel: Channel, isReuse: Boolean, isFree: Boolean)
 
 case class Timeouts(
   connectionTimeout: Duration = Duration.Infinity,

@@ -44,7 +44,7 @@ object EnhancedClientTest extends App {
       _      <- triggerParallel(client)
 
 //      _      <- ZIO.effect(Thread.sleep(3000))
-      _      <- triggerParallel(client)
+      _ <- triggerParallel(client)
 
     } yield ()
   }
@@ -61,7 +61,7 @@ object EnhancedClientTest extends App {
 //    res <- (p1 zip p2).join
 
 //    res <- zio.Task.foreachPar((1 to 20).toList)(i => cl.run("http://localhost:8081/foo/" + i).flatMap(_.bodyAsString))
-    res <- zio.Task.foreachPar(List(testUrl1,testUrl2, testUrl1, testUrl2))(url => cl.run(url).flatMap(_.bodyAsString))
+    res <- zio.Task.foreachPar(List(testUrl1, testUrl2, testUrl1, testUrl2))(url => cl.run(url).flatMap(_.bodyAsString))
     currActiveConn <- cl.connectionManager.getActiveConnections
     _ <- ZIO.effect(println(s"\n\n PARALLEL EXECUTION \n RESPONSE: $res \n CURRENT CONNECTIONS $currActiveConn \n\n"))
   } yield ()

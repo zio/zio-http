@@ -17,14 +17,14 @@ case class DefaultClient(
 
   // methods for compatibility with existing client use
   def run(req: ClientRequest): Task[ClientResponse] = for {
-    jReq    <- encode(req)
-    _  <- connectionManager.getRequestKey(jReq, req)
-    prom    <- zio.Promise.make[Throwable, ClientResponse]
-    _ <- connectionManager.fetchConnection(jReq, req, prom)
-    resp    <- prom.await
-    _ <- prom.complete(Task(resp))
+    jReq <- encode(req)
+    _    <- connectionManager.getRequestKey(jReq, req)
+    prom <- zio.Promise.make[Throwable, ClientResponse]
+    _    <- connectionManager.fetchConnection(jReq, req, prom)
+    resp <- prom.await
+    _    <- prom.complete(Task(resp))
 //    _       <- connectionManager.addChannelToIdleQueue(reqKey, connection)
-    _       <- ZIO.effect(s"IS DONE ${prom.isDone}")
+    _    <- ZIO.effect(s"IS DONE ${prom.isDone}")
 //    activeConnections <- connectionManager.getActiveConnections
 //    _                 <- ZIO.effect {
 //      println(

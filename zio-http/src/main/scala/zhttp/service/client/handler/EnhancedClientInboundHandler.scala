@@ -17,13 +17,13 @@ final case class EnhancedClientInboundHandler[R](
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
-    println(s"CHANNEL READ: ${ctx.channel().id()} ")
+//    println(s"CHANNEL READ: ${ctx.channel().id()} ")
     zExec.unsafeRun(ctx)(promise.succeed(ClientResponse.unsafeFromJResponse(msg)))
     ()
   }
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
-    println(s"CHANNEL ACTIVE: ${ctx.channel().id()} ")
+//    println(s"CHANNEL ACTIVE: ${ctx.channel().id()} ")
     ctx.writeAndFlush(jReq)
     releaseRequest()
     ()
@@ -43,14 +43,13 @@ final case class EnhancedClientInboundHandler[R](
   }
 
   override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
-    println(s"ECI ADDED ${ctx.channel().id()} ${ctx.name()} ${ctx.channel().isActive}")
+//    println(s"ECI ADDED ${ctx.channel().id()} ${ctx.name()} ${ctx.channel().isActive}")
     if (ctx.channel().isActive) ctx.writeAndFlush(jReq)
-//    if (!ctx.channel().isActive) ctx.fireChannelActive()
     else ctx.fireChannelActive()
     ()
   }
 
   override def handlerRemoved(ctx: ChannelHandlerContext): Unit = {
-    println(s"ECI REMOVED ${ctx.channel().id()} ${ctx.name()} ${ctx.channel().isActive}")
+//    println(s"ECI REMOVED ${ctx.channel().id()} ${ctx.name()} ${ctx.channel().isActive}")
   }
 }

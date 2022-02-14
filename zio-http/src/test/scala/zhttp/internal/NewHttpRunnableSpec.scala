@@ -102,7 +102,7 @@ abstract class NewHttpRunnableSpec extends DefaultRunnableSpec { self =>
   ) = {
     for {
       port   <- DynamicServer.port
-      client       <- ZIO.service[DefaultClient]
+      client <- ZIO.service[DefaultClient]
       status <- client
         .run(
           str = "http://localhost:%d/%s".format(port, path),
