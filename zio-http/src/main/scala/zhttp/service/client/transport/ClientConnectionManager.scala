@@ -173,8 +173,8 @@ case class ClientConnectionManager(
               }
               future.channel().pipeline()
                 .addLast(zhttp.service.CLIENT_INBOUND_HANDLER, EnhancedClientInboundHandler(zExec, jReq, promise)): Unit
-              println(s"REUSING ?????? for ${connection.channel.id()} ---> ${connection.isReuse}")
-              future.channel.pipeline().fireChannelActive()
+//              println(s"REUSING ?????? for ${connection.channel.id()} ---> ${connection.isReuse}")
+//              future.channel.pipeline().fireChannelActive()
               ()
             }
           }

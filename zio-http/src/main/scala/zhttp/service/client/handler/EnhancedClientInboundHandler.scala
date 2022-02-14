@@ -23,9 +23,11 @@ final case class EnhancedClientInboundHandler[R](
   }
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
-//    println(s"CHANNEL ACTIVE: ${ctx.channel()} === ${jReq.headers()}")
+    println(s"CHANNEL ACTIVE: ${ctx.channel().id()} ")
     ctx.writeAndFlush(jReq)
     releaseRequest()
+    ()
+//    releaseRequest()
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
@@ -38,5 +40,17 @@ final case class EnhancedClientInboundHandler[R](
     if (jReq.refCnt() > 0) {
       jReq.release(jReq.refCnt()): Unit
     }
+  }
+
+  override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
+    println(s"ECI ADDED ${ctx.channel().id()} ${ctx.name()} ${ctx.channel().isActive}")
+    if (ctx.channel().isActive) ctx.writeAndFlush(jReq)
+//    if (!ctx.channel().isActive) ctx.fireChannelActive()
+    else ctx.fireChannelActive()
+    ()
+  }
+
+  override def handlerRemoved(ctx: ChannelHandlerContext): Unit = {
+    println(s"ECI REMOVED ${ctx.channel().id()} ${ctx.name()} ${ctx.channel().isActive}")
   }
 }
