@@ -29,9 +29,14 @@ trait Request extends HeaderExtension[Request] { self =>
       override def pathAsString: String               = p
       override def headers: Headers                   = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
-      override private[zhttp] def bodyAsByteBuf       = self.bodyAsByteBuf
+      override def data: HttpData                     = self.data
     }
   }
+
+  /**
+   * Decodes the body as a HttpData
+   */
+  def data: HttpData
 
   /**
    * Decodes the content of request as a Chunk of Bytes
@@ -95,7 +100,7 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   def url: URL
 
-  private[zhttp] def bodyAsByteBuf: Task[ByteBuf]
+  private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
 }
 
 object Request {
@@ -116,13 +121,14 @@ object Request {
     val h  = headers
     val ra = remoteAddress
     val p  = path
+    val d  = data
     new Request {
-      override def method: Method                              = m
-      override def url: URL                                    = u
-      override def pathAsString: String                        = p
-      override def headers: Headers                            = h
-      override def remoteAddress: Option[InetAddress]          = ra
-      override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
+      override def method: Method                     = m
+      override def url: URL                           = u
+      override def pathAsString: String               = p
+      override def headers: Headers                   = h
+      override def remoteAddress: Option[InetAddress] = ra
+      override def data: HttpData                     = d
     }
   }
 
@@ -143,12 +149,12 @@ object Request {
    * Lift request to TypedRequest with option to extract params
    */
   final class ParameterizedRequest[A](req: Request, val params: A) extends Request {
-    override def headers: Headers                            = req.headers
-    override def method: Method                              = req.method
-    override def remoteAddress: Option[InetAddress]          = req.remoteAddress
-    override def pathAsString: String                        = req.pathAsString
-    override def url: URL                                    = req.url
-    override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = req.bodyAsByteBuf
+    override def headers: Headers                   = req.headers
+    override def method: Method                     = req.method
+    override def remoteAddress: Option[InetAddress] = req.remoteAddress
+    override def url: URL                           = req.url
+    override def pathAsString: String               = req.pathAsString
+    override def data: HttpData                     = req.data
   }
 
   object ParameterizedRequest {

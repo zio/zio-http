@@ -1,12 +1,11 @@
 package zhttp.service
 
-import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.WebSocketUpgrade
-import zio.{Task, UIO, ZIO}
+import zio.{UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -35,14 +34,14 @@ private[zhttp] final case class Handler[R](
 
         override def headers: Headers = Headers.make(jReq.headers())
 
-        override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = Task(jReq.content())
-
         override def remoteAddress: Option[InetAddress] = {
           ctx.channel().remoteAddress() match {
             case m: InetSocketAddress => Some(m.getAddress)
             case _                    => None
           }
         }
+
+        override def data: HttpData = HttpData.fromByteBuf(jReq.content())
       },
     )
   }
