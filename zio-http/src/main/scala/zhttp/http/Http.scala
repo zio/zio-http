@@ -425,8 +425,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
       case Combine(self, other) => {
         self.execute(a, ctx) match {
-          case HExit.Success(b)  => HExit.succeed(b.asInstanceOf[B])
-          case HExit.Failure(e)  => HExit.fail(e.asInstanceOf[E])
           case HExit.Effect(zio) => {
             Effect(
               zio.foldM(
@@ -439,6 +437,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
             )
           }
           case HExit.Empty       => other.execute(a, ctx)
+          case u                 => u.asInstanceOf[HExit[R, E, B]]
         }
       }
 
