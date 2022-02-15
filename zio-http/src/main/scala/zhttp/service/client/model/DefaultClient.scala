@@ -17,27 +17,16 @@ case class DefaultClient(
 
   // methods for compatibility with existing client use
   def run(req: ClientRequest): Task[ClientResponse] = for {
-    jReq <- encode(req)
-    reqKey    <- connectionManager.getRequestKey(jReq, req)
-    prom <- zio.Promise.make[Throwable, ClientResponse]
-    conn    <- connectionManager.fetchConnection(jReq, req, prom)
-    resp <- prom.await
-    _    <- prom.complete(Task(resp))
-//    _       <- connectionManager.addChannelToIdleQueue(reqKey, connection)
-//    _    <- ZIO.effect(s"IS DONE ${prom.isDone}")
+    jReq   <- encode(req)
+    reqKey <- connectionManager.getRequestKey(jReq, req)
+    prom   <- zio.Promise.make[Throwable, ClientResponse]
+    conn   <- connectionManager.fetchConnection(jReq, req, prom)
+    resp   <- prom.await
+    _      <- prom.complete(Task(resp))
 
-    _ <- connectionManager.connectionState.clientData.updateAndGet {
-      clientData =>
-        connectionManager.addIdleChannel(conn, reqKey, clientData.currentAllocatedChannels, clientData.idleConnectionsMap)
-    }
-//    _ <- zio.ZIO.effect(println(s"AFTER ADD CHANNEL: ${conn.channel.id} to IDLEQ ${getClientStateData.idleConnectionsMap} \n\n ${getClientStateData.currentAllocatedChannels}"))
-
+    _ <- connectionManager.connectionData
+      .aic(conn, reqKey)
 //    activeConnections <- connectionManager.getActiveConnections
-//    _                 <- ZIO.effect {
-//      println(
-//        s"CURRENT ACTIVE CONNECTIONS: ${activeConnections} ${connectionManager.connectionState.idleConnectionsMap}",
-//      )
-//    }
   } yield resp
 
   // methods for compatibility with existing client use

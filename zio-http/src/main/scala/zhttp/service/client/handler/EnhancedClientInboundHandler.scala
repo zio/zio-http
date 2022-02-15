@@ -4,9 +4,6 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
 import zhttp.service.Client.ClientResponse
 import zhttp.service.HttpRuntime
-import zhttp.service.client.model.ClientConnectionState.ReqKey
-import zhttp.service.client.model.Connection
-import zhttp.service.client.transport.ClientConnectionManager
 import zio.Promise
 
 /**
@@ -17,9 +14,6 @@ final case class EnhancedClientInboundHandler[R](
   zExec: HttpRuntime[R],
   jReq: FullHttpRequest,
   promise: Promise[Throwable, ClientResponse],
-  connectionManager: ClientConnectionManager,
-  reqKey: ReqKey,
-  connection: Connection,
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
@@ -52,8 +46,7 @@ final case class EnhancedClientInboundHandler[R](
 //    println(s"ECI ADDED ${ctx.channel().id()} ${ctx.name()} ${ctx.channel().isActive}")
     if (ctx.channel().isActive) {
       ctx.writeAndFlush(jReq)
-    }
-    else ctx.fireChannelActive()
+    } else ctx.fireChannelActive()
     ()
   }
 

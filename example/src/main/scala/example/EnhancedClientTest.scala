@@ -38,15 +38,13 @@ object EnhancedClientTest extends App {
           ClientSettings.maxConnectionsPerRequestKey(10) ++
           ClientSettings.maxTotalConnections(20)
       ).make
-//      _      <- triggerClientSequential(client)
+      _      <- triggerClientSequential(client)
       _      <- triggerParallel(client)
-//      _ <- zio.ZIO.effect(Thread.sleep(3000))
       _      <- triggerParallel(client)
-//      _ <- zio.ZIO.effect(Thread.sleep(3000))
       _      <- triggerParallel(client)
 
-      clientData <- client.connectionManager.connectionState.clientData.get
-      _ <- ZIO.effect(println(s"MAP AT END: ${clientData.idleConnectionsMap}"))
+//      clientData <- client.connectionManager.connectionState.clientData.get
+//      _ <- ZIO.effect(println(s"MAP AT END: ${clientData.idleConnectionsMap}"))
 
     } yield ()
   }
@@ -61,7 +59,7 @@ object EnhancedClientTest extends App {
 //    res <- zio.Task.foreachPar((1 to 20).toList)(i => cl.run("http://localhost:8081/foo/" + i).flatMap(_.bodyAsString))
     res <- zio.Task.foreachPar(List(testUrl1, testUrl2, testUrl1, testUrl2))(url => cl.run(url).flatMap(_.bodyAsString))
 //    currActiveConn <- cl.connectionManager.getActiveConnections
-    _ <- ZIO.effect(println(s"\n\n PARALLEL EXECUTION \n RESPONSE: $res \n CURRENT CONNECTIONS  \n\n"))
+    _   <- ZIO.effect(println(s"\n\n PARALLEL EXECUTION \n RESPONSE: $res \n CURRENT CONNECTIONS  \n\n"))
   } yield ()
 
   // sequential execution test
