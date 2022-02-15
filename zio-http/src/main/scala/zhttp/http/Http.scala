@@ -4,6 +4,7 @@ import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html.Html
+import zhttp.http.HExit.Effect
 import zhttp.http.headers.HeaderModifier
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
@@ -171,6 +172,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.foldHttp(Http.fail, Http.succeed, other)
 
   /**
+   * Combines two Http into one.
+   */
+  final def combine[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    self.combinetwo(other)
+
+  /**
    * Delays production of output B for the specified duration of time
    */
   final def delay(duration: Duration): Http[R with Clock, E, A, B] = self.delayAfter(duration)
@@ -211,6 +218,9 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     bb: B => Http[R1, E1, A1, B1],
     dd: Http[R1, E1, A1, B1],
   ): Http[R1, E1, A1, B1] = Http.FoldHttp(self, ee, bb, dd)
+
+  final def combinetwo[R1 <: R, A1 <: A, E1, B1](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    Http.Combine(self, other)
 
   /**
    * Extracts the value of the provided header name.
@@ -412,6 +422,25 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
       case FoldHttp(self, ee, bb, dd) =>
         self.execute(a, ctx).foldExit(ee(_).execute(a, ctx), bb(_).execute(a, ctx), dd.execute(a, ctx))
+
+      case Combine(self, other) => {
+        self.execute(a, ctx) match {
+          case HExit.Success(b)  => HExit.succeed(b.asInstanceOf[B])
+          case HExit.Failure(e)  => HExit.fail(e.asInstanceOf[E])
+          case HExit.Effect(zio) => {
+            Effect(
+              zio.foldM(
+                {
+                  case Some(error) => HExit.fail(error.asInstanceOf[E]).toZIO
+                  case None        => other.execute(a, ctx).toZIO
+                },
+                o => HExit.succeed(o.asInstanceOf[B]).toZIO,
+              ),
+            )
+          }
+          case HExit.Empty       => other.execute(a, ctx)
+        }
+      }
 
       case RunMiddleware(app, mid) => mid(app).execute(a, ctx)
     }
@@ -761,6 +790,11 @@ object Http {
     ee: E => Http[R, EE, A, BB],
     bb: B => Http[R, EE, A, BB],
     dd: Http[R, EE, A, BB],
+  ) extends Http[R, EE, A, BB]
+
+  private final case class Combine[R, E, EE, A, B, BB](
+    self: Http[R, E, A, B],
+    other: Http[R, EE, A, BB],
   ) extends Http[R, EE, A, BB]
 
   private final case class RunMiddleware[R, E, A1, B1, A2, B2](
