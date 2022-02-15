@@ -21,7 +21,6 @@ final case class ServerChannelInitializer[R](
   zExec: HttpRuntime[R],
   cfg: Config[R, Throwable],
   reqHandler: ChannelHandler,
-  respHandler: ChannelHandler,
 ) extends ChannelInitializer[Channel] {
   override def initChannel(channel: Channel): Unit = {
     // !! IMPORTANT !!
@@ -69,9 +68,6 @@ final case class ServerChannelInitializer[R](
     // RequestHandler
     // Always add ZIO Http Request Handler
     pipeline.addLast(HTTP_REQUEST_HANDLER, reqHandler)
-
-    // ServerResponseHandler - transforms Response to HttpResponse
-    pipeline.addLast(HTTP_RESPONSE_HANDLER, respHandler)
 
     ()
   }
