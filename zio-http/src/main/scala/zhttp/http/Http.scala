@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.ChannelHandler
+import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html.Html
 import zhttp.http.headers.HeaderModifier
@@ -22,6 +22,7 @@ import scala.annotation.unused
 sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
   import Http._
+  type Ctx = ChannelHandlerContext
 
   /**
    * Attaches the provided middleware to the Http app
@@ -392,26 +393,26 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * performance improves quite significantly if no additional heap allocations
    * are required this way.
    */
-  final private[zhttp] def execute(a: A): HExit[R, E, B] =
+  final private[zhttp] def execute[X](a: X, ctx: Ctx = null)(implicit ev: HttpConvertor[X, A]): HExit[R, E, B] =
     self match {
       case Http.Empty           => HExit.empty
-      case Http.Identity        => HExit.succeed(a.asInstanceOf[B])
+      case Http.Identity        => HExit.succeed(ev.convert(a, ctx).asInstanceOf[B])
       case Succeed(b)           => HExit.succeed(b)
       case Fail(e)              => HExit.fail(e)
-      case FromFunctionHExit(f) => f(a)
-      case Chain(self, other)   => self.execute(a).flatMap(b => other.execute(b))
+      case FromFunctionHExit(f) => f(ev.convert(a, ctx))
+      case Chain(self, other)   => self.execute(a, ctx).flatMap(b => other.execute(b, ctx))
       case Race(self, other)    =>
-        (self.execute(a), other.execute(a)) match {
+        (self.execute(a, ctx), other.execute(a, ctx)) match {
           case (HExit.Effect(self), HExit.Effect(other)) =>
-            Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
+            Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a, ctx)
           case (HExit.Effect(_), other)                  => other
           case (self, _)                                 => self
         }
 
       case FoldHttp(self, ee, bb, dd) =>
-        self.execute(a).foldExit(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
+        self.execute(a, ctx).foldExit(ee(_).execute(a, ctx), bb(_).execute(a, ctx), dd.execute(a, ctx))
 
-      case RunMiddleware(app, mid) => mid(app).execute(a)
+      case RunMiddleware(app, mid) => mid(app).execute(a, ctx)
     }
 }
 
