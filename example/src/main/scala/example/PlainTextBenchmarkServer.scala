@@ -31,10 +31,10 @@ object Main extends App {
   val path1 = "/plaintext"
   val path2 = "/json"
 
-  def app(res: Response, json: Response) =
-    Http.fromFunctionHExit((_: Request) => HExit.succeed(res)).whenPath(path1) ++ Http
-      .fromFunctionHExit((_: Request) => HExit.succeed(json))
-      .whenPath(path2)
+  def app(res: Response, json: Response) = {
+    Http.fromHExit(HExit.succeed(res)).whenPath(path1) ++
+      Http.fromHExit(HExit.succeed(json)).whenPath(path2)
+  }
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     val s = for {
