@@ -19,7 +19,7 @@ object HttpConvertor {
 
         override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
 
-        override def jRequest: FullHttpRequest = jReq
+        override def unsafeEncode: FullHttpRequest = jReq
 
         override def headers: Headers = Headers.make(jReq.headers())
 

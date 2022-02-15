@@ -25,7 +25,7 @@ trait Request extends HeaderExtension[Request] { self =>
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
-      override def jRequest: FullHttpRequest          = self.jRequest
+      override def unsafeEncode: FullHttpRequest      = self.unsafeEncode
       override def headers: Headers                   = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
       override def data: HttpData                     = self.data
@@ -72,7 +72,7 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Gets the request's path as string
    */
-  private[zhttp] def jRequest: FullHttpRequest
+  private[zhttp] def unsafeEncode: FullHttpRequest
 
   /**
    * Gets the remote address if available
@@ -124,7 +124,7 @@ object Request {
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
-      override def jRequest: FullHttpRequest          = p
+      override def unsafeEncode: FullHttpRequest      = p
       override def headers: Headers                   = h
       override def remoteAddress: Option[InetAddress] = ra
       override def data: HttpData                     = d
@@ -152,7 +152,7 @@ object Request {
     override def method: Method                     = req.method
     override def remoteAddress: Option[InetAddress] = req.remoteAddress
     override def url: URL                           = req.url
-    override def jRequest: FullHttpRequest          = req.jRequest
+    override def unsafeEncode: FullHttpRequest      = req.unsafeEncode
     override def data: HttpData                     = req.data
   }
 
