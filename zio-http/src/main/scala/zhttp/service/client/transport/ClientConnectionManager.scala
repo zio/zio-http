@@ -9,7 +9,7 @@ import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.handler.{EnhancedClientChannelInitializer, EnhancedClientInboundHandler}
 import zhttp.service.client.model.ClientConnectionState.ReqKey
 import zhttp.service.client.model.{ClientConnectionState, Connection, Timeouts}
-import zio.stm.TRef
+//import zio.stm.TRef
 import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
@@ -47,8 +47,10 @@ case class ClientConnectionManager(
     reqKey <- getRequestKey(jReq, req)
     isWebSocket = req.url.scheme.exists(_.isWebSocket)
     isSSL       = req.url.scheme.exists(_.isSecure)
+    idleConnectionOpt <- getIdleChannelFromQueue(reqKey)
     connection <- {
-      getConnectionForRequestKey(jReq, promise, reqKey, isWebSocket, isSSL).flatten
+      triggerConn(idleConnectionOpt,jReq,promise,reqKey,isWebSocket,isSSL)
+//      getConnectionForRequestKey(jReq, promise, reqKey, isWebSocket, isSSL).flatten
     }
   } yield connection
 
@@ -72,20 +74,20 @@ case class ClientConnectionManager(
    * @param isSSL
    * @return
    */
-  def getConnectionForRequestKey(
-    jReq: FullHttpRequest,
-    promise: Promise[Throwable, ClientResponse],
-    reqKey: ReqKey,
-    isWebSocket: Boolean,
-    isSSL: Boolean,
-  ) = for {
-    // check if idle connection exists for this reqKey
-    idleConnectionOpt <- getIdleChannelFromQueue(reqKey)
-    value             <- (for {
-      tRef <- TRef.make(triggerConn(idleConnectionOpt, jReq, promise, reqKey, isWebSocket, isSSL))
-      v    <- tRef.get
-    } yield v).commit
-  } yield value
+//  def getConnectionForRequestKey(
+//    jReq: FullHttpRequest,
+//    promise: Promise[Throwable, ClientResponse],
+//    reqKey: ReqKey,
+//    isWebSocket: Boolean,
+//    isSSL: Boolean,
+//  ) = for {
+//    // check if idle connection exists for this reqKey
+//    idleConnectionOpt <- getIdleChannelFromQueue(reqKey)
+//    value             <- (for {
+//      tRef <- TRef.make(triggerConn(idleConnectionOpt, jReq, promise, reqKey, isWebSocket, isSSL))
+//      v    <- tRef.get
+//    } yield v).commit
+//  } yield value
 
   def triggerConn(
     idleChannelOpt: Option[Connection],
@@ -97,17 +99,24 @@ case class ClientConnectionManager(
   ) = for {
     connection <- idleChannelOpt match {
       case Some(ch) =>
-        println(s"IDLE CHANNEL FOUND REUSING ......$ch")
-        if (ch != null && ch.isReuse) Task {
+        println(s"SOME CHANNEL: $ch")
+        if (ch != null) Task {
+          println(s"IDLE CHANNEL FOUND REUSING ......$ch")
           (ch.copy(isReuse = true, isFree = false))
         }
-        else
-          buildChannel(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey, isWebSocket, isSSL)
-      case None     =>
-        buildChannel(jReq: FullHttpRequest, promise: Promise[Throwable, ClientResponse], reqKey, isWebSocket, isSSL)
+        else {
+          println(s"$ch IS NULL building new")
+          buildChannel(reqKey, isWebSocket, isSSL)
+        }
+      case None => {
+        println(s"NONE building new")
+        buildChannel(reqKey, isWebSocket, isSSL)
+      }
     }
-    _          <- attachHandler(connection, jReq, promise)
-    _          <- addChannelToIdleQueue(reqKey, connection)
+    _          <- Task.effect(println(s"ATTACHING HANDLER for ${connection.channel.id}"))
+    _          <- attachHandler(connection, jReq, promise,this,reqKey)
+//    _          <- Task.effect(println(s"ADD CHANNEL TO IDLEQ  for ${connection.channel.id}"))
+//    _          <- addChannelToIdleQueue(reqKey, connection)
 
   } yield connection
 
@@ -128,8 +137,8 @@ case class ClientConnectionManager(
    * @return
    */
   def buildChannel[R](
-    jReq: FullHttpRequest,
-    promise: Promise[Throwable, ClientResponse],
+//    jReq: FullHttpRequest,
+//    promise: Promise[Throwable, ClientResponse],
     reqKey: ReqKey,
     isWebSocket: Boolean = false,
     isSSL: Boolean = false,
@@ -137,7 +146,6 @@ case class ClientConnectionManager(
     for {
       init <- ZIO.effect(
         EnhancedClientChannelInitializer(
-          EnhancedClientInboundHandler(zExec, jReq, promise),
           isWebSocket,
           isSSL,
           reqKey,
@@ -160,6 +168,8 @@ case class ClientConnectionManager(
     connection: Connection,
     jReq: FullHttpRequest,
     promise: Promise[Throwable, ClientResponse],
+    connectionManager: ClientConnectionManager,
+    reqKey: ReqKey,
   ) = {
     ZIO
       .effect(
@@ -181,7 +191,7 @@ case class ClientConnectionManager(
                   .pipeline()
                   .addLast(
                     zhttp.service.CLIENT_INBOUND_HANDLER,
-                    EnhancedClientInboundHandler(zExec, jReq, promise),
+                    EnhancedClientInboundHandler(zExec, jReq, promise,connectionManager,reqKey,connection),
                   ): Unit
               }
             }

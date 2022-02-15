@@ -1,6 +1,6 @@
 package zhttp.service.client.handler
 
-import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer, ChannelPipeline}
+import io.netty.channel.{Channel, ChannelInitializer, ChannelPipeline}
 import io.netty.handler.codec.http.{HttpClientCodec, HttpObjectAggregator}
 import zhttp.service.client.ClientSSLHandler
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
@@ -8,7 +8,6 @@ import zhttp.service.client.model.ClientConnectionState.ReqKey
 import zhttp.service.{HTTP_CLIENT_CODEC, HTTP_OBJECT_AGGREGATOR, SSL_HANDLER}
 
 final case class EnhancedClientChannelInitializer[R](
-  channelHandler: ChannelHandler,
   isWebSocket: Boolean,
   isSSL: Boolean,
   reqKey: ReqKey,
