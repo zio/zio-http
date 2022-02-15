@@ -20,8 +20,6 @@ private[zhttp] final case class Handler[R](
     with WebSocketUpgrade[R]
     with ServerResponseHandler[R] { self =>
 
-  override type Ctx = ChannelHandlerContext
-
   override def channelRead0(ctx: Ctx, jReq: FullHttpRequest): Unit = {
     jReq.touch("server.Handler-channelRead0")
     implicit val iCtx: ChannelHandlerContext = ctx
