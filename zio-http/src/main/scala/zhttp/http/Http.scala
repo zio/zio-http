@@ -586,7 +586,7 @@ object Http {
   /**
    * Creates a Http from HExit[R,E,B]
    */
-  def fromHExit[R, E, A >: Request, B]: PartialFromHExit[A] = new PartialFromHExit[A](())
+  def fromHExit[R, E, B](h: HExit[R, E, B]): Http[R, E, Any, B] = FromHExit(h)
 
   /**
    * Creates an `Http` from a function that takes a value of type `A` and
@@ -741,10 +741,6 @@ object Http {
 
   final class PartialFromFunctionHExit[A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](f: A => HExit[R, E, B]): Http[R, E, A, B] = FromFunctionHExit(f)
-  }
-
-  final class PartialFromHExit[A](val unit: Unit) extends AnyVal {
-    def apply[R, E, B](h: HExit[R, E, B]): Http[R, E, A, B] = FromHExit(h)
   }
 
   private final case class Succeed[B](b: B) extends Http[Any, Nothing, Any, B]
