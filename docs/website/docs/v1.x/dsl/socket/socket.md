@@ -3,9 +3,7 @@ title: "Socket"
 sidebar_label: "Socket"
 ---
 
-A `Socket` is polymorphic on input and output type.
-
-A `Socket[-R, +E, -A, +B]` models a function from `A` to `ZIO[R, Option[E], B]`. When a value of type `A` is evaluated against a `Socket[R,E,A,B]`, it can either succeed with a `B`, fail with `Some[E]` or if `A` is  not defined in the application, fail with `None`.
+`Socket[-R, +E, -A, +B]` models a function from `A` to `ZStream[R, E, B]`. When a value of type `A` is evaluated against a `Socket[R, E, A, B]`, it can either succeed with a `B`, or fail with an `E`, and it could have its requirement on `R`.
 
 ## Creating Sockets
 
@@ -27,7 +25,7 @@ val socket = Socket.end
 
 ### Socket that always succeeds
 
-To create a Socket that always returns the same response and never fails, you can use the `succeed` constructor.
+You can use the `succeed` constructor to create a Socket that always returns the same response and never fails.
 
 ```scala
 val socket = Socket.succeed(WebSocketFrame.text("Hello, from ZIO-HTTP"))
@@ -35,7 +33,7 @@ val socket = Socket.succeed(WebSocketFrame.text("Hello, from ZIO-HTTP"))
 
 ### Socket that echoes the message
 
-To create a Socket that always echoes back the message, you can use the `echo` constructor.
+You can use the `echo` constructor to create a Socket that always echoes back the message.
 
 ```scala
 val socket = Socket.echo(WebSocketFrame.text("Hello, from ZIO-HTTP"))
@@ -43,7 +41,7 @@ val socket = Socket.echo(WebSocketFrame.text("Hello, from ZIO-HTTP"))
 
 ### Socket from a partial function
 
-`Socket.collect` can create a `Socket[R, E, A, B]` from a `PartialFunction[A,B]`.
+`Socket.collect` can create a `Socket[R, E, A, B]` from a `PartialFunction[A, B]`.
 
 ```scala
 val fromCollect = Socket.collect[WebSocketFrame] {
@@ -62,7 +60,7 @@ val socket = Socket.fromFunction[WebSocketFrame](wsf => ZStream.succeed(wsf))
 
 ### Socket from a ZStream
 
-To create a socket from a `ZStream[R,E,B]`, you can use the `fromStream` constructor.
+To create a socket from a `ZStream[R, E, B]`, you can use the `fromStream` constructor.
 
 ```scala
 val transducer = ZTransducer[Int].map(elem => WebSocketFrame.Text(elem.toString))
@@ -73,11 +71,23 @@ val stream     = ZStream
 val socket = Socket.fromStream(stream)
 ```
 
+## Composing Sockets
+
+### Using `merge`
+
+You can merge to Sockets using the `merge` operator, the resulting Socket will emit the values of both Sockets.
+
+```scala
+val s1 = Socket.succeed(WebSocketFrame.text("Hello, from ZIO-HTTP"))
+val s2 = Socket.succeed(WebSocketFrame.text("Welcome to the party"))
+val socket = s1 merge s2
+```
+
 ## Transforming Sockets
 
 ### `map` over a Socket's output channel
 
-Socket is a monad, so you can use `map` to transform the output of a Socket from type `Socket[R,E,A,B]` to type `Socket[R,E,A,C]`, it takes a function from `B => Socket[R,E,A,C]`.
+Socket is a monad, so you can use `map` to transform the output of a Socket from type `Socket[R, E, A, B]` to type `Socket[R, E, A, C]`, it takes a function from `B => Socket[R, E, A, C]`.
 
 ```scala
 val sc     = Socket.succeed("Hello, from ZIO-HTTP")
@@ -85,7 +95,7 @@ val socket = sc.map(text => WebSocketFrame.text(text))
 ```
 
 You can also transform the output of a Socket effecfully using the `mapZIO` operator. It takes a function
- `B => ZIO[R,E,C]` and returns a Socket of type `Socket[R,E,A,C]`.
+ `B => ZIO[R, E, C]` and returns a Socket of type `Socket[R, E, A, C]`.
 
 ### `contramap` over a Socket's input channel
 
@@ -105,4 +115,52 @@ val sc     = Socket.collect[String] { case text => ZStream(text) }
 val socket = sc.contramapZIO[Any, Throwable, WebSocketFrame.Text](wsf => ZIO(wsf.text))
 
 val res = socket(WebSocketFrame.Text("Hello, from ZIO-HTTP"))
+```
+
+## Providing environment
+
+### Using `provideEnvironment`
+
+You can use the `provideEnvironment` to provide a Socket with its required environment, which eliminates its dependency on R.
+
+:::info
+This operation assumes that the Socket requires an environment of type `R`.
+:::
+
+```scala
+val socket = Socket
+  .fromStream(ZStream.environment[WebSocketFrame])
+  .provideEnvironment(WebSocketFrame.text("Hello, from ZIO-HTTP"))
+```
+
+## Special operators on Socket
+
+There are special operators on Socket that let you transform it into other entities in ZIO-HTTP
+
+:::info
+These operators only work if the Socket is an instance of `Socket[R, Throwable, WebSocketFrame, WebSocketFrame]`
+:::
+
+### `toHttp`
+
+You can use the `toHttp` operator to convert a Socket to an `HTTP[-R, +E, +A, -B]`.
+
+```scala
+val http = Socket.succeed(WebSocketFrame.text("Hello, from ZIO-HTTP")).toHttp
+```
+
+### `toResponse`
+
+You can use the `toResponse` operator to convert a Socket to a `Response`.
+
+```scala
+val response = Socket.succeed(WebSocketFrame.text("Hello, from ZIO-HTTP")).toResponse
+```
+
+### `toSocketApp`
+
+You can use the `toSocketApp` operator to covert a Socket to a `SocketApp`.
+
+```scala
+val app = Socket.succeed(WebSocketFrame.text("Hello, from ZIO-HTTP")).toSocketApp
 ```
