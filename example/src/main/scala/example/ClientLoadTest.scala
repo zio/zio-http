@@ -23,9 +23,6 @@ object ClientLoadTest extends App {
       res = (body, resp.status.asJava.code())
     } yield res
   }
-//    Client
-//      .request(ClientRequest(url, Method.GET))
-//      .flatMap(result => result.bodyAsString.map((_, result.status.asJava.code)))
 
   def stream(url: URL, batchSize: Int, defaultClient: DefaultClient) =
     ZStream
