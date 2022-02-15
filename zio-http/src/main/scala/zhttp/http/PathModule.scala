@@ -17,15 +17,14 @@ private[zhttp] trait PathModule { module =>
     final def drop(n: Int): Path = Path(self.toList.drop(n))
 
     final def encode: String = {
-      @tailrec
-      def loop(self: Path, str: String): String = {
+      def loop(self: Path): String = {
         self match {
-          case Path.End              => str
-          case Path.Cons(name, path) => loop(path, s"$str/$name")
+          case Path.End              => ""
+          case Path.Cons(name, path) => s"/${name}${loop(path)}"
         }
       }
-      val res                                   = loop(self, "")
-      if (res.isEmpty) "/" else res
+      val result                   = loop(self)
+      if (result.isEmpty) "/" else result
     }
 
     final def initial: Path = self match {
