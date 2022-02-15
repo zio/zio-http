@@ -8,12 +8,13 @@ import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.handler.{EnhancedClientChannelInitializer, EnhancedClientInboundHandler}
 import zhttp.service.client.model.ClientConnectionState.ReqKey
-import zhttp.service.client.model.{ClientConnectionState, Connection, Timeouts}
+import zhttp.service.client.model.{ClientConnectionState, ClientConnectionStateData, Connection, Timeouts}
+
+import scala.collection.immutable
 //import zio.stm.TRef
 import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
-import scala.collection.mutable
 
 /*
   Can hold atomic reference to ZConnectionState comprising of
@@ -47,12 +48,14 @@ case class ClientConnectionManager(
     reqKey <- getRequestKey(jReq, req)
     isWebSocket = req.url.scheme.exists(_.isWebSocket)
     isSSL       = req.url.scheme.exists(_.isSecure)
-    idleConnectionOpt <- getIdleChannelFromQueue(reqKey)
-    connection <- {
-      triggerConn(idleConnectionOpt,jReq,promise,reqKey,isWebSocket,isSSL)
-//      getConnectionForRequestKey(jReq, promise, reqKey, isWebSocket, isSSL).flatten
+    getClientStateData <- connectionState.clientData.updateAndGet {
+      clientData =>
+        getIdleChannel(reqKey, clientData.currentAllocatedChannels, clientData.idleConnectionsMap)
+
     }
-  } yield connection
+    _ <- Task.effect(println(s"getClientStateData: $getClientStateData"))
+    conn <- triggerConn(getClientStateData.tempData,jReq,promise,reqKey,isWebSocket,isSSL)
+  } yield conn
 
   def getRequestKey(jReq: FullHttpRequest, req: ClientRequest) = for {
     uri <- Task(new java.net.URI(jReq.uri()))
@@ -74,20 +77,6 @@ case class ClientConnectionManager(
    * @param isSSL
    * @return
    */
-//  def getConnectionForRequestKey(
-//    jReq: FullHttpRequest,
-//    promise: Promise[Throwable, ClientResponse],
-//    reqKey: ReqKey,
-//    isWebSocket: Boolean,
-//    isSSL: Boolean,
-//  ) = for {
-//    // check if idle connection exists for this reqKey
-//    idleConnectionOpt <- getIdleChannelFromQueue(reqKey)
-//    value             <- (for {
-//      tRef <- TRef.make(triggerConn(idleConnectionOpt, jReq, promise, reqKey, isWebSocket, isSSL))
-//      v    <- tRef.get
-//    } yield v).commit
-//  } yield value
 
   def triggerConn(
     idleChannelOpt: Option[Connection],
@@ -97,9 +86,11 @@ case class ClientConnectionManager(
     isWebSocket: Boolean,
     isSSL: Boolean,
   ) = for {
+    clientData <- connectionState.clientData.get
     connection <- idleChannelOpt match {
       case Some(ch) =>
-        println(s"SOME CHANNEL: $ch")
+        println(s"SOME CHANNEL: $ch  clientData.currentAllocatedChannels: ${clientData.currentAllocatedChannels}")
+//        if (ch != null && !clientData.currentAllocatedChannels.contains(ch.channel)) Task {
         if (ch != null) Task {
           println(s"IDLE CHANNEL FOUND REUSING ......$ch")
           (ch.copy(isReuse = true, isFree = false))
@@ -115,9 +106,6 @@ case class ClientConnectionManager(
     }
     _          <- Task.effect(println(s"ATTACHING HANDLER for ${connection.channel.id}"))
     _          <- attachHandler(connection, jReq, promise,this,reqKey)
-//    _          <- Task.effect(println(s"ADD CHANNEL TO IDLEQ  for ${connection.channel.id}"))
-//    _          <- addChannelToIdleQueue(reqKey, connection)
-
   } yield connection
 
   /**
@@ -199,41 +187,56 @@ case class ClientConnectionManager(
       )
   }
 
-  def getActiveConnections: Task[Int] = for {
-    alloc   <- connectionState.currentAllocatedChannels.get
-//    _       <- ZIO.effect(println(s"alloc size: ${alloc.size}"))
-    idleMap <- connectionState.idleConnectionsMap.get
-    idle = idleMap.values.foldLeft(0) { (acc, q) => acc + q.size }
-//    _ <- ZIO.effect(println(s"idle size: $idleMap ${idle}"))
-  } yield (alloc.size + idle)
-
-  def getIdleChannelFromQueue(reqKey: ReqKey) = for {
-    idleMap <- connectionState.idleConnectionsMap.get
-    idleQOpt = idleMap.get(reqKey)
+  def getIdleChannel(reqKey: ReqKey, currentAllocatedChannels: Map[Channel, ReqKey],
+                     idleConnectionsMap: Map[ReqKey, immutable.Queue[Connection]]) =  {
+    val idleMap =
+      if (idleConnectionsMap.get(reqKey).isEmpty) (idleConnectionsMap + (reqKey -> immutable.Queue.empty[Connection]))
+      else idleConnectionsMap
+    val idleQ = idleMap(reqKey)
     // if no queue exists for this req key add an empty queue
-    _ <- Task {
-      if (idleQOpt.isEmpty) {
-//        println(s"NO QUEUE EXISTS FOR REQ KEY : $reqKey ADDING AN EMPTY QUEUE $idleQOpt")
-        connectionState.idleConnectionsMap.update(_ => Map(reqKey -> mutable.Queue.empty[Connection]))
+    val defaultState = ClientConnectionStateData(None, currentAllocatedChannels, idleMap)
+    val res = if (idleQ.isEmpty) defaultState else {
+      val conn = idleQ.dequeue
+      println(s"CONN: $conn === $currentAllocatedChannels")
+      if (conn == null) defaultState
+      else {
+        val newCurrMap = currentAllocatedChannels.updated(conn._1.channel, reqKey)
+        println(s"newCurrMap: $newCurrMap")
+        val newIdleMap = idleMap.updated(reqKey,conn._2)
+        ClientConnectionStateData(Some(conn._1),newCurrMap, newIdleMap)
       }
     }
-    chOpt = idleQOpt.flatMap { q =>
-      if (q.isEmpty) None else Some(q.dequeue())
-    }
-  } yield chOpt
+    println(s"RES: $res")
+    res
+  }
 
-  def addChannelToIdleQueue(reqKey: ReqKey, connection: Connection) = for {
-    idleMap <- connectionState.idleConnectionsMap.get
-    idleQueue = idleMap.get(reqKey)
-    _ <- idleQueue.fold(
-      connectionState.idleConnectionsMap.update(m => m + (reqKey -> mutable.Queue.empty[Connection])),
-    ) { q =>
-      connectionState.idleConnectionsMap.update { m =>
-        q.enqueue(connection.copy(isFree = true))
-        m + (reqKey -> q)
+  def addIdleChannel(connection: Connection, reqKey: ReqKey, currentAllocatedChannels: Map[Channel, ReqKey],
+                     idleConnectionsMap: Map[ReqKey, immutable.Queue[Connection]]) =  {
+    val currMap = if (currentAllocatedChannels.contains(connection.channel)){
+      currentAllocatedChannels.removed(connection.channel)
+    } else currentAllocatedChannels
+    println(s"${connection.channel.id()} === CURRMAP BEFORE: $currentAllocatedChannels CURRMAP AFTER: $currMap")
+
+    val idleMap =
+      if (idleConnectionsMap.get(reqKey).isEmpty) Map(reqKey -> immutable.Queue(connection))
+      else {
+        val q = idleConnectionsMap(reqKey)
+        val isPresent = !q.filter(_.channel.id() == connection.channel.id()).isEmpty
+        println(s"q: $q contains $connection ? ${q.contains(connection)} $isPresent")
+        if (isPresent) idleConnectionsMap
+        else Map(reqKey -> q.enqueue(connection))
       }
-    }
-  } yield idleMap
+
+    ClientConnectionStateData(None, currMap, idleMap)
+  }
+
+//  def getActiveConnections: Task[Int] = for {
+//    alloc   <- connectionState.currentAllocatedChannels.get
+////    _       <- ZIO.effect(println(s"alloc size: ${alloc.size}"))
+//    idleMap <- connectionState.idleConnectionsMap.get
+//    idle = idleMap.values.foldLeft(0) { (acc, q) => acc + q.size }
+////    _ <- ZIO.effect(println(s"idle size: $idleMap ${idle}"))
+//  } yield (alloc.size + idle)
 
 //    def incrementConnection: Unit = ???
 //    def decrementConnection = ???

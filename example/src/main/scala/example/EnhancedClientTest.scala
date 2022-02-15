@@ -40,8 +40,13 @@ object EnhancedClientTest extends App {
       ).make
 //      _      <- triggerClientSequential(client)
       _      <- triggerParallel(client)
+//      _ <- zio.ZIO.effect(Thread.sleep(3000))
       _      <- triggerParallel(client)
+//      _ <- zio.ZIO.effect(Thread.sleep(3000))
       _      <- triggerParallel(client)
+
+      clientData <- client.connectionManager.connectionState.clientData.get
+      _ <- ZIO.effect(println(s"MAP AT END: ${clientData.idleConnectionsMap}"))
 
     } yield ()
   }
@@ -55,8 +60,8 @@ object EnhancedClientTest extends App {
   def triggerParallel(cl: DefaultClient) = for {
 //    res <- zio.Task.foreachPar((1 to 20).toList)(i => cl.run("http://localhost:8081/foo/" + i).flatMap(_.bodyAsString))
     res <- zio.Task.foreachPar(List(testUrl1, testUrl2, testUrl1, testUrl2))(url => cl.run(url).flatMap(_.bodyAsString))
-    currActiveConn <- cl.connectionManager.getActiveConnections
-    _ <- ZIO.effect(println(s"\n\n PARALLEL EXECUTION \n RESPONSE: $res \n CURRENT CONNECTIONS $currActiveConn \n\n"))
+//    currActiveConn <- cl.connectionManager.getActiveConnections
+    _ <- ZIO.effect(println(s"\n\n PARALLEL EXECUTION \n RESPONSE: $res \n CURRENT CONNECTIONS  \n\n"))
   } yield ()
 
   // sequential execution test
@@ -67,13 +72,13 @@ object EnhancedClientTest extends App {
     resp2 <- cl.run(testUrl2).flatMap(_.bodyAsString)
     _     <- ZIO.effect(println(s"Response Content from $testUrl2 ${resp2.length} \n ----- \n"))
 
-    currActiveConn <- cl.connectionManager.getActiveConnections
-    idleMap        <- cl.connectionManager.connectionState.idleConnectionsMap.get
-    _              <- ZIO.effect(
-      println(
-        s"Number of active connections for four requests: $currActiveConn \n\n connections map ${idleMap}",
-      ),
-    )
+//    currActiveConn <- cl.connectionManager.getActiveConnections
+//    idleMap        <- cl.connectionManager.connectionState.idleConnectionsMap.get
+//    _              <- ZIO.effect(
+//      println(
+//        s"Number of active connections for four requests: $currActiveConn \n\n connections map ${idleMap}",
+//      ),
+//    )
   } yield ()
 
 }

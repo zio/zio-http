@@ -9,11 +9,15 @@ import zio.{Promise, Ref}
 
 import java.net.InetSocketAddress
 import java.time.Instant
-import scala.collection.mutable
+import scala.collection.{immutable}
 
 //
 case class ConnectionRuntime(callback: Promise[Throwable, ClientResponse], currReq: FullHttpRequest, reqKey: ReqKey)
-case class Connection(channel: Channel, isReuse: Boolean, isFree: Boolean)
+case class Connection(channel: Channel, isReuse: Boolean, isFree: Boolean){
+  override def canEqual(that: Any): Boolean = {
+    this.channel.id == that.asInstanceOf[Connection].channel.id()
+  }
+}
 
 case class Timeouts(
   connectionTimeout: Duration = Duration.Infinity,
@@ -23,13 +27,14 @@ case class Timeouts(
 
 case class PendingRequest(req: FullHttpRequest, requestedTime: Instant)
 
-// TBD: Choose which data structures or a group of data structures to be made thread safe
-case class ClientConnectionState(
-  currentAllocatedChannels: Ref[Map[Channel, ConnectionRuntime]],
-  currentAllocatedRequests: Map[ReqKey, Int] = Map.empty[ReqKey, Int],
-  idleConnectionsMap: Ref[Map[ReqKey, mutable.Queue[Connection]]],
-  waitingRequestQueue: mutable.Queue[PendingRequest] = mutable.Queue.empty[PendingRequest],
-) {
+case class ClientConnectionState(clientData: Ref[ClientConnectionStateData])
+case class ClientConnectionStateData(
+                                    tempData: Option[Connection],
+                                  currentAllocatedChannels: Map[Channel, ReqKey],
+                                  idleConnectionsMap: Map[ReqKey, immutable.Queue[Connection]],
+                                    currentAllocatedRequests: Map[ReqKey, Int] = Map.empty[ReqKey, Int],
+                                  waitingRequestQueue: immutable.Queue[PendingRequest] = immutable.Queue.empty[PendingRequest],
+                                ) {
   // TBD thready safety and appropriate namespace
   var currMaxTotalConnections: Int     = 0
   var currMaxConnectionPerRequest: Int = 0
@@ -37,7 +42,21 @@ case class ClientConnectionState(
 
 }
 
+// TBD: Choose which data structures or a group of data structures to be made thread safe
+//case class ClientConnectionState(
+//  currentAllocatedChannels: Ref[Map[Channel, ConnectionRuntime]],
+//  currentAllocatedRequests: Map[ReqKey, Int] = Map.empty[ReqKey, Int],
+//  idleConnectionsMap: Ref[Map[ReqKey, immutable.Queue[Connection]]],
+//  waitingRequestQueue: immutable.Queue[PendingRequest] = immutable.Queue.empty[PendingRequest],
+//) {
+//  // TBD thready safety and appropriate namespace
+//  var currMaxTotalConnections: Int     = 0
+//  var currMaxConnectionPerRequest: Int = 0
+//  var currMaxWaitingReq: Int           = 0
+//
+//}
+
 object ClientConnectionState {
   type ReqKey = InetSocketAddress
-  def emptyIdleConnectionMap = Map.empty[ReqKey, mutable.Queue[Connection]]
+  def emptyIdleConnectionMap = Map.empty[ReqKey, immutable.Queue[Connection]]
 }
