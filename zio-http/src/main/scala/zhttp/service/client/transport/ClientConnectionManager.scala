@@ -138,8 +138,6 @@ case class ClientConnectionManager(
     } yield Connection(c, false)
 
   /*
-   mostly kept for debugging purposes
-   or if we need to do something during creation lifecycle.
    */
   def attachHandler(
     connection: Connection,
