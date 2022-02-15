@@ -86,10 +86,10 @@ case class ClientConnectionManager(
     isWebSocket: Boolean,
     isSSL: Boolean,
   ) = for {
-    clientData <- connectionState.clientData.get
+//    clientData <- connectionState.clientData.get
     connection <- idleChannelOpt match {
       case Some(ch) =>
-        println(s"SOME CHANNEL: $ch  clientData.currentAllocatedChannels: ${clientData.currentAllocatedChannels}")
+//        println(s"SOME CHANNEL: $ch  clientData.currentAllocatedChannels: ${clientData.currentAllocatedChannels}")
 //        if (ch != null && !clientData.currentAllocatedChannels.contains(ch.channel)) Task {
         if (ch != null) Task {
           println(s"IDLE CHANNEL FOUND REUSING ......$ch")
@@ -104,7 +104,7 @@ case class ClientConnectionManager(
         buildChannel(reqKey, isWebSocket, isSSL)
       }
     }
-    _          <- Task.effect(println(s"ATTACHING HANDLER for ${connection.channel.id}"))
+//    _          <- Task.effect(println(s"ATTACHING HANDLER for ${connection.channel.id}"))
     _          <- attachHandler(connection, jReq, promise,this,reqKey)
   } yield connection
 
@@ -197,16 +197,16 @@ case class ClientConnectionManager(
     val defaultState = ClientConnectionStateData(None, currentAllocatedChannels, idleMap)
     val res = if (idleQ.isEmpty) defaultState else {
       val conn = idleQ.dequeue
-      println(s"CONN: $conn === $currentAllocatedChannels")
+//      println(s"CONN: $conn === $currentAllocatedChannels")
       if (conn == null) defaultState
       else {
         val newCurrMap = currentAllocatedChannels.updated(conn._1.channel, reqKey)
-        println(s"newCurrMap: $newCurrMap")
+//        println(s"newCurrMap: $newCurrMap")
         val newIdleMap = idleMap.updated(reqKey,conn._2)
         ClientConnectionStateData(Some(conn._1),newCurrMap, newIdleMap)
       }
     }
-    println(s"RES: $res")
+//    println(s"RES: $res")
     res
   }
 
@@ -215,14 +215,14 @@ case class ClientConnectionManager(
     val currMap = if (currentAllocatedChannels.contains(connection.channel)){
       currentAllocatedChannels.removed(connection.channel)
     } else currentAllocatedChannels
-    println(s"${connection.channel.id()} === CURRMAP BEFORE: $currentAllocatedChannels CURRMAP AFTER: $currMap")
+//    println(s"${connection.channel.id()} === CURRMAP BEFORE: $currentAllocatedChannels CURRMAP AFTER: $currMap")
 
     val idleMap =
       if (idleConnectionsMap.get(reqKey).isEmpty) Map(reqKey -> immutable.Queue(connection))
       else {
         val q = idleConnectionsMap(reqKey)
         val isPresent = !q.filter(_.channel.id() == connection.channel.id()).isEmpty
-        println(s"q: $q contains $connection ? ${q.contains(connection)} $isPresent")
+//        println(s"q: $q contains $connection ? ${q.contains(connection)} $isPresent")
         if (isPresent) idleConnectionsMap
         else Map(reqKey -> q.enqueue(connection))
       }

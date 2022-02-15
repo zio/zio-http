@@ -14,6 +14,7 @@ object ClientLoadTest extends App {
 
   val sleep = "http://localhost:8080/healthcheck"
 
+  var count = 0
   val client                                      = Client.make(ClientSettings.threads(8))
   def get(url: URL, defaultClient: DefaultClient) = {
     for {
@@ -38,7 +39,12 @@ object ClientLoadTest extends App {
   val app = for {
     cl  <- Client.make(ClientSettings.threads(8))
     url <- ZIO.fromEither(URL.fromString(sleep))
-    _   <- stream(url, 2, cl).zipWithIndex.foreach(s => putStrLn(s.toString))
+    _   <- stream(url, 50, cl).zipWithIndex.foreach {
+      s =>
+        count += 1
+        println(s" VAR : $count")
+        putStrLn(s"stream: ${s.toString}")
+    }
   } yield ()
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

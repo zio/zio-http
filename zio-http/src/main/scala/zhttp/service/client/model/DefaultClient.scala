@@ -24,13 +24,13 @@ case class DefaultClient(
     resp <- prom.await
     _    <- prom.complete(Task(resp))
 //    _       <- connectionManager.addChannelToIdleQueue(reqKey, connection)
-    _    <- ZIO.effect(s"IS DONE ${prom.isDone}")
+//    _    <- ZIO.effect(s"IS DONE ${prom.isDone}")
 
-    getClientStateData <- connectionManager.connectionState.clientData.updateAndGet {
+    _ <- connectionManager.connectionState.clientData.updateAndGet {
       clientData =>
         connectionManager.addIdleChannel(conn, reqKey, clientData.currentAllocatedChannels, clientData.idleConnectionsMap)
     }
-    _ <- zio.ZIO.effect(println(s"AFTER ADD CHANNEL: ${conn.channel.id} to IDLEQ ${getClientStateData.idleConnectionsMap} \n\n ${getClientStateData.currentAllocatedChannels}"))
+//    _ <- zio.ZIO.effect(println(s"AFTER ADD CHANNEL: ${conn.channel.id} to IDLEQ ${getClientStateData.idleConnectionsMap} \n\n ${getClientStateData.currentAllocatedChannels}"))
 
 //    activeConnections <- connectionManager.getActiveConnections
 //    _                 <- ZIO.effect {

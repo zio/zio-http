@@ -49,7 +49,7 @@ final case class EnhancedClientInboundHandler[R](
   }
 
   override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
-    println(s"ECI ADDED ${ctx.channel().id()} ${ctx.name()} ${ctx.channel().isActive}")
+//    println(s"ECI ADDED ${ctx.channel().id()} ${ctx.name()} ${ctx.channel().isActive}")
     if (ctx.channel().isActive) {
       ctx.writeAndFlush(jReq)
     }
@@ -58,6 +58,6 @@ final case class EnhancedClientInboundHandler[R](
   }
 
   override def handlerRemoved(ctx: ChannelHandlerContext): Unit = {
-    println(s"ECI REMOVED ${ctx.channel().id()} ${ctx.name()} ${ctx.channel().isActive}")
+//    println(s"ECI REMOVED ${ctx.channel().id()} ${ctx.name()} ${ctx.channel().isActive}")
   }
 }
