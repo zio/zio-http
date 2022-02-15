@@ -453,7 +453,7 @@ object Http {
     /**
      * Applies Http based on the path as string
      */
-    def whenPath(p: String): HttpApp[R, E] = http.when((a: Request) => a.pathAsString.contentEquals(p))
+    def whenPath(p: String): HttpApp[R, E] = http.when((a: Request) => a.jRequest.uri().contentEquals(p))
 
     /**
      * Updates the response headers using the provided function

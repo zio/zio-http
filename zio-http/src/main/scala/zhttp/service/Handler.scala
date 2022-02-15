@@ -30,7 +30,7 @@ private[zhttp] final case class Handler[R](
 
         override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
 
-        override def pathAsString: String = jReq.uri()
+        override def jRequest: FullHttpRequest = jReq
 
         override def headers: Headers = Headers.make(jReq.headers())
 

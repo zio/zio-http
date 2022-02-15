@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
+import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.http.headers.HeaderExtension
 import zio.{Chunk, Task, UIO}
 
@@ -17,16 +18,14 @@ trait Request extends HeaderExtension[Request] { self =>
     method: Method = self.method,
     url: URL = self.url,
     headers: Headers = self.headers,
-    path: String = self.pathAsString,
   ): Request = {
     val m = method
     val u = url
     val h = headers
-    val p = path
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
-      override def pathAsString: String               = p
+      override def jRequest: FullHttpRequest          = self.jRequest
       override def headers: Headers                   = h
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
       override def data: HttpData                     = self.data
@@ -73,7 +72,7 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Gets the request's path as string
    */
-  def pathAsString: String
+  private[zhttp] def jRequest: FullHttpRequest
 
   /**
    * Gets the remote address if available
@@ -114,18 +113,18 @@ object Request {
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress] = None,
     data: HttpData = HttpData.Empty,
-    path: String = "/",
+    jReq: FullHttpRequest = null,
   ): Request = {
     val m  = method
     val u  = url
     val h  = headers
     val ra = remoteAddress
-    val p  = path
+    val p  = jReq
     val d  = data
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
-      override def pathAsString: String               = p
+      override def jRequest: FullHttpRequest          = p
       override def headers: Headers                   = h
       override def remoteAddress: Option[InetAddress] = ra
       override def data: HttpData                     = d
@@ -141,9 +140,9 @@ object Request {
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress],
     content: HttpData = HttpData.empty,
-    path: String = "/",
+    jRequest: FullHttpRequest = null,
   ): UIO[Request] =
-    UIO(Request(method, url, headers, remoteAddress, content, path))
+    UIO(Request(method, url, headers, remoteAddress, content, jRequest))
 
   /**
    * Lift request to TypedRequest with option to extract params
@@ -153,7 +152,7 @@ object Request {
     override def method: Method                     = req.method
     override def remoteAddress: Option[InetAddress] = req.remoteAddress
     override def url: URL                           = req.url
-    override def pathAsString: String               = req.pathAsString
+    override def jRequest: FullHttpRequest          = req.jRequest
     override def data: HttpData                     = req.data
   }
 
