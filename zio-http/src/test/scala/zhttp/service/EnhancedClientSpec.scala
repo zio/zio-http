@@ -38,31 +38,9 @@ object EnhancedClientSpec extends NewHttpRunnableSpec {
       }
   }
 
-  def connectionReuseSpec = suite("ConnectionPoolSpec") {
-    testM("reuse connection") {
-      val app = Http.empty
-      val res = for {
-        _      <- app.deploy.run()
-        count1 <- clientConnections
-        _      <- app.deploy.run()
-        count2 <- clientConnections
-      } yield (count1 == count2)
-      assertM(res)(isTrue)
-    } +
-      testM("large response") {
-        assertCompletesM
-      } +
-      testM("parallel requests") {
-        assertCompletesM
-      } +
-      testM("sequential requests") {
-        assertCompletesM
-      }
-  }
-
   override def spec = {
     suiteM("EnhancedClient") {
-      serve(DynamicServer.app).as(List(clientSpec, connectionReuseSpec)).useNow
+      serve(DynamicServer.app).as(List(clientSpec)).useNow
     }.provideCustomLayerShared(env)
   }
 }
