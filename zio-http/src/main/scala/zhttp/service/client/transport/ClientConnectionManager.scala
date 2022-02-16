@@ -31,8 +31,8 @@ case class ClientConnectionManager(
    *   - create new connection and increment allocated simultaneously (depending
    *     on limits)
    *   - assign a new callback (may be like empty promise to connection)
-   *     Connections are referenced based on RequestKey
-   * \```type ReqKey = InetSocketAddress```
+   *     Connections are referenced based on RequestKey \```type ReqKey =
+   *     InetSocketAddress```
    *
    * @param jReq
    * @param req
