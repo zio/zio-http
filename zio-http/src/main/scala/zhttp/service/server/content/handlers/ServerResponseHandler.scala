@@ -34,6 +34,7 @@ private[zhttp] trait ServerResponseHandler[R] {
           case _                              =>
             ctx.flush()
             releaseRequest(jReq)
+            if (!ctx.channel().config().isAutoRead) ctx.read()
         }
     }
     ()
