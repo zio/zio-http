@@ -22,7 +22,7 @@ class HttpRouteTextPerf {
     .withServer(STATIC_SERVER_NAME)
     .freeze
 
-  private val app          = Http.succeed(frozenResponse)
+  private val app          = Http.fromHExit(HExit.succeed(frozenResponse))
   private val req: Request = Request(Method.GET, URL(!!))
   private val httpProgram  = app.execute(req).toZIO
   private val UIOProgram   = UIO(frozenResponse)
