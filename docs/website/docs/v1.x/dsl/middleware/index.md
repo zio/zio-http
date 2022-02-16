@@ -134,7 +134,7 @@ Middleware.addHeader("X-Environment", "Dev")
 
 ### Using `>>>`
 
-`>>>` is an alias for `andThen`.Creates a new middleware that passes the output Http of the current middleware as the input to the provided middleware.
+`>>>` is an alias for `andThen`. Creates a new middleware that passes the output Http of the current middleware as the input to the provided middleware.
 
 ```scala
 
