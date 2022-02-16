@@ -275,9 +275,70 @@ object ServerSpec extends HttpRunnableSpec {
       }
   }
 
+  def serverErrorSpec = suite("ServerErrorSpec") {
+    val app = Http.fail(new Error("SERVER_ERROR"))
+    testM("status is 500") {
+      val res = app.deploy.status.run()
+      assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+    } +
+      testM("content is set") {
+        val res = app.deploy.bodyAsString.run()
+        assertM(res)(containsString("SERVER_ERROR"))
+      } +
+      testM("header is set") {
+        val res = app.deploy.headers.run().map(_.headerValue("Content-Length"))
+        assertM(res)(isSome(anything))
+      }
+  }
+
+  def requestBodySpec = suite("RequestBodySpec") {
+    testM("POST Request.getBodyChunk") {
+      val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
+        val body = ZStream.unwrap(
+          req.bodyAsByteChunk.map(x =>
+            ZStream
+              .repeatEffectChunkOption(x),
+          ),
+        )
+        Response(data = HttpData.fromStream(body))
+      }
+      checkAllM(Gen.alphaNumericString) { c =>
+        assertM(app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = c))(equalTo(c))
+      }
+    } +
+      testM("POST Request.getBody Too Large Content") {
+        val contentM = Gen.alphaNumericStringBounded(4097, 10000)
+        checkAllM(contentM) { c =>
+          val app: Http[Any, Throwable, Request, Response] = Http.collectZIO[Request] { case req =>
+            req.bodyAsString.map { content =>
+              Response.text(content)
+            }
+          }
+          assertM(app.deploy.status.run(path = !!, method = Method.POST, content = c))(
+            equalTo(Status.REQUEST_ENTITY_TOO_LARGE),
+          )
+        }
+      } +
+      testM("POST Request.getBodyAsStream") {
+        val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
+          Response(data = HttpData.fromStream(req.bodyAsStreamString))
+        }
+        checkAllM(Gen.alphaNumericString) { c =>
+          val res = app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = c)
+          assertM(res)(equalTo(c))
+        }
+
+      }
+
+  }
+
   override def spec =
     suiteM("Server") {
-      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, nonZIOSpec)).useNow
+      app
+        .as(
+          List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, nonZIOSpec, serverErrorSpec),
+        )
+        .useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds)
 
   def staticAppSpec = suite("StaticAppSpec") {

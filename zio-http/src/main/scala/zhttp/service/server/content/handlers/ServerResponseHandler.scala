@@ -19,20 +19,22 @@ private[zhttp] trait ServerResponseHandler[R] {
 
   type Ctx = ChannelHandlerContext
 
-  def writeResponse(msg: Response, jReq: FullHttpRequest)(implicit ctx: Ctx): Unit = {
+  def writeResponse(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
 
     ctx.write(encodeResponse(msg))
     msg.data match {
-      case HttpData.BinaryStream(stream)  =>
-        rt.unsafeRun(ctx) {
-          writeStreamContent(stream).ensuring(UIO(releaseRequest(jReq)))
+      case HttpData.Incoming(_)        => throw new IllegalStateException("Cannot write data to response")
+      case outgoing: HttpData.Outgoing =>
+        outgoing match {
+          case HttpData.BinaryStream(stream)  =>
+            rt.unsafeRun(ctx) { writeStreamContent(stream).ensuring(UIO(releaseRequest(jReq))) }
+          case HttpData.RandomAccessFile(raf) =>
+            unsafeWriteFileContent(raf())
+            releaseRequest(jReq)
+          case _                              =>
+            ctx.flush()
+            releaseRequest(jReq)
         }
-      case HttpData.RandomAccessFile(raf) =>
-        unsafeWriteFileContent(raf())
-        releaseRequest(jReq)
-      case _                              =>
-        ctx.flush()
-        releaseRequest(jReq)
     }
     ()
   }
@@ -65,10 +67,15 @@ private[zhttp] trait ServerResponseHandler[R] {
   /**
    * Releases the FullHttpRequest safely.
    */
-  private def releaseRequest(jReq: FullHttpRequest): Unit = {
-    if (jReq.refCnt() > 0) {
-      jReq.release(jReq.refCnt()): Unit
+  private def releaseRequest(jReq: HttpRequest): Unit = {
+    jReq match {
+      case req: FullHttpRequest =>
+        if (req.refCnt() > 0) {
+          req.release(req.refCnt()): Unit
+        }
+      case _                    => ()
     }
+
   }
 
   /**

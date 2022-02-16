@@ -3,6 +3,7 @@ package zhttp.service
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
+import zhttp.http.HttpData.{UnsafeChannel, UnsafeContent}
 import zhttp.http._
 import zhttp.service.server.content.handlers.ServerResponseHandler
 import zhttp.service.server.{ServerTime, WebSocketUpgrade}
@@ -16,40 +17,104 @@ private[zhttp] final case class Handler[R](
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
   serverTimeGenerator: ServerTime,
-) extends SimpleChannelInboundHandler[FullHttpRequest](false)
+) extends SimpleChannelInboundHandler[Any](false)
     with WebSocketUpgrade[R]
     with ServerResponseHandler[R] { self =>
 
-  override def channelRead0(ctx: Ctx, jReq: FullHttpRequest): Unit = {
-    jReq.touch("server.Handler-channelRead0")
+  override def handlerAdded(ctx: Ctx): Unit = {
+    if (!config.objectAggregator) {
+      ctx.channel().config().setAutoRead(false): Unit
+      ctx.read(): Unit
+    }
+  }
+
+  override def channelRead0(ctx: Ctx, jReq: Any): Unit = {
+
     implicit val iCtx: ChannelHandlerContext = ctx
-    unsafeRun(
-      jReq,
-      app,
-      new Request {
-        override def method: Method = Method.fromHttpMethod(jReq.method())
+    jReq match {
+      case req: FullHttpRequest =>
+        req.touch("server.Handler-channelRead0")
+        unsafeRun(
+          req,
+          app,
+          new Request {
+            override def method: Method = Method.fromHttpMethod(req.method())
 
-        override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
+            override def url: URL = URL.fromString(req.uri()).getOrElse(null)
 
-        override def headers: Headers = Headers.make(jReq.headers())
+            override def headers: Headers = Headers.make(req.headers())
 
-        override def remoteAddress: Option[InetAddress] = {
-          ctx.channel().remoteAddress() match {
-            case m: InetSocketAddress => Some(m.getAddress)
-            case _                    => None
+            override def remoteAddress: Option[InetAddress] = {
+              ctx.channel().remoteAddress() match {
+                case m: InetSocketAddress => Some(m.getAddress)
+                case _                    => None
+              }
+            }
+
+            override def data: HttpData = HttpData.fromByteBuf(req.content())
+          },
+        )
+      case jReq: HttpRequest    =>
+        def unsafeBody(
+          callback: UnsafeChannel => UnsafeContent => Unit,
+        ): Unit = {
+          val httpContentHandler = ctx.pipeline().get(HTTP_CONTENT_HANDLER)
+          if (httpContentHandler == null) {
+            ctx
+              .pipeline()
+              .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback)): Unit
+          } else {
+            httpContentHandler.asInstanceOf[RequestBodyHandler[R]].callback = callback
           }
         }
+        val request = new Request {
+          override def data: HttpData                     = HttpData.Incoming(unsafeBody)
+          override def headers: Headers                   = Headers.make(jReq.headers())
+          override def method: Method                     = Method.fromHttpMethod(jReq.method())
+          override def remoteAddress: Option[InetAddress] = {
+            ctx.channel().remoteAddress() match {
+              case m: InetSocketAddress => Some(m.getAddress)
+              case _                    => None
+            }
+          }
+          override def url: URL                           = URL.fromString(jReq.uri()).getOrElse(null)
+        }
 
-        override def data: HttpData = HttpData.Incoming(() => jReq.content())
-      },
-    )
+        unsafeRun(
+          jReq,
+          app,
+          request,
+        )
+      case msg: LastHttpContent =>
+        if (ctx.pipeline().get(HTTP_CONTENT_HANDLER) != null) {
+          ctx.fireChannelRead(msg): Unit
+        }
+
+      case msg: HttpContent =>
+        if (ctx.pipeline().get(HTTP_CONTENT_HANDLER) != null) {
+          ctx.fireChannelRead(msg): Unit
+        }
+
+      case msg => ctx.fireChannelRead(msg): Unit
+
+    }
+
+  }
+  private def upgradeWebsocket(req: HttpRequest, response: Response)(implicit ctx: Ctx): Unit = {
+    req match {
+      case request: FullHttpRequest => self.upgradeToWebSocket(ctx, request, response)
+      case jReq: HttpRequest        =>
+        val fullRequest = new DefaultFullHttpRequest(jReq.protocolVersion(), jReq.method(), jReq.uri())
+        fullRequest.headers().setAll(jReq.headers())
+        self.upgradeToWebSocket(ctx, fullRequest, response)
+    }
   }
 
   /**
    * Executes http apps
    */
   private def unsafeRun[A](
-    jReq: FullHttpRequest,
+    jReq: HttpRequest,
     http: Http[R, Throwable, A, Response],
     a: A,
   )(implicit ctx: Ctx): Unit = {
@@ -72,7 +137,7 @@ private[zhttp] final case class Handler[R](
 
             },
             res =>
-              if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
+              if (self.isWebSocket(res)) UIO(upgradeWebsocket(jReq, res))
               else {
                 for {
                   _ <- ZIO {
@@ -85,7 +150,7 @@ private[zhttp] final case class Handler[R](
 
       case HExit.Success(res) =>
         if (self.isWebSocket(res)) {
-          self.upgradeToWebSocket(ctx, jReq, res)
+          upgradeWebsocket(jReq, res)
         } else {
           writeResponse(res, jReq): Unit
         }

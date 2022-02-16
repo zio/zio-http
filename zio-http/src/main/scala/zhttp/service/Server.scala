@@ -31,6 +31,7 @@ sealed trait Server[-R, +E] { self =>
     case FlowControl(enabled)        => s.copy(flowControl = enabled)
     case ConsolidateFlush(enabled)   => s.copy(consolidateFlush = enabled)
     case UnsafeChannelPipeline(init) => s.copy(channelInitializer = init)
+    case ObjectAggregator(enabled)   => s.copy(objectAggregator = enabled)
   }
 
   def make(implicit
@@ -129,6 +130,10 @@ sealed trait Server[-R, +E] { self =>
    */
   def withUnsafeChannelPipeline(unsafePipeline: ChannelPipeline => Unit): Server[R, E] =
     Concat(self, UnsafeChannelPipeline(unsafePipeline))
+
+  /**
+   */
+  def withObjectAggregator(enable: Boolean): Server[R, E] = Concat(self, ObjectAggregator(enable))
 }
 
 object Server {
@@ -146,6 +151,7 @@ object Server {
     consolidateFlush: Boolean = false,
     flowControl: Boolean = true,
     channelInitializer: ChannelPipeline => Unit = null,
+    objectAggregator: Boolean = true,
   )
 
   /**
@@ -165,6 +171,7 @@ object Server {
   private final case class AcceptContinue(enabled: Boolean)                           extends UServer
   private final case class FlowControl(enabled: Boolean)                              extends UServer
   private final case class UnsafeChannelPipeline(init: ChannelPipeline => Unit)       extends UServer
+  private final case class ObjectAggregator(enabled: Boolean)                         extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -184,6 +191,7 @@ object Server {
   val disableKeepAlive: UServer                                  = Server.KeepAlive(false)
   val consolidateFlush: UServer                                  = ConsolidateFlush(true)
   def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer = UnsafeChannelPipeline(pipeline)
+  val disableObjectAggregator: UServer                           = ObjectAggregator(false)
 
   /**
    * Creates a server from a http app.

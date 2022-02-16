@@ -2,7 +2,8 @@ package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import zhttp.http.headers.HeaderExtension
-import zio.{Chunk, Task, UIO}
+import zio.stream.ZStream
+import zio.{Chunk, IO, Task, UIO}
 
 import java.net.InetAddress
 
@@ -42,6 +43,27 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   def bodyAsString: Task[String] =
     bodyAsByteBuf.flatMap(buf => Task(buf.toString(charset)))
+
+  /**
+   * Decodes the content of request as bytes
+   */
+  def bodyAsBytes: Task[Chunk[Byte]] =
+    bodyAsByteBuf.map(buf => Chunk.fromArray(ByteBufUtil.getBytes(buf)))
+
+  /**
+   * Decodes the content of request as stream of strings
+   */
+  def bodyAsStreamString: ZStream[Any, Throwable, String] = data.toStreamString
+
+  /**
+   * Decodes the content of request as stream of bytes
+   */
+  def bodyAsStream: ZStream[Any, Throwable, Byte] = data.toStreamBytes
+
+  /**
+   * Decodes the content of request one chunk at a time
+   */
+  def bodyAsByteChunk: UIO[IO[Option[Throwable], Chunk[Byte]]] = data.toByteChunk
 
   /**
    * Gets all the headers in the Request
@@ -88,7 +110,7 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   def url: URL
 
-  private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
+  private[zhttp] final def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
 }
 
 object Request {

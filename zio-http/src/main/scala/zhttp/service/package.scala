@@ -20,7 +20,7 @@ package object service {
   private[service] val HTTP_SERVER_FLUSH_CONSOLIDATION    = "HTTP_SERVER_FLUSH_CONSOLIDATION"
   private[service] val CLIENT_INBOUND_HANDLER             = "CLIENT_INBOUND_HANDLER"
   private[service] val WEB_SOCKET_CLIENT_PROTOCOL_HANDLER = "WEB_SOCKET_CLIENT_PROTOCOL_HANDLER"
-
+  private[zhttp] val HTTP_CONTENT_HANDLER                 = "HTTP_CONTENT_HANDLER"
   type ChannelFactory       = Has[JChannelFactory[Channel]]
   type EventLoopGroup       = Has[JEventLoopGroup]
   type ServerChannelFactory = Has[JChannelFactory[ServerChannel]]
