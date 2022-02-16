@@ -6,10 +6,8 @@ import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.http.HeaderNames
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.ClientSettings.Config
-import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.handler.{EnhancedClientChannelInitializer, EnhancedClientInboundHandler}
-import zhttp.service.client.model.ConnectionData.ReqKey
-import zhttp.service.client.model.{Connection, ConnectionData, ConnectionState, Timeouts}
+import zhttp.service.client.domain.ConnectionData.ReqKey
+import zhttp.service.client.domain.{Connection, ConnectionData, ConnectionState, Timeouts}
 import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
@@ -42,13 +40,7 @@ case class ClientConnectionManager(
     jReq: FullHttpRequest,
     req: ClientRequest,
     promise: Promise[Throwable, ClientResponse],
-  ): Task[Connection] = for {
-    reqKey <- getRequestKey(jReq, req)
-    isWebSocket = req.url.scheme.exists(_.isWebSocket)
-    isSSL       = req.url.scheme.exists(_.isSecure)
-    connectionOpt <- connectionData.nextIdleChannel(reqKey)
-    conn          <- triggerConn(connectionOpt, jReq, promise, reqKey, isWebSocket, isSSL)
-  } yield conn
+  ): Task[Connection] = ???
 
   def getRequestKey(jReq: FullHttpRequest, req: ClientRequest) = for {
     uri <- Task(new java.net.URI(jReq.uri()))
@@ -78,26 +70,7 @@ case class ClientConnectionManager(
     reqKey: ReqKey,
     isWebSocket: Boolean,
     isSSL: Boolean,
-  ) = for {
-    connection <- idleChannelOpt match {
-      case Some(ch) =>
-        // FIXME: to check if this will never happen. (happened with old approach)
-//        if (ch != null && !clientData.currentAllocatedChannels.contains(ch.channel)) Task {
-        if (ch != null) Task {
-//          println(s"IDLE CHANNEL FOUND REUSING ......$ch")
-          (ch.copy(isReuse = true))
-        }
-        else {
-          // FIXME: to be removed after thorough testing.
-//          println(s"$ch IS NULL building new")
-          buildChannel(reqKey, isWebSocket, isSSL)
-        }
-      case None     => {
-        buildChannel(reqKey, isWebSocket, isSSL)
-      }
-    }
-    _          <- attachHandler(connection, jReq, promise)
-  } yield connection
+  ) = ???
 
   /**
    * build an underlying connection (channel for a given request key)
@@ -119,57 +92,16 @@ case class ClientConnectionManager(
     reqKey: ReqKey,
     isWebSocket: Boolean = false,
     isSSL: Boolean = false,
-  ): Task[Connection] =
-    for {
-      init <- ZIO.effect(
-        EnhancedClientChannelInitializer(
-          isWebSocket,
-          isSSL,
-          reqKey,
-          ClientSSLOptions.DefaultSSL,
-        ),
-      )
-      (h, p) = (reqKey.getHostName, reqKey.getPort)
-      prom <- zio.Promise.make[Throwable, Channel]
-      chf = boo.handler(init).connect(h, p)
-      _ <- prom.succeed(chf.channel())
-      c <- prom.await
-    } yield Connection(c, false)
+  ): Task[Connection] = ???
 
-  /*
+  /**
+   * Attach Handler to a ChannelFuture
    */
   def attachHandler(
     connection: Connection,
     jReq: FullHttpRequest,
     promise: Promise[Throwable, ClientResponse],
-  ) = {
-    ZIO
-      .effect(
-        connection.channel
-          .newSucceededFuture()
-          .addListener(new io.netty.channel.ChannelFutureListener() {
-
-            override def operationComplete(future: io.netty.channel.ChannelFuture): Unit = {
-              if (!future.isSuccess()) {
-                println(s"error: ${future.cause().getMessage}")
-                future.cause().printStackTrace()
-              } else {
-                if (connection.isReuse) {
-                  if (future.channel.pipeline().get(zhttp.service.CLIENT_INBOUND_HANDLER) != null)
-                    future.channel().pipeline().remove(zhttp.service.CLIENT_INBOUND_HANDLER)
-                }
-                future
-                  .channel()
-                  .pipeline()
-                  .addLast(
-                    zhttp.service.CLIENT_INBOUND_HANDLER,
-                    EnhancedClientInboundHandler(zExec, jReq, promise),
-                  ): Unit
-              }
-            }
-          }): Unit,
-      )
-  }
+  ) = ???
 }
 
 object ClientConnectionManager {

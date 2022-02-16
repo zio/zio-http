@@ -1,7 +1,7 @@
 package example
 
 import zhttp.http._
-import zhttp.service.client.model.DefaultClient
+import zhttp.service.client.domain.DefaultClient
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{ClientSettings, EventLoopGroup, Server}
 import zio.{App, ExitCode, URIO, ZIO}

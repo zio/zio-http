@@ -1,4 +1,4 @@
-package zhttp.service.client.model
+package zhttp.service.client.domain
 
 import io.netty.buffer.ByteBuf
 import zhttp.http.Method.GET
@@ -22,8 +22,7 @@ case class DefaultClient(
     conn   <- connectionManager.fetchConnection(jReq, req, prom)
     resp   <- prom.await
     _      <- prom.complete(Task(resp))
-
-    _ <- connectionManager.connectionData.setConnectionIdle(conn, reqKey)
+    _      <- connectionManager.connectionData.setConnectionIdle(conn, reqKey)
 //    activeConnections <- connectionManager.getActiveConnections
   } yield resp
 
