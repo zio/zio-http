@@ -228,14 +228,10 @@ object Client {
 
   def make[R](client: ClientSettings): Task[DefaultClient] = {
     val settings = client.settings()
-
     for {
       connectionManager <- ClientConnectionManager(settings)
       clientImpl = DefaultClient(connectionManager)
-//      _ <- zio.ZIO.effect(println(s"GOT CLIENT IMPL: $clientImpl"))
-    } yield {
-      clientImpl
-    }
+    } yield clientImpl
   }
 
 }
