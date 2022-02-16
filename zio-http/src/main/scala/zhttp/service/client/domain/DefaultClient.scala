@@ -22,9 +22,7 @@ case class DefaultClient(
     conn   <- connectionManager.fetchConnection(jReq, req, prom)
     resp   <- prom.await
     _      <- prom.complete(Task(resp))
-
     _ <- connectionManager.connectionData.setConnectionIdle(conn, reqKey)
-//    activeConnections <- connectionManager.getActiveConnections
   } yield resp
 
   // methods for compatibility with existing client use
@@ -62,13 +60,6 @@ case class DefaultClient(
   def succeed(req: Request): Task[Boolean] = ???
 
   // ****************** APIs below need more clarity *********************
-
-  /**
-   * Submits a request and decodes the response on success use zio json decoder
-   * to get custom type
-   */
-  //    def decodedResponse[A](req: Task[Request])(implicit decoder: JsonDecoder[A]): Task[A] =
-  //      ???
 
   /**
    * Submits a request, and provides a callback to process the response.

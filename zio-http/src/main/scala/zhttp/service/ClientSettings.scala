@@ -65,8 +65,20 @@ object ClientSettings {
   case class MaxConnectionsPerRequestKey(maxConnPerReq: Int)           extends UClient
   //  private final case class SSLContext(ssl: ClientSSLOptions)                                   extends UClient
 
+  /**
+   * Choosing transport types like Nio,Epoll,KQueue etc
+   * @param transport
+   *   (Transport.Auto / Transport.Nio / Transport.Epoll / Transport.Uring )
+   * @return
+   */
   def transport(transport: Transport) = ClientSettings.TransportConfig(transport)
-  def threads(threads: Int)           = ClientSettings.Threads(threads)
+
+  /**
+   * Number of threads used by underlying netty EventLoopGroup
+   * @param threads
+   * @return
+   */
+  def threads(threads: Int) = ClientSettings.Threads(threads)
 
   def responseHeaderTimeout(rht: Duration): UClient               = ClientSettings.ResponseHeaderTimeout(rht)
   def idleTimeout(idt: Duration): UClient                         = ClientSettings.IdleTimeout(idt)

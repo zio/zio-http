@@ -10,9 +10,17 @@ import java.net.InetSocketAddress
 import java.time.Instant
 import scala.collection.immutable
 
+/**
+ * Defines ClientData / Request Key and other types for managing connection data
+ * TODO: Likely to change
+ *
+ * @param channel
+ * @param isReuse
+ */
 case class Connection(channel: Channel, isReuse: Boolean) {
-  override def canEqual(that: Any): Boolean = {
-    this.channel.id == that.asInstanceOf[Connection].channel.id()
+  override def canEqual(that: Any): Boolean = that match {
+    case that: Connection => this.channel.id() == that.channel.id()
+    case _                => false
   }
 }
 
