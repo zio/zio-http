@@ -28,7 +28,7 @@ final class ClientInboundHandler[R](
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     msg.touch("handlers.ClientInboundHandler-channelRead0")
 
-    zExec.unsafeRun(ctx)(promise.succeed(ClientResponse.unsafeFromJResponse(msg)))
+    zExec.unsafeRun(ctx)(promise.succeed(ClientResponse.unsafeFromJResponse(msg)).uninterruptible)
     if (isWebSocket) {
       ctx.fireChannelRead(msg.retain())
       ctx.pipeline().remove(ctx.name()): Unit
@@ -36,7 +36,7 @@ final class ClientInboundHandler[R](
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    zExec.unsafeRun(ctx)(promise.fail(error))
+    zExec.unsafeRun(ctx)(promise.fail(error).uninterruptible)
     releaseRequest()
   }
 
