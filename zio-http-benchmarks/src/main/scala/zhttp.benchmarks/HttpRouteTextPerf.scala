@@ -24,8 +24,8 @@ class HttpRouteTextPerf {
 
   private val app          = Http.succeed(frozenResponse)
   private val req: Request = Request(Method.GET, URL(!!))
-  private val httpProgram  = ZIO.foreach_(0 to 1000) { _ => app.execute(req).toZIO }
-  private val UIOProgram   = ZIO.foreach_(0 to 1000) { _ => UIO(frozenResponse) }
+  private val httpProgram  = app.execute(req).toZIO
+  private val UIOProgram   =  UIO(frozenResponse)
 
   @Benchmark
   def benchmarkHttpProgram(): Unit = {
