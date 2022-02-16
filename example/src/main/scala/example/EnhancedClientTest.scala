@@ -30,6 +30,9 @@ object EnhancedClientTest extends App {
       .exitCode
   }
 
+  val testUrl1 = "http://localhost:8081/foo/1"
+  val testUrl2 = "http://localhost:8081/bar/2"
+
   // Client Test code
   def clientTest = {
     for {
@@ -48,16 +51,8 @@ object EnhancedClientTest extends App {
     } yield ()
   }
 
-  val testUrl1  = "http://localhost:8081/foo/1"
-  val testUrl2  = "http://localhost:8081/bar/2"
-  val googleUrl = "http://www.google.com"
-  val bbcUrl    = "http://www.dream11.com"
-  val decaUrl   = "http://sports.api.decathlon.com/groups/water-aerobics"
-
   def triggerParallel(cl: DefaultClient) = for {
-//    res <- zio.Task.foreachPar((1 to 20).toList)(i => cl.run("http://localhost:8081/foo/" + i).flatMap(_.bodyAsString))
     res <- zio.Task.foreachPar(List(testUrl1, testUrl2, testUrl1, testUrl2))(url => cl.run(url).flatMap(_.bodyAsString))
-//    currActiveConn <- cl.connectionManager.getActiveConnections
     _   <- ZIO.effect(println(s"\n\n PARALLEL EXECUTION \n RESPONSE: $res \n CURRENT CONNECTIONS  \n\n"))
   } yield ()
 
