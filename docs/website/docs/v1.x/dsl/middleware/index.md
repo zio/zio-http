@@ -6,9 +6,7 @@ They can modify requests and responses and also transform them into more concret
 Middleware is simply a function that takes one `Http` as a parameter and returns another `Http` `f(Http) => Http` elaborated below in terms of type parameters "In" and "Out"
 
 ```scala
-
 type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E, AOut, BOut]
-
 ```
 
 * `AIn` and `BIn` are type params of the input `Http`
@@ -23,9 +21,7 @@ To summarize
 ### Middleware that does nothing
 
 ```scala
-
 val middleware = Middleware.identity
-
 ```
 
 ### Middleware that always succeeds
@@ -33,9 +29,7 @@ val middleware = Middleware.identity
 creates a middleware that always returns the same response and never fails.
 
 ```scala
-
 val middleware = Middleware.succeed(1)
-
 ```
 
 ### Middleware that always fails
@@ -43,9 +37,7 @@ val middleware = Middleware.succeed(1)
 creates a middleware that always returns the same response and always fails.
 
 ```scala
-
 val middleware = Middleware.fail("error")
-
 ```
 
 ### Middleware from a partial function
@@ -53,17 +45,13 @@ val middleware = Middleware.fail("error")
 - Using `collect` middleware using a specified function
 
 ```scala
-
 val middleware = Middleware.collect[Request](_ => Middleware.addHeaders(Headers("a", "b")))
-
 ```
 
 - Using `collectZIO` middleware using specified effect function
 
 ```scala
-
 val middleware = Middleware.collectZIO[Request](_ => ZIO.succeed(Middleware.addHeaders(Headers("a", "b"))))
-  
 ```
 
 ### Middleware using transformation functions
@@ -71,10 +59,8 @@ val middleware = Middleware.collectZIO[Request](_ => ZIO.succeed(Middleware.addH
 We can use `intercept` or `interceptZIO` to create a new middleware using transformation functions
 
 ```scala
-
   val middleware = Middleware.intercept[String, String](_.toInt + 2)((_, a) => a + 3)
   val mid = Middleware.interceptZIO[Int, Int](i => UIO(i * 10))((i, j) => UIO(i + j))
-
 ```
 
 ### Middleware using codec
@@ -86,9 +72,7 @@ The below snippet takes two functions:
 - encoder function to encode String to Response
 
 ```scala
-
 val middleware = Middleware.codec[Request,String](r => Right(r.method.toString()),s => Right(Response.text(s)))
-
 ```
 
 ### Middleware from an HttpApp
@@ -96,10 +80,8 @@ val middleware = Middleware.codec[Request,String](r => Right(r.method.toString()
 - Using `fromHttp` with a specified HttpApp
 
 ```scala
-
 val app = Http.succeed("Hello World!")
 val middleware = Middleware.fromHttp(app)
-
 ```
 
 ## Composition of middlewares
@@ -111,12 +93,10 @@ Middlewares can be composed using several special operators:
 `++` is an alias for `combine`. It combines that operates on the same input and output types into one.
 
 ```scala
-
 // print debug info about request and response
 Middleware.debug ++
 // add static header
 Middleware.addHeader("X-Environment", "Dev") 
-
 ```
 
 ### Using `<>`
@@ -124,12 +104,10 @@ Middleware.addHeader("X-Environment", "Dev")
 `<>` is an alias for `orElse`. While using `<>`, if the first middleware fails, the second middleware will be evaluated, ignoring the result from the first.
 
 ```scala
-
 // print debug info about request and response
  Middleware.fail("error") ++
 // add static header
 Middleware.addHeader("X-Environment", "Dev") 
-
 ```
 
 ### Using `>>>`
@@ -137,10 +115,8 @@ Middleware.addHeader("X-Environment", "Dev")
 `>>>` is an alias for `andThen`. Creates a new middleware that passes the output Http of the current middleware as the input to the provided middleware.
 
 ```scala
-
 val middleware = Middleware.codec[Int, Int](decoder = a => Right(a + 1), encoder = b => Right(b + 1))
 middleware >>> middleware
-
 ```
 
 ## Transforming Middlewares
@@ -150,13 +126,11 @@ middleware >>> middleware
 We can use `flatMap` or  `map` or `mapZIO` for transforming the output type of output Http
 
 ```scala
-
 val middleware = Middleware.succeed(3)
 
 val mid1 = middleware.map((i: Int) => i.toString)
 val mid2= middleware.mapZIO((i: Int) => ZIO.succeed(s"$i"))
 val mid3 = middleware.flatMap((m: Int) => Middleware.succeed(m.toString))
-
 ```
 
 ### Transforming the Input of the output `Http`
@@ -164,11 +138,10 @@ val mid3 = middleware.flatMap((m: Int) => Middleware.succeed(m.toString))
 We can use `contramap` or `contramapZIO` for transforming the input type of the output `Http`
 
 ```scala
-
 val middleware = Middleware.codec[Int, Int](decoder = a => Right(a + 1), encoder = b => Right(b + 1))
+
 val mid1 = middleware.contramap[String](_.toInt)
 val mid2 = middleware.contramapZIO[String](a => UIO(a.toInt))
-
 ```
 
 
@@ -177,19 +150,15 @@ val mid2 = middleware.contramapZIO[String](a => UIO(a.toInt))
 - Using `when`, only if the condition function evaluates to true
 
 ```scala
-
 val mid = Middleware.succeed("yes")
 val m = mid.when[String]((str: String) => str.length > 2)
-
 ```
 
 - Using `whenZIO`, only if the condition effectful function evaluates
 
 ```scala
-
 val middleware = Middleware.succeed("yes")
 val mid = middleware.whenZIO[Any, Nothing, String]((str: String) => UIO(str.length > 2))  
-
 ```
 
 Logical operators to decide which middleware to select based on the predicate:
@@ -197,22 +166,18 @@ Logical operators to decide which middleware to select based on the predicate:
 - Using `ifThenElse` with a specified HttpApp
 
 ```scala
-
 val mid = Middleware.ifThenElse[Int](_ > 5)(
             isTrue = i => Middleware.succeed(i + 1),
             isFalse = i => Middleware.succeed(i - 1)
           )
-
 ```
 - Using `ifThenElseZIO` for specified effectful encoder and decoder
 
 ```scala
-
 val mid = Middleware.ifThenElseZIO[Int](i => UIO(i > 5))(
           isTrue = i => Middleware.succeed(i + 1),
           isFalse = i => Middleware.succeed(i - 1),
         ) 
-
 ```
 
 ## Example of a middleware
@@ -221,7 +186,6 @@ val mid = Middleware.ifThenElseZIO[Int](i => UIO(i > 5))(
 <summary><b>Detailed example </b></summary>
 
 ```scala
-
     import zhttp.http._
     import zhttp.http.middleware.HttpMiddleware
     import zhttp.service.Server
@@ -248,7 +212,6 @@ val mid = Middleware.ifThenElseZIO[Int](i => UIO(i > 5))(
 
    override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
        Server.start(8090, (app @@ middlewares)).exitCode
-
 ```
    
 </details>   
