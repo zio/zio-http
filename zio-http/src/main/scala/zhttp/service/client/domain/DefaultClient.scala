@@ -23,7 +23,6 @@ case class DefaultClient(
     resp   <- prom.await
     _      <- prom.complete(Task(resp))
     _      <- connectionManager.connectionData.setConnectionIdle(conn, reqKey)
-//    activeConnections <- connectionManager.getActiveConnections
   } yield resp
 
   // methods for compatibility with existing client use
@@ -63,13 +62,6 @@ case class DefaultClient(
   // ****************** APIs below need more clarity *********************
 
   /**
-   * Submits a request and decodes the response on success use zio json decoder
-   * to get custom type
-   */
-  //    def decodedResponse[A](req: Task[Request])(implicit decoder: JsonDecoder[A]): Task[A] =
-  //      ???
-
-  /**
    * Submits a request, and provides a callback to process the response.
    *
    * @param req
@@ -100,7 +92,7 @@ case class DefaultClient(
   //    def run[A](req: ZIO[?,?,Request])(f: Response => Task[A]): Task[A] = ???
 
   /**
-   * TBD or stream(req: Request): ZStream[Any,Throwable, ???]
+   *
    * @param req
    * @return
    */
