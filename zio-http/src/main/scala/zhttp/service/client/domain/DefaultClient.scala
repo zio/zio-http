@@ -22,7 +22,7 @@ case class DefaultClient(
     conn   <- connectionManager.fetchConnection(jReq, req, prom)
     resp   <- prom.await
     _      <- prom.complete(Task(resp))
-    _ <- connectionManager.connectionData.setConnectionIdle(conn, reqKey)
+    _      <- connectionManager.connectionData.setConnectionIdle(conn, reqKey)
   } yield resp
 
   // methods for compatibility with existing client use

@@ -7,9 +7,9 @@ import zhttp.http.HeaderNames
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.ClientSettings.Config
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.handler.{EnhancedClientChannelInitializer, EnhancedClientInboundHandler}
 import zhttp.service.client.domain.ConnectionData.ReqKey
 import zhttp.service.client.domain.{Connection, ConnectionData, ConnectionState, Timeouts}
+import zhttp.service.client.handler.{EnhancedClientChannelInitializer, EnhancedClientInboundHandler}
 import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
