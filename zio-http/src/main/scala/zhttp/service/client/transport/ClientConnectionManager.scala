@@ -15,11 +15,8 @@ import zio.{Promise, Task, ZIO}
 import java.net.InetSocketAddress
 import scala.collection.immutable
 
-/*
-  Can hold atomic reference to ZConnectionState comprising of
-    - Timeouts like (idleTimeout,requestTimeout,connectionTimeout etc.)
-    - states like (currentTotal)
-    - Data structures like (idleQueue, waitingRequestQueue etc)
+/**
+ * TODO: Comments
  */
 case class ClientConnectionManager(
   connectionData: ConnectionData,
