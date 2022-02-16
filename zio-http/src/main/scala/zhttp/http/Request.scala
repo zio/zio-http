@@ -14,11 +14,7 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   final override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.headers))
 
-  def copy(
-    method: Method = self.method,
-    url: URL = self.url,
-    headers: Headers = self.headers,
-  ): Request = {
+  def copy(method: Method = self.method, url: URL = self.url, headers: Headers = self.headers): Request = {
     val m = method
     val u = url
     val h = headers
@@ -70,7 +66,7 @@ trait Request extends HeaderExtension[Request] { self =>
   def path: Path = url.path
 
   /**
-   * Gets the request's path as string
+   * Gets the FullHttpRequest
    */
   private[zhttp] def unsafeEncode: FullHttpRequest
 

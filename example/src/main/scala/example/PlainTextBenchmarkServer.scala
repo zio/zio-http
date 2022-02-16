@@ -32,7 +32,7 @@ object Main extends App {
   val path2 = "/json"
 
   def app(res: Response, json: Response) = {
-    Http.fromHExit(HExit.succeed(res)).whenPath(path1) combinetwo
+    Http.fromHExit(HExit.succeed(res)).whenPath(path1) combineApp
       Http.fromHExit(HExit.succeed(json)).whenPath(path2)
   }
 
