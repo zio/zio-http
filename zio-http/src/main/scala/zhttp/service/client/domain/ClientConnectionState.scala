@@ -1,8 +1,8 @@
-package zhttp.service.client.model
+package zhttp.service.client.domain
 
 import io.netty.channel.Channel
 import io.netty.handler.codec.http.FullHttpRequest
-import zhttp.service.client.model.ConnectionData.ReqKey
+import zhttp.service.client.domain.ConnectionData.ReqKey
 import zio.Ref
 import zio.duration.Duration
 

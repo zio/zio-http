@@ -17,7 +17,7 @@ import zhttp.http.headers.HeaderExtension
 import zhttp.service
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.model.DefaultClient
+import zhttp.service.client.domain.DefaultClient
 import zhttp.service.client.transport.ClientConnectionManager
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.{Socket, SocketApp}

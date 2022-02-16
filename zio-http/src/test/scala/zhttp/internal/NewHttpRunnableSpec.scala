@@ -7,7 +7,7 @@ import zhttp.internal.NewHttpRunnableSpec.NewHttpTestClient
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.ClientFactory.ClientEnv
 import zhttp.service._
-import zhttp.service.client.model.DefaultClient
+import zhttp.service.client.domain.DefaultClient
 import zio.test.DefaultRunnableSpec
 import zio.{Has, ZIO, ZManaged}
 

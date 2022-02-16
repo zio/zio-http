@@ -2,7 +2,7 @@ package example
 
 import zhttp.http.{Method, URL}
 import zhttp.service.Client.ClientRequest
-import zhttp.service.client.model.DefaultClient
+import zhttp.service.client.domain.DefaultClient
 import zhttp.service.{Client, ClientSettings}
 import zio._
 import zio.console.putStrLn

@@ -1,6 +1,6 @@
 package zhttp.service
 
-import zhttp.service.client.model.DefaultClient
+import zhttp.service.client.domain.DefaultClient
 import zhttp.service.client.transport.Transport
 import zio.Task
 import zio.duration.Duration

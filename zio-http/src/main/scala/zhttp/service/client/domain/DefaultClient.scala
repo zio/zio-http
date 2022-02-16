@@ -1,4 +1,4 @@
-package zhttp.service.client.model
+package zhttp.service.client.domain
 
 import io.netty.buffer.ByteBuf
 import zhttp.http.Method.GET
