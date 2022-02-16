@@ -40,7 +40,15 @@ object EnhancedClientSpec extends NewHttpRunnableSpec {
 
   def connectionReuseSpec = suite("ConnectionPoolSpec") {
     testM("reuse connection") {
-      assertCompletesM
+      val app             = Http.empty
+      val res = for{
+        _ <- app.deploy.run()
+        count1 <- clientConnections
+        _ <- app.deploy.run()
+        count2 <- clientConnections
+//        _ <- zio.ZIO.effect(println(s"count1: $count1 count2: $count2"))
+      } yield (count1 == count2)
+      assertM(res)(isTrue)
     } +
       testM("large response") {
         assertCompletesM
