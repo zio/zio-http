@@ -58,7 +58,7 @@ object EnhancedClientSpec extends NewHttpRunnableSpec {
       testM("sequential requests") {
         assertCompletesM
       }
-  }
+  } @@ zio.test.TestAspect.ignore
 
   override def spec = {
     suiteM("EnhancedClient") {
