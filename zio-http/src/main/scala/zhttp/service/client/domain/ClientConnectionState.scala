@@ -58,7 +58,7 @@ case class ConnectionData(connectionData: Ref[(Option[Connection], ConnectionSta
     idleConnections  = connectionData._2.idleConnectionsMap.valuesIterator
       .foldLeft(0) { case (acc, queue) => acc + queue.size }
   } yield (allocConnections + idleConnections)
-  
+
   // TBD thready safety and appropriate namespace
   var currMaxTotalConnections: Int     = 0
   var currMaxConnectionPerRequest: Int = 0
