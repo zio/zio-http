@@ -92,7 +92,6 @@ case class DefaultClient(
   //    def run[A](req: ZIO[?,?,Request])(f: Response => Task[A]): Task[A] = ???
 
   /**
-   *
    * @param req
    * @return
    */
