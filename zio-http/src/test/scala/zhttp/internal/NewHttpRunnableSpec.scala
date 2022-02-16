@@ -20,9 +20,6 @@ import zio.{Has, ZIO, ZManaged}
  */
 abstract class NewHttpRunnableSpec extends DefaultRunnableSpec { self =>
 
-//  val dynamicClientLayer: ZLayer[zio.ZEnv, Nothing, PersonDbEnv] =
-//    PersonDb.live
-
   implicit class NewRunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Client.ClientRequest, A]) {
 
     /**
@@ -111,6 +108,14 @@ abstract class NewHttpRunnableSpec extends DefaultRunnableSpec { self =>
         .map(_.status)
     } yield status
   }
+
+  def clientConnections = {
+    for {
+      client <- ZIO.service[DefaultClient]
+      count  <- client.connectionManager.connectionData.getTotalConnections
+    } yield count
+  }
+
 }
 object NewHttpRunnableSpec {
   type NewHttpTestClient[-R, -A, +B] =

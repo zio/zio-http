@@ -92,6 +92,13 @@ case class ConnectionData(connectionData: Ref[(Option[Connection], ConnectionSta
     (None, ConnectionState(currMap, idleMap))
   }
 
+  def getTotalConnections = for {
+    connectionData <- connectionData.get
+    allocConnections = connectionData._2.currentAllocatedChannels.size
+    idleConnections  = connectionData._2.idleConnectionsMap.valuesIterator
+      .foldLeft(0) { case (acc, queue) => acc + queue.size }
+  } yield (allocConnections + idleConnections)
+
   //    def incrementConnection: Unit = ???
   //    def decrementConnection = ???
   //    def isConnectionExpired = ???
@@ -112,17 +119,6 @@ case class ConnectionData(connectionData: Ref[(Option[Connection], ConnectionSta
   var currMaxWaitingReq: Int           = 0
 
 }
-
-//case class ClientConnectionState(clientData: Ref[ClientConnectionStateData])
-//case class ClientConnectionStateData(
-//  tempData: Option[Connection],
-//  currentAllocatedChannels: Map[Channel, ReqKey],
-//  idleConnectionsMap: Map[ReqKey, immutable.Queue[Connection]],
-//  currentAllocatedRequests: Map[ReqKey, Int] = Map.empty[ReqKey, Int],
-//  waitingRequestQueue: immutable.Queue[PendingRequest] = immutable.Queue.empty[PendingRequest],
-//) {
-//
-//}
 
 object ConnectionData {
   type ReqKey = InetSocketAddress

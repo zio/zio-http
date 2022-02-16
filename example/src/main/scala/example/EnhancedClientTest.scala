@@ -43,9 +43,8 @@ object EnhancedClientTest extends App {
       _      <- triggerParallel(client)
       _      <- triggerParallel(client)
 
-//      clientData <- client.connectionManager.connectionState.clientData.get
-//      _ <- ZIO.effect(println(s"MAP AT END: ${clientData.idleConnectionsMap}"))
-
+      currActiveConn <- client.connectionManager.connectionData.getTotalConnections
+      _              <- ZIO.effect(println(s"Number of active connections for all requests: $currActiveConn \n\n"))
     } yield ()
   }
 
@@ -69,14 +68,6 @@ object EnhancedClientTest extends App {
 
     resp2 <- cl.run(testUrl2).flatMap(_.bodyAsString)
     _     <- ZIO.effect(println(s"Response Content from $testUrl2 ${resp2.length} \n ----- \n"))
-
-//    currActiveConn <- cl.connectionManager.getActiveConnections
-//    idleMap        <- cl.connectionManager.connectionState.idleConnectionsMap.get
-//    _              <- ZIO.effect(
-//      println(
-//        s"Number of active connections for four requests: $currActiveConn \n\n connections map ${idleMap}",
-//      ),
-//    )
   } yield ()
 
 }

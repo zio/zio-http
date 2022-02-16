@@ -27,14 +27,16 @@ case class ClientConnectionManager(
 ) {
 
   /**
-   *   - core method for getting a connection for a request
+   * core method for getting a connection for a request
    *   - create new connection and increment allocated simultaneously (depending
    *     on limits)
    *   - assign a new callback (may be like empty promise to connection)
-   *     Connections are referenced based on RequestKey ```type ReqKey =
-   *     InetSocketAddress```
+   *     Connections are referenced based on RequestKey
+   * \```type ReqKey = InetSocketAddress```
    *
    * @param jReq
+   * @param req
+   * @param promise
    * @return
    */
   def fetchConnection(
@@ -47,7 +49,7 @@ case class ClientConnectionManager(
     isSSL       = req.url.scheme.exists(_.isSecure)
     connectionOpt <- connectionData.gic(reqKey)
 
-    _    <- Task.effect(println(s"getClientStateData: $connectionOpt"))
+//    _    <- Task.effect(println(s"getClientStateData: $connectionOpt"))
     conn <- triggerConn(connectionOpt, jReq, promise, reqKey, isWebSocket, isSSL)
   } yield conn
 
@@ -82,18 +84,18 @@ case class ClientConnectionManager(
   ) = for {
     connection <- idleChannelOpt match {
       case Some(ch) =>
-        // FIXME: to check if this will never happen.
+        // FIXME: to check if this will never happen. (happened with old approach)
 //        if (ch != null && !clientData.currentAllocatedChannels.contains(ch.channel)) Task {
         if (ch != null) Task {
-          println(s"IDLE CHANNEL FOUND REUSING ......$ch")
+//          println(s"IDLE CHANNEL FOUND REUSING ......$ch")
           (ch.copy(isReuse = true))
         }
         else {
-          println(s"$ch IS NULL building new")
+          // FIXME: to be removed after thorough testing.
+//          println(s"$ch IS NULL building new")
           buildChannel(reqKey, isWebSocket, isSSL)
         }
       case None     => {
-        println(s"NONE building new")
         buildChannel(reqKey, isWebSocket, isSSL)
       }
     }

@@ -11,7 +11,7 @@ object EnhancedClientSpec extends NewHttpRunnableSpec {
   private val env =
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ClientFactory.client
 
-  def clientSpec = suite("NewClientSpec") {
+  def clientSpec = suite("EnhancedClientSpec") {
     testM("respond Ok") {
       val app = Http.ok.deploy.status.run()
       assertM(app)(equalTo(Status.OK))
@@ -38,12 +38,24 @@ object EnhancedClientSpec extends NewHttpRunnableSpec {
       }
   }
 
+  def connectionReuseSpec = suite("ConnectionPoolSpec") {
+    testM("reuse connection") {
+      assertCompletesM
+    } +
+      testM("large response") {
+        assertCompletesM
+      } +
+      testM("parallel requests") {
+        assertCompletesM
+      } +
+      testM("sequential requests") {
+        assertCompletesM
+      }
+  }
+
   override def spec = {
-    suiteM("NewClient") {
-      serve(DynamicServer.app).as(List(clientSpec)).useNow
-//    }.provideCustomLayerShared(env) @@ zio.test.TestAspect.sequential
-    }.provideCustomLayerShared(
-      env,
-    ) // @@ zio.test.TestAspect.timeout(15 seconds) // @@ sequential //@@ timeout(5 seconds)
+    suiteM("EnhancedClient") {
+      serve(DynamicServer.app).as(List(clientSpec, connectionReuseSpec)).useNow
+    }.provideCustomLayerShared(env)
   }
 }
