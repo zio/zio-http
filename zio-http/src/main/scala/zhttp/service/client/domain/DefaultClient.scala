@@ -10,6 +10,11 @@ import zhttp.service.client.transport.ClientConnectionManager
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
+/**
+ * Concrete Client instance holding a reference to connection manager Expose
+ * multiple run methods
+ * @param connectionManager
+ */
 case class DefaultClient(
   connectionManager: ClientConnectionManager,
 ) extends HttpMessageCodec {

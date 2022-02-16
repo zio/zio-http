@@ -7,6 +7,9 @@ import zio.duration.Duration
 
 import scala.concurrent.duration.DurationInt
 
+/**
+ * Configuration settings for the Client.
+ */
 trait ClientSettings { self =>
 
   import ClientSettings._
@@ -65,9 +68,22 @@ object ClientSettings {
   case class MaxConnectionsPerRequestKey(maxConnPerReq: Int)           extends UClient
   //  private final case class SSLContext(ssl: ClientSSLOptions)                                   extends UClient
 
+  /**
+   * Choosing transport types like Nio,Epoll,KQueue etc
+   * @param transport
+   *   (Transport.Auto / Transport.Nio / Transport.Epoll / Transport.Uring )
+   * @return
+   */
   def transport(transport: Transport) = ClientSettings.TransportConfig(transport)
-  def threads(threads: Int)           = ClientSettings.Threads(threads)
 
+  /**
+   * Number of threads used by underlying netty EventLoopGroup
+   * @param threads
+   * @return
+   */
+  def threads(threads: Int) = ClientSettings.Threads(threads)
+
+  // TODO: to be elaborated and used WIP.
   def responseHeaderTimeout(rht: Duration): UClient               = ClientSettings.ResponseHeaderTimeout(rht)
   def idleTimeout(idt: Duration): UClient                         = ClientSettings.IdleTimeout(idt)
   def requestTimeout(rqt: Duration): UClient                      = ClientSettings.RequestTimeout(rqt)

@@ -14,7 +14,8 @@ import java.net.InetSocketAddress
 import scala.collection.immutable
 
 /**
- * TODO: Comments
+ * Holds Reference to Client state (ConnectionData) have functions to build /
+ * reuse netty channels for request / response
  */
 case class ClientConnectionManager(
   connectionData: ConnectionData,
