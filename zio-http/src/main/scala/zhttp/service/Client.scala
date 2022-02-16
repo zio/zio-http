@@ -17,15 +17,13 @@ import zhttp.http.headers.HeaderExtension
 import zhttp.service
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.model.ConnectionData.ReqKey
-import zhttp.service.client.model.{Connection, ConnectionData, ConnectionState, DefaultClient, Timeouts}
+import zhttp.service.client.model.DefaultClient
 import zhttp.service.client.transport.ClientConnectionManager
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.{Socket, SocketApp}
 import zio.{Chunk, Promise, Task, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress, URI}
-import scala.collection.immutable
 
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
@@ -230,28 +228,10 @@ object Client {
 
   def make[R](client: ClientSettings): Task[DefaultClient] = {
     val settings = client.settings()
-    for {
-      channelFactory <- settings.transport.clientChannel
-      eventLoopGroup <- settings.transport.eventLoopGroup(settings.threads)
-      zExec          <- zhttp.service.HttpRuntime.default[Any]
 
-      clientBootStrap = new Bootstrap()
-        .channelFactory(channelFactory)
-        .group(eventLoopGroup)
-      timeouts        = Timeouts(settings.connectionTimeout, settings.idleTimeout, settings.requestTimeout)
-      connectionDataRef <- zio.Ref.make(
-        (
-          None.asInstanceOf[Option[Connection]],
-          ConnectionState(Map.empty[Channel, ReqKey], Map.empty[ReqKey, immutable.Queue[Connection]]),
-        ),
-      )
-      connManager = ClientConnectionManager(
-        ConnectionData(connectionDataRef),
-        timeouts,
-        clientBootStrap,
-        zExec,
-      )
-      clientImpl  = DefaultClient(settings, connManager)
+    for {
+      connectionManager <- ClientConnectionManager(settings)
+      clientImpl = DefaultClient(connectionManager)
 //      _ <- zio.ZIO.effect(println(s"GOT CLIENT IMPL: $clientImpl"))
     } yield {
       clientImpl

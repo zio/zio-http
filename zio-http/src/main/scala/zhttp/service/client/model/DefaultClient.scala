@@ -4,14 +4,13 @@ import io.netty.buffer.ByteBuf
 import zhttp.http.Method.GET
 import zhttp.http._
 import zhttp.service.Client.{Attribute, ClientRequest, ClientResponse}
+import zhttp.service.HttpMessageCodec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.transport.ClientConnectionManager
-import zhttp.service.{ClientSettings, HttpMessageCodec}
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
 case class DefaultClient(
-  settings: ClientSettings.Config,
   connectionManager: ClientConnectionManager,
 ) extends HttpMessageCodec {
 
@@ -24,8 +23,7 @@ case class DefaultClient(
     resp   <- prom.await
     _      <- prom.complete(Task(resp))
 
-    _ <- connectionManager.connectionData
-      .aic(conn, reqKey)
+    _ <- connectionManager.connectionData.setConnectionIdle(conn, reqKey)
 //    activeConnections <- connectionManager.getActiveConnections
   } yield resp
 

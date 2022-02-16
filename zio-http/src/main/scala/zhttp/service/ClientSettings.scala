@@ -63,18 +63,6 @@ object ClientSettings {
   case class MaxTotalConnections(maxTotConn: Int)                      extends UClient
   case class MaxWaitQueueLimit(mwql: Int)                              extends UClient
   case class MaxConnectionsPerRequestKey(maxConnPerReq: Int)           extends UClient
-
-//  private final case class Concat[R, E](self: ClientSettings, other: ClientSettings)       extends ClientSettings
-//  private final case class TransportConfig(transport: Transport)           extends UClient
-//  private final case class Threads(threads: Int)                           extends UClient
-//  private final case class ResponseHeaderTimeout(rht: Duration)            extends UClient
-//  private final case class IdleTimeout(idlt: Duration)                     extends UClient
-//  private final case class RequestTimeout(reqt: Duration)                  extends UClient
-//  private final case class ConnectionTimeout(connt: Duration)              extends UClient
-//  private final case class UserAgent(ua: Option[String])                   extends UClient
-//  private final case class MaxTotalConnections(maxTotConn: Int)            extends UClient
-//  private final case class MaxWaitQueueLimit(mwql: Int)                    extends UClient
-//  private final case class MaxConnectionsPerRequestKey(maxConnPerReq: Int) extends UClient
   //  private final case class SSLContext(ssl: ClientSSLOptions)                                   extends UClient
 
   def transport(transport: Transport) = ClientSettings.TransportConfig(transport)

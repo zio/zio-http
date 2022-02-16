@@ -31,7 +31,7 @@ case class ConnectionState(
 
 case class ConnectionData(connectionData: Ref[(Option[Connection], ConnectionState)]) {
 
-  def gic(reqKey: ReqKey) = for {
+  def nextIdleChannel(reqKey: ReqKey) = for {
     getClientStateData <- connectionData.updateAndGet { clientData =>
       getIdleChannel(reqKey, clientData._2.currentAllocatedChannels, clientData._2.idleConnectionsMap)
     }
@@ -63,7 +63,7 @@ case class ConnectionData(connectionData: Ref[(Option[Connection], ConnectionSta
     res
   }
 
-  def aic(connection: Connection, reqKey: ReqKey) = {
+  def setConnectionIdle(connection: Connection, reqKey: ReqKey) = {
     connectionData.updateAndGet { clientData =>
       addIdleChannel(connection, reqKey, clientData._2.currentAllocatedChannels, clientData._2.idleConnectionsMap)
     }

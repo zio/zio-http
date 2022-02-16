@@ -5,13 +5,15 @@ import io.netty.channel.Channel
 import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.http.HeaderNames
 import zhttp.service.Client.{ClientRequest, ClientResponse}
+import zhttp.service.ClientSettings.Config
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.handler.{EnhancedClientChannelInitializer, EnhancedClientInboundHandler}
 import zhttp.service.client.model.ConnectionData.ReqKey
-import zhttp.service.client.model.{Connection, ConnectionData, Timeouts}
+import zhttp.service.client.model.{Connection, ConnectionData, ConnectionState, Timeouts}
 import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
+import scala.collection.immutable
 
 /*
   Can hold atomic reference to ZConnectionState comprising of
@@ -47,10 +49,8 @@ case class ClientConnectionManager(
     reqKey <- getRequestKey(jReq, req)
     isWebSocket = req.url.scheme.exists(_.isWebSocket)
     isSSL       = req.url.scheme.exists(_.isSecure)
-    connectionOpt <- connectionData.gic(reqKey)
-
-//    _    <- Task.effect(println(s"getClientStateData: $connectionOpt"))
-    conn <- triggerConn(connectionOpt, jReq, promise, reqKey, isWebSocket, isSSL)
+    connectionOpt <- connectionData.nextIdleChannel(reqKey)
+    conn          <- triggerConn(connectionOpt, jReq, promise, reqKey, isWebSocket, isSSL)
   } yield conn
 
   def getRequestKey(jReq: FullHttpRequest, req: ClientRequest) = for {
@@ -175,4 +175,21 @@ case class ClientConnectionManager(
   }
 }
 
-object ClientConnectionManager {}
+object ClientConnectionManager {
+  def apply(settings: Config): ZIO[Any, Throwable, ClientConnectionManager] = for {
+    channelFactory <- settings.transport.clientChannel
+    eventLoopGroup <- settings.transport.eventLoopGroup(settings.threads)
+    zExec          <- zhttp.service.HttpRuntime.default[Any]
+    clientBootStrap = new Bootstrap()
+      .channelFactory(channelFactory)
+      .group(eventLoopGroup)
+    connectionDataRef <- zio.Ref.make(
+      (
+        None.asInstanceOf[Option[Connection]],
+        ConnectionState(Map.empty[Channel, ReqKey], Map.empty[ReqKey, immutable.Queue[Connection]]),
+      ),
+    )
+    timeouts    = Timeouts(settings.connectionTimeout, settings.idleTimeout, settings.requestTimeout)
+    connManager = ClientConnectionManager(ConnectionData(connectionDataRef), timeouts, clientBootStrap, zExec)
+  } yield connManager
+}
