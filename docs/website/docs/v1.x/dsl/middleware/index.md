@@ -12,55 +12,44 @@ type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E,
 * `AIn` and `BIn` are type params of the input `Http`
 * `AOut` and `BOut` are type params of the output `Http`
 
-To summarize 
-- A middleware is a wrapper around `HTTP` that provides a means of manipulating the Request sent to the service, and/or the Response returned by the service. 
-- For example, an "Authentication" middleware, can prevent the service from being invoked and respond with "401 Not Authorized".
-
 ## Create Middleware
 
 ### Middleware that does nothing
 
+returns the same `Http` as input without doing any modification
+
 ```scala
-val middleware = Middleware.identity
+val middleware: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Middleware.identity
 ```
 
 ### Middleware that always succeeds
 
-creates a middleware that always returns the same response and never fails.
+creates a middleware that always returns the output `Http` that succeeds with the given value and never fails.
 
 ```scala
-val middleware = Middleware.succeed(1)
+val middleware: Middleware[Any, Nothing, Nothing, Any, Any, Int] = Middleware.succeed(1)
 ```
 
 ### Middleware that always fails
 
-creates a middleware that always returns the same response and always fails.
+creates a middleware that always returns the output `Http` that always fails.
 
 ```scala
-val middleware = Middleware.fail("error")
+val middleware: Middleware[Any, String, Nothing, Any, Any, Nothing] = Middleware.fail("error")
 ```
 
 ### Middleware from a partial function
 
-- Using `collect` middleware using a specified function
+- `collect` creates middleware using a specified function
 
 ```scala
-val middleware = Middleware.collect[Request](_ => Middleware.addHeaders(Headers("a", "b")))
+val middleware: Middleware[Any, Nothing, Request, Response, Request, Response] = Middleware.collect[Request](_ => Middleware.addHeaders(Headers("a", "b")))
 ```
 
-- Using `collectZIO` middleware using specified effect function
+- `collectZIO` creates middleware using a specified effect function
 
 ```scala
-val middleware = Middleware.collectZIO[Request](_ => ZIO.succeed(Middleware.addHeaders(Headers("a", "b"))))
-```
-
-### Middleware using transformation functions
-
-We can use `intercept` or `interceptZIO` to create a new middleware using transformation functions
-
-```scala
-  val middleware = Middleware.intercept[String, String](_.toInt + 2)((_, a) => a + 3)
-  val mid = Middleware.interceptZIO[Int, Int](i => UIO(i * 10))((i, j) => UIO(i + j))
+val middleware: Middleware[Any, Nothing, Request, Response, Request, Response] = Middleware.collectZIO[Request](_ => ZIO.succeed(Middleware.addHeaders(Headers("a", "b"))))
 ```
 
 ### Middleware using codec
@@ -72,16 +61,16 @@ The below snippet takes two functions:
 - encoder function to encode String to Response
 
 ```scala
-val middleware = Middleware.codec[Request,String](r => Right(r.method.toString()),s => Right(Response.text(s)))
+val middleware: Middleware[Any, Nothing, String, String, Request, Response] = Middleware.codec[Request,String](r => Right(r.method.toString()), s => Right(Response.text(s)))
 ```
 
 ### Middleware from an HttpApp
 
-- Using `fromHttp` with a specified HttpApp
+- Using `fromHttp`, it creates a middleware with output `Http` as specified `http`
 
 ```scala
-val app = Http.succeed("Hello World!")
-val middleware = Middleware.fromHttp(app)
+val app: Http[Any, Nothing, Any, String] = Http.succeed("Hello World!")
+val middleware: Middleware[Any, Nothing, Nothing, Any, Request, Response] = Middleware.fromHttp(app)
 ```
 
 ## Composition of middlewares
@@ -93,10 +82,7 @@ Middlewares can be composed using several special operators:
 `++` is an alias for `combine`. It combines that operates on the same input and output types into one.
 
 ```scala
-// print debug info about request and response
-Middleware.debug ++
-// add static header
-Middleware.addHeader("X-Environment", "Dev") 
+val middleware: Middleware[Console with Clock, IOException, Request, Response, Request, Response] = Middleware.debug ++ Middleware.addHeader("X-Environment", "Dev")
 ```
 
 ### Using `<>`
@@ -104,33 +90,42 @@ Middleware.addHeader("X-Environment", "Dev")
 `<>` is an alias for `orElse`. While using `<>`, if the first middleware fails, the second middleware will be evaluated, ignoring the result from the first.
 
 ```scala
-// print debug info about request and response
- Middleware.fail("error") ++
-// add static header
-Middleware.addHeader("X-Environment", "Dev") 
+val middleware: Middleware[Any, Nothing, Request, Response, Request, Response] = Middleware.fail("error") <> Middleware.addHeader("X-Environment", "Dev")
 ```
 
 ### Using `>>>`
 
-`>>>` is an alias for `andThen`. Creates a new middleware that passes the output Http of the current middleware as the input to the provided middleware.
+`>>>` is an alias for `andThen`. Creates a new middleware that passes the output `Http` of the current middleware as the input to the provided middleware.
 
 ```scala
-val middleware = Middleware.codec[Int, Int](decoder = a => Right(a + 1), encoder = b => Right(b + 1))
-middleware >>> middleware
+val middleware: Middleware[Any, Nothing, Int, Int, Int, Int] = Middleware.codec[Int, Int](decoder = a => Right(a + 1), encoder = b => Right(b + 1))
+val mid: Middleware[Any, Nothing, Int, Int, Int, Int] =  middleware >>> middleware
 ```
 
 ## Transforming Middlewares
 
-### Transforming the output of output `Http`
+### Transforming the output of the output `Http`
 
-We can use `flatMap` or  `map` or `mapZIO` for transforming the output type of output Http
+- We can use `flatMap` or  `map` or `mapZIO` for transforming the output type of output Http
 
 ```scala
-val middleware = Middleware.succeed(3)
+val middleware: Middleware[Any, Nothing, Nothing, Any, Any, Int] = Middleware.succeed(3)
 
-val mid1 = middleware.map((i: Int) => i.toString)
-val mid2= middleware.mapZIO((i: Int) => ZIO.succeed(s"$i"))
-val mid3 = middleware.flatMap((m: Int) => Middleware.succeed(m.toString))
+val mid1: Middleware[Any, Nothing, Nothing, Any, Any, String] = middleware.map((i: Int) => i.toString)
+val mid2: Middleware[Any, Nothing, Nothing, Any, Any, String] = middleware.mapZIO((i: Int) => ZIO.succeed(s"$i"))
+val mid3: Middleware[Any, Nothing, Nothing, Any, Any, String] = middleware.flatMap((m: Int) => Middleware.succeed(m.toString))
+```
+
+- We can use `intercept` or `interceptZIO` to create a new middleware using transformation functions, which changes the output type of the output `Http` keeping input the same.
+  
+  The below snippet takes two functions:
+  - (incoming: A => S)
+  - (outgoing: (B, S) => BOut) 
+  
+```scala
+val middleware: Middleware[Any, Nothing, String, String, String, Int] = Middleware.intercept[String, String](_.toInt + 2)((_, a) => a + 3)
+  
+val mid: Middleware[Any, Nothing, Int, Int, Int, Int] = Middleware.interceptZIO[Int, Int](i => UIO(i * 10))((i, j) => UIO(i + j))
 ```
 
 ### Transforming the Input of the output `Http`
@@ -138,46 +133,45 @@ val mid3 = middleware.flatMap((m: Int) => Middleware.succeed(m.toString))
 We can use `contramap` or `contramapZIO` for transforming the input type of the output `Http`
 
 ```scala
-val middleware = Middleware.codec[Int, Int](decoder = a => Right(a + 1), encoder = b => Right(b + 1))
+val middleware: Middleware[Any, Nothing, Int, Int, Int, Int] = Middleware.codec[Int, Int](decoder = a => Right(a + 1), encoder = b => Right(b + 1))
 
-val mid1 = middleware.contramap[String](_.toInt)
-val mid2 = middleware.contramapZIO[String](a => UIO(a.toInt))
+val mid1: Middleware[Any, Nothing, Int, Int, String, Int] = middleware.contramap[String](_.toInt)
+val mid2: Middleware[Any, Nothing, Int, Int, String, Int] = middleware.contramapZIO[String](a => UIO(a.toInt))
 ```
-
 
 ## Conditional application of middlewares
 
-- Using `when`, only if the condition function evaluates to true
+- `when` applies middleware only if the condition function evaluates to true
 
 ```scala
-val mid = Middleware.succeed("yes")
-val m = mid.when[String]((str: String) => str.length > 2)
+val middleware: Middleware[Any, Nothing, Nothing, Any, Any, String] = Middleware.succeed("yes")
+val mid: Middleware[Any, Nothing, Nothing, Any, String, String] = middleware.when[String]((str: String) => str.length > 2)
 ```
 
-- Using `whenZIO`, only if the condition effectful function evaluates
+-`whenZIO` applies middleware only if the condition function(with effect) evaluates
 
 ```scala
-val middleware = Middleware.succeed("yes")
-val mid = middleware.whenZIO[Any, Nothing, String]((str: String) => UIO(str.length > 2))  
+val middleware: Middleware[Any, Nothing, Nothing, Any, Any, String] = Middleware.succeed("yes")
+val mid: Middleware[Any, Nothing, Nothing, Any, String, String] = middleware.whenZIO[Any, Nothing, String]((str: String) => UIO(str.length > 2))
 ```
 
 Logical operators to decide which middleware to select based on the predicate:
 
-- Using `ifThenElse` with a specified HttpApp
+- Using `ifThenElse` 
 
 ```scala
-val mid = Middleware.ifThenElse[Int](_ > 5)(
-            isTrue = i => Middleware.succeed(i + 1),
-            isFalse = i => Middleware.succeed(i - 1)
-          )
+val mid: Middleware[Any, Nothing, Nothing, Any, Int, Int] = Middleware.ifThenElse[Int](_ > 5)(
+    isTrue = i => Middleware.succeed(i + 1),
+    isFalse = i => Middleware.succeed(i - 1)
+  )
 ```
-- Using `ifThenElseZIO` for specified effectful encoder and decoder
+- Using `ifThenElseZIO` 
 
 ```scala
-val mid = Middleware.ifThenElseZIO[Int](i => UIO(i > 5))(
-          isTrue = i => Middleware.succeed(i + 1),
-          isFalse = i => Middleware.succeed(i - 1),
-        ) 
+val mid: Middleware[Any, Nothing, Nothing, Any, Int, Int] = Middleware.ifThenElseZIO[Int](i => UIO(i > 5))(
+    isTrue = i => Middleware.succeed(i + 1),
+    isFalse = i => Middleware.succeed(i - 1),
+  )
 ```
 
 ## Example of a middleware
