@@ -1,9 +1,9 @@
 # Middleware
 
-Middlewares are transformations that one can apply on any Http to produce a new one. 
+Middlewares are transformations that one can apply on any [`Http`](https://dream11.github.io/zio-http/docs/v1.x/dsl/http) to produce a new one. 
 They can modify requests and responses and also transform them into more concrete domain entities.
 
-Middleware is simply a function that takes one `Http` as a parameter and returns another `Http` `f(Http) => Http` elaborated below in terms of type parameters "In" and "Out"
+Middleware is simply a function that takes one `Http` as a parameter and returns another `Http`, ie, `f(Http) => Http` elaborated below in terms of type parameters "In" and "Out"
 
 ```scala
 type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E, AOut, BOut]
@@ -16,7 +16,7 @@ type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E,
 
 ### Middleware that does nothing
 
-returns the same `Http` as input without doing any modification
+To return the input `Http` as the output without doing any modification
 
 ```scala
 val middleware: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Middleware.identity
@@ -24,7 +24,7 @@ val middleware: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Middlewar
 
 ### Middleware that always succeeds
 
-creates a middleware that always returns the output `Http` that succeeds with the given value and never fails.
+To create a middleware that always returns an output `Http` that succeeds with the given value and never fails.
 
 ```scala
 val middleware: Middleware[Any, Nothing, Nothing, Any, Any, Int] = Middleware.succeed(1)
@@ -32,7 +32,7 @@ val middleware: Middleware[Any, Nothing, Nothing, Any, Any, Int] = Middleware.su
 
 ### Middleware that always fails
 
-creates a middleware that always returns the output `Http` that always fails.
+To create a middleware that always returns an output `Http` that always fails.
 
 ```scala
 val middleware: Middleware[Any, String, Nothing, Any, Any, Nothing] = Middleware.fail("error")
@@ -40,13 +40,13 @@ val middleware: Middleware[Any, String, Nothing, Any, Any, Nothing] = Middleware
 
 ### Middleware from a partial function
 
-- `collect` creates middleware using a specified function
+- `collect` creates middleware using a specified function, `f: PartialFunction[AOut, Middleware[R, E, AIn, BIn, AOut, BOut]]`
 
 ```scala
 val middleware: Middleware[Any, Nothing, Request, Response, Request, Response] = Middleware.collect[Request](_ => Middleware.addHeaders(Headers("a", "b")))
 ```
 
-- `collectZIO` creates middleware using a specified effect function
+- `collectZIO` creates middleware using a specified effect function, `f: PartialFunction[AOut, ZIO[R, E, Middleware[R, E, AIn, BIn, AOut, BOut]]]`
 
 ```scala
 val middleware: Middleware[Any, Nothing, Request, Response, Request, Response] = Middleware.collectZIO[Request](_ => ZIO.succeed(Middleware.addHeaders(Headers("a", "b"))))
@@ -54,19 +54,21 @@ val middleware: Middleware[Any, Nothing, Request, Response, Request, Response] =
 
 ### Middleware using codec
 
-codec takes two functions `decoder: AOut => Either[E, AIn]` and `encoder: BIn => Either[E, BOut]`
+`codec` creates a middleware that transforms the input `Http` using two functions `decoder: AOut => Either[E, AIn]` and `encoder: BIn => Either[E, BOut]`
 
 The below snippet takes two functions:
 - decoder function to decode Request to String 
 - encoder function to encode String to Response
 
+and creates a middleware that gives out an `Http[R,E,Request,Response]` from `Http[R,E,String,String]`
+
 ```scala
 val middleware: Middleware[Any, Nothing, String, String, Request, Response] = Middleware.codec[Request,String](r => Right(r.method.toString()), s => Right(Response.text(s)))
 ```
 
-### Middleware from an HttpApp
+### Middleware from an `Http`
 
-- Using `fromHttp`, it creates a middleware with output `Http` as specified `http`
+- `fromHttp` creates a middleware with output `Http` as specified `Http`
 
 ```scala
 val app: Http[Any, Nothing, Any, String] = Http.succeed("Hello World!")
@@ -87,7 +89,7 @@ val middleware: Middleware[Console with Clock, IOException, Request, Response, R
 
 ### Using `<>`
 
-`<>` is an alias for `orElse`. While using `<>`, if the first middleware fails, the second middleware will be evaluated, ignoring the result from the first.
+`<>` is an alias for `orElse`. While using `<>`, if the output `Http` of the first middleware fails, the second middleware will be evaluated, ignoring the result from the first.
 
 ```scala
 val middleware: Middleware[Any, Nothing, Request, Response, Request, Response] = Middleware.fail("error") <> Middleware.addHeader("X-Environment", "Dev")
