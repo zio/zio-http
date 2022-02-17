@@ -210,8 +210,8 @@ val mid: Middleware[Any, Nothing, Nothing, Any, Int, Int] = Middleware.ifThenEls
    
 </details>   
 
-## A few "Out of the box" middlewares
-### Basic Auth
-### CORS
-### CSRF
+### A few "Out of the box" middlewares
+- [Basic Auth](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/middleware_basic_auth) 
+- [CORS](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/middleware_cors)
+- [CSRF](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/middleware_csrf)
 
