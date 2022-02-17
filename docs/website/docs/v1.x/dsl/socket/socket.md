@@ -87,7 +87,7 @@ val socket = s1 merge s2
 
 ### `map` over a Socket's output channel
 
-Socket is a monad, so you can use `map` to transform the output of a Socket from type `Socket[R, E, A, B]` to type `Socket[R, E, A, C]`, it takes a function from `B => Socket[R, E, A, C]`.
+Socket is a domain, so you can use `map` to transform the output of a Socket from type `Socket[R, E, A, B]` to type `Socket[R, E, A, C]`, it takes a function from `B => Socket[R, E, A, C]`.
 
 ```scala
 val sc     = Socket.succeed("Hello, from ZIO-HTTP")
