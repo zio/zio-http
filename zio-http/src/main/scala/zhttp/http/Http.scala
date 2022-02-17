@@ -393,6 +393,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
       case Http.Identity        => HExit.succeed(a.asInstanceOf[B])
       case Succeed(b)           => HExit.succeed(b)
       case Fail(e)              => HExit.fail(e)
+      case FromHExit(h)         => h
       case FromFunctionHExit(f) => f(a)
       case Chain(self, other)   => self.execute(a).flatMap(b => other.execute(b))
       case Race(self, other)    =>
@@ -568,6 +569,11 @@ object Http {
   def fromFunctionHExit[A]: PartialFromFunctionHExit[A] = new PartialFromFunctionHExit[A](())
 
   /**
+   * Creates a Http from HExit[R,E,B]
+   */
+  def fromHExit[R, E, B](h: HExit[R, E, B]): Http[R, E, Any, B] = FromHExit(h)
+
+  /**
    * Creates an `Http` from a function that takes a value of type `A` and
    * returns with a `ZIO[R, Option[E], B]`. The returned effect can fail with a
    * `None` to signal "not found" to the backend.
@@ -729,6 +735,8 @@ object Http {
   private final case class Fail[E](e: E) extends Http[Any, E, Any, Nothing]
 
   private final case class FromFunctionHExit[R, E, A, B](f: A => HExit[R, E, B]) extends Http[R, E, A, B]
+
+  private final case class FromHExit[R, E, B](h: HExit[R, E, B]) extends Http[R, E, Any, B]
 
   private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C])
       extends Http[R, E, A, C]

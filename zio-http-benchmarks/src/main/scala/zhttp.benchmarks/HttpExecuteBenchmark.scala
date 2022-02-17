@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 class HttpExecuteBenchmark {
 
   private val msg          = "HELLO WORLD"
-  private val app          = Http.succeed(msg)
+  private val app          = Http.fromHExit(HExit.succeed(msg))
   private val req: Request = Request(Method.GET, URL(!!))
 
   @Benchmark
