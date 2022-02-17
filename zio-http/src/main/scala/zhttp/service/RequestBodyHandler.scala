@@ -6,17 +6,12 @@ import zhttp.http.HttpData.{UnsafeChannel, UnsafeContent}
 
 @Sharable
 final class RequestBodyHandler[R](
-  var callback: UnsafeChannel => UnsafeContent => Unit,
-) extends SimpleChannelInboundHandler[Any](false) {
+  var callback: (UnsafeChannel, Int) => UnsafeContent => Unit,
+  config: Server.Config[R, Throwable],
+) extends SimpleChannelInboundHandler[HttpContent](false) {
 
-  override def channelRead0(ctx: ChannelHandlerContext, msg: Any): Unit = {
-    msg match {
-      case httpContent: HttpContent =>
-        callback(UnsafeChannel(ctx))(UnsafeContent(httpContent))
-      case _                        =>
-        ctx.fireChannelRead(msg): Unit
-        ctx.read(): Unit
-    }
+  override def channelRead0(ctx: ChannelHandlerContext, msg: HttpContent): Unit = {
+    callback(UnsafeChannel(ctx), config.maxRequestSize)(UnsafeContent(msg))
   }
 
   override def handlerAdded(ctx: ChannelHandlerContext): Unit = {

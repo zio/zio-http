@@ -35,7 +35,9 @@ object ServerSpec extends HttpRunnableSpec {
     case _ -> !! / "HExitFailure" => HExit.fail(new RuntimeException("FAILURE"))
   }
 
-  private val app = serve { nonZIO ++ staticApp ++ DynamicServer.app }
+  private val app                 = serve { nonZIO ++ staticApp ++ DynamicServer.app }
+  private val appWithReqStreaming =
+    serve(nonZIO ++ staticApp ++ DynamicServer.app, Server.disableObjectAggregator ++ Server.port(8011))
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -333,13 +335,40 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   override def spec =
-    suiteM("Server") {
-      app
-        .as(
-          List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, nonZIOSpec, serverErrorSpec),
-        )
-        .useNow
-    }.provideCustomLayerShared(env) @@ timeout(30 seconds)
+    suite("Server") {
+      suiteM("app without request streaming") {
+        app
+          .as(
+            List(
+              serverStartSpec,
+              staticAppSpec,
+              dynamicAppSpec,
+              responseSpec,
+              requestSpec,
+              nonZIOSpec,
+              serverErrorSpec,
+              requestBodySpec,
+            ),
+          )
+          .useNow
+      } +
+        suiteM("app with request streaming") {
+          appWithReqStreaming
+            .as(
+              List(
+                staticAppSpec,
+                dynamicAppSpec,
+                responseSpec,
+                requestSpec,
+                nonZIOSpec,
+                serverErrorSpec,
+                requestBodySpec,
+              ),
+            )
+            .useNow
+        }
+
+    }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ sequential
 
   def staticAppSpec = suite("StaticAppSpec") {
     testM("200 response") {

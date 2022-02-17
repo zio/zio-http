@@ -34,7 +34,6 @@ private[zhttp] trait ServerResponseHandler[R] {
           case _                              =>
             ctx.flush()
             releaseRequest(jReq)
-            if (!ctx.channel().config().isAutoRead) ctx.read()
         }
     }
     ()
@@ -68,13 +67,13 @@ private[zhttp] trait ServerResponseHandler[R] {
   /**
    * Releases the FullHttpRequest safely.
    */
-  private def releaseRequest(jReq: HttpRequest): Unit = {
+  private def releaseRequest(jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     jReq match {
       case req: FullHttpRequest =>
         if (req.refCnt() > 0) {
           req.release(req.refCnt()): Unit
         }
-      case _                    => ()
+      case _                    => if (!ctx.channel().config().isAutoRead) ctx.read(): Unit
     }
 
   }

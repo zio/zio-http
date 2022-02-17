@@ -17,7 +17,7 @@ private[zhttp] final case class Handler[R](
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
   serverTimeGenerator: ServerTime,
-) extends SimpleChannelInboundHandler[Any](false)
+) extends SimpleChannelInboundHandler[HttpObject](false)
     with WebSocketUpgrade[R]
     with ServerResponseHandler[R] { self =>
 
@@ -28,7 +28,7 @@ private[zhttp] final case class Handler[R](
     }
   }
 
-  override def channelRead0(ctx: Ctx, jReq: Any): Unit = {
+  override def channelRead0(ctx: Ctx, jReq: HttpObject): Unit = {
 
     implicit val iCtx: ChannelHandlerContext = ctx
     jReq match {
@@ -56,13 +56,13 @@ private[zhttp] final case class Handler[R](
         )
       case jReq: HttpRequest    =>
         def unsafeBody(
-          callback: UnsafeChannel => UnsafeContent => Unit,
+          callback: (UnsafeChannel, Int) => UnsafeContent => Unit,
         ): Unit = {
           val httpContentHandler = ctx.pipeline().get(HTTP_CONTENT_HANDLER)
           if (httpContentHandler == null) {
             ctx
               .pipeline()
-              .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback)): Unit
+              .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback, config)): Unit
           } else {
             httpContentHandler.asInstanceOf[RequestBodyHandler[R]].callback = callback
           }
@@ -95,7 +95,7 @@ private[zhttp] final case class Handler[R](
           ctx.fireChannelRead(msg): Unit
         }
 
-      case msg => ctx.fireChannelRead(msg): Unit
+      case _ => writeResponse(Response.status(Status.NOT_ACCEPTABLE), jReq.asInstanceOf[HttpRequest]): Unit
 
     }
 
