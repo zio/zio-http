@@ -1,3 +1,6 @@
+---
+sidebar_position: "6"
+---
 # Headers
 
 **ZIO HTTP** provides support for all HTTP headers (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) ) along with  custom headers.
