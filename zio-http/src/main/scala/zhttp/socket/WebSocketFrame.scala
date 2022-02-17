@@ -1,7 +1,8 @@
 package zhttp.socket
 
-import io.netty.buffer.ByteBuf
+import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}
+import zio.Chunk
 
 sealed trait WebSocketFrame extends Product with Serializable { self =>
   final def toWebSocketFrame: JWebSocketFrame = WebSocketFrame.toJFrame(self)
@@ -10,13 +11,13 @@ sealed trait WebSocketFrame extends Product with Serializable { self =>
 
 object WebSocketFrame {
 
-  case class Binary(buffer: ByteBuf) extends WebSocketFrame { override val isFinal: Boolean = true }
+  case class Binary(bytes: Chunk[Byte]) extends WebSocketFrame { override val isFinal: Boolean = true }
   object Binary {
-    def apply(buffer: ByteBuf, isFinal: Boolean): Binary       = {
+    def apply(bytes: Chunk[Byte], isFinal: Boolean): Binary        = {
       val arg = isFinal
-      new Binary(buffer) { override val isFinal: Boolean = arg }
+      new Binary(bytes) { override val isFinal: Boolean = arg }
     }
-    def unapply(frame: WebSocketFrame.Binary): Option[ByteBuf] = Some(frame.buffer)
+    def unapply(frame: WebSocketFrame.Binary): Option[Chunk[Byte]] = Some(frame.bytes)
   }
 
   case class Text(text: String) extends WebSocketFrame { override val isFinal: Boolean = true }
@@ -48,7 +49,7 @@ object WebSocketFrame {
   def close(status: Int, reason: Option[String] = None): WebSocketFrame =
     WebSocketFrame.Close(status, reason)
 
-  def binary(chunks: ByteBuf): WebSocketFrame = WebSocketFrame.Binary(chunks)
+  def binary(bytes: Chunk[Byte]): WebSocketFrame = WebSocketFrame.Binary(bytes)
 
   def ping: WebSocketFrame = WebSocketFrame.Ping
 
@@ -63,7 +64,7 @@ object WebSocketFrame {
       case _: PongWebSocketFrame         =>
         Option(Pong)
       case m: BinaryWebSocketFrame       =>
-        Option(Binary((m.content()), m.isFinalFragment))
+        Option(Binary(Chunk.fromArray(ByteBufUtil.getBytes(m.content())), m.isFinalFragment))
       case m: TextWebSocketFrame         =>
         Option(Text(m.text(), m.isFinalFragment))
       case m: CloseWebSocketFrame        =>
@@ -77,7 +78,7 @@ object WebSocketFrame {
   def toJFrame(frame: WebSocketFrame): JWebSocketFrame =
     frame match {
       case b: Binary                 =>
-        new BinaryWebSocketFrame(b.isFinal, 0, b.buffer)
+        new BinaryWebSocketFrame(b.isFinal, 0, Unpooled.wrappedBuffer(b.bytes.toArray))
       case t: Text                   =>
         new TextWebSocketFrame(t.isFinal, 0, t.text)
       case Close(status, Some(text)) =>
