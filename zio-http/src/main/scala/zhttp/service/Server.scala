@@ -6,6 +6,7 @@ import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
+import zhttp.service.server.content.compression._
 import zio.{ZManaged, _}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -18,17 +19,18 @@ sealed trait Server[-R, +E] { self =>
     Concat(self, other)
 
   private def settings[R1 <: R, E1 >: E](s: Config[R1, E1] = Config()): Config[R1, E1] = self match {
-    case Concat(self, other)       => other.settings(self.settings(s))
-    case LeakDetection(level)      => s.copy(leakDetectionLevel = level)
-    case MaxRequestSize(size)      => s.copy(maxRequestSize = size)
-    case Error(errorHandler)       => s.copy(error = Some(errorHandler))
-    case Ssl(sslOption)            => s.copy(sslOption = sslOption)
-    case App(app)                  => s.copy(app = app)
-    case Address(address)          => s.copy(address = address)
-    case AcceptContinue(enabled)   => s.copy(acceptContinue = enabled)
-    case KeepAlive(enabled)        => s.copy(keepAlive = enabled)
-    case FlowControl(enabled)      => s.copy(flowControl = enabled)
-    case ConsolidateFlush(enabled) => s.copy(consolidateFlush = enabled)
+    case Concat(self, other)           => other.settings(self.settings(s))
+    case LeakDetection(level)          => s.copy(leakDetectionLevel = level)
+    case MaxRequestSize(size)          => s.copy(maxRequestSize = size)
+    case Error(errorHandler)           => s.copy(error = Some(errorHandler))
+    case Ssl(sslOption)                => s.copy(sslOption = sslOption)
+    case App(app)                      => s.copy(app = app)
+    case Address(address)              => s.copy(address = address)
+    case AcceptContinue(enabled)       => s.copy(acceptContinue = enabled)
+    case KeepAlive(enabled)            => s.copy(keepAlive = enabled)
+    case FlowControl(enabled)          => s.copy(flowControl = enabled)
+    case ConsolidateFlush(enabled)     => s.copy(consolidateFlush = enabled)
+    case HttpCompression(cst, options) => s.copy(httpCompression = (cst, options))
   }
 
   def make(implicit
@@ -116,6 +118,14 @@ sealed trait Server[-R, +E] { self =>
    * href="https://netty.io/4.1/api/io/netty/handler/flush/FlushConsolidationHandler.html">FlushConsolidationHandler<a>).
    */
   def withConsolidateFlush(enable: Boolean): Server[R, E] = Concat(self, ConsolidateFlush(enable))
+
+  /**
+   * Creates a new server with HttpContentCompressor that compresses the
+   * response in gzip or deflate encoding while respecting the "Accept-Encoding"
+   * header. If there is no matching encoding, no compression is done.
+   */
+  def withHttpCompression(contentSizeThreshold: Int, compressionOptions: IndexedSeq[CompressionOptions]): Server[R, E] =
+    Concat(self, HttpCompression(contentSizeThreshold, compressionOptions))
 }
 
 object Server {
@@ -132,6 +142,7 @@ object Server {
     keepAlive: Boolean = true,
     consolidateFlush: Boolean = false,
     flowControl: Boolean = true,
+    httpCompression: (Int, IndexedSeq[CompressionOptions]) = null,
   )
 
   /**
@@ -150,6 +161,10 @@ object Server {
   private final case class ConsolidateFlush(enabled: Boolean)                         extends Server[Any, Nothing]
   private final case class AcceptContinue(enabled: Boolean)                           extends UServer
   private final case class FlowControl(enabled: Boolean)                              extends UServer
+  private final case class HttpCompression(
+    contentSizeThreshold: Int,
+    compressionOptions: IndexedSeq[CompressionOptions],
+  ) extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -160,8 +175,10 @@ object Server {
   def bind(inetSocketAddress: InetSocketAddress): UServer = Server.Address(inetSocketAddress)
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
-  def acceptContinue: UServer                                                        = Server.AcceptContinue(true)
-  val disableFlowControl: UServer                                                    = Server.FlowControl(false)
+  def httpCompression(contentSizeThreshold: Int, options: IndexedSeq[CompressionOptions]): UServer =
+    HttpCompression(contentSizeThreshold, options)
+  def acceptContinue: UServer        = Server.AcceptContinue(true)
+  val disableFlowControl: UServer    = Server.FlowControl(false)
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
   val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
