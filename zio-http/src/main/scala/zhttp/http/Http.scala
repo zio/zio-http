@@ -393,6 +393,9 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
       case Http.Identity        => HExit.succeed(a.asInstanceOf[B])
       case Succeed(b)           => HExit.succeed(b)
       case Fail(e)              => HExit.fail(e)
+      case Attempt(a)           =>
+        try { HExit.succeed(a()) }
+        catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
       case FromFunctionHExit(f) => f(a)
       case Chain(self, other)   => self.execute(a).flatMap(b => other.execute(b))
       case Race(self, other)    =>
@@ -461,6 +464,12 @@ object Http {
   def apply[B](b: B): Http[Any, Nothing, Any, B] = Http.succeed(b)
 
   /**
+   * Attempts to create an Http that succeeds with the provided value, capturing
+   * all exceptions on it's way.
+   */
+  def attempt[A](a: => A): Http[Any, Throwable, Any, A] = Attempt(() => a)
+
+  /**
    * Creates an HTTP app which always responds with a 400 status code.
    */
   def badRequest(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.BadRequest(msg))
@@ -471,14 +480,14 @@ object Http {
   def collect[A]: Http.PartialCollect[A] = Http.PartialCollect(())
 
   /**
-   * Create an HTTP app from a partial function from A to Http[R,E,A,B]
-   */
-  def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
-
-  /**
    * Create an HTTP app from a partial function from A to HExit[R,E,B]
    */
   def collectHExit[A]: Http.PartialCollectHExit[A] = Http.PartialCollectHExit(())
+
+  /**
+   * Create an HTTP app from a partial function from A to Http[R,E,A,B]
+   */
+  def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
 
   /**
    * Creates an Http app which accepts a request and produces response from a
@@ -558,14 +567,14 @@ object Http {
   def fromFunction[A]: PartialFromFunction[A] = new PartialFromFunction[A](())
 
   /**
-   * Creates a Http from an effectful pure function
-   */
-  def fromFunctionZIO[A]: PartialFromFunctionZIO[A] = new PartialFromFunctionZIO[A](())
-
-  /**
    * Creates a Http from an pure function from A to HExit[R,E,B]
    */
   def fromFunctionHExit[A]: PartialFromFunctionHExit[A] = new PartialFromFunctionHExit[A](())
+
+  /**
+   * Creates a Http from an effectful pure function
+   */
+  def fromFunctionZIO[A]: PartialFromFunctionZIO[A] = new PartialFromFunctionZIO[A](())
 
   /**
    * Creates an `Http` from a function that takes a value of type `A` and
@@ -744,6 +753,8 @@ object Http {
     http: Http[R, E, A1, B1],
     mid: Middleware[R, E, A1, B1, A2, B2],
   ) extends Http[R, E, A2, B2]
+
+  private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
 
   private case object Empty extends Http[Any, Nothing, Any, Nothing]
 
