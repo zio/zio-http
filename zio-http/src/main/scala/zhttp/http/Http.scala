@@ -395,6 +395,9 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
       case Http.Identity              => HExit.succeed(a.asInstanceOf[B])
       case Succeed(b)                 => HExit.succeed(b)
       case Fail(e)                    => HExit.fail(e)
+      case Attempt(a)                 =>
+        try { HExit.succeed(a()) }
+        catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
       case FromFunctionHExit(f)       => f(a)
       case Chain(self, other)         => self.execute(a).flatMap(b => other.execute(b))
       case Race(self, other)          =>
@@ -600,6 +603,11 @@ object Http {
    */
   def fromResource(path: String): HttpApp[Any, Throwable] =
     Http.fromFile(new File(getClass.getResource(path).getPath))
+  /**
+   * Attempts to create an Http that succeeds with the provided value, capturing
+   * all exceptions on it's way.
+   */
+  def attempt[A](a: => A): Http[Any, Throwable, Any, A] = Attempt(() => a)
 
   /**
    * Creates a Http that always succeeds with a 200 status code and the provided
@@ -800,4 +808,6 @@ object Http {
   private case object Empty extends Http[Any, Nothing, Any, Nothing]
 
   private case object Identity extends Http[Any, Nothing, Any, Nothing]
+
+  private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
 }
