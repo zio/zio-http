@@ -14,7 +14,7 @@ import zio.stream.ZStream
 
 import java.io.{File, FileNotFoundException}
 import java.nio.charset.Charset
-import java.nio.file.{Path => JPath, Paths}
+import java.nio.file.{Paths, Path => JPath}
 import scala.annotation.unused
 
 /**
@@ -464,14 +464,15 @@ object Http {
   def apply[B](b: B): Http[Any, Nothing, Any, B] = Http.succeed(b)
 
   /**
+   * Attempts to create an Http that succeeds with the provided value, capturing
+   * all exceptions on it's way.
+   */
+  def attempt[A](a: => A): Http[Any, Throwable, Any, A] = Attempt(() => a)
+
+  /**
    * Creates an HTTP app which always responds with a 400 status code.
    */
   def badRequest(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.BadRequest(msg))
-
-  /**
-   * Creates an HTTP app which always responds with a 405 status code.
-   */
-  def methodNotAllowed(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.MethodNotAllowed(msg))
 
   /**
    * Creates an HTTP app which accepts a request and produces response.
@@ -479,14 +480,14 @@ object Http {
   def collect[A]: Http.PartialCollect[A] = Http.PartialCollect(())
 
   /**
-   * Create an HTTP app from a partial function from A to Http[R,E,A,B]
-   */
-  def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
-
-  /**
    * Create an HTTP app from a partial function from A to HExit[R,E,B]
    */
   def collectHExit[A]: Http.PartialCollectHExit[A] = Http.PartialCollectHExit(())
+
+  /**
+   * Create an HTTP app from a partial function from A to Http[R,E,A,B]
+   */
+  def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
 
   /**
    * Creates an Http app which accepts a request and produces response from a
@@ -559,22 +560,36 @@ object Http {
    * Creates an Http app from the contents of a file which is produced from an effect.
    * The operator automatically also adds the content-length and content-type headers if possible.
    */
-  def fromFileZIO[R](fileZIO: ZIO[R, Throwable, java.io.File]): HttpApp[R, Throwable] =
-    responseZIO(
+  def fromFileZIO[R](fileZIO: ZIO[R, Throwable, java.io.File]): HttpApp[R, Throwable] = {
+    val response: ZIO[R, Throwable, HttpApp[Any, Throwable]] =
       fileZIO.map { file =>
-        // TODO: `.length` can fail with `SecurityException`
-        val contentLength = Headers.contentLength(file.length())
-        val response      = Response(headers = contentLength, data = HttpData.fromFile(file))
+        if (file.isFile) {
+          // TODO: `.length` can fail with `SecurityException`
+          val contentLength = Headers.contentLength(file.length())
+          val response      = Response(headers = contentLength, data = HttpData.fromFile(file))
+          val pathName      = file.toPath.toString
 
-        /**
-         * Set MIME type in the response headers. This is only relevant in case
-         * of RandomAccessFile transfers as browsers use the MIME type, not the
-         * file extension, to determine how to process a URL.
-         * {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
-         */
-        MediaType.probe(file.toPath.toString).fold(response)(response.withMediaType)
-      },
-    )
+          // Extract file extension
+          // TODO: can fail if there is a `.` in the path
+          val ext = pathName.lastIndexOf(".") match {
+            case -1 => None
+            case i  => Some(pathName.substring(i + 1))
+          }
+
+          /**
+           * Set MIME type in the response headers. This is only relevant in
+           * case of RandomAccessFile transfers as browsers use the MIME type,
+           * not the file extension, to determine how to process a URL.
+           * {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
+           */
+          Http.succeed(ext.flatMap(MediaType.forFileExtension).fold(response)(response.withMediaType))
+        } else {
+          Http.fail(new FileNotFoundException(s"Invalid file path: ${file.getAbsolutePath}"))
+        }
+      }.catchSome { case _: FileNotFoundException => UIO(Http.empty) }
+
+    Http.fromZIO(response).flatten
+  }
 
   /**
    * Creates a Http from a pure function
@@ -582,14 +597,14 @@ object Http {
   def fromFunction[A]: PartialFromFunction[A] = new PartialFromFunction[A](())
 
   /**
-   * Creates a Http from an effectful pure function
-   */
-  def fromFunctionZIO[A]: PartialFromFunctionZIO[A] = new PartialFromFunctionZIO[A](())
-
-  /**
    * Creates a Http from an pure function from A to HExit[R,E,B]
    */
   def fromFunctionHExit[A]: PartialFromFunctionHExit[A] = new PartialFromFunctionHExit[A](())
+
+  /**
+   * Creates a Http from an effectful pure function
+   */
+  def fromFunctionZIO[A]: PartialFromFunctionZIO[A] = new PartialFromFunctionZIO[A](())
 
   /**
    * Creates an `Http` from a function that takes a value of type `A` and
@@ -597,41 +612,6 @@ object Http {
    * `None` to signal "not found" to the backend.
    */
   def fromOptionFunction[A]: PartialFromOptionFunction[A] = new PartialFromOptionFunction(())
-
-  /**
-   * Creates an Http app from a resource path
-   */
-  def fromResource(path: String): HttpApp[Any, Throwable] =
-    Http.fromFile(new File(getClass.getResource(path).getPath))
-  /**
-   * Attempts to create an Http that succeeds with the provided value, capturing
-   * all exceptions on it's way.
-   */
-  def attempt[A](a: => A): Http[Any, Throwable, Any, A] = Attempt(() => a)
-
-  /**
-   * Creates a Http that always succeeds with a 200 status code and the provided
-   * ZStream as the body
-   */
-  def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = HTTP_CHARSET): HttpApp[R, Nothing] =
-    Http.fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provide(r), charset)))).flatten
-
-  /**
-   * Creates a Http that always succeeds with a 200 status code and the provided
-   * ZStream as the body
-   */
-  def fromStream[R](stream: ZStream[R, Throwable, Byte]): HttpApp[R, Nothing] =
-    Http.fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provide(r))))).flatten
-
-  /**
-   * Converts a ZIO to an Http type
-   */
-  def fromZIO[R, E, B](effect: ZIO[R, E, B]): Http[R, E, Any, B] = Http.fromFunctionZIO(_ => effect)
-
-  /**
-   * Creates an HTTP app which always responds with the provided Html page.
-   */
-  def html(view: Html): HttpApp[Any, Nothing] = Http.response(Response.html(view))
 
   /**
    * Creates an HTTP that can gracefully serve anything that's on the provided
@@ -665,9 +645,54 @@ object Http {
   }
 
   /**
+   * Creates an Http app from a resource path
+   */
+  def fromResource(path: String): HttpApp[Any, Throwable] = {
+    for {
+      path <- Http
+        .attempt(getClass.getResource(path) match {
+          case null => Http.empty
+          case url  => Http.succeed(url.getPath)
+        })
+        .flatten
+      http <- Http.fromFile(new File(path))
+    } yield http
+
+  }
+
+  /**
+   * Creates a Http that always succeeds with a 200 status code and the provided
+   * ZStream as the body
+   */
+  def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = HTTP_CHARSET): HttpApp[R, Nothing] =
+    Http.fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provide(r), charset)))).flatten
+
+  /**
+   * Creates a Http that always succeeds with a 200 status code and the provided
+   * ZStream as the body
+   */
+  def fromStream[R](stream: ZStream[R, Throwable, Byte]): HttpApp[R, Nothing] =
+    Http.fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provide(r))))).flatten
+
+  /**
+   * Converts a ZIO to an Http type
+   */
+  def fromZIO[R, E, B](effect: ZIO[R, E, B]): Http[R, E, Any, B] = Http.fromFunctionZIO(_ => effect)
+
+  /**
+   * Creates an HTTP app which always responds with the provided Html page.
+   */
+  def html(view: Html): HttpApp[Any, Nothing] = Http.response(Response.html(view))
+
+  /**
    * Creates a pass thru Http instances
    */
   def identity[A]: Http[Any, Nothing, A, A] = Http.Identity
+
+  /**
+   * Creates an HTTP app which always responds with a 405 status code.
+   */
+  def methodNotAllowed(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.MethodNotAllowed(msg))
 
   /**
    * Creates an Http app that fails with a NotFound exception.
@@ -805,9 +830,9 @@ object Http {
     mid: Middleware[R, E, A1, B1, A2, B2],
   ) extends Http[R, E, A2, B2]
 
+  private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
+
   private case object Empty extends Http[Any, Nothing, Any, Nothing]
 
   private case object Identity extends Http[Any, Nothing, Any, Nothing]
-
-  private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
 }

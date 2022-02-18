@@ -33,7 +33,7 @@ object Util {
           dirPath.toFile.listFiles.toList.map { file =>
             li(
               a(
-                href := s"/${file.getName}",
+                href := s"${file.getName}",
                 file.getName,
               ),
             )
