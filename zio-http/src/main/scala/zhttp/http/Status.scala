@@ -4,6 +4,13 @@ import io.netty.handler.codec.http.HttpResponseStatus
 
 sealed trait Status extends Product with Serializable { self =>
 
+  lazy val isInformational: Boolean = asJava.code() >= 100 && asJava.code() < 200
+  lazy val isSuccess: Boolean = asJava.code() >= 200 && asJava.code() < 300
+  lazy val isRedirection: Boolean = asJava.code() >= 300 && asJava.code() < 400
+  lazy val isClientError: Boolean = asJava.code() >= 400 && asJava.code() < 500
+  lazy val isServerError: Boolean = asJava.code() >= 500 && asJava.code() < 600
+  lazy val isError: Boolean = isClientError | isServerError
+
   /**
    * Returns an HttpApp[Any, Nothing] that responses with this http status code.
    */
