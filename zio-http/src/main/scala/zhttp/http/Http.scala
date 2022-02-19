@@ -13,6 +13,7 @@ import zio.duration.Duration
 import zio.stream.ZStream
 
 import java.io.File
+import java.net
 import java.nio.charset.Charset
 import java.nio.file.Paths
 import scala.annotation.unused
@@ -619,18 +620,8 @@ object Http {
   /**
    * Creates an Http app from a resource path
    */
-  def fromResource(path: String): HttpApp[Any, Throwable] = {
-    for {
-      path <- Http
-        .attempt(getClass.getResource(path) match {
-          case null => Http.empty
-          case url  => Http.succeed(url.getPath)
-        })
-        .flatten
-      http <- Http.fromFile(new File(path))
-    } yield http
-
-  }
+  def fromResource(path: String): HttpApp[Any, Throwable] =
+    Http.getResourceAsFile(path) >>= { Http.fromFile(_) }
 
   /**
    * Creates a Http that always succeeds with a 200 status code and the provided
@@ -650,6 +641,23 @@ object Http {
    * Converts a ZIO to an Http type
    */
   def fromZIO[R, E, B](effect: ZIO[R, E, B]): Http[R, E, Any, B] = Http.fromFunctionZIO(_ => effect)
+
+  /**
+   * Attempts to retrieve files from the classpath.
+   */
+  def getResource(path: String): Http[Any, Throwable, Any, net.URL] =
+    Http
+      .attempt(Option(getClass.getResource(path)) match {
+        case Some(path) => Http.succeed(path)
+        case None       => Http.empty
+      })
+      .flatten
+
+  /**
+   * Attempts to retrieve files from the classpath.
+   */
+  def getResourceAsFile(path: String): Http[Any, Throwable, Any, File] =
+    Http.getResource(path).map(url => new File(url.getPath))
 
   /**
    * Creates an HTTP app which always responds with the provided Html page.
