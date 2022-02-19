@@ -97,6 +97,7 @@ private[zhttp] final case class Handler[R](
         writeResponse(Response.status(Status.NOT_FOUND), jReq): Unit
 
     }
+
   }
 
   /**

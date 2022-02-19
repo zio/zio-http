@@ -1,6 +1,6 @@
 package zhttp.http.headers
 
-import zhttp.http._
+import zhttp.http.{Cookie, Header, Headers, Method}
 import zio.duration.Duration
 
 /**
@@ -176,8 +176,6 @@ trait HeaderModifier[+A] { self =>
 
   final def withMaxForwards(value: CharSequence): A =
     addHeaders(Headers.maxForwards(value))
-
-  def withMediaType(mediaType: MediaType): A = self.withContentType(mediaType.fullType)
 
   final def withOrigin(value: CharSequence): A =
     addHeaders(Headers.origin(value))
