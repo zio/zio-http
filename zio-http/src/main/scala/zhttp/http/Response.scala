@@ -3,13 +3,13 @@ package zhttp.http
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
-import zhttp.core.Util
-import zhttp.html.Html
+import zhttp.html.{Html, StyledContainerHtml, div, pre}
 import zhttp.http.HttpError.HTTPErrorWithCause
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
 import zio.{Chunk, Task, UIO, ZIO}
 
+import java.io.{PrintWriter, StringWriter}
 import java.nio.charset.Charset
 
 final case class Response private (
@@ -112,14 +112,23 @@ object Response {
     Response(status, headers, data, Attribute.empty)
 
   def fromHttpError(error: HttpError): Response = {
+
     error match {
       case cause: HTTPErrorWithCause =>
         Response(
           error.status,
           Headers.empty,
           HttpData.fromString(cause.cause match {
-            case Some(throwable) => Util.prettyPrintHtml(throwable)
-            case None            => cause.message
+            case Some(throwable) =>
+              StyledContainerHtml("Internal Server Error") {
+                pre(div({
+                  val sw = new StringWriter
+                  throwable.printStackTrace(new PrintWriter(sw))
+                  s"${sw.toString}"
+                }.split("\n").mkString("\n")))
+              }.encode
+
+            case None => cause.message
           }),
         )
       case _                         =>

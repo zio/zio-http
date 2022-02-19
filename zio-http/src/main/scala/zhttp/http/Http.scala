@@ -3,8 +3,7 @@ package zhttp.http
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.ChannelHandler
 import io.netty.handler.codec.http.HttpHeaderNames
-import zhttp.core.Util.listFilesHtml
-import zhttp.html.Html
+import zhttp.html._
 import zhttp.http.headers.HeaderModifier
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
@@ -683,7 +682,23 @@ object Http {
     if (file.isDirectory) {
       val dirName = file.getPath
       val files   = file.listFiles().map(_.getName).toList
-      Http.response(Response.html(listFilesHtml(dirName, files)))
+      val html    = StyledContainerHtml(s"Listing of ${dirName}") {
+        div(
+          ul(
+            files.map { file =>
+              li(
+                a(
+                  href := s"${file}",
+                  file,
+                ),
+              )
+            },
+          ),
+        )
+
+      }.encode
+
+      Http.response(Response.html(html))
     } else Http.empty
   }.flatten
 
