@@ -551,19 +551,27 @@ object Http {
   def fromData(data: HttpData): HttpApp[Any, Nothing] = response(Response(data = data))
 
   /**
-   * Creates an HTTP that can gracefully serve anything that's on the provided
-   * path. If the path is that of a file, all requests will respond with the
-   * same file. If the path is that of a directory, the files will be served
-   * from that directory, essentially working as a static server.
+   * Creates an Http app from the contents of a file.
    */
-  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file))
+  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file), Http.listDirectory(_))
 
-  /*
-   * Creates an Http app from the contents of a file which is produced from an effect.
-   * The operator automatically also adds the content-length and content-type headers if possible.
+  /**
+   * Creates an Http app from the contents of a file which is produced from an
+   * effect. The operator automatically adds the content-length and content-type
+   * headers if possible. The created HTTP app can gracefully serve anything
+   * that the file points to. If the file points to an actual file, all requests
+   * will respond with the same file. If the file is pointing to a directory,
+   * the files will be served from that directory, essentially working as a
+   * static server. The `onDir` parameter is used to customize the behaviour of
+   * the Http app when a directory is encountered. Sometimes you might want to
+   * use `Http.listDirectory` to list the contents of the directory or
+   * `Http.empty` to respond with a 404 if you don't want to list the contents.
    */
-  def fromFileZIO[R](fileZIO: ZIO[R, Throwable, java.io.File]): HttpApp[R, Throwable] = {
-    val response: ZIO[R, Throwable, HttpApp[Any, Throwable]] =
+  def fromFileZIO[R](
+    fileZIO: ZIO[R, Throwable, java.io.File],
+    onDir: File => HttpApp[R, Throwable],
+  ): HttpApp[R, Throwable] = {
+    val response: ZIO[R, Throwable, HttpApp[R, Throwable]] =
       fileZIO.map { file =>
         if (file.isFile) {
 
@@ -586,14 +594,9 @@ object Http {
            * {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
            */
           Http.succeed(ext.flatMap(MediaType.forFileExtension).fold(response)(response.withMediaType))
-        } else if (file.isDirectory) {
-          val dirName = file.getPath
-          val files   = file.listFiles().map(_.getName).toList
-          Http.response(Response.html(listFilesHtml(dirName, files)))
-        } else {
-          Http.empty
-        }
-      }.catchSome { case _: FileNotFoundException => UIO(Http.empty) }
+        } else if (file.isDirectory) onDir(file)
+        else Http.empty
+      }
 
     Http.fromZIO(response).flatten
   }
@@ -667,7 +670,7 @@ object Http {
   def html(view: Html): HttpApp[Any, Nothing] = Http.response(Response.html(view))
 
   /**
-   * Creates a pass thru Http instances
+   * Creates a pass thru Http instance
    */
   def identity[A]: Http[Any, Nothing, A, A] = Http.Identity
 
