@@ -3,8 +3,7 @@ package zhttp.http
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
-import zhttp.html.{Html, StyledContainerHtml, div, pre}
-import zhttp.http.HttpError.HTTPErrorWithCause
+import zhttp.html._
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
 import zio.{Chunk, Task, UIO, ZIO}
@@ -113,27 +112,30 @@ object Response {
 
   def fromHttpError(error: HttpError): Response = {
 
-    error match {
-      case cause: HTTPErrorWithCause =>
-        Response(
-          error.status,
-          Headers.empty,
-          HttpData.fromString(cause.cause match {
-            case Some(throwable) =>
-              StyledContainerHtml("Internal Server Error") {
-                pre(div({
-                  val sw = new StringWriter
-                  throwable.printStackTrace(new PrintWriter(sw))
-                  s"${sw.toString}"
-                }.split("\n").mkString("\n")))
-              }.encode
-
-            case None => cause.message
-          }),
-        )
-      case _                         =>
-        Response(error.status, Headers.empty, HttpData.fromChunk(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
+    def prettify(throwable: Throwable): String = {
+      val sw = new StringWriter
+      throwable.printStackTrace(new PrintWriter(sw))
+      s"${sw.toString}"
     }
+
+    Response
+      .html(
+        status = error.status,
+        data = StyledContainerHtml(s"${error.status}") {
+          div(
+            div(
+              styles := Seq("text-align" -> "center"),
+              div(s"${error.status.code}", styles := Seq("font-size" -> "20em")),
+              div(error.message),
+            ),
+            div(
+              error.foldCause(div()) { throwable =>
+                div(h3("Cause:"), pre(prettify(throwable)))
+              },
+            ),
+          )
+        },
+      )
   }
 
   /**
