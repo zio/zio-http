@@ -8,6 +8,8 @@ import zio.test.Assertion.{containsString, equalTo, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertM
 
+import java.io.File
+
 object StaticFileServerSpec extends HttpRunnableSpec {
 
   private val env =
@@ -65,6 +67,25 @@ object StaticFileServerSpec extends HttpRunnableSpec {
               assertM(res)(equalTo(Status.NOT_FOUND))
             }
         }
-    }
+    } +
+      suite("fromFile") {
+        suite("failure on construction") {
+          testM("should respond with 500") {
+            val res = Http.fromFile(throw new Error("Wut happened?")).deploy.run().map(_.status)
+            assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+          }
+        } +
+          suite("invalid file") {
+            testM("should respond with 500") {
+              final class BadFile(name: String) extends File(name) {
+                override def length: Long    = throw new Error("Haha")
+                override def isFile: Boolean = true
+              }
+              val res = Http.fromFile(new BadFile("Length Failure")).deploy.run().map(_.status)
+              assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+            }
+          }
+      }
   }
+
 }
