@@ -121,7 +121,7 @@ object Response {
     Response
       .html(
         status = error.status,
-        data = StyledContainerHtml(s"${error.status}") {
+        data = Template.container(s"${error.status}") {
           div(
             div(
               styles := Seq("text-align" -> "center"),

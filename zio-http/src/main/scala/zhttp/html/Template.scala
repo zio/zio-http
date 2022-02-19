@@ -1,10 +1,11 @@
 package zhttp.html
 
 /**
- * A ZIO Http styled container for HTML templating.
+ * A ZIO Http styled general purpose templates
  */
-object StyledContainerHtml {
-  def apply(heading: String)(element: Html): Html = {
+object Template {
+
+  def container(heading: String)(element: Html): Html = {
     html(
       head(
         title(s"ZIO Http - ${heading}"),
