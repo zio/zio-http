@@ -14,7 +14,7 @@ import zio.stream.ZStream
 
 import java.io.{File, FileNotFoundException}
 import java.nio.charset.Charset
-import java.nio.file.{Paths, Path => JPath}
+import java.nio.file.Paths
 import scala.annotation.unused
 
 /**
@@ -550,9 +550,11 @@ object Http {
    */
   def fromData(data: HttpData): HttpApp[Any, Nothing] = response(Response(data = data))
 
-  /*
-   * Creates an Http app from the contents of a file.
-   * The operator automatically also adds the content-length and content-type headers if possible.
+  /**
+   * Creates an HTTP that can gracefully serve anything that's on the provided
+   * path. If the path is that of a file, all requests will respond with the
+   * same file. If the path is that of a directory, the files will be served
+   * from that directory, essentially working as a static server.
    */
   def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file))
 
@@ -619,16 +621,10 @@ object Http {
   def fromOptionFunction[A]: PartialFromOptionFunction[A] = new PartialFromOptionFunction(())
 
   /**
-   * Creates an HTTP that can gracefully serve anything that's on the provided
-   * path. If the path is that of a file, all requests will respond with the
-   * same file. If the path is that of a directory, the files will be served
-   * from that directory, essentially working as a static server.
+   * Creates an HTTP that can serve files on the give path.
    */
-  def fromPath(dir: JPath): HttpApp[Any, Throwable] =
-    Http.collectHttp[Request] {
-      case req @ Method.GET -> _ => Http.fromFile(Paths.get(dir.toString + "/" + req.url.encode).toFile)
-      case req => Http.methodNotAllowed(s"${req.method} is not allowed here. Please use `GET` instead.")
-    }
+  def fromPath(head: String, tail: String*): HttpApp[Any, Throwable] =
+    Http.fromFile(Paths.get(head, tail: _*).toFile)
 
   /**
    * Creates an Http app from a resource path

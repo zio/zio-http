@@ -1,16 +1,13 @@
 package example
 
-import zhttp.http.Http
+import zhttp.http.{Http, Request}
 import zhttp.service.Server
 import zio.{ExitCode, URIO}
 
-import java.nio.file.Paths
-
 object StaticServer extends zio.App {
 
-  val dirPath = Paths.get("src/main/resources/TestStatic")
   // A simple app to serve static resource files from a local directory.
-  val app     = Http.fromPath(dirPath)
+  val app = Http.collectHttp[Request] { case req => Http.fromResource(req.url.encode) }
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
