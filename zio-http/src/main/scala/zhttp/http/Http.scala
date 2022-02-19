@@ -662,36 +662,6 @@ object Http {
   def identity[A]: Http[Any, Nothing, A, A] = Http.Identity
 
   /**
-   * A special operator that can list the contents of a directory specified by
-   * by the file parameter.
-   */
-  def listDirectory(file: => java.io.File): Http[Any, Throwable, Any, Response] = Http.attempt {
-    // TODO: add unit tests
-    if (file.isDirectory) {
-      val dirName = file.getPath
-      val files   = file.listFiles().map(_.getName).toList
-      val html    = StyledContainerHtml(s"Listing of ${dirName}") {
-
-        div(
-          ul(
-            files.map { file =>
-              li(
-                a(
-                  href := s"${file}",
-                  file,
-                ),
-              )
-            },
-          ),
-        )
-
-      }.encode
-
-      Http.response(Response.html(html))
-    } else Http.empty
-  }.flatten
-
-  /**
    * Creates an HTTP app which always responds with a 405 status code.
    */
   def methodNotAllowed(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.MethodNotAllowed(msg))
