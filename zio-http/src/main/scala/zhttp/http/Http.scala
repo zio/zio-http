@@ -3,7 +3,7 @@ package zhttp.http
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.ChannelHandler
 import io.netty.handler.codec.http.HttpHeaderNames
-import zhttp.html.Html
+import zhttp.html._
 import zhttp.http.headers.HeaderModifier
 import zhttp.service.server.ServerTimeGenerator
 import zhttp.service.{Handler, HttpRuntime, Server}
@@ -14,6 +14,7 @@ import zio.stream.ZStream
 
 import java.io.File
 import java.nio.charset.Charset
+import java.nio.file.Paths
 import scala.annotation.unused
 
 /**
@@ -389,20 +390,23 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final private[zhttp] def execute(a: A): HExit[R, E, B] =
     self match {
-      case Http.Empty           => HExit.empty
-      case Http.Identity        => HExit.succeed(a.asInstanceOf[B])
-      case Succeed(b)           => HExit.succeed(b)
-      case Fail(e)              => HExit.fail(e)
-      case FromFunctionHExit(f) => f(a)
-      case Chain(self, other)   => self.execute(a).flatMap(b => other.execute(b))
-      case Race(self, other)    =>
+
+      case Http.Empty                 => HExit.empty
+      case Http.Identity              => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)                 => HExit.succeed(b)
+      case Fail(e)                    => HExit.fail(e)
+      case Attempt(a)                 =>
+        try { HExit.succeed(a()) }
+        catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
+      case FromFunctionHExit(f)       => f(a)
+      case Chain(self, other)         => self.execute(a).flatMap(b => other.execute(b))
+      case Race(self, other)          =>
         (self.execute(a), other.execute(a)) match {
           case (HExit.Effect(self), HExit.Effect(other)) =>
             Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
           case (HExit.Effect(_), other)                  => other
           case (self, _)                                 => self
         }
-
       case FoldHttp(self, ee, bb, dd) =>
         self.execute(a).foldExit(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
 
@@ -461,6 +465,12 @@ object Http {
   def apply[B](b: B): Http[Any, Nothing, Any, B] = Http.succeed(b)
 
   /**
+   * Attempts to create an Http that succeeds with the provided value, capturing
+   * all exceptions on it's way.
+   */
+  def attempt[A](a: => A): Http[Any, Throwable, Any, A] = Attempt(() => a)
+
+  /**
    * Creates an HTTP app which always responds with a 400 status code.
    */
   def badRequest(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.BadRequest(msg))
@@ -471,14 +481,14 @@ object Http {
   def collect[A]: Http.PartialCollect[A] = Http.PartialCollect(())
 
   /**
-   * Create an HTTP app from a partial function from A to Http[R,E,A,B]
-   */
-  def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
-
-  /**
    * Create an HTTP app from a partial function from A to HExit[R,E,B]
    */
   def collectHExit[A]: Http.PartialCollectHExit[A] = Http.PartialCollectHExit(())
+
+  /**
+   * Create an HTTP app from a partial function from A to Http[R,E,A,B]
+   */
+  def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
 
   /**
    * Creates an Http app which accepts a request and produces response from a
@@ -541,16 +551,53 @@ object Http {
    */
   def fromData(data: HttpData): HttpApp[Any, Nothing] = response(Response(data = data))
 
-  /*
-   * Creates an Http app from the contents of a file
+  /**
+   * Creates an Http app from the contents of a file.
    */
-  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file))
+  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file), Http.listDirectory(_))
 
-  /*
-   * Creates an Http app from the contents of a file which is produced from an effect
+  /**
+   * Creates an Http app from the contents of a file which is produced from an
+   * effect. The operator automatically adds the content-length and content-type
+   * headers if possible. The created HTTP app can gracefully serve anything
+   * that the file points to. If the file points to an actual file, all requests
+   * will respond with the same file. If the file is pointing to a directory,
+   * the files will be served from that directory, essentially working as a
+   * static server. The `onDir` parameter is used to customize the behaviour of
+   * the Http app when a directory is encountered. Sometimes you might want to
+   * use `Http.listDirectory` to list the contents of the directory or
+   * `Http.empty` to respond with a 404 if you don't want to list the contents.
    */
-  def fromFileZIO[R, E](fileZIO: ZIO[R, E, java.io.File]): HttpApp[R, E] =
-    Http.fromZIO(fileZIO.map(file => response(Response(data = HttpData.fromFile(file))))).flatten
+  def fromFileZIO[R](
+    fileZIO: ZIO[R, Throwable, java.io.File],
+    onDir: File => HttpApp[R, Throwable],
+  ): HttpApp[R, Throwable] = {
+    val response: ZIO[R, Throwable, HttpApp[R, Throwable]] =
+      fileZIO.flatMap { file =>
+        Task {
+          if (file.isFile) {
+            val length   = Headers.contentLength(file.length())
+            val response = Response(headers = length, data = HttpData.fromFile(file))
+            val pathName = file.toPath.toString
+
+            // Extract file extension
+            val ext = pathName.lastIndexOf(".") match {
+              case -1 => None
+              case i  => Some(pathName.substring(i + 1))
+            }
+
+            // Set MIME type in the response headers. This is only relevant in
+            // case of RandomAccessFile transfers as browsers use the MIME type,
+            // not the file extension, to determine how to process a URL.
+            // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
+            Http.succeed(ext.flatMap(MediaType.forFileExtension).fold(response)(response.withMediaType))
+          } else if (file.isDirectory) onDir(file)
+          else Http.empty
+        }
+      }
+
+    Http.fromZIO(response).flatten
+  }
 
   /**
    * Creates a Http from a pure function
@@ -558,14 +605,14 @@ object Http {
   def fromFunction[A]: PartialFromFunction[A] = new PartialFromFunction[A](())
 
   /**
-   * Creates a Http from an effectful pure function
-   */
-  def fromFunctionZIO[A]: PartialFromFunctionZIO[A] = new PartialFromFunctionZIO[A](())
-
-  /**
    * Creates a Http from an pure function from A to HExit[R,E,B]
    */
   def fromFunctionHExit[A]: PartialFromFunctionHExit[A] = new PartialFromFunctionHExit[A](())
+
+  /**
+   * Creates a Http from an effectful pure function
+   */
+  def fromFunctionZIO[A]: PartialFromFunctionZIO[A] = new PartialFromFunctionZIO[A](())
 
   /**
    * Creates an `Http` from a function that takes a value of type `A` and
@@ -575,10 +622,26 @@ object Http {
   def fromOptionFunction[A]: PartialFromOptionFunction[A] = new PartialFromOptionFunction(())
 
   /**
+   * Creates an HTTP that can serve files on the give path.
+   */
+  def fromPath(head: String, tail: String*): HttpApp[Any, Throwable] =
+    Http.fromFile(Paths.get(head, tail: _*).toFile)
+
+  /**
    * Creates an Http app from a resource path
    */
-  def fromResource(path: String): HttpApp[Any, Throwable] =
-    Http.fromFile(new File(getClass.getResource(path).getPath))
+  def fromResource(path: String): HttpApp[Any, Throwable] = {
+    for {
+      path <- Http
+        .attempt(getClass.getResource(path) match {
+          case null => Http.empty
+          case url  => Http.succeed(url.getPath)
+        })
+        .flatten
+      http <- Http.fromFile(new File(path))
+    } yield http
+
+  }
 
   /**
    * Creates a Http that always succeeds with a 200 status code and the provided
@@ -605,9 +668,43 @@ object Http {
   def html(view: Html): HttpApp[Any, Nothing] = Http.response(Response.html(view))
 
   /**
-   * Creates a pass thru Http instances
+   * Creates a pass thru Http instance
    */
   def identity[A]: Http[Any, Nothing, A, A] = Http.Identity
+
+  /**
+   * A special operator that can list the contents of a directory specified by
+   * by the file parameter.
+   */
+  def listDirectory(file: => java.io.File): Http[Any, Throwable, Any, Response] = Http.attempt {
+    // TODO: add unit tests
+    if (file.isDirectory) {
+      val dirName = file.getPath
+      val files   = file.listFiles().map(_.getName).toList
+      val html    = StyledContainerHtml(s"Listing of ${dirName}") {
+        div(
+          ul(
+            files.map { file =>
+              li(
+                a(
+                  href := s"${file}",
+                  file,
+                ),
+              )
+            },
+          ),
+        )
+
+      }.encode
+
+      Http.response(Response.html(html))
+    } else Http.empty
+  }.flatten
+
+  /**
+   * Creates an HTTP app which always responds with a 405 status code.
+   */
+  def methodNotAllowed(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.MethodNotAllowed(msg))
 
   /**
    * Creates an Http app that fails with a NotFound exception.
@@ -623,7 +720,7 @@ object Http {
   /**
    * Creates an Http app which always responds with the same value.
    */
-  def response(response: Response): HttpApp[Any, Nothing] = Http.succeed(response)
+  def response(response: Response): Http[Any, Nothing, Any, Response] = Http.succeed(response)
 
   /**
    * Converts a ZIO to an Http app type
@@ -744,6 +841,8 @@ object Http {
     http: Http[R, E, A1, B1],
     mid: Middleware[R, E, A1, B1, A2, B2],
   ) extends Http[R, E, A2, B2]
+
+  private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
 
   private case object Empty extends Http[Any, Nothing, Any, Nothing]
 

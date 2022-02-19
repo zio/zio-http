@@ -192,6 +192,7 @@ object ServerSpec extends HttpRunnableSpec {
           val res = Http.status(status).deploy.status.run()
           assertM(res)(equalTo(status))
         }
+
       } +
       testM("header") {
         checkAllM(HttpGen.header) { case header @ (name, value) =>
