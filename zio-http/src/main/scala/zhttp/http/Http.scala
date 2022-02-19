@@ -564,6 +564,7 @@ object Http {
     val response: ZIO[R, Throwable, HttpApp[Any, Throwable]] =
       fileZIO.map { file =>
         if (file.isFile) {
+
           // TODO: `.length` can fail with `SecurityException`
           val contentLength = Headers.contentLength(file.length())
           val response      = Response(headers = contentLength, data = HttpData.fromFile(file))
@@ -583,8 +584,12 @@ object Http {
            * {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
            */
           Http.succeed(ext.flatMap(MediaType.forFileExtension).fold(response)(response.withMediaType))
+        } else if (file.isDirectory) {
+          val dirName = file.getPath
+          val files   = file.listFiles().map(_.getName).toList
+          Http.response(Response.html(listFilesHtml(dirName, files)))
         } else {
-          Http.fail(new FileNotFoundException(s"Invalid file path: ${file.getAbsolutePath}"))
+          Http.empty
         }
       }.catchSome { case _: FileNotFoundException => UIO(Http.empty) }
 
@@ -619,30 +624,11 @@ object Http {
    * same file. If the path is that of a directory, the files will be served
    * from that directory, essentially working as a static server.
    */
-  def fromPath(dir: JPath): HttpApp[Any, Nothing] = {
-    Http.collectHttp[Request] { case request =>
-      if (request.method != Method.GET)
-        Http.methodNotAllowed(s"${request.method} is not allowed here. Please use `GET` instead.")
-      else {
-
-        // TODO: `.toFile` can fail with `UnsupportedOperationException`
-        val file = Paths.get(dir.toString + "/" + request.path.encode).toFile
-
-        // TODO: `.isDirectory` can fail with `SecurityException`
-        if (file.isDirectory)
-          response(Response(data = HttpData.fromString(listFilesHtml(file.toPath))))
-        else
-          Http.fromFile(file)
-      }.catchAll {
-        case _: SecurityException     =>
-          Http.forbidden("Operation not allowed")
-        case _: FileNotFoundException =>
-          Http.empty
-        case _                        =>
-          Http.error("An unknown error has occurred.")
-      }
+  def fromPath(dir: JPath): HttpApp[Any, Throwable] =
+    Http.collectHttp[Request] {
+      case req @ Method.GET -> _ => Http.fromFile(Paths.get(dir.toString + "/" + req.url.encode).toFile)
+      case req => Http.methodNotAllowed(s"${req.method} is not allowed here. Please use `GET` instead.")
     }
-  }
 
   /**
    * Creates an Http app from a resource path

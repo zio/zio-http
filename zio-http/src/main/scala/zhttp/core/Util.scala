@@ -26,15 +26,15 @@ object Util {
       pre(div(prettyPrint(throwable).split("\n").mkString("\n")))
     }.encode
 
-  def listFilesHtml(dirPath: java.nio.file.Path): String = {
-    zioHttpContainer(s"Listing of ${dirPath}") {
+  def listFilesHtml(dir: String, fileList: Seq[String]): String = {
+    zioHttpContainer(s"Listing of ${dir}") {
       div(
         ul(
-          dirPath.toFile.listFiles.toList.map { file =>
+          fileList.map { file =>
             li(
               a(
-                href := s"${file.getName}",
-                file.getName,
+                href := s"${file}",
+                file,
               ),
             )
           },
