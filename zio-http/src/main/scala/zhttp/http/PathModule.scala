@@ -16,6 +16,8 @@ private[zhttp] trait PathModule { module =>
 
     final def drop(n: Int): Path = Path(self.toList.drop(n))
 
+    final def dropLast(n: Int): Path = Path(self.toList.reverse.drop(n).reverse)
+
     final def encode: String = {
       @tailrec
       def loop(self: Path, str: String): String = {
