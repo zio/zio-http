@@ -576,10 +576,9 @@ object Http {
       fileZIO.flatMap { file =>
         Task {
           if (file.isFile) {
-
-            val contentLength = Headers.contentLength(file.length())
-            val response      = Response(headers = contentLength, data = HttpData.fromFile(file))
-            val pathName      = file.toPath.toString
+            val length   = Headers.contentLength(file.length())
+            val response = Response(headers = length, data = HttpData.fromFile(file))
+            val pathName = file.toPath.toString
 
             // Extract file extension
             val ext = pathName.lastIndexOf(".") match {
@@ -587,12 +586,10 @@ object Http {
               case i  => Some(pathName.substring(i + 1))
             }
 
-            /**
-             * Set MIME type in the response headers. This is only relevant in
-             * case of RandomAccessFile transfers as browsers use the MIME type,
-             * not the file extension, to determine how to process a URL.
-             * {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
-             */
+            // Set MIME type in the response headers. This is only relevant in
+            // case of RandomAccessFile transfers as browsers use the MIME type,
+            // not the file extension, to determine how to process a URL.
+            // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
             Http.succeed(ext.flatMap(MediaType.forFileExtension).fold(response)(response.withMediaType))
           } else if (file.isDirectory) onDir(file)
           else Http.empty
