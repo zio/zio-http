@@ -18,7 +18,7 @@ object StyledContainerHtml {
       ),
       body(
         div(
-          styles := Seq("margin" -> "auto", "padding" -> "2em 4em", "max-width" -> "1024px"),
+          styles := Seq("margin" -> "auto", "padding" -> "2em 4em", "max-width" -> "80%"),
           h1(heading),
           element,
         ),
