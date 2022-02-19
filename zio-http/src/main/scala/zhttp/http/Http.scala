@@ -471,14 +471,14 @@ object Http {
   def collect[A]: Http.PartialCollect[A] = Http.PartialCollect(())
 
   /**
-   * Create an HTTP app from a partial function from A to Http[R,E,A,B]
-   */
-  def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
-
-  /**
    * Create an HTTP app from a partial function from A to HExit[R,E,B]
    */
   def collectHExit[A]: Http.PartialCollectHExit[A] = Http.PartialCollectHExit(())
+
+  /**
+   * Create an HTTP app from a partial function from A to Http[R,E,A,B]
+   */
+  def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
 
   /**
    * Creates an Http app which accepts a request and produces response from a
@@ -558,14 +558,14 @@ object Http {
   def fromFunction[A]: PartialFromFunction[A] = new PartialFromFunction[A](())
 
   /**
-   * Creates a Http from an effectful pure function
-   */
-  def fromFunctionZIO[A]: PartialFromFunctionZIO[A] = new PartialFromFunctionZIO[A](())
-
-  /**
    * Creates a Http from an pure function from A to HExit[R,E,B]
    */
   def fromFunctionHExit[A]: PartialFromFunctionHExit[A] = new PartialFromFunctionHExit[A](())
+
+  /**
+   * Creates a Http from an effectful pure function
+   */
+  def fromFunctionZIO[A]: PartialFromFunctionZIO[A] = new PartialFromFunctionZIO[A](())
 
   /**
    * Creates an `Http` from a function that takes a value of type `A` and
