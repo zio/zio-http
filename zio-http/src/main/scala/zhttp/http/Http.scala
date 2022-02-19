@@ -712,6 +712,13 @@ object Http {
   def succeed[B](b: B): Http[Any, Nothing, Any, B] = Http.Succeed(b)
 
   /**
+   * Creates an Http app which responds with an Html page using the built-in
+   * template.
+   */
+  def template(heading: String)(view: Html): HttpApp[Any, Nothing] =
+    Http.response(Response.html(Template.container(heading)(view)))
+
+  /**
    * Creates an Http app which always responds with the same plain text.
    */
   def text(str: String, charset: Charset = HTTP_CHARSET): HttpApp[Any, Nothing] =
