@@ -12,6 +12,7 @@ object StyledContainerHtml {
                 | body {
                 |   font-family: monospace;
                 |   font-size: 16px;
+                |   background-color: #edede0;
                 | }
                 |""".stripMargin),
       ),
