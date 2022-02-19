@@ -162,8 +162,9 @@ object Response {
   /**
    * Creates a response with content-type set to text/html
    */
-  def html(data: Html): Response =
+  def html(data: Html, status: Status = Status.OK): Response =
     Response(
+      status = status,
       data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
       headers = Headers(HeaderNames.contentType, HeaderValues.textHtml),
     )
