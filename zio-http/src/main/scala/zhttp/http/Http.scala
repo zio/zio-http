@@ -12,7 +12,7 @@ import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
 
-import java.io.{File, FileNotFoundException}
+import java.io.File
 import java.nio.charset.Charset
 import java.nio.file.Paths
 import scala.annotation.unused
@@ -673,6 +673,19 @@ object Http {
    * Creates a pass thru Http instance
    */
   def identity[A]: Http[Any, Nothing, A, A] = Http.Identity
+
+  /**
+   * A special operator that can list the contents of a directory specified by
+   * by the file parameter.
+   */
+  def listDirectory(file: => java.io.File): Http[Any, Throwable, Any, Response] = Http.attempt {
+    // TODO: add unit tests
+    if (file.isDirectory) {
+      val dirName = file.getPath
+      val files   = file.listFiles().map(_.getName).toList
+      Http.response(Response.html(listFilesHtml(dirName, files)))
+    } else Http.empty
+  }.flatten
 
   /**
    * Creates an HTTP app which always responds with a 405 status code.
