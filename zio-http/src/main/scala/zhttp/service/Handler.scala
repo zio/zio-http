@@ -22,7 +22,7 @@ private[zhttp] final case class Handler[R](
     with ServerResponseHandler[R] { self =>
 
   override def handlerAdded(ctx: Ctx): Unit = {
-    if (!config.objectAggregator) {
+    if (config.objectAggregator < 0) {
       ctx.channel().config().setAutoRead(false): Unit
       ctx.read(): Unit
     }
@@ -56,7 +56,7 @@ private[zhttp] final case class Handler[R](
         )
       case jReq: HttpRequest    =>
         def unsafeBody(
-          callback: (UnsafeChannel, Int) => UnsafeContent => Unit,
+          callback: UnsafeChannel => UnsafeContent => Unit,
         ): Unit = {
           val httpContentHandler = ctx.pipeline().get(HTTP_CONTENT_HANDLER)
           if (httpContentHandler == null) {
@@ -95,7 +95,9 @@ private[zhttp] final case class Handler[R](
           ctx.fireChannelRead(msg): Unit
         }
 
-      case _ => writeResponse(Response.status(Status.NOT_ACCEPTABLE), jReq.asInstanceOf[HttpRequest]): Unit
+      case msg =>
+        println("here" + msg)
+        writeResponse(Response.status(Status.NOT_ACCEPTABLE), jReq.asInstanceOf[FullHttpRequest]): Unit
 
     }
 

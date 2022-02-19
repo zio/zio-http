@@ -23,7 +23,9 @@ private[zhttp] trait ServerResponseHandler[R] {
 
     ctx.write(encodeResponse(msg))
     msg.data match {
-      case HttpData.Incoming(_)        => throw new IllegalStateException("Cannot write data to response")
+      case HttpData.Incoming(_)        =>
+        releaseRequest(jReq)
+        throw new IllegalStateException("Cannot write data to response")
       case outgoing: HttpData.Outgoing =>
         outgoing match {
           case HttpData.BinaryStream(stream)  =>

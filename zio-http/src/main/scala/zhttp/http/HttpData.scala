@@ -2,7 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.channel.ChannelHandlerContext
-import io.netty.handler.codec.http.{DefaultFullHttpResponse, HttpContent, LastHttpContent}
+import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import zhttp.service.HTTP_CONTENT_HANDLER
 import zio.blocking.Blocking.Service.live.effectBlocking
 import zio.stream.ZStream
@@ -38,22 +38,14 @@ sealed trait HttpData { self =>
         for {
           buffer <- UIO(Unpooled.compositeBuffer())
           body   <- ZIO.effectAsync[Any, Throwable, ByteBuf](cb =>
-            unsafeRun((ch, limit) =>
+            unsafeRun(ch =>
               msg => {
-                if (buffer.readableBytes() + msg.content.content().readableBytes() > limit) {
-                  ch.ctx.writeAndFlush(
-                    new DefaultFullHttpResponse(Version.Http_1_1.toJava, Status.REQUEST_ENTITY_TOO_LARGE.asJava),
-                  ): Unit
-                  buffer.release(buffer.refCnt())
+                buffer.writeBytes(msg.content.content())
+                if (msg.isLast) {
+                  cb(UIO(buffer) ensuring UIO(ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)))
                 } else {
-                  buffer.writeBytes(msg.content.content())
-                  if (msg.isLast) {
-                    cb(UIO(buffer) ensuring UIO(ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)))
-
-                  } else {
-                    ch.read()
-                    ()
-                  }
+                  ch.read()
+                  ()
                 }
                 msg.content.release(msg.content.refCnt()): Unit
               },
@@ -85,7 +77,7 @@ sealed trait HttpData { self =>
     case HttpData.Incoming(unsafeRun) =>
       ZStream
         .effectAsync[Any, Throwable, ByteBuf](cb =>
-          unsafeRun((ch, _) =>
+          unsafeRun(ch =>
             msg => {
               cb(ZIO.succeed(Chunk(msg.content.content())))
               if (msg.isLast) {
@@ -99,7 +91,11 @@ sealed trait HttpData { self =>
         )
     case outgoing: HttpData.Outgoing  => ZStream.fromEffect(outgoing.toByteBuf)
   }
-  final def toStreamString: ZStream[Any, Throwable, String] = toStreamByteBuf.map(buf => buf.toString(HTTP_CHARSET))
+  final def toStreamString: ZStream[Any, Throwable, String]                  = toStreamByteBuf.map(buf => {
+    val data = buf.toString(HTTP_CHARSET)
+    buf.release(buf.refCnt())
+    data
+  })
 
   final def toStreamBytes: ZStream[Any, Throwable, Byte] =
     toStreamByteBuf.map(buf => Chunk.fromArray(ByteBufUtil.getBytes(buf))).flattenChunks
@@ -112,7 +108,7 @@ sealed trait HttpData { self =>
           if (isLastRead) {
             cb(IO.fail(None))
           } else
-            unsafeRun((ch, _) =>
+            unsafeRun(ch =>
               msg => {
                 val chunk = Chunk.fromArray(ByteBufUtil.getBytes(msg.content.content()))
                 cb(UIO(chunk) ensuring UIO(msg.content.release(msg.content.refCnt())))
@@ -198,13 +194,12 @@ object HttpData {
 
   }
 
-  private[zhttp] final case class Incoming(unsafeRun: ((UnsafeChannel, Int) => UnsafeContent => Unit) => Unit)
-      extends HttpData
-  private[zhttp] sealed trait Outgoing                                                        extends HttpData
-  private[zhttp] final case class Text(text: String, charset: Charset)                        extends Outgoing
-  private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                              extends Outgoing
-  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                                extends Outgoing
-  private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf])      extends Outgoing
-  private[zhttp] final case class RandomAccessFile(unsafeGet: () => java.io.RandomAccessFile) extends Outgoing
-  private[zhttp] case object Empty                                                            extends Outgoing
+  private[zhttp] final case class Incoming(unsafeRun: (UnsafeChannel => UnsafeContent => Unit) => Unit) extends HttpData
+  private[zhttp] sealed trait Outgoing                                                                  extends HttpData
+  private[zhttp] final case class Text(text: String, charset: Charset)                                  extends Outgoing
+  private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                                        extends Outgoing
+  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                                          extends Outgoing
+  private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf])                extends Outgoing
+  private[zhttp] final case class RandomAccessFile(unsafeGet: () => java.io.RandomAccessFile)           extends Outgoing
+  private[zhttp] case object Empty                                                                      extends Outgoing
 }

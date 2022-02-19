@@ -35,9 +35,9 @@ object ServerSpec extends HttpRunnableSpec {
     case _ -> !! / "HExitFailure" => HExit.fail(new RuntimeException("FAILURE"))
   }
 
-  private val app                 = serve { nonZIO ++ staticApp ++ DynamicServer.app }
+  private val app                 = serve(nonZIO ++ staticApp ++ DynamicServer.app, Server.enableObjectAggregator(4096))
   private val appWithReqStreaming =
-    serve(nonZIO ++ staticApp ++ DynamicServer.app, Server.disableObjectAggregator ++ Server.port(8011))
+    serve(nonZIO ++ staticApp ++ DynamicServer.app)
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -308,19 +308,6 @@ object ServerSpec extends HttpRunnableSpec {
         assertM(app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = c))(equalTo(c))
       }
     } +
-      testM("POST Request.getBody Too Large Content") {
-        val contentM = Gen.alphaNumericStringBounded(4097, 10000)
-        checkAllM(contentM) { c =>
-          val app: Http[Any, Throwable, Request, Response] = Http.collectZIO[Request] { case req =>
-            req.bodyAsString.map { content =>
-              Response.text(content)
-            }
-          }
-          assertM(app.deploy.status.run(path = !!, method = Method.POST, content = c))(
-            equalTo(Status.REQUEST_ENTITY_TOO_LARGE),
-          )
-        }
-      } +
       testM("POST Request.getBodyAsStream") {
         val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
           Response(data = HttpData.fromStream(req.bodyAsStreamString))

@@ -36,19 +36,15 @@ trait Request extends HeaderExtension[Request] { self =>
    * Decodes the content of request as a Chunk of Bytes
    */
   def body: Task[Chunk[Byte]] =
-    bodyAsByteBuf.flatMap(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
+    bodyAsByteBuf.flatMap(buf =>
+      Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))).ensuring(UIO(buf.release(buf.refCnt()))),
+    )
 
   /**
    * Decodes the content of request as string
    */
   def bodyAsString: Task[String] =
-    bodyAsByteBuf.flatMap(buf => Task(buf.toString(charset)))
-
-  /**
-   * Decodes the content of request as bytes
-   */
-  def bodyAsBytes: Task[Chunk[Byte]] =
-    bodyAsByteBuf.map(buf => Chunk.fromArray(ByteBufUtil.getBytes(buf)))
+    bodyAsByteBuf.flatMap(buf => Task(buf.toString(charset)).ensuring(UIO(buf.release(buf.refCnt()))))
 
   /**
    * Decodes the content of request as stream of strings

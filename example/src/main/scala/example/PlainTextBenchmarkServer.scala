@@ -36,7 +36,6 @@ object Main extends App {
       Server.error(_ => UIO.unit) ++
       Server.disableLeakDetection ++
       Server.consolidateFlush ++
-      Server.disableFlowControl ++
-      Server.disableObjectAggregator
+      Server.disableFlowControl
 
 }
