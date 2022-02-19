@@ -229,9 +229,6 @@ trait HeaderGetters[+A] { self =>
   final def maxForwards: Option[CharSequence] =
     headerValue(HeaderNames.maxForwards)
 
-  final def mediaType: Option[MediaType] =
-    contentType.flatMap(ct => MediaType.forContentType(ct.toString))
-
   final def origin: Option[CharSequence] =
     headerValue(HeaderNames.origin)
 
