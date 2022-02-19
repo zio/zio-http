@@ -2,56 +2,39 @@ package zhttp.service.server.content.handlers
 
 import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion, SimpleChannelInboundHandler}
+import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Response}
 import zhttp.service.server.ServerTimeGenerator
-import zhttp.service.{ChannelFuture, HttpRuntime, Server}
+import zhttp.service.{ChannelFuture, HttpRuntime}
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
 
 import java.io.RandomAccessFile
 
 @Sharable
-private[zhttp] case class ServerResponseHandler[R](
-  runtime: HttpRuntime[R],
-  config: Server.Config[R, Throwable],
-  serverTime: ServerTimeGenerator,
-) extends SimpleChannelInboundHandler[(Response, FullHttpRequest)](false) {
+private[zhttp] trait ServerResponseHandler[R] {
+  def serverTime: ServerTimeGenerator
+  val rt: HttpRuntime[R]
 
   type Ctx = ChannelHandlerContext
 
-  override def channelRead0(ctx: Ctx, msg: (Response, FullHttpRequest)): Unit = {
-    implicit val iCtx: ChannelHandlerContext = ctx
-    val response                             = msg._1
-    val jRequest                             = msg._2
-    ctx.write(encodeResponse(response))
-    response.data match {
+  def writeResponse(msg: Response, jReq: FullHttpRequest)(implicit ctx: Ctx): Unit = {
+
+    ctx.write(encodeResponse(msg))
+    msg.data match {
       case HttpData.BinaryStream(stream)  =>
-        runtime.unsafeRun(ctx) {
-          writeStreamContent(stream).ensuring(UIO(releaseRequest(jRequest)))
+        rt.unsafeRun(ctx) {
+          writeStreamContent(stream).ensuring(UIO(releaseRequest(jReq)))
         }
       case HttpData.RandomAccessFile(raf) =>
         unsafeWriteFileContent(raf())
-        releaseRequest(jRequest)
+        releaseRequest(jReq)
       case _                              =>
         ctx.flush()
-        releaseRequest(jRequest)
+        releaseRequest(jReq)
     }
     ()
-  }
-
-  override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
-    config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
-  }
-
-  /**
-   * Releases the FullHttpRequest safely.
-   */
-  private def releaseRequest(jReq: FullHttpRequest): Unit = {
-    if (jReq.refCnt() > 0) {
-      jReq.release(jReq.refCnt()): Unit
-    }
   }
 
   /**
@@ -77,6 +60,15 @@ private[zhttp] case class ServerResponseHandler[R](
     // Identify if the server time should be set and update if required.
     if (res.attribute.serverTime) jResponse.headers().set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
     jResponse
+  }
+
+  /**
+   * Releases the FullHttpRequest safely.
+   */
+  private def releaseRequest(jReq: FullHttpRequest): Unit = {
+    if (jReq.refCnt() > 0) {
+      jReq.release(jReq.refCnt()): Unit
+    }
   }
 
   /**
