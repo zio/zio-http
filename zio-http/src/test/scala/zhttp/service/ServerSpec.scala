@@ -294,15 +294,9 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   def requestBodySpec = suite("RequestBodySpec") {
-    testM("POST Request.getBodyChunk") {
+    testM("POST Request stream") {
       val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
-        val body = ZStream.unwrap(
-          req.bodyAsByteChunk.map(x =>
-            ZStream
-              .repeatEffectChunkOption(x),
-          ),
-        )
-        Response(data = HttpData.fromStream(body))
+        Response(data = HttpData.fromStream(req.bodyAsStream))
       }
       checkAllM(Gen.alphaNumericString) { c =>
         assertM(app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = c))(equalTo(c))

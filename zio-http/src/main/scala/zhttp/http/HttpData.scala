@@ -6,7 +6,7 @@ import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import zhttp.service.HTTP_CONTENT_HANDLER
 import zio.blocking.Blocking.Service.live.effectBlocking
 import zio.stream.ZStream
-import zio.{Chunk, IO, Task, UIO, ZIO}
+import zio.{Chunk, Task, UIO, ZIO}
 
 import java.io.FileInputStream
 import java.nio.charset.Charset
@@ -100,43 +100,6 @@ sealed trait HttpData { self =>
   final def toStreamBytes: ZStream[Any, Throwable, Byte] =
     toStreamByteBuf.map(buf => Chunk.fromArray(ByteBufUtil.getBytes(buf))).flattenChunks
 
-  final def toByteChunk: UIO[IO[Option[Throwable], Chunk[Byte]]] = self match {
-    case HttpData.Incoming(unsafeRun) =>
-      UIO {
-        var isLastRead = false
-        ZIO.effectAsync(cb =>
-          if (isLastRead) {
-            cb(IO.fail(None))
-          } else
-            unsafeRun(ch =>
-              msg => {
-                val chunk = Chunk.fromArray(ByteBufUtil.getBytes(msg.content.content()))
-                cb(UIO(chunk) ensuring UIO(msg.content.release(msg.content.refCnt())))
-                if (msg.isLast) {
-                  isLastRead = true
-                  ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER): Unit
-                } else {
-                  ch.read()
-                  ()
-                }
-              },
-            ),
-        )
-      }
-    case outgoing: HttpData.Outgoing  =>
-      UIO {
-        var isLastRead = false
-        UIO(if (isLastRead) {
-          IO.fail(None)
-        } else {
-          outgoing.toByteBuf
-            .map(buf => Chunk.fromArray(ByteBufUtil.getBytes(buf)))
-            .ensuring(UIO { isLastRead = true })
-            .mapError(Some(_))
-        }).flatten
-
-      }
-  }
 }
 
 object HttpData {

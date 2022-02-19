@@ -95,9 +95,8 @@ private[zhttp] final case class Handler[R](
           ctx.fireChannelRead(msg): Unit
         }
 
-      case msg =>
-        println("here" + msg)
-        writeResponse(Response.status(Status.NOT_ACCEPTABLE), jReq.asInstanceOf[FullHttpRequest]): Unit
+      case _ =>
+        ctx.writeAndFlush(new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_ACCEPTABLE)): Unit
 
     }
 
