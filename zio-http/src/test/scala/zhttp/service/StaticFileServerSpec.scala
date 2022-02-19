@@ -4,7 +4,7 @@ import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.duration.durationInt
-import zio.test.Assertion.{containsString, equalTo, isSome}
+import zio.test.Assertion.{equalTo, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertM
 
@@ -44,29 +44,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
             val res = fileNotFound.run().map(_.status)
             assertM(res)(equalTo(Status.NOT_FOUND))
           }
-      } +
-        suite("directory") {
-          val simpleDirectory = Http.fromResource("/TestStatic").deploy
-          val fileInDirectory = Http.fromResource("/TestStatic/Folder2/TestFile2.txt").deploy
-          val fileNotFound    = Http.fromResource("/TestStatic/Folder2/Nothing").deploy
-
-          testM("should respond ok") {
-            val res = simpleDirectory.run().map(_.status)
-            assertM(res)(equalTo(Status.OK))
-          } +
-            testM("should contain file listing") {
-              val res = simpleDirectory.run().flatMap(_.bodyAsString)
-              assertM(res)(containsString("<li><a href=\"TestFile1.txt\">TestFile1.txt</a></li>"))
-            } +
-            testM("should have 200 status code") {
-              val res = fileInDirectory.run().map(_.status)
-              assertM(res)(equalTo(Status.OK))
-            } +
-            testM("should respond not found") {
-              val res = fileNotFound.run().map(_.status)
-              assertM(res)(equalTo(Status.NOT_FOUND))
-            }
-        }
+      }
     } +
       suite("fromFile") {
         suite("failure on construction") {

@@ -554,24 +554,14 @@ object Http {
   /**
    * Creates an Http app from the contents of a file.
    */
-  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file), Http.listDirectory(_))
+  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file))
 
   /**
    * Creates an Http app from the contents of a file which is produced from an
    * effect. The operator automatically adds the content-length and content-type
-   * headers if possible. The created HTTP app can gracefully serve anything
-   * that the file points to. If the file points to an actual file, all requests
-   * will respond with the same file. If the file is pointing to a directory,
-   * the files will be served from that directory, essentially working as a
-   * static server. The `onDir` parameter is used to customize the behaviour of
-   * the Http app when a directory is encountered. Sometimes you might want to
-   * use `Http.listDirectory` to list the contents of the directory or
-   * `Http.empty` to respond with a 404 if you don't want to list the contents.
+   * headers if possible.
    */
-  def fromFileZIO[R](
-    fileZIO: ZIO[R, Throwable, java.io.File],
-    onDir: File => HttpApp[R, Throwable],
-  ): HttpApp[R, Throwable] = {
+  def fromFileZIO[R](fileZIO: ZIO[R, Throwable, java.io.File]): HttpApp[R, Throwable] = {
     val response: ZIO[R, Throwable, HttpApp[R, Throwable]] =
       fileZIO.flatMap { file =>
         Task {
@@ -591,8 +581,7 @@ object Http {
             // not the file extension, to determine how to process a URL.
             // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
             Http.succeed(ext.flatMap(MediaType.forFileExtension).fold(response)(response.withMediaType))
-          } else if (file.isDirectory) onDir(file)
-          else Http.empty
+          } else Http.empty
         }
       }
 
@@ -682,6 +671,7 @@ object Http {
       val dirName = file.getPath
       val files   = file.listFiles().map(_.getName).toList
       val html    = StyledContainerHtml(s"Listing of ${dirName}") {
+
         div(
           ul(
             files.map { file =>
