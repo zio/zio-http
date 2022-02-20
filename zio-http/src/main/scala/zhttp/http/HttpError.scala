@@ -1,6 +1,18 @@
 package zhttp.http
 
+import zhttp.http.HttpError.HTTPErrorWithCause
+
 sealed abstract class HttpError(val status: Status, val message: String) extends Throwable(message) { self =>
+  def foldCause[A](a: A)(f: Throwable => A): A = self match {
+    case error: HTTPErrorWithCause =>
+      error.cause match {
+        case Some(throwable) => f(throwable)
+        case None            => a
+      }
+    case _                         => a
+
+  }
+
   def toResponse: Response = Response.fromHttpError(self)
 }
 
