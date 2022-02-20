@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
+import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import zhttp.service.HTTP_CONTENT_HANDLER
@@ -91,16 +91,6 @@ sealed trait HttpData { self =>
         )
     case outgoing: HttpData.Outgoing  => ZStream.fromEffect(outgoing.toByteBuf)
   }
-
-  final def toStreamBytes: ZStream[Any, Throwable, Byte] =
-    toByteBufStream
-      .map(buf => {
-        val data = Chunk.fromArray(ByteBufUtil.getBytes(buf))
-        buf.release(buf.refCnt())
-        data
-      })
-      .flattenChunks
-
 }
 
 object HttpData {
