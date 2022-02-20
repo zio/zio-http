@@ -3,7 +3,7 @@ title: "Socket"
 sidebar_label: "Socket"
 ---
 
-`Socket[-R, +E, -A, +B]` models a function from `A` to `ZStream[R, E, B]`. When a value of type `A` is evaluated against a `Socket[R, E, A, B]`, it can either succeed with a `B`, or fail with an `E`, and it could have its requirement on `R`.
+`Socket[-R, +E, -A, +B]` models a function from `A` to `ZStream[R, E, B]`. When a value of type `A` is evaluated against a `Socket[R, E, A, B]`, it can either succeed with a stream of values of type `B`, or fail with an `E`, and it could have its requirement on `R`.
 
 ## Creating Sockets
 
@@ -75,7 +75,7 @@ val socket = Socket.fromStream(stream)
 
 ### Using `merge`
 
-You can merge to Sockets using the `merge` operator, the resulting Socket will emit the values of both Sockets.
+You can merge two Sockets using the `merge` operator, the resulting Socket will emit the values of both Sockets.
 
 ```scala
 val s1 = Socket.succeed(WebSocketFrame.text("Hello, from ZIO-HTTP"))
@@ -121,7 +121,7 @@ val res = socket(WebSocketFrame.Text("Hello, from ZIO-HTTP"))
 
 ### Using `provideEnvironment`
 
-You can use the `provideEnvironment` to provide a Socket with its required environment, which eliminates its dependency on R.
+You can use the `provideEnvironment` operator to provide a Socket with its required environment, which eliminates its dependency on R.
 
 :::info
 This operation assumes that the Socket requires an environment of type `R`.
