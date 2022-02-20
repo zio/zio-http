@@ -32,17 +32,17 @@ private[zhttp] final case class Handler[R](
 
     implicit val iCtx: ChannelHandlerContext = ctx
     jReq match {
-      case req: FullHttpRequest =>
-        req.touch("server.Handler-channelRead0")
+      case jReq: FullHttpRequest =>
+        jReq.touch("server.Handler-channelRead0")
         unsafeRun(
-          req,
+          jReq,
           app,
           new Request {
-            override def method: Method = Method.fromHttpMethod(req.method())
+            override def method: Method = Method.fromHttpMethod(jReq.method())
 
-            override def url: URL = URL.fromString(req.uri()).getOrElse(null)
+            override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
 
-            override def headers: Headers = Headers.make(req.headers())
+            override def headers: Headers = Headers.make(jReq.headers())
 
             override def remoteAddress: Option[InetAddress] = {
               ctx.channel().remoteAddress() match {
@@ -51,10 +51,10 @@ private[zhttp] final case class Handler[R](
               }
             }
 
-            override def data: HttpData = HttpData.fromByteBuf(req.content())
+            override def data: HttpData = HttpData.fromByteBuf(jReq.content())
           },
         )
-      case jReq: HttpRequest    =>
+      case jReq: HttpRequest     =>
         def unsafeBody(
           callback: UnsafeChannel => UnsafeContent => Unit,
         ): Unit = {
@@ -85,7 +85,7 @@ private[zhttp] final case class Handler[R](
           app,
           request,
         )
-      case msg: LastHttpContent =>
+      case msg: LastHttpContent  =>
         if (ctx.pipeline().get(HTTP_CONTENT_HANDLER) != null) {
           ctx.fireChannelRead(msg): Unit
         }
