@@ -4,9 +4,10 @@ import io.netty.handler.codec.http.HttpUtil
 import io.netty.util.AsciiString.contentEqualsIgnoreCase
 import zhttp.http.Headers.{BasicSchemeName, BearerSchemeName}
 import zhttp.http._
+import zhttp.service.server.ServerTime
 
 import java.nio.charset.Charset
-import java.util.Base64
+import java.util.{Base64, Date}
 import scala.util.control.NonFatal
 
 /**
@@ -210,6 +211,9 @@ trait HeaderGetters[+A] { self =>
 
   final def ifModifiedSince: Option[CharSequence] =
     headerValue(HeaderNames.ifModifiedSince)
+
+  final def ifModifiedSinceDecoded: Option[Date] =
+    ifModifiedSince.map(date => ServerTime.parse(date.toString))
 
   final def ifNoneMatch: Option[CharSequence] =
     headerValue(HeaderNames.ifNoneMatch)
