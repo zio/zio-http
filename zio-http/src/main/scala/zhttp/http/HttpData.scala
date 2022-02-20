@@ -3,7 +3,6 @@ package zhttp.http
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
-import io.netty.util.AsciiString
 import zhttp.service.HTTP_CONTENT_HANDLER
 import zio.blocking.Blocking.Service.live.effectBlocking
 import zio.stream.ZStream
@@ -92,11 +91,6 @@ sealed trait HttpData { self =>
         )
     case outgoing: HttpData.Outgoing  => ZStream.fromEffect(outgoing.toByteBuf)
   }
-  final def toCharSequenceStream: ZStream[Any, Throwable, CharSequence]      = toByteBufStream.map(buf => {
-    val data = AsciiString.cached(buf.toString(HTTP_CHARSET))
-    buf.release(buf.refCnt())
-    data
-  })
 
   final def toStreamBytes: ZStream[Any, Throwable, Byte] =
     toByteBufStream

@@ -47,11 +47,6 @@ trait Request extends HeaderExtension[Request] { self =>
     bodyAsByteBuf.flatMap(buf => Task(buf.toString(charset)).ensuring(UIO(buf.release(buf.refCnt()))))
 
   /**
-   * Decodes the content of request as stream of strings
-   */
-  final def bodyAsCharSequenceStream: ZStream[Any, Throwable, CharSequence] = data.toCharSequenceStream
-
-  /**
    * Decodes the content of request as stream of bytes
    */
   final def bodyAsStream: ZStream[Any, Throwable, Byte] = data.toStreamBytes

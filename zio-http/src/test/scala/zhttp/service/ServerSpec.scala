@@ -301,18 +301,7 @@ object ServerSpec extends HttpRunnableSpec {
       checkAllM(Gen.alphaNumericString) { c =>
         assertM(app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = c))(equalTo(c))
       }
-    } +
-      testM("POST Request.getBodyAsStream") {
-        val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
-          Response(data = HttpData.fromStream(req.bodyAsCharSequenceStream))
-        }
-        checkAllM(Gen.alphaNumericString) { c =>
-          val res = app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = c)
-          assertM(res)(equalTo(c))
-        }
-
-      }
-
+    }
   }
 
   override def spec =
