@@ -1,7 +1,7 @@
 package zhttp.service
 
 import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
 import io.netty.handler.codec.http._
 import zhttp.http.HttpData.{UnsafeChannel, UnsafeContent}
 import zhttp.http._
@@ -17,7 +17,7 @@ private[zhttp] final case class Handler[R](
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
   serverTimeGenerator: ServerTime,
-) extends SimpleChannelInboundHandler[HttpObject](false)
+) extends ChannelInboundHandlerAdapter
     with WebSocketUpgrade[R]
     with ServerResponseHandler[R] { self =>
 
@@ -28,10 +28,10 @@ private[zhttp] final case class Handler[R](
     }
   }
 
-  override def channelRead0(ctx: Ctx, jReq: HttpObject): Unit = {
+  override def channelRead(ctx: Ctx, msg: Any): Unit = {
 
     implicit val iCtx: ChannelHandlerContext = ctx
-    jReq match {
+    msg match {
       case jReq: FullHttpRequest =>
         jReq.touch("server.Handler-channelRead0")
         unsafeRun(
