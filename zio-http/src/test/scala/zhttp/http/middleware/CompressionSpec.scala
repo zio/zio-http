@@ -9,7 +9,7 @@ import zio.test._
 
 object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   private def checkHeader(assert: Assertion[Option[String]]) =
-    Assertion.hasField("header", (response: Response) => response.headers.getContentEncoding.map(_.toString()), assert)
+    Assertion.hasField("header", (response: Response) => response.headers.contentEncoding.map(_.toString()), assert)
 
   private val noEncodingheader = checkHeader(isNone)
   private val hasGzipHeader    = checkHeader(isSome(equalTo("gzip")))
@@ -64,14 +64,17 @@ object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
           for {
             res  <- app(request)
-            body <- res.getBodyAsByteBuf
+            body <- res.data.toByteBuf
           } yield assert(body)(hasBody(expected)) &&
             assert(res)(noEncodingheader)
 
         } + testM("Fall back to uncompressed assets") {
-          val app = Http.collectHttp[Request] {
+          var called = false
+          val app    = Http.collectHttp[Request] {
             case req if req.path.toString.endsWith(".js") => Http.text(req.path.toString())
-            case req if req.path.toString.endsWith(".gz") => Http.notFound
+            case req if req.path.toString.endsWith(".gz") =>
+              called = true
+              Http.notFound
           } @@ serveCompressed(CompressionFormat.Gzip())
 
           val request  = originalReq
@@ -80,9 +83,9 @@ object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
           for {
             res  <- app(request)
-            body <- res.getBodyAsByteBuf
+            body <- res.data.toByteBuf
           } yield assert(res)(noEncodingheader) &&
-            assert(body)(hasBody(expected))
+            assert(body)(hasBody(expected)) && assert(called)(isTrue)
         }
       } +
       suite("GZIP server support") {
@@ -95,9 +98,9 @@ object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
           for {
             res  <- app(request)
-            body <- res.getBodyAsByteBuf
+            body <- res.data.toByteBuf
           } yield assert(body)(hasBody(expected)) &&
-            assert(res.headers.getContentEncoding)(isNone)
+            assert(res.headers.contentEncoding)(isNone)
         } +
           testM("Request with GZIP support") {
             val request  = originalReq.copy(headers = Headers.acceptEncoding(HeaderValues.gzip))
@@ -105,7 +108,7 @@ object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
             for {
               res  <- app(request)
-              body <- res.getBodyAsByteBuf
+              body <- res.data.toByteBuf
             } yield assert(body)(hasBody(expected)) &&
               assert(res)(hasGzipHeader)
           } +
@@ -116,7 +119,7 @@ object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
             for {
               res  <- app(request)
-              body <- res.getBodyAsByteBuf
+              body <- res.data.toByteBuf
             } yield assert(body)(hasBody(expected)) &&
               assert(res)(hasGzipHeader)
           } +
@@ -126,7 +129,7 @@ object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
             for {
               res  <- app(request)
-              body <- res.getBodyAsByteBuf
+              body <- res.data.toByteBuf
             } yield assert(body)(hasBody(expected)) &&
               assert(res)(noEncodingheader)
           }
@@ -150,7 +153,7 @@ object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
           for {
             res  <- app(request)
-            body <- res.getBodyAsByteBuf
+            body <- res.data.toByteBuf
           } yield assert(res)(hasGzipHeader) &&
             assert(body)(hasBody(expected)) && assert(called)(isTrue)
         } +
@@ -166,7 +169,7 @@ object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
             for {
               res  <- app(request)
-              body <- res.getBodyAsByteBuf
+              body <- res.data.toByteBuf
             } yield assert(res)(hasBrHeader) && assert(body)(hasBody(expected))
           }
       }
