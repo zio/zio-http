@@ -49,7 +49,7 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Decodes the content of request as stream of strings
    */
-  final def bodyAsStreamString: ZStream[Any, Throwable, String] = data.toStreamString
+  final def bodyAsCharSequenceStream: ZStream[Any, Throwable, CharSequence] = data.toCharSequenceStream
 
   /**
    * Decodes the content of request as stream of bytes

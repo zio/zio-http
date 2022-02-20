@@ -304,7 +304,7 @@ object ServerSpec extends HttpRunnableSpec {
     } +
       testM("POST Request.getBodyAsStream") {
         val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
-          Response(data = HttpData.fromStream(req.bodyAsStreamString))
+          Response(data = HttpData.fromStream(req.bodyAsCharSequenceStream))
         }
         checkAllM(Gen.alphaNumericString) { c =>
           val res = app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = c)

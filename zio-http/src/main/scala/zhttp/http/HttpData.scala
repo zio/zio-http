@@ -3,6 +3,7 @@ package zhttp.http
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
+import io.netty.util.AsciiString
 import zhttp.service.HTTP_CONTENT_HANDLER
 import zio.blocking.Blocking.Service.live.effectBlocking
 import zio.stream.ZStream
@@ -91,8 +92,8 @@ sealed trait HttpData { self =>
         )
     case outgoing: HttpData.Outgoing  => ZStream.fromEffect(outgoing.toByteBuf)
   }
-  final def toStreamString: ZStream[Any, Throwable, String]                  = toStreamByteBuf.map(buf => {
-    val data = buf.toString(HTTP_CHARSET)
+  final def toCharSequenceStream: ZStream[Any, Throwable, CharSequence]      = toStreamByteBuf.map(buf => {
+    val data = AsciiString.cached(buf.toString(HTTP_CHARSET))
     buf.release(buf.refCnt())
     data
   })
@@ -128,7 +129,7 @@ object HttpData {
   /**
    * Helper to create HttpData from Stream of string
    */
-  def fromStream(stream: ZStream[Any, Throwable, String], charset: Charset = HTTP_CHARSET): HttpData =
+  def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = HTTP_CHARSET): HttpData =
     HttpData.BinaryStream(stream.map(str => Unpooled.copiedBuffer(str, charset)))
 
   /**
