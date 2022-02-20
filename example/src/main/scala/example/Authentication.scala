@@ -32,7 +32,7 @@ object Authentication extends App {
   def authenticate[R, E](fail: HttpApp[R, E], success: JwtClaim => HttpApp[R, E]): HttpApp[R, E] =
     Http
       .fromFunction[Request] {
-        _.getHeader("X-ACCESS-TOKEN")
+        _.header("X-ACCESS-TOKEN")
           .flatMap(header => jwtDecode(header._2.toString))
           .fold[HttpApp[R, E]](fail)(success)
       }

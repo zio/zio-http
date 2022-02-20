@@ -56,15 +56,13 @@ ThisBuild / githubWorkflowPublish        :=
   )
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
-ThisBuild / githubWorkflowBuildPreamble  :=
-  WorkflowJob(
-    "fmtCheck",
-    "Format",
-    List(
-      WorkflowStep.Run(List(s"sbt ++${Scala213} fmtCheck"), name = Some("Check formatting")),
-    ),
-    scalas = List(Scala213),
-  ).steps
+ThisBuild / githubWorkflowBuildPreamble  := Seq(
+  WorkflowStep.Run(
+    name = Some("Check formatting"),
+    commands = List(s"sbt ++${Scala213} fmtCheck"),
+    cond = Some(s"matrix.scala == '${Scala213}'"),
+  ),
+)
 
 ThisBuild / githubWorkflowBuildPostamble :=
   WorkflowJob(
@@ -97,13 +95,11 @@ lazy val zhttp = (project in file("zio-http"))
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= Seq(
-      sttp,
       netty,
       `zio`,
       `zio-streams`,
       `zio-test`,
       `zio-test-sbt`,
-      `sttp-zio`,
       `netty-incubator`,
       `scala-compact-collection`,
     ),
@@ -124,6 +120,6 @@ lazy val zhttpTest = (project in file("zio-http-test"))
 lazy val example = (project in file("./example"))
   .settings(stdSettings("example"))
   .settings(publishSetting(false))
-  .settings(runSettings("example.FileStreaming"))
+  .settings(runSettings("example.Main"))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
   .dependsOn(zhttp)

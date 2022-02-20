@@ -1,4 +1,5 @@
-# Web Socket Server
+# Advanced Web Socket Server
+
 ```scala
 import zhttp.http._
 import zhttp.service.Server
@@ -49,7 +50,7 @@ object WebSocketAdvanced extends App {
 
   private val app =
     Http.collectZIO[Request] {
-      case Method.GET -> !! / "greet" / name  => Response.text(s"Greetings ${name}!").wrapZIO
+      case Method.GET -> !! / "greet" / name  => UIO(Response.text(s"Greetings ${name}!"))
       case Method.GET -> !! / "subscriptions" => socketApp.toResponse
     }
 

@@ -2,19 +2,25 @@ package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.ChannelHandler
-import zhttp.html.Html
+import io.netty.handler.codec.http.HttpHeaderNames
+import zhttp.html._
 import zhttp.http.headers.HeaderModifier
+import zhttp.service.server.ServerTime
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
 import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
 
+import java.io.File
+import java.net
 import java.nio.charset.Charset
+import java.nio.file.Paths
 import scala.annotation.unused
 
 /**
- * A functional domain to model Http apps using ZIO and that can work over any kind of request and response types.
+ * A functional domain to model Http apps using ZIO and that can work over any
+ * kind of request and response types.
  */
 sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
@@ -81,6 +87,18 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self *> Http.succeed(c)
 
   /**
+   * Extracts body
+   */
+  final def body(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, Chunk[Byte]] =
+    self.bodyAsByteBuf.mapZIO(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
+
+  /**
+   * Extracts body as a string
+   */
+  final def bodyAsString(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, String] =
+    self.bodyAsByteBuf.mapZIO(bytes => Task(bytes.toString(HTTP_CHARSET)))
+
+  /**
    * Catches all the exceptions that the http app can fail with
    */
   final def catchAll[R1 <: R, E1, A1 <: A, B1 >: B](f: E => Http[R1, E1, A1, B1])(implicit
@@ -94,8 +112,14 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def collect[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](pf: PartialFunction[B1, C]): Http[R1, E1, A1, C] =
     self >>> Http.collect(pf)
 
+  final def collectManaged[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](
+    pf: PartialFunction[B1, ZManaged[R1, E1, C]],
+  ): Http[R1, E1, A1, C] =
+    self >>> Http.collectManaged(pf)
+
   /**
-   * Collects some of the results of the http and effectfully converts it to another type.
+   * Collects some of the results of the http and effectfully converts it to
+   * another type.
    */
   final def collectZIO[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](
     pf: PartialFunction[B1, ZIO[R1, E1, C]],
@@ -107,6 +131,18 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def compose[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, C1, A1]): Http[R1, E1, C1, B] =
     other andThen self
+
+  /**
+   * Extracts content-length from the response if available
+   */
+  final def contentLength(implicit eb: IsResponse[B]): Http[R, E, A, Option[Long]] =
+    headers.map(_.contentLength)
+
+  /**
+   * Extracts the value of ContentType header
+   */
+  final def contentType(implicit eb: IsResponse[B]): Http[R, E, A, Option[CharSequence]] =
+    headerValue(HttpHeaderNames.CONTENT_TYPE)
 
   /**
    * Transforms the input of the http before passing it on to the current Http
@@ -163,7 +199,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   }
 
   /**
-   * Folds over the http app by taking in two functions one for success and one for failure respectively.
+   * Folds over the http app by taking in two functions one for success and one
+   * for failure respectively.
    */
   final def foldHttp[R1 <: R, A1 <: A, E1, B1](
     ee: E => Http[R1, E1, A1, B1],
@@ -172,38 +209,15 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   ): Http[R1, E1, A1, B1] = Http.FoldHttp(self, ee, bb, dd)
 
   /**
-   * Extracts body
-   */
-  final def getBody(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, Chunk[Byte]] =
-    self.getBodyAsByteBuf.mapZIO(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
-
-  /**
-   * Extracts body as a string
-   */
-  final def getBodyAsString(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, String] =
-    self.getBodyAsByteBuf.mapZIO(bytes => Task(bytes.toString(HTTP_CHARSET)))
-
-  /**
-   * Extracts content-length from the response if available
-   */
-  final def getContentLength(implicit eb: IsResponse[B]): Http[R, E, A, Option[Long]] =
-    getHeaders.map(_.getContentLength)
-
-  /**
    * Extracts the value of the provided header name.
    */
-  final def getHeaderValue(name: CharSequence)(implicit eb: IsResponse[B]): Http[R, E, A, Option[CharSequence]] =
-    getHeaders.map(_.getHeaderValue(name))
+  final def headerValue(name: CharSequence)(implicit eb: IsResponse[B]): Http[R, E, A, Option[CharSequence]] =
+    headers.map(_.headerValue(name))
 
   /**
    * Extracts the `Headers` from the type `B` if possible
    */
-  final def getHeaders(implicit eb: IsResponse[B]): Http[R, E, A, Headers] = self.map(eb.getHeaders)
-
-  /**
-   * Extracts `Status` from the type `B` is possible.
-   */
-  final def getStatus(implicit ev: IsResponse[B]): Http[R, E, A, Status] = self.map(ev.getStatus)
+  final def headers(implicit eb: IsResponse[B]): Http[R, E, A, Headers] = self.map(eb.headers)
 
   /**
    * Transforms the output of the http app
@@ -236,18 +250,18 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.catchAll(_ => other)
 
   /**
-   * Provides the environment to Http.
-   */
-  final def provide(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
-    Http.fromOptionFunction[A](a => self(a).provide(r))
-
-  /**
    * Provide part of the environment to HTTP that is not part of ZEnv
    */
   final def provideCustomLayer[E1 >: E, R1 <: Has[_]](
     layer: ZLayer[ZEnv, E1, R1],
   )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): Http[ZEnv, E1, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideCustomLayer(layer.mapError(Option(_))))
+
+  /**
+   * Provides the environment to Http.
+   */
+  final def provideEnvironment(r: R)(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
+    Http.fromOptionFunction[A](a => self(a).provide(r))
 
   /**
    * Provides layer to Http.
@@ -260,7 +274,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Provides some of the environment to Http.
    */
-  final def provideSome[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
+  final def provideSomeEnvironment[R1 <: R](r: R1 => R)(implicit ev: NeedsEnv[R]): Http[R1, E, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideSome(r))
 
   /**
@@ -278,10 +292,9 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     Http.Race(self, other)
 
   /**
-   * Converts a failing Http into a non-failing one by handling the failure and converting it to a result if possible.
+   * Extracts `Status` from the type `B` is possible.
    */
-  final def silent[E1 >: E, B1 >: B](implicit s: CanBeSilenced[E1, B1]): Http[R, Nothing, A, B1] =
-    self.catchAll(e => Http.succeed(s.silent(e)))
+  final def status(implicit ev: IsResponse[B]): Http[R, E, A, Status] = self.map(ev.status)
 
   /**
    * Returns an Http that peeks at the success of this Http.
@@ -290,7 +303,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.flatMap(v => f(v).as(v))
 
   /**
-   * Returns an Http that peeks at the success, failed or empty value of this Http.
+   * Returns an Http that peeks at the success, failed or empty value of this
+   * Http.
    */
   final def tapAll[R1 <: R, E1 >: E](
     f: E => Http[R1, E1, Any, Any],
@@ -304,7 +318,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     )
 
   /**
-   * Returns an Http that effectfully peeks at the success, failed or empty value of this Http.
+   * Returns an Http that effectfully peeks at the success, failed or empty
+   * value of this Http.
    */
   final def tapAllZIO[R1 <: R, E1 >: E](
     f: E => ZIO[R1, E1, Any],
@@ -358,43 +373,46 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.flatMap(_ => other)
 
   /**
+   * Extracts body as a ByteBuf
+   */
+  private[zhttp] final def bodyAsByteBuf(implicit
+    eb: IsResponse[B],
+    ee: E <:< Throwable,
+  ): Http[R, Throwable, A, ByteBuf] =
+    self.widen[Throwable, B].mapZIO(eb.bodyAsByteBuf)
+
+  /**
    * Evaluates the app and returns an HExit that can be resolved further
    *
-   * NOTE: `execute` is not a stack-safe method for performance reasons. Unlike ZIO, there is no reason why the execute
-   * should be stack safe. The performance improves quite significantly if no additional heap allocations are required
-   * this way.
+   * NOTE: `execute` is not a stack-safe method for performance reasons. Unlike
+   * ZIO, there is no reason why the execute should be stack safe. The
+   * performance improves quite significantly if no additional heap allocations
+   * are required this way.
    */
   final private[zhttp] def execute(a: A): HExit[R, E, B] =
     self match {
-      case Http.Empty         => HExit.empty
-      case Http.Identity      => HExit.succeed(a.asInstanceOf[B])
-      case Succeed(b)         => HExit.succeed(b)
-      case Fail(e)            => HExit.fail(e)
-      case FromFunctionZIO(f) => HExit.fromZIO(f(a))
-      case Collect(pf)        => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.empty
-      case Chain(self, other) => self.execute(a).flatMap(b => other.execute(b))
-      case Race(self, other)  =>
+
+      case Http.Empty                 => HExit.empty
+      case Http.Identity              => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)                 => HExit.succeed(b)
+      case Fail(e)                    => HExit.fail(e)
+      case Attempt(a)                 =>
+        try { HExit.succeed(a()) }
+        catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
+      case FromFunctionHExit(f)       => f(a)
+      case Chain(self, other)         => self.execute(a).flatMap(b => other.execute(b))
+      case Race(self, other)          =>
         (self.execute(a), other.execute(a)) match {
           case (HExit.Effect(self), HExit.Effect(other)) =>
             Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
           case (HExit.Effect(_), other)                  => other
           case (self, _)                                 => self
         }
-
       case FoldHttp(self, ee, bb, dd) =>
         self.execute(a).foldExit(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
 
       case RunMiddleware(app, mid) => mid(app).execute(a)
     }
-
-  /**
-   * Extracts body as a ByteBuf
-   */
-  private[zhttp] final def getBodyAsByteBuf(implicit
-    eb: IsResponse[B],
-    ee: E <:< Throwable,
-  ): Http[R, Throwable, A, ByteBuf] =
-    self.widen[Throwable, B].mapZIO(eb.getBodyAsByteBuf)
 }
 
 object Http {
@@ -428,13 +446,6 @@ object Http {
     def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.setUrl(url))
 
     /**
-     * Converts a failing Http app into a non-failing one by handling the failure and converting it to a result if
-     * possible.
-     */
-    def silent[R1 <: R, E1 >: E](implicit s: CanBeSilenced[E1, Response]): HttpApp[R1, E1] =
-      http.catchAll(e => Http.succeed(s.silent(e)))
-
-    /**
      * Updates the response headers using the provided function
      */
     override def updateHeaders(update: Headers => Headers): HttpApp[R, E] = http.map(_.updateHeaders(update))
@@ -442,11 +453,23 @@ object Http {
     private[zhttp] def compile[R1 <: R](
       zExec: HttpRuntime[R1],
       settings: Server.Config[R1, Throwable],
+      serverTimeGenerator: ServerTime,
     )(implicit
       evE: E <:< Throwable,
     ): ChannelHandler =
-      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings)
+      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, serverTimeGenerator)
   }
+
+  /**
+   * Equivalent to `Http.succeed`
+   */
+  def apply[B](b: B): Http[Any, Nothing, Any, B] = Http.succeed(b)
+
+  /**
+   * Attempts to create an Http that succeeds with the provided value, capturing
+   * all exceptions on it's way.
+   */
+  def attempt[A](a: => A): Http[Any, Throwable, Any, A] = Attempt(() => a)
 
   /**
    * Creates an HTTP app which always responds with a 400 status code.
@@ -458,10 +481,25 @@ object Http {
    */
   def collect[A]: Http.PartialCollect[A] = Http.PartialCollect(())
 
+  /**
+   * Create an HTTP app from a partial function from A to HExit[R,E,B]
+   */
+  def collectHExit[A]: Http.PartialCollectHExit[A] = Http.PartialCollectHExit(())
+
+  /**
+   * Create an HTTP app from a partial function from A to Http[R,E,A,B]
+   */
   def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
 
   /**
-   * Creates an HTTP app which accepts a request and produces response effectfully.
+   * Creates an Http app which accepts a request and produces response from a
+   * managed resource
+   */
+  def collectManaged[A]: Http.PartialCollectManaged[A] = Http.PartialCollectManaged(())
+
+  /**
+   * Creates an HTTP app which accepts a request and produces response
+   * effectfully.
    */
   def collectZIO[A]: Http.PartialCollectZIO[A] = Http.PartialCollectZIO(())
 
@@ -509,14 +547,47 @@ object Http {
   def forbidden(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.Forbidden(msg))
 
   /**
-   * Creates an Http app which always responds the provided data and a 200 status code
+   * Creates an Http app which always responds the provided data and a 200
+   * status code
    */
   def fromData(data: HttpData): HttpApp[Any, Nothing] = response(Response(data = data))
 
-  /*
-   * Creates an Http app from the contents of a file
+  /**
+   * Creates an Http app from the contents of a file.
    */
-  def fromFile(file: java.io.File): HttpApp[Any, Nothing] = response(Response(data = HttpData.fromFile(file)))
+  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file))
+
+  /**
+   * Creates an Http app from the contents of a file which is produced from an
+   * effect. The operator automatically adds the content-length and content-type
+   * headers if possible.
+   */
+  def fromFileZIO[R](fileZIO: ZIO[R, Throwable, java.io.File]): HttpApp[R, Throwable] = {
+    val response: ZIO[R, Throwable, HttpApp[R, Throwable]] =
+      fileZIO.flatMap { file =>
+        Task {
+          if (file.isFile) {
+            val length   = Headers.contentLength(file.length())
+            val response = Response(headers = length, data = HttpData.fromFile(file))
+            val pathName = file.toPath.toString
+
+            // Extract file extension
+            val ext = pathName.lastIndexOf(".") match {
+              case -1 => None
+              case i  => Some(pathName.substring(i + 1))
+            }
+
+            // Set MIME type in the response headers. This is only relevant in
+            // case of RandomAccessFile transfers as browsers use the MIME type,
+            // not the file extension, to determine how to process a URL.
+            // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
+            Http.succeed(ext.flatMap(MediaType.forFileExtension).fold(response)(response.withMediaType))
+          } else Http.empty
+        }
+      }
+
+    Http.fromZIO(response).flatten
+  }
 
   /**
    * Creates a Http from a pure function
@@ -524,24 +595,44 @@ object Http {
   def fromFunction[A]: PartialFromFunction[A] = new PartialFromFunction[A](())
 
   /**
+   * Creates a Http from an pure function from A to HExit[R,E,B]
+   */
+  def fromFunctionHExit[A]: PartialFromFunctionHExit[A] = new PartialFromFunctionHExit[A](())
+
+  /**
    * Creates a Http from an effectful pure function
    */
   def fromFunctionZIO[A]: PartialFromFunctionZIO[A] = new PartialFromFunctionZIO[A](())
 
   /**
-   * Creates an `Http` from a function that takes a value of type `A` and returns with a `ZIO[R, Option[E], B]`. The
-   * returned effect can fail with a `None` to signal "not found" to the backend.
+   * Creates an `Http` from a function that takes a value of type `A` and
+   * returns with a `ZIO[R, Option[E], B]`. The returned effect can fail with a
+   * `None` to signal "not found" to the backend.
    */
   def fromOptionFunction[A]: PartialFromOptionFunction[A] = new PartialFromOptionFunction(())
 
   /**
-   * Creates a Http that always succeeds with a 200 status code and the provided ZStream as the body
+   * Creates an HTTP that can serve files on the give path.
+   */
+  def fromPath(head: String, tail: String*): HttpApp[Any, Throwable] =
+    Http.fromFile(Paths.get(head, tail: _*).toFile)
+
+  /**
+   * Creates an Http app from a resource path
+   */
+  def fromResource(path: String): HttpApp[Any, Throwable] =
+    Http.getResourceAsFile(path) >>= { Http.fromFile(_) }
+
+  /**
+   * Creates a Http that always succeeds with a 200 status code and the provided
+   * ZStream as the body
    */
   def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = HTTP_CHARSET): HttpApp[R, Nothing] =
     Http.fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provide(r), charset)))).flatten
 
   /**
-   * Creates a Http that always succeeds with a 200 status code and the provided ZStream as the body
+   * Creates a Http that always succeeds with a 200 status code and the provided
+   * ZStream as the body
    */
   def fromStream[R](stream: ZStream[R, Throwable, Byte]): HttpApp[R, Nothing] =
     Http.fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provide(r))))).flatten
@@ -552,14 +643,36 @@ object Http {
   def fromZIO[R, E, B](effect: ZIO[R, E, B]): Http[R, E, Any, B] = Http.fromFunctionZIO(_ => effect)
 
   /**
+   * Attempts to retrieve files from the classpath.
+   */
+  def getResource(path: String): Http[Any, Throwable, Any, net.URL] =
+    Http
+      .attempt(Option(getClass.getResource(path)) match {
+        case Some(path) => Http.succeed(path)
+        case None       => Http.empty
+      })
+      .flatten
+
+  /**
+   * Attempts to retrieve files from the classpath.
+   */
+  def getResourceAsFile(path: String): Http[Any, Throwable, Any, File] =
+    Http.getResource(path).map(url => new File(url.getPath))
+
+  /**
    * Creates an HTTP app which always responds with the provided Html page.
    */
   def html(view: Html): HttpApp[Any, Nothing] = Http.response(Response.html(view))
 
   /**
-   * Creates a pass thru Http instances
+   * Creates a pass thru Http instance
    */
   def identity[A]: Http[Any, Nothing, A, A] = Http.Identity
+
+  /**
+   * Creates an HTTP app which always responds with a 405 status code.
+   */
+  def methodNotAllowed(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.MethodNotAllowed(msg))
 
   /**
    * Creates an Http app that fails with a NotFound exception.
@@ -575,7 +688,7 @@ object Http {
   /**
    * Creates an Http app which always responds with the same value.
    */
-  def response(response: Response): HttpApp[Any, Nothing] = Http.succeed(response)
+  def response(response: Response): Http[Any, Nothing, Any, Response] = Http.succeed(response)
 
   /**
    * Converts a ZIO to an Http app type
@@ -588,7 +701,8 @@ object Http {
   def route[A]: Http.PartialRoute[A] = Http.PartialRoute(())
 
   /**
-   * Creates an HTTP app which always responds with the same status code and empty data.
+   * Creates an HTTP app which always responds with the same status code and
+   * empty data.
    */
   def status(code: Status): HttpApp[Any, Nothing] = Http.succeed(Response(code))
 
@@ -598,13 +712,21 @@ object Http {
   def succeed[B](b: B): Http[Any, Nothing, Any, B] = Http.Succeed(b)
 
   /**
+   * Creates an Http app which responds with an Html page using the built-in
+   * template.
+   */
+  def template(heading: String)(view: Html): HttpApp[Any, Nothing] =
+    Http.response(Response.html(Template.container(heading)(view)))
+
+  /**
    * Creates an Http app which always responds with the same plain text.
    */
   def text(str: String, charset: Charset = HTTP_CHARSET): HttpApp[Any, Nothing] =
     Http.succeed(Response.text(str, charset))
 
   /**
-   * Creates an Http app that responds with a 408 status code after the provided time duration
+   * Creates an Http app that responds with a 408 status code after the provided
+   * time duration
    */
   def timeout(duration: Duration): HttpApp[Clock, Nothing] = Http.status(Status.REQUEST_TIMEOUT).delay(duration)
 
@@ -619,13 +741,24 @@ object Http {
       Http.collect[A] { case a if pf.isDefinedAt(a) => Http.fromZIO(pf(a)) }.flatten
   }
 
+  final case class PartialCollectManaged[A](unit: Unit) extends AnyVal {
+    def apply[R, E, B](pf: PartialFunction[A, ZManaged[R, E, B]]): Http[R, E, A, B] =
+      Http.collect[A] { case a if pf.isDefinedAt(a) => Http.fromZIO(pf(a).useNow) }.flatten
+  }
+
   final case class PartialCollect[A](unit: Unit) extends AnyVal {
-    def apply[B](pf: PartialFunction[A, B]): Http[Any, Nothing, A, B] = Collect(pf)
+    def apply[B](pf: PartialFunction[A, B]): Http[Any, Nothing, A, B] =
+      FromFunctionHExit(a => if (pf.isDefinedAt(a)) HExit.succeed(pf(a)) else HExit.Empty)
   }
 
   final case class PartialCollectHttp[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, Http[R, E, A, B]]): Http[R, E, A, B] =
       Http.collect[A](pf).flatten
+  }
+
+  final case class PartialCollectHExit[A](unit: Unit) extends AnyVal {
+    def apply[R, E, B](pf: PartialFunction[A, HExit[R, E, B]]): Http[R, E, A, B] =
+      FromFunctionHExit(a => if (pf.isDefinedAt(a)) pf(a) else HExit.empty)
   }
 
   final case class PartialRoute[A](unit: Unit) extends AnyVal {
@@ -654,7 +787,11 @@ object Http {
   }
 
   final class PartialFromFunctionZIO[A](val unit: Unit) extends AnyVal {
-    def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = FromFunctionZIO(f)
+    def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = FromFunctionHExit(a => HExit.fromZIO(f(a)))
+  }
+
+  final class PartialFromFunctionHExit[A](val unit: Unit) extends AnyVal {
+    def apply[R, E, B](f: A => HExit[R, E, B]): Http[R, E, A, B] = FromFunctionHExit(f)
   }
 
   private final case class Succeed[B](b: B) extends Http[Any, Nothing, Any, B]
@@ -663,9 +800,7 @@ object Http {
 
   private final case class Fail[E](e: E) extends Http[Any, E, Any, Nothing]
 
-  private final case class FromFunctionZIO[R, E, A, B](f: A => ZIO[R, E, B]) extends Http[R, E, A, B]
-
-  private final case class Collect[R, E, A, B](ab: PartialFunction[A, B]) extends Http[R, E, A, B]
+  private final case class FromFunctionHExit[R, E, A, B](f: A => HExit[R, E, B]) extends Http[R, E, A, B]
 
   private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C])
       extends Http[R, E, A, C]
@@ -681,6 +816,8 @@ object Http {
     http: Http[R, E, A1, B1],
     mid: Middleware[R, E, A1, B1, A2, B2],
   ) extends Http[R, E, A2, B2]
+
+  private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
 
   private case object Empty extends Http[Any, Nothing, Any, Nothing]
 

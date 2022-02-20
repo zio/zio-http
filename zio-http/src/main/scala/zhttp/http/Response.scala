@@ -3,15 +3,13 @@ package zhttp.http
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
-import zhttp.core.Util
-import zhttp.html.Html
-import zhttp.http.HttpError.HTTPErrorWithCause
+import zhttp.html._
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
 import zio.{Chunk, Task, UIO, ZIO}
 
+import java.io.{PrintWriter, StringWriter}
 import java.nio.charset.Charset
-import java.nio.file.Files
 
 final case class Response private (
   status: Status,
@@ -24,19 +22,19 @@ final case class Response private (
    * Adds cookies in the response headers.
    */
   def addCookie(cookie: Cookie): Response =
-    self.copy(headers = self.getHeaders ++ Headers(HttpHeaderNames.SET_COOKIE.toString, cookie.encode))
+    self.copy(headers = self.headers ++ Headers(HttpHeaderNames.SET_COOKIE.toString, cookie.encode))
 
   /**
-   * A micro-optimizations that ignores all further modifications to the response and encodes the current version into a
-   * Netty response. The netty response is cached and reused for subsequent requests. This allows the server to reduce
-   * memory utilization under load by not having to encode the response for each request. In case the response is
-   * modified the server will detect the changes and encode the response again, however it will turn out to be counter
-   * productive.
+   * A micro-optimizations that ignores all further modifications to the
+   * response and encodes the current version into a Netty response. The netty
+   * response is cached and reused for subsequent requests. This allows the
+   * server to reduce memory utilization under load by not having to encode the
+   * response for each request. In case the response is modified the server will
+   * detect the changes and encode the response again, however it will turn out
+   * to be counter productive.
    */
   def freeze: UIO[Response] =
     UIO(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
-
-  override def getHeaders: Headers = headers
 
   /**
    * Sets the response attributes
@@ -54,7 +52,7 @@ final case class Response private (
    * Updates the headers using the provided function
    */
   override def updateHeaders(update: Headers => Headers): Response =
-    self.copy(headers = update(self.getHeaders))
+    self.copy(headers = update(self.headers))
 
   /**
    * A more efficient way to append server-time to the response headers.
@@ -62,33 +60,27 @@ final case class Response private (
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
 
   /**
-   * Wraps the current response into a ZIO
-   */
-  def wrapZIO: UIO[Response] = UIO(self)
-
-  /**
    * Extracts the body as ByteBuf
    */
-  private[zhttp] def getBodyAsByteBuf: Task[ByteBuf] = self.data.toByteBuf
+  private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = self.data.toByteBuf
 
   /**
-   * Encodes the Response into a Netty HttpResponse. Sets default headers such as `content-length`. For performance
-   * reasons, it is possible that it uses a FullHttpResponse if the complete data is available. Otherwise, it would
+   * Encodes the Response into a Netty HttpResponse. Sets default headers such
+   * as `content-length`. For performance reasons, it is possible that it uses a
+   * FullHttpResponse if the complete data is available. Otherwise, it would
    * create a DefaultHttpResponse without any content.
    */
   private[zhttp] def unsafeEncode(): HttpResponse = {
     import io.netty.handler.codec.http._
 
-    val jHeaders = self.getHeaders.encode
+    val jHeaders = self.headers.encode
     val jContent = self.data match {
       case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
       case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
       case HttpData.BinaryByteBuf(data) => data
       case HttpData.BinaryStream(_)     => null
       case HttpData.Empty               => Unpooled.EMPTY_BUFFER
-      case HttpData.File(file)          =>
-        jHeaders.set(HttpHeaderNames.CONTENT_TYPE, Files.probeContentType(file.toPath))
-        null
+      case HttpData.RandomAccessFile(_) => null
     }
 
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
@@ -99,10 +91,6 @@ final case class Response private (
       // Alternative would be to use sttp client for this use-case.
 
       if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
-
-      // Set MIME type in the response headers. This is only relevant in case of File transfers as browsers use the MIME
-      // type, not the file extension, to determine how to process a URL.<a href="MSDN
-      // Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>
 
       new DefaultHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jHeaders)
     } else {
@@ -123,19 +111,31 @@ object Response {
     Response(status, headers, data, Attribute.empty)
 
   def fromHttpError(error: HttpError): Response = {
-    error match {
-      case cause: HTTPErrorWithCause =>
-        Response(
-          error.status,
-          Headers.empty,
-          HttpData.fromString(cause.cause match {
-            case Some(throwable) => Util.prettyPrintHtml(throwable)
-            case None            => cause.message
-          }),
-        )
-      case _                         =>
-        Response(error.status, Headers.empty, HttpData.fromChunk(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
+
+    def prettify(throwable: Throwable): String = {
+      val sw = new StringWriter
+      throwable.printStackTrace(new PrintWriter(sw))
+      s"${sw.toString}"
     }
+
+    Response
+      .html(
+        status = error.status,
+        data = Template.container(s"${error.status}") {
+          div(
+            div(
+              styles := Seq("text-align" -> "center"),
+              div(s"${error.status.code}", styles := Seq("font-size" -> "20em")),
+              div(error.message),
+            ),
+            div(
+              error.foldCause(div()) { throwable =>
+                div(h3("Cause:"), pre(prettify(throwable)))
+              },
+            ),
+          )
+        },
+      )
   }
 
   /**
@@ -155,7 +155,7 @@ object Response {
         Status.SWITCHING_PROTOCOLS,
         Headers.empty,
         HttpData.empty,
-        Attribute(socketApp = Option(app.provide(env))),
+        Attribute(socketApp = Option(app.provideEnvironment(env))),
       )
     }
 
@@ -164,8 +164,9 @@ object Response {
   /**
    * Creates a response with content-type set to text/html
    */
-  def html(data: Html): Response =
+  def html(data: Html, status: Status = Status.OK): Response =
     Response(
+      status = status,
       data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
       headers = Headers(HeaderNames.contentType, HeaderValues.textHtml),
     )
@@ -192,7 +193,8 @@ object Response {
   def ok: Response = Response(Status.OK)
 
   /**
-   * Creates an empty response with status 301 or 302 depending on if it's permanent or not.
+   * Creates an empty response with status 301 or 302 depending on if it's
+   * permanent or not.
    */
   def redirect(location: String, isPermanent: Boolean = false): Response = {
     val status = if (isPermanent) Status.PERMANENT_REDIRECT else Status.TEMPORARY_REDIRECT

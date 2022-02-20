@@ -56,7 +56,7 @@ private[zhttp] trait Web
   final def ifHeaderThenElse[R, E](
     cond: Headers => Boolean,
   )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    Middleware.ifThenElse[Request](req => cond(req.getHeaders))(_ => left, _ => right)
+    Middleware.ifThenElse[Request](req => cond(req.headers))(_ => left, _ => right)
 
   /**
    * Logical operator to decide which middleware to select based on the method.
@@ -67,7 +67,8 @@ private[zhttp] trait Web
     Middleware.ifThenElse[Request](req => cond(req.method))(_ => left, _ => right)
 
   /**
-   * Logical operator to decide which middleware to select based on the predicate.
+   * Logical operator to decide which middleware to select based on the
+   * predicate.
    */
   final def ifRequestThenElse[R, E](
     cond: Request => Boolean,
@@ -75,7 +76,8 @@ private[zhttp] trait Web
     Middleware.ifThenElse[Request](cond)(_ => left, _ => right)
 
   /**
-   * Logical operator to decide which middleware to select based on the predicate.
+   * Logical operator to decide which middleware to select based on the
+   * predicate.
    */
   final def ifRequestThenElseZIO[R, E](
     cond: Request => ZIO[R, E, Boolean],
@@ -112,13 +114,15 @@ private[zhttp] trait Web
     Middleware.interceptZIO[Request, Response](_ => ZIO.unit)((res, _) => effect.mapBoth(Option(_), _ => res))
 
   /**
-   * Runs the effect before the request is passed on to the HttpApp on which the middleware is applied.
+   * Runs the effect before the request is passed on to the HttpApp on which the
+   * middleware is applied.
    */
   final def runBefore[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
     Middleware.interceptZIOPatch(_ => effect.mapError(Option(_)).unit)((_, _) => UIO(Patch.empty))
 
   /**
-   * Creates a new middleware that always sets the response status to the provided value
+   * Creates a new middleware that always sets the response status to the
+   * provided value
    */
   final def setStatus(status: Status): HttpMiddleware[Any, Nothing] = patch(_ => Patch.setStatus(status))
 
@@ -127,12 +131,12 @@ private[zhttp] trait Web
    */
   final def signCookies(secret: String): HttpMiddleware[Any, Nothing] =
     updateHeaders {
-      case h if h.getHeader(HeaderNames.setCookie).isDefined =>
+      case h if h.header(HeaderNames.setCookie).isDefined =>
         Headers(
           HeaderNames.setCookie,
-          Cookie.decodeResponseCookie(h.getHeader(HeaderNames.setCookie).get._2.toString).get.sign(secret).encode,
+          Cookie.decodeResponseCookie(h.header(HeaderNames.setCookie).get._2.toString).get.sign(secret).encode,
         )
-      case h                                                 => h
+      case h                                              => h
     }
 
   /**
@@ -151,7 +155,7 @@ private[zhttp] trait Web
    * Applies the middleware only when the condition for the headers are true
    */
   final def whenHeader[R, E](cond: Headers => Boolean, middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    middleware.when[Request](req => cond(req.getHeaders))
+    middleware.when[Request](req => cond(req.headers))
 
   /**
    * Applies the middleware only if the condition function evaluates to true
@@ -162,7 +166,8 @@ private[zhttp] trait Web
     middleware.when[Request](cond)
 
   /**
-   * Applies the middleware only if the condition function effectfully evaluates to true
+   * Applies the middleware only if the condition function effectfully evaluates
+   * to true
    */
   final def whenRequestZIO[R, E](
     cond: Request => ZIO[R, E, Boolean],

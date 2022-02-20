@@ -23,7 +23,8 @@ final case class Cookie(
 ) { self =>
 
   /**
-   * Creates a new cookie that can be used to clear the original cookie on the client.
+   * Creates a new cookie that can be used to clear the original cookie on the
+   * client.
    */
   def clear: Cookie =
     copy(content = "", expires = Some(Instant.ofEpochSecond(0)))
@@ -132,7 +133,7 @@ final case class Cookie(
       expires.map(e => s"Expires=$e"),
       maxAge.map(a => s"Max-Age=${a.toString}"),
       domain.map(d => s"Domain=$d"),
-      path.map(p => s"Path=${p.asString}"),
+      path.map(p => s"Path=${p.encode}"),
       if (isSecure) Some("Secure") else None,
       if (isHttpOnly) Some("HttpOnly") else None,
       sameSite.map(s => s"SameSite=${s.asString}"),

@@ -47,26 +47,38 @@ You can create typed routes as well. The below example shows how to accept count
 
 ### Composition
 
-HTTP app can be composed using the `++` operator. The way it works is if none of the routes matches in `a`, the control is passed to the `b` app.
+Apps can be composed using operators in `Http`:
+
+- Using the `++` operator. The way it works is, if none of the routes match in `a`, then the control is passed on to the `b` app.
+
+```scala
+ import zhttp.http._
+ 
+ val a = Http.collect[Request] { case Method.GET -> !! / "a"  => Response.ok }
+ val b = Http.collect[Request] { case Method.GET -> !! / "b"  => Response.ok }
+ 
+ val app = a ++ b
+ ```
+
+
+- Using the `<>` operator. The way it works is, if `a` fails, then the control is passed on to the `b` app.
 
 ```scala
 import zhttp.http._
 
-val a = Http.collect[Request] { case Method.GET -> !! / "a"  => Response.ok }
-val b = Http.collect[Request] { case Method.GET -> !! / "b"  => Response.ok }
+val a = Http.fail(new Error("SERVER_ERROR"))
+val b = Http.text("OK")
 
-val app = a ++ b
+val app = a <> b
 ```
-
-Apps can be composed using the `++` operator. The way it works is, if none of the routes match in `a` , then the control is passed on to the `b` app.
 
 ### ZIO Integration
 
-For creating effectful apps, you can use `collectZIO` and wrap `Response` using `wrapZIO` to produce ZIO effect value.
+For creating effectful apps, you can use `collectZIO` and wrap `Response` with `UIO` to produce ZIO effect value.
 
 ```scala
 val app = Http.collectZIO[Request] {
-  case Method.GET -> !! / "hello" => Response.text("Hello World").wrapZIO
+  case Method.GET -> !! / "hello" => UIO(Response.text("Hello World"))
 }
 ```
 
@@ -79,7 +91,7 @@ import zhttp.http._
 
 val app = Http.collectZIO[Request] {
     case req @ Method.GET -> !! / "fruits" / "a"  =>
-      Response.text("URL:" + req.url.path.asString + " Headers: " + req.getHeaders).wrapZIO
+      UIO(Response.text("URL:" + req.url.path.asString + " Headers: " + req.getHeaders))
     case req @ Method.POST -> !! / "fruits" / "a" =>
       req.getBodyAsString.map(Response.text(_))
   }
@@ -125,7 +137,7 @@ private val socket = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text("
   }
 
   private val app = Http.collectZIO[Request] {
-    case Method.GET -> !! / "greet" / name => Response.text(s"Greetings {$name}!").wrapZIO
+    case Method.GET -> !! / "greet" / name => UIO(Response.text(s"Greetings {$name}!"))
     case Method.GET -> !! / "ws"           => socket.toResponse
   }
 ```

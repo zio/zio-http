@@ -1,6 +1,18 @@
 package zhttp.http
 
+import zhttp.http.HttpError.HTTPErrorWithCause
+
 sealed abstract class HttpError(val status: Status, val message: String) extends Throwable(message) { self =>
+  def foldCause[A](a: A)(f: Throwable => A): A = self match {
+    case error: HTTPErrorWithCause =>
+      error.cause match {
+        case Some(throwable) => f(throwable)
+        case None            => a
+      }
+    case _                         => a
+
+  }
+
   def toResponse: Response = Response.fromHttpError(self)
 }
 
@@ -24,7 +36,7 @@ object HttpError {
   final case class Forbidden(msg: String = "Forbidden") extends HttpError(Status.FORBIDDEN, msg)
 
   final case class NotFound(path: Path)
-      extends HttpError(Status.NOT_FOUND, s"""The requested URI "${path.asString}" was not found on this server\n""")
+      extends HttpError(Status.NOT_FOUND, s"""The requested URI "${path.encode}" was not found on this server\n""")
 
   final case class MethodNotAllowed(msg: String = "Method Not Allowed")
       extends HttpError(Status.METHOD_NOT_ALLOWED, msg)
