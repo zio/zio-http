@@ -50,7 +50,7 @@ private[zhttp] trait Compression {
 
   def serveCompressed(compressions: Set[CompressionFormat]): HttpMiddleware[Any, Nothing] = {
     Middleware.collect[Request] { case req =>
-      req.getHeaders.getAcceptEncoding match {
+      req.headers.acceptEncoding match {
         case Some(header) =>
           val clientAcceptedEncoding = parseAcceptEncodingHeaders(header).map(_._1)
           val compressionNames       = compressions.map(_.name)
