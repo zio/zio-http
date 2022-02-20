@@ -33,7 +33,7 @@ sealed trait HttpData { self =>
     case _              => false
   }
 
-  final def toByteBuf: Task[ByteBuf] = {
+  private[zhttp] final def toByteBuf: Task[ByteBuf] = {
     self match {
       case HttpData.Incoming(unsafeRun) =>
         for {
@@ -41,7 +41,7 @@ sealed trait HttpData { self =>
           body   <- ZIO.effectAsync[Any, Throwable, ByteBuf](cb =>
             unsafeRun(ch =>
               msg => {
-                buffer.writeBytes(msg.content.content())
+                buffer.writeBytes(msg.content)
                 if (msg.isLast) {
                   cb(UIO(buffer) ensuring UIO(ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)))
                 } else {
@@ -80,7 +80,7 @@ sealed trait HttpData { self =>
         .effectAsync[Any, Throwable, ByteBuf](cb =>
           unsafeRun(ch =>
             msg => {
-              cb(ZIO.succeed(Chunk(msg.content.content())))
+              cb(ZIO.succeed(Chunk(msg.content)))
               if (msg.isLast) {
                 ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)
                 cb(ZIO.fail(None))
@@ -150,18 +150,13 @@ object HttpData {
     RandomAccessFile(() => new java.io.RandomAccessFile(file, "r"))
   }
 
-  private[zhttp] final case class UnsafeContent(content: HttpContent) extends AnyVal {
-    def isLast: Boolean = content.isInstanceOf[LastHttpContent]
+  private[zhttp] final case class UnsafeContent(private val httpContent: HttpContent) extends AnyVal {
+    def isLast: Boolean  = httpContent.isInstanceOf[LastHttpContent]
+    def content: ByteBuf = httpContent.content()
   }
 
   private[zhttp] final case class UnsafeChannel(ctx: ChannelHandlerContext) extends AnyVal {
-
-    def write(content: HttpContent): Unit         = ctx.write(content): Unit
-    def writeAndFlush(content: HttpContent): Unit = ctx.writeAndFlush(content): Unit
-    def read(): Unit                              = ctx.read(): Unit
-    def close(): Unit                             = ctx.close(): Unit
-    def flush(): Unit                             = ctx.flush(): Unit
-
+    def read(): Unit = ctx.read(): Unit
   }
 
   private[zhttp] final case class Incoming(unsafeRun: (UnsafeChannel => UnsafeContent => Unit) => Unit) extends HttpData
