@@ -99,7 +99,13 @@ sealed trait HttpData { self =>
   })
 
   final def toStreamBytes: ZStream[Any, Throwable, Byte] =
-    toByteBufStream.map(buf => Chunk.fromArray(ByteBufUtil.getBytes(buf))).flattenChunks
+    toByteBufStream
+      .map(buf => {
+        val data = Chunk.fromArray(ByteBufUtil.getBytes(buf))
+        buf.release(buf.refCnt())
+        data
+      })
+      .flattenChunks
 
 }
 
@@ -124,13 +130,13 @@ object HttpData {
    * Helper to create HttpData from Stream of bytes
    */
   def fromStream(stream: ZStream[Any, Throwable, Byte]): HttpData =
-    HttpData.BinaryStream(stream.mapChunks(chunks => Chunk(Unpooled.copiedBuffer(chunks.toArray))))
+    HttpData.BinaryStream(stream.mapChunks(chunks => Chunk(Unpooled.wrappedBuffer(chunks.toArray))))
 
   /**
    * Helper to create HttpData from Stream of string
    */
   def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = HTTP_CHARSET): HttpData =
-    HttpData.BinaryStream(stream.map(str => Unpooled.copiedBuffer(str, charset)))
+    HttpData.BinaryStream(stream.map(str => Unpooled.wrappedBuffer(str.toString.getBytes(charset))))
 
   /**
    * Helper to create HttpData from String
