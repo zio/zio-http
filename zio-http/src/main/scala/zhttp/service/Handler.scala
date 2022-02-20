@@ -94,10 +94,9 @@ private[zhttp] final case class Handler[R](
         writeResponse(Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))), jReq): Unit
 
       case HExit.Empty =>
-        writeResponse(Response.status(Status.NOT_FOUND), jReq): Unit
+        writeResponse(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))), jReq): Unit
 
     }
-
   }
 
   /**
