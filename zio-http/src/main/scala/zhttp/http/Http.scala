@@ -5,7 +5,7 @@ import io.netty.channel.ChannelHandler
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html.Html
 import zhttp.http.headers.HeaderModifier
-import zhttp.service.server.ServerTimeGenerator
+import zhttp.service.server.ServerTime
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
 import zio.clock.Clock
@@ -448,7 +448,7 @@ object Http {
     private[zhttp] def compile[R1 <: R](
       zExec: HttpRuntime[R1],
       settings: Server.Config[R1, Throwable],
-      serverTimeGenerator: ServerTimeGenerator,
+      serverTimeGenerator: ServerTime,
     )(implicit
       evE: E <:< Throwable,
     ): ChannelHandler =

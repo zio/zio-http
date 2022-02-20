@@ -5,7 +5,7 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.content.handlers.ServerResponseHandler
-import zhttp.service.server.{ServerTimeGenerator, WebSocketUpgrade}
+import zhttp.service.server.{ServerTime, WebSocketUpgrade}
 import zio.{UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -15,7 +15,7 @@ private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
-  serverTimeGenerator: ServerTimeGenerator,
+  serverTimeGenerator: ServerTime,
 ) extends SimpleChannelInboundHandler[FullHttpRequest](false)
     with WebSocketUpgrade[R]
     with ServerResponseHandler[R] { self =>
@@ -108,7 +108,7 @@ private[zhttp] final case class Handler[R](
       program
     }
 
-  override def serverTime: ServerTimeGenerator = serverTimeGenerator
+  override def serverTime: ServerTime = serverTimeGenerator
 
   override val rt: HttpRuntime[R] = runtime
 
