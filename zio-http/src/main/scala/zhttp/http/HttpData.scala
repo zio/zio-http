@@ -74,7 +74,7 @@ sealed trait HttpData { self =>
     }
   }
 
-  private[zhttp] final def toStreamByteBuf: ZStream[Any, Throwable, ByteBuf] = self match {
+  private[zhttp] final def toByteBufStream: ZStream[Any, Throwable, ByteBuf] = self match {
     case HttpData.Incoming(unsafeRun) =>
       ZStream
         .effectAsync[Any, Throwable, ByteBuf](cb =>
@@ -92,14 +92,14 @@ sealed trait HttpData { self =>
         )
     case outgoing: HttpData.Outgoing  => ZStream.fromEffect(outgoing.toByteBuf)
   }
-  final def toCharSequenceStream: ZStream[Any, Throwable, CharSequence]      = toStreamByteBuf.map(buf => {
+  final def toCharSequenceStream: ZStream[Any, Throwable, CharSequence]      = toByteBufStream.map(buf => {
     val data = AsciiString.cached(buf.toString(HTTP_CHARSET))
     buf.release(buf.refCnt())
     data
   })
 
   final def toStreamBytes: ZStream[Any, Throwable, Byte] =
-    toStreamByteBuf.map(buf => Chunk.fromArray(ByteBufUtil.getBytes(buf))).flattenChunks
+    toByteBufStream.map(buf => Chunk.fromArray(ByteBufUtil.getBytes(buf))).flattenChunks
 
 }
 
