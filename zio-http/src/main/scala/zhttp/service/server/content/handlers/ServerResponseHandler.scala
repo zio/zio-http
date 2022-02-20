@@ -5,7 +5,7 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Response}
-import zhttp.service.server.ServerTimeGenerator
+import zhttp.service.server.ServerTime
 import zhttp.service.{ChannelFuture, HttpRuntime}
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
@@ -14,7 +14,7 @@ import java.io.RandomAccessFile
 
 @Sharable
 private[zhttp] trait ServerResponseHandler[R] {
-  def serverTime: ServerTimeGenerator
+  def serverTime: ServerTime
   val rt: HttpRuntime[R]
 
   type Ctx = ChannelHandlerContext
