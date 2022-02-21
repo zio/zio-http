@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
+import io.netty.handler.codec.http.FullHttpRequest
 import zhttp.http.headers.HeaderExtension
 import zio.{Chunk, Task, UIO}
 
@@ -21,6 +22,7 @@ trait Request extends HeaderExtension[Request] { self =>
       override def method: Method                     = m
       override def url: URL                           = u
       override def headers: Headers                   = h
+      override def unsafeEncode: FullHttpRequest      = self.unsafeEncode
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
       override def data: HttpData                     = self.data
     }
@@ -84,6 +86,11 @@ trait Request extends HeaderExtension[Request] { self =>
   def setUrl(url: URL): Request = self.copy(url = url)
 
   /**
+   * Gets the FullHttpRequest
+   */
+  private[zhttp] def unsafeEncode: FullHttpRequest
+
+  /**
    * Gets the complete url
    */
   def url: URL
@@ -102,16 +109,19 @@ object Request {
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress] = None,
     data: HttpData = HttpData.Empty,
+    jRequest: FullHttpRequest = null,
   ): Request = {
     val m  = method
     val u  = url
     val h  = headers
     val ra = remoteAddress
     val d  = data
+    val p  = jRequest
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
       override def headers: Headers                   = h
+      override def unsafeEncode: FullHttpRequest      = p
       override def remoteAddress: Option[InetAddress] = ra
       override def data: HttpData                     = d
     }
@@ -126,8 +136,9 @@ object Request {
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress],
     content: HttpData = HttpData.empty,
+    jRequest: FullHttpRequest = null,
   ): UIO[Request] =
-    UIO(Request(method, url, headers, remoteAddress, content))
+    UIO(Request(method, url, headers, remoteAddress, content, jRequest))
 
   /**
    * Lift request to TypedRequest with option to extract params
@@ -137,6 +148,7 @@ object Request {
     override def method: Method                     = req.method
     override def remoteAddress: Option[InetAddress] = req.remoteAddress
     override def url: URL                           = req.url
+    override def unsafeEncode: FullHttpRequest      = req.unsafeEncode
     override def data: HttpData                     = req.data
   }
 

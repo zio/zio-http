@@ -361,6 +361,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.flatMap(Http.fromZIO(_))
 
   /**
+   * Applies Http based only if the condition function evaluates to true
+   */
+  final def when[A1 <: A](f: A1 => Boolean): Http[R, E, A1, B] =
+    Http.fromFunctionHExit[A1](a => if (f(a)) self.execute(a.asInstanceOf[A]) else HExit.empty)
+
+  /**
    * Widens the type of the output
    */
   final def widen[E1, B1](implicit e: E <:< E1, b: B <:< B1): Http[R, E1, A, B1] =
@@ -449,6 +455,16 @@ object Http {
      * Updates the response headers using the provided function
      */
     override def updateHeaders(update: Headers => Headers): HttpApp[R, E] = http.map(_.updateHeaders(update))
+
+    /**
+     * Applies Http based on the path
+     */
+    def whenPath(p: Path): HttpApp[R, E] = http.when((a: Request) => a.path.equals(p))
+
+    /**
+     * Applies Http based on the path as string
+     */
+    def whenPath(p: String): HttpApp[R, E] = http.when((a: Request) => a.unsafeEncode.uri().contentEquals(p))
 
     private[zhttp] def compile[R1 <: R](
       zExec: HttpRuntime[R1],
