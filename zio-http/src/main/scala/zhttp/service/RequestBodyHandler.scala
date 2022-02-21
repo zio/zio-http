@@ -1,22 +1,22 @@
 package zhttp.service
-import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.HttpContent
+import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import zhttp.http.HttpData.{UnsafeChannel, UnsafeContent}
 
-import scala.annotation.unused
+final class RequestBodyHandler[R](val callback: UnsafeChannel => UnsafeContent => Unit)
+    extends SimpleChannelInboundHandler[HttpContent](false) { self =>
 
-@Sharable
-final class RequestBodyHandler[R](
-  var callback: UnsafeChannel => UnsafeContent => Unit,
-  @unused config: Server.Config[R, Throwable],
-) extends SimpleChannelInboundHandler[HttpContent](false) {
+  private var onMessage: UnsafeContent => Unit = _
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpContent): Unit = {
-    callback(UnsafeChannel(ctx))(UnsafeContent(msg))
+    self.onMessage(new UnsafeContent(msg))
+    if (msg.isInstanceOf[LastHttpContent]) {
+      ctx.channel().pipeline().remove(self): Unit
+    }
   }
 
   override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
+    self.onMessage = callback(new UnsafeChannel(ctx))
     ctx.channel().config().setAutoRead(false)
     ctx.read(): Unit
   }

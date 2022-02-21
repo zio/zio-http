@@ -3,7 +3,6 @@ package zhttp.http
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
-import zhttp.service.HTTP_CONTENT_HANDLER
 import zio.blocking.Blocking.Service.live.effectBlocking
 import zio.stream.ZStream
 import zio.{Chunk, Task, UIO, ZIO}
@@ -36,20 +35,15 @@ sealed trait HttpData { self =>
     self match {
       case HttpData.Incoming(unsafeRun) =>
         for {
-          buffer <- UIO(Unpooled.compositeBuffer())
-          body   <- ZIO.effectAsync[Any, Throwable, ByteBuf](cb =>
-            unsafeRun(ch =>
+          body <- ZIO.effectAsync[Any, Nothing, ByteBuf](cb =>
+            unsafeRun(ch => {
+              val buffer = Unpooled.compositeBuffer()
               msg => {
                 buffer.writeBytes(msg.content)
-                if (msg.isLast) {
-                  cb(UIO(buffer) ensuring UIO(ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)))
-                } else {
-                  ch.read()
-                  ()
-                }
+                if (msg.isLast) cb(UIO(buffer)) else ch.read()
                 msg.content.release(msg.content.refCnt()): Unit
-              },
-            ),
+              }
+            }),
           )
         } yield body
       case outgoing: HttpData.Outgoing  =>
@@ -81,7 +75,6 @@ sealed trait HttpData { self =>
             msg => {
               cb(ZIO.succeed(Chunk(msg.content)))
               if (msg.isLast) {
-                ch.ctx.pipeline().remove(HTTP_CONTENT_HANDLER)
                 cb(ZIO.fail(None))
               } else {
                 ch.read()
@@ -134,12 +127,12 @@ object HttpData {
     RandomAccessFile(() => new java.io.RandomAccessFile(file, "r"))
   }
 
-  private[zhttp] final case class UnsafeContent(private val httpContent: HttpContent) extends AnyVal {
+  private[zhttp] final class UnsafeContent(private val httpContent: HttpContent) extends AnyVal {
     def isLast: Boolean  = httpContent.isInstanceOf[LastHttpContent]
     def content: ByteBuf = httpContent.content()
   }
 
-  private[zhttp] final case class UnsafeChannel(ctx: ChannelHandlerContext) extends AnyVal {
+  private[zhttp] final class UnsafeChannel(private val ctx: ChannelHandlerContext) extends AnyVal {
     def read(): Unit = ctx.read(): Unit
   }
 
