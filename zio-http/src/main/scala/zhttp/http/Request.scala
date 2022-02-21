@@ -49,7 +49,13 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Decodes the content of request as stream of bytes
    */
-  final def bodyAsStream: ZStream[Any, Throwable, Byte] = data.toStreamBytes
+  final def bodyAsStream: ZStream[Any, Throwable, Byte] = data.toByteBufStream.mapM { buf =>
+    Task {
+      val bytes = Chunk.fromArray(ByteBufUtil.getBytes(buf))
+      buf.release(buf.refCnt())
+      bytes
+    }
+  }.flattenChunks
 
   /**
    * Gets all the headers in the Request
