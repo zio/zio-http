@@ -13,9 +13,7 @@ object HelloWorldWithQuery extends App {
   case object Ascending  extends Sorting
   case object Descending extends Sorting
 
-  // case class UserQuery(fields: List[String], perPage: Int, page: Int, sort: Sorting)
-  // case class UserQuery(fields: List[String], perPage: Int, page: Int, sort: String)
-  case class UserQuery(fields: String, perPage: Int, page: Int, sort: String)
+  case class UserQuery(fields: List[String], perPage: Option[Int], page: Option[Int], sort: Sorting)
   implicit val schema: Schema[UserQuery] = DeriveSchema.gen[UserQuery]
 
   def responseFromUserQuery(q: UserQuery): UIO[Response] =

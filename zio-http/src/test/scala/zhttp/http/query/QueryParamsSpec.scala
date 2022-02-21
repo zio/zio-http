@@ -42,6 +42,11 @@ object QueryParamsSpec extends DefaultRunnableSpec {
     implicit val schema = DeriveSchema.gen[CaseClass1SumQuery]
   }
 
+  case class CaseClass1VectorQuery(username: List[Int])
+  object CaseClass1VectorQuery {
+    implicit val schema = DeriveSchema.gen[CaseClass1VectorQuery]
+  }
+
   val decoder = suite("Decoder spec") {
     test("should be able to decode simple 1 param case class") {
       import CaseClass1Query._
@@ -102,7 +107,42 @@ object QueryParamsSpec extends DefaultRunnableSpec {
         val result = probe.decode[CaseClass1IntQuery]
         assert(result)(isRight) && assertTrue(result.toOption.get == CaseClass1IntQuery(counter = 1))
 
+      } +
+      test("should be able to decode simple 1 list of int param case class") {
+        import CaseClass1VectorQuery._
+        val probe = QueryParameters(
+          Map(
+            "username" -> List("1"),
+          ),
+        )
+
+        val result = probe.decode[CaseClass1VectorQuery]
+        assert(result)(isRight) && assertTrue(result.toOption.get == CaseClass1VectorQuery(username = List(1)))
+
+      } +
+      test("should be able to decode case class with 4 params") {
+        import UserQuery._
+        val probe = QueryParameters(
+          Map(
+            "fields"  -> List("a", "b", "c"),
+            "perPage" -> List("1"),
+            "page"    -> List("1"),
+            "sort"    -> List("Ascending"),
+          ),
+        )
+
+        val result = probe.decode[UserQuery]
+        assert(result)(isRight) && assertTrue(
+          result.toOption.get == UserQuery(
+            fields = List("a", "b", "c"),
+            perPage = Some(1),
+            page = Some(1),
+            sort = Ascending,
+          ),
+        )
+
       }
+
   }
 
   override def spec = suite("Query Params Decoder spec") {
