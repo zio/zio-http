@@ -27,7 +27,7 @@ object Main extends App {
       .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
       .exitCode
   }
-  private val path                                               = "/home"
+  private val path                                               = "/plaintext"
   private def app(response: Response) = Http.fromHExit(HExit.succeed(response)).whenPath(path)
 
   private def server(response: Response) =
