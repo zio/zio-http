@@ -48,6 +48,8 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   def headers: Headers
 
+  def queryParams: QueryParameters = QueryParameters(url.queryParams)
+
   /**
    * Checks is the request is a pre-flight request or not
    */
