@@ -3,7 +3,7 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import zhttp.http.HttpData.{UnsafeChannel, UnsafeContent}
 
-final class RequestBodyHandler[R](val callback: UnsafeChannel => UnsafeContent => Unit)
+final class RequestBodyHandler(val callback: UnsafeChannel => UnsafeContent => Unit)
     extends SimpleChannelInboundHandler[HttpContent](false) { self =>
 
   private var onMessage: UnsafeContent => Unit = _
