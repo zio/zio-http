@@ -302,6 +302,21 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             val program = http(()) <& TestClock.adjust(5 second)
             assertM(program)(equalTo(1))
           }
+      } +
+      suite("attempt") {
+        suite("failure") {
+          test("fails with a throwable") {
+            val throwable = new Throwable("boom")
+            val actual    = Http.attempt(throw throwable).execute(())
+            assert(actual)(isFailure(equalTo(throwable)))
+          }
+        } +
+          suite("success") {
+            test("succeeds with a value") {
+              val actual = Http.attempt("bar").execute(())
+              assert(actual)(isSuccess(equalTo("bar")))
+            }
+          }
       },
   ) @@ timeout(10 seconds)
 }

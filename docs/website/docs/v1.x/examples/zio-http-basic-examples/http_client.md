@@ -1,4 +1,4 @@
-# Simple HTTP Client
+# HTTP Client
 ```scala
 import zhttp.http.Headers
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}

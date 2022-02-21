@@ -3,9 +3,10 @@ package zhttp.http
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
 import io.netty.handler.codec.http.HttpHeaderNames
-import zhttp.html.Html
 import zhttp.http.HExit.Effect
+import zhttp.html._
 import zhttp.http.headers.HeaderModifier
+import zhttp.service.server.ServerTime
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
 import zio.clock.Clock
@@ -13,7 +14,9 @@ import zio.duration.Duration
 import zio.stream.ZStream
 
 import java.io.File
+import java.net
 import java.nio.charset.Charset
+import java.nio.file.Paths
 import scala.annotation.unused
 
 /**
@@ -405,21 +408,23 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final private[zhttp] def execute[X](a: X, ctx: Ctx = null)(implicit ev: HttpConvertor[X, A]): HExit[R, E, B] =
     self match {
-      case Http.Empty           => HExit.empty
-      case Http.Identity        => HExit.succeed(ev.convert(a, ctx).asInstanceOf[B])
-      case Succeed(b)           => HExit.succeed(b)
-      case Fail(e)              => HExit.fail(e)
-      case FromFunctionHExit(f) => f(ev.convert(a, ctx))
+      case Http.Empty                 => HExit.empty
+      case Http.Identity              => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)                 => HExit.succeed(b)
+      case Fail(e)                    => HExit.fail(e)
+      case Attempt(a)                 =>
+        try { HExit.succeed(a()) }
+        catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
       case FromHExit(h)         => h
-      case Chain(self, other)   => self.execute(a, ctx).flatMap(b => other.execute(b, ctx))
-      case Race(self, other)    =>
+      case FromFunctionHExit(f)       => f(ev.convert(a, ctx))
+      case Chain(self, other)         =>self.execute(a, ctx).flatMap(b => other.execute(b, ctx))
+      case Race(self, other)          =>
         (self.execute(a, ctx), other.execute(a, ctx)) match {
           case (HExit.Effect(self), HExit.Effect(other)) =>
             Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a, ctx)
           case (HExit.Effect(_), other)                  => other
           case (self, _)                                 => self
         }
-
       case FoldHttp(self, ee, bb, dd) =>
         self.execute(a, ctx).foldExit(ee(_).execute(a, ctx), bb(_).execute(a, ctx), dd.execute(a, ctx))
 
@@ -493,16 +498,23 @@ object Http {
     private[zhttp] def compile[R1 <: R](
       zExec: HttpRuntime[R1],
       settings: Server.Config[R1, Throwable],
+      serverTimeGenerator: ServerTime,
     )(implicit
       evE: E <:< Throwable,
     ): ChannelHandler =
-      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings)
+      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, serverTimeGenerator)
   }
 
   /**
    * Equivalent to `Http.succeed`
    */
   def apply[B](b: B): Http[Any, Nothing, Any, B] = Http.succeed(b)
+
+  /**
+   * Attempts to create an Http that succeeds with the provided value, capturing
+   * all exceptions on it's way.
+   */
+  def attempt[A](a: => A): Http[Any, Throwable, Any, A] = Attempt(() => a)
 
   /**
    * Creates an HTTP app which always responds with a 400 status code.
@@ -515,14 +527,14 @@ object Http {
   def collect[A]: Http.PartialCollect[A] = Http.PartialCollect(())
 
   /**
-   * Create an HTTP app from a partial function from A to Http[R,E,A,B]
-   */
-  def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
-
-  /**
    * Create an HTTP app from a partial function from A to HExit[R,E,B]
    */
   def collectHExit[A]: Http.PartialCollectHExit[A] = Http.PartialCollectHExit(())
+
+  /**
+   * Create an HTTP app from a partial function from A to Http[R,E,A,B]
+   */
+  def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
 
   /**
    * Creates an Http app which accepts a request and produces response from a
@@ -585,16 +597,42 @@ object Http {
    */
   def fromData(data: HttpData): HttpApp[Any, Nothing] = response(Response(data = data))
 
-  /*
-   * Creates an Http app from the contents of a file
+  /**
+   * Creates an Http app from the contents of a file.
    */
   def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file))
 
-  /*
-   * Creates an Http app from the contents of a file which is produced from an effect
+  /**
+   * Creates an Http app from the contents of a file which is produced from an
+   * effect. The operator automatically adds the content-length and content-type
+   * headers if possible.
    */
-  def fromFileZIO[R, E](fileZIO: ZIO[R, E, java.io.File]): HttpApp[R, E] =
-    Http.fromZIO(fileZIO.map(file => response(Response(data = HttpData.fromFile(file))))).flatten
+  def fromFileZIO[R](fileZIO: ZIO[R, Throwable, java.io.File]): HttpApp[R, Throwable] = {
+    val response: ZIO[R, Throwable, HttpApp[R, Throwable]] =
+      fileZIO.flatMap { file =>
+        Task {
+          if (file.isFile) {
+            val length   = Headers.contentLength(file.length())
+            val response = Response(headers = length, data = HttpData.fromFile(file))
+            val pathName = file.toPath.toString
+
+            // Extract file extension
+            val ext = pathName.lastIndexOf(".") match {
+              case -1 => None
+              case i  => Some(pathName.substring(i + 1))
+            }
+
+            // Set MIME type in the response headers. This is only relevant in
+            // case of RandomAccessFile transfers as browsers use the MIME type,
+            // not the file extension, to determine how to process a URL.
+            // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
+            Http.succeed(ext.flatMap(MediaType.forFileExtension).fold(response)(response.withMediaType))
+          } else Http.empty
+        }
+      }
+
+    Http.fromZIO(response).flatten
+  }
 
   /**
    * Creates a Http from a pure function
@@ -602,14 +640,14 @@ object Http {
   def fromFunction[A]: PartialFromFunction[A] = new PartialFromFunction[A](())
 
   /**
-   * Creates a Http from an effectful pure function
-   */
-  def fromFunctionZIO[A]: PartialFromFunctionZIO[A] = new PartialFromFunctionZIO[A](())
-
-  /**
    * Creates a Http from an pure function from A to HExit[R,E,B]
    */
   def fromFunctionHExit[A]: PartialFromFunctionHExit[A] = new PartialFromFunctionHExit[A](())
+
+  /**
+   * Creates a Http from an effectful pure function
+   */
+  def fromFunctionZIO[A]: PartialFromFunctionZIO[A] = new PartialFromFunctionZIO[A](())
 
   /**
    * Creates a Http from HExit[R,E,B]
@@ -624,10 +662,16 @@ object Http {
   def fromOptionFunction[A]: PartialFromOptionFunction[A] = new PartialFromOptionFunction(())
 
   /**
+   * Creates an HTTP that can serve files on the give path.
+   */
+  def fromPath(head: String, tail: String*): HttpApp[Any, Throwable] =
+    Http.fromFile(Paths.get(head, tail: _*).toFile)
+
+  /**
    * Creates an Http app from a resource path
    */
   def fromResource(path: String): HttpApp[Any, Throwable] =
-    Http.fromFile(new File(getClass.getResource(path).getPath))
+    Http.getResourceAsFile(path) >>= { Http.fromFile(_) }
 
   /**
    * Creates a Http that always succeeds with a 200 status code and the provided
@@ -649,14 +693,36 @@ object Http {
   def fromZIO[R, E, B](effect: ZIO[R, E, B]): Http[R, E, Any, B] = Http.fromFunctionZIO(_ => effect)
 
   /**
+   * Attempts to retrieve files from the classpath.
+   */
+  def getResource(path: String): Http[Any, Throwable, Any, net.URL] =
+    Http
+      .attempt(Option(getClass.getResource(path)) match {
+        case Some(path) => Http.succeed(path)
+        case None       => Http.empty
+      })
+      .flatten
+
+  /**
+   * Attempts to retrieve files from the classpath.
+   */
+  def getResourceAsFile(path: String): Http[Any, Throwable, Any, File] =
+    Http.getResource(path).map(url => new File(url.getPath))
+
+  /**
    * Creates an HTTP app which always responds with the provided Html page.
    */
   def html(view: Html): HttpApp[Any, Nothing] = Http.response(Response.html(view))
 
   /**
-   * Creates a pass thru Http instances
+   * Creates a pass thru Http instance
    */
   def identity[A]: Http[Any, Nothing, A, A] = Http.Identity
+
+  /**
+   * Creates an HTTP app which always responds with a 405 status code.
+   */
+  def methodNotAllowed(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.MethodNotAllowed(msg))
 
   /**
    * Creates an Http app that fails with a NotFound exception.
@@ -672,7 +738,7 @@ object Http {
   /**
    * Creates an Http app which always responds with the same value.
    */
-  def response(response: Response): HttpApp[Any, Nothing] = Http.succeed(response)
+  def response(response: Response): Http[Any, Nothing, Any, Response] = Http.succeed(response)
 
   /**
    * Converts a ZIO to an Http app type
@@ -694,6 +760,13 @@ object Http {
    * Creates an Http that always returns the same response and never fails.
    */
   def succeed[B](b: B): Http[Any, Nothing, Any, B] = Http.Succeed(b)
+
+  /**
+   * Creates an Http app which responds with an Html page using the built-in
+   * template.
+   */
+  def template(heading: String)(view: Html): HttpApp[Any, Nothing] =
+    Http.response(Response.html(Template.container(heading)(view)))
 
   /**
    * Creates an Http app which always responds with the same plain text.
@@ -800,6 +873,8 @@ object Http {
     http: Http[R, E, A1, B1],
     mid: Middleware[R, E, A1, B1, A2, B2],
   ) extends Http[R, E, A2, B2]
+
+  private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
 
   private case object Empty extends Http[Any, Nothing, Any, Nothing]
 
