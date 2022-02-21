@@ -23,11 +23,11 @@ private[zhttp] trait ServerResponseHandler[R] {
 
     ctx.write(encodeResponse(msg))
     msg.data match {
-      case HttpData.Incoming(_)        =>
+      case HttpData.Asynchronous(_) =>
         releaseRequest(jReq)
         throw new IllegalStateException("Cannot write data to response")
-      case outgoing: HttpData.Outgoing =>
-        outgoing match {
+      case data: HttpData.Complete  =>
+        data match {
           case HttpData.BinaryStream(stream)  =>
             rt.unsafeRun(ctx) { writeStreamContent(stream).ensuring(UIO(releaseRequest(jReq))) }
           case HttpData.RandomAccessFile(raf) =>
