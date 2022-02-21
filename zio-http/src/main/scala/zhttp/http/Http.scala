@@ -3,8 +3,8 @@ package zhttp.http
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
 import io.netty.handler.codec.http.HttpHeaderNames
-import zhttp.http.HExit.Effect
 import zhttp.html._
+import zhttp.http.HExit.Effect
 import zhttp.http.headers.HeaderModifier
 import zhttp.service.server.ServerTime
 import zhttp.service.{Handler, HttpRuntime, Server}
@@ -415,9 +415,9 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
       case Attempt(a)                 =>
         try { HExit.succeed(a()) }
         catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
-      case FromHExit(h)         => h
+      case FromHExit(h)               => h
       case FromFunctionHExit(f)       => f(ev.convert(a, ctx))
-      case Chain(self, other)         =>self.execute(a, ctx).flatMap(b => other.execute(b, ctx))
+      case Chain(self, other)         => self.execute(a, ctx).flatMap(b => other.execute(b, ctx))
       case Race(self, other)          =>
         (self.execute(a, ctx), other.execute(a, ctx)) match {
           case (HExit.Effect(self), HExit.Effect(other)) =>
