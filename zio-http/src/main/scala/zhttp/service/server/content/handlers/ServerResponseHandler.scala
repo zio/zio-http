@@ -14,37 +14,15 @@ import java.io.RandomAccessFile
 
 @Sharable
 private[zhttp] trait ServerResponseHandler[R] {
-  def serverTime: ServerTime
+  type Ctx = ChannelHandlerContext
   val rt: HttpRuntime[R]
 
-  type Ctx = ChannelHandlerContext
+  def serverTime: ServerTime
 
   def writeResponse(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
 
     ctx.write(encodeResponse(msg))
-    msg.data match {
-      case HttpData.Asynchronous(_) =>
-        releaseRequest(jReq)
-        throw new IllegalStateException("Cannot write data to response")
-      case data: HttpData.Complete  =>
-        data match {
-          case HttpData.BinaryStream(stream)  =>
-            rt.unsafeRun(ctx) {
-              writeStreamContent(stream).ensuring(UIO {
-                releaseRequest(jReq)
-                if (!jReq.isInstanceOf[FullHttpRequest]) ctx.read(): Unit // read next request
-              })
-            }
-          case HttpData.RandomAccessFile(raf) =>
-            unsafeWriteFileContent(raf())
-            releaseRequest(jReq)
-            if (!jReq.isInstanceOf[FullHttpRequest]) ctx.read(): Unit // read next request
-          case _                              =>
-            ctx.flush()
-            releaseRequest(jReq)
-            if (!jReq.isInstanceOf[FullHttpRequest]) ctx.read(): Unit // read next request
-        }
-    }
+    writeData(msg.data, jReq)
     ()
   }
 
@@ -84,6 +62,46 @@ private[zhttp] trait ServerResponseHandler[R] {
   }
 
   /**
+   * Writes file content to the Channel. Does not use Chunked transfer encoding
+   */
+  private def unsafeWriteFileContent(raf: RandomAccessFile)(implicit ctx: ChannelHandlerContext): Unit = {
+    val fileLength = raf.length()
+    // Write the content.
+    ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
+    // Write the end marker.
+    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
+  }
+
+  /**
+   * Writes data on the channel
+   */
+  private def writeData(data: HttpData, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    data match {
+      case HttpData.Asynchronous(_) =>
+        releaseRequest(jReq)
+        throw new IllegalStateException("Cannot write data to response")
+      case data: HttpData.Complete  =>
+        data match {
+          case HttpData.BinaryStream(stream)  =>
+            rt.unsafeRun(ctx) {
+              writeStreamContent(stream).ensuring(UIO {
+                releaseRequest(jReq)
+                if (!jReq.isInstanceOf[FullHttpRequest]) ctx.read(): Unit // read next request
+              })
+            }
+          case HttpData.RandomAccessFile(raf) =>
+            unsafeWriteFileContent(raf())
+            releaseRequest(jReq)
+            if (!jReq.isInstanceOf[FullHttpRequest]) ctx.read(): Unit // read next request
+          case _                              =>
+            ctx.flush()
+            releaseRequest(jReq)
+            if (!jReq.isInstanceOf[FullHttpRequest]) ctx.read(): Unit // read next request
+        }
+    }
+  }
+
+  /**
    * Writes Binary Stream data to the Channel
    */
   private def writeStreamContent[A](
@@ -93,17 +111,5 @@ private[zhttp] trait ServerResponseHandler[R] {
       _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
-  }
-
-  /**
-   * Writes file content to the Channel. Does not use Chunked transfer encoding
-   */
-
-  private def unsafeWriteFileContent(raf: RandomAccessFile)(implicit ctx: ChannelHandlerContext): Unit = {
-    val fileLength = raf.length()
-    // Write the content.
-    ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
-    // Write the end marker.
-    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
   }
 }
