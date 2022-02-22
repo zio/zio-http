@@ -29,13 +29,19 @@ object ServerSpec extends HttpRunnableSpec {
     case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
   }
 
+  private val throwableApp: Http[Any, Nothing, Request, Nothing] = Http.collectZIO[Request] {
+    case Method.GET -> !! / "throwable"     => throw new Exception("Throw inside Handler")
+  }
+
   // Use this route to test anything that doesn't require ZIO related computations.
   private val nonZIO = Http.collectHExit[Request] {
     case _ -> !! / "HExitSuccess" => HExit.succeed(Response.ok)
     case _ -> !! / "HExitFailure" => HExit.fail(new RuntimeException("FAILURE"))
   }
 
-  private val app = serve { nonZIO ++ staticApp ++ DynamicServer.app }
+  private val app = serve { nonZIO ++ staticApp ++ throwableApp ++ DynamicServer.app }
+
+
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -277,7 +283,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   override def spec =
     suiteM("Server") {
-      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, nonZIOSpec)).useNow
+      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, nonZIOSpec, throwableAppSpec)).useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds)
 
   def staticAppSpec = suite("StaticAppSpec") {
@@ -302,5 +308,12 @@ object ServerSpec extends HttpRunnableSpec {
           data <- status(path = !! / "success").repeatN(1024)
         } yield assertTrue(data == Status.OK)
       }
+  }
+  def throwableAppSpec = suite("ThrowableAppSpec") {
+    testM("Throw inside Handler") {
+      for {
+        status <- status(Method.GET, !! / "throwable")
+      } yield assertTrue(status == Status.INTERNAL_SERVER_ERROR)
+    }
   }
 }
