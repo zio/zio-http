@@ -18,7 +18,7 @@ sealed trait HttpData { self =>
   /**
    * Returns true if HttpData is a stream
    */
-  def isChunked: Boolean = self match {
+  final def isChunked: Boolean = self match {
     case HttpData.BinaryStream(_) => true
     case _                        => false
   }
@@ -26,7 +26,7 @@ sealed trait HttpData { self =>
   /**
    * Returns true if HttpData is empty
    */
-  def isEmpty: Boolean = self match {
+  final def isEmpty: Boolean = self match {
     case HttpData.Empty => true
     case _              => false
   }
