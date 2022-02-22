@@ -5,6 +5,7 @@ import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
 import zhttp.html._
 import zhttp.http.headers.HeaderExtension
+import zhttp.service.server.content.compression.CompressionOptions
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
 import zio.{Chunk, Task, UIO, ZIO}
 
@@ -35,34 +36,6 @@ final case class Response private (
    */
   def freeze: UIO[Response] =
     UIO(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
-
-  /**
-   * Sets the response attributes
-   */
-  def setAttribute(attribute: Response.Attribute): Response =
-    self.copy(attribute = attribute)
-
-  /**
-   * Sets the status of the response
-   */
-  def setStatus(status: Status): Response =
-    self.copy(status = status)
-
-  /**
-   * Updates the headers using the provided function
-   */
-  override def updateHeaders(update: Headers => Headers): Response =
-    self.copy(headers = update(self.headers))
-
-  /**
-   * A more efficient way to append server-time to the response headers.
-   */
-  def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
-
-  /**
-   * Extracts the body as ByteBuf
-   */
-  private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = self.data.toByteBuf
 
   /**
    * Encodes the Response into a Netty HttpResponse. Sets default headers such
@@ -100,16 +73,44 @@ final case class Response private (
       jResponse
     }
   }
+
+  /**
+   * Sets the response attributes
+   */
+  def setAttribute(attribute: Response.Attribute): Response =
+    self.copy(attribute = attribute)
+
+  /**
+   * Sets the status of the response
+   */
+  def setStatus(status: Status): Response =
+    self.copy(status = status)
+
+  /**
+   * Updates the headers using the provided function
+   */
+  override def updateHeaders(update: Headers => Headers): Response =
+    self.copy(headers = update(self.headers))
+
+  /**
+   * A more efficient way to append server-time to the response headers.
+   */
+  def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
+
+  /**
+   * A better way to add compression options support
+   */
+  def withCompressionOptions(options: Chunk[CompressionOptions]): Response =
+    self.copy(attribute = self.attribute.withCompressionOptions(options))
+
+  /**
+   * Extracts the body as ByteBuf
+   */
+  private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = self.data.toByteBuf
+
 }
 
 object Response {
-  def apply[R, E](
-    status: Status = Status.OK,
-    headers: Headers = Headers.empty,
-    data: HttpData = HttpData.Empty,
-  ): Response =
-    Response(status, headers, data, Attribute.empty)
-
   def fromHttpError(error: HttpError): Response = {
 
     def prettify(throwable: Throwable): String = {
@@ -139,6 +140,16 @@ object Response {
   }
 
   /**
+   * Creates a response with content-type set to text/html
+   */
+  def html(data: Html, status: Status = Status.OK): Response =
+    Response(
+      status = status,
+      data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
+      headers = Headers(HeaderNames.contentType, HeaderValues.textHtml),
+    )
+
+  /**
    * Creates a new response for the provided socket
    */
   def fromSocket[R, E, A, B](socket: Socket[R, E, A, B])(implicit
@@ -160,16 +171,6 @@ object Response {
     }
 
   }
-
-  /**
-   * Creates a response with content-type set to text/html
-   */
-  def html(data: Html, status: Status = Status.OK): Response =
-    Response(
-      status = status,
-      data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
-      headers = Headers(HeaderNames.contentType, HeaderValues.textHtml),
-    )
 
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
   def http[R, E](
@@ -201,6 +202,13 @@ object Response {
     Response(status, Headers.location(location))
   }
 
+  def apply[R, E](
+    status: Status = Status.OK,
+    headers: Headers = Headers.empty,
+    data: HttpData = HttpData.Empty,
+  ): Response =
+    Response(status, headers, data, Attribute.empty)
+
   /**
    * Creates an empty response with the provided Status
    */
@@ -224,6 +232,7 @@ object Response {
     memoize: Boolean = false,
     serverTime: Boolean = false,
     encoded: Option[(Response, HttpResponse)] = None,
+    compressionOptions: Chunk[CompressionOptions] = Chunk.empty,
   ) { self =>
     def withEncodedResponse(jResponse: HttpResponse, response: Response): Attribute =
       self.copy(encoded = Some(response -> jResponse))
@@ -233,6 +242,9 @@ object Response {
     def withServerTime: Attribute = self.copy(serverTime = true)
 
     def withSocketApp(app: SocketApp[Any]): Attribute = self.copy(socketApp = Option(app))
+
+    def withCompressionOptions(compressionOptions: Chunk[CompressionOptions]): Attribute =
+      self.copy(compressionOptions = compressionOptions)
   }
 
   object Attribute {
