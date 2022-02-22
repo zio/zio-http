@@ -140,5 +140,5 @@ lazy val `zio-http-query-params` = (project in file("zio-http-query-params"))
       `zio-schema-derivation`,
     ),
   )
-  .settings(ThisBuild / crossScalaVersions := Seq(Scala212, Scala213))
+  .settings(crossScalaVersions := Seq(Scala212, Scala213))
   .dependsOn(zhttp % "compile->compile;test->test")
