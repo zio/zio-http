@@ -91,7 +91,7 @@ object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             // The following app is used to simulate a HTTP app that would not give any response for a compressed response (not even a 404)
             val app = Http.collectHttp[Request] {
               case req if req.path.toString.endsWith(".js") => Http.text(req.path.toString())
-            } @@ serveCompressed(CompressionFormat.Gzip())
+            } ++ Http.notFound @@ serveCompressed(CompressionFormat.Gzip())
 
             val request  = originalReq
               .copy(headers = Headers.acceptEncoding(HeaderValues.gzip))

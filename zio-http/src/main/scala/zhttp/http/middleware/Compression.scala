@@ -24,14 +24,13 @@ private[zhttp] trait Compression {
     }
   }
 
-  private def chain(middlewares: List[HttpMiddleware[Any, Nothing]]): HttpMiddleware[Any, Any] = {
-    middlewares
-      .foldLeft[HttpMiddleware[Any, Any]](Middleware.fail(())) { case (acc, middleware) =>
-        acc.orElse(middleware.flatMap {
-          case response if response.status == Status.NOT_FOUND => acc
-          case response                                        => Middleware.succeed(response)
-        })
+  private def chain[R, E](middlewares: List[HttpMiddleware[R, E]]): HttpMiddleware[R, E] = {
+    (middlewares :+ Middleware.identity).reduceLeft[HttpMiddleware[R, E]] { case (acc, middleware) =>
+      acc.flatMap {
+        case response if response.status == Status.NOT_FOUND => middleware
+        case response                                        => Middleware.succeed(response)
       }
+    }
   }
 
   def serveCompressed[R, E](compressions: Set[CompressionFormat]): HttpMiddleware[R, E] = {
@@ -48,15 +47,7 @@ private[zhttp] trait Compression {
           }.flatten
 
           val middlewares = commonSupportedEncoding.map(buildMiddlewareForCompression)
-
-          chain(middlewares).flatMap {
-            case response if response.status == Status.NOT_FOUND =>
-              println(response)
-              Middleware.identity
-            case r                                               =>
-              println(r)
-              Middleware.succeed(r)
-          }.orElse(Middleware.identity)
+          chain(middlewares)
         case None         => Middleware.identity
       }
     }
@@ -72,7 +63,7 @@ private[zhttp] trait Compression {
             val path = req.url.path.toString() + compression.extension
             req.copy(url = req.url.copy(path = Path(path)))
           }
-          .map(_.addHeaders(Headers.contentEncoding(compression.name).addHeaders(Headers.contentType("text/html"))))
+          .map(_.addHeaders(Headers.contentEncoding(compression.name)))
       }
     }
   }
