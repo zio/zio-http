@@ -30,7 +30,7 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   private val throwableApp: Http[Any, Nothing, Request, Nothing] = Http.collectZIO[Request] {
-    case Method.GET -> !! / "throwable"     => throw new Exception("Throw inside Handler")
+    case Method.GET -> !! / "throwable" => throw new Exception("Throw inside Handler")
   }
 
   // Use this route to test anything that doesn't require ZIO related computations.
@@ -40,8 +40,6 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   private val app = serve { nonZIO ++ staticApp ++ throwableApp ++ DynamicServer.app }
-
-
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -283,10 +281,14 @@ object ServerSpec extends HttpRunnableSpec {
 
   override def spec =
     suiteM("Server") {
-      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, nonZIOSpec, throwableAppSpec)).useNow
+      app
+        .as(
+          List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, nonZIOSpec, throwableAppSpec),
+        )
+        .useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds)
 
-  def staticAppSpec = suite("StaticAppSpec") {
+  def staticAppSpec    = suite("StaticAppSpec") {
     testM("200 response") {
       val actual = status(path = !! / "success")
       assertM(actual)(equalTo(Status.OK))
