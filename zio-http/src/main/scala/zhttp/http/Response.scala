@@ -98,7 +98,8 @@ final case class Response private (
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
 
   /**
-   * Provides syntactic convenience for adding compression options to the response.
+   * Provides syntactic convenience for adding compression options to the
+   * response.
    */
   def withCompressionOptions(options: CompressionOptions*): Response = {
     val chunk = Chunk.empty
