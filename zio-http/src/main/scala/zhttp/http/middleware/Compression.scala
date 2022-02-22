@@ -49,7 +49,14 @@ private[zhttp] trait Compression {
 
           val middlewares = commonSupportedEncoding.map(buildMiddlewareForCompression)
 
-          chain(middlewares).orElse(Middleware.identity)
+          chain(middlewares).flatMap {
+            case response if response.status == Status.NOT_FOUND =>
+              println(response)
+              Middleware.identity
+            case r                                               =>
+              println(r)
+              Middleware.succeed(r)
+          }.orElse(Middleware.identity)
         case None         => Middleware.identity
       }
     }

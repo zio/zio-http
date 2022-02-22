@@ -86,23 +86,40 @@ object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             body <- res.data.toByteBuf
           } yield assert(res)(noEncodingheader) &&
             assert(body)(hasBody(expected)) && assert(called)(isTrue)
-        }
-      } +
-      testM("Fall back to uncompressed assets if http app is not defined") {
-        // The following app is used to simulate a HTTP app that would not give any response for a compressed response (not even a 404)
-        val app = Http.collectHttp[Request] {
-          case req if req.path.toString.endsWith(".js") => Http.text(req.path.toString())
-        } @@ serveCompressed(CompressionFormat.Gzip())
+        } +
+          testM("Fall back to uncompressed assets if http app is not defined") {
+            // The following app is used to simulate a HTTP app that would not give any response for a compressed response (not even a 404)
+            val app = Http.collectHttp[Request] {
+              case req if req.path.toString.endsWith(".js") => Http.text(req.path.toString())
+            } @@ serveCompressed(CompressionFormat.Gzip())
 
-        val request  = originalReq
-          .copy(headers = Headers.acceptEncoding(HeaderValues.gzip))
-        val expected = "/file.js"
+            val request  = originalReq
+              .copy(headers = Headers.acceptEncoding(HeaderValues.gzip))
+            val expected = "/file.js"
 
-        for {
-          res  <- app(request)
-          body <- res.data.toByteBuf
-        } yield assert(res)(noEncodingheader) &&
-          assert(body)(hasBody(expected))
+            for {
+              res  <- app(request)
+              body <- res.data.toByteBuf
+            } yield assert(res)(noEncodingheader) &&
+              assert(body)(hasBody(expected))
+          } +
+          testM("Fall back to uncompressed assets if http app is not defined (2)") {
+            // The following app is used to simulate a HTTP app that would not give any response for a compressed response (not even a 404)
+            val app = Http.collectHttp[Request] { case req =>
+              if (req.path.toString.endsWith(".js")) Http.text(req.path.toString())
+              else Http.notFound
+            } @@ serveCompressed(CompressionFormat.Gzip())
+
+            val request  = originalReq
+              .copy(headers = Headers.acceptEncoding(HeaderValues.gzip))
+            val expected = "/file.js"
+
+            for {
+              res  <- app(request)
+              body <- res.data.toByteBuf
+            } yield assert(res)(noEncodingheader) &&
+              assert(body)(hasBody(expected))
+          }
       } +
       suite("GZIP server support") {
         val echo = Http.collectHttp[Request] { case req => Http.text(req.path.toString()) }
