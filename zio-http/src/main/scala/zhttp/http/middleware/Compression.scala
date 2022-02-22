@@ -4,8 +4,8 @@ import zhttp.http._
 
 private[zhttp] trait Compression {
 
-  def serveCompressed(compression: CompressionFormat): HttpMiddleware[Any, Nothing] =
-    serveCompressed(Set(compression))
+  def serveCompressed[R, E](compression: CompressionFormat): HttpMiddleware[R, E] =
+    serveCompressed[R, E](Set(compression))
 
   // https://developer.mozilla.org/en-US/docs/Glossary/Quality_values
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding
@@ -24,7 +24,7 @@ private[zhttp] trait Compression {
     }
   }
 
-  private def secondImpl(middlewares: List[HttpMiddleware[Any, Nothing]]): HttpMiddleware[Any, Nothing] = {
+  private def chain(middlewares: List[HttpMiddleware[Any, Nothing]]): HttpMiddleware[Any, Any] = {
     middlewares
       .foldLeft[HttpMiddleware[Any, Any]](Middleware.fail(())) { case (acc, middleware) =>
         acc.orElse(middleware.flatMap {
@@ -32,23 +32,9 @@ private[zhttp] trait Compression {
           case response                                        => Middleware.succeed(response)
         })
       }
-      .orElse(Middleware.identity)
   }
 
-  // recursive implementation, might be more readable
-  // not tailec (even if that should not be an issue here, because it would require the client to send a huge amount of header to break)
-  private def firstImpl(middlewares: List[HttpMiddleware[Any, Nothing]]): HttpMiddleware[Any, Nothing] = {
-    middlewares match {
-      case head :: next =>
-        head.flatMap {
-          case response if response.status == Status.NOT_FOUND => firstImpl(next)
-          case response                                        => Middleware.succeed(response)
-        }
-      case Nil          => Middleware.identity
-    }
-  }
-
-  def serveCompressed(compressions: Set[CompressionFormat]): HttpMiddleware[Any, Nothing] = {
+  def serveCompressed[R, E](compressions: Set[CompressionFormat]): HttpMiddleware[R, E] = {
     Middleware.collect[Request] { case req =>
       req.headers.acceptEncoding match {
         case Some(header) =>
@@ -61,22 +47,27 @@ private[zhttp] trait Compression {
             case encoding if compressionNames.contains(encoding) => compressions.find(_.name == encoding)
           }.flatten
 
-          val middlewares: List[HttpMiddleware[Any, Nothing]] =
-            commonSupportedEncoding.map(buildMiddlewareForCompression)
-          // firstImpl(middlewares)
-          secondImpl(middlewares)
+          val middlewares = commonSupportedEncoding.map(buildMiddlewareForCompression)
+
+          chain(middlewares).orElse(Middleware.identity)
         case None         => Middleware.identity
       }
     }
   }
 
-  private def buildMiddlewareForCompression(compression: CompressionFormat): HttpMiddleware[Any, Nothing] = {
-    Middleware.identity
-      .contramap[Request] { req =>
-        val path = req.url.path.toString() + compression.extension
-        req.copy(url = req.url.copy(path = Path(path)))
+  private def buildMiddlewareForCompression[R, E](
+    compression: CompressionFormat,
+  ): HttpMiddleware[R, E] = {
+    new Middleware[R, E, Request, Response, Request, Response] {
+      override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, Request, Response]): Http[R1, E1, Request, Response] = {
+        http
+          .contramap[Request] { req =>
+            val path = req.url.path.toString() + compression.extension
+            req.copy(url = req.url.copy(path = Path(path)))
+          }
+          .map(_.addHeaders(Headers.contentEncoding(compression.name).addHeaders(Headers.contentType("text/html"))))
       }
-      .andThen(Middleware.addHeaders(Headers.contentEncoding(compression.name)))
+    }
   }
 }
 

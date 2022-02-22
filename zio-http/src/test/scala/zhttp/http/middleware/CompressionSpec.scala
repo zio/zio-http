@@ -88,6 +88,22 @@ object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             assert(body)(hasBody(expected)) && assert(called)(isTrue)
         }
       } +
+      testM("Fall back to uncompressed assets if http app is not defined") {
+        // The following app is used to simulate a HTTP app that would not give any response for a compressed response (not even a 404)
+        val app = Http.collectHttp[Request] {
+          case req if req.path.toString.endsWith(".js") => Http.text(req.path.toString())
+        } @@ serveCompressed(CompressionFormat.Gzip())
+
+        val request  = originalReq
+          .copy(headers = Headers.acceptEncoding(HeaderValues.gzip))
+        val expected = "/file.js"
+
+        for {
+          res  <- app(request)
+          body <- res.data.toByteBuf
+        } yield assert(res)(noEncodingheader) &&
+          assert(body)(hasBody(expected))
+      } +
       suite("GZIP server support") {
         val echo = Http.collectHttp[Request] { case req => Http.text(req.path.toString()) }
         val app  = echo @@ serveCompressed(CompressionFormat.Gzip())
@@ -173,6 +189,5 @@ object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             } yield assert(res)(hasBrHeader) && assert(body)(hasBody(expected))
           }
       }
-
   }
 }
