@@ -32,17 +32,17 @@ private[zhttp] trait ServerResponseHandler[R] {
             rt.unsafeRun(ctx) {
               writeStreamContent(stream).ensuring(UIO {
                 releaseRequest(jReq)
-                if (!ctx.channel().config().isAutoRead) ctx.read(): Unit // read next request
+                if (!jReq.isInstanceOf[FullHttpRequest]) ctx.read(): Unit // read next request
               })
             }
           case HttpData.RandomAccessFile(raf) =>
             unsafeWriteFileContent(raf())
             releaseRequest(jReq)
-            if (!ctx.channel().config().isAutoRead) ctx.read(): Unit // read next request
+            if (!jReq.isInstanceOf[FullHttpRequest]) ctx.read(): Unit // read next request
           case _                              =>
             ctx.flush()
             releaseRequest(jReq)
-            if (!ctx.channel().config().isAutoRead) ctx.read(): Unit // read next request
+            if (!jReq.isInstanceOf[FullHttpRequest]) ctx.read(): Unit // read next request
         }
     }
     ()
