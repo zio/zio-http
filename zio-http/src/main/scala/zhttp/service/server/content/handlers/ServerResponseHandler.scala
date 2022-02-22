@@ -78,13 +78,9 @@ private[zhttp] trait ServerResponseHandler[R] {
    */
   private def releaseRequest(jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     jReq match {
-      case req: FullHttpRequest =>
-        if (req.refCnt() > 0) {
-          req.release(req.refCnt()): Unit
-        }
-      case _                    => ()
+      case jReq: FullHttpRequest if jReq.refCnt() > 0 => jReq.release(jReq.refCnt()): Unit
+      case _                                          => ()
     }
-
   }
 
   /**
