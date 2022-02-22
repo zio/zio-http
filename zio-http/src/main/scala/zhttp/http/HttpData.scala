@@ -33,14 +33,14 @@ sealed trait HttpData { self =>
 
   final def toByteBuf: Task[ByteBuf] = {
     self match {
-      case self: HttpData.Asynchronous => self.encode
-      case self: HttpData.Complete     => self.encode
+      case self: HttpData.Incoming => self.encode
+      case self: HttpData.Outgoing => self.encode
     }
   }
 
   final def toByteBufStream: ZStream[Any, Throwable, ByteBuf] = self match {
-    case self: HttpData.Asynchronous => self.encodeAsStream
-    case self: HttpData.Complete     => ZStream.fromEffect(self.encode)
+    case self: HttpData.Incoming => self.encodeAsStream
+    case self: HttpData.Outgoing => ZStream.fromEffect(self.encode)
   }
 }
 
@@ -85,7 +85,7 @@ object HttpData {
    */
   def fromString(text: String, charset: Charset = HTTP_CHARSET): HttpData = Text(text, charset)
 
-  private[zhttp] sealed trait Complete extends HttpData { self =>
+  private[zhttp] sealed trait Outgoing extends HttpData { self =>
     def encode: ZIO[Any, Throwable, ByteBuf] =
       self match {
         case HttpData.Text(text, charset)   => UIO(Unpooled.copiedBuffer(text, charset))
@@ -116,7 +116,7 @@ object HttpData {
     def read(): Unit = ctx.read(): Unit
   }
 
-  private[zhttp] final case class Asynchronous(unsafeRun: (UnsafeChannel => UnsafeContent => Unit) => Unit)
+  private[zhttp] final case class Incoming(unsafeRun: (UnsafeChannel => UnsafeContent => Unit) => Unit)
       extends HttpData {
     def encode: ZIO[Any, Nothing, ByteBuf] = for {
       body <- ZIO.effectAsync[Any, Nothing, ByteBuf](cb =>
@@ -142,10 +142,10 @@ object HttpData {
       )
   }
 
-  private[zhttp] final case class Text(text: String, charset: Charset)                        extends Complete
-  private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                              extends Complete
-  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                                extends Complete
-  private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf])      extends Complete
-  private[zhttp] final case class RandomAccessFile(unsafeGet: () => java.io.RandomAccessFile) extends Complete
-  private[zhttp] case object Empty                                                            extends Complete
+  private[zhttp] final case class Text(text: String, charset: Charset)                        extends Outgoing
+  private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                              extends Outgoing
+  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                                extends Outgoing
+  private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf])      extends Outgoing
+  private[zhttp] final case class RandomAccessFile(unsafeGet: () => java.io.RandomAccessFile) extends Outgoing
+  private[zhttp] case object Empty                                                            extends Outgoing
 }

@@ -77,10 +77,10 @@ private[zhttp] trait ServerResponseHandler[R] {
    */
   private def writeData(data: HttpData, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     data match {
-      case HttpData.Asynchronous(_) =>
+      case HttpData.Incoming(_)    =>
         releaseRequest(jReq)
         throw new IllegalStateException("Cannot write data to response")
-      case data: HttpData.Complete  =>
+      case data: HttpData.Outgoing =>
         data match {
           case HttpData.BinaryStream(stream)  =>
             rt.unsafeRun(ctx) {
