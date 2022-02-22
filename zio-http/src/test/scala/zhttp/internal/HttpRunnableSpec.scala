@@ -69,6 +69,25 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
         }
       } yield response
 
+    def deploy(queryParameters: QueryParameters): HttpTestClient[Any, ClientRequest, ClientResponse] =
+      for {
+        port     <- Http.fromZIO(DynamicServer.port)
+        id       <- Http.fromZIO(DynamicServer.deploy(app))
+        response <- Http.fromFunctionZIO[Client.ClientRequest] { params =>
+          Client.request(
+            params
+              .addHeader(DynamicServer.APP_ID, id)
+              .copy(url =
+                URL(
+                  params.url.path,
+                  Location.Absolute(Scheme.HTTP, "localhost", port),
+                  queryParams = queryParameters.raw,
+                ),
+              ),
+          )
+        }
+      } yield response
+
     def deployWS: HttpTestClient[Any, SocketApp[Any], ClientResponse] =
       for {
         id       <- Http.fromZIO(DynamicServer.deploy(app))

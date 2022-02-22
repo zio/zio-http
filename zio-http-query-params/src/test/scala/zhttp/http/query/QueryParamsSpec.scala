@@ -1,10 +1,10 @@
 package zhttp.http.query
 
 import zhttp.http.QueryParameters
-import zhttp.http.query.QueryParams.QueryParametersWrapper
+import zhttp.http.query.QueryParams._
 import zio.schema.{DeriveSchema, Schema}
-import zio.test.Assertion._
-import zio.test._
+import zio.test.Assertion.isRight
+import zio.test.{DefaultRunnableSpec, assert, assertTrue}
 
 object QueryParamsSpec extends DefaultRunnableSpec {
 
@@ -49,7 +49,6 @@ object QueryParamsSpec extends DefaultRunnableSpec {
 
   val decoder = suite("Decoder spec") {
     test("should be able to decode simple 1 param case class") {
-      import CaseClass1Query._
       val probe = QueryParameters(
         Map(
           "username" -> List("Test"),
@@ -61,7 +60,6 @@ object QueryParamsSpec extends DefaultRunnableSpec {
 
     } +
       test("should be able to decode simple 1 option param case class") {
-        import CaseClass1OptionQuery._
         val probe = QueryParameters(
           Map(
             "username" -> List("Test"),
@@ -73,7 +71,6 @@ object QueryParamsSpec extends DefaultRunnableSpec {
 
       } +
       test("should be able to decode simple 1 list param case class") {
-        import CaseClass1SeqQuery._
         val probe = QueryParameters(
           Map(
             "username" -> List("Test"),
@@ -85,7 +82,6 @@ object QueryParamsSpec extends DefaultRunnableSpec {
 
       } +
       test("should be able to decode simple 1 sum  param case class") {
-        import CaseClass1SumQuery._
         val probe = QueryParameters(
           Map(
             "sorting" -> List("Ascending"),
@@ -97,7 +93,6 @@ object QueryParamsSpec extends DefaultRunnableSpec {
 
       } +
       test("should be able to decode simple 1 int  param case class") {
-        import CaseClass1IntQuery._
         val probe = QueryParameters(
           Map(
             "counter" -> List("1"),
@@ -109,7 +104,6 @@ object QueryParamsSpec extends DefaultRunnableSpec {
 
       } +
       test("should be able to decode simple 1 list of int param case class") {
-        import CaseClass1VectorQuery._
         val probe = QueryParameters(
           Map(
             "username" -> List("1"),
@@ -121,7 +115,6 @@ object QueryParamsSpec extends DefaultRunnableSpec {
 
       } +
       test("should be able to decode case class with 4 params") {
-        import UserQuery._
         val probe = QueryParameters(
           Map(
             "fields"  -> List("a", "b", "c"),

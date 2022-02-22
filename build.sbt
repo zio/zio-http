@@ -86,6 +86,7 @@ lazy val root = (project in file("."))
     zhttpBenchmarks,
     zhttpTest,
     example,
+    `zio-http-query-params`,
   )
 
 lazy val zhttp = (project in file("zio-http"))
@@ -102,8 +103,6 @@ lazy val zhttp = (project in file("zio-http"))
       `zio-test-sbt`,
       `netty-incubator`,
       `scala-compact-collection`,
-      `zio-schema`,
-      `zio-schema-derivation`,
     ),
   )
 
@@ -125,3 +124,21 @@ lazy val example = (project in file("./example"))
   .settings(runSettings("example.Main"))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
   .dependsOn(zhttp)
+
+lazy val `zio-http-query-params` = (project in file("zio-http-query-params"))
+  .settings(stdSettings("zio-http-query-params"))
+  .settings(publishSetting(true))
+  .settings(meta)
+  .settings(
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= Seq(
+      `zio`,
+      `zio-streams`,
+      `zio-test`,
+      `zio-test-sbt`,
+      `zio-schema`,
+      `zio-schema-derivation`,
+    ),
+  )
+  .settings(ThisBuild / crossScalaVersions := Seq(Scala212, Scala213))
+  .dependsOn(zhttp % "compile->compile;test->test")
