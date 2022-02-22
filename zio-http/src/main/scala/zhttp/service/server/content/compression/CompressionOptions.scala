@@ -1,6 +1,6 @@
 package zhttp.service.server.content.compression
 
-import io.netty.handler.codec.compression.{StandardCompressionOptions, CompressionOptions => JCompressionOptions}
+import io.netty.handler.codec.compression.{CompressionOptions => JCompressionOptions, StandardCompressionOptions}
 
 sealed trait CompressionOptions { self =>
   def toJava: JCompressionOptions = self match {

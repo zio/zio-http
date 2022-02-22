@@ -98,10 +98,13 @@ final case class Response private (
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
 
   /**
-   * A better way to add compression options support
+   * Provides syntactic convenience for adding compression options to the response.
    */
-  def withCompressionOptions(options: Chunk[CompressionOptions]): Response =
-    self.copy(attribute = self.attribute.withCompressionOptions(options))
+  def withCompressionOptions(options: CompressionOptions*): Response = {
+    val chunk = Chunk.empty
+    for { elem <- options } yield chunk :+ elem
+    self.copy(attribute = self.attribute.withCompressionOptions(chunk))
+  }
 
   /**
    * Extracts the body as ByteBuf
