@@ -4,7 +4,7 @@ import io.netty.buffer.ByteBuf
 import zhttp.http.Middleware.{parseAcceptEncodingHeaders, serveCompressed}
 import zhttp.http._
 import zhttp.internal.HttpAppTestExtensions
-import zio.test.Assertion.{equalTo, isNone, isSome, isTrue}
+import zio.test.Assertion.{equalTo, isNone, isSome, isTrue, isFalse}
 import zio.test._
 
 object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
@@ -190,6 +190,33 @@ object CompressionSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           } yield assert(res)(hasGzipHeader) &&
             assert(body)(hasBody(expected)) && assert(called)(isTrue)
         } +
+          testM("Not test br if gzip worked") {
+            // we want to make sure that our gzip middleware does a single query
+            var count  = 0
+            // we want to check that no requests were made to the BR endpoint
+            var called = false
+
+            val app = Http.collectHttp[Request] {
+              case req if req.path.toString.endsWith(".gz") =>
+                count += 1
+                Http.text(req.path.toString())
+              case req if req.path.toString.endsWith(".br") =>
+                called = true
+                Http.notFound
+            } @@ serveCompressed(Set[CompressionFormat](CompressionFormat.Brotli(), CompressionFormat.Gzip()))
+
+            val request = originalReq
+              .copy(headers = Headers.acceptEncoding(s"${HeaderValues.gzip};q=0.5, ${HeaderValues.br};q=0.4"))
+
+            val expected = "/file.js.gz"
+
+            for {
+              res  <- app(request)
+              body <- res.data.toByteBuf
+            } yield assert(res)(hasGzipHeader) &&
+              assert(body)(hasBody(expected)) &&
+              assert(called)(isFalse) && assert(count)(equalTo(1))
+          } +
           testM("Return BR if available") {
             val app = Http.collectHttp[Request] {
               case req if req.path.toString.endsWith(".br") => Http.text(req.path.toString())
