@@ -29,13 +29,20 @@ private[zhttp] trait ServerResponseHandler[R] {
       case data: HttpData.Complete  =>
         data match {
           case HttpData.BinaryStream(stream)  =>
-            rt.unsafeRun(ctx) { writeStreamContent(stream).ensuring(UIO(releaseRequest(jReq))) }
+            rt.unsafeRun(ctx) {
+              writeStreamContent(stream).ensuring(UIO {
+                releaseRequest(jReq)
+                if (!ctx.channel().config().isAutoRead) ctx.read(): Unit // read next request
+              })
+            }
           case HttpData.RandomAccessFile(raf) =>
             unsafeWriteFileContent(raf())
             releaseRequest(jReq)
+            if (!ctx.channel().config().isAutoRead) ctx.read(): Unit // read next request
           case _                              =>
             ctx.flush()
             releaseRequest(jReq)
+            if (!ctx.channel().config().isAutoRead) ctx.read(): Unit // read next request
         }
     }
     ()
@@ -75,7 +82,7 @@ private[zhttp] trait ServerResponseHandler[R] {
         if (req.refCnt() > 0) {
           req.release(req.refCnt()): Unit
         }
-      case _                    => if (!ctx.channel().config().isAutoRead) ctx.read(): Unit
+      case _                    => ()
     }
 
   }
