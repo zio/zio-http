@@ -72,6 +72,7 @@ object DynamicServer {
       id <- UIO(UUID.randomUUID().toString)
       _  <- ref.update(map => map + (id -> app))
     } yield id
+
     def get(id: Id): UIO[Option[HttpApp[HttpEnv, Throwable]]] = ref.get.map(_.get(id))
 
     def port: ZIO[Any, Nothing, Int] = start.map(_.port)

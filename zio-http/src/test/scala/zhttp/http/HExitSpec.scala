@@ -34,6 +34,14 @@ object HExitSpec extends DefaultRunnableSpec with HExitAssertion {
               fail(1) <+> fail(2) === isFailure(equalTo(1)) &&
               fail(1) <+> empty === isFailure(equalTo(1))
             } +
+            test("die") {
+              val t  = new Throwable("boom")
+              val t1 = new Throwable("blah")
+              empty <+> die(t) === isDie(equalTo(t)) &&
+              fail(1) <+> die(t) === isFailure(equalTo(1)) &&
+              die(t) <+> fail(1) === isDie(equalTo(t)) &&
+              die(t) <+> die(t1) === isDie(equalTo(t))
+            } +
             test("empty") {
               empty <+> empty === isEmpty
             } +

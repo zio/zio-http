@@ -18,23 +18,23 @@ object KeepAliveSpec extends HttpRunnableSpec {
   def keepAliveSpec = suite("KeepAlive") {
     suite("Http 1.1") {
       testM("without connection close") {
-        val res = app.deploy.headerValue(HeaderNames.connection).run()
+        val res = app.deploy.headerValue(HeaderNames.connection).runApp()
         assertM(res)(isNone)
       } +
         testM("with connection close") {
-          val res = app.deploy.headerValue(HeaderNames.connection).run(headers = connectionCloseHeader)
+          val res = app.deploy.headerValue(HeaderNames.connection).runApp(headers = connectionCloseHeader)
           assertM(res)(isSome(equalTo("close")))
         }
     } +
       suite("Http 1.0") {
         testM("without keep-alive") {
-          val res = app.deploy.headerValue(HeaderNames.connection).run(version = Version.Http_1_0)
+          val res = app.deploy.headerValue(HeaderNames.connection).runApp(version = Version.Http_1_0)
           assertM(res)(isSome(equalTo("close")))
         } +
           testM("with keep-alive") {
             val res = app.deploy
               .headerValue(HeaderNames.connection)
-              .run(version = Version.Http_1_0, headers = keepAliveHeader)
+              .runApp(version = Version.Http_1_0, headers = keepAliveHeader)
             assertM(res)(isNone)
           }
       }

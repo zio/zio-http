@@ -6,7 +6,7 @@ import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.content.handlers.ServerResponseHandler
 import zhttp.service.server.{ServerTime, WebSocketUpgrade}
-import zio.{UIO, ZIO}
+import zio.{Cause, UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -56,21 +56,30 @@ private[zhttp] final case class Handler[R](
     http.execute(a) match {
       case HExit.Effect(resM) =>
         unsafeRunZIO {
-          resM.foldM(
-            {
-              case Some(cause) =>
-                UIO {
-                  writeResponse(
-                    Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),
-                    jReq,
-                  )
-                }
-              case None        =>
-                UIO {
-                  writeResponse(Response.status(Status.NOT_FOUND), jReq)
-                }
-
-            },
+          resM.foldCauseM(
+            cause =>
+              cause.failureOrCause match {
+                case Left(Some(cause))        =>
+                  UIO {
+                    writeResponse(
+                      Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),
+                      jReq,
+                    )
+                  }
+                case Left(None)               =>
+                  UIO {
+                    writeResponse(Response.status(Status.NOT_FOUND), jReq)
+                  }
+                case Right(Cause.Die(defect)) =>
+                  UIO {
+                    writeResponse(
+                      Response.fromHttpError(HttpError.InternalServerError(cause = Some(defect))),
+                      jReq,
+                    )
+                  }
+                case Right(other)             =>
+                  ZIO.halt(other)
+              },
             res =>
               if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
               else {
@@ -91,6 +100,9 @@ private[zhttp] final case class Handler[R](
         }
 
       case HExit.Failure(e) =>
+        writeResponse(Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))), jReq): Unit
+
+      case HExit.Die(e) =>
         writeResponse(Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))), jReq): Unit
 
       case HExit.Empty =>
