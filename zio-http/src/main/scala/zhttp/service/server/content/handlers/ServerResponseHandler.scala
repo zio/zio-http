@@ -13,9 +13,7 @@ import zio.{UIO, ZIO}
 import java.io.RandomAccessFile
 
 @Sharable
-private[zhttp] trait ServerResponseHandler[R] {
-  def serverTime: ServerTime
-  val rt: HttpRuntime[R]
+private[zhttp] final class ServerResponseHandler[R](runtime: HttpRuntime[R], serverTime: ServerTime) {
 
   type Ctx = ChannelHandlerContext
 
@@ -24,7 +22,7 @@ private[zhttp] trait ServerResponseHandler[R] {
     ctx.write(encodeResponse(msg))
     msg.data match {
       case HttpData.BinaryStream(stream)  =>
-        rt.unsafeRun(ctx) {
+        runtime.unsafeRun(ctx) {
           writeStreamContent(stream).ensuring(UIO(releaseRequest(jReq)))
         }
       case HttpData.RandomAccessFile(raf) =>

@@ -4,8 +4,8 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
+import zhttp.service.server.WebSocketUpgrade
 import zhttp.service.server.content.handlers.ServerResponseHandler
-import zhttp.service.server.{ServerTime, WebSocketUpgrade}
 import zio.{UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -15,11 +15,10 @@ private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
-  serverTimeGenerator: ServerTime,
+  serverResponseHandler: ServerResponseHandler[R],
 ) extends SimpleChannelInboundHandler[FullHttpRequest](false)
-    with WebSocketUpgrade[R]
-    with ServerResponseHandler[R] { self =>
-
+    with WebSocketUpgrade[R] { self =>
+  type Ctx = ChannelHandlerContext
   override def channelRead0(ctx: Ctx, jReq: FullHttpRequest): Unit = {
     jReq.touch("server.Handler-channelRead0")
     implicit val iCtx: ChannelHandlerContext = ctx
@@ -60,14 +59,14 @@ private[zhttp] final case class Handler[R](
             {
               case Some(cause) =>
                 UIO {
-                  writeResponse(
+                  serverResponseHandler.writeResponse(
                     Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),
                     jReq,
                   )
                 }
               case None        =>
                 UIO {
-                  writeResponse(Response.status(Status.NOT_FOUND), jReq)
+                  serverResponseHandler.writeResponse(Response.status(Status.NOT_FOUND), jReq)
                 }
 
             },
@@ -76,7 +75,7 @@ private[zhttp] final case class Handler[R](
               else {
                 for {
                   _ <- ZIO {
-                    writeResponse(res, jReq)
+                    serverResponseHandler.writeResponse(res, jReq)
                   }
                 } yield ()
               },
@@ -87,14 +86,17 @@ private[zhttp] final case class Handler[R](
         if (self.isWebSocket(res)) {
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
-          writeResponse(res, jReq): Unit
+          serverResponseHandler.writeResponse(res, jReq): Unit
         }
 
       case HExit.Failure(e) =>
-        writeResponse(Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))), jReq): Unit
+        serverResponseHandler.writeResponse(
+          Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))),
+          jReq,
+        ): Unit
 
       case HExit.Empty =>
-        writeResponse(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))), jReq): Unit
+        serverResponseHandler.writeResponse(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))), jReq): Unit
 
     }
   }
@@ -103,13 +105,9 @@ private[zhttp] final case class Handler[R](
    * Executes program
    */
   private def unsafeRunZIO(program: ZIO[R, Throwable, Any])(implicit ctx: Ctx): Unit =
-    rt.unsafeRun(ctx) {
+    runtime.unsafeRun(ctx) {
       program
     }
-
-  override def serverTime: ServerTime = serverTimeGenerator
-
-  override val rt: HttpRuntime[R] = runtime
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
     config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
