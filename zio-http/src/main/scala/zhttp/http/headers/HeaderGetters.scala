@@ -74,7 +74,7 @@ trait HeaderGetters[+A] { self =>
   final def authorization: Option[CharSequence] =
     headerValue(HeaderNames.authorization)
 
-  final def basicAuthorizationCredentials: Option[Header] = {
+  final def basicAuthorizationCredentials: Option[(String, String)] = {
     authorization
       .map(_.toString)
       .flatMap(v => {
@@ -334,7 +334,7 @@ trait HeaderGetters[+A] { self =>
   final def xRequestedWith: Option[CharSequence] =
     headerValue(HeaderNames.xRequestedWith)
 
-  private def decodeHttpBasic(encoded: String): Option[Header] = {
+  private def decodeHttpBasic(encoded: String): Option[(String, String)] = {
     val decoded    = new String(Base64.getDecoder.decode(encoded))
     val colonIndex = decoded.indexOf(":")
     if (colonIndex == -1)

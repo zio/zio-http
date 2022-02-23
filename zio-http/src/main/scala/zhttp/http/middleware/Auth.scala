@@ -10,11 +10,11 @@ private[zhttp] trait Auth {
   /**
    * Creates a middleware for basic authentication
    */
-  final def basicAuth(f: Header => Boolean): HttpMiddleware[Any, Nothing] =
+  final def basicAuth(f: ((String, String)) => Boolean): HttpMiddleware[Any, Nothing] =
     customAuth(
       _.basicAuthorizationCredentials match {
-        case Some(header) => f(header)
-        case None         => false
+        case Some(credentials) => f(credentials)
+        case None              => false
       },
       Headers(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName),
     )
@@ -23,11 +23,11 @@ private[zhttp] trait Auth {
    * Creates a middleware for basic authentication using an effectful
    * verification function
    */
-  final def basicAuthZIO[R, E](f: Header => ZIO[R, E, Boolean]): HttpMiddleware[R, E] =
+  final def basicAuthZIO[R, E](f: ((String, String)) => ZIO[R, E, Boolean]): HttpMiddleware[R, E] =
     customAuthZIO(
       _.basicAuthorizationCredentials match {
-        case Some(header) => f(header)
-        case None         => UIO(false)
+        case Some(credentials) => f(credentials)
+        case None              => UIO(false)
       },
       Headers(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName),
     )
