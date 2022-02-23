@@ -9,7 +9,6 @@ import zio.stream.ZStream
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
 import zio.test._
-import zio.{Chunk, ZIO}
 
 object WebSocketServerSpec extends HttpRunnableSpec {
 
