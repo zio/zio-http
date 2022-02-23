@@ -40,7 +40,7 @@ object HeaderSpec extends DefaultRunnableSpec {
           assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
         }
       } +
-      suite("getContentType")(
+      suite("contentType")(
         test("should return content-type value") {
           val actual = predefinedHeaders.contentType
           assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
