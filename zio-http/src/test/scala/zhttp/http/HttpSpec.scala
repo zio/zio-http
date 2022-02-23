@@ -121,6 +121,23 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             assert(actual)(isEmpty)
           },
       ) +
+      suite("fromHExit")(
+        test("should succeed if the returned HExit succeeds ") {
+          val a      = Http.fromHExit(HExit.succeed("a"))
+          val actual = a.execute(1)
+          assert(actual)(isSuccess(equalTo("a")))
+        } +
+          test("should fail if the returned HExit is a failure") {
+            val a      = Http.fromHExit(HExit.fail("fail"))
+            val actual = a.execute(1)
+            assert(actual)(isFailure(equalTo("fail")))
+          } +
+          test("should give empty if the returned HExit is empty") {
+            val a      = Http.fromHExit(HExit.empty)
+            val actual = a.execute(1)
+            assert(actual)(isEmpty)
+          },
+      ) +
 
       suite("combine")(
         test("should resolve first") {
