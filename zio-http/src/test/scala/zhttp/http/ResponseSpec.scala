@@ -1,11 +1,9 @@
 package zhttp.http
 
 import zhttp.http.HttpData.{UnsafeChannel, UnsafeContent}
-import zio.ZIO
+import zio.Task
 import zio.test.Assertion._
 import zio.test._
-
-import scala.util.Try
 
 object ResponseSpec extends DefaultRunnableSpec {
   def spec = suite("Response")(
@@ -44,7 +42,7 @@ object ResponseSpec extends DefaultRunnableSpec {
       suite("unsafeEncode")(
         testM("should throw error for HttpData.Incoming") {
           val unsafeRun: (UnsafeChannel => UnsafeContent => Unit) => Unit = _ => ()
-          val actual = ZIO.fromTry(Try(Response(data = HttpData.Incoming(unsafeRun)).unsafeEncode()))
+          val actual = Task(Response(data = HttpData.Incoming(unsafeRun)).unsafeEncode())
           assertM(actual.run)(fails(isSubtype[IllegalStateException](anything)))
         },
       ),
