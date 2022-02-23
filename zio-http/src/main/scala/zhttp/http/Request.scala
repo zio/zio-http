@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.handler.codec.http.FullHttpRequest
+import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest}
 import zhttp.http.headers.HeaderExtension
 import zio.{Chunk, Task, UIO}
 
@@ -109,19 +109,22 @@ object Request {
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress] = None,
     data: HttpData = HttpData.Empty,
-    jRequest: FullHttpRequest = null,
   ): Request = {
-    val m  = method
-    val u  = url
-    val h  = headers
-    val ra = remoteAddress
-    val d  = data
-    val p  = jRequest
+    val m        = method
+    val u        = url
+    val h        = headers
+    val ra       = remoteAddress
+    val d        = data
+    val jVersion = Version.`HTTP/1.1`.toJava
+    val path     = url.relative.encode
+
+    // TODO: we should also add a default user-agent req header as some APIs might reject requests without it.
+    val jReq = new DefaultFullHttpRequest(jVersion, method.toJava, path)
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
       override def headers: Headers                   = h
-      override def unsafeEncode: FullHttpRequest      = p
+      override def unsafeEncode: FullHttpRequest      = jReq
       override def remoteAddress: Option[InetAddress] = ra
       override def data: HttpData                     = d
     }
@@ -136,9 +139,8 @@ object Request {
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress],
     content: HttpData = HttpData.empty,
-    jRequest: FullHttpRequest = null,
   ): UIO[Request] =
-    UIO(Request(method, url, headers, remoteAddress, content, jRequest))
+    UIO(Request(method, url, headers, remoteAddress, content))
 
   /**
    * Lift request to TypedRequest with option to extract params
