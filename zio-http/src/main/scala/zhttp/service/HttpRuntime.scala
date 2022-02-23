@@ -14,7 +14,6 @@ import scala.jdk.CollectionConverters._
  * channel closes.
  */
 final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
-
   def unsafeRun(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
 
     val rtm = strategy.runtime(ctx)

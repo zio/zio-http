@@ -36,7 +36,7 @@ object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientRequ
         assertM(req)(equalTo(params.method.toJava))
       }
     } +
-      test("method on HttpData.File") {
+      test("method on HttpData.RandomAccessFile") {
         check(HttpGen.clientParamsForFileHttpData()) { params =>
           val req = encode(params).map(_.method())
           assertM(req)(equalTo(params.method.toJava))

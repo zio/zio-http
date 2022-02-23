@@ -65,6 +65,17 @@ object DynamicServer       {
 
   def wsURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.WS)
 
+  sealed trait Service {
+    def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id]
+    def get(id: Id): UIO[Option[HttpApp[HttpEnv, Throwable]]]
+
+    def port: ZIO[Any, Nothing, Int]
+
+    def start: IO[Nothing, Start]
+
+    def setStart(n: Start): UIO[Boolean]
+  }
+
   final class Live(ref: Ref[Map[Id, HttpApp[HttpEnv, Throwable]]], pr: Promise[Nothing, Start]) extends DynamicServer {
     def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id]        = for {
       id <- UIO(UUID.randomUUID().toString)

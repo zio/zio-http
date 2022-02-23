@@ -10,7 +10,6 @@ import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
-import java.io.File
 import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec {
@@ -30,12 +29,12 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   // Use this route to test anything that doesn't require ZIO related computations.
-  private val nonZIO = Http.collectHttp[Request] {
-    case _ -> !! / "HExitSuccess" => Http.ok
-    case _ -> !! / "HExitFailure" => Http.fail(new RuntimeException("FAILURE"))
+  private val nonZIO = Http.collectHExit[Request] {
+    case _ -> !! / "HExitSuccess" => HExit.succeed(Response.ok)
+    case _ -> !! / "HExitFailure" => HExit.fail(new RuntimeException("FAILURE"))
   }
 
-  private def app = serve { nonZIO ++ staticApp ++ DynamicServer.app }
+  private val app = serve { nonZIO ++ staticApp ++ DynamicServer.app }
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -115,6 +114,39 @@ object ServerSpec extends HttpRunnableSpec {
       }
   }
 
+  def nonZIOSpec = suite("NonZIOSpec") {
+    test("200 response") {
+      checkAll(HttpGen.method) { method =>
+        val actual = status(method, !! / "HExitSuccess")
+        assertM(actual)(equalTo(Status.OK))
+      }
+    } +
+      test("500 response") {
+        val methodGenWithoutHEAD: Gen[Any, Method] = Gen.fromIterable(
+          List(
+            Method.OPTIONS,
+            Method.GET,
+            Method.POST,
+            Method.PUT,
+            Method.PATCH,
+            Method.DELETE,
+            Method.TRACE,
+            Method.CONNECT,
+          ),
+        )
+        checkAll(methodGenWithoutHEAD) { method =>
+          val actual = status(method, !! / "HExitFailure")
+          assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
+        }
+      } +
+      test("404 response ") {
+        checkAll(HttpGen.method) { method =>
+          val actual = status(method, !! / "A")
+          assertM(actual)(equalTo(Status.NOT_FOUND))
+        }
+      }
+  }
+
   def requestSpec = suite("RequestSpec") {
     val app: HttpApp[Any, Nothing] = Http.collect[Request] { case req =>
       Response.text(req.contentLength.getOrElse(-1).toString)
@@ -140,26 +172,25 @@ object ServerSpec extends HttpRunnableSpec {
       }
     } +
       test("data from file") {
-        val file = new File(getClass.getResource("/TestFile.txt").getPath)
-        val res  = Http.fromFile(file).deploy.bodyAsString.run()
+        val res = Http.fromResource("/TestFile.txt").deploy.bodyAsString.run()
         assertM(res)(equalTo("abc\nfoo"))
       } +
       test("content-type header on file response") {
-        val file = new File(getClass.getResource("/TestFile.txt").getPath)
-        val res  =
+        val res =
           Http
-            .fromFile(file)
+            .fromResource("/TestFile2.mp4")
             .deploy
             .headerValue(HeaderNames.contentType)
             .run()
             .map(_.getOrElse("Content type header not found."))
-        assertM(res)(equalTo("text/plain"))
+        assertM(res)(equalTo("video/mp4"))
       } +
       test("status") {
         checkAll(HttpGen.status) { case status =>
           val res = Http.status(status).deploy.status.run()
           assertM(res)(equalTo(status))
         }
+
       } +
       test("header") {
         checkAll(HttpGen.header) { case header @ (name, value) =>
@@ -269,39 +300,5 @@ object ServerSpec extends HttpRunnableSpec {
           data <- status(path = !! / "success").repeatN(1024)
         } yield assertTrue(data == Status.OK)
       }
-  }
-
-  def nonZIOSpec = suite("NonZIOSpec") {
-    test("200 response") {
-      checkAll(HttpGen.method) { method =>
-        val actual = status(method, !! / "HExitSuccess")
-        assertM(actual)(equalTo(Status.OK))
-      }
-    } +
-      test("500 response") {
-        val methodGenWithoutHEAD: Gen[Any, Method] = Gen.fromIterable(
-          List(
-            Method.OPTIONS,
-            Method.GET,
-            Method.POST,
-            Method.PUT,
-            Method.PATCH,
-            Method.DELETE,
-            Method.TRACE,
-            Method.CONNECT,
-          ),
-        )
-        checkAll(methodGenWithoutHEAD) { method =>
-          val actual = status(method, !! / "HExitFailure")
-          assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
-        }
-      } +
-      test("404 response ") {
-        checkAll(HttpGen.method) { method =>
-          val actual = status(method, !! / "A")
-          assertM(actual)(equalTo(Status.NOT_FOUND))
-        }
-      }
-
   }
 }
