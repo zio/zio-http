@@ -57,7 +57,7 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Gets the request's path
    */
-  def path: Path = url.getPath
+  def path: Path = url.path
 
   /**
    * Gets the remote address if available
@@ -72,7 +72,7 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Overwrites the path in the request
    */
-  def setPath(path: Path): Request = self.copy(url = self.url.toAbsolute.copy(relative = Relative(path)))
+  def setPath(path: Path): Request = self.copy(url = self.url.toAbsolute.copy(urlRelative = Relative(path)))
 
   /**
    * Overwrites the url in the request

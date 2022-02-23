@@ -68,10 +68,10 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
 
       assert(host != null, "Host name is required")
 
-      val port = req.url.getPort.getOrElse(80)
+      val port = req.url.port.getOrElse(80)
 
-      val isWebSocket = req.url.getScheme.exists(_.isWebSocket)
-      val isSSL       = req.url.getScheme.exists(_.isSecure)
+      val isWebSocket = req.url.scheme.exists(_.isWebSocket)
+      val isSSL       = req.url.scheme.exists(_.isSecure)
 
       val initializer = new ChannelInitializer[Channel]() {
         override def initChannel(ch: Channel): Unit = {

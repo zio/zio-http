@@ -15,7 +15,7 @@ class URLParserBenchmark {
 
   @Benchmark
   def benchmarkURLParser(): Unit    = {
-    (0 to MAX).foreach(_ => URL(str).getHost)
+    (0 to MAX).foreach(_ => URL(str).host)
     ()
   }
   @Benchmark

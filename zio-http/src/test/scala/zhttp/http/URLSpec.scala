@@ -12,7 +12,7 @@ object URLSpec extends DefaultRunnableSpec {
       assert(URL.fromString("http://mw1.google.com/$[level]/r$[y]_c$[x].jpg"))(isLeft)
     } +
       test("Should Handle empty query string") {
-        assert(URL("http://yourdomain.com/list/users").getRelative.queryParams)(
+        assert(URL("http://yourdomain.com/list/users").relative.urlQueryParams)(
           equalTo(Map.empty[String, List[String]]),
         )
       } +
@@ -20,7 +20,7 @@ object URLSpec extends DefaultRunnableSpec {
         assert(
           URL(
             "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21",
-          ).getRelative.queryParams,
+          ).relative.urlQueryParams,
         )(
           equalTo(Map("user_id" -> List("1", "2"), "order" -> List("ASC"), "text" -> List("zio-http is awesome!"))),
         )
@@ -29,7 +29,7 @@ object URLSpec extends DefaultRunnableSpec {
       assert(
         URL(
           "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21#the%20hash",
-        ).getRelative.fragment,
+        ).relative.urlFragment,
       )(
         isSome(equalTo(Fragment("the%20hash", "the hash"))),
       )
@@ -84,7 +84,7 @@ object URLSpec extends DefaultRunnableSpec {
     test("converts an url to a relative url") {
       val url = URL(
         "http://yourdomain.com/list/users?user_id=1&user_id=2&order=ASC&text=zio-http%20is%20awesome%21",
-      ).getRelative
+      ).relative
 
       val expected =
         URL.Relative(

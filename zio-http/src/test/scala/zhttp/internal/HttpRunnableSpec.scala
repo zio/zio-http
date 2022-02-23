@@ -69,7 +69,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
                   Some("localhost"),
                   Some(Scheme.HTTP),
                   Some(port),
-                  Relative(params.url.getPath),
+                  Relative(params.url.path),
                 ),
               ),
           )

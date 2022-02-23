@@ -10,35 +10,35 @@ import scala.util.Try
 
 sealed trait URL { self =>
 
-  def getHost: Option[String]   = self.toAbsolute.host
-  def getPort: Option[Int]      = self.toAbsolute.port
-  def getScheme: Option[Scheme] = self.toAbsolute.scheme
-  def getRelative: Relative     = self.toAbsolute.relative
-  def getPath: Path             = getRelative.path
+  def host: Option[String]   = self.toAbsolute.urlHost
+  def port: Option[Int]      = self.toAbsolute.urlPort
+  def scheme: Option[Scheme] = self.toAbsolute.urlScheme
+  def relative: Relative     = self.toAbsolute.urlRelative
+  def path: Path             = relative.urlPath
 
   def setHost(host: String): URL =
-    self.toAbsolute.copy(Some(host), Some(self.getScheme.getOrElse(HTTP)), Some(self.getPort.getOrElse(80)))
+    self.toAbsolute.copy(Some(host), Some(self.scheme.getOrElse(HTTP)), Some(self.port.getOrElse(80)))
 
   def setPort(port: Int): URL =
-    self.toAbsolute.copy(Some(self.getHost.getOrElse("localhost")), Some(self.getScheme.getOrElse(HTTP)), Some(port))
+    self.toAbsolute.copy(Some(self.host.getOrElse("localhost")), Some(self.scheme.getOrElse(HTTP)), Some(port))
 
   def setScheme(scheme: Scheme): URL =
-    self.toAbsolute.copy(Some(self.getHost.getOrElse("localhost")), Some(scheme), Some(self.getPort.getOrElse(80)))
+    self.toAbsolute.copy(Some(self.host.getOrElse("localhost")), Some(scheme), Some(self.port.getOrElse(80)))
 
-  def setPath(path: Path): URL = self.toAbsolute.copy(relative = self.getRelative.copy(path = path))
+  def setPath(path: Path): URL = self.toAbsolute.copy(urlRelative = self.relative.copy(urlPath = path))
 
-  def setPath(path: String): URL = self.toAbsolute.copy(relative = self.getRelative.copy(path = Path(path)))
+  def setPath(path: String): URL = self.toAbsolute.copy(urlRelative = self.relative.copy(urlPath = Path(path)))
 
   def setQueryParams(queryParams: Map[String, List[String]]): URL =
-    self.toAbsolute.copy(relative = self.getRelative.copy(queryParams = queryParams))
+    self.toAbsolute.copy(urlRelative = self.relative.copy(urlQueryParams = queryParams))
 
   def setQueryParams(query: String): URL =
-    self.toAbsolute.copy(relative = self.getRelative.copy(queryParams = URL.queryParams(query)))
+    self.toAbsolute.copy(urlRelative = self.relative.copy(urlQueryParams = URL.queryParams(query)))
 
   def toAbsolute: Absolute = self match {
     case Unsafe(x)   => URL.unsafeFromString(x)
     case b: Absolute => b
-    case c: Relative => Absolute(relative = c)
+    case c: Relative => Absolute(urlRelative = c)
   }
 
   def encode: String = URL.asString(self)
@@ -49,18 +49,18 @@ object URL {
   def apply(string: String): URL = Unsafe(string)
 
   def asString(url: URL): String = {
-    val p: String = path(url.getRelative)
+    val p: String = path(url.relative)
     val absUrl    = url.toAbsolute
-    if (absUrl.scheme.isDefined && absUrl.port.isDefined && absUrl.host.isDefined) {
-      if (absUrl.port.get == 80 || absUrl.port.get == 443)
-        s"${absUrl.scheme.get.encode}://${absUrl.host.get}$p"
-      else s"${absUrl.scheme.get.encode}://${absUrl.host.get}:${absUrl.port.get}$p"
+    if (absUrl.urlScheme.isDefined && absUrl.urlPort.isDefined && absUrl.urlHost.isDefined) {
+      if (absUrl.urlPort.get == 80 || absUrl.urlPort.get == 443)
+        s"${absUrl.urlScheme.get.encode}://${absUrl.urlHost.get}$p"
+      else s"${absUrl.urlScheme.get.encode}://${absUrl.urlHost.get}:${absUrl.urlPort.get}$p"
     } else p
 
   }
   private def path(r: Relative): String = {
-    val encoder = new QueryStringEncoder(s"${r.path.encode}${r.fragment.fold("")(f => "#" + f.raw)}")
-    r.queryParams.foreach { case (key, values) =>
+    val encoder = new QueryStringEncoder(s"${r.urlPath.encode}${r.urlFragment.fold("")(f => "#" + f.raw)}")
+    r.urlQueryParams.foreach { case (key, values) =>
       if (key != "") values.foreach { value => encoder.addParam(key, value) }
     }
     encoder.toString
@@ -73,16 +73,16 @@ object URL {
 
   final case class Unsafe(string: String) extends URL
   final case class Absolute(
-    host: Option[String] = None,
-    scheme: Option[Scheme] = None,
-    port: Option[Int] = None,
-    relative: Relative = Relative(),
+    urlHost: Option[String] = None,
+    urlScheme: Option[Scheme] = None,
+    urlPort: Option[Int] = None,
+    urlRelative: Relative = Relative(),
   ) extends URL
 
   final case class Relative(
-    path: Path = !!,
-    queryParams: Map[String, List[String]] = Map.empty,
-    fragment: Option[Fragment] = None,
+    urlPath: Path = !!,
+    urlQueryParams: Map[String, List[String]] = Map.empty,
+    urlFragment: Option[Fragment] = None,
   ) extends URL
 
   private def portFromScheme(scheme: Scheme): Int = scheme match {
@@ -115,8 +115,8 @@ object URL {
   }
 
   private def unsafeFromRelativeURI(uri: URI): Absolute =
-    Absolute(relative =
-      Relative(Path(uri.getRawPath), queryParams = queryParams(uri.getRawQuery), fragment = Fragment.fromURI(uri)),
+    Absolute(urlRelative =
+      Relative(Path(uri.getRawPath), urlQueryParams = queryParams(uri.getRawQuery), urlFragment = Fragment.fromURI(uri)),
     )
 
   case class Fragment private (raw: String, decoded: String)
@@ -137,7 +137,7 @@ object URL {
     }
   }
 
-  def root: URL  = Absolute(relative = Relative())
+  def root: URL  = Absolute(urlRelative = Relative())
   def empty: URL = root
 
 }

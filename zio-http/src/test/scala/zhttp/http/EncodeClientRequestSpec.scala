@@ -46,13 +46,13 @@ object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientRequ
         testM("uri") {
           checkM(anyClientParam) { params =>
             val req = encode(params).map(_.uri())
-            assertM(req)(equalTo(params.url.getRelative.encode))
+            assertM(req)(equalTo(params.url.relative.encode))
           }
         } +
           testM("uri on HttpData.File") {
             checkM(HttpGen.clientParamsForFileHttpData()) { params =>
               val req = encode(params).map(_.uri())
-              assertM(req)(equalTo(params.url.getRelative.encode))
+              assertM(req)(equalTo(params.url.relative.encode))
             }
           }
       } +
@@ -68,14 +68,14 @@ object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientRequ
         checkM(anyClientParam) { params =>
           val req =
             encode(params).map(i => Option(i.headers().get(HttpHeaderNames.HOST)))
-          assertM(req)(equalTo(params.url.getHost))
+          assertM(req)(equalTo(params.url.host))
         }
       } +
       testM("host header when absolute url") {
         checkM(clientParamWithAbsoluteUrl) { params =>
           val req = encode(params)
             .map(i => Option(i.headers().get(HttpHeaderNames.HOST)))
-          assertM(req)(equalTo(params.url.getHost))
+          assertM(req)(equalTo(params.url.host))
         }
       } +
       testM("only one host header exists") {
