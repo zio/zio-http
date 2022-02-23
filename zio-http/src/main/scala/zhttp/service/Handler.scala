@@ -82,7 +82,7 @@ private[zhttp] final case class Handler[R](
       case msg: HttpContent => ctx.fireChannelRead(msg): Unit
 
       case _ =>
-        ctx.writeAndFlush(new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_ACCEPTABLE)): Unit
+        throw new IllegalStateException(s"Unexpected message type: ${msg.getClass.getName}")
 
     }
 
