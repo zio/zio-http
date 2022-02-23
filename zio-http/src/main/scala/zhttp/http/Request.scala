@@ -117,9 +117,8 @@ object Request {
     val d        = data
     val jVersion = Version.`HTTP/1.1`.toJava
     val path     = url.relative.encode
+    val jReq     = new DefaultFullHttpRequest(jVersion, method.toJava, path)
 
-    // TODO: we should also add a default user-agent req header as some APIs might reject requests without it.
-    val jReq = new DefaultFullHttpRequest(jVersion, method.toJava, path)
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
