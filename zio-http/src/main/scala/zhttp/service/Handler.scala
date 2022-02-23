@@ -48,8 +48,12 @@ private[zhttp] final case class Handler[R](
       )
     catch {
       case throwable: Throwable =>
-        config.error.fold(())(f => runtime.unsafeRun(ctx)(f(throwable)))
-        writeResponse(Response.fromHttpError(HttpError.InternalServerError(cause = Some(throwable))), jReq): Unit
+        writeResponse(
+          Response
+            .fromHttpError(HttpError.InternalServerError(cause = Some(throwable)))
+            .addHeader((HeaderNames.connection, HeaderValues.close)),
+          jReq,
+        ): Unit
     }
   }
 
