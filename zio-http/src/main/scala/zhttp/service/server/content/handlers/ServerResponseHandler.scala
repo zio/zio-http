@@ -58,11 +58,7 @@ private[zhttp] trait ServerResponseHandler[R] {
       case _ => res.unsafeEncode()
     }
 
-    if (
-      !ctx.pipeline().toMap.containsKey("AggregatedResponseCompression") && jReq
-        .headers()
-        .contains(HttpHeaderNames.ACCEPT_ENCODING)
-    ) {
+    if (!ctx.pipeline().toMap.containsKey(AGGREGATED_RESPONSE_COMPRESSION)) {
       ctx
         .pipeline()
         .addBefore(
@@ -70,8 +66,10 @@ private[zhttp] trait ServerResponseHandler[R] {
           AGGREGATED_RESPONSE_COMPRESSION,
           new AggregatesResponseCompressionHandler(res.attribute.compressionOptions.map(_.toJava)),
         )
-      jResponse.headers().set(HttpHeaderNames.ACCEPT_ENCODING, jReq.headers().get(HttpHeaderNames.ACCEPT_ENCODING))
     }
+
+    if (jReq.headers().contains(HttpHeaderNames.ACCEPT_ENCODING))
+      jResponse.headers().set(HttpHeaderNames.ACCEPT_ENCODING, jReq.headers().get(HttpHeaderNames.ACCEPT_ENCODING))
 
     // Identify if the server time should be set and update if required.
     if (res.attribute.serverTime) jResponse.headers().set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
