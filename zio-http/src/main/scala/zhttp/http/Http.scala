@@ -406,6 +406,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
         try { HExit.succeed(a()) }
         catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
       case FromFunctionHExit(f)       => f(a)
+      case FromHExit(h)               => h
       case Chain(self, other)         => self.execute(a).flatMap(b => other.execute(b))
       case Race(self, other)          =>
         (self.execute(a), other.execute(a)) match {
@@ -619,6 +620,11 @@ object Http {
    * Creates a Http from an effectful pure function
    */
   def fromFunctionZIO[A]: PartialFromFunctionZIO[A] = new PartialFromFunctionZIO[A](())
+
+  /**
+   * Creates a Http from HExit[R,E,B]
+   */
+  def fromHExit[R, E, B](h: HExit[R, E, B]): Http[R, E, Any, B] = FromHExit(h)
 
   /**
    * Creates an `Http` from a function that takes a value of type `A` and
@@ -836,6 +842,8 @@ object Http {
   private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
 
   private case object Empty extends Http[Any, Nothing, Any, Nothing]
+
+  private final case class FromHExit[R, E, B](h: HExit[R, E, B]) extends Http[R, E, Any, B]
 
   private case object Identity extends Http[Any, Nothing, Any, Nothing]
 }
