@@ -45,7 +45,7 @@ trait Request extends HeaderExtension[Request] { self =>
    * Decodes the content of request as string
    */
   final def bodyAsString: Task[String] =
-    bodyAsByteArray.map(new String(_, HTTP_CHARSET))
+    bodyAsByteArray.map(new String(_, charset))
 
   /**
    * Decodes the content of request as stream of bytes
