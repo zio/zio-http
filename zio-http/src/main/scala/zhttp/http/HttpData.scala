@@ -123,9 +123,8 @@ object HttpData {
         unsafeRun(ch => {
           val buffer = Unpooled.compositeBuffer()
           msg => {
-            buffer.writeBytes(msg.content)
+            buffer.addComponent(true, msg.content)
             if (msg.isLast) cb(UIO(buffer)) else ch.read()
-            msg.content.release(msg.content.refCnt()): Unit
           }
         }),
       )
