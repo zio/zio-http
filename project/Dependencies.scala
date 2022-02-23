@@ -23,4 +23,6 @@ object Dependencies {
 
   val `zio-schema`            = "dev.zio" %% "zio-schema"            % ZioSchemaVersion
   val `zio-schema-derivation` = "dev.zio" %% "zio-schema-derivation" % ZioSchemaVersion
+
+  val macroLib = "org.scala-lang" % "scala-reflect" % "2.13.8"
 }
