@@ -363,8 +363,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Applies Http based only if the condition function evaluates to true
    */
-  final def when[A1 <: A](f: A1 => Boolean): Http[R, E, A1, B] =
-    Http.fromFunctionHExit[A1](a => if (f(a)) self.execute(a.asInstanceOf[A]) else HExit.empty)
+  final def when[A2 <: A](f: A2 => Boolean): Http[R, E, A2, B] =
+    Http.When(f, self)
 
   /**
    * Widens the type of the output
@@ -419,6 +419,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
         self.execute(a).foldExit(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
 
       case RunMiddleware(app, mid) => mid(app).execute(a)
+
+      case When(f, other) => if (f(a)) other.execute(a) else HExit.empty
     }
 }
 
@@ -844,6 +846,8 @@ object Http {
   private case object Empty extends Http[Any, Nothing, Any, Nothing]
 
   private final case class FromHExit[R, E, B](h: HExit[R, E, B]) extends Http[R, E, Any, B]
+
+  private final case class When[R, E, A, B](f: A => Boolean, other: Http[R, E, A, B]) extends Http[R, E, A, B]
 
   private case object Identity extends Http[Any, Nothing, Any, Nothing]
 }
