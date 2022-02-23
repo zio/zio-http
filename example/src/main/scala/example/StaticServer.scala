@@ -3,7 +3,7 @@ package example
 import zhttp.html._
 import zhttp.http._
 import zhttp.service.Server
-import zio.{ExitCode, URIO, ZIOAppDefault}
+import zio.ZIOAppDefault
 
 object StaticServer extends ZIOAppDefault {
 
@@ -44,6 +44,6 @@ object StaticServer extends ZIOAppDefault {
     } yield http
   }
 
-  val run: URIO[zio.ZEnv, ExitCode] = Server.start(8090, app).exitCode
+  val run = Server.start(8090, app).exitCode
 
 }
