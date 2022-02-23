@@ -1,7 +1,6 @@
 package zhttp.service.server.content.handlers
 
 import io.netty.buffer.ByteBuf
-import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Response}
@@ -12,7 +11,6 @@ import zio.{UIO, ZIO}
 
 import java.io.RandomAccessFile
 
-@Sharable
 private[zhttp] trait ServerResponseHandler[R] {
   type Ctx = ChannelHandlerContext
   val rt: HttpRuntime[R]
