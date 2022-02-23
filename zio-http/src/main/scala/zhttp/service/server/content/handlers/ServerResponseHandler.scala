@@ -19,9 +19,8 @@ private[zhttp] trait ServerResponseHandler[R] {
   def serverTime: ServerTime
 
   def writeResponse(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
-
     ctx.write(encodeResponse(msg))
-    writeData(msg.data, jReq)
+    writeData(msg.data.asInstanceOf[HttpData.Outgoing], jReq)
     ()
   }
 
@@ -74,29 +73,23 @@ private[zhttp] trait ServerResponseHandler[R] {
   /**
    * Writes data on the channel
    */
-  private def writeData(data: HttpData, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+  private def writeData(data: HttpData.Outgoing, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     data match {
-      case HttpData.Incoming(_)    =>
-        releaseRequest(jReq)
-        throw new IllegalStateException("Cannot write data to response")
-      case data: HttpData.Outgoing =>
-        data match {
-          case HttpData.BinaryStream(stream)  =>
-            rt.unsafeRun(ctx) {
-              writeStreamContent(stream).ensuring(UIO {
-                releaseRequest(jReq)
-                if (!config.useAggregator) ctx.read(): Unit // read next request
-              })
-            }
-          case HttpData.RandomAccessFile(raf) =>
-            unsafeWriteFileContent(raf())
+      case HttpData.BinaryStream(stream)  =>
+        rt.unsafeRun(ctx) {
+          writeStreamContent(stream).ensuring(UIO {
             releaseRequest(jReq)
             if (!config.useAggregator) ctx.read(): Unit // read next request
-          case _                              =>
-            ctx.flush()
-            releaseRequest(jReq)
-            if (!config.useAggregator) ctx.read(): Unit // read next request
+          })
         }
+      case HttpData.RandomAccessFile(raf) =>
+        unsafeWriteFileContent(raf())
+        releaseRequest(jReq)
+        if (!config.useAggregator) ctx.read(): Unit // read next request
+      case _                              =>
+        ctx.flush()
+        releaseRequest(jReq)
+        if (!config.useAggregator) ctx.read(): Unit // read next request
     }
   }
 
