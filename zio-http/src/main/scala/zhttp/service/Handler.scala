@@ -21,7 +21,7 @@ private[zhttp] final case class Handler[R](
     with ServerResponseHandler[R] { self =>
 
   override def handlerAdded(ctx: Ctx): Unit = {
-    if (config.objectAggregator < 0) {
+    if (!config.useAggregator) {
       ctx.channel().config().setAutoRead(false): Unit
       ctx.read(): Unit
     }

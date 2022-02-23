@@ -148,7 +148,9 @@ object Server {
     flowControl: Boolean = true,
     channelInitializer: ChannelPipeline => Unit = null,
     objectAggregator: Int = -1,
-  )
+  ) {
+    def useAggregator: Boolean = objectAggregator >= 0
+  }
 
   /**
    * Holds server start information.

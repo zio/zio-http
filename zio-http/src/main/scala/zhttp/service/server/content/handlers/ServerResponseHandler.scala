@@ -6,7 +6,7 @@ import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Response}
 import zhttp.service.server.ServerTime
-import zhttp.service.{ChannelFuture, HttpRuntime}
+import zhttp.service.{ChannelFuture, HttpRuntime, Server}
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
 
@@ -16,6 +16,7 @@ import java.io.RandomAccessFile
 private[zhttp] trait ServerResponseHandler[R] {
   type Ctx = ChannelHandlerContext
   val rt: HttpRuntime[R]
+  val config: Server.Config[R, Throwable]
 
   def serverTime: ServerTime
 
@@ -86,17 +87,17 @@ private[zhttp] trait ServerResponseHandler[R] {
             rt.unsafeRun(ctx) {
               writeStreamContent(stream).ensuring(UIO {
                 releaseRequest(jReq)
-                if (!jReq.isInstanceOf[FullHttpRequest]) ctx.read(): Unit // read next request
+                if (!config.useAggregator) ctx.read(): Unit // read next request
               })
             }
           case HttpData.RandomAccessFile(raf) =>
             unsafeWriteFileContent(raf())
             releaseRequest(jReq)
-            if (!jReq.isInstanceOf[FullHttpRequest]) ctx.read(): Unit // read next request
+            if (!config.useAggregator) ctx.read(): Unit // read next request
           case _                              =>
             ctx.flush()
             releaseRequest(jReq)
-            if (!jReq.isInstanceOf[FullHttpRequest]) ctx.read(): Unit // read next request
+            if (!config.useAggregator) ctx.read(): Unit // read next request
         }
     }
   }

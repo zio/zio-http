@@ -46,7 +46,7 @@ final case class ServerChannelInitializer[R](
 
     // ObjectAggregator
     // Always add ObjectAggregator
-    if (cfg.objectAggregator >= 0)
+    if (cfg.useAggregator)
       pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.objectAggregator))
 
     // ExpectContinueHandler
