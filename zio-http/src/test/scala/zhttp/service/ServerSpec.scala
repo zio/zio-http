@@ -306,38 +306,12 @@ object ServerSpec extends HttpRunnableSpec {
 
   override def spec =
     suite("Server") {
-      suiteM("app without request streaming") {
-        app
-          .as(
-            List(
-              serverStartSpec,
-              staticAppSpec,
-              dynamicAppSpec,
-              responseSpec,
-              requestSpec,
-              nonZIOSpec,
-              serverErrorSpec,
-              requestBodySpec,
-            ),
-          )
-          .useNow
-      } +
-        suiteM("app with request streaming") {
-          appWithReqStreaming
-            .as(
-              List(
-                staticAppSpec,
-                dynamicAppSpec,
-                responseSpec,
-                requestSpec,
-                nonZIOSpec,
-                serverErrorSpec,
-                requestBodySpec,
-              ),
-            )
-            .useNow
-        }
+      val spec =
+        staticAppSpec + dynamicAppSpec + responseSpec + requestSpec + nonZIOSpec + serverErrorSpec + requestBodySpec
 
+      suite("server port") { serverStartSpec } +
+        suiteM("app without request streaming") { app.as(List(spec)).useNow } +
+        suiteM("app with request streaming") { appWithReqStreaming.as(List(spec)).useNow }
     }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ sequential
 
   def staticAppSpec = suite("StaticAppSpec") {
