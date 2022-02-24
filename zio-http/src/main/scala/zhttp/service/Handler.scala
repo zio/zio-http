@@ -72,7 +72,7 @@ private[zhttp] final case class Handler[R](
 
             },
             res =>
-              if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
+              if (false && self.isWebSocket(res)) UIO(self.upgradeToWebSocket(ctx, jReq, res))
               else {
                 for {
                   _ <- ZIO {
@@ -84,7 +84,7 @@ private[zhttp] final case class Handler[R](
         }
 
       case HExit.Success(res) =>
-        if (self.isWebSocket(res)) {
+        if (false && self.isWebSocket(res)) {
           self.upgradeToWebSocket(ctx, jReq, res)
         } else {
           writeResponse(res, jReq): Unit
