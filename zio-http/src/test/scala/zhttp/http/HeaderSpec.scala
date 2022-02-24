@@ -2,6 +2,7 @@ package zhttp.http
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import zhttp.http.Headers.BearerSchemeName
+import zhttp.http.middleware.Auth.Credentials
 import zio.test.Assertion._
 import zio.test.{DefaultRunnableSpec, Gen, assert, check}
 
@@ -143,11 +144,11 @@ object HeaderSpec extends DefaultRunnableSpec {
       suite("getBasicAuthorizationCredentials")(
         test("should decode proper basic http authorization header") {
           val actual = Headers.authorization("Basic dXNlcjpwYXNzd29yZCAxMQ==").basicAuthorizationCredentials
-          assert(actual)(isSome(equalTo(("user", "password 11"))))
+          assert(actual)(isSome(equalTo(Credentials("user", "password 11"))))
         } +
           test("should decode basic http authorization header with empty name and password") {
             val actual = Headers.authorization("Basic Og==").basicAuthorizationCredentials
-            assert(actual)(isSome(equalTo(("", ""))))
+            assert(actual)(isSome(equalTo(Credentials("", ""))))
           } +
           test("should not decode improper base64") {
             val actual = Headers.authorization("Basic Og=").basicAuthorizationCredentials
@@ -169,7 +170,7 @@ object HeaderSpec extends DefaultRunnableSpec {
             val username = "username"
             val password = "password"
             val actual   = Headers.basicAuthorizationHeader(username, password).basicAuthorizationCredentials
-            assert(actual)(isSome(equalTo((username, password))))
+            assert(actual)(isSome(equalTo(Credentials(username, password))))
           } +
           test("should decode value from Header.basicHttpAuthorization") {
             val username = "username"

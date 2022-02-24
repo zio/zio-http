@@ -365,6 +365,18 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             }
           }
       } +
+      suite("when")(
+        test("should execute http only when condition applies") {
+          val app    = Http.succeed(1).when((_: Any) => true)
+          val actual = app.execute(0)
+          assert(actual)(isSuccess(equalTo(1)))
+        } +
+          test("should not execute http when condition doesn't apply") {
+            val app    = Http.succeed(1).when((_: Any) => false)
+            val actual = app.execute(0)
+            assert(actual)(isEmpty)
+          },
+      ) +
       suite("catchSome") {
         test("catches matching exception") {
           val http =
@@ -433,26 +445,6 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             val http =
               (Http.succeed("bar") : Http[Any, Throwable, Any, String]).orDie
             assert(http.execute({}))(isSuccess(equalTo("bar")))
-          }
-      } +
-      suite("run") {
-        test("produces failure") {
-          val t = new Throwable("boom")
-          val http = Http.fail(t).run
-          assert(http.execute({}))(isSuccess(equalTo(HExit.fail(t))))
-        } +
-          test("produces success") {
-            val http = Http.succeed("bar").run
-            assert(http.execute({}))(isSuccess(equalTo(HExit.succeed("bar"))))
-          } +
-          test("produces die") {
-            val t = new Throwable("boom")
-            val http = Http.die(t).run
-            assert(http.execute({}))(isSuccess(equalTo(HExit.die(t))))
-          } +
-          test("produces empty") {
-            val http = Http.empty.run
-            assert(http.execute({}))(isSuccess(equalTo(HExit.empty)))
           }
       } +
       suite("catchSomeDefect") {
