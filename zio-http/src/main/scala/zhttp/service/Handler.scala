@@ -78,8 +78,13 @@ private[zhttp] final case class Handler[R](
             override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
           },
         )
-      case msg: HttpContent      => ctx.fireChannelRead(msg): Unit
-      case _                     =>
+      case msg: LastHttpContent  =>
+        ctx.fireChannelRead(msg)
+        if (!config.useAggregator) ctx.read(): Unit // Read the next request
+
+      case msg: HttpContent =>
+        ctx.fireChannelRead(msg): Unit
+      case _                =>
         throw new IllegalStateException(s"Unexpected message type: ${msg.getClass.getName}")
 
     }
