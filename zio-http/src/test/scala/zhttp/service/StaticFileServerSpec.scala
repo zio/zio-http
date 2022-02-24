@@ -25,23 +25,23 @@ object StaticFileServerSpec extends HttpRunnableSpec {
         val fileOk       = Http.fromResource("/TestFile.txt").deploy
         val fileNotFound = Http.fromResource("/Nothing").deploy
         testM("should have 200 status code") {
-          val res = fileOk.runApp().map(_.status)
+          val res = fileOk.run().map(_.status)
           assertM(res)(equalTo(Status.OK))
         } +
           testM("should have content-length") {
-            val res = fileOk.runApp().map(_.contentLength)
+            val res = fileOk.run().map(_.contentLength)
             assertM(res)(isSome(equalTo(7L)))
           } +
           testM("should have content") {
-            val res = fileOk.runApp().flatMap(_.bodyAsString)
+            val res = fileOk.run().flatMap(_.bodyAsString)
             assertM(res)(equalTo("abc\nfoo"))
           } +
           testM("should have content-type") {
-            val res = fileOk.runApp().map(_.mediaType)
+            val res = fileOk.run().map(_.mediaType)
             assertM(res)(isSome(equalTo(MediaType.text.plain)))
           } +
           testM("should respond with empty") {
-            val res = fileNotFound.runApp().map(_.status)
+            val res = fileNotFound.run().map(_.status)
             assertM(res)(equalTo(Status.NOT_FOUND))
           }
       }
@@ -49,7 +49,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
       suite("fromFile") {
         suite("failure on construction") {
           testM("should respond with 500") {
-            val res = Http.fromFile(throw new Error("Wut happened?")).deploy.runApp().map(_.status)
+            val res = Http.fromFile(throw new Error("Wut happened?")).deploy.run().map(_.status)
             assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
           }
         } +
@@ -59,7 +59,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
                 override def length: Long    = throw new Error("Haha")
                 override def isFile: Boolean = true
               }
-              val res = Http.fromFile(new BadFile("Length Failure")).deploy.runApp().map(_.status)
+              val res = Http.fromFile(new BadFile("Length Failure")).deploy.run().map(_.status)
               assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
             }
           }

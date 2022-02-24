@@ -428,19 +428,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.catchAll(err => (pf lift err).fold[Http[R, E1, A, B]](Http.die(f(err)))(Http.fail))
 
   /**
-   * Returns an effect that semantically runs the http app with request value of
-   * type `A`, producing an [[zhttp.http.HExit]] for the completion value of the
-   * app.
-   */
-  final def run: Http[R, Nothing, A, HExit[R, E, B]] =
-    self.foldHttp(
-      e => Http.succeed(HExit.fail(e)),
-      d => Http.succeed(HExit.die(d)),
-      b => Http.succeed(HExit.succeed(b)),
-      Http.succeed(HExit.empty),
-    )
-
-  /**
    * Extracts `Status` from the type `B` is possible.
    */
   final def status(implicit ev: IsResponse[B]): Http[R, E, A, Status] = self.map(ev.status)

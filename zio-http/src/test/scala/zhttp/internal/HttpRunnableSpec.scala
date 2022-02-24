@@ -26,7 +26,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
      * Runs the deployed Http app by making a real http request to it. The
      * method allows us to configure individual constituents of a ClientRequest.
      */
-    def runApp(
+    def run(
       path: Path = !!,
       method: Method = Method.GET,
       content: String = "",
