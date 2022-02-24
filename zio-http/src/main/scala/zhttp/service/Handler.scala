@@ -61,7 +61,7 @@ private[zhttp] final case class Handler[R](
             override def data: HttpData = HttpData.Incoming(callback =>
               ctx
                 .pipeline()
-                .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback)): Unit,
+                .addBefore(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback)): Unit,
             )
 
             override def headers: Headers = Headers.make(jReq.headers())
@@ -78,10 +78,7 @@ private[zhttp] final case class Handler[R](
             override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
           },
         )
-
-      case msg: HttpContent => ctx.fireChannelRead(msg): Unit
-
-      case _ =>
+      case _                     =>
         throw new IllegalStateException(s"Unexpected message type: ${msg.getClass.getName}")
 
     }

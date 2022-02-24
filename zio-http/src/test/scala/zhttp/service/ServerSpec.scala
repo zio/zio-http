@@ -35,9 +35,9 @@ object ServerSpec extends HttpRunnableSpec {
     case _ -> !! / "HExitFailure" => HExit.fail(new RuntimeException("FAILURE"))
   }
 
-  private val app                 = serve(nonZIO ++ staticApp ++ DynamicServer.app, Server.enableObjectAggregator(4096))
-  private val appWithReqStreaming =
-    serve(nonZIO ++ staticApp ++ DynamicServer.app)
+  private val app                 =
+    serve(nonZIO ++ staticApp ++ DynamicServer.app, Server.enableObjectAggregator(4096) ++ Server.port(0))
+  private val appWithReqStreaming = serve(nonZIO ++ staticApp ++ DynamicServer.app, Server.port(0))
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
