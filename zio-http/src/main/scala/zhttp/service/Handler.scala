@@ -84,15 +84,6 @@ private[zhttp] final case class Handler[R](
     }
 
   }
-  private def upgradeWebsocket(req: HttpRequest, response: Response)(implicit ctx: Ctx): Unit = {
-    req match {
-      case request: FullHttpRequest => self.upgradeToWebSocket(ctx, request, response)
-      case jReq: HttpRequest        =>
-        val fullRequest = new DefaultFullHttpRequest(jReq.protocolVersion(), jReq.method(), jReq.uri())
-        fullRequest.headers().setAll(jReq.headers())
-        self.upgradeToWebSocket(ctx, fullRequest, response)
-    }
-  }
 
   /**
    * Executes http apps
@@ -121,7 +112,7 @@ private[zhttp] final case class Handler[R](
 
             },
             res =>
-              if (self.isWebSocket(res)) UIO(upgradeWebsocket(jReq, res))
+              if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(jReq, res))
               else {
                 for {
                   _ <- ZIO {
@@ -134,7 +125,7 @@ private[zhttp] final case class Handler[R](
 
       case HExit.Success(res) =>
         if (self.isWebSocket(res)) {
-          upgradeWebsocket(jReq, res)
+          self.upgradeToWebSocket(jReq, res)
         } else {
           writeResponse(res, jReq): Unit
         }
