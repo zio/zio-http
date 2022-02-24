@@ -51,6 +51,11 @@ private[zhttp] final case class Handler[R](
             }
 
             override def data: HttpData = HttpData.fromByteBuf(jReq.content())
+
+            /**
+             * Gets the HttpRequest
+             */
+            override private[zhttp] def unsafeEncode = jReq
           },
         )
       case jReq: HttpRequest     =>
@@ -76,6 +81,11 @@ private[zhttp] final case class Handler[R](
             }
 
             override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
+
+            /**
+             * Gets the HttpRequest
+             */
+            override private[zhttp] def unsafeEncode = jReq
           },
         )
       case msg: LastHttpContent  =>

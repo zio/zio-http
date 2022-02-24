@@ -36,8 +36,8 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   private val app                 =
-    serve(nonZIO ++ staticApp ++ DynamicServer.app, Server.enableObjectAggregator(4096) ++ Server.port(0))
-  private val appWithReqStreaming = serve(nonZIO ++ staticApp ++ DynamicServer.app, Server.port(0))
+    serve(nonZIO ++ staticApp ++ DynamicServer.app, Some(Server.enableObjectAggregator(4096)))
+  private val appWithReqStreaming = serve(nonZIO ++ staticApp ++ DynamicServer.app, None)
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {

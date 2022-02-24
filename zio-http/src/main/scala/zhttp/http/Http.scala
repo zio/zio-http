@@ -361,6 +361,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.flatMap(Http.fromZIO(_))
 
   /**
+   * Applies Http based only if the condition function evaluates to true
+   */
+  final def when[A2 <: A](f: A2 => Boolean): Http[R, E, A2, B] =
+    Http.When(f, self)
+
+  /**
    * Widens the type of the output
    */
   final def widen[E1, B1](implicit e: E <:< E1, b: B <:< B1): Http[R, E1, A, B1] =
@@ -413,6 +419,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
         self.execute(a).foldExit(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
 
       case RunMiddleware(app, mid) => mid(app).execute(a)
+
+      case When(f, other) => if (f(a)) other.execute(a) else HExit.empty
     }
 }
 
@@ -450,6 +458,16 @@ object Http {
      * Updates the response headers using the provided function
      */
     override def updateHeaders(update: Headers => Headers): HttpApp[R, E] = http.map(_.updateHeaders(update))
+
+    /**
+     * Applies Http based on the path
+     */
+    def whenPathEq(p: Path): HttpApp[R, E] = http.whenPathEq(p.toString)
+
+    /**
+     * Applies Http based on the path as string
+     */
+    def whenPathEq(p: String): HttpApp[R, E] = http.when(_.unsafeEncode.uri().contentEquals(p))
 
     private[zhttp] def compile[R1 <: R](
       zExec: HttpRuntime[R1],
@@ -825,9 +843,11 @@ object Http {
 
   private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
 
-  private case object Empty extends Http[Any, Nothing, Any, Nothing]
-
   private final case class FromHExit[R, E, B](h: HExit[R, E, B]) extends Http[R, E, Any, B]
+
+  private final case class When[R, E, A, B](f: A => Boolean, other: Http[R, E, A, B]) extends Http[R, E, A, B]
+
+  private case object Empty extends Http[Any, Nothing, Any, Nothing]
 
   private case object Identity extends Http[Any, Nothing, Any, Nothing]
 }
