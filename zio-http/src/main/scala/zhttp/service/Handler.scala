@@ -54,6 +54,9 @@ private[zhttp] final case class Handler[R](
           },
         )
       case jReq: HttpRequest     =>
+        if (!config.useAggregator) {
+          ctx.channel().config().setAutoRead(false): Unit
+        }
         unsafeRun(
           jReq,
           app,

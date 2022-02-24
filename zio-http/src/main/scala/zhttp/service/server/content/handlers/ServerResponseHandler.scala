@@ -79,17 +79,26 @@ private[zhttp] trait ServerResponseHandler[R] {
         rt.unsafeRun(ctx) {
           writeStreamContent(stream).ensuring(UIO {
             releaseRequest(jReq)
-            if (!config.useAggregator) ctx.read(): Unit // read next request
+            if (!config.useAggregator) {
+              ctx.channel().config().setAutoRead(true)
+              ctx.read(): Unit
+            } // read next request
           })
         }
       case HttpData.RandomAccessFile(raf) =>
         unsafeWriteFileContent(raf())
         releaseRequest(jReq)
-        if (!config.useAggregator) ctx.read(): Unit // read next request
+        if (!config.useAggregator) {
+          ctx.channel().config().setAutoRead(true)
+          ctx.read(): Unit
+        } // read next request
       case _                              =>
         ctx.flush()
         releaseRequest(jReq)
-        if (!config.useAggregator) ctx.read(): Unit // read next request
+        if (!config.useAggregator) {
+          ctx.channel().config().setAutoRead(true)
+          ctx.read(): Unit
+        } // read next request
     }
   }
 
