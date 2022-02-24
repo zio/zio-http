@@ -28,7 +28,7 @@ object Main extends App {
       .exitCode
   }
 
-  private def app(response: Response) = Http.fromHExit(HExit.succeed(response))
+  private def app(response: Response) = Http.response(response)
 
   private def server(response: Response) =
     Server.app(app(response)) ++
