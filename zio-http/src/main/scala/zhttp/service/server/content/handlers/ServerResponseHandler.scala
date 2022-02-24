@@ -5,16 +5,16 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Response}
-import zhttp.service.server.ServerTimeGenerator
+import zhttp.service.server.ServerTime
 import zhttp.service.{ChannelFuture, HttpRuntime}
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
 
-import java.io.File
+import java.io.RandomAccessFile
 
 @Sharable
 private[zhttp] trait ServerResponseHandler[R] {
-  def serverTime: ServerTimeGenerator
+  def serverTime: ServerTime
   val rt: HttpRuntime[R]
 
   type Ctx = ChannelHandlerContext
@@ -23,12 +23,14 @@ private[zhttp] trait ServerResponseHandler[R] {
 
     ctx.write(encodeResponse(msg))
     msg.data match {
-      case HttpData.BinaryStream(stream) =>
-        rt.unsafeRun(ctx) { writeStreamContent(stream).ensuring(UIO(releaseRequest(jReq))) }
-      case HttpData.File(file)           =>
-        unsafeWriteFileContent(file)
+      case HttpData.BinaryStream(stream)  =>
+        rt.unsafeRun(ctx) {
+          writeStreamContent(stream).ensuring(UIO(releaseRequest(jReq)))
+        }
+      case HttpData.RandomAccessFile(raf) =>
+        unsafeWriteFileContent(raf())
         releaseRequest(jReq)
-      case _                             =>
+      case _                              =>
         ctx.flush()
         releaseRequest(jReq)
     }
@@ -84,10 +86,8 @@ private[zhttp] trait ServerResponseHandler[R] {
   /**
    * Writes file content to the Channel. Does not use Chunked transfer encoding
    */
-  private def unsafeWriteFileContent(file: File)(implicit ctx: ChannelHandlerContext): Unit = {
-    import java.io.RandomAccessFile
 
-    val raf        = new RandomAccessFile(file, "r")
+  private def unsafeWriteFileContent(raf: RandomAccessFile)(implicit ctx: ChannelHandlerContext): Unit = {
     val fileLength = raf.length()
     // Write the content.
     ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))

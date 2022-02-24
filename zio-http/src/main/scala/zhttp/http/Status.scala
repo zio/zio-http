@@ -12,16 +12,6 @@ sealed trait Status extends Product with Serializable { self =>
   lazy val isError: Boolean = isClientError | isServerError
 
   /**
-   * Returns an HttpApp[Any, Nothing] that responses with this http status code.
-   */
-  def toApp: UHttpApp = Http.status(self)
-
-  /**
-   * Returns a Response with empty data and no headers.
-   */
-  def toResponse: Response = Response(self)
-
-  /**
    * Returns self as io.netty.handler.codec.http.HttpResponseStatus.
    */
   def asJava: HttpResponseStatus = self match {
@@ -82,6 +72,21 @@ sealed trait Status extends Product with Serializable { self =>
     case Status.NOT_EXTENDED                    => HttpResponseStatus.NOT_EXTENDED                    // 510
     case Status.NETWORK_AUTHENTICATION_REQUIRED => HttpResponseStatus.NETWORK_AUTHENTICATION_REQUIRED // 511
   }
+
+  /**
+   * Returns the status code.
+   */
+  def code: Int = self.asJava.code()
+
+  /**
+   * Returns an HttpApp[Any, Nothing] that responses with this http status code.
+   */
+  def toApp: UHttpApp = Http.status(self)
+
+  /**
+   * Returns a Response with empty data and no headers.
+   */
+  def toResponse: Response = Response.status(self)
 }
 
 object Status {
