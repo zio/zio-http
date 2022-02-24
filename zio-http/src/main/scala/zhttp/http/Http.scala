@@ -4,6 +4,7 @@ import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.ChannelHandler
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
+import zhttp.http.HExit.Effect
 import zhttp.http.headers.HeaderModifier
 import zhttp.service.server.ServerTime
 import zhttp.service.{Handler, HttpRuntime, Server}
@@ -207,6 +208,9 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     bb: B => Http[R1, E1, A1, B1],
     dd: Http[R1, E1, A1, B1],
   ): Http[R1, E1, A1, B1] = Http.FoldHttp(self, ee, bb, dd)
+
+  final def composeHttp[R1 <: R, A1 <: A, E1, B1](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    Http.Compose(self, other)
 
   /**
    * Extracts the value of the provided header name.
@@ -417,6 +421,24 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
         }
       case FoldHttp(self, ee, bb, dd) =>
         self.execute(a).foldExit(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
+
+      case Compose(self, other) => {
+        self.execute(a) match {
+          case HExit.Effect(zio) => {
+            Effect(
+              zio.foldM(
+                {
+                  case Some(error) => ZIO.fail(Option(error.asInstanceOf[E]))
+                  case None        => other.execute(a).toZIO
+                },
+                b => ZIO.succeed(b.asInstanceOf[B]),
+              ),
+            )
+          }
+          case HExit.Empty       => other.execute(a)
+          case u                 => u.asInstanceOf[HExit[R, E, B]]
+        }
+      }
 
       case RunMiddleware(app, mid) => mid(app).execute(a)
 
@@ -842,6 +864,11 @@ object Http {
   ) extends Http[R, E, A2, B2]
 
   private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
+
+  private final case class Compose[R, E, EE, A, B, BB](
+    self: Http[R, E, A, B],
+    other: Http[R, EE, A, BB],
+  ) extends Http[R, EE, A, BB]
 
   private final case class FromHExit[R, E, B](h: HExit[R, E, B]) extends Http[R, E, Any, B]
 

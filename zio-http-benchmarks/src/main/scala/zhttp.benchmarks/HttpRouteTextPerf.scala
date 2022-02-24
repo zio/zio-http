@@ -2,7 +2,6 @@ package zhttp.benchmarks
 
 import org.openjdk.jmh.annotations._
 import zhttp.http._
-import zio._
 
 import java.util.concurrent.TimeUnit
 
@@ -11,23 +10,19 @@ import java.util.concurrent.TimeUnit
 @OutputTimeUnit(TimeUnit.SECONDS)
 class HttpRouteTextPerf {
 
-  private val runtime = Runtime.default
+  private val res  = Response.text("HELLO WORLD")
+  private val res2 = Response.text("HELLO WORLD2")
 
-  private val res          = Response.text("HELLO WORLD")
-  private val app          = Http.succeed(res)
-  private val req: Request = Request(Method.GET, URL(!!))
-  private val httpProgram  = ZIO.foreach_(0 to 1000) { _ => app.execute(req).toZIO }
-  private val UIOProgram   = ZIO.foreach_(0 to 1000) { _ => UIO(res) }
+  private val app          =
+    Http.fromHExit(HExit.succeed(res)).whenPathEq("/text") composeHttp Http
+      .fromHExit(HExit.succeed(res2))
+      .whenPathEq("/plain")
+  private val req: Request = Request(Method.GET, URL(!! / "text"))
 
   @Benchmark
   def benchmarkHttpProgram(): Unit = {
-    runtime.unsafeRun(httpProgram)
+    val _ = app.execute(req)
     ()
   }
 
-  @Benchmark
-  def benchmarkUIOProgram(): Unit = {
-    runtime.unsafeRun(UIOProgram)
-    ()
-  }
 }

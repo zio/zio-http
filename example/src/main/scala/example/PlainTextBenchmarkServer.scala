@@ -40,7 +40,9 @@ object Main extends App {
   }
 
   private def app(response: Response, json: Response) =
-    Http.fromHExit(HExit.succeed(response)).whenPathEq(path1) ++ Http.fromHExit(HExit.succeed(json)).whenPathEq(path2)
+    Http.fromHExit(HExit.succeed(response)).whenPathEq(path1) composeHttp Http
+      .fromHExit(HExit.succeed(json))
+      .whenPathEq(path2)
 
   private def server(response: Response, json: Response) =
     Server.app(app(response, json)) ++
