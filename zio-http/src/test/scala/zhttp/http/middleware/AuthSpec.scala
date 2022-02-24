@@ -7,11 +7,13 @@ import zio.test.Assertion._
 import zio.test._
 
 object AuthSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
-  private val basicHS: Headers                         = Headers.basicAuthorizationHeader("user", "resu")
-  private val basicHF: Headers                         = Headers.basicAuthorizationHeader("user", "user")
-  private val basicAuthM: HttpMiddleware[Any, Nothing] = Middleware.basicAuth { case (u, p) => p.toString.reverse == u }
-  private val basicAuthZIOM: HttpMiddleware[Any, Nothing] = Middleware.basicAuthZIO { case (u, p) =>
-    UIO(p.toString.reverse == u)
+  private val basicHS: Headers                            = Headers.basicAuthorizationHeader("user", "resu")
+  private val basicHF: Headers                            = Headers.basicAuthorizationHeader("user", "user")
+  private val basicAuthM: HttpMiddleware[Any, Nothing]    = Middleware.basicAuth { case c =>
+    c.uname.reverse == c.upassword
+  }
+  private val basicAuthZIOM: HttpMiddleware[Any, Nothing] = Middleware.basicAuthZIO { case c =>
+    UIO(c.uname.reverse == c.upassword)
   }
 
   def spec = suite("AuthSpec") {
