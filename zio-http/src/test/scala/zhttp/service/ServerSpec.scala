@@ -316,6 +316,16 @@ object ServerSpec extends HttpRunnableSpec {
       for {
         status <- status(Method.GET, !! / "throwable")
       } yield assertTrue(status == Status.INTERNAL_SERVER_ERROR)
+    } + testM("Throw inside Dynamic App") {
+      for {
+        status <- Http
+          .collectZIO[Request] { case Method.GET -> !! / "throwableD" =>
+            throw new Exception("Throw inside Dynamic App")
+          }
+          .deploy
+          .status
+          .run(!! / "throwableD")
+      } yield assertTrue(status == Status.INTERNAL_SERVER_ERROR)
     }
   }
 }

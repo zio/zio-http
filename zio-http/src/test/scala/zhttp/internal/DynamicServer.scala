@@ -24,7 +24,13 @@ object DynamicServer {
         }
         app <- get(id)
         res <- app match {
-          case Some(app) => app(req)
+          case Some(app) =>
+            try {
+              app(req)
+            } catch {
+              case throwable: Throwable =>
+                UIO(Response.fromHttpError(HttpError.InternalServerError(cause = Some(throwable))))
+            }
           case None      => ZIO.fail(None)
         }
       } yield res
@@ -58,6 +64,7 @@ object DynamicServer {
 
   sealed trait Service {
     def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id]
+
     def get(id: Id): UIO[Option[HttpApp[HttpEnv, Throwable]]]
 
     def port: ZIO[Any, Nothing, Int]
