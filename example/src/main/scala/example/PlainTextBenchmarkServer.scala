@@ -28,7 +28,7 @@ object Main extends App {
       .exitCode
   }
   private val path                                               = "/plaintext"
-  private def app(response: Response) = Http.fromHExit(HExit.succeed(response)).whenPath(path)
+  private def app(response: Response) = Http.fromHExit(HExit.succeed(response)).whenPathEq(path)
 
   private def server(response: Response) =
     Server.app(app(response)) ++

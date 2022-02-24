@@ -462,12 +462,12 @@ object Http {
     /**
      * Applies Http based on the path
      */
-    def whenPath(p: Path): HttpApp[R, E] = http.when((a: Request) => a.path.equals(p))
+    def whenPathEq(p: Path): HttpApp[R, E] = http.whenPathEq(p.toString)
 
     /**
      * Applies Http based on the path as string
      */
-    def whenPath(p: String): HttpApp[R, E] = http.when((a: Request) => a.unsafeEncode.uri().contentEquals(p))
+    def whenPathEq(p: String): HttpApp[R, E] = http.when(_.unsafeEncode.uri().contentEquals(p))
 
     private[zhttp] def compile[R1 <: R](
       zExec: HttpRuntime[R1],
@@ -843,11 +843,11 @@ object Http {
 
   private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
 
-  private case object Empty extends Http[Any, Nothing, Any, Nothing]
-
   private final case class FromHExit[R, E, B](h: HExit[R, E, B]) extends Http[R, E, Any, B]
 
   private final case class When[R, E, A, B](f: A => Boolean, other: Http[R, E, A, B]) extends Http[R, E, A, B]
+
+  private case object Empty extends Http[Any, Nothing, Any, Nothing]
 
   private case object Identity extends Http[Any, Nothing, Any, Nothing]
 }
