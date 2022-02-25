@@ -1,4 +1,7 @@
-# ZIO HTTP Server
+---
+sidebar_position: "1"
+---
+# Server
 
 This section describes, ZIO HTTP Server and different configurations you can provide while creating the Server 
 

@@ -1,4 +1,4 @@
-# Simple Server
+# HTTP Server
 
 ```scala
 import zhttp.http._

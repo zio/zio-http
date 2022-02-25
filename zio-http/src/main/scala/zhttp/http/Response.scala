@@ -3,13 +3,12 @@ package zhttp.http
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
-import zhttp.core.Util
-import zhttp.html.Html
-import zhttp.http.HttpError.HTTPErrorWithCause
+import zhttp.html._
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
 import zio.{Chunk, Task, UIO, ZIO}
 
+import java.io.{PrintWriter, StringWriter}
 import java.nio.charset.Charset
 
 final case class Response private (
@@ -81,13 +80,7 @@ final case class Response private (
       case HttpData.BinaryByteBuf(data) => data
       case HttpData.BinaryStream(_)     => null
       case HttpData.Empty               => Unpooled.EMPTY_BUFFER
-      case HttpData.File(file)          =>
-        MediaType.probeContentType(file.toPath.toString) match {
-          case Some(cType) => jHeaders.set(HttpHeaderNames.CONTENT_TYPE, cType)
-          case None        => ()
-        }
-        jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, file.length())
-        null
+      case HttpData.RandomAccessFile(_) => null
     }
 
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
@@ -98,10 +91,6 @@ final case class Response private (
       // Alternative would be to use sttp client for this use-case.
 
       if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
-
-      // Set MIME type in the response headers. This is only relevant in case of File transfers as browsers use the MIME
-      // type, not the file extension, to determine how to process a URL.<a href="MSDN
-      // Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>
 
       new DefaultHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jHeaders)
     } else {
@@ -122,19 +111,31 @@ object Response {
     Response(status, headers, data, Attribute.empty)
 
   def fromHttpError(error: HttpError): Response = {
-    error match {
-      case cause: HTTPErrorWithCause =>
-        Response(
-          error.status,
-          Headers.empty,
-          HttpData.fromString(cause.cause match {
-            case Some(throwable) => Util.prettyPrintHtml(throwable)
-            case None            => cause.message
-          }),
-        )
-      case _                         =>
-        Response(error.status, Headers.empty, HttpData.fromChunk(Chunk.fromArray(error.message.getBytes(HTTP_CHARSET))))
+
+    def prettify(throwable: Throwable): String = {
+      val sw = new StringWriter
+      throwable.printStackTrace(new PrintWriter(sw))
+      s"${sw.toString}"
     }
+
+    Response
+      .html(
+        status = error.status,
+        data = Template.container(s"${error.status}") {
+          div(
+            div(
+              styles := Seq("text-align" -> "center"),
+              div(s"${error.status.code}", styles := Seq("font-size" -> "20em")),
+              div(error.message),
+            ),
+            div(
+              error.foldCause(div()) { throwable =>
+                div(h3("Cause:"), pre(prettify(throwable)))
+              },
+            ),
+          )
+        },
+      )
   }
 
   /**
@@ -163,8 +164,9 @@ object Response {
   /**
    * Creates a response with content-type set to text/html
    */
-  def html(data: Html): Response =
+  def html(data: Html, status: Status = Status.OK): Response =
     Response(
+      status = status,
       data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
       headers = Headers(HeaderNames.contentType, HeaderValues.textHtml),
     )

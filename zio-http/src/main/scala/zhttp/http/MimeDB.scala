@@ -1,12 +1,12 @@
 package zhttp.http
 
 private[zhttp] trait MimeDB {
-  lazy val allMediaTypes: List[MediaType] =
+  private[zhttp] lazy val allMediaTypes: List[MediaType] =
     Nil ++ x_shader.all ++ x_conference.all ++ video.all ++ text.all ++ multipart.all ++ model.all ++ message.all ++ image.all ++ font.all ++ chemical.all ++ audio.all ++ application.all
-  val Compressible: Boolean               = true
-  val Uncompressible: Boolean             = false
-  val Binary: Boolean                     = true
-  val NotBinary: Boolean                  = false
+  private val Compressible: Boolean                      = true
+  private val Uncompressible: Boolean                    = false
+  private val Binary: Boolean                            = true
+  private val NotBinary: Boolean                         = false
   private[zhttp] object application_parts  {
     trait application_0 {
       lazy val `1d-interleaved-parityfec`: MediaType      =
