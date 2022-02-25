@@ -555,7 +555,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * performance improves quite significantly if no additional heap allocations
    * are required this way.
    */
-  final private[zhttp] def execute(a: A): HExit[R, E, B] =
+  final private[zhttp] def execute(a: A): HExit[R, E, B] = try {
     self match {
 
       case Http.Empty                     => HExit.empty
@@ -583,6 +583,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
       case When(f, other) => if (f(a)) other.execute(a) else HExit.empty
     }
+  } catch { case e: Throwable => HExit.die(e) }
 }
 
 object Http {

@@ -119,6 +119,12 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             val a      = Http.fromFunctionHExit[Int] { _ => HExit.empty }
             val actual = a.execute(0)
             assert(actual)(isEmpty)
+          } +
+          test("should die if the functions throws an exception") {
+            val t      = new Throwable("boom")
+            val a      = Http.fromFunctionHExit[Int] { _ => throw t }
+            val actual = a.execute(0)
+            assert(actual)(isDie(equalTo(t)))
           },
       ) +
       suite("fromHExit")(
@@ -375,6 +381,12 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             val app    = Http.succeed(1).when((_: Any) => false)
             val actual = app.execute(0)
             assert(actual)(isEmpty)
+          } +
+          test("should die when condition throws an exception") {
+            val t      = new Throwable("boom")
+            val app    = Http.succeed(1).when((_: Any) => throw t)
+            val actual = app.execute(0)
+            assert(actual)(isDie(equalTo(t)))
           },
       ) +
       suite("catchSome") {
