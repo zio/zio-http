@@ -209,7 +209,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     dd: Http[R1, E1, A1, B1],
   ): Http[R1, E1, A1, B1] = Http.FoldHttp(self, ee, bb, dd)
 
-  final def composeHttp[R1 <: R, A1 <: A, E1, B1](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+  final def composeHttp[R1 <: R, A1 <: A, E1 >: E, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
     Http.Compose(self, other)
 
   /**
