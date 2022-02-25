@@ -1,7 +1,7 @@
 package zhttp.http.headers
 
 import io.netty.handler.codec.http.HttpHeaderNames
-import zhttp.http.Headers.BasicSchemeName
+import zhttp.http.Headers.{BasicSchemeName, BearerSchemeName}
 import zhttp.http._
 import zio.duration.Duration
 
@@ -69,6 +69,11 @@ trait HeaderConstructors {
     val authString    = String.format("%s:%s", username, password)
     val encodedAuthCB = new String(Base64.getEncoder.encode(authString.getBytes(HTTP_CHARSET)), HTTP_CHARSET)
     val value         = String.format("%s %s", BasicSchemeName, encodedAuthCB)
+    Headers(HttpHeaderNames.AUTHORIZATION, value)
+  }
+
+  final def bearerAuthorizationHeader(token: String): Headers = {
+    val value         = String.format("%s %s", BearerSchemeName, token)
     Headers(HttpHeaderNames.AUTHORIZATION, value)
   }
 
