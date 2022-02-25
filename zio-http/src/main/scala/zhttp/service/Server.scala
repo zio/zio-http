@@ -7,6 +7,8 @@ import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
+import zhttp.service.server.content.compression.CompressionOptions
+import zhttp.service.server.content.compression.CompressionOptions
 import zio.{ZManaged, _}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -32,6 +34,8 @@ sealed trait Server[-R, +E] { self =>
     case UnsafeChannelPipeline(init)           => s.copy(channelInitializer = init)
     case RequestDecompression(enabled, strict) => s.copy(requestDecompression = (enabled, strict))
     case ObjectAggregator(maxRequestSize)      => s.copy(objectAggregator = maxRequestSize)
+    case ResponseCompression(contentSizeThreshold, options) =>
+      s.copy(responseCompression = (contentSizeThreshold, options))
   }
 
   def make(implicit
@@ -133,6 +137,9 @@ sealed trait Server[-R, +E] { self =>
   def withRequestDecompression(enabled: Boolean, strict: Boolean): Server[R, E] =
     Concat(self, RequestDecompression(enabled, strict))
 
+  def withResponseCompression(contentSizeThreshold: Int, options: IndexedSeq[CompressionOptions]): Server[R, E] =
+    Concat(self, ResponseCompression(contentSizeThreshold, options))
+
   /**
    * Creates a new server with HttpObjectAggregator with the specified max size
    * of the aggregated content.
@@ -156,6 +163,7 @@ object Server {
     flowControl: Boolean = true,
     channelInitializer: ChannelPipeline => Unit = null,
     requestDecompression: (Boolean, Boolean) = (false, false),
+    responseCompression: (Int, IndexedSeq[CompressionOptions]) = (0, IndexedSeq.empty),
     objectAggregator: Int = -1,
   ) {
     def useAggregator: Boolean = objectAggregator >= 0
@@ -178,6 +186,8 @@ object Server {
   private final case class FlowControl(enabled: Boolean)                              extends UServer
   private final case class UnsafeChannelPipeline(init: ChannelPipeline => Unit)       extends UServer
   private final case class RequestDecompression(enabled: Boolean, strict: Boolean)    extends UServer
+  private final case class ResponseCompression(contentSizeThreshold: Int, options: IndexedSeq[CompressionOptions])
+      extends UServer
   private final case class ObjectAggregator(maxRequestSize: Int)                      extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
@@ -190,6 +200,8 @@ object Server {
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   def acceptContinue: UServer                                                        = Server.AcceptContinue(true)
   def requestDecompression(strict: Boolean): UServer = Server.RequestDecompression(enabled = true, strict = strict)
+  def responseCompression(contentSizeThreshold: Int, options: IndexedSeq[CompressionOptions]): UServer =
+    Server.ResponseCompression(contentSizeThreshold, options)
   val disableFlowControl: UServer                    = Server.FlowControl(false)
   val disableLeakDetection: UServer                  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer                   = LeakDetection(LeakDetectionLevel.SIMPLE)

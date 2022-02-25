@@ -4,6 +4,8 @@ import zhttp.html._
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
+import zhttp.service.server.content.compression.CompressionOptions.{deflate, gzip}
+import zhttp.service.server.content.compression.CompressionOptions.{deflate, gzip}
 import zio.duration.durationInt
 import zio.stream.{ZStream, ZTransducer}
 import zio.test.Assertion._
@@ -23,9 +25,11 @@ object ServerSpec extends HttpRunnableSpec {
   private val env =
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
+  // contentSizeThreshold set to 0 will compress all responses
+  val server = Server.requestDecompression(true) ++ Server.responseCompression(0, IndexedSeq(gzip, deflate)) ++ Server.enableObjectAggregator(4096)
   private val app                 =
-    serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(4096)))
-  private val appWithReqStreaming = serve(DynamicServer.app, None)
+    serve(DynamicServer.app, Some(server))
+  private val appWithReqStreaming = serve(DynamicServer.app)
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -143,6 +147,28 @@ object ServerSpec extends HttpRunnableSpec {
             } yield response
             assertM(res.flatMap(_.bodyAsString))(equalTo(content))
           }
+      } +
+      suite("compression") {
+        val app = Http.text("some-text").deploy
+        testM("gzip") {
+          val res = app
+            .run(headers = Headers.acceptEncoding(HeaderValues.gzipDeflate))
+            .flatMap { response => response.body }
+            .flatMap { body =>
+              ZStream.fromChunk(body).transduce(ZTransducer.gunzip()).runCollect
+            }
+
+          assertM(res.map(chunk => new String(chunk.toArray)))(equalTo("some-text"))
+        } + testM("deflate") {
+          val res = app
+            .run(headers = Headers.acceptEncoding(HeaderValues.deflate))
+            .flatMap { response => response.body }
+            .flatMap { body =>
+              ZStream.fromChunk(body).transduce(ZTransducer.inflate()).runCollect
+            }
+
+          assertM(res.map(chunk => new String(chunk.toArray)))(equalTo("some-text"))
+        }
       }
   }
 

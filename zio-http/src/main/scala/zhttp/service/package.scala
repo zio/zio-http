@@ -22,6 +22,7 @@ package object service {
   private[service] val WEB_SOCKET_CLIENT_PROTOCOL_HANDLER = "WEB_SOCKET_CLIENT_PROTOCOL_HANDLER"
   private[service] val HTTP_REQUEST_DECOMPRESSION         = "HTTP_REQUEST_DECOMPRESSION"
   private[zhttp] val HTTP_CONTENT_HANDLER                 = "HTTP_CONTENT_HANDLER"
+  private[service] val HTTP_RESPONSE_COMPRESSION          = "HTTP_RESPONSE_COMPRESSION"
 
   type ChannelFactory       = Has[JChannelFactory[Channel]]
   type EventLoopGroup       = Has[JEventLoopGroup]
