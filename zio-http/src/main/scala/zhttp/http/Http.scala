@@ -137,19 +137,14 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Recovers from all NonFatal Throwables.
    */
-  final def catchNonFatalOrDie[R1 <: R, E2, A1 <: A, B1 >: B](
-    h: E => Http[R1, E2, A1, B1],
-  )(implicit ev1: CanFail[E], ev2: E <:< Throwable): Http[R1, E2, A1, B1] =
-    self.foldHttp(
-      e =>
-        ev2(e) match {
-          case NonFatal(_) => h(e)
-          case _           => Http.die(e)
-        },
-      Http.die,
-      Http.succeed,
-      Http.empty,
-    )
+  @nowarn
+  final def catchNonFatalOrDie[R1 <: R, E1 >: E, A1 <: A, B1 >: B](
+    h: E => Http[R1, E1, A1, B1],
+  )(implicit ev1: CanFail[E], ev2: E <:< Throwable): Http[R1, E1, A1, B1] =
+    catchSome {
+      case e @ NonFatal(_) => h(e)
+      case e               => Http.die(e)
+    }
 
   /**
    * Recovers from some or all of the error cases.
@@ -816,7 +811,7 @@ object Http {
    * Creates a Http from HExit[R,E,B]
    */
   def fromHExit[R, E, B](h: HExit[R, E, B]): Http[R, E, Any, B] = FromHExit(h)
-  
+
   /**
    * Lifts an `Option` into a `Http` value.
    */
