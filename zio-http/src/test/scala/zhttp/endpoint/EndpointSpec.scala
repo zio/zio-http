@@ -9,22 +9,22 @@ object EndpointSpec extends DefaultRunnableSpec {
   def spec = suite("Route") {
     test("match method") {
       val route   = Endpoint.fromMethod(Method.GET)
-      val request = Request(Method.GET)
+      val request = Request(method = Method.GET)
       assert(route.extract(request))(isSome(equalTo(())))
     }
     test("not match method") {
       val route   = Endpoint.fromMethod(Method.POST)
-      val request = Request(Method.GET)
+      val request = Request(method = Method.GET)
       assert(route.extract(request))(isNone)
     } +
       test("match method and string") {
         val route   = Method.GET / "a"
-        val request = Request(Method.GET, URL(Path("a")))
+        val request = Request(method = Method.GET, url = URL(Path("a")))
         assert(route.extract(request))(isSome(equalTo(())))
       } +
       test("match method and not string") {
         val route   = Method.GET / "a"
-        val request = Request(Method.GET, URL(Path("b")))
+        val request = Request(method = Method.GET, url = URL(Path("b")))
         assert(route.extract(request))(isNone)
       }
   } + suite("Path") {

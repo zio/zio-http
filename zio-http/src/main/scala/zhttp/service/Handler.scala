@@ -56,6 +56,8 @@ private[zhttp] final case class Handler[R](
              * Gets the HttpRequest
              */
             override private[zhttp] def unsafeEncode = jReq
+
+            override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
           },
         )
       case jReq: HttpRequest     =>
@@ -86,6 +88,8 @@ private[zhttp] final case class Handler[R](
              * Gets the HttpRequest
              */
             override private[zhttp] def unsafeEncode = jReq
+
+            override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
           },
         )
       case msg: LastHttpContent  =>

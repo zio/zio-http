@@ -15,14 +15,21 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   final override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.headers))
 
-  def copy(method: Method = self.method, url: URL = self.url, headers: Headers = self.headers): Request = {
+  def copy(
+    version: Version = self.version,
+    method: Method = self.method,
+    url: URL = self.url,
+    headers: Headers = self.headers,
+  ): Request = {
     val m = method
     val u = url
     val h = headers
+    val v = version
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
       override def headers: Headers                   = h
+      override def version: Version                   = v
       override def unsafeEncode: HttpRequest          = self.unsafeEncode
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
       override def data: HttpData                     = self.data
@@ -112,6 +119,8 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   def url: URL
 
+  def version: Version
+
   private[zhttp] final def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
 }
 
@@ -121,6 +130,7 @@ object Request {
    * Constructor for Request
    */
   def apply(
+    version: Version = Version.`HTTP/1.1`,
     method: Method = Method.GET,
     url: URL = URL.root,
     headers: Headers = Headers.empty,
@@ -132,18 +142,21 @@ object Request {
     val h  = headers
     val ra = remoteAddress
     val d  = data
+    val v  = version
 
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
       override def headers: Headers                   = h
+      override def version: Version                   = v
       override def unsafeEncode: HttpRequest          = {
-        val jVersion = Version.`HTTP/1.1`.toJava
+        val jVersion = v.toJava
         val path     = url.relative.encode
         new DefaultFullHttpRequest(jVersion, method.toJava, path)
       }
       override def remoteAddress: Option[InetAddress] = ra
       override def data: HttpData                     = d
+
     }
   }
 
@@ -151,13 +164,14 @@ object Request {
    * Effectfully create a new Request object
    */
   def make[E <: Throwable](
+    version: Version = Version.`HTTP/1.1`,
     method: Method = Method.GET,
     url: URL = URL.root,
     headers: Headers = Headers.empty,
     remoteAddress: Option[InetAddress],
     content: HttpData = HttpData.empty,
   ): UIO[Request] =
-    UIO(Request(method, url, headers, remoteAddress, content))
+    UIO(Request(version, method, url, headers, remoteAddress, content))
 
   /**
    * Lift request to TypedRequest with option to extract params
@@ -167,6 +181,7 @@ object Request {
     override def method: Method                     = req.method
     override def remoteAddress: Option[InetAddress] = req.remoteAddress
     override def url: URL                           = req.url
+    override def version: Version                   = req.version
     override def unsafeEncode: HttpRequest          = req.unsafeEncode
     override def data: HttpData                     = req.data
   }
