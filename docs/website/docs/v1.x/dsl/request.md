@@ -1,3 +1,6 @@
+---
+sidebar_position: "3"
+---
 # Request
  
 **ZIO HTTP** `Request` is designed in the simplest way possible to decode HTTP Request into a ZIO HTTP request.

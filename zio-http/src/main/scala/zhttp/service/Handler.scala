@@ -35,6 +35,8 @@ private[zhttp] final case class Handler[R](
 
             override def headers: Headers = Headers.make(jReq.headers())
 
+            override def unsafeEncode: HttpRequest = jReq
+
             override def remoteAddress: Option[InetAddress] = {
               ctx.channel().remoteAddress() match {
                 case m: InetSocketAddress => Some(m.getAddress)
