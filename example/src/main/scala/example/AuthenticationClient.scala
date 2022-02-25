@@ -5,6 +5,8 @@ import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio.{App, ExitCode, URIO}
 
 object AuthenticationClient extends App {
+  // start AuthenticationServer before running this client
+
   val env = ChannelFactory.auto ++ EventLoopGroup.auto()
 
   val program = for {

@@ -1,7 +1,7 @@
 package example
 
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
-import zhttp.http.Middleware.jwtAuth
+import zhttp.http.Middleware.bearerAuth
 import zhttp.http._
 import zhttp.service.Server
 import zio.{App, ExitCode, URIO}
@@ -9,6 +9,8 @@ import zio.{App, ExitCode, URIO}
 import java.time.Clock
 
 object AuthenticationServer extends App {
+  // Start this server and use AuthenticationClient to send requests
+
   // Secret Authentication key
   val SECRET_KEY = "secretKey"
 
@@ -27,15 +29,9 @@ object AuthenticationServer extends App {
   }
 
   // Http app that requires a JWT claim
-  def user: UHttpApp = Http.collect[Request] {
-    case Method.GET -> !! / "user" / name / "greet"     => Response.text(s"Welcome to the ZIO party! ${name}")
-    case req @ Method.GET -> !! / "user" / "expiration" =>
-      req.headers.bearerToken
-        .flatMap(jwtDecode)
-        .fold(Response.text("Request is not having Authorization header"))(claim =>
-          Response.text(s"Expires in: ${claim.expiration.getOrElse(-1L)}"),
-        )
-  }
+  def user: UHttpApp = Http.collect[Request] { case Method.GET -> !! / "user" / name / "greet" =>
+    Response.text(s"Welcome to the ZIO party! ${name}")
+  } @@ bearerAuth(jwtDecode(_).isDefined)
 
   // App that let's the user login
   // Login is successful only if the password is the reverse of the username
@@ -45,7 +41,7 @@ object AuthenticationServer extends App {
   }
 
   // Composing all the HttpApps together
-  val app: UHttpApp = login ++ (user @@ jwtAuth(token => jwtDecode(token).fold(false)(_ => true)))
+  val app: UHttpApp = login ++ user
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
