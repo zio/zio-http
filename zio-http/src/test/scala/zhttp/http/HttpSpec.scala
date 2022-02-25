@@ -465,6 +465,12 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           val http = Http.die(t).catchSomeDefect { case _: IllegalArgumentException => Http.succeed("OK") }
           assert(http.execute({}))(isSuccess(equalTo("OK")))
         } +
+          test("catches thrown defects") {
+            val http = Http
+              .collect[Any] { case _ => throw new IllegalArgumentException("boom") }
+              .catchSomeDefect { case _: IllegalArgumentException => Http.succeed("OK") }
+            assert(http.execute({}))(isSuccess(equalTo("OK")))
+          } +
           test("propagates non-caught defect") {
             val t = new IllegalArgumentException("boom")
             val http = Http.die(t).catchSomeDefect { case _: SecurityException => Http.succeed("OK") }
