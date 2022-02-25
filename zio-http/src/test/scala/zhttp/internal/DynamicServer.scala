@@ -24,13 +24,7 @@ object DynamicServer {
         }
         app <- get(id)
         res <- app match {
-          case Some(app) =>
-            try {
-              app(req)
-            } catch {
-              case throwable: Throwable =>
-                UIO(Response.fromHttpError(HttpError.InternalServerError(cause = Some(throwable))))
-            }
+          case Some(app) => app(req)
           case None      => ZIO.fail(None)
         }
       } yield res
