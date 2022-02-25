@@ -1,6 +1,6 @@
 package zhttp
 
-import io.netty.channel.{Channel, ServerChannel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup, ServerChannel}
 import zio.Has
 
 package object service {

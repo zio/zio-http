@@ -187,7 +187,7 @@ object Server {
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   def acceptContinue: UServer                                                        = Server.AcceptContinue(true)
-  def httpContentDecompression(strict: Boolean): UServer = Server.RequestDecompression(enabled = true, strict = strict)
+  def requestDecompression(strict: Boolean): UServer = Server.RequestDecompression(enabled = true, strict = strict)
   def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer = UnsafeChannelPipeline(pipeline)
   val disableFlowControl: UServer                                = Server.FlowControl(false)
   val disableLeakDetection: UServer                              = LeakDetection(LeakDetectionLevel.DISABLED)

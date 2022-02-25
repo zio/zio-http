@@ -35,7 +35,7 @@ object ServerSpec extends HttpRunnableSpec {
     case _ -> !! / "HExitFailure" => HExit.fail(new RuntimeException("FAILURE"))
   }
 
-  private val app = serve(nonZIO ++ staticApp ++ DynamicServer.app, Some(Server.httpContentDecompression(true)))
+  private val app = serve(nonZIO ++ staticApp ++ DynamicServer.app, Some(Server.requestDecompression(true)))
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -127,7 +127,17 @@ object ServerSpec extends HttpRunnableSpec {
             )
           } yield response
           assertM(res.flatMap(_.bodyAsString))(equalTo(content))
-        }
+        } +
+          testM("deflate") {
+            val res = for {
+              body     <- stream.transduce(ZTransducer.deflate()).runCollect
+              response <- app.run(
+                content = HttpData.fromChunk(body),
+                headers = Headers.contentEncoding(HeaderValues.deflate),
+              )
+            } yield response
+            assertM(res.flatMap(_.bodyAsString))(equalTo(content))
+          }
       }
   }
 
