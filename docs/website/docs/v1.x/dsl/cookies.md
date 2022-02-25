@@ -1,3 +1,6 @@
+---
+sidebar_position: "7"
+---
 # Cookie
 
 **ZIO HTTP** has special support for Cookie headers using the `Cookie` Domain to add and invalidate cookies. Adding a cookie will generate the correct [Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie) headers
