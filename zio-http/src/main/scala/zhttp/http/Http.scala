@@ -210,7 +210,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   ): Http[R1, E1, A1, B1] = Http.FoldHttp(self, ee, bb, dd)
 
   final def composeHttp[R1 <: R, A1 <: A, E1 >: E, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    Http.Compose(self, other)
+    Http.Combine(self, other)
 
   /**
    * Extracts the value of the provided header name.
@@ -422,7 +422,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
       case FoldHttp(self, ee, bb, dd) =>
         self.execute(a).foldExit(ee(_).execute(a), bb(_).execute(a), dd.execute(a))
 
-      case Compose(self, other) => {
+      case Combine(self, other) => {
         self.execute(a) match {
           case HExit.Effect(zio) => {
             Effect(
@@ -865,7 +865,7 @@ object Http {
 
   private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
 
-  private final case class Compose[R, E, EE, A, B, BB](
+  private final case class Combine[R, E, EE, A, B, BB](
     self: Http[R, E, A, B],
     other: Http[R, EE, A, BB],
   ) extends Http[R, EE, A, BB]
