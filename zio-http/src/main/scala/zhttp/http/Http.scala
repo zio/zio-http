@@ -772,11 +772,9 @@ object Http {
 
   final case class PartialCollect[A](unit: Unit) extends AnyVal {
     def apply[B](pf: PartialFunction[A, B]): Http[Any, Nothing, A, B] = {
-      FromFunctionHExit(a => {
-        pf.lift(a) match {
-          case Some(value) => HExit.succeed(value)
-          case None        => HExit.Empty
-        }
+      FromFunctionHExit(pf.lift(_) match {
+        case Some(value) => HExit.succeed(value)
+        case None        => HExit.Empty
       })
     }
   }
