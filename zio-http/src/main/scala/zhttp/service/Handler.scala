@@ -51,7 +51,7 @@ private[zhttp] final case class Handler[R](
         writeResponse(
           Response
             .fromHttpError(HttpError.InternalServerError(cause = Some(throwable)))
-            .addHeader((HeaderNames.connection, HeaderValues.close)),
+            .withConnection(HeaderValues.close),
           jReq,
         ): Unit
     }
