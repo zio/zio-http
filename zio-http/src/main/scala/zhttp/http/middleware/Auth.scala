@@ -34,15 +34,17 @@ private[zhttp] trait Auth {
   final def basicAuth(u: String, p: String): HttpMiddleware[Any, Nothing] =
     basicAuth { case credentials => (credentials.uname == u) && (credentials.upassword == p) }
 
-  final def jwtAuth(f: String=> Boolean): HttpMiddleware[Any, Nothing]=
+  final def jwtAuth(f: String => Boolean): HttpMiddleware[Any, Nothing] =
     jwtAuthZIO(token => UIO(f(token)))
 
-  final def jwtAuthZIO[R,E](f: String=> ZIO[R,E,Boolean]): HttpMiddleware[R,E]=
-    customAuthZIO(_.bearerToken match {
-      case Some(token) => f(token)
-      case None => UIO(false)
-    },
-      Headers(HttpHeaderNames.WWW_AUTHENTICATE, BearerSchemeName))
+  final def jwtAuthZIO[R, E](f: String => ZIO[R, E, Boolean]): HttpMiddleware[R, E] =
+    customAuthZIO(
+      _.bearerToken match {
+        case Some(token) => f(token)
+        case None        => UIO(false)
+      },
+      Headers(HttpHeaderNames.WWW_AUTHENTICATE, BearerSchemeName),
+    )
 
   /**
    * Creates an authentication middleware that only allows authenticated

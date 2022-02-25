@@ -73,7 +73,7 @@ trait HeaderConstructors {
   }
 
   final def bearerAuthorizationHeader(token: String): Headers = {
-    val value         = String.format("%s %s", BearerSchemeName, token)
+    val value = String.format("%s %s", BearerSchemeName, token)
     Headers(HttpHeaderNames.AUTHORIZATION, value)
   }
 

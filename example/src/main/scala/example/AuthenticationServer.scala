@@ -1,13 +1,14 @@
 package example
 
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
+import zhttp.http.Middleware.jwtAuth
 import zhttp.http._
 import zhttp.service.Server
 import zio.{App, ExitCode, URIO}
 
 import java.time.Clock
 
-object Authentication extends App {
+object AuthenticationServer extends App {
   // Secret Authentication key
   val SECRET_KEY = "secretKey"
 
@@ -16,7 +17,7 @@ object Authentication extends App {
   // Helper to encode the JWT token
   def jwtEncode(username: String): String = {
     val json  = s"""{"user": "${username}"}"""
-    val claim = JwtClaim { json }.issuedNow.expiresIn(60)
+    val claim = JwtClaim { json }.issuedNow.expiresIn(300)
     Jwt.encode(claim, SECRET_KEY, JwtAlgorithm.HS512)
   }
 
@@ -25,23 +26,15 @@ object Authentication extends App {
     Jwt.decode(token, SECRET_KEY, Seq(JwtAlgorithm.HS512)).toOption
   }
 
-  // Authentication middleware
-  // Takes in a Failing HttpApp and a Succeed HttpApp which are called based on Authentication success or failure
-  // For each request tries to read the `X-ACCESS-TOKEN` header
-  // Validates JWT Claim
-  def authenticate[R, E](fail: HttpApp[R, E], success: JwtClaim => HttpApp[R, E]): HttpApp[R, E] =
-    Http
-      .fromFunction[Request] {
-        _.header("X-ACCESS-TOKEN")
-          .flatMap(header => jwtDecode(header._2.toString))
-          .fold[HttpApp[R, E]](fail)(success)
-      }
-      .flatten
-
   // Http app that requires a JWT claim
-  def user(claim: JwtClaim): UHttpApp = Http.collect[Request] {
-    case Method.GET -> !! / "user" / name / "greet" => Response.text(s"Welcome to the ZIO party! ${name}")
-    case Method.GET -> !! / "user" / "expiration"   => Response.text(s"Expires in: ${claim.expiration.getOrElse(-1L)}")
+  def user: UHttpApp = Http.collect[Request] {
+    case Method.GET -> !! / "user" / name / "greet"     => Response.text(s"Welcome to the ZIO party! ${name}")
+    case req @ Method.GET -> !! / "user" / "expiration" =>
+      req.headers.bearerToken
+        .flatMap(jwtDecode)
+        .fold(Response.text("Request is not having Authorization header"))(claim =>
+          Response.text(s"Expires in: ${claim.expiration.getOrElse(-1L)}"),
+        )
   }
 
   // App that let's the user login
@@ -52,7 +45,7 @@ object Authentication extends App {
   }
 
   // Composing all the HttpApps together
-  val app: UHttpApp = login ++ authenticate(Http.forbidden("Not allowed!"), user)
+  val app: UHttpApp = login ++ (user @@ jwtAuth(token => jwtDecode(token).fold(false)(_ => true)))
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
