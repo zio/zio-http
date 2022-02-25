@@ -132,7 +132,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def catchAllDefect[R1 <: R, E1 >: E, A1 <: A, B1 >: B](
     h: Throwable => Http[R1, E1, A1, B1],
   ): Http[R1, E1, A1, B1] =
-    catchSomeDefect { case t => h(t) }
+    self.catchSomeDefect { case t => h(t) }
 
   /**
    * Recovers from all NonFatal Throwables.
@@ -141,7 +141,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def catchNonFatalOrDie[R1 <: R, E1 >: E, A1 <: A, B1 >: B](
     h: E => Http[R1, E1, A1, B1],
   )(implicit ev1: CanFail[E], ev2: E <:< Throwable): Http[R1, E1, A1, B1] =
-    catchSome {
+    self.catchSome {
       case e @ NonFatal(_) => h(e)
       case e               => Http.die(e)
     }
@@ -152,7 +152,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def catchSome[R1 <: R, E1 >: E, A1 <: A, B1 >: B](f: PartialFunction[E, Http[R1, E1, A1, B1]])(implicit
     ev: CanFail[E],
   ): Http[R1, E1, A1, B1] =
-    self.foldHttp(e => f.applyOrElse(e, Http.fail[E1]), Http.die, Http.succeed, Http.empty)
+    self.catchAll(e => f.applyOrElse(e, Http.fail[E1]))
 
   /**
    * Recovers from some or all of the defects with provided partial function.
@@ -473,7 +473,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def tapError[R1 <: R, E1 >: E](f: E => Http[R1, E1, Any, Any]): Http[R1, E1, A, B] =
     self.foldHttp(
       e => f(e) *> Http.fail(e),
-      d => Http.die(d),
+      Http.die,
       Http.succeed,
       Http.empty,
     )
