@@ -17,6 +17,7 @@ private[zhttp] trait ServerResponseHandler[R] {
   val config: Server.Config[R, Throwable]
 
   def serverTime: ServerTime
+  var responseSent: Boolean = false
 
   def writeResponse(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     ctx.write(encodeResponse(msg))
@@ -79,17 +80,26 @@ private[zhttp] trait ServerResponseHandler[R] {
         rt.unsafeRun(ctx) {
           writeStreamContent(stream).ensuring(UIO {
             releaseRequest(jReq)
-            if (!config.useAggregator) ctx.read(): Unit // read LastHttpContent
+            if (!config.useAggregator) {
+              ctx.read(): Unit
+              responseSent = true
+            } // read next HttpContent
           })
         }
       case HttpData.RandomAccessFile(raf) =>
         unsafeWriteFileContent(raf())
         releaseRequest(jReq)
-        if (!config.useAggregator) ctx.read(): Unit // read LastHttpContent
+        if (!config.useAggregator) {
+          responseSent = true
+          ctx.read(): Unit
+        } // read next HttpContent
       case _                              =>
         ctx.flush()
         releaseRequest(jReq)
-        if (!config.useAggregator) ctx.read(): Unit // read LastHttpContent
+        if (!config.useAggregator) {
+          responseSent = true
+          ctx.read(): Unit
+        } // read next HttpContent
     }
   }
 

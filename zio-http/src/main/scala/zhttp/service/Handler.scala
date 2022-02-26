@@ -88,12 +88,12 @@ private[zhttp] final case class Handler[R](
             override private[zhttp] def unsafeEncode = jReq
           },
         )
-      case msg: LastHttpContent  =>
-        ctx.fireChannelRead(msg)
-        if (!config.useAggregator) ctx.read(): Unit // Read the next request
 
       case msg: HttpContent =>
         ctx.fireChannelRead(msg): Unit
+        if (!config.useAggregator && responseSent) {
+          ctx.read(): Unit
+        }
       case _                =>
         throw new IllegalStateException(s"Unexpected message type: ${msg.getClass.getName}")
 
