@@ -4,12 +4,12 @@ import zhttp.html._
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
-import zio.ZIO
 import zio.duration.durationInt
-import zio.stream.ZStream
+import zio.stream.{ZStream, ZTransducer}
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
+import zio.{Chunk, ZIO}
 
 import java.nio.file.Paths
 
@@ -35,8 +35,10 @@ object ServerSpec extends HttpRunnableSpec {
     case _ -> !! / "HExitFailure" => HExit.fail(new RuntimeException("FAILURE"))
   }
 
-  private val app                 =
-    serve(nonZIO ++ staticApp ++ DynamicServer.app, Some(Server.enableObjectAggregator(4096)))
+  private val app                 = serve(
+    nonZIO ++ staticApp ++ DynamicServer.app,
+    Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(4096)),
+  )
   private val appWithReqStreaming = serve(nonZIO ++ staticApp ++ DynamicServer.app, None)
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
@@ -90,15 +92,15 @@ object ServerSpec extends HttpRunnableSpec {
           assertM(res)(equalTo(Status.OK))
         } +
           testM("body is ok") {
-            val res = app.deploy.bodyAsString.run(content = "ABC")
+            val res = app.deploy.bodyAsString.run(content = HttpData.fromString("ABC"))
             assertM(res)(equalTo("ABC"))
           } +
           testM("empty string") {
-            val res = app.deploy.bodyAsString.run(content = "")
+            val res = app.deploy.bodyAsString.run(content = HttpData.fromString(""))
             assertM(res)(equalTo(""))
           } +
           testM("one char") {
-            val res = app.deploy.bodyAsString.run(content = "1")
+            val res = app.deploy.bodyAsString.run(content = HttpData.fromString("1"))
             assertM(res)(equalTo("1"))
           }
       } +
@@ -114,6 +116,32 @@ object ServerSpec extends HttpRunnableSpec {
           val res = app.deploy.bodyAsString.run()
           assertM(res)(equalTo("abc"))
         }
+      } +
+      suite("decompression") {
+        val app     = Http.collectZIO[Request] { case req => req.bodyAsString.map(body => Response.text(body)) }.deploy
+        val content = "some-text"
+        val stream  = ZStream.fromChunk(Chunk.fromArray(content.getBytes))
+
+        testM("gzip") {
+          val res = for {
+            body     <- stream.transduce(ZTransducer.gzip()).runCollect
+            response <- app.run(
+              content = HttpData.fromChunk(body),
+              headers = Headers.contentEncoding(HeaderValues.gzip),
+            )
+          } yield response
+          assertM(res.flatMap(_.bodyAsString))(equalTo(content))
+        } +
+          testM("deflate") {
+            val res = for {
+              body     <- stream.transduce(ZTransducer.deflate()).runCollect
+              response <- app.run(
+                content = HttpData.fromChunk(body),
+                headers = Headers.contentEncoding(HeaderValues.deflate),
+              )
+            } yield response
+            assertM(res.flatMap(_.bodyAsString))(equalTo(content))
+          }
       }
   }
 
@@ -157,13 +185,13 @@ object ServerSpec extends HttpRunnableSpec {
     }
     testM("has content-length") {
       checkAllM(Gen.alphaNumericString) { string =>
-        val res = app.deploy.bodyAsString.run(content = string)
+        val res = app.deploy.bodyAsString.run(content = HttpData.fromString(string))
         assertM(res)(equalTo(string.length.toString))
       }
     } +
       testM("POST Request.getBody") {
         val app = Http.collectZIO[Request] { case req => req.body.as(Response.ok) }
-        val res = app.deploy.status.run(path = !!, method = Method.POST, content = "some text")
+        val res = app.deploy.status.run(path = !!, method = Method.POST, content = HttpData.fromString("some text"))
         assertM(res)(equalTo(Status.OK))
       }
   }
@@ -213,7 +241,7 @@ object ServerSpec extends HttpRunnableSpec {
           }
           .deploy
           .bodyAsString
-          .run(content = "abc")
+          .run(content = HttpData.fromString("abc"))
         assertM(res)(equalTo("abc"))
       } +
       testM("file-streaming") {
@@ -299,7 +327,9 @@ object ServerSpec extends HttpRunnableSpec {
         Response(data = HttpData.fromStream(req.bodyAsStream))
       }
       checkAllM(Gen.alphaNumericString) { c =>
-        assertM(app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = c))(equalTo(c))
+        assertM(app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = HttpData.fromString(c)))(
+          equalTo(c),
+        )
       }
     }
   }

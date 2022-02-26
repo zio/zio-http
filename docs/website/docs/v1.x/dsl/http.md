@@ -1,3 +1,6 @@
+---
+sidebar_position: "2"
+---
 # Http
 
 `Http` is a functional domain that models HTTP applications. It’s polymorphic on input and output type.
