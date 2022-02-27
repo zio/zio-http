@@ -99,7 +99,7 @@ object URL {
     }
   }
   private def unsafeFromAbsoluteURI(uri: URI): Absolute = {
-    val scheme  = Scheme.decode2(uri.getScheme)
+    val scheme  = Scheme.unsafeDecode(uri.getScheme)
     val uriPort = uri.getPort
     val port    = if (uriPort != -1) uriPort else portFromScheme(scheme)
     val host    = uri.getHost
