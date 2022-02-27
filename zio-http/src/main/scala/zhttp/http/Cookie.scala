@@ -3,7 +3,8 @@ package zhttp.http
 import zio.duration._
 
 import java.security.MessageDigest
-import java.time.Instant
+import java.time.format.DateTimeFormatter
+import java.time.{Instant, ZoneOffset}
 import java.util.Base64.getEncoder
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -12,7 +13,7 @@ import scala.util.Try
 final case class Cookie(
   name: String,
   content: String,
-  expires: Option[Instant] = None,
+  expires: Option[String] = None,
   domain: Option[String] = None,
   path: Option[Path] = None,
   isSecure: Boolean = false,
@@ -27,7 +28,14 @@ final case class Cookie(
    * client.
    */
   def clear: Cookie =
-    copy(content = "", expires = Some(Instant.ofEpochSecond(0)))
+    copy(
+      content = "",
+      expires = Some(
+        DateTimeFormatter.RFC_1123_DATE_TIME
+          .withZone(ZoneOffset.UTC)
+          .format(Instant.ofEpochSecond(0)),
+      ),
+    )
 
   /**
    * Sets content in cookie
@@ -37,7 +45,13 @@ final case class Cookie(
   /**
    * Sets expiry in cookie
    */
-  def withExpiry(v: Instant): Cookie = copy(expires = Some(v))
+  def withExpiry(v: Instant): Cookie = copy(expires =
+    Some(
+      DateTimeFormatter.RFC_1123_DATE_TIME
+        .withZone(ZoneOffset.UTC)
+        .format(v),
+    ),
+  )
 
   /**
    * Sets max-age in cookie
@@ -192,7 +206,7 @@ object Cookie {
   private[zhttp] def unsafeDecodeResponseCookie(headerValue: String, secret: Option[String] = None): Cookie = {
     var name: String              = null
     var content: String           = null
-    var expires: Instant          = null
+    var expires: String           = null
     var maxAge: Option[Long]      = None
     var domain: String            = null
     var path: Path                = null
@@ -226,7 +240,9 @@ object Cookie {
             name = headerValue.substring(0, next)
           }
         } else if (headerValue.regionMatches(true, curr, fieldExpires, 0, fieldExpires.length)) {
-          expires = Instant.parse(headerValue.substring(curr + 8, next))
+          expires = DateTimeFormatter.RFC_1123_DATE_TIME
+            .withZone(ZoneOffset.UTC)
+            .format(Instant.parse(headerValue.substring(curr + 8, next)))
         } else if (headerValue.regionMatches(true, curr, fieldMaxAge, 0, fieldMaxAge.length)) {
           maxAge = Some(headerValue.substring(curr + 8, next).toLong)
         } else if (headerValue.regionMatches(true, curr, fieldDomain, 0, fieldDomain.length)) {

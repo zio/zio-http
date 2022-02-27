@@ -3,7 +3,8 @@ package zhttp.benchmarks
 import org.openjdk.jmh.annotations._
 import zhttp.http._
 
-import java.time.Instant
+import java.time.format.DateTimeFormatter
+import java.time.{Instant, ZoneOffset}
 import java.util.concurrent.TimeUnit
 
 @State(Scope.Thread)
@@ -20,7 +21,7 @@ class CookieDecodeBenchmark {
   private val cookie    = Cookie(
     name,
     value,
-    Some(Instant.now()),
+    Some(DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC).format(Instant.now)),
     Some(domain),
     Some(path),
     true,
