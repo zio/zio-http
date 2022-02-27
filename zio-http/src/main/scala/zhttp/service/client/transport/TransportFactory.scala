@@ -15,10 +15,12 @@ import zio.Task
  *   - NIO Transport - Works on any Platform / OS that has Java support Native
  *   - Epoll Transport - Works on Linux only
  *   - Native Kqueue Transport - Works on any BSD but mainly on MacOS.
+ *
+ * A Factory for providing transport specific Channel / ServerChannel /
+ * EventLoopGroup
  */
 sealed trait Transport  {
-//  def eventLoopGroup(nThreads: Int): ZManaged[Any, Nothing, channel.EventLoopGroup]
-  def channelInitializer: Task[JChannelFactory[ServerChannel]]
+  def serverChannel: Task[JChannelFactory[ServerChannel]]
   def clientChannel: Task[JChannelFactory[Channel]]
   def eventLoopGroup(nThreads: Int): Task[channel.EventLoopGroup]
 }
@@ -26,7 +28,7 @@ object Transport        {
   import TransportFactory._
   case object Nio extends Transport {
 
-    override def channelInitializer: Task[JChannelFactory[ServerChannel]] = nio
+    override def serverChannel: Task[JChannelFactory[ServerChannel]] = nio
 
     override def clientChannel: Task[JChannelFactory[Channel]] = clientNio
 
@@ -36,7 +38,7 @@ object Transport        {
   case object Epoll  extends Transport {
     def isAvailable = io.netty.channel.epoll.Epoll.isAvailable
 
-    override def channelInitializer: Task[JChannelFactory[ServerChannel]] = epoll
+    override def serverChannel: Task[JChannelFactory[ServerChannel]] = epoll
 
     override def clientChannel: Task[JChannelFactory[Channel]] = clientEpoll
 
@@ -46,7 +48,7 @@ object Transport        {
   case object KQueue extends Transport {
     def isAvailable = io.netty.channel.kqueue.KQueue.isAvailable
 
-    override def channelInitializer: Task[JChannelFactory[ServerChannel]] = kQueue
+    override def serverChannel: Task[JChannelFactory[ServerChannel]] = kQueue
 
     override def clientChannel: Task[JChannelFactory[Channel]] = clientKQueue
 
@@ -55,7 +57,7 @@ object Transport        {
   }
   case object URing  extends Transport {
 
-    override def channelInitializer: Task[JChannelFactory[ServerChannel]] = uring
+    override def serverChannel: Task[JChannelFactory[ServerChannel]] = uring
 
     override def clientChannel: Task[JChannelFactory[Channel]] = clientUring
 
@@ -63,7 +65,7 @@ object Transport        {
       Task(new IOUringEventLoopGroup(nThreads))
   }
   case object Auto extends Transport {
-    override def channelInitializer: Task[JChannelFactory[ServerChannel]] = auto
+    override def serverChannel: Task[JChannelFactory[ServerChannel]] = auto
 
     override def clientChannel: Task[JChannelFactory[Channel]] = clientAuto
 

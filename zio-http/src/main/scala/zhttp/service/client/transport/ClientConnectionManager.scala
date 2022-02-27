@@ -7,7 +7,7 @@ import zhttp.http.HeaderNames
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.ClientSettings.Config
 import zhttp.service.client.domain.ConnectionData.ReqKey
-import zhttp.service.client.domain.{Connection, ConnectionData, ConnectionState, Timeouts}
+import zhttp.service.client.domain.{Connection, ConnectionData, ConnectionPoolState, NewConnectionData, Timeouts}
 import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
@@ -114,9 +114,9 @@ object ClientConnectionManager {
       .channelFactory(channelFactory)
       .group(eventLoopGroup)
     connectionDataRef <- zio.Ref.make(
-      (
+      NewConnectionData(
         None.asInstanceOf[Option[Connection]],
-        ConnectionState(Map.empty[Channel, ReqKey], Map.empty[ReqKey, immutable.Queue[Connection]]),
+        ConnectionPoolState(Map.empty[Channel, ReqKey], Map.empty[ReqKey, immutable.Queue[Connection]]),
       ),
     )
     timeouts    = Timeouts(settings.connectionTimeout, settings.idleTimeout, settings.requestTimeout)

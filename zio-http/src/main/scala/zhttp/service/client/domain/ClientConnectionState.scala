@@ -28,12 +28,14 @@ case class Timeouts(
   requestTimeout: Duration = Duration.Infinity,
 )
 
-case class ConnectionState(
+case class ConnectionPoolState(
   currentAllocatedChannels: Map[Channel, ReqKey],
   idleConnectionsMap: Map[ReqKey, immutable.Queue[Connection]],
 )
 
-case class ConnectionData(connectionData: Ref[(Option[Connection], ConnectionState)]) {
+case class NewConnectionData(newConnection: Option[Connection] = None, connectionPoolState: ConnectionPoolState)
+
+case class ConnectionData(connectionData: Ref[NewConnectionData]) {
 
   def nextIdleChannel(reqKey: ReqKey) = ???
 
@@ -54,8 +56,8 @@ case class ConnectionData(connectionData: Ref[(Option[Connection], ConnectionSta
 
   def getTotalConnections = for {
     connectionData <- connectionData.get
-    allocConnections = connectionData._2.currentAllocatedChannels.size
-    idleConnections  = connectionData._2.idleConnectionsMap.valuesIterator
+    allocConnections = connectionData.connectionPoolState.currentAllocatedChannels.size
+    idleConnections  = connectionData.connectionPoolState.idleConnectionsMap.valuesIterator
       .foldLeft(0) { case (acc, queue) => acc + queue.size }
   } yield (allocConnections + idleConnections)
 

@@ -29,15 +29,57 @@ trait ClientSettings { self =>
     case MaxTotalConnections(maxTotConn)            => s.copy(maxTotalConnections = maxTotConn)
     case MaxWaitQueueLimit(mwql)                    => s.copy(maxWaitQueueLimit = mwql)
     case MaxConnectionsPerRequestKey(maxConnPerReq) => s.copy(maxConnectionsPerRequestKey = maxConnPerReq)
-    // case _ To be deleted
-    case _                                          => s.copy(threads = 2)
+    case _                                          => s
   }
 
   def make: Task[DefaultClient] =
     Client.make(self.asInstanceOf[ClientSettings])
+
+  /**
+   * Creates a specified type transport underneath, (like Epoll/KQueue/NIO/URing
+   * etc) Default is Auto
+   */
+  def withTransport(transport: Transport): ClientSettings = Concat(self, ClientSettings.TransportConfig(transport))
+
+  /**
+   */
+  def withThreads(count: Int): ClientSettings = Concat(self, ClientSettings.Threads(count))
+
+  /**
+   */
+  def withResponseHeaderTimeout(responseHeaderTimeout: Duration): ClientSettings =
+    Concat(self, ClientSettings.ResponseHeaderTimeout(responseHeaderTimeout))
+
+  /**
+   */
+  def withIdleTimeout(idleTimeout: Duration): ClientSettings =
+    Concat(self, ClientSettings.IdleTimeout(idleTimeout))
+
+  /**
+   */
+  def withRequestTimeout(requestTimeout: Duration): ClientSettings =
+    Concat(self, ClientSettings.RequestTimeout(requestTimeout))
+
+  /**
+   */
+  def withConnectionTimeout(connectionTimeout: Duration): ClientSettings =
+    Concat(self, ClientSettings.ConnectionTimeout(connectionTimeout))
+
+  /**
+   */
+  def withMaxTotalConnections(count: Int): ClientSettings = Concat(self, ClientSettings.MaxTotalConnections(count))
+
+  /**
+   */
+  def withMaxWaitQueueLimit(count: Int): ClientSettings = Concat(self, ClientSettings.MaxWaitQueueLimit(count))
+
+  /**
+   */
+  def withMaxConnectionsPerRequestKey(count: Int): ClientSettings =
+    Concat(self, ClientSettings.MaxConnectionsPerRequestKey(count))
+
 }
 object ClientSettings {
-  type UClient = ClientSettings
   protected[zhttp] final case class Config(
     transport: Transport = Transport.Auto,
     threads: Int = 0,
@@ -55,18 +97,18 @@ object ClientSettings {
 
   )
 
-  case class Concat[R, E](self: ClientSettings, other: ClientSettings) extends ClientSettings
-  case class TransportConfig(transport: Transport)                     extends UClient
-  case class Threads(threads: Int)                                     extends UClient
-  case class ResponseHeaderTimeout(rht: Duration)                      extends UClient
-  case class IdleTimeout(idlt: Duration)                               extends UClient
-  case class RequestTimeout(reqt: Duration)                            extends UClient
-  case class ConnectionTimeout(connt: Duration)                        extends UClient
-  case class UserAgent(ua: Option[String])                             extends UClient
-  case class MaxTotalConnections(maxTotConn: Int)                      extends UClient
-  case class MaxWaitQueueLimit(mwql: Int)                              extends UClient
-  case class MaxConnectionsPerRequestKey(maxConnPerReq: Int)           extends UClient
-  //  private final case class SSLContext(ssl: ClientSSLOptions)                                   extends UClient
+  case class Concat(self: ClientSettings, other: ClientSettings) extends ClientSettings
+  case class TransportConfig(transport: Transport)               extends ClientSettings
+  case class Threads(threads: Int)                               extends ClientSettings
+  case class ResponseHeaderTimeout(rht: Duration)                extends ClientSettings
+  case class IdleTimeout(idlt: Duration)                         extends ClientSettings
+  case class RequestTimeout(reqt: Duration)                      extends ClientSettings
+  case class ConnectionTimeout(connt: Duration)                  extends ClientSettings
+  case class UserAgent(ua: Option[String])                       extends ClientSettings
+  case class MaxTotalConnections(maxTotConn: Int)                extends ClientSettings
+  case class MaxWaitQueueLimit(mwql: Int)                        extends ClientSettings
+  case class MaxConnectionsPerRequestKey(maxConnPerReq: Int)     extends ClientSettings
+  //  private final case class SSLContext(ssl: ClientSSLOptions)                                   extends ClientSettings
 
   /**
    * Choosing transport types like Nio,Epoll,KQueue etc
@@ -77,27 +119,27 @@ object ClientSettings {
   def transport(transport: Transport) = ClientSettings.TransportConfig(transport)
 
   /**
-   * Number of threads used by underlying netty EventLoopGroup
+   * Number of threads to be used by underlying netty EventLoopGroup
    * @param threads
    * @return
    */
   def threads(threads: Int) = ClientSettings.Threads(threads)
 
   // TODO: to be elaborated and used WIP.
-  def responseHeaderTimeout(rht: Duration): UClient               = ClientSettings.ResponseHeaderTimeout(rht)
-  def idleTimeout(idt: Duration): UClient                         = ClientSettings.IdleTimeout(idt)
-  def requestTimeout(rqt: Duration): UClient                      = ClientSettings.RequestTimeout(rqt)
-  def connectionTimeout(connT: Duration): UClient                 = ClientSettings.ConnectionTimeout(connT)
-  def userAgent(ua: Option[String]): UClient                      = ClientSettings.UserAgent(ua)
-  def maxTotalConnections(maxTotConn: Int): UClient               = ClientSettings.MaxTotalConnections(maxTotConn)
-  def maxWaitQueueLimit(maxWQLt: Int): UClient                    = ClientSettings.MaxWaitQueueLimit(maxWQLt)
-  def maxConnectionsPerRequestKey(maxConnPerReqKey: Int): UClient =
+  def responseHeaderTimeout(rht: Duration): ClientSettings = ClientSettings.ResponseHeaderTimeout(rht)
+  def idleTimeout(idt: Duration): ClientSettings           = ClientSettings.IdleTimeout(idt)
+  def requestTimeout(rqt: Duration): ClientSettings        = ClientSettings.RequestTimeout(rqt)
+  def connectionTimeout(connT: Duration): ClientSettings   = ClientSettings.ConnectionTimeout(connT)
+  def userAgent(ua: Option[String]): ClientSettings        = ClientSettings.UserAgent(ua)
+  def maxTotalConnections(maxTotConn: Int): ClientSettings = ClientSettings.MaxTotalConnections(maxTotConn)
+  def maxWaitQueueLimit(maxWQLt: Int): ClientSettings      = ClientSettings.MaxWaitQueueLimit(maxWQLt)
+  def maxConnectionsPerRequestKey(maxConnPerReqKey: Int): ClientSettings =
     ClientSettings.MaxConnectionsPerRequestKey(maxConnPerReqKey)
 
-  def nio: UClient    = ClientSettings.TransportConfig(Transport.Nio)
-  def epoll: UClient  = ClientSettings.TransportConfig(Transport.Epoll)
-  def kQueue: UClient = ClientSettings.TransportConfig(Transport.KQueue)
-  def uring: UClient  = ClientSettings.TransportConfig(Transport.URing)
-  def auto: UClient   = ClientSettings.TransportConfig(Transport.Auto)
+  def nio: ClientSettings    = ClientSettings.TransportConfig(Transport.Nio)
+  def epoll: ClientSettings  = ClientSettings.TransportConfig(Transport.Epoll)
+  def kQueue: ClientSettings = ClientSettings.TransportConfig(Transport.KQueue)
+  def uring: ClientSettings  = ClientSettings.TransportConfig(Transport.URing)
+  def auto: ClientSettings   = ClientSettings.TransportConfig(Transport.Auto)
 
 }
