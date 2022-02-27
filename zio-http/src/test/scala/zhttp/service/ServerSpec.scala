@@ -13,6 +13,7 @@ import zio.test.TestAspect._
 import zio.test._
 import zio.{Chunk, ZIO}
 
+import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec {
@@ -121,54 +122,53 @@ object ServerSpec extends HttpRunnableSpec {
           val res = app.deploy.bodyAsString.run()
           assertM(res)(equalTo("abc"))
         }
-      } +
-      suite("decompression") {
-        val app     = Http.collectZIO[Request] { case req => req.bodyAsString.map(body => Response.text(body)) }.deploy
+      } + suite("compression") {
+        val app = Http.collectZIO[Request] { case req => req.bodyAsString.map { body => Response.text(body) } }.deploy
         val content = "some-text"
         val stream  = ZStream.fromChunk(Chunk.fromArray(content.getBytes))
 
-        testM("gzip") {
-          val res = for {
-            body     <- stream.transduce(ZTransducer.gzip()).runCollect
+        testM("should decompress gzip and compress gzip") {
+          for {
+            gzip     <- stream.transduce(ZTransducer.gzip()).runCollect
             response <- app.run(
-              content = HttpData.fromChunk(body),
-              headers = Headers.contentEncoding(HeaderValues.gzip),
+              content = HttpData.fromChunk(gzip),
+              headers = Headers.contentEncoding(HeaderValues.gzip) ++ Headers.acceptEncoding(HeaderValues.gzip),
             )
-          } yield response
-          assertM(res.flatMap(_.bodyAsString))(equalTo(content))
+            body     <- response.body.flatMap(c => ZStream.fromChunk(c).transduce(ZTransducer.gunzip()).runCollect)
+            result = new String(body.toArray, StandardCharsets.UTF_8)
+          } yield assert(result)(equalTo(content))
         } +
-          testM("deflate") {
-            val res = for {
-              body     <- stream.transduce(ZTransducer.deflate()).runCollect
+          testM("should decompress deflate and compress deflate") {
+            for {
+              deflate  <- stream.transduce(ZTransducer.deflate()).runCollect
               response <- app.run(
-                content = HttpData.fromChunk(body),
-                headers = Headers.contentEncoding(HeaderValues.deflate),
+                content = HttpData.fromChunk(deflate),
+                headers = Headers.contentEncoding(HeaderValues.deflate) ++ Headers.acceptEncoding(HeaderValues.deflate),
               )
-            } yield response
-            assertM(res.flatMap(_.bodyAsString))(equalTo(content))
+              body     <- response.body.flatMap(c => ZStream.fromChunk(c).transduce(ZTransducer.inflate()).runCollect)
+              result = new String(body.toArray, StandardCharsets.UTF_8)
+            } yield assert(result)(equalTo(content))
+          } + testM("should decompress gzip and compress deflate") {
+            for {
+              gzip     <- stream.transduce(ZTransducer.gzip()).runCollect
+              response <- app.run(
+                content = HttpData.fromChunk(gzip),
+                headers = Headers.contentEncoding(HeaderValues.gzip) ++ Headers.acceptEncoding(HeaderValues.deflate),
+              )
+              body     <- response.body.flatMap(c => ZStream.fromChunk(c).transduce(ZTransducer.inflate()).runCollect)
+              result = new String(body.toArray, StandardCharsets.UTF_8)
+            } yield assert(result)(equalTo(content))
+          } + testM("should decompress deflate and compress gzip") {
+            for {
+              deflate  <- stream.transduce(ZTransducer.deflate()).runCollect
+              response <- app.run(
+                content = HttpData.fromChunk(deflate),
+                headers = Headers.contentEncoding(HeaderValues.deflate) ++ Headers.acceptEncoding(HeaderValues.gzip),
+              )
+              body     <- response.body.flatMap(c => ZStream.fromChunk(c).transduce(ZTransducer.gunzip()).runCollect)
+              result = new String(body.toArray, StandardCharsets.UTF_8)
+            } yield assert(result)(equalTo(content))
           }
-      } +
-      suite("compression") {
-        val app = Http.text("some-text").deploy
-        testM("gzip") {
-          val res = app
-            .run(headers = Headers.acceptEncoding(HeaderValues.gzipDeflate))
-            .flatMap { response => response.body }
-            .flatMap { body =>
-              ZStream.fromChunk(body).transduce(ZTransducer.gunzip()).runCollect
-            }
-
-          assertM(res.map(chunk => new String(chunk.toArray)))(equalTo("some-text"))
-        } + testM("deflate") {
-          val res = app
-            .run(headers = Headers.acceptEncoding(HeaderValues.deflate))
-            .flatMap { response => response.body }
-            .flatMap { body =>
-              ZStream.fromChunk(body).transduce(ZTransducer.inflate()).runCollect
-            }
-
-          assertM(res.map(chunk => new String(chunk.toArray)))(equalTo("some-text"))
-        }
       }
   }
 

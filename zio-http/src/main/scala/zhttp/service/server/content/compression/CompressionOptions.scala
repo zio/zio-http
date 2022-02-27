@@ -17,21 +17,24 @@ object CompressionOptions {
   private case object Deflate extends Kind
 
   /**
-   * Creates GZip Compression Options. Defines defaults as per
+   * Creates GZip CompressionOptions. Defines defaults as per
    * io.netty.handler.codec.compression.GzipOptions#DEFAULT
    */
   def gzip: CompressionOptions = CompressionOptions(6, 15, 8, GZip)
 
-  def gzip(compressionLevel: Int, windowBits: Int, memLevel: Int): CompressionOptions =
-    CompressionOptions(compressionLevel, windowBits, memLevel, GZip)
+  /**
+   * Creates GZip CompressionOptions with parameters.
+   */
+  def gzip(level: Int, bits: Int, mem: Int): CompressionOptions = CompressionOptions(level, bits, mem, GZip)
 
   /**
-   * Creates Deflate Compression Options. Defines defaults as per
+   * Creates Deflate CompressionOptions. Defines defaults as per
    * io.netty.handler.codec.compression.DeflateOptions#DEFAULT
    */
   def deflate: CompressionOptions = CompressionOptions(6, 15, 8, Deflate)
 
-  def deflate(compressionLevel: Int, windowBits: Int, memLevel: Int): CompressionOptions =
-    CompressionOptions(compressionLevel, windowBits, memLevel, Deflate)
-
+  /**
+   * Creates Deflate CompressionOptions with parameters.
+   */
+  def deflate(level: Int, bits: Int, mem: Int): CompressionOptions = CompressionOptions(level, bits, mem, Deflate)
 }
