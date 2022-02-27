@@ -26,10 +26,9 @@ val text = WebSocketFrame.text("Hello from ZIO-HTTP")
 To create a Binary frame that models raw binary data, you can use the `binary` constructor.
 
 ```scala
-import io.netty.buffer.Unpooled.copiedBuffer
-import io.netty.util.CharsetUtil.UTF_16
+import zio.Chunk
 
-val binary = WebSocketFrame.binary(copiedBuffer("Hello from ZIO-HTTP", UTF_16))
+val binary = WebSocketFrame.binary(Chunk.fromArray("Hello from ZIO-HTTP".getBytes(StandardCharsets.UTF_16)))
 ```
 
 ### Continuation
@@ -96,7 +95,7 @@ You can do pattern matching on the WebSocketFrame type in the following way:
 val frame: WebSocketFrame = ...
 
 frame match {
-  case WebSocketFrame.Binary(buffer) => ???
+  case WebSocketFrame.Binary(bytes) => ???
   case WebSocketFrame.Text(text) => ???
   case WebSocketFrame.Close(status, reason) => ???
   case WebSocketFrame.Ping => ???

@@ -8,7 +8,7 @@ import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.ClientSettings.Config
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.domain.ConnectionData.ReqKey
-import zhttp.service.client.domain.{Connection, ConnectionData, ConnectionState, Timeouts}
+import zhttp.service.client.domain.{Connection, ConnectionData, ConnectionPoolState, NewConnectionData, Timeouts}
 import zhttp.service.client.handler.{EnhancedClientChannelInitializer, EnhancedClientInboundHandler}
 import zio.{Promise, Task, ZIO}
 
@@ -16,7 +16,8 @@ import java.net.InetSocketAddress
 import scala.collection.immutable
 
 /**
- * TODO: Comments
+ * Holds Reference to Client state (ConnectionData) have functions to build /
+ * reuse netty channels for request / response
  */
 case class ClientConnectionManager(
   connectionData: ConnectionData,
@@ -130,7 +131,6 @@ case class ClientConnectionManager(
       )
   }
 }
-
 object ClientConnectionManager {
   def apply(settings: Config): ZIO[Any, Throwable, ClientConnectionManager] = for {
     channelFactory <- settings.transport.clientChannel
@@ -140,9 +140,9 @@ object ClientConnectionManager {
       .channelFactory(channelFactory)
       .group(eventLoopGroup)
     connectionDataRef <- zio.Ref.make(
-      (
+      NewConnectionData(
         None.asInstanceOf[Option[Connection]],
-        ConnectionState(Map.empty[Channel, ReqKey], Map.empty[ReqKey, immutable.Queue[Connection]]),
+        ConnectionPoolState(Map.empty[Channel, ReqKey], Map.empty[ReqKey, immutable.Queue[Connection]]),
       ),
     )
     timeouts    = Timeouts(settings.connectionTimeout, settings.idleTimeout, settings.requestTimeout)

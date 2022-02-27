@@ -10,6 +10,11 @@ import zhttp.service.client.transport.ClientConnectionManager
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
+/**
+ * Concrete Client instance holding a reference to connection manager Expose
+ * multiple run methods
+ * @param connectionManager
+ */
 case class DefaultClient(
   connectionManager: ClientConnectionManager,
 ) extends HttpMessageCodec {
@@ -91,7 +96,6 @@ case class DefaultClient(
   //    def run[A](req: ZIO[?,?,Request])(f: Response => Task[A]): Task[A] = ???
 
   /**
-   * TBD or stream(req: Request): ZStream[Any,Throwable, ???]
    * @param req
    * @return
    */

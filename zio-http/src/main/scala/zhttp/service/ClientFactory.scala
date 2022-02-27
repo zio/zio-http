@@ -11,11 +11,12 @@ object ClientFactory {
   def client: ZLayer[Any, Nothing, ClientEnv] = ClientFactory.Live.defaultClient.toLayer
 
   object Live {
-    def defaultClient: ZManaged[Any, Nothing, DefaultClient] =
-      make(Client.make(ClientSettings.maxTotalConnections(20)))
-
-    def make(dc: Task[DefaultClient]): ZManaged[Any, Nothing, DefaultClient] =
-      dc.toManaged_.orDie
+    def defaultClient: ZManaged[Any, Nothing, DefaultClient] = {
+      Client
+        .make(ClientSettings.maxTotalConnections(20))
+        .toManaged_
+        .orDie
+    }
   }
 
 }

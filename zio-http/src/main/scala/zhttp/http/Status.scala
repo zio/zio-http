@@ -4,15 +4,12 @@ import io.netty.handler.codec.http.HttpResponseStatus
 
 sealed trait Status extends Product with Serializable { self =>
 
-  /**
-   * Returns an HttpApp[Any, Nothing] that responses with this http status code.
-   */
-  def toApp: UHttpApp = Http.status(self)
-
-  /**
-   * Returns a Response with empty data and no headers.
-   */
-  def toResponse: Response = Response(self)
+  def isInformational: Boolean = code >= 100 && code < 200
+  def isSuccess: Boolean       = code >= 200 && code < 300
+  def isRedirection: Boolean   = code >= 300 && code < 400
+  def isClientError: Boolean   = code >= 400 && code < 500
+  def isServerError: Boolean   = code >= 500 && code < 600
+  def isError: Boolean         = isClientError | isServerError
 
   /**
    * Returns self as io.netty.handler.codec.http.HttpResponseStatus.
@@ -75,6 +72,21 @@ sealed trait Status extends Product with Serializable { self =>
     case Status.NOT_EXTENDED                    => HttpResponseStatus.NOT_EXTENDED                    // 510
     case Status.NETWORK_AUTHENTICATION_REQUIRED => HttpResponseStatus.NETWORK_AUTHENTICATION_REQUIRED // 511
   }
+
+  /**
+   * Returns the status code.
+   */
+  def code: Int = self.asJava.code()
+
+  /**
+   * Returns an HttpApp[Any, Nothing] that responses with this http status code.
+   */
+  def toApp: UHttpApp = Http.status(self)
+
+  /**
+   * Returns a Response with empty data and no headers.
+   */
+  def toResponse: Response = Response.status(self)
 }
 
 object Status {
