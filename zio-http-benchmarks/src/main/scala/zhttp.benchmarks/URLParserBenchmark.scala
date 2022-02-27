@@ -13,16 +13,8 @@ class URLParserBenchmark {
     "http://yourdomain.com/list/users/cusers/dusers/eusers/fusers/gusers?q=1&q=2&q=26&q=227828&q=217718&t=26728&y=1672882&j=28828&k=3767387"
 
   @Benchmark
-  def benchmarkURLParser(): Unit    = {
+  def benchmarkURLParser(): Unit = {
     val _ = URL(str).host
-    ()
-  }
-  @Benchmark
-  def benchmarkURLOldParser(): Unit = {
-    val _ = URLOld.fromString(str) match {
-      case Left(_)      => None
-      case Right(value) => value.host
-    }
     ()
   }
 }
