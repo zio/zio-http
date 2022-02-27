@@ -72,10 +72,10 @@ object HttpGen {
   def url: Gen[Random with Sized, URL] = for {
     path        <- HttpGen.path
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
-    scheme      <- Gen.option(Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS)))
-    host        <- Gen.alphaNumericStringBounded(1, 5)
+    scheme      <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS, null))
+    host        <- Gen.alphaNumericStringBounded(0, 5)
     port        <- Gen.int(0, Int.MaxValue)
-  } yield URL.Absolute(Some(host), scheme, port, Relative(path, queryParams))
+  } yield URL.Absolute(host, scheme, port, Relative(path, queryParams))
 
   def method: Gen[Any, Method] = Gen.fromIterable(
     List(

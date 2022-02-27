@@ -10,20 +10,20 @@ import scala.util.Try
 
 sealed trait URL { self =>
 
-  def host: Option[String]   = self.toAbsolute.urlHost
+  def host: Option[String]   = Option(self.toAbsolute.urlHost)
   def port: Int              = self.toAbsolute.urlPort
-  def scheme: Option[Scheme] = self.toAbsolute.urlScheme
+  def scheme: Option[Scheme] = Option(self.toAbsolute.urlScheme)
   def relative: Relative     = self.toAbsolute.urlRelative
   def path: Path             = relative.urlPath
 
   def setHost(host: String): URL =
-    self.toAbsolute.copy(Some(host), Some(self.scheme.getOrElse(HTTP)), self.port)
+    self.toAbsolute.copy(host, self.scheme.getOrElse(HTTP), self.port)
 
   def setPort(port: Int): URL =
-    self.toAbsolute.copy(Some(self.host.getOrElse("localhost")), Some(self.scheme.getOrElse(HTTP)), port)
+    self.toAbsolute.copy(self.host.getOrElse("localhost"), self.scheme.getOrElse(HTTP), port)
 
   def setScheme(scheme: Scheme): URL =
-    self.toAbsolute.copy(Some(self.host.getOrElse("localhost")), Some(scheme), self.port)
+    self.toAbsolute.copy(self.host.getOrElse("localhost"), scheme, self.port)
 
   def setPath(path: Path): URL = self.toAbsolute.copy(urlRelative = self.relative.copy(urlPath = path))
 
@@ -38,7 +38,7 @@ sealed trait URL { self =>
   def toAbsolute: Absolute = self match {
     case Unsafe(x)   => URL.unsafeFromString(x)
     case b: Absolute => b
-    case c: Relative => Absolute(urlRelative = c)
+    case c: Relative => Absolute(null, null, urlRelative = c)
   }
 
   def encode: String = URL.asString(self)
@@ -51,10 +51,10 @@ object URL {
   def asString(url: URL): String = {
     val p: String = path(url.relative)
     val absUrl    = url.toAbsolute
-    if (absUrl.urlScheme.isDefined && absUrl.urlHost.isDefined) {
+    if (absUrl.urlScheme != null && absUrl.urlHost != null) {
       if (absUrl.urlPort == 80 || absUrl.urlPort == 443)
-        s"${absUrl.urlScheme.get.encode}://${absUrl.urlHost.get}$p"
-      else s"${absUrl.urlScheme.get.encode}://${absUrl.urlHost.get}:${absUrl.urlPort}$p"
+        s"${absUrl.urlScheme.encode}://${absUrl.urlHost}$p"
+      else s"${absUrl.urlScheme.encode}://${absUrl.urlHost}:${absUrl.urlPort}$p"
     } else p
 
   }
@@ -73,8 +73,8 @@ object URL {
 
   final case class Unsafe(string: String) extends URL
   final case class Absolute(
-    urlHost: Option[String] = None,
-    urlScheme: Option[Scheme] = None,
+    urlHost: String,
+    urlScheme: Scheme,
     urlPort: Int = 80,
     urlRelative: Relative = Relative(),
   ) extends URL
@@ -106,8 +106,8 @@ object URL {
 
     if (port != -1 && scheme != null && host != null)
       Absolute(
-        Some(host),
-        Some(scheme),
+        host,
+        scheme,
         port,
         Relative(Path(uri.getRawPath), queryParams(uri.getRawQuery), Fragment.fromURI(uri)),
       )
@@ -115,8 +115,14 @@ object URL {
   }
 
   private def unsafeFromRelativeURI(uri: URI): Absolute =
-    Absolute(urlRelative =
-      Relative(Path(uri.getRawPath), urlQueryParams = queryParams(uri.getRawQuery), urlFragment = Fragment.fromURI(uri)),
+    Absolute(
+      null,
+      null,
+      urlRelative = Relative(
+        Path(uri.getRawPath),
+        urlQueryParams = queryParams(uri.getRawQuery),
+        urlFragment = Fragment.fromURI(uri),
+      ),
     )
 
   case class Fragment private (raw: String, decoded: String)
@@ -137,7 +143,7 @@ object URL {
     }
   }
 
-  def root: URL  = Absolute(urlRelative = Relative())
+  def root: URL  = Absolute(null, null, urlRelative = Relative())
   def empty: URL = root
 
 }

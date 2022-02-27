@@ -66,8 +66,8 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
               .addHeader(DynamicServer.APP_ID, id)
               .copy(url =
                 URL.Absolute(
-                  Some("localhost"),
-                  Some(Scheme.HTTP),
+                  "localhost",
+                  Scheme.HTTP,
                   port,
                   Relative(params.url.path),
                 ),
