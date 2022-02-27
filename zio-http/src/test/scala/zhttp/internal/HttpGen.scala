@@ -74,7 +74,7 @@ object HttpGen {
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
     scheme      <- Gen.option(Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS)))
     host        <- Gen.alphaNumericStringBounded(1, 5)
-    port        <- Gen.option(Gen.int(0, Int.MaxValue))
+    port        <- Gen.int(0, Int.MaxValue)
   } yield URL.Absolute(Some(host), scheme, port, Relative(path, queryParams))
 
   def method: Gen[Any, Method] = Gen.fromIterable(

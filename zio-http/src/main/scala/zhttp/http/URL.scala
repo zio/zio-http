@@ -11,19 +11,19 @@ import scala.util.Try
 sealed trait URL { self =>
 
   def host: Option[String]   = self.toAbsolute.urlHost
-  def port: Option[Int]      = self.toAbsolute.urlPort
+  def port: Int              = self.toAbsolute.urlPort
   def scheme: Option[Scheme] = self.toAbsolute.urlScheme
   def relative: Relative     = self.toAbsolute.urlRelative
   def path: Path             = relative.urlPath
 
   def setHost(host: String): URL =
-    self.toAbsolute.copy(Some(host), Some(self.scheme.getOrElse(HTTP)), Some(self.port.getOrElse(80)))
+    self.toAbsolute.copy(Some(host), Some(self.scheme.getOrElse(HTTP)), self.port)
 
   def setPort(port: Int): URL =
-    self.toAbsolute.copy(Some(self.host.getOrElse("localhost")), Some(self.scheme.getOrElse(HTTP)), Some(port))
+    self.toAbsolute.copy(Some(self.host.getOrElse("localhost")), Some(self.scheme.getOrElse(HTTP)), port)
 
   def setScheme(scheme: Scheme): URL =
-    self.toAbsolute.copy(Some(self.host.getOrElse("localhost")), Some(scheme), Some(self.port.getOrElse(80)))
+    self.toAbsolute.copy(Some(self.host.getOrElse("localhost")), Some(scheme), self.port)
 
   def setPath(path: Path): URL = self.toAbsolute.copy(urlRelative = self.relative.copy(urlPath = path))
 
@@ -51,10 +51,10 @@ object URL {
   def asString(url: URL): String = {
     val p: String = path(url.relative)
     val absUrl    = url.toAbsolute
-    if (absUrl.urlScheme.isDefined && absUrl.urlPort.isDefined && absUrl.urlHost.isDefined) {
-      if (absUrl.urlPort.get == 80 || absUrl.urlPort.get == 443)
+    if (absUrl.urlScheme.isDefined && absUrl.urlHost.isDefined) {
+      if (absUrl.urlPort == 80 || absUrl.urlPort == 443)
         s"${absUrl.urlScheme.get.encode}://${absUrl.urlHost.get}$p"
-      else s"${absUrl.urlScheme.get.encode}://${absUrl.urlHost.get}:${absUrl.urlPort.get}$p"
+      else s"${absUrl.urlScheme.get.encode}://${absUrl.urlHost.get}:${absUrl.urlPort}$p"
     } else p
 
   }
@@ -75,7 +75,7 @@ object URL {
   final case class Absolute(
     urlHost: Option[String] = None,
     urlScheme: Option[Scheme] = None,
-    urlPort: Option[Int] = None,
+    urlPort: Int = 80,
     urlRelative: Relative = Relative(),
   ) extends URL
 
@@ -108,7 +108,7 @@ object URL {
       Absolute(
         Some(host),
         Some(scheme),
-        Some(port),
+        port,
         Relative(Path(uri.getRawPath), queryParams(uri.getRawQuery), Fragment.fromURI(uri)),
       )
     else null

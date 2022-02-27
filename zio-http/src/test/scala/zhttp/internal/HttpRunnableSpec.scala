@@ -68,7 +68,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
                 URL.Absolute(
                   Some("localhost"),
                   Some(Scheme.HTTP),
-                  Some(port),
+                  port,
                   Relative(params.url.path),
                 ),
               ),

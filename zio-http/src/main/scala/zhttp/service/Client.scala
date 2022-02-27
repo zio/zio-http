@@ -68,7 +68,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
 
       assert(host != null, "Host name is required")
 
-      val port = req.url.port.getOrElse(80)
+      val port = req.url.port
 
       val isWebSocket = req.url.scheme.exists(_.isWebSocket)
       val isSSL       = req.url.scheme.exists(_.isSecure)

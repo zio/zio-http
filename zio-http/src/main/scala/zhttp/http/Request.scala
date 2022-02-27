@@ -2,7 +2,6 @@ package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, HttpRequest}
-import zhttp.http.URL.Relative
 import zhttp.http.headers.HeaderExtension
 import zio.{Chunk, Task, UIO}
 
@@ -79,7 +78,7 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Overwrites the path in the request
    */
-  def setPath(path: Path): Request = self.copy(url = self.url.toAbsolute.copy(urlRelative = Relative(path)))
+  def setPath(path: Path): Request = self.copy(url = self.url.setPath(path))
 
   /**
    * Overwrites the url in the request
