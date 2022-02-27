@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
+import io.netty.handler.codec.http.{DefaultFullHttpRequest, HttpRequest}
 import zhttp.http.headers.HeaderExtension
 import zio.{Chunk, Task, UIO}
 
@@ -21,10 +22,16 @@ trait Request extends HeaderExtension[Request] { self =>
       override def method: Method                     = m
       override def url: URL                           = u
       override def headers: Headers                   = h
+      override def unsafeEncode: HttpRequest          = self.unsafeEncode
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
-      override private[zhttp] def bodyAsByteBuf       = self.bodyAsByteBuf
+      override def data: HttpData                     = self.data
     }
   }
+
+  /**
+   * Decodes the body as a HttpData
+   */
+  def data: HttpData
 
   /**
    * Decodes the content of request as a Chunk of Bytes
@@ -79,11 +86,16 @@ trait Request extends HeaderExtension[Request] { self =>
   def setUrl(url: URL): Request = self.copy(url = url)
 
   /**
+   * Gets the HttpRequest
+   */
+  private[zhttp] def unsafeEncode: HttpRequest
+
+  /**
    * Gets the complete url
    */
   def url: URL
 
-  private[zhttp] def bodyAsByteBuf: Task[ByteBuf]
+  private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
 }
 
 object Request {
@@ -102,12 +114,19 @@ object Request {
     val u  = url
     val h  = headers
     val ra = remoteAddress
+    val d  = data
+
     new Request {
-      override def method: Method                              = m
-      override def url: URL                                    = u
-      override def headers: Headers                            = h
-      override def remoteAddress: Option[InetAddress]          = ra
-      override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
+      override def method: Method                     = m
+      override def url: URL                           = u
+      override def headers: Headers                   = h
+      override def unsafeEncode: HttpRequest          = {
+        val jVersion = Version.`HTTP/1.1`.toJava
+        val path     = url.relative.encode
+        new DefaultFullHttpRequest(jVersion, method.toJava, path)
+      }
+      override def remoteAddress: Option[InetAddress] = ra
+      override def data: HttpData                     = d
     }
   }
 
@@ -127,11 +146,12 @@ object Request {
    * Lift request to TypedRequest with option to extract params
    */
   final class ParameterizedRequest[A](req: Request, val params: A) extends Request {
-    override def headers: Headers                            = req.headers
-    override def method: Method                              = req.method
-    override def remoteAddress: Option[InetAddress]          = req.remoteAddress
-    override def url: URL                                    = req.url
-    override private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = req.bodyAsByteBuf
+    override def headers: Headers                   = req.headers
+    override def method: Method                     = req.method
+    override def remoteAddress: Option[InetAddress] = req.remoteAddress
+    override def url: URL                           = req.url
+    override def unsafeEncode: HttpRequest          = req.unsafeEncode
+    override def data: HttpData                     = req.data
   }
 
   object ParameterizedRequest {

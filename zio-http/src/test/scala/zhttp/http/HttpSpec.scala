@@ -65,6 +65,58 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             assert(actual)(isEmpty)
           },
       ) +
+      suite("collectHExit")(
+        test("should succeed") {
+          val a      = Http.collectHExit[Int] { case 1 => HExit.succeed("OK") }
+          val actual = a.execute(1)
+          assert(actual)(isSuccess(equalTo("OK")))
+        } +
+          test("should fail") {
+            val a      = Http.collectHExit[Int] { case 1 => HExit.fail("OK") }
+            val actual = a.execute(1)
+            assert(actual)(isFailure(equalTo("OK")))
+          } +
+          test("should give empty if the inout is not defined") {
+            val a      = Http.collectHExit[Int] { case 1 => HExit.succeed("OK") }
+            val actual = a.execute(0)
+            assert(actual)(isEmpty)
+          },
+      ) +
+      suite("fromFunctionHExit")(
+        test("should succeed if the ") {
+          val a      = Http.fromFunctionHExit[Int] { a => HExit.succeed(a + 1) }
+          val actual = a.execute(1)
+          assert(actual)(isSuccess(equalTo(2)))
+        } +
+          test("should fail if the returned HExit is a failure") {
+            val a      = Http.fromFunctionHExit[Int] { a => HExit.fail(a + 1) }
+            val actual = a.execute(1)
+            assert(actual)(isFailure(equalTo(2)))
+          } +
+          test("should give empty if the returned HExit is empty") {
+            val a      = Http.fromFunctionHExit[Int] { _ => HExit.empty }
+            val actual = a.execute(0)
+            assert(actual)(isEmpty)
+          },
+      ) +
+      suite("fromHExit")(
+        test("should succeed if the returned HExit succeeds ") {
+          val a      = Http.fromHExit(HExit.succeed("a"))
+          val actual = a.execute(1)
+          assert(actual)(isSuccess(equalTo("a")))
+        } +
+          test("should fail if the returned HExit is a failure") {
+            val a      = Http.fromHExit(HExit.fail("fail"))
+            val actual = a.execute(1)
+            assert(actual)(isFailure(equalTo("fail")))
+          } +
+          test("should give empty if the returned HExit is empty") {
+            val a      = Http.fromHExit(HExit.empty)
+            val actual = a.execute(1)
+            assert(actual)(isEmpty)
+          },
+      ) +
+
       suite("combine")(
         test("should resolve first") {
           val a      = Http.collect[Int] { case 1 => "A" }
@@ -255,6 +307,33 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             val program = http(()) <& TestClock.adjust(5 second)
             assertM(program)(equalTo(1))
           }
-      },
+      } +
+      suite("attempt") {
+        suite("failure") {
+          test("fails with a throwable") {
+            val throwable = new Throwable("boom")
+            val actual    = Http.attempt(throw throwable).execute(())
+            assert(actual)(isFailure(equalTo(throwable)))
+          }
+        } +
+          suite("success") {
+            test("succeeds with a value") {
+              val actual = Http.attempt("bar").execute(())
+              assert(actual)(isSuccess(equalTo("bar")))
+            }
+          }
+      } +
+      suite("when")(
+        test("should execute http only when condition applies") {
+          val app    = Http.succeed(1).when((_: Any) => true)
+          val actual = app.execute(0)
+          assert(actual)(isSuccess(equalTo(1)))
+        } +
+          test("should not execute http when condition doesn't apply") {
+            val app    = Http.succeed(1).when((_: Any) => false)
+            val actual = app.execute(0)
+            assert(actual)(isEmpty)
+          },
+      ),
   ) @@ timeout(10 seconds)
 }

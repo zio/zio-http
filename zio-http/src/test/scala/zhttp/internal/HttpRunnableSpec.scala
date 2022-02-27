@@ -29,7 +29,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     def run(
       path: Path = !!,
       method: Method = Method.GET,
-      content: String = "",
+      content: HttpData = HttpData.empty,
       headers: Headers = Headers.empty,
       version: Version = Version.Http_1_1,
     ): ZIO[R, Throwable, A] =
@@ -38,7 +38,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
           url = URL(path), // url set here is overridden later via `deploy` method
           method = method,
           headers = headers,
-          data = HttpData.fromString(content),
+          data = content,
           version = version,
         ),
       ).catchAll {
@@ -85,10 +85,13 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
 
   def serve[R <: Has[_]](
     app: HttpApp[R, Throwable],
+    server: Option[Server[R, Throwable]] = None,
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
     for {
-      start <- Server.make(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection).orDie
-      _     <- DynamicServer.setStart(start).toManaged_
+      settings <- ZManaged
+        .succeed(server.foldLeft(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection)(_ ++ _))
+      start    <- Server.make(settings).orDie
+      _        <- DynamicServer.setStart(start).toManaged_
     } yield ()
 
   def status(
