@@ -42,8 +42,19 @@ object EnhancedClientTest extends App {
           ClientSettings.maxTotalConnections(20)
       ).make
       _      <- triggerClientSequential(client)
+      _      <- triggerParallel(client)
+      _      <- triggerParallel(client)
+      _      <- triggerParallel(client)
+
+      currActiveConn <- client.connectionManager.connectionData.getTotalConnections
+      _              <- ZIO.effect(println(s"Number of active connections for all requests: $currActiveConn \n\n"))
     } yield ()
   }
+
+  def triggerParallel(cl: DefaultClient) = for {
+    res <- zio.Task.foreachPar(List(testUrl1, testUrl2, testUrl1, testUrl2))(url => cl.run(url).flatMap(_.bodyAsString))
+    _   <- ZIO.effect(println(s"\n\n PARALLEL EXECUTION \n RESPONSE: $res \n CURRENT CONNECTIONS  \n\n"))
+  } yield ()
 
   // sequential execution test
   def triggerClientSequential(cl: DefaultClient) = for {

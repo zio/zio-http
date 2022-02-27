@@ -47,8 +47,8 @@ case class ClientConnectionManager(
     reqKey <- getRequestKey(jReq, req)
     isWebSocket = req.url.scheme.exists(_.isWebSocket)
     isSSL       = req.url.scheme.exists(_.isSecure)
-    conn <- buildChannel(reqKey, isWebSocket, isSSL)
-    _    <- attachHandler(conn, jReq, promise)
+    connectionOpt <- connectionData.nextIdleChannel(reqKey)
+    conn          <- triggerConn(connectionOpt, jReq, promise, reqKey, isWebSocket, isSSL)
   } yield conn
 
   def getRequestKey(jReq: FullHttpRequest, req: ClientRequest) = for {
@@ -58,6 +58,47 @@ case class ClientConnectionManager(
     port   = req.url.port.getOrElse(80)
     reqKey = if (port == -1) new ReqKey(host, 80) else new InetSocketAddress(host, port)
   } yield reqKey
+
+  /**
+   * Get a connection
+   *   - If an idle connection already exists for given ReqKey (host:port) reuse
+   *     it
+   *   - If no idle connection found build a new one.
+   * @param jReq
+   * @param promise
+   * @param reqKey
+   * @param isWebSocket
+   * @param isSSL
+   * @return
+   */
+
+  def triggerConn(
+    idleChannelOpt: Option[Connection],
+    jReq: FullHttpRequest,
+    promise: Promise[Throwable, ClientResponse],
+    reqKey: ReqKey,
+    isWebSocket: Boolean,
+    isSSL: Boolean,
+  ) = for {
+    connection <- idleChannelOpt match {
+      case Some(ch) =>
+        // FIXME: to check if this will never happen. (happened with old approach)
+        //        if (ch != null && !clientData.currentAllocatedChannels.contains(ch.channel)) Task {
+        if (ch != null) Task {
+          //          println(s"IDLE CHANNEL FOUND REUSING ......$ch")
+          (ch.copy(isReuse = true))
+        }
+        else {
+          // FIXME: to be removed after thorough testing.
+          //          println(s"$ch IS NULL building new")
+          buildChannel(reqKey, isWebSocket, isSSL)
+        }
+      case None     => {
+        buildChannel(reqKey, isWebSocket, isSSL)
+      }
+    }
+    _          <- attachHandler(connection, jReq, promise)
+  } yield connection
 
   /**
    * build an underlying connection (channel for a given request key)

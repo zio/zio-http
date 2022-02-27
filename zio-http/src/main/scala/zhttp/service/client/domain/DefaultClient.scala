@@ -21,12 +21,13 @@ case class DefaultClient(
 
   // methods for compatibility with existing client use
   def run(req: ClientRequest): Task[ClientResponse] = for {
-    jReq <- encode(req)
-//    reqKey <- connectionManager.getRequestKey(jReq, req)
-    prom <- zio.Promise.make[Throwable, ClientResponse]
-    _    <- connectionManager.fetchConnection(jReq, req, prom)
-    resp <- prom.await
-    _    <- prom.complete(Task(resp))
+    jReq   <- encode(req)
+    reqKey <- connectionManager.getRequestKey(jReq, req)
+    prom   <- zio.Promise.make[Throwable, ClientResponse]
+    conn   <- connectionManager.fetchConnection(jReq, req, prom)
+    resp   <- prom.await
+    _      <- prom.complete(Task(resp))
+    _      <- connectionManager.connectionData.setConnectionIdle(conn, reqKey)
   } yield resp
 
   // methods for compatibility with existing client use
