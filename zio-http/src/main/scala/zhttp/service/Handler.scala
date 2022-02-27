@@ -1,7 +1,7 @@
 package zhttp.service
 
 import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
+import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.content.handlers.ServerResponseHandler
@@ -16,18 +16,11 @@ private[zhttp] final case class Handler[R](
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
   serverTimeGenerator: ServerTime,
-) extends ChannelInboundHandlerAdapter
+) extends SimpleChannelInboundHandler[HttpObject](false)
     with WebSocketUpgrade[R]
     with ServerResponseHandler[R] { self =>
 
-  override def handlerAdded(ctx: Ctx): Unit = {
-    if (!config.useAggregator) {
-      ctx.channel().config().setAutoRead(false): Unit
-      ctx.read(): Unit
-    }
-  }
-
-  override def channelRead(ctx: Ctx, msg: Any): Unit = {
+  override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
 
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
@@ -59,6 +52,9 @@ private[zhttp] final case class Handler[R](
           },
         )
       case jReq: HttpRequest     =>
+        if (!config.useAggregator && canHaveBody(jReq.method())) {
+          ctx.channel().config().setAutoRead(false): Unit
+        }
         unsafeRun(
           jReq,
           app,
@@ -91,14 +87,17 @@ private[zhttp] final case class Handler[R](
 
       case msg: HttpContent =>
         ctx.fireChannelRead(msg): Unit
-        if (!config.useAggregator && responseSent) {
-          ctx.read(): Unit
-        }
-      case _                =>
+
+      case _ =>
         throw new IllegalStateException(s"Unexpected message type: ${msg.getClass.getName}")
 
     }
 
+  }
+
+  private def canHaveBody(method: HttpMethod): Boolean = method match {
+    case HttpMethod.GET | HttpMethod.HEAD | HttpMethod.OPTIONS | HttpMethod.TRACE => false
+    case _                                                                        => true
   }
 
   /**
