@@ -20,5 +20,6 @@ object Dependencies {
   val `zio-test`     = "dev.zio" %% "zio-test"     % ZioVersion % "test"
   val `zio-test-sbt` = "dev.zio" %% "zio-test-sbt" % ZioVersion % "test"
 
+  val log4s   = "org.log4s"     %% "log4s"           % "1.10.0"
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.10"
 }

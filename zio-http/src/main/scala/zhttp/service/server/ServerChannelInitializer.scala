@@ -11,7 +11,7 @@ import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.logging.LoggingHandler
-import io.netty.util.internal.logging.Slf4JLoggerFactory
+import io.netty.util.internal.logging.JdkLoggerFactory
 import zhttp.service.Server.Config
 import zhttp.service._
 
@@ -73,7 +73,8 @@ final case class ServerChannelInitializer[R](
 
     if (cfg.logLevel != LogLevel.OFF) {
       import io.netty.util.internal.logging.InternalLoggerFactory
-      InternalLoggerFactory.setDefaultFactory(Slf4JLoggerFactory.INSTANCE)
+      InternalLoggerFactory.setDefaultFactory(JdkLoggerFactory.INSTANCE)
+      // InternalLoggerFactory.setDefaultFactory(Log4sLoggerFactory)
       pipeline.addLast(LOW_LEVEL_LOGGING, new LoggingHandler(cfg.logLevel.toNettyLogLevel))
     }
 
