@@ -3,7 +3,8 @@ package zhttp.http
 import zio.duration._
 
 import java.security.MessageDigest
-import java.time.Instant
+import java.time.{Instant, ZoneOffset}
+import java.time.format.DateTimeFormatter
 import java.util.Base64.getEncoder
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -130,7 +131,7 @@ final case class Cookie(
 
     val cookie = List(
       Some(s"$name=$c"),
-      expires.map(e => s"Expires=$e"),
+      expires.map(e => s"Expires=${Cookie.dateTimeFormatter.format(e)}"),
       maxAge.map(a => s"Max-Age=${a.toString}"),
       domain.map(d => s"Domain=$d"),
       path.map(p => s"Path=${p.encode}"),
@@ -173,6 +174,8 @@ object Cookie {
   private val sameSiteLax    = "lax"
   private val sameSiteStrict = "strict"
   private val sameSiteNone   = "none"
+
+  val dateTimeFormatter = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC)
 
   sealed trait SameSite {
     def asString: String
