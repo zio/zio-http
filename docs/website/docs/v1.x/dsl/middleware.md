@@ -3,7 +3,7 @@
 Middlewares are transformations that one can apply on any [`Http`](https://dream11.github.io/zio-http/docs/v1.x/dsl/http) to produce a new one. 
 They can modify requests and responses and also transform them into more concrete domain entities.
 
-Middleware is simply a function that takes one `Http` as a parameter and returns another `Http`, ie, `f(Http) => Http` elaborated below in terms of type parameters "In" and "Out"
+Middleware is simply a function that takes one `Http` as a parameter and returns another `Http`, i.e, `Http => Http` 
 
 ```scala
 type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E, AOut, BOut]
