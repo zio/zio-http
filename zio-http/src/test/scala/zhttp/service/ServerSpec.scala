@@ -23,19 +23,7 @@ object ServerSpec extends HttpRunnableSpec {
   private val env =
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
-  private val staticApp = Http.collectZIO[Request] {
-    case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
-    case Method.GET -> !! / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
-    case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
-  }
-
-  // Use this route to test anything that doesn't require ZIO related computations.
-  private val nonZIO = Http.collectHExit[Request] {
-    case _ -> !! / "HExitSuccess" => HExit.succeed(Response.ok)
-    case _ -> !! / "HExitFailure" => HExit.fail(new RuntimeException("FAILURE"))
-  }
-
-  private val app = serve(nonZIO ++ staticApp ++ DynamicServer.app, Some(Server.requestDecompression(true)))
+  private val app = serve(DynamicServer.app, Some(Server.requestDecompression(true)))
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -139,40 +127,6 @@ object ServerSpec extends HttpRunnableSpec {
             assertM(res.flatMap(_.bodyAsString))(equalTo(content))
           }
       }
-  }
-
-  def nonZIOSpec = suite("NonZIOSpec") {
-    testM("200 response") {
-      checkAllM(HttpGen.method) { method =>
-        val actual = status(method, !! / "HExitSuccess")
-        assertM(actual)(equalTo(Status.OK))
-      }
-    } +
-      testM("500 response") {
-        val methodGenWithoutHEAD: Gen[Any, Method] = Gen.fromIterable(
-          List(
-            Method.OPTIONS,
-            Method.GET,
-            Method.POST,
-            Method.PUT,
-            Method.PATCH,
-            Method.DELETE,
-            Method.TRACE,
-            Method.CONNECT,
-          ),
-        )
-        checkAllM(methodGenWithoutHEAD) { method =>
-          val actual = status(method, !! / "HExitFailure")
-          assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
-        }
-      } +
-      testM("404 response ") {
-        checkAllM(HttpGen.method) { method =>
-          val actual = status(method, !! / "A")
-          assertM(actual)(equalTo(Status.NOT_FOUND))
-        }
-      }
-
   }
 
   def requestSpec = suite("RequestSpec") {
@@ -287,46 +241,13 @@ object ServerSpec extends HttpRunnableSpec {
       }
   }
 
-  def serverStartSpec = suite("ServerStartSpec") {
-    testM("desired port") {
-      val port = 8088
-      (Server.port(port) ++ Server.app(Http.empty)).make.use { start =>
-        assertM(ZIO.effect(start.port))(equalTo(port))
-      }
-    } +
-      testM("available port") {
-        (Server.port(0) ++ Server.app(Http.empty)).make.use { start =>
-          assertM(ZIO.effect(start.port))(not(equalTo(0)))
-        }
-      }
-  }
-
   override def spec =
     suiteM("Server") {
-      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, nonZIOSpec)).useNow
+      app
+        .as(
+          List(dynamicAppSpec, responseSpec, requestSpec),
+        )
+        .useNow
     }.provideCustomLayerShared(env) @@ timeout(30 seconds)
 
-  def staticAppSpec = suite("StaticAppSpec") {
-    testM("200 response") {
-      val actual = status(path = !! / "success")
-      assertM(actual)(equalTo(Status.OK))
-    } +
-      testM("500 response") {
-        val actual = status(path = !! / "failure")
-        assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
-      } +
-      testM("404 response") {
-        val actual = status(path = !! / "random")
-        assertM(actual)(equalTo(Status.NOT_FOUND))
-      } +
-      testM("200 response with encoded path") {
-        val actual = status(path = !! / "get%2Fsuccess")
-        assertM(actual)(equalTo(Status.OK))
-      } +
-      testM("Multiple 200 response") {
-        for {
-          data <- status(path = !! / "success").repeatN(1024)
-        } yield assertTrue(data == Status.OK)
-      }
-  }
 }
