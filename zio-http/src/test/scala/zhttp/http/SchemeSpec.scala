@@ -9,7 +9,7 @@ object SchemeSpec extends DefaultRunnableSpec {
   override def spec = suite("SchemeSpec") {
     testM("string") {
       checkAll(HttpGen.scheme) { scheme =>
-        assertTrue(Scheme.decode(scheme.encode).get == scheme)
+        assertTrue(Scheme.unsafeDecode(scheme.encode) == scheme)
       }
     } +
       testM("java http scheme") {
