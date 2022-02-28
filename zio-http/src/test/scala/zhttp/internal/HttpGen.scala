@@ -11,8 +11,6 @@ import zio.test.{Gen, Sized}
 import zio.{Chunk, ZIO}
 
 import java.io.File
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 
 object HttpGen {
   def clientParamsForFileHttpData(): Gen[Random with Sized, ClientRequest] = {
@@ -49,18 +47,7 @@ object HttpGen {
     maxAge   <- Gen.option(Gen.anyLong)
     sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
     secret   <- Gen.option(Gen.anyString)
-  } yield Cookie(
-    name,
-    content,
-    expires.map(DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC).format),
-    domain,
-    path,
-    secure,
-    httpOnly,
-    maxAge,
-    sameSite,
-    secret,
-  )
+  } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite, secret)
 
   def genAbsoluteLocation: Gen[Random with Sized, Location.Absolute] = for {
     scheme <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS))
