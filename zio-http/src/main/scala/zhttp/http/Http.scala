@@ -4,6 +4,7 @@ import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.ChannelHandler
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
+import zhttp.http.HExit.Effect
 import zhttp.http.headers.HeaderModifier
 import zhttp.service.server.ServerTime
 import zhttp.service.{Handler, HttpRuntime, Server}
@@ -223,7 +224,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Named alias for `++`
    */
   final def defaultWith[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    self.foldHttp(Http.fail, Http.die, Http.succeed, other)
+    Http.Combine(self, other)
 
   /**
    * Delays production of output B for the specified duration of time
@@ -596,6 +597,24 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
         } catch {
           case e: Throwable => HExit.die(e)
         }
+
+      case Combine(self, other) => {
+        self.execute(a) match {
+          case HExit.Effect(zio) => {
+            Effect(
+              zio.foldM(
+                {
+                  case Some(error) => ZIO.fail(Option(error.asInstanceOf[E]))
+                  case None        => other.execute(a).toZIO
+                },
+                b => ZIO.succeed(b.asInstanceOf[B]),
+              ),
+            )
+          }
+          case HExit.Empty       => other.execute(a)
+          case u                 => u.asInstanceOf[HExit[R, E, B]]
+        }
+      }
     }
 }
 
@@ -1052,6 +1071,11 @@ object Http {
   ) extends Http[R, E, A2, B2]
 
   private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
+
+  private final case class Combine[R, E, EE, A, B, BB](
+    self: Http[R, E, A, B],
+    other: Http[R, EE, A, BB],
+  ) extends Http[R, EE, A, BB]
 
   private final case class FromHExit[R, E, B](h: HExit[R, E, B]) extends Http[R, E, Any, B]
 
