@@ -165,7 +165,7 @@ object Server {
     flowControl: Boolean = true,
     channelInitializer: ChannelPipeline => Unit = null,
     requestDecompression: (Boolean, Boolean) = (false, false),
-    logLevel: LogLevel = LogLevel.DEBUG,
+    logLevel: LogLevel = LogLevel.OFF,
   )
 
   /**
