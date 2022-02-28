@@ -8,17 +8,11 @@ import java.util.concurrent.TimeUnit
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class SchemeBenchmark {
-  private val MAX = 1000000
+  private val MAX = 10000000
 
   @Benchmark
-  def benchmarkScheme(): Unit = {
+  def benchmarkSchemeDecode(): Unit = {
     (0 to MAX).foreach(_ => Scheme.unsafeDecode("http"))
-    ()
-  }
-
-  @Benchmark
-  def benchmarkSchemeNotFound(): Unit = {
-    (0 to MAX).foreach(_ => Scheme.unsafeDecode("htttps"))
     ()
   }
 }
