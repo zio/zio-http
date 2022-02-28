@@ -32,6 +32,7 @@ sealed trait Server[-R, +E] { self =>
     case ConsolidateFlush(enabled)             => s.copy(consolidateFlush = enabled)
     case UnsafeChannelPipeline(init)           => s.copy(channelInitializer = init)
     case RequestDecompression(enabled, strict) => s.copy(requestDecompression = (enabled, strict))
+    case LowLevelLogging(logLevel)             => s.copy(logLevel = logLevel)
   }
 
   def make(implicit
@@ -138,6 +139,14 @@ sealed trait Server[-R, +E] { self =>
    */
   def withRequestDecompression(enabled: Boolean, strict: Boolean): Server[R, E] =
     Concat(self, RequestDecompression(enabled, strict))
+
+  /**
+   * Creates a new server with netty's LoggingHandler to log http
+   * requests/responses (@see <a href =
+   * "https://netty.io/4.1/api/io/netty/handler/logging/LoggingHandler.html#LoggingHandler-io.netty.handler.logging.LogLevel-">LoggingHandler</>).
+   */
+  def withLowLevelLogging(logLevel: LogLevel): Server[R, E] =
+    Concat(self, LowLevelLogging(logLevel))
 }
 
 object Server {
@@ -156,6 +165,7 @@ object Server {
     flowControl: Boolean = true,
     channelInitializer: ChannelPipeline => Unit = null,
     requestDecompression: (Boolean, Boolean) = (false, false),
+    logLevel: LogLevel = LogLevel.DEBUG,
   )
 
   /**
@@ -176,6 +186,7 @@ object Server {
   private final case class FlowControl(enabled: Boolean)                              extends UServer
   private final case class UnsafeChannelPipeline(init: ChannelPipeline => Unit)       extends UServer
   private final case class RequestDecompression(enabled: Boolean, strict: Boolean)    extends UServer
+  private final case class LowLevelLogging(logLevel: LogLevel)                        extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
@@ -196,6 +207,7 @@ object Server {
   val paranoidLeakDetection: UServer                             = LeakDetection(LeakDetectionLevel.PARANOID)
   val disableKeepAlive: UServer                                  = Server.KeepAlive(false)
   val consolidateFlush: UServer                                  = ConsolidateFlush(true)
+  val lowLevelLogging: UServer                                   = LowLevelLogging(logLevel = LogLevel.DEBUG)
 
   /**
    * Creates a server from a http app.

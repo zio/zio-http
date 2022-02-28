@@ -19,4 +19,6 @@ object Dependencies {
   val `zio-streams`  = "dev.zio" %% "zio-streams"  % ZioVersion
   val `zio-test`     = "dev.zio" %% "zio-test"     % ZioVersion % "test"
   val `zio-test-sbt` = "dev.zio" %% "zio-test-sbt" % ZioVersion % "test"
+
+  val logback = "ch.qos.logback" % "logback-classic" % "1.2.10"
 }
