@@ -46,11 +46,17 @@ private[zhttp] sealed trait HExit[-R, +E, +A] { self =>
       case HExit.Die(t)      => defect(t)
       case HExit.Effect(zio) =>
         Effect(
-          zio.foldM(
-            {
-              case Some(error) => failure(error).toZIO
-              case None        => empty.toZIO
-            },
+          zio.foldCauseM(
+            cause =>
+              cause.failureOrCause match {
+                case Left(Some(error)) => failure(error).toZIO
+                case Left(None)        => empty.toZIO
+                case Right(other)      =>
+                  other.dieOption match {
+                    case Some(t) => defect(t).toZIO
+                    case None    => ZIO.halt(other)
+                  }
+              },
             a => success(a).toZIO,
           ),
         )
