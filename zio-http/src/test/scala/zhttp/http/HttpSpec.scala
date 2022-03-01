@@ -172,7 +172,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             assert(actual)(isEffect)
           } +
           test("should resolve second effect") {
-            val a      = Http.empty.flatten
+            val a      = Http.empty
             val b      = Http.succeed("B")
             val actual = (a ++ b).execute(2)
             assert(actual)(isSuccess(equalTo("B")))
