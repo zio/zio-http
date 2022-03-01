@@ -235,8 +235,8 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             assert(actual)(isSuccess(equalTo("B")))
           } +
           test("should resolve third") {
-            val a      = Http.empty.flatten
-            val b      = Http.empty.flatten
+            val a      = Http.empty
+            val b      = Http.empty
             val c      = Http.succeed("C")
             val actual = (a ++ b ++ c).execute(3)
             assert(actual)(isSuccess(equalTo("C")))
