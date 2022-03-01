@@ -30,6 +30,18 @@ object StaticServerSpec extends HttpRunnableSpec {
   private val app = serve { nonZIO ++ staticApp }
 
   def nonZIOSpec = suite("NonZIOSpec") {
+    val methodGenWithoutHEAD: Gen[Any, Method] = Gen.fromIterable(
+      List(
+        Method.OPTIONS,
+        Method.GET,
+        Method.POST,
+        Method.PUT,
+        Method.PATCH,
+        Method.DELETE,
+        Method.TRACE,
+        Method.CONNECT,
+      ),
+    )
     testM("200 response") {
       checkAllM(HttpGen.method) { method =>
         val actual = status(method, !! / "HExitSuccess")
@@ -37,25 +49,13 @@ object StaticServerSpec extends HttpRunnableSpec {
       }
     } +
       testM("500 response") {
-        val methodGenWithoutHEAD: Gen[Any, Method] = Gen.fromIterable(
-          List(
-            Method.OPTIONS,
-            Method.GET,
-            Method.POST,
-            Method.PUT,
-            Method.PATCH,
-            Method.DELETE,
-            Method.TRACE,
-            Method.CONNECT,
-          ),
-        )
         checkAllM(methodGenWithoutHEAD) { method =>
           val actual = status(method, !! / "HExitFailure")
           assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
         }
       } +
       testM("404 response ") {
-        checkAllM(HttpGen.method) { method =>
+        checkAllM(methodGenWithoutHEAD) { method =>
           val actual = status(method, !! / "A")
           assertM(actual)(equalTo(Status.NOT_FOUND))
         }
