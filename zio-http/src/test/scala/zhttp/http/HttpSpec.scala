@@ -164,11 +164,40 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             val actual = (a ++ b).execute(2)
             assert(actual)(isSuccess(equalTo("B")))
           } +
+          test("should resolve third") {
+            val a      = Http.collect[Int] { case 1 => "A" }
+            val b      = Http.collect[Int] { case 2 => "B" }
+            val c      = Http.collect[Int] { case 3 => "C" }
+            val actual = (a ++ b ++ c).execute(3)
+            assert(actual)(isSuccess(equalTo("C")))
+          } +
+          test("should resolve third") {
+            val a      = Http.collectZIO[Int] { case 1 => UIO("A") }
+            val b      = Http.collectZIO[Int] { case 2 => UIO("B") }
+            val c      = Http.collectZIO[Int] { case 3 => UIO("C") }
+            val actual = (a ++ b ++ c).execute(3)
+            assert(actual)(isEffect)
+          } +
           test("should not resolve") {
             val a      = Http.collect[Int] { case 1 => "A" }
             val b      = Http.collect[Int] { case 2 => "B" }
-            val actual = (a ++ b).execute(3)
+            val c      = Http.collect[Int] { case 3 => "C" }
+            val actual = (a ++ b ++ c).execute(4)
             assert(actual)(isEmpty)
+          } +
+          test("should not resolve") {
+            val a      = Http.collectZIO[Int] { case 1 => UIO("A") }
+            val b      = Http.collectZIO[Int] { case 2 => UIO("B") }
+            val c      = Http.collectZIO[Int] { case 3 => UIO("C") }
+            val actual = (a ++ b ++ c).execute(4)
+            assert(actual)(isEmpty)
+          } +
+          test("should fail with second") {
+            val a      = Http.collect[Int] { case 1 => "A" }
+            val b      = Http.collectHttp[Int] { case 2 => Http.fail(100) }
+            val c      = Http.collect[Int] { case 3 => "C" }
+            val actual = (a ++ b ++ c).execute(2)
+            assert(actual)(isFailure(equalTo(100)))
           },
       ) +
       suite("asEffect")(
@@ -204,6 +233,13 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             val b      = Http.succeed("B")
             val actual = (a ++ b).execute(2)
             assert(actual)(isSuccess(equalTo("B")))
+          } +
+          test("should resolve third") {
+            val a      = Http.empty.flatten
+            val b      = Http.empty.flatten
+            val c      = Http.succeed("C")
+            val actual = (a ++ b ++ c).execute(3)
+            assert(actual)(isSuccess(equalTo("C")))
           },
       ) +
       suite("route")(
