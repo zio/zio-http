@@ -128,17 +128,17 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * system, to transmit information on a defect for diagnostic or explanatory
    * purposes.
    */
-  final def catchAllDefect[R1 <: R, E1 >: E, A1 <: A, B1 >: B](
-    h: Throwable => Http[R1, E1, A1, B1],
-  ): Http[R1, E1, A1, B1] =
+  final def catchAllDefect[R0 <: R, E0 >: E, A0 <: A, B0 >: B](
+    h: Throwable => Http[R0, E0, A0, B0],
+  ): Http[R0, E0, A0, B0] =
     self.catchSomeDefect { case t => h(t) }
 
   /**
    * Recovers from all NonFatal Throwables.
    */
-  final def catchNonFatalOrDie[R1 <: R, E1 >: E, A1 <: A, B1 >: B](
-    h: E => Http[R1, E1, A1, B1],
-  )(implicit ev1: CanFail[E], ev2: E <:< Throwable): Http[R1, E1, A1, B1] =
+  final def catchNonFatalOrDie[R0 <: R, E0 >: E, A0 <: A, B0 >: B](
+    h: E => Http[R0, E0, A0, B0],
+  )(implicit ev1: CanFail[E], ev2: E <:< Throwable): Http[R0, E0, A0, B0] =
     self.catchSome {
       case e @ NonFatal(_) => h(e)
       case e               => Http.die(e)
