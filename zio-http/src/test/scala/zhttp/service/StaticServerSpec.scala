@@ -55,7 +55,7 @@ object StaticServerSpec extends HttpRunnableSpec {
         }
       } +
       testM("404 response ") {
-        checkAllM(HttpGen.method) { method =>
+        checkAllM(HttpGen.method.filterNot(_ == Method.HEAD)) { method =>
           val actual = status(method, !! / "A")
           assertM(actual)(equalTo(Status.NOT_FOUND))
         }
