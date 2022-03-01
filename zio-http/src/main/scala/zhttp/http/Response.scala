@@ -75,7 +75,7 @@ final case class Response private (
 
     val jHeaders = self.headers.encode
     val jContent = self.data match {
-      case HttpData.Incoming(_)    => throw new IllegalStateException("Cannot encode response with incoming data")
+      case HttpData.Incoming(_)    => null
       case data: HttpData.Outgoing =>
         data match {
           case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
