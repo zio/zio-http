@@ -83,8 +83,7 @@ final case class Response private (
           case HttpData.BinaryByteBuf(data) => data
           case HttpData.BinaryStream(_)     => null
           case HttpData.Empty               => Unpooled.EMPTY_BUFFER
-          case HttpData.RandomAccessFile(_) =>
-            null
+          case HttpData.RandomAccessFile(_) => null
         }
     }
 
