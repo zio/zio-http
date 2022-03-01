@@ -141,30 +141,29 @@ object ServerSpec extends HttpRunnableSpec {
         val stream  = ZStream.fromChunk(Chunk.fromArray(content.getBytes))
         val app     = Http.collectZIO[Request] { case req => req.bodyAsString.map(body => Response.text(body)) }.deploy
 
-        testM("should decompress gzip and compress gzip") {
-          val headers = Headers.contentEncoding(HeaderValues.gzip) ++ Headers.acceptEncoding(HeaderValues.gzip)
-          val result  = roundTrip(app, headers, stream, ZTransducer.gzip(), ZTransducer.gunzip())
-
-          assertM(result)(equalTo(content))
-        } +
-          testM("should decompress deflate and compress deflate") {
-            val headers = Headers.contentEncoding(HeaderValues.deflate) ++ Headers.acceptEncoding(HeaderValues.deflate)
-            val result  = roundTrip(app, headers, stream, ZTransducer.deflate(), ZTransducer.inflate())
-
-            assertM(result)(equalTo(content))
-          } +
-          testM("should decompress gzip and compress deflate") {
-            val headers = Headers.contentEncoding(HeaderValues.gzip) ++ Headers.acceptEncoding(HeaderValues.deflate)
-            val result  = roundTrip(app, headers, stream, ZTransducer.gzip(), ZTransducer.inflate())
-
-            assertM(result)(equalTo(content))
-          } +
-          testM("should decompress deflate and compress gzip") {
-            val headers = Headers.contentEncoding(HeaderValues.deflate) ++ Headers.acceptEncoding(HeaderValues.gzip)
-            val result  = roundTrip(app, headers, stream, ZTransducer.deflate(), ZTransducer.gunzip())
+        testM("should decompress request and compress response") {
+          checkAllM(
+            Gen.fromIterable(
+              List(
+                // Content-Encoding, Compressor, Accept-Encoding, Decompressor
+                (HeaderValues.gzip, ZTransducer.gzip(), HeaderValues.gzip, ZTransducer.gunzip()),
+                (HeaderValues.deflate, ZTransducer.deflate(), HeaderValues.deflate, ZTransducer.inflate()),
+                (HeaderValues.gzip, ZTransducer.gzip(), HeaderValues.deflate, ZTransducer.inflate()),
+                (HeaderValues.deflate, ZTransducer.deflate(), HeaderValues.gzip, ZTransducer.gunzip()),
+              ),
+            ),
+          ) { case (ce, compressor, ae, decompressor) =>
+            val result = roundTrip(
+              app,
+              Headers.acceptEncoding(ae) ++ Headers.contentEncoding(ce),
+              stream,
+              compressor,
+              decompressor,
+            )
 
             assertM(result)(equalTo(content))
           }
+        }
       }
   }
 
