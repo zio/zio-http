@@ -64,7 +64,7 @@ private[zhttp] final case class Handler[R](
             ): Unit
         }
       case jReq: HttpRequest     =>
-        if (!config.useAggregator && canHaveBody(jReq.method())) {
+        if (canHaveBody(jReq)) {
           ctx.channel().config().setAutoRead(false): Unit
         }
         try
@@ -119,7 +119,7 @@ private[zhttp] final case class Handler[R](
 
   }
 
-  private def canHaveBody(method: HttpMethod): Boolean = method match {
+  private def canHaveBody(req: HttpRequest): Boolean = req.method() match {
     case HttpMethod.GET | HttpMethod.HEAD | HttpMethod.OPTIONS | HttpMethod.TRACE => false
     case _                                                                        => true
   }
