@@ -17,7 +17,6 @@ final class RequestBodyHandler(val callback: UnsafeChannel => UnsafeContent => U
 
   override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
     self.onMessage = callback(new UnsafeChannel(ctx))
-    ctx.channel().config().setAutoRead(false)
     ctx.read(): Unit
   }
 }
