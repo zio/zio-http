@@ -137,6 +137,11 @@ sealed trait Server[-R, +E] { self =>
   def withRequestDecompression(enabled: Boolean, strict: Boolean): Server[R, E] =
     Concat(self, RequestDecompression(enabled, strict))
 
+  /**
+   * Creates a new server with netty's HttpContentCompressor to compress Http
+   * responses (@see <a href =
+   * "https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentCompressor.html"HttpContentCompressor</a>).
+   */
   def withResponseCompression(contentSizeThreshold: Int, options: IndexedSeq[CompressionOptions]): Server[R, E] =
     Concat(self, ResponseCompression(contentSizeThreshold, options))
 
