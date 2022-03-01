@@ -16,7 +16,7 @@ import java.io.File
 import java.net
 import java.nio.charset.Charset
 import java.nio.file.Paths
-import scala.annotation.{nowarn, unused}
+import scala.annotation.unused
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
@@ -128,7 +128,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * system, to transmit information on a defect for diagnostic or explanatory
    * purposes.
    */
-  @nowarn
   final def catchAllDefect[R1 <: R, E1 >: E, A1 <: A, B1 >: B](
     h: Throwable => Http[R1, E1, A1, B1],
   ): Http[R1, E1, A1, B1] =
@@ -137,7 +136,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Recovers from all NonFatal Throwables.
    */
-  @nowarn
   final def catchNonFatalOrDie[R1 <: R, E1 >: E, A1 <: A, B1 >: B](
     h: E => Http[R1, E1, A1, B1],
   )(implicit ev1: CanFail[E], ev2: E <:< Throwable): Http[R1, E1, A1, B1] =
