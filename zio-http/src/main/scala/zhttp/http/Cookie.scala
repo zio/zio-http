@@ -131,7 +131,9 @@ final case class Cookie(
 
     val cookie = List(
       Some(s"$name=$c"),
-      expires.map(e => s"Expires=${Cookie.dateTimeFormatter.format(e)}"), // format date to HTTP standard (https://httpwg.org/specs/rfc7231.html#header.date)
+      expires.map(e =>
+        s"Expires=${Cookie.dateTimeFormatter.format(e)}",
+      ), // format date to HTTP standard (https://httpwg.org/specs/rfc7231.html#header.date)
       maxAge.map(a => s"Max-Age=${a.toString}"),
       domain.map(d => s"Domain=$d"),
       path.map(p => s"Path=${p.encode}"),

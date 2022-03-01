@@ -11,6 +11,7 @@ import zio.test.{Gen, Sized}
 import zio.{Chunk, ZIO}
 
 import java.io.File
+import java.time.Instant
 
 object HttpGen {
   def clientParamsForFileHttpData(): Gen[Random with Sized, ClientRequest] = {
@@ -39,7 +40,7 @@ object HttpGen {
   def cookies: Gen[Random with Sized, Cookie] = for {
     name     <- Gen.anyString
     content  <- Gen.anyString
-    expires  <- Gen.option(Gen.anyInstant)
+    expires  <- Gen.option(Gen.instant(Instant.parse("0000-01-01T00:00:00.00Z"), Instant.parse("9999-12-31T23:59:00.00Z")))
     domain   <- Gen.option(Gen.anyString)
     path     <- Gen.option(path)
     secure   <- Gen.boolean
