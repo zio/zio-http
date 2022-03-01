@@ -172,8 +172,8 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             assert(actual)(isSuccess(equalTo("C")))
           } +
           test("should resolve third") {
-            val a      = Http.collectZIO[Int] { case 1 => UIO("A") }
-            val b      = Http.collectZIO[Int] { case 2 => UIO("B") }
+            val a      = Http.collect[Int] { case 1 => "A" }
+            val b      = Http.collect[Int] { case 2 => "B" }
             val c      = Http.collectZIO[Int] { case 3 => UIO("C") }
             val actual = (a ++ b ++ c).execute(3)
             assert(actual)(isEffect)
