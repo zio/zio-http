@@ -27,32 +27,30 @@ private[zhttp] final case class Handler[R](
       case jReq: FullHttpRequest =>
         jReq.touch("server.Handler-channelRead0")
         try
-          (
-            unsafeRun(
-              jReq,
-              app,
-              new Request {
-                override def method: Method = Method.fromHttpMethod(jReq.method())
+          unsafeRun(
+            jReq,
+            app,
+            new Request {
+              override def method: Method = Method.fromHttpMethod(jReq.method())
 
-                override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
+              override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
 
-                override def headers: Headers = Headers.make(jReq.headers())
+              override def headers: Headers = Headers.make(jReq.headers())
 
-                override def remoteAddress: Option[InetAddress] = {
-                  ctx.channel().remoteAddress() match {
-                    case m: InetSocketAddress => Some(m.getAddress)
-                    case _                    => None
-                  }
+              override def remoteAddress: Option[InetAddress] = {
+                ctx.channel().remoteAddress() match {
+                  case m: InetSocketAddress => Some(m.getAddress)
+                  case _                    => None
                 }
+              }
 
-                override def data: HttpData = HttpData.fromByteBuf(jReq.content())
+              override def data: HttpData = HttpData.fromByteBuf(jReq.content())
 
-                /**
-                 * Gets the HttpRequest
-                 */
-                override def unsafeEncode = jReq
-              },
-            ),
+              /**
+               * Gets the HttpRequest
+               */
+              override def unsafeEncode = jReq
+            },
           )
         catch {
           case throwable: Throwable =>
@@ -68,36 +66,34 @@ private[zhttp] final case class Handler[R](
           ctx.channel().config().setAutoRead(false): Unit
         }
         try
-          (
-            unsafeRun(
-              jReq,
-              app,
-              new Request {
-                override def data: HttpData = HttpData.Incoming(callback =>
-                  ctx
-                    .pipeline()
-                    .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback)): Unit,
-                )
+          unsafeRun(
+            jReq,
+            app,
+            new Request {
+              override def data: HttpData = HttpData.Incoming(callback =>
+                ctx
+                  .pipeline()
+                  .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback)): Unit,
+              )
 
-                override def headers: Headers = Headers.make(jReq.headers())
+              override def headers: Headers = Headers.make(jReq.headers())
 
-                override def method: Method = Method.fromHttpMethod(jReq.method())
+              override def method: Method = Method.fromHttpMethod(jReq.method())
 
-                override def remoteAddress: Option[InetAddress] = {
-                  ctx.channel().remoteAddress() match {
-                    case m: InetSocketAddress => Some(m.getAddress)
-                    case _                    => None
-                  }
+              override def remoteAddress: Option[InetAddress] = {
+                ctx.channel().remoteAddress() match {
+                  case m: InetSocketAddress => Some(m.getAddress)
+                  case _                    => None
                 }
+              }
 
-                override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
+              override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
 
-                /**
-                 * Gets the HttpRequest
-                 */
-                override def unsafeEncode = jReq
-              },
-            ),
+              /**
+               * Gets the HttpRequest
+               */
+              override def unsafeEncode = jReq
+            },
           )
         catch {
           case throwable: Throwable =>
