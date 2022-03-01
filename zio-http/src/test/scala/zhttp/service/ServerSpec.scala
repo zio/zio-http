@@ -23,7 +23,9 @@ object ServerSpec extends HttpRunnableSpec {
   private val env =
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
-  private val app = serve(DynamicServer.app, Some(Server.requestDecompression(true)))
+  private val app                 =
+    serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(4096)))
+  private val appWithReqStreaming = serve(DynamicServer.app, None)
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -146,7 +148,7 @@ object ServerSpec extends HttpRunnableSpec {
       }
   }
 
-  def responseSpec = suite("ResponseSpec") {
+  def responseSpec    = suite("ResponseSpec") {
     testM("data") {
       checkAllM(nonEmptyContent) { case (string, data) =>
         val res = Http.fromData(data).deploy.bodyAsString.run()
@@ -240,14 +242,40 @@ object ServerSpec extends HttpRunnableSpec {
           }
       }
   }
+  def requestBodySpec = suite("RequestBodySpec") {
+    testM("POST Request stream") {
+      val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
+        Response(data = HttpData.fromStream(req.bodyAsStream))
+      }
+      checkAllM(Gen.alphaNumericString) { c =>
+        assertM(app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = HttpData.fromString(c)))(
+          equalTo(c),
+        )
+      }
+    }
+  }
+
+  def serverErrorSpec = suite("ServerErrorSpec") {
+    val app = Http.fail(new Error("SERVER_ERROR"))
+    testM("status is 500") {
+      val res = app.deploy.status.run()
+      assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+    } +
+      testM("content is set") {
+        val res = app.deploy.bodyAsString.run()
+        assertM(res)(containsString("SERVER_ERROR"))
+      } +
+      testM("header is set") {
+        val res = app.deploy.headers.run().map(_.headerValue("Content-Length"))
+        assertM(res)(isSome(anything))
+      }
+  }
 
   override def spec =
-    suiteM("Server") {
-      app
-        .as(
-          List(dynamicAppSpec, responseSpec, requestSpec),
-        )
-        .useNow
-    }.provideCustomLayerShared(env) @@ timeout(30 seconds)
+    suite("Server") {
+      val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
+      suiteM("app without request streaming") { app.as(List(spec)).useNow } +
+        suiteM("app with request streaming") { appWithReqStreaming.as(List(spec)).useNow }
+    }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ sequential
 
 }

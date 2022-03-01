@@ -75,12 +75,16 @@ final case class Response private (
 
     val jHeaders = self.headers.encode
     val jContent = self.data match {
-      case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
-      case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
-      case HttpData.BinaryByteBuf(data) => data
-      case HttpData.BinaryStream(_)     => null
-      case HttpData.Empty               => Unpooled.EMPTY_BUFFER
-      case HttpData.RandomAccessFile(_) => null
+      case HttpData.Incoming(_)    => null
+      case data: HttpData.Outgoing =>
+        data match {
+          case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
+          case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
+          case HttpData.BinaryByteBuf(data) => data
+          case HttpData.BinaryStream(_)     => null
+          case HttpData.Empty               => Unpooled.EMPTY_BUFFER
+          case HttpData.RandomAccessFile(_) => null
+        }
     }
 
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
