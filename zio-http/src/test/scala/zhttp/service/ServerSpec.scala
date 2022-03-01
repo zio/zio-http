@@ -137,15 +137,15 @@ object ServerSpec extends HttpRunnableSpec {
           body       <- response.body.flatMap(c => ZStream.fromChunk(c).transduce(decompressor).runCollect)
         } yield new String(body.toArray, StandardCharsets.UTF_8)
 
-        val content = "some-text"
-        val stream  = ZStream.fromChunk(Chunk.fromArray(content.getBytes))
-        val app     = Http.collectZIO[Request] { case req => req.bodyAsString.map(body => Response.text(body)) }.deploy
-
         testM("should decompress request and compress response") {
+          val content = "some-text"
+          val stream  = ZStream.fromChunk(Chunk.fromArray(content.getBytes))
+          val app = Http.collectZIO[Request] { case req => req.bodyAsString.map(body => Response.text(body)) }.deploy
+
           checkAllM(
             Gen.fromIterable(
               List(
-                // Content-Encoding, Compressor, Accept-Encoding, Decompressor
+                // Content-Encoding, Client Request Compressor, Accept-Encoding, Client Response Decompressor
                 (HeaderValues.gzip, ZTransducer.gzip(), HeaderValues.gzip, ZTransducer.gunzip()),
                 (HeaderValues.deflate, ZTransducer.deflate(), HeaderValues.deflate, ZTransducer.inflate()),
                 (HeaderValues.gzip, ZTransducer.gzip(), HeaderValues.deflate, ZTransducer.inflate()),

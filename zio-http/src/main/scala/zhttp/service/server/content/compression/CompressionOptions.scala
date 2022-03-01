@@ -1,9 +1,9 @@
 package zhttp.service.server.content.compression
 
 import io.netty.handler.codec.compression.{CompressionOptions => JCompressionOptions, StandardCompressionOptions}
-import zhttp.service.server.content.compression.CompressionOptions.Kind
+import zhttp.service.server.content.compression.CompressionOptions.CompressionType
 
-final case class CompressionOptions(level: Int, bits: Int, mem: Int, kind: Kind) { self =>
+final case class CompressionOptions(level: Int, bits: Int, mem: Int, kind: CompressionType) { self =>
   def toJava: JCompressionOptions = self.kind match {
     case CompressionOptions.GZip    => StandardCompressionOptions.gzip(self.level, self.bits, self.mem)
     case CompressionOptions.Deflate => StandardCompressionOptions.deflate(self.level, self.bits, self.mem)
@@ -12,9 +12,9 @@ final case class CompressionOptions(level: Int, bits: Int, mem: Int, kind: Kind)
 }
 
 object CompressionOptions {
-  sealed trait Kind
-  private case object GZip    extends Kind
-  private case object Deflate extends Kind
+  sealed trait CompressionType
+  private case object GZip    extends CompressionType
+  private case object Deflate extends CompressionType
 
   /**
    * Creates GZip CompressionOptions. Defines defaults as per
