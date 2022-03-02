@@ -11,6 +11,15 @@ sealed trait LogLevel { self =>
     case LogLevel.ERROR => io.netty.handler.logging.LogLevel.ERROR
   }
 
+  def toZhttpLogging: zhttp.logging.LogLevel = self match {
+    case LogLevel.OFF   => zhttp.logging.LogLevel.OFF
+    case LogLevel.TRACE => zhttp.logging.LogLevel.TRACE
+    case LogLevel.DEBUG => zhttp.logging.LogLevel.DEBUG
+    case LogLevel.INFO  => zhttp.logging.LogLevel.INFO
+    case LogLevel.WARN  => zhttp.logging.LogLevel.WARN
+    case LogLevel.ERROR => zhttp.logging.LogLevel.ERROR
+  }
+
 }
 
 object LogLevel {

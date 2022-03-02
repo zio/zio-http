@@ -1,8 +1,11 @@
 package zhttp.service.logging
-import io.netty.util.internal.logging.AbstractInternalLogger
 
-final case class Log4sLogger(override val name: String) extends AbstractInternalLogger(name) {
-  private val log = org.log4s.getLogger(name)
+import io.netty.util.internal.logging.AbstractInternalLogger
+import zhttp.logging.LogLevel
+import zhttp.logging.Logger.getLogger
+
+final case class Log4sLogger(override val name: String, logLevel: LogLevel) extends AbstractInternalLogger(name) {
+  private val log = getLogger(name, logLevel)
 
   override def isTraceEnabled: Boolean                           = log.isTraceEnabled
   override def trace(msg: String): Unit                          = log.trace(msg)
