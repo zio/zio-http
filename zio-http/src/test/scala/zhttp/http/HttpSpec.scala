@@ -194,9 +194,9 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           } +
           test("should fail with second") {
             val a      = Http.collect[Int] { case 1 => "A" }
-            val b      = Http.collectHttp[Int] { case 2 => Http.fail(100) }
+            val b      = Http.fail(100)
             val c      = Http.collect[Int] { case 3 => "C" }
-            val actual = (a ++ b ++ c).execute(2)
+            val actual = (a ++ b ++ c).execute(3)
             assert(actual)(isFailure(equalTo(100)))
           },
       ) +
