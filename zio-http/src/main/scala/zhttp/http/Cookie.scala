@@ -177,7 +177,7 @@ object Cookie {
   private val sameSiteStrict = "strict"
   private val sameSiteNone   = "none"
 
-  val dateTimeFormatter = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC)
+  val dateTimeFormatter: DateTimeFormatter = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC)
 
   sealed trait SameSite {
     def asString: String
@@ -238,7 +238,7 @@ object Cookie {
           domain = headerValue.substring(curr + 7, next)
         } else if (headerValue.regionMatches(true, curr, fieldPath, 0, fieldPath.length)) {
           val v = headerValue.substring(curr + 5, next)
-          if (!v.isEmpty) {
+          if (v.nonEmpty) {
             path = Path(v)
           }
         } else if (headerValue.regionMatches(true, curr, fieldSecure, 0, fieldSecure.length)) {
@@ -259,7 +259,7 @@ object Cookie {
       }
     }
     val decodedCookie =
-      if ((name != null && !name.isEmpty) || (content != null && !content.isEmpty))
+      if ((name != null && name.nonEmpty) || (content != null && content.nonEmpty))
         Cookie(
           name = name,
           content = content,
