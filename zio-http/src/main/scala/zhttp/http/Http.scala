@@ -553,7 +553,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * performance improves quite significantly if no additional heap allocations
    * are required this way.
    */
-  final private[zhttp] def execute(a: A): HExit[R, E, B] = try {
+  final private[zhttp] def execute(a: A): HExit[R, E, B] =
     self match {
 
       case Http.Empty                     => HExit.empty
@@ -564,7 +564,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
       case Attempt(a)                     =>
         try { HExit.succeed(a()) }
         catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
-      case FromFunctionHExit(f)           => f(a)
+      case FromFunctionHExit(f)           => try { f(a) } catch { case e: Throwable => HExit.die(e) }
       case FromHExit(h)                   => h
       case Chain(self, other)             => self.execute(a).flatMap(b => other.execute(b))
       case Race(self, other)              =>
@@ -575,13 +575,26 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
           case (self, _)                                 => self
         }
       case FoldHttp(self, ee, df, bb, dd) =>
-        self.execute(a).foldExit(ee(_).execute(a), df(_).execute(a), bb(_).execute(a), dd.execute(a))
+        try {
+          self.execute(a).foldExit(ee(_).execute(a), df(_).execute(a), bb(_).execute(a), dd.execute(a))
+        } catch {
+          case e: Throwable => HExit.die(e)
+        }
 
-      case RunMiddleware(app, mid) => mid(app).execute(a)
+      case RunMiddleware(app, mid) =>
+        try {
+          mid(app).execute(a)
+        } catch {
+          case e: Throwable => HExit.die(e)
+        }
 
-      case When(f, other) => if (f(a)) other.execute(a) else HExit.empty
+      case When(f, other) =>
+        try {
+          if (f(a)) other.execute(a) else HExit.empty
+        } catch {
+          case e: Throwable => HExit.die(e)
+        }
     }
-  } catch { case e: Throwable => HExit.die(e) }
 }
 
 object Http {
