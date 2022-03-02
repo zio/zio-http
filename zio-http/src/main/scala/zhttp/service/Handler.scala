@@ -1,7 +1,7 @@
 package zhttp.service
 
 import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter}
+import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.content.handlers.ServerResponseHandler
@@ -16,93 +16,111 @@ private[zhttp] final case class Handler[R](
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
   serverTimeGenerator: ServerTime,
-) extends ChannelInboundHandlerAdapter
+) extends SimpleChannelInboundHandler[HttpObject](false)
     with WebSocketUpgrade[R]
     with ServerResponseHandler[R] { self =>
 
-  override def handlerAdded(ctx: Ctx): Unit = {
-    if (!config.useAggregator) {
-      ctx.channel().config().setAutoRead(false): Unit
-      ctx.read(): Unit
-    }
-  }
-
-  override def channelRead(ctx: Ctx, msg: Any): Unit = {
+  override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
 
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
       case jReq: FullHttpRequest =>
         jReq.touch("server.Handler-channelRead0")
-        unsafeRun(
-          jReq,
-          app,
-          new Request {
-            override def method: Method = Method.fromHttpMethod(jReq.method())
+        try
+          unsafeRun(
+            jReq,
+            app,
+            new Request {
+              override def method: Method = Method.fromHttpMethod(jReq.method())
 
-            override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
+              override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
 
-            override def headers: Headers = Headers.make(jReq.headers())
+              override def headers: Headers = Headers.make(jReq.headers())
 
-            override def remoteAddress: Option[InetAddress] = {
-              ctx.channel().remoteAddress() match {
-                case m: InetSocketAddress => Some(m.getAddress)
-                case _                    => None
+              override def remoteAddress: Option[InetAddress] = {
+                ctx.channel().remoteAddress() match {
+                  case m: InetSocketAddress => Some(m.getAddress)
+                  case _                    => None
+                }
               }
-            }
 
-            override def data: HttpData = HttpData.fromByteBuf(jReq.content())
+              override def data: HttpData   = HttpData.fromByteBuf(jReq.content())
+              override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
 
-            /**
-             * Gets the HttpRequest
-             */
-            override private[zhttp] def unsafeEncode = jReq
+              /**
+               * Gets the HttpRequest
+               */
+              override def unsafeEncode = jReq
 
-            override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
-          },
-        )
+            },
+          )
+        catch {
+          case throwable: Throwable =>
+            writeResponse(
+              Response
+                .fromHttpError(HttpError.InternalServerError(cause = Some(throwable)))
+                .withConnection(HeaderValues.close),
+              jReq,
+            ): Unit
+        }
       case jReq: HttpRequest     =>
-        unsafeRun(
-          jReq,
-          app,
-          new Request {
-            override def data: HttpData = HttpData.Incoming(callback =>
-              ctx
-                .pipeline()
-                .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback)): Unit,
-            )
+        if (canHaveBody(jReq)) {
+          ctx.channel().config().setAutoRead(false): Unit
+        }
+        try
+          unsafeRun(
+            jReq,
+            app,
+            new Request {
+              override def data: HttpData = HttpData.Incoming(callback =>
+                ctx
+                  .pipeline()
+                  .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback)): Unit,
+              )
 
-            override def headers: Headers = Headers.make(jReq.headers())
+              override def headers: Headers = Headers.make(jReq.headers())
 
-            override def method: Method = Method.fromHttpMethod(jReq.method())
+              override def method: Method = Method.fromHttpMethod(jReq.method())
 
-            override def remoteAddress: Option[InetAddress] = {
-              ctx.channel().remoteAddress() match {
-                case m: InetSocketAddress => Some(m.getAddress)
-                case _                    => None
+              override def remoteAddress: Option[InetAddress] = {
+                ctx.channel().remoteAddress() match {
+                  case m: InetSocketAddress => Some(m.getAddress)
+                  case _                    => None
+                }
               }
-            }
 
-            override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
+              override def url: URL         = URL.fromString(jReq.uri()).getOrElse(null)
+              override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
 
-            /**
-             * Gets the HttpRequest
-             */
-            override private[zhttp] def unsafeEncode = jReq
-
-            override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
-          },
-        )
-      case msg: LastHttpContent  =>
-        ctx.fireChannelRead(msg)
-        if (!config.useAggregator) ctx.read(): Unit // Read the next request
+              /**
+               * Gets the HttpRequest
+               */
+              override def unsafeEncode = jReq
+            },
+          )
+        catch {
+          case throwable: Throwable =>
+            writeResponse(
+              Response
+                .fromHttpError(HttpError.InternalServerError(cause = Some(throwable)))
+                .withConnection(HeaderValues.close),
+              jReq,
+            ): Unit
+        }
 
       case msg: HttpContent =>
         ctx.fireChannelRead(msg): Unit
-      case _                =>
+
+      case _ =>
         throw new IllegalStateException(s"Unexpected message type: ${msg.getClass.getName}")
 
     }
 
+  }
+
+  private def canHaveBody(req: HttpRequest): Boolean = req.method() match {
+    case HttpMethod.GET | HttpMethod.HEAD | HttpMethod.OPTIONS | HttpMethod.TRACE => false
+    case _                                                                        => true
   }
 
   /**

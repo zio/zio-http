@@ -4,6 +4,13 @@ import io.netty.handler.codec.http.HttpResponseStatus
 
 sealed trait Status extends Product with Serializable { self =>
 
+  def isInformational: Boolean = code >= 100 && code < 200
+  def isSuccess: Boolean       = code >= 200 && code < 300
+  def isRedirection: Boolean   = code >= 300 && code < 400
+  def isClientError: Boolean   = code >= 400 && code < 500
+  def isServerError: Boolean   = code >= 500 && code < 600
+  def isError: Boolean         = isClientError | isServerError
+
   /**
    * Returns self as io.netty.handler.codec.http.HttpResponseStatus.
    */

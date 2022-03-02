@@ -1,3 +1,6 @@
+---
+sidebar_position: "4"
+---
 # Response
 
 **ZIO HTTP** `Response` is designed to encode HTTP Response.
