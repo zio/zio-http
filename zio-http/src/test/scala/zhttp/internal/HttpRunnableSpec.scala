@@ -1,6 +1,5 @@
 package zhttp.internal
 
-import io.netty.handler.codec.http.HttpVersion
 import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.DynamicServer.HttpEnv
@@ -30,16 +29,16 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     def run(
       path: Path = !!,
       method: Method = Method.GET,
-      content: String = "",
+      content: HttpData = HttpData.empty,
       headers: Headers = Headers.empty,
-      version: HttpVersion = HttpVersion.HTTP_1_1,
+      version: Version = Version.Http_1_1,
     ): ZIO[R, Throwable, A] =
       app(
         Client.ClientRequest(
           url = URL(path), // url set here is overridden later via `deploy` method
           method = method,
           headers = headers,
-          data = HttpData.fromString(content),
+          data = content,
           version = version,
         ),
       ).catchAll {
@@ -86,10 +85,13 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
 
   def serve[R <: Has[_]](
     app: HttpApp[R, Throwable],
+    server: Option[Server[R, Throwable]] = None,
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
     for {
-      start <- Server.make(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection).orDie
-      _     <- DynamicServer.setStart(start).toManaged_
+      settings <- ZManaged
+        .succeed(server.foldLeft(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection)(_ ++ _))
+      start    <- Server.make(settings).orDie
+      _        <- DynamicServer.setStart(start).toManaged_
     } yield ()
 
   def status(

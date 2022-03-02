@@ -21,5 +21,5 @@ object Endpoints extends App {
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8091, (h3 ++ h2 ++ h1).silent).exitCode
+    Server.start(8091, (h3 ++ h2 ++ h1)).exitCode
 }

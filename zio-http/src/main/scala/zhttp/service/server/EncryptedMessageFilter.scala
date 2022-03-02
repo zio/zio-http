@@ -10,8 +10,7 @@ import zhttp.service._
 
 import java.util
 
-case class EncryptedMessageFilter(reqHandler: ChannelHandler, resHandler: ChannelHandler, cfg: Config[_, Throwable])
-    extends ByteToMessageDecoder {
+case class EncryptedMessageFilter(reqHandler: ChannelHandler, cfg: Config[_, Throwable]) extends ByteToMessageDecoder {
   override def decode(context: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
     if (SslHandler.isEncrypted(in)) {
       context.channel().pipeline().remove(SERVER_CLEAR_TEXT_HTTP2_HANDLER)
@@ -20,9 +19,8 @@ case class EncryptedMessageFilter(reqHandler: ChannelHandler, resHandler: Channe
         .channel()
         .pipeline()
         .addLast(HTTP_KEEPALIVE_HANDLER, new JHttpServerKeepAliveHandler)
-        .addLast(SERVER_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
+        .addLast(SERVER_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.objectAggregator))
         .addLast(HTTP_SERVER_REQUEST_HANDLER, reqHandler)
-        .addLast(HTTP_SERVER_RESPONSE_HANDLER, resHandler)
         .remove(this)
       ()
     } else {

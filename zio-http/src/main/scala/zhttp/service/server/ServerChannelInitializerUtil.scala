@@ -32,7 +32,6 @@ case object ServerChannelInitializerUtil {
 
   def configureClearTextHttp2(
     reqHandler: ChannelHandler,
-    resHandler: ChannelHandler,
     http2ReqHandler: ChannelHandler,
     http2ResHandler: ChannelHandler,
     c: Channel,
@@ -42,7 +41,7 @@ case object ServerChannelInitializerUtil {
     val p           = c.pipeline
     val sourceCodec = new HttpServerCodec
     if (enableEncryptedMessageFilter)
-      p.addLast(ENCRYPTION_FILTER_HANDLER, EncryptedMessageFilter(reqHandler, resHandler, cfg))
+      p.addLast(ENCRYPTION_FILTER_HANDLER, EncryptedMessageFilter(reqHandler, cfg))
     p.addLast(SERVER_CODEC_HANDLER, sourceCodec)
     p.addLast(
       SERVER_CLEAR_TEXT_HTTP2_HANDLER,
@@ -50,31 +49,35 @@ case object ServerChannelInitializerUtil {
     )
     p.addLast(
       SERVER_CLEAR_TEXT_HTTP2_FALLBACK_HANDLER,
-      ClearTextHttp2FallbackServerHandler(reqHandler, resHandler, cfg),
+      ClearTextHttp2FallbackServerHandler(reqHandler, cfg),
     )
     ()
   }
 
-  def configureClearTextHttp1(
-    cfg: Config[_, Throwable],
+  def configureClearTextHttp1[R](
+    cfg: Config[R, Throwable],
     reqHandler: ChannelHandler,
-    respHandler: ChannelHandler,
     pipeline: ChannelPipeline,
   ) = {
 
     // ServerCodec
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
     pipeline.addLast(
-      SERVER_DECODER_HANDLER,
+      "decoder",
       new HttpRequestDecoder(DEFAULT_MAX_INITIAL_LINE_LENGTH, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_CHUNK_SIZE, false),
     )
-    pipeline.addLast(SERVER_ENCODER_HANDLER, new HttpResponseEncoder())
+    pipeline.addLast("encoder", new HttpResponseEncoder())
+
+    // HttpContentDecompressor
+    if (cfg.requestDecompression._1)
+      pipeline.addLast(HTTP_REQUEST_DECOMPRESSION, new HttpContentDecompressor(cfg.requestDecompression._2))
 
     // TODO: See if server codec is really required
 
     // ObjectAggregator
     // Always add ObjectAggregator
-    pipeline.addLast(SERVER_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
+    if (cfg.useAggregator)
+      pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.objectAggregator))
 
     // ExpectContinueHandler
     // Add expect continue handler is settings is true
@@ -95,10 +98,9 @@ case object ServerChannelInitializerUtil {
 
     // RequestHandler
     // Always add ZIO Http Request Handler
-    pipeline.addLast(HTTP_SERVER_REQUEST_HANDLER, reqHandler)
-
-    // ServerResponseHandler - transforms Response to HttpResponse
-    pipeline.addLast(HTTP_SERVER_RESPONSE_HANDLER, respHandler)
+    pipeline.addLast(HTTP_REQUEST_HANDLER, reqHandler)
+    if (cfg.channelInitializer != null) { cfg.channelInitializer(pipeline) }
+    ()
 
   }
 }

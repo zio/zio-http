@@ -7,7 +7,6 @@ import zhttp.service._
 import zhttp.service.server.ServerChannelInitializerUtil.configureClearTextHttp1
 final case class Http2OrHttpServerHandler(
   reqHandler: ChannelHandler,
-  respHandler: ChannelHandler,
   http2ReqHandler: ChannelHandler,
   http2ResHandler: ChannelHandler,
   cfg: Config[_, Throwable],
@@ -21,7 +20,7 @@ final case class Http2OrHttpServerHandler(
         .addLast(HTTP2_SERVER_RESPONSE_HANDLER, http2ResHandler)
       ()
     } else if (ApplicationProtocolNames.HTTP_1_1 == protocol) {
-      configureClearTextHttp1(cfg, reqHandler, respHandler, ctx.pipeline())
+      configureClearTextHttp1(cfg, reqHandler, ctx.pipeline())
       ()
     } else
       throw new IllegalStateException("unknown protocol: " + protocol)

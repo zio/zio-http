@@ -20,12 +20,12 @@ object FileStreaming extends App {
 
     // Uses netty's capability to write file content to the Channel
     // Content-type response headers are automatically identified and added
-    // Does not use Chunked transfer encoding
+    // Adds content-length header and does not use Chunked transfer encoding
     case Method.GET -> !! / "video" => Http.fromFile(new File("src/main/resources/TestVideoFile.mp4"))
     case Method.GET -> !! / "text"  => Http.fromFile(new File("src/main/resources/TestFile.txt"))
   }
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app.silent).exitCode
+    Server.start(8090, app).exitCode
 }

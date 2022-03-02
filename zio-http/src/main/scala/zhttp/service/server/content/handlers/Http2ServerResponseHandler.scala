@@ -11,13 +11,13 @@ import io.netty.handler.codec.http2.{
 }
 import zhttp.http.{HTTP_CHARSET, HttpData, Response, Status}
 import zhttp.service.Server.Config
-import zhttp.service.server.ServerTimeGenerator
+import zhttp.service.server.ServerTime
 import zhttp.service.{ChannelFuture, HttpRuntime}
 
 private[zhttp] case class Http2ServerResponseHandler[R](
   runtime: HttpRuntime[R],
   config: Config[R, Throwable],
-  serverTime: ServerTimeGenerator,
+  serverTimeGenerator: ServerTime,
 ) extends SimpleChannelInboundHandler[(Response, Http2FrameStream)] {
   override def channelRead0(ctx: ChannelHandlerContext, msg: (Response, Http2FrameStream)): Unit = {
     val res    = msg._1
@@ -44,14 +44,15 @@ private[zhttp] case class Http2ServerResponseHandler[R](
       case HttpData.BinaryChunk(data)   => data.length
       case HttpData.BinaryByteBuf(data) => data.toString(HTTP_CHARSET).length
       case HttpData.BinaryStream(_)     => -1
-      case HttpData.File(_)             => -1
+      case HttpData.RandomAccessFile(_) => -1
+      case _                            => -1
       // TODO: file!
     }
     if (length >= 0) headers.setInt(HttpHeaderNames.CONTENT_LENGTH, length)
-    if (res.attribute.serverTime) headers.set(HttpHeaderNames.DATE, serverTime.refreshAndGet())
+    if (res.attribute.serverTime) headers.set(HttpHeaderNames.DATE, serverTimeGenerator.refreshAndGet())
     if (res.data.isChunked) headers.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
     res.data match {
-      case HttpData.File(_) =>
+      case HttpData.RandomAccessFile(_) =>
         ctx.write(
           new DefaultHttp2HeadersFrame(
             new DefaultHttp2Headers().status(Status.UNSUPPORTED_MEDIA_TYPE.asJava.codeAsText()),
@@ -62,7 +63,7 @@ private[zhttp] case class Http2ServerResponseHandler[R](
             .stream(stream),
         )
         ()
-      case _                =>
+      case _                            =>
         ctx.write(
           new DefaultHttp2HeadersFrame(headers).stream(stream),
           ctx.channel().voidPromise(),
@@ -107,8 +108,11 @@ private[zhttp] case class Http2ServerResponseHandler[R](
             _ <- ChannelFuture.unit(ctx.writeAndFlush(new DefaultHttp2DataFrame(true).stream(stream)))
           } yield ()
         }
-      case HttpData.File(_)             =>
+      case HttpData.RandomAccessFile(_) =>
         ctx.write(new DefaultHttp2DataFrame(true).stream(stream))
+        ()
+      case _                            =>
+        ctx.writeAndFlush(new DefaultHttp2DataFrame(true).stream(stream))
         ()
     }
   }

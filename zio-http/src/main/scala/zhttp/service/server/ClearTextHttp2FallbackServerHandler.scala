@@ -14,16 +14,16 @@ import zhttp.service._
 
 final case class ClearTextHttp2FallbackServerHandler(
   reqHandler: ChannelHandler,
-  resHandler: ChannelHandler,
   cfg: Config[_, Throwable],
 ) extends SimpleChannelInboundHandler[HttpMessage]() {
   @throws[Exception]
   override protected def channelRead0(ctx: ChannelHandlerContext, msg: HttpMessage): Unit = {
     // If this handler is hit then no upgrade has been attempted and the client is just talking HTTP.
     val pipeline = ctx.pipeline
-    val thisCtx  = pipeline.context(this)
-    pipeline
-      .addAfter(thisCtx.name(), SERVER_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
+    // ObjectAggregator
+    // Always add ObjectAggregator
+    if (cfg.useAggregator)
+      pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.objectAggregator))
 
     // ExpectContinueHandler
     // Add expect continue handler is settings is true
@@ -45,9 +45,6 @@ final case class ClearTextHttp2FallbackServerHandler(
     // RequestHandler
     // Always add ZIO Http Request Handler
     pipeline.addLast(HTTP_SERVER_REQUEST_HANDLER, reqHandler)
-
-    // ServerResponseHandler - transforms Response to HttpResponse
-    pipeline.addLast(HTTP_SERVER_RESPONSE_HANDLER, resHandler)
     ctx.fireChannelRead(msg)
     ()
   }

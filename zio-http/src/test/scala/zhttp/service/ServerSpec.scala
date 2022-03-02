@@ -4,14 +4,13 @@ import zhttp.html._
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
-import zio.ZIO
 import zio.duration.durationInt
-import zio.stream.ZStream
+import zio.stream.{ZStream, ZTransducer}
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
+import zio.{Chunk, ZIO}
 
-import java.io.File
 import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec {
@@ -24,19 +23,9 @@ object ServerSpec extends HttpRunnableSpec {
   private val env =
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
-  private val staticApp = Http.collectZIO[Request] {
-    case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
-    case Method.GET -> !! / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
-    case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
-  }
-
-  // Use this route to test anything that doesn't require ZIO related computations.
-  private val nonZIO = Http.collect[Request] {
-    case _ -> !! / "HExitSuccess" => Response.ok
-    case _ -> !! / "HExitFailure" => Response.fromHttpError(HttpError.BadRequest())
-  }
-
-  private val app = serve { nonZIO ++ staticApp ++ DynamicServer.app }
+  private val app                 =
+    serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(4096)))
+  private val appWithReqStreaming = serve(DynamicServer.app, None)
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -89,15 +78,15 @@ object ServerSpec extends HttpRunnableSpec {
           assertM(res)(equalTo(Status.OK))
         } +
           testM("body is ok") {
-            val res = app.deploy.bodyAsString.run(content = "ABC")
+            val res = app.deploy.bodyAsString.run(content = HttpData.fromString("ABC"))
             assertM(res)(equalTo("ABC"))
           } +
           testM("empty string") {
-            val res = app.deploy.bodyAsString.run(content = "")
+            val res = app.deploy.bodyAsString.run(content = HttpData.fromString(""))
             assertM(res)(equalTo(""))
           } +
           testM("one char") {
-            val res = app.deploy.bodyAsString.run(content = "1")
+            val res = app.deploy.bodyAsString.run(content = HttpData.fromString("1"))
             assertM(res)(equalTo("1"))
           }
       } +
@@ -113,6 +102,32 @@ object ServerSpec extends HttpRunnableSpec {
           val res = app.deploy.bodyAsString.run()
           assertM(res)(equalTo("abc"))
         }
+      } +
+      suite("decompression") {
+        val app     = Http.collectZIO[Request] { case req => req.bodyAsString.map(body => Response.text(body)) }.deploy
+        val content = "some-text"
+        val stream  = ZStream.fromChunk(Chunk.fromArray(content.getBytes))
+
+        testM("gzip") {
+          val res = for {
+            body     <- stream.transduce(ZTransducer.gzip()).runCollect
+            response <- app.run(
+              content = HttpData.fromChunk(body),
+              headers = Headers.contentEncoding(HeaderValues.gzip),
+            )
+          } yield response
+          assertM(res.flatMap(_.bodyAsString))(equalTo(content))
+        } +
+          testM("deflate") {
+            val res = for {
+              body     <- stream.transduce(ZTransducer.deflate()).runCollect
+              response <- app.run(
+                content = HttpData.fromChunk(body),
+                headers = Headers.contentEncoding(HeaderValues.deflate),
+              )
+            } yield response
+            assertM(res.flatMap(_.bodyAsString))(equalTo(content))
+          }
       }
   }
 
@@ -122,18 +137,18 @@ object ServerSpec extends HttpRunnableSpec {
     }
     testM("has content-length") {
       checkAllM(Gen.alphaNumericString) { string =>
-        val res = app.deploy.bodyAsString.run(content = string)
+        val res = app.deploy.bodyAsString.run(content = HttpData.fromString(string))
         assertM(res)(equalTo(string.length.toString))
       }
     } +
       testM("POST Request.getBody") {
         val app = Http.collectZIO[Request] { case req => req.body.as(Response.ok) }
-        val res = app.deploy.status.run(path = !!, method = Method.POST, content = "some text")
+        val res = app.deploy.status.run(path = !!, method = Method.POST, content = HttpData.fromString("some text"))
         assertM(res)(equalTo(Status.OK))
       }
   }
 
-  def responseSpec = suite("ResponseSpec") {
+  def responseSpec    = suite("ResponseSpec") {
     testM("data") {
       checkAllM(nonEmptyContent) { case (string, data) =>
         val res = Http.fromData(data).deploy.bodyAsString.run()
@@ -141,26 +156,25 @@ object ServerSpec extends HttpRunnableSpec {
       }
     } +
       testM("data from file") {
-        val file = new File(getClass.getResource("/TestFile.txt").getPath)
-        val res  = Http.fromFile(file).deploy.bodyAsString.run()
+        val res = Http.fromResource("/TestFile.txt").deploy.bodyAsString.run()
         assertM(res)(equalTo("abc\nfoo"))
       } +
       testM("content-type header on file response") {
-        val file = new File(getClass.getResource("/TestFile.txt").getPath)
-        val res  =
+        val res =
           Http
-            .fromFile(file)
+            .fromResource("/TestFile2.mp4")
             .deploy
             .headerValue(HeaderNames.contentType)
             .run()
             .map(_.getOrElse("Content type header not found."))
-        assertM(res)(equalTo("text/plain"))
+        assertM(res)(equalTo("video/mp4"))
       } +
       testM("status") {
         checkAllM(HttpGen.status) { case status =>
           val res = Http.status(status).deploy.status.run()
           assertM(res)(equalTo(status))
         }
+
       } +
       testM("header") {
         checkAllM(HttpGen.header) { case header @ (name, value) =>
@@ -179,7 +193,7 @@ object ServerSpec extends HttpRunnableSpec {
           }
           .deploy
           .bodyAsString
-          .run(content = "abc")
+          .run(content = HttpData.fromString("abc"))
         assertM(res)(equalTo("abc"))
       } +
       testM("file-streaming") {
@@ -228,69 +242,40 @@ object ServerSpec extends HttpRunnableSpec {
           }
       }
   }
-
-  def serverStartSpec = suite("ServerStartSpec") {
-    testM("desired port") {
-      val port = 8088
-      (Server.port(port) ++ Server.app(Http.empty)).make.use { start =>
-        assertM(ZIO.effect(start.port))(equalTo(port))
+  def requestBodySpec = suite("RequestBodySpec") {
+    testM("POST Request stream") {
+      val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
+        Response(data = HttpData.fromStream(req.bodyAsStream))
       }
+      checkAllM(Gen.alphaNumericString) { c =>
+        assertM(app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = HttpData.fromString(c)))(
+          equalTo(c),
+        )
+      }
+    }
+  }
+
+  def serverErrorSpec = suite("ServerErrorSpec") {
+    val app = Http.fail(new Error("SERVER_ERROR"))
+    testM("status is 500") {
+      val res = app.deploy.status.run()
+      assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
     } +
-      testM("available port") {
-        (Server.port(0) ++ Server.app(Http.empty)).make.use { start =>
-          assertM(ZIO.effect(start.port))(not(equalTo(0)))
-        }
+      testM("content is set") {
+        val res = app.deploy.bodyAsString.run()
+        assertM(res)(containsString("SERVER_ERROR"))
+      } +
+      testM("header is set") {
+        val res = app.deploy.headers.run().map(_.headerValue("Content-Length"))
+        assertM(res)(isSome(anything))
       }
   }
 
   override def spec =
-    suiteM("Server") {
-      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, nonZIOSpec)).useNow
-    }.provideCustomLayerShared(env) @@ timeout(30 seconds)
+    suite("Server") {
+      val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
+      suiteM("app without request streaming") { app.as(List(spec)).useNow } +
+        suiteM("app with request streaming") { appWithReqStreaming.as(List(spec)).useNow }
+    }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ sequential
 
-  def staticAppSpec = suite("StaticAppSpec") {
-    testM("200 response") {
-      val actual = status(path = !! / "success")
-      assertM(actual)(equalTo(Status.OK))
-    } +
-      testM("500 response") {
-        val actual = status(path = !! / "failure")
-        assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
-      } +
-      testM("404 response") {
-        val actual = status(path = !! / "random")
-        assertM(actual)(equalTo(Status.NOT_FOUND))
-      } +
-      testM("200 response with encoded path") {
-        val actual = status(path = !! / "get%2Fsuccess")
-        assertM(actual)(equalTo(Status.OK))
-      } +
-      testM("Multiple 200 response") {
-        for {
-          data <- status(path = !! / "success").repeatN(1024)
-        } yield assertTrue(data == Status.OK)
-      }
-  }
-
-  def nonZIOSpec = suite("NonZIOSpec") {
-    testM("200 response") {
-      checkAllM(HttpGen.method) { method =>
-        val actual = status(method, !! / "HExitSuccess")
-        assertM(actual)(equalTo(Status.OK))
-      }
-    } +
-      testM("400 response") {
-        checkAllM(HttpGen.method) { method =>
-          val actual = status(method, !! / "HExitFailure")
-          assertM(actual)(equalTo(Status.BAD_REQUEST))
-        }
-      } +
-      testM("404 response ") {
-        checkAllM(HttpGen.method) { method =>
-          val actual = status(method, !! / "A")
-          assertM(actual)(equalTo(Status.NOT_FOUND))
-        }
-      }
-
-  }
 }

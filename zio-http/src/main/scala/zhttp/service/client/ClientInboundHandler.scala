@@ -21,7 +21,7 @@ final class ClientInboundHandler[R](
       ctx.fireChannelActive(): Unit
     } else {
       ctx.writeAndFlush(jReq)
-      releaseRequest()
+      ()
     }
   }
 

@@ -10,7 +10,7 @@ import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
-import zio.test.{DefaultRunnableSpec, assertM}
+import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAllM}
 
 object SSLSpec extends DefaultRunnableSpec {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
@@ -24,8 +24,15 @@ object SSLSpec extends DefaultRunnableSpec {
   val clientSSL2 =
     SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("ss2.crt.pem")).build()
 
-  val app: HttpApp[Any, Nothing] = Http.collectZIO[Request] { case Method.GET -> !! / "success" =>
-    ZIO.succeed(Response.ok)
+  val payload = Gen.alphaNumericStringBounded(10000, 20000)
+
+  val app: HttpApp[Any, Throwable] = Http.collectZIO[Request] {
+    case Method.GET -> !! / "success"     =>
+      ZIO.succeed(Response.ok)
+    case req @ Method.POST -> !! / "text" =>
+      for {
+        body <- req.bodyAsString
+      } yield Response.text(body)
   }
 
   override def spec = suiteM("SSL")(
@@ -59,7 +66,20 @@ object SSLSpec extends DefaultRunnableSpec {
                 .request("http://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
                 .map(_.status)
               assertM(actual)(equalTo(Status.PERMANENT_REDIRECT))
-            } @@ ignore,
+            } +
+            testM("Https request with a large payload should respond with 413") {
+              checkAllM(payload) { payload =>
+                val actual = Client
+                  .request(
+                    "https://localhost:8073/text",
+                    Method.POST,
+                    ssl = ClientSSLOptions.CustomSSL(clientSSL1),
+                    content = HttpData.fromString(payload),
+                  )
+                  .map(_.status)
+                assertM(actual)(equalTo(Status.REQUEST_ENTITY_TOO_LARGE))
+              }
+            },
         ),
       )
       .useNow,

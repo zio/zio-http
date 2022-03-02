@@ -1,12 +1,13 @@
 package zhttp.service
 
 import io.netty.bootstrap.ServerBootstrap
+import io.netty.channel.ChannelPipeline
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLBuilder._
 import zhttp.service.server._
-import zhttp.service.server.content.handlers.{Http2ServerResponseHandler, ServerResponseHandler}
+import zhttp.service.server.content.handlers.Http2ServerResponseHandler
 import zio.{ZManaged, _}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -19,18 +20,20 @@ sealed trait Server[-R, +E] { self =>
     Concat(self, other)
 
   private def settings[R1 <: R, E1 >: E](s: Config[R1, E1] = Config()): Config[R1, E1] = self match {
-    case Concat(self, other)       => other.settings(self.settings(s))
-    case LeakDetection(level)      => s.copy(leakDetectionLevel = level)
-    case MaxRequestSize(size)      => s.copy(maxRequestSize = size)
-    case Error(errorHandler)       => s.copy(error = Some(errorHandler))
-    case Ssl(sslOption)            => s.copy(sslOption = sslOption)
-    case App(app)                  => s.copy(app = app)
-    case Address(address)          => s.copy(address = address)
-    case AcceptContinue(enabled)   => s.copy(acceptContinue = enabled)
-    case KeepAlive(enabled)        => s.copy(keepAlive = enabled)
-    case FlowControl(enabled)      => s.copy(flowControl = enabled)
-    case ConsolidateFlush(enabled) => s.copy(consolidateFlush = enabled)
-    case Http2                     => s.copy(http2 = true)
+    case Concat(self, other)                   => other.settings(self.settings(s))
+    case LeakDetection(level)                  => s.copy(leakDetectionLevel = level)
+    case Error(errorHandler)                   => s.copy(error = Some(errorHandler))
+    case Ssl(sslOption)                        => s.copy(sslOption = sslOption)
+    case App(app)                              => s.copy(app = app)
+    case Address(address)                      => s.copy(address = address)
+    case AcceptContinue(enabled)               => s.copy(acceptContinue = enabled)
+    case KeepAlive(enabled)                    => s.copy(keepAlive = enabled)
+    case FlowControl(enabled)                  => s.copy(flowControl = enabled)
+    case ConsolidateFlush(enabled)             => s.copy(consolidateFlush = enabled)
+    case Http2                                 => s.copy(http2 = true)
+    case UnsafeChannelPipeline(init)           => s.copy(channelInitializer = init)
+    case RequestDecompression(enabled, strict) => s.copy(requestDecompression = (enabled, strict))
+    case ObjectAggregator(maxRequestSize)      => s.copy(objectAggregator = maxRequestSize)
   }
 
   def make(implicit
@@ -47,12 +50,6 @@ sealed trait Server[-R, +E] { self =>
    */
   def startDefault[R1 <: Has[_] with R](implicit ev: E <:< Throwable): ZIO[R1, Throwable, Nothing] =
     start.provideSomeLayer[R1](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
-
-  /**
-   * Creates a new server with the maximum size of the request specified in
-   * bytes.
-   */
-  def withMaxRequestSize(size: Int): Server[R, E] = Concat(self, Server.MaxRequestSize(size))
 
   /**
    * Creates a new server listening on the provided port.
@@ -118,12 +115,37 @@ sealed trait Server[-R, +E] { self =>
    * href="https://netty.io/4.1/api/io/netty/handler/flush/FlushConsolidationHandler.html">FlushConsolidationHandler<a>).
    */
   def withConsolidateFlush(enable: Boolean): Server[R, E] = Concat(self, ConsolidateFlush(enable))
+
+  /**
+   * Creates a new server by passing a function that modifies the channel
+   * pipeline. This is generally not required as most of the features are
+   * directly supported, however think of this as an escape hatch for more
+   * advanced configurations that are not yet support by ZIO Http.
+   *
+   * NOTE: This method might be dropped in the future.
+   */
+  def withUnsafeChannelPipeline(unsafePipeline: ChannelPipeline => Unit): Server[R, E] =
+    Concat(self, UnsafeChannelPipeline(unsafePipeline))
+
+  /**
+   * Creates a new server with netty's HttpContentDecompressor to decompress
+   * Http requests (@see <a href =
+   * "https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentDecompressor.html">HttpContentDecompressor</a>).
+   */
+  def withRequestDecompression(enabled: Boolean, strict: Boolean): Server[R, E] =
+    Concat(self, RequestDecompression(enabled, strict))
+
+  /**
+   * Creates a new server with HttpObjectAggregator with the specified max size
+   * of the aggregated content.
+   */
+  def withObjectAggregator(maxRequestSize: Int = Int.MaxValue): Server[R, E] =
+    Concat(self, ObjectAggregator(maxRequestSize))
 }
 
 object Server {
   private[zhttp] final case class Config[-R, +E](
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
-    maxRequestSize: Int = 4 * 1024, // 4 kilo bytes
     error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
     sslOption: ServerSSLOptions = null,
 
@@ -135,7 +157,12 @@ object Server {
     consolidateFlush: Boolean = false,
     flowControl: Boolean = true,
     http2: Boolean = false,
-  )
+    channelInitializer: ChannelPipeline => Unit = null,
+    requestDecompression: (Boolean, Boolean) = (false, false),
+    objectAggregator: Int = -1,
+  ) {
+    def useAggregator: Boolean = objectAggregator >= 0
+  }
 
   /**
    * Holds server start information.
@@ -144,7 +171,6 @@ object Server {
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E])      extends Server[R, E]
   private final case class LeakDetection(level: LeakDetectionLevel)                   extends UServer
-  private final case class MaxRequestSize(size: Int)                                  extends UServer
   private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
   private final case class Ssl(sslOptions: ServerSSLOptions)                          extends UServer
   private final case class Address(address: InetSocketAddress)                        extends UServer
@@ -154,9 +180,11 @@ object Server {
   private final case class AcceptContinue(enabled: Boolean)                           extends UServer
   private final case class FlowControl(enabled: Boolean)                              extends UServer
   private case object Http2                                                           extends UServer
+  private final case class UnsafeChannelPipeline(init: ChannelPipeline => Unit)       extends UServer
+  private final case class RequestDecompression(enabled: Boolean, strict: Boolean)    extends UServer
+  private final case class ObjectAggregator(maxRequestSize: Int)                      extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
-  def maxRequestSize(size: Int): UServer                  = Server.MaxRequestSize(size)
   def port(port: Int): UServer                            = Server.Address(new InetSocketAddress(port))
   def bind(port: Int): UServer                            = Server.Address(new InetSocketAddress(port))
   def bind(hostname: String, port: Int): UServer          = Server.Address(new InetSocketAddress(hostname, port))
@@ -166,13 +194,16 @@ object Server {
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   def acceptContinue: UServer                                                        = Server.AcceptContinue(true)
   def http2: UServer                                                                 = Server.Http2
-  val disableFlowControl: UServer                                                    = Server.FlowControl(false)
-  val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
-  val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
-  val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
-  val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
-  val disableKeepAlive: UServer      = Server.KeepAlive(false)
-  val consolidateFlush: UServer      = ConsolidateFlush(true)
+  def requestDecompression(strict: Boolean): UServer = Server.RequestDecompression(enabled = true, strict = strict)
+  val disableFlowControl: UServer                    = Server.FlowControl(false)
+  val disableLeakDetection: UServer                  = LeakDetection(LeakDetectionLevel.DISABLED)
+  val simpleLeakDetection: UServer                   = LeakDetection(LeakDetectionLevel.SIMPLE)
+  val advancedLeakDetection: UServer                 = LeakDetection(LeakDetectionLevel.ADVANCED)
+  val paranoidLeakDetection: UServer                 = LeakDetection(LeakDetectionLevel.PARANOID)
+  val disableKeepAlive: UServer                      = Server.KeepAlive(false)
+  val consolidateFlush: UServer                      = ConsolidateFlush(true)
+  def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer          = UnsafeChannelPipeline(pipeline)
+  def enableObjectAggregator(maxRequestSize: Int = Int.MaxValue): UServer = ObjectAggregator(maxRequestSize)
 
   /**
    * Creates a server from a http app.
@@ -223,11 +254,10 @@ object Server {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
       zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
-      reqHandler      = settings.app.compile(zExec, settings)
-      respHandler     = ServerResponseHandler(zExec, settings, ServerTimeGenerator.make)
+      reqHandler      = settings.app.compile(zExec, settings, ServerTime.make)
       http2ReqHandler = Http2ServerRequestHandler(zExec, settings)
-      http2ResHandler = Http2ServerResponseHandler(zExec, settings, ServerTimeGenerator.make)
-      init = ServerChannelInitializer(zExec, settings, reqHandler, respHandler, http2ReqHandler, http2ResHandler)
+      http2ResHandler = Http2ServerResponseHandler(zExec, settings, ServerTime.make)
+      init            = ServerChannelInitializer(zExec, settings, reqHandler, http2ReqHandler, http2ResHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       chf  <- ZManaged.effect(serverBootstrap.childHandler(init).bind(settings.address))
       _    <- ChannelFuture.asManaged(chf)

@@ -16,7 +16,6 @@ class OptionalServerSSLHandler(
   sslContext: SslContext,
   cfg: Config[_, Throwable],
   reqHandler: ChannelHandler,
-  respHandler: ChannelHandler,
   http2ReqHandler: ChannelHandler,
   http2ResHandler: ChannelHandler,
 ) extends ByteToMessageDecoder {
@@ -32,7 +31,7 @@ class OptionalServerSSLHandler(
         case SSLHttpBehaviour.Accept =>
           if (cfg.http2) {
             pipeline.remove(HTTP2_OR_HTTP_SERVER_HANDLER)
-            configureClearTextHttp2(reqHandler, respHandler, http2ReqHandler, http2ResHandler, context.channel(), cfg)
+            configureClearTextHttp2(reqHandler, http2ReqHandler, http2ResHandler, context.channel(), cfg)
             pipeline.remove(this)
             ()
           } else {
