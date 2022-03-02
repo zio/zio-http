@@ -6,7 +6,6 @@ import zhttp.internal.HttpRunnableSpec.HttpTestClient
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
 import zhttp.service.server.content.compression.CompressionOptions.{deflate, gzip}
-import zhttp.service.server.content.compression.CompressionOptions.{deflate, gzip}
 import zio.duration.durationInt
 import zio.stream.{ZStream, ZTransducer}
 import zio.test.Assertion._
@@ -28,9 +27,9 @@ object ServerSpec extends HttpRunnableSpec {
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
   // contentSizeThreshold set to 0 will compress all responses
-  val server = Server.requestDecompression(true) ++ Server.responseCompression(0, IndexedSeq(gzip, deflate)) ++ Server.enableObjectAggregator(4096)
-  private val app                 =
-    serve(DynamicServer.app, Some(server))
+  val server = Server.requestDecompression(true) ++ Server.responseCompression(0, IndexedSeq(gzip, deflate)) ++ Server
+    .enableObjectAggregator(4096)
+  private val app                 = serve(DynamicServer.app, Option(server))
   private val appWithReqStreaming = serve(DynamicServer.app)
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
@@ -125,6 +124,9 @@ object ServerSpec extends HttpRunnableSpec {
         }
       } +
       suite("compression") {
+        val content = "some-text"
+        val app     = Http.collectZIO[Request] { case req => req.bodyAsString.map(body => Response.text(body)) }.deploy
+
         def roundTrip[R, E](
           app: HttpTestClient[Any, Client.ClientRequest, Client.ClientResponse],
           headers: Headers,
@@ -138,9 +140,7 @@ object ServerSpec extends HttpRunnableSpec {
         } yield new String(body.toArray, StandardCharsets.UTF_8)
 
         testM("should decompress request and compress response") {
-          val content = "some-text"
-          val stream  = ZStream.fromChunk(Chunk.fromArray(content.getBytes))
-          val app = Http.collectZIO[Request] { case req => req.bodyAsString.map(body => Response.text(body)) }.deploy
+          val stream = ZStream.fromChunk(Chunk.fromArray(content.getBytes))
 
           checkAllM(
             Gen.fromIterable(
@@ -160,10 +160,25 @@ object ServerSpec extends HttpRunnableSpec {
               compressor,
               decompressor,
             )
-
             assertM(result)(equalTo(content))
           }
-        }
+        } +
+          testM("pass through for unsupported accept encoding request") {
+            val result = app.run(
+              content = HttpData.fromString(content),
+              headers = Headers.acceptEncoding(HeaderValues.br),
+            )
+            assertM(result.flatMap(_.bodyAsString))(equalTo(content))
+          } +
+          testM("fail on getting compressed response") {
+            checkAllM(Gen.fromIterable(List(HeaderValues.gzip, HeaderValues.deflate, HeaderValues.gzipDeflate))) { ae =>
+              val result = app.run(
+                content = HttpData.fromString(content),
+                headers = Headers.acceptEncoding(ae),
+              )
+              assertM(result.flatMap(_.bodyAsString))(not(equalTo(content)))
+            }
+          }
       }
   }
 

@@ -8,7 +8,6 @@ import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
 import zhttp.service.server.content.compression.CompressionOptions
-import zhttp.service.server.content.compression.CompressionOptions
 import zio.{ZManaged, _}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -21,19 +20,19 @@ sealed trait Server[-R, +E] { self =>
     Concat(self, other)
 
   private def settings[R1 <: R, E1 >: E](s: Config[R1, E1] = Config()): Config[R1, E1] = self match {
-    case Concat(self, other)                   => other.settings(self.settings(s))
-    case LeakDetection(level)                  => s.copy(leakDetectionLevel = level)
-    case Error(errorHandler)                   => s.copy(error = Some(errorHandler))
-    case Ssl(sslOption)                        => s.copy(sslOption = sslOption)
-    case App(app)                              => s.copy(app = app)
-    case Address(address)                      => s.copy(address = address)
-    case AcceptContinue(enabled)               => s.copy(acceptContinue = enabled)
-    case KeepAlive(enabled)                    => s.copy(keepAlive = enabled)
-    case FlowControl(enabled)                  => s.copy(flowControl = enabled)
-    case ConsolidateFlush(enabled)             => s.copy(consolidateFlush = enabled)
-    case UnsafeChannelPipeline(init)           => s.copy(channelInitializer = init)
-    case RequestDecompression(enabled, strict) => s.copy(requestDecompression = (enabled, strict))
-    case ObjectAggregator(maxRequestSize)      => s.copy(objectAggregator = maxRequestSize)
+    case Concat(self, other)                                => other.settings(self.settings(s))
+    case LeakDetection(level)                               => s.copy(leakDetectionLevel = level)
+    case Error(errorHandler)                                => s.copy(error = Some(errorHandler))
+    case Ssl(sslOption)                                     => s.copy(sslOption = sslOption)
+    case App(app)                                           => s.copy(app = app)
+    case Address(address)                                   => s.copy(address = address)
+    case AcceptContinue(enabled)                            => s.copy(acceptContinue = enabled)
+    case KeepAlive(enabled)                                 => s.copy(keepAlive = enabled)
+    case FlowControl(enabled)                               => s.copy(flowControl = enabled)
+    case ConsolidateFlush(enabled)                          => s.copy(consolidateFlush = enabled)
+    case UnsafeChannelPipeline(init)                        => s.copy(channelInitializer = init)
+    case RequestDecompression(enabled, strict)              => s.copy(requestDecompression = (enabled, strict))
+    case ObjectAggregator(maxRequestSize)                   => s.copy(objectAggregator = maxRequestSize)
     case ResponseCompression(contentSizeThreshold, options) =>
       s.copy(responseCompression = (contentSizeThreshold, options))
   }
@@ -204,18 +203,18 @@ object Server {
   def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
   def ssl(sslOptions: ServerSSLOptions): UServer                                     = Server.Ssl(sslOptions)
   def acceptContinue: UServer                                                        = Server.AcceptContinue(true)
+  def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer                     = UnsafeChannelPipeline(pipeline)
+  def enableObjectAggregator(maxRequestSize: Int = Int.MaxValue): UServer            = ObjectAggregator(maxRequestSize)
   def requestDecompression(strict: Boolean): UServer = Server.RequestDecompression(enabled = true, strict = strict)
   def responseCompression(contentSizeThreshold: Int, options: IndexedSeq[CompressionOptions]): UServer =
     Server.ResponseCompression(contentSizeThreshold, options)
-  val disableFlowControl: UServer                    = Server.FlowControl(false)
-  val disableLeakDetection: UServer                  = LeakDetection(LeakDetectionLevel.DISABLED)
-  val simpleLeakDetection: UServer                   = LeakDetection(LeakDetectionLevel.SIMPLE)
-  val advancedLeakDetection: UServer                 = LeakDetection(LeakDetectionLevel.ADVANCED)
-  val paranoidLeakDetection: UServer                 = LeakDetection(LeakDetectionLevel.PARANOID)
-  val disableKeepAlive: UServer                      = Server.KeepAlive(false)
-  val consolidateFlush: UServer                      = ConsolidateFlush(true)
-  def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer          = UnsafeChannelPipeline(pipeline)
-  def enableObjectAggregator(maxRequestSize: Int = Int.MaxValue): UServer = ObjectAggregator(maxRequestSize)
+  val disableFlowControl: UServer    = Server.FlowControl(false)
+  val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
+  val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
+  val advancedLeakDetection: UServer = LeakDetection(LeakDetectionLevel.ADVANCED)
+  val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
+  val disableKeepAlive: UServer      = Server.KeepAlive(false)
+  val consolidateFlush: UServer      = ConsolidateFlush(true)
 
   /**
    * Creates a server from a http app.
