@@ -226,7 +226,7 @@ object Client {
     def empty: Attribute = Attribute()
   }
 
-  def make(client: ClientSettings): Task[DefaultClient] = {
+  def make(client: ClientSettings = ClientSettings.defaultSetting): Task[DefaultClient] = {
     val settings = client.settings()
     for {
       connectionManager <- ClientConnectionManager(settings)

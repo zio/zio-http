@@ -3,7 +3,7 @@ package example
 import zhttp.http._
 import zhttp.service.client.domain.DefaultClient
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{ClientSettings, EventLoopGroup, Server}
+import zhttp.service.{Client, ClientSettings, EventLoopGroup, Server}
 import zio.{App, ExitCode, URIO, ZIO}
 
 /**
@@ -36,11 +36,11 @@ object EnhancedClientTest extends App {
   // Client Test code
   def clientTest = {
     for {
-      client <- (
+      client <- Client.make(
         ClientSettings.threads(8) ++
           ClientSettings.maxConnectionsPerRequestKey(10) ++
-          ClientSettings.maxTotalConnections(20)
-      ).make
+          ClientSettings.maxTotalConnections(20),
+      )
       _      <- triggerClientSequential(client)
     } yield ()
   }

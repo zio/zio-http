@@ -29,6 +29,7 @@ trait ClientSettings { self =>
     case MaxTotalConnections(maxTotConn)            => s.copy(maxTotalConnections = maxTotConn)
     case MaxWaitQueueLimit(mwql)                    => s.copy(maxWaitQueueLimit = mwql)
     case MaxConnectionsPerRequestKey(maxConnPerReq) => s.copy(maxConnectionsPerRequestKey = maxConnPerReq)
+    case DefaultSetting                             => s
     case _                                          => s
   }
 
@@ -108,6 +109,7 @@ object ClientSettings {
   case class MaxTotalConnections(maxTotConn: Int)                extends ClientSettings
   case class MaxWaitQueueLimit(mwql: Int)                        extends ClientSettings
   case class MaxConnectionsPerRequestKey(maxConnPerReq: Int)     extends ClientSettings
+  case object DefaultSetting                                     extends ClientSettings
   //  private final case class SSLContext(ssl: ClientSSLOptions)                                   extends ClientSettings
 
   /**
@@ -141,5 +143,7 @@ object ClientSettings {
   def kQueue: ClientSettings = ClientSettings.TransportConfig(Transport.KQueue)
   def uring: ClientSettings  = ClientSettings.TransportConfig(Transport.URing)
   def auto: ClientSettings   = ClientSettings.TransportConfig(Transport.Auto)
+
+  def defaultSetting = ClientSettings.DefaultSetting
 
 }
