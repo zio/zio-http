@@ -26,8 +26,6 @@ trait Request extends HeaderExtension[Request] { self =>
       override def unsafeEncode: HttpRequest          = self.unsafeEncode
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
       override def data: HttpData                     = self.data
-      override def toString: String                   =
-        s"Request($method, $url, $headers, $remoteAddress)"
     }
   }
 
@@ -104,6 +102,9 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   def setUrl(url: URL): Request = self.copy(url = url)
 
+  override def toString: String =
+    s"Request($method, $url, $headers, $remoteAddress)"
+
   /**
    * Gets the HttpRequest
    */
@@ -146,8 +147,6 @@ object Request {
       }
       override def remoteAddress: Option[InetAddress] = ra
       override def data: HttpData                     = d
-      override def toString: String                   =
-        s"Request($method, $url, $headers, $remoteAddress)"
     }
   }
 
