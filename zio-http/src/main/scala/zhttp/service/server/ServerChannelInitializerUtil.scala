@@ -42,7 +42,13 @@ case object ServerChannelInitializerUtil {
     val sourceCodec = new HttpServerCodec
     if (enableEncryptedMessageFilter)
       p.addLast(ENCRYPTION_FILTER_HANDLER, EncryptedMessageFilter(reqHandler, cfg))
-    p.addLast(SERVER_CODEC_HANDLER, sourceCodec)
+    // ServerCodec
+    // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
+    p.addLast(
+      "SERVER_DECODER_HANDLER",
+      new HttpRequestDecoder(DEFAULT_MAX_INITIAL_LINE_LENGTH, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_CHUNK_SIZE, false),
+    )
+    p.addLast("SERVER_ENCODER_HANDLER", new HttpResponseEncoder())
     p.addLast(
       SERVER_CLEAR_TEXT_HTTP2_HANDLER,
       new HttpServerUpgradeHandler(sourceCodec, upgradeCodecFactory(http2ReqHandler, http2ResHandler)),
@@ -63,21 +69,21 @@ case object ServerChannelInitializerUtil {
     // ServerCodec
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
     pipeline.addLast(
-      "decoder",
+      SERVER_DECODER_HANDLER,
       new HttpRequestDecoder(DEFAULT_MAX_INITIAL_LINE_LENGTH, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_CHUNK_SIZE, false),
     )
-    pipeline.addLast("encoder", new HttpResponseEncoder())
+    pipeline.addLast(SERVER_ENCODER_HANDLER, new HttpResponseEncoder())
 
     // HttpContentDecompressor
     if (cfg.requestDecompression._1)
-      pipeline.addLast(HTTP_REQUEST_DECOMPRESSION, new HttpContentDecompressor(cfg.requestDecompression._2))
+      pipeline.addLast(HTTP_SERVER_REQUEST_DECOMPRESSION, new HttpContentDecompressor(cfg.requestDecompression._2))
 
     // TODO: See if server codec is really required
 
     // ObjectAggregator
     // Always add ObjectAggregator
     if (cfg.useAggregator)
-      pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.objectAggregator))
+      pipeline.addLast(HTTP_SERVER_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.objectAggregator))
 
     // ExpectContinueHandler
     // Add expect continue handler is settings is true
@@ -85,20 +91,20 @@ case object ServerChannelInitializerUtil {
 
     // KeepAliveHandler
     // Add Keep-Alive handler is settings is true
-    if (cfg.keepAlive) pipeline.addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
+    if (cfg.keepAlive) pipeline.addLast(HTTP_SERVER_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
 
     // FlowControlHandler
     // Required because HttpObjectDecoder fires an HttpRequest that is immediately followed by a LastHttpContent event.
     // For reference: https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html
-    if (cfg.flowControl) pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
+    if (cfg.flowControl) pipeline.addLast(SERVER_FLOW_CONTROL_HANDLER, new FlowControlHandler())
 
     // FlushConsolidationHandler
     // Flushing content is done in batches. Can potentially improve performance.
-    if (cfg.consolidateFlush) pipeline.addLast(HTTP_SERVER_FLUSH_CONSOLIDATION, new FlushConsolidationHandler)
+    if (cfg.consolidateFlush) pipeline.addLast(HTTP_SERVER_FLUSH_CONSOLIDATION_HANDLER, new FlushConsolidationHandler)
 
     // RequestHandler
     // Always add ZIO Http Request Handler
-    pipeline.addLast(HTTP_REQUEST_HANDLER, reqHandler)
+    pipeline.addLast(HTTP_SERVER_REQUEST_HANDLER, reqHandler)
     if (cfg.channelInitializer != null) { cfg.channelInitializer(pipeline) }
     ()
 

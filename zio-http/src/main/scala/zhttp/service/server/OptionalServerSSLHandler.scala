@@ -3,7 +3,12 @@ package zhttp.service.server
 import io.netty.buffer.ByteBuf
 import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
 import io.netty.handler.codec.ByteToMessageDecoder
-import io.netty.handler.codec.http.HttpServerCodec
+import io.netty.handler.codec.http.HttpObjectDecoder.{
+  DEFAULT_MAX_CHUNK_SIZE,
+  DEFAULT_MAX_HEADER_SIZE,
+  DEFAULT_MAX_INITIAL_LINE_LENGTH,
+}
+import io.netty.handler.codec.http.{HttpRequestDecoder, HttpResponseEncoder}
 import io.netty.handler.ssl.{SslContext, SslHandler}
 import zhttp.service.Server.Config
 import zhttp.service._
@@ -41,7 +46,22 @@ class OptionalServerSSLHandler(
         case _                       =>
           if (cfg.http2) {
             pipeline.remove(HTTP2_OR_HTTP_SERVER_HANDLER)
-            context.channel().pipeline().replace(this, SERVER_CODEC_HANDLER, new HttpServerCodec)
+
+            context
+              .channel()
+              .pipeline()
+              .replace(
+                this,
+                SERVER_DECODER_HANDLER,
+                new HttpRequestDecoder(
+                  DEFAULT_MAX_INITIAL_LINE_LENGTH,
+                  DEFAULT_MAX_HEADER_SIZE,
+                  DEFAULT_MAX_CHUNK_SIZE,
+                  false,
+                ),
+              )
+            context.channel().pipeline().addLast(SERVER_ENCODER_HANDLER, new HttpResponseEncoder())
+
             context
               .channel()
               .pipeline()

@@ -23,7 +23,7 @@ final case class ClearTextHttp2FallbackServerHandler(
     // ObjectAggregator
     // Always add ObjectAggregator
     if (cfg.useAggregator)
-      pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.objectAggregator))
+      pipeline.addLast(HTTP_SERVER_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.objectAggregator))
 
     // ExpectContinueHandler
     // Add expect continue handler is settings is true
@@ -31,16 +31,16 @@ final case class ClearTextHttp2FallbackServerHandler(
 
     // KeepAliveHandler
     // Add Keep-Alive handler is settings is true
-    if (cfg.keepAlive) pipeline.addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
+    if (cfg.keepAlive) pipeline.addLast(HTTP_SERVER_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
 
     // FlowControlHandler
     // Required because HttpObjectDecoder fires an HttpRequest that is immediately followed by a LastHttpContent event.
     // For reference: https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html
-    if (cfg.flowControl) pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
+    if (cfg.flowControl) pipeline.addLast(SERVER_FLOW_CONTROL_HANDLER, new FlowControlHandler())
 
     // FlushConsolidationHandler
     // Flushing content is done in batches. Can potentially improve performance.
-    if (cfg.consolidateFlush) pipeline.addLast(HTTP_SERVER_FLUSH_CONSOLIDATION, new FlushConsolidationHandler)
+    if (cfg.consolidateFlush) pipeline.addLast(HTTP_SERVER_FLUSH_CONSOLIDATION_HANDLER, new FlushConsolidationHandler)
 
     // RequestHandler
     // Always add ZIO Http Request Handler

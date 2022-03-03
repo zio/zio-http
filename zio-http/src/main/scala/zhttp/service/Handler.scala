@@ -73,7 +73,7 @@ private[zhttp] final case class Handler[R](
               override def data: HttpData = HttpData.Incoming(callback =>
                 ctx
                   .pipeline()
-                  .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback)): Unit,
+                  .addAfter(HTTP_SERVER_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback)): Unit,
               )
 
               override def headers: Headers = Headers.make(jReq.headers())

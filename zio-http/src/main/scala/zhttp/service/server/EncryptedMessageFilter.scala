@@ -18,7 +18,7 @@ case class EncryptedMessageFilter(reqHandler: ChannelHandler, cfg: Config[_, Thr
       context
         .channel()
         .pipeline()
-        .addLast(HTTP_KEEPALIVE_HANDLER, new JHttpServerKeepAliveHandler)
+        .addLast(HTTP_SERVER_KEEPALIVE_HANDLER, new JHttpServerKeepAliveHandler)
         .addLast(SERVER_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.objectAggregator))
         .addLast(HTTP_SERVER_REQUEST_HANDLER, reqHandler)
         .remove(this)
