@@ -564,7 +564,9 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
       case Attempt(a)                     =>
         try { HExit.succeed(a()) }
         catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
-      case FromFunctionHExit(f)           => try { f(a) } catch { case e: Throwable => HExit.die(e) }
+      case FromFunctionHExit(f)           =>
+        try { f(a) }
+        catch { case e: Throwable => HExit.die(e) }
       case FromHExit(h)                   => h
       case Chain(self, other)             => self.execute(a).flatMap(b => other.execute(b))
       case Race(self, other)              =>
