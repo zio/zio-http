@@ -9,7 +9,15 @@ import zio.{App, ExitCode, URIO}
 import java.time.Clock
 
 object AuthenticationServer extends App {
-  // Start this server and use AuthenticationClient to send requests
+
+  /**
+   * This is an example to demonstrate barer Authentication middleware. The
+   * Server has 2 routes. The first one is for login,Upon a successful login, it
+   * will return a jwt token for accessing protected routes. The second route is
+   * a protected route that is accessible only if the request has a valid jwt
+   * token. AuthenticationClient example can be used to makes requests to this
+   * server.
+   */
 
   // Secret Authentication key
   val SECRET_KEY = "secretKey"
@@ -28,7 +36,7 @@ object AuthenticationServer extends App {
     Jwt.decode(token, SECRET_KEY, Seq(JwtAlgorithm.HS512)).toOption
   }
 
-  // Http app that requires a JWT claim
+  // Http app that is accessible only via a jwt token
   def user: UHttpApp = Http.collect[Request] { case Method.GET -> !! / "user" / name / "greet" =>
     Response.text(s"Welcome to the ZIO party! ${name}")
   } @@ bearerAuth(jwtDecode(_).isDefined)
@@ -37,7 +45,7 @@ object AuthenticationServer extends App {
   // Login is successful only if the password is the reverse of the username
   def login: UHttpApp = Http.collect[Request] { case Method.GET -> !! / "login" / username / password =>
     if (password.reverse.hashCode == username.hashCode) Response.text(jwtEncode(username))
-    else Response.fromHttpError(HttpError.Unauthorized("Invalid username of password\n"))
+    else Response.text("Invalid username or password.").setStatus(Status.UNAUTHORIZED)
   }
 
   // Composing all the HttpApps together
