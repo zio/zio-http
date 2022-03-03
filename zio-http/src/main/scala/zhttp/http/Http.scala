@@ -860,7 +860,7 @@ object Http {
    * Creates an Http app from a resource path
    */
   def fromResource(path: String): HttpApp[Blocking, Throwable] =
-    Http.getResourceAsFile(path) >>= { Http.fromFile(_) }
+    Http.getResource(path).flatMap(url => Http.fromFile(new File(url.getPath)))
 
   /**
    * Creates a Http that always succeeds with a 200 status code and the provided
