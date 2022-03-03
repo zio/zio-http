@@ -14,6 +14,6 @@ object RequestSpec extends DefaultRunnableSpec {
           val r = Request.ParameterizedRequest(Request(), "TestParam")
           assert(r.toString)(matchesRegex("""ParameterizedRequest\(.*\)"""))
         }
-    }
+    },
   )
 }
