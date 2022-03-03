@@ -1,39 +1,26 @@
 package zhttp.service.server.content.handlers
 
 import io.netty.buffer.ByteBuf
-import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Response}
 import zhttp.service.server.ServerTime
-import zhttp.service.{ChannelFuture, HttpRuntime}
+import zhttp.service.{ChannelFuture, HttpRuntime, Server}
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
 
 import java.io.RandomAccessFile
 
-@Sharable
 private[zhttp] trait ServerResponseHandler[R] {
-  def serverTime: ServerTime
-  val rt: HttpRuntime[R]
-
   type Ctx = ChannelHandlerContext
+  val rt: HttpRuntime[R]
+  val config: Server.Config[R, Throwable]
 
-  def writeResponse(msg: Response, jReq: FullHttpRequest)(implicit ctx: Ctx): Unit = {
+  def serverTime: ServerTime
 
+  def writeResponse(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     ctx.write(encodeResponse(msg))
-    msg.data match {
-      case HttpData.BinaryStream(stream)  =>
-        rt.unsafeRun(ctx) {
-          writeStreamContent(stream).ensuring(UIO(releaseRequest(jReq)))
-        }
-      case HttpData.RandomAccessFile(raf) =>
-        unsafeWriteFileContent(raf())
-        releaseRequest(jReq)
-      case _                              =>
-        ctx.flush()
-        releaseRequest(jReq)
-    }
+    writeData(msg.data.asInstanceOf[HttpData.Outgoing], jReq)
     ()
   }
 
@@ -65,9 +52,53 @@ private[zhttp] trait ServerResponseHandler[R] {
   /**
    * Releases the FullHttpRequest safely.
    */
-  private def releaseRequest(jReq: FullHttpRequest): Unit = {
-    if (jReq.refCnt() > 0) {
-      jReq.release(jReq.refCnt()): Unit
+  private def releaseRequest(jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    jReq match {
+      case jReq: FullHttpRequest if jReq.refCnt() > 0 => jReq.release(jReq.refCnt()): Unit
+      case _                                          => ()
+    }
+  }
+
+  /**
+   * Writes file content to the Channel. Does not use Chunked transfer encoding
+   */
+  private def unsafeWriteFileContent(raf: RandomAccessFile)(implicit ctx: ChannelHandlerContext): Unit = {
+    val fileLength = raf.length()
+    // Write the content.
+    ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
+    // Write the end marker.
+    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
+  }
+
+  /**
+   * Writes data on the channel
+   */
+  private def writeData(data: HttpData.Outgoing, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    data match {
+      case HttpData.BinaryStream(stream)  =>
+        rt.unsafeRun(ctx) {
+          writeStreamContent(stream).ensuring(UIO {
+            releaseRequest(jReq)
+            if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
+              ctx.channel().config().setAutoRead(true)
+              ctx.read(): Unit
+            } // read next HttpContent
+          })
+        }
+      case HttpData.RandomAccessFile(raf) =>
+        unsafeWriteFileContent(raf())
+        releaseRequest(jReq)
+        if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
+          ctx.channel().config().setAutoRead(true)
+          ctx.read(): Unit
+        } // read next HttpContent
+      case _                              =>
+        ctx.flush()
+        releaseRequest(jReq)
+        if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
+          ctx.channel().config().setAutoRead(true)
+          ctx.read(): Unit
+        } // read next HttpContent
     }
   }
 
@@ -81,17 +112,5 @@ private[zhttp] trait ServerResponseHandler[R] {
       _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
-  }
-
-  /**
-   * Writes file content to the Channel. Does not use Chunked transfer encoding
-   */
-
-  private def unsafeWriteFileContent(raf: RandomAccessFile)(implicit ctx: ChannelHandlerContext): Unit = {
-    val fileLength = raf.length()
-    // Write the content.
-    ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
-    // Write the end marker.
-    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
   }
 }
