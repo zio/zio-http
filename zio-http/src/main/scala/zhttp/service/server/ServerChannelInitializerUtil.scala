@@ -44,11 +44,7 @@ case object ServerChannelInitializerUtil {
       p.addLast(ENCRYPTION_FILTER_HANDLER, EncryptedMessageFilter(reqHandler, cfg))
     // ServerCodec
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
-    p.addLast(
-      "SERVER_DECODER_HANDLER",
-      new HttpRequestDecoder(DEFAULT_MAX_INITIAL_LINE_LENGTH, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_CHUNK_SIZE, false),
-    )
-    p.addLast("SERVER_ENCODER_HANDLER", new HttpResponseEncoder())
+    p.addLast(SERVER_CODEC_HANDLER, sourceCodec)
     p.addLast(
       SERVER_CLEAR_TEXT_HTTP2_HANDLER,
       new HttpServerUpgradeHandler(sourceCodec, upgradeCodecFactory(http2ReqHandler, http2ResHandler)),

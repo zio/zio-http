@@ -4,7 +4,7 @@ import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import zhttp.http.{Response, Status}
-import zhttp.service.{HttpRuntime, WEB_SOCKET_HANDLER, WebSocketAppHandler}
+import zhttp.service.{HttpRuntime, SERVER_WEB_SOCKET_HANDLER, WEB_SOCKET_SERVER_PROTOCOL_HANDLER, WebSocketAppHandler}
 
 import scala.annotation.tailrec
 
@@ -30,8 +30,11 @@ trait WebSocketUpgrade[R] { self: ChannelHandler =>
         ctx
           .channel()
           .pipeline()
-          .addLast(new WebSocketServerProtocolHandler(app.get.protocol.serverBuilder.build()))
-          .addLast(WEB_SOCKET_HANDLER, new WebSocketAppHandler(runtime, app.get))
+          .addLast(
+            WEB_SOCKET_SERVER_PROTOCOL_HANDLER,
+            new WebSocketServerProtocolHandler(app.get.protocol.serverBuilder.build()),
+          )
+          .addLast(SERVER_WEB_SOCKET_HANDLER, new WebSocketAppHandler(runtime, app.get))
         ctx.channel().eventLoop().submit(() => ctx.fireChannelRead(jReq)): Unit
 
       case jReq: HttpRequest =>

@@ -1,6 +1,7 @@
 package zhttp.service.server.content.handlers
 
 import io.netty.buffer.Unpooled
+import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import io.netty.handler.codec.http2.{
@@ -14,6 +15,7 @@ import zhttp.service.Server.Config
 import zhttp.service.server.ServerTime
 import zhttp.service.{ChannelFuture, HttpRuntime}
 
+@Sharable
 private[zhttp] case class Http2ServerResponseHandler[R](
   runtime: HttpRuntime[R],
   config: Config[R, Throwable],
