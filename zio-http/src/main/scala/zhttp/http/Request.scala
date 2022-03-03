@@ -26,7 +26,7 @@ trait Request extends HeaderExtension[Request] { self =>
       override def unsafeEncode: HttpRequest          = self.unsafeEncode
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
       override def data: HttpData                     = self.data
-      override def toString: String =
+      override def toString: String                   =
         s"Request($method, $url, $headers, $remoteAddress)"
     }
   }
@@ -146,7 +146,7 @@ object Request {
       }
       override def remoteAddress: Option[InetAddress] = ra
       override def data: HttpData                     = d
-      override def toString: String =
+      override def toString: String                   =
         s"Request($method, $url, $headers, $remoteAddress)"
     }
   }
@@ -173,7 +173,7 @@ object Request {
     override def url: URL                           = req.url
     override def unsafeEncode: HttpRequest          = req.unsafeEncode
     override def data: HttpData                     = req.data
-    override def toString: String =
+    override def toString: String                   =
       s"ParameterizedRequest($req, $params)"
   }
 
