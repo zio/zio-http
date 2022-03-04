@@ -1,8 +1,6 @@
 package zhttp.service
 
-import zhttp.service.client.domain.DefaultClient
 import zhttp.service.client.transport.Transport
-import zio.Task
 import zio.duration.Duration
 
 import scala.concurrent.duration.DurationInt
@@ -21,7 +19,6 @@ trait ClientSettings { self =>
     case Concat(self, other)                        => other.settings(self.settings(s))
     case TransportConfig(transport)                 => s.copy(transport = transport)
     case Threads(threads)                           => s.copy(threads = threads)
-    case ResponseHeaderTimeout(rht)                 => s.copy(responseHeaderTimeout = rht)
     case IdleTimeout(idlt)                          => s.copy(idleTimeout = idlt)
     case RequestTimeout(rqt)                        => s.copy(requestTimeout = rqt)
     case ConnectionTimeout(connt)                   => s.copy(connectionTimeout = connt)
@@ -33,8 +30,8 @@ trait ClientSettings { self =>
     case _                                          => s
   }
 
-  def make: Task[DefaultClient] =
-    Client.make(self.asInstanceOf[ClientSettings])
+  //  def make: Task[DefaultClient] =
+  //    Client.make(self.asInstanceOf[ClientSettings])
 
   /**
    * Creates a specified type transport underneath, (like Epoll/KQueue/NIO/URing
@@ -43,38 +40,52 @@ trait ClientSettings { self =>
   def withTransport(transport: Transport): ClientSettings = Concat(self, ClientSettings.TransportConfig(transport))
 
   /**
+   * specify thread count to be used by underlying netty event loop group for
+   * creating number of event loops. Each EventLoop object is exclusively
+   * associated with a single Thread and each event loop is associated with
+   * multiple channels. If not specified NIO/EPoll/Kqueue groups create a pool
+   * of 2 * number of processors and distribute them evenly across Channels.
    */
   def withThreads(count: Int): ClientSettings = Concat(self, ClientSettings.Threads(count))
 
   /**
-   */
-  def withResponseHeaderTimeout(responseHeaderTimeout: Duration): ClientSettings =
-    Concat(self, ClientSettings.ResponseHeaderTimeout(responseHeaderTimeout))
-
-  /**
+   * Minimum time and idle connection will be maintained, before getting evicted
+   * from the connection pool.
    */
   def withIdleTimeout(idleTimeout: Duration): ClientSettings =
     Concat(self, ClientSettings.IdleTimeout(idleTimeout))
 
   /**
+   * maximum duration since the submission of a request through reading the
+   * response body before a timeout.
    */
   def withRequestTimeout(requestTimeout: Duration): ClientSettings =
     Concat(self, ClientSettings.RequestTimeout(requestTimeout))
 
   /**
+   * attempt to establish connection with remote address times out after
+   * connectTimeout.
    */
   def withConnectionTimeout(connectionTimeout: Duration): ClientSettings =
     Concat(self, ClientSettings.ConnectionTimeout(connectionTimeout))
 
   /**
+   * Maximum number of connections maintained within the connection pool
+   * irrespective of the remote address.
    */
   def withMaxTotalConnections(count: Int): ClientSettings = Concat(self, ClientSettings.MaxTotalConnections(count))
 
   /**
+   * maximum number requests waiting for a connection at any specific time
    */
   def withMaxWaitQueueLimit(count: Int): ClientSettings = Concat(self, ClientSettings.MaxWaitQueueLimit(count))
 
   /**
+   * Each RequestKey maps to a remote address, for example: RK1 =>
+   * www.google.com RK2 => localhost:8080
+   *
+   * this property defines number of connections maintained per request key (per
+   * remote address)
    */
   def withMaxConnectionsPerRequestKey(count: Int): ClientSettings =
     Concat(self, ClientSettings.MaxConnectionsPerRequestKey(count))
@@ -84,8 +95,6 @@ object ClientSettings {
   protected[zhttp] final case class Config(
     transport: Transport = Transport.Auto,
     threads: Int = 0,
-    responseHeaderTimeout: Duration =
-      Duration.Infinity, // duration between the submission of request and the completion of the response header
     // Does not include time to read the response body
     idleTimeout: Duration = Duration.fromScala(1.minute),
     requestTimeout: Duration = Duration.fromScala(1.minute),      //
@@ -101,7 +110,6 @@ object ClientSettings {
   case class Concat(self: ClientSettings, other: ClientSettings) extends ClientSettings
   case class TransportConfig(transport: Transport)               extends ClientSettings
   case class Threads(threads: Int)                               extends ClientSettings
-  case class ResponseHeaderTimeout(rht: Duration)                extends ClientSettings
   case class IdleTimeout(idlt: Duration)                         extends ClientSettings
   case class RequestTimeout(reqt: Duration)                      extends ClientSettings
   case class ConnectionTimeout(connt: Duration)                  extends ClientSettings
@@ -127,8 +135,7 @@ object ClientSettings {
    */
   def threads(threads: Int) = ClientSettings.Threads(threads)
 
-  // TODO: to be elaborated and used WIP.
-  def responseHeaderTimeout(rht: Duration): ClientSettings = ClientSettings.ResponseHeaderTimeout(rht)
+  // TODO: to be implemented (WIP).
   def idleTimeout(idt: Duration): ClientSettings           = ClientSettings.IdleTimeout(idt)
   def requestTimeout(rqt: Duration): ClientSettings        = ClientSettings.RequestTimeout(rqt)
   def connectionTimeout(connT: Duration): ClientSettings   = ClientSettings.ConnectionTimeout(connT)
