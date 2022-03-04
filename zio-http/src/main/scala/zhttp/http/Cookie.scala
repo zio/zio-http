@@ -3,8 +3,8 @@ package zhttp.http
 import zio.duration._
 
 import java.security.MessageDigest
-import java.time.{Instant, ZoneOffset}
 import java.time.format.DateTimeFormatter
+import java.time.{Instant, ZoneOffset}
 import java.util.Base64.getEncoder
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
