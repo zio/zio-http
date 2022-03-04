@@ -19,7 +19,6 @@ object HttpDataSpec extends DefaultRunnableSpec {
         },
         testM("HttpData.fromStream") {
           checkAllM(Gen.anyString) { payload =>
-            println(payload)
             val stringBuffer    = payload.toString.getBytes(HTTP_CHARSET)
             val responseContent = ZStream.fromIterable(stringBuffer)
             val res             = HttpData.fromStream(responseContent).toByteBuf.map(_.toString(HTTP_CHARSET))
