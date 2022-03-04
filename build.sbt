@@ -1,5 +1,6 @@
 import BuildHelper._
 import Dependencies._
+import sbt.librarymanagement.ScalaArtifacts.isScala3
 
 val releaseDrafterVersion = "5"
 
@@ -85,6 +86,7 @@ lazy val root = (project in file("."))
     zhttp,
     zhttpBenchmarks,
     zhttpTest,
+    zhttpLogging,
     example,
   )
 
@@ -102,9 +104,9 @@ lazy val zhttp = (project in file("zio-http"))
       `zio-test-sbt`,
       `netty-incubator`,
       `scala-compact-collection`,
-      `zhttp-log`,
     ),
   )
+  .dependsOn(zhttpLogging)
 
 lazy val zhttpBenchmarks = (project in file("zio-http-benchmarks"))
   .enablePlugins(JmhPlugin)
@@ -117,6 +119,26 @@ lazy val zhttpTest = (project in file("zio-http-test"))
   .dependsOn(zhttp)
   .settings(stdSettings("zhttp-test"))
   .settings(publishSetting(true))
+
+lazy val zhttpLogging = (project in file("zio-http-logging"))
+  .settings(stdSettings("zhttp-logging"))
+  .settings(publishSetting(true))
+  .settings(
+    libraryDependencies ++= {
+      if (isScala3(scalaVersion.value)) Seq.empty
+      else Seq(reflect.value % Provided)
+    },
+  )
+  .settings(
+    Compile / unmanagedSourceDirectories ++= {
+      scalaBinaryVersion.value match {
+        case s if s.startsWith("2.") =>
+          Seq(baseDirectory.value / ".." / "src" / "main" / "scala-2")
+        case s if s.startsWith("3")  =>
+          Seq(baseDirectory.value / ".." / "src" / "main" / "scala-3")
+      }
+    },
+  )
 
 lazy val example = (project in file("./example"))
   .settings(stdSettings("example"))

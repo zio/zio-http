@@ -1,3 +1,4 @@
+import sbt.Keys.scalaVersion
 import sbt._
 
 object Dependencies {
@@ -20,5 +21,5 @@ object Dependencies {
   val `zio-test`     = "dev.zio" %% "zio-test"     % ZioVersion % "test"
   val `zio-test-sbt` = "dev.zio" %% "zio-test-sbt" % ZioVersion % "test"
 
-  val `zhttp-log` = "zhttp-logging" %% "zhttp-logging" % "0.1.0-SNAPSHOT"
+  val reflect = Def.map(scalaVersion)("org.scala-lang" % "scala-reflect" % _)
 }
