@@ -4,6 +4,7 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
+import zhttp.logging.Logger
 import zhttp.service.server.content.handlers.ServerResponseHandler
 import zhttp.service.server.{ServerTime, WebSocketUpgrade}
 import zio.{UIO, ZIO}
@@ -20,8 +21,11 @@ private[zhttp] final case class Handler[R](
     with WebSocketUpgrade[R]
     with ServerResponseHandler[R] { self =>
 
+  private val log = Logger.getLogger("zhttp.service.Handler")
+
   override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
 
+    log.trace("server.Handler-channelRead0")
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
       case jReq: FullHttpRequest =>
@@ -177,10 +181,12 @@ private[zhttp] final case class Handler[R](
   /**
    * Executes program
    */
-  private def unsafeRunZIO(program: ZIO[R, Throwable, Any])(implicit ctx: Ctx): Unit =
+  private def unsafeRunZIO(program: ZIO[R, Throwable, Any])(implicit ctx: Ctx): Unit = {
+    log.info(s"Unsafe run $program")
     rt.unsafeRun(ctx) {
       program
     }
+  }
 
   override def serverTime: ServerTime = serverTimeGenerator
 
