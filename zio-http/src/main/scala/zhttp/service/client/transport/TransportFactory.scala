@@ -18,6 +18,11 @@ import zio.Task
  *
  * A Factory for providing transport specific Channel / ServerChannel /
  * EventLoopGroup
+ *
+ * Important: Particular implementation of EventLoopGroup used must be matched
+ * up with the transport: for example, NIOEventLoopGroup must be used with the
+ * NIO transports, KQueueEventLoopGroup must be matched with KQueue transports
+ * etc.
  */
 sealed trait Transport  {
   def serverChannel: Task[JChannelFactory[ServerChannel]]
