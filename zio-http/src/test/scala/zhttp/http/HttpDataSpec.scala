@@ -1,11 +1,10 @@
 package zhttp.http
 
+import zio.stream.ZStream
 import zio.test.Assertion.equalTo
-import zio.test.{DefaultRunnableSpec, assertM, checkAllM}
+import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAllM}
 
 import java.io.File
-import zio.stream.ZStream
-import zio.test.Gen
 
 object HttpDataSpec extends DefaultRunnableSpec {
   // TODO : Add tests for othe HttpData types
