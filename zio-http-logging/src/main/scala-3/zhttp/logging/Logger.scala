@@ -20,28 +20,23 @@ final class Logger(configuration: Configuration) {
 
   import scala.language.experimental.macros
 
-  inline def trace(inline t: Throwable)(inline msg: String): Unit =
-  ${traceTM('this)('t)('msg)}
+  inline def trace(inline msg: String, inline throwable: Throwable): Unit =  ${traceTM('this)('throwable)('msg)}
   inline def trace(inline msg: String): Unit =
   ${traceM('this)('msg)}
 
-  inline def debug(inline t: Throwable)(inline msg: String): Unit =
-  ${debugTM('this)('t)('msg)}
+  inline def debug(inline msg: String, inline throwable: Throwable): Unit =  ${debugTM('this)('throwable)('msg)}
   inline def debug(inline msg: String): Unit =
   ${debugM('this)('msg)}
 
-  inline def info(inline t: Throwable)(inline msg: String): Unit =
-  ${infoTM('this)('t)('msg)}
+  inline def info(inline msg: String, inline throwable: Throwable): Unit =  ${infoTM('this)('throwable)('msg)}
   inline def info(inline msg: String): Unit =
   ${infoM('this)('msg)}
 
-  inline def warn(inline t: Throwable)(inline msg: String): Unit =
-  ${warnTM('this)('t)('msg)}
+  inline def warn(inline msg: String, inline throwable: Throwable): Unit =  ${warnTM('this)('throwable)('msg)}
   inline def warn(inline msg: String): Unit =
   ${warnM('this)('msg)}
 
-  inline def error(inline t: Throwable)(inline msg: String): Unit =
-  ${errorTM('this)('t)('msg)}
+  inline def error(inline msg: String, inline throwable: Throwable): Unit =  ${errorTM('this)('throwable)('msg)}
   inline def error(inline msg: String): Unit =
   ${errorM('this)('msg)}
 

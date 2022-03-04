@@ -125,23 +125,23 @@ private[zhttp] object LoggerMacro {
 
   }
 
-  def traceTM(c: LogCtx)(throwable: c.Expr[Throwable])(msg: c.Expr[String]) =
+  def traceTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
     reflectiveLog(c)(msg, Some(throwable))(TRACE)
   def traceM(c: LogCtx)(msg: c.Expr[String])                                = reflectiveLog(c)(msg, None)(TRACE)
 
-  def debugTM(c: LogCtx)(throwable: c.Expr[Throwable])(msg: c.Expr[String]) =
+  def debugTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
     reflectiveLog(c)(msg, Some(throwable))(DEBUG)
   def debugM(c: LogCtx)(msg: c.Expr[String])                                = reflectiveLog(c)(msg, None)(DEBUG)
 
-  def infoTM(c: LogCtx)(throwable: c.Expr[Throwable])(msg: c.Expr[String]) =
+  def infoTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
     reflectiveLog(c)(msg, Some(throwable))(INFO)
   def infoM(c: LogCtx)(msg: c.Expr[String])                                = reflectiveLog(c)(msg, None)(INFO)
 
-  def warnTM(c: LogCtx)(throwable: c.Expr[Throwable])(msg: c.Expr[String]) =
+  def warnTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
     reflectiveLog(c)(msg, Some(throwable))(WARN)
   def warnM(c: LogCtx)(msg: c.Expr[String])                                = reflectiveLog(c)(msg, None)(WARN)
 
-  def errorTM(c: LogCtx)(throwable: c.Expr[Throwable])(msg: c.Expr[String]) =
+  def errorTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
     reflectiveLog(c)(msg, Some(throwable))(ERROR)
   def errorM(c: LogCtx)(msg: c.Expr[String])                                = reflectiveLog(c)(msg, None)(ERROR)
 
