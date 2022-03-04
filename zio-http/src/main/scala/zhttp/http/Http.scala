@@ -884,7 +884,7 @@ object Http {
   /**
    * Attempts to retrieve files from the classpath.
    */
-  def getResource(path: String): Http[Blocking, Throwable, Any, net.URL] =
+  def getResource(path: String): Http[Any, Throwable, Any, net.URL] =
     Http
       .fromZIO(effectBlockingIO(getClass.getClassLoader.getResource(path)))
       .flatMap { resource => if (resource == null) Http.empty else Http.succeed(resource) }
