@@ -95,7 +95,7 @@ object HttpData {
         case HttpData.BinaryStream(stream)  =>
           stream
             .asInstanceOf[ZStream[Any, Throwable, ByteBuf]]
-            .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(b))
+            .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(true, b))
         case HttpData.RandomAccessFile(raf) =>
           effectBlocking {
             val fis                      = new FileInputStream(raf().getFD)
