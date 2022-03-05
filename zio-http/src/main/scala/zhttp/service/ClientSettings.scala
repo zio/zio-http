@@ -30,9 +30,6 @@ trait ClientSettings { self =>
     case _                                          => s
   }
 
-  //  def make: Task[DefaultClient] =
-  //    Client.make(self.asInstanceOf[ClientSettings])
-
   /**
    * Creates a specified type transport underneath, (like Epoll/KQueue/NIO/URing
    * etc) Default is Auto

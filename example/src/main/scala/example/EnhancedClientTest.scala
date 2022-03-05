@@ -16,7 +16,7 @@ object EnhancedClientTest extends App {
 
   private val fooBar: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !! / "foo" / int(id) => Response.text("bar ----- " + id)
-    case Method.GET -> !! / "bar" / int(id) => Response.text("foo foo foo foo foo foo foo foo foo  " + id)
+    case Method.GET -> !! / "bar" / int(id) => Response.text("foo ***** " + id)
   }
 
   private val server =
@@ -33,19 +33,21 @@ object EnhancedClientTest extends App {
   val testUrl1 = "http://localhost:8081/foo/1"
   val testUrl2 = "http://localhost:8081/bar/2"
 
+  val clientSettings = ClientSettings.threads(8) ++
+    ClientSettings.maxConnectionsPerRequestKey(10) ++
+    ClientSettings.maxTotalConnections(20)
+
   // Client Test code
   def clientTest = {
     for {
-      client <- Client.make(
-        ClientSettings.threads(8) ++
-          ClientSettings.maxConnectionsPerRequestKey(10) ++
-          ClientSettings.maxTotalConnections(20),
-      )
+      client <- Client.make(clientSettings)
       _      <- triggerClientSequential(client)
     } yield ()
   }
 
-  // sequential execution test
+  /*
+    SEQUENTIAL EXECUTION TEST
+   */
   def triggerClientSequential(cl: DefaultClient) = for {
     resp <- cl.run(testUrl1).flatMap(_.bodyAsString)
     _    <- ZIO.effect(println(s"Response Status from $testUrl1 ${resp.length} \n ----- \n"))

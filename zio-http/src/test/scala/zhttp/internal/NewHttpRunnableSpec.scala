@@ -61,7 +61,6 @@ abstract class NewHttpRunnableSpec extends DefaultRunnableSpec { self =>
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         cl       <- Http.fromZIO(ZIO.service[DefaultClient])
-//        _ <- Http.fromZIO(ZIO.effect(println(s" GOT CLIENT : $cl")))
         response <- Http.fromFunctionZIO[Client.ClientRequest] { params =>
           cl.run(
             params

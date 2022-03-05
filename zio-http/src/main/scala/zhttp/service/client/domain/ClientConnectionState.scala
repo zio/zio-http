@@ -13,7 +13,9 @@ import scala.collection.immutable
  * TODO: Likely to change
  *
  * @param channel
+ *   the low level connection abstraction from netty
  * @param isReuse
+ *   is channel newly created or being re-used.
  */
 case class Connection(channel: Channel, isReuse: Boolean) {
   override def canEqual(that: Any): Boolean = that match {
@@ -22,17 +24,39 @@ case class Connection(channel: Channel, isReuse: Boolean) {
   }
 }
 
+/**
+ * timeouts defined will be manipulated in tandem atomically, using zio.Ref
+ */
 case class Timeouts(
   connectionTimeout: Duration = Duration.Infinity,
   idleTimeout: Duration = Duration.Infinity,
   requestTimeout: Duration = Duration.Infinity,
 )
 
+/**
+ * The overall state of connection pool
+ *
+ * @param currentAllocatedChannels
+ *   Channels currently allocated (in-use)
+ * @param idleConnectionsMap
+ *   Channels which are idle and can be allocated to next request.
+ */
 case class ConnectionPoolState(
   currentAllocatedChannels: Map[Channel, ReqKey],
   idleConnectionsMap: Map[ReqKey, immutable.Queue[Connection]],
 )
 
+/**
+ * Required for state transition in functional manner (oldState) =>
+ * (newState,oldState)
+ *
+ * The newConnection will act as a place holder for next available idle channel.
+ * This is required to manipulate connection pool state in a a deadlock free /
+ * thread safe way.
+ *
+ * @param newConnection
+ * @param connectionPoolState
+ */
 case class NewConnectionData(newConnection: Option[Connection] = None, connectionPoolState: ConnectionPoolState)
 
 case class ConnectionData(connectionData: Ref[NewConnectionData]) {

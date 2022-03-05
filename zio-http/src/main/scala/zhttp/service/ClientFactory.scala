@@ -8,12 +8,13 @@ import zio._
  */
 object ClientFactory {
   type ClientEnv = Has[DefaultClient]
-  def client: ZLayer[Any, Nothing, ClientEnv] = ClientFactory.Live.defaultClient.toLayer
+  def clientLayer(clientSettings: ClientSettings = ClientSettings.defaultSetting): ZLayer[Any, Nothing, ClientEnv] =
+    ClientFactory.Live.defaultClient(clientSettings).toLayer
 
   object Live {
-    def defaultClient: ZManaged[Any, Nothing, DefaultClient] = {
+    def defaultClient(clientSettings: ClientSettings): ZManaged[Any, Nothing, DefaultClient] = {
       Client
-        .make(ClientSettings.maxTotalConnections(20))
+        .make(clientSettings)
         .toManaged_
         .orDie
     }

@@ -3,9 +3,9 @@ package zhttp.service.client.transport
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.Channel
 import io.netty.handler.codec.http.FullHttpRequest
-import zhttp.http.HeaderNames
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.ClientSettings.Config
+import zhttp.service.HttpMessageCodec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.domain.ConnectionData.ReqKey
 import zhttp.service.client.domain.{Connection, ConnectionData, ConnectionPoolState, NewConnectionData, Timeouts}
@@ -24,7 +24,7 @@ case class ClientConnectionManager(
   timeouts: Timeouts,
   boo: Bootstrap,
   zExec: zhttp.service.HttpRuntime[Any],
-) {
+) extends HttpMessageCodec {
 
   /**
    * core method for getting a connection for a request
@@ -40,21 +40,20 @@ case class ClientConnectionManager(
    * @return
    */
   def fetchConnection(
-    jReq: FullHttpRequest,
     req: ClientRequest,
     promise: Promise[Throwable, ClientResponse],
   ): Task[Connection] = for {
-    reqKey <- getRequestKey(jReq, req)
+    reqKey <- getRequestKey(req)
     isWebSocket = req.url.scheme.exists(_.isWebSocket)
     isSSL       = req.url.scheme.exists(_.isSecure)
     conn <- buildChannel(reqKey, isWebSocket, isSSL)
+    jReq <- encode(req)
     _    <- attachHandler(conn, jReq, promise)
   } yield conn
 
-  def getRequestKey(jReq: FullHttpRequest, req: ClientRequest) = for {
-    uri <- Task(new java.net.URI(jReq.uri()))
-    host = if (uri.getHost == null) jReq.headers().get(HeaderNames.host) else uri.getHost
-    _ <- Task(assert(host != null, "Host name is required"))
+  def getRequestKey(req: ClientRequest) = for {
+    host <- Task(req.host.fold { "localhost" }(_.toString))
+//    _    <- Task(assert(host != null, "Host name is required"))
     port   = req.url.port.getOrElse(80)
     reqKey = if (port == -1) new ReqKey(host, 80) else new InetSocketAddress(host, port)
   } yield reqKey
