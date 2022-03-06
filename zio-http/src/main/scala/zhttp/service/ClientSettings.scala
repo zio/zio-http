@@ -45,7 +45,6 @@ object ClientSettings {
   case class TransportConfig(transport: Transport)               extends ClientSettings
   case class Threads(threads: Int)                               extends ClientSettings
   case object DefaultSetting                                     extends ClientSettings
-  //  private final case class SSLContext(ssl: ClientSSLOptions)                                   extends ClientSettings
 
   /**
    * Choosing transport types like Nio,Epoll,KQueue etc

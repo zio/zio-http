@@ -18,7 +18,6 @@ case class DefaultClient(
 
   // methods for compatibility with existing client use
   def run(req: ClientRequest): Task[ClientResponse] = for {
-//    reqKey <- connectionManager.getRequestKey(req)
     prom <- zio.Promise.make[Throwable, ClientResponse]
     _    <- connectionManager.fetchConnection(req, prom)
     resp <- prom.await
