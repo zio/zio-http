@@ -9,8 +9,7 @@ import zio.test._
 object EnhancedClientSpec extends NewHttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ClientFactory
-      .clientLayer()
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Client.live()
 
   def clientSpec = suite("EnhancedClientSpec") {
     testM("respond Ok") {

@@ -4,8 +4,7 @@ import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.DynamicServer.HttpEnv
 import zhttp.internal.NewHttpRunnableSpec.NewHttpTestClient
-import zhttp.service.Client.{ClientRequest, ClientResponse}
-import zhttp.service.ClientFactory.ClientEnv
+import zhttp.service.Client.{ClientEnv, ClientRequest, ClientResponse}
 import zhttp.service._
 import zhttp.service.client.domain.DefaultClient
 import zio.test.DefaultRunnableSpec

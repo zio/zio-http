@@ -2,14 +2,7 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
-import io.netty.channel.{
-  Channel,
-  ChannelFactory => JChannelFactory,
-  ChannelFuture => JChannelFuture,
-  ChannelHandlerContext,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, ChannelHandlerContext, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
@@ -21,7 +14,7 @@ import zhttp.service.client.domain.DefaultClient
 import zhttp.service.client.transport.ClientConnectionManager
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.{Socket, SocketApp}
-import zio.{Chunk, Promise, Task, ZIO}
+import zio._
 
 import java.net.{InetAddress, InetSocketAddress, URI}
 
@@ -239,6 +232,19 @@ object Client {
       connectionManager <- ClientConnectionManager(settings)
       clientImpl = DefaultClient(connectionManager)
     } yield clientImpl
+  }
+
+  type ClientEnv = Has[DefaultClient]
+  def live(clientSettings: ClientSettings = ClientSettings.defaultSetting): ZLayer[Any, Nothing, ClientEnv] =
+    Live.defaultClient(clientSettings).toLayer
+
+  object Live {
+    def defaultClient(clientSettings: ClientSettings): ZManaged[Any, Nothing, DefaultClient] = {
+      Client
+        .make(clientSettings)
+        .toManaged_
+        .orDie
+    }
   }
 
 }
