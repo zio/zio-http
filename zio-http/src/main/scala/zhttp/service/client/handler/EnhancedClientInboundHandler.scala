@@ -22,12 +22,11 @@ final case class EnhancedClientInboundHandler[R](
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     ctx.writeAndFlush(jReq)
-    releaseRequest()
-    ()
+    releaseRequest(): Unit
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    println(s"EXCEPTION: $error")
+//    println(s"EXCEPTION: $error")
     zExec.unsafeRun(ctx)(promise.fail(error))
     releaseRequest()
   }
@@ -43,9 +42,5 @@ final case class EnhancedClientInboundHandler[R](
       ctx.writeAndFlush(jReq)
     } else ctx.fireChannelActive()
     ()
-  }
-
-  override def handlerRemoved(ctx: ChannelHandlerContext): Unit = {
-    //    println(s"ECI REMOVED ${ctx.channel().id()} ${ctx.name()} ${ctx.channel().isActive}")
   }
 }

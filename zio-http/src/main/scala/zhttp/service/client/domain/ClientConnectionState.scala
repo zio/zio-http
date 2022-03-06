@@ -7,7 +7,6 @@ import scala.collection.immutable
 
 /**
  * Defines ClientData / Request Key and other types for managing connection data
- * TODO: Likely to change
  *
  * @param channel
  *   the low level connection abstraction from netty

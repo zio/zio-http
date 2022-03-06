@@ -19,7 +19,6 @@ import java.net.InetSocketAddress
  * reuse netty channels for request / response
  */
 case class ClientConnectionManager(
-//  connectionData: ConnectionData,
   boo: Bootstrap,
   zExec: zhttp.service.HttpRuntime[Any],
 ) extends HttpMessageCodec {
@@ -108,7 +107,6 @@ case class ClientConnectionManager(
 
             override def operationComplete(future: io.netty.channel.ChannelFuture): Unit = {
               if (!future.isSuccess()) {
-                println(s"error: ${future.cause().getMessage}")
                 future.cause().printStackTrace()
               } else {
                 if (connection.isReuse) {
