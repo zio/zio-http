@@ -48,10 +48,10 @@ object EnhancedClientTest extends App {
    */
   def triggerClientSequential(cl: DefaultClient) = for {
     resp <- cl.run(testUrl1).flatMap(_.bodyAsString)
-    _    <- ZIO.effect(println(s"Response Status from $testUrl1 ${resp.length} \n ----- \n"))
+    _    <- ZIO.effect(println(s"Response Status from $testUrl1 ${resp} \n ----- \n"))
 
     resp2 <- cl.run(testUrl2).flatMap(_.bodyAsString)
-    _     <- ZIO.effect(println(s"Response Content from $testUrl2 ${resp2.length} \n ----- \n"))
+    _     <- ZIO.effect(println(s"Response Content from $testUrl2 ${resp2} \n ----- \n"))
   } yield ()
 
 }
