@@ -8,20 +8,18 @@ import zhttp.service.ClientSettings.Config
 import zhttp.service.HttpMessageCodec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.domain.ConnectionData.ReqKey
-import zhttp.service.client.domain.{Connection, ConnectionData, ConnectionPoolState, NewConnectionData, Timeouts}
+import zhttp.service.client.domain.{Connection}
 import zhttp.service.client.handler.{EnhancedClientChannelInitializer, EnhancedClientInboundHandler}
 import zio.{Promise, Task, ZIO}
 
 import java.net.InetSocketAddress
-import scala.collection.immutable
 
 /**
  * Holds Reference to Client state (ConnectionData) have functions to build /
  * reuse netty channels for request / response
  */
 case class ClientConnectionManager(
-  connectionData: ConnectionData,
-  timeouts: Timeouts,
+//  connectionData: ConnectionData,
   boo: Bootstrap,
   zExec: zhttp.service.HttpRuntime[Any],
 ) extends HttpMessageCodec {
@@ -138,13 +136,6 @@ object ClientConnectionManager {
     clientBootStrap = new Bootstrap()
       .channelFactory(channelFactory)
       .group(eventLoopGroup)
-    connectionDataRef <- zio.Ref.make(
-      NewConnectionData(
-        None.asInstanceOf[Option[Connection]],
-        ConnectionPoolState(Map.empty[Channel, ReqKey], Map.empty[ReqKey, immutable.Queue[Connection]]),
-      ),
-    )
-    timeouts    = Timeouts(settings.connectionTimeout, settings.idleTimeout, settings.requestTimeout)
-    connManager = ClientConnectionManager(ConnectionData(connectionDataRef), timeouts, clientBootStrap, zExec)
+    connManager = ClientConnectionManager(clientBootStrap, zExec)
   } yield connManager
 }

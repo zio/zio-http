@@ -33,9 +33,7 @@ object EnhancedClientTest extends App {
   val testUrl1 = "http://localhost:8081/foo/1"
   val testUrl2 = "http://localhost:8081/bar/2"
 
-  val clientSettings = ClientSettings.threads(8) ++
-    ClientSettings.maxConnectionsPerRequestKey(10) ++
-    ClientSettings.maxTotalConnections(20)
+  val clientSettings = ClientSettings.threads(8)
 
   // Client Test code
   def clientTest = {

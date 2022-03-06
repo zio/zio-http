@@ -68,19 +68,6 @@ abstract class NewHttpRunnableSpec extends DefaultRunnableSpec { self =>
           )
         }
       } yield response
-
-//    def deployWS: HttpTestClient[Any, SocketApp[Any], ClientResponse] =
-//      for {
-//        id       <- Http.fromZIO(DynamicServer.deploy(app))
-//        url      <- Http.fromZIO(DynamicServer.wsURL)
-//        response <- Http.fromFunctionZIO[SocketApp[Any]] { app =>
-//          Client.socket(
-//            url = url,
-//            headers = Headers(DynamicServer.APP_ID, id),
-//            app = app,
-//          )
-//        }
-//      } yield response
   }
 
   def serve[R <: Has[_]](
@@ -106,14 +93,6 @@ abstract class NewHttpRunnableSpec extends DefaultRunnableSpec { self =>
         .map(_.status)
     } yield status
   }
-
-  def clientConnections = {
-    for {
-      client <- ZIO.service[DefaultClient]
-      count  <- client.connectionManager.connectionData.getTotalConnections
-    } yield count
-  }
-
 }
 object NewHttpRunnableSpec {
   type NewHttpTestClient[-R, -A, +B] =
