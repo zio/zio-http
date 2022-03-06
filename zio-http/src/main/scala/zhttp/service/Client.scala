@@ -2,7 +2,14 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
-import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, ChannelHandlerContext, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
+import io.netty.channel.{
+  Channel,
+  ChannelFactory => JChannelFactory,
+  ChannelFuture => JChannelFuture,
+  ChannelHandlerContext,
+  ChannelInitializer,
+  EventLoopGroup => JEventLoopGroup,
+}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
@@ -234,6 +241,9 @@ object Client {
     } yield clientImpl
   }
 
+  /*
+    Define Client live layer for dependency injection usage (esp Specs)
+   */
   type ClientEnv = Has[DefaultClient]
   def live(clientSettings: ClientSettings = ClientSettings.defaultSetting): ZLayer[Any, Nothing, ClientEnv] =
     Live.defaultClient(clientSettings).toLayer
