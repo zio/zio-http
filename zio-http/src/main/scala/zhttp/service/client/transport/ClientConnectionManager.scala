@@ -7,8 +7,8 @@ import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service.ClientSettings.Config
 import zhttp.service.HttpMessageCodec
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zhttp.service.client.domain.Connection
 import zhttp.service.client.domain.ConnectionData.ReqKey
-import zhttp.service.client.domain.{Connection}
 import zhttp.service.client.handler.{EnhancedClientChannelInitializer, EnhancedClientInboundHandler}
 import zio.{Promise, Task, ZIO}
 
@@ -136,6 +136,6 @@ object ClientConnectionManager {
     clientBootStrap = new Bootstrap()
       .channelFactory(channelFactory)
       .group(eventLoopGroup)
-    connManager = ClientConnectionManager(clientBootStrap, zExec)
+    connManager     = ClientConnectionManager(clientBootStrap, zExec)
   } yield connManager
 }

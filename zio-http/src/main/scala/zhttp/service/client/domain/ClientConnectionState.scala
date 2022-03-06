@@ -1,6 +1,7 @@
 package zhttp.service.client.domain
 
 import io.netty.channel.Channel
+
 import java.net.InetSocketAddress
 import scala.collection.immutable
 

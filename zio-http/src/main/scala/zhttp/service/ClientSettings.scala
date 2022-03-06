@@ -1,6 +1,7 @@
 package zhttp.service
 
 import zhttp.service.client.transport.Transport
+
 /**
  * Configuration settings for the Client.
  */
@@ -12,11 +13,11 @@ trait ClientSettings { self =>
     Concat(self, other)
 
   def settings(s: Config = Config()): Config = self match {
-    case Concat(self, other)                        => other.settings(self.settings(s))
-    case TransportConfig(transport)                 => s.copy(transport = transport)
-    case Threads(threads)                           => s.copy(threads = threads)
-    case DefaultSetting                             => s
-    case _                                          => s
+    case Concat(self, other)        => other.settings(self.settings(s))
+    case TransportConfig(transport) => s.copy(transport = transport)
+    case Threads(threads)           => s.copy(threads = threads)
+    case DefaultSetting             => s
+    case _                          => s
   }
 
   /**
