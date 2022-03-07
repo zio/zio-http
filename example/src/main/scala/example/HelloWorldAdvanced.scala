@@ -1,11 +1,10 @@
 package example
 
 import zhttp.http._
-import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{EventLoopGroup, Server}
+import zhttp.service.Server
 import zio._
 
-import scala.util.Try
+//import scala.util.Try
 
 object HelloWorldAdvanced extends App {
   // Set a port
@@ -28,7 +27,7 @@ object HelloWorldAdvanced extends App {
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     // Configure thread count using CLI
-    val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
+//    val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
     // Create a new server
     server.make
@@ -39,7 +38,7 @@ object HelloWorldAdvanced extends App {
         // Ensures the server doesn't die after printing
           *> ZIO.never,
       )
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
+//      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
       .exitCode
   }
 }

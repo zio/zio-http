@@ -7,6 +7,7 @@ import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
+import zhttp.service.transport.Transport
 import zio.{ZManaged, _}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -32,14 +33,17 @@ sealed trait Server[-R, +E] { self =>
     case UnsafeChannelPipeline(init)           => s.copy(channelInitializer = init)
     case RequestDecompression(enabled, strict) => s.copy(requestDecompression = (enabled, strict))
     case ObjectAggregator(maxRequestSize)      => s.copy(objectAggregator = maxRequestSize)
+    case TransportConfig(transport)            => s.copy(transport = transport)
+    case Threads(threads)                      => s.copy(threads = threads)
+
   }
 
   def make(implicit
     ev: E <:< Throwable,
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Start] =
+  ): ZManaged[R, Throwable, Start] =
     Server.make(self.asInstanceOf[Server[R, Throwable]])
 
-  def start(implicit ev: E <:< Throwable): ZIO[R with EventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
+  def start(implicit ev: E <:< Throwable): ZIO[R, Throwable, Nothing] =
     make.useForever
 
   /**
@@ -47,7 +51,7 @@ sealed trait Server[-R, +E] { self =>
    * 0) and ServerChannelFactory.auto.
    */
   def startDefault[R1 <: Has[_] with R](implicit ev: E <:< Throwable): ZIO[R1, Throwable, Nothing] =
-    start.provideSomeLayer[R1](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
+    start // .provideSomeLayer[R1](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   /**
    * Creates a new server listening on the provided port.
@@ -157,6 +161,8 @@ object Server {
     channelInitializer: ChannelPipeline => Unit = null,
     requestDecompression: (Boolean, Boolean) = (false, false),
     objectAggregator: Int = -1,
+    transport: Transport = Transport.Auto,
+    threads: Int = 0,
   ) {
     def useAggregator: Boolean = objectAggregator >= 0
   }
@@ -179,6 +185,23 @@ object Server {
   private final case class UnsafeChannelPipeline(init: ChannelPipeline => Unit)       extends UServer
   private final case class RequestDecompression(enabled: Boolean, strict: Boolean)    extends UServer
   private final case class ObjectAggregator(maxRequestSize: Int)                      extends UServer
+  case class TransportConfig(transport: Transport)                                    extends UServer
+  case class Threads(threads: Int)                                                    extends UServer
+
+  /**
+   * Choosing transport types like Nio,Epoll,KQueue etc
+   * @param transport
+   *   (Transport.Auto / Transport.Nio / Transport.Epoll / Transport.Uring )
+   * @return
+   */
+  def transport(transport: Transport) = TransportConfig(transport)
+
+  /**
+   * Number of threads to be used by underlying netty EventLoopGroup
+   * @param threads
+   * @return
+   */
+  def threads(threads: Int) = Threads(threads)
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def port(port: Int): UServer                            = Server.Address(new InetSocketAddress(port))
@@ -199,6 +222,12 @@ object Server {
   val consolidateFlush: UServer                      = ConsolidateFlush(true)
   def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer          = UnsafeChannelPipeline(pipeline)
   def enableObjectAggregator(maxRequestSize: Int = Int.MaxValue): UServer = ObjectAggregator(maxRequestSize)
+
+  def nio: UServer    = TransportConfig(Transport.Nio)
+  def epoll: UServer  = TransportConfig(Transport.Epoll)
+  def kQueue: UServer = TransportConfig(Transport.KQueue)
+  def uring: UServer  = TransportConfig(Transport.URing)
+  def auto: UServer   = TransportConfig(Transport.Auto)
 
   /**
    * Creates a server from a http app.
@@ -243,11 +272,11 @@ object Server {
 
   def make[R](
     server: Server[R, Throwable],
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Start] = {
+  ): ZManaged[R, Throwable, Start] = {
     val settings = server.settings()
     for {
-      channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
-      eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
+      channelFactory <- settings.transport.serverChannel.toManaged_
+      eventLoopGroup <- settings.transport.eventLoopGroup(settings.threads).toManaged_
       zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
       reqHandler      = settings.app.compile(zExec, settings, ServerTime.make)
       init            = ServerChannelInitializer(zExec, settings, reqHandler)
