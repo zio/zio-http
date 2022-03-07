@@ -4,6 +4,8 @@ import zhttp.http._
 import zhttp.service.Server
 import zio._
 
+import scala.util.Try
+
 object HelloWorldAdvanced extends App {
   // Set a port
   private val PORT = 0
@@ -22,12 +24,16 @@ object HelloWorldAdvanced extends App {
     Server.port(PORT) ++              // Setup port
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
       Server.app(fooBar ++ app) ++    // Setup the Http app
-      Server.auto ++                  // Specifying a Transport type (by default Auto)
-      Server.threads(4)               // Thread count for EventLoopGroup
+      Server.auto                     // Specifying a Transport type (by default Auto)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+    // Configure thread count using CLI
+    val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
+
     // Create a new server
-    server.make
+    server
+      .withThreads(nThreads)
+      .make
       .use(start =>
         // Waiting for the server to start
         console.putStrLn(s"Server started on port ${start.port}")
