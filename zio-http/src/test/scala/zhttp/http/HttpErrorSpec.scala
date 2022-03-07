@@ -15,6 +15,10 @@ object HttpErrorSpec extends DefaultRunnableSpec {
           val error  = HttpError.NotFound(!!)
           val result = error.foldCause("Page not found")(cause => cause.getMessage)
           assert(result)(equalTo("Page not found"))
+        } +
+        test("should create custom error") {
+          val error = HttpError.CustomResponseStatus(451, "Unavailable for legal reasons.")
+          assert(error.status)(equalTo(Status.CUSTOM_STATUS(451)))
         }
     }
   }
