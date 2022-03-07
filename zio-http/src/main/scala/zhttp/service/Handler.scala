@@ -131,21 +131,33 @@ private[zhttp] final case class Handler[R](
     http.execute(a) match {
       case HExit.Effect(resM) =>
         unsafeRunZIO {
-          resM.foldM(
-            {
-              case Some(cause) =>
-                UIO {
-                  writeResponse(
-                    Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),
-                    jReq,
-                  )
-                }
-              case None        =>
-                UIO {
-                  writeResponse(Response.status(Status.NOT_FOUND), jReq)
-                }
-
-            },
+          resM.foldCauseM(
+            cause =>
+              cause.failureOrCause match {
+                case Left(Some(cause)) =>
+                  UIO {
+                    writeResponse(
+                      Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),
+                      jReq,
+                    )
+                  }
+                case Left(None)        =>
+                  UIO {
+                    writeResponse(Response.status(Status.NOT_FOUND), jReq)
+                  }
+                case Right(other)      =>
+                  other.dieOption match {
+                    case Some(defect) =>
+                      UIO {
+                        writeResponse(
+                          Response.fromHttpError(HttpError.InternalServerError(cause = Some(defect))),
+                          jReq,
+                        )
+                      }
+                    case None         =>
+                      ZIO.halt(other)
+                  }
+              },
             res =>
               if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(jReq, res))
               else {
@@ -166,6 +178,9 @@ private[zhttp] final case class Handler[R](
         }
 
       case HExit.Failure(e) =>
+        writeResponse(Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))), jReq): Unit
+
+      case HExit.Die(e) =>
         writeResponse(Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))), jReq): Unit
 
       case HExit.Empty =>

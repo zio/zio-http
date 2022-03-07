@@ -35,7 +35,7 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
       } yield ()) {
         case Exit.Success(_)     => ()
         case Exit.Failure(cause) =>
-          cause.failureOption match {
+          cause.failureOption.orElse(cause.dieOption) match {
             case None    => ()
             case Some(_) => System.err.println(cause.prettyPrint)
           }
