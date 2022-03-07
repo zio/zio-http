@@ -18,7 +18,7 @@ object HttpErrorSpec extends DefaultRunnableSpec {
         } +
         test("should create custom error") {
           val error = HttpError.CustomResponseStatus(451, "Unavailable for legal reasons.")
-          assert(error.status)(equalTo(Status.CUSTOM_STATUS(451)))
+          assert(error.status)(equalTo(Status.Custom(451)))
         }
     }
   }
