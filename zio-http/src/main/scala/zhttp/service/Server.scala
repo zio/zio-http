@@ -51,7 +51,7 @@ sealed trait Server[-R, +E] { self =>
    * 0) and ServerChannelFactory.auto.
    */
   def startDefault[R1 <: Has[_] with R](implicit ev: E <:< Throwable): ZIO[R1, Throwable, Nothing] =
-    start // .provideSomeLayer[R1](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
+    start
 
   /**
    * Creates a new server listening on the provided port.
@@ -143,6 +143,21 @@ sealed trait Server[-R, +E] { self =>
    */
   def withObjectAggregator(maxRequestSize: Int = Int.MaxValue): Server[R, E] =
     Concat(self, ObjectAggregator(maxRequestSize))
+
+  /**
+   * Creates a specified type transport underneath, (like Epoll/KQueue/NIO/URing
+   * etc) Default is Auto
+   */
+  def withTransport(transport: Transport): Server[R, E] = Concat(self, TransportConfig(transport))
+
+  /**
+   * specify thread count to be used by underlying netty event loop group for
+   * creating number of event loops. Each EventLoop object is exclusively
+   * associated with a single Thread and each event loop is associated with
+   * multiple channels. If not specified NIO/EPoll/Kqueue groups create a pool
+   * of 2 * number of processors and distribute them evenly across Channels.
+   */
+  def withThreads(count: Int): Server[R, E] = Concat(self, Threads(count))
 }
 
 object Server {
@@ -246,7 +261,6 @@ object Server {
       .make
       .flatMap(start => ZManaged.succeed(println(s"Server started on port: ${start.port}")))
       .useForever
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
   }
 
   def start[R <: Has[_]](
@@ -258,7 +272,6 @@ object Server {
       .withBinding(address, port))
       .make
       .useForever
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def start[R <: Has[_]](
     socketAddress: InetSocketAddress,
@@ -268,7 +281,6 @@ object Server {
       .withBinding(socketAddress))
       .make
       .useForever
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   def make[R](
     server: Server[R, Throwable],

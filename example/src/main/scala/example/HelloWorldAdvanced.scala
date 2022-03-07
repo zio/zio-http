@@ -4,8 +4,6 @@ import zhttp.http._
 import zhttp.service.Server
 import zio._
 
-//import scala.util.Try
-
 object HelloWorldAdvanced extends App {
   // Set a port
   private val PORT = 0
@@ -23,12 +21,11 @@ object HelloWorldAdvanced extends App {
   private val server =
     Server.port(PORT) ++              // Setup port
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
-      Server.app(fooBar ++ app)       // Setup the Http app
+      Server.app(fooBar ++ app) ++    // Setup the Http app
+      Server.auto ++                  // Specifying a Transport type (by default Auto)
+      Server.threads(4)               // Thread count for EventLoopGroup
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    // Configure thread count using CLI
-//    val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
-
     // Create a new server
     server.make
       .use(start =>
@@ -38,7 +35,6 @@ object HelloWorldAdvanced extends App {
         // Ensures the server doesn't die after printing
           *> ZIO.never,
       )
-//      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
       .exitCode
   }
 }
