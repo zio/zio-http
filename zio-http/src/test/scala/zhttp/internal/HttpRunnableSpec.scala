@@ -4,7 +4,7 @@ import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.DynamicServer.HttpEnv
 import zhttp.internal.HttpRunnableSpec.HttpTestClient
-import zhttp.service.Client.{ClientRequest, ClientResponse}
+import zhttp.service.Client.ClientRequest
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.socket.SocketApp
@@ -56,7 +56,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy: HttpTestClient[Any, ClientRequest, ClientResponse] =
+    def deploy: HttpTestClient[Any, ClientRequest, Response] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
@@ -69,7 +69,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
         }
       } yield response
 
-    def deployWS: HttpTestClient[Any, SocketApp[Any], ClientResponse] =
+    def deployWS: HttpTestClient[Any, SocketApp[Any], Response] =
       for {
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         url      <- Http.fromZIO(DynamicServer.wsURL)
