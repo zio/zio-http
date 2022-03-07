@@ -3,7 +3,6 @@ package zhttp.service.client.domain
 import io.netty.channel.Channel
 
 import java.net.InetSocketAddress
-import scala.collection.immutable
 
 /**
  * Defines ClientData / Request Key and other types for managing connection data
@@ -22,5 +21,4 @@ case class Connection(channel: Channel, isReuse: Boolean) {
 
 object ConnectionData {
   type ReqKey = InetSocketAddress
-  def emptyIdleConnectionMap = Map.empty[ReqKey, immutable.Queue[Connection]]
 }

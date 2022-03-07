@@ -232,6 +232,8 @@ object Client {
    * @param clientSettings
    *   Client configuration
    * @return
+   *   Concrete Implementation of DefaultClient with connection pool
+   *   capabilities
    */
   def make(clientSettings: ClientSettings = ClientSettings.defaultSetting): Task[DefaultClient] = {
     val settings = clientSettings.settings()

@@ -9,7 +9,6 @@ import zio.Promise
 /**
  * Handles HTTP response
  */
-//@Sharable
 final case class EnhancedClientInboundHandler[R](
   zExec: HttpRuntime[R],
   jReq: FullHttpRequest,
@@ -26,7 +25,6 @@ final case class EnhancedClientInboundHandler[R](
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-//    println(s"EXCEPTION: $error")
     zExec.unsafeRun(ctx)(promise.fail(error))
     releaseRequest()
   }

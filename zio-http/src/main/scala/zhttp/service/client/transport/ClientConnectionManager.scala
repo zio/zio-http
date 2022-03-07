@@ -35,6 +35,8 @@ case class ClientConnectionManager(
    * @param req
    * @param promise
    * @return
+   *   Task[Connection] where connection represents underlying netty channel
+   *   with other information.
    */
   def fetchConnection(
     req: ClientRequest,
@@ -67,11 +69,11 @@ case class ClientConnectionManager(
    *   corresponding to this host:port
    * @param isWebSocket
    * @param isSSL
-   * @tparam R
    *   // Not sure if we need this.
    * @return
+   *   newly build netty Channel wrapped in Connection type.
    */
-  def buildChannel[R](
+  def buildChannel(
     reqKey: ReqKey,
     isWebSocket: Boolean = false,
     isSSL: Boolean = false,

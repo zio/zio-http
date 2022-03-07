@@ -52,6 +52,7 @@ object ClientSettings {
    * @param transport
    *   (Transport.Auto / Transport.Nio / Transport.Epoll / Transport.Uring )
    * @return
+   *   updated ClientSettings with given transport type
    */
   def transport(transport: Transport) = ClientSettings.TransportConfig(transport)
 
@@ -59,6 +60,7 @@ object ClientSettings {
    * Number of threads to be used by underlying netty EventLoopGroup
    * @param threads
    * @return
+   *   updated ClientSettings with given number of EventLoopGroup threads
    */
   def threads(threads: Int) = ClientSettings.Threads(threads)
 
