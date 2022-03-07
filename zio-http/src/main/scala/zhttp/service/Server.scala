@@ -47,8 +47,7 @@ sealed trait Server[-R, +E] { self =>
     make.useForever
 
   /**
-   * Launches the app with current settings: default EventLoopGroup (nThreads =
-   * 0) and ServerChannelFactory.auto.
+   * Launches the app with default settings
    */
   def startDefault[R1 <: Has[_] with R](implicit ev: E <:< Throwable): ZIO[R1, Throwable, Nothing] =
     start

@@ -1,7 +1,6 @@
 package zhttp.http
 
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
-//import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zio.duration.durationInt
 import zio.test.Assertion.{equalTo, isNone, isSome}

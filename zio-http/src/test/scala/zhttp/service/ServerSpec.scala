@@ -3,7 +3,6 @@ package zhttp.service
 import zhttp.html._
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
-//import zhttp.service.server._
 import zio.duration.durationInt
 import zio.stream.{ZStream, ZTransducer}
 import zio.test.Assertion._
@@ -24,7 +23,10 @@ object ServerSpec extends HttpRunnableSpec {
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ DynamicServer.live
 
   private val app                 =
-    serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(4096) ++ Server.nio))
+    serve(
+      DynamicServer.app,
+      Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(4096) ++ Server.nio),
+    )
   private val appWithReqStreaming = serve(DynamicServer.app, None)
 
   def dynamicAppSpec = suite("DynamicAppSpec") {

@@ -5,7 +5,6 @@ import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
-//import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo

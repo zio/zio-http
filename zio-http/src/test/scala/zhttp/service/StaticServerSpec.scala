@@ -2,7 +2,6 @@ package zhttp.service
 
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
-//import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion._
@@ -27,7 +26,7 @@ object StaticServerSpec extends HttpRunnableSpec {
     case _ -> !! / "throwable"    => throw new Exception("Throw inside Handler")
   }
 
-  private val app = serve (nonZIO ++ staticApp, Some(Server.nio ))
+  private val app = serve(nonZIO ++ staticApp, Some(Server.nio))
 
   def nonZIOSpec = suite("NonZIOSpec") {
     val methodGenWithoutHEAD: Gen[Any, Method] = Gen.fromIterable(

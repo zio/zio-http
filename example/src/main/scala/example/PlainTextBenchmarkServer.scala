@@ -2,7 +2,6 @@ package example
 
 import io.netty.util.AsciiString
 import zhttp.http._
-//import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server}
 import zio.{App, ExitCode, UIO, URIO}
 
