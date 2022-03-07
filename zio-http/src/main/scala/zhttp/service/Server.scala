@@ -200,23 +200,8 @@ object Server {
   private final case class UnsafeChannelPipeline(init: ChannelPipeline => Unit)       extends UServer
   private final case class RequestDecompression(enabled: Boolean, strict: Boolean)    extends UServer
   private final case class ObjectAggregator(maxRequestSize: Int)                      extends UServer
-  case class TransportConfig(transport: Transport)                                    extends UServer
-  case class Threads(threads: Int)                                                    extends UServer
-
-  /**
-   * Choosing transport types like Nio,Epoll,KQueue etc
-   * @param transport
-   *   (Transport.Auto / Transport.Nio / Transport.Epoll / Transport.Uring )
-   * @return
-   */
-  def transport(transport: Transport) = TransportConfig(transport)
-
-  /**
-   * Number of threads to be used by underlying netty EventLoopGroup
-   * @param threads
-   * @return
-   */
-  def threads(threads: Int) = Threads(threads)
+  private final case class TransportConfig(transport: Transport)                      extends UServer
+  private final case class Threads(threads: Int)                                      extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def port(port: Int): UServer                            = Server.Address(new InetSocketAddress(port))
@@ -238,6 +223,22 @@ object Server {
   def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer          = UnsafeChannelPipeline(pipeline)
   def enableObjectAggregator(maxRequestSize: Int = Int.MaxValue): UServer = ObjectAggregator(maxRequestSize)
 
+  /**
+   * Choosing transport types like Nio,Epoll,KQueue etc
+   * @param transport
+   *   (Transport.Auto / Transport.Nio / Transport.Epoll / Transport.Uring )
+   * @return
+   */
+  def transport(transport: Transport): UServer = TransportConfig(transport)
+
+  /**
+   * Number of threads to be used by underlying netty EventLoopGroup
+   * @param threads
+   * @return
+   */
+  def threads(threads: Int): UServer = Threads(threads)
+
+  // available transport types to choose
   def nio: UServer    = TransportConfig(Transport.Nio)
   def epoll: UServer  = TransportConfig(Transport.Epoll)
   def kQueue: UServer = TransportConfig(Transport.KQueue)
