@@ -1,6 +1,7 @@
 package zhttp.http
 
 import zhttp.http.HttpError.HTTPErrorWithCause
+import zhttp.http.Status.CUSTOM_STATUS
 
 sealed abstract class HttpError(val status: Status, val message: String) extends Throwable(message) { self =>
   def foldCause[A](a: A)(f: Throwable => A): A = self match {
@@ -120,5 +121,7 @@ object HttpError {
       extends HttpError(Status.SERVICE_UNAVAILABLE, msg)
 
   final case class BadGateway(msg: String = "Bad Gateway") extends HttpError(Status.BAD_GATEWAY, msg)
+
+  final case class CustomResponseStatus(code: Int, reason: String) extends HttpError(CUSTOM_STATUS(code), reason)
 
 }
