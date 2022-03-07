@@ -71,7 +71,7 @@ sealed trait Status extends Product with Serializable { self =>
     case Status.INSUFFICIENT_STORAGE            => HttpResponseStatus.INSUFFICIENT_STORAGE            // 507
     case Status.NOT_EXTENDED                    => HttpResponseStatus.NOT_EXTENDED                    // 510
     case Status.NETWORK_AUTHENTICATION_REQUIRED => HttpResponseStatus.NETWORK_AUTHENTICATION_REQUIRED // 511
-    case Status.CUSTOM_STATUS(code)             => HttpResponseStatus.valueOf(code)
+    case Status.Custom(code)                    => HttpResponseStatus.valueOf(code)
   }
 
   /**
@@ -91,63 +91,63 @@ sealed trait Status extends Product with Serializable { self =>
 }
 
 object Status {
-  case object CONTINUE                                   extends Status
-  case object SWITCHING_PROTOCOLS                        extends Status
-  case object PROCESSING                                 extends Status
-  case object OK                                         extends Status
-  case object CREATED                                    extends Status
-  case object ACCEPTED                                   extends Status
-  case object NON_AUTHORITATIVE_INFORMATION              extends Status
-  case object NO_CONTENT                                 extends Status
-  case object RESET_CONTENT                              extends Status
-  case object PARTIAL_CONTENT                            extends Status
-  case object MULTI_STATUS                               extends Status
-  case object MULTIPLE_CHOICES                           extends Status
-  case object MOVED_PERMANENTLY                          extends Status
-  case object FOUND                                      extends Status
-  case object SEE_OTHER                                  extends Status
-  case object NOT_MODIFIED                               extends Status
-  case object USE_PROXY                                  extends Status
-  case object TEMPORARY_REDIRECT                         extends Status
-  case object PERMANENT_REDIRECT                         extends Status
-  case object BAD_REQUEST                                extends Status
-  case object UNAUTHORIZED                               extends Status
-  case object PAYMENT_REQUIRED                           extends Status
-  case object FORBIDDEN                                  extends Status
-  case object NOT_FOUND                                  extends Status
-  case object METHOD_NOT_ALLOWED                         extends Status
-  case object NOT_ACCEPTABLE                             extends Status
-  case object PROXY_AUTHENTICATION_REQUIRED              extends Status
-  case object REQUEST_TIMEOUT                            extends Status
-  case object CONFLICT                                   extends Status
-  case object GONE                                       extends Status
-  case object LENGTH_REQUIRED                            extends Status
-  case object PRECONDITION_FAILED                        extends Status
-  case object REQUEST_ENTITY_TOO_LARGE                   extends Status
-  case object REQUEST_URI_TOO_LONG                       extends Status
-  case object UNSUPPORTED_MEDIA_TYPE                     extends Status
-  case object REQUESTED_RANGE_NOT_SATISFIABLE            extends Status
-  case object EXPECTATION_FAILED                         extends Status
-  case object MISDIRECTED_REQUEST                        extends Status
-  case object UNPROCESSABLE_ENTITY                       extends Status
-  case object LOCKED                                     extends Status
-  case object FAILED_DEPENDENCY                          extends Status
-  case object UNORDERED_COLLECTION                       extends Status
-  case object UPGRADE_REQUIRED                           extends Status
-  case object PRECONDITION_REQUIRED                      extends Status
-  case object TOO_MANY_REQUESTS                          extends Status
-  case object REQUEST_HEADER_FIELDS_TOO_LARGE            extends Status
-  case object INTERNAL_SERVER_ERROR                      extends Status
-  case object NOT_IMPLEMENTED                            extends Status
-  case object BAD_GATEWAY                                extends Status
-  case object SERVICE_UNAVAILABLE                        extends Status
-  case object GATEWAY_TIMEOUT                            extends Status
-  case object HTTP_VERSION_NOT_SUPPORTED                 extends Status
-  case object VARIANT_ALSO_NEGOTIATES                    extends Status
-  case object INSUFFICIENT_STORAGE                       extends Status
-  case object NOT_EXTENDED                               extends Status
-  case object NETWORK_AUTHENTICATION_REQUIRED            extends Status
-  final case class CUSTOM_STATUS(override val code: Int) extends Status
+  case object CONTINUE                            extends Status
+  case object SWITCHING_PROTOCOLS                 extends Status
+  case object PROCESSING                          extends Status
+  case object OK                                  extends Status
+  case object CREATED                             extends Status
+  case object ACCEPTED                            extends Status
+  case object NON_AUTHORITATIVE_INFORMATION       extends Status
+  case object NO_CONTENT                          extends Status
+  case object RESET_CONTENT                       extends Status
+  case object PARTIAL_CONTENT                     extends Status
+  case object MULTI_STATUS                        extends Status
+  case object MULTIPLE_CHOICES                    extends Status
+  case object MOVED_PERMANENTLY                   extends Status
+  case object FOUND                               extends Status
+  case object SEE_OTHER                           extends Status
+  case object NOT_MODIFIED                        extends Status
+  case object USE_PROXY                           extends Status
+  case object TEMPORARY_REDIRECT                  extends Status
+  case object PERMANENT_REDIRECT                  extends Status
+  case object BAD_REQUEST                         extends Status
+  case object UNAUTHORIZED                        extends Status
+  case object PAYMENT_REQUIRED                    extends Status
+  case object FORBIDDEN                           extends Status
+  case object NOT_FOUND                           extends Status
+  case object METHOD_NOT_ALLOWED                  extends Status
+  case object NOT_ACCEPTABLE                      extends Status
+  case object PROXY_AUTHENTICATION_REQUIRED       extends Status
+  case object REQUEST_TIMEOUT                     extends Status
+  case object CONFLICT                            extends Status
+  case object GONE                                extends Status
+  case object LENGTH_REQUIRED                     extends Status
+  case object PRECONDITION_FAILED                 extends Status
+  case object REQUEST_ENTITY_TOO_LARGE            extends Status
+  case object REQUEST_URI_TOO_LONG                extends Status
+  case object UNSUPPORTED_MEDIA_TYPE              extends Status
+  case object REQUESTED_RANGE_NOT_SATISFIABLE     extends Status
+  case object EXPECTATION_FAILED                  extends Status
+  case object MISDIRECTED_REQUEST                 extends Status
+  case object UNPROCESSABLE_ENTITY                extends Status
+  case object LOCKED                              extends Status
+  case object FAILED_DEPENDENCY                   extends Status
+  case object UNORDERED_COLLECTION                extends Status
+  case object UPGRADE_REQUIRED                    extends Status
+  case object PRECONDITION_REQUIRED               extends Status
+  case object TOO_MANY_REQUESTS                   extends Status
+  case object REQUEST_HEADER_FIELDS_TOO_LARGE     extends Status
+  case object INTERNAL_SERVER_ERROR               extends Status
+  case object NOT_IMPLEMENTED                     extends Status
+  case object BAD_GATEWAY                         extends Status
+  case object SERVICE_UNAVAILABLE                 extends Status
+  case object GATEWAY_TIMEOUT                     extends Status
+  case object HTTP_VERSION_NOT_SUPPORTED          extends Status
+  case object VARIANT_ALSO_NEGOTIATES             extends Status
+  case object INSUFFICIENT_STORAGE                extends Status
+  case object NOT_EXTENDED                        extends Status
+  case object NETWORK_AUTHENTICATION_REQUIRED     extends Status
+  final case class Custom(override val code: Int) extends Status
 
   def fromHttpResponseStatus(jStatus: HttpResponseStatus): Status = (jStatus: @unchecked) match {
     case HttpResponseStatus.CONTINUE                        => Status.CONTINUE
@@ -206,6 +206,6 @@ object Status {
     case HttpResponseStatus.INSUFFICIENT_STORAGE            => Status.INSUFFICIENT_STORAGE
     case HttpResponseStatus.NOT_EXTENDED                    => Status.NOT_EXTENDED
     case HttpResponseStatus.NETWORK_AUTHENTICATION_REQUIRED => Status.NETWORK_AUTHENTICATION_REQUIRED
-    case status                                             => Status.CUSTOM_STATUS(status.code)
+    case status                                             => Status.Custom(status.code)
   }
 }
