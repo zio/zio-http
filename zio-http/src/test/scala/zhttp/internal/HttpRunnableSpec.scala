@@ -86,7 +86,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
   def serve[R <: Has[_]](
     app: HttpApp[R, Throwable],
     server: Option[Server[R, Throwable]] = None,
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
+  ): ZManaged[R with EventLoopGroup with DynamicServer, Nothing, Unit] =
     for {
       settings <- ZManaged
         .succeed(server.foldLeft(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection)(_ ++ _))
@@ -114,7 +114,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
 object HttpRunnableSpec {
   type HttpTestClient[-R, -A, +B] =
     Http[
-      R with EventLoopGroup with ChannelFactory with DynamicServer with ServerChannelFactory,
+      R with EventLoopGroup with ChannelFactory with DynamicServer,
       Throwable,
       A,
       B,
