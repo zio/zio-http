@@ -119,6 +119,9 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   def url: URL
 
+  /**
+   * Gets the request's http protocol version
+   */
   def version: Version
 
   private[zhttp] final def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
