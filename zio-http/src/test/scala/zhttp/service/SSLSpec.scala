@@ -13,7 +13,7 @@ import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAllM}
 
 object SSLSpec extends DefaultRunnableSpec {
-  val env = Auto.clientLayer
+  val env = Auto.live
 
   val serverSSL  = ctxFromCert(
     getClass().getClassLoader().getResourceAsStream("server.crt"),

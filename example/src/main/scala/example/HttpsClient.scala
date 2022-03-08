@@ -12,7 +12,7 @@ import java.security.KeyStore
 import javax.net.ssl.TrustManagerFactory
 
 object HttpsClient extends App {
-  val env     = Auto.clientLayer
+  val env     = Auto.live
   val url     = "https://sports.api.decathlon.com/groups/water-aerobics"
   val headers = Headers.host("sports.api.decathlon.com")
 

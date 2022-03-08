@@ -21,7 +21,7 @@ object ServerSpec extends HttpRunnableSpec {
   } yield (data.mkString(""), content)
 
   private val env =
-    Nio.clientLayer ++ DynamicServer.live
+    Nio.live ++ DynamicServer.live
 
   private val app                 =
     serve(

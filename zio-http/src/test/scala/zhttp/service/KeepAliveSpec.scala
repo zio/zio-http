@@ -12,7 +12,7 @@ object KeepAliveSpec extends HttpRunnableSpec {
   val app                         = Http.ok
   val connectionCloseHeader       = Headers.connection(HttpHeaderValues.CLOSE)
   val keepAliveHeader             = Headers.connection(HttpHeaderValues.KEEP_ALIVE)
-  private val env                 = Nio.clientLayer ++ DynamicServer.live
+  private val env                 = Nio.live ++ DynamicServer.live
   private val appKeepAliveEnabled = serve(DynamicServer.app)
 
   def keepAliveSpec = suite("KeepAlive") {
