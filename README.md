@@ -77,3 +77,9 @@ You can use the [sbt-revolver] plugin to start the server and run it in watch mo
 
 [sbt-revolver]: https://github.com/spray/sbt-revolver
 
+# Adopters
+Following is a partial list of companies happily using **ZIO-HTTP** in production.
+
+Want to see your company here? [Submit a PR!](https://github.com/dream11/zio-http/edit/main/README.md)
+
+* [Dream11](https://dream11.com)
