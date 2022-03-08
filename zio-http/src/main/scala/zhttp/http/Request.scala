@@ -161,19 +161,6 @@ object Request {
   }
 
   /**
-   * Effectfully create a new Request object
-   */
-  def make[E <: Throwable](
-    version: Version = Version.`HTTP/1.1`,
-    method: Method = Method.GET,
-    url: URL = URL.root,
-    headers: Headers = Headers.empty,
-    remoteAddress: Option[InetAddress],
-    content: HttpData = HttpData.empty,
-  ): UIO[Request] =
-    UIO(Request(version, method, url, headers, remoteAddress, content))
-
-  /**
    * Lift request to TypedRequest with option to extract params
    */
   final class ParameterizedRequest[A](req: Request, val params: A) extends Request {
