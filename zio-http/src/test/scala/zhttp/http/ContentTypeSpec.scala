@@ -41,7 +41,7 @@ object ContentTypeSpec extends HttpRunnableSpec {
       }
   }
 
-  private val env = Nio.clientLayer ++ Nio.eventLoopGroupLayer() ++ DynamicServer.live
+  private val env = Nio.clientLayer ++ DynamicServer.live
 
   override def spec = {
     suiteM("Content-type") {

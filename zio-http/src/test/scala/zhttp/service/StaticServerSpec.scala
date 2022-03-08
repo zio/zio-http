@@ -12,7 +12,7 @@ import zio.test._
 object StaticServerSpec extends HttpRunnableSpec {
 
   private val env =
-    Nio.clientLayer ++ Nio.eventLoopGroupLayer(0) ++ DynamicServer.live
+    Nio.clientLayer ++ DynamicServer.live
 
   private val staticApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)

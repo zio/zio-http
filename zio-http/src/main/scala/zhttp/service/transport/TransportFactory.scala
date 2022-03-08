@@ -5,33 +5,19 @@ import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel, EpollSocketChannel}
 import io.netty.channel.kqueue.{KQueueEventLoopGroup, KQueueServerSocketChannel, KQueueSocketChannel}
 import io.netty.channel.socket.nio.{NioServerSocketChannel, NioSocketChannel}
-import io.netty.channel.{
-  Channel,
-  ChannelFactory => JChannelFactory,
-  EventLoopGroup => JEventLoopGroup,
-  ServerChannel,
-  kqueue,
-}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ServerChannel, kqueue}
 import io.netty.incubator.channel.uring.{IOUringEventLoopGroup, IOUringServerSocketChannel, IOUringSocketChannel}
-import zhttp.service.transport.Transport._
-import zio.{Has, Task, ZLayer}
+import zhttp.service.{ChannelFactory, EventLoopGroup}
+import zio.{Task, ZLayer}
 sealed trait Transport { self =>
   def serverChannel: Task[JChannelFactory[ServerChannel]]
   def clientChannel: Task[JChannelFactory[Channel]]
   def eventLoopGroup(nThreads: Int = 0): Task[channel.EventLoopGroup]
 
-  def eventLoopGroupLayer(nThreads: Int = 0): ZLayer[Any, Nothing, EventLoopGroup] = eventLoopGroup(
-    nThreads,
-  ).toLayer.orDie
-  def clientLayer: ZLayer[Any, Nothing, ChannelFactory]                            = clientChannel.toLayer.orDie
+  def clientLayer: ZLayer[Any, Nothing, ChannelFactory with EventLoopGroup] =
+    clientChannel.toLayer.orDie ++ eventLoopGroup().toLayer.orDie
 }
 object Transport       {
-
-  /*
-  Define Transport live layer for dependency injection usage (esp Specs)
-   */
-  type ChannelFactory = Has[JChannelFactory[Channel]]
-  type EventLoopGroup = Has[JEventLoopGroup]
 
   import TransportFactory._
   case object Nio extends Transport { self =>
