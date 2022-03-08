@@ -40,6 +40,10 @@ sealed trait Scheme { self =>
 }
 object Scheme       {
 
+  /**
+   * Decodes a string to an Option of Scheme. Returns None in case of
+   * null/non-valid Scheme
+   */
   def decode(scheme: String): Option[Scheme] = {
     if (scheme == null) None
     else
