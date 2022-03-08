@@ -5,7 +5,13 @@ import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel, EpollSocketChannel}
 import io.netty.channel.kqueue.{KQueueEventLoopGroup, KQueueServerSocketChannel, KQueueSocketChannel}
 import io.netty.channel.socket.nio.{NioServerSocketChannel, NioSocketChannel}
-import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup, ServerChannel, kqueue}
+import io.netty.channel.{
+  Channel,
+  ChannelFactory => JChannelFactory,
+  EventLoopGroup => JEventLoopGroup,
+  ServerChannel,
+  kqueue,
+}
 import io.netty.incubator.channel.uring.{IOUringEventLoopGroup, IOUringServerSocketChannel, IOUringSocketChannel}
 import zhttp.service.transport.Transport._
 import zio.{Has, Task, ZLayer}
