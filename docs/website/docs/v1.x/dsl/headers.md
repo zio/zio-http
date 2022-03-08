@@ -149,9 +149,9 @@ val responseHeaders: Task[Headers] =  Client.request(url).map(_.headers)
         data <-
           // Check if response contains a specified header with a specified value.
           if (res.hasHeader(HeaderNames.contentType, HeaderValues.applicationJson))
-            res.getBodyAsString
+            res.bodyAsString
           else
-            res.getBodyAsString
+            res.bodyAsString
         _    <- console.putStrLn { data }
       } yield ()
     
