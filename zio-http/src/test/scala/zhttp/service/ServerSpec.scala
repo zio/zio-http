@@ -68,6 +68,21 @@ object ServerSpec extends HttpRunnableSpec {
             assertM(res)(isSome(anything))
           }
       } +
+      suite("die") {
+        val app = Http.die(new Error("SERVER_ERROR"))
+        testM("status is 500") {
+          val res = app.deploy.status.run()
+          assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+        } +
+          testM("content is set") {
+            val res = app.deploy.bodyAsString.run()
+            assertM(res)(containsString("SERVER_ERROR"))
+          } +
+          testM("header is set") {
+            val res = app.deploy.headerValue(HeaderNames.contentLength).run()
+            assertM(res)(isSome(anything))
+          }
+      } +
       suite("echo content") {
         val app = Http.collectZIO[Request] { case req =>
           req.bodyAsString.map(text => Response.text(text))
@@ -129,6 +144,7 @@ object ServerSpec extends HttpRunnableSpec {
             assertM(res.flatMap(_.bodyAsString))(equalTo(content))
           }
       }
+
   }
 
   def requestSpec = suite("RequestSpec") {

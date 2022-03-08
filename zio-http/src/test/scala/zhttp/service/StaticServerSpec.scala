@@ -17,6 +17,7 @@ object StaticServerSpec extends HttpRunnableSpec {
   private val staticApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
     case Method.GET -> !! / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
+    case Method.GET -> !! / "die"           => ZIO.die(new RuntimeException("DIE"))
     case Method.GET -> !! / "get%2Fsuccess" => ZIO.succeed(Response.ok)
   }
 
@@ -91,8 +92,12 @@ object StaticServerSpec extends HttpRunnableSpec {
       val actual = status(path = !! / "success")
       assertM(actual)(equalTo(Status.OK))
     } +
-      testM("500 response") {
+      testM("500 response on failure") {
         val actual = status(path = !! / "failure")
+        assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
+      } +
+      testM("500 response on die") {
+        val actual = status(path = !! / "die")
         assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
       } +
       testM("404 response") {

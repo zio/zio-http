@@ -1,7 +1,7 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
+import io.netty.buffer.ByteBuf
 import io.netty.channel.{
   Channel,
   ChannelFactory => JChannelFactory,
@@ -15,20 +15,20 @@ import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
 import zhttp.http.headers.HeaderExtension
 import zhttp.service
-import zhttp.service.Client.{ClientRequest, ClientResponse}
+import zhttp.service.Client.ClientRequest
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.{Socket, SocketApp}
-import zio.{Chunk, Promise, Task, ZIO}
+import zio.{Promise, Task, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress, URI}
 
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
 
-  def request(request: Client.ClientRequest): Task[Client.ClientResponse] =
+  def request(request: Client.ClientRequest): Task[Response] =
     for {
-      promise <- Promise.make[Throwable, Client.ClientResponse]
+      promise <- Promise.make[Throwable, Response]
       jReq    <- encode(request)
       _       <- ChannelFuture
         .unit(unsafeRequest(request, jReq, promise))
@@ -41,7 +41,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     headers: Headers = Headers.empty,
     socketApp: SocketApp[R],
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[R, Throwable, ClientResponse] = for {
+  ): ZIO[R, Throwable, Response] = for {
     env <- ZIO.environment[R]
     res <- request(
       ClientRequest(
@@ -59,7 +59,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
   private def unsafeRequest(
     req: ClientRequest,
     jReq: FullHttpRequest,
-    promise: Promise[Throwable, ClientResponse],
+    promise: Promise[Throwable, Response],
   ): JChannelFuture = {
 
     try {
@@ -137,7 +137,7 @@ object Client {
     headers: Headers = Headers.empty,
     content: HttpData = HttpData.empty,
     ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
     for {
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- request(ClientRequest(uri, method, headers, content, attribute = Attribute(ssl = Some(ssl))))
@@ -145,7 +145,7 @@ object Client {
 
   def request(
     request: ClientRequest,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
     for {
       clt <- make[Any]
       res <- clt.request(request)
@@ -156,7 +156,7 @@ object Client {
     app: SocketApp[R],
     headers: Headers = Headers.empty,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = {
+  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Response] = {
     for {
       clt <- make[R]
       uri <- ZIO.fromEither(URL.fromString(url))
@@ -193,31 +193,9 @@ object Client {
     private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
   }
 
-  final case class ClientResponse(status: Status, headers: Headers, private[zhttp] val buffer: ByteBuf)
-      extends HeaderExtension[ClientResponse] {
-    self =>
-
-    def body: Task[Chunk[Byte]] = Task(Chunk.fromArray(ByteBufUtil.getBytes(buffer)))
-
-    def bodyAsByteBuf: Task[ByteBuf] = Task(buffer)
-
-    def bodyAsString: Task[String] = Task(buffer.toString(self.charset))
-
-    override def updateHeaders(update: Headers => Headers): ClientResponse = self.copy(headers = update(headers))
-  }
-
   case class Attribute(socketApp: Option[SocketApp[Any]] = None, ssl: Option[ClientSSLOptions] = None) { self =>
     def withSSL(ssl: ClientSSLOptions): Attribute           = self.copy(ssl = Some(ssl))
     def withSocketApp(socketApp: SocketApp[Any]): Attribute = self.copy(socketApp = Some(socketApp))
-  }
-
-  object ClientResponse {
-    private[zhttp] def unsafeFromJResponse(jRes: FullHttpResponse): ClientResponse = {
-      val status  = Status.fromHttpResponseStatus(jRes.status())
-      val headers = Headers.decode(jRes.headers())
-      val content = Unpooled.copiedBuffer(jRes.content())
-      Client.ClientResponse(status, headers, content)
-    }
   }
 
   object Attribute {
