@@ -2,6 +2,7 @@ package zhttp.service
 
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
+import zhttp.service.transport.Transport.Nio
 import zio.duration.durationInt
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
@@ -11,8 +12,7 @@ import java.net.ConnectException
 
 object ClientSpec extends HttpRunnableSpec {
 
-  private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ DynamicServer.live
+  private val env = Nio.clientLayer ++ Nio.eventLoopGroupLayer() ++ DynamicServer.live
 
   def clientSpec = suite("ClientSpec") {
     testM("respond Ok") {

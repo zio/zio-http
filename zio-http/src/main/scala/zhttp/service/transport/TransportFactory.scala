@@ -5,33 +5,30 @@ import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.channel.epoll.{EpollEventLoopGroup, EpollServerSocketChannel, EpollSocketChannel}
 import io.netty.channel.kqueue.{KQueueEventLoopGroup, KQueueServerSocketChannel, KQueueSocketChannel}
 import io.netty.channel.socket.nio.{NioServerSocketChannel, NioSocketChannel}
-import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ServerChannel, kqueue}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup, ServerChannel, kqueue}
 import io.netty.incubator.channel.uring.{IOUringEventLoopGroup, IOUringServerSocketChannel, IOUringSocketChannel}
-import zhttp.service.ChannelFactory
-import zio.Task
-
-/**
- * Support for various transport types.
- *   - NIO Transport - Works on any Platform / OS that has Java support Native
- *   - Epoll Transport - Works on Linux only
- *   - Native Kqueue Transport - Works on any BSD but mainly on MacOS.
- *
- * A Factory for providing transport specific Channel / ServerChannel /
- * EventLoopGroup
- *
- * Important: Particular implementation of EventLoopGroup used must be matched
- * up with the transport: for example, NIOEventLoopGroup must be used with the
- * NIO transports, KQueueEventLoopGroup must be matched with KQueue transports
- * etc.
- */
-sealed trait Transport  {
+import zhttp.service.transport.Transport._
+import zio.{Has, Task, ZLayer}
+sealed trait Transport { self =>
   def serverChannel: Task[JChannelFactory[ServerChannel]]
   def clientChannel: Task[JChannelFactory[Channel]]
-  def eventLoopGroup(nThreads: Int): Task[channel.EventLoopGroup]
+  def eventLoopGroup(nThreads: Int = 0): Task[channel.EventLoopGroup]
+
+  def eventLoopGroupLayer(nThreads: Int = 0): ZLayer[Any, Nothing, EventLoopGroup] = eventLoopGroup(
+    nThreads,
+  ).toLayer.orDie
+  def clientLayer: ZLayer[Any, Nothing, ChannelFactory]                            = clientChannel.toLayer.orDie
 }
-object Transport        {
+object Transport       {
+
+  /*
+  Define Transport live layer for dependency injection usage (esp Specs)
+   */
+  type ChannelFactory = Has[JChannelFactory[Channel]]
+  type EventLoopGroup = Has[JEventLoopGroup]
+
   import TransportFactory._
-  case object Nio extends Transport {
+  case object Nio extends Transport { self =>
 
     override def serverChannel: Task[JChannelFactory[ServerChannel]] = nio
 
@@ -40,7 +37,7 @@ object Transport        {
     override def eventLoopGroup(nThreads: Int): Task[channel.EventLoopGroup] =
       Task(new channel.nio.NioEventLoopGroup(nThreads))
   }
-  case object Epoll  extends Transport {
+  case object Epoll  extends Transport { self =>
     def isAvailable = io.netty.channel.epoll.Epoll.isAvailable
 
     override def serverChannel: Task[JChannelFactory[ServerChannel]] = epoll
@@ -50,7 +47,7 @@ object Transport        {
     override def eventLoopGroup(nThreads: Int): Task[channel.EventLoopGroup] =
       Task(new EpollEventLoopGroup(nThreads))
   }
-  case object KQueue extends Transport {
+  case object KQueue extends Transport { self =>
     def isAvailable = io.netty.channel.kqueue.KQueue.isAvailable
 
     override def serverChannel: Task[JChannelFactory[ServerChannel]] = kQueue
@@ -60,7 +57,7 @@ object Transport        {
     override def eventLoopGroup(nThreads: Int): Task[channel.EventLoopGroup] =
       Task(new KQueueEventLoopGroup(nThreads))
   }
-  case object URing  extends Transport {
+  case object URing  extends Transport { self =>
 
     override def serverChannel: Task[JChannelFactory[ServerChannel]] = uring
 
@@ -69,7 +66,7 @@ object Transport        {
     override def eventLoopGroup(nThreads: Int): Task[channel.EventLoopGroup] =
       Task(new IOUringEventLoopGroup(nThreads))
   }
-  case object Auto extends Transport {
+  case object Auto extends Transport { self =>
     override def serverChannel: Task[JChannelFactory[ServerChannel]] = auto
 
     override def clientChannel: Task[JChannelFactory[Channel]] = clientAuto
@@ -79,24 +76,28 @@ object Transport        {
       else if (KQueue.isAvailable)
         KQueue.eventLoopGroup(nThreads)
       else Nio.eventLoopGroup(nThreads)
-
   }
 }
 object TransportFactory {
-  def nio: Task[JChannelFactory[ServerChannel]]    = ChannelFactory.make(() => new NioServerSocketChannel())
-  def epoll: Task[JChannelFactory[ServerChannel]]  = ChannelFactory.make(() => new EpollServerSocketChannel())
-  def uring: Task[JChannelFactory[ServerChannel]]  = ChannelFactory.make(() => new IOUringServerSocketChannel())
-  def kQueue: Task[JChannelFactory[ServerChannel]] = ChannelFactory.make(() => new KQueueServerSocketChannel())
+
+  def make[A <: Channel](fn: () => A): Task[JChannelFactory[A]] = Task(new JChannelFactory[A] {
+    override def newChannel(): A = fn()
+  })
+
+  def nio: Task[JChannelFactory[ServerChannel]]    = make(() => new NioServerSocketChannel())
+  def epoll: Task[JChannelFactory[ServerChannel]]  = make(() => new EpollServerSocketChannel())
+  def uring: Task[JChannelFactory[ServerChannel]]  = make(() => new IOUringServerSocketChannel())
+  def kQueue: Task[JChannelFactory[ServerChannel]] = make(() => new KQueueServerSocketChannel())
   def auto: Task[JChannelFactory[ServerChannel]]   =
     if (channel.epoll.Epoll.isAvailable) epoll
     else if (kqueue.KQueue.isAvailable) kQueue
     else nio
 
-  def clientNio: Task[JChannelFactory[Channel]]      = ChannelFactory.make(() => new NioSocketChannel())
-  def clientEpoll: Task[JChannelFactory[Channel]]    = ChannelFactory.make(() => new EpollSocketChannel())
-  def clientKQueue: Task[JChannelFactory[Channel]]   = ChannelFactory.make(() => new KQueueSocketChannel())
-  def clientUring: Task[JChannelFactory[Channel]]    = ChannelFactory.make(() => new IOUringSocketChannel())
-  def clientEmbedded: Task[JChannelFactory[Channel]] = ChannelFactory.make(() => new EmbeddedChannel(false, false))
+  def clientNio: Task[JChannelFactory[Channel]]      = make(() => new NioSocketChannel())
+  def clientEpoll: Task[JChannelFactory[Channel]]    = make(() => new EpollSocketChannel())
+  def clientKQueue: Task[JChannelFactory[Channel]]   = make(() => new KQueueSocketChannel())
+  def clientUring: Task[JChannelFactory[Channel]]    = make(() => new IOUringSocketChannel())
+  def clientEmbedded: Task[JChannelFactory[Channel]] = make(() => new EmbeddedChannel(false, false))
   def clientAuto: Task[JChannelFactory[Channel]]     =
     if (channel.epoll.Epoll.isAvailable) clientEpoll
     else if (channel.kqueue.KQueue.isAvailable) clientKQueue

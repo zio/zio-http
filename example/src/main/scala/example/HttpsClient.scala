@@ -2,8 +2,9 @@ package example
 
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http.Headers
+import zhttp.service.Client
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
+import zhttp.service.transport.Transport.Auto
 import zio.{App, ExitCode, URIO, console}
 
 import java.io.InputStream
@@ -11,7 +12,7 @@ import java.security.KeyStore
 import javax.net.ssl.TrustManagerFactory
 
 object HttpsClient extends App {
-  val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
+  val env     = Auto.eventLoopGroupLayer() ++ Auto.clientLayer
   val url     = "https://sports.api.decathlon.com/groups/water-aerobics"
   val headers = Headers.host("sports.api.decathlon.com")
 

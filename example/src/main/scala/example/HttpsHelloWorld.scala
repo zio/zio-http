@@ -1,8 +1,8 @@
 package example
 
 import zhttp.http._
+import zhttp.service.Server
 import zhttp.service.server.ServerSSLHandler._
-import zhttp.service.{EventLoopGroup, Server}
 import zio.{App, ExitCode, URIO}
 
 object HttpsHelloWorld extends App {
@@ -31,8 +31,6 @@ object HttpsHelloWorld extends App {
     )
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    server.make.useForever
-      .provideCustomLayer(EventLoopGroup.auto(0))
-      .exitCode
+    server.make.useForever.exitCode
   }
 }

@@ -5,6 +5,7 @@ import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
+import zhttp.service.transport.Transport.Auto
 import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo
@@ -12,7 +13,7 @@ import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAllM}
 
 object SSLSpec extends DefaultRunnableSpec {
-  val env = EventLoopGroup.auto() ++ ChannelFactory.auto
+  val env = Auto.clientLayer ++ Auto.eventLoopGroupLayer(0)
 
   val serverSSL  = ctxFromCert(
     getClass().getClassLoader().getResourceAsStream("server.crt"),

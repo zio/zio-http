@@ -2,7 +2,7 @@ package example
 
 import io.netty.util.AsciiString
 import zhttp.http._
-import zhttp.service.{EventLoopGroup, Server}
+import zhttp.service.Server
 import zio.{App, ExitCode, UIO, URIO}
 
 /**
@@ -23,7 +23,6 @@ object Main extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     frozenResponse
       .flatMap(server(_).make.useForever)
-      .provideCustomLayer(EventLoopGroup.auto(8))
       .exitCode
   }
   private val path                                               = "/plaintext"

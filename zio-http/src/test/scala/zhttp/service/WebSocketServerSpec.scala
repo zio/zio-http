@@ -2,6 +2,7 @@ package zhttp.service
 
 import zhttp.http.Status
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
+import zhttp.service.transport.Transport.Nio
 import zhttp.socket.{Socket, WebSocketFrame}
 import zio.duration._
 import zio.stream.ZStream
@@ -13,7 +14,7 @@ import zio.{Chunk, ZIO}
 object WebSocketServerSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ DynamicServer.live ++ ChannelFactory.nio
+    Nio.clientLayer ++ Nio.eventLoopGroupLayer(0) ++ DynamicServer.live
   private val app = serve(DynamicServer.app)
 
   override def spec = suiteM("Server") {

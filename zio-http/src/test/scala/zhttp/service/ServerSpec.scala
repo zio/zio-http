@@ -3,6 +3,7 @@ package zhttp.service
 import zhttp.html._
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zhttp.service.transport.Transport.Nio
 import zio.duration.durationInt
 import zio.stream.{ZStream, ZTransducer}
 import zio.test.Assertion._
@@ -20,7 +21,7 @@ object ServerSpec extends HttpRunnableSpec {
   } yield (data.mkString(""), content)
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ DynamicServer.live
+    Nio.clientLayer ++ Nio.eventLoopGroupLayer() ++ DynamicServer.live
 
   private val app                 =
     serve(

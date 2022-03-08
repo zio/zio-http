@@ -1,6 +1,6 @@
 package example
 
-import zhttp.service.{ChannelFactory, EventLoopGroup}
+import zhttp.service.transport.Transport.Auto
 import zhttp.socket.{Socket, WebSocketFrame}
 import zio._
 import zio.stream.ZStream
@@ -8,7 +8,7 @@ import zio.stream.ZStream
 object WebSocketSimpleClient extends zio.App {
 
   // Setup client envs
-  val env = EventLoopGroup.auto() ++ ChannelFactory.auto
+  val env = Auto.eventLoopGroupLayer() ++ Auto.clientLayer
 
   val url = "ws://localhost:8090/subscriptions"
 

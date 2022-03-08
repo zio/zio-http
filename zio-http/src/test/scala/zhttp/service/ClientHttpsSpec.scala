@@ -4,6 +4,7 @@ import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http.Status
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zhttp.service.transport.Transport.Auto
 import zio.duration.durationInt
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}
@@ -15,7 +16,7 @@ import javax.net.ssl.TrustManagerFactory
 
 object ClientHttpsSpec extends DefaultRunnableSpec {
 
-  val env                         = ChannelFactory.auto ++ EventLoopGroup.auto()
+  val env                         = Auto.clientLayer ++ Auto.eventLoopGroupLayer()
   val trustStore: KeyStore        = KeyStore.getInstance("JKS")
   val trustStorePassword: String  = "changeit"
   val trustStoreFile: InputStream = getClass().getClassLoader().getResourceAsStream("truststore.jks")

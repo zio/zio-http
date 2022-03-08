@@ -2,6 +2,7 @@ package zhttp.service
 
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zhttp.service.transport.Transport.Nio
 import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion._
@@ -11,7 +12,7 @@ import zio.test._
 object StaticServerSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ DynamicServer.live
+    Nio.clientLayer ++ Nio.eventLoopGroupLayer(0) ++ DynamicServer.live
 
   private val staticApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
