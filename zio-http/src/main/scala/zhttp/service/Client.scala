@@ -1,37 +1,34 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.buffer.ByteBuf
 import io.netty.channel.{
   Channel,
   ChannelFactory => JChannelFactory,
   ChannelFuture => JChannelFuture,
-  ChannelHandlerContext,
   ChannelInitializer,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
-import zhttp.http.headers.HeaderExtension
 import zhttp.service
-import zhttp.service.Client.ClientRequest
+import zhttp.service.Client.Attribute
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.{Socket, SocketApp}
 import zio.{Promise, Task, ZIO}
 
-import java.net.{InetAddress, InetSocketAddress, URI}
+import java.net.{InetSocketAddress, URI}
 
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
 
-  def request(request: Client.ClientRequest): Task[Response] =
+  def request(request: Request, attribute: Attribute): Task[Response] =
     for {
       promise <- Promise.make[Throwable, Response]
       jReq    <- encode(request)
       _       <- ChannelFuture
-        .unit(unsafeRequest(request, jReq, promise))
+        .unit(unsafeRequest(request, attribute, jReq, promise))
         .catchAll(cause => promise.fail(cause))
       res     <- promise.await
     } yield res
@@ -44,12 +41,13 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
   ): ZIO[R, Throwable, Response] = for {
     env <- ZIO.environment[R]
     res <- request(
-      ClientRequest(
-        url,
+      Request(
+        version = Version.Http_1_1,
         Method.GET,
+        url,
         headers,
-        attribute = Client.Attribute(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
       ),
+      attribute = Client.Attribute(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
     )
   } yield res
 
@@ -57,7 +55,8 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
    * It handles both - Websocket and HTTP requests.
    */
   private def unsafeRequest(
-    req: ClientRequest,
+    req: Request,
+    attribute: Attribute,
     jReq: FullHttpRequest,
     promise: Promise[Throwable, Response],
   ): JChannelFuture = {
@@ -77,7 +76,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
         override def initChannel(ch: Channel): Unit = {
 
           val pipeline                    = ch.pipeline()
-          val sslOption: ClientSSLOptions = req.attribute.ssl.getOrElse(ClientSSLOptions.DefaultSSL)
+          val sslOption: ClientSSLOptions = attribute.ssl.getOrElse(ClientSSLOptions.DefaultSSL)
 
           // If a https or wss request is made we need to add the ssl handler at the starting of the pipeline.
           if (isSSL) pipeline.addLast(SSL_HANDLER, ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc, host, port))
@@ -95,7 +94,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
           // Add WebSocketHandlers if it's a `ws` or `wss` request
           if (isWebSocket) {
             val headers = req.headers.encode
-            val app     = req.attribute.socketApp.getOrElse(Socket.empty.toSocketApp)
+            val app     = attribute.socketApp.getOrElse(Socket.empty.toSocketApp)
             val config  = app.protocol.clientBuilder
               .customHeaders(headers)
               .webSocketUri(req.url.encode)
@@ -140,15 +139,19 @@ object Client {
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
     for {
       uri <- ZIO.fromEither(URL.fromString(url))
-      res <- request(ClientRequest(uri, method, headers, content, attribute = Attribute(ssl = Some(ssl))))
+      res <- request(
+        Request(Version.Http_1_1, method, uri, headers, data = content),
+        attribute = Attribute(ssl = Some(ssl)),
+      )
     } yield res
 
   def request(
-    request: ClientRequest,
+    request: Request,
+    attribute: Attribute,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
     for {
       clt <- make[Any]
-      res <- clt.request(request)
+      res <- clt.request(request, attribute)
     } yield res
 
   def socket[R](
@@ -162,35 +165,6 @@ object Client {
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- clt.socket(uri, headers, app, sslOptions)
     } yield res
-  }
-
-  final case class ClientRequest(
-    url: URL,
-    method: Method = Method.GET,
-    headers: Headers = Headers.empty,
-    private[zhttp] val data: HttpData = HttpData.empty,
-    private[zhttp] val version: Version = Version.Http_1_1,
-    private[zhttp] val attribute: Attribute = Attribute.empty,
-    private val channelContext: ChannelHandlerContext = null,
-  ) extends HeaderExtension[ClientRequest] {
-    self =>
-
-    def bodyAsString: Task[String] = bodyAsByteBuf.map(_.toString(headers.charset))
-
-    def remoteAddress: Option[InetAddress] = {
-      if (channelContext != null && channelContext.channel().remoteAddress().isInstanceOf[InetSocketAddress])
-        Some(channelContext.channel().remoteAddress().asInstanceOf[InetSocketAddress].getAddress)
-      else
-        None
-    }
-
-    /**
-     * Updates the headers using the provided function
-     */
-    override def updateHeaders(update: Headers => Headers): ClientRequest =
-      self.copy(headers = update(self.headers))
-
-    private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
   }
 
   case class Attribute(socketApp: Option[SocketApp[Any]] = None, ssl: Option[ClientSSLOptions] = None) { self =>

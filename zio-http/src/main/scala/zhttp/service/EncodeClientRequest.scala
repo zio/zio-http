@@ -1,6 +1,7 @@
 package zhttp.service
 
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames}
+import zhttp.http.Request
 import zio.Task
 
 trait EncodeClientRequest {
@@ -8,7 +9,7 @@ trait EncodeClientRequest {
   /**
    * Converts client params to JFullHttpRequest
    */
-  def encode(req: Client.ClientRequest): Task[FullHttpRequest] =
+  def encode(req: Request): Task[FullHttpRequest] =
     req.bodyAsByteBuf.map { content =>
       val method   = req.method.toJava
       val jVersion = req.version.toJava
