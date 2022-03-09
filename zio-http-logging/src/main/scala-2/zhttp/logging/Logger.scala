@@ -1,7 +1,6 @@
 package zhttp.logging
 
 import zhttp.logging.frontend.ConsoleLogger
-import zhttp.logging.macros.LoggerMacro
 import zhttp.logging.macros.LoggerMacro._
 
 final class Logger(configuration: Configuration) {
@@ -34,8 +33,6 @@ final class Logger(configuration: Configuration) {
 }
 
 object Logger {
-  import scala.language.experimental.macros
-  final def getLogger: Logger = macro LoggerMacro.getLoggerImpl
   final def getLogger(logLevel: LogLevel)                     =
     new Logger(configuration = Configuration(getClass.getSimpleName, logLevel, LogFormat.default))
   final def getLogger(loggerName: String)                     =

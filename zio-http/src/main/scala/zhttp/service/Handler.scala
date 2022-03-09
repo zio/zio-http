@@ -181,12 +181,10 @@ private[zhttp] final case class Handler[R](
   /**
    * Executes program
    */
-  private def unsafeRunZIO(program: ZIO[R, Throwable, Any])(implicit ctx: Ctx): Unit = {
-    log.info(s"Unsafe run $program")
+  private def unsafeRunZIO(program: ZIO[R, Throwable, Any])(implicit ctx: Ctx): Unit =
     rt.unsafeRun(ctx) {
       program
     }
-  }
 
   override def serverTime: ServerTime = serverTimeGenerator
 

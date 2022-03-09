@@ -44,7 +44,6 @@ final class Logger(configuration: Configuration) {
 
 object Logger {
   import scala.language.experimental.macros
-  inline def getLogger: Logger = ${LoggerMacro.getLoggerImpl}
   final def getLogger(logLevel: LogLevel)                     =
     new Logger(configuration = Configuration(getClass.getSimpleName, logLevel, LogFormat.default))
   final def getLogger(loggerName: String)                     =
