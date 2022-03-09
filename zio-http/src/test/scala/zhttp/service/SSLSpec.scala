@@ -65,7 +65,7 @@ object SSLSpec extends DefaultRunnableSpec {
               val actual = Client
                 .request("http://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
                 .map(_.status)
-              assertM(actual)(equalTo(Status.Permanent_Redirect))
+              assertM(actual)(equalTo(Status.PermanentRedirect))
             } +
             testM("Https request with a large payload should respond with 413") {
               checkAllM(payload) { payload =>
@@ -77,7 +77,7 @@ object SSLSpec extends DefaultRunnableSpec {
                     content = HttpData.fromString(payload),
                   )
                   .map(_.status)
-                assertM(actual)(equalTo(Status.Request_Entity_Too_Large))
+                assertM(actual)(equalTo(Status.RequestEntityTooLarge))
               }
             },
         ),

@@ -15,7 +15,7 @@ trait WebSocketUpgrade[R] { self: ChannelHandler =>
   val runtime: HttpRuntime[R]
 
   final def isWebSocket(res: Response): Boolean =
-    res.status.asJava.code() == Status.Switching_Protocols.asJava.code() && res.attribute.socketApp.nonEmpty
+    res.status.asJava.code() == Status.SwitchingProtocols.asJava.code() && res.attribute.socketApp.nonEmpty
 
   /**
    * Checks if the response requires to switch protocol to websocket. Returns

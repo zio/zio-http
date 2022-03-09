@@ -46,7 +46,7 @@ object ServerSpec extends HttpRunnableSpec {
         val app = Http.empty
         testM("status is 404") {
           val res = app.deploy.status.run()
-          assertM(res)(equalTo(Status.Not_Found))
+          assertM(res)(equalTo(Status.NotFound))
         } +
           testM("header is set") {
             val res = app.deploy.headerValue(HeaderNames.contentLength).run()
@@ -57,7 +57,7 @@ object ServerSpec extends HttpRunnableSpec {
         val app = Http.fail(new Error("SERVER_ERROR"))
         testM("status is 500") {
           val res = app.deploy.status.run()
-          assertM(res)(equalTo(Status.Internal_Server_Error))
+          assertM(res)(equalTo(Status.InternalServerError))
         } +
           testM("content is set") {
             val res = app.deploy.bodyAsString.run()
@@ -259,7 +259,7 @@ object ServerSpec extends HttpRunnableSpec {
     val app = Http.fail(new Error("SERVER_ERROR"))
     testM("status is 500") {
       val res = app.deploy.status.run()
-      assertM(res)(equalTo(Status.Internal_Server_Error))
+      assertM(res)(equalTo(Status.InternalServerError))
     } +
       testM("content is set") {
         val res = app.deploy.bodyAsString.run()

@@ -156,7 +156,7 @@ object Response {
   def fromSocketApp[R](app: SocketApp[R]): ZIO[R, Nothing, Response] = {
     ZIO.environment[R].map { env =>
       Response(
-        Status.Switching_Protocols,
+        Status.SwitchingProtocols,
         Headers.empty,
         HttpData.empty,
         Attribute(socketApp = Option(app.provideEnvironment(env))),
@@ -201,7 +201,7 @@ object Response {
    * permanent or not.
    */
   def redirect(location: String, isPermanent: Boolean = false): Response = {
-    val status = if (isPermanent) Status.Permanent_Redirect else Status.Temporary_Redirect
+    val status = if (isPermanent) Status.PermanentRedirect else Status.TemporaryRedirect
     Response(status, Headers.location(location))
   }
 

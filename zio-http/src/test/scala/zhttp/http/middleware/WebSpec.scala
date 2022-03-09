@@ -76,7 +76,7 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
         } +
           testM("un-achieved") {
             val program = run(app @@ timeout(500 millis)).map(_.status)
-            assertM(program)(equalTo(Status.Request_Timeout))
+            assertM(program)(equalTo(Status.RequestTimeout))
           }
       } +
       suite("combine") {

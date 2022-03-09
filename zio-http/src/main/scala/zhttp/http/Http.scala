@@ -752,12 +752,12 @@ object Http {
    * Creates an Http app that responds with a 408 status code after the provided
    * time duration
    */
-  def timeout(duration: Duration): HttpApp[Clock, Nothing] = Http.status(Status.Request_Timeout).delay(duration)
+  def timeout(duration: Duration): HttpApp[Clock, Nothing] = Http.status(Status.RequestTimeout).delay(duration)
 
   /**
    * Creates an HTTP app which always responds with a 413 status code.
    */
-  def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.Request_Entity_Too_Large)
+  def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.RequestEntityTooLarge)
 
   // Ctor Help
   final case class PartialCollectZIO[A](unit: Unit) extends AnyVal {

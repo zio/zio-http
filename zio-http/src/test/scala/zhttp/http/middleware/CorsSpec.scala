@@ -29,7 +29,7 @@ object CorsSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       for {
         res <- app(request)
       } yield assert(res.headersAsList)(hasSubset(expected)) &&
-        assertTrue(res.status == Status.No_Content)
+        assertTrue(res.status == Status.NoContent)
     } +
       testM("GET request") {
         val request =

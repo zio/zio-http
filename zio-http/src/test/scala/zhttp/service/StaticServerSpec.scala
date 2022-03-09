@@ -51,13 +51,13 @@ object StaticServerSpec extends HttpRunnableSpec {
       testM("500 response") {
         checkAllM(methodGenWithoutHEAD) { method =>
           val actual = status(method, !! / "HExitFailure")
-          assertM(actual)(equalTo(Status.Internal_Server_Error))
+          assertM(actual)(equalTo(Status.InternalServerError))
         }
       } +
       testM("404 response ") {
         checkAllM(methodGenWithoutHEAD) { method =>
           val actual = status(method, !! / "A")
-          assertM(actual)(equalTo(Status.Not_Found))
+          assertM(actual)(equalTo(Status.NotFound))
         }
       }
 
@@ -93,11 +93,11 @@ object StaticServerSpec extends HttpRunnableSpec {
     } +
       testM("500 response") {
         val actual = status(path = !! / "failure")
-        assertM(actual)(equalTo(Status.Internal_Server_Error))
+        assertM(actual)(equalTo(Status.InternalServerError))
       } +
       testM("404 response") {
         val actual = status(path = !! / "random")
-        assertM(actual)(equalTo(Status.Not_Found))
+        assertM(actual)(equalTo(Status.NotFound))
       } +
       testM("200 response with encoded path") {
         val actual = status(path = !! / "get%2Fsuccess")
@@ -113,7 +113,7 @@ object StaticServerSpec extends HttpRunnableSpec {
     testM("Throw inside Handler") {
       for {
         status <- status(Method.GET, !! / "throwable")
-      } yield assertTrue(status == Status.Internal_Server_Error)
+      } yield assertTrue(status == Status.InternalServerError)
     }
   }
 }

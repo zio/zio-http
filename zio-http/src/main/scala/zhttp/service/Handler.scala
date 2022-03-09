@@ -142,7 +142,7 @@ private[zhttp] final case class Handler[R](
                 }
               case None        =>
                 UIO {
-                  writeResponse(Response.status(Status.Not_Found), jReq)
+                  writeResponse(Response.status(Status.NotFound), jReq)
                 }
 
             },

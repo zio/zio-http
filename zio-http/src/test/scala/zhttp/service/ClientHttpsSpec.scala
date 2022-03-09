@@ -44,7 +44,7 @@ object ClientHttpsSpec extends DefaultRunnableSpec {
             ssl = sslOption,
           )
           .map(_.status)
-        assertM(actual)(equalTo(Status.Bad_Request))
+        assertM(actual)(equalTo(Status.BadRequest))
       } +
       testM("should throw DecoderException for handshake failure") {
         val actual = Client
