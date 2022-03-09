@@ -713,9 +713,9 @@ object Http {
     Http.Die(t)
 
   /**
-   * Returns an app that dies with a [[java.lang.RuntimeException]] having the
-   * specified text message. This method can be used for terminating a HTTP
-   * request because a defect has been detected in the code.
+   * Returns an app that dies with a `RuntimeException` having the specified
+   * text message. This method can be used for terminating a HTTP request
+   * because a defect has been detected in the code.
    */
   def dieMessage(message: => String): UHttp[Any, Nothing] =
     die(new RuntimeException(message))
