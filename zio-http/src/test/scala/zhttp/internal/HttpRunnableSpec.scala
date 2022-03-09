@@ -4,7 +4,7 @@ import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.DynamicServer.HttpEnv
 import zhttp.internal.HttpRunnableSpec.HttpTestClient
-import zhttp.service.Client.Attribute
+import zhttp.service.Client.Config
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.socket.SocketApp
@@ -65,7 +65,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
             params
               .addHeader(DynamicServer.APP_ID, id)
               .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
-            Attribute.empty,
+            Config.empty,
           )
         }
       } yield response

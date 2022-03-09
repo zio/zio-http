@@ -12,7 +12,7 @@ import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
 import zhttp.service
-import zhttp.service.Client.Attribute
+import zhttp.service.Client.Config
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.{Socket, SocketApp}
@@ -23,7 +23,7 @@ import java.net.{InetSocketAddress, URI}
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
 
-  private[zhttp] def request(request: Request, attribute: Attribute): Task[Response] =
+  private[zhttp] def request(request: Request, attribute: Config): Task[Response] =
     for {
       promise <- Promise.make[Throwable, Response]
       jReq    <- encode(request)
@@ -47,7 +47,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
         url,
         headers,
       ),
-      attribute = Client.Attribute(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
+      attribute = Client.Config(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
     )
   } yield res
 
@@ -56,7 +56,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
    */
   private def unsafeRequest(
     req: Request,
-    attribute: Attribute,
+    attribute: Config,
     jReq: FullHttpRequest,
     promise: Promise[Throwable, Response],
   ): JChannelFuture = {
@@ -141,17 +141,17 @@ object Client {
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- request(
         Request(Version.Http_1_1, method, uri, headers, data = content),
-        attribute = Attribute(ssl = Some(ssl)),
+        clientConfig = Config(ssl = Some(ssl)),
       )
     } yield res
 
   def request(
     request: Request,
-    attribute: Attribute,
+    clientConfig: Config,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
     for {
       clt <- make[Any]
-      res <- clt.request(request, attribute)
+      res <- clt.request(request, clientConfig)
     } yield res
 
   def socket[R](
@@ -167,12 +167,12 @@ object Client {
     } yield res
   }
 
-  case class Attribute(socketApp: Option[SocketApp[Any]] = None, ssl: Option[ClientSSLOptions] = None) { self =>
-    def withSSL(ssl: ClientSSLOptions): Attribute           = self.copy(ssl = Some(ssl))
-    def withSocketApp(socketApp: SocketApp[Any]): Attribute = self.copy(socketApp = Some(socketApp))
+  case class Config(socketApp: Option[SocketApp[Any]] = None, ssl: Option[ClientSSLOptions] = None) { self =>
+    def withSSL(ssl: ClientSSLOptions): Config           = self.copy(ssl = Some(ssl))
+    def withSocketApp(socketApp: SocketApp[Any]): Config = self.copy(socketApp = Some(socketApp))
   }
 
-  object Attribute {
-    def empty: Attribute = Attribute()
+  object Config {
+    def empty: Config = Config()
   }
 }
