@@ -4,7 +4,6 @@ import io.netty.buffer.Unpooled
 import zhttp.http.Scheme.{HTTP, HTTPS, WS, WSS}
 import zhttp.http.URL.Location
 import zhttp.http._
-import zhttp.service.Client.ClientRequest
 import zio.random.Random
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
@@ -13,28 +12,32 @@ import zio.{Chunk, ZIO}
 import java.io.File
 
 object HttpGen {
-  def clientParamsForFileHttpData(): Gen[Random with Sized, ClientRequest] = {
+  def clientParamsForFileHttpData(): Gen[Random with Sized, Request] = {
     for {
       file    <- Gen.fromEffect(ZIO.succeed(new File(getClass.getResource("/TestFile.txt").getPath)))
       method  <- HttpGen.method
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
-    } yield ClientRequest(url, method, headers, HttpData.fromFile(file))
+      version <- httpVersion
+    } yield Request(version, method, url, headers, data = HttpData.fromFile(file))
   }
 
-  def clientRequest[R](
+  def requestGen[R](
     dataGen: Gen[R, HttpData],
     methodGen: Gen[R, Method] = HttpGen.method,
     urlGen: Gen[Random with Sized, URL] = HttpGen.url,
     headerGen: Gen[Random with Sized, Header] = HttpGen.header,
-  ): Gen[R with Random with Sized, ClientRequest] =
+  ): Gen[R with Random with Sized, Request] =
     for {
       method  <- methodGen
       url     <- urlGen
       headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
-      version <- Gen.fromIterable(List(Version.Http_1_0, Version.Http_1_1))
-    } yield ClientRequest(url, method, headers, data, version)
+      version <- httpVersion
+    } yield Request(version, method, url, headers, data = data)
+
+  def httpVersion: Gen[Random with Sized, Version] =
+    Gen.fromIterable(List(Version.Http_1_0, Version.Http_1_1))
 
   def cookies: Gen[Random with Sized, Cookie] = for {
     name     <- Gen.anyString
@@ -123,7 +126,7 @@ object HttpGen {
   }
 
   def request: Gen[Random with Sized, Request] = for {
-    version <- Gen.fromIterable(List(Version.Http_1_0, Version.Http_1_1))
+    version <- httpVersion
     method  <- HttpGen.method
     url     <- HttpGen.url
     headers <- Gen.listOf(HttpGen.header).map(Headers(_))
