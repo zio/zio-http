@@ -23,12 +23,12 @@ import java.net.{InetSocketAddress, URI}
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
 
-  private[zhttp] def request(request: Request, attribute: Config): Task[Response] =
+  private[zhttp] def request(request: Request, clientConfig: Config): Task[Response] =
     for {
       promise <- Promise.make[Throwable, Response]
       jReq    <- encode(request)
       _       <- ChannelFuture
-        .unit(unsafeRequest(request, attribute, jReq, promise))
+        .unit(unsafeRequest(request, clientConfig, jReq, promise))
         .catchAll(cause => promise.fail(cause))
       res     <- promise.await
     } yield res
@@ -47,7 +47,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
         url,
         headers,
       ),
-      attribute = Client.Config(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
+      clientConfig = Client.Config(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
     )
   } yield res
 
@@ -56,7 +56,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
    */
   private def unsafeRequest(
     req: Request,
-    attribute: Config,
+    clientConfig: Config,
     jReq: FullHttpRequest,
     promise: Promise[Throwable, Response],
   ): JChannelFuture = {
@@ -76,7 +76,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
         override def initChannel(ch: Channel): Unit = {
 
           val pipeline                    = ch.pipeline()
-          val sslOption: ClientSSLOptions = attribute.ssl.getOrElse(ClientSSLOptions.DefaultSSL)
+          val sslOption: ClientSSLOptions = clientConfig.ssl.getOrElse(ClientSSLOptions.DefaultSSL)
 
           // If a https or wss request is made we need to add the ssl handler at the starting of the pipeline.
           if (isSSL) pipeline.addLast(SSL_HANDLER, ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc, host, port))
@@ -94,7 +94,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
           // Add WebSocketHandlers if it's a `ws` or `wss` request
           if (isWebSocket) {
             val headers = req.headers.encode
-            val app     = attribute.socketApp.getOrElse(Socket.empty.toSocketApp)
+            val app     = clientConfig.socketApp.getOrElse(Socket.empty.toSocketApp)
             val config  = app.protocol.clientBuilder
               .customHeaders(headers)
               .webSocketUri(req.url.encode)
