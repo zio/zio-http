@@ -14,8 +14,8 @@ sealed trait Transport { self =>
   def clientChannel: Task[JChannelFactory[Channel]]
   def eventLoopGroup(nThreads: Int = 0): Task[channel.EventLoopGroup]
 
-  def live: ZLayer[Any, Nothing, ChannelFactory with EventLoopGroup] =
-    clientChannel.toLayer.orDie ++ eventLoopGroup().toLayer.orDie
+  def live(nThreads: Int = 0): ZLayer[Any, Nothing, ChannelFactory with EventLoopGroup] =
+    clientChannel.toLayer.orDie ++ eventLoopGroup(nThreads).toLayer.orDie
 }
 object Transport       {
 

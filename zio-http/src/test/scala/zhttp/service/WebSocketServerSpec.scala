@@ -14,7 +14,7 @@ import zio.{Chunk, ZIO}
 object WebSocketServerSpec extends HttpRunnableSpec {
 
   private val env =
-    Nio.live ++ DynamicServer.live
+    Nio.live() ++ DynamicServer.live
   private val app = serve(DynamicServer.app)
 
   override def spec = suiteM("Server") {

@@ -8,7 +8,7 @@ import zio.stream.ZStream
 object WebSocketSimpleClient extends zio.App {
 
   // Setup client envs
-  val env = Auto.live
+  val env = Auto.live()
 
   val url = "ws://localhost:8090/subscriptions"
 

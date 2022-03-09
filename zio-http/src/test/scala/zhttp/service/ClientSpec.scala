@@ -12,7 +12,7 @@ import java.net.ConnectException
 
 object ClientSpec extends HttpRunnableSpec {
 
-  private val env = Nio.live ++ DynamicServer.live
+  private val env = Nio.live() ++ DynamicServer.live
 
   def clientSpec = suite("ClientSpec") {
     testM("respond Ok") {

@@ -13,7 +13,7 @@ import java.io.File
 object StaticFileServerSpec extends HttpRunnableSpec {
 
   private val env =
-    Nio.live ++ DynamicServer.live
+    Nio.live() ++ DynamicServer.live
 
   override def spec = suiteM("StaticFileServer") {
     serve(DynamicServer.app, Some(Server.nio)).as(List(staticSpec)).useNow

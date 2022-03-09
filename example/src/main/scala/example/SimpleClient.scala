@@ -5,7 +5,7 @@ import zhttp.service.transport.Transport.Auto
 import zio.{App, ExitCode, URIO, console}
 
 object SimpleClient extends App {
-  val env = Auto.live
+  val env = Auto.live()
   val url = "http://sports.api.decathlon.com/groups/water-aerobics"
 
   val program = for {
