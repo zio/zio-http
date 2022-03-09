@@ -4,7 +4,6 @@ import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.ChannelHandler
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
-import zhttp.http.HExit.Effect
 import zhttp.http.headers.HeaderModifier
 import zhttp.service.server.ServerTime
 import zhttp.service.{Handler, HttpRuntime, Server}
@@ -600,19 +599,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
       case Combine(self, other) => {
         self.execute(a) match {
-          case HExit.Effect(zio) => {
-            Effect(
-              zio.foldM(
-                {
-                  case Some(error) => ZIO.fail(Option(error.asInstanceOf[E]))
-                  case None        => other.execute(a).toZIO
-                },
-                b => ZIO.succeed(b.asInstanceOf[B]),
-              ),
-            )
-          }
-          case HExit.Empty       => other.execute(a)
-          case u                 => u.asInstanceOf[HExit[R, E, B]]
+          case HExit.Empty => other.execute(a)
+          case u           => u.asInstanceOf[HExit[R, E, B]]
         }
       }
     }
