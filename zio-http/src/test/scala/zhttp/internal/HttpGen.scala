@@ -18,11 +18,11 @@ object HttpGen {
       method  <- HttpGen.method
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
-      version <- Gen.fromIterable(List(Version.Http_1_0, Version.Http_1_1))
+      version <- httpVersion
     } yield Request(version, method, url, headers, data = HttpData.fromFile(file))
   }
 
-  def RequestGen[R](
+  def requestGen[R](
     dataGen: Gen[R, HttpData],
     methodGen: Gen[R, Method] = HttpGen.method,
     urlGen: Gen[Random with Sized, URL] = HttpGen.url,
@@ -33,8 +33,11 @@ object HttpGen {
       url     <- urlGen
       headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
-      version <- Gen.fromIterable(List(Version.Http_1_0, Version.Http_1_1))
+      version <- httpVersion
     } yield Request(version, method, url, headers, data = data)
+
+  def httpVersion: Gen[Random with Sized, Version] =
+    Gen.fromIterable(List(Version.Http_1_0, Version.Http_1_1))
 
   def cookies: Gen[Random with Sized, Cookie] = for {
     name     <- Gen.anyString
@@ -123,7 +126,7 @@ object HttpGen {
   }
 
   def request: Gen[Random with Sized, Request] = for {
-    version <- Gen.fromIterable(List(Version.Http_1_0, Version.Http_1_1))
+    version <- httpVersion
     method  <- HttpGen.method
     url     <- HttpGen.url
     headers <- Gen.listOf(HttpGen.header).map(Headers(_))
