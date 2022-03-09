@@ -2,12 +2,12 @@ package zhttp.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.internal.HttpGen
-import zhttp.service.EncodeClientRequest
+import zhttp.service.EncodeRequest
 import zio.random.Random
 import zio.test.Assertion._
 import zio.test._
 
-object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientRequest {
+object EncodeRequestSpec extends DefaultRunnableSpec with EncodeRequest {
 
   val anyClientParam: Gen[Random with Sized, Request] = HttpGen.requestGen(
     HttpGen.httpData(

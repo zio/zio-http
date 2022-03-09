@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, Htt
 import zhttp.http.Request
 import zio.Task
 
-trait EncodeClientRequest {
+trait EncodeRequest {
 
   /**
    * Converts client params to JFullHttpRequest
