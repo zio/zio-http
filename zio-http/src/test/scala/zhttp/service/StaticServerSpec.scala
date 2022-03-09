@@ -45,19 +45,19 @@ object StaticServerSpec extends HttpRunnableSpec {
     testM("200 response") {
       checkAllM(HttpGen.method) { method =>
         val actual = status(method, !! / "HExitSuccess")
-        assertM(actual)(equalTo(Status.OK))
+        assertM(actual)(equalTo(Status.Ok))
       }
     } +
       testM("500 response") {
         checkAllM(methodGenWithoutHEAD) { method =>
           val actual = status(method, !! / "HExitFailure")
-          assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
+          assertM(actual)(equalTo(Status.Internal_Server_Error))
         }
       } +
       testM("404 response ") {
         checkAllM(methodGenWithoutHEAD) { method =>
           val actual = status(method, !! / "A")
-          assertM(actual)(equalTo(Status.NOT_FOUND))
+          assertM(actual)(equalTo(Status.Not_Found))
         }
       }
 
@@ -89,31 +89,31 @@ object StaticServerSpec extends HttpRunnableSpec {
   def staticAppSpec    = suite("StaticAppSpec") {
     testM("200 response") {
       val actual = status(path = !! / "success")
-      assertM(actual)(equalTo(Status.OK))
+      assertM(actual)(equalTo(Status.Ok))
     } +
       testM("500 response") {
         val actual = status(path = !! / "failure")
-        assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
+        assertM(actual)(equalTo(Status.Internal_Server_Error))
       } +
       testM("404 response") {
         val actual = status(path = !! / "random")
-        assertM(actual)(equalTo(Status.NOT_FOUND))
+        assertM(actual)(equalTo(Status.Not_Found))
       } +
       testM("200 response with encoded path") {
         val actual = status(path = !! / "get%2Fsuccess")
-        assertM(actual)(equalTo(Status.OK))
+        assertM(actual)(equalTo(Status.Ok))
       } +
       testM("Multiple 200 response") {
         for {
           data <- status(path = !! / "success").repeatN(1024)
-        } yield assertTrue(data == Status.OK)
+        } yield assertTrue(data == Status.Ok)
       }
   }
   def throwableAppSpec = suite("ThrowableAppSpec") {
     testM("Throw inside Handler") {
       for {
         status <- status(Method.GET, !! / "throwable")
-      } yield assertTrue(status == Status.INTERNAL_SERVER_ERROR)
+      } yield assertTrue(status == Status.Internal_Server_Error)
     }
   }
 }

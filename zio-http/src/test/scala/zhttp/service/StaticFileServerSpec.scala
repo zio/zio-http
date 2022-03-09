@@ -26,7 +26,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
         val fileNotFound = Http.fromResource("/Nothing").deploy
         testM("should have 200 status code") {
           val res = fileOk.run().map(_.status)
-          assertM(res)(equalTo(Status.OK))
+          assertM(res)(equalTo(Status.Ok))
         } +
           testM("should have content-length") {
             val res = fileOk.run().map(_.contentLength)
@@ -42,7 +42,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           } +
           testM("should respond with empty") {
             val res = fileNotFound.run().map(_.status)
-            assertM(res)(equalTo(Status.NOT_FOUND))
+            assertM(res)(equalTo(Status.Not_Found))
           }
       }
     } +
@@ -50,7 +50,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
         suite("failure on construction") {
           testM("should respond with 500") {
             val res = Http.fromFile(throw new Error("Wut happened?")).deploy.run().map(_.status)
-            assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+            assertM(res)(equalTo(Status.Internal_Server_Error))
           }
         } +
           suite("invalid file") {
@@ -60,7 +60,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
                 override def isFile: Boolean = true
               }
               val res = Http.fromFile(new BadFile("Length Failure")).deploy.run().map(_.status)
-              assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+              assertM(res)(equalTo(Status.Internal_Server_Error))
             }
           }
       }

@@ -707,7 +707,7 @@ object Http {
   /**
    * Creates an HTTP app which always responds with a 200 status code.
    */
-  def ok: HttpApp[Any, Nothing] = status(Status.OK)
+  def ok: HttpApp[Any, Nothing] = status(Status.Ok)
 
   /**
    * Creates an Http app which always responds with the same value.
@@ -752,12 +752,12 @@ object Http {
    * Creates an Http app that responds with a 408 status code after the provided
    * time duration
    */
-  def timeout(duration: Duration): HttpApp[Clock, Nothing] = Http.status(Status.REQUEST_TIMEOUT).delay(duration)
+  def timeout(duration: Duration): HttpApp[Clock, Nothing] = Http.status(Status.Request_Timeout).delay(duration)
 
   /**
    * Creates an HTTP app which always responds with a 413 status code.
    */
-  def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.REQUEST_ENTITY_TOO_LARGE)
+  def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.Request_Entity_Too_Large)
 
   // Ctor Help
   final case class PartialCollectZIO[A](unit: Unit) extends AnyVal {

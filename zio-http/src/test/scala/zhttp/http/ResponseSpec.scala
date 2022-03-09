@@ -9,7 +9,7 @@ object ResponseSpec extends DefaultRunnableSpec {
       val location = "www.google.com"
       test("Temporary redirect should produce a response with a TEMPORARY_REDIRECT") {
         val x = Response.redirect(location)
-        assertTrue(x.status == Status.TEMPORARY_REDIRECT) &&
+        assertTrue(x.status == Status.Temporary_Redirect) &&
         assertTrue(x.headerValue(HeaderNames.location).contains(location))
       } +
         test("Temporary redirect should produce a response with a location") {
@@ -18,7 +18,7 @@ object ResponseSpec extends DefaultRunnableSpec {
         } +
         test("Permanent redirect should produce a response with a PERMANENT_REDIRECT") {
           val x = Response.redirect(location, true)
-          assertTrue(x.status == Status.PERMANENT_REDIRECT)
+          assertTrue(x.status == Status.Permanent_Redirect)
         } +
         test("Permanent redirect should produce a response with a location") {
           val x = Response.redirect(location, true)
