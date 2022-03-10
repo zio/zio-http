@@ -17,7 +17,7 @@ object HttpErrorSpec extends DefaultRunnableSpec {
           assert(result)(equalTo("Page not found"))
         } +
         test("should create custom error") {
-          val error = HttpError.CustomResponseStatus(451, "Unavailable for legal reasons.")
+          val error = HttpError.Custom(451, "Unavailable for legal reasons.")
           assert(error.status)(equalTo(Status.Custom(451)))
         }
     }
