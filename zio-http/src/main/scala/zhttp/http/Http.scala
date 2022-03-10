@@ -223,7 +223,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Named alias for `++`
    */
   final def defaultWith[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    self.foldHttp(Http.fail, Http.die, Http.succeed, other)
+    Http.Combine(self, other)
 
   /**
    * Delays production of output B for the specified duration of time
@@ -596,6 +596,16 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
         } catch {
           case e: Throwable => HExit.die(e)
         }
+
+      case Combine(self, other) => {
+        self.execute(a) match {
+          case HExit.Empty            => other.execute(a)
+          case exit: HExit.Success[_] => exit.asInstanceOf[HExit[R, E, B]]
+          case exit: HExit.Failure[_] => exit.asInstanceOf[HExit[R, E, B]]
+          case exit: HExit.Die        => exit
+          case exit @ HExit.Effect(_) => exit.defaultWith(other.execute(a)).asInstanceOf[HExit[R, E, B]]
+        }
+      }
     }
 }
 
@@ -1052,6 +1062,11 @@ object Http {
   ) extends Http[R, E, A2, B2]
 
   private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
+
+  private final case class Combine[R, E, EE, A, B, BB](
+    self: Http[R, E, A, B],
+    other: Http[R, EE, A, BB],
+  ) extends Http[R, EE, A, BB]
 
   private final case class FromHExit[R, E, B](h: HExit[R, E, B]) extends Http[R, E, Any, B]
 
