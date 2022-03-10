@@ -113,7 +113,7 @@ final case class Response private (
 
 object Response {
   def apply[R, E](
-    status: Status = Status.OK,
+    status: Status = Status.Ok,
     headers: Headers = Headers.empty,
     data: HttpData = HttpData.Empty,
   ): Response =
@@ -161,7 +161,7 @@ object Response {
   def fromSocketApp[R](app: SocketApp[R]): ZIO[R, Nothing, Response] = {
     ZIO.environment[R].map { env =>
       Response(
-        Status.SWITCHING_PROTOCOLS,
+        Status.SwitchingProtocols,
         Headers.empty,
         HttpData.empty,
         Attribute(socketApp = Option(app.provideEnvironment(env))),
@@ -173,7 +173,7 @@ object Response {
   /**
    * Creates a response with content-type set to text/html
    */
-  def html(data: Html, status: Status = Status.OK): Response =
+  def html(data: Html, status: Status = Status.Ok): Response =
     Response(
       status = status,
       data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
@@ -182,7 +182,7 @@ object Response {
 
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
   def http[R, E](
-    status: Status = Status.OK,
+    status: Status = Status.Ok,
     headers: Headers = Headers.empty,
     data: HttpData = HttpData.empty,
   ): Response = Response(status, headers, data)
@@ -199,14 +199,14 @@ object Response {
   /**
    * Creates an empty response with status 200
    */
-  def ok: Response = Response(Status.OK)
+  def ok: Response = Response(Status.Ok)
 
   /**
    * Creates an empty response with status 301 or 302 depending on if it's
    * permanent or not.
    */
   def redirect(location: String, isPermanent: Boolean = false): Response = {
-    val status = if (isPermanent) Status.PERMANENT_REDIRECT else Status.TEMPORARY_REDIRECT
+    val status = if (isPermanent) Status.PermanentRedirect else Status.TemporaryRedirect
     Response(status, Headers.location(location))
   }
 

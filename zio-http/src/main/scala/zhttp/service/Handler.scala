@@ -146,7 +146,7 @@ private[zhttp] final case class Handler[R](
                   }
                 case Left(None)        =>
                   UIO {
-                    writeResponse(Response.status(Status.NOT_FOUND), jReq)
+                    writeResponse(Response.status(Status.NotFound), jReq)
                   }
                 case Right(other)      =>
                   other.dieOption match {
