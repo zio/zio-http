@@ -5,7 +5,7 @@ import zhttp.http.headers.HeaderExtension
 import zio.stream.ZStream
 import zio.{Chunk, Task, UIO}
 
-private[zhttp] trait HttpDataExtension[+A] { self: HeaderExtension[A] =>
+private[zhttp] trait HttpDataExtension[+A] extends HeaderExtension[A] { self: A =>
   def data: HttpData
 
   private[zhttp] final def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
