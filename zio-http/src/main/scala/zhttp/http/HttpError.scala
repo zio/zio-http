@@ -120,6 +120,6 @@ object HttpError {
 
   final case class BadGateway(msg: String = "Bad Gateway") extends HttpError(Status.BadGateway, msg)
 
-  final case class CustomResponseStatus(code: Int, reason: String) extends HttpError(Status.Custom(code), reason)
+  final case class Custom(code: Int, reason: String) extends HttpError(Status.Custom(code), reason)
 
 }
