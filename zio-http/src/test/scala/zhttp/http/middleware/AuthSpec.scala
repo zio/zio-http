@@ -30,11 +30,11 @@ object AuthSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
     suite("basicAuth") {
       testM("HttpApp is accepted if the basic authentication succeeds") {
         val app = (Http.ok @@ basicAuthM).status
-        assertM(app(Request().addHeaders(successBasicHeader)))(equalTo(Status.OK))
+        assertM(app(Request().addHeaders(successBasicHeader)))(equalTo(Status.Ok))
       } +
         testM("Uses forbidden app if the basic authentication fails") {
           val app = (Http.ok @@ basicAuthM).status
-          assertM(app(Request().addHeaders(failureBasicHeader)))(equalTo(Status.UNAUTHORIZED))
+          assertM(app(Request().addHeaders(failureBasicHeader)))(equalTo(Status.Unauthorized))
         } +
         testM("Responses should have WWW-Authentication header if Basic Auth failed") {
           val app = Http.ok @@ basicAuthM header "WWW-AUTHENTICATE"
@@ -44,11 +44,11 @@ object AuthSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       suite("basicAuthZIO") {
         testM("HttpApp is accepted if the basic authentication succeeds") {
           val app = (Http.ok @@ basicAuthZIOM).status
-          assertM(app(Request().addHeaders(successBasicHeader)))(equalTo(Status.OK))
+          assertM(app(Request().addHeaders(successBasicHeader)))(equalTo(Status.Ok))
         } +
           testM("Uses forbidden app if the basic authentication fails") {
             val app = (Http.ok @@ basicAuthZIOM).status
-            assertM(app(Request().addHeaders(failureBasicHeader)))(equalTo(Status.UNAUTHORIZED))
+            assertM(app(Request().addHeaders(failureBasicHeader)))(equalTo(Status.Unauthorized))
           } +
           testM("Responses should have WWW-Authentication header if Basic Auth failed") {
             val app = Http.ok @@ basicAuthZIOM header "WWW-AUTHENTICATE"
@@ -58,11 +58,11 @@ object AuthSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       suite("bearerAuth") {
         testM("HttpApp is accepted if the bearer authentication succeeds") {
           val app = (Http.ok @@ bearerAuthM).status
-          assertM(app(Request().addHeaders(successBearerHeader)))(equalTo(Status.OK))
+          assertM(app(Request().addHeaders(successBearerHeader)))(equalTo(Status.Ok))
         } +
           testM("Uses forbidden app if the bearer authentication fails") {
             val app = (Http.ok @@ bearerAuthM).status
-            assertM(app(Request().addHeaders(failureBearerHeader)))(equalTo(Status.UNAUTHORIZED))
+            assertM(app(Request().addHeaders(failureBearerHeader)))(equalTo(Status.Unauthorized))
           } +
           testM("Responses should have WWW-Authentication header if bearer Auth failed") {
             val app = Http.ok @@ bearerAuthM header "WWW-AUTHENTICATE"
@@ -72,11 +72,11 @@ object AuthSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       suite("bearerAuthZIO") {
         testM("HttpApp is accepted if the bearer authentication succeeds") {
           val app = (Http.ok @@ bearerAuthZIOM).status
-          assertM(app(Request().addHeaders(successBearerHeader)))(equalTo(Status.OK))
+          assertM(app(Request().addHeaders(successBearerHeader)))(equalTo(Status.Ok))
         } +
           testM("Uses forbidden app if the bearer authentication fails") {
             val app = (Http.ok @@ bearerAuthZIOM).status
-            assertM(app(Request().addHeaders(failureBearerHeader)))(equalTo(Status.UNAUTHORIZED))
+            assertM(app(Request().addHeaders(failureBearerHeader)))(equalTo(Status.Unauthorized))
           } +
           testM("Responses should have WWW-Authentication header if bearer Auth failed") {
             val app = Http.ok @@ bearerAuthZIOM header "WWW-AUTHENTICATE"

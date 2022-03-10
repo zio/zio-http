@@ -45,7 +45,7 @@ object AuthenticationServer extends App {
   // Login is successful only if the password is the reverse of the username
   def login: UHttpApp = Http.collect[Request] { case Method.GET -> !! / "login" / username / password =>
     if (password.reverse.hashCode == username.hashCode) Response.text(jwtEncode(username))
-    else Response.text("Invalid username or password.").setStatus(Status.UNAUTHORIZED)
+    else Response.text("Invalid username or password.").setStatus(Status.Unauthorized)
   }
 
   // Composing all the HttpApps together

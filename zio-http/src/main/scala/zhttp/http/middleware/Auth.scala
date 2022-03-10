@@ -66,7 +66,7 @@ private[zhttp] trait Auth {
   final def customAuth(
     verify: Headers => Boolean,
     responseHeaders: Headers = Headers.empty,
-    responseStatus: Status = Status.UNAUTHORIZED,
+    responseStatus: Status = Status.Unauthorized,
   ): HttpMiddleware[Any, Nothing] =
     customAuthZIO(headers => UIO(verify(headers)), responseHeaders, responseStatus)
 
@@ -78,7 +78,7 @@ private[zhttp] trait Auth {
   final def customAuthZIO[R, E](
     verify: Headers => ZIO[R, E, Boolean],
     responseHeaders: Headers = Headers.empty,
-    responseStatus: Status = Status.UNAUTHORIZED,
+    responseStatus: Status = Status.Unauthorized,
   ): HttpMiddleware[R, E] =
     Middleware.ifThenElseZIO[Request](req => verify(req.headers))(
       _ => Middleware.identity,

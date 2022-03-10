@@ -4,7 +4,7 @@ import zhttp.http.URL.Location
 import zhttp.http._
 import zhttp.internal.DynamicServer.HttpEnv
 import zhttp.internal.HttpRunnableSpec.HttpTestClient
-import zhttp.service.Client.ClientRequest
+import zhttp.service.Client.Config
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.socket.SocketApp
@@ -20,7 +20,7 @@ import zio.{Has, ZIO, ZManaged}
  */
 abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
 
-  implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Client.ClientRequest, A]) {
+  implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Request, A]) {
 
     /**
      * Runs the deployed Http app by making a real http request to it. The
@@ -34,7 +34,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       version: Version = Version.Http_1_1,
     ): ZIO[R, Throwable, A] =
       app(
-        Client.ClientRequest(
+        Request(
           url = URL(path), // url set here is overridden later via `deploy` method
           method = method,
           headers = headers,
@@ -56,15 +56,16 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy: HttpTestClient[Any, ClientRequest, Response] =
+    def deploy: HttpTestClient[Any, Request, Response] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
-        response <- Http.fromFunctionZIO[Client.ClientRequest] { params =>
+        response <- Http.fromFunctionZIO[Request] { params =>
           Client.request(
             params
               .addHeader(DynamicServer.APP_ID, id)
               .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+            Config.empty,
           )
         }
       } yield response

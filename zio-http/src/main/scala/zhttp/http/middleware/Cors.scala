@@ -49,7 +49,7 @@ private[zhttp] trait Cors {
         case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm._2.toString)) =>
           Middleware.succeed(
             Response(
-              Status.NO_CONTENT,
+              Status.NoContent,
               headers = corsHeaders(origin, Method.fromString(acrm._2.toString), isPreflight = true),
             ),
           )

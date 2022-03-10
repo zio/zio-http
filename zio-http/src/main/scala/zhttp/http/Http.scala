@@ -713,9 +713,9 @@ object Http {
     Http.Die(t)
 
   /**
-   * Returns an app that dies with a [[java.lang.RuntimeException]] having the
-   * specified text message. This method can be used for terminating a HTTP
-   * request because a defect has been detected in the code.
+   * Returns an app that dies with a `RuntimeException` having the specified
+   * text message. This method can be used for terminating a HTTP request
+   * because a defect has been detected in the code.
    */
   def dieMessage(message: => String): UHttp[Any, Nothing] =
     die(new RuntimeException(message))
@@ -911,7 +911,7 @@ object Http {
   /**
    * Creates an HTTP app which always responds with a 200 status code.
    */
-  def ok: HttpApp[Any, Nothing] = status(Status.OK)
+  def ok: HttpApp[Any, Nothing] = status(Status.Ok)
 
   /**
    * Creates an Http app which always responds with the same value.
@@ -956,12 +956,12 @@ object Http {
    * Creates an Http app that responds with a 408 status code after the provided
    * time duration
    */
-  def timeout(duration: Duration): HttpApp[Clock, Nothing] = Http.status(Status.REQUEST_TIMEOUT).delay(duration)
+  def timeout(duration: Duration): HttpApp[Clock, Nothing] = Http.status(Status.RequestTimeout).delay(duration)
 
   /**
    * Creates an HTTP app which always responds with a 413 status code.
    */
-  def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.REQUEST_ENTITY_TOO_LARGE)
+  def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.RequestEntityTooLarge)
 
   // Ctor Help
   final case class PartialCollectZIO[A](unit: Unit) extends AnyVal {
