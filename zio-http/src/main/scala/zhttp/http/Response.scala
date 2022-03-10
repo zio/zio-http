@@ -1,8 +1,8 @@
 package zhttp.http
 
-import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
+import io.netty.handler.codec.http.{FullHttpResponse, HttpHeaderNames, HttpResponse}
 import zhttp.html._
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
@@ -59,10 +59,15 @@ final case class Response private (
    */
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
 
+  final def bodyAsByteArray: Task[Array[Byte]] =
+    bodyAsByteBuf.flatMap(buf => Task(ByteBufUtil.getBytes(buf)))
+
   /**
    * Extracts the body as ByteBuf
    */
   private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = self.data.toByteBuf
+
+  def bodyAsString: Task[String] = bodyAsByteArray.map(new String(_, charset))
 
   /**
    * Encodes the Response into a Netty HttpResponse. Sets default headers such
@@ -218,6 +223,13 @@ object Response {
       data = HttpData.fromString(text, charset),
       headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
     )
+
+  private[zhttp] def unsafeFromJResponse(jRes: FullHttpResponse): Response = {
+    val status  = Status.fromHttpResponseStatus(jRes.status())
+    val headers = Headers.decode(jRes.headers())
+    val data    = HttpData.fromByteBuf(Unpooled.copiedBuffer(jRes.content()))
+    Response(status, headers, data)
+  }
 
   /**
    * Attribute holds meta data for the backend
