@@ -144,7 +144,6 @@ object ServerSpec extends HttpRunnableSpec {
             assertM(res.flatMap(_.bodyAsString))(equalTo(content))
           }
       }
-
   }
 
   def requestSpec = suite("RequestSpec") {
