@@ -68,10 +68,11 @@ object DynamicServer {
   }
 
   final class Live(ref: Ref[Map[Id, HttpApp[HttpEnv, Throwable]]], pr: Promise[Nothing, Start]) extends Service {
-    def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id]        = for {
+    def add(app: HttpApp[HttpEnv, Throwable]): UIO[Id] = for {
       id <- UIO(UUID.randomUUID().toString)
       _  <- ref.update(map => map + (id -> app))
     } yield id
+
     def get(id: Id): UIO[Option[HttpApp[HttpEnv, Throwable]]] = ref.get.map(_.get(id))
 
     def port: ZIO[Any, Nothing, Int] = start.map(_.port)
