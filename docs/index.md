@@ -70,7 +70,7 @@ val app = Http.collect[Request] {
   case req @ Method.GET -> Root / "fruits" / "a"  =>
     Response.text("URL:" + req.url.path.asString + " Headers: " + r.headers)
   case req @ Method.POST -> Root / "fruits" / "a" =>
-    Response.text(req.getBodyAsString.getOrElse("No body!"))
+    Response.text(req.bodyAsString.getOrElse("No body!"))
 }
 ```
 
@@ -105,7 +105,7 @@ val app = Http.collect[Request] {
   case req @ Method.GET -> Root / "fruits" / "a"  =>
     Response.text("URL:" + req.url.path.asString + " Headers: " + r.headers)
   case req @ Method.POST -> Root / "fruits" / "a" =>
-    Response.text(req.getBodyAsString.getOrElse("No body!"))
+    Response.text(req.bodyAsString.getOrElse("No body!"))
 }
 ```
 

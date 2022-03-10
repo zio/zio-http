@@ -18,7 +18,7 @@ object ClientSpec extends HttpRunnableSpec {
   def clientSpec = suite("ClientSpec") {
     testM("respond Ok") {
       val app = Http.ok.deploy.status.run()
-      assertM(app)(equalTo(Status.OK))
+      assertM(app)(equalTo(Status.Ok))
     } +
       testM("non empty content") {
         val app             = Http.text("abc")

@@ -320,7 +320,7 @@ Patches the response produced by the HTTP application using a `Patch`.
   val a: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !! / "text" => Response.text("Hello World!")
   }
-  val app: Http[Any, Throwable, Request, String] = a.getBodyAsString
+  val app: Http[Any, Throwable, Request, String] = a.bodyAsString
 ```
 
 ## Converting an `Http` to `HttpApp`

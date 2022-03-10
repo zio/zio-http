@@ -54,7 +54,7 @@ According to the request path, it will respond with the corresponding response:
 ``` 
 - `getBodyAsString` to access the content of request as string
 ```scala
-  val app = Http.collectZIO[Request] { case req => req.getBodyAsString.as(Response.ok) }
+  val app = Http.collectZIO[Request] { case req => req.bodyAsString.as(Response.ok) }
 ``` 
 - `getHeaders` to get all the headers in the Request
 ```scala
