@@ -1,12 +1,12 @@
 package zhttp.http
 
-import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
+import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{FullHttpResponse, HttpHeaderNames, HttpResponse}
 import zhttp.html._
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
-import zio.{Chunk, Task, UIO, ZIO}
+import zio.{Chunk, UIO, ZIO}
 
 import java.io.{PrintWriter, StringWriter}
 import java.nio.charset.Charset
@@ -16,7 +16,8 @@ final case class Response private (
   headers: Headers,
   data: HttpData,
   private[zhttp] val attribute: Response.Attribute,
-) extends HeaderExtension[Response] { self =>
+) extends HeaderExtension[Response]
+    with HttpDataExtension[Response] { self =>
 
   /**
    * Adds cookies in the response headers.
@@ -58,16 +59,6 @@ final case class Response private (
    * A more efficient way to append server-time to the response headers.
    */
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
-
-  final def bodyAsByteArray: Task[Array[Byte]] =
-    bodyAsByteBuf.flatMap(buf => Task(ByteBufUtil.getBytes(buf)))
-
-  /**
-   * Extracts the body as ByteBuf
-   */
-  private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = self.data.toByteBuf
-
-  def bodyAsString: Task[String] = bodyAsByteArray.map(new String(_, charset))
 
   /**
    * Encodes the Response into a Netty HttpResponse. Sets default headers such
