@@ -55,7 +55,7 @@ private[zhttp] trait Auth {
   ): HttpMiddleware[R, E] =
     Middleware.ifThenElseZIO[Request](req => verify(req.headers))(
       _ => Middleware.identity,
-      _ => Middleware.fromHttp(Http.status(Status.FORBIDDEN).addHeaders(responseHeaders)),
+      _ => Middleware.fromHttp(Http.status(Status.Forbidden).addHeaders(responseHeaders)),
     )
 }
 
