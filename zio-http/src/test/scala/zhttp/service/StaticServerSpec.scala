@@ -98,7 +98,7 @@ object StaticServerSpec extends HttpRunnableSpec {
       } +
       testM("500 response on die") {
         val actual = status(path = !! / "die")
-        assertM(actual)(equalTo(Status.INTERNAL_SERVER_ERROR))
+        assertM(actual)(equalTo(Status.InternalServerError))
       } +
       testM("404 response") {
         val actual = status(path = !! / "random")

@@ -72,7 +72,7 @@ object ServerSpec extends HttpRunnableSpec {
         val app = Http.die(new Error("SERVER_ERROR"))
         testM("status is 500") {
           val res = app.deploy.status.run()
-          assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+          assertM(res)(equalTo(Status.InternalServerError))
         } +
           testM("content is set") {
             val res = app.deploy.bodyAsString.run()
