@@ -8,7 +8,7 @@ import zhttp.http.headers.HeaderModifier
 import zhttp.service.server.ServerTime
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
-import zio.blocking.Blocking
+import zio.blocking.{Blocking, effectBlocking}
 import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
@@ -783,7 +783,7 @@ object Http {
   /**
    * Creates an Http app from the contents of a file.
    */
-  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file))
+  def fromFile(file: => java.io.File): HttpApp[Blocking, Throwable] = Http.fromFileZIO(effectBlocking(file))
 
   /**
    * Creates an Http app from the contents of a file which is produced from an
@@ -853,13 +853,13 @@ object Http {
   /**
    * Creates an HTTP that can serve files on the give path.
    */
-  def fromPath(head: String, tail: String*): HttpApp[Any, Throwable] =
+  def fromPath(head: String, tail: String*): HttpApp[Blocking, Throwable] =
     Http.fromFile(Paths.get(head, tail: _*).toFile)
 
   /**
    * Creates an Http app from a resource path
    */
-  def fromResource(path: String): HttpApp[Any, Throwable] =
+  def fromResource(path: String): HttpApp[Blocking, Throwable] =
     Http.getResource(path).flatMap(url => Http.fromFile(new File(url.getPath)))
 
   /**
@@ -884,16 +884,16 @@ object Http {
   /**
    * Attempts to retrieve files from the classpath.
    */
-  def getResource(path: String): Http[Any, Throwable, Any, net.URL] =
+  def getResource(path: String): Http[Blocking, Throwable, Any, net.URL] =
     Http
-      .fromZIO(Blocking.Service.live.effectBlockingIO(getClass.getClassLoader.getResource(path)))
+      .fromZIO(effectBlocking(getClass.getClassLoader.getResource(path)))
       .flatMap { resource => if (resource == null) Http.empty else Http.succeed(resource) }
 
   /**
    * Attempts to retrieve files from the classpath.
    */
-  def getResourceAsFile(path: String): Http[Any, Throwable, Any, File] =
-    Http.getResource(path).map(url => new File(url.getPath))
+  def getResourceAsFile(path: String): Http[Blocking, Throwable, Any, File] =
+    Http.getResource(path).mapZIO(url => effectBlocking(new File(url.getPath)))
 
   /**
    * Creates an HTTP app which always responds with the provided Html page.
