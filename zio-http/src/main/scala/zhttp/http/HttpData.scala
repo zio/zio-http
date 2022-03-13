@@ -64,9 +64,7 @@ object HttpData {
   /**
    * Helper to create HttpData from contents of a file
    */
-  def fromFile(file: => java.io.File): HttpData = {
-    RandomAccessFile(() => new java.io.RandomAccessFile(file, "r"))
-  }
+  def fromFile(file: => java.io.File): HttpData = JavaFile(() => file)
 
   /**
    * Helper to create HttpData from Stream of string
@@ -88,18 +86,22 @@ object HttpData {
   private[zhttp] sealed trait Outgoing extends HttpData { self =>
     def encode: ZIO[Any, Throwable, ByteBuf] =
       self match {
-        case HttpData.Text(text, charset)   => UIO(Unpooled.copiedBuffer(text, charset))
-        case HttpData.BinaryChunk(data)     => UIO(Unpooled.copiedBuffer(data.toArray))
-        case HttpData.BinaryByteBuf(data)   => UIO(data)
-        case HttpData.Empty                 => UIO(Unpooled.EMPTY_BUFFER)
-        case HttpData.BinaryStream(stream)  =>
+        case HttpData.Text(text, charset)  => UIO(Unpooled.copiedBuffer(text, charset))
+        case HttpData.BinaryChunk(data)    => UIO(Unpooled.copiedBuffer(data.toArray))
+        case HttpData.BinaryByteBuf(data)  => UIO(data)
+        case HttpData.Empty                => UIO(Unpooled.EMPTY_BUFFER)
+        case HttpData.BinaryStream(stream) =>
           stream
             .asInstanceOf[ZStream[Any, Throwable, ByteBuf]]
             .fold(Unpooled.compositeBuffer())((c, b) => c.addComponent(true, b))
-        case HttpData.RandomAccessFile(raf) =>
+        case HttpData.JavaFile(unsafeGet) =>
           effectBlocking {
-            val fis                      = new FileInputStream(raf().getFD)
-            val fileContent: Array[Byte] = new Array[Byte](raf().length().toInt)
+            val file                     = unsafeGet()
+            val length                   = file.length()
+            val fis                      = new FileInputStream(file)
+            // FIXME: this is not safe
+            // `toInt` will create an buffer of invalid size
+            val fileContent: Array[Byte] = new Array[Byte](length.toInt)
             fis.read(fileContent)
             Unpooled.copiedBuffer(fileContent)
           }
@@ -141,10 +143,10 @@ object HttpData {
       )
   }
 
-  private[zhttp] final case class Text(text: String, charset: Charset)                        extends Outgoing
-  private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                              extends Outgoing
-  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                                extends Outgoing
-  private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf])      extends Outgoing
-  private[zhttp] final case class RandomAccessFile(unsafeGet: () => java.io.RandomAccessFile) extends Outgoing
-  private[zhttp] case object Empty                                                            extends Outgoing
+  private[zhttp] final case class Text(text: String, charset: Charset)                   extends Outgoing
+  private[zhttp] final case class BinaryChunk(data: Chunk[Byte])                         extends Outgoing
+  private[zhttp] final case class BinaryByteBuf(data: ByteBuf)                           extends Outgoing
+  private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf]) extends Outgoing
+  private[zhttp] final case class JavaFile(unsafeGet: () => java.io.File)                extends Outgoing
+  private[zhttp] case object Empty                                                       extends Outgoing
 }
