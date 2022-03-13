@@ -171,13 +171,13 @@ object ServerSpec extends HttpRunnableSpec {
       }
     } +
       testM("data from file") {
-        val res = Http.fromResource("/TestFile.txt").deploy.bodyAsString.run()
+        val res = Http.fromResource("TestFile.txt").deploy.bodyAsString.run()
         assertM(res)(equalTo("abc\nfoo"))
       } +
       testM("content-type header on file response") {
         val res =
           Http
-            .fromResource("/TestFile2.mp4")
+            .fromResource("TestFile2.mp4")
             .deploy
             .headerValue(HeaderNames.contentType)
             .run()

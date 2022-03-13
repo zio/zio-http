@@ -22,8 +22,8 @@ object StaticFileServerSpec extends HttpRunnableSpec {
   private def staticSpec = suite("Static RandomAccessFile Server") {
     suite("fromResource") {
       suite("file") {
-        val fileOk       = Http.fromResource("/TestFile.txt").deploy
-        val fileNotFound = Http.fromResource("/Nothing").deploy
+        val fileOk       = Http.fromResource("TestFile.txt").deploy
+        val fileNotFound = Http.fromResource("Nothing").deploy
         testM("should have 200 status code") {
           val res = fileOk.run().map(_.status)
           assertM(res)(equalTo(Status.Ok))

@@ -8,6 +8,7 @@ import zhttp.http.headers.HeaderModifier
 import zhttp.service.server.ServerTime
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
+import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
@@ -859,7 +860,7 @@ object Http {
    * Creates an Http app from a resource path
    */
   def fromResource(path: String): HttpApp[Any, Throwable] =
-    Http.getResourceAsFile(path) >>= { Http.fromFile(_) }
+    Http.getResource(path).flatMap(url => Http.fromFile(new File(url.getPath)))
 
   /**
    * Creates a Http that always succeeds with a 200 status code and the provided
@@ -885,11 +886,8 @@ object Http {
    */
   def getResource(path: String): Http[Any, Throwable, Any, net.URL] =
     Http
-      .attempt(Option(getClass.getResource(path)) match {
-        case Some(path) => Http.succeed(path)
-        case None       => Http.empty
-      })
-      .flatten
+      .fromZIO(Blocking.Service.live.effectBlockingIO(getClass.getClassLoader.getResource(path)))
+      .flatMap { resource => if (resource == null) Http.empty else Http.succeed(resource) }
 
   /**
    * Attempts to retrieve files from the classpath.
