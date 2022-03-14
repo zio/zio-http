@@ -1,55 +1,27 @@
 package zhttp.service.server.content.handlers
 
 import io.netty.buffer.ByteBuf
-import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion, SimpleChannelInboundHandler}
+import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Response}
-import zhttp.service.server.ServerTimeGenerator
+import zhttp.service.server.ServerTime
 import zhttp.service.{ChannelFuture, HttpRuntime, Server}
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
 
-import java.io.File
+import java.io.RandomAccessFile
 
-@Sharable
-private[zhttp] case class ServerResponseHandler[R](
-  runtime: HttpRuntime[R],
-  config: Server.Config[R, Throwable],
-  serverTime: ServerTimeGenerator,
-) extends SimpleChannelInboundHandler[(Response, FullHttpRequest)](false) {
-
+private[zhttp] trait ServerResponseHandler[R] {
   type Ctx = ChannelHandlerContext
+  val rt: HttpRuntime[R]
+  val config: Server.Config[R, Throwable]
 
-  override def channelRead0(ctx: Ctx, msg: (Response, FullHttpRequest)): Unit = {
-    implicit val iCtx: ChannelHandlerContext = ctx
-    val response                             = msg._1
-    val jRequest                             = msg._2
-    ctx.write(encodeResponse(response))
-    response.data match {
-      case HttpData.BinaryStream(stream) =>
-        runtime.unsafeRun(ctx) { writeStreamContent(stream).ensuring(UIO(releaseRequest(jRequest))) }
-      case HttpData.File(file)           =>
-        unsafeWriteFileContent(file)
-        releaseRequest(jRequest)
-      case _                             =>
-        ctx.flush()
-        releaseRequest(jRequest)
-    }
+  def serverTime: ServerTime
+
+  def writeResponse(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    ctx.write(encodeResponse(msg))
+    writeData(msg.data.asInstanceOf[HttpData.Outgoing], jReq)
     ()
-  }
-
-  override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
-    config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
-  }
-
-  /**
-   * Releases the FullHttpRequest safely.
-   */
-  private def releaseRequest(jReq: FullHttpRequest): Unit = {
-    if (jReq.refCnt() > 0) {
-      jReq.release(jReq.refCnt()): Unit
-    }
   }
 
   /**
@@ -78,6 +50,59 @@ private[zhttp] case class ServerResponseHandler[R](
   }
 
   /**
+   * Releases the FullHttpRequest safely.
+   */
+  private def releaseRequest(jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    jReq match {
+      case jReq: FullHttpRequest if jReq.refCnt() > 0 => jReq.release(jReq.refCnt()): Unit
+      case _                                          => ()
+    }
+  }
+
+  /**
+   * Writes file content to the Channel. Does not use Chunked transfer encoding
+   */
+  private def unsafeWriteFileContent(raf: RandomAccessFile)(implicit ctx: ChannelHandlerContext): Unit = {
+    val fileLength = raf.length()
+    // Write the content.
+    ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
+    // Write the end marker.
+    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
+  }
+
+  /**
+   * Writes data on the channel
+   */
+  private def writeData(data: HttpData.Outgoing, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    data match {
+      case HttpData.BinaryStream(stream)  =>
+        rt.unsafeRun(ctx) {
+          writeStreamContent(stream).ensuring(UIO {
+            releaseRequest(jReq)
+            if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
+              ctx.channel().config().setAutoRead(true)
+              ctx.read(): Unit
+            } // read next HttpContent
+          })
+        }
+      case HttpData.RandomAccessFile(raf) =>
+        unsafeWriteFileContent(raf())
+        releaseRequest(jReq)
+        if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
+          ctx.channel().config().setAutoRead(true)
+          ctx.read(): Unit
+        } // read next HttpContent
+      case _                              =>
+        ctx.flush()
+        releaseRequest(jReq)
+        if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
+          ctx.channel().config().setAutoRead(true)
+          ctx.read(): Unit
+        } // read next HttpContent
+    }
+  }
+
+  /**
    * Writes Binary Stream data to the Channel
    */
   private def writeStreamContent[A](
@@ -87,19 +112,5 @@ private[zhttp] case class ServerResponseHandler[R](
       _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
-  }
-
-  /**
-   * Writes file content to the Channel. Does not use Chunked transfer encoding
-   */
-  private def unsafeWriteFileContent(file: File)(implicit ctx: ChannelHandlerContext): Unit = {
-    import java.io.RandomAccessFile
-
-    val raf        = new RandomAccessFile(file, "r")
-    val fileLength = raf.length()
-    // Write the content.
-    ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
-    // Write the end marker.
-    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
   }
 }

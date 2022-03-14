@@ -1,4 +1,5 @@
-# Web Socket Server
+# Advanced Web Socket Server
+
 ```scala
 import zhttp.http._
 import zhttp.service.Server

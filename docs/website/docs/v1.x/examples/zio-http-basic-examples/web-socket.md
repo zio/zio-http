@@ -1,4 +1,4 @@
-# Simple Websocket Server
+# Websocket Server
 
 ```scala
 import zhttp.http._

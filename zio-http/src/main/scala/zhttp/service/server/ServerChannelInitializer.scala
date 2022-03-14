@@ -21,7 +21,6 @@ final case class ServerChannelInitializer[R](
   zExec: HttpRuntime[R],
   cfg: Config[R, Throwable],
   reqHandler: ChannelHandler,
-  respHandler: ChannelHandler,
 ) extends ChannelInitializer[Channel] {
   override def initChannel(channel: Channel): Unit = {
     // !! IMPORTANT !!
@@ -43,11 +42,16 @@ final case class ServerChannelInitializer[R](
     )
     pipeline.addLast("encoder", new HttpResponseEncoder())
 
+    // HttpContentDecompressor
+    if (cfg.requestDecompression._1)
+      pipeline.addLast(HTTP_REQUEST_DECOMPRESSION, new HttpContentDecompressor(cfg.requestDecompression._2))
+
     // TODO: See if server codec is really required
 
     // ObjectAggregator
     // Always add ObjectAggregator
-    pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.maxRequestSize))
+    if (cfg.useAggregator)
+      pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.objectAggregator))
 
     // ExpectContinueHandler
     // Add expect continue handler is settings is true
@@ -69,10 +73,7 @@ final case class ServerChannelInitializer[R](
     // RequestHandler
     // Always add ZIO Http Request Handler
     pipeline.addLast(HTTP_REQUEST_HANDLER, reqHandler)
-
-    // ServerResponseHandler - transforms Response to HttpResponse
-    pipeline.addLast(HTTP_RESPONSE_HANDLER, respHandler)
-
+    if (cfg.channelInitializer != null) { cfg.channelInitializer(pipeline) }
     ()
   }
 

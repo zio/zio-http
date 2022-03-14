@@ -4,9 +4,11 @@ import io.netty.handler.codec.http.HttpUtil
 import io.netty.util.AsciiString.contentEqualsIgnoreCase
 import zhttp.http.Headers.{BasicSchemeName, BearerSchemeName}
 import zhttp.http._
+import zhttp.http.middleware.Auth.Credentials
+import zhttp.service.server.ServerTime
 
 import java.nio.charset.Charset
-import java.util.Base64
+import java.util.{Base64, Date}
 import scala.util.control.NonFatal
 
 /**
@@ -73,7 +75,7 @@ trait HeaderGetters[+A] { self =>
   final def authorization: Option[CharSequence] =
     headerValue(HeaderNames.authorization)
 
-  final def basicAuthorizationCredentials: Option[Header] = {
+  final def basicAuthorizationCredentials: Option[Credentials] = {
     authorization
       .map(_.toString)
       .flatMap(v => {
@@ -211,6 +213,9 @@ trait HeaderGetters[+A] { self =>
   final def ifModifiedSince: Option[CharSequence] =
     headerValue(HeaderNames.ifModifiedSince)
 
+  final def ifModifiedSinceDecoded: Option[Date] =
+    ifModifiedSince.map(date => ServerTime.parse(date.toString))
+
   final def ifNoneMatch: Option[CharSequence] =
     headerValue(HeaderNames.ifNoneMatch)
 
@@ -228,6 +233,9 @@ trait HeaderGetters[+A] { self =>
 
   final def maxForwards: Option[CharSequence] =
     headerValue(HeaderNames.maxForwards)
+
+  final def mediaType: Option[MediaType] =
+    contentType.flatMap(ct => MediaType.forContentType(ct.toString))
 
   final def origin: Option[CharSequence] =
     headerValue(HeaderNames.origin)
@@ -327,7 +335,7 @@ trait HeaderGetters[+A] { self =>
   final def xRequestedWith: Option[CharSequence] =
     headerValue(HeaderNames.xRequestedWith)
 
-  private def decodeHttpBasic(encoded: String): Option[Header] = {
+  private def decodeHttpBasic(encoded: String): Option[Credentials] = {
     val decoded    = new String(Base64.getDecoder.decode(encoded))
     val colonIndex = decoded.indexOf(":")
     if (colonIndex == -1)
@@ -339,7 +347,7 @@ trait HeaderGetters[+A] { self =>
           ""
         else
           decoded.substring(colonIndex + 1)
-      Some((username, password))
+      Some(Credentials(username, password))
     }
   }
 
