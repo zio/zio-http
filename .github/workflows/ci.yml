@@ -277,3 +277,337 @@ jobs:
 
             ${{steps.result.outputs.concurrency_result}}
             ${{steps.result.outputs.request_result}}
+
+  Jmh_Current_CookieDecodeBenchmark:
+    name: Jmh Current CookieDecodeBenchmark
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.8]
+        java: [temurin@11]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+          ref: 
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 8
+
+      - name: Benchmark
+        id: Benchmark
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          cat > Current_CookieDecodeBenchmark.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 CookieDecodeBenchmark" | grep "thrpt" >> ../Current_CookieDecodeBenchmark.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCollectEval" | grep "thrpt" >> ../Current_CookieDecodeBenchmark.txt
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Current_CookieDecodeBenchmark
+          path: Current_CookieDecodeBenchmark.txt
+
+  Jmh_Current_HttpCombineEval:
+    name: Jmh Current HttpCombineEval
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.8]
+        java: [temurin@11]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+          ref: 
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 8
+
+      - name: Benchmark
+        id: Benchmark
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          cat > Current_HttpCombineEval.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCombineEval" | grep "thrpt" >> ../Current_HttpCombineEval.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpNestedFlatMapEval" | grep "thrpt" >> ../Current_HttpCombineEval.txt
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Current_HttpCombineEval
+          path: Current_HttpCombineEval.txt
+
+  Jmh_Current_HttpRouteTextPerf:
+    name: Jmh Current HttpRouteTextPerf
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.8]
+        java: [temurin@11]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+          ref: 
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 8
+
+      - name: Benchmark
+        id: Benchmark
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          cat > Current_HttpRouteTextPerf.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpRouteTextPerf" | grep "thrpt" >> ../Current_HttpRouteTextPerf.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ProbeContentTypeBenchmark" | grep "thrpt" >> ../Current_HttpRouteTextPerf.txt
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Current_HttpRouteTextPerf
+          path: Current_HttpRouteTextPerf.txt
+
+  Jmh_Main_CookieDecodeBenchmark:
+    name: Jmh Main CookieDecodeBenchmark
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.8]
+        java: [temurin@11]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+          ref: main
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 8
+
+      - name: Benchmark
+        id: Benchmark
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          cat > Main_CookieDecodeBenchmark.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 CookieDecodeBenchmark" | grep "thrpt" >> ../Main_CookieDecodeBenchmark.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCollectEval" | grep "thrpt" >> ../Main_CookieDecodeBenchmark.txt
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Main_CookieDecodeBenchmark
+          path: Main_CookieDecodeBenchmark.txt
+
+  Jmh_Main_HttpCombineEval:
+    name: Jmh Main HttpCombineEval
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.8]
+        java: [temurin@11]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+          ref: main
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 8
+
+      - name: Benchmark
+        id: Benchmark
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          cat > Main_HttpCombineEval.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCombineEval" | grep "thrpt" >> ../Main_HttpCombineEval.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpNestedFlatMapEval" | grep "thrpt" >> ../Main_HttpCombineEval.txt
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Main_HttpCombineEval
+          path: Main_HttpCombineEval.txt
+
+  Jmh_Main_HttpRouteTextPerf:
+    name: Jmh Main HttpRouteTextPerf
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.8]
+        java: [temurin@11]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+          ref: main
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 8
+
+      - name: Benchmark
+        id: Benchmark
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          cat > Main_HttpRouteTextPerf.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpRouteTextPerf" | grep "thrpt" >> ../Main_HttpRouteTextPerf.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ProbeContentTypeBenchmark" | grep "thrpt" >> ../Main_HttpRouteTextPerf.txt
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Main_HttpRouteTextPerf
+          path: Main_HttpRouteTextPerf.txt
+
+  Jmh_publish:
+    name: Jmh Publish
+    needs: [Jmh_Current_CookieDecodeBenchmark, Jmh_Main_CookieDecodeBenchmark, Jmh_Current_HttpCombineEval, Jmh_Main_HttpCombineEval, Jmh_Current_HttpRouteTextPerf, Jmh_Main_HttpRouteTextPerf]
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.8]
+        java: [temurin@11]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Current_CookieDecodeBenchmark
+
+      - name: Result Current CookieDecodeBenchmark
+        id: Result_Current_CookieDecodeBenchmark
+        run: |
+          while IFS= read -r line; do
+             IFS=' ' read -ra PARSED_RESULT <<< "$line"
+             B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
+             echo $B_VALUE >> Current.txt
+           done < Current_CookieDecodeBenchmark.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Current_HttpCombineEval
+
+      - name: Result Current HttpCombineEval
+        id: Result_Current_HttpCombineEval
+        run: |
+          while IFS= read -r line; do
+             IFS=' ' read -ra PARSED_RESULT <<< "$line"
+             B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
+             echo $B_VALUE >> Current.txt
+           done < Current_HttpCombineEval.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Current_HttpRouteTextPerf
+
+      - name: Result Current HttpRouteTextPerf
+        id: Result_Current_HttpRouteTextPerf
+        run: |
+          while IFS= read -r line; do
+             IFS=' ' read -ra PARSED_RESULT <<< "$line"
+             B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
+             echo $B_VALUE >> Current.txt
+           done < Current_HttpRouteTextPerf.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_CookieDecodeBenchmark
+
+      - name: Result Main CookieDecodeBenchmark
+        id: Result_Main_CookieDecodeBenchmark
+        run: |
+          while IFS= read -r line; do
+             IFS=' ' read -ra PARSED_RESULT <<< "$line"
+             B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
+             echo $B_VALUE >> Main.txt
+           done < Main_CookieDecodeBenchmark.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_HttpCombineEval
+
+      - name: Result Main HttpCombineEval
+        id: Result_Main_HttpCombineEval
+        run: |
+          while IFS= read -r line; do
+             IFS=' ' read -ra PARSED_RESULT <<< "$line"
+             B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
+             echo $B_VALUE >> Main.txt
+           done < Main_HttpCombineEval.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_HttpRouteTextPerf
+
+      - name: Result Main HttpRouteTextPerf
+        id: Result_Main_HttpRouteTextPerf
+        run: |
+          while IFS= read -r line; do
+             IFS=' ' read -ra PARSED_RESULT <<< "$line"
+             B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
+             echo $B_VALUE >> Main.txt
+           done < Main_HttpRouteTextPerf.txt
+
+      - name: Set Output Current
+        id: Set_output_Current
+        run: |
+          body=$(cat Current.txt)
+           body="${body//'%'/'%25'}"
+           body="${body//$'\n'/'%0A'}"
+           body="${body//$'\r'/'%0D'}"
+           echo $body
+           echo ::set-output name=body::$(echo $body)
+
+      
+      - name: Set Output Main
+        id: Set_output_Main
+        run: |
+          body=$(cat Main.txt)
+           body="${body//'%'/'%25'}"
+           body="${body//$'\n'/'%0A'}"
+           body="${body//$'\r'/'%0D'}"
+           echo $body
+           echo ::set-output name=body::$(echo $body)
+
+      
+      - uses: peter-evans/commit-comment@v1
+        with:
+          sha: ${{github.sha}}
+          body: |
+
+            **🚀 Jmh Benchmark:**
+
+            - **Current Branch**:
+             ${{steps.set_output_Current.outputs.body}}
+
+            - **Main Branch**:
+             ${{steps.set_output_Main.outputs.body}}
+             
