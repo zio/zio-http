@@ -10,7 +10,7 @@ name: Continuous Integration
 on:
   pull_request:
     branches: ['**']
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, synchronize, reopened, edited, labeled]
   push:
     branches: ['**']
     tags: [v*]
@@ -280,6 +280,7 @@ jobs:
 
   Jmh_Current_CookieDecodeBenchmark:
     name: Jmh Current CookieDecodeBenchmark
+    if: ${{ github.event.label.name == 'jmhBenchmark' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -315,6 +316,7 @@ jobs:
 
   Jmh_Current_HttpCombineEval:
     name: Jmh Current HttpCombineEval
+    if: ${{ github.event.label.name == 'jmhBenchmark' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -350,6 +352,7 @@ jobs:
 
   Jmh_Current_HttpRouteTextPerf:
     name: Jmh Current HttpRouteTextPerf
+    if: ${{ github.event.label.name == 'jmhBenchmark' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -385,6 +388,7 @@ jobs:
 
   Jmh_Main_CookieDecodeBenchmark:
     name: Jmh Main CookieDecodeBenchmark
+    if: ${{ github.event.label.name == 'jmhBenchmark' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -420,6 +424,7 @@ jobs:
 
   Jmh_Main_HttpCombineEval:
     name: Jmh Main HttpCombineEval
+    if: ${{ github.event.label.name == 'jmhBenchmark' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -455,6 +460,7 @@ jobs:
 
   Jmh_Main_HttpRouteTextPerf:
     name: Jmh Main HttpRouteTextPerf
+    if: ${{ github.event.label.name == 'jmhBenchmark' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -491,6 +497,7 @@ jobs:
   Jmh_publish:
     name: Jmh Publish
     needs: [Jmh_Current_CookieDecodeBenchmark, Jmh_Main_CookieDecodeBenchmark, Jmh_Current_HttpCombineEval, Jmh_Main_HttpCombineEval, Jmh_Current_HttpRouteTextPerf, Jmh_Main_HttpRouteTextPerf]
+    if: ${{ github.event.label.name == 'jmhBenchmark' }}
     strategy:
       matrix:
         os: [ubuntu-latest]

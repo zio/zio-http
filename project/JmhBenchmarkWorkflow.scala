@@ -81,6 +81,9 @@ object JmhBenchmarkWorkflow {
     id = "Jmh_publish",
     name = "Jmh Publish",
     scalas = List(Scala213),
+    cond = Some(
+      "${{ github.event.label.name == 'jmhBenchmark' }}"
+    ),
     needs =  dependencies(batchSize),
     steps = downloadArtifacts("Current", batchSize) ++ downloadArtifacts("Main", batchSize) ++
       Seq(setOutput("Current"), setOutput("Main"), WorkflowStep.Use(
@@ -111,6 +114,9 @@ object JmhBenchmarkWorkflow {
       id = s"Jmh_${branch}_${l.head}",
       name = s"Jmh ${branch} ${l.head}",
       scalas = List(Scala213),
+      cond = Some(
+       "${{ github.event.label.name == 'jmhBenchmark' }}"
+      ),
       steps = List(
         WorkflowStep.Use(
           UseRef.Public("actions", "checkout", "v2"),
