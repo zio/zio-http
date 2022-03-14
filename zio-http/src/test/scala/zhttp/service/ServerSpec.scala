@@ -124,11 +124,12 @@ object ServerSpec extends HttpRunnableSpec {
         }
       } +
       suite("compression") {
-        val content = "some-text"
-        val app     = Http.collectZIO[Request] { case req => req.bodyAsString.map(body => Response.text(body)) }.deploy
+        val content                                     = "some-text"
+        val app: HttpTestClient[Any, Request, Response] =
+          Http.collectZIO[Request] { case req => req.bodyAsString.map(body => Response.text(body)) }.deploy
 
         def roundTrip[R, E](
-          app: HttpTestClient[Any, Client.ClientRequest, Client.ClientResponse],
+          app: HttpTestClient[Any, Request, Response],
           headers: Headers,
           contentStream: ZStream[R, E, Byte],
           compressor: ZTransducer[R, Nothing, Byte, Byte],
