@@ -144,13 +144,6 @@ object JmhBenchmarkWorkflow {
             "ref" -> "main"
           )
         ),
-        WorkflowStep.Use(
-          UseRef.Public("actions", "setup-java", "v2"),
-          Map(
-            "distribution" -> "temurin",
-            "java-version" -> "8"
-          )
-        ),
         WorkflowStep.Run(
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
           commands = List("cd zio-http", s"sed -i -e '$$a${jmhPlugin}' project/plugins.sbt", s"cat > Main_${l.head}.txt") ++ runSBT(l, "Main"),

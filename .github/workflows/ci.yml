@@ -316,11 +316,6 @@ jobs:
           path: zio-http
           ref: main
 
-      - uses: actions/setup-java@v2
-        with:
-          distribution: temurin
-          java-version: 8
-
       - name: Benchmark_Main
         id: Benchmark_Main
         env:
@@ -373,11 +368,6 @@ jobs:
         with:
           path: zio-http
           ref: main
-
-      - uses: actions/setup-java@v2
-        with:
-          distribution: temurin
-          java-version: 8
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -432,11 +422,6 @@ jobs:
           path: zio-http
           ref: main
 
-      - uses: actions/setup-java@v2
-        with:
-          distribution: temurin
-          java-version: 8
-
       - name: Benchmark_Main
         id: Benchmark_Main
         env:
@@ -489,11 +474,6 @@ jobs:
         with:
           path: zio-http
           ref: main
-
-      - uses: actions/setup-java@v2
-        with:
-          distribution: temurin
-          java-version: 8
 
       - name: Benchmark_Main
         id: Benchmark_Main
@@ -548,11 +528,6 @@ jobs:
           path: zio-http
           ref: main
 
-      - uses: actions/setup-java@v2
-        with:
-          distribution: temurin
-          java-version: 8
-
       - name: Benchmark_Main
         id: Benchmark_Main
         env:
@@ -605,11 +580,6 @@ jobs:
         with:
           path: zio-http
           ref: main
-
-      - uses: actions/setup-java@v2
-        with:
-          distribution: temurin
-          java-version: 8
 
       - name: Benchmark_Main
         id: Benchmark_Main
