@@ -36,10 +36,10 @@ object WebSocketAdvanced extends App {
       .onOpen(open)
 
       // Called after the connection is closed
-      .onClose(_ => console.putStrLn("Closed!").ignore)
+      .onClose(_ => Console.printLine("Closed!").ignore)
 
       // Called whenever there is an error on the socket channel
-      .onError(_ => console.putStrLn("Error!").ignore)
+      .onError(_ => Console.printLine("Error!").ignore)
 
       // Setup websocket decoder config
       .withDecoder(decoder)

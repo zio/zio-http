@@ -142,14 +142,14 @@ val responseHeaders: Task[Headers] =  Client.request(url).map(_.headers)
         // Pass headers to request
         res  <- Client.request(url, headers)
         // List all response headers
-        _    <- console.putStrLn(res.headers.toList.mkString("\n"))
+        _    <- Console.printLine(res.headers.toList.mkString("\n"))
         data <-
           // Check if response contains a specified header with a specified value.
           if (res.hasHeader(HeaderNames.contentType, HeaderValues.applicationJson))
             res.getBodyAsString
           else
             res.getBodyAsString
-        _    <- console.putStrLn { data }
+        _    <- Console.printLine { data }
       } yield ()
     
       override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = program.exitCode.provideCustomLayer(env)

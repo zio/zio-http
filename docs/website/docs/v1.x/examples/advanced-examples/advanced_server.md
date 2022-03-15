@@ -35,7 +35,7 @@ object HelloWorldAdvanced extends App {
     server.make
       .use(start =>
         // Waiting for the server to start
-        console.putStrLn(s"Server started on port ${start.port}")
+        Console.printLine(s"Server started on port ${start.port}")
 
         // Ensures the server doesn't die after printing
           *> ZIO.never,

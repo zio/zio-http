@@ -28,6 +28,14 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             val a      = a1 <> a2
             val actual = a.execute(())
             assert(actual)(isSuccess(equalTo("B")))
+          } +
+          test("does not recover from defects") {
+            val t      = new Throwable("boom")
+            val a1     = Http.die(t)
+            val a2     = Http.succeed("B")
+            val a      = a1 <> a2
+            val actual = a.execute(())
+            assert(actual)(isDie(equalTo(t)))
           },
       ) +
       suite("fail")(
@@ -35,6 +43,14 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           val a      = Http.fail(100)
           val actual = a.execute(())
           assert(actual)(isFailure(equalTo(100)))
+        },
+      ) +
+      suite("die")(
+        test("should die") {
+          val t      = new Throwable("boom")
+          val a      = Http.die(t)
+          val actual = a.execute(())
+          assert(actual)(isDie(equalTo(t)))
         },
       ) +
       suite("foldM")(
@@ -74,6 +90,12 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             val actual = a.execute(1)
             assert(actual)(isFailure(equalTo("OK")))
           } +
+          test("should die") {
+            val t      = new Throwable("boom")
+            val a      = Http.collectHExit[Int] { case 1 => HExit.die(t) }
+            val actual = a.execute(1)
+            assert(actual)(isDie(equalTo(t)))
+          } +
           test("should give empty if the inout is not defined") {
             val a      = Http.collectHExit[Int] { case 1 => HExit.succeed("OK") }
             val actual = a.execute(0)
@@ -94,6 +116,29 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           test("should give empty if the returned HExit is empty") {
             val a      = Http.fromFunctionHExit[Int] { _ => HExit.empty }
             val actual = a.execute(0)
+            assert(actual)(isEmpty)
+          } +
+          test("should die if the functions throws an exception") {
+            val t      = new Throwable("boom")
+            val a      = Http.fromFunctionHExit[Int] { _ => throw t }
+            val actual = a.execute(0)
+            assert(actual)(isDie(equalTo(t)))
+          },
+      ) +
+      suite("fromHExit")(
+        test("should succeed if the returned HExit succeeds ") {
+          val a      = Http.fromHExit(HExit.succeed("a"))
+          val actual = a.execute(1)
+          assert(actual)(isSuccess(equalTo("a")))
+        } +
+          test("should fail if the returned HExit is a failure") {
+            val a      = Http.fromHExit(HExit.fail("fail"))
+            val actual = a.execute(1)
+            assert(actual)(isFailure(equalTo("fail")))
+          } +
+          test("should give empty if the returned HExit is empty") {
+            val a      = Http.fromHExit(HExit.empty)
+            val actual = a.execute(1)
             assert(actual)(isEmpty)
           },
       ) +
@@ -122,6 +167,33 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             val b      = Http.collect[Int] { case 2 => "B" }
             val actual = (a ++ b).execute(3)
             assert(actual)(isEmpty)
+          } +
+          test("should not resolve") {
+            val a      = Http.empty
+            val b      = Http.empty
+            val c      = Http.empty
+            val actual = (a ++ b ++ c).execute(())
+            assert(actual)(isEmpty)
+          } +
+          test("should fail with second") {
+            val a      = Http.empty
+            val b      = Http.fail(100)
+            val c      = Http.succeed("A")
+            val actual = (a ++ b ++ c).execute(())
+            assert(actual)(isFailure(equalTo(100)))
+          } +
+          test("should resolve third") {
+            val a      = Http.empty
+            val b      = Http.empty
+            val c      = Http.succeed("C")
+            val actual = (a ++ b ++ c).execute(())
+            assert(actual)(isSuccess(equalTo("C")))
+          } +
+          test("should resolve second") {
+            val a      = Http.fromHExit(HExit.Effect(ZIO.fail(None)))
+            val b      = Http.succeed(2)
+            val actual = (a ++ b).execute(()).toZIO.either
+            assertM(actual)(isRight)
           },
       ) +
       suite("asEffect")(
@@ -152,13 +224,8 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             val actual = a.execute(1)
             assert(actual)(isEffect)
           } +
-          test("should resolve managed") {
-            val a      = Http.collectManaged[Int] { case 1 => ZManaged.succeed("A") }
-            val actual = a.execute(1)
-            assert(actual)(isEffect)
-          } +
           test("should resolve second effect") {
-            val a      = Http.empty.flatten
+            val a      = Http.empty
             val b      = Http.succeed("B")
             val actual = (a ++ b).execute(2)
             assert(actual)(isSuccess(equalTo("B")))
@@ -224,35 +291,45 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           for {
             r <- Ref.make(0)
             app = (Http.succeed(1): Http[Any, Any, Any, Int])
-              .tapAll(_ => Http.empty, v => Http.fromZIO(r.set(v)), Http.empty)
+              .tapAll(_ => Http.empty, _ => Http.empty, v => Http.fromZIO(r.set(v)), Http.empty)
             _   <- app.execute(()).toZIO
             res <- r.get
           } yield assert(res)(equalTo(1))
-        } +
-          test("taps the failure") {
-            for {
-              r <- Ref.make(0)
-              app = (Http.fail(1): Http[Any, Int, Any, Any])
-                .tapAll(v => Http.fromZIO(r.set(v)), _ => Http.empty, Http.empty)
-              _   <- app.execute(()).toZIO.ignore
-              res <- r.get
-            } yield assert(res)(equalTo(1))
-          } +
-          test("taps the empty") {
-            for {
-              r <- Ref.make(0)
-              app = (Http.empty: Http[Any, Any, Any, Any])
-                .tapAll(_ => Http.empty, _ => Http.empty, Http.fromZIO(r.set(1)))
-              _   <- app.execute(()).toZIO.ignore
-              res <- r.get
-            } yield assert(res)(equalTo(1))
-          },
+        },
+        test("taps the failure") {
+          for {
+            r <- Ref.make(0)
+            app = (Http.fail(1): Http[Any, Int, Any, Any])
+              .tapAll(v => Http.fromZIO(r.set(v)), _ => Http.empty, _ => Http.empty, Http.empty)
+            _   <- app.execute(()).toZIO.ignore
+            res <- r.get
+          } yield assert(res)(equalTo(1))
+        },
+        test("taps the die") {
+          val t = new Throwable("boom")
+          for {
+            r <- Ref.make(0)
+            app = (Http.die(t): Http[Any, Any, Any, Any])
+              .tapAll(_ => Http.empty, _ => Http.fromZIO(r.set(1)), _ => Http.empty, Http.empty)
+            _   <- app.execute(()).toZIO.exit.ignore
+            res <- r.get
+          } yield assert(res)(equalTo(1))
+        },
+        test("taps the empty") {
+          for {
+            r <- Ref.make(0)
+            app = (Http.empty: Http[Any, Any, Any, Any])
+              .tapAll(_ => Http.empty, _ => Http.empty, _ => Http.empty, Http.fromZIO(r.set(1)))
+            _   <- app.execute(()).toZIO.ignore
+            res <- r.get
+          } yield assert(res)(equalTo(1))
+        },
       ) +
-      suite("tapAllM")(
+      suite("tapAllZIO")(
         test("taps the success") {
           for {
             r <- Ref.make(0)
-            app = (Http.succeed(1): Http[Any, Any, Any, Int]).tapAllZIO(_ => ZIO.unit, r.set, ZIO.unit)
+            app = (Http.succeed(1): Http[Any, Any, Any, Int]).tapAllZIO(_ => ZIO.unit, _ => ZIO.unit, r.set, ZIO.unit)
             _   <- app.execute(()).toZIO
             res <- r.get
           } yield assert(res)(equalTo(1))
@@ -260,8 +337,18 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           test("taps the failure") {
             for {
               r <- Ref.make(0)
-              app = (Http.fail(1): Http[Any, Int, Any, Any]).tapAllZIO(r.set, _ => ZIO.unit, ZIO.unit)
+              app = (Http.fail(1): Http[Any, Int, Any, Any]).tapAllZIO(r.set, _ => ZIO.unit, _ => ZIO.unit, ZIO.unit)
               _   <- app.execute(()).toZIO.ignore
+              res <- r.get
+            } yield assert(res)(equalTo(1))
+          } +
+          test("taps the die") {
+            val t = new Throwable("boom")
+            for {
+              r <- Ref.make(0)
+              app = (Http.die(t): Http[Any, Any, Any, Any])
+                .tapAllZIO(_ => ZIO.unit, _ => r.set(1), _ => ZIO.unit, ZIO.unit)
+              _   <- app.execute(()).toZIO.exit.ignore
               res <- r.get
             } yield assert(res)(equalTo(1))
           } +
@@ -269,7 +356,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             for {
               r <- Ref.make(0)
               app = (Http.empty: Http[Any, Any, Any, Any])
-                .tapAllZIO(_ => ZIO.unit, _ => ZIO.unit, r.set(1))
+                .tapAllZIO(_ => ZIO.unit, _ => ZIO.unit, _ => ZIO.unit, r.set(1))
               _   <- app.execute(()).toZIO.ignore
               res <- r.get
             } yield assert(res)(equalTo(1))
@@ -307,6 +394,121 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
               val actual = Http.attempt("bar").execute(())
               assert(actual)(isSuccess(equalTo("bar")))
             }
+          }
+      } +
+      suite("when")(
+        test("should execute http only when condition applies") {
+          val app    = Http.succeed(1).when((_: Any) => true)
+          val actual = app.execute(0)
+          assert(actual)(isSuccess(equalTo(1)))
+        } +
+          test("should not execute http when condition doesn't apply") {
+            val app    = Http.succeed(1).when((_: Any) => false)
+            val actual = app.execute(0)
+            assert(actual)(isEmpty)
+          } +
+          test("should die when condition throws an exception") {
+            val t      = new Throwable("boom")
+            val app    = Http.succeed(1).when((_: Any) => throw t)
+            val actual = app.execute(0)
+            assert(actual)(isDie(equalTo(t)))
+          },
+      ) +
+      suite("catchSome") {
+        test("catches matching exception") {
+          val http =
+            Http
+              .fail(new IllegalArgumentException("boom"))
+              .catchSome { case _: IllegalArgumentException =>
+                Http.succeed("bar")
+              }
+          assert(http.execute {})(isSuccess(equalTo("bar")))
+        } +
+          test("keeps an error if doesn't catch anything") {
+            val exception = new Throwable("boom")
+            val http      =
+              Http
+                .fail(exception)
+                .catchSome { case _: ArithmeticException =>
+                  Http.succeed("bar")
+                }
+            assert(http.execute {})(isFailure(equalTo(exception)))
+          } +
+          test("doesn't affect the success") {
+            val http =
+              (Http.succeed("bar"): Http[Any, Throwable, Any, String]).catchSome { case _: Throwable =>
+                Http.succeed("baz")
+              }
+            assert(http.execute {})(isSuccess(equalTo("bar")))
+          }
+      } +
+      suite("refineOrDie") {
+        test("refines matching exception") {
+          val http =
+            Http.fail(new IllegalArgumentException("boom")).refineOrDie { case _: IllegalArgumentException =>
+              "fail"
+            }
+          assert(http.execute {})(isFailure(equalTo("fail")))
+        } +
+          test("dies if doesn't catch anything") {
+            val t    = new Throwable("boom")
+            val http =
+              Http
+                .fail(t)
+                .refineOrDie { case _: IllegalArgumentException =>
+                  "fail"
+                }
+            assert(http.execute {})(isDie(equalTo(t)))
+          } +
+          test("doesn't affect the success") {
+            val http =
+              (Http.succeed("bar"): Http[Any, Throwable, Any, String]).refineOrDie { case _: Throwable =>
+                Http.succeed("baz")
+              }
+            assert(http.execute {})(isSuccess(equalTo("bar")))
+          }
+      } +
+      suite("orDie")(
+        test("dies on failure") {
+          val t    = new Throwable("boom")
+          val http =
+            Http.fail(t).orDie
+          assert(http.execute {})(isDie(equalTo(t)))
+        },
+        test("doesn't affect the success") {
+          val http =
+            (Http.succeed("bar"): Http[Any, Throwable, Any, String]).orDie
+          assert(http.execute {})(isSuccess(equalTo("bar")))
+        },
+      ) +
+      suite("catchSomeDefect") {
+        test("catches defect") {
+          val t    = new IllegalArgumentException("boom")
+          val http = Http.die(t).catchSomeDefect { case _: IllegalArgumentException => Http.succeed("OK") }
+          assert(http.execute {})(isSuccess(equalTo("OK")))
+        } +
+          test("catches thrown defects") {
+            val http = Http
+              .collect[Any] { case _ => throw new IllegalArgumentException("boom") }
+              .catchSomeDefect { case _: IllegalArgumentException => Http.succeed("OK") }
+            assert(http.execute {})(isSuccess(equalTo("OK")))
+          } +
+          test("propagates non-caught defect") {
+            val t    = new IllegalArgumentException("boom")
+            val http = Http.die(t).catchSomeDefect { case _: SecurityException => Http.succeed("OK") }
+            assert(http.execute {})(isDie(equalTo(t)))
+          }
+      } +
+      suite("catchNonFatalOrDie") {
+        test("catches non-fatal exception") {
+          val t    = new IllegalArgumentException("boom")
+          val http = Http.fail(t).catchNonFatalOrDie { _ => Http.succeed("OK") }
+          assert(http.execute {})(isSuccess(equalTo("OK")))
+        } +
+          test("dies with fatal exception") {
+            val t    = new OutOfMemoryError()
+            val http = Http.fail(t).catchNonFatalOrDie { case _ => Http.succeed("OK") }
+            assert(http.execute {})(isDie(equalTo(t)))
           }
       },
   ) @@ timeout(10 seconds)

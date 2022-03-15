@@ -3,7 +3,7 @@ package zhttp.service
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
-import zio._
+import zio.durationInt
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
@@ -18,7 +18,7 @@ object ClientSpec extends HttpRunnableSpec {
   def clientSpec = suite("ClientSpec") {
     test("respond Ok") {
       val app = Http.ok.deploy.status.run()
-      assertM(app)(equalTo(Status.OK))
+      assertM(app)(equalTo(Status.Ok))
     } +
       test("non empty content") {
         val app             = Http.text("abc")
@@ -27,7 +27,7 @@ object ClientSpec extends HttpRunnableSpec {
       } +
       test("echo POST request content") {
         val app = Http.collectZIO[Request] { case req => req.bodyAsString.map(Response.text(_)) }
-        val res = app.deploy.bodyAsString.run(method = Method.POST, content = "ZIO user")
+        val res = app.deploy.bodyAsString.run(method = Method.POST, content = HttpData.fromString("ZIO user"))
         assertM(res)(equalTo("ZIO user"))
       } +
       test("empty content") {

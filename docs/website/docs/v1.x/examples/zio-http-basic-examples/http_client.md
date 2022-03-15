@@ -11,8 +11,8 @@ object SimpleClient extends App {
 
   val program = for {
     res  <- Client.request(url, headers)
-    data <- res.getBodyAsString
-    _    <- console.putStrLn { data }
+    data <- res.bodyAsString
+    _    <- Console.printLine { data }
   } yield ()
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

@@ -8,7 +8,7 @@ import zio._
 
 import java.time.Clock
 
-object Authentication extends App {
+object Authentication extends ZIOAppDefault {
   // Secret Authentication key
   val SECRET_KEY = "secretKey"
 
@@ -33,7 +33,7 @@ object Authentication extends App {
   def authenticate[R, E](fail: HttpApp[R, E], success: JwtClaim => HttpApp[R, E]): HttpApp[R, E] =
     Http
       .fromFunction[Request] {
-        _.getHeader("X-ACCESS-TOKEN")
+        _.header("X-ACCESS-TOKEN")
           .flatMap(header => jwtDecode(header._2.toString))
           .fold[HttpApp[R, E]](fail)(success)
       }
@@ -56,8 +56,8 @@ object Authentication extends App {
   val app: UHttpApp = login ++ authenticate(Http.forbidden("Not allowed!"), user)
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+  override val run =
+    Server.start(8090, app)
 }
 
 ```
