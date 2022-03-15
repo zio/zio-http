@@ -9,7 +9,9 @@ object RequestSpec extends DefaultRunnableSpec {
     suite("toString") {
       testM("should produce string representation of a request") {
         check(HttpGen.request) { req =>
-          assert(req.toString)(equalTo(s"Request(${req.version}, ${req.method}, ${req.url}, ${req.headers}, ${req.remoteAddress})"))
+          assert(req.toString)(
+            equalTo(s"Request(${req.version}, ${req.method}, ${req.url}, ${req.headers}, ${req.remoteAddress})"),
+          )
         }
       } +
         testM("should produce string representation of a parameterized request") {
