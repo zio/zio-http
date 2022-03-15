@@ -12,29 +12,27 @@ final case class CompressionOptions(level: Int, bits: Int, mem: Int, kind: Compr
 }
 
 object CompressionOptions {
-  sealed trait CompressionType
-  private case object GZip    extends CompressionType
-  private case object Deflate extends CompressionType
+  val Level = 6
+  val Bits  = 15
+  val Mem   = 8
 
   /**
    * Creates GZip CompressionOptions. Defines defaults as per
    * io.netty.handler.codec.compression.GzipOptions#DEFAULT
    */
-  def gzip: CompressionOptions = CompressionOptions(6, 15, 8, GZip)
-
-  /**
-   * Creates GZip CompressionOptions with parameters.
-   */
-  def gzip(level: Int, bits: Int, mem: Int): CompressionOptions = CompressionOptions(level, bits, mem, GZip)
+  def gzip(level: Int = Level, bits: Int = Bits, mem: Int = Mem): CompressionOptions =
+    CompressionOptions(level, bits, mem, GZip)
 
   /**
    * Creates Deflate CompressionOptions. Defines defaults as per
    * io.netty.handler.codec.compression.DeflateOptions#DEFAULT
    */
-  def deflate: CompressionOptions = CompressionOptions(6, 15, 8, Deflate)
+  def deflate(level: Int = Level, bits: Int = Bits, mem: Int = Mem): CompressionOptions =
+    CompressionOptions(level, bits, mem, Deflate)
 
-  /**
-   * Creates Deflate CompressionOptions with parameters.
-   */
-  def deflate(level: Int, bits: Int, mem: Int): CompressionOptions = CompressionOptions(level, bits, mem, Deflate)
+  sealed trait CompressionType
+
+  private case object GZip extends CompressionType
+
+  private case object Deflate extends CompressionType
 }

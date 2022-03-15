@@ -27,8 +27,10 @@ object ServerSpec extends HttpRunnableSpec {
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
   // contentSizeThreshold set to 0 will compress all responses
-  val server = Server.requestDecompression(true) ++ Server.responseCompression(0, IndexedSeq(gzip, deflate)) ++ Server
-    .enableObjectAggregator(4096)
+  val server =
+    Server.requestDecompression(true) ++ Server.responseCompression(0, IndexedSeq(gzip(), deflate())) ++ Server
+      .enableObjectAggregator(4096)
+
   private val app                 = serve(DynamicServer.app, Option(server))
   private val appWithReqStreaming = serve(DynamicServer.app)
 
