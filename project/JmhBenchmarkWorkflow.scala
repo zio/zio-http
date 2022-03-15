@@ -31,7 +31,7 @@ object JmhBenchmarkWorkflow {
   /**
   Get dependent jobs for publishing the result
    */
-  def dependencies(batchSize: Int) = groupedBenchmarks(batchSize).flatMap((l: Seq[String]) => List(s"Jmh_Current_${l.head}",s"Jmh_Main_${l.head}"))
+  def dependencies(batchSize: Int) = groupedBenchmarks(batchSize).flatMap((l: Seq[String]) => List(s"Jmh_${l.head}"))
 
   /**
   Download Artifacts and parse result

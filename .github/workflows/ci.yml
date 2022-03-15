@@ -463,7 +463,7 @@ jobs:
 
   Jmh_publish:
     name: Jmh Publish
-    needs: [Jmh_Current_CookieDecodeBenchmark, Jmh_Main_CookieDecodeBenchmark, Jmh_Current_HttpCombineEval, Jmh_Main_HttpCombineEval, Jmh_Current_HttpRouteTextPerf, Jmh_Main_HttpRouteTextPerf]
+    needs: [Jmh_CookieDecodeBenchmark, Jmh_HttpCombineEval, Jmh_HttpRouteTextPerf]
     if: ${{ github.event_name == 'pull_request' }}
     strategy:
       matrix:
