@@ -1,12 +1,12 @@
 package zhttp.http
 
-import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
+import io.netty.handler.codec.http.{FullHttpResponse, HttpHeaderNames, HttpResponse}
 import zhttp.html._
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
-import zio.{Chunk, Task, UIO, ZIO}
+import zio.{Chunk, UIO, ZIO}
 
 import java.io.{PrintWriter, StringWriter}
 import java.nio.charset.Charset
@@ -16,7 +16,8 @@ final case class Response private (
   headers: Headers,
   data: HttpData,
   private[zhttp] val attribute: Response.Attribute,
-) extends HeaderExtension[Response] { self =>
+) extends HeaderExtension[Response]
+    with HttpDataExtension[Response] { self =>
 
   /**
    * Adds cookies in the response headers.
@@ -58,11 +59,6 @@ final case class Response private (
    * A more efficient way to append server-time to the response headers.
    */
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
-
-  /**
-   * Extracts the body as ByteBuf
-   */
-  private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = self.data.toByteBuf
 
   /**
    * Encodes the Response into a Netty HttpResponse. Sets default headers such
@@ -108,7 +104,7 @@ final case class Response private (
 
 object Response {
   def apply[R, E](
-    status: Status = Status.OK,
+    status: Status = Status.Ok,
     headers: Headers = Headers.empty,
     data: HttpData = HttpData.Empty,
   ): Response =
@@ -156,7 +152,7 @@ object Response {
   def fromSocketApp[R](app: SocketApp[R]): ZIO[R, Nothing, Response] = {
     ZIO.environment[R].map { env =>
       Response(
-        Status.SWITCHING_PROTOCOLS,
+        Status.SwitchingProtocols,
         Headers.empty,
         HttpData.empty,
         Attribute(socketApp = Option(app.provideEnvironment(env))),
@@ -168,7 +164,7 @@ object Response {
   /**
    * Creates a response with content-type set to text/html
    */
-  def html(data: Html, status: Status = Status.OK): Response =
+  def html(data: Html, status: Status = Status.Ok): Response =
     Response(
       status = status,
       data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
@@ -177,7 +173,7 @@ object Response {
 
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
   def http[R, E](
-    status: Status = Status.OK,
+    status: Status = Status.Ok,
     headers: Headers = Headers.empty,
     data: HttpData = HttpData.empty,
   ): Response = Response(status, headers, data)
@@ -194,14 +190,14 @@ object Response {
   /**
    * Creates an empty response with status 200
    */
-  def ok: Response = Response(Status.OK)
+  def ok: Response = Response(Status.Ok)
 
   /**
    * Creates an empty response with status 301 or 302 depending on if it's
    * permanent or not.
    */
   def redirect(location: String, isPermanent: Boolean = false): Response = {
-    val status = if (isPermanent) Status.PERMANENT_REDIRECT else Status.TEMPORARY_REDIRECT
+    val status = if (isPermanent) Status.PermanentRedirect else Status.TemporaryRedirect
     Response(status, Headers.location(location))
   }
 
@@ -218,6 +214,13 @@ object Response {
       data = HttpData.fromString(text, charset),
       headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
     )
+
+  private[zhttp] def unsafeFromJResponse(jRes: FullHttpResponse): Response = {
+    val status  = Status.fromHttpResponseStatus(jRes.status())
+    val headers = Headers.decode(jRes.headers())
+    val data    = HttpData.fromByteBuf(Unpooled.copiedBuffer(jRes.content()))
+    Response(status, headers, data)
+  }
 
   /**
    * Attribute holds meta data for the backend

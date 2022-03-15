@@ -31,11 +31,11 @@ object ServerSpec extends HttpRunnableSpec {
     suite("success") {
       testM("status is 200") {
         val status = Http.ok.deploy.status.run()
-        assertM(status)(equalTo(Status.OK))
+        assertM(status)(equalTo(Status.Ok))
       } +
         testM("status is 200") {
           val res = Http.text("ABC").deploy.status.run()
-          assertM(res)(equalTo(Status.OK))
+          assertM(res)(equalTo(Status.Ok))
         } +
         testM("content is set") {
           val res = Http.text("ABC").deploy.bodyAsString.run()
@@ -46,7 +46,7 @@ object ServerSpec extends HttpRunnableSpec {
         val app = Http.empty
         testM("status is 404") {
           val res = app.deploy.status.run()
-          assertM(res)(equalTo(Status.NOT_FOUND))
+          assertM(res)(equalTo(Status.NotFound))
         } +
           testM("header is set") {
             val res = app.deploy.headerValue(HeaderNames.contentLength).run()
@@ -57,7 +57,22 @@ object ServerSpec extends HttpRunnableSpec {
         val app = Http.fail(new Error("SERVER_ERROR"))
         testM("status is 500") {
           val res = app.deploy.status.run()
-          assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+          assertM(res)(equalTo(Status.InternalServerError))
+        } +
+          testM("content is set") {
+            val res = app.deploy.bodyAsString.run()
+            assertM(res)(containsString("SERVER_ERROR"))
+          } +
+          testM("header is set") {
+            val res = app.deploy.headerValue(HeaderNames.contentLength).run()
+            assertM(res)(isSome(anything))
+          }
+      } +
+      suite("die") {
+        val app = Http.die(new Error("SERVER_ERROR"))
+        testM("status is 500") {
+          val res = app.deploy.status.run()
+          assertM(res)(equalTo(Status.InternalServerError))
         } +
           testM("content is set") {
             val res = app.deploy.bodyAsString.run()
@@ -75,7 +90,7 @@ object ServerSpec extends HttpRunnableSpec {
 
         testM("status is 200") {
           val res = app.deploy.status.run()
-          assertM(res)(equalTo(Status.OK))
+          assertM(res)(equalTo(Status.Ok))
         } +
           testM("body is ok") {
             val res = app.deploy.bodyAsString.run(content = HttpData.fromString("ABC"))
@@ -97,7 +112,7 @@ object ServerSpec extends HttpRunnableSpec {
           assertM(res)(isSome(equalTo("Bar")))
         }
       } + suite("response") {
-        val app = Http.response(Response(status = Status.OK, data = HttpData.fromString("abc")))
+        val app = Http.response(Response(status = Status.Ok, data = HttpData.fromString("abc")))
         testM("body is set") {
           val res = app.deploy.bodyAsString.run()
           assertM(res)(equalTo("abc"))
@@ -144,7 +159,7 @@ object ServerSpec extends HttpRunnableSpec {
       testM("POST Request.getBody") {
         val app = Http.collectZIO[Request] { case req => req.body.as(Response.ok) }
         val res = app.deploy.status.run(path = !!, method = Method.POST, content = HttpData.fromString("some text"))
-        assertM(res)(equalTo(Status.OK))
+        assertM(res)(equalTo(Status.Ok))
       }
   }
 
@@ -156,13 +171,13 @@ object ServerSpec extends HttpRunnableSpec {
       }
     } +
       testM("data from file") {
-        val res = Http.fromResource("/TestFile.txt").deploy.bodyAsString.run()
+        val res = Http.fromResource("TestFile.txt").deploy.bodyAsString.run()
         assertM(res)(equalTo("abc\nfoo"))
       } +
       testM("content-type header on file response") {
         val res =
           Http
-            .fromResource("/TestFile2.mp4")
+            .fromResource("TestFile2.mp4")
             .deploy
             .headerValue(HeaderNames.contentType)
             .run()
@@ -227,7 +242,7 @@ object ServerSpec extends HttpRunnableSpec {
       suite("memoize") {
         testM("concurrent") {
           val size     = 100
-          val expected = (0 to size) map (_ => Status.OK)
+          val expected = (0 to size) map (_ => Status.Ok)
           for {
             response <- Response.text("abc").freeze
             actual   <- ZIO.foreachPar(0 to size)(_ => Http.response(response).deploy.status.run())
@@ -259,7 +274,7 @@ object ServerSpec extends HttpRunnableSpec {
     val app = Http.fail(new Error("SERVER_ERROR"))
     testM("status is 500") {
       val res = app.deploy.status.run()
-      assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+      assertM(res)(equalTo(Status.InternalServerError))
     } +
       testM("content is set") {
         val res = app.deploy.bodyAsString.run()
