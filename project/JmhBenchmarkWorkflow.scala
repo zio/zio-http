@@ -20,7 +20,7 @@ object JmhBenchmarkWorkflow {
   /**
   Run jmh benchmarks and store result
    */
-  def runSBT(list: Seq[String], branch: String = "Current") = list.map(str =>
+  def runSBT(list: Seq[String], branch: String) = list.map(str =>
     s"""sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 $str" | grep "thrpt" >> ../${branch}_${list.head}.txt""".stripMargin)
 
   /**
@@ -82,7 +82,7 @@ object JmhBenchmarkWorkflow {
     name = "Jmh Publish",
     scalas = List(Scala213),
     cond = Some(
-      "${{ github.event_name == 'pull_request' && github.event.label.name == 'jmhBenchmark' }}"
+      "${{ github.event_name == 'pull_request' }}"
     ),
     needs =  dependencies(batchSize),
     steps = downloadArtifacts("Current", batchSize) ++ downloadArtifacts("Main", batchSize) ++
@@ -108,21 +108,19 @@ object JmhBenchmarkWorkflow {
   /**
   Workflow Job to run jmh benchmarks in batches parallelly
    */
-  def run(batchSize: Int, branch: String) = groupedBenchmarks(batchSize).map(l => {
-    val checkout = if(branch == "Current") "" else "main"
+  def run(batchSize: Int) = groupedBenchmarks(batchSize).map(l => {
     WorkflowJob(
-      id = s"Jmh_${branch}_${l.head}",
-      name = s"Jmh ${branch} ${l.head}",
+      id = s"Jmh_${l.head}",
+      name = s"Jmh ${l.head}",
       scalas = List(Scala213),
       cond = Some(
-       "${{ github.event_name == 'pull_request' && github.event.label.name == 'jmhBenchmark' }}"
+       "${{ github.event_name == 'pull_request' }}"
       ),
       steps = List(
         WorkflowStep.Use(
           UseRef.Public("actions", "checkout", "v2"),
           Map(
             "path" -> "zio-http",
-            "ref" -> checkout
           )
         ),
         WorkflowStep.Use(
@@ -134,15 +132,42 @@ object JmhBenchmarkWorkflow {
         ),
         WorkflowStep.Run(
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
-          commands = List("cd zio-http", s"sed -i -e '$$a${jmhPlugin}' project/plugins.sbt", s"cat > ${branch}_${l.head}.txt") ++ runSBT(l, branch),
-          id = Some("Benchmark"),
-          name = Some("Benchmark")
+          commands = List("cd zio-http", s"sed -i -e '$$a${jmhPlugin}' project/plugins.sbt", s"cat > Current_${l.head}.txt") ++ runSBT(l, "Current"),
+          id = Some("Benchmark_Current"),
+          name = Some("Benchmark_Current")
         ),
         WorkflowStep.Use(
           UseRef.Public("actions", "upload-artifact", "v3"),
           Map(
-            "name" -> s"Jmh_${branch}_${l.head}",
-            "path" -> s"${branch}_${l.head}.txt"
+            "name" -> s"Jmh_Current_${l.head}",
+            "path" -> s"Current_${l.head}.txt"
+          )
+        ),
+        WorkflowStep.Use(
+          UseRef.Public("actions", "checkout", "v2"),
+          Map(
+            "path" -> "zio-http",
+            "ref" -> "main"
+          )
+        ),
+        WorkflowStep.Use(
+          UseRef.Public("actions", "setup-java", "v2"),
+          Map(
+            "distribution" -> "temurin",
+            "java-version" -> "8"
+          )
+        ),
+        WorkflowStep.Run(
+          env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
+          commands = List("cd zio-http", s"sed -i -e '$$a${jmhPlugin}' project/plugins.sbt", s"cat > Main_${l.head}.txt") ++ runSBT(l, "Main"),
+          id = Some("Benchmark_Main"),
+          name = Some("Benchmark_Main")
+        ),
+        WorkflowStep.Use(
+          UseRef.Public("actions", "upload-artifact", "v3"),
+          Map(
+            "name" -> s"Jmh_Main_${l.head}",
+            "path" -> s"Main_${l.head}.txt"
           )
         )
       )
@@ -150,6 +175,6 @@ object JmhBenchmarkWorkflow {
   }
   )
 
-  def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize, "Current") ++ run(batchSize, "Main") ++ publish(batchSize)
+  def apply(batchSize: Int): Seq[WorkflowJob] = run(batchSize) ++ publish(batchSize)
 
 }

@@ -278,9 +278,9 @@ jobs:
             ${{steps.result.outputs.concurrency_result}}
             ${{steps.result.outputs.request_result}}
 
-  Jmh_Current_CookieDecodeBenchmark:
-    name: Jmh Current CookieDecodeBenchmark
-    if: ${{ github.event_name == 'pull_request' && github.event.label.name == 'jmhBenchmark' }}
+  Jmh_CookieDecodeBenchmark:
+    name: Jmh CookieDecodeBenchmark
+    if: ${{ github.event_name == 'pull_request' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -291,15 +291,14 @@ jobs:
       - uses: actions/checkout@v2
         with:
           path: zio-http
-          ref: 
 
       - uses: actions/setup-java@v2
         with:
           distribution: temurin
           java-version: 8
 
-      - name: Benchmark
-        id: Benchmark
+      - name: Benchmark_Current
+        id: Benchmark_Current
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
@@ -314,88 +313,6 @@ jobs:
           name: Jmh_Current_CookieDecodeBenchmark
           path: Current_CookieDecodeBenchmark.txt
 
-  Jmh_Current_HttpCombineEval:
-    name: Jmh Current HttpCombineEval
-    if: ${{ github.event_name == 'pull_request' && github.event.label.name == 'jmhBenchmark' }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [2.13.8]
-        java: [temurin@11]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          path: zio-http
-          ref: 
-
-      - uses: actions/setup-java@v2
-        with:
-          distribution: temurin
-          java-version: 8
-
-      - name: Benchmark
-        id: Benchmark
-        env:
-          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
-        run: |
-          cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
-          cat > Current_HttpCombineEval.txt
-          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCombineEval" | grep "thrpt" >> ../Current_HttpCombineEval.txt
-          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpNestedFlatMapEval" | grep "thrpt" >> ../Current_HttpCombineEval.txt
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: Jmh_Current_HttpCombineEval
-          path: Current_HttpCombineEval.txt
-
-  Jmh_Current_HttpRouteTextPerf:
-    name: Jmh Current HttpRouteTextPerf
-    if: ${{ github.event_name == 'pull_request' && github.event.label.name == 'jmhBenchmark' }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [2.13.8]
-        java: [temurin@11]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          path: zio-http
-          ref: 
-
-      - uses: actions/setup-java@v2
-        with:
-          distribution: temurin
-          java-version: 8
-
-      - name: Benchmark
-        id: Benchmark
-        env:
-          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
-        run: |
-          cd zio-http
-          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
-          cat > Current_HttpRouteTextPerf.txt
-          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpRouteTextPerf" | grep "thrpt" >> ../Current_HttpRouteTextPerf.txt
-          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ProbeContentTypeBenchmark" | grep "thrpt" >> ../Current_HttpRouteTextPerf.txt
-
-      - uses: actions/upload-artifact@v3
-        with:
-          name: Jmh_Current_HttpRouteTextPerf
-          path: Current_HttpRouteTextPerf.txt
-
-  Jmh_Main_CookieDecodeBenchmark:
-    name: Jmh Main CookieDecodeBenchmark
-    if: ${{ github.event_name == 'pull_request' && github.event.label.name == 'jmhBenchmark' }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [2.13.8]
-        java: [temurin@11]
-    runs-on: ${{ matrix.os }}
-    steps:
       - uses: actions/checkout@v2
         with:
           path: zio-http
@@ -406,8 +323,8 @@ jobs:
           distribution: temurin
           java-version: 8
 
-      - name: Benchmark
-        id: Benchmark
+      - name: Benchmark_Main
+        id: Benchmark_Main
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
@@ -422,9 +339,9 @@ jobs:
           name: Jmh_Main_CookieDecodeBenchmark
           path: Main_CookieDecodeBenchmark.txt
 
-  Jmh_Main_HttpCombineEval:
-    name: Jmh Main HttpCombineEval
-    if: ${{ github.event_name == 'pull_request' && github.event.label.name == 'jmhBenchmark' }}
+  Jmh_HttpCombineEval:
+    name: Jmh HttpCombineEval
+    if: ${{ github.event_name == 'pull_request' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -435,6 +352,31 @@ jobs:
       - uses: actions/checkout@v2
         with:
           path: zio-http
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 8
+
+      - name: Benchmark_Current
+        id: Benchmark_Current
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          cat > Current_HttpCombineEval.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCombineEval" | grep "thrpt" >> ../Current_HttpCombineEval.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpNestedFlatMapEval" | grep "thrpt" >> ../Current_HttpCombineEval.txt
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Current_HttpCombineEval
+          path: Current_HttpCombineEval.txt
+
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
           ref: main
 
       - uses: actions/setup-java@v2
@@ -442,8 +384,8 @@ jobs:
           distribution: temurin
           java-version: 8
 
-      - name: Benchmark
-        id: Benchmark
+      - name: Benchmark_Main
+        id: Benchmark_Main
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
@@ -458,9 +400,9 @@ jobs:
           name: Jmh_Main_HttpCombineEval
           path: Main_HttpCombineEval.txt
 
-  Jmh_Main_HttpRouteTextPerf:
-    name: Jmh Main HttpRouteTextPerf
-    if: ${{ github.event_name == 'pull_request' && github.event.label.name == 'jmhBenchmark' }}
+  Jmh_HttpRouteTextPerf:
+    name: Jmh HttpRouteTextPerf
+    if: ${{ github.event_name == 'pull_request' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -471,6 +413,31 @@ jobs:
       - uses: actions/checkout@v2
         with:
           path: zio-http
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 8
+
+      - name: Benchmark_Current
+        id: Benchmark_Current
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          cat > Current_HttpRouteTextPerf.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpRouteTextPerf" | grep "thrpt" >> ../Current_HttpRouteTextPerf.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ProbeContentTypeBenchmark" | grep "thrpt" >> ../Current_HttpRouteTextPerf.txt
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Current_HttpRouteTextPerf
+          path: Current_HttpRouteTextPerf.txt
+
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
           ref: main
 
       - uses: actions/setup-java@v2
@@ -478,8 +445,8 @@ jobs:
           distribution: temurin
           java-version: 8
 
-      - name: Benchmark
-        id: Benchmark
+      - name: Benchmark_Main
+        id: Benchmark_Main
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
@@ -497,7 +464,7 @@ jobs:
   Jmh_publish:
     name: Jmh Publish
     needs: [Jmh_Current_CookieDecodeBenchmark, Jmh_Main_CookieDecodeBenchmark, Jmh_Current_HttpCombineEval, Jmh_Main_HttpCombineEval, Jmh_Current_HttpRouteTextPerf, Jmh_Main_HttpRouteTextPerf]
-    if: ${{ github.event_name == 'pull_request' && github.event.label.name == 'jmhBenchmark' }}
+    if: ${{ github.event_name == 'pull_request' }}
     strategy:
       matrix:
         os: [ubuntu-latest]
