@@ -9,14 +9,14 @@ object RequestSpec extends DefaultRunnableSpec {
     suite("toString") {
       testM("should produce string representation of a request") {
         check(HttpGen.request) { req =>
-          assert(req.toString)(equalTo(s"Request(${req.method}, ${req.url}, ${req.headers}, ${req.remoteAddress})"))
+          assert(req.toString)(equalTo(s"Request(${req.version}, ${req.method}, ${req.url}, ${req.headers}, ${req.remoteAddress})"))
         }
       } +
         testM("should produce string representation of a parameterized request") {
           check(HttpGen.parameterizedRequest(Gen.alphaNumericString)) { req =>
             assert(req.toString)(
               equalTo(
-                s"ParameterizedRequest(Request(${req.method}, ${req.url}, ${req.headers}, ${req.remoteAddress}), ${req.params})",
+                s"ParameterizedRequest(Request(${req.version}, ${req.method}, ${req.url}, ${req.headers}, ${req.remoteAddress}), ${req.params})",
               ),
             )
           }

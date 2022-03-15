@@ -81,15 +81,15 @@ trait Request extends HeaderExtension[Request] with HttpDataExtension[Request] {
   /**
    * Returns a string representation of the request, useful for debugging,
    * logging or other purposes. It contains the essential properties of HTTP
-   * request: a method, URL, headers, remote address, etc. However, it does not
-   * contain a body of request, because it may not yet be received at the time
-   * the method is called.
+   * request: protocol version, method, URL, headers, remote address, etc.
+   * However, it does not contain a body of request, because that may not yet be
+   * received at the time the method is called.
    *
    * @return
    *   a string representation of the request.
    */
   override def toString =
-    s"Request($method, $url, $headers, $remoteAddress)"
+    s"Request($version, $method, $url, $headers, $remoteAddress)"
 
   /**
    * Gets the HttpRequest
