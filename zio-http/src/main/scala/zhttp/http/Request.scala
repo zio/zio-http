@@ -79,6 +79,19 @@ trait Request extends HeaderExtension[Request] with HttpDataExtension[Request] {
   def setUrl(url: URL): Request = self.copy(url = url)
 
   /**
+   * Returns a string representation of the request, useful for debugging,
+   * logging or other purposes. It contains the essential properties of HTTP
+   * request: protocol version, method, URL, headers, remote address, etc.
+   * However, it does not contain a body of request, because that may not yet be
+   * received at the time the method is called.
+   *
+   * @return
+   *   a string representation of the request.
+   */
+  override def toString =
+    s"Request($version, $method, $url, $headers, $remoteAddress)"
+
+  /**
    * Gets the HttpRequest
    */
   private[zhttp] def unsafeEncode: HttpRequest
@@ -142,6 +155,8 @@ object Request {
     override def version: Version                   = req.version
     override def unsafeEncode: HttpRequest          = req.unsafeEncode
     override def data: HttpData                     = req.data
+    override def toString: String                   =
+      s"ParameterizedRequest($req, $params)"
   }
 
   object ParameterizedRequest {
