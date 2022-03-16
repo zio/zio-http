@@ -83,7 +83,6 @@ private[zhttp] trait ServerResponseHandler[R] {
    * Writes file content to the Channel. Does not use Chunked transfer encoding
    */
   private def unsafeWriteFileContent(raf: RandomAccessFile)(implicit ctx: ChannelHandlerContext): Unit = {
-
     val fileLength = raf.length()
     // Write the content.
     ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
