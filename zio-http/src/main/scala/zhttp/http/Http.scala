@@ -797,7 +797,7 @@ object Http {
   /**
    * Creates an Http app from the contents of a file.
    */
-  def fromFile(file: => java.io.File): HttpApp[Blocking, Throwable] = Http.fromFileZIO(effectBlocking(file))
+  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(UIO(file))
 
   /**
    * Creates an Http app from the contents of a file which is produced from an
@@ -867,7 +867,7 @@ object Http {
   /**
    * Creates an HTTP that can serve files on the give path.
    */
-  def fromPath(head: String, tail: String*): HttpApp[Blocking, Throwable] =
+  def fromPath(head: String, tail: String*): HttpApp[Any, Throwable] =
     Http.fromFile(Paths.get(head, tail: _*).toFile)
 
   /**
@@ -907,7 +907,7 @@ object Http {
    * Attempts to retrieve files from the classpath.
    */
   def getResourceAsFile(path: String): Http[Blocking, Throwable, Any, File] =
-    Http.getResource(path).mapZIO(url => effectBlocking(new File(url.getPath)))
+    Http.getResource(path).map(url => new File(url.getPath))
 
   /**
    * Creates an HTTP app which always responds with the provided Html page.
