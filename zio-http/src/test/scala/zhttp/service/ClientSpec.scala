@@ -4,6 +4,7 @@ import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.duration.durationInt
+import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
@@ -43,6 +44,13 @@ object ClientSpec extends HttpRunnableSpec {
       testM("handle connection failure") {
         val res = Client.request("http://localhost:1").either
         assertM(res)(isLeft(isSubtype[ConnectException](anything)))
+      } +
+      testM("streaming content to server") {
+        val app    = Http.collectZIO[Request] { case req => req.bodyAsString.map(Response.text(_)) }
+        val stream = ZStream.fromIterable(List("a", "b", "c"))
+        val res    = app.deploy.bodyAsString
+          .run(method = Method.POST, content = HttpData.fromStream(stream))
+        assertM(res)(equalTo("abc"))
       }
   }
 

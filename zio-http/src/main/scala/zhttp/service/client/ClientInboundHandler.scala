@@ -20,6 +20,8 @@ final class ClientInboundHandler[R](
     if (isWebSocket) {
       ctx.fireChannelActive(): Unit
     } else {
+
+      // TODO: pattern match on content type and if is streaming than, stream the request body
       ctx.writeAndFlush(jReq)
       ()
     }

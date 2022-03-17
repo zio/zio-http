@@ -113,6 +113,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def bodyAsString(implicit eb: B <:< Response, ee: E <:< Throwable): Http[R, Throwable, A, String] =
     self.bodyAsByteBuf.mapZIO(bytes => Task(bytes.toString(HTTP_CHARSET)))
 
+  final def bodyAsByteStream(implicit
+    eb: B <:< Response,
+    ee: E <:< Throwable,
+  ): Http[R, Throwable, A, ZStream[R, Throwable, Byte]] =
+    self.bodyAsStream
+
   /**
    * Catches all the exceptions that the http app can fail with
    */
@@ -545,6 +551,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     ee: E <:< Throwable,
   ): Http[R, Throwable, A, ByteBuf] =
     self.widen[Throwable, B].mapZIO(_.bodyAsByteBuf)
+
+  private[zhttp] final def bodyAsStream(implicit
+    eb: B <:< Response,
+    ee: E <:< Throwable,
+  ): Http[R, Throwable, A, ZStream[R, Throwable, Byte]] =
+    self.widen[Throwable, B].map(_.bodyAsStream)
 
   /**
    * Evaluates the app and returns an HExit that can be resolved further
