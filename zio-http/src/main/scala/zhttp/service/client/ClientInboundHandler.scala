@@ -2,6 +2,7 @@ package zhttp.service.client
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
+import zhttp.logging.Logger
 import zhttp.service.Client.ClientResponse
 import zhttp.service.HttpRuntime
 import zio.Promise
@@ -16,6 +17,8 @@ final class ClientInboundHandler[R](
   isWebSocket: Boolean,
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
+  private val log = Logger.getLogger("zhttp.service.client.ClientInboundHandler")
+
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     if (isWebSocket) {
       ctx.fireChannelActive(): Unit
@@ -27,7 +30,7 @@ final class ClientInboundHandler[R](
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     msg.touch("handlers.ClientInboundHandler-channelRead0")
-
+    log.trace(s"Received message: $msg")
     zExec.unsafeRun(ctx)(promise.succeed(ClientResponse.unsafeFromJResponse(msg)))
     if (isWebSocket) {
       ctx.fireChannelRead(msg.retain())
@@ -36,11 +39,14 @@ final class ClientInboundHandler[R](
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
+    log.error(s"Exception caught.", error)
+
     zExec.unsafeRun(ctx)(promise.fail(error))
     releaseRequest()
   }
 
   private def releaseRequest(): Unit = {
+    log.debug(s"Reference count: ${jReq.refCnt()}")
     if (jReq.refCnt() > 0) {
       jReq.release(jReq.refCnt()): Unit
     }

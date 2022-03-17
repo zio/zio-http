@@ -110,3 +110,5 @@ object HelloWorldAdvanced extends App {
 | `Server.simpleLeakDetection`   | Simplistic leak detection comes with small over head. Refer netty's [ResourceLeakDetector](https://netty.io/4.0/api/io/netty/util/ResourceLeakDetector.Level.html)                               |
 | `Server.paranoidLeakDetection` | Comes with highest possible overhead (for testing purposes only). Refer netty's [ResourceLeakDetector](https://netty.io/4.0/api/io/netty/util/ResourceLeakDetector.Level.html)                              |
 | `Server.consolidateFlush`      | Flushing content is done in batches. Can potentially improve performance.                               |
+| `Server.lowLevelLogging`       | Enable internal netty logger. It is decreasing the performance for which reason it should be used only for troubleshooting. |
+| `Server.enableLogging(logLevel)` | Enable internal zhttp logger. It is decreasing the performance for which reason it should be used only for troubleshooting. |

@@ -7,6 +7,7 @@ import zhttp.internal.HttpRunnableSpec.HttpTestClient
 import zhttp.service.Client.{ClientRequest, ClientResponse}
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zhttp.service.server.LogLevel.INFO
 import zhttp.socket.SocketApp
 import zio.test.DefaultRunnableSpec
 import zio.{Has, ZIO, ZManaged}
@@ -89,7 +90,13 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
     for {
       settings <- ZManaged
-        .succeed(server.foldLeft(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection)(_ ++ _))
+        .succeed(
+          server.foldLeft(
+            Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection ++ Server.enableLogging(logLevel = INFO),
+          )(
+            _ ++ _,
+          ),
+        )
       start    <- Server.make(settings).orDie
       _        <- DynamicServer.setStart(start).toManaged_
     } yield ()

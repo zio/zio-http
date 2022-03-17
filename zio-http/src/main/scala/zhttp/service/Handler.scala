@@ -30,6 +30,7 @@ private[zhttp] final case class Handler[R](
     msg match {
       case jReq: FullHttpRequest =>
         jReq.touch("server.Handler-channelRead0")
+        log.trace(s"Interpreting FullHttpRequest: $jReq")
         try
           unsafeRun(
             jReq,
@@ -66,6 +67,7 @@ private[zhttp] final case class Handler[R](
             ): Unit
         }
       case jReq: HttpRequest     =>
+        log.trace(s"Interpreting HttpRequest: $jReq")
         if (canHaveBody(jReq)) {
           ctx.channel().config().setAutoRead(false): Unit
         }
@@ -110,9 +112,11 @@ private[zhttp] final case class Handler[R](
         }
 
       case msg: HttpContent =>
+        log.trace(s"Interpreting HttpContent: $msg")
         ctx.fireChannelRead(msg): Unit
 
       case _ =>
+        log.error(s"Received unsupported message $msg")
         throw new IllegalStateException(s"Unexpected message type: ${msg.getClass.getName}")
 
     }
@@ -191,6 +195,7 @@ private[zhttp] final case class Handler[R](
   override val rt: HttpRuntime[R] = runtime
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
+    log.error(s"Exception caught.", cause)
     config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
   }
 }

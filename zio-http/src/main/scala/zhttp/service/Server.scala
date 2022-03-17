@@ -212,6 +212,7 @@ object Server {
   val disableKeepAlive: UServer                                           = Server.KeepAlive(false)
   val consolidateFlush: UServer                                           = ConsolidateFlush(true)
   val lowLevelLogging: UServer                                            = LowLevelLogging(logLevel = LogLevel.DEBUG)
+  def enableLogging(logLevel: LogLevel): UServer                          = LowLevelLogging(logLevel)
   def enableObjectAggregator(maxRequestSize: Int = Int.MaxValue): UServer = ObjectAggregator(maxRequestSize)
 
   /**

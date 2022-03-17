@@ -11,6 +11,7 @@ import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.logging.LoggingHandler
+import zhttp.logging.Logger
 import zhttp.service.Server.Config
 import zhttp.service._
 import zhttp.service.logging.ZHttpLoggerFactory
@@ -24,11 +25,15 @@ final case class ServerChannelInitializer[R](
   cfg: Config[R, Throwable],
   reqHandler: ChannelHandler,
 ) extends ChannelInitializer[Channel] {
+
+  private val log = Logger.getLogger("zhttp.service.server.ServerChannelInitializer")
+
   override def initChannel(channel: Channel): Unit = {
     // !! IMPORTANT !!
     // Order of handlers are critical to make this work
     val pipeline = channel.pipeline()
 
+    log.info(s"Starting server with config: $cfg")
     // SSL
     // Add SSL Handler if CTX is available
     val sslctx = if (cfg.sslOption == null) null else cfg.sslOption.sslContext
@@ -75,7 +80,7 @@ final case class ServerChannelInitializer[R](
     if (cfg.logLevel != LogLevel.OFF) {
       import io.netty.util.internal.logging.InternalLoggerFactory
       InternalLoggerFactory.setDefaultFactory(ZHttpLoggerFactory(cfg.logLevel.toZhttpLogging))
-      pipeline.addLast(LOW_LEVEL_LOGGING, new LoggingHandler(cfg.logLevel.toNettyLogLevel))
+      pipeline.addLast(LOW_LEVEL_LOGGING, new LoggingHandler(LogLevel.DEBUG.toNettyLogLevel))
     }
 
     // RequestHandler
