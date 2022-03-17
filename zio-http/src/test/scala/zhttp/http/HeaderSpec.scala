@@ -68,6 +68,13 @@ object HeaderSpec extends DefaultRunnableSpec {
           assert(actual)(isTrue)
         },
       ) +
+      suite("hasContentType")(
+        test("should match content type with charsets and boundaries") {
+          val header = Headers(HeaderNames.contentType, "application/json; charset=UTF-8")
+          val actual = header.hasContentType("application/json")
+          assert(actual)(isTrue)
+        },
+      ) +
       suite("hasJsonContentType")(
         test("should return true if content-type is application/json") {
           val actual = contentTypeJson.hasJsonContentType

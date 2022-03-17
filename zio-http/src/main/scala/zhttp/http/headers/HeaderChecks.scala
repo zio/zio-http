@@ -11,8 +11,12 @@ import zhttp.http.HeaderValues
  * true or false based on if the conditions are met or not.
  */
 trait HeaderChecks[+A] { self: HeaderExtension[A] with A =>
-  final def hasContentType(value: CharSequence): Boolean =
-    contentType.exists(contentEqualsIgnoreCase(value, _))
+  final def hasContentType(value: CharSequence): Boolean = {
+    contentType.exists(h => {
+      val max = Math.min(value.length, h.length)
+      contentEqualsIgnoreCase(h.subSequence(0, max), value)
+    })
+  }
 
   final def hasFormUrlencodedContentType: Boolean =
     hasContentType(HeaderValues.applicationXWWWFormUrlencoded)
