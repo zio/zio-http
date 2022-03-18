@@ -1,7 +1,10 @@
 package zhttp.http
 
+import zhttp.http.HttpData.ByteBufConfig
+import zio.duration.durationInt
 import zio.stream.ZStream
 import zio.test.Assertion.{anything, equalTo, isLeft, isSubtype}
+import zio.test.TestAspect.timeout
 import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAllM}
 
 import java.io.File
@@ -34,11 +37,11 @@ object HttpDataSpec extends DefaultRunnableSpec {
             },
             testM("success small chunk") {
               lazy val file = testFile
-              val res       = HttpData.fromFile(file).toByteBuf.map(_.toString(HTTP_CHARSET))
+              val res       = HttpData.fromFile(file).toByteBuf(ByteBufConfig(3)).map(_.toString(HTTP_CHARSET))
               assertM(res)(equalTo("abc\nfoo"))
             },
           ),
         )
       }
-    }
+    } @@ timeout(5 seconds)
 }
