@@ -9,7 +9,7 @@ import zhttp.service.{ChannelFuture, HttpRuntime, Server}
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
 
-import java.io.{File, RandomAccessFile}
+import java.io.File
 
 private[zhttp] trait ServerResponseHandler[R] {
   type Ctx = ChannelHandlerContext
@@ -82,16 +82,11 @@ private[zhttp] trait ServerResponseHandler[R] {
   /**
    * Writes file content to the Channel. Does not use Chunked transfer encoding
    */
-  private def unsafeWriteFileContent(raf: RandomAccessFile)(implicit ctx: ChannelHandlerContext): Unit = {
-    val fileLength = raf.length()
+  private def unsafeWriteFileContent(file: File)(implicit ctx: ChannelHandlerContext): Unit = {
     // Write the content.
-    ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
+    ctx.write(new DefaultFileRegion(file, 0, file.length()))
     // Write the end marker.
     ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
-  }
-
-  private def unsafeWriteFileContent(file: File)(implicit ctx: ChannelHandlerContext): Unit = {
-    unsafeWriteFileContent(new RandomAccessFile(file, "r"))
   }
 
   /**
