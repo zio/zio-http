@@ -74,12 +74,12 @@ final case class Response private (
       case HttpData.Incoming(_)    => null
       case data: HttpData.Outgoing =>
         data match {
-          case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
-          case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
-          case HttpData.BinaryByteBuf(data) => data
-          case HttpData.BinaryStream(_)     => null
-          case HttpData.Empty               => Unpooled.EMPTY_BUFFER
-          case HttpData.JavaFile(_)         => null
+          case HttpData.FromAsciiString(text) => Unpooled.wrappedBuffer(text.array())
+          case HttpData.BinaryChunk(data)     => Unpooled.wrappedBuffer(data.toArray)
+          case HttpData.BinaryByteBuf(data)   => data
+          case HttpData.BinaryStream(_)       => null
+          case HttpData.Empty                 => Unpooled.EMPTY_BUFFER
+          case HttpData.JavaFile(_)           => null
         }
     }
 
