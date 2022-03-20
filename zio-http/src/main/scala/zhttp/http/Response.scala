@@ -71,7 +71,7 @@ final case class Response private (
 
     val jHeaders = self.headers.encode
     val jContent = self.data match {
-      case HttpData.UnsafeAsync(_)    => null
+      case HttpData.UnsafeAsync(_) => null
       case data: HttpData.Complete =>
         data match {
           case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
