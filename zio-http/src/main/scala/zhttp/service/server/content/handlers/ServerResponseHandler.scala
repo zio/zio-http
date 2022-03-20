@@ -95,7 +95,7 @@ private[zhttp] trait ServerResponseHandler[R] {
   private def writeData(data: HttpData.Outgoing, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     data match {
 
-      case _: HttpData.Text => flushReleaseAndRead(jReq)
+      case _: HttpData.FromAsciiString => flushReleaseAndRead(jReq)
 
       case _: HttpData.BinaryChunk => flushReleaseAndRead(jReq)
 
