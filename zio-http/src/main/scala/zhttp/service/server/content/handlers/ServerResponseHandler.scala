@@ -20,7 +20,7 @@ private[zhttp] trait ServerResponseHandler[R] {
 
   def writeResponse(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     ctx.write(encodeResponse(msg))
-    writeData(msg.data.asInstanceOf[HttpData.Outgoing], jReq)
+    writeData(msg.data.asInstanceOf[HttpData.Complete], jReq)
     ()
   }
 
@@ -92,7 +92,7 @@ private[zhttp] trait ServerResponseHandler[R] {
   /**
    * Writes data on the channel
    */
-  private def writeData(data: HttpData.Outgoing, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+  private def writeData(data: HttpData.Complete, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     data match {
 
       case _: HttpData.Text => flushReleaseAndRead(jReq)
