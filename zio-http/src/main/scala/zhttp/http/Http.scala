@@ -965,14 +965,14 @@ object Http {
    * Creates an Http app which responds with an Html page using the built-in
    * template.
    */
-  def template(heading: String)(view: Html): HttpApp[Any, Nothing] =
+  def template(heading: CharSequence)(view: Html): HttpApp[Any, Nothing] =
     Http.response(Response.html(Template.container(heading)(view)))
 
   /**
    * Creates an Http app which always responds with the same plain text.
    */
-  def text(str: String, charset: Charset = HTTP_CHARSET): HttpApp[Any, Nothing] =
-    Http.succeed(Response.text(str, charset))
+  def text(charSeq: CharSequence): HttpApp[Any, Nothing] =
+    Http.succeed(Response.text(charSeq))
 
   /**
    * Creates an Http app that responds with a 408 status code after the provided
