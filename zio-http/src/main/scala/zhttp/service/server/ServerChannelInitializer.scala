@@ -10,6 +10,7 @@ import io.netty.handler.codec.http.HttpObjectDecoder.{
 import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
+import io.netty.handler.logging.LogLevel
 import zhttp.service.Server.Config
 import zhttp.service._
 
@@ -69,6 +70,12 @@ final case class ServerChannelInitializer[R](
     // FlushConsolidationHandler
     // Flushing content is done in batches. Can potentially improve performance.
     if (cfg.consolidateFlush) pipeline.addLast(HTTP_SERVER_FLUSH_CONSOLIDATION, new FlushConsolidationHandler)
+
+    import io.netty.handler.logging.LoggingHandler
+    import io.netty.util.internal.logging.InternalLoggerFactory
+    import io.netty.util.internal.logging.JdkLoggerFactory
+    InternalLoggerFactory.setDefaultFactory(JdkLoggerFactory.INSTANCE)
+    pipeline.addLast("logger", new LoggingHandler(LogLevel.DEBUG))
 
     // RequestHandler
     // Always add ZIO Http Request Handler

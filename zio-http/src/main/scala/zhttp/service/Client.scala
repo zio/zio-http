@@ -3,13 +3,14 @@ package zhttp.service
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{
   Channel,
+  ChannelInitializer,
   ChannelFactory => JChannelFactory,
   ChannelFuture => JChannelFuture,
-  ChannelInitializer,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
+import io.netty.handler.logging.LogLevel
 import zhttp.http._
 import zhttp.service
 import zhttp.service.Client.Config
@@ -18,7 +19,7 @@ import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.{Socket, SocketApp}
 import zio.{Promise, Task, ZIO}
 
-import java.net.{InetSocketAddress, URI}
+import java.net.InetSocketAddress
 
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
@@ -26,9 +27,8 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
   private[zhttp] def request(request: Request, clientConfig: Config): Task[Response] =
     for {
       promise <- Promise.make[Throwable, Response]
-      jReq    <- encode(request)
       _       <- ChannelFuture
-        .unit(unsafeRequest(request, clientConfig, jReq, promise))
+        .unit(unsafeRequest(request, clientConfig, promise))
         .catchAll(cause => promise.fail(cause))
       res     <- promise.await
     } yield res
@@ -57,13 +57,13 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
   private def unsafeRequest(
     req: Request,
     clientConfig: Config,
-    jReq: FullHttpRequest,
     promise: Promise[Throwable, Response],
   ): JChannelFuture = {
 
     try {
-      val uri  = new URI(jReq.uri())
-      val host = if (uri.getHost == null) jReq.headers().get(HeaderNames.host) else uri.getHost
+      val uri = req.url
+
+      val host: String = (if (uri.host.isEmpty) req.headers.host else uri.host).map(_.toString).getOrElse("")
 
       assert(host != null, "Host name is required")
 
@@ -88,8 +88,17 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
           // This is also required to make WebSocketHandlers work
           pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
 
+          import io.netty.handler.logging.LoggingHandler
+          import io.netty.util.internal.logging.InternalLoggerFactory
+          import io.netty.util.internal.logging.JdkLoggerFactory
+          InternalLoggerFactory.setDefaultFactory(JdkLoggerFactory.INSTANCE)
+          pipeline.addLast("logger", new LoggingHandler(LogLevel.DEBUG))
+
           // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
-          pipeline.addLast(CLIENT_INBOUND_HANDLER, new ClientInboundHandler(rtm, jReq, promise, isWebSocket))
+          pipeline.addLast(
+            CLIENT_INBOUND_HANDLER,
+            new ClientInboundHandler(rtm, req, promise, isWebSocket, clientConfig),
+          )
 
           // Add WebSocketHandlers if it's a `ws` or `wss` request
           if (isWebSocket) {
@@ -115,9 +124,9 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
       jBoo.connect()
     } catch {
       case err: Throwable =>
-        if (jReq.refCnt() > 0) {
-          jReq.release(jReq.refCnt()): Unit
-        }
+//        if (jReq.refCnt() > 0) {
+//          jReq.release(jReq.refCnt()): Unit
+//        }
         throw err
     }
   }
@@ -167,7 +176,11 @@ object Client {
     } yield res
   }
 
-  case class Config(socketApp: Option[SocketApp[Any]] = None, ssl: Option[ClientSSLOptions] = None) { self =>
+  case class Config(
+    socketApp: Option[SocketApp[Any]] = None,
+    ssl: Option[ClientSSLOptions] = None,
+    useAggregator: Boolean = true,
+  ) { self =>
     def withSSL(ssl: ClientSSLOptions): Config           = self.copy(ssl = Some(ssl))
     def withSocketApp(socketApp: SocketApp[Any]): Config = self.copy(socketApp = Some(socketApp))
   }

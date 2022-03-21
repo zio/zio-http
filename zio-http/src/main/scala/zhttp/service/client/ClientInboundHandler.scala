@@ -1,28 +1,29 @@
 package zhttp.service.client
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
-import zhttp.http.Response
-import zhttp.service.HttpRuntime
+import io.netty.handler.codec.http.FullHttpResponse
+import zhttp.http.{Request, Response}
+import zhttp.service.{Client, HttpRuntime}
+import zhttp.service.server.content.handlers.ClientRequestHandler
 import zio.Promise
 
 /**
  * Handles HTTP response
  */
 final class ClientInboundHandler[R](
-  zExec: HttpRuntime[R],
-  jReq: FullHttpRequest,
+  val rt: HttpRuntime[R],
+  req: Request,
   promise: Promise[Throwable, Response],
   isWebSocket: Boolean,
-) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
+  val config: Client.Config,
+) extends SimpleChannelInboundHandler[FullHttpResponse](true)
+    with ClientRequestHandler[R] {
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     if (isWebSocket) {
       ctx.fireChannelActive(): Unit
     } else {
-
-      // TODO: pattern match on content type and if is streaming than, stream the request body
-      ctx.writeAndFlush(jReq)
+      writeRequest(req)(ctx)
       ()
     }
   }
@@ -30,7 +31,7 @@ final class ClientInboundHandler[R](
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     msg.touch("handlers.ClientInboundHandler-channelRead0")
 
-    zExec.unsafeRun(ctx)(promise.succeed(Response.unsafeFromJResponse(msg)))
+    rt.unsafeRun(ctx)(promise.succeed(Response.unsafeFromJResponse(msg)))
     if (isWebSocket) {
       ctx.fireChannelRead(msg.retain())
       ctx.pipeline().remove(ctx.name()): Unit
@@ -38,13 +39,8 @@ final class ClientInboundHandler[R](
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    zExec.unsafeRun(ctx)(promise.fail(error))
-    releaseRequest()
+    rt.unsafeRun(ctx)(promise.fail(error))
+//    releaseRequest()
   }
 
-  private def releaseRequest(): Unit = {
-    if (jReq.refCnt() > 0) {
-      jReq.release(jReq.refCnt()): Unit
-    }
-  }
 }
