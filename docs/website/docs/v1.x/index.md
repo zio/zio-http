@@ -59,7 +59,7 @@ Start your application from _sbt_ with the following command
 Pressing enter will stop watching for changes, but not stop the application. Use the following command to stop the application (shutdown hooks will not be executed).
 
 ```
-~reStop
+reStop
 ```
 
 In case you already have an _sbt_ server running, i.e. to provide your IDE with BSP information, use _sbtn_ instead of _sbt_ to run `~reStart`, this let's both _sbt_  sessions share one server.
