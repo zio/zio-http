@@ -4,6 +4,7 @@ import io.netty.buffer.ByteBuf
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Response}
+import zhttp.logging.Logger
 import zhttp.service.server.ServerTime
 import zhttp.service.{ChannelFuture, HttpRuntime, Server}
 import zio.stream.ZStream
@@ -18,7 +19,10 @@ private[zhttp] trait ServerResponseHandler[R] {
 
   def serverTime: ServerTime
 
+  private val log = Logger.getLogger("zhttp.service.server.content.handlers.ServerResponseHandler")
+
   def writeResponse(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    log.trace(s"Sending response $msg")
     ctx.write(encodeResponse(msg))
     writeData(msg.data.asInstanceOf[HttpData.Outgoing], jReq)
     ()
@@ -54,7 +58,9 @@ private[zhttp] trait ServerResponseHandler[R] {
    */
   private def releaseRequest(jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     jReq match {
-      case jReq: FullHttpRequest if jReq.refCnt() > 0 => jReq.release(jReq.refCnt()): Unit
+      case jReq: FullHttpRequest if jReq.refCnt() > 0 =>
+        log.debug(s"Releasing request refCount: ${jReq.refCnt()}")
+        jReq.release(jReq.refCnt()): Unit
       case _                                          => ()
     }
   }
@@ -63,6 +69,7 @@ private[zhttp] trait ServerResponseHandler[R] {
    * Writes file content to the Channel. Does not use Chunked transfer encoding
    */
   private def unsafeWriteFileContent(raf: RandomAccessFile)(implicit ctx: ChannelHandlerContext): Unit = {
+    log.trace(s"Sending file as response.")
     val fileLength = raf.length()
     // Write the content.
     ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))

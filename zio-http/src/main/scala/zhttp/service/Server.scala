@@ -135,7 +135,7 @@ sealed trait Server[-R, +E] { self =>
     Concat(self, RequestDecompression(enabled, strict))
 
   /**
-   * <<<<<<< HEAD Creates a new server with netty's LoggingHandler to log http
+   * Creates a new server with netty's LoggingHandler to log http
    * requests/responses (@see <a href =
    * "https://netty.io/4.1/api/io/netty/handler/logging/LoggingHandler.html#LoggingHandler-io.netty.handler.logging.LogLevel-">LoggingHandler</>).
    */
