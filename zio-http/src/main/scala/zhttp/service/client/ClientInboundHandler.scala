@@ -2,8 +2,12 @@ package zhttp.service.client
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
+<<<<<<< HEAD
 import zhttp.logging.Logger
 import zhttp.service.Client.ClientResponse
+=======
+import zhttp.http.Response
+>>>>>>> 2f470811cbd0c9601e16763b61d8de29a7a89527
 import zhttp.service.HttpRuntime
 import zio.Promise
 
@@ -13,7 +17,7 @@ import zio.Promise
 final class ClientInboundHandler[R](
   zExec: HttpRuntime[R],
   jReq: FullHttpRequest,
-  promise: Promise[Throwable, ClientResponse],
+  promise: Promise[Throwable, Response],
   isWebSocket: Boolean,
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
@@ -30,8 +34,9 @@ final class ClientInboundHandler[R](
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     msg.touch("handlers.ClientInboundHandler-channelRead0")
+
     log.trace(s"Received message: $msg")
-    zExec.unsafeRun(ctx)(promise.succeed(ClientResponse.unsafeFromJResponse(msg)))
+    zExec.unsafeRun(ctx)(promise.succeed(Response.unsafeFromJResponse(msg)))
     if (isWebSocket) {
       ctx.fireChannelRead(msg.retain())
       ctx.pipeline().remove(ctx.name()): Unit

@@ -49,12 +49,14 @@ private[zhttp] final case class Handler[R](
                 }
               }
 
-              override def data: HttpData = HttpData.fromByteBuf(jReq.content())
+              override def data: HttpData   = HttpData.fromByteBuf(jReq.content())
+              override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
 
               /**
                * Gets the HttpRequest
                */
               override def unsafeEncode = jReq
+
             },
           )
         catch {
@@ -76,7 +78,7 @@ private[zhttp] final case class Handler[R](
             jReq,
             app,
             new Request {
-              override def data: HttpData = HttpData.Incoming(callback =>
+              override def data: HttpData = HttpData.UnsafeAsync(callback =>
                 ctx
                   .pipeline()
                   .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback)): Unit,
@@ -93,7 +95,8 @@ private[zhttp] final case class Handler[R](
                 }
               }
 
-              override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
+              override def url: URL         = URL.fromString(jReq.uri()).getOrElse(null)
+              override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
 
               /**
                * Gets the HttpRequest
@@ -139,21 +142,33 @@ private[zhttp] final case class Handler[R](
     http.execute(a) match {
       case HExit.Effect(resM) =>
         unsafeRunZIO {
-          resM.foldM(
-            {
-              case Some(cause) =>
-                UIO {
-                  writeResponse(
-                    Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),
-                    jReq,
-                  )
-                }
-              case None        =>
-                UIO {
-                  writeResponse(Response.status(Status.NOT_FOUND), jReq)
-                }
-
-            },
+          resM.foldCauseM(
+            cause =>
+              cause.failureOrCause match {
+                case Left(Some(cause)) =>
+                  UIO {
+                    writeResponse(
+                      Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),
+                      jReq,
+                    )
+                  }
+                case Left(None)        =>
+                  UIO {
+                    writeResponse(Response.status(Status.NotFound), jReq)
+                  }
+                case Right(other)      =>
+                  other.dieOption match {
+                    case Some(defect) =>
+                      UIO {
+                        writeResponse(
+                          Response.fromHttpError(HttpError.InternalServerError(cause = Some(defect))),
+                          jReq,
+                        )
+                      }
+                    case None         =>
+                      ZIO.halt(other)
+                  }
+              },
             res =>
               if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(jReq, res))
               else {
@@ -174,6 +189,9 @@ private[zhttp] final case class Handler[R](
         }
 
       case HExit.Failure(e) =>
+        writeResponse(Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))), jReq): Unit
+
+      case HExit.Die(e) =>
         writeResponse(Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))), jReq): Unit
 
       case HExit.Empty =>
