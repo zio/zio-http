@@ -2,8 +2,8 @@ package zhttp.service.client
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
-import zhttp.logging.Logger
 import zhttp.http.Response
+import zhttp.logging.Logger
 import zhttp.service.HttpRuntime
 import zio.Promise
 
