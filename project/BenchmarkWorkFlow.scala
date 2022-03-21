@@ -30,13 +30,14 @@ object BenchmarkWorkFlow {
           Map(
             "repository" -> "dream11/FrameworkBenchmarks",
             "path"       -> "FrameworkBenchMarks",
+            "ref"        -> "maintenance/configurable-app",
           ),
         ),
         WorkflowStep.Run(
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
           id = Some("result"),
           commands = List(
-            "cp ./zio-http/example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala",
+            "cp ./zio-http/example/src/main/scala/example/BenchmarkApp.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/BenchmarkApp.scala",
             "cd ./FrameworkBenchMarks",
             """sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt""",
             "./tfb  --test zio-http | tee result",
