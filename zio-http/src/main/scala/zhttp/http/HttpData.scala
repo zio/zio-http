@@ -30,10 +30,10 @@ sealed trait HttpData { self =>
 
   def toByteBuf: Task[ByteBuf] = {
     self match {
-      case HttpData.Text(text, charset)   => UIO(Unpooled.copiedBuffer(text, charset))
-      case HttpData.BinaryChunk(data)     => UIO(Unpooled.copiedBuffer(data.toArray))
-      case HttpData.BinaryByteBuf(data)   => UIO(data)
-      case HttpData.Empty                 => UIO(Unpooled.EMPTY_BUFFER)
+      case HttpData.Text(text, charset)   => ZIO.succeed(Unpooled.copiedBuffer(text, charset))
+      case HttpData.BinaryChunk(data)     => ZIO.succeed(Unpooled.copiedBuffer(data.toArray))
+      case HttpData.BinaryByteBuf(data)   => ZIO.succeed(data)
+      case HttpData.Empty                 => ZIO.succeed(Unpooled.EMPTY_BUFFER)
       case HttpData.BinaryStream(stream)  =>
         stream
           .asInstanceOf[ZStream[Any, Throwable, ByteBuf]]

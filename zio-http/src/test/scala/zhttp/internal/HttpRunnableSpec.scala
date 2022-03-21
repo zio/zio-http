@@ -9,6 +9,7 @@ import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.socket.SocketApp
 import zio._
+import zio.managed._
 import zio.test.DefaultRunnableSpec
 
 /**

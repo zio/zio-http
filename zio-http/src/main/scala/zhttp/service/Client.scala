@@ -197,11 +197,11 @@ object Client {
       extends HeaderExtension[ClientResponse] {
     self =>
 
-    def body: Task[Chunk[Byte]] = Task(Chunk.fromArray(ByteBufUtil.getBytes(buffer)))
+    def body: Task[Chunk[Byte]] = ZIO.attempt(Chunk.fromArray(ByteBufUtil.getBytes(buffer)))
 
-    def bodyAsByteBuf: Task[ByteBuf] = Task(buffer)
+    def bodyAsByteBuf: Task[ByteBuf] = ZIO.attempt(buffer)
 
-    def bodyAsString: Task[String] = Task(buffer.toString(self.charset))
+    def bodyAsString: Task[String] = ZIO.attempt(buffer.toString(self.charset))
 
     override def updateHeaders(update: Headers => Headers): ClientResponse = self.copy(headers = update(headers))
   }

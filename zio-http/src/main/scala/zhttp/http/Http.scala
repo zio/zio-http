@@ -8,6 +8,7 @@ import zhttp.http.headers.HeaderModifier
 import zhttp.service.server.ServerTime
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
+import zio.managed._
 import zio.stream.ZStream
 
 import java.io.File
@@ -88,13 +89,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Extracts body
    */
   final def body(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, Chunk[Byte]] =
-    self.bodyAsByteBuf.mapZIO(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
+    self.bodyAsByteBuf.mapZIO(buf => ZIO.attempt(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
 
   /**
    * Extracts body as a string
    */
   final def bodyAsString(implicit eb: IsResponse[B], ee: E <:< Throwable): Http[R, Throwable, A, String] =
-    self.bodyAsByteBuf.mapZIO(bytes => Task(bytes.toString(HTTP_CHARSET)))
+    self.bodyAsByteBuf.mapZIO(bytes => ZIO.attempt(bytes.toString(HTTP_CHARSET)))
 
   /**
    * Catches all the exceptions that the http app can fail with
@@ -172,13 +173,14 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Delays production of output B for the specified duration of time
    */
-  final def delayAfter(duration: Duration): Http[R with Clock, E, A, B] = self.mapZIO(b => UIO(b).delay(duration))
+  final def delayAfter(duration: Duration): Http[R with Clock, E, A, B] =
+    self.mapZIO(b => ZIO.succeed(b).delay(duration))
 
   /**
    * Delays consumption of input A for the specified duration of time
    */
   final def delayBefore(duration: Duration): Http[R with Clock, E, A, B] =
-    self.contramapZIO(a => UIO(a).delay(duration))
+    self.contramapZIO(a => ZIO.succeed(a).delay(duration))
 
   /**
    * Creates a new Http app from another
@@ -258,7 +260,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Provides the environment to Http.
    */
-  final def provideEnvironment(r: ZEnvironment[R])(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
+  final def provideEnvironment(r: ZEnvironment[R]): Http[Any, E, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideEnvironment(r))
 
   /**
@@ -266,15 +268,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def provideLayer[E1 >: E, R0](
     layer: ZLayer[R0, E1, R],
-  )(implicit ev2: NeedsEnv[R]): Http[R0, E1, A, B] =
+  ): Http[R0, E1, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideLayer(layer.mapError(Option(_))))
 
   /**
    * Provides some of the environment to Http.
    */
-  final def provideSomeEnvironment[R1](r: ZEnvironment[R1] => ZEnvironment[R])(implicit
-    ev: NeedsEnv[R],
-  ): Http[R1, E, A, B] =
+  final def provideSomeEnvironment[R1](r: ZEnvironment[R1] => ZEnvironment[R]): Http[R1, E, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideSomeEnvironment(r))
 
   /**
@@ -555,7 +555,7 @@ object Http {
   /**
    * Creates an Http app from the contents of a file.
    */
-  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file))
+  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(ZIO.attempt(file))
 
   /**
    * Creates an Http app from the contents of a file which is produced from an
@@ -565,7 +565,7 @@ object Http {
   def fromFileZIO[R](fileZIO: ZIO[R, Throwable, java.io.File]): HttpApp[R, Throwable] = {
     val response: ZIO[R, Throwable, HttpApp[R, Throwable]] =
       fileZIO.flatMap { file =>
-        Task {
+        ZIO.attempt {
           if (file.isFile) {
             val length   = Headers.contentLength(file.length())
             val response = Response(headers = length, data = HttpData.fromFile(file))
@@ -776,9 +776,9 @@ object Http {
   final class PartialFromOptionFunction[A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](f: A => ZIO[R, Option[E], B]): Http[R, E, A, B] = Http
       .collectZIO[A] { case a =>
-        f(a).map(Http.succeed(_)).catchAll {
-          case Some(error) => UIO(Http.fail(error))
-          case None        => UIO(Http.empty)
+        f(a).map(Http.succeed).catchAll {
+          case Some(error) => ZIO.succeed(Http.fail(error))
+          case None        => ZIO.succeed(Http.empty)
         }
       }
       .flatten

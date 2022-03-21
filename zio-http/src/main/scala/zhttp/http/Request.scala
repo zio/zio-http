@@ -2,7 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import zhttp.http.headers.HeaderExtension
-import zio.{Chunk, Task, UIO}
+import zio.{Chunk, Task, UIO, ZIO}
 
 import java.net.InetAddress
 
@@ -35,13 +35,13 @@ trait Request extends HeaderExtension[Request] { self =>
    * Decodes the content of request as a Chunk of Bytes
    */
   def body: Task[Chunk[Byte]] =
-    bodyAsByteBuf.flatMap(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
+    bodyAsByteBuf.flatMap(buf => ZIO.attempt(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
 
   /**
    * Decodes the content of request as string
    */
   def bodyAsString: Task[String] =
-    bodyAsByteBuf.flatMap(buf => Task(buf.toString(charset)))
+    bodyAsByteBuf.flatMap(buf => ZIO.attempt(buf.toString(charset)))
 
   /**
    * Gets all the headers in the Request
@@ -127,7 +127,7 @@ object Request {
     remoteAddress: Option[InetAddress],
     content: HttpData = HttpData.empty,
   ): UIO[Request] =
-    UIO(Request(method, url, headers, remoteAddress, content))
+    ZIO.succeed(Request(method, url, headers, remoteAddress, content))
 
   /**
    * Lift request to TypedRequest with option to extract params

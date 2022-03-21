@@ -5,8 +5,8 @@ object Dependencies {
   val NettyVersion                  = "4.1.74.Final"
   val NettyIncubatorVersion         = "0.0.12.Final"
   val ScalaCompactCollectionVersion = "2.6.0"
-  val ZioVersion                    = "2.0.0-RC2"
-  val SttpVersion                   = "3.3.18"
+  val ZioVersion                    = "2.0.0-RC3"
+  val SttpVersion                   = "3.5.1"
 
   val `jwt-core`                 = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
   val `scala-compact-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompactCollectionVersion
@@ -16,6 +16,7 @@ object Dependencies {
     "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % NettyIncubatorVersion classifier "linux-x86_64"
 
   val zio            = "dev.zio" %% "zio"          % ZioVersion
+  val `zio-managed`  = "dev.zio" %% "zio-managed"  % ZioVersion
   val `zio-streams`  = "dev.zio" %% "zio-streams"  % ZioVersion
   val `zio-test`     = "dev.zio" %% "zio-test"     % ZioVersion % "test"
   val `zio-test-sbt` = "dev.zio" %% "zio-test-sbt" % ZioVersion % "test"

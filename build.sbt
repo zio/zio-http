@@ -101,6 +101,7 @@ lazy val zhttp = (project in file("zio-http"))
     libraryDependencies ++= Seq(
       netty,
       `zio`,
+      `zio-managed`,
       `zio-streams`,
       `zio-test`,
       `zio-test-sbt`,

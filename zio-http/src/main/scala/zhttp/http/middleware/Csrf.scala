@@ -1,7 +1,7 @@
 package zhttp.http.middleware
 
 import zhttp.http._
-import zio.{UIO, ZIO}
+import zio.{URIO, ZIO}
 
 import java.util.UUID
 
@@ -19,7 +19,7 @@ private[zhttp] trait Csrf {
    */
   final def csrfGenerate[R, E](
     tokenName: String = "x-csrf-token",
-    tokenGen: ZIO[R, Nothing, String] = UIO(UUID.randomUUID.toString),
+    tokenGen: URIO[R, String] = ZIO.succeed(UUID.randomUUID.toString),
   ): HttpMiddleware[R, E] =
     Middleware.addCookieZIO(tokenGen.map(Cookie(tokenName, _)))
 

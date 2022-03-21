@@ -3,7 +3,7 @@ package zhttp.http
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-import zio.{UIO, durationInt}
+import zio.{ZIO, durationInt}
 
 object HExitSpec extends DefaultRunnableSpec with HExitAssertion {
   def spec: ZSpec[Environment, Failure] = {
@@ -13,7 +13,7 @@ object HExitSpec extends DefaultRunnableSpec with HExitAssertion {
         empty === isEmpty &&
         succeed(1) === isSuccess(equalTo(1)) &&
         fail(1) === isFailure(equalTo(1)) &&
-        fromZIO(UIO(1)) === isEffect
+        fromZIO(ZIO.succeed(1)) === isEffect
       } +
         test("flatMapError") {
           succeed(0) *> fail(1) <> fail(2) === isFailure(equalTo(2)) &&
@@ -37,9 +37,9 @@ object HExitSpec extends DefaultRunnableSpec with HExitAssertion {
               empty <+> empty === isEmpty
             } +
             test("effect") {
-              fromZIO(UIO(1)) <+> empty === isEffect &&
-              empty <+> fromZIO(UIO(1)) === isEffect &&
-              empty *> fromZIO(UIO(1)) *> fromZIO(UIO(1)) === isEmpty
+              fromZIO(ZIO.succeed(1)) <+> empty === isEffect &&
+              empty <+> fromZIO(ZIO.succeed(1)) === isEffect &&
+              empty *> fromZIO(ZIO.succeed(1)) *> fromZIO(ZIO.succeed(1)) === isEmpty
             } +
             test("nested succeed") {
               empty <+> succeed(1) <+> succeed(2) === isSuccess(equalTo(1)) &&

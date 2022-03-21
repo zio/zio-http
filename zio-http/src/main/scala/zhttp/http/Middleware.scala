@@ -80,7 +80,7 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    * Preprocesses the incoming value for the outgoing Http.
    */
   final def contramap[AOut0](f: AOut0 => AOut): Middleware[R, E, AIn, BIn, AOut0, BOut] =
-    self.contramapZIO[AOut0](a => UIO(f(a)))
+    self.contramapZIO[AOut0](a => ZIO.succeed(f(a)))
 
   /**
    * Preprocesses the incoming value using a ZIO, for the outgoing Http.
@@ -92,7 +92,7 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    * Delays the production of Http output for the specified duration
    */
   final def delay(duration: Duration): Middleware[R with Clock, E, AIn, BIn, AOut, BOut] =
-    self.mapZIO(b => UIO(b).delay(duration))
+    self.mapZIO(b => ZIO.succeed(b).delay(duration))
 
   /**
    * Creates a new Middleware from another
@@ -158,7 +158,7 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    * Applies Middleware based only if the condition function evaluates to true
    */
   final def when[AOut0 <: AOut](cond: AOut0 => Boolean): Middleware[R, E, AIn, BIn, AOut0, BOut] =
-    whenZIO(a => UIO(cond(a)))
+    whenZIO(a => ZIO.succeed(cond(a)))
 
   /**
    * Applies Middleware based only if the condition effectful function evaluates
@@ -264,7 +264,7 @@ object Middleware extends Web {
 
   final class PartialIntercept[A, B](val unit: Unit) extends AnyVal {
     def apply[S, BOut](incoming: A => S)(outgoing: (B, S) => BOut): Middleware[Any, Nothing, A, B, A, BOut] =
-      interceptZIO[A, B](a => UIO(incoming(a)))((b, s) => UIO(outgoing(b, s)))
+      interceptZIO[A, B](a => ZIO.succeed(incoming(a)))((b, s) => ZIO.succeed(outgoing(b, s)))
   }
 
   final class PartialInterceptZIO[A, B](val unit: Unit) extends AnyVal {

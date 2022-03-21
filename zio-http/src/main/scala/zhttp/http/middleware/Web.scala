@@ -110,7 +110,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    * middleware is applied.
    */
   final def runBefore[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
-    Middleware.interceptZIOPatch(_ => effect.mapError(Option(_)).unit)((_, _) => UIO(Patch.empty))
+    Middleware.interceptZIOPatch(_ => effect.mapError(Option(_)).unit)((_, _) => ZIO.succeed(Patch.empty))
 
   /**
    * Creates a new middleware that always sets the response status to the
