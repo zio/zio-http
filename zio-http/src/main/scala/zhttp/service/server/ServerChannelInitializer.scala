@@ -33,7 +33,7 @@ final case class ServerChannelInitializer[R](
     // Order of handlers are critical to make this work
     val pipeline = channel.pipeline()
 
-    log.info(s"Starting server with config: $cfg")
+    log.trace(s"Starting server with config: $cfg")
     // SSL
     // Add SSL Handler if CTX is available
     val sslctx = if (cfg.sslOption == null) null else cfg.sslOption.sslContext
