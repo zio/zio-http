@@ -1,8 +1,8 @@
 package example
 
 import io.netty.util.AsciiString
-import zhttp.http.{Http, _}
-import zhttp.service.server.{LogLevel, ServerChannelFactory}
+import zhttp.http._
+import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server}
 import zio.{App, ExitCode, UIO, URIO}
 
@@ -52,7 +52,5 @@ object Main extends App {
       Server.error(_ => UIO.unit) ++
       Server.disableLeakDetection ++
       Server.consolidateFlush ++
-      Server.disableFlowControl ++
-      Server.enableLogging(LogLevel.INFO)
-
+      Server.disableFlowControl
 }
