@@ -10,7 +10,6 @@ import io.netty.channel.{
 }
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
-import io.netty.handler.logging.LogLevel
 import zhttp.http._
 import zhttp.service
 import zhttp.service.Client.Config
@@ -86,19 +85,14 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
 
           // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
           // This is also required to make WebSocketHandlers work
-          pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
-
-          import io.netty.handler.logging.LoggingHandler
-          import io.netty.util.internal.logging.InternalLoggerFactory
-          import io.netty.util.internal.logging.JdkLoggerFactory
-          InternalLoggerFactory.setDefaultFactory(JdkLoggerFactory.INSTANCE)
-          pipeline.addLast("logger", new LoggingHandler(LogLevel.DEBUG))
+          // pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
 
           // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
-          pipeline.addLast(
-            CLIENT_INBOUND_HANDLER,
-            new ClientInboundHandler(rtm, req, promise, isWebSocket, clientConfig),
-          )
+          pipeline
+            .addLast(
+              CLIENT_INBOUND_HANDLER,
+              new ClientInboundHandler(rtm, req, promise, isWebSocket, clientConfig),
+            )
 
           // Add WebSocketHandlers if it's a `ws` or `wss` request
           if (isWebSocket) {

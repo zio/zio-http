@@ -51,12 +51,19 @@ object ClientSpec extends HttpRunnableSpec {
         val res    = app.deploy.bodyAsString
           .run(method = Method.POST, content = HttpData.fromStream(stream))
         assertM(res)(equalTo("abc"))
+      } +
+      testM("streaming content from server") {
+        val app    = Http.collect[Request] { case req => Response(data = HttpData.fromStream(req.bodyAsStream)) }
+        val stream = ZStream.fromIterable(List("a", "b", "c"))
+        val res    = app.deploy.bodyAsString
+          .run(method = Method.POST, content = HttpData.fromStream(stream))
+        assertM(res)(equalTo("abc"))
       }
   }
 
   override def spec = {
     suiteM("Client") {
       serve(DynamicServer.app).as(List(clientSpec)).useNow
-    }.provideCustomLayerShared(env) @@ timeout(5 seconds) @@ sequential
+    }.provideCustomLayerShared(env) @@ timeout(60 seconds) @@ sequential
   }
 }

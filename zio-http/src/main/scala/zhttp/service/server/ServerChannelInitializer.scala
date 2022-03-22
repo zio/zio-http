@@ -75,7 +75,7 @@ final case class ServerChannelInitializer[R](
     import io.netty.util.internal.logging.InternalLoggerFactory
     import io.netty.util.internal.logging.JdkLoggerFactory
     InternalLoggerFactory.setDefaultFactory(JdkLoggerFactory.INSTANCE)
-    pipeline.addLast("logger", new LoggingHandler(LogLevel.DEBUG))
+    pipeline.addLast("logger", new LoggingHandler(LogLevel.INFO))
 
     // RequestHandler
     // Always add ZIO Http Request Handler

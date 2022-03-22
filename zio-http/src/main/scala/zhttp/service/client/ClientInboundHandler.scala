@@ -1,10 +1,10 @@
 package zhttp.service.client
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.FullHttpResponse
-import zhttp.http.{Request, Response}
-import zhttp.service.{Client, HttpRuntime}
-import zhttp.service.server.content.handlers.ClientRequestHandler
+import io.netty.handler.codec.http._
+import zhttp.http.{HttpData, Request, Response}
+import zhttp.service.server.content.handlers.{ClientRequestHandler, ClientResponseHandler}
+import zhttp.service.{CLIENT_INBOUND_HANDLER, Client, HTTP_CLIENT_CONTENT_HANDLER, HttpRuntime}
 import zio.Promise
 
 /**
@@ -16,7 +16,7 @@ final class ClientInboundHandler[R](
   promise: Promise[Throwable, Response],
   isWebSocket: Boolean,
   val config: Client.Config,
-) extends SimpleChannelInboundHandler[FullHttpResponse](true)
+) extends SimpleChannelInboundHandler[HttpObject](true)
     with ClientRequestHandler[R] {
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
@@ -28,14 +28,43 @@ final class ClientInboundHandler[R](
     }
   }
 
-  override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
-    msg.touch("handlers.ClientInboundHandler-channelRead0")
+  override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
+    println(msg)
 
-    rt.unsafeRun(ctx)(promise.succeed(Response.unsafeFromJResponse(msg)))
-    if (isWebSocket) {
-      ctx.fireChannelRead(msg.retain())
-      ctx.pipeline().remove(ctx.name()): Unit
+    msg match {
+      case response: FullHttpResponse    =>
+        response.touch("handlers.ClientInboundHandler-channelRead0")
+
+        rt.unsafeRun(ctx)(promise.succeed(Response.unsafeFromJResponse(response)))
+        if (isWebSocket) {
+          ctx.fireChannelRead(response.retain())
+          ctx.pipeline().remove(ctx.name()): Unit
+        }
+      case response: DefaultHttpResponse =>
+        ctx.channel().config().setAutoRead(false): Unit
+        val data = HttpData.Incoming(callback =>
+          ctx
+            .pipeline()
+            .addAfter(CLIENT_INBOUND_HANDLER, HTTP_CLIENT_CONTENT_HANDLER, new ClientResponseHandler(callback)): Unit,
+        )
+
+        rt.unsafeRun(ctx) {
+
+          promise.succeed(
+            Response.unsafeFromJResponse(
+              response,
+              data,
+            ),
+          )
+
+        }
+
+      case content: HttpContent =>
+        ctx.fireChannelRead(content.retain()): Unit
+
+      case err => throw new IllegalStateException(s"Client unexpected message type: ${err}")
     }
+
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {

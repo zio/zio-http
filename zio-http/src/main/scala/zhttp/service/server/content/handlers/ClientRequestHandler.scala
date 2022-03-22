@@ -41,9 +41,10 @@ private[zhttp] trait ClientRequestHandler[R] {
       case None        => encodedReqHeaders
     }
 
-    val h = headers.add(HttpHeaderNames.TRANSFER_ENCODING, "chunked")
+    val h = headers
+      .add(HttpHeaderNames.TRANSFER_ENCODING, "chunked")
+      .add(HttpHeaderNames.USER_AGENT, "zhttp-client")
 
-    // TODO: we should also add a default user-agent req header as some APIs might reject requests without it.
     new DefaultHttpRequest(jVersion, method, path, h)
 
   }
@@ -53,10 +54,8 @@ private[zhttp] trait ClientRequestHandler[R] {
    */
   private def unsafeWriteFileContent(raf: RandomAccessFile)(implicit ctx: ChannelHandlerContext): Unit = {
     val fileLength = raf.length()
-    // Write the content.
     ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
-    // Write the end marker.
-    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
+    writeAndFlushLastHttpContent
   }
 
   /**
@@ -72,14 +71,15 @@ private[zhttp] trait ClientRequestHandler[R] {
         unsafeWriteFileContent(raf())
       case HttpData.Text(content, charset) =>
         ctx.write(new DefaultHttpContent(Unpooled.copiedBuffer(content, charset)))
-        ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
+        writeAndFlushLastHttpContent
       case HttpData.BinaryChunk(data)      =>
         ctx.write(Unpooled.copiedBuffer(data.toArray)): Unit
-        ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
+        writeAndFlushLastHttpContent
       case HttpData.BinaryByteBuf(data)    =>
         ctx.writeAndFlush(data): Unit
-      case HttpData.Empty => ctx.writeAndFlush(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)): Unit
-      case _              =>
+        writeAndFlushLastHttpContent
+      case HttpData.Empty                  => writeAndFlushLastHttpContent
+      case _                               =>
         ctx.flush(): Unit
     }
   }
@@ -95,5 +95,8 @@ private[zhttp] trait ClientRequestHandler[R] {
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
   }
+
+  private def writeAndFlushLastHttpContent(implicit ctx: Ctx): Unit =
+    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
 
 }
