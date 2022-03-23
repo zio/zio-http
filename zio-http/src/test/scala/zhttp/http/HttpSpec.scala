@@ -147,6 +147,16 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             val actual = a.execute(1)
             assert(actual)(isEffect)
           } +
+          test("should resolve scoped") {
+            val a      = Http.collectScoped[Int] { case 1 => ZIO.succeed("A") }
+            val actual = a.execute(1)
+            assert(actual)(isEffect)
+          } +
+          test("should resolve scoped") {
+            val a      = Http.collectScoped[Int] { case 1 => ZIO.succeed("A") }
+            val actual = a.execute(1)
+            assert(actual)(isEffect)
+          } +
           test("should resolve second effect") {
             val a      = Http.empty.flatten
             val b      = Http.succeed("B")
