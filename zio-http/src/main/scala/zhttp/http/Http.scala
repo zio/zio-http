@@ -494,7 +494,7 @@ object Http {
 
   /**
    * Creates an Http app which accepts a request and produces response from a
-   * scoped effect.
+   * scoped resource
    */
   def collectScoped[A]: Http.PartialCollectScoped[A] = Http.PartialCollectScoped(())
 
