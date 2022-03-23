@@ -32,6 +32,6 @@ object HttpsHelloWorld extends ZIOAppDefault {
     )
 
   override val run =
-    server.make.forever
+    (server.make *> ZIO.never)
       .provide(ServerChannelFactory.auto, EventLoopGroup.auto(0), Scope.default)
 }

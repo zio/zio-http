@@ -39,7 +39,7 @@ sealed trait Server[-R, +E] { self =>
     Server.make(self.asInstanceOf[Server[R, Throwable]])
 
   def start(implicit ev: E <:< Throwable): ZIO[R with EventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
-    ZIO.scoped[R with EventLoopGroup with ServerChannelFactory](make.forever)
+    ZIO.scoped[R with EventLoopGroup with ServerChannelFactory](make *> ZIO.never)
 
   /**
    * Launches the app with current settings: default EventLoopGroup (nThreads =
@@ -200,8 +200,7 @@ object Server {
     Server(http)
       .withPort(port)
       .make
-      .flatMap(start => ZIO.succeed(println(s"Server started on port: ${start.port}")))
-      .forever
+      .flatMap(start => ZIO.succeed(println(s"Server started on port: ${start.port}")) *> ZIO.never)
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
 
   def start[R](
@@ -209,20 +208,14 @@ object Server {
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    Server(http)
-      .withBinding(address, port)
-      .make
-      .forever
+    (Server(http).withBinding(address, port).make *> ZIO.never)
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
 
   def start[R](
     socketAddress: InetSocketAddress,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    Server(http)
-      .withBinding(socketAddress)
-      .make
-      .forever
+    (Server(http).withBinding(socketAddress).make *> ZIO.never)
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
 
   def make[R](

@@ -23,7 +23,7 @@ object Main extends ZIOAppDefault {
 
   def run = {
     frozenResponse
-      .flatMap(server(_).make.forever)
+      .flatMap(server(_).make *> ZIO.never)
       .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8) ++ Scope.default)
   }
 
