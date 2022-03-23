@@ -111,7 +111,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self >>> Http.collect(pf)
 
   final def collectScoped[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](
-    pf: PartialFunction[B1, ZIO[R1 with Scope, E1, C]],
+    pf: PartialFunction[B1, ZIO[Scope with R1, E1, C]],
   ): Http[R1, E1, A1, C] =
     self >>> Http.collectScoped[B1][R1, E1, C](pf)
 
@@ -745,7 +745,7 @@ object Http {
   }
 
   final case class PartialCollectScoped[A](unit: Unit) extends AnyVal {
-    def apply[R, E, B](pf: PartialFunction[A, ZIO[R with Scope, E, B]]): Http[R, E, A, B] =
+    def apply[R, E, B](pf: PartialFunction[A, ZIO[Scope with R, E, B]]): Http[R, E, A, B] =
       Http.collect[A] { case a if pf.isDefinedAt(a) => Http.fromZIO(ZIO.scoped[R](pf(a))) }.flatten
   }
 
