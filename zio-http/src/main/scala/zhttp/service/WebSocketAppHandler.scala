@@ -29,7 +29,7 @@ final class WebSocketAppHandler[R](
 
   override def channelUnregistered(ctx: ChannelHandlerContext): Unit = {
     app.close match {
-      case Some(v) => zExec.unsafeRun(ctx)(v(ctx.channel().remoteAddress()).uninterruptible)
+      case Some(v) => zExec.unsafeRunUninterruptible(ctx)(v(ctx.channel().remoteAddress()).uninterruptible)
       case None    => ctx.fireChannelUnregistered()
     }
     ()
