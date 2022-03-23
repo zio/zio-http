@@ -28,7 +28,7 @@ This section describes, ZIO HTTP Server and different configurations you can pro
     override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
       server.make
         .use(start =>
-          console.putStrLn(s"Server started on port ${start.port}")
+          Console.printLine(s"Server started on port ${start.port}")
           *> ZIO.never,
         ).provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(2))
         .exitCode
@@ -81,7 +81,7 @@ object HelloWorldAdvanced extends App {
     server.make
             .use(_ =>
               // Waiting for the server to start
-              console.putStrLn(s"Server started on port $PORT")
+              Console.printLine(s"Server started on port $PORT")
 
                       // Ensures the server doesn't die after printing
                       *> ZIO.never,

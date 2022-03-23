@@ -1,37 +1,34 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.channel.{
   Channel,
   ChannelFactory => JChannelFactory,
   ChannelFuture => JChannelFuture,
-  ChannelHandlerContext,
   ChannelInitializer,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
-import zhttp.http.headers.HeaderExtension
 import zhttp.service
-import zhttp.service.Client.{ClientRequest, ClientResponse}
+import zhttp.service.Client.Config
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.{Socket, SocketApp}
-import zio.{Chunk, Promise, Task, ZIO}
+import zio.{Promise, Task, ZIO}
 
-import java.net.{InetAddress, InetSocketAddress, URI}
+import java.net.{InetSocketAddress, URI}
 
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
 
-  def request(request: Client.ClientRequest): Task[Client.ClientResponse] =
+  private[zhttp] def request(request: Request, clientConfig: Config): Task[Response] =
     for {
-      promise <- Promise.make[Throwable, Client.ClientResponse]
+      promise <- Promise.make[Throwable, Response]
       jReq    <- encode(request)
       _       <- ChannelFuture
-        .unit(unsafeRequest(request, jReq, promise))
+        .unit(unsafeRequest(request, clientConfig, jReq, promise))
         .catchAll(cause => promise.fail(cause))
       res     <- promise.await
     } yield res
@@ -41,15 +38,16 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     headers: Headers = Headers.empty,
     socketApp: SocketApp[R],
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[R, Throwable, ClientResponse] = for {
+  ): ZIO[R, Throwable, Response] = for {
     env <- ZIO.environment[R]
     res <- request(
-      ClientRequest(
-        url,
+      Request(
+        version = Version.Http_1_1,
         Method.GET,
+        url,
         headers,
-        attribute = Client.Attribute(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
       ),
+      clientConfig = Client.Config(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
     )
   } yield res
 
@@ -57,9 +55,10 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
    * It handles both - Websocket and HTTP requests.
    */
   private def unsafeRequest(
-    req: ClientRequest,
+    req: Request,
+    clientConfig: Config,
     jReq: FullHttpRequest,
-    promise: Promise[Throwable, ClientResponse],
+    promise: Promise[Throwable, Response],
   ): JChannelFuture = {
 
     try {
@@ -77,7 +76,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
         override def initChannel(ch: Channel): Unit = {
 
           val pipeline                    = ch.pipeline()
-          val sslOption: ClientSSLOptions = req.attribute.ssl.getOrElse(ClientSSLOptions.DefaultSSL)
+          val sslOption: ClientSSLOptions = clientConfig.ssl.getOrElse(ClientSSLOptions.DefaultSSL)
 
           // If a https or wss request is made we need to add the ssl handler at the starting of the pipeline.
           if (isSSL) pipeline.addLast(SSL_HANDLER, ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc, host, port))
@@ -95,7 +94,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
           // Add WebSocketHandlers if it's a `ws` or `wss` request
           if (isWebSocket) {
             val headers = req.headers.encode
-            val app     = req.attribute.socketApp.getOrElse(Socket.empty.toSocketApp)
+            val app     = clientConfig.socketApp.getOrElse(Socket.empty.toSocketApp)
             val config  = app.protocol.clientBuilder
               .customHeaders(headers)
               .webSocketUri(req.url.encode)
@@ -137,18 +136,22 @@ object Client {
     headers: Headers = Headers.empty,
     content: HttpData = HttpData.empty,
     ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
     for {
       uri <- ZIO.fromEither(URL.fromString(url))
-      res <- request(ClientRequest(uri, method, headers, content, attribute = Attribute(ssl = Some(ssl))))
+      res <- request(
+        Request(Version.Http_1_1, method, uri, headers, data = content),
+        clientConfig = Config(ssl = Some(ssl)),
+      )
     } yield res
 
   def request(
-    request: ClientRequest,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, ClientResponse] =
+    request: Request,
+    clientConfig: Config,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
     for {
       clt <- make[Any]
-      res <- clt.request(request)
+      res <- clt.request(request, clientConfig)
     } yield res
 
   def socket[R](
@@ -156,7 +159,7 @@ object Client {
     app: SocketApp[R],
     headers: Headers = Headers.empty,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, ClientResponse] = {
+  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Response] = {
     for {
       clt <- make[R]
       uri <- ZIO.fromEither(URL.fromString(url))
@@ -164,63 +167,12 @@ object Client {
     } yield res
   }
 
-  final case class ClientRequest(
-    url: URL,
-    method: Method = Method.GET,
-    headers: Headers = Headers.empty,
-    private[zhttp] val data: HttpData = HttpData.empty,
-    private[zhttp] val version: Version = Version.Http_1_1,
-    private[zhttp] val attribute: Attribute = Attribute.empty,
-    private val channelContext: ChannelHandlerContext = null,
-  ) extends HeaderExtension[ClientRequest] {
-    self =>
-
-    def bodyAsString: Task[String] = bodyAsByteBuf.map(_.toString(headers.charset))
-
-    def remoteAddress: Option[InetAddress] = {
-      if (channelContext != null && channelContext.channel().remoteAddress().isInstanceOf[InetSocketAddress])
-        Some(channelContext.channel().remoteAddress().asInstanceOf[InetSocketAddress].getAddress)
-      else
-        None
-    }
-
-    /**
-     * Updates the headers using the provided function
-     */
-    override def updateHeaders(update: Headers => Headers): ClientRequest =
-      self.copy(headers = update(self.headers))
-
-    private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
+  case class Config(socketApp: Option[SocketApp[Any]] = None, ssl: Option[ClientSSLOptions] = None) { self =>
+    def withSSL(ssl: ClientSSLOptions): Config           = self.copy(ssl = Some(ssl))
+    def withSocketApp(socketApp: SocketApp[Any]): Config = self.copy(socketApp = Some(socketApp))
   }
 
-  final case class ClientResponse(status: Status, headers: Headers, private[zhttp] val buffer: ByteBuf)
-      extends HeaderExtension[ClientResponse] {
-    self =>
-
-    def body: Task[Chunk[Byte]] = ZIO.attempt(Chunk.fromArray(ByteBufUtil.getBytes(buffer)))
-
-    def bodyAsByteBuf: Task[ByteBuf] = ZIO.attempt(buffer)
-
-    def bodyAsString: Task[String] = ZIO.attempt(buffer.toString(self.charset))
-
-    override def updateHeaders(update: Headers => Headers): ClientResponse = self.copy(headers = update(headers))
-  }
-
-  case class Attribute(socketApp: Option[SocketApp[Any]] = None, ssl: Option[ClientSSLOptions] = None) { self =>
-    def withSSL(ssl: ClientSSLOptions): Attribute           = self.copy(ssl = Some(ssl))
-    def withSocketApp(socketApp: SocketApp[Any]): Attribute = self.copy(socketApp = Some(socketApp))
-  }
-
-  object ClientResponse {
-    private[zhttp] def unsafeFromJResponse(jRes: FullHttpResponse): ClientResponse = {
-      val status  = Status.fromHttpResponseStatus(jRes.status())
-      val headers = Headers.decode(jRes.headers())
-      val content = Unpooled.copiedBuffer(jRes.content())
-      Client.ClientResponse(status, headers, content)
-    }
-  }
-
-  object Attribute {
-    def empty: Attribute = Attribute()
+  object Config {
+    def empty: Config = Config()
   }
 }

@@ -4,11 +4,11 @@ import zhttp.http.Status
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zhttp.socket.{Socket, WebSocketFrame}
-import zio._
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
 import zio.test._
+import zio.{Chunk, ZIO, _}
 
 object WebSocketServerSpec extends HttpRunnableSpec {
 
@@ -26,7 +26,7 @@ object WebSocketServerSpec extends HttpRunnableSpec {
         val app   = Socket.succeed(WebSocketFrame.text("BAR")).toHttp.deployWS
         val codes = ZIO
           .foreach(1 to 1024)(_ => app(Socket.empty.toSocketApp).map(_.status))
-          .map(_.count(_ == Status.SWITCHING_PROTOCOLS))
+          .map(_.count(_ == Status.SwitchingProtocols))
 
         assertM(codes)(equalTo(1024))
       }
@@ -42,7 +42,7 @@ object WebSocketServerSpec extends HttpRunnableSpec {
       val app  = socket.toHttp.deployWS
       val open = Socket.succeed(WebSocketFrame.binary(Chunk.fromArray("Hello, World".getBytes)))
 
-      assertM(app(socket.toSocketApp.onOpen(open)).map(_.status))(equalTo(Status.SWITCHING_PROTOCOLS))
+      assertM(app(socket.toSocketApp.onOpen(open)).map(_.status))(equalTo(Status.SwitchingProtocols))
     }
   }
 }

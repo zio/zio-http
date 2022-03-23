@@ -2,8 +2,8 @@ import sbt._
 
 object Dependencies {
   val JwtCoreVersion                = "9.0.4"
-  val NettyVersion                  = "4.1.74.Final"
-  val NettyIncubatorVersion         = "0.0.12.Final"
+  val NettyVersion                  = "4.1.75.Final"
+  val NettyIncubatorVersion         = "0.0.13.Final"
   val ScalaCompactCollectionVersion = "2.6.0"
   val ZioVersion                    = "2.0.0-RC3"
   val SttpVersion                   = "3.3.18"

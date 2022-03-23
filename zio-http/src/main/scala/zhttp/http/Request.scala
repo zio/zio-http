@@ -1,26 +1,33 @@
 package zhttp.http
 
-import io.netty.buffer.{ByteBuf, ByteBufUtil}
+import io.netty.handler.codec.http.{DefaultFullHttpRequest, HttpRequest}
 import zhttp.http.headers.HeaderExtension
-import zio.{Chunk, Task, UIO, ZIO}
 
 import java.net.InetAddress
 
-trait Request extends HeaderExtension[Request] { self =>
+trait Request extends HeaderExtension[Request] with HttpDataExtension[Request] { self =>
 
   /**
    * Updates the headers using the provided function
    */
   final override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.headers))
 
-  def copy(method: Method = self.method, url: URL = self.url, headers: Headers = self.headers): Request = {
+  def copy(
+    version: Version = self.version,
+    method: Method = self.method,
+    url: URL = self.url,
+    headers: Headers = self.headers,
+  ): Request = {
     val m = method
     val u = url
     val h = headers
+    val v = version
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
       override def headers: Headers                   = h
+      override def version: Version                   = v
+      override def unsafeEncode: HttpRequest          = self.unsafeEncode
       override def remoteAddress: Option[InetAddress] = self.remoteAddress
       override def data: HttpData                     = self.data
     }
@@ -30,18 +37,6 @@ trait Request extends HeaderExtension[Request] { self =>
    * Decodes the body as a HttpData
    */
   def data: HttpData
-
-  /**
-   * Decodes the content of request as a Chunk of Bytes
-   */
-  def body: Task[Chunk[Byte]] =
-    bodyAsByteBuf.flatMap(buf => ZIO.attempt(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
-
-  /**
-   * Decodes the content of request as string
-   */
-  def bodyAsString: Task[String] =
-    bodyAsByteBuf.flatMap(buf => ZIO.attempt(buf.toString(charset)))
 
   /**
    * Gets all the headers in the Request
@@ -84,11 +79,20 @@ trait Request extends HeaderExtension[Request] { self =>
   def setUrl(url: URL): Request = self.copy(url = url)
 
   /**
+   * Gets the HttpRequest
+   */
+  private[zhttp] def unsafeEncode: HttpRequest
+
+  /**
    * Gets the complete url
    */
   def url: URL
 
-  private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
+  /**
+   * Gets the request's http protocol version
+   */
+  def version: Version
+
 }
 
 object Request {
@@ -97,6 +101,7 @@ object Request {
    * Constructor for Request
    */
   def apply(
+    version: Version = Version.`HTTP/1.1`,
     method: Method = Method.GET,
     url: URL = URL.root,
     headers: Headers = Headers.empty,
@@ -108,26 +113,23 @@ object Request {
     val h  = headers
     val ra = remoteAddress
     val d  = data
+    val v  = version
+
     new Request {
       override def method: Method                     = m
       override def url: URL                           = u
       override def headers: Headers                   = h
+      override def version: Version                   = v
+      override def unsafeEncode: HttpRequest          = {
+        val jVersion = v.toJava
+        val path     = url.relative.encode
+        new DefaultFullHttpRequest(jVersion, method.toJava, path)
+      }
       override def remoteAddress: Option[InetAddress] = ra
       override def data: HttpData                     = d
+
     }
   }
-
-  /**
-   * Effectfully create a new Request object
-   */
-  def make[E <: Throwable](
-    method: Method = Method.GET,
-    url: URL = URL.root,
-    headers: Headers = Headers.empty,
-    remoteAddress: Option[InetAddress],
-    content: HttpData = HttpData.empty,
-  ): UIO[Request] =
-    ZIO.succeed(Request(method, url, headers, remoteAddress, content))
 
   /**
    * Lift request to TypedRequest with option to extract params
@@ -137,6 +139,8 @@ object Request {
     override def method: Method                     = req.method
     override def remoteAddress: Option[InetAddress] = req.remoteAddress
     override def url: URL                           = req.url
+    override def version: Version                   = req.version
+    override def unsafeEncode: HttpRequest          = req.unsafeEncode
     override def data: HttpData                     = req.data
   }
 

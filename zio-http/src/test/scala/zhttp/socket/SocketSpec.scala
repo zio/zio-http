@@ -66,7 +66,7 @@ object SocketSpec extends DefaultRunnableSpec {
       } +
       test("toHttp") {
         val http = Socket.succeed(WebSocketFrame.ping).toHttp
-        assertM(http(()).map(_.status))(equalTo(Status.SWITCHING_PROTOCOLS))
+        assertM(http(()).map(_.status))(equalTo(Status.SwitchingProtocols))
       }
   }
 }

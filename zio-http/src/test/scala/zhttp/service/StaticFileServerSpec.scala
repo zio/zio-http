@@ -3,10 +3,10 @@ package zhttp.service
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
-import zio._
 import zio.test.Assertion.{equalTo, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertM
+import zio.{Scope, durationInt}
 
 import java.io.File
 
@@ -22,11 +22,11 @@ object StaticFileServerSpec extends HttpRunnableSpec {
   private def staticSpec = suite("Static RandomAccessFile Server") {
     suite("fromResource") {
       suite("file") {
-        val fileOk       = Http.fromResource("/TestFile.txt").deploy
-        val fileNotFound = Http.fromResource("/Nothing").deploy
+        val fileOk       = Http.fromResource("TestFile.txt").deploy
+        val fileNotFound = Http.fromResource("Nothing").deploy
         test("should have 200 status code") {
           val res = fileOk.run().map(_.status)
-          assertM(res)(equalTo(Status.OK))
+          assertM(res)(equalTo(Status.Ok))
         } +
           test("should have content-length") {
             val res = fileOk.run().map(_.contentLength)
@@ -42,7 +42,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           } +
           test("should respond with empty") {
             val res = fileNotFound.run().map(_.status)
-            assertM(res)(equalTo(Status.NOT_FOUND))
+            assertM(res)(equalTo(Status.NotFound))
           }
       }
     } +
@@ -50,7 +50,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
         suite("failure on construction") {
           test("should respond with 500") {
             val res = Http.fromFile(throw new Error("Wut happened?")).deploy.run().map(_.status)
-            assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+            assertM(res)(equalTo(Status.InternalServerError))
           }
         } +
           suite("invalid file") {
@@ -60,7 +60,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
                 override def isFile: Boolean = true
               }
               val res = Http.fromFile(new BadFile("Length Failure")).deploy.run().map(_.status)
-              assertM(res)(equalTo(Status.INTERNAL_SERVER_ERROR))
+              assertM(res)(equalTo(Status.InternalServerError))
             }
           }
       }

@@ -1,6 +1,5 @@
 package zhttp.http
 
-import zhttp.service.Client
 import zio.Chunk
 import zio.test.Assertion._
 import zio.test._
@@ -18,12 +17,11 @@ object GetBodyAsStringSpec extends DefaultRunnableSpec {
       test("should map bytes according to charset given") {
 
         check(charsetGen) { charset =>
-          val request = Client
-            .ClientRequest(
-              URL(!!),
-              headers = Headers.contentType(s"text/html; charset=$charset"),
-              data = HttpData.BinaryChunk(Chunk.fromArray("abc".getBytes(charset))),
-            )
+          val request = Request(
+            url = URL(!!),
+            headers = Headers.contentType(s"text/html; charset=$charset"),
+            data = HttpData.BinaryChunk(Chunk.fromArray("abc".getBytes(charset))),
+          )
 
           val encoded  = request.bodyAsString
           val expected = new String(Chunk.fromArray("abc".getBytes(charset)).toArray, charset)
@@ -31,7 +29,7 @@ object GetBodyAsStringSpec extends DefaultRunnableSpec {
         }
       } +
         test("should map bytes to default utf-8 if no charset given") {
-          val request  = Client.ClientRequest(URL(!!), data = HttpData.BinaryChunk(Chunk.fromArray("abc".getBytes())))
+          val request  = Request(url = URL(!!), data = HttpData.BinaryChunk(Chunk.fromArray("abc".getBytes())))
           val encoded  = request.bodyAsString
           val expected = new String(Chunk.fromArray("abc".getBytes()).toArray, HTTP_CHARSET)
           assertM(encoded)(equalTo(expected))

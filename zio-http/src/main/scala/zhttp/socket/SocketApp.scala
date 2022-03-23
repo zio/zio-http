@@ -23,7 +23,7 @@ final case class SocketApp[-R](
    * Creates a socket connection on the provided URL. Typically used to connect
    * as a client.
    */
-  def connect(url: String): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] =
+  def connect(url: String): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Response] =
     Client.socket(url, self)
 
   /**
