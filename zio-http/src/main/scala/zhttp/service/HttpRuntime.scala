@@ -1,7 +1,7 @@
 package zhttp.service
 
 import io.netty.channel.{ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
-import io.netty.util.concurrent.{EventExecutor, Future, GenericFutureListener}
+import io.netty.util.concurrent.EventExecutor
 import zio._
 import zio.internal.Executor
 
@@ -23,16 +23,7 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
     // When connection closes, interrupt the program
 
     rtm
-      .unsafeRunAsync(for {
-        fiber <- program.fork
-        close <- UIO {
-          val close = closeListener(rtm, fiber)
-          ctx.channel().closeFuture.addListener(close)
-          close
-        }
-        _     <- fiber.join
-        _     <- UIO(ctx.channel().closeFuture().removeListener(close))
-      } yield ()) {
+      .unsafeRunAsync(program) {
         case Exit.Success(_)     => ()
         case Exit.Failure(cause) =>
           cause.failureOption.orElse(cause.dieOption) match {
@@ -42,9 +33,6 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
           if (ctx.channel().isOpen) ctx.close()
       }
   }
-
-  private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
-    (_: Future[_ >: Void]) => rtm.unsafeRunAsync_(fiber.interrupt): Unit
 }
 
 object HttpRuntime {
