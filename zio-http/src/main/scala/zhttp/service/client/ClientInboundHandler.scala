@@ -61,7 +61,7 @@ final class ClientInboundHandler[R](
       case content: HttpContent       =>
         val c = ReferenceCountUtil.retain(content)
         println(c.content().toString(HTTP_CHARSET))
-        ctx.fireChannelRead(c): Unit
+        ctx.fireChannelRead(c.retain()): Unit
       // ctx.fireChannelRead(ReferenceCountUtil.retain(content)): Unit
 
       case err => throw new IllegalStateException(s"Client unexpected message type: ${err}")
