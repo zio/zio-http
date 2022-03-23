@@ -19,28 +19,28 @@ final class ChannelFuture[A] private (jFuture: Future[A]) {
       .async[Any, Throwable, Option[A]](cb => {
         handler = _ => {
           jFuture.cause() match {
-            case null                     => cb(Task(Option(jFuture.get)))
-            case _: CancellationException => cb(UIO(Option.empty))
+            case null                     => cb(ZIO.attempt(Option(jFuture.get)))
+            case _: CancellationException => cb(ZIO.succeed(Option.empty))
             case cause                    => cb(ZIO.fail(cause))
           }
         }
         jFuture.addListener(handler)
       })
-      .onInterrupt(UIO(jFuture.removeListener(handler)))
+      .onInterrupt(ZIO.succeed(jFuture.removeListener(handler)))
   }
 
-  def toManaged: ZManaged[Any, Throwable, Option[A]] = {
-    execute.toManagedWith(_ => cancel(true))
+  def scoped: ZIO[Scope, Throwable, Option[A]] = {
+    execute.withFinalizer(cancel(true))
   }
 
   // Cancels the future
-  def cancel(interruptIfRunning: Boolean = false): UIO[Boolean] = UIO(jFuture.cancel(interruptIfRunning))
+  def cancel(interruptIfRunning: Boolean = false): UIO[Boolean] = ZIO.succeed(jFuture.cancel(interruptIfRunning))
 }
 
 object ChannelFuture {
-  def make[A](jFuture: => Future[A]): Task[ChannelFuture[A]] = Task(new ChannelFuture(jFuture))
+  def make[A](jFuture: => Future[A]): Task[ChannelFuture[A]] = ZIO.attempt(new ChannelFuture(jFuture))
 
   def unit[A](jFuture: => Future[A]): Task[Unit] = make(jFuture).flatMap(_.execute.unit)
 
-  def asManaged[A](jFuture: => Future[A]): TaskManaged[Unit] = make(jFuture).toManaged.flatMap(_.toManaged.unit)
+  def scoped[A](jFuture: => Future[A]): ZIO[Scope, Throwable, Unit] = make(jFuture).flatMap(_.scoped.unit)
 }

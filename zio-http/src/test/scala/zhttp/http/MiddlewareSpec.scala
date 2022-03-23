@@ -25,7 +25,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
       test("interceptZIO") {
         for {
           ref <- Ref.make(0)
-          mid = Middleware.interceptZIO[Int, Int](i => UIO(i * 10))((i, j) => ref.set(i + j))
+          mid = Middleware.interceptZIO[Int, Int](i => ZIO.succeed(i * 10))((i, j) => ref.set(i + j))
           app = Http.identity[Int] @@ mid
           _ <- app(1)
           i <- ref.get
@@ -49,7 +49,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
         assertM(app(0))(equalTo(3))
       } +
       test("mapZIO") {
-        val mid = increment.mapZIO(i => UIO(i + 1))
+        val mid = increment.mapZIO(i => ZIO.succeed(i + 1))
         val app = Http.identity[Int] @@ mid
         assertM(app(0))(equalTo(3))
       } +
@@ -88,7 +88,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
           }
       } +
       suite("ifThenElseZIO") {
-        val mid = Middleware.ifThenElseZIO[Int](i => UIO(i > 5))(
+        val mid = Middleware.ifThenElseZIO[Int](i => ZIO.succeed(i > 5))(
           isTrue = i => Middleware.succeed(i + 1),
           isFalse = i => Middleware.succeed(i - 1),
         )
@@ -108,7 +108,7 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
           assertM(app(0))(equalTo("0Foo0FooBar"))
         } +
           test("contramapZIO") {
-            val app = Http.identity[String] @@ mid.contramapZIO[Int] { i => UIO(s"${i}Foo") }
+            val app = Http.identity[String] @@ mid.contramapZIO[Int] { i => ZIO.succeed(s"${i}Foo") }
             assertM(app(0))(equalTo("0Foo0FooBar"))
           }
       } +
@@ -126,11 +126,11 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
       suite("whenZIO") {
         val mid = Middleware.succeed(0)
         test("condition is true") {
-          val app = Http.identity[Int] @@ mid.whenZIO[Any, Nothing, Int](_ => UIO(true))
+          val app = Http.identity[Int] @@ mid.whenZIO[Any, Nothing, Int](_ => ZIO.succeed(true))
           assertM(app(10))(equalTo(0))
         } +
           test("condition is false") {
-            val app = Http.identity[Int] @@ mid.whenZIO[Any, Nothing, Int](_ => UIO(false))
+            val app = Http.identity[Int] @@ mid.whenZIO[Any, Nothing, Int](_ => ZIO.succeed(false))
             assertM(app(1))(equalTo(1))
           }
       } +

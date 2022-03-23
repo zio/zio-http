@@ -13,7 +13,7 @@ import java.net.ConnectException
 object ClientSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
 
   def clientSpec = suite("ClientSpec") {
     test("respond Ok") {
@@ -48,7 +48,7 @@ object ClientSpec extends HttpRunnableSpec {
 
   override def spec = {
     suite("Client") {
-      serve(DynamicServer.app).as(List(clientSpec)).useNow
+      serve(DynamicServer.app).as(List(clientSpec))
     }.provideCustomLayerShared(env) @@ timeout(5 seconds) @@ sequential
   }
 }

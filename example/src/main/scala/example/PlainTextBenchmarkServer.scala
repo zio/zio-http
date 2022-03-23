@@ -23,8 +23,8 @@ object Main extends ZIOAppDefault {
 
   def run = {
     frozenResponse
-      .flatMap(server(_).make.useForever)
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
+      .flatMap(server(_).make.forever)
+      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8) ++ Scope.default)
   }
 
   private def app(response: Response) = Http.response(response)

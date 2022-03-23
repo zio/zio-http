@@ -138,22 +138,22 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
       ) +
       suite("collectM")(
         test("should be empty") {
-          val a      = Http.collectZIO[Int] { case 1 => UIO("A") }
+          val a      = Http.collectZIO[Int] { case 1 => ZIO.succeed("A") }
           val actual = a.execute(2)
           assert(actual)(isEmpty)
         } +
           test("should resolve") {
-            val a      = Http.collectZIO[Int] { case 1 => UIO("A") }
+            val a      = Http.collectZIO[Int] { case 1 => ZIO.succeed("A") }
             val actual = a.execute(1)
             assert(actual)(isEffect)
           } +
-          test("should resolve managed") {
-            val a      = Http.collectManaged[Int] { case 1 => ZManaged.succeed("A") }
+          test("should resolve scoped") {
+            val a      = Http.collectScoped[Int] { case 1 => ZIO.succeed("A") }
             val actual = a.execute(1)
             assert(actual)(isEffect)
           } +
-          test("should resolve managed") {
-            val a      = Http.collectManaged[Int] { case 1 => ZManaged.succeed("A") }
+          test("should resolve scoped") {
+            val a      = Http.collectScoped[Int] { case 1 => ZIO.succeed("A") }
             val actual = a.execute(1)
             assert(actual)(isEffect)
           } +
@@ -281,11 +281,11 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
           assertM(http(()))(equalTo(1))
         } +
           test("sync right wins") {
-            val http = Http.fromZIO(UIO(1)) race Http.succeed(2)
+            val http = Http.fromZIO(ZIO.succeed(1)) race Http.succeed(2)
             assertM(http(()))(equalTo(2))
           } +
           test("sync left wins") {
-            val http = Http.succeed(1) race Http.fromZIO(UIO(2))
+            val http = Http.succeed(1) race Http.fromZIO(ZIO.succeed(2))
             assertM(http(()))(equalTo(1))
           } +
           test("async fast wins") {

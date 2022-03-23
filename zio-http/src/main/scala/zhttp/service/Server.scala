@@ -7,7 +7,7 @@ import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
-import zio.{ZManaged, _}
+import zio._
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -35,11 +35,11 @@ sealed trait Server[-R, +E] { self =>
 
   def make(implicit
     ev: E <:< Throwable,
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Start] =
+  ): ZIO[R with EventLoopGroup with ServerChannelFactory with Scope, Throwable, Start] =
     Server.make(self.asInstanceOf[Server[R, Throwable]])
 
   def start(implicit ev: E <:< Throwable): ZIO[R with EventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
-    make.useForever
+    ZIO.scoped[R with EventLoopGroup with ServerChannelFactory](make.forever)
 
   /**
    * Launches the app with current settings: default EventLoopGroup (nThreads =
@@ -196,50 +196,49 @@ object Server {
   def start[R](
     port: Int,
     http: HttpApp[R, Throwable],
-  ): ZIO[R, Throwable, Nothing] = {
-    (Server(http)
-      .withPort(port))
+  ): ZIO[R, Throwable, Nothing] =
+    Server(http)
+      .withPort(port)
       .make
-      .flatMap(start => ZManaged.succeed(println(s"Server started on port: ${start.port}")))
-      .useForever
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
-  }
+      .flatMap(start => ZIO.succeed(println(s"Server started on port: ${start.port}")))
+      .forever
+      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
 
   def start[R](
     address: InetAddress,
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    (Server(http)
-      .withBinding(address, port))
+    Server(http)
+      .withBinding(address, port)
       .make
-      .useForever
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
+      .forever
+      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
 
   def start[R](
     socketAddress: InetSocketAddress,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    (Server(http)
-      .withBinding(socketAddress))
+    Server(http)
+      .withBinding(socketAddress)
       .make
-      .useForever
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
+      .forever
+      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
 
   def make[R](
     server: Server[R, Throwable],
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Start] = {
+  ): ZIO[R with EventLoopGroup with ServerChannelFactory with Scope, Throwable, Start] = {
     val settings = server.settings()
     for {
-      channelFactory <- ZManaged.service[ServerChannelFactory]
-      eventLoopGroup <- ZManaged.service[EventLoopGroup]
-      zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged
+      channelFactory <- ZIO.service[ServerChannelFactory]
+      eventLoopGroup <- ZIO.service[EventLoopGroup]
+      zExec          <- HttpRuntime.sticky[R](eventLoopGroup)
       reqHandler      = settings.app.compile(zExec, settings, ServerTime.make)
       init            = ServerChannelInitializer(zExec, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
-      chf  <- ZManaged.attempt(serverBootstrap.childHandler(init).bind(settings.address))
-      _    <- ChannelFuture.asManaged(chf)
-      port <- ZManaged.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
+      chf  <- ZIO.attempt(serverBootstrap.childHandler(init).bind(settings.address))
+      _    <- ChannelFuture.scoped(chf)
+      port <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield {
       ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
       Start(port)

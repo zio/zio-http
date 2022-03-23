@@ -20,7 +20,7 @@ object ServerSpec extends HttpRunnableSpec {
   } yield (data.mkString(""), content)
 
   private def env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
 
   private def staticApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
@@ -262,12 +262,12 @@ object ServerSpec extends HttpRunnableSpec {
   def serverStartSpec = suite("ServerStartSpec") {
     test("desired port") {
       val port = 8088
-      (Server.port(port) ++ Server.app(Http.empty)).make.use { start =>
+      (Server.port(port) ++ Server.app(Http.empty)).make.flatMap { start =>
         assertM(ZIO.attempt(start.port))(equalTo(port))
       }
     } +
       test("available port") {
-        (Server.port(0) ++ Server.app(Http.empty)).make.use { start =>
+        (Server.port(0) ++ Server.app(Http.empty)).make.flatMap { start =>
           assertM(ZIO.attempt(start.port))(not(equalTo(0)))
         }
       }
@@ -275,7 +275,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   override def spec =
     suite("Server") {
-      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, nonZIOSpec)).useNow
+      app.as(List(serverStartSpec, staticAppSpec, dynamicAppSpec, responseSpec, requestSpec, nonZIOSpec))
     }.provideCustomLayerShared(env) @@ timeout(30 seconds)
 
   def staticAppSpec = suite("StaticAppSpec") {

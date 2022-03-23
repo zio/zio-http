@@ -13,11 +13,11 @@ import zio.test._
 object WebSocketServerSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ChannelFactory.nio
+    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ChannelFactory.nio ++ Scope.default
   private val app = serve { DynamicServer.app }
 
   override def spec = suite("Server") {
-    app.as(List(websocketServerSpec, websocketFrameSpec)).useNow
+    app.as(List(websocketServerSpec, websocketFrameSpec))
   }.provideCustomLayerShared(env) @@ timeout(10 seconds)
 
   def websocketServerSpec = suite("WebSocketServer") {

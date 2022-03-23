@@ -42,11 +42,12 @@ object ContentTypeSpec extends HttpRunnableSpec {
       }
   }
 
-  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+  private val env =
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
 
   override def spec = {
     suite("Content-type") {
-      serve(DynamicServer.app).as(List(contentSpec)).useNow
+      serve(DynamicServer.app).as(List(contentSpec))
     }.provideCustomLayerShared(env) @@ timeout(5 seconds)
   }
 }

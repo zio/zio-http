@@ -82,7 +82,7 @@ final case class SocketApp[-R](
    * Provides the socket app with its required environment, which eliminates its
    * dependency on `R`.
    */
-  def provideEnvironment(env: ZEnvironment[R])(implicit ev: NeedsEnv[R]): SocketApp[Any] =
+  def provideEnvironment(env: ZEnvironment[R]): SocketApp[Any] =
     self.copy(
       timeout = self.timeout.map(_.provideEnvironment(env)),
       open = self.open.map(_.provideEnvironment(env)),
@@ -134,7 +134,7 @@ object SocketApp {
       }
     }
 
-    def provideEnvironment(r: ZEnvironment[R])(implicit ev: NeedsEnv[R]): Handle[Any] =
+    def provideEnvironment(r: ZEnvironment[R]): Handle[Any] =
       self match {
         case WithEffect(f) => WithEffect(c => f(c).provideEnvironment(r))
         case WithSocket(s) => WithSocket(s.provideEnvironment(r))

@@ -24,13 +24,13 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
     rtm
       .unsafeRunAsyncWith(for {
         fiber <- program.fork
-        close <- UIO {
+        close <- ZIO.succeed {
           val close = closeListener(rtm, fiber)
           ctx.channel().closeFuture.addListener(close)
           close
         }
         _     <- fiber.join
-        _     <- UIO(ctx.channel().closeFuture().removeListener(close))
+        _     <- ZIO.succeed(ctx.channel().closeFuture().removeListener(close))
       } yield ()) {
         case Exit.Success(_)     => ()
         case Exit.Failure(cause) =>

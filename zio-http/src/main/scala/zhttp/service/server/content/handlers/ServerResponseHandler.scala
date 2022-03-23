@@ -7,8 +7,8 @@ import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Response}
 import zhttp.service.server.ServerTime
 import zhttp.service.{ChannelFuture, HttpRuntime}
+import zio.ZIO
 import zio.stream.ZStream
-import zio.{UIO, ZIO}
 
 import java.io.RandomAccessFile
 
@@ -25,7 +25,7 @@ private[zhttp] trait ServerResponseHandler[R] {
     msg.data match {
       case HttpData.BinaryStream(stream)  =>
         rt.unsafeRun(ctx) {
-          writeStreamContent(stream).ensuring(UIO(releaseRequest(jReq)))
+          writeStreamContent(stream).ensuring(ZIO.succeed(releaseRequest(jReq)))
         }
       case HttpData.RandomAccessFile(raf) =>
         unsafeWriteFileContent(raf())
@@ -78,7 +78,7 @@ private[zhttp] trait ServerResponseHandler[R] {
     stream: ZStream[R, Throwable, ByteBuf],
   )(implicit ctx: Ctx): ZIO[R, Throwable, Unit] = {
     for {
-      _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
+      _ <- stream.foreach(c => ZIO.succeed(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
   }
