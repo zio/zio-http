@@ -15,8 +15,8 @@ import scala.jdk.CollectionConverters._
  * channel closes.
  */
 final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
-  def unsafeRun(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
 
+  def unsafeRun(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
     val rtm = strategy.runtime(ctx)
 
     // Close the connection if the program fails
@@ -34,13 +34,27 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
         _     <- UIO(ctx.channel().closeFuture().removeListener(close))
       } yield ()) {
         case Exit.Success(_)     => ()
-        case Exit.Failure(cause) =>
-          cause.failureOption.orElse(cause.dieOption) match {
-            case None    => ()
-            case Some(_) => System.err.println(cause.prettyPrint)
-          }
-          if (ctx.channel().isOpen) ctx.close()
+        case Exit.Failure(cause) => onFailure(ctx, cause)
       }
+  }
+
+  def unsafeRunUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
+    val rtm = strategy.runtime(ctx)
+
+    rtm
+      .unsafeRunAsync(program) {
+        case Exit.Success(_)     => ()
+        case Exit.Failure(cause) => onFailure(ctx, cause)
+
+      }
+  }
+
+  private def onFailure(ctx: ChannelHandlerContext, cause: Cause[Throwable]) = {
+    cause.failureOption.orElse(cause.dieOption) match {
+      case None    => ()
+      case Some(_) => System.err.println(cause.prettyPrint)
+    }
+    if (ctx.channel().isOpen) ctx.close()
   }
 
   private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
