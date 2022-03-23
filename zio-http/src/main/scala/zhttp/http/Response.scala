@@ -2,7 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
-import io.netty.handler.codec.http.{DefaultHttpResponse, FullHttpResponse, HttpHeaderNames, HttpResponse}
+import io.netty.handler.codec.http.{FullHttpResponse, HttpHeaderNames, HttpResponse}
 import zhttp.html._
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
@@ -222,7 +222,7 @@ object Response {
     Response(status, headers, data)
   }
 
-  private[zhttp] def unsafeFromJResponse(jRes: DefaultHttpResponse, data: HttpData): Response = {
+  private[zhttp] def unsafeFromJResponse(jRes: HttpResponse, data: HttpData): Response = {
     val status  = Status.fromHttpResponseStatus(jRes.status())
     val headers = Headers.decode(jRes.headers())
     Response(status, headers, data)

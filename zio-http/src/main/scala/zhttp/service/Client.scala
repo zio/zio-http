@@ -85,14 +85,22 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
 
           // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
           // This is also required to make WebSocketHandlers work
-          // pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
+          if (clientConfig.useAggregator) {
+            pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
+            pipeline
+              .addLast(
+                CLIENT_INBOUND_HANDLER,
+                new ClientInboundHandler(rtm, req, promise, isWebSocket, clientConfig),
+              )
+          } else {
 
-          // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
-          pipeline
-            .addLast(
-              CLIENT_INBOUND_HANDLER,
-              new ClientInboundHandler(rtm, req, promise, isWebSocket, clientConfig),
-            )
+            // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
+            pipeline
+              .addLast(
+                CLIENT_INBOUND_HANDLER,
+                new ClientInboundHandler(rtm, req, promise, isWebSocket, clientConfig),
+              )
+          }
 
           // Add WebSocketHandlers if it's a `ws` or `wss` request
           if (isWebSocket) {
@@ -177,6 +185,7 @@ object Client {
   ) { self =>
     def withSSL(ssl: ClientSSLOptions): Config           = self.copy(ssl = Some(ssl))
     def withSocketApp(socketApp: SocketApp[Any]): Config = self.copy(socketApp = Some(socketApp))
+    def withAggregator(useAggregator: Boolean): Config   = self.copy(useAggregator = useAggregator)
   }
 
   object Config {

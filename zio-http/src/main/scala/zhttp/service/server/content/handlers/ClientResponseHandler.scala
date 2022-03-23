@@ -18,6 +18,7 @@ final class ClientResponseHandler(val callback: UnsafeChannel => UnsafeContent =
   }
 
   override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
+    println("Client response handler: added")
     self.onMessage = callback(new UnsafeChannel(ctx))
     ctx.read(): Unit
   }
