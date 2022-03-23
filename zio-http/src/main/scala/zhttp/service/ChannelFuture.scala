@@ -29,7 +29,7 @@ final class ChannelFuture[A] private (jFuture: Future[A]) {
       .onInterrupt(ZIO.succeed(jFuture.removeListener(handler)))
   }
 
-  def scoped: ZIO[Scope, Throwable, Option[A]] = {
+  def toZIO: ZIO[Scope, Throwable, Option[A]] = {
     execute.withFinalizer(cancel(true))
   }
 
@@ -42,5 +42,5 @@ object ChannelFuture {
 
   def unit[A](jFuture: => Future[A]): Task[Unit] = make(jFuture).flatMap(_.execute.unit)
 
-  def scoped[A](jFuture: => Future[A]): ZIO[Scope, Throwable, Unit] = make(jFuture).flatMap(_.scoped.unit)
+  def asZIO[A](jFuture: => Future[A]): ZIO[Scope, Throwable, Unit] = make(jFuture).flatMap(_.toZIO.unit)
 }
