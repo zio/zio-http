@@ -28,8 +28,7 @@ object ClientHttpsSpec extends DefaultRunnableSpec {
 
   val sslOption: ClientSSLOptions =
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
-
-  override def spec = suite("Https Client request") {
+  override def spec               = suite("Https Client request") {
     test("respond Ok") {
       val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
       assertM(actual)(anything)
@@ -45,7 +44,7 @@ object ClientHttpsSpec extends DefaultRunnableSpec {
             ssl = sslOption,
           )
           .map(_.status)
-        assertM(actual)(equalTo(Status.BAD_REQUEST))
+        assertM(actual)(equalTo(Status.BadRequest))
       } +
       test("should throw DecoderException for handshake failure") {
         val actual = Client
@@ -56,5 +55,5 @@ object ClientHttpsSpec extends DefaultRunnableSpec {
           .exit
         assertM(actual)(fails(isSubtype[DecoderException](anything)))
       }
-  }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ ignore
+  }.provideCustomLayer(env) @@ timeout(30 seconds) @@ ignore
 }

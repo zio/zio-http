@@ -4,36 +4,39 @@ import io.netty.buffer.Unpooled
 import zhttp.http.Scheme.{HTTP, HTTPS, WS, WSS}
 import zhttp.http.URL.Location
 import zhttp.http._
-import zhttp.service.Client.ClientRequest
-import zio._
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
+import zio.{Chunk, ZIO, _}
 
 import java.io.File
 
 object HttpGen {
-  def clientParamsForFileHttpData(): Gen[Random with Sized, ClientRequest] = {
+  def clientParamsForFileHttpData(): Gen[Random with Sized, Request] = {
     for {
       file    <- Gen.fromZIO(ZIO.succeed(new File(getClass.getResource("/TestFile.txt").getPath)))
       method  <- HttpGen.method
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
-    } yield ClientRequest(url, method, headers, HttpData.fromFile(file))
+      version <- httpVersion
+    } yield Request(version, method, url, headers, data = HttpData.fromFile(file))
   }
 
-  def clientRequest[R](
+  def requestGen[R](
     dataGen: Gen[R, HttpData],
     methodGen: Gen[R, Method] = HttpGen.method,
     urlGen: Gen[Random with Sized, URL] = HttpGen.url,
     headerGen: Gen[Random with Sized, Header] = HttpGen.header,
-  ): Gen[R with Random with Sized, ClientRequest] =
+  ): Gen[R with Random with Sized, Request] =
     for {
       method  <- methodGen
       url     <- urlGen
       headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
-      version <- Gen.fromIterable(List(Version.Http_1_0, Version.Http_1_1))
-    } yield ClientRequest(url, method, headers, data, version)
+      version <- httpVersion
+    } yield Request(version, method, url, headers, data = data)
+
+  def httpVersion: Gen[Random with Sized, Version] =
+    Gen.fromIterable(List(Version.Http_1_0, Version.Http_1_1))
 
   def cookies: Gen[Random with Sized, Cookie] = for {
     name     <- Gen.string
@@ -122,11 +125,12 @@ object HttpGen {
   }
 
   def request: Gen[Random with Sized, Request] = for {
+    version <- httpVersion
     method  <- HttpGen.method
     url     <- HttpGen.url
     headers <- Gen.listOf(HttpGen.header).map(Headers(_))
     data    <- HttpGen.httpData(Gen.listOf(Gen.alphaNumericString))
-  } yield Request(method, url, headers, None, data)
+  } yield Request(version, method, url, headers, None, data)
 
   def response[R](gContent: Gen[R, List[String]]): Gen[Random with Sized with R, Response] = {
     for {
@@ -140,62 +144,62 @@ object HttpGen {
 
   def status: Gen[Any, Status] = Gen.fromIterable(
     List(
-      Status.CONTINUE,
-      Status.SWITCHING_PROTOCOLS,
-      Status.PROCESSING,
-      Status.OK,
-      Status.CREATED,
-      Status.ACCEPTED,
-      Status.NON_AUTHORITATIVE_INFORMATION,
-      Status.NO_CONTENT,
-      Status.RESET_CONTENT,
-      Status.PARTIAL_CONTENT,
-      Status.MULTI_STATUS,
-      Status.MULTIPLE_CHOICES,
-      Status.MOVED_PERMANENTLY,
-      Status.FOUND,
-      Status.SEE_OTHER,
-      Status.NOT_MODIFIED,
-      Status.USE_PROXY,
-      Status.TEMPORARY_REDIRECT,
-      Status.PERMANENT_REDIRECT,
-      Status.BAD_REQUEST,
-      Status.UNAUTHORIZED,
-      Status.PAYMENT_REQUIRED,
-      Status.FORBIDDEN,
-      Status.NOT_FOUND,
-      Status.METHOD_NOT_ALLOWED,
-      Status.NOT_ACCEPTABLE,
-      Status.PROXY_AUTHENTICATION_REQUIRED,
-      Status.REQUEST_TIMEOUT,
-      Status.CONFLICT,
-      Status.GONE,
-      Status.LENGTH_REQUIRED,
-      Status.PRECONDITION_FAILED,
-      Status.REQUEST_ENTITY_TOO_LARGE,
-      Status.REQUEST_URI_TOO_LONG,
-      Status.UNSUPPORTED_MEDIA_TYPE,
-      Status.REQUESTED_RANGE_NOT_SATISFIABLE,
-      Status.EXPECTATION_FAILED,
-      Status.MISDIRECTED_REQUEST,
-      Status.UNPROCESSABLE_ENTITY,
-      Status.LOCKED,
-      Status.FAILED_DEPENDENCY,
-      Status.UNORDERED_COLLECTION,
-      Status.UPGRADE_REQUIRED,
-      Status.PRECONDITION_REQUIRED,
-      Status.TOO_MANY_REQUESTS,
-      Status.REQUEST_HEADER_FIELDS_TOO_LARGE,
-      Status.INTERNAL_SERVER_ERROR,
-      Status.NOT_IMPLEMENTED,
-      Status.BAD_GATEWAY,
-      Status.SERVICE_UNAVAILABLE,
-      Status.GATEWAY_TIMEOUT,
-      Status.HTTP_VERSION_NOT_SUPPORTED,
-      Status.VARIANT_ALSO_NEGOTIATES,
-      Status.INSUFFICIENT_STORAGE,
-      Status.NOT_EXTENDED,
-      Status.NETWORK_AUTHENTICATION_REQUIRED,
+      Status.Continue,
+      Status.SwitchingProtocols,
+      Status.Processing,
+      Status.Ok,
+      Status.Created,
+      Status.Accepted,
+      Status.NonAuthoritiveInformation,
+      Status.NoContent,
+      Status.ResetContent,
+      Status.PartialContent,
+      Status.MultiStatus,
+      Status.MultipleChoices,
+      Status.MovedPermanently,
+      Status.Found,
+      Status.SeeOther,
+      Status.NotModified,
+      Status.UseProxy,
+      Status.TemporaryRedirect,
+      Status.PermanentRedirect,
+      Status.BadRequest,
+      Status.Unauthorized,
+      Status.PaymentRequired,
+      Status.Forbidden,
+      Status.NotFound,
+      Status.MethodNotAllowed,
+      Status.NotAcceptable,
+      Status.ProxyAuthenticationRequired,
+      Status.RequestTimeout,
+      Status.Conflict,
+      Status.Gone,
+      Status.LengthRequired,
+      Status.PreconditionFailed,
+      Status.RequestEntityTooLarge,
+      Status.RequestUriTooLong,
+      Status.UnsupportedMediaType,
+      Status.RequestedRangeNotSatisfiable,
+      Status.ExpectationFailed,
+      Status.MisdirectedRequest,
+      Status.UnprocessableEntity,
+      Status.Locked,
+      Status.FailedDependency,
+      Status.UnorderedCollection,
+      Status.UpgradeRequired,
+      Status.PreconditionRequired,
+      Status.TooManyRequests,
+      Status.RequestHeaderFieldsTooLarge,
+      Status.InternalServerError,
+      Status.NotImplemented,
+      Status.BadGateway,
+      Status.ServiceUnavailable,
+      Status.GatewayTimeout,
+      Status.HttpVersionNotSupported,
+      Status.VariantAlsoNegotiates,
+      Status.InsufficientStorage,
+      Status.NotExtended,
+      Status.NetworkAuthenticationRequired,
     ),
   )
 

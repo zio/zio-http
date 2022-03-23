@@ -41,7 +41,7 @@ private[zhttp] trait Csrf {
           case _                                      => true
         }
       },
-      Middleware.succeed(Response.status(Status.FORBIDDEN)),
+      Middleware.succeed(Response.status(Status.Forbidden)),
     )
   }
 }
