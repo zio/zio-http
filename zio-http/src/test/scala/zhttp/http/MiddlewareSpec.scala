@@ -152,6 +152,25 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
             val app = Http.identity[Int] @@ mid
             assertM(app("1").run)(fails(anything))
           }
+      } +
+      suite("codecHttp") {
+        testM("codec success") {
+          val a   = Http.collect[Int] { case v => v.toString }
+          val b   = Http.collect[String] { case v => v.toInt }
+          val mid = Middleware.codecHttp[String, Int](b, a)
+          val app = Http.identity[Int] @@ mid
+          assertM(app("2"))(equalTo("2"))
+        } +
+          testM("encoder failure") {
+            val mid = Middleware.codecHttp[String, Int](Http.succeed(1), Http.fail("fail"))
+            val app = Http.identity[Int] @@ mid
+            assertM(app("2").run)(fails(anything))
+          } +
+          testM("decoder failure") {
+            val mid = Middleware.codecHttp[String, Int](Http.fail("fail"), Http.succeed(2))
+            val app = Http.identity[Int] @@ mid
+            assertM(app("2").run)(fails(anything))
+          }
       }
   }
 }
