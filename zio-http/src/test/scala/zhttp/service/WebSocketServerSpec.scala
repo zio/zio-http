@@ -4,12 +4,14 @@ import zhttp.http.Status
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zhttp.socket.{Socket, WebSocketFrame}
+import zio.clock.Clock
 import zio.duration._
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test._
-import zio.{Chunk, ZIO}
+import zio.test.environment.TestClock
+import zio.{Chunk, Ref, ZIO}
 
 object WebSocketServerSpec extends HttpRunnableSpec {
 
@@ -17,10 +19,9 @@ object WebSocketServerSpec extends HttpRunnableSpec {
     EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ChannelFactory.nio
   private val app = serve { DynamicServer.app }
 
-  override def spec = suiteM("Server") {
-    app.as(List(websocketServerSpec, websocketFrameSpec)).useNow
-  }.provideCustomLayerShared(env) @@ timeout(10 seconds)
-
+  override def spec       = suiteM("Server") {
+    app.as(List(websocketServerSpec, websocketFrameSpec, websocketOnCloseSpec)).useNow
+  }.provideCustomLayerShared(env) @@ timeout(30 seconds)
   def websocketServerSpec = suite("WebSocketServer") {
     suite("connections") {
       testM("Multiple websocket upgrades") {
@@ -46,4 +47,35 @@ object WebSocketServerSpec extends HttpRunnableSpec {
       assertM(app(socket.toSocketApp.onOpen(open)).map(_.status))(equalTo(Status.SwitchingProtocols))
     }
   }
+
+  def websocketOnCloseSpec = suite("WebSocketOnCloseSpec") {
+    testM("success") {
+      val app = Socket.empty.toHttp.deployWS
+
+      // Close the connection after 1 second
+      val closeSocket = Socket.succeed(WebSocketFrame.close(1000)).delay(1.second)
+
+      for {
+        testClock <- ZIO.environment[Clock]
+
+        // Maintain a flag to check if the close handler was completed
+        isSet <- Ref.make[Boolean](false)
+
+        // Sets the ref after 5 seconds
+        onClose = isSet.set(true).delay(5 seconds)
+
+        // Create a client socket
+        clientSocket = Socket.empty.toSocketApp.onOpen(closeSocket).onClose(_ => onClose)
+
+        // Deploy the server and send it a socket request
+        _ <- app(clientSocket.provideEnvironment(testClock))
+
+        // Wait for the close handler to complete
+        _ <- TestClock.adjust(10 seconds)
+
+        // Check if the close handler was completed
+        isTrue <- isSet.get
+      } yield assertTrue(isTrue)
+    }
+  } @@ nonFlaky
 }
