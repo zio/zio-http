@@ -2,11 +2,15 @@ package zhttp.socket
 
 import zhttp.http.{Http, Response}
 import zhttp.service.{ChannelFactory, EventLoopGroup}
+import zio.clock.Clock
+import zio.duration.Duration
 import zio.stream.ZStream
 import zio.{Cause, NeedsEnv, ZIO}
 
 sealed trait Socket[-R, +E, -A, +B] { self =>
   import Socket._
+  private[zhttp] def execute(a: A): ZStream[R, E, B] = self(a)
+
   def <>[R1 <: R, E1, A1 <: A, B1 >: B](other: Socket[R1, E1, A1, B1]): Socket[R1, E1, A1, B1] =
     self orElse other
 
@@ -34,6 +38,11 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
 
   def contramapZIO[R1 <: R, E1 >: E, Z](za: Z => ZIO[R1, E1, A]): Socket[R1, E1, Z, B] = Socket.FCMapZIO(self, za)
 
+  /**
+   * Delays delivery of messages by the specified duration.
+   */
+  def delay(duration: Duration): Socket[Clock with R, E, A, B] = self.tap(_ => ZIO.sleep(duration))
+
   def map[C](bc: B => C): Socket[R, E, A, C] = Socket.FMap(self, bc)
 
   def mapZIO[R1 <: R, E1 >: E, C](bc: B => ZIO[R1, E1, C]): Socket[R1, E1, A, C] = Socket.FMapZIO(self, bc)
@@ -52,6 +61,12 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
   def provideEnvironment(r: R)(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = ProvideEnvironment(self, r)
 
   /**
+   * Executes the effect for each message received from the socket, and ignores
+   * the output produced.
+   */
+  def tap[R1 <: R, E1 >: E](f: B => ZIO[R1, E1, Any]): Socket[R1, E1, A, B] = self.mapZIO(b => f(b).as(b))
+
+  /**
    * Converts the Socket into an Http
    */
   def toHttp(implicit ev: IsWebSocket[R, E, A, B]): Http[R, E, Any, Response] = Http.fromZIO(toResponse)
@@ -65,8 +80,6 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
    * Creates a socket application from the socket.
    */
   def toSocketApp(implicit ev: IsWebSocket[R, E, A, B]): SocketApp[R] = SocketApp(self)
-
-  private[zhttp] def execute(a: A): ZStream[R, E, B] = self(a)
 }
 
 object Socket {
