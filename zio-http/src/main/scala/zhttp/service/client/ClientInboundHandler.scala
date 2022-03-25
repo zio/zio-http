@@ -12,7 +12,7 @@ import zio.Promise
  * Handles HTTP response
  */
 final class ClientInboundHandler[R](
-  val rt: HttpRuntime[R],
+  val zExec: HttpRuntime[R],
   req: Request,
   promise: Promise[Throwable, Response],
   isWebSocket: Boolean,
@@ -30,24 +30,26 @@ final class ClientInboundHandler[R](
   }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
+    // NOTE: The promise is made uninterruptible to be able to complete the promise in a error situation.
+    // It allows to avoid loosing the message from pipeline in case the channel pipeline is closed due to an error.
 
     msg match {
       case response: FullHttpResponse =>
         response.touch("handlers.ClientInboundHandler-channelRead0")
 
-        rt.unsafeRun(ctx)(promise.succeed(Response.unsafeFromJResponse(response)))
+        zExec.unsafeRun(ctx)(promise.succeed(Response.unsafeFromJResponse(response)).uninterruptible)
         if (isWebSocket) {
           ctx.fireChannelRead(response.retain())
           ctx.pipeline().remove(ctx.name()): Unit
         }
       case response: HttpResponse     =>
         ctx.channel().config().setAutoRead(false): Unit
-        val data = HttpData.Incoming(callback =>
+        val data = HttpData.UnsafeAsync(callback =>
           ctx
             .pipeline()
             .addAfter(CLIENT_INBOUND_HANDLER, HTTP_CLIENT_CONTENT_HANDLER, new ClientResponseHandler(callback)): Unit,
         )
-        rt.unsafeRun(ctx) {
+        zExec.unsafeRun(ctx) {
 
           promise.succeed(
             Response.unsafeFromJResponse(
@@ -66,11 +68,10 @@ final class ClientInboundHandler[R](
 
       case err => throw new IllegalStateException(s"Client unexpected message type: ${err}")
     }
-
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    rt.unsafeRun(ctx)(promise.fail(error))
+    zExec.unsafeRun(ctx)(promise.fail(error).uninterruptible)
   }
 
 }

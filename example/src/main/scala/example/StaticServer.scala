@@ -10,7 +10,7 @@ object StaticServer extends zio.App {
   // A simple app to serve static resource files from a local directory.
   val app = Http.collectHttp[Request] { case Method.GET -> "static" /: path =>
     for {
-      file <- Http.getResourceAsFile(path.encode)
+      file <- Http.getResourceAsFile(path.encode.tail)
       http <-
         // Rendering a custom UI to list all the files in the directory
         if (file.isDirectory) {
@@ -40,7 +40,8 @@ object StaticServer extends zio.App {
         else if (file.isFile) Http.fromFile(file)
 
         // Return a 404 if the file doesn't exist
-        else Http.empty
+        else
+          Http.empty
     } yield http
   }
 

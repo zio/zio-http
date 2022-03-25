@@ -8,6 +8,7 @@ import io.netty.handler.codec.http.{
   HttpRequest,
   LastHttpContent,
 }
+import zhttp.http.HttpData.JavaFile
 import zhttp.http.{HttpData, Request}
 import zhttp.service.{ChannelFuture, Client, HttpRuntime}
 import zio.stream.ZStream
@@ -17,12 +18,12 @@ import java.io.RandomAccessFile
 
 private[zhttp] trait ClientRequestHandler[R] {
   type Ctx = ChannelHandlerContext
-  val rt: HttpRuntime[R]
+  val zExec: HttpRuntime[R]
   val config: Client.Config
 
   def writeRequest(msg: Request)(implicit ctx: Ctx): Unit = {
     ctx.write(encodeRequest(msg))
-    writeData(msg.data.asInstanceOf[HttpData.Outgoing])
+    writeData(msg.data.asInstanceOf[HttpData.Complete])
     ()
   }
 
@@ -52,7 +53,7 @@ private[zhttp] trait ClientRequestHandler[R] {
   /**
    * Writes file content to the Channel. Does not use Chunked transfer encoding
    */
-  private def unsafeWriteFileContent(raf: RandomAccessFile)(implicit ctx: ChannelHandlerContext): Unit = {
+  private def unsafeWriteFileContent(raf: JavaFile)(implicit ctx: ChannelHandlerContext): Unit = {
     val fileLength = raf.length()
     ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
     writeAndFlushLastHttpContent
@@ -61,13 +62,13 @@ private[zhttp] trait ClientRequestHandler[R] {
   /**
    * Writes data on the channel
    */
-  private def writeData(data: HttpData.Outgoing)(implicit ctx: Ctx): Unit = {
+  private def writeData(data: HttpData.Complete)(implicit ctx: Ctx): Unit = {
     data match {
       case HttpData.BinaryStream(stream)   =>
-        rt.unsafeRun(ctx) {
+        zExec.unsafeRun(ctx) {
           writeStreamContent(stream)
         }
-      case HttpData.RandomAccessFile(raf)  =>
+      case HttpData.JavaFile(raf)          =>
         unsafeWriteFileContent(raf())
       case HttpData.Text(content, charset) =>
         ctx.write(new DefaultHttpContent(Unpooled.copiedBuffer(content, charset)))

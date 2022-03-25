@@ -8,7 +8,7 @@ import zhttp.http.headers.HeaderModifier
 import zhttp.service.server.ServerTime
 import zhttp.service.{Handler, HttpRuntime, Server}
 import zio._
-import zio.blocking.Blocking
+import zio.blocking.{Blocking, effectBlocking}
 import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
@@ -30,11 +30,90 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   import Http._
 
   /**
+   * Extracts body as a ByteBuf
+   */
+  private[zhttp] final def bodyAsByteBuf(implicit
+    eb: B <:< Response,
+    ee: E <:< Throwable,
+  ): Http[R, Throwable, A, ByteBuf] =
+    self.widen[Throwable, B].mapZIO(_.bodyAsByteBuf)
+
+  /**
+   * Evaluates the app and returns an HExit that can be resolved further
+   *
+   * NOTE: `execute` is not a stack-safe method for performance reasons. Unlike
+   * ZIO, there is no reason why the execute should be stack safe. The
+   * performance improves quite significantly if no additional heap allocations
+   * are required this way.
+   */
+  final private[zhttp] def execute(a: A): HExit[R, E, B] =
+    self match {
+
+      case Http.Empty                     => HExit.empty
+      case Http.Identity                  => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)                     => HExit.succeed(b)
+      case Fail(e)                        => HExit.fail(e)
+      case Die(e)                         => HExit.die(e)
+      case Attempt(a)                     =>
+        try { HExit.succeed(a()) }
+        catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
+      case FromFunctionHExit(f)           =>
+        try { f(a) }
+        catch { case e: Throwable => HExit.die(e) }
+      case FromHExit(h)                   => h
+      case Chain(self, other)             => self.execute(a).flatMap(b => other.execute(b))
+      case Race(self, other)              =>
+        (self.execute(a), other.execute(a)) match {
+          case (HExit.Effect(self), HExit.Effect(other)) =>
+            Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
+          case (HExit.Effect(_), other)                  => other
+          case (self, _)                                 => self
+        }
+      case FoldHttp(self, ee, df, bb, dd) =>
+        try {
+          self.execute(a).foldExit(ee(_).execute(a), df(_).execute(a), bb(_).execute(a), dd.execute(a))
+        } catch {
+          case e: Throwable => HExit.die(e)
+        }
+
+      case RunMiddleware(app, mid) =>
+        try {
+          mid(app).execute(a)
+        } catch {
+          case e: Throwable => HExit.die(e)
+        }
+
+      case When(f, other) =>
+        try {
+          if (f(a)) other.execute(a) else HExit.empty
+        } catch {
+          case e: Throwable => HExit.die(e)
+        }
+
+      case Combine(self, other) => {
+        self.execute(a) match {
+          case HExit.Empty            => other.execute(a)
+          case exit: HExit.Success[_] => exit.asInstanceOf[HExit[R, E, B]]
+          case exit: HExit.Failure[_] => exit.asInstanceOf[HExit[R, E, B]]
+          case exit: HExit.Die        => exit
+          case exit @ HExit.Effect(_) => exit.defaultWith(other.execute(a)).asInstanceOf[HExit[R, E, B]]
+        }
+      }
+    }
+
+  /**
    * Attaches the provided middleware to the Http app
    */
   final def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
     mid: Middleware[R1, E1, A1, B1, A2, B2],
   ): Http[R1, E1, A2, B2] = mid(self)
+
+  /**
+   * Combines two Http instances into a middleware that works a codec for
+   * incoming and outgoing messages.
+   */
+  final def \/[R1 <: R, E1 >: E, C, D](other: Http[R1, E1, C, D]): Middleware[R1, E1, B, C, A, D] =
+    self codecMiddleware other
 
   /**
    * Alias for flatmap
@@ -171,6 +250,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     pf: PartialFunction[Throwable, Http[R1, E1, A1, B1]],
   ): Http[R1, E1, A1, B1] =
     unrefineWith(pf)(Http.fail).catchAll(e => e)
+
+  /**
+   * Combines two Http instances into a middleware that works a codec for
+   * incoming and outgoing messages.
+   */
+  final def codecMiddleware[R1 <: R, E1 >: E, C, D](other: Http[R1, E1, C, D]): Middleware[R1, E1, B, C, A, D] =
+    Middleware.codecHttp(self, other)
 
   /**
    * Collects some of the results of the http and converts it to another type.
@@ -542,90 +628,21 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def zipRight[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
     self.flatMap(_ => other)
-
-  /**
-   * Extracts body as a ByteBuf
-   */
-  private[zhttp] final def bodyAsByteBuf(implicit
-    eb: B <:< Response,
-    ee: E <:< Throwable,
-  ): Http[R, Throwable, A, ByteBuf] =
-    self.widen[Throwable, B].mapZIO(_.bodyAsByteBuf)
-
-  private[zhttp] final def bodyAsStream(implicit
-    eb: B <:< Response,
-    ee: E <:< Throwable,
-  ): Http[R, Throwable, A, ZStream[R, Throwable, Byte]] =
-    self.widen[Throwable, B].map(_.bodyAsStream)
-
-  /**
-   * Evaluates the app and returns an HExit that can be resolved further
-   *
-   * NOTE: `execute` is not a stack-safe method for performance reasons. Unlike
-   * ZIO, there is no reason why the execute should be stack safe. The
-   * performance improves quite significantly if no additional heap allocations
-   * are required this way.
-   */
-  final private[zhttp] def execute(a: A): HExit[R, E, B] =
-    self match {
-
-      case Http.Empty                     => HExit.empty
-      case Http.Identity                  => HExit.succeed(a.asInstanceOf[B])
-      case Succeed(b)                     => HExit.succeed(b)
-      case Fail(e)                        => HExit.fail(e)
-      case Die(e)                         => HExit.die(e)
-      case Attempt(a)                     =>
-        try { HExit.succeed(a()) }
-        catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
-      case FromFunctionHExit(f)           =>
-        try { f(a) }
-        catch { case e: Throwable => HExit.die(e) }
-      case FromHExit(h)                   => h
-      case Chain(self, other)             => self.execute(a).flatMap(b => other.execute(b))
-      case Race(self, other)              =>
-        (self.execute(a), other.execute(a)) match {
-          case (HExit.Effect(self), HExit.Effect(other)) =>
-            Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
-          case (HExit.Effect(_), other)                  => other
-          case (self, _)                                 => self
-        }
-      case FoldHttp(self, ee, df, bb, dd) =>
-        try {
-          self.execute(a).foldExit(ee(_).execute(a), df(_).execute(a), bb(_).execute(a), dd.execute(a))
-        } catch {
-          case e: Throwable => HExit.die(e)
-        }
-
-      case RunMiddleware(app, mid) =>
-        try {
-          mid(app).execute(a)
-        } catch {
-          case e: Throwable => HExit.die(e)
-        }
-
-      case When(f, other) =>
-        try {
-          if (f(a)) other.execute(a) else HExit.empty
-        } catch {
-          case e: Throwable => HExit.die(e)
-        }
-
-      case Combine(self, other) => {
-        self.execute(a) match {
-          case HExit.Empty            => other.execute(a)
-          case exit: HExit.Success[_] => exit.asInstanceOf[HExit[R, E, B]]
-          case exit: HExit.Failure[_] => exit.asInstanceOf[HExit[R, E, B]]
-          case exit: HExit.Die        => exit
-          case exit @ HExit.Effect(_) => exit.defaultWith(other.execute(a)).asInstanceOf[HExit[R, E, B]]
-        }
-      }
-    }
 }
 
 object Http {
 
   implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends HeaderModifier[HttpApp[R, E]] {
     self =>
+
+    private[zhttp] def compile[R1 <: R](
+      zExec: HttpRuntime[R1],
+      settings: Server.Config[R1, Throwable],
+      serverTimeGenerator: ServerTime,
+    )(implicit
+      evE: E <:< Throwable,
+    ): ChannelHandler =
+      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, serverTimeGenerator)
 
     /**
      * Patches the response produced by the app
@@ -666,15 +683,6 @@ object Http {
      * Applies Http based on the path as string
      */
     def whenPathEq(p: String): HttpApp[R, E] = http.when(_.unsafeEncode.uri().contentEquals(p))
-
-    private[zhttp] def compile[R1 <: R](
-      zExec: HttpRuntime[R1],
-      settings: Server.Config[R1, Throwable],
-      serverTimeGenerator: ServerTime,
-    )(implicit
-      evE: E <:< Throwable,
-    ): ChannelHandler =
-      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, serverTimeGenerator)
   }
 
   /**
@@ -795,7 +803,7 @@ object Http {
   /**
    * Creates an Http app from the contents of a file.
    */
-  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(Task(file))
+  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(UIO(file))
 
   /**
    * Creates an Http app from the contents of a file which is produced from an
@@ -871,7 +879,7 @@ object Http {
   /**
    * Creates an Http app from a resource path
    */
-  def fromResource(path: String): HttpApp[Any, Throwable] =
+  def fromResource(path: String): HttpApp[Blocking, Throwable] =
     Http.getResource(path).flatMap(url => Http.fromFile(new File(url.getPath)))
 
   /**
@@ -896,15 +904,15 @@ object Http {
   /**
    * Attempts to retrieve files from the classpath.
    */
-  def getResource(path: String): Http[Any, Throwable, Any, net.URL] =
+  def getResource(path: String): Http[Blocking, Throwable, Any, net.URL] =
     Http
-      .fromZIO(Blocking.Service.live.effectBlockingIO(getClass.getClassLoader.getResource(path)))
+      .fromZIO(effectBlocking(getClass.getClassLoader.getResource(path)))
       .flatMap { resource => if (resource == null) Http.empty else Http.succeed(resource) }
 
   /**
    * Attempts to retrieve files from the classpath.
    */
-  def getResourceAsFile(path: String): Http[Any, Throwable, Any, File] =
+  def getResourceAsFile(path: String): Http[Blocking, Throwable, Any, File] =
     Http.getResource(path).map(url => new File(url.getPath))
 
   /**
