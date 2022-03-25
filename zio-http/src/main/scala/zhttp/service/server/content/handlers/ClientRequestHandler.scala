@@ -3,7 +3,7 @@ import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Request}
-import zhttp.service.{ChannelFuture, Client, HttpRuntime}
+import zhttp.service.{ChannelFuture, HttpRuntime}
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
 
@@ -12,7 +12,6 @@ import java.io.File
 private[zhttp] trait ClientRequestHandler[R] {
   type Ctx = ChannelHandlerContext
   val zExec: HttpRuntime[R]
-  val config: Client.Config
 
   def writeRequest(msg: Request)(implicit ctx: Ctx): Unit = {
     ctx.write(encodeRequest(msg))

@@ -1,20 +1,14 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel,
-  ChannelInitializer,
-  ChannelFactory => JChannelFactory,
-  ChannelFuture => JChannelFuture,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
 import zhttp.service
 import zhttp.service.Client.Config
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
+import zhttp.service.client.{ClientInboundHandler, ClientInboundStreamingHandler, ClientSSLHandler}
 import zhttp.socket.{Socket, SocketApp}
 import zio.{Promise, Task, ZIO}
 
@@ -26,8 +20,9 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
   private[zhttp] def request(request: Request, clientConfig: Config): Task[Response] =
     for {
       promise <- Promise.make[Throwable, Response]
+      jReq    <- encode(request)
       _       <- ChannelFuture
-        .unit(unsafeRequest(request, clientConfig, promise))
+        .unit(unsafeRequest(request, clientConfig, jReq, promise))
         .catchAll(cause => promise.fail(cause))
       res     <- promise.await
     } yield res
@@ -56,6 +51,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
   private def unsafeRequest(
     req: Request,
     clientConfig: Config,
+    jReq: FullHttpRequest,
     promise: Promise[Throwable, Response],
   ): JChannelFuture = {
 
@@ -90,16 +86,18 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
             pipeline
               .addLast(
                 CLIENT_INBOUND_HANDLER,
-                new ClientInboundHandler(rtm, req, promise, isWebSocket, clientConfig),
+                new ClientInboundHandler(rtm, jReq, promise, isWebSocket),
               )
           } else {
 
             // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
+
             pipeline
               .addLast(
                 CLIENT_INBOUND_HANDLER,
-                new ClientInboundHandler(rtm, req, promise, isWebSocket, clientConfig),
+                new ClientInboundStreamingHandler(rtm, req, promise),
               )
+
           }
 
           // Add WebSocketHandlers if it's a `ws` or `wss` request

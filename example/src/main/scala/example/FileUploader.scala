@@ -1,7 +1,6 @@
 package example
 
-import zhttp.http._
-import zhttp.http.{Http, Method, Request, Response}
+import zhttp.http.{Http, Method, Request, Response, _}
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio.{App, ExitCode, URIO, console}
 

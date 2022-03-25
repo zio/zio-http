@@ -158,6 +158,8 @@ object HttpData {
 
     override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] =
       Http.fromZIO(toByteBuf(config))
+
+    def cb: (UnsafeChannel => UnsafeContent => Unit) => Unit = unsafeRun
   }
 
   private[zhttp] final case class Text(text: String, charset: Charset) extends Complete {

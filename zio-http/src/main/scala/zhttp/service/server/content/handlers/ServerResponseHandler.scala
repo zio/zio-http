@@ -1,6 +1,6 @@
 package zhttp.service.server.content.handlers
 
-import io.netty.buffer.ByteBuf
+import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Response}
@@ -121,6 +121,7 @@ private[zhttp] trait ServerResponseHandler[R] {
     stream: ZStream[R, Throwable, ByteBuf],
   )(implicit ctx: Ctx): ZIO[R, Throwable, Unit] = {
     for {
+      _ <- UIO(ctx.writeAndFlush(Unpooled.EMPTY_BUFFER))
       _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
