@@ -1,20 +1,13 @@
 package zhttp.service.server.content.handlers
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
-import io.netty.handler.codec.http.{
-  DefaultHttpContent,
-  DefaultHttpRequest,
-  HttpHeaderNames,
-  HttpRequest,
-  LastHttpContent,
-}
-import zhttp.http.HttpData.JavaFile
+import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Request}
 import zhttp.service.{ChannelFuture, Client, HttpRuntime}
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
 
-import java.io.RandomAccessFile
+import java.io.File
 
 private[zhttp] trait ClientRequestHandler[R] {
   type Ctx = ChannelHandlerContext
@@ -53,10 +46,11 @@ private[zhttp] trait ClientRequestHandler[R] {
   /**
    * Writes file content to the Channel. Does not use Chunked transfer encoding
    */
-  private def unsafeWriteFileContent(raf: JavaFile)(implicit ctx: ChannelHandlerContext): Unit = {
-    val fileLength = raf.length()
-    ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
-    writeAndFlushLastHttpContent
+  private def unsafeWriteFileContent(file: File)(implicit ctx: ChannelHandlerContext): Unit = {
+    // Write the content.
+    ctx.write(new DefaultFileRegion(file, 0, file.length()))
+    // Write the end marker.
+    ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
   }
 
   /**
