@@ -23,6 +23,11 @@ import zio.{UIO, ZIO}
 trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
 
   /**
+   * Applies middleware on Http and returns new Http.
+   */
+  def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut]
+
+  /**
    * Creates a new middleware that passes the output Http of the current
    * middleware as the input to the provided middleware.
    */
@@ -55,11 +60,6 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
       override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn, BIn]): Http[R2, E2, AOut1, BOut1] =
         other(self(http))
     }
-
-  /**
-   * Applies middleware on Http and returns new Http.
-   */
-  def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut]
 
   /**
    * Makes the middleware resolve with a constant Middleware
@@ -178,9 +178,14 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
 object Middleware extends Web {
 
   /**
-   * Creates a middleware using specified encoder and decoder
+   * Creates a middleware using the specified encoder and decoder functions
    */
   def codec[A, B]: PartialCodec[A, B] = new PartialCodec[A, B](())
+
+  /**
+   * Creates a codec middleware using two Http.
+   */
+  def codecHttp[A, B]: PartialCodecHttp[A, B] = new PartialCodecHttp[A, B](())
 
   /**
    * Creates a middleware using specified effectful encoder and decoder
@@ -326,6 +331,17 @@ object Middleware extends Web {
       encoder: BIn => ZIO[R, E, BOut],
     ): Middleware[R, E, AIn, BIn, AOut, BOut] =
       Middleware.identity.mapZIO(encoder).contramapZIO(decoder)
+  }
+
+  final class PartialCodecHttp[AOut, BIn](val unit: Unit) extends AnyVal {
+    def apply[R, E, AIn, BOut](
+      decoder: Http[R, E, AOut, AIn],
+      encoder: Http[R, E, BIn, BOut],
+    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
+      new Middleware[R, E, AIn, BIn, AOut, BOut] {
+        override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] =
+          decoder >>> http >>> encoder
+      }
   }
 
   final class PartialContraMapZIO[-R, +E, +AIn, -BIn, -AOut, +BOut, AOut0](
