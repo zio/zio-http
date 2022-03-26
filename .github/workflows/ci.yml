@@ -762,21 +762,13 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_ProbeContentTypeBenchmark.txt
 
-      - name: Set Output Current
-        id: Set_output_Current
+      - name: Format Output
+        id: fomat_output
         run: |
-          body=$(cat Current.txt)
-           body="${body//'%'/'%25'}"
-           body="${body//$'\n'/'%0A'}"
-           body="${body//$'\r'/'%0D'}"
-           echo $body
-           echo ::set-output name=body::$(echo $body)
-
-      
-      - name: Set Output Main
-        id: Set_output_Main
-        run: |
-          body=$(cat Main.txt)
+          paste -d '|' Current.txt Main.txt > FinalOutput.txt
+           sed -i -e 's/^/|/' FinalOutput.txt
+           sed -i -e 's/$/|/' FinalOutput.txt
+           body=$(cat FinalOutput.txt)
            body="${body//'%'/'%25'}"
            body="${body//$'\n'/'%0A'}"
            body="${body//$'\r'/'%0D'}"
@@ -791,9 +783,7 @@ jobs:
 
             **🚀 Jmh Benchmark:**
 
-            - **Current Branch**:
-             ${{steps.set_output_Current.outputs.body}}
-
-            - **Main Branch**:
-             ${{steps.set_output_Main.outputs.body}}
+             |- **Current Branch**: |  - **Main Branch**: |
+             |-----------------      | ----------- |
+             ${{steps.fomat_output.outputs.body}}
              

@@ -60,9 +60,12 @@ object JmhBenchmarkWorkflow {
   /**
   Format result and set output
    */
-  def setOutput(branch: String) = WorkflowStep.Run(
+  def formatOutput() = WorkflowStep.Run(
     commands = List(
-      s"""body=$$(cat $branch.txt)
+      s"""paste -d '|' Current.txt Main.txt > FinalOutput.txt
+         | sed -i -e 's/^/|/' FinalOutput.txt
+         | sed -i -e 's/$$/|/' FinalOutput.txt
+         | body=$$(cat FinalOutput.txt)
          | body="$${body//'%'/'%25'}"
          | body="$${body//$$'\\n'/'%0A'}"
          | body="$${body//$$'\\r'/'%0D'}"
@@ -70,8 +73,8 @@ object JmhBenchmarkWorkflow {
          | echo ::set-output name=body::$$(echo $$body)
          | """.stripMargin
     ),
-    id = Some(s"Set_output_$branch"),
-    name = Some(s"Set Output $branch")
+    id = Some(s"fomat_output"),
+    name = Some(s"Format Output")
   )
 
   /**
@@ -83,7 +86,7 @@ object JmhBenchmarkWorkflow {
     scalas = List(Scala213),
     needs =  dependencies(batchSize),
     steps = downloadArtifacts("Current", batchSize) ++ downloadArtifacts("Main", batchSize) ++
-      Seq(setOutput("Current"), setOutput("Main"), WorkflowStep.Use(
+      Seq(formatOutput(), WorkflowStep.Use(
         ref = UseRef.Public("peter-evans", "commit-comment", "v1"),
         params = Map(
           "sha" -> "${{github.sha}}",
@@ -91,11 +94,9 @@ object JmhBenchmarkWorkflow {
             """
               |**\uD83D\uDE80 Jmh Benchmark:**
               |
-              |- **Current Branch**:
-              | ${{steps.set_output_Current.outputs.body}}
-              |
-              |- **Main Branch**:
-              | ${{steps.set_output_Main.outputs.body}}
+              | |- **Current Branch**: |  - **Main Branch**: |
+              | |-----------------      | ----------- |
+              | ${{steps.fomat_output.outputs.body}}
               | """.stripMargin
         )
       )
@@ -114,7 +115,7 @@ object JmhBenchmarkWorkflow {
         WorkflowStep.Use(
           UseRef.Public("actions", "checkout", "v2"),
           Map(
-            "path" -> "zio-http",
+            "path" -> "zio-http"
           )
         ),
         WorkflowStep.Use(
