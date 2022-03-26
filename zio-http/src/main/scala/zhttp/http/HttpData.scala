@@ -3,6 +3,7 @@ package zhttp.http
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
+import io.netty.util.AsciiString
 import zhttp.http.HttpData.ByteBufConfig
 import zio.stream.ZStream
 import zio.{Chunk, Task, UIO, ZIO}
@@ -69,9 +70,20 @@ object HttpData {
   def empty: HttpData = Empty
 
   /**
+   * Helper to create HttpData from AsciiString
+   */
+  def fromAsciiString(asciiString: AsciiString): HttpData = FromAsciiString(asciiString)
+
+  /**
    * Helper to create HttpData from ByteBuf
    */
   def fromByteBuf(byteBuf: ByteBuf): HttpData = HttpData.BinaryByteBuf(byteBuf)
+
+  /**
+   * Helper to create HttpData from CharSequence
+   */
+  def fromCharSequence(charSequence: CharSequence, charset: Charset = HTTP_CHARSET): HttpData =
+    fromAsciiString(new AsciiString(charSequence, charset))
 
   /**
    * Helper to create HttpData from chunk of bytes
@@ -98,7 +110,7 @@ object HttpData {
   /**
    * Helper to create HttpData from String
    */
-  def fromString(text: String, charset: Charset = HTTP_CHARSET): HttpData = Text(text, charset)
+  def fromString(text: String, charset: Charset = HTTP_CHARSET): HttpData = fromCharSequence(text, charset)
 
   private[zhttp] sealed trait Complete extends HttpData
 
@@ -160,22 +172,27 @@ object HttpData {
       Http.fromZIO(toByteBuf(config))
   }
 
-  private[zhttp] final case class Text(text: String, charset: Charset) extends Complete {
-
-    private def encode = Unpooled.copiedBuffer(text, charset)
+  private[zhttp] case class FromAsciiString(asciiString: AsciiString) extends Complete {
 
     /**
-     * Encodes the HttpData into a ByteBuf.
+     * Encodes the HttpData into a ByteBuf. Takes in ByteBufConfig to have a
+     * more fine grained control over the encoding.
      */
-    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = UIO(encode)
+    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = Task(Unpooled.wrappedBuffer(asciiString.array()))
 
     /**
-     * Encodes the HttpData into a Stream of ByteBufs
+     * Encodes the HttpData into a Stream of ByteBufs. Takes in ByteBufConfig to
+     * have a more fine grained control over the encoding.
      */
     override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
       ZStream.fromEffect(toByteBuf(config))
 
-    override def toHttp(config: ByteBufConfig): UHttp[Any, ByteBuf] = Http.succeed(encode)
+    /**
+     * Encodes the HttpData into a Http of ByeBuf. This could be more performant
+     * in certain cases. Takes in ByteBufConfig to have a more fine grained
+     * control over the encoding.
+     */
+    override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] = ???
   }
 
   private[zhttp] final case class BinaryChunk(data: Chunk[Byte]) extends Complete {
