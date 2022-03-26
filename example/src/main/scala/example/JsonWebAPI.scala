@@ -93,29 +93,30 @@ object JsonWebAPI extends App {
     implicit val decoder: JsonDecoder[UserRequest] = DeriveJsonDecoder.gen[UserRequest]
   }
 
-  val decoder: Http[UserService, Throwable, Request, UserRequest] = Http.collectZIO[Request] {
+  val d1 = Http.collect[Request] { case Method.GET -> !! / "users" / "list" => UserRequest.list }
 
-    case Method.GET -> !! / "users" / "list" => UserRequest.list.wrapZIO
-
-    case Method.DELETE -> !! / "user" / id =>
-      Try(UUID.fromString(id)) match {
-        case Success(uuid) => UserRequest.delete(uuid).wrapZIO
-        case _             => ZIO.fail(HttpError.BadRequest("Invalid UUID"))
-      }
-
-    case req @ Method.PUT -> !! / "user" / "create" =>
-      req.bodyAsString flatMap { body =>
-        body
-          .fromJson[UserRequest]
-          .fold(
-            err => ZIO.fail(HttpError.BadRequest(err)),
-            {
-              case req: UserRequest.CreateUser => req.wrapZIO
-              case _                           => ZIO.fail(HttpError.BadRequest("Invalid request payload"))
-            },
-          )
-      }
+  val d2 = Http.collectZIO[Request] { case Method.DELETE -> !! / "user" / id =>
+    Try(UUID.fromString(id)) match {
+      case Success(uuid) => UserRequest.delete(uuid).wrapZIO
+      case _             => ZIO.fail(HttpError.BadRequest("Invalid UUID"))
+    }
   }
+
+  val d3 = Http.collectZIO[Request] { case req @ Method.PUT -> !! / "user" / "create" =>
+    req.bodyAsString flatMap { body =>
+      body
+        .fromJson[UserRequest]
+        .fold(
+          err => ZIO.fail(HttpError.BadRequest(err)),
+          {
+            case req: UserRequest.CreateUser => req.wrapZIO
+            case _                           => ZIO.fail(HttpError.BadRequest("Invalid request payload"))
+          },
+        )
+    }
+  }
+
+  val decoder = d1 ++ d2 ++ d3
 
   val encoder: Http[Any, Nothing, UserResponse, Response] =
     Http.collect[UserResponse] {
