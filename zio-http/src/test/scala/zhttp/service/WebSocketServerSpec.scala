@@ -11,7 +11,7 @@ import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test._
 import zio.test.environment.TestClock
-import zio.{Chunk, Ref, ZIO}
+import zio.{Chunk, Promise, ZIO}
 
 object WebSocketServerSpec extends HttpRunnableSpec {
 
@@ -56,26 +56,26 @@ object WebSocketServerSpec extends HttpRunnableSpec {
       val closeSocket = Socket.succeed(WebSocketFrame.close(1000)).delay(1.second)
 
       for {
-        testClock <- ZIO.environment[Clock]
+        clock <- ZIO.environment[Clock]
 
         // Maintain a flag to check if the close handler was completed
-        isSet <- Ref.make[Boolean](false)
+        isSet <- Promise.make[Nothing, Unit]
 
         // Sets the ref after 5 seconds
-        onClose = isSet.set(true).delay(5 seconds)
+        onClose = isSet.succeed(()).delay(5 seconds)
 
         // Create a client socket
         clientSocket = Socket.empty.toSocketApp.onOpen(closeSocket).onClose(_ => onClose)
 
         // Deploy the server and send it a socket request
-        _ <- app(clientSocket.provideEnvironment(testClock))
+        _ <- app(clientSocket.provideEnvironment(clock))
 
         // Wait for the close handler to complete
         _ <- TestClock.adjust(10 seconds)
 
         // Check if the close handler was completed
-        isTrue <- isSet.get
-      } yield assertTrue(isTrue)
+        _ <- isSet.await
+      } yield assertCompletes
     }
   } @@ nonFlaky
 }
