@@ -6,10 +6,9 @@ import io.netty.handler.codec.http.{FullHttpResponse, HttpHeaderNames, HttpRespo
 import zhttp.html._
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
-import zio.{Chunk, UIO, ZIO}
+import zio.{UIO, ZIO}
 
 import java.io.{PrintWriter, StringWriter}
-import java.nio.charset.Charset
 
 final case class Response private (
   status: Status,
@@ -74,12 +73,12 @@ final case class Response private (
       case HttpData.UnsafeAsync(_) => null
       case data: HttpData.Complete =>
         data match {
-          case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
-          case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
-          case HttpData.BinaryByteBuf(data) => data
-          case HttpData.BinaryStream(_)     => null
-          case HttpData.Empty               => Unpooled.EMPTY_BUFFER
-          case HttpData.JavaFile(_)         => null
+          case HttpData.FromAsciiString(text) => Unpooled.wrappedBuffer(text.array())
+          case HttpData.BinaryChunk(data)     => Unpooled.wrappedBuffer(data.toArray)
+          case HttpData.BinaryByteBuf(data)   => data
+          case HttpData.BinaryStream(_)       => null
+          case HttpData.Empty                 => Unpooled.EMPTY_BUFFER
+          case HttpData.JavaFile(_)           => null
         }
     }
 
@@ -181,9 +180,9 @@ object Response {
   /**
    * Creates a response with content-type set to application/json
    */
-  def json(data: String): Response =
+  def json(data: CharSequence): Response =
     Response(
-      data = HttpData.fromChunk(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
+      data = HttpData.fromCharSequence(data),
       headers = Headers(HeaderNames.contentType, HeaderValues.applicationJson),
     )
 
@@ -196,7 +195,7 @@ object Response {
    * Creates an empty response with status 301 or 302 depending on if it's
    * permanent or not.
    */
-  def redirect(location: String, isPermanent: Boolean = false): Response = {
+  def redirect(location: CharSequence, isPermanent: Boolean = false): Response = {
     val status = if (isPermanent) Status.PermanentRedirect else Status.TemporaryRedirect
     Response(status, Headers.location(location))
   }
@@ -209,9 +208,9 @@ object Response {
   /**
    * Creates a response with content-type set to text/plain
    */
-  def text(text: String, charset: Charset = HTTP_CHARSET): Response =
+  def text(text: CharSequence): Response =
     Response(
-      data = HttpData.fromString(text, charset),
+      data = HttpData.fromCharSequence(text),
       headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
     )
 
