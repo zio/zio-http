@@ -2,8 +2,8 @@ package zhttp.service.client
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Request, Response}
-import zhttp.service.server.content.handlers.{ClientRequestHandler, ClientResponseStreamHandler}
 import zhttp.service.HttpRuntime
+import zhttp.service.server.content.handlers.{ClientRequestHandler, ClientResponseStreamHandler}
 import zio.Promise
 
 final class ClientInboundStreamingHandler[R](
