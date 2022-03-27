@@ -62,7 +62,7 @@ object WebSocketServerSpec extends HttpRunnableSpec {
         isSet <- Promise.make[Nothing, Unit]
 
         // Sets the ref after 5 seconds
-        onClose = isSet.succeed(()).delay(5 seconds)
+        onClose = isSet.succeed(()).delay(5 seconds).debug("Test: OnClose")
 
         // Create a client socket
         clientSocket = Socket.empty.toSocketApp.onOpen(closeSocket).onClose(_ => onClose)
