@@ -1,7 +1,13 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
+import io.netty.channel.{
+  Channel,
+  ChannelInitializer,
+  ChannelFactory => JChannelFactory,
+  ChannelFuture => JChannelFuture,
+  EventLoopGroup => JEventLoopGroup,
+}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
@@ -124,9 +130,9 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
       jBoo.connect()
     } catch {
       case err: Throwable =>
-//        if (jReq.refCnt() > 0) {
-//          jReq.release(jReq.refCnt()): Unit
-//        }
+        if (jReq.refCnt() > 0) {
+          jReq.release(jReq.refCnt()): Unit
+        }
         throw err
     }
   }

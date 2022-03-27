@@ -115,7 +115,11 @@ object HttpData {
   }
 
   private[zhttp] final class UnsafeContent(private val httpContent: HttpContent) extends AnyVal {
-    def content: ByteBuf = httpContent.content()
+    def content: ByteBuf = {
+      val chunk = Unpooled.copiedBuffer(httpContent.content())
+      httpContent.release(httpContent.refCnt())
+      chunk
+    }
 
     def isLast: Boolean = httpContent.isInstanceOf[LastHttpContent]
   }
@@ -158,8 +162,6 @@ object HttpData {
 
     override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] =
       Http.fromZIO(toByteBuf(config))
-
-    def cb: (UnsafeChannel => UnsafeContent => Unit) => Unit = unsafeRun
   }
 
   private[zhttp] final case class Text(text: String, charset: Charset) extends Complete {

@@ -2,24 +2,24 @@ package zhttp.service.client
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Request, Response}
-import zhttp.service.server.content.handlers.{ClientRequestHandler, ClientResponseHandler}
-import zhttp.service.{CLIENT_INBOUND_HANDLER, HTTP_CLIENT_CONTENT_HANDLER, HttpRuntime}
+import zhttp.service.server.content.handlers.{ClientRequestHandler, ClientResponseStreamHandler}
+import zhttp.service.HttpRuntime
 import zio.Promise
 
 final class ClientInboundStreamingHandler[R](
   val zExec: HttpRuntime[R],
   req: Request,
   promise: Promise[Throwable, Response],
-) extends SimpleChannelInboundHandler[HttpObject](false)
+) extends SimpleChannelInboundHandler[HttpObject](true)
     with ClientRequestHandler[R] {
 
+  private val collector                                        = new ClientResponseStreamHandler
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     writeRequest(req)(ctx)
     ()
   }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
-    ctx.channel().config().setAutoRead(false): Unit
     msg match {
       case response: HttpResponse =>
         zExec.unsafeRun(ctx) {
@@ -27,22 +27,15 @@ final class ClientInboundStreamingHandler[R](
             .succeed(
               Response.unsafeFromJResponse(
                 response,
-                HttpData.UnsafeAsync(callback =>
-                  ctx
-                    .pipeline()
-                    .addAfter(
-                      CLIENT_INBOUND_HANDLER,
-                      HTTP_CLIENT_CONTENT_HANDLER,
-                      new ClientResponseHandler(callback),
-                    ): Unit,
-                ),
+                HttpData.UnsafeAsync(callback => collector.init(ctx, callback)),
               ),
             )
             .uninterruptible
 
         }
       case content: HttpContent   =>
-        ctx.fireChannelRead(content): Unit
+        ctx.pipeline().channel().config().setAutoRead(false)
+        collector.update(content.retain())
 
       case err => throw new IllegalStateException(s"Client unexpected message type: ${err}")
     }
