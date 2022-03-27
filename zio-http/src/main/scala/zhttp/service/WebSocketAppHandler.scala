@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler.ClientHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.ServerHandshakeStateEvent
-import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
+import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import zhttp.socket.SocketApp.Handle
 import zhttp.socket.{SocketApp, WebSocketFrame}
 import zio.stream.ZStream
@@ -35,7 +35,7 @@ final class WebSocketAppHandler[R](
   }
 
   override def channelUnregistered(ctx: ChannelHandlerContext): Unit = {
-    log(s"ChannelUnRegistered")
+    log(s"ChannelUnRegistered: ${app.close.isDefined}")
     app.close match {
       case Some(v) => zExec.unsafeRunUninterruptible(ctx)(v(ctx.channel().remoteAddress()))
       case None    => ctx.fireChannelUnregistered()
