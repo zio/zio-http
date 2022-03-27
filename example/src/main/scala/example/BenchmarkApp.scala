@@ -17,19 +17,15 @@ object BenchmarkApp extends zio.App {
   }
 
   private def settings: ZIO[system.System, SecurityException, Server[Any, Nothing]] = zio.system.envs.map { envs =>
-    val acceptContinue = envs.getOrElse("ACCEPT_CONTINUE", "false").toBoolean
-    val disableKeepAlive = envs.getOrElse("DISABLE_KEEP_ALIVE", "false").toBoolean
-    val consolidateFlush = envs.getOrElse("CONSOLIDATE_FLUSH", "true").toBoolean
-    val disableFlowControl = envs.getOrElse("DISABLE_FLOW_CONTROL", "true").toBoolean
-    val maxRequestSize = envs.getOrElse("MAX_REQUEST_SIZE", "-1").toInt
+    //    val acceptContinue = envs.getOrElse("ACCEPT_CONTINUE", "false").toBoolean
+    //    val disableKeepAlive = envs.getOrElse("DISABLE_KEEP_ALIVE", "false").toBoolean
+    //    val consolidateFlush = envs.getOrElse("CONSOLIDATE_FLUSH", "true").toBoolean
+    //    val disableFlowControl = envs.getOrElse("DISABLE_FLOW_CONTROL", "true").toBoolean
+    //    val maxRequestSize = envs.getOrElse("MAX_REQUEST_SIZE", "-1").toInt
 
     val server = Server.port(8080) ++ leakDetectionLevel(envs.getOrElse("LEAK_DETECTION_LEVEL", "disabled"))
 
-    if (acceptContinue) server ++ Server.acceptContinue
-    if (disableKeepAlive) server ++ Server.disableKeepAlive
-    if (consolidateFlush) server ++ Server.consolidateFlush
-    if (disableFlowControl) server ++ Server.disableFlowControl
-    if (maxRequestSize > -1) server ++ Server.enableObjectAggregator(maxRequestSize)
+    server ++ Server.acceptContinue ++ Server.disableKeepAlive ++ Server.consolidateFlush ++ Server.disableFlowControl ++ Server.enableObjectAggregator(-1)
 
     server
   }
