@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler.ClientHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.ServerHandshakeStateEvent
-import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
+import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import zhttp.socket.SocketApp.Handle
 import zhttp.socket.{SocketApp, WebSocketFrame}
 import zio.stream.ZStream
@@ -18,12 +18,16 @@ final class WebSocketAppHandler[R](
   app: SocketApp[R],
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
+  val enabled = false
+
   def log(msg: String): Unit = {
-    println(s"[$name] $msg")
+    if (enabled) {
+      println(s"[$name] $msg")
+    }
   }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit = {
-    log(s"ChannelRead:${msg.getClass.getName}")
+    log(s"ChannelRead: ${msg.getClass.getName}")
     app.message match {
       case Some(v) =>
         WebSocketFrame.fromJFrame(msg) match {
@@ -53,7 +57,7 @@ final class WebSocketAppHandler[R](
   }
 
   override def userEventTriggered(ctx: ChannelHandlerContext, event: AnyRef): Unit = {
-    log("UserEventTriggered")
+    log(s"UserEventTriggered: ${event.getClass.getName}")
     event match {
       case _: WebSocketServerProtocolHandler.HandshakeComplete | ClientHandshakeStateEvent.HANDSHAKE_COMPLETE =>
         app.open match {
