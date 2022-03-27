@@ -16,7 +16,7 @@ object BenchmarkApp extends zio.App {
     case "paranoid" => Server.paranoidLeakDetection
   }
 
-  private def settings: ZIO[system.System, SecurityException, Server[Any, Nothing]] = zio.system.envs.map { envs =>
+  private def settings: ZIO[system.System, SecurityException, Server[Any, Nothing]] = zio.system.envs.flatMap { envs =>
     //    val acceptContinue = envs.getOrElse("ACCEPT_CONTINUE", "false").toBoolean
     //    val disableKeepAlive = envs.getOrElse("DISABLE_KEEP_ALIVE", "false").toBoolean
     //    val consolidateFlush = envs.getOrElse("CONSOLIDATE_FLUSH", "true").toBoolean
@@ -27,7 +27,7 @@ object BenchmarkApp extends zio.App {
 
     server ++ Server.acceptContinue ++ Server.disableKeepAlive ++ Server.consolidateFlush ++ Server.disableFlowControl ++ Server.enableObjectAggregator(-1)
 
-    server
+    ZIO.succeed(server)
   }
 
   private val plainTextMessage: String = "Hello, World!"
