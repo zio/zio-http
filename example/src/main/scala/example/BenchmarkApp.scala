@@ -2,8 +2,7 @@ import io.netty.util.AsciiString
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server, UServer}
-import zio.console.putStrLn
-import zio.{ExitCode, URIO, ZEnv, ZIO}
+import zio.{ExitCode, URIO, ZEnv, ZIO, system}
 
 /**
  * This server is used to run plaintext benchmarks on CI.
@@ -17,14 +16,14 @@ object BenchmarkApp extends zio.App {
     case "paranoid" => Server.paranoidLeakDetection
   }
 
-  private def settings = zio.system.envs.map { envs =>
+  private def settings: ZIO[system.System, SecurityException, Server[Any, Nothing]] = zio.system.envs.map { envs =>
     val acceptContinue     = envs.getOrElse("ACCEPT_CONTINUE", "false").toBoolean
     val disableKeepAlive   = envs.getOrElse("DISABLE_KEEP_ALIVE", "false").toBoolean
     val consolidateFlush   = envs.getOrElse("CONSOLIDATE_FLUSH", "false").toBoolean
     val disableFlowControl = envs.getOrElse("DISABLE_FLOW_CONTROL", "false").toBoolean
     val maxRequestSize     = envs.getOrElse("MAX_REQUEST_SIZE", "-1").toInt
 
-    val server = Server.port(8090) ++ leakDetectionLevel(envs.getOrElse("LEAK_DETECTION_LEVEL", "disabled"))
+    val server = Server.port(8080) ++ leakDetectionLevel(envs.getOrElse("LEAK_DETECTION_LEVEL", "disabled"))
 
     if (acceptContinue) server ++ Server.acceptContinue
     if (disableKeepAlive) server ++ Server.disableKeepAlive
@@ -59,15 +58,17 @@ object BenchmarkApp extends zio.App {
 
   private def jsonApp(json: Response) = Http.fromHExit(HExit.succeed(json)).whenPathEq(jsonPath)
 
-  val app = for {
+  val zApp = for {
     plainTextResponse <- frozenPlainTextResponse
     jsonResponse      <- frozenJsonResponse
   } yield plainTextApp(plainTextResponse) ++ jsonApp(jsonResponse)
 
   override def run(args: List[String]): URIO[ZEnv, ExitCode] = {
-    for {
-      server <- settings
-    } yield server.make.use { _ => putStrLn("Starting server") *> ZIO.never }
+    zApp.flatMap { app =>
+      settings.flatMap { server =>
+        (Server.app(app) ++ server).make.useForever
+      }
+    }
   }.exitCode
     .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
 }
