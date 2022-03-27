@@ -19,47 +19,6 @@ final case class Response private (
     with HttpDataExtension[Response] { self =>
 
   /**
-   * Adds cookies in the response headers.
-   */
-  def addCookie(cookie: Cookie): Response =
-    self.copy(headers = self.headers ++ Headers(HttpHeaderNames.SET_COOKIE.toString, cookie.encode))
-
-  /**
-   * A micro-optimizations that ignores all further modifications to the
-   * response and encodes the current version into a Netty response. The netty
-   * response is cached and reused for subsequent requests. This allows the
-   * server to reduce memory utilization under load by not having to encode the
-   * response for each request. In case the response is modified the server will
-   * detect the changes and encode the response again, however it will turn out
-   * to be counter productive.
-   */
-  def freeze: UIO[Response] =
-    UIO(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
-
-  /**
-   * Sets the response attributes
-   */
-  def setAttribute(attribute: Response.Attribute): Response =
-    self.copy(attribute = attribute)
-
-  /**
-   * Sets the status of the response
-   */
-  def setStatus(status: Status): Response =
-    self.copy(status = status)
-
-  /**
-   * Updates the headers using the provided function
-   */
-  override def updateHeaders(update: Headers => Headers): Response =
-    self.copy(headers = update(self.headers))
-
-  /**
-   * A more efficient way to append server-time to the response headers.
-   */
-  def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
-
-  /**
    * Encodes the Response into a Netty HttpResponse. Sets default headers such
    * as `content-length`. For performance reasons, it is possible that it uses a
    * FullHttpResponse if the complete data is available. Otherwise, it would
@@ -99,9 +58,62 @@ final case class Response private (
       jResponse
     }
   }
+
+  /**
+   * Adds cookies in the response headers.
+   */
+  def addCookie(cookie: Cookie): Response =
+    self.copy(headers = self.headers ++ Headers(HttpHeaderNames.SET_COOKIE.toString, cookie.encode))
+
+  /**
+   * A micro-optimizations that ignores all further modifications to the
+   * response and encodes the current version into a Netty response. The netty
+   * response is cached and reused for subsequent requests. This allows the
+   * server to reduce memory utilization under load by not having to encode the
+   * response for each request. In case the response is modified the server will
+   * detect the changes and encode the response again, however it will turn out
+   * to be counter productive.
+   */
+  def freeze: UIO[Response] =
+    UIO(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
+
+  /**
+   * Sets the response attributes
+   */
+  def setAttribute(attribute: Response.Attribute): Response =
+    self.copy(attribute = attribute)
+
+  /**
+   * Sets the status of the response
+   */
+  def setStatus(status: Status): Response =
+    self.copy(status = status)
+
+  /**
+   * Creates an Http from a Response
+   */
+  def toHttp: Http[Any, Nothing, Any, Response] = Http.succeed(self)
+
+  /**
+   * Updates the headers using the provided function
+   */
+  override def updateHeaders(update: Headers => Headers): Response =
+    self.copy(headers = update(self.headers))
+
+  /**
+   * A more efficient way to append server-time to the response headers.
+   */
+  def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
 }
 
 object Response {
+  private[zhttp] def unsafeFromJResponse(jRes: FullHttpResponse): Response = {
+    val status  = Status.fromHttpResponseStatus(jRes.status())
+    val headers = Headers.decode(jRes.headers())
+    val data    = HttpData.fromByteBuf(Unpooled.copiedBuffer(jRes.content()))
+    Response(status, headers, data)
+  }
+
   def apply[R, E](
     status: Status = Status.Ok,
     headers: Headers = Headers.empty,
@@ -213,13 +225,6 @@ object Response {
       data = HttpData.fromCharSequence(text),
       headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
     )
-
-  private[zhttp] def unsafeFromJResponse(jRes: FullHttpResponse): Response = {
-    val status  = Status.fromHttpResponseStatus(jRes.status())
-    val headers = Headers.decode(jRes.headers())
-    val data    = HttpData.fromByteBuf(Unpooled.copiedBuffer(jRes.content()))
-    Response(status, headers, data)
-  }
 
   /**
    * Attribute holds meta data for the backend
