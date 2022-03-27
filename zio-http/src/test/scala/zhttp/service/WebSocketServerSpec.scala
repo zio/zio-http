@@ -53,7 +53,7 @@ object WebSocketServerSpec extends HttpRunnableSpec {
       val app = Socket.empty.toHttp.deployWS
 
       // Close the connection after 1 second
-      val closeSocket = Socket.succeed(WebSocketFrame.close(1000)).delay(1.second)
+      val closeSocket = Socket.end.delay(1 second)
 
       for {
         clock <- ZIO.environment[Clock]
