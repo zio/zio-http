@@ -57,24 +57,22 @@ private[zhttp] trait ClientRequestHandler[R] {
    */
   private def writeData(data: HttpData.Complete)(implicit ctx: Ctx): Unit = {
     data match {
-      case HttpData.BinaryStream(stream)   =>
+      case HttpData.BinaryStream(stream)         =>
         zExec.unsafeRun(ctx) {
           writeStreamContent(stream)
         }
-      case HttpData.JavaFile(raf)          =>
-        unsafeWriteFileContent(raf())
-      case HttpData.Text(content, charset) =>
-        ctx.write(new DefaultHttpContent(Unpooled.copiedBuffer(content, charset)))
+      case HttpData.FromAsciiString(asciiString) =>
+        ctx.write(new DefaultHttpContent(Unpooled.wrappedBuffer(asciiString.array())))
         writeAndFlushLastHttpContent
-      case HttpData.BinaryChunk(data)      =>
+      case HttpData.JavaFile(raf)                =>
+        unsafeWriteFileContent(raf())
+      case HttpData.BinaryChunk(data)            =>
         ctx.write(Unpooled.copiedBuffer(data.toArray)): Unit
         writeAndFlushLastHttpContent
-      case HttpData.BinaryByteBuf(data)    =>
+      case HttpData.BinaryByteBuf(data)          =>
         ctx.writeAndFlush(data): Unit
         writeAndFlushLastHttpContent
-      case HttpData.Empty                  => writeAndFlushLastHttpContent
-      case _                               =>
-        ctx.flush(): Unit
+      case HttpData.Empty                        => writeAndFlushLastHttpContent
     }
   }
 
