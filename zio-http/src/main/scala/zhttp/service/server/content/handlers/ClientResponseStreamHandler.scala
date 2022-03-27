@@ -1,7 +1,6 @@
 package zhttp.service.server.content.handlers
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.HttpContent
-import zhttp.http.HTTP_CHARSET
 import zhttp.http.HttpData.{UnsafeChannel, UnsafeContent}
 
 final class ClientResponseStreamHandler {
