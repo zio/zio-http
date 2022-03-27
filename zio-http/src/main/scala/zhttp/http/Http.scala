@@ -618,6 +618,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.asInstanceOf[Http[R, E1, A, B1]]
 
   /**
+   * Narrows the type of the input
+   */
+  final def narrow[A1](implicit a: A1 <:< A): Http[R, E, A1, B] =
+    self.asInstanceOf[Http[R, E, A1, B]]
+
+  /**
    * Combines the two apps and returns the result of the one on the right
    */
   final def zipRight[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
