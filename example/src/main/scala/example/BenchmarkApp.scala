@@ -11,17 +11,17 @@ object BenchmarkApp extends zio.App {
 
   private def leakDetectionLevel(level: String): UServer = level match {
     case "disabled" => Server.disableLeakDetection
-    case "simple"   => Server.simpleLeakDetection
+    case "simple" => Server.simpleLeakDetection
     case "advanced" => Server.advancedLeakDetection
     case "paranoid" => Server.paranoidLeakDetection
   }
 
   private def settings: ZIO[system.System, SecurityException, Server[Any, Nothing]] = zio.system.envs.map { envs =>
-    val acceptContinue     = envs.getOrElse("ACCEPT_CONTINUE", "false").toBoolean
-    val disableKeepAlive   = envs.getOrElse("DISABLE_KEEP_ALIVE", "false").toBoolean
-    val consolidateFlush   = envs.getOrElse("CONSOLIDATE_FLUSH", "false").toBoolean
-    val disableFlowControl = envs.getOrElse("DISABLE_FLOW_CONTROL", "false").toBoolean
-    val maxRequestSize     = envs.getOrElse("MAX_REQUEST_SIZE", "-1").toInt
+    val acceptContinue = envs.getOrElse("ACCEPT_CONTINUE", "false").toBoolean
+    val disableKeepAlive = envs.getOrElse("DISABLE_KEEP_ALIVE", "false").toBoolean
+    val consolidateFlush = envs.getOrElse("CONSOLIDATE_FLUSH", "true").toBoolean
+    val disableFlowControl = envs.getOrElse("DISABLE_FLOW_CONTROL", "true").toBoolean
+    val maxRequestSize = envs.getOrElse("MAX_REQUEST_SIZE", "-1").toInt
 
     val server = Server.port(8080) ++ leakDetectionLevel(envs.getOrElse("LEAK_DETECTION_LEVEL", "disabled"))
 
@@ -35,10 +35,10 @@ object BenchmarkApp extends zio.App {
   }
 
   private val plainTextMessage: String = "Hello, World!"
-  private val jsonMessage: String      = """{"greetings": "Hello World!"}"""
+  private val jsonMessage: String = """{"greetings": "Hello World!"}"""
 
   private val plaintextPath = "/plaintext"
-  private val jsonPath      = "/json"
+  private val jsonPath = "/json"
 
   private val STATIC_SERVER_NAME = AsciiString.cached("zio-http")
 
@@ -60,7 +60,7 @@ object BenchmarkApp extends zio.App {
 
   val zApp = for {
     plainTextResponse <- frozenPlainTextResponse
-    jsonResponse      <- frozenJsonResponse
+    jsonResponse <- frozenJsonResponse
   } yield plainTextApp(plainTextResponse) ++ jsonApp(jsonResponse)
 
   override def run(args: List[String]): URIO[ZEnv, ExitCode] = {
