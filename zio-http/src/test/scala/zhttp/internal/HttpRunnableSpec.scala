@@ -2,8 +2,6 @@ package zhttp.internal
 
 import zhttp.http.URL.Location
 import zhttp.http._
-import zhttp.internal.DynamicServer.HttpEnv
-import zhttp.internal.HttpRunnableSpec.HttpTestClient
 import zhttp.service.Client.Config
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
@@ -47,7 +45,10 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       }
   }
 
-  implicit class RunnableHttpClientAppSyntax(app: HttpApp[HttpEnv, Throwable]) {
+  implicit class RunnableHttpClientAppSyntax[R, E](http: HttpApp[R, E]) {
+
+    def app(implicit e: E <:< Throwable): HttpApp[R, Throwable] =
+      http.asInstanceOf[HttpApp[R, Throwable]]
 
     /**
      * Deploys the http application on the test server and returns a Http of
@@ -56,7 +57,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy: HttpTestClient[Any, Request, Response] =
+    def deploy(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, Request, Response] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
@@ -70,11 +71,11 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
         }
       } yield response
 
-    def deployWS: HttpTestClient[Any, SocketApp[Any], Response] =
+    def deployWS(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, SocketApp[HttpEnv], Response] =
       for {
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         url      <- Http.fromZIO(DynamicServer.wsURL)
-        response <- Http.fromFunctionZIO[SocketApp[Any]] { app =>
+        response <- Http.fromFunctionZIO[SocketApp[HttpEnv]] { app =>
           Client.socket(
             url = url,
             headers = Headers(DynamicServer.APP_ID, id),
@@ -110,14 +111,4 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
         .map(_.status)
     } yield status
   }
-}
-
-object HttpRunnableSpec {
-  type HttpTestClient[-R, -A, +B] =
-    Http[
-      R with EventLoopGroup with ChannelFactory with DynamicServer with ServerChannelFactory,
-      Throwable,
-      A,
-      B,
-    ]
 }
