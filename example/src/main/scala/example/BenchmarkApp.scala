@@ -1,34 +1,20 @@
 import io.netty.util.AsciiString
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{EventLoopGroup, Server, UServer}
-import zio.{ExitCode, UIO, URIO, ZEnv, ZIO, system}
+import zhttp.service.{EventLoopGroup, Server}
+import zio.{ExitCode, UIO, URIO, ZEnv}
 
 /**
  * This server is used to run plaintext benchmarks on CI.
  */
 object BenchmarkApp extends zio.App {
 
-  private def leakDetectionLevel(level: String): UServer = level match {
-    case "disabled" => Server.disableLeakDetection
-    case "simple" => Server.simpleLeakDetection
-    case "advanced" => Server.advancedLeakDetection
-    case "paranoid" => Server.paranoidLeakDetection
-  }
-
-  private def settings: ZIO[system.System, SecurityException, Server[Any, Nothing]] = zio.system.envs.flatMap { envs =>
-    //    val acceptContinue = envs.getOrElse("ACCEPT_CONTINUE", "false").toBoolean
-    //    val disableKeepAlive = envs.getOrElse("DISABLE_KEEP_ALIVE", "false").toBoolean
-    //    val consolidateFlush = envs.getOrElse("CONSOLIDATE_FLUSH", "true").toBoolean
-    //    val disableFlowControl = envs.getOrElse("DISABLE_FLOW_CONTROL", "true").toBoolean
-    //    val maxRequestSize = envs.getOrElse("MAX_REQUEST_SIZE", "-1").toInt
-
-    val server = Server.port(8080) ++ leakDetectionLevel(envs.getOrElse("LEAK_DETECTION_LEVEL", "disabled"))
-
-    server ++ Server.acceptContinue ++ Server.disableKeepAlive ++ Server.consolidateFlush ++ Server.disableFlowControl ++ Server.enableObjectAggregator(-1)
-
-    ZIO.succeed(server)
-  }
+  //  private def leakDetectionLevel(level: String): UServer = level match {
+  //    case "disabled" => Server.disableLeakDetection
+  //    case "simple" => Server.simpleLeakDetection
+  //    case "advanced" => Server.advancedLeakDetection
+  //    case "paranoid" => Server.paranoidLeakDetection
+  //  }
 
   private val plainTextMessage: String = "Hello, World!"
   private val jsonMessage: String = """{"greetings": "Hello World!"}"""
@@ -54,17 +40,21 @@ object BenchmarkApp extends zio.App {
 
   private def jsonApp(json: Response) = Http.fromHExit(HExit.succeed(json)).whenPathEq(jsonPath)
 
-  val zApp = for {
+  private def app = for {
     plainTextResponse <- frozenPlainTextResponse
     jsonResponse <- frozenJsonResponse
   } yield plainTextApp(plainTextResponse) ++ jsonApp(jsonResponse)
 
-  override def run(args: List[String]): URIO[ZEnv, ExitCode] = {
-    zApp.flatMap { app =>
-      settings.flatMap { server =>
-        (Server.app(app) ++ server ++ Server.error(_ => UIO.unit)).make.useForever
-      }
-    }
-  }.exitCode
+  override def run(args: List[String]): URIO[ZEnv, ExitCode] = app
+    .flatMap(server(_).make.useForever)
     .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
+    .exitCode
+
+  private def server(app: HttpApp[Any, Nothing]) =
+    Server.app(app) ++
+      Server.port(8080) ++
+      Server.error(_ => UIO.unit) ++
+      Server.disableLeakDetection ++
+      Server.consolidateFlush ++
+      Server.disableFlowControl
 }
