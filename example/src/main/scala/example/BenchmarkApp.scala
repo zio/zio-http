@@ -2,7 +2,7 @@ import io.netty.util.AsciiString
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server, UServer}
-import zio.{ExitCode, URIO, ZEnv, ZIO, system}
+import zio.{ExitCode, UIO, URIO, ZEnv, ZIO, system}
 
 /**
  * This server is used to run plaintext benchmarks on CI.
@@ -66,7 +66,7 @@ object BenchmarkApp extends zio.App {
   override def run(args: List[String]): URIO[ZEnv, ExitCode] = {
     zApp.flatMap { app =>
       settings.flatMap { server =>
-        (Server.app(app) ++ server).make.useForever
+        (Server.app(app) ++ server ++ Server.error(_ => UIO.unit)).make.useForever
       }
     }
   }.exitCode
