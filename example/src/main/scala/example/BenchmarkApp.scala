@@ -1,39 +1,15 @@
+package example
+
 import io.netty.util.AsciiString
-import zhttp.http._
+import zhttp.http.{Http, _}
 import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{EventLoopGroup, Server, UServer}
-import zio.console.putStrLn
-import zio.{ExitCode, URIO, ZEnv, ZIO}
+import zhttp.service.{EventLoopGroup, Server}
+import zio.{App, ExitCode, UIO, URIO}
 
 /**
  * This server is used to run plaintext benchmarks on CI.
  */
-object BenchmarkApp extends zio.App {
-
-  private def leakDetectionLevel(level: String): UServer = level match {
-    case "disabled" => Server.disableLeakDetection
-    case "simple"   => Server.simpleLeakDetection
-    case "advanced" => Server.advancedLeakDetection
-    case "paranoid" => Server.paranoidLeakDetection
-  }
-
-  private def settings = zio.system.envs.map { envs =>
-    val acceptContinue     = envs.getOrElse("ACCEPT_CONTINUE", "false").toBoolean
-    val disableKeepAlive   = envs.getOrElse("DISABLE_KEEP_ALIVE", "false").toBoolean
-    val consolidateFlush   = envs.getOrElse("CONSOLIDATE_FLUSH", "false").toBoolean
-    val disableFlowControl = envs.getOrElse("DISABLE_FLOW_CONTROL", "false").toBoolean
-    val maxRequestSize     = envs.getOrElse("MAX_REQUEST_SIZE", "-1").toInt
-
-    val server = Server.port(8090) ++ leakDetectionLevel(envs.getOrElse("LEAK_DETECTION_LEVEL", "disabled"))
-
-    if (acceptContinue) server ++ Server.acceptContinue
-    if (disableKeepAlive) server ++ Server.disableKeepAlive
-    if (consolidateFlush) server ++ Server.consolidateFlush
-    if (disableFlowControl) server ++ Server.disableFlowControl
-    if (maxRequestSize > -1) server ++ Server.enableObjectAggregator(maxRequestSize)
-
-    server
-  }
+object Main extends App {
 
   private val plainTextMessage: String = "Hello, World!"
   private val jsonMessage: String      = """{"greetings": "Hello World!"}"""
@@ -59,15 +35,23 @@ object BenchmarkApp extends zio.App {
 
   private def jsonApp(json: Response) = Http.fromHExit(HExit.succeed(json)).whenPathEq(jsonPath)
 
-  val app = for {
+  private def app = for {
     plainTextResponse <- frozenPlainTextResponse
     jsonResponse      <- frozenJsonResponse
   } yield plainTextApp(plainTextResponse) ++ jsonApp(jsonResponse)
 
-  override def run(args: List[String]): URIO[ZEnv, ExitCode] = {
-    for {
-      server <- settings
-    } yield server.make.use { _ => putStrLn("Starting server") *> ZIO.never }
-  }.exitCode
-    .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+    app
+      .flatMap(server(_).make.useForever)
+      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
+      .exitCode
+
+  private def server(app: HttpApp[Any, Nothing]) =
+    Server.app(app) ++
+      Server.port(8080) ++
+      Server.error(_ => UIO.unit) ++
+      Server.disableLeakDetection ++
+      Server.consolidateFlush ++
+      Server.disableFlowControl
+
 }
