@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler.ClientHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.ServerHandshakeStateEvent
-import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
+import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import zhttp.socket.SocketApp.Handle
 import zhttp.socket.{SocketApp, WebSocketFrame}
 import zio.stream.ZStream
@@ -13,11 +13,17 @@ import zio.stream.ZStream
  * server.
  */
 final class WebSocketAppHandler[R](
+  name: String,
   zExec: HttpRuntime[R],
   app: SocketApp[R],
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
-  override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit =
+  def log(msg: String): Unit = {
+    println(s"[$name] $msg")
+  }
+
+  override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit = {
+    log(s"ChannelRead:${msg.getClass.getName}")
     app.message match {
       case Some(v) =>
         WebSocketFrame.fromJFrame(msg) match {
@@ -26,8 +32,10 @@ final class WebSocketAppHandler[R](
         }
       case None    => ()
     }
+  }
 
   override def channelUnregistered(ctx: ChannelHandlerContext): Unit = {
+    log(s"ChannelUnRegistered")
     app.close match {
       case Some(v) => zExec.unsafeRunUninterruptible(ctx)(v(ctx.channel().remoteAddress()))
       case None    => ctx.fireChannelUnregistered()
@@ -36,6 +44,7 @@ final class WebSocketAppHandler[R](
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, x: Throwable): Unit = {
+    log("ExceptionCaught")
     app.error match {
       case Some(v) => zExec.unsafeRun(ctx)(v(x).uninterruptible)
       case None    => ctx.fireExceptionCaught(x)
@@ -44,7 +53,7 @@ final class WebSocketAppHandler[R](
   }
 
   override def userEventTriggered(ctx: ChannelHandlerContext, event: AnyRef): Unit = {
-
+    log("UserEventTriggered")
     event match {
       case _: WebSocketServerProtocolHandler.HandshakeComplete | ClientHandshakeStateEvent.HANDSHAKE_COMPLETE =>
         app.open match {
@@ -68,9 +77,10 @@ final class WebSocketAppHandler[R](
   /**
    * Unsafe channel reader for WSFrame
    */
-
-  private def writeAndFlush(ctx: ChannelHandlerContext, stream: ZStream[R, Throwable, WebSocketFrame]): Unit =
+  private def writeAndFlush(ctx: ChannelHandlerContext, stream: ZStream[R, Throwable, WebSocketFrame]): Unit = {
+    log("WriteAndFlush")
     zExec.unsafeRun(ctx) {
       stream.foreach(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toWebSocketFrame)))
     }
+  }
 }

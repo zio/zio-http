@@ -31,7 +31,7 @@ trait WebSocketUpgrade[R] { self: ChannelHandler =>
           .channel()
           .pipeline()
           .addLast(new WebSocketServerProtocolHandler(app.get.protocol.serverBuilder.build()))
-          .addLast(WEB_SOCKET_HANDLER, new WebSocketAppHandler(runtime, app.get))
+          .addLast(WEB_SOCKET_HANDLER, new WebSocketAppHandler("Server", runtime, app.get))
         ctx.channel().eventLoop().submit(() => ctx.fireChannelRead(jReq)): Unit
 
       case jReq: HttpRequest =>
