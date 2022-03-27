@@ -54,10 +54,11 @@ object WebSocketServerSpec extends HttpRunnableSpec {
         clockEnv <- ZIO.environment[Clock]
 
         // Maintain a flag to check if the close handler was completed
-        isSet <- Promise.make[Nothing, Unit]
+        isSet     <- Promise.make[Nothing, Unit]
+        isStarted <- Promise.make[Nothing, Unit]
 
         // Setup websocket server
-        onClose      = isSet.succeed(()).delay(5 seconds)
+        onClose      = isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds)
         serverSocket = Socket.empty.toSocketApp.onClose(_ => onClose)
         serverHttp   = Http.fromZIO(serverSocket.toResponse).deployWS
 
@@ -71,10 +72,11 @@ object WebSocketServerSpec extends HttpRunnableSpec {
         // Wait for the close handler to complete
 
         _ <- TestClock.adjust(2 seconds)
+        _ <- isStarted.await
         _ <- TestClock.adjust(5 seconds)
+        _ <- isSet.await
 
         // Check if the close handler was completed
-        _ <- isSet.await
       } yield assertCompletes
     } @@ nonFlaky
   }
