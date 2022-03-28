@@ -9,7 +9,8 @@ final class ClientResponseStreamHandler {
 
   def init(ctx: ChannelHandlerContext, cb: UnsafeChannel => UnsafeContent => Unit): Unit = {
     onMessage = cb(new UnsafeChannel(ctx))
-    onMessage(new UnsafeContent(holder))
+    if (holder != null)
+      onMessage(new UnsafeContent(holder))
     holder = null
     ctx.read(): Unit
   }
