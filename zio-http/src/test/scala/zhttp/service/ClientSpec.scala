@@ -52,13 +52,6 @@ object ClientSpec extends HttpRunnableSpec {
           .run(method = Method.POST, content = HttpData.fromStream(stream))
         assertM(res)(equalTo("abc"))
       } +
-      testM("streaming content from server") {
-        val app    = Http.collect[Request] { case req => Response(data = HttpData.fromStream(req.bodyAsStream)) }
-        val stream = ZStream.fromIterable(List("a", "b", "c", "d"))
-        val res    = app.deployChunked.bodyAsString
-          .run(method = Method.POST, content = HttpData.fromStream(stream))
-        assertM(res)(equalTo("abcd"))
-      } +
       testM("streaming content from server - extended") {
         val app    = Http.collect[Request] { case req => Response(data = HttpData.fromStream(req.bodyAsStream)) }
         val stream = ZStream.fromIterable(List("This ", "is ", "a ", "longer ", "text."))
