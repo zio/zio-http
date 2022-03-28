@@ -226,13 +226,6 @@ object Response {
       headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
     )
 
-  private[zhttp] def unsafeFromJResponse(jRes: FullHttpResponse): Response = {
-    val status  = Status.fromHttpResponseStatus(jRes.status())
-    val headers = Headers.decode(jRes.headers())
-    val data    = HttpData.fromByteBuf(Unpooled.copiedBuffer(jRes.content()))
-    Response(status, headers, data)
-  }
-
   private[zhttp] def unsafeFromJResponse(jRes: HttpResponse, data: HttpData): Response = {
     val status  = Status.fromHttpResponseStatus(jRes.status())
     val headers = Headers.decode(jRes.headers())
