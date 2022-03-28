@@ -71,6 +71,6 @@ object ClientSpec extends HttpRunnableSpec {
   override def spec = {
     suiteM("Client") {
       serve(DynamicServer.app).as(List(clientSpec)).useNow
-    }.provideCustomLayerShared(env) @@ timeout(60 seconds) @@ sequential
+    }.provideCustomLayerShared(env) @@ timeout(20 seconds) @@ sequential
   }
 }
