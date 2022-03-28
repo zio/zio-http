@@ -48,6 +48,7 @@ object JmhBenchmarkWorkflow {
         commands = List(
           s"""while IFS= read -r line; do
              |   IFS=' ' read -ra PARSED_RESULT <<< "$$line"
+             |   echo $${PARSED_RESULT[1]} >> parsed_$branch.txt
              |   B_VALUE=$$(echo $${PARSED_RESULT[1]}": "$${PARSED_RESULT[4]}" ops/sec")
              |   echo $$B_VALUE >> $branch.txt
              | done < ${branch}_${l.head}.txt""".stripMargin),
@@ -62,7 +63,22 @@ object JmhBenchmarkWorkflow {
    */
   def formatOutput() = WorkflowStep.Run(
     commands = List(
-      s"""paste -d '|' Current.txt Main.txt > FinalOutput.txt
+      s"""cat parsed_Current.txt parsed_Main.txt | sort -u > c.txt
+         |          while IFS= read -r line; do
+         |          if grep -q "$$line" Current.txt
+         |          then
+         |          grep "$$line" Current.txt | sed 's/^.*: //' >> finalCurrent.txt;
+         |          else
+         |          echo "" >> finalCurrent.txt;
+         |          fi
+         |            if grep -q "$$line" Main.txt
+         |          then
+         |          grep "$$line" Main.txt | sed 's/^.*: //' >> finalMain.txt;
+         |          else
+         |          echo "" >> finalMain.txt;
+         |          fi
+         |           done < c.txt
+         |paste -d '|' c.txt finalCurrent.txt finalMain.txt > FinalOutput.txt
          | sed -i -e 's/^/|/' FinalOutput.txt
          | sed -i -e 's/$$/|/' FinalOutput.txt
          | body=$$(cat FinalOutput.txt)
@@ -94,8 +110,8 @@ object JmhBenchmarkWorkflow {
             """
               |**\uD83D\uDE80 Jmh Benchmark:**
               |
-              | |- **Current Branch**: |  - **Main Branch**: |
-              | |-----------------      | ----------- |
+              ||Name |Current| Main|
+              ||-----|----| ----|
               | ${{steps.fomat_output.outputs.body}}
               | """.stripMargin
         )
