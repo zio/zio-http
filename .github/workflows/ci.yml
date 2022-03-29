@@ -311,6 +311,7 @@ jobs:
           cd ./HttpClientBench
           echo "${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}"
           sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" build.sbt
+          cat ./build.sbt
           ./run_client_benchmark.sh
           cat ./log/results.log
 
