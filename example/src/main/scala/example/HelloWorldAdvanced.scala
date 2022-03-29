@@ -42,5 +42,4 @@ object HelloWorldAdvanced extends App {
       .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
       .exitCode
   }
-
 }
