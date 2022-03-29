@@ -300,15 +300,15 @@ jobs:
 
       - uses: actions/checkout@v2
         with:
-          repository: dream11/HttpClientBenchmark
-          path: HttpClientBenchmark
+          repository: sumawa/HttpClientBench
+          path: HttpClientBench
 
       - name: result
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
           echo "TEST ACTION"
-          cd ./HttpClientBenchmark
+          cd ./HttpClientBench
           ./run_client_benchmark.sh
           
 #          cp ./zio-http/example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
