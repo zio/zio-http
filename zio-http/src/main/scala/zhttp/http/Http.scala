@@ -1,6 +1,5 @@
 package zhttp.http
 
-import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.ChannelHandler
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
@@ -32,11 +31,11 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Extracts body as a ByteBuf
    */
-  private[zhttp] final def bodyAsByteBuf(implicit
+  private[zhttp] final def bodyAsByteArray(implicit
     eb: B <:< Response,
     ee: E <:< Throwable,
-  ): Http[R, Throwable, A, ByteBuf] =
-    self.widen[Throwable, B].mapZIO(_.bodyAsByteBuf)
+  ): Http[R, Throwable, A, Array[Byte]] =
+    self.widen[Throwable, B].mapZIO(_.bodyAsByteArray)
 
   /**
    * Evaluates the app and returns an HExit that can be resolved further
@@ -184,13 +183,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Extracts body
    */
   final def body(implicit eb: B <:< Response, ee: E <:< Throwable): Http[R, Throwable, A, Chunk[Byte]] =
-    self.bodyAsByteBuf.mapZIO(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
+    self.bodyAsByteArray.mapZIO(buf => Task(Chunk.fromArray(buf)))
 
   /**
    * Extracts body as a string
    */
   final def bodyAsString(implicit eb: B <:< Response, ee: E <:< Throwable): Http[R, Throwable, A, String] =
-    self.bodyAsByteBuf.mapZIO(bytes => Task(bytes.toString(HTTP_CHARSET)))
+    self.bodyAsByteArray.mapZIO(bytes => Task(new String(bytes, HTTP_CHARSET)))
 
   /**
    * Catches all the exceptions that the http app can fail with

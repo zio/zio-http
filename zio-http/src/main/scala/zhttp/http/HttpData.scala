@@ -127,11 +127,7 @@ object HttpData {
   }
 
   private[zhttp] final class UnsafeContent(private val httpContent: HttpContent) extends AnyVal {
-    def content: ByteBuf = {
-      val chunk = Unpooled.copiedBuffer(httpContent.content())
-      httpContent.release(httpContent.refCnt())
-      chunk
-    }
+    def content: ByteBuf = httpContent.content()
 
     def isLast: Boolean = httpContent.isInstanceOf[LastHttpContent]
   }

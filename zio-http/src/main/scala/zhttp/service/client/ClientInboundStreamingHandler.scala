@@ -10,7 +10,7 @@ final class ClientInboundStreamingHandler[R](
   val zExec: HttpRuntime[R],
   req: Request,
   promise: Promise[Throwable, Response],
-) extends SimpleChannelInboundHandler[HttpObject](true)
+) extends SimpleChannelInboundHandler[HttpObject](false)
     with ClientRequestHandler[R] {
 
   private val collector                                        = new ClientResponseStreamHandler
@@ -34,8 +34,7 @@ final class ClientInboundStreamingHandler[R](
 
         }
       case content: HttpContent   =>
-        ctx.pipeline().channel().config().setAutoRead(false)
-        collector.update(content.retain())
+        collector.update(content)
 
       case err => throw new IllegalStateException(s"Client unexpected message type: ${err}")
     }
