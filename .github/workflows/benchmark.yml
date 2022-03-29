@@ -27,7 +27,7 @@ on:
 
 jobs:
   benchmark:
-    runs-on: zio-http
+    runs-on: centos
     steps:
       - name: Greet
         run: |
