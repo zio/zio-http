@@ -1,0 +1,33 @@
+name: Benchmark Job
+
+on:
+  workflow_dispatch:
+    inputs:
+      leakDetectionLevel:
+        description: "Leak detection level"
+        required: true
+        default: "disabled"
+        type: choice
+        options:
+          - disabled
+          - simple
+          - advanced
+          - paranoid
+      flushConsolidate:
+        description: "Flush Consolidate"
+        required: true
+        default: true
+        type: boolean
+      disableFlowControl:
+        description: "Disable Flow Control"
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  benchmark:
+    runs-on: zio-http
+    steps:
+      - name: Greet
+        run: |
+          echo "Hello World"
