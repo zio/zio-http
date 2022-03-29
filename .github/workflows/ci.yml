@@ -277,3 +277,56 @@ jobs:
 
             ${{steps.result.outputs.concurrency_result}}
             ${{steps.result.outputs.request_result}}
+
+  runClientBenchmarks:
+    name: ClientBenchmarks
+    if: ${{ github.event_name == 'pull_request'}}
+    strategy:
+      matrix:
+        os: [centos]
+        scala: [2.13.8]
+        java: [temurin@11]
+    runs-on: [ "${{ matrix.os }}", zio-http ]
+    steps:
+      - name: Clean up
+        id: clean_up
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: sudo rm -rf *
+
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+
+      - uses: actions/checkout@v2
+        with:
+          repository: dream11/HttpClientBenchmark
+          path: HttpClientBenchmark
+
+      - name: result
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          echo "TEST ACTION"
+          cd ./HttpClientBenchmark
+          ./run_client_benchmark.sh
+          
+#          cp ./zio-http/example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
+#          cd ./HttpClientBenchmark
+#          sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt
+#          ./tfb  --test zio-http | tee result
+#          RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")
+#          RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+")
+#          echo ::set-output name=request_result::$(echo $RESULT_REQUEST)
+#          echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)
+
+#      - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
+#        uses: peter-evans/commit-comment@v1
+#        with:
+#          sha: ${{github.event.pull_request.head.sha}}
+#          body: |
+#
+#            **🚀 Performance Benchmark:**
+#
+#            ${{steps.result.outputs.concurrency_result}}
+#            ${{steps.result.outputs.request_result}}
