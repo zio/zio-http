@@ -1,6 +1,7 @@
 name: Benchmark Job
 
 on:
+  pull_request:
   workflow_dispatch:
     inputs:
       leakDetectionLevel:
