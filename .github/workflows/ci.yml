@@ -312,23 +312,21 @@ jobs:
           ./run_client_benchmark.sh
           tail -n 100 ./log/assembly.log
           ls -lat ./log/
-          RESULT_CLIENTS="$(cat ./log/*.out)"
-          echo "RESULT_CLIENTS"
-          echo $RESULT_CLIENTS
+          ZHTTP="$(cat ./log/Zhttp.out)"
+          STTP="$(cat ./log/SttpStandalone.out)"
+          HTTP4S="$(cat ./log/Http4s.out)"
+          echo "ZHTTP"
+          echo $ZHTTP
           echo "EXPERIMENT2"
-          OUT2=$(echo "$RESULT_CLIENTS" | tr \| \|)
+          OUT2=$(echo "$ZHTTP" | tr \| \|)
           echo "$OUT2"
           echo "---"
-          FORMATTED_RESULT_CLIENT=$(echo "${RESULT_CLIENTS//\| \|/|\\n|}")
-          echo "FORMATTED RESULT CLIENT BELOW"
+          FORMATTED_RESULT_CLIENT=$(echo ${ZHTTP//\| \|/\|\\n\|})
           echo "$FORMATTED_RESULT_CLIENT"
           echo "---"
-          body="${FORMATTED_RESULT_CLIENT//$'\n'/'%0A'}"
-
-          echo "BODY"
-          echo $body
-          echo ::set-output name=result_clients::$(echo $FORMATTED_RESULT_CLIENT)
-          echo ::set-output name=body::$(echo $body)
+          echo ::set-output name=zhttp::$(echo "$ZHTTP" | tr \| \|)
+          echo ::set-output name=sttp::$(echo "$STTP" | tr \| \|)
+          echo ::set-output name=http4s::$(echo "$HTTP4S" | tr \| \|)
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
         uses: peter-evans/commit-comment@v1
@@ -339,11 +337,8 @@ jobs:
             **🚀 Client Performance Benchmark:**
             | Client | Method | Num of Req | RPS |
             |--------|--------| -----------| ----|
-            ${{steps.clientResult.outputs.result_clients}}
-
-            **🚀 Client Performance Benchmark:**
-            | Client | Method | Num of Req | RPS |
-            |--------|--------| -----------| ----|
-            ${{steps.clientResult.outputs.body}}
+            ${{steps.clientResult.outputs.zhttp}}
+            ${{steps.clientResult.outputs.sttp}}
+            ${{steps.clientResult.outputs.http4s}}
 
 
