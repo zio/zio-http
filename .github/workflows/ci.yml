@@ -315,18 +315,11 @@ jobs:
           RESULT_CLIENTS="$(cat ./log/*.out)"
           echo "RESULT_CLIENTS"
           echo $RESULT_CLIENTS
-          echo "EXPERIMENT1"
-          echo "$RESULT_CLIENTS" | tr \| U
-          echo "$RESULT_CLIENTS" | tr \| \|
-          OUT1=$(echo "$RESULT_CLIENTS" | tr \| U)
-          echo "OUT1"
-          echo "$OUT1"
           echo "EXPERIMENT2"
           OUT2=$(echo "$RESULT_CLIENTS" | tr \| \|)
-          echo "OUT2"
           echo "$OUT2"
           echo "---"
-          FORMATTED_RESULT_CLIENT=$(echo ${RESULT_CLIENTS//\| \|/\|\\n\|})
+          FORMATTED_RESULT_CLIENT=$(echo "${RESULT_CLIENTS//\| \|/\|\\n\|}")
           echo "FORMATTED RESULT CLIENT BELOW"
           echo "$FORMATTED_RESULT_CLIENT"
           echo "---"
