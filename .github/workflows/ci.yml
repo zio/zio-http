@@ -323,6 +323,10 @@ jobs:
           echo "FORMATTED RESULT CLIENT BELOW"
           echo "$FORMATTED_RESULT_CLIENT"
           echo "---"
+          body="${FORMATTED_RESULT_CLIENT//$'\n'/'%0A'}"
+          body="${body//$'\r'/'%0D'}"
+          echo "BODY"
+          echo $body
           echo ::set-output name=result_clients::$(echo "$FORMATTED_RESULT_CLIENT")
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
