@@ -312,10 +312,10 @@ jobs:
           ./run_client_benchmark.sh
           tail -n 100 ./log/assembly.log
           ls -lat ./log/
-          RESULT_CLIENTS=$(cat ./log/*.out)
+          RESULT_CLIENTS='$(cat ./log/*.out)'
+          echo "RESULT_CLIENTS"
           echo $RESULT_CLIENTS
-          echo "---"
-          FORM1=$(echo "${RESULT_CLIENTS//\| \|/\|\\n\|}")
+          FORM1=$(echo -e ${RESULT_CLIENTS//\| \|/\|\\n\|})
           echo $FORM1
           echo "---"
           FORMATTED_RESULT_CLIENT=$(echo ${RESULT_CLIENTS//\| \|/\|\\n\|})
