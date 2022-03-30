@@ -328,6 +328,7 @@ jobs:
           echo "BODY"
           echo $body
           echo ::set-output name=result_clients::$(echo "$FORMATTED_RESULT_CLIENT")
+          echo ::set-output name=body::$(echo $body)
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
         uses: peter-evans/commit-comment@v1
@@ -339,5 +340,9 @@ jobs:
             | Client | Method | Num of Req | RPS |
             |--------|--------| -----------| ----|
             ${{steps.clientResult.outputs.result_clients}}
+            **🚀 Client Performance Benchmark:**
+            | Client | Method | Num of Req | RPS |
+            |--------|--------| -----------| ----|
+            ${{steps.clientResult.outputs.body}}
 
 
