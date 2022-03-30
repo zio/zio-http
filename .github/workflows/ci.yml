@@ -319,7 +319,7 @@ jobs:
           OUT2=$(echo "$RESULT_CLIENTS" | tr \| \|)
           echo "$OUT2"
           echo "---"
-          FORMATTED_RESULT_CLIENT=$(echo "${RESULT_CLIENTS//\| \|/\|\\n\|}")
+          FORMATTED_RESULT_CLIENT=$(echo "${RESULT_CLIENTS//\| \|/\|'%0A'\|}")
           echo "FORMATTED RESULT CLIENT BELOW"
           echo "$FORMATTED_RESULT_CLIENT"
           echo "---"
@@ -340,6 +340,7 @@ jobs:
             | Client | Method | Num of Req | RPS |
             |--------|--------| -----------| ----|
             ${{steps.clientResult.outputs.result_clients}}
+
             **🚀 Client Performance Benchmark:**
             | Client | Method | Num of Req | RPS |
             |--------|--------| -----------| ----|
