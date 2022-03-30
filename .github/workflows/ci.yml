@@ -313,6 +313,8 @@ jobs:
           tail -n 100 ./log/assembly.log
           ls -lat ./log/
           RESULT_CLIENTS=$(cat ./log/*.out)
+          FORMATTED_RESULT_CLIENT=$(echo ${RESULT_CLIENTS//\| \|/\|\\n\|})
+          echo "$FORMATTED_RESULT_CLIENT"
           echo ::set-output name=result_clients::$(echo "$RESULT_CLIENTS")
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
