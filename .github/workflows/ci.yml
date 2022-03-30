@@ -324,8 +324,8 @@ jobs:
           body: |
 
             **🚀 Client Performance Benchmark:**
-            |Name |Current| Main|
-            |-----|----| ----|
+            | Client | Method | Num of Req | RPS |
+            |--------|--------| -----------| ----|
             ${{steps.clientResult.outputs.result_clients}}
 
 
