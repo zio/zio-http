@@ -317,9 +317,13 @@ jobs:
           echo $RESULT_CLIENTS
           echo "EXPERIMENT1"
           echo "$RESULT_CLIENTS" | tr \| U
-          echo "FORM1"
-          FORM1=$(echo -e ${RESULT_CLIENTS//\| \|/\|\\n\|})
-          echo $FORM1
+          echo "$RESULT_CLIENTS" | tr \| \|
+          OUT1=$(echo "$RESULT_CLIENTS" | tr \| U)
+          echo "OUT1"
+          echo $OUT1
+          echo "EXPERIMENT2"
+          OUT2=$(echo "$RES_CL" | tr \| \|)
+          echo $OUT2
           echo "---"
           FORMATTED_RESULT_CLIENT=$(echo ${RESULT_CLIENTS//\| \|/\|\\n\|})
           echo $FORMATTED_RESULT_CLIENT
