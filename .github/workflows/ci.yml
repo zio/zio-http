@@ -312,10 +312,16 @@ jobs:
           ./run_client_benchmark.sh
           tail -n 100 ./log/assembly.log
           tail -n 100 ./log/results.log
-          RESULT_CLIENTS=$(cat ./log/results.log)
-          echo "RESULT_CLIENTS: "
-          echo "$RESULT_CLIENTS"
-          echo ::set-output name=result_clients::$(cat ./log/results.log)
+          ls -lat ./log/
+#          RESULT_CLIENTS=$(< ./log/results.log)
+          RESULT_STTP=$(< ./log/SttpStandalone.out)
+          RESULT_ZHTTP=$(< ./log/Zhttp.out)
+          RESULT_HTTP4S=$(< ./log/Http4s.out)
+#          echo "$RESULT_CLIENTS"
+          echo ::set-output name=result_sttp::$(echo "$RESULT_STTP")
+          echo ::set-output name=result_zhttp::$(echo "$RESULT_ZHTTP")
+          echo ::set-output name=result_http4s::$(echo "$RESULT_HTTP4S")
+#          echo ::set-output name=result_clients::$(cat ./log/results.log)
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
         uses: peter-evans/commit-comment@v1
@@ -326,6 +332,8 @@ jobs:
             **🚀 Client Performance Benchmark:**
             | Client | Method | Num of Req | RPS |
             |--------|--------| -----------| ----|
-            ${{steps.clientResult.outputs.result_clients}}
+            ${{steps.clientResult.outputs.result_sttp}}
+            ${{steps.clientResult.outputs.result_zhttp}}
+            ${{steps.clientResult.outputs.result_http4s}}
 
 
