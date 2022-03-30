@@ -328,7 +328,7 @@ jobs:
           FORMATTED_RESULT_CLIENT=$(echo ${RESULT_CLIENTS//\| \|/\|\\n\|})
           echo $FORMATTED_RESULT_CLIENT
           echo "---"
-          echo ::set-output name=result_clients::$(echo "$RESULT_CLIENTS")
+          echo ::set-output name=result_clients::$(echo "$RESULT_CLIENTS" | tr \| \|)
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
         uses: peter-evans/commit-comment@v1
