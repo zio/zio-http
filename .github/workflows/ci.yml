@@ -322,13 +322,15 @@ jobs:
           echo "OUT1"
           echo "$OUT1"
           echo "EXPERIMENT2"
-          OUT2=$(echo "$RES_CL" | tr \| \|)
-          echo $OUT2
+          OUT2=$(echo "$RESULT_CLIENTS" | tr \| \|)
+          echo "OUT2"
+          echo "$OUT2"
           echo "---"
           FORMATTED_RESULT_CLIENT=$(echo ${RESULT_CLIENTS//\| \|/\|\\n\|})
-          echo $FORMATTED_RESULT_CLIENT
+          echo "FORMATTED RESULT CLIENT BELOW"
+          echo "$FORMATTED_RESULT_CLIENT"
           echo "---"
-          echo ::set-output name=result_clients::$(echo "$RESULT_CLIENTS" | tr \| \|)
+          echo ::set-output name=result_clients::$(echo "$OUT2")
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
         uses: peter-evans/commit-comment@v1
