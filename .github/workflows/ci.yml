@@ -320,7 +320,7 @@ jobs:
           echo "$RESULT_CLIENTS" | tr \| \|
           OUT1=$(echo "$RESULT_CLIENTS" | tr \| U)
           echo "OUT1"
-          echo $OUT1
+          echo "$OUT1"
           echo "EXPERIMENT2"
           OUT2=$(echo "$RES_CL" | tr \| \|)
           echo $OUT2
