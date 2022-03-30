@@ -307,11 +307,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
-          echo "TEST ACTION"
           cd ./HttpClientBench
           sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" build.sbt
-          cat ./build.sbt
           ./run_client_benchmark.sh
           tail -n 100 ./log/assembly.log
-          cat ./log/results.log
+          tail -n 100 ./log/results.log
+          RESULT_CLIENTS=$(cat ./log/results.log)
+          echo ::set-output name=result_clients::$(echo $RESULT_CLIENTS)
 
