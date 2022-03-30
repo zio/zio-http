@@ -303,7 +303,7 @@ jobs:
           repository: sumawa/HttpClientBench
           path: HttpClientBench
 
-      - name: result
+      - id: clientResult
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
@@ -325,6 +325,6 @@ jobs:
 
             **🚀 Client Performance Benchmark:**
 
-            ${{steps.result.outputs.result_clients}}
+            ${{steps.clientResult.outputs.result_clients}}
 
 
