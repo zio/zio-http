@@ -319,15 +319,15 @@ jobs:
           OUT2=$(echo "$RESULT_CLIENTS" | tr \| \|)
           echo "$OUT2"
           echo "---"
-          FORMATTED_RESULT_CLIENT=$(echo "${RESULT_CLIENTS//\| \|/\|'%0A'\|}")
+          FORMATTED_RESULT_CLIENT=$(echo "${RESULT_CLIENTS//\| \|/\|\\n\|}")
           echo "FORMATTED RESULT CLIENT BELOW"
           echo "$FORMATTED_RESULT_CLIENT"
           echo "---"
           body="${FORMATTED_RESULT_CLIENT//$'\n'/'%0A'}"
-          body="${body//$'\r'/'%0D'}"
+
           echo "BODY"
           echo $body
-          echo ::set-output name=result_clients::$(echo "$FORMATTED_RESULT_CLIENT")
+          echo ::set-output name=result_clients::$(echo $FORMATTED_RESULT_CLIENT)
           echo ::set-output name=body::$(echo $body)
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
