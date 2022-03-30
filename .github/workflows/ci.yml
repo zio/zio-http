@@ -315,7 +315,7 @@ jobs:
           RESULT_CLIENTS=$(cat ./log/*.out)
           echo $RESULT_CLIENTS
           echo "---"
-          FORM1=$(echo ${RESULT_CLIENTS//\| \|/\|\\n\|})
+          FORM1=$(echo "${RESULT_CLIENTS//\| \|/\|\\n\|}")
           echo $FORM1
           echo "---"
           FORMATTED_RESULT_CLIENT=$(echo ${RESULT_CLIENTS//\| \|/\|\\n\|})
