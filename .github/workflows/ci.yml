@@ -315,8 +315,7 @@ jobs:
           RESULT_CLIENTS=$(cat ./log/results.log)
           echo "RESULT_CLIENTS: "
           echo "$RESULT_CLIENTS"
-          echo ::set-output name=result_clients::$(cat ./log/results.log
-#          echo ::set-output name=result_clients::$(echo "$RESULT_CLIENTS")
+          echo ::set-output name=result_clients::$(cat ./log/results.log)
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
         uses: peter-evans/commit-comment@v1
