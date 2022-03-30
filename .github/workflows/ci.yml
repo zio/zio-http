@@ -314,5 +314,6 @@ jobs:
           cat ./build.sbt
           ./run_client_benchmark.sh
           cat ./log/assembly.log
+          ls -lat ./target/
           cat ./log/results.log
 
