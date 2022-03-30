@@ -315,10 +315,8 @@ jobs:
           RESULT_CLIENTS="$(cat ./log/*.out)"
           echo "RESULT_CLIENTS"
           echo $RESULT_CLIENTS
-          EXP1=$(echo ${RES_CL//\|/U})
-          echo $EXP1
-          EXP2=$(echo ${RES_CL//\| \|/U})
-          echo $EXP2
+          echo "EXPERIMENT1"
+          echo "$RESULT_CLIENTS" | tr \| U
           echo "FORM1"
           FORM1=$(echo -e ${RESULT_CLIENTS//\| \|/\|\\n\|})
           echo $FORM1
