@@ -308,6 +308,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
           cd ./HttpClientBench
+          ls -lat ./
           sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" build.sbt
           ./run_client_benchmark.sh
           tail -n 100 ./log/server_out.log
@@ -327,7 +328,7 @@ jobs:
           echo ::set-output name=http4s::$(echo "$HTTP4S" | tr \| \|)
           echo ::set-output name=result_clients::$(echo "$FORMATTED_RESULT_CLIENT")
           echo ::set-output name=result_clients1::$FORMATTED_RESULT_CLIENT
-          echo ::set-output name=result_clients2::"$FORMATTED_RESULT_CLIENT"
+          echo ::set-output name=result_clients2::"$OUT2"
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
         uses: peter-evans/commit-comment@v1
