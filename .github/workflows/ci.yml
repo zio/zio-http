@@ -311,23 +311,9 @@ jobs:
           sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" build.sbt
           ./run_client_benchmark.sh
           tail -n 100 ./log/server_out.log
-          ls -lat ./log/
           RESULT_CLIENTS="$(cat ./log/*.out)"
           echo "$RESULT_CLIENTS"
-          ZHTTP="$(cat ./log/Zhttp.out)"
-          STTP="$(cat ./log/SttpStandalone.out)"
-          HTTP4S="$(cat ./log/Http4s.out)"
-          echo "EXPERIMENT"
-          OUT2=$(echo "$ZHTTP" | tr \| \|)
-          echo "$OUT2"
-          echo "---"
-          TEM="| ZIO-HTTP | GET | 3000 | 1547 | %0A | ZIO-HTTP | POST | 3000 | 2222 | "
-          echo ::set-output name=zhttp::$(echo "$ZHTTP" | tr \| \|)
-          echo ::set-output name=sttp::$(echo "$STTP" | tr \| \|)
-          echo ::set-output name=http4s::$(echo "$HTTP4S" | tr \| \|)
           echo ::set-output name=result_clients::$(echo "$RESULT_CLIENTS")
-          echo ::set-output name=result_clients1::$RESULT_CLIENTS
-          echo ::set-output name=result_clients2::$TEM
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
         uses: peter-evans/commit-comment@v1
@@ -336,25 +322,6 @@ jobs:
           body: |
 
             **🚀 Client Performance Benchmark:**
-            | Client | Method | Num of Req | RPS |
-            |--------|--------| -----------| ----|
-            ${{steps.clientResult.outputs.zhttp}}
-            ${{steps.clientResult.outputs.sttp}}
-            ${{steps.clientResult.outputs.http4s}}
-
-
-            **🚀 Client Performance Benchmark:**
-            | Client | Method | Num of Req | RPS |
-            |--------|--------| -----------| ----|
+            | Client | Method | Number of Requests | RPS |
+            |--------|--------| -------------------| ----|
             ${{steps.clientResult.outputs.result_clients}}
-
-            **🚀 Client Performance Benchmark:**
-            | Client | Method | Num of Req | RPS |
-            |--------|--------| -----------| ----|
-            ${{steps.clientResult.outputs.result_clients1}}
-
-            **🚀 Client Performance Benchmark:**
-            | Client | Method | Num of Req | RPS |
-            |--------|--------| -----------| ----|
-            ${{steps.clientResult.outputs.result_clients2}}
-
