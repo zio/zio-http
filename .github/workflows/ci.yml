@@ -308,15 +308,13 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
           cd ./HttpClientBench
-          ls -lat ./
           ls -lat ~/
           sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" build.sbt
           pwd
           ./run_client_benchmark.sh
-          echo "checking home dir again"
-          ls -lat ~/
           tail -n 100 ./log/server_out.log
           ls -lat ./log/
+          sed -i -e 's/^|/|\n/' ./log/Zhttp.out
           ZHTTP="$(cat ./log/Zhttp.out)"
           STTP="$(cat ./log/SttpStandalone.out)"
           HTTP4S="$(cat ./log/Http4s.out)"
