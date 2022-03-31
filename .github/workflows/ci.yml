@@ -324,7 +324,7 @@ jobs:
           FORMATTED_RESULT_CLIENT=$(echo ${ZHTTP//\| \|/\|\\n\|})
           echo "$FORMATTED_RESULT_CLIENT"
           echo "---"
-          TEM="| ZIO-HTTP | GET | 3000 | 1547 | '%0A' | ZIO-HTTP | POST | 3000 | 2222 | "
+          TEM="| ZIO-HTTP | GET | 3000 | 1547 | %0A | ZIO-HTTP | POST | 3000 | 2222 | "
           echo ::set-output name=zhttp::$(echo "$ZHTTP" | tr \| \|)
           echo ::set-output name=sttp::$(echo "$STTP" | tr \| \|)
           echo ::set-output name=http4s::$(echo "$HTTP4S" | tr \| \|)
