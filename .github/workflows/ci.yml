@@ -315,18 +315,18 @@ jobs:
           ZHTTP="$(cat ./log/Zhttp.out)"
           STTP="$(cat ./log/SttpStandalone.out)"
           HTTP4S="$(cat ./log/Http4s.out)"
-          echo "ZHTTP"
-          echo $ZHTTP
           echo "EXPERIMENT2"
           OUT2=$(echo "$ZHTTP" | tr \| \|)
           echo "$OUT2"
           echo "---"
-          FORMATTED_RESULT_CLIENT=$(echo ${ZHTTP//\| \|/\|\\n\|})
+          FORMATTED_RESULT_CLIENT=$(echo ${ZHTTP//\| \|/\|\\r\|})
           echo "$FORMATTED_RESULT_CLIENT"
           echo "---"
           echo ::set-output name=zhttp::$(echo "$ZHTTP" | tr \| \|)
           echo ::set-output name=sttp::$(echo "$STTP" | tr \| \|)
           echo ::set-output name=http4s::$(echo "$HTTP4S" | tr \| \|)
+          echo ::set-output name=result_clients::$FORMATTED_RESULT_CLIENT
+          echo ::set-output name=result_clients2::"$FORMATTED_RESULT_CLIENT"
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
         uses: peter-evans/commit-comment@v1
@@ -341,4 +341,14 @@ jobs:
             ${{steps.clientResult.outputs.sttp}}
             ${{steps.clientResult.outputs.http4s}}
 
+
+            **🚀 Client Performance Benchmark:**
+            | Client | Method | Num of Req | RPS |
+            |--------|--------| -----------| ----|
+            ${{steps.clientResult.outputs.result_clients}}
+
+            **🚀 Client Performance Benchmark:**
+            | Client | Method | Num of Req | RPS |
+            |--------|--------| -----------| ----|
+            ${{steps.clientResult.outputs.result_clients2}}
 
