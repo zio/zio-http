@@ -314,8 +314,8 @@ jobs:
           ./run_client_benchmark.sh
           tail -n 100 ./log/server_out.log
           ls -lat ./log/
-          sed -i -e 's/^|/|\n/' ./log/Zhttp.out
-          ZHTTP="$(cat ./log/Zhttp.out)"
+          sed -e "s/\|$/\|'%0A'/" ./log/Zhttp.out > ./log/Zhttp_1.out
+          ZHTTP="$(cat ./log/Zhttp_1.out)"
           STTP="$(cat ./log/SttpStandalone.out)"
           HTTP4S="$(cat ./log/Http4s.out)"
           echo "EXPERIMENT"
