@@ -322,8 +322,8 @@ jobs:
           OUT2=$(echo "$ZHTTP" | tr \| \|)
           echo "$OUT2"
           echo "---"
-          FORMATTED_RESULT_CLIENT=$(echo "${RESULT_CLIENTS//\| \|/\|%0A\|}")
-          echo "FORMATTED RESULT CLIENT BELOW"
+          FORMATTED_RESULT_CLIENT=$(echo "${RESULT_CLIENTS//\| \|/| %0A |}")
+          echo "FORMATTED RESULT CLIENT with %0A "
           echo "$FORMATTED_RESULT_CLIENT"
           echo "---"
           TEM="| ZIO-HTTP | GET | 3000 | 1547 | %0A | ZIO-HTTP | POST | 3000 | 2222 | "
