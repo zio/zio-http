@@ -314,7 +314,6 @@ jobs:
           ./run_client_benchmark.sh
           tail -n 100 ./log/server_out.log
           ls -lat ./log/
-          sed -e "s/\|$/\|'%0A'/" ./log/Zhttp.out > ./log/Zhttp_1.out
           ZHTTP="$(cat ./log/Zhttp_1.out)"
           STTP="$(cat ./log/SttpStandalone.out)"
           HTTP4S="$(cat ./log/Http4s.out)"
@@ -325,12 +324,13 @@ jobs:
           FORMATTED_RESULT_CLIENT=$(echo ${ZHTTP//\| \|/\|\\n\|})
           echo "$FORMATTED_RESULT_CLIENT"
           echo "---"
+          TEM="| ZIO-HTTP | GET | 3000 | 1547 | '%0A' | ZIO-HTTP | POST | 3000 | 2222 | "
           echo ::set-output name=zhttp::$(echo "$ZHTTP" | tr \| \|)
           echo ::set-output name=sttp::$(echo "$STTP" | tr \| \|)
           echo ::set-output name=http4s::$(echo "$HTTP4S" | tr \| \|)
           echo ::set-output name=result_clients::$(echo "$FORMATTED_RESULT_CLIENT")
           echo ::set-output name=result_clients1::$FORMATTED_RESULT_CLIENT
-          echo ::set-output name=result_clients2::$OUT2
+          echo ::set-output name=result_clients2::$TEM
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
         uses: peter-evans/commit-comment@v1
