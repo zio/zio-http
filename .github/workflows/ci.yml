@@ -310,7 +310,7 @@ jobs:
           cd ./HttpClientBench
           sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" build.sbt
           ./run_client_benchmark.sh
-          tail -n 100 ./log/assembly.log
+          tail -n 100 ./log/server_out.log
           ls -lat ./log/
           ZHTTP="$(cat ./log/Zhttp.out)"
           STTP="$(cat ./log/SttpStandalone.out)"
