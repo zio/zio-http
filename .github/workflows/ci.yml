@@ -314,6 +314,7 @@ jobs:
           ./run_client_benchmark.sh
           tail -n 100 ./log/server_out.log
           ls -lat ./log/
+          RESULT_CLIENTS="$(cat ./log/*.out)"
           ZHTTP="$(cat ./log/Zhttp.out)"
           STTP="$(cat ./log/SttpStandalone.out)"
           HTTP4S="$(cat ./log/Http4s.out)"
@@ -321,7 +322,8 @@ jobs:
           OUT2=$(echo "$ZHTTP" | tr \| \|)
           echo "$OUT2"
           echo "---"
-          FORMATTED_RESULT_CLIENT=$(echo ${ZHTTP//\| \|/\|\\n\|})
+          FORMATTED_RESULT_CLIENT=$(echo "${RESULT_CLIENTS//\| \|/\|%0A\|}")
+          echo "FORMATTED RESULT CLIENT BELOW"
           echo "$FORMATTED_RESULT_CLIENT"
           echo "---"
           TEM="| ZIO-HTTP | GET | 3000 | 1547 | %0A | ZIO-HTTP | POST | 3000 | 2222 | "
