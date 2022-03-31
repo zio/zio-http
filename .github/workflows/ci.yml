@@ -319,13 +319,14 @@ jobs:
           OUT2=$(echo "$ZHTTP" | tr \| \|)
           echo "$OUT2"
           echo "---"
-          FORMATTED_RESULT_CLIENT=$(echo ${ZHTTP//\| \|/\|\\r\|})
+          FORMATTED_RESULT_CLIENT=$(echo ${ZHTTP//\| \|/\|\\n\|})
           echo "$FORMATTED_RESULT_CLIENT"
           echo "---"
           echo ::set-output name=zhttp::$(echo "$ZHTTP" | tr \| \|)
           echo ::set-output name=sttp::$(echo "$STTP" | tr \| \|)
           echo ::set-output name=http4s::$(echo "$HTTP4S" | tr \| \|)
-          echo ::set-output name=result_clients::$FORMATTED_RESULT_CLIENT
+          echo ::set-output name=result_clients::$(echo "$FORMATTED_RESULT_CLIENT")
+          echo ::set-output name=result_clients1::$FORMATTED_RESULT_CLIENT
           echo ::set-output name=result_clients2::"$FORMATTED_RESULT_CLIENT"
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
@@ -346,6 +347,11 @@ jobs:
             | Client | Method | Num of Req | RPS |
             |--------|--------| -----------| ----|
             ${{steps.clientResult.outputs.result_clients}}
+
+            **🚀 Client Performance Benchmark:**
+            | Client | Method | Num of Req | RPS |
+            |--------|--------| -----------| ----|
+            ${{steps.clientResult.outputs.result_clients1}}
 
             **🚀 Client Performance Benchmark:**
             | Client | Method | Num of Req | RPS |
