@@ -250,12 +250,12 @@ trait Elements {
 }
 
 object Element {
-  private[zhttp] val voidElementNames: Set[String] =
+  private[zhttp] val voidElementNames: Set[CharSequence] =
     Set(area, base, br, col, embed, hr, img, input, link, meta, param, source, track, wbr).map(_.name)
 
-  private[zhttp] def isVoid(name: String): Boolean = voidElementNames.contains(name)
+  private[zhttp] def isVoid(name: CharSequence): Boolean = voidElementNames.contains(name)
 
-  case class PartialElement(name: String) {
+  case class PartialElement(name: CharSequence) {
     def apply(children: Html*): Dom = Dom.element(
       name,
       children.collect {

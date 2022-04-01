@@ -6,7 +6,7 @@ import scala.language.implicitConversions
  * A view is a domain that used generate HTML.
  */
 sealed trait Html { self =>
-  def encode: String = {
+  def encode: CharSequence = {
     self match {
       case Html.Empty                        => ""
       case Html.Single(element)              => element.encode
@@ -16,7 +16,7 @@ sealed trait Html { self =>
 }
 
 object Html {
-  implicit def fromString(string: String): Html = Html.Single(Dom.text(string))
+  implicit def fromString(string: CharSequence): Html = Html.Single(Dom.text(string))
 
   implicit def fromSeq(elements: Seq[Dom]): Html = Html.Multiple(elements)
 
