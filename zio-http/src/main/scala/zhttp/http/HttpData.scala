@@ -174,11 +174,13 @@ object HttpData {
 
   private[zhttp] case class FromAsciiString(asciiString: AsciiString) extends Complete {
 
+    private def encode: ByteBuf = Unpooled.wrappedBuffer(asciiString.array())
+
     /**
      * Encodes the HttpData into a ByteBuf. Takes in ByteBufConfig to have a
      * more fine grained control over the encoding.
      */
-    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = Task(Unpooled.wrappedBuffer(asciiString.array()))
+    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = Task(encode)
 
     /**
      * Encodes the HttpData into a Stream of ByteBufs. Takes in ByteBufConfig to
@@ -192,7 +194,7 @@ object HttpData {
      * in certain cases. Takes in ByteBufConfig to have a more fine grained
      * control over the encoding.
      */
-    override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] = ???
+    override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] = Http.attempt(encode)
   }
 
   private[zhttp] final case class BinaryChunk(data: Chunk[Byte]) extends Complete {
