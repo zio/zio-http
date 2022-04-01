@@ -1,19 +1,15 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
+import io.netty.util.AsciiString
 import zhttp.http.headers.HeaderExtension
 import zio.stream.ZStream
 import zio.{Chunk, Task, ZIO}
 
 private[zhttp] trait HttpDataExtension[+A] extends HeaderExtension[A] { self: A =>
-  def data: HttpData
-
   private[zhttp] final def bodyAsByteBuf: Task[ByteBuf] = data.toByteBuf
 
-  final def bodyAsByteArray: Task[Array[Byte]] =
-    bodyAsByteBuf.flatMap(buf =>
-      ZIO.attempt(ByteBufUtil.getBytes(buf)).ensuring(ZIO.succeed(buf.release(buf.refCnt()))),
-    )
+  def data: HttpData
 
   /**
    * Decodes the content of request as a Chunk of Bytes
@@ -21,11 +17,16 @@ private[zhttp] trait HttpDataExtension[+A] extends HeaderExtension[A] { self: A 
   final def body: Task[Chunk[Byte]] =
     bodyAsByteArray.map(Chunk.fromArray)
 
+  final def bodyAsByteArray: Task[Array[Byte]] =
+    bodyAsByteBuf.flatMap(buf =>
+      ZIO.attempt(ByteBufUtil.getBytes(buf)).ensuring(ZIO.succeed(buf.release(buf.refCnt()))),
+    )
+
   /**
-   * Decodes the content of request as string
+   * Decodes the content of request as CharSequence
    */
-  final def bodyAsString: Task[String] =
-    bodyAsByteArray.map(new String(_, charset))
+  final def bodyAsCharSequence: ZIO[Any, Throwable, CharSequence] =
+    bodyAsByteArray.map { buf => new AsciiString(buf, false) }
 
   /**
    * Decodes the content of request as stream of bytes
@@ -39,4 +40,10 @@ private[zhttp] trait HttpDataExtension[+A] extends HeaderExtension[A] { self: A 
       }
     }
     .flattenChunks
+
+  /**
+   * Decodes the content of request as string
+   */
+  final def bodyAsString: Task[String] =
+    bodyAsByteArray.map(new String(_, charset))
 }

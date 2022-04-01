@@ -5,7 +5,7 @@ package zhttp.html
  */
 object Template {
 
-  def container(heading: String)(element: Html): Html = {
+  def container(heading: CharSequence)(element: Html): Html = {
     html(
       head(
         title(s"ZIO Http - ${heading}"),

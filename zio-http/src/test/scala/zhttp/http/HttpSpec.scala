@@ -79,6 +79,25 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
             assert(actual)(isEmpty)
           },
       ) +
+      suite("codecMiddleware")(
+        test("codec success") {
+          val a      = Http.collect[Int] { case v => v.toString }
+          val b      = Http.collect[String] { case v => v.toInt }
+          val app    = Http.identity[String] @@ (a \/ b)
+          val actual = app.execute(2)
+          assert(actual)(isSuccess(equalTo(2)))
+        } +
+          test("encoder failure") {
+            val app    = Http.identity[Int] @@ (Http.succeed(1) \/ Http.fail("fail"))
+            val actual = app.execute(())
+            assert(actual)(isFailure(equalTo("fail")))
+          } +
+          test("decoder failure") {
+            val app    = Http.identity[Int] @@ (Http.fail("fail") \/ Http.succeed(1))
+            val actual = app.execute(())
+            assert(actual)(isFailure(equalTo("fail")))
+          },
+      ) +
       suite("collectHExit")(
         test("should succeed") {
           val a      = Http.collectHExit[Int] { case 1 => HExit.succeed("OK") }
