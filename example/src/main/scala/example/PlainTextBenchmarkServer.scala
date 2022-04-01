@@ -4,7 +4,7 @@ import io.netty.util.AsciiString
 import zhttp.http.{Http, _}
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server}
-import zio.{ExitCode, UIO, URIO, ZIOAppDefault}
+import zio._
 
 /**
  * This server is used to run plaintext benchmarks on CI.
@@ -42,8 +42,8 @@ object Main extends ZIOAppDefault {
 
   val run: URIO[zio.ZEnv, ExitCode] =
     app
-      .flatMap(server(_).make.useForever)
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
+      .flatMap(server(_).make *> ZIO.never)
+      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8) ++ Scope.default)
       .exitCode
 
   private def server(app: HttpApp[Any, Nothing]) =

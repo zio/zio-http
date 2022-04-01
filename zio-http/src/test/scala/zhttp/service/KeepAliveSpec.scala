@@ -4,17 +4,18 @@ import io.netty.handler.codec.http.HttpHeaderValues
 import zhttp.http.{HeaderNames, Headers, Http, Version}
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
-import zio.durationInt
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertM
+import zio.{Scope, durationInt}
 
 object KeepAliveSpec extends HttpRunnableSpec {
 
-  val app                   = Http.ok
-  val connectionCloseHeader = Headers.connection(HttpHeaderValues.CLOSE)
-  val keepAliveHeader       = Headers.connection(HttpHeaderValues.KEEP_ALIVE)
-  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+  val app                         = Http.ok
+  val connectionCloseHeader       = Headers.connection(HttpHeaderValues.CLOSE)
+  val keepAliveHeader             = Headers.connection(HttpHeaderValues.KEEP_ALIVE)
+  private val env                 =
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
   private val appKeepAliveEnabled = serve(DynamicServer.app)
 
   def keepAliveSpec = suite("KeepAlive") {
@@ -44,7 +45,7 @@ object KeepAliveSpec extends HttpRunnableSpec {
 
   override def spec = {
     suite("ServerConfigSpec") {
-      appKeepAliveEnabled.as(List(keepAliveSpec)).useNow
+      appKeepAliveEnabled.as(List(keepAliveSpec))
     }.provideCustomLayerShared(env) @@ timeout(30.seconds)
   }
 

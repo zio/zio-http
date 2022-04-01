@@ -3,7 +3,7 @@ package zhttp.socket
 import zhttp.http.{Http, Response}
 import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zio.stream.ZStream
-import zio.{Cause, NeedsEnv, ZEnvironment, ZIO}
+import zio.{Cause, ZEnvironment, ZIO}
 
 sealed trait Socket[-R, +E, -A, +B] { self =>
   import Socket._
@@ -50,7 +50,7 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
    * dependency on R. This operation assumes that your socket requires an
    * environment.
    */
-  def provideEnvironment(r: ZEnvironment[R])(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] =
+  def provideEnvironment(r: ZEnvironment[R]): Socket[Any, E, A, B] =
     ProvideEnvironment(self, r)
 
   /**

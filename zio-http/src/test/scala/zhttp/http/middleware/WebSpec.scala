@@ -9,7 +9,7 @@ import zio.test._
 
 object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions { self =>
   private val app  = Http.collectZIO[Request] { case Method.GET -> !! / "health" =>
-    UIO(Response.ok).delay(1 second)
+    ZIO.succeed(Response.ok).delay(1 second)
   }
   private val midA = Middleware.addHeader("X-Custom", "A")
   private val midB = Middleware.addHeader("X-Custom", "B")
@@ -59,11 +59,11 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions { self =>
       } +
       suite("whenZIO") {
         test("condition is true") {
-          val program = runApp(self.app @@ debug.whenZIO(_ => UIO(true))) *> TestConsole.output
+          val program = runApp(self.app @@ debug.whenZIO(_ => ZIO.succeed(true))) *> TestConsole.output
           assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
         } +
           test("condition is false") {
-            val log = runApp(self.app @@ debug.whenZIO(_ => UIO(false))) *> TestConsole.output
+            val log = runApp(self.app @@ debug.whenZIO(_ => ZIO.succeed(false))) *> TestConsole.output
             assertM(log)(equalTo(Vector()))
           }
       } +
@@ -146,7 +146,7 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions { self =>
           test("addCookieM") {
             val cookie = Cookie("test", "testValue")
             val app    =
-              (Http.ok @@ addCookieZIO(UIO(cookie))).header("set-cookie")
+              (Http.ok @@ addCookieZIO(ZIO.succeed(cookie))).header("set-cookie")
             assertM(app(Request()))(
               equalTo(Some(cookie.encode)),
             )
@@ -167,7 +167,7 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions { self =>
 
   private def cond(flg: Boolean) = (_: Any) => flg
 
-  private def condM(flg: Boolean) = (_: Any) => UIO(flg)
+  private def condM(flg: Boolean) = (_: Any) => ZIO.succeed(flg)
 
   private def runApp[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response] = {
     for {

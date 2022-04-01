@@ -5,7 +5,7 @@ object Dependencies {
   val NettyVersion                  = "4.1.75.Final"
   val NettyIncubatorVersion         = "0.0.13.Final"
   val ScalaCompactCollectionVersion = "2.7.0"
-  val ZioVersion                    = "2.0.0-RC2"
+  val ZioVersion                    = "2.0.0-RC3"
   val SttpVersion                   = "3.3.18"
 
   val `jwt-core`                 = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion

@@ -3,20 +3,20 @@ package zhttp.service
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
-import zio.durationInt
 import zio.test.Assertion.{equalTo, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertM
+import zio.{Scope, durationInt}
 
 import java.io.File
 
 object StaticFileServerSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
 
   override def spec = suite("StaticFileServer") {
-    serve(DynamicServer.app).as(List(staticSpec)).useNow
+    serve(DynamicServer.app).as(List(staticSpec))
   }.provideCustomLayerShared(env) @@ timeout(5 seconds)
 
   private def staticSpec = suite("Static RandomAccessFile Server") {

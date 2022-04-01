@@ -2,7 +2,7 @@ package zhttp.http.middleware
 
 import zhttp.http._
 import zhttp.internal.HttpAppTestExtensions
-import zio.UIO
+import zio.ZIO
 import zio.test.Assertion._
 import zio.test._
 
@@ -17,13 +17,13 @@ object AuthSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
     c.uname.reverse == c.upassword
   }
   private val basicAuthZIOM: HttpMiddleware[Any, Nothing]  = Middleware.basicAuthZIO { c =>
-    UIO(c.uname.reverse == c.upassword)
+    ZIO.succeed(c.uname.reverse == c.upassword)
   }
   private val bearerAuthM: HttpMiddleware[Any, Nothing]    = Middleware.bearerAuth { c =>
     c == bearerToken
   }
   private val bearerAuthZIOM: HttpMiddleware[Any, Nothing] = Middleware.bearerAuthZIO { c =>
-    UIO(c == bearerToken)
+    ZIO.succeed(c == bearerToken)
   }
 
   def spec = suite("AuthSpec") {

@@ -6,8 +6,8 @@ import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Response}
 import zhttp.service.server.ServerTime
 import zhttp.service.{ChannelFuture, HttpRuntime, Server}
+import zio.ZIO
 import zio.stream.ZStream
-import zio.{UIO, ZIO}
 
 import java.io.File
 
@@ -105,7 +105,7 @@ private[zhttp] trait ServerResponseHandler[R] {
 
       case HttpData.BinaryStream(stream) =>
         rt.unsafeRun(ctx) {
-          writeStreamContent(stream).ensuring(UIO(releaseAndRead(jReq)))
+          writeStreamContent(stream).ensuring(ZIO.succeed(releaseAndRead(jReq)))
         }
 
       case HttpData.JavaFile(unsafeGet) =>
@@ -121,7 +121,7 @@ private[zhttp] trait ServerResponseHandler[R] {
     stream: ZStream[R, Throwable, ByteBuf],
   )(implicit ctx: Ctx): ZIO[R, Throwable, Unit] = {
     for {
-      _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
+      _ <- stream.foreach(c => ZIO.succeed(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
   }

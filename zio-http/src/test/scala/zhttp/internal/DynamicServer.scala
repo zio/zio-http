@@ -16,7 +16,7 @@ object DynamicServer {
     .fromOptionFunction[Request] { req =>
       for {
         id  <- req.headerValue(APP_ID) match {
-          case Some(id) => UIO(id)
+          case Some(id) => ZIO.succeed(id)
           case None     => ZIO.fail(None)
         }
         app <- get(id)
@@ -71,7 +71,7 @@ object DynamicServer {
 
   final class Live(ref: Ref[Map[Id, HttpApp[Any, Throwable]]], pr: Promise[Nothing, Start]) extends Service {
     def add(app: HttpApp[Any, Throwable]): UIO[Id] = for {
-      id <- UIO(UUID.randomUUID().toString)
+      id <- ZIO.succeed(UUID.randomUUID().toString)
       _  <- ref.update(map => map + (id -> app))
     } yield id
 
@@ -79,7 +79,7 @@ object DynamicServer {
 
     def port: ZIO[Any, Nothing, Int] = start.map(_.port)
 
-    def setStart(s: Start): UIO[Boolean] = pr.complete(ZIO(s).orDie)
+    def setStart(s: Start): UIO[Boolean] = pr.complete(ZIO.attempt(s).orDie)
 
     def start: IO[Nothing, Start] = pr.await
   }

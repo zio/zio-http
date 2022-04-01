@@ -12,7 +12,7 @@ import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAll}
 
 object SSLSpec extends DefaultRunnableSpec {
-  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
+  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto ++ Scope.default
 
   val serverSSL  = ctxFromCert(
     getClass().getClassLoader().getResourceAsStream("server.crt"),
@@ -80,7 +80,6 @@ object SSLSpec extends DefaultRunnableSpec {
               }
             },
         ),
-      )
-      .useNow,
+      ),
   ).provideCustomLayer(env) @@ timeout(5 second) @@ ignore
 }

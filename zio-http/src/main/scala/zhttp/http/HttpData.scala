@@ -6,7 +6,7 @@ import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import io.netty.util.AsciiString
 import zhttp.http.HttpData.ByteBufConfig
 import zio.stream.ZStream
-import zio.{Chunk, Task, UIO, ZIO}
+import zio.{Chunk, Task, ZIO}
 
 import java.io.FileInputStream
 import java.nio.charset.Charset
@@ -148,7 +148,7 @@ object HttpData {
           val buffer = Unpooled.compositeBuffer()
           msg => {
             buffer.addComponent(true, msg.content)
-            if (msg.isLast) cb(UIO(buffer)) else ch.read()
+            if (msg.isLast) cb(ZIO.succeed(buffer)) else ch.read()
           }
         }),
       )
@@ -178,7 +178,8 @@ object HttpData {
      * Encodes the HttpData into a ByteBuf. Takes in ByteBufConfig to have a
      * more fine grained control over the encoding.
      */
-    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = Task(Unpooled.wrappedBuffer(asciiString.array()))
+    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] =
+      ZIO.attempt(Unpooled.wrappedBuffer(asciiString.array()))
 
     /**
      * Encodes the HttpData into a Stream of ByteBufs. Takes in ByteBufConfig to
@@ -202,7 +203,7 @@ object HttpData {
     /**
      * Encodes the HttpData into a ByteBuf.
      */
-    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = UIO(encode)
+    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = ZIO.succeed(encode)
 
     /**
      * Encodes the HttpData into a Stream of ByteBufs
@@ -218,7 +219,7 @@ object HttpData {
     /**
      * Encodes the HttpData into a ByteBuf.
      */
-    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = Task(data)
+    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = ZIO.attempt(data)
 
     /**
      * Encodes the HttpData into a Stream of ByteBufs
@@ -261,18 +262,18 @@ object HttpData {
     override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
       ZStream.unwrap {
         for {
-          file <- Task(unsafeFile())
-          fs   <- Task(new FileInputStream(file))
+          file <- ZIO.attempt(unsafeFile())
+          fs   <- ZIO.attempt(new FileInputStream(file))
           size   = config.chunkSize(file.length())
           buffer = new Array[Byte](size)
         } yield ZStream
           .repeatZIOOption[Any, Throwable, ByteBuf] {
             for {
-              len   <- Task(fs.read(buffer)).mapError(Some(_))
-              bytes <- if (len > 0) UIO(Unpooled.copiedBuffer(buffer, 0, len)) else ZIO.fail(None)
+              len   <- ZIO.attempt(fs.read(buffer)).mapError(Some(_))
+              bytes <- if (len > 0) ZIO.succeed(Unpooled.copiedBuffer(buffer, 0, len)) else ZIO.fail(None)
             } yield bytes
           }
-          .ensuring(UIO(fs.close()))
+          .ensuring(ZIO.succeed(fs.close()))
       }
 
     override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] =
@@ -288,7 +289,7 @@ object HttpData {
     /**
      * Encodes the HttpData into a ByteBuf.
      */
-    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = UIO(Unpooled.EMPTY_BUFFER)
+    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = ZIO.succeed(Unpooled.EMPTY_BUFFER)
 
     /**
      * Encodes the HttpData into a Stream of ByteBufs

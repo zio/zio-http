@@ -182,13 +182,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Extracts body
    */
   final def body(implicit eb: B <:< Response, ee: E <:< Throwable): Http[R, Throwable, A, Chunk[Byte]] =
-    self.bodyAsByteBuf.mapZIO(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
+    self.bodyAsByteBuf.mapZIO(buf => ZIO.attempt(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
 
   /**
    * Extracts body as a string
    */
   final def bodyAsString(implicit eb: B <:< Response, ee: E <:< Throwable): Http[R, Throwable, A, String] =
-    self.bodyAsByteBuf.mapZIO(bytes => Task(bytes.toString(HTTP_CHARSET)))
+    self.bodyAsByteBuf.mapZIO(bytes => ZIO.attempt(bytes.toString(HTTP_CHARSET)))
 
   /**
    * Catches all the exceptions that the http app can fail with
@@ -256,10 +256,10 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def collect[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](pf: PartialFunction[B1, C]): Http[R1, E1, A1, C] =
     self >>> Http.collect(pf)
 
-  final def collectManaged[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](
-    pf: PartialFunction[B1, ZManaged[R1, E1, C]],
+  final def collectScoped[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](
+    pf: PartialFunction[B1, ZIO[Scope with R1, E1, C]],
   ): Http[R1, E1, A1, C] =
-    self >>> Http.collectManaged(pf)
+    self >>> Http.collectScoped[B1][R1, E1, C](pf)
 
   /**
    * Collects some of the results of the http and effectfully converts it to
@@ -318,13 +318,14 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Delays production of output B for the specified duration of time
    */
-  final def delayAfter(duration: Duration): Http[R with Clock, E, A, B] = self.mapZIO(b => UIO(b).delay(duration))
+  final def delayAfter(duration: Duration): Http[R with Clock, E, A, B] =
+    self.mapZIO(b => ZIO.succeed(b).delay(duration))
 
   /**
    * Delays consumption of input A for the specified duration of time
    */
   final def delayBefore(duration: Duration): Http[R with Clock, E, A, B] =
-    self.contramapZIO(a => UIO(a).delay(duration))
+    self.contramapZIO(a => ZIO.succeed(a).delay(duration))
 
   /**
    * Returns an http app whose failure and success have been lifted into an
@@ -457,7 +458,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Provides the environment to Http.
    */
-  final def provideEnvironment(r: ZEnvironment[R])(implicit ev: NeedsEnv[R]): Http[Any, E, A, B] =
+  final def provideEnvironment(r: ZEnvironment[R]): Http[Any, E, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideEnvironment(r))
 
   /**
@@ -465,14 +466,14 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def provideLayer[E1 >: E, R0](
     layer: ZLayer[R0, E1, R],
-  )(implicit ev2: NeedsEnv[R]): Http[R0, E1, A, B] =
+  ): Http[R0, E1, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideLayer(layer.mapError(Option(_))))
 
   /**
    * Provides some of the environment to Http.
    */
-  final def provideSomeEnvironment[R1](r: ZEnvironment[R1] => ZEnvironment[R])(implicit
-    ev: NeedsEnv[R],
+  final def provideSomeEnvironment[R1](
+    r: ZEnvironment[R1] => ZEnvironment[R],
   ): Http[R1, E, A, B] =
     Http.fromOptionFunction[A](a => self(a).provideSomeEnvironment(r))
 
@@ -718,9 +719,9 @@ object Http {
 
   /**
    * Creates an Http app which accepts a request and produces response from a
-   * managed resource
+   * scoped resource
    */
-  def collectManaged[A]: Http.PartialCollectManaged[A] = Http.PartialCollectManaged(())
+  def collectScoped[A]: Http.PartialCollectScoped[A] = Http.PartialCollectScoped(())
 
   /**
    * Creates an HTTP app which accepts a request and produces response
@@ -803,7 +804,7 @@ object Http {
   /**
    * Creates an Http app from the contents of a file.
    */
-  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(UIO(file))
+  def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(ZIO.succeed(file))
 
   /**
    * Creates an Http app from the contents of a file which is produced from an
@@ -813,7 +814,7 @@ object Http {
   def fromFileZIO[R](fileZIO: ZIO[R, Throwable, java.io.File]): HttpApp[R, Throwable] = {
     val response: ZIO[R, Throwable, HttpApp[R, Throwable]] =
       fileZIO.flatMap { file =>
-        Task {
+        ZIO.attempt {
           if (file.isFile) {
             val length   = Headers.contentLength(file.length())
             val response = Response(headers = length, data = HttpData.fromFile(file))
@@ -999,9 +1000,9 @@ object Http {
       Http.collect[A] { case a if pf.isDefinedAt(a) => Http.fromZIO(pf(a)) }.flatten
   }
 
-  final case class PartialCollectManaged[A](unit: Unit) extends AnyVal {
-    def apply[R, E, B](pf: PartialFunction[A, ZManaged[R, E, B]]): Http[R, E, A, B] =
-      Http.collect[A] { case a if pf.isDefinedAt(a) => Http.fromZIO(pf(a).useNow) }.flatten
+  final case class PartialCollectScoped[A](unit: Unit) extends AnyVal {
+    def apply[R, E, B](pf: PartialFunction[A, ZIO[Scope with R, E, B]]): Http[R, E, A, B] =
+      Http.collect[A] { case a if pf.isDefinedAt(a) => Http.fromZIO(ZIO.scoped[R](pf(a))) }.flatten
   }
 
   final case class PartialCollect[A](unit: Unit) extends AnyVal {
@@ -1039,10 +1040,10 @@ object Http {
         f(a)
           .map(Http.succeed)
           .catchAll {
-            case Some(error) => UIO(Http.fail(error))
-            case None        => UIO(Http.empty)
+            case Some(error) => ZIO.succeed(Http.fail(error))
+            case None        => ZIO.succeed(Http.empty)
           }
-          .catchAllDefect(defect => UIO(Http.die(defect)))
+          .catchAllDefect(defect => ZIO.succeed(Http.die(defect)))
       }
       .flatten
   }

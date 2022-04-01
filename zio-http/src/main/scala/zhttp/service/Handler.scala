@@ -6,7 +6,7 @@ import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.service.server.content.handlers.ServerResponseHandler
 import zhttp.service.server.{ServerTime, WebSocketUpgrade}
-import zio.{UIO, ZIO}
+import zio.ZIO
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -138,20 +138,20 @@ private[zhttp] final case class Handler[R](
             cause =>
               cause.failureOrCause match {
                 case Left(Some(cause)) =>
-                  UIO {
+                  ZIO.succeed {
                     writeResponse(
                       Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),
                       jReq,
                     )
                   }
                 case Left(None)        =>
-                  UIO {
+                  ZIO.succeed {
                     writeResponse(Response.status(Status.NotFound), jReq)
                   }
                 case Right(other)      =>
                   other.dieOption match {
                     case Some(defect) =>
-                      UIO {
+                      ZIO.succeed {
                         writeResponse(
                           Response.fromHttpError(HttpError.InternalServerError(cause = Some(defect))),
                           jReq,
@@ -162,10 +162,10 @@ private[zhttp] final case class Handler[R](
                   }
               },
             res =>
-              if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(jReq, res))
+              if (self.isWebSocket(res)) ZIO.succeed(self.upgradeToWebSocket(jReq, res))
               else {
                 for {
-                  _ <- ZIO {
+                  _ <- ZIO.attempt {
                     writeResponse(res, jReq)
                   }
                 } yield ()

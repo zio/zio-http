@@ -16,7 +16,7 @@ object Endpoints extends ZIOAppDefault {
   }
 
   def h3 = GET / "b" / *[Int] / "c" / *[Boolean] to { a =>
-    UIO(Response.text(a.params.toString))
+    ZIO.succeed(Response.text(a.params.toString))
   }
 
   // Run it like any simple app
