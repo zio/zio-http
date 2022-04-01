@@ -102,7 +102,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
 
             // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
             pipeline.addLast(WEB_SOCKET_CLIENT_PROTOCOL_HANDLER, new WebSocketClientProtocolHandler(config))
-            pipeline.addLast(WEB_SOCKET_HANDLER, new WebSocketAppHandler("Client", rtm, app))
+            pipeline.addLast(WEB_SOCKET_HANDLER, new WebSocketAppHandler(rtm, app))
           }
           ()
         }
