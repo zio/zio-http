@@ -1,5 +1,6 @@
 package zhttp.service
 
+import io.netty.util.AsciiString
 import zhttp.html._
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
@@ -266,7 +267,13 @@ object ServerSpec extends HttpRunnableSpec {
           equalTo(c),
         )
       }
-    }
+    } +
+      test("FromASCIIString: toHttp") {
+        checkAll(Gen.asciiString) { payload =>
+          val res = HttpData.fromAsciiString(AsciiString.cached(payload)).toHttp.map(_.toString(HTTP_CHARSET))
+          assertM(res.run())(equalTo(payload))
+        }
+      }
   }
 
   def serverErrorSpec = suite("ServerErrorSpec") {
