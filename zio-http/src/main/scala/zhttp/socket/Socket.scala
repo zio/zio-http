@@ -98,7 +98,11 @@ object Socket {
 
   def end: ZStream[Any, Nothing, Nothing] = ZStream.halt(Cause.empty)
 
+  def from[A](iter: A*): Socket[Any, Nothing, Any, A] = fromIterable(iter)
+
   def fromFunction[A]: PartialFromFunction[A] = new PartialFromFunction[A](())
+
+  def fromIterable[A](iter: Iterable[A]): Socket[Any, Nothing, Any, A] = Socket.fromStream(ZStream.fromIterable(iter))
 
   def fromStream[R, E, B](stream: ZStream[R, E, B]): Socket[R, E, Any, B] = FromStream(stream)
 
