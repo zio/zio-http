@@ -9,7 +9,7 @@ import zhttp.service.{ChannelFuture, HttpRuntime, Server}
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
 
-import java.io.RandomAccessFile
+import java.io.File
 
 private[zhttp] trait ServerResponseHandler[R] {
   type Ctx = ChannelHandlerContext
@@ -20,8 +20,18 @@ private[zhttp] trait ServerResponseHandler[R] {
 
   def writeResponse(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     ctx.write(encodeResponse(msg))
-    writeData(msg.data.asInstanceOf[HttpData.Outgoing], jReq)
+    writeData(msg.data.asInstanceOf[HttpData.Complete], jReq)
     ()
+  }
+
+  /**
+   * Enables auto-read if possible. Also performs the first read.
+   */
+  private def attemptAutoRead()(implicit ctx: Ctx): Unit = {
+    if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
+      ctx.channel().config().setAutoRead(true)
+      ctx.read(): Unit
+    }
   }
 
   /**
@@ -49,6 +59,16 @@ private[zhttp] trait ServerResponseHandler[R] {
     jResponse
   }
 
+  private def flushReleaseAndRead(jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    ctx.flush()
+    releaseAndRead(jReq)
+  }
+
+  private def releaseAndRead(jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    releaseRequest(jReq)
+    attemptAutoRead()
+  }
+
   /**
    * Releases the FullHttpRequest safely.
    */
@@ -62,10 +82,9 @@ private[zhttp] trait ServerResponseHandler[R] {
   /**
    * Writes file content to the Channel. Does not use Chunked transfer encoding
    */
-  private def unsafeWriteFileContent(raf: RandomAccessFile)(implicit ctx: ChannelHandlerContext): Unit = {
-    val fileLength = raf.length()
+  private def unsafeWriteFileContent(file: File)(implicit ctx: ChannelHandlerContext): Unit = {
     // Write the content.
-    ctx.write(new DefaultFileRegion(raf.getChannel, 0, fileLength))
+    ctx.write(new DefaultFileRegion(file, 0, file.length()))
     // Write the end marker.
     ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
   }
@@ -73,32 +92,25 @@ private[zhttp] trait ServerResponseHandler[R] {
   /**
    * Writes data on the channel
    */
-  private def writeData(data: HttpData.Outgoing, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+  private def writeData(data: HttpData.Complete, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     data match {
-      case HttpData.BinaryStream(stream)  =>
+
+      case _: HttpData.FromAsciiString => flushReleaseAndRead(jReq)
+
+      case _: HttpData.BinaryChunk => flushReleaseAndRead(jReq)
+
+      case _: HttpData.BinaryByteBuf => flushReleaseAndRead(jReq)
+
+      case HttpData.Empty => flushReleaseAndRead(jReq)
+
+      case HttpData.BinaryStream(stream) =>
         rt.unsafeRun(ctx) {
-          writeStreamContent(stream).ensuring(UIO {
-            releaseRequest(jReq)
-            if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
-              ctx.channel().config().setAutoRead(true)
-              ctx.read(): Unit
-            } // read next HttpContent
-          })
+          writeStreamContent(stream).ensuring(UIO(releaseAndRead(jReq)))
         }
-      case HttpData.RandomAccessFile(raf) =>
-        unsafeWriteFileContent(raf())
-        releaseRequest(jReq)
-        if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
-          ctx.channel().config().setAutoRead(true)
-          ctx.read(): Unit
-        } // read next HttpContent
-      case _                              =>
-        ctx.flush()
-        releaseRequest(jReq)
-        if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
-          ctx.channel().config().setAutoRead(true)
-          ctx.read(): Unit
-        } // read next HttpContent
+
+      case HttpData.JavaFile(unsafeGet) =>
+        unsafeWriteFileContent(unsafeGet())
+        releaseAndRead(jReq)
     }
   }
 

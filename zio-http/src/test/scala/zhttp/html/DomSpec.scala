@@ -69,8 +69,8 @@ object DomSpec extends DefaultRunnableSpec {
         assertTrue(dom.encode == """<a href="https://www.zio-http.com">zio-http</a>""")
       } +
       suite("Self Closing") {
-        val voidTagGen: Gen[Any, String] = Gen.fromIterable(Element.voidElementNames)
-        val tagGen: Gen[Random, String]  =
+        val voidTagGen: Gen[Any, CharSequence] = Gen.fromIterable(Element.voidElementNames)
+        val tagGen: Gen[Random, String]        =
           Gen.stringBounded(1, 5)(Gen.alphaChar).filterNot(Element.voidElementNames.contains)
 
         test("void") {

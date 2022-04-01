@@ -32,7 +32,7 @@ object HttpsClient extends App {
   val program = for {
     res  <- Client.request(url, headers, sslOption)
     data <- res.bodyAsString
-    _    <- Console.printLine { data }
+    _    <- console.putStrLn { data }
   } yield ()
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] 

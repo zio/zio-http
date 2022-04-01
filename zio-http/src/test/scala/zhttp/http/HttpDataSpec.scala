@@ -1,29 +1,47 @@
 package zhttp.http
 
+import zhttp.http.HttpData.ByteBufConfig
+import zio.durationInt
 import zio.stream.ZStream
-import zio.test.Assertion.equalTo
+import zio.test.Assertion.{anything, equalTo, isLeft, isSubtype}
+import zio.test.TestAspect.timeout
 import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAll}
 
 import java.io.File
 
 object HttpDataSpec extends DefaultRunnableSpec {
-  // TODO : Add tests for othe HttpData types
   override def spec =
-    suite("HttpDataSpec")(
-      suite("Test toByteBuf")(
-        test("HttpData.fromFile") {
-          val file = new File(getClass.getResource("/TestFile.txt").getPath)
-          val res  = HttpData.fromFile(file).toByteBuf.map(_.toString(HTTP_CHARSET))
-          assertM(res)(equalTo("abc\nfoo"))
-        },
-        test("HttpData.fromStream") {
-          checkAll(Gen.string) { payload =>
-            val stringBuffer    = payload.toString.getBytes(HTTP_CHARSET)
-            val responseContent = ZStream.fromIterable(stringBuffer)
-            val res             = HttpData.fromStream(responseContent).toByteBuf.map(_.toString(HTTP_CHARSET))
-            assertM(res)(equalTo(payload))
-          }
-        },
-      ),
-    )
+    suite("HttpDataSpec") {
+      val testFile = new File(getClass.getResource("/TestFile.txt").getPath)
+      suite("outgoing") {
+        suite("encode")(
+          suite("fromStream") {
+            test("success") {
+              checkAll(Gen.string) { payload =>
+                val stringBuffer    = payload.getBytes(HTTP_CHARSET)
+                val responseContent = ZStream.fromIterable(stringBuffer)
+                val res             = HttpData.fromStream(responseContent).toByteBuf.map(_.toString(HTTP_CHARSET))
+                assertM(res)(equalTo(payload))
+              }
+            }
+          },
+          suite("fromFile")(
+            test("failure") {
+              val res = HttpData.fromFile(throw new Error("Failure")).toByteBuf.either
+              assertM(res)(isLeft(isSubtype[Error](anything)))
+            },
+            test("success") {
+              lazy val file = testFile
+              val res       = HttpData.fromFile(file).toByteBuf.map(_.toString(HTTP_CHARSET))
+              assertM(res)(equalTo("abc\nfoo"))
+            },
+            test("success small chunk") {
+              lazy val file = testFile
+              val res       = HttpData.fromFile(file).toByteBuf(ByteBufConfig(3)).map(_.toString(HTTP_CHARSET))
+              assertM(res)(equalTo("abc\nfoo"))
+            },
+          ),
+        )
+      }
+    } @@ timeout(5 seconds)
 }
