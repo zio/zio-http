@@ -3,13 +3,12 @@ package zhttp.http
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.internal.HttpGen
 import zhttp.service.EncodeRequest
-import zio._
 import zio.test.Assertion._
 import zio.test._
 
-object EncodeRequestSpec extends DefaultRunnableSpec with EncodeRequest {
+object EncodeRequestSpec extends ZIOSpecDefault with EncodeRequest {
 
-  val anyClientParam: Gen[Random with Sized, Request] = HttpGen.requestGen(
+  val anyClientParam: Gen[Sized, Request] = HttpGen.requestGen(
     HttpGen.httpData(
       Gen.listOf(Gen.alphaNumericString),
     ),
@@ -22,7 +21,7 @@ object EncodeRequestSpec extends DefaultRunnableSpec with EncodeRequest {
     urlGen = HttpGen.genAbsoluteURL,
   )
 
-  def clientParamWithFiniteData(size: Int): Gen[Random with Sized, Request] = HttpGen.requestGen(
+  def clientParamWithFiniteData(size: Int): Gen[Sized, Request] = HttpGen.requestGen(
     for {
       content <- Gen.alphaNumericStringBounded(size, size)
       data    <- Gen.fromIterable(List(HttpData.fromString(content)))

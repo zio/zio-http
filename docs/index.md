@@ -83,7 +83,7 @@ import zio.test._
 import zhttp.test._
 import zhttp.http._
 
-object Spec extends DefaultRunnableSpec {
+object Spec extends ZIOSpecDefault {
   val app = Http.collect[Request] {
     case Method.GET -> Root / "text" => Response.text("Hello World!")
   }

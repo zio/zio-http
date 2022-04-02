@@ -5,7 +5,7 @@ import zhttp.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
 
-object URLSpec extends DefaultRunnableSpec {
+object URLSpec extends ZIOSpecDefault {
 
   val fromStringSpec = suite("fromString")(
     test("Should Handle invalid url String with restricted chars") {

@@ -27,7 +27,7 @@ object HelloWorldAdvanced extends App {
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
       Server.app(fooBar ++ app)       // Setup the Http app
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+  override def run(args: List[String]): UIO[ExitCode] = {
     // Configure thread count using CLI
     val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
@@ -40,7 +40,7 @@ object HelloWorldAdvanced extends App {
         // Ensures the server doesn't die after printing
           *> ZIO.never,
       )
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
+      .provideLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
       .exitCode
   }
 }

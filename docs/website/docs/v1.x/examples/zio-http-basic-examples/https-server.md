@@ -29,9 +29,9 @@ object HttpsHelloWorld extends App {
       ServerSSLOptions(sslctx, SSLHttpBehaviour.Accept),
     )
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+  override def run(args: List[String]): UIO[ExitCode] = {
     server.make.useForever
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(0))
+      .provideLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(0))
       .exitCode
   }
 }

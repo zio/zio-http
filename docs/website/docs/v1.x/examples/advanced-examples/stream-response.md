@@ -10,7 +10,7 @@ import zio._
  * Example to encode content using a ZStream
  */
 object StreamingResponse extends App {
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+  override def run(args: List[String]): UIO[ExitCode] = {
 
     // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
     Server.start(8090, app.silent).exitCode

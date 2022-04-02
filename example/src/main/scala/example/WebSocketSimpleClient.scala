@@ -20,6 +20,6 @@ object WebSocketSimpleClient extends ZIOAppDefault {
     .toSocketApp
     .connect(url)
 
-  val run = app.exitCode.provideCustomLayer(env)
+  val run = app.exitCode.provideLayer(env)
 
 }

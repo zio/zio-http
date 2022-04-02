@@ -87,7 +87,7 @@ object StaticServerSpec extends HttpRunnableSpec {
         .as(
           List(serverStartSpec, staticAppSpec, nonZIOSpec, throwableAppSpec),
         )
-    }.provideCustomLayerShared(env) @@ timeout(30 seconds)
+    }.provideSomeLayerShared[TestEnvironment](env) @@ timeout(30 seconds)
 
   def staticAppSpec    = suite("StaticAppSpec") {
     test("200 response") {

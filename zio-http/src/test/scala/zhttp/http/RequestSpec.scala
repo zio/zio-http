@@ -4,7 +4,7 @@ import zhttp.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
 
-object RequestSpec extends DefaultRunnableSpec {
+object RequestSpec extends ZIOSpecDefault {
   def spec = suite("Request")(
     suite("toString") {
       test("should produce string representation of a request") {

@@ -105,7 +105,7 @@ Since `Http` is a function of the form `A => ZIO[R, Option[E], B]` to test it yo
 import zio.test._
 import zhttp.http._
 
-object Spec extends DefaultRunnableSpec {
+object Spec extends ZIOSpecDefault {
 
   def spec = suite("http")(
       testM("should be ok") {
@@ -159,7 +159,7 @@ import zio._
 object HelloWorld extends App {
   val app = Http.ok
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  override def run(args: List[String]): URIO[Any, ExitCode] =
     Server.start(8090, app).exitCode
 }
 ```

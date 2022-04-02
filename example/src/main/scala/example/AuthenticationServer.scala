@@ -4,7 +4,7 @@ import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import zhttp.http.Middleware.bearerAuth
 import zhttp.http._
 import zhttp.service.Server
-import zio.{ExitCode, URIO, ZIOAppDefault}
+import zio.{ExitCode, UIO, ZIOAppDefault}
 
 import java.time.Clock
 
@@ -52,6 +52,6 @@ object AuthenticationServer extends ZIOAppDefault {
   val app: UHttpApp = login ++ user
 
   // Run it like any simple app
-  val run: URIO[zio.ZEnv, ExitCode] =
+  val run: UIO[ExitCode] =
     Server.start(8090, app).exitCode
 }

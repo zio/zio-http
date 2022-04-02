@@ -7,7 +7,7 @@ import zio.test._
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets._
 
-object GetBodyAsStringSpec extends DefaultRunnableSpec {
+object GetBodyAsStringSpec extends ZIOSpecDefault {
 
   def spec = suite("getBodyAsString") {
     val charsetGen: Gen[Any, Charset] =

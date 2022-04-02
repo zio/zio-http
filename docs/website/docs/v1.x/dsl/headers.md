@@ -51,7 +51,7 @@ On the Server-side you can read Request headers as given below
   import zio.stream.ZStream
   
   object SimpleResponseDispatcher extends App {
-    override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+    override def run(args: List[String]): UIO[ExitCode] = {
   
       // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
       Server.start(8090, app.silent).exitCode
@@ -155,7 +155,7 @@ val responseHeaders: Task[Headers] =  Client.request(url).map(_.headers)
         _    <- Console.printLine { data }
       } yield ()
     
-      override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = program.exitCode.provideCustomLayer(env)
+      override def run(args: List[String]): URIO[Any, ExitCode] = program.exitCode.provideLayer(env)
     
     }
     ```

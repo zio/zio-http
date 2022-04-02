@@ -26,7 +26,7 @@ object FileStreaming extends App {
   }
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  override def run(args: List[String]): UIO[ExitCode] =
     Server.start(8090, app.silent).exitCode
 }
 

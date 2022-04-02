@@ -5,7 +5,7 @@ import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
 
-object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
+object HttpSpec extends ZIOSpecDefault with HExitAssertion {
   def spec = suite("Http")(
     suite("flatMap")(
       test("should flatten") {

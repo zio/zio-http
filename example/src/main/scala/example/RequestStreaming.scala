@@ -19,6 +19,6 @@ object RequestStreaming extends ZIOAppDefault {
   }
 
   // Run it like any simple app
-  val run: URIO[zio.ZEnv, ExitCode] =
+  val run: UIO[ExitCode] =
     Server.start(8090, app).exitCode
 }

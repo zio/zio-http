@@ -7,7 +7,7 @@ This section describes, ZIO HTTP Server and different configurations you can pro
 
 ## Start a ZIO HTTP Server with default configurations
 ```scala
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  override def run(args: List[String]): UIO[ExitCode] =
     Server.start(8090, app.silent).exitCode
 ```
 ## Start a ZIO HTTP Server with custom configurations.
@@ -28,12 +28,12 @@ This section describes, ZIO HTTP Server and different configurations you can pro
     ```
 3. And then use ```Server.make``` to get a "managed" instance use it to run a server forever
     ```scala
-    override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+    override def run(args: List[String]): UIO[ExitCode] = {
       server.make
         .use(start =>
           console.putStrLn(s"Server started on port ${start.port}")
           *> ZIO.never,
-        ).provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(2))
+        ).provideLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(2))
         .exitCode
     ```
    **Tip :** `ServerChannelFactory.auto ++ EventLoopGroup.auto(num Threads)` is supplied as an external dependency to choose netty transport type. One can leave it as `auto` to let the application handle it for you. 
@@ -76,7 +76,7 @@ object HelloWorldAdvanced extends App {
             Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
             Server.app(fooBar +++ app)      // Setup the Http app
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+  override def run(args: List[String]): UIO[ExitCode] = {
     // Configure thread count using CLI
     val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
@@ -89,7 +89,7 @@ object HelloWorldAdvanced extends App {
                       // Ensures the server doesn't die after printing
                       *> ZIO.never,
             )
-            .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
+            .provideLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
             .exitCode
   }
 }
