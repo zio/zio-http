@@ -277,3 +277,51 @@ jobs:
 
             ${{steps.result.outputs.concurrency_result}}
             ${{steps.result.outputs.request_result}}
+
+  runClientBenchmarks:
+    name: ClientBenchmarks
+    if: ${{ github.event_name == 'pull_request'}}
+    strategy:
+      matrix:
+        os: [centos]
+        scala: [2.13.8]
+        java: [temurin@11]
+    runs-on: [ "${{ matrix.os }}", zio-http ]
+    steps:
+      - name: Clean up
+        id: clean_up
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: sudo rm -rf *
+
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+
+      - uses: actions/checkout@v2
+        with:
+          repository: sumawa/HttpClientBench
+          path: HttpClientBench
+
+      - id: clientResult
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd ./HttpClientBench
+          sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" build.sbt
+          ./run_client_benchmark.sh
+          tail -n 100 ./log/server_out.log
+          RESULT_CLIENTS="$(cat ./log/*.out)"
+          echo "$RESULT_CLIENTS"
+          echo ::set-output name=result_clients::$(echo "$RESULT_CLIENTS")
+
+      - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
+        uses: peter-evans/commit-comment@v1
+        with:
+          sha: ${{github.event.pull_request.head.sha}}
+          body: |
+
+            **🚀 Client Performance Benchmark:**
+            | Client | Method | Number of Requests | RPS |
+            |--------|--------| -------------------| ----|
+            ${{steps.clientResult.outputs.result_clients}}
