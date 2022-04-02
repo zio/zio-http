@@ -7,13 +7,13 @@ import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.durationInt
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}
-import zio.test.{DefaultRunnableSpec, assertM}
+import zio.test.{ZIOSpecDefault, assertM}
 
 import java.io._
 import java.security.KeyStore
 import javax.net.ssl.TrustManagerFactory
 
-object ClientHttpsSpec extends DefaultRunnableSpec {
+object ClientHttpsSpec extends ZIOSpecDefault {
 
   val env                         = ChannelFactory.auto ++ EventLoopGroup.auto()
   val trustStore: KeyStore        = KeyStore.getInstance("JKS")
@@ -55,5 +55,5 @@ object ClientHttpsSpec extends DefaultRunnableSpec {
           .exit
         assertM(actual)(fails(isSubtype[DecoderException](anything)))
       }
-  }.provideCustomLayer(env) @@ timeout(30 seconds) @@ ignore
+  }.provideLayer(env) @@ timeout(30 seconds) @@ ignore
 }

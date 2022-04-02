@@ -30,7 +30,7 @@ final class ChannelFuture[A] private (jFuture: Future[A]) {
   }
 
   def toZIO: ZIO[Scope, Throwable, Option[A]] = {
-    execute.withFinalizer(cancel(true))
+    execute.withFinalizer(_ => cancel(true))
   }
 
   // Cancels the future

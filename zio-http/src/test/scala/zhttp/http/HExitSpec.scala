@@ -5,7 +5,7 @@ import zio.test.TestAspect._
 import zio.test._
 import zio.{ZIO, durationInt}
 
-object HExitSpec extends DefaultRunnableSpec with HExitAssertion {
+object HExitSpec extends ZIOSpecDefault with HExitAssertion {
   def spec: ZSpec[Environment, Failure] = {
     import HExit._
     suite("HExit")(

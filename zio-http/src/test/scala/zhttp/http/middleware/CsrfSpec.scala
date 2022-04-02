@@ -7,7 +7,7 @@ import zio.Ref
 import zio.test.Assertion.equalTo
 import zio.test._
 
-object CsrfSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
+object CsrfSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   override def spec = suite("CSRF Middlewares") {
     val app           = (Http.ok @@ csrfValidate("x-token")).status
     val setCookie     = Headers.cookie(Cookie("x-token", "secret"))

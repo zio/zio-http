@@ -5,7 +5,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import zhttp.internal.HttpGen
 import zio.test._
 
-object SchemeSpec extends DefaultRunnableSpec {
+object SchemeSpec extends ZIOSpecDefault {
   override def spec = suite("SchemeSpec") {
     test("string") {
       checkAll(HttpGen.scheme) { scheme =>

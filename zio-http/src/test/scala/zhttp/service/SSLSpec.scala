@@ -9,9 +9,9 @@ import zhttp.service.server._
 import zio._
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
-import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAll}
+import zio.test.{Gen, TestEnvironment, ZIOSpecDefault, assertM, checkAll}
 
-object SSLSpec extends DefaultRunnableSpec {
+object SSLSpec extends ZIOSpecDefault {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto ++ Scope.default
 
   val serverSSL  = ctxFromCert(
@@ -81,5 +81,5 @@ object SSLSpec extends DefaultRunnableSpec {
             },
         ),
       ),
-  ).provideCustomLayer(env) @@ timeout(5 second) @@ ignore
+  ).provideSomeLayer[TestEnvironment](env) @@ timeout(5 second) @@ ignore
 }

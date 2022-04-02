@@ -313,18 +313,18 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Delays production of output B for the specified duration of time
    */
-  final def delay(duration: Duration): Http[R with Clock, E, A, B] = self.delayAfter(duration)
+  final def delay(duration: Duration): Http[R, E, A, B] = self.delayAfter(duration)
 
   /**
    * Delays production of output B for the specified duration of time
    */
-  final def delayAfter(duration: Duration): Http[R with Clock, E, A, B] =
+  final def delayAfter(duration: Duration): Http[R, E, A, B] =
     self.mapZIO(b => ZIO.succeed(b).delay(duration))
 
   /**
    * Delays consumption of input A for the specified duration of time
    */
-  final def delayBefore(duration: Duration): Http[R with Clock, E, A, B] =
+  final def delayBefore(duration: Duration): Http[R, E, A, B] =
     self.contramapZIO(a => ZIO.succeed(a).delay(duration))
 
   /**
@@ -446,14 +446,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def orElse[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
     self.catchAll(_ => other)
-
-  /**
-   * Provide part of the environment to HTTP that is not part of ZEnv
-   */
-  final def provideCustomLayer[E1 >: E, R1](
-    layer: ZLayer[ZEnv, E1, R1],
-  )(implicit ev: ZEnv with R1 <:< R, tagged: Tag[R1]): Http[ZEnv, E1, A, B] =
-    Http.fromOptionFunction[A](a => self(a).provideCustomLayer(layer.mapError(Option(_))))
 
   /**
    * Provides the environment to Http.
@@ -987,7 +979,7 @@ object Http {
    * Creates an Http app that responds with a 408 status code after the provided
    * time duration
    */
-  def timeout(duration: Duration): HttpApp[Clock, Nothing] = Http.status(Status.RequestTimeout).delay(duration)
+  def timeout(duration: Duration): HttpApp[Any, Nothing] = Http.status(Status.RequestTimeout).delay(duration)
 
   /**
    * Creates an HTTP app which always responds with a 413 status code.

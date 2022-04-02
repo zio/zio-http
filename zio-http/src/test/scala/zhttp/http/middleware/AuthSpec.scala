@@ -6,7 +6,7 @@ import zio.ZIO
 import zio.test.Assertion._
 import zio.test._
 
-object AuthSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
+object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   private val successBasicHeader: Headers  = Headers.basicAuthorizationHeader("user", "resu")
   private val failureBasicHeader: Headers  = Headers.basicAuthorizationHeader("user", "user")
   private val bearerToken: String          = "dummyBearerToken"

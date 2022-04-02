@@ -297,6 +297,6 @@ object ServerSpec extends HttpRunnableSpec {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
       suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) } +
         suite("app with request streaming") { ZIO.scoped(appWithReqStreaming.as(List(spec))) }
-    }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ sequential
+    }.provideSomeLayerShared[TestEnvironment](env) @@ timeout(30 seconds) @@ sequential
 
 }

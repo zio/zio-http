@@ -14,6 +14,6 @@ object SimpleClient extends ZIOAppDefault {
   } yield ()
 
   override val run =
-    program.provideCustom(env)
+    program.provide(env)
 
 }

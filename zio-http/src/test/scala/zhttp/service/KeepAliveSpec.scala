@@ -46,7 +46,7 @@ object KeepAliveSpec extends HttpRunnableSpec {
   override def spec = {
     suite("ServerConfigSpec") {
       appKeepAliveEnabled.as(List(keepAliveSpec))
-    }.provideCustomLayerShared(env) @@ timeout(30.seconds)
+    }.provideLayerShared(env) @@ timeout(30.seconds)
   }
 
 }

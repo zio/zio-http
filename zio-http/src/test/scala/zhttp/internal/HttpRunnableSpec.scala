@@ -6,7 +6,7 @@ import zhttp.service.Client.Config
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.socket.SocketApp
-import zio.test.DefaultRunnableSpec
+import zio.test.ZIOSpecDefault
 import zio.{Scope, ZIO}
 
 /**
@@ -16,7 +16,7 @@ import zio.{Scope, ZIO}
  * should suffice. HttpRunnableSpec spins of an actual Http server and makes
  * requests.
  */
-abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
+abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
 
   implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Request, A]) {
 

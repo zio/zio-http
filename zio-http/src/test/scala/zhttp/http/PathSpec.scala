@@ -3,7 +3,7 @@ package zhttp.http
 import zio.test.Assertion._
 import zio.test._
 
-object PathSpec extends DefaultRunnableSpec with HExitAssertion {
+object PathSpec extends ZIOSpecDefault with HExitAssertion {
   def collect[A](pf: PartialFunction[Path, A]): Path => Option[A] = path => pf.lift(path)
   def spec                                                        =
     suite("Path")(

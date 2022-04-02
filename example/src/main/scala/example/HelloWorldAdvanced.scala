@@ -39,6 +39,6 @@ object HelloWorldAdvanced extends ZIOAppDefault {
         // Ensures the server doesn't die after printing
           *> ZIO.never,
       )
-      .provideCustom(ServerChannelFactory.auto, EventLoopGroup.auto(nThreads), Scope.default)
+      .provide(ServerChannelFactory.auto, EventLoopGroup.auto(nThreads), Scope.default)
   }
 }

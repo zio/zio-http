@@ -7,7 +7,7 @@ import zio._
 import zio.test.Assertion._
 import zio.test._
 
-object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions { self =>
+object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
   private val app  = Http.collectZIO[Request] { case Method.GET -> !! / "health" =>
     ZIO.succeed(Response.ok).delay(1 second)
   }
@@ -169,7 +169,7 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions { self =>
 
   private def condM(flg: Boolean) = (_: Any) => ZIO.succeed(flg)
 
-  private def runApp[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response] = {
+  private def runApp[R, E](app: HttpApp[R, E]): ZIO[R, Option[E], Response] = {
     for {
       fib <- app { Request(url = URL(!! / "health")) }.fork
       _   <- TestClock.adjust(10 seconds)

@@ -40,10 +40,10 @@ object Main extends ZIOAppDefault {
     jsonResponse      <- frozenJsonResponse
   } yield plainTextApp(plainTextResponse) ++ jsonApp(jsonResponse)
 
-  val run: URIO[zio.ZEnv, ExitCode] =
+  val run: UIO[ExitCode] =
     app
       .flatMap(server(_).make *> ZIO.never)
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8) ++ Scope.default)
+      .provideLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8) ++ Scope.default)
       .exitCode
 
   private def server(app: HttpApp[Any, Nothing]) =

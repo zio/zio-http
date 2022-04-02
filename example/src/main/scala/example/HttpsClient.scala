@@ -34,6 +34,6 @@ object HttpsClient extends ZIOAppDefault {
     _    <- Console.printLine(data)
   } yield ()
 
-  val run = program.provideCustom(env)
+  val run = program.provide(env)
 
 }

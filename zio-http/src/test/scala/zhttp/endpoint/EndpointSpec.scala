@@ -3,9 +3,9 @@ package zhttp.endpoint
 import zhttp.http._
 import zio.ZIO
 import zio.test.Assertion._
-import zio.test.{DefaultRunnableSpec, assert, assertM}
+import zio.test.{ZIOSpecDefault, assert, assertM}
 
-object EndpointSpec extends DefaultRunnableSpec {
+object EndpointSpec extends ZIOSpecDefault {
   def spec = suite("Route") {
     test("match method") {
       val route   = Endpoint.fromMethod(Method.GET)

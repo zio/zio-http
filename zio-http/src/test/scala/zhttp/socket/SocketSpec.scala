@@ -7,7 +7,7 @@ import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
 
-object SocketSpec extends DefaultRunnableSpec {
+object SocketSpec extends ZIOSpecDefault {
 
   def spec = suite("SocketSpec") {
     operationsSpec

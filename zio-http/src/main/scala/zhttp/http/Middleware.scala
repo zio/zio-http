@@ -1,7 +1,7 @@
 package zhttp.http
 
 import zhttp.http.middleware.Web
-import zio.{Clock, Duration, ZIO}
+import zio.{Duration, ZIO}
 
 /**
  * Middlewares are essentially transformations that one can apply on any Http to
@@ -91,7 +91,7 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   /**
    * Delays the production of Http output for the specified duration
    */
-  final def delay(duration: Duration): Middleware[R with Clock, E, AIn, BIn, AOut, BOut] =
+  final def delay(duration: Duration): Middleware[R, E, AIn, BIn, AOut, BOut] =
     self.mapZIO(b => ZIO.succeed(b).delay(duration))
 
   /**

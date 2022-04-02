@@ -4,7 +4,7 @@ import zhttp.internal.HttpGen
 import zio.test.Assertion.{equalTo, isSome}
 import zio.test._
 
-object CookieSpec extends DefaultRunnableSpec {
+object CookieSpec extends ZIOSpecDefault {
   def spec = suite("Cookies") {
     suite("response cookies") {
       test("encode/decode signed/unsigned cookies with secret") {

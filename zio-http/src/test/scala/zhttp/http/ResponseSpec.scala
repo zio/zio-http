@@ -3,7 +3,7 @@ package zhttp.http
 import zio.test.Assertion._
 import zio.test._
 
-object ResponseSpec extends DefaultRunnableSpec {
+object ResponseSpec extends ZIOSpecDefault {
   def spec = suite("Response")(
     suite("redirect") {
       val location = "www.google.com"

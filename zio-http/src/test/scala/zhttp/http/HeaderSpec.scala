@@ -4,9 +4,9 @@ import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import zhttp.http.Headers.BearerSchemeName
 import zhttp.http.middleware.Auth.Credentials
 import zio.test.Assertion._
-import zio.test.{DefaultRunnableSpec, Gen, assert, check}
+import zio.test.{Gen, ZIOSpecDefault, assert, check}
 
-object HeaderSpec extends DefaultRunnableSpec {
+object HeaderSpec extends ZIOSpecDefault {
 
   def spec = suite("Header") {
     suite("getHeader")(

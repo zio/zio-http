@@ -2,7 +2,7 @@ package example
 
 import zhttp.http.Headers
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
-import zio.{ExitCode, URIO, ZIOAppDefault}
+import zio.{ExitCode, UIO, ZIOAppDefault}
 
 object AuthenticationClient extends ZIOAppDefault {
 
@@ -23,6 +23,6 @@ object AuthenticationClient extends ZIOAppDefault {
     _        <- zio.Console.printLine(body)
   } yield ()
 
-  val run: URIO[zio.ZEnv, ExitCode] = program.exitCode.provideCustomLayer(env)
+  val run: UIO[ExitCode] = program.exitCode.provideLayer(env)
 
 }

@@ -48,6 +48,6 @@ object ContentTypeSpec extends HttpRunnableSpec {
   override def spec = {
     suite("Content-type") {
       serve(DynamicServer.app).as(List(contentSpec))
-    }.provideCustomLayerShared(env) @@ timeout(5 seconds)
+    }.provideLayerShared(env) @@ timeout(5 seconds)
   }
 }
