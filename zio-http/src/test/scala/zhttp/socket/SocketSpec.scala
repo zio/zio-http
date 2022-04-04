@@ -69,7 +69,7 @@ object SocketSpec extends DefaultRunnableSpec {
     },
     testM("delay") {
       val socket  =
-        Socket.from(1, 2, 3).delay(1.second).mapZIO(i => clock.nanoTime.map(time => (time / 1000_000_000, i)))
+        Socket.from(1, 2, 3).delay(1.second).mapZIO(i => clock.instant.map(time => (time.getEpochSecond, i)))
       val program = for {
         f <- socket(()).runCollect.fork
         _ <- TestClock.adjust(10 second)
