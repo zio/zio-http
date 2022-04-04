@@ -7,6 +7,7 @@ import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
+import zio.test.environment.{TestClock, TestConsole}
 
 object SocketSpec extends DefaultRunnableSpec {
 
@@ -67,8 +68,22 @@ object SocketSpec extends DefaultRunnableSpec {
       assertM(http(()).map(_.status))(equalTo(Status.SwitchingProtocols))
     },
     testM("delay") {
-      val http = Socket.from(1, 2, 3).delay(1.second).mapZIO(i => clock.nanoTime.map(time => (time, i)))
-      assertM(http(()).runCollect)(equalTo(Status.SwitchingProtocols))
+      val socket  =
+        Socket.from(1, 2, 3).delay(1.second).mapZIO(i => clock.nanoTime.map(time => (time / 1000_000_000, i)))
+      val program = for {
+        f <- socket(()).runCollect.fork
+        _ <- TestClock.adjust(10 second)
+        l <- f.join
+      } yield l.toList
+      assertM(program)(equalTo(List((1L, 1), (2L, 2), (3L, 3))))
+    },
+    testM("tap") {
+      val socket  = Socket.from(1, 2, 3).tap(i => zio.console.putStrLn(i.toString))
+      val program = for {
+        _ <- socket(()).runDrain
+        l <- TestConsole.output
+      } yield l
+      assertM(program)(equalTo(Vector("1\n", "2\n", "3\n")))
     },
   )
 }
