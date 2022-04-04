@@ -1,11 +1,12 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
+import io.netty.channel.pool.{ChannelPool, ChannelPoolHandler, SimpleChannelPool}
 import io.netty.channel.{
   Channel,
+  ChannelInitializer,
   ChannelFactory => JChannelFactory,
   ChannelFuture => JChannelFuture,
-  ChannelInitializer,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http._
@@ -109,10 +110,19 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
       }
 
       val jBoo = new Bootstrap().channelFactory(cf).group(el).handler(initializer)
-
       jBoo.remoteAddress(new InetSocketAddress(host, port))
-
       jBoo.connect()
+
+      val simpleConnectionPool = new SimpleChannelPool(
+        jBoo,
+        new ChannelPoolHandler {
+          override def channelReleased(ch: Channel): Unit = println("releasing ")
+          override def channelAcquired(ch: Channel): Unit = println("acquiring ")
+          override def channelCreated(ch: Channel): Unit  = println("crreated")
+        },
+      )
+
+      simpleConnectionPool.acquire()
     } catch {
       case err: Throwable =>
         if (jReq.refCnt() > 0) {
@@ -167,9 +177,15 @@ object Client {
     } yield res
   }
 
-  case class Config(socketApp: Option[SocketApp[Any]] = None, ssl: Option[ClientSSLOptions] = None) { self =>
-    def withSSL(ssl: ClientSSLOptions): Config           = self.copy(ssl = Some(ssl))
-    def withSocketApp(socketApp: SocketApp[Any]): Config = self.copy(socketApp = Some(socketApp))
+  case class Config(
+    socketApp: Option[SocketApp[Any]] = None,
+    ssl: Option[ClientSSLOptions] = None,
+    useConnectionPool: Boolean = false,
+  ) { self =>
+    def withSSL(ssl: ClientSSLOptions): Config                 = self.copy(ssl = Some(ssl))
+    def withSocketApp(socketApp: SocketApp[Any]): Config       = self.copy(socketApp = Some(socketApp))
+    def withConnectionPool(useConnectionPool: Boolean): Config =
+      self.copy(useConnectionPool = useConnectionPool: Boolean)
   }
 
   object Config {
