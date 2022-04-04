@@ -9,7 +9,7 @@ object ClientBenchmarkWorkFlow {
       name = "ClientBenchmarks",
       oses = List("centos"),
       cond = Some(
-        "${{ github.event_name == 'pull_request'}}",
+        "${{ github.event.label.name == 'ClientBenchmark' && github.event_name == 'pull_request'}}",
       ),
       scalas = List(Scala213),
       steps = List(

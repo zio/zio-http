@@ -10,7 +10,7 @@ name: Continuous Integration
 on:
   pull_request:
     branches: ['**']
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, synchronize, reopened, edited, labeled]
   push:
     branches: ['**']
     tags: [v*]
@@ -280,7 +280,7 @@ jobs:
 
   runClientBenchmarks:
     name: ClientBenchmarks
-    if: ${{ github.event_name == 'pull_request'}}
+    if: ${{ github.event.label.name == 'ClientBenchmark' && github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [centos]
