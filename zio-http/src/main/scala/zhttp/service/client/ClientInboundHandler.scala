@@ -20,7 +20,7 @@ final class ClientInboundHandler[R](
     if (isWebSocket) {
       ctx.fireChannelActive(): Unit
     } else {
-      ctx.writeAndFlush(jReq)
+      // ctx.writeAndFlush(jReq)
       ()
     }
   }

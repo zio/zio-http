@@ -1,7 +1,6 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.pool.{ChannelPool, ChannelPoolHandler, SimpleChannelPool}
 import io.netty.channel.{
   Channel,
   ChannelInitializer,
@@ -110,19 +109,10 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
       }
 
       val jBoo = new Bootstrap().channelFactory(cf).group(el).handler(initializer)
+
       jBoo.remoteAddress(new InetSocketAddress(host, port))
+
       jBoo.connect()
-
-      val simpleConnectionPool = new SimpleChannelPool(
-        jBoo,
-        new ChannelPoolHandler {
-          override def channelReleased(ch: Channel): Unit = println("releasing ")
-          override def channelAcquired(ch: Channel): Unit = println("acquiring ")
-          override def channelCreated(ch: Channel): Unit  = println("crreated")
-        },
-      )
-
-      simpleConnectionPool.acquire()
     } catch {
       case err: Throwable =>
         if (jReq.refCnt() > 0) {
@@ -131,14 +121,46 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
         throw err
     }
   }
+
 }
 
 object Client {
+  def makeForDestination[R](
+    host: String,
+    port: Int,
+  ): ZIO[R with EventLoopGroup with ChannelFactory, Nothing, ClientWithPool[R]] = for {
+    cf <- ZIO.service[JChannelFactory[Channel]]
+    el <- ZIO.service[JEventLoopGroup]
+    zx <- HttpRuntime.default[R]
+  } yield new service.ClientWithPool(host, port, cf, el, zx)
+
   def make[R]: ZIO[R with EventLoopGroup with ChannelFactory, Nothing, Client[R]] = for {
     cf <- ZIO.service[JChannelFactory[Channel]]
     el <- ZIO.service[JEventLoopGroup]
     zx <- HttpRuntime.default[R]
   } yield service.Client(zx, cf, el)
+
+  def requestWithPool(
+    url: String,
+    method: Method = Method.GET,
+    headers: Headers = Headers.empty,
+    content: HttpData = HttpData.empty,
+    //   ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+    client: ClientWithPool[Any],
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
+    for {
+      uri     <- ZIO.fromEither(URL.fromString(url))
+      promise <- Promise.make[Throwable, Response]
+      jReq    <- client.encode(Request(Version.Http_1_1, method, uri, headers, data = content))
+      _       <- ZIO
+        .effect(
+          client
+            .unsafeRequest(jReq, promise, false),
+        )
+        .catchAll(cause => promise.fail(cause))
+      res     <- promise.await
+
+    } yield res
 
   def request(
     url: String,
