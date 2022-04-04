@@ -7,7 +7,6 @@ import java.time.Instant
 import java.util.Base64.getEncoder
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
-import scala.util.Try
 
 final case class Cookie(
   name: String,
@@ -124,8 +123,8 @@ final case class Cookie(
    */
   def encode: String = {
     val c = secret match {
-      case Some(sec) => content + "." + signContent(sec)
-      case None      => content
+      case Some(sec) if sec.nonEmpty => content + "." + signContent(sec)
+      case _      => content
     }
 
     val cookie = List(
@@ -187,7 +186,7 @@ object Cookie {
    * Decodes from Set-Cookie header value inside of Response into a cookie
    */
   def decodeResponseCookie(headerValue: String, secret: Option[String] = None): Option[Cookie] =
-    Try(unsafeDecodeResponseCookie(headerValue, secret)).toOption
+    Option(unsafeDecodeResponseCookie(headerValue, secret))
 
   private[zhttp] def unsafeDecodeResponseCookie(headerValue: String, secret: Option[String] = None): Cookie = {
     var name: String              = null
@@ -270,7 +269,7 @@ object Cookie {
         null
 
     secret match {
-      case Some(s) => {
+      case Some(s) if s.nonEmpty => {
         if (decodedCookie != null) {
           val index     = decodedCookie.content.lastIndexOf('.')
           val signature = decodedCookie.content.slice(index + 1, decodedCookie.content.length)
@@ -281,7 +280,7 @@ object Cookie {
           else null
         } else decodedCookie
       }
-      case None    => decodedCookie
+      case _    => decodedCookie
     }
 
   }
