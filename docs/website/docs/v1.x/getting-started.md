@@ -25,7 +25,7 @@ An app can be made using any of the available constructors on `zhttp.Http`.
 
 ### Routing
 
- For handling routes, Http Domain has a `collect` method that, accepts different requests and produces responses. Pattern matching on the route is supported by the framework
+ For handling routes, Http Domain has a `collect` method that, accepts different requests and produces responses. Pattern matching on the route is supported by the framework.
 The example below shows how to create routes:
 
 ```scala
