@@ -1,12 +1,13 @@
 package zhttp.service
 import io.netty.bootstrap.Bootstrap
+import io.netty.channel.pool.{ChannelPoolHandler, FixedChannelPool}
 import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup}
-import io.netty.channel.pool.{ChannelPoolHandler, SimpleChannelPool}
 import io.netty.handler.codec.http.{FullHttpRequest, HttpClientCodec, HttpObjectAggregator}
 import io.netty.util.concurrent.Future
-import zhttp.http.Response
+import zhttp.http._
+import zhttp.service
 import zhttp.service.client.ClientInboundHandler
-import zio.Promise
+import zio.{Promise, ZIO}
 
 final class ClientWithPool[R](
   host: String,
@@ -19,11 +20,11 @@ final class ClientWithPool[R](
   private val bootstrap =
     new Bootstrap().group(group).channelFactory(cf).remoteAddress(host, port)
 
-  private val pool = new SimpleChannelPool(
+  private val pool = new FixedChannelPool(
     bootstrap,
     new ChannelPoolHandler {
       override def channelReleased(ch: Channel): Unit = {
-        println(s"chanel release: ${ch.toString}")
+        println(s"chanel release: ${ch.toString} ")
 
       }
       override def channelAcquired(ch: Channel): Unit = {
@@ -40,13 +41,16 @@ final class ClientWithPool[R](
 
       }
     },
+    10,
+    50,
   )
 
-  def unsafeRequest(
+  private def unsafeRequest(
     jReq: FullHttpRequest,
     promise: Promise[Throwable, Response],
     isWebSocket: Boolean,
   ): Unit = {
+    println(s"Pool content: [${pool.acquiredChannelCount()}]")
     pool.acquire().addListener { (f: Future[Channel]) =>
       if (f.isSuccess) {
         val channel = f.getNow
@@ -62,5 +66,41 @@ final class ClientWithPool[R](
   }
 
   def release() = pool.close()
+
+  def requestWithPool(
+    url: String,
+    method: Method = Method.GET,
+    headers: Headers = Headers.empty,
+    content: HttpData = HttpData.empty,
+    //   ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+    isWebSocket: Boolean,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
+    for {
+      uri     <- ZIO.fromEither(URL.fromString(url))
+      promise <- Promise.make[Throwable, Response]
+      jReq    <- encode(
+        Request(Version.Http_1_1, method, uri, headers ++ Headers.connection(HeaderValues.keepAlive), data = content),
+      )
+      _       <- ZIO
+        .effect(
+          unsafeRequest(jReq, promise, isWebSocket),
+        )
+        .catchAll(cause => promise.fail(cause))
+      res     <- promise.await
+
+    } yield res
+
+}
+
+object ClientWithPool {
+
+  def make[R](
+    host: String,
+    port: Int,
+  ): ZIO[R with EventLoopGroup with ChannelFactory, Nothing, ClientWithPool[R]] = for {
+    cf <- ZIO.service[JChannelFactory[Channel]]
+    el <- ZIO.service[JEventLoopGroup]
+    zx <- HttpRuntime.default[R]
+  } yield new service.ClientWithPool(host, port, cf, el, zx)
 
 }
