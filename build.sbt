@@ -104,6 +104,8 @@ lazy val zhttp = (project in file("zio-http"))
       `zio-streams`,
       `zio-test`,
       `zio-test-sbt`,
+      `zio-schema`,
+      `zio-schema-json`,
       `netty-incubator`,
       `scala-compact-collection`,
     ),
