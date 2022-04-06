@@ -72,7 +72,7 @@ private[zhttp] final case class Handler[R](
             jReq,
             app,
             new Request {
-              override def data: HttpData = HttpData.Incoming(callback =>
+              override def data: HttpData = HttpData.UnsafeAsync(callback =>
                 ctx
                   .pipeline()
                   .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback)): Unit,

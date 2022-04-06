@@ -83,7 +83,7 @@ object Socket {
    */
   def empty: Socket[Any, Nothing, Any, Nothing] = Socket.Empty
 
-  def end: ZStream[Any, Nothing, Nothing] = ZStream.halt(Cause.empty)
+  def end: Socket[Any, Nothing, Any, Nothing] = Socket.End
 
   def fromFunction[A]: PartialFromFunction[A] = new PartialFromFunction[A](())
 

@@ -29,8 +29,8 @@ final case class Response private (
 
     val jHeaders = self.headers.encode
     val jContent = self.data match {
-      case HttpData.Incoming(_)    => null
-      case data: HttpData.Outgoing =>
+      case HttpData.UnsafeAsync(_) => null
+      case data: HttpData.Complete =>
         data match {
           case HttpData.FromAsciiString(text) => Unpooled.wrappedBuffer(text.array())
           case HttpData.BinaryChunk(data)     => Unpooled.wrappedBuffer(data.toArray)
@@ -88,6 +88,11 @@ final case class Response private (
    */
   def setStatus(status: Status): Response =
     self.copy(status = status)
+
+  /**
+   * Creates an Http from a Response
+   */
+  def toHttp: Http[Any, Nothing, Any, Response] = Http.succeed(self)
 
   /**
    * Updates the headers using the provided function

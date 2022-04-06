@@ -404,6 +404,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   ): Http[R1, E1, A2, B2] = Http.RunMiddleware(self, mid)
 
   /**
+   * Narrows the type of the input
+   */
+  final def narrow[A1](implicit a: A1 <:< A): Http[R, E, A1, B] =
+    self.asInstanceOf[Http[R, E, A1, B]]
+
+  /**
    * Executes this app, skipping the error but returning optionally the success.
    */
   final def option(implicit ev: CanFail[E]): Http[R, Nothing, A, Option[B]] =

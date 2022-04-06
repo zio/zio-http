@@ -112,7 +112,7 @@ object HttpData {
    */
   def fromString(text: String, charset: Charset = HTTP_CHARSET): HttpData = fromCharSequence(text, charset)
 
-  private[zhttp] sealed trait Outgoing extends HttpData
+  private[zhttp] sealed trait Complete extends HttpData
 
   /**
    * Provides a more fine grained control while encoding HttpData into ByteBUfs
@@ -136,7 +136,7 @@ object HttpData {
     def read(): Unit = ctx.read(): Unit
   }
 
-  private[zhttp] final case class Incoming(unsafeRun: (UnsafeChannel => UnsafeContent => Unit) => Unit)
+  private[zhttp] final case class UnsafeAsync(unsafeRun: (UnsafeChannel => UnsafeContent => Unit) => Unit)
       extends HttpData {
 
     /**
@@ -172,13 +172,15 @@ object HttpData {
       Http.fromZIO(toByteBuf(config))
   }
 
-  private[zhttp] case class FromAsciiString(asciiString: AsciiString) extends Outgoing {
+  private[zhttp] case class FromAsciiString(asciiString: AsciiString) extends Complete {
+
+    private def encode: ByteBuf = Unpooled.wrappedBuffer(asciiString.array())
 
     /**
      * Encodes the HttpData into a ByteBuf. Takes in ByteBufConfig to have a
      * more fine grained control over the encoding.
      */
-    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = Task(Unpooled.wrappedBuffer(asciiString.array()))
+    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = Task(encode)
 
     /**
      * Encodes the HttpData into a Stream of ByteBufs. Takes in ByteBufConfig to
@@ -192,10 +194,10 @@ object HttpData {
      * in certain cases. Takes in ByteBufConfig to have a more fine grained
      * control over the encoding.
      */
-    override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] = ???
+    override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] = Http.attempt(encode)
   }
 
-  private[zhttp] final case class BinaryChunk(data: Chunk[Byte]) extends Outgoing {
+  private[zhttp] final case class BinaryChunk(data: Chunk[Byte]) extends Complete {
 
     private def encode = Unpooled.wrappedBuffer(data.toArray)
 
@@ -213,7 +215,7 @@ object HttpData {
     override def toHttp(config: ByteBufConfig): UHttp[Any, ByteBuf] = Http.succeed(encode)
   }
 
-  private[zhttp] final case class BinaryByteBuf(data: ByteBuf) extends Outgoing {
+  private[zhttp] final case class BinaryByteBuf(data: ByteBuf) extends Complete {
 
     /**
      * Encodes the HttpData into a ByteBuf.
@@ -229,7 +231,7 @@ object HttpData {
     override def toHttp(config: ByteBufConfig): UHttp[Any, ByteBuf] = Http.succeed(data)
   }
 
-  private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf]) extends Outgoing {
+  private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf]) extends Complete {
 
     /**
      * Encodes the HttpData into a ByteBuf.
@@ -247,7 +249,7 @@ object HttpData {
       Http.fromZIO(toByteBuf(config))
   }
 
-  private[zhttp] final case class JavaFile(unsafeFile: () => java.io.File) extends Outgoing {
+  private[zhttp] final case class JavaFile(unsafeFile: () => java.io.File) extends Complete {
 
     /**
      * Encodes the HttpData into a ByteBuf.
@@ -283,7 +285,7 @@ object HttpData {
     val default: ByteBufConfig = ByteBufConfig()
   }
 
-  private[zhttp] case object Empty extends Outgoing {
+  private[zhttp] case object Empty extends Complete {
 
     /**
      * Encodes the HttpData into a ByteBuf.
