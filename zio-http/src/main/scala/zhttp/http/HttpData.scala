@@ -5,8 +5,8 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import io.netty.util.AsciiString
 import zhttp.http.HttpData.ByteBufConfig
+import zio._
 import zio.stream.ZStream
-import zio.{Chunk, Task, UIO, ZIO}
 
 import java.io.FileInputStream
 import java.nio.charset.Charset
@@ -139,6 +139,21 @@ object HttpData {
   private[zhttp] final case class UnsafeAsync(unsafeRun: (UnsafeChannel => UnsafeContent => Unit) => Unit)
       extends HttpData {
 
+    private def toUnsafeContentQueue: ZIO[Any, Nothing, Queue[UnsafeContent]] = for {
+      queue   <- ZQueue.bounded[UnsafeContent](1)
+      promise <- Promise.make[Nothing, UnsafeChannel]
+      runtime <- ZIO.runtime[Any]
+      _       <- UIO(
+        unsafeRun { ch =>
+          runtime.unsafeRun(promise.succeed(ch))
+          msg => {
+            runtime.unsafeRun(queue.offer(msg)): Unit
+          }
+        },
+      )
+      ch      <- promise.await
+    } yield queue.mapM(msg => UIO(ch.read()).unless(msg.isLast).as(msg))
+
     /**
      * Encodes the HttpData into a ByteBuf.
      */
@@ -158,15 +173,7 @@ object HttpData {
      * Encodes the HttpData into a Stream of ByteBufs
      */
     override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
-      ZStream
-        .effectAsync[Any, Nothing, ByteBuf](cb =>
-          unsafeRun(ch =>
-            msg => {
-              cb(ZIO.succeed(Chunk(msg.content)))
-              if (msg.isLast) cb(ZIO.fail(None)) else ch.read()
-            },
-          ),
-        )
+      ZStream.unwrap(toUnsafeContentQueue.map(ZStream.fromQueue(_))).takeUntil(_.isLast).map(_.content)
 
     override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] =
       Http.fromZIO(toByteBuf(config))
