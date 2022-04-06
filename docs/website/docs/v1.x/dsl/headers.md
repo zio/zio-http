@@ -155,7 +155,7 @@ val responseHeaders: Task[Headers] =  Client.request(url).map(_.headers)
         _    <- Console.printLine { data }
       } yield ()
     
-      override def run(args: List[String]): URIO[Any, ExitCode] = program.exitCode.provideLayer(env)
+      override def run(args: List[String]): UIO[ExitCode] = program.exitCode.provideLayer(env)
     
     }
     ```

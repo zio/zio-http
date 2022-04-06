@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Headers.{BasicSchemeName, BearerSchemeName}
 import zhttp.http._
 import zhttp.http.middleware.Auth.Credentials
-import zio.ZIO
+import zio._
 
 private[zhttp] trait Auth {
 

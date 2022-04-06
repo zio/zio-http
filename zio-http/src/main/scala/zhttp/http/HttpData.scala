@@ -200,7 +200,7 @@ object HttpData {
 
   private[zhttp] final case class BinaryChunk(data: Chunk[Byte]) extends Complete {
 
-    private def encode = Unpooled.wrappedBuffer(data.toArray)
+    private def encode: ByteBuf = Unpooled.wrappedBuffer(data.toArray)
 
     /**
      * Encodes the HttpData into a ByteBuf.
