@@ -8,7 +8,7 @@ object BuildHelper extends ScalaSettings {
   val Scala213         = "2.13.8"
   val ScalaDotty       = "3.1.1"
   val ScoverageVersion = "1.9.3"
-
+  val JmhVersion       = "0.4.3"
   private val stdOptions = Seq(
     "-deprecation",
     "-encoding",
