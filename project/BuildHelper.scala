@@ -4,11 +4,7 @@ import scalafix.sbt.ScalafixPlugin.autoImport._
 import xerial.sbt.Sonatype.autoImport._
 
 object BuildHelper extends ScalaSettings {
-  val Scala212         = "2.12.15"
-  val Scala213         = "2.13.8"
-  val ScalaDotty       = "3.1.1"
-  val ScoverageVersion = "1.9.3"
-
+  val ScoverageVersion   = "1.9.3"
   private val stdOptions = Seq(
     "-deprecation",
     "-encoding",
@@ -77,10 +73,13 @@ object BuildHelper extends ScalaSettings {
     if (publishArtifacts) publishSettings else publishSettings ++ skipSettings
   }
 
-  def stdSettings(prjName: String) = Seq(
+  def stdSettings(
+                   prjName: String,
+                   scalaVersions: Seq[String] = Seq(ScalaVersions.Scala212, ScalaVersions.Scala213, ScalaVersions.Scala3),
+  ) = Seq(
     name                           := s"$prjName",
-    ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, ScalaDotty),
-    ThisBuild / scalaVersion       := Scala213,
+    ThisBuild / crossScalaVersions := scalaVersions,
+    ThisBuild / scalaVersion       := ScalaVersions.Scala213,
     scalacOptions                  := stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
     semanticdbVersion              := scalafixSemanticdb.revision, // use Scalafix compatible version
     ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),

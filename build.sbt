@@ -59,8 +59,8 @@ ThisBuild / githubWorkflowPublish        :=
 ThisBuild / githubWorkflowBuildPreamble  := Seq(
   WorkflowStep.Run(
     name = Some("Check formatting"),
-    commands = List(s"sbt ++${Scala213} fmtCheck"),
-    cond = Some(s"matrix.scala == '${Scala213}'"),
+    commands = List(s"sbt ++${ScalaVersions.Scala213} fmtCheck"),
+    cond = Some(s"matrix.scala == '${ScalaVersions.Scala213}'"),
   ),
 )
 
@@ -70,12 +70,12 @@ ThisBuild / githubWorkflowBuildPostamble :=
     "Check doc generation",
     List(
       WorkflowStep.Run(
-        commands = List(s"sbt ++${Scala213} doc"),
+        commands = List(s"sbt ++${ScalaVersions.Scala213} doc"),
         name = Some("Check doc generation"),
         cond = Some("${{ github.event_name == 'pull_request' }}"),
       ),
     ),
-    scalas = List(Scala213),
+    scalas = List(ScalaVersions.Scala213),
   ).steps
 
 lazy val root = (project in file("."))
@@ -118,7 +118,7 @@ lazy val zhttpTest = (project in file("zio-http-test"))
   .settings(publishSetting(true))
 
 lazy val example = (project in file("./example"))
-  .settings(stdSettings("example"))
+  .settings(stdSettings("example", scalaVersions = Seq(ScalaVersions.Scala213)))
   .settings(publishSetting(false))
   .settings(runSettings("example.JsonWebAPI"))
   .settings(libraryDependencies ++= Seq(`jwt-core`, `zio-json`, `zio-json-macros`))

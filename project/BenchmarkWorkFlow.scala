@@ -1,4 +1,3 @@
-import BuildHelper.Scala213
 import sbtghactions.GenerativePlugin.autoImport.{UseRef, WorkflowJob, WorkflowStep}
 
 object BenchmarkWorkFlow {
@@ -11,7 +10,7 @@ object BenchmarkWorkFlow {
       cond = Some(
         "${{ github.event_name == 'pull_request'}}",
       ),
-      scalas = List(Scala213),
+      scalas = List(ScalaVersions.Scala213),
       steps = List(
         WorkflowStep.Run(
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),

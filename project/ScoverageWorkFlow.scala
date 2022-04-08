@@ -1,4 +1,4 @@
-import BuildHelper.{Scala213, ScoverageVersion}
+import BuildHelper.ScoverageVersion
 import sbtghactions.GenerativePlugin.autoImport.{WorkflowJob, WorkflowStep}
 
 object ScoverageWorkFlow {
@@ -13,7 +13,7 @@ object ScoverageWorkFlow {
       WorkflowJob(
         id = "unsafeRunScoverage",
         name = "Unsafe Scoverage",
-        scalas = List(Scala213),
+        scalas = List(ScalaVersions.Scala213),
         steps = List(
           WorkflowStep.CheckoutFull,
           WorkflowStep.Run(
