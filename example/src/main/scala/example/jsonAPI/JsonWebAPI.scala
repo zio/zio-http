@@ -4,6 +4,10 @@ import zhttp.http._
 import zhttp.service.Server
 import zio.{App, ExitCode, Has, URIO}
 
+/**
+ * The actual Http application that takes in a UserRequest and produces a
+ * UserResponse.
+ */
 object JsonWebAPI extends App {
 
   type UserService = Has[UserService.Service]

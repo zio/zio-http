@@ -7,6 +7,11 @@ import zio.{UIO, ZIO}
 import java.util.UUID
 import scala.util.{Success, Try}
 
+/**
+ * Maintaining the core routing logic here. The routing logic is used to build a
+ * codec, which can then be used as a middleware. Keeping routing logic separate
+ * from the codec allows for easy testing.
+ */
 object Routing {
 
   private val list = Http.collect[Request] { case Method.GET -> !! / "users" / "list" => UserRequest.list }

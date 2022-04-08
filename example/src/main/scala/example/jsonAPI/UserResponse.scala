@@ -4,6 +4,9 @@ import zio.json.{DeriveJsonEncoder, JsonEncoder}
 
 import java.util.UUID
 
+/**
+ * Represents a set of outgoing responses
+ */
 sealed trait UserResponse { self =>
   final def widen: UserResponse = self
 }

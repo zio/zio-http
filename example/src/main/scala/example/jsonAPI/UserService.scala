@@ -5,6 +5,9 @@ import zio.{Ref, UIO, ZIO, ZLayer}
 
 import java.util.UUID
 
+/**
+ * A simple in-memory persistence layer to add, delete and list users.
+ */
 object UserService {
   def add(name: String, age: Int): ZIO[UserService, Nothing, User] =
     ZIO.accessM(_.get.add(name, age))

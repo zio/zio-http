@@ -2,6 +2,9 @@ package example.jsonAPI
 
 import zio.json.{DeriveJsonDecoder, JsonDecoder}
 
+/**
+ * Represents a set of incoming requests to the API.
+ */
 sealed trait UserRequest
 
 object UserRequest {
