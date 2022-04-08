@@ -140,7 +140,6 @@ object HttpData {
       extends HttpData {
 
     private def toUnsafeContentQueue: ZIO[Any, Nothing, Queue[UnsafeContent]] = {
-      println("here ==============")
       for {
         queue   <- ZQueue.bounded[UnsafeContent](1)
         promise <- Promise.make[Nothing, UnsafeChannel]

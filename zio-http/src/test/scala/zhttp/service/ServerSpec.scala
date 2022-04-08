@@ -24,9 +24,8 @@ object ServerSpec extends HttpRunnableSpec {
   private val env =
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
-//  private val app                 =
-//    serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(4096)))
-  private val appWithReqStreaming = serve(DynamicServer.app, Some(Server.enableObjectAggregator(-1)))
+  private val app =
+    serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(4096)))
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -305,10 +304,10 @@ object ServerSpec extends HttpRunnableSpec {
           app.deploy.bodyAsString.run(
             path = !! / "store",
             method = Method.POST,
-            content = HttpData.fromStream(ZStream.fromIterable(List(c))),
+            content = HttpData.fromString(c),
           ),
         )(
-          equalTo(s"${c.length + 1}"),
+          equalTo(s"${c.length}"),
         )
       }
     }
@@ -318,8 +317,7 @@ object ServerSpec extends HttpRunnableSpec {
   override def spec =
     suite("Server") {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec + unsafeContentSpec
-      // suiteM("app without request streaming") { app.as(List(spec)).useNow } +
-      suiteM("app with request streaming") { appWithReqStreaming.as(List(spec)).useNow }
+      suiteM("app without request streaming") { app.as(List(spec)).useNow }
     }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ sequential
 
 }
