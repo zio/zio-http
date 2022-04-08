@@ -6,7 +6,7 @@ import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.duration.durationInt
-import zio.stream.{ZStream, ZTransducer}
+import zio.stream.{ZSink, ZStream, ZTransducer}
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
@@ -24,9 +24,9 @@ object ServerSpec extends HttpRunnableSpec {
   private val env =
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
-  private val app                 =
-    serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(4096)))
-  private val appWithReqStreaming = serve(DynamicServer.app, None)
+//  private val app                 =
+//    serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(4096)))
+  private val appWithReqStreaming = serve(DynamicServer.app, Some(Server.enableObjectAggregator(-1)))
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -293,11 +293,33 @@ object ServerSpec extends HttpRunnableSpec {
       }
   }
 
+  def unsafeContentSpec = suite("ServerStreamingSpec") {
+    testM("test unsafe content") {
+      val app = Http.collectZIO[Request] { case req @ Method.POST -> !! / "store" =>
+        for {
+          bytesCount <- req.bodyAsStream.run(ZSink.count)
+        } yield Response.text(bytesCount.toString)
+      }
+      checkAllM(Gen.alphaNumericString) { c =>
+        assertM(
+          app.deploy.bodyAsString.run(
+            path = !! / "store",
+            method = Method.POST,
+            content = HttpData.fromStream(ZStream.fromIterable(List(c))),
+          ),
+        )(
+          equalTo(s"${c.length + 1}"),
+        )
+      }
+    }
+
+  }
+
   override def spec =
     suite("Server") {
-      val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
-      suiteM("app without request streaming") { app.as(List(spec)).useNow } +
-        suiteM("app with request streaming") { appWithReqStreaming.as(List(spec)).useNow }
+      val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec + unsafeContentSpec
+      // suiteM("app without request streaming") { app.as(List(spec)).useNow } +
+      suiteM("app with request streaming") { appWithReqStreaming.as(List(spec)).useNow }
     }.provideCustomLayerShared(env) @@ timeout(30 seconds) @@ sequential
 
 }

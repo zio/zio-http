@@ -139,20 +139,23 @@ object HttpData {
   private[zhttp] final case class UnsafeAsync(unsafeRun: (UnsafeChannel => UnsafeContent => Unit) => Unit)
       extends HttpData {
 
-    private def toUnsafeContentQueue: ZIO[Any, Nothing, Queue[UnsafeContent]] = for {
-      queue   <- ZQueue.bounded[UnsafeContent](1)
-      promise <- Promise.make[Nothing, UnsafeChannel]
-      runtime <- ZIO.runtime[Any]
-      _       <- UIO(
-        unsafeRun { ch =>
-          runtime.unsafeRun(promise.succeed(ch))
-          msg => {
-            runtime.unsafeRun(queue.offer(msg)): Unit
-          }
-        },
-      )
-      ch      <- promise.await
-    } yield queue.mapM(msg => UIO(ch.read()).unless(msg.isLast).as(msg))
+    private def toUnsafeContentQueue: ZIO[Any, Nothing, Queue[UnsafeContent]] = {
+      println("here ==============")
+      for {
+        queue   <- ZQueue.bounded[UnsafeContent](1)
+        promise <- Promise.make[Nothing, UnsafeChannel]
+        runtime <- ZIO.runtime[Any]
+        _       <- UIO(
+          unsafeRun { ch =>
+            runtime.unsafeRun(promise.succeed(ch))
+            msg => {
+              runtime.unsafeRun(queue.offer(msg)): Unit
+            }
+          },
+        )
+        ch      <- promise.await
+      } yield queue.mapM(msg => UIO(ch.read()).unless(msg.isLast).as(msg))
+    }
 
     /**
      * Encodes the HttpData into a ByteBuf.
