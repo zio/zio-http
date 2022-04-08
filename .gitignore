@@ -28,3 +28,5 @@ node_modules/
 .bsp/
 .DS_Store
 web/.DS_Store
+
+project/.bloop

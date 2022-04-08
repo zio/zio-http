@@ -10,7 +10,7 @@ ThisBuild / githubWorkflowPREventTypes   := Seq(
   PREventType.Synchronize,
   PREventType.Reopened,
   PREventType.Edited,
-  PREventType.Labeled
+  PREventType.Labeled,
 )
 ThisBuild / githubWorkflowAddedJobs      :=
   Seq(
@@ -103,6 +103,8 @@ lazy val zhttp = (project in file("zio-http"))
       `zio-test-sbt`,
       `netty-incubator`,
       `scala-compact-collection`,
+      `zio-schema`,
+      `zio-schema-json`,
     ),
   )
 
