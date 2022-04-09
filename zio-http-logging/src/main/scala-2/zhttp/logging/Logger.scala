@@ -9,13 +9,13 @@ final class Logger(configuration: Configuration) {
 
   private[zhttp] val logger = new ConsoleLogger(configuration)
 
-  @inline def name = configuration.loggerName
+  @inline def name = configuration.name
 
-  @inline def isTraceEnabled: Boolean = configuration.logLevel >= TRACE
-  @inline def isDebugEnabled: Boolean = configuration.logLevel >= DEBUG
-  @inline def isInfoEnabled: Boolean  = configuration.logLevel >= INFO
-  @inline def isWarnEnabled: Boolean  = configuration.logLevel >= WARN
-  @inline def isErrorEnabled: Boolean = configuration.logLevel >= ERROR
+  @inline def isTraceEnabled: Boolean = configuration.level >= TRACE
+  @inline def isDebugEnabled: Boolean = configuration.level >= DEBUG
+  @inline def isInfoEnabled: Boolean  = configuration.level >= INFO
+  @inline def isWarnEnabled: Boolean  = configuration.level >= WARN
+  @inline def isErrorEnabled: Boolean = configuration.level >= ERROR
 
   import scala.language.experimental.macros
 
@@ -32,7 +32,7 @@ object Logger {
   final def getLogger(logLevel: LogLevel)                     =
     new Logger(configuration = Configuration(getClass.getSimpleName, logLevel, LogFormat.default))
   final def getLogger(loggerName: String)                     =
-    new Logger(configuration = Configuration(loggerName, logLevel = LogLevel.INFO, LogFormat.default))
+    new Logger(configuration = Configuration(loggerName, level = LogLevel.INFO, LogFormat.default))
   final def getLogger(loggerName: String, logLevel: LogLevel) =
     new Logger(configuration = Configuration(loggerName, logLevel, LogFormat.default))
   final def getLogger(

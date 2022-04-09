@@ -32,16 +32,16 @@ private[zhttp] final class ConsoleLogger(configuration: Configuration) {
 
   private def log(msg: String, throwable: Option[Throwable], logLevel: LogLevel): Unit = {
     buildLines(msg, throwable, logLevel).foreach { line =>
-      Console.println(LogFormat.run(configuration.logFormat)(line))
+      Console.println(LogFormat.run(configuration.format)(line))
     }
   }
 
   private def buildLines(msg: String, throwable: Option[Throwable], logLevel: LogLevel): List[LogLine] = {
-    throwable.fold(List(LogLine(configuration.loggerName, LocalDateTime.now(), threadName, threadId, logLevel, msg)))(
+    throwable.fold(List(LogLine(configuration.name, LocalDateTime.now(), threadName, threadId, logLevel, msg)))(
       t =>
         List(
-          LogLine(configuration.loggerName, LocalDateTime.now(), threadName, threadId, logLevel, msg),
-          LogLine(configuration.loggerName, LocalDateTime.now(), threadName, threadId, logLevel, stackTraceAsString(t)),
+          LogLine(configuration.name, LocalDateTime.now(), threadName, threadId, logLevel, msg),
+          LogLine(configuration.name, LocalDateTime.now(), threadName, threadId, logLevel, stackTraceAsString(t)),
         ),
     )
 
