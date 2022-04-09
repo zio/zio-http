@@ -19,16 +19,12 @@ final class Logger(configuration: Configuration) {
 
   import scala.language.experimental.macros
 
-  def trace(msg: String): Unit = macro traceM
-  def trace(msg: String, throwable: Throwable): Unit = macro traceTM
-  def debug(msg: String): Unit = macro debugM
-  def debug(msg: String, throwable: Throwable): Unit = macro debugTM
-  def info(msg: String): Unit = macro infoM
-  def info(msg: String, throwable: Throwable): Unit = macro infoTM
-  def warn(msg: String): Unit = macro warnM
-  def warn(msg: String, throwable: Throwable): Unit = macro warnTM
-  def error(msg: String): Unit = macro errorM
-  def error(msg: String, throwable: Throwable): Unit = macro errorTM
+  def trace(msg: String): Unit = macro traceImpl
+  def debug(msg: String): Unit = macro debugImpl
+  def info(msg: String): Unit = macro infoImpl
+  def warn(msg: String): Unit = macro warnImpl
+  def error(msg: String): Unit = macro errorImpl
+  def error(msg: String, throwable: Throwable): Unit = macro errorImplT
 
 }
 

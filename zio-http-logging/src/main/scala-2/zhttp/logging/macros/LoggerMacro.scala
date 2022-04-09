@@ -1,6 +1,6 @@
 package zhttp.logging.macros
 
-import zhttp.logging.LogLevel.{DEBUG, ERROR, INFO, TRACE, WARN}
+import zhttp.logging.LogLevel._
 import zhttp.logging.{LogLevel, Logger}
 
 import scala.reflect.macros.whitebox
@@ -45,24 +45,22 @@ private[zhttp] object LoggerMacro {
 
   }
 
-  def traceTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
-    reflectiveLog(c)(msg, Some(throwable))(TRACE)
-  def traceM(c: LogCtx)(msg: c.Expr[String])                                = reflectiveLog(c)(msg, None)(TRACE)
+  def debugImpl(c: LogCtx)(msg: c.Expr[String]) =
+    reflectiveLog(c)(msg, None)(DEBUG)
 
-  def debugTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
-    reflectiveLog(c)(msg, Some(throwable))(DEBUG)
-  def debugM(c: LogCtx)(msg: c.Expr[String])                                = reflectiveLog(c)(msg, None)(DEBUG)
+  def errorImpl(c: LogCtx)(msg: c.Expr[String]) =
+    reflectiveLog(c)(msg, None)(ERROR)
 
-  def infoTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
-    reflectiveLog(c)(msg, Some(throwable))(INFO)
-  def infoM(c: LogCtx)(msg: c.Expr[String])                                = reflectiveLog(c)(msg, None)(INFO)
-
-  def warnTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
-    reflectiveLog(c)(msg, Some(throwable))(WARN)
-  def warnM(c: LogCtx)(msg: c.Expr[String])                                = reflectiveLog(c)(msg, None)(WARN)
-
-  def errorTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
+  def errorImplT(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
     reflectiveLog(c)(msg, Some(throwable))(ERROR)
-  def errorM(c: LogCtx)(msg: c.Expr[String])                                = reflectiveLog(c)(msg, None)(ERROR)
+
+  def infoImpl(c: LogCtx)(msg: c.Expr[String]) =
+    reflectiveLog(c)(msg, None)(INFO)
+
+  def traceImpl(c: LogCtx)(msg: c.Expr[String]) =
+    reflectiveLog(c)(msg, None)(TRACE)
+
+  def warnImpl(c: LogCtx)(msg: c.Expr[String]) =
+    reflectiveLog(c)(msg, None)(WARN)
 
 }
