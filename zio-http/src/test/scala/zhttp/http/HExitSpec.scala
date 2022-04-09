@@ -6,7 +6,7 @@ import zio.test._
 import zio.{ZIO, durationInt}
 
 object HExitSpec extends ZIOSpecDefault with HExitAssertion {
-  def spec: ZSpec[Environment, Failure] = {
+  def spec: ZSpec[Environment, Any] = {
     import HExit._
     suite("HExit")(
       test("out") {

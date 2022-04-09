@@ -41,12 +41,13 @@ object DynamicServer {
 
   def httpURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.HTTP)
 
-  def live: ZLayer[Any, Nothing, DynamicServer] = {
-    for {
-      ref <- Ref.make(Map.empty[Id, HttpApp[Any, Throwable]])
-      pr  <- Promise.make[Nothing, Start]
-    } yield new Live(ref, pr)
-  }.toLayer
+  def live: ZLayer[Any, Nothing, DynamicServer] =
+    ZLayer {
+      for {
+        ref <- Ref.make(Map.empty[Id, HttpApp[Any, Throwable]])
+        pr  <- Promise.make[Nothing, Start]
+      } yield new Live(ref, pr)
+    }
 
   def port: ZIO[DynamicServer, Nothing, Int] = ZIO.environmentWithZIO[DynamicServer](_.get.port)
 
