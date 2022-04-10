@@ -31,36 +31,34 @@ private[zhttp] object LoggerMacro {
   )(msg: c.Expr[String], error: Option[c.Expr[Throwable]])(logLevel: LogLevel) = {
     import c.universe._
 
-    val logger        = q"${c.prefix.tree}"
-    val consoleLogger = q"${c.prefix.tree}.logger"
-    val logValues     = error match {
+    val frontend  = q"${c.prefix.tree}.frontend"
+    val logValues = error match {
       case None    => List(msg.tree)
       case Some(e) => List(msg.tree, e.tree)
     }
 
-    val logExpr   = q"$consoleLogger.${TermName(logLevel.methodName)}(..$logValues)"
-    val checkExpr = q"$logger.${TermName(s"is${logLevel.methodName.capitalize}Enabled")}"
+    val logExpr   = q"$frontend.${TermName(logLevel.methodName)}(..$logValues)"
+    val checkExpr = q"${c.prefix.tree}.frontend.config.${TermName(s"is${logLevel.methodName.capitalize}Enabled")}"
 
     q"if ($checkExpr) $logExpr else ()"
-
   }
 
-  def debugImpl(c: LogCtx)(msg: c.Expr[String]) =
+  def debugImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =
     reflectiveLog(c)(msg, None)(DEBUG)
 
-  def errorImpl(c: LogCtx)(msg: c.Expr[String]) =
+  def errorImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =
     reflectiveLog(c)(msg, None)(ERROR)
 
-  def errorImplT(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
+  def errorImplT(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]): c.universe.Tree =
     reflectiveLog(c)(msg, Some(throwable))(ERROR)
 
-  def infoImpl(c: LogCtx)(msg: c.Expr[String]) =
+  def infoImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =
     reflectiveLog(c)(msg, None)(INFO)
 
-  def traceImpl(c: LogCtx)(msg: c.Expr[String]) =
+  def traceImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =
     reflectiveLog(c)(msg, None)(TRACE)
 
-  def warnImpl(c: LogCtx)(msg: c.Expr[String]) =
+  def warnImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =
     reflectiveLog(c)(msg, None)(WARN)
 
 }
