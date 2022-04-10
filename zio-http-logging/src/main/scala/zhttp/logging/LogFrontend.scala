@@ -18,9 +18,7 @@ trait LogFrontend {
 
   private final def logMayBe(msg: String, throwable: Option[Throwable], logLevel: LogLevel): Unit =
     if (config.filter(config.name)) {
-      buildLines(msg, throwable, logLevel).foreach { line =>
-        log(LogFormat.run(config.format)(line))
-      }
+      buildLines(msg, throwable, logLevel).foreach { line => log(config.format(line)) }
     }
 
   private def stackTraceAsString(throwable: Throwable): String = {

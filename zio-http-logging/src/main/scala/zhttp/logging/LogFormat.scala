@@ -24,6 +24,7 @@ sealed trait LogFormat { self =>
 
   final def trim: LogFormat = Trim(self)
 
+  def apply(line: LogLine): String = run(self, line)
 }
 
 object LogFormat {
@@ -89,23 +90,22 @@ object LogFormat {
   def color(info: Color, error: Color, debug: Color, trace: Color, warn: Color): LogFormat =
     LineColor(info, error, debug, trace, warn)
 
-  def run(logFormat: LogFormat)(logLine: LogLine): String = {
+  private def run(logFormat: LogFormat, logLine: LogLine): String = {
 
     logFormat match {
       case FormatDate(dateFormat)                     => formatDate(dateFormat, logLine.date)
       case ThreadName(includeThreadName)              => if (includeThreadName) logLine.threadName else ""
       case ThreadId(includeThreadId)                  => if (includeThreadId) logLine.threadId else ""
       case LoggerLevel                                => logLine.logLevel.name
-      case Combine(left, right)                       => run(left)(logLine) ++ run(right)(logLine)
-      case ColorWrap(color, conf)                     =>
-        colorText(color, run(conf)(logLine))
-      case TextWrappers(wrapper, conf)                => wrap(wrapper, run(conf)(logLine))
-      case Fixed(_, conf)                             => run(conf)(logLine)
-      case Spaced(left, right)                        => run(left)(logLine) + " " + run(right)(logLine)
-      case Dash(left, right)                          => run(left)(logLine) + " - " + run(right)(logLine)
-      case NewLine(left, right)                       => run(left)(logLine) + "\n" + run(right)(logLine)
+      case Combine(left, right)                       => run(left, logLine) ++ run(right, logLine)
+      case ColorWrap(color, conf)                     => colorText(color, run(conf, logLine))
+      case TextWrappers(wrapper, conf)                => wrap(wrapper, run(conf, logLine))
+      case Fixed(_, conf)                             => run(conf, logLine)
+      case Spaced(left, right)                        => run(left, logLine) + " " + run(right, logLine)
+      case Dash(left, right)                          => run(left, logLine) + " - " + run(right, logLine)
+      case NewLine(left, right)                       => run(left, logLine) + "\n" + run(right, logLine)
       case Msg                                        => logLine.msg
-      case Trim(conf)                                 => run(conf)(logLine).trim
+      case Trim(conf)                                 => run(conf, logLine).trim
       case LineColor(info, error, debug, trace, warn) =>
         logLine.logLevel match {
           case LogLevel.OFF   => ""
