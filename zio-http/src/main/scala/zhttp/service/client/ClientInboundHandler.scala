@@ -17,7 +17,7 @@ final class ClientInboundHandler[R](
   isWebSocket: Boolean,
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
-  private val log = Logger.getLogger("zhttp.service.client.ClientInboundHandler")
+  private val log = Logger.make("zhttp.service.client.ClientInboundHandler")
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     if (isWebSocket) {

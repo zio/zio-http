@@ -14,7 +14,6 @@ import io.netty.handler.logging.LoggingHandler
 import zhttp.logging.Logger
 import zhttp.service.Server.Config
 import zhttp.service._
-import zhttp.service.logging.ZHttpLoggerFactory
 
 /**
  * Initializes the netty channel with default handlers
@@ -26,7 +25,7 @@ final case class ServerChannelInitializer[R](
   reqHandler: ChannelHandler,
 ) extends ChannelInitializer[Channel] {
 
-  private val log = Logger.getLogger("zhttp.service.server.ServerChannelInitializer")
+  private val log = Logger.make("zhttp.service.server.ServerChannelInitializer")
 
   override def initChannel(channel: Channel): Unit = {
     // !! IMPORTANT !!
@@ -79,7 +78,7 @@ final case class ServerChannelInitializer[R](
 
     if (cfg.logLevel != LogLevel.OFF) {
       import io.netty.util.internal.logging.InternalLoggerFactory
-      InternalLoggerFactory.setDefaultFactory(ZHttpLoggerFactory(cfg.logLevel.toZhttpLogging))
+      InternalLoggerFactory.setDefaultFactory(zhttp.service.LoggerFactory(cfg.logLevel.toZhttpLogging))
       pipeline.addLast(LOW_LEVEL_LOGGING, new LoggingHandler(LogLevel.DEBUG.toNettyLogLevel))
     }
 

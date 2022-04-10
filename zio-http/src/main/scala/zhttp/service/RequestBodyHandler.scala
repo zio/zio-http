@@ -7,7 +7,7 @@ import zhttp.logging.Logger
 final class RequestBodyHandler(val callback: UnsafeChannel => UnsafeContent => Unit)
     extends SimpleChannelInboundHandler[HttpContent](false) { self =>
 
-  private val log = Logger.getLogger("zhttp.service.RequestBodyHandler")
+  private val log = Logger.make("zhttp.service.RequestBodyHandler")
 
   private var onMessage: UnsafeContent => Unit = _
 

@@ -19,7 +19,7 @@ private[zhttp] trait ServerResponseHandler[R] {
 
   def serverTime: ServerTime
 
-  private val log = Logger.getLogger("zhttp.service.server.content.handlers.ServerResponseHandler")
+  private val log = Logger.make("zhttp.service.server.content.handlers.ServerResponseHandler")
 
   def writeResponse(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     log.trace(s"Sending response $msg")

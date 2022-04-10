@@ -21,11 +21,12 @@ private[zhttp] final case class Handler[R](
     with WebSocketUpgrade[R]
     with ServerResponseHandler[R] { self =>
 
-  private val log = Logger.getLogger("zhttp.service.Handler")
+  private val log = Logger.make("zhttp.service.Handler")
 
   override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
 
     log.trace("server.Handler-channelRead0")
+
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
       case jReq: FullHttpRequest =>
