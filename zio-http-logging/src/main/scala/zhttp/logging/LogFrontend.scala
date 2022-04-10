@@ -1,16 +1,17 @@
 package zhttp.logging
 
-import zhttp.logging.LogFrontend.Config
+import zhttp.logging.LogFrontend.{Config, LogLine}
 
 import java.io.{PrintWriter, StringWriter}
 import java.time.LocalDateTime
+import scala.reflect.internal.TypeDebugging.AnsiColor
 
 trait LogFrontend {
   private def buildLines(msg: String, throwable: Option[Throwable], logLevel: LogLevel): List[LogLine] = {
-    throwable.fold(List(LogLine(config.name, LocalDateTime.now(), threadName, threadId, logLevel, msg)))(t =>
+    throwable.fold(List(LogLine(LocalDateTime.now(), threadName, threadId, logLevel, msg)))(t =>
       List(
-        LogLine(config.name, LocalDateTime.now(), threadName, threadId, logLevel, msg),
-        LogLine(config.name, LocalDateTime.now(), threadName, threadId, logLevel, stackTraceAsString(t)),
+        LogLine(LocalDateTime.now(), threadName, threadId, logLevel, msg),
+        LogLine(LocalDateTime.now(), threadName, threadId, logLevel, stackTraceAsString(t)),
       ),
     )
   }
@@ -58,7 +59,16 @@ trait LogFrontend {
 }
 
 object LogFrontend {
+
   def console(config: Config): LogFrontend = new ConsoleLogger(config)
+
+  final case class LogLine(
+    date: LocalDateTime,
+    threadName: String,
+    threadId: String,
+    logLevel: LogLevel,
+    msg: String,
+  )
 
   final case class Config(
     name: String,
@@ -79,6 +89,20 @@ object LogFrontend {
   }
 
   private final class ConsoleLogger(override val config: Config) extends LogFrontend {
-    override def log(msg: String): Unit = println(msg)
+    def colors = List(
+      AnsiColor.BLUE,
+      AnsiColor.CYAN,
+      AnsiColor.GREEN,
+      AnsiColor.MAGENTA,
+      AnsiColor.YELLOW,
+    )
+
+    def determine(text: String): String = colors(text.hashCode % colors.size)
+
+    override def log(msg: String): Unit = {
+      val color = determine(msg)
+      val reset = AnsiColor.RESET
+      println(s"${color}[${config.name}]${reset} $msg")
+    }
   }
 }

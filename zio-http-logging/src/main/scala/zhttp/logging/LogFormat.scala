@@ -1,5 +1,7 @@
 package zhttp.logging
 
+import zhttp.logging.LogFrontend.LogLine
+
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -63,7 +65,6 @@ object LogFormat {
     case object EMPTY   extends TextWrapper
   }
 
-  case object Name                                                                               extends LogFormat
   final case class FormatDate(dateFormat: DateFormat)                                            extends LogFormat
   final case class ThreadName(includeThreadName: Boolean)                                        extends LogFormat
   final case class ThreadId(includeThreadId: Boolean)                                            extends LogFormat
@@ -79,7 +80,6 @@ object LogFormat {
   final case class Trim(logFmt: LogFormat)                                                       extends LogFormat
   case object Msg                                                                                extends LogFormat
 
-  def name: LogFormat                         = Name
   def logLevel: LogFormat                     = LoggerLevel
   def date(dateFormat: DateFormat): LogFormat = FormatDate(dateFormat)
   def threadName: LogFormat                   = ThreadName(true)
@@ -92,7 +92,6 @@ object LogFormat {
   def run(logFormat: LogFormat)(logLine: LogLine): String = {
 
     logFormat match {
-      case Name                                       => logLine.loggerName
       case FormatDate(dateFormat)                     => formatDate(dateFormat, logLine.date)
       case ThreadName(includeThreadName)              => if (includeThreadName) logLine.threadName else ""
       case ThreadId(includeThreadId)                  => if (includeThreadId) logLine.threadId else ""
@@ -155,6 +154,6 @@ object LogFormat {
   ) <+>
     LogFormat.date(ISODateTime) |-| LogFormat.threadName.wrap(
       TextWrapper.BRACKET,
-    ) |-| LogFormat.logLevel |-| LogFormat.name - LogFormat.msg
+    ) |-| LogFormat.logLevel |-| LogFormat.msg
 
 }
