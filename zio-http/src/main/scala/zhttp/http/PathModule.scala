@@ -66,15 +66,15 @@ private[zhttp] trait PathModule { module =>
   }
 
   object Path {
-    def apply(): Path                   = End
-    def apply(string: String): Path     = if (string.trim.isEmpty) End
-    else {
-      val a = string.split("/").toList
-      if (string.endsWith("/") && string.length > 1) Path(a ++ List("$"))
-      else Path(a)
-    }
+    def apply(): Path               = End
+    def apply(string: String): Path = if (string.trim.isEmpty) End
+    else if (string.endsWith("/") && string.length > 1) getPath(string + "$")
+    else getPath(string)
+
     def apply(seqString: String*): Path = Path(seqString.toList)
     def apply(list: List[String]): Path = list.foldRight[Path](End)((s, a) => a.append(s))
+
+    private def getPath(string: String): Path = Path(string.split("/").toList)
 
     def empty: Path = End
 
