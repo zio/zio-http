@@ -12,7 +12,9 @@ private[zhttp] trait PathModule { module =>
 
     final def /:(name: String): Path = append(name)
 
-    final def append(name: String): Path = if (name.isEmpty) self else Path.Cons(name, self)
+    final def append(name: String): Path = if (name.isEmpty) self
+    else if (name == "$") Path.Cons("", self)
+    else Path.Cons(name, self)
 
     final def drop(n: Int): Path = Path(self.toList.drop(n))
 
@@ -65,7 +67,12 @@ private[zhttp] trait PathModule { module =>
 
   object Path {
     def apply(): Path                   = End
-    def apply(string: String): Path     = if (string.trim.isEmpty) End else Path(string.split("/").toList)
+    def apply(string: String): Path     = if (string.trim.isEmpty) End
+    else {
+      val a = string.split("/").toList
+      if (string.endsWith("/") && string.length > 1) Path(a ++ List("$"))
+      else Path(a)
+    }
     def apply(seqString: String*): Path = Path(seqString.toList)
     def apply(list: List[String]): Path = list.foldRight[Path](End)((s, a) => a.append(s))
 
