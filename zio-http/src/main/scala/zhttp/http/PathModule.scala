@@ -12,9 +12,10 @@ private[zhttp] trait PathModule { module =>
 
     final def /:(name: String): Path = append(name)
 
-    final def append(name: String): Path = if (name.isEmpty) self
-    else if (name == "$") Path.Cons("", self)
-    else Path.Cons(name, self)
+    final def append(name: String, isTrailingSlash: Boolean = false): Path =
+      if (isTrailingSlash) Path.Cons("", self)
+      else if (name.isEmpty) self
+      else Path.Cons(name, self)
 
     final def drop(n: Int): Path = Path(self.toList.drop(n))
 
@@ -67,14 +68,30 @@ private[zhttp] trait PathModule { module =>
 
   object Path {
     def apply(): Path               = End
-    def apply(string: String): Path = if (string.trim.isEmpty) End
-    else if (string.endsWith("/") && string.length > 1) getPath(string + "$")
-    else getPath(string)
+    def apply(string: String): Path =
+      if (string.trim.isEmpty || string == "/") End
+      else {
+        val arr = string.split("/", -1)
+        Path(arr.toList, Some(arr.length))
+      }
 
     def apply(seqString: String*): Path = Path(seqString.toList)
-    def apply(list: List[String]): Path = list.foldRight[Path](End)((s, a) => a.append(s))
 
-    private def getPath(string: String): Path = Path(string.split("/").toList)
+    def apply(list: List[String], length: Option[Int] = None): Path = {
+      val l                              = length.getOrElse(list.length)
+      @tailrec
+      def loop(path: Path, i: Int): Path = {
+        i match {
+          case _ if i == l => path
+          case _           => {
+            val x = list(l - i - 1)
+            loop(path.append(x, x == "" && i == 0), i + 1)
+          }
+        }
+      }
+
+      loop(End, 0)
+    }
 
     def empty: Path = End
 
