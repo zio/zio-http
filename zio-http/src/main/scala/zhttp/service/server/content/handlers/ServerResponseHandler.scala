@@ -126,3 +126,12 @@ private[zhttp] trait ServerResponseHandler[R] {
     } yield ()
   }
 }
+object ServerResponseHandler                  {
+  def apply[R](runtime: HttpRuntime[R], conf: Server.Config[R, Throwable], st: ServerTime): ServerResponseHandler[R] =
+    new ServerResponseHandler[R]() {
+      override val rt: HttpRuntime[R]                  = runtime
+      override val config: Server.Config[R, Throwable] = conf
+
+      override def serverTime: ServerTime = st
+    }
+}
