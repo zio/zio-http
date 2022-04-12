@@ -548,6 +548,60 @@ jobs:
           name: Jmh_Main_HttpRouteTextPerf
           path: Main_HttpRouteTextPerf.txt
 
+  Jmh_PathApplyPerf:
+    name: Jmh PathApplyPerf
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.8]
+        java: [temurin@11]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 8
+
+      - name: Benchmark_Current
+        id: Benchmark_Current
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          cat > Current_PathApplyPerf.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 PathApplyPerf" | grep "thrpt" >> ../Current_PathApplyPerf.txt
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Current_PathApplyPerf
+          path: Current_PathApplyPerf.txt
+
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+          ref: main
+
+      - name: Benchmark_Main
+        id: Benchmark_Main
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          cat > Main_PathApplyPerf.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 PathApplyPerf" | grep "thrpt" >> ../Main_PathApplyPerf.txt
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Main_PathApplyPerf
+          path: Main_PathApplyPerf.txt
+
   Jmh_ProbeContentTypeBenchmark:
     name: Jmh ProbeContentTypeBenchmark
     if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
@@ -604,7 +658,7 @@ jobs:
 
   Jmh_publish:
     name: Jmh Publish
-    needs: [Jmh_CookieDecodeBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark]
+    needs: [Jmh_CookieDecodeBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_PathApplyPerf, Jmh_ProbeContentTypeBenchmark]
     if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
     strategy:
       matrix:
@@ -682,6 +736,20 @@ jobs:
              B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
              echo $B_VALUE >> Current.txt
            done < Current_HttpRouteTextPerf.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Current_PathApplyPerf
+
+      - name: Result Current PathApplyPerf
+        id: Result_Current_PathApplyPerf
+        run: |
+          while IFS= read -r line; do
+             IFS=' ' read -ra PARSED_RESULT <<< "$line"
+             echo ${PARSED_RESULT[1]} >> parsed_Current.txt
+             B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
+             echo $B_VALUE >> Current.txt
+           done < Current_PathApplyPerf.txt
 
       - uses: actions/download-artifact@v3
         with:
@@ -766,6 +834,20 @@ jobs:
              B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
              echo $B_VALUE >> Main.txt
            done < Main_HttpRouteTextPerf.txt
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_PathApplyPerf
+
+      - name: Result Main PathApplyPerf
+        id: Result_Main_PathApplyPerf
+        run: |
+          while IFS= read -r line; do
+             IFS=' ' read -ra PARSED_RESULT <<< "$line"
+             echo ${PARSED_RESULT[1]} >> parsed_Main.txt
+             B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
+             echo $B_VALUE >> Main.txt
+           done < Main_PathApplyPerf.txt
 
       - uses: actions/download-artifact@v3
         with:
