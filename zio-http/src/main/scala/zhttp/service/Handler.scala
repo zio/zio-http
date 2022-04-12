@@ -193,13 +193,13 @@ private[zhttp] final case class Handler[R](
    * Executes program
    */
   private def unsafeRunZIO(program: ZIO[R, Throwable, Any])(implicit ctx: handler.Ctx): Unit =
-    runtime.unsafeRun(ctx) {
+    handler.rt.unsafeRun(ctx) {
       program
     }
+
+  override val runtime: HttpRuntime[R] = handler.rt
 
   override def exceptionCaught(ctx: handler.Ctx, cause: Throwable): Unit = {
     handler.config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
   }
-
-  override val runtime: HttpRuntime[R] = handler.rt
 }
