@@ -5,8 +5,7 @@ import io.netty.channel.ChannelHandler
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
 import zhttp.http.headers.HeaderModifier
-import zhttp.service.Handler
-import zhttp.service.server.content.handlers.ServerResponseHandler
+import zhttp.service._
 import zio._
 import zio.blocking.{Blocking, effectBlocking}
 import zio.clock.Clock

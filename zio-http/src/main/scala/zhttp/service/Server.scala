@@ -7,7 +7,6 @@ import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
-import zhttp.service.server.content.handlers.ServerResponseHandler
 import zio.{ZManaged, _}
 
 import java.net.{InetAddress, InetSocketAddress}
