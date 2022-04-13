@@ -40,11 +40,13 @@ object JmhBenchmarkWorkflow {
     Seq(
       WorkflowStep.Use(
         ref = UseRef.Public("actions", "download-artifact", "v3"),
-        Map(
+        cond = Some("github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'"),
+        params = Map(
           "name" -> s"Jmh_${branch}_${l.head}"
         )
       ),
       WorkflowStep.Run(
+        cond = Some("github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'"),
         commands = List(
           s"""while IFS= read -r line; do
              |   IFS=' ' read -ra PARSED_RESULT <<< "$$line"
@@ -62,6 +64,7 @@ object JmhBenchmarkWorkflow {
   Format result and set output
    */
   def formatOutput() = WorkflowStep.Run(
+    cond = Some("github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'"),
     commands = List(
       s"""cat parsed_Current.txt parsed_Main.txt | sort -u > c.txt
          |          while IFS= read -r line; do
