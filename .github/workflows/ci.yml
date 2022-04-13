@@ -673,7 +673,7 @@ jobs:
   Jmh_publish:
     name: Jmh Publish
     needs: [Jmh_CookieDecodeBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_PathApplyPerf, Jmh_ProbeContentTypeBenchmark]
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    if: always()
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -906,9 +906,10 @@ jobs:
            echo ::set-output name=body::$(echo $body)
 
       
-      - uses: peter-evans/commit-comment@v1
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
+        uses: peter-evans/commit-comment@v1
         with:
-          sha: ${{github.sha}}
+          sha: ${{github.event.pull_request.head.sha}}
           body: |
 
             **🚀 Jmh Benchmark:**
