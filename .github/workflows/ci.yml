@@ -307,11 +307,11 @@ jobs:
           cat > Current_CookieDecodeBenchmark.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 CookieDecodeBenchmark" | grep "thrpt" >> ../Current_CookieDecodeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_CookieDecodeBenchmark
           path: Current_CookieDecodeBenchmark.txt
-          if: always()
 
       - uses: actions/checkout@v2
         with:
@@ -363,11 +363,11 @@ jobs:
           cat > Current_HttpCollectEval.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCollectEval" | grep "thrpt" >> ../Current_HttpCollectEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpCollectEval
           path: Current_HttpCollectEval.txt
-          if: always()
 
       - uses: actions/checkout@v2
         with:
@@ -419,11 +419,11 @@ jobs:
           cat > Current_HttpCombineEval.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCombineEval" | grep "thrpt" >> ../Current_HttpCombineEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpCombineEval
           path: Current_HttpCombineEval.txt
-          if: always()
 
       - uses: actions/checkout@v2
         with:
@@ -475,11 +475,11 @@ jobs:
           cat > Current_HttpNestedFlatMapEval.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpNestedFlatMapEval" | grep "thrpt" >> ../Current_HttpNestedFlatMapEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpNestedFlatMapEval
           path: Current_HttpNestedFlatMapEval.txt
-          if: always()
 
       - uses: actions/checkout@v2
         with:
@@ -531,11 +531,11 @@ jobs:
           cat > Current_HttpRouteTextPerf.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpRouteTextPerf" | grep "thrpt" >> ../Current_HttpRouteTextPerf.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpRouteTextPerf
           path: Current_HttpRouteTextPerf.txt
-          if: always()
 
       - uses: actions/checkout@v2
         with:
@@ -587,11 +587,11 @@ jobs:
           cat > Current_PathApplyPerf.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 PathApplyPerf" | grep "thrpt" >> ../Current_PathApplyPerf.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_PathApplyPerf
           path: Current_PathApplyPerf.txt
-          if: always()
 
       - uses: actions/checkout@v2
         with:
@@ -643,11 +643,11 @@ jobs:
           cat > Current_ProbeContentTypeBenchmark.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ProbeContentTypeBenchmark" | grep "thrpt" >> ../Current_ProbeContentTypeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_ProbeContentTypeBenchmark
           path: Current_ProbeContentTypeBenchmark.txt
-          if: always()
 
       - uses: actions/checkout@v2
         with:

@@ -41,7 +41,7 @@ object JmhBenchmarkWorkflow {
       WorkflowStep.Use(
         ref = UseRef.Public("actions", "download-artifact", "v3"),
         Map(
-          "name" -> s"Jmh_${branch}_${l.head}"
+          "name" -> s"Jmh_${branch}_${l.head}",
         )
       ),
       WorkflowStep.Run(
@@ -155,10 +155,12 @@ object JmhBenchmarkWorkflow {
         ),
         WorkflowStep.Use(
           UseRef.Public("actions", "upload-artifact", "v3"),
-          Map(
+          cond = Some(
+            "always()"
+          ),
+          params = Map(
             "name" -> s"Jmh_Current_${l.head}",
             "path" -> s"Current_${l.head}.txt",
-            "if" ->"always()"
           )
         ),
         WorkflowStep.Use(
