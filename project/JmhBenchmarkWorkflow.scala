@@ -81,6 +81,7 @@ object JmhBenchmarkWorkflow {
          |          echo "" >> finalMain.txt;
          |          fi
          |           done < c.txt
+         |echo "$$(<Current.txt)"
          |echo "$$(<finalCurrent.txt)"
          |paste -d '|' c.txt finalCurrent.txt finalMain.txt > FinalOutput.txt
          | sed -i -e 's/^/|/' FinalOutput.txt
