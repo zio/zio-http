@@ -101,14 +101,14 @@ object JmhBenchmarkWorkflow {
     name = "Jmh Publish",
     scalas = List(Scala213),
     cond = Some(
-      "${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}"
+      "${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' && always()}}"
     ),
     needs =  dependencies(batchSize),
     steps = downloadArtifacts("Current", batchSize) ++ downloadArtifacts("Main", batchSize) ++
       Seq(formatOutput(), WorkflowStep.Use(
         ref = UseRef.Public("peter-evans", "commit-comment", "v1"),
         params = Map(
-          "sha" -> "${{github.sha}}",
+          "sha" -> "${{github.event.pull_request.head.sha}}",
           "body" ->
             """
               |**\uD83D\uDE80 Jmh Benchmark:**
