@@ -178,10 +178,12 @@ object JmhBenchmarkWorkflow {
         ),
         WorkflowStep.Use(
           UseRef.Public("actions", "upload-artifact", "v3"),
-          Map(
+          cond = Some(
+            "always()"
+          ),
+          params = Map(
             "name" -> s"Jmh_Main_${l.head}",
             "path" -> s"Main_${l.head}.txt",
-            "if" ->"always()"
           )
         )
       )
