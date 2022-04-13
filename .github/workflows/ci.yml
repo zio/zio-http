@@ -280,7 +280,7 @@ jobs:
 
   Jmh_CookieDecodeBenchmark:
     name: Jmh CookieDecodeBenchmark
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -307,7 +307,8 @@ jobs:
           cat > Current_CookieDecodeBenchmark.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 CookieDecodeBenchmark" | grep "thrpt" >> ../Current_CookieDecodeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_CookieDecodeBenchmark
           path: Current_CookieDecodeBenchmark.txt
@@ -327,14 +328,15 @@ jobs:
           cat > Main_CookieDecodeBenchmark.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 CookieDecodeBenchmark" | grep "thrpt" >> ../Main_CookieDecodeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_CookieDecodeBenchmark
           path: Main_CookieDecodeBenchmark.txt
 
   Jmh_HttpCollectEval:
     name: Jmh HttpCollectEval
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -361,7 +363,8 @@ jobs:
           cat > Current_HttpCollectEval.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCollectEval" | grep "thrpt" >> ../Current_HttpCollectEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpCollectEval
           path: Current_HttpCollectEval.txt
@@ -381,14 +384,15 @@ jobs:
           cat > Main_HttpCollectEval.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCollectEval" | grep "thrpt" >> ../Main_HttpCollectEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpCollectEval
           path: Main_HttpCollectEval.txt
 
   Jmh_HttpCombineEval:
     name: Jmh HttpCombineEval
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -415,7 +419,8 @@ jobs:
           cat > Current_HttpCombineEval.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCombineEval" | grep "thrpt" >> ../Current_HttpCombineEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpCombineEval
           path: Current_HttpCombineEval.txt
@@ -435,14 +440,15 @@ jobs:
           cat > Main_HttpCombineEval.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCombineEval" | grep "thrpt" >> ../Main_HttpCombineEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpCombineEval
           path: Main_HttpCombineEval.txt
 
   Jmh_HttpNestedFlatMapEval:
     name: Jmh HttpNestedFlatMapEval
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -469,7 +475,8 @@ jobs:
           cat > Current_HttpNestedFlatMapEval.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpNestedFlatMapEval" | grep "thrpt" >> ../Current_HttpNestedFlatMapEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpNestedFlatMapEval
           path: Current_HttpNestedFlatMapEval.txt
@@ -489,14 +496,15 @@ jobs:
           cat > Main_HttpNestedFlatMapEval.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpNestedFlatMapEval" | grep "thrpt" >> ../Main_HttpNestedFlatMapEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpNestedFlatMapEval
           path: Main_HttpNestedFlatMapEval.txt
 
   Jmh_HttpRouteTextPerf:
     name: Jmh HttpRouteTextPerf
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -523,7 +531,8 @@ jobs:
           cat > Current_HttpRouteTextPerf.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpRouteTextPerf" | grep "thrpt" >> ../Current_HttpRouteTextPerf.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpRouteTextPerf
           path: Current_HttpRouteTextPerf.txt
@@ -543,14 +552,71 @@ jobs:
           cat > Main_HttpRouteTextPerf.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpRouteTextPerf" | grep "thrpt" >> ../Main_HttpRouteTextPerf.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpRouteTextPerf
           path: Main_HttpRouteTextPerf.txt
 
+  Jmh_PathBenchmark:
+    name: Jmh PathBenchmark
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.8]
+        java: [temurin@11]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 8
+
+      - name: Benchmark_Current
+        id: Benchmark_Current
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          cat > Current_PathBenchmark.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 PathBenchmark" | grep "thrpt" >> ../Current_PathBenchmark.txt
+
+      - if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Current_PathBenchmark
+          path: Current_PathBenchmark.txt
+
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+          ref: main
+
+      - name: Benchmark_Main
+        id: Benchmark_Main
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          cat > Main_PathBenchmark.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 PathBenchmark" | grep "thrpt" >> ../Main_PathBenchmark.txt
+
+      - if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Main_PathBenchmark
+          path: Main_PathBenchmark.txt
+
   Jmh_ProbeContentTypeBenchmark:
     name: Jmh ProbeContentTypeBenchmark
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -577,7 +643,8 @@ jobs:
           cat > Current_ProbeContentTypeBenchmark.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ProbeContentTypeBenchmark" | grep "thrpt" >> ../Current_ProbeContentTypeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_ProbeContentTypeBenchmark
           path: Current_ProbeContentTypeBenchmark.txt
@@ -597,15 +664,16 @@ jobs:
           cat > Main_ProbeContentTypeBenchmark.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ProbeContentTypeBenchmark" | grep "thrpt" >> ../Main_ProbeContentTypeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_ProbeContentTypeBenchmark
           path: Main_ProbeContentTypeBenchmark.txt
 
   Jmh_publish:
     name: Jmh Publish
-    needs: [Jmh_CookieDecodeBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark]
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    needs: [Jmh_CookieDecodeBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_PathBenchmark, Jmh_ProbeContentTypeBenchmark]
+    if: always()
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -613,12 +681,14 @@ jobs:
         java: [temurin@11]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/download-artifact@v3
+      - if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_CookieDecodeBenchmark
 
       - name: Result Current CookieDecodeBenchmark
         id: Result_Current_CookieDecodeBenchmark
+        if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
         run: |
           while IFS= read -r line; do
              IFS=' ' read -ra PARSED_RESULT <<< "$line"
@@ -627,12 +697,14 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_CookieDecodeBenchmark.txt
 
-      - uses: actions/download-artifact@v3
+      - if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpCollectEval
 
       - name: Result Current HttpCollectEval
         id: Result_Current_HttpCollectEval
+        if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
         run: |
           while IFS= read -r line; do
              IFS=' ' read -ra PARSED_RESULT <<< "$line"
@@ -641,12 +713,14 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_HttpCollectEval.txt
 
-      - uses: actions/download-artifact@v3
+      - if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpCombineEval
 
       - name: Result Current HttpCombineEval
         id: Result_Current_HttpCombineEval
+        if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
         run: |
           while IFS= read -r line; do
              IFS=' ' read -ra PARSED_RESULT <<< "$line"
@@ -655,12 +729,14 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_HttpCombineEval.txt
 
-      - uses: actions/download-artifact@v3
+      - if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpNestedFlatMapEval
 
       - name: Result Current HttpNestedFlatMapEval
         id: Result_Current_HttpNestedFlatMapEval
+        if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
         run: |
           while IFS= read -r line; do
              IFS=' ' read -ra PARSED_RESULT <<< "$line"
@@ -669,12 +745,14 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_HttpNestedFlatMapEval.txt
 
-      - uses: actions/download-artifact@v3
+      - if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpRouteTextPerf
 
       - name: Result Current HttpRouteTextPerf
         id: Result_Current_HttpRouteTextPerf
+        if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
         run: |
           while IFS= read -r line; do
              IFS=' ' read -ra PARSED_RESULT <<< "$line"
@@ -683,12 +761,30 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_HttpRouteTextPerf.txt
 
-      - uses: actions/download-artifact@v3
+      - if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Current_PathBenchmark
+
+      - name: Result Current PathBenchmark
+        id: Result_Current_PathBenchmark
+        if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        run: |
+          while IFS= read -r line; do
+             IFS=' ' read -ra PARSED_RESULT <<< "$line"
+             echo ${PARSED_RESULT[1]} >> parsed_Current.txt
+             B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
+             echo $B_VALUE >> Current.txt
+           done < Current_PathBenchmark.txt
+
+      - if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_ProbeContentTypeBenchmark
 
       - name: Result Current ProbeContentTypeBenchmark
         id: Result_Current_ProbeContentTypeBenchmark
+        if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
         run: |
           while IFS= read -r line; do
              IFS=' ' read -ra PARSED_RESULT <<< "$line"
@@ -697,12 +793,14 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_ProbeContentTypeBenchmark.txt
 
-      - uses: actions/download-artifact@v3
+      - if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_CookieDecodeBenchmark
 
       - name: Result Main CookieDecodeBenchmark
         id: Result_Main_CookieDecodeBenchmark
+        if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
         run: |
           while IFS= read -r line; do
              IFS=' ' read -ra PARSED_RESULT <<< "$line"
@@ -711,12 +809,14 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_CookieDecodeBenchmark.txt
 
-      - uses: actions/download-artifact@v3
+      - if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_HttpCollectEval
 
       - name: Result Main HttpCollectEval
         id: Result_Main_HttpCollectEval
+        if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
         run: |
           while IFS= read -r line; do
              IFS=' ' read -ra PARSED_RESULT <<< "$line"
@@ -725,12 +825,14 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_HttpCollectEval.txt
 
-      - uses: actions/download-artifact@v3
+      - if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_HttpCombineEval
 
       - name: Result Main HttpCombineEval
         id: Result_Main_HttpCombineEval
+        if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
         run: |
           while IFS= read -r line; do
              IFS=' ' read -ra PARSED_RESULT <<< "$line"
@@ -739,12 +841,14 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_HttpCombineEval.txt
 
-      - uses: actions/download-artifact@v3
+      - if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_HttpNestedFlatMapEval
 
       - name: Result Main HttpNestedFlatMapEval
         id: Result_Main_HttpNestedFlatMapEval
+        if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
         run: |
           while IFS= read -r line; do
              IFS=' ' read -ra PARSED_RESULT <<< "$line"
@@ -753,12 +857,14 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_HttpNestedFlatMapEval.txt
 
-      - uses: actions/download-artifact@v3
+      - if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_HttpRouteTextPerf
 
       - name: Result Main HttpRouteTextPerf
         id: Result_Main_HttpRouteTextPerf
+        if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
         run: |
           while IFS= read -r line; do
              IFS=' ' read -ra PARSED_RESULT <<< "$line"
@@ -767,12 +873,30 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_HttpRouteTextPerf.txt
 
-      - uses: actions/download-artifact@v3
+      - if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_PathBenchmark
+
+      - name: Result Main PathBenchmark
+        id: Result_Main_PathBenchmark
+        if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        run: |
+          while IFS= read -r line; do
+             IFS=' ' read -ra PARSED_RESULT <<< "$line"
+             echo ${PARSED_RESULT[1]} >> parsed_Main.txt
+             B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
+             echo $B_VALUE >> Main.txt
+           done < Main_PathBenchmark.txt
+
+      - if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_ProbeContentTypeBenchmark
 
       - name: Result Main ProbeContentTypeBenchmark
         id: Result_Main_ProbeContentTypeBenchmark
+        if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
         run: |
           while IFS= read -r line; do
              IFS=' ' read -ra PARSED_RESULT <<< "$line"
@@ -783,6 +907,7 @@ jobs:
 
       - name: Format Output
         id: fomat_output
+        if: github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
         run: |
           cat parsed_Current.txt parsed_Main.txt | sort -u > c.txt
                     while IFS= read -r line; do
@@ -810,9 +935,10 @@ jobs:
            echo ::set-output name=body::$(echo $body)
 
       
-      - uses: peter-evans/commit-comment@v1
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
+        uses: peter-evans/commit-comment@v1
         with:
-          sha: ${{github.sha}}
+          sha: ${{github.event.pull_request.head.sha}}
           body: |
 
             **🚀 Jmh Benchmark:**

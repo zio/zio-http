@@ -40,11 +40,13 @@ object JmhBenchmarkWorkflow {
     Seq(
       WorkflowStep.Use(
         ref = UseRef.Public("actions", "download-artifact", "v3"),
-        Map(
+        cond = Some("github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'"),
+        params = Map(
           "name" -> s"Jmh_${branch}_${l.head}"
         )
       ),
       WorkflowStep.Run(
+        cond = Some("github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'"),
         commands = List(
           s"""while IFS= read -r line; do
              |   IFS=' ' read -ra PARSED_RESULT <<< "$$line"
@@ -62,6 +64,7 @@ object JmhBenchmarkWorkflow {
   Format result and set output
    */
   def formatOutput() = WorkflowStep.Run(
+    cond = Some("github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'"),
     commands = List(
       s"""cat parsed_Current.txt parsed_Main.txt | sort -u > c.txt
          |          while IFS= read -r line; do
@@ -101,14 +104,15 @@ object JmhBenchmarkWorkflow {
     name = "Jmh Publish",
     scalas = List(Scala213),
     cond = Some(
-      "${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}"
+      "always()"
     ),
     needs =  dependencies(batchSize),
     steps = downloadArtifacts("Current", batchSize) ++ downloadArtifacts("Main", batchSize) ++
       Seq(formatOutput(), WorkflowStep.Use(
         ref = UseRef.Public("peter-evans", "commit-comment", "v1"),
+        cond = Some( "${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}"),
         params = Map(
-          "sha" -> "${{github.sha}}",
+          "sha" -> "${{github.event.pull_request.head.sha}}",
           "body" ->
             """
               |**\uD83D\uDE80 Jmh Benchmark:**
@@ -131,7 +135,7 @@ object JmhBenchmarkWorkflow {
       name = s"Jmh ${l.head}",
       scalas = List(Scala213),
       cond = Some(
-        "${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}"
+        "${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}"
       ),
       steps = List(
         WorkflowStep.Use(
@@ -155,7 +159,10 @@ object JmhBenchmarkWorkflow {
         ),
         WorkflowStep.Use(
           UseRef.Public("actions", "upload-artifact", "v3"),
-          Map(
+          cond = Some(
+            "always()"
+          ),
+          params = Map(
             "name" -> s"Jmh_Current_${l.head}",
             "path" -> s"Current_${l.head}.txt"
           )
@@ -175,7 +182,10 @@ object JmhBenchmarkWorkflow {
         ),
         WorkflowStep.Use(
           UseRef.Public("actions", "upload-artifact", "v3"),
-          Map(
+          cond = Some(
+            "always()"
+          ),
+          params = Map(
             "name" -> s"Jmh_Main_${l.head}",
             "path" -> s"Main_${l.head}.txt"
           )
