@@ -157,7 +157,8 @@ object JmhBenchmarkWorkflow {
           UseRef.Public("actions", "upload-artifact", "v3"),
           Map(
             "name" -> s"Jmh_Current_${l.head}",
-            "path" -> s"Current_${l.head}.txt"
+            "path" -> s"Current_${l.head}.txt",
+            "if" ->"always()"
           )
         ),
         WorkflowStep.Use(
@@ -177,7 +178,8 @@ object JmhBenchmarkWorkflow {
           UseRef.Public("actions", "upload-artifact", "v3"),
           Map(
             "name" -> s"Jmh_Main_${l.head}",
-            "path" -> s"Main_${l.head}.txt"
+            "path" -> s"Main_${l.head}.txt",
+            "if" ->"always()"
           )
         )
       )

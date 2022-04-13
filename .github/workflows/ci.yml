@@ -311,6 +311,7 @@ jobs:
         with:
           name: Jmh_Current_CookieDecodeBenchmark
           path: Current_CookieDecodeBenchmark.txt
+          if: always()
 
       - uses: actions/checkout@v2
         with:
@@ -331,6 +332,7 @@ jobs:
         with:
           name: Jmh_Main_CookieDecodeBenchmark
           path: Main_CookieDecodeBenchmark.txt
+          if: always()
 
   Jmh_HttpCollectEval:
     name: Jmh HttpCollectEval
@@ -365,6 +367,7 @@ jobs:
         with:
           name: Jmh_Current_HttpCollectEval
           path: Current_HttpCollectEval.txt
+          if: always()
 
       - uses: actions/checkout@v2
         with:
@@ -385,6 +388,7 @@ jobs:
         with:
           name: Jmh_Main_HttpCollectEval
           path: Main_HttpCollectEval.txt
+          if: always()
 
   Jmh_HttpCombineEval:
     name: Jmh HttpCombineEval
@@ -419,6 +423,7 @@ jobs:
         with:
           name: Jmh_Current_HttpCombineEval
           path: Current_HttpCombineEval.txt
+          if: always()
 
       - uses: actions/checkout@v2
         with:
@@ -439,6 +444,7 @@ jobs:
         with:
           name: Jmh_Main_HttpCombineEval
           path: Main_HttpCombineEval.txt
+          if: always()
 
   Jmh_HttpNestedFlatMapEval:
     name: Jmh HttpNestedFlatMapEval
@@ -473,6 +479,7 @@ jobs:
         with:
           name: Jmh_Current_HttpNestedFlatMapEval
           path: Current_HttpNestedFlatMapEval.txt
+          if: always()
 
       - uses: actions/checkout@v2
         with:
@@ -493,6 +500,7 @@ jobs:
         with:
           name: Jmh_Main_HttpNestedFlatMapEval
           path: Main_HttpNestedFlatMapEval.txt
+          if: always()
 
   Jmh_HttpRouteTextPerf:
     name: Jmh HttpRouteTextPerf
@@ -527,6 +535,7 @@ jobs:
         with:
           name: Jmh_Current_HttpRouteTextPerf
           path: Current_HttpRouteTextPerf.txt
+          if: always()
 
       - uses: actions/checkout@v2
         with:
@@ -547,6 +556,7 @@ jobs:
         with:
           name: Jmh_Main_HttpRouteTextPerf
           path: Main_HttpRouteTextPerf.txt
+          if: always()
 
   Jmh_PathApplyPerf:
     name: Jmh PathApplyPerf
@@ -581,6 +591,7 @@ jobs:
         with:
           name: Jmh_Current_PathApplyPerf
           path: Current_PathApplyPerf.txt
+          if: always()
 
       - uses: actions/checkout@v2
         with:
@@ -601,6 +612,7 @@ jobs:
         with:
           name: Jmh_Main_PathApplyPerf
           path: Main_PathApplyPerf.txt
+          if: always()
 
   Jmh_ProbeContentTypeBenchmark:
     name: Jmh ProbeContentTypeBenchmark
@@ -635,6 +647,7 @@ jobs:
         with:
           name: Jmh_Current_ProbeContentTypeBenchmark
           path: Current_ProbeContentTypeBenchmark.txt
+          if: always()
 
       - uses: actions/checkout@v2
         with:
@@ -655,6 +668,7 @@ jobs:
         with:
           name: Jmh_Main_ProbeContentTypeBenchmark
           path: Main_ProbeContentTypeBenchmark.txt
+          if: always()
 
   Jmh_publish:
     name: Jmh Publish
