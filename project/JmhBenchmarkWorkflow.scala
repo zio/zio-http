@@ -64,7 +64,7 @@ object JmhBenchmarkWorkflow {
   Format result and set output
    */
   def formatOutput() = WorkflowStep.Run(
-    cond = Some("github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'"),
+    cond = Some("github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' "),
     commands = List(
       s"""cat parsed_Current.txt parsed_Main.txt | sort -u > c.txt
          |          while IFS= read -r line; do
