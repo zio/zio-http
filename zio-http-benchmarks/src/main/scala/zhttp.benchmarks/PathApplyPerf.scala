@@ -18,12 +18,12 @@ class PathApplyPerf {
   }
 
   @Benchmark
-  def benchmarkPath(): Unit      = {
+  def benchmarkPath(): Unit  = {
     (0 to MAX).foreach(_ => Path("/text"))
     ()
   }
   @Benchmark
-  def benchmarkPathArray(): Unit = {
+  def benchmarkArray(): Unit = {
     (0 to MAX).foreach(_ => Path(List("text")))
     ()
   }
