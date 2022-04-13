@@ -280,7 +280,7 @@ jobs:
 
   Jmh_CookieDecodeBenchmark:
     name: Jmh CookieDecodeBenchmark
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -336,7 +336,7 @@ jobs:
 
   Jmh_HttpCollectEval:
     name: Jmh HttpCollectEval
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -392,7 +392,7 @@ jobs:
 
   Jmh_HttpCombineEval:
     name: Jmh HttpCombineEval
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -448,7 +448,7 @@ jobs:
 
   Jmh_HttpNestedFlatMapEval:
     name: Jmh HttpNestedFlatMapEval
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -504,7 +504,7 @@ jobs:
 
   Jmh_HttpRouteTextPerf:
     name: Jmh HttpRouteTextPerf
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -560,7 +560,7 @@ jobs:
 
   Jmh_PathApplyPerf:
     name: Jmh PathApplyPerf
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -616,7 +616,7 @@ jobs:
 
   Jmh_ProbeContentTypeBenchmark:
     name: Jmh ProbeContentTypeBenchmark
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -673,7 +673,7 @@ jobs:
   Jmh_publish:
     name: Jmh Publish
     needs: [Jmh_CookieDecodeBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_PathApplyPerf, Jmh_ProbeContentTypeBenchmark]
-    if: always()
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
     strategy:
       matrix:
         os: [ubuntu-latest]

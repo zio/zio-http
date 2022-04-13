@@ -41,7 +41,7 @@ object JmhBenchmarkWorkflow {
       WorkflowStep.Use(
         ref = UseRef.Public("actions", "download-artifact", "v3"),
         Map(
-          "name" -> s"Jmh_${branch}_${l.head}",
+          "name" -> s"Jmh_${branch}_${l.head}"
         )
       ),
       WorkflowStep.Run(
@@ -101,7 +101,7 @@ object JmhBenchmarkWorkflow {
     name = "Jmh Publish",
     scalas = List(Scala213),
     cond = Some(
-      "always()"
+      "${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}"
     ),
     needs =  dependencies(batchSize),
     steps = downloadArtifacts("Current", batchSize) ++ downloadArtifacts("Main", batchSize) ++
@@ -131,7 +131,7 @@ object JmhBenchmarkWorkflow {
       name = s"Jmh ${l.head}",
       scalas = List(Scala213),
       cond = Some(
-        "${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}"
+        "${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request'}}"
       ),
       steps = List(
         WorkflowStep.Use(
@@ -160,7 +160,7 @@ object JmhBenchmarkWorkflow {
           ),
           params = Map(
             "name" -> s"Jmh_Current_${l.head}",
-            "path" -> s"Current_${l.head}.txt",
+            "path" -> s"Current_${l.head}.txt"
           )
         ),
         WorkflowStep.Use(
@@ -183,7 +183,7 @@ object JmhBenchmarkWorkflow {
           ),
           params = Map(
             "name" -> s"Jmh_Main_${l.head}",
-            "path" -> s"Main_${l.head}.txt",
+            "path" -> s"Main_${l.head}.txt"
           )
         )
       )
