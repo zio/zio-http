@@ -1,13 +1,12 @@
 package zhttp.service
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.ServerSpec.{requestBodySpec, unsafeContentSpec}
-import zhttp.service.server.ServerChannelFactory
 import zio.duration.durationInt
 import zio.test.TestAspect.{sequential, timeout}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ zhttp.service.server.ServerChannelFactory.nio ++ DynamicServer.live
 
   private val appWithReqStreaming = serve(DynamicServer.app, Some(Server.enableObjectAggregator(-1)))
 
