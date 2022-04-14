@@ -132,17 +132,20 @@ object HttpData {
     def isLast: Boolean = httpContent.isInstanceOf[LastHttpContent]
   }
 
-  private[zhttp] final class UnsafeChannel(private val ctx: ChannelHandlerContext) extends AnyVal {
+  private[zhttp] trait UnsafeReadableChannel {
+    def read(): Unit
+  }
+  private[zhttp] final class UnsafeChannel(private val ctx: ChannelHandlerContext) extends UnsafeReadableChannel {
     def read(): Unit = ctx.read(): Unit
   }
 
-  private[zhttp] final case class UnsafeAsync(unsafeRun: (UnsafeChannel => UnsafeContent => Unit) => Unit)
+  private[zhttp] final case class UnsafeAsync(unsafeRun: (UnsafeReadableChannel => UnsafeContent => Unit) => Unit)
       extends HttpData {
 
     private def toUnsafeContentQueue: ZIO[Any, Nothing, Queue[UnsafeContent]] = {
       for {
         queue   <- ZQueue.bounded[UnsafeContent](1)
-        promise <- Promise.make[Nothing, UnsafeChannel]
+        promise <- Promise.make[Nothing, UnsafeReadableChannel]
         runtime <- ZIO.runtime[Any]
         _       <- UIO(
           unsafeRun { ch =>
@@ -153,7 +156,9 @@ object HttpData {
           },
         )
         ch      <- promise.await
-      } yield queue.mapM(msg => UIO(ch.read()).unless(msg.isLast).as(msg))
+      } yield queue.mapM { msg =>
+        UIO(ch.read()).unless(msg.isLast).as(msg)
+      }
     }
 
     /**
