@@ -25,7 +25,7 @@ An app can be made using any of the available constructors on `zhttp.Http`.
 
 ### Routing
 
- For handling routes, Http Domain has a `collect` method that, accepts different requests and produces responses. Pattern matching on the route is supported by the framework
+ For handling routes, Http Domain has a `collect` method that, accepts different requests and produces responses. Pattern matching on the route is supported by the framework.
 The example below shows how to create routes:
 
 ```scala
@@ -108,7 +108,7 @@ import zhttp.http._
 object Spec extends ZIOSpecDefault {
 
   def spec = suite("http")(
-      testM("should be ok") {
+      test("should be ok") {
         val app = Http.ok
         val req = Request()
         assertM(app(req))(equalTo(Response.ok))
@@ -156,11 +156,11 @@ import zhttp.http._
 import zhttp.service.Server
 import zio._
 
-object HelloWorld extends App {
+object HelloWorld extends ZIOAppDefault {
   val app = Http.ok
 
-  override def run(args: List[String]): URIO[Any, ExitCode] =
-    Server.start(8090, app).exitCode
+  override val run =
+    Server.start(8090, app)
 }
 ```
 

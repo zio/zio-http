@@ -3,10 +3,10 @@ package zhttp.http
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{ChannelFactory, EventLoopGroup}
+import zio._
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertM
-import zio.{Scope, durationInt}
 
 object ContentTypeSpec extends HttpRunnableSpec {
 

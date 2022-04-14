@@ -18,8 +18,8 @@ object CSRF extends App {
   } @@ csrfGenerate() // set x-csrf token cookie
 
   val app                                                        = publicApp ++ privateApp
-  override def run(args: List[String]): UIO[ExitCode] =
-    Server.start(8090, app).exitCode
+  override val run =
+    Server.start(8090, app)
 }
 
 ```

@@ -2,7 +2,7 @@ package example
 
 import zhttp.http.Headers
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
-import zio.{ExitCode, UIO, ZIOAppDefault}
+import zio._
 
 object AuthenticationClient extends ZIOAppDefault {
 
@@ -20,9 +20,9 @@ object AuthenticationClient extends ZIOAppDefault {
     // Once the jwt token is procured, adding it as a Barer token in Authorization header while accessing a protected route.
     response <- Client.request(s"${url}/user/userName/greet", headers = Headers.bearerAuthorizationHeader(token))
     body     <- response.bodyAsString
-    _        <- zio.Console.printLine(body)
+    _        <- Console.printLine(body)
   } yield ()
 
-  val run: UIO[ExitCode] = program.exitCode.provideLayer(env)
+  override val run = program.provideLayer(env)
 
 }
