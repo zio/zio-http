@@ -11,8 +11,8 @@ object Dependencies {
   val `jwt-core`                 = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
   val `scala-compact-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompactCollectionVersion
 
-  val `jsoniter-core`            = "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core"   % "2.9.1"
-  val `jsoniter-macros`          = "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.9.1" % "compile-internal"
+  val `jsoniter-core`   = "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core"   % "2.9.1"
+  val `jsoniter-macros` = "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.9.1" % "provided"
 
   val netty             = "io.netty" % "netty-all" % NettyVersion
   val `netty-incubator` =

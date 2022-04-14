@@ -1,13 +1,12 @@
 package example
 
-import zhttp.service.{EventLoopGroup, Server}
-import zio._
+import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, writeToString}
+import com.github.plokhotnyuk.jsoniter_scala.macros._
+import io.netty.util.AsciiString
 import zhttp.http._
 import zhttp.service.server.ServerChannelFactory
-import com.github.plokhotnyuk.jsoniter_scala.macros._
-import com.github.plokhotnyuk.jsoniter_scala.core._
-
-import io.netty.util.AsciiString
+import zhttp.service.{EventLoopGroup, Server}
+import zio._
 
 /**
  * This server is used to run plaintext benchmarks on CI.
