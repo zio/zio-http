@@ -18,7 +18,7 @@ object WebSocketServerSpec extends HttpRunnableSpec {
 
   override def spec = suite("Server") {
     app.as(List(websocketServerSpec, websocketFrameSpec))
-  }.provideLayerShared(env) @@ timeout(10 seconds)
+  }.provideLayerShared(env) @@ timeout(60 seconds) @@ zio.test.TestAspect.withLiveClock
 
   def websocketServerSpec = suite("WebSocketServer") {
     suite("connections") {
