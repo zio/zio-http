@@ -10,7 +10,7 @@ ThisBuild / githubWorkflowPREventTypes   := Seq(
   PREventType.Synchronize,
   PREventType.Reopened,
   PREventType.Edited,
-  PREventType.Labeled
+  PREventType.Labeled,
 )
 ThisBuild / githubWorkflowAddedJobs      :=
   Seq(
@@ -122,5 +122,11 @@ lazy val example = (project in file("./example"))
   .settings(stdSettings("example"))
   .settings(publishSetting(false))
   .settings(runSettings("example.Main"))
-  .settings(libraryDependencies ++= Seq(`jwt-core`))
+  .settings(
+    libraryDependencies ++= Seq(
+      `jwt-core`,
+      `jsoniter-core`,
+      `jsoniter-macros`,
+    ),
+  )
   .dependsOn(zhttp)
