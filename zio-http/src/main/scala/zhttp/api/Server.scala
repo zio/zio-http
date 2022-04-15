@@ -18,13 +18,13 @@ final case class Server[R <: Has[_], E <: Throwable](apis: APIs[_], handlers: Ha
 }
 
 object Server {
-  def make[R <: Has[_], E <: Throwable, ApiIds, HandlerIds](
+  def make[R <: Has[_], E <: Throwable, ApiIds](
     apis: APIs[ApiIds],
     handlers: Handlers[R, E],
   ): Server[R, E] =
     Server(apis, handlers)
 
-  def start[R <: Has[_], E <: Throwable, ApiIds, HandlerIds](
+  def start[R <: Has[_], E <: Throwable, ApiIds](
     port: Int,
     apis: APIs[ApiIds],
     handlers: Handlers[R, E],
