@@ -1,6 +1,6 @@
 package zhttp.api
 
-import zhttp.http.{Headers => _, Path => _}
+import zhttp.http.{Method, Headers => _, Path => _}
 import zio.schema.Schema
 
 /**
@@ -9,7 +9,7 @@ import zio.schema.Schema
  *     - Dynamically decide response format based upon Request Header
  */
 final case class API[Params, Input, Output](
-  method: HttpMethod,
+  method: Method,
   requestParser: RequestParser[Params], // Path / QueryParams / Headers
   doc: Doc,
   inputSchema: Schema[Input],           // Generate any sort of codec, generate OpenAPI docs.
@@ -51,31 +51,31 @@ object API {
   /**
    * Creates an API for DELETE request at the given path.
    */
-  def delete[A](path: Path[A]): API[A, Unit, Unit] =
-    method(HttpMethod.DELETE, path)
+  def delete[A](path: Route[A]): API[A, Unit, Unit] =
+    method(Method.DELETE, path)
 
   /**
    * Creates an API for a GET request at the given path.
    */
-  def get[A](path: Path[A]): API[A, Unit, Unit] =
-    method(HttpMethod.GET, path)
+  def get[A](path: Route[A]): API[A, Unit, Unit] =
+    method(Method.GET, path)
 
   /**
    * Creates an API for a POST request at the given path.
    */
-  def post[A](path: Path[A]): API[A, Unit, Unit] =
-    method(HttpMethod.POST, path)
+  def post[A](path: Route[A]): API[A, Unit, Unit] =
+    method(Method.POST, path)
 
   /**
    * Creates an API for a PUT request at the given path.
    */
-  def put[A](path: Path[A]): API[A, Unit, Unit] =
-    method(HttpMethod.PUT, path)
+  def put[A](path: Route[A]): API[A, Unit, Unit] =
+    method(Method.PUT, path)
 
   /**
    * Creates an API with the given method and path.
    */
-  private def method[Params](method: HttpMethod, path: Path[Params]): API[Params, Unit, Unit] =
+  private def method[Params](method: Method, path: Route[Params]): API[Params, Unit, Unit] =
     API(
       method = method,
       requestParser = path,

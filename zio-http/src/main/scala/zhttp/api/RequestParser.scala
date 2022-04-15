@@ -4,8 +4,8 @@ import zhttp.http.Request
 import zio.schema.Schema
 
 /**
- * A RequestParser is a description of a Path, Query Parameters, and Headers.:
- *   - Path: /users/:id/posts
+ * A RequestParser is a description of a Route, Query Parameters, and Headers.:
+ *   - Route: /users/:id/posts
  *   - Query Parameters: ?page=1&limit=10
  *   - Headers: X-User-Id: 1 or Accept: application/json
  */
@@ -16,22 +16,22 @@ sealed trait RequestParser[A] extends Product with Serializable { self =>
   def map[B](f: A => B)(g: B => A): RequestParser[B] =
     RequestParser.Map(self, f, g)
 
-  private[api] def getPath: Path[_] = {
-    def getPathImpl(requestParser: RequestParser[_]): Option[Path[_]] =
+  private[api] def getRoute: Route[_] = {
+    def getRouteImpl(requestParser: RequestParser[_]): Option[Route[_]] =
       requestParser match {
         case RequestParser.ZipWith(left, right, _, _) =>
-          getPathImpl(left) orElse getPathImpl(right)
+          getRouteImpl(left) orElse getRouteImpl(right)
         case RequestParser.Map(info, _, _)            =>
-          getPathImpl(info)
+          getRouteImpl(info)
         case _: Header[_]                             =>
           None
         case _: Query[_]                              =>
           None
-        case route: Path[_]                           =>
+        case route: Route[_]                          =>
           Some(route)
       }
 
-    getPathImpl(self).get
+    getRouteImpl(self).get
   }
 
   private[api] def getQueryParams: Option[Query[_]] =
@@ -49,7 +49,7 @@ sealed trait RequestParser[A] extends Product with Serializable { self =>
         Some(route)
       case _: Header[_]                        =>
         None
-      case _: Path[_]                          =>
+      case _: Route[_]                         =>
         None
     }
 
@@ -68,7 +68,7 @@ sealed trait RequestParser[A] extends Product with Serializable { self =>
         Some(route)
       case _: Query[_]                         =>
         None
-      case _: Path[_]                          =>
+      case _: Route[_]                         =>
         None
     }
 
@@ -233,23 +233,23 @@ object Query {
 }
 
 /**
- * A DSL for describe Paths
+ * A DSL for describe Routes
  *   - ex: /users
  *   - ex: /users/:id/friends
  *   - ex: /users/:id/friends/:friendId
  *   - ex: /posts/:id/comments/:commentId
  */
-sealed trait Path[A] extends RequestParser[A] { self =>
-  def ??(doc: Doc): Path[A] = ???
+sealed trait Route[A] extends RequestParser[A] { self =>
+  def ??(doc: Doc): Route[A] = ???
 
-  override def map[B](f: A => B)(g: B => A): Path[B] =
-    Path.MapPath(self, f, g)
+  override def map[B](f: A => B)(g: B => A): Route[B] =
+    Route.MapRoute(self, f, g)
 
-  def /[B](that: Path[B])(implicit zipper: Zipper[A, B]): Path[zipper.Out] =
-    Path.ZipWith[A, B, zipper.Out](this, that, zipper.zip(_, _), zipper.unzip)
+  def /[B](that: Route[B])(implicit zipper: Zipper[A, B]): Route[zipper.Out] =
+    Route.ZipWith[A, B, zipper.Out](this, that, zipper.zip(_, _), zipper.unzip)
 
-  def /(string: String): Path[A] =
-    Path.ZipWith(this, Path.path(string), (a: A, _: Unit) => a, a => (a, ()))
+  def /(string: String): Route[A] =
+    Route.ZipWith(this, Route.path(string), (a: A, _: Unit) => a, a => (a, ()))
 
   // ZipWith implementation
   // - knowledge of zippable boundary
@@ -267,27 +267,27 @@ sealed trait Path[A] extends RequestParser[A] { self =>
   // Akka  fallback  — EGAD!
 
   override private[api] def parseRequestImpl(request: Request): A = {
-    val state  = PathState(request.url.path.toList)
+    val state  = RouteState(request.url.path.toList)
     val result = parseImpl(state)
     if (result == null || state.input.nonEmpty) null.asInstanceOf[A]
     else result
   }
 
-  private[api] def parseImpl(pathState: PathState): A
+  private[api] def parseImpl(pathState: RouteState): A
 }
 
-final case class PathState(var input: List[String])
+final case class RouteState(var input: List[String])
 
-object Path {
-  def path(name: String): Path[Unit] = Path.Literal(name).asInstanceOf[Path[Unit]]
+object Route {
+  def path(name: String): Route[Unit] = Route.Literal(name).asInstanceOf[Route[Unit]]
 
   // Matches a literal string in the path (e.g., "users")
   // input: List("users", "123")
   // Literal("users")
   // input: List("123")
   // /123
-  private[api] final case class Literal(string: String) extends Path[Any] {
-    override private[api] def parseImpl(pathState: PathState): Any =
+  private[api] final case class Literal(string: String) extends Route[Any] {
+    override private[api] def parseImpl(pathState: RouteState): Any =
       if (pathState.input.nonEmpty && pathState.input.head == string)
         pathState.input = pathState.input.tail
       else
@@ -295,8 +295,8 @@ object Path {
   }
 
   // "users" / uuid
-  private[api] final case class Match[A](name: String, parser: Parser[A], schema: Schema[A]) extends Path[A] {
-    override private[api] def parseImpl(pathState: PathState): A =
+  private[api] final case class Match[A](name: String, parser: Parser[A], schema: Schema[A]) extends Route[A] {
+    override private[api] def parseImpl(pathState: RouteState): A =
       if (pathState.input.isEmpty) {
         null.asInstanceOf[A]
       } else {
@@ -310,9 +310,9 @@ object Path {
       }
   }
 
-  private[api] final case class ZipWith[A, B, C](left: Path[A], right: Path[B], f: (A, B) => C, g: C => (A, B))
-      extends Path[C] {
-    override private[api] def parseImpl(pathState: PathState): C =
+  private[api] final case class ZipWith[A, B, C](left: Route[A], right: Route[B], f: (A, B) => C, g: C => (A, B))
+      extends Route[C] {
+    override private[api] def parseImpl(pathState: RouteState): C =
       if (pathState.input.isEmpty) null.asInstanceOf[C]
       else {
         val a = left.parseImpl(pathState)
@@ -323,8 +323,8 @@ object Path {
       }
   }
 
-  private[api] final case class MapPath[A, B](path: Path[A], f: A => B, g: B => A) extends Path[B] {
-    override private[api] def parseImpl(pathState: PathState): B = {
+  private[api] final case class MapRoute[A, B](path: Route[A], f: A => B, g: B => A) extends Route[B] {
+    override private[api] def parseImpl(pathState: RouteState): B = {
       val a = path.parseImpl(pathState)
       if (a == null) return null.asInstanceOf[B]
       f(a)

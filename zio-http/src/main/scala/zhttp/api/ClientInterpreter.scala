@@ -12,14 +12,13 @@ private[api] object ClientInterpreter {
   def interpret[Params, Input, Output](host: String)(
     api: API[Params, Input, Output],
   )(params: Params, input: Input): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] = {
-    val method         = api.method.toZioHttpMethod
     val state          = new RequestState()
     parseUrl(api.requestParser, state)(params)
     val (url, headers) = state.result
     val data           =
       if (api.inputSchema == Schema[Unit]) HttpData.empty
       else HttpData.fromString(JsonCodec.encode(api.inputSchema)(input).toString)
-    Client.request(s"$host$url", method, zhttp.http.Headers(headers.toList), content = data)
+    Client.request(s"$host$url", api.method, zhttp.http.Headers(headers.toList), content = data)
   }
 
   private[api] class RequestState {
@@ -70,26 +69,26 @@ private[api] object ClientInterpreter {
       case query: Query[_] =>
         parseQuery[Params](query, state)(params)
 
-      case route: Path[_] =>
+      case route: Route[_] =>
         parsePath[Params](route, state)(params)
     }
 
   private def parsePath[Params](
-    route: Path[Params],
+    route: Route[Params],
     state: RequestState,
   )(params: Params): Unit =
     route match {
-      case Path.MapPath(route, _, g)       =>
+      case Route.MapRoute(route, _, g)      =>
         parsePath(route, state)(g(params))
-      case Path.ZipWith(left, right, _, g) =>
+      case Route.ZipWith(left, right, _, g) =>
         g(params) match {
           case (a, b) =>
             parsePath(left, state)(a)
             parsePath(right, state)(b)
         }
-      case Path.Literal(literal)           =>
+      case Route.Literal(literal)           =>
         state.addPath("/" + literal)
-      case Path.Match(_, _, _)             =>
+      case Route.Match(_, _, _)             =>
         state.addPath("/" + params.toString)
     }
 

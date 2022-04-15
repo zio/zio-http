@@ -29,16 +29,15 @@ private[api] object ServerInterpreter {
       }
 
     Http.collectZIO {
-      case req @ parser(result) if req.method == handler.api.method.toZioHttpMethod =>
+      case req @ parser(result) if req.method == handler.api.method =>
         withInput(req) { input =>
           handler
             .handle((result, input))
             .map { a =>
-              if (handler.api.outputSchema == Schema[Unit]) {
+              if (handler.api.outputSchema == Schema[Unit])
                 Response.ok
-              } else {
+              else
                 Response.json(new String(outputEncoder(a).toArray))
-              }
             }
         }
     }

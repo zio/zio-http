@@ -3,7 +3,7 @@ package zhttp.api.openapi
 import zhttp.api.openapi.model._
 import zio.schema._
 import zhttp.api._
-import zhttp.api.Path._
+import zhttp.api.Route._
 import zio.json.EncoderOps
 
 import java.util.UUID
@@ -11,9 +11,9 @@ import java.util.UUID
 object OpenApiInterpreter {
 
   def getPath(requestParser: RequestParser[_]): ApiPath =
-    ApiPath(getPathComponents(requestParser.getPath))
+    ApiPath(getPathComponents(requestParser.getRoute))
 
-  def getRouteImpl(requestParser: RequestParser[_]): Option[Path[_]] =
+  def getRouteImpl(requestParser: RequestParser[_]): Option[Route[_]] =
     requestParser match {
       case RequestParser.ZipWith(left, right, _, _) =>
         getRouteImpl(left) orElse getRouteImpl(right)
@@ -23,34 +23,34 @@ object OpenApiInterpreter {
         None
       case _: Query[_]                              =>
         None
-      case route: Path[_]                           =>
+      case route: Route[_]                          =>
         Some(route)
     }
 
-  def getRightmostLiteral(route: Path[_]): Option[String] =
+  def getRightmostLiteral(route: Route[_]): Option[String] =
     route match {
-      case Path.Literal(literal)           =>
+      case Route.Literal(literal)           =>
         Some(literal)
-      case Path.ZipWith(left, right, _, _) =>
+      case Route.ZipWith(left, right, _, _) =>
         getRightmostLiteral(right) orElse getRightmostLiteral(left)
-      case Path.MapPath(info, _, _)        =>
+      case Route.MapRoute(info, _, _)       =>
         getRightmostLiteral(info)
-      case _                               => None
+      case _                                => None
     }
 
-  def getPathComponents(route: Path[_], name: Option[String] = None): List[PathComponent] =
+  def getPathComponents(route: Route[_], name: Option[String] = None): List[PathComponent] =
     route match {
-      case Path.Literal(string)            =>
+      case Route.Literal(string)            =>
         List(PathComponent.Literal(string))
-      case Path.Match(tpeName, _, _)       =>
+      case Route.Match(tpeName, _, _)       =>
         List(PathComponent.Variable(name.map(_ + "Id").getOrElse(tpeName)))
-      case Path.ZipWith(left, right, _, _) =>
+      case Route.ZipWith(left, right, _, _) =>
         getPathComponents(left, name) ++ getPathComponents(right, getRightmostLiteral(left))
-      case Path.MapPath(route, _, _)       =>
+      case Route.MapRoute(route, _, _)      =>
         getPathComponents(route, name)
     }
 
-  def pathToParameterObjects(route: Path[_], name: Option[String] = None): List[ParameterObject] =
+  def pathToParameterObjects(route: Route[_], name: Option[String] = None): List[ParameterObject] =
     route match {
       case Literal(_)                  => List.empty
       case Match(matchName, _, schema) =>
@@ -64,7 +64,7 @@ object OpenApiInterpreter {
         )
       case ZipWith(left, right, _, _)  =>
         pathToParameterObjects(left, name) ++ pathToParameterObjects(right, getRightmostLiteral(left))
-      case MapPath(route, _, _)        =>
+      case MapRoute(route, _, _)       =>
         pathToParameterObjects(route, name)
     }
 
@@ -104,7 +104,7 @@ object OpenApiInterpreter {
         OperationObject(
           None,
           None,
-          pathToParameterObjects(api.requestParser.getPath) ++
+          pathToParameterObjects(api.requestParser.getRoute) ++
             api.requestParser.getQueryParams.toList.flatMap(queryParamsToParameterObjects(_)),
           // TODO: Flesh this out
           pathToRequestBodyObject(api),
