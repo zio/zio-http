@@ -144,7 +144,7 @@ object OpenApiInterpreter {
     println(apiToPaths(apis).toJsonPretty)
   }
 
-  def generate(apis: APIs[_])(title: String, description: String): String = {
+  def generate(apis: APIs)(title: String, description: String): String = {
     val paths   = apiToPaths(apis.toList)
     val openApi = OpenApi("3.0.0", Info("1.0.0", title, description), paths)
     openApi.toJson

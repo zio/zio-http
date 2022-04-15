@@ -31,7 +31,7 @@ final case class API[Params, Input, Output](
   def output[Output2](implicit schema: Schema[Output2]): API[Params, Input, Output2] =
     copy(outputSchema = schema)
 
-  def ++(that: API[_, _, _]): APIs[Id with that.Id] =
+  def ++(that: API[_, _, _]): APIs =
     APIs(self) ++ that
 }
 
