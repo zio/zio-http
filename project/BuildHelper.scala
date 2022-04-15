@@ -4,7 +4,9 @@ import scalafix.sbt.ScalafixPlugin.autoImport._
 import xerial.sbt.Sonatype.autoImport._
 
 object BuildHelper extends ScalaSettings {
-  val ScoverageVersion   = "1.9.3"
+  val ScoverageVersion = "1.9.3"
+  val JmhVersion       = "0.4.3"
+
   private val stdOptions = Seq(
     "-deprecation",
     "-encoding",
@@ -74,8 +76,8 @@ object BuildHelper extends ScalaSettings {
   }
 
   def stdSettings(
-                   prjName: String,
-                   scalaVersions: Seq[String] = Seq(ScalaVersions.Scala212, ScalaVersions.Scala213, ScalaVersions.Scala3),
+    prjName: String,
+    scalaVersions: Seq[String] = Seq(ScalaVersions.Scala212, ScalaVersions.Scala213, ScalaVersions.Scala3),
   ) = Seq(
     name                           := s"$prjName",
     ThisBuild / crossScalaVersions := scalaVersions,
