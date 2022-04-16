@@ -24,7 +24,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.12.15]
+        scala: [2.12.15, 2.13.8, 3.1.1]
         java: [graal_21.1.0@11, temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -130,6 +130,26 @@ jobs:
           name: target-${{ matrix.os }}-2.12.15-${{ matrix.java }}
 
       - name: Inflate target directories (2.12.15)
+        run: |
+          tar xf targets.tar
+          rm targets.tar
+
+      - name: Download target directories (2.13.8)
+        uses: actions/download-artifact@v2
+        with:
+          name: target-${{ matrix.os }}-2.13.8-${{ matrix.java }}
+
+      - name: Inflate target directories (2.13.8)
+        run: |
+          tar xf targets.tar
+          rm targets.tar
+
+      - name: Download target directories (3.1.1)
+        uses: actions/download-artifact@v2
+        with:
+          name: target-${{ matrix.os }}-3.1.1-${{ matrix.java }}
+
+      - name: Inflate target directories (3.1.1)
         run: |
           tar xf targets.tar
           rm targets.tar

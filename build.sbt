@@ -40,6 +40,7 @@ ThisBuild / githubWorkflowAddedJobs      :=
     ),
   ) ++ ScoverageWorkFlow(50, 60) ++ BenchmarkWorkFlow() ++ JmhBenchmarkWorkflow(1)
 
+ThisBuild / githubWorkflowScalaVersions  := Seq(ScalaVersions.Scala212, ScalaVersions.Scala213, ScalaVersions.Scala3)
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
 ThisBuild / githubWorkflowPublish        :=
