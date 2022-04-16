@@ -125,9 +125,6 @@ lazy val zhttpTest = (project in file("zio-http-test"))
 
 lazy val example = (project in file("./example"))
   .settings(stdSettings("example"))
-  .settings(
-    crossScalaVersions := Seq(ScalaVersions.Scala212, ScalaVersions.Scala213, ScalaVersions.Scala3),
-  )
   .settings(publishSetting(false))
   .settings(runSettings("example.JsonWebAPI"))
   .settings(
