@@ -1,7 +1,7 @@
 package zhttp.service
 
 import io.netty.bootstrap.ServerBootstrap
-import io.netty.channel.ChannelPipeline
+import io.netty.channel.{ChannelOption, ChannelPipeline}
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
@@ -32,6 +32,7 @@ sealed trait Server[-R, +E] { self =>
     case UnsafeChannelPipeline(init)           => s.copy(channelInitializer = init)
     case RequestDecompression(enabled, strict) => s.copy(requestDecompression = (enabled, strict))
     case ObjectAggregator(maxRequestSize)      => s.copy(objectAggregator = maxRequestSize)
+    case ServerOption(channelOption)           => s.copy(option = channelOption)
   }
 
   def make(implicit
@@ -140,7 +141,6 @@ sealed trait Server[-R, +E] { self =>
   def withObjectAggregator(maxRequestSize: Int = Int.MaxValue): Server[R, E] =
     Concat(self, ObjectAggregator(maxRequestSize))
 }
-
 object Server {
   private[zhttp] final case class Config[-R, +E](
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
@@ -157,6 +157,7 @@ object Server {
     channelInitializer: ChannelPipeline => Unit = null,
     requestDecompression: (Boolean, Boolean) = (false, false),
     objectAggregator: Int = -1,
+    option: List[ServerChannelOption] = List(),
   ) {
     def useAggregator: Boolean = objectAggregator >= 0
   }
@@ -179,6 +180,7 @@ object Server {
   private final case class UnsafeChannelPipeline(init: ChannelPipeline => Unit)       extends UServer
   private final case class RequestDecompression(enabled: Boolean, strict: Boolean)    extends UServer
   private final case class ObjectAggregator(maxRequestSize: Int)                      extends UServer
+  private final case class ServerOption(channelOption: List[ServerChannelOption])     extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def port(port: Int): UServer                            = Server.Address(new InetSocketAddress(port))
@@ -197,8 +199,9 @@ object Server {
   val paranoidLeakDetection: UServer                 = LeakDetection(LeakDetectionLevel.PARANOID)
   val disableKeepAlive: UServer                      = Server.KeepAlive(false)
   val consolidateFlush: UServer                      = ConsolidateFlush(true)
-  def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer          = UnsafeChannelPipeline(pipeline)
-  def enableObjectAggregator(maxRequestSize: Int = Int.MaxValue): UServer = ObjectAggregator(maxRequestSize)
+  def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer              = UnsafeChannelPipeline(pipeline)
+  def enableObjectAggregator(maxRequestSize: Int = Int.MaxValue): UServer     = ObjectAggregator(maxRequestSize)
+  def withServerOption(channelOptionList: List[ServerChannelOption]): UServer = ServerOption(channelOptionList)
 
   /**
    * Creates a server from a http app.
@@ -252,6 +255,10 @@ object Server {
       reqHandler      = settings.app.compile(zExec, settings, ServerTime.make)
       init            = ServerChannelInitializer(zExec, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
+      _               = if (settings.option.nonEmpty)
+        settings.option.foldLeft[ServerBootstrap](serverBootstrap)((serverBootstrap, i) =>
+          serverBootstrap.option(i.channelOption, i.value),
+        )
       chf  <- ZManaged.effect(serverBootstrap.childHandler(init).bind(settings.address))
       _    <- ChannelFuture.asManaged(chf)
       port <- ZManaged.effect(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
@@ -261,3 +268,5 @@ object Server {
     }
   }
 }
+
+case class ServerChannelOption(channelOption: ChannelOption[Any], value: Any)
