@@ -75,15 +75,11 @@ object BuildHelper extends ScalaSettings {
     if (publishArtifacts) publishSettings else publishSettings ++ skipSettings
   }
 
-  def stdSettings(
-    prjName: String,
-    scalaVersions: Seq[String] = Seq(ScalaVersions.Scala212, ScalaVersions.Scala213, ScalaVersions.Scala3),
-  ) = Seq(
-    name                           := s"$prjName",
-    ThisBuild / crossScalaVersions := scalaVersions,
-    ThisBuild / scalaVersion       := ScalaVersions.Scala213,
-    scalacOptions                  := stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
-    semanticdbVersion              := scalafixSemanticdb.revision, // use Scalafix compatible version
+  def stdSettings(prjName: String) = Seq(
+    name              := s"$prjName",
+    scalaVersion      := ScalaVersions.Scala213,
+    scalacOptions     := stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
+    semanticdbVersion := scalafixSemanticdb.revision, // use Scalafix compatible version
     ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
     ThisBuild / scalafixDependencies ++=
       List(

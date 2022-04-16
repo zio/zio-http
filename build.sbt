@@ -10,7 +10,7 @@ ThisBuild / githubWorkflowPREventTypes   := Seq(
   PREventType.Synchronize,
   PREventType.Reopened,
   PREventType.Edited,
-  PREventType.Labeled
+  PREventType.Labeled,
 )
 ThisBuild / githubWorkflowAddedJobs      :=
   Seq(
@@ -80,7 +80,7 @@ ThisBuild / githubWorkflowBuildPostamble :=
   ).steps
 
 lazy val root = (project in file("."))
-  .settings(stdSettings("root"))
+  .settings(stdSettings("root"), crossScalaVersions := Nil)
   .settings(publishSetting(false))
   .aggregate(
     zhttp,
@@ -94,6 +94,7 @@ lazy val zhttp = (project in file("zio-http"))
   .settings(publishSetting(true))
   .settings(meta)
   .settings(
+    crossScalaVersions := Seq(ScalaVersions.Scala212, ScalaVersions.Scala213, ScalaVersions.Scala3),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= Seq(
       netty,
@@ -115,12 +116,21 @@ lazy val zhttpBenchmarks = (project in file("zio-http-benchmarks"))
 
 lazy val zhttpTest = (project in file("zio-http-test"))
   .dependsOn(zhttp)
-  .settings(stdSettings("zhttp-test"))
+  .settings(
+    stdSettings("zhttp-test"),
+    crossScalaVersions := Seq(ScalaVersions.Scala212, ScalaVersions.Scala213, ScalaVersions.Scala3),
+  )
   .settings(publishSetting(true))
 
 lazy val example = (project in file("./example"))
-  .settings(stdSettings("example", scalaVersions = Seq(ScalaVersions.Scala213)))
+  .settings(stdSettings("example"))
+  .settings(
+    crossScalaVersions := Seq(ScalaVersions.Scala212, ScalaVersions.Scala213, ScalaVersions.Scala3),
+  )
   .settings(publishSetting(false))
   .settings(runSettings("example.JsonWebAPI"))
-  .settings(libraryDependencies ++= Seq(`jwt-core`, `zio-json`, `zio-json-macros`))
+  .settings(
+    libraryDependencies ++= Seq(`jwt-core`, `zio-json_2.13`, `zio-json-macros_2.13`),
+    crossScalaVersions := Seq(ScalaVersions.Scala213),
+  )
   .dependsOn(zhttp)
