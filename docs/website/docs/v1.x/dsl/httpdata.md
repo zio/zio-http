@@ -1,3 +1,6 @@
+---
+sidebar_position: "5"
+---
 # HttpData
 `HttpData` is a domain to model content for `Request`, `Response` and `ClientRequest`. ZIO HTTP uses Netty at it's core and Netty handles content as `ByteBuf`. `HttpData` helps you decode and encode this content into simpler, easier to use data types while creating a Request or Response.
 ## Server-side usage of `HttpData`

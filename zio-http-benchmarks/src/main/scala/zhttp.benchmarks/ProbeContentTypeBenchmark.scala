@@ -11,12 +11,12 @@ import scala.util.Random
 @OutputTimeUnit(TimeUnit.SECONDS)
 class ProbeContentTypeBenchmark {
 
-  private val fileNames = List("abc.mp4", "def", "ghi.mp3", "jkl.js", "mno.html", "pqr.css", "stu.gif", "vwx.jpeg")
+  private val extensions = List("mp4", "def", "mp3", "js", "html", "css", "gif", "jpeg")
 
   @Benchmark
   def benchmarkApp(): Unit = {
     val rand = Random.nextInt(8)
-    MediaType.probeContentType(fileNames(rand))
+    MediaType.forFileExtension(extensions(rand))
     ()
   }
 }

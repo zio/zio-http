@@ -2,9 +2,7 @@ package zhttp.internal
 
 import zhttp.http.URL.Location
 import zhttp.http._
-import zhttp.internal.DynamicServer.HttpEnv
-import zhttp.internal.HttpRunnableSpec.HttpTestClient
-import zhttp.service.Client.{ClientRequest, ClientResponse}
+import zhttp.service.Client.Config
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.socket.SocketApp
@@ -20,7 +18,7 @@ import zio.{Has, ZIO, ZManaged}
  */
 abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
 
-  implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Client.ClientRequest, A]) {
+  implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Request, A]) {
 
     /**
      * Runs the deployed Http app by making a real http request to it. The
@@ -29,16 +27,16 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
     def run(
       path: Path = !!,
       method: Method = Method.GET,
-      content: String = "",
+      content: HttpData = HttpData.empty,
       headers: Headers = Headers.empty,
       version: Version = Version.Http_1_1,
     ): ZIO[R, Throwable, A] =
       app(
-        Client.ClientRequest(
+        Request(
           url = URL(path), // url set here is overridden later via `deploy` method
           method = method,
           headers = headers,
-          data = HttpData.fromString(content),
+          data = content,
           version = version,
         ),
       ).catchAll {
@@ -47,7 +45,10 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       }
   }
 
-  implicit class RunnableHttpClientAppSyntax(app: HttpApp[HttpEnv, Throwable]) {
+  implicit class RunnableHttpClientAppSyntax[R, E](http: HttpApp[R, E]) {
+
+    def app(implicit e: E <:< Throwable): HttpApp[R, Throwable] =
+      http.asInstanceOf[HttpApp[R, Throwable]]
 
     /**
      * Deploys the http application on the test server and returns a Http of
@@ -56,24 +57,25 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy: HttpTestClient[Any, ClientRequest, ClientResponse] =
+    def deploy(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, Request, Response] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
-        response <- Http.fromFunctionZIO[Client.ClientRequest] { params =>
+        response <- Http.fromFunctionZIO[Request] { params =>
           Client.request(
             params
               .addHeader(DynamicServer.APP_ID, id)
               .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+            Config.empty,
           )
         }
       } yield response
 
-    def deployWS: HttpTestClient[Any, SocketApp[Any], ClientResponse] =
+    def deployWS(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, SocketApp[HttpEnv], Response] =
       for {
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         url      <- Http.fromZIO(DynamicServer.wsURL)
-        response <- Http.fromFunctionZIO[SocketApp[Any]] { app =>
+        response <- Http.fromFunctionZIO[SocketApp[HttpEnv]] { app =>
           Client.socket(
             url = url,
             headers = Headers(DynamicServer.APP_ID, id),
@@ -85,10 +87,13 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
 
   def serve[R <: Has[_]](
     app: HttpApp[R, Throwable],
+    server: Option[Server[R, Throwable]] = None,
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
     for {
-      start <- Server.make(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection).orDie
-      _     <- DynamicServer.setStart(start).toManaged_
+      settings <- ZManaged
+        .succeed(server.foldLeft(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection)(_ ++ _))
+      start    <- Server.make(settings).orDie
+      _        <- DynamicServer.setStart(start).toManaged_
     } yield ()
 
   def status(
@@ -106,14 +111,4 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
         .map(_.status)
     } yield status
   }
-}
-
-object HttpRunnableSpec {
-  type HttpTestClient[-R, -A, +B] =
-    Http[
-      R with EventLoopGroup with ChannelFactory with DynamicServer with ServerChannelFactory,
-      Throwable,
-      A,
-      B,
-    ]
 }

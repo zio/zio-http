@@ -25,7 +25,7 @@ An app can be made using any of the available constructors on `zhttp.Http`.
 
 ### Routing
 
- For handling routes, Http Domain has a `collect` method that, accepts different requests and produces responses. Pattern matching on the route is supported by the framework
+ For handling routes, Http Domain has a `collect` method that, accepts different requests and produces responses. Pattern matching on the route is supported by the framework.
 The example below shows how to create routes:
 
 ```scala
@@ -93,7 +93,7 @@ val app = Http.collectZIO[Request] {
     case req @ Method.GET -> !! / "fruits" / "a"  =>
       UIO(Response.text("URL:" + req.url.path.asString + " Headers: " + req.getHeaders))
     case req @ Method.POST -> !! / "fruits" / "a" =>
-      req.getBodyAsString.map(Response.text(_))
+      req.bodyAsString.map(Response.text(_))
   }
 ```
 
@@ -166,10 +166,10 @@ object HelloWorld extends App {
 
 ## Examples
 
-- [Simple Server](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/hello-world)
-- [Advanced Server](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/hello-world-advanced)
+- [HTTP Server](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/http_server)
+- [Advanced Server](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/advanced_server)
 - [WebSocket Server](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/web-socket)
 - [Streaming Response](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/stream-response)
-- [Simple Client](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/simple-client)
+- [HTTP Client](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/http_client)
 - [File Streaming](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/stream-file)
 - [Authentication](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/authentication)

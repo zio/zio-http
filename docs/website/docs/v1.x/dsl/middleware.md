@@ -1,3 +1,6 @@
+---
+sidebar_position: "8"
+---
 # Middleware
 
 Middlewares are transformations that one can apply on any [`Http`](https://dream11.github.io/zio-http/docs/v1.x/dsl/http) to produce a new one. 

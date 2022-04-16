@@ -18,7 +18,7 @@ object ClientSpec extends HttpRunnableSpec {
   def clientSpec = suite("ClientSpec") {
     testM("respond Ok") {
       val app = Http.ok.deploy.status.run()
-      assertM(app)(equalTo(Status.OK))
+      assertM(app)(equalTo(Status.Ok))
     } +
       testM("non empty content") {
         val app             = Http.text("abc")
@@ -27,7 +27,7 @@ object ClientSpec extends HttpRunnableSpec {
       } +
       testM("echo POST request content") {
         val app = Http.collectZIO[Request] { case req => req.bodyAsString.map(Response.text(_)) }
-        val res = app.deploy.bodyAsString.run(method = Method.POST, content = "ZIO user")
+        val res = app.deploy.bodyAsString.run(method = Method.POST, content = HttpData.fromString("ZIO user"))
         assertM(res)(equalTo("ZIO user"))
       } +
       testM("empty content") {

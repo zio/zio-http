@@ -3,6 +3,12 @@ package zhttp.http
 import zio.test._
 
 private[zhttp] trait HExitAssertion {
+  def isDie[R, E, A](ass: Assertion[Throwable]): Assertion[HExit[R, E, A]] =
+    Assertion.assertion("isDie")() {
+      case HExit.Die(t) => ass.test(t)
+      case _            => false
+    }
+
   def isEffect[R, E, A]: Assertion[HExit[R, E, A]] =
     Assertion.assertion("isEffect")() {
       case HExit.Effect(_) => true

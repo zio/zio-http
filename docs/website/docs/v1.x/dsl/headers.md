@@ -1,3 +1,6 @@
+---
+sidebar_position: "6"
+---
 # Headers
 
 **ZIO HTTP** provides support for all HTTP headers (as defined in [RFC2616](https://datatracker.ietf.org/doc/html/rfc2616) ) along with  custom headers.
@@ -146,9 +149,9 @@ val responseHeaders: Task[Headers] =  Client.request(url).map(_.headers)
         data <-
           // Check if response contains a specified header with a specified value.
           if (res.hasHeader(HeaderNames.contentType, HeaderValues.applicationJson))
-            res.getBodyAsString
+            res.bodyAsString
           else
-            res.getBodyAsString
+            res.bodyAsString
         _    <- console.putStrLn { data }
       } yield ()
     

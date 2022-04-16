@@ -2,27 +2,27 @@ package zhttp.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.internal.HttpGen
-import zhttp.service.{Client, EncodeClientRequest}
+import zhttp.service.EncodeRequest
 import zio.random.Random
 import zio.test.Assertion._
 import zio.test._
 
-object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientRequest {
+object EncodeRequestSpec extends DefaultRunnableSpec with EncodeRequest {
 
-  val anyClientParam: Gen[Random with Sized, Client.ClientRequest] = HttpGen.clientRequest(
+  val anyClientParam: Gen[Random with Sized, Request] = HttpGen.requestGen(
     HttpGen.httpData(
       Gen.listOf(Gen.alphaNumericString),
     ),
   )
 
-  val clientParamWithAbsoluteUrl = HttpGen.clientRequest(
+  val clientParamWithAbsoluteUrl = HttpGen.requestGen(
     dataGen = HttpGen.httpData(
       Gen.listOf(Gen.alphaNumericString),
     ),
     urlGen = HttpGen.genAbsoluteURL,
   )
 
-  def clientParamWithFiniteData(size: Int): Gen[Random with Sized, Client.ClientRequest] = HttpGen.clientRequest(
+  def clientParamWithFiniteData(size: Int): Gen[Random with Sized, Request] = HttpGen.requestGen(
     for {
       content <- Gen.alphaNumericStringBounded(size, size)
       data    <- Gen.fromIterable(List(HttpData.fromString(content)))
@@ -36,7 +36,7 @@ object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientRequ
         assertM(req)(equalTo(params.method.toJava))
       }
     } +
-      testM("method on HttpData.File") {
+      testM("method on HttpData.RandomAccessFile") {
         checkM(HttpGen.clientParamsForFileHttpData()) { params =>
           val req = encode(params).map(_.method())
           assertM(req)(equalTo(params.method.toJava))
@@ -49,7 +49,7 @@ object EncodeClientRequestSpec extends DefaultRunnableSpec with EncodeClientRequ
             assertM(req)(equalTo(params.url.relative.encode))
           }
         } +
-          testM("uri on HttpData.File") {
+          testM("uri on HttpData.RandomAccessFile") {
             checkM(HttpGen.clientParamsForFileHttpData()) { params =>
               val req = encode(params).map(_.uri())
               assertM(req)(equalTo(params.url.relative.encode))
