@@ -113,7 +113,10 @@ lazy val zhttpBenchmarks = (project in file("zio-http-benchmarks"))
   .dependsOn(zhttp)
   .settings(stdSettings("zhttpBenchmarks"))
   .settings(publishSetting(false))
-  .settings(libraryDependencies ++= Seq(zio))
+  .settings(
+    libraryDependencies ++= Seq(zio),
+    crossScalaVersions := Seq(ScalaVersions.Scala213),
+  )
 
 lazy val zhttpTest = (project in file("zio-http-test"))
   .dependsOn(zhttp)
