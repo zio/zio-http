@@ -9,10 +9,8 @@ Before introducing middleware, let us understand why they are needed.
 Consider following example where we have two endpoints within HttpApp one GET user by id and other GET multiple users paginated
 
 ```scala
-val usersHttpApp: HttpApp[UserRepo,Throwable] = 
-
-    Http.collectZIO[Request] { 
-
+val usersHttpApp: HttpApp[UserRepo,Throwable] =
+    Http.collectZIO[Request] {
         case Method.GET -> !! / "users" / id => 
             for {
                 user <- ZIO.serviceWithZIO[UserRepo](_.lookupUsersById(id))
@@ -22,8 +20,6 @@ val usersHttpApp: HttpApp[UserRepo,Throwable] =
             for {
                 user <- ZIO.serviceWithZIO[UserRepo](_.paginatedUsers(pageNum))
             } yield Response.json(user.toJson)
-
-
     }
 
 ```
@@ -31,7 +27,8 @@ val usersHttpApp: HttpApp[UserRepo,Throwable] =
 The definition of an "Aspect" in the programming world provided by wikipedia
 
 ```
-An aspect of a program is a feature linked to many other parts of the program, but which is not related to the program's primary function. An aspect crosscuts the program's core concerns, therefore violating its separation of concerns that tries to encapsulate unrelated functions.
+An aspect of a program is a feature linked to many other parts of the program, but which is not related to the program's primary function. 
+An aspect crosscuts the program's core concerns, therefore violating its separation of concerns that tries to encapsulate unrelated functions.
 ```
 
 Or in short, aspect is a common concern required throughout the application, implementing which could lead to repeated boilerplate code and violates separation of concerns.
