@@ -249,7 +249,7 @@ object Server {
       channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
       eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
       zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
-      handler         = ServerResponseHandler(zExec, settings, ServerTime.make)
+      handler         = ServerResponseWriter(zExec, settings, ServerTime.make)
       reqHandler      = settings.app.compile(handler)
       init            = ServerChannelInitializer(zExec, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)

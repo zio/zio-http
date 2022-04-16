@@ -10,14 +10,14 @@ import zio.{UIO, ZIO}
 
 import java.io.File
 
-private[zhttp] trait ServerResponseHandler[R] {
+private[zhttp] trait ServerResponseWriter[R] {
   type Ctx = ChannelHandlerContext
   val rt: HttpRuntime[R]
   val config: Server.Config[R, Throwable]
 
   def serverTime: ServerTime
 
-  def writeResponse(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+  def write(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     ctx.write(encodeResponse(msg))
     writeData(msg.data.asInstanceOf[HttpData.Complete], jReq)
     ()
@@ -125,9 +125,9 @@ private[zhttp] trait ServerResponseHandler[R] {
     } yield ()
   }
 }
-object ServerResponseHandler                  {
-  def apply[R](runtime: HttpRuntime[R], conf: Server.Config[R, Throwable], st: ServerTime): ServerResponseHandler[R] =
-    new ServerResponseHandler[R]() {
+object ServerResponseWriter                  {
+  def apply[R](runtime: HttpRuntime[R], conf: Server.Config[R, Throwable], st: ServerTime): ServerResponseWriter[R] =
+    new ServerResponseWriter[R]() {
       override val rt: HttpRuntime[R]                  = runtime
       override val config: Server.Config[R, Throwable] = conf
 

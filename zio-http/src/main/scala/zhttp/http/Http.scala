@@ -635,7 +635,7 @@ object Http {
     self =>
 
     private[zhttp] def compile[R1 <: R](
-      handler: ServerResponseHandler[R1],
+      handler: ServerResponseWriter[R1],
     )(implicit
       evE: E <:< Throwable,
     ): ChannelHandler =
