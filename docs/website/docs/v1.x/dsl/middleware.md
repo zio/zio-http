@@ -2,6 +2,90 @@
 sidebar_position: "8"
 ---
 # Middleware
+Before introducing middleware, let us understand why they are needed. 
+
+## Need for middlewares and handling "aspects"
+
+Consider following example where we have two endpoints within HttpApp one GET user by id and other GET multiple users paginated
+
+```scala
+val usersHttpApp: HttpApp[UserRepo,Throwable] = 
+
+    Http.collectZIO[Request] { 
+
+        case Method.GET -> !! / "users" / id => 
+            for {
+                user <- ZIO.serviceWithZIO[UserRepo](_.lookupUsersById(id))
+            } yield Response.json(user.toJson)
+
+        case Method.GET -> !! / "users"  => 
+            for {
+                user <- ZIO.serviceWithZIO[UserRepo](_.paginatedUsers(pageNum))
+            } yield Response.json(user.toJson)
+
+
+    }
+
+```
+
+The definition of an "Aspect" in the programming world provided by wikipedia
+
+```
+An aspect of a program is a feature linked to many other parts of the program, but which is not related to the program's primary function. An aspect crosscuts the program's core concerns, therefore violating its separation of concerns that tries to encapsulate unrelated functions.
+```
+
+Or in short, aspect is a common concern required throughout the application, implementing which could lead to repeated boilerplate code and violates separation of concerns.
+
+Some examples of common "aspect" required through out the application
+- logging,
+- timeouts (preventing long running code)
+- retries (or handling flakyness for example while accessing third party APIs)
+- authenticating a user before using REST resource.
+
+Suppose we want to provide above aspects timeout, retries for both our example end points, our code could look like this
+
+```scala
+val usersHttpApp: HttpApp[UserRepo,Throwable] = 
+
+    Http.collectZIO[Request] { 
+
+        case request @ Method.GET -> !! / "users" / id => 
+            (for {
+                // validate user
+                _    <- MyAuthService.doAuth(request)
+                // log request
+                _    <- logRequest(request)
+                // core business logic
+                user <- ZIO.serviceWithZIO[UserRepo](_.lookupUsersById(id))
+                resp <- Response.json(user.toJson)
+                // log response
+                _    <- logResponse(resp)                
+            } yield resp).timeout(2.seconds).retryN(5)
+
+        case request @ Method.GET -> !! / "users"  => 
+            (for {
+                // validate user
+                _    <- MyAuthService.doAuth(request)
+                // log request
+                _    <- logRequest(request)
+                // core business logic
+                user <- ZIO.serviceWithZIO[UserRepo](_.paginatedUsers(pageNum))
+                resp <- Response.json(user.toJson)
+                // log response
+                _    <- logResponse(resp)                
+            } yield resp).timeout(2.seconds).retryN(5)
+    }
+
+```
+Our core logic is squeezed among common concerns. So there are two problems with this approach
+
+* We are dangerously coupling our business logic with a lower level concern (like applying timeouts)
+* Also we will have to do it for every single route in the system. For 100 routes we will need repeat a 100 timeouts!!! 
+
+This can lead to a lot of boilerplate clogging our neatly written endpoints affecting readability.
+
+## Middleware in zio-http
+
 
 Middlewares are transformations that one can apply on any [`Http`](https://dream11.github.io/zio-http/docs/v1.x/dsl/http) to produce a new one. 
 They can modify requests and responses and also transform them into more concrete domain entities.
