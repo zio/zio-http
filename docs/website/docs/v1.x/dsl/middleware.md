@@ -38,7 +38,7 @@ Some examples of common "aspect" required through out the application
 - authenticating a user before using REST resource.
 
 Suppose we want to provide above aspects timeout, retries for both our example end points, our code could look like this
-#### Polluted code without violating separation of concerns and boiler plate code
+#### Polluted code violating principle of "Separation of concerns"
 ```scala
 val usersHttpApp: HttpApp[UserRepo,Throwable] = 
 
