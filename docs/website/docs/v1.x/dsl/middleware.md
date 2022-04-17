@@ -23,15 +23,13 @@ val usersHttpApp: HttpApp[UserRepo,Throwable] =
     }
 
 ```
-
 The definition of an "Aspect" in the programming world provided by wikipedia
-
 ```
 An aspect of a program is a feature linked to many other parts of the program, but which is not related to the program's primary function. 
 An aspect crosscuts the program's core concerns, therefore violating its separation of concerns that tries to encapsulate unrelated functions.
 ```
 
-Or in short, aspect is a common concern required throughout the application, implementing which could lead to repeated boilerplate code and violates separation of concerns.
+Or in short, aspect is a common concern required throughout the application, implementing which could lead to repeated boilerplate code and in violation of the principle of separation of concerns.
 
 Some examples of common "aspect" required through out the application
 - logging,
@@ -40,7 +38,7 @@ Some examples of common "aspect" required through out the application
 - authenticating a user before using REST resource.
 
 Suppose we want to provide above aspects timeout, retries for both our example end points, our code could look like this
-
+#### Polluted code without violating separation of concerns and boiler plate code
 ```scala
 val usersHttpApp: HttpApp[UserRepo,Throwable] = 
 
@@ -57,7 +55,9 @@ val usersHttpApp: HttpApp[UserRepo,Throwable] =
                 resp <- Response.json(user.toJson)
                 // log response
                 _    <- logResponse(resp)                
-            } yield resp).timeout(2.seconds).retryN(5)
+            } yield resp)
+                    .timeout(2.seconds)
+                    .retryN(5)
 
         case request @ Method.GET -> !! / "users"  => 
             (for {
@@ -70,7 +70,9 @@ val usersHttpApp: HttpApp[UserRepo,Throwable] =
                 resp <- Response.json(user.toJson)
                 // log response
                 _    <- logResponse(resp)                
-            } yield resp).timeout(2.seconds).retryN(5)
+            } yield resp)
+                    .timeout(2.seconds)
+                    .retryN(5)
     }
 
 ```
@@ -81,8 +83,39 @@ Our core logic is squeezed among common concerns. So there are two problems with
 
 This can lead to a lot of boilerplate clogging our neatly written endpoints affecting readability.
 
-## Middleware in zio-http
+This is where a middleware comes for rescue.
+Using middlewares we can compose out of the box middlewares (or our own custom middlewares) to address above concerns using ```++``` and ```@@``` operators like shown below.
 
+#### Cleaned up code using middleware to address cross cutting concerns like auth, req/resp logging etc.
+```scala
+// compose basic auth, request/response logging, timeouts middlewares
+val composedMiddlewares = Middleware.basicAuth("user","pw") ++ 
+        Middleware.debug ++ 
+        Middleware.timeout(5 seconds) 
+
+// attach composedMiddlewares to the app using @@
+val usersHttpApp: HttpApp[UserRepo,Throwable] = 
+
+    Http.collectZIO[Request] { 
+
+        case request @ Method.GET -> !! / "users" / id => 
+            for {
+                // core business logic
+                user <- ZIO.serviceWithZIO[UserRepo](_.lookupUsersById(id))
+				resp <- Response.json(user.toJson)
+            } yield resp
+
+        case request @ Method.GET -> !! / "users"  => 
+            for {
+                // core business logic
+                user <- ZIO.serviceWithZIO[UserRepo](_.paginatedUsers(pageNum))
+                resp <- Response.json(user.toJson)
+            } yield resp)
+    } @@ composedMiddlewares
+
+```
+
+## Middleware in zio-http
 
 Middlewares are transformations that one can apply on any [`Http`](https://dream11.github.io/zio-http/docs/v1.x/dsl/http) to produce a new one. 
 They can modify requests and responses and also transform them into more concrete domain entities.
@@ -263,7 +296,7 @@ val mid: Middleware[Any, Nothing, Nothing, Any, Int, Int] = Middleware.ifThenEls
 ## Example of a middleware
 
 <details>
-<summary><b>Detailed example </b></summary>
+<summary><b>Detailed example showing "debug" and "addHeader" middlewares</b></summary>
 
 ```scala
     import zhttp.http._
