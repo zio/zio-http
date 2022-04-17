@@ -59,14 +59,15 @@ object Main extends App {
       if (condition) server ++ setting else server
 
     zio.system.envs.map { envs =>
+      println(envs)
       val server = Server.port(8080) ++
         Server.app(app) ++
         Server.error(_ => UIO.unit) ++
         leakDetectionLevel(envs.getOrElse("LEAK_DETECTION_LEVEL", "disabled"))
 
       server ++
-        from(envs.getOrElse("CONSOLIDATE_FLUSH", "true").toBoolean, server, Server.consolidateFlush) ++
-        from(envs.getOrElse("DISABLE_FLOW_CONTROL", "true").toBoolean, server, Server.disableFlowControl)
+        from(envs.getOrElse("CONSOLIDATE_FLUSH", "false").toBoolean, server, Server.consolidateFlush) ++
+        from(envs.getOrElse("DISABLE_FLOW_CONTROL", "false").toBoolean, server, Server.disableFlowControl)
     }
   }
 
