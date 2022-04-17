@@ -37,7 +37,7 @@ Some examples of common "aspects" required throughout the application
 - retries (or handling flakiness for example while accessing third party APIs)
 - authenticating a user before using the REST resource.
 
-Suppose we want to provide the above aspects timeout, retries for both our example endpoints, our code could look like this
+Suppose we want to code above-mentioned aspects for both our example endpoints, our code could look like this
 
 #### The polluted code violates the principle of "Separation of concerns"
 ```scala
@@ -85,7 +85,7 @@ Our core logic is squeezed among common concerns. So there are two problems with
 This can lead to a lot of boilerplate clogging our neatly written endpoints affecting readability.
 
 This is where middleware comes to the rescue. 
-Using middlewares we can compose out-of-the-box middlewares (or our custom middlewares) to address the above concerns using ++ and @@ operators as shown below.
+Using middlewares we can compose out-of-the-box middlewares (or our custom middlewares) to address the above-mentioned concerns using ++ and @@ operators as shown below.
 
 #### Cleaned up code using middleware to address cross-cutting concerns like auth, req/resp logging, etc.
 ```scala
