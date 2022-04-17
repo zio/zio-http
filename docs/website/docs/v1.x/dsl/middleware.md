@@ -23,22 +23,23 @@ val usersHttpApp: HttpApp[UserRepo,Throwable] =
     }
 
 ```
-The definition of an "Aspect" in the programming world provided by wikipedia
+The definition of an "Aspect" in the programming world provided by Wikipedia
 ```
 An aspect of a program is a feature linked to many other parts of the program, but which is not related to the program's primary function. 
 An aspect crosscuts the program's core concerns, therefore violating its separation of concerns that tries to encapsulate unrelated functions.
 ```
 
-Or in short, aspect is a common concern required throughout the application, implementing which could lead to repeated boilerplate code and in violation of the principle of separation of concerns.
+Or in short, aspect is a common concern required throughout the application, an implementation could lead to repeated boilerplate code and in violation of the principle of separation of concerns.
 
-Some examples of common "aspect" required through out the application
+Some examples of common "aspects" required throughout the application
 - logging,
-- timeouts (preventing long running code)
-- retries (or handling flakyness for example while accessing third party APIs)
-- authenticating a user before using REST resource.
+- timeouts (preventing long-running code)
+- retries (or handling flakiness for example while accessing third party APIs)
+- authenticating a user before using the REST resource.
 
-Suppose we want to provide above aspects timeout, retries for both our example end points, our code could look like this
-#### Polluted code violating principle of "Separation of concerns"
+Suppose we want to provide the above aspects timeout, retries for both our example endpoints, our code could look like this
+
+#### The polluted code violates the principle of "Separation of concerns"
 ```scala
 val usersHttpApp: HttpApp[UserRepo,Throwable] = 
 
@@ -79,14 +80,14 @@ val usersHttpApp: HttpApp[UserRepo,Throwable] =
 Our core logic is squeezed among common concerns. So there are two problems with this approach
 
 * We are dangerously coupling our business logic with a lower level concern (like applying timeouts)
-* Also we will have to do it for every single route in the system. For 100 routes we will need repeat a 100 timeouts!!! 
+* Also, we will have to do it for every single route in the system. For 100 routes we will need to repeat 100 timeouts!!! 
 
 This can lead to a lot of boilerplate clogging our neatly written endpoints affecting readability.
 
-This is where a middleware comes for rescue.
-Using middlewares we can compose out of the box middlewares (or our own custom middlewares) to address above concerns using ```++``` and ```@@``` operators like shown below.
+This is where middleware comes to the rescue. 
+Using middlewares we can compose out-of-the-box middlewares (or our custom middlewares) to address the above concerns using ++ and @@ operators as shown below.
 
-#### Cleaned up code using middleware to address cross cutting concerns like auth, req/resp logging etc.
+#### Cleaned up code using middleware to address cross-cutting concerns like auth, req/resp logging, etc.
 ```scala
 // compose basic auth, request/response logging, timeouts middlewares
 val composedMiddlewares = Middleware.basicAuth("user","pw") ++ 
