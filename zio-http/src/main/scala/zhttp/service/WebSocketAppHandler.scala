@@ -17,7 +17,7 @@ final class WebSocketAppHandler[R](
   app: SocketApp[R],
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
-  override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit =
+  override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit = {
     app.message match {
       case Some(v) =>
         WebSocketFrame.fromJFrame(msg) match {
@@ -26,10 +26,11 @@ final class WebSocketAppHandler[R](
         }
       case None    => ()
     }
+  }
 
   override def channelUnregistered(ctx: ChannelHandlerContext): Unit = {
     app.close match {
-      case Some(v) => zExec.unsafeRun(ctx)(v(ctx.channel().remoteAddress()).uninterruptible)
+      case Some(v) => zExec.unsafeRunUninterruptible(ctx)(v(ctx.channel().remoteAddress()))
       case None    => ctx.fireChannelUnregistered()
     }
     ()
@@ -44,7 +45,6 @@ final class WebSocketAppHandler[R](
   }
 
   override def userEventTriggered(ctx: ChannelHandlerContext, event: AnyRef): Unit = {
-
     event match {
       case _: WebSocketServerProtocolHandler.HandshakeComplete | ClientHandshakeStateEvent.HANDSHAKE_COMPLETE =>
         app.open match {
@@ -68,11 +68,9 @@ final class WebSocketAppHandler[R](
   /**
    * Unsafe channel reader for WSFrame
    */
-
-  private def writeAndFlush(ctx: ChannelHandlerContext, stream: ZStream[R, Throwable, WebSocketFrame]): Unit =
-    zExec.unsafeRun(ctx)(
-      stream
-        .mapM(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toWebSocketFrame)))
-        .runDrain,
-    )
+  private def writeAndFlush(ctx: ChannelHandlerContext, stream: ZStream[R, Throwable, WebSocketFrame]): Unit = {
+    zExec.unsafeRun(ctx) {
+      stream.foreach(frame => ChannelFuture.unit(ctx.writeAndFlush(frame.toWebSocketFrame)))
+    }
+  }
 }
