@@ -52,7 +52,7 @@ object JmhBenchmarkWorkflow {
       ),
       WorkflowStep.Run(
         cond = Some(
-          "contains(github.event.pull_request.labels.*.name, 'run jmh')'",
+          "contains(github.event.pull_request.labels.*.name, 'run jmh')",
         ),
         commands = List(s"""while IFS= read -r line; do
                            |   IFS=' ' read -ra PARSED_RESULT <<< "$$line"
