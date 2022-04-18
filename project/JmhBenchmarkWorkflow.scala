@@ -44,7 +44,7 @@ object JmhBenchmarkWorkflow {
       WorkflowStep.Use(
         ref = UseRef.Public("actions", "download-artifact", "v3"),
         cond = Some(
-          "contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'",
+          "contains(github.event.pull_request.labels.*.name, 'run jmh')",
         ),
         params = Map(
           "name" -> s"Jmh_${branch}_${l.head}",
@@ -52,7 +52,7 @@ object JmhBenchmarkWorkflow {
       ),
       WorkflowStep.Run(
         cond = Some(
-          "contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'",
+          "contains(github.event.pull_request.labels.*.name, 'run jmh')'",
         ),
         commands = List(s"""while IFS= read -r line; do
                            |   IFS=' ' read -ra PARSED_RESULT <<< "$$line"
@@ -71,7 +71,7 @@ object JmhBenchmarkWorkflow {
    */
   def formatOutput() = WorkflowStep.Run(
     cond = Some(
-      "contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'",
+      "contains(github.event.pull_request.labels.*.name, 'run jmh')",
     ),
     commands = List(
       s"""cat parsed_Current.txt parsed_Main.txt | sort -u > c.txt
@@ -122,7 +122,7 @@ object JmhBenchmarkWorkflow {
           WorkflowStep.Use(
             ref = UseRef.Public("peter-evans", "commit-comment", "v1"),
             cond = Some(
-              "contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'",
+              "contains(github.event.pull_request.labels.*.name, 'run jmh')",
             ),
             params = Map(
               "sha"  -> "${{github.event.pull_request.head.sha}}",
@@ -149,7 +149,7 @@ object JmhBenchmarkWorkflow {
       name = s"Jmh ${l.head}",
       scalas = List(Scala213),
       cond = Some(
-        "contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'",
+        "contains(github.event.pull_request.labels.*.name, 'run jmh')",
       ),
       steps = List(
         WorkflowStep.Use(
