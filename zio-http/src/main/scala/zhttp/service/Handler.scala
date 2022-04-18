@@ -9,6 +9,7 @@ import zhttp.service.server.{ServerTime, WebSocketUpgrade}
 import zio.{UIO, ZIO}
 
 import java.net.{InetAddress, InetSocketAddress}
+import javax.net.ssl.SSLHandshakeException
 
 @Sharable
 private[zhttp] final case class Handler[R](
@@ -205,6 +206,9 @@ private[zhttp] final case class Handler[R](
   override val rt: HttpRuntime[R] = runtime
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
-    config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
+    cause.getCause match {
+      case _: SSLHandshakeException => ()
+      case _ => config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
+    }
   }
 }
