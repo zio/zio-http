@@ -33,6 +33,6 @@ package object service {
   type EventLoopGroup       = Has[JEventLoopGroup]
   type ServerChannelFactory = Has[JChannelFactory[ServerChannel]]
   type UServer              = Server[Any, Nothing]
-  type Ctx                  = ChannelHandlerContext
+  private[zhttp] type Ctx   = ChannelHandlerContext
 
 }
