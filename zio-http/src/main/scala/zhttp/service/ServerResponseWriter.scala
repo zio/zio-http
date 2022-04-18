@@ -15,7 +15,6 @@ private[zhttp] final class ServerResponseWriter[R](
   conf: Server.Config[R, Throwable],
   serverTime: ServerTime,
 ) {
-  type Ctx = ChannelHandlerContext
   val rt: HttpRuntime[R]                  = runtime
   val config: Server.Config[R, Throwable] = conf
 

@@ -16,7 +16,7 @@ private[zhttp] final case class Handler[R](
 ) extends SimpleChannelInboundHandler[HttpObject](false)
     with WebSocketUpgrade[R] { self =>
 
-  override def channelRead0(ctx: serverResponseWriter.Ctx, msg: HttpObject): Unit = {
+  override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
 
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
@@ -126,7 +126,7 @@ private[zhttp] final case class Handler[R](
     jReq: HttpRequest,
     http: Http[R, Throwable, A, Response],
     a: A,
-  )(implicit ctx: serverResponseWriter.Ctx): Unit = {
+  )(implicit ctx: Ctx): Unit = {
     http.execute(a) match {
       case HExit.Effect(resM) =>
         unsafeRunZIO {
@@ -197,14 +197,14 @@ private[zhttp] final case class Handler[R](
   /**
    * Executes program
    */
-  private def unsafeRunZIO(program: ZIO[R, Throwable, Any])(implicit ctx: serverResponseWriter.Ctx): Unit =
+  private def unsafeRunZIO(program: ZIO[R, Throwable, Any])(implicit ctx: Ctx): Unit =
     serverResponseWriter.rt.unsafeRun(ctx) {
       program
     }
 
   override val runtime: HttpRuntime[R] = serverResponseWriter.rt
 
-  override def exceptionCaught(ctx: serverResponseWriter.Ctx, cause: Throwable): Unit = {
+  override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
     serverResponseWriter.config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
   }
 }
