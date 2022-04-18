@@ -635,11 +635,11 @@ object Http {
     self =>
 
     private[zhttp] def compile[R1 <: R](
-      handler: ServerResponseWriter[R1],
+      resWriter: ServerResponseWriter[R1],
     )(implicit
       evE: E <:< Throwable,
     ): ChannelHandler =
-      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], handler)
+      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], resWriter)
 
     /**
      * Patches the response produced by the app
