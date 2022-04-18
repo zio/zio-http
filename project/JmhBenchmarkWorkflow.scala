@@ -122,7 +122,7 @@ object JmhBenchmarkWorkflow {
           WorkflowStep.Use(
             ref = UseRef.Public("peter-evans", "commit-comment", "v1"),
             cond = Some(
-              "${{ contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}",
+              "contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'",
             ),
             params = Map(
               "sha"  -> "${{github.event.pull_request.head.sha}}",
@@ -149,7 +149,7 @@ object JmhBenchmarkWorkflow {
       name = s"Jmh ${l.head}",
       scalas = List(Scala213),
       cond = Some(
-        "${{ contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'}}",
+        "contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'",
       ),
       steps = List(
         WorkflowStep.Use(

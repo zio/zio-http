@@ -280,7 +280,7 @@ jobs:
 
   Jmh_CookieDecodeBenchmark:
     name: Jmh CookieDecodeBenchmark
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'}}
+    if: contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -336,7 +336,7 @@ jobs:
 
   Jmh_HttpCollectEval:
     name: Jmh HttpCollectEval
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'}}
+    if: contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -392,7 +392,7 @@ jobs:
 
   Jmh_HttpCombineEval:
     name: Jmh HttpCombineEval
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'}}
+    if: contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -448,7 +448,7 @@ jobs:
 
   Jmh_HttpNestedFlatMapEval:
     name: Jmh HttpNestedFlatMapEval
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'}}
+    if: contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -504,7 +504,7 @@ jobs:
 
   Jmh_HttpRouteTextPerf:
     name: Jmh HttpRouteTextPerf
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'}}
+    if: contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -560,7 +560,7 @@ jobs:
 
   Jmh_PathApplyPerf:
     name: Jmh PathApplyPerf
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'}}
+    if: contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -616,7 +616,7 @@ jobs:
 
   Jmh_ProbeContentTypeBenchmark:
     name: Jmh ProbeContentTypeBenchmark
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'}}
+    if: contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event_name == 'pull_request'
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -935,7 +935,7 @@ jobs:
            echo ::set-output name=body::$(echo $body)
 
       
-      - if: ${{ contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
+      - if: contains(github.event.pull_request.labels.*.name, 'run jmh')  && github.event.pull_request.head.repo.full_name == 'dream11/zio-http'
         uses: peter-evans/commit-comment@v1
         with:
           sha: ${{github.event.pull_request.head.sha}}
