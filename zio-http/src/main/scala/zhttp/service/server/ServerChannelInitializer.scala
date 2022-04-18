@@ -11,7 +11,6 @@ import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.logging.LoggingHandler
-import zhttp.logging.Logger
 import zhttp.service.Server.Config
 import zhttp.service._
 import zhttp.service.logging.ZHttpLoggerFactory
@@ -26,14 +25,14 @@ final case class ServerChannelInitializer[R](
   reqHandler: ChannelHandler,
 ) extends ChannelInitializer[Channel] {
 
-  private val log = Logger.getLogger("zhttp.service.server.ServerChannelInitializer")
+  // private val log = Logger.getLogger("zhttp.service.server.ServerChannelInitializer")
 
   override def initChannel(channel: Channel): Unit = {
     // !! IMPORTANT !!
     // Order of handlers are critical to make this work
     val pipeline = channel.pipeline()
 
-    log.trace(s"Starting server with config: $cfg")
+    // log.trace(s"Starting server with config: $cfg")
     // SSL
     // Add SSL Handler if CTX is available
     val sslctx = if (cfg.sslOption == null) null else cfg.sslOption.sslContext

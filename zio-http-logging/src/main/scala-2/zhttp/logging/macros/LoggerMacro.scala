@@ -28,14 +28,15 @@ private[zhttp] object LoggerMacro {
    */
   private[this] def reflectiveLog(
     c: LogCtx,
-  )(msg: c.Expr[String], error: Option[c.Expr[Throwable]])(logLevel: LogLevel) = {
+  )(msg: c.Expr[String], error: Option[c.Expr[Throwable]], tags: c.Expr[List[String]])(logLevel: LogLevel) = {
     import c.universe._
 
     val logger        = q"${c.prefix.tree}"
     val consoleLogger = q"${c.prefix.tree}.logger"
+    val loggerName    = q"${c.prefix.tree.toString()}"
     val logValues     = error match {
-      case None    => List(msg.tree)
-      case Some(e) => List(msg.tree, e.tree)
+      case None    => List(loggerName, msg.tree, tags.tree)
+      case Some(e) => List(loggerName, msg.tree, e.tree, tags.tree)
     }
 
     val logExpr   = q"$consoleLogger.${TermName(logLevel.methodName)}(..$logValues)"
@@ -45,24 +46,24 @@ private[zhttp] object LoggerMacro {
 
   }
 
-  def traceTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
-    reflectiveLog(c)(msg, Some(throwable))(TRACE)
-  def traceM(c: LogCtx)(msg: c.Expr[String])                                = reflectiveLog(c)(msg, None)(TRACE)
+  def traceTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable], tags: c.Expr[List[String]]) =
+    reflectiveLog(c)(msg, Some(throwable), tags)(TRACE)
+  def traceM(c: LogCtx)(msg: c.Expr[String], tags: c.Expr[List[String]]) = reflectiveLog(c)(msg, None, tags)(TRACE)
 
-  def debugTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
-    reflectiveLog(c)(msg, Some(throwable))(DEBUG)
-  def debugM(c: LogCtx)(msg: c.Expr[String])                                = reflectiveLog(c)(msg, None)(DEBUG)
+  def debugTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable], tags: c.Expr[List[String]]) =
+    reflectiveLog(c)(msg, Some(throwable), tags)(DEBUG)
+  def debugM(c: LogCtx)(msg: c.Expr[String], tags: c.Expr[List[String]]) = reflectiveLog(c)(msg, None, tags)(DEBUG)
 
-  def infoTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
-    reflectiveLog(c)(msg, Some(throwable))(INFO)
-  def infoM(c: LogCtx)(msg: c.Expr[String])                                = reflectiveLog(c)(msg, None)(INFO)
+  def infoTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable], tags: c.Expr[List[String]]) =
+    reflectiveLog(c)(msg, Some(throwable), tags)(INFO)
+  def infoM(c: LogCtx)(msg: c.Expr[String], tags: c.Expr[List[String]]) = reflectiveLog(c)(msg, None, tags)(INFO)
 
-  def warnTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
-    reflectiveLog(c)(msg, Some(throwable))(WARN)
-  def warnM(c: LogCtx)(msg: c.Expr[String])                                = reflectiveLog(c)(msg, None)(WARN)
+  def warnTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable], tags: c.Expr[List[String]]) =
+    reflectiveLog(c)(msg, Some(throwable), tags)(WARN)
+  def warnM(c: LogCtx)(msg: c.Expr[String], tags: c.Expr[List[String]]) = reflectiveLog(c)(msg, None, tags)(WARN)
 
-  def errorTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]) =
-    reflectiveLog(c)(msg, Some(throwable))(ERROR)
-  def errorM(c: LogCtx)(msg: c.Expr[String])                                = reflectiveLog(c)(msg, None)(ERROR)
+  def errorTM(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable], tags: c.Expr[List[String]]) =
+    reflectiveLog(c)(msg, Some(throwable), tags)(ERROR)
+  def errorM(c: LogCtx)(msg: c.Expr[String], tags: c.Expr[List[String]]) = reflectiveLog(c)(msg, None, tags)(ERROR)
 
 }

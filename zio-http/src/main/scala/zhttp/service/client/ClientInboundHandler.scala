@@ -3,7 +3,6 @@ package zhttp.service.client
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
 import zhttp.http.Response
-import zhttp.logging.Logger
 import zhttp.service.HttpRuntime
 import zio.Promise
 
@@ -17,7 +16,7 @@ final class ClientInboundHandler[R](
   isWebSocket: Boolean,
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
-  private val log = Logger.getLogger("zhttp.service.client.ClientInboundHandler")
+  // private val log = Logger.getLogger("zhttp.service.client.ClientInboundHandler")
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     if (isWebSocket) {
@@ -30,7 +29,7 @@ final class ClientInboundHandler[R](
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     msg.touch("handlers.ClientInboundHandler-channelRead0")
-    log.trace(s"Received message: $msg")
+    // log.trace(s"Received message: $msg")
     // NOTE: The promise is made uninterruptible to be able to complete the promise in a error situation.
     // It allows to avoid loosing the message from pipeline in case the channel pipeline is closed due to an error.
     zExec.unsafeRun(ctx)(promise.succeed(Response.unsafeFromJResponse(msg)).uninterruptible)
@@ -42,13 +41,13 @@ final class ClientInboundHandler[R](
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    log.error(s"Exception caught.", error)
+    // log.error(s"Exception caught.", error)
     zExec.unsafeRun(ctx)(promise.fail(error).uninterruptible)
     releaseRequest()
   }
 
   private def releaseRequest(): Unit = {
-    log.debug(s"Reference count: ${jReq.refCnt()}")
+    // log.debug(s"Reference count: ${jReq.refCnt()}")
     if (jReq.refCnt() > 0) {
       jReq.release(jReq.refCnt()): Unit
     }

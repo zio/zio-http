@@ -3,6 +3,17 @@ package zhttp.logging
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
+object Setup {
+
+  type Format[-A, +B] = A => B
+  type LogFormat      = Format[LogLine, CharSequence]
+
+  final case class DefaultFormat(format: LogLine => String) {
+    def apply(line: LogLine): String = format(line)
+  }
+
+}
+
 sealed trait LogFormat { self =>
   import LogFormat._
   def <+>(that: LogFormat): LogFormat     = self combine that
@@ -92,11 +103,11 @@ object LogFormat {
   def run(logFormat: LogFormat)(logLine: LogLine): String = {
 
     logFormat match {
-      case Name                                       => logLine.loggerName
-      case FormatDate(dateFormat)                     => formatDate(dateFormat, logLine.date)
-      case ThreadName(includeThreadName)              => if (includeThreadName) logLine.threadName else ""
-      case ThreadId(includeThreadId)                  => if (includeThreadId) logLine.threadId else ""
-      case LoggerLevel                                => logLine.logLevel.name
+      case Name                                       => logLine.name
+      case FormatDate(dateFormat)                     => formatDate(dateFormat, logLine.timestamp)
+      case ThreadName(includeThreadName)              => if (includeThreadName) logLine.thread.getName else ""
+      case ThreadId(includeThreadId)                  => if (includeThreadId) logLine.thread.getId.toString else ""
+      case LoggerLevel                                => logLine.level.name
       case Combine(left, right)                       => run(left)(logLine) ++ run(right)(logLine)
       case ColorWrap(color, conf)                     =>
         colorText(color, run(conf)(logLine))
@@ -105,10 +116,10 @@ object LogFormat {
       case Spaced(left, right)                        => run(left)(logLine) + " " + run(right)(logLine)
       case Dash(left, right)                          => run(left)(logLine) + " - " + run(right)(logLine)
       case NewLine(left, right)                       => run(left)(logLine) + "\n" + run(right)(logLine)
-      case Msg                                        => logLine.msg
+      case Msg                                        => logLine.message
       case Trim(conf)                                 => run(conf)(logLine).trim
       case LineColor(info, error, debug, trace, warn) =>
-        logLine.logLevel match {
+        logLine.level match {
           case LogLevel.OFF   => ""
           case LogLevel.TRACE => Color.asConsole(trace)
           case LogLevel.DEBUG => Color.asConsole(debug)
@@ -146,7 +157,7 @@ object LogFormat {
 
   import zhttp.logging.LogFormat.DateFormat._
 
-  def default: LogFormat = LogFormat.color(
+  val defaultFormat: LogFormat = LogFormat.color(
     info = Color.GREEN,
     error = Color.RED,
     debug = Color.CYAN,
@@ -156,5 +167,7 @@ object LogFormat {
     LogFormat.date(ISODateTime) |-| LogFormat.threadName.wrap(
       TextWrapper.BRACKET,
     ) |-| LogFormat.logLevel |-| LogFormat.name - LogFormat.msg
+
+  def default(logLine: LogLine): CharSequence = run(defaultFormat)(logLine)
 
 }

@@ -2,10 +2,11 @@ package zhttp.logging
 import java.time.LocalDateTime
 
 final case class LogLine(
-  loggerName: String,
-  date: LocalDateTime,
-  threadName: String,
-  threadId: String,
-  logLevel: LogLevel,
-  msg: String,
+  name: String,
+  timestamp: LocalDateTime,
+  thread: Thread,
+  level: LogLevel,
+  message: String,
+  tags: List[String],
+  error: Option[Throwable],
 )
