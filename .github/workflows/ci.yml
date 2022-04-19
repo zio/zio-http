@@ -907,7 +907,7 @@ jobs:
 
       - name: Format Output
         id: fomat_output
-        if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        if: ${{ github.event.pull_request.head.repo.full_name == 'dream11/zio-http' && contains(github.event.pull_request.labels.*.name, 'run jmh')  }}
         run: |
           cat parsed_Current.txt parsed_Main.txt | sort -u > c.txt
                     while IFS= read -r line; do
