@@ -4,13 +4,14 @@ import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultHttpContent, DefaultLastHttpContent}
 import zhttp.http.HttpData.{ByteBufConfig, UnsafeContent, UnsafeReadableChannel}
 import zio.duration.durationInt
+import zio.random.Random
 import zio.stream.ZStream
 import zio.test.Assertion.{anything, equalTo, isLeft, isSubtype}
 import zio.test.TestAspect.{failing, timeout}
-import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAllM}
+import zio.test._
 
 import java.io.File
-import scala.collection.mutable.Queue
+import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Promise
 
@@ -20,7 +21,7 @@ object HttpDataSpec extends DefaultRunnableSpec {
     override def read(): Unit = promise.success(())
   }
 
-  final case class TestUnsafeReadableChannel2(queue: Queue[Promise[Unit]]) extends UnsafeReadableChannel {
+  final case class QueueBasedUnsafeReadableChannel(queue: mutable.Queue[Promise[Unit]]) extends UnsafeReadableChannel {
     override def read(): Unit = {
       if (queue.nonEmpty) {
         val p = queue.dequeue()
@@ -62,9 +63,9 @@ object HttpDataSpec extends DefaultRunnableSpec {
             },
           ),
           suite("UnsafeAsync")(
-            testM("sending last msg should finish the processing with 1 msg.") {
+            testM("finish on last message.") {
               val unsafeChannel = new UnsafeReadableChannel {
-                override def read(): Unit = println("called read.")
+                override def read(): Unit = ()
               }
 
               val probe  = HttpData.UnsafeAsync { cb =>
@@ -75,7 +76,7 @@ object HttpDataSpec extends DefaultRunnableSpec {
               val result = probe.toByteBufStream(ByteBufConfig(4)).runCount
               assertM(result)(equalTo(1L))
             },
-            testM("Sending a chunk without last msg the stream will not complete") {
+            testM("wait for last message") {
               val unsafeChannel = new UnsafeReadableChannel {
                 override def read(): Unit = ()
               }
@@ -89,7 +90,7 @@ object HttpDataSpec extends DefaultRunnableSpec {
               val result = probe.toByteBufStream(ByteBufConfig(4)).runCount
               assertM(result)(equalTo(1L))
             } @@ timeout(1 seconds) @@ failing,
-            testM("sending 2 msg should finish the processing with same number of messages.") {
+            testM("process all messages.") {
 
               val p             = Promise[Unit]()
               val unsafeChannel = TestUnsafeReadableChannel(p)
@@ -106,33 +107,43 @@ object HttpDataSpec extends DefaultRunnableSpec {
               assertM(result)(equalTo(2L))
             },
             testM("sending multiple msg should finish the processing with same number of messages.") {
-
-              val p1            = Promise[Unit]()
-              val p2            = Promise[Unit]()
-              val queue         = Queue(p1, p2)
-              val unsafeChannel = TestUnsafeReadableChannel2(queue)
-
-              val probe  = HttpData.UnsafeAsync { cb =>
-                val producer = cb(unsafeChannel)
-                producer(
-                  new UnsafeContent(new DefaultHttpContent(Unpooled.copiedBuffer("abc".toArray.map(_.toByte)))),
-                )
-
-                p1.future.onComplete(_ =>
-                  producer(
-                    new UnsafeContent(new DefaultHttpContent(Unpooled.copiedBuffer("def".toArray.map(_.toByte)))),
-                  ),
-                )
-                p2.future.onComplete(_ =>
-                  producer(new UnsafeContent(new DefaultLastHttpContent(Unpooled.EMPTY_BUFFER))),
-                )
-
+              checkM(unsafeAsyncContent) { case (probe, probeLength) =>
+                val result = probe.toByteBufStream(ByteBufConfig(4)).runCount
+                assertM(result)(equalTo(probeLength))
               }
-              val result = probe.toByteBufStream(ByteBufConfig(4)).runCount
-              assertM(result)(equalTo(3L))
             },
           ),
         )
       }
     } @@ timeout(10 seconds)
+
+  private val lastHttpContent = new UnsafeContent(new DefaultLastHttpContent(Unpooled.EMPTY_BUFFER))
+  private def unsafeContent: Gen[Random with Sized, List[UnsafeContent]] =
+    for {
+      content <- Gen.listOf(Gen.alphaNumericString)
+    } yield content.map(c => new UnsafeContent(new DefaultHttpContent(Unpooled.copiedBuffer(c.toArray.map(_.toByte)))))
+
+  private def unsafeAsyncContent: Gen[Random with Sized, (HttpData.UnsafeAsync, Long)] = {
+    unsafeContent.map { content =>
+      (
+        HttpData.UnsafeAsync { cb =>
+          val queue         = mutable.Queue.empty[Promise[Unit]]
+          val unsafeChannel = QueueBasedUnsafeReadableChannel(queue)
+          val producer      = cb(unsafeChannel)
+
+          if (content.isEmpty) producer(lastHttpContent)
+          else {
+            producer(content.head)
+            (content.drop(1) :+ lastHttpContent).foreach { c =>
+              val p = Promise[Unit]()
+              p.future.onComplete(_ => producer(c))
+              queue.enqueue(p)
+            }
+          }
+        },
+        content.size.toLong + 1,
+      )
+
+    }
+  }
 }
