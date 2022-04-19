@@ -45,8 +45,7 @@ object Scheme       {
    * null/non-valid Scheme
    */
   def decode(scheme: String): Option[Scheme] =
-    if (scheme == null) None
-    else Option(unsafeDecode(scheme))
+    Option(unsafeDecode(scheme))
 
   private[zhttp] def unsafeDecode(scheme: String): Scheme = {
     if (scheme == null) null
