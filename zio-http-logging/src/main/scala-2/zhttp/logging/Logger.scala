@@ -2,7 +2,7 @@ package zhttp.logging
 
 import zhttp.logging.frontend.LogFrontend
 import zhttp.logging.frontend.LogFrontend.Config
-import zhttp.logging.Setup.LogFormat
+
 import zhttp.logging.macros.LoggerMacro._
 
 final class Logger(val frontend: LogFrontend) {
@@ -19,7 +19,7 @@ object Logger {
   def make(
     name: String,
     level: LogLevel = LogLevel.ERROR,
-    format: LogFormat = LogFormat.default,
+    format: Setup.LogFormat = LogFormat.default,
     filter: String => Boolean = _ => true,
   ): Logger =
     make(Config(name, level, format, filter))
