@@ -49,6 +49,7 @@ object JmhBenchmarkWorkflow {
         ),
       ),
       WorkflowStep.Run(
+        cond = Some ("${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}"),
         commands = List(s"""while IFS= read -r line; do
                            |   IFS=' ' read -ra PARSED_RESULT <<< "$$line"
                            |   echo $${PARSED_RESULT[1]} >> parsed_$branch.txt
