@@ -4,7 +4,7 @@ import zhttp.logging.frontend.LogFrontend
 import zhttp.logging.frontend.LogFrontend.Config
 import zhttp.logging.macros.LoggerMacro._
 
-final class Logger(config: Config, frontend: LogFrontend) {
+final case class Logger(config: Config, frontend: LogFrontend) {
 
   import LogLevel._
 

@@ -88,6 +88,8 @@ object LogFormat {
   final case class Dash(left: LogFormat, right: LogFormat)                                       extends LogFormat
   final case class NewLine(left: LogFormat, right: LogFormat)                                    extends LogFormat
   final case class Trim(logFmt: LogFormat)                                                       extends LogFormat
+  case object EnclosingClassName                                                                 extends LogFormat
+  case object LocationLine                                                                       extends LogFormat
   case object Msg                                                                                extends LogFormat
 
   def name: LogFormat                         = Name
@@ -96,6 +98,8 @@ object LogFormat {
   def threadName: LogFormat                   = ThreadName(true)
   def threadId: LogFormat                     = ThreadId(true)
   def msg: LogFormat                          = Msg
+  def enclosingClassName: LogFormat           = EnclosingClassName
+  def locationLine: LogFormat                 = LocationLine
 
   def color(info: Color, error: Color, debug: Color, trace: Color, warn: Color): LogFormat =
     LineColor(info, error, debug, trace, warn)
@@ -104,6 +108,8 @@ object LogFormat {
 
     logFormat match {
       case Name                                       => logLine.name
+      case EnclosingClassName                         => logLine.enclosingClass
+      case LocationLine                               => s"line: ${logLine.lineNumber}"
       case FormatDate(dateFormat)                     => formatDate(dateFormat, logLine.timestamp)
       case ThreadName(includeThreadName)              => if (includeThreadName) logLine.thread.getName else ""
       case ThreadId(includeThreadId)                  => if (includeThreadId) logLine.thread.getId.toString else ""
@@ -166,7 +172,9 @@ object LogFormat {
   ) <+>
     LogFormat.date(ISODateTime) |-| LogFormat.threadName.wrap(
       TextWrapper.BRACKET,
-    ) |-| LogFormat.logLevel |-| LogFormat.name - LogFormat.msg
+    ) |-| (LogFormat.enclosingClassName |-| LogFormat.locationLine).wrap(
+      TextWrapper.BRACKET,
+    ) |-| LogFormat.logLevel - LogFormat.msg
 
   def default(logLine: LogLine): CharSequence = run(defaultFormat)(logLine)
 

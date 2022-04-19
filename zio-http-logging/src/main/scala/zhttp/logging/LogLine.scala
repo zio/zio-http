@@ -9,4 +9,6 @@ final case class LogLine(
   message: String,
   tags: List[String],
   error: Option[Throwable],
+  enclosingClass: String,
+  lineNumber: Int,
 )

@@ -33,9 +33,13 @@ private[zhttp] object LoggerMacro {
 
     val logger        = q"${c.prefix.tree}"
     val consoleLogger = q"${c.prefix.tree}.logger"
-    val logValues     = error match {
-      case None    => List(msg.tree, tags.tree)
-      case Some(e) => List(msg.tree, e.tree, tags.tree)
+
+    val enclosingFullName = q"${c.internal.enclosingOwner.owner.fullName}"
+    val locationLine      = q"${c.enclosingPosition.line}"
+
+    val logValues = error match {
+      case None    => List(msg.tree, tags.tree, enclosingFullName, locationLine)
+      case Some(e) => List(msg.tree, e.tree, tags.tree, enclosingFullName, locationLine)
     }
 
     val logExpr   = q"$consoleLogger.${TermName(logLevel.methodName)}(..$logValues)"

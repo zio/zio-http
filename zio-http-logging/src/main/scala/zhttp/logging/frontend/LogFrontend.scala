@@ -1,7 +1,7 @@
 package zhttp.logging.frontend
-import zhttp.logging.{LogLevel, LogLine}
 import zhttp.logging.Setup.LogFormat
 import zhttp.logging.frontend.LogFrontend.Config
+import zhttp.logging.{LogLevel, LogLine}
 
 import java.io.{PrintWriter, StringWriter}
 import java.time.LocalDateTime
@@ -9,16 +9,31 @@ import scala.io.AnsiColor
 
 trait LogFrontend {
   private def buildLines(
-    name: String,
     msg: String,
     throwable: Option[Throwable],
     logLevel: LogLevel,
     tags: List[String],
+    enclosingClass: String,
+    lineNumber: Int,
   ): List[LogLine] = {
-    throwable.fold(List(LogLine(name, LocalDateTime.now(), thread, logLevel, msg, tags, throwable)))(t =>
+    throwable.fold(
       List(
-        LogLine(name, LocalDateTime.now(), thread, logLevel, msg, tags, throwable),
-        LogLine(name, LocalDateTime.now(), thread, logLevel, stackTraceAsString(t), tags, throwable),
+        LogLine(config.name, LocalDateTime.now(), thread, logLevel, msg, tags, throwable, enclosingClass, lineNumber),
+      ),
+    )(t =>
+      List(
+        LogLine(config.name, LocalDateTime.now(), thread, logLevel, msg, tags, throwable, enclosingClass, lineNumber),
+        LogLine(
+          config.name,
+          LocalDateTime.now(),
+          thread,
+          logLevel,
+          stackTraceAsString(t),
+          tags,
+          throwable,
+          enclosingClass,
+          lineNumber,
+        ),
       ),
     )
   }
@@ -28,9 +43,13 @@ trait LogFrontend {
     throwable: Option[Throwable],
     logLevel: LogLevel,
     tags: List[String],
+    enclosingClass: String,
+    lineNumber: Int,
   ): Unit =
     if (config.filter(config.name)) {
-      buildLines(msg, throwable, logLevel, tags).foreach { line => log(config.format(line).toString) }
+      buildLines(msg, throwable, logLevel, tags, enclosingClass, lineNumber).foreach { line =>
+        log(config.format(line).toString)
+      }
     }
 
   private def stackTraceAsString(throwable: Throwable): String = {
@@ -45,30 +64,53 @@ trait LogFrontend {
 
   def log(msg: String): Unit
 
-  final def debug(name: String, msg: String, tags: List[String]): Unit = logMayBe(msg, None, LogLevel.DEBUG, tags)
+  final def debug(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
+    logMayBe(msg, None, LogLevel.DEBUG, tags, enclosingClass, lineNumber)
 
-  final def debug(name: String, msg: String, throwable: Throwable, tags: List[String]): Unit =
-    logMayBe(name, msg, Some(throwable), LogLevel.DEBUG, tags)
+  final def debug(
+    msg: String,
+    throwable: Throwable,
+    tags: List[String],
+    enclosingClass: String,
+    lineNumber: Int,
+  ): Unit =
+    logMayBe(msg, Some(throwable), LogLevel.DEBUG, tags, enclosingClass, lineNumber)
 
-  final def error(name: String, msg: String, tags: List[String]): Unit = logMayBe(name, msg, None, LogLevel.ERROR, tags)
+  final def error(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
+    logMayBe(msg, None, LogLevel.ERROR, tags, enclosingClass, lineNumber)
 
-  final def error(name: String, msg: String, throwable: Throwable, tags: List[String]): Unit =
-    logMayBe(name, msg, Some(throwable), LogLevel.ERROR, tags)
+  final def error(
+    msg: String,
+    throwable: Throwable,
+    tags: List[String],
+    enclosingClass: String,
+    lineNumber: Int,
+  ): Unit =
+    logMayBe(msg, Some(throwable), LogLevel.ERROR, tags, enclosingClass, lineNumber)
 
-  final def info(name: String, msg: String, tags: List[String]): Unit = logMayBe(name, msg, None, LogLevel.INFO, tags)
+  final def info(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
+    logMayBe(msg, None, LogLevel.INFO, tags, enclosingClass, lineNumber)
 
-  final def info(name: String, msg: String, throwable: Throwable, tags: List[String]): Unit =
-    logMayBe(name, msg, Some(throwable), LogLevel.INFO, tags)
+  final def info(msg: String, throwable: Throwable, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
+    logMayBe(msg, Some(throwable), LogLevel.INFO, tags, enclosingClass, lineNumber)
 
-  final def trace(name: String, msg: String, tags: List[String]): Unit = logMayBe(name, msg, None, LogLevel.TRACE, tags)
+  final def trace(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
+    logMayBe(msg, None, LogLevel.TRACE, tags, enclosingClass, lineNumber)
 
-  final def trace(name: String, msg: String, throwable: Throwable, tags: List[String]): Unit =
-    logMayBe(name, msg, Some(throwable), LogLevel.TRACE, tags)
+  final def trace(
+    msg: String,
+    throwable: Throwable,
+    tags: List[String],
+    enclosingClass: String,
+    lineNumber: Int,
+  ): Unit =
+    logMayBe(msg, Some(throwable), LogLevel.TRACE, tags, enclosingClass, lineNumber)
 
-  final def warn(name: String, msg: String, tags: List[String]): Unit = logMayBe(name, msg, None, LogLevel.WARN, tags)
+  final def warn(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
+    logMayBe(msg, None, LogLevel.WARN, tags, enclosingClass, lineNumber)
 
-  final def warn(name: String, msg: String, throwable: Throwable, tags: List[String]): Unit =
-    logMayBe(name, msg, Some(throwable), LogLevel.WARN, tags)
+  final def warn(msg: String, throwable: Throwable, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
+    logMayBe(msg, Some(throwable), LogLevel.WARN, tags, enclosingClass, lineNumber)
 }
 
 object LogFrontend {
@@ -102,7 +144,7 @@ object LogFrontend {
       AnsiColor.YELLOW,
     )
 
-    def determine(text: String): String = colors(text.hashCode % (colors.size - 1))
+    def determine(text: String): String = colors(Math.abs(text.hashCode) % (colors.size - 1))
 
     override def log(msg: String): Unit = {
       val color = determine(msg)
