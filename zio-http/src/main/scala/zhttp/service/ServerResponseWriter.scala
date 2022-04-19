@@ -12,11 +12,9 @@ import java.io.File
 
 private[zhttp] final class ServerResponseWriter[R](
   runtime: HttpRuntime[R],
-  configuration: Server.Config[R, Throwable],
+  config: Server.Config[R, Throwable],
   serverTime: ServerTime,
 ) {
-
-  val config: Server.Config[R, Throwable] = configuration
 
   def write(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     ctx.write(encodeResponse(msg))
