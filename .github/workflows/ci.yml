@@ -938,7 +938,7 @@ jobs:
       - if: ${{ github.event.pull_request.head.repo.full_name == 'dream11/zio-http' && contains(github.event.pull_request.labels.*.name, 'run jmh') }}
         uses: peter-evans/commit-comment@v1
         with:
-          sha: ${{github.sha}}
+          sha: ${{github.event.pull_request.head.sha}}
           body: |
 
             **🚀 Jmh Benchmark:**

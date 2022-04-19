@@ -117,7 +117,7 @@ object JmhBenchmarkWorkflow {
             ref = UseRef.Public("peter-evans", "commit-comment", "v1"),
             cond = Some ("${{ github.event.pull_request.head.repo.full_name == 'dream11/zio-http' && contains(github.event.pull_request.labels.*.name, 'run jmh') }}"),
             params = Map(
-              "sha"  -> "${{github.sha}}",
+              "sha"  -> "${{github.event.pull_request.head.sha}}",
               "body" ->
                 """
                   |**\uD83D\uDE80 Jmh Benchmark:**
