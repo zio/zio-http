@@ -14,7 +14,7 @@ private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
-  serverResponseWriter: ServerResponseWriter[R],
+  resWriter: ServerResponseWriter[R],
 ) extends SimpleChannelInboundHandler[HttpObject](false)
     with WebSocketUpgrade[R] { self =>
 
@@ -54,7 +54,7 @@ private[zhttp] final case class Handler[R](
           )
         catch {
           case throwable: Throwable =>
-            serverResponseWriter.write(
+            resWriter.write(
               Response
                 .fromHttpError(HttpError.InternalServerError(cause = Some(throwable)))
                 .withConnection(HeaderValues.close),
@@ -98,7 +98,7 @@ private[zhttp] final case class Handler[R](
           )
         catch {
           case throwable: Throwable =>
-            serverResponseWriter.write(
+            resWriter.write(
               Response
                 .fromHttpError(HttpError.InternalServerError(cause = Some(throwable)))
                 .withConnection(HeaderValues.close),
@@ -137,20 +137,20 @@ private[zhttp] final case class Handler[R](
               cause.failureOrCause match {
                 case Left(Some(cause)) =>
                   UIO {
-                    serverResponseWriter.write(
+                    resWriter.write(
                       Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),
                       jReq,
                     )
                   }
                 case Left(None)        =>
                   UIO {
-                    serverResponseWriter.write(Response.status(Status.NotFound), jReq)
+                    resWriter.write(Response.status(Status.NotFound), jReq)
                   }
                 case Right(other)      =>
                   other.dieOption match {
                     case Some(defect) =>
                       UIO {
-                        serverResponseWriter.write(
+                        resWriter.write(
                           Response.fromHttpError(HttpError.InternalServerError(cause = Some(defect))),
                           jReq,
                         )
@@ -164,7 +164,7 @@ private[zhttp] final case class Handler[R](
               else {
                 for {
                   _ <- ZIO {
-                    serverResponseWriter.write(res, jReq)
+                    resWriter.write(res, jReq)
                   }
                 } yield ()
               },
@@ -175,23 +175,23 @@ private[zhttp] final case class Handler[R](
         if (self.isWebSocket(res)) {
           self.upgradeToWebSocket(jReq, res)
         } else {
-          serverResponseWriter.write(res, jReq): Unit
+          resWriter.write(res, jReq): Unit
         }
 
       case HExit.Failure(e) =>
-        serverResponseWriter.write(
+        resWriter.write(
           Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))),
           jReq,
         ): Unit
 
       case HExit.Die(e) =>
-        serverResponseWriter.write(
+        resWriter.write(
           Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))),
           jReq,
         ): Unit
 
       case HExit.Empty =>
-        serverResponseWriter.write(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))), jReq): Unit
+        resWriter.write(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))), jReq): Unit
 
     }
   }
@@ -205,7 +205,7 @@ private[zhttp] final case class Handler[R](
     }
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
-    serverResponseWriter.config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
+    resWriter.config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
   }
 
 }
