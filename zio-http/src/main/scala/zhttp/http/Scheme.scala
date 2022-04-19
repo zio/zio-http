@@ -44,17 +44,9 @@ object Scheme       {
    * Decodes a string to an Option of Scheme. Returns None in case of
    * null/non-valid Scheme
    */
-  def decode(scheme: String): Option[Scheme] = {
+  def decode(scheme: String): Option[Scheme] =
     if (scheme == null) None
-    else
-      scheme.toUpperCase match {
-        case "HTTPS" => Option(HTTPS)
-        case "HTTP"  => Option(HTTP)
-        case "WS"    => Option(WS)
-        case "WSS"   => Option(WSS)
-        case _       => None
-      }
-  }
+    else Option(unsafeDecode(scheme))
 
   private[zhttp] def unsafeDecode(scheme: String): Scheme = {
     if (scheme == null) null
