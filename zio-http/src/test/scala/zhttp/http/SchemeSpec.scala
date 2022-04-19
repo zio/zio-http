@@ -3,7 +3,7 @@ package zhttp.http
 import io.netty.handler.codec.http.HttpScheme
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import zhttp.internal.HttpGen
-import zio.test.Assertion.{isNone, isNull}
+import zio.test.Assertion.isNone
 import zio.test._
 
 object SchemeSpec extends DefaultRunnableSpec {
@@ -15,14 +15,6 @@ object SchemeSpec extends DefaultRunnableSpec {
     } +
       test("null string decode") {
         assert(Scheme.decode(null))(isNone)
-      } +
-      testM("string unsafeDecode") {
-        checkAll(HttpGen.scheme) { scheme =>
-          assertTrue(Scheme.unsafeDecode(scheme.encode) == scheme)
-        }
-      } +
-      test("null string unsafeDecode") {
-        assert(Scheme.unsafeDecode(null))(isNull)
       } +
       testM("java http scheme") {
         checkAll(jHttpScheme) { jHttpScheme =>

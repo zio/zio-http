@@ -47,7 +47,7 @@ object Scheme       {
   def decode(scheme: String): Option[Scheme] =
     Option(unsafeDecode(scheme))
 
-  private[zhttp] def unsafeDecode(scheme: String): Scheme = {
+  private def unsafeDecode(scheme: String): Scheme = {
     if (scheme == null) null
     else
       scheme.length match {

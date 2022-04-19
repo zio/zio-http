@@ -121,9 +121,9 @@ object URL {
 
   private def fromAbsoluteURI(uri: URI): Option[URL] = {
     for {
-      host <- Option(uri.getHost)
-      path <- Option(uri.getRawPath)
-      scheme     = Scheme.unsafeDecode(uri.getScheme)
+      scheme <- Scheme.decode(uri.getScheme)
+      host   <- Option(uri.getHost)
+      path   <- Option(uri.getRawPath)
       port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
       connection = URL.Location.Absolute(scheme, host, port)
     } yield URL(Path(path), connection, queryParams(uri.getRawQuery), Fragment.fromURI(uri))

@@ -12,7 +12,7 @@ class SchemeDecodeBenchmark {
 
   @Benchmark
   def benchmarkSchemeDecode(): Unit = {
-    (0 to MAX).foreach(_ => Scheme.unsafeDecode("HTTP"))
+    (0 to MAX).foreach(_ => Scheme.decode("HTTP"))
     ()
   }
 }
