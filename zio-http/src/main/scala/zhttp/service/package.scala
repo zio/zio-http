@@ -1,6 +1,12 @@
 package zhttp
 
-import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup, ServerChannel}
+import io.netty.channel.{
+  Channel,
+  ChannelFactory => JChannelFactory,
+  ChannelHandlerContext,
+  EventLoopGroup => JEventLoopGroup,
+  ServerChannel,
+}
 import zio.Has
 
 package object service {
@@ -28,4 +34,6 @@ package object service {
   type EventLoopGroup       = Has[JEventLoopGroup]
   type ServerChannelFactory = Has[JChannelFactory[ServerChannel]]
   type UServer              = Server[Any, Nothing]
+  private[zhttp] type Ctx   = ChannelHandlerContext
+
 }

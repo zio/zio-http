@@ -1,29 +1,22 @@
-package zhttp.service.server.content.handlers
+package zhttp.service
 
 import io.netty.buffer.ByteBuf
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Response}
-import zhttp.logging.Logger
 import zhttp.service.server.ServerTime
-import zhttp.service.{ChannelFuture, HttpRuntime, Server}
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
 
 import java.io.File
 
-private[zhttp] trait ServerResponseHandler[R] {
-  type Ctx = ChannelHandlerContext
-  val rt: HttpRuntime[R]
-  val config: Server.Config[R, Throwable]
+private[zhttp] final class ServerResponseWriter[R](
+  runtime: HttpRuntime[R],
+  config: Server.Config[R, Throwable],
+  serverTime: ServerTime,
+) {
 
-  def serverTime: ServerTime
-
-  private val log  = Logger.make("zhttp.service.server.content.handlers.ServerResponseHandler")
-  private val tags = List("zhttp")
-
-  def writeResponse(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
-    log.trace(s"Sending response $msg", tags)
+  def write(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     ctx.write(encodeResponse(msg))
     writeData(msg.data.asInstanceOf[HttpData.Complete], jReq)
     ()
@@ -79,9 +72,7 @@ private[zhttp] trait ServerResponseHandler[R] {
    */
   private def releaseRequest(jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     jReq match {
-      case jReq: FullHttpRequest if jReq.refCnt() > 0 =>
-        log.debug(s"Releasing request refCount: ${jReq.refCnt()}", tags)
-        jReq.release(jReq.refCnt()): Unit
+      case jReq: FullHttpRequest if jReq.refCnt() > 0 => jReq.release(jReq.refCnt()): Unit
       case _                                          => ()
     }
   }
@@ -90,7 +81,6 @@ private[zhttp] trait ServerResponseHandler[R] {
    * Writes file content to the Channel. Does not use Chunked transfer encoding
    */
   private def unsafeWriteFileContent(file: File)(implicit ctx: ChannelHandlerContext): Unit = {
-    log.trace(s"Sending file as response.", tags)
     // Write the content.
     ctx.write(new DefaultFileRegion(file, 0, file.length()))
     // Write the end marker.
@@ -112,7 +102,7 @@ private[zhttp] trait ServerResponseHandler[R] {
       case HttpData.Empty => flushReleaseAndRead(jReq)
 
       case HttpData.BinaryStream(stream) =>
-        rt.unsafeRun(ctx) {
+        runtime.unsafeRun(ctx) {
           writeStreamContent(stream).ensuring(UIO(releaseAndRead(jReq)))
         }
 
