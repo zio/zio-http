@@ -19,10 +19,11 @@ private[zhttp] trait ServerResponseHandler[R] {
 
   def serverTime: ServerTime
 
-  private val log = Logger.make("zhttp.service.server.content.handlers.ServerResponseHandler")
+  private val log  = Logger.make("zhttp.service.server.content.handlers.ServerResponseHandler")
+  private val tags = List("zhttp")
 
   def writeResponse(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
-    log.trace(s"Sending response $msg")
+    log.trace(s"Sending response $msg", tags)
     ctx.write(encodeResponse(msg))
     writeData(msg.data.asInstanceOf[HttpData.Complete], jReq)
     ()
@@ -79,7 +80,7 @@ private[zhttp] trait ServerResponseHandler[R] {
   private def releaseRequest(jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     jReq match {
       case jReq: FullHttpRequest if jReq.refCnt() > 0 =>
-        log.debug(s"Releasing request refCount: ${jReq.refCnt()}")
+        log.debug(s"Releasing request refCount: ${jReq.refCnt()}", tags)
         jReq.release(jReq.refCnt()): Unit
       case _                                          => ()
     }
@@ -89,7 +90,7 @@ private[zhttp] trait ServerResponseHandler[R] {
    * Writes file content to the Channel. Does not use Chunked transfer encoding
    */
   private def unsafeWriteFileContent(file: File)(implicit ctx: ChannelHandlerContext): Unit = {
-    log.trace(s"Sending file as response.")
+    log.trace(s"Sending file as response.", tags)
     // Write the content.
     ctx.write(new DefaultFileRegion(file, 0, file.length()))
     // Write the end marker.

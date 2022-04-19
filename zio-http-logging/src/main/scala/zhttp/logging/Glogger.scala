@@ -1,7 +1,5 @@
 package zhttp.logging
 
-import zhttp.logging.LogFrontend.LogLine
-
 /**
  * Core Logger class.
  *

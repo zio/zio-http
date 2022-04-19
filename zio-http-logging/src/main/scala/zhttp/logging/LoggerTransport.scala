@@ -1,6 +1,5 @@
 package zhttp.logging
 
-import zhttp.logging.LogFrontend.LogLine
 import zhttp.logging.LoggerTransport.Transport
 
 /**
@@ -9,7 +8,7 @@ import zhttp.logging.LoggerTransport.Transport
  */
 final case class LoggerTransport(level: LogLevel, format: _ => CharSequence, transport: Transport) { self =>
   def withFormat(format: LogLine => CharSequence): LoggerTransport = self.copy(format = format)
-  def withFormat(format: LogFormat): LoggerTransport               = self.copy(format = format(_))
+  def withFormat(format: LogFormat): LoggerTransport               = self.copy(format = LogFormat.run(format) _)
   def withLevel(level: LogLevel): LoggerTransport                  = self.copy(level = level)
 }
 

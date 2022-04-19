@@ -21,17 +21,18 @@ private[zhttp] final case class Handler[R](
     with WebSocketUpgrade[R]
     with ServerResponseHandler[R] { self =>
 
-  private val log = Logger.make("zhttp.service.Handler")
+  private val log  = Logger.make("zhttp.service.Handler")
+  private val tags = List("zhttp")
 
   override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
 
-    log.trace("server.Handler-channelRead0")
+    log.trace("server.Handler-channelRead0", tags)
 
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
       case jReq: FullHttpRequest =>
         jReq.touch("server.Handler-channelRead0")
-        log.trace(s"Interpreting FullHttpRequest: $jReq")
+        log.trace(s"Interpreting FullHttpRequest: $jReq", tags)
         try
           unsafeRun(
             jReq,
@@ -70,7 +71,7 @@ private[zhttp] final case class Handler[R](
             ): Unit
         }
       case jReq: HttpRequest     =>
-        log.trace(s"Interpreting HttpRequest: $jReq")
+        log.trace(s"Interpreting HttpRequest: $jReq", tags)
         if (canHaveBody(jReq)) {
           ctx.channel().config().setAutoRead(false): Unit
         }
@@ -116,11 +117,11 @@ private[zhttp] final case class Handler[R](
         }
 
       case msg: HttpContent =>
-        log.trace(s"Interpreting HttpContent: $msg")
+        log.trace(s"Interpreting HttpContent: $msg", tags)
         ctx.fireChannelRead(msg): Unit
 
       case _ =>
-        log.error(s"Received unsupported message $msg")
+        log.error(s"Received unsupported message $msg", tags)
         throw new IllegalStateException(s"Unexpected message type: ${msg.getClass.getName}")
 
     }
@@ -214,7 +215,7 @@ private[zhttp] final case class Handler[R](
   override val rt: HttpRuntime[R] = runtime
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
-    log.error(s"Exception caught.", cause)
+    log.error(s"Exception caught.", cause, tags)
     config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
   }
 }

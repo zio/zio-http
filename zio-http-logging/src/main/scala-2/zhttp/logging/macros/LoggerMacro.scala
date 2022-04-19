@@ -47,22 +47,24 @@ private[zhttp] object LoggerMacro {
 
   }
 
-  def debugImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =
-    reflectiveLog(c)(msg, None)(DEBUG)
+  def debugImpl(c: LogCtx)(msg: c.Expr[String], tags: c.Expr[List[String]]): c.universe.Tree =
+    reflectiveLog(c)(msg, None, tags)(DEBUG)
 
-  def errorImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =
-    reflectiveLog(c)(msg, None)(ERROR)
+  def errorImpl(c: LogCtx)(msg: c.Expr[String], tags: c.Expr[List[String]]): c.universe.Tree =
+    reflectiveLog(c)(msg, None, tags)(ERROR)
 
-  def errorImplT(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]): c.universe.Tree =
-    reflectiveLog(c)(msg, Some(throwable))(ERROR)
+  def errorImplT(
+    c: LogCtx,
+  )(msg: c.Expr[String], throwable: c.Expr[Throwable], tags: c.Expr[List[String]]): c.universe.Tree =
+    reflectiveLog(c)(msg, Some(throwable), tags)(ERROR)
 
-  def infoImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =
-    reflectiveLog(c)(msg, None)(INFO)
+  def infoImpl(c: LogCtx)(msg: c.Expr[String], tags: c.Expr[List[String]]): c.universe.Tree =
+    reflectiveLog(c)(msg, None, tags)(INFO)
 
-  def traceImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =
-    reflectiveLog(c)(msg, None)(TRACE)
+  def traceImpl(c: LogCtx)(msg: c.Expr[String], tags: c.Expr[List[String]]): c.universe.Tree =
+    reflectiveLog(c)(msg, None, tags)(TRACE)
 
-  def warnImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =
-    reflectiveLog(c)(msg, None)(WARN)
+  def warnImpl(c: LogCtx)(msg: c.Expr[String], tags: c.Expr[List[String]]): c.universe.Tree =
+    reflectiveLog(c)(msg, None, tags)(WARN)
 
 }

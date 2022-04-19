@@ -1,16 +1,18 @@
 package zhttp.logging
 
-import zhttp.logging.LogFrontend.Config
+import zhttp.logging.frontend.LogFrontend
+import zhttp.logging.frontend.LogFrontend.Config
+import zhttp.logging.Setup.LogFormat
 import zhttp.logging.macros.LoggerMacro._
 
 final class Logger(val frontend: LogFrontend) {
   import scala.language.experimental.macros
-  def trace(msg: String): Unit = macro traceImpl
-  def debug(msg: String): Unit = macro debugImpl
-  def info(msg: String): Unit = macro infoImpl
-  def warn(msg: String): Unit = macro warnImpl
-  def error(msg: String): Unit = macro errorImpl
-  def error(msg: String, throwable: Throwable): Unit = macro errorImplT
+  def trace(msg: String, tags: List[String]): Unit = macro traceImpl
+  def debug(msg: String, tags: List[String]): Unit = macro debugImpl
+  def info(msg: String, tags: List[String]): Unit = macro infoImpl
+  def warn(msg: String, tags: List[String]): Unit = macro warnImpl
+  def error(msg: String, tags: List[String]): Unit = macro errorImpl
+  def error(msg: String, throwable: Throwable, tags: List[String]): Unit = macro errorImplT
 }
 
 object Logger {
