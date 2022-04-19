@@ -43,7 +43,7 @@ object JmhBenchmarkWorkflow {
     Seq(
       WorkflowStep.Use(
         ref = UseRef.Public("actions", "download-artifact", "v3"),
-        cond = Some ("${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}"),
+        cond = Some ("${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}"),
         params =Map(
           "name" -> s"Jmh_${branch}_${l.head}",
         ),

@@ -681,7 +681,7 @@ jobs:
         java: [temurin@11]
     runs-on: ${{ matrix.os }}
     steps:
-      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
         uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_CookieDecodeBenchmark
@@ -697,7 +697,7 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_CookieDecodeBenchmark.txt
 
-      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
         uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpCollectEval
@@ -713,7 +713,7 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_HttpCollectEval.txt
 
-      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
         uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpCombineEval
@@ -729,7 +729,7 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_HttpCombineEval.txt
 
-      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
         uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpNestedFlatMapEval
@@ -745,7 +745,7 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_HttpNestedFlatMapEval.txt
 
-      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
         uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpRouteTextPerf
@@ -761,7 +761,7 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_HttpRouteTextPerf.txt
 
-      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
         uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_ProbeContentTypeBenchmark
@@ -777,7 +777,7 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_ProbeContentTypeBenchmark.txt
 
-      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
         uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_SchemeDecodeBenchmark
@@ -793,7 +793,7 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_SchemeDecodeBenchmark.txt
 
-      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
         uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_CookieDecodeBenchmark
@@ -809,7 +809,7 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_CookieDecodeBenchmark.txt
 
-      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
         uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_HttpCollectEval
@@ -825,7 +825,7 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_HttpCollectEval.txt
 
-      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
         uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_HttpCombineEval
@@ -841,7 +841,7 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_HttpCombineEval.txt
 
-      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
         uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_HttpNestedFlatMapEval
@@ -857,7 +857,7 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_HttpNestedFlatMapEval.txt
 
-      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
         uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_HttpRouteTextPerf
@@ -873,7 +873,7 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_HttpRouteTextPerf.txt
 
-      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
         uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_ProbeContentTypeBenchmark
@@ -889,7 +889,7 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_ProbeContentTypeBenchmark.txt
 
-      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
+      - if: ${{ github.event.label.name == 'run jmh' && github.event.pull_request.head.repo.full_name == 'dream11/zio-http' }}
         uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_SchemeDecodeBenchmark
