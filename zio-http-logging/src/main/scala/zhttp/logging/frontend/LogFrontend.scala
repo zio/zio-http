@@ -24,14 +24,13 @@ trait LogFrontend {
   }
 
   private final def logMayBe(
-    name: String,
     msg: String,
     throwable: Option[Throwable],
     logLevel: LogLevel,
     tags: List[String],
   ): Unit =
     if (config.filter(config.name)) {
-      buildLines(name, msg, throwable, logLevel, tags).foreach { line => log(config.format(line).toString) }
+      buildLines(msg, throwable, logLevel, tags).foreach { line => log(config.format(line).toString) }
     }
 
   private def stackTraceAsString(throwable: Throwable): String = {
@@ -46,7 +45,7 @@ trait LogFrontend {
 
   def log(msg: String): Unit
 
-  final def debug(name: String, msg: String, tags: List[String]): Unit = logMayBe(name, msg, None, LogLevel.DEBUG, tags)
+  final def debug(name: String, msg: String, tags: List[String]): Unit = logMayBe(msg, None, LogLevel.DEBUG, tags)
 
   final def debug(name: String, msg: String, throwable: Throwable, tags: List[String]): Unit =
     logMayBe(name, msg, Some(throwable), LogLevel.DEBUG, tags)
