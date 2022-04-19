@@ -126,7 +126,7 @@ sealed trait Server[-R, +E] { self =>
   def withUnsafeChannelPipeline(unsafePipeline: ChannelPipeline => Unit): Server[R, E] =
     Concat(self, UnsafeChannelPipeline(unsafePipeline))
 
-  /** Creates a new serverBoostrap with custom configs **/
+  /** Creates a new serverBoostrap with custom configs * */
   def withUnsafeServerBootstrap(unsafeServerbootstrap: ServerBootstrap => Unit): Server[R, E] =
     Concat(self, UnsafeServerbootstrap(unsafeServerbootstrap))
 
