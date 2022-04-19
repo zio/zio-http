@@ -5,7 +5,7 @@ import io.netty.channel.ChannelHandler
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
 import zhttp.http.headers.HeaderModifier
-import zhttp.service._
+import zhttp.service.{Handler, HttpRuntime, Server, ServerResponseWriter}
 import zio._
 import zio.blocking.{Blocking, effectBlocking}
 import zio.clock.Clock
@@ -635,11 +635,13 @@ object Http {
     self =>
 
     private[zhttp] def compile[R1 <: R](
+      zExec: HttpRuntime[R1],
+      settings: Server.Config[R1, Throwable],
       resWriter: ServerResponseWriter[R1],
     )(implicit
       evE: E <:< Throwable,
     ): ChannelHandler =
-      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], resWriter)
+      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, resWriter)
 
     /**
      * Patches the response produced by the app

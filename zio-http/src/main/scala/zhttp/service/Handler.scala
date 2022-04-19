@@ -12,6 +12,8 @@ import java.net.{InetAddress, InetSocketAddress}
 @Sharable
 private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
+  runtime: HttpRuntime[R],
+  config: Server.Config[R, Throwable],
   serverResponseWriter: ServerResponseWriter[R],
 ) extends SimpleChannelInboundHandler[HttpObject](false)
     with WebSocketUpgrade[R] { self =>
@@ -198,13 +200,12 @@ private[zhttp] final case class Handler[R](
    * Executes program
    */
   private def unsafeRunZIO(program: ZIO[R, Throwable, Any])(implicit ctx: Ctx): Unit =
-    serverResponseWriter.rt.unsafeRun(ctx) {
+    runtime.unsafeRun(ctx) {
       program
     }
-
-  override val runtime: HttpRuntime[R] = serverResponseWriter.rt
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
     serverResponseWriter.config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
   }
+
 }

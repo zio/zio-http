@@ -12,11 +12,11 @@ import java.io.File
 
 private[zhttp] final class ServerResponseWriter[R](
   runtime: HttpRuntime[R],
-  conf: Server.Config[R, Throwable],
+  configuration: Server.Config[R, Throwable],
   serverTime: ServerTime,
 ) {
-  val rt: HttpRuntime[R]                  = runtime
-  val config: Server.Config[R, Throwable] = conf
+
+  val config: Server.Config[R, Throwable] = configuration
 
   def write(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     ctx.write(encodeResponse(msg))
@@ -104,7 +104,7 @@ private[zhttp] final class ServerResponseWriter[R](
       case HttpData.Empty => flushReleaseAndRead(jReq)
 
       case HttpData.BinaryStream(stream) =>
-        rt.unsafeRun(ctx) {
+        runtime.unsafeRun(ctx) {
           writeStreamContent(stream).ensuring(UIO(releaseAndRead(jReq)))
         }
 
