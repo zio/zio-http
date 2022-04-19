@@ -307,7 +307,8 @@ jobs:
           cat > Current_CookieDecodeBenchmark.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 CookieDecodeBenchmark" | grep "thrpt" >> ../Current_CookieDecodeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_CookieDecodeBenchmark
           path: Current_CookieDecodeBenchmark.txt
@@ -327,7 +328,8 @@ jobs:
           cat > Main_CookieDecodeBenchmark.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 CookieDecodeBenchmark" | grep "thrpt" >> ../Main_CookieDecodeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_CookieDecodeBenchmark
           path: Main_CookieDecodeBenchmark.txt
@@ -361,7 +363,8 @@ jobs:
           cat > Current_HttpCollectEval.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCollectEval" | grep "thrpt" >> ../Current_HttpCollectEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpCollectEval
           path: Current_HttpCollectEval.txt
@@ -381,7 +384,8 @@ jobs:
           cat > Main_HttpCollectEval.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCollectEval" | grep "thrpt" >> ../Main_HttpCollectEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpCollectEval
           path: Main_HttpCollectEval.txt
@@ -415,7 +419,8 @@ jobs:
           cat > Current_HttpCombineEval.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCombineEval" | grep "thrpt" >> ../Current_HttpCombineEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpCombineEval
           path: Current_HttpCombineEval.txt
@@ -435,7 +440,8 @@ jobs:
           cat > Main_HttpCombineEval.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpCombineEval" | grep "thrpt" >> ../Main_HttpCombineEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpCombineEval
           path: Main_HttpCombineEval.txt
@@ -469,7 +475,8 @@ jobs:
           cat > Current_HttpNestedFlatMapEval.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpNestedFlatMapEval" | grep "thrpt" >> ../Current_HttpNestedFlatMapEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpNestedFlatMapEval
           path: Current_HttpNestedFlatMapEval.txt
@@ -489,7 +496,8 @@ jobs:
           cat > Main_HttpNestedFlatMapEval.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpNestedFlatMapEval" | grep "thrpt" >> ../Main_HttpNestedFlatMapEval.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpNestedFlatMapEval
           path: Main_HttpNestedFlatMapEval.txt
@@ -523,7 +531,8 @@ jobs:
           cat > Current_HttpRouteTextPerf.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpRouteTextPerf" | grep "thrpt" >> ../Current_HttpRouteTextPerf.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_HttpRouteTextPerf
           path: Current_HttpRouteTextPerf.txt
@@ -543,7 +552,8 @@ jobs:
           cat > Main_HttpRouteTextPerf.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 HttpRouteTextPerf" | grep "thrpt" >> ../Main_HttpRouteTextPerf.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_HttpRouteTextPerf
           path: Main_HttpRouteTextPerf.txt
@@ -577,7 +587,8 @@ jobs:
           cat > Current_ProbeContentTypeBenchmark.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ProbeContentTypeBenchmark" | grep "thrpt" >> ../Current_ProbeContentTypeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Current_ProbeContentTypeBenchmark
           path: Current_ProbeContentTypeBenchmark.txt
@@ -597,14 +608,14 @@ jobs:
           cat > Main_ProbeContentTypeBenchmark.txt
           sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 ProbeContentTypeBenchmark" | grep "thrpt" >> ../Main_ProbeContentTypeBenchmark.txt
 
-      - uses: actions/upload-artifact@v3
+      - if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: Jmh_Main_ProbeContentTypeBenchmark
           path: Main_ProbeContentTypeBenchmark.txt
 
-  Jmh_publish:
-    name: Jmh Publish
-    needs: [Jmh_CookieDecodeBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark]
+  Jmh_SchemeDecodeBenchmark:
+    name: Jmh SchemeDecodeBenchmark
     if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
     strategy:
       matrix:
@@ -613,7 +624,65 @@ jobs:
         java: [temurin@11]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 8
+
+      - name: Benchmark_Current
+        id: Benchmark_Current
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          cat > Current_SchemeDecodeBenchmark.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 SchemeDecodeBenchmark" | grep "thrpt" >> ../Current_SchemeDecodeBenchmark.txt
+
+      - if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Current_SchemeDecodeBenchmark
+          path: Current_SchemeDecodeBenchmark.txt
+
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+          ref: main
+
+      - name: Benchmark_Main
+        id: Benchmark_Main
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          cd zio-http
+          sed -i -e '$aaddSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")' project/plugins.sbt
+          cat > Main_SchemeDecodeBenchmark.txt
+          sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 SchemeDecodeBenchmark" | grep "thrpt" >> ../Main_SchemeDecodeBenchmark.txt
+
+      - if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: Jmh_Main_SchemeDecodeBenchmark
+          path: Main_SchemeDecodeBenchmark.txt
+
+  Jmh_publish:
+    name: Jmh Publish
+    needs: [Jmh_CookieDecodeBenchmark, Jmh_HttpCollectEval, Jmh_HttpCombineEval, Jmh_HttpNestedFlatMapEval, Jmh_HttpRouteTextPerf, Jmh_ProbeContentTypeBenchmark, Jmh_SchemeDecodeBenchmark]
+    if: always()
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.8]
+        java: [temurin@11]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_CookieDecodeBenchmark
 
@@ -627,7 +696,8 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_CookieDecodeBenchmark.txt
 
-      - uses: actions/download-artifact@v3
+      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpCollectEval
 
@@ -641,7 +711,8 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_HttpCollectEval.txt
 
-      - uses: actions/download-artifact@v3
+      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpCombineEval
 
@@ -655,7 +726,8 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_HttpCombineEval.txt
 
-      - uses: actions/download-artifact@v3
+      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpNestedFlatMapEval
 
@@ -669,7 +741,8 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_HttpNestedFlatMapEval.txt
 
-      - uses: actions/download-artifact@v3
+      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_HttpRouteTextPerf
 
@@ -683,7 +756,8 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_HttpRouteTextPerf.txt
 
-      - uses: actions/download-artifact@v3
+      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Current_ProbeContentTypeBenchmark
 
@@ -697,7 +771,23 @@ jobs:
              echo $B_VALUE >> Current.txt
            done < Current_ProbeContentTypeBenchmark.txt
 
-      - uses: actions/download-artifact@v3
+      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Current_SchemeDecodeBenchmark
+
+      - name: Result Current SchemeDecodeBenchmark
+        id: Result_Current_SchemeDecodeBenchmark
+        run: |
+          while IFS= read -r line; do
+             IFS=' ' read -ra PARSED_RESULT <<< "$line"
+             echo ${PARSED_RESULT[1]} >> parsed_Current.txt
+             B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
+             echo $B_VALUE >> Current.txt
+           done < Current_SchemeDecodeBenchmark.txt
+
+      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_CookieDecodeBenchmark
 
@@ -711,7 +801,8 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_CookieDecodeBenchmark.txt
 
-      - uses: actions/download-artifact@v3
+      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_HttpCollectEval
 
@@ -725,7 +816,8 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_HttpCollectEval.txt
 
-      - uses: actions/download-artifact@v3
+      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_HttpCombineEval
 
@@ -739,7 +831,8 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_HttpCombineEval.txt
 
-      - uses: actions/download-artifact@v3
+      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_HttpNestedFlatMapEval
 
@@ -753,7 +846,8 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_HttpNestedFlatMapEval.txt
 
-      - uses: actions/download-artifact@v3
+      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_HttpRouteTextPerf
 
@@ -767,7 +861,8 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_HttpRouteTextPerf.txt
 
-      - uses: actions/download-artifact@v3
+      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v3
         with:
           name: Jmh_Main_ProbeContentTypeBenchmark
 
@@ -781,8 +876,24 @@ jobs:
              echo $B_VALUE >> Main.txt
            done < Main_ProbeContentTypeBenchmark.txt
 
+      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v3
+        with:
+          name: Jmh_Main_SchemeDecodeBenchmark
+
+      - name: Result Main SchemeDecodeBenchmark
+        id: Result_Main_SchemeDecodeBenchmark
+        run: |
+          while IFS= read -r line; do
+             IFS=' ' read -ra PARSED_RESULT <<< "$line"
+             echo ${PARSED_RESULT[1]} >> parsed_Main.txt
+             B_VALUE=$(echo ${PARSED_RESULT[1]}": "${PARSED_RESULT[4]}" ops/sec")
+             echo $B_VALUE >> Main.txt
+           done < Main_SchemeDecodeBenchmark.txt
+
       - name: Format Output
         id: fomat_output
+        if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
         run: |
           cat parsed_Current.txt parsed_Main.txt | sort -u > c.txt
                     while IFS= read -r line; do
@@ -810,7 +921,8 @@ jobs:
            echo ::set-output name=body::$(echo $body)
 
       
-      - uses: peter-evans/commit-comment@v1
+      - if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+        uses: peter-evans/commit-comment@v1
         with:
           sha: ${{github.sha}}
           body: |
