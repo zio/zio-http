@@ -10,7 +10,7 @@ package zhttp.html
  *   elements.
  */
 sealed trait Dom { self =>
-  def encode: String = self match {
+  def encode: CharSequence = self match {
     case Dom.Element(name, children) =>
       val attributes = children.collect { case self: Dom.Attribute => self.encode }
 
@@ -35,19 +35,19 @@ sealed trait Dom { self =>
 }
 
 object Dom {
-  def attr(name: String, value: String): Dom = Dom.Attribute(name, value)
+  def attr(name: CharSequence, value: CharSequence): Dom = Dom.Attribute(name, value)
 
-  def element(name: String, children: Dom*): Dom = Dom.Element(name, children)
+  def element(name: CharSequence, children: Dom*): Dom = Dom.Element(name, children)
 
   def empty: Dom = Empty
 
-  def text(data: String): Dom = Dom.Text(data)
+  def text(data: CharSequence): Dom = Dom.Text(data)
 
-  private[zhttp] final case class Element(name: String, children: Seq[Dom]) extends Dom
+  private[zhttp] final case class Element(name: CharSequence, children: Seq[Dom]) extends Dom
 
-  private[zhttp] final case class Text(data: String) extends Dom
+  private[zhttp] final case class Text(data: CharSequence) extends Dom
 
-  private[zhttp] final case class Attribute(name: String, value: String) extends Dom
+  private[zhttp] final case class Attribute(name: CharSequence, value: CharSequence) extends Dom
 
   private[zhttp] object Empty extends Dom
 }

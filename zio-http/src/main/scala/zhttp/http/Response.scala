@@ -1,22 +1,63 @@
 package zhttp.http
 
-import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpResponse}
+import io.netty.handler.codec.http.{FullHttpResponse, HttpHeaderNames, HttpResponse}
 import zhttp.html._
 import zhttp.http.headers.HeaderExtension
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
-import zio.{Chunk, Task, UIO, ZIO}
+import zio.{UIO, ZIO}
 
 import java.io.{PrintWriter, StringWriter}
-import java.nio.charset.Charset
 
 final case class Response private (
   status: Status,
   headers: Headers,
   data: HttpData,
   private[zhttp] val attribute: Response.Attribute,
-) extends HeaderExtension[Response] { self =>
+) extends HeaderExtension[Response]
+    with HttpDataExtension[Response] { self =>
+
+  /**
+   * Encodes the Response into a Netty HttpResponse. Sets default headers such
+   * as `content-length`. For performance reasons, it is possible that it uses a
+   * FullHttpResponse if the complete data is available. Otherwise, it would
+   * create a DefaultHttpResponse without any content.
+   */
+  private[zhttp] def unsafeEncode(): HttpResponse = {
+    import io.netty.handler.codec.http._
+
+    val jHeaders = self.headers.encode
+    val jContent = self.data match {
+      case HttpData.UnsafeAsync(_) => null
+      case data: HttpData.Complete =>
+        data match {
+          case HttpData.FromAsciiString(text) => Unpooled.wrappedBuffer(text.array())
+          case HttpData.BinaryChunk(data)     => Unpooled.wrappedBuffer(data.toArray)
+          case HttpData.BinaryByteBuf(data)   => data
+          case HttpData.BinaryStream(_)       => null
+          case HttpData.Empty                 => Unpooled.EMPTY_BUFFER
+          case HttpData.JavaFile(_)           => null
+        }
+    }
+
+    val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
+    if (jContent == null) {
+      // TODO: Unit test for this
+      // Client can't handle chunked responses and currently treats them as a FullHttpResponse.
+      // Due to this client limitation it is not possible to write a unit-test for this.
+      // Alternative would be to use sttp client for this use-case.
+
+      if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
+
+      new DefaultHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jHeaders)
+    } else {
+      val jResponse = new DefaultFullHttpResponse(HTTP_1_1, self.status.asJava, jContent, false)
+      if (!hasContentLength) jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, jContent.readableBytes())
+      jResponse.headers().add(jHeaders)
+      jResponse
+    }
+  }
 
   /**
    * Adds cookies in the response headers.
@@ -49,6 +90,11 @@ final case class Response private (
     self.copy(status = status)
 
   /**
+   * Creates an Http from a Response
+   */
+  def toHttp: Http[Any, Nothing, Any, Response] = Http.succeed(self)
+
+  /**
    * Updates the headers using the provided function
    */
   override def updateHeaders(update: Headers => Headers): Response =
@@ -58,53 +104,18 @@ final case class Response private (
    * A more efficient way to append server-time to the response headers.
    */
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
-
-  /**
-   * Extracts the body as ByteBuf
-   */
-  private[zhttp] def bodyAsByteBuf: Task[ByteBuf] = self.data.toByteBuf
-
-  /**
-   * Encodes the Response into a Netty HttpResponse. Sets default headers such
-   * as `content-length`. For performance reasons, it is possible that it uses a
-   * FullHttpResponse if the complete data is available. Otherwise, it would
-   * create a DefaultHttpResponse without any content.
-   */
-  private[zhttp] def unsafeEncode(): HttpResponse = {
-    import io.netty.handler.codec.http._
-
-    val jHeaders = self.headers.encode
-    val jContent = self.data match {
-      case HttpData.Text(text, charset) => Unpooled.wrappedBuffer(text.getBytes(charset))
-      case HttpData.BinaryChunk(data)   => Unpooled.copiedBuffer(data.toArray)
-      case HttpData.BinaryByteBuf(data) => data
-      case HttpData.BinaryStream(_)     => null
-      case HttpData.Empty               => Unpooled.EMPTY_BUFFER
-      case HttpData.RandomAccessFile(_) => null
-    }
-
-    val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
-    if (jContent == null) {
-      // TODO: Unit test for this
-      // Client can't handle chunked responses and currently treats them as a FullHttpResponse.
-      // Due to this client limitation it is not possible to write a unit-test for this.
-      // Alternative would be to use sttp client for this use-case.
-
-      if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
-
-      new DefaultHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jHeaders)
-    } else {
-      val jResponse = new DefaultFullHttpResponse(HTTP_1_1, self.status.asJava, jContent, false)
-      if (!hasContentLength) jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, jContent.readableBytes())
-      jResponse.headers().add(jHeaders)
-      jResponse
-    }
-  }
 }
 
 object Response {
+  private[zhttp] def unsafeFromJResponse(jRes: FullHttpResponse): Response = {
+    val status  = Status.fromHttpResponseStatus(jRes.status())
+    val headers = Headers.decode(jRes.headers())
+    val data    = HttpData.fromByteBuf(Unpooled.copiedBuffer(jRes.content()))
+    Response(status, headers, data)
+  }
+
   def apply[R, E](
-    status: Status = Status.OK,
+    status: Status = Status.Ok,
     headers: Headers = Headers.empty,
     data: HttpData = HttpData.Empty,
   ): Response =
@@ -152,7 +163,7 @@ object Response {
   def fromSocketApp[R](app: SocketApp[R]): ZIO[R, Nothing, Response] = {
     ZIO.environment[R].map { env =>
       Response(
-        Status.SWITCHING_PROTOCOLS,
+        Status.SwitchingProtocols,
         Headers.empty,
         HttpData.empty,
         Attribute(socketApp = Option(app.provideEnvironment(env))),
@@ -164,7 +175,7 @@ object Response {
   /**
    * Creates a response with content-type set to text/html
    */
-  def html(data: Html, status: Status = Status.OK): Response =
+  def html(data: Html, status: Status = Status.Ok): Response =
     Response(
       status = status,
       data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
@@ -173,7 +184,7 @@ object Response {
 
   @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
   def http[R, E](
-    status: Status = Status.OK,
+    status: Status = Status.Ok,
     headers: Headers = Headers.empty,
     data: HttpData = HttpData.empty,
   ): Response = Response(status, headers, data)
@@ -181,23 +192,23 @@ object Response {
   /**
    * Creates a response with content-type set to application/json
    */
-  def json(data: String): Response =
+  def json(data: CharSequence): Response =
     Response(
-      data = HttpData.fromChunk(Chunk.fromArray(data.getBytes(HTTP_CHARSET))),
+      data = HttpData.fromCharSequence(data),
       headers = Headers(HeaderNames.contentType, HeaderValues.applicationJson),
     )
 
   /**
    * Creates an empty response with status 200
    */
-  def ok: Response = Response(Status.OK)
+  def ok: Response = Response(Status.Ok)
 
   /**
    * Creates an empty response with status 301 or 302 depending on if it's
    * permanent or not.
    */
-  def redirect(location: String, isPermanent: Boolean = false): Response = {
-    val status = if (isPermanent) Status.PERMANENT_REDIRECT else Status.TEMPORARY_REDIRECT
+  def redirect(location: CharSequence, isPermanent: Boolean = false): Response = {
+    val status = if (isPermanent) Status.PermanentRedirect else Status.TemporaryRedirect
     Response(status, Headers.location(location))
   }
 
@@ -209,9 +220,9 @@ object Response {
   /**
    * Creates a response with content-type set to text/plain
    */
-  def text(text: String, charset: Charset = HTTP_CHARSET): Response =
+  def text(text: CharSequence): Response =
     Response(
-      data = HttpData.fromString(text, charset),
+      data = HttpData.fromCharSequence(text),
       headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
     )
 
