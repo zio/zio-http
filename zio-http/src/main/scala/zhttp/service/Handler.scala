@@ -4,6 +4,7 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
+import zhttp.logging.Logger
 import zhttp.service.server.content.handlers.ServerResponseHandler
 import zhttp.service.server.{ServerTime, WebSocketUpgrade}
 import zio.{UIO, ZIO}
@@ -20,16 +21,17 @@ private[zhttp] final case class Handler[R](
     with WebSocketUpgrade[R]
     with ServerResponseHandler[R] { self =>
 
-  // private val log = Logger.getLogger("zhttp.service.Handler")
+  private val log = Logger.make("zhttp.service.Handler")
 
   override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
 
-    // log.trace("server.Handler-channelRead0")
+    log.trace("server.Handler-channelRead0")
+
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
       case jReq: FullHttpRequest =>
         jReq.touch("server.Handler-channelRead0")
-        //   log.trace(s"Interpreting FullHttpRequest: $jReq")
+        log.trace(s"Interpreting FullHttpRequest: $jReq")
         try
           unsafeRun(
             jReq,
@@ -68,7 +70,7 @@ private[zhttp] final case class Handler[R](
             ): Unit
         }
       case jReq: HttpRequest     =>
-        //    log.trace(s"Interpreting HttpRequest: $jReq")
+        log.trace(s"Interpreting HttpRequest: $jReq")
         if (canHaveBody(jReq)) {
           ctx.channel().config().setAutoRead(false): Unit
         }
@@ -114,11 +116,11 @@ private[zhttp] final case class Handler[R](
         }
 
       case msg: HttpContent =>
-        // log.trace(s"Interpreting HttpContent: $msg")
+        log.trace(s"Interpreting HttpContent: $msg")
         ctx.fireChannelRead(msg): Unit
 
       case _ =>
-        // log.error(s"Received unsupported message $msg")
+        log.error(s"Received unsupported message $msg")
         throw new IllegalStateException(s"Unexpected message type: ${msg.getClass.getName}")
 
     }
@@ -212,7 +214,7 @@ private[zhttp] final case class Handler[R](
   override val rt: HttpRuntime[R] = runtime
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
-    // log.error(s"Exception caught.", cause)
+    log.error(s"Exception caught.", cause)
     config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
   }
 }
