@@ -40,22 +40,9 @@ object HttpGen {
   def httpVersion: Gen[Random with Sized, Version] =
     Gen.fromIterable(List(Version.Http_1_0, Version.Http_1_1))
 
-  def nonEmptyCookies: Gen[Random with Sized, Cookie] = for {
-    name     <- Gen.anyString.filter(_.nonEmpty)
-    content  <- Gen.anyString.filter(_.nonEmpty)
-    expires  <- Gen.option(Gen.anyInstant)
-    domain   <- Gen.option(Gen.anyString)
-    path     <- Gen.option(path)
-    secure   <- Gen.boolean
-    httpOnly <- Gen.boolean
-    maxAge   <- Gen.option(Gen.anyLong)
-    sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
-    secret   <- Gen.option(Gen.anyString)
-  } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite, secret)
-
-  def emptyCookies: Gen[Random with Sized, Cookie] = for {
-    name     <- Gen.anyString.filter(_.isEmpty)
-    content  <- Gen.anyString.filter(_.isEmpty)
+  def cookies: Gen[Random with Sized, Cookie] = for {
+    name     <- Gen.anyString
+    content  <- Gen.anyString
     expires  <- Gen.option(Gen.anyInstant)
     domain   <- Gen.option(Gen.anyString)
     path     <- Gen.option(path)

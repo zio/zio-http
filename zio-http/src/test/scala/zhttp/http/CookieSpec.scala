@@ -1,23 +1,17 @@
 package zhttp.http
 
 import zhttp.internal.HttpGen
-import zio.test.Assertion.{equalTo, isNone, isSome}
+import zio.test.Assertion.{equalTo, isSome}
 import zio.test._
 
 object CookieSpec extends DefaultRunnableSpec {
   def spec = suite("Cookies") {
     suite("response cookies") {
-      testM("encode/decode signed/unsigned nonEmptyCookies") {
-        checkAll(HttpGen.nonEmptyCookies) { cookie =>
+      testM("encode/decode signed/unsigned cookies with secret") {
+        checkAll(HttpGen.cookies) { cookie =>
           val cookieString = cookie.encode
           assert(Cookie.decodeResponseCookie(cookieString, cookie.secret))(isSome(equalTo(cookie))) &&
-          assert(Cookie.decodeResponseCookie(cookieString, cookie.secret).map(_.encode))(isSome(equalTo(cookieString)))
-        }
-      } + testM("encode/decode signed/unsigned emptyCookies") {
-        checkAll(HttpGen.emptyCookies) { cookie =>
-          val cookieString = cookie.encode
-          assert(Cookie.decodeResponseCookie(cookieString, cookie.secret))(isNone) &&
-          assert(Cookie.decodeResponseCookie(cookieString, cookie.secret).map(_.encode))(isNone)
+            assert(Cookie.decodeResponseCookie(cookieString, cookie.secret).map(_.encode))(isSome(equalTo(cookieString)))
         }
       }
     } +
