@@ -2,27 +2,10 @@
 sidebar_position: "8"
 ---
 # Middleware
-Before introducing middleware, let us understand why they are needed. 
+Before introducing middleware, let us understand why they are needed.
 
 ## Need for middlewares and handling "aspects"
 
-Consider following example where we have two endpoints within HttpApp one GET user by id and other GET multiple users paginated
-
-```scala
-val usersHttpApp: HttpApp[UserRepo,Throwable] =
-    Http.collectZIO[Request] {
-        case Method.GET -> !! / "users" / id => 
-            for {
-                user <- ZIO.serviceWithZIO[UserRepo](_.lookupUsersById(id))
-            } yield Response.json(user.toJson)
-
-        case Method.GET -> !! / "users"  => 
-            for {
-                user <- ZIO.serviceWithZIO[UserRepo](_.paginatedUsers(pageNum))
-            } yield Response.json(user.toJson)
-    }
-
-```
 The definition of an "Aspect" in the programming world provided by Wikipedia
 ```
 An aspect of a program is a feature linked to many other parts of the program, but which is not related to the program's primary function. 
@@ -37,47 +20,44 @@ Some examples of common "aspects" required throughout the application
 - retries (or handling flakiness for example while accessing third party APIs)
 - authenticating a user before using the REST resource.
 
-Suppose we want to code above-mentioned aspects for both our example endpoints, our code could look like this
-
-#### The polluted code violates the principle of "Separation of concerns"
+Consider following example where we have two endpoints within HttpApp 
+* GET user by id and 
+* GET multiple users paginated
 ```scala
-val usersHttpApp: HttpApp[UserRepo,Throwable] = 
-
-    Http.collectZIO[Request] { 
-
-        case request @ Method.GET -> !! / "users" / id => 
-            (for {
-                // validate user
-                _    <- MyAuthService.doAuth(request)
-                // log request
-                _    <- logRequest(request)
-                // core business logic
-                user <- ZIO.serviceWithZIO[UserRepo](_.lookupUsersById(id))
-                resp <- Response.json(user.toJson)
-                // log response
-                _    <- logResponse(resp)                
-            } yield resp)
-                    .timeout(2.seconds)
-                    .retryN(5)
-
-        case request @ Method.GET -> !! / "users"  => 
-            (for {
-                // validate user
-                _    <- MyAuthService.doAuth(request)
-                // log request
-                _    <- logRequest(request)
-                // core business logic
-                user <- ZIO.serviceWithZIO[UserRepo](_.paginatedUsers(pageNum))
-                resp <- Response.json(user.toJson)
-                // log response
-                _    <- logResponse(resp)                
-            } yield resp)
-                    .timeout(2.seconds)
-                    .retryN(5)
-    }
-
+  private val app = Http.collectZIO[Request] {
+    case Method.GET -> !! / "users" / id =>
+      // core business logic  
+      dbService.lookupUsersById(id).map(Response.json(_.json))
+    case Method.GET -> !! / "users"    =>
+      // core business logic  
+      dbService.paginatedUsers(pageNum).map(Response.json(_.json))
+  }
 ```
-Our core logic is squeezed among common concerns. So there are two problems with this approach
+#### The polluted code violates the principle of "Separation of concerns"
+
+Suppose we want to code above-mentioned aspects like
+  * basicAuth
+  * request logging
+  * response logging
+  * timeout and retry
+for both our example endpoints, our core business logic gets buried under boilerplate like this
+
+```scala
+            (for {
+                // validate user
+                _    <- MyAuthService.doAuth(request)
+                // log request
+                _    <- logRequest(request)
+                // core business logic
+                user <- dbService.lookupUsersById(id).map(Response.json(_.json))
+                resp <- Response.json(user.toJson)
+                // log response
+                _    <- logResponse(resp)                
+            } yield resp)
+                    .timeout(2.seconds)
+                    .retryN(5)
+```
+Imagine repeating this for all our end points. So there are two problems with this approach
 
 * We are dangerously coupling our business logic with a lower level concern (like applying timeouts)
 * Also, we will have to do it for every single route in the system. For 100 routes we will need to repeat 100 timeouts!!! 
@@ -94,26 +74,14 @@ val composedMiddlewares = Middleware.basicAuth("user","pw") ++
         Middleware.debug ++ 
         Middleware.timeout(5 seconds) 
 
-// attach composedMiddlewares to the app using @@
-val usersHttpApp: HttpApp[UserRepo,Throwable] = 
-
-    Http.collectZIO[Request] { 
-
-        case request @ Method.GET -> !! / "users" / id => 
-            for {
-                // core business logic
-                user <- ZIO.serviceWithZIO[UserRepo](_.lookupUsersById(id))
-				resp <- Response.json(user.toJson)
-            } yield resp
-
-        case request @ Method.GET -> !! / "users"  => 
-            for {
-                // core business logic
-                user <- ZIO.serviceWithZIO[UserRepo](_.paginatedUsers(pageNum))
-                resp <- Response.json(user.toJson)
-            } yield resp)
-    } @@ composedMiddlewares
-
+private val app = Http.collectZIO[Request] {
+  case Method.GET -> !! / "users" / id =>
+    // core business logic  
+    dbService.lookupUsersById(id).map(Response.json(_.json))
+  case Method.GET -> !! / "users"    =>
+    // core business logic  
+    dbService.paginatedUsers(pageNum).map(Response.json(_.json))
+} @@ composedMiddlewares // attach composedMiddlewares to the app using @@
 ```
 
 ## Middleware in zio-http
@@ -134,7 +102,8 @@ type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E,
 
 ### Middleware that does nothing
 
-To return the input `Http` as the output without doing any modification
+To return the input `Http` as the 
+output without doing any modification
 
 ```scala
 val middleware: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Middleware.identity
