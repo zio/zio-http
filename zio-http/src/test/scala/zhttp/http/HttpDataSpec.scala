@@ -91,22 +91,6 @@ object HttpDataSpec extends DefaultRunnableSpec {
               assertM(result)(equalTo(1L))
             } @@ timeout(1 seconds) @@ failing,
             testM("process all messages.") {
-
-              val p             = Promise[Unit]()
-              val unsafeChannel = TestUnsafeReadableChannel(p)
-
-              val probe  = HttpData.UnsafeAsync { cb =>
-                val producer = cb(unsafeChannel)
-                producer(
-                  new UnsafeContent(new DefaultHttpContent(Unpooled.copiedBuffer("abc".toArray.map(_.toByte)))),
-                )
-                p.future.onComplete(_ => producer(new UnsafeContent(new DefaultLastHttpContent(Unpooled.EMPTY_BUFFER))))
-
-              }
-              val result = probe.toByteBufStream(ByteBufConfig(4)).runCount
-              assertM(result)(equalTo(2L))
-            },
-            testM("sending multiple msg should finish the processing with same number of messages.") {
               checkM(unsafeAsyncContent) { case (probe, probeLength) =>
                 val result = probe.toByteBufStream(ByteBufConfig(4)).runCount
                 assertM(result)(equalTo(probeLength))
