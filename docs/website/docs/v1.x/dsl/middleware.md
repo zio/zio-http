@@ -87,20 +87,68 @@ private val app = Http.collectZIO[Request] {
 Observe how we avoided cluttering our business logic using middlewares.
 ## Middleware in zio-http
 
-A middleware helps in addressing common cross-cutting concerns without writing or duplicating boilerplate code.
+A middleware helps in addressing common cross-cutting concerns without duplicating boilerplate code.
 
-Middlewares are transformations that one can apply on any [`Http`](https://dream11.github.io/zio-http/docs/v1.x/dsl/http) to produce a new one. 
+#### Revisiting HTTP 
+[`Http`](https://dream11.github.io/zio-http/docs/v1.x/dsl/http) is the most fundamental type for modelling Http applications
+
+```Http[-R, +E, -A, +B]``` is equivalent to ```(A) => ZIO[R, Option[E], B]``` where
+
+* `A` is the type params of the function
+* `R` and `E` are types of Environment and Error respectively
+* `B` type of result when function succeeds 
+
+Middleware is simply a function that takes one Http as a parameter and returns another Http,
+
+`Http => Http`
+
+So, a middleware represents transformation f1 => f2
+ 
 They can modify requests and responses and also transform them into more concrete domain entities.
-
-Middleware is simply a function that takes one `Http` as a parameter and returns another `Http`, i.e, `Http => Http` 
-
 ```scala
 type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E, AOut, BOut]
 ```
-
 * `AIn` and `BIn` are type params of the input `Http`
 * `AOut` and `BOut` are type params of the output `Http`
 
+#### A simple middleware example
+Lets consider a simple example using out-of-the-box middleware called ```runAfter``` and ```addHeader```
+We will write a middleware which will log a message on the server side after returning response. 
+
+Start with imports
+```scala
+import zhttp.http._
+import zhttp.service.Server
+import zio.console.{putStrLn}
+import zio.{App, ExitCode, URIO}
+```
+We create a middleware that logs a message, something like "after <duration> processing request"
+```scala
+lazy val afterMiddleware = Middleware.runAfter(putStrLn(s"AFTER $dur processing request").delay(dur))
+lazy val patchEnv = Middleware.addHeader("X-Environment", "Dev")
+```
+A test HttpApp with attached middleware
+```scala
+val testApp = Http.collect[Request] {
+  case Method.GET -> !! / "endpoint1" => Response.text(s"Endpoint 1")
+}
+val testAppWMW = testApp @@ (afterMiddleware ++ patchEnv)
+```
+Start the server 
+```scala
+override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  Server.start(8090, testAppWMW).exitCode
+```
+Fire a curl request and we see an additional header added to the response indicating the "Dev" environment
+```
+curl -i http://localhost:8090/endpoint1
+
+HTTP/1.1 200 OK
+content-type: text/plain
+X-Environment: Dev
+content-length: 10
+Endpoint 1
+```
 ## Create Middleware
 
 ### Middleware that does nothing
