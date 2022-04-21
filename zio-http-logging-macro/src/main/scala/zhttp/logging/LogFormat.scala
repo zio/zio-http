@@ -1,5 +1,7 @@
 package zhttp.logging
 
+import zhttp.logging.LogFormat.DateFormat.ISODateTime
+
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -160,8 +162,6 @@ object LogFormat {
       case Color.DEFAULT => value
     }
   }
-
-  import zhttp.logging.LogFormat.DateFormat._
 
   val defaultFormat: LogFormat = LogFormat.color(
     info = Color.GREEN,

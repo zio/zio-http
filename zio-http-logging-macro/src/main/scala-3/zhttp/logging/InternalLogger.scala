@@ -1,11 +1,6 @@
 package zhttp.logging
 
-import zhttp.logging.frontend.LogFrontend.Config
-import zhttp.logging.frontend.LogFrontend
-import zhttp.logging.macros.LoggerMacro._
-import zhttp.logging.macros.LoggerMacro
-
-final class Logger(val frontend: LogFrontend) {
+final class InternalLogger(val frontend: LogFrontend) {
 
   import LogLevel._
 
@@ -21,15 +16,15 @@ final class Logger(val frontend: LogFrontend) {
 
 }
 
-object Logger {
+object InternalLogger {
   def make(
             name: String,
             level: LogLevel = LogLevel.ERROR,
             format: Setup.LogFormat = LogFormat.default,
             filter: String => Boolean = _ => true,
-          ): Logger =
+          ): InternalLogger =
     make(Config(name, level, format, filter))
 
-  def make(config: Config): Logger =
-    new Logger(LogFrontend.console(config))
+  def make(config: Config): InternalLogger =
+    new InternalLogger(LogFrontend.default(config))
 }

@@ -1,8 +1,5 @@
 package zhttp.logging.macros
 
-import zhttp.logging.{LogFormat, Logger}
-import zhttp.logging.frontend.LogFrontend
-
 import scala.annotation.tailrec
 import scala.language.experimental.macros
 import scala.quoted._
@@ -14,12 +11,12 @@ private[zhttp] object LoggerMacro {
 
   final case class SourcePos(file: String, line: Int)
 
-  def sourcePos(using ctx: Quotes): Expr[SourcePos] = {
-    val rootPosition = ctx.reflect.Position.ofMacroExpansion
-    val file = Expr(rootPosition.sourceFile.jpath.toString)
-    val line = Expr(rootPosition.startLine + 1)
-    '{SourcePos($file, $line)}
-  }
+//  inline def sourcePos(using qctx: Quotes): Expr[SourcePos] = {
+//    val rootPosition = qctx.reflect.Position.ofMacroExpansion
+//    val file = Expr(rootPosition.sourceFile.jpath.toString)
+//    val line = Expr(rootPosition.startLine + 1)
+//    '{SourcePos($file, $line)}
+//  }
 
   def traceM(frontend: Expr[LogFrontend])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
   '{ if ($frontend.config.isTraceEnabled) {

@@ -3,7 +3,7 @@ package zhttp.service.client
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
 import zhttp.http.Response
-import zhttp.logging.Logger
+import zhttp.logging.{LogLevel, Logger, LoggerTransport}
 import zhttp.service.HttpRuntime
 import zio.Promise
 
@@ -17,7 +17,10 @@ final class ClientInboundHandler[R](
   isWebSocket: Boolean,
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
 
-  private val log  = Logger.make("zhttp.service.client.ClientInboundHandler")
+  private val log = Logger.make
+    .withTransport(LoggerTransport.console("zhttp.service.client.ClientInboundHandler"))
+    .withLevel(LogLevel.TRACE) // TODO: loglevel should come from server config object
+
   private val tags = List("zhttp")
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
