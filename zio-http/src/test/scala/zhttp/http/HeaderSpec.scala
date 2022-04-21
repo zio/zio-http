@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import zhttp.http.Headers.BearerSchemeName
 import zhttp.http.middleware.Auth.Credentials
 import zio.test.Assertion._
-import zio.test.{DefaultRunnableSpec, Gen, assert, check}
+import zio.test.{DefaultRunnableSpec, Gen, assert, assertTrue, check}
 
 object HeaderSpec extends DefaultRunnableSpec {
 
@@ -89,6 +89,11 @@ object HeaderSpec extends DefaultRunnableSpec {
             val actual  = headers.hasJsonContentType
             assert(actual)(isFalse)
           },
+      ) + suite("hasMediaType")(
+        test("should return true if content-type is application/json") {
+          val actual = contentTypeJson.hasMediaType(MediaType.application.json)
+          assert(actual)(isTrue)
+        },
       ) +
       suite("isPlainTextContentType")(
         test("should return true if content-type is text/plain") {
@@ -225,7 +230,13 @@ object HeaderSpec extends DefaultRunnableSpec {
               assert(actual)(isNone)
             }
           }
-      }
+      } + suite("mediaType")(
+        test("should correctly parse the media type") {
+          val header = Headers(HeaderNames.contentType, "application/json; charset=UTF-8")
+          val mt     = header.mediaType
+          assertTrue(mt == Some(MediaType.application.json))
+        },
+      )
   }
 
   private val contentTypeXhtmlXml       = Headers(HeaderNames.contentType, HeaderValues.applicationXhtml)
