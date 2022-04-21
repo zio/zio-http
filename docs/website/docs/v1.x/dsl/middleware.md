@@ -40,6 +40,7 @@ Suppose we want to code above-mentioned aspects like
   * request logging
   * response logging
   * timeout and retry
+
 for both our example endpoints, our core business logic gets buried under boilerplate like this
 
 ```scala
