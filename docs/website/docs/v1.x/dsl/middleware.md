@@ -122,9 +122,8 @@ import zhttp.service.Server
 import zio.console.{putStrLn}
 import zio.{App, ExitCode, URIO}
 ```
-We create a middleware that logs a message, something like "after <duration> processing request"
+We create a middleware that appends additional header to the response indicating whether it is a Dev/Prod/Staging environment.
 ```scala
-lazy val afterMiddleware = Middleware.runAfter(putStrLn(s"AFTER $dur processing request").delay(dur))
 lazy val patchEnv = Middleware.addHeader("X-Environment", "Dev")
 ```
 A test HttpApp with attached middleware
@@ -132,12 +131,12 @@ A test HttpApp with attached middleware
 val testApp = Http.collect[Request] {
   case Method.GET -> !! / "endpoint1" => Response.text(s"Endpoint 1")
 }
-val testAppWMW = testApp @@ (afterMiddleware ++ patchEnv)
+val testAppWithMiddleware = testApp @@ patchEnv
 ```
 Start the server 
 ```scala
 override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-  Server.start(8090, testAppWMW).exitCode
+  Server.start(8090, testAppWithMiddleware).exitCode
 ```
 Fire a curl request and we see an additional header added to the response indicating the "Dev" environment
 ```
