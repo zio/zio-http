@@ -28,15 +28,15 @@ object ClientBenchmarkWorkFlow {
         WorkflowStep.Use(
           UseRef.Public("actions", "checkout", s"v2"),
           Map(
-            "repository" -> "sumawa/HttpClientBench",
-            "path"       -> "HttpClientBench",
+            "repository" -> "dream11/HttpClientBenchmark",
+            "path"       -> "HttpClientBenchmark",
           ),
         ),
         WorkflowStep.Run(
           env = Map("GITHUB_TOKEN" -> "${{secrets.ACTIONS_PAT}}"),
           id = Some("clientResult"),
           commands = List(
-            "cd ./HttpClientBench",
+            "cd ./HttpClientBenchmark",
             """sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" build.sbt""",
             "./run_client_benchmark.sh",
             "tail -n 100 ./log/server_out.log",

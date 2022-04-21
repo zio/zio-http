@@ -10,7 +10,7 @@ ThisBuild / githubWorkflowPREventTypes   := Seq(
   PREventType.Synchronize,
   PREventType.Reopened,
   PREventType.Edited,
-  PREventType.Labeled
+  PREventType.Labeled,
 )
 ThisBuild / githubWorkflowAddedJobs      :=
   Seq(
@@ -38,7 +38,7 @@ ThisBuild / githubWorkflowAddedJobs      :=
       ),
       cond = Option("${{ github.ref == 'refs/heads/main' }}"),
     ),
-  ) ++ ScoverageWorkFlow(50, 60) ++ BenchmarkWorkFlow() ++ ClientBenchmarkWorkFlow()
+  ) ++ ScoverageWorkFlow(50, 60) ++ BenchmarkWorkFlow() ++ JmhBenchmarkWorkflow(1) ++ ClientBenchmarkWorkFlow()
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
