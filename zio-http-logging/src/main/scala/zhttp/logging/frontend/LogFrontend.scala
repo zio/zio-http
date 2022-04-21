@@ -67,15 +67,6 @@ trait LogFrontend {
   final def debug(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
     logMayBe(msg, None, LogLevel.DEBUG, tags, enclosingClass, lineNumber)
 
-  final def debug(
-    msg: String,
-    throwable: Throwable,
-    tags: List[String],
-    enclosingClass: String,
-    lineNumber: Int,
-  ): Unit =
-    logMayBe(msg, Some(throwable), LogLevel.DEBUG, tags, enclosingClass, lineNumber)
-
   final def error(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
     logMayBe(msg, None, LogLevel.ERROR, tags, enclosingClass, lineNumber)
 
@@ -91,26 +82,11 @@ trait LogFrontend {
   final def info(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
     logMayBe(msg, None, LogLevel.INFO, tags, enclosingClass, lineNumber)
 
-  final def info(msg: String, throwable: Throwable, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
-    logMayBe(msg, Some(throwable), LogLevel.INFO, tags, enclosingClass, lineNumber)
-
   final def trace(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
     logMayBe(msg, None, LogLevel.TRACE, tags, enclosingClass, lineNumber)
 
-  final def trace(
-    msg: String,
-    throwable: Throwable,
-    tags: List[String],
-    enclosingClass: String,
-    lineNumber: Int,
-  ): Unit =
-    logMayBe(msg, Some(throwable), LogLevel.TRACE, tags, enclosingClass, lineNumber)
-
   final def warn(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
     logMayBe(msg, None, LogLevel.WARN, tags, enclosingClass, lineNumber)
-
-  final def warn(msg: String, throwable: Throwable, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
-    logMayBe(msg, Some(throwable), LogLevel.WARN, tags, enclosingClass, lineNumber)
 }
 
 object LogFrontend {

@@ -1,58 +1,35 @@
 package zhttp.logging
 
-import zhttp.logging.frontend.ConsoleLogger
+import zhttp.logging.frontend.LogFrontend.Config
+import zhttp.logging.frontend.LogFrontend
 import zhttp.logging.macros.LoggerMacro._
 import zhttp.logging.macros.LoggerMacro
 
-final class Logger(configuration: Configuration) {
+final class Logger(val frontend: LogFrontend) {
 
   import LogLevel._
 
-  private[zhttp] val logger = new ConsoleLogger(configuration)
-
-  @inline def name = configuration.name
-
-  @inline def isTraceEnabled: Boolean = configuration.level >= TRACE
-  @inline def isDebugEnabled: Boolean = configuration.level >= DEBUG
-  @inline def isInfoEnabled: Boolean  = configuration.level >= INFO
-  @inline def isWarnEnabled: Boolean  = configuration.level >= WARN
-  @inline def isErrorEnabled: Boolean = configuration.level >= ERROR
-
   import scala.language.experimental.macros
 
-  inline def trace(inline msg: String, inline throwable: Throwable): Unit =  ${traceTM('this)('throwable)('msg)}
-  inline def trace(inline msg: String): Unit =
-  ${traceM('this)('msg)}
+  inline def trace(inline msg: String, tags: List[String]): Unit = ${traceM('frontend)('msg)('tags)}
+  inline def debug(inline msg: String, tags: List[String]): Unit = ${debugM('frontend)('msg)('tags)}
+  inline def info(inline msg: String, tags: List[String]): Unit = ${infoM('frontend)('msg)('tags)}
+  inline def warn(inline msg: String, tags: List[String]): Unit = ${warnM('frontend)('msg)('tags)}
 
-  inline def debug(inline msg: String, inline throwable: Throwable): Unit =  ${debugTM('this)('throwable)('msg)}
-  inline def debug(inline msg: String): Unit =
-  ${debugM('this)('msg)}
-
-  inline def info(inline msg: String, inline throwable: Throwable): Unit =  ${infoTM('this)('throwable)('msg)}
-  inline def info(inline msg: String): Unit =
-  ${infoM('this)('msg)}
-
-  inline def warn(inline msg: String, inline throwable: Throwable): Unit =  ${warnTM('this)('throwable)('msg)}
-  inline def warn(inline msg: String): Unit =
-  ${warnM('this)('msg)}
-
-  inline def error(inline msg: String, inline throwable: Throwable): Unit =  ${errorTM('this)('throwable)('msg)}
-  inline def error(inline msg: String): Unit =
-  ${errorM('this)('msg)}
+  inline def error(inline msg: String, inline throwable: Throwable, tags: List[String]): Unit =  ${errorTM('frontend)('throwable)('msg)('tags)}
+  inline def error(inline msg: String, tags: List[String]): Unit = ${errorM('frontend)('msg)('tags)}
 
 }
 
 object Logger {
-  import scala.language.experimental.macros
-  final def getLogger(logLevel: LogLevel)                     =
-    new Logger(configuration = Configuration(getClass.getSimpleName, logLevel, LogFormat.default))
-  final def getLogger(loggerName: String)                     =
-    new Logger(configuration = Configuration(loggerName, logLevel = LogLevel.INFO, LogFormat.default))
-  final def getLogger(loggerName: String, logLevel: LogLevel) =
-    new Logger(configuration = Configuration(loggerName, logLevel, LogFormat.default))
-  final def getLogger(
-    loggerName: String,
-    logLevel: LogLevel,
-    logFormat: LogFormat,
-  ) = new Logger(configuration = Configuration(loggerName, logLevel, logFormat))
+  def make(
+            name: String,
+            level: LogLevel = LogLevel.ERROR,
+            format: Setup.LogFormat = LogFormat.default,
+            filter: String => Boolean = _ => true,
+          ): Logger =
+    make(Config(name, level, format, filter))
+
+  def make(config: Config): Logger =
+    new Logger(LogFrontend.console(config))
 }

@@ -1,7 +1,7 @@
 package zhttp.logging.macros
 
-import zhttp.logging.Logger
-import zhttp.logging.frontend.ConsoleLogger
+import zhttp.logging.{LogFormat, Logger}
+import zhttp.logging.frontend.LogFrontend
 
 import scala.annotation.tailrec
 import scala.language.experimental.macros
@@ -12,28 +12,49 @@ import scala.quoted._
  */
 private[zhttp] object LoggerMacro {
 
-  def traceTM(logger: Expr[Logger])(t: Expr[Throwable])(msg: Expr[String])(using qctx: Quotes) =
-  '{ if ($logger.isTraceEnabled) $logger.logger.trace($msg, $t) }
-  def traceM(logger: Expr[Logger])(msg: Expr[String])(using qctx: Quotes) =
-  '{ if ($logger.isTraceEnabled) $logger.logger.trace($msg) }
+  final case class SourcePos(file: String, line: Int)
 
-  def debugTM(logger: Expr[Logger])(t: Expr[Throwable])(msg: Expr[String])(using qctx: Quotes) =
-  '{ if ($logger.isDebugEnabled) $logger.logger.debug($msg, $t) }
-  def debugM(logger: Expr[Logger])(msg: Expr[String])(using qctx: Quotes) =
-  '{ if ($logger.isDebugEnabled) $logger.logger.debug($msg) }
+  def sourcePos(using ctx: Quotes): Expr[SourcePos] = {
+    val rootPosition = ctx.reflect.Position.ofMacroExpansion
+    val file = Expr(rootPosition.sourceFile.jpath.toString)
+    val line = Expr(rootPosition.startLine + 1)
+    '{SourcePos($file, $line)}
+  }
 
-  def infoTM(logger: Expr[Logger])(t: Expr[Throwable])(msg: Expr[String])(using qctx: Quotes) =
-  '{ if ($logger.isInfoEnabled) $logger.logger.info($msg, $t) }
-  def infoM(logger: Expr[Logger])(msg: Expr[String])(using qctx: Quotes) =
-  '{ if ($logger.isInfoEnabled) $logger.logger.info($msg) }
+  def traceM(frontend: Expr[LogFrontend])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
+  '{ if ($frontend.config.isTraceEnabled) {
+    val pos:Expr[SourcePos] = sourcePos
+    $frontend.trace($msg, $tags, $pos.file, $pos.line) }
+  }
 
-  def warnTM(logger: Expr[Logger])(t: Expr[Throwable])(msg: Expr[String])(using qctx: Quotes) =
-  '{ if ($logger.isWarnEnabled) $logger.logger.warn($msg, $t) }
-  def warnM(logger: Expr[Logger])(msg: Expr[String])(using qctx: Quotes) =
-  '{ if ($logger.isWarnEnabled) $logger.logger.warn($msg) }
+  def debugM(frontend: Expr[LogFrontend])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
+  '{ if ($frontend.config.isDebugEnabled) {
+    val pos = sourcePos
+    $frontend.debug($msg, $tags, $pos.file, $pos.line) }
+  }
 
-  def errorTM(logger: Expr[Logger])(t: Expr[Throwable])(msg: Expr[String])(using qctx: Quotes) =
-  '{ if ($logger.isErrorEnabled) $logger.logger.error($msg, $t) }
-  def errorM(logger: Expr[Logger])(msg: Expr[String])(using qctx: Quotes) =
-  '{ if ($logger.isErrorEnabled) $logger.logger.error($msg) }
+  def infoM(frontend: Expr[LogFrontend])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
+  '{ if ($frontend.config.isInfoEnabled) {
+    val pos = sourcePos
+    $frontend.info($msg, $tags, $pos.file, $pos.line) }
+  }
+
+  def warnM(frontend: Expr[LogFrontend])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
+  '{ if ($frontend.config.isWarnEnabled) {
+    val pos = sourcePos
+    $frontend.warn($msg, $tags, $pos.file, $pos.line) }
+  }
+
+  def errorTM(frontend: Expr[LogFrontend])(t: Expr[Throwable])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
+  '{ if ($frontend.config.isErrorEnabled) {
+    val pos = sourcePos
+    $frontend.error($msg, $t, $tags, $pos.file, $pos.line) }
+  }
+  def errorM(frontend: Expr[LogFrontend])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
+  '{ if ($frontend.config.isErrorEnabled) {
+    val pos = sourcePos
+    $frontend.error($msg, $tags, $pos.file, $pos.line) }
+  }
+
+
 }
