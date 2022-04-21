@@ -83,8 +83,10 @@ private val app = Http.collectZIO[Request] {
     dbService.paginatedUsers(pageNum).map(Response.json(_.json))
 } @@ composedMiddlewares // attach composedMiddlewares to the app using @@
 ```
-
+Observe how we avoided cluttering our business logic using middlewares.
 ## Middleware in zio-http
+
+A middleware helps in addressing common cross-cutting concerns without writing or duplicating boilerplate code.
 
 Middlewares are transformations that one can apply on any [`Http`](https://dream11.github.io/zio-http/docs/v1.x/dsl/http) to produce a new one. 
 They can modify requests and responses and also transform them into more concrete domain entities.
