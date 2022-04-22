@@ -95,9 +95,9 @@ A middleware helps in addressing common cross-cutting concerns without duplicati
 ```Http[-R, +E, -A, +B]``` is equivalent to ```(A) => ZIO[R, Option[E], B]``` where
 
 * `R` type of Environment 
-* `E` type of Error when function fails
-* `A` is the type params of the function argument
-* `B` type of result when function succeeds 
+* `E` type of the Error when function fails with Some[E]
+* `A` is the type of the function argument
+* `B` type of the result when function succeeds 
 
 Middleware is simply a function that takes one Http as a parameter and returns another Http,
 
