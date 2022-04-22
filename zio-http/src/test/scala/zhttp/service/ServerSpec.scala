@@ -50,7 +50,7 @@ object ServerSpec extends HttpRunnableSpec {
         } +
           testM("header is set") {
             val res = app.deploy.headerValue(HeaderNames.contentLength).run()
-            assertM(res)(isSome(equalTo("0")))
+            assertM(res)(isSome(equalTo("439")))
           }
       } +
       suite("error") {
