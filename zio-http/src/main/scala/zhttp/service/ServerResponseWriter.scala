@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.buffer.ByteBuf
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
-import zhttp.http.{HttpData, Response}
+import zhttp.http._
 import zhttp.service.server.ServerTime
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
@@ -14,13 +14,7 @@ private[zhttp] final class ServerResponseWriter[R](
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
   serverTime: ServerTime,
-) {
-
-  def write(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
-    ctx.write(encodeResponse(msg))
-    writeData(msg.data.asInstanceOf[HttpData.Complete], jReq)
-    ()
-  }
+) { self =>
 
   /**
    * Enables auto-read if possible. Also performs the first read.
@@ -122,5 +116,33 @@ private[zhttp] final class ServerResponseWriter[R](
       _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
+  }
+
+  def write(msg: Throwable, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    val response = Response
+      .fromHttpError(HttpError.InternalServerError(cause = Some(msg)))
+      .withConnection(HeaderValues.close)
+    self.write(response, jReq)
+  }
+
+  def write(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    ctx.write(encodeResponse(msg))
+    writeData(msg.data.asInstanceOf[HttpData.Complete], jReq)
+    ()
+  }
+
+  def write(msg: HttpError, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    val response = Response.fromHttpError(msg)
+    self.write(response, jReq)
+  }
+
+  def write(msg: Status, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    val response = Response.status(msg)
+    self.write(response, jReq)
+  }
+
+  def writeNotFound(uri: String, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    val error = HttpError.NotFound(Path(jReq.uri()))
+    self.write(error, jReq)
   }
 }
