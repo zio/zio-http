@@ -113,7 +113,7 @@ type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E,
 
 #### A simple middleware example
 Lets consider a simple example using out-of-the-box middleware called ```runAfter``` and ```addHeader```
-We will write a middleware which will log a message on the server side after returning response. 
+We will write a middleware which will attach a custom header to the response. 
 
 Start with imports
 ```scala
@@ -150,71 +150,17 @@ Endpoint 1
 ```
 ## Create Middleware
 
-### Middleware that does nothing
+Refer to [Middleware.scala](https://github.com/dream11/zio-http/blob/main/zio-http/src/main/scala/zhttp/http/Middleware.scala) for various ways of creating a middleware using functions like 
+* identity
+* succeed
+* fail
+* collect and collectZIO
+* codec
+* fromHttp
 
-To return the input `Http` as the 
-output without doing any modification
+## Combining middlewares
 
-```scala
-val middleware: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Middleware.identity
-```
-
-### Middleware that always succeeds
-
-To create a middleware that always returns an output `Http` that succeeds with the given value and never fails.
-
-```scala
-val middleware: Middleware[Any, Nothing, Nothing, Any, Any, Int] = Middleware.succeed(1)
-```
-
-### Middleware that always fails
-
-To create a middleware that always returns an output `Http` that always fails.
-
-```scala
-val middleware: Middleware[Any, String, Nothing, Any, Any, Nothing] = Middleware.fail("error")
-```
-
-### Middleware from a partial function
-
-- `collect` creates middleware using a specified function, `f: PartialFunction[AOut, Middleware[R, E, AIn, BIn, AOut, BOut]]`
-
-```scala
-val middleware: Middleware[Any, Nothing, Request, Response, Request, Response] = Middleware.collect[Request](_ => Middleware.addHeaders(Headers("a", "b")))
-```
-
-- `collectZIO` creates middleware using a specified effect function, `f: PartialFunction[AOut, ZIO[R, E, Middleware[R, E, AIn, BIn, AOut, BOut]]]`
-
-```scala
-val middleware: Middleware[Any, Nothing, Request, Response, Request, Response] = Middleware.collectZIO[Request](_ => ZIO.succeed(Middleware.addHeaders(Headers("a", "b"))))
-```
-
-### Middleware using codec
-
-`codec` creates a middleware that transforms the input `Http` using two functions `decoder: AOut => Either[E, AIn]` and `encoder: BIn => Either[E, BOut]`
-
-The below snippet takes two functions:
-- decoder function to decode Request to String 
-- encoder function to encode String to Response
-
-and creates a middleware that gives out an `Http[R,E,Request,Response]` from `Http[R,E,String,String]`
-
-```scala
-val middleware: Middleware[Any, Nothing, String, String, Request, Response] = Middleware.codec[Request,String](r => Right(r.method.toString()), s => Right(Response.text(s)))
-```
-
-### Middleware from an `Http`
-
-- `fromHttp` creates a middleware with output `Http` as specified `Http`
-
-```scala
-val app: Http[Any, Nothing, Any, String] = Http.succeed("Hello World!")
-val middleware: Middleware[Any, Nothing, Nothing, Any, Request, Response] = Middleware.fromHttp(app)
-```
-
-## Composition of middlewares
-
-Middlewares can be composed using several special operators:
+Middlewares can be combined using several special operators like `++`, `<>` and `>>>`
 
 ### Using `++`
 
@@ -313,7 +259,7 @@ val mid: Middleware[Any, Nothing, Nothing, Any, Int, Int] = Middleware.ifThenEls
   )
 ```
 
-## Example of a middleware
+## A complete example of a middleware
 
 <details>
 <summary><b>Detailed example showing "debug" and "addHeader" middlewares</b></summary>
