@@ -165,7 +165,8 @@ Middlewares can be combined using several special operators like `++`, `<>` and 
 
 ### Using `++`
 
-`++` is an alias for `combine`. It combines that operates on the same input and output types into one.
+`++` is an alias for `combine`. It combines two middlewares without changing their input/output types (AIn = AOut / BIn = BOut)
+
 For example, if we have three middlewares f1, f2, f3
 
 f1 ++ f2 ++ f3 applies on an `http`, left to right with f1 first followed by others, like this 
