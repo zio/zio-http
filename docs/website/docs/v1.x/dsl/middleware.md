@@ -163,7 +163,7 @@ Refer to [Middleware.scala](https://github.com/dream11/zio-http/blob/main/zio-ht
 
 Middlewares can be combined using several special operators like `++`, `<>` and `>>>`
 
-### Using `++`
+### Using `++` combinator
 
 `++` is an alias for `combine`. It combines two middlewares without changing their input/output types (`AIn` = `AOut` / `BIn` = `BOut`)
 
@@ -173,7 +173,7 @@ f1 ++ f2 ++ f3 applies on an `http`, from left to right with f1 first followed b
 ```scala
   f3(f2(f1(http)))
 ```
-#### A simple example using `++`
+#### A simple example using `++` combinator
 Start with imports
 ```scala
 import zhttp.http.Middleware.basicAuth
@@ -211,7 +211,7 @@ content-length: 0
 ```
 We notice in the response that first basicAuth middleware responded `HTTP/1.1 401 Unauthorized` and then patch middleware attached a `X-Environment: Dev` 
 
-### Using `<>`
+### Using `<>` combinator
 `<>` is an alias for `orElse`. While using `<>`, if the output `Http` of the first middleware fails, the second middleware will be evaluated, ignoring the result from the first.
 #### A simple example using `<>`
 ```scala
