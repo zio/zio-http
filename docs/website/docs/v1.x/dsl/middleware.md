@@ -94,8 +94,9 @@ A middleware helps in addressing common cross-cutting concerns without duplicati
 
 ```Http[-R, +E, -A, +B]``` is equivalent to ```(A) => ZIO[R, Option[E], B]``` where
 
-* `A` is the type params of the function
-* `R` and `E` are types of Environment and Error respectively
+* `R` type of Environment 
+* `E` type of Error when function fails
+* `A` is the type params of the function argument
 * `B` type of result when function succeeds 
 
 Middleware is simply a function that takes one Http as a parameter and returns another Http,
@@ -112,7 +113,7 @@ type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E,
 * `AOut` and `BOut` are type params of the output `Http`
 
 #### A simple middleware example
-Lets consider a simple example using out-of-the-box middleware called ```runAfter``` and ```addHeader```
+Let us consider a simple example using out-of-the-box middleware called ```runAfter``` and ```addHeader```
 We will write a middleware which will attach a custom header to the response. 
 
 Start with imports
@@ -165,10 +166,49 @@ Middlewares can be combined using several special operators like `++`, `<>` and 
 ### Using `++`
 
 `++` is an alias for `combine`. It combines that operates on the same input and output types into one.
+For example, if we have three middlewares f1, f2, f3
 
+f1 ++ f2 ++ f3 applies on an `http`, left to right with f1 first followed by others, like this 
 ```scala
-val middleware: Middleware[Console with Clock, IOException, Request, Response, Request, Response] = Middleware.debug ++ Middleware.addHeader("X-Environment", "Dev")
+  f3(f2(f1(http)))
 ```
+#### A simple example using `++`
+Start with imports
+```scala
+import zhttp.http.Middleware.basicAuth
+import zhttp.http._
+import zhttp.service.Server
+import zio.console.putStrLn
+import zio.{App, ExitCode, URIO}
+```
+A user app with single endpoint that welcomes a user
+```scala
+val userApp: UHttpApp = Http.collect[Request] { case Method.GET -> !! / "user" / name / "greet" =>
+  Response.text(s"Welcome to the ZIO party! ${name}")
+}
+```
+A basicAuth middleware with hardcoded user pw and another patches response with environment value 
+```scala
+val basicAuthMW = basicAuth("admin", "admin")
+lazy val patchEnv = Middleware.addHeader("X-Environment", "Dev")
+// apply combined middlewares to the userApp
+val testAppWithMiddleware = userApp @@ (basicAuthMW ++ patchEnv)
+```
+Start the server
+```scala
+override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  Server.start(8090, testAppWithMiddleware).exitCode
+```
+Fire a curl request with incorrect user/password combination
+```
+curl -i --user admin:wrong http://localhost:8090/user/admin/greet
+
+HTTP/1.1 401 Unauthorized
+www-authenticate: Basic
+X-Environment: Dev
+content-length: 0
+```
+We notice in the response that first basicAuth middleware responded a 401 and then patch middleware attached a `X-Environment: Dev` 
 
 ### Using `<>`
 
