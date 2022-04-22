@@ -32,6 +32,7 @@ sealed trait Server[-R, +E] { self =>
     case UnsafeChannelPipeline(init)           => s.copy(channelInitializer = init)
     case RequestDecompression(enabled, strict) => s.copy(requestDecompression = (enabled, strict))
     case ObjectAggregator(maxRequestSize)      => s.copy(objectAggregator = maxRequestSize)
+    case UnsafeServerbootstrap(init)           => s.copy(serverbootstrapInitializer = init)
   }
 
   def make(implicit
@@ -126,6 +127,13 @@ sealed trait Server[-R, +E] { self =>
     Concat(self, UnsafeChannelPipeline(unsafePipeline))
 
   /**
+   * Provides unsafe access to netty's ServerBootstrap. Modifying server
+   * bootstrap is generally not advised unless you know what you are doing.
+   */
+  def withUnsafeServerBootstrap(unsafeServerbootstrap: ServerBootstrap => Unit): Server[R, E] =
+    Concat(self, UnsafeServerbootstrap(unsafeServerbootstrap))
+
+  /**
    * Creates a new server with netty's HttpContentDecompressor to decompress
    * Http requests (@see <a href =
    * "https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentDecompressor.html">HttpContentDecompressor</a>).
@@ -140,7 +148,6 @@ sealed trait Server[-R, +E] { self =>
   def withObjectAggregator(maxRequestSize: Int = Int.MaxValue): Server[R, E] =
     Concat(self, ObjectAggregator(maxRequestSize))
 }
-
 object Server {
   private[zhttp] final case class Config[-R, +E](
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
@@ -157,6 +164,7 @@ object Server {
     channelInitializer: ChannelPipeline => Unit = null,
     requestDecompression: (Boolean, Boolean) = (false, false),
     objectAggregator: Int = -1,
+    serverbootstrapInitializer: ServerBootstrap => Unit = null,
   ) {
     def useAggregator: Boolean = objectAggregator >= 0
   }
@@ -179,6 +187,7 @@ object Server {
   private final case class UnsafeChannelPipeline(init: ChannelPipeline => Unit)       extends UServer
   private final case class RequestDecompression(enabled: Boolean, strict: Boolean)    extends UServer
   private final case class ObjectAggregator(maxRequestSize: Int)                      extends UServer
+  private final case class UnsafeServerbootstrap(init: ServerBootstrap => Unit)       extends UServer
 
   def app[R, E](http: HttpApp[R, E]): Server[R, E]        = Server.App(http)
   def port(port: Int): UServer                            = Server.Address(new InetSocketAddress(port))
@@ -197,8 +206,9 @@ object Server {
   val paranoidLeakDetection: UServer                 = LeakDetection(LeakDetectionLevel.PARANOID)
   val disableKeepAlive: UServer                      = Server.KeepAlive(false)
   val consolidateFlush: UServer                      = ConsolidateFlush(true)
-  def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer          = UnsafeChannelPipeline(pipeline)
-  def enableObjectAggregator(maxRequestSize: Int = Int.MaxValue): UServer = ObjectAggregator(maxRequestSize)
+  def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer               = UnsafeChannelPipeline(pipeline)
+  def enableObjectAggregator(maxRequestSize: Int = Int.MaxValue): UServer      = ObjectAggregator(maxRequestSize)
+  def unsafeServerbootstrap(serverBootstrap: ServerBootstrap => Unit): UServer = UnsafeServerbootstrap(serverBootstrap)
 
   /**
    * Creates a server from a http app.
