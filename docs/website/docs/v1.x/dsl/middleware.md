@@ -169,7 +169,7 @@ Middlewares can be combined using several special operators like `++`, `<>` and 
 
 For example, if we have three middlewares f1, f2, f3
 
-f1 ++ f2 ++ f3 applies on an `http`, left to right with f1 first followed by others, like this 
+f1 ++ f2 ++ f3 applies on an `http`, from left to right with f1 first followed by others, like this 
 ```scala
   f3(f2(f1(http)))
 ```
@@ -212,17 +212,14 @@ content-length: 0
 We notice in the response that first basicAuth middleware responded `HTTP/1.1 401 Unauthorized` and then patch middleware attached a `X-Environment: Dev` 
 
 ### Using `<>`
-
 `<>` is an alias for `orElse`. While using `<>`, if the output `Http` of the first middleware fails, the second middleware will be evaluated, ignoring the result from the first.
-
+#### A simple example using `<>`
 ```scala
 val middleware: Middleware[Any, Nothing, Request, Response, Request, Response] = Middleware.fail("error") <> Middleware.addHeader("X-Environment", "Dev")
 ```
-
 ### Using `>>>`
-
 `>>>` is an alias for `andThen`. Creates a new middleware that passes the output `Http` of the current middleware as the input to the provided middleware.
-
+#### A simple example using `>>>`
 ```scala
 val middleware: Middleware[Any, Nothing, Int, Int, Int, Int] = Middleware.codec[Int, Int](decoder = a => Right(a + 1), encoder = b => Right(b + 1))
 val mid: Middleware[Any, Nothing, Int, Int, Int, Int] =  middleware >>> middleware
