@@ -209,7 +209,7 @@ www-authenticate: Basic
 X-Environment: Dev
 content-length: 0
 ```
-We notice in the response that first basicAuth middleware responded a 401 and then patch middleware attached a `X-Environment: Dev` 
+We notice in the response that first basicAuth middleware responded `HTTP/1.1 401 Unauthorized` and then patch middleware attached a `X-Environment: Dev` 
 
 ### Using `<>`
 
