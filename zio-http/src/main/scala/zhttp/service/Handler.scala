@@ -123,7 +123,7 @@ private[zhttp] final case class Handler[R](
                 case Left(Some(cause)) =>
                   UIO { resWriter.write(cause, jReq) }
                 case Left(None)        =>
-                  UIO { resWriter.writeNotFound(jReq.uri(), jReq) }
+                  UIO { resWriter.writeNotFound(jReq) }
                 case Right(other)      =>
                   other.dieOption match {
                     case Some(defect) =>
@@ -155,7 +155,7 @@ private[zhttp] final case class Handler[R](
 
       case HExit.Die(e) => resWriter.write(e, jReq)
 
-      case HExit.Empty => resWriter.writeNotFound(jReq.uri(), jReq)
+      case HExit.Empty => resWriter.writeNotFound(jReq)
 
     }
   }
