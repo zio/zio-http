@@ -8,10 +8,11 @@ Before introducing middleware, let us understand why they are needed.
 
 The definition of an "Aspect" in the programming world provided by Wikipedia
 ```
-An aspect of a program is a feature linked to many other parts of the program, but which is not related to the program's primary function. 
-An aspect crosscuts the program's core concerns, therefore violating its separation of concerns that tries to encapsulate unrelated functions.
+An aspect of a program is a feature linked to many other parts of the program, 
+but which is not related to the program's primary function. 
+An aspect crosscuts the program's core concerns, therefore violating 
+its separation of concerns that tries to encapsulate unrelated functions.
 ```
-
 Or in short, aspect is a common concern required throughout the application, an implementation could lead to repeated boilerplate code and in violation of the principle of separation of concerns.
 
 Some examples of common "aspects" required throughout the application
@@ -129,19 +130,19 @@ lazy val patchEnv = Middleware.addHeader("X-Environment", "Dev")
 ```
 A test HttpApp with attached middleware
 ```scala
-val testApp = Http.collect[Request] {
-  case Method.GET -> !! / "endpoint1" => Response.text(s"Endpoint 1")
+val app = Http.collect[Request] {
+  case Method.GET -> !! / name => Response.text(s"Hello $name")
 }
-val testAppWithMiddleware = testApp @@ patchEnv
+val appWithMiddleware = app @@ patchEnv
 ```
 Start the server 
 ```scala
 override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-  Server.start(8090, testAppWithMiddleware).exitCode
+  Server.start(8090, appWithMiddleware).exitCode
 ```
 Fire a curl request and we see an additional header added to the response indicating the "Dev" environment
 ```
-curl -i http://localhost:8090/endpoint1
+curl -i http://localhost:8090/name
 
 HTTP/1.1 200 OK
 content-type: text/plain
@@ -152,12 +153,47 @@ Endpoint 1
 ## Create Middleware
 
 Refer to [Middleware.scala](https://github.com/dream11/zio-http/blob/main/zio-http/src/main/scala/zhttp/http/Middleware.scala) for various ways of creating a middleware using functions like 
-* identity
-* succeed
-* fail
-* collect and collectZIO
-* codec
-* fromHttp
+* **identity**: works like an identity function
+  `f(x) = x`
+  returns the same `Http` as input without doing any modification
+```scala
+val middleware: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Middleware.identity
+```
+* **succeed** creates a middleware that always returns the output `Http` that succeeds with the given value and never fails.
+
+```scala
+val middleware: Middleware[Any, Nothing, Nothing, Any, Any, Int] = Middleware.succeed(1)
+```
+* **fail** creates a middleware that always returns the output `Http` that always fails.
+
+```scala
+val middleware: Middleware[Any, String, Nothing, Any, Any, Nothing] = Middleware.fail("error")
+```
+* **collect** creates middleware using a specified function
+
+```scala
+val middleware: Middleware[Any, Nothing, Request, Response, Request, Response] = Middleware.collect[Request](_ => Middleware.addHeaders(Headers("a", "b")))
+```
+* **collectZIO** creates middleware using a specified effect function
+
+```scala
+val middleware: Middleware[Any, Nothing, Request, Response, Request, Response] = Middleware.collectZIO[Request](_ => ZIO.succeed(Middleware.addHeaders(Headers("a", "b"))))
+```
+* **codec** takes two functions `decoder: AOut => Either[E, AIn]` and `encoder: BIn => Either[E, BOut]`
+
+The below snippet takes two functions:
+  - decoder function to decode Request to String
+  - encoder function to encode String to Response
+
+```scala
+val middleware: Middleware[Any, Nothing, String, String, Request, Response] = Middleware.codec[Request,String](r => Right(r.method.toString()), s => Right(Response.text(s)))
+```
+* **fromHttp** creates a middleware with output `Http` as specified `http`
+
+```scala
+val app: Http[Any, Nothing, Any, String] = Http.succeed("Hello World!")
+val middleware: Middleware[Any, Nothing, Nothing, Any, Request, Response] = Middleware.fromHttp(app)
+```
 
 ## Combining middlewares
 
@@ -193,12 +229,12 @@ A basicAuth middleware with hardcoded user pw and another patches response with 
 val basicAuthMW = basicAuth("admin", "admin")
 lazy val patchEnv = Middleware.addHeader("X-Environment", "Dev")
 // apply combined middlewares to the userApp
-val testAppWithMiddleware = userApp @@ (basicAuthMW ++ patchEnv)
+val appWithMiddleware = userApp @@ (basicAuthMW ++ patchEnv)
 ```
 Start the server
 ```scala
 override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-  Server.start(8090, testAppWithMiddleware).exitCode
+  Server.start(8090, appWithMiddleware).exitCode
 ```
 Fire a curl request with incorrect user/password combination
 ```
@@ -209,7 +245,7 @@ www-authenticate: Basic
 X-Environment: Dev
 content-length: 0
 ```
-We notice in the response that first basicAuth middleware responded `HTTP/1.1 401 Unauthorized` and then patch middleware attached a `X-Environment: Dev` 
+We notice in the response that first basicAuth middleware responded `HTTP/1.1 401 Unauthorized` and then patch middleware attached a `X-Environment: Dev` header. 
 
 ### Using `<>` combinator
 `<>` is an alias for `orElse`. While using `<>`, if the output `Http` of the first middleware fails, the second middleware will be evaluated, ignoring the result from the first.
