@@ -128,9 +128,9 @@ type HttpApp[-R,+E] = Http[R, E, Request, Response]
 ```
 So, in ```HttpApp``` context we can represent modified Request/Response pair
 ```
-Req1 => ZIO[R, Option[E], Resp1]  ---transformed by middleware--->  Req2 => ZIO[R, Option[E], Resp2]
+ReqIn => ZIO[R, Option[E], RespIn]  ---transformed by middleware--->  ReqOut => ZIO[R, Option[E], RespOut]
 ```
-where ```Req1, Req2``` = ```Request``` and ```Resp1, Resp2``` = ```Response```
+where ```ReqIn, ReqOut``` = ```Request``` and ```RespIn, RespOut``` = ```Response```
 
 In ```HttpApp``` context, a middleware can modify requests and responses and also transform them into more concrete domain entities.
 
