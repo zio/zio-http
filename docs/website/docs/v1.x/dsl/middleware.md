@@ -178,7 +178,8 @@ Again remembering that a "middleware" is just a **_transformative function_**. T
   `f(x) = x`.
   It returns the same `Http` as input without doing any modification
 ```scala
-val middleware: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Middleware.identity
+val identityMW: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Middleware.identity
+app @@ identityMW // no effect on the http app.
 ```
 * **succeed** creates a middleware that always returns the output `Http` that succeeds with the given value and never fails.
 
