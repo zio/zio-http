@@ -1,5 +1,8 @@
 package zhttp.logging.macros
 
+import zhttp.logging.LoggerTransport
+import zhttp.logging.Logger
+
 import scala.annotation.tailrec
 import scala.language.experimental.macros
 import scala.quoted._
@@ -9,48 +12,34 @@ import scala.quoted._
  */
 private[zhttp] object LoggerMacro {
 
-  final case class SourcePos(file: String, line: Int)
-
-//  inline def sourcePos(using qctx: Quotes): Expr[SourcePos] = {
-//    val rootPosition = qctx.reflect.Position.ofMacroExpansion
-//    val file = Expr(rootPosition.sourceFile.jpath.toString)
-//    val line = Expr(rootPosition.startLine + 1)
-//    '{SourcePos($file, $line)}
-//  }
-
-  def traceM(frontend: Expr[LogFrontend])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
-  '{ if ($frontend.config.isTraceEnabled) {
-    val pos:Expr[SourcePos] = sourcePos
-    $frontend.trace($msg, $tags, $pos.file, $pos.line) }
+  def logTraceImpl(transports: Expr[List[LoggerTransport]])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
+  '{ $transports.filter(transport => transport.isTraceEnabled).foreach { transport =>
+    transport.trace($msg, $tags, "", 1) }
   }
 
-  def debugM(frontend: Expr[LogFrontend])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
-  '{ if ($frontend.config.isDebugEnabled) {
-    val pos = sourcePos
-    $frontend.debug($msg, $tags, $pos.file, $pos.line) }
+  def logDebugImpl(transports: Expr[List[LoggerTransport]])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
+  '{ $transports.filter(transport => transport.isDebugEnabled).foreach { transport =>
+    transport.debug($msg, $tags, "", 1) }
   }
 
-  def infoM(frontend: Expr[LogFrontend])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
-  '{ if ($frontend.config.isInfoEnabled) {
-    val pos = sourcePos
-    $frontend.info($msg, $tags, $pos.file, $pos.line) }
+  def logInfoImpl(transports: Expr[List[LoggerTransport]])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
+  '{ $transports.filter(transport => transport.isInfoEnabled).foreach { transport =>
+    transport.info($msg, $tags, "", 1) }
   }
 
-  def warnM(frontend: Expr[LogFrontend])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
-  '{ if ($frontend.config.isWarnEnabled) {
-    val pos = sourcePos
-    $frontend.warn($msg, $tags, $pos.file, $pos.line) }
+  def logWarnImpl(transports: Expr[List[LoggerTransport]])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
+  '{ $transports.filter(transport => transport.isWarnEnabled).foreach { transport =>
+    transport.warn($msg, $tags, "", 1) }
   }
 
-  def errorTM(frontend: Expr[LogFrontend])(t: Expr[Throwable])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
-  '{ if ($frontend.config.isErrorEnabled) {
-    val pos = sourcePos
-    $frontend.error($msg, $t, $tags, $pos.file, $pos.line) }
+  def logErrorWithCauseImpl(transports: Expr[List[LoggerTransport]])(t: Expr[Throwable])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
+  '{ $transports.filter(transport => transport.isErrorEnabled).foreach { transport =>
+    transport.error($msg, $t, $tags, "", 1) }
   }
-  def errorM(frontend: Expr[LogFrontend])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
-  '{ if ($frontend.config.isErrorEnabled) {
-    val pos = sourcePos
-    $frontend.error($msg, $tags, $pos.file, $pos.line) }
+
+  def logErrorImpl(transports: Expr[List[LoggerTransport]])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) =
+  '{ $transports.filter(transport => transport.isErrorEnabled).foreach { transport =>
+    transport.error($msg, $tags, "", 1) }
   }
 
 

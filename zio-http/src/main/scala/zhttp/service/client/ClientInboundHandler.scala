@@ -19,7 +19,7 @@ final class ClientInboundHandler[R](
 
   private val log = Logger.make
     .withTransport(LoggerTransport.console("zhttp.service.client.ClientInboundHandler"))
-    .withLevel(LogLevel.TRACE) // TODO: loglevel should come from server config object
+    .withLevel(LogLevel.INFO) // TODO: loglevel should come from server config object
 
   private val tags = List("zhttp")
 
