@@ -8,8 +8,8 @@ Before introducing middleware, let us understand why they are needed.
 
 If we refer to the wikipedia for the definition of an "[Aspect](https://en.wikipedia.org/wiki/Aspect_(computer_programming))" we can glean following points.
 
-* An aspect of a program is a feature linked to many other parts of the program, 
-* But it is not related to the program's primary function (**_most common example logging_**). 
+* An aspect of a program is a feature linked to many other parts of the program (**_most common example logging_**)., 
+* But it is not related to the program's primary function (**core business logic**) 
 * An aspect crosscuts the program's core concerns (**_for example logging code intertwined with core business logic_**),  
 * Therefore, it can violate principle of separation of concerns that tries to encapsulate unrelated functions. (**_Code duplication and maintenance nightmare_**)
 
