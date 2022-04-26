@@ -1,6 +1,6 @@
 package zhttp.logging.macros
 
-import zhttp.logging.{Logger, LogLevel}
+import zhttp.logging.{LogLevel, Logger}
 
 import scala.reflect.macros.whitebox
 
