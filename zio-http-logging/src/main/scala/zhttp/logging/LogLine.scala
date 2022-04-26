@@ -1,4 +1,5 @@
 package zhttp.logging
+
 import java.time.LocalDateTime
 
 final case class LogLine(

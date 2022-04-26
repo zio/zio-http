@@ -1,11 +1,11 @@
-package zhttp.logging.frontend
-
-import zhttp.logging.{LogLevel, LogLine, LoggerTransport}
+package zhttp.logging
 
 import java.io.{PrintWriter, StringWriter}
 import java.time.LocalDateTime
 
-trait LogFrontend {
+trait LogFrontend { this: LoggerTransport =>
+  def log(msg: CharSequence): Unit
+
   private def buildLines(
     msg: String,
     throwable: Option[Throwable],
@@ -17,7 +17,7 @@ trait LogFrontend {
     throwable.fold(
       List(
         LogLine(
-          loggerTransport.name,
+          this.name,
           LocalDateTime.now(),
           thread,
           logLevel,
@@ -31,7 +31,7 @@ trait LogFrontend {
     )(t =>
       List(
         LogLine(
-          loggerTransport.name,
+          this.name,
           LocalDateTime.now(),
           thread,
           logLevel,
@@ -42,7 +42,7 @@ trait LogFrontend {
           lineNumber,
         ),
         LogLine(
-          loggerTransport.name,
+          this.name,
           LocalDateTime.now(),
           thread,
           logLevel,
@@ -64,9 +64,9 @@ trait LogFrontend {
     enclosingClass: String,
     lineNumber: Int,
   ): Unit =
-    if (loggerTransport.filter(loggerTransport.name)) {
+    if (this.filter(this.name)) {
       buildLines(msg, throwable, logLevel, tags, enclosingClass, lineNumber).foreach { line =>
-        log(loggerTransport.format(line).toString)
+        log(this.format(line).toString)
       }
     }
 
@@ -77,10 +77,6 @@ trait LogFrontend {
   }
 
   private def thread = Thread.currentThread()
-
-  def loggerTransport: LoggerTransport
-
-  def log(msg: CharSequence): Unit
 
   final def debug(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
     logMayBe(msg, None, LogLevel.DEBUG, tags, enclosingClass, lineNumber)
@@ -106,20 +102,9 @@ trait LogFrontend {
   final def warn(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
     logMayBe(msg, None, LogLevel.WARN, tags, enclosingClass, lineNumber)
 
-  private[zhttp] final val isDebugEnabled: Boolean = loggerTransport.level >= LogLevel.DEBUG
-  private[zhttp] final val isErrorEnabled: Boolean = loggerTransport.level >= LogLevel.ERROR
-  private[zhttp] final val isInfoEnabled: Boolean  = loggerTransport.level >= LogLevel.INFO
-  private[zhttp] final val isTraceEnabled: Boolean = loggerTransport.level >= LogLevel.TRACE
-  private[zhttp] final val isWarnEnabled: Boolean  = loggerTransport.level >= LogLevel.WARN
-}
-
-object LogFrontend {
-
-  def default(transport: LoggerTransport): LogFrontend = new DefaultLogger(transport)
-
-  private final class DefaultLogger(override val loggerTransport: LoggerTransport) extends LogFrontend {
-
-    override def log(msg: CharSequence): Unit =
-      loggerTransport.transport.run(msg)
-  }
+  private[zhttp] final val isDebugEnabled: Boolean = this.level >= LogLevel.DEBUG
+  private[zhttp] final val isErrorEnabled: Boolean = this.level >= LogLevel.ERROR
+  private[zhttp] final val isInfoEnabled: Boolean  = this.level >= LogLevel.INFO
+  private[zhttp] final val isTraceEnabled: Boolean = this.level >= LogLevel.TRACE
+  private[zhttp] final val isWarnEnabled: Boolean  = this.level >= LogLevel.WARN
 }

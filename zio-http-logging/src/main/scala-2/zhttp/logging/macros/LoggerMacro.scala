@@ -1,6 +1,6 @@
 package zhttp.logging.macros
 
-import zhttp.logging.{InternalLogger, LogLevel}
+import zhttp.logging.{Logger, LogLevel}
 
 import scala.reflect.macros.whitebox
 
@@ -10,7 +10,7 @@ import scala.reflect.macros.whitebox
 private[zhttp] object LoggerMacro {
 
   /** A macro context that represents a method call on a Logger instance. */
-  private[this] type LogCtx = whitebox.Context { type PrefixType = InternalLogger }
+  private[this] type LogCtx = whitebox.Context { type PrefixType = Logger }
 
   /**
    * Log a message reflectively at a given level.
@@ -30,7 +30,7 @@ private[zhttp] object LoggerMacro {
   )(msg: c.Expr[String], error: Option[c.Expr[Throwable]], tags: c.Expr[List[String]])(logLevel: LogLevel) = {
     import c.universe._
 
-    val frontend          = q"${c.prefix.tree}.frontend"
+    val transports        = q"${c.prefix.tree}.transports"
     val enclosingFullName = q"${c.internal.enclosingOwner.owner.fullName}"
     val locationLine      = q"${c.enclosingPosition.line}"
 
@@ -39,10 +39,10 @@ private[zhttp] object LoggerMacro {
       case Some(e) => List(msg.tree, q"$e", tags.tree, enclosingFullName, locationLine)
     }
 
-    val logExpr   = q"$frontend.${TermName(logLevel.methodName)}(..$logValues)"
-    val checkExpr = q"${c.prefix.tree}.frontend.${TermName(s"is${logLevel.methodName.capitalize}Enabled")}"
+    val logExpr =
+      q"$transports.filter(transport => transport.${TermName(s"is${logLevel.methodName.capitalize}Enabled")}).map(transport => transport.${TermName(logLevel.methodName)}(..$logValues))"
 
-    q"if ($checkExpr) $logExpr else ()"
+    q"$logExpr: Unit"
 
   }
 

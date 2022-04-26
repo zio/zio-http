@@ -1,4 +1,5 @@
 package zhttp.logging
+
 import zhttp.logging.LoggerTransport.Transport
 
 /**
@@ -11,12 +12,13 @@ final case class LoggerTransport(
   format: Setup.LogFormat,
   filter: String => Boolean,
   transport: Transport,
-) { self =>
+) extends LogFrontend { self =>
   def withFormat(format: LogLine => CharSequence): LoggerTransport = self.copy(format = format)
   def withFormat(format: LogFormat): LoggerTransport               = self.copy(format = LogFormat.run(format))
   def withLevel(level: LogLevel): LoggerTransport                  = self.copy(level = level)
   def withFilter(filter: String => Boolean): LoggerTransport       = self.copy(filter = filter)
   def withName(name: String): LoggerTransport                      = self.copy(name = name)
+  override def log(msg: CharSequence): Unit                        = if (filter(msg.toString)) transport.run(msg)
 }
 
 object LoggerTransport {
@@ -38,7 +40,7 @@ object LoggerTransport {
 
     }
     case object Empty extends Transport {
-      override def run(line: CharSequence): Unit = ???
+      override def run(line: CharSequence): Unit = ()
     }
   }
 }
