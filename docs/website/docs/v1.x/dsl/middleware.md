@@ -6,14 +6,16 @@ Before introducing middleware, let us understand why they are needed.
 
 ## Need for middlewares and handling "aspects"
 
-The definition of an "Aspect" in the programming world provided by Wikipedia
+If we refer to the wikipedia for the definition of an "[Aspect](https://en.wikipedia.org/wiki/Aspect_(computer_programming))" we can glean following information.
+
 ```
-An aspect of a program is a feature linked to many other parts of the program, 
-but which is not related to the program's primary function. 
-An aspect crosscuts the program's core concerns, therefore violating 
-its separation of concerns that tries to encapsulate unrelated functions.
+* An aspect of a program is a feature linked to many other parts of the program, 
+* But it is not related to the program's primary function (most common example logging). 
+* An aspect crosscuts the program's core concerns (for example logging code intertwined with core business logic),  
+* Therefore it can violate principle of separation of concerns that tries to encapsulate unrelated functions. (Code duplication and maintenance nightmare)
 ```
 Or in short, aspect is a common concern required throughout the application, an implementation could lead to repeated boilerplate code and in violation of the principle of separation of concerns.
+There is a paradigm in programming world called [aspect-oriented programming](https://en.wikipedia.org/wiki/Aspect-oriented_programming) that aims for modular handling of these common concerns in an application. 
 
 Some examples of common "aspects" required throughout the application
 - logging,
