@@ -2,7 +2,55 @@
 sidebar_position: "8"
 ---
 # Middleware
+
+## What are "Middlewares" and why they are needed
 Before introducing middleware, let us understand why they are needed.
+
+Consider following example where we have two endpoints within HttpApp
+* GET user by id and
+* GET multiple users paginated
+```scala
+  private val app = Http.collectZIO[Request] {
+    case Method.GET -> !! / "users" / id =>
+      // core business logic  
+      dbService.lookupUsersById(id).map(Response.json(_.json))
+    case Method.GET -> !! / "users"    =>
+      // core business logic  
+      dbService.paginatedUsers(pageNum).map(Response.json(_.json))
+  }
+```
+#### The polluted code violating the principle of "Separation of concerns"
+
+As our application grows, we want to code following aspects like
+* basicAuth
+* request logging
+* response logging
+* timeout and retry
+
+For both our example endpoints, our core business logic gets buried under boilerplate like this
+
+```scala
+            (for {
+                // validate user
+                _    <- MyAuthService.doAuth(request)
+                // log request
+                _    <- logRequest(request)
+                // core business logic
+                user <- dbService.lookupUsersById(id).map(Response.json(_.json))
+                resp <- Response.json(user.toJson)
+                // log response
+                _    <- logResponse(resp)                
+            } yield resp)
+                    .timeout(2.seconds)
+                    .retryN(5)
+```
+Imagine repeating this for all our end points!!!
+
+So there are two problems with this approach
+* We are dangerously coupling our business logic with a lower level concern (like applying timeouts)
+* Also, we will have to do it for every single route in the system. For 100 routes we will need to repeat 100 timeouts!!!
+
+This can lead to a lot of boilerplate clogging our neatly written endpoints affecting readability, thereby leading to maintenance cost.
 
 ## Need for middlewares and handling "aspects"
 
@@ -22,53 +70,7 @@ Some examples of common "aspects" required throughout the application
 - retries (or handling flakiness for example while accessing third party APIs)
 - authenticating a user before using the REST resource (basic, or custom ones like oauth / single sign-on etc).
 
-Consider following example where we have two endpoints within HttpApp 
-* GET user by id and 
-* GET multiple users paginated
-```scala
-  private val app = Http.collectZIO[Request] {
-    case Method.GET -> !! / "users" / id =>
-      // core business logic  
-      dbService.lookupUsersById(id).map(Response.json(_.json))
-    case Method.GET -> !! / "users"    =>
-      // core business logic  
-      dbService.paginatedUsers(pageNum).map(Response.json(_.json))
-  }
-```
-#### The polluted code violates the principle of "Separation of concerns"
-
-Suppose we want to code above-mentioned aspects like
-  * basicAuth
-  * request logging
-  * response logging
-  * timeout and retry
-
-for both our example endpoints, our core business logic gets buried under boilerplate like this
-
-```scala
-            (for {
-                // validate user
-                _    <- MyAuthService.doAuth(request)
-                // log request
-                _    <- logRequest(request)
-                // core business logic
-                user <- dbService.lookupUsersById(id).map(Response.json(_.json))
-                resp <- Response.json(user.toJson)
-                // log response
-                _    <- logResponse(resp)                
-            } yield resp)
-                    .timeout(2.seconds)
-                    .retryN(5)
-```
-Imagine repeating this for all our end points!!! 
-
-So there are two problems with this approach
-* We are dangerously coupling our business logic with a lower level concern (like applying timeouts)
-* Also, we will have to do it for every single route in the system. For 100 routes we will need to repeat 100 timeouts!!! 
-
-This can lead to a lot of boilerplate clogging our neatly written endpoints affecting readability, thereby leading to maintenance cost.
-
-This is where middleware comes to the rescue. 
+This is where a middleware comes to the rescue. 
 Using middlewares we can compose out-of-the-box middlewares (or our custom middlewares) to address the above-mentioned concerns using ++ and @@ operators as shown below.
 
 #### Cleaned up code using middleware to address cross-cutting concerns like auth, request/response logging, etc.
@@ -106,7 +108,7 @@ A middleware helps in addressing common cross-cutting concerns without duplicati
 * `A` is the type of the function parameter
 * `B` type of the result when function succeeds 
 
-Middleware is simply a function that takes one Http as a parameter and returns another Http,
+A middleware is simply a function that takes one Http as a parameter and returns another Http,
 
 ```Http => Http```
 
