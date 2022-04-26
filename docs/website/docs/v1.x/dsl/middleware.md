@@ -108,7 +108,7 @@ A middleware helps in addressing common cross-cutting concerns without duplicati
 
 Middleware is simply a function that takes one Http as a parameter and returns another Http,
 
-`Http => Http`
+```Http => Http```
 
 So, a middleware represents transformation f1 => f2
  
