@@ -35,12 +35,7 @@ private[zhttp] final case class Handler[R](
 
               override def headers: Headers = Headers.make(jReq.headers())
 
-              override def remoteAddress: Option[InetAddress] = {
-                ctx.channel().remoteAddress() match {
-                  case m: InetSocketAddress => Some(m.getAddress)
-                  case _                    => None
-                }
-              }
+              override def remoteAddress: Option[InetAddress] = getRemoteAddress
 
               override def data: HttpData   = HttpData.fromByteBuf(jReq.content())
               override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
@@ -48,18 +43,12 @@ private[zhttp] final case class Handler[R](
               /**
                * Gets the HttpRequest
                */
-              override def unsafeEncode = jReq
+              override def unsafeEncode: HttpRequest = jReq
 
             },
           )
         catch {
-          case throwable: Throwable =>
-            resWriter.write(
-              Response
-                .fromHttpError(HttpError.InternalServerError(cause = Some(throwable)))
-                .withConnection(HeaderValues.close),
-              jReq,
-            ): Unit
+          case throwable: Throwable => resWriter.write(throwable, jReq)
         }
       case jReq: HttpRequest     =>
         if (canHaveBody(jReq)) {
@@ -80,12 +69,7 @@ private[zhttp] final case class Handler[R](
 
               override def method: Method = Method.fromHttpMethod(jReq.method())
 
-              override def remoteAddress: Option[InetAddress] = {
-                ctx.channel().remoteAddress() match {
-                  case m: InetSocketAddress => Some(m.getAddress)
-                  case _                    => None
-                }
-              }
+              override def remoteAddress: Option[InetAddress] = getRemoteAddress(ctx)
 
               override def url: URL         = URL.fromString(jReq.uri()).getOrElse(null)
               override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
@@ -93,17 +77,11 @@ private[zhttp] final case class Handler[R](
               /**
                * Gets the HttpRequest
                */
-              override def unsafeEncode = jReq
+              override def unsafeEncode: HttpRequest = jReq
             },
           )
         catch {
-          case throwable: Throwable =>
-            resWriter.write(
-              Response
-                .fromHttpError(HttpError.InternalServerError(cause = Some(throwable)))
-                .withConnection(HeaderValues.close),
-              jReq,
-            ): Unit
+          case throwable: Throwable => resWriter.write(throwable, jReq)
         }
 
       case msg: HttpContent =>
@@ -114,6 +92,13 @@ private[zhttp] final case class Handler[R](
 
     }
 
+  }
+
+  private def getRemoteAddress(implicit ctx: Ctx) = {
+    ctx.channel().remoteAddress() match {
+      case m: InetSocketAddress => Some(m.getAddress)
+      case _                    => None
+    }
   }
 
   private def canHaveBody(req: HttpRequest): Boolean = req.method() match {
@@ -136,25 +121,13 @@ private[zhttp] final case class Handler[R](
             cause =>
               cause.failureOrCause match {
                 case Left(Some(cause)) =>
-                  UIO {
-                    resWriter.write(
-                      Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),
-                      jReq,
-                    )
-                  }
+                  UIO { resWriter.write(cause, jReq) }
                 case Left(None)        =>
-                  UIO {
-                    resWriter.write(Response.status(Status.NotFound), jReq)
-                  }
+                  UIO { resWriter.writeNotFound(jReq) }
                 case Right(other)      =>
                   other.dieOption match {
                     case Some(defect) =>
-                      UIO {
-                        resWriter.write(
-                          Response.fromHttpError(HttpError.InternalServerError(cause = Some(defect))),
-                          jReq,
-                        )
-                      }
+                      UIO { resWriter.write(defect, jReq) }
                     case None         =>
                       ZIO.halt(other)
                   }
@@ -175,23 +148,14 @@ private[zhttp] final case class Handler[R](
         if (self.isWebSocket(res)) {
           self.upgradeToWebSocket(jReq, res)
         } else {
-          resWriter.write(res, jReq): Unit
+          resWriter.write(res, jReq)
         }
 
-      case HExit.Failure(e) =>
-        resWriter.write(
-          Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))),
-          jReq,
-        ): Unit
+      case HExit.Failure(e) => resWriter.write(e, jReq)
 
-      case HExit.Die(e) =>
-        resWriter.write(
-          Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))),
-          jReq,
-        ): Unit
+      case HExit.Die(e) => resWriter.write(e, jReq)
 
-      case HExit.Empty =>
-        resWriter.write(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))), jReq): Unit
+      case HExit.Empty => resWriter.writeNotFound(jReq)
 
     }
   }
