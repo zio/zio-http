@@ -3,10 +3,10 @@ sidebar_position: "8"
 ---
 # Middleware
 
-## What are "Middlewares" and why they are needed
+## What is a "Middleware" and why they are needed
 Before introducing middleware, let us understand why they are needed.
 
-Consider following example where we have two endpoints within HttpApp
+Consider the following example where we have two endpoints within HttpApp
 * GET user by id and
 * GET multiple users paginated
 ```scala
@@ -19,13 +19,13 @@ Consider following example where we have two endpoints within HttpApp
       dbService.paginatedUsers(pageNum).map(Response.json(_.json))
   }
 ```
-#### The polluted code violating the principle of "Separation of concerns"
+#### The polluted code violates the principle of "Separation of concerns"
 
-As our application grows, we want to code following aspects like
-* basicAuth
-* request logging
-* response logging
-* timeout and retry
+As our application grows, we want to code the following aspects like
+* Basic Auth
+* Request logging
+* Response logging
+* Timeout and retry
 
 For both our example endpoints, our core business logic gets buried under boilerplate like this
 
@@ -50,27 +50,27 @@ So there are two problems with this approach
 * We are dangerously coupling our business logic with a lower level concern (like applying timeouts)
 * Also, we will have to do it for every single route in the system. For 100 routes we will need to repeat 100 timeouts!!!
 
-This can lead to a lot of boilerplate clogging our neatly written endpoints affecting readability, thereby leading to maintenance cost.
+This can lead to a lot of boilerplate clogging our neatly written endpoints affecting readability, thereby leading to maintenance costs.
 
 ## Need for middlewares and handling "aspects"
 
-If we refer to the wikipedia for the definition of an "[Aspect](https://en.wikipedia.org/wiki/Aspect_(computer_programming))" we can glean following points.
+If we refer to Wikipedia for the definition of an "[Aspect](https://en.wikipedia.org/wiki/Aspect_(computer_programming))" we can glean the following points.
 
 * An aspect of a program is a feature linked to many other parts of the program (**_most common example logging_**)., 
 * But it is not related to the program's primary function (**_core business logic_**) 
 * An aspect crosscuts the program's core concerns (**_for example logging code intertwined with core business logic_**),  
-* Therefore, it can violate principle of "separation of concerns" that tries to encapsulate unrelated functions. (**_Code duplication and maintenance nightmare_**)
+* Therefore, it can violate the principle of "separation of concerns" which tries to encapsulate unrelated functions. (**_Code duplication and maintenance nightmare_**)
 
 Or in short, aspect is a common concern required throughout the application, and its implementation could lead to repeated boilerplate code and in violation of the principle of separation of concerns.
-There is a paradigm in programming world called [aspect-oriented programming](https://en.wikipedia.org/wiki/Aspect-oriented_programming) that aims for modular handling of these common concerns in an application. 
+There is a paradigm in the programming world called [aspect-oriented programming](https://en.wikipedia.org/wiki/Aspect-oriented_programming) that aims for modular handling of these common concerns in an application. 
 
 Some examples of common "aspects" required throughout the application
 - logging,
 - timeouts (preventing long-running code)
 - retries (or handling flakiness for example while accessing third party APIs)
-- authenticating a user before using the REST resource (basic, or custom ones like oauth / single sign-on etc).
+- authenticating a user before using the REST resource (basic, or custom ones like OAuth / single sign-on, etc).
 
-This is where a middleware comes to the rescue. 
+This is where middleware comes to the rescue. 
 Using middlewares we can compose out-of-the-box middlewares (or our custom middlewares) to address the above-mentioned concerns using ++ and @@ operators as shown below.
 
 #### Cleaned up code using middleware to address cross-cutting concerns like auth, request/response logging, etc.
@@ -91,12 +91,12 @@ private val app = Http.collectZIO[Request] {
 ```
 Observe how we gained following benefits by using middlewares
 * **Readability**: de-cluttering business logic.
-* **Modularity**: we can manage aspects independently without making changes in 100 places (for example replacing logging mechanism from logback to log4j2 will require change in one place, the logging middleware).
+* **Modularity**: we can manage aspects independently without making changes in 100 places (for example replacing the logging mechanism from logback to log4j2 will require change in one place, the logging middleware).
 * **Testability**: we can test our aspects independently.
 
 ## Middleware in zio-http
 
-A middleware helps in addressing common cross-cutting concerns without duplicating boilerplate code.
+A middleware helps in addressing common crosscutting concerns without duplicating boilerplate code.
 
 #### Revisiting HTTP 
 [`Http`](https://dream11.github.io/zio-http/docs/v1.x/dsl/http) is the most fundamental type for modelling Http applications
@@ -104,11 +104,11 @@ A middleware helps in addressing common cross-cutting concerns without duplicati
 ```Http[-R, +E, -A, +B]``` is equivalent to ```(A) => ZIO[R, Option[E], B]``` where
 
 * `R` type of Environment 
-* `E` type of the Error when function fails with Some[E]
+* `E` type of the Error when the function fails with Some[E]
 * `A` is the type of the function parameter
 * `B` type of the result when function succeeds 
 
-A middleware is simply a function that takes one Http as a parameter and returns another Http,
+Middleware is simply a function that takes one Http as a parameter and returns another Http,
 
 ```Http => Http```
 
@@ -187,7 +187,7 @@ Hello Bob
 
 Refer to [Middleware.scala](https://github.com/dream11/zio-http/blob/main/zio-http/src/main/scala/zhttp/http/Middleware.scala) for various ways of creating a middleware.
 
-Again remembering that a "middleware" is just a **_transformative function_**. There are ways of creating such transformative functions:  
+Again remember that a "middleware" is just a **_transformative function_**. There are ways of creating such transformative functions:  
 * **identity**: works like an [identity function](https://en.wikipedia.org/wiki/Identity_function) in mathematics
   `f(x) = x`.
   It returns the same `Http` as input without doing any modification
@@ -272,7 +272,7 @@ Start the server
 val server = Server.start(8090, appWithMiddleware).exitCode
 zio.Runtime.default.unsafeRunSync(server)
 ```
-Fire a curl request with incorrect user/password combination
+Fire a curl request with an incorrect user/password combination
 ```
 curl -i --user admin:wrong http://localhost:8090/user/admin/greet
 
@@ -285,7 +285,7 @@ We notice in the response that first basicAuth middleware responded `HTTP/1.1 40
 
 ### Using `>>>`
 `>>>` is an alias for `andThen` and similar to `++` with one BIG difference **_input/output types can be different (`AIn`≠ `AOut` / `BIn`≠ `BOut`)_**  
-Whereas, in case of `++` types remain same (horizontal composition).
+Whereas, in the case of `++` types remain the same (horizontal composition).
 
 For example, if we have three middlewares f1, f2, f3
 
