@@ -11,9 +11,9 @@ If we refer to the wikipedia for the definition of an "[Aspect](https://en.wikip
 * An aspect of a program is a feature linked to many other parts of the program (**_most common example logging_**)., 
 * But it is not related to the program's primary function (**_core business logic_**) 
 * An aspect crosscuts the program's core concerns (**_for example logging code intertwined with core business logic_**),  
-* Therefore, it can violate principle of separation of concerns that tries to encapsulate unrelated functions. (**_Code duplication and maintenance nightmare_**)
+* Therefore, it can violate principle of "separation of concerns" that tries to encapsulate unrelated functions. (**_Code duplication and maintenance nightmare_**)
 
-Or in short, aspect is a common concern required throughout the application, an implementation could lead to repeated boilerplate code and in violation of the principle of separation of concerns.
+Or in short, aspect is a common concern required throughout the application, and its implementation could lead to repeated boilerplate code and in violation of the principle of separation of concerns.
 There is a paradigm in programming world called [aspect-oriented programming](https://en.wikipedia.org/wiki/Aspect-oriented_programming) that aims for modular handling of these common concerns in an application. 
 
 Some examples of common "aspects" required throughout the application
@@ -87,7 +87,11 @@ private val app = Http.collectZIO[Request] {
     dbService.paginatedUsers(pageNum).map(Response.json(_.json))
 } @@ composedMiddlewares // attach composedMiddlewares to the app using @@
 ```
-Observe how we avoided cluttering our business logic using middlewares.
+Observe how we gained following benefits using middlewares
+* **Readability** - de-cluttering business logic.
+* **Modularity** - we can manage aspects independently without making changes in 100 places (example replacing logging mechanism from logback to log4j2 will require change in one place, the logging middleware).
+* **Testability** - we can test our aspects independently.
+
 ## Middleware in zio-http
 
 A middleware helps in addressing common cross-cutting concerns without duplicating boilerplate code.
