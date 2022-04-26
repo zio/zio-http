@@ -39,7 +39,11 @@ object LoggerTransport {
       override def run(line: CharSequence): Unit = log(line)
 
     }
-    case object Empty extends Transport {
+
+    final case class UnsafeFileSync(log: CharSequence => Unit, fileName: String) extends Transport {
+      override def run(line: CharSequence): Unit = ???
+    }
+    case object Empty                                                            extends Transport {
       override def run(line: CharSequence): Unit = ()
     }
   }
