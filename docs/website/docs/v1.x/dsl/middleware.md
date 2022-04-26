@@ -169,18 +169,19 @@ val appWithMiddleware = app @@ patchEnv
 ```
 Start the server 
 ```scala
-override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-  Server.start(8090, appWithMiddleware).exitCode
+val server = Server.start(8090, appWithMiddleware).exitCode
+zio.Runtime.default.unsafeRunSync(server)
 ```
 Fire a curl request and we see an additional header added to the response indicating the "Dev" environment
 ```
-curl -i http://localhost:8090/name
+curl -i http://localhost:8090/Bob
 
 HTTP/1.1 200 OK
 content-type: text/plain
 X-Environment: Dev
-content-length: 10
-Endpoint 1
+content-length: 12
+
+Hello Bob
 ```
 ## Creating Middleware
 
