@@ -87,10 +87,10 @@ private val app = Http.collectZIO[Request] {
     dbService.paginatedUsers(pageNum).map(Response.json(_.json))
 } @@ composedMiddlewares // attach composedMiddlewares to the app using @@
 ```
-Observe how we gained following benefits using middlewares
-* **Readability** - de-cluttering business logic.
-* **Modularity** - we can manage aspects independently without making changes in 100 places (example replacing logging mechanism from logback to log4j2 will require change in one place, the logging middleware).
-* **Testability** - we can test our aspects independently.
+Observe how we gained following benefits by using middlewares
+* **Readability**: de-cluttering business logic.
+* **Modularity**: we can manage aspects independently without making changes in 100 places (example replacing logging mechanism from logback to log4j2 will require change in one place, the logging middleware).
+* **Testability**: we can test our aspects independently.
 
 ## Middleware in zio-http
 
@@ -161,7 +161,7 @@ X-Environment: Dev
 content-length: 10
 Endpoint 1
 ```
-## Create Middleware
+## Creating Middleware
 
 Refer to [Middleware.scala](https://github.com/dream11/zio-http/blob/main/zio-http/src/main/scala/zhttp/http/Middleware.scala) for various ways of creating a middleware.
 
