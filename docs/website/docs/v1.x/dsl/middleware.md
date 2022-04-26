@@ -60,17 +60,18 @@ for both our example endpoints, our core business logic gets buried under boiler
                     .timeout(2.seconds)
                     .retryN(5)
 ```
-Imagine repeating this for all our end points. So there are two problems with this approach
+Imagine repeating this for all our end points!!! 
 
+So there are two problems with this approach
 * We are dangerously coupling our business logic with a lower level concern (like applying timeouts)
 * Also, we will have to do it for every single route in the system. For 100 routes we will need to repeat 100 timeouts!!! 
 
-This can lead to a lot of boilerplate clogging our neatly written endpoints affecting readability.
+This can lead to a lot of boilerplate clogging our neatly written endpoints affecting readability, thereby leading to maintenance cost.
 
 This is where middleware comes to the rescue. 
 Using middlewares we can compose out-of-the-box middlewares (or our custom middlewares) to address the above-mentioned concerns using ++ and @@ operators as shown below.
 
-#### Cleaned up code using middleware to address cross-cutting concerns like auth, req/resp logging, etc.
+#### Cleaned up code using middleware to address cross-cutting concerns like auth, request/response logging, etc.
 ```scala
 // compose basic auth, request/response logging, timeouts middlewares
 val composedMiddlewares = Middleware.basicAuth("user","pw") ++ 
@@ -161,9 +162,9 @@ Endpoint 1
 Refer to [Middleware.scala](https://github.com/dream11/zio-http/blob/main/zio-http/src/main/scala/zhttp/http/Middleware.scala) for various ways of creating a middleware.
 
 Again remembering that a "middleware" is just a **_transformative function_**. There are ways of creating such transformative functions:  
-* **identity**: works like an identity function
-  `f(x) = x`
-  returns the same `Http` as input without doing any modification
+* **identity**: works like an [identity function](https://en.wikipedia.org/wiki/Identity_function) in mathematics
+  `f(x) = x`.
+  It returns the same `Http` as input without doing any modification
 ```scala
 val middleware: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = Middleware.identity
 ```
@@ -256,8 +257,8 @@ content-length: 0
 We notice in the response that first basicAuth middleware responded `HTTP/1.1 401 Unauthorized` and then patch middleware attached a `X-Environment: Dev` header. 
 
 ### Using `>>>`
-`>>>` is an alias for `andThen` and similar to `++` with one BIG difference **_input/output types can be different (`AIn`≠ `AOut` / `BIn`≠ `BOut`) _**  
-Whereas, in case of `++` types remain same more like horizontal composition.
+`>>>` is an alias for `andThen` and similar to `++` with one BIG difference **_input/output types can be different (`AIn`≠ `AOut` / `BIn`≠ `BOut`)_**  
+Whereas, in case of `++` types remain same (horizontal composition).
 
 For example, if we have three middlewares f1, f2, f3
 
