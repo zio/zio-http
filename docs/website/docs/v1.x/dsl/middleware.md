@@ -123,7 +123,15 @@ type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E,
 ```scala
 type HttpApp[-R,+E] = Http[R, E, Request, Response]
 ```
-
+#### Attaching middleware to Http
+`@@` operator is used to attach a middleware to an Http. Example below shows a middleware attached to an HttpApp
+```scala
+val app = Http.collect[Request] {
+  case Method.GET -> !! / name => Response.text(s"Hello $name")
+}
+val appWithMiddleware = app @@ Middleware.debug
+```
+Logically the code above translates to `debugFunction(app)`
 #### A simple middleware example
 Let us consider a simple example using out-of-the-box middleware called ```runAfter``` and ```addHeader```
 We will write a middleware which will attach a custom header to the response. 
