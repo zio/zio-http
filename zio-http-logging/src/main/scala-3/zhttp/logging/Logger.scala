@@ -14,6 +14,10 @@ final case class Logger(transports: List[LoggerTransport]) { self =>
   def withTransport(transport: LoggerTransport): Logger               = copy(transports = transport :: self.transports)
   def withFilter(filter: String => Boolean): Logger                   = foreachTransport(_.withFilter(filter))
 
+
+
+
+
   inline def trace(msg: String, tags: List[String]): Unit = $ { logTraceImpl('transports)('msg)('tags) }
   inline def debug(msg: String, tags: List[String]): Unit = $ { logDebugImpl('transports)('msg)('tags) }
   inline def info(msg: String, tags: List[String]): Unit = $ { logInfoImpl('transports)('msg)('tags) }
