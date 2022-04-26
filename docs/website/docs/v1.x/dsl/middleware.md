@@ -91,7 +91,9 @@ private val app = Http.collectZIO[Request] {
 ```
 Observe how we gained following benefits by using middlewares
 * **Readability**: de-cluttering business logic.
-* **Modularity**: we can manage aspects independently without making changes in 100 places (for example replacing the logging mechanism from logback to log4j2 will require change in one place, the logging middleware).
+* **Modularity**: we can manage aspects independently without making changes in 100 places. For example, 
+  * replacing the logging mechanism from logback to log4j2 will require a change in one place, the logging middleware).
+  * replacing the authentication mechanism from OAuth to single sign-on will require changing the auth middleware
 * **Testability**: we can test our aspects independently.
 
 ## Middleware in zio-http
