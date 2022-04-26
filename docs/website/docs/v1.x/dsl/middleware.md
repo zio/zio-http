@@ -269,14 +269,12 @@ f2(http1) => http2
 ```scala
 val middleware: Middleware[Any, Nothing, Request, Response, Request, Response] = Middleware.fail("error") <> Middleware.addHeader("X-Environment", "Dev")
 ```
-#### standard operators
-There are other operators like, which are obvious as their name implies. 
-`contraMap` / `contraMapZIO` / `delay` / `flatMap` / `flatten` / `map`
-
 #### other operators
-`race` to race middlewares
-`runAfter` / `runBefore` to run effect before and after
-`when` to conditionally run a middleware (input of output Http meets some criteria)
+* **contraMap**,**contraMapZIO**,**delay**,**flatMap**,**flatten**,**map**: which are obvious as their name implies.
+
+* **race** to race middlewares
+* **runAfter** and **runBefore** to run effect before and after
+* **when** to conditionally run a middleware (input of output Http meets some criteria)
 
 ## Transforming Middlewares (some advanced examples)
 
