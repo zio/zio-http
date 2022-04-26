@@ -253,27 +253,15 @@ content-length: 0
 We notice in the response that first basicAuth middleware responded `HTTP/1.1 401 Unauthorized` and then patch middleware attached a `X-Environment: Dev` header. 
 
 ### Using `>>>`
-`>>>` is an alias for `andThen`. Creates a new middleware that passes the output `Http` of the current middleware as the input to the provided middleware.
+`>>>` is an alias for `andThen` and similar to `++` with one BIG difference **_input/output types can be different (`AIn`≠ `AOut` / `BIn`≠ `BOut`) _**  
+Whereas, in case of `++` types remain same more like horizontal composition.
+
 For example, if we have three middlewares f1, f2, f3
 
 f1 >>> f2 >>> f3 applies on an `http`, sequentially feeding an http to f1 first followed by f2 and f3.
 
 f1(http) => http1
 f2(http1) => http2
-
-and so on, similar to `++` operator, but with one BIG difference.
-**_Here their input/output types (`AIn`≠ `AOut` / `BIn`≠ `BOut`) can be different_**
-
-```scala
-  f3(f2(f1(http)))
-```
-In case of `++` types remain same more like horizontal composition. 
-
-#### A simple example using `>>>`
-```scala
-val middleware: Middleware[Any, Nothing, Int, Int, Int, Int] = Middleware.codec[Int, Int](decoder = a => Right(a + 1), encoder = b => Right(b + 1))
-val mid: Middleware[Any, Nothing, Int, Int, Int, Int] =  middleware >>> middleware
-```
 
 ### Using `<>` combinator
 `<>` is an alias for `orElse`. While using `<>`, if the output `Http` of the first middleware fails, the second middleware will be evaluated, ignoring the result from the first.
@@ -290,7 +278,6 @@ There are other operators like, which are obvious as their name implies.
 `runAfter` / `runBefore` to run effect before and after
 `when` to conditionally run a middleware (input of output Http meets some criteria)
 
- 
 ## Transforming Middlewares (some advanced examples)
 
 ### Transforming the output of the output `Http`
