@@ -118,7 +118,11 @@ type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E,
 ```
 * `AIn` and `BIn` are type params of the input `Http`
 * `AOut` and `BOut` are type params of the output `Http`
-  
+
+This can also be seen as 
+```
+AIn => ZIO[R, Option[E], BIn]  ---transformed by middleware--->  AOut => ZIO[R, Option[E], BOut]
+```
 **HttpApp** is a specialized Http with `Request` and `Response` as input and output
 ```scala
 type HttpApp[-R,+E] = Http[R, E, Request, Response]
