@@ -111,8 +111,7 @@ Middleware is simply a function that takes one Http as a parameter and returns a
 ```Http => Http```
 
 So, a middleware represents function transformation f1 => f2
- 
-In ```HttpApp``` context, a middleware can modify requests and responses and also transform them into more concrete domain entities.
+
 ```scala
 type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E, AOut, BOut]
 ```
@@ -132,6 +131,8 @@ So, in ```HttpApp``` context we can represent modified Request/Response pair
 Req1 => ZIO[R, Option[E], Resp1]  ---transformed by middleware--->  Req2 => ZIO[R, Option[E], Resp2]
 ```
 where ```Req1, Req2``` = ```Request``` and ```Resp1, Resp2``` = ```Response```
+
+In ```HttpApp``` context, a middleware can modify requests and responses and also transform them into more concrete domain entities.
 
 #### Attaching middleware to Http
 `@@` operator is used to attach a middleware to an Http. Example below shows a middleware attached to an HttpApp
