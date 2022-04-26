@@ -20,7 +20,7 @@ Some examples of common "aspects" required throughout the application
 - logging,
 - timeouts (preventing long-running code)
 - retries (or handling flakiness for example while accessing third party APIs)
-- authenticating a user before using the REST resource.
+- authenticating a user before using the REST resource (basic, or custom ones like oauth / single sign-on etc).
 
 Consider following example where we have two endpoints within HttpApp 
 * GET user by id and 
