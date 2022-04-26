@@ -269,8 +269,8 @@ val appWithMiddleware = userApp @@ (basicAuthMW ++ patchEnv)
 ```
 Start the server
 ```scala
-override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-  Server.start(8090, appWithMiddleware).exitCode
+val server = Server.start(8090, appWithMiddleware).exitCode
+zio.Runtime.default.unsafeRunSync(server)
 ```
 Fire a curl request with incorrect user/password combination
 ```
