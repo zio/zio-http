@@ -97,7 +97,7 @@ A middleware helps in addressing common cross-cutting concerns without duplicati
 
 * `R` type of Environment 
 * `E` type of the Error when function fails with Some[E]
-* `A` is the type of the function argument
+* `A` is the type of the function parameter
 * `B` type of the result when function succeeds 
 
 Middleware is simply a function that takes one Http as a parameter and returns another Http,
@@ -157,7 +157,9 @@ Endpoint 1
 ```
 ## Create Middleware
 
-Refer to [Middleware.scala](https://github.com/dream11/zio-http/blob/main/zio-http/src/main/scala/zhttp/http/Middleware.scala) for various ways of creating a middleware using functions like 
+Refer to [Middleware.scala](https://github.com/dream11/zio-http/blob/main/zio-http/src/main/scala/zhttp/http/Middleware.scala) for various ways of creating a middleware.
+
+Again remembering that a "middleware" is just a **_transformative function_**. There are ways of creating such transformative functions:  
 * **identity**: works like an identity function
   `f(x) = x`
   returns the same `Http` as input without doing any modification
