@@ -93,6 +93,7 @@ object LogFormat {
   case object EnclosingClassName                                                                 extends LogFormat
   case object LocationLine                                                                       extends LogFormat
   case object Msg                                                                                extends LogFormat
+  case object Tags                                                                               extends LogFormat
 
   def name: LogFormat                         = Name
   def logLevel: LogFormat                     = LoggerLevel
@@ -102,6 +103,7 @@ object LogFormat {
   def msg: LogFormat                          = Msg
   def enclosingClassName: LogFormat           = EnclosingClassName
   def locationLine: LogFormat                 = LocationLine
+  def tags: LogFormat                         = Tags
 
   def color(info: Color, error: Color, debug: Color, trace: Color, warn: Color): LogFormat =
     LineColor(info, error, debug, trace, warn)
@@ -135,6 +137,7 @@ object LogFormat {
           case LogLevel.WARN  => Color.asConsole(warn)
           case LogLevel.ERROR => Color.asConsole(error)
         }
+      case Tags                                       => logLine.tags.mkString(",")
     }
   }
 
@@ -163,11 +166,12 @@ object LogFormat {
     }
   }
 
-  val simpleFormat: LogFormat = LogFormat.date(ISODateTime) |-| LogFormat.threadName.wrap(
-    TextWrapper.BRACKET,
-  ) |-| (LogFormat.enclosingClassName |-| LogFormat.locationLine).wrap(
-    TextWrapper.BRACKET,
-  ) |-| LogFormat.logLevel - LogFormat.msg
+  val simpleFormat: LogFormat =
+    LogFormat.Tags.wrap(TextWrapper.BRACKET) |-| LogFormat.date(ISODateTime) |-| LogFormat.threadName.wrap(
+      TextWrapper.BRACKET,
+    ) |-| (LogFormat.enclosingClassName |-| LogFormat.locationLine).wrap(
+      TextWrapper.BRACKET,
+    ) |-| LogFormat.logLevel - LogFormat.msg
 
   val defaultFormat: LogFormat = LogFormat.color(
     info = Color.GREEN,
