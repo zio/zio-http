@@ -27,7 +27,7 @@ final case class ServerChannelInitializer[R](
 
   private val log = Logger.make
     .withTransport(LoggerTransport.console("zhttp.service.server.ServerChannelInitializer"))
-    .withLevel(LogLevel.INFO.toZhttpLogging) // TODO: loglevel should come from server config object
+    .withLevel(cfg.logLevel.toZhttpLogging)
 
   private val tags = List("zhttp")
 

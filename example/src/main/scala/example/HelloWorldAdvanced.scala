@@ -1,7 +1,7 @@
 package example
 
 import zhttp.http._
-import zhttp.service.server.{LogLevel, ServerChannelFactory}
+import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server}
 import zio._
 
@@ -25,8 +25,8 @@ object HelloWorldAdvanced extends App {
     Server.port(PORT) ++              // Setup port
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
       Server.app(fooBar ++ app) ++    // Setup the Http app
-      //   Server.lowLevelLogging ++       // Setup logging
-      Server.enableLogging(LogLevel.TRACE)
+      Server.lowLevelLogging          // Setup logging
+  // Server.enableLogging(LogLevel.DEBUG)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     // Configure thread count using CLI
