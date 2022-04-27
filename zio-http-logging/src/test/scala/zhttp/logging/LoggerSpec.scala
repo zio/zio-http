@@ -2,7 +2,6 @@ package zhttp.logging
 import zio.test._
 
 import java.nio.file.{Files, Paths}
-import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 object LoggerSpec extends DefaultRunnableSpec {
   private val logFile             = Paths.get("target/file.log")
@@ -29,12 +28,13 @@ object LoggerSpec extends DefaultRunnableSpec {
       assertTrue(probe.level == LogLevel.INFO)
     },
     test("Logger is able to log to a file.") {
-      val logger  = Logger.make
+      val logger      = Logger.make
         .withTransport(fileLogTransport)
         .withLevel(LogLevel.INFO)
-      val probe   = "this is a simple line of log"
+      val probe       = "this is a simple line of log"
       logger.info(probe, List.empty)
-      val content = Files.readAllLines(logFile).asScala.mkString("\n")
+      val fileContent = Files.readAllLines(logFile).iterator()
+      val content     = if (fileContent.hasNext) fileContent.next() else ""
       Files.deleteIfExists(logFile)
       assertTrue(content.contains(probe))
     },
