@@ -15,13 +15,12 @@ private[zhttp] object LoggerMacro {
   /**
    * Log a message reflectively at a given level.
    *
-   * This is the internal workhorse method that does most of the logging for
-   * real applications.
-   *
    * @param msg
    *   the message that the user wants to log
    * @param error
    *   the `Throwable` that we're logging along with the message, if any
+   * @param tags
+   *   the tags associated to the log line.
    * @param logLevel
    *   the level of the logging
    */
@@ -39,10 +38,7 @@ private[zhttp] object LoggerMacro {
       case Some(e) => List(msg.tree, q"$e", tags.tree, enclosingFullName, locationLine)
     }
 
-    val logExpr =
-      q"$transports.filter(transport => transport.${TermName(s"is${logLevel.methodName.capitalize}Enabled")}).map(transport => transport.${TermName(logLevel.methodName)}(..$logValues))"
-
-    q"$logExpr: Unit"
+    q"$transports.filter(transport => transport.${TermName(s"is${logLevel.methodName.capitalize}Enabled")}).foreach(transport => transport.${TermName(logLevel.methodName)}(..$logValues))"
 
   }
 
