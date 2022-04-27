@@ -1,12 +1,13 @@
 package zhttp.logging
+import java.nio.file.Paths
 
 object LoggerTest {
 
   def main(args: Array[String]): Unit = {
     val log = Logger.make
       .withTransport(LoggerTransport.console("test"))
+      .withTransport(LoggerTransport.file("FileLogger", Paths.get("target/file_logger.log")))
       .withLevel(LogLevel.TRACE)
-      .withFormat(LogFormat.default)
 
     log.trace("a trace log", List("netty"))
   }

@@ -2,6 +2,9 @@ package zhttp.logging
 
 import zhttp.logging.LoggerTransport.Transport
 
+import java.nio.file.{Files, Path, StandardOpenOption}
+import java.util
+
 /**
  * Provides a way to build and configure transports for logging. Transports are
  * used to, format and serialize LogLines and them to a backend.
@@ -30,6 +33,14 @@ object LoggerTransport {
     transport = Transport.UnsafeSync(println),
   )
 
+  def file(name: String, filePath: Path): LoggerTransport = LoggerTransport(
+    name = name,
+    level = LogLevel.OFF,
+    format = LogFormat.simple,
+    filter = _ => true,
+    transport = Transport.UnsafeFileSync(filePath),
+  )
+
   trait Transport { self =>
     def run(line: CharSequence): Unit
   }
@@ -40,10 +51,18 @@ object LoggerTransport {
 
     }
 
-    final case class UnsafeFileSync(log: CharSequence => Unit, fileName: String) extends Transport {
-      override def run(line: CharSequence): Unit = ???
+    final case class UnsafeFileSync(path: Path) extends Transport {
+      override def run(line: CharSequence): Unit = {
+        Files.write(
+          path,
+          util.Arrays.asList(line),
+          StandardOpenOption.APPEND,
+          StandardOpenOption.CREATE,
+        ): Unit
+      }
     }
-    case object Empty                                                            extends Transport {
+
+    case object Empty extends Transport {
       override def run(line: CharSequence): Unit = ()
     }
   }

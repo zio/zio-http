@@ -163,19 +163,21 @@ object LogFormat {
     }
   }
 
+  val simpleFormat: LogFormat = LogFormat.date(ISODateTime) |-| LogFormat.threadName.wrap(
+    TextWrapper.BRACKET,
+  ) |-| (LogFormat.enclosingClassName |-| LogFormat.locationLine).wrap(
+    TextWrapper.BRACKET,
+  ) |-| LogFormat.logLevel - LogFormat.msg
+
   val defaultFormat: LogFormat = LogFormat.color(
     info = Color.GREEN,
     error = Color.RED,
     debug = Color.CYAN,
     warn = Color.YELLOW,
     trace = Color.WHITE,
-  ) <+>
-    LogFormat.date(ISODateTime) |-| LogFormat.threadName.wrap(
-      TextWrapper.BRACKET,
-    ) |-| (LogFormat.enclosingClassName |-| LogFormat.locationLine).wrap(
-      TextWrapper.BRACKET,
-    ) |-| LogFormat.logLevel - LogFormat.msg
+  ) <+> simpleFormat
 
   def default(logLine: LogLine): CharSequence = run(defaultFormat)(logLine)
 
+  def simple(logLine: LogLine): CharSequence = run(simpleFormat)(logLine)
 }
