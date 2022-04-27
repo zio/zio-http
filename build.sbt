@@ -140,6 +140,10 @@ lazy val zhttpLogging = (project in file("zio-http-logging"))
       }
     },
   )
+  .settings(
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= Seq(`zio-test`, `zio-test-sbt`),
+  )
 
 lazy val example = (project in file("./example"))
   .settings(stdSettings("example"))
