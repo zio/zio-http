@@ -64,9 +64,9 @@ trait LogFrontend { this: LoggerTransport =>
     enclosingClass: String,
     lineNumber: Int,
   ): Unit =
-    if (this.filter(this.name)) {
+    if (filter(name)) {
       buildLines(msg, throwable, logLevel, tags, enclosingClass, lineNumber).foreach { line =>
-        log(this.format(line).toString)
+        this.log(format(line))
       }
     }
 
