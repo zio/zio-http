@@ -76,7 +76,6 @@ object LogFormat {
     case object EMPTY   extends TextWrapper
   }
 
-  case object Name                                                                               extends LogFormat
   final case class FormatDate(dateFormat: DateFormat)                                            extends LogFormat
   final case class ThreadName(includeThreadName: Boolean)                                        extends LogFormat
   final case class ThreadId(includeThreadId: Boolean)                                            extends LogFormat
@@ -95,7 +94,6 @@ object LogFormat {
   case object Msg                                                                                extends LogFormat
   case object Tags                                                                               extends LogFormat
 
-  def name: LogFormat                         = Name
   def logLevel: LogFormat                     = LoggerLevel
   def date(dateFormat: DateFormat): LogFormat = FormatDate(dateFormat)
   def threadName: LogFormat                   = ThreadName(true)
@@ -111,7 +109,6 @@ object LogFormat {
   def run(logFormat: LogFormat)(logLine: LogLine): String = {
 
     logFormat match {
-      case Name                                       => logLine.name
       case EnclosingClassName                         => logLine.enclosingClass
       case LocationLine                               => s"line: ${logLine.lineNumber}"
       case FormatDate(dateFormat)                     => formatDate(dateFormat, logLine.timestamp)

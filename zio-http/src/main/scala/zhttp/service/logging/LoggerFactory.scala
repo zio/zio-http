@@ -10,8 +10,7 @@ final case class LoggerFactory(logLevel: LogLevel) extends InternalLoggerFactory
 
 object LoggerFactory {
   final class Live(override val name: String, logLevel: LogLevel) extends AbstractInternalLogger(name) {
-    private val loggerTransport = LoggerTransport
-      .console("zhttp.service.logging.InternalLogger")
+    private val loggerTransport = LoggerTransport.console
       .withLevel(logLevel)
     private val log             = Logger.make
       .withTransport(loggerTransport)

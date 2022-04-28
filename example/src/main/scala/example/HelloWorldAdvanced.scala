@@ -30,7 +30,7 @@ object HelloWorldAdvanced extends App {
       // Server.lowLevelLogging ++       // Enable low level logging - this will have an impact on performance
       Server.useCustomLogger(
         Logger.make
-          .withTransport(LoggerTransport.file("hello.world", Paths.get("helloworld.log")))
+          .withTransport(LoggerTransport.file(Paths.get("helloworld.log")))
           .withLevel(LogLevel.INFO),
       )
 

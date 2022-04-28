@@ -10,7 +10,6 @@ import java.util
  * used to, format and serialize LogLines and them to a backend.
  */
 final case class LoggerTransport(
-  name: String,
   level: LogLevel,
   format: Setup.LogFormat,
   filter: String => Boolean,
@@ -20,21 +19,18 @@ final case class LoggerTransport(
   def withFormat(format: LogFormat): LoggerTransport               = self.copy(format = LogFormat.run(format))
   def withLevel(level: LogLevel): LoggerTransport                  = self.copy(level = level)
   def withFilter(filter: String => Boolean): LoggerTransport       = self.copy(filter = filter)
-  def withName(name: String): LoggerTransport                      = self.copy(name = name)
   override def log(msg: CharSequence): Unit                        = if (filter(msg.toString)) transport.run(msg)
 }
 
 object LoggerTransport {
-  def console(name: String): LoggerTransport = LoggerTransport(
-    name = name,
+  def console: LoggerTransport = LoggerTransport(
     level = LogLevel.OFF,
     format = LogFormat.default,
     filter = _ => true,
     transport = Transport.UnsafeSync(println),
   )
 
-  def file(name: String, filePath: Path): LoggerTransport = LoggerTransport(
-    name = name,
+  def file(filePath: Path): LoggerTransport = LoggerTransport(
     level = LogLevel.OFF,
     format = LogFormat.simple,
     filter = _ => true,

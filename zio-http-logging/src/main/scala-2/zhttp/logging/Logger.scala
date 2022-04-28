@@ -23,7 +23,7 @@ final case class Logger(transports: List[LoggerTransport]) { self =>
 }
 
 object Logger {
-  def make: Logger                            = Logger(Nil)
-  def makeConsoleLogger(name: String): Logger = Logger(Nil)
-    .withTransport(LoggerTransport.console(name))
+  def make: Logger              = Logger(Nil)
+  def makeConsoleLogger: Logger = Logger(Nil)
+    .withTransport(LoggerTransport.console)
 }

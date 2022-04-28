@@ -17,7 +17,6 @@ trait LogFrontend { this: LoggerTransport =>
     throwable.fold(
       List(
         LogLine(
-          this.name,
           LocalDateTime.now(),
           thread,
           logLevel,
@@ -31,7 +30,6 @@ trait LogFrontend { this: LoggerTransport =>
     )(t =>
       List(
         LogLine(
-          this.name,
           LocalDateTime.now(),
           thread,
           logLevel,
@@ -42,7 +40,6 @@ trait LogFrontend { this: LoggerTransport =>
           lineNumber,
         ),
         LogLine(
-          this.name,
           LocalDateTime.now(),
           thread,
           logLevel,
@@ -64,7 +61,7 @@ trait LogFrontend { this: LoggerTransport =>
     enclosingClass: String,
     lineNumber: Int,
   ): Unit =
-    if (filter(name)) {
+    if (filter(tags.mkString)) {
       buildLines(msg, throwable, logLevel, tags, enclosingClass, lineNumber).foreach { line =>
         this.log(format(line))
       }

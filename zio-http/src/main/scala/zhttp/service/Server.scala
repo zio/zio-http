@@ -166,7 +166,7 @@ sealed trait Server[-R, +E] { self =>
 object Server {
 
   private val defaultLogger = Logger.make
-    .withTransport(LoggerTransport.console("zhttp"))
+    .withTransport(LoggerTransport.console)
 
   private[zhttp] final case class Config[-R, +E](
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,

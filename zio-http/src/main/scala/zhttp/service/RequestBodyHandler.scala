@@ -8,7 +8,7 @@ final class RequestBodyHandler(val callback: UnsafeChannel => UnsafeContent => U
     extends SimpleChannelInboundHandler[HttpContent](false) { self =>
 
   private val log = Logger.make
-    .withTransport(LoggerTransport.console("zhttp.service.RequestBodyHandler"))
+    .withTransport(LoggerTransport.console)
     .withLevel(LogLevel.TRACE) // TODO: loglevel should come from server config object
 
   private val tags = List("zhttp")

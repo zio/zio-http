@@ -5,13 +5,13 @@ import java.nio.file.{Files, Paths}
 
 object LoggerSpec extends DefaultRunnableSpec {
   private val logFile             = Paths.get("target/file.log")
-  private val consoleLogTransport = LoggerTransport.console("test")
-  private val fileLogTransport    = LoggerTransport.file("test-file", logFile)
+  private val consoleLogTransport = LoggerTransport.console
+  private val fileLogTransport    = LoggerTransport.file(logFile)
   override def spec               = suite("LoggerSpec")(
     test("multiple transports could be used") {
       val logger = Logger.make
         .withTransport(consoleLogTransport)
-        .withTransport(LoggerTransport.console("test2"))
+        .withTransport(LoggerTransport.console)
         .withLevel(LogLevel.INFO)
 
       logger.info("This is a test", List("tests"))
