@@ -14,7 +14,7 @@ import io.netty.handler.logging.LoggingHandler
 import zhttp.logging.{LogLevel, Logger, LoggerTransport}
 import zhttp.service.Server.Config
 import zhttp.service._
-import LogLevelTransform._
+import zhttp.service.server.LogLevelTransform._
 
 /**
  * Initializes the netty channel with default handlers
