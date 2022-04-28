@@ -11,7 +11,7 @@ import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.logging.LoggingHandler
-import zhttp.logging.{LogLevel, Logger, LoggerTransport}
+import zhttp.logging.LogLevel
 import zhttp.service.Server.Config
 import zhttp.service._
 import zhttp.service.server.LogLevelTransform._
@@ -26,9 +26,7 @@ final case class ServerChannelInitializer[R](
   reqHandler: ChannelHandler,
 ) extends ChannelInitializer[Channel] {
 
-  private val log = Logger.make
-    .withTransport(LoggerTransport.console("zhttp.service.server.ServerChannelInitializer"))
-    .withLevel(cfg.logLevel)
+  private val log = cfg.logger
 
   private val tags = List("zhttp")
 

@@ -5,7 +5,7 @@ import io.netty.channel.ChannelPipeline
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
-import zhttp.logging.LogLevel
+import zhttp.logging.{LogLevel, Logger, LoggerTransport}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
 import zio.{ZManaged, _}
@@ -33,6 +33,7 @@ sealed trait Server[-R, +E] { self =>
     case UnsafeChannelPipeline(init)           => s.copy(channelInitializer = init)
     case RequestDecompression(enabled, strict) => s.copy(requestDecompression = (enabled, strict))
     case LowLevelLogging(logLevel)             => s.copy(logLevel = logLevel)
+    case CustomLogger(logger)                  => s.copy(logger = logger)
     case ObjectAggregator(maxRequestSize)      => s.copy(objectAggregator = maxRequestSize)
     case UnsafeServerbootstrap(init)           => s.copy(serverbootstrapInitializer = init)
   }
@@ -151,6 +152,9 @@ sealed trait Server[-R, +E] { self =>
   def withLowLevelLogging(logLevel: LogLevel): Server[R, E] =
     Concat(self, LowLevelLogging(logLevel))
 
+  def withCustomLogger(logger: Logger): Server[R, E] =
+    Concat(self, CustomLogger(logger))
+
   /**
    * Creates a new server with HttpObjectAggregator with the specified max size
    * of the aggregated content.
@@ -160,6 +164,10 @@ sealed trait Server[-R, +E] { self =>
 
 }
 object Server {
+
+  private val defaultLogger = Logger.make
+    .withTransport(LoggerTransport.console("zhttp"))
+
   private[zhttp] final case class Config[-R, +E](
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
     error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
@@ -175,6 +183,7 @@ object Server {
     channelInitializer: ChannelPipeline => Unit = null,
     requestDecompression: (Boolean, Boolean) = (false, false),
     logLevel: LogLevel = LogLevel.OFF,
+    logger: Logger = defaultLogger,
     objectAggregator: Int = -1,
     serverbootstrapInitializer: ServerBootstrap => Unit = null,
   ) {
@@ -199,6 +208,7 @@ object Server {
   private final case class UnsafeChannelPipeline(init: ChannelPipeline => Unit)       extends UServer
   private final case class RequestDecompression(enabled: Boolean, strict: Boolean)    extends UServer
   private final case class LowLevelLogging(logLevel: LogLevel)                        extends UServer
+  private final case class CustomLogger(logger: Logger)                               extends UServer
   private final case class ObjectAggregator(maxRequestSize: Int)                      extends UServer
   private final case class UnsafeServerbootstrap(init: ServerBootstrap => Unit)       extends UServer
 
@@ -220,7 +230,7 @@ object Server {
   val disableKeepAlive: UServer                      = Server.KeepAlive(false)
   val consolidateFlush: UServer                      = ConsolidateFlush(true)
   val lowLevelLogging: UServer                       = LowLevelLogging(logLevel = LogLevel.DEBUG)
-  def enableLogging(logLevel: LogLevel): UServer     = LowLevelLogging(logLevel)
+  def useCustomLogger(logger: Logger): UServer       = CustomLogger(logger)
   def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer               = UnsafeChannelPipeline(pipeline)
   def enableObjectAggregator(maxRequestSize: Int = Int.MaxValue): UServer      = ObjectAggregator(maxRequestSize)
   def unsafeServerbootstrap(serverBootstrap: ServerBootstrap => Unit): UServer = UnsafeServerbootstrap(serverBootstrap)
