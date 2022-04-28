@@ -11,9 +11,10 @@ import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.logging.LoggingHandler
-import zhttp.logging.{Logger, LoggerTransport}
+import zhttp.logging.{LogLevel, Logger, LoggerTransport}
 import zhttp.service.Server.Config
 import zhttp.service._
+import LogLevelTransform._
 
 /**
  * Initializes the netty channel with default handlers
@@ -27,7 +28,7 @@ final case class ServerChannelInitializer[R](
 
   private val log = Logger.make
     .withTransport(LoggerTransport.console("zhttp.service.server.ServerChannelInitializer"))
-    .withLevel(cfg.logLevel.toZhttpLogging)
+    .withLevel(cfg.logLevel)
 
   private val tags = List("zhttp")
 
@@ -82,7 +83,7 @@ final case class ServerChannelInitializer[R](
 
     if (cfg.logLevel != LogLevel.OFF) {
       import io.netty.util.internal.logging.InternalLoggerFactory
-      InternalLoggerFactory.setDefaultFactory(zhttp.service.logging.LoggerFactory(cfg.logLevel.toZhttpLogging))
+      InternalLoggerFactory.setDefaultFactory(zhttp.service.logging.LoggerFactory(cfg.logLevel))
       pipeline.addLast(LOW_LEVEL_LOGGING, new LoggingHandler(LogLevel.DEBUG.toNettyLogLevel))
     }
 

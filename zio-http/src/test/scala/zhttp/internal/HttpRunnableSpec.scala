@@ -2,10 +2,10 @@ package zhttp.internal
 
 import zhttp.http.URL.Location
 import zhttp.http._
+import zhttp.logging.LogLevel
 import zhttp.service.Client.Config
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.server.LogLevel.INFO
 import zhttp.socket.SocketApp
 import zio.test.DefaultRunnableSpec
 import zio.{Has, ZIO, ZManaged}
@@ -94,7 +94,9 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       settings <- ZManaged
         .succeed(
           server.foldLeft(
-            Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection ++ Server.enableLogging(logLevel = INFO),
+            Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection ++ Server.enableLogging(logLevel =
+              LogLevel.INFO,
+            ),
           )(
             _ ++ _,
           ),

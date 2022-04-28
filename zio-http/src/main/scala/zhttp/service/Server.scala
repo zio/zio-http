@@ -5,6 +5,7 @@ import io.netty.channel.ChannelPipeline
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
+import zhttp.logging.LogLevel
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
 import zio.{ZManaged, _}
