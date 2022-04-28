@@ -2,7 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultHttpContent, DefaultLastHttpContent}
-import zhttp.http.HttpData.{ByteBufConfig, UnsafeContent, UnsafeReadableChannel}
+import zhttp.http.HttpData.{ByteBufConfig, UnsafeChannel, UnsafeContent}
 import zio.duration.durationInt
 import zio.random.Random
 import zio.stream.ZStream
@@ -17,11 +17,11 @@ import scala.concurrent.Promise
 
 object HttpDataSpec extends DefaultRunnableSpec {
 
-  final case class TestUnsafeReadableChannel(promise: Promise[Unit]) extends UnsafeReadableChannel {
+  final case class TestUnsafeChannel(promise: Promise[Unit]) extends UnsafeChannel {
     override def read(): Unit = promise.success(())
   }
 
-  final case class QueueBasedUnsafeReadableChannel(queue: mutable.Queue[Promise[Unit]]) extends UnsafeReadableChannel {
+  final case class QueueBasedUnsafeChannel(queue: mutable.Queue[Promise[Unit]]) extends UnsafeChannel {
     override def read(): Unit = {
       if (queue.nonEmpty) {
         val p = queue.dequeue()
@@ -64,7 +64,7 @@ object HttpDataSpec extends DefaultRunnableSpec {
           ),
           suite("UnsafeAsync")(
             testM("finish on last message.") {
-              val unsafeChannel = new UnsafeReadableChannel {
+              val unsafeChannel = new UnsafeChannel {
                 override def read(): Unit = ()
               }
 
@@ -77,7 +77,7 @@ object HttpDataSpec extends DefaultRunnableSpec {
               assertM(result)(equalTo(1L))
             },
             testM("wait for last message") {
-              val unsafeChannel = new UnsafeReadableChannel {
+              val unsafeChannel = new UnsafeChannel {
                 override def read(): Unit = ()
               }
 
@@ -112,7 +112,7 @@ object HttpDataSpec extends DefaultRunnableSpec {
       (
         HttpData.UnsafeAsync { cb =>
           val queue         = mutable.Queue.empty[Promise[Unit]]
-          val unsafeChannel = QueueBasedUnsafeReadableChannel(queue)
+          val unsafeChannel = QueueBasedUnsafeChannel(queue)
           val producer      = cb(unsafeChannel)
 
           if (content.isEmpty) producer(lastHttpContent)
