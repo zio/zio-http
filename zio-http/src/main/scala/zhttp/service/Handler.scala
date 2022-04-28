@@ -24,6 +24,7 @@ private[zhttp] final case class Handler[R](
     msg match {
       case jReq: FullHttpRequest =>
         jReq.touch("server.Handler-channelRead0")
+        config.logger.debug(s"Received $jReq", List("zhttp"))
         try
           unsafeRun(
             jReq,
@@ -51,6 +52,7 @@ private[zhttp] final case class Handler[R](
           case throwable: Throwable => resWriter.write(throwable, jReq)
         }
       case jReq: HttpRequest     =>
+        config.logger.debug(s"Received $jReq", List("zhttp"))
         if (canHaveBody(jReq)) {
           ctx.channel().config().setAutoRead(false): Unit
         }
