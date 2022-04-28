@@ -532,5 +532,11 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         assert(http.execute {})(isDie(equalTo(t)))
       },
     ),
+    suite("merge")(
+      test("merges error into success") {
+        val http = (Http.fail(1) ++ Http.succeed(0)).merge
+        assert(http.execute {})(isSuccess(equalTo(1)))
+      },
+    ),
   ) @@ timeout(10 seconds)
 }
