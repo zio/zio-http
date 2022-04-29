@@ -1,12 +1,10 @@
 package example
 
 import zhttp.http._
-import zhttp.logging.{LogLevel, Logger, LoggerTransport}
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server}
 import zio._
 
-import java.nio.file.Paths
 import scala.util.Try
 
 object HelloWorldAdvanced extends App {
@@ -26,13 +24,7 @@ object HelloWorldAdvanced extends App {
   private val server =
     Server.port(PORT) ++              // Setup port
       Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
-      Server.app(fooBar ++ app) ++    // Setup the Http app
-      // Server.lowLevelLogging ++       // Enable low level logging - this will have an impact on performance
-      Server.useCustomLogger(
-        Logger.make
-          .withTransport(LoggerTransport.file(Paths.get("helloworld.log")))
-          .withLevel(LogLevel.INFO),
-      )
+      Server.app(fooBar ++ app)       // Setup the Http app
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     // Configure thread count using CLI
