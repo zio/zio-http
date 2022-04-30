@@ -123,21 +123,11 @@ lazy val zhttpTest = (project in file("zio-http-test"))
 
 lazy val zhttpLogging = (project in file("zio-http-logging"))
   .settings(stdSettings("zhttp-logging"))
-  .settings(publishSetting(true))
+  .settings(publishSetting(false))
   .settings(
     libraryDependencies ++= {
       if (isScala3(scalaVersion.value)) Seq.empty
       else Seq(reflect.value % Provided)
-    },
-  )
-  .settings(
-    Compile / unmanagedSourceDirectories ++= {
-      scalaBinaryVersion.value match {
-        case s if s.startsWith("2.") =>
-          Seq(baseDirectory.value / ".." / "src" / "main" / "scala-2")
-        case s if s.startsWith("3")  =>
-          Seq(baseDirectory.value / ".." / "src" / "main" / "scala-3")
-      }
     },
   )
   .settings(
