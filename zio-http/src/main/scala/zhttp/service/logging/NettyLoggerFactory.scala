@@ -4,6 +4,10 @@ import io.netty.util.internal.logging.{AbstractInternalLogger, InternalLogger, I
 import zhttp.logging.{LogLevel, Logger}
 import zhttp.service.logging.NettyLoggerFactory.Live
 
+/**
+ * Custom implementation that uses the zhttp logger's transport for logging
+ * netty messages.
+ */
 final case class NettyLoggerFactory(logLevel: LogLevel) extends InternalLoggerFactory {
   override def newInstance(name: String): InternalLogger = new Live(name, logLevel)
 }
