@@ -81,7 +81,7 @@ final case class ServerChannelInitializer[R](
 
     if (cfg.logLevel != LogLevel.Disable) {
       import io.netty.util.internal.logging.InternalLoggerFactory
-      InternalLoggerFactory.setDefaultFactory(zhttp.service.logging.LoggerFactory(cfg.logLevel))
+      InternalLoggerFactory.setDefaultFactory(zhttp.service.logging.NettyLoggerFactory(cfg.logLevel))
       pipeline.addLast(LOW_LEVEL_LOGGING, new LoggingHandler(LogLevel.Debug.toNettyLogLevel))
     }
 
