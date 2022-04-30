@@ -14,15 +14,6 @@ private[zhttp] object LoggerMacro {
 
   /**
    * Log a message reflectively at a given level.
-   *
-   * @param msg
-   *   the message that the user wants to log
-   * @param error
-   *   the `Throwable` that we're logging along with the message, if any
-   * @param tags
-   *   the tags associated to the log line.
-   * @param logLevel
-   *   the level of the logging
    */
   private[this] def reflectiveLog(
     c: LogCtx,
