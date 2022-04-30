@@ -76,10 +76,10 @@ trait LogFrontend { this: LoggerTransport =>
   private def thread = Thread.currentThread()
 
   final def debug(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
-    logMayBe(msg, None, LogLevel.DEBUG, tags, enclosingClass, lineNumber)
+    logMayBe(msg, None, LogLevel.Debug, tags, enclosingClass, lineNumber)
 
   final def error(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
-    logMayBe(msg, None, LogLevel.ERROR, tags, enclosingClass, lineNumber)
+    logMayBe(msg, None, LogLevel.Error, tags, enclosingClass, lineNumber)
 
   final def error(
     msg: String,
@@ -88,20 +88,20 @@ trait LogFrontend { this: LoggerTransport =>
     enclosingClass: String,
     lineNumber: Int,
   ): Unit =
-    logMayBe(msg, Some(throwable), LogLevel.ERROR, tags, enclosingClass, lineNumber)
+    logMayBe(msg, Some(throwable), LogLevel.Error, tags, enclosingClass, lineNumber)
 
   final def info(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
-    logMayBe(msg, None, LogLevel.INFO, tags, enclosingClass, lineNumber)
+    logMayBe(msg, None, LogLevel.Info, tags, enclosingClass, lineNumber)
 
   final def trace(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
-    logMayBe(msg, None, LogLevel.TRACE, tags, enclosingClass, lineNumber)
+    logMayBe(msg, None, LogLevel.Trace, tags, enclosingClass, lineNumber)
 
   final def warn(msg: String, tags: List[String], enclosingClass: String, lineNumber: Int): Unit =
-    logMayBe(msg, None, LogLevel.WARN, tags, enclosingClass, lineNumber)
+    logMayBe(msg, None, LogLevel.Warn, tags, enclosingClass, lineNumber)
 
-  private[zhttp] final val isDebugEnabled: Boolean = this.level >= LogLevel.DEBUG
-  private[zhttp] final val isErrorEnabled: Boolean = this.level >= LogLevel.ERROR
-  private[zhttp] final val isInfoEnabled: Boolean  = this.level >= LogLevel.INFO
-  private[zhttp] final val isTraceEnabled: Boolean = this.level >= LogLevel.TRACE
-  private[zhttp] final val isWarnEnabled: Boolean  = this.level >= LogLevel.WARN
+  private[zhttp] final val isDebugEnabled: Boolean = this.level >= LogLevel.Debug
+  private[zhttp] final val isErrorEnabled: Boolean = this.level >= LogLevel.Error
+  private[zhttp] final val isInfoEnabled: Boolean  = this.level >= LogLevel.Info
+  private[zhttp] final val isTraceEnabled: Boolean = this.level >= LogLevel.Trace
+  private[zhttp] final val isWarnEnabled: Boolean  = this.level >= LogLevel.Warn
 }

@@ -79,10 +79,10 @@ final case class ServerChannelInitializer[R](
     // Flushing content is done in batches. Can potentially improve performance.
     if (cfg.consolidateFlush) pipeline.addLast(HTTP_SERVER_FLUSH_CONSOLIDATION, new FlushConsolidationHandler)
 
-    if (cfg.logLevel != LogLevel.OFF) {
+    if (cfg.logLevel != LogLevel.Disable) {
       import io.netty.util.internal.logging.InternalLoggerFactory
       InternalLoggerFactory.setDefaultFactory(zhttp.service.logging.LoggerFactory(cfg.logLevel))
-      pipeline.addLast(LOW_LEVEL_LOGGING, new LoggingHandler(LogLevel.DEBUG.toNettyLogLevel))
+      pipeline.addLast(LOW_LEVEL_LOGGING, new LoggingHandler(LogLevel.Debug.toNettyLogLevel))
     }
 
     // RequestHandler

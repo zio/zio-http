@@ -12,7 +12,7 @@ object LoggerSpec extends DefaultRunnableSpec {
       val logger = Logger.make
         .withTransport(consoleLogTransport)
         .withTransport(LoggerTransport.console)
-        .withLevel(LogLevel.INFO)
+        .withLevel(LogLevel.Info)
 
       logger.info("This is a test", List("tests"))
 
@@ -22,15 +22,15 @@ object LoggerSpec extends DefaultRunnableSpec {
     test("LogLevel is properly set to all transports.") {
       val logger = Logger.make
         .withTransport(consoleLogTransport)
-        .withLevel(LogLevel.INFO)
+        .withLevel(LogLevel.Info)
 
       val probe = logger.transports.head
-      assertTrue(probe.level == LogLevel.INFO)
+      assertTrue(probe.level == LogLevel.Info)
     },
     test("Logger is able to log to a file.") {
       val logger      = Logger.make
         .withTransport(fileLogTransport)
-        .withLevel(LogLevel.INFO)
+        .withLevel(LogLevel.Info)
       val probe       = "this is a simple line of log"
       logger.info(probe, List.empty)
       val fileContent = Files.readAllLines(logFile).iterator()
@@ -42,7 +42,7 @@ object LoggerSpec extends DefaultRunnableSpec {
       val logWithFilter = fileLogTransport.withFilter(line => line.contains("Test"))
       val logger        = Logger.make
         .withTransport(logWithFilter)
-        .withLevel(LogLevel.INFO)
+        .withLevel(LogLevel.Info)
       val probe         = "this is a simple line of log"
       logger.info(probe, List.empty)
       val isFilePresent = Files.exists(logFile)
@@ -51,7 +51,7 @@ object LoggerSpec extends DefaultRunnableSpec {
     test("File transport should not create any file if there is no content to be added due to log level.") {
       val logger        = Logger.make
         .withTransport(fileLogTransport)
-        .withLevel(LogLevel.INFO)
+        .withLevel(LogLevel.Info)
       val probe         = "this is a simple line of log"
       logger.trace(probe, List.empty)
       val isFilePresent = Files.exists(logFile)

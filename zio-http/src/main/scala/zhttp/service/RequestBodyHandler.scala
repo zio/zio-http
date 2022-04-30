@@ -9,7 +9,7 @@ final class RequestBodyHandler(val callback: UnsafeChannel => UnsafeContent => U
 
   private val log = Logger.make
     .withTransport(LoggerTransport.console)
-    .withLevel(LogLevel.TRACE) // TODO: loglevel should come from server config object
+    .withLevel(LogLevel.Trace) // TODO: loglevel should come from server config object
 
   private val tags = List("zhttp")
 

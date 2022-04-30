@@ -31,7 +31,7 @@ object HelloWorldAdvanced extends App {
       Server.useCustomLogger(
         Logger.make
           .withTransport(LoggerTransport.file(Paths.get("helloworld.log")))
-          .withLevel(LogLevel.INFO),
+          .withLevel(LogLevel.Info),
       )
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {

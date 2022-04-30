@@ -46,36 +46,36 @@ private[zhttp] object LoggerMacro {
     msg: c.Expr[String],
     tags: c.Expr[List[String]],
   ): c.universe.Tree =
-    reflectiveLog(c)(msg, None, tags)(LogLevel.TRACE)
+    reflectiveLog(c)(msg, None, tags)(LogLevel.Trace)
 
   def logInfoImpl(c: LogCtx)(
     msg: c.Expr[String],
     tags: c.Expr[List[String]],
   ): c.universe.Tree =
-    reflectiveLog(c)(msg, None, tags)(LogLevel.INFO)
+    reflectiveLog(c)(msg, None, tags)(LogLevel.Info)
 
   def logDebugImpl(c: LogCtx)(
     msg: c.Expr[String],
     tags: c.Expr[List[String]],
   ): c.universe.Tree =
-    reflectiveLog(c)(msg, None, tags)(LogLevel.DEBUG)
+    reflectiveLog(c)(msg, None, tags)(LogLevel.Debug)
 
   def logWarnImpl(c: LogCtx)(
     msg: c.Expr[String],
     tags: c.Expr[List[String]],
   ): c.universe.Tree =
-    reflectiveLog(c)(msg, None, tags)(LogLevel.WARN)
+    reflectiveLog(c)(msg, None, tags)(LogLevel.Warn)
 
   def logErrorImpl(c: LogCtx)(
     msg: c.Expr[String],
     tags: c.Expr[List[String]],
   ): c.universe.Tree =
-    reflectiveLog(c)(msg, None, tags)(LogLevel.ERROR)
+    reflectiveLog(c)(msg, None, tags)(LogLevel.Error)
 
   def logErrorWithCauseImpl(c: LogCtx)(
     msg: c.Expr[String],
     throwable: c.Expr[Throwable],
     tags: c.Expr[List[String]],
   ): c.universe.Tree =
-    reflectiveLog(c)(msg, Some(throwable), tags)(LogLevel.ERROR)
+    reflectiveLog(c)(msg, Some(throwable), tags)(LogLevel.Error)
 }

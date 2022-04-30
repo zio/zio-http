@@ -11,32 +11,32 @@ sealed trait LogLevel { self =>
  * Defines standard log levels.
  */
 object LogLevel {
-  case object OFF extends LogLevel {
+  case object Disable extends LogLevel {
     override def level: Int   = 999
     override def name: String = ""
   }
 
-  case object TRACE extends LogLevel {
+  case object Trace extends LogLevel {
     override def level: Int   = 1
     override def name: String = "TRACE"
   }
 
-  case object DEBUG extends LogLevel {
+  case object Debug extends LogLevel {
     override def level: Int   = 2
     override def name: String = "DEBUG"
   }
 
-  case object INFO extends LogLevel {
+  case object Info extends LogLevel {
     override def level: Int   = 3
     override def name: String = "INFO"
   }
 
-  case object WARN extends LogLevel {
+  case object Warn extends LogLevel {
     override def level: Int   = 4
     override def name: String = "WARN"
   }
 
-  case object ERROR extends LogLevel {
+  case object Error extends LogLevel {
     override def level: Int   = 5
     override def name: String = "ERROR"
   }

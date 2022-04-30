@@ -24,14 +24,14 @@ final case class LoggerTransport(
 
 object LoggerTransport {
   def console: LoggerTransport = LoggerTransport(
-    level = LogLevel.OFF,
+    level = LogLevel.Disable,
     format = LogFormat.default,
     filter = _ => true,
     transport = Transport.UnsafeSync(println),
   )
 
   def file(filePath: Path): LoggerTransport = LoggerTransport(
-    level = LogLevel.OFF,
+    level = LogLevel.Disable,
     format = LogFormat.simple,
     filter = _ => true,
     transport = Transport.UnsafeFileSync(filePath),
