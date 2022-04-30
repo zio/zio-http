@@ -396,11 +396,24 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self >>> Http.fromFunctionZIO(bFc)
 
   /**
+   * Returns a new Http where the error channel has been merged into the success
+   * channel to their common combined type.
+   */
+  final def merge[E1 >: E, B1 >: B](implicit ev: E1 =:= B1): Http[R, Nothing, A, B1] =
+    self.catchAll(Http.succeed(_))
+
+  /**
    * Named alias for @@
    */
   final def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
     mid: Middleware[R1, E1, A1, B1, A2, B2],
   ): Http[R1, E1, A2, B2] = Http.RunMiddleware(self, mid)
+
+  /**
+   * Narrows the type of the input
+   */
+  final def narrow[A1](implicit a: A1 <:< A): Http[R, E, A1, B] =
+    self.asInstanceOf[Http[R, E, A1, B]]
 
   /**
    * Executes this app, skipping the error but returning optionally the success.
@@ -615,12 +628,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def widen[E1, B1](implicit e: E <:< E1, b: B <:< B1): Http[R, E1, A, B1] =
     self.asInstanceOf[Http[R, E1, A, B1]]
-
-  /**
-   * Narrows the type of the input
-   */
-  final def narrow[A1](implicit a: A1 <:< A): Http[R, E, A1, B] =
-    self.asInstanceOf[Http[R, E, A1, B]]
 
   /**
    * Combines the two apps and returns the result of the one on the right
