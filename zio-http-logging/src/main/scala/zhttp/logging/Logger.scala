@@ -19,6 +19,12 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
   def ++(other: Logger): Logger = self combine other
 
   /**
+   * Modifies the transports to read the log level from the environment variable
+   * "ZHTTP_LOG"
+   */
+  def autodetectLevel: Logger = withLevel(LogLevel.detectFromEnv)
+
+  /**
    * Combines to loggers into one
    */
   def combine(other: Logger): Logger = Logger(self.transports ++ other.transports)
@@ -27,6 +33,12 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
    * Modifies each transport
    */
   def foreachTransport(f: LoggerTransport => LoggerTransport): Logger = Logger(transports.map(t => f(t)))
+
+  /**
+   * Creates a new logger that will log messages that start with the given
+   * prefix.
+   */
+  def startsWith(prefix: String): Logger = withFilter(_.startsWith(prefix))
 
   /**
    * Modifies all the transports to only log messages that are accepted by the
