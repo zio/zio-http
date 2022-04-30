@@ -2,14 +2,12 @@ package zhttp.service
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import zhttp.http.HttpData.{UnsafeChannel, UnsafeContent}
-import zhttp.logging.{LogLevel, Logger, LoggerTransport}
+import zhttp.logging.{LogLevel, Logger}
 
 final class RequestBodyHandler(val callback: UnsafeChannel => UnsafeContent => Unit)
     extends SimpleChannelInboundHandler[HttpContent](false) { self =>
 
-  private val log = Logger.make
-    .withTransport(LoggerTransport.console)
-    .withLevel(LogLevel.Trace) // TODO: loglevel should come from server config object
+  private val log = Logger.console.withLevel(LogLevel.Trace) // TODO: loglevel should come from server config object
 
   private val tags = List("zhttp")
 

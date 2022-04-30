@@ -5,7 +5,7 @@ import io.netty.channel.ChannelPipeline
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
-import zhttp.logging.{LogLevel, Logger, LoggerTransport}
+import zhttp.logging.{LogLevel, Logger}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
 import zio.{ZManaged, _}
@@ -165,8 +165,7 @@ sealed trait Server[-R, +E] { self =>
 }
 object Server {
 
-  private val defaultLogger = Logger.make
-    .withTransport(LoggerTransport.console)
+  private val defaultLogger = Logger.console
 
   private[zhttp] final case class Config[-R, +E](
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,

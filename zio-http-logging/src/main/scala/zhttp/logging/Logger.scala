@@ -2,6 +2,8 @@ package zhttp.logging
 
 import zhttp.logging.macros.LoggerMacroExtensions
 
+import java.nio.file.Path
+
 /**
  * This is the base class for all logging operations. Logger is a collection of
  * LoggerTransports. Internally whenever a message needs to be logged, it is
@@ -50,7 +52,11 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
 }
 
 object Logger {
-  def console: Logger = make.withTransport(LoggerTransport.console)
+  def apply(transport: LoggerTransport): Logger = Logger(List(transport))
+
+  def console: Logger = Logger(List(LoggerTransport.console))
+
+  def file(path: Path): Logger = Logger(List(LoggerTransport.file(path)))
 
   def make: Logger = Logger(Nil)
 

@@ -9,7 +9,7 @@ import java.util
  * Provides a way to build and configure transports for logging. Transports are
  * used to, format and serialize LogLines and them to a backend.
  */
-final case class LoggerTransport(
+private[logging] final case class LoggerTransport(
   level: LogLevel,
   format: Setup.LogFormat,
   filter: String => Boolean,
