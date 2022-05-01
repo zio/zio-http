@@ -47,7 +47,7 @@ private[logging] final case class LoggerTransport(
           lineNumber,
         ),
       )
-    },
+    }
   }
 
   private def logMayBe(
