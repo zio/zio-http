@@ -1,6 +1,6 @@
 package zhttp.logging.macros
 
-import zhttp.logging.macros.LoggerMacro._
+import zhttp.logging.macros.LoggerMacroImpl._
 import zhttp.logging.LoggerTransport
 
 /**

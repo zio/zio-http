@@ -7,7 +7,7 @@ import scala.reflect.macros.whitebox
 /**
  * Macro inspired from log4s.
  */
-private[zhttp] object LoggerMacro {
+private[zhttp] object LoggerMacroImpl {
 
   /** A macro context that represents a method call on a Logger instance. */
   private[this] type LogCtx = whitebox.Context { type PrefixType = Logger }

@@ -1,7 +1,7 @@
 package zhttp.logging.macros
 
 import zhttp.logging.LoggerTransport
-import zhttp.logging.macros.LoggerMacro._
+import zhttp.logging.macros.LoggerMacroImpl._
 
 trait LoggerMacroExtensions { self =>
   import scala.language.experimental.macros
