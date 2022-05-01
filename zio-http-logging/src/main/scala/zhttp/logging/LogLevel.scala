@@ -16,7 +16,7 @@ object LogLevel {
    * Automatically detects the level from the environment variable - "ZHTTP_LOG"
    */
   def detectFromEnv(name: String): LogLevel = {
-    sys.env.getOrElse(name, Debug.name).toUpperCase match {
+    sys.env.getOrElse(name, Disable.name).toUpperCase match {
       case "TRACE" => Trace
       case "DEBUG" => Debug
       case "INFO"  => Info
