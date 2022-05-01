@@ -14,15 +14,14 @@ import java.nio.file.Path
 final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroExtensions { self =>
 
   /**
+   * Modifies each transport
+   */
+  private def foreach(f: LoggerTransport => LoggerTransport): Logger = Logger(transports.map(f(_)))
+
+  /**
    * Combines to loggers into one
    */
   def ++(other: Logger): Logger = self combine other
-
-  /**
-   * Modifies the transports to read the log level from the environment variable
-   * "ZHTTP_LOG"
-   */
-  def autodetectLevel: Logger = withLevel(LogLevel.detectFromEnv)
 
   /**
    * Combines to loggers into one
@@ -30,9 +29,10 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
   def combine(other: Logger): Logger = Logger(self.transports ++ other.transports)
 
   /**
-   * Modifies each transport
+   * Modifies the transports to read the log level from the passed environment
+   * variable.
    */
-  def foreachTransport(f: LoggerTransport => LoggerTransport): Logger = Logger(transports.map(t => f(t)))
+  def detectLevelFromEnv(env: String): Logger = withLevel(LogLevel.detectFromEnv(env))
 
   /**
    * Creates a new logger that will log messages that start with the given
@@ -41,21 +41,21 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
   def startsWith(prefix: String): Logger = withFilter(_.startsWith(prefix))
 
   /**
-   * Modifies all the transports to only log messages that are accepted by the
+   * Creates a new logger that only log messages that are accepted by the
    * provided filter.
    */
-  def withFilter(filter: String => Boolean): Logger = foreachTransport(_.withFilter(filter))
+  def withFilter(filter: String => Boolean): Logger = foreach(_.withFilter(filter))
 
   /**
    * Modifies all the transports to support the given log format
    */
-  def withFormat(format: Setup.LogFormat): Logger = foreachTransport(_.withFormat(format))
+  def withFormat(format: Setup.LogFormat): Logger = foreach(_.withFormat(format))
 
   /**
    * Modifies the level for each transport. Messages that don't meet that level
    * will not be logged by any of the transports
    */
-  def withLevel(level: LogLevel): Logger = foreachTransport(_.withLevel(level))
+  def withLevel(level: LogLevel): Logger = foreach(_.withLevel(level))
 
   /**
    * Adds a new transport to the logger
