@@ -35,6 +35,21 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
   def detectLevelFromEnv(env: String): Logger = withLevel(LogLevel.detectFromEnv(env))
 
   /**
+   * Dispatches the parameters to all the transports. Internally invoked by the
+   * macro.
+   */
+  def dispatch(
+    msg: String,
+    cause: Option[Throwable],
+    level: LogLevel,
+    tags: List[String],
+    cname: String,
+    lno: Int,
+  ): Unit = transports.foreach(_.log(msg, cause, level, tags, cname, lno))
+
+  def isEnabled: Boolean = transports.exists(_.isEnabled)
+
+  /**
    * Creates a new logger that will log messages that start with the given
    * prefix.
    */
@@ -58,9 +73,20 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
   def withLevel(level: LogLevel): Logger = foreach(_.withLevel(level))
 
   /**
+   * Creates a new Logger with the provided tag
+   */
+  def withTag(tag: String): Logger = foreach(_.addTags(List(tag)))
+
+  /**
+   * Creates a new Logger with the provided tags
+   */
+  def withTags(tags: List[String]): Logger = foreach(_.addTags(tags))
+
+  /**
    * Adds a new transport to the logger
    */
   def withTransport(transport: LoggerTransport): Logger = copy(transports = transport :: self.transports)
+
 }
 
 object Logger {
