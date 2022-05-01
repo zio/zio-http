@@ -19,18 +19,18 @@ private[zhttp] object LoggerMacroImpl {
     c: LogCtx,
   )(msg: c.Expr[String], error: Option[c.Expr[Throwable]], tags: c.Expr[List[String]])(logLevel: LogLevel) = {
     import c.universe._
+    type Tree = c.universe.Tree
 
-    val transports        = q"${c.prefix.tree}.transports"
-    val enclosingFullName = q"${c.internal.enclosingOwner.owner.fullName}"
-    val locationLine      = q"${c.enclosingPosition.line}"
+    val cname: Tree     = q"${c.internal.enclosingOwner.owner.fullName}"
+    val lno: Tree       = q"${c.enclosingPosition.line}"
+    val isEnabled: Tree = q"${c.prefix.tree}.isEnabled"
+    val level: Tree     = q"_root_.zhttp.logging.LogLevel.${TermName(logLevel.name.toLowerCase.capitalize)}"
 
-    val logValues = error match {
-      case None    => List(msg.tree, tags.tree, enclosingFullName, locationLine)
-      case Some(e) => List(msg.tree, q"$e", tags.tree, enclosingFullName, locationLine)
-    }
-
-    q"$transports.filter(transport => transport.${TermName(s"is${logLevel.methodName.capitalize}Enabled")}).foreach(transport => transport.${TermName(logLevel.methodName)}(..$logValues))"
-
+    q"""
+      if($isEnabled) {
+        ${c.prefix.tree}.dispatch(${msg.tree}, $error, $level, ${tags.tree}, ${cname}, ${lno})
+      }
+    """
   }
 
   def logTraceImpl(c: LogCtx)(
