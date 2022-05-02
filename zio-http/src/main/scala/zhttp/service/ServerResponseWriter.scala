@@ -84,7 +84,7 @@ private[zhttp] final class ServerResponseWriter[R](
   /**
    * Writes data on the channel
    */
-  private def writeData(data: HttpData.Complete, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+  private def writeData(data: HttpData, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     data match {
 
       case _: HttpData.FromAsciiString => flushReleaseAndRead(jReq)
@@ -103,6 +103,11 @@ private[zhttp] final class ServerResponseWriter[R](
       case HttpData.JavaFile(unsafeGet) =>
         unsafeWriteFileContent(unsafeGet())
         releaseAndRead(jReq)
+
+      case d: HttpData.UnsafeAsync =>
+        runtime.unsafeRun(ctx) {
+          writeStreamContent(d.toByteBufStream).ensuring(ZIO.succeed(releaseAndRead(jReq)))
+        }
     }
   }
 
@@ -127,7 +132,7 @@ private[zhttp] final class ServerResponseWriter[R](
 
   def write(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     ctx.write(encodeResponse(msg))
-    writeData(msg.data.asInstanceOf[HttpData.Complete], jReq)
+    writeData(msg.data, jReq)
     ()
   }
 
