@@ -5,7 +5,7 @@ import io.netty.channel.ChannelPipeline
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
-import zhttp.logging.{LogLevel, Logger, LoggerTransport}
+import zhttp.logging.{LogLevel, Logger}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
 import zio.{ZManaged, _}
@@ -165,8 +165,7 @@ sealed trait Server[-R, +E] { self =>
 }
 object Server {
 
-  private val defaultLogger = Logger.make
-    .withTransport(LoggerTransport.console)
+  private val defaultLogger = Logger.console
 
   private[zhttp] final case class Config[-R, +E](
     leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
@@ -182,7 +181,7 @@ object Server {
     flowControl: Boolean = true,
     channelInitializer: ChannelPipeline => Unit = null,
     requestDecompression: (Boolean, Boolean) = (false, false),
-    logLevel: LogLevel = LogLevel.OFF,
+    logLevel: LogLevel = LogLevel.Disable,
     logger: Logger = defaultLogger,
     objectAggregator: Int = -1,
     serverbootstrapInitializer: ServerBootstrap => Unit = null,
@@ -229,7 +228,7 @@ object Server {
   val paranoidLeakDetection: UServer                 = LeakDetection(LeakDetectionLevel.PARANOID)
   val disableKeepAlive: UServer                      = Server.KeepAlive(false)
   val consolidateFlush: UServer                      = ConsolidateFlush(true)
-  val lowLevelLogging: UServer                       = LowLevelLogging(logLevel = LogLevel.DEBUG)
+  val lowLevelLogging: UServer                       = LowLevelLogging(logLevel = LogLevel.Debug)
   def useCustomLogger(logger: Logger): UServer       = CustomLogger(logger)
   def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer               = UnsafeChannelPipeline(pipeline)
   def enableObjectAggregator(maxRequestSize: Int = Int.MaxValue): UServer      = ObjectAggregator(maxRequestSize)

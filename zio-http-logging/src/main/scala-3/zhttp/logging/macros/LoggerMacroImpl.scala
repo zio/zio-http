@@ -8,7 +8,7 @@ import scala.quoted._
 /** Macros that support the logging system.
  * inspired from log4s macro
  */
-private[zhttp] object LoggerMacro {
+private[zhttp] object LoggerMacroImpl {
   final case class SourcePos(file: String, line: Int)
 
   inline def sourcePos(using qctx: Quotes): Expr[SourcePos] = {
