@@ -63,7 +63,7 @@ private[logging] final case class LoggerTransport(
   def addTags(tags: List[String]): LoggerTransport = self.copy(tags = self.tags ++ tags)
 
   def log(msg: String, cause: Option[Throwable], level: LogLevel, tags: List[String], cname: String, lno: Int): Unit =
-    if (filter(tags.mkString)) {
+    if (filter(tags.mkString) && this.level >= level) {
       buildLines(msg, cause, level, tags ++ self.tags, cname, lno).foreach { line =>
         if (filter(format(line).toString)) transport.run(format(line))
       }
