@@ -1,6 +1,7 @@
 package zhttp.logging.macros
 
-import zhttp.logging.LoggerTransport
+import zhttp.logging.Logger
+import zhttp.logging.LogLevel
 
 import scala.language.experimental.macros
 import scala.quoted._
@@ -18,46 +19,34 @@ private[zhttp] object LoggerMacroImpl {
     '{SourcePos($file, $line)}
   }
 
-  def logTraceImpl(transports: Expr[List[LoggerTransport]])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) = {
+  def logTraceImpl(logger: Expr[Logger])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) = {
     val pos = sourcePos(using qctx)
-    '{ $transports.filter(transport => transport.isTraceEnabled).foreach { transport =>
-        transport.trace($msg, $tags, $pos.file, $pos.line) }
-    }
+    '{if ($logger.isEnabled) $logger.dispatch($msg, None, LogLevel.Trace, $tags, $pos.file, $pos.line)}
   }
 
-  def logDebugImpl(transports: Expr[List[LoggerTransport]])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) = {
+  def logDebugImpl(logger: Expr[Logger])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) = {
     val pos = sourcePos(using qctx)
-  '{ $transports.filter(transport => transport.isDebugEnabled).foreach { transport =>
-    transport.debug($msg, $tags, $pos.file, $pos.line) }
-  }
+    '{if ($logger.isEnabled) $logger.dispatch($msg, None, LogLevel.Debug, $tags, $pos.file, $pos.line)}
     }
 
-  def logInfoImpl(transports: Expr[List[LoggerTransport]])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) = {
+  def logInfoImpl(logger: Expr[Logger])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) = {
     val pos = sourcePos(using qctx)
-  '{ $transports.filter(transport => transport.isInfoEnabled).foreach { transport =>
-    transport.info($msg, $tags, $pos.file, $pos.line) }
-  }
+    '{if ($logger.isEnabled) $logger.dispatch($msg, None, LogLevel.Info, $tags, $pos.file, $pos.line)}
     }
 
-  def logWarnImpl(transports: Expr[List[LoggerTransport]])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) = {
+  def logWarnImpl(logger: Expr[Logger])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) = {
     val pos = sourcePos(using qctx)
-  '{ $transports.filter(transport => transport.isWarnEnabled).foreach { transport =>
-    transport.warn($msg, $tags, $pos.file, $pos.line) }
-  }
+    '{if ($logger.isEnabled) $logger.dispatch($msg, None, LogLevel.Warn, $tags, $pos.file, $pos.line)}
     }
 
-  def logErrorWithCauseImpl(transports: Expr[List[LoggerTransport]])(t: Expr[Throwable])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) = {
+  def logErrorWithCauseImpl(logger: Expr[Logger])(t: Expr[Throwable])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) = {
     val pos = sourcePos(using qctx)
-  '{ $transports.filter(transport => transport.isErrorEnabled).foreach { transport =>
-    transport.error($msg, $t, $tags, $pos.file, $pos.line) }
-  }
+    '{if ($logger.isEnabled) $logger.dispatch($msg, Some($t), LogLevel.Error, $tags, $pos.file, $pos.line)}
     }
 
-  def logErrorImpl(transports: Expr[List[LoggerTransport]])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) = {
+  def logErrorImpl(logger: Expr[Logger])(msg: Expr[String])(tags: Expr[List[String]])(using qctx: Quotes) = {
     val pos = sourcePos(using qctx)
-  '{ $transports.filter(transport => transport.isErrorEnabled).foreach { transport =>
-    transport.error($msg, $tags, $pos.file, $pos.line) }
-  }
+    '{if ($logger.isEnabled) $logger.dispatch($msg, None, LogLevel.Error, $tags, $pos.file, $pos.line)}
     }
 
 

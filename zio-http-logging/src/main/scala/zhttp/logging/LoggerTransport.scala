@@ -101,9 +101,7 @@ object LoggerTransport {
   }
 
   object Transport {
-    val empty: Transport = new Transport {
-      override def run(line: CharSequence): Unit = ()
-    }
+    val empty: Transport = (_: CharSequence) => ()
 
     def unsafeFileSync(path: Path): Transport = unsafeSync { line =>
       Files.write(
@@ -114,8 +112,6 @@ object LoggerTransport {
       ): Unit
     }
 
-    def unsafeSync(log: CharSequence => Unit): Transport = new Transport {
-      override def run(line: CharSequence): Unit = log(line)
-    }
+    def unsafeSync(log: CharSequence => Unit): Transport = (line: CharSequence) => log(line)
   }
 }

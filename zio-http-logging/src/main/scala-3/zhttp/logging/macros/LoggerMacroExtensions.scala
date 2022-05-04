@@ -1,20 +1,20 @@
 package zhttp.logging.macros
 
 import zhttp.logging.macros.LoggerMacroImpl._
-import zhttp.logging.LoggerTransport
+import zhttp.logging.Logger
 
 /**
  * Core Logger class.
  */
-trait LoggerMacroExtensions{ self =>
+trait LoggerMacroExtensions{ self: Logger =>
   import scala.language.experimental.macros
 
-  def transports: List[LoggerTransport]
+  def isEnabled: Boolean
 
-  inline def trace(msg: String, tags: List[String]): Unit = $ { logTraceImpl('transports)('msg)('tags) }
-  inline def debug(msg: String, tags: List[String]): Unit = $ { logDebugImpl('transports)('msg)('tags) }
-  inline def info(msg: String, tags: List[String]): Unit = $ { logInfoImpl('transports)('msg)('tags) }
-  inline def warn(msg: String, tags: List[String]): Unit = $ { logWarnImpl('transports)('msg)('tags) }
-  inline def error(msg: String, tags: List[String]): Unit = $ { logErrorImpl('transports)('msg)('tags) }
-  inline def error(msg: String, throwable: Throwable, tags: List[String]): Unit = ${logErrorWithCauseImpl('transports)('throwable)('msg)('tags)}
+  inline def trace(msg: String, tags: List[String]): Unit = $ { logTraceImpl('self)('msg)('tags) }
+  inline def debug(msg: String, tags: List[String]): Unit = $ { logDebugImpl('self)('msg)('tags) }
+  inline def info(msg: String, tags: List[String]): Unit = $ { logInfoImpl('self)('msg)('tags) }
+  inline def warn(msg: String, tags: List[String]): Unit = $ { logWarnImpl('self)('msg)('tags) }
+  inline def error(msg: String, tags: List[String]): Unit = $ { logErrorImpl('self)('msg)('tags) }
+  inline def error(msg: String, throwable: Throwable, tags: List[String]): Unit = ${logErrorWithCauseImpl('self)('throwable)('msg)('tags)}
 }
