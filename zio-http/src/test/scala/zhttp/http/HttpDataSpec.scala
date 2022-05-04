@@ -5,7 +5,7 @@ import zio.durationInt
 import zio.stream.ZStream
 import zio.test.Assertion.{anything, equalTo, isLeft, isSubtype}
 import zio.test.TestAspect.timeout
-import zio.test.{Gen, ZIOSpecDefault, assertM, checkAll}
+import zio.test.{Gen, ZIOSpecDefault, assertZIO, checkAll}
 
 import java.io.File
 
@@ -21,24 +21,24 @@ object HttpDataSpec extends ZIOSpecDefault {
                 val stringBuffer    = payload.getBytes(HTTP_CHARSET)
                 val responseContent = ZStream.fromIterable(stringBuffer)
                 val res             = HttpData.fromStream(responseContent).toByteBuf.map(_.toString(HTTP_CHARSET))
-                assertM(res)(equalTo(payload))
+                assertZIO(res)(equalTo(payload))
               }
             }
           },
           suite("fromFile")(
             test("failure") {
               val res = HttpData.fromFile(throw new Error("Failure")).toByteBuf.either
-              assertM(res)(isLeft(isSubtype[Error](anything)))
+              assertZIO(res)(isLeft(isSubtype[Error](anything)))
             },
             test("success") {
               lazy val file = testFile
               val res       = HttpData.fromFile(file).toByteBuf.map(_.toString(HTTP_CHARSET))
-              assertM(res)(equalTo("abc\nfoo"))
+              assertZIO(res)(equalTo("abc\nfoo"))
             },
             test("success small chunk") {
               lazy val file = testFile
               val res       = HttpData.fromFile(file).toByteBuf(ByteBufConfig(3)).map(_.toString(HTTP_CHARSET))
-              assertM(res)(equalTo("abc\nfoo"))
+              assertZIO(res)(equalTo("abc\nfoo"))
             },
           ),
         )

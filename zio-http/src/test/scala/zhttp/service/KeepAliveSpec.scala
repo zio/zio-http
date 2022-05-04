@@ -6,7 +6,7 @@ import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout
-import zio.test.assertM
+import zio.test.assertZIO
 import zio.{Scope, durationInt}
 
 object KeepAliveSpec extends HttpRunnableSpec {
@@ -22,23 +22,23 @@ object KeepAliveSpec extends HttpRunnableSpec {
     suite("Http 1.1") {
       test("without connection close") {
         val res = app.deploy.headerValue(HeaderNames.connection).run()
-        assertM(res)(isNone)
+        assertZIO(res)(isNone)
       } +
         test("with connection close") {
           val res = app.deploy.headerValue(HeaderNames.connection).run(headers = connectionCloseHeader)
-          assertM(res)(isSome(equalTo("close")))
+          assertZIO(res)(isSome(equalTo("close")))
         }
     } +
       suite("Http 1.0") {
         test("without keep-alive") {
           val res = app.deploy.headerValue(HeaderNames.connection).run(version = Version.Http_1_0)
-          assertM(res)(isSome(equalTo("close")))
+          assertZIO(res)(isSome(equalTo("close")))
         } +
           test("with keep-alive") {
             val res = app.deploy
               .headerValue(HeaderNames.connection)
               .run(version = Version.Http_1_0, headers = keepAliveHeader)
-            assertM(res)(isNone)
+            assertZIO(res)(isNone)
           }
       }
   }

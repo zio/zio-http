@@ -220,7 +220,7 @@ The below snippet tests an app that takes `Int` as input and responds by adding 
       def spec = suite("http")(
         testM("1 + 1 = 2") {
           val app: Http[Any, Nothing, Int, Int] = Http.fromFunction[Int](_ + 1)
-          assertM(app(1))(equalTo(2))
+          assertZIO(app(1))(equalTo(2))
         }
       )
     }

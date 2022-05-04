@@ -212,19 +212,19 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
             val a      = Http.fromHExit(HExit.Effect(ZIO.fail(None)))
             val b      = Http.succeed(2)
             val actual = (a ++ b).execute(()).toZIO.either
-            assertM(actual)(isRight)
+            assertZIO(actual)(isRight)
           },
       ) +
       suite("asEffect")(
         test("should resolve") {
           val a      = Http.collect[Int] { case 1 => "A" }
           val actual = a.execute(1).toZIO
-          assertM(actual)(equalTo("A"))
+          assertZIO(actual)(equalTo("A"))
         } +
           test("should complete") {
             val a      = Http.collect[Int] { case 1 => "A" }
             val actual = a.execute(2).toZIO.either
-            assertM(actual)(isLeft(isNone))
+            assertZIO(actual)(isLeft(isNone))
           },
       ) +
       suite("collectM")(
@@ -384,20 +384,20 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
       suite("race") {
         test("left wins") {
           val http = Http.succeed(1) race Http.succeed(2)
-          assertM(http(()))(equalTo(1))
+          assertZIO(http(()))(equalTo(1))
         } +
           test("sync right wins") {
             val http = Http.fromZIO(ZIO.succeed(1)) race Http.succeed(2)
-            assertM(http(()))(equalTo(2))
+            assertZIO(http(()))(equalTo(2))
           } +
           test("sync left wins") {
             val http = Http.succeed(1) race Http.fromZIO(ZIO.succeed(2))
-            assertM(http(()))(equalTo(1))
+            assertZIO(http(()))(equalTo(1))
           } +
           test("async fast wins") {
             val http    = Http.succeed(1).delay(1 second) race Http.succeed(2).delay(2 second)
             val program = http(()) <& TestClock.adjust(5 second)
-            assertM(program)(equalTo(1))
+            assertZIO(program)(equalTo(1))
           }
       } +
       suite("attempt") {

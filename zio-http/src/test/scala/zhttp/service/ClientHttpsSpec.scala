@@ -7,7 +7,7 @@ import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.durationInt
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}
-import zio.test.{ZIOSpecDefault, assertM}
+import zio.test.{ZIOSpecDefault, assertZIO}
 
 import java.io._
 import java.security.KeyStore
@@ -31,11 +31,11 @@ object ClientHttpsSpec extends ZIOSpecDefault {
   override def spec               = suite("Https Client request") {
     test("respond Ok") {
       val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
-      assertM(actual)(anything)
+      assertZIO(actual)(anything)
     } +
       test("respond Ok with sslOption") {
         val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", ssl = sslOption)
-        assertM(actual)(anything)
+        assertZIO(actual)(anything)
       } +
       test("should respond as Bad Request") {
         val actual = Client
@@ -44,7 +44,7 @@ object ClientHttpsSpec extends ZIOSpecDefault {
             ssl = sslOption,
           )
           .map(_.status)
-        assertM(actual)(equalTo(Status.BadRequest))
+        assertZIO(actual)(equalTo(Status.BadRequest))
       } +
       test("should throw DecoderException for handshake failure") {
         val actual = Client
@@ -53,7 +53,7 @@ object ClientHttpsSpec extends ZIOSpecDefault {
             ssl = sslOption,
           )
           .exit
-        assertM(actual)(fails(isSubtype[DecoderException](anything)))
+        assertZIO(actual)(fails(isSubtype[DecoderException](anything)))
       }
   }.provideLayer(env) @@ timeout(30 seconds) @@ ignore
 }

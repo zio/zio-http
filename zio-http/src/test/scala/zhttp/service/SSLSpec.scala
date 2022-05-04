@@ -9,7 +9,7 @@ import zhttp.service.server._
 import zio._
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
-import zio.test.{Gen, TestEnvironment, ZIOSpecDefault, assertM, checkAll}
+import zio.test.{Gen, TestEnvironment, ZIOSpecDefault, assertZIO, checkAll}
 
 object SSLSpec extends ZIOSpecDefault {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto ++ Scope.default
@@ -44,7 +44,7 @@ object SSLSpec extends ZIOSpecDefault {
             val actual = Client
               .request("https://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
               .map(_.status)
-            assertM(actual)(equalTo(Status.Ok))
+            assertZIO(actual)(equalTo(Status.Ok))
           } +
             test("fail with DecoderException when client doesn't have the server certificate") {
               val actual = Client
@@ -52,19 +52,19 @@ object SSLSpec extends ZIOSpecDefault {
                 .catchSome { case _: DecoderException =>
                   ZIO.succeed("DecoderException")
                 }
-              assertM(actual)(equalTo("DecoderException"))
+              assertZIO(actual)(equalTo("DecoderException"))
             } +
             test("succeed when client has default SSL") {
               val actual = Client
                 .request("https://localhost:8073/success", ssl = ClientSSLOptions.DefaultSSL)
                 .map(_.status)
-              assertM(actual)(equalTo(Status.Ok))
+              assertZIO(actual)(equalTo(Status.Ok))
             } +
             test("Https Redirect when client makes http request") {
               val actual = Client
                 .request("http://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
                 .map(_.status)
-              assertM(actual)(equalTo(Status.PermanentRedirect))
+              assertZIO(actual)(equalTo(Status.PermanentRedirect))
             } +
             test("Https request with a large payload should respond with 413") {
               checkAll(payload) { payload =>
@@ -76,7 +76,7 @@ object SSLSpec extends ZIOSpecDefault {
                     content = HttpData.fromString(payload),
                   )
                   .map(_.status)
-                assertM(actual)(equalTo(Status.RequestEntityTooLarge))
+                assertZIO(actual)(equalTo(Status.RequestEntityTooLarge))
               }
             },
         ),

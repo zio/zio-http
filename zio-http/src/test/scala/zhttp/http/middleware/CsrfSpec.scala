@@ -14,15 +14,15 @@ object CsrfSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     val invalidXToken = Headers("x-token", "secret1")
     val validXToken   = Headers("x-token", "secret")
     test("x-token not present") {
-      assertM(app(Request(headers = setCookie)))(equalTo(Status.Forbidden))
+      assertZIO(app(Request(headers = setCookie)))(equalTo(Status.Forbidden))
     } +
       test("x-token mismatch") {
-        assertM(app(Request(headers = setCookie ++ invalidXToken)))(
+        assertZIO(app(Request(headers = setCookie ++ invalidXToken)))(
           equalTo(Status.Forbidden),
         )
       } +
       test("x-token match") {
-        assertM(app(Request(headers = setCookie ++ validXToken)))(
+        assertZIO(app(Request(headers = setCookie ++ validXToken)))(
           equalTo(Status.Ok),
         )
       } +
