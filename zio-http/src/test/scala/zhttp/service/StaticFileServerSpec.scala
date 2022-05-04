@@ -5,7 +5,7 @@ import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.test.Assertion.{equalTo, isSome}
 import zio.test.TestAspect.timeout
-import zio.test.assertM
+import zio.test.assertZIO
 import zio.{Scope, durationInt}
 
 import java.io.File
@@ -26,23 +26,23 @@ object StaticFileServerSpec extends HttpRunnableSpec {
         val fileNotFound = Http.fromResource("Nothing").deploy
         test("should have 200 status code") {
           val res = fileOk.run().map(_.status)
-          assertM(res)(equalTo(Status.Ok))
+          assertZIO(res)(equalTo(Status.Ok))
         } +
           test("should have content-length") {
             val res = fileOk.run().map(_.contentLength)
-            assertM(res)(isSome(equalTo(7L)))
+            assertZIO(res)(isSome(equalTo(7L)))
           } +
           test("should have content") {
             val res = fileOk.run().flatMap(_.bodyAsString)
-            assertM(res)(equalTo("abc\nfoo"))
+            assertZIO(res)(equalTo("abc\nfoo"))
           } +
           test("should have content-type") {
             val res = fileOk.run().map(_.mediaType)
-            assertM(res)(isSome(equalTo(MediaType.text.plain)))
+            assertZIO(res)(isSome(equalTo(MediaType.text.plain)))
           } +
           test("should respond with empty") {
             val res = fileNotFound.run().map(_.status)
-            assertM(res)(equalTo(Status.NotFound))
+            assertZIO(res)(equalTo(Status.NotFound))
           }
       }
     } +
@@ -50,7 +50,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
         suite("failure on construction") {
           test("should respond with 500") {
             val res = Http.fromFile(throw new Error("Wut happened?")).deploy.run().map(_.status)
-            assertM(res)(equalTo(Status.InternalServerError))
+            assertZIO(res)(equalTo(Status.InternalServerError))
           }
         } +
           suite("invalid file") {
@@ -60,7 +60,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
                 override def isFile: Boolean = true
               }
               val res = Http.fromFile(new BadFile("Length Failure")).deploy.run().map(_.status)
-              assertM(res)(equalTo(Status.InternalServerError))
+              assertZIO(res)(equalTo(Status.InternalServerError))
             }
           }
       }

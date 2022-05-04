@@ -45,19 +45,19 @@ object StaticServerSpec extends HttpRunnableSpec {
     test("200 response") {
       checkAll(HttpGen.method) { method =>
         val actual = status(method, !! / "HExitSuccess")
-        assertM(actual)(equalTo(Status.Ok))
+        assertZIO(actual)(equalTo(Status.Ok))
       }
     } +
       test("500 response") {
         checkAll(methodGenWithoutHEAD) { method =>
           val actual = status(method, !! / "HExitFailure")
-          assertM(actual)(equalTo(Status.InternalServerError))
+          assertZIO(actual)(equalTo(Status.InternalServerError))
         }
       } +
       test("404 response ") {
         checkAll(methodGenWithoutHEAD) { method =>
           val actual = status(method, !! / "A")
-          assertM(actual)(equalTo(Status.NotFound))
+          assertZIO(actual)(equalTo(Status.NotFound))
         }
       }
 
@@ -68,14 +68,14 @@ object StaticServerSpec extends HttpRunnableSpec {
       val port = 8088
       ZIO.scoped {
         (Server.port(port) ++ Server.app(Http.empty)).make.flatMap { start =>
-          assertM(ZIO.attempt(start.port))(equalTo(port))
+          assertZIO(ZIO.attempt(start.port))(equalTo(port))
         }
       }
     } +
       test("available port") {
         ZIO.scoped {
           (Server.port(0) ++ Server.app(Http.empty)).make.flatMap { start =>
-            assertM(ZIO.attempt(start.port))(not(equalTo(0)))
+            assertZIO(ZIO.attempt(start.port))(not(equalTo(0)))
           }
         }
       }
@@ -92,23 +92,23 @@ object StaticServerSpec extends HttpRunnableSpec {
   def staticAppSpec    = suite("StaticAppSpec") {
     test("200 response") {
       val actual = status(path = !! / "success")
-      assertM(actual)(equalTo(Status.Ok))
+      assertZIO(actual)(equalTo(Status.Ok))
     } +
       test("500 response on failure") {
         val actual = status(path = !! / "failure")
-        assertM(actual)(equalTo(Status.InternalServerError))
+        assertZIO(actual)(equalTo(Status.InternalServerError))
       } +
       test("500 response on die") {
         val actual = status(path = !! / "die")
-        assertM(actual)(equalTo(Status.InternalServerError))
+        assertZIO(actual)(equalTo(Status.InternalServerError))
       } +
       test("404 response") {
         val actual = status(path = !! / "random")
-        assertM(actual)(equalTo(Status.NotFound))
+        assertZIO(actual)(equalTo(Status.NotFound))
       } +
       test("200 response with encoded path") {
         val actual = status(path = !! / "get%2Fsuccess")
-        assertM(actual)(equalTo(Status.Ok))
+        assertZIO(actual)(equalTo(Status.Ok))
       } +
       test("Multiple 200 response") {
         for {

@@ -92,7 +92,7 @@ object Spec extends ZIOSpecDefault {
     test("should be ok") {
       val req         = ???
       val expectedRes = resp => resp.status.toJHttpStatus.code() == Status.OK
-      assertM(app(req))(expectedRes) // an apply method is added via `zhttp.test` package
+      assertZIO(app(req))(expectedRes) // an apply method is added via `zhttp.test` package
     }
   )
 }

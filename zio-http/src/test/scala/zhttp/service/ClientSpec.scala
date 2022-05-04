@@ -18,31 +18,31 @@ object ClientSpec extends HttpRunnableSpec {
   def clientSpec = suite("ClientSpec") {
     test("respond Ok") {
       val app = Http.ok.deploy.status.run()
-      assertM(app)(equalTo(Status.Ok))
+      assertZIO(app)(equalTo(Status.Ok))
     } +
       test("non empty content") {
         val app             = Http.text("abc")
         val responseContent = app.deploy.body.run()
-        assertM(responseContent)(isNonEmpty)
+        assertZIO(responseContent)(isNonEmpty)
       } +
       test("echo POST request content") {
         val app = Http.collectZIO[Request] { case req => req.bodyAsString.map(Response.text(_)) }
         val res = app.deploy.bodyAsString.run(method = Method.POST, content = HttpData.fromString("ZIO user"))
-        assertM(res)(equalTo("ZIO user"))
+        assertZIO(res)(equalTo("ZIO user"))
       } +
       test("empty content") {
         val app             = Http.empty
         val responseContent = app.deploy.body.run()
-        assertM(responseContent)(isEmpty)
+        assertZIO(responseContent)(isEmpty)
       } +
       test("text content") {
         val app             = Http.text("zio user does not exist")
         val responseContent = app.deploy.bodyAsString.run()
-        assertM(responseContent)(containsString("user"))
+        assertZIO(responseContent)(containsString("user"))
       } +
       test("handle connection failure") {
         val res = Client.request("http://localhost:1").either
-        assertM(res)(isLeft(isSubtype[ConnectException](anything)))
+        assertZIO(res)(isLeft(isSubtype[ConnectException](anything)))
       }
   }
 

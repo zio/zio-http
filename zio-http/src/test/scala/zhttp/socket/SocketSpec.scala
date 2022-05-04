@@ -22,7 +22,7 @@ object SocketSpec extends ZIOSpecDefault {
         .provideEnvironment(ZEnvironment(text))
         .execute("")
 
-      assertM(socket.runCollect) {
+      assertZIO(socket.runCollect) {
         equalTo(Chunk(text))
       }
     } + test("fromFunction provide") {
@@ -32,7 +32,7 @@ object SocketSpec extends ZIOSpecDefault {
         .provideEnvironment(ZEnvironment(WebSocketFrame.text("Foo")))
         .execute(WebSocketFrame.text("Bar"))
 
-      assertM(socket.runCollect) {
+      assertZIO(socket.runCollect) {
         equalTo(Chunk(WebSocketFrame.text("Foo")))
       }
     } + test("collect provide") {
@@ -44,7 +44,7 @@ object SocketSpec extends ZIOSpecDefault {
         .provideEnvironment(ZEnvironment(WebSocketFrame.ping))
         .execute(WebSocketFrame.pong)
 
-      assertM(socket.runCollect) {
+      assertZIO(socket.runCollect) {
         equalTo(Chunk(WebSocketFrame.ping))
       }
     } + test("ordered provide") {
@@ -56,17 +56,17 @@ object SocketSpec extends ZIOSpecDefault {
       val socketB: Socket[Int, Nothing, Int, Int] = socketA.provideEnvironment(ZEnvironment(1))
       val socketC: Socket[Any, Nothing, Int, Int] = socketB.provideEnvironment(ZEnvironment(42))
 
-      assertM(socketC.execute(1000).runCollect)(equalTo(Chunk(12)))
+      assertZIO(socketC.execute(1000).runCollect)(equalTo(Chunk(12)))
     } +
       test("echo") {
-        assertM(Socket.echo(1).runCollect)(equalTo(Chunk(1)))
+        assertZIO(Socket.echo(1).runCollect)(equalTo(Chunk(1)))
       } +
       test("empty") {
-        assertM(Socket.empty(()).runCollect)(isEmpty)
+        assertZIO(Socket.empty(()).runCollect)(isEmpty)
       } +
       test("toHttp") {
         val http = Socket.succeed(WebSocketFrame.ping).toHttp
-        assertM(http(()).map(_.status))(equalTo(Status.SwitchingProtocols))
+        assertZIO(http(()).map(_.status))(equalTo(Status.SwitchingProtocols))
       }
   }
 }

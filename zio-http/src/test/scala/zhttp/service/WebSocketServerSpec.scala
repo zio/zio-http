@@ -28,7 +28,7 @@ object WebSocketServerSpec extends HttpRunnableSpec {
           .foreach(1 to 1024)(_ => app(Socket.empty.toSocketApp).map(_.status))
           .map(_.count(_ == Status.SwitchingProtocols))
 
-        assertM(codes)(equalTo(1024))
+        assertZIO(codes)(equalTo(1024))
       }
     }
   }
@@ -42,7 +42,7 @@ object WebSocketServerSpec extends HttpRunnableSpec {
       val app  = socket.toHttp.deployWS
       val open = Socket.succeed(WebSocketFrame.binary(Chunk.fromArray("Hello, World".getBytes)))
 
-      assertM(app(socket.toSocketApp.onOpen(open)).map(_.status))(equalTo(Status.SwitchingProtocols))
+      assertZIO(app(socket.toSocketApp.onOpen(open)).map(_.status))(equalTo(Status.SwitchingProtocols))
     }
   }
 }

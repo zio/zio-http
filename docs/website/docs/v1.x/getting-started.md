@@ -111,7 +111,7 @@ object Spec extends ZIOSpecDefault {
       test("should be ok") {
         val app = Http.ok
         val req = Request()
-        assertM(app(req))(equalTo(Response.ok))
+        assertZIO(app(req))(equalTo(Response.ok))
       }
     )
 }

@@ -4,7 +4,6 @@ import io.netty.channel.{ChannelHandlerContext, EventLoopGroup => JEventLoopGrou
 import io.netty.util.concurrent.{EventExecutor, Future, GenericFutureListener}
 import zio._
 
-import scala.collection.mutable
 import scala.concurrent.{ExecutionContext => JExecutionContext}
 import scala.jdk.CollectionConverters._
 
@@ -76,43 +75,43 @@ object HttpRuntime {
   object Strategy {
 
     def dedicated[R](group: JEventLoopGroup): ZIO[R, Nothing, Strategy[R]] =
-      ZIO.runtime[R].map(runtime => Dedicated(runtime, group))
+      ZIO.executorWith { executor =>
+        val dedicatedExecutor = Executor.fromExecutionContext(executor.yieldOpCount) {
+          JExecutionContext.fromExecutor(group)
+        }
+        ZIO.onExecutor(dedicatedExecutor) {
+          ZIO.runtime[R].map(runtime => Dedicated(runtime))
+        }
+      }
 
     def default[R](): ZIO[R, Nothing, Strategy[R]] =
       ZIO.runtime[R].map(runtime => Default(runtime))
 
     def sticky[R](group: JEventLoopGroup): ZIO[R, Nothing, Strategy[R]] =
-      ZIO.runtime[R].map(runtime => Group(runtime, group))
-
-    case class Default[R](runtime: Runtime[R]) extends Strategy[R] {
-      override def runtime(ctx: ChannelHandlerContext): Runtime[R] = runtime
-    }
-
-    case class Dedicated[R](runtime: Runtime[R], group: JEventLoopGroup) extends Strategy[R] {
-      private val localRuntime: Runtime[R] = runtime.withExecutor {
-        Executor.fromExecutionContext(runtime.runtimeConfig.executor.yieldOpCount) {
-          JExecutionContext.fromExecutor(group)
-        }
-      }
-
-      override def runtime(ctx: ChannelHandlerContext): Runtime[R] = localRuntime
-    }
-
-    case class Group[R](runtime: Runtime[R], group: JEventLoopGroup) extends Strategy[R] {
-      private val localRuntime: mutable.Map[EventExecutor, Runtime[R]] = {
-        val map = mutable.Map.empty[EventExecutor, Runtime[R]]
-        for (exe <- group.asScala)
-          map += exe -> runtime.withExecutor {
-            Executor.fromExecutionContext(runtime.runtimeConfig.executor.yieldOpCount) {
-              JExecutionContext.fromExecutor(exe)
+      ZIO.runtime[R].flatMap { default =>
+        ZIO
+          .foreach(group.asScala) { eventLoop =>
+            val stickyExecutor = Executor.fromExecutionContext(default.executor.yieldOpCount) {
+              JExecutionContext.fromExecutor(eventLoop)
+            }
+            ZIO.onExecutor(stickyExecutor) {
+              ZIO.runtime[R].map(runtime => eventLoop -> runtime)
             }
           }
-
-        map
+          .map(group => Group(default, group.toMap))
       }
 
+    case class Default[R](default: Runtime[R]) extends Strategy[R] {
+      override def runtime(ctx: ChannelHandlerContext): Runtime[R] = default
+    }
+
+    case class Dedicated[R](dedicated: Runtime[R]) extends Strategy[R] {
+      override def runtime(ctx: ChannelHandlerContext): Runtime[R] = dedicated
+    }
+
+    case class Group[R](default: Runtime[R], group: Map[EventExecutor, Runtime[R]]) extends Strategy[R] {
       override def runtime(ctx: ChannelHandlerContext): Runtime[R] =
-        localRuntime.getOrElse(ctx.executor(), runtime)
+        group.getOrElse(ctx.executor(), default)
     }
   }
 }
