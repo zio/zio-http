@@ -1,6 +1,7 @@
 package zhttp.service
 
 import io.netty.buffer.ByteBuf
+import io.netty.util.concurrent.Future
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
 import zhttp.http._
@@ -104,9 +105,12 @@ private[zhttp] final class ServerResponseWriter[R](
         unsafeWriteFileContent(unsafeGet())
         releaseAndRead(jReq)
 
-      case d: HttpData.UnsafeAsync =>
-        runtime.unsafeRun(ctx) {
-          writeStreamContent(d.toByteBufStream).ensuring(ZIO.succeed(releaseAndRead(jReq)))
+      case HttpData.UnsafeAsync(unsafeRun) =>
+        unsafeRun { ch => msg =>
+          ctx.writeAndFlush(msg.content).addListener { (_: Future[_]) =>
+            if (msg.isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
+            else ch.read()
+          }: Unit
         }
     }
   }
