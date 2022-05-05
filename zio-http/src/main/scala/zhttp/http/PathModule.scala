@@ -67,7 +67,9 @@ private[zhttp] trait PathModule { module =>
     def apply(): Path                   = End
     def apply(string: String): Path     = if (string.trim.isEmpty) End else Path(string.split("/").toList)
     def apply(seqString: String*): Path = Path(seqString.toList)
-    def apply(list: List[String]): Path = list.foldRight[Path](End)((s, a) => a.append(s))
+    def apply(list: List[String], its: Boolean = true): Path = if (its)
+      list.foldRight[Path](Cons("", End))((s, a) => a.append(s))
+    else list.foldRight[Path](End)((s, a) => a.append(s))
 
     def empty: Path = End
 
