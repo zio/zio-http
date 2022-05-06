@@ -39,13 +39,14 @@ object LoggerSpec extends DefaultRunnableSpec {
       assertTrue(content.contains(probe))
     },
     test("File transport should not create any file if there is no content to be added due to content filtering.") {
-      val logWithFilter = fileLogTransport.withFilter(line => line.contains("Test"))
+      val localLogFile  = Paths.get("target/another.log")
+      val logWithFilter = LoggerTransport.file(localLogFile).withFilter(line => line.contains("Test"))
       val logger        = Logger.make
         .withTransport(logWithFilter)
         .withLevel(LogLevel.Info)
-      val probe         = "this is a simple line of log"
+      val probe         = "this is a simple line of log for filtering"
       logger.info(probe, List.empty)
-      val isFilePresent = Files.exists(logFile)
+      val isFilePresent = Files.exists(localLogFile)
       assertTrue(!isFilePresent)
     },
     test("File transport should not create any file if there is no content to be added due to log level.") {
