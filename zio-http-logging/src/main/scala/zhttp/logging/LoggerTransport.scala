@@ -1,5 +1,6 @@
 package zhttp.logging
 
+import zhttp.logging.Logger.SourcePos
 import zhttp.logging.LoggerTransport.Transport
 
 import java.io.{PrintWriter, StringWriter}
@@ -30,14 +31,13 @@ private[logging] final case class LoggerTransport(
     throwable: Option[Throwable],
     logLevel: LogLevel,
     tags: List[String],
-    enclosingClass: String,
-    lineNumber: Int,
+    sourceLocation: Option[SourcePos],
   ): List[LogLine] = {
     throwable.fold(
-      List(LogLine(LocalDateTime.now(), thread, logLevel, msg, tags, throwable, enclosingClass, lineNumber)),
+      List(LogLine(LocalDateTime.now(), thread, logLevel, msg, tags, throwable, sourceLocation)),
     ) { t =>
       List(
-        LogLine(LocalDateTime.now(), thread, logLevel, msg, tags, throwable, enclosingClass, lineNumber),
+        LogLine(LocalDateTime.now(), thread, logLevel, msg, tags, throwable, sourceLocation),
         LogLine(
           LocalDateTime.now(),
           thread,
@@ -45,8 +45,7 @@ private[logging] final case class LoggerTransport(
           stackTraceAsString(t),
           tags,
           throwable,
-          enclosingClass,
-          lineNumber,
+          sourceLocation,
         ),
       )
     }
@@ -62,9 +61,15 @@ private[logging] final case class LoggerTransport(
 
   def addTags(tags: List[String]): LoggerTransport = self.copy(tags = self.tags ++ tags)
 
-  def log(msg: String, cause: Option[Throwable], level: LogLevel, tags: List[String], cname: String, lno: Int): Unit =
-    if (filter(tags.mkString) && this.level >= level) {
-      buildLines(msg, cause, level, tags ++ self.tags, cname, lno).foreach { line =>
+  def log(
+    msg: String,
+    cause: Option[Throwable],
+    level: LogLevel,
+    tags: List[String],
+    sourceLocation: Option[SourcePos],
+  ): Unit =
+    if (this.level >= level) {
+      buildLines(msg, cause, level, tags ++ self.tags, sourceLocation).foreach { line =>
         if (filter(format(line).toString)) transport.run(format(line))
       }
     }

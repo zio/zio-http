@@ -89,8 +89,7 @@ object LogFormat {
   final case class Dash(left: LogFormat, right: LogFormat)                                       extends LogFormat
   final case class NewLine(left: LogFormat, right: LogFormat)                                    extends LogFormat
   final case class Trim(logFmt: LogFormat)                                                       extends LogFormat
-  case object EnclosingClassName                                                                 extends LogFormat
-  case object LocationLine                                                                       extends LogFormat
+  case object SourceLocation                                                                     extends LogFormat
   case object Msg                                                                                extends LogFormat
   case object Tags                                                                               extends LogFormat
 
@@ -99,8 +98,7 @@ object LogFormat {
   def threadName: LogFormat                   = ThreadName(true)
   def threadId: LogFormat                     = ThreadId(true)
   def msg: LogFormat                          = Msg
-  def enclosingClassName: LogFormat           = EnclosingClassName
-  def locationLine: LogFormat                 = LocationLine
+  def sourceLocation: LogFormat               = SourceLocation
   def tags: LogFormat                         = Tags
 
   def color(info: Color, error: Color, debug: Color, trace: Color, warn: Color): LogFormat =
@@ -109,22 +107,21 @@ object LogFormat {
   def run(logFormat: LogFormat)(logLine: LogLine): String = {
 
     logFormat match {
-      case EnclosingClassName                         => logLine.enclosingClass
-      case LocationLine                               => s"line: ${logLine.lineNumber}"
-      case FormatDate(dateFormat)                     => formatDate(dateFormat, logLine.timestamp)
-      case ThreadName(includeThreadName)              => if (includeThreadName) logLine.thread.getName else ""
-      case ThreadId(includeThreadId)                  => if (includeThreadId) logLine.thread.getId.toString else ""
-      case LoggerLevel                                => logLine.level.name
-      case Combine(left, right)                       => run(left)(logLine) ++ run(right)(logLine)
-      case ColorWrap(color, conf)                     =>
+      case SourceLocation                => logLine.sourceLocation.map(sp => s"${sp.file} ${sp.line}").getOrElse("")
+      case FormatDate(dateFormat)        => formatDate(dateFormat, logLine.timestamp)
+      case ThreadName(includeThreadName) => if (includeThreadName) logLine.thread.getName else ""
+      case ThreadId(includeThreadId)     => if (includeThreadId) logLine.thread.getId.toString else ""
+      case LoggerLevel                   => logLine.level.name
+      case Combine(left, right)          => run(left)(logLine) ++ run(right)(logLine)
+      case ColorWrap(color, conf)        =>
         colorText(color, run(conf)(logLine))
-      case TextWrappers(wrapper, conf)                => wrap(wrapper, run(conf)(logLine))
-      case Fixed(_, conf)                             => run(conf)(logLine)
-      case Spaced(left, right)                        => run(left)(logLine) + " " + run(right)(logLine)
-      case Dash(left, right)                          => run(left)(logLine) + " - " + run(right)(logLine)
-      case NewLine(left, right)                       => run(left)(logLine) + "\n" + run(right)(logLine)
-      case Msg                                        => logLine.message
-      case Trim(conf)                                 => run(conf)(logLine).trim
+      case TextWrappers(wrapper, conf)   => wrap(wrapper, run(conf)(logLine))
+      case Fixed(_, conf)                => run(conf)(logLine)
+      case Spaced(left, right)           => run(left)(logLine) + " " + run(right)(logLine)
+      case Dash(left, right)             => run(left)(logLine) + " - " + run(right)(logLine)
+      case NewLine(left, right)          => run(left)(logLine) + "\n" + run(right)(logLine)
+      case Msg                           => logLine.message
+      case Trim(conf)                    => run(conf)(logLine).trim
       case LineColor(info, error, debug, trace, warn) =>
         logLine.level match {
           case LogLevel.Disable => ""
@@ -142,10 +139,17 @@ object LogFormat {
     case DateFormat.ISODateTime => time.format(DateTimeFormatter.ISO_TIME)
   }
 
-  private def wrap(wrapper: TextWrapper, value: String): String = wrapper match {
-    case TextWrapper.BRACKET => s"[$value]"
-    case TextWrapper.QUOTED  => s"{$value}"
-    case TextWrapper.EMPTY   => value
+  /**
+   * Wrap a text if the text is not empty.
+   */
+  private def wrap(wrapper: TextWrapper, value: String): String = {
+    if (value.isEmpty) ""
+    else
+      wrapper match {
+        case TextWrapper.BRACKET => s"[$value]"
+        case TextWrapper.QUOTED  => s"{$value}"
+        case TextWrapper.EMPTY   => value
+      }
   }
 
   private def colorText(color: Color, value: String): String = {
@@ -166,7 +170,7 @@ object LogFormat {
   val simpleFormat: LogFormat =
     LogFormat.Tags.wrap(TextWrapper.BRACKET) |-| LogFormat.date(ISODateTime) |-| LogFormat.threadName.wrap(
       TextWrapper.BRACKET,
-    ) |-| (LogFormat.enclosingClassName |-| LogFormat.locationLine).wrap(
+    ) |-| (LogFormat.sourceLocation).wrap(
       TextWrapper.BRACKET,
     ) |-| LogFormat.logLevel - LogFormat.msg
 

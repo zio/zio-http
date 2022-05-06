@@ -21,14 +21,19 @@ private[zhttp] object LoggerMacroImpl {
     import c.universe._
     type Tree = c.universe.Tree
 
-    val cname: Tree     = q"${c.internal.enclosingOwner.owner.fullName}"
-    val lno: Tree       = q"${c.enclosingPosition.line}"
-    val isEnabled: Tree = q"${c.prefix.tree}.isEnabled"
-    val level: Tree     = q"_root_.zhttp.logging.LogLevel.${TermName(logLevel.name.toLowerCase.capitalize)}"
+    val cname: Tree          = q"${c.internal.enclosingOwner.owner.fullName}"
+    val lno: Tree            = q"${c.enclosingPosition.line}"
+    val sourceLocation: Tree =
+      if (logLevel == LogLevel.Trace)
+        q"Some(_root_.zhttp.logging.Logger.SourcePos($cname, $lno))"
+      else
+        q"None"
+    val isEnabled: Tree      = q"${c.prefix.tree}.isEnabled"
+    val level: Tree          = q"_root_.zhttp.logging.LogLevel.${TermName(logLevel.name.toLowerCase.capitalize)}"
 
     q"""
       if($isEnabled) {
-        ${c.prefix.tree}.dispatch(${msg.tree}, $error, $level, ${tags.tree}, ${cname}, ${lno})
+        ${c.prefix.tree}.dispatch(${msg.tree}, $error, $level, ${tags.tree}, ${sourceLocation})
       }
     """
   }

@@ -1,5 +1,7 @@
 package zhttp.logging
 
+import zhttp.logging.Logger.SourcePos
+
 import java.time.LocalDateTime
 
 final case class LogLine(
@@ -9,6 +11,5 @@ final case class LogLine(
   message: String,
   tags: List[String],
   error: Option[Throwable],
-  enclosingClass: String,
-  lineNumber: Int,
+  sourceLocation: Option[SourcePos],
 )

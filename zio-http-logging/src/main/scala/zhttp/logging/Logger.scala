@@ -1,5 +1,6 @@
 package zhttp.logging
 
+import zhttp.logging.Logger.SourcePos
 import zhttp.logging.macros.LoggerMacroExtensions
 
 import java.nio.file.Path
@@ -43,9 +44,8 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
     cause: Option[Throwable],
     level: LogLevel,
     tags: List[String],
-    cname: String,
-    lno: Int,
-  ): Unit = transports.foreach(_.log(msg, cause, level, tags, cname, lno))
+    sourceLocation: Option[SourcePos],
+  ): Unit = transports.foreach(_.log(msg, cause, level, tags, sourceLocation))
 
   def isEnabled: Boolean = transports.exists(_.isEnabled)
 
