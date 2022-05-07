@@ -26,7 +26,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   private val app                 =
     serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(4096)))
-  private val appWithReqStreaming = serve(DynamicServer.app, None)
+  private val appWithReqStreaming = serve(DynamicServer.app, Some(Server.requestDecompression(true)))
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
