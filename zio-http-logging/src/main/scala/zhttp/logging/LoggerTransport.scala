@@ -59,17 +59,16 @@ private[logging] final case class LoggerTransport(
 
   private def thread = Thread.currentThread()
 
-  def addTags(tags: List[String]): LoggerTransport = self.copy(tags = self.tags ++ tags)
+  def addTags(tags: Iterable[String]): LoggerTransport = self.copy(tags = self.tags ++ tags)
 
   def log(
     msg: String,
     cause: Option[Throwable],
     level: LogLevel,
-    tags: List[String],
     sourceLocation: Option[SourcePos],
   ): Unit =
     if (this.level >= level) {
-      buildLines(msg, cause, level, tags ++ self.tags, sourceLocation).foreach { line =>
+      buildLines(msg, cause, level, self.tags.sorted, sourceLocation).foreach { line =>
         if (filter(format(line).toString)) transport.run(format(line))
       }
     }

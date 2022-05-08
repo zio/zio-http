@@ -43,9 +43,8 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
     msg: String,
     cause: Option[Throwable],
     level: LogLevel,
-    tags: List[String],
     sourceLocation: Option[SourcePos],
-  ): Unit = transports.foreach(_.log(msg, cause, level, tags, sourceLocation))
+  ): Unit = transports.foreach(_.log(msg, cause, level, sourceLocation))
 
   def isEnabled: Boolean = transports.exists(_.isEnabled)
 

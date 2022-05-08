@@ -17,7 +17,7 @@ private[zhttp] object LoggerMacroImpl {
    */
   private[this] def reflectiveLog(
     c: LogCtx,
-  )(msg: c.Expr[String], error: Option[c.Expr[Throwable]], tags: c.Expr[List[String]])(logLevel: LogLevel) = {
+  )(msg: c.Expr[String], error: Option[c.Expr[Throwable]])(logLevel: LogLevel) = {
     import c.universe._
     type Tree = c.universe.Tree
 
@@ -33,45 +33,26 @@ private[zhttp] object LoggerMacroImpl {
 
     q"""
       if($isEnabled) {
-        ${c.prefix.tree}.dispatch(${msg.tree}, $error, $level, ${tags.tree}, ${sourceLocation})
+        ${c.prefix.tree}.dispatch(${msg.tree}, $error, $level, ${sourceLocation})
       }
     """
   }
 
-  def logTraceImpl(c: LogCtx)(
-    msg: c.Expr[String],
-    tags: c.Expr[List[String]],
-  ): c.universe.Tree =
-    reflectiveLog(c)(msg, None, tags)(LogLevel.Trace)
+  def logTraceImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =
+    reflectiveLog(c)(msg, None)(LogLevel.Trace)
 
-  def logInfoImpl(c: LogCtx)(
-    msg: c.Expr[String],
-    tags: c.Expr[List[String]],
-  ): c.universe.Tree =
-    reflectiveLog(c)(msg, None, tags)(LogLevel.Info)
+  def logInfoImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =
+    reflectiveLog(c)(msg, None)(LogLevel.Info)
 
-  def logDebugImpl(c: LogCtx)(
-    msg: c.Expr[String],
-    tags: c.Expr[List[String]],
-  ): c.universe.Tree =
-    reflectiveLog(c)(msg, None, tags)(LogLevel.Debug)
+  def logDebugImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =
+    reflectiveLog(c)(msg, None)(LogLevel.Debug)
 
-  def logWarnImpl(c: LogCtx)(
-    msg: c.Expr[String],
-    tags: c.Expr[List[String]],
-  ): c.universe.Tree =
-    reflectiveLog(c)(msg, None, tags)(LogLevel.Warn)
+  def logWarnImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =
+    reflectiveLog(c)(msg, None)(LogLevel.Warn)
 
-  def logErrorImpl(c: LogCtx)(
-    msg: c.Expr[String],
-    tags: c.Expr[List[String]],
-  ): c.universe.Tree =
-    reflectiveLog(c)(msg, None, tags)(LogLevel.Error)
+  def logErrorImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =
+    reflectiveLog(c)(msg, None)(LogLevel.Error)
 
-  def logErrorWithCauseImpl(c: LogCtx)(
-    msg: c.Expr[String],
-    throwable: c.Expr[Throwable],
-    tags: c.Expr[List[String]],
-  ): c.universe.Tree =
-    reflectiveLog(c)(msg, Some(throwable), tags)(LogLevel.Error)
+  def logErrorWithCauseImpl(c: LogCtx)(msg: c.Expr[String], throwable: c.Expr[Throwable]): c.universe.Tree =
+    reflectiveLog(c)(msg, Some(throwable))(LogLevel.Error)
 }
