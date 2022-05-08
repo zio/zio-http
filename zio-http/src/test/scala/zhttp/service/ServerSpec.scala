@@ -309,7 +309,7 @@ object ServerSpec extends HttpRunnableSpec {
     suite("Server") {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
       suiteM("app without request streaming") { app.as(List(spec)).useNow } +
-        suiteM("app with request streaming") { appWithReqStreaming.as(List(spec)).useNow } @@ ignore
+        suiteM("app with request streaming") { appWithReqStreaming.as(List(spec)).useNow }
     }.provideCustomLayerShared(env) @@ timeout(10 seconds)
 
 }

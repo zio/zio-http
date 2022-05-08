@@ -37,7 +37,8 @@ private[zhttp] final case class Handler[R](
 
               override def remoteAddress: Option[InetAddress] = getRemoteAddress
 
-              override def data: HttpData   = HttpData.fromByteBuf(jReq.content())
+              override def data: HttpData = HttpData.fromByteBuf(jReq.content())
+
               override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
 
               /**
@@ -63,7 +64,11 @@ private[zhttp] final case class Handler[R](
                 HttpData.UnsafeAsync(callback =>
                   ctx
                     .pipeline()
-                    .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback)): Unit,
+                    .addAfter(
+                      HTTP_REQUEST_HANDLER,
+                      HTTP_CONTENT_HANDLER,
+                      new RequestBodyHandler(callback(ctx)),
+                    ): Unit,
                 )
 
               override def headers: Headers = Headers.make(jReq.headers())
