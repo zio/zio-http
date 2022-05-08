@@ -1,6 +1,5 @@
 package zhttp.service
 
-import io.netty.buffer.ByteBufUtil
 import io.netty.util.AsciiString
 import zhttp.html._
 import zhttp.http._
@@ -110,10 +109,7 @@ object ServerSpec extends HttpRunnableSpec {
           testM("data") {
             val dataStream = ZStream.repeat("A").take(MaxSize.toLong)
             val app        = Http.collect[Request] { case req => Response(data = req.data) }
-            val res        = app.deploy.bodyAsByteBuf
-              .map(buf => ByteBufUtil.getBytes(buf).length)
-              .run(method = Method.POST, content = HttpData.fromStream(dataStream))
-
+            val res = app.deploy.bodyAsByteBuf.map(_.readableBytes()).run(content = HttpData.fromStream(dataStream))
             assertM(res)(equalTo(MaxSize))
           }
       } +
