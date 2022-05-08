@@ -15,6 +15,7 @@ import zhttp.logging.LogLevel
 import zhttp.service.Server.Config
 import zhttp.service._
 import zhttp.service.server.LogLevelTransform._
+import zhttp.service.server.ServerChannelInitializer.log
 
 /**
  * Initializes the netty channel with default handlers
@@ -25,17 +26,12 @@ final case class ServerChannelInitializer[R](
   cfg: Config[R, Throwable],
   reqHandler: ChannelHandler,
 ) extends ChannelInitializer[Channel] {
-
-  private val log = cfg.logger
-
-  private val tags = List("zhttp")
-
   override def initChannel(channel: Channel): Unit = {
     // !! IMPORTANT !!
     // Order of handlers are critical to make this work
     val pipeline = channel.pipeline()
 
-    log.debug(s"Starting server with config: $cfg", tags)
+    log.debug(s"Connection initialized")
     // SSL
     // Add SSL Handler if CTX is available
     val sslctx = if (cfg.sslOption == null) null else cfg.sslOption.sslContext
@@ -92,4 +88,8 @@ final case class ServerChannelInitializer[R](
     ()
   }
 
+}
+
+object ServerChannelInitializer {
+  private val log = Log.withTags("Server", "ChannelInitializer")
 }

@@ -2,14 +2,21 @@ package zhttp
 
 import io.netty.channel.{
   Channel,
-  ChannelFactory => JChannelFactory,
   ChannelHandlerContext,
-  EventLoopGroup => JEventLoopGroup,
   ServerChannel,
+  ChannelFactory => JChannelFactory,
+  EventLoopGroup => JEventLoopGroup,
 }
+import zhttp.logging.{LogLevel, Logger}
 import zio.Has
 
 package object service {
+  type ChannelFactory       = Has[JChannelFactory[Channel]]
+  type EventLoopGroup       = Has[JEventLoopGroup]
+  type ServerChannelFactory = Has[JChannelFactory[ServerChannel]]
+  type UServer              = Server[Any, Nothing]
+  private[zhttp] type Ctx   = ChannelHandlerContext
+  private[zhttp] val Log: Logger                          = Logger.console.withLevel(LogLevel.Debug)
   private[service] val AUTO_RELEASE_REQUEST               = false
   private[service] val SERVER_CODEC_HANDLER               = "SERVER_CODEC"
   private[service] val HTTP_OBJECT_AGGREGATOR             = "HTTP_OBJECT_AGGREGATOR"
@@ -29,11 +36,5 @@ package object service {
   private[service] val HTTP_REQUEST_DECOMPRESSION         = "HTTP_REQUEST_DECOMPRESSION"
   private[service] val LOW_LEVEL_LOGGING                  = "LOW_LEVEL_LOGGING"
   private[zhttp] val HTTP_CONTENT_HANDLER                 = "HTTP_CONTENT_HANDLER"
-
-  type ChannelFactory       = Has[JChannelFactory[Channel]]
-  type EventLoopGroup       = Has[JEventLoopGroup]
-  type ServerChannelFactory = Has[JChannelFactory[ServerChannel]]
-  type UServer              = Server[Any, Nothing]
-  private[zhttp] type Ctx   = ChannelHandlerContext
 
 }

@@ -14,7 +14,7 @@ final case class NettyLoggerFactory(logLevel: LogLevel) extends InternalLoggerFa
 
 object NettyLoggerFactory {
   private final class Live(override val name: String, logLevel: LogLevel) extends AbstractInternalLogger(name) {
-    private val log                                                = Logger.console.withTag("Netty")
+    private val log                                                = Logger.console.withTags("Netty")
     override def debug(msg: String): Unit                          = log.debug(msg)
     override def debug(format: String, arg: Any): Unit             = log.debug(format.format(arg))
     override def debug(format: String, argA: Any, argB: Any): Unit = log.debug(format.format(argA, argB))

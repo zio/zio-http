@@ -4,6 +4,8 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
+import zhttp.logging.Logger
+import zhttp.service.Handler.log
 import zhttp.service.server.WebSocketUpgrade
 import zio.{UIO, ZIO}
 
@@ -19,7 +21,7 @@ private[zhttp] final case class Handler[R](
     with WebSocketUpgrade[R] { self =>
 
   override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
-
+    log.debug(s"Message: ${msg.getClass.getName}")
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
       case jReq: FullHttpRequest =>
@@ -53,6 +55,7 @@ private[zhttp] final case class Handler[R](
         }
       case jReq: HttpRequest     =>
         val hasBody = canHaveBody(jReq)
+        log.debug(s"HasBody: ${hasBody}")
         if (hasBody) ctx.channel().config().setAutoRead(false): Unit
         try
           unsafeRun(
@@ -179,4 +182,8 @@ private[zhttp] final case class Handler[R](
     config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
   }
 
+}
+
+object Handler {
+  val log: Logger = Log.withTags("Server", "Request")
 }
