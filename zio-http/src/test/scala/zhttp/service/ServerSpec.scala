@@ -24,8 +24,9 @@ object ServerSpec extends HttpRunnableSpec {
   private val env =
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
+  private val MaxSize             = 1024 * 10
   private val app                 =
-    serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(4096)))
+    serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(MaxSize)))
   private val appWithReqStreaming = serve(DynamicServer.app, Some(Server.requestDecompression(true)))
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
@@ -104,6 +105,12 @@ object ServerSpec extends HttpRunnableSpec {
           testM("one char") {
             val res = app.deploy.bodyAsString.run(content = HttpData.fromString("1"))
             assertM(res)(equalTo("1"))
+          } +
+          testM("data") {
+            val dataStream = ZStream.repeat("A").take(MaxSize.toLong)
+            val app        = Http.collect[Request] { case req => Response(data = req.data) }
+            val res = app.deploy.bodyAsByteBuf.map(_.readableBytes()).run(content = HttpData.fromStream(dataStream))
+            assertM(res)(equalTo(MaxSize))
           }
       } +
       suite("headers") {
@@ -299,6 +306,6 @@ object ServerSpec extends HttpRunnableSpec {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
       suiteM("app without request streaming") { app.as(List(spec)).useNow } +
         suiteM("app with request streaming") { appWithReqStreaming.as(List(spec)).useNow }
-    }.provideCustomLayerShared(env) @@ timeout(20 seconds)
+    }.provideCustomLayerShared(env) @@ timeout(10 seconds)
 
 }
