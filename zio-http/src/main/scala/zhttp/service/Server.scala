@@ -32,7 +32,7 @@ sealed trait Server[-R, +E] { self =>
     case LowLevelLogging(logLevel)             => s.copy(logLevel = logLevel)
     case CustomLogger(logger)                  => s.copy(logger = logger)
     case ObjectAggregator(maxRequestSize)      => s.copy(objectAggregator = maxRequestSize)
-    case UnsafeServerbootstrap(init)           => s.copy(serverbootstrapInitializer = init)
+    case UnsafeServerBootstrap(init)           => s.copy(serverBootstrapInitializer = init)
   }
 
   def ++[R1 <: R, E1 >: E](other: Server[R1, E1]): Server[R1, E1] =
@@ -82,9 +82,6 @@ sealed trait Server[-R, +E] { self =>
    * href="https://netty.io/4.1/api/io/netty/handler/flush/FlushConsolidationHandler.html">FlushConsolidationHandler<a>).
    */
   def withConsolidateFlush(enable: Boolean): Server[R, E] = Concat(self, ConsolidateFlush(enable))
-
-  def withCustomLogger(logger: Logger): Server[R, E] =
-    Concat(self, CustomLogger(logger))
 
   /**
    * Creates a new server with the errorHandler provided.
@@ -160,11 +157,9 @@ sealed trait Server[-R, +E] { self =>
    * bootstrap is generally not advised unless you know what you are doing.
    */
   def withUnsafeServerBootstrap(unsafeServerbootstrap: ServerBootstrap => Unit): Server[R, E] =
-    Concat(self, UnsafeServerbootstrap(unsafeServerbootstrap))
-
+    Concat(self, UnsafeServerBootstrap(unsafeServerbootstrap))
 }
 object Server {
-
   val disableFlowControl: UServer    = Server.FlowControl(false)
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
@@ -261,7 +256,7 @@ object Server {
 
   def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer = UnsafeChannelPipeline(pipeline)
 
-  def unsafeServerbootstrap(serverBootstrap: ServerBootstrap => Unit): UServer = UnsafeServerbootstrap(serverBootstrap)
+  def unsafeServerBootstrap(serverBootstrap: ServerBootstrap => Unit): UServer = UnsafeServerBootstrap(serverBootstrap)
 
   def useCustomLogger(logger: Logger): UServer = CustomLogger(logger)
 
@@ -287,7 +282,7 @@ object Server {
     logLevel: LogLevel = LogLevel.Disable,
     logger: Logger = defaultLogger,
     objectAggregator: Int = -1,
-    serverbootstrapInitializer: ServerBootstrap => Unit = null,
+    serverBootstrapInitializer: ServerBootstrap => Unit = null,
   ) {
     def useAggregator: Boolean = objectAggregator >= 0
   }
@@ -322,5 +317,5 @@ object Server {
 
   private final case class ObjectAggregator(maxRequestSize: Int) extends UServer
 
-  private final case class UnsafeServerbootstrap(init: ServerBootstrap => Unit) extends UServer
+  private final case class UnsafeServerBootstrap(init: ServerBootstrap => Unit) extends UServer
 }

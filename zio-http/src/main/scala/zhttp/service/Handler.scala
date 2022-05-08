@@ -24,7 +24,6 @@ private[zhttp] final case class Handler[R](
     msg match {
       case jReq: FullHttpRequest =>
         jReq.touch("server.Handler-channelRead0")
-        config.logger.debug(s"Received $jReq", List("zhttp"))
         try
           unsafeRun(
             jReq,
@@ -38,7 +37,8 @@ private[zhttp] final case class Handler[R](
 
               override def remoteAddress: Option[InetAddress] = getRemoteAddress
 
-              override def data: HttpData   = HttpData.fromByteBuf(jReq.content())
+              override def data: HttpData = HttpData.fromByteBuf(jReq.content())
+
               override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
 
               /**
@@ -52,20 +52,24 @@ private[zhttp] final case class Handler[R](
           case throwable: Throwable => resWriter.write(throwable, jReq)
         }
       case jReq: HttpRequest     =>
-        config.logger.debug(s"Received $jReq", List("zhttp"))
-        if (canHaveBody(jReq)) {
-          ctx.channel().config().setAutoRead(false): Unit
-        }
+        val hasBody = canHaveBody(jReq)
+        if (hasBody) ctx.channel().config().setAutoRead(false): Unit
         try
           unsafeRun(
             jReq,
             app,
             new Request {
-              override def data: HttpData = HttpData.UnsafeAsync(callback =>
-                ctx
-                  .pipeline()
-                  .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback)): Unit,
-              )
+              override def data: HttpData = if (hasBody) asyncData else HttpData.empty
+              private final def asyncData =
+                HttpData.UnsafeAsync(callback =>
+                  ctx
+                    .pipeline()
+                    .addAfter(
+                      HTTP_REQUEST_HANDLER,
+                      HTTP_CONTENT_HANDLER,
+                      new RequestBodyHandler(callback(ctx)),
+                    ): Unit,
+                )
 
               override def headers: Headers = Headers.make(jReq.headers())
 
@@ -103,9 +107,10 @@ private[zhttp] final case class Handler[R](
     }
   }
 
-  private def canHaveBody(req: HttpRequest): Boolean = req.method() match {
-    case HttpMethod.GET | HttpMethod.HEAD | HttpMethod.OPTIONS | HttpMethod.TRACE => false
-    case _                                                                        => true
+  private def canHaveBody(req: HttpRequest): Boolean = {
+    req.method() == HttpMethod.TRACE ||
+    req.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
+    req.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
   }
 
   /**
