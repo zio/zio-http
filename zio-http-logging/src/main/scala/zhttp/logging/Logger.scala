@@ -77,11 +77,6 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
   def withLevel(level: LogLevel): Logger = foreach(_.withLevel(level))
 
   /**
-   * Creates a new Logger with the provided tag
-   */
-  def withTag(tag: String): Logger = foreach(_.addTags(List(tag)))
-
-  /**
    * Creates a new Logger with the provided tags
    */
   def withTags(tags: Iterable[String]): Logger = foreach(_.addTags(tags))
