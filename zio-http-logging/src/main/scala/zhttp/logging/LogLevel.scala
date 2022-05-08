@@ -13,17 +13,30 @@ sealed trait LogLevel { self =>
 object LogLevel {
 
   /**
-   * Automatically detects the level from the environment variable - "ZHTTP_LOG"
+   * Automatically detects the level from the environment variable
    */
-  def detectFromEnv(name: String): LogLevel = {
-    sys.env.getOrElse(name, Disable.name).toUpperCase match {
-      case "TRACE" => Trace
-      case "DEBUG" => Debug
-      case "INFO"  => Info
-      case "WARN"  => Warn
-      case "ERROR" => Error
-      case _       => Disable
+  def detectFromEnv(name: String): LogLevel =
+    fromString(sys.env.getOrElse(name, Disable.name))
+
+  /**
+   * Automatically detects the level from the system properties
+   */
+  def detectFromProps(name: String): LogLevel =
+    sys.props.get(name) match {
+      case Some(level) => fromString(level)
+      case None        => Disable
     }
+
+  /**
+   * Detects the LogLevel given any random string
+   */
+  def fromString(string: String): LogLevel = string.toUpperCase match {
+    case "TRACE" => Trace
+    case "DEBUG" => Debug
+    case "INFO"  => Info
+    case "WARN"  => Warn
+    case "ERROR" => Error
+    case _       => Disable
   }
 
   case object Disable extends LogLevel {
