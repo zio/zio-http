@@ -36,6 +36,11 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
   def detectLevelFromEnv(env: String): Logger = withLevel(LogLevel.detectFromEnv(env))
 
   /**
+   * Modifies the transports to read the log level from the set system property.
+   */
+  def detectLevelFromProps(env: String): Logger = withLevel(LogLevel.detectFromProps(env))
+
+  /**
    * Dispatches the parameters to all the transports. Internally invoked by the
    * macro.
    */
