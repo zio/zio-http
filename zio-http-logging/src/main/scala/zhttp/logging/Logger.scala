@@ -79,7 +79,14 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
   /**
    * Creates a new Logger with the provided tags
    */
-  def withTags(tags: List[String]): Logger = foreach(_.addTags(tags))
+  def withTags(tags: Iterable[String]): Logger = foreach(_.addTags(tags))
+
+  /**
+   * Creates a new Logger with the provided tags
+   */
+  def withTags(tags: String *): Logger = foreach(_.addTags(tags))
+
+
 
   /**
    * Adds a new transport to the logger
