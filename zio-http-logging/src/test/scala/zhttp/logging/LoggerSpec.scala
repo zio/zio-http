@@ -14,7 +14,7 @@ object LoggerSpec extends DefaultRunnableSpec {
         .withTransport(LoggerTransport.console)
         .withLevel(LogLevel.Info)
 
-      logger.info("This is a test", List("tests"))
+      logger.info("This is a test")
 
       assertTrue(logger.transports.size == 2)
 
@@ -32,7 +32,7 @@ object LoggerSpec extends DefaultRunnableSpec {
         .withTransport(fileLogTransport)
         .withLevel(LogLevel.Info)
       val probe       = "this is a simple line of log"
-      logger.info(probe, List.empty)
+      logger.info(probe)
       val fileContent = Files.readAllLines(logFile).iterator()
       val content     = if (fileContent.hasNext) fileContent.next() else ""
       Files.deleteIfExists(logFile)
@@ -45,7 +45,7 @@ object LoggerSpec extends DefaultRunnableSpec {
         .withTransport(logWithFilter)
         .withLevel(LogLevel.Info)
       val probe         = "this is a simple line of log for filtering"
-      logger.info(probe, List.empty)
+      logger.info(probe)
       val isFilePresent = Files.exists(localLogFile)
       assertTrue(!isFilePresent)
     },
@@ -54,7 +54,7 @@ object LoggerSpec extends DefaultRunnableSpec {
         .withTransport(fileLogTransport)
         .withLevel(LogLevel.Info)
       val probe         = "this is a simple line of log"
-      logger.trace(probe, List.empty)
+      logger.trace(probe)
       val isFilePresent = Files.exists(logFile)
       assertTrue(!isFilePresent)
     },

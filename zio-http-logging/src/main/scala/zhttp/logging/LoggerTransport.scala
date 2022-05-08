@@ -13,7 +13,7 @@ import java.util
  * used to, format and serialize LogLines and them to a backend.
  */
 private[logging] final case class LoggerTransport(
-  format: Setup.LogFormat,
+  format: LogFormat,
   level: LogLevel = LogLevel.Disable,
   filter: String => Boolean = _ => true,
   transport: Transport = Transport.empty,
@@ -68,16 +68,14 @@ private[logging] final case class LoggerTransport(
     sourceLocation: Option[SourcePos],
   ): Unit =
     if (this.level >= level) {
-      buildLines(msg, cause, level, self.tags.sorted, sourceLocation).foreach { line =>
+      buildLines(msg, cause, level, self.tags, sourceLocation).foreach { line =>
         if (filter(format(line).toString)) transport.run(format(line))
       }
     }
 
   def withFilter(filter: String => Boolean): LoggerTransport = self.copy(filter = filter)
 
-  def withFormat(format: LogFormat): LoggerTransport = self.copy(format = LogFormat.run(format))
-
-  def withFormat(format: LogLine => CharSequence): LoggerTransport = self.copy(format = format)
+  def withFormat(format: LogFormat): LoggerTransport = self.copy(format = format)
 
   def withLevel(level: LogLevel): LoggerTransport = self.copy(level = level)
 
@@ -87,14 +85,14 @@ private[logging] final case class LoggerTransport(
 
 object LoggerTransport {
   def console: LoggerTransport = LoggerTransport(
-    format = LogFormat.default,
+    format = LogFormat.colored,
     level = LogLevel.Disable,
     filter = _ => true,
     transport = Transport.unsafeSync(println),
   )
 
   def file(filePath: Path): LoggerTransport = LoggerTransport(
-    format = LogFormat.simple,
+    format = LogFormat.max,
     level = LogLevel.Disable,
     filter = _ => true,
     transport = Transport.unsafeFileSync(filePath),

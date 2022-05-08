@@ -6,10 +6,6 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 object Setup {
-
-  type Format[-A, +B] = A => B
-  type LogFormat      = Format[LogLine, CharSequence]
-
   final case class DefaultFormat(format: LogLine => String) {
     def apply(line: LogLine): String = format(line)
   }
@@ -18,7 +14,9 @@ object Setup {
 
 sealed trait LogFormat { self =>
   import LogFormat._
-  def <+>(that: LogFormat): LogFormat     = self combine that
+
+  def <+>(that: LogFormat): LogFormat = self combine that
+
   def combine(that: LogFormat): LogFormat = LogFormat.Combine(self, that)
 
   final def color(color: Color): LogFormat = ColorWrap(color, self)
@@ -34,6 +32,8 @@ sealed trait LogFormat { self =>
   final def \\(other: LogFormat): LogFormat = NewLine(self, other)
 
   final def trim: LogFormat = Trim(self)
+
+  def apply(line: LogLine): String = LogFormat.run(self, line)
 
 }
 
@@ -104,7 +104,7 @@ object LogFormat {
   def color(info: Color, error: Color, debug: Color, trace: Color, warn: Color): LogFormat =
     LineColor(info, error, debug, trace, warn)
 
-  def run(logFormat: LogFormat)(logLine: LogLine): String = {
+  private def run(logFormat: LogFormat, logLine: LogLine): String = {
 
     logFormat match {
       case SourceLocation                => logLine.sourceLocation.map(sp => s"${sp.file} ${sp.line}").getOrElse("")
@@ -112,16 +112,16 @@ object LogFormat {
       case ThreadName(includeThreadName) => if (includeThreadName) logLine.thread.getName else ""
       case ThreadId(includeThreadId)     => if (includeThreadId) logLine.thread.getId.toString else ""
       case LoggerLevel                   => logLine.level.name
-      case Combine(left, right)          => run(left)(logLine) ++ run(right)(logLine)
+      case Combine(left, right)          => left(logLine) ++ right(logLine)
       case ColorWrap(color, conf)        =>
-        colorText(color, run(conf)(logLine))
-      case TextWrappers(wrapper, conf)   => wrap(wrapper, run(conf)(logLine))
-      case Fixed(_, conf)                => run(conf)(logLine)
-      case Spaced(left, right)           => run(left)(logLine) + " " + run(right)(logLine)
-      case Dash(left, right)             => run(left)(logLine) + " - " + run(right)(logLine)
-      case NewLine(left, right)          => run(left)(logLine) + "\n" + run(right)(logLine)
+        colorText(color, conf(logLine))
+      case TextWrappers(wrapper, conf)   => wrap(wrapper, conf(logLine))
+      case Fixed(_, conf)                => conf(logLine)
+      case Spaced(left, right)           => left(logLine) + " " + right(logLine)
+      case Dash(left, right)             => left(logLine) + " - " + right(logLine)
+      case NewLine(left, right)          => left(logLine) + "\n" + right(logLine)
       case Msg                           => logLine.message
-      case Trim(conf)                    => run(conf)(logLine).trim
+      case Trim(conf)                    => conf(logLine).trim
       case LineColor(info, error, debug, trace, warn) =>
         logLine.level match {
           case LogLevel.Disable => ""
@@ -167,22 +167,23 @@ object LogFormat {
     }
   }
 
-  val simpleFormat: LogFormat =
-    LogFormat.Tags.wrap(TextWrapper.BRACKET) |-| LogFormat.date(ISODateTime) |-| LogFormat.threadName.wrap(
-      TextWrapper.BRACKET,
-    ) |-| (LogFormat.sourceLocation).wrap(
-      TextWrapper.BRACKET,
-    ) |-| LogFormat.logLevel - LogFormat.msg
+  val min: LogFormat =
+    LogFormat.Tags.wrap(TextWrapper.BRACKET) |-|
+      LogFormat.sourceLocation.wrap(TextWrapper.BRACKET) |-|
+      LogFormat.msg
 
-  val defaultFormat: LogFormat = LogFormat.color(
+  val max: LogFormat =
+    LogFormat.Tags.wrap(TextWrapper.BRACKET) |-|
+      LogFormat.date(ISODateTime) |-|
+      LogFormat.threadName.wrap(TextWrapper.BRACKET) |-|
+      LogFormat.sourceLocation.wrap(TextWrapper.BRACKET) |-|
+      LogFormat.logLevel - LogFormat.msg
+
+  val colored: LogFormat = LogFormat.color(
     info = Color.GREEN,
     error = Color.RED,
     debug = Color.CYAN,
     warn = Color.YELLOW,
     trace = Color.WHITE,
-  ) <+> simpleFormat
-
-  def default(logLine: LogLine): CharSequence = run(defaultFormat)(logLine)
-
-  def simple(logLine: LogLine): CharSequence = run(simpleFormat)(logLine)
+  ) <+> min
 }

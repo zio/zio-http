@@ -68,7 +68,7 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
   /**
    * Modifies all the transports to support the given log format
    */
-  def withFormat(format: Setup.LogFormat): Logger = foreach(_.withFormat(format))
+  def withFormat(format: LogFormat): Logger = foreach(_.withFormat(format))
 
   /**
    * Modifies the level for each transport. Messages that don't meet that level
@@ -89,9 +89,7 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
   /**
    * Creates a new Logger with the provided tags
    */
-  def withTags(tags: String *): Logger = foreach(_.addTags(tags))
-
-
+  def withTags(tags: String*): Logger = foreach(_.addTags(tags))
 
   /**
    * Adds a new transport to the logger
