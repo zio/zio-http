@@ -48,7 +48,9 @@ Imagine repeating this for all our end points!!!
 
 So there are two problems with this approach
 * We are dangerously coupling our business logic with cross-cutting concerns (like applying timeouts)
+* This makes testing core business logic more cumbersome.
 * Also, we will have to do it for every single route in the system. For 100 routes we will need to repeat 100 timeouts!!!
+* Any change related to a concern like logging mechanism from logback to log4j2 may cause changing signature of `log(..)` function in 100 places.
 
 This can lead to a lot of boilerplate clogging our neatly written endpoints affecting readability, thereby leading to increased maintenance costs.
 
@@ -107,8 +109,8 @@ A middleware helps in addressing common crosscutting concerns without duplicatin
 
 * `R` type of Environment 
 * `E` type of the Error when the function fails with Some[E]
-* `A` is the type of the function parameter
-* `B` type of the result when function succeeds 
+* `A` is the type of input given to the Http
+* `B` type of the output produced by the Http 
 
 Middleware is simply a function that takes one `Http` as a parameter and returns a new `Http` with some enhanced capabilities.,
 
