@@ -5,8 +5,8 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import io.netty.util.AsciiString
 import zhttp.http.HttpData.ByteBufConfig
-import zio._
 import zio.stream.ZStream
+import zio.{Chunk, Task, UIO, ZIO}
 
 import java.io.FileInputStream
 import java.nio.charset.Charset
@@ -126,41 +126,10 @@ object HttpData {
     }
   }
 
-  private[zhttp] final class UnsafeContent(private val httpContent: HttpContent) extends AnyVal {
-    def content: ByteBuf = httpContent.content()
-
-    def isLast: Boolean = httpContent.isInstanceOf[LastHttpContent]
-  }
-
-  private[zhttp] trait UnsafeChannel {
-    def read(): Unit
-  }
-
-  object UnsafeChannel {
-    def fromCtx(ctx: ChannelHandlerContext): UnsafeChannel = () => ctx.read(): Unit
-  }
-
-  private[zhttp] final case class UnsafeAsync(unsafeRun: (UnsafeChannel => UnsafeContent => Unit) => Unit)
+  private[zhttp] final case class UnsafeAsync(unsafeRun: (ChannelHandlerContext => HttpContent => Unit) => Unit)
       extends HttpData {
 
-    private def toUnsafeContentQueue: ZIO[Any, Nothing, Queue[UnsafeContent]] = {
-      for {
-        queue   <- ZQueue.bounded[UnsafeContent](1)
-        promise <- Promise.make[Nothing, UnsafeChannel]
-        runtime <- ZIO.runtime[Any]
-        _       <- UIO(
-          unsafeRun { ch =>
-            runtime.unsafeRun(promise.succeed(ch))
-            msg => {
-              runtime.unsafeRun(queue.offer(msg)): Unit
-            }
-          },
-        )
-        ch      <- promise.await
-      } yield queue.mapM { msg =>
-        UIO(ch.read()).unless(msg.isLast).as(msg)
-      }
-    }
+    private def isLast(msg: HttpContent): Boolean = msg.isInstanceOf[LastHttpContent]
 
     /**
      * Encodes the HttpData into a ByteBuf.
@@ -171,7 +140,7 @@ object HttpData {
           val buffer = Unpooled.compositeBuffer()
           msg => {
             buffer.addComponent(true, msg.content)
-            if (msg.isLast) cb(UIO(buffer)) else ch.read()
+            if (isLast(msg)) cb(UIO(buffer)) else ch.read(): Unit
           }
         }),
       )
@@ -181,7 +150,15 @@ object HttpData {
      * Encodes the HttpData into a Stream of ByteBufs
      */
     override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
-      ZStream.unwrap(toUnsafeContentQueue.map(ZStream.fromQueue(_))).takeUntil(_.isLast).map(_.content)
+      ZStream
+        .effectAsync[Any, Nothing, ByteBuf](cb =>
+          unsafeRun(ch =>
+            msg => {
+              cb(ZIO.succeed(Chunk(msg.content)))
+              if (isLast(msg)) cb(ZIO.fail(None)) else ch.read(): Unit
+            },
+          ),
+        )
 
     override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] =
       Http.fromZIO(toByteBuf(config))
