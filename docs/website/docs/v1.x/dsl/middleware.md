@@ -204,7 +204,7 @@ import zhttp.service._
 ```
 Define some "User" domain types
 ```scala
-  final case class User(name: String, email: String, id: String)
+final case class User(name: String, email: String, id: String)
 object User {
   implicit val codec: JsonCodec[User] = DeriveJsonCodec.gen[User]
 }
@@ -233,7 +233,7 @@ Define a Users service _**purely in terms of our types**_
     }
   }
 ```
-A codec middleware which transforms Http with **UsersRequest/UsersResponse** to zhttp **Request/Response**
+A codec middleware which transforms an `Http` with different input/output types to `HttpApp` with **Request and Response**
 ```scala
   def codecMiddleware[In: JsonDecoder, Out: JsonEncoder]: Middleware[Any,Nothing,In,Out,Request,Response] =
     Middleware.codecZIO[Request,Out](
