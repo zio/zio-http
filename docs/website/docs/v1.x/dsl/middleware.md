@@ -27,7 +27,7 @@ As our application grows, we want to code the following aspects like
 * Response logging
 * Timeout and retry
 
-For both our example endpoints, our core business logic gets buried under boilerplate like this
+For both of our example endpoints, our core business logic gets buried under boilerplate like this
 
 ```scala
             (for {
@@ -44,13 +44,14 @@ For both our example endpoints, our core business logic gets buried under boiler
                     .timeout(2.seconds)
                     .retryN(5)
 ```
-Imagine repeating this for all our end points!!!
+Imagine repeating this for all our endpoints!!!
 
 So there are two problems with this approach
 * We are dangerously coupling our business logic with cross-cutting concerns (like applying timeouts)
-* This makes testing core business logic more cumbersome.
-* Also, we will have to do it for every single route in the system. For 100 routes we will need to repeat 100 timeouts!!!
-* Any change related to a concern like logging mechanism from logback to log4j2 may cause changing signature of `log(..)` function in 100 places.
+* Also, addressing these concerns will require updating code for every single route in the system. For 100 routes we will need to repeat 100 timeouts!!!
+* For example, any change related to a concern like the logging mechanism from logback to log4j2 may cause changing signature of `log(..)` function in 100 places.
+* On the other hand, this also makes testing core business logic more cumbersome.
+
 
 This can lead to a lot of boilerplate clogging our neatly written endpoints affecting readability, thereby leading to increased maintenance costs.
 
@@ -76,12 +77,16 @@ This is where middleware comes to the rescue.
 Using middlewares we can compose out-of-the-box middlewares (or our custom middlewares) to address the above-mentioned concerns using ++ and @@ operators as shown below.
 
 #### Cleaned up code using middleware to address cross-cutting concerns like auth, request/response logging, etc.
+Observe, how we can address multiple cross-cutting concerns using neatly composed middlewares, in a single place.
+
 ```scala
 // compose basic auth, request/response logging, timeouts middlewares
 val composedMiddlewares = Middleware.basicAuth("user","pw") ++ 
         Middleware.debug ++ 
         Middleware.timeout(5 seconds) 
-
+````
+And then we can attach our composed bundle of middlewares to an Http using `@@`
+```scala
 private val app = Http.collectZIO[Request] {
   case Method.GET -> !! / "users" / id =>
     // core business logic  
@@ -91,10 +96,10 @@ private val app = Http.collectZIO[Request] {
     dbService.paginatedUsers(pageNum).map(Response.json(_.json))
 } @@ composedMiddlewares // attach composedMiddlewares to the app using @@
 ```
-Observe how we gained following benefits by using middlewares
+Observe how we gained the following benefits by using middlewares
 * **Readability**: de-cluttering business logic.
 * **Modularity**: we can manage aspects independently without making changes in 100 places. For example, 
-  * replacing the logging mechanism from logback to log4j2 will require a change in one place, the logging middleware).
+  * replacing the logging mechanism from logback to log4j2 will require a change in one place, the logging middleware.
   * replacing the authentication mechanism from OAuth to single sign-on will require changing the auth middleware
 * **Testability**: we can test our aspects independently.
 
@@ -103,7 +108,7 @@ Observe how we gained following benefits by using middlewares
 A middleware helps in addressing common crosscutting concerns without duplicating boilerplate code.
 
 #### Revisiting HTTP 
-[`Http`](https://dream11.github.io/zio-http/docs/v1.x/dsl/http) is the most fundamental type for modelling Http applications
+[`Http`](https://dream11.github.io/zio-http/docs/v1.x/dsl/http) is the most fundamental type for modeling Http applications
 
 ```Http[-R, +E, -A, +B]``` is equivalent to ```(A) => ZIO[R, Option[E], B]``` where
 
@@ -124,15 +129,11 @@ type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E,
 * `AIn` and `BIn` are type params of the input `Http`
 * `AOut` and `BOut` are type params of the output `Http`
 
-This can also be seen as 
-```
-AIn => ZIO[R, Option[E], BIn]  ---transformed by middleware--->  AOut => ZIO[R, Option[E], BOut]
-```
 **HttpApp** is a specialized Http with `Request` and `Response` as input and output
 ```scala
 type HttpApp[-R,+E] = Http[R, E, Request, Response]
 ```
-In ```HttpApp``` context, a middleware can modify requests and responses and also transform them into more concrete domain entities.
+In the  ```HttpApp``` context, a middleware can modify requests and responses and also transform them into more concrete domain entities.
 
 #### Attaching middleware to Http
 `@@` operator is used to attach a middleware to an Http. Example below shows a middleware attached to an HttpApp
@@ -145,7 +146,7 @@ val appWithMiddleware = app @@ Middleware.debug
 Logically the code above translates to `Middleware.debug(app)`
 #### A simple middleware example
 Let us consider a simple example using out-of-the-box middleware called ```addHeader```
-We will write a middleware which will attach a custom header to the response. 
+We will write a middleware that will attach a custom header to the response. 
 
 Start with imports
 ```scala
@@ -154,7 +155,7 @@ import zhttp.service.Server
 import zio.console.{putStrLn}
 import zio.{App, ExitCode, URIO}
 ```
-We create a middleware that appends additional header to the response indicating whether it is a Dev/Prod/Staging environment.
+We create a middleware that appends an additional header to the response indicating whether it is a Dev/Prod/Staging environment.
 ```scala
 lazy val patchEnv = Middleware.addHeader("X-Environment", "Dev")
 ```
@@ -181,7 +182,7 @@ content-length: 12
 
 Hello Bob
 ```
-## Advanced example showing the transformative power of a middleware (Optional)
+### Advanced example showing the transformative power of a middleware (Optional)
 
 <details>
 <summary>
