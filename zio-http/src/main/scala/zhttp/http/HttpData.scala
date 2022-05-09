@@ -5,8 +5,8 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import io.netty.util.AsciiString
 import zhttp.http.HttpData.ByteBufConfig
+import zio._
 import zio.stream.ZStream
-import zio.{Chunk, Promise, Queue, Task, UIO, ZIO, ZQueue}
 
 import java.io.FileInputStream
 import java.nio.charset.Charset
