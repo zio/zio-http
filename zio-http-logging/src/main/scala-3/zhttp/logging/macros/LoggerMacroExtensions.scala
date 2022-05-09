@@ -11,10 +11,10 @@ trait LoggerMacroExtensions{ self: Logger =>
 
   def isEnabled: Boolean
 
-  inline def trace(msg: String): Unit = $ { logTraceImpl('self)('msg) }
-  inline def debug(msg: String): Unit = $ { logDebugImpl('self)('msg) }
-  inline def info(msg: String): Unit = $ { logInfoImpl('self)('msg) }
-  inline def warn(msg: String): Unit = $ { logWarnImpl('self)('msg) }
-  inline def error(msg: String): Unit = $ { logErrorImpl('self)('msg) }
-  inline def error(msg: String, throwable: Throwable): Unit = ${logErrorWithCauseImpl('self)('throwable)('msg)}
+  inline def trace(inline msg: String): Unit = $ { logTraceImpl('self, 'msg) }
+  inline def debug(inline msg: String): Unit = $ { logDebugImpl('self, 'msg) }
+  inline def info(inline msg: String): Unit = $ { logInfoImpl('self, 'msg) }
+  inline def warn(inline msg: String): Unit = $ { logWarnImpl('self, 'msg) }
+  inline def error(inline msg: String): Unit = $ { logErrorImpl('self, 'msg) }
+  inline def error(inline msg: String, throwable: Throwable): Unit = ${logErrorWithCauseImpl('self, 'throwable, 'msg)}
 }

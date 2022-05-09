@@ -33,7 +33,8 @@ private[zhttp] object LoggerMacroImpl {
 
     q"""
       if($isEnabled) {
-        ${c.prefix.tree}.dispatch(${msg.tree}, $error, $level, ${sourceLocation})
+        val logMsg = ${msg.tree}
+        ${c.prefix.tree}.dispatch(logMsg, $error, $level, ${sourceLocation})
       }
     """
   }
