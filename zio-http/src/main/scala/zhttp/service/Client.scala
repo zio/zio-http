@@ -23,7 +23,7 @@ import java.net.{InetSocketAddress, URI}
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
 
-  private[zhttp] def request(request: Request, clientConfig: Config): Task[Response] =
+  def request(request: Request, clientConfig: Config): Task[Response] =
     for {
       promise <- Promise.make[Throwable, Response]
       jReq    <- encode(request)
