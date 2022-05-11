@@ -1,6 +1,12 @@
 package zhttp
 
-import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelHandlerContext, EventLoopGroup => JEventLoopGroup, ServerChannel}
+import io.netty.channel.{
+  Channel,
+  ChannelFactory => JChannelFactory,
+  ChannelHandlerContext,
+  EventLoopGroup => JEventLoopGroup,
+  ServerChannel,
+}
 import zhttp.logging.Logger
 import zio.Has
 
