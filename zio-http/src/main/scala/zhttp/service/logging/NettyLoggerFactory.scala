@@ -8,13 +8,13 @@ import zhttp.service.logging.NettyLoggerFactory.Live
  * Custom implementation that uses the zhttp logger's transport for logging
  * netty messages.
  */
-final case class NettyLoggerFactory(logLevel: LogLevel) extends InternalLoggerFactory {
-  override def newInstance(name: String): InternalLogger = new Live(name, logLevel)
+final case class NettyLoggerFactory(logger: Logger) extends InternalLoggerFactory {
+  override def newInstance(name: String): InternalLogger = new Live(name, logger: Logger)
 }
 
 object NettyLoggerFactory {
-  private final class Live(override val name: String, logLevel: LogLevel) extends AbstractInternalLogger(name) {
-    private val log                                                = Logger.console.withTags("Netty")
+  private final class Live(override val name: String, logger: Logger) extends AbstractInternalLogger(name) {
+    private val log                                                = logger.withTags("Netty")
     override def debug(msg: String): Unit                          = log.debug(msg)
     override def debug(format: String, arg: Any): Unit             = log.debug(format.format(arg))
     override def debug(format: String, argA: Any, argB: Any): Unit = log.debug(format.format(argA, argB))
@@ -30,11 +30,11 @@ object NettyLoggerFactory {
     override def info(format: String, argA: Any, argB: Any): Unit  = log.info(format.format(argA, argB))
     override def info(format: String, arguments: Object*): Unit    = log.info(format.format(arguments))
     override def info(msg: String, t: Throwable): Unit             = log.error(msg + "(info)", t)
-    override def isDebugEnabled: Boolean                           = logLevel == LogLevel.Debug
-    override def isErrorEnabled: Boolean                           = logLevel == LogLevel.Error
-    override def isInfoEnabled: Boolean                            = logLevel == LogLevel.Info
-    override def isTraceEnabled: Boolean                           = logLevel == LogLevel.Trace
-    override def isWarnEnabled: Boolean                            = logLevel == LogLevel.Warn
+    override def isDebugEnabled: Boolean                           = log.transports.exists(_.level == LogLevel.Debug)
+    override def isErrorEnabled: Boolean                           = log.transports.exists(_.level == LogLevel.Error)
+    override def isInfoEnabled: Boolean                            = log.transports.exists(_.level == LogLevel.Info)
+    override def isTraceEnabled: Boolean                           = log.transports.exists(_.level == LogLevel.Trace)
+    override def isWarnEnabled: Boolean                            = log.transports.exists(_.level == LogLevel.Warn)
     override def trace(msg: String): Unit                          = log.trace(msg)
     override def trace(format: String, arg: Any): Unit             = log.trace(format.format(arg))
     override def trace(format: String, argA: Any, argB: Any): Unit = log.trace(format.format(argA, argB))

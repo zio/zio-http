@@ -5,7 +5,6 @@ import io.netty.channel.ChannelPipeline
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
-import zhttp.logging.{LogLevel, Logger}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
 import zio.{ZManaged, _}
@@ -29,8 +28,6 @@ sealed trait Server[-R, +E] { self =>
     case ConsolidateFlush(enabled)             => s.copy(consolidateFlush = enabled)
     case UnsafeChannelPipeline(init)           => s.copy(channelInitializer = init)
     case RequestDecompression(enabled, strict) => s.copy(requestDecompression = (enabled, strict))
-    case LowLevelLogging(logLevel)             => s.copy(logLevel = logLevel)
-    case CustomLogger(logger)                  => s.copy(logger = logger)
     case ObjectAggregator(maxRequestSize)      => s.copy(objectAggregator = maxRequestSize)
     case UnsafeServerBootstrap(init)           => s.copy(serverBootstrapInitializer = init)
   }
@@ -109,14 +106,6 @@ sealed trait Server[-R, +E] { self =>
   def withLeakDetection(level: LeakDetectionLevel): Server[R, E] = Concat(self, LeakDetection(level))
 
   /**
-   * Creates a new server with netty's LoggingHandler to log http
-   * requests/responses (@see <a href =
-   * "https://netty.io/4.1/api/io/netty/handler/logging/LoggingHandler.html#LoggingHandler-io.netty.handler.logging.LogLevel-">LoggingHandler</>).
-   */
-  def withLowLevelLogging(logLevel: LogLevel): Server[R, E] =
-    Concat(self, LowLevelLogging(logLevel))
-
-  /**
    * Creates a new server with HttpObjectAggregator with the specified max size
    * of the aggregated content.
    */
@@ -167,8 +156,6 @@ object Server {
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
   val disableKeepAlive: UServer      = Server.KeepAlive(false)
   val consolidateFlush: UServer      = ConsolidateFlush(true)
-  val lowLevelLogging: UServer       = LowLevelLogging(logLevel = LogLevel.Debug)
-  private val defaultLogger          = Logger.console
 
   def acceptContinue: UServer = Server.AcceptContinue(true)
 
@@ -228,7 +215,7 @@ object Server {
     (Server(http)
       .withPort(port))
       .make
-      .flatMap(start => ZManaged.succeed(println(s"Server started on port: ${start.port}")))
+      .flatMap(start => ZManaged.succeed(Log.info(s"Server started on port: ${start.port}")))
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
   }
@@ -258,8 +245,6 @@ object Server {
 
   def unsafeServerBootstrap(serverBootstrap: ServerBootstrap => Unit): UServer = UnsafeServerBootstrap(serverBootstrap)
 
-  def useCustomLogger(logger: Logger): UServer = CustomLogger(logger)
-
   /**
    * Holds server start information.
    */
@@ -279,8 +264,6 @@ object Server {
     flowControl: Boolean = true,
     channelInitializer: ChannelPipeline => Unit = null,
     requestDecompression: (Boolean, Boolean) = (false, false),
-    logLevel: LogLevel = LogLevel.Disable,
-    logger: Logger = defaultLogger,
     objectAggregator: Int = -1,
     serverBootstrapInitializer: ServerBootstrap => Unit = null,
   ) {
@@ -310,10 +293,6 @@ object Server {
   private final case class UnsafeChannelPipeline(init: ChannelPipeline => Unit) extends UServer
 
   private final case class RequestDecompression(enabled: Boolean, strict: Boolean) extends UServer
-
-  private final case class LowLevelLogging(logLevel: LogLevel) extends UServer
-
-  private final case class CustomLogger(logger: Logger) extends UServer
 
   private final case class ObjectAggregator(maxRequestSize: Int) extends UServer
 

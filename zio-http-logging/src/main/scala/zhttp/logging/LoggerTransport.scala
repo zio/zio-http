@@ -69,7 +69,7 @@ private[logging] final case class LoggerTransport(
   ): Unit =
     if (this.level >= level) {
       buildLines(msg, cause, level, self.tags, sourceLocation).foreach { line =>
-        if (filter(format(line).toString)) transport.run(format(line))
+        if (filter(format(line))) transport.run(format(line))
       }
     }
 
