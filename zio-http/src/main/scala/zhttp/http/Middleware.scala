@@ -255,6 +255,35 @@ object Middleware extends Web {
    */
   def succeed[B](b: B): Middleware[Any, Nothing, Nothing, Any, Any, B] = fromHttp(Http.succeed(b))
 
+  /**
+   * Creates a middleware which returns an empty http value
+   */
+  def empty: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = fromHttp(Http.empty)
+
+  /**
+   * Creates a middleware which can allow or disallow access to an http based on
+   * the predicate
+   */
+  def allow[R, E, AIn, BIn, AOut, BOut](
+    cond: AOut => Boolean,
+  ): Middleware[R, E, AIn, BIn, AOut, BOut] =
+    Middleware.ifThenElse[AOut](cond(_))(
+      isTrue = _ => Middleware.identity,
+      isFalse = _ => Middleware.empty,
+    )
+
+  /**
+   * Creates a middleware which can allow or disallow access to an http based on
+   * the predicate effect
+   */
+  def allowZIO[R, E, AIn, BIn, AOut, BOut](
+    cond: AOut => ZIO[R, E, Boolean],
+  ): Middleware[R, E, AIn, BIn, AOut, BOut] =
+    Middleware.ifThenElseZIO[AOut](cond(_))(
+      isTrue = _ => Middleware.identity,
+      isFalse = _ => Middleware.empty,
+    )
+
   final class PartialCollect[AOut](val unit: Unit) extends AnyVal {
     def apply[R, E, AIn, BIn, BOut](
       f: PartialFunction[AOut, Middleware[R, E, AIn, BIn, AOut, BOut]],
