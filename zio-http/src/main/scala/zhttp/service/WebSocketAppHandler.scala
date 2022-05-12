@@ -38,7 +38,7 @@ final class WebSocketAppHandler[R](
 
   override def exceptionCaught(ctx: ChannelHandlerContext, x: Throwable): Unit = {
     app.error match {
-      case Some(v) => zExec.unsafeRun(ctx)(v(x).uninterruptible)
+      case Some(v) => zExec.unsafeRunUninterruptible(ctx)(v(x))
       case None    => ctx.fireExceptionCaught(x)
     }
     ()
