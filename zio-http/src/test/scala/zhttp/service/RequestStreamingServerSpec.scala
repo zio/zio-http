@@ -3,12 +3,9 @@ import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.ServerSpec.{requestBodySpec, unsafeContentSpec}
 import zio.duration.durationInt
-import zio.stream.ZSink
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, timeout}
-import zio.test.assertM
-
-import java.io.File
+import zio.test.{Gen, assertM, checkM}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
   private val env =
@@ -18,21 +15,16 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
 
   def largeContentSpec = suite("ServerStreamingSpec") {
     testM("test unsafe large content") {
-      val app  = Http.collectZIO[Request] { case req @ Method.POST -> !! / "store" =>
-        for {
-          bytesCount <- req.bodyAsStream.run(ZSink.count)
-        } yield Response.text(bytesCount.toString)
+      val size = 1024 * 1024
+      checkM(Gen.stringBounded(size, size)(Gen.alphaNumericChar)) { content =>
+        val app = Http.fromFunctionZIO[Request] {
+          _.bodyAsStream.runCount.map(bytesCount => Response.text(bytesCount.toString))
+        }
+
+        val res = app.deploy.bodyAsString.run(content = HttpData.fromString(content))
+
+        assertM(res)(equalTo(size.toString))
       }
-      val file = new File(getClass.getResource("/1M.img").getPath)
-      assertM(
-        app.deploy.bodyAsString.run(
-          path = !! / "store",
-          method = Method.POST,
-          content = HttpData.fromFile(file),
-        ),
-      )(
-        equalTo("1048576"),
-      )
     }
   }
 
