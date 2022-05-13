@@ -6,7 +6,7 @@ import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.duration.durationInt
-import zio.stream.{ZSink, ZStream, ZTransducer}
+import zio.stream.{ZStream, ZTransducer}
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
@@ -299,28 +299,6 @@ object ServerSpec extends HttpRunnableSpec {
         val res = app.deploy.headers.run().map(_.headerValue("Content-Length"))
         assertM(res)(isSome(anything))
       }
-  }
-
-  def unsafeContentSpec = suite("ServerStreamingSpec") {
-    testM("test unsafe content") {
-      val app = Http.collectZIO[Request] { case req @ Method.POST -> !! / "store" =>
-        for {
-          bytesCount <- req.bodyAsStream.run(ZSink.count)
-        } yield Response.text(bytesCount.toString)
-      }
-      checkAllM(Gen.alphaNumericString) { c =>
-        assertM(
-          app.deploy.bodyAsString.run(
-            path = !! / "store",
-            method = Method.POST,
-            content = HttpData.fromString(c),
-          ),
-        )(
-          equalTo(s"${c.length}"),
-        )
-      }
-    }
-
   }
 
   override def spec =
