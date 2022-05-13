@@ -1,7 +1,7 @@
 package zhttp.logging.macros
 
 import zhttp.logging.macros.LoggerMacroImpl._
-import zhttp.logging.Logger
+import zhttp.logging.{LogLevel, Logger}
 
 /**
  * Core Logger class.
@@ -9,7 +9,7 @@ import zhttp.logging.Logger
 trait LoggerMacroExtensions{ self: Logger =>
   import scala.language.experimental.macros
 
-  def isEnabled: Boolean
+  def isEnabled(logLevel: LogLevel): Boolean
 
   inline def trace(inline msg: String): Unit = $ { logTraceImpl('self, 'msg) }
   inline def debug(inline msg: String): Unit = $ { logDebugImpl('self, 'msg) }

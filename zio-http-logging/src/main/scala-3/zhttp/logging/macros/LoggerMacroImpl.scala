@@ -22,23 +22,23 @@ private[zhttp] object LoggerMacroImpl {
 
   def logTraceImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes) = {
     val pos = sourcePos(using qctx)
-    '{if ($logger.isEnabled) $logger.dispatch($msg, None, LogLevel.Trace, Some($pos))}
+    '{if ($logger.isEnabled(LogLevel.Trace)) $logger.dispatch($msg, None, LogLevel.Trace, Some($pos))}
   }
 
   def logDebugImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes) =
-  '{if ($logger.isEnabled) $logger.dispatch($msg, None, LogLevel.Debug, None)}
+  '{if ($logger.isEnabled(LogLevel.Debug)) $logger.dispatch($msg, None, LogLevel.Debug, None)}
 
   def logInfoImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes) =
-  '{if ($logger.isEnabled) $logger.dispatch($msg, None, LogLevel.Info, None)}
+  '{if ($logger.isEnabled(LogLevel.Info)) $logger.dispatch($msg, None, LogLevel.Info, None)}
 
   def logWarnImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes) =
-  '{if ($logger.isEnabled) $logger.dispatch($msg, None, LogLevel.Warn, None)}
+  '{if ($logger.isEnabled(LogLevel.Warn)) $logger.dispatch($msg, None, LogLevel.Warn, None)}
 
   def logErrorWithCauseImpl(logger: Expr[Logger], t: Expr[Throwable], msg: Expr[String])(using qctx: Quotes) = {
-    '{if ($logger.isEnabled) $logger.dispatch($msg, Some($t), LogLevel.Error, None)}
+    '{if ($logger.isEnabled(LogLevel.Error)) $logger.dispatch($msg, Some($t), LogLevel.Error, None)}
     }
 
   def logErrorImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes) =
-  '{if ($logger.isEnabled) $logger.dispatch($msg, None, LogLevel.Error, None)}
+  '{if ($logger.isEnabled(LogLevel.Error)) $logger.dispatch($msg, None, LogLevel.Error, None)}
 
 }

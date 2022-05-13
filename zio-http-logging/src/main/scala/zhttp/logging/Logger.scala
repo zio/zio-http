@@ -51,7 +51,17 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
     sourceLocation: Option[SourcePos],
   ): Unit = transports.foreach(_.log(msg, cause, level, sourceLocation))
 
-  def isEnabled: Boolean = transports.exists(_.isEnabled)
+  def isEnabled(logLevel: LogLevel = LogLevel.Disable): Boolean = {
+    logLevel match {
+      case LogLevel.Disable => transports.exists(_.isEnabled)
+      case LogLevel.Trace   => transports.exists(_.isTraceEnabled)
+      case LogLevel.Debug   => transports.exists(_.isDebugEnabled)
+      case LogLevel.Info    => transports.exists(_.isInfoEnabled)
+      case LogLevel.Warn    => transports.exists(_.isWarnEnabled)
+      case LogLevel.Error   => transports.exists(_.isErrorEnabled)
+    }
+
+  }
 
   /**
    * Creates a new logger that will log messages that start with the given

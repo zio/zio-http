@@ -1,10 +1,11 @@
 package zhttp.logging.macros
 
+import zhttp.logging.LogLevel
 import zhttp.logging.macros.LoggerMacroImpl._
 
 trait LoggerMacroExtensions { self =>
   import scala.language.experimental.macros
-  def isEnabled: Boolean
+  def isEnabled(logLevel: LogLevel): Boolean
 
   final def trace(msg: String): Unit = macro logTraceImpl
   final def debug(msg: String): Unit = macro logDebugImpl
