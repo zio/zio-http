@@ -126,18 +126,10 @@ object HttpData {
     }
   }
 
-  private[zhttp] final class UnsafeContent(private val httpContent: HttpContent) extends AnyVal {
-    def content: ByteBuf = httpContent.content()
-
-    def isLast: Boolean = httpContent.isInstanceOf[LastHttpContent]
-  }
-
-  private[zhttp] final class UnsafeChannel(private val ctx: ChannelHandlerContext) extends AnyVal {
-    def read(): Unit = ctx.read(): Unit
-  }
-
-  private[zhttp] final case class UnsafeAsync(unsafeRun: (UnsafeChannel => UnsafeContent => Unit) => Unit)
+  private[zhttp] final case class UnsafeAsync(unsafeRun: (ChannelHandlerContext => HttpContent => Unit) => Unit)
       extends HttpData {
+
+    private def isLast(msg: HttpContent): Boolean = msg.isInstanceOf[LastHttpContent]
 
     /**
      * Encodes the HttpData into a ByteBuf.
@@ -148,7 +140,7 @@ object HttpData {
           val buffer = Unpooled.compositeBuffer()
           msg => {
             buffer.addComponent(true, msg.content)
-            if (msg.isLast) cb(UIO(buffer)) else ch.read()
+            if (isLast(msg)) cb(UIO(buffer)) else ch.read(): Unit
           }
         }),
       )
@@ -163,7 +155,7 @@ object HttpData {
           unsafeRun(ch =>
             msg => {
               cb(ZIO.succeed(Chunk(msg.content)))
-              if (msg.isLast) cb(ZIO.fail(None)) else ch.read()
+              if (isLast(msg)) cb(ZIO.fail(None)) else ch.read(): Unit
             },
           ),
         )
