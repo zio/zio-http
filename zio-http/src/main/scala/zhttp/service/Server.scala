@@ -189,7 +189,7 @@ object Server {
       handler         = new ServerResponseWriter(zExec, settings, ServerTime.make)
       reqHandler      = settings.app.compile(zExec, settings, handler)
       init            = ServerChannelInitializer(zExec, settings, reqHandler)
-      serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
+      serverBootstrap = new ServerBootstrap.channelFactory(channelFactory).group(eventLoopGroup)
       chf  <- ZManaged.effect(serverBootstrap.childHandler(init).bind(settings.address))
       _    <- ChannelFuture.asManaged(chf)
       port <- ZManaged.effect(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
@@ -212,8 +212,8 @@ object Server {
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] = {
-    (Server(http)
-      .withPort(port))
+    Server(http)
+      .withPort(port)
       .make
       .flatMap(start => ZManaged.succeed(println(s"Server started on port: ${start.port}")))
       .useForever
@@ -225,8 +225,8 @@ object Server {
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    (Server(http)
-      .withBinding(address, port))
+    Server(http)
+      .withBinding(address, port)
       .make
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
@@ -235,8 +235,8 @@ object Server {
     socketAddress: InetSocketAddress,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    (Server(http)
-      .withBinding(socketAddress))
+    Server(http)
+      .withBinding(socketAddress)
       .make
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)

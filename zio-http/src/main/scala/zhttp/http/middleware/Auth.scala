@@ -19,7 +19,7 @@ private[zhttp] trait Auth {
    * credentials are same as the ones given
    */
   final def basicAuth(u: String, p: String): HttpMiddleware[Any, Nothing] =
-    basicAuth { case credentials => (credentials.uname == u) && (credentials.upassword == p) }
+    basicAuth { case credentials => credentials.uname == u && credentials.upassword == p }
 
   /**
    * Creates a middleware for basic authentication using an effectful

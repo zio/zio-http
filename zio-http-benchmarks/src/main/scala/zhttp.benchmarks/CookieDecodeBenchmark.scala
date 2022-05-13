@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class CookieDecodeBenchmark {
-  val random = new scala.util.Random()
+  val random = new scala.util.Random
   val name   = random.alphanumeric.take(100).mkString("")
   val value  = random.alphanumeric.take(100).mkString("")
   val domain = random.alphanumeric.take(100).mkString("")

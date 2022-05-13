@@ -254,7 +254,7 @@ object Cookie {
       }
     }
     val decodedCookie =
-      if ((name != null && !name.isEmpty) || (content != null && !content.isEmpty))
+      if (name != null && !name.isEmpty || content != null && !content.isEmpty)
         Cookie(
           name = name,
           content = content,

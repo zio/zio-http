@@ -35,7 +35,7 @@ object HtmlTemplating extends App {
               ),
 
               // Support for Seq of Html elements
-              (2 to 10) map { i =>
+              2 to 10 map { i =>
                 li(
                   a(href := s"/hello/world/i", s"Hello World $i"),
                 )
