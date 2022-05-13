@@ -111,7 +111,7 @@ object LoggerSpec extends DefaultRunnableSpec {
         .withTags(tag)
       val probe  = "this is a simple log message"
       logger.error(probe, new RuntimeException("exception occurred."))
-      assertTrue(ref.mkString.contains("FiberContext.scala"))
+      assertTrue(ref.mkString("\n").contains("FiberContext.scala"))
     },
   )
 }
