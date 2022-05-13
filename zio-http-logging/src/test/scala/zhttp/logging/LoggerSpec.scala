@@ -10,7 +10,7 @@ import scala.collection.mutable.ListBuffer
 object LoggerSpec extends DefaultRunnableSpec {
 
   private def imMemoryTransport(ref: mutable.ListBuffer[CharSequence]): Transport = unsafeSync { line =>
-    ref.addOne(line)
+    ref += line
   }
 
   private def inMemoryLogTransport(ref: mutable.ListBuffer[CharSequence]): LoggerTransport =
