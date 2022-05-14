@@ -72,7 +72,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
       val isWebSocket = req.url.scheme.exists(_.isWebSocket)
       val isSSL       = req.url.scheme.exists(_.isSecure)
 
-      val initializer = new ChannelInitializer[Channel]() {
+      val initializer = new ChannelInitializer[Channel] {
         override def initChannel(ch: Channel): Unit = {
 
           val pipeline                    = ch.pipeline()
@@ -108,7 +108,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
         }
       }
 
-      val jBoo = new Bootstrap().channelFactory(cf).group(el).handler(initializer)
+      val jBoo = new Bootstrap.channelFactory(cf).group(el).handler(initializer)
 
       jBoo.remoteAddress(new InetSocketAddress(host, port))
 

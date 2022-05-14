@@ -250,7 +250,7 @@ object ServerSpec extends HttpRunnableSpec {
       suite("memoize") {
         testM("concurrent") {
           val size     = 100
-          val expected = (0 to size) map (_ => Status.Ok)
+          val expected = 0 to size map (_ => Status.Ok)
           for {
             response <- Response.text("abc").freeze
             actual   <- ZIO.foreachPar(0 to size)(_ => Http.response(response).deploy.status.run())

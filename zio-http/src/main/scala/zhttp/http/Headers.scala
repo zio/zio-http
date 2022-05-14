@@ -38,7 +38,7 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
    * Converts a Headers to [io.netty.handler.codec.http.HttpHeaders]
    */
   private[zhttp] def encode: HttpHeaders =
-    self.toList.foldLeft[HttpHeaders](new DefaultHttpHeaders()) { case (headers, entry) =>
+    self.toList.foldLeft[HttpHeaders](new DefaultHttpHeaders) { case (headers, entry) =>
       headers.set(entry._1, entry._2)
     }
 }

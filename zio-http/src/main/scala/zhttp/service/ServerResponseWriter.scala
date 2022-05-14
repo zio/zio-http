@@ -36,7 +36,7 @@ private[zhttp] final class ServerResponseWriter[R](
     val jResponse = res.attribute.encoded match {
 
       // Check if the encoded response exists and/or was modified.
-      case Some((oRes, jResponse)) if oRes eq res =>
+      case Some(oRes, jResponse) if oRes eq res =>
         jResponse match {
           // Duplicate the response without allocating much memory
           case response: FullHttpResponse => response.retainedDuplicate()

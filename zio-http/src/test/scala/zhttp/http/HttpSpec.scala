@@ -527,7 +527,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         assert(http.execute {})(isSuccess(equalTo("OK")))
       },
       test("dies with fatal exception") {
-        val t    = new OutOfMemoryError()
+        val t    = new OutOfMemoryError
         val http = Http.fail(t).catchNonFatalOrDie(_ => Http.succeed("OK"))
         assert(http.execute {})(isDie(equalTo(t)))
       },

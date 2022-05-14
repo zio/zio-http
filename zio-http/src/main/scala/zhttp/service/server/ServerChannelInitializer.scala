@@ -40,7 +40,7 @@ final case class ServerChannelInitializer[R](
       "decoder",
       new HttpRequestDecoder(DEFAULT_MAX_INITIAL_LINE_LENGTH, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_CHUNK_SIZE, false),
     )
-    pipeline.addLast("encoder", new HttpResponseEncoder())
+    pipeline.addLast("encoder", new HttpResponseEncoder)
 
     // HttpContentDecompressor
     if (cfg.requestDecompression._1)
@@ -55,7 +55,7 @@ final case class ServerChannelInitializer[R](
 
     // ExpectContinueHandler
     // Add expect continue handler is settings is true
-    if (cfg.acceptContinue) pipeline.addLast(HTTP_SERVER_EXPECT_CONTINUE, new HttpServerExpectContinueHandler())
+    if (cfg.acceptContinue) pipeline.addLast(HTTP_SERVER_EXPECT_CONTINUE, new HttpServerExpectContinueHandler)
 
     // KeepAliveHandler
     // Add Keep-Alive handler is settings is true
@@ -64,7 +64,7 @@ final case class ServerChannelInitializer[R](
     // FlowControlHandler
     // Required because HttpObjectDecoder fires an HttpRequest that is immediately followed by a LastHttpContent event.
     // For reference: https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html
-    if (cfg.flowControl) pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
+    if (cfg.flowControl) pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler)
 
     // FlushConsolidationHandler
     // Flushing content is done in batches. Can potentially improve performance.

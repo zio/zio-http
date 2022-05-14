@@ -43,22 +43,22 @@ object BuildHelper extends ScalaSettings {
 
   def extraOptions(scalaVersion: String, optimize: Boolean) =
     CrossVersion.partialVersion(scalaVersion) match {
-      case Some((3, 0))  =>
+      case Some(3, 0)  =>
         Seq(
           "-language:implicitConversions",
           "-Xignore-scala2-macros",
           "-noindent",
         )
-      case Some((2, 12)) =>
+      case Some(2, 12) =>
         Seq("-Ywarn-unused:params,-implicits") ++ std2xOptions
-      case Some((2, 13)) =>
+      case Some(2, 13) =>
         Seq(
           "-Ywarn-unused:params,-implicits",
           "-Ywarn-macros:after",
           "-Ywarn-value-discard",
         ) ++ std2xOptions ++ tpoleCatSettings ++
           optimizerOptions(optimize)
-      case _             => Seq.empty
+      case _           => Seq.empty
     }
 
   def publishSetting(publishArtifacts: Boolean) = {

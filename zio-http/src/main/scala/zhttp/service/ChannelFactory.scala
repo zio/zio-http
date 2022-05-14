@@ -20,10 +20,10 @@ object ChannelFactory {
   })
 
   object Live {
-    def nio: UIO[JChannelFactory[Channel]]      = make(() => new NioSocketChannel())
-    def epoll: UIO[JChannelFactory[Channel]]    = make(() => new EpollSocketChannel())
-    def kQueue: UIO[JChannelFactory[Channel]]   = make(() => new KQueueSocketChannel())
-    def uring: UIO[JChannelFactory[Channel]]    = make(() => new IOUringSocketChannel())
+    def nio: UIO[JChannelFactory[Channel]]      = make(() => new NioSocketChannel)
+    def epoll: UIO[JChannelFactory[Channel]]    = make(() => new EpollSocketChannel)
+    def kQueue: UIO[JChannelFactory[Channel]]   = make(() => new KQueueSocketChannel)
+    def uring: UIO[JChannelFactory[Channel]]    = make(() => new IOUringSocketChannel)
     def embedded: UIO[JChannelFactory[Channel]] = make(() => new EmbeddedChannel(false, false))
     def auto: UIO[JChannelFactory[Channel]]     =
       if (Epoll.isAvailable) epoll

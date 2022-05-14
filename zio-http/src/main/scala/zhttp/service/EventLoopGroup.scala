@@ -54,7 +54,7 @@ object EventLoopGroup {
         kQueue(nThreads)
       else nio(nThreads)
 
-    def default: ZManaged[Any, Nothing, channel.EventLoopGroup] = make(UIO(new channel.DefaultEventLoopGroup()))
+    def default: ZManaged[Any, Nothing, channel.EventLoopGroup] = make(UIO(new channel.DefaultEventLoopGroup))
   }
 
 }

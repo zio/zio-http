@@ -86,9 +86,9 @@ object WebSocketFrame {
       case Close(status, None)       =>
         new CloseWebSocketFrame(status, null)
       case Ping                      =>
-        new PingWebSocketFrame()
+        new PingWebSocketFrame
       case Pong                      =>
-        new PongWebSocketFrame()
+        new PongWebSocketFrame
       case c: Continuation           =>
         new ContinuationWebSocketFrame(c.isFinal, 0, c.buffer)
     }
