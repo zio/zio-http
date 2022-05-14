@@ -5,13 +5,15 @@ import zio.duration.durationInt
 import zio.stream.ZStream
 import zio.test.Assertion.{anything, equalTo, isLeft, isSubtype}
 import zio.test.TestAspect.timeout
-import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAllM}
+import zio.test._
 
 import java.io.File
 
 object HttpDataSpec extends DefaultRunnableSpec {
+
   override def spec =
     suite("HttpDataSpec") {
+
       val testFile = new File(getClass.getResource("/TestFile.txt").getPath)
       suite("outgoing") {
         suite("encode")(
@@ -43,5 +45,5 @@ object HttpDataSpec extends DefaultRunnableSpec {
           ),
         )
       }
-    } @@ timeout(5 seconds)
+    } @@ timeout(10 seconds)
 }
