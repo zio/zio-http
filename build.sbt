@@ -95,8 +95,7 @@ lazy val zhttp = (project in file("zio-http"))
   .settings(meta)
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    libraryDependencies ++= Seq(
-      netty,
+    libraryDependencies ++= netty ++ Seq(
       `zio`,
       `zio-streams`,
       `zio-test`,
