@@ -28,8 +28,9 @@ private[zhttp] object LoggerMacroImpl {
         q"Some(_root_.zhttp.logging.Logger.SourcePos($cname, $lno))"
       else
         q"None"
-    val level: Tree          = q"_root_.zhttp.logging.LogLevel.${TermName(logLevel.name.toLowerCase.capitalize)}"
-    val isEnabled: Tree      = q"${c.prefix.tree}.isEnabled(${level})"
+    val logLevelName         = logLevel.name.toLowerCase.capitalize
+    val level: Tree          = q"_root_.zhttp.logging.LogLevel.${TermName(logLevelName)}"
+    val isEnabled: Tree      = q"""${c.prefix.tree}.${TermName(s"is${logLevelName}Enabled")}"""
 
     q"""
       if($isEnabled) {
