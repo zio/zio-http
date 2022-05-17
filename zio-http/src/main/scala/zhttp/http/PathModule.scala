@@ -65,7 +65,20 @@ private[zhttp] trait PathModule { module =>
 
   object Path {
     def apply(): Path                   = End
-    def apply(string: String): Path     = if (string.trim.isEmpty) End else Path(string.split("/").toList)
+    def apply(string: String): Path     = if (string.trim.isEmpty) End
+    else {
+      val list = string.split("/").toList
+      if (list.isEmpty) {
+        // we have only /
+        End
+      } else {
+        if (string.endsWith("/"))
+          Path(list :+ "")
+        else
+          Path(list)
+      }
+
+    }
     def apply(seqString: String*): Path = Path(seqString.toList)
     def apply(list: List[String]): Path =
       list.lastOption match {
