@@ -10,7 +10,7 @@ object WebSocketSimpleClient extends zio.App {
   // Setup client envs
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto
 
-  val url = "ws://localhost:8090/subscriptions"
+  val url = "ws://ws.vi-server.org/mirror"
 
   val app = Socket
     .collect[WebSocketFrame] {
@@ -21,6 +21,6 @@ object WebSocketSimpleClient extends zio.App {
     .connect(url)
 
   override def run(args: List[String]): URIO[ZEnv, ExitCode] = {
-    app.exitCode.provideCustomLayer(env)
+    app.useForever.exitCode.provideCustomLayer(env)
   }
 }
