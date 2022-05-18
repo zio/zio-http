@@ -51,6 +51,7 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
     sourceLocation: Option[SourcePos],
   ): Unit = transports.foreach(_.log(msg, cause, level, sourceLocation))
 
+  val isEnabled: Boolean      = transports.exists(_.level != LogLevel.Disable)
   val isDebugEnabled: Boolean = transports.exists(_.isDebugEnabled)
   val isErrorEnabled: Boolean = transports.exists(_.isErrorEnabled)
   val isInfoEnabled: Boolean  = transports.exists(_.isInfoEnabled)
