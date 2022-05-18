@@ -18,7 +18,32 @@ trait Request extends HeaderExtension[Request] with HttpDataExtension[Request] {
    */
   private[zhttp] def unsafeEncode: HttpRequest
 
-  def copy(
+  /**
+   * Decodes the body as a HttpData
+   */
+  def data: HttpData
+
+  /**
+   * Gets all the headers in the Request
+   */
+  def headers: Headers
+
+  /**
+   * Gets the request's method
+   */
+  def method: Method
+
+  /**
+   * Gets the complete url
+   */
+  def url: URL
+
+  /**
+   * Gets the request's http protocol version
+   */
+  def version: Version
+
+  final def copy(
     version: Version = self.version,
     method: Method = self.method,
     url: URL = self.url,
@@ -40,39 +65,14 @@ trait Request extends HeaderExtension[Request] with HttpDataExtension[Request] {
   }
 
   /**
-   * Decodes the body as a HttpData
-   */
-  def data: HttpData
-
-  /**
-   * Gets all the headers in the Request
-   */
-  def headers: Headers
-
-  /**
    * Checks is the request is a pre-flight request or not
    */
-  def isPreflight: Boolean = method == Method.OPTIONS
-
-  /**
-   * Gets the request's method
-   */
-  def method: Method
+  final def isPreflight: Boolean = method == Method.OPTIONS
 
   /**
    * Gets the request's path
    */
-  def path: Path = url.path
-
-  /**
-   * Gets the complete url
-   */
-  def url: URL
-
-  /**
-   * Gets the request's http protocol version
-   */
-  def version: Version
+  final def path: Path = url.path
 
   /**
    * Overwrites the method in the request
