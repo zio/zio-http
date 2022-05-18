@@ -136,31 +136,4 @@ object Request {
 
     }
   }
-
-  /**
-   * Lift request to TypedRequest with option to extract params
-   */
-  final class ParameterizedRequest[A](req: Request, val params: A) extends Request {
-
-    /**
-     * Accesses the channel's context for more low level control
-     */
-    override private[zhttp] def unsafeContext = req.unsafeContext
-
-    override def data: HttpData = req.data
-
-    override def headers: Headers = req.headers
-
-    override def method: Method = req.method
-
-    override def unsafeEncode: HttpRequest = req.unsafeEncode
-
-    override def url: URL = req.url
-
-    override def version: Version = req.version
-  }
-
-  object ParameterizedRequest {
-    def apply[A](req: Request, params: A): ParameterizedRequest[A] = new ParameterizedRequest(req, params)
-  }
 }

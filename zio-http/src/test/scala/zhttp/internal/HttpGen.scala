@@ -1,7 +1,6 @@
 package zhttp.internal
 
 import io.netty.buffer.Unpooled
-import zhttp.http.Request.ParameterizedRequest
 import zhttp.http.Scheme.{HTTP, HTTPS, WS, WSS}
 import zhttp.http.URL.Location
 import zhttp.http._
@@ -124,13 +123,6 @@ object HttpGen {
       l <- Gen.listOf(Gen.alphaNumericString)
       p <- Gen.const(Path(l))
     } yield p
-  }
-
-  def parameterizedRequest[R, A](paramsGen: Gen[R, A]): Gen[R with Random with Sized, ParameterizedRequest[A]] = {
-    for {
-      req    <- request
-      params <- paramsGen
-    } yield ParameterizedRequest(req, params)
   }
 
   def request: Gen[Random with Sized, Request] = for {

@@ -13,16 +13,7 @@ object RequestSpec extends DefaultRunnableSpec {
             equalTo(s"Request(${req.version}, ${req.method}, ${req.url}, ${req.headers})"),
           )
         }
-      } +
-        testM("should produce string representation of a parameterized request") {
-          check(HttpGen.parameterizedRequest(Gen.alphaNumericString)) { req =>
-            assert(req.toString)(
-              equalTo(
-                s"Request(${req.version}, ${req.method}, ${req.url}, ${req.headers})",
-              ),
-            )
-          }
-        }
+      }
     },
   )
 }
