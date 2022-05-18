@@ -139,7 +139,7 @@ object HttpGen {
     url     <- HttpGen.url
     headers <- Gen.listOf(HttpGen.header).map(Headers(_))
     data    <- HttpGen.httpData(Gen.listOf(Gen.alphaNumericString))
-  } yield Request(version, method, url, headers, None, data)
+  } yield Request(version, method, url, headers, data)
 
   def response[R](gContent: Gen[R, List[String]]): Gen[Random with Sized with R, Response] = {
     for {
