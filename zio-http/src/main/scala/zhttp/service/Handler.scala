@@ -4,11 +4,9 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
-import zhttp.service.server.content.handlers.ServerResponseHandler
-import zhttp.service.server.{ServerTime, WebSocketUpgrade}
+import zhttp.service.server.WebSocketUpgrade
 import zio.{UIO, ZIO}
 
-import java.net.{InetAddress, InetSocketAddress}
 import javax.net.ssl.SSLHandshakeException
 
 @Sharable
@@ -16,10 +14,9 @@ private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
-  serverTimeGenerator: ServerTime,
+  resWriter: ServerResponseWriter[R],
 ) extends SimpleChannelInboundHandler[HttpObject](false)
-    with WebSocketUpgrade[R]
-    with ServerResponseHandler[R] { self =>
+    with WebSocketUpgrade[R] { self =>
 
   override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
 
@@ -38,75 +35,54 @@ private[zhttp] final case class Handler[R](
 
               override def headers: Headers = Headers.make(jReq.headers())
 
-              override def remoteAddress: Option[InetAddress] = {
-                ctx.channel().remoteAddress() match {
-                  case m: InetSocketAddress => Some(m.getAddress)
-                  case _                    => None
-                }
-              }
+              override def data: HttpData = HttpData.fromByteBuf(jReq.content())
 
-              override def data: HttpData   = HttpData.fromByteBuf(jReq.content())
               override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
 
-              /**
-               * Gets the HttpRequest
-               */
-              override def unsafeEncode = jReq
+              override def unsafeEncode: HttpRequest = jReq
+
+              override def unsafeContext: Ctx = ctx
 
             },
           )
         catch {
-          case throwable: Throwable =>
-            writeResponse(
-              Response
-                .fromHttpError(HttpError.InternalServerError(cause = Some(throwable)))
-                .withConnection(HeaderValues.close),
-              jReq,
-            ): Unit
+          case throwable: Throwable => resWriter.write(throwable, jReq)
         }
       case jReq: HttpRequest     =>
-        if (canHaveBody(jReq)) {
-          ctx.channel().config().setAutoRead(false): Unit
-        }
+        val hasBody = canHaveBody(jReq)
+        if (hasBody) ctx.channel().config().setAutoRead(false): Unit
         try
           unsafeRun(
             jReq,
             app,
             new Request {
-              override def data: HttpData = HttpData.UnsafeAsync(callback =>
-                ctx
-                  .pipeline()
-                  .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(callback)): Unit,
-              )
+              override def data: HttpData = if (hasBody) asyncData else HttpData.empty
+              private final def asyncData =
+                HttpData.UnsafeAsync(callback =>
+                  ctx
+                    .pipeline()
+                    .addAfter(
+                      HTTP_REQUEST_HANDLER,
+                      HTTP_CONTENT_HANDLER,
+                      new RequestBodyHandler(callback(ctx)),
+                    ): Unit,
+                )
 
               override def headers: Headers = Headers.make(jReq.headers())
 
               override def method: Method = Method.fromHttpMethod(jReq.method())
 
-              override def remoteAddress: Option[InetAddress] = {
-                ctx.channel().remoteAddress() match {
-                  case m: InetSocketAddress => Some(m.getAddress)
-                  case _                    => None
-                }
-              }
+              override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
 
-              override def url: URL         = URL.fromString(jReq.uri()).getOrElse(null)
               override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
 
-              /**
-               * Gets the HttpRequest
-               */
-              override def unsafeEncode = jReq
+              override def unsafeEncode: HttpRequest = jReq
+
+              override def unsafeContext: Ctx = ctx
             },
           )
         catch {
-          case throwable: Throwable =>
-            writeResponse(
-              Response
-                .fromHttpError(HttpError.InternalServerError(cause = Some(throwable)))
-                .withConnection(HeaderValues.close),
-              jReq,
-            ): Unit
+          case throwable: Throwable => resWriter.write(throwable, jReq)
         }
 
       case msg: HttpContent =>
@@ -119,9 +95,10 @@ private[zhttp] final case class Handler[R](
 
   }
 
-  private def canHaveBody(req: HttpRequest): Boolean = req.method() match {
-    case HttpMethod.GET | HttpMethod.HEAD | HttpMethod.OPTIONS | HttpMethod.TRACE => false
-    case _                                                                        => true
+  private def canHaveBody(req: HttpRequest): Boolean = {
+    req.method() == HttpMethod.TRACE ||
+    req.headers().get(HttpHeaderNames.CONTENT_LENGTH) != null ||
+    req.headers().get(HttpHeaderNames.TRANSFER_ENCODING) != null
   }
 
   /**
@@ -139,25 +116,13 @@ private[zhttp] final case class Handler[R](
             cause =>
               cause.failureOrCause match {
                 case Left(Some(cause)) =>
-                  UIO {
-                    writeResponse(
-                      Response.fromHttpError(HttpError.InternalServerError(cause = Some(cause))),
-                      jReq,
-                    )
-                  }
+                  UIO { resWriter.write(cause, jReq) }
                 case Left(None)        =>
-                  UIO {
-                    writeResponse(Response.status(Status.NotFound), jReq)
-                  }
+                  UIO { resWriter.writeNotFound(jReq) }
                 case Right(other)      =>
                   other.dieOption match {
                     case Some(defect) =>
-                      UIO {
-                        writeResponse(
-                          Response.fromHttpError(HttpError.InternalServerError(cause = Some(defect))),
-                          jReq,
-                        )
-                      }
+                      UIO { resWriter.write(defect, jReq) }
                     case None         =>
                       ZIO.halt(other)
                   }
@@ -167,7 +132,7 @@ private[zhttp] final case class Handler[R](
               else {
                 for {
                   _ <- ZIO {
-                    writeResponse(res, jReq)
+                    resWriter.write(res, jReq)
                   }
                 } yield ()
               },
@@ -178,17 +143,14 @@ private[zhttp] final case class Handler[R](
         if (self.isWebSocket(res)) {
           self.upgradeToWebSocket(jReq, res)
         } else {
-          writeResponse(res, jReq): Unit
+          resWriter.write(res, jReq)
         }
 
-      case HExit.Failure(e) =>
-        writeResponse(Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))), jReq): Unit
+      case HExit.Failure(e) => resWriter.write(e, jReq)
 
-      case HExit.Die(e) =>
-        writeResponse(Response.fromHttpError(HttpError.InternalServerError(cause = Some(e))), jReq): Unit
+      case HExit.Die(e) => resWriter.write(e, jReq)
 
-      case HExit.Empty =>
-        writeResponse(Response.fromHttpError(HttpError.NotFound(Path(jReq.uri()))), jReq): Unit
+      case HExit.Empty => resWriter.writeNotFound(jReq)
 
     }
   }
@@ -197,13 +159,9 @@ private[zhttp] final case class Handler[R](
    * Executes program
    */
   private def unsafeRunZIO(program: ZIO[R, Throwable, Any])(implicit ctx: Ctx): Unit =
-    rt.unsafeRun(ctx) {
+    runtime.unsafeRun(ctx) {
       program
     }
-
-  override def serverTime: ServerTime = serverTimeGenerator
-
-  override val rt: HttpRuntime[R] = runtime
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
     cause.getCause match {
@@ -211,4 +169,5 @@ private[zhttp] final case class Handler[R](
       case _ => config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
     }
   }
+
 }

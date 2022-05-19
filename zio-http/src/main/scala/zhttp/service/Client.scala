@@ -16,14 +16,14 @@ import zhttp.service.Client.Config
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.{Socket, SocketApp}
-import zio.{Promise, Task, ZIO}
+import zio.{Promise, Task, ZIO, ZManaged}
 
 import java.net.{InetSocketAddress, URI}
 
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
     extends HttpMessageCodec {
 
-  private[zhttp] def request(request: Request, clientConfig: Config): Task[Response] =
+  def request(request: Request, clientConfig: Config): Task[Response] =
     for {
       promise <- Promise.make[Throwable, Response]
       jReq    <- encode(request)
@@ -38,8 +38,8 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     headers: Headers = Headers.empty,
     socketApp: SocketApp[R],
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[R, Throwable, Response] = for {
-    env <- ZIO.environment[R]
+  ): ZManaged[R, Throwable, Response] = for {
+    env <- ZManaged.environment[R]
     res <- request(
       Request(
         version = Version.Http_1_1,
@@ -48,7 +48,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
         headers,
       ),
       clientConfig = Client.Config(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
-    )
+    ).toManaged(_.close.orDie)
   } yield res
 
   /**
@@ -159,10 +159,10 @@ object Client {
     app: SocketApp[R],
     headers: Headers = Headers.empty,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Response] = {
+  ): ZManaged[R with EventLoopGroup with ChannelFactory, Throwable, Response] = {
     for {
-      clt <- make[R]
-      uri <- ZIO.fromEither(URL.fromString(url))
+      clt <- make[R].toManaged_
+      uri <- ZIO.fromEither(URL.fromString(url)).toManaged_
       res <- clt.socket(uri, headers, app, sslOptions)
     } yield res
   }
