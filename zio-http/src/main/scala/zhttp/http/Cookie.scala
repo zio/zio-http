@@ -269,7 +269,7 @@ object Cookie {
         null
 
     secret match {
-      case Some(s) if (decodedCookie != null) =>
+      case Some(s) if decodedCookie != null =>
         val index     = decodedCookie.content.lastIndexOf('.')
         val signature = decodedCookie.content.slice(index + 1, decodedCookie.content.length)
         val content   = decodedCookie.content.slice(0, index)
@@ -277,7 +277,7 @@ object Cookie {
         if (decodedCookie.verify(content, signature, s))
           decodedCookie.withContent(content).sign(s)
         else decodedCookie
-      case _                     => decodedCookie
+      case _                                => decodedCookie
     }
 
   }
