@@ -122,9 +122,10 @@ final case class Cookie(
    * Converts cookie into a string
    */
   def encode: String = {
+    println(s"value: $secret")
     val c = secret match {
-      case Some(sec) if sec.nonEmpty => content + "." + signContent(sec)
-      case _                         => content
+      case Some(sec) => content + "." + signContent(sec)
+      case _         => content
     }
 
     val cookie = List(
