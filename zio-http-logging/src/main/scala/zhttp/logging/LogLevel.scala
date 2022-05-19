@@ -1,9 +1,13 @@
 package zhttp.logging
 
 sealed trait LogLevel { self =>
-  private[zhttp] def methodName    = name.toLowerCase
-  def >=(right: LogLevel): Boolean = right.level >= self.level
-  def >(right: LogLevel): Boolean  = right.level > self.level
+  private[zhttp] def methodName = name.toLowerCase
+
+  def >(other: LogLevel): Boolean  = self.level > other.level
+  def >=(other: LogLevel): Boolean = self.level >= other.level
+  def <(other: LogLevel): Boolean  = self.level > other.level
+  def <=(other: LogLevel): Boolean = self.level >= other.level
+
   def level: Int
   def name: String
 }
@@ -16,14 +20,14 @@ object LogLevel {
   /**
    * Automatically detects the level from the environment variable
    */
-  def detectFromEnv(name: String): LogLevel =
-    sys.env.get(name).map(fromString).getOrElse(LogLevel.Error)
+  def detectFromEnv(name: String): Option[LogLevel] =
+    sys.env.get(name).map(fromString)
 
   /**
    * Automatically detects the level from the system properties
    */
-  def detectFromProps(name: String): LogLevel =
-    sys.props.get(name).map(fromString).getOrElse(LogLevel.Error)
+  def detectFromProps(name: String): Option[LogLevel] =
+    sys.props.get(name).map(fromString)
 
   /**
    * Detects the LogLevel given any random string
@@ -38,8 +42,8 @@ object LogLevel {
   }
 
   case object Disable extends LogLevel {
-    override def level: Int   = 999
-    override def name: String = ""
+    override def level: Int   = Int.MaxValue
+    override def name: String = "DISABLE"
   }
 
   case object Trace extends LogLevel {
