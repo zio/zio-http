@@ -92,7 +92,7 @@ object BuildHelper extends ScalaSettings {
     Test / parallelExecution               := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
     autoAPIMappings                        := true,
-    ThisBuild / javaOptions                := Seq("-Dio.netty.leakDetectionLevel=paranoid"),
+    ThisBuild / javaOptions                := Seq("-Dio.netty.leakDetectionLevel=paranoid", "-DZHttpLogLevel=INFO"),
     ThisBuild / fork                       := true,
   )
 
