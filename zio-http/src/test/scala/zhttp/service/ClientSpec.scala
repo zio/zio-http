@@ -30,10 +30,10 @@ object ClientSpec extends HttpRunnableSpec {
         val res = app.deploy.bodyAsString.run(method = Method.POST, content = HttpData.fromString("ZIO user"))
         assertM(res)(equalTo("ZIO user"))
       } +
-      testM("empty content") {
+      testM("non empty content") {
         val app             = Http.empty
-        val responseContent = app.deploy.body.run()
-        assertM(responseContent)(isEmpty)
+        val responseContent = app.deploy.body.run().map(_.length)
+        assertM(responseContent)(isGreaterThan(0))
       } +
       testM("text content") {
         val app             = Http.text("zio user does not exist")
