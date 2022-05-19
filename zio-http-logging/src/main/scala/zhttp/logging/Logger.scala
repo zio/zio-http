@@ -52,11 +52,11 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
   ): Unit = transports.foreach(_.log(msg, cause, level, sourceLocation))
 
   val isEnabled: Boolean      = transports.exists(_.level != LogLevel.Disable)
-  val isDebugEnabled: Boolean = transports.exists(_.isDebugEnabled)
-  val isErrorEnabled: Boolean = transports.exists(_.isErrorEnabled)
-  val isInfoEnabled: Boolean  = transports.exists(_.isInfoEnabled)
-  val isTraceEnabled: Boolean = transports.exists(_.isTraceEnabled)
-  val isWarnEnabled: Boolean  = transports.exists(_.isWarnEnabled)
+  val isDebugEnabled: Boolean = isEnabled && transports.exists(_.isDebugEnabled)
+  val isErrorEnabled: Boolean = isEnabled && transports.exists(_.isErrorEnabled)
+  val isInfoEnabled: Boolean  = isEnabled && transports.exists(_.isInfoEnabled)
+  val isTraceEnabled: Boolean = isEnabled && transports.exists(_.isTraceEnabled)
+  val isWarnEnabled: Boolean  = isEnabled && transports.exists(_.isWarnEnabled)
 
   /**
    * Creates a new logger that will log messages that start with the given
