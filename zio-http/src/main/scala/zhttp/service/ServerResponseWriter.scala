@@ -5,6 +5,7 @@ import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.logging.Logger
+import zhttp.service.ServerResponseWriter.log
 import zhttp.service.server.ServerTime
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
@@ -86,6 +87,7 @@ private[zhttp] final class ServerResponseWriter[R](
    * Writes data on the channel
    */
   private def writeData(data: HttpData, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    log.debug(s"WriteData: ${data.getClass.getSimpleName}")
     data match {
 
       case _: HttpData.FromAsciiString => flushReleaseAndRead(jReq)

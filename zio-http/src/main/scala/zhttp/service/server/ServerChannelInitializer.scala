@@ -30,10 +30,10 @@ final case class ServerChannelInitializer[R](
     // !! IMPORTANT !!
     // Order of handlers are critical to make this work
     val pipeline = channel.pipeline()
-
+    log.debug(s"Connection initialized: ${channel.remoteAddress()}")
     // SSL
     // Add SSL Handler if CTX is available
-    val sslctx = if (cfg.sslOption == null) null else cfg.sslOption.sslContext
+    val sslctx   = if (cfg.sslOption == null) null else cfg.sslOption.sslContext
     if (sslctx != null)
       pipeline
         .addFirst(SSL_HANDLER, new OptionalSSLHandler(sslctx, cfg.sslOption.httpBehaviour, cfg))
