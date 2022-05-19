@@ -20,7 +20,7 @@ object LoggerSpec extends DefaultRunnableSpec {
     )
 
   override def spec = suite("LoggerSpec")(
-    test("Multiple transports could be used") {
+    test("Multiple transports could be used.") {
       val transport = new MemoryLogger
       val logger    = Logger.make
         .withTransport(inMemoryLogTransport(transport))
