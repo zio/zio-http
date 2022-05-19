@@ -87,7 +87,7 @@ private[zhttp] final class ServerResponseWriter[R](
    * Writes data on the channel
    */
   private def writeData(data: HttpData, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
-    log.debug(s"WriteData: ${data.getClass.getName}")
+    log.debug(s"WriteData: ${data.getClass.getSimpleName}")
     data match {
 
       case _: HttpData.FromAsciiString => flushReleaseAndRead(jReq)

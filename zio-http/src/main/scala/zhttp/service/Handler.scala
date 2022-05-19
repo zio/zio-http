@@ -19,7 +19,7 @@ private[zhttp] final case class Handler[R](
     with WebSocketUpgrade[R] { self =>
 
   override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
-    log.debug(s"Message: ${msg.getClass.getName}")
+    log.debug(s"Message: ${msg.getClass.getSimpleName}")
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
       case jReq: FullHttpRequest =>
