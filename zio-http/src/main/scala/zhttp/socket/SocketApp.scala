@@ -5,7 +5,7 @@ import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zhttp.socket.SocketApp.Handle.{WithEffect, WithSocket}
 import zhttp.socket.SocketApp.{Connection, Handle}
 import zio.stream.ZStream
-import zio.{NeedsEnv, ZIO}
+import zio.{NeedsEnv, ZIO, ZManaged}
 
 import java.net.SocketAddress
 
@@ -23,7 +23,7 @@ final case class SocketApp[-R](
    * Creates a socket connection on the provided URL. Typically used to connect
    * as a client.
    */
-  def connect(url: String): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Response] =
+  def connect(url: String): ZManaged[R with EventLoopGroup with ChannelFactory, Throwable, Response] =
     Client.socket(url, self)
 
   /**

@@ -9,8 +9,6 @@ import zhttp.service.Handler.log
 import zhttp.service.server.WebSocketUpgrade
 import zio.{UIO, ZIO}
 
-import java.net.{InetAddress, InetSocketAddress}
-
 @Sharable
 private[zhttp] final case class Handler[R](
   app: HttpApp[R, Throwable],
@@ -37,16 +35,13 @@ private[zhttp] final case class Handler[R](
 
               override def headers: Headers = Headers.make(jReq.headers())
 
-              override def remoteAddress: Option[InetAddress] = getRemoteAddress
-
               override def data: HttpData = HttpData.fromByteBuf(jReq.content())
 
               override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
 
-              /**
-               * Gets the HttpRequest
-               */
               override def unsafeEncode: HttpRequest = jReq
+
+              override def unsafeContext: Ctx = ctx
 
             },
           )
@@ -78,15 +73,13 @@ private[zhttp] final case class Handler[R](
 
               override def method: Method = Method.fromHttpMethod(jReq.method())
 
-              override def remoteAddress: Option[InetAddress] = getRemoteAddress(ctx)
+              override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
 
-              override def url: URL         = URL.fromString(jReq.uri()).getOrElse(null)
               override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
 
-              /**
-               * Gets the HttpRequest
-               */
               override def unsafeEncode: HttpRequest = jReq
+
+              override def unsafeContext: Ctx = ctx
             },
           )
         catch {
@@ -101,13 +94,6 @@ private[zhttp] final case class Handler[R](
 
     }
 
-  }
-
-  private def getRemoteAddress(implicit ctx: Ctx) = {
-    ctx.channel().remoteAddress() match {
-      case m: InetSocketAddress => Some(m.getAddress)
-      case _                    => None
-    }
   }
 
   private def canHaveBody(req: HttpRequest): Boolean = {

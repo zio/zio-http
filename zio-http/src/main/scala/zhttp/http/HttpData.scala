@@ -5,8 +5,8 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import io.netty.util.AsciiString
 import zhttp.http.HttpData.ByteBufConfig
+import zio._
 import zio.stream.ZStream
-import zio.{Chunk, Task, UIO, ZIO}
 
 import java.io.FileInputStream
 import java.nio.charset.Charset
@@ -126,10 +126,25 @@ object HttpData {
     }
   }
 
-  private[zhttp] final case class UnsafeAsync(unsafeRun: (ChannelHandlerContext => HttpContent => Unit) => Unit)
+  private[zhttp] final case class UnsafeAsync(unsafeRun: (ChannelHandlerContext => HttpContent => Any) => Unit)
       extends HttpData {
 
     private def isLast(msg: HttpContent): Boolean = msg.isInstanceOf[LastHttpContent]
+
+    private def toQueue: ZIO[Any, Nothing, Queue[HttpContent]] = {
+      for {
+        queue      <- ZQueue.bounded[HttpContent](1)
+        ctxPromise <- Promise.make[Nothing, ChannelHandlerContext]
+        runtime    <- ZIO.runtime[Any]
+        _          <- UIO(
+          unsafeRun { ch =>
+            runtime.unsafeRun(ctxPromise.succeed(ch))
+            msg => runtime.unsafeRun(queue.offer(msg))
+          },
+        )
+        ch         <- ctxPromise.await
+      } yield queue.mapM(msg => UIO(ch.read()).unless(isLast(msg)).as(msg))
+    }
 
     /**
      * Encodes the HttpData into a ByteBuf.
@@ -150,15 +165,12 @@ object HttpData {
      * Encodes the HttpData into a Stream of ByteBufs
      */
     override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
-      ZStream
-        .effectAsync[Any, Nothing, ByteBuf](cb =>
-          unsafeRun(ch =>
-            msg => {
-              cb(ZIO.succeed(Chunk(msg.content)))
-              if (isLast(msg)) cb(ZIO.fail(None)) else ch.read(): Unit
-            },
-          ),
-        )
+      ZStream.unwrap {
+        for {
+          queue <- toQueue
+          stream = ZStream.fromQueueWithShutdown(queue).takeUntil(isLast(_)).map(_.content())
+        } yield stream
+      }
 
     override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] =
       Http.fromZIO(toByteBuf(config))

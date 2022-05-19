@@ -4,16 +4,26 @@ import zio.duration._
 import zio.test.Assertion._
 import zio.test.environment.{TestClock, TestConsole}
 import zio.test.{DefaultRunnableSpec, assert, assertM}
-import zio.{Ref, UIO, console}
+import zio.{Ref, UIO, ZIO, console}
 
 object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
   def spec = suite("Middleware") {
     val increment = Middleware.codec[Int, Int](decoder = a => Right(a + 1), encoder = b => Right(b + 1))
-    testM("empty") {
+    testM("identity") {
       val http = Http.empty
       val app  = Middleware.identity(http)
       assertM(app(()).either)(isLeft(isNone))
     } +
+      testM("identity - 2") {
+        val http = Http.succeed(1)
+        val app  = Middleware.identity(http)
+        assertM(app(()))(equalTo(1))
+      } +
+      testM("empty") {
+        val mid = Middleware.empty
+        val app = Http.succeed(1) @@ mid
+        assertM(app(()).either)(isLeft(isNone))
+      } +
       testM("constant") {
         val mid = Middleware.fromHttp(Http.succeed("OK"))
         val app = Http.succeed(1) @@ mid
@@ -152,6 +162,22 @@ object MiddlewareSpec extends DefaultRunnableSpec with HExitAssertion {
             val app = Http.identity[Int] @@ mid
             assertM(app("1").run)(fails(anything))
           }
+      } +
+      testM("allow") {
+        val mid = Middleware.allow((x: Int) => x > 4)
+        val app = Http.succeed(1) @@ mid
+        for {
+          test1 <- assertM(app(1).either)(isLeft(isNone))
+          test2 <- assertM(app(6))(equalTo(1))
+        } yield test1 && test2
+      } +
+      testM("allowZIO") {
+        val mid = Middleware.allowZIO((x: Int) => ZIO.succeed(x > 4))
+        val app = Http.succeed(1) @@ mid
+        for {
+          test1 <- assertM(app(1).either)(isLeft(isNone))
+          test2 <- assertM(app(6))(equalTo(1))
+        } yield test1 && test2
       } +
       suite("codecHttp") {
         testM("codec success") {
