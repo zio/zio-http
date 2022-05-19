@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.ChannelHandler
+import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
 import zhttp.http.headers.HeaderModifier
@@ -12,8 +12,9 @@ import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
 
-import java.io.File
+import java.io.{File, IOException}
 import java.net
+import java.net.{InetAddress, InetSocketAddress}
 import java.nio.charset.Charset
 import java.nio.file.Paths
 import scala.annotation.unused
@@ -741,6 +742,11 @@ object Http {
     i.reduce(_.defaultWith(_))
 
   /**
+   * Provides access to the request's ChannelHandlerContext
+   */
+  def context: Http[Any, Nothing, Request, ChannelHandlerContext] = Http.fromFunction[Request](_.unsafeContext)
+
+  /**
    * Returns an http app that dies with the specified `Throwable`. This method
    * can be used for terminating an app because a defect has been detected in
    * the code. Terminating an http app leads to aborting handling of an HTTP
@@ -948,6 +954,17 @@ object Http {
   def ok: HttpApp[Any, Nothing] = status(Status.Ok)
 
   /**
+   * Provides access to the request's remote address
+   */
+  def remoteAddress: Http[Any, IOException, Request, InetAddress] =
+    context flatMap { ctx =>
+      ctx.channel().remoteAddress() match {
+        case m: InetSocketAddress => Http.succeed(m.getAddress)
+        case _                    => Http.fail(new IOException("Unable to get remote address"))
+      }
+    }
+
+  /**
    * Creates an Http app which always responds with the same value.
    */
   def response(response: Response): Http[Any, Nothing, Any, Response] = Http.succeed(response)
@@ -996,6 +1013,12 @@ object Http {
    * Creates an HTTP app which always responds with a 413 status code.
    */
   def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.RequestEntityTooLarge)
+
+  /**
+   * Provides low level access to an HttpApp to perform unsafe operations using
+   * the request's ChannelHandlerContext.
+   */
+  def usingContext[R, E](f: ChannelHandlerContext => HttpApp[R, E]): HttpApp[R, E] = context.flatMap(f(_))
 
   // Ctor Help
   final case class PartialCollectZIO[A](unit: Unit) extends AnyVal {
