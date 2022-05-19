@@ -212,8 +212,8 @@ object Server {
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] = {
-    (Server(http)
-      .withPort(port))
+    Server(http)
+      .withPort(port)
       .make
       .flatMap(start => ZManaged.succeed(Log.info(s"Server started on port: ${start.port}")))
       .useForever
