@@ -22,7 +22,7 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
   private def onFailure(ctx: ChannelHandlerContext, cause: Cause[Throwable]) = {
     cause.failureOption.orElse(cause.dieOption) match {
       case None    => ()
-      case Some(_) => System.err.println(cause.prettyPrint)
+      case Some(_) => Log.error("HttpRuntimeException:" + cause.prettyPrint)
     }
     if (ctx.channel().isOpen) ctx.close()
   }
