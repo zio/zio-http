@@ -212,8 +212,8 @@ object Server {
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] = {
-    (Server(http)
-      .withPort(port))
+    Server(http)
+      .withPort(port)
       .make
       .flatMap(start => ZManaged.succeed(println(s"Server started on port: ${start.port}")))
       .useForever
@@ -225,8 +225,8 @@ object Server {
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    (Server(http)
-      .withBinding(address, port))
+    Server(http)
+      .withBinding(address, port)
       .make
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
@@ -235,8 +235,8 @@ object Server {
     socketAddress: InetSocketAddress,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    (Server(http)
-      .withBinding(socketAddress))
+    Server(http)
+      .withBinding(socketAddress)
       .make
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
