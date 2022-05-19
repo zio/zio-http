@@ -3,6 +3,7 @@ package zhttp.logging
 sealed trait LogLevel { self =>
   private[zhttp] def methodName    = name.toLowerCase
   def >=(right: LogLevel): Boolean = right.level >= self.level
+  def >(right: LogLevel): Boolean  = right.level > self.level
   def level: Int
   def name: String
 }
@@ -16,16 +17,13 @@ object LogLevel {
    * Automatically detects the level from the environment variable
    */
   def detectFromEnv(name: String): LogLevel =
-    fromString(sys.env.getOrElse(name, Disable.name))
+    sys.env.get(name).map(fromString).getOrElse(LogLevel.Error)
 
   /**
    * Automatically detects the level from the system properties
    */
   def detectFromProps(name: String): LogLevel =
-    sys.props.get(name) match {
-      case Some(level) => fromString(level)
-      case None        => Disable
-    }
+    sys.props.get(name).map(fromString).getOrElse(LogLevel.Error)
 
   /**
    * Detects the LogLevel given any random string
