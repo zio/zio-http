@@ -14,6 +14,13 @@ import java.nio.file.Path
  */
 final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroExtensions { self =>
 
+  val isEnabled: Boolean      = transports.exists(_.level != LogLevel.Disable)
+  val isDebugEnabled: Boolean = isEnabled && transports.exists(_.isDebugEnabled)
+  val isErrorEnabled: Boolean = isEnabled && transports.exists(_.isErrorEnabled)
+  val isInfoEnabled: Boolean  = isEnabled && transports.exists(_.isInfoEnabled)
+  val isTraceEnabled: Boolean = isEnabled && transports.exists(_.isTraceEnabled)
+  val isWarnEnabled: Boolean  = isEnabled && transports.exists(_.isWarnEnabled)
+
   /**
    * Modifies each transport
    */
@@ -46,17 +53,16 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
    */
   def dispatch(
     msg: String,
-    cause: Option[Throwable],
     level: LogLevel,
+    cause: Option[Throwable],
     sourceLocation: Option[SourcePos],
   ): Unit = transports.foreach(_.log(msg, cause, level, sourceLocation))
 
-  val isEnabled: Boolean      = transports.exists(_.level != LogLevel.Disable)
-  val isDebugEnabled: Boolean = isEnabled && transports.exists(_.isDebugEnabled)
-  val isErrorEnabled: Boolean = isEnabled && transports.exists(_.isErrorEnabled)
-  val isInfoEnabled: Boolean  = isEnabled && transports.exists(_.isInfoEnabled)
-  val isTraceEnabled: Boolean = isEnabled && transports.exists(_.isTraceEnabled)
-  val isWarnEnabled: Boolean  = isEnabled && transports.exists(_.isWarnEnabled)
+  /**
+   * Dispatches the parameters to all the transports. Internally invoked by the
+   * macro.
+   */
+  def dispatch(msg: String, level: LogLevel): Unit = dispatch(msg, level, None, None)
 
   /**
    * Creates a new logger that will log messages that start with the given
@@ -99,6 +105,8 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
 }
 
 object Logger {
+  private[zhttp] val detectedLevel: LogLevel = LogLevel.detectFromProps("ZHttpLogLevel").getOrElse(LogLevel.Error)
+
   def apply(transport: LoggerTransport): Logger = Logger(List(transport))
 
   def console: Logger = Logger(List(LoggerTransport.console))
@@ -108,6 +116,4 @@ object Logger {
   def make: Logger = Logger(Nil)
 
   final case class SourcePos(file: String, line: Int)
-
-  private[zhttp] val detectedLevel: LogLevel = LogLevel.detectFromProps("ZHttpLogLevel").getOrElse(LogLevel.Error)
 }

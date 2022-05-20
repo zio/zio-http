@@ -22,7 +22,7 @@ private[zhttp] object LoggerMacroImpl {
     if(LogLevel.Trace >= Logger.detectedLevel) {
       val pos = sourcePos(using qctx)
       '{
-        if ($logger.isTraceEnabled) $logger.dispatch($msg, None, LogLevel.Trace, Some($pos))
+        if ($logger.isTraceEnabled) $logger.dispatch($msg, LogLevel.Trace, None, Some($pos))
       }
     } else {
       '{}
@@ -32,7 +32,7 @@ private[zhttp] object LoggerMacroImpl {
   def logDebugImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes): quoted.Expr[Any] =
   if(LogLevel.Debug >= Logger.detectedLevel) {
     '{
-      if ($logger.isDebugEnabled) $logger.dispatch($msg, None, LogLevel.Debug, None)
+      if ($logger.isDebugEnabled) $logger.dispatch($msg, LogLevel.Debug, None, None)
     }
   }else {
     '{}
@@ -41,7 +41,7 @@ private[zhttp] object LoggerMacroImpl {
   def logInfoImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes): quoted.Expr[Any] =
   if(LogLevel.Info >= Logger.detectedLevel) {
     '{
-      if ($logger.isInfoEnabled) $logger.dispatch($msg, None, LogLevel.Info, None)
+      if ($logger.isInfoEnabled) $logger.dispatch($msg, LogLevel.Info, None, None)
     }
   }else {
     '{}
@@ -50,7 +50,7 @@ private[zhttp] object LoggerMacroImpl {
   def logWarnImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes): quoted.Expr[Any] =
     if(LogLevel.Warn >= Logger.detectedLevel) {
       '{
-        if ($logger.isWarnEnabled) $logger.dispatch($msg, None, LogLevel.Warn, None)
+        if ($logger.isWarnEnabled) $logger.dispatch($msg, LogLevel.Warn, None, None)
       }
     }else {
       '{}
@@ -59,7 +59,7 @@ private[zhttp] object LoggerMacroImpl {
   def logErrorWithCauseImpl(logger: Expr[Logger], t: Expr[Throwable], msg: Expr[String])(using qctx: Quotes): quoted.Expr[Any] =
     if(LogLevel.Error >= Logger.detectedLevel) {
       '{
-        if ($logger.isErrorEnabled) $logger.dispatch($msg, Some($t), LogLevel.Error, None)
+        if ($logger.isErrorEnabled) $logger.dispatch($msg, LogLevel.Error, Some($t), None)
       }
     }else {
       '{}
@@ -68,7 +68,7 @@ private[zhttp] object LoggerMacroImpl {
 
   def logErrorImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes): quoted.Expr[Any] =
     if(LogLevel.Error >= Logger.detectedLevel) {
-      '{if ($logger.isErrorEnabled) $logger.dispatch($msg, None, LogLevel.Error, None)}
+      '{if ($logger.isErrorEnabled) $logger.dispatch($msg, LogLevel.Error, None, None)}
     }else {
       '{}
     }
