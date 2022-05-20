@@ -70,7 +70,7 @@ object WebSocketFrame {
       case m: CloseWebSocketFrame        =>
         Option(Close(m.statusCode(), Option(m.reasonText())))
       case m: ContinuationWebSocketFrame =>
-        Option(Continuation((m.content()), m.isFinalFragment))
+        Option(Continuation(m.content(), m.isFinalFragment))
 
       case _ => None
     }
