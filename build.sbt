@@ -4,6 +4,9 @@ import sbt.librarymanagement.ScalaArtifacts.isScala3
 
 val releaseDrafterVersion = "5"
 
+// Setting default log level to INFO
+val _ = sys.props += ("ZHttpLogLevel" -> "INFO")
+
 // CI Configuration
 ThisBuild / githubWorkflowJavaVersions   := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
 ThisBuild / githubWorkflowPREventTypes   := Seq(

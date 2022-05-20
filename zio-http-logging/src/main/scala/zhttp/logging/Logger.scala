@@ -108,4 +108,6 @@ object Logger {
   def make: Logger = Logger(Nil)
 
   final case class SourcePos(file: String, line: Int)
+
+  private[zhttp] val detectedLevel: LogLevel = LogLevel.detectFromProps("ZHttpLogLevel").getOrElse(LogLevel.Error)
 }

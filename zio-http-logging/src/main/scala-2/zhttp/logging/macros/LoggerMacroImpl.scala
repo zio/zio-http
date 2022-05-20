@@ -32,12 +32,14 @@ private[zhttp] object LoggerMacroImpl {
     val level: Tree          = q"_root_.zhttp.logging.LogLevel.${TermName(logLevelName)}"
     val isEnabled: Tree      = q"""${c.prefix.tree}.${TermName(s"is${logLevelName}Enabled")}"""
 
-    q"""
+    if (logLevel >= Logger.detectedLevel)
+      q"""
       if($isEnabled) {
         val logMsg = ${msg.tree}
         ${c.prefix.tree}.dispatch(logMsg, $error, $level, ${sourceLocation})
       }
     """
+    else q"()"
   }
 
   def logTraceImpl(c: LogCtx)(msg: c.Expr[String]): c.universe.Tree =

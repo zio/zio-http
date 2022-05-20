@@ -1,9 +1,7 @@
 package zhttp.logging.macros
 
-import zhttp.logging.Logger
-import zhttp.logging.LogLevel
 import zhttp.logging.Logger.SourcePos
-
+import zhttp.logging.{LogLevel, Logger}
 
 import scala.language.experimental.macros
 import scala.quoted._
@@ -12,7 +10,6 @@ import scala.quoted._
  * inspired from log4s macro
  */
 private[zhttp] object LoggerMacroImpl {
-
   inline def sourcePos(using qctx: Quotes): Expr[SourcePos] = {
     val rootPosition = qctx.reflect.Position.ofMacroExpansion
     val file = Expr(rootPosition.sourceFile.path.toString)
@@ -20,25 +17,59 @@ private[zhttp] object LoggerMacroImpl {
     '{SourcePos($file, $line)}
   }
 
-  def logTraceImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes) = {
-    val pos = sourcePos(using qctx)
-    '{if ($logger.isTraceEnabled) $logger.dispatch($msg, None, LogLevel.Trace, Some($pos))}
+
+  def logTraceImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes): quoted.Expr[Any] = {
+    if(LogLevel.Trace >= Logger.detectedLevel) {
+      val pos = sourcePos(using qctx)
+      '{
+        if ($logger.isTraceEnabled) $logger.dispatch($msg, None, LogLevel.Trace, Some($pos))
+      }
+    } else {
+      '{}
+    }
   }
 
-  def logDebugImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes) =
-  '{if ($logger.isDebugEnabled) $logger.dispatch($msg, None, LogLevel.Debug, None)}
+  def logDebugImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes): quoted.Expr[Any] =
+  if(LogLevel.Debug >= Logger.detectedLevel) {
+    '{
+      if ($logger.isDebugEnabled) $logger.dispatch($msg, None, LogLevel.Debug, None)
+    }
+  }else {
+    '{}
+  }
 
-  def logInfoImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes) =
-  '{if ($logger.isInfoEnabled) $logger.dispatch($msg, None, LogLevel.Info, None)}
+  def logInfoImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes): quoted.Expr[Any] =
+  if(LogLevel.Info >= Logger.detectedLevel) {
+    '{
+      if ($logger.isInfoEnabled) $logger.dispatch($msg, None, LogLevel.Info, None)
+    }
+  }else {
+    '{}
+  }
 
-  def logWarnImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes) =
-  '{if ($logger.isWarnEnabled) $logger.dispatch($msg, None, LogLevel.Warn, None)}
-
-  def logErrorWithCauseImpl(logger: Expr[Logger], t: Expr[Throwable], msg: Expr[String])(using qctx: Quotes) = {
-    '{if ($logger.isErrorEnabled) $logger.dispatch($msg, Some($t), LogLevel.Error, None)}
+  def logWarnImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes): quoted.Expr[Any] =
+    if(LogLevel.Warn >= Logger.detectedLevel) {
+      '{
+        if ($logger.isWarnEnabled) $logger.dispatch($msg, None, LogLevel.Warn, None)
+      }
+    }else {
+      '{}
     }
 
-  def logErrorImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes) =
-  '{if ($logger.isErrorEnabled) $logger.dispatch($msg, None, LogLevel.Error, None)}
+  def logErrorWithCauseImpl(logger: Expr[Logger], t: Expr[Throwable], msg: Expr[String])(using qctx: Quotes): quoted.Expr[Any] =
+    if(LogLevel.Error >= Logger.detectedLevel) {
+      '{
+        if ($logger.isErrorEnabled) $logger.dispatch($msg, Some($t), LogLevel.Error, None)
+      }
+    }else {
+      '{}
+    }
 
+
+  def logErrorImpl(logger: Expr[Logger], msg: Expr[String])(using qctx: Quotes): quoted.Expr[Any] =
+    if(LogLevel.Error >= Logger.detectedLevel) {
+      '{if ($logger.isErrorEnabled) $logger.dispatch($msg, None, LogLevel.Error, None)}
+    }else {
+      '{}
+    }
 }
