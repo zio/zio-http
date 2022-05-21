@@ -5,17 +5,16 @@ sealed abstract class LogLevel(val id: Int) extends Product with Serializable { 
 
   final def >=(other: LogLevel): Boolean = self.id >= other.id
 
-  final def <(other: LogLevel): Boolean = self.id > other.id
+  final def <(other: LogLevel): Boolean = self.id < other.id
 
-  final def <=(other: LogLevel): Boolean = self.id >= other.id
+  final def <=(other: LogLevel): Boolean = self.id <= other.id
 
   final def name: String = self match {
-    case LogLevel.Disable => "Disable"
-    case LogLevel.Trace   => "Trace"
-    case LogLevel.Debug   => "Debug"
-    case LogLevel.Info    => "Info"
-    case LogLevel.Warn    => "Warn"
-    case LogLevel.Error   => "Error"
+    case LogLevel.Trace => "Trace"
+    case LogLevel.Debug => "Debug"
+    case LogLevel.Info  => "Info"
+    case LogLevel.Warn  => "Warn"
+    case LogLevel.Error => "Error"
   }
 
   final override def toString: String = name
@@ -31,7 +30,6 @@ object LogLevel {
    */
   val all: List[LogLevel] = List(
     Debug,
-    Disable,
     Error,
     Info,
     Trace,
@@ -59,10 +57,7 @@ object LogLevel {
     case "INFO"  => Info
     case "WARN"  => Warn
     case "ERROR" => Error
-    case _       => Disable
   }
-
-  case object Disable extends LogLevel(Int.MaxValue)
 
   case object Trace extends LogLevel(1)
 

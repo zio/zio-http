@@ -124,12 +124,11 @@ object LogFormat {
       case Trim(conf)                    => conf(logLine).trim
       case LineColor(info, error, debug, trace, warn) =>
         logLine.level match {
-          case LogLevel.Disable => ""
-          case LogLevel.Trace   => Color.asConsole(trace)
-          case LogLevel.Debug   => Color.asConsole(debug)
-          case LogLevel.Info    => Color.asConsole(info)
-          case LogLevel.Warn    => Color.asConsole(warn)
-          case LogLevel.Error   => Color.asConsole(error)
+          case LogLevel.Trace => Color.asConsole(trace)
+          case LogLevel.Debug => Color.asConsole(debug)
+          case LogLevel.Info  => Color.asConsole(info)
+          case LogLevel.Warn  => Color.asConsole(warn)
+          case LogLevel.Error => Color.asConsole(error)
         }
       case Tags                                       => logLine.tags.mkString(",")
     }

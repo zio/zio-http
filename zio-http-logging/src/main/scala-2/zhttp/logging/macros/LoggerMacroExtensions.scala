@@ -5,7 +5,6 @@ import zhttp.logging.macros.LoggerMacroImpl._
 trait LoggerMacroExtensions { self =>
   import scala.language.experimental.macros
 
-  val isEnabled: Boolean
   val isDebugEnabled: Boolean
   val isErrorEnabled: Boolean
   val isInfoEnabled: Boolean

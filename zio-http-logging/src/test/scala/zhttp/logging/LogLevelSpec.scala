@@ -6,7 +6,7 @@ object LogLevelSpec extends DefaultRunnableSpec {
   def spec = suite("LogLevelSpec")(
     test("log level order") {
       val act    = LogLevel.all
-      val exp    = List(LogLevel.Trace, LogLevel.Debug, LogLevel.Info, LogLevel.Warn, LogLevel.Error, LogLevel.Disable)
+      val exp    = List(LogLevel.Trace, LogLevel.Debug, LogLevel.Info, LogLevel.Warn, LogLevel.Error)
       val sorted = act.sortBy(_.id)
       assertTrue(sorted == exp)
     },

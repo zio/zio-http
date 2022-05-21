@@ -14,12 +14,11 @@ import java.nio.file.Path
  */
 final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroExtensions { self =>
 
-  val isEnabled: Boolean      = transports.exists(_.level != LogLevel.Disable)
-  val isDebugEnabled: Boolean = isEnabled && transports.exists(_.isDebugEnabled)
-  val isErrorEnabled: Boolean = isEnabled && transports.exists(_.isErrorEnabled)
-  val isInfoEnabled: Boolean  = isEnabled && transports.exists(_.isInfoEnabled)
-  val isTraceEnabled: Boolean = isEnabled && transports.exists(_.isTraceEnabled)
-  val isWarnEnabled: Boolean  = isEnabled && transports.exists(_.isWarnEnabled)
+  val isDebugEnabled: Boolean = transports.exists(_.isDebugEnabled)
+  val isErrorEnabled: Boolean = transports.exists(_.isErrorEnabled)
+  val isInfoEnabled: Boolean  = transports.exists(_.isInfoEnabled)
+  val isTraceEnabled: Boolean = transports.exists(_.isTraceEnabled)
+  val isWarnEnabled: Boolean  = transports.exists(_.isWarnEnabled)
 
   /**
    * Modifies each transport
@@ -56,7 +55,7 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
     level: LogLevel,
     cause: Option[Throwable],
     sourceLocation: Option[SourcePos],
-  ): Unit = transports.foreach(_.log(msg, cause, level, sourceLocation))
+  ): Unit = transports.foreach(_.dispatch(msg, cause, level, sourceLocation))
 
   /**
    * Dispatches the parameters to all the transports. Internally invoked by the
@@ -107,11 +106,11 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
 object Logger {
   private[zhttp] val detectedLevel: LogLevel = LogLevel.detectFromProps("ZHttpLogLevel").getOrElse(LogLevel.Error)
 
-  def apply(transport: LoggerTransport): Logger = Logger(List(transport))
-
   def console: Logger = Logger(List(LoggerTransport.console))
 
   def file(path: Path): Logger = Logger(List(LoggerTransport.file(path)))
+
+  def make(transport: LoggerTransport): Logger = transport.toLogger
 
   def make: Logger = Logger(Nil)
 
