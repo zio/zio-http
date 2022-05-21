@@ -34,8 +34,8 @@ object BuildHelper extends ScalaSettings {
   def extraOptions(scalaVersion: String) =
     CrossVersion.partialVersion(scalaVersion) match {
       case Some((3, 0))  => scala3Settings
-      case Some((2, 12)) => scala2Settings
-      case Some((2, 13)) => scala2Settings
+      case Some((2, 12)) => scala212Settings
+      case Some((2, 13)) => scala213Settings
       case _             => Seq.empty
     }
 

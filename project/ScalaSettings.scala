@@ -1,6 +1,6 @@
 trait ScalaSettings {
   // RECOMMENDED SETTINGS: https://tpolecat.github.io/2017/04/25/scalac-flags.html
-  val scala2Settings = Seq(
+  val scala213Settings = Seq(
     "-language:postfixOps",      // Added by @tusharmath
     "-deprecation",              // Emit warning and location for usages of deprecated APIs.
     "-encoding",
@@ -59,4 +59,13 @@ trait ScalaSettings {
   )
 
   val scala3Settings = Seq("-Xignore-scala2-macros", "-noindent")
+
+  val scala212Settings = Seq(
+    "-language:higherKinds",
+    "-explaintypes",
+    "-Yrangepos",
+    "-Xlint:_,-missing-interpolator,-type-parameter-shadow",
+    "-Ywarn-numeric-widen",
+    "-Ywarn-macros:after",
+  )
 }
