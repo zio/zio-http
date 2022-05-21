@@ -1,15 +1,24 @@
 package zhttp.logging
 
-sealed trait LogLevel { self =>
-  private[zhttp] def methodName = name.toLowerCase
+sealed abstract class LogLevel(val id: Int) extends Product with Serializable { self =>
+  final def name: String = self match {
+    case LogLevel.Disable => "Disable"
+    case LogLevel.Trace   => "Trace"
+    case LogLevel.Debug   => "Debug"
+    case LogLevel.Info    => "Info"
+    case LogLevel.Warn    => "Warn"
+    case LogLevel.Error   => "Error"
+  }
 
-  def >(other: LogLevel): Boolean  = self.level > other.level
-  def >=(other: LogLevel): Boolean = self.level >= other.level
-  def <(other: LogLevel): Boolean  = self.level > other.level
-  def <=(other: LogLevel): Boolean = self.level >= other.level
+  final def >(other: LogLevel): Boolean = self.id > other.id
 
-  def level: Int
-  def name: String
+  final def >=(other: LogLevel): Boolean = self.id >= other.id
+
+  final def <(other: LogLevel): Boolean = self.id > other.id
+
+  final def <=(other: LogLevel): Boolean = self.id >= other.id
+
+  final override def toString: String = name
 }
 
 /**
@@ -41,33 +50,10 @@ object LogLevel {
     case _       => Disable
   }
 
-  case object Disable extends LogLevel {
-    override def level: Int   = Int.MaxValue
-    override def name: String = "DISABLE"
-  }
-
-  case object Trace extends LogLevel {
-    override def level: Int   = 1
-    override def name: String = "TRACE"
-  }
-
-  case object Debug extends LogLevel {
-    override def level: Int   = 2
-    override def name: String = "DEBUG"
-  }
-
-  case object Info extends LogLevel {
-    override def level: Int   = 3
-    override def name: String = "INFO"
-  }
-
-  case object Warn extends LogLevel {
-    override def level: Int   = 4
-    override def name: String = "WARN"
-  }
-
-  case object Error extends LogLevel {
-    override def level: Int   = 5
-    override def name: String = "ERROR"
-  }
+  case object Disable extends LogLevel(Int.MaxValue)
+  case object Trace   extends LogLevel(1)
+  case object Debug   extends LogLevel(2)
+  case object Info    extends LogLevel(3)
+  case object Warn    extends LogLevel(4)
+  case object Error   extends LogLevel(5)
 }
