@@ -1,7 +1,6 @@
 package zhttp.logging
 
 import zhttp.logging.Logger.SourcePos
-import zhttp.logging.LoggerTransport.Transport
 
 import java.io.{PrintWriter, StringWriter}
 import java.nio.file.{Files, Path, StandardOpenOption}
@@ -12,21 +11,22 @@ import java.util
  * Provides a way to build and configure transports for logging. Transports are
  * used to, format and serialize LogLines and them to a backend.
  */
-private[logging] final case class LoggerTransport(
-  format: LogFormat,
-  level: LogLevel = LogLevel.Disable,
+private[logging] abstract class LoggerTransport(
+  format: LogFormat = LogFormat.minimal,
+  val level: LogLevel = LogLevel.Error,
   filter: String => Boolean = _ => true,
-  transport: Transport = Transport.empty,
   tags: List[String] = Nil,
 ) { self =>
-  private[zhttp] val isDebugEnabled: Boolean = self.level >= LogLevel.Debug
-  private[zhttp] val isErrorEnabled: Boolean = self.level >= LogLevel.Error
-  private[zhttp] val isInfoEnabled: Boolean  = self.level >= LogLevel.Info
-  private[zhttp] val isTraceEnabled: Boolean = self.level >= LogLevel.Trace
-  private[zhttp] val isWarnEnabled: Boolean  = self.level >= LogLevel.Warn
-  private[zhttp] val isEnabled: Boolean      = self.level != LogLevel.Disable
 
-  private def buildLines(
+  def run(charSequence: CharSequence): Unit
+
+  final private[zhttp] val isDebugEnabled: Boolean = self.level >= LogLevel.Debug
+  final private[zhttp] val isErrorEnabled: Boolean = self.level >= LogLevel.Error
+  final private[zhttp] val isInfoEnabled: Boolean  = self.level >= LogLevel.Info
+  final private[zhttp] val isTraceEnabled: Boolean = self.level >= LogLevel.Trace
+  final private[zhttp] val isWarnEnabled: Boolean  = self.level >= LogLevel.Warn
+
+  final private def buildLines(
     msg: String,
     throwable: Option[Throwable],
     logLevel: LogLevel,
@@ -51,69 +51,67 @@ private[logging] final case class LoggerTransport(
     }
   }
 
-  private def stackTraceAsString(throwable: Throwable): String = {
+  final def copy(
+    format: LogFormat = self.format,
+    level: LogLevel = self.level,
+    filter: String => Boolean = self.filter,
+    tags: List[String] = self.tags,
+  ): LoggerTransport = new LoggerTransport(format, level, filter, tags) {
+    override def run(charSequence: CharSequence): Unit = self.run(charSequence)
+  }
+
+  final private def stackTraceAsString(throwable: Throwable): String = {
     val sw = new StringWriter
     throwable.printStackTrace(new PrintWriter(sw))
     sw.toString
   }
 
-  private def thread = Thread.currentThread()
+  final private def thread = Thread.currentThread()
 
-  def addTags(tags: Iterable[String]): LoggerTransport = self.copy(tags = self.tags ++ tags)
+  final def addTags(tags: Iterable[String]): LoggerTransport = self.copy(tags = self.tags ++ tags)
 
-  def log(
+  final def dispatch(
     msg: String,
     cause: Option[Throwable],
     level: LogLevel,
     sourceLocation: Option[SourcePos],
   ): Unit =
-    if (this.level >= level) {
+    if (self.level <= level) {
       buildLines(msg, cause, level, self.tags, sourceLocation).foreach { line =>
-        if (filter(format(line))) transport.run(format(line))
+        if (filter(format(line))) run(format(line))
       }
     }
 
-  def withFilter(filter: String => Boolean): LoggerTransport = self.copy(filter = filter)
+  /**
+   * Converts the current LoggerTransport to a Logger.
+   */
+  final def toLogger: Logger = Logger(List(self))
 
-  def withFormat(format: LogFormat): LoggerTransport = self.copy(format = format)
+  final def withFilter(filter: String => Boolean): LoggerTransport = self.copy(filter = filter)
 
-  def withLevel(level: LogLevel): LoggerTransport = self.copy(level = level)
+  final def withFormat(format: LogFormat): LoggerTransport = self.copy(format = format)
 
-  def withTags(tags: List[String]): LoggerTransport = self.copy(tags = tags)
+  final def withLevel(level: LogLevel): LoggerTransport = self.copy(level = level)
+
+  final def withTags(tags: List[String]): LoggerTransport = self.copy(tags = tags)
 
 }
 
 object LoggerTransport {
-  def console: LoggerTransport = LoggerTransport(
-    format = LogFormat.colored,
-    level = LogLevel.Disable,
-    filter = _ => true,
-    transport = Transport.unsafeSync(println),
-  )
-
-  def file(filePath: Path): LoggerTransport = LoggerTransport(
-    format = LogFormat.max,
-    level = LogLevel.Disable,
-    filter = _ => true,
-    transport = Transport.unsafeFileSync(filePath),
-  )
-
-  trait Transport { self =>
-    def run(line: CharSequence): Unit
+  val empty: LoggerTransport = new LoggerTransport() {
+    override def run(charSequence: CharSequence): Unit = ()
   }
 
-  object Transport {
-    val empty: Transport = (_: CharSequence) => ()
+  def console: LoggerTransport = new LoggerTransport(format = LogFormat.colored) {
+    override def run(charSequence: CharSequence): Unit = println(charSequence)
+  }
 
-    def unsafeFileSync(path: Path): Transport = unsafeSync { line =>
-      Files.write(
-        path,
-        util.Arrays.asList(line),
-        StandardOpenOption.APPEND,
-        StandardOpenOption.CREATE,
-      ): Unit
-    }
-
-    def unsafeSync(log: CharSequence => Unit): Transport = (line: CharSequence) => log(line)
+  def file(path: Path): LoggerTransport = new LoggerTransport() {
+    override def run(charSequence: CharSequence): Unit = Files.write(
+      path,
+      util.Arrays.asList(charSequence),
+      StandardOpenOption.APPEND,
+      StandardOpenOption.CREATE,
+    ): Unit
   }
 }
