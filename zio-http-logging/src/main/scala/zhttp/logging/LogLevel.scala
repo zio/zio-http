@@ -1,6 +1,14 @@
 package zhttp.logging
 
 sealed abstract class LogLevel(val id: Int) extends Product with Serializable { self =>
+  final def >(other: LogLevel): Boolean = self.id > other.id
+
+  final def >=(other: LogLevel): Boolean = self.id >= other.id
+
+  final def <(other: LogLevel): Boolean = self.id > other.id
+
+  final def <=(other: LogLevel): Boolean = self.id >= other.id
+
   final def name: String = self match {
     case LogLevel.Disable => "Disable"
     case LogLevel.Trace   => "Trace"
@@ -10,14 +18,6 @@ sealed abstract class LogLevel(val id: Int) extends Product with Serializable { 
     case LogLevel.Error   => "Error"
   }
 
-  final def >(other: LogLevel): Boolean = self.id > other.id
-
-  final def >=(other: LogLevel): Boolean = self.id >= other.id
-
-  final def <(other: LogLevel): Boolean = self.id > other.id
-
-  final def <=(other: LogLevel): Boolean = self.id >= other.id
-
   final override def toString: String = name
 }
 
@@ -25,6 +25,18 @@ sealed abstract class LogLevel(val id: Int) extends Product with Serializable { 
  * Defines standard log levels.
  */
 object LogLevel {
+
+  /**
+   * Lists all the possible log levels
+   */
+  val all: List[LogLevel] = List(
+    Debug,
+    Disable,
+    Error,
+    Info,
+    Trace,
+    Warn,
+  )
 
   /**
    * Automatically detects the level from the environment variable
@@ -51,9 +63,14 @@ object LogLevel {
   }
 
   case object Disable extends LogLevel(Int.MaxValue)
-  case object Trace   extends LogLevel(1)
-  case object Debug   extends LogLevel(2)
-  case object Info    extends LogLevel(3)
-  case object Warn    extends LogLevel(4)
-  case object Error   extends LogLevel(5)
+
+  case object Trace extends LogLevel(1)
+
+  case object Debug extends LogLevel(2)
+
+  case object Info extends LogLevel(3)
+
+  case object Warn extends LogLevel(4)
+
+  case object Error extends LogLevel(5)
 }
