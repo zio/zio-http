@@ -167,12 +167,12 @@ object LogFormat {
     }
   }
 
-  val min: LogFormat =
+  val minimal: LogFormat =
     LogFormat.Tags.wrap(TextWrapper.BRACKET) |-|
       LogFormat.sourceLocation.wrap(TextWrapper.BRACKET) |-|
       LogFormat.msg
 
-  val max: LogFormat =
+  val maximus: LogFormat =
     LogFormat.Tags.wrap(TextWrapper.BRACKET) |-|
       LogFormat.date(ISODateTime) |-|
       LogFormat.threadName.wrap(TextWrapper.BRACKET) |-|
@@ -185,5 +185,5 @@ object LogFormat {
     debug = Color.CYAN,
     warn = Color.YELLOW,
     trace = Color.WHITE,
-  ) <+> min
+  ) <+> minimal
 }
