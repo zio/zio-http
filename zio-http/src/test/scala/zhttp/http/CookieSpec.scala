@@ -23,6 +23,7 @@ object CookieSpec extends DefaultRunnableSpec {
             cookieList   <- Gen.listOf(Gen.const(Cookie(name, content)))
             cookieString <- Gen.const(cookieList.map(x => s"${x.name}=${x.content}").mkString(";"))
           } yield (cookieList, cookieString)) { case (cookies, message) =>
+            println(s"c= $cookies, m=$message")
             assert(Cookie.decodeRequestCookie(message))(isSome(equalTo(cookies)))
           }
         }

@@ -124,8 +124,8 @@ final case class Cookie(
    */
   def encode: String = {
     val c = secret match {
-      case Some(sec) => content + "." + signContent(sec)
-      case None      => content
+      case Some(sec) if sec.nonEmpty => content + "." + signContent(sec)
+      case _                         => content
     }
 
     val cookie = List(
