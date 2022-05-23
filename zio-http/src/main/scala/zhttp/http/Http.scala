@@ -12,7 +12,7 @@ import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
 
-import java.io.{File, IOException}
+import java.io.{File, IOException, InputStream}
 import java.net
 import java.net.{InetAddress, InetSocketAddress}
 import java.nio.charset.Charset
@@ -818,6 +818,14 @@ object Http {
   def fromFile(file: => java.io.File): HttpApp[Any, Throwable] = Http.fromFileZIO(UIO(file))
 
   /**
+   * Package visible for test
+   */
+  private[http] def extractFileExtensionFromPath(path: String): Option[String] = {
+    val indexNotFound = -1
+    Option(path.lastIndexOf(".")).filter(_ != indexNotFound).map(dotIndex => path.substring(dotIndex + 1))
+  }
+
+  /**
    * Creates an Http app from the contents of a file which is produced from an
    * effect. The operator automatically adds the content-length and content-type
    * headers if possible.
@@ -832,10 +840,7 @@ object Http {
             val pathName = file.toPath.toString
 
             // Extract file extension
-            val ext = pathName.lastIndexOf(".") match {
-              case -1 => None
-              case i  => Some(pathName.substring(i + 1))
-            }
+            val ext = extractFileExtensionFromPath(pathName)
 
             // Set MIME type in the response headers. This is only relevant in
             // case of RandomAccessFile transfers as browsers use the MIME type,
@@ -889,10 +894,31 @@ object Http {
     Http.fromFile(Paths.get(head, tail: _*).toFile)
 
   /**
-   * Creates an Http app from a resource path
+   * Creates an Http app from a resource path. This won't work if the resource
+   * is inside a jor. In this case you should use fromJarResource
    */
   def fromResource(path: String): HttpApp[Blocking, Throwable] =
     Http.getResource(path).flatMap(url => Http.fromFile(new File(url.getPath)))
+
+  def fromJarResource(jarPath: String): HttpApp[Blocking, Throwable] = {
+    def fromInputStream(blocking: Blocking, inputStream: InputStream) = {
+      val mediaType = extractFileExtensionFromPath(jarPath).flatMap(MediaType.forFileExtension)
+      val response  = Response(data = HttpData.fromStream(ZStream.fromInputStream(inputStream).provide(blocking)))
+      Http.succeed(mediaType.fold(ifEmpty = response)(response.withMediaType))
+    }
+
+    Http
+      .fromZIO(
+        effectBlocking(Option(getClass.getClassLoader.getResourceAsStream(jarPath)))
+          .flatMap {
+            case Some(inputStream) =>
+              ZIO.environment[Blocking].map(fromInputStream(_, inputStream))
+            case None =>
+              ZIO.succeed(Http.empty)
+          }
+      )
+      .flatten
+  }
 
   /**
    * Creates a Http that always succeeds with a 200 status code and the provided

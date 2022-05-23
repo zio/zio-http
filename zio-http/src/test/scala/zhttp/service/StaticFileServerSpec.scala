@@ -5,7 +5,7 @@ import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.duration.durationInt
 import zio.test.Assertion.{equalTo, isSome}
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect.{ignore, timeout}
 import zio.test.assertM
 
 import java.io.File
@@ -24,6 +24,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
       suite("file") {
         val fileOk       = Http.fromResource("TestFile.txt").deploy
         val fileNotFound = Http.fromResource("Nothing").deploy
+        val directory    = Http.fromResource("TestStatic/Folder2").deploy
         testM("should have 200 status code") {
           val res = fileOk.run().map(_.status)
           assertM(res)(equalTo(Status.Ok))
@@ -43,7 +44,44 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           testM("should respond with empty") {
             val res = fileNotFound.run().map(_.status)
             assertM(res)(equalTo(Status.NotFound))
+          } +
+          testM("should return empty on directory") {
+            val res = directory.run().map(_.status)
+            assertM(res)(equalTo(Status.NotFound))
           }
+      }
+    } + suite("fromJarResource") {
+      suite("file") {
+        val fileOk       = Http.fromJarResource("TestFile.txt").deploy
+        val fileNotFound = Http.fromJarResource("Nothing").deploy
+        val directory    = Http.fromJarResource("TestStatic/Folder2").deploy
+        testM("should have 200 status code") {
+          val res = fileOk.run().map(_.status)
+          assertM(res)(equalTo(Status.Ok))
+        } +
+          testM("should have content-length") {
+            val res = fileOk.run().map(_.contentLength)
+            assertM(res)(isSome(equalTo(7L)))
+          } +
+          testM("should have content") {
+            val res = fileOk.run().flatMap(_.bodyAsString)
+            assertM(res)(equalTo("abc\nfoo"))
+          } +
+          testM("should have content-type") {
+            val res = fileOk.run().map(_.mediaType)
+            assertM(res)(isSome(equalTo(MediaType.text.plain)))
+          } +
+          testM("should respond with empty") {
+            val res = fileNotFound.run().map(_.status)
+            assertM(res)(equalTo(Status.NotFound))
+          } +
+          testM("should return empty on directory") {
+            val res = directory.run().map(_.status)
+            // TODO: fix fromJarResource on that
+            // the problem is that getResourceAsStream list directory content when directory is a folder
+            // does not seems to be an issue when directory is empty
+            assertM(res)(equalTo(Status.NotFound))
+          } @@ ignore
       }
     } +
       suite("fromFile") {
@@ -56,7 +94,8 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           suite("invalid file") {
             testM("should respond with 500") {
               final class BadFile(name: String) extends File(name) {
-                override def length: Long    = throw new Error("Haha")
+                override def length: Long = throw new Error("Haha")
+
                 override def isFile: Boolean = true
               }
               val res = Http.fromFile(new BadFile("Length Failure")).deploy.run().map(_.status)

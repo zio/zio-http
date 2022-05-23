@@ -182,10 +182,24 @@ object ServerSpec extends HttpRunnableSpec {
         val res = Http.fromResource("TestFile.txt").deploy.bodyAsString.run()
         assertM(res)(equalTo("abc\nfoo"))
       } +
+      testM("data from resource in jar") {
+        val res = Http.fromJarResource("TestFile.txt").deploy.bodyAsString.run()
+        assertM(res)(equalTo("abc\nfoo"))
+      } +
       testM("content-type header on file response") {
         val res =
           Http
             .fromResource("TestFile2.mp4")
+            .deploy
+            .headerValue(HeaderNames.contentType)
+            .run()
+            .map(_.getOrElse("Content type header not found."))
+        assertM(res)(equalTo("video/mp4"))
+      } +
+      testM("content-type header on jar resource response") {
+        val res =
+          Http
+            .fromJarResource("TestFile2.mp4")
             .deploy
             .headerValue(HeaderNames.contentType)
             .run()
