@@ -891,8 +891,36 @@ object Http {
   /**
    * Creates an Http app from a resource path
    */
-  def fromResource(path: String): HttpApp[Blocking, Throwable] =
-    Http.getResource(path).flatMap(url => Http.fromFile(new File(url.getPath)))
+  def fromResource(path: String): HttpApp[Any, Throwable] = {
+    @inline def header[A](v: A)(f: A => Headers): Headers = if (v == null) Headers.empty else f(v)
+
+    Http
+      .getResource(path)
+      .flatMap { url =>
+        val response =
+          effectBlocking {
+            val connection = url.openConnection()
+            val mediaType  =
+              path.lastIndexOf(".") match {
+                case -1 => None
+                case i  => MediaType.forFileExtension(path.substring(i + 1)).map(_.fullType)
+              }
+
+            val contentLengthHeader   = header(connection.getContentLengthLong)(Headers.contentLength)
+            val contentTypeHeader     = header(mediaType.orNull)(Headers.contentType)
+            val contentEncodingHeader = header(connection.getContentEncoding)(Headers.contentEncoding)
+            val data                  = ZStream.fromInputStream(connection.getInputStream).provideLayer(Blocking.live)
+
+            Response(
+              headers = contentLengthHeader ++ contentTypeHeader ++ contentEncodingHeader,
+              data = HttpData.fromStream(data),
+            )
+          }
+
+        Http.fromZIO(response)
+      }
+      .provideLayer(Blocking.live)
+  }
 
   /**
    * Creates a Http that always succeeds with a 200 status code and the provided
