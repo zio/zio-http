@@ -10,7 +10,7 @@ import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
-import zio.test.{DefaultRunnableSpec, Gen, assertM, checkAllM}
+import zio.test.{DefaultRunnableSpec, Gen, assertM, checkM}
 
 object SSLSpec extends DefaultRunnableSpec {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
@@ -68,7 +68,7 @@ object SSLSpec extends DefaultRunnableSpec {
               assertM(actual)(equalTo(Status.PermanentRedirect))
             } +
             testM("Https request with a large payload should respond with 413") {
-              checkAllM(payload) { payload =>
+              checkM(payload) { payload =>
                 val actual = Client
                   .request(
                     "https://localhost:8073/text",

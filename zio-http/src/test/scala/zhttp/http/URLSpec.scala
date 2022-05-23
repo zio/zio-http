@@ -51,10 +51,10 @@ object URLSpec extends DefaultRunnableSpec {
 
     suite("asString")(
       testM("using gen") {
-        checkAll(HttpGen.url) { case url =>
+        check(HttpGen.url) { case url =>
           val source  = url.encode
-          val decoded = URL.fromString(source).map(_.encode)
-          assert(decoded)(isRight(equalTo(source)))
+          val decoded = URL.fromString(source)
+          assert(decoded.map(_.isEqual(url)))(isRight(equalTo(true)))
         }
       } +
         test("empty") {

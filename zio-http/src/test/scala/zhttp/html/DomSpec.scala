@@ -1,7 +1,7 @@
 package zhttp.html
 
 import zio.random.Random
-import zio.test.{DefaultRunnableSpec, Gen, assertTrue, checkAll}
+import zio.test.{DefaultRunnableSpec, Gen, assertTrue, check, checkAll}
 
 object DomSpec extends DefaultRunnableSpec {
   def spec = suite("DomSpec") {
@@ -80,7 +80,7 @@ object DomSpec extends DefaultRunnableSpec {
           }
         } +
           testM("not void") {
-            checkAll(tagGen) { name =>
+            check(tagGen) { name =>
               val dom = Dom.element(name)
               assertTrue(dom.encode == s"<${name}></${name}>")
             }

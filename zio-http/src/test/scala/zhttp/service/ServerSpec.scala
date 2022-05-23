@@ -159,7 +159,7 @@ object ServerSpec extends HttpRunnableSpec {
       Response.text(req.contentLength.getOrElse(-1).toString)
     }
     testM("has content-length") {
-      checkAllM(Gen.alphaNumericString) { string =>
+      checkM(Gen.alphaNumericString) { string =>
         val res = app.deploy.bodyAsString.run(content = HttpData.fromString(string))
         assertM(res)(equalTo(string.length.toString))
       }
@@ -173,7 +173,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   def responseSpec = suite("ResponseSpec") {
     testM("data") {
-      checkAllM(nonEmptyContent) { case (string, data) =>
+      checkM(nonEmptyContent) { case (string, data) =>
         val res = Http.fromData(data).deploy.bodyAsString.run()
         assertM(res)(equalTo(string))
       }
@@ -200,7 +200,7 @@ object ServerSpec extends HttpRunnableSpec {
 
       } +
       testM("header") {
-        checkAllM(HttpGen.header) { case header @ (name, value) =>
+        checkM(HttpGen.header) { case header @ (name, value) =>
           val res = Http.ok.addHeader(header).deploy.headerValue(name).run()
           assertM(res)(isSome(equalTo(value)))
         }
@@ -271,14 +271,14 @@ object ServerSpec extends HttpRunnableSpec {
       val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
         Response(data = HttpData.fromStream(req.bodyAsStream))
       }
-      checkAllM(Gen.alphaNumericString) { c =>
+      checkM(Gen.alphaNumericString) { c =>
         assertM(app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = HttpData.fromString(c)))(
           equalTo(c),
         )
       }
     } +
       testM("FromASCIIString: toHttp") {
-        checkAllM(Gen.anyASCIIString) { payload =>
+        checkM(Gen.anyASCIIString) { payload =>
           val res = HttpData.fromAsciiString(AsciiString.cached(payload)).toHttp.map(_.toString(HTTP_CHARSET))
           assertM(res.run())(equalTo(payload))
         }

@@ -76,6 +76,13 @@ final case class URL(
     copy(kind = location)
   }
 
+  def isEqual(other: URL): Boolean = {
+    self.kind == other.kind &&
+    self.path == other.path &&
+    (self.queryParams.toSet diff other.queryParams.toSet).isEmpty
+    self.fragment == other.fragment
+  }
+
   private[zhttp] def relative: URL = self.kind match {
     case URL.Location.Relative => self
     case _                     => self.copy(kind = URL.Location.Relative)
@@ -164,4 +171,5 @@ object URL {
       decoded <- Option(uri.getFragment)
     } yield Fragment(raw, decoded)
   }
+
 }
