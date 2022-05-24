@@ -178,8 +178,7 @@ object HttpData {
 
   private[zhttp] case class FromAsciiString(asciiString: AsciiString) extends Complete {
 
-    private def encode: ByteBuf =
-      if (asciiString.isEmpty) Unpooled.EMPTY_BUFFER else Unpooled.wrappedBuffer(asciiString.array())
+    private def encode: ByteBuf = Unpooled.wrappedBuffer(asciiString.array())
 
     /**
      * Encodes the HttpData into a ByteBuf. Takes in ByteBufConfig to have a
