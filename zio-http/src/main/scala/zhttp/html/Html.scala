@@ -1,6 +1,5 @@
 package zhttp.html
 
-import scala.annotation.nowarn
 import scala.language.implicitConversions
 
 /**
@@ -23,7 +22,7 @@ object Html {
 
   implicit def fromDomElement(element: Dom): Html = Html.Single(element)
 
-  implicit def fromUnit(@nowarn unit: Unit): Html = Html.Empty
+  implicit def fromUnit(unit: Unit): Html = Html.Empty
 
   private[zhttp] case class Single(element: Dom) extends Html
 

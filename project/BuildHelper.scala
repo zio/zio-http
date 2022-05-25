@@ -24,13 +24,6 @@ object BuildHelper extends ScalaSettings {
     }
   }
 
-  private def optimizerSettings(optimize: Boolean) =
-    if (optimize)
-      Seq(
-        "-opt:l:inline",
-      )
-    else Nil
-
   def extraOptions(scalaVersion: String) =
     CrossVersion.partialVersion(scalaVersion) match {
       case Some((3, 0))  => scala3Settings
