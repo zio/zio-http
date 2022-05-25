@@ -215,7 +215,7 @@ object Server {
     Server(http)
       .withPort(port)
       .make
-      .flatMap(start => ZManaged.succeed(println(s"Server started on port: ${start.port}")))
+      .flatMap(start => ZManaged.succeed(Log.info(s"Server started on port: ${start.port}")))
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
   }

@@ -24,40 +24,11 @@ object BuildHelper extends ScalaSettings {
     }
   }
 
-  private val std2xOptions = Seq(
-    "-language:higherKinds",
-    "-language:existentials",
-    "-explaintypes",
-    "-Yrangepos",
-    "-Xlint:_,-missing-interpolator,-type-parameter-shadow",
-    "-Ywarn-numeric-widen",
-    "-Ywarn-macros:after",
-  )
-
-  private def optimizerOptions(optimize: Boolean) =
-    if (optimize)
-      Seq(
-        "-opt:l:inline",
-      )
-    else Nil
-
-  def extraOptions(scalaVersion: String, optimize: Boolean) =
+  def extraOptions(scalaVersion: String) =
     CrossVersion.partialVersion(scalaVersion) match {
-      case Some((3, 0))  =>
-        Seq(
-          "-language:implicitConversions",
-          "-Xignore-scala2-macros",
-          "-noindent",
-        )
-      case Some((2, 12)) =>
-        Seq("-Ywarn-unused:params,-implicits") ++ std2xOptions
-      case Some((2, 13)) =>
-        Seq(
-          "-Ywarn-unused:params,-implicits",
-          "-Ywarn-macros:after",
-          "-Ywarn-value-discard",
-        ) ++ std2xOptions ++ tpoleCatSettings ++
-          optimizerOptions(optimize)
+      case Some((3, 0))  => scala3Settings
+      case Some((2, 12)) => scala212Settings
+      case Some((2, 13)) => scala213Settings
       case _             => Seq.empty
     }
 
@@ -78,11 +49,11 @@ object BuildHelper extends ScalaSettings {
   }
 
   def stdSettings(prjName: String) = Seq(
-    name                           := s"$prjName",
-    ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, ScalaDotty),
-    ThisBuild / scalaVersion       := Scala213,
-    scalacOptions                  := stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
-    semanticdbVersion              := scalafixSemanticdb.revision, // use Scalafix compatible version
+    name                                   := s"$prjName",
+    ThisBuild / crossScalaVersions         := Seq(Scala212, Scala213, ScalaDotty),
+    ThisBuild / scalaVersion               := Scala213,
+    scalacOptions                          := stdOptions ++ extraOptions(scalaVersion.value),
+    semanticdbVersion                      := scalafixSemanticdb.revision, // use Scalafix compatible version
     ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
     ThisBuild / scalafixDependencies ++=
       List(
@@ -92,7 +63,7 @@ object BuildHelper extends ScalaSettings {
     Test / parallelExecution               := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
     autoAPIMappings                        := true,
-    ThisBuild / javaOptions                := Seq("-Dio.netty.leakDetectionLevel=paranoid"),
+    ThisBuild / javaOptions                := Seq("-Dio.netty.leakDetectionLevel=paranoid", "-DZHttpLogLevel=INFO"),
     ThisBuild / fork                       := true,
   )
 
