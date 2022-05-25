@@ -57,6 +57,7 @@ object LogLevel {
     case "INFO"  => Info
     case "WARN"  => Warn
     case "ERROR" => Error
+    case _       => Error
   }
 
   case object Trace extends LogLevel(1)

@@ -15,5 +15,10 @@ object LogLevelSpec extends DefaultRunnableSpec {
         assertTrue(LogLevel.fromString(level.toString) == level)
       }
     },
+    testM("any value with the exception of defined values for LogLevel should be set to Error log level.") {
+      checkAll(Gen.fromIterable(List("not defined", "unknown", "disable"))) { level =>
+        assertTrue(LogLevel.fromString(level) == LogLevel.Error)
+      }
+    },
   )
 }
