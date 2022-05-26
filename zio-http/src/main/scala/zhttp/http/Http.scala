@@ -975,11 +975,6 @@ object Http {
   def responseZIO[R, E](res: ZIO[R, E, Response]): HttpApp[R, E] = Http.fromZIO(res)
 
   /**
-   * Creates an Http that delegates to other Https.
-   */
-  def route[A]: Http.PartialRoute[A] = Http.PartialRoute(())
-
-  /**
    * Creates an HTTP app which always responds with the same status code and
    * empty data.
    */
@@ -1048,11 +1043,6 @@ object Http {
   final case class PartialCollectHExit[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, HExit[R, E, B]]): Http[R, E, A, B] =
       FromFunctionHExit(a => if (pf.isDefinedAt(a)) pf(a) else HExit.empty)
-  }
-
-  final case class PartialRoute[A](unit: Unit) extends AnyVal {
-    def apply[R, E, B](pf: PartialFunction[A, Http[R, E, A, B]]): Http[R, E, A, B] =
-      Http.collect[A] { case r if pf.isDefinedAt(r) => pf(r) }.flatten
   }
 
   final case class PartialContraFlatMap[-R, +E, -A, +B, X](self: Http[R, E, A, B]) extends AnyVal {

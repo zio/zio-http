@@ -251,9 +251,9 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         assert(actual)(isSuccess(equalTo("B")))
       },
     ),
-    suite("route")(
+    suite("collectHttp")(
       test("should delegate to its HTTP apps") {
-        val app    = Http.route[Int] {
+        val app    = Http.collectHttp[Int] {
           case 1 => Http.succeed(1)
           case 2 => Http.succeed(2)
         }
@@ -261,7 +261,7 @@ object HttpSpec extends DefaultRunnableSpec with HExitAssertion {
         assert(actual)(isSuccess(equalTo(2)))
       },
       test("should be empty if no matches") {
-        val app    = Http.route[Int](Map.empty)
+        val app    = Http.collectHttp[Int](Map.empty)
         val actual = app.execute(1)
         assert(actual)(isEmpty)
       },
