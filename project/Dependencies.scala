@@ -15,6 +15,7 @@ object Dependencies {
   val netty =
     Seq(
       "netty-codec-http",
+      "netty-handler-proxy",
       "netty-transport-native-epoll",
       "netty-transport-native-kqueue",
     ).map { name =>

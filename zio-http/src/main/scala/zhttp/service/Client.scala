@@ -10,6 +10,7 @@ import io.netty.channel.{
 }
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
+import io.netty.handler.proxy.HttpProxyHandler
 import zhttp.http._
 import zhttp.service
 import zhttp.service.Client.Config
@@ -71,12 +72,26 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
 
       val isWebSocket = req.url.scheme.exists(_.isWebSocket)
       val isSSL       = req.url.scheme.exists(_.isSecure)
+      val isProxy     = clientConfig.proxy.isDefined
 
       val initializer = new ChannelInitializer[Channel]() {
         override def initChannel(ch: Channel): Unit = {
 
           val pipeline                    = ch.pipeline()
           val sslOption: ClientSSLOptions = clientConfig.ssl.getOrElse(ClientSSLOptions.DefaultSSL)
+
+          // Adding proxy handler
+          if (isProxy) {
+            val handler: HttpProxyHandler =
+              clientConfig.proxy
+                .flatMap(_.encode)
+                .getOrElse(new HttpProxyHandler(new InetSocketAddress(host, port)))
+
+            pipeline.addLast(
+              PROXY_HANDLER,
+              handler,
+            )
+          }
 
           // If a https or wss request is made we need to add the ssl handler at the starting of the pipeline.
           if (isSSL) pipeline.addLast(SSL_HANDLER, ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc, host, port))
@@ -167,9 +182,15 @@ object Client {
     } yield res
   }
 
-  case class Config(socketApp: Option[SocketApp[Any]] = None, ssl: Option[ClientSSLOptions] = None) { self =>
+  case class Config(
+    socketApp: Option[SocketApp[Any]] = None,
+    ssl: Option[ClientSSLOptions] = None,
+    proxy: Option[Proxy] = None,
+  ) {
+    self =>
     def withSSL(ssl: ClientSSLOptions): Config           = self.copy(ssl = Some(ssl))
     def withSocketApp(socketApp: SocketApp[Any]): Config = self.copy(socketApp = Some(socketApp))
+    def withProxy(proxy: Proxy): Config                  = self.copy(proxy = Some(proxy))
   }
 
   object Config {
