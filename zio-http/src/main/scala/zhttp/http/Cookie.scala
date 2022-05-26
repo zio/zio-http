@@ -124,8 +124,8 @@ final case class Cookie(
    */
   def encode: String = {
     val c = secret match {
-      case Some(sec) => content + "." + signContent(sec)
-      case None      => content
+      case Some(sec) if sec.nonEmpty => content + "." + signContent(sec)
+      case _                         => content
     }
 
     val cookie = List(
@@ -267,10 +267,20 @@ object Cookie {
           sameSite = Option(sameSite),
         )
       else
-        null
+        Cookie(
+          "",
+          "",
+          expires = Option(expires),
+          maxAge = maxAge,
+          domain = Option(domain),
+          path = Option(path),
+          isSecure = secure,
+          isHttpOnly = httpOnly,
+          sameSite = Option(sameSite),
+        )
 
     secret match {
-      case Some(s) => {
+      case Some(s) if s.nonEmpty => {
         if (decodedCookie != null) {
           val index     = decodedCookie.content.lastIndexOf('.')
           val signature = decodedCookie.content.slice(index + 1, decodedCookie.content.length)
@@ -281,7 +291,7 @@ object Cookie {
           else null
         } else decodedCookie
       }
-      case None    => decodedCookie
+      case _                     => decodedCookie.copy(secret = secret)
     }
 
   }
@@ -289,17 +299,19 @@ object Cookie {
   /**
    * Decodes from `Cookie` header value inside of Request into a cookie
    */
-  def decodeRequestCookie(headerValue: String): Option[List[Cookie]] = {
-    val cookies: Array[String]  = headerValue.split(';').map(_.trim)
-    val x: List[Option[Cookie]] = cookies.toList.map(a => {
-      val (name, content) = splitNameContent(a)
-      if (name.isEmpty && content.isEmpty) None
-      else Some(Cookie(name, content))
-    })
+  def decodeRequestCookie(headerValue: String): List[Cookie] = {
+    if (headerValue.nonEmpty) {
+      val cookies: Array[String]  = headerValue.split(';').map(_.trim)
+      val x: List[Option[Cookie]] = cookies.toList.map(a => {
+        val (name, content) = splitNameContent(a)
+        if (name.isEmpty && content.isEmpty) Some(Cookie("", ""))
+        else Some(Cookie(name, content))
+      })
 
-    if (x.contains(None))
-      None
-    else Some(x.map(_.get))
+      if (x.contains(None))
+        List.empty
+      else x.map(_.get)
+    } else List.empty
   }
 
   @inline
@@ -308,7 +320,7 @@ object Cookie {
     if (i >= 0) {
       (str.substring(0, i).trim, str.substring(i + 1).trim)
     } else {
-      (str.trim, null)
+      (str.trim, "")
     }
   }
 

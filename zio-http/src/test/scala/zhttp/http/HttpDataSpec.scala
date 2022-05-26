@@ -19,7 +19,7 @@ object HttpDataSpec extends DefaultRunnableSpec {
         suite("encode")(
           suite("fromStream") {
             testM("success") {
-              checkAllM(Gen.anyString) { payload =>
+              checkM(Gen.anyString) { payload =>
                 val stringBuffer    = payload.getBytes(HTTP_CHARSET)
                 val responseContent = ZStream.fromIterable(stringBuffer)
                 val res             = HttpData.fromStream(responseContent).toByteBuf.map(_.toString(HTTP_CHARSET))
