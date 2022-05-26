@@ -118,12 +118,7 @@ object HttpGen {
         )
     } yield cnt
 
-  def path: Gen[Random with Sized, Path] = {
-    for {
-      l <- Gen.listOf(Gen.alphaNumericString)
-      p <- Gen.const(Path(l))
-    } yield p
-  }
+  def path: Gen[Random with Sized, Path] = Gen.listOf(Gen.alphaNumericString).map(Path(_))
 
   def request: Gen[Random with Sized, Request] = for {
     version <- httpVersion

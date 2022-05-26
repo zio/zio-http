@@ -1,5 +1,6 @@
 package zhttp.http
 
+import zhttp.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
 
@@ -144,6 +145,13 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
       test("take") {
         assert(!! / "a" / "b" / "c" take 1)(equalTo(!! / "a")) &&
         assert(!! take 1)(equalTo(!!))
+      },
+      testM("encode/decode") {
+        check(HttpGen.path) { path =>
+          val actual   = path
+          val expected = Path(path.encode)
+          assertTrue(actual == expected)
+        }
       },
     )
 }
