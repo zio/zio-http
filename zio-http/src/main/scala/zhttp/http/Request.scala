@@ -16,7 +16,7 @@ trait Request extends HeaderExtension[Request] with HttpDataExtension[Request] {
   /**
    * Gets the HttpRequest
    */
-  private[zhttp] def unsafeEncode: HttpRequest
+  def unsafeEncode: HttpRequest
 
   def copy(
     version: Version = self.version,
