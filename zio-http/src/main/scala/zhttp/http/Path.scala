@@ -1,98 +1,46 @@
 package zhttp.http
 
-import scala.annotation.tailrec
+final case class Path(segments: Vector[String], leadingSlash: Boolean, trailingSlash: Boolean) { self =>
+  def /(segment: String): Path = copy(segments :+ segment)
 
-sealed trait Path { self =>
-  def toList: List[String]
+  def /:(name: String): Path = copy(name +: segments)
 
-  final def /(name: String): Path = Path(self.toList :+ name)
+  def drop(n: Int): Path = copy(segments.drop(n))
 
-  final def /:(name: String): Path = append(name)
+  def dropLast(n: Int): Path = copy(segments.reverse.drop(n))
 
-  final def append(name: String): Path = if (name.isEmpty) self else Path.Cons(name, self)
-
-  final def drop(n: Int): Path = Path(self.toList.drop(n))
-
-  final def dropLast(n: Int): Path = Path(self.toList.reverse.drop(n).reverse)
-
-  final def encode: String = {
-    @tailrec
-    def loop(self: Path, str: String): String = {
-      self match {
-        case Path.End              => str
-        case Path.Cons(name, path) => loop(path, s"$str/$name")
-      }
-    }
-    val res                                   = loop(self, "")
-    if (res.isEmpty) "/" else res
+  def encode: String = {
+    val ls = if (leadingSlash) "/" else ""
+    val ss = segments.filter(_.nonEmpty).mkString("/")
+    val ts = if (trailingSlash && segments.nonEmpty) "/" else ""
+    ls + ss + ts
   }
 
-  final def initial: Path = self match {
-    case Path.End           => self
-    case Path.Cons(_, path) => path
-  }
+  def initial: Path = copy(segments.init)
 
-  final def isEnd: Boolean = self match {
-    case Path.End        => true
-    case Path.Cons(_, _) => false
-  }
+  def isEnd: Boolean = segments.isEmpty
 
-  final def last: Option[String] = self match {
-    case Path.End           => None
-    case Path.Cons(name, _) => Option(name)
-  }
+  def last: Option[String] = segments.lastOption
 
-  final def reverse: Path = Path(toList.reverse)
+  def reverse: Path = copy(segments.reverse)
 
-  @tailrec
-  final def startsWith(other: Path): Boolean = {
-    if (self == other) true
-    else
-      (self, other) match {
-        case (/(p1, _), p2) => p1.startsWith(p2)
-        case _              => false
+  def startsWith(other: Path): Boolean = segments.startsWith(other.segments)
 
-      }
-  }
+  def take(n: Int): Path = copy(segments.take(n))
 
-  final def take(n: Int): Path = Path(self.toList.take(n))
-
-  final override def toString: String = this.encode
+  def toList: List[String] = segments.toList
 }
 
 object Path {
-  def apply(): Path                   = End
-  def apply(string: String): Path     = if (string.trim.isEmpty) End
-  else {
-    val list = string.split("/").toList
-    if (list.isEmpty) {
-      // we have only /
-      End
-    } else {
-      if (string.endsWith("/"))
-        Path(list :+ "")
-      else
-        Path(list)
-    }
+  val empty: Path = Path(Vector.empty, true, false)
 
-  }
-  def apply(seqString: String*): Path = Path(seqString.toList)
-  def apply(list: List[String]): Path =
-    list.lastOption match {
-      case Some(value) if value.isEmpty  => list.foldRight[Path](Cons("", End))((s, a) => a.append(s))
-      case Some(value) if value.nonEmpty => list.foldRight[Path](End)((s, a) => a.append(s))
-      case _                             => End
-    }
-
-  def empty: Path = End
-
-  def unapplySeq(arg: Path): Option[List[String]] = Option(arg.toList)
-
-  case class Cons(name: String, path: Path) extends Path {
-    override def toList: List[String] = name :: path.toList
-  }
-
-  case object End extends Path {
-    override def toList: List[String] = Nil
+  /**
+   * Decodes a path string into a Path. Can fail if the path is invalid.
+   */
+  def decode(path: String): Path = {
+    val segments      = path.split("/").toVector.filter(_.nonEmpty)
+    val leadingSlash  = path.startsWith("/")
+    val trailingSlash = segments.nonEmpty && path.endsWith("/")
+    Path(segments, leadingSlash, trailingSlash)
   }
 }

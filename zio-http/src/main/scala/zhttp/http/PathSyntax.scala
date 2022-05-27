@@ -1,21 +1,27 @@
 package zhttp.http
 
 private[zhttp] trait PathSyntax { module =>
-  val !! : Path = Path.End
+  val !! : Path = Path.empty
 
   object /: {
-    def unapply(path: Path): Option[(String, Path)] =
-      path match {
-        case Path.End              => None
-        case Path.Cons(name, path) => Option(name -> path)
-      }
+    def unapply(path: Path): Option[(String, Path)] = {
+      for {
+        head <- path.segments.headOption
+        tail = path.segments.drop(1)
+      } yield (head, path.copy(segments = tail))
+    }
   }
 
   object / {
     def unapply(path: Path): Option[(Path, String)] = {
-      path.toList.reverse match {
-        case Nil          => None
-        case head :: next => Option((Path(next.reverse), head))
+      if (path.segments.length == 1) {
+        Some(!! -> path.segments.last)
+      } else if (path.segments.length >= 2) {
+        val init = path.segments.init
+        val last = path.segments.last
+        Some(path.copy(segments = init) -> last)
+      } else {
+        None
       }
     }
   }
