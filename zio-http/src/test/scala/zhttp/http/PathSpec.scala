@@ -194,6 +194,13 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
             assertTrue(actual == expected)
           }
         },
+        testM("is symmetric") {
+          check(HttpGen.path) { path =>
+            val expected = path.encode
+            val actual   = Path.decode(expected)
+            assertTrue(actual == path)
+          }
+        },
         testM("string elements") {
           val gen = Gen.elements(
             // basic
@@ -277,7 +284,6 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
           testM("isFalse") {
             val gen = Gen.elements(
               "",
-              "/",
               "//",
               "a",
               "a/b",
@@ -290,42 +296,6 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
             checkAll(gen) { path =>
               val actual = Path.decode(path)
               assertTrue(!actual.trailingSlash)
-            }
-          },
-        ),
-        suite("leadingSlash")(
-          testM("isTrue") {
-            val gen = Gen.elements(
-              "/",
-              "//",
-              "/a",
-              "/a/b",
-              "/a/b/c",
-              "/a/",
-              "/a/b/",
-              "/a/b/c/",
-            )
-
-            checkAll(gen) { path =>
-              val actual = Path.decode(path)
-              assertTrue(actual.leadingSlash)
-            }
-          },
-          testM("isFalse") {
-            val gen = Gen
-              .elements(
-                "",
-                "a/",
-                "a/b/",
-                "a/b/c/",
-                "a",
-                "a/b",
-                "a/b/c",
-              )
-
-            checkAll(gen) { path =>
-              val actual = Path.decode(path)
-              assertTrue(!actual.leadingSlash)
             }
           },
         ),
