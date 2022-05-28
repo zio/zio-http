@@ -143,3 +143,12 @@ lazy val example = (project in file("./example"))
   .settings(runSettings("example.HelloWorld"))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
   .dependsOn(zhttp)
+
+lazy val zhttpIntegration = (project in file("./zio-http-integration"))
+  .settings(stdSettings("zhttp-integration"))
+  .settings(publishSetting(false))
+  .settings(
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= Seq(`zio-test`, `zio-test-sbt`, `zio-streams`, `zio`),
+  )
+  .dependsOn(zhttp)
