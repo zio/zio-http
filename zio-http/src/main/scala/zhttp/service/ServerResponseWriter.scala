@@ -151,7 +151,7 @@ private[zhttp] final class ServerResponseWriter[R](
   }
 
   def writeNotFound(jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
-    val error = HttpError.NotFound(Path(jReq.uri()))
+    val error = HttpError.NotFound(Path.decode(jReq.uri()))
     self.write(error, jReq)
   }
 }

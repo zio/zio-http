@@ -9,9 +9,9 @@ object CookieSpec extends DefaultRunnableSpec {
     suite("response cookies") {
       testM("encode/decode signed/unsigned cookies with secret") {
         check(HttpGen.cookies) { cookie =>
-          val cookieString = cookie.encode
-          assert(Cookie.decodeResponseCookie(cookieString, cookie.secret))(isSome(equalTo(cookie))) &&
-          assert(Cookie.decodeResponseCookie(cookieString, cookie.secret).map(_.encode))(isSome(equalTo(cookieString)))
+          val expected = cookie.encode
+          val actual   = Cookie.decodeResponseCookie(expected, cookie.secret).map(_.encode)
+          assert(actual)(isSome(equalTo(expected)))
         }
       }
     } +
