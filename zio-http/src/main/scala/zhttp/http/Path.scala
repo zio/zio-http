@@ -35,6 +35,8 @@ final case class Path(segments: Vector[String], trailingSlash: Boolean) { self =
   def take(n: Int): Path = copy(segments.take(n))
 
   def toList: List[String] = segments.toList
+
+  override def toString: String = encode
 }
 
 object Path {

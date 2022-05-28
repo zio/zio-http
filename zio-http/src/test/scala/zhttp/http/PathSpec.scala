@@ -190,8 +190,10 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
         testM("anyPath") {
           check(HttpGen.path) { path =>
             val expected = path.encode
-            val actual   = Path.decode(expected).encode
-            assertTrue(actual == expected)
+            val decoded  = Path.decode(expected)
+
+            assertTrue(decoded.encode == expected) &&
+            assertTrue(decoded.toString() == expected)
           }
         },
         testM("is symmetric") {
