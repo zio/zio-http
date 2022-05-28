@@ -13,7 +13,7 @@ private[api] object ClientInterpreter {
     api: API[Params, Input, Output],
   )(params: Params, input: Input): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] = {
     val state          = new RequestState()
-    parseUrl(api.requestParser, state)(params)
+    parseUrl(api.requestCodec, state)(params)
     val (url, headers) = state.result
     val data           =
       if (api.inputSchema == Schema[Unit]) HttpData.empty
@@ -50,17 +50,17 @@ private[api] object ClientInterpreter {
   }
 
   private[api] def parseUrl[Params](
-    requestParser: RequestParser[Params],
+    requestCodec: RequestCodec[Params],
     state: RequestState,
   )(params: Params): Unit =
-    requestParser match {
-      case RequestParser.ZipWith(left, right, _, g) =>
+    requestCodec match {
+      case RequestCodec.ZipWith(left, right, _, g) =>
         g(params) match {
           case (a, b) =>
             parseUrl(left, state)(a)
             parseUrl(right, state)(b)
         }
-      case RequestParser.Map(info, _, g)            =>
+      case RequestCodec.Map(info, _, g)            =>
         parseUrl(info, state)(g(params))
 
       case headers: Header[_] =>

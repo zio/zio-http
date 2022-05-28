@@ -10,20 +10,20 @@ import zio.schema.Schema
  */
 final case class API[Params, Input, Output](
   method: Method,
-  requestParser: RequestParser[Params], // Path / QueryParams / Headers
+  requestCodec: RequestCodec[Params], // Path / QueryParams / Headers
   doc: Doc,
-  inputSchema: Schema[Input],           // Generate any sort of codec, generate OpenAPI docs.
+  inputSchema: Schema[Input],         // Generate any sort of codec, generate OpenAPI docs.
   outputSchema: Schema[Output],
 ) { self =>
   type Id
 
   def query[A](queryParams: Query[A])(implicit
-    zippable: Zipper[Params, A],
-  ): API[zippable.Out, Input, Output] =
-    copy(requestParser = requestParser ++ queryParams)
+    zipper: Zipper[Params, A],
+  ): API[zipper.Out, Input, Output] =
+    copy(requestCodec = requestCodec ++ queryParams)
 
-  def header[A](headers: Header[A])(implicit zippable: Zipper[Params, A]): API[zippable.Out, Input, Output] =
-    copy(requestParser = requestParser ++ headers)
+  def header[A](headers: Header[A])(implicit zipper: Zipper[Params, A]): API[zipper.Out, Input, Output] =
+    copy(requestCodec = requestCodec ++ headers)
 
   def input[Input2](implicit schema: Schema[Input2]): API[Params, Input2, Output] =
     copy(inputSchema = schema)
@@ -49,36 +49,36 @@ object API {
   }
 
   /**
-   * Creates an API for DELETE request at the given path.
+   * Creates an API for DELETE request at the given route.
    */
-  def delete[A](path: Route[A]): API[A, Unit, Unit] =
-    method(Method.DELETE, path)
+  def delete[A](route: Route[A]): API[A, Unit, Unit] =
+    method(Method.DELETE, route)
 
   /**
-   * Creates an API for a GET request at the given path.
+   * Creates an API for a GET request at the given route.
    */
-  def get[A](path: Route[A]): API[A, Unit, Unit] =
-    method(Method.GET, path)
+  def get[A](route: Route[A]): API[A, Unit, Unit] =
+    method(Method.GET, route)
 
   /**
-   * Creates an API for a POST request at the given path.
+   * Creates an API for a POST request at the given route.
    */
-  def post[A](path: Route[A]): API[A, Unit, Unit] =
-    method(Method.POST, path)
+  def post[A](route: Route[A]): API[A, Unit, Unit] =
+    method(Method.POST, route)
 
   /**
-   * Creates an API for a PUT request at the given path.
+   * Creates an API for a PUT request at the given route.
    */
-  def put[A](path: Route[A]): API[A, Unit, Unit] =
-    method(Method.PUT, path)
+  def put[A](route: Route[A]): API[A, Unit, Unit] =
+    method(Method.PUT, route)
 
   /**
-   * Creates an API with the given method and path.
+   * Creates an API with the given method and route.
    */
-  private def method[Params](method: Method, path: Route[Params]): API[Params, Unit, Unit] =
+  private def method[Params](method: Method, route: Route[Params]): API[Params, Unit, Unit] =
     API(
       method = method,
-      requestParser = path,
+      requestCodec = route,
       doc = Doc.empty,
       inputSchema = Schema[Unit],
       outputSchema = Schema[Unit],

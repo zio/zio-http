@@ -10,20 +10,20 @@ import java.util.UUID
 
 object OpenApiInterpreter {
 
-  def getPath(requestParser: RequestParser[_]): ApiPath =
-    ApiPath(getPathComponents(requestParser.getRoute))
+  def getPath(requestCodec: RequestCodec[_]): ApiPath =
+    ApiPath(getPathComponents(requestCodec.getRoute))
 
-  def getRouteImpl(requestParser: RequestParser[_]): Option[Route[_]] =
-    requestParser match {
-      case RequestParser.ZipWith(left, right, _, _) =>
+  def getRouteImpl(requestCodec: RequestCodec[_]): Option[Route[_]] =
+    requestCodec match {
+      case RequestCodec.ZipWith(left, right, _, _) =>
         getRouteImpl(left) orElse getRouteImpl(right)
-      case RequestParser.Map(info, _, _)            =>
+      case RequestCodec.Map(info, _, _)            =>
         getRouteImpl(info)
-      case _: Header[_]                             =>
+      case _: Header[_]                            =>
         None
-      case _: Query[_]                              =>
+      case _: Query[_]                             =>
         None
-      case route: Route[_]                          =>
+      case route: Route[_]                         =>
         Some(route)
     }
 
@@ -104,8 +104,8 @@ object OpenApiInterpreter {
         OperationObject(
           None,
           None,
-          pathToParameterObjects(api.requestParser.getRoute) ++
-            api.requestParser.getQueryParams.toList.flatMap(queryParamsToParameterObjects(_)),
+          pathToParameterObjects(api.requestCodec.getRoute) ++
+            api.requestCodec.getQueryParams.toList.flatMap(queryParamsToParameterObjects(_)),
           // TODO: Flesh this out
           pathToRequestBodyObject(api),
           Map(
@@ -122,7 +122,7 @@ object OpenApiInterpreter {
     Paths(
       apis.map(api =>
         PathObject(
-          path = getPath(api.requestParser),
+          path = getPath(api.requestCodec),
           operations = apiToOperation(api),
         ),
       ),

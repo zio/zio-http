@@ -30,7 +30,6 @@ import java.util.UUID
 // - Client Improvements
 // - Making OpenAPI Support more robust/customizable
 // - Exposing the OpenAPI Docs on a port
-// - Removing hard coded JsonCodec, rely fully on Schema
 // - Deleting fancy yet pointless api/handlers validation macro business and types
 // - Crazy Optimizations
 //   - Reducing allocations
@@ -44,9 +43,7 @@ import java.util.UUID
 
 object ZIOWorld extends App {
   // APIs
-
   // GET /talks?title=my_talk
-
   // case req @ Methods.GET -> !! / "talks" -> req.queryParams =>
 
   val cool: HttpApp[Any, Nothing] =

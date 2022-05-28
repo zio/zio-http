@@ -10,7 +10,7 @@ private[api] object ServerInterpreter {
   def handlerToHttpApp[R, E, Params, Input, Output](
     handler: Handler[R, E, Params, Input, Output],
   ): HttpApp[R, E] = {
-    val parser: PartialFunction[Request, Params]           = (handler.api.requestParser.parseRequest _).unlift
+    val parser: PartialFunction[Request, Params]           = (handler.api.requestCodec.parseRequest _).unlift
     val outputEncoder: Output => Chunk[Byte]               = JsonCodec.encode(handler.api.outputSchema)
     val inputDecoder: Chunk[Byte] => Either[String, Input] = JsonCodec.decode(handler.api.inputSchema)
 
