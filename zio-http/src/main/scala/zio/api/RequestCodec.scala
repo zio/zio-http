@@ -75,6 +75,8 @@ sealed trait RequestCodec[A] extends Product with Serializable { self =>
   private[api] def parseRequest(request: Request): Option[A] = Option(parseRequestImpl(request))
 
   private[api] def parseRequestImpl(request: Request): A
+
+  private[api] def unapply(request: Request): Option[A] = parseRequest(request)
 }
 
 object RequestCodec {

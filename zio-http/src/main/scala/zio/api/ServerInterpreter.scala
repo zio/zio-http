@@ -10,7 +10,7 @@ private[api] object ServerInterpreter {
   def handlerToHttpApp[R, E, Params, Input, Output](
     handler: Handler[R, E, Params, Input, Output],
   ): HttpApp[R, E] = {
-    val parser: PartialFunction[Request, Params]           = (handler.api.requestCodec.parseRequest _).unlift
+    val requestCodec: RequestCodec[Params]                 = handler.api.requestCodec
     val outputEncoder: Output => Chunk[Byte]               = JsonCodec.encode(handler.api.outputSchema)
     val inputDecoder: Chunk[Byte] => Either[String, Input] = JsonCodec.decode(handler.api.inputSchema)
 
@@ -33,7 +33,7 @@ private[api] object ServerInterpreter {
     }
 
     Http.collectZIO {
-      case req @ parser(result) if req.method == handler.api.method =>
+      case req @ requestCodec(result) if req.method == handler.api.method =>
         withInput(req) { input =>
           handler
             .handle((result, input))

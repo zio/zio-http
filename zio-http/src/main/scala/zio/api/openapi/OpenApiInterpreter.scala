@@ -88,15 +88,18 @@ object OpenApiInterpreter {
     }
 
   def pathToRequestBodyObject(api: API[_, _, _]): Option[RequestBodyObject] =
-    Option.when(api.inputSchema != Schema[Unit]) {
-      RequestBodyObject(
-        "Input",
-        Map(
-          "application/json" -> MediaTypeObject(SchemaObject.fromSchema(api.inputSchema)),
+    if (api.inputSchema != Schema[Unit])
+      Some(
+        RequestBodyObject(
+          "Input",
+          Map(
+            "application/json" -> MediaTypeObject(SchemaObject.fromSchema(api.inputSchema)),
+          ),
+          true,
         ),
-        true,
       )
-    }
+    else
+      None
 
   def apiToOperation(api: API[_, _, _]): Map[String, OperationObject] =
     Map(

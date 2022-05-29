@@ -28,7 +28,7 @@ private[api] object ClientInterpreter {
     private val pathBuilder: StringBuilder           = new StringBuilder()
 
     def addPath(path: String): Unit =
-      pathBuilder.addAll(path)
+      pathBuilder.append(path)
 
     def addQuery(key: String, value: String): Unit = {
       val _ = query.put(key, value)

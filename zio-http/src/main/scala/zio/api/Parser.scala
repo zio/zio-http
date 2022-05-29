@@ -14,11 +14,16 @@ object Parser {
   }
 
   implicit val intParser: Parser[Int] = new Parser[Int] {
-    override def parse(input: String): Option[Int] = input.toIntOption
+    override def parse(input: String): Option[Int] =
+      try { Some(input.toInt) }
+      catch { case _: NumberFormatException => None }
   }
 
   implicit val booleanParser: Parser[Boolean] = new Parser[Boolean] {
-    override def parse(input: String): Option[Boolean] = input.toBooleanOption
+    override def parse(input: String): Option[Boolean] =
+      if (input.equalsIgnoreCase("true")) Some(true)
+      else if (input.equalsIgnoreCase("false")) Some(false)
+      else None
   }
 
   implicit val uuidParser: Parser[UUID] = new Parser[UUID] {
