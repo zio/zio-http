@@ -11,18 +11,6 @@ import Domain._
 
 import java.util.UUID
 
-// API DSL
-// - Declarative
-// - Introspectable description of your API
-// - Haskell Servant (Types) — Refined Type
-// - Ergonomics
-// - Speed
-// - Tapir -> ZHTTP
-// - Endpoint4s
-// - Description + HandlerLogic -> Server
-// - Description + Arguments    -> Client
-// - Description                -> OpenAPI Documentation
-
 // TODO:
 // - Customize response headers or status code
 // - Flesh out Doc
@@ -41,7 +29,7 @@ import java.util.UUID
 //   - /talks/id
 //   - /talks/id
 
-object ZIOWorld extends App {
+object ComplexExample extends App {
   // APIs
   // GET /talks?title=my_talk
   // case req @ Methods.GET -> !! / "talks" -> req.queryParams =>
@@ -71,8 +59,7 @@ object ZIOWorld extends App {
       .output[Talk]
 
   val deleteTalk =
-    API
-      .delete("talks" / uuid)
+    API.delete("talks" / uuid)
 
   val apis =
     getTalk ++ allTalks ++ deleteTalk ++ createTalk
@@ -126,7 +113,7 @@ object CreateTalk {
 object ExampleClient extends App {
 
   val clientRequest =
-    ZIOWorld.getTalk
+    ComplexExample.getTalk
       .call("http://localhost:8080")(UUID.fromString("ee6c1806-3160-43e9-a501-95e1e8fcd1c2"))
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

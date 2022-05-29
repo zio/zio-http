@@ -17,7 +17,8 @@ private[api] object ClientInterpreter {
     val (url, headers) = state.result
     val data           =
       if (api.inputSchema == Schema[Unit]) HttpData.empty
-      else HttpData.fromString(JsonCodec.encode(api.inputSchema)(input).toString)
+      else HttpData.fromChunk(JsonCodec.encode(api.inputSchema)(input))
+
     Client.request(s"$host$url", api.method, zhttp.http.Headers(headers.toList), content = data)
   }
 
