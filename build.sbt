@@ -105,8 +105,13 @@ lazy val zhttp = (project in file("zio-http"))
       `zio-test`,
       `zio-test-sbt`,
       `netty-incubator`,
-      `scala-compact-collection`,
     ),
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, n)) if n <= 12 => Seq(`scala-compact-collection`)
+        case _                       => Seq.empty
+      }
+    },
   )
 
 lazy val zhttpBenchmarks = (project in file("zio-http-benchmarks"))
