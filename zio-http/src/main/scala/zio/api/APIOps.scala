@@ -16,7 +16,7 @@ final class APIOps[Params, Input, Output: NotUnit, ZipOut, Id](
     f: ZipOut => ZIO[R, E, Output],
   ): Handler[R, E, Params, Input, Output] =
     Handler.make[R, E, Params, Input, Output](self) { case (params, input) =>
-      f(zipper.zip(params, input))
+      f(zipper.zip(params, input)).map(ApiResponse(_))
     }
 
   def toHttp[R, E](
@@ -40,6 +40,16 @@ final class APIOpsUnit[Params, Input, ZipOut, Id](val self: API.WithId[Params, I
 ) {
   def handle[R, E, Output2](
     f: ZipOut => ZIO[R, E, Output2],
+  )(implicit
+    schema: Schema[Output2],
+  ): Handler[R, E, Params, Input, Output2] =
+    Handler
+      .make[R, E, Params, Input, Output2](self.output[Output2]) { case (params, input) =>
+        f(zipper.zip(params, input)).map(ApiResponse(_))
+      }
+
+  def handleWith[R, E, Output2](
+    f: ZipOut => ZIO[R, E, ApiResponse[Output2]],
   )(implicit
     schema: Schema[Output2],
   ): Handler[R, E, Params, Input, Output2] =

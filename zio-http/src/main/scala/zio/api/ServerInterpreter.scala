@@ -14,7 +14,10 @@ private[api] object ServerInterpreter {
     val outputEncoder: Output => Chunk[Byte]               = JsonCodec.encode(handler.api.outputSchema)
     val inputDecoder: Chunk[Byte] => Either[String, Input] = JsonCodec.decode(handler.api.inputSchema)
 
-    def withInput(request: Request)(process: Input => ZIO[R, E, Response]): ZIO[R, E, Response] =
+    // TODO:
+    //  Use request.unsafeEncode
+    //  First, parse the url, then parse the remaining query string if there is one
+    def withInput(request: Request)(process: Input => ZIO[R, E, Response]): ZIO[R, E, Response] = {
       if (handler.api.inputSchema == Schema[Unit]) {
         process(().asInstanceOf[Input])
       } else {
@@ -27,17 +30,21 @@ private[api] object ServerInterpreter {
           UIO(Response.text(s"Error parsing request body: $err"))
         }
       }
+    }
 
     Http.collectZIO {
       case req @ parser(result) if req.method == handler.api.method =>
         withInput(req) { input =>
           handler
             .handle((result, input))
-            .map { a =>
+            .map { apiResponse =>
               if (handler.api.outputSchema == Schema[Unit])
                 Response.ok
               else
-                Response.json(new String(outputEncoder(a).toArray))
+                Response
+                  .json(new String(outputEncoder(apiResponse.value).toArray))
+                  .addHeaders(apiResponse.headers)
+                  .setStatus(apiResponse.status)
             }
         }
     }
