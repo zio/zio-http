@@ -1,4 +1,4 @@
-package zhttp.service.server.content.handlers
+package zhttp.service
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.HttpContent
 import zhttp.http.HttpData.{UnsafeChannel, UnsafeContent}

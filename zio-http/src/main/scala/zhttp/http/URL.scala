@@ -50,7 +50,7 @@ final case class URL(
   def setPath(path: Path): URL =
     copy(path = path)
 
-  def setPath(path: String): URL = copy(path = Path(path))
+  def setPath(path: String): URL = copy(path = Path.decode(path))
 
   def setPort(port: Int): URL = {
     val location = kind match {
@@ -74,6 +74,13 @@ final case class URL(
     }
 
     copy(kind = location)
+  }
+
+  def isEqual(other: URL): Boolean = {
+    self.kind == other.kind &&
+    self.path == other.path &&
+    (self.queryParams.toSet diff other.queryParams.toSet).isEmpty
+    self.fragment == other.fragment
   }
 
   private[zhttp] def relative: URL = self.kind match {
@@ -126,12 +133,12 @@ object URL {
       path   <- Option(uri.getRawPath)
       port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
       connection = URL.Location.Absolute(scheme, host, port)
-    } yield URL(Path(path), connection, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
+    } yield URL(Path.decode(path), connection, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
   }
 
   private def fromRelativeURI(uri: URI): Option[URL] = for {
     path <- Option(uri.getRawPath)
-  } yield URL(Path(path), Location.Relative, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
+  } yield URL(Path.decode(path), Location.Relative, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
 
   private def portFromScheme(scheme: Scheme): Int = scheme match {
     case Scheme.HTTP | Scheme.WS   => 80
@@ -164,4 +171,5 @@ object URL {
       decoded <- Option(uri.getFragment)
     } yield Fragment(raw, decoded)
   }
+
 }

@@ -14,7 +14,7 @@ class CookieDecodeBenchmark {
   val name   = random.alphanumeric.take(100).mkString("")
   val value  = random.alphanumeric.take(100).mkString("")
   val domain = random.alphanumeric.take(100).mkString("")
-  val path   = Path((0 to 10).map { _ => random.alphanumeric.take(10).mkString("") }.mkString(""))
+  val path   = Path.decode((0 to 10).map { _ => random.alphanumeric.take(10).mkString("") }.mkString(""))
   val maxAge = random.nextLong()
 
   private val cookie    = Cookie(

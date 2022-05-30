@@ -26,9 +26,7 @@ trait EncodeRequest {
       }
 
       val writerIndex = content.writerIndex()
-      if (writerIndex != 0) {
-        headers.set(HttpHeaderNames.CONTENT_LENGTH, writerIndex.toString)
-      }
+      headers.set(HttpHeaderNames.CONTENT_LENGTH, writerIndex.toString)
 
       // TODO: we should also add a default user-agent req header as some APIs might reject requests without it.
       val jReq = new DefaultFullHttpRequest(jVersion, method, path, content)

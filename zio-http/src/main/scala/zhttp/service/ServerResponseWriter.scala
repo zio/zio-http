@@ -1,28 +1,22 @@
-package zhttp.service.server.content.handlers
+package zhttp.service
 
 import io.netty.buffer.ByteBuf
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
-import zhttp.http.{HttpData, Response}
+import zhttp.http._
+import zhttp.logging.Logger
+import zhttp.service.ServerResponseWriter.log
 import zhttp.service.server.ServerTime
-import zhttp.service.{ChannelFuture, HttpRuntime, Server}
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
 
 import java.io.File
 
-private[zhttp] trait ServerResponseHandler[R] {
-  type Ctx = ChannelHandlerContext
-  val rt: HttpRuntime[R]
-  val config: Server.Config[R, Throwable]
-
-  def serverTime: ServerTime
-
-  def writeResponse(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
-    ctx.write(encodeResponse(msg))
-    writeData(msg.data.asInstanceOf[HttpData.Complete], jReq)
-    ()
-  }
+private[zhttp] final class ServerResponseWriter[R](
+  runtime: HttpRuntime[R],
+  config: Server.Config[R, Throwable],
+  serverTime: ServerTime,
+) { self =>
 
   /**
    * Enables auto-read if possible. Also performs the first read.
@@ -92,7 +86,8 @@ private[zhttp] trait ServerResponseHandler[R] {
   /**
    * Writes data on the channel
    */
-  private def writeData(data: HttpData.Complete, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+  private def writeData(data: HttpData, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    log.debug(s"WriteData: ${data.getClass.getSimpleName}")
     data match {
 
       case _: HttpData.FromAsciiString => flushReleaseAndRead(jReq)
@@ -104,13 +99,19 @@ private[zhttp] trait ServerResponseHandler[R] {
       case HttpData.Empty => flushReleaseAndRead(jReq)
 
       case HttpData.BinaryStream(stream) =>
-        rt.unsafeRun(ctx) {
+        runtime.unsafeRun(ctx) {
           writeStreamContent(stream).ensuring(UIO(releaseAndRead(jReq)))
         }
 
       case HttpData.JavaFile(unsafeGet) =>
         unsafeWriteFileContent(unsafeGet())
         releaseAndRead(jReq)
+
+      case HttpData.UnsafeAsync(unsafeRun) =>
+        unsafeRun { _ => msg =>
+          ctx.writeAndFlush(msg)
+          if (!msg.isInstanceOf[LastHttpContent]) ctx.read(): Unit
+        }
     }
   }
 
@@ -125,4 +126,36 @@ private[zhttp] trait ServerResponseHandler[R] {
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
   }
+
+  def write(msg: Throwable, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    val response = Response
+      .fromHttpError(HttpError.InternalServerError(cause = Some(msg)))
+      .withConnection(HeaderValues.close)
+    self.write(response, jReq)
+  }
+
+  def write(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    ctx.write(encodeResponse(msg))
+    writeData(msg.data, jReq)
+    ()
+  }
+
+  def write(msg: HttpError, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    val response = Response.fromHttpError(msg)
+    self.write(response, jReq)
+  }
+
+  def write(msg: Status, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    val response = Response.status(msg)
+    self.write(response, jReq)
+  }
+
+  def writeNotFound(jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    val error = HttpError.NotFound(Path.decode(jReq.uri()))
+    self.write(error, jReq)
+  }
+}
+
+object ServerResponseWriter {
+  val log: Logger = Log.withTags("Server", "Response")
 }

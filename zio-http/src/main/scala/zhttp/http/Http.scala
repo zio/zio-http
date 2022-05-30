@@ -1,19 +1,20 @@
 package zhttp.http
 
-import io.netty.channel.ChannelHandler
+import io.netty.buffer.{ByteBuf, ByteBufUtil}
+import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
 import zhttp.http.headers.HeaderModifier
-import zhttp.service.server.ServerTime
-import zhttp.service.{Handler, HttpRuntime, Server}
+import zhttp.service.{Handler, HttpRuntime, Server, ServerResponseWriter}
 import zio._
 import zio.blocking.{Blocking, effectBlocking}
 import zio.clock.Clock
 import zio.duration.Duration
 import zio.stream.ZStream
 
-import java.io.File
+import java.io.{File, IOException}
 import java.net
+import java.net.{InetAddress, InetSocketAddress}
 import java.nio.charset.Charset
 import java.nio.file.Paths
 import scala.annotation.unused
@@ -31,11 +32,11 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Extracts body as a ByteBuf
    */
-  private[zhttp] final def bodyAsByteArray(implicit
+  private[zhttp] final def bodyAsByteBuf(implicit
     eb: B <:< Response,
     ee: E <:< Throwable,
-  ): Http[R, Throwable, A, Array[Byte]] =
-    self.widen[Throwable, B].mapZIO(_.bodyAsByteArray)
+  ): Http[R, Throwable, A, ByteBuf] =
+    self.widen[Throwable, B].mapZIO(_.bodyAsByteBuf)
 
   /**
    * Evaluates the app and returns an HExit that can be resolved further
@@ -183,13 +184,13 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Extracts body
    */
   final def body(implicit eb: B <:< Response, ee: E <:< Throwable): Http[R, Throwable, A, Chunk[Byte]] =
-    self.bodyAsByteArray.mapZIO(buf => Task(Chunk.fromArray(buf)))
+    self.bodyAsByteBuf.mapZIO(buf => Task(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
 
   /**
    * Extracts body as a string
    */
   final def bodyAsString(implicit eb: B <:< Response, ee: E <:< Throwable): Http[R, Throwable, A, String] =
-    self.bodyAsByteArray.mapZIO(bytes => Task(new String(bytes, HTTP_CHARSET)))
+    self.bodyAsByteBuf.mapZIO(bytes => Task(bytes.toString(HTTP_CHARSET)))
 
   /**
    * Catches all the exceptions that the http app can fail with
@@ -396,11 +397,24 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self >>> Http.fromFunctionZIO(bFc)
 
   /**
+   * Returns a new Http where the error channel has been merged into the success
+   * channel to their common combined type.
+   */
+  final def merge[E1 >: E, B1 >: B](implicit ev: E1 =:= B1): Http[R, Nothing, A, B1] =
+    self.catchAll(Http.succeed(_))
+
+  /**
    * Named alias for @@
    */
   final def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
     mid: Middleware[R1, E1, A1, B1, A2, B2],
   ): Http[R1, E1, A2, B2] = Http.RunMiddleware(self, mid)
+
+  /**
+   * Narrows the type of the input
+   */
+  final def narrow[A1](implicit a: A1 <:< A): Http[R, E, A1, B] =
+    self.asInstanceOf[Http[R, E, A1, B]]
 
   /**
    * Executes this app, skipping the error but returning optionally the success.
@@ -617,12 +631,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.asInstanceOf[Http[R, E1, A, B1]]
 
   /**
-   * Narrows the type of the input
-   */
-  final def narrow[A1](implicit a: A1 <:< A): Http[R, E, A1, B] =
-    self.asInstanceOf[Http[R, E, A1, B]]
-
-  /**
    * Combines the two apps and returns the result of the one on the right
    */
   final def zipRight[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
@@ -637,11 +645,11 @@ object Http {
     private[zhttp] def compile[R1 <: R](
       zExec: HttpRuntime[R1],
       settings: Server.Config[R1, Throwable],
-      serverTimeGenerator: ServerTime,
+      resWriter: ServerResponseWriter[R1],
     )(implicit
       evE: E <:< Throwable,
     ): ChannelHandler =
-      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, serverTimeGenerator)
+      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, resWriter)
 
     /**
      * Patches the response produced by the app
@@ -676,7 +684,7 @@ object Http {
     /**
      * Applies Http based on the path
      */
-    def whenPathEq(p: Path): HttpApp[R, E] = http.whenPathEq(p.toString)
+    def whenPathEq(p: Path): HttpApp[R, E] = http.whenPathEq(p.encode)
 
     /**
      * Applies Http based on the path as string
@@ -732,6 +740,11 @@ object Http {
    */
   def combine[R, E, A, B](i: Iterable[Http[R, E, A, B]]): Http[R, E, A, B] =
     i.reduce(_.defaultWith(_))
+
+  /**
+   * Provides access to the request's ChannelHandlerContext
+   */
+  def context: Http[Any, Nothing, Request, ChannelHandlerContext] = Http.fromFunction[Request](_.unsafeContext)
 
   /**
    * Returns an http app that dies with the specified `Throwable`. This method
@@ -941,6 +954,17 @@ object Http {
   def ok: HttpApp[Any, Nothing] = status(Status.Ok)
 
   /**
+   * Provides access to the request's remote address
+   */
+  def remoteAddress: Http[Any, IOException, Request, InetAddress] =
+    context flatMap { ctx =>
+      ctx.channel().remoteAddress() match {
+        case m: InetSocketAddress => Http.succeed(m.getAddress)
+        case _                    => Http.fail(new IOException("Unable to get remote address"))
+      }
+    }
+
+  /**
    * Creates an Http app which always responds with the same value.
    */
   def response(response: Response): Http[Any, Nothing, Any, Response] = Http.succeed(response)
@@ -949,11 +973,6 @@ object Http {
    * Converts a ZIO to an Http app type
    */
   def responseZIO[R, E](res: ZIO[R, E, Response]): HttpApp[R, E] = Http.fromZIO(res)
-
-  /**
-   * Creates an Http that delegates to other Https.
-   */
-  def route[A]: Http.PartialRoute[A] = Http.PartialRoute(())
 
   /**
    * Creates an HTTP app which always responds with the same status code and
@@ -990,6 +1009,12 @@ object Http {
    */
   def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.RequestEntityTooLarge)
 
+  /**
+   * Provides low level access to an HttpApp to perform unsafe operations using
+   * the request's ChannelHandlerContext.
+   */
+  def usingContext[R, E](f: ChannelHandlerContext => HttpApp[R, E]): HttpApp[R, E] = context.flatMap(f(_))
+
   // Ctor Help
   final case class PartialCollectZIO[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, ZIO[R, E, B]]): Http[R, E, A, B] =
@@ -1018,11 +1043,6 @@ object Http {
   final case class PartialCollectHExit[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, HExit[R, E, B]]): Http[R, E, A, B] =
       FromFunctionHExit(a => if (pf.isDefinedAt(a)) pf(a) else HExit.empty)
-  }
-
-  final case class PartialRoute[A](unit: Unit) extends AnyVal {
-    def apply[R, E, B](pf: PartialFunction[A, Http[R, E, A, B]]): Http[R, E, A, B] =
-      Http.collect[A] { case r if pf.isDefinedAt(r) => pf(r) }.flatten
   }
 
   final case class PartialContraFlatMap[-R, +E, -A, +B, X](self: Http[R, E, A, B]) extends AnyVal {

@@ -22,6 +22,8 @@ object Html {
 
   implicit def fromDomElement(element: Dom): Html = Html.Single(element)
 
+  implicit def fromUnit(unit: Unit): Html = Html.Empty
+
   private[zhttp] case class Single(element: Dom) extends Html
 
   private[zhttp] final case class Multiple(children: Seq[Dom]) extends Html

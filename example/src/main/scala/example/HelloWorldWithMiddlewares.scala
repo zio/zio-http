@@ -39,5 +39,5 @@ object HelloWorldWithMiddlewares extends App {
 
   // Run it like any simple app
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, (app @@ middlewares)).exitCode
+    Server.start(8090, app @@ middlewares).exitCode
 }

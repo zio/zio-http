@@ -90,11 +90,13 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         url      <- Http.fromZIO(DynamicServer.wsURL)
         response <- Http.fromFunctionZIO[SocketApp[HttpEnv]] { app =>
-          Client.socket(
-            url = url,
-            headers = Headers(DynamicServer.APP_ID, id),
-            app = app,
-          )
+          Client
+            .socket(
+              url = url,
+              headers = Headers(DynamicServer.APP_ID, id),
+              app = app,
+            )
+            .useNow
         }
       } yield response
   }
@@ -105,7 +107,13 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
   ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
     for {
       settings <- ZManaged
-        .succeed(server.foldLeft(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection)(_ ++ _))
+        .succeed(
+          server.foldLeft(
+            Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection,
+          )(
+            _ ++ _,
+          ),
+        )
       start    <- Server.make(settings).orDie
       _        <- DynamicServer.setStart(start).toManaged_
     } yield ()

@@ -51,10 +51,10 @@ object URLSpec extends DefaultRunnableSpec {
 
     suite("asString")(
       testM("using gen") {
-        checkAll(HttpGen.url) { case url =>
+        check(HttpGen.url) { case url =>
           val source  = url.encode
-          val decoded = URL.fromString(source).map(_.encode)
-          assert(decoded)(isRight(equalTo(source)))
+          val decoded = URL.fromString(source)
+          assert(decoded.map(_.isEqual(url)))(isRight(equalTo(true)))
         }
       } +
         test("empty") {
@@ -96,7 +96,7 @@ object URLSpec extends DefaultRunnableSpec {
 
       val expected =
         URL(
-          Path("/list/users"),
+          Path.decode("/list/users"),
           URL.Location.Relative,
           Map("user_id" -> List("1", "2"), "order" -> List("ASC"), "text" -> List("zio-http is awesome!")),
         )
@@ -118,7 +118,7 @@ object URLSpec extends DefaultRunnableSpec {
     },
     test("returns relative URL if port, host, and scheme are not set") {
       val builderUrl = URL.empty
-        .setPath(Path("/list"))
+        .setPath(Path.decode("/list"))
         .setQueryParams(
           Map("type" -> List("builder"), "query" -> List("provided")),
         )

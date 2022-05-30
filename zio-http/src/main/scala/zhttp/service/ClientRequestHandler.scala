@@ -1,4 +1,4 @@
-package zhttp.service.server.content.handlers
+package zhttp.service
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
