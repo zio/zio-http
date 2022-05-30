@@ -11,7 +11,15 @@ object Dependencies {
   val `jwt-core`                 = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
   val `scala-compact-collection` = "org.scala-lang.modules" %% "scala-collection-compat" % ScalaCompactCollectionVersion
 
-  val netty             = "io.netty" % "netty-all" % NettyVersion
+  val netty =
+    Seq(
+      "netty-codec-http",
+      "netty-transport-native-epoll",
+      "netty-transport-native-kqueue",
+    ).map { name =>
+      "io.netty" % name % NettyVersion
+    }
+
   val `netty-incubator` =
     "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % NettyIncubatorVersion classifier "linux-x86_64"
 
