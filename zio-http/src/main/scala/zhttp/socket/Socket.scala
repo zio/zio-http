@@ -3,7 +3,7 @@ package zhttp.socket
 import zhttp.http.{Http, Response}
 import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zio.stream.ZStream
-import zio.{Cause, ZEnvironment, ZIO}
+import zio.{Cause, Scope, ZEnvironment, ZIO}
 
 sealed trait Socket[-R, +E, -A, +B] { self =>
   import Socket._
@@ -28,7 +28,7 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
 
   def connect(url: String)(implicit
     ev: IsWebSocket[R, E, A, B],
-  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Response] =
+  ): ZIO[R with EventLoopGroup with ChannelFactory with Scope, Throwable, Response] =
     self.toSocketApp.connect(url)
 
   def contramap[Z](za: Z => A): Socket[R, E, Z, B] = Socket.FCMap(self, za)

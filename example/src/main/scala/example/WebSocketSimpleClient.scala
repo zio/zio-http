@@ -10,7 +10,7 @@ object WebSocketSimpleClient extends ZIOAppDefault {
   // Setup client envs
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto
 
-  val url = "ws://localhost:8090/subscriptions"
+  val url = "ws://ws.vi-server.org/mirror"
 
   val app = Socket
     .collect[WebSocketFrame] {
@@ -20,6 +20,6 @@ object WebSocketSimpleClient extends ZIOAppDefault {
     .toSocketApp
     .connect(url)
 
-  val run = app.exitCode.provideLayer(env)
+  val run = ZIO.scoped { app *> ZIO.never }.exitCode.provideLayer(env)
 
 }
