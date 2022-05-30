@@ -1,25 +1,22 @@
 package zhttp.service
-import io.netty.channel.ChannelHandlerContext
-import io.netty.handler.codec.http.HttpContent
-import zhttp.http.HttpData.{UnsafeChannel, UnsafeContent}
 
-final class ClientResponseStreamHandler {
-  private var onMessage: UnsafeContent => Unit = _
-  private var holder: HttpContent              = _
+import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 
-  def init(ctx: ChannelHandlerContext, cb: UnsafeChannel => UnsafeContent => Unit): Unit = {
-    onMessage = cb(new UnsafeChannel(ctx))
-    if (holder != null)
-      onMessage(new UnsafeContent(holder))
-    holder = null
-    ctx.read(): Unit
+final class ClientResponseStreamHandler(val callback: HttpContent => Any)
+    extends SimpleChannelInboundHandler[HttpContent](false) { self =>
+
+  override def channelRead0(
+    ctx: Ctx,
+    msg: HttpContent,
+  ): Unit = {
+    self.callback(msg)
+    if (msg.isInstanceOf[LastHttpContent]) {
+      ctx.channel().pipeline().remove(self): Unit
+    }
   }
 
-  def update(msg: HttpContent): Unit = {
-    if (onMessage == null) {
-      holder = msg
-    } else {
-      onMessage(new UnsafeContent(msg))
-    }
+  override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
+    ctx.read(): Unit
   }
 }

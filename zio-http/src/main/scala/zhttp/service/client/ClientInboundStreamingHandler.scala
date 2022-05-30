@@ -2,8 +2,13 @@ package zhttp.service.client
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http.{HttpData, Request, Response}
-import zhttp.service.HttpRuntime
-import zhttp.service.server.content.handlers.{ClientRequestHandler, ClientResponseStreamHandler}
+import zhttp.service.{
+  CLIENT_INBOUND_HANDLER,
+  CLIENT_STREAMING_BODY_HANDLER,
+  ClientRequestHandler,
+  ClientResponseStreamHandler,
+  HttpRuntime,
+}
 import zio.Promise
 
 final class ClientInboundStreamingHandler[R](
@@ -13,28 +18,35 @@ final class ClientInboundStreamingHandler[R](
 ) extends SimpleChannelInboundHandler[HttpObject](false)
     with ClientRequestHandler[R] {
 
-  private val collector                                        = new ClientResponseStreamHandler
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
-    writeRequest(req)(ctx)
-    ()
+    writeRequest(req)(ctx): Unit
   }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
     msg match {
       case response: HttpResponse =>
+        ctx.channel().config().setAutoRead(false)
         zExec.unsafeRun(ctx) {
           promise
             .succeed(
               Response.unsafeFromJResponse(
                 response,
-                HttpData.UnsafeAsync(callback => collector.init(ctx, callback)),
+                HttpData.UnsafeAsync { callback =>
+                  ctx
+                    .pipeline()
+                    .addAfter(
+                      CLIENT_INBOUND_HANDLER,
+                      CLIENT_STREAMING_BODY_HANDLER,
+                      new ClientResponseStreamHandler(callback(ctx)),
+                    ): Unit
+                },
               ),
             )
             .uninterruptible
 
         }
       case content: HttpContent   =>
-        collector.update(content)
+        ctx.fireChannelRead(content): Unit
 
       case err => throw new IllegalStateException(s"Client unexpected message type: ${err}")
     }

@@ -3,13 +3,14 @@ package zhttp.service
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{
   Channel,
+  ChannelInitializer,
   ChannelFactory => JChannelFactory,
   ChannelFuture => JChannelFuture,
-  ChannelInitializer,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
+import io.netty.handler.flow.FlowControlHandler
 import zhttp.http._
 import zhttp.service
 import zhttp.service.Client.Config
@@ -97,7 +98,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
           } else {
 
             // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
-
+            pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
             pipeline
               .addLast(
                 CLIENT_INBOUND_HANDLER,

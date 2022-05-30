@@ -168,7 +168,7 @@ object HttpData {
       ZStream.unwrap {
         for {
           queue <- toQueue
-          stream = ZStream.fromQueueWithShutdown(queue).takeUntil(isLast(_)).map(_.content())
+          stream = ZStream.fromQueueWithShutdown(queue).takeUntil(isLast).map(_.content())
         } yield stream
       }
 
