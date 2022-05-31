@@ -517,7 +517,7 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
             val http = Http.die(t).catchSomeDefect { case _: SecurityException => Http.succeed("OK") }
             assert(http.execute {})(isDie(equalTo(t)))
           }
-      } +
+      },
       suite("catchNonFatalOrDie") {
         test("catches non-fatal exception") {
           val t    = new IllegalArgumentException("boom")

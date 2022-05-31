@@ -1,14 +1,11 @@
 package zhttp.socket
 
 import zhttp.http.Status
-import zhttp.socket.SocketSpec.testM
 import zio._
-import zio.duration.durationInt
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
-import zio.test.environment.{TestClock, TestConsole}
 
 object SocketSpec extends ZIOSpecDefault {
 

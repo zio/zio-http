@@ -19,9 +19,6 @@ import zio.{Scope, ZIO}
 abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
 
   implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Request, A]) {
-abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
-
-  implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Request, A]) {
 
     /**
      * Runs the deployed Http app by making a real http request to it. The
