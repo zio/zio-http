@@ -2,10 +2,10 @@ package zhttp.service
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.ServerSpec.requestBodySpec
-import zio.{ZIO, durationInt}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
+import zio.{ZIO, durationInt}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
   private val env =
