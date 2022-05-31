@@ -11,7 +11,7 @@ object SocketSpec extends ZIOSpecDefault {
 
   def spec = suite("SocketSpec") {
     operationsSpec
-  } @@ timeout(5 seconds)
+  }.provide(Clock.live) @@ timeout(5 seconds)
 
   def operationsSpec = suite("OperationsSpec") {
     test("fromStream provide") {

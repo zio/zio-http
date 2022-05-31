@@ -202,5 +202,5 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
             assertZIO(app("2").exit)(fails(anything))
           }
       }
-  }
+  }.provide(Clock.live)
 }
