@@ -1,6 +1,6 @@
 package zhttp.html
 
-import zio.test.{Gen, ZIOSpecDefault, assertTrue, checkAll}
+import zio.test.{Gen, ZIOSpecDefault, assertTrue, check, checkAll}
 
 object DomSpec extends ZIOSpecDefault {
   def spec = suite("DomSpec") {
@@ -79,7 +79,7 @@ object DomSpec extends ZIOSpecDefault {
           }
         } +
           test("not void") {
-            checkAll(tagGen) { name =>
+            check(tagGen) { name =>
               val dom = Dom.element(name)
               assertTrue(dom.encode == s"<${name}></${name}>")
             }

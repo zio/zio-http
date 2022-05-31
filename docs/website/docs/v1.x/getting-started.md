@@ -105,13 +105,13 @@ Since `Http` is a function of the form `A => ZIO[R, Option[E], B]` to test it yo
 import zio.test._
 import zhttp.http._
 
-object Spec extends ZIOSpecDefault {
+object Spec extends DefaultRunnableSpec {
 
   def spec = suite("http")(
-      test("should be ok") {
+      testM("should be ok") {
         val app = Http.ok
         val req = Request()
-        assertZIO(app(req))(equalTo(Response.ok))
+        assertM(app(req))(equalTo(Response.ok))
       }
     )
 }
@@ -156,20 +156,20 @@ import zhttp.http._
 import zhttp.service.Server
 import zio._
 
-object HelloWorld extends ZIOAppDefault {
+object HelloWorld extends App {
   val app = Http.ok
 
-  override val run =
-    Server.start(8090, app)
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+    Server.start(8090, app).exitCode
 }
 ```
 
 ## Examples
 
-- [Simple Server](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/hello-world)
-- [Advanced Server](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/hello-world-advanced)
+- [HTTP Server](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/http_server)
+- [Advanced Server](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/advanced_server)
 - [WebSocket Server](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/web-socket)
 - [Streaming Response](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/stream-response)
-- [Simple Client](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/simple-client)
+- [HTTP Client](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/http_client)
 - [File Streaming](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/stream-file)
 - [Authentication](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/authentication)

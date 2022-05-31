@@ -1,5 +1,6 @@
 package zhttp.http
 
+import zhttp.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
 
@@ -7,27 +8,31 @@ object PathSpec extends ZIOSpecDefault with HExitAssertion {
   def collect[A](pf: PartialFunction[Path, A]): Path => Option[A] = path => pf.lift(path)
   def spec                                                        =
     suite("Path")(
-      suite("toList")(
-        test("empty")(assert(Path().toList)(equalTo(Nil))) +
-          test("empty string")(assert(Path("").toList)(equalTo(Nil))) +
-          test("just /")(assert(Path("/").toList)(equalTo(Nil))) +
-          test("un-prefixed")(assert(Path("A").toList)(equalTo(List("A")))) +
-          test("prefixed")(assert(Path("/A").toList)(equalTo(List("A")))) +
-          test("nested paths")(assert(Path("A", "B", "C").toList)(equalTo(List("A", "B", "C")))) +
-          test("encoding string")(assert(Path("A", "B%2FC").toList)(equalTo(List("A", "B%2FC")))),
-      ) +
-        suite("apply()")(
-          test("empty")(assert(Path())(equalTo(!!))) +
-            test("empty string")(assert(Path(""))(equalTo(!!))) +
-            test("just /")(assert(Path("/"))(equalTo(!!))) +
-            test("prefixed path")(assert(Path("/A"))(equalTo(Path("A")))) +
-            test("encoded paths")(assert(Path("/A/B%2FC"))(equalTo(Path("A", "B%2FC")))) +
-            test("nested paths")(assert(Path("/A/B/C"))(equalTo(Path("A", "B", "C")))),
-        ) +
-        suite("unapplySeq")(
-          test("a, b, c") {
-            val path = collect { case Path(a, b, c) => (a, b, c) }
-            assert(path(Path("a", "b", "c")))(isSome(equalTo(("a", "b", "c"))))
+      suite("Syntax")(
+        suite("/")(
+          testM("isDefined") {
+
+            val gen = Gen.elements(
+              // Exact
+              collect { case !! => true }                   -> !!,
+              collect { case !! / "a" => true }             -> !! / "a",
+              collect { case !! / "a" => true }             -> !! / "a",
+              collect { case !! / "a" / "b" => true }       -> !! / "a" / "b",
+              collect { case !! / "a" / "b" / "c" => true } -> !! / "a" / "b" / "c",
+
+              // Wildcards
+              collect { case !! / _ => true }         -> !! / "a",
+              collect { case !! / _ / _ => true }     -> !! / "a" / "b",
+              collect { case !! / _ / _ / _ => true } -> !! / "a" / "b" / "c",
+
+              // Wildcard mix
+              collect { case _ / "c" => true }     -> !! / "a" / "b" / "c",
+              collect { case _ / _ / "c" => true } -> !! / "a" / "b" / "c",
+            )
+
+            checkAll(gen) { case (pf, path) =>
+              assertTrue(pf(path).isDefined)
+            }
           },
         ) +
         suite("asString")(
@@ -135,5 +140,170 @@ object PathSpec extends ZIOSpecDefault with HExitAssertion {
           assert(!! / "a" / "b" / "c" take 1)(equalTo(!! / "a")) &&
           assert(!! take 1)(equalTo(!!))
         },
+      ),
+      testM("take") {
+        val gen = Gen.elements(
+          (1, !!)                   -> !!,
+          (1, !! / "a")             -> !! / "a",
+          (1, !! / "a" / "b")       -> !! / "a",
+          (1, !! / "a" / "b" / "c") -> !! / "a",
+          (2, !! / "a" / "b" / "c") -> !! / "a" / "b",
+          (3, !! / "a" / "b" / "c") -> !! / "a" / "b" / "c",
+          (4, !! / "a" / "b" / "c") -> !! / "a" / "b" / "c",
+        )
+
+        checkAll(gen) { case ((n, path), expected) =>
+          val actual = path.take(n)
+          assertTrue(actual == expected)
+        }
+      },
+      testM("drop") {
+        val gen = Gen.elements(
+          (1, !!)                   -> !!,
+          (1, !! / "a")             -> !!,
+          (1, !! / "a" / "b")       -> !! / "b",
+          (1, !! / "a" / "b" / "c") -> !! / "b" / "c",
+          (2, !! / "a" / "b" / "c") -> !! / "c",
+          (3, !! / "a" / "b" / "c") -> !!,
+          (4, !! / "a" / "b" / "c") -> !!,
+        )
+
+        checkAll(gen) { case ((n, path), expected) =>
+          val actual = path.drop(n)
+          assertTrue(actual == expected)
+        }
+      },
+      testM("dropLast") {
+        val gen = Gen.elements(
+          (1, !!)                   -> !!,
+          (1, !! / "a")             -> !!,
+          (1, !! / "a" / "b")       -> !! / "a",
+          (1, !! / "a" / "b" / "c") -> !! / "a" / "b",
+          (2, !! / "a" / "b" / "c") -> !! / "a",
+          (3, !! / "a" / "b" / "c") -> !!,
+          (4, !! / "a" / "b" / "c") -> !!,
+        )
+
+        checkAll(gen) { case ((n, path), expected) =>
+          val actual = path.dropLast(n)
+          assertTrue(actual == expected)
+        }
+      },
+      suite("encode/decode/encode")(
+        testM("anyPath") {
+          check(HttpGen.path) { path =>
+            val expected = path.encode
+            val decoded  = Path.decode(expected)
+
+            assertTrue(decoded.encode == expected) &&
+            assertTrue(decoded.toString() == expected)
+          }
+        },
+        testM("is symmetric") {
+          check(HttpGen.path) { path =>
+            val expected = path.encode
+            val actual   = Path.decode(expected)
+            assertTrue(actual == path)
+          }
+        },
+        testM("string elements") {
+          val gen = Gen.elements(
+            // basic
+            "",
+            "/",
+
+            // with leading slash
+            "/a",
+            "/a/b",
+            "/a/b/c",
+
+            // without leading slash
+            "a",
+            "a/b",
+            "a/b/c",
+
+            // with trailing slash
+            "a/",
+            "a/b/",
+            "a/b/c/",
+
+            // with leading & trailing slash
+            "/a/",
+            "/a/b/",
+            "/a/b/c/",
+
+            // with encoded chars
+            "a/b%2Fc",
+            "/a/b%2Fc",
+            "a/b%2Fc/",
+            "/a/b%2Fc/",
+          )
+
+          checkAll(gen) { path =>
+            val actual   = path
+            val expected = Path.decode(actual).encode
+            assertTrue(actual == expected)
+          }
+        },
+        testM("path elements") {
+          val gen = Gen.elements(
+            !!,
+            !! / "a",
+            !! / "a" / "b",
+            !! / "a" / "b" / "c",
+            !! / "a" / "b" / "c" / "",
+            !! / "a" / "b" / "c" / "" / "",
+            !! / "a" / "b" / "c" / "" / "" / "",
+            "a" /: !!,
+            "a" /: "b" /: !!,
+            "a" /: "b" /: "c" /: !!,
+            "a" /: "b" /: "c" /: "" /: !!,
+            "a" /: "b" /: "c" /: "" /: "" /: !!,
+            "a" /: "b" /: "c" /: "" /: "" /: "" /: !!,
+          )
+
+          checkAll(gen) { path =>
+            val actual   = path.encode
+            val expected = Path.decode(actual).encode
+            assertTrue(actual == expected)
+          }
+        },
+      ),
+      suite("decode")(
+        suite("trailingSlash")(
+          testM("isTrue") {
+            val gen = Gen.elements(
+              "a/",
+              "a/b/",
+              "a/b/c/",
+              "/a/",
+              "/a/b/",
+              "/a/b/c/",
+            )
+
+            checkAll(gen) { path =>
+              val actual = Path.decode(path)
+              assertTrue(actual.trailingSlash)
+            }
+          },
+          testM("isFalse") {
+            val gen = Gen.elements(
+              "",
+              "//",
+              "a",
+              "a/b",
+              "a/b/c",
+              "/a",
+              "/a/b",
+              "/a/b/c",
+            )
+
+            checkAll(gen) { path =>
+              val actual = Path.decode(path)
+              assertTrue(!actual.trailingSlash)
+            }
+          },
+        ),
+      ),
     )
 }

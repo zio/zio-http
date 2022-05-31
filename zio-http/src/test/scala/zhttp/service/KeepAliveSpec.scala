@@ -5,24 +5,21 @@ import zhttp.http.{HeaderNames, Headers, Http, Version}
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.test.Assertion.{equalTo, isNone, isSome}
-import zio.test.TestAspect.timeout
-import zio.test.assertZIO
-import zio.{Scope, durationInt}
+import zio.test.assertM
 
 object KeepAliveSpec extends HttpRunnableSpec {
 
-  val app                         = Http.ok
-  val connectionCloseHeader       = Headers.connection(HttpHeaderValues.CLOSE)
-  val keepAliveHeader             = Headers.connection(HttpHeaderValues.KEEP_ALIVE)
-  private val env                 =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
+  val app                   = Http.ok
+  val connectionCloseHeader = Headers.connection(HttpHeaderValues.CLOSE)
+  val keepAliveHeader       = Headers.connection(HttpHeaderValues.KEEP_ALIVE)
+  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
   private val appKeepAliveEnabled = serve(DynamicServer.app)
 
   def keepAliveSpec = suite("KeepAlive") {
     suite("Http 1.1") {
       test("without connection close") {
         val res = app.deploy.headerValue(HeaderNames.connection).run()
-        assertZIO(res)(isNone)
+        assertM(res)(isNone)
       } +
         test("with connection close") {
           val res = app.deploy.headerValue(HeaderNames.connection).run(headers = connectionCloseHeader)

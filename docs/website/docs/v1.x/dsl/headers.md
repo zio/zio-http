@@ -51,7 +51,7 @@ On the Server-side you can read Request headers as given below
   import zio.stream.ZStream
   
   object SimpleResponseDispatcher extends App {
-    override def run(args: List[String]): UIO[ExitCode] = {
+    override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
   
       // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
       Server.start(8090, app.silent).exitCode
@@ -145,17 +145,17 @@ val responseHeaders: Task[Headers] =  Client.request(url).map(_.headers)
         // Pass headers to request
         res  <- Client.request(url, headers)
         // List all response headers
-        _    <- Console.printLine(res.headers.toList.mkString("\n"))
+        _    <- console.putStrLn(res.headers.toList.mkString("\n"))
         data <-
           // Check if response contains a specified header with a specified value.
           if (res.hasHeader(HeaderNames.contentType, HeaderValues.applicationJson))
             res.bodyAsString
           else
             res.bodyAsString
-        _    <- Console.printLine { data }
+        _    <- console.putStrLn { data }
       } yield ()
     
-      override def run(args: List[String]): UIO[ExitCode] = program.exitCode.provideLayer(env)
+      override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = program.exitCode.provideCustomLayer(env)
     
     }
     ```

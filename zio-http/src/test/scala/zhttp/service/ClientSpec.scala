@@ -10,6 +10,8 @@ import zio.{Scope, durationInt}
 
 import java.net.ConnectException
 
+import java.net.ConnectException
+
 object ClientSpec extends HttpRunnableSpec {
 
   private val env =
@@ -30,10 +32,10 @@ object ClientSpec extends HttpRunnableSpec {
         val res = app.deploy.bodyAsString.run(method = Method.POST, content = HttpData.fromString("ZIO user"))
         assertZIO(res)(equalTo("ZIO user"))
       } +
-      test("empty content") {
+      test("non empty content") {
         val app             = Http.empty
-        val responseContent = app.deploy.body.run()
-        assertZIO(responseContent)(isEmpty)
+        val responseContent = app.deploy.body.run().map(_.length)
+        assertZIO(responseContent)(isGreaterThan(0))
       } +
       test("text content") {
         val app             = Http.text("zio user does not exist")

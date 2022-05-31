@@ -3,9 +3,9 @@ package zhttp.service
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{
   Channel,
+  ChannelInitializer,
   ChannelFactory => JChannelFactory,
   ChannelFuture => JChannelFuture,
-  ChannelInitializer,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http._
@@ -16,7 +16,7 @@ import zhttp.service.Client.Config
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.{Socket, SocketApp}
-import zio.{Promise, Task, ZIO}
+import zio.{Promise, Scope, Task, ZIO}
 
 import java.net.{InetSocketAddress, URI}
 
@@ -38,7 +38,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
     headers: Headers = Headers.empty,
     socketApp: SocketApp[R],
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[R, Throwable, Response] = for {
+  ): ZIO[R with Scope, Throwable, Response] = for {
     env <- ZIO.environment[R]
     res <- request(
       Request(
@@ -48,7 +48,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
         headers,
       ),
       clientConfig = Client.Config(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
-    )
+    ).withFinalizer(_.close.orDie)
   } yield res
 
   /**
@@ -159,7 +159,7 @@ object Client {
     app: SocketApp[R],
     headers: Headers = Headers.empty,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[R with EventLoopGroup with ChannelFactory, Throwable, Response] = {
+  ): ZIO[R with EventLoopGroup with ChannelFactory with Scope, Throwable, Response] = {
     for {
       clt <- make[R]
       uri <- ZIO.fromEither(URL.fromString(url))

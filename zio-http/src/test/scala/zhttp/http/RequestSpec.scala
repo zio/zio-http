@@ -13,16 +13,7 @@ object RequestSpec extends ZIOSpecDefault {
             equalTo(s"Request(${req.version}, ${req.method}, ${req.url}, ${req.headers}, ${req.remoteAddress})"),
           )
         }
-      } +
-        test("should produce string representation of a parameterized request") {
-          check(HttpGen.parameterizedRequest(Gen.alphaNumericString)) { req =>
-            assert(req.toString)(
-              equalTo(
-                s"ParameterizedRequest(Request(${req.version}, ${req.method}, ${req.url}, ${req.headers}, ${req.remoteAddress}), ${req.params})",
-              ),
-            )
-          }
-        }
+      }
     },
   )
 }

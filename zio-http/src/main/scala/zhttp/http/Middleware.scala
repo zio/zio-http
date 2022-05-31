@@ -1,7 +1,8 @@
 package zhttp.http
 
-import zhttp.http.middleware.Web
-import zio.{Duration, ZIO}
+import zhttp.http.middleware.{MonoMiddleware, Web}
+
+import zio._
 
 /**
  * Middlewares are essentially transformations that one can apply on any Http to
@@ -91,7 +92,7 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   /**
    * Delays the production of Http output for the specified duration
    */
-  final def delay(duration: Duration): Middleware[R, E, AIn, BIn, AOut, BOut] =
+  final def delay(duration: Duration): Middleware[R with Clock, E, AIn, BIn, AOut, BOut] =
     self.mapZIO(b => ZIO.succeed(b).delay(duration))
 
   /**
@@ -157,8 +158,9 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   /**
    * Applies Middleware based only if the condition function evaluates to true
    */
-  final def when[AOut0 <: AOut](cond: AOut0 => Boolean): Middleware[R, E, AIn, BIn, AOut0, BOut] =
-    whenZIO(a => ZIO.succeed(cond(a)))
+  final def when[AOut0 <: AOut](cond: AOut0 => Boolean)(implicit
+    ev: IsMono[AIn, BIn, AOut0, BOut],
+  ): Middleware[R, E, AIn, BIn, AOut0, BOut] = self.whenZIO(a => ZIO.succeed(cond(a)))
 
   /**
    * Applies Middleware based only if the condition effectful function evaluates
@@ -166,14 +168,28 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    */
   final def whenZIO[R1 <: R, E1 >: E, AOut0 <: AOut](
     cond: AOut0 => ZIO[R1, E1, Boolean],
-  ): Middleware[R1, E1, AIn, BIn, AOut0, BOut] =
+  )(implicit ev: IsMono[AIn, BIn, AOut0, BOut]): Middleware[R1, E1, AIn, BIn, AOut0, BOut] = {
     Middleware.ifThenElseZIO[AOut0](cond(_))(
       isTrue = _ => self,
-      isFalse = _ => Middleware.identity,
+      isFalse = _ => Middleware.identity[AIn, BIn, AOut, BOut],
     )
+  }
 }
 
 object Middleware extends Web {
+
+  /**
+   * Creates a middleware which can allow or disallow access to an http based on
+   * the predicate
+   */
+  def allow[A, B](cond: A => Boolean): Middleware[Any, Nothing, A, B, A, B] =
+    allowZIO(a => ZIO.succeed(cond(a)))
+
+  /**
+   * Creates a middleware which can allow or disallow access to an http based on
+   * the predicate effect
+   */
+  def allowZIO[A, B]: PartialAllowZIO[A, B] = new PartialAllowZIO[A, B](())
 
   /**
    * Creates a middleware using the specified encoder and decoder functions
@@ -201,6 +217,11 @@ object Middleware extends Web {
   def collectZIO[A]: PartialCollectZIO[A] = new PartialCollectZIO[A](())
 
   /**
+   * Creates a middleware which returns an empty http value
+   */
+  def empty: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = fromHttp(Http.empty)
+
+  /**
    * Creates a middleware which always fail with specified error
    */
   def fail[E](e: E): Middleware[Any, E, Nothing, Any, Any, Nothing] =
@@ -218,13 +239,19 @@ object Middleware extends Web {
     }
 
   /**
-   * An empty middleware that doesn't do anything
+   * An empty middleware that doesn't do perform any operations on the provided
+   * Http and returns it as it is.
    */
-  def identity: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] =
-    new Middleware[Any, Nothing, Nothing, Any, Any, Nothing] {
-      override def apply[R1 <: Any, E1 >: Nothing](http: Http[R1, E1, Nothing, Any]): Http[R1, E1, Any, Nothing] =
-        http.asInstanceOf[Http[R1, E1, Any, Nothing]]
-    }
+  def identity[A, B]: MonoMiddleware[Any, Nothing, A, B] = Identity
+
+  /**
+   * An empty middleware that doesn't do perform any operations on the provided
+   * Http and returns it as it is.
+   */
+  def identity[AIn, BIn, AOut, BOut](implicit
+    ev: IsMono[AIn, BIn, AOut, BOut],
+  ): Middleware[Any, Nothing, AIn, BIn, AOut, BOut] =
+    Identity
 
   /**
    * Logical operator to decide which middleware to select based on the
@@ -253,18 +280,59 @@ object Middleware extends Web {
    */
   def succeed[B](b: B): Middleware[Any, Nothing, Nothing, Any, Any, B] = fromHttp(Http.succeed(b))
 
+  /**
+   * Creates a new middleware using two transformation functions, one that's
+   * applied to the incoming type of the Http and one that applied to the
+   * outgoing type of the Http.
+   */
+  def transform[AOut, BIn]: PartialMono[AOut, BIn] = new PartialMono[AOut, BIn]({})
+
+  /**
+   * Creates a new middleware using two transformation functions, one that's
+   * applied to the incoming type of the Http and one that applied to the
+   * outgoing type of the Http.
+   */
+  def transformZIO[AOut, BIn]: PartialMonoZIO[AOut, BIn] = new PartialMonoZIO[AOut, BIn]({})
+
+  final class PartialAllowZIO[A, B](val unit: Unit) extends AnyVal {
+    def apply[R, E](cond: A => ZIO[R, E, Boolean]): MonoMiddleware[R, E, A, B] =
+      Middleware.ifThenElseZIO[A](cond(_))(
+        isTrue = _ => Middleware.identity[A, B],
+        isFalse = _ => Middleware.empty,
+      )
+  }
+
+  final class PartialMono[AOut, BIn](val unit: Unit) extends AnyVal {
+    def apply[AIn, BOut](
+      in: AOut => AIn,
+      out: BIn => BOut,
+    ): Middleware[Any, Nothing, AIn, BIn, AOut, BOut] =
+      Middleware.transformZIO[AOut, BIn](a => ZIO.succeed(in(a)), b => ZIO.succeed(out(b)))
+  }
+
+  final class PartialMonoZIO[AOut, BIn](val unit: Unit) extends AnyVal {
+    def apply[R, E, AIn, BOut](
+      in: AOut => ZIO[R, E, AIn],
+      out: BIn => ZIO[R, E, BOut],
+    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
+      new Middleware[R, E, AIn, BIn, AOut, BOut] {
+        override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] =
+          http.contramapZIO(in).mapZIO(out)
+      }
+  }
+
   final class PartialCollect[AOut](val unit: Unit) extends AnyVal {
     def apply[R, E, AIn, BIn, BOut](
       f: PartialFunction[AOut, Middleware[R, E, AIn, BIn, AOut, BOut]],
     ): Middleware[R, E, AIn, BIn, AOut, BOut] =
-      Middleware.fromHttp(Http.collect[AOut] { case aout if f.isDefinedAt(aout) => f(aout) }).flatten
+      Middleware.fromHttp(Http.collect[AOut] { case a if f.isDefinedAt(a) => f(a) }).flatten
   }
 
   final class PartialCollectZIO[AOut](val unit: Unit) extends AnyVal {
     def apply[R, E, AIn, BIn, BOut](
       f: PartialFunction[AOut, ZIO[R, E, Middleware[R, E, AIn, BIn, AOut, BOut]]],
     ): Middleware[R, E, AIn, BIn, AOut, BOut] =
-      Middleware.fromHttp(Http.collectZIO[AOut] { case aout if f.isDefinedAt(aout) => f(aout) }).flatten
+      Middleware.fromHttp(Http.collectZIO[AOut] { case a if f.isDefinedAt(a) => f(a) }).flatten
   }
 
   final class PartialIntercept[A, B](val unit: Unit) extends AnyVal {
@@ -350,5 +418,10 @@ object Middleware extends Web {
         override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn, BIn]): Http[R2, E2, AOut0, BOut] =
           self(http).contramapZIO(a => f(a))
       }
+  }
+
+  private object Identity extends Middleware[Any, Nothing, Nothing, Any, Any, Nothing] {
+    override def apply[R1 <: Any, E1 >: Nothing](http: Http[R1, E1, Nothing, Any]): Http[R1, E1, Any, Nothing] =
+      http.asInstanceOf[Http[R1, E1, Any, Nothing]]
   }
 }

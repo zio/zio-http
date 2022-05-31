@@ -529,6 +529,84 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
             val http = Http.fail(t).catchNonFatalOrDie { case _ => Http.succeed("OK") }
             assert(http.execute {})(isDie(equalTo(t)))
           }
+        assert(http.execute {})(isSuccess(equalTo("bar")))
       },
+    ),
+    suite("refineOrDie")(
+      test("refines matching exception") {
+        val http =
+          Http.fail(new IllegalArgumentException("boom")).refineOrDie { case _: IllegalArgumentException =>
+            "fail"
+          }
+        assert(http.execute {})(isFailure(equalTo("fail")))
+      },
+      test("dies if doesn't catch anything") {
+        val t    = new Throwable("boom")
+        val http =
+          Http
+            .fail(t)
+            .refineOrDie { case _: IllegalArgumentException =>
+              "fail"
+            }
+        assert(http.execute {})(isDie(equalTo(t)))
+      },
+      test("doesn't affect the success") {
+        val http =
+          (Http.succeed("bar"): Http[Any, Throwable, Any, String]).refineOrDie { case _: Throwable =>
+            Http.succeed("baz")
+          }
+        assert(http.execute {})(isSuccess(equalTo("bar")))
+      },
+    ),
+    suite("orDie")(
+      test("dies on failure") {
+        val t    = new Throwable("boom")
+        val http =
+          Http.fail(t).orDie
+        assert(http.execute {})(isDie(equalTo(t)))
+      },
+      test("doesn't affect the success") {
+        val http =
+          (Http.succeed("bar"): Http[Any, Throwable, Any, String]).orDie
+        assert(http.execute {})(isSuccess(equalTo("bar")))
+      },
+    ),
+    suite("catchSomeDefect")(
+      test("catches defect") {
+        val t    = new IllegalArgumentException("boom")
+        val http = Http.die(t).catchSomeDefect { case _: IllegalArgumentException => Http.succeed("OK") }
+        assert(http.execute {})(isSuccess(equalTo("OK")))
+
+      },
+      test("catches thrown defects") {
+        val http = Http
+          .collect[Any] { case _ => throw new IllegalArgumentException("boom") }
+          .catchSomeDefect { case _: IllegalArgumentException => Http.succeed("OK") }
+        assert(http.execute {})(isSuccess(equalTo("OK")))
+      },
+      test("propagates non-caught defect") {
+        val t    = new IllegalArgumentException("boom")
+        val http = Http.die(t).catchSomeDefect { case _: SecurityException => Http.succeed("OK") }
+        assert(http.execute {})(isDie(equalTo(t)))
+      },
+    ),
+    suite("catchNonFatalOrDie")(
+      test("catches non-fatal exception") {
+        val t    = new IllegalArgumentException("boom")
+        val http = Http.fail(t).catchNonFatalOrDie { _ => Http.succeed("OK") }
+        assert(http.execute {})(isSuccess(equalTo("OK")))
+      },
+      test("dies with fatal exception") {
+        val t    = new OutOfMemoryError()
+        val http = Http.fail(t).catchNonFatalOrDie(_ => Http.succeed("OK"))
+        assert(http.execute {})(isDie(equalTo(t)))
+      },
+    ),
+    suite("merge")(
+      test("merges error into success") {
+        val http = Http.fail(1).merge
+        assert(http.execute {})(isSuccess(equalTo(1)))
+      },
+    ),
   ) @@ timeout(10 seconds)
 }

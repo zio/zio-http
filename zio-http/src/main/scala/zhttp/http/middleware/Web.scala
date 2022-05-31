@@ -31,7 +31,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   /**
    * Add log status, method, url and time taken from req to res
    */
-  final def debug: HttpMiddleware[Any, IOException] =
+  final def debug: HttpMiddleware[Console with Clock, IOException] =
     interceptZIOPatch(req => Clock.nanoTime.map(start => (req.method, req.url, start))) {
       case (response, (method, url, start)) =>
         for {
@@ -134,8 +134,10 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   /**
    * Times out the application with a 408 status code.
    */
-  final def timeout(duration: Duration): HttpMiddleware[Any, Nothing] =
-    Middleware.identity.race(Middleware.fromHttp(Http.status(Status.RequestTimeout).delayAfter(duration)))
+  final def timeout(duration: Duration): HttpMiddleware[Clock, Nothing] =
+    Middleware
+      .identity[Request, Response]
+      .race(Middleware.fromHttp(Http.status(Status.RequestTimeout).delayAfter(duration)))
 
   /**
    * Creates a middleware that updates the response produced
@@ -147,15 +149,13 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    * Applies the middleware only when the condition for the headers are true
    */
   final def whenHeader[R, E](cond: Headers => Boolean, middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    middleware.when[Request](req => cond(req.headers))
+    middleware.when(req => cond(req.headers))
 
   /**
    * Applies the middleware only if the condition function evaluates to true
    */
-  final def whenRequest[R, E](cond: Request => Boolean)(
-    middleware: HttpMiddleware[R, E],
-  ): HttpMiddleware[R, E] =
-    middleware.when[Request](cond)
+  final def whenRequest[R, E](cond: Request => Boolean)(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    middleware.when(cond)
 
   /**
    * Applies the middleware only if the condition function effectfully evaluates

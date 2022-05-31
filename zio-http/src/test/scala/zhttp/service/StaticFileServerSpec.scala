@@ -13,54 +13,54 @@ import java.io.File
 object StaticFileServerSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
-  override def spec = suite("StaticFileServer") {
-    serve(DynamicServer.app).as(List(staticSpec))
-  }.provideLayerShared(env) @@ timeout(5 seconds)
+  override def spec = suiteM("StaticFileServer") {
+    serve(DynamicServer.app).as(List(staticSpec)).useNow
+  }.provideCustomLayerShared(env) @@ timeout(5 seconds)
 
   private def staticSpec = suite("Static RandomAccessFile Server") {
     suite("fromResource") {
       suite("file") {
         val fileOk       = Http.fromResource("TestFile.txt").deploy
         val fileNotFound = Http.fromResource("Nothing").deploy
-        test("should have 200 status code") {
+        testM("should have 200 status code") {
           val res = fileOk.run().map(_.status)
-          assertZIO(res)(equalTo(Status.Ok))
+          assertM(res)(equalTo(Status.Ok))
         } +
-          test("should have content-length") {
+          testM("should have content-length") {
             val res = fileOk.run().map(_.contentLength)
-            assertZIO(res)(isSome(equalTo(7L)))
+            assertM(res)(isSome(equalTo(7L)))
           } +
-          test("should have content") {
+          testM("should have content") {
             val res = fileOk.run().flatMap(_.bodyAsString)
-            assertZIO(res)(equalTo("abc\nfoo"))
+            assertM(res)(equalTo("abc\nfoo"))
           } +
-          test("should have content-type") {
+          testM("should have content-type") {
             val res = fileOk.run().map(_.mediaType)
-            assertZIO(res)(isSome(equalTo(MediaType.text.plain)))
+            assertM(res)(isSome(equalTo(MediaType.text.plain)))
           } +
-          test("should respond with empty") {
+          testM("should respond with empty") {
             val res = fileNotFound.run().map(_.status)
-            assertZIO(res)(equalTo(Status.NotFound))
+            assertM(res)(equalTo(Status.NotFound))
           }
       }
     } +
       suite("fromFile") {
         suite("failure on construction") {
-          test("should respond with 500") {
+          testM("should respond with 500") {
             val res = Http.fromFile(throw new Error("Wut happened?")).deploy.run().map(_.status)
-            assertZIO(res)(equalTo(Status.InternalServerError))
+            assertM(res)(equalTo(Status.InternalServerError))
           }
         } +
           suite("invalid file") {
-            test("should respond with 500") {
+            testM("should respond with 500") {
               final class BadFile(name: String) extends File(name) {
                 override def length: Long    = throw new Error("Haha")
                 override def isFile: Boolean = true
               }
               val res = Http.fromFile(new BadFile("Length Failure")).deploy.run().map(_.status)
-              assertZIO(res)(equalTo(Status.InternalServerError))
+              assertM(res)(equalTo(Status.InternalServerError))
             }
           }
       }

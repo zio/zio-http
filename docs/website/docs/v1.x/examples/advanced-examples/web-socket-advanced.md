@@ -36,10 +36,10 @@ object WebSocketAdvanced extends App {
       .onOpen(open)
 
       // Called after the connection is closed
-      .onClose(_ => Console.printLine("Closed!").ignore)
+      .onClose(_ => console.putStrLn("Closed!").ignore)
 
       // Called whenever there is an error on the socket channel
-      .onError(_ => Console.printLine("Error!").ignore)
+      .onError(_ => console.putStrLn("Error!").ignore)
 
       // Setup websocket decoder config
       .withDecoder(decoder)
@@ -54,7 +54,7 @@ object WebSocketAdvanced extends App {
       case Method.GET -> !! / "subscriptions" => socketApp.toResponse
     }
 
-  override def run(args: List[String]): UIO[ExitCode] =
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     Server.start(8090, app).exitCode
 }
 
