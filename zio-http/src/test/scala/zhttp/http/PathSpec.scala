@@ -10,7 +10,7 @@ object PathSpec extends ZIOSpecDefault with HExitAssertion {
     suite("Path")(
       suite("Syntax")(
         suite("/")(
-          testM("isDefined") {
+          test("isDefined") {
 
             val gen = Gen.elements(
               // Exact
@@ -35,113 +35,113 @@ object PathSpec extends ZIOSpecDefault with HExitAssertion {
             }
           },
         ) +
-        suite("asString")(
-          test("a, b, c") {
-            val path = Path("a", "b", "c").encode
-            assert(path)(equalTo("/a/b/c"))
-          } +
-            test("Path()") {
-              val path = Path().encode
-              assert(path)(equalTo("/"))
+          suite("asString")(
+            test("a, b, c") {
+              val path = Path("a", "b", "c").encode
+              assert(path)(equalTo("/a/b/c"))
             } +
-            test("!!") {
-              val path = !!.encode
-              assert(path)(equalTo("/"))
-            },
-        ) +
-        suite("PathSyntax /")(
-          test("construction") {
-            val path = !! / "a" / "b" / "c"
-            assert(path)(equalTo(Path("a", "b", "c")))
-          } +
-            test("extract path / a / b / c") {
-              val path = collect { case !! / "a" / b / c => (b, c) }
-              assert(path(Path("a", "b", "c")))(isSome(equalTo(("b", "c"))))
-            } +
-            test("extract path / a / b / c") {
-              val path = collect { case !! / "a" / b => b }
-              assert(path(Path("a", "b", "c")))(isNone)
-            } +
-            test("extract path / a / b / c") {
-              val path = collect { case !! / "a" / b => b }
-              assert(path(Path("a", "b")))(isSome(equalTo("b")))
-            },
-        ) +
-        suite("PathSyntax /:")(
-          test("construction") {
-            val path = "a" /: "b" /: "c" /: !!
-            assert(path)(equalTo(Path("a", "b", "c")))
-          } +
-            suite("default")(
-              test("extract path 'name' /: name") {
-                val path = collect { case "name" /: name => name.encode }
-                assert(path(Path("name", "a", "b", "c")))(isSome(equalTo("/a/b/c")))
+              test("Path()") {
+                val path = Path().encode
+                assert(path)(equalTo("/"))
               } +
-                test("extract paths 'name' /: a /: b /: 'c' /: !!") {
-                  val path = collect { case "name" /: a /: b /: "c" /: !! => (a, b) }
-                  assert(path(Path("name", "a", "b", "c")))(isSome(equalTo(("a", "b"))))
-                } +
-                test("extract paths 'name' /: a /: b /: _") {
-                  val path = collect { case "name" /: a /: b /: _ => (a, b) }
-                  assert(path(Path("name", "a", "b", "c")))(isSome(equalTo(("a", "b"))))
-                } +
-                test("extract paths 'name' /: name /: 'a' /: 'b' /: 'c' /: !!") {
-                  val path = collect { case "name" /: name /: "a" /: "b" /: "c" /: !! => name.toString }
-                  assert(path(Path("name", "Xyz", "a", "b", "c")))(isSome(equalTo("Xyz")))
-                },
-            ) +
-            suite("int()")(
-              test("extract path 'user' /: int(1)") {
-                val path = collect { case "user" /: int(age) /: !! => age }
-                assert(path(Path("user", "1")))(isSome(equalTo(1)))
+              test("!!") {
+                val path = !!.encode
+                assert(path)(equalTo("/"))
+              },
+          ) +
+          suite("PathSyntax /")(
+            test("construction") {
+              val path = !! / "a" / "b" / "c"
+              assert(path)(equalTo(Path("a", "b", "c")))
+            } +
+              test("extract path / a / b / c") {
+                val path = collect { case !! / "a" / b / c => (b, c) }
+                assert(path(Path("a", "b", "c")))(isSome(equalTo(("b", "c"))))
               } +
-                test("extract path 'user' /: int(Xyz)") {
+              test("extract path / a / b / c") {
+                val path = collect { case !! / "a" / b => b }
+                assert(path(Path("a", "b", "c")))(isNone)
+              } +
+              test("extract path / a / b / c") {
+                val path = collect { case !! / "a" / b => b }
+                assert(path(Path("a", "b")))(isSome(equalTo("b")))
+              },
+          ) +
+          suite("PathSyntax /:")(
+            test("construction") {
+              val path = "a" /: "b" /: "c" /: !!
+              assert(path)(equalTo(Path("a", "b", "c")))
+            } +
+              suite("default")(
+                test("extract path 'name' /: name") {
+                  val path = collect { case "name" /: name => name.encode }
+                  assert(path(Path("name", "a", "b", "c")))(isSome(equalTo("/a/b/c")))
+                } +
+                  test("extract paths 'name' /: a /: b /: 'c' /: !!") {
+                    val path = collect { case "name" /: a /: b /: "c" /: !! => (a, b) }
+                    assert(path(Path("name", "a", "b", "c")))(isSome(equalTo(("a", "b"))))
+                  } +
+                  test("extract paths 'name' /: a /: b /: _") {
+                    val path = collect { case "name" /: a /: b /: _ => (a, b) }
+                    assert(path(Path("name", "a", "b", "c")))(isSome(equalTo(("a", "b"))))
+                  } +
+                  test("extract paths 'name' /: name /: 'a' /: 'b' /: 'c' /: !!") {
+                    val path = collect { case "name" /: name /: "a" /: "b" /: "c" /: !! => name.toString }
+                    assert(path(Path("name", "Xyz", "a", "b", "c")))(isSome(equalTo("Xyz")))
+                  },
+              ) +
+              suite("int()")(
+                test("extract path 'user' /: int(1)") {
                   val path = collect { case "user" /: int(age) /: !! => age }
-                  assert(path(Path("user", "Xyz")))(isNone)
-                },
-            ) +
-            suite("boolean()")(
-              test("extract path 'user' /: boolean(true)") {
-                val path = collect { case "user" /: boolean(ok) /: !! => ok }
-                assert(path(Path("user", "True")))(isSome(isTrue))
-              } +
-                test("extract path 'user' /: boolean(false)") {
+                  assert(path(Path("user", "1")))(isSome(equalTo(1)))
+                } +
+                  test("extract path 'user' /: int(Xyz)") {
+                    val path = collect { case "user" /: int(age) /: !! => age }
+                    assert(path(Path("user", "Xyz")))(isNone)
+                  },
+              ) +
+              suite("boolean()")(
+                test("extract path 'user' /: boolean(true)") {
                   val path = collect { case "user" /: boolean(ok) /: !! => ok }
-                  assert(path(Path("user", "false")))(isSome(isFalse))
-                },
-            ),
-        ) +
-        suite("startsWith")(
-          test("isTrue") {
-            assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a")(isTrue) &&
-            assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b")(isTrue) &&
-            assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b" / "c")(isTrue) &&
-            assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b" / "c" / "d")(isTrue)
-          } +
-            test("isFalse") {
-              assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b" / "c" / "d" / "e")(isFalse) &&
-              assert(!! / "a" / "b" / "c" startsWith !! / "a" / "b" / "c" / "d")(isFalse) &&
-              assert(!! / "a" / "b" startsWith !! / "a" / "b" / "c")(isFalse) &&
-              assert(!! / "a" startsWith !! / "a" / "b")(isFalse)
+                  assert(path(Path("user", "True")))(isSome(isTrue))
+                } +
+                  test("extract path 'user' /: boolean(false)") {
+                    val path = collect { case "user" /: boolean(ok) /: !! => ok }
+                    assert(path(Path("user", "false")))(isSome(isFalse))
+                  },
+              ),
+          ) +
+          suite("startsWith")(
+            test("isTrue") {
+              assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a")(isTrue) &&
+              assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b")(isTrue) &&
+              assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b" / "c")(isTrue) &&
+              assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b" / "c" / "d")(isTrue)
             } +
-            test("isFalse") {
-              assert(!! / "abcd" startsWith !! / "a")(isFalse)
-            },
-        ) +
-        test("drop") {
-          assert(!! / "a" / "b" / "c" drop 1)(equalTo(!! / "b" / "c")) &&
-          assert(!! drop 1)(equalTo(!!))
-        } +
-        test("dropLast") {
-          assert(!! / "a" / "b" / "c" dropLast 1)(equalTo(!! / "a" / "b")) &&
-          assert(!! dropLast 1)(equalTo(!!))
-        } +
-        test("take") {
-          assert(!! / "a" / "b" / "c" take 1)(equalTo(!! / "a")) &&
-          assert(!! take 1)(equalTo(!!))
-        },
+              test("isFalse") {
+                assert(!! / "a" / "b" / "c" / "d" startsWith !! / "a" / "b" / "c" / "d" / "e")(isFalse) &&
+                assert(!! / "a" / "b" / "c" startsWith !! / "a" / "b" / "c" / "d")(isFalse) &&
+                assert(!! / "a" / "b" startsWith !! / "a" / "b" / "c")(isFalse) &&
+                assert(!! / "a" startsWith !! / "a" / "b")(isFalse)
+              } +
+              test("isFalse") {
+                assert(!! / "abcd" startsWith !! / "a")(isFalse)
+              },
+          ) +
+          test("drop") {
+            assert(!! / "a" / "b" / "c" drop 1)(equalTo(!! / "b" / "c")) &&
+            assert(!! drop 1)(equalTo(!!))
+          } +
+          test("dropLast") {
+            assert(!! / "a" / "b" / "c" dropLast 1)(equalTo(!! / "a" / "b")) &&
+            assert(!! dropLast 1)(equalTo(!!))
+          } +
+          test("take") {
+            assert(!! / "a" / "b" / "c" take 1)(equalTo(!! / "a")) &&
+            assert(!! take 1)(equalTo(!!))
+          },
       ),
-      testM("take") {
+      test("take") {
         val gen = Gen.elements(
           (1, !!)                   -> !!,
           (1, !! / "a")             -> !! / "a",
@@ -157,7 +157,7 @@ object PathSpec extends ZIOSpecDefault with HExitAssertion {
           assertTrue(actual == expected)
         }
       },
-      testM("drop") {
+      test("drop") {
         val gen = Gen.elements(
           (1, !!)                   -> !!,
           (1, !! / "a")             -> !!,
@@ -173,7 +173,7 @@ object PathSpec extends ZIOSpecDefault with HExitAssertion {
           assertTrue(actual == expected)
         }
       },
-      testM("dropLast") {
+      test("dropLast") {
         val gen = Gen.elements(
           (1, !!)                   -> !!,
           (1, !! / "a")             -> !!,
@@ -190,7 +190,7 @@ object PathSpec extends ZIOSpecDefault with HExitAssertion {
         }
       },
       suite("encode/decode/encode")(
-        testM("anyPath") {
+        test("anyPath") {
           check(HttpGen.path) { path =>
             val expected = path.encode
             val decoded  = Path.decode(expected)
@@ -199,14 +199,14 @@ object PathSpec extends ZIOSpecDefault with HExitAssertion {
             assertTrue(decoded.toString() == expected)
           }
         },
-        testM("is symmetric") {
+        test("is symmetric") {
           check(HttpGen.path) { path =>
             val expected = path.encode
             val actual   = Path.decode(expected)
             assertTrue(actual == path)
           }
         },
-        testM("string elements") {
+        test("string elements") {
           val gen = Gen.elements(
             // basic
             "",
@@ -245,7 +245,7 @@ object PathSpec extends ZIOSpecDefault with HExitAssertion {
             assertTrue(actual == expected)
           }
         },
-        testM("path elements") {
+        test("path elements") {
           val gen = Gen.elements(
             !!,
             !! / "a",
@@ -271,7 +271,7 @@ object PathSpec extends ZIOSpecDefault with HExitAssertion {
       ),
       suite("decode")(
         suite("trailingSlash")(
-          testM("isTrue") {
+          test("isTrue") {
             val gen = Gen.elements(
               "a/",
               "a/b/",
@@ -286,7 +286,7 @@ object PathSpec extends ZIOSpecDefault with HExitAssertion {
               assertTrue(actual.trailingSlash)
             }
           },
-          testM("isFalse") {
+          test("isFalse") {
             val gen = Gen.elements(
               "",
               "//",

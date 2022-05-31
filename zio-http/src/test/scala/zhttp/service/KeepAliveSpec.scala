@@ -4,8 +4,10 @@ import io.netty.handler.codec.http.HttpHeaderValues
 import zhttp.http.{HeaderNames, Headers, Http, Version}
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
+import zio.durationInt
 import zio.test.Assertion.{equalTo, isNone, isSome}
-import zio.test.assertM
+import zio.test.TestAspect.timeout
+import zio.test.assertZIO
 
 object KeepAliveSpec extends HttpRunnableSpec {
 
@@ -19,7 +21,7 @@ object KeepAliveSpec extends HttpRunnableSpec {
     suite("Http 1.1") {
       test("without connection close") {
         val res = app.deploy.headerValue(HeaderNames.connection).run()
-        assertM(res)(isNone)
+        assertZIO(res)(isNone)
       } +
         test("with connection close") {
           val res = app.deploy.headerValue(HeaderNames.connection).run(headers = connectionCloseHeader)

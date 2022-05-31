@@ -1,23 +1,19 @@
 package zhttp.internal
 
 import io.netty.buffer.Unpooled
-import zhttp.http.Request.ParameterizedRequest
-import zhttp.http.Scheme.{HTTP, HTTPS, WS, WSS}
-import zhttp.http.URL.Location
 import zhttp.http.Scheme.{HTTP, HTTPS, WS, WSS}
 import zhttp.http.URL.Location
 import zhttp.http._
-import zio.random.Random
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
-import zio.{Chunk, ZIO}
+import zio.{Chunk, Random, ZIO}
 
 import java.io.File
 
 object HttpGen {
   def clientParamsForFileHttpData(): Gen[Random with Sized, Request] = {
     for {
-      file    <- Gen.fromEffect(ZIO.succeed(new File(getClass.getResource("/TestFile.txt").getPath)))
+      file    <- Gen.fromZIO(ZIO.succeed(new File(getClass.getResource("/TestFile.txt").getPath)))
       method  <- HttpGen.method
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
@@ -42,9 +38,6 @@ object HttpGen {
   def httpVersion: Gen[Random with Sized, Version] =
     Gen.fromIterable(List(Version.Http_1_0, Version.Http_1_1))
 
-  def httpVersion: Gen[Sized, Version] =
-    Gen.fromIterable(List(Version.Http_1_0, Version.Http_1_1))
-
   def cookies: Gen[Sized, Cookie] = for {
     name     <- Gen.string
     content  <- Gen.string
@@ -55,7 +48,7 @@ object HttpGen {
     httpOnly <- Gen.boolean
     maxAge   <- Gen.option(Gen.long)
     sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
-    secret   <- Gen.option(Gen.anyString)
+    secret   <- Gen.option(Gen.string)
   } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite, secret)
 
   def genAbsoluteLocation: Gen[Random with Sized, Location.Absolute] = for {
@@ -63,14 +56,6 @@ object HttpGen {
     host   <- Gen.alphaNumericStringBounded(1, 5)
     port   <- Gen.int(0, Int.MaxValue)
   } yield URL.Location.Absolute(scheme, host, port)
-
-  def genAbsoluteURL = for {
-    path        <- HttpGen.path
-    kind        <- HttpGen.genAbsoluteLocation
-    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
-  } yield URL(path, kind, queryParams)
-
-  def genRelativeLocation: Gen[Any, Location.Relative.type] = Gen.const(URL.Location.Relative)
 
   def genAbsoluteURL = for {
     path        <- HttpGen.path
@@ -100,7 +85,7 @@ object HttpGen {
         )
     } yield cnt
 
-  def location: Gen[Sized, URL.Location] = {
+  def location: Gen[Random with Sized, Location] = {
     Gen.fromIterable(List(genRelativeLocation, genAbsoluteLocation)).flatten
   }
 
@@ -137,7 +122,7 @@ object HttpGen {
     trailingSlash <- Gen.boolean
   } yield Path(segments.toVector, trailingSlash)
 
-  def request: Gen[Sized, Request] = for {
+  def request: Gen[Random with Sized, Request] = for {
     version <- httpVersion
     method  <- HttpGen.method
     url     <- HttpGen.url
@@ -216,7 +201,7 @@ object HttpGen {
     ),
   )
 
-  def url: Gen[Sized, URL] = for {
+  def url: Gen[Random with Sized, URL] = for {
     path        <- HttpGen.path
     kind        <- HttpGen.location
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))

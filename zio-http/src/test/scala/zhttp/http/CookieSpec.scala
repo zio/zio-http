@@ -7,7 +7,7 @@ import zio.test._
 object CookieSpec extends ZIOSpecDefault {
   def spec = suite("Cookies") {
     suite("response cookies") {
-      testM("encode/decode signed/unsigned cookies with secret") {
+      test("encode/decode signed/unsigned cookies with secret") {
         check(HttpGen.cookies) { cookie =>
           val expected = cookie.encode
           val actual   = Cookie.decodeResponseCookie(expected, cookie.secret).map(_.encode)

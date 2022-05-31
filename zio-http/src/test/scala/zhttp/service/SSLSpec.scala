@@ -70,7 +70,7 @@ object SSLSpec extends ZIOSpecDefault {
               val actual = Client
                 .request("http://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
                 .map(_.status)
-              assertM(actual)(equalTo(Status.PermanentRedirect))
+              assertZIO(actual)(equalTo(Status.PermanentRedirect))
             } +
             test("Https request with a large payload should respond with 413") {
               checkM(payload) { payload =>

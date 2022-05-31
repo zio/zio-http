@@ -21,19 +21,19 @@ object WebSocketServerSpec extends HttpRunnableSpec {
   }.provideCustomLayerShared(env) @@ timeout(30 seconds)
   def websocketServerSpec = suite("WebSocketServer") {
     suite("connections") {
-      testM("Multiple websocket upgrades") {
+      test("Multiple websocket upgrades") {
         val app   = Socket.succeed(WebSocketFrame.text("BAR")).toHttp.deployWS
         val codes = ZIO
           .foreach(1 to 1024)(_ => app(Socket.empty.toSocketApp).map(_.status))
           .map(_.count(_ == Status.SwitchingProtocols))
 
-        assertM(codes)(equalTo(1024))
+        assertZIO(codes)(equalTo(1024))
       }
     }
   }
 
   def websocketFrameSpec = suite("WebSocketFrameSpec") {
-    testM("binary") {
+    test("binary") {
       val socket = Socket.collect[WebSocketFrame] { case WebSocketFrame.Binary(buffer) =>
         ZStream.succeed(WebSocketFrame.Binary(buffer))
       }
@@ -41,12 +41,12 @@ object WebSocketServerSpec extends HttpRunnableSpec {
       val app  = socket.toHttp.deployWS
       val open = Socket.succeed(WebSocketFrame.binary(Chunk.fromArray("Hello, World".getBytes)))
 
-      assertM(app(socket.toSocketApp.onOpen(open)).map(_.status))(equalTo(Status.SwitchingProtocols))
+      assertZIO(app(socket.toSocketApp.onOpen(open)).map(_.status))(equalTo(Status.SwitchingProtocols))
     }
   }
 
   def websocketOnCloseSpec = suite("WebSocketOnCloseSpec") {
-    testM("success") {
+    test("success") {
       for {
         clockEnv <- ZIO.environment[Clock]
 

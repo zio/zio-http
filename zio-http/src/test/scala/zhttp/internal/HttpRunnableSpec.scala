@@ -76,33 +76,33 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         url      <- Http.fromZIO(DynamicServer.wsURL)
         response <- Http.fromFunctionZIO[SocketApp[HttpEnv]] { app =>
-          Client
-            .socket(
-              url = url,
-              headers = Headers(DynamicServer.APP_ID, id),
-              app = app,
-            )
-            .useNow
+          ZIO.scoped(
+            Client
+              .socket(
+                url = url,
+                headers = Headers(DynamicServer.APP_ID, id),
+                app = app,
+              ),
+          )
         }
       } yield response
   }
 
-  def serve[R <: Has[_]](
+  def serve[R](
     app: HttpApp[R, Throwable],
     server: Option[Server[R, Throwable]] = None,
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
+  ): ZIO[R with Scope with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] = {
+    val temp: Server[R, Throwable] = server.foldLeft(
+      Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection,
+    )(
+      _ ++ _,
+    )
     for {
-      settings <- ZManaged
-        .succeed(
-          server.foldLeft(
-            Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection,
-          )(
-            _ ++ _,
-          ),
-        )
+      settings <- ZIO.acquireRelease(ZIO.succeed(temp))(_)
       start    <- Server.make(settings).orDie
-      _        <- DynamicServer.setStart(start).toManaged_
+      _        <- ZIO.scoped(DynamicServer.setStart(start))
     } yield ()
+  }
 
   def status(
     method: Method = Method.GET,
@@ -114,6 +114,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       start    <- Server.make(settings).orDie
       _        <- DynamicServer.setStart(start)
     } yield ()
+  }
 
   def status(
     method: Method = Method.GET,

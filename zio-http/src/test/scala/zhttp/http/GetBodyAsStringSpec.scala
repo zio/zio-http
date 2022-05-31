@@ -28,7 +28,7 @@ object GetBodyAsStringSpec extends ZIOSpecDefault {
           assertZIO(encoded)(equalTo(expected))
         }
       } +
-        testM("should map bytes to default utf-8 if no charset given") {
+        test("should map bytes to default utf-8 if no charset given") {
           val request  = Request(url = URL(!!), data = HttpData.BinaryChunk(Chunk.fromArray("abc".getBytes())))
           val encoded  = request.bodyAsString
           val expected = new String(Chunk.fromArray("abc".getBytes()).toArray, HTTP_CHARSET)
