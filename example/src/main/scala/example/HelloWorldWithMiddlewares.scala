@@ -35,6 +35,6 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
       serverTime
 
   // Run it like any simple app
-  override val run =
-    Server.start(8090, (app @@ middlewares))
+  val run =
+    Server.start(8090, app @@ middlewares)
 }
