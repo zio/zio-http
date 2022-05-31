@@ -5,12 +5,11 @@ import zhttp.html._
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
-import zio.duration.durationInt
-import zio.stream.{ZStream, ZTransducer}
+import zio.stream.{ZPipeline, ZStream}
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-import zio.{Chunk, ZIO}
+import zio._
 
 import java.nio.file.Paths
 
@@ -133,7 +132,7 @@ object ServerSpec extends HttpRunnableSpec {
 
         test("gzip") {
           val res = for {
-            body     <- stream.transduce(ZTransducer.gzip()).runCollect
+            body     <- stream.via(ZPipeline.gzip()).runCollect
             response <- app.run(
               content = HttpData.fromChunk(body),
               headers = Headers.contentEncoding(HeaderValues.gzip),
@@ -143,7 +142,7 @@ object ServerSpec extends HttpRunnableSpec {
         } +
           test("deflate") {
             val res = for {
-              body     <- stream.transduce(ZTransducer.deflate()).runCollect
+              body     <- stream.via(ZPipeline.deflate()).runCollect
               response <- app.run(
                 content = HttpData.fromChunk(body),
                 headers = Headers.contentEncoding(HeaderValues.deflate),
@@ -159,7 +158,7 @@ object ServerSpec extends HttpRunnableSpec {
       Response.text(req.contentLength.getOrElse(-1).toString)
     }
     test("has content-length") {
-      checkM(Gen.alphaNumericString) { string =>
+      check(Gen.alphaNumericString) { string =>
         val res = app.deploy.bodyAsString.run(content = HttpData.fromString(string))
         assertZIO(res)(equalTo(string.length.toString))
       }
@@ -173,7 +172,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   def responseSpec = suite("ResponseSpec") {
     test("data") {
-      checkM(nonEmptyContent) { case (string, data) =>
+      check(nonEmptyContent) { case (string, data) =>
         val res = Http.fromData(data).deploy.bodyAsString.run()
         assertZIO(res)(equalTo(string))
       }
@@ -193,14 +192,14 @@ object ServerSpec extends HttpRunnableSpec {
         assertZIO(res)(equalTo("video/mp4"))
       } +
       test("status") {
-        checkAllM(HttpGen.status) { case status =>
+        checkAll(HttpGen.status) { case status =>
           val res = Http.status(status).deploy.status.run()
           assertZIO(res)(equalTo(status))
         }
 
       } +
       test("header") {
-        checkM(HttpGen.header) { case header @ (name, value) =>
+        check(HttpGen.header) { case header @ (name, value) =>
           val res = Http.ok.addHeader(header).deploy.headerValue(name).run()
           assertZIO(res)(isSome(equalTo(value)))
         }
@@ -212,7 +211,7 @@ object ServerSpec extends HttpRunnableSpec {
       test("echo streaming") {
         val res = Http
           .collectHttp[Request] { case req =>
-            Http.fromStream(ZStream.fromEffect(req.body).flattenChunks)
+            Http.fromStream(ZStream.fromZIO(req.body).flattenChunks)
           }
           .deploy
           .bodyAsString
@@ -221,7 +220,7 @@ object ServerSpec extends HttpRunnableSpec {
       } +
       test("file-streaming") {
         val path = getClass.getResource("/TestFile.txt").getPath
-        val res  = Http.fromStream(ZStream.fromFile(Paths.get(path))).deploy.bodyAsString.run()
+        val res  = Http.fromStream(ZStream.fromPath(Paths.get(path))).deploy.bodyAsString.run()
         assertZIO(res)(equalTo("abc\nfoo"))
       } +
       suite("html") {
@@ -271,14 +270,14 @@ object ServerSpec extends HttpRunnableSpec {
       val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
         Response(data = HttpData.fromStream(req.bodyAsStream))
       }
-      checkM(Gen.alphaNumericString) { c =>
+      check(Gen.alphaNumericString) { c =>
         assertZIO(app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = HttpData.fromString(c)))(
           equalTo(c),
         )
       }
     } +
       test("FromASCIIString: toHttp") {
-        checkM(Gen.anyASCIIString) { payload =>
+        check(Gen.asciiString) { payload =>
           val res = HttpData.fromAsciiString(AsciiString.cached(payload)).toHttp.map(_.toString(HTTP_CHARSET))
           assertZIO(res.run())(equalTo(payload))
         }
@@ -304,8 +303,8 @@ object ServerSpec extends HttpRunnableSpec {
   override def spec =
     suite("Server") {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
-      suiteM("app without request streaming") { app.as(List(spec)).useNow } +
-        suiteM("app with request streaming") { appWithReqStreaming.as(List(spec)).useNow }
-    }.provideCustomLayerShared(env) @@ timeout(10 seconds)
+      suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) } +
+        suite("app with request streaming") { ZIO.scoped(appWithReqStreaming.as(List(spec))) }
+    }.provideSomeLayerShared[TestEnvironment](env) @@ timeout(30 seconds) @@ sequential
 
 }

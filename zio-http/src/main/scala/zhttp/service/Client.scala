@@ -3,9 +3,9 @@ package zhttp.service
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{
   Channel,
-  ChannelInitializer,
   ChannelFactory => JChannelFactory,
   ChannelFuture => JChannelFuture,
+  ChannelInitializer,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http._

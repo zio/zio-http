@@ -1,7 +1,6 @@
 package zhttp.http
 
 import zhttp.http.middleware.{MonoMiddleware, Web}
-
 import zio._
 
 /**

@@ -13,11 +13,11 @@ import java.io.File
 object StaticFileServerSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
 
-  override def spec = suiteM("StaticFileServer") {
-    serve(DynamicServer.app).as(List(staticSpec)).useNow
-  }.provideCustomLayerShared(env) @@ timeout(5 seconds)
+  override def spec = suite("StaticFileServer") {
+    serve(DynamicServer.app).as(List(staticSpec))
+  }.provideLayerShared(env) @@ timeout(5 seconds)
 
   private def staticSpec = suite("Static RandomAccessFile Server") {
     suite("fromResource") {

@@ -16,7 +16,7 @@ object GetBodyAsStringSpec extends ZIOSpecDefault {
     suite("binary chunk") {
       test("should map bytes according to charset given") {
 
-        checkM(charsetGen) { charset =>
+        check(charsetGen) { charset =>
           val request = Request(
             url = URL(!!),
             headers = Headers.contentType(s"text/html; charset=$charset"),

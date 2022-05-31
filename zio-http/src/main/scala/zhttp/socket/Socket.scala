@@ -2,8 +2,8 @@ package zhttp.socket
 
 import zhttp.http.{Http, Response}
 import zhttp.service.{ChannelFactory, EventLoopGroup}
-import zio.stream.ZStream
 import zio._
+import zio.stream.ZStream
 
 sealed trait Socket[-R, +E, -A, +B] { self =>
   import Socket._

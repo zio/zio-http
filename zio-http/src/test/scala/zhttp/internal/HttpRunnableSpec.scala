@@ -91,30 +91,13 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
   def serve[R](
     app: HttpApp[R, Throwable],
     server: Option[Server[R, Throwable]] = None,
-  ): ZIO[R with Scope with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] = {
-    val temp: Server[R, Throwable] = server.foldLeft(
-      Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection,
-    )(
-      _ ++ _,
-    )
-    for {
-      settings <- ZIO.acquireRelease(ZIO.succeed(temp))(_)
-      start    <- Server.make(settings).orDie
-      _        <- ZIO.scoped(DynamicServer.setStart(start))
-    } yield ()
-  }
-
-  def status(
-    method: Method = Method.GET,
-    path: Path,
-  ): ZIO[EventLoopGroup with ChannelFactory with DynamicServer, Throwable, Status] = {
+  ): ZIO[R with EventLoopGroup with ServerChannelFactory with DynamicServer with Scope, Nothing, Unit] =
     for {
       settings <- ZIO
         .succeed(server.foldLeft(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection)(_ ++ _))
       start    <- Server.make(settings).orDie
       _        <- DynamicServer.setStart(start)
     } yield ()
-  }
 
   def status(
     method: Method = Method.GET,

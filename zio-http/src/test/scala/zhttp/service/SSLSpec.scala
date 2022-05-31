@@ -9,7 +9,7 @@ import zhttp.service.server._
 import zio._
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
-import zio.test.{Gen, TestEnvironment, ZIOSpecDefault, assertZIO, checkAll}
+import zio.test.{Gen, TestEnvironment, ZIOSpecDefault, assertZIO, check}
 
 object SSLSpec extends ZIOSpecDefault {
   val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto ++ Scope.default
@@ -73,7 +73,7 @@ object SSLSpec extends ZIOSpecDefault {
               assertZIO(actual)(equalTo(Status.PermanentRedirect))
             } +
             test("Https request with a large payload should respond with 413") {
-              checkM(payload) { payload =>
+              check(payload) { payload =>
                 val actual = Client
                   .request(
                     "https://localhost:8073/text",

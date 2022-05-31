@@ -10,7 +10,7 @@ object RequestSpec extends ZIOSpecDefault {
       test("should produce string representation of a request") {
         check(HttpGen.request) { req =>
           assert(req.toString)(
-            equalTo(s"Request(${req.version}, ${req.method}, ${req.url}, ${req.headers}, ${req.remoteAddress})"),
+            equalTo(s"Request(${req.version}, ${req.method}, ${req.url}, ${req.headers})"),
           )
         }
       }

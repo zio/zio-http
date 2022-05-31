@@ -250,21 +250,6 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
           assert(actual)(isSuccess(equalTo("B")))
         },
     ),
-    suite("route")(
-      test("should delegate to its HTTP apps") {
-        val app    = Http.route[Int] {
-          case 1 => Http.succeed(1)
-          case 2 => Http.succeed(2)
-        }
-        val actual = app.execute(2)
-        assert(actual)(isSuccess(equalTo(2)))
-      } +
-        test("should be empty if no matches") {
-          val app    = Http.route[Int](Map.empty)
-          val actual = app.execute(1)
-          assert(actual)(isEmpty)
-        },
-    ),
     suite("tap")(
       test("taps the successs") {
         for {

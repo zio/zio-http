@@ -10,8 +10,6 @@ import zio.{Scope, durationInt}
 
 import java.net.ConnectException
 
-import java.net.ConnectException
-
 object ClientSpec extends HttpRunnableSpec {
 
   private val env =
