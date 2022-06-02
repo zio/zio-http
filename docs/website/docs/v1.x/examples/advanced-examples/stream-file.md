@@ -8,7 +8,7 @@ import zio._
 import java.io.File
 import java.nio.file.Paths
 
-object FileStreaming extends ZIOAppDefault {
+object FileStreaming extends App {
 
   // Create HTTP route
   val app = Http.collectHttp[Request] {
@@ -26,8 +26,8 @@ object FileStreaming extends ZIOAppDefault {
   }
 
   // Run it like any simple app
-  override val run =
-    Server.start(8090, app.silent)
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+    Server.start(8090, app.silent).exitCode
 }
 
 ```

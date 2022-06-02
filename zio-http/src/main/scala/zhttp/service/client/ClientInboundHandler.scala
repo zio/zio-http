@@ -27,8 +27,10 @@ final class ClientInboundHandler[R](
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     msg.touch("handlers.ClientInboundHandler-channelRead0")
+    // NOTE: The promise is made uninterruptible to be able to complete the promise in a error situation.
+    // It allows to avoid loosing the message from pipeline in case the channel pipeline is closed due to an error.
+    zExec.unsafeRunUninterruptible(ctx)(promise.succeed(Response.unsafeFromJResponse(ctx, msg)))
 
-    zExec.unsafeRunUninterruptible(ctx)(promise.succeed(Response.unsafeFromJResponse(msg)))
     if (isWebSocket) {
       ctx.fireChannelRead(msg.retain())
       ctx.pipeline().remove(ctx.name()): Unit

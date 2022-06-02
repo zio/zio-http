@@ -40,12 +40,23 @@ sealed trait Scheme { self =>
 }
 object Scheme       {
 
-  def decode(scheme: String): Option[Scheme] = scheme.toUpperCase match {
-    case "HTTPS" => Option(HTTPS)
-    case "HTTP"  => Option(HTTP)
-    case "WS"    => Option(WS)
-    case "WSS"   => Option(WSS)
-    case _       => None
+  /**
+   * Decodes a string to an Option of Scheme. Returns None in case of
+   * null/non-valid Scheme
+   */
+  def decode(scheme: String): Option[Scheme] =
+    Option(unsafeDecode(scheme))
+
+  private[zhttp] def unsafeDecode(scheme: String): Scheme = {
+    if (scheme == null) null
+    else
+      scheme.length match {
+        case 5 => HTTPS
+        case 4 => HTTP
+        case 3 => WSS
+        case 2 => WS
+        case _ => null
+      }
   }
 
   def fromJScheme(scheme: HttpScheme): Option[Scheme] = scheme match {

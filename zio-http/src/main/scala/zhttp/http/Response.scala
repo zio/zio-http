@@ -1,14 +1,16 @@
 package zhttp.http
 
 import io.netty.buffer.Unpooled
+import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{FullHttpResponse, HttpHeaderNames, HttpResponse}
 import zhttp.html._
 import zhttp.http.headers.HeaderExtension
+import zhttp.service.ChannelFuture
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
-import zio.{UIO, ZIO}
+import zio.{Task, UIO, ZIO}
 
-import java.io.{PrintWriter, StringWriter}
+import java.io.{IOException, PrintWriter, StringWriter}
 
 final case class Response private (
   status: Status,
@@ -17,6 +19,11 @@ final case class Response private (
   private[zhttp] val attribute: Response.Attribute,
 ) extends HeaderExtension[Response]
     with HttpDataExtension[Response] { self =>
+
+  private[zhttp] def close: Task[Unit] = self.attribute.channel match {
+    case Some(channel) => ChannelFuture.unit(channel.close())
+    case None          => ZIO.fail(new IOException("Channel context isn't available"))
+  }
 
   /**
    * Encodes the Response into a Netty HttpResponse. Sets default headers such
@@ -107,11 +114,11 @@ final case class Response private (
 }
 
 object Response {
-  private[zhttp] def unsafeFromJResponse(jRes: FullHttpResponse): Response = {
+  private[zhttp] def unsafeFromJResponse(ctx: ChannelHandlerContext, jRes: FullHttpResponse): Response = {
     val status  = Status.fromHttpResponseStatus(jRes.status())
     val headers = Headers.decode(jRes.headers())
     val data    = HttpData.fromByteBuf(Unpooled.copiedBuffer(jRes.content()))
-    Response(status, headers, data)
+    Response(status, headers, data, attribute = Attribute(channel = Some(ctx)))
   }
 
   def apply[R, E](
@@ -235,6 +242,7 @@ object Response {
     memoize: Boolean = false,
     serverTime: Boolean = false,
     encoded: Option[(Response, HttpResponse)] = None,
+    channel: Option[ChannelHandlerContext] = None,
   ) { self =>
     def withEncodedResponse(jResponse: HttpResponse, response: Response): Attribute =
       self.copy(encoded = Some(response -> jResponse))

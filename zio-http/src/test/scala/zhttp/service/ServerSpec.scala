@@ -5,11 +5,11 @@ import zhttp.html._
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
+import zio._
 import zio.stream.{ZPipeline, ZStream}
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-import zio.{Chunk, ZIO, durationInt}
 
 import java.nio.file.Paths
 
@@ -23,9 +23,10 @@ object ServerSpec extends HttpRunnableSpec {
   private val env =
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
+  private val MaxSize             = 1024 * 10
   private val app                 =
-    serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(4096)))
-  private val appWithReqStreaming = serve(DynamicServer.app, None)
+    serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(MaxSize)))
+  private val appWithReqStreaming = serve(DynamicServer.app, Some(Server.requestDecompression(true)))
 
   def dynamicAppSpec = suite("DynamicAppSpec") {
     suite("success") {
@@ -50,26 +51,11 @@ object ServerSpec extends HttpRunnableSpec {
         } +
           test("header is set") {
             val res = app.deploy.headerValue(HeaderNames.contentLength).run()
-            assertZIO(res)(isSome(equalTo("0")))
+            assertZIO(res)(isSome(equalTo("439")))
           }
       } +
       suite("error") {
         val app = Http.fail(new Error("SERVER_ERROR"))
-        test("status is 500") {
-          val res = app.deploy.status.run()
-          assertZIO(res)(equalTo(Status.InternalServerError))
-        } +
-          test("content is set") {
-            val res = app.deploy.bodyAsString.run()
-            assertZIO(res)(containsString("SERVER_ERROR"))
-          } +
-          test("header is set") {
-            val res = app.deploy.headerValue(HeaderNames.contentLength).run()
-            assertZIO(res)(isSome(anything))
-          }
-      } +
-      suite("die") {
-        val app = Http.die(new Error("SERVER_ERROR"))
         test("status is 500") {
           val res = app.deploy.status.run()
           assertZIO(res)(equalTo(Status.InternalServerError))
@@ -118,6 +104,12 @@ object ServerSpec extends HttpRunnableSpec {
           test("one char") {
             val res = app.deploy.bodyAsString.run(content = HttpData.fromString("1"))
             assertZIO(res)(equalTo("1"))
+          } +
+          test("data") {
+            val dataStream = ZStream.repeat("A").take(MaxSize.toLong)
+            val app        = Http.collect[Request] { case req => Response(data = req.data) }
+            val res = app.deploy.bodyAsByteBuf.map(_.readableBytes()).run(content = HttpData.fromStream(dataStream))
+            assertZIO(res)(equalTo(MaxSize))
           }
       } +
       suite("headers") {
@@ -166,7 +158,7 @@ object ServerSpec extends HttpRunnableSpec {
       Response.text(req.contentLength.getOrElse(-1).toString)
     }
     test("has content-length") {
-      checkAll(Gen.alphaNumericString) { string =>
+      check(Gen.alphaNumericString) { string =>
         val res = app.deploy.bodyAsString.run(content = HttpData.fromString(string))
         assertZIO(res)(equalTo(string.length.toString))
       }
@@ -178,9 +170,9 @@ object ServerSpec extends HttpRunnableSpec {
       }
   }
 
-  def responseSpec    = suite("ResponseSpec") {
+  def responseSpec = suite("ResponseSpec") {
     test("data") {
-      checkAll(nonEmptyContent) { case (string, data) =>
+      check(nonEmptyContent) { case (string, data) =>
         val res = Http.fromData(data).deploy.bodyAsString.run()
         assertZIO(res)(equalTo(string))
       }
@@ -207,7 +199,7 @@ object ServerSpec extends HttpRunnableSpec {
 
       } +
       test("header") {
-        checkAll(HttpGen.header) { case header @ (name, value) =>
+        check(HttpGen.header) { case header @ (name, value) =>
           val res = Http.ok.addHeader(header).deploy.headerValue(name).run()
           assertZIO(res)(isSome(equalTo(value)))
         }
@@ -272,19 +264,20 @@ object ServerSpec extends HttpRunnableSpec {
           }
       }
   }
+
   def requestBodySpec = suite("RequestBodySpec") {
     test("POST Request stream") {
       val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
         Response(data = HttpData.fromStream(req.bodyAsStream))
       }
-      checkAll(Gen.alphaNumericString) { c =>
+      check(Gen.alphaNumericString) { c =>
         assertZIO(app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = HttpData.fromString(c)))(
           equalTo(c),
         )
       }
     } +
       test("FromASCIIString: toHttp") {
-        checkAll(Gen.asciiString) { payload =>
+        check(Gen.asciiString) { payload =>
           val res = HttpData.fromAsciiString(AsciiString.cached(payload)).toHttp.map(_.toString(HTTP_CHARSET))
           assertZIO(res.run())(equalTo(payload))
         }

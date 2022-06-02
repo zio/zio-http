@@ -195,6 +195,17 @@ application.
 
 There are many operators to provide the HTTP application with its required environment.
 
+### provideCustomLayer
+
+Provides the HTTP application with the part of the environment that is not part of the ZEnv, leaving an effect that only depends on the ZEnv.
+
+```scala
+  val a: Http[Clock, DateTimeException, String, OffsetDateTime] = Http.collectZIO[String] {
+    case "case 1"    => clock.currentDateTime
+  }
+  val app: Http[zio.ZEnv, DateTimeException, String, OffsetDateTime] = a.provideCustomLayer(Clock.live)
+```
+
 ## Attaching Middleware
 
 Middlewares are essentially transformations that one can apply to any `Http` to produce a new one. To attach middleware to the HTTP application, you can use `middleware` operator. `@@` is an alias for `middleware`.
@@ -215,12 +226,12 @@ The below snippet tests an app that takes `Int` as input and responds by adding 
     import zio.test.Assertion.equalTo
     import zio.test._
     
-    object Spec extends ZIOSpecDefault {
+    object Spec extends DefaultRunnableSpec {
     
       def spec = suite("http")(
-        testM("1 + 1 = 2") {
+        test("1 + 1 = 2") {
           val app: Http[Any, Nothing, Int, Int] = Http.fromFunction[Int](_ + 1)
-          assertZIO(app(1))(equalTo(2))
+          assert(app(1))(equalTo(2))
         }
       )
     }
@@ -354,6 +365,6 @@ We can use `Server.app()` method to bootstrap the server with an `HttpApp[R,E]`
     
   object HelloWorld extends App {
     val app: HttpApp[Any, Nothing] = Http.ok
-    override def run(args: List[String]): UIO[ExitCode] = Server.start(8090, app).exitCode
+    override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = Server.start(8090, app).exitCode
   } 
 ```

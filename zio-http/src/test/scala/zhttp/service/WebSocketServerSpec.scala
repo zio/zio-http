@@ -1,12 +1,12 @@
 package zhttp.service
 
-import zhttp.http.Status
+import zhttp.http.{Http, Status}
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zhttp.socket.{Socket, WebSocketFrame}
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test._
 import zio.{Chunk, ZIO, _}
 
@@ -44,5 +44,38 @@ object WebSocketServerSpec extends HttpRunnableSpec {
 
       assertZIO(app(socket.toSocketApp.onOpen(open)).map(_.status))(equalTo(Status.SwitchingProtocols))
     }
+  }
+
+  def websocketOnCloseSpec = suite("WebSocketOnCloseSpec") {
+    test("success") {
+      for {
+        clockEnv <- ZIO.environment[Clock]
+
+        // Maintain a flag to check if the close handler was completed
+        isSet     <- Promise.make[Nothing, Unit]
+        isStarted <- Promise.make[Nothing, Unit]
+
+        // Setup websocket server
+        onClose      = isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds)
+        serverSocket = Socket.empty.toSocketApp.onClose(_ => onClose)
+        serverHttp   = Http.fromZIO(serverSocket.toResponse).deployWS
+
+        // Setup Client
+        closeSocket  = Socket.end.delay(1 second)
+        clientSocket = Socket.empty.toSocketApp.onOpen(closeSocket)
+
+        // Deploy the server and send it a socket request
+        _ <- serverHttp(clientSocket.provideEnvironment(clockEnv))
+
+        // Wait for the close handler to complete
+
+        _ <- TestClock.adjust(2 seconds)
+        _ <- isStarted.await
+        _ <- TestClock.adjust(5 seconds)
+        _ <- isSet.await
+
+        // Check if the close handler was completed
+      } yield assertCompletes
+    } @@ nonFlaky
   }
 }

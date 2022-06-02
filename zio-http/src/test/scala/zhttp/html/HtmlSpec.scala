@@ -44,7 +44,13 @@ case object HtmlSpec extends ZIOSpecDefault {
           val view     = div("Hello!", css := "container" :: Nil)
           val expected = """<div class="container">Hello!</div>"""
           assert(view.encode)(equalTo(expected.stripMargin))
-        },
+        } +
+        suite("implicit conversions")(
+          test("from unit") {
+            val view: Html = {}
+            assert(view.encode)(equalTo(""))
+          },
+        ),
     )
   }
 }

@@ -12,11 +12,11 @@ object SimpleClient extends App {
   val program = for {
     res  <- Client.request(url, headers)
     data <- res.bodyAsString
-    _    <- Console.printLine { data }
+    _    <- console.putStrLn { data }
   } yield ()
 
-  override def run(args: List[String]): UIO[ExitCode] =
-    program.exitCode.provideLayer(env)
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+    program.exitCode.provideCustomLayer(env)
 
 }
 ```

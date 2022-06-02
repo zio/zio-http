@@ -10,8 +10,12 @@ import io.netty.handler.codec.http.HttpObjectDecoder.{
 import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
+import io.netty.handler.logging.LoggingHandler
+import zhttp.logging.LogLevel
 import zhttp.service.Server.Config
 import zhttp.service._
+import zhttp.service.server.LogLevelTransform._
+import zhttp.service.server.ServerChannelInitializer.log
 
 /**
  * Initializes the netty channel with default handlers
@@ -26,10 +30,10 @@ final case class ServerChannelInitializer[R](
     // !! IMPORTANT !!
     // Order of handlers are critical to make this work
     val pipeline = channel.pipeline()
-
+    log.debug(s"Connection initialized: ${channel.remoteAddress()}")
     // SSL
     // Add SSL Handler if CTX is available
-    val sslctx = if (cfg.sslOption == null) null else cfg.sslOption.sslContext
+    val sslctx   = if (cfg.sslOption == null) null else cfg.sslOption.sslContext
     if (sslctx != null)
       pipeline
         .addFirst(SSL_HANDLER, new OptionalSSLHandler(sslctx, cfg.sslOption.httpBehaviour, cfg))
@@ -70,6 +74,12 @@ final case class ServerChannelInitializer[R](
     // Flushing content is done in batches. Can potentially improve performance.
     if (cfg.consolidateFlush) pipeline.addLast(HTTP_SERVER_FLUSH_CONSOLIDATION, new FlushConsolidationHandler)
 
+    if (EnableNettyLogging) {
+      import io.netty.util.internal.logging.InternalLoggerFactory
+      InternalLoggerFactory.setDefaultFactory(zhttp.service.logging.NettyLoggerFactory(log))
+      pipeline.addLast(LOW_LEVEL_LOGGING, new LoggingHandler(LogLevel.Debug.toNettyLogLevel))
+    }
+
     // RequestHandler
     // Always add ZIO Http Request Handler
     pipeline.addLast(HTTP_REQUEST_HANDLER, reqHandler)
@@ -77,4 +87,8 @@ final case class ServerChannelInitializer[R](
     ()
   }
 
+}
+
+object ServerChannelInitializer {
+  private val log = Log.withTags("Server", "ChannelInitializer")
 }
