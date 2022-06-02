@@ -130,7 +130,7 @@ lazy val zhttpTest = (project in file("zio-http-test"))
 
 lazy val zhttpLogging = (project in file("zio-http-logging"))
   .settings(stdSettings("zhttp-logging"))
-  .settings(publishSetting(false))
+  .settings(publishSetting(true))
   .settings(
     libraryDependencies ++= {
       if (isScala3(scalaVersion.value)) Seq.empty
