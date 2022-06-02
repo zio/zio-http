@@ -1,7 +1,8 @@
 package zhttp.service
 
+import io.netty.buffer.Unpooled
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
+import io.netty.handler.codec.http.{DefaultHttpContent, HttpContent, LastHttpContent}
 
 final class ClientResponseStreamHandler(val callback: HttpContent => Any)
     extends SimpleChannelInboundHandler[HttpContent](false) { self =>
@@ -10,10 +11,13 @@ final class ClientResponseStreamHandler(val callback: HttpContent => Any)
     ctx: Ctx,
     msg: HttpContent,
   ): Unit = {
-    self.callback(msg)
+    val copiedMsg =
+      if (!msg.isInstanceOf[LastHttpContent]) new DefaultHttpContent(Unpooled.copiedBuffer(msg.content())) else msg
+    self.callback(copiedMsg)
     if (msg.isInstanceOf[LastHttpContent]) {
-      ctx.channel().pipeline().remove(self): Unit
+      ctx.channel().pipeline().remove(self)
     }
+    msg.release(msg.refCnt()): Unit
   }
 
   override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
