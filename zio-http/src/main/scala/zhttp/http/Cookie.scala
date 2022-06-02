@@ -6,6 +6,7 @@ import java.security.MessageDigest
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneOffset}
 import java.util.Base64.getEncoder
+import java.util.Locale
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import scala.util.{Failure, Success, Try}
@@ -177,7 +178,8 @@ object Cookie {
   private val sameSiteStrict = "strict"
   private val sameSiteNone   = "none"
 
-  private val dateTimeFormatter: DateTimeFormatter = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC)
+  private val dateTimeFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss O", Locale.ENGLISH).withZone(ZoneOffset.UTC)
 
   sealed trait SameSite {
     def asString: String
