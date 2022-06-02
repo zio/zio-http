@@ -3,11 +3,12 @@ package zhttp.http
 import zio.duration._
 
 import java.security.MessageDigest
-import java.time.Instant
+import java.time.format.DateTimeFormatter
+import java.time.{Instant, ZoneOffset}
 import java.util.Base64.getEncoder
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 final case class Cookie(
   name: String,
@@ -130,7 +131,9 @@ final case class Cookie(
 
     val cookie = List(
       Some(s"$name=$c"),
-      expires.map(e => s"Expires=$e"),
+      expires.map(e =>
+        s"Expires=${Cookie.dateTimeFormatter.format(e)}",
+      ), // format date to HTTP standard (https://httpwg.org/specs/rfc7231.html#header.date)
       maxAge.map(a => s"Max-Age=${a.toString}"),
       domain.filter(_.nonEmpty).map(d => s"Domain=$d"),
       path.filter(_.nonEmpty).map(p => s"Path=${p.encode}"),
@@ -174,6 +177,8 @@ object Cookie {
   private val sameSiteStrict = "strict"
   private val sameSiteNone   = "none"
 
+  private val dateTimeFormatter: DateTimeFormatter = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC)
+
   sealed trait SameSite {
     def asString: String
   }
@@ -187,7 +192,12 @@ object Cookie {
    * Decodes from Set-Cookie header value inside of Response into a cookie
    */
   def decodeResponseCookie(headerValue: String, secret: Option[String] = None): Option[Cookie] =
-    Try(unsafeDecodeResponseCookie(headerValue, secret)).toOption
+    Try(unsafeDecodeResponseCookie(headerValue, secret)) match {
+      case Failure(exception) =>
+        println(exception)
+        None
+      case Success(value)     => Some(value)
+    }
 
   private[zhttp] def unsafeDecodeResponseCookie(headerValue: String, secret: Option[String] = None): Cookie = {
     var name: String              = null
@@ -226,7 +236,7 @@ object Cookie {
             name = headerValue.substring(0, next)
           }
         } else if (headerValue.regionMatches(true, curr, fieldExpires, 0, fieldExpires.length)) {
-          expires = Instant.parse(headerValue.substring(curr + 8, next))
+          expires = Instant.from(dateTimeFormatter.parse(headerValue.substring(curr + 8, next)))
         } else if (headerValue.regionMatches(true, curr, fieldMaxAge, 0, fieldMaxAge.length)) {
           maxAge = Some(headerValue.substring(curr + 8, next).toLong)
         } else if (headerValue.regionMatches(true, curr, fieldDomain, 0, fieldDomain.length)) {
