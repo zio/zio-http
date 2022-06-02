@@ -81,8 +81,8 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
               .socket(
                 url = url,
                 headers = Headers(DynamicServer.APP_ID, id),
-                app = app
-              )
+                app = app,
+              ),
           )
         }
       } yield response
