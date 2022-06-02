@@ -76,13 +76,13 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         url      <- Http.fromZIO(DynamicServer.wsURL)
         response <- Http.fromFunctionZIO[SocketApp[HttpEnv]] { app =>
-          ZIO.scoped(
+          ZIO.scoped[HttpEnv](
             Client
               .socket(
                 url = url,
                 headers = Headers(DynamicServer.APP_ID, id),
-                app = app,
-              ),
+                app = app
+              )
           )
         }
       } yield response
