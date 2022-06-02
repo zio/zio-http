@@ -8,15 +8,15 @@ val releaseDrafterVersion = "5"
 val _ = sys.props += ("ZHttpLogLevel" -> "INFO")
 
 // CI Configuration
-ThisBuild / githubWorkflowJavaVersions   := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
-ThisBuild / githubWorkflowPREventTypes   := Seq(
+ThisBuild / githubWorkflowJavaVersions          := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
+ThisBuild / githubWorkflowPREventTypes          := Seq(
   PREventType.Opened,
   PREventType.Synchronize,
   PREventType.Reopened,
   PREventType.Edited,
   PREventType.Labeled,
 )
-ThisBuild / githubWorkflowAddedJobs      :=
+ThisBuild / githubWorkflowAddedJobs             :=
   Seq(
     WorkflowJob(
       id = "update_release_draft",
@@ -65,7 +65,7 @@ ThisBuild / githubWorkflowPublish               :=
   )
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
-ThisBuild / githubWorkflowBuildPreamble  := Seq(
+ThisBuild / githubWorkflowBuildPreamble         := Seq(
   WorkflowStep.Run(
     name = Some("Check formatting"),
     commands = List(s"sbt ++${Scala213} fmtCheck"),
@@ -73,7 +73,7 @@ ThisBuild / githubWorkflowBuildPreamble  := Seq(
   ),
 )
 
-ThisBuild / githubWorkflowBuildPostamble :=
+ThisBuild / githubWorkflowBuildPostamble        :=
   WorkflowJob(
     "checkDocGeneration",
     "Check doc generation",
@@ -134,7 +134,7 @@ lazy val zhttpTest = (project in file("zio-http-test"))
 
 lazy val zhttpLogging = (project in file("zio-http-logging"))
   .settings(stdSettings("zhttp-logging"))
-  .settings(publishSetting(false))
+  .settings(publishSetting(true))
   .settings(
     libraryDependencies ++= {
       if (isScala3(scalaVersion.value)) Seq.empty
