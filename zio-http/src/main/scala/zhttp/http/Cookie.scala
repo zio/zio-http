@@ -9,7 +9,7 @@ import java.util.Base64.getEncoder
 import java.util.Locale
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 final case class Cookie(
   name: String,
@@ -178,7 +178,7 @@ object Cookie {
   private val sameSiteStrict = "strict"
   private val sameSiteNone   = "none"
 
-  private val dateTimeFormatter: DateTimeFormatter =
+  val dateTimeFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss O", Locale.ENGLISH).withZone(ZoneOffset.UTC)
 
   sealed trait SameSite {
@@ -194,12 +194,7 @@ object Cookie {
    * Decodes from Set-Cookie header value inside of Response into a cookie
    */
   def decodeResponseCookie(headerValue: String, secret: Option[String] = None): Option[Cookie] =
-    Try(unsafeDecodeResponseCookie(headerValue, secret)) match {
-      case Failure(exception) =>
-        println(exception)
-        None
-      case Success(value)     => Some(value)
-    }
+    Try(unsafeDecodeResponseCookie(headerValue, secret)).toOption
 
   private[zhttp] def unsafeDecodeResponseCookie(headerValue: String, secret: Option[String] = None): Cookie = {
     var name: String              = null
