@@ -302,5 +302,11 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
           },
         ),
       ),
+      suite("root")(
+        test("match the root") {
+          val path = collect { case !!! => true }
+          assert(path(Path.decode("/")))(isSome(equalTo(true)))
+        },
+      ),
     )
 }
