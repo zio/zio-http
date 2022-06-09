@@ -164,6 +164,32 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             val app = (Http.ok.addHeader("keyA", "ValueA") @@ signCookies("secret")).headerValues
             assertM(app(Request()))(contains("ValueA"))
           }
+      } +
+      suite("trailingSlashDrop") {
+        testM("should do nothing when trailing slash is not present") {
+          val program = run(app @@ trailingSlashDrop).map(_.status)
+          assertM(program)(equalTo(Status.Ok))
+        } +
+          testM("should match when  trailing slash is present") {
+            val app     = Http.collectZIO[Request] { case Method.GET -> !! =>
+              UIO(Response.ok)
+            }
+            val program = runTrailingSlash(app @@ trailingSlashDrop).map(_.status)
+            assertM(program)(equalTo(Status.Ok))
+          }
+      } +
+      suite("trailingSlashRedirect") {
+        testM("should do nothing when trailing slash is not present") {
+          val program = run(app @@ trailingSlashRedirect).map(_.status)
+          assertM(program)(equalTo(Status.Ok))
+        } +
+          testM("should redirect when  trailing slash is present") {
+            val localApp = Http.collect[Request] { case Method.GET -> !! =>
+              Response.ok
+            }
+            val program  = runTrailingSlash(localApp @@ trailingSlashRedirect).map(_.status)
+            assertM(program)(equalTo(Status.PermanentRedirect))
+          }
       }
   }
 
@@ -174,6 +200,14 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
   private def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response] = {
     for {
       fib <- app { Request(url = URL(!! / "health")) }.fork
+      _   <- TestClock.adjust(10 seconds)
+      res <- fib.join
+    } yield res
+  }
+
+  private def runTrailingSlash[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response] = {
+    for {
+      fib <- app { Request(url = URL.fromString("/").toOption.getOrElse(URL(!!))) }.fork
       _   <- TestClock.adjust(10 seconds)
       res <- fib.join
     } yield res

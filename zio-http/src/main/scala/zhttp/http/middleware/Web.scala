@@ -1,5 +1,7 @@
 package zhttp.http.middleware
 
+import io.netty.handler.codec.http.HttpHeaderNames
+import zhttp.http.URL.encode
 import zhttp.http._
 import zhttp.http.headers.HeaderModifier
 import zhttp.http.middleware.Web.{PartialInterceptPatch, PartialInterceptZIOPatch}
@@ -171,6 +173,31 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
       _ => middleware,
       _ => Middleware.identity,
     )
+
+  /**
+   * Removes the trailing slash from the path.
+   */
+  final def trailingSlashDrop[R, E]: HttpMiddleware[R, E] =
+    Middleware.identity[Request, Response].contramap[Request](removeTrailingSlash)
+
+  /**
+   * Permanent redirect if the trailing slash is present in the request URL.
+   */
+  final def trailingSlashRedirect[R, E]: HttpMiddleware[R, E] =
+    Middleware.whenRequest(_.url.path.trailingSlash)(
+      trailingSlashDrop ++ Middleware.intercept[Request, Response](identity)((_, req) =>
+        Response(
+          status = Status.PermanentRedirect,
+          headers = Headers(HttpHeaderNames.LOCATION, encode(removeTrailingSlash(req).url)),
+        ),
+      ),
+    )
+
+  private def removeTrailingSlash(req: Request): Request = {
+    val path = req.url.path.copy(trailingSlash = false)
+    req.copy(url = req.url.copy(path = path))
+  }
+
 }
 
 object Web {
