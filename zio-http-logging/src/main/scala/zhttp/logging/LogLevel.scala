@@ -18,6 +18,8 @@ sealed abstract class LogLevel(val id: Int) extends Product with Serializable { 
   }
 
   final override def toString: String = name
+
+  final def toTransport: LoggerTransport = LoggerTransport.empty.withLevel(self)
 }
 
 /**
