@@ -12,7 +12,7 @@ import java.util
  * used to, format and serialize LogLines and them to a backend.
  */
 private[logging] abstract class LoggerTransport(
-  format: LogFormat = LogFormat.minimal,
+  format: LogFormat = LogFormat.colored,
   val level: LogLevel = LogLevel.Error,
   filter: String => Boolean = _ => true,
   tags: List[String] = Nil,
@@ -78,7 +78,8 @@ private[logging] abstract class LoggerTransport(
   ): Unit =
     if (self.level <= level) {
       buildLines(msg, cause, level, self.tags, sourceLocation).foreach { line =>
-        if (filter(format(line))) run(format(line))
+        val formatted = format(line)
+        if (filter(formatted)) run(formatted)
       }
     }
 
