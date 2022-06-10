@@ -167,28 +167,35 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       } +
       suite("trailingSlashDrop") {
         testM("should do nothing when trailing slash is not present") {
-          val program = run(app @@ trailingSlashDrop).map(_.status)
+          val program = run(app @@ dropTrailingSlash).map(_.status)
           assertM(program)(equalTo(Status.Ok))
         } +
           testM("should match when  trailing slash is present") {
             val app     = Http.collectZIO[Request] { case Method.GET -> !! =>
               UIO(Response.ok)
             }
-            val program = runTrailingSlash(app @@ trailingSlashDrop).map(_.status)
+            val program = runTrailingSlash(app @@ dropTrailingSlash).map(_.status)
             assertM(program)(equalTo(Status.Ok))
           }
       } +
       suite("trailingSlashRedirect") {
         testM("should do nothing when trailing slash is not present") {
-          val program = run(app @@ trailingSlashRedirect).map(_.status)
+          val program = run(app @@ redirectTrailingSlash(permanent = false)).map(_.status)
           assertM(program)(equalTo(Status.Ok))
         } +
-          testM("should redirect when  trailing slash is present") {
+          testM("should permanent redirect when  trailing slash is present") {
             val localApp = Http.collect[Request] { case Method.GET -> !! =>
               Response.ok
             }
-            val program  = runTrailingSlash(localApp @@ trailingSlashRedirect).map(_.status)
+            val program  = runTrailingSlash(localApp @@ redirectTrailingSlash(permanent = true)).map(_.status)
             assertM(program)(equalTo(Status.PermanentRedirect))
+          } +
+          testM("should temporary redirect when  trailing slash is present") {
+            val localApp = Http.collect[Request] { case Method.GET -> !! =>
+              Response.ok
+            }
+            val program  = runTrailingSlash(localApp @@ redirectTrailingSlash(permanent = false)).map(_.status)
+            assertM(program)(equalTo(Status.TemporaryRedirect))
           }
       }
   }
