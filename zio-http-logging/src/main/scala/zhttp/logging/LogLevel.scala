@@ -40,24 +40,24 @@ object LogLevel {
    * Automatically detects the level from the environment variable
    */
   def detectFromEnv(name: String): Option[LogLevel] =
-    sys.env.get(name).map(fromString)
+    sys.env.get(name).flatMap(fromString)
 
   /**
    * Automatically detects the level from the system properties
    */
   def detectFromProps(name: String): Option[LogLevel] =
-    sys.props.get(name).map(fromString)
+    sys.props.get(name).flatMap(fromString)
 
   /**
    * Detects the LogLevel given any random string
    */
-  def fromString(string: String): LogLevel = string.toUpperCase match {
-    case "TRACE" => Trace
-    case "DEBUG" => Debug
-    case "INFO"  => Info
-    case "WARN"  => Warn
-    case "ERROR" => Error
-    case _       => Error
+  def fromString(string: String): Option[LogLevel] = string.toUpperCase match {
+    case "TRACE" => Option(Trace)
+    case "DEBUG" => Option(Debug)
+    case "INFO"  => Option(Info)
+    case "WARN"  => Option(Warn)
+    case "ERROR" => Option(Error)
+    case _       => None
   }
 
   case object Trace extends LogLevel(1)

@@ -12,12 +12,12 @@ object LogLevelSpec extends DefaultRunnableSpec {
     },
     testM("encode decode") {
       checkAll(Gen.fromIterable(LogLevel.all)) { level =>
-        assertTrue(LogLevel.fromString(level.toString) == level)
+        assertTrue(LogLevel.fromString(level.toString) == Some(level))
       }
     },
     testM("any value with the exception of defined values for LogLevel should be set to Error log level.") {
       checkAll(Gen.fromIterable(List("not defined", "unknown", "disable"))) { level =>
-        assertTrue(LogLevel.fromString(level) == LogLevel.Error)
+        assertTrue(LogLevel.fromString(level) == Some(LogLevel.Error))
       }
     },
   )
