@@ -25,6 +25,50 @@ object LoggerSpec extends DefaultRunnableSpec {
         assertTrue(transport.stdout == s"${level} ABC")
       }
     },
+    suite("LoggerTransport")(
+      suite("level checks")(
+        test("Error") {
+          val logger = LogLevel.Error.toTransport
+          assertTrue(logger.isErrorEnabled) &&
+          assertTrue(!logger.isWarnEnabled) &&
+          assertTrue(!logger.isInfoEnabled) &&
+          assertTrue(!logger.isDebugEnabled) &&
+          assertTrue(!logger.isTraceEnabled)
+        },
+        test("Warn") {
+          val logger = LogLevel.Warn.toTransport
+          assertTrue(logger.isErrorEnabled) &&
+          assertTrue(logger.isWarnEnabled) &&
+          assertTrue(!logger.isInfoEnabled) &&
+          assertTrue(!logger.isDebugEnabled) &&
+          assertTrue(!logger.isTraceEnabled)
+        },
+        test("Info") {
+          val logger = LogLevel.Info.toTransport
+          assertTrue(logger.isErrorEnabled) &&
+          assertTrue(logger.isWarnEnabled) &&
+          assertTrue(logger.isInfoEnabled) &&
+          assertTrue(!logger.isDebugEnabled) &&
+          assertTrue(!logger.isTraceEnabled)
+        },
+        test("Debug") {
+          val logger = LogLevel.Debug.toTransport
+          assertTrue(logger.isErrorEnabled) &&
+          assertTrue(logger.isWarnEnabled) &&
+          assertTrue(logger.isInfoEnabled) &&
+          assertTrue(logger.isDebugEnabled) &&
+          assertTrue(!logger.isTraceEnabled)
+        },
+        test("Trace") {
+          val logger = LogLevel.Trace.toTransport
+          assertTrue(logger.isErrorEnabled) &&
+          assertTrue(logger.isWarnEnabled) &&
+          assertTrue(logger.isInfoEnabled) &&
+          assertTrue(logger.isDebugEnabled) &&
+          assertTrue(logger.isTraceEnabled)
+        },
+      ),
+    ),
   )
 
   final class MemoryTransport extends LoggerTransport() {

@@ -20,11 +20,11 @@ private[logging] abstract class LoggerTransport(
 
   def run(charSequence: CharSequence): Unit
 
-  final private[zhttp] val isDebugEnabled: Boolean = self.level >= LogLevel.Debug
-  final private[zhttp] val isErrorEnabled: Boolean = self.level >= LogLevel.Error
-  final private[zhttp] val isInfoEnabled: Boolean  = self.level >= LogLevel.Info
-  final private[zhttp] val isTraceEnabled: Boolean = self.level >= LogLevel.Trace
-  final private[zhttp] val isWarnEnabled: Boolean  = self.level >= LogLevel.Warn
+  final private[zhttp] val isDebugEnabled: Boolean = self.level <= LogLevel.Debug
+  final private[zhttp] val isErrorEnabled: Boolean = self.level <= LogLevel.Error
+  final private[zhttp] val isInfoEnabled: Boolean  = self.level <= LogLevel.Info
+  final private[zhttp] val isTraceEnabled: Boolean = self.level <= LogLevel.Trace
+  final private[zhttp] val isWarnEnabled: Boolean  = self.level <= LogLevel.Warn
 
   final private def buildLines(
     msg: String,
