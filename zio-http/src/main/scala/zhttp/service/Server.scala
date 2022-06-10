@@ -3,7 +3,6 @@ package zhttp.service
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.ChannelPipeline
 import io.netty.util.ResourceLeakDetector
-import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
@@ -156,6 +155,7 @@ object Server {
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
   val disableKeepAlive: UServer      = Server.KeepAlive(false)
   val consolidateFlush: UServer      = ConsolidateFlush(true)
+  private[zhttp] val log             = Log.withTags("Server")
 
   def acceptContinue: UServer = Server.AcceptContinue(true)
 
@@ -215,7 +215,7 @@ object Server {
     Server(http)
       .withPort(port)
       .make
-      .flatMap(start => ZManaged.succeed(Log.info(s"Server started on port: ${start.port}")))
+      .flatMap(start => ZManaged.succeed(log.info(s"Started on port: ${start.port}")))
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
   }
