@@ -4,11 +4,14 @@ import scalafix.sbt.ScalafixPlugin.autoImport._
 import xerial.sbt.Sonatype.autoImport._
 
 object BuildHelper extends ScalaSettings {
-  val Scala212           = "2.12.15"
-  val Scala213           = "2.13.8"
-  val ScalaDotty         = "3.1.2"
-  val ScoverageVersion   = "1.9.3"
-  val JmhVersion         = "0.4.3"
+  val Scala212         = "2.12.15"
+  val Scala213         = "2.13.8"
+  val ScalaDotty       = "3.1.2"
+  val ScoverageVersion = "1.9.3"
+  val JmhVersion       = "0.4.3"
+
+  val ZHttpLogLevel = "DEBUG"
+
   private val stdOptions = Seq(
     "-deprecation",
     "-encoding",
@@ -63,8 +66,8 @@ object BuildHelper extends ScalaSettings {
     Test / parallelExecution               := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
     autoAPIMappings                        := true,
-    ThisBuild / javaOptions                := Seq("-Dio.netty.leakDetectionLevel=paranoid", "-DZHttpLogLevel=INFO"),
-    ThisBuild / fork                       := true,
+    ThisBuild / javaOptions := Seq("-Dio.netty.leakDetectionLevel=paranoid", s"-DZHttpLogLevel=${ZHttpLogLevel}"),
+    ThisBuild / fork        := true,
   )
 
   def runSettings(className: String = "example.HelloWorld") = Seq(
