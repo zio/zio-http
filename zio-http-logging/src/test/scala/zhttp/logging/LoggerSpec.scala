@@ -17,7 +17,7 @@ object LoggerSpec extends DefaultRunnableSpec {
       }
     },
     testM("logs message") {
-      val format  = LogFormat.logLevel |-| LogFormat.msg
+      val format  = LogFormat.level |-| LogFormat.message
       val message = "ABC"
       checkAll(Gen.fromIterable(LogLevel.all)) { level =>
         val transport = MemoryTransport.make

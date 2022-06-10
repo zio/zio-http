@@ -2,187 +2,184 @@ package zhttp.logging
 
 import zhttp.logging.LogFormat.DateFormat.ISODateTime
 
-import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 object Setup {
   final case class DefaultFormat(format: LogLine => String) {
     def apply(line: LogLine): String = format(line)
   }
-
 }
 
 sealed trait LogFormat { self =>
   import LogFormat._
 
-  def <+>(that: LogFormat): LogFormat = self combine that
+  final def |-|(other: LogFormat): LogFormat = Combine(self, " ", other)
 
-  def combine(that: LogFormat): LogFormat = LogFormat.Combine(self, that)
+  final def \\(other: LogFormat): LogFormat = Combine(self, "\n", other)
 
-  final def color(color: Color): LogFormat = ColorWrap(color, self)
+  final def <+>(that: LogFormat): LogFormat = Combine(self, "", that)
 
-  final def wrap(wrapper: TextWrapper): LogFormat = TextWrappers(wrapper, self)
+  final def -(other: LogFormat): LogFormat = Combine(self, "-", other)
 
-  final def fixed(size: Int): LogFormat = Fixed(size, self)
+  final def apply(line: LogLine): String = {
+    val colorStack = collection.mutable.Stack.empty[Font]
 
-  final def |-|(other: LogFormat): LogFormat = Spaced(self, other)
+    def loop(self: LogFormat, line: LogLine): String = {
+      self match {
+        case Location                      => line.sourceLocation.map(sp => s"${sp.file} ${sp.line}").getOrElse("")
+        case FormatDate(dateFormat)        =>
+          dateFormat match {
+            case DateFormat.ISODateTime => line.timestamp.format(DateTimeFormatter.ISO_TIME)
+          }
+        case ThreadName(includeThreadName) => if (includeThreadName) line.thread.getName else ""
+        case ThreadId(includeThreadId)     => if (includeThreadId) line.thread.getId.toString else ""
+        case Level                         => line.level.name
+        case Combine(left, sep, right)     => loop(left, line) + sep + loop(right, line)
+        case FontWrap(font, fmt)           =>
+          colorStack.push(font)
+          val msg   = loop(fmt, line)
+          val start = font.toAnsiColor
+          colorStack.pop()
+          val end   = colorStack.map(_.toAnsiColor).mkString("")
+          s"${start}${msg}${Console.RESET}$end"
+        case Msg                           => line.message
+        case Tags                          => line.tags.mkString(":")
+        case Literal(msg)                  => msg
+        case Format(fmt, f)                => loop(f(loop(fmt, line)), line)
+      }
+    }
 
-  final def -(other: LogFormat): LogFormat = Dash(self, other)
+    loop(self, line)
+  }
 
-  final def \\(other: LogFormat): LogFormat = NewLine(self, other)
+  final def autoColor: LogFormat =
+    self.format(str => self.font(AutoColorSeq(str.hashCode.abs % AutoColorSeq.length)))
 
-  final def trim: LogFormat = Trim(self)
+  final def black: LogFormat = font(Font.BLACK)
 
-  def apply(line: LogLine): String = LogFormat.run(self, line)
+  final def blackB: LogFormat = font(Font.BLACK_B)
 
+  final def blink: LogFormat = font(Font.BLINK)
+
+  final def blue: LogFormat = font(Font.BLUE)
+
+  final def blueB: LogFormat = font(Font.BLUE_B)
+
+  final def bold: LogFormat = font(Font.BOLD)
+
+  final def bracket: LogFormat = transform(msg => s"[${msg}]")
+
+  final def cyan: LogFormat = font(Font.CYAN)
+
+  final def cyanB: LogFormat = font(Font.CYAN_B)
+
+  final def fixed(n: Int): LogFormat = transform(_.padTo(n, ' '))
+
+  final def flipColor: LogFormat = self.font(Font.REVERSED)
+
+  final def font(font: Font): LogFormat = FontWrap(font, self)
+
+  final def format(f: String => LogFormat): LogFormat = LogFormat.Format(self, f)
+
+  final def green: LogFormat = font(Font.GREEN)
+
+  final def greenB: LogFormat = font(Font.GREEN_B)
+
+  final def invisible: LogFormat = font(Font.INVISIBLE)
+
+  final def lowercase: LogFormat = transform(_.toLowerCase)
+
+  final def magenta: LogFormat = font(Font.MAGENTA)
+
+  final def magentaB: LogFormat = font(Font.MAGENTA_B)
+
+  final def red: LogFormat = font(Font.RED)
+
+  final def redB: LogFormat = font(Font.RED_B)
+
+  final def reset: LogFormat = font(Font.RESET)
+
+  final def reversed: LogFormat = font(Font.REVERSED)
+
+  final def transform(f: String => String): LogFormat = format(s => LogFormat.Literal(f(s)))
+
+  final def trim: LogFormat = transform(_.trim)
+
+  final def underline: LogFormat = self.font(Font.UNDERLINED)
+
+  final def underlined: LogFormat = font(Font.UNDERLINED)
+
+  final def uppercase: LogFormat = transform(_.toUpperCase)
+
+  final def white: LogFormat = font(Font.WHITE)
+
+  final def whiteB: LogFormat = font(Font.WHITE_B)
+
+  final def yellow: LogFormat = font(Font.YELLOW)
+
+  final def yellowB: LogFormat = font(Font.YELLOW_B)
 }
 
 object LogFormat {
 
+  val AutoColorSeq: Array[Font] = Array(
+    Font.BLUE,
+    Font.CYAN,
+    Font.GREEN,
+    Font.MAGENTA,
+    Font.YELLOW,
+  )
+
+  def colored: LogFormat =
+    LogFormat.level.uppercase.bracket.fixed(7).white |-|
+      LogFormat.tags.autoColor.flipColor |-|
+      LogFormat.message
+
+  def date(dateFormat: DateFormat): LogFormat = FormatDate(dateFormat)
+
+  def level: LogFormat = Level
+
+  def literal(a: String): LogFormat = Literal(a)
+
+  def location: LogFormat = Location
+
+  def maximus: LogFormat =
+    LogFormat.tags.bracket |-|
+      LogFormat.date(ISODateTime) |-|
+      LogFormat.threadName.bracket |-|
+      LogFormat.location.bracket |-|
+      LogFormat.level - LogFormat.message
+
+  def message: LogFormat = Msg
+
+  def tags: LogFormat = Tags
+
+  def threadId: LogFormat = ThreadId(true)
+
+  def threadName: LogFormat = ThreadName(true)
+
   sealed trait DateFormat
+
+  final case class FormatDate(dateFormat: DateFormat) extends LogFormat
+
+  final case class ThreadName(includeThreadName: Boolean) extends LogFormat
+
+  final case class ThreadId(includeThreadId: Boolean) extends LogFormat
+
+  final case class Combine(left: LogFormat, sep: String, right: LogFormat) extends LogFormat
+
+  final case class FontWrap(font: Font, fmt: LogFormat) extends LogFormat
+
+  final case class Literal(lit: String) extends LogFormat
+
+  final case class Format(fmt: LogFormat, f: String => LogFormat) extends LogFormat
+
   object DateFormat {
     case object ISODateTime extends DateFormat
   }
 
-  sealed trait Color
-  object Color {
-    case object RED     extends Color
-    case object BLUE    extends Color
-    case object YELLOW  extends Color
-    case object CYAN    extends Color
-    case object GREEN   extends Color
-    case object MAGENTA extends Color
-    case object WHITE   extends Color
-    case object RESET   extends Color
-    case object DEFAULT extends Color
-
-    def asConsole(color: Color): String = color match {
-      case RED     => Console.RED
-      case BLUE    => Console.BLUE
-      case YELLOW  => Console.YELLOW
-      case CYAN    => Console.CYAN
-      case GREEN   => Console.GREEN
-      case MAGENTA => Console.MAGENTA
-      case WHITE   => Console.WHITE
-      case RESET   => Console.RESET
-      case DEFAULT => ""
-    }
-  }
-
-  sealed trait TextWrapper
-  object TextWrapper {
-    case object BRACKET extends TextWrapper
-    case object QUOTED  extends TextWrapper
-    case object EMPTY   extends TextWrapper
-  }
-
-  final case class FormatDate(dateFormat: DateFormat)                                            extends LogFormat
-  final case class ThreadName(includeThreadName: Boolean)                                        extends LogFormat
-  final case class ThreadId(includeThreadId: Boolean)                                            extends LogFormat
-  case object LoggerLevel                                                                        extends LogFormat
-  final case class Combine(left: LogFormat, right: LogFormat)                                    extends LogFormat
-  final case class ColorWrap(color: Color, configuration: LogFormat)                             extends LogFormat
-  final case class LineColor(info: Color, error: Color, debug: Color, trace: Color, warn: Color) extends LogFormat
-  final case class TextWrappers(wrapper: TextWrapper, configuration: LogFormat)                  extends LogFormat
-  final case class Fixed(size: Int, configuration: LogFormat)                                    extends LogFormat
-  final case class Spaced(left: LogFormat, right: LogFormat)                                     extends LogFormat
-  final case class Dash(left: LogFormat, right: LogFormat)                                       extends LogFormat
-  final case class NewLine(left: LogFormat, right: LogFormat)                                    extends LogFormat
-  final case class Trim(logFmt: LogFormat)                                                       extends LogFormat
-  case object SourceLocation                                                                     extends LogFormat
-  case object Msg                                                                                extends LogFormat
-  case object Tags                                                                               extends LogFormat
-
-  def logLevel: LogFormat                     = LoggerLevel
-  def date(dateFormat: DateFormat): LogFormat = FormatDate(dateFormat)
-  def threadName: LogFormat                   = ThreadName(true)
-  def threadId: LogFormat                     = ThreadId(true)
-  def msg: LogFormat                          = Msg
-  def sourceLocation: LogFormat               = SourceLocation
-  def tags: LogFormat                         = Tags
-
-  def color(info: Color, error: Color, debug: Color, trace: Color, warn: Color): LogFormat =
-    LineColor(info, error, debug, trace, warn)
-
-  private def run(logFormat: LogFormat, logLine: LogLine): String = {
-
-    logFormat match {
-      case SourceLocation                => logLine.sourceLocation.map(sp => s"${sp.file} ${sp.line}").getOrElse("")
-      case FormatDate(dateFormat)        => formatDate(dateFormat, logLine.timestamp)
-      case ThreadName(includeThreadName) => if (includeThreadName) logLine.thread.getName else ""
-      case ThreadId(includeThreadId)     => if (includeThreadId) logLine.thread.getId.toString else ""
-      case LoggerLevel                   => logLine.level.name
-      case Combine(left, right)          => left(logLine) ++ right(logLine)
-      case ColorWrap(color, conf)        =>
-        colorText(color, conf(logLine))
-      case TextWrappers(wrapper, conf)   => wrap(wrapper, conf(logLine))
-      case Fixed(_, conf)                => conf(logLine)
-      case Spaced(left, right)           => left(logLine) + " " + right(logLine)
-      case Dash(left, right)             => left(logLine) + " - " + right(logLine)
-      case NewLine(left, right)          => left(logLine) + "\n" + right(logLine)
-      case Msg                           => logLine.message
-      case Trim(conf)                    => conf(logLine).trim
-      case LineColor(info, error, debug, trace, warn) =>
-        logLine.level match {
-          case LogLevel.Trace => Color.asConsole(trace)
-          case LogLevel.Debug => Color.asConsole(debug)
-          case LogLevel.Info  => Color.asConsole(info)
-          case LogLevel.Warn  => Color.asConsole(warn)
-          case LogLevel.Error => Color.asConsole(error)
-        }
-      case Tags                                       => logLine.tags.mkString(",")
-    }
-  }
-
-  private def formatDate(format: LogFormat.DateFormat, time: LocalDateTime): String = format match {
-    case DateFormat.ISODateTime => time.format(DateTimeFormatter.ISO_TIME)
-  }
-
-  /**
-   * Wrap a text if the text is not empty.
-   */
-  private def wrap(wrapper: TextWrapper, value: String): String = {
-    if (value.isEmpty) ""
-    else
-      wrapper match {
-        case TextWrapper.BRACKET => s"[$value]"
-        case TextWrapper.QUOTED  => s"{$value}"
-        case TextWrapper.EMPTY   => value
-      }
-  }
-
-  private def colorText(color: Color, value: String): String = {
-    val consoleColor = Color.asConsole(color)
-    color match {
-      case Color.RED     => s"$consoleColor$value${Console.RESET}"
-      case Color.BLUE    => s"$consoleColor$value${Console.RESET}"
-      case Color.YELLOW  => s"$consoleColor$value${Console.RESET}"
-      case Color.CYAN    => s"$consoleColor$value${Console.RESET}"
-      case Color.GREEN   => s"$consoleColor$value${Console.RESET}"
-      case Color.MAGENTA => s"$consoleColor$value${Console.RESET}"
-      case Color.WHITE   => s"$consoleColor$value${Console.RESET}"
-      case Color.RESET   => Console.RESET
-      case Color.DEFAULT => value
-    }
-  }
-
-  val minimal: LogFormat =
-    LogFormat.Tags.wrap(TextWrapper.BRACKET) |-|
-      LogFormat.sourceLocation.wrap(TextWrapper.BRACKET) |-|
-      LogFormat.msg
-
-  val maximus: LogFormat =
-    LogFormat.Tags.wrap(TextWrapper.BRACKET) |-|
-      LogFormat.date(ISODateTime) |-|
-      LogFormat.threadName.wrap(TextWrapper.BRACKET) |-|
-      LogFormat.sourceLocation.wrap(TextWrapper.BRACKET) |-|
-      LogFormat.logLevel - LogFormat.msg
-
-  val colored: LogFormat = LogFormat.color(
-    info = Color.GREEN,
-    error = Color.RED,
-    debug = Color.CYAN,
-    warn = Color.YELLOW,
-    trace = Color.WHITE,
-  ) <+> minimal
+  case object Level    extends LogFormat
+  case object Location extends LogFormat
+  case object Msg      extends LogFormat
+  case object Tags     extends LogFormat
 }
