@@ -5,11 +5,11 @@ import zhttp.html._
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
-import zio._
 import zio.stream.{ZPipeline, ZStream}
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
+import zio.{Chunk, ZIO, _}
 
 import java.nio.file.Paths
 

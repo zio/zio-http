@@ -18,8 +18,8 @@ object CSRF extends App {
   } @@ csrfGenerate() // set x-csrf token cookie
 
   val app                                                        = publicApp ++ privateApp
-  override val run =
-    Server.start(8090, app)
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+    Server.start(8090, app).exitCode
 }
 
 ```

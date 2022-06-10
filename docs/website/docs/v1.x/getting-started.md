@@ -111,7 +111,7 @@ object Spec extends DefaultRunnableSpec {
       test("should be ok") {
         val app = Http.ok
         val req = Request()
-        assert(app(req))(equalTo(Response.ok))
+        assertZIO(app(req))(equalTo(Response.ok))
       }
     )
 }

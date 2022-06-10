@@ -53,7 +53,7 @@ object BuildHelper extends ScalaSettings {
     ThisBuild / crossScalaVersions         := Seq(Scala212, Scala213, ScalaDotty),
     ThisBuild / scalaVersion               := Scala213,
     scalacOptions                          := stdOptions ++ extraOptions(scalaVersion.value),
-    semanticdbVersion              := scalafixSemanticdb.revision, // use Scalafix compatible version
+    semanticdbVersion                      := scalafixSemanticdb.revision, // use Scalafix compatible version
     ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
     ThisBuild / scalafixDependencies ++=
       List(

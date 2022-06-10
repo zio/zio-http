@@ -19,7 +19,6 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
 
     // Close the connection if the program fails
     // When connection closes, interrupt the program
-
     rtm
       .unsafeRunAsyncWith(for {
         fiber <- program.fork
