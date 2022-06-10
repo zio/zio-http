@@ -32,6 +32,18 @@ private[zhttp] object LoggerMacroImpl {
     val level: Tree          = q"_root_.zhttp.logging.LogLevel.${TermName(logLevelName)}"
     val isEnabled: Tree      = q"""${c.prefix.tree}.${TermName(s"is${logLevelName}Enabled")}"""
 
+    /**
+     * LogLevel Hierarchy: Trace < Debug < Info < Warn < Error
+     *
+     * We add the log statement if and only if the level in the statement is
+     * greater than or equal to the detected level from the env/props.
+     *
+     * Eg: If the level is set to Info, then only info, warn and error
+     * statements will be allowed.
+     *
+     * If the level is set to `Debug` then only debug, info, warn and error will
+     * be allowed.
+     */
     if (logLevel >= Logger.detectedLevel)
       q"""
       if($isEnabled) {
