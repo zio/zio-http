@@ -195,6 +195,9 @@ object Server {
       port <- ZManaged.effect(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield {
       ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
+      log.debug(s"Keep Alive: [${settings.keepAlive}]")
+      log.debug(s"Leak Detection: [${settings.leakDetectionLevel}]")
+      log.info(s"Started on port: [${port}]")
       Start(port)
     }
   }
@@ -215,7 +218,6 @@ object Server {
     Server(http)
       .withPort(port)
       .make
-      .flatMap(start => ZManaged.succeed(log.info(s"Started on port: ${start.port}")))
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
   }
