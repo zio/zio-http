@@ -12,13 +12,11 @@ import java.util
  * used to, format and serialize LogLines and them to a backend.
  */
 private[logging] abstract class LoggerTransport(
-  format: LogFormat = LogFormat.colored,
+  format: LogFormat = LogFormat.inlineMinimal,
   val level: LogLevel = LogLevel.Error,
   filter: String => Boolean = _ => true,
   tags: List[String] = Nil,
 ) { self =>
-
-  def run(charSequence: CharSequence): Unit
 
   final private[zhttp] val isDebugEnabled: Boolean = self.level <= LogLevel.Debug
   final private[zhttp] val isErrorEnabled: Boolean = self.level <= LogLevel.Error
@@ -51,15 +49,6 @@ private[logging] abstract class LoggerTransport(
     }
   }
 
-  final def copy(
-    format: LogFormat = self.format,
-    level: LogLevel = self.level,
-    filter: String => Boolean = self.filter,
-    tags: List[String] = self.tags,
-  ): LoggerTransport = new LoggerTransport(format, level, filter, tags) {
-    override def run(charSequence: CharSequence): Unit = self.run(charSequence)
-  }
-
   final private def stackTraceAsString(throwable: Throwable): String = {
     val sw = new StringWriter
     throwable.printStackTrace(new PrintWriter(sw))
@@ -68,7 +57,20 @@ private[logging] abstract class LoggerTransport(
 
   final private def thread = Thread.currentThread()
 
+  def run(charSequence: CharSequence): Unit
+
   final def addTags(tags: Iterable[String]): LoggerTransport = self.copy(tags = self.tags ++ tags)
+
+  final def copy(
+    format: LogFormat = self.format,
+    level: LogLevel = self.level,
+    filter: String => Boolean = self.filter,
+    tags: List[String] = self.tags,
+  ): LoggerTransport = {
+    new LoggerTransport(format, level, filter, tags) {
+      override def run(charSequence: CharSequence): Unit = self.run(charSequence)
+    }
+  }
 
   final def dispatch(
     msg: String,
@@ -99,15 +101,15 @@ private[logging] abstract class LoggerTransport(
 }
 
 object LoggerTransport {
-  val empty: LoggerTransport = new LoggerTransport() {
-    override def run(charSequence: CharSequence): Unit = ()
-  }
-
-  def console: LoggerTransport = new LoggerTransport(format = LogFormat.colored) {
+  def console: LoggerTransport = new LoggerTransport() {
     override def run(charSequence: CharSequence): Unit = println(charSequence)
   }
 
-  def file(path: Path): LoggerTransport = new LoggerTransport() {
+  def empty: LoggerTransport = new LoggerTransport() {
+    override def run(charSequence: CharSequence): Unit = ()
+  }
+
+  def file(path: Path): LoggerTransport = new LoggerTransport() { self =>
     override def run(charSequence: CharSequence): Unit = Files.write(
       path,
       util.Arrays.asList(charSequence),

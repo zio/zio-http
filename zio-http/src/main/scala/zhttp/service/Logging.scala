@@ -1,6 +1,6 @@
 package zhttp.service
 
-import zhttp.logging.Logger
+import zhttp.logging.{LogFormat, Logger}
 
 /**
  * Base trait to configure logging. Feel free to edit this file as per your
@@ -23,5 +23,6 @@ trait Logging {
    * Global Logging instance used to add log statements everywhere in the
    * application.
    */
-  private[zhttp] val Log: Logger = Logger.console.detectLevelFromProps(PropName)
+  private[zhttp] val Log: Logger = Logger.console.detectLevelFromProps(PropName).withFormat(LogFormat.inlineColored)
+
 }

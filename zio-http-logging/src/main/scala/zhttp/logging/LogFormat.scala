@@ -1,14 +1,6 @@
 package zhttp.logging
 
-import zhttp.logging.LogFormat.DateFormat.ISODateTime
-
 import java.time.format.DateTimeFormatter
-
-object Setup {
-  final case class DefaultFormat(format: LogLine => String) {
-    def apply(line: LogLine): String = format(line)
-  }
-}
 
 sealed trait LogFormat { self =>
   import LogFormat._
@@ -26,26 +18,22 @@ sealed trait LogFormat { self =>
 
     def loop(self: LogFormat, line: LogLine): String = {
       self match {
-        case Location                      => line.sourceLocation.map(sp => s"${sp.file} ${sp.line}").getOrElse("")
-        case FormatDate(dateFormat)        =>
-          dateFormat match {
-            case DateFormat.ISODateTime => line.timestamp.format(DateTimeFormatter.ISO_TIME)
-          }
-        case ThreadName(includeThreadName) => if (includeThreadName) line.thread.getName else ""
-        case ThreadId(includeThreadId)     => if (includeThreadId) line.thread.getId.toString else ""
-        case Level                         => line.level.name
-        case Combine(left, sep, right)     => loop(left, line) + sep + loop(right, line)
-        case FontWrap(font, fmt)           =>
+        case Location                  => line.sourceLocation.map(sp => s"${sp.file} ${sp.line}").getOrElse("")
+        case Timestamp(dateFormat)     => line.timestamp.format(dateFormat)
+        case ThreadInfo(f)             => f(line.thread)
+        case Level                     => line.level.name
+        case Combine(left, sep, right) => loop(left, line) + sep + loop(right, line)
+        case FontWrap(font, fmt)       =>
           colorStack.push(font)
           val msg   = loop(fmt, line)
           val start = font.toAnsiColor
           colorStack.pop()
           val end   = colorStack.map(_.toAnsiColor).mkString("")
           s"${start}${msg}${Console.RESET}$end"
-        case Msg                           => line.message
-        case Tags                          => line.tags.mkString(":")
-        case Literal(msg)                  => msg
-        case Format(fmt, f)                => loop(f(loop(fmt, line)), line)
+        case Msg                       => line.message
+        case Tags                      => line.tags.mkString(":")
+        case Literal(msg)              => msg
+        case Format(fmt, f)            => loop(f(loop(fmt, line)), line)
       }
     }
 
@@ -107,8 +95,6 @@ sealed trait LogFormat { self =>
 
   final def underline: LogFormat = self.font(Font.UNDERLINED)
 
-  final def underlined: LogFormat = font(Font.UNDERLINED)
-
   final def uppercase: LogFormat = transform(_.toUpperCase)
 
   final def white: LogFormat = font(Font.WHITE)
@@ -122,7 +108,10 @@ sealed trait LogFormat { self =>
 
 object LogFormat {
 
-  val AutoColorSeq: Array[Font] = Array(
+  /**
+   * List of colors to select from while using the auto-color operator.
+   */
+  private val AutoColorSeq: Array[Font] = Array(
     Font.BLUE,
     Font.CYAN,
     Font.GREEN,
@@ -130,12 +119,19 @@ object LogFormat {
     Font.YELLOW,
   )
 
-  def colored: LogFormat =
-    LogFormat.level.uppercase.bracket.fixed(7).white |-|
-      LogFormat.tags.autoColor.flipColor |-|
-      LogFormat.message
+  def inlineColored: LogFormat =
+    LogFormat.level.uppercase.bracket.fixed(7) |-| LogFormat.tags.autoColor.underline |-| LogFormat.message
 
-  def date(dateFormat: DateFormat): LogFormat = FormatDate(dateFormat)
+  def inlineMaximus: LogFormat = {
+    LogFormat.tags.bracket |-|
+      LogFormat.timestamp(DateTimeFormatter.ISO_DATE) |-|
+      LogFormat.threadName.bracket |-|
+      LogFormat.location.bracket |-|
+      LogFormat.level - LogFormat.message
+  }
+
+  def inlineMinimal: LogFormat =
+    LogFormat.level.uppercase.fixed(5) |-| LogFormat.tags.bracket |-| LogFormat.message
 
   def level: LogFormat = Level
 
@@ -143,43 +139,24 @@ object LogFormat {
 
   def location: LogFormat = Location
 
-  def maximus: LogFormat =
-    LogFormat.tags.bracket |-|
-      LogFormat.date(ISODateTime) |-|
-      LogFormat.threadName.bracket |-|
-      LogFormat.location.bracket |-|
-      LogFormat.level - LogFormat.message
-
   def message: LogFormat = Msg
 
   def tags: LogFormat = Tags
 
-  def threadId: LogFormat = ThreadId(true)
+  def threadId: LogFormat = ThreadInfo(_.getId.toString)
 
-  def threadName: LogFormat = ThreadName(true)
+  def threadName: LogFormat = ThreadInfo(_.getName)
 
-  sealed trait DateFormat
+  def timestamp(fmt: DateTimeFormatter): LogFormat = Timestamp(fmt)
 
-  final case class FormatDate(dateFormat: DateFormat) extends LogFormat
-
-  final case class ThreadName(includeThreadName: Boolean) extends LogFormat
-
-  final case class ThreadId(includeThreadId: Boolean) extends LogFormat
-
-  final case class Combine(left: LogFormat, sep: String, right: LogFormat) extends LogFormat
-
-  final case class FontWrap(font: Font, fmt: LogFormat) extends LogFormat
-
-  final case class Literal(lit: String) extends LogFormat
-
-  final case class Format(fmt: LogFormat, f: String => LogFormat) extends LogFormat
-
-  object DateFormat {
-    case object ISODateTime extends DateFormat
-  }
-
-  case object Level    extends LogFormat
-  case object Location extends LogFormat
-  case object Msg      extends LogFormat
-  case object Tags     extends LogFormat
+  private[zhttp] final case class Timestamp(fmt: DateTimeFormatter)                       extends LogFormat
+  private[zhttp] final case class ThreadInfo(f: Thread => String)                         extends LogFormat
+  private[zhttp] final case class Combine(left: LogFormat, sep: String, right: LogFormat) extends LogFormat
+  private[zhttp] final case class FontWrap(font: Font, fmt: LogFormat)                    extends LogFormat
+  private[zhttp] final case class Literal(lit: String)                                    extends LogFormat
+  private[zhttp] final case class Format(fmt: LogFormat, f: String => LogFormat)          extends LogFormat
+  private[zhttp] case object Level                                                        extends LogFormat
+  private[zhttp] case object Location                                                     extends LogFormat
+  private[zhttp] case object Msg                                                          extends LogFormat
+  private[zhttp] case object Tags                                                         extends LogFormat
 }
