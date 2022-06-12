@@ -129,13 +129,9 @@ private[zhttp] final case class Handler[R](
                   }
               },
             res =>
-              if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(jReq, res))
-              else {
-                for {
-                  _ <- ZIO {
-                    resWriter.write(res, jReq)
-                  }
-                } yield ()
+              UIO {
+                if (self.isWebSocket(res)) self.upgradeToWebSocket(jReq, res)
+                else resWriter.write(res, jReq)
               },
           )
         }
