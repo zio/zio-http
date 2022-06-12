@@ -10,7 +10,7 @@ object BuildHelper extends ScalaSettings {
   val ScoverageVersion = "1.9.3"
   val JmhVersion       = "0.4.3"
 
-  val ZHttpLogLevel = "DEBUG"
+  val ZHttpLogLevel = "INFO"
 
   private val stdOptions = Seq(
     "-deprecation",
