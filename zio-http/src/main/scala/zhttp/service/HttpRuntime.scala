@@ -18,10 +18,10 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
   private val log = HttpRuntime.log
 
   private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
-    (_: Future[_ >: Void]) => {
-      log.debug(s"Connection Closed for Fiber: ${fiber.id}")
-      rtm.unsafeRunAsync_(fiber.interrupt): Unit
-    }
+    (_: Future[_ >: Void]) =>
+      rtm.unsafeRunAsync(fiber.interrupt) { _ =>
+        log.debug(s"Interrupted Fiber: [${fiber.id}]")
+      }
 
   private def onFailure(ctx: ChannelHandlerContext, cause: Cause[Throwable]) = {
     cause.failureOption.orElse(cause.dieOption) match {
@@ -43,14 +43,13 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
         close <- UIO {
           val close = closeListener(rtm, fiber)
           ctx.channel().closeFuture.addListener(close)
-          log.debug(s"Added Close Listener for Fiber: ${fiber.id}")
+          log.debug(s"Started Fiber: [${fiber.id}]")
           close
         }
         _     <- fiber.join
         _     <- UIO {
-          log.debug(s"Fiber Completed: ${fiber.id}")
+          log.debug(s"Completed Fiber: [${fiber.id}]")
           ctx.channel().closeFuture().removeListener(close)
-          log.debug(s"Removed Close Listener for Fiber: ${fiber.id}")
         }
       } yield ()) {
         case Exit.Success(_)     => ()
@@ -60,12 +59,14 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
 
   def unsafeRunUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
     val rtm = strategy.runtime(ctx)
-
+    log.debug(s"Started Uninterruptible")
     rtm
-      .unsafeRunAsync(program) {
-        case Exit.Success(_)     => ()
-        case Exit.Failure(cause) => onFailure(ctx, cause)
-
+      .unsafeRunAsync(program) { msg =>
+        log.debug(s"Completed Uninterruptible: [${msg}]")
+        msg match {
+          case Exit.Success(_)     => ()
+          case Exit.Failure(cause) => onFailure(ctx, cause)
+        }
       }
   }
 }
