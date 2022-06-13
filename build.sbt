@@ -106,8 +106,13 @@ lazy val zhttp = (project in file("zio-http"))
       `zio-test`,
       `zio-test-sbt`,
       `netty-incubator`,
-      `scala-compact-collection`,
     ),
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, n)) if n <= 12 => Seq(`scala-compact-collection`)
+        case _                       => Seq.empty
+      }
+    },
   )
   .dependsOn(zhttpLogging)
 
@@ -125,7 +130,7 @@ lazy val zhttpTest = (project in file("zio-http-test"))
 
 lazy val zhttpLogging = (project in file("zio-http-logging"))
   .settings(stdSettings("zhttp-logging"))
-  .settings(publishSetting(false))
+  .settings(publishSetting(true))
   .settings(
     libraryDependencies ++= {
       if (isScala3(scalaVersion.value)) Seq.empty

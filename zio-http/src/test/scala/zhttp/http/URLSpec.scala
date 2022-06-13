@@ -96,7 +96,7 @@ object URLSpec extends DefaultRunnableSpec {
 
       val expected =
         URL(
-          Path("/list/users"),
+          Path.decode("/list/users"),
           URL.Location.Relative,
           Map("user_id" -> List("1", "2"), "order" -> List("ASC"), "text" -> List("zio-http is awesome!")),
         )
@@ -118,7 +118,7 @@ object URLSpec extends DefaultRunnableSpec {
     },
     test("returns relative URL if port, host, and scheme are not set") {
       val builderUrl = URL.empty
-        .setPath(Path("/list"))
+        .setPath(Path.decode("/list"))
         .setQueryParams(
           Map("type" -> List("builder"), "query" -> List("provided")),
         )

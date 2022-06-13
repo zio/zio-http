@@ -6,7 +6,7 @@ object Dependencies {
   val NettyVersion                  = "4.1.77.Final"
   val NettyIncubatorVersion         = "0.0.14.Final"
   val ScalaCompactCollectionVersion = "2.7.0"
-  val ZioVersion                    = "1.0.14"
+  val ZioVersion                    = "1.0.15"
   val SttpVersion                   = "3.3.18"
 
   val `jwt-core`                 = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
@@ -14,13 +14,15 @@ object Dependencies {
 
   val netty =
     Seq(
-      "netty-codec-http",
-      "netty-handler-proxy",
-      "netty-transport-native-epoll",
-      "netty-transport-native-kqueue",
-    ).map { name =>
-      "io.netty" % name % NettyVersion
-    }
+      "io.netty" % "netty-codec-http"              % NettyVersion,
+      "io.netty" % "netty-handler-proxy"           % NettyVersion,
+      "io.netty" % "netty-transport-native-epoll"  % NettyVersion,
+      "io.netty" % "netty-transport-native-epoll"  % NettyVersion % Runtime classifier "linux-x86_64",
+      "io.netty" % "netty-transport-native-epoll"  % NettyVersion % Runtime classifier "linux-aarch_64",
+      "io.netty" % "netty-transport-native-kqueue" % NettyVersion,
+      "io.netty" % "netty-transport-native-kqueue" % NettyVersion % Runtime classifier "osx-x86_64",
+      "io.netty" % "netty-transport-native-kqueue" % NettyVersion % Runtime classifier "osx-aarch_64",
+    )
 
   val `netty-incubator` =
     "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % NettyIncubatorVersion classifier "linux-x86_64"

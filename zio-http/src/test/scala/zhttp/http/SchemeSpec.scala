@@ -3,15 +3,19 @@ package zhttp.http
 import io.netty.handler.codec.http.HttpScheme
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import zhttp.internal.HttpGen
+import zio.test.Assertion.isNone
 import zio.test._
 
 object SchemeSpec extends DefaultRunnableSpec {
   override def spec = suite("SchemeSpec") {
-    testM("string") {
+    testM("string decode") {
       checkAll(HttpGen.scheme) { scheme =>
         assertTrue(Scheme.decode(scheme.encode).get == scheme)
       }
     } +
+      test("null string decode") {
+        assert(Scheme.decode(null))(isNone)
+      } +
       testM("java http scheme") {
         checkAll(jHttpScheme) { jHttpScheme =>
           assertTrue(Scheme.fromJScheme(jHttpScheme).flatMap(_.toJHttpScheme).get == jHttpScheme)

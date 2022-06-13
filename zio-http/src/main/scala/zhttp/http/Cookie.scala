@@ -132,8 +132,8 @@ final case class Cookie(
       Some(s"$name=$c"),
       expires.map(e => s"Expires=$e"),
       maxAge.map(a => s"Max-Age=${a.toString}"),
-      domain.map(d => s"Domain=$d"),
-      path.map(p => s"Path=${p.encode}"),
+      domain.filter(_.nonEmpty).map(d => s"Domain=$d"),
+      path.filter(_.nonEmpty).map(p => s"Path=${p.encode}"),
       if (isSecure) Some("Secure") else None,
       if (isHttpOnly) Some("HttpOnly") else None,
       sameSite.map(s => s"SameSite=${s.asString}"),
@@ -233,8 +233,8 @@ object Cookie {
           domain = headerValue.substring(curr + 7, next)
         } else if (headerValue.regionMatches(true, curr, fieldPath, 0, fieldPath.length)) {
           val v = headerValue.substring(curr + 5, next)
-          if (!v.isEmpty) {
-            path = Path(v)
+          if (v.nonEmpty) {
+            path = Path.decode(v)
           }
         } else if (headerValue.regionMatches(true, curr, fieldSecure, 0, fieldSecure.length)) {
           secure = true
