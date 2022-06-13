@@ -148,6 +148,7 @@ sealed trait Server[-R, +E] { self =>
     Concat(self, UnsafeServerBootstrap(unsafeServerbootstrap))
 }
 object Server {
+  import Http.HttpAppSyntax
   val disableFlowControl: UServer    = Server.FlowControl(false)
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
