@@ -197,6 +197,7 @@ object Server {
       ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
       log.debug(s"Keep Alive: [${settings.keepAlive}]")
       log.debug(s"Leak Detection: [${settings.leakDetectionLevel}]")
+      log.debug(s"Transport: [${eventLoopGroup.getClass.getName}]")
       log.info(s"Started on port: [${port}]")
       Start(port)
     }

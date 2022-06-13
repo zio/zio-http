@@ -117,6 +117,11 @@ object LogFormat {
     Font.GREEN,
     Font.MAGENTA,
     Font.YELLOW,
+    Font.BLUE_B,
+    Font.CYAN_B,
+    Font.GREEN_B,
+    Font.MAGENTA_B,
+    Font.YELLOW_B,
   )
 
   def inlineColored: LogFormat =
