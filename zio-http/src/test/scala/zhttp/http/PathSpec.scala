@@ -30,6 +30,13 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
                 // Wildcard mix
                 collect { case _ / "c" => true }     -> !! / "a" / "b" / "c",
                 collect { case _ / _ / "c" => true } -> !! / "a" / "b" / "c",
+
+                // Trailing Slash
+                collect { case !! / "a" / "" => true }      -> !! / "a" / "",
+                collect { case !! / "a" / "" / "" => true } -> !! / "a" / "" / "",
+
+                // Leading Slash
+                collect { case !! / "" => true } -> !! / "",
               ),
             )
 
@@ -74,6 +81,13 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
                 collect { case _ /: _ /: _ /: _ => true }       -> "a" /: "b" /: "c" /: !!,
                 collect { case _ /: _ /: _ => true }            -> "a" /: "b" /: "c" /: !!,
                 collect { case _ /: _ => true }                 -> "a" /: "b" /: "c" /: !!,
+
+                // Trailing slash
+                collect { case "a" /: "" /: !! => true }       -> "a" /: "" /: !!,
+                collect { case "a" /: "" /: "" /: !! => true } -> "a" /: "" /: "" /: !!,
+
+                // Leading Slash
+                collect { case "" /: !! => true } -> "" /: !!,
               ),
             )
 
@@ -289,47 +303,6 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
             assertTrue(actual == expected)
           }
         },
-      ),
-      suite("decode")(
-        suite("trailingSlash")(
-          testM("isTrue") {
-            val gen = Gen.fromIterable(
-              Seq(
-                "/",
-                "//",
-                "a/",
-                "a/b/",
-                "a/b/c/",
-                "/a/",
-                "/a/b/",
-                "/a/b/c/",
-              ),
-            )
-
-            checkAll(gen) { path =>
-              val actual = Path.decode(path)
-              assertTrue(actual.trailingSlash)
-            }
-          },
-          testM("isFalse") {
-            val gen = Gen.fromIterable(
-              Seq(
-                "",
-                "a",
-                "a/b",
-                "a/b/c",
-                "/a",
-                "/a/b",
-                "/a/b/c",
-              ),
-            )
-
-            checkAll(gen) { path =>
-              val actual = Path.decode(path)
-              assertTrue(!actual.trailingSlash)
-            }
-          },
-        ),
       ),
     )
   }

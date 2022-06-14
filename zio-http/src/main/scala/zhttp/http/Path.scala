@@ -14,7 +14,7 @@ final case class Path(segments: Vector[String]) { self =>
 
   def initial: Path = copy(segments.init)
 
-  def isEmpty: Boolean = segments.isEmpty && !trailingSlash
+  def isEmpty: Boolean = segments.isEmpty
 
   def isEnd: Boolean = segments.isEmpty
 
@@ -31,11 +31,6 @@ final case class Path(segments: Vector[String]) { self =>
   def toList: List[String] = segments.toList
 
   override def toString: String = encode
-
-  def trailingSlash: Boolean = segments.lastOption match {
-    case Some("") if segments.length > 1 => true
-    case _                               => false
-  }
 }
 
 object Path {
