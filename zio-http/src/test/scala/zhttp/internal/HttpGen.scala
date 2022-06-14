@@ -119,9 +119,8 @@ object HttpGen {
     } yield cnt
 
   def path: Gen[Random with Sized, Path] = for {
-    segments      <- Gen.listOf(Gen.alphaNumericStringBounded(1, 5))
-    trailingSlash <- Gen.boolean
-  } yield Path(segments.toVector, trailingSlash)
+    segments <- Gen.listOfBounded(1, 5)(Gen.alphaNumericStringBounded(0, 5))
+  } yield Path(segments.toVector)
 
   def request: Gen[Random with Sized, Request] = for {
     version <- httpVersion

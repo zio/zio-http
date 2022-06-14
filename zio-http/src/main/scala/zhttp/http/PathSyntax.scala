@@ -8,7 +8,7 @@ private[zhttp] trait PathSyntax { module =>
       for {
         head <- path.segments.headOption
         tail = path.segments.drop(1)
-      } yield (head, path.copy(segments = tail))
+      } yield (head, Path(tail))
     }
   }
 
