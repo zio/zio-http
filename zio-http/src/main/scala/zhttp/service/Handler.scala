@@ -19,7 +19,7 @@ private[zhttp] final case class Handler[R](
     with WebSocketUpgrade[R] { self =>
 
   override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
-    log.debug(s"Message: ${msg.getClass.getSimpleName}")
+    log.debug(s"Message: [${msg.getClass.getName}]")
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
       case jReq: FullHttpRequest =>
@@ -50,7 +50,7 @@ private[zhttp] final case class Handler[R](
         }
       case jReq: HttpRequest     =>
         val hasBody = canHaveBody(jReq)
-        log.debug(s"HasBody: ${hasBody}")
+        log.debug(s"HasBody: [${hasBody}]")
         if (hasBody) ctx.channel().config().setAutoRead(false): Unit
         try
           unsafeRun(
@@ -129,13 +129,9 @@ private[zhttp] final case class Handler[R](
                   }
               },
             res =>
-              if (self.isWebSocket(res)) UIO(self.upgradeToWebSocket(jReq, res))
-              else {
-                for {
-                  _ <- ZIO {
-                    resWriter.write(res, jReq)
-                  }
-                } yield ()
+              UIO {
+                if (self.isWebSocket(res)) self.upgradeToWebSocket(jReq, res)
+                else resWriter.write(res, jReq)
               },
           )
         }

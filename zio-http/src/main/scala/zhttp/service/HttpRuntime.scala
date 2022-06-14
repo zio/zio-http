@@ -15,14 +15,18 @@ import scala.jdk.CollectionConverters._
  * channel closes.
  */
 final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
+  private val log = HttpRuntime.log
 
   private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
-    (_: Future[_ >: Void]) => rtm.unsafeRunAsync_(fiber.interrupt): Unit
+    (_: Future[_ >: Void]) =>
+      rtm.unsafeRunAsync(fiber.interrupt) { _ =>
+        log.debug(s"Interrupted Fiber: [${fiber.id}]")
+      }
 
   private def onFailure(ctx: ChannelHandlerContext, cause: Cause[Throwable]) = {
     cause.failureOption.orElse(cause.dieOption) match {
       case None    => ()
-      case Some(_) => Log.error("HttpRuntimeException:" + cause.prettyPrint)
+      case Some(_) => log.error("HttpRuntimeException:" + cause.prettyPrint)
     }
     if (ctx.channel().isOpen) ctx.close()
   }
@@ -39,10 +43,14 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
         close <- UIO {
           val close = closeListener(rtm, fiber)
           ctx.channel().closeFuture.addListener(close)
+          log.debug(s"Started Fiber: [${fiber.id}]")
           close
         }
         _     <- fiber.join
-        _     <- UIO(ctx.channel().closeFuture().removeListener(close))
+        _     <- UIO {
+          log.debug(s"Completed Fiber: [${fiber.id}]")
+          ctx.channel().closeFuture().removeListener(close)
+        }
       } yield ()) {
         case Exit.Success(_)     => ()
         case Exit.Failure(cause) => onFailure(ctx, cause)
@@ -51,17 +59,21 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
 
   def unsafeRunUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
     val rtm = strategy.runtime(ctx)
-
+    log.debug(s"Started Uninterruptible")
     rtm
-      .unsafeRunAsync(program) {
-        case Exit.Success(_)     => ()
-        case Exit.Failure(cause) => onFailure(ctx, cause)
-
+      .unsafeRunAsync(program) { msg =>
+        log.debug(s"Completed Uninterruptible: [${msg}]")
+        msg match {
+          case Exit.Success(_)     => ()
+          case Exit.Failure(cause) => onFailure(ctx, cause)
+        }
       }
   }
 }
 
 object HttpRuntime {
+  private[zhttp] val log = Log.withTags("HttpRuntime")
+
   def dedicated[R](group: JEventLoopGroup): URIO[R, HttpRuntime[R]] =
     Strategy.dedicated(group).map(runtime => new HttpRuntime[R](runtime))
 
