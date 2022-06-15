@@ -177,7 +177,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    * Removes the trailing slash from the path.
    */
   final def dropTrailingSlash: HttpMiddleware[Any, Nothing] =
-    Middleware.identity[Request, Response].contramap[Request](_.dropTrailingSlash)
+    Middleware.identity[Request, Response].contramap[Request](_.dropTrailingSlash).when(_.url.queryParams.isEmpty)
 
   /**
    * Permanent redirect if the trailing slash is present in the request URL.
