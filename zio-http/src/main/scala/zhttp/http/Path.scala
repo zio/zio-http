@@ -26,7 +26,8 @@ final case class Path(segments: Vector[String]) { self =>
 
   def startsWith(other: Path): Boolean = segments.startsWith(other.segments)
 
-  def take(n: Int): Path = copy(segments.take(n))
+  def take(n: Int): Path =
+    copy(segments.take(n))
 
   def toList: List[String] = segments.toList
 
@@ -35,6 +36,8 @@ final case class Path(segments: Vector[String]) { self =>
 
 object Path {
   val empty: Path = Path(Vector.empty)
+
+  val root: Path = Path(Vector(""))
 
   /**
    * Decodes a path string into a Path. Can fail if the path is invalid.
