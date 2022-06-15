@@ -1,7 +1,9 @@
 package zhttp.http
 
-private[zhttp] trait PathSyntax { module =>
-  val !! : Path = Path.empty
+ private[zhttp] trait PathSyntax { module =>
+  val !! : Path = Path.root
+
+  val ~~ : Path = Path.empty
 
   object /: {
     def unapply(path: Path): Option[(String, Path)] = {
