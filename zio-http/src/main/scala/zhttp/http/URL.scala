@@ -76,6 +76,10 @@ final case class URL(
     copy(kind = location)
   }
 
+  def dropTrailingSlash: Path = self.path.copy(trailingSlash = false)
+
+  def addTrailingSlash: Path = self.path.copy(trailingSlash = true)
+
   def isEqual(other: URL): Boolean = {
     self.kind == other.kind &&
     self.path == other.path &&

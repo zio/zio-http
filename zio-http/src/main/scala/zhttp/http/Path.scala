@@ -36,10 +36,6 @@ final case class Path(segments: Vector[String], trailingSlash: Boolean) { self =
 
   def toList: List[String] = segments.toList
 
-  def dropTrailingSlash: Path = self.copy(trailingSlash = false)
-
-  def addTrailingSlash: Path = self.copy(trailingSlash = true)
-
   override def toString: String = encode
 }
 

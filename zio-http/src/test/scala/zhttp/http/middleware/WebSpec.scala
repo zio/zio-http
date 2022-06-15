@@ -214,9 +214,7 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
   private def runTrailingSlash[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response] = {
     for {
-      fib <- app { Request(url = URL.fromString("/").toOption.getOrElse(URL(!!))) }.fork
-      _   <- TestClock.adjust(10 seconds)
-      res <- fib.join
+      res <- app { Request(url = URL.fromString("/").toOption.getOrElse(URL(!!))) }
     } yield res
   }
 }
