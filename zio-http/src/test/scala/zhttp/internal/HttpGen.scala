@@ -44,7 +44,7 @@ object HttpGen {
     content  <- Gen.anyString
     expires  <- Gen.option(Gen.anyInstant)
     domain   <- Gen.option(Gen.anyString)
-    path     <- Gen.option(path)
+    path     <- Gen.option(Gen.elements(Path.root, Path.root / "a", Path.root / "a" / "b", Path.root / "a" / "b" / "c"))
     secure   <- Gen.boolean
     httpOnly <- Gen.boolean
     maxAge   <- Gen.option(Gen.anyLong)
@@ -202,7 +202,7 @@ object HttpGen {
   )
 
   def url: Gen[Random with Sized, URL] = for {
-    path        <- HttpGen.path
+    path        <- Gen.elements(Path.root, Path.root / "a", Path.root / "a" / "b", Path.root / "a" / "b" / "c")
     kind        <- HttpGen.location
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
   } yield URL(path, kind, queryParams)
