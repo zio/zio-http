@@ -1,6 +1,6 @@
 package zhttp.http
 
- private[zhttp] trait PathSyntax { module =>
+private[zhttp] trait PathSyntax { module =>
   val !! : Path = Path.root
 
   val ~~ : Path = Path.empty
