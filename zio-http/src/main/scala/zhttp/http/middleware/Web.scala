@@ -183,10 +183,12 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    * Permanent redirect if the trailing slash is present in the request URL.
    */
   final def redirectTrailingSlash(permanent: Boolean): HttpMiddleware[Any, Nothing] =
-    Middleware.whenRequest(_.url.path.trailingSlash)(
-      dropTrailingSlash ++ Middleware.intercept[Request, Response](identity)((_, req) =>
-        Response.redirect(encode(req.dropTrailingSlash.url), isPermanent = permanent),
-      ),
+    Middleware.ifThenElse[Request](_.url.path.trailingSlash)(
+      req =>
+        dropTrailingSlash ++ Middleware.fromHttp(
+          Http.response(Response.redirect(encode(req.dropTrailingSlash.url), isPermanent = permanent)),
+        ),
+      _ => Middleware.identity,
     )
 }
 
