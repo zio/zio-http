@@ -14,12 +14,14 @@ object Dependencies {
 
   val netty =
     Seq(
-      "netty-codec-http",
-      "netty-transport-native-epoll",
-      "netty-transport-native-kqueue",
-    ).map { name =>
-      "io.netty" % name % NettyVersion
-    }
+      "io.netty" % "netty-codec-http"              % NettyVersion,
+      "io.netty" % "netty-transport-native-epoll"  % NettyVersion,
+      "io.netty" % "netty-transport-native-epoll"  % NettyVersion % Runtime classifier "linux-x86_64",
+      "io.netty" % "netty-transport-native-epoll"  % NettyVersion % Runtime classifier "linux-aarch_64",
+      "io.netty" % "netty-transport-native-kqueue" % NettyVersion,
+      "io.netty" % "netty-transport-native-kqueue" % NettyVersion % Runtime classifier "osx-x86_64",
+      "io.netty" % "netty-transport-native-kqueue" % NettyVersion % Runtime classifier "osx-aarch_64",
+    )
 
   val `netty-incubator` =
     "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % NettyIncubatorVersion classifier "linux-x86_64"

@@ -106,7 +106,7 @@ final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroEx
 object Logger {
   private[zhttp] val detectedLevel: LogLevel = LogLevel.detectFromProps("ZHttpLogLevel").getOrElse(LogLevel.Error)
 
-  def console: Logger = Logger(List(LoggerTransport.console))
+  def console: Logger = LoggerTransport.console.toLogger
 
   def file(path: Path): Logger = Logger(List(LoggerTransport.file(path)))
 

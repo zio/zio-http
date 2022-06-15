@@ -3,7 +3,6 @@ package zhttp.service
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.ChannelPipeline
 import io.netty.util.ResourceLeakDetector
-import zhttp.http.Http._
 import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
@@ -149,6 +148,7 @@ sealed trait Server[-R, +E] { self =>
     Concat(self, UnsafeServerBootstrap(unsafeServerbootstrap))
 }
 object Server {
+  import Http.HttpAppSyntax
   val disableFlowControl: UServer    = Server.FlowControl(false)
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
@@ -156,6 +156,7 @@ object Server {
   val paranoidLeakDetection: UServer = LeakDetection(LeakDetectionLevel.PARANOID)
   val disableKeepAlive: UServer      = Server.KeepAlive(false)
   val consolidateFlush: UServer      = ConsolidateFlush(true)
+  private[zhttp] val log             = Log.withTags("Server")
 
   def acceptContinue: UServer = Server.AcceptContinue(true)
 
@@ -195,6 +196,10 @@ object Server {
       port <- ZManaged.effect(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield {
       ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
+      log.debug(s"Keep Alive: [${settings.keepAlive}]")
+      log.debug(s"Leak Detection: [${settings.leakDetectionLevel}]")
+      log.debug(s"Transport: [${eventLoopGroup.getClass.getName}]")
+      log.info(s"Started on port: [${port}]")
       Start(port)
     }
   }
@@ -215,7 +220,6 @@ object Server {
     Server(http)
       .withPort(port)
       .make
-      .flatMap(start => ZManaged.succeed(Log.info(s"Server started on port: ${start.port}")))
       .useForever
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
   }
