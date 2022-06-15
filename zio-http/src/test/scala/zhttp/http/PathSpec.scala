@@ -5,38 +5,37 @@ import zio.test.Assertion._
 import zio.test._
 
 object PathSpec extends DefaultRunnableSpec with HExitAssertion {
-  def collect[A](pf: PartialFunction[Path, A]): Path => Option[A] = path => pf.lift(path)
+  def collect[A](pf: PartialFunction[Path, A]): String => Option[A] = path => pf.lift(Path.decode(path))
 
   def spec = {
     suite("Path")(
       suite("Syntax")(
         suite("/")(
           testM("isDefined") {
-
             val gen = Gen.fromIterable(
               Seq(
                 // Exact
-                collect { case !! => true }                   -> !!,
-                collect { case !! / "a" => true }             -> !! / "a",
-                collect { case !! / "a" => true }             -> !! / "a",
-                collect { case !! / "a" / "b" => true }       -> !! / "a" / "b",
-                collect { case !! / "a" / "b" / "c" => true } -> !! / "a" / "b" / "c",
+                collect { case Path.root => true }                   -> "",
+                collect { case Path.root / "a" => true }             -> "/a",
+                collect { case Path.root / "a" / "b" => true }       -> "/a/b",
+                collect { case Path.root / "a" / "b" / "c" => true } -> "/a/b/c",
 
                 // Wildcards
-                collect { case !! / _ => true }         -> !! / "a",
-                collect { case !! / _ / _ => true }     -> !! / "a" / "b",
-                collect { case !! / _ / _ / _ => true } -> !! / "a" / "b" / "c",
+                collect { case Path.root / _ => true }         -> "/a",
+                collect { case Path.root / _ / _ => true }     -> "/a/b",
+                collect { case Path.root / _ / _ / _ => true } -> "/a/b/c",
 
                 // Wildcard mix
-                collect { case _ / "c" => true }     -> !! / "a" / "b" / "c",
-                collect { case _ / _ / "c" => true } -> !! / "a" / "b" / "c",
+                collect { case _ / "c" => true }     -> "/a/b/c",
+                collect { case _ / _ / "c" => true } -> "/a/b/c",
 
                 // Trailing Slash
-                collect { case !! / "a" / "" => true }      -> !! / "a" / "",
-                collect { case !! / "a" / "" / "" => true } -> !! / "a" / "" / "",
+                collect { case Path.root / "a" / "" => true }       -> "/a/",
+                collect { case Path.root / "a" / "b" / "" => true } -> "/a/b/",
+                collect { case Path.root / "a" / "" / "" => true }  -> "/a//",
 
                 // Leading Slash
-                collect { case !! / "" => true } -> !! / "",
+                collect { case Path.root / "" => true } -> "/",
               ),
             )
 
@@ -47,10 +46,10 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
           testM("isEmpty") {
             val gen = Gen.fromIterable(
               Seq(
-                collect { case !! => true }                   -> !! / "a",
-                collect { case !! / "a" => true }             -> !! / "b",
-                collect { case !! / "a" / "b" => true }       -> !! / "a",
-                collect { case !! / "a" / "b" / "c" => true } -> !! / "a" / "b",
+                collect { case Path.root => true }                   -> "/a",
+                collect { case Path.root / "a" => true }             -> "/b",
+                collect { case Path.root / "a" / "b" => true }       -> "/a",
+                collect { case Path.root / "a" / "b" / "c" => true } -> "/a/b",
               ),
             )
 
@@ -64,30 +63,35 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
             val gen = Gen.fromIterable(
               Seq(
                 // Exact
-                collect { case "a" /: !! => true }               -> "a" /: !!,
-                collect { case "a" /: "b" /: !! => true }        -> "a" /: "b" /: !!,
-                collect { case "a" /: "b" /: "c" /: !! => true } -> "a" /: "b" /: "c" /: !!,
+                collect { case "a" /: Path.root => true }               -> "a/",
+                collect { case "a" /: "b" /: Path.root => true }        -> "a/b/",
+                collect { case "a" /: "b" /: "c" /: Path.root => true } -> "a/b/c/",
 
                 // Wildcard
-                collect { case "a" /: _ => true }        -> "a" /: !!,
-                collect { case "a" /: "b" /: _ => true } -> "a" /: "b" /: !!,
-                collect { case "a" /: _ /: _ => true }   -> "a" /: "b" /: !!,
-                collect { case "a" /: _ => true }        -> "a" /: "b" /: !!,
+                collect { case "a" /: _ => true }        -> "a",
+                collect { case "a" /: "b" /: _ => true } -> "a/b/c",
+                collect { case "a" /: _ /: _ => true }   -> "a/b/c",
+                collect { case "a" /: _ => true }        -> "a/b/c",
 
                 //
-                collect { case "a" /: "b" /: "c" /: _ => true } -> "a" /: "b" /: "c" /: !!,
-                collect { case "a" /: "b" /: _ /: _ => true }   -> "a" /: "b" /: "c" /: !!,
-                collect { case "a" /: _ /: _ /: _ => true }     -> "a" /: "b" /: "c" /: !!,
-                collect { case _ /: _ /: _ /: _ => true }       -> "a" /: "b" /: "c" /: !!,
-                collect { case _ /: _ /: _ => true }            -> "a" /: "b" /: "c" /: !!,
-                collect { case _ /: _ => true }                 -> "a" /: "b" /: "c" /: !!,
+                collect { case "a" /: "b" /: "c" /: _ => true } -> "a/b/c",
+                collect { case "a" /: "b" /: _ /: _ => true }   -> "a/b/c",
+                collect { case "a" /: _ /: _ /: _ => true }     -> "a/b/c",
+                collect { case _ /: _ /: _ /: _ => true }       -> "/a/b/c",
+                collect { case _ /: _ /: _ => true }            -> "/a/b/c",
+                collect { case _ /: _ => true }                 -> "/a/b/c",
 
                 // Trailing slash
-                collect { case "a" /: "" /: !! => true }       -> "a" /: "" /: !!,
-                collect { case "a" /: "" /: "" /: !! => true } -> "a" /: "" /: "" /: !!,
+                collect { case "a" /: Path.root => true }               -> "a/",
+                collect { case "a" /: "b" /: Path.root => true }        -> "a/b/",
+                collect { case "a" /: "b" /: "c" /: Path.root => true } -> "a/b/c/",
+                collect { case "a" /: "" /: Path.root => true }         -> "a//",
 
                 // Leading Slash
-                collect { case "" /: !! => true } -> "" /: !!,
+                collect { case "" /: Path.root => true }                       -> "/",
+                collect { case "" /: "a" /: Path.empty => true }               -> "/a",
+                collect { case "" /: "a" /: "b" /: Path.empty => true }        -> "/a/b",
+                collect { case "" /: "a" /: "b" /: "c" /: Path.empty => true } -> "/a/b/c",
               ),
             )
 
@@ -98,9 +102,9 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
           testM("isEmpty") {
             val gen = Gen.fromIterable(
               Seq(
-                collect { case "a" /: !! => true }               -> "b" /: !!,
-                collect { case "a" /: "b" /: !! => true }        -> "a" /: !!,
-                collect { case "a" /: "b" /: "c" /: !! => true } -> "a" /: "b" /: !!,
+                collect { case "a" /: Path.root => true }               -> "/b",
+                collect { case "a" /: "b" /: Path.root => true }        -> "a",
+                collect { case "a" /: "b" /: "c" /: Path.root => true } -> "a/b",
               ),
             )
 
@@ -111,21 +115,21 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
         ),
         suite("int()")(
           test("extract path 'user' /: int(1)") {
-            val path = collect { case "user" /: int(age) /: !! => age } { Path.decode("user/1") }
+            val path = collect { case "user" /: int(age) /: Path.root => age } { "user/1/" }
             assert(path)(isSome(equalTo(1)))
           },
           test("extract path 'user' /: int(Xyz)") {
-            val path = collect { case "user" /: int(age) /: !! => age } { Path.decode("user/Xyz") }
+            val path = collect { case "user" /: int(age) /: Path.root => age } { "user/Xyz/" }
             assert(path)(isNone)
           },
         ),
         suite("boolean()")(
           test("extract path 'user' /: boolean(true)") {
-            val path = collect { case "user" /: boolean(ok) /: !! => ok } { Path.decode("user/True") }
+            val path = collect { case "user" /: boolean(ok) /: Path.root => ok } { "user/True/" }
             assert(path)(isSome(isTrue))
           },
           test("extract path 'user' /: boolean(false)") {
-            val path = collect { case "user" /: boolean(ok) /: !! => ok } { Path.decode("user/false") }
+            val path = collect { case "user" /: boolean(ok) /: Path.root => ok } { "user/false/" }
             assert(path)(isSome(isFalse))
           },
         ),
@@ -134,13 +138,13 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
         testM("isTrue") {
           val gen = Gen.fromIterable(
             Seq(
-              !!                   -> !!,
-              !! / "a"             -> !! / "a",
-              !! / "a" / "b"       -> !! / "a" / "b",
-              !! / "a" / "b" / "c" -> !! / "a",
-              !! / "a" / "b" / "c" -> !! / "a" / "b" / "c",
-              !! / "a" / "b" / "c" -> !! / "a" / "b" / "c",
-              !! / "a" / "b" / "c" -> !! / "a" / "b" / "c",
+              Path.root                   -> Path.root,
+              Path.root / "a"             -> Path.root / "a",
+              Path.root / "a" / "b"       -> Path.root / "a" / "b",
+              Path.root / "a" / "b" / "c" -> Path.root / "a",
+              Path.root / "a" / "b" / "c" -> Path.root / "a" / "b" / "c",
+              Path.root / "a" / "b" / "c" -> Path.root / "a" / "b" / "c",
+              Path.root / "a" / "b" / "c" -> Path.root / "a" / "b" / "c",
             ),
           )
 
@@ -152,10 +156,10 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
         testM("isFalse") {
           val gen = Gen.fromIterable(
             Seq(
-              !!             -> !! / "a",
-              !! / "a"       -> !! / "a" / "b",
-              !! / "a"       -> !! / "b",
-              !! / "a" / "b" -> !! / "a" / "b" / "c",
+              Path.root             -> Path.root / "a",
+              Path.root / "a"       -> Path.root / "a" / "b",
+              Path.root / "a"       -> Path.root / "b",
+              Path.root / "a" / "b" -> Path.root / "a" / "b" / "c",
             ),
           )
 
@@ -168,13 +172,13 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
       testM("take") {
         val gen = Gen.fromIterable(
           Seq(
-            (1, !!)                   -> !!,
-            (1, !! / "a")             -> !! / "a",
-            (1, !! / "a" / "b")       -> !! / "a",
-            (1, !! / "a" / "b" / "c") -> !! / "a",
-            (2, !! / "a" / "b" / "c") -> !! / "a" / "b",
-            (3, !! / "a" / "b" / "c") -> !! / "a" / "b" / "c",
-            (4, !! / "a" / "b" / "c") -> !! / "a" / "b" / "c",
+            (1, Path.root)                   -> Path.root,
+            (1, Path.root / "a")             -> Path.root,
+            (1, Path.root / "a" / "b")       -> Path.root,
+            (1, Path.root / "a" / "b" / "c") -> Path.root,
+            (2, Path.root / "a" / "b" / "c") -> Path.root / "a",
+            (3, Path.root / "a" / "b" / "c") -> Path.root / "a" / "b",
+            (4, Path.root / "a" / "b" / "c") -> Path.root / "a" / "b" / "c",
           ),
         )
 
@@ -186,13 +190,13 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
       testM("drop") {
         val gen = Gen.fromIterable(
           Seq(
-            (1, !!)                   -> !!,
-            (1, !! / "a")             -> !!,
-            (1, !! / "a" / "b")       -> !! / "b",
-            (1, !! / "a" / "b" / "c") -> !! / "b" / "c",
-            (2, !! / "a" / "b" / "c") -> !! / "c",
-            (3, !! / "a" / "b" / "c") -> !!,
-            (4, !! / "a" / "b" / "c") -> !!,
+            (1, Path.root)                   -> Path.empty,
+            (1, Path.root / "a")             -> Path.empty / "a",
+            (1, Path.root / "a" / "b")       -> Path.empty / "a" / "b",
+            (1, Path.root / "a" / "b" / "c") -> Path.empty / "a" / "b" / "c",
+            (2, Path.root / "a" / "b" / "c") -> Path.empty / "b" / "c",
+            (3, Path.root / "a" / "b" / "c") -> Path.empty / "c",
+            (4, Path.root / "a" / "b" / "c") -> Path.empty,
           ),
         )
 
@@ -204,13 +208,13 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
       testM("dropLast") {
         val gen = Gen.fromIterable(
           Seq(
-            (1, !!)                   -> !!,
-            (1, !! / "a")             -> !!,
-            (1, !! / "a" / "b")       -> !! / "a",
-            (1, !! / "a" / "b" / "c") -> !! / "a" / "b",
-            (2, !! / "a" / "b" / "c") -> !! / "a",
-            (3, !! / "a" / "b" / "c") -> !!,
-            (4, !! / "a" / "b" / "c") -> !!,
+            (1, Path.root)                   -> Path.empty,
+            (1, Path.root / "a")             -> Path.root,
+            (1, Path.root / "a" / "b")       -> Path.root / "a",
+            (1, Path.root / "a" / "b" / "c") -> Path.root / "a" / "b",
+            (2, Path.root / "a" / "b" / "c") -> Path.root / "a",
+            (3, Path.root / "a" / "b" / "c") -> Path.root,
+            (4, Path.root / "a" / "b" / "c") -> Path.empty,
           ),
         )
 
@@ -231,9 +235,9 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
         },
         testM("is symmetric") {
           check(HttpGen.path) { path =>
-            val expected = path                 // Path(Nil)
-            val encoded  = path.encode          // ""
-            val actual   = Path.decode(encoded) // Path()
+            val expected = path
+            val encoded  = path.encode
+            val actual   = Path.decode(encoded)
             assertTrue(actual == expected)
           }
         },
@@ -281,19 +285,19 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
         testM("path elements") {
           val gen = Gen.fromIterable(
             Seq(
-              !!,
-              !! / "a",
-              !! / "a" / "b",
-              !! / "a" / "b" / "c",
-              !! / "a" / "b" / "c" / "",
-              !! / "a" / "b" / "c" / "" / "",
-              !! / "a" / "b" / "c" / "" / "" / "",
-              "a" /: !!,
-              "a" /: "b" /: !!,
-              "a" /: "b" /: "c" /: !!,
-              "a" /: "b" /: "c" /: "" /: !!,
-              "a" /: "b" /: "c" /: "" /: "" /: !!,
-              "a" /: "b" /: "c" /: "" /: "" /: "" /: !!,
+              Path.root,
+              Path.root / "a",
+              Path.root / "a" / "b",
+              Path.root / "a" / "b" / "c",
+              Path.root / "a" / "b" / "c" / "",
+              Path.root / "a" / "b" / "c" / "" / "",
+              Path.root / "a" / "b" / "c" / "" / "" / "",
+              "a" /: Path.root,
+              "a" /: "b" /: Path.root,
+              "a" /: "b" /: "c" /: Path.root,
+              "a" /: "b" /: "c" /: "" /: Path.root,
+              "a" /: "b" /: "c" /: "" /: "" /: Path.root,
+              "a" /: "b" /: "c" /: "" /: "" /: "" /: Path.root,
             ),
           )
 
