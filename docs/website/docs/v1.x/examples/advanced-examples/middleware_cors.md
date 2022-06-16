@@ -5,7 +5,7 @@ import zhttp.http._
 import zhttp.service.Server
 import zio._
 
-object HelloWorldWithCORS extends ZIOAppDefault {
+object HelloWorldWithCORS extends App {
    // Create CORS configuration
     val config: CORSConfig =
       CORSConfig(allowedOrigins = _ == "dev", allowedMethods = Some(Set(Method.PUT, Method.DELETE)))
@@ -18,7 +18,7 @@ object HelloWorldWithCORS extends ZIOAppDefault {
       } @@ cors(config)
   
     // Run it like any simple app
-    override val run =
-      Server.start(8090, app.silent)
+    override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+      Server.start(8090, app.silent).exitCode
 }
 ```

@@ -3,6 +3,7 @@ package zhttp.http
 import io.netty.handler.codec.http.HttpScheme
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import zhttp.internal.HttpGen
+import zio.test.Assertion.isNone
 import zio.test._
 
 object SchemeSpec extends ZIOSpecDefault {
@@ -12,6 +13,9 @@ object SchemeSpec extends ZIOSpecDefault {
         assertTrue(Scheme.decode(scheme.encode).get == scheme)
       }
     } +
+      test("null string decode") {
+        assert(Scheme.decode(null))(isNone)
+      } +
       test("java http scheme") {
         checkAll(jHttpScheme) { jHttpScheme =>
           assertTrue(Scheme.fromJScheme(jHttpScheme).flatMap(_.toJHttpScheme).get == jHttpScheme)
