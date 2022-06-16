@@ -9,27 +9,31 @@ object URLSpec extends DefaultRunnableSpec {
   def spec =
     suite("URL")(
       suite("fromString")(
-        test("Should Handle invalid url String with restricted chars") {
+        test("should Handle invalid url String with restricted chars") {
           val actual = URL.fromString("http://mw1.google.com/$[level]/r$[y]_c$[x].jpg")
           assert(actual)(isLeft)
         },
-        test("Should Handle empty query string") {
-          val actual = URL.fromString("http://abc.com/list/users").map(_.queryParams)
+        test("should Handle empty query string") {
+          val actual = URL.fromString("http://abc.com/users").map(_.queryParams)
           assert(actual)(isRight(equalTo(Map.empty[String, List[String]])))
         },
-        test("Should Handle query string") {
-          val actual   = URL
-            .fromString("http://abc.com/list/users?u=1&u=2&ord=ASC&txt=zio-http%20is%20awesome%21")
+        test("should Handle query string") {
+          val actual = URL
+            .fromString("http://abc.com/users?u=1&u=2&ord=ASC&txt=zio-http%20is%20awesome%21")
             .map(_.queryParams)
-          val expected =
-            Map("user_id" -> List("1", "2"), "order" -> List("ASC"), "text" -> List("zio-http is awesome!"))
+
+          val expected = Map(
+            "u"   -> List("1", "2"),
+            "ord" -> List("ASC"),
+            "txt" -> List("zio-http is awesome!"),
+          )
 
           assert(actual)(isRight(equalTo(expected)))
         },
-        test("Should handle uri fragment") {
+        test("should handle uri fragment") {
           val actual = URL
             .fromString(
-              "http://abc.com/list/users?u=1&u=2&ord=ASC&txt=zio-http%20is%20awesome%21#the%20hash",
+              "http://abc.com/users?u=1&u=2&ord=ASC&txt=zio-http%20is%20awesome%21#the%20hash",
             )
             .map(_.fragment)
 
@@ -57,9 +61,9 @@ object URLSpec extends DefaultRunnableSpec {
               "/users",
               "/users?ord=ASC&txt=zio-http%20is%20awesome%21&u=1&u=2",
               "http://abc.com/list",
-              "http://abc.com/list/users?ord=ASC&txt=zio-http%20is%20awesome%21&u=1&u=2",
-              "http://abc.com/list/users#the%20hash",
-              "/list/users#the%20hash",
+              "http://abc.com/users?ord=ASC&txt=zio-http%20is%20awesome%21&u=1&u=2",
+              "http://abc.com/users#the%20hash",
+              "/users#the%20hash",
               "/",
               "",
             ),
@@ -75,15 +79,19 @@ object URLSpec extends DefaultRunnableSpec {
       suite("relative")(
         test("converts an url to a relative url") {
           val url = URL
-            .fromString("http://abc.com/list/users?u=1&u=2&ord=ASC&txt=zio-http%20is%20awesome%21")
-            .map(_.relative)
+            .fromString("http://abc.com/users?u=1&u=2&ord=ASC&txt=zio-http%20is%20awesome%21")
+            .map(_.relative.normalize)
 
           val expected =
             URL(
-              Path.decode("/list/users"),
+              Path.root / "users",
               URL.Location.Relative,
-              Map("user_id" -> List("1", "2"), "order" -> List("ASC"), "text" -> List("zio-http is awesome!")),
-            )
+              Map(
+                "u"   -> List("1", "2"),
+                "ord" -> List("ASC"),
+                "txt" -> List("zio-http is awesome!"),
+              ),
+            ).normalize
 
           assert(url)(isRight(equalTo(expected)))
         },
