@@ -225,7 +225,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
       },
       suite("encode/decode/encode")(
         testM("anyPath") {
-          check(HttpGen.path) { path =>
+          check(HttpGen.nonEmptyPath) { path =>
             val expected = path.encode
             val decoded  = Path.decode(expected)
 
@@ -234,7 +234,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
           }
         },
         testM("is symmetric") {
-          check(HttpGen.path) { path =>
+          check(HttpGen.nonEmptyPath) { path =>
             val expected = path
             val encoded  = path.encode
             val actual   = Path.decode(encoded)

@@ -1,7 +1,6 @@
 package zhttp.http
 
 import zhttp.internal.HttpGen
-import zio.test.Assertion.{equalTo, isSome}
 import zio.test._
 
 object CookieSpec extends DefaultRunnableSpec {
@@ -10,8 +9,9 @@ object CookieSpec extends DefaultRunnableSpec {
       testM("encode/decode signed/unsigned cookies with secret") {
         check(HttpGen.cookies) { cookie =>
           val expected = cookie.encode
-          val actual   = Cookie.decodeResponseCookie(expected, cookie.secret).map(_.encode)
-          assert(actual)(isSome(equalTo(expected)))
+          val actual   = Cookie.decodeResponseCookie(cookie.encode, cookie.secret).get.encode
+
+          assertTrue(actual == expected)
         }
       }
     } +
@@ -23,7 +23,8 @@ object CookieSpec extends DefaultRunnableSpec {
             cookieList   <- Gen.listOf(Gen.const(Cookie(name, content)))
             cookieString <- Gen.const(cookieList.map(x => s"${x.name}=${x.content}").mkString(";"))
           } yield (cookieList, cookieString)) { case (cookies, message) =>
-            assert(Cookie.decodeRequestCookie(message))(equalTo(cookies))
+            val actual = Cookie.decodeRequestCookie(message)
+            assertTrue(actual == cookies)
           }
         }
       }

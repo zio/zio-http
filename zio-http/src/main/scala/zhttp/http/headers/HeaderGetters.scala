@@ -282,7 +282,7 @@ trait HeaderGetters[+A] { self =>
   final def setCookie: Option[CharSequence] =
     headerValue(HeaderNames.setCookie)
 
-  final def setCookiesDecoded(secret: Option[String] = None): List[Cookie] =
+  final def setCookiesDecoded(secret: String = ""): List[Cookie] =
     headerValues(HeaderNames.setCookie)
       .map(Cookie.decodeResponseCookie(_, secret))
       .collect { case Some(cookie) => cookie }
