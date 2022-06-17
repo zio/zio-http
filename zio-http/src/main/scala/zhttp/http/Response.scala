@@ -10,7 +10,7 @@ import zhttp.service.ChannelFuture
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
 import zio.{Task, UIO, ZIO}
 
-import java.io.{IOException, PrintWriter, StringWriter}
+import java.io.IOException
 
 final case class Response private (
   status: Status,
@@ -128,33 +128,7 @@ object Response {
   ): Response =
     Response(status, headers, data, Attribute.empty)
 
-  def fromHttpError(error: HttpError): Response = {
-
-    def prettify(throwable: Throwable): String = {
-      val sw = new StringWriter
-      throwable.printStackTrace(new PrintWriter(sw))
-      s"${sw.toString}"
-    }
-
-    Response
-      .html(
-        status = error.status,
-        data = Template.container(s"${error.status}") {
-          div(
-            div(
-              styles := Seq("text-align" -> "center"),
-              div(s"${error.status.code}", styles := Seq("font-size" -> "20em")),
-              div(error.message),
-            ),
-            div(
-              error.foldCause(div()) { throwable =>
-                div(h3("Cause:"), pre(prettify(throwable)))
-              },
-            ),
-          )
-        },
-      )
-  }
+  def fromHttpError(error: HttpError): Response = Response(error.status)
 
   /**
    * Creates a new response for the provided socket
