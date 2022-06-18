@@ -163,7 +163,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
             assertZIO(app(Request()))(contains("ValueA"))
           }
       }
-  }.provide(Console.live ++ Clock.live)
+  }
 
   private def cond(flg: Boolean) = (_: Any) => flg
 
