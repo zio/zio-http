@@ -1,6 +1,7 @@
 package zhttp.internal
 
 import io.netty.buffer.Unpooled
+import zhttp.http.Path.Segment
 import zhttp.http.Scheme.{HTTP, HTTPS, WS, WSS}
 import zhttp.http.URL.Location
 import zhttp.http._
@@ -13,7 +14,12 @@ import java.io.File
 
 object HttpGen {
   def anyPath: Gen[Random with Sized, Path] = for {
-    segments <- Gen.listOfBounded(0, 5)(Gen.alphaNumericStringBounded(0, 5))
+    segments <- Gen.listOfBounded(0, 5)(
+      Gen.oneOf(
+        Gen.alphaNumericStringBounded(0, 5).map(Segment(_)),
+        Gen.elements(Segment.root),
+      ),
+    )
   } yield Path(segments.toVector)
 
   def clientParamsForFileHttpData(): Gen[Random with Sized, Request] = {
@@ -109,7 +115,14 @@ object HttpGen {
     } yield cnt
 
   def nonEmptyPath: Gen[Random with Sized, Path] = for {
-    segments <- Gen.listOfBounded(1, 5)(Gen.alphaNumericStringBounded(0, 5))
+    segments <-
+      Gen.listOfBounded(1, 5)(
+        Gen.oneOf(
+          Gen.alphaNumericStringBounded(0, 5).map(Segment(_)),
+          Gen.elements(Segment.root),
+        ),
+      )
+
   } yield Path(segments.toVector)
 
   def request: Gen[Random with Sized, Request] = for {
