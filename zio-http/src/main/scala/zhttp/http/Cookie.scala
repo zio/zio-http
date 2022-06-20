@@ -179,7 +179,7 @@ object Cookie {
   private val sameSiteNone   = "none"
 
   val dateTimeFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss O", Locale.ENGLISH).withZone(ZoneOffset.UTC)
+    DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss O ", Locale.ENGLISH).withZone(ZoneOffset.UTC)
 
   sealed trait SameSite {
     def asString: String
