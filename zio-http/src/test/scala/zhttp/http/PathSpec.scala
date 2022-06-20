@@ -247,6 +247,27 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
         assertTrue(actual == expected)
       }
     },
+    suite("extractor")(
+      suite("int()")(
+        test("extract path 'user' /: int(1)") {
+          val path = collect { case "" /: "user" /: int(age) /: ~~ => age }
+          assertTrue(path("/user/1").contains(1))
+        },
+        test("extract path 'user' /: int(Xyz)") {
+          val path = collect { case "" /: "user" /: int(age) /: ~~ => age }
+          assertTrue(path("/user/Xyz").isEmpty)
+        },
+      ),
+      suite("boolean()")(
+        test("extract path 'user' /: boolean(true)") {
+          val path = collect { case "user" /: boolean(ok) /: ~~ => ok }
+          assertTrue(path("user/True").contains(true))
+        },
+        test("extract path 'user' /: boolean(false)") {
+          val path = collect { case "user" /: boolean(ok) /: ~~ => ok }
+          assertTrue(path("user/false").contains(false))
+        },
+      ),
+    ),
   )
-
 }
