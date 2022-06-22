@@ -76,36 +76,26 @@ val app = Http.collect[Request] {
 
 ## Testing
 
-zhttp provides a `zhttp-test` package for use in unit tests. You can utilize it as follows:
+Tests suites could be implemented using `zio-test` library, as following:
 
 ```scala
+
 import zio.test._
-import zhttp.test._
 import zhttp.http._
+import zio.test.Assertion.equalTo
 
 object Spec extends DefaultRunnableSpec {
-  val app = Http.collect[Request] {
-    case Method.GET -> Root / "text" => Response.text("Hello World!")
+  val app = Http.collect[Request] { case Method.GET -> !! / "text" =>
+    Response.text("Hello World!")
   }
-  
-  def spec = suite("http") (
+
+  def spec = suite("http")(
     testM("should be ok") {
       val req         = ???
-      val expectedRes = resp => resp.status.toJHttpStatus.code() == Status.OK
-      assertM(app(req))(expectedRes) // an apply method is added via `zhttp.test` package
-    }
+      val expectedRes = app(req).map(_.status)
+      assertM(expectedRes)(equalTo(Status.Ok))
+    },
   )
-}
-```
-
-```scala
-import zhttp.http._
-
-val app = Http.collect[Request] {
-  case req @ Method.GET -> Root / "fruits" / "a"  =>
-    Response.text("URL:" + req.url.path.asString + " Headers: " + r.headers)
-  case req @ Method.POST -> Root / "fruits" / "a" =>
-    Response.text(req.bodyAsString.getOrElse("No body!"))
 }
 ```
 
