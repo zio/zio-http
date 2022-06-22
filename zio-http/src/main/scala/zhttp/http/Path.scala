@@ -7,10 +7,10 @@ import scala.collection.mutable
 
 /**
  * Path is an immutable representation of a urls path. Internally it stores each
- * element of a path in a sequence of `Segement`. This allows for powerful
+ * element of a path in a sequence of `Segment`. This allows for powerful
  * compositional APIs.
  */
-final case class Path(segments: Vector[Segment]) { self =>
+final case class Path private (segments: Vector[Segment]) { self =>
 
   /**
    * Appends a segment at the end of the path. To append a trailing slash use an
