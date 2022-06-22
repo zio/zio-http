@@ -89,7 +89,6 @@ lazy val root = (project in file("."))
   .aggregate(
     zhttp,
     zhttpBenchmarks,
-    zhttpTest,
     zhttpLogging,
     example,
   )
@@ -122,11 +121,6 @@ lazy val zhttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(stdSettings("zhttpBenchmarks"))
   .settings(publishSetting(false))
   .settings(libraryDependencies ++= Seq(zio))
-
-lazy val zhttpTest = (project in file("zio-http-test"))
-  .dependsOn(zhttp)
-  .settings(stdSettings("zhttp-test"))
-  .settings(publishSetting(true))
 
 lazy val zhttpLogging = (project in file("zio-http-logging"))
   .settings(stdSettings("zhttp-logging"))
