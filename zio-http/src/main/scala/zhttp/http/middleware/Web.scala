@@ -174,6 +174,14 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
     )
 
   /**
+   * Client redirect temporary or permanent to specified url.
+   */
+  final def redirect(url: URL, permanent: Boolean): HttpMiddleware[Any, Nothing] =
+    Middleware.fromHttp(
+      Http.response(Response.redirect(encode(url), isPermanent = permanent)),
+    )
+
+  /**
    * Removes the trailing slash from the path.
    */
   final def dropTrailingSlash: HttpMiddleware[Any, Nothing] =
@@ -184,10 +192,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    */
   final def redirectTrailingSlash(permanent: Boolean): HttpMiddleware[Any, Nothing] =
     Middleware.ifThenElse[Request](_.url.path.trailingSlash)(
-      req =>
-        dropTrailingSlash ++ Middleware.fromHttp(
-          Http.response(Response.redirect(encode(req.dropTrailingSlash.url), isPermanent = permanent)),
-        ),
+      req => redirect(req.dropTrailingSlash.url, permanent),
       _ => Middleware.identity,
     )
 }
