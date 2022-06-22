@@ -1,6 +1,5 @@
 package zhttp.http
 
-import zhttp.http.URL.Fragment
 import zhttp.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
@@ -8,41 +7,8 @@ import zio.test._
 object URLSpec extends DefaultRunnableSpec {
   def spec =
     suite("URL")(
-      suite("fromString")(
-        test("should Handle invalid url String with restricted chars") {
-          val actual = URL.fromString("http://mw1.google.com/$[level]/r$[y]_c$[x].jpg")
-          assert(actual)(isLeft)
-        },
-        test("should Handle empty query string") {
-          val actual = URL.fromString("http://abc.com/users").map(_.queryParams)
-          assert(actual)(isRight(equalTo(Map.empty[String, List[String]])))
-        },
-        test("should Handle query string") {
-          val actual = URL
-            .fromString("http://abc.com/users?u=1&u=2&ord=ASC&txt=zio-http%20is%20awesome%21")
-            .map(_.queryParams)
-
-          val expected = Map(
-            "u"   -> List("1", "2"),
-            "ord" -> List("ASC"),
-            "txt" -> List("zio-http is awesome!"),
-          )
-
-          assert(actual)(isRight(equalTo(expected)))
-        },
-        test("should handle uri fragment") {
-          val actual = URL
-            .fromString(
-              "http://abc.com/users?u=1&u=2&ord=ASC&txt=zio-http%20is%20awesome%21#the%20hash",
-            )
-            .map(_.fragment)
-
-          val expected = Fragment("the%20hash", "the hash")
-          assert(actual)(isRight(isSome(equalTo(expected))))
-        },
-      ),
-      suite("asString")(
-        testM("using auto gen") {
+      suite("encode-decode symmetry")(
+        testM("auto-gen") {
           check(HttpGen.url) { url =>
             val expected        = url.normalize
             val expectedEncoded = expected.encode
@@ -53,47 +19,46 @@ object URLSpec extends DefaultRunnableSpec {
             assertTrue(actual == Right(expected))
           }
         },
-        testM("using manual gen") {
+        testM("manual") {
           val urls = Gen.fromIterable(
             Seq(
+              "",
+              "/",
+              "/users?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
+              "/users",
+              "/users#the%20hash",
+              "http://abc.com",
+              "http://abc.com/",
+              "http://abc.com/list",
+              "http://abc.com/users?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
+              "http://abc.com/users?u=1&u=2&ord=ASC&txt=scala%20is%20awesome%21",
+              "http://abc.com/users?u=1#the%20hash",
+              "http://abc.com/users",
+              "http://abc.com/users/?u=1&u=2&ord=ASC&txt=scala%20is%20awesome%21",
+              "http://abc.com/users#the%20hash",
               "ws://abc.com/subscriptions",
               "wss://abc.com/subscriptions",
-              "/users",
-              "/users?ord=ASC&txt=zio-http%20is%20awesome%21&u=1&u=2",
-              "http://abc.com/list",
-              "http://abc.com/users?ord=ASC&txt=zio-http%20is%20awesome%21&u=1&u=2",
-              "http://abc.com/users#the%20hash",
-              "/users#the%20hash",
-              "/",
-              "",
             ),
           )
 
           checkAll(urls) { url =>
-            val expected = url
-            val actual   = URL.fromString(expected).map(_.encode)
-            assert(actual)(isRight(equalTo(expected)))
+            val decoded = URL.fromString(url)
+            val encoded = decoded.map(_.encode)
+            assertTrue(encoded == Right(url))
           }
+        },
+      ),
+      suite("fromString")(
+        test("should Handle invalid url String with restricted chars") {
+          val actual = URL.fromString("http://mw1.google.com/$[level]/r$[y]_c$[x].jpg")
+          assert(actual)(isLeft)
         },
       ),
       suite("relative")(
         test("converts an url to a relative url") {
-          val url = URL
-            .fromString("http://abc.com/users?u=1&u=2&ord=ASC&txt=zio-http%20is%20awesome%21")
-            .map(_.relative.normalize)
-
-          val expected =
-            URL(
-              Path.root / "users",
-              URL.Location.Relative,
-              Map(
-                "u"   -> List("1", "2"),
-                "ord" -> List("ASC"),
-                "txt" -> List("zio-http is awesome!"),
-              ),
-            ).normalize
-
-          assert(url)(isRight(equalTo(expected)))
+          val actual   = URL.fromString("http://abc.com/users?a=1&b=2").map(_.relative.normalize.encode)
+          val expected = Right("/users?a=1&b=2")
+          assertTrue(actual == expected)
         },
       ),
       suite("builder")(
