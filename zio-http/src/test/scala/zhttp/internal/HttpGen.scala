@@ -11,6 +11,7 @@ import zio.test.{Gen, Sized}
 import zio.{Chunk, ZIO}
 
 import java.io.File
+import java.time.Instant
 
 object HttpGen {
   def anyPath: Gen[Random with Sized, Path] = for {
@@ -35,14 +36,14 @@ object HttpGen {
   def cookies: Gen[Random with Sized, Cookie] = for {
     name     <- Gen.alphaNumericStringBounded(1, 5)
     content  <- Gen.alphaNumericStringBounded(1, 5)
-    expires  <- Gen.option(Gen.anyInstant)
-    domain   <- Gen.anyString
-    path     <- HttpGen.anyPath
+    expires  <- Gen.option(Gen.instant(Instant.ofEpochMilli(0), Instant.MAX))
+    domain   <- Gen.option(Gen.anyString)
+    path     <- Gen.option(HttpGen.anyPath)
     secure   <- Gen.boolean
     httpOnly <- Gen.boolean
     maxAge   <- Gen.option(Gen.anyLong)
     sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
-    secret   <- Gen.anyString
+    secret   <- Gen.option(Gen.anyString)
   } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite, secret)
 
   def genAbsoluteLocation: Gen[Random with Sized, Location.Absolute] = for {

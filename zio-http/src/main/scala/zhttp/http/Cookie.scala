@@ -3,23 +3,147 @@ package zhttp.http
 import zio.duration._
 
 import java.security.MessageDigest
-import java.time.Instant
+import java.time.format.DateTimeFormatter
+import java.time.{Instant, ZoneOffset}
 import java.util.Base64.getEncoder
+import java.util.Locale
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import scala.util.Try
 
 final case class Cookie(
   name: String,
   content: String,
   expires: Option[Instant] = None,
-  domain: String = "",
-  path: Path = Path.empty,
+  domain: Option[String] = None,
+  path: Option[Path] = None,
   isSecure: Boolean = false,
   isHttpOnly: Boolean = false,
   maxAge: Option[Long] = None,
   sameSite: Option[Cookie.SameSite] = None,
-  secret: String = "",
+  secret: Option[String] = None,
 ) { self =>
+
+  /**
+   * Creates a new cookie that can be used to clear the original cookie on the
+   * client.
+   */
+  def clear: Cookie =
+    copy(content = "", expires = Some(Instant.ofEpochSecond(0)))
+
+  /**
+   * Sets content in cookie
+   */
+  def withContent(v: String): Cookie = copy(content = v)
+
+  /**
+   * Sets expiry in cookie
+   */
+  def withExpiry(v: Instant): Cookie = copy(expires = Some(v))
+
+  /**
+   * Sets max-age in cookie
+   */
+  def withMaxAge(v: Duration): Cookie = copy(maxAge = Some(v.asScala.toSeconds))
+
+  /**
+   * Sets max-age in seconds in cookie
+   */
+  def withMaxAge(v: Long): Cookie = copy(maxAge = Some(v))
+
+  /**
+   * Sets domain in cookie
+   */
+  def withDomain(v: String): Cookie = copy(domain = Some(v))
+
+  /**
+   * Sets path in cookie
+   */
+  def withPath(v: Path): Cookie = copy(path = Some(v))
+
+  /**
+   * Sets secure in cookie
+   */
+  def withSecure: Cookie = copy(isSecure = true)
+
+  /**
+   * Sets httpOnly in cookie
+   */
+  def withHttpOnly: Cookie = copy(isHttpOnly = true)
+
+  /**
+   * Sets same-site in cookie
+   */
+  def withSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
+
+  /**
+   * Signs the cookie at the time of encoding using the provided secret.
+   */
+  def sign(secret: String): Cookie = copy(secret = Some(secret))
+
+  /**
+   * Removes secret in the cookie
+   */
+  def unSign: Cookie = copy(secret = None)
+
+  /**
+   * Resets secure flag in the cookie
+   */
+  def withoutSecure: Cookie = copy(isSecure = false)
+
+  /**
+   * Resets httpOnly flag in the cookie
+   */
+  def withoutHttpOnly: Cookie = copy(isHttpOnly = false)
+
+  /**
+   * Removes expiry from the cookie
+   */
+  def withoutExpiry: Cookie = copy(expires = None)
+
+  /**
+   * Removes domain from the cookie
+   */
+  def withoutDomain: Cookie = copy(domain = None)
+
+  /**
+   * Removes path from the cookie
+   */
+  def withoutPath: Cookie = copy(path = None)
+
+  /**
+   * Removes max-age from the cookie
+   */
+  def withoutMaxAge: Cookie = copy(maxAge = None)
+
+  /**
+   * Removes same-site from the cookie
+   */
+  def withoutSameSite: Cookie = copy(sameSite = None)
+
+  /**
+   * Converts cookie into a string
+   */
+  def encode: String = {
+    val c = secret match {
+      case Some(sec) if sec.nonEmpty => content + "." + signContent(sec)
+      case _                         => content
+    }
+
+    val cookie = List(
+      Some(s"$name=$c"),
+      expires.map(e =>
+        s"Expires=${Cookie.dateTimeFormatter.format(e)}",
+      ), // format date to HTTP standard (https://httpwg.org/specs/rfc7231.html#header.date)
+      maxAge.map(a => s"Max-Age=${a.toString}"),
+      domain.filter(_.nonEmpty).map(d => s"Domain=$d"),
+      path.filter(_.nonEmpty).map(p => s"Path=${p.encode}"),
+      if (isSecure) Some("Secure") else None,
+      if (isHttpOnly) Some("HttpOnly") else None,
+      sameSite.map(s => s"SameSite=${s.asString}"),
+    )
+    cookie.flatten.mkString("; ")
+  }
 
   /**
    * Signs cookie content with a secret and returns signature
@@ -39,127 +163,6 @@ final case class Cookie(
   private def verify(content: String, signature: String, secret: String): Boolean =
     self.withContent(content).signContent(secret) == signature
 
-  /**
-   * Creates a new cookie that can be used to clear the original cookie on the
-   * client.
-   */
-  def clear: Cookie =
-    copy(content = "", expires = Some(Instant.ofEpochSecond(0)))
-
-  /**
-   * Converts cookie into a string
-   */
-  def encode: String = {
-    if (name.isEmpty || content.isEmpty) ""
-    else {
-      val c = secret match {
-        case ""  => content
-        case sec => content + "." + signContent(sec)
-      }
-
-      List(
-        Some(s"$name=$c"),
-        expires.map(e => s"Expires=$e"),
-        maxAge.map(a => s"Max-Age=${a.toString}"),
-        if (domain.nonEmpty) Some(s"Domain=$domain") else None,
-        if (path.encode.nonEmpty) Some(s"Path=${path.encode}") else None,
-        if (isSecure) Some("Secure") else None,
-        if (isHttpOnly) Some("HttpOnly") else None,
-        sameSite.map(s => s"SameSite=${s.asString}"),
-      ).flatten.mkString("; ")
-    }
-  }
-
-  /**
-   * Signs the cookie at the time of encoding using the provided secret.
-   */
-  def sign(secret: String): Cookie = copy(secret = secret)
-
-  /**
-   * Removes secret in the cookie
-   */
-  def unSign: Cookie = copy(secret = "")
-
-  /**
-   * Sets content in cookie
-   */
-  def withContent(v: String): Cookie = copy(content = v)
-
-  /**
-   * Sets domain in cookie
-   */
-  def withDomain(domain: String): Cookie = copy(domain = domain)
-
-  /**
-   * Sets expiry in cookie
-   */
-  def withExpiry(v: Instant): Cookie = copy(expires = Some(v))
-
-  /**
-   * Sets httpOnly in cookie
-   */
-  def withHttpOnly: Cookie = copy(isHttpOnly = true)
-
-  /**
-   * Sets max-age in cookie
-   */
-  def withMaxAge(v: Duration): Cookie = copy(maxAge = Some(v.asScala.toSeconds))
-
-  /**
-   * Sets max-age in seconds in cookie
-   */
-  def withMaxAge(v: Long): Cookie = copy(maxAge = Some(v))
-
-  /**
-   * Sets path in cookie
-   */
-  def withPath(path: Path): Cookie = copy(path = path)
-
-  /**
-   * Sets same-site in cookie
-   */
-  def withSameSite(v: Cookie.SameSite): Cookie = copy(sameSite = Some(v))
-
-  /**
-   * Sets secure in cookie
-   */
-  def withSecure: Cookie = copy(isSecure = true)
-
-  /**
-   * Removes domain from the cookie
-   */
-  def withoutDomain: Cookie = copy(domain = "")
-
-  /**
-   * Removes expiry from the cookie
-   */
-  def withoutExpiry: Cookie = copy(expires = None)
-
-  /**
-   * Resets httpOnly flag in the cookie
-   */
-  def withoutHttpOnly: Cookie = copy(isHttpOnly = false)
-
-  /**
-   * Removes max-age from the cookie
-   */
-  def withoutMaxAge: Cookie = copy(maxAge = None)
-
-  /**
-   * Removes path from the cookie
-   */
-  def withoutPath: Cookie = copy(path = Path.empty)
-
-  /**
-   * Removes same-site from the cookie
-   */
-  def withoutSameSite: Cookie = copy(sameSite = None)
-
-  /**
-   * Resets secure flag in the cookie
-   */
-  def withoutSecure: Cookie = copy(isSecure = false)
-
 }
 
 object Cookie {
@@ -175,23 +178,31 @@ object Cookie {
   private val sameSiteStrict = "strict"
   private val sameSiteNone   = "none"
 
-  @inline
-  private def splitNameContent(str: String): (String, String) = {
-    val i = str.indexOf('=')
-    if (i >= 0) {
-      (str.substring(0, i).trim, str.substring(i + 1).trim)
-    } else {
-      (str.trim, "")
-    }
+  val dateTimeFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss O ", Locale.ENGLISH).withZone(ZoneOffset.UTC)
+
+  sealed trait SameSite {
+    def asString: String
+  }
+  object SameSite       {
+    case object Lax    extends SameSite { def asString = "Lax"    }
+    case object Strict extends SameSite { def asString = "Strict" }
+    case object None   extends SameSite { def asString = "None"   }
   }
 
-  private[zhttp] def unsafeDecodeResponseCookie(headerValue: String, secret: String = ""): Cookie = {
+  /**
+   * Decodes from Set-Cookie header value inside of Response into a cookie
+   */
+  def decodeResponseCookie(headerValue: String, secret: Option[String] = None): Option[Cookie] =
+    Try(unsafeDecodeResponseCookie(headerValue, secret)).toOption
+
+  private[zhttp] def unsafeDecodeResponseCookie(headerValue: String, secret: Option[String] = None): Cookie = {
     var name: String              = null
     var content: String           = null
     var expires: Instant          = null
     var maxAge: Option[Long]      = None
-    var domain: String            = ""
-    var path: Path                = Path.empty
+    var domain: String            = null
+    var path: Path                = null
     var secure: Boolean           = false
     var httpOnly: Boolean         = false
     var sameSite: Cookie.SameSite = null
@@ -222,7 +233,7 @@ object Cookie {
             name = headerValue.substring(0, next)
           }
         } else if (headerValue.regionMatches(true, curr, fieldExpires, 0, fieldExpires.length)) {
-          expires = Instant.parse(headerValue.substring(curr + 8, next))
+          expires = Instant.from(dateTimeFormatter.parse(headerValue.substring(curr + 8, next)))
         } else if (headerValue.regionMatches(true, curr, fieldMaxAge, 0, fieldMaxAge.length)) {
           maxAge = Some(headerValue.substring(curr + 8, next).toLong)
         } else if (headerValue.regionMatches(true, curr, fieldDomain, 0, fieldDomain.length)) {
@@ -256,8 +267,8 @@ object Cookie {
           content = content,
           expires = Option(expires),
           maxAge = maxAge,
-          domain = domain,
-          path = path,
+          domain = Option(domain),
+          path = Option(path),
           isSecure = secure,
           isHttpOnly = httpOnly,
           sameSite = Option(sameSite),
@@ -268,26 +279,26 @@ object Cookie {
           "",
           expires = Option(expires),
           maxAge = maxAge,
-          domain = domain,
-          path = path,
+          domain = Option(domain),
+          path = Option(path),
           isSecure = secure,
           isHttpOnly = httpOnly,
           sameSite = Option(sameSite),
         )
 
     secret match {
-      case ""     => decodedCookie.copy(secret = secret)
-      case secret => {
+      case Some(s) if s.nonEmpty => {
         if (decodedCookie != null) {
           val index     = decodedCookie.content.lastIndexOf('.')
           val signature = decodedCookie.content.slice(index + 1, decodedCookie.content.length)
           val content   = decodedCookie.content.slice(0, index)
 
-          if (decodedCookie.verify(content, signature, secret))
-            decodedCookie.withContent(content).sign(secret)
+          if (decodedCookie.verify(content, signature, s))
+            decodedCookie.withContent(content).sign(s)
           else null
         } else decodedCookie
       }
+      case _                     => decodedCookie.copy(secret = secret)
     }
 
   }
@@ -310,27 +321,14 @@ object Cookie {
     } else List.empty
   }
 
-  /**
-   * Decodes from Set-Cookie header value inside of Response into a cookie
-   */
-  def decodeResponseCookie(headerValue: String, secret: String = ""): Option[Cookie] = {
-    try
-      Option {
-        unsafeDecodeResponseCookie(headerValue, secret)
-      }
-    catch {
-      case _: Throwable => None
+  @inline
+  private def splitNameContent(str: String): (String, String) = {
+    val i = str.indexOf('=')
+    if (i >= 0) {
+      (str.substring(0, i).trim, str.substring(i + 1).trim)
+    } else {
+      (str.trim, "")
     }
-  }
-
-  sealed trait SameSite {
-    def asString: String
-  }
-
-  object SameSite {
-    case object Lax    extends SameSite { def asString = "Lax"    }
-    case object Strict extends SameSite { def asString = "Strict" }
-    case object None   extends SameSite { def asString = "None"   }
   }
 
 }
