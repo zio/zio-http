@@ -31,7 +31,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   /**
    * Add log status, method, url and time taken from req to res
    */
-  final def debug: HttpMiddleware[Console with Clock, IOException] =
+  final def debug: HttpMiddleware[Any, IOException] =
     interceptZIOPatch(req => Clock.nanoTime.map(start => (req.method, req.url, start))) {
       case (response, (method, url, start)) =>
         for {
@@ -134,7 +134,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   /**
    * Times out the application with a 408 status code.
    */
-  final def timeout(duration: Duration): HttpMiddleware[Clock, Nothing] =
+  final def timeout(duration: Duration): HttpMiddleware[Any, Nothing] =
     Middleware
       .identity[Request, Response]
       .race(Middleware.fromHttp(Http.status(Status.RequestTimeout).delayAfter(duration)))

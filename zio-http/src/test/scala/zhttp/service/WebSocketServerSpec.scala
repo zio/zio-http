@@ -49,7 +49,6 @@ object WebSocketServerSpec extends HttpRunnableSpec {
   def websocketOnCloseSpec = suite("WebSocketOnCloseSpec") {
     test("success") {
       for {
-        clockEnv <- ZIO.environment[Clock]
 
         // Maintain a flag to check if the close handler was completed
         isSet     <- Promise.make[Nothing, Unit]
@@ -65,7 +64,7 @@ object WebSocketServerSpec extends HttpRunnableSpec {
         clientSocket = Socket.empty.toSocketApp.onOpen(closeSocket)
 
         // Deploy the server and send it a socket request
-        _ <- serverHttp(clientSocket.provideEnvironment(clockEnv))
+        _ <- serverHttp(clientSocket)
 
         // Wait for the close handler to complete
 
