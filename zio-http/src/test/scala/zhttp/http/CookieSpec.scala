@@ -16,7 +16,7 @@ object CookieSpec extends DefaultRunnableSpec {
       }
     } +
       suite("request cookies") {
-        testM("encode/decode multiple cookies with ZIO Test Gen") {
+        testM("encode/decode multiple cookies") {
           check(for {
             name         <- Gen.anyString
             content      <- Gen.anyString
