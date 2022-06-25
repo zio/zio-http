@@ -1,8 +1,10 @@
 package zhttp.service
-
 import zhttp.http._
+import zhttp.http.middleware.Auth.Credentials
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
+import zhttp.service.Client.Config
 import zhttp.service.server._
+import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
@@ -43,6 +45,57 @@ object ClientSpec extends HttpRunnableSpec {
       testM("handle connection failure") {
         val res = Client.request("http://localhost:1").either
         assertM(res)(isLeft(isSubtype[ConnectException](anything)))
+      } +
+      testM("handle proxy connection failure") {
+        val res =
+          for {
+            validServerPort <- ZIO.accessM[DynamicServer](_.get.port)
+            serverUrl       <- ZIO.fromEither(URL.fromString(s"http://localhost:$validServerPort"))
+            proxyUrl        <- ZIO.fromEither(URL.fromString("http://localhost:0001"))
+            out             <- Client.request(
+              Request(url = serverUrl),
+              Config().withProxy(Proxy(proxyUrl)),
+            )
+          } yield out
+        assertM(res.either)(isLeft(isSubtype[ConnectException](anything)))
+      } +
+      testM("proxy respond Ok") {
+        val res =
+          for {
+            port <- ZIO.accessM[DynamicServer](_.get.port)
+            url  <- ZIO.fromEither(URL.fromString(s"http://localhost:$port"))
+            id   <- DynamicServer.deploy(Http.ok)
+            proxy = Proxy.empty.withUrl(url).withHeaders(Headers(DynamicServer.APP_ID, id))
+            out <- Client.request(
+              Request(url = url),
+              Config().withProxy(proxy),
+            )
+          } yield out
+        assertM(res.either)(isRight)
+      } +
+      testM("proxy respond Ok for auth server") {
+        val proxyAuthApp = Http.collect[Request] { case req =>
+          val proxyAuthHeaderName = HeaderNames.proxyAuthorization.toString
+          req.headers.toList.collectFirst { case (`proxyAuthHeaderName`, _) =>
+            Response.ok
+          }.getOrElse(Response.status(Status.Forbidden))
+        }
+
+        val res =
+          for {
+            port <- ZIO.accessM[DynamicServer](_.get.port)
+            url  <- ZIO.fromEither(URL.fromString(s"http://localhost:$port"))
+            id   <- DynamicServer.deploy(proxyAuthApp)
+            proxy = Proxy.empty
+              .withUrl(url)
+              .withHeaders(Headers(DynamicServer.APP_ID, id))
+              .withCredentials(Credentials("test", "test"))
+            out <- Client.request(
+              Request(url = url),
+              Config().withProxy(proxy),
+            )
+          } yield out
+        assertM(res.either)(isRight)
       }
   }
 

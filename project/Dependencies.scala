@@ -15,6 +15,7 @@ object Dependencies {
   val netty =
     Seq(
       "io.netty" % "netty-codec-http"              % NettyVersion,
+      "io.netty" % "netty-handler-proxy"           % NettyVersion,
       "io.netty" % "netty-transport-native-epoll"  % NettyVersion,
       "io.netty" % "netty-transport-native-epoll"  % NettyVersion % Runtime classifier "linux-x86_64",
       "io.netty" % "netty-transport-native-epoll"  % NettyVersion % Runtime classifier "linux-aarch_64",
