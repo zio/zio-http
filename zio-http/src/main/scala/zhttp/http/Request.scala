@@ -75,6 +75,16 @@ trait Request extends HeaderExtension[Request] with HttpDataExtension[Request] {
   def version: Version
 
   /**
+   * Add trailing slash to the path.
+   */
+  final def addTrailingSlash: Request = self.copy(url = self.url.addTrailingSlash)
+
+  /**
+   * Remove trailing slash from path.
+   */
+  final def dropTrailingSlash: Request = self.copy(url = self.url.dropTrailingSlash)
+
+  /**
    * Overwrites the method in the request
    */
   final def setMethod(method: Method): Request = self.copy(method = method)
@@ -100,16 +110,6 @@ trait Request extends HeaderExtension[Request] with HttpDataExtension[Request] {
    * Updates the headers using the provided function
    */
   final override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.headers))
-
-  /**
-   * Remove trailing slash from path.
-   */
-  final def dropTrailingSlash: Request = self.copy(url = self.url.copy(path = self.url.dropTrailingSlash))
-
-  /**
-   * Add trailing slash to the path.
-   */
-  final def addTrailingSlash: Request = self.copy(url = self.url.copy(path = self.url.addTrailingSlash))
 
 }
 

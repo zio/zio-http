@@ -27,7 +27,7 @@ object StaticServer extends zio.App {
               files.map { file =>
                 li(
                   a(
-                    href := s"$base${path.encode}${if (path.isEnd) file.getName else "/" + file.getName}",
+                    href := s"$base${path.encode}${if (path.isRoot) file.getName else "/" + file.getName}",
                     file.getName,
                   ),
                 )
