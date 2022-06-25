@@ -18,12 +18,6 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   self =>
 
   /**
-   * Updates the provided list of headers to the response
-   */
-  final override def updateHeaders(update: Headers => Headers): HttpMiddleware[Any, Nothing] =
-    Middleware.updateResponse(_.updateHeaders(update))
-
-  /**
    * Sets cookie in response headers
    */
   final def addCookie(cookie: Cookie): HttpMiddleware[Any, Nothing] =
@@ -45,6 +39,12 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
             .mapError(Option(_))
         } yield Patch.empty
     }
+
+  /**
+   * Removes the trailing slash from the path.
+   */
+  final def dropTrailingSlash: HttpMiddleware[Any, Nothing] =
+    Middleware.identity[Request, Response].contramap[Request](_.dropTrailingSlash).when(_.url.queryParams.isEmpty)
 
   /**
    * Logical operator to decide which middleware to select based on the header
@@ -104,6 +104,23 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
     Middleware.interceptZIOPatch(_ => ZIO.unit)((res, _) => f(res))
 
   /**
+   * Client redirect temporary or permanent to specified url.
+   */
+  final def redirect(url: URL, permanent: Boolean): HttpMiddleware[Any, Nothing] =
+    Middleware.fromHttp(
+      Http.response(Response.redirect(encode(url), isPermanent = permanent)),
+    )
+
+  /**
+   * Permanent redirect if the trailing slash is present in the request URL.
+   */
+  final def redirectTrailingSlash(permanent: Boolean): HttpMiddleware[Any, Nothing] =
+    Middleware.ifThenElse[Request](_.url.path.trailingSlash)(
+      req => redirect(req.dropTrailingSlash.url, permanent).when(_.url.queryParams.isEmpty),
+      _ => Middleware.identity,
+    )
+
+  /**
    * Runs the effect after the middleware is applied
    */
   final def runAfter[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
@@ -144,6 +161,12 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
       .race(Middleware.fromHttp(Http.status(Status.RequestTimeout).delayAfter(duration)))
 
   /**
+   * Updates the provided list of headers to the response
+   */
+  final override def updateHeaders(update: Headers => Headers): HttpMiddleware[Any, Nothing] =
+    Middleware.updateResponse(_.updateHeaders(update))
+
+  /**
    * Creates a middleware that updates the response produced
    */
   final def updateResponse[R, E](f: Response => Response): HttpMiddleware[R, E] =
@@ -170,29 +193,6 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   )(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     Middleware.ifThenElseZIO[Request](cond)(
       _ => middleware,
-      _ => Middleware.identity,
-    )
-
-  /**
-   * Client redirect temporary or permanent to specified url.
-   */
-  final def redirect(url: URL, permanent: Boolean): HttpMiddleware[Any, Nothing] =
-    Middleware.fromHttp(
-      Http.response(Response.redirect(encode(url), isPermanent = permanent)),
-    )
-
-  /**
-   * Removes the trailing slash from the path.
-   */
-  final def dropTrailingSlash: HttpMiddleware[Any, Nothing] =
-    Middleware.identity[Request, Response].contramap[Request](_.dropTrailingSlash).when(_.url.queryParams.isEmpty)
-
-  /**
-   * Permanent redirect if the trailing slash is present in the request URL.
-   */
-  final def redirectTrailingSlash(permanent: Boolean): HttpMiddleware[Any, Nothing] =
-    Middleware.ifThenElse[Request](_.url.path.trailingSlash)(
-      req => redirect(req.dropTrailingSlash.url, permanent).when(_.url.queryParams.isEmpty),
       _ => Middleware.identity,
     )
 }
