@@ -12,7 +12,7 @@ import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import zhttp.http._
 import zhttp.service
-import zhttp.service.Client.Config
+import zhttp.service.Client.{Config, log}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.{Socket, SocketApp}
@@ -72,6 +72,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
       val isWebSocket = req.url.scheme.exists(_.isWebSocket)
       val isSSL       = req.url.scheme.exists(_.isSecure)
 
+      log.debug(s"Request: [${jReq.method().asciiName()} ${req.url.encode}]")
       val initializer = new ChannelInitializer[Channel]() {
         override def initChannel(ch: Channel): Unit = {
 
@@ -175,4 +176,6 @@ object Client {
   object Config {
     def empty: Config = Config()
   }
+
+  private[zhttp] val log = Log.withTags("Client")
 }

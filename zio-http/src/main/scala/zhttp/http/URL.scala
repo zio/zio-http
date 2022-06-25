@@ -3,10 +3,8 @@ package zhttp.http
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
 import zhttp.http.URL.{Fragment, Location}
 
-import java.io.IOException
 import java.net.{MalformedURLException, URI}
 import scala.jdk.CollectionConverters._
-import scala.util.Try
 
 final case class URL(
   path: Path,
@@ -14,6 +12,16 @@ final case class URL(
   queryParams: Map[String, List[String]] = Map.empty,
   fragment: Option[Fragment] = None,
 ) { self =>
+
+  private[zhttp] def normalize: URL = {
+    val queryParams = self.queryParams.toList.filter(i => i._1.nonEmpty && i._2.nonEmpty).sortBy(_._1).toMap
+    self.copy(queryParams = queryParams)
+  }
+
+  private[zhttp] def relative: URL = self.kind match {
+    case URL.Location.Relative => self
+    case _                     => self.copy(kind = URL.Location.Relative)
+  }
 
   def encode: String = URL.encode(self)
 
@@ -75,57 +83,8 @@ final case class URL(
 
     copy(kind = location)
   }
-
-  def isEqual(other: URL): Boolean = {
-    self.kind == other.kind &&
-    self.path == other.path &&
-    (self.queryParams.toSet diff other.queryParams.toSet).isEmpty
-    self.fragment == other.fragment
-  }
-
-  private[zhttp] def relative: URL = self.kind match {
-    case URL.Location.Relative => self
-    case _                     => self.copy(kind = URL.Location.Relative)
-  }
 }
 object URL {
-  def empty: URL = URL(!!)
-
-  def encode(url: URL): String = {
-
-    def path: String = {
-      val encoder = new QueryStringEncoder(s"${url.path.encode}${url.fragment.fold("")(f => "#" + f.raw)}")
-      url.queryParams.foreach { case (key, values) =>
-        if (key != "") values.foreach { value => encoder.addParam(key, value) }
-      }
-      encoder.toString
-    }
-
-    url.kind match {
-      case Location.Relative                     => path
-      case Location.Absolute(scheme, host, port) =>
-        if (port == 80 || port == 443) s"${scheme.encode}://$host$path"
-        else s"${scheme.encode}://$host:$port$path"
-    }
-  }
-
-  def fromString(string: String): Either[IOException, URL] = {
-    def invalidURL = Left(new MalformedURLException(s"""Invalid URL: "$string""""))
-    for {
-      url <- Try(new URI(string)).toEither match {
-        case Left(_)      => invalidURL
-        case Right(value) => Right(value)
-      }
-      url <- (if (url.isAbsolute) fromAbsoluteURI(url) else fromRelativeURI(url)) match {
-        case None        => invalidURL
-        case Some(value) => Right(value)
-      }
-
-    } yield url
-  }
-
-  def root: URL = URL(!!)
-
   private def fromAbsoluteURI(uri: URI): Option[URL] = {
     for {
       scheme <- Scheme.decode(uri.getScheme)
@@ -154,6 +113,44 @@ object URL {
       params.asScala.view.map { case (k, v) => (k, v.asScala.toList) }.toMap
     }
   }
+
+  def empty: URL = URL(!!)
+
+  def encode(url: URL): String = {
+    def path: String = {
+      val encoder = new QueryStringEncoder(s"${url.path.encode}")
+      url.queryParams.foreach { case (key, values) =>
+        if (key != "") values.foreach { value => encoder.addParam(key, value) }
+      }
+
+      encoder.toString + url.fragment.fold("")(f => "#" + f.raw)
+    }
+
+    url.kind match {
+      case Location.Relative                     => path
+      case Location.Absolute(scheme, host, port) =>
+        if (port == 80 || port == 443) s"${scheme.encode}://$host$path"
+        else s"${scheme.encode}://$host:$port$path"
+    }
+  }
+
+  def fromString(string: String): Either[Exception, URL] = {
+    def invalidURL = Left(new MalformedURLException(s"""Invalid URL: "$string""""))
+    try {
+      val uri = new URI(string)
+      val url = if (uri.isAbsolute()) fromAbsoluteURI(uri) else fromRelativeURI(uri)
+
+      url match {
+        case None        => invalidURL
+        case Some(value) => Right(value)
+      }
+
+    } catch {
+      case e: Exception => Left(e)
+    }
+  }
+
+  def root: URL = URL(!!)
 
   sealed trait Location
 
