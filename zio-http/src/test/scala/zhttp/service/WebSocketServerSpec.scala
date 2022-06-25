@@ -74,6 +74,6 @@ object WebSocketServerSpec extends HttpRunnableSpec {
 
         // Check if the close handler was completed
       } yield assertCompletes
-    } @@ nonFlaky  
+    } @@ nonFlaky
   }
 }

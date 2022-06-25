@@ -25,39 +25,40 @@ object SocketSpec extends ZIOSpecDefault {
       assertZIO(socket.runCollect) {
         equalTo(Chunk(text))
       }
-    } + test("fromFunction provide") {
-      val environmentFunction = (_: Any) => ZStream.service[WebSocketFrame]
-      val socket              = Socket
-        .fromFunction(environmentFunction)
-        .provideEnvironment(ZEnvironment(WebSocketFrame.text("Foo")))
-        .execute(WebSocketFrame.text("Bar"))
-
-      assertZIO(socket.runCollect) {
-        equalTo(Chunk(WebSocketFrame.text("Foo")))
-      }
-    } + test("collect provide") {
-      val environment = ZStream.service[WebSocketFrame]
-      val socket      = Socket
-        .collect[WebSocketFrame] { case WebSocketFrame.Pong =>
-          environment
-        }
-        .provideEnvironment(ZEnvironment(WebSocketFrame.ping))
-        .execute(WebSocketFrame.pong)
-
-      assertZIO(socket.runCollect) {
-        equalTo(Chunk(WebSocketFrame.ping))
-      }
-    } + test("ordered provide") {
-      val socket = Socket.collect[Int] { case _ =>
-        ZStream.service[Int]
-      }
-
-      val socketA: Socket[Int, Nothing, Int, Int] = socket.provideEnvironment(ZEnvironment(12))
-      val socketB: Socket[Int, Nothing, Int, Int] = socketA.provideEnvironment(ZEnvironment(1))
-      val socketC: Socket[Any, Nothing, Int, Int] = socketB.provideEnvironment(ZEnvironment(42))
-
-      assertZIO(socketC.execute(1000).runCollect)(equalTo(Chunk(12)))
     } +
+      test("fromFunction provide") {
+        val environmentFunction = (_: Any) => ZStream.service[WebSocketFrame]
+        val socket              = Socket
+          .fromFunction(environmentFunction)
+          .provideEnvironment(ZEnvironment(WebSocketFrame.text("Foo")))
+          .execute(WebSocketFrame.text("Bar"))
+
+        assertZIO(socket.runCollect) {
+          equalTo(Chunk(WebSocketFrame.text("Foo")))
+        }
+      } + test("collect provide") {
+        val environment = ZStream.service[WebSocketFrame]
+        val socket      = Socket
+          .collect[WebSocketFrame] { case WebSocketFrame.Pong =>
+            environment
+          }
+          .provideEnvironment(ZEnvironment(WebSocketFrame.ping))
+          .execute(WebSocketFrame.pong)
+
+        assertZIO(socket.runCollect) {
+          equalTo(Chunk(WebSocketFrame.ping))
+        }
+      } + test("ordered provide") {
+        val socket = Socket.collect[Int] { case _ =>
+          ZStream.service[Int]
+        }
+
+        val socketA: Socket[Int, Nothing, Int, Int] = socket.provideEnvironment(ZEnvironment(12))
+        val socketB: Socket[Int, Nothing, Int, Int] = socketA.provideEnvironment(ZEnvironment(1))
+        val socketC: Socket[Any, Nothing, Int, Int] = socketB.provideEnvironment(ZEnvironment(42))
+
+        assertZIO(socketC.execute(1000).runCollect)(equalTo(Chunk(12)))
+      } +
       test("echo") {
         assertZIO(Socket.echo(1).runCollect)(equalTo(Chunk(1)))
       } +

@@ -21,16 +21,16 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
     // Close the connection if the program fails
     // When connection closes, interrupt the program
 
-    Unsafe.unsafeCompat{ implicit u => 
-      val fiber = rtm.unsafe.fork( for {
+    Unsafe.unsafeCompat { implicit u =>
+      val fiber = rtm.unsafe.fork(for {
         f <- program.fork
         _ <- ZIO.succeed {
-              val listener = closeListener(rtm, f)
-              ctx.channel().closeFuture.addListener(listener)
-              listener
-            }
+          val listener = closeListener(rtm, f)
+          ctx.channel().closeFuture.addListener(listener)
+          listener
+        }
       } yield ())
-  
+
       fiber.unsafe.addObserver {
         case Exit.Success(_)     => ()
         case Exit.Failure(cause) =>
@@ -40,15 +40,15 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
           }
           if (ctx.channel().isOpen) ctx.close()
           ()
-        }
       }
+    }
   }
-      
+
   def unsafeRunUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
     val rtm = strategy.runtime(ctx)
 
-    Unsafe.unsafeCompat{ implicit u => 
-      rtm.unsafe.fork(program).unsafe.addObserver { 
+    Unsafe.unsafeCompat { implicit u =>
+      rtm.unsafe.fork(program).unsafe.addObserver {
         case Exit.Success(_)     => ()
         case Exit.Failure(cause) =>
           cause.failureOption.orElse(cause.dieOption) match {
@@ -62,8 +62,8 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
   }
 
   private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
-    (_: Future[_ >: Void]) => 
-      Unsafe.unsafeCompat { implicit u => 
+    (_: Future[_ >: Void]) =>
+      Unsafe.unsafeCompat { implicit u =>
         rtm.unsafe.fork(fiber.interrupt)
         ()
       }
