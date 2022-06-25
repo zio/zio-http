@@ -9,9 +9,9 @@ import zio.test._
 
 object SocketSpec extends ZIOSpecDefault {
 
-  def spec = suite("SocketSpec") {
+  def spec = (suite("SocketSpec") {
     operationsSpec
-  }.provide(Clock.live) @@ timeout(5 seconds)
+  }) @@ timeout(5 seconds)
 
   def operationsSpec = suite("OperationsSpec") {
     test("fromStream provide") {

@@ -40,7 +40,7 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
   /**
    * Delays delivery of messages by the specified duration.
    */
-  def delay(duration: Duration): Socket[Clock with R, E, A, B] = self.tap(_ => ZIO.sleep(duration))
+  def delay(duration: Duration): Socket[R, E, A, B] = self.tap(_ => ZIO.sleep(duration))
 
   def map[C](bc: B => C): Socket[R, E, A, C] = Socket.FMap(self, bc)
 
