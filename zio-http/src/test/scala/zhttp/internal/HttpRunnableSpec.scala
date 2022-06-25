@@ -112,7 +112,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       port   <- DynamicServer.port
       status <- Client
         .request(
-          "http://localhost:%d/%s".format(port, path),
+          "http://localhost:%d%s".format(port, path.encode),
           method,
           ssl = ClientSSLOptions.DefaultSSL,
         )

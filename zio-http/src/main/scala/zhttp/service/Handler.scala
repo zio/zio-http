@@ -24,6 +24,7 @@ private[zhttp] final case class Handler[R](
     msg match {
       case jReq: FullHttpRequest =>
         jReq.touch("server.Handler-channelRead0")
+        log.debug(s"FullHttpRequest: [${jReq.method} ${jReq.uri()}]")
         try
           unsafeRun(
             jReq,
@@ -31,7 +32,7 @@ private[zhttp] final case class Handler[R](
             new Request {
               override def method: Method = Method.fromHttpMethod(jReq.method())
 
-              override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
+              override def url: URL = URL.fromString(jReq.uri()).getOrElse(URL.empty)
 
               override def headers: Headers = Headers.make(jReq.headers())
 
@@ -51,6 +52,7 @@ private[zhttp] final case class Handler[R](
       case jReq: HttpRequest     =>
         val hasBody = canHaveBody(jReq)
         log.debug(s"HasBody: [${hasBody}]")
+        log.debug(s"HttpRequest: [${jReq.method} ${jReq.uri()}]")
         if (hasBody) ctx.channel().config().setAutoRead(false): Unit
         try
           unsafeRun(
@@ -73,7 +75,7 @@ private[zhttp] final case class Handler[R](
 
               override def method: Method = Method.fromHttpMethod(jReq.method())
 
-              override def url: URL = URL.fromString(jReq.uri()).getOrElse(null)
+              override def url: URL = URL.fromString(jReq.uri()).getOrElse(URL.empty)
 
               override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
 
