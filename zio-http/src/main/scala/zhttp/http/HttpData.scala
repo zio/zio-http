@@ -138,8 +138,10 @@ object HttpData {
         runtime    <- ZIO.runtime[Any]
         _          <- ZIO.succeed(
           unsafeRun { ch =>
-            runtime.unsafeRun(ctxPromise.succeed(ch))
-            msg => runtime.unsafeRun(queue.offer(msg))
+            Unsafe.unsafeCompat { implicit u => 
+              runtime.unsafe.run(ctxPromise.succeed(ch))
+              msg => runtime.unsafe.run(queue.offer(msg))
+            }
           },
         )
         ch         <- ctxPromise.await

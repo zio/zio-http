@@ -1,9 +1,9 @@
 package zhttp
 
 import io.netty.util.CharsetUtil
-import zio.{Chunk, Queue, Trace, UIO, ZIO}
 
 import java.nio.charset.Charset
+import zio._
 
 package object http extends PathSyntax with RequestSyntax with RouteDecoderModule {
   type HttpApp[-R, +E]                       = Http[R, E, Request, Response]
@@ -33,7 +33,7 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
 
         override def offer(b: B)(implicit trace: Trace): UIO[Boolean] = ZIO.succeed(b).flatMap(b => self.offer(b))
 
-        override def offerAll(as: Iterable[B])(implicit trace: Trace): UIO[Boolean] =
+        override def offerAll[A1 <: B](as: Iterable[A1])(implicit trace: zio.Trace): UIO[Chunk[A1]] = 
           ZIO.foreach(as)(b => ZIO.succeed(b)).flatMap(t => self.offerAll(t))
 
         override def shutdown(implicit trace: Trace): UIO[Unit] = queue.shutdown
