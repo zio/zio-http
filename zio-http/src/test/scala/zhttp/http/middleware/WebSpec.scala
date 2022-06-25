@@ -164,6 +164,73 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             val app = (Http.ok.addHeader("keyA", "ValueA") @@ signCookies("secret")).headerValues
             assertM(app(Request()))(contains("ValueA"))
           }
+      } +
+      suite("trailingSlashDrop")(
+        testM("should drop trailing slash") {
+          val urls = Gen.fromIterable(
+            Seq(
+              ""        -> "",
+              "/"       -> "",
+              "/a"      -> "/a",
+              "/a/b"    -> "/a/b",
+              "/a/b/"   -> "/a/b",
+              "/a/"     -> "/a",
+              "/a/?a=1" -> "/a/?a=1",
+              "/a?a=1"  -> "/a?a=1",
+            ),
+          )
+          checkAllM(urls) { case (url, expected) =>
+            val app = Http.collect[Request] { case req => Response.text(req.url.encode) } @@ dropTrailingSlash
+            for {
+              url      <- ZIO.fromEither(URL.fromString(url))
+              response <- app(Request(url = url))
+              text     <- response.bodyAsString
+            } yield assertTrue(text == expected)
+          }
+        },
+      ) +
+      suite("trailingSlashRedirect") {
+        testM("should send a redirect response") {
+          val urls = Gen.fromIterable(
+            Seq(
+              "/"     -> "",
+              "/a/"   -> "/a",
+              "/a/b/" -> "/a/b",
+            ),
+          )
+
+          checkAllM(urls cross Gen.fromIterable(Seq(true, false))) { case ((url, expected), perm) =>
+            val app      = Http.ok @@ redirectTrailingSlash(perm)
+            val location = Some(expected)
+            val status   = if (perm) Status.PermanentRedirect else Status.TemporaryRedirect
+
+            for {
+              url      <- ZIO.fromEither(URL.fromString(url))
+              response <- app(Request(url = url))
+            } yield assertTrue(
+              response.status == status,
+              response.headers.location == location,
+            )
+          }
+        } +
+          testM("should not send a redirect response") {
+            val urls = Gen.fromIterable(
+              Seq(
+                "",
+                "/a",
+                "/a/b",
+                "/a/b/?a=1",
+              ),
+            )
+
+            checkAllM(urls) { url =>
+              val app = Http.ok @@ redirectTrailingSlash(true)
+              for {
+                url      <- ZIO.fromEither(URL.fromString(url))
+                response <- app(Request(url = url))
+              } yield assertTrue(response.status == Status.Ok)
+            }
+          }
       }
   }
 

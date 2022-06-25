@@ -32,6 +32,15 @@ final case class Path private (segments: Vector[Segment]) { self =>
   def ++(other: Path): Path = Path(self.segments ++ other.segments)
 
   /**
+   * Appends a trailing slash to the path
+   */
+  def addTrailingSlash: Path =
+    lastSegment match {
+      case Some(Segment.Root) => self
+      case _                  => self / ""
+    }
+
+  /**
    * Named alias to `++` operator
    */
   def concat(other: Path): Path = self ++ other
@@ -45,6 +54,15 @@ final case class Path private (segments: Vector[Segment]) { self =>
    * Drops segments from the end of the path.
    */
   def dropLast(n: Int): Path = Path(segments = segments.dropRight(n))
+
+  /**
+   * Drops the trailing slash if available
+   */
+  def dropTrailingSlash: Path =
+    lastSegment match {
+      case Some(Segment.Root) => self.dropLast(1)
+      case _                  => self
+    }
 
   /**
    * Encodes the current path into a valid string
@@ -105,6 +123,11 @@ final case class Path private (segments: Vector[Segment]) { self =>
     case Some(Text(text)) => Some(text)
     case _                => None
   }
+
+  /**
+   * Returns the last segment of the path
+   */
+  def lastSegment: Option[Segment] = segments.lastOption
 
   /**
    * Checks if the path contains a leading slash.

@@ -23,6 +23,10 @@ final case class URL(
     case _                     => self.copy(kind = URL.Location.Relative)
   }
 
+  def addTrailingSlash: URL = self.copy(path = path.addTrailingSlash)
+
+  def dropTrailingSlash: URL = self.copy(path = path.dropTrailingSlash)
+
   def encode: String = URL.encode(self)
 
   def host: Option[String] = kind match {
