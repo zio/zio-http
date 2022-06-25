@@ -192,7 +192,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    */
   final def redirectTrailingSlash(permanent: Boolean): HttpMiddleware[Any, Nothing] =
     Middleware.ifThenElse[Request](_.url.path.trailingSlash)(
-      req => redirect(req.dropTrailingSlash.url, permanent),
+      req => redirect(req.dropTrailingSlash.url, permanent).when(_.url.queryParams.isEmpty),
       _ => Middleware.identity,
     )
 }

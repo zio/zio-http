@@ -165,37 +165,71 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
             assertM(app(Request()))(contains("ValueA"))
           }
       } +
-      suite("trailingSlashDrop") {
-        testM("should do nothing when trailing slash is not present") {
-          val program = run(app @@ dropTrailingSlash).map(_.status)
-          assertM(program)(equalTo(Status.Ok))
-        } +
-          testM("should match when  trailing slash is present") {
-            val app     = Http.collectZIO[Request] { case Method.GET -> !! =>
-              UIO(Response.ok)
-            }
-            val program = runTrailingSlash(app @@ dropTrailingSlash).map(_.status)
-            assertM(program)(equalTo(Status.Ok))
+      suite("trailingSlashDrop")(
+        testM("should drop trailing slash") {
+          val urls = Gen.fromIterable(
+            Seq(
+              ""        -> "",
+              "/"       -> "",
+              "/a"      -> "/a",
+              "/a/b"    -> "/a/b",
+              "/a/b/"   -> "/a/b",
+              "/a/"     -> "/a",
+              "/a/?a=1" -> "/a/?a=1",
+              "/a?a=1"  -> "/a?a=1",
+            ),
+          )
+          checkAllM(urls) { case (url, expected) =>
+            val app = Http.collect[Request] { case req => Response.text(req.url.encode) } @@ dropTrailingSlash
+            for {
+              url      <- ZIO.fromEither(URL.fromString(url))
+              response <- app(Request(url = url))
+              text     <- response.bodyAsString
+            } yield assertTrue(text == expected)
           }
-      } +
+        },
+      ) +
       suite("trailingSlashRedirect") {
-        testM("should do nothing when trailing slash is not present") {
-          val program = run(app @@ redirectTrailingSlash(permanent = false)).map(_.status)
-          assertM(program)(equalTo(Status.Ok))
+        testM("should send a redirect response") {
+          val urls = Gen.fromIterable(
+            Seq(
+              "/"     -> "",
+              "/a/"   -> "/a",
+              "/a/b/" -> "/a/b",
+            ),
+          )
+
+          checkAllM(urls cross Gen.fromIterable(Seq(true, false))) { case ((url, expected), perm) =>
+            val app      = Http.ok @@ redirectTrailingSlash(perm)
+            val location = Some(expected)
+            val status   = if (perm) Status.PermanentRedirect else Status.TemporaryRedirect
+
+            for {
+              url      <- ZIO.fromEither(URL.fromString(url))
+              response <- app(Request(url = url))
+            } yield assertTrue(
+              response.status == status,
+              response.headers.location == location,
+            )
+          }
         } +
-          testM("should permanent redirect when  trailing slash is present") {
-            val localApp = Http.collect[Request] { case Method.GET -> !! =>
-              Response.ok
+          testM("should not send a redirect response") {
+            val urls = Gen.fromIterable(
+              Seq(
+                "",
+                "/a",
+                "/a/b",
+                "/a/b/?a=1",
+              ),
+            )
+
+            checkAllM(urls) { url =>
+              val app = Http.ok @@ redirectTrailingSlash(true)
+              for {
+                url      <- ZIO.fromEither(URL.fromString(url))
+                response <- app(Request(url = url))
+              } yield assertTrue(response.status == Status.Ok)
             }
-            val program  = runTrailingSlash(localApp @@ redirectTrailingSlash(permanent = true)).map(_.status)
-            assertM(program)(equalTo(Status.PermanentRedirect))
-          } +
-          testM("should temporary redirect when  trailing slash is present") {
-            val localApp = Http.collect[Request] { case Method.GET -> !! =>
-              Response.ok
-            }
-            val program  = runTrailingSlash(localApp @@ redirectTrailingSlash(permanent = false)).map(_.status)
-            assertM(program)(equalTo(Status.TemporaryRedirect))
           }
       }
   }
@@ -209,12 +243,6 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       fib <- app { Request(url = URL(!! / "health")) }.fork
       _   <- TestClock.adjust(10 seconds)
       res <- fib.join
-    } yield res
-  }
-
-  private def runTrailingSlash[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response] = {
-    for {
-      res <- app { Request(url = URL.fromString("/").toOption.getOrElse(URL(!!))) }
     } yield res
   }
 }
