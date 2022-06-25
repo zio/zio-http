@@ -1,6 +1,7 @@
 package zhttp.http
 
 import zhttp.http.Path.Segment
+import zhttp.internal.HttpGen
 import zio.test._
 
 import scala.collection.Seq
@@ -268,6 +269,24 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
           assertTrue(path("user/false").contains(false))
         },
       ),
+    ),
+    suite("addTrailingSlash")(
+      testM("always ends with a root") {
+        check(HttpGen.anyPath) { path =>
+          val actual   = path.addTrailingSlash.segments.lastOption
+          val expected = Some(Segment.root)
+          assertTrue(actual == expected)
+        }
+      },
+    ),
+    suite("dropTrailingSlash")(
+      testM("never ends with a root") {
+        check(HttpGen.anyPath) { path =>
+          val actual     = path.dropTrailingSlash.segments.lastOption
+          val unexpected = Some(Segment.root)
+          assertTrue(actual != unexpected)
+        }
+      },
     ),
   )
 }

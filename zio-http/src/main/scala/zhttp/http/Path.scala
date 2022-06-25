@@ -34,7 +34,11 @@ final case class Path private (segments: Vector[Segment]) { self =>
   /**
    * Appends a trailing slash to the path
    */
-  def addTrailingSlash: Path = ???
+  def addTrailingSlash: Path =
+    lastSegment match {
+      case Some(Segment.Root) => self
+      case _                  => self / ""
+    }
 
   /**
    * Named alias to `++` operator
@@ -54,7 +58,11 @@ final case class Path private (segments: Vector[Segment]) { self =>
   /**
    * Drops the trailing slash if available
    */
-  def dropTrailingSlash: Path = ???
+  def dropTrailingSlash: Path =
+    lastSegment match {
+      case Some(Segment.Root) => self.dropLast(1)
+      case _                  => self
+    }
 
   /**
    * Encodes the current path into a valid string
@@ -115,6 +123,11 @@ final case class Path private (segments: Vector[Segment]) { self =>
     case Some(Text(text)) => Some(text)
     case _                => None
   }
+
+  /**
+   * Returns the last segment of the path
+   */
+  def lastSegment: Option[Segment] = segments.lastOption
 
   /**
    * Checks if the path contains a leading slash.
