@@ -3,7 +3,7 @@ package zhttp
 import io.netty.util.CharsetUtil
 
 import java.nio.charset.Charset
-import zio.{Chunk, Queue, UIO, ZIO, Trace}
+import zio.{Chunk, Queue, Trace, UIO, ZIO}
 
 package object http extends PathSyntax with RequestSyntax with RouteDecoderModule {
   type HttpApp[-R, +E]                       = Http[R, E, Request, Response]
