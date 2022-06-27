@@ -220,6 +220,12 @@ object Response {
   }
 
   /**
+   * Creates an empty response with status 303
+   */
+  def seeOther(location: String): Response =
+    Response(Status.SeeOther, Headers.location(location))
+
+  /**
    * Creates an empty response with the provided Status
    */
   def status(status: Status): Response = Response(status)
