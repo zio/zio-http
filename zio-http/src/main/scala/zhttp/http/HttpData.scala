@@ -35,6 +35,8 @@ sealed trait HttpData { self =>
    */
   def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf]
 
+  def release: URIO[Any, Boolean]
+
   /**
    * Returns true if HttpData is empty
    */
@@ -112,7 +114,9 @@ object HttpData {
    */
   def fromString(text: String, charset: Charset = HTTP_CHARSET): HttpData = fromCharSequence(text, charset)
 
-  private[zhttp] sealed trait Complete extends HttpData
+  private[zhttp] sealed trait Complete extends HttpData {
+    def release: URIO[Any, Boolean] = URIO.succeed(true)
+  }
 
   /**
    * Provides a more fine grained control while encoding HttpData into ByteBUfs
@@ -174,6 +178,8 @@ object HttpData {
 
     override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] =
       Http.fromZIO(toByteBuf(config))
+
+    override def release: URIO[Any, Boolean] = URIO.succeed(true)
   }
 
   private[zhttp] case class FromAsciiString(asciiString: AsciiString) extends Complete {
@@ -224,7 +230,7 @@ object HttpData {
     /**
      * Encodes the HttpData into a ByteBuf.
      */
-    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = Task(data)
+    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = Task(data.retain)
 
     /**
      * Encodes the HttpData into a Stream of ByteBufs
@@ -233,6 +239,8 @@ object HttpData {
       ZStream.fromEffect(toByteBuf(config))
 
     override def toHttp(config: ByteBufConfig): UHttp[Any, ByteBuf] = Http.succeed(data)
+
+    override def release = ZIO.succeed(data.release(data.refCnt()))
   }
 
   private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf]) extends Complete {

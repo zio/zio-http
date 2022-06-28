@@ -18,7 +18,7 @@ private[zhttp] trait HttpDataExtension[+A] extends HeaderExtension[A] { self: A 
     bodyAsByteArray.map(Chunk.fromArray)
 
   final def bodyAsByteArray: Task[Array[Byte]] =
-    bodyAsByteBuf.flatMap(buf => Task(ByteBufUtil.getBytes(buf)).ensuring(UIO(buf.release(buf.refCnt()))))
+    bodyAsByteBuf.flatMap(buf => Task(ByteBufUtil.getBytes(buf)).ensuring(UIO(buf.release)))
 
   /**
    * Decodes the content of request as CharSequence
