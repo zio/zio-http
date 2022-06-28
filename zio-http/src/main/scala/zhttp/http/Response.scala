@@ -222,7 +222,7 @@ object Response {
   /**
    * Creates an empty response with status 303
    */
-  def seeOther(location: String): Response =
+  def seeOther(location: CharSequence): Response =
     Response(Status.SeeOther, Headers.location(location))
 
   /**
