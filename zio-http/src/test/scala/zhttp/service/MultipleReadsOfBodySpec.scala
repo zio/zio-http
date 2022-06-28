@@ -2,7 +2,6 @@ package zhttp.service
 
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
-import zhttp.service.server.ServerChannelFactory
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
@@ -12,7 +11,7 @@ import zio.{URIO, ZIO}
 object MultipleReadsOfBodySpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ zhttp.service.server.ServerChannelFactory.nio ++ DynamicServer.live
 
   val simpleApp: HttpApp[Any, Nothing] = Http.collectZIO[Request] { case req @ Method.POST -> !! / "text" =>
     val reqBody = req.bodyAsString
