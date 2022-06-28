@@ -6,7 +6,7 @@ import io.netty.util.ResourceLeakDetector
 import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
-import zio.{ZManaged, _}
+import zio._
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -36,17 +36,17 @@ sealed trait Server[-R, +E] { self =>
 
   def make(implicit
     ev: E <:< Throwable,
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Start] =
+  ): ZIO[R with EventLoopGroup with ServerChannelFactory with Scope, Throwable, Start] =
     Server.make(self.asInstanceOf[Server[R, Throwable]])
 
   def start(implicit ev: E <:< Throwable): ZIO[R with EventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
-    make.useForever
+    ZIO.scoped[R with EventLoopGroup with ServerChannelFactory](make *> ZIO.never)
 
   /**
    * Launches the app with current settings: default EventLoopGroup (nThreads =
    * 0) and ServerChannelFactory.auto.
    */
-  def startDefault[R1 <: Has[_] with R](implicit ev: E <:< Throwable): ZIO[R1, Throwable, Nothing] =
+  def startDefault[R1 <: R](implicit ev: E <:< Throwable): ZIO[R1, Throwable, Nothing] =
     start.provideSomeLayer[R1](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
 
   /**
@@ -181,19 +181,19 @@ object Server {
 
   def make[R](
     server: Server[R, Throwable],
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory, Throwable, Start] = {
+  ): ZIO[R with EventLoopGroup with ServerChannelFactory with Scope, Throwable, Start] = {
     val settings = server.settings()
     for {
-      channelFactory <- ZManaged.access[ServerChannelFactory](_.get)
-      eventLoopGroup <- ZManaged.access[EventLoopGroup](_.get)
-      zExec          <- HttpRuntime.sticky[R](eventLoopGroup).toManaged_
+      channelFactory <- ZIO.service[ServerChannelFactory]
+      eventLoopGroup <- ZIO.service[EventLoopGroup]
+      zExec          <- HttpRuntime.sticky[R](eventLoopGroup)
       handler         = new ServerResponseWriter(zExec, settings, ServerTime.make)
       reqHandler      = settings.app.compile(zExec, settings, handler)
       init            = ServerChannelInitializer(zExec, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
-      chf  <- ZManaged.effect(serverBootstrap.childHandler(init).bind(settings.address))
-      _    <- ChannelFuture.asManaged(chf)
-      port <- ZManaged.effect(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
+      chf  <- ZIO.attempt(serverBootstrap.childHandler(init).bind(settings.address))
+      _    <- ChannelFuture.asZIO(chf)
+      port <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield {
       ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
       log.debug(s"Keep Alive: [${settings.keepAlive}]")
@@ -213,37 +213,30 @@ object Server {
   /**
    * Launches the app on the provided port.
    */
-  def start[R <: Has[_]](
+  def start[R](
     port: Int,
     http: HttpApp[R, Throwable],
-  ): ZIO[R, Throwable, Nothing] = {
+  ): ZIO[R, Throwable, Nothing] =
     Server(http)
       .withPort(port)
       .make
-      .useForever
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
-  }
+      .flatMap(start => ZIO.succeed(Log.info(s"Server started on port: ${start.port}")) *> ZIO.never)
+      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
 
-  def start[R <: Has[_]](
+  def start[R](
     address: InetAddress,
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    Server(http)
-      .withBinding(address, port)
-      .make
-      .useForever
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
+    (Server(http).withBinding(address, port).make *> ZIO.never)
+      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
 
-  def start[R <: Has[_]](
+  def start[R](
     socketAddress: InetSocketAddress,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    Server(http)
-      .withBinding(socketAddress)
-      .make
-      .useForever
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
+    (Server(http).withBinding(socketAddress).make *> ZIO.never)
+      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
 
   def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer = UnsafeChannelPipeline(pipeline)
 

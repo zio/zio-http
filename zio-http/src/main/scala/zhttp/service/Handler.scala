@@ -7,7 +7,7 @@ import zhttp.http._
 import zhttp.logging.Logger
 import zhttp.service.Handler.log
 import zhttp.service.server.WebSocketUpgrade
-import zio.{UIO, ZIO}
+import zio.ZIO
 
 @Sharable
 private[zhttp] final case class Handler[R](
@@ -115,25 +115,29 @@ private[zhttp] final case class Handler[R](
     http.execute(a) match {
       case HExit.Effect(resM) =>
         unsafeRunZIO {
-          resM.foldCauseM(
+          resM.foldCauseZIO(
             cause =>
               cause.failureOrCause match {
                 case Left(Some(cause)) =>
-                  UIO { resWriter.write(cause, jReq) }
+                  ZIO.succeed { resWriter.write(cause, jReq) }
                 case Left(None)        =>
-                  UIO { resWriter.writeNotFound(jReq) }
+                  ZIO.succeed { resWriter.writeNotFound(jReq) }
                 case Right(other)      =>
                   other.dieOption match {
                     case Some(defect) =>
-                      UIO { resWriter.write(defect, jReq) }
+                      ZIO.succeed { resWriter.write(defect, jReq) }
                     case None         =>
-                      ZIO.halt(other)
+                      ZIO.failCause(other)
                   }
               },
             res =>
-              UIO {
-                if (self.isWebSocket(res)) self.upgradeToWebSocket(jReq, res)
-                else resWriter.write(res, jReq)
+              if (self.isWebSocket(res)) ZIO.succeed(self.upgradeToWebSocket(jReq, res))
+              else {
+                for {
+                  _ <- ZIO.attempt {
+                    resWriter.write(res, jReq)
+                  }
+                } yield ()
               },
           )
         }

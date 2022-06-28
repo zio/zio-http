@@ -3,9 +3,7 @@ package zhttp.service
 import io.netty.channel.{ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
 import io.netty.util.concurrent.{EventExecutor, Future, GenericFutureListener}
 import zio._
-import zio.internal.Executor
 
-import scala.collection.mutable
 import scala.concurrent.{ExecutionContext => JExecutionContext}
 import scala.jdk.CollectionConverters._
 
@@ -19,7 +17,8 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
 
   private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
     (_: Future[_ >: Void]) =>
-      rtm.unsafeRunAsync(fiber.interrupt) { _ =>
+      Unsafe.unsafeCompat { implicit u =>
+        rtm.unsafe.fork(fiber.interrupt)
         log.debug(s"Interrupted Fiber: [${fiber.id}]")
       }
 
@@ -29,45 +28,45 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
       case Some(_) => log.error("HttpRuntimeException:" + cause.prettyPrint)
     }
     if (ctx.channel().isOpen) ctx.close()
+    ()
   }
 
   def unsafeRun(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
-    val rtm = strategy.runtime(ctx)
+
+    val (_, rtm) = strategy.runtime(ctx)
 
     // Close the connection if the program fails
     // When connection closes, interrupt the program
 
-    rtm
-      .unsafeRunAsync(for {
-        fiber <- program.fork
-        close <- UIO {
-          val close = closeListener(rtm, fiber)
-          ctx.channel().closeFuture.addListener(close)
-          log.debug(s"Started Fiber: [${fiber.id}]")
-          close
-        }
-        _     <- fiber.join
-        _     <- UIO {
-          log.debug(s"Completed Fiber: [${fiber.id}]")
-          ctx.channel().closeFuture().removeListener(close)
-        }
-      } yield ()) {
+    Unsafe.unsafeCompat { implicit u =>
+      val fiber = rtm.unsafe.fork(
+        program.fork.map(f => {
+          val listener = closeListener(rtm, f)
+          ctx.channel().closeFuture.addListener(listener)
+        }),
+      )
+
+      fiber.unsafe.addObserver {
         case Exit.Success(_)     => ()
         case Exit.Failure(cause) => onFailure(ctx, cause)
       }
+    }
   }
 
   def unsafeRunUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
-    val rtm = strategy.runtime(ctx)
+    val (_, rtm) = strategy.runtime(ctx)
     log.debug(s"Started Uninterruptible")
-    rtm
-      .unsafeRunAsync(program) { msg =>
+    val pgm      = program
+
+    Unsafe.unsafeCompat { implicit u =>
+      rtm.unsafe.fork(pgm).unsafe.addObserver { msg =>
         log.debug(s"Completed Uninterruptible: [${msg}]")
         msg match {
           case Exit.Success(_)     => ()
           case Exit.Failure(cause) => onFailure(ctx, cause)
         }
       }
+    }
   }
 }
 
@@ -84,49 +83,48 @@ object HttpRuntime {
     Strategy.sticky(group).map(runtime => new HttpRuntime[R](runtime))
 
   sealed trait Strategy[R] {
-    def runtime(ctx: ChannelHandlerContext): Runtime[R]
+    def runtime(ctx: ChannelHandlerContext): (Executor, Runtime[R])
   }
 
   object Strategy {
 
-    def dedicated[R](group: JEventLoopGroup): ZIO[R, Nothing, Strategy[R]] =
-      ZIO.runtime[R].map(runtime => Dedicated(runtime, group))
+    def dedicated[R](group: JEventLoopGroup): ZIO[R, Nothing, Strategy[R]] = {
+      val dedicatedExecutor = Executor.fromExecutionContext {
+        JExecutionContext.fromExecutor(group)
+      }
+      ZIO.runtime[R].map(runtime => Dedicated(runtime, dedicatedExecutor))
+    }
 
     def default[R](): ZIO[R, Nothing, Strategy[R]] =
-      ZIO.runtime[R].map(runtime => Default(runtime))
+      ZIO.executorWith { executor =>
+        ZIO.runtime[R].map(runtime => Default(runtime, executor))
+      }
 
     def sticky[R](group: JEventLoopGroup): ZIO[R, Nothing, Strategy[R]] =
-      ZIO.runtime[R].map(runtime => Group(runtime, group))
+      ZIO.runtime[R].flatMap { default =>
+        ZIO
+          .foreach(group.asScala) { eventLoop =>
+            ZIO.runtime[R].map(runtime => eventLoop -> runtime)
+          }
+          .map(group => Group(default, group.toMap))
+      }
 
-    case class Default[R](runtime: Runtime[R]) extends Strategy[R] {
-      override def runtime(ctx: ChannelHandlerContext): Runtime[R] = runtime
+    case class Default[R](runtime: Runtime[R], executor: Executor) extends Strategy[R] {
+      override def runtime(ctx: ChannelHandlerContext): (Executor, Runtime[R]) = (executor, runtime)
     }
 
-    case class Dedicated[R](runtime: Runtime[R], group: JEventLoopGroup) extends Strategy[R] {
-      private val localRuntime: Runtime[R] = runtime.withYieldOnStart(false).withExecutor {
-        Executor.fromExecutionContext(runtime.platform.executor.yieldOpCount) {
-          JExecutionContext.fromExecutor(group)
+    case class Dedicated[R](runtime: Runtime[R], executor: Executor) extends Strategy[R] {
+      override def runtime(ctx: ChannelHandlerContext): (Executor, Runtime[R]) = (executor, runtime)
+    }
+
+    case class Group[R](default: Runtime[R], group: Map[EventExecutor, Runtime[R]]) extends Strategy[R] {
+      override def runtime(ctx: ChannelHandlerContext): (Executor, Runtime[R]) = {
+        val zioExecutor = Executor.fromJavaExecutor(ctx.executor())
+        group.get(ctx.executor()) match {
+          case None     => (zioExecutor, default)
+          case Some(rt) => (zioExecutor, rt)
         }
       }
-
-      override def runtime(ctx: ChannelHandlerContext): Runtime[R] = localRuntime
-    }
-
-    case class Group[R](runtime: Runtime[R], group: JEventLoopGroup) extends Strategy[R] {
-      private val localRuntime: mutable.Map[EventExecutor, Runtime[R]] = {
-        val map = mutable.Map.empty[EventExecutor, Runtime[R]]
-        for (exe <- group.asScala)
-          map += exe -> runtime.withYieldOnStart(false).withExecutor {
-            Executor.fromExecutionContext(runtime.platform.executor.yieldOpCount) {
-              JExecutionContext.fromExecutor(exe)
-            }
-          }
-
-        map
-      }
-
-      override def runtime(ctx: ChannelHandlerContext): Runtime[R] =
-        localRuntime.getOrElse(ctx.executor(), runtime)
     }
   }
 }

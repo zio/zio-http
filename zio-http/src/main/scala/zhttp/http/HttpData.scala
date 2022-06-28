@@ -62,7 +62,7 @@ sealed trait HttpData { self =>
 object HttpData {
 
   private def collectStream[R, E](stream: ZStream[R, E, ByteBuf]): ZIO[R, E, ByteBuf] =
-    stream.fold(Unpooled.compositeBuffer()) { case (cmp, buf) => cmp.addComponent(true, buf) }
+    stream.runFold(Unpooled.compositeBuffer()) { case (cmp, buf) => cmp.addComponent(true, buf) }
 
   /**
    * Helper to create empty HttpData
@@ -133,29 +133,32 @@ object HttpData {
 
     private def toQueue: ZIO[Any, Nothing, Queue[HttpContent]] = {
       for {
-        queue      <- ZQueue.bounded[HttpContent](1)
+        queue      <- Queue.bounded[HttpContent](1)
         ctxPromise <- Promise.make[Nothing, ChannelHandlerContext]
         runtime    <- ZIO.runtime[Any]
-        _          <- UIO(
+        _          <- ZIO.succeed(
           unsafeRun { ch =>
-            runtime.unsafeRun(ctxPromise.succeed(ch))
-            msg => runtime.unsafeRun(queue.offer(msg))
+            ctxPromise.succeed(ch)
+            msg =>
+              Unsafe.unsafeCompat[Any] { u =>
+                runtime.unsafe.run(queue.offer(msg))(Trace.empty, u)
+              }
           },
         )
         ch         <- ctxPromise.await
-      } yield queue.mapM(msg => UIO(ch.read()).unless(isLast(msg)).as(msg))
+      } yield queue.mapM(msg => ZIO.succeed(ch.read()).unless(isLast(msg)).as(msg))
     }
 
     /**
      * Encodes the HttpData into a ByteBuf.
      */
     override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = for {
-      body <- ZIO.effectAsync[Any, Nothing, ByteBuf](cb =>
+      body <- ZIO.async[Any, Nothing, ByteBuf](cb =>
         unsafeRun(ch => {
           val buffer = Unpooled.compositeBuffer()
           msg => {
             buffer.addComponent(true, msg.content)
-            if (isLast(msg)) cb(UIO(buffer)) else ch.read(): Unit
+            if (isLast(msg)) cb(ZIO.succeed(buffer)) else ch.read(): Unit
           }
         }),
       )
@@ -184,14 +187,14 @@ object HttpData {
      * Encodes the HttpData into a ByteBuf. Takes in ByteBufConfig to have a
      * more fine grained control over the encoding.
      */
-    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = Task(encode)
+    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = ZIO.attempt(encode)
 
     /**
      * Encodes the HttpData into a Stream of ByteBufs. Takes in ByteBufConfig to
      * have a more fine grained control over the encoding.
      */
     override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
-      ZStream.fromEffect(toByteBuf(config))
+      ZStream.fromZIO(toByteBuf(config))
 
     /**
      * Encodes the HttpData into a Http of ByeBuf. This could be more performant
@@ -208,13 +211,13 @@ object HttpData {
     /**
      * Encodes the HttpData into a ByteBuf.
      */
-    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = UIO(encode)
+    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = ZIO.succeed(encode)
 
     /**
      * Encodes the HttpData into a Stream of ByteBufs
      */
     override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
-      ZStream.fromEffect(toByteBuf(config))
+      ZStream.fromZIO(toByteBuf(config))
 
     override def toHttp(config: ByteBufConfig): UHttp[Any, ByteBuf] = Http.succeed(encode)
   }
@@ -224,13 +227,13 @@ object HttpData {
     /**
      * Encodes the HttpData into a ByteBuf.
      */
-    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = Task(data)
+    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = ZIO.attempt(data)
 
     /**
      * Encodes the HttpData into a Stream of ByteBufs
      */
     override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
-      ZStream.fromEffect(toByteBuf(config))
+      ZStream.fromZIO(toByteBuf(config))
 
     override def toHttp(config: ByteBufConfig): UHttp[Any, ByteBuf] = Http.succeed(data)
   }
@@ -267,18 +270,18 @@ object HttpData {
     override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
       ZStream.unwrap {
         for {
-          file <- Task(unsafeFile())
-          fs   <- Task(new FileInputStream(file))
+          file <- ZIO.attempt(unsafeFile())
+          fs   <- ZIO.attempt(new FileInputStream(file))
           size   = config.chunkSize(file.length())
           buffer = new Array[Byte](size)
         } yield ZStream
-          .repeatEffectOption[Any, Throwable, ByteBuf] {
+          .repeatZIOOption[Any, Throwable, ByteBuf] {
             for {
-              len   <- Task(fs.read(buffer)).mapError(Some(_))
-              bytes <- if (len > 0) UIO(Unpooled.copiedBuffer(buffer, 0, len)) else ZIO.fail(None)
+              len   <- ZIO.attempt(fs.read(buffer)).mapError(Some(_))
+              bytes <- if (len > 0) ZIO.succeed(Unpooled.copiedBuffer(buffer, 0, len)) else ZIO.fail(None)
             } yield bytes
           }
-          .ensuring(UIO(fs.close()))
+          .ensuring(ZIO.succeed(fs.close()))
       }
 
     override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] =
@@ -294,13 +297,13 @@ object HttpData {
     /**
      * Encodes the HttpData into a ByteBuf.
      */
-    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = UIO(Unpooled.EMPTY_BUFFER)
+    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = ZIO.succeed(Unpooled.EMPTY_BUFFER)
 
     /**
      * Encodes the HttpData into a Stream of ByteBufs
      */
     override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
-      ZStream.fromEffect(toByteBuf(config))
+      ZStream.fromZIO(toByteBuf(config))
 
     override def toHttp(config: ByteBufConfig): UHttp[Any, ByteBuf] = Http.empty
   }

@@ -6,9 +6,9 @@ import zhttp.internal.HttpGen
 import zio.test.Assertion.isNone
 import zio.test._
 
-object SchemeSpec extends DefaultRunnableSpec {
+object SchemeSpec extends ZIOSpecDefault {
   override def spec = suite("SchemeSpec") {
-    testM("string decode") {
+    test("string decode") {
       checkAll(HttpGen.scheme) { scheme =>
         assertTrue(Scheme.decode(scheme.encode).get == scheme)
       }
@@ -16,12 +16,12 @@ object SchemeSpec extends DefaultRunnableSpec {
       test("null string decode") {
         assert(Scheme.decode(null))(isNone)
       } +
-      testM("java http scheme") {
+      test("java http scheme") {
         checkAll(jHttpScheme) { jHttpScheme =>
           assertTrue(Scheme.fromJScheme(jHttpScheme).flatMap(_.toJHttpScheme).get == jHttpScheme)
         }
       } +
-      testM("java websocket scheme") {
+      test("java websocket scheme") {
         checkAll(jWebSocketScheme) { jWebSocketScheme =>
           assertTrue(
             Scheme.fromJScheme(jWebSocketScheme).flatMap(_.toJWebSocketScheme).get == jWebSocketScheme,

@@ -6,14 +6,13 @@ import zhttp.http._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zhttp.service.server._
-import zio.ZIO
-import zio.duration.durationInt
+import zio._
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
-import zio.test.{DefaultRunnableSpec, Gen, assertM, checkM}
+import zio.test.{Gen, TestEnvironment, ZIOSpecDefault, assertZIO, check}
 
-object SSLSpec extends DefaultRunnableSpec {
-  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto
+object SSLSpec extends ZIOSpecDefault {
+  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto ++ Scope.default
 
   val serverSSL  = ctxFromCert(
     getClass().getClassLoader().getResourceAsStream("server.crt"),
@@ -35,40 +34,40 @@ object SSLSpec extends DefaultRunnableSpec {
       } yield Response.text(body)
   }
 
-  override def spec = suiteM("SSL")(
+  override def spec = suite("SSL")(
     Server
       .make(Server.app(app) ++ Server.port(8073) ++ Server.ssl(ServerSSLOptions(serverSSL)))
       .orDie
       .as(
         List(
-          testM("succeed when client has the server certificate") {
+          test("succeed when client has the server certificate") {
             val actual = Client
               .request("https://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
               .map(_.status)
-            assertM(actual)(equalTo(Status.Ok))
+            assertZIO(actual)(equalTo(Status.Ok))
           } +
-            testM("fail with DecoderException when client doesn't have the server certificate") {
+            test("fail with DecoderException when client doesn't have the server certificate") {
               val actual = Client
                 .request("https://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL2))
                 .catchSome { case _: DecoderException =>
                   ZIO.succeed("DecoderException")
                 }
-              assertM(actual)(equalTo("DecoderException"))
+              assertZIO(actual)(equalTo("DecoderException"))
             } +
-            testM("succeed when client has default SSL") {
+            test("succeed when client has default SSL") {
               val actual = Client
                 .request("https://localhost:8073/success", ssl = ClientSSLOptions.DefaultSSL)
                 .map(_.status)
-              assertM(actual)(equalTo(Status.Ok))
+              assertZIO(actual)(equalTo(Status.Ok))
             } +
-            testM("Https Redirect when client makes http request") {
+            test("Https Redirect when client makes http request") {
               val actual = Client
                 .request("http://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
                 .map(_.status)
-              assertM(actual)(equalTo(Status.PermanentRedirect))
+              assertZIO(actual)(equalTo(Status.PermanentRedirect))
             } +
-            testM("Https request with a large payload should respond with 413") {
-              checkM(payload) { payload =>
+            test("Https request with a large payload should respond with 413") {
+              check(payload) { payload =>
                 val actual = Client
                   .request(
                     "https://localhost:8073/text",
@@ -77,11 +76,10 @@ object SSLSpec extends DefaultRunnableSpec {
                     content = HttpData.fromString(payload),
                   )
                   .map(_.status)
-                assertM(actual)(equalTo(Status.RequestEntityTooLarge))
+                assertZIO(actual)(equalTo(Status.RequestEntityTooLarge))
               }
             },
         ),
-      )
-      .useNow,
-  ).provideCustomLayer(env) @@ timeout(5 second) @@ ignore
+      ),
+  ).provideSomeLayer[TestEnvironment](env) @@ timeout(5 second) @@ ignore
 }

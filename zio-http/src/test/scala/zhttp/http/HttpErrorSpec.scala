@@ -1,9 +1,9 @@
 package zhttp.http
 
 import zio.test.Assertion.equalTo
-import zio.test.{DefaultRunnableSpec, assert}
+import zio.test.{ZIOSpecDefault, assert}
 
-object HttpErrorSpec extends DefaultRunnableSpec {
+object HttpErrorSpec extends ZIOSpecDefault {
   def spec = suite("HttpError") {
     suite("foldCause") {
       test("should fold the cause") {

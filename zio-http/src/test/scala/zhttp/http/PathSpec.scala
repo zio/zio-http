@@ -6,7 +6,7 @@ import zio.test._
 
 import scala.collection.Seq
 
-object PathSpec extends DefaultRunnableSpec with HExitAssertion {
+object PathSpec extends ZIOSpecDefault with HExitAssertion {
   val a = "a"
   val b = "b"
   val c = "c"
@@ -15,7 +15,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
 
   def spec = suite("path")(
     suite("collect")(
-      testM("/") {
+      test("/") {
         val gen = Gen.fromIterable(
           Seq(
             // Exact
@@ -44,7 +44,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
           assertTrue(pf(path).isDefined)
         }
       },
-      testM("/:") {
+      test("/:") {
         val gen = Gen.fromIterable(
           Seq(
             // Exact
@@ -86,7 +86,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
       },
     ),
     suite("decode")(
-      testM("segments") {
+      test("segments") {
         // Internal representation of a path
         val paths = Gen.fromIterable(
           Seq(
@@ -130,7 +130,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
       },
     ),
     suite("append") {
-      testM("simplifies internal representation") {
+      test("simplifies internal representation") {
         val urls = Gen.fromIterable(
           Seq(
             !! / ""                    -> !!,
@@ -143,7 +143,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
       }
     },
     suite("prepend")(
-      testM("simplifies internal representation") {
+      test("simplifies internal representation") {
         val urls = Gen.fromIterable(
           Seq(
             "" /: !!                                  -> !!,
@@ -160,7 +160,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
       },
     ),
     suite("startsWith")(
-      testM("isTrue") {
+      test("isTrue") {
         val gen = Gen.fromIterable(
           Seq(
             !!                   -> !!,
@@ -178,7 +178,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
           assertTrue(actual)
         }
       },
-      testM("isFalse") {
+      test("isFalse") {
         val gen = Gen.fromIterable(
           Seq(
             !!             -> !! / "a",
@@ -194,7 +194,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
         }
       },
     ),
-    testM("take") {
+    test("take") {
       val gen = Gen.fromIterable(
         Seq(
           (1, !!)                   -> !!,
@@ -212,7 +212,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
         assertTrue(actual == expected)
       }
     },
-    testM("drop") {
+    test("drop") {
       val gen = Gen.fromIterable(
         Seq(
           (1, !!)                   -> ~~,
@@ -230,7 +230,7 @@ object PathSpec extends DefaultRunnableSpec with HExitAssertion {
         assertTrue(actual == expected)
       }
     },
-    testM("dropLast") {
+    test("dropLast") {
       val gen = Gen.fromIterable(
         Seq(
           (1, !!)                   -> ~~,

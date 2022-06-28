@@ -4,8 +4,8 @@ import zhttp.http.Response
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zhttp.socket.SocketApp.Handle.{WithEffect, WithSocket}
 import zhttp.socket.SocketApp.{Connection, Handle}
+import zio._
 import zio.stream.ZStream
-import zio.{NeedsEnv, ZIO, ZManaged}
 
 import java.net.SocketAddress
 
@@ -23,7 +23,7 @@ final case class SocketApp[-R](
    * Creates a socket connection on the provided URL. Typically used to connect
    * as a client.
    */
-  def connect(url: String): ZManaged[R with EventLoopGroup with ChannelFactory, Throwable, Response] =
+  def connect(url: String): ZIO[R with EventLoopGroup with ChannelFactory with Scope, Throwable, Response] =
     Client.socket(url, self)
 
   /**
@@ -82,13 +82,13 @@ final case class SocketApp[-R](
    * Provides the socket app with its required environment, which eliminates its
    * dependency on `R`.
    */
-  def provideEnvironment(env: R)(implicit ev: NeedsEnv[R]): SocketApp[Any] =
+  def provideEnvironment(env: ZEnvironment[R]): SocketApp[Any] =
     self.copy(
-      timeout = self.timeout.map(_.provide(env)),
+      timeout = self.timeout.map(_.provideEnvironment(env)),
       open = self.open.map(_.provideEnvironment(env)),
       message = self.message.map(_.provideEnvironment(env)),
-      error = self.error.map(f => (t: Throwable) => f(t).provide(env)),
-      close = self.close.map(f => (c: Connection) => f(c).provide(env)),
+      error = self.error.map(f => (t: Throwable) => f(t).provideEnvironment(env)),
+      close = self.close.map(f => (c: Connection) => f(c).provideEnvironment(env)),
     )
 
   /**
@@ -134,14 +134,14 @@ object SocketApp {
       }
     }
 
-    def provideEnvironment(r: R)(implicit ev: NeedsEnv[R]): Handle[Any] =
+    def provideEnvironment(r: ZEnvironment[R]): Handle[Any] =
       self match {
-        case WithEffect(f) => WithEffect(c => f(c).provide(r))
+        case WithEffect(f) => WithEffect(c => f(c).provideEnvironment(r))
         case WithSocket(s) => WithSocket(s.provideEnvironment(r))
       }
 
     private def sock: Handle[R] = self match {
-      case WithEffect(f)     => WithSocket(Socket.fromFunction(c => ZStream.fromEffect(f(c)) *> ZStream.empty))
+      case WithEffect(f)     => WithSocket(Socket.fromFunction(c => ZStream.fromZIO(f(c)) *> ZStream.empty))
       case s @ WithSocket(_) => s
     }
   }

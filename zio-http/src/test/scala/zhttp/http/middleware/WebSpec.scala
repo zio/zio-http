@@ -4,165 +4,163 @@ import zhttp.http.Middleware._
 import zhttp.http._
 import zhttp.internal.HttpAppTestExtensions
 import zio._
-import zio.duration._
 import zio.test.Assertion._
 import zio.test._
-import zio.test.environment.{TestClock, TestConsole}
 
-object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
+object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
   private val app  = Http.collectZIO[Request] { case Method.GET -> !! / "health" =>
-    UIO(Response.ok).delay(1 second)
+    ZIO.succeed(Response.ok).delay(1 second)
   }
   private val midA = Middleware.addHeader("X-Custom", "A")
   private val midB = Middleware.addHeader("X-Custom", "B")
 
   def spec = suite("HttpMiddleware") {
     suite("headers suite") {
-      testM("addHeaders") {
+      test("addHeaders") {
         val middleware = addHeaders(Headers("KeyA", "ValueA") ++ Headers("KeyB", "ValueB"))
         val headers    = (Http.ok @@ middleware).headerValues
-        assertM(headers(Request()))(contains("ValueA") && contains("ValueB"))
+        assertZIO(headers(Request()))(contains("ValueA") && contains("ValueB"))
       } +
-        testM("addHeader") {
+        test("addHeader") {
           val middleware = addHeader("KeyA", "ValueA")
           val headers    = (Http.ok @@ middleware).headerValues
-          assertM(headers(Request()))(contains("ValueA"))
+          assertZIO(headers(Request()))(contains("ValueA"))
         } +
-        testM("updateHeaders") {
+        test("updateHeaders") {
           val middleware = updateHeaders(_ => Headers("KeyA", "ValueA"))
           val headers    = (Http.ok @@ middleware).headerValues
-          assertM(headers(Request()))(contains("ValueA"))
+          assertZIO(headers(Request()))(contains("ValueA"))
         } +
-        testM("removeHeader") {
+        test("removeHeader") {
           val middleware = removeHeader("KeyA")
           val headers    = (Http.succeed(Response.ok.setHeaders(Headers("KeyA", "ValueA"))) @@ middleware) header "KeyA"
-          assertM(headers(Request()))(isNone)
+          assertZIO(headers(Request()))(isNone)
         }
     } +
       suite("debug") {
-        testM("log status method url and time") {
-          val program = run(app @@ debug) *> TestConsole.output
-          assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
+        test("log status method url and time") {
+          val program = runApp(app @@ debug) *> TestConsole.output
+          assertZIO(program)(equalTo(Vector("200 GET /health 1000ms\n")))
         } +
-          testM("log 404 status method url and time") {
-            val program = run(Http.empty ++ Http.notFound @@ debug) *> TestConsole.output
-            assertM(program)(equalTo(Vector("404 GET /health 0ms\n")))
+          test("log 404 status method url and time") {
+            val program = runApp(Http.empty ++ Http.notFound @@ debug) *> TestConsole.output
+            assertZIO(program)(equalTo(Vector("404 GET /health 0ms\n")))
           }
       } +
       suite("when") {
-        testM("condition is true") {
-          val program = run(app @@ debug.when(_ => true)) *> TestConsole.output
-          assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
+        test("condition is true") {
+          val program = runApp(self.app @@ debug.when(_ => true)) *> TestConsole.output
+          assertZIO(program)(equalTo(Vector("200 GET /health 1000ms\n")))
         } +
-          testM("condition is false") {
-            val log = run(app @@ debug.when(_ => false)) *> TestConsole.output
-            assertM(log)(equalTo(Vector()))
+          test("condition is false") {
+            val log = runApp(self.app @@ debug.when(_ => false)) *> TestConsole.output
+            assertZIO(log)(equalTo(Vector()))
           }
       } +
       suite("whenZIO") {
-        testM("condition is true") {
-          val program = run(app @@ debug.whenZIO(_ => UIO(true))) *> TestConsole.output
-          assertM(program)(equalTo(Vector("200 GET /health 1000ms\n")))
+        test("condition is true") {
+          val program = runApp(self.app @@ debug.whenZIO(_ => ZIO.succeed(true))) *> TestConsole.output
+          assertZIO(program)(equalTo(Vector("200 GET /health 1000ms\n")))
         } +
-          testM("condition is false") {
-            val log = run(app @@ debug.whenZIO(_ => UIO(false))) *> TestConsole.output
-            assertM(log)(equalTo(Vector()))
+          test("condition is false") {
+            val log = runApp(self.app @@ debug.whenZIO(_ => ZIO.succeed(false))) *> TestConsole.output
+            assertZIO(log)(equalTo(Vector()))
           }
       } +
       suite("race") {
-        testM("achieved") {
-          val program = run(app @@ timeout(5 seconds)).map(_.status)
-          assertM(program)(equalTo(Status.Ok))
+        test("achieved") {
+          val program = runApp(self.app @@ timeout(5 seconds)).map(_.status)
+          assertZIO(program)(equalTo(Status.Ok))
         } +
-          testM("un-achieved") {
-            val program = run(app @@ timeout(500 millis)).map(_.status)
-            assertM(program)(equalTo(Status.RequestTimeout))
+          test("un-achieved") {
+            val program = runApp(self.app @@ timeout(500 millis)).map(_.status)
+            assertZIO(program)(equalTo(Status.RequestTimeout))
           }
       } +
       suite("combine") {
-        testM("before and after") {
-          val middleware = runBefore(console.putStrLn("A"))
-          val program    = run(app @@ middleware) *> TestConsole.output
-          assertM(program)(equalTo(Vector("A\n")))
+        test("before and after") {
+          val middleware = runBefore(Console.printLine("A"))
+          val program    = runApp(self.app @@ middleware) *> TestConsole.output
+          assertZIO(program)(equalTo(Vector("A\n")))
         } +
-          testM("add headers twice") {
+          test("add headers twice") {
             val middleware = addHeader("KeyA", "ValueA") ++ addHeader("KeyB", "ValueB")
             val headers    = (Http.ok @@ middleware).headerValues
-            assertM(headers(Request()))(contains("ValueA") && contains("ValueB"))
+            assertZIO(headers(Request()))(contains("ValueA") && contains("ValueB"))
           } +
-          testM("add and remove header") {
+          test("add and remove header") {
             val middleware = addHeader("KeyA", "ValueA") ++ removeHeader("KeyA")
             val program    = (Http.ok @@ middleware) header "KeyA"
-            assertM(program(Request()))(isNone)
+            assertZIO(program(Request()))(isNone)
           }
       } +
       suite("ifRequestThenElseZIO") {
-        testM("if the condition is true take first") {
+        test("if the condition is true take first") {
           val app = (Http.ok @@ ifRequestThenElseZIO(condM(true))(midA, midB)) header "X-Custom"
-          assertM(app(Request()))(isSome(equalTo("A")))
+          assertZIO(app(Request()))(isSome(equalTo("A")))
         } +
-          testM("if the condition is false take 2nd") {
+          test("if the condition is false take 2nd") {
             val app =
               (Http.ok @@ ifRequestThenElseZIO(condM(false))(midA, midB)) header "X-Custom"
-            assertM(app(Request()))(isSome(equalTo("B")))
+            assertZIO(app(Request()))(isSome(equalTo("B")))
           }
       } +
       suite("ifRequestThenElse") {
-        testM("if the condition is true take first") {
+        test("if the condition is true take first") {
           val app = Http.ok @@ ifRequestThenElse(cond(true))(midA, midB) header "X-Custom"
-          assertM(app(Request()))(isSome(equalTo("A")))
+          assertZIO(app(Request()))(isSome(equalTo("A")))
         } +
-          testM("if the condition is false take 2nd") {
+          test("if the condition is false take 2nd") {
             val app = Http.ok @@ ifRequestThenElse(cond(false))(midA, midB) header "X-Custom"
-            assertM(app(Request()))(isSome(equalTo("B")))
+            assertZIO(app(Request()))(isSome(equalTo("B")))
           }
       } +
       suite("whenRequestZIO") {
-        testM("if the condition is true apply middleware") {
+        test("if the condition is true apply middleware") {
           val app = (Http.ok @@ whenRequestZIO(condM(true))(midA)) header "X-Custom"
-          assertM(app(Request()))(isSome(equalTo("A")))
+          assertZIO(app(Request()))(isSome(equalTo("A")))
         } +
-          testM("if the condition is false don't apply any middleware") {
+          test("if the condition is false don't apply any middleware") {
             val app = (Http.ok @@ whenRequestZIO(condM(false))(midA)) header "X-Custom"
-            assertM(app(Request()))(isNone)
+            assertZIO(app(Request()))(isNone)
           }
       } +
       suite("whenRequest") {
-        testM("if the condition is true apple middleware") {
+        test("if the condition is true apple middleware") {
           val app = Http.ok @@ Middleware.whenRequest(cond(true))(midA) header "X-Custom"
-          assertM(app(Request()))(isSome(equalTo("A")))
+          assertZIO(app(Request()))(isSome(equalTo("A")))
         } +
-          testM("if the condition is false don't apply the middleware") {
+          test("if the condition is false don't apply the middleware") {
             val app = Http.ok @@ Middleware.whenRequest(cond(false))(midA) header "X-Custom"
-            assertM(app(Request()))(isNone)
+            assertZIO(app(Request()))(isNone)
           }
       } +
       suite("cookie") {
-        testM("addCookie") {
+        test("addCookie") {
           val cookie = Cookie("test", "testValue")
           val app    = (Http.ok @@ addCookie(cookie)).header("set-cookie")
-          assertM(app(Request()))(
+          assertZIO(app(Request()))(
             equalTo(Some(cookie.encode)),
           )
         } +
-          testM("addCookieM") {
+          test("addCookieM") {
             val cookie = Cookie("test", "testValue")
             val app    =
-              (Http.ok @@ addCookieZIO(UIO(cookie))).header("set-cookie")
-            assertM(app(Request()))(
+              (Http.ok @@ addCookieZIO(ZIO.succeed(cookie))).header("set-cookie")
+            assertZIO(app(Request()))(
               equalTo(Some(cookie.encode)),
             )
           }
       } +
       suite("signCookies") {
-        testM("should sign cookies") {
+        test("should sign cookies") {
           val cookie = Cookie("key", "value").withHttpOnly
           val app    = Http.ok.withSetCookie(cookie) @@ signCookies("secret") header "set-cookie"
-          assertM(app(Request()))(isSome(equalTo(cookie.sign("secret").encode)))
+          assertZIO(app(Request()))(isSome(equalTo(cookie.sign("secret").encode)))
         } +
-          testM("sign cookies no cookie header") {
+          test("sign cookies no cookie header") {
             val app = (Http.ok.addHeader("keyA", "ValueA") @@ signCookies("secret")).headerValues
-            assertM(app(Request()))(contains("ValueA"))
+            assertZIO(app(Request()))(contains("ValueA"))
           }
       } +
       suite("trailingSlashDrop")(
@@ -236,9 +234,9 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
 
   private def cond(flg: Boolean) = (_: Any) => flg
 
-  private def condM(flg: Boolean) = (_: Any) => UIO(flg)
+  private def condM(flg: Boolean) = (_: Any) => ZIO.succeed(flg)
 
-  private def run[R, E](app: HttpApp[R, E]): ZIO[TestClock with R, Option[E], Response] = {
+  private def runApp[R, E](app: HttpApp[R, E]): ZIO[R, Option[E], Response] = {
     for {
       fib <- app { Request(url = URL(!! / "health")) }.fork
       _   <- TestClock.adjust(10 seconds)

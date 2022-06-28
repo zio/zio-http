@@ -1,15 +1,15 @@
 package example
 
 import io.netty.util.AsciiString
-import zhttp.http._
+import zhttp.http.{Http, _}
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server}
-import zio.{App, ExitCode, UIO, URIO}
+import zio._
 
 /**
  * This server is used to run plaintext benchmarks on CI.
  */
-object Main extends App {
+object Main extends ZIOAppDefault {
 
   private val plainTextMessage: String = "Hello, World!"
   private val jsonMessage: String      = """{"greetings": "Hello World!"}"""
@@ -40,16 +40,16 @@ object Main extends App {
     jsonResponse      <- frozenJsonResponse
   } yield plainTextApp(plainTextResponse) ++ jsonApp(jsonResponse)
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  val run: UIO[ExitCode] =
     app
-      .flatMap(server(_).make.useForever)
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
+      .flatMap(server(_).make *> ZIO.never)
+      .provideLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8) ++ Scope.default)
       .exitCode
 
   private def server(app: HttpApp[Any, Nothing]) =
     Server.app(app) ++
       Server.port(8080) ++
-      Server.error(_ => UIO.unit) ++
+      Server.error(_ => ZIO.unit) ++
       Server.disableLeakDetection ++
       Server.consolidateFlush ++
       Server.disableFlowControl

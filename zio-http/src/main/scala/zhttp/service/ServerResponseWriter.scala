@@ -8,7 +8,7 @@ import zhttp.logging.Logger
 import zhttp.service.ServerResponseWriter.log
 import zhttp.service.server.ServerTime
 import zio.stream.ZStream
-import zio.{UIO, ZIO}
+import zio.ZIO
 
 import java.io.File
 
@@ -100,7 +100,7 @@ private[zhttp] final class ServerResponseWriter[R](
 
       case HttpData.BinaryStream(stream) =>
         runtime.unsafeRun(ctx) {
-          writeStreamContent(stream).ensuring(UIO(releaseAndRead(jReq)))
+          writeStreamContent(stream).ensuring(ZIO.succeed(releaseAndRead(jReq)))
         }
 
       case HttpData.JavaFile(unsafeGet) =>
@@ -122,7 +122,7 @@ private[zhttp] final class ServerResponseWriter[R](
     stream: ZStream[R, Throwable, ByteBuf],
   )(implicit ctx: Ctx): ZIO[R, Throwable, Unit] = {
     for {
-      _ <- stream.foreach(c => UIO(ctx.writeAndFlush(c)))
+      _ <- stream.foreach(c => ZIO.succeed(ctx.writeAndFlush(c)))
       _ <- ChannelFuture.unit(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
     } yield ()
   }

@@ -2,7 +2,7 @@ package zhttp.logging
 
 import zio.test._
 
-object LogLevelSpec extends DefaultRunnableSpec {
+object LogLevelSpec extends ZIOSpecDefault {
   def spec = suite("LogLevelSpec")(
     test("log level order") {
       val act    = LogLevel.all
@@ -10,12 +10,12 @@ object LogLevelSpec extends DefaultRunnableSpec {
       val sorted = act.sortBy(_.id)
       assertTrue(sorted == exp)
     },
-    testM("encode decode") {
+    test("encode decode") {
       checkAll(Gen.fromIterable(LogLevel.all)) { level =>
         assertTrue(LogLevel.fromString(level.toString) == Some(level))
       }
     },
-    testM("any invalid value should not decode") {
+    test("any value with the exception of defined values for LogLevel should be set to Error log level.") {
       checkAll(Gen.fromIterable(List("not defined", "unknown", "disable"))) { level =>
         assertTrue(LogLevel.fromString(level) == None)
       }
