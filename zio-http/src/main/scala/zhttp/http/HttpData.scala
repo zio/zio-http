@@ -129,6 +129,11 @@ object HttpData {
   private[zhttp] final case class UnsafeAsync(unsafeRun: (ChannelHandlerContext => HttpContent => Any) => Unit)
       extends HttpData {
 
+    var isFirstRead             = true
+    private final val exception = new RuntimeException(
+      "The body content could not be read multiple times in case of streaming. Use `Server.enableObjectAggregator` if you need to read the body multiple times.",
+    )
+
     private def isLast(msg: HttpContent): Boolean = msg.isInstanceOf[LastHttpContent]
 
     private def toQueue: ZIO[Any, Nothing, Queue[HttpContent]] = {
@@ -149,28 +154,35 @@ object HttpData {
     /**
      * Encodes the HttpData into a ByteBuf.
      */
-    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = for {
-      body <- ZIO.effectAsync[Any, Nothing, ByteBuf](cb =>
-        unsafeRun(ch => {
-          val buffer = Unpooled.compositeBuffer()
-          msg => {
-            buffer.addComponent(true, msg.content)
-            if (isLast(msg)) cb(UIO(buffer)) else ch.read(): Unit
-          }
-        }),
-      )
-    } yield body
+    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = if (isFirstRead) {
+      ZIO.succeed(this.isFirstRead = false) *> (for {
+        body <- ZIO.effectAsync[Any, Nothing, ByteBuf](cb =>
+          unsafeRun(ch => {
+            val buffer = Unpooled.compositeBuffer()
+            msg => {
+              buffer.addComponent(true, msg.content)
+              if (isLast(msg)) cb(UIO(buffer)) else ch.read(): Unit
+            }
+          }),
+        )
+      } yield body)
+    } else {
+      Task.fail(exception)
+    }
 
     /**
      * Encodes the HttpData into a Stream of ByteBufs
      */
-    override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
-      ZStream.unwrap {
+    override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] = if (isFirstRead) {
+      ZStream.succeed(this.isFirstRead = false) *> ZStream.unwrap {
         for {
           queue <- toQueue
           stream = ZStream.fromQueueWithShutdown(queue).takeUntil(isLast(_)).map(_.content())
         } yield stream
       }
+    } else {
+      ZStream.fail(exception)
+    }
 
     override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] =
       Http.fromZIO(toByteBuf(config))

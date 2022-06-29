@@ -60,7 +60,7 @@ private[zhttp] final case class Handler[R](
             app,
             new Request {
               override def data: HttpData = if (hasBody) asyncData else HttpData.empty
-              private final def asyncData =
+              private final val asyncData =
                 HttpData.UnsafeAsync(callback =>
                   ctx
                     .pipeline()

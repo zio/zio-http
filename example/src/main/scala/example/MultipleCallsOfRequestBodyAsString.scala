@@ -31,7 +31,7 @@ object MultipleCallsOfRequestBodyAsString extends App {
     }
 
   private val server =
-    Server.port(8090) ++ Server.app(app @@ logMiddleware) ++ Server.enableObjectAggregator(Int.MaxValue)
+    Server.port(8090) ++ Server.app(app @@ logMiddleware) // ++ Server.enableObjectAggregator(Int.MaxValue)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     server.make.useForever
