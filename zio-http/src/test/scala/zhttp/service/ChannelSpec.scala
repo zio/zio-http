@@ -47,9 +47,32 @@ object ChannelSpec extends DefaultRunnableSpec {
         } yield assertTrue(out == "ABC")
       },
     ),
+    suite("contramap")(
+      testM("converts value") {
+        for {
+          tc <- EmbeddedTestChannel.make[Int]
+          _  <- tc.channel.contramap[String](_.length).writeAndFlush("ABC")
+          out = tc.outboundMessages.peek()
+        } yield assertTrue(out == 3)
+      },
+    ),
+    suite("combine")(
+      testM("multi-write") {
+        for {
+          ec1 <- EmbeddedTestChannel.make[String]
+          ec2 <- EmbeddedTestChannel.make[String]
+          _   <- (ec1.channel ++ ec2.channel).writeAndFlush("ABC")
+          out1 = ec1.outboundMessages.peek()
+          out2 = ec2.outboundMessages.peek()
+        } yield assertTrue(
+          out1 == "ABC",
+          out2 == "ABC",
+        )
+      },
+    ),
   ) @@ timeout(5 second)
 
-  final class EmbeddedTestChannel[A]() {
+  final class EmbeddedTestChannel[A] {
     val jChannel: EmbeddedChannel = new EmbeddedChannel()
     val channel: Channel[A]       = Channel.make[A](jChannel)
 
