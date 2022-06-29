@@ -56,20 +56,6 @@ object ChannelSpec extends DefaultRunnableSpec {
         } yield assertTrue(out == 3)
       },
     ),
-    suite("combine")(
-      testM("multi-write") {
-        for {
-          ec1 <- EmbeddedTestChannel.make[String]
-          ec2 <- EmbeddedTestChannel.make[String]
-          _   <- (ec1.channel ++ ec2.channel).writeAndFlush("ABC")
-          out1 = ec1.outboundMessages.peek()
-          out2 = ec2.outboundMessages.peek()
-        } yield assertTrue(
-          out1 == "ABC",
-          out2 == "ABC",
-        )
-      },
-    ),
   ) @@ timeout(5 second)
 
   final class EmbeddedTestChannel[A] {
