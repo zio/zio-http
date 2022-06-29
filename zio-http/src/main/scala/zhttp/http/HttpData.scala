@@ -129,7 +129,7 @@ object HttpData {
   private[zhttp] final case class UnsafeAsync(unsafeRun: (ChannelHandlerContext => HttpContent => Any) => Unit)
       extends HttpData {
 
-    var isFirstRead             = true
+    private var isFirstRead     = true
     private final val exception = new RuntimeException(
       "The body content could not be read multiple times in case of streaming. Use `Server.enableObjectAggregator` if you need to read the body multiple times.",
     )
