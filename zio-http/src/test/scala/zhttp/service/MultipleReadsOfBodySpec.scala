@@ -2,11 +2,11 @@ package zhttp.service
 
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
+import zio.ZIO
 import zio.duration.durationInt
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
 import zio.test.assertM
-import zio.{URIO, ZIO}
 
 object MultipleReadsOfBodySpec extends HttpRunnableSpec {
 
@@ -23,7 +23,7 @@ object MultipleReadsOfBodySpec extends HttpRunnableSpec {
   val logMiddleware =
     Middleware.interceptZIOPatch(req => ZIO.succeed(req)) { case (_, reqBody) =>
       for {
-        _ <- reqBody.bodyAsString.ensuring(URIO(reqBody.data.release)).orDie
+        _ <- reqBody.bodyAsString.orDie
       } yield Patch.setStatus(Status.Ok)
     }
 

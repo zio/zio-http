@@ -23,7 +23,7 @@ object MultipleCallsOfRequestBodyAsString extends App {
       case (response, (method, reqBody, url, start)) =>
         for {
           end  <- clock.nanoTime
-          body <- reqBody.bodyAsString.ensuring(URIO(reqBody.data.release)).orDie
+          body <- reqBody.bodyAsString.orDie
           _    <- console
             .putStrLn(s"$body ${response.status.asJava.code()} ${method} ${url.encode} ${(end - start) / 1000000}ms")
             .mapError(Option(_))
