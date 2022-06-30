@@ -155,6 +155,8 @@ object HttpData {
      * Encodes the HttpData into a ByteBuf.
      */
     override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = if (hasBeenRead) {
+      Task.fail(exception)
+    } else {
       for {
         body <- ZIO.effectAsync[Any, Nothing, ByteBuf](cb =>
           unsafeRun(ch => {
@@ -166,22 +168,20 @@ object HttpData {
           }),
         )
       } yield body
-    } else {
-      Task.fail(exception)
     }
 
     /**
      * Encodes the HttpData into a Stream of ByteBufs
      */
     override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] = if (hasBeenRead) {
+      ZStream.fail(exception)
+    } else {
       ZStream.unwrap {
         for {
           queue <- toQueue
           stream = ZStream.fromQueueWithShutdown(queue).takeUntil(isLast(_)).map(_.content())
         } yield stream
       }
-    } else {
-      ZStream.fail(exception)
     }
 
     override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] =
