@@ -1,13 +1,7 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel,
-  ChannelFactory => JChannelFactory,
-  ChannelFuture => JChannelFuture,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel, ChannelInitializer, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.proxy.HttpProxyHandler
@@ -16,7 +10,7 @@ import zhttp.service
 import zhttp.service.Client.{Config, log}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
-import zhttp.socket.{Socket, SocketApp}
+import zhttp.socket.SocketApp
 import zio.{Promise, Task, ZIO, ZManaged}
 
 import java.net.{InetSocketAddress, URI}
@@ -110,7 +104,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
           // Add WebSocketHandlers if it's a `ws` or `wss` request
           if (isWebSocket) {
             val headers = req.headers.encode
-            val app     = clientConfig.socketApp.getOrElse(Socket.empty.toSocketApp)
+            val app     = clientConfig.socketApp.getOrElse(SocketApp())
             val config  = app.protocol.clientBuilder
               .customHeaders(headers)
               .webSocketUri(req.url.encode)
