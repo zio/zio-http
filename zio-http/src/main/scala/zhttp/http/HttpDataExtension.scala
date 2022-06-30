@@ -19,11 +19,11 @@ private[zhttp] trait HttpDataExtension[+A] extends HeaderExtension[A] { self: A 
     bodyAsByteArray.map(Chunk.fromArray)
 
   final def bodyAsByteArray: Task[Array[Byte]] = {
-    if (data.isInstanceOf[BinaryByteBuf])
-      bodyAsByteBuf.flatMap(buf => Task(ByteBufUtil.getBytes(buf)))
-    else
-      bodyAsByteBuf.flatMap(buf => Task(ByteBufUtil.getBytes(buf)).ensuring(URIO(buf.release(buf.refCnt()))))
+    bodyAsByteBuf.flatMap(buf => Task(ByteBufUtil.getBytes(buf)).ensuring(cleanUp(buf, data)))
   }
+
+  private def cleanUp(byteBuf: ByteBuf, data: HttpData): URIO[Any, Boolean] =
+    if (data.isInstanceOf[BinaryByteBuf]) URIO(true) else URIO(byteBuf.release(byteBuf.refCnt()))
 
   /**
    * Decodes the content of request as CharSequence
