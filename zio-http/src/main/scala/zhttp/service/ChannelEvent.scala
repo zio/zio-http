@@ -25,24 +25,30 @@ object ChannelEvent {
   def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): ChannelEvent[Any, Nothing] =
     ChannelEvent(Channel.make(ctx.channel()), Event.ExceptionCaught(cause))
 
-  def userEventTriggered(ctx: ChannelHandlerContext, evt: AnyRef): ChannelEvent[Any, Nothing] =
+  def userEventTriggered(ctx: ChannelHandlerContext, evt: UserEvent): ChannelEvent[Any, Nothing] =
     ChannelEvent(Channel.make(ctx.channel()), Event.UserEventTriggered(evt))
 
   sealed trait Event[+A] { self =>
     def map[B](f: A => B): Event[B] = self match {
-      case Event.ChannelRead(msg)        => Event.ChannelRead(f(msg))
-      case Event.ChannelRegistered       => Event.ChannelRegistered
-      case Event.ChannelUnregistered     => Event.ChannelUnregistered
-      case Event.ExceptionCaught(cause)  => Event.ExceptionCaught(cause)
-      case Event.UserEventTriggered(evt) => Event.UserEventTriggered(evt)
+      case Event.ChannelRead(msg)              => Event.ChannelRead(f(msg))
+      case Event.ChannelRegistered             => Event.ChannelRegistered
+      case Event.ChannelUnregistered           => Event.ChannelUnregistered
+      case event @ Event.ExceptionCaught(_)    => event
+      case event @ Event.UserEventTriggered(_) => event
     }
   }
 
   object Event {
     final case class ExceptionCaught(cause: Throwable) extends Event[Nothing]
     final case class ChannelRead[A](message: A)        extends Event[A]
-    final case class UserEventTriggered(event: AnyRef) extends Event[Nothing]
+    case class UserEventTriggered(event: UserEvent)    extends Event[Nothing]
     case object ChannelRegistered                      extends Event[Nothing]
     case object ChannelUnregistered                    extends Event[Nothing]
+  }
+
+  sealed trait UserEvent
+  object UserEvent {
+    case object HandshakeTimeout  extends UserEvent
+    case object HandshakeComplete extends UserEvent
   }
 }
