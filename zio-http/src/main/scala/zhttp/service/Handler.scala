@@ -6,7 +6,7 @@ import io.netty.handler.codec.http._
 import io.netty.util.AttributeKey
 import zhttp.http._
 import zhttp.logging.Logger
-import zhttp.service.Handler.{bodyReadFlag, log}
+import zhttp.service.Handler.{bodyReadFlag, exception, log}
 import zhttp.service.server.WebSocketUpgrade
 import zio.{UIO, ZIO}
 
@@ -66,17 +66,18 @@ private[zhttp] final case class Handler[R](
               override def data: HttpData = if (hasBody) asyncData else HttpData.empty
               private final def asyncData = {
                 val readFlag = ctx.channel().attr(bodyReadFlag).get()
-                HttpData.UnsafeAsync(
-                  readFlag,
-                  callback =>
+                HttpData.UnsafeAsync(callback => {
+                  if (readFlag)
+                    resWriter.write(exception, jReq)
+                  else
                     ctx
                       .pipeline()
                       .addAfter(
                         HTTP_REQUEST_HANDLER,
                         HTTP_CONTENT_HANDLER,
-                        new RequestBodyHandler(callback(ctx)),
-                      ): Unit,
-                )
+                        new RequestBodyHandler(readFlag, callback(ctx)),
+                      ): Unit
+                })
               }
 
               override def headers: Headers = Headers.make(jReq.headers())
@@ -178,5 +179,8 @@ private[zhttp] final case class Handler[R](
 
 object Handler {
   val bodyReadFlag: AttributeKey[Boolean] = AttributeKey.valueOf("bodyHasBeenRead")
+  val exception                           = new RuntimeException(
+    "The body content could not be read multiple times in case of streaming. Use `Server.enableObjectAggregator` if you need to read the body multiple times.",
+  )
   val log: Logger                         = Log.withTags("Server", "Request")
 }
