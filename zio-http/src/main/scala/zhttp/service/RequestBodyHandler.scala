@@ -8,6 +8,7 @@ final class RequestBodyHandler(val callback: HttpContent => Any)
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpContent): Unit = {
     self.callback(msg)
     if (msg.isInstanceOf[LastHttpContent]) {
+      ctx.channel().attr(Handler.bodyReadFlag).set(true)
       ctx.channel().pipeline().remove(self): Unit
     }
   }

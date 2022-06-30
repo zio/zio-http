@@ -3,9 +3,10 @@ package zhttp.service
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
+import io.netty.util.AttributeKey
 import zhttp.http._
 import zhttp.logging.Logger
-import zhttp.service.Handler.log
+import zhttp.service.Handler.{bodyReadFlag, log}
 import zhttp.service.server.WebSocketUpgrade
 import zio.{UIO, ZIO}
 
@@ -53,23 +54,30 @@ private[zhttp] final case class Handler[R](
         val hasBody = canHaveBody(jReq)
         log.debug(s"HasBody: [${hasBody}]")
         log.debug(s"HttpRequest: [${jReq.method} ${jReq.uri()}]")
-        if (hasBody) ctx.channel().config().setAutoRead(false): Unit
+        if (hasBody) {
+          ctx.channel().attr(bodyReadFlag).set(false)
+          ctx.channel().config().setAutoRead(false): Unit
+        }
         try
           unsafeRun(
             jReq,
             app,
             new Request {
               override def data: HttpData = if (hasBody) asyncData else HttpData.empty
-              private final val asyncData =
-                HttpData.UnsafeAsync(callback =>
-                  ctx
-                    .pipeline()
-                    .addAfter(
-                      HTTP_REQUEST_HANDLER,
-                      HTTP_CONTENT_HANDLER,
-                      new RequestBodyHandler(callback(ctx)),
-                    ): Unit,
+              private final def asyncData = {
+                val readFlag = ctx.channel().attr(bodyReadFlag).get()
+                HttpData.UnsafeAsync(
+                  readFlag,
+                  callback =>
+                    ctx
+                      .pipeline()
+                      .addAfter(
+                        HTTP_REQUEST_HANDLER,
+                        HTTP_CONTENT_HANDLER,
+                        new RequestBodyHandler(callback(ctx)),
+                      ): Unit,
                 )
+              }
 
               override def headers: Headers = Headers.make(jReq.headers())
 
@@ -169,5 +177,6 @@ private[zhttp] final case class Handler[R](
 }
 
 object Handler {
-  val log: Logger = Log.withTags("Server", "Request")
+  val bodyReadFlag: AttributeKey[Boolean] = AttributeKey.valueOf("bodyHasBeenRead")
+  val log: Logger                         = Log.withTags("Server", "Request")
 }

@@ -126,10 +126,10 @@ object HttpData {
     }
   }
 
-  private[zhttp] final case class UnsafeAsync(unsafeRun: (ChannelHandlerContext => HttpContent => Any) => Unit)
-      extends HttpData {
-
-    private var isFirstRead     = true
+  private[zhttp] final case class UnsafeAsync(
+    hasBeenRead: Boolean = false,
+    unsafeRun: (ChannelHandlerContext => HttpContent => Any) => Unit,
+  ) extends HttpData {
     private final val exception = new RuntimeException(
       "The body content could not be read multiple times in case of streaming. Use `Server.enableObjectAggregator` if you need to read the body multiple times.",
     )
@@ -154,8 +154,7 @@ object HttpData {
     /**
      * Encodes the HttpData into a ByteBuf.
      */
-    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = if (isFirstRead) {
-      this.isFirstRead = false
+    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = if (hasBeenRead) {
       for {
         body <- ZIO.effectAsync[Any, Nothing, ByteBuf](cb =>
           unsafeRun(ch => {
@@ -174,8 +173,7 @@ object HttpData {
     /**
      * Encodes the HttpData into a Stream of ByteBufs
      */
-    override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] = if (isFirstRead) {
-      this.isFirstRead = false
+    override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] = if (hasBeenRead) {
       ZStream.unwrap {
         for {
           queue <- toQueue
