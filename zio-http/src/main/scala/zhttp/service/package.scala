@@ -1,12 +1,6 @@
 package zhttp
 
-import io.netty.channel.{
-  Channel,
-  ChannelHandlerContext,
-  ServerChannel,
-  ChannelFactory => JChannelFactory,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel, ChannelFactory => JChannelFactory, ChannelHandlerContext, EventLoopGroup => JEventLoopGroup, ServerChannel}
 
 package object service extends Logging {
   type ChannelFactory       = JChannelFactory[Channel]

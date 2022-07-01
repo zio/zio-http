@@ -271,7 +271,7 @@ object PathSpec extends ZIOSpecDefault with HExitAssertion {
       ),
     ),
     suite("addTrailingSlash")(
-      testM("always ends with a root") {
+      test("always ends with a root") {
         check(HttpGen.anyPath) { path =>
           val actual   = path.addTrailingSlash.segments.lastOption
           val expected = Some(Segment.root)
@@ -280,7 +280,7 @@ object PathSpec extends ZIOSpecDefault with HExitAssertion {
       },
     ),
     suite("dropTrailingSlash")(
-      testM("never ends with a root") {
+      test("never ends with a root") {
         check(HttpGen.anyPath) { path =>
           val actual     = path.dropTrailingSlash.segments.lastOption
           val unexpected = Some(Segment.root)

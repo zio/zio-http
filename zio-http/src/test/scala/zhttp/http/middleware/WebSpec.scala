@@ -96,12 +96,12 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
       } +
       suite("ifRequestThenElseZIO") {
         test("if the condition is true take first") {
-          val app = (Http.ok @@ ifRequestThenElseZIO(condM(true))(midA, midB)) header "X-Custom"
+          val app = (Http.ok @@ ifRequestThenElseZIO(condZIO(true))(midA, midB)) header "X-Custom"
           assertZIO(app(Request()))(isSome(equalTo("A")))
         } +
           test("if the condition is false take 2nd") {
             val app =
-              (Http.ok @@ ifRequestThenElseZIO(condM(false))(midA, midB)) header "X-Custom"
+              (Http.ok @@ ifRequestThenElseZIO(condZIO(false))(midA, midB)) header "X-Custom"
             assertZIO(app(Request()))(isSome(equalTo("B")))
           }
       } +
@@ -117,11 +117,11 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
       } +
       suite("whenRequestZIO") {
         test("if the condition is true apply middleware") {
-          val app = (Http.ok @@ whenRequestZIO(condM(true))(midA)) header "X-Custom"
+          val app = (Http.ok @@ whenRequestZIO(condZIO(true))(midA)) header "X-Custom"
           assertZIO(app(Request()))(isSome(equalTo("A")))
         } +
           test("if the condition is false don't apply any middleware") {
-            val app = (Http.ok @@ whenRequestZIO(condM(false))(midA)) header "X-Custom"
+            val app = (Http.ok @@ whenRequestZIO(condZIO(false))(midA)) header "X-Custom"
             assertZIO(app(Request()))(isNone)
           }
       } +
@@ -164,7 +164,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
           }
       } +
       suite("trailingSlashDrop")(
-        testM("should drop trailing slash") {
+        test("should drop trailing slash") {
           val urls = Gen.fromIterable(
             Seq(
               ""        -> "",
@@ -177,7 +177,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
               "/a?a=1"  -> "/a?a=1",
             ),
           )
-          checkAllM(urls) { case (url, expected) =>
+          checkAll(urls) { case (url, expected) =>
             val app = Http.collect[Request] { case req => Response.text(req.url.encode) } @@ dropTrailingSlash
             for {
               url      <- ZIO.fromEither(URL.fromString(url))
@@ -188,7 +188,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         },
       ) +
       suite("trailingSlashRedirect") {
-        testM("should send a redirect response") {
+        test("should send a redirect response") {
           val urls = Gen.fromIterable(
             Seq(
               "/"     -> "",
@@ -197,7 +197,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
             ),
           )
 
-          checkAllM(urls cross Gen.fromIterable(Seq(true, false))) { case ((url, expected), perm) =>
+          checkAll(urls cross Gen.fromIterable(Seq(true, false))) { case ((url, expected), perm) =>
             val app      = Http.ok @@ redirectTrailingSlash(perm)
             val location = Some(expected)
             val status   = if (perm) Status.PermanentRedirect else Status.TemporaryRedirect
@@ -210,8 +210,8 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
               response.headers.location == location,
             )
           }
-        } +
-          testM("should not send a redirect response") {
+        } +=
+          test("should not send a redirect response") {
             val urls = Gen.fromIterable(
               Seq(
                 "",
@@ -221,7 +221,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
               ),
             )
 
-            checkAllM(urls) { url =>
+            checkAll(urls) { url =>
               val app = Http.ok @@ redirectTrailingSlash(true)
               for {
                 url      <- ZIO.fromEither(URL.fromString(url))
@@ -234,7 +234,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
 
   private def cond(flg: Boolean) = (_: Any) => flg
 
-  private def condM(flg: Boolean) = (_: Any) => ZIO.succeed(flg)
+  private def condZIO(flg: Boolean) = (_: Any) => ZIO.succeed(flg)
 
   private def runApp[R, E](app: HttpApp[R, E]): ZIO[R, Option[E], Response] = {
     for {
