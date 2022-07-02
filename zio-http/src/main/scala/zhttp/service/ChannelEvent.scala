@@ -28,6 +28,10 @@ object ChannelEvent {
   def userEventTriggered(ctx: ChannelHandlerContext, evt: UserEvent): ChannelEvent[Any, Nothing] =
     ChannelEvent(Channel.make(ctx.channel()), Event.UserEventTriggered(evt))
 
+  /**
+   * Immutable and type-safe representation of events that are triggered on a
+   * channel.
+   */
   sealed trait Event[+A] { self =>
     def map[B](f: A => B): Event[B] = self match {
       case Event.ChannelRead(msg)              => Event.ChannelRead(f(msg))
@@ -45,6 +49,9 @@ object ChannelEvent {
     case object ChannelUnregistered                    extends Event[Nothing]
   }
 
+  /**
+   * Custom user-events that are triggered within ZIO Http
+   */
   sealed trait UserEvent
   object UserEvent {
     case object HandshakeTimeout  extends UserEvent
