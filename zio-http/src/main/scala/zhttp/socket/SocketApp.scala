@@ -1,6 +1,6 @@
 package zhttp.socket
 
-import zhttp.http.Response
+import zhttp.http.{Http, Response}
 import zhttp.service.{ChannelEvent, ChannelFactory, Client, EventLoopGroup}
 import zio.{NeedsEnv, ZIO, ZManaged}
 
@@ -54,4 +54,13 @@ object SocketApp {
   def apply[R](socket: ChannelEvent[WebSocketFrame, WebSocketFrame] => ZIO[R, Throwable, Any]): SocketApp[R] =
     SocketApp(message = Some(socket))
 
+  def apply[R](socket: Http[R, Throwable, ChannelEvent[WebSocketFrame, WebSocketFrame], Unit]): SocketApp[R] =
+    SocketApp(message =
+      Some(event =>
+        socket(event).catchAll {
+          case Some(value) => ZIO.fail(value)
+          case None        => ZIO.unit
+        },
+      ),
+    )
 }

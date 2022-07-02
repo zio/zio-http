@@ -37,8 +37,7 @@ object ChannelEvent {
       case event @ Event.UserEventTriggered(_) => event
     }
   }
-
-  object Event {
+  object Event           {
     final case class ExceptionCaught(cause: Throwable) extends Event[Nothing]
     final case class ChannelRead[A](message: A)        extends Event[A]
     case class UserEventTriggered(event: UserEvent)    extends Event[Nothing]

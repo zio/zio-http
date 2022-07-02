@@ -6,8 +6,8 @@ import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{FullHttpResponse, HttpHeaderNames, HttpResponse}
 import zhttp.html._
 import zhttp.http.headers.HeaderExtension
-import zhttp.service.ChannelFuture
-import zhttp.socket.{IsWebSocket, Socket, SocketApp}
+import zhttp.service.{ChannelEvent, ChannelFuture}
+import zhttp.socket.{SocketApp, WebSocketFrame}
 import zio.{Task, UIO, ZIO}
 
 import java.io.{IOException, PrintWriter, StringWriter}
@@ -159,10 +159,10 @@ object Response {
   /**
    * Creates a new response for the provided socket
    */
-  def fromSocket[R, E, A, B](socket: Socket[R, E, A, B])(implicit
-    ev: IsWebSocket[R, E, A, B],
+  def fromSocket[R](
+    socket: Http[R, Throwable, ChannelEvent[WebSocketFrame, WebSocketFrame], Unit],
   ): ZIO[R, Nothing, Response] =
-    fromSocketApp(socket.toSocketApp)
+    fromSocketApp(SocketApp(socket))
 
   /**
    * Creates a new response for the provided socket app
