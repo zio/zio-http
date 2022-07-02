@@ -16,15 +16,18 @@ final class WebSocketAppHandler[R](
   app: SocketApp[R],
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
-  private def dispatch(ctx: ChannelHandlerContext)(event: ChannelEvent[WebSocketFrame, WebSocketFrame]): Unit =
+  private def dispatch(ctx: ChannelHandlerContext)(event: ChannelEvent[JWebSocketFrame, JWebSocketFrame]): Unit =
     app.message match {
-      case Some(f) => zExec.unsafeRunUninterruptible(ctx)(f(event))
+      case Some(f) =>
+        zExec.unsafeRunUninterruptible(ctx)(
+          f(event.map(WebSocketFrame.unsafeFromJFrame).contramap[WebSocketFrame](_.toWebSocketFrame)),
+        )
       case None    => ()
     }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit =
     dispatch(ctx) {
-      ChannelEvent.channelRead(ctx, WebSocketFrame.unsafeFromJFrame(msg))
+      ChannelEvent.channelRead(ctx, msg)
     }
 
   override def channelUnregistered(ctx: ChannelHandlerContext): Unit =

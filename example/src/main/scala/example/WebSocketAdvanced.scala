@@ -25,7 +25,8 @@ object WebSocketAdvanced extends App {
       // Echo the same message 10 times if it's not "foo" or "bar"
       // Improve performance by writing multiple frames at once
       // And flushing it on the channel only once.
-      case (ch, text) => ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
+      case (ch, text) =>
+        ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
     }
 
   private val channelSocket =
