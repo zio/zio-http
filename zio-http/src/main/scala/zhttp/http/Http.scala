@@ -6,6 +6,7 @@ import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
 import zhttp.http.headers.HeaderModifier
 import zhttp.service.{Handler, HttpRuntime, Server, ServerResponseWriter}
+import zhttp.socket.{SocketApp, WebSocketChannelEvent}
 import zio._
 import zio.blocking.{Blocking, effectBlocking}
 import zio.clock.Clock
@@ -597,6 +598,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def tapZIO[R1 <: R, E1 >: E](f: B => ZIO[R1, E1, Any]): Http[R1, E1, A, B] =
     self.tap(v => Http.fromZIO(f(v)))
+
+  /**
+   * Converts an Http into a websocket application
+   */
+  final def toSocketApp(implicit a: WebSocketChannelEvent <:< A, e: E <:< Throwable): SocketApp[R] =
+    SocketApp.fromHttp[R](self.as(()).asInstanceOf[Http[R, Throwable, WebSocketChannelEvent, Unit]])
 
   /**
    * Takes some defects and converts them into failures.
