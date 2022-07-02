@@ -37,13 +37,13 @@ final class WebSocketAppHandler[R](
       ChannelEvent.exceptionCaught(ctx, cause)
     }
 
-  override def userEventTriggered(ctx: ChannelHandlerContext, event: AnyRef): Unit =
-    dispatch(ctx) {
-      event match {
-        case _: WebSocketServerProtocolHandler.HandshakeComplete | ClientHandshakeStateEvent.HANDSHAKE_COMPLETE =>
-          ChannelEvent.userEventTriggered(ctx, UserEvent.HandshakeComplete)
-        case ServerHandshakeStateEvent.HANDSHAKE_TIMEOUT | ClientHandshakeStateEvent.HANDSHAKE_TIMEOUT          =>
-          ChannelEvent.userEventTriggered(ctx, UserEvent.HandshakeTimeout)
-      }
+  override def userEventTriggered(ctx: ChannelHandlerContext, msg: AnyRef): Unit = {
+    msg match {
+      case _: WebSocketServerProtocolHandler.HandshakeComplete | ClientHandshakeStateEvent.HANDSHAKE_COMPLETE =>
+        dispatch(ctx)(ChannelEvent.userEventTriggered(ctx, UserEvent.HandshakeComplete))
+      case ServerHandshakeStateEvent.HANDSHAKE_TIMEOUT | ClientHandshakeStateEvent.HANDSHAKE_TIMEOUT          =>
+        dispatch(ctx)(ChannelEvent.userEventTriggered(ctx, UserEvent.HandshakeTimeout))
+      case _ => super.userEventTriggered(ctx, msg)
     }
+  }
 }
