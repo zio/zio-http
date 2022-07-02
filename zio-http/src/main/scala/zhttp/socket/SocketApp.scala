@@ -4,8 +4,6 @@ import zhttp.http.{Http, HttpApp, Response}
 import zhttp.service.{ChannelEvent, ChannelFactory, Client, EventLoopGroup}
 import zio.{NeedsEnv, ZIO, ZManaged}
 
-import java.net.SocketAddress
-
 final case class SocketApp[-R](
   decoder: SocketDecoder = SocketDecoder.default,
   protocol: SocketProtocol = SocketProtocol.default,

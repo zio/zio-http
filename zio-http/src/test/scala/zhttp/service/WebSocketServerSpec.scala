@@ -2,8 +2,8 @@ package zhttp.service
 
 import zhttp.http.{Http, Status}
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
-import zhttp.service.ChannelEvent.Event.{ChannelRead, ChannelUnregistered, UserEventTriggered}
 import zhttp.service.ChannelEvent.UserEvent.HandshakeComplete
+import zhttp.service.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
 import zhttp.service.server._
 import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio.clock.Clock

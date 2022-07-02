@@ -14,19 +14,19 @@ final case class ChannelEvent[-A, +B](channel: Channel[A], event: ChannelEvent.E
 
 object ChannelEvent {
   def channelRead[B](ctx: ChannelHandlerContext, msg: B): ChannelEvent[Any, B] =
-    ChannelEvent(Channel.make(ctx.channel()), Event.ChannelRead(msg))
+    ChannelEvent(Channel.make(ctx.channel()), ChannelRead(msg))
 
   def channelRegistered(ctx: ChannelHandlerContext): ChannelEvent[Any, Nothing] =
-    ChannelEvent(Channel.make(ctx.channel()), Event.ChannelRegistered)
+    ChannelEvent(Channel.make(ctx.channel()), ChannelRegistered)
 
   def channelUnregistered(ctx: ChannelHandlerContext): ChannelEvent[Any, Nothing] =
-    ChannelEvent(Channel.make(ctx.channel()), Event.ChannelUnregistered)
+    ChannelEvent(Channel.make(ctx.channel()), ChannelUnregistered)
 
   def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): ChannelEvent[Any, Nothing] =
-    ChannelEvent(Channel.make(ctx.channel()), Event.ExceptionCaught(cause))
+    ChannelEvent(Channel.make(ctx.channel()), ExceptionCaught(cause))
 
   def userEventTriggered(ctx: ChannelHandlerContext, evt: UserEvent): ChannelEvent[Any, Nothing] =
-    ChannelEvent(Channel.make(ctx.channel()), Event.UserEventTriggered(evt))
+    ChannelEvent(Channel.make(ctx.channel()), UserEventTriggered(evt))
 
   /**
    * Immutable and type-safe representation of events that are triggered on a
@@ -34,20 +34,19 @@ object ChannelEvent {
    */
   sealed trait Event[+A] { self =>
     def map[B](f: A => B): Event[B] = self match {
-      case Event.ChannelRead(msg)              => Event.ChannelRead(f(msg))
-      case Event.ChannelRegistered             => Event.ChannelRegistered
-      case Event.ChannelUnregistered           => Event.ChannelUnregistered
-      case event @ Event.ExceptionCaught(_)    => event
-      case event @ Event.UserEventTriggered(_) => event
+      case ChannelRead(msg)              => ChannelRead(f(msg))
+      case ChannelRegistered             => ChannelRegistered
+      case ChannelUnregistered           => ChannelUnregistered
+      case event @ ExceptionCaught(_)    => event
+      case event @ UserEventTriggered(_) => event
     }
   }
-  object Event           {
-    final case class ExceptionCaught(cause: Throwable) extends Event[Nothing]
-    final case class ChannelRead[A](message: A)        extends Event[A]
-    case class UserEventTriggered(event: UserEvent)    extends Event[Nothing]
-    case object ChannelRegistered                      extends Event[Nothing]
-    case object ChannelUnregistered                    extends Event[Nothing]
-  }
+
+  final case class ExceptionCaught(cause: Throwable) extends Event[Nothing]
+  final case class ChannelRead[A](message: A)        extends Event[A]
+  case class UserEventTriggered(event: UserEvent)    extends Event[Nothing]
+  case object ChannelRegistered                      extends Event[Nothing]
+  case object ChannelUnregistered                    extends Event[Nothing]
 
   /**
    * Custom user-events that are triggered within ZIO Http

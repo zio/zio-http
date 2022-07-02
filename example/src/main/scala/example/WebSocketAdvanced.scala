@@ -1,49 +1,65 @@
 package example
 
 import zhttp.http._
-import zhttp.service.ChannelEvent.Event.{ChannelRead, ExceptionCaught, UserEventTriggered}
-import zhttp.service.ChannelEvent.UserEvent
+import zhttp.service.ChannelEvent.{ChannelRead, ExceptionCaught, UserEvent, UserEventTriggered}
 import zhttp.service.{ChannelEvent, Server}
 import zhttp.socket._
 import zio._
 
 object WebSocketAdvanced extends App {
 
-  val httpSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
-    Http
+  private val messageSocket: Http[Any, Throwable, (WebSocketChannel, String), Unit] =
+    Http.collectZIO[(WebSocketChannel, String)] {
+      case (ch, "end") => ch.close()
 
-      // Listen for all websocket channel events
-      .collectZIO[WebSocketChannelEvent] {
+      // Send a "bar" if the server sends a "foo"
+      case (ch, "foo") => ch.writeAndFlush(WebSocketFrame.text("bar"))
 
-        // Send a "greeting" message to the server once the connection is established
-        case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
-          ch.writeAndFlush(WebSocketFrame.text("Greetings!"))
+      // Send a "foo" if the server sends a "bar"
+      case (ch, "bar") => ch.writeAndFlush(WebSocketFrame.text("foo"))
 
-        case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("end")))          =>
-          ch.close()
+      // Echo the same message 10 times if it's not "foo" or "bar"
+      // Improve performance by writing multiple frames at once
+      // And flushing it on the channel only once.
+      case (ch, text) => ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
+    }
 
-        // Send a "bar" if the server sends a "foo"
-        case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("foo")))          =>
-          ch.writeAndFlush(WebSocketFrame.text("bar"))
+  private val handshakeCompleteSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+    Http.collectZIO[WebSocketChannelEvent] {
+      // Send a "greeting" message to the server once the connection is established
+      case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
+        ch.writeAndFlush(WebSocketFrame.text("Greetings!"))
+    }
 
-        // Send a "foo" if the server sends a "bar"
-        case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("bar")))          =>
-          ch.writeAndFlush(WebSocketFrame.text("foo"))
+  private val closeSocket: Http[Any, Nothing, WebSocketChannelEvent, Unit] =
+    Http.collectZIO[WebSocketChannelEvent] {
+      // Log when the channel is getting closed
+      case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
+        UIO(println("Closing channel with status: " + status + " and reason: " + reason))
+    }
 
-        // Echo the same message 10 times if it's not "foo" or "bar"
-        // Improve performance by writing multiple frames at once
-        // And flushing it on the channel only once.
-        case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text(text)))           =>
-          ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
+  private val exceptionSocket: Http[Any, Nothing, WebSocketChannelEvent, Unit] =
+    Http.collectZIO[WebSocketChannelEvent] {
+      // Print the exception if it's not a normal close
+      case ChannelEvent(_, ExceptionCaught(cause)) =>
+        UIO(println(s"Channel error!: ${cause.getMessage}"))
+    }
 
-        // Log when the channel is getting closed
-        case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
-          UIO(println("Closing channel with status: " + status + " and reason: " + reason))
+  // A middleware that filters out events containing websocket text frames
+  // And only allows them to be passed to the Http app.
+  private val webSocketChannelEvent
+    : Middleware[Any, Nothing, (WebSocketChannel, String), Unit, WebSocketChannelEvent, Unit] =
+    new Middleware[Any, Nothing, (WebSocketChannel, String), Unit, WebSocketChannelEvent, Unit] {
+      override def apply[R1 <: Any, E1 >: Nothing](
+        http: Http[R1, E1, (WebSocketChannel, String), Unit],
+      ): Http[R1, E1, WebSocketChannelEvent, Unit] =
+        http.contraCollect[WebSocketChannelEvent] {
+          case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) => (channel, message)
+        }
+    }
 
-        // Print the exception if it's not a normal close
-        case ChannelEvent(_, ExceptionCaught(cause))                            =>
-          UIO(println(s"Channel error!: ${cause.getMessage}"))
-      }
+  private val httpSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+    messageSocket @@ webSocketChannelEvent ++ handshakeCompleteSocket ++ closeSocket ++ exceptionSocket
 
   // Setup protocol settings
   private val protocol = SocketProtocol.subProtocol("json")

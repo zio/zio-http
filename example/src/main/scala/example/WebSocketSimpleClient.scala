@@ -1,8 +1,7 @@
 package example
 
 import zhttp.http.Http
-import zhttp.service.ChannelEvent.Event.{ChannelRead, UserEventTriggered}
-import zhttp.service.ChannelEvent.UserEvent
+import zhttp.service.ChannelEvent.{ChannelRead, UserEvent, UserEventTriggered}
 import zhttp.service.{ChannelEvent, ChannelFactory, EventLoopGroup}
 import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio._

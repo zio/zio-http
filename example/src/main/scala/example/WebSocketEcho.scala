@@ -1,7 +1,7 @@
 package example
 
 import zhttp.http._
-import zhttp.service.ChannelEvent.Event.ChannelRead
+import zhttp.service.ChannelEvent.ChannelRead
 import zhttp.service.{ChannelEvent, Server}
 import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio.{App, ExitCode, UIO, URIO}
