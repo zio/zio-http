@@ -54,7 +54,6 @@ final case class SocketApp[-R](
 }
 
 object SocketApp {
-  type Connection = SocketAddress
 
   def apply[R](socket: ChannelEvent[WebSocketFrame, WebSocketFrame] => ZIO[R, Throwable, Any]): SocketApp[R] =
     SocketApp(message = Some(socket))
