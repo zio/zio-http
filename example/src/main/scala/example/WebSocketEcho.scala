@@ -1,24 +1,28 @@
 package example
 
 import zhttp.http._
-import zhttp.service.Server
-import zhttp.socket.{Socket, WebSocketFrame}
-import zio.duration._
-import zio.stream.ZStream
-import zio.{App, ExitCode, Schedule, UIO, URIO}
+import zhttp.service.ChannelEvent.Event.ChannelRead
+import zhttp.service.{ChannelEvent, Server}
+import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
+import zio.{App, ExitCode, UIO, URIO}
 
 object WebSocketEcho extends App {
   private val socket =
-    Socket.collect[WebSocketFrame] {
-      case WebSocketFrame.Text("FOO")  => ZStream.succeed(WebSocketFrame.text("BAR"))
-      case WebSocketFrame.Text("BAR")  => ZStream.succeed(WebSocketFrame.text("FOO"))
-      case fr @ WebSocketFrame.Text(_) => ZStream.repeat(fr).schedule(Schedule.spaced(1 second)).take(10)
+    Http.collect[WebSocketChannelEvent] {
+      case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("FOO"))) =>
+        ch.writeAndFlush(WebSocketFrame.text("BAR"))
+
+      case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("BAR"))) =>
+        ch.writeAndFlush(WebSocketFrame.text("FOO"))
+
+      case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text(text))) =>
+        ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
     }
 
   private val app =
     Http.collectZIO[Request] {
       case Method.GET -> !! / "greet" / name  => UIO(Response.text(s"Greetings {$name}!"))
-      case Method.GET -> !! / "subscriptions" => socket.toResponse
+      case Method.GET -> !! / "subscriptions" => socket.toSocketApp.toResponse
     }
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =

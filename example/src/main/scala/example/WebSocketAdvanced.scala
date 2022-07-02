@@ -1,24 +1,49 @@
 package example
 
 import zhttp.http._
-import zhttp.service.Server
+import zhttp.service.ChannelEvent.Event.{ChannelRead, ExceptionCaught, UserEventTriggered}
+import zhttp.service.ChannelEvent.UserEvent
+import zhttp.service.{ChannelEvent, Server}
 import zhttp.socket._
 import zio._
-import zio.duration._
-import zio.stream.ZStream
 
 object WebSocketAdvanced extends App {
-  // Message Handlers
-  private val open = Socket.succeed(WebSocketFrame.text("Greetings!"))
 
-  private val echo = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text(text) =>
-    ZStream.repeat(WebSocketFrame.text(s"Received: $text")).schedule(Schedule.spaced(1 second)).take(3)
-  }
+  val httpSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+    Http
 
-  private val fooBar = Socket.collect[WebSocketFrame] {
-    case WebSocketFrame.Text("FOO") => ZStream.succeed(WebSocketFrame.text("BAR"))
-    case WebSocketFrame.Text("BAR") => ZStream.succeed(WebSocketFrame.text("FOO"))
-  }
+      // Listen for all websocket channel events
+      .collectZIO[WebSocketChannelEvent] {
+
+        // Send a "greeting" message to the server once the connection is established
+        case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
+          ch.writeAndFlush(WebSocketFrame.text("Greetings!"))
+
+        case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("end")))          =>
+          ch.close()
+
+        // Send a "bar" if the server sends a "foo"
+        case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("foo")))          =>
+          ch.writeAndFlush(WebSocketFrame.text("bar"))
+
+        // Send a "foo" if the server sends a "bar"
+        case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("bar")))          =>
+          ch.writeAndFlush(WebSocketFrame.text("foo"))
+
+        // Echo the same message 10 times if it's not "foo" or "bar"
+        // Improve performance by writing multiple frames at once
+        // And flushing it on the channel only once.
+        case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text(text)))           =>
+          ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
+
+        // Log when the channel is getting closed
+        case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
+          UIO(println("Closing channel with status: " + status + " and reason: " + reason))
+
+        // Print the exception if it's not a normal close
+        case ChannelEvent(_, ExceptionCaught(cause))                            =>
+          UIO(println(s"Channel error!: ${cause.getMessage}"))
+      }
 
   // Setup protocol settings
   private val protocol = SocketProtocol.subProtocol("json")
@@ -29,16 +54,7 @@ object WebSocketAdvanced extends App {
   // Combine all channel handlers together
   private val socketApp = {
 
-    SocketApp(echo merge fooBar) // Called after each message being received on the channel
-
-      // Called after the request is successfully upgraded to websocket
-      .onOpen(open)
-
-      // Called after the connection is closed
-      .onClose(_ => console.putStrLn("Closed!").ignore)
-
-      // Called whenever there is an error on the socket channel
-      .onError(_ => console.putStrLn("Error!").ignore)
+    httpSocket.toSocketApp // Called after each message being received on the channel
 
       // Setup websocket decoder config
       .withDecoder(decoder)

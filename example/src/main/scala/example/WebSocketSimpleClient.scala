@@ -1,9 +1,11 @@
 package example
 
-import zhttp.service.{ChannelFactory, EventLoopGroup}
-import zhttp.socket.{Socket, WebSocketFrame}
+import zhttp.http.Http
+import zhttp.service.ChannelEvent.Event.{ChannelRead, UserEventTriggered}
+import zhttp.service.ChannelEvent.UserEvent
+import zhttp.service.{ChannelEvent, ChannelFactory, EventLoopGroup}
+import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio._
-import zio.stream.ZStream
 
 object WebSocketSimpleClient extends zio.App {
 
@@ -12,13 +14,26 @@ object WebSocketSimpleClient extends zio.App {
 
   val url = "ws://ws.vi-server.org/mirror"
 
-  val app = Socket
-    .collect[WebSocketFrame] {
-      case WebSocketFrame.Text("BAZ") => ZStream.succeed(WebSocketFrame.close(1000))
-      case frame                      => ZStream.succeed(frame)
-    }
-    .toSocketApp
-    .connect(url)
+  val httpSocket =
+    Http
+
+      // Listen for all websocket channel events
+      .collectZIO[WebSocketChannelEvent] {
+
+        // Send a "foo" message to the server once the connection is established
+        case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
+          ch.writeAndFlush(WebSocketFrame.text("foo"))
+
+        // Send a "bar" if the server sends a "foo"
+        case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("foo")))         =>
+          ch.writeAndFlush(WebSocketFrame.text("bar"))
+
+        // Close the connection if the server sends a "bar"
+        case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("bar")))         =>
+          UIO(println("Goodbye!")) *> ch.writeAndFlush(WebSocketFrame.close(1000))
+      }
+
+  val app = httpSocket.toSocketApp.connect(url)
 
   override def run(args: List[String]): URIO[ZEnv, ExitCode] = {
     app.useForever.exitCode.provideCustomLayer(env)
