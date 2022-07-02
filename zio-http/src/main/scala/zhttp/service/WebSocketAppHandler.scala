@@ -18,7 +18,7 @@ final class WebSocketAppHandler[R](
 
   private def dispatch(ctx: ChannelHandlerContext)(event: ChannelEvent[WebSocketFrame, WebSocketFrame]): Unit =
     app.message match {
-      case Some(f) => zExec.unsafeRun(ctx)(f(event))
+      case Some(f) => zExec.unsafeRunUninterruptible(ctx)(f(event))
       case None    => ()
     }
 
