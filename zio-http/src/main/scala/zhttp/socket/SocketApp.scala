@@ -1,6 +1,6 @@
 package zhttp.socket
 
-import zhttp.http.{Http, Response}
+import zhttp.http.{Http, HttpApp, Response}
 import zhttp.service.{ChannelEvent, ChannelFactory, Client, EventLoopGroup}
 import zio.{NeedsEnv, ZIO, ZManaged}
 
@@ -26,6 +26,11 @@ final case class SocketApp[-R](
   def provideEnvironment(env: R)(implicit ev: NeedsEnv[R]): SocketApp[Any] = {
     copy(message = self.message.map(f => f(_).provide(env)))
   }
+
+  /**
+   * Converts the socket app to a HTTP app.
+   */
+  def toHttp: HttpApp[R, Nothing] = Http.fromZIO(toResponse)
 
   /**
    * Creates a new response from the socket app.
