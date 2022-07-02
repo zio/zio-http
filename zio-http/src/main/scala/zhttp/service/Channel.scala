@@ -1,7 +1,7 @@
 package zhttp.service
 
 import io.netty.channel.{Channel => JChannel, ChannelFuture => JChannelFuture}
-import zio.Task
+import zio.{Task, UIO, ZIO}
 
 /**
  * An immutable and type-safe representation of one or more netty channels. `A`
@@ -16,6 +16,10 @@ final case class Channel[-A](
   private def foreach[S](await: Boolean)(run: JChannel => JChannelFuture): Task[Unit] = {
     if (await) ChannelFuture.unit(run(channel))
     else Task(run(channel): Unit)
+  }
+
+  def awaitClose: UIO[Unit] = ZIO.effectAsync[Any, Nothing, Unit] { register =>
+    channel.closeFuture().addListener((_: JChannelFuture) => register(ZIO.unit))
   }
 
   def close(await: Boolean = false): Task[Unit] = foreach(await) { _.close() }
