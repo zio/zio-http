@@ -1,6 +1,6 @@
 package example
 
-import zhttp.http.Http
+import zhttp.http.{Http, Response}
 import zhttp.service.ChannelEvent.{ChannelRead, UserEvent, UserEventTriggered}
 import zhttp.service.{ChannelEvent, ChannelFactory, EventLoopGroup}
 import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
@@ -13,7 +13,7 @@ object WebSocketSimpleClient extends zio.App {
 
   val url = "ws://ws.vi-server.org/mirror"
 
-  val httpSocket =
+  val httpSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
     Http
 
       // Listen for all websocket channel events
@@ -32,7 +32,8 @@ object WebSocketSimpleClient extends zio.App {
           UIO(println("Goodbye!")) *> ch.writeAndFlush(WebSocketFrame.close(1000))
       }
 
-  val app = httpSocket.toSocketApp.connect(url)
+  val app: ZManaged[Any with EventLoopGroup with ChannelFactory, Throwable, Response] =
+    httpSocket.toSocketApp.connect(url)
 
   override def run(args: List[String]): URIO[ZEnv, ExitCode] = {
     app.useForever.exitCode.provideCustomLayer(env)

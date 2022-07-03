@@ -2,17 +2,19 @@ package example
 
 import zhttp.http._
 import zhttp.service.ChannelEvent.{ChannelRead, ExceptionCaught, UserEvent, UserEventTriggered}
-import zhttp.service.{ChannelEvent, Server}
+import zhttp.service.{Channel, ChannelEvent, Server}
 import zhttp.socket._
 import zio._
+import zio.console.Console
 
 object WebSocketAdvanced extends App {
 
-  private val messageFilter = Http.collect[WebSocketChannelEvent] {
-    case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) => (channel, message)
-  }
+  private val messageFilter: Http[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
+    Http.collect[WebSocketChannelEvent] { case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) =>
+      (channel, message)
+    }
 
-  private val messageSocket = messageFilter >>>
+  private val messageSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
     Http.collectZIO[(WebSocketChannel, String)] {
       case (ch, "end") => ch.close()
 
@@ -29,7 +31,7 @@ object WebSocketAdvanced extends App {
         ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
     }
 
-  private val channelSocket =
+  private val channelSocket: Http[Console, Throwable, WebSocketChannelEvent, Unit] =
     Http.collectZIO[WebSocketChannelEvent] {
 
       // Send a "greeting" message to the server once the connection is established
@@ -38,14 +40,14 @@ object WebSocketAdvanced extends App {
 
       // Log when the channel is getting closed
       case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
-        UIO(println("Closing channel with status: " + status + " and reason: " + reason))
+        console.putStrLn("Closing channel with status: " + status + " and reason: " + reason)
 
       // Print the exception if it's not a normal close
       case ChannelEvent(_, ExceptionCaught(cause))                            =>
-        UIO(println(s"Channel error!: ${cause.getMessage}"))
+        console.putStrLn(s"Channel error!: ${cause.getMessage}")
     }
 
-  private val httpSocket =
+  private val httpSocket: Http[Console, Throwable, WebSocketChannelEvent, Unit] =
     messageSocket ++ channelSocket
 
   // Setup protocol settings
@@ -55,7 +57,7 @@ object WebSocketAdvanced extends App {
   private val decoder = SocketDecoder.allowExtensions
 
   // Combine all channel handlers together
-  private val socketApp =
+  private val socketApp: SocketApp[Console] =
     httpSocket.toSocketApp
 
       // Setup websocket decoder config

@@ -7,8 +7,8 @@ import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio.{App, ExitCode, UIO, URIO}
 
 object WebSocketEcho extends App {
-  private val socket =
-    Http.collect[WebSocketChannelEvent] {
+  private val socket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+    Http.collectZIO[WebSocketChannelEvent] {
       case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("FOO"))) =>
         ch.writeAndFlush(WebSocketFrame.text("BAR"))
 
@@ -19,7 +19,7 @@ object WebSocketEcho extends App {
         ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
     }
 
-  private val app =
+  private val app: Http[Any, Nothing, Request, Response] =
     Http.collectZIO[Request] {
       case Method.GET -> !! / "greet" / name  => UIO(Response.text(s"Greetings {$name}!"))
       case Method.GET -> !! / "subscriptions" => socket.toSocketApp.toResponse
