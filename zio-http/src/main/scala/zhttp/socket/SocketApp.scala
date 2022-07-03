@@ -52,7 +52,7 @@ final case class SocketApp[-R](
 }
 
 object SocketApp {
-  
+
   def apply[R](socket: ChannelEvent[WebSocketFrame, WebSocketFrame] => ZIO[R, Throwable, Any]): SocketApp[R] =
     SocketApp(message = Option(socket))
 
