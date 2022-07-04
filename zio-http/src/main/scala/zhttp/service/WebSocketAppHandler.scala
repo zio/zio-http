@@ -16,7 +16,8 @@ final class WebSocketAppHandler[R](
   app: SocketApp[R],
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
-  private def dispatch(ctx: ChannelHandlerContext)(event: ChannelEvent[JWebSocketFrame, JWebSocketFrame]): Unit =
+  private def dispatch(ctx: ChannelHandlerContext)(event: ChannelEvent[JWebSocketFrame, JWebSocketFrame]): Unit = {
+    WebSocketAppHandler.log.debug(s"ChannelEvent: ${event.event}")
     app.message match {
       case Some(f) =>
         zExec.unsafeRunUninterruptible(ctx)(
@@ -24,6 +25,7 @@ final class WebSocketAppHandler[R](
         )
       case None    => ()
     }
+  }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit =
     dispatch(ctx) {
@@ -49,4 +51,8 @@ final class WebSocketAppHandler[R](
       case _ => super.userEventTriggered(ctx, msg)
     }
   }
+}
+
+object WebSocketAppHandler {
+  private[zhttp] val log = Log.withTags("WebSocket")
 }
