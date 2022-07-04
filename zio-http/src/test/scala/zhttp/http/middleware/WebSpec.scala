@@ -3,6 +3,7 @@ package zhttp.http.middleware
 import zhttp.http.Middleware._
 import zhttp.http._
 import zhttp.internal.HttpAppTestExtensions
+import zhttp.internal.HttpGen.GenExt
 import zio._
 import zio.test.Assertion._
 import zio.test._
