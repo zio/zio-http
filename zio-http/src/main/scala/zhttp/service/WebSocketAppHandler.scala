@@ -3,7 +3,8 @@ package zhttp.service
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler.ClientHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.ServerHandshakeStateEvent
-import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
+import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler, WebSocketFrame => JWebSocketFrame}
+import zhttp.logging.Logger
 import zhttp.service.ChannelEvent.UserEvent
 import zhttp.socket.{SocketApp, WebSocketFrame}
 
@@ -14,10 +15,13 @@ import zhttp.socket.{SocketApp, WebSocketFrame}
 final class WebSocketAppHandler[R](
   zExec: HttpRuntime[R],
   app: SocketApp[R],
+  isClient: Boolean,
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
+  private[zhttp] val log = if (isClient) WebSocketAppHandler.clientLog else WebSocketAppHandler.serverLog
+
   private def dispatch(ctx: ChannelHandlerContext)(event: ChannelEvent[JWebSocketFrame, JWebSocketFrame]): Unit = {
-    WebSocketAppHandler.log.debug(s"ChannelEvent: ${event.event}")
+    log.debug(s"ChannelEvent: [${event.event}]")
     app.message match {
       case Some(f) =>
         zExec.unsafeRunUninterruptible(ctx)(
@@ -30,6 +34,11 @@ final class WebSocketAppHandler[R](
   override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit =
     dispatch(ctx) {
       ChannelEvent.channelRead(ctx, msg)
+    }
+
+  override def channelRegistered(ctx: Ctx): Unit =
+    dispatch(ctx) {
+      ChannelEvent.channelRegistered(ctx)
     }
 
   override def channelUnregistered(ctx: ChannelHandlerContext): Unit =
@@ -53,6 +62,7 @@ final class WebSocketAppHandler[R](
   }
 }
 
-object WebSocketAppHandler {
-  private[zhttp] val log = Log.withTags("WebSocket")
+private object WebSocketAppHandler {
+  val clientLog: Logger = Log.withTags("Client")
+  val serverLog: Logger = Log.withTags("Server")
 }
