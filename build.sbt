@@ -5,7 +5,7 @@ import sbt.librarymanagement.ScalaArtifacts.isScala3
 val releaseDrafterVersion = "5"
 
 // Setting default log level to INFO
-val _ = sys.props += ("ZHttpLogLevel" -> ZHttpLogLevel)
+val _ = sys.props += ("ZHttpLogLevel" -> Debug.ZHttpLogLevel)
 
 // CI Configuration
 ThisBuild / githubWorkflowJavaVersions   := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
@@ -139,6 +139,6 @@ lazy val zhttpLogging = (project in file("zio-http-logging"))
 lazy val example = (project in file("./example"))
   .settings(stdSettings("example"))
   .settings(publishSetting(false))
-  .settings(runSettings("example.HelloWorld"))
+  .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
   .dependsOn(zhttp)
