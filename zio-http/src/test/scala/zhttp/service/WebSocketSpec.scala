@@ -14,7 +14,7 @@ import zio.test._
 import zio.test.environment.TestClock
 import zio.{Promise, Ref, UIO, ZIO}
 
-object WebSocketServerSpec extends HttpRunnableSpec {
+object WebSocketSpec extends HttpRunnableSpec {
 
   private val env           =
     EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ChannelFactory.nio
@@ -26,9 +26,9 @@ object WebSocketServerSpec extends HttpRunnableSpec {
         id  <- DynamicServer.deploy {
           Http
             .collectZIO[WebSocketChannelEvent] {
-              case ChannelEvent(ch, ev @ ChannelRead(frame)) => ch.writeAndFlush(frame) *> msg.add(ev)
-              case ChannelEvent(_, ev @ ChannelUnregistered) => msg.add(ev, true)
-              case ChannelEvent(_, ev)                       => msg.add(ev)
+              case ev @ ChannelEvent(ch, ChannelRead(frame)) => ch.writeAndFlush(frame) *> msg.add(ev.event)
+              case ev @ ChannelEvent(_, ChannelUnregistered) => msg.add(ev.event, true)
+              case ev @ ChannelEvent(_, _)                   => msg.add(ev.event)
             }
             .toSocketApp
             .toHttp
