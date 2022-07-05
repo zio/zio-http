@@ -1,6 +1,6 @@
 package zhttp.socket
 
-import zhttp.http.Response
+import zhttp.http.{Headers, Response}
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zhttp.socket.SocketApp.Handle.{WithEffect, WithSocket}
 import zhttp.socket.SocketApp.{Connection, Handle}
@@ -23,8 +23,11 @@ final case class SocketApp[-R](
    * Creates a socket connection on the provided URL. Typically used to connect
    * as a client.
    */
-  def connect(url: String): ZManaged[R with EventLoopGroup with ChannelFactory, Throwable, Response] =
-    Client.socket(url, self)
+  def connect(
+    url: String,
+    headers: Headers = Headers.empty,
+  ): ZManaged[R with EventLoopGroup with ChannelFactory, Throwable, Response] =
+    Client.socket(url, self, headers)
 
   /**
    * Called when the websocket connection is closed successfully.
