@@ -7,7 +7,7 @@ import zhttp.service.server._
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
-import zio.{Scope, durationInt, ZIO}
+import zio.{Scope, ZIO, durationInt}
 
 import java.net.ConnectException
 
