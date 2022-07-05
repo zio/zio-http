@@ -211,7 +211,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
               response.headers.location == location,
             )
           }
-        } +=
+        } +
           test("should not send a redirect response") {
             val urls = Gen.fromIterable(
               Seq(
