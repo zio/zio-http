@@ -63,6 +63,6 @@ final class WebSocketAppHandler[R](
 }
 
 private object WebSocketAppHandler {
-  val clientLog: Logger = Log.withTags("Client")
-  val serverLog: Logger = Log.withTags("Server")
+  val clientLog: Logger = Log.withTags("Client", "WebSocket")
+  val serverLog: Logger = Log.withTags("Server", "WebSocket")
 }

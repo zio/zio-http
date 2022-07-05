@@ -4,7 +4,8 @@ import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import zhttp.http.{Response, Status}
-import zhttp.service.{HttpRuntime, WEB_SOCKET_HANDLER, WebSocketAppHandler}
+import zhttp.service.server.WebSocketUpgrade.log
+import zhttp.service.{HttpRuntime, Log, WEB_SOCKET_HANDLER, WebSocketAppHandler}
 
 import scala.annotation.tailrec
 
@@ -24,9 +25,10 @@ trait WebSocketUpgrade[R] { self: ChannelHandler =>
   @tailrec
   final def upgradeToWebSocket(jReq: HttpRequest, res: Response)(implicit ctx: ChannelHandlerContext): Unit = {
     val app = res.attribute.socketApp
-
     jReq match {
       case jReq: FullHttpRequest =>
+        log.debug(s"Upgrading to WebSocket: [${jReq.uri()}]")
+        log.debug(s"SocketApp: [${app.orNull}]")
         ctx
           .channel()
           .pipeline()
@@ -40,4 +42,8 @@ trait WebSocketUpgrade[R] { self: ChannelHandler =>
         self.upgradeToWebSocket(fullRequest, res)
     }
   }
+}
+
+object WebSocketUpgrade {
+  private[zhttp] val log = Log.withTags("Server", "WebSocket")
 }
