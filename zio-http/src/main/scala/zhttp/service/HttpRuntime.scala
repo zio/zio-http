@@ -18,8 +18,9 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
   private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
     (_: Future[_ >: Void]) =>
       Unsafe.unsafeCompat { implicit u =>
-        rtm.unsafe.fork(fiber.interrupt)
-        log.debug(s"Interrupted Fiber: [${fiber.id}]")
+        val _ = rtm.unsafe.fork {
+          fiber.interrupt.as(log.debug(s"Interrupted Fiber: [${fiber.id}]"))
+        }
       }
 
   private def onFailure(ctx: ChannelHandlerContext, cause: Cause[Throwable]) = {
@@ -41,12 +42,20 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
     // When connection closes, interrupt the program
 
     Unsafe.unsafeCompat { implicit u =>
-      val fiber = rtm.unsafe.fork(
-        program.fork.map(f => {
-          val listener = closeListener(rtm, f)
-          ctx.channel().closeFuture.addListener(listener)
-        }),
-      )
+      val fiber = rtm.unsafe.fork {
+        for {
+          fiber <- program.fork
+          close <- ZIO.succeed {
+            val close = closeListener(rtm, fiber)
+            ctx.channel().closeFuture.addListener(close)
+            close
+          }
+          _     <- fiber.join
+          _     <- ZIO.succeed {
+            ctx.channel().closeFuture().removeListener(close)
+          }
+        } yield ()
+      }
 
       fiber.unsafe.addObserver {
         case Exit.Success(_)     => ()
@@ -58,10 +67,9 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
   def unsafeRunUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
     val (_, rtm) = strategy.runtime(ctx)
     log.debug(s"Started Uninterruptible")
-    val pgm      = program
 
     Unsafe.unsafeCompat { implicit u =>
-      rtm.unsafe.fork(pgm).unsafe.addObserver { msg =>
+      rtm.unsafe.fork(program).unsafe.addObserver { msg =>
         log.debug(s"Completed Uninterruptible: [${msg}]")
         msg match {
           case Exit.Success(_)     => ()

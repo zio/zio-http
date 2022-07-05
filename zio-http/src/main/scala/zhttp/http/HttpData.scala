@@ -46,7 +46,8 @@ sealed trait HttpData { self =>
   /**
    * Encodes the HttpData into a ByteBuf.
    */
-  final def toByteBuf: Task[ByteBuf] = toByteBuf(ByteBufConfig.default)
+  final def toByteBuf: Task[ByteBuf] =
+    toByteBuf(ByteBufConfig.default)
 
   /**
    * Encodes the HttpData into a Stream of ByteBufs
@@ -148,7 +149,9 @@ object HttpData {
           },
         )
         ch         <- ctxPromise.await
-      } yield queue.mapM(msg => ZIO.succeed(ch.read()).unless(isLast(msg)).as(msg))
+      } yield queue.tap { msg =>
+        ZIO.succeed(ch.read()).unless(isLast(msg)).as(msg)
+      }
     }
 
     /**
@@ -169,13 +172,14 @@ object HttpData {
     /**
      * Encodes the HttpData into a Stream of ByteBufs
      */
-    override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
+    override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] = {
       ZStream.unwrap {
         for {
           queue <- toQueue
           stream = ZStream.fromQueueWithShutdown(queue).takeUntil(isLast(_)).map(_.content())
         } yield stream
       }
+    }
 
     override def toHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] =
       Http.fromZIO(toByteBuf(config))
