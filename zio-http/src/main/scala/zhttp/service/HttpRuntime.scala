@@ -15,7 +15,7 @@ import scala.jdk.CollectionConverters._
  * channel closes.
  */
 final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
-  private val log = HttpRuntime.log
+  private[zhttp] val log = HttpRuntime.log
 
   private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
     (_: Future[_ >: Void]) =>
@@ -25,8 +25,10 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
 
   private def onFailure(ctx: ChannelHandlerContext, cause: Cause[Throwable]) = {
     cause.failureOption.orElse(cause.dieOption) match {
-      case None    => ()
-      case Some(_) => log.error("HttpRuntimeException:" + cause.prettyPrint)
+      case None        => ()
+      case Some(error) =>
+        log.error("HttpRuntimeException:" + cause.prettyPrint)
+        ctx.fireExceptionCaught(error)
     }
     if (ctx.channel().isOpen) ctx.close()
   }
