@@ -197,7 +197,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
             ),
           )
 
-          checkAll(urls cross Gen.fromIterable(Seq(true, false))) { case ((url, expected), perm) =>
+          checkAll(urls zip Gen.fromIterable(Seq(true, false))) { case (url, expected, perm) =>
             val app      = Http.ok @@ redirectTrailingSlash(perm)
             val location = Some(expected)
             val status   = if (perm) Status.PermanentRedirect else Status.TemporaryRedirect
@@ -210,7 +210,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
               response.headers.location == location,
             )
           }
-        } +=
+        } +
           test("should not send a redirect response") {
             val urls = Gen.fromIterable(
               Seq(
