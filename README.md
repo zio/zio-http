@@ -65,7 +65,6 @@ Setup via `build.sbt`
 
 ```scala
 libraryDependencies += "io.d11" %% "zhttp"      % "[version]"
-libraryDependencies += "io.d11" %% "zhttp-test" % "[version]" % Test
 ```
 
 **NOTE:** ZIO Http is compatible with `ZIO 1.x` and `ZIO 2.x`.
