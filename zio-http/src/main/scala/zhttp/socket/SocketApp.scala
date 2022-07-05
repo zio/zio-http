@@ -1,6 +1,6 @@
 package zhttp.socket
 
-import zhttp.http.{Http, HttpApp, Response}
+import zhttp.http.{Headers, Http, HttpApp, Response}
 import zhttp.service.{ChannelEvent, ChannelFactory, Client, EventLoopGroup}
 import zio.{NeedsEnv, ZIO, ZManaged}
 
@@ -14,8 +14,11 @@ final case class SocketApp[-R](
    * Creates a socket connection on the provided URL. Typically used to connect
    * as a client.
    */
-  def connect(url: String): ZManaged[R with EventLoopGroup with ChannelFactory, Throwable, Response] =
-    Client.socket(url, self)
+  def connect(
+    url: String,
+    headers: Headers = Headers.empty,
+  ): ZManaged[R with EventLoopGroup with ChannelFactory, Throwable, Response] =
+    Client.socket(url, self, headers)
 
   /**
    * Provides the socket app with its required environment, which eliminates its
