@@ -4,6 +4,7 @@
 *.ipr
 *.iws
 .idea
+.bloop/
 out
 .cache/
 .history/

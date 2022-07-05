@@ -202,6 +202,17 @@
                 
             ]
         },
+        "sbt": {
+            "sbtVersion": "1.6.2",
+            "autoImports": [
+                "import _root_.scala.xml.{TopScope=>$scope}",
+                "import _root_.sbt._",
+                "import _root_.sbt.Keys._",
+                "import _root_.sbt.nio.Keys._",
+                "import _root_.sbt.ScriptedPlugin.autoImport._, _root_.sbt.plugins.JUnitXmlReportPlugin.autoImport._, _root_.sbt.plugins.MiniDependencyTreePlugin.autoImport._, _root_.bloop.integrations.sbt.BloopPlugin.autoImport._, _root_.scalafix.sbt.ScalafixPlugin.autoImport._, _root_.scalafix.sbt.ScalafixTestkitPlugin.autoImport._, _root_.org.scalafmt.sbt.ScalafmtPlugin.autoImport._, _root_.pl.project13.scala.sbt.JmhPlugin.autoImport._, _root_.com.timushev.sbt.updates.UpdatesPlugin.autoImport._, _root_.spray.revolver.RevolverPlugin.autoImport._, _root_.sbtghactions.GenerativePlugin.autoImport._, _root_.sbtghactions.GitHubActionsPlugin.autoImport._, _root_.sbtdynver.DynVerPlugin.autoImport._, _root_.com.typesafe.sbt.GitPlugin.autoImport._, _root_.xerial.sbt.Sonatype.autoImport._, _root_.com.jsuereth.sbtpgp.SbtPgp.autoImport._",
+                "import _root_.sbt.plugins.IvyPlugin, _root_.sbt.plugins.JvmPlugin, _root_.sbt.plugins.CorePlugin, _root_.sbt.ScriptedPlugin, _root_.sbt.plugins.SbtPlugin, _root_.sbt.plugins.SemanticdbPlugin, _root_.sbt.plugins.JUnitXmlReportPlugin, _root_.sbt.plugins.Giter8TemplatePlugin, _root_.sbt.plugins.MiniDependencyTreePlugin, _root_.bloop.integrations.sbt.BloopPlugin, _root_.scalafix.sbt.ScalafixPlugin, _root_.scalafix.sbt.ScalafixTestkitPlugin, _root_.org.scalafmt.sbt.ScalafmtPlugin, _root_.pl.project13.scala.sbt.JmhPlugin, _root_.com.timushev.sbt.updates.UpdatesPlugin, _root_.spray.revolver.RevolverPlugin, _root_.sbtghactions.GenerativePlugin, _root_.sbtghactions.GitHubActionsPlugin, _root_.migrate.ScalaMigratePlugin, _root_.com.geirsson.CiReleasePlugin, _root_.sbtdynver.DynVerPlugin, _root_.com.typesafe.sbt.GitBranchPrompt, _root_.com.typesafe.sbt.GitPlugin, _root_.com.typesafe.sbt.GitVersioning, _root_.xerial.sbt.Sonatype, _root_.com.jsuereth.sbtpgp.SbtPgp"
+            ]
+        },
         "test": {
             "frameworks": [
                 {
