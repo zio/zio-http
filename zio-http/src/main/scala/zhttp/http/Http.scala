@@ -253,7 +253,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Collects some of the results of the http and converts it to another type.
    */
-  final def collect[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](pf: PartialFunction[B1, C]): Http[R1, E1, A1, C] =
+  final def collect[B1 >: B, C](pf: PartialFunction[B1, C]): Http[R, E, A, C] =
     self >>> Http.collect(pf)
 
   final def collectScoped[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](
@@ -287,6 +287,16 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def contentType(implicit eb: B <:< Response): Http[R, E, A, Option[CharSequence]] =
     headerValue(HttpHeaderNames.CONTENT_TYPE)
+
+  /**
+   * Like `collect` but is applied on the incoming type `A`.
+   */
+  final def contraCollect[X](pf: PartialFunction[X, A]): Http[R, E, X, B] = self.contraFlatMap[X](x =>
+    pf.lift(x) match {
+      case Some(value) => Http.succeed(value)
+      case None        => Http.empty
+    },
+  )
 
   /**
    * Transforms the input of the http before passing it on to the current Http
