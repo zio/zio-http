@@ -160,9 +160,9 @@ object Response {
    * Creates a new response for the provided socket
    */
   def fromSocket[R](
-    socket: Http[R, Throwable, ChannelEvent[WebSocketFrame, WebSocketFrame], Unit],
+    http: Http[R, Throwable, ChannelEvent[WebSocketFrame, WebSocketFrame], Unit],
   ): ZIO[R, Nothing, Response] =
-    fromSocketApp(SocketApp(socket))
+    fromSocketApp(http.toSocketApp)
 
   /**
    * Creates a new response for the provided socket app

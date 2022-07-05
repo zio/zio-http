@@ -58,14 +58,4 @@ object SocketApp {
 
   def apply[R](socket: ChannelEvent[WebSocketFrame, WebSocketFrame] => ZIO[R, Throwable, Any]): SocketApp[R] =
     SocketApp(message = Option(socket))
-
-  def apply[R](socket: Http[R, Throwable, ChannelEvent[WebSocketFrame, WebSocketFrame], Unit]): SocketApp[R] =
-    SocketApp[R](message =
-      Option((event: ChannelEvent[WebSocketFrame, WebSocketFrame]) =>
-        socket(event).catchAll {
-          case Some(value) => ZIO.fail(value)
-          case None        => ZIO.unit
-        },
-      ),
-    )
 }

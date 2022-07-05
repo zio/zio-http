@@ -603,7 +603,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Converts an Http into a websocket application
    */
   final def toSocketApp(implicit a: WebSocketChannelEvent <:< A, e: E <:< Throwable): SocketApp[R] =
-    SocketApp(self.as(()).asInstanceOf[Http[R, Throwable, WebSocketChannelEvent, Unit]])
+    SocketApp(event =>
+      self(event).catchAll {
+        case Some(value) => ZIO.fail(value)
+        case None        => ZIO.unit
+      },
+    )
 
   /**
    * Takes some defects and converts them into failures.
