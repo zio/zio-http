@@ -18,20 +18,46 @@ final case class Channel[-A](
     else Task(run(channel): Unit)
   }
 
+  /**
+   * Provides a way to wait for the channel to be closed.
+   */
   def awaitClose: UIO[Unit] = ZIO.effectAsync[Any, Nothing, Unit] { register =>
     channel.closeFuture().addListener((_: JChannelFuture) => register(ZIO.unit))
   }
 
+  /**
+   * Closes the channel. Pass true to await to wait for the channel to be
+   * closed.
+   */
   def close(await: Boolean = false): Task[Unit] = foreach(await) { _.close() }
 
+  /**
+   * Creates a new channel that can write a different type of message by using a
+   * transformation function.
+   */
   def contramap[A1](f: A1 => A): Channel[A1] = copy(convert = convert.compose(f))
 
+  /**
+   * Flushes the pending write operations on the channel.
+   */
   def flush: Task[Unit] = Task(channel.flush(): Unit)
 
+  /**
+   * Returns the globally unique identifier of this channel.
+   */
   def id: String = channel.id().asLongText()
 
+  /**
+   * Schedules a write operation on the channel. The actual write only happens
+   * after calling `flush`. Pass `true` to await the completion of the write
+   * operation.
+   */
   def write(msg: A, await: Boolean = false): Task[Unit] = foreach(await) { _.write(convert(msg)) }
 
+  /**
+   * Writes and flushes the message on the channel. Pass `true` to await the
+   * completion of the write operation.
+   */
   def writeAndFlush(msg: A, await: Boolean = false): Task[Unit] = foreach(await) { _.writeAndFlush(convert(msg)) }
 }
 
