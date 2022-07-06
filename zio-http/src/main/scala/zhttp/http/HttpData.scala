@@ -227,7 +227,7 @@ object HttpData {
     /**
      * Encodes the HttpData into a ByteBuf.
      */
-    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = Task(data.retain)
+    override def toByteBuf(config: ByteBufConfig): Task[ByteBuf] = Task(data)
 
     /**
      * Encodes the HttpData into a Stream of ByteBufs
