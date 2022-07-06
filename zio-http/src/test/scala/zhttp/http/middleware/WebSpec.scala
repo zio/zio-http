@@ -231,6 +231,12 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
               } yield assertTrue(response.status == Status.Ok)
             }
           }
+      } +
+      suite("prettify error") {
+        testM("should add the error stack trace as html in the body ") {
+          val app = (Http.error("Error !!!") @@ prettifyError) header "content-type"
+          assertM(app(Request()))(isSome(equalTo("text/html")))
+        }
       }
   }
 

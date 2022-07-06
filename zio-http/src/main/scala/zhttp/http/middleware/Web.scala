@@ -1,15 +1,16 @@
 package zhttp.http.middleware
 
+import zhttp.html.{Template, _}
 import zhttp.http.URL.encode
 import zhttp.http._
 import zhttp.http.headers.HeaderModifier
-import zhttp.http.middleware.Web.{PartialInterceptPatch, PartialInterceptZIOPatch}
+import zhttp.http.middleware.Web.{PartialInterceptPatch, PartialInterceptZIOPatch, updateErrorResponse}
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration.Duration
 import zio.{UIO, ZIO, clock, console}
 
-import java.io.IOException
+import java.io.{IOException, PrintWriter, StringWriter}
 
 /**
  * Middlewares on an HttpApp
@@ -102,6 +103,12 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    */
   final def patchZIO[R, E](f: Response => ZIO[R, Option[E], Patch]): HttpMiddleware[R, E] =
     Middleware.interceptZIOPatch(_ => ZIO.unit)((res, _) => f(res))
+
+  /**
+   * Prettify the error response.
+   */
+  final def prettifyError[R, E]: HttpMiddleware[R, E] =
+    Middleware.intercept[Request, Response](_ => ())((res, _) => updateErrorResponse(res))
 
   /**
    * Client redirect temporary or permanent to specified url.
@@ -211,5 +218,36 @@ object Web {
         .interceptZIO[Request, Response](req(_))((response, state) =>
           res(response, state).map(patch => patch(response)),
         )
+  }
+
+  private def updateErrorResponse(response: Response): Response = {
+    def prettify(throwable: Throwable): String = {
+      val sw = new StringWriter
+      throwable.printStackTrace(new PrintWriter(sw))
+      s"${sw.toString}"
+    }
+    if (response.status.isError) {
+      val message: String = response.httpError.map(_.message).getOrElse("")
+      val data            = Template.container(s"${response.status}") {
+        div(
+          div(
+            styles := Seq("text-align" -> "center"),
+            div(s"${response.status.code}", styles := Seq("font-size" -> "20em")),
+            div(message),
+          ),
+          div(
+            response.httpError.get.foldCause(div()) { throwable =>
+              div(h3("Cause:"), pre(prettify(throwable)))
+            },
+          ),
+        )
+      }
+      response.copy(
+        data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
+        headers = Headers(HeaderNames.contentType, HeaderValues.textHtml),
+      )
+
+    } else
+      response
   }
 }

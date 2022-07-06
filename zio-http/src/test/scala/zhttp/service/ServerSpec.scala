@@ -52,7 +52,7 @@ object ServerSpec extends HttpRunnableSpec {
         } +
           testM("header is set") {
             val res = app.deploy.headerValue(HeaderNames.contentLength).run()
-            assertM(res)(isSome(equalTo("439")))
+            assertM(res)(isSome(equalTo("0")))
           }
       } +
       suite("error") {
@@ -63,7 +63,7 @@ object ServerSpec extends HttpRunnableSpec {
         } +
           testM("content is set") {
             val res = app.deploy.bodyAsString.run()
-            assertM(res)(containsString("SERVER_ERROR"))
+            assertM(res)(equalTo(""))
           } +
           testM("header is set") {
             val res = app.deploy.headerValue(HeaderNames.contentLength).run()
@@ -78,7 +78,7 @@ object ServerSpec extends HttpRunnableSpec {
         } +
           testM("content is set") {
             val res = app.deploy.bodyAsString.run()
-            assertM(res)(containsString("SERVER_ERROR"))
+            assertM(res)(equalTo(""))
           } +
           testM("header is set") {
             val res = app.deploy.headerValue(HeaderNames.contentLength).run()
@@ -293,7 +293,7 @@ object ServerSpec extends HttpRunnableSpec {
     } +
       testM("content is set") {
         val res = app.deploy.bodyAsString.run()
-        assertM(res)(containsString("SERVER_ERROR"))
+        assertM(res)(equalTo(""))
       } +
       testM("header is set") {
         val res = app.deploy.headers.run().map(_.headerValue("Content-Length"))

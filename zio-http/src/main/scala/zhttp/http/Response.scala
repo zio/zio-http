@@ -10,13 +10,14 @@ import zhttp.service.ChannelFuture
 import zhttp.socket.{IsWebSocket, Socket, SocketApp}
 import zio.{Task, UIO, ZIO}
 
-import java.io.{IOException, PrintWriter, StringWriter}
+import java.io.IOException
 
 final case class Response private (
   status: Status,
   headers: Headers,
   data: HttpData,
   private[zhttp] val attribute: Response.Attribute,
+  private[zhttp] val httpError: Option[HttpError],
 ) extends HeaderExtension[Response]
     with HttpDataExtension[Response] { self =>
 
@@ -118,43 +119,18 @@ object Response {
     val status  = Status.fromHttpResponseStatus(jRes.status())
     val headers = Headers.decode(jRes.headers())
     val data    = HttpData.fromByteBuf(Unpooled.copiedBuffer(jRes.content()))
-    Response(status, headers, data, attribute = Attribute(channel = Some(ctx)))
+    Response(status, headers, data, attribute = Attribute(channel = Some(ctx)), httpError = None)
   }
 
   def apply[R, E](
     status: Status = Status.Ok,
     headers: Headers = Headers.empty,
     data: HttpData = HttpData.Empty,
+    httpError: Option[HttpError] = None,
   ): Response =
-    Response(status, headers, data, Attribute.empty)
+    Response(status, headers, data, Attribute.empty, httpError)
 
-  def fromHttpError(error: HttpError): Response = {
-
-    def prettify(throwable: Throwable): String = {
-      val sw = new StringWriter
-      throwable.printStackTrace(new PrintWriter(sw))
-      s"${sw.toString}"
-    }
-
-    Response
-      .html(
-        status = error.status,
-        data = Template.container(s"${error.status}") {
-          div(
-            div(
-              styles := Seq("text-align" -> "center"),
-              div(s"${error.status.code}", styles := Seq("font-size" -> "20em")),
-              div(error.message),
-            ),
-            div(
-              error.foldCause(div()) { throwable =>
-                div(h3("Cause:"), pre(prettify(throwable)))
-              },
-            ),
-          )
-        },
-      )
-  }
+  def fromHttpError(error: HttpError): Response = Response(status = error.status, httpError = Some(error))
 
   /**
    * Creates a new response for the provided socket
@@ -174,6 +150,7 @@ object Response {
         Headers.empty,
         HttpData.empty,
         Attribute(socketApp = Option(app.provideEnvironment(env))),
+        None,
       )
     }
 
