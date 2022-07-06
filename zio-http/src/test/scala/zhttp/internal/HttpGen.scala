@@ -32,6 +32,11 @@ object HttpGen {
     } yield Request(version, method, url, headers, data = HttpData.fromFile(file))
   }
 
+  implicit class GenExt[R, A](left: Gen[R, A]) {
+    def cross[B](right: Gen[R, B]): Gen[R, (A, B)] =
+      left.flatMap(a => right.map(b => (a, b)))
+  }
+
   def cookies: Gen[Sized, Cookie] = for {
     name     <- Gen.string
     content  <- Gen.string
