@@ -36,7 +36,7 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
 
   def unsafeRun(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
 
-    val (_, rtm) = strategy.runtime(ctx)
+    val (executor, rtm) = strategy.runtime(ctx)
 
     // Close the connection if the program fails
     // When connection closes, interrupt the program
@@ -44,7 +44,7 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
     Unsafe.unsafeCompat { implicit u =>
       val fiber = rtm.unsafe.fork {
         for {
-          fiber <- program.fork
+          fiber <- program.onExecutor(executor).fork
           close <- ZIO.succeed {
             val close = closeListener(rtm, fiber)
             ctx.channel().closeFuture.addListener(close)
@@ -65,11 +65,11 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
   }
 
   def unsafeRunUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
-    val (_, rtm) = strategy.runtime(ctx)
+    val (executor, rtm) = strategy.runtime(ctx)
     log.debug(s"Started Uninterruptible")
 
     Unsafe.unsafeCompat { implicit u =>
-      rtm.unsafe.fork(program).unsafe.addObserver { msg =>
+      rtm.unsafe.fork(program.onExecutor(executor)).unsafe.addObserver { msg =>
         log.debug(s"Completed Uninterruptible: [${msg}]")
         msg match {
           case Exit.Success(_)     => ()
