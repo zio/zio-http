@@ -16,7 +16,7 @@ object TestApp extends ZIOAppDefault {
 
   private val server =
     Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
-      Server.enableObjectAggregator(1024) ++
+      Server.enableObjectAggregator(Int.MaxValue) ++
       Server.app(app)               // Setup the Http app
 
   // Run it like any simple app
