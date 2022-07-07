@@ -44,7 +44,7 @@ final case class Cookie(
   /**
    * Sets max-age in cookie
    */
-  def withMaxAge(v: Duration): Cookie = copy(maxAge = Some(v.toSeconds))
+  def withMaxAge(v: Duration): Cookie = copy(maxAge = Some(v.getSeconds))
 
   /**
    * Sets max-age in seconds in cookie

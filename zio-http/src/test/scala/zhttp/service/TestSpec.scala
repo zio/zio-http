@@ -2,7 +2,6 @@ package zhttp.service
 
 import zhttp.http.{Http, HttpData, Request, Response}
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
-import zhttp.service.server.ServerChannelFactory
 import zio.stream.ZStream
 import zio.test.Assertion.{containsString, equalTo}
 import zio.test.TestAspect.{sequential, timeout}
@@ -13,7 +12,7 @@ object TestSpec extends HttpRunnableSpec {
 
   private val MaxSize = 1024 * 10
   private val env     =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ zhttp.service.server.ServerChannelFactory.nio ++ DynamicServer.live
 
   private val app =
     serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(MaxSize)))
