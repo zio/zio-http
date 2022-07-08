@@ -12,12 +12,12 @@ object LogLevelSpec extends ZIOSpecDefault {
     },
     test("encode decode") {
       checkAll(Gen.fromIterable(LogLevel.all)) { level =>
-        assertTrue(LogLevel.fromString(level.toString) == Some(level))
+        assertTrue(LogLevel.fromString(level.toString).contains(level))
       }
     },
     test("any value with the exception of defined values for LogLevel should be set to Error log level.") {
       checkAll(Gen.fromIterable(List("not defined", "unknown", "disable"))) { level =>
-        assertTrue(LogLevel.fromString(level) == None)
+        assertTrue(LogLevel.fromString(level).isEmpty)
       }
     },
   )
