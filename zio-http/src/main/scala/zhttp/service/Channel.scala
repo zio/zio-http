@@ -23,7 +23,7 @@ final case class Channel[-A](
    * channel. When set to false, the channel will not read messages until `read`
    * is called.
    */
-  def autoRead(flag: Boolean): UIO[Unit] = UIO(channel.config.setAutoRead(flag))
+  def autoRead(flag: Boolean): UIO[Unit] = UIO(channel.config.setAutoRead(flag): Unit)
 
   /**
    * Provides a way to wait for the channel to be closed.
