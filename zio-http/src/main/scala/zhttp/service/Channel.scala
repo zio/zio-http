@@ -19,6 +19,13 @@ final case class Channel[-A](
   }
 
   /**
+   * When set to `true` (default) it will automatically read messages from the
+   * channel. When set to false, the channel will not read messages until `read`
+   * is called.
+   */
+  def autoRead(flag: Boolean): UIO[Unit] = UIO(channel.config.setAutoRead(flag))
+
+  /**
    * Provides a way to wait for the channel to be closed.
    */
   def awaitClose: UIO[Unit] = ZIO.effectAsync[Any, Nothing, Unit] { register =>
@@ -46,6 +53,17 @@ final case class Channel[-A](
    * Returns the globally unique identifier of this channel.
    */
   def id: String = channel.id().asLongText()
+
+  /**
+   * Returns `true` if auto-read is set to true.
+   */
+  def isAutoRead: UIO[Boolean] = UIO(channel.config.isAutoRead)
+
+  /**
+   * Schedules a read operation on the channel. This is not necessary if
+   * auto-read is enabled.
+   */
+  def read: UIO[Unit] = UIO(channel.read(): Unit)
 
   /**
    * Schedules a write operation on the channel. The actual write only happens
