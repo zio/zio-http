@@ -256,11 +256,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def collect[B1 >: B, C](pf: PartialFunction[B1, C]): Http[R, E, A, C] =
     self >>> Http.collect(pf)
 
-  final def collectScoped[R1 <: R, E1 >: E, A1 <: A, B1 >: B, C](
-    pf: PartialFunction[B1, ZIO[Scope with R1, E1, C]],
-  ): Http[R1, E1, A1, C] =
-    self >>> Http.collectScoped[B1][R1, E1, C](pf)
-
   /**
    * Collects some of the results of the http and effectfully converts it to
    * another type.
@@ -630,8 +625,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Narrows the type of the input
    */
-  final def narrow[A1](implicit a: A1 <:< A): Http[R, E, A1, B] =
-    self.asInstanceOf[Http[R, E, A1, B]]
+  final def narrow[A1](implicit a: A1 <:< A): Http[R, E, A1, B] = self.asInstanceOf[Http[R, E, A1, B]]
 
   /**
    * Combines the two apps and returns the result of the one on the right
@@ -725,12 +719,6 @@ object Http {
    * Create an HTTP app from a partial function from A to Http[R,E,A,B]
    */
   def collectHttp[A]: Http.PartialCollectHttp[A] = Http.PartialCollectHttp(())
-
-  /**
-   * Creates an Http app which accepts a request and produces response from a
-   * scoped resource
-   */
-  def collectScoped[A]: Http.PartialCollectScoped[A] = Http.PartialCollectScoped(())
 
   /**
    * Creates an HTTP app which accepts a request and produces response
@@ -1024,11 +1012,6 @@ object Http {
   final case class PartialCollectZIO[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, ZIO[R, E, B]]): Http[R, E, A, B] =
       Http.collect[A] { case a if pf.isDefinedAt(a) => Http.fromZIO(pf(a)) }.flatten
-  }
-
-  final case class PartialCollectScoped[A](unit: Unit) extends AnyVal {
-    def apply[R, E, B](pf: PartialFunction[A, ZIO[Scope with R, E, B]]): Http[R, E, A, B] =
-      Http.collect[A] { case a if pf.isDefinedAt(a) => Http.fromZIO(ZIO.scoped[R](pf(a))) }.flatten
   }
 
   final case class PartialCollect[A](unit: Unit) extends AnyVal {

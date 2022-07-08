@@ -238,11 +238,6 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         val actual = a.execute(1)
         assert(actual)(isEffect)
       },
-      test("should resolve managed") {
-        val a      = Http.collectScoped[Int] { case 1 => ZIO.succeed("A") }
-        val actual = a.execute(1)
-        assert(actual)(isEffect)
-      },
       test("should resolve second effect") {
         val a      = Http.empty
         val b      = Http.succeed("B")
