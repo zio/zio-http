@@ -199,7 +199,6 @@ object Server {
       log.debug(s"Keep Alive: [${settings.keepAlive}]")
       log.debug(s"Leak Detection: [${settings.leakDetectionLevel}]")
       log.debug(s"Transport: [${eventLoopGroup.getClass.getName}]")
-      log.info(s"Started on port: [${port}]")
       Start(port)
     }
   }
@@ -220,7 +219,7 @@ object Server {
     Server(http)
       .withPort(port)
       .make
-      .flatMap(start => ZIO.succeed(Log.info(s"Server started on port: ${start.port}")) *> ZIO.never)
+      .flatMap(start => ZIO.succeed(Log.info(s"Server started on port: [${start.port}]")) *> ZIO.never)
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
 
   def start[R](
