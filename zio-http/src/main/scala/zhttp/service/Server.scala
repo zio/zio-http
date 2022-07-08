@@ -192,7 +192,7 @@ object Server {
       init            = ServerChannelInitializer(zExec, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       chf  <- ZIO.attempt(serverBootstrap.childHandler(init).bind(settings.address))
-      _    <- ChannelFuture.asZIO(chf)
+      _    <- ChannelFuture.scoped(chf)
       port <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield {
       ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
