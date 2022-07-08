@@ -4,7 +4,7 @@ import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import zhttp.http.Middleware.bearerAuth
 import zhttp.http._
 import zhttp.service.Server
-import zio.{Clock => _, _}
+import zio._
 
 import java.time.Clock
 
