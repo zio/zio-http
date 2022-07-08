@@ -13,7 +13,6 @@ object SimpleClient extends ZIOAppDefault {
     _    <- Console.printLine(data)
   } yield ()
 
-  override val run =
-    program.provide(env)
+  override val run = program.provide(env)
 
 }
