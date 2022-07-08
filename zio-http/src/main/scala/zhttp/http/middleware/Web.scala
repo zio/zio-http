@@ -28,6 +28,12 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
     patchZIO(_ => cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c))))
 
   /**
+   * Beautify the error response.
+   */
+  final def beautifyErrors[R, E]: HttpMiddleware[R, E] =
+    Middleware.intercept[Request, Response](_ => ())((res, _) => updateErrorResponse(res))
+
+  /**
    * Add log status, method, url and time taken from req to res
    */
   final def debug: HttpMiddleware[Console with Clock, IOException] =
@@ -103,12 +109,6 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    */
   final def patchZIO[R, E](f: Response => ZIO[R, Option[E], Patch]): HttpMiddleware[R, E] =
     Middleware.interceptZIOPatch(_ => ZIO.unit)((res, _) => f(res))
-
-  /**
-   * Prettify the error response.
-   */
-  final def prettifyError[R, E]: HttpMiddleware[R, E] =
-    Middleware.intercept[Request, Response](_ => ())((res, _) => updateErrorResponse(res))
 
   /**
    * Client redirect temporary or permanent to specified url.

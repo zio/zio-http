@@ -234,7 +234,7 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
       } +
       suite("prettify error") {
         testM("should add the error stack trace as html in the body ") {
-          val app = (Http.error("Error !!!") @@ prettifyError) header "content-type"
+          val app = (Http.error("Error !!!") @@ beautifyErrors) header "content-type"
           assertM(app(Request()))(isSome(equalTo("text/html")))
         }
       }
