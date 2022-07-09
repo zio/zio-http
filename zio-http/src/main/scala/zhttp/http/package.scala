@@ -1,7 +1,7 @@
 package zhttp
 
 import io.netty.util.CharsetUtil
-import zio.{Chunk, Queue, Trace, UIO, ZIO}
+import zio.ZIO
 
 import java.nio.charset.Charset
 
@@ -21,32 +21,4 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
 
   object HeaderNames  extends headers.HeaderNames
   object HeaderValues extends headers.HeaderValues
-
-  implicit class QueueWrapper[A](queue: Queue[A]) {
-    def tap(f: A => UIO[Any]): Queue[A] = {
-      new Queue[A] {
-        override def awaitShutdown(implicit trace: Trace): UIO[Unit] = queue.awaitShutdown
-
-        override def capacity: Int = queue.capacity
-
-        override def isShutdown(implicit trace: Trace): UIO[Boolean] = queue.isShutdown
-
-        override def offer(a: A)(implicit trace: Trace): UIO[Boolean] = queue.offer(a)
-
-        override def offerAll[A1 <: A](as: Iterable[A1])(implicit trace: zio.Trace): UIO[Chunk[A1]] = queue.offerAll(as)
-
-        override def shutdown(implicit trace: Trace): UIO[Unit] = queue.shutdown
-
-        override def size(implicit trace: Trace): UIO[Int] = queue.size
-
-        override def take(implicit trace: Trace): UIO[A] = queue.take.tap(f)
-
-        override def takeAll(implicit trace: Trace): UIO[Chunk[A]] =
-          queue.takeAll.tap(as => ZIO.foreachDiscard(as)(f))
-
-        override def takeUpTo(max: Int)(implicit trace: Trace): UIO[Chunk[A]] =
-          queue.takeUpTo(max).tap(as => ZIO.foreachDiscard(as)(f))
-      }
-    }
-  }
 }

@@ -132,26 +132,21 @@ object HttpData {
 
     private def isLast(msg: HttpContent): Boolean = msg.isInstanceOf[LastHttpContent]
 
-    private def toQueue: ZIO[Any, Nothing, Queue[HttpContent]] = {
+    private def toQueue: ZIO[Any, Nothing, (ChannelHandlerContext, Queue[HttpContent])] = {
       for {
         queue      <- Queue.bounded[HttpContent](1)
         ctxPromise <- Promise.make[Nothing, ChannelHandlerContext]
         runtime    <- ZIO.runtime[Any]
         _          <- ZIO.succeed(
-          unsafeRun { ch =>
-            Unsafe.unsafeCompat[Any] { u =>
-              runtime.unsafe.run(ctxPromise.succeed(ch))(Trace.empty, u)
+          Unsafe.unsafeCompat { implicit u =>
+            unsafeRun { ch =>
+              runtime.unsafe.run(ctxPromise.succeed(ch))
+              msg => runtime.unsafe.run(queue.offer(msg))
             }
-            msg =>
-              Unsafe.unsafeCompat[Any] { u =>
-                runtime.unsafe.run(queue.offer(msg))(Trace.empty, u)
-              }
           },
         )
-        ch         <- ctxPromise.await
-      } yield queue.tap { msg =>
-        ZIO.succeed(ch.read()).unless(isLast(msg)).as(msg)
-      }
+        ctx        <- ctxPromise.await
+      } yield (ctx, queue)
     }
 
     /**
@@ -175,8 +170,12 @@ object HttpData {
     override def toByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] = {
       ZStream.unwrap {
         for {
-          queue <- toQueue
-          stream = ZStream.fromQueueWithShutdown(queue).takeUntil(isLast(_)).map(_.content())
+          reader <- toQueue
+          stream = ZStream
+            .fromQueueWithShutdown(reader._2)
+            .tap(_ => ZIO.succeed(reader._1.read()))
+            .takeUntil(isLast)
+            .map(_.content())
         } yield stream
       }
     }
