@@ -15,7 +15,7 @@ object LogLevelSpec extends ZIOSpecDefault {
         assertTrue(LogLevel.fromString(level.toString).contains(level))
       }
     },
-    test("any value with the exception of defined values for LogLevel should be set to Error log level.") {
+    test("any invalid value should not decode") {
       checkAll(Gen.fromIterable(List("not defined", "unknown", "disable"))) { level =>
         assertTrue(LogLevel.fromString(level).isEmpty)
       }
