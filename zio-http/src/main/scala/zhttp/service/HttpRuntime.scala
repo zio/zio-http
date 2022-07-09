@@ -5,7 +5,7 @@ import io.netty.util.concurrent.{EventExecutor, Future, GenericFutureListener}
 import zio._
 
 import scala.collection.mutable
-import scala.jdk.CollectionConverters.IterableHasAsScala
+import scala.jdk.CollectionConverters._
 
 /**
  * Provides basic ZIO based utilities for any ZIO based program to execute in a
@@ -97,7 +97,7 @@ object HttpRuntime {
             val executor        = Executor.fromJavaExecutor(jExecutor)
             val rtmLayers       = Runtime.setExecutor(executor)
             val rtm: Runtime[R] = Runtime.unsafe.fromLayer(rtmLayers).withEnvironment(env)
-            map.addOne((jExecutor, rtm))
+            map += ((jExecutor, rtm))
           }
 
           override def runtime(ctx: Ctx): Runtime[R] = map.getOrElse(ctx.executor(), rtm)
