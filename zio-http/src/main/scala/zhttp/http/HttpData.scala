@@ -137,14 +137,15 @@ object HttpData {
         queue      <- Queue.bounded[HttpContent](1)
         ctxPromise <- Promise.make[Nothing, ChannelHandlerContext]
         runtime    <- ZIO.runtime[Any]
-        _          <- ZIO.succeed(
-          Unsafe.unsafeCompat { implicit u =>
-            unsafeRun { ch =>
-              runtime.unsafe.run(ctxPromise.succeed(ch))
-              msg => runtime.unsafe.run(queue.offer(msg))
+        _          <- ZIO.succeed {
+          unsafeRun { ch =>
+            Unsafe.unsafeCompat { implicit u =>
+              // TODO: passing unsafe explicitly is a bit of a hack, but it works for now
+              runtime.unsafe.run(ctxPromise.succeed(ch))(Trace.empty, u)
+              (msg: HttpContent) => runtime.unsafe.run(queue.offer(msg))(Trace.empty, u)
             }
-          },
-        )
+          }
+        }
         ctx        <- ctxPromise.await
       } yield (ctx, queue)
     }
