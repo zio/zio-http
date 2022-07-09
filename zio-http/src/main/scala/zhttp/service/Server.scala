@@ -218,16 +218,14 @@ object Server {
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    (Server(http).withPort(port).make *> ZIO.never)
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
+    start(new InetSocketAddress(port), http)
 
   def start[R](
     address: InetAddress,
     port: Int,
     http: HttpApp[R, Throwable],
   ): ZIO[R, Throwable, Nothing] =
-    (Server(http).withBinding(address, port).make *> ZIO.never)
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
+    start(new InetSocketAddress(address, port), http)
 
   def start[R](
     socketAddress: InetSocketAddress,
