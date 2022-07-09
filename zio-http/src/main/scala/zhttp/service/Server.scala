@@ -213,23 +213,13 @@ object Server {
   /**
    * Launches the app on the provided port.
    */
-  def start[R](
-    port: Int,
-    http: HttpApp[R, Throwable],
-  ): ZIO[R, Throwable, Nothing] =
+  def start[R](port: Int, http: HttpApp[R, Throwable]): ZIO[R, Throwable, Nothing] =
     start(new InetSocketAddress(port), http)
 
-  def start[R](
-    address: InetAddress,
-    port: Int,
-    http: HttpApp[R, Throwable],
-  ): ZIO[R, Throwable, Nothing] =
+  def start[R](address: InetAddress, port: Int, http: HttpApp[R, Throwable]): ZIO[R, Throwable, Nothing] =
     start(new InetSocketAddress(address, port), http)
 
-  def start[R](
-    socketAddress: InetSocketAddress,
-    http: HttpApp[R, Throwable],
-  ): ZIO[R, Throwable, Nothing] =
+  def start[R](socketAddress: InetSocketAddress, http: HttpApp[R, Throwable]): ZIO[R, Throwable, Nothing] =
     (Server(http).withBinding(socketAddress).make *> ZIO.never)
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
 
