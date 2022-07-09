@@ -196,10 +196,11 @@ object Server {
       port <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield {
       ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
+      log.info(s"Server Started on Port: [${port}]")
+      log.debug(s"Process: [${ProcessHandle.current().pid()}]")
       log.debug(s"Keep Alive: [${settings.keepAlive}]")
       log.debug(s"Leak Detection: [${settings.leakDetectionLevel}]")
       log.debug(s"Transport: [${eventLoopGroup.getClass.getName}]")
-      log.info(s"Server Started on Port: [${port}]")
       Start(port)
     }
   }
