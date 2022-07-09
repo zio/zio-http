@@ -57,6 +57,8 @@ sealed trait LogFormat { self =>
 
   final def bracket: LogFormat = transform(msg => s"[${msg}]")
 
+  final def combine(str: String)(other: LogFormat): LogFormat = Combine(self, str, other)
+
   final def cyan: LogFormat = font(Font.CYAN)
 
   final def cyanB: LogFormat = font(Font.CYAN_B)
@@ -120,10 +122,13 @@ object LogFormat {
     j <- 0 to 16
     code = i * 16 + j
     if code < 231 || code > 235
-  } yield s"\u001b[48;5;${code};1m").toArray
+  } yield s"\u001b[38;5;${code};1m").toArray
 
   def inlineColored: LogFormat =
-    LogFormat.level.uppercase.bracket.fixed(7) |-| LogFormat.tags.autoColor |-| LogFormat.message
+    LogFormat.level.uppercase.bracket.fixed(7) |-|
+      LogFormat.threadName |-|
+      LogFormat.tags.autoColor |-|
+      LogFormat.message
 
   def inlineMaximus: LogFormat = {
     LogFormat.tags.bracket |-|
