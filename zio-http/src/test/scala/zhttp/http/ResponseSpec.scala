@@ -3,7 +3,7 @@ package zhttp.http
 import zio.test.Assertion._
 import zio.test._
 
-object ResponseSpec extends DefaultRunnableSpec {
+object ResponseSpec extends ZIOSpecDefault {
   def spec = suite("Response")(
     suite("redirect") {
       val location = "www.google.com"
@@ -32,9 +32,9 @@ object ResponseSpec extends DefaultRunnableSpec {
         },
       ) +
       suite("toHttp")(
-        testM("should convert response to Http") {
+        test("should convert response to Http") {
           val http = Http(Response.ok)
-          assertM(http(()))(equalTo(Response.ok))
+          assertZIO(http(()))(equalTo(Response.ok))
         },
       ),
   )

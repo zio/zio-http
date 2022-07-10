@@ -3,10 +3,10 @@ import zio.test._
 
 import scala.collection.mutable.ListBuffer
 
-object LoggerSpec extends DefaultRunnableSpec {
+object LoggerSpec extends ZIOSpecDefault {
 
   override def spec = suite("LoggerSpec")(
-    testM("logs nothing") {
+    test("logs nothing") {
       val message = "ABC"
       val logger  = Logger.make.withLevel(LogLevel.Error)
 
@@ -16,7 +16,7 @@ object LoggerSpec extends DefaultRunnableSpec {
         assertTrue(transport.stdout == "")
       }
     },
-    testM("logs message") {
+    test("logs message") {
       val format  = LogFormat.level |-| LogFormat.message
       val message = "ABC"
       checkAll(Gen.fromIterable(LogLevel.all)) { level =>

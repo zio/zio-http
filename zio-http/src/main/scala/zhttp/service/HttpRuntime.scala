@@ -3,10 +3,8 @@ package zhttp.service
 import io.netty.channel.{ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
 import io.netty.util.concurrent.{EventExecutor, Future, GenericFutureListener}
 import zio._
-import zio.internal.Executor
 
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext => JExecutionContext}
 import scala.jdk.CollectionConverters._
 
 /**
@@ -19,116 +17,95 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
 
   private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
     (_: Future[_ >: Void]) =>
-      rtm.unsafeRunAsync(fiber.interrupt) { _ =>
-        log.debug(s"Interrupted Fiber: [${fiber.id}]")
+      Unsafe.unsafeCompat { implicit u =>
+        val _ = rtm.unsafe.fork {
+          fiber.interrupt.as(log.debug(s"Interrupted Fiber: [${fiber.id}]"))
+        }
       }
 
-  private def onFailure(ctx: ChannelHandlerContext, cause: Cause[Throwable]) = {
+  private def onFailure(ctx: ChannelHandlerContext, cause: Cause[Throwable]): Unit = {
     cause.failureOption.orElse(cause.dieOption) match {
       case None        => ()
       case Some(error) =>
         log.error("HttpRuntimeException:" + cause.prettyPrint)
         ctx.fireExceptionCaught(error)
     }
-    if (ctx.channel().isOpen) ctx.close()
+    if (ctx.channel().isOpen) ctx.close(): Unit
   }
 
-  def unsafeRun(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
+  def unsafeRun(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any], interruptOnClose: Boolean = true): Unit = {
     val rtm = strategy.runtime(ctx)
+
+    def removeListener(close: GenericFutureListener[Future[_ >: Void]]): Unit = {
+      if (close != null)
+        ctx.channel().closeFuture().removeListener(close): Unit
+    }
 
     // Close the connection if the program fails
     // When connection closes, interrupt the program
+    Unsafe.unsafeCompat { implicit u =>
+      var close: GenericFutureListener[Future[_ >: Void]] = null
 
-    rtm
-      .unsafeRunAsync(for {
-        fiber <- program.fork
-        close <- UIO {
-          val close = closeListener(rtm, fiber)
-          ctx.channel().closeFuture.addListener(close)
-          log.debug(s"Started Fiber: [${fiber.id}]")
-          close
-        }
-        _     <- fiber.join
-        _     <- UIO {
+      val fiber = rtm.unsafe.fork(program)
+
+      log.debug(s"Started Fiber: [${fiber.id}]")
+      if (interruptOnClose) {
+        close = closeListener(rtm, fiber)
+        ctx.channel().closeFuture.addListener(close)
+      }
+
+      fiber.unsafe.addObserver {
+        case Exit.Success(_)     =>
           log.debug(s"Completed Fiber: [${fiber.id}]")
-          ctx.channel().closeFuture().removeListener(close)
-        }
-      } yield ()) {
-        case Exit.Success(_)     => ()
-        case Exit.Failure(cause) => onFailure(ctx, cause)
+          removeListener(close)
+        case Exit.Failure(cause) =>
+          onFailure(ctx, cause)
+          removeListener(close)
       }
+    }
   }
 
-  def unsafeRunUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit = {
-    val rtm = strategy.runtime(ctx)
-    log.debug(s"Started Uninterruptible")
-    rtm
-      .unsafeRunAsync(program) { msg =>
-        log.debug(s"Completed Uninterruptible: [${msg}]")
-        msg match {
-          case Exit.Success(_)     => ()
-          case Exit.Failure(cause) => onFailure(ctx, cause)
-        }
-      }
-  }
+  def unsafeRunUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit =
+    unsafeRun(ctx)(program, interruptOnClose = false)
 }
 
 object HttpRuntime {
   private[zhttp] val log = Log.withTags("HttpRuntime")
 
-  def dedicated[R](group: JEventLoopGroup): URIO[R, HttpRuntime[R]] =
-    Strategy.dedicated(group).map(runtime => new HttpRuntime[R](runtime))
-
+  /**
+   * Creates a runtime that uses a separate thread pool for ZIO operations.
+   */
   def default[R]: URIO[R, HttpRuntime[R]] =
-    Strategy.default().map(runtime => new HttpRuntime[R](runtime))
+    for {
+      rtm <- ZIO.runtime[R]
+    } yield new HttpRuntime((ctx: Ctx) => rtm)
 
+  /**
+   * Creates a runtime that uses the same thread that's used by the channel's
+   * event loop. This should be the preferred way of creating the runtime for
+   * the server.
+   */
   def sticky[R](group: JEventLoopGroup): URIO[R, HttpRuntime[R]] =
-    Strategy.sticky(group).map(runtime => new HttpRuntime[R](runtime))
-
-  sealed trait Strategy[R] {
-    def runtime(ctx: ChannelHandlerContext): Runtime[R]
-  }
-
-  object Strategy {
-
-    def dedicated[R](group: JEventLoopGroup): ZIO[R, Nothing, Strategy[R]] =
-      ZIO.runtime[R].map(runtime => Dedicated(runtime, group))
-
-    def default[R](): ZIO[R, Nothing, Strategy[R]] =
-      ZIO.runtime[R].map(runtime => Default(runtime))
-
-    def sticky[R](group: JEventLoopGroup): ZIO[R, Nothing, Strategy[R]] =
-      ZIO.runtime[R].map(runtime => Group(runtime, group))
-
-    case class Default[R](runtime: Runtime[R]) extends Strategy[R] {
-      override def runtime(ctx: ChannelHandlerContext): Runtime[R] = runtime
-    }
-
-    case class Dedicated[R](runtime: Runtime[R], group: JEventLoopGroup) extends Strategy[R] {
-      private val localRuntime: Runtime[R] = runtime.withYieldOnStart(false).withExecutor {
-        Executor.fromExecutionContext(runtime.platform.executor.yieldOpCount) {
-          JExecutionContext.fromExecutor(group)
-        }
-      }
-
-      override def runtime(ctx: ChannelHandlerContext): Runtime[R] = localRuntime
-    }
-
-    case class Group[R](runtime: Runtime[R], group: JEventLoopGroup) extends Strategy[R] {
-      private val localRuntime: mutable.Map[EventExecutor, Runtime[R]] = {
-        val map = mutable.Map.empty[EventExecutor, Runtime[R]]
-        for (exe <- group.asScala)
-          map += exe -> runtime.withYieldOnStart(false).withExecutor {
-            Executor.fromExecutionContext(runtime.platform.executor.yieldOpCount) {
-              JExecutionContext.fromExecutor(exe)
-            }
+    for {
+      rtm <- ZIO.runtime[R]
+      env <- ZIO.environment[R]
+    } yield new HttpRuntime(
+      Unsafe.unsafeCompat { implicit u =>
+        new Strategy[R] {
+          val map = mutable.Map.empty[EventExecutor, Runtime[R]]
+          group.asScala.foreach { jExecutor =>
+            val executor        = Executor.fromJavaExecutor(jExecutor)
+            val rtmLayers       = Runtime.setExecutor(executor)
+            val rtm: Runtime[R] = Runtime.unsafe.fromLayer(rtmLayers).withEnvironment(env)
+            map += ((jExecutor, rtm))
           }
 
-        map
-      }
+          override def runtime(ctx: Ctx): Runtime[R] = map.getOrElse(ctx.executor(), rtm)
+        }
+      },
+    )
 
-      override def runtime(ctx: ChannelHandlerContext): Runtime[R] =
-        localRuntime.getOrElse(ctx.executor(), runtime)
-    }
+  trait Strategy[R] {
+    def runtime(ctx: ChannelHandlerContext): Runtime[R]
   }
 }

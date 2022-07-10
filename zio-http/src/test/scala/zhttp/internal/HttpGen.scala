@@ -5,7 +5,6 @@ import zhttp.http.Path.Segment
 import zhttp.http.Scheme.{HTTP, HTTPS, WS, WSS}
 import zhttp.http.URL.Location
 import zhttp.http._
-import zio.random.Random
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
 import zio.{Chunk, ZIO}
@@ -14,7 +13,7 @@ import java.io.File
 import java.time.Instant
 
 object HttpGen {
-  def anyPath: Gen[Random with Sized, Path] = for {
+  def anyPath: Gen[Sized, Path] = for {
     segments <- Gen.listOfBounded(0, 5)(
       Gen.oneOf(
         Gen.alphaNumericStringBounded(0, 5).map(Segment(_)),
@@ -23,9 +22,9 @@ object HttpGen {
     )
   } yield Path(segments.toVector)
 
-  def clientParamsForFileHttpData(): Gen[Random with Sized, Request] = {
+  def clientParamsForFileHttpData(): Gen[Sized, Request] = {
     for {
-      file    <- Gen.fromEffect(ZIO.succeed(new File(getClass.getResource("/TestFile.txt").getPath)))
+      file    <- Gen.fromZIO(ZIO.succeed(new File(getClass.getResource("/TestFile.txt").getPath)))
       method  <- HttpGen.method
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
@@ -33,22 +32,22 @@ object HttpGen {
     } yield Request(version, method, url, headers, data = HttpData.fromFile(file))
   }
 
-  def cookies: Gen[Random with Sized, Cookie] = for {
-    name     <- Gen.anyString
-    content  <- Gen.anyString
+  def cookies: Gen[Sized, Cookie] = for {
+    name     <- Gen.string
+    content  <- Gen.string
     expires  <- Gen.option(
       Gen.instant(Instant.parse("0001-01-01T00:00:00.00Z"), Instant.parse("9999-12-31T23:59:00.00Z")),
     )
-    domain   <- Gen.option(Gen.anyString)
+    domain   <- Gen.option(Gen.string)
     path     <- Gen.option(HttpGen.anyPath)
     secure   <- Gen.boolean
     httpOnly <- Gen.boolean
-    maxAge   <- Gen.option(Gen.anyLong)
+    maxAge   <- Gen.option(Gen.long)
     sameSite <- Gen.option(Gen.fromIterable(List(Cookie.SameSite.Strict, Cookie.SameSite.Lax)))
-    secret   <- Gen.option(Gen.anyString)
+    secret   <- Gen.option(Gen.string)
   } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite, secret)
 
-  def genAbsoluteLocation: Gen[Random with Sized, Location.Absolute] = for {
+  def genAbsoluteLocation: Gen[Sized, Location.Absolute] = for {
     scheme <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS))
     host   <- Gen.alphaNumericStringBounded(1, 5)
     port   <- Gen.int(0, 65536)
@@ -62,7 +61,7 @@ object HttpGen {
 
   def genRelativeLocation: Gen[Any, Location.Relative.type] = Gen.const(URL.Location.Relative)
 
-  def header: Gen[Random with Sized, Header] = for {
+  def header: Gen[Sized, Header] = for {
     key   <- Gen.alphaNumericStringBounded(1, 4)
     value <- Gen.alphaNumericStringBounded(1, 4)
   } yield (key, value)
@@ -82,10 +81,10 @@ object HttpGen {
         )
     } yield cnt
 
-  def httpVersion: Gen[Random with Sized, Version] =
+  def httpVersion: Gen[Sized, Version] =
     Gen.fromIterable(List(Version.Http_1_0, Version.Http_1_1))
 
-  def location: Gen[Random with Sized, URL.Location] = {
+  def location: Gen[Sized, URL.Location] = {
     Gen.fromIterable(List(genRelativeLocation, genAbsoluteLocation)).flatten
   }
 
@@ -117,7 +116,7 @@ object HttpGen {
         )
     } yield cnt
 
-  def nonEmptyPath: Gen[Random with Sized, Path] = for {
+  def nonEmptyPath: Gen[Sized, Path] = for {
     segments <-
       Gen.listOfBounded(1, 5)(
         Gen.oneOf(
@@ -128,7 +127,7 @@ object HttpGen {
 
   } yield Path(segments.toVector)
 
-  def request: Gen[Random with Sized, Request] = for {
+  def request: Gen[Sized, Request] = for {
     version <- httpVersion
     method  <- HttpGen.method
     url     <- HttpGen.url
@@ -139,9 +138,9 @@ object HttpGen {
   def requestGen[R](
     dataGen: Gen[R, HttpData],
     methodGen: Gen[R, Method] = HttpGen.method,
-    urlGen: Gen[Random with Sized, URL] = HttpGen.url,
-    headerGen: Gen[Random with Sized, Header] = HttpGen.header,
-  ): Gen[R with Random with Sized, Request] =
+    urlGen: Gen[Sized, URL] = HttpGen.url,
+    headerGen: Gen[Sized, Header] = HttpGen.header,
+  ): Gen[R with Sized, Request] =
     for {
       method  <- methodGen
       url     <- urlGen
@@ -150,7 +149,7 @@ object HttpGen {
       version <- httpVersion
     } yield Request(version, method, url, headers, data = data)
 
-  def response[R](gContent: Gen[R, List[String]]): Gen[Random with Sized with R, Response] = {
+  def response[R](gContent: Gen[R, List[String]]): Gen[Sized with R, Response] = {
     for {
       content <- HttpGen.httpData(gContent)
       headers <- HttpGen.header.map(Headers(_))
@@ -221,7 +220,7 @@ object HttpGen {
     ),
   )
 
-  def url: Gen[Random with Sized, URL] = for {
+  def url: Gen[Sized, URL] = for {
     path        <- Gen.elements(Path.root, Path.root / "a", Path.root / "a" / "b", Path.root / "a" / "b" / "c")
     kind        <- HttpGen.location
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))

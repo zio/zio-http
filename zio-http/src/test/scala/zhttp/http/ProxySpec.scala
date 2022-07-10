@@ -4,7 +4,7 @@ import zhttp.http.middleware.Auth.Credentials
 import zio.test.Assertion.{equalTo, isNone, isNull, isSome}
 import zio.test._
 
-object ProxySpec extends DefaultRunnableSpec {
+object ProxySpec extends ZIOSpecDefault {
   private val validUrl = URL.fromString("http://localhost:8123").toOption.getOrElse(URL.empty)
 
   override def spec = suite("Proxy")(
