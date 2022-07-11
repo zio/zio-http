@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zio.duration._
+import zio.Duration
 
 import java.security.MessageDigest
 import java.time.format.DateTimeFormatter
@@ -44,7 +44,7 @@ final case class Cookie(
   /**
    * Sets max-age in cookie
    */
-  def withMaxAge(v: Duration): Cookie = copy(maxAge = Some(v.asScala.toSeconds))
+  def withMaxAge(v: Duration): Cookie = copy(maxAge = Some(v.getSeconds))
 
   /**
    * Sets max-age in seconds in cookie

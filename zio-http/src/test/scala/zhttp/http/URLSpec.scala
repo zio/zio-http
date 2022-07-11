@@ -4,11 +4,11 @@ import zhttp.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
 
-object URLSpec extends DefaultRunnableSpec {
+object URLSpec extends ZIOSpecDefault {
   def spec =
     suite("URL")(
       suite("encode-decode symmetry")(
-        testM("auto-gen") {
+        test("auto-gen") {
           check(HttpGen.url) { url =>
             val expected        = url.normalize
             val expectedEncoded = expected.encode
@@ -19,7 +19,7 @@ object URLSpec extends DefaultRunnableSpec {
             assertTrue(actual == Right(expected))
           }
         },
-        testM("manual") {
+        test("manual") {
           val urls = Gen.fromIterable(
             Seq(
               "",

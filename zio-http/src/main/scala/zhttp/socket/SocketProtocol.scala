@@ -5,7 +5,7 @@ import io.netty.handler.codec.http.websocketx.{
   WebSocketCloseStatus,
   WebSocketServerProtocolConfig,
 }
-import zio.duration.Duration
+import zio.Duration
 
 /**
  * Server side websocket configuration
