@@ -1,6 +1,7 @@
 package zhttp.http.middleware
 
-import zhttp.html.{Template, _}
+import io.netty.handler.codec.http.HttpHeaderValues
+import zhttp.html._
 import zhttp.http.URL.encode
 import zhttp.http._
 import zhttp.http.headers.HeaderModifier
@@ -30,8 +31,8 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   /**
    * Beautify the error response.
    */
-  final def beautifyErrors[R, E]: HttpMiddleware[R, E] =
-    Middleware.intercept[Request, Response](_ => ())((res, _) => updateErrorResponse(res))
+  final def beautifyErrors: HttpMiddleware[Any, Nothing] =
+    Middleware.intercept[Request, Response](identity)((res, req) => updateErrorResponse(res, req))
 
   /**
    * Add log status, method, url and time taken from req to res
@@ -220,13 +221,8 @@ object Web {
         )
   }
 
-  private def updateErrorResponse(response: Response): Response = {
-    def prettify(throwable: Throwable): String = {
-      val sw = new StringWriter
-      throwable.printStackTrace(new PrintWriter(sw))
-      s"${sw.toString}"
-    }
-    if (response.status.isError) {
+  private def updateErrorResponse(response: Response, request: Request): Response = {
+    def htmlResponse: HttpData = {
       val message: String = response.httpError.map(_.message).getOrElse("")
       val data            = Template.container(s"${response.status}") {
         div(
@@ -242,12 +238,53 @@ object Web {
           ),
         )
       }
-      response.copy(
-        data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
-        headers = Headers(HeaderNames.contentType, HeaderValues.textHtml),
-      )
+      HttpData.fromString("<!DOCTYPE html>" + data.encode)
+    }
+
+    def textResponse: HttpData = {
+      HttpData.fromString(formatErrorMessage(response))
+    }
+
+    if (response.status.isError) {
+      request.accept match {
+        case Some(value) if HttpHeaderValues.TEXT_HTML.contains(value) =>
+          htmlResponse
+          response.copy(
+            data = htmlResponse,
+            headers = Headers(HeaderNames.contentType, HeaderValues.textHtml),
+          )
+        case _                                                         =>
+          request.userAgent match {
+            case Some(userAgent) if userAgent.toString.contains("curl") =>
+              response.copy(
+                data = textResponse,
+                headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
+              )
+            case _                                                      => response
+          }
+      }
 
     } else
       response
   }
+
+  private def prettify(throwable: Throwable): String = {
+    val sw = new StringWriter
+    throwable.printStackTrace(new PrintWriter(sw))
+    s"${sw.toString}"
+  }
+
+  private def formatCause(response: Response): String =
+    response.httpError.get.foldCause("") { throwable =>
+      s"${scala.Console.BOLD}Cause: ${scala.Console.RESET}\n ${prettify(throwable)}"
+    }
+
+  private def formatErrorMessage(response: Response) = {
+    val errorMessage: String = response.httpError.map(_.message).getOrElse("")
+    val status               = response.status.code
+    s"${scala.Console.BOLD}${scala.Console.RED}${response.status} ${scala.Console.RESET} - " +
+      s"${scala.Console.BOLD}${scala.Console.CYAN}$status ${scala.Console.RESET} - " +
+      s"${errorMessage}\n${formatCause(response)}"
+  }
+
 }

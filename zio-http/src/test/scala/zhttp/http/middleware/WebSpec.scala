@@ -233,10 +233,19 @@ object WebSpec extends DefaultRunnableSpec with HttpAppTestExtensions {
           }
       } +
       suite("prettify error") {
-        testM("should add the error stack trace as html in the body ") {
+        testM("should not add anything to the body  as request do not have an accept header") {
           val app = (Http.error("Error !!!") @@ beautifyErrors) header "content-type"
-          assertM(app(Request()))(isSome(equalTo("text/html")))
-        }
+          assertM(app(Request()))(isNone)
+        } +
+          testM("should return a html body as the request has accept header set to text/html.") {
+            val app = (Http
+              .error("Error !!!") @@ beautifyErrors) header "content-type"
+            assertM(
+              app(
+                Request(headers = Headers.accept(HeaderValues.textHtml)),
+              ),
+            )(isSome(equalTo("text/html")))
+          }
       }
   }
 
