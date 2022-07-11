@@ -4,7 +4,7 @@ import zhttp.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
 
-object StatusSpec extends DefaultRunnableSpec {
+object StatusSpec extends ZIOSpecDefault {
   private val statusGen = HttpGen.status
 
   def spec = suite("Status")(
@@ -14,7 +14,7 @@ object StatusSpec extends DefaultRunnableSpec {
 
   def toResponseSpec =
     suite("toResponse")(
-      testM("status") {
+      test("status") {
         checkAll(statusGen) { case status =>
           assert(status.toResponse.status)(equalTo(status))
         }
@@ -23,10 +23,10 @@ object StatusSpec extends DefaultRunnableSpec {
 
   def toAppSpec = {
     suite("toApp")(
-      testM("status") {
-        checkAllM(statusGen) { case status =>
+      test("status") {
+        checkAll(statusGen) { case status =>
           val res = status.toApp(Request())
-          assertM(res.map(_.status))(equalTo(status))
+          assertZIO(res.map(_.status))(equalTo(status))
         }
       },
     )

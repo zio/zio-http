@@ -5,11 +5,8 @@ import zhttp.html._
 import zhttp.http.URL.encode
 import zhttp.http._
 import zhttp.http.headers.HeaderModifier
-import zhttp.http.middleware.Web.{PartialInterceptPatch, PartialInterceptZIOPatch, updateErrorResponse}
-import zio.clock.Clock
-import zio.console.Console
-import zio.duration.Duration
-import zio.{UIO, ZIO, clock, console}
+import zhttp.http.middleware.Web.{PartialInterceptPatch, PartialInterceptZIOPatch}
+import zio._
 
 import java.io.{IOException, PrintWriter, StringWriter}
 
@@ -37,13 +34,13 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   /**
    * Add log status, method, url and time taken from req to res
    */
-  final def debug: HttpMiddleware[Console with Clock, IOException] =
-    interceptZIOPatch(req => zio.clock.nanoTime.map(start => (req.method, req.url, start))) {
+  final def debug: HttpMiddleware[Any, IOException] =
+    interceptZIOPatch(req => Clock.nanoTime.map(start => (req.method, req.url, start))) {
       case (response, (method, url, start)) =>
         for {
-          end <- clock.nanoTime
-          _   <- console
-            .putStrLn(s"${response.status.asJava.code()} ${method} ${url.encode} ${(end - start) / 1000000}ms")
+          end <- Clock.nanoTime
+          _   <- Console
+            .printLine(s"${response.status.asJava.code()} ${method} ${url.encode} ${(end - start) / 1000000}ms")
             .mapError(Option(_))
         } yield Patch.empty
     }
@@ -139,7 +136,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    * middleware is applied.
    */
   final def runBefore[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
-    Middleware.interceptZIOPatch(_ => effect.mapError(Option(_)).unit)((_, _) => UIO(Patch.empty))
+    Middleware.interceptZIOPatch(_ => effect.mapError(Option(_)).unit)((_, _) => ZIO.succeed(Patch.empty))
 
   /**
    * Creates a new middleware that always sets the response status to the
@@ -163,7 +160,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   /**
    * Times out the application with a 408 status code.
    */
-  final def timeout(duration: Duration): HttpMiddleware[Clock, Nothing] =
+  final def timeout(duration: Duration): HttpMiddleware[Any, Nothing] =
     Middleware
       .identity[Request, Response]
       .race(Middleware.fromHttp(Http.status(Status.RequestTimeout).delayAfter(duration)))

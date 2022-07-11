@@ -4,10 +4,10 @@ import zhttp.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
 
-object RequestSpec extends DefaultRunnableSpec {
+object RequestSpec extends ZIOSpecDefault {
   def spec = suite("Request")(
     suite("toString") {
-      testM("should produce string representation of a request") {
+      test("should produce string representation of a request") {
         check(HttpGen.request) { req =>
           assert(req.toString)(
             equalTo(s"Request(${req.version}, ${req.method}, ${req.url}, ${req.headers})"),

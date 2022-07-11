@@ -4,31 +4,31 @@ import zio.test._
 
 private[zhttp] trait HExitAssertion {
   def isDie[R, E, A](ass: Assertion[Throwable]): Assertion[HExit[R, E, A]] =
-    Assertion.assertion("isDie")() {
+    Assertion.assertion("isDie") {
       case HExit.Die(t) => ass.test(t)
       case _            => false
     }
 
   def isEffect[R, E, A]: Assertion[HExit[R, E, A]] =
-    Assertion.assertion("isEffect")() {
+    Assertion.assertion("isEffect") {
       case HExit.Effect(_) => true
       case _               => false
     }
 
   def isEmpty[R, E, A]: Assertion[HExit[R, E, A]] =
-    Assertion.assertion("isEmpty")() {
+    Assertion.assertion("isEmpty") {
       case HExit.Empty => true
       case _           => false
     }
 
   def isSuccess[R, E, A](ass: Assertion[A]): Assertion[HExit[R, E, A]] =
-    Assertion.assertion("isSuccess")() {
+    Assertion.assertion("isSuccess") {
       case HExit.Success(a) => ass.test(a)
       case _                => false
     }
 
   def isFailure[R, E, A](ass: Assertion[E]): Assertion[HExit[R, E, A]] =
-    Assertion.assertion("isFailure")() {
+    Assertion.assertion("isFailure") {
       case HExit.Failure(e) => ass.test(e)
       case _                => false
     }

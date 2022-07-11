@@ -90,10 +90,10 @@ object Spec extends DefaultRunnableSpec {
   }
 
   def spec = suite("http")(
-    testM("should be ok") {
+    test("should be ok") {
       val req         = ???
       val expectedRes = app(req).map(_.status)
-      assertM(expectedRes)(equalTo(Status.Ok))
+      assertZIO(expectedRes)(equalTo(Status.Ok))
     },
   )
 }

@@ -3,16 +3,15 @@ package zhttp.service
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zhttp.service.server._
-import zio.ZIO
-import zio.duration.durationInt
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
+import zio.{Scope, ZIO, durationInt}
 
 object StaticServerSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
 
   private val staticApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
@@ -43,79 +42,82 @@ object StaticServerSpec extends HttpRunnableSpec {
         Method.CONNECT,
       ),
     )
-    testM("200 response") {
-      checkAllM(HttpGen.method) { method =>
+    test("200 response") {
+      checkAll(HttpGen.method) { method =>
         val actual = status(method, !! / "HExitSuccess")
-        assertM(actual)(equalTo(Status.Ok))
+        assertZIO(actual)(equalTo(Status.Ok))
       }
     } +
-      testM("500 response") {
-        checkAllM(methodGenWithoutHEAD) { method =>
+      test("500 response") {
+        checkAll(methodGenWithoutHEAD) { method =>
           val actual = status(method, !! / "HExitFailure")
-          assertM(actual)(equalTo(Status.InternalServerError))
+          assertZIO(actual)(equalTo(Status.InternalServerError))
         }
       } +
-      testM("404 response ") {
-        checkAllM(methodGenWithoutHEAD) { method =>
+      test("404 response ") {
+        checkAll(methodGenWithoutHEAD) { method =>
           val actual = status(method, !! / "A")
-          assertM(actual)(equalTo(Status.NotFound))
+          assertZIO(actual)(equalTo(Status.NotFound))
         }
       }
 
   }
 
   def serverStartSpec = suite("ServerStartSpec") {
-    testM("desired port") {
+    test("desired port") {
       val port = 8088
-      (Server.port(port) ++ Server.app(Http.empty)).make.use { start =>
-        assertM(ZIO.effect(start.port))(equalTo(port))
+      ZIO.scoped {
+        (Server.port(port) ++ Server.app(Http.empty)).make.flatMap { start =>
+          assertZIO(ZIO.attempt(start.port))(equalTo(port))
+        }
       }
     } +
-      testM("available port") {
-        (Server.port(0) ++ Server.app(Http.empty)).make.use { start =>
-          assertM(ZIO.effect(start.port))(not(equalTo(0)))
+      test("available port") {
+        ZIO.scoped {
+          (Server.port(0) ++ Server.app(Http.empty)).make.flatMap { start =>
+            assertZIO(ZIO.attempt(start.port))(not(equalTo(0)))
+          }
         }
       }
   }
 
   override def spec =
-    suiteM("Server") {
+    suite("Server") {
       app
         .as(
           List(serverStartSpec, staticAppSpec, nonZIOSpec, throwableAppSpec),
         )
-        .useNow
-    }.provideCustomLayerShared(env) @@ timeout(30 seconds)
+    }.provideSomeLayerShared[TestEnvironment](env) @@ timeout(30 seconds)
 
   def staticAppSpec    = suite("StaticAppSpec") {
-    testM("200 response") {
+    test("200 response") {
       val actual = status(path = !! / "success")
-      assertM(actual)(equalTo(Status.Ok))
+      assertZIO(actual)(equalTo(Status.Ok))
     } +
-      testM("500 response on failure") {
+      test("500 response on failure") {
         val actual = status(path = !! / "failure")
-        assertM(actual)(equalTo(Status.InternalServerError))
+        assertZIO(actual)(equalTo(Status.InternalServerError))
       } +
-      testM("500 response on die") {
+      test("500 response on die") {
         val actual = status(path = !! / "die")
-        assertM(actual)(equalTo(Status.InternalServerError))
+        assertZIO(actual)(equalTo(Status.InternalServerError))
       } +
-      testM("404 response") {
+      test("404 response") {
         val actual = status(path = !! / "random")
-        assertM(actual)(equalTo(Status.NotFound))
+        assertZIO(actual)(equalTo(Status.NotFound))
       } +
-      testM("200 response with encoded path") {
+      test("200 response with encoded path") {
         val actual = status(path = !! / "get%2Fsuccess")
-        assertM(actual)(equalTo(Status.Ok))
+        assertZIO(actual)(equalTo(Status.Ok))
       } +
-      testM("Multiple 200 response") {
+      test("Multiple 200 response") {
         for {
           data <- status(path = !! / "success").repeatN(1024)
         } yield assertTrue(data == Status.Ok)
       }
   }
   def throwableAppSpec = suite("ThrowableAppSpec") {
-    testM("Throw inside Handler") {
+    test("Throw inside Handler") {
       for {
         status <- status(Method.GET, !! / "throwable")
       } yield assertTrue(status == Status.InternalServerError)

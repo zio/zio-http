@@ -83,7 +83,7 @@ final case class Response private (
    * to be counter productive.
    */
   def freeze: UIO[Response] =
-    UIO(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
+    ZIO.succeed(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
 
   /**
    * Sets the response attributes

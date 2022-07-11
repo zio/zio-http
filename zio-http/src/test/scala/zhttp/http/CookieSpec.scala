@@ -4,10 +4,10 @@ import zhttp.internal.HttpGen
 import zio.test.Assertion.{equalTo, isSome}
 import zio.test._
 
-object CookieSpec extends DefaultRunnableSpec {
+object CookieSpec extends ZIOSpecDefault {
   def spec = suite("Cookies") {
     suite("response cookies") {
-      testM("encode/decode signed/unsigned cookies with secret") {
+      test("encode/decode signed/unsigned cookies with secret") {
         check(HttpGen.cookies) { cookie =>
           val expected = cookie.encode
           val actual   = Cookie.decodeResponseCookie(expected, cookie.secret).map(_.encode)
@@ -16,10 +16,10 @@ object CookieSpec extends DefaultRunnableSpec {
       }
     } +
       suite("request cookies") {
-        testM("encode/decode multiple cookies") {
+        test("encode/decode multiple cookies") {
           check(for {
-            name         <- Gen.anyString
-            content      <- Gen.anyString
+            name         <- Gen.string
+            content      <- Gen.string
             cookieList   <- Gen.listOf(Gen.const(Cookie(name, content)))
             cookieString <- Gen.const(cookieList.map(x => s"${x.name}=${x.content}").mkString(";"))
           } yield (cookieList, cookieString)) { case (cookies, message) =>

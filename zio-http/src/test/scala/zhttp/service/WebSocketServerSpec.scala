@@ -4,39 +4,37 @@ import zhttp.http.{Http, Status}
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zhttp.socket.{Socket, WebSocketFrame}
-import zio.clock.Clock
-import zio.duration._
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test._
-import zio.test.environment.TestClock
-import zio.{Chunk, Promise, ZIO}
+import zio.{Chunk, ZIO, _}
 
 object WebSocketServerSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ChannelFactory.nio
+    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ChannelFactory.nio ++ Scope.default
   private val app = serve { DynamicServer.app }
 
-  override def spec       = suiteM("Server") {
-    app.as(List(websocketServerSpec, websocketFrameSpec, websocketOnCloseSpec)).useNow
-  }.provideCustomLayerShared(env) @@ timeout(30 seconds)
+  override def spec = suite("Server") {
+    app.as(List(websocketServerSpec, websocketFrameSpec))
+  }.provideLayerShared(env) @@ timeout(60 seconds) @@ zio.test.TestAspect.withLiveClock
+
   def websocketServerSpec = suite("WebSocketServer") {
     suite("connections") {
-      testM("Multiple websocket upgrades") {
+      test("Multiple websocket upgrades") {
         val app   = Socket.succeed(WebSocketFrame.text("BAR")).toHttp.deployWS
         val codes = ZIO
           .foreach(1 to 1024)(_ => app(Socket.empty.toSocketApp).map(_.status))
           .map(_.count(_ == Status.SwitchingProtocols))
 
-        assertM(codes)(equalTo(1024))
+        assertZIO(codes)(equalTo(1024))
       }
     }
   }
 
   def websocketFrameSpec = suite("WebSocketFrameSpec") {
-    testM("binary") {
+    test("binary") {
       val socket = Socket.collect[WebSocketFrame] { case WebSocketFrame.Binary(buffer) =>
         ZStream.succeed(WebSocketFrame.Binary(buffer))
       }
@@ -44,14 +42,13 @@ object WebSocketServerSpec extends HttpRunnableSpec {
       val app  = socket.toHttp.deployWS
       val open = Socket.succeed(WebSocketFrame.binary(Chunk.fromArray("Hello, World".getBytes)))
 
-      assertM(app(socket.toSocketApp.onOpen(open)).map(_.status))(equalTo(Status.SwitchingProtocols))
+      assertZIO(app(socket.toSocketApp.onOpen(open)).map(_.status))(equalTo(Status.SwitchingProtocols))
     }
   }
 
   def websocketOnCloseSpec = suite("WebSocketOnCloseSpec") {
-    testM("success") {
+    test("success") {
       for {
-        clockEnv <- ZIO.environment[Clock]
 
         // Maintain a flag to check if the close handler was completed
         isSet     <- Promise.make[Nothing, Unit]
@@ -67,7 +64,7 @@ object WebSocketServerSpec extends HttpRunnableSpec {
         clientSocket = Socket.empty.toSocketApp.onOpen(closeSocket)
 
         // Deploy the server and send it a socket request
-        _ <- serverHttp(clientSocket.provideEnvironment(clockEnv))
+        _ <- serverHttp(clientSocket)
 
         // Wait for the close handler to complete
 
