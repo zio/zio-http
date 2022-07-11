@@ -29,7 +29,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
    * Beautify the error response.
    */
   final def beautifyErrors: HttpMiddleware[Any, Nothing] =
-    Middleware.intercept[Request, Response](identity)((res, req) => updateErrorResponse(res, req))
+    Middleware.intercept[Request, Response](identity)((res, req) => Web.updateErrorResponse(res, req))
 
   /**
    * Add log status, method, url and time taken from req to res
