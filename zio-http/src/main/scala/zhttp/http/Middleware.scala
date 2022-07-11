@@ -1,9 +1,7 @@
 package zhttp.http
 
 import zhttp.http.middleware.{MonoMiddleware, Web}
-import zio.clock.Clock
-import zio.duration.Duration
-import zio.{UIO, ZIO}
+import zio._
 
 /**
  * Middlewares are essentially transformations that one can apply on any Http to
@@ -82,7 +80,7 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    * Preprocesses the incoming value for the outgoing Http.
    */
   final def contramap[AOut0](f: AOut0 => AOut): Middleware[R, E, AIn, BIn, AOut0, BOut] =
-    self.contramapZIO[AOut0](a => UIO(f(a)))
+    self.contramapZIO[AOut0](a => ZIO.succeed(f(a)))
 
   /**
    * Preprocesses the incoming value using a ZIO, for the outgoing Http.
@@ -93,8 +91,8 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   /**
    * Delays the production of Http output for the specified duration
    */
-  final def delay(duration: Duration): Middleware[R with Clock, E, AIn, BIn, AOut, BOut] =
-    self.mapZIO(b => UIO(b).delay(duration))
+  final def delay(duration: Duration): Middleware[R, E, AIn, BIn, AOut, BOut] =
+    self.mapZIO(b => ZIO.succeed(b).delay(duration))
 
   /**
    * Creates a new Middleware from another
@@ -161,7 +159,7 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    */
   final def when[AOut0 <: AOut](cond: AOut0 => Boolean)(implicit
     ev: IsMono[AIn, BIn, AOut0, BOut],
-  ): Middleware[R, E, AIn, BIn, AOut0, BOut] = self.whenZIO(a => UIO(cond(a)))
+  ): Middleware[R, E, AIn, BIn, AOut0, BOut] = self.whenZIO(a => ZIO.succeed(cond(a)))
 
   /**
    * Applies Middleware based only if the condition effectful function evaluates
@@ -184,7 +182,7 @@ object Middleware extends Web {
    * the predicate
    */
   def allow[A, B](cond: A => Boolean): Middleware[Any, Nothing, A, B, A, B] =
-    allowZIO(a => UIO(cond(a)))
+    allowZIO(a => ZIO.succeed(cond(a)))
 
   /**
    * Creates a middleware which can allow or disallow access to an http based on
@@ -308,7 +306,7 @@ object Middleware extends Web {
       in: AOut => AIn,
       out: BIn => BOut,
     ): Middleware[Any, Nothing, AIn, BIn, AOut, BOut] =
-      Middleware.transformZIO[AOut, BIn](a => UIO(in(a)), b => UIO(out(b)))
+      Middleware.transformZIO[AOut, BIn](a => ZIO.succeed(in(a)), b => ZIO.succeed(out(b)))
   }
 
   final class PartialMonoZIO[AOut, BIn](val unit: Unit) extends AnyVal {
@@ -338,7 +336,7 @@ object Middleware extends Web {
 
   final class PartialIntercept[A, B](val unit: Unit) extends AnyVal {
     def apply[S, BOut](incoming: A => S)(outgoing: (B, S) => BOut): Middleware[Any, Nothing, A, B, A, BOut] =
-      interceptZIO[A, B](a => UIO(incoming(a)))((b, s) => UIO(outgoing(b, s)))
+      interceptZIO[A, B](a => ZIO.succeed(incoming(a)))((b, s) => ZIO.succeed(outgoing(b, s)))
   }
 
   final class PartialInterceptZIO[A, B](val unit: Unit) extends AnyVal {

@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Headers.{BasicSchemeName, BearerSchemeName}
 import zhttp.http._
 import zhttp.http.middleware.Auth.Credentials
-import zio.{UIO, ZIO}
+import zio.ZIO
 
 private[zhttp] trait Auth {
 
@@ -12,7 +12,7 @@ private[zhttp] trait Auth {
    * Creates a middleware for basic authentication
    */
   final def basicAuth(f: Credentials => Boolean): HttpMiddleware[Any, Nothing] =
-    basicAuthZIO(credentials => UIO(f(credentials)))
+    basicAuthZIO(credentials => ZIO.succeed(f(credentials)))
 
   /**
    * Creates a middleware for basic authentication that checks if the
@@ -29,7 +29,7 @@ private[zhttp] trait Auth {
     customAuthZIO(
       _.basicAuthorizationCredentials match {
         case Some(credentials) => f(credentials)
-        case None              => UIO(false)
+        case None              => ZIO.succeed(false)
       },
       Headers(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName),
     )
@@ -41,7 +41,7 @@ private[zhttp] trait Auth {
    *   function that validates the token string inside the Bearer Header
    */
   final def bearerAuth(f: String => Boolean): HttpMiddleware[Any, Nothing] =
-    bearerAuthZIO(token => UIO(f(token)))
+    bearerAuthZIO(token => ZIO.succeed(f(token)))
 
   /**
    * Creates a middleware for bearer authentication that checks the token using
@@ -54,7 +54,7 @@ private[zhttp] trait Auth {
     customAuthZIO(
       _.bearerToken match {
         case Some(token) => f(token)
-        case None        => UIO(false)
+        case None        => ZIO.succeed(false)
       },
       Headers(HttpHeaderNames.WWW_AUTHENTICATE, BearerSchemeName),
     )
@@ -68,7 +68,7 @@ private[zhttp] trait Auth {
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
   ): HttpMiddleware[Any, Nothing] =
-    customAuthZIO(headers => UIO(verify(headers)), responseHeaders, responseStatus)
+    customAuthZIO(headers => ZIO.succeed(verify(headers)), responseHeaders, responseStatus)
 
   /**
    * Creates an authentication middleware that only allows authenticated

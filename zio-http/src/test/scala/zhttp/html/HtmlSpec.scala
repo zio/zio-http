@@ -3,7 +3,7 @@ package zhttp.html
 import zio.test.Assertion.equalTo
 import zio.test._
 
-case object HtmlSpec extends DefaultRunnableSpec {
+case object HtmlSpec extends ZIOSpecDefault {
   def spec = {
     suite("HtmlSpec")(
       test("tags") {
