@@ -4,11 +4,11 @@ import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import zhttp.http.Middleware.bearerAuth
 import zhttp.http._
 import zhttp.service.Server
-import zio.{App, ExitCode, URIO}
+import zio._
 
 import java.time.Clock
 
-object AuthenticationServer extends App {
+object AuthenticationServer extends ZIOAppDefault {
 
   /**
    * This is an example to demonstrate barer Authentication middleware. The
@@ -52,6 +52,6 @@ object AuthenticationServer extends App {
   val app: UHttpApp = login ++ user
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+  override val run =
+    Server.start(8090, app)
 }

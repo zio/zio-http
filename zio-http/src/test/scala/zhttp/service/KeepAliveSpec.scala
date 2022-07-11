@@ -5,45 +5,48 @@ import zhttp.http.{HeaderNames, Headers, Http, Version}
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.server._
 import zio.test.Assertion.{equalTo, isNone, isSome}
-import zio.test.assertM
+import zio.test.TestAspect.timeout
+import zio.test.assertZIO
+import zio.{Scope, durationInt}
 
 object KeepAliveSpec extends HttpRunnableSpec {
 
-  val app                   = Http.ok
-  val connectionCloseHeader = Headers.connection(HttpHeaderValues.CLOSE)
-  val keepAliveHeader       = Headers.connection(HttpHeaderValues.KEEP_ALIVE)
-  private val env = EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+  val app                         = Http.ok
+  val connectionCloseHeader       = Headers.connection(HttpHeaderValues.CLOSE)
+  val keepAliveHeader             = Headers.connection(HttpHeaderValues.KEEP_ALIVE)
+  private val env                 =
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
   private val appKeepAliveEnabled = serve(DynamicServer.app)
 
   def keepAliveSpec = suite("KeepAlive") {
     suite("Http 1.1") {
-      testM("without connection close") {
+      test("without connection close") {
         val res = app.deploy.headerValue(HeaderNames.connection).run()
-        assertM(res)(isNone)
+        assertZIO(res)(isNone)
       } +
-        testM("with connection close") {
+        test("with connection close") {
           val res = app.deploy.headerValue(HeaderNames.connection).run(headers = connectionCloseHeader)
-          assertM(res)(isSome(equalTo("close")))
+          assertZIO(res)(isSome(equalTo("close")))
         }
     } +
       suite("Http 1.0") {
-        testM("without keep-alive") {
+        test("without keep-alive") {
           val res = app.deploy.headerValue(HeaderNames.connection).run(version = Version.Http_1_0)
-          assertM(res)(isSome(equalTo("close")))
+          assertZIO(res)(isSome(equalTo("close")))
         } +
-          testM("with keep-alive") {
+          test("with keep-alive") {
             val res = app.deploy
               .headerValue(HeaderNames.connection)
               .run(version = Version.Http_1_0, headers = keepAliveHeader)
-            assertM(res)(isNone)
+            assertZIO(res)(isNone)
           }
       }
   }
 
   override def spec = {
-    suiteM("ServerConfigSpec") {
-      appKeepAliveEnabled.as(List(keepAliveSpec)).useNow
-    }.provideCustomLayerShared(env)
+    suite("ServerConfigSpec") {
+      appKeepAliveEnabled.as(List(keepAliveSpec))
+    }.provideLayerShared(env) @@ timeout(30.seconds)
   }
 
 }

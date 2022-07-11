@@ -82,7 +82,7 @@ final case class Response private (
    * to be counter productive.
    */
   def freeze: UIO[Response] =
-    UIO(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
+    ZIO.succeed(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
 
   /**
    * Sets the response attributes
@@ -218,6 +218,12 @@ object Response {
     val status = if (isPermanent) Status.PermanentRedirect else Status.TemporaryRedirect
     Response(status, Headers.location(location))
   }
+
+  /**
+   * Creates an empty response with status 303
+   */
+  def seeOther(location: CharSequence): Response =
+    Response(Status.SeeOther, Headers.location(location))
 
   /**
    * Creates an empty response with the provided Status

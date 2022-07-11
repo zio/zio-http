@@ -14,7 +14,7 @@ sealed trait LogFormat { self =>
   final def -(other: LogFormat): LogFormat = Combine(self, "-", other)
 
   final def apply(line: LogLine): String = {
-    val colorStack = collection.mutable.Stack.empty[Font]
+    val colorStack = collection.mutable.Stack.empty[String]
 
     def loop(self: LogFormat, line: LogLine): String = {
       self match {
@@ -26,9 +26,9 @@ sealed trait LogFormat { self =>
         case FontWrap(font, fmt)       =>
           colorStack.push(font)
           val msg   = loop(fmt, line)
-          val start = font.toAnsiColor
+          val start = font
           colorStack.pop()
-          val end   = colorStack.map(_.toAnsiColor).mkString("")
+          val end   = colorStack.mkString("")
           s"${start}${msg}${Console.RESET}$end"
         case Msg                       => line.message
         case Tags                      => line.tags.mkString(":")
@@ -57,6 +57,8 @@ sealed trait LogFormat { self =>
 
   final def bracket: LogFormat = transform(msg => s"[${msg}]")
 
+  final def combine(str: String)(other: LogFormat): LogFormat = Combine(self, str, other)
+
   final def cyan: LogFormat = font(Font.CYAN)
 
   final def cyanB: LogFormat = font(Font.CYAN_B)
@@ -65,7 +67,9 @@ sealed trait LogFormat { self =>
 
   final def flipColor: LogFormat = self.font(Font.REVERSED)
 
-  final def font(font: Font): LogFormat = FontWrap(font, self)
+  final def font(font: Font): LogFormat = FontWrap(font.toAnsiColor, self)
+
+  final def font(font: String): LogFormat = FontWrap(font, self)
 
   final def format(f: String => LogFormat): LogFormat = LogFormat.Format(self, f)
 
@@ -109,23 +113,22 @@ sealed trait LogFormat { self =>
 object LogFormat {
 
   /**
-   * List of colors to select from while using the auto-color operator.
+   * List of colors to select from while using the auto-color operator. Taken
+   * from -
+   * https://www.lihaoyi.com/post/BuildyourownCommandLinewithANSIescapecodes.html#colors
    */
-  private val AutoColorSeq: Array[Font] = Array(
-    Font.BLUE,
-    Font.CYAN,
-    Font.GREEN,
-    Font.MAGENTA,
-    Font.YELLOW,
-    Font.BLUE_B,
-    Font.CYAN_B,
-    Font.GREEN_B,
-    Font.MAGENTA_B,
-    Font.YELLOW_B,
-  )
+  private val AutoColorSeq: Array[String] = (for {
+    i <- 0 to 16
+    j <- 0 to 16
+    code = i * 16 + j
+    if code < 231 || code > 235
+  } yield s"\u001b[38;5;${code};1m").toArray
 
   def inlineColored: LogFormat =
-    LogFormat.level.uppercase.bracket.fixed(7) |-| LogFormat.tags.autoColor.underline |-| LogFormat.message
+    LogFormat.level.uppercase.bracket.fixed(7) |-|
+      LogFormat.threadName |-|
+      LogFormat.tags.autoColor |-|
+      LogFormat.message
 
   def inlineMaximus: LogFormat = {
     LogFormat.tags.bracket |-|
@@ -157,7 +160,7 @@ object LogFormat {
   private[zhttp] final case class Timestamp(fmt: DateTimeFormatter)                       extends LogFormat
   private[zhttp] final case class ThreadInfo(f: Thread => String)                         extends LogFormat
   private[zhttp] final case class Combine(left: LogFormat, sep: String, right: LogFormat) extends LogFormat
-  private[zhttp] final case class FontWrap(font: Font, fmt: LogFormat)                    extends LogFormat
+  private[zhttp] final case class FontWrap(font: String, fmt: LogFormat)                  extends LogFormat
   private[zhttp] final case class Literal(lit: String)                                    extends LogFormat
   private[zhttp] final case class Format(fmt: LogFormat, f: String => LogFormat)          extends LogFormat
   private[zhttp] case object Level                                                        extends LogFormat

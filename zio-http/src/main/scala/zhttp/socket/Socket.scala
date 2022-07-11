@@ -2,10 +2,8 @@ package zhttp.socket
 
 import zhttp.http.{Http, Response}
 import zhttp.service.{ChannelFactory, EventLoopGroup}
-import zio.clock.Clock
-import zio.duration.Duration
+import zio._
 import zio.stream.ZStream
-import zio.{Cause, NeedsEnv, ZIO, ZManaged}
 
 sealed trait Socket[-R, +E, -A, +B] { self =>
   import Socket._
@@ -15,23 +13,24 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
     self orElse other
 
   def apply(a: A): ZStream[R, E, B] = self match {
-    case End                         => ZStream.halt(Cause.empty)
+    case End                         => ZStream.failCause(Cause.empty)
     case FromStreamingFunction(func) => func(a)
     case FromStream(s)               => s
     case FMap(m, bc)                 => m(a).map(bc)
-    case FMapZIO(m, bc)              => m(a).mapM(bc)
+    case FMapZIO(m, bc)              => m(a).mapZIO(bc)
     case FCMap(m, xa)                => m(xa(a))
-    case FCMapZIO(m, xa)             => ZStream.fromEffect(xa(a)).flatMap(a => m(a))
+    case FCMapZIO(m, xa)             => ZStream.fromZIO(xa(a)).flatMap(a => m(a))
     case FOrElse(sa, sb)             => sa(a) <> sb(a)
     case FMerge(sa, sb)              => sa(a) merge sb(a)
     case Succeed(a)                  => ZStream.succeed(a)
-    case ProvideEnvironment(s, r)    => s(a).asInstanceOf[ZStream[R, E, B]].provide(r.asInstanceOf[R])
+    case ProvideEnvironment(s, r)    =>
+      s(a).asInstanceOf[ZStream[R, E, B]].provideEnvironment(r.asInstanceOf[ZEnvironment[R]])
     case Empty                       => ZStream.empty
   }
 
   def connect(url: String)(implicit
     ev: IsWebSocket[R, E, A, B],
-  ): ZManaged[R with EventLoopGroup with ChannelFactory, Throwable, Response] =
+  ): ZIO[R with EventLoopGroup with ChannelFactory with Scope, Throwable, Response] =
     self.toSocketApp.connect(url)
 
   def contramap[Z](za: Z => A): Socket[R, E, Z, B] = Socket.FCMap(self, za)
@@ -41,7 +40,7 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
   /**
    * Delays delivery of messages by the specified duration.
    */
-  def delay(duration: Duration): Socket[Clock with R, E, A, B] = self.tap(_ => ZIO.sleep(duration))
+  def delay(duration: Duration): Socket[R, E, A, B] = self.tap(_ => ZIO.sleep(duration))
 
   def map[C](bc: B => C): Socket[R, E, A, C] = Socket.FMap(self, bc)
 
@@ -58,7 +57,8 @@ sealed trait Socket[-R, +E, -A, +B] { self =>
    * dependency on R. This operation assumes that your socket requires an
    * environment.
    */
-  def provideEnvironment(r: R)(implicit env: NeedsEnv[R]): Socket[Any, E, A, B] = ProvideEnvironment(self, r)
+  def provideEnvironment(r: ZEnvironment[R]): Socket[Any, E, A, B] =
+    ProvideEnvironment(self, r)
 
   /**
    * Executes the effect for each message received from the socket, and ignores
@@ -140,7 +140,8 @@ object Socket {
 
   private final case class FMerge[R, E, A, B](a: Socket[R, E, A, B], b: Socket[R, E, A, B]) extends Socket[R, E, A, B]
 
-  private final case class ProvideEnvironment[R, E, A, B](s: Socket[R, E, A, B], r: R) extends Socket[Any, E, A, B]
+  private final case class ProvideEnvironment[R, E, A, B](s: Socket[R, E, A, B], r: ZEnvironment[R])
+      extends Socket[Any, E, A, B]
 
   private case object End extends Socket[Any, Nothing, Any, Nothing]
 

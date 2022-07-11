@@ -1,9 +1,8 @@
 package zhttp.html
 
-import zio.random.Random
-import zio.test.{DefaultRunnableSpec, Gen, assertTrue, check, checkAll}
+import zio.test.{Gen, ZIOSpecDefault, assertTrue, check, checkAll}
 
-object DomSpec extends DefaultRunnableSpec {
+object DomSpec extends ZIOSpecDefault {
   def spec = suite("DomSpec") {
     test("empty") {
       val dom = Dom.empty
@@ -70,16 +69,16 @@ object DomSpec extends DefaultRunnableSpec {
       } +
       suite("Self Closing") {
         val voidTagGen: Gen[Any, CharSequence] = Gen.fromIterable(Element.voidElementNames)
-        val tagGen: Gen[Random, String]        =
+        val tagGen: Gen[Any, String]           =
           Gen.stringBounded(1, 5)(Gen.alphaChar).filterNot(Element.voidElementNames.contains)
 
-        testM("void") {
+        test("void") {
           checkAll(voidTagGen) { name =>
             val dom = Dom.element(name)
             assertTrue(dom.encode == s"<${name}/>")
           }
         } +
-          testM("not void") {
+          test("not void") {
             check(tagGen) { name =>
               val dom = Dom.element(name)
               assertTrue(dom.encode == s"<${name}></${name}>")

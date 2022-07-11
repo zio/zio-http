@@ -6,8 +6,8 @@ import zhttp.service.Client.Config
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.socket.SocketApp
-import zio.test.DefaultRunnableSpec
-import zio.{Has, ZIO, ZManaged}
+import zio.test.ZIOSpecDefault
+import zio.{Scope, ZIO}
 
 /**
  * Should be used only when e2e tests needs to be written. Typically we would
@@ -16,7 +16,7 @@ import zio.{Has, ZIO, ZManaged}
  * should suffice. HttpRunnableSpec spins of an actual Http server and makes
  * requests.
  */
-abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
+abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
 
   implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Request, A]) {
 
@@ -76,32 +76,27 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         url      <- Http.fromZIO(DynamicServer.wsURL)
         response <- Http.fromFunctionZIO[SocketApp[HttpEnv]] { app =>
-          Client
-            .socket(
-              url = url,
-              headers = Headers(DynamicServer.APP_ID, id),
-              app = app,
-            )
-            .useNow
+          ZIO.scoped[HttpEnv](
+            Client
+              .socket(
+                url = url,
+                headers = Headers(DynamicServer.APP_ID, id),
+                app = app,
+              ),
+          )
         }
       } yield response
   }
 
-  def serve[R <: Has[_]](
+  def serve[R](
     app: HttpApp[R, Throwable],
     server: Option[Server[R, Throwable]] = None,
-  ): ZManaged[R with EventLoopGroup with ServerChannelFactory with DynamicServer, Nothing, Unit] =
+  ): ZIO[R with EventLoopGroup with ServerChannelFactory with DynamicServer with Scope, Nothing, Unit] =
     for {
-      settings <- ZManaged
-        .succeed(
-          server.foldLeft(
-            Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection,
-          )(
-            _ ++ _,
-          ),
-        )
+      settings <- ZIO
+        .succeed(server.foldLeft(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection)(_ ++ _))
       start    <- Server.make(settings).orDie
-      _        <- DynamicServer.setStart(start).toManaged_
+      _        <- DynamicServer.setStart(start)
     } yield ()
 
   def status(
@@ -112,7 +107,7 @@ abstract class HttpRunnableSpec extends DefaultRunnableSpec { self =>
       port   <- DynamicServer.port
       status <- Client
         .request(
-          "http://localhost:%d%s".format(port, path.encode),
+          "http://localhost:%d/%s".format(port, path),
           method,
           ssl = ClientSSLOptions.DefaultSSL,
         )

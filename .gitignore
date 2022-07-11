@@ -4,6 +4,7 @@
 *.ipr
 *.iws
 .idea
+.bloop/
 out
 .cache/
 .history/
@@ -28,3 +29,5 @@ node_modules/
 .bsp/
 .DS_Store
 web/.DS_Store
+
+project/.bloop

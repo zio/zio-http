@@ -16,7 +16,7 @@ object DynamicServer {
     .fromOptionFunction[Request] { req =>
       for {
         id  <- req.headerValue(APP_ID) match {
-          case Some(id) => UIO(id)
+          case Some(id) => ZIO.succeed(id)
           case None     => ZIO.fail(None)
         }
         app <- get(id)
@@ -33,26 +33,28 @@ object DynamicServer {
   def deploy[R](app: HttpApp[R, Throwable]): ZIO[DynamicServer with R, Nothing, String] =
     for {
       env <- ZIO.environment[R]
-      id  <- ZIO.accessM[DynamicServer](_.get.add(app.provideEnvironment(env)))
+      id  <- ZIO.environmentWithZIO[DynamicServer](_.get.add(app.provideEnvironment(env)))
     } yield id
 
   def get(id: Id): ZIO[DynamicServer, Nothing, Option[HttpApp[Any, Throwable]]] =
-    ZIO.accessM[DynamicServer](_.get.get(id))
+    ZIO.environmentWithZIO[DynamicServer](_.get.get(id))
 
   def httpURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.HTTP)
 
-  def live: ZLayer[Any, Nothing, DynamicServer] = {
-    for {
-      ref <- Ref.make(Map.empty[Id, HttpApp[Any, Throwable]])
-      pr  <- Promise.make[Nothing, Start]
-    } yield new Live(ref, pr)
-  }.toLayer
+  def live: ZLayer[Any, Nothing, DynamicServer] =
+    ZLayer {
+      for {
+        ref <- Ref.make(Map.empty[Id, HttpApp[Any, Throwable]])
+        pr  <- Promise.make[Nothing, Start]
+      } yield new Live(ref, pr)
+    }
 
-  def port: ZIO[DynamicServer, Nothing, Int] = ZIO.accessM[DynamicServer](_.get.port)
+  def port: ZIO[DynamicServer, Nothing, Int] = ZIO.environmentWithZIO[DynamicServer](_.get.port)
 
-  def setStart(s: Start): ZIO[DynamicServer, Nothing, Boolean] = ZIO.accessM[DynamicServer](_.get.setStart(s))
+  def setStart(s: Start): ZIO[DynamicServer, Nothing, Boolean] =
+    ZIO.environmentWithZIO[DynamicServer](_.get.setStart(s))
 
-  def start: ZIO[DynamicServer, Nothing, Start] = ZIO.accessM[DynamicServer](_.get.start)
+  def start: ZIO[DynamicServer, Nothing, Start] = ZIO.environmentWithZIO[DynamicServer](_.get.start)
 
   def wsURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.WS)
 
@@ -70,7 +72,7 @@ object DynamicServer {
 
   final class Live(ref: Ref[Map[Id, HttpApp[Any, Throwable]]], pr: Promise[Nothing, Start]) extends Service {
     def add(app: HttpApp[Any, Throwable]): UIO[Id] = for {
-      id <- UIO(UUID.randomUUID().toString)
+      id <- ZIO.succeed(UUID.randomUUID().toString)
       _  <- ref.update(map => map + (id -> app))
     } yield id
 
@@ -78,7 +80,7 @@ object DynamicServer {
 
     def port: ZIO[Any, Nothing, Int] = start.map(_.port)
 
-    def setStart(s: Start): UIO[Boolean] = pr.complete(ZIO(s).orDie)
+    def setStart(s: Start): UIO[Boolean] = pr.complete(ZIO.attempt(s).orDie)
 
     def start: IO[Nothing, Start] = pr.await
   }

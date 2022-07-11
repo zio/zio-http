@@ -3,7 +3,7 @@ package example
 import zhttp.http._
 import zhttp.service.Server
 import zio._
-object RequestStreaming extends App {
+object RequestStreaming extends ZIOAppDefault {
 
   // Create HTTP route which echos back the request body
   val app = Http.collect[Request] { case req @ Method.POST -> !! / "echo" =>
@@ -19,6 +19,6 @@ object RequestStreaming extends App {
   }
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  val run: UIO[ExitCode] =
     Server.start(8090, app).exitCode
 }

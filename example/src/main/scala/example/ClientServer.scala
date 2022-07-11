@@ -2,9 +2,9 @@ package example
 
 import zhttp.http._
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup, Server}
-import zio.{App, ZIO}
+import zio.{ZIO, ZIOAppDefault}
 
-object ClientServer extends App {
+object ClientServer extends ZIOAppDefault {
 
   val app = Http.collectZIO[Request] {
     case Method.GET -> !! / "hello" =>
@@ -15,7 +15,7 @@ object ClientServer extends App {
       Client.request(url)
   }
 
-  override def run(args: List[String]) = {
+  val run = {
     val clientLayers = ChannelFactory.auto ++ EventLoopGroup.auto()
     Server.start(8080, app).provideLayer(clientLayers).exitCode
   }

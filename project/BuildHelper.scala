@@ -10,8 +10,6 @@ object BuildHelper extends ScalaSettings {
   val ScoverageVersion = "1.9.3"
   val JmhVersion       = "0.4.3"
 
-  val ZHttpLogLevel = "INFO"
-
   private val stdOptions = Seq(
     "-deprecation",
     "-encoding",
@@ -66,7 +64,7 @@ object BuildHelper extends ScalaSettings {
     Test / parallelExecution               := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
     autoAPIMappings                        := true,
-    ThisBuild / javaOptions := Seq("-Dio.netty.leakDetectionLevel=paranoid", s"-DZHttpLogLevel=${ZHttpLogLevel}"),
+    ThisBuild / javaOptions := Seq("-Dio.netty.leakDetectionLevel=paranoid", s"-DZHttpLogLevel=${Debug.ZHttpLogLevel}"),
     ThisBuild / fork        := true,
   )
 

@@ -1,7 +1,7 @@
 package zhttp.http.headers
 
 import zhttp.http._
-import zio.duration.Duration
+import zio.Duration
 
 /**
  * Maintains a list of operators that modify the current Headers. Once modified,
