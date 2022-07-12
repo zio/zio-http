@@ -2,7 +2,7 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{
-  Channel,
+  Channel => JChannel,
   ChannelFactory => JChannelFactory,
   ChannelFuture => JChannelFuture,
   ChannelInitializer,
@@ -16,12 +16,12 @@ import zhttp.service
 import zhttp.service.Client.{Config, log}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
-import zhttp.socket.{Socket, SocketApp}
+import zhttp.socket.SocketApp
 import zio.{Promise, Scope, Task, ZIO}
 
 import java.net.{InetSocketAddress, URI}
 
-final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el: JEventLoopGroup)
+final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], el: JEventLoopGroup)
     extends HttpMessageCodec {
 
   def request(request: Request, clientConfig: Config): Task[Response] =
@@ -75,8 +75,8 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
       val isProxy     = clientConfig.proxy.isDefined
 
       log.debug(s"Request: [${jReq.method().asciiName()} ${req.url.encode}]")
-      val initializer = new ChannelInitializer[Channel]() {
-        override def initChannel(ch: Channel): Unit = {
+      val initializer = new ChannelInitializer[JChannel]() {
+        override def initChannel(ch: JChannel): Unit = {
 
           val pipeline                    = ch.pipeline()
           val sslOption: ClientSSLOptions = clientConfig.ssl.getOrElse(ClientSSLOptions.DefaultSSL)
@@ -110,7 +110,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
           // Add WebSocketHandlers if it's a `ws` or `wss` request
           if (isWebSocket) {
             val headers = req.headers.encode
-            val app     = clientConfig.socketApp.getOrElse(Socket.empty.toSocketApp)
+            val app     = clientConfig.socketApp.getOrElse(SocketApp())
             val config  = app.protocol.clientBuilder
               .customHeaders(headers)
               .webSocketUri(req.url.encode)
@@ -118,7 +118,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
 
             // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
             pipeline.addLast(WEB_SOCKET_CLIENT_PROTOCOL_HANDLER, new WebSocketClientProtocolHandler(config))
-            pipeline.addLast(WEB_SOCKET_HANDLER, new WebSocketAppHandler(rtm, app))
+            pipeline.addLast(WEB_SOCKET_HANDLER, new WebSocketAppHandler(rtm, app, true))
           }
           ()
         }
@@ -141,7 +141,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[Channel], el
 
 object Client {
   def make[R]: ZIO[R with EventLoopGroup with ChannelFactory, Nothing, Client[R]] = for {
-    cf <- ZIO.service[JChannelFactory[Channel]]
+    cf <- ZIO.service[JChannelFactory[JChannel]]
     el <- ZIO.service[JEventLoopGroup]
     zx <- HttpRuntime.default[R]
   } yield service.Client(zx, cf, el)

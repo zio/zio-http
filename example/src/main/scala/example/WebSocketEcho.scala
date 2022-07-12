@@ -1,27 +1,29 @@
 package example
 
 import zhttp.http._
-import zhttp.service.Server
-import zhttp.socket.{Socket, WebSocketFrame}
+import zhttp.service.ChannelEvent.ChannelRead
+import zhttp.service.{ChannelEvent, Server}
+import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio._
-import zio.stream.ZStream
 
 object WebSocketEcho extends ZIOAppDefault {
-  private val socket =
-    Socket.collect[WebSocketFrame] {
-      case WebSocketFrame.Text("FOO")  => ZStream.succeed(WebSocketFrame.text("BAR"))
-      case WebSocketFrame.Text("BAR")  => ZStream.succeed(WebSocketFrame.text("FOO"))
-      case WebSocketFrame.Ping         => ZStream.succeed(WebSocketFrame.pong)
-      case WebSocketFrame.Pong         => ZStream.succeed(WebSocketFrame.ping)
-      case fr @ WebSocketFrame.Text(_) => ZStream.repeat(fr).schedule(Schedule.spaced(1 second)).take(10)
+  private val socket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+    Http.collectZIO[WebSocketChannelEvent] {
+      case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("FOO"))) =>
+        ch.writeAndFlush(WebSocketFrame.text("BAR"))
+
+      case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("BAR"))) =>
+        ch.writeAndFlush(WebSocketFrame.text("FOO"))
+
+      case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text(text))) =>
+        ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
     }
 
-  private val app =
+  private val app: Http[Any, Nothing, Request, Response] =
     Http.collectZIO[Request] {
       case Method.GET -> !! / "greet" / name  => ZIO.succeed(Response.text(s"Greetings {$name}!"))
-      case Method.GET -> !! / "subscriptions" => socket.toResponse
+      case Method.GET -> !! / "subscriptions" => socket.toSocketApp.toResponse
     }
 
-  override val run =
-    Server.start(8090, app)
+  override val run = Server.start(8090, app)
 }

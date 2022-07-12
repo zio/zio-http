@@ -1,7 +1,7 @@
 package zhttp
 
 import io.netty.channel.{
-  Channel,
+  Channel => JChannel,
   ChannelFactory => JChannelFactory,
   ChannelHandlerContext,
   EventLoopGroup => JEventLoopGroup,
@@ -9,7 +9,7 @@ import io.netty.channel.{
 }
 
 package object service extends Logging {
-  type ChannelFactory       = JChannelFactory[Channel]
+  type ChannelFactory       = JChannelFactory[JChannel]
   type EventLoopGroup       = JEventLoopGroup
   type ServerChannelFactory = JChannelFactory[ServerChannel]
   type UServer              = Server[Any, Nothing]
