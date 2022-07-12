@@ -35,7 +35,6 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
 
   def unsafeRun(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any], interruptOnClose: Boolean = true): Unit = {
     val rtm = strategy.runtime(ctx)
-    // val exe = strategy.executor(ctx)
 
     def removeListener(close: GenericFutureListener[Future[_ >: Void]]): Unit = {
       if (close != null)
@@ -90,7 +89,7 @@ object HttpRuntime {
       rtm <- ZIO.runtime[R]
       env <- ZIO.environment[R]
     } yield {
-      val map = mutable.Map.empty[EventExecutor, Runtime[R]]
+      val map =  mutable.Map.empty[EventExecutor, Runtime[R]]
       group.asScala.foreach { e =>
         val executor = Executor.fromJavaExecutor(e)
         val rtm      = Unsafe.unsafeCompat { implicit u =>
