@@ -90,16 +90,16 @@ object HttpRuntime {
       rtm <- ZIO.runtime[R]
       env <- ZIO.environment[R]
     } yield {
-      val executorMap = mutable.Map.empty[EventExecutor, Runtime[R]]
+      val map = mutable.Map.empty[EventExecutor, Runtime[R]]
       group.asScala.foreach { e =>
         val executor = Executor.fromJavaExecutor(e)
         val rtm      = Unsafe.unsafeCompat { implicit u =>
           Runtime.unsafe.fromLayer(Runtime.setExecutor(executor)).withEnvironment(env)
         }
-        executorMap += e -> rtm
+        map += e -> rtm
       }
 
-      new HttpRuntime((ctx: Ctx) => executorMap.getOrElse(ctx.executor(), rtm))
+      new HttpRuntime((ctx: Ctx) => map.getOrElse(ctx.executor(), rtm))
     }
 
   trait Strategy[R] {
