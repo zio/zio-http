@@ -23,6 +23,7 @@ trait Logging {
    * Global Logging instance used to add log statements everywhere in the
    * application.
    */
-  private[zhttp] val Log: Logger = Logger.console.detectLevelFromProps(PropName).withFormat(LogFormat.inlineColored)
+  private[zhttp] val Log: Logger =
+    Logger.console.detectLevelFromProps(PropName).withFormat(LogFormat.inlineColored)
 
 }
