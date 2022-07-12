@@ -3,9 +3,9 @@ package example
 import zhttp.html._
 import zhttp.http._
 import zhttp.service.Server
-import zio.{ExitCode, URIO}
+import zio.ZIOAppDefault
 
-object StaticServer extends zio.App {
+object StaticServer extends ZIOAppDefault {
 
   // A simple app to serve static resource files from a local directory.
   val app = Http.collectHttp[Request] { case Method.GET -> "static" /: path =>
@@ -40,12 +40,10 @@ object StaticServer extends zio.App {
         else if (file.isFile) Http.fromFile(file)
 
         // Return a 404 if the file doesn't exist
-        else
-          Http.empty
+        else Http.empty
     } yield http
   }
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    Server.start(8090, app).exitCode
-  }
+  val run = Server.start(8090, app).exitCode
+
 }

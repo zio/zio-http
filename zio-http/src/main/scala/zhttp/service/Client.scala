@@ -17,7 +17,7 @@ import zhttp.service.Client.{Config, log}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.SocketApp
-import zio.{Promise, Task, ZIO, ZManaged}
+import zio.{Promise, Scope, Task, ZIO}
 
 import java.net.{InetSocketAddress, URI}
 
@@ -39,8 +39,8 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
     headers: Headers = Headers.empty,
     socketApp: SocketApp[R],
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZManaged[R, Throwable, Response] = for {
-    env <- ZManaged.environment[R]
+  ): ZIO[R with Scope, Throwable, Response] = for {
+    env <- ZIO.environment[R]
     res <- request(
       Request(
         version = Version.Http_1_1,
@@ -49,7 +49,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
         headers,
       ),
       clientConfig = Client.Config(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
-    ).toManaged(_.close.orDie)
+    ).withFinalizer(_.close.orDie)
   } yield res
 
   /**
@@ -175,10 +175,10 @@ object Client {
     app: SocketApp[R],
     headers: Headers = Headers.empty,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZManaged[R with EventLoopGroup with ChannelFactory, Throwable, Response] = {
+  ): ZIO[R with EventLoopGroup with ChannelFactory with Scope, Throwable, Response] = {
     for {
-      clt <- make[R].toManaged_
-      uri <- ZIO.fromEither(URL.fromString(url)).toManaged_
+      clt <- make[R]
+      uri <- ZIO.fromEither(URL.fromString(url))
       res <- clt.socket(uri, headers, app, sslOptions)
     } yield res
   }

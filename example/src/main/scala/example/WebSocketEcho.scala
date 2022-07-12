@@ -4,9 +4,9 @@ import zhttp.http._
 import zhttp.service.ChannelEvent.ChannelRead
 import zhttp.service.{ChannelEvent, Server}
 import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
-import zio.{App, ExitCode, UIO, URIO}
+import zio._
 
-object WebSocketEcho extends App {
+object WebSocketEcho extends ZIOAppDefault {
   private val socket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
     Http.collectZIO[WebSocketChannelEvent] {
       case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("FOO"))) =>
@@ -21,10 +21,9 @@ object WebSocketEcho extends App {
 
   private val app: Http[Any, Nothing, Request, Response] =
     Http.collectZIO[Request] {
-      case Method.GET -> !! / "greet" / name  => UIO(Response.text(s"Greetings {$name}!"))
+      case Method.GET -> !! / "greet" / name  => ZIO.succeed(Response.text(s"Greetings {$name}!"))
       case Method.GET -> !! / "subscriptions" => socket.toSocketApp.toResponse
     }
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+  override val run = Server.start(8090, app)
 }

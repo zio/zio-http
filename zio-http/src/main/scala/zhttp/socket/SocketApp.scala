@@ -2,7 +2,7 @@ package zhttp.socket
 
 import zhttp.http.{Headers, Http, HttpApp, Response}
 import zhttp.service.{ChannelEvent, ChannelFactory, Client, EventLoopGroup}
-import zio.{NeedsEnv, ZIO, ZManaged}
+import zio.{ZIO, _}
 
 final case class SocketApp[-R](
   decoder: SocketDecoder = SocketDecoder.default,
@@ -17,16 +17,15 @@ final case class SocketApp[-R](
   def connect(
     url: String,
     headers: Headers = Headers.empty,
-  ): ZManaged[R with EventLoopGroup with ChannelFactory, Throwable, Response] =
+  ): ZIO[R with EventLoopGroup with ChannelFactory with Scope, Throwable, Response] =
     Client.socket(url, self, headers)
 
   /**
    * Provides the socket app with its required environment, which eliminates its
    * dependency on `R`.
    */
-  def provideEnvironment(env: R)(implicit ev: NeedsEnv[R]): SocketApp[Any] = {
-    copy(message = self.message.map(f => f(_).provide(env)))
-  }
+  def provideEnvironment(env: ZEnvironment[R]): SocketApp[Any] =
+    self.copy(message = self.message.map(cb => event => cb(event).provideEnvironment(env)))
 
   /**
    * Converts the socket app to a HTTP app.

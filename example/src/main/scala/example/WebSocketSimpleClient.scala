@@ -6,10 +6,10 @@ import zhttp.service.{ChannelEvent, ChannelFactory, EventLoopGroup}
 import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio._
 
-object WebSocketSimpleClient extends zio.App {
+object WebSocketSimpleClient extends ZIOAppDefault {
 
   // Setup client envs
-  val env = EventLoopGroup.auto() ++ ChannelFactory.auto
+  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ Scope.default
 
   val url = "ws://ws.vi-server.org/mirror"
 
@@ -29,13 +29,12 @@ object WebSocketSimpleClient extends zio.App {
 
         // Close the connection if the server sends a "bar"
         case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("bar")))         =>
-          UIO(println("Goodbye!")) *> ch.writeAndFlush(WebSocketFrame.close(1000))
+          ZIO.succeed(println("Goodbye!")) *> ch.writeAndFlush(WebSocketFrame.close(1000))
       }
 
-  val app: ZManaged[Any with EventLoopGroup with ChannelFactory, Throwable, Response] =
+  val app: ZIO[Any with EventLoopGroup with ChannelFactory with Scope, Throwable, Response] =
     httpSocket.toSocketApp.connect(url)
 
-  override def run(args: List[String]): URIO[ZEnv, ExitCode] = {
-    app.useForever.exitCode.provideCustomLayer(env)
-  }
+  val run = app.provideLayer(env)
+
 }

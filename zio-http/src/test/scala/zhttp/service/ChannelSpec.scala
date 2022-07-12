@@ -1,25 +1,23 @@
 package zhttp.service
 
 import io.netty.channel.embedded.EmbeddedChannel
-import zio.UIO
-import zio.duration.durationInt
 import zio.test.TestAspect.timeout
-import zio.test.environment.TestClock
-import zio.test.{DefaultRunnableSpec, assertTrue}
+import zio.test.{TestClock, ZIOSpecDefault, assertTrue}
+import zio.{UIO, ZIO, durationInt}
 
 import java.util
 
-object ChannelSpec extends DefaultRunnableSpec {
+object ChannelSpec extends ZIOSpecDefault {
   def spec = suite("Channel")(
     suite("writeAndFlush")(
-      testM("await = false") {
+      test("await = false") {
         for {
           tc <- EmbeddedTestChannel.make[String]
           _  <- tc.channel.writeAndFlush("ABC")
           out = tc.outboundMessages.peek()
         } yield assertTrue(out == "ABC")
       },
-      testM("await = true") {
+      test("await = true") {
         for {
           tc <- EmbeddedTestChannel.make[String]
           _  <- tc.channel.writeAndFlush("ABC", true)
@@ -28,14 +26,14 @@ object ChannelSpec extends DefaultRunnableSpec {
       },
     ),
     suite("write")(
-      testM("await = false") {
+      test("await = false") {
         for {
           tc <- EmbeddedTestChannel.make[String]
           _  <- tc.channel.write("ABC")
           out = tc.outboundMessages.peek()
         } yield assertTrue(out == null)
       },
-      testM("await = true") {
+      test("await = true") {
         for {
           tc <- EmbeddedTestChannel.make[String]
           f1 <- tc.channel.write("ABC", true).fork
@@ -48,7 +46,7 @@ object ChannelSpec extends DefaultRunnableSpec {
       },
     ),
     suite("contramap")(
-      testM("converts value") {
+      test("converts value") {
         for {
           tc <- EmbeddedTestChannel.make[Int]
           _  <- tc.channel.contramap[String](_.length).writeAndFlush("ABC")
@@ -67,6 +65,6 @@ object ChannelSpec extends DefaultRunnableSpec {
   }
 
   object EmbeddedTestChannel {
-    def make[A]: UIO[EmbeddedTestChannel[A]] = UIO(new EmbeddedTestChannel[A])
+    def make[A]: UIO[EmbeddedTestChannel[A]] = ZIO.succeed(new EmbeddedTestChannel[A])
   }
 }
