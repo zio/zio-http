@@ -37,14 +37,13 @@ object StaticServer extends ZIOAppDefault {
         }
 
         // Return the file if it's a static resource
-        else if (file.isFile)
-          Http.fromFile(file)
+        else if (file.isFile) Http.fromFile(file)
 
         // Return a 404 if the file doesn't exist
         else Http.empty
     } yield http
   }
 
-  val run = Server.start(8092, app).exitCode
+  val run = Server.start(8090, app).exitCode
 
 }
