@@ -55,17 +55,16 @@ private[zhttp] final case class Handler[R](
         log.debug(s"HasBody: [${hasBody}]")
         log.debug(s"HttpRequest: [${jReq.method} ${jReq.uri()}]")
         if (hasBody) {
-          ctx.channel().attr(bodyReadFlag).set(false)
           ctx.channel().config().setAutoRead(false): Unit
         }
-        try
+        try {
           unsafeRun(
             jReq,
             app,
             new Request {
               override def data: HttpData = if (hasBody) asyncData else HttpData.empty
               private final def asyncData = {
-                val readFlag = ctx.channel().attr(bodyReadFlag).get()
+                val readFlag = ctx.channel().attr(bodyReadFlag).setIfAbsent(false)
                 HttpData.UnsafeAsync(callback => {
                   if (readFlag)
                     resWriter.write(exception, jReq)
@@ -93,8 +92,10 @@ private[zhttp] final case class Handler[R](
               override def unsafeContext: Ctx = ctx
             },
           )
-        catch {
+        } catch {
           case throwable: Throwable => resWriter.write(throwable, jReq)
+        } finally {
+          ctx.channel().attr(bodyReadFlag).set(false)
         }
 
       case msg: HttpContent =>
