@@ -2,6 +2,7 @@ package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.util.AsciiString
+import zhttp.http.HttpData.BinaryByteBuf
 import zhttp.http.headers.HeaderExtension
 import zio.stream.ZStream
 import zio.{Chunk, Task, ZIO}
@@ -18,9 +19,10 @@ private[zhttp] trait HttpDataExtension[+A] extends HeaderExtension[A] { self: A 
     bodyAsByteArray.map(Chunk.fromArray)
 
   final def bodyAsByteArray: Task[Array[Byte]] =
-    bodyAsByteBuf.flatMap(buf =>
-      ZIO.attempt(ByteBufUtil.getBytes(buf)).ensuring(ZIO.succeed(buf.release(buf.refCnt()))),
-    )
+    bodyAsByteBuf.flatMap(buf => ZIO.attempt(ByteBufUtil.getBytes(buf)).ensuring(cleanUp(buf, data)))
+
+  private def cleanUp(byteBuf: ByteBuf, data: HttpData): ZIO[Any, Nothing, Boolean] =
+    if (data.isInstanceOf[BinaryByteBuf]) ZIO.succeed(true) else ZIO.succeed(byteBuf.release(byteBuf.refCnt()))
 
   /**
    * Decodes the content of request as CharSequence
