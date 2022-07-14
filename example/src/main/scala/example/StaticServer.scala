@@ -14,7 +14,6 @@ object StaticServer extends ZIOAppDefault {
       http <-
         // Rendering a custom UI to list all the files in the directory
         if (file.isDirectory) {
-
           // Accessing the files in the directory
           val files = file.listFiles.toList.sortBy(_.getName)
           val base  = "/static/"
