@@ -103,15 +103,30 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
     method: Method = Method.GET,
     path: Path,
   ): ZIO[EventLoopGroup with ChannelFactory with DynamicServer, Throwable, Status] = {
+    response(method, path).map(_.status)
+  }
+
+  def content(
+    method: Method = Method.POST,
+    path: Path,
+    content: HttpData = HttpData.empty,
+  ): ZIO[EventLoopGroup with ChannelFactory with DynamicServer, Throwable, String] = {
+    response(method, path, content).flatMap(_.bodyAsString)
+  }
+
+  def response(
+    method: Method = Method.POST,
+    path: Path,
+    content: HttpData = HttpData.empty,
+  ): ZIO[EventLoopGroup with ChannelFactory with DynamicServer, Throwable, Response] =
     for {
-      port   <- DynamicServer.port
-      status <- Client
+      port     <- DynamicServer.port
+      response <- Client
         .request(
-          "http://localhost:%d/%s".format(port, path),
+          "http://localhost:%d%s".format(port, path.encode),
           method,
+          content = content,
           ssl = ClientSSLOptions.DefaultSSL,
         )
-        .map(_.status)
-    } yield status
-  }
+    } yield response
 }
