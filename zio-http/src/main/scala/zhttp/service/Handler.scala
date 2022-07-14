@@ -25,70 +25,62 @@ private[zhttp] final case class Handler[R](
       case jReq: FullHttpRequest =>
         jReq.touch("server.Handler-channelRead0")
         log.debug(s"FullHttpRequest: [${jReq.method} ${jReq.uri()}]")
-        try
-          unsafeRun(
-            jReq,
-            app,
-            new Request {
-              override def method: Method = Method.fromHttpMethod(jReq.method())
+        unsafeRun(
+          jReq,
+          app,
+          new Request {
+            override def method: Method = Method.fromHttpMethod(jReq.method())
 
-              override def url: URL = URL.fromString(jReq.uri()).getOrElse(URL.empty)
+            override def url: URL = URL.fromString(jReq.uri()).getOrElse(URL.empty)
 
-              override def headers: Headers = Headers.make(jReq.headers())
+            override def headers: Headers = Headers.make(jReq.headers())
 
-              override def data: HttpData = HttpData.fromByteBuf(jReq.content())
+            override def data: HttpData = HttpData.fromByteBuf(jReq.content())
 
-              override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
+            override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
 
-              override def unsafeEncode: HttpRequest = jReq
+            override def unsafeEncode: HttpRequest = jReq
 
-              override def unsafeContext: Ctx = ctx
+            override def unsafeContext: Ctx = ctx
 
-            },
-          )
-        catch {
-          case throwable: Throwable => resWriter.write(throwable, jReq)
-        }
-      case jReq: HttpRequest     =>
+          },
+        )
+
+      case jReq: HttpRequest =>
         val hasBody = canHaveBody(jReq)
         log.debug(s"HasBody: [${hasBody}]")
         log.debug(s"HttpRequest: [${jReq.method} ${jReq.uri()}]")
         if (hasBody) ctx.channel().config().setAutoRead(false): Unit
-        try
-          unsafeRun(
-            jReq,
-            app,
-            new Request {
-              override def data: HttpData = if (hasBody) asyncData else HttpData.empty
-              private final def asyncData =
-                HttpData.UnsafeAsync(callback =>
-                  ctx
-                    .pipeline()
-                    .addAfter(
-                      HTTP_REQUEST_HANDLER,
-                      HTTP_CONTENT_HANDLER,
-                      new RequestBodyHandler(callback(ctx)),
-                    ): Unit,
-                )
+        unsafeRun(
+          jReq,
+          app,
+          new Request {
+            override def data: HttpData = if (hasBody) asyncData else HttpData.empty
+            private final def asyncData =
+              HttpData.UnsafeAsync(callback =>
+                ctx
+                  .pipeline()
+                  .addAfter(
+                    HTTP_REQUEST_HANDLER,
+                    HTTP_CONTENT_HANDLER,
+                    new RequestBodyHandler(callback(ctx)),
+                  ): Unit,
+              )
 
-              override def headers: Headers = Headers.make(jReq.headers())
+            override def headers: Headers = Headers.make(jReq.headers())
 
-              override def method: Method = Method.fromHttpMethod(jReq.method())
+            override def method: Method = Method.fromHttpMethod(jReq.method())
 
-              override def url: URL = URL.fromString(jReq.uri()).getOrElse(URL.empty)
+            override def url: URL = URL.fromString(jReq.uri()).getOrElse(URL.empty)
 
-              override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
+            override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
 
-              override def unsafeEncode: HttpRequest = jReq
+            override def unsafeEncode: HttpRequest = jReq
 
-              override def unsafeContext: Ctx = ctx
-            },
-          )
-        catch {
-          case throwable: Throwable => resWriter.write(throwable, jReq)
-        }
-
-      case msg: HttpContent =>
+            override def unsafeContext: Ctx = ctx
+          },
+        )
+      case msg: HttpContent  =>
         ctx.fireChannelRead(msg): Unit
 
       case _ =>
