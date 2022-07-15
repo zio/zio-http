@@ -28,7 +28,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       val content = genString(size, '?')
 
       val app = Http.fromFunctionZIO[Request] {
-        _.bodyAsStream.runCount.map(bytesCount => {
+        _.data.asByteBufStream.runCount.map(bytesCount => {
           Response.text(bytesCount.toString)
         })
       }

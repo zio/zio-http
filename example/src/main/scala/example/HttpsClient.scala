@@ -30,7 +30,7 @@ object HttpsClient extends ZIOAppDefault {
 
   val program = for {
     res  <- Client.request(url, headers = headers, ssl = sslOption)
-    data <- res.bodyAsString
+    data <- res.data.asString
     _    <- Console.printLine(data)
   } yield ()
 

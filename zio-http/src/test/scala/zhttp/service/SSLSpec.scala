@@ -30,7 +30,7 @@ object SSLSpec extends ZIOSpecDefault {
       ZIO.succeed(Response.ok)
     case req @ Method.POST -> !! / "text" =>
       for {
-        body <- req.bodyAsString
+        body <- req.data.asString
       } yield Response.text(body)
   }
 

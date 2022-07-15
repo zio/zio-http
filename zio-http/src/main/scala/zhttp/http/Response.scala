@@ -17,8 +17,7 @@ final case class Response private (
   headers: Headers,
   data: HttpData,
   private[zhttp] val attribute: Response.Attribute,
-) extends HeaderExtension[Response]
-    with HttpDataExtension[Response] { self =>
+) extends HeaderExtension[Response] { self =>
 
   private[zhttp] def close: Task[Unit] = self.attribute.channel match {
     case Some(channel) => ChannelFuture.unit(channel.close())

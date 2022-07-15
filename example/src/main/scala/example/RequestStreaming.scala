@@ -9,7 +9,7 @@ object RequestStreaming extends ZIOAppDefault {
   val app = Http.collect[Request] { case req @ Method.POST -> !! / "echo" =>
     // Returns a stream of bytes from the request
     // The stream supports back-pressure
-    val stream = req.bodyAsStream
+    val stream = req.data.asStream
 
     // Creating HttpData from the stream
     // This works for file of any size

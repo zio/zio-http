@@ -35,7 +35,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     eb: B <:< Response,
     ee: E <:< Throwable,
   ): Http[R, Throwable, A, ByteBuf] =
-    self.widen[Throwable, B].mapZIO(_.bodyAsByteBuf)
+    self.widen[Throwable, B].mapZIO(_.data.asByteBuf)
 
   /**
    * Evaluates the app and returns an HExit that can be resolved further

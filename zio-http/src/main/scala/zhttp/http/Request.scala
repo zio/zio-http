@@ -6,7 +6,7 @@ import zhttp.http.headers.HeaderExtension
 
 import java.io.IOException
 
-trait Request extends HeaderExtension[Request] with HttpDataExtension[Request] { self =>
+trait Request extends HeaderExtension[Request] { self =>
 
   /**
    * Accesses the channel's context for more low level control

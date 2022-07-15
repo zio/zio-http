@@ -22,24 +22,24 @@ object HttpDataSpec extends ZIOSpecDefault {
               check(Gen.string) { payload =>
                 val stringBuffer    = payload.getBytes(HTTP_CHARSET)
                 val responseContent = ZStream.fromIterable(stringBuffer)
-                val res             = HttpData.fromStream(responseContent).toByteBuf.map(_.toString(HTTP_CHARSET))
+                val res             = HttpData.fromStream(responseContent).asByteBuf.map(_.toString(HTTP_CHARSET))
                 assertZIO(res)(equalTo(payload))
               }
             }
           },
           suite("fromFile")(
             test("failure") {
-              val res = HttpData.fromFile(throw new Error("Failure")).toByteBuf.either
+              val res = HttpData.fromFile(throw new Error("Failure")).asByteBuf.either
               assertZIO(res)(isLeft(isSubtype[Error](anything)))
             },
             test("success") {
               lazy val file = testFile
-              val res       = HttpData.fromFile(file).toByteBuf.map(_.toString(HTTP_CHARSET))
+              val res       = HttpData.fromFile(file).asByteBuf.map(_.toString(HTTP_CHARSET))
               assertZIO(res)(equalTo("abc\nfoo"))
             },
             test("success small chunk") {
               lazy val file = testFile
-              val res       = HttpData.fromFile(file).toByteBuf(ByteBufConfig(3)).map(_.toString(HTTP_CHARSET))
+              val res       = HttpData.fromFile(file).asByteBuf(ByteBufConfig(3)).map(_.toString(HTTP_CHARSET))
               assertZIO(res)(equalTo("abc\nfoo"))
             },
           ),
