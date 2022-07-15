@@ -86,28 +86,28 @@ private[zhttp] final class ServerResponseWriter[R](
   /**
    * Writes data on the channel
    */
-  private def writeData(data: HttpData, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
-    log.debug(s"WriteData: ${data.getClass.getSimpleName}")
-    data match {
+  private def writeBody(body: Body, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
+    log.debug(s"WriteBody: ${body.getClass.getSimpleName}")
+    body match {
 
-      case _: HttpData.FromAsciiString => flushReleaseAndRead(jReq)
+      case _: Body.FromAsciiString => flushReleaseAndRead(jReq)
 
-      case _: HttpData.BinaryChunk => flushReleaseAndRead(jReq)
+      case _: Body.BinaryChunk => flushReleaseAndRead(jReq)
 
-      case _: HttpData.BinaryByteBuf => flushReleaseAndRead(jReq)
+      case _: Body.BinaryByteBuf => flushReleaseAndRead(jReq)
 
-      case HttpData.Empty => flushReleaseAndRead(jReq)
+      case Body.Empty => flushReleaseAndRead(jReq)
 
-      case HttpData.BinaryStream(stream) =>
+      case Body.BinaryStream(stream) =>
         runtime.unsafeRun(ctx) {
           writeStreamContent(stream).ensuring(ZIO.succeed(releaseAndRead(jReq)))
         }
 
-      case HttpData.JavaFile(unsafeGet) =>
+      case Body.JavaFile(unsafeGet) =>
         unsafeWriteFileContent(unsafeGet())
         releaseAndRead(jReq)
 
-      case HttpData.UnsafeAsync(unsafeRun) =>
+      case Body.UnsafeAsync(unsafeRun) =>
         unsafeRun { _ => msg =>
           ctx.writeAndFlush(msg)
           if (!msg.isInstanceOf[LastHttpContent]) ctx.read(): Unit
@@ -136,7 +136,7 @@ private[zhttp] final class ServerResponseWriter[R](
 
   def write(msg: Response, jReq: HttpRequest)(implicit ctx: Ctx): Unit = {
     ctx.write(encodeResponse(msg))
-    writeData(msg.data, jReq)
+    writeBody(msg.body, jReq)
     ()
   }
 

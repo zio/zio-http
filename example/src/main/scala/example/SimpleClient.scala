@@ -9,7 +9,7 @@ object SimpleClient extends ZIOAppDefault {
 
   val program = for {
     res  <- Client.request(url)
-    data <- res.data.asString
+    data <- res.body.asString
     _    <- Console.printLine(data)
   } yield ()
 

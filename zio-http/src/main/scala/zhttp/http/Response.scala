@@ -15,7 +15,7 @@ import java.io.{IOException, PrintWriter, StringWriter}
 final case class Response private (
   status: Status,
   headers: Headers,
-  data: HttpData,
+  body: Body,
   private[zhttp] val attribute: Response.Attribute,
 ) extends HeaderExtension[Response] { self =>
 
@@ -34,16 +34,16 @@ final case class Response private (
     import io.netty.handler.codec.http._
 
     val jHeaders = self.headers.encode
-    val jContent = self.data match {
-      case HttpData.UnsafeAsync(_) => null
-      case data: HttpData.Complete =>
-        data match {
-          case HttpData.FromAsciiString(text) => Unpooled.wrappedBuffer(text.array())
-          case HttpData.BinaryChunk(data)     => Unpooled.wrappedBuffer(data.toArray)
-          case HttpData.BinaryByteBuf(data)   => data
-          case HttpData.BinaryStream(_)       => null
-          case HttpData.Empty                 => Unpooled.EMPTY_BUFFER
-          case HttpData.JavaFile(_)           => null
+    val jContent = self.body match {
+      case Body.UnsafeAsync(_) => null
+      case body: Body.Complete =>
+        body match {
+          case Body.FromAsciiString(text) => Unpooled.wrappedBuffer(text.array())
+          case Body.BinaryChunk(data)     => Unpooled.wrappedBuffer(data.toArray)
+          case Body.BinaryByteBuf(data)   => data
+          case Body.BinaryStream(_)       => null
+          case Body.Empty                 => Unpooled.EMPTY_BUFFER
+          case Body.JavaFile(_)           => null
         }
     }
 
@@ -116,16 +116,16 @@ object Response {
   private[zhttp] def unsafeFromJResponse(ctx: ChannelHandlerContext, jRes: FullHttpResponse): Response = {
     val status  = Status.fromHttpResponseStatus(jRes.status())
     val headers = Headers.decode(jRes.headers())
-    val data    = HttpData.fromByteBuf(Unpooled.copiedBuffer(jRes.content()))
+    val data    = Body.fromByteBuf(Unpooled.copiedBuffer(jRes.content()))
     Response(status, headers, data, attribute = Attribute(channel = Some(ctx)))
   }
 
   def apply[R, E](
     status: Status = Status.Ok,
     headers: Headers = Headers.empty,
-    data: HttpData = HttpData.Empty,
+    body: Body = Body.Empty,
   ): Response =
-    Response(status, headers, data, Attribute.empty)
+    Response(status, headers, body, Attribute.empty)
 
   def fromHttpError(error: HttpError): Response = {
 
@@ -171,7 +171,7 @@ object Response {
       Response(
         Status.SwitchingProtocols,
         Headers.empty,
-        HttpData.empty,
+        Body.empty,
         Attribute(socketApp = Option(app.provideEnvironment(env))),
       )
     }
@@ -184,23 +184,16 @@ object Response {
   def html(data: Html, status: Status = Status.Ok): Response =
     Response(
       status = status,
-      data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
+      body = Body.fromString("<!DOCTYPE html>" + data.encode),
       headers = Headers(HeaderNames.contentType, HeaderValues.textHtml),
     )
-
-  @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
-  def http[R, E](
-    status: Status = Status.Ok,
-    headers: Headers = Headers.empty,
-    data: HttpData = HttpData.empty,
-  ): Response = Response(status, headers, data)
 
   /**
    * Creates a response with content-type set to application/json
    */
   def json(data: CharSequence): Response =
     Response(
-      data = HttpData.fromCharSequence(data),
+      body = Body.fromCharSequence(data),
       headers = Headers(HeaderNames.contentType, HeaderValues.applicationJson),
     )
 
@@ -234,7 +227,7 @@ object Response {
    */
   def text(text: CharSequence): Response =
     Response(
-      data = HttpData.fromCharSequence(text),
+      body = Body.fromCharSequence(text),
       headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
     )
 
@@ -262,7 +255,7 @@ object Response {
   object Attribute {
 
     /**
-     * Helper to create an empty HttpData
+     * Helper to create an empty Body
      */
     def empty: Attribute = Attribute()
   }

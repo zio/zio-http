@@ -18,6 +18,11 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   private[zhttp] def unsafeEncode: HttpRequest
 
+  /**
+   * Decodes the body as a Body
+   */
+  def body: Body
+
   def copy(
     version: Version = self.version,
     method: Method = self.method,
@@ -34,15 +39,10 @@ trait Request extends HeaderExtension[Request] { self =>
       override def headers: Headers                     = h
       override def version: Version                     = v
       override def unsafeEncode: HttpRequest            = self.unsafeEncode
-      override def data: HttpData                       = self.data
+      override def body: Body                           = self.body
       override def unsafeContext: ChannelHandlerContext = self.unsafeContext
     }
   }
-
-  /**
-   * Decodes the body as a HttpData
-   */
-  def data: HttpData
 
   /**
    * Gets all the headers in the Request
@@ -123,12 +123,12 @@ object Request {
     method: Method = Method.GET,
     url: URL = URL.root,
     headers: Headers = Headers.empty,
-    data: HttpData = HttpData.Empty,
+    body: Body = Body.Empty,
   ): Request = {
     val m = method
     val u = url
     val h = headers
-    val d = data
+    val d = body
     val v = version
 
     new Request {
@@ -141,7 +141,7 @@ object Request {
         val path     = url.relative.encode
         new DefaultFullHttpRequest(jVersion, method.toJava, path)
       }
-      override def data: HttpData                       = d
+      override def body: Body                           = d
       override def unsafeContext: ChannelHandlerContext = throw new IOException("Request does not have a context")
 
     }

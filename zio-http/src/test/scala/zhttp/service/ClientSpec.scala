@@ -27,8 +27,8 @@ object ClientSpec extends HttpRunnableSpec {
         assertZIO(responseContent)(isNonEmpty)
       } +
       test("echo POST request content") {
-        val app = Http.collectZIO[Request] { case req => req.data.asString.map(Response.text(_)) }
-        val res = app.deploy.bodyAsString.run(method = Method.POST, content = HttpData.fromString("ZIO user"))
+        val app = Http.collectZIO[Request] { case req => req.body.asString.map(Response.text(_)) }
+        val res = app.deploy.bodyAsString.run(method = Method.POST, body = Body.fromString("ZIO user"))
         assertZIO(res)(equalTo("ZIO user"))
       } +
       test("non empty content") {

@@ -35,7 +35,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     eb: B <:< Response,
     ee: E <:< Throwable,
   ): Http[R, Throwable, A, ByteBuf] =
-    self.widen[Throwable, B].mapZIO(_.data.asByteBuf)
+    self.widen[Throwable, B].mapZIO(_.body.asByteBuf)
 
   /**
    * Evaluates the app and returns an HExit that can be resolved further
@@ -807,7 +807,7 @@ object Http {
    * Creates an Http app which always responds the provided data and a 200
    * status code
    */
-  def fromData(data: HttpData): HttpApp[Any, Nothing] = response(Response(data = data))
+  def fromBody(body: Body): HttpApp[Any, Nothing] = response(Response(body = body))
 
   /**
    * Lifts an `Either` into a `Http` value.
@@ -831,7 +831,7 @@ object Http {
         ZIO.attempt {
           if (file.isFile) {
             val length   = Headers.contentLength(file.length())
-            val response = Response(headers = length, data = HttpData.fromFile(file))
+            val response = Response(headers = length, body = Body.fromFile(file))
             val pathName = file.toPath.toString
 
             // Extract file extension
@@ -903,7 +903,7 @@ object Http {
    */
   def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = HTTP_CHARSET): HttpApp[R, Nothing] =
     Http
-      .fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provideEnvironment(r), charset))))
+      .fromZIO(ZIO.environment[R].map(r => Http.fromBody(Body.fromStream(stream.provideEnvironment(r), charset))))
       .flatten
 
   /**
@@ -911,7 +911,7 @@ object Http {
    * ZStream as the body
    */
   def fromStream[R](stream: ZStream[R, Throwable, Byte]): HttpApp[R, Nothing] =
-    Http.fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provideEnvironment(r))))).flatten
+    Http.fromZIO(ZIO.environment[R].map(r => Http.fromBody(Body.fromStream(stream.provideEnvironment(r))))).flatten
 
   /**
    * Converts a ZIO to an Http type

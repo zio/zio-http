@@ -36,7 +36,7 @@ private[zhttp] final case class Handler[R](
 
               override def headers: Headers = Headers.make(jReq.headers())
 
-              override def data: HttpData = HttpData.fromByteBuf(jReq.content())
+              override def body: Body = Body.fromByteBuf(jReq.content())
 
               override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
 
@@ -59,9 +59,9 @@ private[zhttp] final case class Handler[R](
             jReq,
             app,
             new Request {
-              override def data: HttpData = if (hasBody) asyncData else HttpData.empty
+              override def body: Body     = if (hasBody) asyncData else Body.empty
               private final def asyncData =
-                HttpData.UnsafeAsync(callback =>
+                Body.UnsafeAsync(callback =>
                   ctx
                     .pipeline()
                     .addAfter(

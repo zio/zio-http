@@ -150,13 +150,13 @@ object Client {
     url: String,
     method: Method = Method.GET,
     headers: Headers = Headers.empty,
-    content: HttpData = HttpData.empty,
+    content: Body = Body.empty,
     ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
     for {
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- request(
-        Request(Version.Http_1_1, method, uri, headers, data = content),
+        Request(Version.Http_1_1, method, uri, headers, body = content),
         clientConfig = Config(ssl = Some(ssl)),
       )
     } yield res

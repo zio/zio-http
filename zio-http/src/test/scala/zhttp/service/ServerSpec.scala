@@ -17,7 +17,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   private val nonEmptyContent = for {
     data    <- Gen.listOf(Gen.alphaNumericString)
-    content <- HttpGen.nonEmptyHttpData(Gen.const(data))
+    content <- HttpGen.nonEmptyBody(Gen.const(data))
   } yield (data.mkString(""), content)
 
   private val env =
@@ -86,7 +86,7 @@ object ServerSpec extends HttpRunnableSpec {
       } +
       suite("echo content") {
         val app = Http.collectZIO[Request] { case req =>
-          req.data.asString.map(text => Response.text(text))
+          req.body.asString.map(text => Response.text(text))
         }
 
         test("status is 200") {
@@ -94,21 +94,21 @@ object ServerSpec extends HttpRunnableSpec {
           assertZIO(res)(equalTo(Status.Ok))
         } +
           test("body is ok") {
-            val res = app.deploy.bodyAsString.run(content = HttpData.fromString("ABC"))
+            val res = app.deploy.bodyAsString.run(body = Body.fromString("ABC"))
             assertZIO(res)(equalTo("ABC"))
           } +
           test("empty string") {
-            val res = app.deploy.bodyAsString.run(content = HttpData.fromString(""))
+            val res = app.deploy.bodyAsString.run(body = Body.fromString(""))
             assertZIO(res)(equalTo(""))
           } +
           test("one char") {
-            val res = app.deploy.bodyAsString.run(content = HttpData.fromString("1"))
+            val res = app.deploy.bodyAsString.run(body = Body.fromString("1"))
             assertZIO(res)(equalTo("1"))
           } +
           test("data") {
             val dataStream = ZStream.repeat("A").take(MaxSize.toLong)
-            val app        = Http.collect[Request] { case req => Response(data = req.data) }
-            val res = app.deploy.bodyAsByteBuf.map(_.readableBytes()).run(content = HttpData.fromStream(dataStream))
+            val app        = Http.collect[Request] { case req => Response(body = req.body) }
+            val res        = app.deploy.bodyAsByteBuf.map(_.readableBytes()).run(body = Body.fromStream(dataStream))
             assertZIO(res)(equalTo(MaxSize))
           }
       } +
@@ -119,14 +119,14 @@ object ServerSpec extends HttpRunnableSpec {
           assertZIO(res)(isSome(equalTo("Bar")))
         }
       } + suite("response") {
-        val app = Http.response(Response(status = Status.Ok, data = HttpData.fromString("abc")))
+        val app = Http.response(Response(status = Status.Ok, body = Body.fromString("abc")))
         test("body is set") {
           val res = app.deploy.bodyAsString.run()
           assertZIO(res)(equalTo("abc"))
         }
       } +
       suite("decompression") {
-        val app     = Http.collectZIO[Request] { case req => req.data.asString.map(body => Response.text(body)) }.deploy
+        val app     = Http.collectZIO[Request] { case req => req.body.asString.map(body => Response.text(body)) }.deploy
         val content = "some-text"
         val stream  = ZStream.fromChunk(Chunk.fromArray(content.getBytes))
 
@@ -134,21 +134,21 @@ object ServerSpec extends HttpRunnableSpec {
           val res = for {
             body     <- stream.via(ZPipeline.gzip()).runCollect
             response <- app.run(
-              content = HttpData.fromChunk(body),
+              body = Body.fromChunk(body),
               headers = Headers.contentEncoding(HeaderValues.gzip),
             )
           } yield response
-          assertZIO(res.flatMap(_.data.asString))(equalTo(content))
+          assertZIO(res.flatMap(_.body.asString))(equalTo(content))
         } +
           test("deflate") {
             val res = for {
               body     <- stream.via(ZPipeline.deflate()).runCollect
               response <- app.run(
-                content = HttpData.fromChunk(body),
+                body = Body.fromChunk(body),
                 headers = Headers.contentEncoding(HeaderValues.deflate),
               )
             } yield response
-            assertZIO(res.flatMap(_.data.asString))(equalTo(content))
+            assertZIO(res.flatMap(_.body.asString))(equalTo(content))
           }
       }
   }
@@ -159,13 +159,13 @@ object ServerSpec extends HttpRunnableSpec {
     }
     test("has content-length") {
       check(Gen.alphaNumericString) { string =>
-        val res = app.deploy.bodyAsString.run(content = HttpData.fromString(string))
+        val res = app.deploy.bodyAsString.run(body = Body.fromString(string))
         assertZIO(res)(equalTo(string.length.toString))
       }
     } +
       test("POST Request.getBody") {
-        val app = Http.collectZIO[Request] { case req => req.data.asByteChunk.as(Response.ok) }
-        val res = app.deploy.status.run(path = !!, method = Method.POST, content = HttpData.fromString("some text"))
+        val app = Http.collectZIO[Request] { case req => req.body.asByteChunk.as(Response.ok) }
+        val res = app.deploy.status.run(path = !!, method = Method.POST, body = Body.fromString("some text"))
         assertZIO(res)(equalTo(Status.Ok))
       }
   }
@@ -173,7 +173,7 @@ object ServerSpec extends HttpRunnableSpec {
   def responseSpec = suite("ResponseSpec") {
     test("data") {
       check(nonEmptyContent) { case (string, data) =>
-        val res = Http.fromData(data).deploy.bodyAsString.run()
+        val res = Http.fromBody(data).deploy.bodyAsString.run()
         assertZIO(res)(equalTo(string))
       }
     } +
@@ -211,11 +211,11 @@ object ServerSpec extends HttpRunnableSpec {
       test("echo streaming") {
         val res = Http
           .collectHttp[Request] { case req =>
-            Http.fromStream(ZStream.fromZIO(req.data.asByteChunk).flattenChunks)
+            Http.fromStream(ZStream.fromZIO(req.body.asByteChunk).flattenChunks)
           }
           .deploy
           .bodyAsString
-          .run(content = HttpData.fromString("abc"))
+          .run(body = Body.fromString("abc"))
         assertZIO(res)(equalTo("abc"))
       } +
       test("file-streaming") {
@@ -268,17 +268,17 @@ object ServerSpec extends HttpRunnableSpec {
   def requestBodySpec = suite("RequestBodySpec") {
     test("POST Request stream") {
       val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
-        Response(data = HttpData.fromStream(req.data.asStream))
+        Response(body = Body.fromStream(req.body.asStream))
       }
       check(Gen.alphaNumericString) { c =>
-        assertZIO(app.deploy.bodyAsString.run(path = !!, method = Method.POST, content = HttpData.fromString(c)))(
+        assertZIO(app.deploy.bodyAsString.run(path = !!, method = Method.POST, body = Body.fromString(c)))(
           equalTo(c),
         )
       }
     } +
       test("FromASCIIString: toHttp") {
         check(Gen.asciiString) { payload =>
-          val res = HttpData.fromAsciiString(AsciiString.cached(payload)).asHttp.map(_.toString(HTTP_CHARSET))
+          val res = Body.fromAsciiString(AsciiString.cached(payload)).asHttp.map(_.toString(HTTP_CHARSET))
           assertZIO(res.run())(equalTo(payload))
         }
       }

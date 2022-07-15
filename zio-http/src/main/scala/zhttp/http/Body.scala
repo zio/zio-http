@@ -4,7 +4,7 @@ import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import io.netty.util.AsciiString
-import zhttp.http.HttpData.ByteBufConfig
+import zhttp.http.Body.ByteBufConfig
 import zio._
 import zio.stream.ZStream
 
@@ -12,26 +12,26 @@ import java.io.FileInputStream
 import java.nio.charset.Charset
 
 /**
- * Holds HttpData that needs to be written on the HttpChannel
+ * Holds Body that needs to be written on the HttpChannel
  */
-sealed trait HttpData { self =>
+sealed trait Body { self =>
 
   /**
-   * Encodes the HttpData into a ByteBuf. Takes in ByteBufConfig to have a more
-   * fine grained control over the encoding.
+   * Encodes the Body into a ByteBuf. Takes in ByteBufConfig to have a more fine
+   * grained control over the encoding.
    */
   def asByteBuf(config: ByteBufConfig): Task[ByteBuf]
 
   /**
-   * Encodes the HttpData into a Stream of ByteBufs. Takes in ByteBufConfig to
-   * have a more fine grained control over the encoding.
+   * Encodes the Body into a Stream of ByteBufs. Takes in ByteBufConfig to have
+   * a more fine grained control over the encoding.
    */
   def asByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf]
 
   /**
-   * Encodes the HttpData into a Http of ByeBuf. This could be more performant
-   * in certain cases. Takes in ByteBufConfig to have a more fine grained
-   * control over the encoding.
+   * Encodes the Body into a Http of ByeBuf. This could be more performant in
+   * certain cases. Takes in ByteBufConfig to have a more fine grained control
+   * over the encoding.
    */
   def asHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf]
 
@@ -39,13 +39,13 @@ sealed trait HttpData { self =>
     asByteBuf.flatMap(buf => ZIO.attempt(ByteBufUtil.getBytes(buf)).ensuring(ZIO.succeed(buf.release(buf.refCnt()))))
 
   /**
-   * Encodes the HttpData into a ByteBuf.
+   * Encodes the Body into a ByteBuf.
    */
   final def asByteBuf: Task[ByteBuf] =
     asByteBuf(ByteBufConfig.default)
 
   /**
-   * Encodes the HttpData into a Stream of ByteBufs
+   * Encodes the Body into a Stream of ByteBufs
    */
   final def asByteBufStream: ZStream[Any, Throwable, ByteBuf] = asByteBufStream(ByteBufConfig.default)
 
@@ -92,71 +92,71 @@ sealed trait HttpData { self =>
     asByteArray.map(new String(_, HTTP_CHARSET))
 
   /**
-   * Returns true if HttpData is empty
+   * Returns true if Body is empty
    */
   final def isEmpty: Boolean = self match {
-    case HttpData.Empty => true
-    case _              => false
+    case Body.Empty => true
+    case _          => false
   }
 }
 
-object HttpData {
+object Body {
 
   private def collectStream[R, E](stream: ZStream[R, E, ByteBuf]): ZIO[R, E, ByteBuf] =
     stream.runFold(Unpooled.compositeBuffer()) { case (cmp, buf) => cmp.addComponent(true, buf) }
 
   /**
-   * Helper to create empty HttpData
+   * Helper to create empty Body
    */
-  def empty: HttpData = Empty
+  def empty: Body = Empty
 
   /**
-   * Helper to create HttpData from AsciiString
+   * Helper to create Body from AsciiString
    */
-  def fromAsciiString(asciiString: AsciiString): HttpData = FromAsciiString(asciiString)
+  def fromAsciiString(asciiString: AsciiString): Body = FromAsciiString(asciiString)
 
   /**
-   * Helper to create HttpData from ByteBuf
+   * Helper to create Body from ByteBuf
    */
-  def fromByteBuf(byteBuf: ByteBuf): HttpData = HttpData.BinaryByteBuf(byteBuf)
+  def fromByteBuf(byteBuf: ByteBuf): Body = Body.BinaryByteBuf(byteBuf)
 
   /**
-   * Helper to create HttpData from CharSequence
+   * Helper to create Body from CharSequence
    */
-  def fromCharSequence(charSequence: CharSequence, charset: Charset = HTTP_CHARSET): HttpData =
+  def fromCharSequence(charSequence: CharSequence, charset: Charset = HTTP_CHARSET): Body =
     fromAsciiString(new AsciiString(charSequence, charset))
 
   /**
-   * Helper to create HttpData from chunk of bytes
+   * Helper to create Body from chunk of bytes
    */
-  def fromChunk(data: Chunk[Byte]): HttpData = BinaryChunk(data)
+  def fromChunk(data: Chunk[Byte]): Body = BinaryChunk(data)
 
   /**
-   * Helper to create HttpData from contents of a file
+   * Helper to create Body from contents of a file
    */
-  def fromFile(file: => java.io.File): HttpData = JavaFile(() => file)
+  def fromFile(file: => java.io.File): Body = JavaFile(() => file)
 
   /**
-   * Helper to create HttpData from Stream of string
+   * Helper to create Body from Stream of string
    */
-  def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = HTTP_CHARSET): HttpData =
-    HttpData.BinaryStream(stream.map(str => Unpooled.wrappedBuffer(str.toString.getBytes(charset))))
+  def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = HTTP_CHARSET): Body =
+    Body.BinaryStream(stream.map(str => Unpooled.wrappedBuffer(str.toString.getBytes(charset))))
 
   /**
-   * Helper to create HttpData from Stream of bytes
+   * Helper to create Body from Stream of bytes
    */
-  def fromStream(stream: ZStream[Any, Throwable, Byte]): HttpData =
-    HttpData.BinaryStream(stream.mapChunks(chunks => Chunk(Unpooled.wrappedBuffer(chunks.toArray))))
+  def fromStream(stream: ZStream[Any, Throwable, Byte]): Body =
+    Body.BinaryStream(stream.mapChunks(chunks => Chunk(Unpooled.wrappedBuffer(chunks.toArray))))
 
   /**
-   * Helper to create HttpData from String
+   * Helper to create Body from String
    */
-  def fromString(text: String, charset: Charset = HTTP_CHARSET): HttpData = fromCharSequence(text, charset)
+  def fromString(text: String, charset: Charset = HTTP_CHARSET): Body = fromCharSequence(text, charset)
 
-  private[zhttp] sealed trait Complete extends HttpData
+  private[zhttp] sealed trait Complete extends Body
 
   /**
-   * Provides a more fine grained control while encoding HttpData into ByteBUfs
+   * Provides a more fine grained control while encoding Body into ByteBUfs
    */
   case class ByteBufConfig(chunkSize: Int = 1024 * 4) {
     def chunkSize(fileLength: Long): Int = {
@@ -168,7 +168,7 @@ object HttpData {
   }
 
   private[zhttp] final case class UnsafeAsync(unsafeRun: (ChannelHandlerContext => HttpContent => Any) => Unit)
-      extends HttpData {
+      extends Body {
 
     private def isLast(msg: HttpContent): Boolean = msg.isInstanceOf[LastHttpContent]
 
@@ -191,7 +191,7 @@ object HttpData {
     }
 
     /**
-     * Encodes the HttpData into a ByteBuf.
+     * Encodes the Body into a ByteBuf.
      */
     override def asByteBuf(config: ByteBufConfig): Task[ByteBuf] = for {
       body <- ZIO.async[Any, Nothing, ByteBuf](cb =>
@@ -206,7 +206,7 @@ object HttpData {
     } yield body
 
     /**
-     * Encodes the HttpData into a Stream of ByteBufs
+     * Encodes the Body into a Stream of ByteBufs
      */
     override def asByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] = {
       ZStream.unwrap {
@@ -230,22 +230,22 @@ object HttpData {
     private def encode: ByteBuf = Unpooled.wrappedBuffer(asciiString.array())
 
     /**
-     * Encodes the HttpData into a ByteBuf. Takes in ByteBufConfig to have a
-     * more fine grained control over the encoding.
+     * Encodes the Body into a ByteBuf. Takes in ByteBufConfig to have a more
+     * fine grained control over the encoding.
      */
     override def asByteBuf(config: ByteBufConfig): Task[ByteBuf] = ZIO.attempt(encode)
 
     /**
-     * Encodes the HttpData into a Stream of ByteBufs. Takes in ByteBufConfig to
+     * Encodes the Body into a Stream of ByteBufs. Takes in ByteBufConfig to
      * have a more fine grained control over the encoding.
      */
     override def asByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
       ZStream.fromZIO(asByteBuf(config))
 
     /**
-     * Encodes the HttpData into a Http of ByeBuf. This could be more performant
-     * in certain cases. Takes in ByteBufConfig to have a more fine grained
-     * control over the encoding.
+     * Encodes the Body into a Http of ByeBuf. This could be more performant in
+     * certain cases. Takes in ByteBufConfig to have a more fine grained control
+     * over the encoding.
      */
     override def asHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] = Http.attempt(encode)
   }
@@ -255,12 +255,12 @@ object HttpData {
     private def encode = Unpooled.wrappedBuffer(data.toArray)
 
     /**
-     * Encodes the HttpData into a ByteBuf.
+     * Encodes the Body into a ByteBuf.
      */
     override def asByteBuf(config: ByteBufConfig): Task[ByteBuf] = ZIO.succeed(encode)
 
     /**
-     * Encodes the HttpData into a Stream of ByteBufs
+     * Encodes the Body into a Stream of ByteBufs
      */
     override def asByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
       ZStream.fromZIO(asByteBuf(config))
@@ -271,12 +271,12 @@ object HttpData {
   private[zhttp] final case class BinaryByteBuf(data: ByteBuf) extends Complete {
 
     /**
-     * Encodes the HttpData into a ByteBuf.
+     * Encodes the Body into a ByteBuf.
      */
     override def asByteBuf(config: ByteBufConfig): Task[ByteBuf] = ZIO.attempt(data)
 
     /**
-     * Encodes the HttpData into a Stream of ByteBufs
+     * Encodes the Body into a Stream of ByteBufs
      */
     override def asByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
       ZStream.fromZIO(asByteBuf(config))
@@ -287,13 +287,13 @@ object HttpData {
   private[zhttp] final case class BinaryStream(stream: ZStream[Any, Throwable, ByteBuf]) extends Complete {
 
     /**
-     * Encodes the HttpData into a ByteBuf.
+     * Encodes the Body into a ByteBuf.
      */
     override def asByteBuf(config: ByteBufConfig): Task[ByteBuf] =
       collectStream(asByteBufStream(config))
 
     /**
-     * Encodes the HttpData into a Stream of ByteBufs
+     * Encodes the Body into a Stream of ByteBufs
      */
     override def asByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
       stream
@@ -305,13 +305,13 @@ object HttpData {
   private[zhttp] final case class JavaFile(unsafeFile: () => java.io.File) extends Complete {
 
     /**
-     * Encodes the HttpData into a ByteBuf.
+     * Encodes the Body into a ByteBuf.
      */
     override def asByteBuf(config: ByteBufConfig): Task[ByteBuf] =
       collectStream(asByteBufStream(config))
 
     /**
-     * Encodes the HttpData into a Stream of ByteBufs
+     * Encodes the Body into a Stream of ByteBufs
      */
     override def asByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
       ZStream.unwrap {
@@ -341,12 +341,12 @@ object HttpData {
   private[zhttp] case object Empty extends Complete {
 
     /**
-     * Encodes the HttpData into a ByteBuf.
+     * Encodes the Body into a ByteBuf.
      */
     override def asByteBuf(config: ByteBufConfig): Task[ByteBuf] = ZIO.succeed(Unpooled.EMPTY_BUFFER)
 
     /**
-     * Encodes the HttpData into a Stream of ByteBufs
+     * Encodes the Body into a Stream of ByteBufs
      */
     override def asByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
       ZStream.fromZIO(asByteBuf(config))
