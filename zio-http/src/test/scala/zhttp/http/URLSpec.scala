@@ -82,5 +82,30 @@ object URLSpec extends ZIOSpecDefault {
           assertTrue(actual == "/list?query=provided&type=builder")
         },
       ),
+      suite("java interop")(
+        test("can not create a java.net.URI from a relative URL") {
+          check(HttpGen.genRelativeURL) { url =>
+            assert(url.toJavaURI)(isNone)
+          }
+        },
+        test("converts a zhttp.http.URL to java.net.URI") {
+          check(HttpGen.genAbsoluteURL) { autoUrl =>
+            // converts an absolute URL with a relative path (non leading slash) to an absolute path
+            // to avoid encoding problems
+            val absoluteUrl =
+              if (autoUrl.path.nonEmpty && !autoUrl.path.leadingSlash)
+                autoUrl.setPath(Path.root ++ autoUrl.path)
+              else
+                autoUrl
+            val url         = URL.fromString(absoluteUrl.encode).getOrElse(absoluteUrl)
+            val uri         = url.toJavaURI
+            val reversedUrl = uri.flatMap(u => URL.fromString(u.toString).toOption)
+
+            assert(reversedUrl)(
+              equalTo(Some(url)),
+            )
+          }
+        },
+      ),
     )
 }

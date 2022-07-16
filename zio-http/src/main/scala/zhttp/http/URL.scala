@@ -87,6 +87,35 @@ final case class URL(
 
     copy(kind = location)
   }
+
+  /**
+   * Returns a new java.net.URI representing this URL.
+   */
+  def toJavaURI: Option[java.net.URI] = self.kind match {
+    case URL.Location.Relative                     => None
+    case URL.Location.Absolute(scheme, host, port) =>
+      val queryStr    = queryParams.filter { case (k, _) => k.nonEmpty }.map { case (k, v) =>
+        v.map(v => s"$k=$v").mkString("&")
+      }.filter(_.nonEmpty).mkString("&")
+      val fragmentStr = fragment.map(_.raw).getOrElse(null)
+
+      Some(
+        new java.net.URI(
+          scheme.encode,
+          null,
+          host,
+          port,
+          if (path.leadingSlash || path.isEmpty) path.encode else (Path.root ++ path).encode,
+          if (queryStr.isEmpty) null else queryStr,
+          fragmentStr,
+        ),
+      )
+  }
+
+  /**
+   * Returns a new java.net.URL representing this URL.
+   */
+  def toJavaURL: Option[java.net.URL] = toJavaURI.map(_.toURL)
 }
 object URL {
   private def fromAbsoluteURI(uri: URI): Option[URL] = {
