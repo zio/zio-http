@@ -225,11 +225,6 @@ object HeaderSpec extends ZIOSpecDefault {
           val result        = cookieHeaders.encode.entries().size()
           assertTrue(result == 2)
         } +
-          test("should encode multiple headers with same name in a single header") {
-            val headers = Headers(HeaderNames.pragma, "x1") ++ Headers(HeaderNames.pragma, "x2")
-            val result  = headers.encode.contains(HeaderNames.pragma, "x1, x2", true)
-            assertTrue(result)
-          } +
           test("should encode multiple content-type headers with same name in a single header") {
             val headers =
               Headers(HeaderNames.contentType, "application/json") ++ Headers(HeaderNames.contentType, "text/plain")

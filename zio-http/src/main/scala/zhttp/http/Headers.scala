@@ -39,12 +39,11 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
    */
   private[zhttp] def encode: HttpHeaders =
     self.toList.foldLeft[HttpHeaders](new DefaultHttpHeaders()) { case (headers, entry) =>
-      if (entry._1.contentEquals(HeaderNames.setCookie)) {
+      if (entry._1.contentEquals(HeaderNames.setCookie))
         headers.add(entry._1, entry._2)
-      } else if (headers.contains(entry._1) && !entry._1.contentEquals(HeaderNames.contentType)) {
-        headers.set(entry._1, s"${headers.get(entry._1)}, ${entry._2}")
-      } else
+      else
         headers.set(entry._1, entry._2)
+
     }
 
 }
