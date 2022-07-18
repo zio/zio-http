@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import zhttp.http.Headers.BearerSchemeName
 import zhttp.http.middleware.Auth.Credentials
 import zio.test.Assertion._
-import zio.test.{Gen, ZIOSpecDefault, assert, check}
+import zio.test.{Gen, ZIOSpecDefault, assert, assertTrue, check}
 
 object HeaderSpec extends ZIOSpecDefault {
 
@@ -217,6 +217,24 @@ object HeaderSpec extends ZIOSpecDefault {
               val actual = Headers(HttpHeaderNames.CONTENT_LENGTH, c.toString).contentLength
               assert(actual)(isNone)
             }
+          }
+      } +
+      suite("encode") {
+        test("should encode multiple cookie headers as two separate headers") {
+          val cookieHeaders = Headers(HeaderNames.setCookie, "x1") ++ Headers(HeaderNames.setCookie, "x2")
+          val result        = cookieHeaders.encode.entries().size()
+          assertTrue(result == 2)
+        } +
+          test("should encode multiple headers with same name in a single header") {
+            val headers = Headers(HeaderNames.pragma, "x1") ++ Headers(HeaderNames.pragma, "x2")
+            val result  = headers.encode.contains(HeaderNames.pragma, "x1, x2", true)
+            assertTrue(result)
+          } +
+          test("should encode multiple content-type headers with same name in a single header") {
+            val headers =
+              Headers(HeaderNames.contentType, "application/json") ++ Headers(HeaderNames.contentType, "text/plain")
+            val result  = headers.encode.contains(HeaderNames.contentType, "text/plain", true)
+            assertTrue(result)
           }
       }
   }
