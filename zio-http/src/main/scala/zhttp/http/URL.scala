@@ -94,12 +94,10 @@ final case class URL(
   def toJavaURI: java.net.URI = new URI(encode)
 
   /**
-   * Returns a new java.net.URL representing this URL.
+   * Returns a new java.net.URL only if this URL represents an absolute
+   * location.
    */
-  def toJavaURL: Option[java.net.URL] = self.kind match {
-    case URL.Location.Relative => None
-    case _                     => Some(toJavaURI.toURL)
-  }
+  def toJavaURL: Option[java.net.URL] = if (self.kind == URL.Location.Relative) None else Some(toJavaURI.toURL)
 }
 object URL {
   private def fromAbsoluteURI(uri: URI): Option[URL] = {
