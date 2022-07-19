@@ -53,6 +53,12 @@ object HttpGen {
     port   <- Gen.int(0, 65536)
   } yield URL.Location.Absolute(scheme, host, port)
 
+  def genRelativeURL = for {
+    path        <- HttpGen.anyPath
+    kind        <- HttpGen.genRelativeLocation
+    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
+  } yield URL(path, kind, queryParams)
+
   def genAbsoluteURL = for {
     path        <- HttpGen.nonEmptyPath
     kind        <- HttpGen.genAbsoluteLocation

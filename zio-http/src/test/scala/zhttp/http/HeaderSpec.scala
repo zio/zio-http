@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import zhttp.http.Headers.BearerSchemeName
 import zhttp.http.middleware.Auth.Credentials
 import zio.test.Assertion._
-import zio.test.{Gen, ZIOSpecDefault, assert, check}
+import zio.test.{Gen, ZIOSpecDefault, assert, assertTrue, check}
 
 object HeaderSpec extends ZIOSpecDefault {
 
@@ -218,6 +218,13 @@ object HeaderSpec extends ZIOSpecDefault {
               assert(actual)(isNone)
             }
           }
+      } +
+      suite("encode") {
+        test("should encode multiple cookie headers as two separate headers") {
+          val cookieHeaders = Headers(HeaderNames.setCookie, "x1") ++ Headers(HeaderNames.setCookie, "x2")
+          val result        = cookieHeaders.encode.entries().size()
+          assertTrue(result == 2)
+        }
       }
   }
 
