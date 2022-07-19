@@ -127,7 +127,7 @@ trait HeaderModifier[+A] { self =>
     addHeaders(Headers.contentTransferEncoding(value))
 
   final def withContentType(value: CharSequence): A =
-    addHeaders(Headers.contentType(value))
+    setHeaders(Headers.contentType(value))
 
   final def withCookie(value: CharSequence): A =
     addHeaders(Headers.cookie(value))
