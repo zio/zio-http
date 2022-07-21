@@ -51,7 +51,9 @@ You can checkout more examples in the [example](https://github.com/dream11/zio-h
 - [Streaming Response](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/example/StreamingResponse.scala)
 - [Simple Client](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/example/SimpleClient.scala)
 - [File Streaming](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/example/FileStreaming.scala)
-- [Authentication](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/example/Authentication.scala)
+- [Basic Authentication](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/example/BasicAuth.scala)
+- [JWT Authentication Client](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/example/AuthenticationClient.scala)
+- [JWT Authentication Server](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/example/AuthenticationServer.scala)
 
 #### Steps to run an example
 
