@@ -98,7 +98,17 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
           if (isSSL) pipeline.addLast(SSL_HANDLER, ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc, host, port))
 
           // Adding default client channel handlers
-          pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec)
+          // The following are from netty defaults:
+          //   maxInitialLineLength=4096
+          //   maxHeaderSize=8192
+          //   maxChunkSize=8192
+          // because we want to add failOnMissingResponse=true so netty throws a
+          // io.netty.handler.codec.PrematureChannelClosureException if the server closed the
+          // connection without sending the full response.
+          // We can also handle channelInactive in the HttpClientCodec, but since we buffer
+          // the whole response anyway we can let Netty take care of this and treat
+          // it as an error
+          pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec(4096, 8192, 8192, true))
 
           // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
           // This is also required to make WebSocketHandlers work
