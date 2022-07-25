@@ -19,8 +19,8 @@ object StaticFileServerSpec extends HttpRunnableSpec {
     ZIO.scoped(serve(DynamicServer.app).as(List(staticSpec)))
   }.provideLayerShared(env) @@ timeout(5 seconds)
 
-  private def staticSpec = suite("Static RandomAccessFile Server") {
-    suite("fromResource") {
+  private def staticSpec = suite("Static RandomAccessFile Server")(
+    suite("fromResource")(
       suite("file") {
         val fileOk       = Http.fromResource("TestFile.txt").deploy
         val fileNotFound = Http.fromResource("Nothing").deploy
@@ -44,26 +44,26 @@ object StaticFileServerSpec extends HttpRunnableSpec {
             val res = fileNotFound.run().map(_.status)
             assertZIO(res)(equalTo(Status.NotFound))
           }
-      }
-    } +
-      suite("fromFile") {
-        suite("failure on construction") {
-          test("should respond with 500") {
-            val res = Http.fromFile(throw new Error("Wut happened?")).deploy.run().map(_.status)
-            assertZIO(res)(equalTo(Status.InternalServerError))
+      },
+    ),
+    suite("fromFile")(
+      suite("failure on construction")(
+        test("should respond with 500") {
+          val res = Http.fromFile(throw new Error("Wut happened?")).deploy.run().map(_.status)
+          assertZIO(res)(equalTo(Status.InternalServerError))
+        },
+      ),
+      suite("invalid file")(
+        test("should respond with 500") {
+          final class BadFile(name: String) extends File(name) {
+            override def length: Long    = throw new Error("Haha")
+            override def isFile: Boolean = true
           }
-        } +
-          suite("invalid file") {
-            test("should respond with 500") {
-              final class BadFile(name: String) extends File(name) {
-                override def length: Long    = throw new Error("Haha")
-                override def isFile: Boolean = true
-              }
-              val res = Http.fromFile(new BadFile("Length Failure")).deploy.run().map(_.status)
-              assertZIO(res)(equalTo(Status.InternalServerError))
-            }
-          }
-      }
-  }
+          val res = Http.fromFile(new BadFile("Length Failure")).deploy.run().map(_.status)
+          assertZIO(res)(equalTo(Status.InternalServerError))
+        },
+      ),
+    ),
+  )
 
 }
