@@ -13,8 +13,6 @@ import zio.Duration
 sealed trait SocketProtocol { self =>
   import SocketProtocol._
 
-  def ++(other: SocketProtocol): SocketProtocol = SocketProtocol.Concat(self, other)
-
   def clientBuilder: WebSocketClientProtocolConfig.Builder = {
     val b                                    = WebSocketClientProtocolConfig.newBuilder()
     def loop(protocol: SocketProtocol): Unit = {
@@ -59,53 +57,53 @@ sealed trait SocketProtocol { self =>
     b
   }
 
-}
-
-object SocketProtocol {
+  /**
+   * Close frame to send, when close frame was not send manually.
+   */
+  def withCloseFrame(status: CloseStatus): SocketProtocol = SocketProtocol.Concat(self, SendCloseFrame(status))
 
   /**
    * Close frame to send, when close frame was not send manually.
    */
-  def closeFrame(status: CloseStatus): SocketProtocol = SendCloseFrame(status)
-
-  /**
-   * Close frame to send, when close frame was not send manually.
-   */
-  def closeFrame(code: Int, reason: String): SocketProtocol =
-    SendCloseFrameCode(code, reason)
-
-  /**
-   * Creates an default decoder configuration.
-   */
-  def default: SocketProtocol = Default
+  def withCloseFrame(code: Int, reason: String): SocketProtocol =
+    SocketProtocol.Concat(self, SendCloseFrameCode(code, reason))
 
   /**
    * Close the connection if it was not closed by the client after timeout
    * specified
    */
-  def forceCloseTimeout(duration: Duration): SocketProtocol =
-    ForceCloseTimeoutMillis(duration)
+  def withForceCloseTimeout(duration: Duration): SocketProtocol =
+    SocketProtocol.Concat(self, ForceCloseTimeoutMillis(duration))
 
   /**
    * Close frames should be forwarded
    */
-  def forwardCloseFrames: SocketProtocol = ForwardCloseFrames
+  def withForwardCloseFrames: SocketProtocol = SocketProtocol.Concat(self, ForwardCloseFrames)
 
   /**
    * If pong frames should be forwarded
    */
-  def forwardPongFrames: SocketProtocol = ForwardPongFrames
+  def withForwardPongFrames: SocketProtocol = SocketProtocol.Concat(self, ForwardPongFrames)
 
   /**
    * Handshake timeout in mills
    */
-  def handshakeTimeout(duration: Duration): SocketProtocol =
-    HandshakeTimeoutMillis(duration)
+  def withHandshakeTimeout(duration: Duration): SocketProtocol =
+    SocketProtocol.Concat(self, HandshakeTimeoutMillis(duration))
 
   /**
    * Used to specify the websocket sub-protocol
    */
-  def subProtocol(name: String): SocketProtocol = SubProtocol(name)
+  def withSubProtocol(name: String): SocketProtocol = SocketProtocol.Concat(self, SubProtocol(name))
+
+}
+
+object SocketProtocol {
+
+  /**
+   * Creates an default decoder configuration.
+   */
+  def default: SocketProtocol = Default
 
   private final case class SubProtocol(name: String) extends SocketProtocol
 
