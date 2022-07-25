@@ -50,7 +50,7 @@ object WebSocketAdvanced extends ZIOAppDefault {
 
   val protocol = SocketProtocol.default.withSubProtocol("json") // Setup protocol settings
 
-  val decoder = SocketDecoder.default.withAllowExtensions // Setup decoder settings
+  val decoder = SocketDecoder.default.withExtensions // Setup decoder settings
 
   val socketApp: SocketApp[Any] = // Combine all channel handlers together
     httpSocket.toSocketApp
