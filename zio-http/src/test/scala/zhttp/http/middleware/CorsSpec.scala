@@ -8,8 +8,8 @@ import zio.test.Assertion.hasSubset
 import zio.test._
 
 object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
-  override def spec = suite("CorsMiddlewares") {
-    val app = Http.ok @@ cors()
+  val app           = Http.ok @@ cors()
+  override def spec = suite("CorsMiddlewares")(
     test("OPTIONS request") {
       val request = Request(
         method = Method.OPTIONS,
@@ -30,25 +30,25 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         res <- app(request)
       } yield assert(res.headersAsList)(hasSubset(expected)) &&
         assertTrue(res.status == Status.NoContent)
-    } +
-      test("GET request") {
-        val request =
-          Request(
-            method = Method.GET,
-            url = URL(!! / "success"),
-            headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
-          )
+    },
+    test("GET request") {
+      val request =
+        Request(
+          method = Method.GET,
+          url = URL(!! / "success"),
+          headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
+        )
 
-        val expected = Headers
-          .accessControlExposeHeaders("*")
-          .withAccessControlAllowOrigin("test-env")
-          .withAccessControlAllowMethods(Method.GET)
-          .withAccessControlAllowCredentials(true)
-          .toList
+      val expected = Headers
+        .accessControlExposeHeaders("*")
+        .withAccessControlAllowOrigin("test-env")
+        .withAccessControlAllowMethods(Method.GET)
+        .withAccessControlAllowCredentials(true)
+        .toList
 
-        for {
-          res <- app(request)
-        } yield assert(res.headersAsList)(hasSubset(expected))
-      }
-  }
+      for {
+        res <- app(request)
+      } yield assert(res.headersAsList)(hasSubset(expected))
+    },
+  )
 }

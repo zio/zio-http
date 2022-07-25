@@ -45,40 +45,40 @@ object SSLSpec extends ZIOSpecDefault {
               .request("https://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
-          } +
-            test("fail with DecoderException when client doesn't have the server certificate") {
-              val actual = Client
-                .request("https://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL2))
-                .catchSome { case _: DecoderException =>
-                  ZIO.succeed("DecoderException")
-                }
-              assertZIO(actual)(equalTo("DecoderException"))
-            } +
-            test("succeed when client has default SSL") {
-              val actual = Client
-                .request("https://localhost:8073/success", ssl = ClientSSLOptions.DefaultSSL)
-                .map(_.status)
-              assertZIO(actual)(equalTo(Status.Ok))
-            } +
-            test("Https Redirect when client makes http request") {
-              val actual = Client
-                .request("http://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
-                .map(_.status)
-              assertZIO(actual)(equalTo(Status.PermanentRedirect))
-            } +
-            test("Https request with a large payload should respond with 413") {
-              check(payload) { payload =>
-                val actual = Client
-                  .request(
-                    "https://localhost:8073/text",
-                    Method.POST,
-                    ssl = ClientSSLOptions.CustomSSL(clientSSL1),
-                    content = HttpData.fromString(payload),
-                  )
-                  .map(_.status)
-                assertZIO(actual)(equalTo(Status.RequestEntityTooLarge))
+          },
+          test("fail with DecoderException when client doesn't have the server certificate") {
+            val actual = Client
+              .request("https://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL2))
+              .catchSome { case _: DecoderException =>
+                ZIO.succeed("DecoderException")
               }
-            },
+            assertZIO(actual)(equalTo("DecoderException"))
+          },
+          test("succeed when client has default SSL") {
+            val actual = Client
+              .request("https://localhost:8073/success", ssl = ClientSSLOptions.DefaultSSL)
+              .map(_.status)
+            assertZIO(actual)(equalTo(Status.Ok))
+          },
+          test("Https Redirect when client makes http request") {
+            val actual = Client
+              .request("http://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
+              .map(_.status)
+            assertZIO(actual)(equalTo(Status.PermanentRedirect))
+          },
+          test("Https request with a large payload should respond with 413") {
+            check(payload) { payload =>
+              val actual = Client
+                .request(
+                  "https://localhost:8073/text",
+                  Method.POST,
+                  ssl = ClientSSLOptions.CustomSSL(clientSSL1),
+                  content = HttpData.fromString(payload),
+                )
+                .map(_.status)
+              assertZIO(actual)(equalTo(Status.RequestEntityTooLarge))
+            }
+          },
         ),
       ),
   ).provideSomeLayer[TestEnvironment](env) @@ timeout(5 second) @@ ignore
