@@ -48,7 +48,7 @@ sealed trait SocketDecoder { self =>
   /**
    * Allow extensions to be used in the reserved bits of the web socket frame
    */
-  def withAllowExtensions: SocketDecoder = SocketDecoder.Concat(self, AllowExtensions)
+  def withExtensions: SocketDecoder = SocketDecoder.Concat(self, AllowExtensions)
 
   /**
    * Flag to not send close frame immediately on any protocol violation.ion.
