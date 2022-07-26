@@ -226,6 +226,27 @@ object HeaderSpec extends ZIOSpecDefault {
         assertTrue(result == 2)
       },
     ),
+    suite("modifyHeaders")(
+      test("should remove header") {
+        val actual = Headers
+          .contentType("application/json")
+          .removeHeader(HeaderNames.contentType.toString)
+        assert(actual.hasHeader(HeaderNames.contentType.toString))(equalTo(false))
+        assert(actual.contentType)(isNone)
+        assert(actual.toList)(isEmpty)
+      },
+      test("should update a specific header") {
+        val actual = Headers
+          .contentType("application/json")
+          .withContentEncoding("utf-8")
+          .modify(header =>
+            if (HeaderNames.contentType.toString() == header._1) (header._1, "application/pdf") else header,
+          )
+
+        assert(actual.contentType)(isSome(equalTo("application/pdf")))
+        assert(actual.contentEncoding)(isSome(equalTo("utf-8")))
+      },
+    ),
   )
 
   private val contentTypeXhtmlXml       = Headers(HeaderNames.contentType, HeaderValues.applicationXhtml)
