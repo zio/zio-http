@@ -87,6 +87,17 @@ final case class URL(
 
     copy(kind = location)
   }
+
+  /**
+   * Returns a new java.net.URI representing this URL.
+   */
+  def toJavaURI: java.net.URI = new URI(encode)
+
+  /**
+   * Returns a new java.net.URL only if this URL represents an absolute
+   * location.
+   */
+  def toJavaURL: Option[java.net.URL] = if (self.kind == URL.Location.Relative) None else Some(toJavaURI.toURL)
 }
 object URL {
   private def fromAbsoluteURI(uri: URI): Option[URL] = {

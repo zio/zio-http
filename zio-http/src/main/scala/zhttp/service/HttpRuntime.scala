@@ -53,7 +53,6 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
         close = closeListener(rtm, fiber)
         ctx.channel().closeFuture.addListener(close)
       }
-
       fiber.unsafe.addObserver {
         case Exit.Success(_)     =>
           log.debug(s"Completed Fiber: [${fiber.id}]")
@@ -89,23 +88,20 @@ object HttpRuntime {
     for {
       rtm <- ZIO.runtime[R]
       env <- ZIO.environment[R]
-    } yield new HttpRuntime(
-      Unsafe.unsafeCompat { implicit u =>
-        new Strategy[R] {
-          val map = mutable.Map.empty[EventExecutor, Runtime[R]]
-          group.asScala.foreach { jExecutor =>
-            val executor        = Executor.fromJavaExecutor(jExecutor)
-            val rtmLayers       = Runtime.setExecutor(executor)
-            val rtm: Runtime[R] = Runtime.unsafe.fromLayer(rtmLayers).withEnvironment(env)
-            map += ((jExecutor, rtm))
-          }
-
-          override def runtime(ctx: Ctx): Runtime[R] = map.getOrElse(ctx.executor(), rtm)
+    } yield {
+      val map = mutable.Map.empty[EventExecutor, Runtime[R]]
+      group.asScala.foreach { e =>
+        val executor = Executor.fromJavaExecutor(e)
+        val rtm      = Unsafe.unsafeCompat { implicit u =>
+          Runtime.unsafe.fromLayer(Runtime.setExecutor(executor)).withEnvironment(env)
         }
-      },
-    )
+        map += e -> rtm
+      }
+
+      new HttpRuntime((ctx: Ctx) => map.getOrElse(ctx.executor(), rtm))
+    }
 
   trait Strategy[R] {
-    def runtime(ctx: ChannelHandlerContext): Runtime[R]
+    def runtime(ctx: Ctx): Runtime[R]
   }
 }

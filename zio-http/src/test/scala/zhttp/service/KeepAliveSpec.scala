@@ -18,30 +18,30 @@ object KeepAliveSpec extends HttpRunnableSpec {
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
   private val appKeepAliveEnabled = serve(DynamicServer.app)
 
-  def keepAliveSpec = suite("KeepAlive") {
-    suite("Http 1.1") {
+  def keepAliveSpec = suite("KeepAlive")(
+    suite("Http 1.1")(
       test("without connection close") {
         val res = app.deploy.headerValue(HeaderNames.connection).run()
         assertZIO(res)(isNone)
-      } +
-        test("with connection close") {
-          val res = app.deploy.headerValue(HeaderNames.connection).run(headers = connectionCloseHeader)
-          assertZIO(res)(isSome(equalTo("close")))
-        }
-    } +
-      suite("Http 1.0") {
-        test("without keep-alive") {
-          val res = app.deploy.headerValue(HeaderNames.connection).run(version = Version.Http_1_0)
-          assertZIO(res)(isSome(equalTo("close")))
-        } +
-          test("with keep-alive") {
-            val res = app.deploy
-              .headerValue(HeaderNames.connection)
-              .run(version = Version.Http_1_0, headers = keepAliveHeader)
-            assertZIO(res)(isNone)
-          }
-      }
-  }
+      },
+      test("with connection close") {
+        val res = app.deploy.headerValue(HeaderNames.connection).run(headers = connectionCloseHeader)
+        assertZIO(res)(isSome(equalTo("close")))
+      },
+    ),
+    suite("Http 1.0")(
+      test("without keep-alive") {
+        val res = app.deploy.headerValue(HeaderNames.connection).run(version = Version.Http_1_0)
+        assertZIO(res)(isSome(equalTo("close")))
+      },
+      test("with keep-alive") {
+        val res = app.deploy
+          .headerValue(HeaderNames.connection)
+          .run(version = Version.Http_1_0, headers = keepAliveHeader)
+        assertZIO(res)(isNone)
+      },
+    ),
+  )
 
   override def spec = {
     suite("ServerConfigSpec") {

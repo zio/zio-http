@@ -82,5 +82,19 @@ object URLSpec extends ZIOSpecDefault {
           assertTrue(actual == "/list?query=provided&type=builder")
         },
       ),
+      suite("java interop")(
+        test("can not create a java.net.URL from a relative URL") {
+          check(HttpGen.genRelativeURL) { url =>
+            assert(url.toJavaURL)(isNone)
+          }
+        },
+        test("converts a zhttp.http.URL to java.net.URI") {
+          check(HttpGen.genAbsoluteURL) { url =>
+            val httpURLString = url.encode
+            val javaURLString = url.toJavaURI.toString
+            assertTrue(httpURLString == javaURLString)
+          }
+        },
+      ),
     )
 }

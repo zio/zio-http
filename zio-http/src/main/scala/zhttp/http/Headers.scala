@@ -1,6 +1,6 @@
 package zhttp.http
 
-import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
+import io.netty.handler.codec.http.{CombinedHttpHeaders, HttpHeaders}
 import zhttp.http.headers.{HeaderConstructors, HeaderExtension}
 import zio.Chunk
 
@@ -38,9 +38,11 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
    * Converts a Headers to [io.netty.handler.codec.http.HttpHeaders]
    */
   private[zhttp] def encode: HttpHeaders =
-    self.toList.foldLeft[HttpHeaders](new DefaultHttpHeaders()) { case (headers, entry) =>
-      headers.set(entry._1, entry._2)
-    }
+    self.toList
+      .foldLeft[HttpHeaders](new CombinedHttpHeaders(true)) { case (headers, entry) =>
+        headers.add(entry._1, entry._2)
+      }
+
 }
 
 object Headers extends HeaderConstructors {

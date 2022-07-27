@@ -28,32 +28,32 @@ object ClientHttpsSpec extends ZIOSpecDefault {
 
   val sslOption: ClientSSLOptions =
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
-  override def spec               = suite("Https Client request") {
+  override def spec               = suite("Https Client request")(
     test("respond Ok") {
       val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
       assertZIO(actual)(anything)
-    } +
-      test("respond Ok with sslOption") {
-        val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", ssl = sslOption)
-        assertZIO(actual)(anything)
-      } +
-      test("should respond as Bad Request") {
-        val actual = Client
-          .request(
-            "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
-            ssl = sslOption,
-          )
-          .map(_.status)
-        assertZIO(actual)(equalTo(Status.BadRequest))
-      } +
-      test("should throw DecoderException for handshake failure") {
-        val actual = Client
-          .request(
-            "https://untrusted-root.badssl.com/",
-            ssl = sslOption,
-          )
-          .exit
-        assertZIO(actual)(fails(isSubtype[DecoderException](anything)))
-      }
-  }.provideLayer(env) @@ timeout(30 seconds) @@ ignore
+    },
+    test("respond Ok with sslOption") {
+      val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", ssl = sslOption)
+      assertZIO(actual)(anything)
+    },
+    test("should respond as Bad Request") {
+      val actual = Client
+        .request(
+          "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
+          ssl = sslOption,
+        )
+        .map(_.status)
+      assertZIO(actual)(equalTo(Status.BadRequest))
+    },
+    test("should throw DecoderException for handshake failure") {
+      val actual = Client
+        .request(
+          "https://untrusted-root.badssl.com/",
+          ssl = sslOption,
+        )
+        .exit
+      assertZIO(actual)(fails(isSubtype[DecoderException](anything)))
+    },
+  ).provideLayer(env) @@ timeout(30 seconds) @@ ignore
 }

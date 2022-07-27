@@ -90,5 +90,5 @@ final case class ServerChannelInitializer[R](
 }
 
 object ServerChannelInitializer {
-  private val log = Log.withTags("Server", "ChannelInitializer")
+  private val log = Log.withTags("Server", "Channel")
 }

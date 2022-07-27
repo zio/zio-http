@@ -1,10 +1,23 @@
 package zhttp.internal
 
 import zhttp.http._
+import zhttp.internal.DynamicServer.Id
 import zhttp.service.Server.Start
 import zio._
 
 import java.util.UUID
+
+sealed trait DynamicServer {
+  def add(app: HttpApp[Any, Throwable]): UIO[Id]
+
+  def get(id: Id): UIO[Option[HttpApp[Any, Throwable]]]
+
+  def port: ZIO[Any, Nothing, Int]
+
+  def setStart(n: Start): UIO[Boolean]
+
+  def start: IO[Nothing, Start]
+}
 
 object DynamicServer {
 
@@ -58,19 +71,7 @@ object DynamicServer {
 
   def wsURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.WS)
 
-  sealed trait Service {
-    def add(app: HttpApp[Any, Throwable]): UIO[Id]
-
-    def get(id: Id): UIO[Option[HttpApp[Any, Throwable]]]
-
-    def port: ZIO[Any, Nothing, Int]
-
-    def setStart(n: Start): UIO[Boolean]
-
-    def start: IO[Nothing, Start]
-  }
-
-  final class Live(ref: Ref[Map[Id, HttpApp[Any, Throwable]]], pr: Promise[Nothing, Start]) extends Service {
+  final class Live(ref: Ref[Map[Id, HttpApp[Any, Throwable]]], pr: Promise[Nothing, Start]) extends DynamicServer {
     def add(app: HttpApp[Any, Throwable]): UIO[Id] = for {
       id <- ZIO.succeed(UUID.randomUUID().toString)
       _  <- ref.update(map => map + (id -> app))
