@@ -184,7 +184,7 @@ trait HeaderGetters[+A] { self =>
   final def from: Option[CharSequence] =
     headerValue(HeaderNames.from)
 
-  final def header(headerName: CharSequence): Option[Header] =
+  def header(headerName: CharSequence): Option[Header] =
     headers.toList
       .find(h => contentEqualsIgnoreCase(h._1, headerName))
 

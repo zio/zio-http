@@ -1,6 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{CombinedHttpHeaders, HttpHeaders}
+import io.netty.util.AsciiString.contentEqualsIgnoreCase
 import zhttp.http.headers.{HeaderConstructors, HeaderExtension}
 import zio.Chunk
 
@@ -69,12 +70,23 @@ sealed trait Headers extends HeaderExtension[Headers] {
     }
 }
 
-case object EmptyHeaders                                              extends Headers
-case class HeadersFromChunk(value: Chunk[Header])                     extends Headers
-case class HeadersFromHttp(value: HttpHeaders)                        extends Headers
+case object EmptyHeaders                                              extends Headers {
+  override def header(headerName: CharSequence): Option[Header] = None
+}
+case class HeadersFromChunk(value: Chunk[Header])                     extends Headers {
+  override def header(headerName: CharSequence): Option[Header] =
+    value.find(h => contentEqualsIgnoreCase(h._1, headerName))
+}
+case class HeadersFromHttp(value: HttpHeaders)                        extends Headers {
+  override def header(headerName: CharSequence): Option[Header] =
+    Option(value.get(headerName)).map((headerName, _))
+}
 case class UpdatedHeaders(update: Headers => Headers, value: Headers) extends Headers
 case class ModifyHeaders(modify: Header => Header, value: Headers)    extends Headers
-case class HeadersCons(a: Headers, b: Headers)                        extends Headers
+case class HeadersCons(a: Headers, b: Headers)                        extends Headers {
+  override def header(headerName: CharSequence): Option[Header] =
+    a.header(headerName).orElse(b.header(headerName))
+}
 
 object Headers extends HeaderConstructors {
 
