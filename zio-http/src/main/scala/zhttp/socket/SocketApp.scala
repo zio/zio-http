@@ -44,7 +44,7 @@ final case class SocketApp[-R](
    * Frame decoder configuration
    */
   def withDecoder(decoder: SocketDecoder): SocketApp[R] =
-    copy(decoder = decoder)
+    copy(decoder = decoder, protocol = protocol.withDecoderConfig(decoder))
 
   /**
    * Server side websocket configuration
