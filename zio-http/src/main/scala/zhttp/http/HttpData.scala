@@ -102,6 +102,30 @@ object HttpData {
   def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = HTTP_CHARSET): HttpData =
     HttpData.BinaryStream(stream.map(str => Unpooled.wrappedBuffer(str.toString.getBytes(charset))))
 
+  sealed trait ServerSentEvent {
+    def toStringRepresentation: String
+  }
+
+  object ServerSentEvent {
+
+    private val eol = "\n"
+
+    case class Event(data: String, event: Option[String], id: Option[String], retry: Option[Int]) extends ServerSentEvent {
+      override def toStringRepresentation: String = {
+        val dataStr  = s"data: $data\n"
+        val eventStr = event.map(str => s"event: $str\n").getOrElse("")
+        val idStr    = id.map(str => s"id: $str\n").getOrElse("")
+        val retryStr = retry.map(str => s"id: $str\n").getOrElse("")
+
+        idStr ++ eventStr ++ dataStr ++ retryStr ++ eol
+      }
+
+    }
+  }
+
+  def fromEventStream(stream: ZStream[Any, Throwable, ServerSentEvent]): HttpData =
+    HttpData.BinaryStream(stream.map(event => Unpooled.wrappedBuffer(event.toStringRepresentation.getBytes(HTTP_CHARSET))))
+
   /**
    * Helper to create HttpData from Stream of bytes
    */
