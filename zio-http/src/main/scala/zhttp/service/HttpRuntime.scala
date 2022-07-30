@@ -1,10 +1,9 @@
 package zhttp.service
 
 import io.netty.channel.{ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
-import io.netty.util.concurrent.{EventExecutor, Future, GenericFutureListener}
+import io.netty.util.concurrent.{Future, GenericFutureListener}
 import zio._
 
-import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 /**
@@ -85,20 +84,18 @@ object HttpRuntime {
    * the server.
    */
   def sticky[R](group: JEventLoopGroup): URIO[R, HttpRuntime[R]] =
-    for {
-      rtm <- ZIO.runtime[R]
-      env <- ZIO.environment[R]
-    } yield {
-      val map = mutable.Map.empty[EventExecutor, Runtime[R]]
-      group.asScala.foreach { e =>
-        val executor = Executor.fromJavaExecutor(e)
-        val rtm      = Unsafe.unsafeCompat { implicit u =>
-          Runtime.unsafe.fromLayer(Runtime.setExecutor(executor)).withEnvironment(env)
+    ZIO.runtime[R].flatMap { runtime =>
+      ZIO
+        .foreach(group.asScala) { javaExecutor =>
+          val executor = Executor.fromJavaExecutor(javaExecutor)
+          ZIO.runtime[R].provideSomeLayer[R](Runtime.setExecutor(executor)).map { runtime =>
+            javaExecutor -> runtime
+          }
         }
-        map += e -> rtm
-      }
-
-      new HttpRuntime((ctx: Ctx) => map.getOrElse(ctx.executor(), rtm))
+        .map { iterable =>
+          val map = iterable.toMap
+          new HttpRuntime((ctx: Ctx) => map.getOrElse(ctx.executor(), runtime))
+        }
     }
 
   trait Strategy[R] {
