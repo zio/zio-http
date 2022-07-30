@@ -88,7 +88,7 @@ object HttpRuntime {
       ZIO
         .foreach(group.asScala) { javaExecutor =>
           val executor = Executor.fromJavaExecutor(javaExecutor)
-          ZIO.runtime[R].provideSomeLayer[R](Runtime.setExecutor(executor)).map { runtime =>
+          ZIO.runtime[R].daemonChildren.onExecutor(executor).map { runtime =>
             javaExecutor -> runtime
           }
         }
