@@ -78,8 +78,11 @@ case class HeadersFromChunk(value: Chunk[Header])                     extends He
     value.find(h => contentEqualsIgnoreCase(h._1, headerName))
 }
 case class HeadersFromHttp(value: HttpHeaders)                        extends Headers {
-  override def header(headerName: CharSequence): Option[Header] =
-    Option(value.get(headerName)).map((headerName, _))
+  override def header(headerName: CharSequence): Option[Header] = {
+    val header = value.get(headerName)
+    if (header != null) Some((headerName, header))
+    else None
+  }
 }
 case class UpdatedHeaders(update: Headers => Headers, value: Headers) extends Headers
 case class ModifyHeaders(modify: Header => Header, value: Headers)    extends Headers
