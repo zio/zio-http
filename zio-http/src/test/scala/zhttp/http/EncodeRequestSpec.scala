@@ -28,67 +28,67 @@ object EncodeRequestSpec extends ZIOSpecDefault with EncodeRequest {
     } yield data,
   )
 
-  def spec = suite("EncodeClientParams") {
+  def spec = suite("EncodeClientParams")(
     test("method") {
       check(anyClientParam) { params =>
         val req = encode(params).map(_.method())
         assertZIO(req)(equalTo(params.method.toJava))
       }
-    } +
-      test("method on Body.RandomAccessFile") {
-        check(HttpGen.clientParamsForFileBody()) { params =>
-          val req = encode(params).map(_.method())
-          assertZIO(req)(equalTo(params.method.toJava))
-        }
-      } +
-      suite("uri") {
-        test("uri") {
-          check(anyClientParam) { params =>
-            val req = encode(params).map(_.uri())
-            assertZIO(req)(equalTo(params.url.relative.encode))
-          }
-        } +
-          test("uri on Body.RandomAccessFile") {
-            check(HttpGen.clientParamsForFileBody()) { params =>
-              val req = encode(params).map(_.uri())
-              assertZIO(req)(equalTo(params.url.relative.encode))
-            }
-          }
-      } +
-      test("content-length") {
-        check(clientParamWithFiniteData(5)) { params =>
-          val req = encode(params).map(
-            _.headers().getInt(HttpHeaderNames.CONTENT_LENGTH).toLong,
-          )
-          assertZIO(req)(equalTo(5L))
-        }
-      } +
-      test("host header") {
-        check(anyClientParam) { params =>
-          val req =
-            encode(params).map(i => Option(i.headers().get(HttpHeaderNames.HOST)))
-          assertZIO(req)(equalTo(params.url.host))
-        }
-      } +
-      test("host header when absolute url") {
-        check(clientParamWithAbsoluteUrl) { params =>
-          val req = encode(params)
-            .map(i => Option(i.headers().get(HttpHeaderNames.HOST)))
-          assertZIO(req)(equalTo(params.url.host))
-        }
-      } +
-      test("only one host header exists") {
-        check(clientParamWithAbsoluteUrl) { params =>
-          val req = encode(params)
-            .map(_.headers().getAll(HttpHeaderNames.HOST).size)
-          assertZIO(req)(equalTo(1))
-        }
-      } +
-      test("http version") {
-        check(anyClientParam) { params =>
-          val req = encode(params).map(i => i.protocolVersion())
-          assertZIO(req)(equalTo(params.version.toJava))
-        }
+    },
+    test("method on Body.RandomAccessFile") {
+      check(HttpGen.clientParamsForFileBody()) { params =>
+        val req = encode(params).map(_.method())
+        assertZIO(req)(equalTo(params.method.toJava))
       }
-  }
+    },
+    suite("uri")(
+      test("uri") {
+        check(anyClientParam) { params =>
+          val req = encode(params).map(_.uri())
+          assertZIO(req)(equalTo(params.url.relative.encode))
+        }
+      },
+      test("uri on Body.RandomAccessFile") {
+        check(HttpGen.clientParamsForFileBody()) { params =>
+          val req = encode(params).map(_.uri())
+          assertZIO(req)(equalTo(params.url.relative.encode))
+        }
+      },
+    ),
+    test("content-length") {
+      check(clientParamWithFiniteData(5)) { params =>
+        val req = encode(params).map(
+          _.headers().getInt(HttpHeaderNames.CONTENT_LENGTH).toLong,
+        )
+        assertZIO(req)(equalTo(5L))
+      }
+    },
+    test("host header") {
+      check(anyClientParam) { params =>
+        val req =
+          encode(params).map(i => Option(i.headers().get(HttpHeaderNames.HOST)))
+        assertZIO(req)(equalTo(params.url.host))
+      }
+    },
+    test("host header when absolute url") {
+      check(clientParamWithAbsoluteUrl) { params =>
+        val req = encode(params)
+          .map(i => Option(i.headers().get(HttpHeaderNames.HOST)))
+        assertZIO(req)(equalTo(params.url.host))
+      }
+    },
+    test("only one host header exists") {
+      check(clientParamWithAbsoluteUrl) { params =>
+        val req = encode(params)
+          .map(_.headers().getAll(HttpHeaderNames.HOST).size)
+        assertZIO(req)(equalTo(1))
+      }
+    },
+    test("http version") {
+      check(anyClientParam) { params =>
+        val req = encode(params).map(i => i.protocolVersion())
+        assertZIO(req)(equalTo(params.version.toJava))
+      }
+    },
+  )
 }

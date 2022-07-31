@@ -10,13 +10,13 @@ import zio.test._
 import java.io.File
 
 object BodySpec extends ZIOSpecDefault {
+  private val testFile = new File(getClass.getResource("/TestFile.txt").getPath)
 
   override def spec =
-    suite("BodySpec") {
-      val testFile = new File(getClass.getResource("/TestFile.txt").getPath)
-      suite("outgoing") {
+    suite("BodySpec")(
+      suite("outgoing")(
         suite("encode")(
-          suite("fromStream") {
+          suite("fromStream")(
             test("success") {
               check(Gen.string) { payload =>
                 val stringBuffer    = payload.getBytes(HTTP_CHARSET)
@@ -24,8 +24,8 @@ object BodySpec extends ZIOSpecDefault {
                 val res             = Body.fromStream(responseContent).asByteBuf.map(_.toString(HTTP_CHARSET))
                 assertZIO(res)(equalTo(payload))
               }
-            }
-          },
+            },
+          ),
           suite("fromFile")(
             test("failure") {
               val res = Body.fromFile(throw new Error("Failure")).asByteBuf.either
@@ -42,7 +42,7 @@ object BodySpec extends ZIOSpecDefault {
               assertZIO(res)(equalTo("abc\nfoo"))
             },
           ),
-        )
-      }
-    } @@ timeout(10 seconds)
+        ),
+      ),
+    ) @@ timeout(10 seconds)
 }

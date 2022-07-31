@@ -176,6 +176,12 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
     middleware.when(req => cond(req.headers))
 
   /**
+   * Applies the middleware only if status matches the condition
+   */
+  final def whenStatus[R, E](cond: Status => Boolean)(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    whenResponse(respon => cond(respon.status))(middleware)
+
+  /**
    * Applies the middleware only if the condition function evaluates to true
    */
   final def whenRequest[R, E](cond: Request => Boolean)(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
@@ -188,10 +194,24 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   final def whenRequestZIO[R, E](
     cond: Request => ZIO[R, E, Boolean],
   )(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    Middleware.ifThenElseZIO[Request](cond)(
-      _ => middleware,
-      _ => Middleware.identity,
-    )
+    middleware.whenZIO(cond)
+
+  /**
+   * Applies the middleware only if the condition function evaluates to true
+   */
+  def whenResponse[R, E](
+    cond: Response => Boolean,
+  )(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    Middleware.identity[Request, Response].flatMap(response => middleware.when(_ => cond(response)))
+
+  /**
+   * Applies the middleware only if the condition function effectfully evaluates
+   * to true
+   */
+  def whenResponseZIO[R, E](
+    cond: Response => ZIO[R, E, Boolean],
+  )(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    Middleware.identity[Request, Response].flatMap(response => middleware.whenZIO(_ => cond(response)))
 }
 
 object Web {
