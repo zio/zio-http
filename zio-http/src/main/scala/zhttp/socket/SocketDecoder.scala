@@ -46,7 +46,7 @@ final case class SocketDecoder(
    * WebSocketServerProtocolHandler creation. This is useful (less overhead)
    * when you use only BinaryWebSocketFrame within your web socket connection.
    */
-  def withSkipUTF8Validation(allowed: Boolean): SocketDecoder  = self.copy(withUTF8Validator = allowed)
+  def withSkipUTF8Validation(allowed: Boolean): SocketDecoder = self.copy(withUTF8Validator = allowed)
 
   def javaConfig: WebSocketDecoderConfig = WebSocketDecoderConfig
     .newBuilder()
