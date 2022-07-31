@@ -40,7 +40,7 @@ final case class Response private (
         body match {
           case Body.FromAsciiString(text) => Unpooled.wrappedBuffer(text.array())
           case Body.BinaryChunk(data)     => Unpooled.wrappedBuffer(data.toArray)
-          case Body.BinaryByteBuf(data)   => data
+          case Body.BinaryByteBuf(data)   => data()
           case Body.BinaryStream(_)       => null
           case Body.Empty                 => Unpooled.EMPTY_BUFFER
           case Body.JavaFile(_)           => null
