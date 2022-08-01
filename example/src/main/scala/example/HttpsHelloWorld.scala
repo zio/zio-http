@@ -1,9 +1,8 @@
 package example
 
 import zhttp.http._
-import zhttp.service.server.ServerChannelFactory
+import zhttp.service.Server
 import zhttp.service.server.ServerSSLHandler._
-import zhttp.service.{EventLoopGroup, Server}
 import zio._
 
 object HttpsHelloWorld extends ZIOAppDefault {
@@ -32,5 +31,5 @@ object HttpsHelloWorld extends ZIOAppDefault {
     )
 
   override val run =
-    server.start.provide(ServerChannelFactory.auto, EventLoopGroup.auto(0))
+    server.start
 }

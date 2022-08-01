@@ -1,7 +1,7 @@
 package example
 
 import zhttp.http.Headers
-import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
+import zhttp.service.Client
 import zio._
 
 object AuthenticationClient extends ZIOAppDefault {
@@ -12,7 +12,6 @@ object AuthenticationClient extends ZIOAppDefault {
    * a protected route. Run AuthenticationServer before running this example.
    */
   val url = "http://localhost:8090"
-  val env = ChannelFactory.auto ++ EventLoopGroup.auto()
 
   val program = for {
     // Making a login request to obtain the jwt token. In this example the password should be the reverse string of username.
@@ -23,6 +22,6 @@ object AuthenticationClient extends ZIOAppDefault {
     _        <- Console.printLine(body)
   } yield ()
 
-  override val run = program.provideLayer(env)
+  override val run = program
 
 }

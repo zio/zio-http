@@ -4,7 +4,6 @@ import zhttp.http.{Headers, Http, Status}
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.ChannelEvent.UserEvent.HandshakeComplete
 import zhttp.service.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
-import zhttp.service.server._
 import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio._
 import zio.test.Assertion.equalTo
@@ -13,8 +12,7 @@ import zio.test._
 
 object WebSocketSpec extends HttpRunnableSpec {
 
-  private val env =
-    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ChannelFactory.nio
+  private val env = DynamicServer.live
 
   private val websocketSpec = suite("WebsocketSpec")(
     test("channel events between client and server") {

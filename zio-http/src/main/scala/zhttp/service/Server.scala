@@ -36,18 +36,18 @@ sealed trait Server[-R, +E] { self =>
 
   def make(implicit
     ev: E <:< Throwable,
-  ): ZIO[R with EventLoopGroup with ServerChannelFactory with Scope, Throwable, Start] =
+  ): ZIO[R with Scope, Throwable, Start] =
     Server.make(self.asInstanceOf[Server[R, Throwable]])
 
-  def start(implicit ev: E <:< Throwable): ZIO[R with EventLoopGroup with ServerChannelFactory, Throwable, Nothing] =
-    ZIO.scoped[R with EventLoopGroup with ServerChannelFactory](make *> ZIO.never)
+  def start(implicit ev: E <:< Throwable): ZIO[R, Throwable, Nothing] =
+    ZIO.scoped[R](make *> ZIO.never)
 
   /**
    * Launches the app with current settings: default EventLoopGroup (nThreads =
    * 0) and ServerChannelFactory.auto.
    */
   def startDefault[R1 <: R](implicit ev: E <:< Throwable): ZIO[R1, Throwable, Nothing] =
-    start.provideSomeLayer[R1](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto)
+    start
 
   /**
    * Creates a new server using a HttpServerExpectContinueHandler to send a 100
@@ -181,11 +181,11 @@ object Server {
 
   def make[R](
     server: Server[R, Throwable],
-  ): ZIO[R with EventLoopGroup with ServerChannelFactory with Scope, Throwable, Start] = {
+  ): ZIO[R with Scope, Throwable, Start] = {
     val settings = server.settings()
     for {
-      channelFactory <- ZIO.service[ServerChannelFactory]
-      eventLoopGroup <- ZIO.service[EventLoopGroup]
+      channelFactory <- ServerChannelFactory.Live.auto
+      eventLoopGroup <- EventLoopGroup.Live.default
       zExec          <- HttpRuntime.sticky[R](eventLoopGroup)
       handler         = new ServerResponseWriter(zExec, settings, ServerTime.make)
       reqHandler      = settings.app.compile(zExec, settings, handler)
@@ -221,7 +221,7 @@ object Server {
 
   def start[R](socketAddress: InetSocketAddress, http: HttpApp[R, Throwable]): ZIO[R, Throwable, Nothing] =
     (Server(http).withBinding(socketAddress).make *> ZIO.never)
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
+      .provideSomeLayer[R](Scope.default)
 
   def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer = UnsafeChannelPipeline(pipeline)
 

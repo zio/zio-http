@@ -3,7 +3,6 @@ import zhttp.http._
 import zhttp.http.middleware.Auth.Credentials
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.Client.Config
-import zhttp.service.server._
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
@@ -13,8 +12,7 @@ import java.net.ConnectException
 
 object ClientSpec extends HttpRunnableSpec {
 
-  private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
+  private val env = DynamicServer.live ++ Scope.default
 
   def clientSpec = suite("ClientSpec")(
     test("respond Ok") {

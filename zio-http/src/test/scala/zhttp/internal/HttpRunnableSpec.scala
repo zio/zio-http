@@ -57,7 +57,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, Request, Response] =
+    def deploy(implicit e: E <:< Throwable): Http[R with HttpEnv with Scope, Throwable, Request, Response] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
@@ -91,7 +91,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
   def serve[R](
     app: HttpApp[R, Throwable],
     server: Option[Server[R, Throwable]] = None,
-  ): ZIO[R with EventLoopGroup with ServerChannelFactory with DynamicServer with Scope, Nothing, Unit] =
+  ): ZIO[R with DynamicServer with Scope, Nothing, Unit] =
     for {
       settings <- ZIO
         .succeed(server.foldLeft(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection)(_ ++ _))
@@ -102,7 +102,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
   def status(
     method: Method = Method.GET,
     path: Path,
-  ): ZIO[EventLoopGroup with ChannelFactory with DynamicServer, Throwable, Status] = {
+  ): ZIO[DynamicServer with Scope, Throwable, Status] = {
     for {
       port   <- DynamicServer.port
       status <- Client

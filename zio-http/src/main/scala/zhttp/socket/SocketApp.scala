@@ -1,7 +1,7 @@
 package zhttp.socket
 
 import zhttp.http.{Headers, Http, HttpApp, Response}
-import zhttp.service.{ChannelEvent, ChannelFactory, Client, EventLoopGroup}
+import zhttp.service.{ChannelEvent, Client}
 import zio.{ZIO, _}
 
 final case class SocketApp[-R](
@@ -17,7 +17,7 @@ final case class SocketApp[-R](
   def connect(
     url: String,
     headers: Headers = Headers.empty,
-  ): ZIO[R with EventLoopGroup with ChannelFactory with Scope, Throwable, Response] =
+  ): ZIO[R with Scope, Throwable, Response] =
     Client.socket(url, self, headers)
 
   /**

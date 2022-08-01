@@ -2,10 +2,10 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{
+  ChannelInitializer,
   Channel => JChannel,
   ChannelFactory => JChannelFactory,
   ChannelFuture => JChannelFuture,
-  ChannelInitializer,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http._
@@ -148,9 +148,9 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
 }
 
 object Client {
-  def make[R]: ZIO[R with EventLoopGroup with ChannelFactory, Nothing, Client[R]] = for {
-    cf <- ZIO.service[JChannelFactory[JChannel]]
-    el <- ZIO.service[JEventLoopGroup]
+  def make[R]: ZIO[R with Scope, Nothing, Client[R]] = for {
+    cf <- ChannelFactory.Live.auto
+    el <- EventLoopGroup.Live.auto(4)
     zx <- HttpRuntime.default[R]
   } yield service.Client(zx, cf, el)
 
@@ -160,7 +160,7 @@ object Client {
     headers: Headers = Headers.empty,
     content: HttpData = HttpData.empty,
     ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
+  ): ZIO[Scope, Throwable, Response] =
     for {
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- request(
@@ -172,7 +172,7 @@ object Client {
   def request(
     request: Request,
     clientConfig: Config,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
+  ): ZIO[Scope, Throwable, Response] =
     for {
       clt <- make[Any]
       res <- clt.request(request, clientConfig)
@@ -183,7 +183,7 @@ object Client {
     app: SocketApp[R],
     headers: Headers = Headers.empty,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[R with EventLoopGroup with ChannelFactory with Scope, Throwable, Response] = {
+  ): ZIO[R with Scope, Throwable, Response] = {
     for {
       clt <- make[R]
       uri <- ZIO.fromEither(URL.fromString(url))

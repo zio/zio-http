@@ -2,7 +2,6 @@ package zhttp.service
 
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
-import zhttp.service.server._
 import zio._
 import zio.test.Assertion.{equalTo, isSome}
 import zio.test.TestAspect.timeout
@@ -12,8 +11,7 @@ import java.io.File
 
 object StaticFileServerSpec extends HttpRunnableSpec {
 
-  private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+  private val env = DynamicServer.live ++ Scope.default
 
   override def spec = suite("StaticFileServer") {
     ZIO.scoped(serve(DynamicServer.app).as(List(staticSpec)))

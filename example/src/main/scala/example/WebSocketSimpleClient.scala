@@ -1,15 +1,15 @@
 package example
 
 import zhttp.http.{Http, Response}
+import zhttp.service.ChannelEvent
 import zhttp.service.ChannelEvent.{ChannelRead, UserEvent, UserEventTriggered}
-import zhttp.service.{ChannelEvent, ChannelFactory, EventLoopGroup}
 import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio._
 
 object WebSocketSimpleClient extends ZIOAppDefault {
 
   // Setup client envs
-  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ Scope.default
+  val env = Scope.default
 
   val url = "ws://ws.vi-server.org/mirror"
 
@@ -32,7 +32,7 @@ object WebSocketSimpleClient extends ZIOAppDefault {
           ZIO.succeed(println("Goodbye!")) *> ch.writeAndFlush(WebSocketFrame.close(1000))
       }
 
-  val app: ZIO[Any with EventLoopGroup with ChannelFactory with Scope, Throwable, Response] =
+  val app: ZIO[Scope, Throwable, Response] =
     httpSocket.toSocketApp.connect(url)
 
   val run = app.provideLayer(env)

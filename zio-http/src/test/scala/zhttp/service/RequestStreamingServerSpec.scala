@@ -5,11 +5,10 @@ import zhttp.service.ServerSpec.requestBodySpec
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
-import zio.{ZIO, durationInt}
+import zio.{Scope, ZIO, durationInt}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
-  private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ zhttp.service.server.ServerChannelFactory.nio ++ DynamicServer.live
+  private val env = DynamicServer.live ++ Scope.default
 
   private val appWithReqStreaming = serve(DynamicServer.app, Some(Server.enableObjectAggregator(-1)))
 

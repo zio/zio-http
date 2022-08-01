@@ -3,16 +3,12 @@ package zhttp.service.server
 import io.netty.channel.epoll.{Epoll, EpollServerSocketChannel}
 import io.netty.channel.kqueue.{KQueue, KQueueServerSocketChannel}
 import io.netty.channel.socket.nio.NioServerSocketChannel
-import io.netty.channel.{ChannelFactory => JChannelFactory, ServerChannel}
+import io.netty.channel.{ServerChannel, ChannelFactory => JChannelFactory}
 import io.netty.incubator.channel.uring.IOUringServerSocketChannel
-import zhttp.service.{ChannelFactory, ServerChannelFactory}
-import zio.{UIO, ZLayer}
+import zhttp.service.ChannelFactory
+import zio.UIO
 
 object ServerChannelFactory {
-  def nio: ZLayer[Any, Nothing, ServerChannelFactory]   = ZLayer(Live.nio)
-  def epoll: ZLayer[Any, Nothing, ServerChannelFactory] = ZLayer(Live.epoll)
-  def uring: ZLayer[Any, Nothing, ServerChannelFactory] = ZLayer(Live.uring)
-  def auto: ZLayer[Any, Nothing, ServerChannelFactory]  = ZLayer(Live.auto)
 
   object Live {
     def nio: UIO[JChannelFactory[ServerChannel]]    = ChannelFactory.make(() => new NioServerSocketChannel())
