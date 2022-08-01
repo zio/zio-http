@@ -33,8 +33,7 @@ final case class SocketDecoder(
    */
   def withMaskMismatch(allowed: Boolean): SocketDecoder = self.copy(allowMaskMismatch = allowed)
 
-  def withAllowExtensions: SocketDecoder  = self.copy(allowExtensions = true)
-  def withRejectExtensions: SocketDecoder = self.copy(allowExtensions = false)
+  def withExtensions(allowed: Boolean): SocketDecoder = self.copy(allowExtensions = allowed)
 
   /**
    * Flag to not send close frame immediately on any protocol violation.ion.
@@ -46,7 +45,7 @@ final case class SocketDecoder(
    * WebSocketServerProtocolHandler creation. This is useful (less overhead)
    * when you use only BinaryWebSocketFrame within your web socket connection.
    */
-  def withSkipUTF8Validation(allowed: Boolean): SocketDecoder = self.copy(withUTF8Validator = allowed)
+  def withUTF8Validation(enable: Boolean): SocketDecoder = self.copy(withUTF8Validator = enable)
 
   def javaConfig: WebSocketDecoderConfig = WebSocketDecoderConfig
     .newBuilder()

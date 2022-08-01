@@ -11,7 +11,7 @@ import zio.Duration
  * Server side websocket configuration
  */
 final case class SocketProtocol(
-  subprotocols: String = null,
+  subprotocols: Option[String] = None,
   handshakeTimeoutMillis: Long = 10000L,
   forceCloseTimeoutMillis: Long = -1L,
   handleCloseFrames: Boolean = true,
@@ -40,22 +40,12 @@ final case class SocketProtocol(
   /**
    * Close frames should be forwarded
    */
-  def withForwardCloseFrames: SocketProtocol = self.copy(handleCloseFrames = true)
-
-  /**
-   * Close frames should be dropped
-   */
-  def withDropCloseFrames: SocketProtocol = self.copy(handleCloseFrames = false)
+  def withCloseFrames(forward: Boolean): SocketProtocol = self.copy(handleCloseFrames = forward)
 
   /**
    * Pong frames should be forwarded
    */
-  def withForwardPongFrames: SocketProtocol = self.copy(dropPongFrames = false)
-
-  /**
-   * Pong frames should be dropped
-   */
-  def withDropPongFrames: SocketProtocol = self.copy(dropPongFrames = true)
+  def withForwardPongFrames(forward: Boolean): SocketProtocol = self.copy(dropPongFrames = !forward)
 
   /**
    * Handshake timeout in mills
@@ -65,13 +55,13 @@ final case class SocketProtocol(
   /**
    * Used to specify the websocket sub-protocol
    */
-  def withSubProtocol(name: String): SocketProtocol = self.copy(subprotocols = name)
+  def withSubProtocol(name: Option[String]): SocketProtocol = self.copy(subprotocols = name)
 
   def withDecoderConfig(socketDecoder: SocketDecoder) = self.copy(decoderConfig = socketDecoder)
 
   def clientBuilder: WebSocketClientProtocolConfig.Builder = WebSocketClientProtocolConfig
     .newBuilder()
-    .subprotocol(subprotocols)
+    .subprotocol(subprotocols.orNull)
     .handshakeTimeoutMillis(handshakeTimeoutMillis)
     .forceCloseTimeoutMillis(forceCloseTimeoutMillis)
     .handleCloseFrames(handleCloseFrames)
@@ -81,7 +71,7 @@ final case class SocketProtocol(
     .newBuilder()
     .checkStartsWith(true)
     .websocketPath("")
-    .subprotocols(subprotocols)
+    .subprotocols(subprotocols.orNull)
     .handshakeTimeoutMillis(handshakeTimeoutMillis)
     .forceCloseTimeoutMillis(forceCloseTimeoutMillis)
     .handleCloseFrames(handleCloseFrames)
