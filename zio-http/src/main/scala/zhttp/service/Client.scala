@@ -63,12 +63,8 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
   ): JChannelFuture = {
 
     try {
-      val (host, port) = (req.url.host, req.url.port) match {
-        case (Some(host), Some(port)) => (host, port)
-        case (Some(host), None) => (host, 80)
-        case _ => assert(false, "Host name is required")
-          ("", -1)
-      }
+      val host = req.url.host.getOrElse { assert(false, "Host name is required"); "" }
+      val port = req.url.port.getOrElse(80)
 
       val isWebSocket = req.url.scheme.exists(_.isWebSocket)
       val isSSL       = req.url.scheme.exists(_.isSecure)
