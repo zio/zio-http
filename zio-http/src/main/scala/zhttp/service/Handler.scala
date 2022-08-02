@@ -59,17 +59,16 @@ private[zhttp] final case class Handler[R](
             jReq,
             app,
             new Request {
-              override def body: Body     = if (hasBody) asyncData else Body.empty
-              private final def asyncData =
-                Body.UnsafeAsync(callback =>
+              private var isRead      = false
+              override def body: Body = Body.UnsafeAsync { contentHandler =>
+                if (!isRead) {
+                  isRead = true
                   ctx
-                    .pipeline()
-                    .addAfter(
-                      HTTP_REQUEST_HANDLER,
-                      HTTP_CONTENT_HANDLER,
-                      new RequestBodyHandler(callback(ctx)),
-                    ): Unit,
-                )
+                    .channel()
+                    .pipeline
+                    .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new RequestBodyHandler(contentHandler)): Unit
+                } else throw new RuntimeException("Body can only be read once in streaming mode")
+              }
 
               override def headers: Headers = Headers.make(jReq.headers())
 

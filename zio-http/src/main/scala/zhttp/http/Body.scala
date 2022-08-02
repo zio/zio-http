@@ -5,6 +5,7 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import io.netty.util.AsciiString
 import zhttp.http.Body.ByteBufConfig
+import zhttp.service.Ctx
 import zio._
 import zio.stream.ZStream
 
@@ -17,7 +18,7 @@ import java.nio.charset.Charset
 sealed trait Body { self =>
 
   final def asByteArray: Task[Array[Byte]] =
-    asByteBuf.flatMap(buf => ZIO.attempt(ByteBufUtil.getBytes(buf)).ensuring(ZIO.succeed(buf.release(buf.refCnt()))))
+    asByteBuf.flatMap(buf => ZIO.attempt(ByteBufUtil.getBytes(buf)))
 
   /**
    * Encodes the Body into a ByteBuf. Takes in ByteBufConfig to have a more fine
@@ -69,15 +70,17 @@ sealed trait Body { self =>
   /**
    * Decodes the content of request as stream of bytes
    */
-  final def asStream: ZStream[Any, Throwable, Byte] = self.asByteBufStream
-    .mapZIO[Any, Throwable, Chunk[Byte]] { buf =>
-      ZIO.attempt {
-        val bytes = Chunk.fromArray(ByteBufUtil.getBytes(buf))
-        buf.release(buf.refCnt())
-        bytes
+  final def asStream: ZStream[Any, Throwable, Byte] = {
+    self.asByteBufStream
+      .mapZIO[Any, Throwable, Chunk[Byte]] { buf =>
+        ZIO.attempt {
+          val bytes = Chunk.fromArray(ByteBufUtil.getBytes(buf))
+          buf.release(buf.refCnt())
+          bytes
+        }
       }
-    }
-    .flattenChunks
+      .flattenChunks
+  }
 
   /**
    * Decodes the content of request as string with the provided charset.
@@ -118,7 +121,7 @@ object Body {
   def fromByteBuf(byteBuf: => ByteBuf): Body = Body.BinaryByteBuf { () =>
     val count = byteBuf.refCnt()
     if (count != 1) {
-      throw new RuntimeException(s"Body has an invalid reference count: $count")
+      throw new RuntimeException(s"Body can only be read once")
     } else
       byteBuf
   }
@@ -173,62 +176,44 @@ object Body {
     }
   }
 
-  private[zhttp] final case class UnsafeAsync(unsafeRun: (ChannelHandlerContext => HttpContent => Any) => Unit)
+  private[zhttp] final case class UnsafeAsync(unsafeAdd: ((ChannelHandlerContext, HttpContent) => Unit) => Unit)
       extends Body {
 
     /**
      * Encodes the Body into a ByteBuf.
      */
     override def asByteBuf(config: ByteBufConfig): Task[ByteBuf] = for {
-      body <- ZIO.async[Any, Nothing, ByteBuf](cb =>
-        unsafeRun(ch => {
-          val buffer = Unpooled.compositeBuffer()
-          msg => {
-            buffer.addComponent(true, msg.content)
-            if (isLast(msg)) cb(ZIO.succeed(buffer)) else ch.read(): Unit
-          }
-        }),
-      )
-    } yield body
+      done      <- Promise.make[Nothing, ByteBuf]
+      rtm       <- ZIO.runtime[Any]
+      composite <- ZIO.succeed(Unpooled.compositeBuffer())
+      _         <- ZIO.attempt(unsafeAdd { (ctx, msg) =>
+        composite.addComponent(true, msg.content())
+        if (msg.isInstanceOf[LastHttpContent]) {
+          Unsafe.unsafeCompat(implicit u => rtm.unsafe.run(done.succeed(composite))): Unit
+        } else ctx.read(): Unit
+      })
+      buf       <- done.await
+    } yield buf
 
     /**
      * Encodes the Body into a Stream of ByteBufs
      */
-    override def asByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] = {
-      ZStream.unwrap {
-        for {
-          reader <- toQueue
-          stream = ZStream
-            .fromQueueWithShutdown(reader._2)
-            .tap(_ => ZIO.succeed(reader._1.read()))
-            .takeUntil(isLast)
-            .map(_.content())
-        } yield stream
-      }
-    }
+    override def asByteBufStream(config: ByteBufConfig): ZStream[Any, Throwable, ByteBuf] =
+      ZStream
+        .async[Any, Throwable, (Ctx, HttpContent)](
+          { emit => unsafeAdd { (ctx, msg) => emit(ZIO.succeed(Chunk(ctx -> msg))) } },
+          1,
+        )
+        .takeUntil { case (_, content) => content.isInstanceOf[LastHttpContent] }
+        .mapZIO { case (ctx, msg) =>
+          for {
+            content <- ZIO.succeed(msg.content())
+            _       <- ZIO.succeed(if (!msg.isInstanceOf[LastHttpContent]) ctx.read())
+          } yield content
+        }
 
     override def asHttp(config: ByteBufConfig): Http[Any, Throwable, Any, ByteBuf] =
       Http.fromZIO(asByteBuf(config))
-
-    private def isLast(msg: HttpContent): Boolean = msg.isInstanceOf[LastHttpContent]
-
-    private def toQueue: ZIO[Any, Nothing, (ChannelHandlerContext, Queue[HttpContent])] = {
-      for {
-        queue      <- Queue.bounded[HttpContent](1)
-        ctxPromise <- Promise.make[Nothing, ChannelHandlerContext]
-        runtime    <- ZIO.runtime[Any]
-        _          <- ZIO.succeed {
-          unsafeRun { ch =>
-            Unsafe.unsafeCompat { implicit u =>
-              // TODO: passing unsafe explicitly is a bit of a hack, but it works for now
-              runtime.unsafe.run(ctxPromise.succeed(ch))(Trace.empty, u)
-              (msg: HttpContent) => runtime.unsafe.run(queue.offer(msg))(Trace.empty, u)
-            }
-          }
-        }
-        ctx        <- ctxPromise.await
-      } yield (ctx, queue)
-    }
   }
 
   private[zhttp] case class FromAsciiString(asciiString: AsciiString) extends Complete {

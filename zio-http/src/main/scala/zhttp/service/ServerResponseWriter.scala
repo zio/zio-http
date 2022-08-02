@@ -108,7 +108,7 @@ private[zhttp] final class ServerResponseWriter[R](
         releaseAndRead(jReq)
 
       case Body.UnsafeAsync(unsafeRun) =>
-        unsafeRun { _ => msg =>
+        unsafeRun { (_, msg) =>
           ctx.writeAndFlush(msg)
           if (!msg.isInstanceOf[LastHttpContent]) ctx.read(): Unit
         }
