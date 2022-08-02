@@ -14,7 +14,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
   private val env = DynamicServer.live ++ Scope.default
 
   override def spec = suite("StaticFileServer") {
-    ZIO.scoped(serve(DynamicServer.app).as(List(staticSpec)))
+    serve(DynamicServer.app).as(List(staticSpec))
   }.provideLayerShared(env) @@ timeout(5 seconds)
 
   private def staticSpec = suite("Static RandomAccessFile Server")(

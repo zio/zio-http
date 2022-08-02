@@ -12,7 +12,7 @@ import zio.test._
 
 object WebSocketSpec extends HttpRunnableSpec {
 
-  private val env = DynamicServer.live
+  private val env = DynamicServer.live ++ Scope.default
 
   private val websocketSpec = suite("WebsocketSpec")(
     test("channel events between client and server") {
@@ -30,7 +30,7 @@ object WebSocketSpec extends HttpRunnableSpec {
             .toHttp
         }
 
-        res <- ZIO.scoped {
+        res <-
           Http
             .collectZIO[WebSocketChannelEvent] {
               case ChannelEvent(ch, UserEventTriggered(HandshakeComplete))   =>
@@ -52,7 +52,6 @@ object WebSocketSpec extends HttpRunnableSpec {
               )
             } yield assertTrue(events == expected)
           }
-        }
       } yield res
     },
     test("on close interruptibility") {

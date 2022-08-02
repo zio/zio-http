@@ -57,35 +57,33 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, Request, Response] =
+    def deploy(implicit e: E <:< Throwable): Http[R with HttpEnv with Scope, Throwable, Request, Response] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         response <- Http.fromFunctionZIO[Request] { params =>
-          ZIO.scoped[HttpEnv](
-            Client.request(
-              params
-                .addHeader(DynamicServer.APP_ID, id)
-                .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
-              Config.empty,
-            ),
+          Client.request(
+            params
+              .addHeader(DynamicServer.APP_ID, id)
+              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+            Config.empty,
           )
         }
       } yield response
 
-    def deployWS(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, SocketApp[HttpEnv], Response] =
+    def deployWS(implicit
+      e: E <:< Throwable,
+    ): Http[R with HttpEnv with Scope, Throwable, SocketApp[HttpEnv], Response] =
       for {
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         url      <- Http.fromZIO(DynamicServer.wsURL)
         response <- Http.fromFunctionZIO[SocketApp[HttpEnv]] { app =>
-          ZIO.scoped[HttpEnv](
-            Client
-              .socket(
-                url = url,
-                headers = Headers(DynamicServer.APP_ID, id),
-                app = app,
-              ),
-          )
+          Client
+            .socket(
+              url = url,
+              headers = Headers(DynamicServer.APP_ID, id),
+              app = app,
+            )
         }
       } yield response
   }
@@ -104,18 +102,16 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
   def status(
     method: Method = Method.GET,
     path: Path,
-  ): ZIO[DynamicServer, Throwable, Status] = {
+  ): ZIO[DynamicServer with Scope, Throwable, Status] = {
     for {
       port   <- DynamicServer.port
-      status <- ZIO.scoped(
-        Client
-          .request(
-            "http://localhost:%d/%s".format(port, path),
-            method,
-            ssl = ClientSSLOptions.DefaultSSL,
-          )
-          .map(_.status),
-      )
+      status <- Client
+        .request(
+          "http://localhost:%d/%s".format(port, path),
+          method,
+          ssl = ClientSSLOptions.DefaultSSL,
+        )
+        .map(_.status)
     } yield status
   }
 }

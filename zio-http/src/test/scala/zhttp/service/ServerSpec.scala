@@ -301,8 +301,8 @@ object ServerSpec extends HttpRunnableSpec {
   override def spec =
     suite("Server") {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
-      suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) } +
-        suite("app with request streaming") { ZIO.scoped(appWithReqStreaming.as(List(spec))) }
+      suite("app without request streaming") { app.as(List(spec)) } +
+        suite("app with request streaming") { appWithReqStreaming.as(List(spec)) }
     }.provideSomeLayerShared[TestEnvironment](env) @@ timeout(30 seconds) @@ sequential
 
 }

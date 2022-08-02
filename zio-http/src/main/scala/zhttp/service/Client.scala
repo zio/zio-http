@@ -150,7 +150,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
 object Client {
   def make[R]: ZIO[R with Scope, Nothing, Client[R]] = for {
     cf <- ChannelFactory.Live.auto
-    el <- EventLoopGroup.Live.auto(4)
+    el <- EventLoopGroup.Live.auto(0) // TODO add to configuration
     zx <- HttpRuntime.default[R]
   } yield service.Client(zx, cf, el)
 

@@ -5,7 +5,7 @@ import zhttp.service.ServerSpec.requestBodySpec
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
-import zio.{Scope, ZIO, durationInt}
+import zio.{Scope, durationInt}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
   private val env = DynamicServer.live ++ Scope.default
@@ -42,7 +42,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
   override def spec =
     suite("RequestStreamingServerSpec") {
       val spec = requestBodySpec + largeContentSpec
-      suite("app with request streaming") { ZIO.scoped(appWithReqStreaming.as(List(spec))) }
+      suite("app with request streaming") { appWithReqStreaming.as(List(spec)) }
     }.provideCustomLayerShared(env) @@ timeout(10 seconds) @@ sequential
 
 }
