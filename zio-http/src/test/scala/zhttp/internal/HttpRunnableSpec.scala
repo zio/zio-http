@@ -6,8 +6,8 @@ import zhttp.service.Client.Config
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.socket.SocketApp
-import zio.test.ZIOSpecDefault
 import zio.{Scope, ZIO}
+import zio.test.ZIOSpecDefault
 
 /**
  * Should be used only when e2e tests needs to be written. Typically we would
@@ -57,16 +57,18 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy(implicit e: E <:< Throwable): Http[R with HttpEnv with Scope, Throwable, Request, Response] =
+    def deploy(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, Request, Response] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         response <- Http.fromFunctionZIO[Request] { params =>
-          Client.request(
-            params
-              .addHeader(DynamicServer.APP_ID, id)
-              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
-            Config.empty,
+          ZIO.scoped[HttpEnv](
+            Client.request(
+              params
+                .addHeader(DynamicServer.APP_ID, id)
+                .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+              Config.empty,
+            ),
           )
         }
       } yield response
@@ -102,16 +104,18 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
   def status(
     method: Method = Method.GET,
     path: Path,
-  ): ZIO[DynamicServer with Scope, Throwable, Status] = {
+  ): ZIO[DynamicServer, Throwable, Status] = {
     for {
       port   <- DynamicServer.port
-      status <- Client
-        .request(
-          "http://localhost:%d/%s".format(port, path),
-          method,
-          ssl = ClientSSLOptions.DefaultSSL,
-        )
-        .map(_.status)
+      status <- ZIO.scoped(
+        Client
+          .request(
+            "http://localhost:%d/%s".format(port, path),
+            method,
+            ssl = ClientSSLOptions.DefaultSSL,
+          )
+          .map(_.status),
+      )
     } yield status
   }
 }
