@@ -23,9 +23,7 @@ final case class SocketDecoder(
   /**
    * Web socket servers must set this to true to reject incoming masked payload.
    */
-  def withRejectMaskedFrames: SocketDecoder = self.copy(expectMaskedFrames = true)
-
-  def withAllowMaskedFrames: SocketDecoder = self.copy(expectMaskedFrames = false)
+  def maskedFrames(allowed: Boolean): SocketDecoder = self.copy(expectMaskedFrames = allowed)
 
   /**
    * When set to true, frames which are not masked properly according to the
@@ -47,7 +45,7 @@ final case class SocketDecoder(
    */
   def withUTF8Validation(enable: Boolean): SocketDecoder = self.copy(withUTF8Validator = enable)
 
-  def javaConfig: WebSocketDecoderConfig = WebSocketDecoderConfig
+  def javaConfig[zhttp]: WebSocketDecoderConfig = WebSocketDecoderConfig
     .newBuilder()
     .maxFramePayloadLength(maxFramePayloadLength)
     .expectMaskedFrames(expectMaskedFrames)

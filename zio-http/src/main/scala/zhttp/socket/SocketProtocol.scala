@@ -40,7 +40,7 @@ final case class SocketProtocol(
   /**
    * Close frames should be forwarded
    */
-  def withCloseFrames(forward: Boolean): SocketProtocol = self.copy(handleCloseFrames = forward)
+  def withForwardCloseFrames(forward: Boolean): SocketProtocol = self.copy(handleCloseFrames = forward)
 
   /**
    * Pong frames should be forwarded
