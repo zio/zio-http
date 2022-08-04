@@ -2,13 +2,12 @@ package zhttp.http
 
 import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandlerContext
-import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{FullHttpResponse, HttpHeaderNames, HttpResponse}
 import zhttp.html._
 import zhttp.http.headers.HeaderExtension
 import zhttp.service.{ChannelEvent, ChannelFuture}
 import zhttp.socket.{SocketApp, WebSocketFrame}
-import zio.{Task, UIO, ZIO}
+import zio.{Task, ZIO}
 
 import java.io.{IOException, PrintWriter, StringWriter}
 
@@ -30,40 +29,30 @@ final case class Response private (
    * FullHttpResponse if the complete data is available. Otherwise, it would
    * create a DefaultHttpResponse without any content.
    */
-  private[zhttp] def unsafeEncode(): HttpResponse = {
-    import io.netty.handler.codec.http._
+  private[zhttp] def unsafeEncode(): Task[HttpResponse] = for {
+    content <- if (body.isComplete) body.asChunk.map(Some(_)) else ZIO.succeed(None)
+    res     <-
+      ZIO.attempt {
+        import io.netty.handler.codec.http._
+        val jHeaders         = self.headers.encode
+        val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
+        content.map(chunks => Unpooled.wrappedBuffer(chunks.toArray)) match {
+          case Some(jContent) =>
+            val jResponse = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jContent, false)
 
-    val jHeaders = self.headers.encode
-    val jContent = self.body match {
-      case Body.UnsafeAsync(_) => null
-      case body: Body.Complete =>
-        body match {
-          case Body.FromAsciiString(text) => Unpooled.wrappedBuffer(text.array())
-          case Body.BinaryChunk(data)     => Unpooled.wrappedBuffer(data.toArray)
-          case Body.BinaryByteBuf(data)   => data()
-          case Body.BinaryStream(_)       => null
-          case Body.Empty                 => Unpooled.EMPTY_BUFFER
-          case Body.JavaFile(_)           => null
+            // TODO: Unit test for this
+            // Client can't handle chunked responses and currently treats them as a FullHttpResponse.
+            // Due to this client limitation it is not possible to write a unit-test for this.
+            // Alternative would be to use sttp client for this use-case.
+            if (!hasContentLength) jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, jContent.readableBytes())
+            jResponse.headers().add(jHeaders)
+            jResponse
+          case None           =>
+            if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
+            new DefaultHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jHeaders)
         }
-    }
-
-    val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
-    if (jContent == null) {
-      // TODO: Unit test for this
-      // Client can't handle chunked responses and currently treats them as a FullHttpResponse.
-      // Due to this client limitation it is not possible to write a unit-test for this.
-      // Alternative would be to use sttp client for this use-case.
-
-      if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
-
-      new DefaultHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jHeaders)
-    } else {
-      val jResponse = new DefaultFullHttpResponse(HTTP_1_1, self.status.asJava, jContent, false)
-      if (!hasContentLength) jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, jContent.readableBytes())
-      jResponse.headers().add(jHeaders)
-      jResponse
-    }
-  }
+      }
+  } yield res
 
   /**
    * Adds cookies in the response headers.
@@ -80,8 +69,10 @@ final case class Response private (
    * detect the changes and encode the response again, however it will turn out
    * to be counter productive.
    */
-  def freeze: UIO[Response] =
-    ZIO.succeed(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
+  def freeze: Task[Response] =
+    for {
+      encoded <- unsafeEncode()
+    } yield self.copy(attribute = self.attribute.withEncodedResponse(encoded, self))
 
   /**
    * Sets the response attributes
@@ -123,7 +114,7 @@ object Response {
   def apply[R, E](
     status: Status = Status.Ok,
     headers: Headers = Headers.empty,
-    body: Body = Body.Empty,
+    body: Body = Body.empty,
   ): Response =
     Response(status, headers, body, Attribute.empty)
 

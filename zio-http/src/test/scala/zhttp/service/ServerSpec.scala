@@ -108,7 +108,7 @@ object ServerSpec extends HttpRunnableSpec {
           test("data") {
             val dataStream = ZStream.repeat("A").take(MaxSize.toLong)
             val app        = Http.collect[Request] { case req => Response(body = req.body) }
-            val res        = app.deploy.bodyAsByteBuf.map(_.readableBytes()).run(body = Body.fromStream(dataStream))
+            val res        = app.deploy.body.mapZIO(_.asChunk.map(_.length)).run(body = Body.fromStream(dataStream))
             assertZIO(res)(equalTo(MaxSize))
           }
       } +
@@ -164,7 +164,7 @@ object ServerSpec extends HttpRunnableSpec {
       }
     } +
       test("POST Request.getBody") {
-        val app = Http.collectZIO[Request] { case req => req.body.asByteChunk.as(Response.ok) }
+        val app = Http.collectZIO[Request] { case req => req.body.asChunk.as(Response.ok) }
         val res = app.deploy.status.run(path = !!, method = Method.POST, body = Body.fromString("some text"))
         assertZIO(res)(equalTo(Status.Ok))
       }
@@ -211,7 +211,7 @@ object ServerSpec extends HttpRunnableSpec {
     test("echo streaming") {
       val res = Http
         .collectHttp[Request] { case req =>
-          Http.fromStream(ZStream.fromZIO(req.body.asByteChunk).flattenChunks)
+          Http.fromStream(ZStream.fromZIO(req.body.asChunk).flattenChunks)
         }
         .deploy
         .bodyAsString
@@ -278,8 +278,8 @@ object ServerSpec extends HttpRunnableSpec {
     },
     test("FromASCIIString: toHttp") {
       check(Gen.asciiString) { payload =>
-        val res = Body.fromAsciiString(AsciiString.cached(payload)).asHttp.map(_.toString(HTTP_CHARSET))
-        assertZIO(res.run())(equalTo(payload))
+        val res = Body.fromAsciiString(AsciiString.cached(payload)).asString(HTTP_CHARSET)
+        assertZIO(res)(equalTo(payload))
       }
     },
   )

@@ -23,7 +23,7 @@ object ClientSpec extends HttpRunnableSpec {
     },
     test("non empty content") {
       val app             = Http.text("abc")
-      val responseContent = app.deploy.body.run()
+      val responseContent = app.deploy.body.run().flatMap(_.asChunk)
       assertZIO(responseContent)(isNonEmpty)
     },
     test("echo POST request content") {
@@ -33,7 +33,7 @@ object ClientSpec extends HttpRunnableSpec {
     },
     test("non empty content") {
       val app             = Http.empty
-      val responseContent = app.deploy.body.run().map(_.length)
+      val responseContent = app.deploy.body.run().flatMap(_.asString.map(_.length))
       assertZIO(responseContent)(isGreaterThan(0))
     },
     test("text content") {

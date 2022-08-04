@@ -123,7 +123,7 @@ object Request {
     method: Method = Method.GET,
     url: URL = URL.root,
     headers: Headers = Headers.empty,
-    body: Body = Body.Empty,
+    body: Body = Body.empty,
   ): Request = {
     val m = method
     val u = url

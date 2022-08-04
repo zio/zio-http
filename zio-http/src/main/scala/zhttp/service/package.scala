@@ -17,7 +17,7 @@ package object service extends Logging {
   private[service] val AUTO_RELEASE_REQUEST               = false
   private[service] val SERVER_CODEC_HANDLER               = "SERVER_CODEC"
   private[service] val HTTP_OBJECT_AGGREGATOR             = "HTTP_OBJECT_AGGREGATOR"
-  private[service] val HTTP_REQUEST_HANDLER               = "HTTP_REQUEST"
+  private[zhttp] val HTTP_REQUEST_HANDLER                 = "HTTP_REQUEST"
   private[service] val HTTP_RESPONSE_HANDLER              = "HTTP_RESPONSE"
   private[service] val HTTP_KEEPALIVE_HANDLER             = "HTTP_KEEPALIVE"
   private[service] val FLOW_CONTROL_HANDLER               = "FLOW_CONTROL_HANDLER"
