@@ -306,7 +306,7 @@ object Cookie {
   /**
    * Decodes from `Cookie` header value inside of Request into a cookie
    */
-  def decodeRequestCookie(headerValue: String): List[Cookie] = {
+  def decodeRequestCookie(headerValue: String, secret: Option[String] = None): List[Cookie] = {
     if (headerValue.nonEmpty) {
       val cookies: Array[String]  = headerValue.split(';').map(_.trim)
       val x: List[Option[Cookie]] = cookies.toList.map(a => {
@@ -315,9 +315,24 @@ object Cookie {
         else Some(Cookie(name, content))
       })
 
-      if (x.contains(None))
+      val cookiesWithValidSignature = if (secret.isDefined && secret.getOrElse("").nonEmpty) {
+        x.map {
+          case Some(value) if value.content.nonEmpty =>
+            val i = value.content.indexOf(".")
+            if (i >= 0) {
+              val signature = value.content.substring(i + 1).trim
+              val content   = if (i == 0) "" else value.content.substring(0, i - 1)
+              if (value.verify(content, signature, secret.getOrElse(""))) Some(value) else None
+            } else
+              None
+          case Some(value)                           => Some(value)
+          case None                                  => None
+        }
+      } else x
+
+      if (cookiesWithValidSignature.contains(None))
         List.empty
-      else x.map(_.get)
+      else cookiesWithValidSignature.map(_.get)
     } else List.empty
   }
 
