@@ -113,12 +113,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.map(_.body)
 
   /**
-   * Extracts body as a string
-   */
-  final def bodyAsString(implicit eb: B <:< Response, ee: E <:< Throwable): Http[R, Throwable, A, String] =
-    self.body.asInstanceOf[Http[R, Throwable, A, Body]].mapZIO(body => body.asString)
-
-  /**
    * Catches all the exceptions that the http app can fail with
    */
   final def catchAll[R1 <: R, E1, A1 <: A, B1 >: B](f: E => Http[R1, E1, A1, B1])(implicit

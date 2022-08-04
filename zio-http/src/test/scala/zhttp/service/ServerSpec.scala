@@ -39,7 +39,7 @@ object ServerSpec extends HttpRunnableSpec {
         assertZIO(res)(equalTo(Status.Ok))
       },
       test("content is set") {
-        val res = Http.text("ABC").deploy.bodyAsString.run()
+        val res = Http.text("ABC").deploy.body.mapZIO(_.asString).run()
         assertZIO(res)(containsString("ABC"))
       },
     ),
@@ -61,7 +61,7 @@ object ServerSpec extends HttpRunnableSpec {
           assertZIO(res)(equalTo(Status.InternalServerError))
         } +
           test("content is set") {
-            val res = app.deploy.bodyAsString.run()
+            val res = app.deploy.body.mapZIO(_.asString).run()
             assertZIO(res)(containsString("SERVER_ERROR"))
           } +
           test("header is set") {
@@ -76,7 +76,7 @@ object ServerSpec extends HttpRunnableSpec {
           assertZIO(res)(equalTo(Status.InternalServerError))
         } +
           test("content is set") {
-            val res = app.deploy.bodyAsString.run()
+            val res = app.deploy.body.mapZIO(_.asString).run()
             assertZIO(res)(containsString("SERVER_ERROR"))
           } +
           test("header is set") {
@@ -94,15 +94,15 @@ object ServerSpec extends HttpRunnableSpec {
           assertZIO(res)(equalTo(Status.Ok))
         } +
           test("body is ok") {
-            val res = app.deploy.bodyAsString.run(body = Body.fromString("ABC"))
+            val res = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString("ABC"))
             assertZIO(res)(equalTo("ABC"))
           } +
           test("empty string") {
-            val res = app.deploy.bodyAsString.run(body = Body.fromString(""))
+            val res = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString(""))
             assertZIO(res)(equalTo(""))
           } +
           test("one char") {
-            val res = app.deploy.bodyAsString.run(body = Body.fromString("1"))
+            val res = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString("1"))
             assertZIO(res)(equalTo("1"))
           } +
           test("data") {
@@ -121,7 +121,7 @@ object ServerSpec extends HttpRunnableSpec {
       } + suite("response") {
         val app = Http.response(Response(status = Status.Ok, body = Body.fromString("abc")))
         test("body is set") {
-          val res = app.deploy.bodyAsString.run()
+          val res = app.deploy.body.mapZIO(_.asString).run()
           assertZIO(res)(equalTo("abc"))
         }
       } +
@@ -159,7 +159,7 @@ object ServerSpec extends HttpRunnableSpec {
     }
     test("has content-length") {
       check(Gen.alphaNumericString) { string =>
-        val res = app.deploy.bodyAsString.run(body = Body.fromString(string))
+        val res = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString(string))
         assertZIO(res)(equalTo(string.length.toString))
       }
     } +
@@ -173,12 +173,12 @@ object ServerSpec extends HttpRunnableSpec {
   def responseSpec = suite("ResponseSpec")(
     test("data") {
       check(nonEmptyContent) { case (string, data) =>
-        val res = Http.fromBody(data).deploy.bodyAsString.run()
+        val res = Http.fromBody(data).deploy.body.mapZIO(_.asString).run()
         assertZIO(res)(equalTo(string))
       }
     },
     test("data from file") {
-      val res = Http.fromResource("TestFile.txt").deploy.bodyAsString.run()
+      val res = Http.fromResource("TestFile.txt").deploy.body.mapZIO(_.asString).run()
       assertZIO(res)(equalTo("abc\nfoo"))
     },
     test("content-type header on file response") {
@@ -205,7 +205,7 @@ object ServerSpec extends HttpRunnableSpec {
       }
     },
     test("text streaming") {
-      val res = Http.fromStream(ZStream("a", "b", "c")).deploy.bodyAsString.run()
+      val res = Http.fromStream(ZStream("a", "b", "c")).deploy.body.mapZIO(_.asString).run()
       assertZIO(res)(equalTo("abc"))
     },
     test("echo streaming") {
@@ -214,18 +214,19 @@ object ServerSpec extends HttpRunnableSpec {
           Http.fromStream(ZStream.fromZIO(req.body.asChunk).flattenChunks)
         }
         .deploy
-        .bodyAsString
+        .body
+        .mapZIO(_.asString)
         .run(body = Body.fromString("abc"))
       assertZIO(res)(equalTo("abc"))
     },
     test("file-streaming") {
       val path = getClass.getResource("/TestFile.txt").getPath
-      val res  = Http.fromStream(ZStream.fromPath(Paths.get(path))).deploy.bodyAsString.run()
+      val res  = Http.fromStream(ZStream.fromPath(Paths.get(path))).deploy.body.mapZIO(_.asString).run()
       assertZIO(res)(equalTo("abc\nfoo"))
     },
     suite("html")(
       test("body") {
-        val res = Http.html(html(body(div(id := "foo", "bar")))).deploy.bodyAsString.run()
+        val res = Http.html(html(body(div(id := "foo", "bar")))).deploy.body.mapZIO(_.asString).run()
         assertZIO(res)(equalTo("""<!DOCTYPE html><html><body><div id="foo">bar</div></body></html>"""))
       },
       test("content-type") {
@@ -271,7 +272,7 @@ object ServerSpec extends HttpRunnableSpec {
         Response(body = Body.fromStream(req.body.asStream))
       }
       check(Gen.alphaNumericString) { c =>
-        assertZIO(app.deploy.bodyAsString.run(path = !!, method = Method.POST, body = Body.fromString(c)))(
+        assertZIO(app.deploy.body.mapZIO(_.asString).run(path = !!, method = Method.POST, body = Body.fromString(c)))(
           equalTo(c),
         )
       }
@@ -291,7 +292,7 @@ object ServerSpec extends HttpRunnableSpec {
       assertZIO(res)(equalTo(Status.InternalServerError))
     } +
       test("content is set") {
-        val res = app.deploy.bodyAsString.run()
+        val res = app.deploy.body.mapZIO(_.asString).run()
         assertZIO(res)(containsString("SERVER_ERROR"))
       } +
       test("header is set") {

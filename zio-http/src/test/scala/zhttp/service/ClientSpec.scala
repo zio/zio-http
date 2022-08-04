@@ -28,7 +28,7 @@ object ClientSpec extends HttpRunnableSpec {
     },
     test("echo POST request content") {
       val app = Http.collectZIO[Request] { case req => req.body.asString.map(Response.text(_)) }
-      val res = app.deploy.bodyAsString.run(method = Method.POST, body = Body.fromString("ZIO user"))
+      val res = app.deploy.body.mapZIO(_.asString).run(method = Method.POST, body = Body.fromString("ZIO user"))
       assertZIO(res)(equalTo("ZIO user"))
     },
     test("non empty content") {
@@ -38,7 +38,7 @@ object ClientSpec extends HttpRunnableSpec {
     },
     test("text content") {
       val app             = Http.text("zio user does not exist")
-      val responseContent = app.deploy.bodyAsString.run()
+      val responseContent = app.deploy.body.mapZIO(_.asString).run()
       assertZIO(responseContent)(containsString("user"))
     },
     test("handle connection failure") {
