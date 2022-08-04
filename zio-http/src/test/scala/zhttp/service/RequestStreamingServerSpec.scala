@@ -5,7 +5,7 @@ import zhttp.service.ServerSpec.requestBodySpec
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
-import zio.{ZIO, durationInt}
+import zio.{durationInt, ZIO}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
   private val env =
@@ -28,15 +28,16 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       val content = genString(size, '?')
 
       val app = Http.fromFunctionZIO[Request] {
-        _.body.asStream.runCount.map(bytesCount => Response.text(bytesCount.toString))
+        _.body.asStream.runCount
+          .map(bytesCount => Response.text(bytesCount.toString))
       }
 
-      val res = app.deploy.bodyAsString.run(body = Body.fromString(content))
+      val res = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString(content))
 
       assertZIO(res)(equalTo(size.toString))
 
     }
-  }
+  } @@ timeout(10 seconds)
 
   override def spec =
     suite("RequestStreamingServerSpec") {

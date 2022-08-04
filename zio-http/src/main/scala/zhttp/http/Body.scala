@@ -178,47 +178,45 @@ object Body {
    */
   def fromString(text: String, charset: Charset = HTTP_CHARSET): Body = fromCharSequence(text, charset)
 
-  private[zhttp] def async(ctx: Ctx, hasBody: Boolean): Body = new Body {
+  private[zhttp] def async(ctx: Ctx): Body = new Body {
     override def asChunk: Task[Chunk[Byte]] = asStream.runCollect
 
-    override def asStream: ZStream[Any, Throwable, Byte] =
-      ZStream.unwrap {
-        ZIO.attempt {
-          if (!hasBody) ZStream.empty
-          else {
-            ZStream.async[Any, Throwable, Byte](
-              { emit =>
-                ctx
-                  .channel()
-                  .pipeline
-                  .addAfter(
-                    HTTP_REQUEST_HANDLER,
-                    HTTP_CONTENT_HANDLER,
-                    new SimpleChannelInboundHandler[HttpContent](true) {
-                      self =>
-                      override def channelRead0(ctx: ChannelHandlerContext, msg: HttpContent): Unit = {
-                        val isLast = msg.isInstanceOf[LastHttpContent]
-                        val value  = Chunk.fromArray(ByteBufUtil.getBytes(msg.content()))
-                        emit(ZIO.succeed(value))
-                        if (isLast) {
-                          emit(ZIO.fail(None))
-                          ctx.channel().pipeline().remove(self): Unit
-                        } else {
-                          ctx.read(): Unit
-                        }
-                      }
+    override def asStream: ZStream[Any, Throwable, Byte] = {
+      ZStream
+        .async[Any, Throwable, (Ctx, HttpContent)](
+          { emit =>
+            ctx
+              .channel()
+              .pipeline
+              .addAfter(
+                HTTP_REQUEST_HANDLER,
+                HTTP_CONTENT_HANDLER,
+                new SimpleChannelInboundHandler[HttpContent](false) {
+                  self =>
+                  override def channelRead0(ctx: ChannelHandlerContext, msg: HttpContent): Unit = {
+                    emit(ZIO.succeed(Chunk(ctx -> msg)))
+                    if (isLast(msg)) ctx.channel().pipeline().remove(self): Unit
+                  }
 
-                      override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
-                        ctx.read(): Unit
-                      }
-                    },
-                  ): Unit
-              },
-              1,
-            )
+                  override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
+                    ctx.read(): Unit
+                  }
+                },
+              ): Unit
+          },
+          1,
+        )
+        .tap { case (ctx, msg) => ZIO.attempt(ctx.read()).unless(isLast(msg)) }
+        .takeUntil { case (_, msg) => isLast(msg) }
+        .mapZIO { case (_, msg) =>
+          ZIO.attempt {
+            val chunk = Chunk.fromArray(ByteBufUtil.getBytes(msg.content()))
+            msg.release(msg.refCnt())
+            chunk
           }
         }
-      }
+        .flattenChunks
+    }
 
     override def write(ctx: Ctx): Task[Boolean] =
       ZIO.attempt {
@@ -232,7 +230,7 @@ object Body {
               self =>
               override def channelRead0(ctx: ChannelHandlerContext, msg: HttpContent): Unit = {
                 ctx.writeAndFlush(msg)
-                if (msg.isInstanceOf[LastHttpContent]) ctx.channel().pipeline().remove(self): Unit
+                if (isLast(msg)) ctx.channel().pipeline().remove(self): Unit
               }
 
               override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
@@ -245,4 +243,6 @@ object Body {
 
     override def isComplete: Boolean = false
   }
+
+  private def isLast(msg: HttpContent) = msg.isInstanceOf[LastHttpContent]
 }
