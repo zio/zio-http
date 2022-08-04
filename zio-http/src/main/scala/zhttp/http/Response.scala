@@ -105,9 +105,10 @@ final case class Response private (
 
 object Response {
   private[zhttp] def unsafeFromJResponse(ctx: ChannelHandlerContext, jRes: FullHttpResponse): Response = {
-    val status  = Status.fromHttpResponseStatus(jRes.status())
-    val headers = Headers.decode(jRes.headers())
-    val data    = Body.fromByteBuf(Unpooled.copiedBuffer(jRes.content()))
+    val status       = Status.fromHttpResponseStatus(jRes.status())
+    val headers      = Headers.decode(jRes.headers())
+    val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
+    val data         = Body.fromByteBuf(copiedBuffer)
     Response(status, headers, data, attribute = Attribute(channel = Some(ctx)))
   }
 
