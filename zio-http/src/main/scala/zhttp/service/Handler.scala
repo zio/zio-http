@@ -59,7 +59,12 @@ private[zhttp] final case class Handler[R](
             jReq,
             app,
             new Request {
-              override def body: Body = Body.async(ctx)
+              override def body: Body = Body.fromAsync { async =>
+                ctx
+                  .channel()
+                  .pipeline
+                  .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new ContentHandler(async)): Unit
+              }
 
               override def headers: Headers = Headers.make(jReq.headers())
 
