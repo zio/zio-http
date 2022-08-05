@@ -33,12 +33,12 @@ object BodySpec extends ZIOSpecDefault {
             test("success") {
               lazy val file = testFile
               val res       = Body.fromFile(file).asString(HTTP_CHARSET)
-              assertZIO(res)(equalTo("abc\nfoo"))
+              assertZIO(res)(equalTo("foo\nbar"))
             },
             test("success small chunk") {
               lazy val file = testFile
               val res       = Body.fromFile(file, 3).asString(HTTP_CHARSET)
-              assertZIO(res)(equalTo("abc\nfoo"))
+              assertZIO(res)(equalTo("foo\nbar"))
             },
           ),
         ),

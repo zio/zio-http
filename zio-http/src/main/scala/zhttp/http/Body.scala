@@ -113,7 +113,7 @@ object Body {
   /**
    * Helper to create Body from contents of a file
    */
-  def fromFile(file: => java.io.File, chunkSize: Long = 1024 * 4): Body = new Body {
+  def fromFile(file: => java.io.File, chunkSize: Int = 1024 * 4): Body = new Body {
     override def isComplete: Boolean = false
 
     override def asChunk: Task[Chunk[Byte]] =
@@ -124,13 +124,15 @@ object Body {
         for {
           file <- ZIO.attempt(file)
           fs   <- ZIO.attempt(new FileInputStream(file))
-          size   = Math.min(chunkSize, file.length()).toInt
-          buffer = new Array[Byte](size)
+          size = Math.min(chunkSize.toLong, file.length()).toInt
         } yield ZStream
           .repeatZIOOption[Any, Throwable, Chunk[Byte]] {
             for {
-              len   <- ZIO.attempt(fs.read(buffer)).mapError(Some(_))
-              bytes <- if (len > 0) ZIO.succeed(Chunk.fromArray(buffer)) else ZIO.fail(Option.empty[Throwable])
+              buffer <- ZIO.succeed(new Array[Byte](size))
+              len    <- ZIO.attemptBlocking(fs.read(buffer)).mapError(Some(_))
+              bytes  <-
+                if (len > 0) ZIO.succeed(Chunk.fromArray(buffer.slice(0, len)))
+                else ZIO.fail(Option.empty[Throwable])
             } yield bytes
           }
           .ensuring(ZIO.succeed(fs.close()))
