@@ -179,7 +179,7 @@ object ServerSpec extends HttpRunnableSpec {
     },
     test("data from file") {
       val res = Http.fromResource("TestFile.txt").deploy.body.mapZIO(_.asString).run()
-      assertZIO(res)(equalTo("abc\nfoo"))
+      assertZIO(res)(equalTo("foo\nbar"))
     },
     test("content-type header on file response") {
       val res =
@@ -222,7 +222,7 @@ object ServerSpec extends HttpRunnableSpec {
     test("file-streaming") {
       val path = getClass.getResource("/TestFile.txt").getPath
       val res  = Http.fromStream(ZStream.fromPath(Paths.get(path))).deploy.body.mapZIO(_.asString).run()
-      assertZIO(res)(equalTo("abc\nfoo"))
+      assertZIO(res)(equalTo("foo\nbar"))
     },
     suite("html")(
       test("body") {

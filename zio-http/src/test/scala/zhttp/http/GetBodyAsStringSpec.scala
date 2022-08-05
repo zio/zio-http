@@ -23,7 +23,7 @@ object GetBodyAsStringSpec extends ZIOSpecDefault {
             body = Body.fromChunk(Chunk.fromArray("abc".getBytes(charset))),
           )
 
-          val encoded  = request.body.asString
+          val encoded  = request.body.asString(request.charset)
           val expected = new String(Chunk.fromArray("abc".getBytes(charset)).toArray, charset)
           assertZIO(encoded)(equalTo(expected))
         }
