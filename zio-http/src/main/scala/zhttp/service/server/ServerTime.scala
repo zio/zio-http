@@ -10,7 +10,7 @@ private[zhttp] final class ServerTime(minDuration: Long) {
   private var last: Long               = System.currentTimeMillis()
   private var lastString: CharSequence = ServerTime.format(new Date(last))
 
-  def canUpdate(): Boolean = {
+   def refresh(): Boolean = {
     val now = System.currentTimeMillis()
     if (now - last >= minDuration) {
       last = now
@@ -24,7 +24,7 @@ private[zhttp] final class ServerTime(minDuration: Long) {
   def get: CharSequence = lastString
 
   def refreshAndGet(): CharSequence = {
-    canUpdate()
+    refresh()
     get
   }
 }
@@ -34,7 +34,7 @@ object ServerTime {
 
   def format(d: Date): CharSequence = new AsciiString(format.format(d))
 
-  def make: ServerTime = new ServerTime(1000) // Update time every 1 second
+  def make(interval: zio.Duration): ServerTime = new ServerTime(interval.toMillis)
 
   def parse(s: CharSequence): Date = format.parse(s.toString)
 }
