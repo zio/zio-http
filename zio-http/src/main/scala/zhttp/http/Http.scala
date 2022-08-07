@@ -1,10 +1,9 @@
 package zhttp.http
 
-import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
+import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
 import zhttp.http.headers.HeaderModifier
-import zhttp.service.{Handler, HttpRuntime, Server, ServerResponseWriter}
 import zhttp.socket.{SocketApp, WebSocketChannelEvent}
 import zio.ZIO.attemptBlocking
 import zio._
@@ -674,15 +673,6 @@ object Http {
      * Applies Http based on the path as string
      */
     def whenPathEq(p: String): HttpApp[R, E] = http.when(_.unsafeEncode.uri().contentEquals(p))
-
-    private[zhttp] def compile[R1 <: R](
-      zExec: HttpRuntime[R1],
-      settings: Server.Config[R1, Throwable],
-      resWriter: ServerResponseWriter[R1],
-    )(implicit
-      evE: E <:< Throwable,
-    ): ChannelHandler =
-      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, resWriter)
   }
 
   /**
@@ -935,7 +925,7 @@ object Http {
    * Creates an Http app that fails with a NotFound exception.
    */
   def notFound: HttpApp[Any, Nothing] =
-    Http.fromFunction[Request](req => Http.error(HttpError.NotFound(req.url.path))).flatten
+    Http.fromFunction[Request](req => Http.error(HttpError.NotFound(req.url.path.encode))).flatten
 
   /**
    * Creates an HTTP app which always responds with a 200 status code.
