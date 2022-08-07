@@ -29,7 +29,7 @@ final case class Response private (
    * FullHttpResponse if the complete data is available. Otherwise, it would
    * create a DefaultHttpResponse without any content.
    */
-  private[zhttp] def unsafeEncode(): Task[HttpResponse] = for {
+  private[zhttp] def encode(): Task[HttpResponse] = for {
     content <- if (body.isComplete) body.asChunk.map(Some(_)) else ZIO.succeed(None)
     res     <-
       ZIO.attempt {
@@ -71,7 +71,7 @@ final case class Response private (
    */
   def freeze: Task[Response] =
     for {
-      encoded <- unsafeEncode()
+      encoded <- encode()
     } yield self.copy(attribute = self.attribute.withEncodedResponse(encoded, self))
 
   /**
