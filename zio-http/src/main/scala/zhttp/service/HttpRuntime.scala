@@ -22,7 +22,7 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
         }
       }
 
-  private def onFailure(ctx: ChannelHandlerContext, cause: Cause[Throwable]): Unit = {
+  private def onFailure(cause: Cause[Throwable])(implicit ctx: ChannelHandlerContext): Unit = {
     cause.failureOption.orElse(cause.dieOption) match {
       case None        => ()
       case Some(error) =>
@@ -32,7 +32,9 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
     if (ctx.channel().isOpen) ctx.close(): Unit
   }
 
-  def unsafeRun(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any], interruptOnClose: Boolean = true): Unit = {
+  def unsafeRun(program: ZIO[R, Throwable, Any], interruptOnClose: Boolean = true)(implicit
+    ctx: ChannelHandlerContext,
+  ): Unit = {
     val rtm = strategy.runtime(ctx)
 
     def removeListener(close: GenericFutureListener[Future[_ >: Void]]): Unit = {
@@ -57,14 +59,14 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
           log.debug(s"Completed Fiber: [${fiber.id}]")
           removeListener(close)
         case Exit.Failure(cause) =>
-          onFailure(ctx, cause)
+          onFailure(cause)
           removeListener(close)
       }
     }
   }
 
-  def unsafeRunUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit =
-    unsafeRun(ctx)(program, interruptOnClose = false)
+  def unsafeRunUninterruptible(program: ZIO[R, Throwable, Any])(implicit ctx: ChannelHandlerContext): Unit =
+    unsafeRun(program, interruptOnClose = false)
 }
 
 object HttpRuntime {
