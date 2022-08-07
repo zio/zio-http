@@ -1,7 +1,7 @@
 package zhttp.http
 
 import zio.test.Assertion.equalTo
-import zio.test.{assert, ZIOSpecDefault}
+import zio.test.{ZIOSpecDefault, assert}
 
 object HttpErrorSpec extends ZIOSpecDefault {
   def spec = suite("HttpError")(

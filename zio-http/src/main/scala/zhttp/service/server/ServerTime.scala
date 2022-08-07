@@ -10,7 +10,7 @@ private[zhttp] final class ServerTime(minDuration: Long) {
   private var last: Long               = System.currentTimeMillis()
   private var lastString: CharSequence = ServerTime.format(new Date(last))
 
-   def refresh(): Boolean = {
+  def refresh(): Boolean = {
     val now = System.currentTimeMillis()
     if (now - last >= minDuration) {
       last = now
