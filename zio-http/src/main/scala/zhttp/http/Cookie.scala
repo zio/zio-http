@@ -321,7 +321,7 @@ object Cookie {
             val i = value.content.indexOf(".")
             if (i >= 0) {
               val signature = value.content.substring(i + 1).trim
-              val content   = if (i == 0) "" else value.content.substring(0, i - 1)
+              val content   = if (i == 0) "" else value.content.substring(0, i)
               if (value.verify(content, signature, secret.getOrElse(""))) Some(value) else None
             } else
               None

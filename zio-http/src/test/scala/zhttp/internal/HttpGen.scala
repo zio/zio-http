@@ -47,6 +47,12 @@ object HttpGen {
     secret   <- Gen.option(Gen.string)
   } yield Cookie(name, content, expires, domain, path, secure, httpOnly, maxAge, sameSite, secret)
 
+  def requestCookies: Gen[Sized, Cookie] = for {
+    name    <- Gen.string
+    content <- Gen.string
+    secret  <- Gen.option(Gen.string)
+  } yield Cookie(name, content, secret = secret)
+
   def genAbsoluteLocation: Gen[Sized, Location.Absolute] = for {
     scheme <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS))
     host   <- Gen.alphaNumericStringBounded(1, 5)

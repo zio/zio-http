@@ -27,11 +27,10 @@ object CookieSpec extends ZIOSpecDefault {
         }
       },
       test("encode/decode multiple cookies with secret") {
-        check(HttpGen.cookies) { cookie =>
+        check(HttpGen.requestCookies) { cookie =>
           val expected = cookie.encode
           val actual   = Cookie.decodeRequestCookie(expected, cookie.secret).map(_.encode)
           assert(actual)(contains(expected))
-
         }
       },
     ),
