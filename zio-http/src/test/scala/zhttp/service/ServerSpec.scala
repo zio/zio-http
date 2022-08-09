@@ -167,6 +167,11 @@ object ServerSpec extends HttpRunnableSpec {
         val app = Http.collectZIO[Request] { case req => req.body.asChunk.as(Response.ok) }
         val res = app.deploy.status.run(path = !!, method = Method.POST, body = Body.fromString("some text"))
         assertZIO(res)(equalTo(Status.Ok))
+      } +
+      test("body can be read multiple times") {
+        val app = Http.collectZIO[Request] { case req => (req.body.asChunk *> req.body.asChunk).as(Response.ok) }
+        val res = app.deploy.status.run(method = Method.POST, body = Body.fromString("some text"))
+        assertZIO(res)(equalTo(Status.Ok))
       }
   }
 
