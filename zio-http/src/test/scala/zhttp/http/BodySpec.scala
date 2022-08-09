@@ -1,6 +1,7 @@
 package zhttp.http
 
-import zio.durationInt
+import io.netty.channel.embedded.EmbeddedChannel
+import zio.{durationInt, Chunk}
 import zio.stream.ZStream
 import zio.test.Assertion.{anything, equalTo, isLeft, isSubtype}
 import zio.test.TestAspect.timeout
@@ -39,6 +40,19 @@ object BodySpec extends ZIOSpecDefault {
               lazy val file = testFile
               val res       = Body.fromFile(file, 3).asString(HTTP_CHARSET)
               assertZIO(res)(equalTo("foo\nbar"))
+            },
+          ),
+          suite("fromAsync")(
+            test("success") {
+              val ctx     = new EmbeddedChannel()
+              val message = Chunk.fromArray("Hello World".getBytes(HTTP_CHARSET))
+              val chunk   = Body.fromAsync(async => async(ctx, message, true)).asChunk
+              assertZIO(chunk)(equalTo(message))
+            },
+            test("fail") {
+              val exception = new RuntimeException("Some Error")
+              val error     = Body.fromAsync(_ => throw exception).asChunk.flip
+              assertZIO(error)(equalTo(exception))
             },
           ),
         ),

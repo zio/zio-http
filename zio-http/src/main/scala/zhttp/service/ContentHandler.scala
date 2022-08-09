@@ -10,7 +10,7 @@ final class ContentHandler(val async: Body.UnsafeAsync) extends SimpleChannelInb
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpContent): Unit = {
     val isLast = msg.isInstanceOf[LastHttpContent]
     val chunk  = Chunk.fromArray(ByteBufUtil.getBytes(msg.content()))
-    async(ctx, chunk, isLast)
+    async(ctx.channel(), chunk, isLast)
     if (isLast) ctx.channel().pipeline().remove(self): Unit
   }
 

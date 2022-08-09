@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
-import io.netty.channel.DefaultFileRegion
+import io.netty.channel.{Channel, DefaultFileRegion}
 import io.netty.handler.codec.http.LastHttpContent
 import io.netty.util.AsciiString
 import zhttp.service.Ctx
@@ -184,10 +184,9 @@ object Body {
 
     override def asStream: ZStream[Any, Throwable, Byte] =
       ZStream
-        .async[Any, Throwable, (Ctx, Chunk[Byte], Boolean)](emit =>
-          unsafeAsync { (ctx, msg, isLast) =>
-            emit(ZIO.succeed(Chunk((ctx, msg, isLast))))
-          },
+        .async[Any, Throwable, (Channel, Chunk[Byte], Boolean)](emit =>
+          try { unsafeAsync { (ctx, msg, isLast) => emit(ZIO.succeed(Chunk((ctx, msg, isLast)))) } }
+          catch { case e: Throwable => emit(ZIO.fail(Option(e))) },
         )
         .tap { case (ctx, _, isLast) => ZIO.attempt(ctx.read()).unless(isLast) }
         .takeUntil { case (_, _, isLast) => isLast }
@@ -207,6 +206,6 @@ object Body {
   }
 
   trait UnsafeAsync {
-    def apply(ctx: Ctx, message: Chunk[Byte], isLast: Boolean): Unit
+    def apply(ctx: Channel, message: Chunk[Byte], isLast: Boolean): Unit
   }
 }
