@@ -1,18 +1,23 @@
 package zhttp.service.server
 
 import io.netty.util.AsciiString
+import zhttp.service.Log
 
 import java.text.SimpleDateFormat
 import java.util.Date
 
 private[zhttp] final class ServerTime(minDuration: Long) {
 
+  import ServerTime.log
+
   private var last: Long               = System.currentTimeMillis()
   private var lastString: CharSequence = ServerTime.format(new Date(last))
 
   def refresh(): Boolean = {
-    val now = System.currentTimeMillis()
-    if (now - last >= minDuration) {
+    val now  = System.currentTimeMillis()
+    val diff = now - last
+    if (diff > minDuration) {
+      log.debug(s"Server time threshold (${minDuration}) exceeded: [${diff}]")
       last = now
       lastString = ServerTime.format(new Date(last))
       true
@@ -30,6 +35,7 @@ private[zhttp] final class ServerTime(minDuration: Long) {
 }
 
 object ServerTime {
+  val log            = Log.withTags("Time")
   private val format = new SimpleDateFormat("E, dd MMM yyyy HH:mm:ss z")
 
   def format(d: Date): CharSequence = new AsciiString(format.format(d))
