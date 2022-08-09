@@ -9,7 +9,7 @@ import zio.{ZIO, durationInt}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ zhttp.service.server.ServerChannelFactory.nio ++ DynamicServer.live
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ DynamicServer.live
 
   private val appWithReqStreaming = serve(DynamicServer.app, Some(Server.enableObjectAggregator(-1)))
 

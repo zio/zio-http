@@ -5,6 +5,7 @@ import zhttp.http._
 import zhttp.service.Client.Config
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
+import zhttp.service.server.ServerChannelFactory.ServerChannelType
 import zhttp.socket.SocketApp
 import zio.test.ZIOSpecDefault
 import zio.{Scope, ZIO}
@@ -91,10 +92,13 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
   def serve[R](
     app: HttpApp[R, Throwable],
     server: Option[Server[R, Throwable]] = None,
-  ): ZIO[R with EventLoopGroup with ServerChannelFactory with DynamicServer with Scope, Nothing, Unit] =
+  ): ZIO[R with EventLoopGroup with DynamicServer with Scope, Nothing, Unit] =
     for {
       settings <- ZIO
-        .succeed(server.foldLeft(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection)(_ ++ _))
+        .succeed(
+          server.foldLeft(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection)(_ ++ _) ++ Server
+            .serverChannelType(ServerChannelType.NIO),
+        )
       start    <- Server.make(settings).orDie
       _        <- DynamicServer.setStart(start)
     } yield ()

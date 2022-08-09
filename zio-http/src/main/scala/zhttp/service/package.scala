@@ -5,15 +5,13 @@ import io.netty.channel.{
   ChannelFactory => JChannelFactory,
   ChannelHandlerContext,
   EventLoopGroup => JEventLoopGroup,
-  ServerChannel,
 }
 
 package object service extends Logging {
-  type ChannelFactory       = JChannelFactory[JChannel]
-  type EventLoopGroup       = JEventLoopGroup
-  type ServerChannelFactory = JChannelFactory[ServerChannel]
-  type UServer              = Server[Any, Nothing]
-  private[zhttp] type Ctx   = ChannelHandlerContext
+  type ChannelFactory     = JChannelFactory[JChannel]
+  type EventLoopGroup     = JEventLoopGroup
+  type UServer            = Server[Any, Nothing]
+  private[zhttp] type Ctx = ChannelHandlerContext
   private[service] val AUTO_RELEASE_REQUEST               = false
   private[service] val SERVER_CODEC_HANDLER               = "SERVER_CODEC"
   private[service] val HTTP_OBJECT_AGGREGATOR             = "HTTP_OBJECT_AGGREGATOR"

@@ -1,7 +1,6 @@
 package example
 
 import zhttp.http._
-import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server}
 import zio._
 
@@ -39,6 +38,6 @@ object HelloWorldAdvanced extends ZIOAppDefault {
         // Ensures the server doesn't die after printing
           *> ZIO.never,
       )
-      .provide(ServerChannelFactory.auto, EventLoopGroup.auto(nThreads), Scope.default)
+      .provide(EventLoopGroup.auto(nThreads), Scope.default)
   }
 }

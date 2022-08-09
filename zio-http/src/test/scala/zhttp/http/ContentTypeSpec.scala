@@ -1,7 +1,6 @@
 package zhttp.http
 
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
-import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zio._
 import zio.test.Assertion.{equalTo, isNone, isSome}
@@ -43,7 +42,7 @@ object ContentTypeSpec extends HttpRunnableSpec {
   )
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ DynamicServer.live ++ Scope.default
 
   override def spec = {
     suite("Content-type") {
