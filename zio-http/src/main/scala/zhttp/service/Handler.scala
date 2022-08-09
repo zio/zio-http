@@ -33,10 +33,7 @@ private[zhttp] final case class Handler[R](
           Unsafe.releaseRequest(jReq)
         } else
           runtime.unsafeRun {
-            self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed {
-              Unsafe.releaseRequest(jReq)
-              log.debug("Full write performed")
-            }
+            self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed { Unsafe.releaseRequest(jReq) }
           }
 
       case jReq: HttpRequest =>
@@ -75,13 +72,13 @@ object Handler {
   trait FastPassWriter[R] {
     self: Handler[R] =>
     def attemptFastWrite(exit: HExit[R, Throwable, Response])(implicit ctx: Ctx): Boolean = {
-
       exit match {
         case HExit.Success(response) =>
           response.attribute.encoded match {
             case Some((oResponse, jResponse: FullHttpResponse)) if Unsafe.hasChanged(response, oResponse) =>
-              Unsafe.setServerTime(time, response, jResponse)
-              ctx.writeAndFlush(jResponse.retainedDuplicate()): Unit
+              val djResponse = jResponse.retainedDuplicate()
+              Unsafe.setServerTime(time, response, djResponse)
+              ctx.writeAndFlush(djResponse): Unit
               log.debug("Fast write performed")
               true
 
@@ -111,7 +108,7 @@ object Handler {
               flushed <- if (!jResponse.isInstanceOf[FullHttpResponse]) response.body.write(ctx) else ZIO.succeed(true)
               _       <- ZIO.attempt(ctx.flush()).when(!flushed)
             } yield ()
-      } yield ()
+      } yield log.debug("Full write performed")
 
     }
   }
