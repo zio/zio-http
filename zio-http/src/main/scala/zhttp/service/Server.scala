@@ -148,7 +148,6 @@ sealed trait Server[-R, +E] { self =>
     Concat(self, UnsafeServerBootstrap(unsafeServerbootstrap))
 }
 object Server {
-  import Http.HttpAppSyntax
   val disableFlowControl: UServer    = Server.FlowControl(false)
   val disableLeakDetection: UServer  = LeakDetection(LeakDetectionLevel.DISABLED)
   val simpleLeakDetection: UServer   = LeakDetection(LeakDetectionLevel.SIMPLE)
@@ -186,10 +185,10 @@ object Server {
     for {
       channelFactory <- ZIO.service[ServerChannelFactory]
       eventLoopGroup <- ZIO.service[EventLoopGroup]
-      zExec          <- HttpRuntime.sticky[R](eventLoopGroup)
-      handler         = new ServerResponseWriter(zExec, settings, ServerTime.make)
-      reqHandler      = settings.app.compile(zExec, settings, handler)
-      init            = ServerChannelInitializer(zExec, settings, reqHandler)
+      rtm            <- HttpRuntime.sticky[R](eventLoopGroup)
+      time            = ServerTime.make(1000 millis)
+      reqHandler      = Handler(settings.app, rtm, settings, time)
+      init            = ServerChannelInitializer(rtm, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       chf  <- ZIO.attempt(serverBootstrap.childHandler(init).bind(settings.address))
       _    <- ChannelFuture.scoped(chf)
