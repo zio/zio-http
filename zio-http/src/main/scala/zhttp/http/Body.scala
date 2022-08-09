@@ -171,7 +171,6 @@ object Body {
           _ <- stream.runForeachChunk(c => ZIO.succeed(ctx.writeAndFlush(Unpooled.wrappedBuffer(c.toArray))))
           _ <- ZIO.attempt(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
         } yield true
-
     }
   }
 
@@ -186,7 +185,9 @@ object Body {
     override def asStream: ZStream[Any, Throwable, Byte] =
       ZStream
         .async[Any, Throwable, (Ctx, Chunk[Byte], Boolean)](emit =>
-          unsafeAsync { (ctx, msg, isLast) => emit(ZIO.succeed(Chunk((ctx, msg, isLast)))) },
+          unsafeAsync { (ctx, msg, isLast) =>
+            emit(ZIO.succeed(Chunk((ctx, msg, isLast))))
+          },
         )
         .tap { case (ctx, _, isLast) => ZIO.attempt(ctx.read()).unless(isLast) }
         .takeUntil { case (_, _, isLast) => isLast }
