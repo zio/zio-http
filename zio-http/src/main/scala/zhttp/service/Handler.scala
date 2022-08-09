@@ -3,6 +3,7 @@ package zhttp.service
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
+import io.netty.util.AttributeKey
 import zhttp.http._
 import zhttp.logging.Logger
 import zhttp.service.Handler.{Unsafe, log}
@@ -68,8 +69,13 @@ object Handler {
     res.status.asJava.code() == Status.SwitchingProtocols.asJava.code() && res.attribute.socketApp.nonEmpty
 
   object Unsafe {
-    def addContentHandler(async: Body.UnsafeAsync, ctx: Ctx): Unit =
-      ctx.channel().pipeline.addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new ContentHandler(async)): Unit
+    private val isReadKey = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
+
+    def addContentHandler(async: Body.UnsafeAsync)(implicit ctx: Ctx): Unit = {
+      if (Unsafe.contentIsRead) throw new RuntimeException("Content is already read")
+      ctx.channel().pipeline().addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new ContentHandler(async)): Unit
+      Unsafe.setContentReadAttr(true)(ctx)
+    }
 
     /**
      * Enables auto-read if possible. Also performs the first read.
@@ -87,6 +93,9 @@ object Handler {
       jReq.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
     }
 
+    def contentIsRead(implicit ctx: Ctx): Boolean =
+      ctx.channel().attr(isReadKey).get()
+
     def hasChanged(r1: Response, r2: Response): Boolean =
       (r1.status eq r2.status) && (r1.body eq r2.body) && (r1.headers eq r2.headers)
 
@@ -99,6 +108,10 @@ object Handler {
     def setAutoRead(cond: Boolean)(implicit ctx: Ctx): Unit = {
       log.debug(s"Setting channel auto-read to: [${cond}]")
       ctx.channel().config().setAutoRead(cond): Unit
+    }
+
+    def setContentReadAttr(flag: Boolean)(implicit ctx: Ctx): Unit = {
+      ctx.channel().attr(isReadKey).set(flag)
     }
 
     /**

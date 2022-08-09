@@ -31,6 +31,8 @@ trait FullPassWriter[R] {
             flushed   <- if (!jResponse.isInstanceOf[FullHttpResponse]) response.body.write(ctx) else ZIO.succeed(true)
             _         <- ZIO.attempt(ctx.flush()).when(!flushed)
           } yield ()
+
+      _ <- ZIO.attempt(Unsafe.setContentReadAttr(false))
     } yield log.debug("Full write performed")
 
   }

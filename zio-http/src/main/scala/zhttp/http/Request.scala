@@ -149,6 +149,7 @@ object Request {
   }
 
   private[zhttp] def fromFullHttpRequest(jReq: FullHttpRequest)(implicit ctx: Ctx): Request = {
+
     new Request {
       override def method: Method            = Method.fromHttpMethod(jReq.method())
       override def url: URL                  = URL.fromString(jReq.uri()).getOrElse(URL.empty)
@@ -168,7 +169,7 @@ object Request {
       override def version: Version          = Version.unsafeFromJava(jReq.protocolVersion())
       override def unsafeEncode: HttpRequest = jReq
       override def unsafeContext: Ctx        = ctx
-      override def body: Body                = Body.fromAsync { async => Handler.Unsafe.addContentHandler(async, ctx) }
+      override def body: Body                = Body.fromAsync { async => Handler.Unsafe.addContentHandler(async) }
     }
   }
 }
