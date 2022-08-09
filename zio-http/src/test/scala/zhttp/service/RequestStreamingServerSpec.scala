@@ -5,7 +5,7 @@ import zhttp.service.ServerSpec.requestBodySpec
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
-import zio.{durationInt, ZIO}
+import zio.{ZIO, durationInt}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
   private val env =

@@ -8,7 +8,6 @@ import zio.Chunk
 final class ContentHandler(val async: Body.UnsafeAsync) extends SimpleChannelInboundHandler[HttpContent](true) { self =>
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpContent): Unit = {
-
     val isLast = msg.isInstanceOf[LastHttpContent]
     val chunk  = Chunk.fromArray(ByteBufUtil.getBytes(msg.content()))
     async(ctx.channel(), chunk, isLast)

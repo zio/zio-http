@@ -6,7 +6,7 @@ import io.netty.handler.codec.http._
 import io.netty.util.AttributeKey
 import zhttp.http._
 import zhttp.logging.Logger
-import zhttp.service.Handler.{Unsafe, log}
+import zhttp.service.Handler.{log, Unsafe}
 import zhttp.service.server.{ServerTime, WebSocketUpgrade}
 import zio.ZIO
 
