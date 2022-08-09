@@ -1,4 +1,4 @@
-# HTTPS Cient
+# HTTPS Client
 
 ```scala
 import io.netty.handler.ssl.SslContextBuilder
