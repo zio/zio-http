@@ -5,7 +5,7 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http._
 import zhttp.logging.Logger
-import zhttp.service.Handler.{FastPassWriter, FullPassWriter, Unsafe, log}
+import zhttp.service.Handler.{Unsafe, log}
 import zhttp.service.server.{ServerTime, WebSocketUpgrade}
 import zio.ZIO
 
@@ -64,57 +64,10 @@ private[zhttp] final case class Handler[R](
 object Handler {
   val log: Logger = Log.withTags("Server", "Request")
 
-  /**
-   * An executor that evaluates HExits that don't fail or require a side-effect
-   * to be performed. The executor returns true if the response is completely
-   * written on the channel.
-   */
-  trait FastPassWriter[R] {
-    self: Handler[R] =>
-    def attemptFastWrite(exit: HExit[R, Throwable, Response])(implicit ctx: Ctx): Boolean = {
-      exit match {
-        case HExit.Success(response) =>
-          response.attribute.encoded match {
-            case Some((oResponse, jResponse: FullHttpResponse)) if Unsafe.hasChanged(response, oResponse) =>
-              val djResponse = jResponse.retainedDuplicate()
-              Unsafe.setServerTime(time, response, djResponse)
-              ctx.writeAndFlush(djResponse): Unit
-              log.debug("Fast write performed")
-              true
-
-            case _ => false
-          }
-        case _                       => false
-      }
-    }
-  }
-
-  trait FullPassWriter[R] { self: Handler[R] =>
-    def attemptFullWrite[R1 >: R](exit: HExit[R1, Throwable, Response], jRequest: HttpRequest)(implicit
-      ctx: Ctx,
-    ): ZIO[R, Throwable, Unit] = {
-      for {
-        response <- exit.toZIO.unrefine { case error => Option(error) }.catchAll {
-          case None        => ZIO.succeed(HttpError.NotFound(jRequest.uri()).toResponse)
-          case Some(error) => ZIO.succeed(HttpError.InternalServerError(cause = Some(error)).toResponse)
-        }
-        _        <-
-          if (self.isWebSocket(response)) ZIO.attempt(self.upgradeToWebSocket(jRequest, response))
-          else
-            for {
-              jResponse <- response.encode()
-              _         <- ZIO.attempt(Unsafe.setServerTime(self.time, response, jResponse))
-              _         <- ZIO.attempt(ctx.writeAndFlush(jResponse))
-              flushed <- if (!jResponse.isInstanceOf[FullHttpResponse]) response.body.write(ctx) else ZIO.succeed(true)
-              _       <- ZIO.attempt(ctx.flush()).when(!flushed)
-            } yield ()
-      } yield log.debug("Full write performed")
-
-    }
-  }
+  def isWebSocket(res: Response): Boolean =
+    res.status.asJava.code() == Status.SwitchingProtocols.asJava.code() && res.attribute.socketApp.nonEmpty
 
   object Unsafe {
-
     def addContentHandler(async: Body.UnsafeAsync, ctx: Ctx): Unit =
       ctx.channel().pipeline.addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new ContentHandler(async)): Unit
 
@@ -157,4 +110,5 @@ object Handler {
     }
 
   }
+
 }

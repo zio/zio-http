@@ -3,7 +3,7 @@ package zhttp.service.server
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
-import zhttp.http.{Response, Status}
+import zhttp.http.Response
 import zhttp.service.server.WebSocketUpgrade.log
 import zhttp.service.{Handler, Log, WEB_SOCKET_HANDLER, WebSocketAppHandler}
 
@@ -13,9 +13,6 @@ import scala.annotation.tailrec
  * Module to switch protocol to websockets
  */
 trait WebSocketUpgrade[R] { self: Handler[R] =>
-
-  final def isWebSocket(res: Response): Boolean =
-    res.status.asJava.code() == Status.SwitchingProtocols.asJava.code() && res.attribute.socketApp.nonEmpty
 
   /**
    * Checks if the response requires to switch protocol to websocket. Returns
