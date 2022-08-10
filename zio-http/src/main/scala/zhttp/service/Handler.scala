@@ -65,9 +65,6 @@ private[zhttp] final case class Handler[R](
 object Handler {
   val log: Logger = Log.withTags("Server", "Request")
 
-  def isWebSocket(res: Response): Boolean =
-    res.status.asJava.code() == Status.SwitchingProtocols.asJava.code() && res.attribute.socketApp.nonEmpty
-
   object Unsafe {
     private val isReadKey = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
 

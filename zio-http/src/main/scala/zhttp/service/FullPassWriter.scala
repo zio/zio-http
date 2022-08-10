@@ -22,7 +22,7 @@ trait FullPassWriter[R] {
         case Some(error) => ZIO.succeed(HttpError.InternalServerError(cause = Some(error)).toResponse)
       }
       _        <-
-        if (Handler.isWebSocket(response)) ZIO.attempt(self.upgradeToWebSocket(jRequest, response))
+        if (response.isWebSocket) ZIO.attempt(self.upgradeToWebSocket(jRequest, response))
         else
           for {
             jResponse <- response.encode()
