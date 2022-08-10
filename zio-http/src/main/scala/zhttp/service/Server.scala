@@ -38,18 +38,18 @@ sealed trait Server[-R, +E] { self =>
 
   def make(implicit
     ev: E <:< Throwable,
-  ): ZIO[R with EventLoopGroup with Scope, Throwable, Start] =
+  ): ZIO[R with Scope, Throwable, Start] =
     Server.make(self.asInstanceOf[Server[R, Throwable]])
 
-  def start(implicit ev: E <:< Throwable): ZIO[R with EventLoopGroup, Throwable, Nothing] =
-    ZIO.scoped[R with EventLoopGroup](make *> ZIO.never)
+  def start(implicit ev: E <:< Throwable): ZIO[R, Throwable, Nothing] =
+    ZIO.scoped[R](make *> ZIO.never)
 
   /**
    * Launches the app with current settings: default EventLoopGroup (nThreads =
    * 0) and ServerChannelFactory.auto.
    */
   def startDefault[R1 <: R](implicit ev: E <:< Throwable): ZIO[R1, Throwable, Nothing] =
-    start.provideSomeLayer[R1](EventLoopGroup.auto(0))
+    start
 
   /**
    * Creates a new server using a HttpServerExpectContinueHandler to send a 100
@@ -187,11 +187,11 @@ object Server {
 
   def make[R](
     server: Server[R, Throwable],
-  ): ZIO[R with EventLoopGroup with Scope, Throwable, Start] = {
+  ): ZIO[R with Scope, Throwable, Start] = {
     val settings = server.settings()
     for {
       channelFactory <- ServerChannelFactory.get(settings.serverChannelType)
-      eventLoopGroup <- ZIO.service[EventLoopGroup]
+      eventLoopGroup <- EventLoopGroup.Live.nio(0)
       zExec          <- HttpRuntime.sticky[R](eventLoopGroup)
       handler         = new ServerResponseWriter(zExec, settings, ServerTime.make)
       reqHandler      = settings.app.compile(zExec, settings, handler)

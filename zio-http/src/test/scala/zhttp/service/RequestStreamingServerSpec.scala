@@ -1,17 +1,18 @@
 package zhttp.service
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
-import zhttp.service.ServerSpec.requestBodySpec
+import zhttp.service.ServerSpec.{requestBodySpec, requestSpec, responseSpec, serverErrorSpec}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
-import zio.{ZIO, durationInt}
+import zio.{Scope, ZIO, durationInt}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ DynamicServer.live
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ DynamicServer.live ++ Scope.default
 
-  private val appWithReqStreaming = serve(DynamicServer.app, Some(Server.enableObjectAggregator(-1)))
+  private val appWithReqStreaming: ZIO[DynamicServer with Scope, Nothing, Unit] =
+    serve(DynamicServer.app, Some(Server.enableObjectAggregator(-1)))
 
   /**
    * Generates a string of the provided length and char.
@@ -42,8 +43,8 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
 
   override def spec =
     suite("RequestStreamingServerSpec") {
-      val spec = requestBodySpec + largeContentSpec
-      suite("app with request streaming") { ZIO.scoped(appWithReqStreaming.as(List(spec))) }
+      val spec = responseSpec + requestSpec + requestBodySpec + serverErrorSpec + largeContentSpec
+      suite("app with request streaming") { appWithReqStreaming.as(List(spec)) }
     }.provideCustomLayerShared(env) @@ timeout(10 seconds) @@ sequential
 
 }

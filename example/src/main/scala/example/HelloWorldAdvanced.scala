@@ -1,10 +1,8 @@
 package example
 
 import zhttp.http._
-import zhttp.service.{EventLoopGroup, Server}
+import zhttp.service.Server
 import zio._
-
-import scala.util.Try
 
 object HelloWorldAdvanced extends ZIOAppDefault {
   // Set a port
@@ -27,7 +25,7 @@ object HelloWorldAdvanced extends ZIOAppDefault {
 
   val run = ZIOAppArgs.getArgs.flatMap { args =>
     // Configure thread count using CLI
-    val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
+    // val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
     // Create a new server
     server.make
@@ -38,6 +36,6 @@ object HelloWorldAdvanced extends ZIOAppDefault {
         // Ensures the server doesn't die after printing
           *> ZIO.never,
       )
-      .provide(EventLoopGroup.auto(nThreads), Scope.default)
+      .provide(Scope.default)
   }
 }

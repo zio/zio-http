@@ -13,7 +13,7 @@ import zio.test._
 object WebSocketSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ DynamicServer.live ++ ChannelFactory.nio
+    EventLoopGroup.nio() ++ DynamicServer.live ++ ChannelFactory.nio ++ Scope.default
 
   private val websocketSpec = suite("WebsocketSpec")(
     test("channel events between client and server") {
@@ -105,11 +105,9 @@ object WebSocketSpec extends HttpRunnableSpec {
   )
 
   override def spec = suite("Server") {
-    ZIO.scoped {
-      serve {
-        DynamicServer.app
-      }.as(List(websocketSpec))
-    }
+    serve {
+      DynamicServer.app
+    }.as(List(websocketSpec))
   }
     .provideCustomLayerShared(env) @@ timeout(30 seconds)
 
