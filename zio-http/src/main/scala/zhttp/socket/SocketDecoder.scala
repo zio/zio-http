@@ -5,77 +5,61 @@ import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig
 /**
  * Frame decoder configuration
  */
-sealed trait SocketDecoder { self =>
-  import SocketDecoder._
-  def ++(other: SocketDecoder): SocketDecoder = SocketDecoder.Concat(self, other)
-  def javaConfig: WebSocketDecoderConfig      = {
-    val b                                  = WebSocketDecoderConfig.newBuilder()
-    def loop(decoder: SocketDecoder): Unit = {
-      decoder match {
-        case Default                       => ()
-        case MaxFramePayloadLength(length) => b.maxFramePayloadLength(length)
-        case RejectMaskedFrames            => b.expectMaskedFrames(false)
-        case AllowMaskMismatch             => b.allowMaskMismatch(true)
-        case AllowExtensions               => b.allowExtensions(true)
-        case AllowProtocolViolation        => b.closeOnProtocolViolation(false)
-        case SkipUTF8Validation            => b.withUTF8Validator(false)
-        case Concat(a, b)                  =>
-          loop(a)
-          loop(b)
-      }
-      ()
-    }
-    loop(self)
-    b.build()
-  }
-}
+final case class SocketDecoder(
+  maxFramePayloadLength: Int = 65536,
+  expectMaskedFrames: Boolean = true,
+  allowMaskMismatch: Boolean = false,
+  allowExtensions: Boolean = false,
+  closeOnProtocolViolation: Boolean = true,
+  withUTF8Validator: Boolean = true,
+) { self =>
 
-object SocketDecoder {
-  private final case class MaxFramePayloadLength(length: Int)         extends SocketDecoder
-  private case object RejectMaskedFrames                              extends SocketDecoder
-  private case object AllowMaskMismatch                               extends SocketDecoder
-  private case object AllowExtensions                                 extends SocketDecoder
-  private case object AllowProtocolViolation                          extends SocketDecoder
-  private case object SkipUTF8Validation                              extends SocketDecoder
-  private final case class Concat(a: SocketDecoder, b: SocketDecoder) extends SocketDecoder
-  private case object Default                                         extends SocketDecoder
+  def javaConfig[zhttp]: WebSocketDecoderConfig = WebSocketDecoderConfig
+    .newBuilder()
+    .maxFramePayloadLength(maxFramePayloadLength)
+    .expectMaskedFrames(expectMaskedFrames)
+    .allowMaskMismatch(allowMaskMismatch)
+    .allowExtensions(allowExtensions)
+    .closeOnProtocolViolation(closeOnProtocolViolation)
+    .withUTF8Validator(withUTF8Validator)
+    .build()
 
-  /**
-   * Sets Maximum length of a frame's payload. Setting this to an appropriate
-   * value for you application helps check for denial of services attacks.
-   */
-  def maxFramePayloadLength(length: Int): SocketDecoder = MaxFramePayloadLength(length)
-
-  /**
-   * Web socket servers must set this to true to reject incoming masked payload.
-   */
-  def rejectMaskedFrames: SocketDecoder = RejectMaskedFrames
+  def withExtensions(allowed: Boolean): SocketDecoder = self.copy(allowExtensions = allowed)
 
   /**
    * When set to true, frames which are not masked properly according to the
    * standard will still be accepted.
    */
-  def allowMaskMismatch: SocketDecoder = AllowMaskMismatch
+  def withMaskMismatch(allowed: Boolean): SocketDecoder = self.copy(allowMaskMismatch = allowed)
 
   /**
-   * Allow extensions to be used in the reserved bits of the web socket frame
+   * Web socket servers must set this to true to reject incoming masked payload.
    */
-  def allowExtensions: SocketDecoder = AllowExtensions
+  def withMaskedFrames(allowed: Boolean): SocketDecoder = self.copy(expectMaskedFrames = allowed)
+
+  /**
+   * Sets Maximum length of a frame's payload. Setting this to an appropriate
+   * value for you application helps check for denial of services attacks.
+   */
+  def withMaxFramePayloadLength(length: Int): SocketDecoder = self.copy(maxFramePayloadLength = length)
 
   /**
    * Flag to not send close frame immediately on any protocol violation.ion.
    */
-  def allowProtocolViolation: SocketDecoder = AllowProtocolViolation
+  def withProtocolViolation(allowed: Boolean): SocketDecoder = self.copy(closeOnProtocolViolation = allowed)
 
   /**
    * Allows you to avoid adding of Utf8FrameValidator to the pipeline on the
    * WebSocketServerProtocolHandler creation. This is useful (less overhead)
    * when you use only BinaryWebSocketFrame within your web socket connection.
    */
-  def skipUTF8Validation: SocketDecoder = SkipUTF8Validation
+  def withUTF8Validation(enable: Boolean): SocketDecoder = self.copy(withUTF8Validator = enable)
+}
+
+object SocketDecoder {
 
   /**
    * Creates an default decoder configuration.
    */
-  def default: SocketDecoder = Default
+  def default: SocketDecoder = SocketDecoder()
 }
