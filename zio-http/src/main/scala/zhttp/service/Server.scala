@@ -191,7 +191,7 @@ object Server {
     val settings = server.settings()
     for {
       channelFactory <- ServerChannelFactory.get(settings.serverChannelType)
-      eventLoopGroup <- EventLoopGroup.Live.nio(0)
+      eventLoopGroup <- EventLoopGroup.Live.get(settings.serverChannelType)(0)
       zExec          <- HttpRuntime.sticky[R](eventLoopGroup)
       handler         = new ServerResponseWriter(zExec, settings, ServerTime.make)
       reqHandler      = settings.app.compile(zExec, settings, handler)

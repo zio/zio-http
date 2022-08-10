@@ -4,6 +4,7 @@ import io.netty.channel
 import io.netty.channel.epoll.Epoll
 import io.netty.channel.kqueue.KQueue
 import io.netty.incubator.channel.uring.IOUringEventLoopGroup
+import zhttp.service.server.ServerChannelFactory.ServerChannelType
 import zio._
 
 import java.util.concurrent.Executor
@@ -25,6 +26,16 @@ object EventLoopGroup {
   def default: ZLayer[Any, Nothing, EventLoopGroup] = ZLayer.scoped(EventLoopGroup.Live.default)
 
   object Live {
+
+    def get(serverChannelType: ServerChannelType): Int => ZIO[Scope, Nothing, channel.EventLoopGroup] =
+      serverChannelType match {
+        case ServerChannelType.NIO    => nio
+        case ServerChannelType.EPOLL  => epoll
+        case ServerChannelType.URING  => uring
+        case ServerChannelType.KQUEUE => kQueue
+        case ServerChannelType.AUTO   => auto
+      }
+
     def nio(nThreads: Int): ZIO[Scope, Nothing, channel.EventLoopGroup] =
       make(ZIO.succeed(new channel.nio.NioEventLoopGroup(nThreads)))
 
