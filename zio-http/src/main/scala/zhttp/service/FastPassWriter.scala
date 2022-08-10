@@ -9,7 +9,7 @@ import zhttp.http.{HExit, Response}
  * written on the channel.
  */
 trait FastPassWriter[R] { self: Handler[R] =>
-  import Handler.{Unsafe, log}
+  import Handler.{log, Unsafe}
 
   def attemptFastWrite(exit: HExit[R, Throwable, Response])(implicit ctx: Ctx): Boolean = {
     exit match {
@@ -18,7 +18,7 @@ trait FastPassWriter[R] { self: Handler[R] =>
           case Some((oResponse, jResponse: FullHttpResponse)) if Unsafe.hasChanged(response, oResponse) =>
             val djResponse = jResponse.retainedDuplicate()
             Unsafe.setServerTime(time, response, djResponse)
-            ctx.writeAndFlush(djResponse): Unit
+            ctx.writeAndFlush(djResponse, ctx.voidPromise()): Unit
             log.debug("Fast write performed")
             true
 
