@@ -96,9 +96,9 @@ object Handler {
     def hasChanged(r1: Response, r2: Response): Boolean =
       (r1.status eq r2.status) && (r1.body eq r2.body) && (r1.headers eq r2.headers)
 
-    def releaseRequest(jReq: FullHttpRequest): Unit = {
-      if (jReq.refCnt() > 0) {
-        jReq.release(jReq.refCnt()): Unit
+    def releaseRequest(jReq: FullHttpRequest, cnt: Int = 1): Unit = {
+      if (jReq.refCnt() > 0 && cnt > 0) {
+        jReq.release(cnt): Unit
       }
     }
 

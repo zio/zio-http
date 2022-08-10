@@ -30,7 +30,9 @@ trait WebSocketUpgrade[R] { self: Handler[R] =>
           .pipeline()
           .addLast(new WebSocketServerProtocolHandler(app.get.protocol.serverBuilder.build()))
           .addLast(WEB_SOCKET_HANDLER, new WebSocketAppHandler(runtime, app.get, false))
-        ctx.channel().eventLoop().submit(() => ctx.fireChannelRead(jReq)): Unit
+
+        val retained = jReq.retainedDuplicate()
+        ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(retained) }: Unit
 
       case jReq: HttpRequest =>
         val fullRequest = new DefaultFullHttpRequest(jReq.protocolVersion(), jReq.method(), jReq.uri())
