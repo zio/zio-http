@@ -22,14 +22,14 @@ object HttpGen {
     )
   } yield Path(segments.toVector)
 
-  def clientParamsForFileHttpData(): Gen[Sized, Request] = {
+  def clientParamsForFileBody(): Gen[Sized, Request] = {
     for {
       file    <- Gen.fromZIO(ZIO.succeed(new File(getClass.getResource("/TestFile.txt").getPath)))
       method  <- HttpGen.method
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
       version <- httpVersion
-    } yield Request(version, method, url, headers, data = HttpData.fromFile(file))
+    } yield Request(version, method, url, headers, body = Body.fromFile(file))
   }
 
   def cookies: Gen[Sized, Cookie] = for {
@@ -72,17 +72,17 @@ object HttpGen {
     value <- Gen.alphaNumericStringBounded(1, 4)
   } yield (key, value)
 
-  def httpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData] =
+  def body[R](gen: Gen[R, List[String]]): Gen[R, Body] =
     for {
       list <- gen
       cnt  <- Gen
         .fromIterable(
           List(
-            HttpData.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
-            HttpData.fromString(list.mkString("")),
-            HttpData.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
-            HttpData.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
-            HttpData.empty,
+            Body.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
+            Body.fromString(list.mkString("")),
+            Body.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
+            Body.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
+            Body.empty,
           ),
         )
     } yield cnt
@@ -108,16 +108,16 @@ object HttpGen {
     ),
   )
 
-  def nonEmptyHttpData[R](gen: Gen[R, List[String]]): Gen[R, HttpData] =
+  def nonEmptyBody[R](gen: Gen[R, List[String]]): Gen[R, Body] =
     for {
       list <- gen
       cnt  <- Gen
         .fromIterable(
           List(
-            HttpData.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
-            HttpData.fromString(list.mkString("")),
-            HttpData.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
-            HttpData.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
+            Body.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
+            Body.fromString(list.mkString("")),
+            Body.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
+            Body.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
           ),
         )
     } yield cnt
@@ -138,11 +138,11 @@ object HttpGen {
     method  <- HttpGen.method
     url     <- HttpGen.url
     headers <- Gen.listOf(HttpGen.header).map(Headers(_))
-    data    <- HttpGen.httpData(Gen.listOf(Gen.alphaNumericString))
+    data    <- HttpGen.body(Gen.listOf(Gen.alphaNumericString))
   } yield Request(version, method, url, headers, data)
 
   def requestGen[R](
-    dataGen: Gen[R, HttpData],
+    dataGen: Gen[R, Body],
     methodGen: Gen[R, Method] = HttpGen.method,
     urlGen: Gen[Sized, URL] = HttpGen.url,
     headerGen: Gen[Sized, Header] = HttpGen.header,
@@ -153,11 +153,11 @@ object HttpGen {
       headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
       version <- httpVersion
-    } yield Request(version, method, url, headers, data = data)
+    } yield Request(version, method, url, headers, body = data)
 
   def response[R](gContent: Gen[R, List[String]]): Gen[Sized with R, Response] = {
     for {
-      content <- HttpGen.httpData(gContent)
+      content <- HttpGen.body(gContent)
       headers <- HttpGen.header.map(Headers(_))
       status  <- HttpGen.status
     } yield Response(status, headers, content)

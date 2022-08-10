@@ -212,7 +212,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
           for {
             url      <- ZIO.fromEither(URL.fromString(url))
             response <- app(Request(url = url))
-            text     <- response.bodyAsString
+            text     <- response.body.asString
           } yield assertTrue(text == expected)
         }
       },

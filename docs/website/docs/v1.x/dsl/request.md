@@ -11,7 +11,7 @@ sidebar_position: "3"
 `Request` can be created with `method`, `url`, `headers`, `remoteAddress` and `data`. 
 Creating requests using `Request` is useful while writing unit tests.
 
-The below snippet creates a request with default params, `method` as `Method.GET`, `url` as `URL.root`, `headers` as `Headers.empty`, `data` as `HttpData.Empty`, `remoteAddress` as `None`
+The below snippet creates a request with default params, `method` as `Method.GET`, `url` as `URL.root`, `headers` as `Headers.empty`, `data` as `Body.Empty`, `remoteAddress` as `None`
 ```scala
 val request: Request = Request()
 ```

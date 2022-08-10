@@ -1,11 +1,9 @@
 package zhttp.http
 
-import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
+import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.html._
 import zhttp.http.headers.HeaderModifier
-import zhttp.service.{Handler, HttpRuntime, Server, ServerResponseWriter}
 import zhttp.socket.{SocketApp, WebSocketChannelEvent}
 import zio.ZIO.attemptBlocking
 import zio._
@@ -27,78 +25,6 @@ import scala.util.control.NonFatal
 sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
   import Http._
-
-  /**
-   * Extracts body as a ByteBuf
-   */
-  private[zhttp] final def bodyAsByteBuf(implicit
-    eb: B <:< Response,
-    ee: E <:< Throwable,
-  ): Http[R, Throwable, A, ByteBuf] =
-    self.widen[Throwable, B].mapZIO(_.bodyAsByteBuf)
-
-  /**
-   * Evaluates the app and returns an HExit that can be resolved further
-   *
-   * NOTE: `execute` is not a stack-safe method for performance reasons. Unlike
-   * ZIO, there is no reason why the execute should be stack safe. The
-   * performance improves quite significantly if no additional heap allocations
-   * are required this way.
-   */
-  final private[zhttp] def execute(a: A): HExit[R, E, B] =
-    self match {
-
-      case Http.Empty                     => HExit.empty
-      case Http.Identity                  => HExit.succeed(a.asInstanceOf[B])
-      case Succeed(b)                     => HExit.succeed(b)
-      case Fail(e)                        => HExit.fail(e)
-      case Die(e)                         => HExit.die(e)
-      case Attempt(a)                     =>
-        try { HExit.succeed(a()) }
-        catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
-      case FromFunctionHExit(f)           =>
-        try { f(a) }
-        catch { case e: Throwable => HExit.die(e) }
-      case FromHExit(h)                   => h
-      case Chain(self, other)             => self.execute(a).flatMap(b => other.execute(b))
-      case Race(self, other)              =>
-        (self.execute(a), other.execute(a)) match {
-          case (HExit.Effect(self), HExit.Effect(other)) =>
-            Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
-          case (HExit.Effect(_), other)                  => other
-          case (self, _)                                 => self
-        }
-      case FoldHttp(self, ee, df, bb, dd) =>
-        try {
-          self.execute(a).foldExit(ee(_).execute(a), df(_).execute(a), bb(_).execute(a), dd.execute(a))
-        } catch {
-          case e: Throwable => HExit.die(e)
-        }
-
-      case RunMiddleware(app, mid) =>
-        try {
-          mid(app).execute(a)
-        } catch {
-          case e: Throwable => HExit.die(e)
-        }
-
-      case When(f, other) =>
-        try {
-          if (f(a)) other.execute(a) else HExit.empty
-        } catch {
-          case e: Throwable => HExit.die(e)
-        }
-
-      case Combine(self, other) => {
-        self.execute(a) match {
-          case HExit.Empty            => other.execute(a)
-          case exit: HExit.Success[_] => exit.asInstanceOf[HExit[R, E, B]]
-          case exit: HExit.Failure[_] => exit.asInstanceOf[HExit[R, E, B]]
-          case exit: HExit.Die        => exit
-          case exit @ HExit.Effect(_) => exit.defaultWith(other.execute(a)).asInstanceOf[HExit[R, E, B]]
-        }
-      }
-    }
 
   /**
    * Attaches the provided middleware to the Http app
@@ -182,14 +108,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Extracts body
    */
-  final def body(implicit eb: B <:< Response, ee: E <:< Throwable): Http[R, Throwable, A, Chunk[Byte]] =
-    self.bodyAsByteBuf.mapZIO(buf => ZIO.attempt(Chunk.fromArray(ByteBufUtil.getBytes(buf))))
-
-  /**
-   * Extracts body as a string
-   */
-  final def bodyAsString(implicit eb: B <:< Response, ee: E <:< Throwable): Http[R, Throwable, A, String] =
-    self.bodyAsByteBuf.mapZIO(bytes => ZIO.attempt(bytes.toString(HTTP_CHARSET)))
+  final def body(implicit eb: B <:< Response): Http[R, E, A, Body] =
+    self.map(_.body)
 
   /**
    * Catches all the exceptions that the http app can fail with
@@ -644,21 +564,75 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def zipRight[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
     self.flatMap(_ => other)
+
+  /**
+   * Evaluates the app and returns an HExit that can be resolved further
+   *
+   * NOTE: `execute` is not a stack-safe method for performance reasons. Unlike
+   * ZIO, there is no reason why the execute should be stack safe. The
+   * performance improves quite significantly if no additional heap allocations
+   * are required this way.
+   */
+  final private[zhttp] def execute(a: A): HExit[R, E, B] =
+    self match {
+
+      case Http.Empty                     => HExit.empty
+      case Http.Identity                  => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)                     => HExit.succeed(b)
+      case Fail(e)                        => HExit.fail(e)
+      case Die(e)                         => HExit.die(e)
+      case Attempt(a)                     =>
+        try { HExit.succeed(a()) }
+        catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
+      case FromFunctionHExit(f)           =>
+        try { f(a) }
+        catch { case e: Throwable => HExit.die(e) }
+      case FromHExit(h)                   => h
+      case Chain(self, other)             => self.execute(a).flatMap(b => other.execute(b))
+      case Race(self, other)              =>
+        (self.execute(a), other.execute(a)) match {
+          case (HExit.Effect(self), HExit.Effect(other)) =>
+            Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
+          case (HExit.Effect(_), other)                  => other
+          case (self, _)                                 => self
+        }
+      case FoldHttp(self, ee, df, bb, dd) =>
+        try {
+          self.execute(a).foldExit(ee(_).execute(a), df(_).execute(a), bb(_).execute(a), dd.execute(a))
+        } catch {
+          case e: Throwable => HExit.die(e)
+        }
+
+      case RunMiddleware(app, mid) =>
+        try {
+          mid(app).execute(a)
+        } catch {
+          case e: Throwable => HExit.die(e)
+        }
+
+      case When(f, other) =>
+        try {
+          if (f(a)) other.execute(a) else HExit.empty
+        } catch {
+          case e: Throwable => HExit.die(e)
+        }
+
+      case Combine(self, other) => {
+        self.execute(a) match {
+          case HExit.Empty            => other.execute(a)
+          case exit: HExit.Success[_] => exit.asInstanceOf[HExit[R, E, B]]
+          case exit: HExit.Failure[_] => exit.asInstanceOf[HExit[R, E, B]]
+          case exit: HExit.Die        => exit
+          case exit @ HExit.Effect(_) => exit.defaultWith(other.execute(a)).asInstanceOf[HExit[R, E, B]]
+        }
+      }
+    }
 }
 
 object Http {
 
   implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends HeaderModifier[HttpApp[R, E]] {
     self =>
-
-    private[zhttp] def compile[R1 <: R](
-      zExec: HttpRuntime[R1],
-      settings: Server.Config[R1, Throwable],
-      resWriter: ServerResponseWriter[R1],
-    )(implicit
-      evE: E <:< Throwable,
-    ): ChannelHandler =
-      Handler(http.asInstanceOf[HttpApp[R1, Throwable]], zExec, settings, resWriter)
 
     /**
      * Patches the response produced by the app
@@ -807,7 +781,7 @@ object Http {
    * Creates an Http app which always responds the provided data and a 200
    * status code
    */
-  def fromData(data: HttpData): HttpApp[Any, Nothing] = response(Response(data = data))
+  def fromBody(body: Body): HttpApp[Any, Nothing] = response(Response(body = body))
 
   /**
    * Lifts an `Either` into a `Http` value.
@@ -831,7 +805,7 @@ object Http {
         ZIO.attempt {
           if (file.isFile) {
             val length   = Headers.contentLength(file.length())
-            val response = Response(headers = length, data = HttpData.fromFile(file))
+            val response = Response(headers = length, body = Body.fromFile(file))
             val pathName = file.toPath.toString
 
             // Extract file extension
@@ -903,7 +877,7 @@ object Http {
    */
   def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = HTTP_CHARSET): HttpApp[R, Nothing] =
     Http
-      .fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provideEnvironment(r), charset))))
+      .fromZIO(ZIO.environment[R].map(r => Http.fromBody(Body.fromStream(stream.provideEnvironment(r), charset))))
       .flatten
 
   /**
@@ -911,7 +885,7 @@ object Http {
    * ZStream as the body
    */
   def fromStream[R](stream: ZStream[R, Throwable, Byte]): HttpApp[R, Nothing] =
-    Http.fromZIO(ZIO.environment[R].map(r => Http.fromData(HttpData.fromStream(stream.provideEnvironment(r))))).flatten
+    Http.fromZIO(ZIO.environment[R].map(r => Http.fromBody(Body.fromStream(stream.provideEnvironment(r))))).flatten
 
   /**
    * Converts a ZIO to an Http type
@@ -951,7 +925,7 @@ object Http {
    * Creates an Http app that fails with a NotFound exception.
    */
   def notFound: HttpApp[Any, Nothing] =
-    Http.fromFunction[Request](req => Http.error(HttpError.NotFound(req.url.path))).flatten
+    Http.fromFunction[Request](req => Http.error(HttpError.NotFound(req.url.path.encode))).flatten
 
   /**
    * Creates an HTTP app which always responds with a 200 status code.
