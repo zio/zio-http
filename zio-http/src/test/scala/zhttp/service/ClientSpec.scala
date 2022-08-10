@@ -13,7 +13,7 @@ import java.net.ConnectException
 object ClientSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ DynamicServer.live ++ Scope.default
+    EventLoopGroup.nio() ++ DynamicServer.live ++ Scope.default
 
   def clientSpec = suite("ClientSpec")(
     test("respond Ok") {

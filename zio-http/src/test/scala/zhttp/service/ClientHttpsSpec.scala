@@ -15,7 +15,7 @@ import javax.net.ssl.TrustManagerFactory
 
 object ClientHttpsSpec extends ZIOSpecDefault {
 
-  val env                         = ChannelFactory.auto ++ EventLoopGroup.auto()
+  val env                         = EventLoopGroup.auto()
   val trustStore: KeyStore        = KeyStore.getInstance("JKS")
   val trustStorePassword: String  = "changeit"
   val trustStoreFile: InputStream = getClass().getClassLoader().getResourceAsStream("truststore.jks")

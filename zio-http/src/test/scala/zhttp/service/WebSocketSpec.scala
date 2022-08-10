@@ -13,7 +13,7 @@ import zio.test._
 object WebSocketSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ DynamicServer.live ++ ChannelFactory.nio ++ Scope.default
+    EventLoopGroup.nio() ++ DynamicServer.live ++ Scope.default
 
   private val websocketSpec = suite("WebsocketSpec")(
     test("channel events between client and server") {

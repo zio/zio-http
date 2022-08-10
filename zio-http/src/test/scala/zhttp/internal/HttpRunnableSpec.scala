@@ -107,7 +107,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
   def status(
     method: Method = Method.GET,
     path: Path,
-  ): ZIO[EventLoopGroup with ChannelFactory with DynamicServer, Throwable, Status] = {
+  ): ZIO[EventLoopGroup with DynamicServer, Throwable, Status] = {
     for {
       port   <- DynamicServer.port
       status <- Client

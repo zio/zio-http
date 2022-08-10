@@ -148,8 +148,8 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
 }
 
 object Client {
-  def make[R]: ZIO[R with EventLoopGroup with ChannelFactory, Nothing, Client[R]] = for {
-    cf <- ZIO.service[JChannelFactory[JChannel]]
+  def make[R]: ZIO[R with EventLoopGroup, Nothing, Client[R]] = for {
+    cf <- ChannelFactory.Live.nio
     el <- ZIO.service[JEventLoopGroup]
     zx <- HttpRuntime.default[R]
   } yield service.Client(zx, cf, el)
@@ -160,7 +160,7 @@ object Client {
     headers: Headers = Headers.empty,
     content: HttpData = HttpData.empty,
     ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
+  ): ZIO[EventLoopGroup, Throwable, Response] =
     for {
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- request(
@@ -172,7 +172,7 @@ object Client {
   def request(
     request: Request,
     clientConfig: Config,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
+  ): ZIO[EventLoopGroup, Throwable, Response] =
     for {
       clt <- make[Any]
       res <- clt.request(request, clientConfig)
@@ -183,7 +183,7 @@ object Client {
     app: SocketApp[R],
     headers: Headers = Headers.empty,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[R with EventLoopGroup with ChannelFactory with Scope, Throwable, Response] = {
+  ): ZIO[R with EventLoopGroup with Scope, Throwable, Response] = {
     for {
       clt <- make[R]
       uri <- ZIO.fromEither(URL.fromString(url))

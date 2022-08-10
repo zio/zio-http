@@ -1,7 +1,7 @@
 package zhttp
 
-import zhttp.service.{ChannelFactory, EventLoopGroup}
+import zhttp.service.EventLoopGroup
 
 package object internal {
-  type HttpEnv = EventLoopGroup with ChannelFactory with DynamicServer
+  type HttpEnv = EventLoopGroup with DynamicServer
 }

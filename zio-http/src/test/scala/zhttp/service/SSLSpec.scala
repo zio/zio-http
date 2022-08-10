@@ -11,7 +11,7 @@ import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{Gen, TestEnvironment, ZIOSpecDefault, assertZIO, check}
 
 object SSLSpec extends ZIOSpecDefault {
-  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ Scope.default
+  val env = EventLoopGroup.auto() ++ Scope.default
 
   val serverSSL  = ctxFromCert(
     getClass().getClassLoader().getResourceAsStream("server.crt"),
