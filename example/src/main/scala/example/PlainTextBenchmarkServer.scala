@@ -53,6 +53,6 @@ object Main extends ZIOAppDefault {
       .withError(_ => ZIO.unit)
       .withLeakDetection(LeakDetectionLevel.DISABLED)
       .withConsolidateFlush(false)
-      .withFlowControl(false)
+      .withFlowControl(true)
       .withObjectAggregator(-1)
 }
