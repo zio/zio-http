@@ -14,16 +14,17 @@ final case class SocketDecoder(
   withUTF8Validator: Boolean = true,
 ) { self =>
 
-  /**
-   * Sets Maximum length of a frame's payload. Setting this to an appropriate
-   * value for you application helps check for denial of services attacks.
-   */
-  def withMaxFramePayloadLength(length: Int): SocketDecoder = self.copy(maxFramePayloadLength = length)
+  def javaConfig[zhttp]: WebSocketDecoderConfig = WebSocketDecoderConfig
+    .newBuilder()
+    .maxFramePayloadLength(maxFramePayloadLength)
+    .expectMaskedFrames(expectMaskedFrames)
+    .allowMaskMismatch(allowMaskMismatch)
+    .allowExtensions(allowExtensions)
+    .closeOnProtocolViolation(closeOnProtocolViolation)
+    .withUTF8Validator(withUTF8Validator)
+    .build()
 
-  /**
-   * Web socket servers must set this to true to reject incoming masked payload.
-   */
-  def maskedFrames(allowed: Boolean): SocketDecoder = self.copy(expectMaskedFrames = allowed)
+  def withExtensions(allowed: Boolean): SocketDecoder = self.copy(allowExtensions = allowed)
 
   /**
    * When set to true, frames which are not masked properly according to the
@@ -31,7 +32,16 @@ final case class SocketDecoder(
    */
   def withMaskMismatch(allowed: Boolean): SocketDecoder = self.copy(allowMaskMismatch = allowed)
 
-  def withExtensions(allowed: Boolean): SocketDecoder = self.copy(allowExtensions = allowed)
+  /**
+   * Web socket servers must set this to true to reject incoming masked payload.
+   */
+  def withMaskedFrames(allowed: Boolean): SocketDecoder = self.copy(expectMaskedFrames = allowed)
+
+  /**
+   * Sets Maximum length of a frame's payload. Setting this to an appropriate
+   * value for you application helps check for denial of services attacks.
+   */
+  def withMaxFramePayloadLength(length: Int): SocketDecoder = self.copy(maxFramePayloadLength = length)
 
   /**
    * Flag to not send close frame immediately on any protocol violation.ion.
@@ -44,16 +54,6 @@ final case class SocketDecoder(
    * when you use only BinaryWebSocketFrame within your web socket connection.
    */
   def withUTF8Validation(enable: Boolean): SocketDecoder = self.copy(withUTF8Validator = enable)
-
-  def javaConfig[zhttp]: WebSocketDecoderConfig = WebSocketDecoderConfig
-    .newBuilder()
-    .maxFramePayloadLength(maxFramePayloadLength)
-    .expectMaskedFrames(expectMaskedFrames)
-    .allowMaskMismatch(allowMaskMismatch)
-    .allowExtensions(allowExtensions)
-    .closeOnProtocolViolation(closeOnProtocolViolation)
-    .withUTF8Validator(withUTF8Validator)
-    .build()
 }
 
 object SocketDecoder {

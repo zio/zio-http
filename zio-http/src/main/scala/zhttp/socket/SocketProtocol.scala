@@ -20,16 +20,39 @@ final case class SocketProtocol(
   decoderConfig: SocketDecoder = SocketDecoder.default,
 ) { self =>
 
-  /**
-   * Close frame to send, when close frame was not send manually.
-   */
-  def withCloseFrame(status: CloseStatus): SocketProtocol = self.copy(sendCloseFrame = status.asJava)
+  def clientBuilder: WebSocketClientProtocolConfig.Builder = WebSocketClientProtocolConfig
+    .newBuilder()
+    .subprotocol(subprotocols.orNull)
+    .handshakeTimeoutMillis(handshakeTimeoutMillis)
+    .forceCloseTimeoutMillis(forceCloseTimeoutMillis)
+    .handleCloseFrames(handleCloseFrames)
+    .sendCloseFrame(sendCloseFrame)
+    .dropPongFrames(dropPongFrames)
+
+  def serverBuilder: WebSocketServerProtocolConfig.Builder = WebSocketServerProtocolConfig
+    .newBuilder()
+    .checkStartsWith(true)
+    .websocketPath("")
+    .subprotocols(subprotocols.orNull)
+    .handshakeTimeoutMillis(handshakeTimeoutMillis)
+    .forceCloseTimeoutMillis(forceCloseTimeoutMillis)
+    .handleCloseFrames(handleCloseFrames)
+    .sendCloseFrame(sendCloseFrame)
+    .dropPongFrames(dropPongFrames)
+    .decoderConfig(decoderConfig.javaConfig)
 
   /**
    * Close frame to send, when close frame was not send manually.
    */
   def withCloseFrame(code: Int, reason: String): SocketProtocol =
     self.copy(sendCloseFrame = new WebSocketCloseStatus(code, reason))
+
+  /**
+   * Close frame to send, when close frame was not send manually.
+   */
+  def withCloseStatus(status: CloseStatus): SocketProtocol = self.copy(sendCloseFrame = status.asJava)
+
+  def withDecoderConfig(socketDecoder: SocketDecoder): SocketProtocol = self.copy(decoderConfig = socketDecoder)
 
   /**
    * Close the connection if it was not closed by the client after timeout
@@ -56,28 +79,6 @@ final case class SocketProtocol(
    * Used to specify the websocket sub-protocol
    */
   def withSubProtocol(name: Option[String]): SocketProtocol = self.copy(subprotocols = name)
-
-  def withDecoderConfig(socketDecoder: SocketDecoder) = self.copy(decoderConfig = socketDecoder)
-
-  def clientBuilder: WebSocketClientProtocolConfig.Builder = WebSocketClientProtocolConfig
-    .newBuilder()
-    .subprotocol(subprotocols.orNull)
-    .handshakeTimeoutMillis(handshakeTimeoutMillis)
-    .forceCloseTimeoutMillis(forceCloseTimeoutMillis)
-    .handleCloseFrames(handleCloseFrames)
-    .sendCloseFrame(sendCloseFrame)
-    .dropPongFrames(dropPongFrames)
-  def serverBuilder: WebSocketServerProtocolConfig.Builder = WebSocketServerProtocolConfig
-    .newBuilder()
-    .checkStartsWith(true)
-    .websocketPath("")
-    .subprotocols(subprotocols.orNull)
-    .handshakeTimeoutMillis(handshakeTimeoutMillis)
-    .forceCloseTimeoutMillis(forceCloseTimeoutMillis)
-    .handleCloseFrames(handleCloseFrames)
-    .sendCloseFrame(sendCloseFrame)
-    .dropPongFrames(dropPongFrames)
-    .decoderConfig(decoderConfig.javaConfig)
 }
 
 object SocketProtocol {
