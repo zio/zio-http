@@ -108,7 +108,7 @@ sealed trait Server[-R, +E] { self =>
    * Creates a new server with HttpObjectAggregator with the specified max size
    * of the aggregated content.
    */
-  def withObjectAggregator(maxRequestSize: Int = Int.MaxValue): Server[R, E] =
+  def withObjectAggregator(maxRequestSize: Int = 1024 * 100): Server[R, E] =
     Concat(self, ObjectAggregator(maxRequestSize))
 
   /**
@@ -245,7 +245,7 @@ object Server {
     flowControl: Boolean = true,
     channelInitializer: ChannelPipeline => Unit = null,
     requestDecompression: (Boolean, Boolean) = (false, false),
-    objectAggregator: Int = -1,
+    objectAggregator: Int = 1024 * 100,
     serverBootstrapInitializer: ServerBootstrap => Unit = null,
   ) {
     def useAggregator: Boolean = objectAggregator >= 0
