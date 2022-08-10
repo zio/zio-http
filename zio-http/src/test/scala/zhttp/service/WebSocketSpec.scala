@@ -4,6 +4,7 @@ import zhttp.http.{Headers, Http, Status}
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
 import zhttp.service.ChannelEvent.UserEvent.HandshakeComplete
 import zhttp.service.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
+import zhttp.service.ChannelModel.ChannelType
 import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio._
 import zio.test.Assertion.equalTo
@@ -42,7 +43,7 @@ object WebSocketSpec extends HttpRunnableSpec {
                 ch.close()
             }
             .toSocketApp
-            .connect(url, Headers(DynamicServer.APP_ID, id)) *> {
+            .connect(url, Headers(DynamicServer.APP_ID, id), channelType = ChannelType.NIO) *> {
             for {
               events <- msg.await
               expected = List(

@@ -2,6 +2,7 @@ package zhttp.service
 import zhttp.http._
 import zhttp.http.middleware.Auth.Credentials
 import zhttp.internal.{DynamicServer, HttpRunnableSpec}
+import zhttp.service.ChannelModel.ChannelType
 import zhttp.service.Client.Config
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
@@ -41,7 +42,7 @@ object ClientSpec extends HttpRunnableSpec {
       assertZIO(responseContent)(containsString("user"))
     },
     test("handle connection failure") {
-      val res = Client.request("http://localhost:1").either
+      val res = Client.request("http://localhost:1", channelType = ChannelType.NIO).either
       assertZIO(res)(isLeft(isSubtype[ConnectException](anything)))
     },
     test("handle proxy connection failure") {
@@ -52,7 +53,7 @@ object ClientSpec extends HttpRunnableSpec {
           proxyUrl        <- ZIO.fromEither(URL.fromString("http://localhost:0001"))
           out             <- Client.request(
             Request(url = serverUrl),
-            Config().withProxy(Proxy(proxyUrl)),
+            Config().withProxy(Proxy(proxyUrl)).withChannelType(ChannelType.NIO),
           )
         } yield out
       assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
@@ -66,7 +67,7 @@ object ClientSpec extends HttpRunnableSpec {
           proxy = Proxy.empty.withUrl(url).withHeaders(Headers(DynamicServer.APP_ID, id))
           out <- Client.request(
             Request(url = url),
-            Config().withProxy(proxy),
+            Config().withProxy(proxy).withChannelType(ChannelType.NIO),
           )
         } yield out
       assertZIO(res.either)(isRight)
@@ -90,7 +91,7 @@ object ClientSpec extends HttpRunnableSpec {
             .withCredentials(Credentials("test", "test"))
           out <- Client.request(
             Request(url = url),
-            Config().withProxy(proxy),
+            Config().withProxy(proxy).withChannelType(ChannelType.NIO),
           )
         } yield out
       assertZIO(res.either)(isRight)

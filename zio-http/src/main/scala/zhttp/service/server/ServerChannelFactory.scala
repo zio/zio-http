@@ -6,26 +6,17 @@ import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.channel.{ChannelFactory => JChannelFactory, ServerChannel}
 import io.netty.incubator.channel.uring.IOUringServerSocketChannel
 import zhttp.service.ChannelFactory
+import zhttp.service.ChannelModel.ChannelType
 import zio.UIO
 
 private[zhttp] object ServerChannelFactory {
 
-  sealed trait ServerChannelType
-  object ServerChannelType {
-    case object NIO    extends ServerChannelType
-    case object EPOLL  extends ServerChannelType
-    case object URING  extends ServerChannelType
-    case object KQUEUE extends ServerChannelType
-    case object AUTO   extends ServerChannelType
-
-  }
-
-  def get(serverChannelType: ServerChannelType): UIO[JChannelFactory[ServerChannel]] = serverChannelType match {
-    case ServerChannelType.NIO    => nio
-    case ServerChannelType.EPOLL  => epoll
-    case ServerChannelType.URING  => uring
-    case ServerChannelType.KQUEUE => kQueue
-    case ServerChannelType.AUTO   => auto
+  def get(serverChannelType: ChannelType): UIO[JChannelFactory[ServerChannel]] = serverChannelType match {
+    case ChannelType.NIO    => nio
+    case ChannelType.EPOLL  => epoll
+    case ChannelType.URING  => uring
+    case ChannelType.KQUEUE => kQueue
+    case ChannelType.AUTO   => auto
   }
 
   def nio: UIO[JChannelFactory[ServerChannel]]    = ChannelFactory.make(() => new NioServerSocketChannel())

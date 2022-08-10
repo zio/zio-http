@@ -1,18 +1,13 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelFuture => JChannelFuture,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zhttp.http._
 import zhttp.service
+import zhttp.service.ChannelModel.ChannelType
 import zhttp.service.Client.{Config, log}
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
@@ -148,8 +143,8 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
 }
 
 object Client {
-  def make[R]: ZIO[R with EventLoopGroup, Nothing, Client[R]] = for {
-    cf <- ChannelFactory.Live.nio
+  def make[R](channelType: ChannelType = ChannelType.AUTO): ZIO[R with EventLoopGroup, Nothing, Client[R]] = for {
+    cf <- ChannelFactory.Live.get(channelType)
     el <- ZIO.service[JEventLoopGroup]
     zx <- HttpRuntime.default[R]
   } yield service.Client(zx, cf, el)
@@ -160,12 +155,13 @@ object Client {
     headers: Headers = Headers.empty,
     content: HttpData = HttpData.empty,
     ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+    channelType: ChannelType = ChannelType.AUTO,
   ): ZIO[EventLoopGroup, Throwable, Response] =
     for {
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- request(
         Request(Version.Http_1_1, method, uri, headers, data = content),
-        clientConfig = Config(ssl = Some(ssl)),
+        clientConfig = Config(ssl = Some(ssl)).withChannelType(channelType),
       )
     } yield res
 
@@ -174,7 +170,7 @@ object Client {
     clientConfig: Config,
   ): ZIO[EventLoopGroup, Throwable, Response] =
     for {
-      clt <- make[Any]
+      clt <- make[Any](clientConfig.channelType)
       res <- clt.request(request, clientConfig)
     } yield res
 
@@ -183,9 +179,10 @@ object Client {
     app: SocketApp[R],
     headers: Headers = Headers.empty,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+    channelType: ChannelType = ChannelType.AUTO,
   ): ZIO[R with EventLoopGroup with Scope, Throwable, Response] = {
     for {
-      clt <- make[R]
+      clt <- make[R](channelType)
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- clt.socket(uri, headers, app, sslOptions)
     } yield res
@@ -195,11 +192,14 @@ object Client {
     socketApp: Option[SocketApp[Any]] = None,
     ssl: Option[ClientSSLOptions] = None,
     proxy: Option[Proxy] = None,
+    channelType: ChannelType = ChannelType.AUTO,
   ) {
     self =>
     def withSSL(ssl: ClientSSLOptions): Config           = self.copy(ssl = Some(ssl))
     def withSocketApp(socketApp: SocketApp[Any]): Config = self.copy(socketApp = Some(socketApp))
     def withProxy(proxy: Proxy): Config                  = self.copy(proxy = Some(proxy))
+
+    def withChannelType(channelType: ChannelType) = self.copy(channelType = channelType)
   }
 
   object Config {

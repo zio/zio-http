@@ -2,10 +2,10 @@ package zhttp.internal
 
 import zhttp.http.URL.Location
 import zhttp.http._
+import zhttp.service.ChannelModel.ChannelType
 import zhttp.service.Client.Config
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.server.ServerChannelFactory.ServerChannelType
 import zhttp.socket.SocketApp
 import zio.test.ZIOSpecDefault
 import zio.{Scope, ZIO}
@@ -68,7 +68,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
               params
                 .addHeader(DynamicServer.APP_ID, id)
                 .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
-              Config.empty,
+              Config.empty.withChannelType(ChannelType.NIO),
             )
         }
       } yield response
@@ -84,6 +84,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
                 url = url,
                 headers = Headers(DynamicServer.APP_ID, id),
                 app = app,
+                channelType = ChannelType.NIO,
               ),
           )
         }
@@ -98,7 +99,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       settings <- ZIO
         .succeed(
           server.foldLeft(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection)(_ ++ _) ++ Server
-            .serverChannelType(ServerChannelType.NIO),
+            .serverChannelType(ChannelType.NIO),
         )
       start    <- Server.make(settings).orDie
       _        <- DynamicServer.setStart(start)
@@ -115,6 +116,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
           "http://localhost:%d/%s".format(port, path),
           method,
           ssl = ClientSSLOptions.DefaultSSL,
+          channelType = ChannelType.NIO,
         )
         .map(_.status)
     } yield status

@@ -4,7 +4,7 @@ import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.ChannelPipeline
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.{Http, HttpApp}
-import zhttp.service.server.ServerChannelFactory.ServerChannelType
+import zhttp.service.ChannelModel.ChannelType
 import zhttp.service.server.ServerSSLHandler._
 import zhttp.service.server._
 import zio._
@@ -149,20 +149,20 @@ sealed trait Server[-R, +E] { self =>
   def withUnsafeServerBootstrap(unsafeServerbootstrap: ServerBootstrap => Unit): Server[R, E] =
     Concat(self, UnsafeServerBootstrap(unsafeServerbootstrap))
 
-  def withServerChannelType(serverChannelType: ServerChannelType): Server[R, E] =
+  def withServerChannelType(serverChannelType: ChannelType): Server[R, E] =
     Concat(self, UserServerChannelType(serverChannelType))
 }
 object Server {
   import Http.HttpAppSyntax
-  val disableFlowControl: UServer                                      = Server.FlowControl(false)
-  val disableLeakDetection: UServer                                    = LeakDetection(LeakDetectionLevel.DISABLED)
-  val simpleLeakDetection: UServer                                     = LeakDetection(LeakDetectionLevel.SIMPLE)
-  val advancedLeakDetection: UServer                                   = LeakDetection(LeakDetectionLevel.ADVANCED)
-  val paranoidLeakDetection: UServer                                   = LeakDetection(LeakDetectionLevel.PARANOID)
-  val disableKeepAlive: UServer                                        = Server.KeepAlive(false)
-  val consolidateFlush: UServer                                        = ConsolidateFlush(true)
-  def serverChannelType(serverChannelType: ServerChannelType): UServer = UserServerChannelType(serverChannelType)
-  private[zhttp] val log                                               = Log.withTags("Server")
+  val disableFlowControl: UServer                                = Server.FlowControl(false)
+  val disableLeakDetection: UServer                              = LeakDetection(LeakDetectionLevel.DISABLED)
+  val simpleLeakDetection: UServer                               = LeakDetection(LeakDetectionLevel.SIMPLE)
+  val advancedLeakDetection: UServer                             = LeakDetection(LeakDetectionLevel.ADVANCED)
+  val paranoidLeakDetection: UServer                             = LeakDetection(LeakDetectionLevel.PARANOID)
+  val disableKeepAlive: UServer                                  = Server.KeepAlive(false)
+  val consolidateFlush: UServer                                  = ConsolidateFlush(true)
+  def serverChannelType(serverChannelType: ChannelType): UServer = UserServerChannelType(serverChannelType)
+  private[zhttp] val log                                         = Log.withTags("Server")
 
   def acceptContinue: UServer = Server.AcceptContinue(true)
 
@@ -254,7 +254,7 @@ object Server {
     requestDecompression: (Boolean, Boolean) = (false, false),
     objectAggregator: Int = -1,
     serverBootstrapInitializer: ServerBootstrap => Unit = null,
-    serverChannelType: ServerChannelType = ServerChannelType.AUTO,
+    serverChannelType: ChannelType = ChannelType.AUTO,
   ) {
     def useAggregator: Boolean = objectAggregator >= 0
   }
@@ -287,5 +287,5 @@ object Server {
 
   private final case class UnsafeServerBootstrap(init: ServerBootstrap => Unit) extends UServer
 
-  private final case class UserServerChannelType(serverChannelType: ServerChannelType) extends UServer
+  private final case class UserServerChannelType(serverChannelType: ChannelType) extends UServer
 }

@@ -2,7 +2,7 @@ package zhttp.service
 
 import zhttp.http._
 import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
-import zhttp.service.server.ServerChannelFactory.ServerChannelType
+import zhttp.service.ChannelModel.ChannelType
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
@@ -67,7 +67,7 @@ object StaticServerSpec extends HttpRunnableSpec {
     test("desired port") {
       val port = 8088
       ZIO.scoped {
-        (Server.port(port) ++ Server.app(Http.empty) ++ Server.serverChannelType(ServerChannelType.NIO)).make.flatMap {
+        (Server.port(port) ++ Server.app(Http.empty) ++ Server.serverChannelType(ChannelType.NIO)).make.flatMap {
           start =>
             assertZIO(ZIO.attempt(start.port))(equalTo(port))
         }
@@ -75,9 +75,8 @@ object StaticServerSpec extends HttpRunnableSpec {
     },
     test("available port") {
       ZIO.scoped {
-        (Server.port(0) ++ Server.app(Http.empty) ++ Server.serverChannelType(ServerChannelType.NIO)).make.flatMap {
-          start =>
-            assertZIO(ZIO.attempt(start.port))(not(equalTo(0)))
+        (Server.port(0) ++ Server.app(Http.empty) ++ Server.serverChannelType(ChannelType.NIO)).make.flatMap { start =>
+          assertZIO(ZIO.attempt(start.port))(not(equalTo(0)))
         }
       }
     },
