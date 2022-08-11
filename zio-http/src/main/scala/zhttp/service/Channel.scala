@@ -77,6 +77,13 @@ final case class Channel[-A](
    * completion of the write operation.
    */
   def writeAndFlush(msg: A, await: Boolean = false): Task[Unit] = foreach(await) { _.writeAndFlush(convert(msg)) }
+
+  override def equals(that: Any): Boolean = that match {
+    case Channel(channel, _) => this.channel.equals(channel)
+    case _                   => false
+  }
+
+  override def hashCode(): Int = channel.hashCode
 }
 
 object Channel {
