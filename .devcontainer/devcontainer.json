@@ -9,10 +9,7 @@
 			// Append -bullseye or -buster to pin to an OS version.
 			// Use the -bullseye variants on local arm64/Apple Silicon.
 			"VARIANT": "11",
-			// Options
-			"INSTALL_MAVEN": "false",
-			"INSTALL_GRADLE": "false",
-			"NODE_VERSION": "none"
+			"SCALA_VERSION": "3.1.3"Ï
 		}
 	},
 
