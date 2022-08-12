@@ -10,7 +10,6 @@ import zio.stream.ZStream
 
 import java.io.FileInputStream
 import java.nio.charset.Charset
-import scala.collection.mutable
 
 /**
  * Holds HttpData that needs to be written on the HttpChannel
@@ -102,35 +101,6 @@ object HttpData {
    */
   def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = HTTP_CHARSET): HttpData =
     HttpData.BinaryStream(stream.map(str => Unpooled.wrappedBuffer(str.toString.getBytes(charset))))
-
-
-
-  object ServerSentEvent {
-
-    private val eol = "\n"
-
-    case class Event(dataF: Option[String], eventF: Option[String], idF: Option[String], retryF: Option[Int]) {
-      def toStringRepresentation: String = {
-        val _data  = dataF.map(_.split("\n").map(line => s"data: $line").mkString("\n"))
-        val _event = eventF.map(event => s"event: $event")
-        val _id    = idF.map(id => s"id: $id")
-        val _retry = retryF.map(retry => s"id: $retry")
-
-        mutable.ArrayBuilder.make[Option[String]]
-          .addOne(_data)
-          .addOne(_event)
-          .addOne(_id)
-          .addOne(_retry)
-          .result()
-          .flatten
-          .mkString("\n")
-      }
-
-    }
-  }
-
-  def fromEventStream(stream: ZStream[Any, Throwable, ServerSentEvent]): HttpData =
-    HttpData.BinaryStream(stream.map(event => Unpooled.wrappedBuffer(event.toStringRepresentation.getBytes(HTTP_CHARSET))))
 
   /**
    * Helper to create HttpData from Stream of bytes
