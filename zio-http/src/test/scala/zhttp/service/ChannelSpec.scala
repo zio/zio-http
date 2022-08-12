@@ -1,11 +1,10 @@
 package zhttp.service
 
 import io.netty.channel.embedded.EmbeddedChannel
+import zio.test.Assertion.{equalTo, not}
 import zio.test.TestAspect.timeout
-import zio.test.{TestClock, ZIOSpecDefault, assertTrue}
+import zio.test.{TestClock, ZIOSpecDefault, assert, assertTrue}
 import zio.{UIO, ZIO, durationInt}
-
-import java.util
 
 object ChannelSpec extends ZIOSpecDefault {
   def spec = suite("Channel")(
@@ -54,14 +53,29 @@ object ChannelSpec extends ZIOSpecDefault {
         } yield assertTrue(out == 3)
       },
     ),
+    suite("equals and hashCode")(
+      test("channels with the same jChannel are equal") {
+        val jChannel: EmbeddedChannel = new EmbeddedChannel()
+        val channel1: Channel[Int]    = Channel.make[Int](jChannel)
+        val channel2: Channel[Int]    = Channel.make[Int](jChannel)
+        assert(channel1)(equalTo(channel2)) && assert(channel1.hashCode())(equalTo(channel2.hashCode))
+      },
+      test("channels with different jChannels are not equal") {
+        val jChannel1: EmbeddedChannel = new EmbeddedChannel()
+        val channel1: Channel[Int]     = Channel.make[Int](jChannel1)
+        val jChannel2: EmbeddedChannel = new EmbeddedChannel()
+        val channel2: Channel[Int]     = Channel.make[Int](jChannel2)
+        assert(channel1)(not(equalTo(channel2)))
+      },
+    ),
   ) @@ timeout(5 second)
 
   final class EmbeddedTestChannel[A] {
     val jChannel: EmbeddedChannel = new EmbeddedChannel()
     val channel: Channel[A]       = Channel.make[A](jChannel)
 
-    def inboundMessages: util.Queue[A]  = jChannel.inboundMessages.asInstanceOf[java.util.Queue[A]]
-    def outboundMessages: util.Queue[A] = jChannel.outboundMessages.asInstanceOf[java.util.Queue[A]]
+    def inboundMessages: java.util.Queue[A]  = jChannel.inboundMessages.asInstanceOf[java.util.Queue[A]]
+    def outboundMessages: java.util.Queue[A] = jChannel.outboundMessages.asInstanceOf[java.util.Queue[A]]
   }
 
   object EmbeddedTestChannel {
