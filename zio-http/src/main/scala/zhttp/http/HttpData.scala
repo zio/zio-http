@@ -10,6 +10,7 @@ import zio.stream.ZStream
 
 import java.io.FileInputStream
 import java.nio.charset.Charset
+import scala.collection.mutable
 
 /**
  * Holds HttpData that needs to be written on the HttpChannel
@@ -102,22 +103,27 @@ object HttpData {
   def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = HTTP_CHARSET): HttpData =
     HttpData.BinaryStream(stream.map(str => Unpooled.wrappedBuffer(str.toString.getBytes(charset))))
 
-  sealed trait ServerSentEvent {
-    def toStringRepresentation: String
-  }
+
 
   object ServerSentEvent {
 
     private val eol = "\n"
 
-    case class Event(data: String, event: Option[String], id: Option[String], retry: Option[Int]) extends ServerSentEvent {
-      override def toStringRepresentation: String = {
-        val dataStr  = s"data: $data\n"
-        val eventStr = event.map(str => s"event: $str\n").getOrElse("")
-        val idStr    = id.map(str => s"id: $str\n").getOrElse("")
-        val retryStr = retry.map(str => s"id: $str\n").getOrElse("")
+    case class Event(dataF: Option[String], eventF: Option[String], idF: Option[String], retryF: Option[Int]) {
+      def toStringRepresentation: String = {
+        val _data  = dataF.map(_.split("\n").map(line => s"data: $line").mkString("\n"))
+        val _event = eventF.map(event => s"event: $event")
+        val _id    = idF.map(id => s"id: $id")
+        val _retry = retryF.map(retry => s"id: $retry")
 
-        idStr ++ eventStr ++ dataStr ++ retryStr ++ eol
+        mutable.ArrayBuilder.make[Option[String]]
+          .addOne(_data)
+          .addOne(_event)
+          .addOne(_id)
+          .addOne(_retry)
+          .result()
+          .flatten
+          .mkString("\n")
       }
 
     }
