@@ -22,7 +22,7 @@ There are multiple ways to attach headers to a response:
            status = Status.OK,
            // Setting response header 
            headers = Headers.contentLength(0L),
-           data = HttpData.empty
+           body = Body.empty
     ```
 - Using `Middlewares`.
     ```scala
@@ -74,11 +74,11 @@ On the Server-side you can read Request headers as given below
             status = Status.OK,
             // Setting response header 
             headers = Headers.contentLength(message.length.toLong), // adding CONTENT-LENGTH header
-            data = HttpData.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
+            body = Body.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
           )
         else { 
           // Adding a custom header to Response
-          Response(status = Status.ACCEPTED, data = HttpData.fromChunk(message)).addHeader("X-MY-HEADER", "test")
+          Response(status = Status.ACCEPTED, body = Body.fromChunk(message)).addHeader("X-MY-HEADER", "test")
         }
     }
   }

@@ -23,22 +23,22 @@ object ClientSpec extends HttpRunnableSpec {
     },
     test("non empty content") {
       val app             = Http.text("abc")
-      val responseContent = app.deploy.body.run()
+      val responseContent = app.deploy.body.run().flatMap(_.asChunk)
       assertZIO(responseContent)(isNonEmpty)
     },
     test("echo POST request content") {
-      val app = Http.collectZIO[Request] { case req => req.bodyAsString.map(Response.text(_)) }
-      val res = app.deploy.bodyAsString.run(method = Method.POST, content = HttpData.fromString("ZIO user"))
+      val app = Http.collectZIO[Request] { case req => req.body.asString.map(Response.text(_)) }
+      val res = app.deploy.body.mapZIO(_.asString).run(method = Method.POST, body = Body.fromString("ZIO user"))
       assertZIO(res)(equalTo("ZIO user"))
     },
     test("non empty content") {
       val app             = Http.empty
-      val responseContent = app.deploy.body.run().map(_.length)
+      val responseContent = app.deploy.body.run().flatMap(_.asString.map(_.length))
       assertZIO(responseContent)(isGreaterThan(0))
     },
     test("text content") {
       val app             = Http.text("zio user does not exist")
-      val responseContent = app.deploy.bodyAsString.run()
+      val responseContent = app.deploy.body.mapZIO(_.asString).run()
       assertZIO(responseContent)(containsString("user"))
     },
     test("handle connection failure") {

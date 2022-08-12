@@ -12,7 +12,7 @@ object HttpErrorSpec extends ZIOSpecDefault {
         assert(result)(equalTo("Internal server error"))
       },
       test("should fold with no cause") {
-        val error  = HttpError.NotFound(!!)
+        val error  = HttpError.NotFound(!!.encode)
         val result = error.foldCause("Page not found")(cause => cause.getMessage)
         assert(result)(equalTo("Page not found"))
       },

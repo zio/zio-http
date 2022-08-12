@@ -1,10 +1,9 @@
 package zhttp.service
 
 import io.netty.channel.{ChannelHandlerContext, EventLoopGroup => JEventLoopGroup}
-import io.netty.util.concurrent.{EventExecutor, Future, GenericFutureListener}
+import io.netty.util.concurrent.{Future, GenericFutureListener}
 import zio._
 
-import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 /**
@@ -23,7 +22,7 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
         }
       }
 
-  private def onFailure(ctx: ChannelHandlerContext, cause: Cause[Throwable]): Unit = {
+  private def onFailure(cause: Cause[Throwable])(implicit ctx: ChannelHandlerContext): Unit = {
     cause.failureOption.orElse(cause.dieOption) match {
       case None        => ()
       case Some(error) =>
@@ -33,7 +32,9 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
     if (ctx.channel().isOpen) ctx.close(): Unit
   }
 
-  def unsafeRun(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any], interruptOnClose: Boolean = true): Unit = {
+  def unsafeRun(program: ZIO[R, Throwable, Any], interruptOnClose: Boolean = true)(implicit
+    ctx: ChannelHandlerContext,
+  ): Unit = {
     val rtm = strategy.runtime(ctx)
 
     def removeListener(close: GenericFutureListener[Future[_ >: Void]]): Unit = {
@@ -58,14 +59,14 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
           log.debug(s"Completed Fiber: [${fiber.id}]")
           removeListener(close)
         case Exit.Failure(cause) =>
-          onFailure(ctx, cause)
+          onFailure(cause)
           removeListener(close)
       }
     }
   }
 
-  def unsafeRunUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit =
-    unsafeRun(ctx)(program, interruptOnClose = false)
+  def unsafeRunUninterruptible(program: ZIO[R, Throwable, Any])(implicit ctx: ChannelHandlerContext): Unit =
+    unsafeRun(program, interruptOnClose = false)
 }
 
 object HttpRuntime {
@@ -85,20 +86,18 @@ object HttpRuntime {
    * the server.
    */
   def sticky[R](group: JEventLoopGroup): URIO[R, HttpRuntime[R]] =
-    for {
-      rtm <- ZIO.runtime[R]
-      env <- ZIO.environment[R]
-    } yield {
-      val map = mutable.Map.empty[EventExecutor, Runtime[R]]
-      group.asScala.foreach { e =>
-        val executor = Executor.fromJavaExecutor(e)
-        val rtm      = Unsafe.unsafeCompat { implicit u =>
-          Runtime.unsafe.fromLayer(Runtime.setExecutor(executor)).withEnvironment(env)
+    ZIO.runtime[R].flatMap { runtime =>
+      ZIO
+        .foreach(group.asScala) { javaExecutor =>
+          val executor = Executor.fromJavaExecutor(javaExecutor)
+          ZIO.runtime[R].daemonChildren.onExecutor(executor).map { runtime =>
+            javaExecutor -> runtime
+          }
         }
-        map += e -> rtm
-      }
-
-      new HttpRuntime((ctx: Ctx) => map.getOrElse(ctx.executor(), rtm))
+        .map { iterable =>
+          val map = iterable.toMap
+          new HttpRuntime((ctx: Ctx) => map.getOrElse(ctx.executor(), runtime))
+        }
     }
 
   trait Strategy[R] {

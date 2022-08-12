@@ -10,118 +10,81 @@ import zio.Duration
 /**
  * Server side websocket configuration
  */
-sealed trait SocketProtocol { self =>
-  import SocketProtocol._
+final case class SocketProtocol(
+  subprotocols: Option[String] = None,
+  handshakeTimeoutMillis: Long = 10000L,
+  forceCloseTimeoutMillis: Long = -1L,
+  handleCloseFrames: Boolean = true,
+  sendCloseFrame: WebSocketCloseStatus = WebSocketCloseStatus.NORMAL_CLOSURE,
+  dropPongFrames: Boolean = true,
+  decoderConfig: SocketDecoder = SocketDecoder.default,
+) { self =>
 
-  def ++(other: SocketProtocol): SocketProtocol = SocketProtocol.Concat(self, other)
+  def clientBuilder: WebSocketClientProtocolConfig.Builder = WebSocketClientProtocolConfig
+    .newBuilder()
+    .subprotocol(subprotocols.orNull)
+    .handshakeTimeoutMillis(handshakeTimeoutMillis)
+    .forceCloseTimeoutMillis(forceCloseTimeoutMillis)
+    .handleCloseFrames(handleCloseFrames)
+    .sendCloseFrame(sendCloseFrame)
+    .dropPongFrames(dropPongFrames)
 
-  def clientBuilder: WebSocketClientProtocolConfig.Builder = {
-    val b                                    = WebSocketClientProtocolConfig.newBuilder()
-    def loop(protocol: SocketProtocol): Unit = {
-      protocol match {
-        case Default                           => ()
-        case SubProtocol(name)                 => b.subprotocol(name)
-        case HandshakeTimeoutMillis(duration)  => b.handshakeTimeoutMillis(duration.toMillis)
-        case ForceCloseTimeoutMillis(duration) => b.forceCloseTimeoutMillis(duration.toMillis)
-        case ForwardCloseFrames                => b.handleCloseFrames(false)
-        case SendCloseFrame(status)            => b.sendCloseFrame(status.asJava)
-        case SendCloseFrameCode(code, reason)  => b.sendCloseFrame(new WebSocketCloseStatus(code, reason))
-        case ForwardPongFrames                 => b.dropPongFrames(false)
-        case Concat(a, b)                      =>
-          loop(a)
-          loop(b)
-      }
-      ()
-    }
-    loop(self)
-    b
-  }
-
-  def serverBuilder: WebSocketServerProtocolConfig.Builder = {
-    val b = WebSocketServerProtocolConfig.newBuilder().checkStartsWith(true).websocketPath("")
-    def loop(protocol: SocketProtocol): Unit = {
-      protocol match {
-        case Default                           => ()
-        case SubProtocol(name)                 => b.subprotocols(name)
-        case HandshakeTimeoutMillis(duration)  => b.handshakeTimeoutMillis(duration.toMillis)
-        case ForceCloseTimeoutMillis(duration) => b.forceCloseTimeoutMillis(duration.toMillis)
-        case ForwardCloseFrames                => b.handleCloseFrames(false)
-        case SendCloseFrame(status)            => b.sendCloseFrame(status.asJava)
-        case SendCloseFrameCode(code, reason)  => b.sendCloseFrame(new WebSocketCloseStatus(code, reason))
-        case ForwardPongFrames                 => b.dropPongFrames(false)
-        case Concat(a, b)                      =>
-          loop(a)
-          loop(b)
-      }
-      ()
-    }
-    loop(self)
-    b
-  }
-
-}
-
-object SocketProtocol {
+  def serverBuilder: WebSocketServerProtocolConfig.Builder = WebSocketServerProtocolConfig
+    .newBuilder()
+    .checkStartsWith(true)
+    .websocketPath("")
+    .subprotocols(subprotocols.orNull)
+    .handshakeTimeoutMillis(handshakeTimeoutMillis)
+    .forceCloseTimeoutMillis(forceCloseTimeoutMillis)
+    .handleCloseFrames(handleCloseFrames)
+    .sendCloseFrame(sendCloseFrame)
+    .dropPongFrames(dropPongFrames)
+    .decoderConfig(decoderConfig.javaConfig)
 
   /**
    * Close frame to send, when close frame was not send manually.
    */
-  def closeFrame(status: CloseStatus): SocketProtocol = SendCloseFrame(status)
+  def withCloseFrame(code: Int, reason: String): SocketProtocol =
+    self.copy(sendCloseFrame = new WebSocketCloseStatus(code, reason))
 
   /**
    * Close frame to send, when close frame was not send manually.
    */
-  def closeFrame(code: Int, reason: String): SocketProtocol =
-    SendCloseFrameCode(code, reason)
+  def withCloseStatus(status: CloseStatus): SocketProtocol = self.copy(sendCloseFrame = status.asJava)
 
-  /**
-   * Creates an default decoder configuration.
-   */
-  def default: SocketProtocol = Default
+  def withDecoderConfig(socketDecoder: SocketDecoder): SocketProtocol = self.copy(decoderConfig = socketDecoder)
 
   /**
    * Close the connection if it was not closed by the client after timeout
    * specified
    */
-  def forceCloseTimeout(duration: Duration): SocketProtocol =
-    ForceCloseTimeoutMillis(duration)
+  def withForceCloseTimeout(duration: Duration): SocketProtocol = self.copy(forceCloseTimeoutMillis = duration.toMillis)
 
   /**
    * Close frames should be forwarded
    */
-  def forwardCloseFrames: SocketProtocol = ForwardCloseFrames
+  def withForwardCloseFrames(forward: Boolean): SocketProtocol = self.copy(handleCloseFrames = forward)
 
   /**
-   * If pong frames should be forwarded
+   * Pong frames should be forwarded
    */
-  def forwardPongFrames: SocketProtocol = ForwardPongFrames
+  def withForwardPongFrames(forward: Boolean): SocketProtocol = self.copy(dropPongFrames = !forward)
 
   /**
    * Handshake timeout in mills
    */
-  def handshakeTimeout(duration: Duration): SocketProtocol =
-    HandshakeTimeoutMillis(duration)
+  def withHandshakeTimeout(duration: Duration): SocketProtocol = self.copy(handshakeTimeoutMillis = duration.toMillis)
 
   /**
    * Used to specify the websocket sub-protocol
    */
-  def subProtocol(name: String): SocketProtocol = SubProtocol(name)
+  def withSubProtocol(name: Option[String]): SocketProtocol = self.copy(subprotocols = name)
+}
 
-  private final case class SubProtocol(name: String) extends SocketProtocol
+object SocketProtocol {
 
-  private final case class SendCloseFrame(status: CloseStatus) extends SocketProtocol
-
-  private final case class HandshakeTimeoutMillis(duration: Duration) extends SocketProtocol
-
-  private final case class ForceCloseTimeoutMillis(duration: Duration) extends SocketProtocol
-
-  private final case class SendCloseFrameCode(code: Int, reason: String) extends SocketProtocol
-
-  private final case class Concat(a: SocketProtocol, b: SocketProtocol) extends SocketProtocol
-
-  private case object Default extends SocketProtocol
-
-  private case object ForwardPongFrames extends SocketProtocol
-
-  private case object ForwardCloseFrames extends SocketProtocol
+  /**
+   * Creates an default decoder configuration.
+   */
+  def default: SocketProtocol = SocketProtocol()
 }

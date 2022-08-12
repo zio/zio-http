@@ -33,8 +33,8 @@ object StaticFileServerSpec extends HttpRunnableSpec {
             assertZIO(res)(isSome(equalTo(7L)))
           } +
           test("should have content") {
-            val res = fileOk.run().flatMap(_.bodyAsString)
-            assertZIO(res)(equalTo("abc\nfoo"))
+            val res = fileOk.run().flatMap(_.body.asString)
+            assertZIO(res)(equalTo("foo\nbar"))
           } +
           test("should have content-type") {
             val res = fileOk.run().map(_.mediaType)

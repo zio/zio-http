@@ -20,11 +20,13 @@ final class WebSocketAppHandler[R](
 
   private[zhttp] val log = if (isClient) WebSocketAppHandler.clientLog else WebSocketAppHandler.serverLog
 
-  private def dispatch(ctx: ChannelHandlerContext)(event: ChannelEvent[JWebSocketFrame, JWebSocketFrame]): Unit = {
+  private def dispatch(
+    event: ChannelEvent[JWebSocketFrame, JWebSocketFrame],
+  )(implicit ctx: ChannelHandlerContext): Unit = {
     log.debug(s"ChannelEvent: [${event.event}]")
     app.message match {
       case Some(f) =>
-        zExec.unsafeRunUninterruptible(ctx)(
+        zExec.unsafeRunUninterruptible(
           f(event.map(WebSocketFrame.unsafeFromJFrame).contramap[WebSocketFrame](_.toWebSocketFrame)),
         )
       case None    => ()
@@ -32,31 +34,23 @@ final class WebSocketAppHandler[R](
   }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit =
-    dispatch(ctx) {
-      ChannelEvent.channelRead(ctx, msg)
-    }
+    dispatch(ChannelEvent.channelRead(ctx, msg))(ctx)
 
   override def channelRegistered(ctx: Ctx): Unit =
-    dispatch(ctx) {
-      ChannelEvent.channelRegistered(ctx)
-    }
+    dispatch(ChannelEvent.channelRegistered(ctx))(ctx)
 
   override def channelUnregistered(ctx: ChannelHandlerContext): Unit =
-    dispatch(ctx) {
-      ChannelEvent.channelUnregistered(ctx)
-    }
+    dispatch(ChannelEvent.channelUnregistered(ctx))(ctx)
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
-    dispatch(ctx) {
-      ChannelEvent.exceptionCaught(ctx, cause)
-    }
+    dispatch(ChannelEvent.exceptionCaught(ctx, cause))(ctx)
 
   override def userEventTriggered(ctx: ChannelHandlerContext, msg: AnyRef): Unit = {
     msg match {
       case _: WebSocketServerProtocolHandler.HandshakeComplete | ClientHandshakeStateEvent.HANDSHAKE_COMPLETE =>
-        dispatch(ctx)(ChannelEvent.userEventTriggered(ctx, UserEvent.HandshakeComplete))
+        dispatch(ChannelEvent.userEventTriggered(ctx, UserEvent.HandshakeComplete))(ctx)
       case ServerHandshakeStateEvent.HANDSHAKE_TIMEOUT | ClientHandshakeStateEvent.HANDSHAKE_TIMEOUT          =>
-        dispatch(ctx)(ChannelEvent.userEventTriggered(ctx, UserEvent.HandshakeTimeout))
+        dispatch(ChannelEvent.userEventTriggered(ctx, UserEvent.HandshakeTimeout))(ctx)
       case _ => super.userEventTriggered(ctx, msg)
     }
   }

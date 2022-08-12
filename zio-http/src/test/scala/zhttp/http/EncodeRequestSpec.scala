@@ -9,13 +9,13 @@ import zio.test._
 object EncodeRequestSpec extends ZIOSpecDefault with EncodeRequest {
 
   val anyClientParam: Gen[Sized, Request] = HttpGen.requestGen(
-    HttpGen.httpData(
+    HttpGen.body(
       Gen.listOf(Gen.alphaNumericString),
     ),
   )
 
   val clientParamWithAbsoluteUrl = HttpGen.requestGen(
-    dataGen = HttpGen.httpData(
+    dataGen = HttpGen.body(
       Gen.listOf(Gen.alphaNumericString),
     ),
     urlGen = HttpGen.genAbsoluteURL,
@@ -24,7 +24,7 @@ object EncodeRequestSpec extends ZIOSpecDefault with EncodeRequest {
   def clientParamWithFiniteData(size: Int): Gen[Sized, Request] = HttpGen.requestGen(
     for {
       content <- Gen.alphaNumericStringBounded(size, size)
-      data    <- Gen.fromIterable(List(HttpData.fromString(content)))
+      data    <- Gen.fromIterable(List(Body.fromString(content)))
     } yield data,
   )
 
@@ -35,8 +35,8 @@ object EncodeRequestSpec extends ZIOSpecDefault with EncodeRequest {
         assertZIO(req)(equalTo(params.method.toJava))
       }
     },
-    test("method on HttpData.RandomAccessFile") {
-      check(HttpGen.clientParamsForFileHttpData()) { params =>
+    test("method on Body.RandomAccessFile") {
+      check(HttpGen.clientParamsForFileBody()) { params =>
         val req = encode(params).map(_.method())
         assertZIO(req)(equalTo(params.method.toJava))
       }
@@ -48,8 +48,8 @@ object EncodeRequestSpec extends ZIOSpecDefault with EncodeRequest {
           assertZIO(req)(equalTo(params.url.relative.encode))
         }
       },
-      test("uri on HttpData.RandomAccessFile") {
-        check(HttpGen.clientParamsForFileHttpData()) { params =>
+      test("uri on Body.RandomAccessFile") {
+        check(HttpGen.clientParamsForFileBody()) { params =>
           val req = encode(params).map(_.uri())
           assertZIO(req)(equalTo(params.url.relative.encode))
         }

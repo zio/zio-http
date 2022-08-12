@@ -115,6 +115,16 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         assertZIO(app(Request()))(isSome(equalTo("B")))
       },
     ),
+    suite("whenStatus")(
+      test("if the condition is true apply middleware") {
+        val app = Http.ok @@ Middleware.whenStatus(_ == Status.Ok)(midA) header "X-Custom"
+        assertZIO(app(Request()))(isSome(equalTo("A")))
+      },
+      test("if the condition is false don't apply the middleware") {
+        val app = Http.ok @@ Middleware.whenStatus(_ == Status.NoContent)(midA) header "X-Custom"
+        assertZIO(app(Request()))(isNone)
+      },
+    ),
     suite("whenRequestZIO")(
       test("if the condition is true apply middleware") {
         val app = (Http.ok @@ whenRequestZIO(condZIO(true))(midA)) header "X-Custom"
@@ -126,12 +136,32 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
       },
     ),
     suite("whenRequest")(
-      test("if the condition is true apple middleware") {
+      test("if the condition is true apply middleware") {
         val app = Http.ok @@ Middleware.whenRequest(cond(true))(midA) header "X-Custom"
         assertZIO(app(Request()))(isSome(equalTo("A")))
       },
       test("if the condition is false don't apply the middleware") {
         val app = Http.ok @@ Middleware.whenRequest(cond(false))(midA) header "X-Custom"
+        assertZIO(app(Request()))(isNone)
+      },
+    ),
+    suite("whenResponseZIO")(
+      test("if the condition is true apply middleware") {
+        val app = (Http.ok @@ whenResponseZIO(condZIO(true))(midA)) header "X-Custom"
+        assertZIO(app(Request()))(isSome(equalTo("A")))
+      },
+      test("if the condition is false don't apply any middleware") {
+        val app = (Http.ok @@ whenResponseZIO(condZIO(false))(midA)) header "X-Custom"
+        assertZIO(app(Request()))(isNone)
+      },
+    ),
+    suite("whenResponse")(
+      test("if the condition is true apply middleware") {
+        val app = Http.ok @@ Middleware.whenResponse(cond(true))(midA) header "X-Custom"
+        assertZIO(app(Request()))(isSome(equalTo("A")))
+      },
+      test("if the condition is false don't apply the middleware") {
+        val app = Http.ok @@ Middleware.whenResponse(cond(false))(midA) header "X-Custom"
         assertZIO(app(Request()))(isNone)
       },
     ),
@@ -182,7 +212,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
           for {
             url      <- ZIO.fromEither(URL.fromString(url))
             response <- app(Request(url = url))
-            text     <- response.bodyAsString
+            text     <- response.body.asString
           } yield assertTrue(text == expected)
         }
       },

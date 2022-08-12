@@ -2,7 +2,7 @@ package example
 
 import io.netty.util.AsciiString
 import zhttp.http._
-import zhttp.service.server.ServerChannelFactory
+import zhttp.service.server.{LeakDetectionLevel, ServerChannelFactory}
 import zhttp.service.{EventLoopGroup, Server}
 import zio._
 
@@ -47,11 +47,12 @@ object Main extends ZIOAppDefault {
       .exitCode
 
   private def server(app: HttpApp[Any, Nothing]) =
-    Server.app(app) ++
-      Server.port(8080) ++
-      Server.error(_ => ZIO.unit) ++
-      Server.disableLeakDetection ++
-      Server.consolidateFlush ++
-      Server.disableFlowControl
-
+    Server
+      .app(app)
+      .withPort(8080)
+      .withError(_ => ZIO.unit)
+      .withLeakDetection(LeakDetectionLevel.DISABLED)
+      .withConsolidateFlush(true)
+      .withFlowControl(false)
+      .withObjectAggregator(-1)
 }

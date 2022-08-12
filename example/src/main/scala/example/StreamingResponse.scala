@@ -25,7 +25,7 @@ object StreamingResponse extends ZIOAppDefault {
       Response(
         status = Status.Ok,
         headers = Headers.contentLength(message.length.toLong),
-        data = HttpData.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
+        body = Body.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
       )
   }
 }
