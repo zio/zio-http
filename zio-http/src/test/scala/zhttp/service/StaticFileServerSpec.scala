@@ -64,6 +64,36 @@ object StaticFileServerSpec extends HttpRunnableSpec {
         },
       ),
     ),
+    suite("fromResourceWithURL")(
+      suite("with 'jar' protocol") {
+        val testArchivePath  = getClass.getResource("/TestArchive.jar").getPath
+        val resourceOk       =
+          Http.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/TestFile.txt")).deploy
+        val resourceNotFound =
+          Http.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/NonExistent.txt")).deploy
+
+        test("should have 200 status code") {
+          val res = resourceOk.run().map(_.status)
+          assertZIO(res)(equalTo(Status.Ok))
+        } +
+          test("should have content-length") {
+            val res = resourceOk.run().map(_.contentLength)
+            assertZIO(res)(isSome(equalTo(7L)))
+          } +
+          test("should have content") {
+            val res = resourceOk.run().flatMap(_.body.asString)
+            assertZIO(res)(equalTo("foo\nbar"))
+          } +
+          test("should have content-type") {
+            val res = resourceOk.run().map(_.mediaType)
+            assertZIO(res)(isSome(equalTo(MediaType.text.plain)))
+          } +
+          test("should respond with empty") {
+            val res = resourceNotFound.run().map(_.status)
+            assertZIO(res)(equalTo(Status.NotFound))
+          }
+      },
+    ),
   )
 
 }
