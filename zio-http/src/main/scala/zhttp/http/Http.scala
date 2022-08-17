@@ -902,7 +902,7 @@ object Http {
           case None    => Http.empty
         }
       case proto  =>
-        Http.die(new IllegalArgumentException(s"Unsupported protocol: $proto"))
+        Http.fail(new IllegalArgumentException(s"Unsupported protocol: $proto"))
     }
   }
 
