@@ -20,6 +20,7 @@ private[zio] trait Web
     with Csrf
     with Auth
     with RequestLogging
+    with Metrics
     with HeaderModifier[HttpMiddleware[Any, Nothing]] {
   self =>
 
