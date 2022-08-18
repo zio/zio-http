@@ -41,7 +41,7 @@ private[zio] trait Metrics {
           ),
         )(req).trackDurationWith(toSeconds)
 
-      private val NANOS                  = 1_000_000_000.0d
+      private val NANOS                  = 1e9d
       private def toSeconds(d: Duration) =
         (d.getSeconds() * NANOS + d.getNano()) / NANOS
 
