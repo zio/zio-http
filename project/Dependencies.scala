@@ -2,7 +2,7 @@ import sbt.Keys.scalaVersion
 import sbt._
 
 object Dependencies {
-  val JwtCoreVersion                = "9.0.6"
+  val JwtCoreVersion                = "9.1.0"
   val NettyVersion                  = "4.1.79.Final"
   val NettyIncubatorVersion         = "0.0.14.Final"
   val ScalaCompactCollectionVersion = "2.8.1"
