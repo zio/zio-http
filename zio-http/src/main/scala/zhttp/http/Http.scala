@@ -907,12 +907,13 @@ object Http {
   }
 
   private def determineMediaType(filePath: String): Option[MediaType] = {
-    // Extract file extension
-    val ext = filePath.lastIndexOf(".") match {
+    filePath.lastIndexOf(".") match {
       case -1 => None
-      case i  => Some(filePath.substring(i + 1))
+      case i  =>
+        // Extract file extension
+        val ext = filePath.substring(i + 1)
+        MediaType.forFileExtension(ext)
     }
-    ext.flatMap(MediaType.forFileExtension)
   }
 
   /**
