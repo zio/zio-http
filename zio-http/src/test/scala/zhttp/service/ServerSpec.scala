@@ -150,7 +150,7 @@ object ServerSpec extends HttpRunnableSpec {
           Http.collectZIO[Request] { case req => req.body.asString.map(body => Response.text(body)) }.deploy
 
         def roundTrip[R, E <: Throwable](
-          app: Http[R, Throwable, Request, Response],
+          app: HttpApp[R, Throwable],
           headers: Headers,
           contentStream: ZStream[R, E, Byte],
           compressor: ZPipeline[R, E, Byte, Byte],

@@ -5,7 +5,7 @@ import io.netty.channel.ChannelPipeline
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLHandler._
-import zhttp.service.server.{CompressionOptions, _}
+import zhttp.service.server._
 import zio._
 
 import java.net.{InetAddress, InetSocketAddress}
