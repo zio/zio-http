@@ -34,5 +34,6 @@ package object service extends Logging {
   private[service] val LOW_LEVEL_LOGGING                  = "LOW_LEVEL_LOGGING"
   private[service] val PROXY_HANDLER                      = "PROXY_HANDLER"
   private[service] val HTTP_CONTENT_HANDLER               = "HTTP_CONTENT_HANDLER"
+  private[service] val HTTP_RESPONSE_COMPRESSION          = "HTTP_RESPONSE_COMPRESSION"
 
 }

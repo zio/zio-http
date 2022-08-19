@@ -5,7 +5,7 @@ import io.netty.channel.ChannelPipeline
 import io.netty.util.ResourceLeakDetector
 import zhttp.http.{Http, HttpApp}
 import zhttp.service.server.ServerSSLHandler._
-import zhttp.service.server._
+import zhttp.service.server.{CompressionOptions, _}
 import zio._
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -15,20 +15,22 @@ sealed trait Server[-R, +E] { self =>
   import Server._
 
   private def settings[R1 <: R, E1 >: E](s: Config[R1, E1] = Config()): Config[R1, E1] = self match {
-    case Concat(self, other)                   => other.settings(self.settings(s))
-    case LeakDetection(level)                  => s.copy(leakDetectionLevel = level)
-    case Error(errorHandler)                   => s.copy(error = Some(errorHandler))
-    case Ssl(sslOption)                        => s.copy(sslOption = sslOption)
-    case App(app)                              => s.copy(app = app)
-    case Address(address)                      => s.copy(address = address)
-    case AcceptContinue(enabled)               => s.copy(acceptContinue = enabled)
-    case KeepAlive(enabled)                    => s.copy(keepAlive = enabled)
-    case FlowControl(enabled)                  => s.copy(flowControl = enabled)
-    case ConsolidateFlush(enabled)             => s.copy(consolidateFlush = enabled)
-    case UnsafeChannelPipeline(init)           => s.copy(channelInitializer = init)
-    case RequestDecompression(enabled, strict) => s.copy(requestDecompression = (enabled, strict))
-    case ObjectAggregator(maxRequestSize)      => s.copy(objectAggregator = maxRequestSize)
-    case UnsafeServerBootstrap(init)           => s.copy(serverBootstrapInitializer = init)
+    case Concat(self, other)                                => other.settings(self.settings(s))
+    case LeakDetection(level)                               => s.copy(leakDetectionLevel = level)
+    case Error(errorHandler)                                => s.copy(error = Some(errorHandler))
+    case Ssl(sslOption)                                     => s.copy(sslOption = sslOption)
+    case App(app)                                           => s.copy(app = app)
+    case Address(address)                                   => s.copy(address = address)
+    case AcceptContinue(enabled)                            => s.copy(acceptContinue = enabled)
+    case KeepAlive(enabled)                                 => s.copy(keepAlive = enabled)
+    case FlowControl(enabled)                               => s.copy(flowControl = enabled)
+    case ConsolidateFlush(enabled)                          => s.copy(consolidateFlush = enabled)
+    case UnsafeChannelPipeline(init)                        => s.copy(channelInitializer = init)
+    case RequestDecompression(enabled, strict)              => s.copy(requestDecompression = (enabled, strict))
+    case ObjectAggregator(maxRequestSize)                   => s.copy(objectAggregator = maxRequestSize)
+    case UnsafeServerBootstrap(init)                        => s.copy(serverBootstrapInitializer = init)
+    case ResponseCompression(contentSizeThreshold, options) =>
+      s.copy(responseCompression = (contentSizeThreshold, options))
   }
 
   def ++[R1 <: R, E1 >: E](other: Server[R1, E1]): Server[R1, E1] =
@@ -146,6 +148,14 @@ sealed trait Server[-R, +E] { self =>
    */
   def withUnsafeServerBootstrap(unsafeServerbootstrap: ServerBootstrap => Unit): Server[R, E] =
     Concat(self, UnsafeServerBootstrap(unsafeServerbootstrap))
+
+  /**
+   * Creates a new server with netty's HttpContentCompressor to compress Http
+   * responses (@see <a href =
+   * "https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentCompressor.html"HttpContentCompressor</a>).
+   */
+  def withResponseCompression(contentSizeThreshold: Int, options: IndexedSeq[CompressionOptions]): Server[R, E] =
+    Concat(self, ResponseCompression(contentSizeThreshold, options))
 }
 object Server {
   val disableFlowControl: UServer    = Server.FlowControl(false)
@@ -207,6 +217,9 @@ object Server {
 
   def requestDecompression(strict: Boolean): UServer = Server.RequestDecompression(enabled = true, strict = strict)
 
+  def responseCompression(contentSizeThreshold: Int, options: IndexedSeq[CompressionOptions]): UServer =
+    Server.ResponseCompression(contentSizeThreshold, options)
+
   def ssl(sslOptions: ServerSSLOptions): UServer = Server.Ssl(sslOptions)
 
   /**
@@ -245,6 +258,7 @@ object Server {
     flowControl: Boolean = true,
     channelInitializer: ChannelPipeline => Unit = null,
     requestDecompression: (Boolean, Boolean) = (false, false),
+    responseCompression: (Int, IndexedSeq[CompressionOptions]) = (0, IndexedSeq.empty),
     objectAggregator: Int = 1024 * 100,
     serverBootstrapInitializer: ServerBootstrap => Unit = null,
   ) {
@@ -278,4 +292,7 @@ object Server {
   private final case class ObjectAggregator(maxRequestSize: Int) extends UServer
 
   private final case class UnsafeServerBootstrap(init: ServerBootstrap => Unit) extends UServer
+
+  private final case class ResponseCompression(contentSizeThreshold: Int, options: IndexedSeq[CompressionOptions])
+      extends UServer
 }

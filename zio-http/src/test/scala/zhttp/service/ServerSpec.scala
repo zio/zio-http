@@ -3,7 +3,8 @@ package zhttp.service
 import io.netty.util.AsciiString
 import zhttp.html._
 import zhttp.http._
-import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zhttp.internal.{DynamicServer, HttpEnv, HttpGen, HttpRunnableSpec}
+import zhttp.service.server.CompressionOptions.{deflate, gzip}
 import zhttp.service.server._
 import zio.stream.{ZPipeline, ZStream}
 import zio.test.Assertion._
@@ -11,6 +12,7 @@ import zio.test.TestAspect._
 import zio.test._
 import zio.{Chunk, ZIO, _}
 
+import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec {
@@ -25,8 +27,23 @@ object ServerSpec extends HttpRunnableSpec {
 
   private val MaxSize             = 1024 * 10
   private val app                 =
-    serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(MaxSize)))
+    serve(
+      DynamicServer.app,
+      Some(
+        Server.requestDecompression(true) ++ Server.enableObjectAggregator(MaxSize) ++ Server.responseCompression(
+          0,
+          IndexedSeq(gzip(), deflate()),
+        ),
+      ),
+    )
   private val appWithReqStreaming = serve(DynamicServer.app, Some(Server.requestDecompression(true)))
+
+  override def spec =
+    suite("Server") {
+      val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
+      suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) } +
+        suite("app with request streaming") { ZIO.scoped(appWithReqStreaming.as(List(spec))) }
+    }.provideSomeLayerShared[TestEnvironment](env) @@ timeout(30 seconds) @@ sequential
 
   def dynamicAppSpec = suite("DynamicAppSpec")(
     suite("success")(
@@ -125,30 +142,62 @@ object ServerSpec extends HttpRunnableSpec {
           assertZIO(res)(equalTo("abc"))
         }
       } +
-      suite("decompression") {
-        val app     = Http.collectZIO[Request] { case req => req.body.asString.map(body => Response.text(body)) }.deploy
-        val content = "some-text"
-        val stream  = ZStream.fromChunk(Chunk.fromArray(content.getBytes))
+      suite("compression") {
+        val body         = "some-text"
+        val bodyAsStream = ZStream.fromChunk(Chunk.fromArray(body.getBytes))
 
-        test("gzip") {
-          val res = for {
-            body     <- stream.via(ZPipeline.gzip()).runCollect
-            response <- app.run(
-              body = Body.fromChunk(body),
-              headers = Headers.contentEncoding(HeaderValues.gzip),
+        val app: Http[Any with HttpEnv, Throwable, Request, Response] =
+          Http.collectZIO[Request] { case req => req.body.asString.map(body => Response.text(body)) }.deploy
+
+        def roundTrip[R, E <: Throwable](
+          app: Http[R, Throwable, Request, Response],
+          headers: Headers,
+          contentStream: ZStream[R, E, Byte],
+          compressor: ZPipeline[R, E, Byte, Byte],
+          decompressor: ZPipeline[R, E, Byte, Byte],
+        ) = for {
+          compressed <- contentStream.via(compressor).runCollect
+          response   <- app.run(body = Body.fromChunk(compressed), headers = headers)
+          body       <- response.body.asChunk.flatMap(ch => ZStream.fromChunk(ch).via(decompressor).runCollect)
+        } yield new String(body.toArray, StandardCharsets.UTF_8)
+
+        test("should decompress request and compress response") {
+          checkAll(
+            Gen.fromIterable(
+              List(
+                // Content-Encoding,   Client Request Compressor, Accept-Encoding,      Client Response Decompressor
+                (HeaderValues.gzip, ZPipeline.gzip(), HeaderValues.gzip, ZPipeline.gunzip()),
+                (HeaderValues.deflate, ZPipeline.deflate(), HeaderValues.deflate, ZPipeline.inflate()),
+                (HeaderValues.gzip, ZPipeline.gzip(), HeaderValues.deflate, ZPipeline.inflate()),
+                (HeaderValues.deflate, ZPipeline.deflate(), HeaderValues.gzip, ZPipeline.gunzip()),
+              ),
+            ),
+          ) { case (contentEncoding, compressor, acceptEncoding, decompressor) =>
+            val result = roundTrip(
+              app,
+              Headers.acceptEncoding(acceptEncoding) ++ Headers.contentEncoding(contentEncoding),
+              bodyAsStream,
+              compressor,
+              decompressor,
             )
-          } yield response
-          assertZIO(res.flatMap(_.body.asString))(equalTo(content))
+            assertZIO(result)(equalTo(body))
+          }
         } +
-          test("deflate") {
-            val res = for {
-              body     <- stream.via(ZPipeline.deflate()).runCollect
-              response <- app.run(
-                body = Body.fromChunk(body),
-                headers = Headers.contentEncoding(HeaderValues.deflate),
+          test("pass through for unsupported accept encoding request") {
+            val result = app.run(
+              body = Body.fromString(body),
+              headers = Headers.acceptEncoding(HeaderValues.br),
+            )
+            assertZIO(result.flatMap(_.body.asString))(equalTo(body))
+          } +
+          test("fail on getting compressed response") {
+            checkAll(Gen.fromIterable(List(HeaderValues.gzip, HeaderValues.deflate, HeaderValues.gzipDeflate))) { ae =>
+              val result = app.run(
+                body = Body.fromString(body),
+                headers = Headers.acceptEncoding(ae),
               )
-            } yield response
-            assertZIO(res.flatMap(_.body.asString))(equalTo(content))
+              assertZIO(result.flatMap(_.body.asString))(not(equalTo(body)))
+            }
           }
       },
   )
@@ -305,12 +354,5 @@ object ServerSpec extends HttpRunnableSpec {
         assertZIO(res)(isSome(anything))
       }
   }
-
-  override def spec =
-    suite("Server") {
-      val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
-      suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) } +
-        suite("app with request streaming") { ZIO.scoped(appWithReqStreaming.as(List(spec))) }
-    }.provideSomeLayerShared[TestEnvironment](env) @@ timeout(30 seconds) @@ sequential
 
 }
