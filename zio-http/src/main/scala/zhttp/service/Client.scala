@@ -24,6 +24,21 @@ import java.net.{InetSocketAddress, URI}
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], el: JEventLoopGroup)
     extends HttpMessageCodec {
 
+  def request(
+    url: String,
+    method: Method = Method.GET,
+    headers: Headers = Headers.empty,
+    content: Body = Body.empty,
+    ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
+    for {
+      uri <- ZIO.fromEither(URL.fromString(url))
+      res <- request(
+        Request(Version.Http_1_1, method, uri, headers, body = content),
+        clientConfig = Config(ssl = Some(ssl)),
+      )
+    } yield res
+
   def request(request: Request, clientConfig: Config): Task[Response] =
     for {
       promise <- Promise.make[Throwable, Response]
@@ -162,11 +177,8 @@ object Client {
     ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
     for {
-      uri <- ZIO.fromEither(URL.fromString(url))
-      res <- request(
-        Request(Version.Http_1_1, method, uri, headers, body = content),
-        clientConfig = Config(ssl = Some(ssl)),
-      )
+      clt <- make[Any]
+      res <- clt.request(url, method, headers, content, ssl)
     } yield res
 
   def request(
