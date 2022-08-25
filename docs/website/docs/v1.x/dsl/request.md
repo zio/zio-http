@@ -42,7 +42,7 @@ According to the request path, it will respond with the corresponding response:
 ```scala
   val app: HttpApp[Any, Nothing] = Http.collect[Request] {
      case Method.GET -> !! / a => Response.text(s"$a")
-     case Method.GET -> "name" /: a => Response.text(s"$a")
+     case Method.GET -> "" /: "name" /: a => Response.text(s"$a")
    }
 ```
 
