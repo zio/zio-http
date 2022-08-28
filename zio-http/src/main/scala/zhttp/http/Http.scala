@@ -808,17 +808,11 @@ object Http {
             val response = Response(headers = length, body = Body.fromFile(file))
             val pathName = file.toPath.toString
 
-            // Extract file extension
-            val ext = pathName.lastIndexOf(".") match {
-              case -1 => None
-              case i  => Some(pathName.substring(i + 1))
-            }
-
             // Set MIME type in the response headers. This is only relevant in
             // case of RandomAccessFile transfers as browsers use the MIME type,
             // not the file extension, to determine how to process a URL.
             // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
-            Http.succeed(ext.flatMap(MediaType.forFileExtension).fold(response)(response.withMediaType))
+            Http.succeed(determineMediaType(pathName).fold(response)(response.withMediaType))
           } else Http.empty
         }
       }
@@ -869,7 +863,58 @@ object Http {
    * Creates an Http app from a resource path
    */
   def fromResource(path: String): HttpApp[Any, Throwable] =
-    Http.getResource(path).flatMap(url => Http.fromFile(new File(url.getPath)))
+    Http.getResource(path).flatMap(url => Http.fromResourceWithURL(url))
+
+  private[zhttp] def fromResourceWithURL(url: java.net.URL): HttpApp[Any, Throwable] = {
+    url.getProtocol match {
+      case "file" =>
+        Http.fromFile(new File(url.getPath))
+      case "jar"  =>
+        val path         = new java.net.URI(url.getPath).getPath // remove "file:" prefix and normalize whitespace
+        val bangIndex    = path.indexOf('!')
+        val filePath     = path.substring(0, bangIndex)
+        val resourcePath = path.substring(bangIndex + 2)
+        val appZIO       =
+          ZIO
+            .attemptBlockingIO(new java.util.zip.ZipFile(filePath))
+            .asSomeError
+            .flatMap { jar =>
+              val closeJar = ZIO.attemptBlocking(jar.close()).ignoreLogged
+              (for {
+                entry <- ZIO.attemptBlocking(Option(jar.getEntry(resourcePath))).some
+                _     <- ZIO.when(entry.isDirectory)(ZIO.fail(None))
+                contentLength = entry.getSize
+                inStream <- ZIO.attemptBlockingIO(jar.getInputStream(entry)).asSomeError
+                mediaType = determineMediaType(resourcePath)
+                app       =
+                  Http
+                    .fromStream(
+                      ZStream
+                        .fromInputStream(inStream)
+                        .ensuring(closeJar),
+                    )
+                    .withContentLength(contentLength)
+              } yield mediaType.fold(app)(t => app.withMediaType(t))).onError(_ => closeJar)
+            }
+
+        Http.fromZIO(appZIO).flatten.catchAll {
+          case Some(e) => Http.fail(e)
+          case None    => Http.empty
+        }
+      case proto  =>
+        Http.fail(new IllegalArgumentException(s"Unsupported protocol: $proto"))
+    }
+  }
+
+  private def determineMediaType(filePath: String): Option[MediaType] = {
+    filePath.lastIndexOf(".") match {
+      case -1 => None
+      case i  =>
+        // Extract file extension
+        val ext = filePath.substring(i + 1)
+        MediaType.forFileExtension(ext)
+    }
+  }
 
   /**
    * Creates a Http that always succeeds with a 200 status code and the provided
