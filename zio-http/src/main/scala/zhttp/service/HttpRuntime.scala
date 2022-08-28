@@ -16,7 +16,7 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
 
   private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
     (_: Future[_ >: Void]) =>
-      Unsafe.unsafeCompat { implicit u =>
+      Unsafe.unsafe { implicit unsafe =>
         val _ = rtm.unsafe.fork {
           fiber.interrupt.as(log.debug(s"Interrupted Fiber: [${fiber.id}]"))
         }
@@ -44,7 +44,7 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
 
     // Close the connection if the program fails
     // When connection closes, interrupt the program
-    Unsafe.unsafeCompat { implicit u =>
+    Unsafe.unsafe { implicit unsafe =>
       var close: GenericFutureListener[Future[_ >: Void]] = null
 
       val fiber = rtm.unsafe.fork(program)
@@ -90,7 +90,7 @@ object HttpRuntime {
       ZIO
         .foreach(group.asScala) { javaExecutor =>
           val executor = Executor.fromJavaExecutor(javaExecutor)
-          ZIO.runtime[R].daemonChildren.onExecutor(executor).map { runtime =>
+          ZIO.runtime[R].onExecutor(executor).map { runtime =>
             javaExecutor -> runtime
           }
         }
