@@ -1,22 +1,35 @@
 package zhttp.http
 
 import io.netty.channel.ChannelHandlerContext
-import io.netty.handler.codec.http.{DefaultFullHttpRequest, HttpRequest}
+import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpRequest}
 import zhttp.http.headers.HeaderExtension
+import zhttp.service.{Ctx, Handler}
 
 import java.io.IOException
 
-trait Request extends HeaderExtension[Request] with HttpDataExtension[Request] { self =>
+trait Request extends HeaderExtension[Request] { self =>
 
   /**
-   * Accesses the channel's context for more low level control
+   * Returns a string representation of the request, useful for debugging,
+   * logging or other purposes. It contains the essential properties of HTTP
+   * request: protocol version, method, URL, headers and remote address.
    */
-  private[zhttp] def unsafeContext: ChannelHandlerContext
+  final override def toString = s"Request($version, $method, $url, $headers)"
 
   /**
-   * Gets the HttpRequest
+   * Updates the headers using the provided function
    */
-  private[zhttp] def unsafeEncode: HttpRequest
+  final override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.headers))
+
+  /**
+   * Add trailing slash to the path.
+   */
+  final def addTrailingSlash: Request = self.copy(url = self.url.addTrailingSlash)
+
+  /**
+   * Decodes the body as a Body
+   */
+  def body: Body
 
   def copy(
     version: Version = self.version,
@@ -34,15 +47,15 @@ trait Request extends HeaderExtension[Request] with HttpDataExtension[Request] {
       override def headers: Headers                     = h
       override def version: Version                     = v
       override def unsafeEncode: HttpRequest            = self.unsafeEncode
-      override def data: HttpData                       = self.data
+      override def body: Body                           = self.body
       override def unsafeContext: ChannelHandlerContext = self.unsafeContext
     }
   }
 
   /**
-   * Decodes the body as a HttpData
+   * Remove trailing slash from path.
    */
-  def data: HttpData
+  final def dropTrailingSlash: Request = self.copy(url = self.url.dropTrailingSlash)
 
   /**
    * Gets all the headers in the Request
@@ -65,26 +78,6 @@ trait Request extends HeaderExtension[Request] with HttpDataExtension[Request] {
   def path: Path = url.path
 
   /**
-   * Gets the complete url
-   */
-  def url: URL
-
-  /**
-   * Gets the request's http protocol version
-   */
-  def version: Version
-
-  /**
-   * Add trailing slash to the path.
-   */
-  final def addTrailingSlash: Request = self.copy(url = self.url.addTrailingSlash)
-
-  /**
-   * Remove trailing slash from path.
-   */
-  final def dropTrailingSlash: Request = self.copy(url = self.url.dropTrailingSlash)
-
-  /**
    * Overwrites the method in the request
    */
   final def setMethod(method: Method): Request = self.copy(method = method)
@@ -100,16 +93,24 @@ trait Request extends HeaderExtension[Request] with HttpDataExtension[Request] {
   final def setUrl(url: URL): Request = self.copy(url = url)
 
   /**
-   * Returns a string representation of the request, useful for debugging,
-   * logging or other purposes. It contains the essential properties of HTTP
-   * request: protocol version, method, URL, headers and remote address.
+   * Gets the complete url
    */
-  final override def toString = s"Request($version, $method, $url, $headers)"
+  def url: URL
 
   /**
-   * Updates the headers using the provided function
+   * Gets the request's http protocol version
    */
-  final override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.headers))
+  def version: Version
+
+  /**
+   * Accesses the channel's context for more low level control
+   */
+  private[zhttp] def unsafeContext: ChannelHandlerContext
+
+  /**
+   * Gets the HttpRequest
+   */
+  private[zhttp] def unsafeEncode: HttpRequest
 
 }
 
@@ -123,12 +124,12 @@ object Request {
     method: Method = Method.GET,
     url: URL = URL.root,
     headers: Headers = Headers.empty,
-    data: HttpData = HttpData.Empty,
+    body: Body = Body.empty,
   ): Request = {
     val m = method
     val u = url
     val h = headers
-    val d = data
+    val d = body
     val v = version
 
     new Request {
@@ -141,9 +142,34 @@ object Request {
         val path     = url.relative.encode
         new DefaultFullHttpRequest(jVersion, method.toJava, path)
       }
-      override def data: HttpData                       = d
+      override def body: Body                           = d
       override def unsafeContext: ChannelHandlerContext = throw new IOException("Request does not have a context")
 
+    }
+  }
+
+  private[zhttp] def fromFullHttpRequest(jReq: FullHttpRequest)(implicit ctx: Ctx): Request = {
+
+    new Request {
+      override def method: Method            = Method.fromHttpMethod(jReq.method())
+      override def url: URL                  = URL.fromString(jReq.uri()).getOrElse(URL.empty)
+      override def headers: Headers          = Headers.make(jReq.headers())
+      override def body: Body                = Body.fromByteBuf(jReq.content())
+      override def version: Version          = Version.unsafeFromJava(jReq.protocolVersion())
+      override def unsafeEncode: HttpRequest = jReq
+      override def unsafeContext: Ctx        = ctx
+    }
+  }
+
+  private[zhttp] def fromHttpRequest(jReq: HttpRequest)(implicit ctx: Ctx): Request = {
+    new Request {
+      override def headers: Headers          = Headers.make(jReq.headers())
+      override def method: Method            = Method.fromHttpMethod(jReq.method())
+      override def url: URL                  = URL.fromString(jReq.uri()).getOrElse(URL.empty)
+      override def version: Version          = Version.unsafeFromJava(jReq.protocolVersion())
+      override def unsafeEncode: HttpRequest = jReq
+      override def unsafeContext: Ctx        = ctx
+      override def body: Body                = Body.fromAsync { async => Handler.Unsafe.addContentHandler(async) }
     }
   }
 }

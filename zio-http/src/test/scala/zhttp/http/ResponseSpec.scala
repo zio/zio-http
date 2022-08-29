@@ -33,8 +33,9 @@ object ResponseSpec extends ZIOSpecDefault {
     ),
     suite("toHttp")(
       test("should convert response to Http") {
-        val http = Http(Response.ok)
-        assertZIO(http(()))(equalTo(Response.ok))
+        val ok   = Response.ok
+        val http = ok.toHttp
+        assertZIO(http(()))(equalTo(ok))
       },
     ),
   )

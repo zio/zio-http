@@ -21,7 +21,7 @@ class HttpRouteTextPerf {
 
   @Benchmark
   def benchmarkHttpProgram(): Unit = {
-    Unsafe.unsafeCompat { implicit u =>
+    Unsafe.unsafe { implicit unsafe =>
       runtime.unsafe.run(httpProgram)
       ()
     }
@@ -29,7 +29,7 @@ class HttpRouteTextPerf {
 
   @Benchmark
   def benchmarkUIOProgram(): Unit = {
-    Unsafe.unsafeCompat { implicit u =>
+    Unsafe.unsafe { implicit unsafe =>
       runtime.unsafe.run(UIOProgram)
       ()
     }

@@ -1,22 +1,18 @@
 package zhttp.service.server
 
-import io.netty.channel.{ChannelHandler, ChannelHandlerContext}
+import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
-import zhttp.http.{Response, Status}
+import zhttp.http.Response
 import zhttp.service.server.WebSocketUpgrade.log
-import zhttp.service.{HttpRuntime, Log, WEB_SOCKET_HANDLER, WebSocketAppHandler}
+import zhttp.service.{Handler, Log, WEB_SOCKET_HANDLER, WebSocketAppHandler}
 
 import scala.annotation.tailrec
 
 /**
  * Module to switch protocol to websockets
  */
-trait WebSocketUpgrade[R] { self: ChannelHandler =>
-  val runtime: HttpRuntime[R]
-
-  final def isWebSocket(res: Response): Boolean =
-    res.status.asJava.code() == Status.SwitchingProtocols.asJava.code() && res.attribute.socketApp.nonEmpty
+trait WebSocketUpgrade[R] { self: Handler[R] =>
 
   /**
    * Checks if the response requires to switch protocol to websocket. Returns
@@ -34,7 +30,9 @@ trait WebSocketUpgrade[R] { self: ChannelHandler =>
           .pipeline()
           .addLast(new WebSocketServerProtocolHandler(app.get.protocol.serverBuilder.build()))
           .addLast(WEB_SOCKET_HANDLER, new WebSocketAppHandler(runtime, app.get, false))
-        ctx.channel().eventLoop().submit(() => ctx.fireChannelRead(jReq)): Unit
+
+        val retained = jReq.retainedDuplicate()
+        ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(retained) }: Unit
 
       case jReq: HttpRequest =>
         val fullRequest = new DefaultFullHttpRequest(jReq.protocolVersion(), jReq.method(), jReq.uri())
