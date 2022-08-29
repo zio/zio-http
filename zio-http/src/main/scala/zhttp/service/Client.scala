@@ -19,7 +19,7 @@ import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.SocketApp
 import zio.{Promise, Scope, Task, ZIO}
 
-import java.net.{InetSocketAddress, URI}
+import java.net.InetSocketAddress
 
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], el: JEventLoopGroup)
     extends HttpMessageCodec {
@@ -78,11 +78,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
   ): JChannelFuture = {
 
     try {
-      val uri  = new URI(jReq.uri())
-      val host = if (uri.getHost == null) jReq.headers().get(HeaderNames.host) else uri.getHost
-
-      assert(host != null, "Host name is required")
-
+      val host = req.url.host.getOrElse { assert(false, "Host name is required"); "" }
       val port = req.url.port.getOrElse(80)
 
       val isWebSocket = req.url.scheme.exists(_.isWebSocket)

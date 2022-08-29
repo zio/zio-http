@@ -23,8 +23,8 @@ trait EncodeRequest {
       val encodedReqHeaders = req.headers.encode
 
       val headers = req.url.host match {
-        case Some(value) => encodedReqHeaders.set(HttpHeaderNames.HOST, value)
-        case None        => encodedReqHeaders
+        case Some(host) => encodedReqHeaders.set(HttpHeaderNames.HOST, req.url.port.fold(host)(port => s"$host:$port"))
+        case _          => encodedReqHeaders
       }
 
       val writerIndex = content.writerIndex()
