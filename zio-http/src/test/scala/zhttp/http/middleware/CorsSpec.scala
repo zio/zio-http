@@ -8,7 +8,8 @@ import zio.test.Assertion.hasSubset
 import zio.test._
 
 object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
-  val app           = Http.ok @@ cors()
+  val app = Http.ok @@ cors(CorsConfig(allowedMethods = Some(Set(Method.GET))))
+
   override def spec = suite("CorsMiddlewares")(
     test("OPTIONS request") {
       val request = Request(
@@ -17,19 +18,23 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
       )
 
-      val expected = Headers
+      val initialHeaders = Headers
         .accessControlAllowCredentials(true)
         .withAccessControlAllowMethods(Method.GET)
         .withAccessControlAllowOrigin("test-env")
-        .withAccessControlAllowHeaders(
-          CorsConfig().allowedHeaders.getOrElse(Set.empty).mkString(","),
-        )
-        .toList
 
+      val expected = CorsConfig().allowedHeaders
+        .fold(Headers.empty) { h =>
+          h
+            .map(value => Headers.empty.withAccessControlAllowHeaders(value))
+            .fold(initialHeaders)(_ ++ _)
+        }
+        .toList
       for {
         res <- app(request)
       } yield assert(res.headersAsList)(hasSubset(expected)) &&
         assertTrue(res.status == Status.NoContent)
+
     },
     test("GET request") {
       val request =
