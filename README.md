@@ -28,17 +28,18 @@ Check out the full documentation here: [Documentation]
 A simple Http server can be built using a few lines of code.
 
 ```scala
-import zio._
 import zhttp.http._
 import zhttp.service.Server
+import zio._
 
-object HelloWorld extends App {
-  val app = Http.collect[Request] {
+object HelloWorld extends ZIOAppDefault {
+
+  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !! / "text" => Response.text("Hello World!")
   }
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+  override val run =
+    Server.start(8090, app)
 }
 ```
 #### Examples

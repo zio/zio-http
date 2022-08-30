@@ -23,27 +23,32 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
     new String(buffer)
   }
 
-  def largeContentSpec = suite("ServerStreamingSpec") {
+  val streamingServerSpec = suite("ServerStreamingSpec")(
     test("test unsafe large content") {
       val size    = 1024 * 1024
       val content = genString(size, '?')
-
-      val app = Http.fromFunctionZIO[Request] {
-        _.bodyAsStream.runCount.map(bytesCount => {
-          Response.text(bytesCount.toString)
-        })
+      val app     = Http.fromFunctionZIO[Request] {
+        _.body.asStream.runCount
+          .map(bytesCount => Response.text(bytesCount.toString))
       }
-
-      val res = app.deploy.bodyAsString.run(content = HttpData.fromString(content))
-
+      val res     = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString(content))
       assertZIO(res)(equalTo(size.toString))
-
-    }
-  }
+    },
+    test("multiple body read") {
+      val app = Http.collectZIO[Request] { case req =>
+        for {
+          _ <- req.body.asChunk
+          _ <- req.body.asChunk
+        } yield Response.ok
+      }
+      val res = app.deploy.status.run()
+      assertZIO(res)(equalTo(Status.InternalServerError))
+    },
+  ) @@ timeout(10 seconds)
 
   override def spec =
     suite("RequestStreamingServerSpec") {
-      val spec = responseSpec + requestSpec + requestBodySpec + serverErrorSpec + largeContentSpec
+      val spec = responseSpec + requestSpec + requestBodySpec + serverErrorSpec + streamingServerSpec
       suite("app with request streaming") { appWithReqStreaming.as(List(spec)) }
     }.provideCustomLayerShared(env) @@ timeout(10 seconds) @@ sequential
 

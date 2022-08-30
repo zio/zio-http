@@ -29,7 +29,7 @@ object SSLSpec extends ZIOSpecDefault {
       ZIO.succeed(Response.ok)
     case req @ Method.POST -> !! / "text" =>
       for {
-        body <- req.bodyAsString
+        body <- req.body.asString
       } yield Response.text(body)
   }
 
@@ -72,7 +72,7 @@ object SSLSpec extends ZIOSpecDefault {
                   "https://localhost:8073/text",
                   Method.POST,
                   ssl = ClientSSLOptions.CustomSSL(clientSSL1),
-                  content = HttpData.fromString(payload),
+                  content = Body.fromString(payload),
                 )
                 .map(_.status)
               assertZIO(actual)(equalTo(Status.RequestEntityTooLarge))

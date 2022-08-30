@@ -110,7 +110,7 @@ sealed trait Server[-R, +E] { self =>
    * Creates a new server with HttpObjectAggregator with the specified max size
    * of the aggregated content.
    */
-  def withObjectAggregator(maxRequestSize: Int = Int.MaxValue): Server[R, E] =
+  def withObjectAggregator(maxRequestSize: Int = 1024 * 100): Server[R, E] =
     Concat(self, ObjectAggregator(maxRequestSize))
 
   /**
@@ -192,10 +192,10 @@ object Server {
     for {
       channelFactory <- ServerChannelFactory.get(settings.serverChannelType)
       eventLoopGroup <- EventLoopGroup.Live.get(settings.serverChannelType)(0)
-      zExec          <- HttpRuntime.sticky[R](eventLoopGroup)
-      handler         = new ServerResponseWriter(zExec, settings, ServerTime.make)
-      reqHandler      = settings.app.compile(zExec, settings, handler)
-      init            = ServerChannelInitializer(zExec, settings, reqHandler)
+      rtm <- HttpRuntime.sticky[R](eventLoopGroup)
+      time = ServerTime.make(1000 millis)
+      reqHandler = Handler(settings.app, rtm, settings, time)
+      init = ServerChannelInitializer(rtm, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       chf  <- ZIO.attempt(serverBootstrap.childHandler(init).bind(settings.address))
       _    <- ChannelFuture.scoped(chf)
@@ -252,7 +252,7 @@ object Server {
     flowControl: Boolean = true,
     channelInitializer: ChannelPipeline => Unit = null,
     requestDecompression: (Boolean, Boolean) = (false, false),
-    objectAggregator: Int = -1,
+    objectAggregator: Int = 1024 * 100,
     serverBootstrapInitializer: ServerBootstrap => Unit = null,
     serverChannelType: ChannelType = ChannelType.AUTO,
   ) {

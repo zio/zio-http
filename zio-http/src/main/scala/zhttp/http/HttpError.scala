@@ -35,8 +35,8 @@ object HttpError {
 
   final case class Forbidden(msg: String = "Forbidden") extends HttpError(Status.Forbidden, msg)
 
-  final case class NotFound(path: Path)
-      extends HttpError(Status.NotFound, s"""The requested URI "${path.encode}" was not found on this server\n""")
+  final case class NotFound(path: String)
+      extends HttpError(Status.NotFound, s"""The requested URI "${path}" was not found on this server\n""")
 
   final case class MethodNotAllowed(msg: String = "Method Not Allowed") extends HttpError(Status.MethodNotAllowed, msg)
 

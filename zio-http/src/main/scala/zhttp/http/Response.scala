@@ -2,69 +2,21 @@ package zhttp.http
 
 import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandlerContext
-import io.netty.handler.codec.http.HttpVersion.HTTP_1_1
 import io.netty.handler.codec.http.{FullHttpResponse, HttpHeaderNames, HttpResponse}
 import zhttp.html._
 import zhttp.http.headers.HeaderExtension
 import zhttp.service.{ChannelEvent, ChannelFuture}
 import zhttp.socket.{SocketApp, WebSocketFrame}
-import zio.{Task, UIO, ZIO}
+import zio.{Task, ZIO}
 
 import java.io.{IOException, PrintWriter, StringWriter}
 
 final case class Response private (
   status: Status,
   headers: Headers,
-  data: HttpData,
+  body: Body,
   private[zhttp] val attribute: Response.Attribute,
-) extends HeaderExtension[Response]
-    with HttpDataExtension[Response] { self =>
-
-  private[zhttp] def close: Task[Unit] = self.attribute.channel match {
-    case Some(channel) => ChannelFuture.unit(channel.close())
-    case None          => ZIO.fail(new IOException("Channel context isn't available"))
-  }
-
-  /**
-   * Encodes the Response into a Netty HttpResponse. Sets default headers such
-   * as `content-length`. For performance reasons, it is possible that it uses a
-   * FullHttpResponse if the complete data is available. Otherwise, it would
-   * create a DefaultHttpResponse without any content.
-   */
-  private[zhttp] def unsafeEncode(): HttpResponse = {
-    import io.netty.handler.codec.http._
-
-    val jHeaders = self.headers.encode
-    val jContent = self.data match {
-      case HttpData.UnsafeAsync(_) => null
-      case data: HttpData.Complete =>
-        data match {
-          case HttpData.FromAsciiString(text) => Unpooled.wrappedBuffer(text.array())
-          case HttpData.BinaryChunk(data)     => Unpooled.wrappedBuffer(data.toArray)
-          case HttpData.BinaryByteBuf(data)   => data
-          case HttpData.BinaryStream(_)       => null
-          case HttpData.Empty                 => Unpooled.EMPTY_BUFFER
-          case HttpData.JavaFile(_)           => null
-        }
-    }
-
-    val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
-    if (jContent == null) {
-      // TODO: Unit test for this
-      // Client can't handle chunked responses and currently treats them as a FullHttpResponse.
-      // Due to this client limitation it is not possible to write a unit-test for this.
-      // Alternative would be to use sttp client for this use-case.
-
-      if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
-
-      new DefaultHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jHeaders)
-    } else {
-      val jResponse = new DefaultFullHttpResponse(HTTP_1_1, self.status.asJava, jContent, false)
-      if (!hasContentLength) jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, jContent.readableBytes())
-      jResponse.headers().add(jHeaders)
-      jResponse
-    }
-  }
+) extends HeaderExtension[Response] { self =>
 
   /**
    * Adds cookies in the response headers.
@@ -81,8 +33,13 @@ final case class Response private (
    * detect the changes and encode the response again, however it will turn out
    * to be counter productive.
    */
-  def freeze: UIO[Response] =
-    ZIO.succeed(self.copy(attribute = self.attribute.withEncodedResponse(unsafeEncode(), self)))
+  def freeze: Task[Response] =
+    for {
+      encoded <- encode()
+    } yield self.copy(attribute = self.attribute.withEncodedResponse(encoded, self))
+
+  def isWebSocket: Boolean =
+    self.status.asJava.code() == Status.SwitchingProtocols.asJava.code() && self.attribute.socketApp.nonEmpty
 
   /**
    * Sets the response attributes
@@ -111,22 +68,51 @@ final case class Response private (
    * A more efficient way to append server-time to the response headers.
    */
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
+
+  private[zhttp] def close: Task[Unit] = self.attribute.channel match {
+    case Some(channel) => ChannelFuture.unit(channel.close())
+    case None          => ZIO.fail(new IOException("Channel context isn't available"))
+  }
+
+  /**
+   * Encodes the Response into a Netty HttpResponse. Sets default headers such
+   * as `content-length`. For performance reasons, it is possible that it uses a
+   * FullHttpResponse if the complete data is available. Otherwise, it would
+   * create a DefaultHttpResponse without any content.
+   */
+  private[zhttp] def encode(): Task[HttpResponse] = for {
+    content <- if (body.isComplete) body.asChunk.map(Some(_)) else ZIO.succeed(None)
+    res     <-
+      ZIO.attempt {
+        import io.netty.handler.codec.http._
+        val jHeaders         = self.headers.encode
+        val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
+        content.map(chunks => Unpooled.wrappedBuffer(chunks.toArray)) match {
+          case Some(jContent) =>
+            val jResponse = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jContent, false)
+
+            // TODO: Unit test for this
+            // Client can't handle chunked responses and currently treats them as a FullHttpResponse.
+            // Due to this client limitation it is not possible to write a unit-test for this.
+            // Alternative would be to use sttp client for this use-case.
+            if (!hasContentLength) jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, jContent.readableBytes())
+            jResponse.headers().add(jHeaders)
+            jResponse
+          case None           =>
+            if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
+            new DefaultHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jHeaders)
+        }
+      }
+  } yield res
 }
 
 object Response {
-  private[zhttp] def unsafeFromJResponse(ctx: ChannelHandlerContext, jRes: FullHttpResponse): Response = {
-    val status  = Status.fromHttpResponseStatus(jRes.status())
-    val headers = Headers.decode(jRes.headers())
-    val data    = HttpData.fromByteBuf(Unpooled.copiedBuffer(jRes.content()))
-    Response(status, headers, data, attribute = Attribute(channel = Some(ctx)))
-  }
-
   def apply[R, E](
     status: Status = Status.Ok,
     headers: Headers = Headers.empty,
-    data: HttpData = HttpData.Empty,
+    body: Body = Body.empty,
   ): Response =
-    Response(status, headers, data, Attribute.empty)
+    Response(status, headers, body, Attribute.empty)
 
   def fromHttpError(error: HttpError): Response = {
 
@@ -172,7 +158,7 @@ object Response {
       Response(
         Status.SwitchingProtocols,
         Headers.empty,
-        HttpData.empty,
+        Body.empty,
         Attribute(socketApp = Option(app.provideEnvironment(env))),
       )
     }
@@ -185,23 +171,16 @@ object Response {
   def html(data: Html, status: Status = Status.Ok): Response =
     Response(
       status = status,
-      data = HttpData.fromString("<!DOCTYPE html>" + data.encode),
+      body = Body.fromString("<!DOCTYPE html>" + data.encode),
       headers = Headers(HeaderNames.contentType, HeaderValues.textHtml),
     )
-
-  @deprecated("Use `Response(status, headers, data)` constructor instead.", "22-Sep-2021")
-  def http[R, E](
-    status: Status = Status.Ok,
-    headers: Headers = Headers.empty,
-    data: HttpData = HttpData.empty,
-  ): Response = Response(status, headers, data)
 
   /**
    * Creates a response with content-type set to application/json
    */
   def json(data: CharSequence): Response =
     Response(
-      data = HttpData.fromCharSequence(data),
+      body = Body.fromCharSequence(data),
       headers = Headers(HeaderNames.contentType, HeaderValues.applicationJson),
     )
 
@@ -235,9 +214,17 @@ object Response {
    */
   def text(text: CharSequence): Response =
     Response(
-      data = HttpData.fromCharSequence(text),
+      body = Body.fromCharSequence(text),
       headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
     )
+
+  private[zhttp] def unsafeFromJResponse(ctx: ChannelHandlerContext, jRes: FullHttpResponse): Response = {
+    val status       = Status.fromHttpResponseStatus(jRes.status())
+    val headers      = Headers.decode(jRes.headers())
+    val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
+    val data         = Body.fromByteBuf(copiedBuffer)
+    Response(status, headers, data, attribute = Attribute(channel = Some(ctx)))
+  }
 
   /**
    * Attribute holds meta data for the backend
@@ -263,7 +250,7 @@ object Response {
   object Attribute {
 
     /**
-     * Helper to create an empty HttpData
+     * Helper to create an empty Body
      */
     def empty: Attribute = Attribute()
   }

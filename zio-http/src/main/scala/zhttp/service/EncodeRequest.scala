@@ -1,5 +1,6 @@
 package zhttp.service
 
+import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames}
 import zhttp.http.Request
 import zio.Task
@@ -10,7 +11,8 @@ trait EncodeRequest {
    * Converts client params to JFullHttpRequest
    */
   def encode(req: Request): Task[FullHttpRequest] =
-    req.bodyAsByteBuf.map { content =>
+    req.body.asChunk.map { chunk =>
+      val content  = Unpooled.wrappedBuffer(chunk.toArray)
       val method   = req.method.toJava
       val jVersion = req.version.toJava
 
@@ -21,8 +23,8 @@ trait EncodeRequest {
       val encodedReqHeaders = req.headers.encode
 
       val headers = req.url.host match {
-        case Some(value) => encodedReqHeaders.set(HttpHeaderNames.HOST, value)
-        case None        => encodedReqHeaders
+        case Some(host) => encodedReqHeaders.set(HttpHeaderNames.HOST, req.url.port.fold(host)(port => s"$host:$port"))
+        case _          => encodedReqHeaders
       }
 
       val writerIndex = content.writerIndex()

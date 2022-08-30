@@ -48,9 +48,9 @@ object WebSocketAdvanced extends ZIOAppDefault {
   val httpSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
     messageSocket ++ channelSocket
 
-  val protocol = SocketProtocol.subProtocol("json") // Setup protocol settings
+  val protocol = SocketProtocol.default.withSubProtocol(Some("json")) // Setup protocol settings
 
-  val decoder = SocketDecoder.allowExtensions // Setup decoder settings
+  val decoder = SocketDecoder.default.withExtensions(allowed = true) // Setup decoder settings
 
   val socketApp: SocketApp[Any] = // Combine all channel handlers together
     httpSocket.toSocketApp
@@ -63,5 +63,5 @@ object WebSocketAdvanced extends ZIOAppDefault {
       case Method.GET -> !! / "subscriptions" => socketApp.toResponse
     }
 
-  override val run = Server.start(8090, app)
+  override val run = Server.start(8091, app)
 }

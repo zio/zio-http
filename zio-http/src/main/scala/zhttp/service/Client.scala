@@ -1,7 +1,13 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
+import io.netty.channel.{
+  Channel => JChannel,
+  ChannelFactory => JChannelFactory,
+  ChannelFuture => JChannelFuture,
+  ChannelInitializer,
+  EventLoopGroup => JEventLoopGroup,
+}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.proxy.HttpProxyHandler
@@ -18,6 +24,21 @@ import java.net.{InetSocketAddress, URI}
 
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], el: JEventLoopGroup)
     extends HttpMessageCodec {
+
+  def request(
+    url: String,
+    method: Method = Method.GET,
+    headers: Headers = Headers.empty,
+    content: Body = Body.empty,
+    ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
+    for {
+      uri <- ZIO.fromEither(URL.fromString(url))
+      res <- request(
+        Request(Version.Http_1_1, method, uri, headers, body = content),
+        clientConfig = Config(ssl = Some(ssl)),
+      )
+    } yield res
 
   def request(request: Request, clientConfig: Config): Task[Response] =
     for {
@@ -58,11 +79,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
   ): JChannelFuture = {
 
     try {
-      val uri  = new URI(jReq.uri())
-      val host = if (uri.getHost == null) jReq.headers().get(HeaderNames.host) else uri.getHost
-
-      assert(host != null, "Host name is required")
-
+      val host = req.url.host.getOrElse { assert(false, "Host name is required"); "" }
       val port = req.url.port.getOrElse(80)
 
       val isWebSocket = req.url.scheme.exists(_.isWebSocket)
@@ -153,14 +170,14 @@ object Client {
     url: String,
     method: Method = Method.GET,
     headers: Headers = Headers.empty,
-    content: HttpData = HttpData.empty,
+    content: Body = Body.empty,
     ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
     channelType: ChannelType = ChannelType.AUTO,
   ): ZIO[EventLoopGroup, Throwable, Response] =
     for {
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- request(
-        Request(Version.Http_1_1, method, uri, headers, data = content),
+        Request(Version.Http_1_1, method, uri, headers, content),
         clientConfig = Config(ssl = Some(ssl)).withChannelType(channelType),
       )
     } yield res

@@ -9,7 +9,7 @@ import zio.ZIO
  * required. `HExit.Effect` wraps a ZIO effect, otherwise `HExits` are evaluated
  * without `ZIO`
  */
-private[zhttp] sealed trait HExit[-R, +E, +A] { self =>
+sealed trait HExit[-R, +E, +A] { self =>
 
   def >>=[R1 <: R, E1 >: E, B](ab: A => HExit[R1, E1, B]): HExit[R1, E1, B] =
     self.flatMap(ab)

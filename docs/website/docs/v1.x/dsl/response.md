@@ -10,7 +10,7 @@ It supports all HTTP status codes and headers along with custom methods and head
 
 `Response` can be created with `status`, `headers` and `data`.  
 
-The below snippet creates a response with default params, `status` as `Status.OK`, `headers` as `Headers.empty` and `data` as `HttpData.Empty`.
+The below snippet creates a response with default params, `status` as `Status.OK`, `headers` as `Headers.empty` and `data` as `Body.Empty`.
 ```scala
  val res: Response = Response()
 ```

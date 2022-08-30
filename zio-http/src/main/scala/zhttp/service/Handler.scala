@@ -3,171 +3,122 @@ package zhttp.service
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
+import io.netty.util.AttributeKey
 import zhttp.http._
 import zhttp.logging.Logger
-import zhttp.service.Handler.log
-import zhttp.service.server.WebSocketUpgrade
+import zhttp.service.Handler.{Unsafe, log}
+import zhttp.service.server.{ServerTime, WebSocketUpgrade}
 import zio.ZIO
 
 @Sharable
 private[zhttp] final case class Handler[R](
-  app: HttpApp[R, Throwable],
+  http: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
-  resWriter: ServerResponseWriter[R],
+  time: ServerTime,
 ) extends SimpleChannelInboundHandler[HttpObject](false)
-    with WebSocketUpgrade[R] { self =>
+    with WebSocketUpgrade[R]
+    with FullPassWriter[R]
+    with FastPassWriter[R] { self =>
 
   override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
     log.debug(s"Message: [${msg.getClass.getName}]")
     implicit val iCtx: ChannelHandlerContext = ctx
     msg match {
       case jReq: FullHttpRequest =>
-        jReq.touch("server.Handler-channelRead0")
-        log.debug(s"FullHttpRequest: [${jReq.method} ${jReq.uri()}]")
-        try
-          unsafeRun(
-            jReq,
-            app,
-            new Request {
-              override def method: Method = Method.fromHttpMethod(jReq.method())
+        log.debug(s"FullHttpRequest: [${jReq.method()} ${jReq.uri()}]")
+        val req  = Request.fromFullHttpRequest(jReq)
+        val exit = http.execute(req)
 
-              override def url: URL = URL.fromString(jReq.uri()).getOrElse(URL.empty)
+        if (self.attemptFastWrite(exit)) {
+          Unsafe.releaseRequest(jReq)
+        } else
+          runtime.unsafeRun {
+            self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed { Unsafe.releaseRequest(jReq) }
+          }
 
-              override def headers: Headers = Headers.make(jReq.headers())
+      case jReq: HttpRequest =>
+        log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
+        val req  = Request.fromHttpRequest(jReq)
+        val exit = http.execute(req)
 
-              override def data: HttpData = HttpData.fromByteBuf(jReq.content())
-
-              override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
-
-              override def unsafeEncode: HttpRequest = jReq
-
-              override def unsafeContext: Ctx = ctx
-
-            },
-          )
-        catch {
-          case throwable: Throwable => resWriter.write(throwable, jReq)
-        }
-      case jReq: HttpRequest     =>
-        val hasBody = canHaveBody(jReq)
-        log.debug(s"HasBody: [${hasBody}]")
-        log.debug(s"HttpRequest: [${jReq.method} ${jReq.uri()}]")
-        if (hasBody) ctx.channel().config().setAutoRead(false): Unit
-        try
-          unsafeRun(
-            jReq,
-            app,
-            new Request {
-              override def data: HttpData = if (hasBody) asyncData else HttpData.empty
-              private final def asyncData =
-                HttpData.UnsafeAsync(callback =>
-                  ctx
-                    .pipeline()
-                    .addAfter(
-                      HTTP_REQUEST_HANDLER,
-                      HTTP_CONTENT_HANDLER,
-                      new RequestBodyHandler(callback(ctx)),
-                    ): Unit,
-                )
-
-              override def headers: Headers = Headers.make(jReq.headers())
-
-              override def method: Method = Method.fromHttpMethod(jReq.method())
-
-              override def url: URL = URL.fromString(jReq.uri()).getOrElse(URL.empty)
-
-              override def version: Version = Version.unsafeFromJava(jReq.protocolVersion())
-
-              override def unsafeEncode: HttpRequest = jReq
-
-              override def unsafeContext: Ctx = ctx
-            },
-          )
-        catch {
-          case throwable: Throwable => resWriter.write(throwable, jReq)
+        if (!self.attemptFastWrite(exit)) {
+          if (Unsafe.canHaveBody(jReq)) Unsafe.setAutoRead(false)
+          runtime.unsafeRun {
+            self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed(Unsafe.setAutoRead(true))
+          }
         }
 
-      case msg: HttpContent =>
-        ctx.fireChannelRead(msg): Unit
+      case msg: HttpContent => ctx.fireChannelRead(msg): Unit
 
       case _ =>
         throw new IllegalStateException(s"Unexpected message type: ${msg.getClass.getName}")
-
     }
 
   }
-
-  private def canHaveBody(req: HttpRequest): Boolean = {
-    req.method() == HttpMethod.TRACE ||
-    req.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
-    req.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
-  }
-
-  /**
-   * Executes http apps
-   */
-  private def unsafeRun[A](
-    jReq: HttpRequest,
-    http: Http[R, Throwable, A, Response],
-    a: A,
-  )(implicit ctx: Ctx): Unit = {
-    http.execute(a) match {
-      case HExit.Effect(resM) =>
-        unsafeRunZIO {
-          resM.foldCauseZIO(
-            cause =>
-              cause.failureOrCause match {
-                case Left(Some(cause)) =>
-                  ZIO.succeed { resWriter.write(cause, jReq) }
-                case Left(None)        =>
-                  ZIO.succeed { resWriter.writeNotFound(jReq) }
-                case Right(other)      =>
-                  other.dieOption match {
-                    case Some(defect) =>
-                      ZIO.succeed { resWriter.write(defect, jReq) }
-                    case None         =>
-                      ZIO.failCause(other)
-                  }
-              },
-            res =>
-              ZIO.attempt {
-                if (self.isWebSocket(res)) self.upgradeToWebSocket(jReq, res)
-                else resWriter.write(res, jReq)
-              },
-          )
-        }
-
-      case HExit.Success(res) =>
-        if (self.isWebSocket(res)) {
-          self.upgradeToWebSocket(jReq, res)
-        } else {
-          resWriter.write(res, jReq)
-        }
-
-      case HExit.Failure(e) => resWriter.write(e, jReq)
-
-      case HExit.Die(e) => resWriter.write(e, jReq)
-
-      case HExit.Empty => resWriter.writeNotFound(jReq)
-
-    }
-  }
-
-  /**
-   * Executes program
-   */
-  private def unsafeRunZIO(program: ZIO[R, Throwable, Any])(implicit ctx: Ctx): Unit =
-    runtime.unsafeRun(ctx) {
-      program
-    }
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
-    config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
+    config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(f(cause))(ctx))
   }
-
 }
 
 object Handler {
   val log: Logger = Log.withTags("Server", "Request")
+
+  object Unsafe {
+    private val isReadKey = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
+
+    def addContentHandler(async: Body.UnsafeAsync)(implicit ctx: Ctx): Unit = {
+      if (Unsafe.contentIsRead) throw new RuntimeException("Content is already read")
+      ctx.channel().pipeline().addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new ContentHandler(async)): Unit
+      Unsafe.setContentReadAttr(true)(ctx)
+    }
+
+    /**
+     * Enables auto-read if possible. Also performs the first read.
+     */
+    def attemptAutoRead[R, E](config: Server.Config[R, E])(implicit ctx: Ctx): Unit = {
+      if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
+        ctx.channel().config().setAutoRead(true)
+        ctx.read(): Unit
+      }
+    }
+
+    def canHaveBody(jReq: HttpRequest): Boolean = {
+      jReq.method() == HttpMethod.TRACE ||
+      jReq.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
+      jReq.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
+    }
+
+    def contentIsRead(implicit ctx: Ctx): Boolean =
+      ctx.channel().attr(isReadKey).get()
+
+    def hasChanged(r1: Response, r2: Response): Boolean =
+      (r1.status eq r2.status) && (r1.body eq r2.body) && (r1.headers eq r2.headers)
+
+    def releaseRequest(jReq: FullHttpRequest, cnt: Int = 1): Unit = {
+      if (jReq.refCnt() > 0 && cnt > 0) {
+        jReq.release(cnt): Unit
+      }
+    }
+
+    def setAutoRead(cond: Boolean)(implicit ctx: Ctx): Unit = {
+      log.debug(s"Setting channel auto-read to: [${cond}]")
+      ctx.channel().config().setAutoRead(cond): Unit
+    }
+
+    def setContentReadAttr(flag: Boolean)(implicit ctx: Ctx): Unit = {
+      ctx.channel().attr(isReadKey).set(flag)
+    }
+
+    /**
+     * Sets the server time on the response if required
+     */
+    def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse): Unit = {
+      if (response.attribute.serverTime)
+        jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet()): Unit
+    }
+
+  }
+
 }

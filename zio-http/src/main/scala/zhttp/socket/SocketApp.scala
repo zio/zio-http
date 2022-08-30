@@ -46,13 +46,13 @@ final case class SocketApp[-R](
    * Frame decoder configuration
    */
   def withDecoder(decoder: SocketDecoder): SocketApp[R] =
-    copy(decoder = self.decoder ++ decoder)
+    copy(decoder = decoder, protocol = protocol.withDecoderConfig(decoder))
 
   /**
    * Server side websocket configuration
    */
   def withProtocol(protocol: SocketProtocol): SocketApp[R] =
-    copy(protocol = self.protocol ++ protocol)
+    copy(protocol = protocol)
 }
 
 object SocketApp {

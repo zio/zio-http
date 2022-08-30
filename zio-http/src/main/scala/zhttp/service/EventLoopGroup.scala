@@ -15,6 +15,9 @@ import java.util.concurrent.Executor
 object EventLoopGroup {
   def nio(nThreads: Int = 0): ZLayer[Any, Nothing, EventLoopGroup] = ZLayer.scoped(EventLoopGroup.Live.nio(nThreads))
 
+  def kQueue(nThreads: Int = 0): ZLayer[Any, Nothing, EventLoopGroup] =
+    ZLayer.scoped(EventLoopGroup.Live.kQueue(nThreads))
+
   def epoll(nThreads: Int = 0): ZLayer[Any, Nothing, EventLoopGroup] =
     ZLayer.scoped(EventLoopGroup.Live.epoll(nThreads))
 
