@@ -2,10 +2,10 @@ package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{
+  ChannelInitializer,
   Channel => JChannel,
   ChannelFactory => JChannelFactory,
   ChannelFuture => JChannelFuture,
-  ChannelInitializer,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http._
@@ -20,7 +20,7 @@ import zhttp.service.client.{ClientInboundHandler, ClientSSLHandler}
 import zhttp.socket.SocketApp
 import zio.{Promise, Scope, Task, ZIO}
 
-import java.net.{InetSocketAddress, URI}
+import java.net.InetSocketAddress
 
 final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], el: JEventLoopGroup)
     extends HttpMessageCodec {

@@ -2,7 +2,7 @@ package example
 
 import io.netty.util.AsciiString
 import zhttp.http._
-import zhttp.service.server.{LeakDetectionLevel, ServerChannelFactory}
+import zhttp.service.server.LeakDetectionLevel
 import zhttp.service.{EventLoopGroup, Server}
 import zio._
 
