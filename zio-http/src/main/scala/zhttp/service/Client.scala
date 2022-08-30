@@ -1,13 +1,7 @@
 package zhttp.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  ChannelInitializer,
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelFuture => JChannelFuture,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.proxy.HttpProxyHandler
