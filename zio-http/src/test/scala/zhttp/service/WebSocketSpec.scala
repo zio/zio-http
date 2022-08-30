@@ -110,7 +110,7 @@ object WebSocketSpec extends HttpRunnableSpec {
       DynamicServer.app
     }.as(List(websocketSpec))
   }
-    .provideCustomLayerShared(env) @@ timeout(30 seconds)
+    .provideLayerShared(env) @@ timeout(30 seconds)
 
   final class MessageCollector[A](ref: Ref[List[A]], promise: Promise[Nothing, Unit]) {
     def add(a: A, isDone: Boolean = false): UIO[Unit] = ref.update(_ :+ a) <* promise.succeed(()).when(isDone)
