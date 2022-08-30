@@ -50,6 +50,6 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       suite("app with request streaming") {
         ZIO.scoped(appWithReqStreaming.as(List(requestBodySpec, streamingServerSpec)))
       }
-    }.provideCustomLayerShared(env) @@ timeout(10 seconds) @@ sequential
+    }.provideLayerShared(env) @@ timeout(10 seconds) @@ sequential
 
 }
