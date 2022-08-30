@@ -51,6 +51,6 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
 
       val spec = responseSpec + requestBodySpec + serverErrorSpec + streamingServerSpec
       suite("app with request streaming") { appWithReqStreaming.as(List(spec)) }
-    }.provideLayerShared(env) @@ timeout(10 seconds) @@ sequential
+    }.provideSomeLayerShared[TestEnvironment](env) @@ timeout(10 seconds) @@ sequential
 
 }
