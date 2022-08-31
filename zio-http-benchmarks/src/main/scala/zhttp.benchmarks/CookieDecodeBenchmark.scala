@@ -17,7 +17,7 @@ class CookieDecodeBenchmark {
   val path   = Path.decode((0 to 10).map { _ => random.alphanumeric.take(10).mkString("") }.mkString(""))
   val maxAge = random.nextLong()
 
-  private val cookie    = Cookie(
+  private val oldCookie       = Cookie(
     name,
     value,
     Some(Instant.now()),
@@ -28,11 +28,17 @@ class CookieDecodeBenchmark {
     Some(maxAge),
     Some(Cookie.SameSite.Strict),
   )
-  private val cookieStr = cookie.encode
+  private val oldCookieString = oldCookie.encode
 
   @Benchmark
   def benchmarkApp(): Unit = {
-    val _ = Cookie.unsafeDecodeResponseCookie(cookieStr)
+    val _ = Cookie.unsafeDecodeResponseCookie(oldCookieString)
+    ()
+  }
+
+  @Benchmark
+  def benchmarkNettyCookie(): Unit = {
+    val _ = cookie.CookieDecoder.ResponseCookieDecoder.unsafeDecode(oldCookieString, false)
     ()
   }
 }
