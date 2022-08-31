@@ -1,48 +1,41 @@
 package zhttp.http.cookie
 
+import zhttp.http.Path
+import zhttp.http.cookie.Cookie.SameSite
+import zio.durationInt
 import zio.test._
+import zio.test.Assertion.{equalTo, isLeft, isRight, startsWithString}
 
 object CookieSpec extends ZIOSpecDefault {
   override def spec =
     suite("CookieSpec")(
       suite("getter")(
-        test("source is Unit") {
+        test("request") {
           val cookieGen = for {
             name    <- Gen.alphaNumericString
             content <- Gen.alphaNumericString
-          } yield (name, content) -> Cookie(name, content)
+          } yield (name, content) -> Cookie(name, content, Cookie.Request)
           check(cookieGen) { case (name, content) -> cookie =>
             assertTrue(cookie.content == content) && assertTrue(cookie.name == name)
           }
         },
-        test("Server") {
-          val cookieGen = for {
-            name    <- Gen.alphaNumericString
-            content <- Gen.alphaNumericString
-          } yield (name, content) -> Cookie(name, content, Cookie.Server)
-          check(cookieGen) { case (name, content) -> cookie =>
-            assertTrue(cookie.content == content) && assertTrue(cookie.name == name)
-          }
-        },
-        test("Client") {
+        test("response") {
           val cookieGen = for {
             name     <- Gen.alphaNumericString
             content  <- Gen.alphaNumericString
             response <- for {
-              expires    <- Gen.option(Gen.instant)
               domain     <- Gen.option(Gen.alphaNumericString)
-              path       <- Gen.option(Gen.alphaNumericString)
+              path       <- Gen.option(Gen.elements(Path.root / "a", Path.root / "a" / "b"))
               maxAge     <- Gen.option(Gen.finiteDuration)
               sameSite   <- Gen.option(Gen.fromIterable(Cookie.SameSite.values))
               isSecure   <- Gen.boolean
               isHttpOnly <- Gen.boolean
-            } yield Cookie.Client(expires, domain, path, isSecure, isHttpOnly, maxAge, sameSite)
+            } yield Cookie.Response(domain, path, isSecure, isHttpOnly, maxAge, sameSite)
           } yield (name, content) -> Cookie(name, content, response)
 
           check(cookieGen) { case (name, content) -> cookie =>
             assertTrue(cookie.content == content) &&
             assertTrue(cookie.name == name) &&
-            assertTrue(cookie.expires == cookie.target.expires) &&
             assertTrue(cookie.domain == cookie.target.domain) &&
             assertTrue(cookie.path == cookie.target.path) &&
             assertTrue(cookie.maxAge == cookie.target.maxAge) &&
@@ -50,6 +43,40 @@ object CookieSpec extends ZIOSpecDefault {
             assertTrue(cookie.isSecure == cookie.target.isSecure) &&
             assertTrue(cookie.isHttpOnly == cookie.target.isHttpOnly)
           }
+        },
+      ),
+      suite("encode")(
+        test("request") {
+          val cookie    = Cookie("name", "value")
+          val cookieGen = Gen.fromIterable(
+            Seq(
+              cookie                      -> "name=value",
+              cookie.withContent("other") -> "name=other",
+              cookie.withName("name1")    -> "name1=value",
+            ),
+          )
+          checkAll(cookieGen) { case (cookie, expected) => assertTrue(cookie.encode == Right(expected)) }
+        },
+        test("response") {
+          val cookie = Cookie("name", "content").toResponse
+
+          val cookieGen = Gen.fromIterable(
+            Seq(
+              cookie                            -> equalTo("name=content"),
+              cookie.withDomain("abc.com")      -> equalTo("name=content; Domain=abc.com"),
+              cookie.withHttpOnly(true)         -> equalTo("name=content; HTTPOnly"),
+              cookie.withPath(Path.root / "a")  -> equalTo("name=content; Path=/a"),
+              cookie.withSameSite(SameSite.Lax) -> equalTo("name=content; SameSite=Lax"),
+              cookie.withSecure(true)           -> equalTo("name=content; Secure"),
+              cookie.withMaxAge(1 day)          -> startsWithString("name=content; Max-Age=86400; Expires="),
+            ),
+          )
+
+          checkAll(cookieGen) { case (cookie, assertion) => assert(cookie.encode)(isRight(assertion)) }
+        },
+        test("invalid encode") {
+          val cookie = Cookie("1", null)
+          assert(cookie.encode)(isLeft)
         },
       ),
     )

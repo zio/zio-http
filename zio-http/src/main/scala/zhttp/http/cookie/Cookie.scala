@@ -1,82 +1,91 @@
 package zhttp.http.cookie
 
+import zhttp.http.Path
 import zio.Duration
-import io.netty.handler.codec.http.{cookie => jCookie}
-
-import java.time.Instant
 
 final case class Cookie[T](name: String, content: String, target: T) { self =>
-  def domain(implicit ev: T =:= Cookie.Client): Option[String] = target.domain
+  def client(f: Cookie.Response => Cookie.Response)(implicit ev: T =:= Cookie.Response): ResponseCookie =
+    self.copy(target = f(toResponse.target))
 
-  def expires(implicit ev: T =:= Cookie.Client): Option[Instant] = target.expires
+  def domain(implicit ev: T =:= Cookie.Response): Option[String] = target.domain
 
-  def isHttpOnly(implicit ev: T =:= Cookie.Client): Boolean = target.isHttpOnly
+  def encode(strict: Boolean)(implicit ev: CookieEncoder[T]): Either[Exception, String] =
+    try {
+      Right(ev.encode(self, strict))
+    } catch {
+      case e: Exception => Left(e)
+    }
 
-  def isSecure(implicit ev: T =:= Cookie.Client): Boolean = target.isSecure
+  def encode(implicit ev: CookieEncoder[T]): Either[Exception, String] = encode(strict = false)
 
-  def maxAge(implicit ev: T =:= Cookie.Client): Option[Duration] = target.maxAge
+  def isHttpOnly(implicit ev: T =:= Cookie.Response): Boolean = target.isHttpOnly
 
-  def path(implicit ev: T =:= Cookie.Client): Option[String] = target.path
+  def isSecure(implicit ev: T =:= Cookie.Response): Boolean = target.isSecure
 
-  def sameSite(implicit ev: T =:= Cookie.Client): Option[Cookie.SameSite] = target.sameSite
+  def maxAge(implicit ev: T =:= Cookie.Response): Option[Duration] = target.maxAge
 
-  def sign(secret: String)(implicit ev: T =:= Cookie.Client): Cookie[T] = ???
+  def path(implicit ev: T =:= Cookie.Response): Option[Path] = target.path
 
-  def toJava: jCookie.Cookie = ???
+  def sameSite(implicit ev: T =:= Cookie.Response): Option[Cookie.SameSite] = target.sameSite
 
-  def toRequest: Cookie[Cookie.Server] = target match {
-    case _: Cookie.Server => self.asInstanceOf[Cookie[Cookie.Server]]
-    case _                => Cookie(name, content, Cookie.Server)
-  }
+  def sign(secret: String)(implicit ev: T =:= Cookie.Response): Cookie[T] = ???
 
-  def toResponse: Cookie[Cookie.Client] = target match {
-    case _: Cookie.Client => self.asInstanceOf[Cookie[Cookie.Client]]
-    case _                => Cookie(name, content, Cookie.Client())
-  }
+  def toRequest: RequestCookie = Cookie(name, content, Cookie.Request)
 
-  def unsign(secret: String)(implicit ev: T =:= Cookie.Client): Cookie[T] = ???
+  def toResponse: ResponseCookie =
+    self.target match {
+      case _: Cookie.Response => self.asInstanceOf[ResponseCookie]
+      case _                  => self.copy(target = Cookie.Response())
+    }
 
-  def verify(secret: String)(implicit ev: T =:= Cookie.Server): Boolean = ???
+  def unsign(secret: String)(implicit ev: T =:= Cookie.Response): Cookie[T] = ???
 
-  def withContent(content: String)(implicit ev: T =:= Cookie.Client): Cookie[T] = ???
+  def verify(secret: String)(implicit ev: T =:= Cookie.Request): Boolean = ???
 
-  def withDomain(domain: String)(implicit ev: T =:= Cookie.Client): Cookie[T] = ???
+  def withContent(content: String): Cookie[T] = copy(content = content)
 
-  def withExpires(expires: Instant)(implicit ev: T =:= Cookie.Client): Cookie[T] = ???
+  def withDomain(domain: String)(implicit ev: T =:= Cookie.Response): ResponseCookie =
+    client(_.copy(domain = Some(domain)))
 
-  def withHttpOnly(httpOnly: Boolean)(implicit ev: T =:= Cookie.Client): Cookie[T] = ???
+  def withHttpOnly(httpOnly: Boolean)(implicit ev: T =:= Cookie.Response): ResponseCookie =
+    client(_.copy(isHttpOnly = httpOnly))
 
-  def withMaxAge(maxAge: Duration)(implicit ev: T =:= Cookie.Client): Cookie[T] = ???
+  def withMaxAge(maxAge: Duration)(implicit ev: T =:= Cookie.Response): ResponseCookie =
+    client(_.copy(maxAge = Some(maxAge)))
 
-  def withPath(path: String)(implicit ev: T =:= Cookie.Client): Cookie[T] = ???
+  def withName(name: String): Cookie[T] = copy(name = name)
 
-  def withSameSite(sameSite: Cookie.SameSite)(implicit ev: T =:= Cookie.Client): Cookie[T] = ???
+  def withPath(path: Path)(implicit ev: T =:= Cookie.Response): ResponseCookie =
+    client(_.copy(path = Some(path)))
 
-  def withSecure(secure: Boolean)(implicit ev: T =:= Cookie.Client): Cookie[T] = ???
+  def withSameSite(sameSite: Cookie.SameSite)(implicit ev: T =:= Cookie.Response): ResponseCookie =
+    client(_.copy(sameSite = Some(sameSite)))
+
+  def withSecure(secure: Boolean)(implicit ev: T =:= Cookie.Response): ResponseCookie =
+    client(_.copy(isSecure = secure))
 }
 
 object Cookie {
+  def apply(name: String, content: String): RequestCookie = Cookie(name, content, Request)
 
-  def apply(name: String, content: String): Cookie[Unit] = Cookie(name, content, ())
+  type Request = Request.type
+  case object Request
 
-  type Server = Server.type
-  case object Server
-
-  final case class Client(
-    expires: Option[Instant] = None,
+  final case class Response(
     domain: Option[String] = None,
-    path: Option[String] = None,
+    path: Option[Path] = None,
     isSecure: Boolean = false,
     isHttpOnly: Boolean = false,
     maxAge: Option[Duration] = None,
-    sameSite: Option[Cookie.SameSite] = None,
+    sameSite: Option[SameSite] = None,
   )
 
   sealed trait SameSite
   object SameSite {
     case object Strict extends SameSite
     case object Lax    extends SameSite
+    case object None   extends SameSite
 
-    def values: List[SameSite] = List(Strict, Lax)
+    def values: List[SameSite] = List(Strict, Lax, None)
   }
 }
