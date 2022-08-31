@@ -1,7 +1,11 @@
 package zhttp.http.cookie
 
 import zhttp.http.Path
+import zhttp.http.cookie.CookieDecoder.log
+import zhttp.service.Log
 import zio.Duration
+
+import java.util.concurrent.TimeUnit
 
 final case class Cookie[T](name: String, content: String, target: T) { self =>
   def client(f: Cookie.Response => Cookie.Response)(implicit ev: T =:= Cookie.Response): ResponseCookie =
@@ -11,9 +15,11 @@ final case class Cookie[T](name: String, content: String, target: T) { self =>
 
   def encode(strict: Boolean)(implicit ev: CookieEncoder[T]): Either[Exception, String] =
     try {
-      Right(ev.encode(self, strict))
+      Right(ev.unsafeEncode(self, strict))
     } catch {
-      case e: Exception => Left(e)
+      case e: Exception =>
+        log.error("Cookie encoding failure", e)
+        Left(e)
     }
 
   def encode(implicit ev: CookieEncoder[T]): Either[Exception, String] = encode(strict = false)
@@ -22,7 +28,8 @@ final case class Cookie[T](name: String, content: String, target: T) { self =>
 
   def isSecure(implicit ev: T =:= Cookie.Response): Boolean = target.isSecure
 
-  def maxAge(implicit ev: T =:= Cookie.Response): Option[Duration] = target.maxAge
+  def maxAge(implicit ev: T =:= Cookie.Response): Option[Duration] =
+    target.maxAge.map(long => Duration(long, TimeUnit.SECONDS))
 
   def path(implicit ev: T =:= Cookie.Response): Option[Path] = target.path
 
@@ -30,7 +37,12 @@ final case class Cookie[T](name: String, content: String, target: T) { self =>
 
   def sign(secret: String)(implicit ev: T =:= Cookie.Response): Cookie[T] = ???
 
-  def toRequest: RequestCookie = Cookie(name, content, Cookie.Request)
+  def toRequest: RequestCookie = {
+    self.target match {
+      case _: Cookie.Request => self.asInstanceOf[RequestCookie]
+      case _                 => Cookie(name, content, Cookie.Request)
+    }
+  }
 
   def toResponse: ResponseCookie =
     self.target match {
@@ -51,7 +63,7 @@ final case class Cookie[T](name: String, content: String, target: T) { self =>
     client(_.copy(isHttpOnly = httpOnly))
 
   def withMaxAge(maxAge: Duration)(implicit ev: T =:= Cookie.Response): ResponseCookie =
-    client(_.copy(maxAge = Some(maxAge)))
+    client(_.copy(maxAge = Some(maxAge.toSeconds)))
 
   def withName(name: String): Cookie[T] = copy(name = name)
 
@@ -68,6 +80,18 @@ final case class Cookie[T](name: String, content: String, target: T) { self =>
 object Cookie {
   def apply(name: String, content: String): RequestCookie = Cookie(name, content, Request)
 
+  def decode[S](string: String, strict: Boolean = false)(implicit ev: CookieDecoder[S]): Either[Exception, ev.Out] = {
+    try {
+      Right(ev.unsafeDecode(string, strict))
+    } catch {
+      case e: Exception =>
+        log.error("Cookie decoding failure", e)
+        Left(e)
+    }
+  }
+
+  private[cookie] val log = Log.withTags("Cookie")
+
   type Request = Request.type
   case object Request
 
@@ -76,7 +100,7 @@ object Cookie {
     path: Option[Path] = None,
     isSecure: Boolean = false,
     isHttpOnly: Boolean = false,
-    maxAge: Option[Duration] = None,
+    maxAge: Option[Long] = None,
     sameSite: Option[SameSite] = None,
   )
 
