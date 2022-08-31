@@ -146,12 +146,14 @@ final case class Cookie[T](name: String, content: String, target: T) { self =>
   def withSecure(secure: Boolean)(implicit ev: T =:= Cookie.Response): ResponseCookie =
     response(_.copy(isSecure = secure))
 
-  private def response(f: Cookie.Response => Cookie.Response)(implicit ev: T =:= Cookie.Response): ResponseCookie =
+  private def response(f: Cookie.Response => Cookie.Response)(implicit
+    ev: T =:= Cookie.Response,
+  ): ResponseCookie =
     self.copy(target = f(toResponse.target))
 }
 
 object Cookie {
-  def apply(name: String, content: String): RequestCookie = Cookie(name, content, Request)
+  def apply(name: String, content: String): ResponseCookie = Cookie(name, content, Response())
 
   /**
    * Creates a cookie from a string.

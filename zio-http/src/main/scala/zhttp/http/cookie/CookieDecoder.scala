@@ -21,7 +21,7 @@ object CookieDecoder {
     override def unsafeDecode(header: String, validate: Boolean): List[Cookie[Request]] = {
       val decoder = if (validate) jCookie.ServerCookieDecoder.STRICT else jCookie.ServerCookieDecoder.LAX
       decoder.decodeAll(header).asScala.toList.map { cookie =>
-        Cookie(cookie.name(), cookie.value())
+        Cookie(cookie.name(), cookie.value(), Request)
       }
     }
   }

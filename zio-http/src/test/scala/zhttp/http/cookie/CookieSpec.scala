@@ -59,7 +59,7 @@ object CookieSpec extends ZIOSpecDefault {
           checkAll(cookieGen) { case (cookie, expected) => assertTrue(cookie.encode == Right(expected)) }
         },
         test("response") {
-          val cookie = Cookie("name", "content").toResponse
+          val cookie = Cookie("name", "content")
 
           val cookieGen = Gen.fromIterable(
             Seq(
@@ -84,7 +84,7 @@ object CookieSpec extends ZIOSpecDefault {
         test("request") {
           val cookie  = Cookie("name", "value")
           val program = cookie.encode.flatMap(Cookie.decode[Cookie.Request](_))
-          assertTrue(program == Right(List(cookie)))
+          assertTrue(program == Right(List(cookie.toRequest)))
         },
         test("decode response") {
           val responseCookieGen = for {
@@ -109,9 +109,9 @@ object CookieSpec extends ZIOSpecDefault {
       ),
       test("signature") {
         val cookie = Cookie("name", "value")
-        val signed = cookie.toResponse.sign("ABC")
+        val signed = cookie.sign("ABC")
 
-        assertTrue(signed.toRequest.unSign("ABC").contains(cookie)) &&
+        assertTrue(signed.toRequest.unSign("ABC").contains(cookie.toRequest)) &&
         assertTrue(signed.toRequest.unSign("PQR").isEmpty)
       },
     )
