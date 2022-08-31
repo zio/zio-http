@@ -5,7 +5,12 @@ import zhttp.http.cookie.CookieDecoder.log
 import zhttp.service.Log
 import zio.Duration
 
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
+import java.util.Base64.getEncoder
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
+import scala.collection.mutable
 
 final case class Cookie[T](name: String, content: String, target: T) { self =>
   def client(f: Cookie.Response => Cookie.Response)(implicit ev: T =:= Cookie.Response): ResponseCookie =
@@ -35,7 +40,17 @@ final case class Cookie[T](name: String, content: String, target: T) { self =>
 
   def sameSite(implicit ev: T =:= Cookie.Response): Option[Cookie.SameSite] = target.sameSite
 
-  def sign(secret: String)(implicit ev: T =:= Cookie.Response): Cookie[T] = ???
+  /**
+   * Signs cookie content with a secret and returns a signed cookie.
+   */
+  def sign(secret: String)(implicit ev: T =:= Cookie.Response): Cookie[T] =
+    withContent(
+      new mutable.StringBuilder()
+        .append(content)
+        .append('.')
+        .append(Cookie.signature(secret, content))
+        .result(),
+    )
 
   def toRequest: RequestCookie = {
     self.target match {
@@ -50,9 +65,12 @@ final case class Cookie[T](name: String, content: String, target: T) { self =>
       case _                  => self.copy(target = Cookie.Response())
     }
 
-  def unsign(secret: String)(implicit ev: T =:= Cookie.Response): Cookie[T] = ???
-
-  def verify(secret: String)(implicit ev: T =:= Cookie.Request): Boolean = ???
+  def verify(secret: String)(implicit ev: T =:= Cookie.Request): Boolean = {
+    val index     = content.lastIndexOf('.')
+    val signature = content.slice(index + 1, content.length)
+    val value     = content.slice(0, index)
+    Cookie.signature(secret, value) == signature
+  }
 
   def withContent(content: String): Cookie[T] = copy(content = content)
 
@@ -88,6 +106,17 @@ object Cookie {
         log.error("Cookie decoding failure", e)
         Left(e)
     }
+  }
+
+  def signature(secret: String, content: String): String = {
+    val sha256    = Mac.getInstance("HmacSHA256")
+    val secretKey = new SecretKeySpec(secret.getBytes(), "RSA")
+
+    sha256.init(secretKey)
+
+    val signed = sha256.doFinal(content.getBytes())
+    val mda    = MessageDigest.getInstance("SHA-512")
+    getEncoder.encodeToString(mda.digest(signed))
   }
 
   private[cookie] val log = Log.withTags("Cookie")

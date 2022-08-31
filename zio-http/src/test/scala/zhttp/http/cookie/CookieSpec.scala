@@ -107,5 +107,9 @@ object CookieSpec extends ZIOSpecDefault {
           }
         },
       ),
+      test("signature") {
+        val cookie = Cookie("name", "value").toResponse.sign("ABC")
+        assertTrue(cookie.toRequest.verify("ABC")) && assertTrue(!cookie.toRequest.verify("PQR"))
+      },
     )
 }
