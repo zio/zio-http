@@ -2,6 +2,7 @@ package zhttp.http.middleware
 
 import zhttp.http.Middleware.csrfValidate
 import zhttp.http._
+import zhttp.http.cookie.Cookie
 import zhttp.internal.HttpAppTestExtensions
 import zio.Ref
 import zio.test.Assertion.equalTo
@@ -9,7 +10,7 @@ import zio.test._
 
 object CsrfSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   private val app           = (Http.ok @@ csrfValidate("x-token")).status
-  private val setCookie     = Headers.cookie(Cookie("x-token", "secret"))
+  private val setCookie     = Headers.cookie(Cookie("x-token", "secret").toRequest)
   private val invalidXToken = Headers("x-token", "secret1")
   private val validXToken   = Headers("x-token", "secret")
   override def spec         = suite("CSRF Middlewares")(

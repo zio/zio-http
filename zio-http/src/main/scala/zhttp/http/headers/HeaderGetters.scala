@@ -4,6 +4,7 @@ import io.netty.handler.codec.http.HttpUtil
 import io.netty.util.AsciiString.contentEqualsIgnoreCase
 import zhttp.http.Headers.{BasicSchemeName, BearerSchemeName}
 import zhttp.http._
+import zhttp.http.cookie.{Cookie, RequestCookie, ResponseCookie}
 import zhttp.http.middleware.Auth.Credentials
 import zhttp.service.server.ServerTime
 
@@ -161,14 +162,12 @@ trait HeaderGetters[+A] { self =>
   final def cookieValue(name: CharSequence): Option[CharSequence] =
     cookiesDecoded.find(_.name == name).map(_.content)
 
-  final def cookiesDecoded: List[Cookie] =
+  final def cookiesDecoded: List[RequestCookie] =
     headerValues(HeaderNames.cookie).flatMap { header =>
-      Cookie.decodeRequestCookie(header)
-    }
-
-  final def cookiesDecoded(secret: String): List[Cookie] =
-    headerValues(HeaderNames.cookie).flatMap { header =>
-      Cookie.decodeRequestCookie(header, Some(secret))
+      Cookie.decode[Cookie.Request](header) match {
+        case Left(_)      => Nil
+        case Right(value) => value
+      }
     }
 
   final def date: Option[CharSequence] =
@@ -287,10 +286,13 @@ trait HeaderGetters[+A] { self =>
   final def setCookie: Option[CharSequence] =
     headerValue(HeaderNames.setCookie)
 
-  final def setCookiesDecoded(secret: Option[String] = None): List[Cookie] =
-    headerValues(HeaderNames.setCookie)
-      .map(Cookie.decodeResponseCookie(_, secret))
-      .collect { case Some(cookie) => cookie }
+  final def setCookiesDecoded(secret: Option[String] = None): List[ResponseCookie] =
+    headerValues(HeaderNames.setCookie).flatMap { header =>
+      Cookie.decode[Cookie.Response](header) match {
+        case Left(_)      => Nil
+        case Right(value) => List(value)
+      }
+    }
 
   final def te: Option[CharSequence] =
     headerValue(HeaderNames.te)

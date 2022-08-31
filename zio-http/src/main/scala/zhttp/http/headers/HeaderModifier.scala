@@ -1,6 +1,7 @@
 package zhttp.http.headers
 
 import zhttp.http._
+import zhttp.http.cookie.ResponseCookie
 import zio.Duration
 
 /**
@@ -224,7 +225,7 @@ trait HeaderModifier[+A] { self =>
   final def withServer(value: CharSequence): A =
     addHeaders(Headers.server(value))
 
-  final def withSetCookie(value: Cookie): A =
+  final def withSetCookie(value: ResponseCookie): A =
     addHeaders(Headers.setCookie(value))
 
   final def withTe(value: CharSequence): A =

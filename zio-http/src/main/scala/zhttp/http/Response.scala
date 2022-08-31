@@ -2,8 +2,9 @@ package zhttp.http
 
 import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandlerContext
-import io.netty.handler.codec.http.{FullHttpResponse, HttpHeaderNames, HttpResponse}
+import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
 import zhttp.html._
+import zhttp.http.cookie.ResponseCookie
 import zhttp.http.headers.HeaderExtension
 import zhttp.service.{ChannelEvent, ChannelFuture}
 import zhttp.socket.{SocketApp, WebSocketFrame}
@@ -21,8 +22,8 @@ final case class Response private (
   /**
    * Adds cookies in the response headers.
    */
-  def addCookie(cookie: Cookie): Response =
-    self.copy(headers = self.headers ++ Headers(HttpHeaderNames.SET_COOKIE.toString, cookie.encode))
+  def addCookie(cookie: ResponseCookie): Response =
+    self.copy(headers = self.headers ++ Headers.setCookie(cookie))
 
   /**
    * A micro-optimizations that ignores all further modifications to the

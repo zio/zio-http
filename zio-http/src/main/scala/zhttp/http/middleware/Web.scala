@@ -2,6 +2,7 @@ package zhttp.http.middleware
 
 import zhttp.http.URL.encode
 import zhttp.http._
+import zhttp.http.cookie.{Cookie, ResponseCookie}
 import zhttp.http.headers.HeaderModifier
 import zhttp.http.middleware.Web.{PartialInterceptPatch, PartialInterceptZIOPatch}
 import zio._
@@ -17,10 +18,10 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   /**
    * Sets cookie in response headers
    */
-  final def addCookie(cookie: Cookie): HttpMiddleware[Any, Nothing] =
+  final def addCookie(cookie: ResponseCookie): HttpMiddleware[Any, Nothing] =
     self.withSetCookie(cookie)
 
-  final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie]): HttpMiddleware[R, E] =
+  final def addCookieZIO[R, E](cookie: ZIO[R, E, ResponseCookie]): HttpMiddleware[R, E] =
     patchZIO(_ => cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c))))
 
   /**
@@ -142,11 +143,14 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   final def signCookies(secret: String): HttpMiddleware[Any, Nothing] =
     updateHeaders {
       case h if h.header(HeaderNames.setCookie).isDefined =>
-        Headers(
-          HeaderNames.setCookie,
-          Cookie.decodeResponseCookie(h.header(HeaderNames.setCookie).get._2.toString).get.sign(secret).encode,
-        )
-      case h                                              => h
+        Cookie
+          .decode[Cookie.Response](h.header(HeaderNames.setCookie).get._2.toString)
+          .map(_.sign(secret))
+          .flatMap(_.encode)
+          .map(cookie => h.addHeader(HeaderNames.setCookie, cookie))
+          .getOrElse(h)
+
+      case h => h
     }
 
   /**

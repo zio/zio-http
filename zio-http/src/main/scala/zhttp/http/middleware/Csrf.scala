@@ -1,6 +1,7 @@
 package zhttp.http.middleware
 
 import zhttp.http._
+import zhttp.http.cookie.Cookie
 import zio.ZIO
 
 import java.util.UUID

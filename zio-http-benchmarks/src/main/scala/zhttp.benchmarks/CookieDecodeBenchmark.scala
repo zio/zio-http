@@ -2,6 +2,7 @@ package zhttp.benchmarks
 
 import org.openjdk.jmh.annotations._
 import zhttp.http._
+import zhttp.http.cookie.Cookie
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
