@@ -24,7 +24,7 @@ object CookieEncoder {
 
       cookie.domain.foreach(builder.setDomain)
       cookie.path.foreach(i => builder.setPath(i.encode))
-      cookie.maxAge.foreach(i => builder.setMaxAge(i.toSeconds))
+      cookie.maxAge.foreach(i => builder.setMaxAge(i.getSeconds))
       cookie.sameSite.foreach {
         case SameSite.Strict => builder.setSameSite(jCookie.CookieHeaderNames.SameSite.Strict)
         case SameSite.Lax    => builder.setSameSite(jCookie.CookieHeaderNames.SameSite.Lax)

@@ -170,11 +170,6 @@ trait HeaderGetters[+A] { self =>
       }
     }
 
-  final def cookiesDecoded(secret: String): List[Cookie] =
-    headerValues(HeaderNames.cookie).flatMap { header =>
-      Cookie.decodeRequestCookie(header, Some(secret))
-    }
-
   final def date: Option[CharSequence] =
     headerValue(HeaderNames.date)
 

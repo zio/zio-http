@@ -43,7 +43,7 @@ object CookieDecoder {
           case jCookie.CookieHeaderNames.SameSite.Strict => Option(SameSite.Strict)
           case jCookie.CookieHeaderNames.SameSite.Lax    => Option(SameSite.Lax)
           case jCookie.CookieHeaderNames.SameSite.None   => Option(SameSite.None)
-          case _                                         => None
+          case null                                      => None
         },
       )
       Cookie(cookie.name(), cookie.value(), response)

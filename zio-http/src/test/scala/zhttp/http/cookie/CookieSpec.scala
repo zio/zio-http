@@ -39,7 +39,7 @@ object CookieSpec extends ZIOSpecDefault {
             assertTrue(cookie.name == name) &&
             assertTrue(cookie.domain == cookie.target.domain) &&
             assertTrue(cookie.path == cookie.target.path) &&
-            assertTrue(cookie.maxAge.map(_.toSeconds) == cookie.target.maxAge) &&
+            assertTrue(cookie.maxAge.map(_.getSeconds) == cookie.target.maxAge) &&
             assertTrue(cookie.sameSite == cookie.target.sameSite) &&
             assertTrue(cookie.isSecure == cookie.target.isSecure) &&
             assertTrue(cookie.isHttpOnly == cookie.target.isHttpOnly)

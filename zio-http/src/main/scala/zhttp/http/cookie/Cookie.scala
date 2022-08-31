@@ -121,7 +121,13 @@ final case class Cookie[T](name: String, content: String, target: T) { self =>
    * Sets maxAge of the cookie
    */
   def withMaxAge(maxAge: Duration)(implicit ev: T =:= Cookie.Response): ResponseCookie =
-    response(_.copy(maxAge = Some(maxAge.toSeconds)))
+    response(_.copy(maxAge = Some(maxAge.getSeconds)))
+
+  /**
+   * Sets maxAge of the cookie
+   */
+  def withMaxAge(seconds: Long)(implicit ev: T =:= Cookie.Response): ResponseCookie =
+    response(_.copy(maxAge = Some(seconds)))
 
   /**
    * Sets name of the cookie
